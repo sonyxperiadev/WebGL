@@ -763,6 +763,15 @@ WebInspector.ElementsPanel.prototype = {
         parentElement.title = title;
     },
 
+    linkifyNodeReference: function(node)
+    {
+        var link = document.createElement("span");
+        link.className = "node-link";
+        link.addEventListener("click", WebInspector.updateFocusedNode.bind(WebInspector, node.id), false);
+        this.decorateNodeLabel(node, link);
+        return link;
+    },
+
     updateBreadcrumbSizes: function(focusedCrumb)
     {
         if (!this.visible)
@@ -1111,6 +1120,11 @@ WebInspector.ElementsPanel.prototype = {
             InspectorBackend.enableSearchingForNode();
         else
             InspectorBackend.disableSearchingForNode();
+    },
+
+    elementsToRestoreScrollPositionsFor: function()
+    {
+        return [ this.contentElement, this.sidebarElement ];
     }
 }
 

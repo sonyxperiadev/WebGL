@@ -514,7 +514,7 @@ int RenderBox::overrideHeight() const
 
 int RenderBox::calcBorderBoxWidth(int width) const
 {
-    int bordersPlusPadding = borderLeft() + borderRight() + paddingLeft() + paddingRight();
+    int bordersPlusPadding = borderAndPaddingWidth();
     if (style()->boxSizing() == CONTENT_BOX)
         return width + bordersPlusPadding;
     return max(width, bordersPlusPadding);
@@ -522,7 +522,7 @@ int RenderBox::calcBorderBoxWidth(int width) const
 
 int RenderBox::calcBorderBoxHeight(int height) const
 {
-    int bordersPlusPadding = borderTop() + borderBottom() + paddingTop() + paddingBottom();
+    int bordersPlusPadding = borderAndPaddingHeight();
     if (style()->boxSizing() == CONTENT_BOX)
         return height + bordersPlusPadding;
     return max(height, bordersPlusPadding);
@@ -531,14 +531,14 @@ int RenderBox::calcBorderBoxHeight(int height) const
 int RenderBox::calcContentBoxWidth(int width) const
 {
     if (style()->boxSizing() == BORDER_BOX)
-        width -= (borderLeft() + borderRight() + paddingLeft() + paddingRight());
+        width -= borderAndPaddingWidth();
     return max(0, width);
 }
 
 int RenderBox::calcContentBoxHeight(int height) const
 {
     if (style()->boxSizing() == BORDER_BOX)
-        height -= (borderTop() + borderBottom() + paddingTop() + paddingBottom());
+        height -= borderAndPaddingHeight();
     return max(0, height);
 }
 
@@ -635,34 +635,36 @@ void RenderBox::paintBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
         return;
     }
 
-    int w = width();
-    int h = height();
+    return paintBoxDecorationsWithSize(paintInfo, tx, ty, width(), height());
+}
 
+void RenderBox::paintBoxDecorationsWithSize(PaintInfo& paintInfo, int tx, int ty, int width, int height)
+{
     // border-fit can adjust where we paint our border and background.  If set, we snugly fit our line box descendants.  (The iChat
     // balloon layout is an example of this).
-    borderFitAdjust(tx, w);
+    borderFitAdjust(tx, width);
 
     // FIXME: Should eventually give the theme control over whether the box shadow should paint, since controls could have
     // custom shadows of their own.
-    paintBoxShadow(paintInfo.context, tx, ty, w, h, style(), Normal);
+    paintBoxShadow(paintInfo.context, tx, ty, width, height, style(), Normal);
 
     // If we have a native theme appearance, paint that before painting our background.
     // The theme will tell us whether or not we should also paint the CSS background.
-    bool themePainted = style()->hasAppearance() && !theme()->paint(this, paintInfo, IntRect(tx, ty, w, h));
+    bool themePainted = style()->hasAppearance() && !theme()->paint(this, paintInfo, IntRect(tx, ty, width, height));
     if (!themePainted) {
         // The <body> only paints its background if the root element has defined a background
         // independent of the body.  Go through the DOM to get to the root element's render object,
         // since the root could be inline and wrapped in an anonymous block.
         if (!isBody() || document()->documentElement()->renderer()->style()->hasBackground())
-            paintFillLayers(paintInfo, style()->backgroundColor(), style()->backgroundLayers(), tx, ty, w, h);
+            paintFillLayers(paintInfo, style()->backgroundColor(), style()->backgroundLayers(), tx, ty, width, height);
         if (style()->hasAppearance())
-            theme()->paintDecorations(this, paintInfo, IntRect(tx, ty, w, h));
+            theme()->paintDecorations(this, paintInfo, IntRect(tx, ty, width, height));
     }
-    paintBoxShadow(paintInfo.context, tx, ty, w, h, style(), Inset);
+    paintBoxShadow(paintInfo.context, tx, ty, width, height, style(), Inset);
 
     // The theme will tell us whether or not we should also paint the CSS border.
-    if ((!style()->hasAppearance() || (!themePainted && theme()->paintBorderOnly(this, paintInfo, IntRect(tx, ty, w, h)))) && style()->hasBorder())
-        paintBorder(paintInfo.context, tx, ty, w, h, style());
+    if ((!style()->hasAppearance() || (!themePainted && theme()->paintBorderOnly(this, paintInfo, IntRect(tx, ty, width, height)))) && style()->hasBorder())
+        paintBorder(paintInfo.context, tx, ty, width, height, style());
 }
 
 void RenderBox::paintMask(PaintInfo& paintInfo, int tx, int ty)
@@ -1318,8 +1320,12 @@ void RenderBox::calcWidth()
         if (treatAsReplaced) {
 #else
         if (treatAsReplaced)
+<<<<<<< HEAD:WebCore/rendering/RenderBox.cpp
 #endif
             setWidth(max(w.value() + borderLeft() + borderRight() + paddingLeft() + paddingRight(), minPrefWidth()));
+=======
+            setWidth(max(w.value() + borderAndPaddingWidth(), minPrefWidth()));
+>>>>>>> webkit.org at r58956:WebCore/rendering/RenderBox.cpp
 
 #ifdef ANDROID_LAYOUT
             // in SSR mode with replaced box, if the box width is wider than the container width,
@@ -1337,7 +1343,7 @@ void RenderBox::calcWidth()
 
     // Width calculations
     if (treatAsReplaced)
-        setWidth(w.value() + borderLeft() + borderRight() + paddingLeft() + paddingRight());
+        setWidth(w.value() + borderAndPaddingWidth());
     else {
         // Calculate Width
         setWidth(calcWidthUsing(Width, containerWidth));
@@ -1508,7 +1514,7 @@ void RenderBox::calcHeight()
         // grab our cached flexible height.
         if (hasOverrideSize() && parent()->isFlexibleBox() && parent()->style()->boxOrient() == VERTICAL
                 && parent()->isFlexingChildren())
-            h = Length(overrideSize() - borderTop() - borderBottom() - paddingTop() - paddingBottom(), Fixed);
+            h = Length(overrideSize() - borderAndPaddingHeight(), Fixed);
         else if (treatAsReplaced)
             h = Length(calcReplacedHeight(), Fixed);
         else {
@@ -1519,8 +1525,7 @@ void RenderBox::calcHeight()
         // Block children of horizontal flexible boxes fill the height of the box.
         if (h.isAuto() && parent()->isFlexibleBox() && parent()->style()->boxOrient() == HORIZONTAL
                 && parent()->isStretchingChildren()) {
-            h = Length(parentBox()->contentHeight() - marginTop() - marginBottom() -
-                       borderTop() - paddingTop() - borderBottom() - paddingBottom(), Fixed);
+            h = Length(parentBox()->contentHeight() - marginTop() - marginBottom() - borderAndPaddingHeight(), Fixed);
             checkMinMaxHeight = false;
         }
 
@@ -1545,7 +1550,7 @@ void RenderBox::calcHeight()
             // The only times we don't check min/max height are when a fixed length has
             // been given as an override.  Just use that.  The value has already been adjusted
             // for box-sizing.
-            heightResult = h.value() + borderTop() + borderBottom() + paddingTop() + paddingBottom();
+            heightResult = h.value() + borderAndPaddingHeight();
         }
 
         setHeight(heightResult);
@@ -1564,9 +1569,7 @@ void RenderBox::calcHeight()
         if (isRoot())
             setHeight(max(height(), visHeight - margins));
         else {
-            int marginsBordersPadding = margins + parentBox()->marginTop() + parentBox()->marginBottom()
-                + parentBox()->borderTop() + parentBox()->borderBottom()
-                + parentBox()->paddingTop() + parentBox()->paddingBottom();
+            int marginsBordersPadding = margins + parentBox()->marginTop() + parentBox()->marginBottom() + parentBox()->borderAndPaddingHeight();
             setHeight(max(height(), visHeight - marginsBordersPadding));
         }
     }
@@ -1660,7 +1663,7 @@ int RenderBox::calcPercentageHeight(const Length& height)
             // It is necessary to use the border-box to match WinIE's broken
             // box model.  This is essential for sizing inside
             // table cells using percentage heights.
-            result -= (borderTop() + paddingTop() + borderBottom() + paddingBottom());
+            result -= borderAndPaddingHeight();
             result = max(0, result);
         }
     }
@@ -1733,8 +1736,7 @@ int RenderBox::calcReplacedHeightUsing(Length height) const
                 // Don't let table cells squeeze percent-height replaced elements
                 // <http://bugs.webkit.org/show_bug.cgi?id=15359>
                 availableHeight = max(availableHeight, intrinsicSize().height());
-                return height.calcValue(availableHeight - (borderTop() + borderBottom()
-                    + paddingTop() + paddingBottom()));
+                return height.calcValue(availableHeight - borderAndPaddingHeight());
             }
 
             return calcContentBoxHeight(height.calcValue(availableHeight));
@@ -1761,7 +1763,7 @@ int RenderBox::availableHeightUsing(const Length& h) const
     // artificially.  We're going to rely on this cell getting expanded to some new
     // height, and then when we lay out again we'll use the calculation below.
     if (isTableCell() && (h.isAuto() || h.isPercent()))
-        return overrideSize() - (borderLeft() + borderRight() + paddingLeft() + paddingRight());
+        return overrideSize() - borderAndPaddingWidth();
 
     if (h.isPercent())
        return calcContentBoxHeight(h.calcValue(containingBlock()->availableHeight()));
@@ -1878,7 +1880,7 @@ void RenderBox::calcAbsoluteHorizontal()
     // instead of the the container block's.
     TextDirection containerDirection = (style()->htmlHacks()) ? parent()->style()->direction() : containerBlock->style()->direction();
 
-    const int bordersPlusPadding = borderLeft() + borderRight() + paddingLeft() + paddingRight();
+    const int bordersPlusPadding = borderAndPaddingWidth();
     const Length marginLeft = style()->marginLeft();
     const Length marginRight = style()->marginRight();
     Length left = style()->left();
@@ -2187,7 +2189,7 @@ void RenderBox::calcAbsoluteVertical()
 
     const int containerHeight = containingBlockHeightForPositioned(containerBlock);
 
-    const int bordersPlusPadding = borderTop() + borderBottom() + paddingTop() + paddingBottom();
+    const int bordersPlusPadding = borderAndPaddingHeight();
     const Length marginTop = style()->marginTop();
     const Length marginBottom = style()->marginBottom();
     Length top = style()->top();
@@ -2428,7 +2430,7 @@ void RenderBox::calcAbsoluteHorizontalReplaced()
     // NOTE: This value of width is FINAL in that the min/max width calculations
     // are dealt with in calcReplacedWidth().  This means that the steps to produce
     // correct max/min in the non-replaced version, are not necessary.
-    setWidth(calcReplacedWidth() + borderLeft() + borderRight() + paddingLeft() + paddingRight());
+    setWidth(calcReplacedWidth() + borderAndPaddingWidth());
     const int availableSpace = containerWidth - width();
 
     /*-----------------------------------------------------------------------*\
@@ -2601,7 +2603,7 @@ void RenderBox::calcAbsoluteVerticalReplaced()
     // NOTE: This value of height is FINAL in that the min/max height calculations
     // are dealt with in calcReplacedHeight().  This means that the steps to produce
     // correct max/min in the non-replaced version, are not necessary.
-    setHeight(calcReplacedHeight() + borderTop() + borderBottom() + paddingTop() + paddingBottom());
+    setHeight(calcReplacedHeight() + borderAndPaddingHeight());
     const int availableSpace = containerHeight - height();
 
     /*-----------------------------------------------------------------------*\
@@ -2787,8 +2789,8 @@ VisiblePosition RenderBox::positionForPoint(const IntPoint& point)
     int yPos = point.y();
 
     if (isTable() && node()) {
-        int right = contentWidth() + borderRight() + paddingRight() + borderLeft() + paddingLeft();
-        int bottom = contentHeight() + borderTop() + paddingTop() + borderBottom() + paddingBottom();
+        int right = contentWidth() + borderAndPaddingWidth();
+        int bottom = contentHeight() + borderAndPaddingHeight();
         
         if (xPos < 0 || xPos > right || yPos < 0 || yPos > bottom) {
             if (xPos <= right / 2)

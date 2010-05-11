@@ -1,3 +1,251 @@
+2010-05-06  Martin Robinson  <mrobinson@webkit.org>
+
+        Reviewed by Xan Lopez.
+
+        Remove use of GOwnPtr to hold GObject types.
+        https://bugs.webkit.org/show_bug.cgi?id=38669
+
+        Change use of GOwnPtr to GRefPtr to types which are natively reference-counted.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::dispatchWillSendRequest): Change GOwnPtr to GRefPtr in some places.
+        (WebKit::FrameLoaderClient::dispatchDecidePolicyForMIMEType): Ditto.
+        * webkit/webkitnetworkrequest.cpp:
+        (webkit_network_request_new_with_core_request): Ditto.
+        * webkit/webkitnetworkresponse.cpp:
+        (webkit_network_response_new_with_core_response): Ditto.
+        * webkit/webkitprivate.cpp: Remove GOwnPtr reference counting template specialization.
+        * webkit/webkitprivate.h: Ditto.
+
+2010-05-06  Martin Robinson  <mrobinson@webkit.org>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Enable DOM clipboard and drag-and-drop access
+        https://bugs.webkit.org/show_bug.cgi?id=30623
+
+        Convert dragging portion of drag-and-drop to use DataObjectGtk.
+
+        * WebCoreSupport/DragClientGtk.cpp:
+        (WebKit::DragClient::willPerformDragDestinationAction): Remove the notImplemented. It is implemented, it's just a no-op.
+        (WebKit::DragClient::startDrag): Start the drag context via the ClipboardGtk and PasteboardHelper now.
+        * WebCoreSupport/DragClientGtk.h: Small style fix.
+        * webkit/webkitprivate.h: Add a HashMap of contexts and DataObjects here to to represent all current drag operations.
+        * webkit/webkitwebview.cpp: 
+        (webkit_web_view_dispose): Clear all data objects during disposal.
+        (webkit_web_view_drag_end): When a drag is over, just remove it from the map.
+        (webkit_web_view_drag_data_get): To get the drag data, just grab it from the DataObject.
+
+2010-05-03  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Add support for controlling clipboard access from javascript.
+        Clipboard access from javascript is disabled by default.
+        https://bugs.webkit.org/show_bug.cgi?id=27751
+
+        * webkit/webkitwebsettings.cpp:
+        (webkit_web_settings_class_init):
+        (webkit_web_settings_set_property):
+        (webkit_web_settings_get_property):
+        (webkit_web_settings_copy):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_update_settings):
+        (webkit_web_view_settings_notify):
+
+2010-05-03  Jens Alfke  <snej@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Add "willSendSubmitEvent" hook to WebFrameClient and FrameLoaderClient
+        https://bugs.webkit.org/show_bug.cgi?id=38397
+
+        No tests (functionality is exposed only through native WebKit API.)
+
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+        (WebKit::FrameLoaderClient::dispatchWillSendSubmitEvent):
+
+2010-05-01  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Oliver Hunt.
+
+        [GTK] GObject DOM bindings
+        https://bugs.webkit.org/show_bug.cgi?id=33590
+
+        Test webkit_dom_document_get_links.
+
+        * tests/testdomdocument.c:
+        (test_dom_document_get_links):
+        (main):
+
+2010-04-29  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] GObject DOM bindings
+        https://bugs.webkit.org/show_bug.cgi?id=33590
+
+        Test webkit_dom_document_get_element_by_id;
+
+        * tests/testdomdocument.c:
+        (test_dom_document_get_element_by_id):
+        (main):
+
+2010-04-29  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] GObject DOM bindings
+        https://bugs.webkit.org/show_bug.cgi?id=33590
+
+        Test webkit_dom_document_get_elements_by_class_name.
+
+        * tests/testdomdocument.c:
+        (test_dom_document_get_elements_by_class_name):
+        (main):
+
+2010-04-29  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] GObject DOM bindings
+        https://bugs.webkit.org/show_bug.cgi?id=33590
+
+        Test webkit_dom_document_get_elements_by_tag_name.
+
+        * tests/testdomdocument.c:
+        (test_dom_document_get_elements_by_tag_name):
+        (main):
+
+2010-04-29  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] GObject DOM bindings
+        https://bugs.webkit.org/show_bug.cgi?id=33590
+
+        Move WebKitDOMDocument unit tests to their own file.
+
+        * tests/testdomdocument.c: Added.
+        (finish_loading):
+        (dom_document_fixture_setup):
+        (dom_document_fixture_teardown):
+        (test_dom_document_title):
+        (main):
+        * tests/testwebview.c:
+
+2010-04-29  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] GObject DOM bindings
+        https://bugs.webkit.org/show_bug.cgi?id=33590
+
+        Include <webkit/webkitdom.h> in the main webkit.h header.
+
+        * webkit/webkit.h:
+
+2010-04-25  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=38097
+        Disentangle initializing the main thread from initializing threading
+
+        * webkit/webkitprivate.cpp:
+        (webkit_init): Add call to initializeMainThread.
+
+2010-04-22  Dave Moore  <davemoore@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Added notification when the favicons for a page are changed
+        from a script.
+        The Document object will notify the frame loader, which will
+        notify the client. Implementations of FrameLoaderClient will
+        have to add one method; dispatchDidChangeIcons().
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::dispatchDidChangeIcons):
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+
+2010-04-22  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] GObject DOM bindings
+        https://bugs.webkit.org/show_bug.cgi?id=33590
+
+        Add webkit_web_view_get_document to retrieve the WebKitDOMDocument
+        from a WebKitWebView, and a very simple test for it.
+
+        * tests/testwebview.c:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_get_document):
+        * webkit/webkitwebview.h:
+
+2010-04-22  Diego Escalante Urrelo  <descalante@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [Gtk] Evaluate and create tests for all the AtkRole's implemented by
+        WebKitGtk
+        https://bugs.webkit.org/show_bug.cgi?id=34449
+
+        Expand testatkroles to test ATK_ROLE_COMBO_BOX.
+
+        * tests/testatkroles.c:
+        (test_webkit_atk_get_role_combobox):
+        (main):
+
+2010-04-22  Diego Escalante Urrelo  <descalante@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [Gtk] Evaluate and create tests for all the AtkRole's implemented by
+        WebKitGtk
+        https://bugs.webkit.org/show_bug.cgi?id=34449
+
+        Expand testatkroles to test ATK_ROLE_SEPARATOR.
+
+        * tests/testatkroles.c:
+        (test_webkit_atk_get_role_separator):
+        (main):
+
+2010-04-22  Adam Barth  <abarth@webkit.org>
+
+        Unreviewed, rolling out r58069.
+        http://trac.webkit.org/changeset/58069
+        https://bugs.webkit.org/show_bug.cgi?id=27751
+
+        Broke compile on Windows.
+
+        * webkit/webkitwebsettings.cpp:
+        (webkit_web_settings_class_init):
+        (webkit_web_settings_set_property):
+        (webkit_web_settings_get_property):
+        (webkit_web_settings_copy):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_update_settings):
+        (webkit_web_view_settings_notify):
+
+2010-04-22  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Add support for controlling clipboard access from javascript.
+        Clipboard access from javascript is disabled by default.
+        https://bugs.webkit.org/show_bug.cgi?id=27751
+
+        * webkit/webkitwebsettings.cpp:
+        (webkit_web_settings_class_init):
+        (webkit_web_settings_set_property):
+        (webkit_web_settings_get_property):
+        (webkit_web_settings_copy):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_update_settings):
+        (webkit_web_view_settings_notify):
+
 2010-04-21  Jakub Wieczorek  <jwieczorek@webkit.org>
 
         Reviewed by Darin Adler.

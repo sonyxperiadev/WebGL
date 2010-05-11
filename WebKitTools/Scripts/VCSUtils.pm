@@ -65,6 +65,7 @@ BEGIN {
         &normalizePath
         &parsePatch
         &pathRelativeToSVNRepositoryRootForPath
+        &prepareParsedPatch
         &runPatchCommand
         &svnRevisionForDirectory
         &svnStatus
@@ -94,6 +95,40 @@ sub exitStatus($)
         return $returnvalue >> 8;
     }
     return WEXITSTATUS($returnvalue);
+}
+
+# Note, this method will not error if the file corresponding to the path does not exist.
+sub scmToggleExecutableBit
+{
+    my ($path, $executableBitDelta) = @_;
+    return if ! -e $path;
+    if ($executableBitDelta == 1) {
+        scmAddExecutableBit($path);
+    } elsif ($executableBitDelta == -1) {
+        scmRemoveExecutableBit($path);
+    }
+}
+
+sub scmAddExecutableBit($)
+{
+    my ($path) = @_;
+
+    if (isSVN()) {
+        system("svn", "propset", "svn:executable", "on", $path) == 0 or die "Failed to run 'svn propset svn:executable on $path'.";
+    } elsif (isGit()) {
+        chmod(0755, $path);
+    }
+}
+
+sub scmRemoveExecutableBit($)
+{
+    my ($path) = @_;
+
+    if (isSVN()) {
+        system("svn", "propdel", "svn:executable", $path) == 0 or die "Failed to run 'svn propdel svn:executable $path'.";
+    } elsif (isGit()) {
+        chmod(0664, $path);
+    }
 }
 
 sub isGitDirectory($)
@@ -362,125 +397,297 @@ sub svnStatus($)
     return $svnStatus;
 }
 
-# Convert a line of a git-formatted patch to SVN format, while
-# preserving any end-of-line characters.
-sub gitdiff2svndiff($)
-{
-    $_ = shift @_;
-
-    if (m#^diff --git \w/(.+) \w/([^\r\n]+)#) {
-        return "Index: $1$POSTMATCH";
-    }
-    if (m#^index [0-9a-f]{7}\.\.[0-9a-f]{7} [0-9]{6}#) {
-        # FIXME: No need to return dividing line once parseDiffHeader() is used.
-        return "===================================================================$POSTMATCH";
-    }
-    if (m#^--- \w/([^\r\n]+)#) {
-        return "--- $1$POSTMATCH";
-    }
-    if (m#^\+\+\+ \w/([^\r\n]+)#) {
-        return "+++ $1$POSTMATCH";
-    }
-    return $_;
-}
-
-# Parse the next diff header from the given file handle, and advance
-# the file handle so the last line read is the first line after the
-# parsed header block.
-#
-# This subroutine dies if given leading junk or if the end of the header
-# block could not be detected. The last line of a header block is a
-# line beginning with "+++".
+# Return whether the given file mode is executable in the source control
+# sense.  We make this determination based on whether the executable bit
+# is set for "others" rather than the stronger condition that it be set
+# for the user, group, and others.  This is sufficient for distinguishing
+# the default behavior in Git and SVN.
 #
 # Args:
-#   $fileHandle: advanced so the last line read is the first line of the
-#                next diff header. For SVN-formatted diffs, this is the
-#                "Index:" line.
+#   $fileMode: A number or string representing a file mode in octal notation.
+sub isExecutable($)
+{
+    my $fileMode = shift;
+
+    return $fileMode % 2;
+}
+
+# Parse the next Git diff header from the given file handle, and advance
+# the handle so the last line read is the first line after the header.
+#
+# This subroutine dies if given leading junk.
+#
+# Args:
+#   $fileHandle: advanced so the last line read from the handle is the first
+#                line of the header to parse.  This should be a line
+#                beginning with "diff --git".
 #   $line: the line last read from $fileHandle
 #
 # Returns ($headerHashRef, $lastReadLine):
-#   $headerHashRef: a hash reference representing a diff header
-#     copiedFromPath: if a file copy, the path from which the file was
-#                     copied. Otherwise, undefined.
-#     indexPath: the path in the "Index:" line.
-#     sourceRevision: the revision number of the source. This is the same
-#                     as the revision number the file was copied from, in
-#                     the case of a file copy.
-#     svnConvertedText: the header text converted to SVN format.
-#                       Unrecognized lines are discarded.
-#   $lastReadLine: the line last read from $fileHandle. This is the first
-#                  line after the header ending.
-sub parseDiffHeader($$)
+#   $headerHashRef: a hash reference representing a diff header, as follows--
+#     copiedFromPath: the path from which the file was copied if the diff
+#                     is a copy.
+#     executableBitDelta: the value 1 or -1 if the executable bit was added or
+#                         removed, respectively.  New and deleted files have
+#                         this value only if the file is executable, in which
+#                         case the value is 1 and -1, respectively.
+#     indexPath: the path of the target file.
+#     isBinary: the value 1 if the diff is for a binary file.
+#     svnConvertedText: the header text with some lines converted to SVN
+#                       format.  Git-specific lines are preserved.
+#   $lastReadLine: the line last read from $fileHandle.
+sub parseGitDiffHeader($$)
 {
     my ($fileHandle, $line) = @_;
 
-    my $filter;
-    if ($line =~ m#^diff --git #) {
-        $filter = \&gitdiff2svndiff;
-    }
-    $line = &$filter($line) if $filter;
+    $_ = $line;
 
+    my $headerStartRegEx = qr#^diff --git (\w/)?(.+) (\w/)?([^\r\n]+)#;
     my $indexPath;
-    if ($line =~ /^Index: ([^\r\n]+)/) {
-        $indexPath = $1;
+    if (/$headerStartRegEx/) {
+        # The first and second paths can differ in the case of copies
+        # and renames.  We use the second file path because it is the
+        # destination path.
+        $indexPath = $4;
+        # Use $POSTMATCH to preserve the end-of-line character.
+        $_ = "Index: $indexPath$POSTMATCH"; # Convert to SVN format.
     } else {
-        die("Could not parse first line of diff header: \"$line\".");
+        die("Could not parse leading \"diff --git\" line: \"$line\".");
     }
 
-    my %header;
-
+    my $copiedFromPath;
     my $foundHeaderEnding;
-    my $lastReadLine; 
-    my $sourceRevision;
-    my $svnConvertedText = $line;
-    while (<$fileHandle>) {
+    my $isBinary;
+    my $newExecutableBit = 0;
+    my $oldExecutableBit = 0;
+    my $similarityIndex;
+    my $svnConvertedText;
+    while (1) {
         # Temporarily strip off any end-of-line characters to simplify
         # regex matching below.
         s/([\n\r]+)$//;
         my $eol = $1;
 
-        $_ = &$filter($_) if $filter;
+        if (/^(deleted file|old) mode ([0-9]{6})/) {
+            $oldExecutableBit = (isExecutable($2) ? 1 : 0);
+        } elsif (/^new( file)? mode ([0-9]{6})/) {
+            $newExecutableBit = (isExecutable($2) ? 1 : 0);
+        } elsif (/^--- \S+/) {
+            $_ = "--- $indexPath"; # Convert to SVN format.
+        } elsif (/^\+\+\+ \S+/) {
+            $_ = "+++ $indexPath"; # Convert to SVN format.
+            $foundHeaderEnding = 1;
+        } elsif (/^similarity index (\d+)%/) {
+            $similarityIndex = $1;
+        } elsif (/^copy from (\S+)/) {
+            $copiedFromPath = $1;
+        # The "git diff" command includes a line of the form "Binary files
+        # <path1> and <path2> differ" if the --binary flag is not used.
+        } elsif (/^Binary files / ) {
+            die("Error: the Git diff contains a binary file without the binary data in ".
+                "line: \"$_\".  Be sure to use the --binary flag when invoking \"git diff\" ".
+                "with diffs containing binary files.");
+        } elsif (/^GIT binary patch$/ ) {
+            $isBinary = 1;
+            $foundHeaderEnding = 1;
+        }
+
+        $svnConvertedText .= "$_$eol"; # Also restore end-of-line characters.
+
+        $_ = <$fileHandle>; # Not defined if end-of-file reached.
+
+        last if (!defined($_) || /$headerStartRegEx/ || $foundHeaderEnding);
+    }
+
+    my $executableBitDelta = $newExecutableBit - $oldExecutableBit;
+
+    my %header;
+
+    $header{copiedFromPath} = $copiedFromPath if ($copiedFromPath && $similarityIndex == 100);
+    $header{executableBitDelta} = $executableBitDelta if $executableBitDelta;
+    $header{indexPath} = $indexPath;
+    $header{isBinary} = $isBinary if $isBinary;
+    $header{svnConvertedText} = $svnConvertedText;
+
+    return (\%header, $_);
+}
+
+# Parse the next SVN diff header from the given file handle, and advance
+# the handle so the last line read is the first line after the header.
+#
+# This subroutine dies if given leading junk or if it could not detect
+# the end of the header block.
+#
+# Args:
+#   $fileHandle: advanced so the last line read from the handle is the first
+#                line of the header to parse.  This should be a line
+#                beginning with "Index:".
+#   $line: the line last read from $fileHandle
+#
+# Returns ($headerHashRef, $lastReadLine):
+#   $headerHashRef: a hash reference representing a diff header, as follows--
+#     copiedFromPath: the path from which the file was copied if the diff
+#                     is a copy.
+#     indexPath: the path of the target file, which is the path found in
+#                the "Index:" line.
+#     isBinary: the value 1 if the diff is for a binary file.
+#     sourceRevision: the revision number of the source, if it exists.  This
+#                     is the same as the revision number the file was copied
+#                     from, in the case of a file copy.
+#     svnConvertedText: the header text converted to a header with the paths
+#                       in some lines corrected.
+#   $lastReadLine: the line last read from $fileHandle.
+sub parseSvnDiffHeader($$)
+{
+    my ($fileHandle, $line) = @_;
+
+    $_ = $line;
+
+    my $headerStartRegEx = qr/^Index: /;
+
+    if (!/$headerStartRegEx/) {
+        die("First line of SVN diff does not begin with \"Index \": \"$_\"");
+    }
+
+    my $copiedFromPath;
+    my $foundHeaderEnding;
+    my $indexPath;
+    my $isBinary;
+    my $sourceRevision;
+    my $svnConvertedText;
+    while (1) {
+        # Temporarily strip off any end-of-line characters to simplify
+        # regex matching below.
+        s/([\n\r]+)$//;
+        my $eol = $1;
 
         # Fix paths on ""---" and "+++" lines to match the leading
         # index line.
-        if (s/^--- \S+/--- $indexPath/) {
+        if (/^Index: ([^\r\n]+)/) {
+            $indexPath = $1;
+        } elsif (s/^--- \S+/--- $indexPath/) {
             # ---
             if (/^--- .+\(revision (\d+)\)/) {
-                $sourceRevision = $1 if ($1 != 0);
+                $sourceRevision = $1;
                 if (/\(from (\S+):(\d+)\)$/) {
                     # The "from" clause is created by svn-create-patch, in
                     # which case there is always also a "revision" clause.
-                    $header{copiedFromPath} = $1;
+                    $copiedFromPath = $1;
                     die("Revision number \"$2\" in \"from\" clause does not match " .
                         "source revision number \"$sourceRevision\".") if ($2 != $sourceRevision);
                 }
             }
-            $_ = "=" x 67 . "$eol$_"; # Prepend dividing line ===....
         } elsif (s/^\+\+\+ \S+/+++ $indexPath/) {
-            # +++
             $foundHeaderEnding = 1;
-        } else {
-            # Skip unrecognized lines.
-            next;
+        } elsif (/^Cannot display: file marked as a binary type.$/) {
+            $isBinary = 1;
+            $foundHeaderEnding = 1;
         }
 
         $svnConvertedText .= "$_$eol"; # Also restore end-of-line characters.
-        if ($foundHeaderEnding) {
-            $lastReadLine = <$fileHandle>;
-            last;
-        }
-    } # $lastReadLine is undef if while loop ran out.
+
+        $_ = <$fileHandle>; # Not defined if end-of-file reached.
+
+        last if (!defined($_) || /$headerStartRegEx/ || $foundHeaderEnding);
+    }
 
     if (!$foundHeaderEnding) {
         die("Did not find end of header block corresponding to index path \"$indexPath\".");
     }
 
+    my %header;
+
+    $header{copiedFromPath} = $copiedFromPath if $copiedFromPath;
     $header{indexPath} = $indexPath;
-    $header{sourceRevision} = $sourceRevision;
+    $header{isBinary} = $isBinary if $isBinary;
+    $header{sourceRevision} = $sourceRevision if $sourceRevision;
     $header{svnConvertedText} = $svnConvertedText;
 
-    return (\%header, $lastReadLine);
+    return (\%header, $_);
 }
+
+# Parse the next diff header from the given file handle, and advance
+# the handle so the last line read is the first line after the header.
+#
+# This subroutine dies if given leading junk or if it could not detect
+# the end of the header block.
+#
+# Args:
+#   $fileHandle: advanced so the last line read from the handle is the first
+#                line of the header to parse.  For SVN-formatted diffs, this
+#                is a line beginning with "Index:".  For Git, this is a line
+#                beginning with "diff --git".
+#   $line: the line last read from $fileHandle
+#
+# Returns ($headerHashRef, $lastReadLine):
+#   $headerHashRef: a hash reference representing a diff header
+#     copiedFromPath: the path from which the file was copied if the diff
+#                     is a copy.
+#     executableBitDelta: the value 1 or -1 if the executable bit was added or
+#                         removed, respectively.  New and deleted files have
+#                         this value only if the file is executable, in which
+#                         case the value is 1 and -1, respectively.
+#     indexPath: the path of the target file.
+#     isBinary: the value 1 if the diff is for a binary file.
+#     isGit: the value 1 if the diff is Git-formatted.
+#     isSvn: the value 1 if the diff is SVN-formatted.
+#     sourceRevision: the revision number of the source, if it exists.  This
+#                     is the same as the revision number the file was copied
+#                     from, in the case of a file copy.
+#     svnConvertedText: the header text with some lines converted to SVN
+#                       format.  Git-specific lines are preserved.
+#   $lastReadLine: the line last read from $fileHandle.
+sub parseDiffHeader($$)
+{
+    my ($fileHandle, $line) = @_;
+
+    my $header;  # This is a hash ref.
+    my $isGit;
+    my $isSvn;
+    my $lastReadLine;
+
+    if ($line =~ /^Index:/) {
+        $isSvn = 1;
+        ($header, $lastReadLine) = parseSvnDiffHeader($fileHandle, $line);
+    } elsif ($line =~ /^diff --git/) {
+        $isGit = 1;
+        ($header, $lastReadLine) = parseGitDiffHeader($fileHandle, $line);
+    } else {
+        die("First line of diff does not begin with \"Index:\" or \"diff --git\": \"$line\"");
+    }
+
+    $header->{isGit} = $isGit if $isGit;
+    $header->{isSvn} = $isSvn if $isSvn;
+
+    return ($header, $lastReadLine);
+}
+
+# FIXME: The %diffHash "object" should not have an svnConvertedText property.
+#        Instead, the hash object should store its information in a
+#        structured way as properties.  This should be done in a way so
+#        that, if necessary, the text of an SVN or Git patch can be
+#        reconstructed from the information in those hash properties.
+#
+# A %diffHash is a hash representing a source control diff of a single
+# file operation (e.g. a file modification, copy, or delete).
+#
+# These hashes appear, for example, in the parseDiff(), parsePatch(),
+# and prepareParsedPatch() subroutines of this package.
+#
+# The corresponding values are--
+#
+#   copiedFromPath: the path from which the file was copied if the diff
+#                   is a copy.
+#   indexPath: the path of the target file.  For SVN-formatted diffs,
+#              this is the same as the path in the "Index:" line.
+#   isBinary: the value 1 if the diff is for a binary file.
+#   isGit: the value 1 if the diff is Git-formatted.
+#   isSvn: the value 1 if the diff is SVN-formatted.
+#   sourceRevision: the revision number of the source, if it exists.  This
+#                   is the same as the revision number the file was copied
+#                   from, in the case of a file copy.
+#   svnConvertedText: the diff with some lines converted to SVN format.
+#                     Git-specific lines are preserved.
 
 # Parse one diff from a patch file created by svn-create-patch, and
 # advance the file handle so the last line read is the first line
@@ -494,14 +701,8 @@ sub parseDiffHeader($$)
 #   $line: the line last read from $fileHandle.
 #
 # Returns ($diffHashRef, $lastReadLine):
-#   $diffHashRef:
-#     copiedFromPath: if a file copy, the path from which the file was
-#                     copied. Otherwise, undefined.
-#     indexPath: the path in the "Index:" line.
-#     sourceRevision: the revision number of the source. This is the same
-#                     as the revision number the file was copied from, in
-#                     the case of a file copy.
-#     svnConvertedText: the diff converted to SVN format.
+#   $diffHashRef: A reference to a %diffHash.
+#                 See the %diffHash documentation above.
 #   $lastReadLine: the line last read from $fileHandle
 sub parseDiff($$)
 {
@@ -538,9 +739,15 @@ sub parseDiff($$)
     }
 
     my %diffHashRef;
-    $diffHashRef{copiedFromPath} = $headerHashRef->{copiedFromPath};
+    $diffHashRef{copiedFromPath} = $headerHashRef->{copiedFromPath} if $headerHashRef->{copiedFromPath};
+    # FIXME: Add executableBitDelta as a key.
     $diffHashRef{indexPath} = $headerHashRef->{indexPath};
-    $diffHashRef{sourceRevision} = $headerHashRef->{sourceRevision};
+    $diffHashRef{isBinary} = $headerHashRef->{isBinary} if $headerHashRef->{isBinary};
+    $diffHashRef{isGit} = $headerHashRef->{isGit} if $headerHashRef->{isGit};
+    $diffHashRef{isSvn} = $headerHashRef->{isSvn} if $headerHashRef->{isSvn};
+    $diffHashRef{sourceRevision} = $headerHashRef->{sourceRevision} if $headerHashRef->{sourceRevision};
+    # FIXME: Remove the need for svnConvertedText.  See the %diffHash
+    #        code comments above for more information.
     $diffHashRef{svnConvertedText} = $svnText;
 
     return (\%diffHashRef, $line);
@@ -553,8 +760,8 @@ sub parseDiff($$)
 #                read from.
 #
 # Returns:
-#   @diffHashRefs: an array of diff hash references. See parseDiff() for
-#                  a description of each $diffHashRef.
+#   @diffHashRefs: an array of diff hash references.
+#                  See the %diffHash documentation above.
 sub parsePatch($)
 {
     my ($fileHandle) = @_;
@@ -572,6 +779,78 @@ sub parsePatch($)
     }
 
     return @diffHashRefs;
+}
+
+# Prepare the results of parsePatch() for use in svn-apply and svn-unapply.
+#
+# Args:
+#   $shouldForce: Whether to continue processing if an unexpected
+#                 state occurs.
+#   @diffHashRefs: An array of references to %diffHashes.
+#                  See the %diffHash documentation above.
+#
+# Returns $preparedPatchHashRef:
+#   copyDiffHashRefs: A reference to an array of the $diffHashRefs in
+#                     @diffHashRefs that represent file copies. The original
+#                     ordering is preserved.
+#   nonCopyDiffHashRefs: A reference to an array of the $diffHashRefs in
+#                        @diffHashRefs that do not represent file copies.
+#                        The original ordering is preserved.
+#   sourceRevisionHash: A reference to a hash of source path to source
+#                       revision number.
+sub prepareParsedPatch($@)
+{
+    my ($shouldForce, @diffHashRefs) = @_;
+
+    my %copiedFiles;
+
+    # Return values
+    my @copyDiffHashRefs = ();
+    my @nonCopyDiffHashRefs = ();
+    my %sourceRevisionHash = ();
+    for my $diffHashRef (@diffHashRefs) {
+        my $copiedFromPath = $diffHashRef->{copiedFromPath};
+        my $indexPath = $diffHashRef->{indexPath};
+        my $sourceRevision = $diffHashRef->{sourceRevision};
+        my $sourcePath;
+
+        if (defined($copiedFromPath)) {
+            # Then the diff is a copy operation.
+            $sourcePath = $copiedFromPath;
+
+            # FIXME: Consider printing a warning or exiting if
+            #        exists($copiedFiles{$indexPath}) is true -- i.e. if
+            #        $indexPath appears twice as a copy target.
+            $copiedFiles{$indexPath} = $sourcePath;
+
+            push @copyDiffHashRefs, $diffHashRef;
+        } else {
+            # Then the diff is not a copy operation.
+            $sourcePath = $indexPath;
+
+            push @nonCopyDiffHashRefs, $diffHashRef;
+        }
+
+        if (defined($sourceRevision)) {
+            if (exists($sourceRevisionHash{$sourcePath}) &&
+                ($sourceRevisionHash{$sourcePath} != $sourceRevision)) {
+                if (!$shouldForce) {
+                    die "Two revisions of the same file required as a source:\n".
+                        "    $sourcePath:$sourceRevisionHash{$sourcePath}\n".
+                        "    $sourcePath:$sourceRevision";
+                }
+            }
+            $sourceRevisionHash{$sourcePath} = $sourceRevision;
+        }
+    }
+
+    my %preparedPatchHash;
+
+    $preparedPatchHash{copyDiffHashRefs} = \@copyDiffHashRefs;
+    $preparedPatchHash{nonCopyDiffHashRefs} = \@nonCopyDiffHashRefs;
+    $preparedPatchHash{sourceRevisionHash} = \%sourceRevisionHash;
+
+    return \%preparedPatchHash;
 }
 
 # If possible, returns a ChangeLog patch equivalent to the given one,

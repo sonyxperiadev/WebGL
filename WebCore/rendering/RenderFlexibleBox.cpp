@@ -195,7 +195,7 @@ void RenderFlexibleBox::calcPrefWidths()
         m_minPrefWidth = min(m_minPrefWidth, calcContentBoxWidth(style()->maxWidth().value()));
     }
 
-    int toAdd = borderLeft() + borderRight() + paddingLeft() + paddingRight();
+    int toAdd = borderAndPaddingWidth();
     
     if (hasOverflowClip() && style()->overflowY() == OSCROLL)
         toAdd += verticalScrollbarWidth();
@@ -1035,7 +1035,7 @@ int RenderFlexibleBox::allowedChildFlex(RenderBox* child, bool expanding, unsign
         if (isHorizontal()) {
             // FIXME: For now just handle fixed values.
             int maxW = INT_MAX;
-            int w = child->overrideWidth() - (child->borderLeft() + child->borderRight() + child->paddingLeft() + child->paddingRight());
+            int w = child->overrideWidth() - child->borderAndPaddingWidth();
             if (!child->style()->maxWidth().isUndefined() &&
                 child->style()->maxWidth().isFixed())
                 maxW = child->style()->maxWidth().value();
@@ -1049,7 +1049,7 @@ int RenderFlexibleBox::allowedChildFlex(RenderBox* child, bool expanding, unsign
         } else {
             // FIXME: For now just handle fixed values.
             int maxH = INT_MAX;
-            int h = child->overrideHeight() - (child->borderTop() + child->borderBottom() + child->paddingTop() + child->paddingBottom());
+            int h = child->overrideHeight() - child->borderAndPaddingHeight();
             if (!child->style()->maxHeight().isUndefined() &&
                 child->style()->maxHeight().isFixed())
                 maxH = child->style()->maxHeight().value();
@@ -1062,7 +1062,7 @@ int RenderFlexibleBox::allowedChildFlex(RenderBox* child, bool expanding, unsign
     // FIXME: For now just handle fixed values.
     if (isHorizontal()) {
         int minW = child->minPrefWidth();
-        int w = child->overrideWidth() - (child->borderLeft() + child->borderRight() + child->paddingLeft() + child->paddingRight());
+        int w = child->overrideWidth() - child->borderAndPaddingWidth();
         if (child->style()->minWidth().isFixed())
             minW = child->style()->minWidth().value();
         else if (child->style()->minWidth().type() == Intrinsic)
@@ -1075,7 +1075,7 @@ int RenderFlexibleBox::allowedChildFlex(RenderBox* child, bool expanding, unsign
     } else {
         if (child->style()->minHeight().isFixed()) {
             int minH = child->style()->minHeight().value();
-            int h = child->overrideHeight() - (child->borderLeft() + child->borderRight() + child->paddingLeft() + child->paddingRight());
+            int h = child->overrideHeight() - child->borderAndPaddingHeight();
             int allowedShrinkage = min(0, minH - h);
             return allowedShrinkage;
         }

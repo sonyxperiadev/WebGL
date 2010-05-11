@@ -42,7 +42,7 @@ StringImpl::~StringImpl()
 {
     ASSERT(!isStatic());
 
-    if (inTable())
+    if (isAtomic())
         AtomicString::remove(this);
 #if USE(JSC)
     if (isIdentifier())
@@ -879,7 +879,7 @@ Vector<char> StringImpl::ascii()
     for (unsigned i = 0; i != m_length; ++i) {
         UChar c = m_data[i];
         if ((c >= 0x20 && c < 0x7F) || c == 0x00)
-            buffer[i] = c;
+            buffer[i] = static_cast<char>(c);
         else
             buffer[i] = '?';
     }

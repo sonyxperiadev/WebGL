@@ -25,6 +25,7 @@
 #define SVGRenderBase_h
 
 #if ENABLE(SVG)
+#include "DashArray.h"
 #include "RenderObject.h"
 #include "SVGElement.h"
 #include "SVGStyledElement.h"
@@ -42,8 +43,6 @@ class SVGRenderBase {
 public:
     virtual ~SVGRenderBase();
 
-    virtual const SVGRenderBase* toSVGRenderBase() const { return this; }
-
     // FIXME: These are only public for SVGRootInlineBox.
     // It's unclear if these should be exposed or not.  SVGRootInlineBox may
     // pass the wrong RenderObject* and boundingBox to these functions.
@@ -56,8 +55,8 @@ public:
     // Helper function determining wheter overflow is hidden
     static bool isOverflowHidden(const RenderObject*);
 
+    // strokeBoundingBox() includes the marker boundaries for a RenderPath object
     virtual FloatRect strokeBoundingBox() const { return FloatRect(); }
-    virtual FloatRect markerBoundingBox() const { return FloatRect(); }
 
     // returns the bounding box of filter, clipper, marker and masker (or the empty rect if no filter) in local coordinates
     FloatRect filterBoundingBoxForRenderer(const RenderObject*) const;
@@ -85,7 +84,11 @@ void renderSubtreeToImage(ImageBuffer*, RenderObject*);
 void deregisterFromResources(RenderObject*);
 void clampImageBufferSizeToViewport(FrameView*, IntSize& imageBufferSize);
 
+void applyStrokeStyleToContext(GraphicsContext*, const RenderStyle*, const RenderObject*);
+DashArray dashArrayFromRenderingStyle(const RenderStyle* style, RenderStyle* rootStyle);
+
 const RenderObject* findTextRootObject(const RenderObject* start);
+
 } // namespace WebCore
 
 #endif // ENABLE(SVG)

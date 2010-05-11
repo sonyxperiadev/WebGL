@@ -292,9 +292,11 @@ void ScrollView::valueChanged(Scrollbar* scrollbar)
     if (scrollbarsSuppressed())
         return;
 
+    scrollPositionChanged();
     scrollContents(scrollDelta);
 }
 
+<<<<<<< HEAD:WebCore/platform/ScrollView.cpp
 void ScrollView::scrollRectIntoViewRecursively(const IntRect& r)
 {
 #if PLATFORM(ANDROID)
@@ -325,6 +327,8 @@ void ScrollView::scrollRectIntoViewRecursively(const IntRect& r)
         hostWindow()->scrollRectIntoView(rect, this);
 }
 
+=======
+>>>>>>> webkit.org at r58956:WebCore/platform/ScrollView.cpp
 void ScrollView::setScrollPosition(const IntPoint& scrollPoint)
 {
     if (prohibitsScrolling())

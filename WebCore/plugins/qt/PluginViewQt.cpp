@@ -134,12 +134,14 @@ void PluginView::updatePluginWidget()
     invalidate();
 }
 
-void PluginView::setFocus()
+void PluginView::setFocus(bool focused)
 {
-    if (platformPluginWidget())
-        platformPluginWidget()->setFocus(Qt::OtherFocusReason);
-    else
-        Widget::setFocus();
+    if (platformPluginWidget()) {
+        if (focused)
+            platformPluginWidget()->setFocus(Qt::OtherFocusReason);
+    } else {
+        Widget::setFocus(focused);
+    }
 }
 
 void PluginView::show()
@@ -527,7 +529,7 @@ void PluginView::setParentVisible(bool visible)
         platformPluginWidget()->setVisible(visible);
 }
 
-NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32 len, const char* buf)
+NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32_t len, const char* buf)
 {
     String filename(buf, len);
 
@@ -557,7 +559,7 @@ bool PluginView::platformGetValueStatic(NPNVariable variable, void* value, NPErr
 {
     switch (variable) {
     case NPNVToolkit:
-        *static_cast<uint32*>(value) = 0;
+        *static_cast<uint32_t*>(value) = 0;
         *result = NPERR_NO_ERROR;
         return true;
 
@@ -603,7 +605,7 @@ bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* re
 
     case NPNVToolkit:
         if (m_plugin->quirks().contains(PluginQuirkRequiresGtkToolKit)) {
-            *((uint32 *)value) = 2;
+            *((uint32_t *)value) = 2;
             *result = NPERR_NO_ERROR;
             return true;
         }

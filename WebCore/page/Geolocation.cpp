@@ -710,6 +710,8 @@ void Geolocation::handleEvent(ScriptExecutionContext*, Event* event)
 
 namespace WebCore {
 
+void Geolocation::clearWatch(int watchId) {}
+
 void Geolocation::disconnectFrame() {}
 
 Geolocation::Geolocation(Frame*) {}

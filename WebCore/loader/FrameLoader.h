@@ -71,6 +71,7 @@ class NavigationAction;
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
 class Node;
 #endif
+class ProtectionSpace;
 class RenderEmbeddedObject;
 class ResourceError;
 class ResourceLoader;
@@ -155,6 +156,9 @@ public:
     static double timeOfLastCompletedLoad();
 
     bool shouldUseCredentialStorage(ResourceLoader*);
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+    bool canAuthenticateAgainstProtectionSpace(ResourceLoader* loader, const ProtectionSpace& protectionSpace);
+#endif
     const ResourceRequest& originalRequest() const;
     const ResourceRequest& initialRequest() const;
     void receivedMainResourceError(const ResourceError&, bool isComplete);
@@ -193,6 +197,7 @@ public:
     bool subframeIsLoading() const;
     void willChangeTitle(DocumentLoader*);
     void didChangeTitle(DocumentLoader*);
+    void didChangeIcons(DocumentLoader*);
 
     FrameLoadType loadType() const;
     CachePolicy subresourceCachePolicy() const;
@@ -303,6 +308,7 @@ public:
     void cancelAndClear();
 
     void setTitle(const String&);
+    void setIconURL(const String&);
 
     void commitProvisionalLoad(PassRefPtr<CachedPage>);
     bool isLoadingFromCachedPage() const { return m_loadingFromCachedPage; }

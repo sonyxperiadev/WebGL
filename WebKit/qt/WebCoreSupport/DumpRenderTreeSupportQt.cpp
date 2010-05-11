@@ -44,6 +44,7 @@
 #if ENABLE(SVG)
 #include "SVGSMILElement.h"
 #endif
+#include "TextIterator.h"
 #include "WorkerThread.h"
 
 #include "qwebframe.h"
@@ -102,30 +103,36 @@ QString DumpRenderTreeSupportQt::webPageGroupName(QWebPage* page)
     return page->handle()->page->groupName();
 }
 
-#if ENABLE(INSPECTOR)
 void DumpRenderTreeSupportQt::webInspectorExecuteScript(QWebPage* page, long callId, const QString& script)
 {
+#if ENABLE(INSPECTOR)
     if (!page->handle()->page->inspectorController())
         return;
     page->handle()->page->inspectorController()->evaluateForTestInFrontend(callId, script);
+#endif
 }
 
 void DumpRenderTreeSupportQt::webInspectorClose(QWebPage* page)
 {
+#if ENABLE(INSPECTOR)
     if (!page->handle()->page->inspectorController())
         return;
     page->handle()->page->inspectorController()->close();
+#endif
 }
 
 void DumpRenderTreeSupportQt::webInspectorShow(QWebPage* page)
 {
+#if ENABLE(INSPECTOR)
     if (!page->handle()->page->inspectorController())
         return;
     page->handle()->page->inspectorController()->show();
+#endif
 }
 
 void DumpRenderTreeSupportQt::setTimelineProfilingEnabled(QWebPage* page, bool enabled)
 {
+#if ENABLE(INSPECTOR)
     InspectorController* controller = page->handle()->page->inspectorController();
     if (!controller)
         return;
@@ -133,9 +140,8 @@ void DumpRenderTreeSupportQt::setTimelineProfilingEnabled(QWebPage* page, bool e
         controller->startTimelineProfiler();
     else
         controller->stopTimelineProfiler();
-}
-
 #endif
+}
 
 bool DumpRenderTreeSupportQt::hasDocumentElement(QWebFrame* frame)
 {
@@ -264,8 +270,8 @@ QString DumpRenderTreeSupportQt::counterValueForElementById(QWebFrame* frame, co
 {
     Frame* coreFrame = QWebFramePrivate::core(frame);
     if (Document* document = coreFrame->document()) {
-        Element* element = document->getElementById(id);
-        return WebCore::counterValueForElement(element);
+        if (Element* element = document->getElementById(id))
+            return WebCore::counterValueForElement(element);
     }
     return QString();
 }
@@ -341,7 +347,7 @@ void DumpRenderTreeSupportQt::setMediaType(QWebFrame* frame, const QString& type
     WebCore::FrameView* view = coreFrame->view();
     view->setMediaType(type);
     coreFrame->document()->updateStyleSelector();
-    view->forceLayout();
+    view->layout();
 }
 
 void DumpRenderTreeSupportQt::setSmartInsertDeleteEnabled(QWebPage* page, bool enabled)
@@ -369,4 +375,130 @@ bool DumpRenderTreeSupportQt::isCommandEnabled(QWebPage* page, const QString& na
 QString DumpRenderTreeSupportQt::markerTextForListItem(const QWebElement& listItem)
 {
     return WebCore::markerTextForListItem(listItem.m_element);
+}
+
+QVariantList DumpRenderTreeSupportQt::selectedRange(QWebPage* page)
+{
+    WebCore::Frame* frame = page->handle()->page->focusController()->focusedOrMainFrame();
+    QVariantList selectedRange;
+    RefPtr<Range> range = frame->selection()->toNormalizedRange().get();
+
+    Element* selectionRoot = frame->selection()->rootEditableElement();
+    Element* scope = selectionRoot ? selectionRoot : frame->document()->documentElement();
+
+    RefPtr<Range> testRange = Range::create(scope->document(), scope, 0, range->startContainer(), range->startOffset());
+    ASSERT(testRange->startContainer() == scope);
+    int startPosition = TextIterator::rangeLength(testRange.get());
+
+    ExceptionCode ec;
+    testRange->setEnd(range->endContainer(), range->endOffset(), ec);
+    ASSERT(testRange->startContainer() == scope);
+    int endPosition = TextIterator::rangeLength(testRange.get());
+
+    selectedRange << startPosition << (endPosition - startPosition);
+
+    return selectedRange;
+
+}
+
+QVariantList DumpRenderTreeSupportQt::firstRectForCharacterRange(QWebPage* page, int location, int length)
+{
+    WebCore::Frame* frame = page->handle()->page->focusController()->focusedOrMainFrame();
+    QVariantList rect;
+
+    if ((location + length < location) && (location + length != 0))
+        length = 0;
+
+    Element* selectionRoot = frame->selection()->rootEditableElement();
+    Element* scope = selectionRoot ? selectionRoot : frame->document()->documentElement();
+    RefPtr<Range> range = TextIterator::rangeFromLocationAndLength(scope, location, length);
+
+    if (!range)
+        return QVariantList();
+
+    QRect resultRect = frame->firstRectForRange(range.get());
+    rect << resultRect.x() << resultRect.y() << resultRect.width() << resultRect.height();
+    return rect;
+}
+
+// Provide a backward compatibility with previously exported private symbols as of QtWebKit 4.6 release
+
+void QWEBKIT_EXPORT qt_resumeActiveDOMObjects(QWebFrame* frame)
+{
+    DumpRenderTreeSupportQt::resumeActiveDOMObjects(frame);
+}
+
+void QWEBKIT_EXPORT qt_suspendActiveDOMObjects(QWebFrame* frame)
+{
+    DumpRenderTreeSupportQt::suspendActiveDOMObjects(frame);
+}
+
+void QWEBKIT_EXPORT qt_drt_clearFrameName(QWebFrame* frame)
+{
+    DumpRenderTreeSupportQt::clearFrameName(frame);
+}
+
+void QWEBKIT_EXPORT qt_drt_garbageCollector_collect()
+{
+    DumpRenderTreeSupportQt::garbageCollectorCollect();
+}
+
+void QWEBKIT_EXPORT qt_drt_garbageCollector_collectOnAlternateThread(bool waitUntilDone)
+{
+    DumpRenderTreeSupportQt::garbageCollectorCollectOnAlternateThread(waitUntilDone);
+}
+
+int QWEBKIT_EXPORT qt_drt_javaScriptObjectsCount()
+{
+    return DumpRenderTreeSupportQt::javaScriptObjectsCount();
+}
+
+int QWEBKIT_EXPORT qt_drt_numberOfActiveAnimations(QWebFrame* frame)
+{
+    return DumpRenderTreeSupportQt::numberOfActiveAnimations(frame);
+}
+
+void QWEBKIT_EXPORT qt_drt_overwritePluginDirectories()
+{
+    DumpRenderTreeSupportQt::overwritePluginDirectories();
+}
+
+bool QWEBKIT_EXPORT qt_drt_pauseAnimation(QWebFrame* frame, const QString& animationName, double time, const QString& elementId)
+{
+    return DumpRenderTreeSupportQt::pauseAnimation(frame, animationName, time, elementId);
+}
+
+bool QWEBKIT_EXPORT qt_drt_pauseTransitionOfProperty(QWebFrame* frame, const QString& propertyName, double time, const QString &elementId)
+{
+    return DumpRenderTreeSupportQt::pauseTransitionOfProperty(frame, propertyName, time, elementId);
+}
+
+void QWEBKIT_EXPORT qt_drt_resetOriginAccessWhiteLists()
+{
+    DumpRenderTreeSupportQt::resetOriginAccessWhiteLists();
+}
+
+void QWEBKIT_EXPORT qt_drt_run(bool b)
+{
+    DumpRenderTreeSupportQt::setDumpRenderTreeModeEnabled(b);
+}
+
+void QWEBKIT_EXPORT qt_drt_setJavaScriptProfilingEnabled(QWebFrame* frame, bool enabled)
+{
+    DumpRenderTreeSupportQt::setJavaScriptProfilingEnabled(frame, enabled);
+}
+
+void QWEBKIT_EXPORT qt_drt_whiteListAccessFromOrigin(const QString& sourceOrigin, const QString& destinationProtocol, const QString& destinationHost, bool allowDestinationSubdomains)
+{
+    DumpRenderTreeSupportQt::whiteListAccessFromOrigin(sourceOrigin, destinationProtocol, destinationHost, allowDestinationSubdomains);
+}
+
+QString QWEBKIT_EXPORT qt_webpage_groupName(QWebPage* page)
+{
+    return DumpRenderTreeSupportQt::webPageGroupName(page);
+}
+
+void QWEBKIT_EXPORT qt_webpage_setGroupName(QWebPage* page, const QString& groupName)
+{
+    DumpRenderTreeSupportQt::webPageSetGroupName(page, groupName);
 }

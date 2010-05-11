@@ -840,14 +840,19 @@ void WebViewHost::didFinishLoad(WebFrame* frame)
     locationChangeDone(frame);
 }
 
-void WebViewHost::didChangeLocationWithinPage(WebFrame* frame, bool isNewNavigation)
+void WebViewHost::didNavigateWithinPage(WebFrame* frame, bool isNewNavigation)
 {
     frame->dataSource()->setExtraData(m_pendingExtraData.release());
+
+    updateForCommittedLoad(frame, isNewNavigation);
+}
+
+void WebViewHost::didChangeLocationWithinPage(WebFrame* frame)
+{
     if (m_shell->shouldDumpFrameLoadCallbacks()) {
         printFrameDescription(frame);
         fputs(" - didChangeLocationWithinPageForFrame\n", stdout);
     }
-    updateForCommittedLoad(frame, isNewNavigation);
 }
 
 void WebViewHost::assignIdentifierToRequest(WebFrame*, unsigned identifier, const WebURLRequest& request)
@@ -867,7 +872,7 @@ void WebViewHost::willSendRequest(WebFrame*, unsigned identifier, WebURLRequest&
         GURL mainDocumentURL = request.firstPartyForCookies();
         printResourceDescription(identifier);
         printf(" - willSendRequest <NSURLRequest URL %s, main document URL %s,"
-               " http method %s> redirectResponse %s\n",
+               " http method %s> redirectResponse ",
                descriptionSuitableForTestResult(requestURL).c_str(),
                URLDescription(mainDocumentURL).c_str(),
                request.httpMethod().utf8().data());

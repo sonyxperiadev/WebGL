@@ -31,11 +31,15 @@ import tempfile
 
 
 class PrettyPatch(object):
+    # FIXME: PrettyPatch should not require checkout_root.
     def __init__(self, executive, checkout_root):
         self._executive = executive
         self._checkout_root = checkout_root
 
     def pretty_diff_file(self, diff):
+        # Diffs can contain multiple text files of different encodings
+        # so we always deal with them as byte arrays, not unicode strings.
+        assert(isinstance(diff, str))
         pretty_diff = self.pretty_diff(diff)
         diff_file = tempfile.NamedTemporaryFile(suffix=".html")
         diff_file.write(pretty_diff)
@@ -43,6 +47,11 @@ class PrettyPatch(object):
         return diff_file
 
     def pretty_diff(self, diff):
+        # pretify.rb will hang forever if given no input.
+        # Avoid the hang by returning an empty string.
+        if not diff:
+            return ""
+
         pretty_patch_path = os.path.join(self._checkout_root,
                                          "BugsSite", "PrettyPatch")
         prettify_path = os.path.join(pretty_patch_path, "prettify.rb")
@@ -52,4 +61,6 @@ class PrettyPatch(object):
             pretty_patch_path,
             prettify_path,
         ]
-        return self._executive.run_command(args, input=diff)
+        # PrettyPatch does not modify the encoding of the diff output
+        # so we can't expect it to be utf-8.
+        return self._executive.run_command(args, input=diff, decode_output=False)

@@ -34,10 +34,11 @@ namespace WebCore {
 JSEventListener::JSEventListener(JSObject* function, JSObject* wrapper, bool isAttribute, DOMWrapperWorld* isolatedWorld)
     : EventListener(JSEventListenerType)
     , m_jsFunction(function)
-    , m_wrapper(wrapper)
     , m_isAttribute(isAttribute)
     , m_isolatedWorld(isolatedWorld)
 {
+    if (wrapper)
+        m_wrapper = wrapper;
 }
 
 JSEventListener::~JSEventListener()
@@ -59,7 +60,7 @@ void JSEventListener::markJSFunction(MarkStack& markStack)
 void JSEventListener::handleEvent(ScriptExecutionContext* scriptExecutionContext, Event* event)
 {
     ASSERT(scriptExecutionContext);
-    if (!scriptExecutionContext)
+    if (!scriptExecutionContext || scriptExecutionContext->isJSExecutionTerminated())
         return;
 
     JSLock lock(SilenceAssertionsOnly);

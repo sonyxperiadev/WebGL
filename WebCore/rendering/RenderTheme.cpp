@@ -36,6 +36,7 @@
 #include "RenderView.h"
 #include "SelectionController.h"
 #include "Settings.h"
+#include "TextControlInnerElements.h"
 
 // The methods in this file are shared by all themes on every platform.
 
@@ -617,6 +618,7 @@ bool RenderTheme::isControlStyled(const RenderStyle* style, const BorderData& bo
         case ButtonPart:
         case ListboxPart:
         case MenulistPart:
+        case ProgressBarPart:
         // FIXME: Uncomment this when making search fields style-able.
         // case SearchFieldPart:
         case TextFieldPart:
@@ -660,10 +662,16 @@ bool RenderTheme::stateChanged(RenderObject* o, ControlState state) const
 ControlStates RenderTheme::controlStatesForRenderer(const RenderObject* o) const
 {
     ControlStates result = 0;
-    if (isHovered(o))
+    if (isHovered(o)) {
         result |= HoverState;
-    if (isPressed(o))
+        if (isSpinUpButtonPartHovered(o))
+            result |= SpinUpState;
+    }
+    if (isPressed(o)) {
         result |= PressedState;
+        if (isSpinUpButtonPartPressed(o))
+            result |= SpinUpState;
+    }
     if (isFocused(o) && o->style()->outlineStyleIsAuto())
         result |= FocusState;
     if (isEnabled(o))
@@ -747,6 +755,16 @@ bool RenderTheme::isPressed(const RenderObject* o) const
     return o->node()->active();
 }
 
+bool RenderTheme::isSpinUpButtonPartPressed(const RenderObject* o) const
+{
+    Node* node = o->node();
+    if (!node || !node->active() || !node->isElementNode()
+        || !static_cast<Element*>(node)->isSpinButtonElement())
+        return false;
+    SpinButtonElement* element = static_cast<SpinButtonElement*>(node);
+    return element->onUpButton();
+}
+
 bool RenderTheme::isReadOnlyControl(const RenderObject* o) const
 {
     Node* node = o->node();
@@ -760,6 +778,16 @@ bool RenderTheme::isHovered(const RenderObject* o) const
     if (!o->node())
         return false;
     return o->node()->hovered();
+}
+
+bool RenderTheme::isSpinUpButtonPartHovered(const RenderObject* o) const
+{
+    Node* node = o->node();
+    if (!node || !node->active() || !node->isElementNode()
+        || !static_cast<Element*>(node)->isSpinButtonElement())
+        return false;
+    SpinButtonElement* element = static_cast<SpinButtonElement*>(node);
+    return element->onUpButton();
 }
 
 bool RenderTheme::isDefault(const RenderObject* o) const

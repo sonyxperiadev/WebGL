@@ -97,54 +97,24 @@ my $repositoryRootPath = determineVCSRoot();
 my @copiedFiles;
 my %directoriesToCheck;
 
-my $copiedFromPath;
-my $filter;
-my $indexPath;
-my $patch;
-while (<>) {
-    s/([\n\r]+)$//mg;
-    my $eol = $1;
-    if (!defined($indexPath) && m#^diff --git \w/#) {
-        $filter = \&gitdiff2svndiff;
-    }
-    $_ = &$filter($_) if $filter;
-    if (/^Index: (.+)/) {
-        $indexPath = $1;
-        if ($patch) {
-            if ($copiedFromPath) {
-                push @copiedFiles, $patch;
-            } else {
-                patch($patch);
-            }
-            $copiedFromPath = "";
-            $patch = "";
-        }
-    }
-    if ($indexPath) {
-        # Fix paths on diff, ---, and +++ lines to match preceding Index: line.
-        s/^--- \S+/--- $indexPath/;
-        if (/^--- .+\(from (\S+):\d+\)$/) {
-            $copiedFromPath = $1;
-        }
-        if (s/^\+\+\+ \S+/+++ $indexPath/) {
-            $indexPath = "";
-        }
-    }
-    $patch .= $_;
-    $patch .= $eol;
-}
+# Need to use a typeglob to pass the file handle as a parameter,
+# otherwise get a bareword error.
+my @diffHashRefs = parsePatch(*ARGV);
 
-if ($patch) {
-    if ($copiedFromPath) {
-        push @copiedFiles, $patch;
-    } else {
-        patch($patch);
-    }
+print "Parsed " . @diffHashRefs . " diffs from patch file(s).\n";
+
+my $preparedPatchHash = prepareParsedPatch($force, @diffHashRefs);
+
+my @copyDiffHashRefs = @{$preparedPatchHash->{copyDiffHashRefs}};
+my @nonCopyDiffHashRefs = @{$preparedPatchHash->{nonCopyDiffHashRefs}};
+
+for my $diffHashRef (@nonCopyDiffHashRefs) {
+    patch($diffHashRef);
 }
 
 # Handle copied and moved files last since they may have had post-copy changes that have now been unapplied
-for $patch (@copiedFiles) {
-    patch($patch);
+for my $diffHashRef (@copyDiffHashRefs) {
+    patch($diffHashRef);
 }
 
 if (isSVN()) {
@@ -163,28 +133,28 @@ sub checksum($)
     return $checksum;
 }
 
+# Args:
+#   $diffHashRef: a diff hash reference of the type returned by parsePatch().
 sub patch($)
 {
-    my ($patch) = @_;
-    return if !$patch;
+    my ($diffHashRef) = @_;
 
-    unless ($patch =~ m|^Index: ([^\r\n]+)|) {
-        my $separator = '-' x 67;
-        warn "Failed to find 'Index:' in:\n$separator\n$patch\n$separator\n";
-        return;
-    }
-    my $fullPath = $1;
+    my $patch = $diffHashRef->{svnConvertedText};
+
+    my $fullPath = $diffHashRef->{indexPath};
+    my $isSvnBinary = $diffHashRef->{isBinary} && $diffHashRef->{isSvn};
+
     $directoriesToCheck{dirname($fullPath)} = 1;
 
     my $deletion = 0;
     my $addition = 0;
-    my $isBinary = 0;
 
-    $addition = 1 if ($patch =~ /\n--- .+\(revision 0\)\n/ || $patch =~ /\n@@ -0,0 .* @@/);
+    # FIXME: This information should be extracted from the diff file as
+    #        part of the parsing stage, i.e. the call to parsePatch().
+    $addition = 1 if ($diffHashRef->{copiedFromPath} || $patch =~ /\n--- .+\(revision 0\)\n/ || $patch =~ /\n@@ -0,0 .* @@/);
     $deletion = 1 if $patch =~ /\n@@ .* \+0,0 @@/;
-    $isBinary = 1 if $patch =~ /\nCannot display: file marked as a binary type\./;
 
-    if (!$addition && !$deletion && !$isBinary) {
+    if (!$addition && !$deletion && !$isSvnBinary) {
         # Standard patch, patch tool can handle this.
         if (basename($fullPath) eq "ChangeLog") {
             my $changeLogDotOrigExisted = -f "${fullPath}.orig";
@@ -196,7 +166,8 @@ sub patch($)
     } else {
         # Either a deletion, an addition or a binary change.
 
-        if ($isBinary) {
+        # FIXME: Add support for Git binary files.
+        if ($isSvnBinary) {
             # Reverse binary change
             unlink($fullPath) if (-e $fullPath);
             system "svn", "revert", $fullPath;
@@ -228,11 +199,17 @@ sub patch($)
             system "svn", "stat", $fullPath;
         } else {
             # Reverse addition
+            #
+            # FIXME: This should use the same logic as svn-apply's deletion
+            #        code.  In particular, svn-apply's scmRemove() subroutine
+            #        should be used here.
             unapplyPatch($patch, $fullPath, ["--force"]);
             unlink($fullPath) if -z $fullPath;
             system "svn", "revert", $fullPath;
         }
     }
+
+    scmToggleExecutableBit($fullPath, -1 * $diffHashRef->{executableBitDelta}) if defined($diffHashRef->{executableBitDelta});
 }
 
 sub revertDirectories()

@@ -190,11 +190,15 @@ void HTMLOptionElement::childrenChanged(bool changedByParser, Node* beforeChange
 HTMLSelectElement* HTMLOptionElement::ownerSelectElement() const
 {
     Node* select = parentNode();
+<<<<<<< HEAD:WebCore/html/HTMLOptionElement.cpp
 #ifdef ANDROID_FIX
     while (select && !(select->hasTagName(selectTag) || select->hasTagName(keygenTag)))
 #else
     while (select && !select->hasTagName(selectTag))
 #endif
+=======
+    while (select && !(select->hasTagName(selectTag) || select->hasTagName(keygenTag)))
+>>>>>>> webkit.org at r58956:WebCore/html/HTMLOptionElement.cpp
         select = select->parentNode();
 
     if (!select)

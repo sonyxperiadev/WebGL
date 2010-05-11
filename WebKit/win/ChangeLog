@@ -1,3 +1,269 @@
+2010-05-06  Adam Roben  <aroben@apple.com>
+
+        Bail out of WebView::paint when there's nothing to paint
+
+        Fixes <http://webkit.org/b/38670> <rdar://problem/7947105> REGRESSION
+        (r58067): Crash in WebView::paint when Web Inspector is docked and
+        window is resized so small that WebView disappears
+
+        When the WebView is 0-sized, ensureBackingStore() bails out without
+        creating a bitmap, leaving m_backingStoreBitmap null. Before r58067,
+        m_backingStoreBitmap was an HBITMAP, so we were happily passing along
+        a null HBITMAP to various Windows APIs. These calls would fail but not
+        crash. r58067 changed m_backingStoreBitmap to a RefCountedHBITMAP, and
+        dereferencing a null RefCountedHBITMAP* of course crashes.
+
+        Reviewed by Steve Falkenburg.
+
+        * WebView.cpp:
+        (WebView::paint): Bail if the rect to paint is empty.
+
+2010-05-06  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        WebFrame::paintDocumentRectToContext paints content at the wrong location
+        https://bugs.webkit.org/show_bug.cgi?id=38651
+
+        * WebFrame.cpp:
+        (WebFrame::paintDocumentRectToContext):
+
+2010-05-05  Stuart Morgan  <stuartmorgan@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Update setFocus for the new boolean argument; no behavioral change.
+
+        https://bugs.webkit.org/show_bug.cgi?id=37961
+
+        * WebCoreSupport/EmbeddedWidget.cpp:
+        (EmbeddedWidget::setFocus):
+        * WebCoreSupport/EmbeddedWidget.h:
+
+2010-05-03  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Add support for controlling clipboard access from javascript.
+        Clipboard access from javascript is disabled by default.
+        https://bugs.webkit.org/show_bug.cgi?id=27751
+
+        * Interfaces/IWebPreferencesPrivate.idl:
+        * WebPreferenceKeysPrivate.h:
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+        (WebPreferences::javaScriptCanAccessClipboard):
+        (WebPreferences::setJavaScriptCanAccessClipboard):
+        * WebPreferences.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2010-05-03  Jens Alfke  <snej@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Add "willSendSubmitEvent" hook to WebFrameClient and FrameLoaderClient
+        https://bugs.webkit.org/show_bug.cgi?id=38397
+
+        No tests (functionality is exposed only through native WebKit API.)
+
+        * WebFrame.h:
+
+2010-04-30  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Caret may fail to blink if a focus handler brings up a modal dialog 
+        https://bugs.webkit.org/show_bug.cgi?id=38372
+
+        Reviewed by Darin Adler.
+
+        * WebView.cpp:
+        (WebView::handleMouseEvent):
+        If the message is WM_CANCELMODE, which indicates that we our capturing
+        of mouse events has been cancelled, tell the EventHandler.
+        It's possible to re-enter this function if handling a mouse event allows
+        the message loop to run; moved up the call to setMouseActivated(), so
+        that if we do re-enter this function, the later mouse event will not be
+        considered as activating the window.
+        (WebView::WebViewWndProc):
+        Handle WM_CANCELMODE by calling handleMouseEvent().
+
+2010-04-29  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        First part of
+        https://bugs.webkit.org/show_bug.cgi?id=20784
+        move npapi.h to C99 integer types.
+
+        * WebKit.vcproj/WebKit.vcproj:
+
+2010-04-28  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Fix for <rdar://problem/7474349>
+
+        Add a synchronous display mechanism for WKCACFLayerRenderer. 
+
+        * Interfaces/IWebViewPrivate.idl:
+        * Interfaces/WebKit.idl:
+        * WebView.cpp:
+        (WebView::WebView):
+        (WebView::updateRootLayerContents):
+        (WebView::nextDisplayIsSynchronous):
+        * WebView.h:
+
+2010-04-28  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        WebView drawing code may access null backing store dirty region
+        https://bugs.webkit.org/show_bug.cgi?id=38245
+        <rdar://problem/7916101> REGRESSION (r58067): All loaded pages fail to display after running iBench HTML test (intermittent)
+        
+        * WebView.cpp:
+        (WebView::updateBackingStore): Add null check for m_backingStoreDirtyRegion.
+
+2010-04-27  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        <rdar://problem/7911140> Hitting the "delete" key goes back twice
+
+        Reviewed by Maciej Stachowiak.
+
+        * WebView.cpp:
+        (WebView::keyDown):
+        Return true if we navigated back or forward from the key event to
+        prevent the event from being propagated further.
+
+2010-04-25  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=38097
+        Disentangle initializing the main thread from initializing threading
+
+        * WebKitClassFactory.cpp:
+        (WebKitClassFactory::WebKitClassFactory): Add call to initializeMainThread.
+        * WebView.cpp:
+        (WebView::WebView): Ditto.
+
+2010-04-25  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: inspector client shouldn't check if it can be opened
+        docked if it is already in that state.
+
+        https://bugs.webkit.org/show_bug.cgi?id=37946
+
+        * WebCoreSupport/WebInspectorClient.cpp:
+        (WebInspectorFrontendClient::WebInspectorFrontendClient):
+        (WebInspectorFrontendClient::showWindowWithoutNotifications):
+        * WebCoreSupport/WebInspectorClient.h:
+
+2010-04-24  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Typo in Geolocation code causes crashes when updates are stopped
+        https://bugs.webkit.org/show_bug.cgi?id=38089
+        <rdar://problem/7904104> Crash closing geolocation tab after allowing to use geolocation
+
+        * WebCoreSupport/WebGeolocationControllerClient.cpp:
+        (WebGeolocationControllerClient::stopUpdating): Call unregister instead of register.
+
+2010-04-23  Andy Estes  <aestes@apple.com>
+
+        Rubber stamped by Steve Falkenburg.
+
+        Roll out http://trac.webkit.org/changeset/55385.
+
+        <rdar://problem/7884444>
+
+        * Interfaces/IWebUIDelegatePrivate.idl:
+        * Interfaces/WebKit.idl:
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::createPlugin):
+
+2010-04-22  Dave Moore  <davemoore@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Added notification when the favicons for a page are changed
+        from a script.
+        The Document object will notify the frame loader, which will
+        notify the client. Implementations of FrameLoaderClient will
+        have to add one method; dispatchDidChangeIcons().
+
+        https://bugs.webkit.org/show_bug.cgi?id=33812
+
+        * Interfaces/IWebFrameLoadDelegatePrivate2.idl:
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::dispatchDidChangeIcons):
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebFrame.cpp:
+        (WebFrame::didChangeIcons):
+        * WebFrame.h:
+
+2010-04-22  Adam Barth  <abarth@webkit.org>
+
+        Unreviewed, rolling out r58069.
+        http://trac.webkit.org/changeset/58069
+        https://bugs.webkit.org/show_bug.cgi?id=27751
+
+        Broke compile on Windows.
+
+        * Interfaces/IWebPreferencesPrivate.idl:
+        * WebPreferenceKeysPrivate.h:
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+        * WebPreferences.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2010-04-22  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Add support for controlling clipboard access from javascript.
+        Clipboard access from javascript is disabled by default.
+        https://bugs.webkit.org/show_bug.cgi?id=27751
+
+        * Interfaces/IWebPreferencesPrivate.idl:
+        * WebPreferenceKeysPrivate.h:
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+        (WebPreferences::javaScriptCanAccessClipboard):
+        (WebPreferences::setJavaScriptCanAccessClipboard):
+        * WebPreferences.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2010-04-21  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Reference count WebView's backing store bitmap to prevent
+        deleteBackingStore() from freeing the bitmap while it is still being
+        referenced by Core Animation.
+
+        https://bugs.webkit.org/show_bug.cgi?id=37954
+
+        * WebView.cpp:
+        (WebView::ensureBackingStore):
+        (WebView::addToDirtyRegion):
+        (WebView::scrollBackingStore):
+        (WebView::updateBackingStore):
+        (WebView::paint):
+        (WebView::backingStore):
+        (releaseBackingStoreCallback): deref m_backingStoreBitmap once Core
+        Animation has dropeed its reference to the memory.
+        (WebView::updateRootLayerContents): ref m_backingStoreBitmap before
+        passing the memory to Core Animation to prevent deleteBackingStore()
+        from freeing it while it is still referenced by CA.
+        * WebView.h: Make m_backingStoreBitmap a RefCountedGDIHandle<HBITMAP>,
+        and make m_backingStoreDirtyRegion a RefCountedGDIHandle<HRGN>.
+
 2010-04-20  Adam Barth  <abarth@webkit.org>
 
         Reviewed by Eric Seidel.

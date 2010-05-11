@@ -33,11 +33,10 @@ from webkitpy.tool.steps.options import Options
 class PostCodeReview(AbstractStep):
     @classmethod
     def options(cls):
-        return [
+        return AbstractStep.options() + [
             Options.cc,
             Options.description,
             Options.fancy_review,
-            Options.review,
         ]
 
     def run(self, state):
@@ -66,7 +65,8 @@ class PostCodeReview(AbstractStep):
                 # Unreachable with our current commands, but we might hit
                 # this case if we support bug-less code reviews.
                 message = "Code review"
-        created_issue = self._tool.codereview.post(message=message,
+        created_issue = self._tool.codereview.post(diff=self.cached_lookup(state, "diff"),
+                                                   message=message,
                                                    codereview_issue=codereview_issue,
                                                    cc=self._options.cc)
         if created_issue:

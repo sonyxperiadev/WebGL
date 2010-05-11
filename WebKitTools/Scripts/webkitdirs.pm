@@ -1098,7 +1098,7 @@ sub copyInspectorFrontendFiles
         print "*************************************************************\n";
         die;
     }
-    return system "rsync", "-aut", "--exclude=/.DS_Store", "--exclude=.svn/", !isQt() ? "--exclude=/WebKit.qrc" : "", $sourceInspectorPath, $inspectorResourcesDirPath;
+    return system "rsync", "-aut", "--exclude=/.DS_Store", "--exclude=*.re2js", "--exclude=.svn/", !isQt() ? "--exclude=/WebKit.qrc" : "", $sourceInspectorPath, $inspectorResourcesDirPath;
 }
 
 sub buildXCodeProject($$@)
@@ -1479,7 +1479,7 @@ sub buildChromium($@)
     my $result = 1;
     if (isDarwin()) {
         # Mac build - builds the root xcode project.
-        $result = buildXCodeProject("WebKit/chromium/WebKit", $clean, (@options));
+        $result = buildXCodeProject("WebKit/chromium/WebKit", $clean, "-configuration", configuration(), @options);
     } elsif (isCygwin() || isWindows()) {
         # Windows build - builds the root visual studio solution.
         $result = buildChromiumVisualStudioProject("WebKit/chromium/WebKit.sln", $clean);

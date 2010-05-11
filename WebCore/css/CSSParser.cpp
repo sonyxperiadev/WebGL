@@ -40,6 +40,7 @@
 #include "CSSInitialValue.h"
 #include "CSSMediaRule.h"
 #include "CSSMutableStyleDeclaration.h"
+#include "CSSPageRule.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSProperty.h"
 #include "CSSPropertyNames.h"
@@ -69,6 +70,7 @@
 #include "WebKitCSSKeyframeRule.h"
 #include "WebKitCSSKeyframesRule.h"
 #include "WebKitCSSTransformValue.h"
+#include <limits.h>
 #include <wtf/dtoa.h>
 
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -94,6 +96,8 @@ using namespace WTF;
 #endif
 
 namespace WebCore {
+
+static const unsigned INVALID_NUM_PARSED_PROPERTIES = UINT_MAX;
 
 static bool equal(const CSSParserString& a, const char* b)
 {
@@ -139,6 +143,7 @@ CSSParser::CSSParser(bool strictParsing)
     , m_parsedProperties(static_cast<CSSProperty**>(fastMalloc(32 * sizeof(CSSProperty*))))
     , m_numParsedProperties(0)
     , m_maxParsedProperties(32)
+    , m_numParsedPropertiesBeforeMarginBox(INVALID_NUM_PARSED_PROPERTIES)
     , m_inParseShorthand(0)
     , m_currentShorthand(0)
     , m_implicitShorthand(false)
@@ -448,6 +453,7 @@ void CSSParser::clearProperties()
     for (unsigned i = 0; i < m_numParsedProperties; i++)
         delete m_parsedProperties[i];
     m_numParsedProperties = 0;
+    m_numParsedPropertiesBeforeMarginBox = INVALID_NUM_PARSED_PROPERTIES;
     m_hasFontFaceOnlyValues = false;
 }
 
@@ -638,7 +644,9 @@ bool CSSParser::parseValue(int propId, bool important)
          * (see parseAuralValues). As we don't support them at all this seems reasonable.
          */
 
-    case CSSPropertySize:                 // <length>{1,2} | auto | portrait | landscape | inherit
+    case CSSPropertySize:                 // <length>{1,2} | auto | [ <page-size> || [ portrait | landscape] ]
+        return parseSize(propId, important);
+
     case CSSPropertyQuotes:               // [<string> <string>]+ | none | inherit
         if (id)
             validPrimitive = true;
@@ -1738,18 +1746,28 @@ bool CSSParser::parseValue(int propId, bool important)
         return parseTransitionShorthand(important);
     case CSSPropertyInvalid:
         return false;
-    case CSSPropertyFontStretch:
     case CSSPropertyPage:
+        return parsePage(propId, important);
+    case CSSPropertyFontStretch:
     case CSSPropertyTextLineThrough:
     case CSSPropertyTextOverline:
     case CSSPropertyTextUnderline:
     case CSSPropertyWebkitVariableDeclarationBlock:
         return false;
+<<<<<<< HEAD:WebCore/css/CSSParser.cpp
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     case CSSPropertyWebkitTapHighlightColor:
         parsedValue = parseColor();
         if (parsedValue)
             m_valueList->next();
+=======
+#if ENABLE(WCSS)
+    case CSSPropertyWapInputFormat:
+        validPrimitive = true;
+        break;
+    case CSSPropertyWapInputRequired:
+        parsedValue = parseWCSSInputProperty();
+>>>>>>> webkit.org at r58956:WebCore/css/CSSParser.cpp
         break;
 #endif
 
@@ -1780,6 +1798,27 @@ bool CSSParser::parseValue(int propId, bool important)
     }
     return false;
 }
+
+#if ENABLE(WCSS)
+PassRefPtr<CSSValue> CSSParser::parseWCSSInputProperty()
+{
+    RefPtr<CSSValue> parsedValue = 0;
+    CSSParserValue* value = m_valueList->current();
+    String inputProperty;
+    if (value->unit == CSSPrimitiveValue::CSS_STRING || value->unit == CSSPrimitiveValue::CSS_IDENT)
+        inputProperty = String(value->string);
+
+    if (!inputProperty.isEmpty())
+       parsedValue = CSSPrimitiveValue::create(inputProperty, CSSPrimitiveValue::CSS_STRING);
+
+    while (m_valueList->next()) {
+    // pass all other values, if any. If we don't do this, 
+    // the parser will think that it's not done and won't process this property  
+    }
+
+    return parsedValue;
+}
+#endif
 
 void CSSParser::addFillValue(RefPtr<CSSValue>& lval, PassRefPtr<CSSValue> rval)
 {
@@ -2162,6 +2201,101 @@ bool CSSParser::parse4Values(int propId, const int *properties,  bool important)
     }
     
     return true;
+}
+
+// auto | <identifier>
+bool CSSParser::parsePage(int propId, bool important)
+{
+    ASSERT(propId == CSSPropertyPage);
+
+    if (m_valueList->size() != 1)
+        return false;
+
+    CSSParserValue* value = m_valueList->current();
+    if (!value)
+        return false;
+
+    if (value->id == CSSValueAuto) {
+        addProperty(propId, CSSPrimitiveValue::createIdentifier(value->id), important);
+        return true;
+    } else if (value->id == 0 && value->unit == CSSPrimitiveValue::CSS_IDENT) {
+        addProperty(propId, CSSPrimitiveValue::create(value->string, CSSPrimitiveValue::CSS_STRING), important);
+        return true;
+    }
+    return false;
+}
+
+// <length>{1,2} | auto | [ <page-size> || [ portrait | landscape] ]
+bool CSSParser::parseSize(int propId, bool important)
+{
+    ASSERT(propId == CSSPropertySize);
+
+    if (m_valueList->size() > 2)
+        return false;
+
+    CSSParserValue* value = m_valueList->current();
+    if (!value)
+        return false;
+
+    RefPtr<CSSValueList> parsedValues = CSSValueList::createSpaceSeparated();
+
+    // First parameter.
+    SizeParameterType paramType = parseSizeParameter(parsedValues.get(), value, None);
+    if (paramType == None)
+        return false;
+
+    // Second parameter, if any.
+    value = m_valueList->next();
+    if (value) {
+        paramType = parseSizeParameter(parsedValues.get(), value, paramType);
+        if (paramType == None)
+            return false;
+    }
+
+    addProperty(propId, parsedValues.release(), important);
+    return true;
+}
+
+CSSParser::SizeParameterType CSSParser::parseSizeParameter(CSSValueList* parsedValues, CSSParserValue* value, SizeParameterType prevParamType)
+{
+    switch (value->id) {
+    case CSSValueAuto:
+        if (prevParamType == None) {
+            parsedValues->append(CSSPrimitiveValue::createIdentifier(value->id));
+            return Auto;
+        }
+        return None;
+    case CSSValueLandscape:
+    case CSSValuePortrait:
+        if (prevParamType == None || prevParamType == PageSize) {
+            parsedValues->append(CSSPrimitiveValue::createIdentifier(value->id));
+            return Orientation;
+        }
+        return None;
+    case CSSValueA3:
+    case CSSValueA4:
+    case CSSValueA5:
+    case CSSValueB4:
+    case CSSValueB5:
+    case CSSValueLedger:
+    case CSSValueLegal:
+    case CSSValueLetter:
+        if (prevParamType == None || prevParamType == Orientation) {
+            // Normalize to Page Size then Orientation order by prepending.
+            // This is not specified by the CSS3 Paged Media specification, but for simpler processing hereafter.
+            parsedValues->prepend(CSSPrimitiveValue::createIdentifier(value->id));
+            return PageSize;
+        }
+        return None;
+    case 0:
+        if (validUnit(value, FLength, m_strict) && (prevParamType == None || prevParamType == Length)) {
+            parsedValues->append(CSSPrimitiveValue::create(value->fValue, static_cast<CSSPrimitiveValue::UnitTypes>(value->unit)));
+            return Length;
+        }
+        return None;
+    default:
+        return None;
+    }
 }
 
 // [ <string> | <uri> | <counter> | attr(X) | open-quote | close-quote | no-open-quote | no-close-quote ]+ | inherit
@@ -5252,6 +5386,43 @@ bool CSSParser::addVariableDeclarationBlock(const CSSParserString&)
 }
 
 #endif
+
+CSSRule* CSSParser::createPageRule(CSSSelector* pageSelector)
+{
+    // FIXME: Margin at-rules are ignored.
+    m_allowImportRules = m_allowNamespaceDeclarations = m_allowVariablesRules = false;
+    CSSPageRule* pageRule = 0;
+    if (pageSelector) {
+        RefPtr<CSSPageRule> rule = CSSPageRule::create(m_styleSheet, pageSelector, m_lastSelectorLine);
+        rule->setDeclaration(CSSMutableStyleDeclaration::create(rule.get(), m_parsedProperties, m_numParsedProperties));
+        pageRule = rule.get();
+        m_parsedStyleObjects.append(rule.release());
+    }
+    clearProperties();
+    return pageRule;
+}
+
+CSSRule* CSSParser::createMarginAtRule(CSSSelector::MarginBoxType /* marginBox */)
+{
+    // FIXME: Implement margin at-rule here, using:
+    //        - marginBox: margin box
+    //        - m_parsedProperties: properties at [m_numParsedPropertiesBeforeMarginBox, m_numParsedProperties) are for this at-rule.
+
+    endDeclarationsForMarginBox();
+    return 0; // until this method is implemented.
+}
+
+void CSSParser::startDeclarationsForMarginBox()
+{
+    m_numParsedPropertiesBeforeMarginBox = m_numParsedProperties;
+}
+
+void CSSParser::endDeclarationsForMarginBox()
+{
+    ASSERT(m_numParsedPropertiesBeforeMarginBox != INVALID_NUM_PARSED_PROPERTIES);
+    rollbackLastProperties(m_numParsedProperties - m_numParsedPropertiesBeforeMarginBox);
+    m_numParsedPropertiesBeforeMarginBox = INVALID_NUM_PARSED_PROPERTIES;
+}
 
 void CSSParser::clearVariables()
 {

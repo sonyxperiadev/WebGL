@@ -24,6 +24,7 @@
 #include <QDir>
 #include <QGraphicsWidget>
 #include <QLineEdit>
+#include <QLocale>
 #include <QMenu>
 #include <QPushButton>
 #include <QtTest/QtTest>
@@ -81,7 +82,8 @@ private slots:
     void modified();
     void contextMenuCrash();
     void database();
-    void createPlugin();
+    void createPluginWithPluginsEnabled();
+    void createPluginWithPluginsDisabled();
     void destroyPlugin_data();
     void destroyPlugin();
     void createViewlessPlugin_data();
@@ -106,6 +108,10 @@ private slots:
     void errorPageExtension();
     void errorPageExtensionInIFrames();
     void errorPageExtensionInFrameset();
+    void userAgentApplicationName();
+    void userAgentLocaleChange();
+
+    void viewModes();
 
     void crashTests_LazyInitializationOfMainFrame();
 
@@ -354,6 +360,21 @@ void tst_QWebPage::userStyleSheet()
     QCOMPARE(networkManager->requestedUrls.at(0), QUrl("http://does.not/exist.png"));
 }
 
+void tst_QWebPage::viewModes()
+{
+    m_view->setHtml("<body></body>");
+    m_page->setProperty("_q_viewMode", "minimized");
+
+    QVariant empty = m_page->mainFrame()->evaluateJavaScript("window.styleMedia.matchMedium(\"(-webkit-view-mode)\")");
+    QVERIFY(empty.type() == QVariant::Bool && empty.toBool());
+
+    QVariant minimized = m_page->mainFrame()->evaluateJavaScript("window.styleMedia.matchMedium(\"(-webkit-view-mode: minimized)\")");
+    QVERIFY(minimized.type() == QVariant::Bool && minimized.toBool());
+
+    QVariant maximized = m_page->mainFrame()->evaluateJavaScript("window.styleMedia.matchMedium(\"(-webkit-view-mode: maximized)\")");
+    QVERIFY(maximized.type() == QVariant::Bool && !maximized.toBool());
+}
+
 void tst_QWebPage::modified()
 {
     m_page->mainFrame()->setUrl(QUrl("data:text/html,<body>blub"));
@@ -519,27 +540,20 @@ protected:
     }
 };
 
-void tst_QWebPage::createPlugin()
+static void createPlugin(QWebView *view)
 {
-    QSignalSpy loadSpy(m_view, SIGNAL(loadFinished(bool)));
+    QSignalSpy loadSpy(view, SIGNAL(loadFinished(bool)));
 
-    PluginPage* newPage = new PluginPage(m_view);
-    m_view->setPage(newPage);
+    PluginPage* newPage = new PluginPage(view);
+    view->setPage(newPage);
 
-    // plugins not enabled by default, so the plugin shouldn't be loaded
-    m_view->setHtml(QString("<html><body><object type='application/x-qt-plugin' classid='pushbutton' id='mybutton'/></body></html>"));
+    // type has to be application/x-qt-plugin
+    view->setHtml(QString("<html><body><object type='application/x-foobarbaz' classid='pushbutton' id='mybutton'/></body></html>"));
     QTRY_COMPARE(loadSpy.count(), 1);
     QCOMPARE(newPage->calls.count(), 0);
 
-    m_view->settings()->setAttribute(QWebSettings::PluginsEnabled, true);
-
-    // type has to be application/x-qt-plugin
-    m_view->setHtml(QString("<html><body><object type='application/x-foobarbaz' classid='pushbutton' id='mybutton'/></body></html>"));
+    view->setHtml(QString("<html><body><object type='application/x-qt-plugin' classid='pushbutton' id='mybutton'/></body></html>"));
     QTRY_COMPARE(loadSpy.count(), 2);
-    QCOMPARE(newPage->calls.count(), 0);
-
-    m_view->setHtml(QString("<html><body><object type='application/x-qt-plugin' classid='pushbutton' id='mybutton'/></body></html>"));
-    QTRY_COMPARE(loadSpy.count(), 3);
     QCOMPARE(newPage->calls.count(), 1);
     {
         PluginPage::CallInfo ci = newPage->calls.takeFirst();
@@ -570,11 +584,11 @@ void tst_QWebPage::createPlugin()
     QCOMPARE(newPage->mainFrame()->evaluateJavaScript("mybutton.clicked.toString()").toString(),
              QString::fromLatin1("function clicked() {\n    [native code]\n}"));
 
-    m_view->setHtml(QString("<html><body><table>"
+    view->setHtml(QString("<html><body><table>"
                             "<tr><object type='application/x-qt-plugin' classid='lineedit' id='myedit'/></tr>"
                             "<tr><object type='application/x-qt-plugin' classid='pushbutton' id='mybutton'/></tr>"
                             "</table></body></html>"), QUrl("http://foo.bar.baz"));
-    QTRY_COMPARE(loadSpy.count(), 4);
+    QTRY_COMPARE(loadSpy.count(), 3);
     QCOMPARE(newPage->calls.count(), 2);
     {
         PluginPage::CallInfo ci = newPage->calls.takeFirst();
@@ -606,14 +620,22 @@ void tst_QWebPage::createPlugin()
         QVERIFY(ci.returnValue != 0);
         QVERIFY(ci.returnValue->inherits("QPushButton"));
     }
-
-    m_view->settings()->setAttribute(QWebSettings::PluginsEnabled, false);
-
-    m_view->setHtml(QString("<html><body><object type='application/x-qt-plugin' classid='pushbutton' id='mybutton'/></body></html>"));
-    QTRY_COMPARE(loadSpy.count(), 5);
-    QCOMPARE(newPage->calls.count(), 0);
 }
 
+void tst_QWebPage::createPluginWithPluginsEnabled()
+{
+    m_view->settings()->setAttribute(QWebSettings::PluginsEnabled, true);
+    createPlugin(m_view);
+}
+
+void tst_QWebPage::createPluginWithPluginsDisabled()
+{
+    // Qt Plugins should be loaded by QtWebKit even when PluginsEnabled is
+    // false. The client decides whether a Qt plugin is enabled or not when
+    // it decides whether or not to instantiate it.
+    m_view->settings()->setAttribute(QWebSettings::PluginsEnabled, false);
+    createPlugin(m_view);
+}
 
 // Standard base class for template PluginTracerPage. In tests it is used as interface.
 class PluginCounterPage : public QWebPage {
@@ -1404,10 +1426,15 @@ void tst_QWebPage::inputMethods()
     QString selectionValue = variant.value<QString>();
     QCOMPARE(selectionValue, QString("eb"));
 
-    //Set selection with negative length
-    inputAttributes << QInputMethodEvent::Attribute(QInputMethodEvent::Selection, 6, -5, QVariant());
+    //Cancel current composition first
+    inputAttributes << QInputMethodEvent::Attribute(QInputMethodEvent::Selection, 0, 0, QVariant());
     QInputMethodEvent eventSelection2("",inputAttributes);
     page->event(&eventSelection2);
+
+    //Set selection with negative length
+    inputAttributes << QInputMethodEvent::Attribute(QInputMethodEvent::Selection, 6, -5, QVariant());
+    QInputMethodEvent eventSelection3("",inputAttributes);
+    page->event(&eventSelection3);
 
     //ImAnchorPosition
     variant = page->inputMethodQuery(Qt::ImAnchorPosition);
@@ -1739,6 +1766,38 @@ void tst_QWebPage::errorPageExtensionInFrameset()
     QCOMPARE(page->mainFrame()->childFrames()[1]->toPlainText(), QString("data:text/html,error"));
 
     m_view->setPage(0);
+}
+
+class FriendlyWebPage : public QWebPage
+{
+public:
+    friend class tst_QWebPage;
+};
+
+void tst_QWebPage::userAgentApplicationName()
+{
+    const QString oldApplicationName = QCoreApplication::applicationName();
+    FriendlyWebPage page;
+
+    const QString applicationNameMarker = QString::fromUtf8("StrangeName\342\210\236");
+    QCoreApplication::setApplicationName(applicationNameMarker);
+    QVERIFY(page.userAgentForUrl(QUrl()).contains(applicationNameMarker));
+
+    QCoreApplication::setApplicationName(oldApplicationName);
+}
+
+void tst_QWebPage::userAgentLocaleChange()
+{
+    FriendlyWebPage page;
+    m_view->setPage(&page);
+
+    const QString markerString = QString::fromLatin1(" nn-NO)");
+
+    if (page.userAgentForUrl(QUrl()).contains(markerString))
+        QSKIP("marker string already present", SkipSingle);
+
+    m_view->setLocale(QLocale(QString::fromLatin1("nn_NO")));
+    QVERIFY(page.userAgentForUrl(QUrl()).contains(markerString));
 }
 
 void tst_QWebPage::crashTests_LazyInitializationOfMainFrame()

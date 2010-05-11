@@ -292,6 +292,7 @@ void QGraphicsWebViewPrivate::update(const QRect & dirtyRect)
     if (overlay)
         overlay->update(QRectF(dirtyRect));
 #if USE(ACCELERATED_COMPOSITING)
+    updateCompositingScrollPosition();
     syncLayers();
 #endif
 }
@@ -649,10 +650,13 @@ QVariant QGraphicsWebView::itemChange(GraphicsItemChange change, const QVariant&
     // fire 'CursorChange'.
     case ItemCursorChange:
         return value;
-    case ItemCursorHasChanged:
-        QEvent event(QEvent::CursorChange);
-        QApplication::sendEvent(this, &event);
-        return value;
+    case ItemCursorHasChanged: {
+            QEvent event(QEvent::CursorChange);
+            QApplication::sendEvent(this, &event);
+            return value;
+        }
+    default:
+        break;
     }
 
     return QGraphicsWidget::itemChange(change, value);

@@ -50,7 +50,9 @@ import sys
 
 from webkitpy.style_references import detect_checkout
 import webkitpy.style.checker as checker
-from webkitpy.style.checker import PatchChecker
+from webkitpy.style.checker import PatchReader
+from webkitpy.style.checker import StyleProcessor
+from webkitpy.style.filereader import TextFileReader
 from webkitpy.style.main import change_directory
 
 _log = logging.getLogger("check-webkit-style")
@@ -84,41 +86,42 @@ def main():
     checker.configure_logging(stream=stderr, is_verbose=is_verbose)
     _log.debug("Verbose logging enabled.")
 
+    parser = checker.check_webkit_style_parser()
+    (paths, options) = parser.parse(args)
+
     checkout = detect_checkout()
 
     if checkout is None:
+        if not paths:
+            _log.error("WebKit checkout not found: You must run this script "
+                       "from within a WebKit checkout if you are not passing "
+                       "specific paths to check.")
+            sys.exit(1)
+
         checkout_root = None
         _log.debug("WebKit checkout not found for current directory.")
     else:
         checkout_root = checkout.root_path()
         _log.debug("WebKit checkout found with root: %s" % checkout_root)
 
-    parser = checker.check_webkit_style_parser()
-    (paths, options) = parser.parse(args)
-
-    if checkout is None and not paths:
-        _log.error("WebKit checkout not found: You must run this script "
-                   "from within a WebKit checkout if you are not passing "
-                   "specific paths to check.")
-        sys.exit(1)
-
     configuration = checker.check_webkit_style_configuration(options)
-    style_checker = checker.StyleChecker(configuration)
 
     paths = change_directory(checkout_root=checkout_root, paths=paths)
 
+    style_processor = StyleProcessor(configuration)
+
+    file_reader = TextFileReader(style_processor)
+
     if paths:
-        style_checker.check_paths(paths)
+        file_reader.process_paths(paths)
     else:
-        if options.git_commit:
-            patch = checkout.create_patch_since_local_commit(options.git_commit)
-        else:
-            patch = checkout.create_patch()
-        patch_checker = PatchChecker(style_checker)
+        patch = checkout.create_patch(options.git_commit, options.squash)
+        patch_checker = PatchReader(file_reader)
         patch_checker.check(patch)
 
-    error_count = style_checker.error_count
-    file_count = style_checker.file_count
+    error_count = style_processor.error_count
+    file_count = file_reader.file_count
+
     _log.info("Total errors found: %d in %d files"
               % (error_count, file_count))
     # We fail when style errors are found or there are no checked files.

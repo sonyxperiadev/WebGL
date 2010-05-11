@@ -35,6 +35,9 @@ the output.  When there are no more URLs to process in the shared queue, the
 thread exits.
 """
 
+from __future__ import with_statement
+
+import codecs
 import copy
 import logging
 import os
@@ -89,10 +92,10 @@ def process_output(port, test_info, test_types, test_args, configuration,
                                 test_info.filename))
         filename = os.path.splitext(filename)[0] + "-stack.txt"
         port.maybe_make_directory(os.path.split(filename)[0])
-        open(filename, "wb").write(error)  # FIXME: This leaks a file handle.
+        with codecs.open(filename, "wb", "utf-8") as file:
+            file.write(error)
     elif error:
-        _log.debug("Previous test output extra lines after dump:\n%s" %
-                   error)
+        _log.debug("Previous test output stderr lines:\n%s" % error)
 
     # Check the output and save the results.
     start_time = time.time()
@@ -152,7 +155,8 @@ class SingleTestThread(threading.Thread):
 
     def run(self):
         test_info = self._test_info
-        driver = self._port.start_driver(self._image_path, self._shell_args)
+        driver = self._port.create_driver(self._image_path, self._shell_args)
+        driver.start()
         start = time.time()
         crash, timeout, actual_checksum, output, error = \
             driver.run_test(test_info.uri.strip(), test_info.timeout,
@@ -290,7 +294,7 @@ class TestShellThread(threading.Thread):
         # This is created in run_webkit_tests.py:_PrepareListsAndPrintOutput.
         tests_run_filename = os.path.join(self._options.results_directory,
                                           "tests_run.txt")
-        tests_run_file = open(tests_run_filename, "a")
+        tests_run_file = codecs.open(tests_run_filename, "a", "utf-8")
 
         while True:
             if self._canceled:
@@ -443,9 +447,11 @@ class TestShellThread(threading.Thread):
         a separate DumpRenderTree in their own thread.
 
         """
+        # poll() is not threadsafe and can throw OSError due to:
+        # http://bugs.python.org/issue1731717
         if (not self._driver or self._driver.poll() is not None):
-            self._driver = self._port.start_driver(
-                self._image_path, self._shell_args)
+            self._driver = self._port.create_driver(self._image_path, self._shell_args)
+            self._driver.start()
 
     def _kill_dump_render_tree(self):
         """Kill the DumpRenderTree process if it's running."""

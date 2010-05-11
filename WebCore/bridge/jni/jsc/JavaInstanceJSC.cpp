@@ -26,7 +26,7 @@
 #include "config.h"
 #include "JavaInstanceJSC.h"
 
-#if ENABLE(MAC_JAVA_BRIDGE)
+#if ENABLE(JAVA_BRIDGE)
 
 #include "JavaRuntimeObject.h"
 #include "JNIBridgeJSC.h"
@@ -392,4 +392,4 @@ JObjectWrapper::~JObjectWrapper()
     m_env->DeleteGlobalRef(m_instance);
 }
 
-#endif // ENABLE(MAC_JAVA_BRIDGE)
+#endif // ENABLE(JAVA_BRIDGE)

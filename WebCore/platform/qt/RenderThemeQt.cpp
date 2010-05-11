@@ -42,7 +42,7 @@
 #include "HTMLInputElement.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
-#ifdef Q_WS_MAEMO_5
+#if USE(QT_MOBILE_THEME)
 #include "Maemo5Webstyle.h"
 #endif
 #include "NotImplemented.h"
@@ -153,7 +153,7 @@ RenderThemeQt::RenderThemeQt(Page* page)
     m_buttonFontPixelSize = fontInfo.pixelSize();
 #endif
 
-#ifdef Q_WS_MAEMO_5
+#if USE(QT_MOBILE_THEME)
     m_fallbackStyle = new Maemo5WebStyle;
 #else
     m_fallbackStyle = QStyleFactory::create(QLatin1String("windows"));
@@ -163,10 +163,12 @@ RenderThemeQt::RenderThemeQt(Page* page)
 RenderThemeQt::~RenderThemeQt()
 {
     delete m_fallbackStyle;
+#ifndef QT_NO_LINEEDIT
     delete m_lineEdit;
+#endif
 }
 
-#ifdef Q_WS_MAEMO_5
+#if USE(QT_MOBILE_THEME)
 bool RenderThemeQt::isControlStyled(const RenderStyle* style, const BorderData& border, const FillLayer& fill, const Color& backgroundColor) const
 {
     switch (style->appearance()) {
@@ -198,7 +200,7 @@ QStyle* RenderThemeQt::fallbackStyle() const
 
 QStyle* RenderThemeQt::qStyle() const
 {
-#ifdef Q_WS_MAEMO_5
+#if USE(QT_MOBILE_THEME)
     return fallbackStyle();
 #endif
 
@@ -218,7 +220,7 @@ String RenderThemeQt::extraDefaultStyleSheet()
 #if ENABLE(NO_LISTBOX_RENDERING)
     result += String(themeQtNoListboxesUserAgentStyleSheet, sizeof(themeQtNoListboxesUserAgentStyleSheet));
 #endif
-#ifdef Q_WS_MAEMO_5
+#if USE(QT_MOBILE_THEME)
     result += String(themeQtMaemo5UserAgentStyleSheet, sizeof(themeQtMaemo5UserAgentStyleSheet));
 #endif
     return result;
@@ -264,11 +266,17 @@ bool RenderThemeQt::supportsControlTints() const
 
 int RenderThemeQt::findFrameLineWidth(QStyle* style) const
 {
+#ifndef QT_NO_LINEEDIT
     if (!m_lineEdit)
         m_lineEdit = new QLineEdit();
+#endif
 
     QStyleOptionFrameV2 opt;
-    return style->pixelMetric(QStyle::PM_DefaultFrameWidth, &opt, m_lineEdit);
+    QWidget* widget = 0;
+#ifndef QT_NO_LINEEDIT
+    widget = m_lineEdit;
+#endif
+    return style->pixelMetric(QStyle::PM_DefaultFrameWidth, &opt, widget);
 }
 
 static QRect inflateButtonRect(const QRect& originalRect, QStyle* style)
@@ -648,7 +656,9 @@ bool RenderThemeQt::paintMenuList(RenderObject* o, const RenderObject::PaintInfo
 
 void RenderThemeQt::adjustMenuListButtonStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
-#ifndef Q_WS_MAEMO_5
+#if USE(QT_MOBILE_THEME)
+    // Mobile theme uses border radius.
+#else
     // WORKAROUND because html.css specifies -webkit-border-radius for <select> so we override it here
     // see also http://bugs.webkit.org/show_bug.cgi?id=18399
     style->resetBorderRadius();
@@ -898,7 +908,7 @@ bool RenderThemeQt::supportsFocus(ControlPart appearance) const
 
 void RenderThemeQt::setPaletteFromPageClientIfExists(QPalette& palette) const
 {
-#ifdef Q_WS_MAEMO_5
+#if USE(QT_MOBILE_THEME)
     static QPalette lightGrayPalette(Qt::lightGray);
     palette = lightGrayPalette;
     return;
@@ -960,7 +970,7 @@ ControlPart RenderThemeQt::initializeCommonQStyleOptions(QStyleOption& option, R
     case SearchFieldCancelButtonPart: {
         if (isPressed(o))
             option.state |= QStyle::State_Sunken;
-        else if (result == PushButtonPart)
+        else if (result == PushButtonPart || result == ButtonPart)
             option.state |= QStyle::State_Raised;
         break;
     }

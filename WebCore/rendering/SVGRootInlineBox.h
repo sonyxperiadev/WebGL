@@ -27,7 +27,9 @@
 
 #if ENABLE(SVG)
 #include "RootInlineBox.h"
+#include "SVGCharacterData.h"
 #include "SVGCharacterLayoutInfo.h"
+#include "SVGTextChunkLayoutInfo.h"
 #include "SVGRenderSupport.h"
 
 namespace WebCore {
@@ -51,7 +53,6 @@ public:
         , m_height(0)
     {
     }
-    virtual const SVGRenderBase* toSVGRenderBase() const { return this; }
 
     virtual bool isSVGRootInlineBox() { return true; }
 

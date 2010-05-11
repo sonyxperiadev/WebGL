@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2010 Apple Inc. All rights reserved.
  *           (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/) 
  *
  * This library is free software; you can redistribute it and/or
@@ -66,6 +66,9 @@ RenderTextControlSingleLine::~RenderTextControlSingleLine()
  
     if (m_innerBlock)
         m_innerBlock->detach();
+
+    if (m_outerSpinButton)
+        m_outerSpinButton->detach();
 }
 
 RenderStyle* RenderTextControlSingleLine::textBaseStyle() const
@@ -185,10 +188,25 @@ void RenderTextControlSingleLine::paint(PaintInfo& paintInfo, int tx, int ty)
     if (paintInfo.phase == PaintPhaseBlockBackground && m_shouldDrawCapsLockIndicator) {
         IntRect contentsRect = contentBoxRect();
 
+        // Center vertically like the text.
+        contentsRect.setY((height() - contentsRect.height()) / 2);
+
         // Convert the rect into the coords used for painting the content
         contentsRect.move(tx + x(), ty + y());
         theme()->paintCapsLockIndicator(this, paintInfo, contentsRect);
     }
+}
+
+void RenderTextControlSingleLine::paintBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
+{
+    paintBoxDecorationsWithSize(paintInfo, tx, ty, width() - decorationWidthRight(), height());
+}
+
+void RenderTextControlSingleLine::addFocusRingRects(Vector<IntRect>& rects, int tx, int ty)
+{
+    int w = width() - decorationWidthRight();
+    if (w && height())
+        rects.append(IntRect(tx, ty, w, height()));
 }
 
 void RenderTextControlSingleLine::layout()
@@ -234,7 +252,7 @@ void RenderTextControlSingleLine::layout()
     innerTextRenderer->style()->setWidth(Length(desiredWidth, Fixed));
 
     if (m_innerBlock) {
-        int innerBlockWidth = width() - paddingLeft() - paddingRight() - borderLeft() - borderRight();
+        int innerBlockWidth = width() - borderAndPaddingWidth();
         if (innerBlockWidth != innerBlockRenderer->width())
             relayoutChildren = true;
         innerBlockRenderer->style()->setWidth(Length(innerBlockWidth, Fixed));
@@ -246,7 +264,18 @@ void RenderTextControlSingleLine::layout()
     RenderBox* childBlock = innerBlockRenderer ? innerBlockRenderer : innerTextRenderer;
     currentHeight = childBlock->height();
     if (currentHeight < height())
-        childBlock->setLocation(childBlock->x(), (height() - currentHeight) / 2);
+        childBlock->setY((height() - currentHeight) / 2);
+
+    // Center the spin button vertically, and move it to the right by
+    // padding + border of the text fields.
+    if (RenderBox* spinBox = m_outerSpinButton ? m_outerSpinButton->renderBox() : 0) {
+        int diff = height() - spinBox->height();
+        // If the diff is odd, the top area over the spin button takes the
+        // remaining one pixel. It's good for Mac NSStepper because it has
+        // shadow at the bottom.
+        int y = (diff / 2) + (diff % 2);
+        spinBox->setLocation(spinBox->x() + paddingRight() + borderRight(), y);
+    }
 }
 
 bool RenderTextControlSingleLine::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int xPos, int yPos, int tx, int ty, HitTestAction hitTestAction)
@@ -266,6 +295,9 @@ bool RenderTextControlSingleLine::nodeAtPoint(const HitTestRequest& request, Hit
     if (result.innerNode()->isDescendantOf(innerTextElement()) || result.innerNode() == node())
         hitInnerTextElement(result, xPos, yPos, tx, ty);
 
+    // If we found a spin button, we're done.
+    if (m_outerSpinButton && result.innerNode() == m_outerSpinButton)
+        return true;
     // If we're not a search field, or we already found the results or cancel buttons, we're done.
     if (!m_innerBlock || result.innerNode() == m_resultsButton || result.innerNode() == m_cancelButton)
         return true;
@@ -316,10 +348,13 @@ void RenderTextControlSingleLine::forwardEvent(Event* event)
     }
 
     FloatPoint localPoint = innerTextRenderer->absoluteToLocal(static_cast<MouseEvent*>(event)->absoluteLocation(), false, true);
+    int textRight = innerTextRenderer->borderBoxRect().right();
     if (m_resultsButton && localPoint.x() < innerTextRenderer->borderBoxRect().x())
         m_resultsButton->defaultEventHandler(event);
-    else if (m_cancelButton && localPoint.x() > innerTextRenderer->borderBoxRect().right())
+    else if (m_cancelButton && localPoint.x() > textRight)
         m_cancelButton->defaultEventHandler(event);
+    else if (m_outerSpinButton && localPoint.x() > textRight)
+        m_outerSpinButton->defaultEventHandler(event);
     else
         RenderTextControl::forwardEvent(event);
 }
@@ -341,6 +376,9 @@ void RenderTextControlSingleLine::styleDidChange(StyleDifference diff, const Ren
 
     if (RenderObject* cancelRenderer = m_cancelButton ? m_cancelButton->renderer() : 0)
         cancelRenderer->setStyle(createCancelButtonStyle(style()));
+
+    if (RenderObject* spinRenderer = m_outerSpinButton ? m_outerSpinButton->renderer() : 0)
+        spinRenderer->setStyle(createOuterSpinButtonStyle());
 
     setHasOverflowClip(false);
 }
@@ -369,6 +407,16 @@ void RenderTextControlSingleLine::capsLockStateMayHaveChanged()
     }
 }
 
+IntRect RenderTextControlSingleLine::controlClipRect(int tx, int ty) const
+{
+    // This should only get called for search inputs.
+    ASSERT(hasControlClip());
+
+    IntRect clipRect = IntRect(m_innerBlock->renderBox()->frameRect());
+    clipRect.move(tx, ty);
+    return clipRect;
+}
+
 int RenderTextControlSingleLine::textBlockWidth() const
 {
     int width = RenderTextControl::textBlockWidth();
@@ -383,6 +431,18 @@ int RenderTextControlSingleLine::textBlockWidth() const
         width -= cancelRenderer->width() + cancelRenderer->marginLeft() + cancelRenderer->marginRight();
     }
 
+    return width - decorationWidthRight();
+}
+
+int RenderTextControlSingleLine::decorationWidthRight() const
+{
+    int width = 0;
+    if (RenderBox* spinRenderer = m_outerSpinButton ? m_outerSpinButton->renderBox() : 0) {
+        spinRenderer->calcWidth();
+        width += spinRenderer->width() + spinRenderer->marginLeft() + spinRenderer->marginRight();
+    }
+    if (width > 0)
+        width += paddingRight() + borderRight();
     return width;
 }
     
@@ -432,6 +492,18 @@ int RenderTextControlSingleLine::preferredContentWidth(float charWidth) const
     return result;
 }
 
+int RenderTextControlSingleLine::preferredDecorationWidthRight() const
+{
+    int width = 0;
+    if (RenderBox* spinRenderer = m_outerSpinButton ? m_outerSpinButton->renderBox() : 0) {
+        spinRenderer->calcWidth();
+        width += spinRenderer->minPrefWidth() + spinRenderer->marginLeft() + spinRenderer->marginRight();
+    }
+    if (width > 0)
+        width += paddingRight() + borderRight();
+    return width;
+}
+
 void RenderTextControlSingleLine::adjustControlHeightBasedOnLineHeight(int lineHeight)
 {
     if (RenderBox* resultsRenderer = m_resultsButton ? m_resultsButton->renderBox() : 0) {
@@ -459,6 +531,10 @@ void RenderTextControlSingleLine::createSubtreeIfNeeded()
 {
     if (!inputElement()->isSearchField()) {
         RenderTextControl::createSubtreeIfNeeded(m_innerBlock.get());
+        if (inputElement()->hasSpinButton() && !m_outerSpinButton) {
+            m_outerSpinButton = new SpinButtonElement(document(), node());
+            m_outerSpinButton->attachInnerElement(node(), createOuterSpinButtonStyle(), renderArena());
+        }
         return;
     }
 
@@ -535,7 +611,7 @@ PassRefPtr<RenderStyle> RenderTextControlSingleLine::createInnerTextStyle(const 
     if (textBlockStyle->font().lineSpacing() > lineHeight(true, true))
         textBlockStyle->setLineHeight(Length(-100.0f, Percent));
 
-    textBlockStyle->setDisplay(m_innerBlock ? INLINE_BLOCK : BLOCK);
+    textBlockStyle->setDisplay(m_innerBlock || inputElement()->hasSpinButton() ? INLINE_BLOCK : BLOCK);
 
     // We're adding one extra pixel of padding to match WinIE.
     textBlockStyle->setPaddingLeft(Length(1, Fixed));
@@ -605,6 +681,16 @@ PassRefPtr<RenderStyle> RenderTextControlSingleLine::createCancelButtonStyle(con
 
     cancelBlockStyle->setVisibility(visibilityForCancelButton());
     return cancelBlockStyle.release();
+}
+
+PassRefPtr<RenderStyle> RenderTextControlSingleLine::createOuterSpinButtonStyle() const
+{
+    ASSERT(node()->isHTMLElement());
+    RefPtr<RenderStyle> buttonStyle = getCachedPseudoStyle(OUTER_SPIN_BUTTON);
+    if (!buttonStyle)
+        buttonStyle = RenderStyle::create();
+    buttonStyle->inheritFrom(style());
+    return buttonStyle.release();
 }
 
 void RenderTextControlSingleLine::updateCancelButtonVisibility() const

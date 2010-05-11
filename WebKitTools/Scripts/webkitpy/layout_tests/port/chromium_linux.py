@@ -31,9 +31,7 @@
 
 import logging
 import os
-import platform
 import signal
-import subprocess
 
 import chromium
 
@@ -122,14 +120,8 @@ class ChromiumLinuxPort(chromium.ChromiumPort):
             _log.error('    Please install using: "sudo apt-get install '
                        'wdiff"')
             _log.error('')
+        # FIXME: The ChromiumMac port always returns True.
         return result
-
-
-    def _kill_all_process(self, process_name):
-        null = open(os.devnull)
-        subprocess.call(['killall', '-TERM', '-u', os.getenv('USER'),
-                        process_name], stderr=null)
-        null.close()
 
     def _path_to_apache(self):
         if self._is_redhat_based():
@@ -187,8 +179,8 @@ class ChromiumLinuxPort(chromium.ChromiumPort):
             # TODO(mmoss) This isn't ideal, since it could conflict with
             # lighttpd processes not started by http_server.py,
             # but good enough for now.
-            self._kill_all_process('lighttpd')
-            self._kill_all_process('apache2')
+            self._executive.kill_all("lighttpd")
+            self._executive.kill_all("apache2")
         else:
             try:
                 os.kill(server_pid, signal.SIGTERM)

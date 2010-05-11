@@ -58,6 +58,8 @@ sub useNewRunWebKitTests()
 {
     # Change this check to control which platforms use
     # new-run-webkit-tests by default.
+    # Example: return runningOnBuildBot() && isLeopard();
+    # would enable new-run-webkit-tests on only the leopard buildbots.
     return 0;
 }
 

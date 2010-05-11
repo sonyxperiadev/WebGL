@@ -58,11 +58,14 @@
 /* ==== COMPILER() - the compiler being used to build the project ==== */
 
 /* COMPILER(MSVC) Microsoft Visual C++ */
-/* COMPILER(MSVC7) Microsoft Visual C++ v7 or lower*/
+/* COMPILER(MSVC7_OR_LOWER) Microsoft Visual C++ 2003 or lower*/
+/* COMPILER(MSVC9_OR_LOWER) Microsoft Visual C++ 2008 or lower*/
 #if defined(_MSC_VER)
 #define WTF_COMPILER_MSVC 1
 #if _MSC_VER < 1400
-#define WTF_COMPILER_MSVC7 1
+#define WTF_COMPILER_MSVC7_OR_LOWER 1
+#elif _MSC_VER < 1600
+#define WTF_COMPILER_MSVC9_OR_LOWER 1
 #endif
 #endif
 
@@ -584,8 +587,8 @@
 #if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_TIGER) && CPU(X86_64)
 #define WTF_USE_PLUGIN_HOST_PROCESS 1
 #endif
-#if !defined(ENABLE_MAC_JAVA_BRIDGE)
-#define ENABLE_MAC_JAVA_BRIDGE 1
+#if !defined(ENABLE_JAVA_BRIDGE)
+#define ENABLE_JAVA_BRIDGE 1
 #endif
 #if !defined(ENABLE_DASHBOARD_SUPPORT)
 #define ENABLE_DASHBOARD_SUPPORT 1
@@ -616,7 +619,7 @@
 #define ENABLE_GEOLOCATION 1
 #define ENABLE_ICONDATABASE 0
 #define ENABLE_INSPECTOR 0
-#define ENABLE_MAC_JAVA_BRIDGE 0
+#define ENABLE_JAVA_BRIDGE 0
 #define ENABLE_NETSCAPE_PLUGIN_API 0
 #define ENABLE_ORIENTATION_EVENTS 1
 #define ENABLE_REPAINT_THROTTLING 1
@@ -630,7 +633,7 @@
 #define WTF_USE_PTHREADS 1
 #define WTF_PLATFORM_SKIA 1
 #define USE_SYSTEM_MALLOC 1
-#define ENABLE_MAC_JAVA_BRIDGE 1
+#define ENABLE_JAVA_BRIDGE 1
 #define LOG_DISABLED 1
 /* Prevents Webkit from drawing the caret in textfields and textareas
    This prevents unnecessary invals. */
@@ -648,6 +651,11 @@
 #define ENABLE_GLOBAL_FASTMALLOC_NEW 0
 #if OS(DARWIN)
 #define WTF_PLATFORM_CF 1
+#ifndef BUILDING_ON_TIGER
+#define WTF_USE_CORE_TEXT 1
+#else
+#define WTF_USE_ATSUI 1
+#endif
 #endif
 #endif
 
@@ -828,8 +836,8 @@
 #define ENABLE_INSPECTOR 1
 #endif
 
-#if !defined(ENABLE_MAC_JAVA_BRIDGE)
-#define ENABLE_MAC_JAVA_BRIDGE 0
+#if !defined(ENABLE_JAVA_BRIDGE)
+#define ENABLE_JAVA_BRIDGE 0
 #endif
 
 #if !defined(ENABLE_NETSCAPE_PLUGIN_API)
@@ -852,6 +860,7 @@
 #define ENABLE_GLOBAL_FASTMALLOC_NEW 1
 #endif
 
+#define ENABLE_DEBUG_WITH_BREAKPOINT 0
 #define ENABLE_SAMPLING_COUNTERS 0
 #define ENABLE_SAMPLING_FLAGS 0
 #define ENABLE_OPCODE_SAMPLING 0
@@ -955,6 +964,8 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
     #define ENABLE_JIT 1
 #elif CPU(ARM_TRADITIONAL) && OS(LINUX)
     #define ENABLE_JIT 1
+#elif CPU(ARM_TRADITIONAL) && OS(SYMBIAN) && COMPILER(RVCT)
+    #define ENABLE_JIT 1
 #elif CPU(MIPS) && OS(LINUX)
     #define ENABLE_JIT 1
     #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 0
@@ -1027,7 +1038,10 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
     || (CPU(X86) && OS(LINUX) && GCC_VERSION >= 40100) \
     || (CPU(X86_64) && OS(LINUX) && GCC_VERSION >= 40100) \
     || (CPU(ARM_TRADITIONAL) && OS(LINUX)) \
-    || (CPU(MIPS) && OS(LINUX))
+    || (CPU(ARM_TRADITIONAL) && OS(SYMBIAN) && COMPILER(RVCT)) \
+    || (CPU(MIPS) && OS(LINUX)) \
+    || (CPU(X86) && OS(DARWIN)) \
+    || (CPU(X86_64) && OS(DARWIN))
 #define ENABLE_YARR 1
 #define ENABLE_YARR_JIT 1
 #endif
@@ -1090,6 +1104,10 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #define WTF_USE_ACCELERATED_COMPOSITING 1
 #define ENABLE_3D_RENDERING 1
 #endif
+#endif
+
+#if (PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)) || PLATFORM(IPHONE)
+#define WTF_USE_PROTECTION_SPACE_AUTH_CALLBACK 1
 #endif
 
 #if COMPILER(GCC)

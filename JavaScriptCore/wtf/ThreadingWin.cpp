@@ -145,8 +145,6 @@ void unlockAtomicallyInitializedStaticMutex()
     atomicallyInitializedStaticMutex->unlock();
 }
 
-static ThreadIdentifier mainThreadIdentifier;
-
 static Mutex& threadMapMutex()
 {
     static Mutex mutex;
@@ -155,14 +153,12 @@ static Mutex& threadMapMutex()
 
 void initializeThreading()
 {
-    if (!atomicallyInitializedStaticMutex) {
-        atomicallyInitializedStaticMutex = new Mutex;
-        threadMapMutex();
-        initializeRandomNumberGenerator();
-        initializeMainThread();
-        mainThreadIdentifier = currentThread();
-        initializeCurrentThreadInternal("Main Thread");
-    }
+    if (atomicallyInitializedStaticMutex)
+        return;
+
+    atomicallyInitializedStaticMutex = new Mutex;
+    threadMapMutex();
+    initializeRandomNumberGenerator();
 }
 
 static HashMap<DWORD, HANDLE>& threadMap()
@@ -273,11 +269,6 @@ void detachThread(ThreadIdentifier threadID)
 ThreadIdentifier currentThread()
 {
     return static_cast<ThreadIdentifier>(GetCurrentThreadId());
-}
-
-bool isMainThread()
-{
-    return currentThread() == mainThreadIdentifier;
 }
 
 Mutex::Mutex()

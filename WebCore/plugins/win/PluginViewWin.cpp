@@ -140,7 +140,7 @@ static BYTE* endPaint;
 typedef HDC (WINAPI *PtrBeginPaint)(HWND, PAINTSTRUCT*);
 typedef BOOL (WINAPI *PtrEndPaint)(HWND, const PAINTSTRUCT*);
 
-#if OS(WINDOWS) && PLATFORM(X86_64) && COMPILER(MSVC)
+#if OS(WINDOWS) && CPU(X86_64) && COMPILER(MSVC)
 extern "C" HDC __stdcall _HBeginPaint(HWND hWnd, LPPAINTSTRUCT lpPaint);
 extern "C" BOOL __stdcall _HEndPaint(HWND hWnd, const PAINTSTRUCT* lpPaint);
 #endif
@@ -463,12 +463,12 @@ void PluginView::updatePluginWidget()
     }
 }
 
-void PluginView::setFocus()
+void PluginView::setFocus(bool focused)
 {
-    if (platformPluginWidget())
+    if (focused && platformPluginWidget())
         SetFocus(platformPluginWidget());
 
-    Widget::setFocus();
+    Widget::setFocus(focused);
 }
 
 void PluginView::show()
@@ -544,7 +544,7 @@ void PluginView::paintIntoTransformedContext(HDC hdc)
 
     NPEvent npEvent;
     npEvent.event = WM_WINDOWPOSCHANGED;
-    npEvent.lParam = reinterpret_cast<uint32>(&windowpos);
+    npEvent.lParam = reinterpret_cast<uintptr_t>(&windowpos);
     npEvent.wParam = 0;
 
     dispatchNPEvent(npEvent);
@@ -552,7 +552,7 @@ void PluginView::paintIntoTransformedContext(HDC hdc)
     setNPWindowRect(frameRect());
 
     npEvent.event = WM_PAINT;
-    npEvent.wParam = reinterpret_cast<uint32>(hdc);
+    npEvent.wParam = reinterpret_cast<uintptr_t>(hdc);
 
     // This is supposed to be a pointer to the dirty rect, but it seems that the Flash plugin
     // ignores it so we just pass null.
@@ -829,12 +829,12 @@ void PluginView::setNPWindowRect(const IntRect& rect)
 #else
         WNDPROC currentWndProc = (WNDPROC)GetWindowLongPtr(platformPluginWidget(), GWLP_WNDPROC);
         if (currentWndProc != PluginViewWndProc)
-            m_pluginWndProc = (WNDPROC)SetWindowLongPtr(platformPluginWidget(), GWLP_WNDPROC, (LONG)PluginViewWndProc);
+            m_pluginWndProc = (WNDPROC)SetWindowLongPtr(platformPluginWidget(), GWLP_WNDPROC, (LONG_PTR)PluginViewWndProc);
 #endif
     }
 }
 
-NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32 len, const char* buf)
+NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32_t len, const char* buf)
 {
     String filename(buf, len);
 
@@ -978,7 +978,7 @@ bool PluginView::platformStart()
 
         // Calling SetWindowLongPtrA here makes the window proc ASCII, which is required by at least
         // the Shockwave Director plug-in.
-#if OS(WINDOWS) && PLATFORM(X86_64) && COMPILER(MSVC)
+#if OS(WINDOWS) && CPU(X86_64)
         ::SetWindowLongPtrA(platformPluginWidget(), GWLP_WNDPROC, (LONG_PTR)DefWindowProcA);
 #elif OS(WINCE)
         ::SetWindowLong(platformPluginWidget(), GWL_WNDPROC, (LONG)DefWindowProc);

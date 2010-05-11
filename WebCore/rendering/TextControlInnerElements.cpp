@@ -96,7 +96,7 @@ void TextControlInnerElement::attachInnerElement(Node* parent, PassRefPtr<Render
     
     // Set these explicitly since this normally happens during an attach()
     setAttached();
-    setInDocument(true);
+    setInDocument();
     
     // For elements without a shadow parent, add the node to the DOM normally.
     if (!m_shadowParent)
@@ -116,16 +116,9 @@ void TextControlInnerTextElement::defaultEventHandler(Event* evt)
 {
     // FIXME: In the future, we should add a way to have default event listeners.  Then we would add one to the text field's inner div, and we wouldn't need this subclass.
     Node* shadowAncestor = shadowAncestorNode();
-    if (shadowAncestor && shadowAncestor->renderer()) {
-        ASSERT(shadowAncestor->renderer()->isTextControl());
-        if (evt->isBeforeTextInsertedEvent()) {
-            if (shadowAncestor->renderer()->isTextField())
-                static_cast<HTMLInputElement*>(shadowAncestor)->defaultEventHandler(evt);
-            else
-                static_cast<HTMLTextAreaElement*>(shadowAncestor)->defaultEventHandler(evt);
-        }
-        if (evt->type() == eventNames().webkitEditableContentChangedEvent)
-            toRenderTextControl(shadowAncestor->renderer())->subtreeHasChanged();
+    if (shadowAncestor) {
+        if (evt->isBeforeTextInsertedEvent() || evt->type() == eventNames().webkitEditableContentChangedEvent)
+            shadowAncestor->defaultEventHandler(evt);
     }
     if (!evt->defaultHandled())
         HTMLDivElement::defaultEventHandler(evt);
@@ -204,6 +197,64 @@ void SearchFieldCancelButtonElement::defaultEventHandler(Event* evt)
             if (Frame* frame = document()->frame()) {
                 frame->eventHandler()->setCapturingMouseEventsNode(0);
                 m_capturing = false;
+            }
+        }
+    }
+    if (!evt->defaultHandled())
+        HTMLDivElement::defaultEventHandler(evt);
+}
+
+SpinButtonElement::SpinButtonElement(Document* doc, Node* shadowParent)
+    : TextControlInnerElement(doc, shadowParent)
+    , m_capturing(false)
+    , m_onUpButton(false)
+{
+}
+
+void SpinButtonElement::defaultEventHandler(Event* evt)
+{
+    if (!evt->isMouseEvent()) {
+        if (!evt->defaultHandled())
+            HTMLDivElement::defaultEventHandler(evt);
+        return;
+    }
+    const MouseEvent* mevt = static_cast<MouseEvent*>(evt);
+    if (mevt->button() != LeftButton) {
+        if (!evt->defaultHandled())
+            HTMLDivElement::defaultEventHandler(evt);
+        return;
+    }
+
+    HTMLInputElement* input = static_cast<HTMLInputElement*>(shadowAncestorNode());
+    IntPoint local = roundedIntPoint(renderBox()->absoluteToLocal(mevt->absoluteLocation(), false, true));
+    if (evt->type() == eventNames().clickEvent) {
+        if (renderBox()->borderBoxRect().contains(local)) {
+            input->focus();
+            input->select();
+            if (local.y() < renderBox()->y() + renderBox()->height() / 2)
+                input->stepUpFromRenderer(1);
+            else
+                input->stepUpFromRenderer(-1);
+            evt->setDefaultHandled();
+        }
+    } else if (evt->type() == eventNames().mousemoveEvent) {
+        if (renderBox()->borderBoxRect().contains(local)) {
+            if (!m_capturing) {
+                if (Frame* frame = document()->frame()) {
+                    frame->eventHandler()->setCapturingMouseEventsNode(input);
+                    m_capturing = true;
+                }
+            }
+            bool oldOnUpButton = m_onUpButton;
+            m_onUpButton = local.y() < renderBox()->y() + renderBox()->height() / 2;
+            if (m_onUpButton != oldOnUpButton)
+                renderer()->repaint();
+        } else {
+            if (m_capturing) {
+                if (Frame* frame = document()->frame()) {
+                    frame->eventHandler()->setCapturingMouseEventsNode(0);
+                    m_capturing = false;
+                }
             }
         }
     }

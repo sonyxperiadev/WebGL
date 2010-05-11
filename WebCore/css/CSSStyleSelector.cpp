@@ -31,6 +31,7 @@
 #include "CSSFontFaceRule.h"
 #include "CSSImportRule.h"
 #include "CSSMediaRule.h"
+#include "CSSPageRule.h"
 #include "CSSParser.h"
 #include "CSSPrimitiveValueMappings.h"
 #include "CSSPropertyNames.h"
@@ -358,6 +359,7 @@ public:
     void addRulesFromSheet(CSSStyleSheet*, const MediaQueryEvaluator&, CSSStyleSelector* = 0);
     
     void addRule(CSSStyleRule* rule, CSSSelector* sel);
+    void addPageRule(CSSStyleRule* rule, CSSSelector* sel);
     void addToRuleSet(AtomicStringImpl* key, AtomRuleMap& map,
                       CSSStyleRule* rule, CSSSelector* sel);
     
@@ -365,13 +367,16 @@ public:
     CSSRuleDataList* getClassRules(AtomicStringImpl* key) { return m_classRules.get(key); }
     CSSRuleDataList* getTagRules(AtomicStringImpl* key) { return m_tagRules.get(key); }
     CSSRuleDataList* getUniversalRules() { return m_universalRules; }
+    CSSRuleDataList* getPageRules() { return m_pageRules; }
     
 public:
     AtomRuleMap m_idRules;
     AtomRuleMap m_classRules;
     AtomRuleMap m_tagRules;
     CSSRuleDataList* m_universalRules;
+    CSSRuleDataList* m_pageRules;
     unsigned m_ruleCount;
+    unsigned m_pageRuleCount;
 };
 
 static CSSRuleSet* defaultStyle;
@@ -486,6 +491,7 @@ void CSSStyleSelector::addKeyframeStyle(PassRefPtr<WebKitCSSKeyframesRule> rule)
 void CSSStyleSelector::init()
 {
     m_element = 0;
+    m_haveCachedLinkState = false;
     m_matchedDecls.clear();
     m_ruleList = 0;
     m_rootDefaultStyle = 0;
@@ -696,9 +702,7 @@ void CSSStyleSelector::matchRulesForList(CSSRuleDataList* rules, int& firstRuleI
 
     for (CSSRuleData* d = rules->first(); d; d = d->next()) {
         CSSStyleRule* rule = d->rule();
-        const AtomicString& localName = m_element->localName();
-        const AtomicString& selectorLocalName = d->selector()->m_tag.localName();
-        if ((localName == selectorLocalName || selectorLocalName == starAtom) && checkSelector(d->selector())) {
+        if (checkSelector(d->selector())) {
             // If the rule has no properties to apply, then ignore it.
             CSSMutableStyleDeclaration* decl = rule->declaration();
             if (!decl || !decl->length())
@@ -800,13 +804,16 @@ void CSSStyleSelector::sortMatchedRules(unsigned start, unsigned end)
         m_matchedRules[i] = rulesMergeBuffer[i - start];
 }
 
-void CSSStyleSelector::initElement(Element* e)
+inline void CSSStyleSelector::initElement(Element* e, bool helperCallForVisitedStyle = false)
 {
+    if (!helperCallForVisitedStyle)
+        m_haveCachedLinkState = false;
+
     m_element = e;
     m_styledElement = m_element && m_element->isStyledElement() ? static_cast<StyledElement*>(m_element) : 0;
 }
 
-void CSSStyleSelector::initForStyleResolve(Element* e, RenderStyle* parentStyle, PseudoId pseudoID)
+inline void CSSStyleSelector::initForStyleResolve(Element* e, RenderStyle* parentStyle, PseudoId pseudoID)
 {
     m_checker.m_pseudoStyle = pseudoID;
 
@@ -874,10 +881,17 @@ CSSStyleSelector::SelectorChecker::SelectorChecker(Document* document, bool stri
 {
 }
 
-EInsideLink CSSStyleSelector::SelectorChecker::determineLinkState(Element* element) const
+inline EInsideLink CSSStyleSelector::SelectorChecker::determineLinkState(Element* element) const
 {
     if (!element->isLink())
         return NotInsideLink;
+    return determineLinkStateSlowCase(element);
+}
+    
+
+EInsideLink CSSStyleSelector::SelectorChecker::determineLinkStateSlowCase(Element* element) const
+{
+    ASSERT(element->isLink());
     
     const AtomicString* attr = linkAttribute(element);
     if (!attr || attr->isNull())
@@ -1025,7 +1039,7 @@ bool CSSStyleSelector::canShareStyleWithElement(Node* n)
                     mappedAttrsMatch = s->mappedAttributes()->mapsEquivalent(m_styledElement->mappedAttributes());
                 if (mappedAttrsMatch) {
                     if (s->isLink()) {
-                        if (m_checker.determineLinkState(m_element) != style->insideLink())
+                        if (currentElementLinkState() != style->insideLink())
                             return false;
                     }
                     return true;
@@ -1036,7 +1050,7 @@ bool CSSStyleSelector::canShareStyleWithElement(Node* n)
     return false;
 }
 
-RenderStyle* CSSStyleSelector::locateSharedStyle()
+ALWAYS_INLINE RenderStyle* CSSStyleSelector::locateSharedStyle()
 {
     if (m_styledElement && !m_styledElement->inlineStyleDecl() && !m_styledElement->hasID() && !m_styledElement->document()->usesSiblingRules()) {
         // Check previous siblings.
@@ -1118,13 +1132,13 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForDocument(Document* document)
 // If resolveForRootDefault is true, style based on user agent style sheet only. This is used in media queries, where
 // relative units are interpreted according to document root element style, styled only with UA stylesheet
 
-PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyle* defaultParent, bool allowSharing, bool resolveForRootDefault, bool matchVisitedRules)
+PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyle* defaultParent, bool allowSharing, bool resolveForRootDefault, bool helperCallForVisitedStyle)
 {
     // Once an element has a renderer, we don't try to destroy it, since otherwise the renderer
     // will vanish if a style recalc happens during loading.
     if (allowSharing && !e->document()->haveStylesheetsLoaded() && !e->renderer()) {
         if (!s_styleNotYetAvailable) {
-            s_styleNotYetAvailable = ::new RenderStyle;
+            s_styleNotYetAvailable = RenderStyle::create().releaseRef();
             s_styleNotYetAvailable->ref();
             s_styleNotYetAvailable->setDisplay(NONE);
             s_styleNotYetAvailable->font().update(m_fontSelector);
@@ -1134,7 +1148,7 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
         return s_styleNotYetAvailable;
     }
 
-    initElement(e);
+    initElement(e, helperCallForVisitedStyle);
     if (allowSharing) {
         RenderStyle* sharedStyle = locateSharedStyle();
         if (sharedStyle)
@@ -1144,7 +1158,7 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
 
     // Compute our style allowing :visited to match first.
     RefPtr<RenderStyle> visitedStyle;
-    if (!matchVisitedRules && m_parentStyle && (m_parentStyle->insideLink() || e->isLink()) && e->document()->usesLinkRules()) {
+    if (!helperCallForVisitedStyle && m_parentStyle && (m_parentStyle->insideLink() || e->isLink()) && e->document()->usesLinkRules()) {
         // Fetch our parent style.
         RenderStyle* parentStyle = m_parentStyle;
         if (!e->isLink()) {
@@ -1158,7 +1172,7 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
         initForStyleResolve(e, defaultParent);
     }
 
-    m_checker.m_matchVisitedPseudoClass = matchVisitedRules;
+    m_checker.m_matchVisitedPseudoClass = helperCallForVisitedStyle;
 
     m_style = RenderStyle::create();
 
@@ -1169,7 +1183,7 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
 
     if (e->isLink()) {
         m_style->setIsLink(true);
-        m_style->setInsideLink(m_checker.determineLinkState(e));
+        m_style->setInsideLink(currentElementLinkState());
     }
     
     if (simpleDefaultStyleSheet && !elementCanUseSimpleDefaultStyle(e))
@@ -1284,19 +1298,19 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
     }
 
     // Reset the value back before applying properties, so that -webkit-link knows what color to use.
-    m_checker.m_matchVisitedPseudoClass = matchVisitedRules;
+    m_checker.m_matchVisitedPseudoClass = helperCallForVisitedStyle;
     
     // Now we have all of the matched rules in the appropriate order.  Walk the rules and apply
     // high-priority properties first, i.e., those properties that other properties depend on.
     // The order is (1) high-priority not important, (2) high-priority important, (3) normal not important
     // and (4) normal important.
     m_lineHeightValue = 0;
-    applyDeclarations(true, false, 0, m_matchedDecls.size() - 1);
+    applyDeclarations<true>(false, 0, m_matchedDecls.size() - 1);
     if (!resolveForRootDefault) {
-        applyDeclarations(true, true, firstAuthorRule, lastAuthorRule);
-        applyDeclarations(true, true, firstUserRule, lastUserRule);
+        applyDeclarations<true>(true, firstAuthorRule, lastAuthorRule);
+        applyDeclarations<true>(true, firstUserRule, lastUserRule);
     }
-    applyDeclarations(true, true, firstUARule, lastUARule);
+    applyDeclarations<true>(true, firstUARule, lastUARule);
     
     // If our font got dirtied, go ahead and update it now.
     if (m_fontDirty)
@@ -1307,18 +1321,18 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
         applyProperty(CSSPropertyLineHeight, m_lineHeightValue);
 
     // Now do the normal priority UA properties.
-    applyDeclarations(false, false, firstUARule, lastUARule);
+    applyDeclarations<false>(false, firstUARule, lastUARule);
     
     // Cache our border and background so that we can examine them later.
     cacheBorderAndBackground();
     
     // Now do the author and user normal priority properties and all the !important properties.
     if (!resolveForRootDefault) {
-        applyDeclarations(false, false, lastUARule + 1, m_matchedDecls.size() - 1);
-        applyDeclarations(false, true, firstAuthorRule, lastAuthorRule);
-        applyDeclarations(false, true, firstUserRule, lastUserRule);
+        applyDeclarations<false>(false, lastUARule + 1, m_matchedDecls.size() - 1);
+        applyDeclarations<false>(true, firstAuthorRule, lastAuthorRule);
+        applyDeclarations<false>(true, firstUserRule, lastUserRule);
     }
-    applyDeclarations(false, true, firstUARule, lastUARule);
+    applyDeclarations<false>(true, firstUARule, lastUARule);
     
     // If our font got dirtied by one of the non-essential font props, 
     // go ahead and update it a second time.
@@ -1382,7 +1396,7 @@ void CSSStyleSelector::keyframeStylesForAnimation(Element* e, const RenderStyle*
         
         // We don't need to bother with !important. Since there is only ever one
         // decl, there's nothing to override. So just add the first properties.
-        applyDeclarations(true, false, 0, m_matchedDecls.size() - 1);
+        applyDeclarations<true>(false, 0, m_matchedDecls.size() - 1);
         
         // If our font got dirtied, go ahead and update it now.
         if (m_fontDirty)
@@ -1393,7 +1407,7 @@ void CSSStyleSelector::keyframeStylesForAnimation(Element* e, const RenderStyle*
             applyProperty(CSSPropertyLineHeight, m_lineHeightValue);
         
         // Now do rest of the properties.
-        applyDeclarations(false, false, 0, m_matchedDecls.size() - 1);
+        applyDeclarations<false>(false, 0, m_matchedDecls.size() - 1);
         
         // If our font got dirtied by one of the non-essential font props, 
         // go ahead and update it a second time.
@@ -1431,7 +1445,7 @@ void CSSStyleSelector::keyframeStylesForAnimation(Element* e, const RenderStyle*
         list.clear();
 }
 
-PassRefPtr<RenderStyle> CSSStyleSelector::pseudoStyleForElement(PseudoId pseudo, Element* e, RenderStyle* parentStyle, bool matchVisitedLinks)
+PassRefPtr<RenderStyle> CSSStyleSelector::pseudoStyleForElement(PseudoId pseudo, Element* e, RenderStyle* parentStyle, bool helperCallForVisitedStyle)
 {
     if (!e)
         return 0;
@@ -1439,7 +1453,7 @@ PassRefPtr<RenderStyle> CSSStyleSelector::pseudoStyleForElement(PseudoId pseudo,
     // Compute our :visited style first, so that we know whether or not we'll need to create a normal style just to hang it
     // off of.
     RefPtr<RenderStyle> visitedStyle;
-    if (!matchVisitedLinks && parentStyle && parentStyle->insideLink()) {
+    if (!helperCallForVisitedStyle && parentStyle && parentStyle->insideLink()) {
         // Fetch our parent style with :visited in effect.
         RenderStyle* parentVisitedStyle = parentStyle->getCachedPseudoStyle(VISITED_LINK);
         visitedStyle = pseudoStyleForElement(pseudo, e, parentVisitedStyle ? parentVisitedStyle : parentStyle, true);
@@ -1447,11 +1461,11 @@ PassRefPtr<RenderStyle> CSSStyleSelector::pseudoStyleForElement(PseudoId pseudo,
             visitedStyle->setStyleType(VISITED_LINK);
     }
 
-    initElement(e);
+    initElement(e, helperCallForVisitedStyle);
     initForStyleResolve(e, parentStyle, pseudo);
     m_style = parentStyle;
     
-    m_checker.m_matchVisitedPseudoClass = matchVisitedLinks;
+    m_checker.m_matchVisitedPseudoClass = helperCallForVisitedStyle;
 
     // Since we don't use pseudo-elements in any of our quirk/print user agent rules, don't waste time walking
     // those rules.
@@ -1477,13 +1491,13 @@ PassRefPtr<RenderStyle> CSSStyleSelector::pseudoStyleForElement(PseudoId pseudo,
     m_lineHeightValue = 0;
     
     // Reset the value back before applying properties, so that -webkit-link knows what color to use.
-    m_checker.m_matchVisitedPseudoClass = matchVisitedLinks;
+    m_checker.m_matchVisitedPseudoClass = helperCallForVisitedStyle;
 
     // High-priority properties.
-    applyDeclarations(true, false, 0, m_matchedDecls.size() - 1);
-    applyDeclarations(true, true, firstAuthorRule, lastAuthorRule);
-    applyDeclarations(true, true, firstUserRule, lastUserRule);
-    applyDeclarations(true, true, firstUARule, lastUARule);
+    applyDeclarations<true>(false, 0, m_matchedDecls.size() - 1);
+    applyDeclarations<true>(true, firstAuthorRule, lastAuthorRule);
+    applyDeclarations<true>(true, firstUserRule, lastUserRule);
+    applyDeclarations<true>(true, firstUARule, lastUARule);
     
     // If our font got dirtied, go ahead and update it now.
     if (m_fontDirty)
@@ -1494,15 +1508,15 @@ PassRefPtr<RenderStyle> CSSStyleSelector::pseudoStyleForElement(PseudoId pseudo,
         applyProperty(CSSPropertyLineHeight, m_lineHeightValue);
     
     // Now do the normal priority properties.
-    applyDeclarations(false, false, firstUARule, lastUARule);
+    applyDeclarations<false>(false, firstUARule, lastUARule);
     
     // Cache our border and background so that we can examine them later.
     cacheBorderAndBackground();
     
-    applyDeclarations(false, false, lastUARule + 1, m_matchedDecls.size() - 1);
-    applyDeclarations(false, true, firstAuthorRule, lastAuthorRule);
-    applyDeclarations(false, true, firstUserRule, lastUserRule);
-    applyDeclarations(false, true, firstUARule, lastUARule);
+    applyDeclarations<false>(false, lastUARule + 1, m_matchedDecls.size() - 1);
+    applyDeclarations<false>(true, firstAuthorRule, lastAuthorRule);
+    applyDeclarations<false>(true, firstUserRule, lastUserRule);
+    applyDeclarations<false>(true, firstUARule, lastUARule);
     
     // If our font got dirtied by one of the non-essential font props, 
     // go ahead and update it a second time.
@@ -2540,6 +2554,11 @@ bool CSSStyleSelector::SelectorChecker::checkOneSelector(CSSSelector* sel, Eleme
                     break;
                 return true;
             }
+            case CSSSelector::PseudoLeftPage:
+            case CSSSelector::PseudoRightPage:
+            case CSSSelector::PseudoFirstPage:
+                // Page media related pseudo-classes are not handled yet.
+                return false;
             case CSSSelector::PseudoUnknown:
             case CSSSelector::PseudoNotParsed:
             default:
@@ -2666,7 +2685,9 @@ CSSValue* CSSStyleSelector::resolveVariableDependentValue(CSSVariableDependentVa
 CSSRuleSet::CSSRuleSet()
 {
     m_universalRules = 0;
+    m_pageRules = 0;
     m_ruleCount = 0;
+    m_pageRuleCount = 0;
 }
 
 CSSRuleSet::~CSSRuleSet()
@@ -2676,6 +2697,7 @@ CSSRuleSet::~CSSRuleSet()
     deleteAllValues(m_tagRules);
 
     delete m_universalRules; 
+    delete m_pageRules;
 }
 
 
@@ -2715,6 +2737,14 @@ void CSSRuleSet::addRule(CSSStyleRule* rule, CSSSelector* sel)
         m_universalRules->append(m_ruleCount++, rule, sel);
 }
 
+void CSSRuleSet::addPageRule(CSSStyleRule* rule, CSSSelector* sel)
+{
+    if (!m_pageRules)
+        m_pageRules = new CSSRuleDataList(m_pageRuleCount++, rule, sel);
+    else
+        m_pageRules->append(m_pageRuleCount++, rule, sel);
+}
+
 void CSSRuleSet::addRulesFromSheet(CSSStyleSheet* sheet, const MediaQueryEvaluator& medium, CSSStyleSelector* styleSelector)
 {
     if (!sheet)
@@ -2730,9 +2760,14 @@ void CSSRuleSet::addRulesFromSheet(CSSStyleSheet* sheet, const MediaQueryEvaluat
     for (int i = 0; i < len; i++) {
         StyleBase* item = sheet->item(i);
         if (item->isStyleRule()) {
-            CSSStyleRule* rule = static_cast<CSSStyleRule*>(item);
-            for (CSSSelector* s = rule->selectorList().first(); s; s = CSSSelectorList::next(s))
-                addRule(rule, s);
+            if (item->isPageRule()) {
+                CSSPageRule* pageRule = static_cast<CSSPageRule*>(item);
+                addPageRule(pageRule, pageRule->selectorList().first());
+            } else {
+                CSSStyleRule* rule = static_cast<CSSStyleRule*>(item);
+                for (CSSSelector* s = rule->selectorList().first(); s; s = CSSSelectorList::next(s))
+                    addRule(rule, s);
+            }
         }
         else if (item->isImportRule()) {
             CSSImportRule* import = static_cast<CSSImportRule*>(item);
@@ -2806,8 +2841,8 @@ static Length convertToLength(CSSPrimitiveValue* primitiveValue, RenderStyle* st
     return l;
 }
 
-void CSSStyleSelector::applyDeclarations(bool applyFirst, bool isImportant,
-                                         int startIndex, int endIndex)
+template <bool applyFirst>
+void CSSStyleSelector::applyDeclarations(bool isImportant, int startIndex, int endIndex)
 {
     if (startIndex == -1)
         return;
@@ -2817,35 +2852,26 @@ void CSSStyleSelector::applyDeclarations(bool applyFirst, bool isImportant,
         CSSMutableStyleDeclaration::const_iterator end = decl->end();
         for (CSSMutableStyleDeclaration::const_iterator it = decl->begin(); it != end; ++it) {
             const CSSProperty& current = *it;
-            // give special priority to font-xxx, color properties
             if (isImportant == current.isImportant()) {
-                bool first;
-                switch (current.id()) {
-                    case CSSPropertyLineHeight:
-                        m_lineHeightValue = current.value();
-                        first = !applyFirst; // we apply line-height later
-                        break;
-                    case CSSPropertyColor:
-                    case CSSPropertyDirection:
-                    case CSSPropertyDisplay:
-                    case CSSPropertyFont:
-                    case CSSPropertyFontSize:
-                    case CSSPropertyFontStyle:
-                    case CSSPropertyFontFamily:
-                    case CSSPropertyFontWeight:
-                    case CSSPropertyWebkitTextSizeAdjust:
-                    case CSSPropertyFontVariant:
-                    case CSSPropertyZoom:
-                        // these have to be applied first, because other properties use the computed
-                        // values of these properties.
-                        first = true;
-                        break;
-                    default:
-                        first = false;
-                        break;
+                int property = current.id();
+
+                if (applyFirst) {
+                    COMPILE_ASSERT(firstCSSProperty == CSSPropertyColor, CSS_color_is_first_property);
+                    COMPILE_ASSERT(CSSPropertyZoom == CSSPropertyColor + 10, CSS_zoom_is_end_of_first_prop_range);
+                    COMPILE_ASSERT(CSSPropertyLineHeight == CSSPropertyZoom + 1, CSS_line_height_is_after_zoom);
+
+                    // give special priority to font-xxx, color properties, etc
+                    if (property <= CSSPropertyLineHeight) {
+                        // we apply line-height later
+                        if (property == CSSPropertyLineHeight)
+                            m_lineHeightValue = current.value(); 
+                        else 
+                            applyProperty(current.id(), current.value());
+                    }
+                } else {
+                    if (property > CSSPropertyLineHeight)
+                        applyProperty(current.id(), current.value());
                 }
-                if (first == applyFirst)
-                    applyProperty(current.id(), current.value());
             }
         }
     }
@@ -5294,6 +5320,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     case CSSPropertyWebkitTextStroke:
     case CSSPropertyWebkitVariableDeclarationBlock:
         return;
+<<<<<<< HEAD:WebCore/css/CSSStyleSelector.cpp
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     case CSSPropertyWebkitTapHighlightColor: {
         HANDLE_INHERIT_AND_INITIAL(tapHighlightColor, TapHighlightColor);
@@ -5305,6 +5332,25 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
     }
 #endif
+=======
+#if ENABLE(WCSS)
+    case CSSPropertyWapInputFormat:
+        if (primitiveValue && m_element->hasTagName(WebCore::inputTag)) {
+            String mask = primitiveValue->getStringValue();
+            static_cast<HTMLInputElement*>(m_element)->setWapInputFormat(mask);
+        }
+        return;
+
+    case CSSPropertyWapInputRequired:
+        if (primitiveValue && m_element->isFormControlElement()) {
+            HTMLFormControlElement* element = static_cast<HTMLFormControlElement*>(m_element);
+            bool required = primitiveValue->getStringValue() == "true";
+            element->setRequired(required);
+        }
+        return;
+#endif 
+
+>>>>>>> webkit.org at r58956:WebCore/css/CSSStyleSelector.cpp
 #if ENABLE(SVG)
     default:
         // Try the SVG properties

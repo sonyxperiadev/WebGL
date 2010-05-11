@@ -72,6 +72,29 @@ PassRefPtr<Scrollbar> ScrollView::createScrollbar(ScrollbarOrientation orientati
         return Scrollbar::createNativeScrollbar(this, orientation, RegularScrollbar);
 }
 
+#if !GTK_CHECK_VERSION(2, 14, 0)
+#define gtk_adjustment_configure AdjustmentConfigure
+
+static void AdjustmentConfigure(GtkAdjustment* adjustment, gdouble value, gdouble lower, gdouble upper,
+                                gdouble stepIncrement, gdouble pageIncrement, gdouble pageSize)
+{
+    g_object_freeze_notify(G_OBJECT(adjustment));
+
+    g_object_set(adjustment,
+                 "lower", lower,
+                 "upper", upper,
+                 "step-increment", stepIncrement,
+                 "page-increment", pageIncrement,
+                 "page-size", pageSize,
+                 NULL);
+
+    g_object_thaw_notify(G_OBJECT(adjustment));
+
+    gtk_adjustment_changed(adjustment);
+    gtk_adjustment_value_changed(adjustment);
+}
+#endif
+
 /*
  * The following is assumed:
  *   (hadj && vadj) || (!hadj && !vadj)
@@ -100,17 +123,22 @@ void ScrollView::setGtkAdjustments(GtkAdjustment* hadj, GtkAdjustment* vadj, boo
         // set in the normal case), we make sure they are up-to-date
         // here. This is needed for the parent scrolling widget to be
         // able to report correct values.
-        m_horizontalAdjustment->lower = 0;
-        m_horizontalAdjustment->upper = resetValues ? 0 : frameRect().width();
-        m_horizontalAdjustment->value = resetValues ? 0 : scrollOffset().width();
-        gtk_adjustment_changed(m_horizontalAdjustment);
-        gtk_adjustment_value_changed(m_horizontalAdjustment);
 
-        m_verticalAdjustment->lower = 0;
-        m_verticalAdjustment->upper = resetValues ? 0 : frameRect().height();
-        m_verticalAdjustment->value = resetValues ? 0 : scrollOffset().height();
-        gtk_adjustment_changed(m_verticalAdjustment);
-        gtk_adjustment_value_changed(m_verticalAdjustment);
+        int horizontalPageStep = max(max<int>(frameRect().width() * Scrollbar::minFractionToStepWhenPaging(), frameRect().width() - Scrollbar::maxOverlapBetweenPages()), 1);
+        gtk_adjustment_configure(m_horizontalAdjustment,
+                                 resetValues ? 0 : scrollOffset().width(), 0,
+                                 resetValues ? 0 : contentsSize().width(),
+                                 resetValues ? 0 : Scrollbar::pixelsPerLineStep(),
+                                 resetValues ? 0 : horizontalPageStep,
+                                 resetValues ? 0 : frameRect().width());
+
+        int verticalPageStep = max(max<int>(frameRect().height() * Scrollbar::minFractionToStepWhenPaging(), frameRect().height() - Scrollbar::maxOverlapBetweenPages()), 1);
+        gtk_adjustment_configure(m_verticalAdjustment,
+                                 resetValues ? 0 : scrollOffset().height(), 0,
+                                 resetValues ? 0 : contentsSize().height(),
+                                 resetValues ? 0 : Scrollbar::pixelsPerLineStep(),
+                                 resetValues ? 0 : verticalPageStep,
+                                 resetValues ? 0 : frameRect().height());
     } else {
         ScrollbarGtk* hScrollbar = reinterpret_cast<ScrollbarGtk*>(horizontalScrollbar());
         if (hScrollbar)

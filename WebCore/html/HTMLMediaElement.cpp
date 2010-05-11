@@ -59,6 +59,7 @@
 #include "RenderVideo.h"
 #include "RenderView.h"
 #include "ScriptEventListener.h"
+#include "Settings.h"
 #include "TimeRanges.h"
 #include <limits>
 #include <wtf/CurrentTime.h>
@@ -92,6 +93,7 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document* doc)
     , m_webkitPreservesPitch(true)
     , m_networkState(NETWORK_EMPTY)
     , m_readyState(HAVE_NOTHING)
+    , m_readyStateMaximum(HAVE_NOTHING)
     , m_volume(1.0f)
     , m_lastSeekTime(0)
     , m_previousProgress(0)
@@ -126,6 +128,7 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document* doc)
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     , m_needWidgetUpdate(false)
 #endif
+    , m_dispatchingCanPlayEvent(false)
 {
     document()->registerForDocumentActivationCallbacks(this);
     document()->registerForMediaVolumeCallbacks(this);
@@ -358,8 +361,14 @@ void HTMLMediaElement::asyncEventTimerFired(Timer<HTMLMediaElement>*)
 
     m_pendingEvents.swap(pendingEvents);
     unsigned count = pendingEvents.size();
-    for (unsigned ndx = 0; ndx < count; ++ndx) 
-        dispatchEvent(pendingEvents[ndx].release(), ec);
+    for (unsigned ndx = 0; ndx < count; ++ndx) {
+        if (pendingEvents[ndx]->type() == eventNames().canplayEvent) {
+            m_dispatchingCanPlayEvent = true;
+            dispatchEvent(pendingEvents[ndx].release(), ec);
+            m_dispatchingCanPlayEvent = false;
+        } else
+            dispatchEvent(pendingEvents[ndx].release(), ec);
+    }
 }
 
 void HTMLMediaElement::loadTimerFired(Timer<HTMLMediaElement>*)
@@ -493,6 +502,7 @@ void HTMLMediaElement::prepareForLoad()
     if (m_networkState != NETWORK_EMPTY) {
         m_networkState = NETWORK_EMPTY;
         m_readyState = HAVE_NOTHING;
+        m_readyStateMaximum = HAVE_NOTHING;
         m_paused = true;
         m_seeking = false;
         scheduleEvent(eventNames().emptiedEvent);
@@ -858,6 +868,9 @@ void HTMLMediaElement::setReadyState(MediaPlayer::ReadyState state)
     if (m_readyState == oldState)
         return;
     
+    if (oldState > m_readyStateMaximum)
+        m_readyStateMaximum = oldState;
+
     if (m_networkState == NETWORK_EMPTY)
         return;
 
@@ -1190,6 +1203,17 @@ void HTMLMediaElement::play(bool isUserGesture)
     if (m_restrictions & RequireUserGestureForRateChangeRestriction && !isUserGesture)
         return;
 
+    Document* doc = document();
+    Settings* settings = doc->settings();
+    if (settings && settings->needsSiteSpecificQuirks() && m_dispatchingCanPlayEvent) {
+        // It should be impossible to be processing the canplay event while handling a user gesture
+        // since it is dispatched asynchronously.
+        ASSERT(!isUserGesture);
+        String host = doc->baseURL().host();
+        if (host.endsWith(".npr.org", false) || equalIgnoringCase(host, "npr.org"))
+            return;
+    }
+    
     playInternal();
 }
 
@@ -1634,7 +1658,11 @@ PassRefPtr<TimeRanges> HTMLMediaElement::seekable() const
 
 bool HTMLMediaElement::potentiallyPlaying() const
 {
-    return m_readyState >= HAVE_FUTURE_DATA && couldPlayIfEnoughData();
+    // "pausedToBuffer" means the media engine's rate is 0, but only because it had to stop playing
+    // when it ran out of buffered data. A movie is this state is "potentially playing", modulo the
+    // checks in couldPlayIfEnoughData().
+    bool pausedToBuffer = m_readyStateMaximum >= HAVE_FUTURE_DATA && m_readyState < HAVE_FUTURE_DATA;
+    return (pausedToBuffer || m_readyState >= HAVE_FUTURE_DATA) && couldPlayIfEnoughData();
 }
 
 bool HTMLMediaElement::couldPlayIfEnoughData() const

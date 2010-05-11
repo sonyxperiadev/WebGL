@@ -41,6 +41,9 @@ The script does the following for each platform specified:
 At the end, the script generates a html that compares old and new baselines.
 """
 
+from __future__ import with_statement
+
+import codecs
 import copy
 import logging
 import optparse
@@ -54,6 +57,8 @@ import time
 import urllib
 import webbrowser
 import zipfile
+
+from webkitpy.common.system.executive import run_command
 
 import port
 from layout_package import test_expectations
@@ -93,7 +98,9 @@ def run_shell_with_return_code(command, print_output=False):
     """
 
     # Use a shell for subcommands on Windows to get a PATH search.
+    # FIXME: shell=True is a trail of tears, and should be removed.
     use_shell = sys.platform.startswith('win')
+    # Note: Not thread safe: http://bugs.python.org/issue2320
     p = subprocess.Popen(command, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT, shell=use_shell)
     if print_output:
@@ -278,10 +285,10 @@ class Rebaseliner(object):
     def get_rebaselining_tests(self):
         return self._rebaselining_tests
 
+    # FIXME: Callers should use scm.py instead.
     def _get_repo_type(self):
         """Get the repository type that client is using."""
-        output, return_code = run_shell_with_return_code(['svn', 'info'],
-                                                         False)
+        return_code = run_command(['svn', 'info'], return_exit_code=True)
         if return_code == 0:
             return REPO_SVN
 
@@ -598,12 +605,14 @@ class Rebaseliner(object):
                     os.remove(backup_file)
                 _log.info('Saving original file to "%s"', backup_file)
                 os.rename(path, backup_file)
-            f = open(path, "w")
-            f.write(new_expectations)
-            f.close()
+            # FIXME: What encoding are these files?
+            # Or is new_expectations always a byte array?
+            with open(path, "w") as file:
+                file.write(new_expectations)
         else:
             _log.info('No test was rebaselined so nothing to remove.')
 
+    # FIXME: Callers should move to SCM.add instead.
     def _svn_add(self, filename):
         """Add the file to SVN repository.
 
@@ -715,9 +724,10 @@ class Rebaseliner(object):
         base_file = get_result_file_fullpath(self._options.html_directory,
                                              baseline_filename, self._platform,
                                              'old')
-        f = open(base_file, 'wb')
-        f.write(output)
-        f.close()
+        # FIXME: This assumes run_shell returns a byte array.
+        # We should be using an explicit encoding here.
+        with open(base_file, "wb") as file:
+            file.write(output)
         _log.info('  Html: created old baseline file: "%s".',
                   base_file)
 
@@ -748,9 +758,9 @@ class Rebaseliner(object):
                 diff_file = get_result_file_fullpath(
                     self._options.html_directory, baseline_filename,
                     self._platform, 'diff')
-                f = open(diff_file, 'wb')
-                f.write(output)
-                f.close()
+                # FIXME: This assumes run_shell returns a byte array, not unicode()
+                with open(diff_file, 'wb') as file:
+                    file.write(output)
                 _log.info('  Html: created baseline diff file: "%s".',
                           diff_file)
 
@@ -835,9 +845,8 @@ class HtmlGenerator(object):
                                         'body': html_body})
         _log.debug(html)
 
-        f = open(self._html_file, 'w')
-        f.write(html)
-        f.close()
+        with codecs.open(self._html_file, "w", "utf-8") as file:
+            file.write(html)
 
         _log.info('Baseline comparison html generated at "%s"',
                   self._html_file)

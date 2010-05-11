@@ -101,12 +101,14 @@ void PluginView::updatePluginWidget()
         setNPWindowIfNeeded();
 }
 
-void PluginView::setFocus()
+void PluginView::setFocus(bool focused)
 {
-    if (platformPluginWidget())
-        platformPluginWidget()->setFocus(Qt::OtherFocusReason);
-    else
-        Widget::setFocus();
+    if (platformPluginWidget()) {
+        if (focused)
+            platformPluginWidget()->setFocus(Qt::OtherFocusReason);
+    } else {
+        Widget::setFocus(focused);
+    }
 }
 
 void PluginView::show()
@@ -304,7 +306,7 @@ void PluginView::setParentVisible(bool visible)
         platformPluginWidget()->setVisible(visible);
 }
 
-NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32 len, const char* buf)
+NPError PluginView::handlePostReadFile(Vector<char>& buffer, uint32_t len, const char* buf)
 {
     notImplemented();
     return NPERR_NO_ERROR;
@@ -414,11 +416,11 @@ bool PluginView::platformStart()
 
 void PluginView::platformDestroy()
 {
-    QWebPageClient* client = m_parentFrame->view()->hostWindow()->platformPageClient();
-    if (client && qobject_cast<QGraphicsWebView*>(client->pluginParent()))
-        delete static_cast<PluginContainerSymbian*>(platformPluginWidget())->proxy();
-    else
-        delete platformPluginWidget();
+    if (platformPluginWidget()) {
+        PluginContainerSymbian* container = static_cast<PluginContainerSymbian*>(platformPluginWidget());
+        delete container->proxy();
+        delete container;
+    }
 }
 
 void PluginView::halt()

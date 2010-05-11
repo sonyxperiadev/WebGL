@@ -74,6 +74,7 @@
 #include "WebURLRequest.h"
 #include "WebViewClient.h"
 #include "WebViewImpl.h"
+#include "WebWindowFeatures.h"
 #include "WindowFeatures.h"
 #include "WrappedResourceRequest.h"
 
@@ -233,7 +234,7 @@ Page* ChromeClientImpl::createWindow(
         return 0;
 
     WebViewImpl* newView = static_cast<WebViewImpl*>(
-        m_webView->client()->createView(WebFrameImpl::fromFrame(frame)));
+        m_webView->client()->createView(WebFrameImpl::fromFrame(frame), features));
     if (!newView)
         return 0;
 
@@ -622,15 +623,11 @@ void ChromeClientImpl::popupOpened(PopupContainer* popupContainer,
     } else {
         webwidget = m_webView->client()->createPopupMenu(
             convertPopupType(popupContainer->popupType()));
-        // Try the deprecated methods.
-        // FIXME: Remove the deprecated methods once the Chromium side use the
-        //        new method.
-        if (!webwidget)
-            webwidget = m_webView->client()->createPopupMenu();
-        if (!webwidget)
-            webwidget = m_webView->client()->createPopupMenu(false);
+        // We only notify when the WebView has to handle the popup, as when
+        // the popup is handled externally, the fact that a popup is showing is
+        // transparent to the WebView.
+        m_webView->popupOpened(popupContainer);
     }
-    m_webView->popupOpened(popupContainer);
     static_cast<WebPopupMenuImpl*>(webwidget)->Init(popupContainer, bounds);
 }
 

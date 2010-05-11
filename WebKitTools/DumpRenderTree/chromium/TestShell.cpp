@@ -138,6 +138,7 @@ void TestShell::resetWebSettings(WebView& webView)
     settings->setMinimumFontSize(1);
     settings->setMinimumLogicalFontSize(9);
     settings->setJavaScriptCanOpenWindowsAutomatically(true);
+    settings->setJavaScriptCanAccessClipboard(true);
     settings->setDOMPasteAllowed(true);
     settings->setDeveloperExtrasEnabled(false);
     settings->setNeedsSiteSpecificQuirks(true);
@@ -540,7 +541,7 @@ string TestShell::dumpImage(skia::PlatformCanvas* canvas, const string& expected
             static_cast<int>(sourceBitmap.rowBytes()), discardTransparency, &png);
 
         printf("Content-Type: image/png\n");
-        printf("Content-Length: %u\n", png.size());
+        printf("Content-Length: %lu\n", png.size());
         // Write to disk.
         if (fwrite(&png[0], 1, png.size(), stdout) != png.size())
             FATAL("Short write to stdout.\n");

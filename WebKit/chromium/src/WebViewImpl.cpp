@@ -183,7 +183,9 @@ void WebView::willEnterModalLoop()
 
     PageGroup* pageGroup = PageGroup::pageGroup(pageGroupName);
     ASSERT(pageGroup);
-    ASSERT(!pageGroup->pages().isEmpty());
+
+    if (pageGroup->pages().isEmpty())
+        return;
 
     // Pick any page in the page group since we are deferring all pages.
     pageGroupLoadDeferrer = new PageGroupLoadDeferrer(*pageGroup->pages().begin(), true);
@@ -191,9 +193,6 @@ void WebView::willEnterModalLoop()
 
 void WebView::didExitModalLoop()
 {
-    // The embedder must have called willEnterNestedEventLoop.
-    ASSERT(pageGroupLoadDeferrer);
-
     delete pageGroupLoadDeferrer;
     pageGroupLoadDeferrer = 0;
 }
@@ -243,13 +242,14 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     , m_haveMouseCapture(false)
 #if USE(ACCELERATED_COMPOSITING)
     , m_layerRenderer(0)
-    , m_isAcceleratedCompositing(false)
+    , m_isAcceleratedCompositingActive(false)
 #endif
 {
     // WebKit/win/WebView.cpp does the same thing, except they call the
     // KJS specific wrapper around this method. We need to have threading
     // initialized because CollatorICU requires it.
     WTF::initializeThreading();
+    WTF::initializeMainThread();
 
     // set to impossible point so we always get the first mouse pos
     m_lastMousePosition = WebPoint(-1, -1);
@@ -326,9 +326,15 @@ void WebViewImpl::mouseDown(const WebMouseEvent& event)
     if (!mainFrameImpl() || !mainFrameImpl()->frameView())
         return;
 
-    // If there is a select popup opened, close it as the user is clicking on
-    // the page (outside of the popup).
-    hideSelectPopup();
+    // If there is a select popup open, close it as the user is clicking on
+    // the page (outside of the popup).  We also save it so we can prevent a
+    // click on the select element from immediately reopening the popup.
+    RefPtr<WebCore::PopupContainer> selectPopup;
+    if (event.button == WebMouseEvent::ButtonLeft) {
+        selectPopup = m_selectPopup;
+        hideSelectPopup();
+        ASSERT(!m_selectPopup);
+    }
 
     m_lastMouseDownPoint = WebPoint(event.x, event.y);
     m_haveMouseCapture = true;
@@ -361,6 +367,13 @@ void WebViewImpl::mouseDown(const WebMouseEvent& event)
         // Focus has not changed, show the suggestions popup.
         static_cast<EditorClientImpl*>(m_page->editorClient())->
             showFormAutofillForNode(clickedNode.get());
+    }
+    if (m_selectPopup && m_selectPopup == selectPopup) {
+        // That click triggered a select popup which is the same as the one that
+        // was showing before the click.  It means the user clicked the select
+        // while the popup was showing, and as a result we first closed then
+        // immediately reopened the select popup.  It needs to be closed.
+        hideSelectPopup();
     }
 
     // Dispatch the contextmenu event regardless of if the click was swallowed.
@@ -849,6 +862,14 @@ void  WebViewImpl::popupClosed(WebCore::PopupContainer* popupContainer)
     }
 }
 
+void WebViewImpl::hideSuggestionsPopup()
+{
+    if (m_suggestionsPopupShowing) {
+        m_suggestionsPopup->hidePopup();
+        m_suggestionsPopupShowing = false;
+    }
+}
+
 Frame* WebViewImpl::focusedWebCoreFrame()
 {
     return m_page.get() ? m_page->focusController()->focusedOrMainFrame() : 0;
@@ -931,7 +952,7 @@ void WebViewImpl::paint(WebCanvas* canvas, const WebRect& rect)
 {
 
 #if USE(ACCELERATED_COMPOSITING)
-    if (!isAcceleratedCompositing()) {
+    if (!isAcceleratedCompositingActive()) {
 #endif
         WebFrameImpl* webframe = mainFrameImpl();
         if (webframe)
@@ -1265,6 +1286,15 @@ void WebViewImpl::setTextDirection(WebTextDirection direction)
         notImplemented();
         break;
     }
+}
+
+bool WebViewImpl::isAcceleratedCompositingActive() const
+{
+#if USE(ACCELERATED_COMPOSITING)
+    return m_isAcceleratedCompositingActive;
+#else
+    return false;
+#endif
 }
 
 // WebView --------------------------------------------------------------------
@@ -1667,14 +1697,6 @@ WebAccessibilityObject WebViewImpl::accessibilityObject()
         document->axObjectCache()->getOrCreate(document->renderer()));
 }
 
-void WebViewImpl::applyAutofillSuggestions(
-    const WebNode& node,
-    const WebVector<WebString>& suggestions,
-    int defaultSuggestionIndex)
-{
-    applyAutocompleteSuggestions(node, suggestions, defaultSuggestionIndex);
-}
-
 void WebViewImpl::applyAutoFillSuggestions(
     const WebNode& node,
     const WebVector<WebString>& names,
@@ -1789,17 +1811,10 @@ void WebViewImpl::applyAutocompleteSuggestions(
     }
 }
 
-void WebViewImpl::hideAutofillPopup()
+void WebViewImpl::hidePopups()
 {
+    hideSelectPopup();
     hideSuggestionsPopup();
-}
-
-void WebViewImpl::hideSuggestionsPopup()
-{
-    if (m_suggestionsPopupShowing) {
-        m_suggestionsPopup->hidePopup();
-        m_suggestionsPopupShowing = false;
-    }
 }
 
 void WebViewImpl::performCustomContextMenuAction(unsigned action)
@@ -2038,29 +2053,29 @@ bool WebViewImpl::tabsToLinks() const
 #if USE(ACCELERATED_COMPOSITING)
 void WebViewImpl::setRootGraphicsLayer(WebCore::PlatformLayer* layer)
 {
-    setAcceleratedCompositing(layer ? true : false);
+    setIsAcceleratedCompositingActive(layer ? true : false);
     if (m_layerRenderer)
         m_layerRenderer->setRootLayer(layer);
 }
 
-void WebViewImpl::setAcceleratedCompositing(bool accelerated)
+void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
 {
-    if (m_isAcceleratedCompositing == accelerated)
+    if (m_isAcceleratedCompositingActive == active)
         return;
 
-    if (accelerated) {
+    if (active) {
         m_layerRenderer = LayerRendererChromium::create();
         if (m_layerRenderer)
-            m_isAcceleratedCompositing = true;
+            m_isAcceleratedCompositingActive = true;
     } else {
         m_layerRenderer = 0;
-        m_isAcceleratedCompositing = false;
+        m_isAcceleratedCompositingActive = false;
     }
 }
 
 void WebViewImpl::updateRootLayerContents(const WebRect& rect)
 {
-    if (!isAcceleratedCompositing())
+    if (!isAcceleratedCompositingActive())
         return;
 
     WebFrameImpl* webframe = mainFrameImpl();

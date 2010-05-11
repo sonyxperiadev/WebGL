@@ -29,6 +29,7 @@
 #include "Document.h"
 #include "HTMLNames.h"
 #include "MappedAttributeEntry.h"
+#include "NamedNodeMap.h"
 #include "QualifiedName.h"
 #include "ScrollTypes.h"
 
@@ -236,9 +237,9 @@ public:
     // Use Document::registerForMediaVolumeCallbacks() to subscribe to this
     virtual void mediaVolumeDidChange() { }
 
-    bool isFinishedParsingChildren() const { return m_parsingChildrenFinished; }
+    bool isFinishedParsingChildren() const { return isParsingChildrenFinished(); }
     virtual void finishParsingChildren();
-    virtual void beginParsingChildren() { m_parsingChildrenFinished = false; }
+    virtual void beginParsingChildren() { clearIsParsingChildrenFinished(); }
 
     // ElementTraversal API
     Element* firstElementChild() const;
@@ -252,6 +253,7 @@ public:
     virtual bool isFormControlElement() const { return false; }
     virtual bool isEnabledFormControl() const { return true; }
     virtual bool isReadOnlyFormControl() const { return false; }
+    virtual bool isSpinButtonElement() const { return false; }
     virtual bool isTextFormControl() const { return false; }
     virtual bool isOptionalFormControl() const { return false; }
     virtual bool isRequiredFormControl() const { return false; }
@@ -272,7 +274,11 @@ public:
     virtual void dispatchFormControlChangeEvent() { }
 
 protected:
-    Element(const QualifiedName&, Document*, ConstructionType);
+    Element(const QualifiedName& tagName, Document* document, ConstructionType type)
+        : ContainerNode(document, type)
+        , m_tagName(tagName)
+    {
+    }
 
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
@@ -356,11 +362,11 @@ inline const QualifiedName& Element::idAttributeName() const
 
 inline NamedNodeMap* Element::attributes(bool readonly) const
 {
-    if (!m_isStyleAttributeValid)
+    if (!isStyleAttributeValid())
         updateStyleAttribute();
 
 #if ENABLE(SVG)
-    if (!m_areSVGAttributesValid)
+    if (!areSVGAttributesValid())
         updateAnimatedSVGAttribute(anyQName());
 #endif
 

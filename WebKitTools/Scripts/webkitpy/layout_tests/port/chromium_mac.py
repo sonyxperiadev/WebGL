@@ -33,9 +33,10 @@ import logging
 import os
 import platform
 import signal
-import subprocess
 
 import chromium
+
+from webkitpy.common.system.executive import Executive
 
 _log = logging.getLogger("webkitpy.layout_tests.port.chromium_mac")
 
@@ -65,6 +66,15 @@ class ChromiumMacPort(chromium.ChromiumPort):
             _log.error('    http://code.google.com/p/chromium/wiki/'
                        'MacBuildInstructions')
         return result
+
+    def default_child_processes(self):
+        # FIXME: we need to run single-threaded for now. See
+        # https://bugs.webkit.org/show_bug.cgi?id=38553. Unfortunately this
+        # routine is called right before the logger is configured, so if we
+        # try to _log.warning(), it gets thrown away.
+        import sys
+        sys.stderr.write("Defaulting to one child - see https://bugs.webkit.org/show_bug.cgi?id=38553\n")
+        return 1
 
     def driver_name(self):
         """name for this port's equivalent of DumpRenderTree."""
@@ -99,32 +109,17 @@ class ChromiumMacPort(chromium.ChromiumPort):
         return self.path_from_chromium_base('xcodebuild', *comps)
 
     def _check_wdiff_install(self):
-        f = open(os.devnull, 'w')
-        rcode = 0
         try:
-            rcode = subprocess.call(['wdiff'], stderr=f)
+            # We're ignoring the return and always returning True
+            self._executive.run_command([self._path_to_wdiff()], error_handler=Executive.ignore_error)
         except OSError:
             _log.warning('wdiff not found. Install using MacPorts or some '
                          'other means')
-            pass
-        f.close()
         return True
 
     def _lighttpd_path(self, *comps):
         return self.path_from_chromium_base('third_party', 'lighttpd',
                                             'mac', *comps)
-
-    def _kill_all_process(self, process_name):
-        """Kill any processes running under this name."""
-        # On Mac OS X 10.6, killall has a new constraint: -SIGNALNAME or
-        # -SIGNALNUMBER must come first.  Example problem:
-        #   $ killall -u $USER -TERM lighttpd
-        #   killall: illegal option -- T
-        # Use of the earlier -TERM placement is just fine on 10.5.
-        null = open(os.devnull)
-        subprocess.call(['killall', '-TERM', '-u', os.getenv('USER'),
-                        process_name], stderr=null)
-        null.close()
 
     def _path_to_apache(self):
         return '/usr/sbin/httpd'
@@ -177,8 +172,8 @@ class ChromiumMacPort(chromium.ChromiumPort):
             # TODO(mmoss) This isn't ideal, since it could conflict with
             # lighttpd processes not started by http_server.py,
             # but good enough for now.
-            self._kill_all_process('lighttpd')
-            self._kill_all_process('httpd')
+            self._executive.kill_all('lighttpd')
+            self._executive.kill_all('httpd')
         else:
             try:
                 os.kill(server_pid, signal.SIGTERM)

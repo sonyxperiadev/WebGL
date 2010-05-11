@@ -24,7 +24,7 @@
  * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
 #include "config.h"
@@ -55,6 +55,7 @@
 #include "InjectedScript.h"
 #include "InjectedScriptHost.h"
 #include "InspectorBackend.h"
+#include "InspectorCSSStore.h"
 #include "InspectorClient.h"
 #include "InspectorFrontendClient.h"
 #include "InspectorDOMStorageResource.h"
@@ -144,6 +145,7 @@ InspectorController::InspectorController(Page* page, InspectorClient* client)
     : m_inspectedPage(page)
     , m_client(client)
     , m_openingFrontend(false)
+    , m_cssStore(new InspectorCSSStore())
     , m_expiredConsoleMessageCount(0)
     , m_showAfterVisible(CurrentPanel)
     , m_groupLevel(0)
@@ -427,7 +429,7 @@ void InspectorController::setFrontend(PassOwnPtr<InspectorFrontend> frontend)
     m_openingFrontend = false;
     m_frontend = frontend;
     releaseDOMAgent();
-    m_domAgent = InspectorDOMAgent::create(m_frontend.get());
+    m_domAgent = InspectorDOMAgent::create(m_cssStore.get(), m_frontend.get());
     if (m_timelineAgent)
         m_timelineAgent->resetFrontendProxyObject(m_frontend.get());
 #if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
@@ -663,8 +665,11 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
         m_currentUserInitiatedProfileNumber = 1;
         m_nextUserInitiatedProfileNumber = 1;
 #endif
-        // resetScriptObjects should be called before database and DOM storage
+        // unbindAllResources should be called before database and DOM storage
         // resources are cleared so that it has a chance to unbind them.
+        unbindAllResources();
+        
+        m_cssStore->reset();
         if (m_frontend) {
             m_frontend->reset();
             m_domAgent->reset();
@@ -892,15 +897,19 @@ void InspectorController::willSendRequest(unsigned long identifier, const Resour
 
 void InspectorController::didReceiveResponse(unsigned long identifier, const ResourceResponse& response)
 {
-    RefPtr<InspectorResource> resource = getTrackedResource(identifier);
-    if (!resource)
-        return;
+    if (RefPtr<InspectorResource> resource = getTrackedResource(identifier)) {
+        resource->updateResponse(response);
+        resource->markResponseReceivedTime();
 
-    resource->updateResponse(response);
-    resource->markResponseReceivedTime();
+        if (resource != m_mainResource && m_frontend)
+            resource->updateScriptObject(m_frontend.get());
+    }
+    if (response.httpStatusCode() >= 400) {
+        // The ugly code below is due to that String::format() is not utf8-safe at the moment.
+        String message = String::format("Failed to load resource: the server responded with a status of %u (", response.httpStatusCode()) + response.httpStatusText() + ")";
 
-    if (resource != m_mainResource && m_frontend)
-        resource->updateScriptObject(m_frontend.get());
+        addMessageToConsole(OtherMessageSource, LogMessageType, ErrorMessageLevel, message, 0, response.url().string());
+    }
 }
 
 void InspectorController::didReceiveContentLength(unsigned long identifier, int lengthReceived)
@@ -931,10 +940,15 @@ void InspectorController::didFinishLoading(unsigned long identifier)
         resource->updateScriptObject(m_frontend.get());
 }
 
-void InspectorController::didFailLoading(unsigned long identifier, const ResourceError& /*error*/)
+void InspectorController::didFailLoading(unsigned long identifier, const ResourceError& error)
 {
     if (m_timelineAgent)
         m_timelineAgent->didFinishLoadingResource(identifier, true);
+
+    String message = "Failed to load resource";
+    if (!error.localizedDescription().isEmpty())
+        message += ": " + error.localizedDescription();
+    addMessageToConsole(OtherMessageSource, LogMessageType, ErrorMessageLevel, message, 0, error.failingURL());
 
     RefPtr<InspectorResource> resource = getTrackedResource(identifier);
     if (!resource)

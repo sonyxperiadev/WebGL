@@ -54,6 +54,7 @@ namespace WebCore {
     class FrameLoader;
     class HistoryItem;
     class HTMLAppletElement;
+    class HTMLFormElement;
     class HTMLFrameOwnerElement;
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     class HTMLMediaElement;
@@ -62,6 +63,7 @@ namespace WebCore {
     class IntSize;
     class KURL;
     class NavigationAction;
+    class ProtectionSpace;
     class PluginView;
     class PolicyChecker;
     class ResourceError;
@@ -107,6 +109,9 @@ namespace WebCore {
         virtual bool shouldUseCredentialStorage(DocumentLoader*, unsigned long identifier) = 0;
         virtual void dispatchDidReceiveAuthenticationChallenge(DocumentLoader*, unsigned long identifier, const AuthenticationChallenge&) = 0;
         virtual void dispatchDidCancelAuthenticationChallenge(DocumentLoader*, unsigned long identifier, const AuthenticationChallenge&) = 0;        
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+        virtual bool canAuthenticateAgainstProtectionSpace(DocumentLoader*, unsigned long identifier, const ProtectionSpace&) = 0;
+#endif
         virtual void dispatchDidReceiveResponse(DocumentLoader*, unsigned long identifier, const ResourceResponse&) = 0;
         virtual void dispatchDidReceiveContentLength(DocumentLoader*, unsigned long identifier, int lengthReceived) = 0;
         virtual void dispatchDidFinishLoading(DocumentLoader*, unsigned long identifier) = 0;
@@ -126,6 +131,7 @@ namespace WebCore {
         virtual void dispatchDidReceiveIcon() = 0;
         virtual void dispatchDidStartProvisionalLoad() = 0;
         virtual void dispatchDidReceiveTitle(const String& title) = 0;
+        virtual void dispatchDidChangeIcons() = 0;
         virtual void dispatchDidCommitLoad() = 0;
         virtual void dispatchDidFailProvisionalLoad(const ResourceError&) = 0;
         virtual void dispatchDidFailLoad(const ResourceError&) = 0;
@@ -144,6 +150,7 @@ namespace WebCore {
 
         virtual void dispatchUnableToImplementPolicy(const ResourceError&) = 0;
 
+        virtual void dispatchWillSendSubmitEvent(HTMLFormElement*) = 0;
         virtual void dispatchWillSubmitForm(FramePolicyFunction, PassRefPtr<FormState>) = 0;
 
         virtual void dispatchDidLoadMainResource(DocumentLoader*) = 0;
@@ -251,7 +258,7 @@ namespace WebCore {
 #endif
         
 #if PLATFORM(MAC)
-#if ENABLE(MAC_JAVA_BRIDGE)
+#if ENABLE(JAVA_BRIDGE)
         virtual jobject javaApplet(NSView*) { return 0; }
 #endif
         virtual NSCachedURLResponse* willCacheResponse(DocumentLoader*, unsigned long identifier, NSCachedURLResponse*) const = 0;

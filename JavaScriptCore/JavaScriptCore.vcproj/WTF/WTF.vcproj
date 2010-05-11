@@ -239,6 +239,10 @@
 				RelativePath="..\..\wtf\win\MainThreadWin.cpp"
 				>
 			</File>
+			<File
+				RelativePath="..\..\wtf\win\OwnPtrWin.cpp"
+				>
+			</File>
 		</Filter>
 		<File
 			RelativePath="..\..\wtf\AlwaysInline.h"
@@ -254,6 +258,10 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\Assertions.h"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\Atomics.h"
 			>
 		</File>
 		<File
@@ -373,6 +381,14 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\MD5.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\MD5.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\MainThread.cpp"
 			>
 		</File>
@@ -410,10 +426,6 @@
 		</File>
 		<File
 			RelativePath="..\..\wtf\OwnPtrCommon.h"
-			>
-		</File>
-		<File
-			RelativePath="..\..\wtf\OwnPtrWin.cpp"
 			>
 		</File>
 		<File
@@ -505,7 +517,15 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\ThreadingPrimitives.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\ThreadingWin.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\ThreadSafeShared.h"
 			>
 		</File>
 		<File

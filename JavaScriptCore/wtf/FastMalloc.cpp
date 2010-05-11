@@ -1273,8 +1273,12 @@ static const int kScavengeDelayInSeconds = 2;
 // scavenge.
 static const float kScavengePercentage = .5f;
 
-// Number of free committed pages that we want to keep around.
-static const size_t kMinimumFreeCommittedPageCount = 512;
+// number of span lists to keep spans in when memory is returned.
+static const int kMinSpanListsWithSpans = 32;
+
+// Number of free committed pages that we want to keep around.  The minimum number of pages used when there
+// is 1 span in each of the first kMinSpanListsWithSpans spanlists.  Currently 528 pages.
+static const size_t kMinimumFreeCommittedPageCount = kMinSpanListsWithSpans * ((1.0f+kMinSpanListsWithSpans) / 2.0f);
 
 #endif
 
@@ -1534,20 +1538,25 @@ void TCMalloc_PageHeap::scavenge()
     size_t pagesToRelease = min_free_committed_pages_since_last_scavenge_ * kScavengePercentage;
     size_t targetPageCount = std::max<size_t>(kMinimumFreeCommittedPageCount, free_committed_pages_ - pagesToRelease);
 
-    for (int i = kMaxPages; i >= 0 && free_committed_pages_ > targetPageCount; i--) {
-        SpanList* slist = (static_cast<size_t>(i) == kMaxPages) ? &large_ : &free_[i];
-        while (!DLL_IsEmpty(&slist->normal) && free_committed_pages_ > targetPageCount) {
-            Span* s = slist->normal.prev; 
-            DLL_Remove(s);
-            ASSERT(!s->decommitted);
-            if (!s->decommitted) {
-                TCMalloc_SystemRelease(reinterpret_cast<void*>(s->start << kPageShift),
-                                       static_cast<size_t>(s->length << kPageShift));
-                ASSERT(free_committed_pages_ >= s->length);
-                free_committed_pages_ -= s->length;
-                s->decommitted = true;
+    while (free_committed_pages_ > targetPageCount) {
+        for (int i = kMaxPages; i > 0 && free_committed_pages_ >= targetPageCount; i--) {
+            SpanList* slist = (static_cast<size_t>(i) == kMaxPages) ? &large_ : &free_[i];
+            // If the span size is bigger than kMinSpanListsWithSpans pages return all the spans in the list, else return all but 1 span.  
+            // Return only 50% of a spanlist at a time so spans of size 1 are not the only ones left.
+            size_t numSpansToReturn = (i > kMinSpanListsWithSpans) ? DLL_Length(&slist->normal) : static_cast<size_t>(.5 * DLL_Length(&slist->normal));
+            for (int j = 0; static_cast<size_t>(j) < numSpansToReturn && !DLL_IsEmpty(&slist->normal) && free_committed_pages_ > targetPageCount; j++) {
+                Span* s = slist->normal.prev; 
+                DLL_Remove(s);
+                ASSERT(!s->decommitted);
+                if (!s->decommitted) {
+                    TCMalloc_SystemRelease(reinterpret_cast<void*>(s->start << kPageShift),
+                                           static_cast<size_t>(s->length << kPageShift));
+                    ASSERT(free_committed_pages_ >= s->length);
+                    free_committed_pages_ -= s->length;
+                    s->decommitted = true;
+                }
+                DLL_Prepend(&slist->returned, s);
             }
-            DLL_Prepend(&slist->returned, s);
         }
     }
 
@@ -1583,19 +1592,13 @@ inline Span* TCMalloc_PageHeap::New(Length n) {
 
     Span* result = ll->next;
     Carve(result, n, released);
-    if (result->decommitted) {
-        TCMalloc_SystemCommit(reinterpret_cast<void*>(result->start << kPageShift), static_cast<size_t>(n << kPageShift));
-        result->decommitted = false;
-    }
 #if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
-    else {
-        // The newly allocated memory is from a span that's in the normal span list (already committed).  Update the
-        // free committed pages count.
-        ASSERT(free_committed_pages_ >= n);
-        free_committed_pages_ -= n;
-        if (free_committed_pages_ < min_free_committed_pages_since_last_scavenge_)
-            min_free_committed_pages_since_last_scavenge_ = free_committed_pages_;
-    }
+    // The newly allocated memory is from a span that's in the normal span list (already committed).  Update the
+    // free committed pages count.
+    ASSERT(free_committed_pages_ >= n);
+    free_committed_pages_ -= n;
+    if (free_committed_pages_ < min_free_committed_pages_since_last_scavenge_) 
+      min_free_committed_pages_since_last_scavenge_ = free_committed_pages_;
 #endif  // USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
     ASSERT(Check());
     free_pages_ -= n;
@@ -1653,19 +1656,13 @@ Span* TCMalloc_PageHeap::AllocLarge(Length n) {
 
   if (best != NULL) {
     Carve(best, n, from_released);
-    if (best->decommitted) {
-        TCMalloc_SystemCommit(reinterpret_cast<void*>(best->start << kPageShift), static_cast<size_t>(n << kPageShift));
-        best->decommitted = false;
-    }
 #if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
-    else {
-        // The newly allocated memory is from a span that's in the normal span list (already committed).  Update the
-        // free committed pages count.
-        ASSERT(free_committed_pages_ >= n);
-        free_committed_pages_ -= n;
-        if (free_committed_pages_ < min_free_committed_pages_since_last_scavenge_)
-            min_free_committed_pages_since_last_scavenge_ = free_committed_pages_;
-    }
+    // The newly allocated memory is from a span that's in the normal span list (already committed).  Update the
+    // free committed pages count.
+    ASSERT(free_committed_pages_ >= n);
+    free_committed_pages_ -= n;
+    if (free_committed_pages_ < min_free_committed_pages_since_last_scavenge_)
+      min_free_committed_pages_since_last_scavenge_ = free_committed_pages_;
 #endif  // USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
     ASSERT(Check());
     free_pages_ -= n;
@@ -1691,29 +1688,34 @@ Span* TCMalloc_PageHeap::Split(Span* span, Length n) {
   return leftover;
 }
 
-static ALWAYS_INLINE void propagateDecommittedState(Span* destination, Span* source)
-{
-    destination->decommitted = source->decommitted;
-}
-
 inline void TCMalloc_PageHeap::Carve(Span* span, Length n, bool released) {
   ASSERT(n > 0);
   DLL_Remove(span);
   span->free = 0;
   Event(span, 'A', n);
 
+  if (released) {
+    // If the span chosen to carve from is decommited, commit the entire span at once to avoid committing spans 1 page at a time.
+    ASSERT(span->decommitted);
+    TCMalloc_SystemCommit(reinterpret_cast<void*>(span->start << kPageShift), static_cast<size_t>(span->length << kPageShift));
+    span->decommitted = false;
+#if USE_BACKGROUND_THREAD_TO_SCAVENGE_MEMORY
+    free_committed_pages_ += span->length;
+#endif
+  }
+  
   const int extra = static_cast<int>(span->length - n);
   ASSERT(extra >= 0);
   if (extra > 0) {
     Span* leftover = NewSpan(span->start + n, extra);
     leftover->free = 1;
-    propagateDecommittedState(leftover, span);
+    leftover->decommitted = false;
     Event(leftover, 'S', extra);
     RecordSpan(leftover);
 
     // Place leftover span on appropriate free list
     SpanList* listpair = (static_cast<size_t>(extra) < kMaxPages) ? &free_[extra] : &large_;
-    Span* dst = released ? &listpair->returned : &listpair->normal;
+    Span* dst = &listpair->normal;
     DLL_Prepend(dst, leftover);
 
     span->length = n;
@@ -2336,7 +2338,7 @@ static TCMalloc_Central_FreeListPadded central_cache[kNumClasses];
 
 // Page-level allocator
 static SpinLock pageheap_lock = SPINLOCK_INITIALIZER;
-static void* pageheap_memory[(sizeof(TCMalloc_PageHeap) + sizeof(void*) - 1) / sizeof(void*)];
+static AllocAlignmentInteger pageheap_memory[(sizeof(TCMalloc_PageHeap) + sizeof(AllocAlignmentInteger) - 1) / sizeof(AllocAlignmentInteger)];
 static bool phinited = false;
 
 // Avoid extra level of indirection by making "pageheap" be just an alias

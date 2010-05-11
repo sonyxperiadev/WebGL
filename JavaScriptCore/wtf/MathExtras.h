@@ -122,8 +122,10 @@ inline double trunc(double num) { return num > 0 ? floor(num) : ceil(num); }
 #endif
 
 #if COMPILER(MSVC)
-
+// The 64bit version of abs() is already defined in stdlib.h which comes with VC10
+#if COMPILER(MSVC9_OR_LOWER)
 inline long long abs(long long num) { return _abs64(num); }
+#endif
 
 inline bool isinf(double num) { return !_finite(num) && !_isnan(num); }
 inline bool isnan(double num) { return !!_isnan(num); }
@@ -188,7 +190,11 @@ inline float deg2turn(float d) { return d / 360.0f; }
 inline float rad2grad(float r) { return r * 200.0f / piFloat; }
 inline float grad2rad(float g) { return g * piFloat / 200.0f; }
 
+<<<<<<< HEAD:JavaScriptCore/wtf/MathExtras.h
 #if !COMPILER(MSVC) && !COMPILER(RVCT) && !COMPILER(WINSCW)
+=======
+#if !COMPILER(MSVC) && !COMPILER(WINSCW) && !(COMPILER(RVCT) && OS(SYMBIAN))
+>>>>>>> webkit.org at r58956:JavaScriptCore/wtf/MathExtras.h
 using std::isfinite;
 using std::isinf;
 using std::isnan;

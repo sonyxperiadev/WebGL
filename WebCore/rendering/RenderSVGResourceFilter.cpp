@@ -43,6 +43,7 @@
 #include "SVGStyledElement.h"
 #include "SVGUnitTypes.h"
 #include <wtf/Vector.h>
+#include <wtf/UnusedParam.h>
 
 static const float kMaxFilterSize = 5000.0f;
 
@@ -52,8 +53,8 @@ namespace WebCore {
 
 RenderSVGResourceType RenderSVGResourceFilter::s_resourceType = FilterResourceType;
 
-RenderSVGResourceFilter::RenderSVGResourceFilter(SVGStyledElement* node)
-    : RenderSVGResource(node)
+RenderSVGResourceFilter::RenderSVGResourceFilter(SVGFilterElement* node)
+    : RenderSVGResourceContainer(node)
     , m_savedContext(0)
     , m_sourceGraphicBuffer(0)
 {
@@ -88,7 +89,8 @@ void RenderSVGResourceFilter::invalidateClient(RenderObject* object)
     if (!m_filter.contains(object))
         return;
 
-    delete m_filter.take(object); 
+    delete m_filter.take(object);
+    markForLayoutAndResourceInvalidation(object);
 }
 
 PassOwnPtr<SVGFilterBuilder> RenderSVGResourceFilter::buildPrimitives()
@@ -134,10 +136,15 @@ bool RenderSVGResourceFilter::fitsInMaximumImageSize(const FloatSize& size, Floa
     return matchesFilterSize;
 }
 
-bool RenderSVGResourceFilter::applyResource(RenderObject* object, GraphicsContext*& context)
+bool RenderSVGResourceFilter::applyResource(RenderObject* object, RenderStyle*, GraphicsContext*& context, unsigned short resourceMode)
 {
     ASSERT(object);
     ASSERT(context);
+#ifndef NDEBUG
+    ASSERT(resourceMode == ApplyToDefaultMode);
+#else
+    UNUSED_PARAM(resourceMode);
+#endif
 
     // Returning false here, to avoid drawings onto the context. We just want to
     // draw the stored filter output, not the unfiltered object as well.
@@ -154,12 +161,7 @@ bool RenderSVGResourceFilter::applyResource(RenderObject* object, GraphicsContex
     if (!filterData->builder)
         return false;
 
-    const SVGRenderBase* renderer = object->toSVGRenderBase();
-    if (!renderer)
-        return false;
-
-    FloatRect paintRect = renderer->strokeBoundingBox();
-    paintRect.unite(renderer->markerBoundingBox());
+    FloatRect paintRect = object->strokeBoundingBox();
 
     // Calculate the scale factor for the use of filterRes.
     // Also see http://www.w3.org/TR/SVG/filters.html#FilterEffectsRegion
@@ -228,10 +230,15 @@ bool RenderSVGResourceFilter::applyResource(RenderObject* object, GraphicsContex
     return true;
 }
 
-void RenderSVGResourceFilter::postApplyResource(RenderObject* object, GraphicsContext*& context)
+void RenderSVGResourceFilter::postApplyResource(RenderObject* object, GraphicsContext*& context, unsigned short resourceMode)
 {
     ASSERT(object);
     ASSERT(context);
+#ifndef NDEBUG
+    ASSERT(resourceMode == ApplyToDefaultMode);
+#else
+    UNUSED_PARAM(resourceMode);
+#endif
 
     if (!m_filter.contains(object))
         return;

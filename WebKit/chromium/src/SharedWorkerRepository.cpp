@@ -70,6 +70,7 @@ public:
         , m_name(name)
         , m_webWorker(webWorker)
         , m_port(port)
+        , m_scriptLoader(ResourceRequestBase::TargetIsSharedWorker)
         , m_loading(false)
     {
     }

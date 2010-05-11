@@ -49,6 +49,7 @@ class WebApplicationCacheHost;
 class WebApplicationCacheHostClient;
 class WebClipboard;
 class WebCookieJar;
+class WebFileSystem;
 class WebGLES2Context;
 class WebGraphicsContext3D;
 class WebIndexedDatabase;
@@ -70,6 +71,9 @@ public:
     // Must return non-null.
     virtual WebMimeRegistry* mimeRegistry() { return 0; }
 
+    // Must return non-null.
+    virtual WebFileSystem* fileSystem() { return 0; }
+
     // May return null if sandbox support is not necessary
     virtual WebSandboxSupport* sandboxSupport() { return 0; }
 
@@ -84,10 +88,6 @@ public:
 
     // Return a LocalStorage namespace that corresponds to the following path.
     virtual WebStorageNamespace* createLocalStorageNamespace(const WebString& path, unsigned quota) { return 0; }
-
-    // Return a new SessionStorage namespace.
-    // THIS IS DEPRECATED.  WebViewClient::getSessionStorageNamespace() is the new way to access this.
-    virtual WebStorageNamespace* createSessionStorageNamespace() { return 0; }
 
     // Called when storage events fire.
     virtual void dispatchStorageEvent(const WebString& key, const WebString& oldValue,
@@ -263,7 +263,7 @@ public:
     virtual void stopSharedTimer() { }
 
     // Callable from a background WebKit thread.
-    virtual void callOnMainThread(void (*func)()) { }
+    virtual void callOnMainThread(void (*func)(void*), void* context) { }
 
     // WebGL --------------------------------------------------------------
 

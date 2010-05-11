@@ -78,6 +78,7 @@
 #include "HTMLParser.h"
 #include "HTMLStyleElement.h"
 #include "HTMLTitleElement.h"
+#include "HTMLTokenizer.h"
 #include "HTTPParsers.h"
 #include "HistoryItem.h"
 #include "HitTestRequest.h"
@@ -191,6 +192,9 @@
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
+#if USE(V8)
+#include "RuntimeEnabledFeatures.h"
+#endif
 #include "TouchEvent.h"
 #endif
 
@@ -218,6 +222,29 @@ using namespace Unicode;
 namespace WebCore {
 
 using namespace HTMLNames;
+
+class SynchronousHTMLTokenizerGuard {
+public:
+    SynchronousHTMLTokenizerGuard(Tokenizer* tokenizer)
+        : m_htmlTokenizer(tokenizer->asHTMLTokenizer())
+        , m_savedForceSynchronous(false)
+    {
+        if (m_htmlTokenizer) {
+            m_savedForceSynchronous = m_htmlTokenizer->forceSynchronous();
+            m_htmlTokenizer->setForceSynchronous(true);
+        }
+    }
+
+    ~SynchronousHTMLTokenizerGuard()
+    {
+        if (m_htmlTokenizer)
+            m_htmlTokenizer->setForceSynchronous(m_savedForceSynchronous);
+    }
+
+private:
+    HTMLTokenizer* m_htmlTokenizer;
+    bool m_savedForceSynchronous;
+};
 
 // #define INSTRUMENT_LAYOUT_SCHEDULING 1
 
@@ -439,7 +466,7 @@ Document::Document(Frame* frame, bool isXHTML, bool isHTML)
 
     m_textColor = Color::black;
     m_listenerTypes = 0;
-    m_inDocument = true;
+    setInDocument();
     m_inStyleRecalc = false;
     m_closeAfterStyleRecalc = false;
 
@@ -1421,7 +1448,7 @@ void Document::recalcStyle(StyleChange change)
 
 bail_out:
     setNeedsStyleRecalc(NoStyleChange);
-    setChildNeedsStyleRecalc(false);
+    clearChildNeedsStyleRecalc();
     unscheduleStyleRecalc();
 
     if (view())
@@ -1997,8 +2024,11 @@ void Document::write(const SegmentedString& text, Document* ownerDocument)
     if (!m_tokenizer)
         open(ownerDocument);
 
-    ASSERT(m_tokenizer);
-    m_tokenizer->write(text, false);
+    {
+        ASSERT(m_tokenizer);
+        SynchronousHTMLTokenizerGuard tokenizerGuard(m_tokenizer.get());
+        m_tokenizer->write(text, false);
+    }
 
 #ifdef INSTRUMENT_LAYOUT_SCHEDULING
     if (!ownerElement())
@@ -2891,7 +2921,7 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
     m_focusedNode = 0;
 
     // Remove focus from the existing focus node (if any)
-    if (oldFocusedNode && !oldFocusedNode->m_inDetach) { 
+    if (oldFocusedNode && !oldFocusedNode->inDetach()) { 
         if (oldFocusedNode->active())
             oldFocusedNode->setActive(false);
 
@@ -2927,6 +2957,14 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
             
         if (oldFocusedNode == oldFocusedNode->rootEditableElement())
             frame()->editor()->didEndEditing();
+
+        if (view()) {
+            Widget* oldWidget = widgetForNode(oldFocusedNode.get());
+            if (oldWidget)
+                oldWidget->setFocus(false);
+            else
+                view()->setFocus(false);
+        }
     }
 
     if (newFocusedNode) {
@@ -2954,7 +2992,7 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
             focusChangeBlocked = true;
             goto SetFocusedNodeDone;
         }
-        m_focusedNode->setFocus();
+        m_focusedNode->setFocus(true);
 
         if (m_focusedNode == m_focusedNode->rootEditableElement())
             frame()->editor()->didBeginEditing();
@@ -2972,9 +3010,9 @@ bool Document::setFocusedNode(PassRefPtr<Node> newFocusedNode)
                 focusWidget = widgetForNode(m_focusedNode.get());
             }
             if (focusWidget)
-                focusWidget->setFocus();
+                focusWidget->setFocus(true);
             else
-                view()->setFocus();
+                view()->setFocus(true);
         }
     }
 
@@ -3212,7 +3250,11 @@ PassRefPtr<Event> Document::createEvent(const String& eventType, ExceptionCode& 
         event = SVGZoomEvent::create();
 #endif
 #if ENABLE(TOUCH_EVENTS)
+#if USE(V8)
+    else if (eventType == "TouchEvent" && RuntimeEnabledFeatures::touchEnabled())
+#else
     else if (eventType == "TouchEvent")
+#endif
         event = TouchEvent::create();
 #endif
     if (event)
@@ -4543,6 +4585,8 @@ void Document::setIconURL(const String& iconURL, const String& type)
         m_iconURL = iconURL;
     else if (!type.isEmpty())
         m_iconURL = iconURL;
+    if (Frame* f = frame())
+        f->loader()->setIconURL(m_iconURL);
 }
 
 void Document::setUseSecureKeyboardEntryWhenActive(bool usesSecureKeyboard)
@@ -4900,10 +4944,9 @@ void Document::enqueuePageshowEvent(PageshowEventPersistence persisted)
 
 void Document::enqueueHashchangeEvent(const String& /*oldURL*/, const String& /*newURL*/)
 {
-    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=36201 Hashchange event needs to fire asynchronously.
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=36335 Hashchange event is now its own interface and takes two
     //   URL arguments which we need to pass in here.
-    dispatchWindowEvent(Event::create(eventNames().hashchangeEvent, false, false));
+    enqueueEvent(Event::create(eventNames().hashchangeEvent, false, false));
 }
 
 void Document::enqueuePopstateEvent(PassRefPtr<SerializedScriptValue> stateObject)
@@ -4921,7 +4964,7 @@ bool Document::isXHTMLMPDocument() const
     // MUST accept XHTMLMP document identified as "application/vnd.wap.xhtml+xml"
     // and SHOULD accept it identified as "application/xhtml+xml" , "application/xhtml+xml" is a 
     // general MIME type for all XHTML documents, not only for XHTMLMP
-    return frame()->loader()->responseMIMEType() == "application/vnd.wap.xhtml+xml";
+    return frame()->loader()->writer()->mimeType() == "application/vnd.wap.xhtml+xml";
 }
 #endif
 

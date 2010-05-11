@@ -2,6 +2,7 @@
  * Copyright (C) 2007 Luca Bruno <lethalman88@gmail.com>
  * Copyright (C) 2009 Holger Hans Peter Freyther
  * Copyright (C) 2010 Martin Robinson <mrobinson@webkit.org>
+ * Copyright (C) 2010 Igalia S.L.
  * All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -49,8 +50,10 @@ public:
     GtkClipboard* getClipboard(Frame*) const;
     GtkClipboard* getPrimarySelectionClipboard(Frame*) const;
     GtkTargetList* targetList() const;
+    GtkTargetList* targetListForDataObject(DataObjectGtk*);
     void fillSelectionData(GtkSelectionData*, guint, DataObjectGtk*);
-    void writeClipboardContents(GtkClipboard*, GClosure*);
+    void writeClipboardContents(GtkClipboard*, GClosure* closure = 0);
+    void getClipboardContents(GtkClipboard*);
 
     enum PasteboardTargetType { TargetTypeText, TargetTypeMarkup, TargetTypeURIList, TargetTypeNetscapeURL, TargetTypeImage, TargetTypeUnknown };
     virtual guint getIdForTargetType(PasteboardTargetType) = 0;
@@ -61,7 +64,6 @@ protected:
 
 private:
     GtkTargetList* m_targetList;
-    GtkTargetList* targetListForDataObject(DataObjectGtk*);
 };
 
 }

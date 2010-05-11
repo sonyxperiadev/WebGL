@@ -167,6 +167,11 @@ void LayoutTestController::setPrivateBrowsingEnabled(bool privateBrowsingEnabled
     // FIXME: implement
 }
 
+void LayoutTestController::setJavaScriptCanAccessClipboard(bool enabled)
+{
+    // FIXME: implement
+}
+
 void LayoutTestController::setXSSAuditorEnabled(bool enabled)
 {
     // FIXME: implement
@@ -195,6 +200,11 @@ void LayoutTestController::setAuthorAndUserStylesEnabled(bool flag)
 void LayoutTestController::setPopupBlockingEnabled(bool popupBlockingEnabled)
 {
     // FIXME: implement
+}
+
+void LayoutTestController::setPluginsEnabled(bool flag)
+{
+    // FIXME: Implement
 }
 
 bool LayoutTestController::elementDoesAutoCompleteForElementWithId(JSStringRef id) 
@@ -419,6 +429,11 @@ bool LayoutTestController::callShouldCloseOnWebView()
 }
 
 JSRetainPtr<JSStringRef> LayoutTestController::layerTreeAsText() const
+{
+    return 0;
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::markerTextForListItem(JSContextRef context, JSValueRef nodeObject) const
 {
     return 0;
 }

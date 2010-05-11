@@ -29,17 +29,20 @@
 
 """WebKit implementations of the Port interface."""
 
+
+from __future__ import with_statement
+
+import codecs
 import logging
 import os
-import pdb
-import platform
 import re
 import shutil
 import signal
-import subprocess
 import sys
 import time
 import webbrowser
+
+from webkitpy.common.system.executive import Executive
 
 import webkitpy.common.system.ospath as ospath
 import webkitpy.layout_tests.port.base as base
@@ -51,8 +54,8 @@ _log = logging.getLogger("webkitpy.layout_tests.port.webkit")
 class WebKitPort(base.Port):
     """WebKit implementation of the Port class."""
 
-    def __init__(self, port_name=None, options=None):
-        base.Port.__init__(self, port_name, options)
+    def __init__(self, port_name=None, options=None, **kwargs):
+        base.Port.__init__(self, port_name, options, **kwargs)
         self._cached_build_root = None
         self._cached_apache_path = None
 
@@ -134,9 +137,11 @@ class WebKitPort(base.Port):
         sp = server_process.ServerProcess(self, 'ImageDiff', command)
 
         actual_length = os.stat(actual_filename).st_size
-        actual_file = open(actual_filename).read()
+        with open(actual_filename) as file:
+            actual_file = file.read()
         expected_length = os.stat(expected_filename).st_size
-        expected_file = open(expected_filename).read()
+        with open(expected_filename) as file:
+            expected_file = file.read()
         sp.write('Content-Length: %d\n%sContent-Length: %d\n%s' %
                  (actual_length, actual_file, expected_length, expected_file))
 
@@ -165,7 +170,8 @@ class WebKitPort(base.Port):
             if m.group(2) == 'passed':
                 result = False
         elif output and diff_filename:
-            open(diff_filename, 'w').write(output)  # FIXME: This leaks a file handle.
+            with open(diff_filename, 'w') as file:
+                file.write(output)
         elif sp.timed_out:
             _log.error("ImageDiff timed out on %s" % expected_filename)
         elif sp.crashed:
@@ -187,8 +193,8 @@ class WebKitPort(base.Port):
         # FIXME: We should open results in the version of WebKit we built.
         webbrowser.open(uri, new=1)
 
-    def start_driver(self, image_path, options):
-        return WebKitDriver(self, image_path, options)
+    def create_driver(self, image_path, options):
+        return WebKitDriver(self, image_path, options, executive=self._executive)
 
     def test_base_platform_names(self):
         # At the moment we don't use test platform names, but we have
@@ -252,17 +258,16 @@ class WebKitPort(base.Port):
             if not os.path.exists(filename):
                 _log.warn("Failed to open Skipped file: %s" % filename)
                 continue
-            skipped_file = file(filename)
-            tests_to_skip.extend(self._tests_from_skipped_file(skipped_file))
-            skipped_file.close()
+            with codecs.open(filename, "r", "utf-8") as skipped_file:
+                tests_to_skip.extend(self._tests_from_skipped_file(skipped_file))
         return tests_to_skip
 
     def test_expectations(self):
         # The WebKit mac port uses a combination of a test_expectations file
         # and 'Skipped' files.
-        expectations_file = self.path_to_test_expectations_file()
-        expectations = file(expectations_file, "r").read()
-        return expectations + self._skips()
+        expectations_path = self.path_to_test_expectations_file()
+        with codecs.open(expectations_path, "r", "utf-8") as file:
+            return file.read() + self._skips()
 
     def _skips(self):
         # Each Skipped file contains a list of files
@@ -341,28 +346,17 @@ class WebKitPort(base.Port):
 class WebKitDriver(base.Driver):
     """WebKit implementation of the DumpRenderTree interface."""
 
-    def __init__(self, port, image_path, driver_options):
+    def __init__(self, port, image_path, driver_options, executive=Executive()):
         self._port = port
-        self._driver_options = driver_options
+        # FIXME: driver_options is never used.
         self._image_path = image_path
 
+    def start(self):
         command = []
-        # Hook for injecting valgrind or other runtime instrumentation,
-        # used by e.g. tools/valgrind/valgrind_tests.py.
-        wrapper = os.environ.get("BROWSER_WRAPPER", None)
-        if wrapper != None:
-            command += [wrapper]
-        if self._port._options.wrapper:
-            # This split() isn't really what we want -- it incorrectly will
-            # split quoted strings within the wrapper argument -- but in
-            # practice it shouldn't come up and the --help output warns
-            # about it anyway.
-            # FIXME: Use a real shell parser.
-            command += self._options.wrapper.split()
-
-        command += [port._path_to_driver(), '-']
-
-        if image_path:
+        # FIXME: We should not be grabbing at self._port._options.wrapper directly.
+        command += self._command_wrapper(self._port._options.wrapper)
+        command += [self._port._path_to_driver(), '-']
+        if self._image_path:
             command.append('--pixel-tests')
         environment = os.environ
         environment['DYLD_FRAMEWORK_PATH'] = self._port._build_path()
@@ -391,13 +385,12 @@ class WebKitDriver(base.Driver):
             command += "'" + image_hash
         command += "\n"
 
-        # pdb.set_trace()
         self._server_process.write(command)
 
         have_seen_content_type = False
         actual_image_hash = None
-        output = ''
-        image = ''
+        output = str()  # Use a byte array for output, even though it should be UTF-8.
+        image = str()
 
         timeout = int(timeoutms) / 1000.0
         deadline = time.time() + timeout
@@ -409,6 +402,10 @@ class WebKitDriver(base.Driver):
                 have_seen_content_type):
                 have_seen_content_type = True
             else:
+                # Note: Text output from DumpRenderTree is always UTF-8.
+                # However, some tests (e.g. webarchives) spit out binary
+                # data instead of text.  So to make things simple, we
+                # always treat the output as binary.
                 output += line
             line = self._server_process.read_line(timeout)
             timeout = deadline - time.time()
@@ -433,14 +430,24 @@ class WebKitDriver(base.Driver):
             line = self._server_process.read_line(timeout)
 
         if self._image_path and len(self._image_path):
-            image_file = file(self._image_path, "wb")
-            image_file.write(image)
-            image_file.close()
+            with open(self._image_path, "wb") as image_file:
+                image_file.write(image)
+
+        error_lines = self._server_process.error.splitlines()
+        # FIXME: This is a hack.  It is unclear why sometimes
+        # we do not get any error lines from the server_process
+        # probably we are not flushing stderr.
+        if error_lines and error_lines[-1] == "#EOF":
+            error_lines.pop()  # Remove the expected "#EOF"
+        error = "\n".join(error_lines)
+        # FIXME: This seems like the wrong section of code to be doing
+        # this reset in.
+        self._server_process.error = ""
         return (self._server_process.crashed,
                 self._server_process.timed_out,
                 actual_image_hash,
                 output,
-                self._server_process.error)
+                error)
 
     def stop(self):
         if self._server_process:

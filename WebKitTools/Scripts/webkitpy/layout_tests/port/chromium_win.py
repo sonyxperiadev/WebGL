@@ -31,9 +31,6 @@
 
 import logging
 import os
-import platform
-import signal
-import subprocess
 import sys
 
 import chromium
@@ -151,11 +148,7 @@ class ChromiumWinPort(chromium.ChromiumPort):
         Args:
             server_pid: The process ID of the running server.
         """
-        subprocess.Popen(('taskkill.exe', '/f', '/im', 'LightTPD.exe'),
-                        stdin=open(os.devnull, 'r'),
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE).wait()
-        subprocess.Popen(('taskkill.exe', '/f', '/im', 'httpd.exe'),
-                        stdin=open(os.devnull, 'r'),
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE).wait()
+        # FIXME: Why are we ignoring server_pid and calling
+        # _kill_all instead of Executive.kill_process(pid)?
+        self._executive.kill_all("LightTPD.exe")
+        self._executive.kill_all("httpd.exe")

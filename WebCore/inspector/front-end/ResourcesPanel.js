@@ -443,9 +443,6 @@ WebInspector.ResourcesPanel.prototype = {
         if (newView.__proto__ === resource._resourcesView.__proto__)
             return;
 
-        resource.warnings = 0;
-        resource.errors = 0;
-
         if (!this.currentQuery && resource._itemsTreeElement)
             resource._itemsTreeElement.updateErrorsAndWarnings();
 
@@ -490,7 +487,7 @@ WebInspector.ResourcesPanel.prototype = {
         view.show(this.viewsContainerElement);
 
         if (line) {
-            view.selectContentTab();
+            view.selectContentTab(true);
             if (view.revealLine)
                 view.revealLine(line);
             if (view.highlightLine)
@@ -574,6 +571,7 @@ WebInspector.ResourcesPanel.prototype = {
             return;
         }
 
+        this._timelineGrid.removeEventDividers();
         if (this.mainResourceLoadTime !== -1) {
             var percent = this.calculator.computePercentageFromEventTime(this.mainResourceLoadTime);
 
@@ -727,6 +725,11 @@ WebInspector.ResourcesPanel.prototype = {
     searchIteratesOverViews: function()
     {
         return true;
+    },
+
+    elementsToRestoreScrollPositionsFor: function()
+    {
+        return [ this.containerElement ];
     }
 }
 

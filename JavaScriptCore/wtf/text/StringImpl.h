@@ -27,6 +27,7 @@
 #include <wtf/ASCIICType.h>
 #include <wtf/CrossThreadRefCounted.h>
 #include <wtf/OwnFastMallocPtr.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/StringHashFunctions.h>
 #include <wtf/Vector.h>
 #include <wtf/text/StringImplBase.h>
@@ -72,6 +73,7 @@ class StringImpl : public StringImplBase {
     friend struct CStringTranslator;
     friend struct HashAndCharactersTranslator;
     friend struct UCharBufferTranslator;
+    friend class AtomicStringImpl;
 private:
     // Used to construct static strings, which have an special refCount that can never hit zero.
     // This means that the static string will never be destroyed, which is important because
@@ -178,6 +180,7 @@ public:
         return adoptRef(new(resultImpl) StringImpl(length));
     }
 
+    static unsigned dataOffset() { return OBJECT_OFFSETOF(StringImpl, m_data); }
     static PassRefPtr<StringImpl> createWithTerminatingNullCharacter(const StringImpl&);
     static PassRefPtr<StringImpl> createStrippingNullCharacters(const UChar*, unsigned length);
 
@@ -220,8 +223,15 @@ public:
 
     bool hasTerminatingNullCharacter() const { return m_refCountAndFlags & s_refCountFlagHasTerminatingNullCharacter; }
 
-    bool inTable() const { return m_refCountAndFlags & s_refCountFlagInTable; }
-    void setInTable() { m_refCountAndFlags |= s_refCountFlagInTable; }
+    bool isAtomic() const { return m_refCountAndFlags & s_refCountFlagIsAtomic; }
+    void setIsAtomic(bool isIdentifier)
+    {
+        ASSERT(!isStatic());
+        if (isIdentifier)
+            m_refCountAndFlags |= s_refCountFlagIsAtomic;
+        else
+            m_refCountAndFlags &= ~s_refCountFlagIsAtomic;
+    }
 
     unsigned hash() const { if (!m_hash) m_hash = computeHash(m_data, m_length); return m_hash; }
     unsigned existingHash() const { ASSERT(m_hash); return m_hash; }
@@ -317,7 +327,6 @@ private:
     
     BufferOwnership bufferOwnership() const { return static_cast<BufferOwnership>(m_refCountAndFlags & s_refCountMaskBufferOwnership); }
     bool isStatic() const { return m_refCountAndFlags & s_refCountFlagStatic; }
-
     const UChar* m_data;
     union {
         void* m_buffer;

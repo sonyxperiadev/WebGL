@@ -30,20 +30,19 @@
 
 """Front end of some style-checker modules."""
 
-import codecs
 import logging
 import os.path
 import sys
 
+from checkers.common import categories as CommonCategories
+from checkers.common import CarriageReturnChecker
+from checkers.cpp import CppChecker
+from checkers.python import PythonChecker
+from checkers.text import TextChecker
 from error_handlers import DefaultStyleErrorHandler
 from filter import FilterConfiguration
 from optparser import ArgumentParser
 from optparser import DefaultCommandOptionValues
-from processors.common import categories as CommonCategories
-from processors.common import CarriageReturnProcessor
-from processors.cpp import CppProcessor
-from processors.python import PythonProcessor
-from processors.text import TextProcessor
 from webkitpy.style_references import parse_patch
 from webkitpy.style_references import configure_logging as _configure_logging
 
@@ -158,11 +157,51 @@ _PATH_RULES_SPECIFIER = [
 ]
 
 
+_CPP_FILE_EXTENSIONS = [
+    'c',
+    'cpp',
+    'h',
+    ]
+
+_PYTHON_FILE_EXTENSION = 'py'
+
+# FIXME: Include 'vcproj' files as text files after creating a mechanism
+#        for exempting them from the carriage-return checker (since they
+#        are Windows-only files).
+_TEXT_FILE_EXTENSIONS = [
+    'ac',
+    'cc',
+    'cgi',
+    'css',
+    'exp',
+    'flex',
+    'gyp',
+    'gypi',
+    'html',
+    'idl',
+    'in',
+    'js',
+    'mm',
+    'php',
+    'pl',
+    'pm',
+    'pri',
+    'pro',
+    'rb',
+    'sh',
+    'txt',
+#   'vcproj',  # See FIXME above.
+    'wm',
+    'xhtml',
+    'y',
+    ]
+
+
+# Files to skip that are less obvious.
+#
 # Some files should be skipped when checking style. For example,
 # WebKit maintains some files in Mozilla style on purpose to ease
 # future merges.
-#
-# Include a warning for skipped files that are less obvious.
 _SKIPPED_FILES_WITH_WARNING = [
     # The Qt API and tests do not follow WebKit style.
     # They follow Qt style. :)
@@ -175,11 +214,12 @@ _SKIPPED_FILES_WITH_WARNING = [
     ]
 
 
-# Don't include a warning for skipped files that are more common
-# and more obvious.
+# Files to skip that are more common or obvious.
+#
+# This list should be in addition to files with FileType.NONE.  Files
+# with FileType.NONE are automatically skipped without warning.
 _SKIPPED_FILES_WITHOUT_WARNING = [
     "LayoutTests/",
-    ".pyc",
     ]
 
 
@@ -192,8 +232,8 @@ _MAX_REPORTS_PER_CATEGORY = {
 
 def _all_categories():
     """Return the set of all categories used by check-webkit-style."""
-    # Take the union across all processors.
-    categories = CommonCategories.union(CppProcessor.categories)
+    # Take the union across all checkers.
+    categories = CommonCategories.union(CppChecker.categories)
 
     # FIXME: Consider adding all of the pep8 categories.  Since they
     #        are not too meaningful for documentation purposes, for
@@ -221,7 +261,7 @@ def check_webkit_style_parser():
 
 
 def check_webkit_style_configuration(options):
-    """Return a StyleCheckerConfiguration instance for check-webkit-style.
+    """Return a StyleProcessorConfiguration instance for check-webkit-style.
 
     Args:
       options: A CommandOptionValues instance.
@@ -232,7 +272,7 @@ def check_webkit_style_configuration(options):
                                path_specific=_PATH_RULES_SPECIFIER,
                                user_rules=options.filter_rules)
 
-    return StyleCheckerConfiguration(filter_configuration=filter_configuration,
+    return StyleProcessorConfiguration(filter_configuration=filter_configuration,
                max_reports_per_category=_MAX_REPORTS_PER_CATEGORY,
                min_confidence=options.min_confidence,
                output_format=options.output_format,
@@ -330,33 +370,16 @@ def configure_logging(stream, logger=None, is_verbose=False):
 # Enum-like idiom
 class FileType:
 
-    NONE = 1
+    NONE = 0  # FileType.NONE evaluates to False.
     # Alphabetize remaining types
-    CPP = 2
-    PYTHON = 3
-    TEXT = 4
+    CPP = 1
+    PYTHON = 2
+    TEXT = 3
 
 
-class ProcessorDispatcher(object):
+class CheckerDispatcher(object):
 
     """Supports determining whether and how to check style, based on path."""
-
-    cpp_file_extensions = (
-        'c',
-        'cpp',
-        'h',
-        )
-
-    text_file_extensions = (
-        'css',
-        'html',
-        'idl',
-        'js',
-        'mm',
-        'php',
-        'pm',
-        'txt',
-        )
 
     def _file_extension(self, file_path):
         """Return the file extension without the leading dot."""
@@ -371,6 +394,16 @@ class ProcessorDispatcher(object):
 
     def should_skip_without_warning(self, file_path):
         """Return whether the given file should be skipped without a warning."""
+        if not self._file_type(file_path):  # FileType.NONE.
+            return True
+        # Since "LayoutTests" is in _SKIPPED_FILES_WITHOUT_WARNING, make
+        # an exception to prevent files like "LayoutTests/ChangeLog" and
+        # "LayoutTests/ChangeLog-2009-06-16" from being skipped.
+        #
+        # FIXME: Figure out a good way to avoid having to add special logic
+        #        for this special case.
+        if os.path.basename(file_path).startswith('ChangeLog'):
+            return False
         for skipped_file in _SKIPPED_FILES_WITHOUT_WARNING:
             if file_path.find(skipped_file) >= 0:
                 return True
@@ -380,7 +413,7 @@ class ProcessorDispatcher(object):
         """Return the file type corresponding to the given file."""
         file_extension = self._file_extension(file_path)
 
-        if (file_extension in self.cpp_file_extensions) or (file_path == '-'):
+        if (file_extension in _CPP_FILE_EXTENSIONS) or (file_path == '-'):
             # FIXME: Do something about the comment below and the issue it
             #        raises since cpp_style already relies on the extension.
             #
@@ -388,28 +421,28 @@ class ProcessorDispatcher(object):
             # reading from stdin, cpp_style tests should not rely on
             # the extension.
             return FileType.CPP
-        elif file_extension == "py":
+        elif file_extension == _PYTHON_FILE_EXTENSION:
             return FileType.PYTHON
-        elif ("ChangeLog" in file_path or
+        elif (os.path.basename(file_path).startswith('ChangeLog') or
               (not file_extension and "WebKitTools/Scripts/" in file_path) or
-              file_extension in self.text_file_extensions):
+              file_extension in _TEXT_FILE_EXTENSIONS):
             return FileType.TEXT
         else:
             return FileType.NONE
 
-    def _create_processor(self, file_type, file_path, handle_style_error,
-                          min_confidence):
-        """Instantiate and return a style processor based on file type."""
+    def _create_checker(self, file_type, file_path, handle_style_error,
+                        min_confidence):
+        """Instantiate and return a style checker based on file type."""
         if file_type == FileType.NONE:
-            processor = None
+            checker = None
         elif file_type == FileType.CPP:
             file_extension = self._file_extension(file_path)
-            processor = CppProcessor(file_path, file_extension,
-                                     handle_style_error, min_confidence)
+            checker = CppChecker(file_path, file_extension,
+                                 handle_style_error, min_confidence)
         elif file_type == FileType.PYTHON:
-            processor = PythonProcessor(file_path, handle_style_error)
+            checker = PythonChecker(file_path, handle_style_error)
         elif file_type == FileType.TEXT:
-            processor = TextProcessor(file_path, handle_style_error)
+            checker = TextChecker(file_path, handle_style_error)
         else:
             raise ValueError('Invalid file type "%(file_type)s": the only valid file types '
                              "are %(NONE)s, %(CPP)s, and %(TEXT)s."
@@ -418,24 +451,24 @@ class ProcessorDispatcher(object):
                                 "CPP": FileType.CPP,
                                 "TEXT": FileType.TEXT})
 
-        return processor
+        return checker
 
-    def dispatch_processor(self, file_path, handle_style_error, min_confidence):
-        """Instantiate and return a style processor based on file path."""
+    def dispatch(self, file_path, handle_style_error, min_confidence):
+        """Instantiate and return a style checker based on file path."""
         file_type = self._file_type(file_path)
 
-        processor = self._create_processor(file_type,
-                                           file_path,
-                                           handle_style_error,
-                                           min_confidence)
-        return processor
+        checker = self._create_checker(file_type,
+                                       file_path,
+                                       handle_style_error,
+                                       min_confidence)
+        return checker
 
 
 # FIXME: Remove the stderr_write attribute from this class and replace
 #        its use with calls to a logging module logger.
-class StyleCheckerConfiguration(object):
+class StyleProcessorConfiguration(object):
 
-    """Stores configuration values for the StyleChecker class.
+    """Stores configuration values for the StyleProcessor class.
 
     Attributes:
       min_confidence: An integer between 1 and 5 inclusive that is the
@@ -455,7 +488,7 @@ class StyleCheckerConfiguration(object):
                  min_confidence,
                  output_format,
                  stderr_write):
-        """Create a StyleCheckerConfiguration instance.
+        """Create a StyleProcessorConfiguration instance.
 
         Args:
           filter_configuration: A FilterConfiguration instance.  The default
@@ -528,7 +561,13 @@ class ProcessorBase(object):
     """The base class for processors of lists of lines."""
 
     def should_process(self, file_path):
-        """Return whether the file at file_path should be processed."""
+        """Return whether the file at file_path should be processed.
+
+        The TextFileReader class calls this method prior to reading in
+        the lines of a file.  Use this method, for example, to prevent
+        the style checker from reading binary files into memory.
+
+        """
         raise NotImplementedError('Subclasses should implement.')
 
     def process(self, lines, file_path, **kwargs):
@@ -540,7 +579,7 @@ class ProcessorBase(object):
           **kwargs: This argument signifies that the process() method of
                     subclasses of ProcessorBase may support additional
                     keyword arguments.
-                        For example, a style processor's process() method
+                        For example, a style checker's check() method
                     may support a "reportable_lines" parameter that represents
                     the line numbers of the lines for which style errors
                     should be reported.
@@ -549,209 +588,129 @@ class ProcessorBase(object):
         raise NotImplementedError('Subclasses should implement.')
 
 
-# FIXME: Modify this class to start using the TextFileReader class in
-#        webkitpy/style/filereader.py.  This probably means creating
-#        a StyleProcessor class that inherits from ProcessorBase.
-class StyleChecker(object):
+class StyleProcessor(ProcessorBase):
 
-    """Supports checking style in files and patches.
+    """A ProcessorBase for checking style.
 
-       Attributes:
-         error_count: An integer that is the total number of reported
-                      errors for the lifetime of this StyleChecker
-                      instance.
-         file_count: An integer that is the total number of processed
-                     files.  Note that the number of skipped files is
-                     included in this value.
+    Attributes:
+      error_count: An integer that is the total number of reported
+                   errors for the lifetime of this instance.
 
     """
 
-    def __init__(self, configuration):
-        """Create a StyleChecker instance.
+    def __init__(self, configuration, mock_dispatcher=None,
+                 mock_increment_error_count=None,
+                 mock_carriage_checker_class=None):
+        """Create an instance.
 
         Args:
-          configuration: A StyleCheckerConfiguration instance that controls
-                         the behavior of style checking.
+          configuration: A StyleProcessorConfiguration instance.
+          mock_dispatcher: A mock CheckerDispatcher instance.  This
+                           parameter is for unit testing.  Defaults to a
+                           CheckerDispatcher instance.
+          mock_increment_error_count: A mock error-count incrementer.
+          mock_carriage_checker_class: A mock class for checking and
+                                       transforming carriage returns.
+                                       This parameter is for unit testing.
+                                       Defaults to CarriageReturnChecker.
 
         """
-        self._configuration = configuration
-        self.error_count = 0
-        self.file_count = 0
-
-    def _increment_error_count(self):
-        """Increment the total count of reported errors."""
-        self.error_count += 1
-
-    def _read_lines(self, file_path):
-        """Read the file at a path, and return its lines.
-
-        Raises:
-          IOError: if the file does not exist or cannot be read.
-
-        """
-        # Support the UNIX convention of using "-" for stdin.
-        if file_path == '-':
-            file = codecs.StreamReaderWriter(sys.stdin,
-                                             codecs.getreader('utf8'),
-                                             codecs.getwriter('utf8'),
-                                             'replace')
+        if mock_dispatcher is None:
+            dispatcher = CheckerDispatcher()
         else:
-            # We do not open the file with universal newline support
-            # (codecs does not support it anyway), so the resulting
-            # lines contain trailing "\r" characters if we are reading
-            # a file with CRLF endings.
-            file = codecs.open(file_path, 'r', 'utf8', 'replace')
+            dispatcher = mock_dispatcher
 
-        contents = file.read()
+        if mock_increment_error_count is None:
+            # The following blank line is present to avoid flagging by pep8.py.
 
-        lines = contents.split("\n")
-        return lines
+            def increment_error_count():
+                """Increment the total count of reported errors."""
+                self.error_count += 1
+        else:
+            increment_error_count = mock_increment_error_count
 
-    def _process_file(self, processor, file_path, handle_style_error):
-        """Process the file using the given style processor."""
-        try:
-            lines = self._read_lines(file_path)
-        except IOError:
-            message = 'Could not read file. Skipping: "%s"' % file_path
-            _log.warn(message)
-            return
+        if mock_carriage_checker_class is None:
+            # This needs to be a class rather than an instance since the
+            # process() method instantiates one using parameters.
+            carriage_checker_class = CarriageReturnChecker
+        else:
+            carriage_checker_class = mock_carriage_checker_class
 
-        # Check for and remove trailing carriage returns ("\r").
-        #
+        self.error_count = 0
+
+        self._carriage_checker_class = carriage_checker_class
+        self._configuration = configuration
+        self._dispatcher = dispatcher
+        self._increment_error_count = increment_error_count
+
+    def should_process(self, file_path):
+        """Return whether the file should be checked for style."""
+        if self._dispatcher.should_skip_without_warning(file_path):
+            return False
+        if self._dispatcher.should_skip_with_warning(file_path):
+            _log.warn('File exempt from style guide. Skipping: "%s"'
+                      % file_path)
+            return False
+        return True
+
+    def process(self, lines, file_path, line_numbers=None):
+        """Check the given lines for style.
+
+        Arguments:
+          lines: A list of all lines in the file to check.
+          file_path: The path of the file to process.  If possible, the path
+                     should be relative to the source root.  Otherwise,
+                     path-specific logic may not behave as expected.
+          line_numbers: A list of line numbers of the lines for which
+                        style errors should be reported, or None if errors
+                        for all lines should be reported.  When not None, this
+                        list normally contains the line numbers corresponding
+                        to the modified lines of a patch.
+
+        """
+        _log.debug("Checking style: " + file_path)
+
+        style_error_handler = DefaultStyleErrorHandler(
+            configuration=self._configuration,
+            file_path=file_path,
+            increment_error_count=self._increment_error_count,
+            line_numbers=line_numbers)
+
+        carriage_checker = self._carriage_checker_class(style_error_handler)
+
         # FIXME: We should probably use the SVN "eol-style" property
         #        or a white list to decide whether or not to do
         #        the carriage-return check. Originally, we did the
         #        check only if (os.linesep != '\r\n').
-        carriage_return_processor = CarriageReturnProcessor(handle_style_error)
-        lines = carriage_return_processor.process(lines)
-
-        processor.process(lines)
-
-    def check_paths(self, paths, mock_check_file=None, mock_os=None):
-        """Check style in the given files or directories.
-
-        Args:
-          paths: A list of file paths and directory paths.
-          mock_check_file: A mock of self.check_file for unit testing.
-          mock_os: A mock os for unit testing.
-
-        """
-        check_file = self.check_file if mock_check_file is None else \
-                     mock_check_file
-        os_module = os if mock_os is None else mock_os
-
-        for path in paths:
-            if os_module.path.isdir(path):
-                self._check_directory(directory=path,
-                                      check_file=check_file,
-                                      mock_os_walk=os_module.walk)
-            else:
-                check_file(path)
-
-    def _check_directory(self, directory, check_file, mock_os_walk=None):
-        """Check style in all files in a directory, recursively.
-
-        Args:
-          directory: A path to a directory.
-          check_file: The function to use in place of self.check_file().
-          mock_os_walk: A mock os.walk for unit testing.
-
-        """
-        os_walk = os.walk if mock_os_walk is None else mock_os_walk
-
-        for dir_path, dir_names, file_names in os_walk(directory):
-            for file_name in file_names:
-                file_path = os.path.join(dir_path, file_name)
-                check_file(file_path)
-
-    def check_file(self, file_path, line_numbers=None,
-                   mock_handle_style_error=None,
-                   mock_os_path_exists=None,
-                   mock_process_file=None):
-        """Check style in the given file.
-
-        Args:
-          file_path: The path of the file to process.  If possible, the path
-                     should be relative to the source root.  Otherwise,
-                     path-specific logic may not behave as expected.
-          line_numbers: An array of line numbers of the lines for which
-                        style errors should be reported, or None if errors
-                        for all lines should be reported.  Normally, this
-                        array contains the line numbers corresponding to the
-                        modified lines of a patch.
-          mock_handle_style_error: A unit-testing replacement for the function
-                                   to call when a style error occurs. Defaults
-                                   to a DefaultStyleErrorHandler instance.
-          mock_os_path_exists: A unit-test replacement for os.path.exists.
-                               This parameter should only be used for unit
-                               tests.
-          mock_process_file: The function to call to process the file. This
-                             parameter should be used only for unit tests.
-                             Defaults to the file processing method of this
-                             class.
-
-        Raises:
-          SystemExit: if the file does not exist.
-
-        """
-        if mock_handle_style_error is None:
-            increment = self._increment_error_count
-            handle_style_error = DefaultStyleErrorHandler(
-                                     configuration=self._configuration,
-                                     file_path=file_path,
-                                     increment_error_count=increment,
-                                     line_numbers=line_numbers)
-        else:
-            handle_style_error = mock_handle_style_error
-
-        os_path_exists = (os.path.exists if mock_os_path_exists is None else
-                          mock_os_path_exists)
-        process_file = (self._process_file if mock_process_file is None else
-                        mock_process_file)
-
-        if not os_path_exists(file_path) and file_path != "-":
-            _log.error("File does not exist: %s" % file_path)
-            sys.exit(1)
-
-        _log.debug("Checking: " + file_path)
-
-        self.file_count += 1
-
-        dispatcher = ProcessorDispatcher()
-
-        if dispatcher.should_skip_without_warning(file_path):
-            return
-        if dispatcher.should_skip_with_warning(file_path):
-            _log.warn('File exempt from style guide. Skipping: "%s"'
-                      % file_path)
-            return
+        #
+        # Check for and remove trailing carriage returns ("\r").
+        lines = carriage_checker.check(lines)
 
         min_confidence = self._configuration.min_confidence
-        processor = dispatcher.dispatch_processor(file_path,
-                                                  handle_style_error,
-                                                  min_confidence)
-        if processor is None:
-            _log.debug('File not a recognized type to check. Skipping: "%s"'
-                       % file_path)
-            return
+        checker = self._dispatcher.dispatch(file_path,
+                                                      style_error_handler,
+                                                      min_confidence)
 
-        _log.debug("Using class: " + processor.__class__.__name__)
+        if checker is None:
+            raise AssertionError("File should not be checked: '%s'" % file_path)
 
-        process_file(processor, file_path, handle_style_error)
+        _log.debug("Using class: " + checker.__class__.__name__)
+
+        checker.check(lines)
 
 
-class PatchChecker(object):
+class PatchReader(object):
 
     """Supports checking style in patches."""
 
-    def __init__(self, style_checker):
-        """Create a PatchChecker instance.
+    def __init__(self, text_file_reader):
+        """Create a PatchReader instance.
 
         Args:
-          style_checker: A StyleChecker instance.
+          text_file_reader: A TextFileReader instance.
 
         """
-        self._file_checker = style_checker
+        self._text_file_reader = text_file_reader
 
     def check(self, patch_string):
         """Check style in the given patch."""
@@ -775,5 +734,5 @@ class PatchChecker(object):
             # This optimization also prevents the program from exiting
             # due to a deleted file.
             if line_numbers:
-                self._file_checker.check_file(file_path=path,
-                                              line_numbers=line_numbers)
+                self._text_file_reader.process_file(file_path=path,
+                                                    line_numbers=line_numbers)

@@ -290,7 +290,7 @@ void SQLTransaction::deliverTransactionCallback()
 
     if (m_callback) {
         m_executeSqlAllowed = true;
-        m_callback->handleEvent(m_database->scriptExecutionContext(), this, shouldDeliverErrorCallback);
+        shouldDeliverErrorCallback = !m_callback->handleEvent(m_database->scriptExecutionContext(), this);
         m_executeSqlAllowed = false;
     } else
         shouldDeliverErrorCallback = true;
@@ -465,6 +465,9 @@ void SQLTransaction::postflightAndCommit()
         handleTransactionError(false);
         return;
     }
+
+    // The commit was successful, so vacuum the database if needed
+    m_database->incrementalVacuumIfNeeded();
 
     // The commit was successful, notify the delegates if the transaction modified this database
     if (m_modifiedDatabase)

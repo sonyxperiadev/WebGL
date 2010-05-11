@@ -47,6 +47,7 @@
 #include "CSSPropertyNames.h"
 #include "CSSStyleDeclaration.h"
 #include "CSSStyleSelector.h"
+#include "Chrome.h"
 #include "Document.h"
 #include "EventHandler.h"
 #include "EventNames.h"
@@ -79,12 +80,12 @@
 #include "ScrollbarTheme.h"
 #include "SelectionController.h"
 #include "TextStream.h"
-#include "TransformationMatrix.h"
 #include "TransformState.h"
+#include "TransformationMatrix.h"
 #include "TranslateTransformOperation.h"
-#include <wtf/text/CString.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/UnusedParam.h>
+#include <wtf/text/CString.h>
 
 #if USE(ACCELERATED_COMPOSITING)
 #include "RenderLayerBacking.h"
@@ -1277,17 +1278,6 @@ void RenderLayer::scrollToOffset(int x, int y, bool updateScrollbars, bool repai
     for (RenderLayer* child = firstChild(); child; child = child->nextSibling())
         child->updateLayerPositions(0);
 
-#if USE(ACCELERATED_COMPOSITING)
-    if (compositor()->inCompositingMode()) {
-        // Our stacking context is guaranteed to contain all of our descendants that may need
-        // repositioning, so update compositing layers from there.
-        if (RenderLayer* compositingAncestor = stackingContext()->enclosingCompositingLayer()) {
-            bool isUpdateRoot = true;
-            compositingAncestor->backing()->updateAfterLayout(RenderLayerBacking::AllDescendants, isUpdateRoot);
-        }
-    }
-#endif
-    
     RenderView* view = renderer()->view();
     
     // We should have a RenderView if we're trying to scroll.
@@ -1301,6 +1291,21 @@ void RenderLayer::scrollToOffset(int x, int y, bool updateScrollbars, bool repai
 
         view->updateWidgetPositions();
     }
+
+#if USE(ACCELERATED_COMPOSITING)
+    if (compositor()->inCompositingMode()) {
+        // Our stacking context is guaranteed to contain all of our descendants that may need
+        // repositioning, so update compositing layers from there.
+        if (RenderLayer* compositingAncestor = stackingContext()->enclosingCompositingLayer()) {
+            if (compositor()->compositingConsultsOverlap())
+                compositor()->updateCompositingLayers(CompositingUpdateOnScroll, compositingAncestor);
+            else {
+                bool isUpdateRoot = true;
+                compositingAncestor->backing()->updateAfterLayout(RenderLayerBacking::AllDescendants, isUpdateRoot);
+            }
+        }
+    }
+#endif
 
     RenderBoxModelObject* repaintContainer = renderer()->containerForRepaint();
     IntRect rectForRepaint = renderer()->clippedOverflowRectForRepaint(repaintContainer);
@@ -1334,7 +1339,7 @@ void RenderLayer::scrollToOffset(int x, int y, bool updateScrollbars, bool repai
     }
 }
 
-void RenderLayer::scrollRectToVisible(const IntRect &rect, bool scrollToAnchor, const ScrollAlignment& alignX, const ScrollAlignment& alignY)
+void RenderLayer::scrollRectToVisible(const IntRect& rect, bool scrollToAnchor, const ScrollAlignment& alignX, const ScrollAlignment& alignY)
 {
     RenderLayer* parentLayer = 0;
     IntRect newRect = rect;
@@ -1399,9 +1404,17 @@ void RenderLayer::scrollRectToVisible(const IntRect &rect, bool scrollToAnchor, 
                 IntRect viewRect = frameView->visibleContentRect(true);
                 IntRect r = getRectToExpose(viewRect, rect, alignX, alignY);
                 
-                // If this is the outermost view that RenderLayer needs to scroll, then we should scroll the view recursively
-                // Other apps, like Mail, rely on this feature.
-                frameView->scrollRectIntoViewRecursively(r);
+                frameView->setScrollPosition(r.location());
+
+                // This is the outermost view of a web page, so after scrolling this view we
+                // scroll its container by calling Page::scrollRectIntoView.
+                // This only has an effect on the Mac platform in applications
+                // that put web views into scrolling containers, such as Mac OS X Mail.
+                // The canAutoscroll function in EventHandler also knows about this.
+                if (Frame* frame = frameView->frame()) {
+                    if (Page* page = frame->page())
+                        page->chrome()->scrollRectIntoView(rect);
+                }
             }
         }
     }
@@ -1548,8 +1561,7 @@ void RenderLayer::resize(const PlatformMouseEvent& evt, const IntSize& oldOffset
             style->setProperty(CSSPropertyMarginLeft, String::number(renderer->marginLeft() / zoomFactor) + "px", false, ec);
             style->setProperty(CSSPropertyMarginRight, String::number(renderer->marginRight() / zoomFactor) + "px", false, ec);
         }
-        int baseWidth = renderer->width() - (isBoxSizingBorder ? 0
-            : renderer->borderLeft() + renderer->paddingLeft() + renderer->borderRight() + renderer->paddingRight());
+        int baseWidth = renderer->width() - (isBoxSizingBorder ? 0 : renderer->borderAndPaddingWidth());
         baseWidth = baseWidth / zoomFactor;
         style->setProperty(CSSPropertyWidth, String::number(baseWidth + difference.width()) + "px", false, ec);
     }
@@ -1560,8 +1572,7 @@ void RenderLayer::resize(const PlatformMouseEvent& evt, const IntSize& oldOffset
             style->setProperty(CSSPropertyMarginTop, String::number(renderer->marginTop() / zoomFactor) + "px", false, ec);
             style->setProperty(CSSPropertyMarginBottom, String::number(renderer->marginBottom() / zoomFactor) + "px", false, ec);
         }
-        int baseHeight = renderer->height() - (isBoxSizingBorder ? 0
-            : renderer->borderTop() + renderer->paddingTop() + renderer->borderBottom() + renderer->paddingBottom());
+        int baseHeight = renderer->height() - (isBoxSizingBorder ? 0 : renderer->borderAndPaddingHeight());
         baseHeight = baseHeight / zoomFactor;
         style->setProperty(CSSPropertyHeight, String::number(baseHeight + difference.height()) + "px", false, ec);
     }
@@ -3186,7 +3197,7 @@ void RenderLayer::updateHoverActiveState(const HitTestRequest& request, HitTestR
         // We are clearing the :active chain because the mouse has been released.
         for (RenderObject* curr = activeNode->renderer(); curr; curr = curr->parent()) {
             if (curr->node() && !curr->isText())
-                curr->node()->setInActiveChain(false);
+                curr->node()->clearInActiveChain();
         }
         doc->setActiveNode(0);
     } else {
@@ -3196,7 +3207,7 @@ void RenderLayer::updateHoverActiveState(const HitTestRequest& request, HitTestR
             // will need to reference this chain.
             for (RenderObject* curr = newActiveNode->renderer(); curr; curr = curr->parent()) {
                 if (curr->node() && !curr->isText()) {
-                    curr->node()->setInActiveChain(true);
+                    curr->node()->setInActiveChain();
                 }
             }
             doc->setActiveNode(newActiveNode);

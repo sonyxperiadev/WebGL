@@ -41,7 +41,6 @@
 #include "SVGElementInstance.h"
 #include "SVGElementRareData.h"
 #include "SVGNames.h"
-#include "SVGResource.h"
 #include "SVGSVGElement.h"
 #include "SVGURIReference.h"
 #include "SVGUseElement.h"
@@ -53,7 +52,7 @@ namespace WebCore {
 using namespace HTMLNames;
 
 SVGElement::SVGElement(const QualifiedName& tagName, Document* document)
-    : StyledElement(tagName, document, CreateElementZeroRefCount)
+    : StyledElement(tagName, document, CreateSVGElementZeroRefCount)
 {
 }
 
@@ -96,7 +95,7 @@ SVGElementRareData* SVGElement::ensureRareSVGData()
     ASSERT(!SVGElementRareData::rareDataMap().contains(this));
     SVGElementRareData* data = new SVGElementRareData;
     SVGElementRareData::rareDataMap().set(this, data);
-    m_hasRareSVGData = true;
+    setHasRareSVGData();
     return data;
 }
 
@@ -281,7 +280,7 @@ void SVGElement::insertedIntoDocument()
     StyledElement::insertedIntoDocument();
     SVGDocumentExtensions* extensions = document()->accessSVGExtensions();
 
-    String resourceId = SVGURIReference::getTarget(getAttribute(idAttributeName()));
+    String resourceId = getAttribute(idAttributeName());
     if (extensions->isPendingResource(resourceId)) {
         OwnPtr<HashSet<SVGStyledElement*> > clients(extensions->removePendingResource(resourceId));
         if (clients->isEmpty())
@@ -292,8 +291,6 @@ void SVGElement::insertedIntoDocument()
 
         for (; it != end; ++it)
             (*it)->buildPendingResource();
-
-        SVGResource::invalidateClients(*clients);
     }
 }
 
@@ -309,18 +306,16 @@ void SVGElement::attributeChanged(Attribute* attr, bool preserveDecls)
 
 void SVGElement::updateAnimatedSVGAttribute(const QualifiedName& name) const
 {
-    ASSERT(!m_areSVGAttributesValid);
-
-    if (m_synchronizingSVGAttributes)
+    if (isSynchronizingSVGAttributes() || areSVGAttributesValid())
         return;
 
-    m_synchronizingSVGAttributes = true;
+    setIsSynchronizingSVGAttributes();
 
     const_cast<SVGElement*>(this)->synchronizeProperty(name);
     if (name == anyQName())
-        m_areSVGAttributesValid = true;
+        setAreSVGAttributesValid();
 
-    m_synchronizingSVGAttributes = false;
+    clearIsSynchronizingSVGAttributes();
 }
 
 ContainerNode* SVGElement::eventParentNode()

@@ -30,13 +30,13 @@
 
 #import "WebNetscapePluginView.h"
 
+#import "WebBaseNetscapePluginStream.h"
 #import "WebDataSourceInternal.h"
 #import "WebDefaultUIDelegate.h"
 #import "WebFrameInternal.h" 
 #import "WebFrameView.h"
 #import "WebKitErrorsPrivate.h"
 #import "WebKitLogging.h"
-#import "WebNetscapeContainerCheckPrivate.h"
 #import "WebKitNSStringExtras.h"
 #import "WebKitSystemInterface.h"
 #import "WebNSDataExtras.h"
@@ -45,18 +45,16 @@
 #import "WebNSURLExtras.h"
 #import "WebNSURLRequestExtras.h"
 #import "WebNSViewExtras.h"
-#import "WebNetscapePluginPackage.h"
-#import "WebBaseNetscapePluginStream.h"
-#import "WebPluginContainerCheck.h"
 #import "WebNetscapeContainerCheckContextInfo.h"
+#import "WebNetscapeContainerCheckPrivate.h"
 #import "WebNetscapePluginEventHandler.h"
-#import "WebPreferences.h"
+#import "WebNetscapePluginPackage.h"
+#import "WebPluginContainerCheck.h"
 #import "WebPluginRequest.h"
-#import "WebViewInternal.h"
+#import "WebPreferences.h"
 #import "WebUIDelegatePrivate.h"
+#import "WebViewInternal.h"
 #import <Carbon/Carbon.h>
-#import <runtime/JSLock.h>
-#import <WebCore/npruntime_impl.h>
 #import <WebCore/CookieJar.h>
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/Element.h>
@@ -71,12 +69,15 @@
 #import <WebCore/SoftLinking.h> 
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebCore/WebCoreURLResponse.h>
+#import <WebCore/npruntime_impl.h>
 #import <WebKit/DOMPrivate.h>
 #import <WebKit/WebUIDelegate.h>
-#import <runtime/InitializeThreading.h>
-#import <wtf/Assertions.h>
-#import <wtf/text/CString.h>
 #import <objc/objc-runtime.h>
+#import <runtime/InitializeThreading.h>
+#import <runtime/JSLock.h>
+#import <wtf/Assertions.h>
+#import <wtf/Threading.h>
+#import <wtf/text/CString.h>
 
 #define LoginWindowDidSwitchFromUserNotification    @"WebLoginWindowDidSwitchFromUserNotification"
 #define LoginWindowDidSwitchToUserNotification      @"WebLoginWindowDidSwitchToUserNotification"
@@ -112,9 +113,9 @@ static const double ThrottledTimerInterval = 0.25;
 
 class PluginTimer : public TimerBase {
 public:
-    typedef void (*TimerFunc)(NPP npp, uint32 timerID);
+    typedef void (*TimerFunc)(NPP npp, uint32_t timerID);
     
-    PluginTimer(NPP npp, uint32 timerID, uint32 interval, NPBool repeat, TimerFunc timerFunc)
+    PluginTimer(NPP npp, uint32_t timerID, uint32_t interval, NPBool repeat, TimerFunc timerFunc)
         : m_npp(npp)
         , m_timerID(timerID)
         , m_interval(interval)
@@ -147,8 +148,8 @@ private:
     }
     
     NPP m_npp;
-    uint32 m_timerID;
-    uint32 m_interval;
+    uint32_t m_timerID;
+    uint32_t m_interval;
     NPBool m_repeat;
     TimerFunc m_timerFunc;
 };
@@ -188,6 +189,7 @@ typedef struct {
 + (void)initialize
 {
     JSC::initializeThreading();
+    WTF::initializeMainThreadToProcessMainThread();
 #ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
 #endif
@@ -252,20 +254,20 @@ static UInt32 getQDPixelFormatForBitmapContext(CGContextRef context)
 
 static inline void getNPRect(const CGRect& cgr, NPRect& npr)
 {
-    npr.top = static_cast<uint16>(cgr.origin.y);
-    npr.left = static_cast<uint16>(cgr.origin.x);
-    npr.bottom = static_cast<uint16>(CGRectGetMaxY(cgr));
-    npr.right = static_cast<uint16>(CGRectGetMaxX(cgr));
+    npr.top = static_cast<uint16_t>(cgr.origin.y);
+    npr.left = static_cast<uint16_t>(cgr.origin.x);
+    npr.bottom = static_cast<uint16_t>(CGRectGetMaxY(cgr));
+    npr.right = static_cast<uint16_t>(CGRectGetMaxX(cgr));
 }
 
 #endif
 
 static inline void getNPRect(const NSRect& nr, NPRect& npr)
 {
-    npr.top = static_cast<uint16>(nr.origin.y);
-    npr.left = static_cast<uint16>(nr.origin.x);
-    npr.bottom = static_cast<uint16>(NSMaxY(nr));
-    npr.right = static_cast<uint16>(NSMaxX(nr));
+    npr.top = static_cast<uint16_t>(nr.origin.y);
+    npr.left = static_cast<uint16_t>(nr.origin.x);
+    npr.bottom = static_cast<uint16_t>(NSMaxY(nr));
+    npr.right = static_cast<uint16_t>(NSMaxX(nr));
 }
 
 - (PortState)saveAndSetNewPortStateForUpdate:(BOOL)forUpdate
@@ -304,10 +306,10 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 #endif
     
     window.type = NPWindowTypeWindow;
-    window.x = (int32)boundsInWindow.origin.x; 
-    window.y = (int32)boundsInWindow.origin.y;
-    window.width = static_cast<uint32>(NSWidth(boundsInWindow));
-    window.height = static_cast<uint32>(NSHeight(boundsInWindow));
+    window.x = (int32_t)boundsInWindow.origin.x; 
+    window.y = (int32_t)boundsInWindow.origin.y;
+    window.width = static_cast<uint32_t>(NSWidth(boundsInWindow));
+    window.height = static_cast<uint32_t>(NSHeight(boundsInWindow));
     
     // "Clip-out" the plug-in when:
     // 1) it's not really in a window or off-screen or has no height or width.
@@ -353,8 +355,8 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             CGrafPtr port = GetWindowPort(windowRef);
             GetPortBounds(port, &portBounds);
             nPort.qdPort.port = port;
-            nPort.qdPort.portx = (int32)-boundsInWindow.origin.x;
-            nPort.qdPort.porty = (int32)-boundsInWindow.origin.y;
+            nPort.qdPort.portx = (int32_t)-boundsInWindow.origin.x;
+            nPort.qdPort.porty = (int32_t)-boundsInWindow.origin.y;
             window.window = &nPort;
 
             PortState_QD *qdPortState = (PortState_QD*)malloc(sizeof(PortState_QD));
@@ -417,8 +419,8 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
                         origin.x = offscreenBounds.left - origin.x * (axisFlip.x - origin.x);
                         origin.y = offscreenBounds.bottom + origin.y * (axisFlip.y - origin.y);
                         
-                        nPort.qdPort.portx = static_cast<int32>(-boundsInWindow.origin.x + origin.x);
-                        nPort.qdPort.porty = static_cast<int32>(-boundsInWindow.origin.y - origin.y);
+                        nPort.qdPort.portx = static_cast<int32_t>(-boundsInWindow.origin.x + origin.x);
+                        nPort.qdPort.porty = static_cast<int32_t>(-boundsInWindow.origin.y - origin.y);
                         window.x = 0;
                         window.y = 0;
                         window.window = &nPort;
@@ -697,8 +699,8 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     if (!timers)
         return;
 
-    HashMap<uint32, PluginTimer*>::const_iterator end = timers->end();
-    for (HashMap<uint32, PluginTimer*>::const_iterator it = timers->begin(); it != end; ++it) {
+    HashMap<uint32_t, PluginTimer*>::const_iterator end = timers->end();
+    for (HashMap<uint32_t, PluginTimer*>::const_iterator it = timers->begin(); it != end; ++it) {
         PluginTimer* timer = it->second;
         timer->stop();
     }    
@@ -715,8 +717,8 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     if (!timers)
         return;
     
-    HashMap<uint32, PluginTimer*>::const_iterator end = timers->end();
-    for (HashMap<uint32, PluginTimer*>::const_iterator it = timers->begin(); it != end; ++it) {
+    HashMap<uint32_t, PluginTimer*>::const_iterator end = timers->end();
+    for (HashMap<uint32_t, PluginTimer*>::const_iterator it = timers->begin(); it != end; ++it) {
         PluginTimer* timer = it->second;
         ASSERT(!timer->isActive());
         timer->start(_isCompletelyObscured);
@@ -1235,9 +1237,9 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     }
 }
 
-- (uint32)checkIfAllowedToLoadURL:(const char*)urlCString frame:(const char*)frameNameCString 
-                     callbackFunc:(void (*)(NPP npp, uint32 checkID, NPBool allowed, void* context))callbackFunc 
-                           context:(void*)context
+- (uint32_t)checkIfAllowedToLoadURL:(const char*)urlCString frame:(const char*)frameNameCString 
+                       callbackFunc:(void (*)(NPP npp, uint32_t checkID, NPBool allowed, void* context))callbackFunc 
+                            context:(void*)context
 {
     if (!_containerChecksInProgress) 
         _containerChecksInProgress = [[NSMutableDictionary alloc] init];
@@ -1266,7 +1268,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 - (void)_containerCheckResult:(PolicyAction)policy contextInfo:(id)contextInfo
 {
     ASSERT([contextInfo isKindOfClass:[WebNetscapeContainerCheckContextInfo class]]);
-    void (*pluginCallback)(NPP npp, uint32, NPBool, void*) = [contextInfo callback];
+    void (*pluginCallback)(NPP npp, uint32_t, NPBool, void*) = [contextInfo callback];
     
     if (!pluginCallback) {
         ASSERT_NOT_REACHED();
@@ -1276,7 +1278,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     pluginCallback([self plugin], [contextInfo checkRequestID], (policy == PolicyUse), [contextInfo context]);
 }
 
-- (void)cancelCheckIfAllowedToLoadURL:(uint32)checkID
+- (void)cancelCheckIfAllowedToLoadURL:(uint32_t)checkID
 {
     WebPluginContainerCheck *check = (WebPluginContainerCheck *)[_containerChecksInProgress objectForKey:[NSNumber numberWithInt:checkID]];
     
@@ -1402,7 +1404,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     if (!_isStarted)
         return;
     
-    if ([NSGraphicsContext currentContextDrawingToScreen])
+    if ([NSGraphicsContext currentContextDrawingToScreen] || _isFlash)
         [self sendDrawRectEvent:rect];
     else {
         NSBitmapImageRep *printedPluginBitmap = [self _printedPluginBitmap];
@@ -2131,15 +2133,15 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     }
 }
 
-- (uint32)scheduleTimerWithInterval:(uint32)interval repeat:(NPBool)repeat timerFunc:(void (*)(NPP npp, uint32 timerID))timerFunc
+- (uint32_t)scheduleTimerWithInterval:(uint32_t)interval repeat:(NPBool)repeat timerFunc:(void (*)(NPP npp, uint32_t timerID))timerFunc
 {
     if (!timerFunc)
         return 0;
     
     if (!timers)
-        timers = new HashMap<uint32, PluginTimer*>;
+        timers = new HashMap<uint32_t, PluginTimer*>;
     
-    uint32 timerID;
+    uint32_t timerID;
     
     do {
         timerID = ++currentTimerID;
@@ -2154,7 +2156,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     return timerID;
 }
 
-- (void)unscheduleTimer:(uint32)timerID
+- (void)unscheduleTimer:(uint32_t)timerID
 {
     if (!timers)
         return;
@@ -2175,7 +2177,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     return NPERR_NO_ERROR;
 }
 
-- (NPError)getVariable:(NPNURLVariable)variable forURL:(const char*)url value:(char**)value length:(uint32*)length
+- (NPError)getVariable:(NPNURLVariable)variable forURL:(const char*)url value:(char**)value length:(uint32_t*)length
 {
     switch (variable) {
         case NPNURLVCookie: {
@@ -2227,7 +2229,7 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     return NPERR_GENERIC_ERROR;
 }
 
-- (NPError)setVariable:(NPNURLVariable)variable forURL:(const char*)url value:(const char*)value length:(uint32)length
+- (NPError)setVariable:(NPNURLVariable)variable forURL:(const char*)url value:(const char*)value length:(uint32_t)length
 {
     switch (variable) {
         case NPNURLVCookie: {
@@ -2253,9 +2255,9 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
     return NPERR_GENERIC_ERROR;
 }
 
-- (NPError)getAuthenticationInfoWithProtocol:(const char*)protocolStr host:(const char*)hostStr port:(int32)port scheme:(const char*)schemeStr realm:(const char*)realmStr
-                                    username:(char**)usernameStr usernameLength:(uint32*)usernameLength 
-                                    password:(char**)passwordStr passwordLength:(uint32*)passwordLength
+- (NPError)getAuthenticationInfoWithProtocol:(const char*)protocolStr host:(const char*)hostStr port:(int32_t)port scheme:(const char*)schemeStr realm:(const char*)realmStr
+                                    username:(char**)usernameStr usernameLength:(uint32_t*)usernameLength 
+                                    password:(char**)passwordStr passwordLength:(uint32_t*)passwordLength
 {
     if (!protocolStr || !hostStr || !schemeStr || !realmStr || !usernameStr || !usernameLength || !passwordStr || !passwordLength)
         return NPERR_GENERIC_ERROR;

@@ -22,6 +22,9 @@
 
 """Contains unit tests for filereader.py."""
 
+from __future__ import with_statement
+
+import codecs
 import os
 import shutil
 import tempfile
@@ -67,14 +70,12 @@ class TextFileReaderTest(LoggingTestCase):
         LoggingTestCase.tearDown(self)
         shutil.rmtree(self._temp_dir)
 
-    def _create_file(self, rel_path, text):
+    def _create_file(self, rel_path, text, encoding="utf-8"):
         """Create a file with given text and return the path to the file."""
+        # FIXME: There are better/more secure APIs for creatin tmp file paths.
         file_path = os.path.join(self._temp_dir, rel_path)
-
-        file = open(file_path, 'w')
-        file.write(text)
-        file.close()
-
+        with codecs.open(file_path, "w", encoding) as file:
+            file.write(text)
         return file_path
 
     def _passed_to_processor(self):
@@ -85,10 +86,6 @@ class TextFileReaderTest(LoggingTestCase):
         """Assert the state of the file reader."""
         self.assertEquals(passed_to_processor, self._passed_to_processor())
         self.assertEquals(file_count, self._file_reader.file_count)
-
-    def test_process_file__should_not_process(self):
-        self._file_reader.process_file('should_not_process.txt')
-        self._assert_file_reader([], 1)
 
     def test_process_file__does_not_exist(self):
         try:
@@ -121,11 +118,24 @@ class TextFileReaderTest(LoggingTestCase):
 
         self._assert_file_reader([], 1)
 
+    def test_process_file__should_not_process(self):
+        file_path = self._create_file('should_not_process.txt', 'contents')
+
+        self._file_reader.process_file(file_path)
+        self._assert_file_reader([], 1)
+
     def test_process_file__multiple_lines(self):
         file_path = self._create_file('foo.txt', 'line one\r\nline two\n')
 
         self._file_reader.process_file(file_path)
         processed = [(['line one\r', 'line two', ''], file_path, None)]
+        self._assert_file_reader(processed, 1)
+
+    def test_process_file__file_stdin(self):
+        file_path = self._create_file('-', 'file contents')
+
+        self._file_reader.process_file(file_path=file_path, test_kwarg='foo')
+        processed = [(['file contents'], file_path, 'foo')]
         self._assert_file_reader(processed, 1)
 
     def test_process_file__with_kwarg(self):

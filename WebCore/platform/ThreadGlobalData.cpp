@@ -69,7 +69,7 @@ ThreadGlobalData::ThreadGlobalData()
 #endif
 {
     // This constructor will have been called on the main thread before being called on
-    // any other thread, and is only called once per thread – this makes this a convenient
+    // any other thread, and is only called once per thread - this makes this a convenient
     // point to call methods that internally perform a one-time initialization that is not
     // threadsafe.
     wtfThreadData();
@@ -78,14 +78,25 @@ ThreadGlobalData::ThreadGlobalData()
 
 ThreadGlobalData::~ThreadGlobalData()
 {
+    destroy();
+}
+
+void ThreadGlobalData::destroy()
+{
 #if PLATFORM(MAC)
     delete m_cachedConverterTEC;
+    m_cachedConverterTEC = 0;
 #endif
+
 #if USE(ICU_UNICODE)
     delete m_cachedConverterICU;
+    m_cachedConverterICU = 0;
 #endif
+
     delete m_eventNames;
+    m_eventNames = 0;
     delete m_threadTimers;
+    m_threadTimers = 0;
 }
 
 } // namespace WebCore

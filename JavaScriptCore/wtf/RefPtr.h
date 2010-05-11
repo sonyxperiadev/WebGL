@@ -18,6 +18,8 @@
  *
  */
 
+// RefPtr and PassRefPtr are documented at http://webkit.org/coding/RefPtr.html
+
 #ifndef WTF_RefPtr_h
 #define WTF_RefPtr_h
 
@@ -79,9 +81,9 @@ namespace WTF {
 
         void swap(RefPtr&);
 
-    private:
         static T* hashTableDeletedValue() { return reinterpret_cast<T*>(-1); }
 
+    private:
         T* m_ptr;
     };
     

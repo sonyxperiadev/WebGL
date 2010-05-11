@@ -484,7 +484,18 @@ void FrameView::setNeedsOneShotDrawingSynchronization()
     if (page)
         page->chrome()->client()->setNeedsOneShotDrawingSynchronization();
 }
+
 #endif // USE(ACCELERATED_COMPOSITING)
+
+bool FrameView::isEnclosedInCompositingLayer() const
+{
+#if USE(ACCELERATED_COMPOSITING)
+    RenderObject* frameOwnerRenderer = m_frame->ownerRenderer();
+    return frameOwnerRenderer && frameOwnerRenderer->containerForRepaint();
+#else
+    return false;
+#endif
+}
 
 bool FrameView::syncCompositingStateRecursive()
 {
@@ -1009,15 +1020,6 @@ void FrameView::maintainScrollPositionAtAnchor(Node* anchorNode)
         scrollToAnchor();
 }
 
-void FrameView::scrollRectIntoViewRecursively(const IntRect& r)
-{
-    bool wasInProgrammaticScroll = m_inProgrammaticScroll;
-    m_inProgrammaticScroll = true;
-    m_maintainScrollPositionAnchor = 0;
-    ScrollView::scrollRectIntoViewRecursively(r);
-    m_inProgrammaticScroll = wasInProgrammaticScroll;
-}
-
 void FrameView::setScrollPosition(const IntPoint& scrollPoint)
 {
     bool wasInProgrammaticScroll = m_inProgrammaticScroll;
@@ -1460,7 +1462,7 @@ void FrameView::scrollToAnchor()
     if (AXObjectCache::accessibilityEnabled())
         m_frame->document()->axObjectCache()->handleScrolledToAnchor(anchorNode.get());
 
-    // scrollRectToVisible can call into scrollRectIntoViewRecursively(), which resets m_maintainScrollPositionAnchor.
+    // scrollRectToVisible can call into setScrollPosition(), which resets m_maintainScrollPositionAnchor.
     m_maintainScrollPositionAnchor = anchorNode;
 }
 
@@ -1853,14 +1855,16 @@ void FrameView::paintContents(GraphicsContext* p, const IntRect& rect)
     // m_nodeToDraw is used to draw only one element (and its descendants)
     RenderObject* eltRenderer = m_nodeToDraw ? m_nodeToDraw->renderer() : 0;
 
-    PaintBehavior paintBehavior = m_paintBehavior;
-    if (paintBehavior == PaintBehaviorNormal)
+    PaintBehavior oldPaintBehavior = m_paintBehavior;
+    if (m_paintBehavior == PaintBehaviorNormal)
         document->invalidateRenderedRectsForMarkersInRect(rect);
 
     if (document->printing())
-        paintBehavior |= PaintBehaviorFlattenCompositingLayers;
+        m_paintBehavior |= PaintBehaviorFlattenCompositingLayers;
 
-    contentRenderer->layer()->paint(p, rect, paintBehavior, eltRenderer);
+    contentRenderer->layer()->paint(p, rect, m_paintBehavior, eltRenderer);
+    
+    m_paintBehavior = oldPaintBehavior;
     
     m_isPainting = false;
     m_lastPaintTime = currentTime();

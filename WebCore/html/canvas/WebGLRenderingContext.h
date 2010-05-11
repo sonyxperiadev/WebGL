@@ -199,14 +199,18 @@ class WebKitCSSMatrix;
         void texImage2D(unsigned target, unsigned level, unsigned internalformat,
                         unsigned width, unsigned height, unsigned border,
                         unsigned format, unsigned type, WebGLArray* pixels, ExceptionCode&);
-        void texImage2D(unsigned target, unsigned level, ImageData* pixels,
-                        bool flipY, bool premultiplyAlpha, ExceptionCode&);
-        void texImage2D(unsigned target, unsigned level, HTMLImageElement* image,
-                        bool flipY, bool premultiplyAlpha, ExceptionCode&);
-        void texImage2D(unsigned target, unsigned level, HTMLCanvasElement* canvas,
-                        bool flipY, bool premultiplyAlpha, ExceptionCode&);
-        void texImage2D(unsigned target, unsigned level, HTMLVideoElement* video,
-                        bool flipY, bool premultiplyAlpha, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, ImageData* pixels, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, ImageData* pixels, bool flipY, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, ImageData* pixels, bool flipY, bool premultiplyAlpha, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, HTMLImageElement* image, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, HTMLImageElement* image, bool flipY, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, HTMLImageElement* image, bool flipY, bool premultiplyAlpha, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, HTMLCanvasElement* canvas, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, HTMLCanvasElement* canvas, bool flipY, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, HTMLCanvasElement* canvas, bool flipY, bool premultiplyAlpha, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, HTMLVideoElement* video, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, HTMLVideoElement* video, bool flipY, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, HTMLVideoElement* video, bool flipY, bool premultiplyAlpha, ExceptionCode&);
 
         void texParameterf(unsigned target, unsigned pname, float param);
         void texParameteri(unsigned target, unsigned pname, int param);
@@ -214,14 +218,18 @@ class WebKitCSSMatrix;
         void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
                            unsigned width, unsigned height,
                            unsigned format, unsigned type, WebGLArray* pixels, ExceptionCode&);
-        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
-                           ImageData* pixels, bool flipY, bool premultiplyAlpha, ExceptionCode&);
-        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
-                           HTMLImageElement* image, bool flipY, bool premultiplyAlpha, ExceptionCode&);
-        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
-                           HTMLCanvasElement* canvas, bool flipY, bool premultiplyAlpha, ExceptionCode&);
-        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
-                           HTMLVideoElement* video, bool flipY, bool premultiplyAlpha, ExceptionCode&);
+        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, ImageData* pixels, ExceptionCode&);
+        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, ImageData* pixels, bool flipY, ExceptionCode&);
+        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, ImageData* pixels, bool flipY, bool premultiplyAlpha, ExceptionCode&);
+        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, HTMLImageElement* image, ExceptionCode&);
+        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, HTMLImageElement* image, bool flipY, ExceptionCode&);
+        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, HTMLImageElement* image, bool flipY, bool premultiplyAlpha, ExceptionCode&);
+        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, HTMLCanvasElement* canvas, ExceptionCode&);
+        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, HTMLCanvasElement* canvas, bool flipY, ExceptionCode&);
+        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, HTMLCanvasElement* canvas, bool flipY, bool premultiplyAlpha, ExceptionCode&);
+        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, HTMLVideoElement* video, ExceptionCode&);
+        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, HTMLVideoElement* video, bool flipY, ExceptionCode&);
+        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, HTMLVideoElement* video, bool flipY, bool premultiplyAlpha, ExceptionCode&);
 
         void uniform1f(const WebGLUniformLocation* location, float x, ExceptionCode&);
         void uniform1fv(const WebGLUniformLocation* location, WebGLFloatArray* v, ExceptionCode&);
@@ -291,6 +299,8 @@ class WebKitCSSMatrix;
 
         void addObject(CanvasObject*);
         void detachAndRemoveAllObjects();
+        PassRefPtr<WebGLTexture> findTexture(Platform3DObject);
+        PassRefPtr<WebGLRenderbuffer> findRenderbuffer(Platform3DObject);
 
         void markContextChanged();
         void cleanupAfterGraphicsCall(bool changed)
@@ -298,6 +308,8 @@ class WebKitCSSMatrix;
             if (changed)
                 markContextChanged();
         }
+
+        bool isGLES2Compliant();
         
         // Basic validation of count and offset against number of elements in element array buffer
         bool validateElementArraySize(unsigned long count, unsigned long type, long offset);
@@ -358,6 +370,17 @@ class WebKitCSSMatrix;
         WebGLGetInfo getWebGLFloatArrayParameter(unsigned long pname);
         WebGLGetInfo getWebGLIntArrayParameter(unsigned long pname);
         WebGLGetInfo getWebGLUnsignedByteArrayParameter(unsigned long pname);
+
+        void texImage2DBase(unsigned target, unsigned level, unsigned internalformat,
+                            unsigned width, unsigned height, unsigned border,
+                            unsigned format, unsigned type, void* pixels, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, Image* image,
+                        bool flipY, bool premultiplyAlpha, ExceptionCode&);
+        void texSubImage2DBase(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
+                               unsigned width, unsigned height,
+                               unsigned format, unsigned type, void* pixels, ExceptionCode&);
+        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
+                           Image* image, bool flipY, bool premultiplyAlpha, ExceptionCode&);
 
         friend class WebGLStateRestorer;
     };

@@ -32,10 +32,20 @@
 #include "TreeShared.h"
 #include <wtf/ListHashSet.h>
 
+#if USE(JSC)
+namespace JSC {
+
+    class JSGlobalData;
+    class MarkStack;
+
+}
+#endif
+
 namespace WebCore {
 
 class AtomicString;
 class Attribute;
+class ClassNodeList;
 class ContainerNode;
 class Document;
 class DynamicNodeList;
@@ -48,6 +58,7 @@ class IntRect;
 class KeyboardEvent;
 class NSResolver;
 class NamedNodeMap;
+class NameNodeList;
 class NodeList;
 class NodeRareData;
 class PlatformKeyboardEvent;
@@ -61,13 +72,21 @@ class RenderBoxModelObject;
 class RenderObject;
 class RenderStyle;
 class StringBuilder;
+class TagNodeList;
 
 typedef int ExceptionCode;
+
+const int nodeStyleChangeShift = 24;
 
 // SyntheticStyleChange means that we need to go through the entire style change logic even though
 // no style property has actually changed. It is used to restructure the tree when, for instance,
 // RenderLayers are created or destroyed due to animation changes.
-enum StyleChangeType { NoStyleChange, InlineStyleChange, FullStyleChange, SyntheticStyleChange };
+enum StyleChangeType { 
+    NoStyleChange = 0, 
+    InlineStyleChange = 1 << nodeStyleChangeShift, 
+    FullStyleChange = 2 << nodeStyleChangeShift, 
+    SyntheticStyleChange = 3 << nodeStyleChangeShift
+};
 
 const unsigned short DOCUMENT_POSITION_EQUIVALENT = 0x00;
 const unsigned short DOCUMENT_POSITION_DISCONNECTED = 0x01;
@@ -162,17 +181,13 @@ public:
     
     // Other methods (not part of DOM)
 
-    bool isElementNode() const { return m_isElement; }
-    bool isContainerNode() const { return m_isContainer; }
-    bool isTextNode() const { return m_isText; }
+    bool isElementNode() const { return getFlag(IsElementFlag); }
+    bool isContainerNode() const { return getFlag(IsContainerFlag); }
+    bool isTextNode() const { return getFlag(IsTextFlag); }
 
-    virtual bool isHTMLElement() const { return false; }
+    bool isHTMLElement() const { return getFlag(IsHTMLFlag); }
 
-#if ENABLE(SVG)
-    virtual bool isSVGElement() const { return false; }
-#else
-    static bool isSVGElement() { return false; }
-#endif
+    bool isSVGElement() const { return getFlag(IsSVGFlag); }
 
 #if ENABLE(WML)
     virtual bool isWMLElement() const { return false; }
@@ -188,10 +203,10 @@ public:
 
 
     virtual bool isMediaControlElement() const { return false; }
-    virtual bool isStyledElement() const { return false; }
+    bool isStyledElement() const { return getFlag(IsStyledElementFlag); }
     virtual bool isFrameOwnerElement() const { return false; }
     virtual bool isAttributeNode() const { return false; }
-    virtual bool isCommentNode() const { return false; }
+    bool isCommentNode() const { return getFlag(IsCommentFlag); }
     virtual bool isCharacterDataNode() const { return false; }
     bool isDocumentNode() const;
     virtual bool isShadowNode() const { return false; }
@@ -268,33 +283,40 @@ public:
     // For <link> and <style> elements.
     virtual bool sheetLoaded() { return true; }
 
-    bool hasID() const { return m_hasId; }
-    bool hasClass() const { return m_hasClass; }
-    bool active() const { return m_active; }
-    bool inActiveChain() const { return m_inActiveChain; }
-    bool inDetach() const { return m_inDetach; }
-    bool hovered() const { return m_hovered; }
+    bool hasID() const { return getFlag(HasIDFlag); }
+    bool hasClass() const { return getFlag(HasClassFlag); }
+    bool active() const { return getFlag(IsActiveFlag); }
+    bool inActiveChain() const { return getFlag(InActiveChainFlag); }
+    bool inDetach() const { return getFlag(InDetachFlag); }
+    bool hovered() const { return getFlag(IsHoveredFlag); }
     bool focused() const { return hasRareData() ? rareDataFocused() : false; }
-    bool attached() const { return m_attached; }
-    void setAttached(bool b = true) { m_attached = b; }
-    bool needsStyleRecalc() const { return m_styleChange != NoStyleChange; }
-    StyleChangeType styleChangeType() const { return static_cast<StyleChangeType>(m_styleChange); }
-    bool childNeedsStyleRecalc() const { return m_childNeedsStyleRecalc; }
-    bool isLink() const { return m_isLink; }
-    void setHasID(bool b = true) { m_hasId = b; }
-    void setHasClass(bool b = true) { m_hasClass = b; }
-    void setChildNeedsStyleRecalc(bool b = true) { m_childNeedsStyleRecalc = b; }
-    void setInDocument(bool b = true) { m_inDocument = b; }
-    void setInActiveChain(bool b = true) { m_inActiveChain = b; }
+    bool attached() const { return getFlag(IsAttachedFlag); }
+    void setAttached() { setFlag(IsAttachedFlag); }
+    bool needsStyleRecalc() const { return styleChangeType() != NoStyleChange; }
+    StyleChangeType styleChangeType() const { return static_cast<StyleChangeType>(m_nodeFlags & StyleChangeMask); }
+    bool childNeedsStyleRecalc() const { return getFlag(ChildNeedsStyleRecalcFlag); }
+    bool isLink() const { return getFlag(IsLinkFlag); }
+
+    void setHasID(bool f) { setFlag(f, HasIDFlag); }
+    void setHasClass(bool f) { setFlag(f, HasClassFlag); }
+    void setChildNeedsStyleRecalc() { setFlag(ChildNeedsStyleRecalcFlag); }
+    void clearChildNeedsStyleRecalc() { clearFlag(ChildNeedsStyleRecalcFlag); }
+    void setInDocument() { setFlag(InDocumentFlag); }
+    void clearInDocument() { clearFlag(InDocumentFlag); }
+
+    void setInActiveChain() { setFlag(InActiveChainFlag); }
+    void clearInActiveChain() { clearFlag(InActiveChainFlag); }
     void setNeedsStyleRecalc(StyleChangeType changeType = FullStyleChange);
-    void setIsLink(bool b = true) { m_isLink = b; }
+    void setIsLink(bool f) { setFlag(f, IsLinkFlag); }
+    void setIsLink() { setFlag(IsLinkFlag); }
+    void clearIsLink() { clearFlag(IsLinkFlag); }
 
     void lazyAttach();
     virtual bool canLazyAttach();
 
     virtual void setFocus(bool b = true);
-    virtual void setActive(bool b = true, bool /*pause*/ = false) { m_active = b; }
-    virtual void setHovered(bool b = true) { m_hovered = b; }
+    virtual void setActive(bool f = true, bool /*pause*/ = false) { setFlag(f, IsActiveFlag); }
+    virtual void setHovered(bool f = true) { setFlag(f, IsHoveredFlag); }
 
     virtual short tabIndex() const;
 
@@ -310,6 +332,11 @@ public:
     virtual bool isContentRichlyEditable() const;
     virtual bool shouldUseInputMethod() const;
     virtual IntRect getRect() const;
+
+    // Returns true if the node has a non-empty bounding box in layout.
+    // This does not 100% guarantee the user can see it, but is pretty close.
+    // Note: This method only works properly after layout has occurred.
+    bool hasNonEmptyBoundingBox() const;
 
     virtual void recalcStyle(StyleChange = NoChange) { }
 
@@ -333,8 +360,8 @@ public:
     // node tree, false otherwise.
     bool inDocument() const 
     { 
-        ASSERT(m_document || !m_inDocument);
-        return m_inDocument; 
+        ASSERT(m_document || !getFlag(InDocumentFlag));
+        return getFlag(InDocumentFlag);
     }
 
     bool isReadOnlyNode() const { return nodeType() == ENTITY_REFERENCE_NODE; }
@@ -497,6 +524,9 @@ public:
     void notifyLocalNodeListsChildrenChanged();
     void notifyNodeListsAttributeChanged();
     void notifyLocalNodeListsAttributeChanged();
+    void removeCachedClassNodeList(ClassNodeList*, const String&);
+    void removeCachedNameNodeList(NameNodeList*, const String&);
+    void removeCachedTagNodeList(TagNodeList*, const QualifiedName&);
     
     PassRefPtr<NodeList> getElementsByTagName(const String&);
     PassRefPtr<NodeList> getElementsByTagNameNS(const AtomicString& namespaceURI, const String& localName);
@@ -571,10 +601,82 @@ public:
     virtual EventTargetData* eventTargetData();
     virtual EventTargetData* ensureEventTargetData();
 
+#if USE(JSC)
+    void markCachedNodeLists(JSC::MarkStack& markStack, JSC::JSGlobalData& globalData)
+    {
+        // NodeLists may be present.  If so, they need to be marked.
+        if (!hasRareData())
+            return;
+
+        markCachedNodeListsSlow(markStack, globalData);
+    }
+#endif
+
+private:
+    enum NodeFlags {
+        IsTextFlag = 1,
+        IsCommentFlag = 1 << 1,
+        IsContainerFlag = 1 << 2,
+        IsElementFlag = 1 << 3,
+        IsStyledElementFlag = 1 << 4,
+        IsHTMLFlag = 1 << 5,
+        IsSVGFlag = 1 << 6,
+        HasIDFlag = 1 << 7,
+        HasClassFlag = 1 << 8,
+        IsAttachedFlag = 1 << 9,
+        ChildNeedsStyleRecalcFlag = 1 << 10,
+        InDocumentFlag = 1 << 11,
+        IsLinkFlag = 1 << 12,
+        IsActiveFlag = 1 << 13,
+        IsHoveredFlag = 1 << 14,
+        InActiveChainFlag = 1 << 15,
+        InDetachFlag = 1 << 16,
+        HasRareDataFlag = 1 << 17,
+
+        // These bits are used by derived classes, pulled up here so they can
+        // be stored in the same memory word as the Node bits above.
+        IsParsingChildrenFinishedFlag = 1 << 18, // Element
+        IsStyleAttributeValidFlag = 1 << 19, // StyledElement
+        IsSynchronizingStyleAttributeFlag = 1 << 20, // StyledElement
+#if ENABLE(SVG)
+        AreSVGAttributesValidFlag = 1 << 21, // Element
+        IsSynchronizingSVGAttributesFlag = 1 << 22, // SVGElement
+        HasSVGRareDataFlag = 1 << 23, // SVGElement
+#endif
+        StyleChangeMask = 1 << nodeStyleChangeShift | 1 << (nodeStyleChangeShift + 1),
+        CreateWithZeroRefCountFlag = 1 << 26,
+
+#if ENABLE(SVG)
+        DefaultNodeFlags = IsParsingChildrenFinishedFlag | IsStyleAttributeValidFlag | AreSVGAttributesValidFlag
+#else
+        DefaultNodeFlags = IsParsingChildrenFinishedFlag | IsStyleAttributeValidFlag
+#endif
+    };
+
+    // 5 bits remaining
+
+    bool getFlag(NodeFlags mask) const { return m_nodeFlags & mask; }
+    void setFlag(bool f, NodeFlags mask) const { m_nodeFlags = (m_nodeFlags & ~mask) | (-(int32_t)f & mask); } 
+    void setFlag(NodeFlags mask) const { m_nodeFlags |= mask; } 
+    void clearFlag(NodeFlags mask) const { m_nodeFlags &= ~mask; } 
+
 protected:
     // CreateElementZeroRefCount is deprecated and can be removed once we convert all element
     // classes to start with a reference count of 1.
-    enum ConstructionType { CreateContainer, CreateElement, CreateOther, CreateText, CreateElementZeroRefCount };
+    enum ConstructionType { 
+        CreateOther = DefaultNodeFlags,
+        CreateText = DefaultNodeFlags | IsTextFlag,
+        CreateComment = DefaultNodeFlags | IsCommentFlag,
+        CreateContainer = DefaultNodeFlags | IsContainerFlag, 
+        CreateElement = CreateContainer | IsElementFlag, 
+        CreateElementZeroRefCount = IsElementFlag | CreateWithZeroRefCountFlag, 
+        CreateStyledElement = CreateElement | IsStyledElementFlag, 
+        CreateStyledElementZeroRefCount =  CreateStyledElement | CreateWithZeroRefCountFlag, 
+        CreateHTMLElement = CreateStyledElement | IsHTMLFlag, 
+        CreateHTMLElementZeroRefCount = CreateHTMLElement | CreateWithZeroRefCountFlag,
+        CreateSVGElement = CreateStyledElement | IsSVGFlag, 
+        CreateSVGElementZeroRefCount = CreateSVGElement | CreateWithZeroRefCountFlag,
+    };
     Node(Document*, ConstructionType);
 
     virtual void willMoveToNewOwnerDocument();
@@ -583,19 +685,18 @@ protected:
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const { }
     void setTabIndexExplicitly(short);
     
-    bool hasRareData() const { return m_hasRareData; }
-#if ENABLE(SVG)
-    bool hasRareSVGData() const { return m_hasRareSVGData; }
-#endif
+    bool hasRareData() const { return getFlag(HasRareDataFlag); }
 
     NodeRareData* rareData() const;
     NodeRareData* ensureRareData();
 
 private:
+#if USE(JSC)
+    void markCachedNodeListsSlow(JSC::MarkStack&, JSC::JSGlobalData&);
+#endif
+
     static bool initialRefCount(ConstructionType);
-    static bool isContainer(ConstructionType);
-    static bool isElement(ConstructionType);
-    static bool isText(ConstructionType);
+    void setStyleChange(StyleChangeType);
 
     virtual void refEventTarget() { ref(); }
     virtual void derefEventTarget() { deref(); }
@@ -617,44 +718,44 @@ private:
     Element* ancestorElement() const;
 
     void appendTextContent(bool convertBRsToNewlines, StringBuilder&) const;
+    void trackForDebugging();
 
     Document* m_document;
     Node* m_previous;
     Node* m_next;
     RenderObject* m_renderer;
+    mutable uint32_t m_nodeFlags;
 
-    unsigned m_styleChange : 2;
-    bool m_hasId : 1;
-    bool m_hasClass : 1;
-    bool m_attached : 1;
-    bool m_childNeedsStyleRecalc : 1;
-    bool m_inDocument : 1;
-    bool m_isLink : 1;
-    bool m_active : 1;
-    bool m_hovered : 1;
-    bool m_inActiveChain : 1;
-    bool m_inDetach : 1;
-    bool m_hasRareData : 1;
-    const bool m_isElement : 1;
-    const bool m_isContainer : 1;
-    const bool m_isText : 1;
-
-protected:
-    // These bits are used by derived classes, pulled up here so they can
-    // be stored in the same memory word as the Node bits above.
-
-    bool m_parsingChildrenFinished : 1; // Element
-    mutable bool m_isStyleAttributeValid : 1; // StyledElement
-    mutable bool m_synchronizingStyleAttribute : 1; // StyledElement
+ protected:
+    bool isParsingChildrenFinished() const { return getFlag(IsParsingChildrenFinishedFlag); }
+    void setIsParsingChildrenFinished() { setFlag(IsParsingChildrenFinishedFlag); }
+    void clearIsParsingChildrenFinished() { clearFlag(IsParsingChildrenFinishedFlag); }
+    bool isStyleAttributeValid() const { return getFlag(IsStyleAttributeValidFlag); }
+    void setIsStyleAttributeValid(bool f) { setFlag(f, IsStyleAttributeValidFlag); }
+    void setIsStyleAttributeValid() const { setFlag(IsStyleAttributeValidFlag); }
+    void clearIsStyleAttributeValid() { clearFlag(IsStyleAttributeValidFlag); }
+    bool isSynchronizingStyleAttribute() const { return getFlag(IsSynchronizingStyleAttributeFlag); }
+    void setIsSynchronizingStyleAttribute(bool f) { setFlag(f, IsSynchronizingStyleAttributeFlag); }
+    void setIsSynchronizingStyleAttribute() const { setFlag(IsSynchronizingStyleAttributeFlag); }
+    void clearIsSynchronizingStyleAttribute() const { clearFlag(IsSynchronizingStyleAttributeFlag); }
 
 #if ENABLE(SVG)
-    mutable bool m_areSVGAttributesValid : 1; // Element
-    mutable bool m_synchronizingSVGAttributes : 1; // SVGElement
-    bool m_hasRareSVGData : 1; // SVGElement
+    bool areSVGAttributesValid() const { return getFlag(AreSVGAttributesValidFlag); }
+    void setAreSVGAttributesValid() const { setFlag(AreSVGAttributesValidFlag); }
+    void clearAreSVGAttributesValid() { clearFlag(AreSVGAttributesValidFlag); }
+    bool isSynchronizingSVGAttributes() const { return getFlag(IsSynchronizingSVGAttributesFlag); }
+    void setIsSynchronizingSVGAttributes() const { setFlag(IsSynchronizingSVGAttributesFlag); }
+    void clearIsSynchronizingSVGAttributes() const { clearFlag(IsSynchronizingSVGAttributesFlag); }
+    bool hasRareSVGData() const { return getFlag(HasSVGRareDataFlag); }
+    void setHasRareSVGData() { setFlag(HasSVGRareDataFlag); }
+    void clearHasRareSVGData() { clearFlag(HasSVGRareDataFlag); }
 #endif
-
-    // 10 bits remaining
 };
+
+inline bool Node::initialRefCount(ConstructionType type)
+{
+    return !(type & CreateWithZeroRefCountFlag);
+}
 
 // Used in Node::addSubresourceAttributeURLs() and in addSubresourceStyleURLs()
 inline void addSubresourceURL(ListHashSet<KURL>& urls, const KURL& url)

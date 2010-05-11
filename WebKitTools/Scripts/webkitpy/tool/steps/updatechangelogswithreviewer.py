@@ -37,8 +37,11 @@ from webkitpy.common.system.deprecated_logging import log, error
 class UpdateChangeLogsWithReviewer(AbstractStep):
     @classmethod
     def options(cls):
-        return [
+        return AbstractStep.options() + [
+            Options.git_commit,
             Options.reviewer,
+            Options.no_squash,
+            Options.squash,
         ]
 
     def _guess_reviewer_from_bug(self, bug_id):
@@ -67,5 +70,5 @@ class UpdateChangeLogsWithReviewer(AbstractStep):
             return
 
         os.chdir(self._tool.scm().checkout_root)
-        for changelog_path in self._tool.checkout().modified_changelogs():
+        for changelog_path in self._tool.checkout().modified_changelogs(self._options.git_commit, self._options.squash):
             ChangeLog(changelog_path).set_reviewer(reviewer)

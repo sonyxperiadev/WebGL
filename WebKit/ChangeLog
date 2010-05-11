@@ -1,3 +1,119 @@
+2010-05-05  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        <rdar://problem/7932072> Iframes in composited layers don’t repaint correctly (affects Yahoo! Mail with Flash Player 10.1)
+        https://bugs.webkit.org/show_bug.cgi?id=38427
+
+        * WebKit.xcodeproj/project.pbxproj: Renamed WebClipView.m to WebClipView.mm and changed it to
+        Objective-C++.
+
+2010-05-03  Darin Adler  <darin@apple.com>
+
+        * English.lproj/Localizable.strings: Regenerated.
+        * StringsNotToBeLocalized.txt: Updated for recent changes.
+
+2010-05-03  Jens Alfke  <snej@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Add "willSendSubmitEvent" hook to WebFrameClient and FrameLoaderClient
+        https://bugs.webkit.org/show_bug.cgi?id=38397
+
+        No tests (functionality is exposed only through native WebKit API.)
+
+        * efl/WebCoreSupport/FrameLoaderClientEfl.h:
+        (WebCore::FrameLoaderClientEfl::dispatchWillSendSubmitEvent):
+
+2010-04-22  Leandro Pereira  <leandro@profusion.mobi>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        Implement findThemePath to locate the correct theme file instead of
+        relying on a hardcoded location.
+        http://webkit.org/b/37996
+
+        * efl/EWebLauncher/main.c:
+        (findThemePath): Fix to locate the correct theme files.
+        (main): Use findThemePath() instead of a hardcoded one.
+
+2010-04-22  Leandro Pereira  <leandro@profusion.mobi>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        Update efl/ewebkit.pc.in to match the variable substitution syntax
+        of CMake.
+        http://webkit.org/b/37999
+
+        * efl/ewebkit.pc.in: Updated.
+
+2010-04-22  Leandro Pereira  <leandro@profusion.mobi>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        Update EWebKit (EFL port) to match recent API changes.
+        http://webkit.org/b/37997
+
+        * efl/ewk/ewk_frame.cpp:
+        (ewk_frame_zoom_set): Change to use WebCore::ZoomMode.
+        (ewk_frame_zoom_text_only_set): Change to use WebCore::ZoomMode.
+        (_ewk_frame_handle_key_scrolling): s/WebCore::VK_/VK_/g
+        (ewk_frame_plugin_create): Disable temporarily PluginView-related
+        code until a proper plugin implementation is made.
+        * efl/ewk/ewk_view.cpp: Fix typo in _parent_sc declaration.
+        (ewk_view_selection_get): Fix a reference to WebCore::CString to
+        WTF::CString.
+
+2010-04-22  Leandro Pereira  <leandro@profusion.mobi>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        Update EFL port files to match recent API changes.
+        http://webkit.org/b/37876
+
+        * efl/WebCoreSupport/ChromeClientEfl.cpp:
+        (kit): Added.
+        (WebCore::ChromeClientEfl::ChromeClientEfl): Coding style fix.
+        (WebCore::ChromeClientEfl::runBeforeUnloadConfirmPanel): Coding
+        style fix.
+        (WebCore::ChromeClientEfl::mouseDidMoveOverElement): Coding style fix.
+        (WebCore::ChromeClientEfl::runOpenPanel): Implemented.
+        (WebCore::ChromeClientEfl::cancelGeolocationPermissionRequestForFrame): Stubbed.
+        (WebCore::ChromeClientEfl::cancelGeolocationPermissionForFrame): Stubbed.
+        (WebCore::ChromeClientEfl::invalidateContents): Stubbed.
+        (WebCore::ChromeClientEfl::invalidateWindow): Stubbed.
+        (WebCore::ChromeClientEfl::invalidateContentsAndWindow): Implemented.
+        (WebCore::ChromeClientEfl::invalidateContentsForSlowScroll): Implemented.
+        (WebCore::ChromeClientEfl::scroll): Updated.
+        (WebCore::ChromeClientEfl::iconForFiles): Stubbed.
+        (WebCore::ChromeClientEfl::chooseIconForFiles): Stubbed.
+        * efl/WebCoreSupport/ChromeClientEfl.h: Add new method prototypes.
+        * efl/WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::committedLoad): Call setEncoding()
+        from FrameLoader::writer.
+        (WebCore::FrameLoaderClientEfl::finishedLoading): Ditto.
+        (WebCore::FrameLoaderClientEfl::dispatchDidFailLoading): Ditto.
+        (WebCore::FrameLoaderClientEfl::setMainDocumentError): Ditto.
+
+2010-04-21  Gustavo Sverzut Barbieri  <barbieri@profusion.mobi>
+
+        Reviewed by Nikolas Zimmermann.
+
+        Add missing EFL WebKit/efl theme files.
+        http://webkit.org/b/37854
+
+        * efl/DefaultTheme/default.edc: Added.
+        * efl/DefaultTheme/widget/button/button.edc: Added.
+        * efl/DefaultTheme/widget/check/check.edc: Added.
+        * efl/DefaultTheme/widget/combo/combo.edc: Added.
+        * efl/DefaultTheme/widget/entry/entry.edc: Added.
+        * efl/DefaultTheme/widget/file/file.edc: Added.
+        * efl/DefaultTheme/widget/radio/radio.edc: Added.
+        * efl/DefaultTheme/widget/scrollbar/scrollbar.edc: Added.
+        * efl/DefaultTheme/widget/search/cancel/search_cancel.edc: Added.
+        * efl/DefaultTheme/widget/search/decoration/search_decoration.edc: Added.
+        * efl/DefaultTheme/widget/search/field/search_field.edc: Added.
+
 2010-04-21  Gustavo Sverzut Barbieri  <barbieri@profusion.mobi>
 
         Reviewed by Adam Roben.

@@ -230,6 +230,10 @@ FrameLoader::~FrameLoader()
 
 void FrameLoader::init()
 {
+    // Propagate sandbox attributes to this Frameloader and its descendants.
+    // This needs to be done early, so that an initial document gets correct sandbox flags in its SecurityOrigin.
+    updateSandboxFlags();
+
     // this somewhat odd set of steps is needed to give the frame an initial empty document
     m_isDisplayingInitialEmptyDocument = false;
     m_creatingInitialEmptyDocument = true;
@@ -243,9 +247,6 @@ void FrameLoader::init()
     m_frame->document()->cancelParsing();
     m_creatingInitialEmptyDocument = false;
     m_didCallImplicitClose = true;
-
-    // Propagate sandbox attributes to this Frameloader and its descendants.
-    updateSandboxFlags();
 }
 
 void FrameLoader::setDefersLoading(bool defers)
@@ -521,7 +522,7 @@ void FrameLoader::submitForm(const char* action, const String& url, PassRefPtr<F
         m_submittedFormURL = u;
     }
 
-    formData->generateFiles(m_frame->page()->chrome()->client());
+    formData->generateFiles(m_frame->document());
     
     if (!m_outgoingReferrer.isEmpty())
         frameRequest.resourceRequest().setHTTPReferrer(m_outgoingReferrer);
@@ -1210,7 +1211,7 @@ ObjectContentType FrameLoader::defaultObjectContentType(const KURL& url, const S
     if (MIMETypeRegistry::isSupportedImageMIMEType(mimeType))
         return WebCore::ObjectContentImage;
 
-#if !PLATFORM(MAC) && !PLATFORM(CHROMIUM)  // Mac has no PluginDatabase, nor does Chromium 
+#if !PLATFORM(MAC) && !PLATFORM(CHROMIUM) && !PLATFORM(EFL) // Mac has no PluginDatabase, nor does Chromium or EFL
     if (PluginDatabase::installedPlugins()->isMIMETypeRegistered(mimeType))
         return WebCore::ObjectContentNetscapePlugin;
 #endif
@@ -3745,7 +3746,7 @@ void FrameLoader::navigateToDifferentDocument(HistoryItem* item, FrameLoadType l
     // If this was a repost that failed the page cache, we might try to repost the form.
     NavigationAction action;
     if (formData) {
-        formData->generateFiles(m_frame->page()->chrome()->client());
+        formData->generateFiles(m_frame->document());
 
         request.setHTTPMethod("POST");
         request.setHTTPBody(formData);
@@ -3878,9 +3879,21 @@ bool FrameLoader::shouldUseCredentialStorage(ResourceLoader* loader)
     return m_client->shouldUseCredentialStorage(loader->documentLoader(), loader->identifier());
 }
 
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+bool FrameLoader::canAuthenticateAgainstProtectionSpace(ResourceLoader* loader, const ProtectionSpace& protectionSpace)
+{
+    return m_client->canAuthenticateAgainstProtectionSpace(loader->documentLoader(), loader->identifier(), protectionSpace);
+}
+#endif
+
 void FrameLoader::setTitle(const String& title)
 {
     documentLoader()->setTitle(title);
+}
+
+void FrameLoader::setIconURL(const String& iconURL)
+{
+    documentLoader()->setIconURL(iconURL);
 }
 
 KURL FrameLoader::originalRequestURL() const
@@ -3998,6 +4011,12 @@ void FrameLoader::didChangeTitle(DocumentLoader* loader)
         m_client->setMainFrameDocumentReady(true); // update observers with new DOMDocument
         m_client->dispatchDidReceiveTitle(loader->title());
     }
+}
+
+void FrameLoader::didChangeIcons(DocumentLoader* loader)
+{
+    if (loader == m_documentLoader)
+        m_client->dispatchDidChangeIcons();
 }
 
 void FrameLoader::dispatchDidCommitLoad()

@@ -136,6 +136,12 @@ public:
     // Walk the tree looking for layers with 3d transforms. Useful in case you need
     // to know if there is non-affine content, e.g. for drawing into an image.
     bool has3DContent() const;
+    
+    // Some platforms may wish to connect compositing layer trees between iframes and
+    // their parent document.
+    static bool shouldPropagateCompositingToIFrameParent();
+
+    void setRootPlatformLayerClippingBox(const IntRect& contentsBox);
 
 private:
     // Whether the given RL needs a compositing layer.
@@ -168,8 +174,6 @@ private:
     void setCompositingParent(RenderLayer* childLayer, RenderLayer* parentLayer);
     void removeCompositedChildren(RenderLayer*);
 
-    void parentInRootLayer(RenderLayer*);
-
     bool layerHas3DContent(const RenderLayer*) const;
 
     void ensureRootPlatformLayer();
@@ -199,6 +203,9 @@ private:
     bool m_compositing;
     bool m_rootLayerAttached;
     bool m_compositingLayersNeedRebuild;
+
+    // Enclosing clipping layer for iframe content
+    OwnPtr<GraphicsLayer> m_clippingLayer;
     
 #if PROFILE_LAYER_REBUILD
     int m_rootLayerUpdateCount;

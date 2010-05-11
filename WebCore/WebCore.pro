@@ -35,6 +35,9 @@ symbian: {
         # Move RW-section base address to start from 0xE00000 instead of the toolchain default 0x400000.
         QMAKE_LFLAGS.ARMCC += --rw-base 0xE00000
         MMP_RULES += ALWAYS_BUILD_AS_ARM
+    }  else {
+        QMAKE_CFLAGS -= --thumb
+        QMAKE_CXXFLAGS -= --thumb
     }
     CONFIG(release, debug|release): QMAKE_CXXFLAGS.ARMCC += -OTime -O3
 }
@@ -52,8 +55,6 @@ CONFIG(standalone_package) {
     isEmpty(JSC_GENERATED_SOURCES_DIR):JSC_GENERATED_SOURCES_DIR = $$PWD/../JavaScriptCore/generated
 
     PRECOMPILED_HEADER = $$PWD/../WebKit/qt/WebKit_pch.h
-
-    symbian: TARGET += $${QT_LIBINFIX}
 } else {
     isEmpty(WC_GENERATED_SOURCES_DIR):WC_GENERATED_SOURCES_DIR = generated
     isEmpty(JSC_GENERATED_SOURCES_DIR):JSC_GENERATED_SOURCES_DIR = ../JavaScriptCore/generated
@@ -68,12 +69,13 @@ CONFIG(standalone_package) {
 
 CONFIG(QTDIR_build) {
     include($$QT_SOURCE_TREE/src/qbase.pri)
-    # Qt will set the version for us when building in Qt's tree
 } else {
-    VERSION = $${QT_MAJOR_VERSION}.$${QT_MINOR_VERSION}.$${QT_PATCH_VERSION}
     DESTDIR = $$OUTPUT_DIR/lib
     !static: DEFINES += QT_MAKEDLL
+    symbian: TARGET =$$TARGET$${QT_LIBINFIX}
 }
+include($$PWD/../WebKit/qt/qtwebkit_version.pri)
+VERSION = $${QT_WEBKIT_MAJOR_VERSION}.$${QT_WEBKIT_MINOR_VERSION}.$${QT_WEBKIT_PATCH_VERSION}
 
 unix {
     QMAKE_PKGCONFIG_REQUIRES = QtCore QtGui QtNetwork
@@ -87,9 +89,6 @@ CONFIG(release):!CONFIG(standalone_package) {
     contains(QT_CONFIG, reduce_exports):CONFIG += hide_symbols
     unix:contains(QT_CONFIG, reduce_relocations):CONFIG += bsymbolic_functions
 }
-
-linux-*: DEFINES += HAVE_STDINT_H
-freebsd-*: DEFINES += HAVE_PTHREAD_NP_H
 
 DEFINES += BUILD_WEBKIT
 
@@ -123,7 +122,11 @@ maemo5|symbian|embedded {
     DEFINES += ENABLE_FAST_MOBILE_SCROLLING=1
 }
 
-maemo5 {
+maemo5|symbian {
+    DEFINES += WTF_USE_QT_MOBILE_THEME=1
+}
+
+contains(DEFINES, WTF_USE_QT_MOBILE_THEME=1) {
     DEFINES += ENABLE_NO_LISTBOX_RENDERING=1
 }
 
@@ -132,17 +135,12 @@ addJavaScriptCoreLib(../JavaScriptCore)
 
 
 # HTML5 Media Support
-# We require phonon for versions of Qt < 4.7
-# We require QtMultimedia for versions of Qt >= 4.7
+# We require phonon. QtMultimedia support is disabled currently.
 !contains(DEFINES, ENABLE_VIDEO=.) {
     DEFINES -= ENABLE_VIDEO=1
     DEFINES += ENABLE_VIDEO=0
 
-    lessThan(QT_MINOR_VERSION, 7):contains(QT_CONFIG, phonon) {
-        DEFINES -= ENABLE_VIDEO=0
-        DEFINES += ENABLE_VIDEO=1
-    }
-    !lessThan(QT_MINOR_VERSION, 7):contains(QT_CONFIG, multimedia) {
+    contains(QT_CONFIG, phonon) {
         DEFINES -= ENABLE_VIDEO=0
         DEFINES += ENABLE_VIDEO=1
     }
@@ -188,6 +186,7 @@ INCLUDEPATH = \
     $$PWD/loader/appcache \
     $$PWD/loader/archive \
     $$PWD/loader/icon \
+    $$PWD/mathml \
     $$PWD/notifications \
     $$PWD/page \
     $$PWD/page/animation \
@@ -289,7 +288,6 @@ SOURCES += \
     bindings/js/JSDebugWrapperSet.cpp \
     bindings/js/JSDesktopNotificationsCustom.cpp \
     bindings/js/JSDocumentCustom.cpp \
-    bindings/js/JSDocumentFragmentCustom.cpp \
     bindings/js/JSDOMFormDataCustom.cpp \
     bindings/js/JSDOMGlobalObject.cpp \
     bindings/js/JSDOMWindowBase.cpp \
@@ -299,7 +297,6 @@ SOURCES += \
     bindings/js/JSElementCustom.cpp \
     bindings/js/JSEventCustom.cpp \
     bindings/js/JSEventSourceConstructor.cpp \
-    bindings/js/JSEventSourceCustom.cpp \
     bindings/js/JSEventTarget.cpp \
     bindings/js/JSExceptionBase.cpp \
     bindings/js/JSGeolocationCustom.cpp \
@@ -429,7 +426,6 @@ SOURCES += \
     css/FontFamilyValue.cpp \
     css/FontValue.cpp \
     css/MediaFeatureNames.cpp \
-    css/Media.cpp \
     css/MediaList.cpp \
     css/MediaQuery.cpp \
     css/MediaQueryEvaluator.cpp \
@@ -438,6 +434,7 @@ SOURCES += \
     css/ShadowValue.cpp \
     css/StyleBase.cpp \
     css/StyleList.cpp \
+    css/StyleMedia.cpp \
     css/StyleSheet.cpp \
     css/StyleSheetList.cpp \
     css/WebKitCSSKeyframeRule.cpp \
@@ -570,7 +567,6 @@ SOURCES += \
     editing/ReplaceSelectionCommand.cpp \
     editing/SelectionController.cpp \
     editing/SetNodeAttributeCommand.cpp \
-    editing/SmartReplace.cpp \
     editing/SmartReplaceICU.cpp \
     editing/SplitElementCommand.cpp \
     editing/SplitTextNodeCommand.cpp \
@@ -603,6 +599,7 @@ SOURCES += \
     html/DOMFormData.cpp \
     html/File.cpp \
     html/FileList.cpp \
+    html/FileReader.cpp \
     html/FileStream.cpp \
     html/FileStreamProxy.cpp \
     html/FileThread.cpp \
@@ -697,6 +694,7 @@ SOURCES += \
     inspector/InjectedScript.cpp \
     inspector/InjectedScriptHost.cpp \
     inspector/InspectorBackend.cpp \
+    inspector/InspectorCSSStore.cpp \
     inspector/InspectorController.cpp \
     inspector/InspectorDatabaseResource.cpp \
     inspector/InspectorDOMAgent.cpp \
@@ -1027,13 +1025,8 @@ HEADERS += \
     bindings/js/JSCSSStyleDeclarationCustom.h \
     bindings/js/JSCustomPositionCallback.h \
     bindings/js/JSCustomPositionErrorCallback.h \
-    bindings/js/JSCustomSQLStatementCallback.h \
-    bindings/js/JSCustomSQLStatementErrorCallback.h \
-    bindings/js/JSCustomSQLTransactionCallback.h \
-    bindings/js/JSCustomSQLTransactionErrorCallback.h \
     bindings/js/JSCustomVoidCallback.h \
     bindings/js/JSCustomXPathNSResolver.h \
-    bindings/js/JSDatabaseCallback.h \
     bindings/js/JSDataGridDataSource.h \
     bindings/js/JSDebugWrapperSet.h \
     bindings/js/JSDOMBinding.h \
@@ -1155,7 +1148,6 @@ HEADERS += \
     css/FontFamilyValue.h \
     css/FontValue.h \
     css/MediaFeatureNames.h \
-    css/Media.h \
     css/MediaList.h \
     css/MediaQueryEvaluator.h \
     css/MediaQueryExp.h \
@@ -1164,6 +1156,7 @@ HEADERS += \
     css/ShadowValue.h \
     css/StyleBase.h \
     css/StyleList.h \
+    css/StyleMedia.h \
     css/StyleSheet.h \
     css/StyleSheetList.h \
     css/WebKitCSSKeyframeRule.h \
@@ -1248,6 +1241,7 @@ HEADERS += \
     dom/TouchList.h \
     dom/TransformSource.h \
     dom/Traversal.h \
+    dom/TreeDepthLimit.h \
     dom/TreeWalker.h \
     dom/UIEvent.h \
     dom/UIEventWithKeyState.h \
@@ -1321,7 +1315,9 @@ HEADERS += \
     html/DOMDataGridDataSource.h \
     html/DOMFormData.h \
     html/File.h \
+    html/FileError.h \
     html/FileList.h \
+    html/FileReader.h \
     html/FileStream.h \
     html/FileStreamClient.h \
     html/FileStreamProxy.h \
@@ -1483,6 +1479,19 @@ HEADERS += \
     loader/TextResourceDecoder.h \
     loader/ThreadableLoader.h \
     loader/WorkerThreadableLoader.h \
+    mathml/MathMLElement.h \
+    mathml/MathMLInlineContainerElement.h \
+    mathml/MathMLMathElement.h \
+    mathml/MathMLTextElement.h \
+    mathml/RenderMathMLBlock.h \
+    mathml/RenderMathMLFraction.h \
+    mathml/RenderMathMLMath.h \
+    mathml/RenderMathMLOperator.h \
+    mathml/RenderMathMLRoot.h \
+    mathml/RenderMathMLRow.h \
+    mathml/RenderMathMLSquareRoot.h \
+    mathml/RenderMathMLSubSup.h \
+    mathml/RenderMathMLUnderOver.h \
     notifications/Notification.h \
     notifications/NotificationCenter.h \
     notifications/NotificationPresenter.h \
@@ -1730,9 +1739,14 @@ HEADERS += \
     rendering/RenderSVGModelObject.h \
     rendering/RenderSVGResource.h \
     rendering/RenderSVGResourceClipper.h \
-    rendering/RenderSVGResourceFilter.h \
+    rendering/RenderSVGResourceFilter.h \ 
+    rendering/RenderSVGResourceGradient.h \
+    rendering/RenderSVGResourceLinearGradient.h \
     rendering/RenderSVGResourceMarker.h \
     rendering/RenderSVGResourceMasker.h \
+    rendering/RenderSVGResourcePattern.h \
+    rendering/RenderSVGResourceRadialGradient.h \
+    rendering/RenderSVGResourceSolidColor.h \
     rendering/RenderSVGRoot.h \
     rendering/RenderSVGShadowTreeRootContainer.h \
     rendering/RenderSVGText.h \
@@ -1784,6 +1798,7 @@ HEADERS += \
     rendering/style/StyleVisualData.h \
     rendering/style/SVGRenderStyleDefs.h \
     rendering/style/SVGRenderStyle.h \
+    rendering/SVGCharacterData.h \
     rendering/SVGCharacterLayoutInfo.h \
     rendering/SVGInlineFlowBox.h \
     rendering/SVGInlineTextBox.h \
@@ -1793,6 +1808,7 @@ HEADERS += \
     rendering/SVGRenderTreeAsText.h \
     rendering/SVGRootInlineBox.h \
     rendering/SVGShadowTreeElements.h \
+    rendering/SVGTextChunkLayoutInfo.h \
     rendering/TextControlInnerElements.h \
     rendering/TransformState.h \
     svg/animation/SMILTimeContainer.h \
@@ -1814,13 +1830,6 @@ HEADERS += \
     svg/graphics/filters/SVGFilter.h \
     svg/graphics/filters/SVGLightSource.h \
     svg/graphics/SVGImage.h \
-    svg/graphics/SVGPaintServerGradient.h \
-    svg/graphics/SVGPaintServer.h \
-    svg/graphics/SVGPaintServerLinearGradient.h \
-    svg/graphics/SVGPaintServerPattern.h \
-    svg/graphics/SVGPaintServerRadialGradient.h \
-    svg/graphics/SVGPaintServerSolid.h \
-    svg/graphics/SVGResource.h \
     svg/SVGAElement.h \
     svg/SVGAltGlyphElement.h \
     svg/SVGAngle.h \
@@ -2031,6 +2040,7 @@ HEADERS += \
     $$PWD/../WebKit/qt/WebCoreSupport/QtFallbackWebPopup.h \
     $$PWD/../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/PageClientQt.h \
     $$PWD/platform/network/qt/DnsPrefetchHelper.h
 
 SOURCES += \
@@ -2066,6 +2076,7 @@ SOURCES += \
     platform/network/qt/DnsPrefetchHelper.cpp \
     platform/network/qt/QNetworkReplyHandler.cpp \
     editing/qt/EditorQt.cpp \
+    editing/qt/SmartReplaceQt.cpp \
     platform/qt/ClipboardQt.cpp \
     platform/qt/ContextMenuItemQt.cpp \
     platform/qt/ContextMenuQt.cpp \
@@ -2101,7 +2112,7 @@ SOURCES += \
     platform/qt/SharedTimerQt.cpp \
     platform/qt/SoundQt.cpp \
     platform/qt/LoggingQt.cpp \
-    platform/qt/TemporaryLinkStubs.cpp \
+    platform/qt/TemporaryLinkStubsQt.cpp \
     platform/text/qt/TextBoundariesQt.cpp \
     platform/text/qt/TextBreakIteratorQt.cpp \
     platform/text/qt/TextCodecQt.cpp \
@@ -2118,6 +2129,7 @@ SOURCES += \
     ../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/InspectorClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/PageClientQt.cpp \
     ../WebKit/qt/Api/qwebframe.cpp \
     ../WebKit/qt/Api/qgraphicswebview.cpp \
     ../WebKit/qt/Api/qwebpage.cpp \
@@ -2133,13 +2145,15 @@ SOURCES += \
     ../WebKit/qt/Api/qwebinspector.cpp \
     ../WebKit/qt/Api/qwebkitversion.cpp
 
+
+contains(DEFINES, WTF_USE_QT_MOBILE_THEME=1) {
+    HEADERS += platform/qt/Maemo5Webstyle.h
+    SOURCES += platform/qt/Maemo5Webstyle.cpp
+}
+
 maemo5 {
-    HEADERS += \
-        ../WebKit/qt/WebCoreSupport/QtMaemoWebPopup.h \
-        platform/qt/Maemo5Webstyle.h
-    SOURCES += \
-        ../WebKit/qt/WebCoreSupport/QtMaemoWebPopup.cpp \
-        platform/qt/Maemo5Webstyle.cpp
+    HEADERS += ../WebKit/qt/WebCoreSupport/QtMaemoWebPopup.h
+    SOURCES += ../WebKit/qt/WebCoreSupport/QtMaemoWebPopup.cpp
 }
 
 
@@ -2150,8 +2164,7 @@ maemo5 {
         SOURCES += \
             platform/text/cf/StringCF.cpp \
             platform/text/cf/StringImplCF.cpp \
-            platform/cf/SharedBufferCF.cpp \
-            editing/SmartReplaceCF.cpp
+            platform/cf/SharedBufferCF.cpp
         LIBS_PRIVATE += -framework Carbon -framework AppKit
     }
 
@@ -2160,7 +2173,10 @@ maemo5 {
         LIBS += -lOle32
         LIBS += -luser32
     }
-    wince*: LIBS += -lmmtimer
+    wince* {
+        LIBS += -lmmtimer
+        LIBS += -lOle32
+    }
 
 contains(DEFINES, ENABLE_NETSCAPE_PLUGIN_API=1) {
 
@@ -2262,7 +2278,8 @@ contains(DEFINES, ENABLE_SQLITE=1) {
         platform/sql/SQLiteTransaction.cpp \
         platform/sql/SQLValue.cpp \
         storage/Database.cpp \
-        storage/DatabaseAuthorizer.cpp
+        storage/DatabaseAuthorizer.cpp \
+        storage/DatabaseSync.cpp
 }
 
 
@@ -2280,11 +2297,8 @@ contains(DEFINES, ENABLE_DATABASE=1) {
         storage/SQLTransaction.cpp \
         storage/SQLTransactionClient.cpp \
         storage/SQLTransactionCoordinator.cpp \
-        bindings/js/JSCustomSQLStatementCallback.cpp \
+        storage/SQLTransactionSync.cpp \
         bindings/js/JSCustomSQLStatementErrorCallback.cpp \
-        bindings/js/JSCustomSQLTransactionCallback.cpp \
-        bindings/js/JSCustomSQLTransactionErrorCallback.cpp \
-        bindings/js/JSDatabaseCallback.cpp \
         bindings/js/JSDatabaseCustom.cpp \
         bindings/js/JSSQLResultSetRowListCustom.cpp \
         bindings/js/JSSQLTransactionCustom.cpp
@@ -2296,6 +2310,7 @@ contains(DEFINES, ENABLE_DOM_STORAGE=1) {
         storage/DatabaseAuthorizer.h \
         storage/Database.h \
         storage/DatabaseCallback.h \
+        storage/DatabaseSync.h \
         storage/DatabaseTask.h \
         storage/DatabaseThread.h \
         storage/DatabaseTracker.h \
@@ -2309,6 +2324,7 @@ contains(DEFINES, ENABLE_DOM_STORAGE=1) {
         storage/SQLTransaction.h \
         storage/SQLTransactionClient.h \
         storage/SQLTransactionCoordinator.h \
+        storage/SQLTransactionSync.h \
         storage/StorageArea.h \
         storage/StorageAreaImpl.h \
         storage/StorageAreaSync.h \
@@ -2347,7 +2363,6 @@ contains(DEFINES, ENABLE_ICONDATABASE=1) {
 
 contains(DEFINES, ENABLE_WORKERS=1) {
     SOURCES += \
-        bindings/js/JSAbstractWorkerCustom.cpp \
         bindings/js/JSDedicatedWorkerContextCustom.cpp \
         bindings/js/JSWorkerConstructor.cpp \
         bindings/js/JSWorkerContextBase.cpp \
@@ -2391,12 +2406,12 @@ contains(DEFINES, ENABLE_VIDEO=1) {
         rendering/RenderMedia.cpp \
         bindings/js/JSAudioConstructor.cpp
 
-        # QtMultimedia since 4.7
-        greaterThan(QT_MINOR_VERSION, 6) {
+        # QtMultimedia disabled currently
+        false:greaterThan(QT_MINOR_VERSION, 6) {
             HEADERS += platform/graphics/qt/MediaPlayerPrivateQt.h
             SOURCES += platform/graphics/qt/MediaPlayerPrivateQt.cpp
 
-            QT += multimedia
+            tobe|!tobe: QT += mediaservices
         } else {
             HEADERS += \
                 platform/graphics/qt/MediaPlayerPrivatePhonon.h
@@ -2462,6 +2477,23 @@ contains(DEFINES, ENABLE_FILTERS=1) {
         platform/graphics/filters/FilterEffect.cpp \
         platform/graphics/filters/SourceAlpha.cpp \
         platform/graphics/filters/SourceGraphic.cpp
+}
+
+contains(DEFINES, ENABLE_MATHML=1) {
+    SOURCES += \
+        mathml/MathMLElement.cpp \
+        mathml/MathMLInlineContainerElement.cpp \
+        mathml/MathMLMathElement.cpp \
+        mathml/MathMLTextElement.cpp \
+        mathml/RenderMathMLBlock.cpp \
+        mathml/RenderMathMLFraction.cpp \
+        mathml/RenderMathMLMath.cpp \
+        mathml/RenderMathMLOperator.cpp \
+        mathml/RenderMathMLRoot.cpp \
+        mathml/RenderMathMLRow.cpp \
+        mathml/RenderMathMLSquareRoot.cpp \
+        mathml/RenderMathMLSubSup.cpp \
+        mathml/RenderMathMLUnderOver.cpp
 }
 
 contains(DEFINES, ENABLE_WML=1) {
@@ -2683,13 +2715,6 @@ contains(DEFINES, ENABLE_SVG=1) {
         svg/graphics/filters/SVGFilterBuilder.cpp \
         svg/graphics/filters/SVGLightSource.cpp \
         svg/graphics/SVGImage.cpp \
-        svg/graphics/SVGPaintServer.cpp \
-        svg/graphics/SVGPaintServerGradient.cpp \
-        svg/graphics/SVGPaintServerLinearGradient.cpp \
-        svg/graphics/SVGPaintServerPattern.cpp \
-        svg/graphics/SVGPaintServerRadialGradient.cpp \
-        svg/graphics/SVGPaintServerSolid.cpp \
-        svg/graphics/SVGResource.cpp \
         rendering/RenderForeignObject.cpp \
         rendering/RenderPath.cpp \
         rendering/RenderSVGBlock.cpp \
@@ -2700,10 +2725,16 @@ contains(DEFINES, ENABLE_SVG=1) {
         rendering/RenderSVGInline.cpp \
         rendering/RenderSVGInlineText.cpp \
         rendering/RenderSVGModelObject.cpp \
+        rendering/RenderSVGResource.cpp \
         rendering/RenderSVGResourceClipper.cpp \
         rendering/RenderSVGResourceFilter.cpp \
+        rendering/RenderSVGResourceGradient.cpp \
+        rendering/RenderSVGResourceLinearGradient.cpp \
         rendering/RenderSVGResourceMarker.cpp \
         rendering/RenderSVGResourceMasker.cpp \
+        rendering/RenderSVGResourcePattern.cpp \
+        rendering/RenderSVGResourceRadialGradient.cpp \
+        rendering/RenderSVGResourceSolidColor.cpp \
         rendering/RenderSVGRoot.cpp \
         rendering/RenderSVGShadowTreeRootContainer.cpp \
         rendering/RenderSVGText.cpp \
@@ -2711,6 +2742,7 @@ contains(DEFINES, ENABLE_SVG=1) {
         rendering/RenderSVGTransformableContainer.cpp \
         rendering/RenderSVGTSpan.cpp \
         rendering/RenderSVGViewportContainer.cpp \
+        rendering/SVGCharacterData.cpp \
         rendering/SVGCharacterLayoutInfo.cpp \
         rendering/SVGInlineFlowBox.cpp \
         rendering/SVGInlineTextBox.cpp \
@@ -2772,7 +2804,7 @@ contains(DEFINES, ENABLE_WEB_SOCKETS=1) {
 }
 
 contains(DEFINES, ENABLE_3D_CANVAS=1) {
-QT += opengl
+tobe|!tobe: QT += opengl
 HEADERS += \
 	bindings/js/JSWebGLArrayBufferConstructor.h \
 	bindings/js/JSWebGLArrayHelper.h \
@@ -2973,3 +3005,6 @@ symbian {
         }
     }
 }
+
+# Disable C++0x mode in WebCore for those who enabled it in their Qt's mkspec
+*-g++*:QMAKE_CXXFLAGS -= -std=c++0x -std=gnu++0x

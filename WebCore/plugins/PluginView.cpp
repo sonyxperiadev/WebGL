@@ -377,7 +377,7 @@ void PluginView::stop()
         WNDPROC currentWndProc = (WNDPROC)GetWindowLongPtr(platformPluginWidget(), GWLP_WNDPROC);
 
         if (currentWndProc == PluginViewWndProc)
-            SetWindowLongPtr(platformPluginWidget(), GWLP_WNDPROC, (LONG)m_pluginWndProc);
+            SetWindowLongPtr(platformPluginWidget(), GWLP_WNDPROC, (LONG_PTR)m_pluginWndProc);
 #endif
     }
 #endif // XP_WIN
@@ -638,12 +638,12 @@ NPError PluginView::getURL(const char* url, const char* target)
     return load(frameLoadRequest, false, 0);
 }
 
-NPError PluginView::postURLNotify(const char* url, const char* target, uint32 len, const char* buf, NPBool file, void* notifyData)
+NPError PluginView::postURLNotify(const char* url, const char* target, uint32_t len, const char* buf, NPBool file, void* notifyData)
 {
     return handlePost(url, target, len, buf, file, notifyData, true, true);
 }
 
-NPError PluginView::postURL(const char* url, const char* target, uint32 len, const char* buf, NPBool file)
+NPError PluginView::postURL(const char* url, const char* target, uint32_t len, const char* buf, NPBool file)
 {
     // As documented, only allow headers to be specified via NPP_PostURL when using a file.
     return handlePost(url, target, len, buf, file, 0, false, file);
@@ -656,7 +656,7 @@ NPError PluginView::newStream(NPMIMEType type, const char* target, NPStream** st
     return NPERR_GENERIC_ERROR;
 }
 
-int32 PluginView::write(NPStream* stream, int32 len, void* buffer)
+int32_t PluginView::write(NPStream* stream, int32_t len, void* buffer)
 {
     notImplemented();
     // Unsupported
@@ -1234,7 +1234,7 @@ static inline HTTPHeaderMap parseRFC822HeaderFields(const Vector<char>& buffer, 
     return headerFields;
 }
 
-NPError PluginView::handlePost(const char* url, const char* target, uint32 len, const char* buf, bool file, void* notifyData, bool sendNotification, bool allowHeaders)
+NPError PluginView::handlePost(const char* url, const char* target, uint32_t len, const char* buf, bool file, void* notifyData, bool sendNotification, bool allowHeaders)
 {
     if (!url || !len || !buf)
         return NPERR_INVALID_PARAM;
@@ -1409,7 +1409,6 @@ void PluginView::keepAlive(NPP instance)
 
     view->keepAlive();
 }
-#endif
 
 NPError PluginView::getValueStatic(NPNVariable variable, void* value)
 {
@@ -1434,7 +1433,6 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
         return result;
 
     switch (variable) {
-#if ENABLE(NETSCAPE_PLUGIN_API)
     case NPNVWindowNPObject: {
         if (m_isJavaScriptPaused)
             return NPERR_GENERIC_ERROR;
@@ -1469,7 +1467,6 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
 
         return NPERR_NO_ERROR;
     }
-#endif
 
     case NPNVprivateModeBool: {
         Page* page = m_parentFrame->page();
@@ -1483,6 +1480,7 @@ NPError PluginView::getValue(NPNVariable variable, void* value)
         return NPERR_GENERIC_ERROR;
     }
 }
+#endif
 
 void PluginView::privateBrowsingStateChanged(bool privateBrowsingEnabled)
 {

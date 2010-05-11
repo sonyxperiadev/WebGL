@@ -27,7 +27,6 @@
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 import os
-import subprocess
 import StringIO
 
 from webkitpy.common.checkout.changelog import ChangeLog
@@ -50,7 +49,11 @@ class Checkout(object):
 
     def _latest_entry_for_changelog_at_revision(self, changelog_path, revision):
         changelog_contents = self._scm.contents_at_revision(changelog_path, revision)
-        return ChangeLog.parse_latest_entry_from_file(StringIO.StringIO(changelog_contents))
+        # contents_at_revision returns a byte array (str()), but we know
+        # that ChangeLog files are utf-8.  parse_latest_entry_from_file
+        # expects a file-like object which vends unicode(), so we decode here.
+        changelog_file = StringIO.StringIO(changelog_contents.decode("utf-8"))
+        return ChangeLog.parse_latest_entry_from_file(changelog_file)
 
     def changelog_entries_for_revision(self, revision):
         changed_files = self._scm.changed_files_for_revision(revision)
@@ -80,16 +83,16 @@ class Checkout(object):
     def bug_id_for_revision(self, revision):
         return self.commit_info_for_revision(revision).bug_id()
 
-    def modified_changelogs(self):
+    def modified_changelogs(self, git_commit, squash):
         # SCM returns paths relative to scm.checkout_root
         # Callers (especially those using the ChangeLog class) may
         # expect absolute paths, so this method returns absolute paths.
-        changed_files = self._scm.changed_files()
+        changed_files = self._scm.changed_files(git_commit, squash)
         absolute_paths = [os.path.join(self._scm.checkout_root, path) for path in changed_files]
         return [path for path in absolute_paths if self._is_path_to_changelog(path)]
 
-    def commit_message_for_this_commit(self):
-        changelog_paths = self.modified_changelogs()
+    def commit_message_for_this_commit(self, git_commit, squash):
+        changelog_paths = self.modified_changelogs(git_commit, squash)
         if not len(changelog_paths):
             raise ScriptError(message="Found no modified ChangeLogs, cannot create a commit message.\n"
                               "All changes require a ChangeLog.  See:\n"
@@ -106,32 +109,29 @@ class Checkout(object):
         # FIXME: We should sort and label the ChangeLog messages like commit-log-editor does.
         return CommitMessage("".join(changelog_messages).splitlines())
 
-    def bug_id_for_this_commit(self):
+    def bug_id_for_this_commit(self, git_commit, squash):
         try:
-            return parse_bug_id(self.commit_message_for_this_commit().message())
+            return parse_bug_id(self.commit_message_for_this_commit(git_commit, squash).message())
         except ScriptError, e:
             pass # We might not have ChangeLogs.
 
     def apply_patch(self, patch, force=False):
         # It's possible that the patch was not made from the root directory.
         # We should detect and handle that case.
-        # FIXME: Use Executive instead of subprocess here.
-        curl_process = subprocess.Popen(['curl', '--location', '--silent', '--show-error', patch.url()], stdout=subprocess.PIPE)
         # FIXME: Move _scm.script_path here once we get rid of all the dependencies.
         args = [self._scm.script_path('svn-apply')]
         if patch.reviewer():
             args += ['--reviewer', patch.reviewer().full_name]
         if force:
             args.append('--force')
-
-        run_command(args, input=curl_process.stdout)
+        run_command(args, input=patch.contents())
 
     def apply_reverse_diff(self, revision):
         self._scm.apply_reverse_diff(revision)
 
         # We revert the ChangeLogs because removing lines from a ChangeLog
         # doesn't make sense.  ChangeLogs are append only.
-        changelog_paths = self.modified_changelogs()
+        changelog_paths = self.modified_changelogs(git_commit=None, squash=False)
         if len(changelog_paths):
             self._scm.revert_files(changelog_paths)
 

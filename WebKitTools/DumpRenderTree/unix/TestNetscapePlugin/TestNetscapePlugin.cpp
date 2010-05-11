@@ -171,7 +171,7 @@ webkit_test_plugin_new_stream(NPP instance,
                               NPMIMEType /*type*/,
                               NPStream *stream,
                               NPBool /*seekable*/,
-                              uint16* stype)
+                              uint16_t* stype)
 {
     PluginObject* obj = static_cast<PluginObject*>(instance->pdata);
     obj->stream = stream;
@@ -210,13 +210,13 @@ webkit_test_plugin_stream_as_file(NPP /*instance*/, NPStream* /*stream*/, const 
 {
 }
 
-static int32
+static int32_t
 webkit_test_plugin_write_ready(NPP /*instance*/, NPStream* /*stream*/)
 {
     return 0;
 }
 
-static int32
+static int32_t
 webkit_test_plugin_write(NPP /*instance*/,
                          NPStream* /*stream*/,
                          int32_t /*offset*/,

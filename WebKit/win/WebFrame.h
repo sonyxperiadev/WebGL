@@ -286,11 +286,13 @@ public:
     virtual void detachedFromParent2();
     virtual void detachedFromParent3();
     virtual void cancelPolicyCheck();
+    virtual void dispatchWillSendSubmitEvent(WebCore::HTMLFormElement*) { }
     virtual void dispatchWillSubmitForm(WebCore::FramePolicyFunction, PassRefPtr<WebCore::FormState>);
     virtual void revertToProvisionalState(WebCore::DocumentLoader*);
     virtual void setMainFrameDocumentReady(bool);
     virtual void willChangeTitle(WebCore::DocumentLoader*);
     virtual void didChangeTitle(WebCore::DocumentLoader*);
+    virtual void didChangeIcons(WebCore::DocumentLoader*);
     virtual bool canHandleRequest(const WebCore::ResourceRequest&) const;
     virtual bool canShowMIMEType(const WebCore::String& MIMEType) const;
     virtual bool representationExistsForURLScheme(const WebCore::String& URLScheme) const;

@@ -123,6 +123,7 @@
 #include <WebCore/SimpleFontData.h>
 #include <WebCore/TypingCommand.h>
 #include <WebCore/WindowMessageBroadcaster.h>
+#include <wtf/Threading.h>
 
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
 #include <WebCore/GeolocationController.h>
@@ -340,8 +341,10 @@ WebView::WebView()
 #if USE(ACCELERATED_COMPOSITING)
     , m_isAcceleratedCompositing(false)
 #endif
+    , m_nextDisplayIsSynchronous(false)
 {
     JSC::initializeThreading();
+    WTF::initializeMainThread();
 
     m_backingStoreSize.cx = m_backingStoreSize.cy = 0;
 
@@ -758,7 +761,7 @@ bool WebView::ensureBackingStore()
         BitmapInfo bitmapInfo = BitmapInfo::createBottomUp(IntSize(m_backingStoreSize));
 
         void* pixels = NULL;
-        m_backingStoreBitmap.set(::CreateDIBSection(NULL, &bitmapInfo, DIB_RGB_COLORS, &pixels, NULL, 0));
+        m_backingStoreBitmap = RefCountedHBITMAP::create(::CreateDIBSection(0, &bitmapInfo, DIB_RGB_COLORS, &pixels, 0, 0));
         return true;
     }
 
@@ -782,11 +785,11 @@ void WebView::addToDirtyRegion(HRGN newRegion)
 
     if (m_backingStoreDirtyRegion) {
         HRGN combinedRegion = ::CreateRectRgn(0,0,0,0);
-        ::CombineRgn(combinedRegion, m_backingStoreDirtyRegion.get(), newRegion, RGN_OR);
+        ::CombineRgn(combinedRegion, m_backingStoreDirtyRegion->handle(), newRegion, RGN_OR);
         ::DeleteObject(newRegion);
-        m_backingStoreDirtyRegion.set(combinedRegion);
+        m_backingStoreDirtyRegion = RefCountedHRGN::create(combinedRegion);
     } else
-        m_backingStoreDirtyRegion.set(newRegion);
+        m_backingStoreDirtyRegion = RefCountedHRGN::create(newRegion);
 
 #if USE(ACCELERATED_COMPOSITING)
     if (m_layerRenderer)
@@ -815,7 +818,7 @@ void WebView::scrollBackingStore(FrameView* frameView, int dx, int dy, const Int
     // Collect our device context info and select the bitmap to scroll.
     HDC windowDC = ::GetDC(m_viewWindow);
     HDC bitmapDC = ::CreateCompatibleDC(windowDC);
-    ::SelectObject(bitmapDC, m_backingStoreBitmap.get());
+    ::SelectObject(bitmapDC, m_backingStoreBitmap->handle());
     
     // Scroll the bitmap.
     RECT scrollRectWin(scrollViewRect);
@@ -892,7 +895,7 @@ void WebView::updateBackingStore(FrameView* frameView, HDC dc, bool backingStore
     if (!dc) {
         windowDC = ::GetDC(m_viewWindow);
         bitmapDC = ::CreateCompatibleDC(windowDC);
-        ::SelectObject(bitmapDC, m_backingStoreBitmap.get());
+        ::SelectObject(bitmapDC, m_backingStoreBitmap->handle());
     }
 
     if (m_backingStoreBitmap && (m_backingStoreDirtyRegion || backingStoreCompletelyDirty)) {
@@ -902,10 +905,10 @@ void WebView::updateBackingStore(FrameView* frameView, HDC dc, bool backingStore
                 view->layoutIfNeededRecursive();
 
         Vector<IntRect> paintRects;
-        if (!backingStoreCompletelyDirty) {
+        if (!backingStoreCompletelyDirty && m_backingStoreDirtyRegion) {
             RECT regionBox;
-            ::GetRgnBox(m_backingStoreDirtyRegion.get(), &regionBox);
-            getUpdateRects(m_backingStoreDirtyRegion.get(), regionBox, paintRects);
+            ::GetRgnBox(m_backingStoreDirtyRegion->handle(), &regionBox);
+            getUpdateRects(m_backingStoreDirtyRegion->handle(), regionBox, paintRects);
         } else {
             RECT clientRect;
             ::GetClientRect(m_viewWindow, &clientRect);
@@ -942,8 +945,6 @@ void WebView::paint(HDC dc, LPARAM options)
         return;
     FrameView* frameView = coreFrame->view();
 
-    m_paintCount++;
-
     RECT rcPaint;
     HDC hdc;
     OwnPtr<HRGN> region;
@@ -968,9 +969,17 @@ void WebView::paint(HDC dc, LPARAM options)
         windowsToPaint = PaintWebViewAndChildren;
     }
 
+    if (::IsRectEmpty(&rcPaint)) {
+        if (!dc)
+            EndPaint(m_viewWindow, &ps);
+        return;
+    }
+
+    m_paintCount++;
+
     HDC bitmapDC = ::CreateCompatibleDC(hdc);
     bool backingStoreCompletelyDirty = ensureBackingStore();
-    ::SelectObject(bitmapDC, m_backingStoreBitmap.get());
+    ::SelectObject(bitmapDC, m_backingStoreBitmap->handle());
 
     // Update our backing store if needed.
     updateBackingStore(frameView, bitmapDC, backingStoreCompletelyDirty, windowsToPaint);
@@ -1323,12 +1332,19 @@ bool WebView::handleMouseEvent(UINT message, WPARAM wParam, LPARAM lParam)
     static MouseButton globalPrevButton;
     static LONG globalPrevMouseDownTime;
 
+    if (message == WM_CANCELMODE) {
+        m_page->mainFrame()->eventHandler()->lostMouseCapture();
+        return true;
+    }
+
     // Create our event.
     // On WM_MOUSELEAVE we need to create a mouseout event, so we force the position
     // of the event to be at (MINSHORT, MINSHORT).
     LPARAM position = (message == WM_MOUSELEAVE) ? ((MINSHORT << 16) | MINSHORT) : lParam;
     PlatformMouseEvent mouseEvent(m_viewWindow, message, wParam, position, m_mouseActivated);
-   
+
+    setMouseActivated(false);
+
     bool insideThreshold = abs(globalPrevPoint.x() - mouseEvent.pos().x()) < ::GetSystemMetrics(SM_CXDOUBLECLK) &&
                            abs(globalPrevPoint.y() - mouseEvent.pos().y()) < ::GetSystemMetrics(SM_CYDOUBLECLK);
     LONG messageTime = ::GetMessageTime();
@@ -1387,7 +1403,6 @@ bool WebView::handleMouseEvent(UINT message, WPARAM wParam, LPARAM lParam)
             ::TrackMouseEvent(m_mouseOutTracker.get());
         }
     }
-    setMouseActivated(false);
     return handled;
 }
 
@@ -1862,10 +1877,10 @@ bool WebView::keyDown(WPARAM virtualKeyCode, LPARAM keyData, bool systemKeyDown)
 
     // We need to handle back/forward using either Backspace(+Shift) or Ctrl+Left/Right Arrow keys.
     if ((virtualKeyCode == VK_BACK && keyEvent.shiftKey()) || (virtualKeyCode == VK_RIGHT && keyEvent.ctrlKey()))
-        m_page->goForward();
-    else if (virtualKeyCode == VK_BACK || (virtualKeyCode == VK_LEFT && keyEvent.ctrlKey()))
-        m_page->goBack();
-    
+        return m_page->goForward();
+    if (virtualKeyCode == VK_BACK || (virtualKeyCode == VK_LEFT && keyEvent.ctrlKey()))
+        return m_page->goBack();
+
     // Need to scroll the page if the arrow keys, pgup/dn, or home/end are hit.
     ScrollDirection direction;
     ScrollGranularity granularity;
@@ -2019,6 +2034,7 @@ LRESULT CALLBACK WebView::WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam,
         case WM_MBUTTONUP:
         case WM_RBUTTONUP:
         case WM_MOUSELEAVE:
+        case WM_CANCELMODE:
             if (Frame* coreFrame = core(mainFrameImpl))
                 if (coreFrame->view()->didFirstLayout())
                     handled = webView->handleMouseEvent(message, wParam, lParam);
@@ -4657,6 +4673,11 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     settings->setAllowFileAccessFromFileURLs(!!enabled);
 
+    hr = prefsPrivate->javaScriptCanAccessClipboard(&enabled);
+    if (FAILED(hr))
+        return hr;
+    settings->setJavaScriptCanAccessClipboard(!!enabled);
+
     hr = prefsPrivate->isXSSAuditorEnabled(&enabled);
     if (FAILED(hr))
         return hr;
@@ -5616,7 +5637,7 @@ HRESULT STDMETHODCALLTYPE WebView::backingStore(
 {
     if (!hBitmap)
         return E_POINTER;
-    *hBitmap = reinterpret_cast<OLE_HANDLE>(m_backingStoreBitmap.get());
+    *hBitmap = reinterpret_cast<OLE_HANDLE>(m_backingStoreBitmap->handle());
     return S_OK;
 }
 
@@ -6116,6 +6137,14 @@ void WebView::setAcceleratedCompositing(bool accelerated)
     }
 }
 
+void releaseBackingStoreCallback(void* info, const void* data, size_t size)
+{
+    // Release the backing store bitmap previously retained by updateRootLayerContents().
+    ASSERT(info);
+    if (info)
+        static_cast<RefCountedHBITMAP*>(info)->deref();
+}
+
 void WebView::updateRootLayerContents()
 {
     if (!m_backingStoreBitmap || !m_layerRenderer)
@@ -6123,13 +6152,12 @@ void WebView::updateRootLayerContents()
 
     // Get the backing store into a CGImage
     BITMAP bitmap;
-    GetObject(m_backingStoreBitmap.get(), sizeof(bitmap), &bitmap);
-    int bmSize = bitmap.bmWidthBytes * bitmap.bmHeight;
-    RetainPtr<CFDataRef> data(AdoptCF, 
-                                CFDataCreateWithBytesNoCopy(
-                                        0, static_cast<UInt8*>(bitmap.bmBits),
-                                        bmSize, kCFAllocatorNull));
-    RetainPtr<CGDataProviderRef> cgData(AdoptCF, CGDataProviderCreateWithCFData(data.get()));
+    GetObject(m_backingStoreBitmap->handle(), sizeof(bitmap), &bitmap);
+    size_t bmSize = bitmap.bmWidthBytes * bitmap.bmHeight;
+    RetainPtr<CGDataProviderRef> cgData(AdoptCF,
+        CGDataProviderCreateWithData(static_cast<void*>(m_backingStoreBitmap.get()),
+                                                        bitmap.bmBits, bmSize,
+                                                        releaseBackingStoreCallback));
     RetainPtr<CGColorSpaceRef> space(AdoptCF, CGColorSpaceCreateDeviceRGB());
     RetainPtr<CGImageRef> backingStoreImage(AdoptCF, CGImageCreate(bitmap.bmWidth, bitmap.bmHeight,
                                      8, bitmap.bmBitsPixel, 
@@ -6138,8 +6166,17 @@ void WebView::updateRootLayerContents()
                                      cgData.get(), 0, false, 
                                      kCGRenderingIntentDefault));
 
+    // Retain the backing store bitmap so that it is not deleted by deleteBackingStore()
+    // while still in use within CA. When CA is done with the bitmap, it will
+    // call releaseBackingStoreCallback(), which will release the backing store bitmap.
+    m_backingStoreBitmap->ref();
+
     // Hand the CGImage to CACF for compositing
-    m_layerRenderer->setRootContents(backingStoreImage.get());
+    if (m_nextDisplayIsSynchronous) {
+        m_layerRenderer->setRootContentsAndDisplay(backingStoreImage.get());
+        m_nextDisplayIsSynchronous = false;
+    } else
+        m_layerRenderer->setRootContents(backingStoreImage.get());
 
     // Set the frame and scroll position
     Frame* coreFrame = core(m_mainFrame);
@@ -6292,6 +6329,12 @@ HRESULT WebView::setDomainRelaxationForbiddenForURLScheme(BOOL forbidden, BSTR s
 HRESULT WebView::registerURLSchemeAsSecure(BSTR scheme)
 {
     SecurityOrigin::registerURLSchemeAsSecure(toString(scheme));
+    return S_OK;
+}
+
+HRESULT WebView::nextDisplayIsSynchronous()
+{
+    m_nextDisplayIsSynchronous = true;
     return S_OK;
 }
 

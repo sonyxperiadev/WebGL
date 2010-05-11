@@ -449,7 +449,7 @@ void Heap::shrinkBlocks(size_t neededBlocks)
 }
 
 #if OS(WINCE)
-void* g_stackBase = 0;
+JS_EXPORTDATA void* g_stackBase = 0;
 
 inline bool isPageWritable(void* page)
 {
@@ -558,6 +558,8 @@ static inline void* currentThreadStackBase()
     PNT_TIB64 pTib = reinterpret_cast<PNT_TIB64>(NtCurrentTeb());
     return reinterpret_cast<void*>(pTib->StackBase);
 #elif OS(QNX)
+    AtomicallyInitializedStatic(Mutex&, mutex = *new Mutex);
+    MutexLocker locker(mutex);
     return currentThreadStackBaseQNX();
 #elif OS(SOLARIS)
     stack_t s;
@@ -569,19 +571,17 @@ static inline void* currentThreadStackBase()
     pthread_stackseg_np(thread, &stack);
     return stack.ss_sp;
 #elif OS(SYMBIAN)
-    static void* stackBase = 0;
-    if (stackBase == 0) {
-        TThreadStackInfo info;
-        RThread thread;
-        thread.StackInfo(info);
-        stackBase = (void*)info.iBase;
-    }
-    return (void*)stackBase;
+    TThreadStackInfo info;
+    RThread thread;
+    thread.StackInfo(info);
+    return (void*)info.iBase;
 #elif OS(HAIKU)
     thread_info threadInfo;
     get_thread_info(find_thread(NULL), &threadInfo);
     return threadInfo.stack_end;
 #elif OS(UNIX)
+    AtomicallyInitializedStatic(Mutex&, mutex = *new Mutex);
+    MutexLocker locker(mutex);
     static void* stackBase = 0;
     static size_t stackSize = 0;
     static pthread_t stackThread;
@@ -604,6 +604,8 @@ static inline void* currentThreadStackBase()
     }
     return static_cast<char*>(stackBase) + stackSize;
 #elif OS(WINCE)
+    AtomicallyInitializedStatic(Mutex&, mutex = *new Mutex);
+    MutexLocker locker(mutex);
     if (g_stackBase)
         return g_stackBase;
     else {
@@ -972,7 +974,7 @@ void Heap::markStackObjectsConservatively(MarkStack& markStack)
 void Heap::protect(JSValue k)
 {
     ASSERT(k);
-    ASSERT(JSLock::currentThreadIsHoldingLock() || !m_globalData->isSharedInstance);
+    ASSERT(JSLock::currentThreadIsHoldingLock() || !m_globalData->isSharedInstance());
 
     if (!k.isCell())
         return;
@@ -983,7 +985,7 @@ void Heap::protect(JSValue k)
 bool Heap::unprotect(JSValue k)
 {
     ASSERT(k);
-    ASSERT(JSLock::currentThreadIsHoldingLock() || !m_globalData->isSharedInstance);
+    ASSERT(JSLock::currentThreadIsHoldingLock() || !m_globalData->isSharedInstance());
 
     if (!k.isCell())
         return false;
@@ -1064,7 +1066,7 @@ void Heap::sweep()
 void Heap::markRoots()
 {
 #ifndef NDEBUG
-    if (m_globalData->isSharedInstance) {
+    if (m_globalData->isSharedInstance()) {
         ASSERT(JSLock::lockCount() > 0);
         ASSERT(JSLock::currentThreadIsHoldingLock());
     }

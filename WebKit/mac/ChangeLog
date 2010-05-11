@@ -1,3 +1,546 @@
+2010-05-06  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler and Dan Bernstein..
+
+        REGRESSION (r51617): when plugins are disabled, plugins show up as garbage characters
+        https://bugs.webkit.org/show_bug.cgi?id=38698
+        <rdar://problem/7942075>
+
+        When the plug-in database is initialized, we will register all the MIME types it supports with the global
+        WebView dictionary. When plug-ins are disabled for a single web view, the MIME types still need to be 
+        in the global mapping (because other web views might still have plug-ins enabled).
+        
+        Prior to r51617 we would always look at the plug-in database to determine that the MIME type belongs to a 
+        plug-in, but now we won't even touch the plug-in database when plug-ins are disabled.
+        
+        In order to fix this, a new set of registered MIME types that are known to be plug-ins is added. When
+        +[WebView _viewClass:andRepresentationClass:forMIMEType:allowingPlugins:] is called and allowingPlugins is FALSE
+        we check if the MIME type is a known plug-in MIME type and return false in that case.
+        
+        * Plugins/WebPluginDatabase.mm:
+        (-[WebPluginDatabase refresh]):
+        (-[WebPluginDatabase _removePlugin:]):
+        * WebView/WebView.mm:
+        (knownPluginMIMETypes):
+        (+[WebView _registerPluginMIMEType:]):
+        (+[WebView _unregisterPluginMIMEType:]):
+        (+[WebView _viewClass:andRepresentationClass:forMIMEType:allowingPlugins:]):
+        * WebView/WebViewInternal.h:
+
+2010-05-06  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        <rdar://problem/7951285> REGRESSION (r58847): Composited iframe content obscures Safari's application chrome
+
+        Fixed this other regression from r58847. The regression was caused by overriding -visibleRect to
+        return the WebClipView’s full bounds. AppKit uses -visibleRect to determine the geometry
+        of the surface for the child WebFrameView. The fix is to restrict the special behavior of
+        -[WebClipView visibleRect] to when AppKit is consulting it for the purpose of invalidating
+        areas while scrolling.
+
+        * WebView/WebClipView.h:
+        * WebView/WebClipView.mm:
+        (-[WebClipView visibleRect]): If the WebClipView is not scrolling, always return
+        [super visibleRect]. 
+        (-[WebClipView _immediateScrollToPoint:]): Override this internal NSClipView method
+        to set a flag telling -visibleRect that the view is scrolling.
+        * WebView/WebView.mm:
+        (layerSyncRunLoopObserverCallBack): Ensure that screen updates, disabled by AppKit
+        when it thinks an upcoming window flush will re-enable them, are enabled here in
+        case the -setNeedsDisplayInRect: override has prevented the window from needing to be
+        flushed.
+
+2010-05-06  Steve Block  <steveblock@google.com>
+
+        Reviewed by Eric Seidel.
+
+        MAC_JAVA_BRIDGE should be renamed JAVA_BRIDGE
+        https://bugs.webkit.org/show_bug.cgi?id=38544
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+
+2010-05-05  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Fixed a crash when closing Top Sites after r58847.
+
+        * WebView/WebFrameView.mm:
+        (-[WebFrameView webFrame]): Null-check _private.
+
+2010-05-05  Dan Bernstein  <mitz@apple.com>
+
+        Rubber-stamped by Mark Rowe.
+
+        Fixed test crashes after r58847.
+
+        * WebView/WebHTMLView.mm:
+        (setNeedsDisplayInRect): Null-check the frame.
+
+2010-05-05  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        <rdar://problem/7932072> Iframes in composited layers don’t repaint correctly (affects Yahoo! Mail with Flash Player 10.1)
+        https://bugs.webkit.org/show_bug.cgi?id=38427
+
+        * WebView/WebClipView.m: Renamed to WebClipView.mm.
+        * WebView/WebClipView.mm:
+        (-[WebClipView visibleRect]): Added this override, which for instances used for WebFrameViews in
+        composited layers, returns the clip view’s entire bounds. This prevents drawing from being clipped to
+        AppKit’s idea of what part of the view would be visible if it was drawn as part of the view hierarchy.
+        Since it is drawn into a compositing layer, that’s irrelevant, and we should not be clipping.
+        * WebView/WebHTMLView.mm:
+        (setCursor): Style tweak.
+        (setNeedsDisplayInRect): Added. Replaces the default implementation of -[NSView setNeedsDisplayInRect:],
+        so that if the receiver is a descendant of a WebFrameView that draws into a composited layer, the invalidation
+        is routed back through the WebCore FrameView, which propagates it to the layer.
+        (+[WebHTMLViewPrivate initialize]): Swizzle the setNeedsDisplayInRect: override in.
+        (-[WebHTMLView visibleRect]): Removed whitespace.
+        * WebView/WebView.mm:
+        (layerSyncRunLoopObserverCallBack): If we bailed out on syncing, due to pending layout, do an eager layout
+        in preparation for the displaying of compositing layers.
+
+2010-05-05  John Sullivan  <sullivan@apple.com>
+
+        <rdar://problem/7942606> Output appears in Console when exiting Safari with multiple windows opened
+
+        Reviewed by Mark Rowe.
+
+        * WebView/WebView.mm:
+        (+[WebView closeAllWebViews]):
+        Make copy of allWebViewsSet to avoid mutating it while iterating through it.
+
+2010-05-04  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Improve check for drawing into the window that was added in r58623
+        https://bugs.webkit.org/show_bug.cgi?id=38562
+        
+        Rather than assuming that any non-bitmap context is the window's context,
+        compare the current graphics context with -[NSWindow graphicsContext] to
+        determine that we're drawing into the window.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView drawRect:]):
+
+2010-05-04  Ada Chan  <adachan@apple.com>
+
+        Reviewed by David Kilzer.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38555
+        
+        Small code refactoring: move the logic to figure out the path to the 
+        databases directory to another method.
+
+        * Storage/WebDatabaseManager.mm:
+        (databasesDirectoryPath):
+        (WebKitInitializeDatabasesIfNecessary):
+
+2010-05-04  Beth Dakin  <bdakin@apple.com>
+
+        Reviewed by Mike Thole.
+
+        Fix for <rdar://problem/7818509> Crash occurs when exiting Safari
+
+        We can avoid this crash if we call [self _removeFromAllWebViewsSet] 
+        even in the case when we are doing a fastDocumentTeardown. This is 
+        a much safer approach.
+        * WebView/WebView.mm:
+        (-[WebView _close]):
+
+2010-05-03  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Add support for controlling clipboard access from javascript.
+        Clipboard access from javascript is disabled by default.
+        https://bugs.webkit.org/show_bug.cgi?id=27751
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences javaScriptCanAccessClipboard]):
+        (-[WebPreferences setJavaScriptCanAccessClipboard:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+
+2010-05-03  Jens Alfke  <snej@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Add "willSendSubmitEvent" hook to WebFrameClient and FrameLoaderClient
+        https://bugs.webkit.org/show_bug.cgi?id=38397
+
+        No tests (functionality is exposed only through native WebKit API.)
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        (WebFrameLoaderClient::dispatchWillSendSubmitEvent):
+
+2010-04-30  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        <rdar://problem/7477071> REGRESSION: Bad flicker when wheel-scrolling Google Maps, iPad gallery and other sites
+
+        Sites that frequently toggle content in and out of compositing layers (like http://www.tumblr.com/boothed)
+        can cause flickering because of unsychronized compositing layer and view-based updates. There were two
+        underlying issues:
+        
+        1. On SnowLeopard, AppKit can throttle window updates, thus breaking an assumption that
+           NSView drawing will happen on the runloop cycle after a repaint. This provided a window
+           for the layerSyncRunLoopObserver to fire and commit layer changes too early.
+           
+           Fix this by having the layerSyncRunLoopObserver in WebView check to see if a display is pending,
+           and not commit layer changes in that case. We'll commit layer changes later when we
+           finally draw.
+           
+        2. The change in r49269 was wrong; it was attempting to fix an issue that was actually caused
+           by -drawRects: coming in for page snapshots. The correct approach is to avoid hitting the
+           synchronization and update disabling code in WebHTMLView for draws that are not to the screen.
+        
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView drawRect:]):
+        * WebView/WebView.mm:
+        (layerSyncRunLoopObserverCallBack):
+        (-[WebView _scheduleCompositingLayerSync]):
+
+2010-04-30  Anders Carlsson  <andersca@apple.com>
+
+        Part of the previous part (forgot to save).
+
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView stopTimers]):
+        (-[WebNetscapePluginView startTimers]):
+        (-[WebNetscapePluginView checkIfAllowedToLoadURL:frame:callbackFunc:context:]):
+        (-[WebNetscapePluginView _containerCheckResult:contextInfo:]):
+        (-[WebNetscapePluginView cancelCheckIfAllowedToLoadURL:]):
+        (-[WebNetscapePluginView scheduleTimerWithInterval:repeat:timerFunc:]):
+        (-[WebNetscapePluginView unscheduleTimer:]):
+        (-[WebNetscapePluginView getVariable:forURL:value:length:]):
+        (-[WebNetscapePluginView setVariable:forURL:value:length:]):
+
+2010-04-30  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Use C99 integer types in more places.
+
+        * Plugins/WebNetscapePluginView.mm:
+        (getNPRect):
+
+2010-04-30  Anders Carlsson  <andersca@apple.com>
+
+        Fix Tiger build.
+
+        * Plugins/WebBaseNetscapePluginStream.h:
+        * Plugins/WebBaseNetscapePluginStream.mm:
+        (WebNetscapePluginStream::startStream):
+
+2010-04-30  Anders Carlsson  <andersca@apple.com>
+
+        Another 32-bit build fix.
+
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView saveAndSetNewPortStateForUpdate:]):
+
+2010-04-30  Anders Carlsson  <andersca@apple.com>
+
+        Fix 32-bit build (again).
+
+        * Plugins/WebNetscapeContainerCheckContextInfo.h:
+        * Plugins/WebNetscapeContainerCheckContextInfo.mm:
+        (-[WebNetscapeContainerCheckContextInfo initWithCheckRequestID:callbackFunc:context:]):
+        (-[WebNetscapeContainerCheckContextInfo checkRequestID]):
+        (-[WebNetscapeContainerCheckContextInfo callback]):
+        * Plugins/WebNetscapePluginPackage.h:
+
+2010-04-30  Anders Carlsson  <andersca@apple.com>
+
+        Fix 32-bit build.
+
+        * Plugins/WebNetscapeContainerCheckContextInfo.h:
+        * Plugins/WebNetscapeContainerCheckContextInfo.mm:
+        (-[WebNetscapeContainerCheckContextInfo initWithCheckRequestID:callbackFunc:context:]):
+        * Plugins/WebNetscapeContainerCheckPrivate.h:
+        * Plugins/WebNetscapePluginPackage.mm:
+        (functionPointerForTVector):
+        * Plugins/WebNetscapePluginView.mm:
+        (PluginTimer::PluginTimer):
+        (-[WebNetscapePluginView checkIfAllowedToLoadURL:frame:callbackFunc:context:]):
+        (-[WebNetscapePluginView scheduleTimerWithInterval:repeat:timerFunc:]):
+
+2010-04-30  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Timothy Hatcher.
+
+        Next step towards fixing
+        
+        https://bugs.webkit.org/show_bug.cgi?id=20784
+        move npapi.h to C99 integer types
+
+        Use the C99 types everywhere. The "old" types are still around but will be removed
+        in a subsequent commit.
+
+        * Plugins/WebBaseNetscapePluginStream.h:
+        * Plugins/WebBaseNetscapePluginStream.mm:
+        (WebNetscapePluginStream::deliverData):
+        * Plugins/WebNetscapePluginView.h:
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView saveAndSetNewPortStateForUpdate:]):
+        (-[WebNetscapePluginView getAuthenticationInfoWithProtocol:host:port:scheme:realm:username:usernameLength:password:passwordLength:]):
+        * Plugins/npapi.mm:
+        (NPN_MemAlloc):
+        (NPN_MemFlush):
+        (NPN_PostURLNotify):
+        (NPN_PostURL):
+        (NPN_Write):
+        (NPN_ScheduleTimer):
+        (NPN_UnscheduleTimer):
+        (NPN_GetValueForURL):
+        (NPN_SetValueForURL):
+        (NPN_GetAuthenticationInfo):
+        (WKN_CheckIfAllowedToLoadURL):
+        (WKN_CancelCheckIfAllowedToLoadURL):
+
+2010-04-29  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        First part of
+        https://bugs.webkit.org/show_bug.cgi?id=20784
+        move npapi.h to C99 integer types.
+
+        * MigrateHeaders.make:
+
+2010-04-28  Mike Thole  <mthole@apple.com>
+
+        Reviewed by David Kilzer.
+
+        Add canAuthenticateAgainstProtectionSpace() to frame loader so that a protection space 
+        can be inspected before attempting to authenticate against it
+        https://bugs.webkit.org/show_bug.cgi?id=38271
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::canAuthenticateAgainstProtectionSpace):
+        Added.  If the resource load delegate implements the callback, use its answer.  If it does
+        not, then only send authentication challenges for pre-10.6 protection spaces, which matches
+        CFNetwork's default behavior.
+        * WebView/WebDelegateImplementationCaching.h:
+        * WebView/WebDelegateImplementationCaching.mm:
+        (CallResourceLoadDelegateReturningBoolean): Added case for passing three objects.
+        * WebView/WebResourceLoadDelegatePrivate.h:
+        Added private SPI definition: webView:resource:canAuthenticateAgainstProtectionSpace:forDataSource:
+        * WebView/WebView.mm:
+        (-[WebView _cacheResourceLoadDelegateImplementations]):
+
+2010-04-28  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <rdar://problem/7918719> ASSERT(isMainThread()) from Font::setShouldUseSmoothing()
+        
+        Ensure that the WebView +initialize method initializes threading, so that things are correctly
+        initialized when the first call into the WebKit framework is via a WebView class method.
+
+        * WebView/WebView.mm:
+        (+[WebView initialize]):
+
+2010-04-28  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        REGRESSION: Autoscroll does not work in Mail messages
+        https://bugs.webkit.org/show_bug.cgi?id=38267
+        rdar://problem/7559799
+
+        The machinery to make autoscrolling work on Mac OS X when a WebView is embedded in another
+        view had gotten broken in multiple ways. For some reason, a combination of bugs made it
+        partly work until around r48064. This brings it back.
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::scrollRectIntoView): When converting coordinates, use the document view
+        rather than the WebView itself. This logic may not be correct for the case where
+        usesDocumentViews is NO, but that is currently an experimental mode and can be fixed later.
+
+2010-04-27  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Reviewed by Darin Adler and Eric Seidel.
+
+        Add layoutTestController.setPrinting()
+        https://bugs.webkit.org/show_bug.cgi?id=37203
+
+        * Misc/WebCoreStatistics.h:
+        * Misc/WebCoreStatistics.mm:
+        (-[WebFrame renderTreeAsExternalRepresentationForPrinting:]):
+
+2010-04-25  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=38097
+        Disentangle initializing the main thread from initializing threading
+
+        Calls initializeMainThreadToProcessMainThread since there is no way to ensure
+        that the initialize method will be called on the main thread.
+
+        * Carbon/CarbonWindowAdapter.mm:
+        (+[CarbonWindowAdapter initialize]): Add call to initializeMainThreadToProcessMainThread.
+        * History/WebBackForwardList.mm:
+        (+[WebBackForwardList initialize]): Ditto.
+        * History/WebHistoryItem.mm:
+        (+[WebHistoryItem initialize]): Ditto.
+        * Misc/WebElementDictionary.mm:
+        (+[WebElementDictionary initialize]): Ditto.
+        * Misc/WebIconDatabase.mm:
+        (+[WebIconDatabase initialize]): Ditto.
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        (+[WebHostedNetscapePluginView initialize]): Ditto.
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (+[WebBaseNetscapePluginView initialize]): Ditto.
+        * Plugins/WebBasePluginPackage.mm:
+        (+[WebBasePluginPackage initialize]): Ditto.
+        * Plugins/WebNetscapePluginView.mm:
+        (+[WebNetscapePluginView initialize]): Ditto.
+        * WebCoreSupport/WebEditorClient.mm:
+        (+[WebEditCommand initialize]): Ditto.
+        * WebCoreSupport/WebFrameLoaderClient.mm: 
+        (+[WebFramePolicyListener initialize]): Ditto.
+        * WebView/WebArchive.mm:
+        (+[WebArchivePrivate initialize]): Ditto.
+        * WebView/WebDataSource.mm:
+        (+[WebDataSourcePrivate initialize]): Ditto.
+        * WebView/WebHTMLView.mm:
+        (+[WebHTMLViewPrivate initialize]): Ditto.
+        (+[WebHTMLView initialize]): Ditto.
+        * WebView/WebResource.mm:
+        (+[WebResourcePrivate initialize]): Ditto.
+        * WebView/WebTextIterator.mm:
+        (+[WebTextIteratorPrivate initialize]): Ditto.
+        * WebView/WebView.mm:
+        * WebView/WebViewData.mm: Ditto.
+        (+[WebViewPrivate initialize]): Ditto.
+
+2010-04-24  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/7903728> REGRESSION (r51617): WebView fails to load plug-in MIME types
+        https://bugs.webkit.org/show_bug.cgi?id=38085
+
+        WebView was calling -_webView in a few places where it should have just used itself. It never
+        makes sense for WebView to call -_webView on itself, and these calls look like they were copied
+        from similar code in WebHTMLView, WebFrameView and WebDataSource, where -_webView has a different,
+        useful meaning.
+
+        * WebView/WebView.mm:
+        (-[WebView drawSingleRect:]): Replaced [self _webView] with self.
+        (-[WebView _viewClass:andRepresentationClass:forMIMEType:]): Replaced [[self _webView] preferences]
+        with _private->preferences.
+        (-[WebView _canShowMIMEType:]): Ditto.
+
+2010-04-23  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        <rdar://problem/7894489> When printing Flash, send a drawRect event, rather than NPPrint
+        
+        When printing Flash plug-ins in 32-bit, send a drawRect event with a CGContextRef, rather than calling
+        NPPrint with a GWorldPtr, since Flash prefers the CGContext path.
+
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView drawRect:]):
+
+2010-04-22  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/38029> +[WebTextIteratorPrivate initialize] is missing call to JSC::initializeThreading()
+
+        Reviewed by Timothy Hatcher.
+
+        Every other Objective-C class that calls
+        WebCoreObjCFinalizeOnMainThread(self) in +initialize also calls
+        JSC::initializeThreading().  The WebTextIteratorPrivate class
+        was the only one missing this call.
+
+        * WebView/WebTextIterator.mm:
+        (+[WebTextIteratorPrivate initialize]): Added call to
+        JSC::initializeThreading().
+
+2010-04-22  Alexey Proskuryakov  <ap@apple.com>
+
+        Rubber-stamped by Mark Rowe.
+
+        <rdar://problem/7805969> REGRESSION: iTunes unable to play trailers
+
+        Undo the changes made for https://bugs.webkit.org/show_bug.cgi?id=35215 (<rdar://problem/7673157>)
+        for now. Clients rely on the old behavior, so a fix that changes it will need to account for
+        those.
+
+        * WebCoreSupport/WebFrameLoaderClient.mm: (WebFrameLoaderClient::createPlugin): Pass pluginURL
+        instead of baseURL again.
+
+2010-04-22  Dave Moore  <davemoore@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Added notification when the favicons for a page are changed
+        from a script.
+        The Document object will notify the frame loader, which will
+        notify the client. Implementations of FrameLoaderClient will
+        have to add one method; dispatchDidChangeIcons().
+
+        https://bugs.webkit.org/show_bug.cgi?id=33812
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::dispatchDidChangeIcons):
+
+2010-04-22  Adam Barth  <abarth@webkit.org>
+
+        Unreviewed, rolling out r58069.
+        http://trac.webkit.org/changeset/58069
+        https://bugs.webkit.org/show_bug.cgi?id=27751
+
+        Broke compile on Windows.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+
+2010-04-22  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Add support for controlling clipboard access from javascript.
+        Clipboard access from javascript is disabled by default.
+        https://bugs.webkit.org/show_bug.cgi?id=27751
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences javaScriptCanAccessClipboard]):
+        (-[WebPreferences setJavaScriptCanAccessClipboard:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+
+2010-04-21  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Shinichiro Hamaji.
+
+        https://bugs.webkit.org/show_bug.cgi?id=37964
+        Fix a typo in comments - Korean encoding name is windows-949, not windows-939
+
+        * WebView/WebPreferences.mm: (+[WebPreferences _setInitialDefaultTextEncodingToSystemEncoding]):
+
 2010-04-21  Mark Rowe  <mrowe@apple.com>
 
         Tiger build fix.

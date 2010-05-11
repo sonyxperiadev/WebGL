@@ -51,7 +51,7 @@ class BuilderTest(unittest.TestCase):
 
     def setUp(self):
         self.buildbot = BuildBot()
-        self.builder = Builder("Test Builder", self.buildbot)
+        self.builder = Builder(u"Test Builder \u2661", self.buildbot)
         self._install_fetch_build(lambda build_number: ["test1", "test2"])
 
     def test_find_failure_transition(self):
@@ -271,7 +271,6 @@ class BuildBotTest(unittest.TestCase):
             "Leopard",
             "Tiger",
             "Windows.*Build",
-            "Windows.*Debug.*Test",
             "GTK",
             "Qt",
             "Chromium",
@@ -286,7 +285,6 @@ class BuildBotTest(unittest.TestCase):
             {'name': u'SnowLeopard Intel Release (Tests)', },
             {'name': u'Windows Release (Build)', },
             {'name': u'Windows Debug (Build)', },
-            {'name': u'Windows Debug (Tests)', },
             {'name': u'GTK Linux 32-bit Release', },
             {'name': u'GTK Linux 32-bit Debug', },
             {'name': u'GTK Linux 64-bit Debug', },

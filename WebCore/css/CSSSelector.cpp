@@ -143,6 +143,13 @@ PseudoId CSSSelector::pseudoId(PseudoType type)
         return INNER_SPIN_BUTTON;
     case PseudoOuterSpinButton:
         return OUTER_SPIN_BUTTON;
+    case PseudoProgressBarValue:
+#if ENABLE(PROGRESS_TAG)
+        return PROGRESS_BAR_VALUE;
+#else
+        ASSERT_NOT_REACHED();
+        return NOPSEUDO;
+#endif
     case PseudoInputListButton:
 #if ENABLE(DATALIST)
         return INPUT_LIST_BUTTON;
@@ -196,6 +203,9 @@ PseudoId CSSSelector::pseudoId(PseudoType type)
     case PseudoDoubleButton:
     case PseudoSingleButton:
     case PseudoNoButton:
+    case PseudoFirstPage:
+    case PseudoLeftPage:
+    case PseudoRightPage:
         return NOPSEUDO;
     case PseudoNotParsed:
         ASSERT_NOT_REACHED();
@@ -267,8 +277,8 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
     DEFINE_STATIC_LOCAL(AtomicString, onlyOfType, ("only-of-type"));
     DEFINE_STATIC_LOCAL(AtomicString, optional, ("optional"));
     DEFINE_STATIC_LOCAL(AtomicString, outerSpinButton, ("-webkit-outer-spin-button"));
-#if ENABLE(PROGRESS_BAR)
-    DEFINE_STATIC_LOCAL(AtomicString, progressBar, ("-webkit-progress-bar"));
+#if ENABLE(PROGRESS_TAG)
+    DEFINE_STATIC_LOCAL(AtomicString, progressBarValue, ("-webkit-progress-bar-value"));
 #endif
     DEFINE_STATIC_LOCAL(AtomicString, required, ("required"));
     DEFINE_STATIC_LOCAL(AtomicString, resizer, ("-webkit-resizer"));
@@ -298,6 +308,10 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
     DEFINE_STATIC_LOCAL(AtomicString, singleButton, ("single-button"));
     DEFINE_STATIC_LOCAL(AtomicString, noButton, ("no-button"));
     DEFINE_STATIC_LOCAL(AtomicString, cornerPresent, ("corner-present"));
+    // Paged Media pseudo-classes
+    DEFINE_STATIC_LOCAL(AtomicString, firstPage, ("first"));
+    DEFINE_STATIC_LOCAL(AtomicString, leftPage, ("left"));
+    DEFINE_STATIC_LOCAL(AtomicString, rightPage, ("right"));
 
     static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoType = 0;
     if (!nameToPseudoType) {
@@ -360,6 +374,9 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
         nameToPseudoType->set(nthLastChild.impl(), CSSSelector::PseudoNthLastChild);
         nameToPseudoType->set(nthLastOfType.impl(), CSSSelector::PseudoNthLastOfType);
         nameToPseudoType->set(outerSpinButton.impl(), CSSSelector::PseudoOuterSpinButton);
+#if ENABLE(PROGRESS_TAG)
+        nameToPseudoType->set(progressBarValue.impl(), CSSSelector::PseudoProgressBarValue);
+#endif
         nameToPseudoType->set(root.impl(), CSSSelector::PseudoRoot);
         nameToPseudoType->set(windowInactive.impl(), CSSSelector::PseudoWindowInactive);
         nameToPseudoType->set(decrement.impl(), CSSSelector::PseudoDecrement);
@@ -389,6 +406,9 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
         nameToPseudoType->set(sliderThumb.impl(), CSSSelector::PseudoSliderThumb);
         nameToPseudoType->set(target.impl(), CSSSelector::PseudoTarget);
         nameToPseudoType->set(visited.impl(), CSSSelector::PseudoVisited);
+        nameToPseudoType->set(firstPage.impl(), CSSSelector::PseudoFirstPage);
+        nameToPseudoType->set(leftPage.impl(), CSSSelector::PseudoLeftPage);
+        nameToPseudoType->set(rightPage.impl(), CSSSelector::PseudoRightPage);
     }
     return nameToPseudoType;
 }
@@ -439,6 +459,7 @@ void CSSSelector::extractPseudoType() const
     case PseudoMediaControlsTimelineContainer:
     case PseudoMediaControlsVolumeSliderContainer:
     case PseudoOuterSpinButton:
+    case PseudoProgressBarValue:
     case PseudoResizer:
     case PseudoScrollbar:
     case PseudoScrollbarCorner:
@@ -505,6 +526,12 @@ void CSSSelector::extractPseudoType() const
     case PseudoNoButton:
     case PseudoNotParsed:
         break;
+    case PseudoFirstPage:
+    case PseudoLeftPage:
+    case PseudoRightPage:
+        // FIXME: These should only be allowed in @page rules. Disabled them altogether until that's implemented correctly.
+        m_pseudoType = PseudoUnknown;
+        return;
     }
 
     if (m_match == PseudoClass && element) {
@@ -749,7 +776,8 @@ bool CSSSelector::RareData::parseNth()
                 m_b = argument.substring(p + 1, argument.length() - p - 1).toInt();
             else {
                 p = argument.find('-', n);
-                m_b = -argument.substring(p + 1, argument.length() - p - 1).toInt();
+                if (p != -1)
+                    m_b = -argument.substring(p + 1, argument.length() - p - 1).toInt();
             }
         } else
             m_b = argument.toInt();

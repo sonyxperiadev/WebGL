@@ -296,6 +296,7 @@ private:
     bool m_webkitPreservesPitch;
     NetworkState m_networkState;
     ReadyState m_readyState;
+    ReadyState m_readyStateMaximum;
     String m_currentSrc;
     
     RefPtr<MediaError> m_error;
@@ -361,6 +362,8 @@ private:
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     bool m_needWidgetUpdate : 1;
 #endif
+
+    bool m_dispatchingCanPlayEvent : 1;
 };
 
 } //namespace

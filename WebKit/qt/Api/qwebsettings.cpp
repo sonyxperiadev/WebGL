@@ -48,9 +48,7 @@
 #include <QUrl>
 #include <QFileInfo>
 
-#if ENABLE(QT_BEARER)
 #include "NetworkStateNotifier.h"
-#endif
 
 void QWEBKIT_EXPORT qt_networkAccessAllowed(bool isAllowed)
 {
@@ -74,7 +72,6 @@ public:
     QString localStoragePath;
     QString offlineWebApplicationCachePath;
     qint64 offlineStorageDefaultQuota;
-    QUrl inspectorLocation;
 
     void apply();
     WebCore::Settings* settings;
@@ -187,8 +184,8 @@ void QWebSettingsPrivate::apply()
                                       global->attributes.value(QWebSettings::SpatialNavigationEnabled));
         settings->setSpatialNavigationEnabled(value);
 
-        value = attributes.value(QWebSettings::JavascriptCanAccessClipboard,
-                                      global->attributes.value(QWebSettings::JavascriptCanAccessClipboard));
+        value = attributes.value(QWebSettings::DOMPasteAllowed,
+                                      global->attributes.value(QWebSettings::DOMPasteAllowed));
         settings->setDOMPasteAllowed(value);
 
         value = attributes.value(QWebSettings::DeveloperExtrasEnabled,
@@ -237,6 +234,10 @@ void QWebSettingsPrivate::apply()
         value = attributes.value(QWebSettings::LocalContentCanAccessFileUrls,
                                       global->attributes.value(QWebSettings::LocalContentCanAccessFileUrls));
         settings->setAllowFileAccessFromFileURLs(value);
+
+        value = attributes.value(QWebSettings::JavaScriptCanAccessClipboard,
+                                      global->attributes.value(QWebSettings::JavaScriptCanAccessClipboard));
+        settings->setJavaScriptCanAccessClipboard(value);
 
         value = attributes.value(QWebSettings::XSSAuditingEnabled,
                                       global->attributes.value(QWebSettings::XSSAuditingEnabled));
@@ -298,7 +299,9 @@ QWebSettings* QWebSettings::globalSettings()
     Support for browser plugins can enabled by setting the
     \l{QWebSettings::PluginsEnabled}{PluginsEnabled} attribute. For many applications,
     this attribute is enabled for all pages by setting it on the
-    \l{globalSettings()}{global settings object}.
+    \l{globalSettings()}{global settings object}. QtWebKit will always ignore this setting
+    \when processing Qt plugins. The decision to allow a Qt plugin is made by the client
+    \in its reimplementation of QWebPage::createPlugin.
 
     \section1 Web Application Support
 
@@ -367,13 +370,14 @@ QWebSettings* QWebSettings::globalSettings()
         programs.
     \value JavaEnabled Enables or disables Java applets.
         Currently Java applets are not supported.
-    \value PluginsEnabled Enables or disables plugins in Web pages.
+    \value PluginsEnabled Enables or disables plugins in Web pages. Qt plugins
+        with a mimetype such as "application/x-qt-plugin" are not affected by this setting.
     \value PrivateBrowsingEnabled Private browsing prevents WebKit from
         recording visited pages in the history and storing web page icons.
     \value JavascriptCanOpenWindows Specifies whether JavaScript programs
         can open new windows.
-    \value JavascriptCanAccessClipboard Specifies whether JavaScript programs
-        can read or write to the clipboard.
+    \value DOMPasteAllowed Specifies whether JavaScript programs can
+        read clipboard contents.
     \value DeveloperExtrasEnabled Enables extra tools for Web developers.
         Currently this enables the "Inspect" element in the context menu as
         well as the use of QWebInspector which controls the WebKit WebInspector
@@ -401,6 +405,7 @@ QWebSettings* QWebSettings::globalSettings()
         QWebSettings::LocalStorageEnabled instead.
     \value LocalContentCanAccessRemoteUrls Specifies whether locally loaded documents are allowed to access remote urls.
     \value LocalContentCanAccessFileUrls Specifies whether locally loaded documents are allowed to access other local urls.
+    \value JavaScriptCanAccessClipboard Specifies whether JavaScript can access the clipboard.
     \value XSSAuditingEnabled Specifies whether load requests should be monitored for cross-site scripting attempts.
     \value AcceleratedCompositingEnabled This feature, when used in conjunction with
         QGraphicsWebView, accelerates animations of web content. CSS animations of the transform and
@@ -995,31 +1000,6 @@ void QWebSettings::setLocalStoragePath(const QString& path)
 {
     d->localStoragePath = path;
     d->apply();
-}
-
-/*!
-    \since 4.7
-
-    Specifies the \a location of a frontend to load with each web page when using Web Inspector.
-
-    \sa inspectorUrl()
-*/
-void QWebSettings::setInspectorUrl(const QUrl& location)
-{
-    d->inspectorLocation = location;
-    d->apply();
-}
-
-/*!
-    \since 4.7
-
-    Returns the location of the Web Inspector frontend.
-
-    \sa setInspectorUrl()
-*/
-QUrl QWebSettings::inspectorUrl() const
-{
-    return d->inspectorLocation;
 }
 
 /*!

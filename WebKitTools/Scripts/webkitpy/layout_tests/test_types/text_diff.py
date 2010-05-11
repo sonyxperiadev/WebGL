@@ -33,6 +33,9 @@ If the output doesn't match, returns FailureTextMismatch and outputs the diff
 files into the layout test results directory.
 """
 
+from __future__ import with_statement
+
+import codecs
 import errno
 import logging
 import os.path
@@ -41,12 +44,6 @@ from webkitpy.layout_tests.layout_package import test_failures
 from webkitpy.layout_tests.test_types import test_type_base
 
 _log = logging.getLogger("webkitpy.layout_tests.test_types.text_diff")
-
-
-def is_render_tree_dump(data):
-    """Returns true if data appears to be a render tree dump as opposed to a
-    plain text dump."""
-    return data.find("RenderView at (0,0)") != -1
 
 
 class TestTextDiff(test_type_base.TestTypeBase):
@@ -70,8 +67,14 @@ class TestTextDiff(test_type_base.TestTypeBase):
         return self.get_normalized_text(expected_filename)
 
     def get_normalized_text(self, filename):
+        # FIXME: We repeat this pattern often, we should share code.
         try:
-            text = open(filename).read()
+            # NOTE: -expected.txt files are ALWAYS utf-8.  However,
+            # we do not decode the output from DRT, so we should not
+            # decode the -expected.txt values either to allow comparisons.
+            with codecs.open(filename, "r", encoding=None) as file:
+                text = file.read()
+                # We could assert that the text is valid utf-8.
         except IOError, e:
             if errno.ENOENT != e.errno:
                 raise
@@ -87,7 +90,10 @@ class TestTextDiff(test_type_base.TestTypeBase):
 
         # If we're generating a new baseline, we pass.
         if test_args.new_baseline:
-            self._save_baseline_data(filename, output, ".txt")
+            # Although all test_shell/DumpRenderTree output should be utf-8,
+            # we do not ever decode it inside run-webkit-tests.  For some tests
+            # DumpRenderTree may not output utf-8 text (e.g. webarchives).
+            self._save_baseline_data(filename, output, ".txt", encoding=None)
             return failures
 
         # Normalize text to diff
@@ -99,7 +105,8 @@ class TestTextDiff(test_type_base.TestTypeBase):
         if port.compare_text(output, expected):
             # Text doesn't match, write output files.
             self.write_output_files(port, filename, ".txt", output,
-                                    expected, print_text_diffs=True)
+                                    expected, encoding=None,
+                                    print_text_diffs=True)
 
             if expected == '':
                 failures.append(test_failures.FailureMissingResult(self))

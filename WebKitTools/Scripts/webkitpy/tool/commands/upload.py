@@ -30,7 +30,6 @@
 
 import os
 import re
-import StringIO
 import sys
 
 from optparse import make_option
@@ -141,16 +140,16 @@ class ObsoleteAttachments(AbstractSequencedCommand):
 
 
 class AbstractPatchUploadingCommand(AbstractSequencedCommand):
-    def _bug_id(self, args, tool, state):
+    def _bug_id(self, options, args, tool, state):
         # Perfer a bug id passed as an argument over a bug url in the diff (i.e. ChangeLogs).
         bug_id = args and args[0]
         if not bug_id:
-            bug_id = tool.checkout().bug_id_for_this_commit()
+            bug_id = tool.checkout().bug_id_for_this_commit(options.git_commit, options.squash)
         return bug_id
 
     def _prepare_state(self, options, args, tool):
         state = {}
-        state["bug_id"] = self._bug_id(args, tool, state)
+        state["bug_id"] = self._bug_id(options, args, tool, state)
         if not state["bug_id"]:
             error("No bug id passed and no bug url found in ChangeLogs.")
         return state
@@ -223,7 +222,7 @@ class Upload(AbstractPatchUploadingCommand):
 
     def _prepare_state(self, options, args, tool):
         state = {}
-        state["bug_id"] = self._bug_id(args, tool, state)
+        state["bug_id"] = self._bug_id(options, args, tool, state)
         return state
 
 
@@ -260,10 +259,6 @@ class PostCommits(AbstractDeclarativeCommand):
             comment_text += tool.scm().files_changed_summary_for_commit(commit_id)
         return comment_text
 
-    def _diff_file_for_commit(self, tool, commit_id):
-        diff = tool.scm().create_patch_from_local_commit(commit_id)
-        return StringIO.StringIO(diff) # add_patch_to_bug expects a file-like object
-
     def execute(self, options, args, tool):
         commit_ids = tool.scm().commit_ids_from_commitish_arguments(args)
         if len(commit_ids) > 10: # We could lower this limit, 10 is too many for one bug as-is.
@@ -274,7 +269,7 @@ class PostCommits(AbstractDeclarativeCommand):
             commit_message = tool.scm().commit_message_for_local_commit(commit_id)
 
             # Prefer --bug-id=, then a bug url in the commit message, then a bug url in the entire commit diff (i.e. ChangeLogs).
-            bug_id = options.bug_id or parse_bug_id(commit_message.message()) or parse_bug_id(tool.scm().create_patch_from_local_commit(commit_id))
+            bug_id = options.bug_id or parse_bug_id(commit_message.message()) or parse_bug_id(tool.scm().create_patch(git_commit=commit_id))
             if not bug_id:
                 log("Skipping %s: No bug id found in commit or specified with --bug-id." % commit_id)
                 continue
@@ -284,10 +279,10 @@ class PostCommits(AbstractDeclarativeCommand):
                 steps.ObsoletePatches(tool, options).run(state)
                 have_obsoleted_patches.add(bug_id)
 
-            diff_file = self._diff_file_for_commit(tool, commit_id)
+            diff = tool.scm().create_patch(git_commit=commit_id)
             description = options.description or commit_message.description(lstrip=True, strip_url=True)
             comment_text = self._comment_text_for_commit(options, commit_message, tool, commit_id)
-            tool.bugs.add_patch_to_bug(bug_id, diff_file, description, comment_text, mark_for_review=options.review, mark_for_commit_queue=options.request_commit)
+            tool.bugs.add_patch_to_bug(bug_id, diff, description, comment_text, mark_for_review=options.review, mark_for_commit_queue=options.request_commit)
 
 
 # FIXME: This command needs to be brought into the modern age with steps and CommitInfo.
@@ -403,9 +398,8 @@ class CreateBug(AbstractDeclarativeCommand):
             comment_text += "---\n"
             comment_text += tool.scm().files_changed_summary_for_commit(commit_id)
 
-        diff = tool.scm().create_patch_from_local_commit(commit_id)
-        diff_file = StringIO.StringIO(diff) # create_bug expects a file-like object
-        bug_id = tool.bugs.create_bug(bug_title, comment_text, options.component, diff_file, "Patch", cc=options.cc, mark_for_review=options.review, mark_for_commit_queue=options.request_commit)
+        diff = tool.scm().create_patch(git_commit=commit_id)
+        bug_id = tool.bugs.create_bug(bug_title, comment_text, options.component, diff, "Patch", cc=options.cc, mark_for_review=options.review, mark_for_commit_queue=options.request_commit)
 
         if bug_id and len(commit_ids) > 1:
             options.bug_id = bug_id
@@ -419,13 +413,12 @@ class CreateBug(AbstractDeclarativeCommand):
         if options.prompt:
             (bug_title, comment_text) = self.prompt_for_bug_title_and_comment()
         else:
-            commit_message = tool.checkout().commit_message_for_this_commit()
+            commit_message = tool.checkout().commit_message_for_this_commit(options.git_commit, options.squash)
             bug_title = commit_message.description(lstrip=True, strip_url=True)
             comment_text = commit_message.body(lstrip=True)
 
-        diff = tool.scm().create_patch()
-        diff_file = StringIO.StringIO(diff) # create_bug expects a file-like object
-        bug_id = tool.bugs.create_bug(bug_title, comment_text, options.component, diff_file, "Patch", cc=options.cc, mark_for_review=options.review, mark_for_commit_queue=options.request_commit)
+        diff = tool.scm().create_patch(options.git_commit, options.squash)
+        bug_id = tool.bugs.create_bug(bug_title, comment_text, options.component, diff, "Patch", cc=options.cc, mark_for_review=options.review, mark_for_commit_queue=options.request_commit)
 
     def prompt_for_bug_title_and_comment(self):
         bug_title = User.prompt("Bug title: ")

@@ -226,7 +226,7 @@ void VisibleSelection::appendTrailingWhitespace()
     if (!searchRange)
         return;
 
-    CharacterIterator charIt(searchRange.get(), true);
+    CharacterIterator charIt(searchRange.get(), TextIteratorEmitsCharactersBetweenAllVisiblePositions);
 
     for (; charIt.length(); charIt.advance(1)) {
         UChar c = charIt.characters()[0];
@@ -481,10 +481,8 @@ void VisibleSelection::adjustSelectionToAvoidCrossingEditingBoundaries()
         if (endRoot != baseRoot) {
             VisiblePosition last = lastEditablePositionBeforePositionInRoot(m_end, baseRoot);
             m_end = last.deepEquivalent();
-            if (m_end.isNull()) {
-                ASSERT_NOT_REACHED();
+            if (m_end.isNull())
                 m_end = m_start;
-            }
         }
     // The selection is based in non-editable content.
     } else {

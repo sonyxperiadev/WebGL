@@ -37,13 +37,14 @@
 #include "SVGStyledElement.h"
 #include "SVGUnitTypes.h"
 #include <wtf/Vector.h>
+#include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
 RenderSVGResourceType RenderSVGResourceMasker::s_resourceType = MaskerResourceType;
 
-RenderSVGResourceMasker::RenderSVGResourceMasker(SVGStyledElement* node)
-    : RenderSVGResource(node)
+RenderSVGResourceMasker::RenderSVGResourceMasker(SVGMaskElement* node)
+    : RenderSVGResourceContainer(node)
 {
 }
 
@@ -77,13 +78,19 @@ void RenderSVGResourceMasker::invalidateClient(RenderObject* object)
     if (!m_masker.contains(object))
         return;
 
-    delete m_masker.take(object); 
+    delete m_masker.take(object);
+    markForLayoutAndResourceInvalidation(object);
 }
 
-bool RenderSVGResourceMasker::applyResource(RenderObject* object, GraphicsContext*& context)
+bool RenderSVGResourceMasker::applyResource(RenderObject* object, RenderStyle*, GraphicsContext*& context, unsigned short resourceMode)
 {
     ASSERT(object);
     ASSERT(context);
+#ifndef NDEBUG
+    ASSERT(resourceMode == ApplyToDefaultMode);
+#else
+    UNUSED_PARAM(resourceMode);
+#endif
 
     if (!m_masker.contains(object))
         m_masker.set(object, new MaskerData);
@@ -151,7 +158,7 @@ void RenderSVGResourceMasker::createMaskImage(MaskerData* maskerData, const SVGM
     maskImageRect.setLocation(IntPoint());
 
     // Don't create ImageBuffers with image size of 0
-    if (!maskImageRect.width() || !maskImageRect.height()) {
+    if (maskImageRect.isEmpty()) {
         maskerData->emptyMask = true;
         return;
     }

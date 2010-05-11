@@ -628,13 +628,8 @@ void FrameLoaderClientImpl::dispatchDidNavigateWithinPage()
 
     bool isNewNavigation;
     webView->didCommitLoad(&isNewNavigation);
-    if (m_webFrame->client()) {
+    if (m_webFrame->client())
         m_webFrame->client()->didNavigateWithinPage(m_webFrame, isNewNavigation);
-
-        // FIXME: Remove this notification once it is no longer consumed downstream.
-        if (isHashChange)
-            m_webFrame->client()->didChangeLocationWithinPage(m_webFrame, isNewNavigation);
-    }
 
     // Generate didStopLoading if loader is completed.
     if (webView->client() && loaderCompleted)
@@ -726,6 +721,12 @@ void FrameLoaderClientImpl::dispatchDidReceiveTitle(const String& title)
         m_webFrame->client()->didReceiveTitle(m_webFrame, title);
 }
 
+void FrameLoaderClientImpl::dispatchDidChangeIcons()
+{
+    if (m_webFrame->client())
+        m_webFrame->client()->didChangeIcons(m_webFrame);
+}
+
 void FrameLoaderClientImpl::dispatchDidCommitLoad()
 {
     WebViewImpl* webview = m_webFrame->viewImpl();
@@ -788,12 +789,14 @@ void FrameLoaderClientImpl::dispatchDidFinishLoad()
 
 void FrameLoaderClientImpl::dispatchDidFirstLayout()
 {
+    if (m_webFrame->client())
+        m_webFrame->client()->didFirstLayout(m_webFrame);
 }
 
 void FrameLoaderClientImpl::dispatchDidFirstVisuallyNonEmptyLayout()
 {
-    // FIXME: called when webkit finished layout of a page that was visually non-empty.
-    // All resources have not necessarily finished loading.
+    if (m_webFrame->client())
+        m_webFrame->client()->didFirstVisuallyNonEmptyLayout(m_webFrame);
 }
 
 Frame* FrameLoaderClientImpl::dispatchCreatePage()
@@ -947,6 +950,12 @@ void FrameLoaderClientImpl::cancelPolicyCheck()
 void FrameLoaderClientImpl::dispatchUnableToImplementPolicy(const ResourceError& error)
 {
     m_webFrame->client()->unableToImplementPolicyWithError(m_webFrame, error);
+}
+
+void FrameLoaderClientImpl::dispatchWillSendSubmitEvent(HTMLFormElement* form)
+{
+    if (m_webFrame->client())
+        m_webFrame->client()->willSendSubmitEvent(m_webFrame, WebFormElement(form));
 }
 
 void FrameLoaderClientImpl::dispatchWillSubmitForm(FramePolicyFunction function,

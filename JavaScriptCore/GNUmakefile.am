@@ -89,12 +89,17 @@ javascriptcore_sources += \
 	JavaScriptCore/jit/JITPropertyAccess.cpp \
 	JavaScriptCore/jit/JITPropertyAccess32_64.cpp \
 	JavaScriptCore/jit/JITArithmetic.cpp \
+	JavaScriptCore/jit/JITArithmetic32_64.cpp \
 	JavaScriptCore/jit/ExecutableAllocator.cpp \
 	JavaScriptCore/jit/JIT.h \
 	JavaScriptCore/jit/JITInlineMethods.h \
 	JavaScriptCore/jit/JITStubs.cpp \
 	JavaScriptCore/jit/JITStubs.h \
 	JavaScriptCore/jit/JITStubCall.h \
+	JavaScriptCore/jit/JSInterfaceJIT.h \
+	JavaScriptCore/jit/SpecializedThunkJIT.h \
+	JavaScriptCore/jit/ThunkGenerators.cpp \
+	JavaScriptCore/jit/ThunkGenerators.h \
 	JavaScriptCore/bytecode/StructureStubInfo.cpp \
 	JavaScriptCore/bytecode/StructureStubInfo.h \
 	JavaScriptCore/bytecode/CodeBlock.cpp \
@@ -224,6 +229,7 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/AlwaysInline.h \
 	JavaScriptCore/wtf/Assertions.cpp \
 	JavaScriptCore/wtf/Assertions.h \
+	JavaScriptCore/wtf/Atomics.h \
 	JavaScriptCore/wtf/ByteArray.cpp \
 	JavaScriptCore/wtf/ByteArray.h \
 	JavaScriptCore/wtf/CrossThreadRefCounted.h \
@@ -246,6 +252,8 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/ListHashSet.h \
 	JavaScriptCore/wtf/ListRefPtr.h \
 	JavaScriptCore/wtf/Locker.h \
+	JavaScriptCore/wtf/MD5.cpp \
+	JavaScriptCore/wtf/MD5.h \
 	JavaScriptCore/wtf/MainThread.cpp \
 	JavaScriptCore/wtf/MainThread.h \
 	JavaScriptCore/wtf/MathExtras.h \
@@ -281,7 +289,9 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/ThreadIdentifierDataPthreads.h \
 	JavaScriptCore/wtf/Threading.cpp \
 	JavaScriptCore/wtf/Threading.h \
+	JavaScriptCore/wtf/ThreadingPrimitives.h \
 	JavaScriptCore/wtf/ThreadingPthreads.cpp \
+	JavaScriptCore/wtf/ThreadSafeShared.h \
 	JavaScriptCore/wtf/ThreadSpecific.h \
 	JavaScriptCore/wtf/TypeTraits.cpp \
 	JavaScriptCore/wtf/TypeTraits.h \

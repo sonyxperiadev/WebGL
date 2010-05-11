@@ -43,11 +43,12 @@ WebInspector.ResourceView = function(resource)
     this.headersTabElement.textContent = WebInspector.UIString("Headers");
     this.contentTabElement = document.createElement("li");
     this.contentTabElement.textContent = WebInspector.UIString("Content");
+
     this.tabsElement.appendChild(this.headersTabElement);
     this.tabsElement.appendChild(this.contentTabElement);
 
-    this.headersTabElement.addEventListener("click", this._selectHeadersTab.bind(this), false);
-    this.contentTabElement.addEventListener("click", this.selectContentTab.bind(this), false);
+    this.headersTabElement.addEventListener("click", this._selectHeadersTab.bind(this, true), false);
+    this.contentTabElement.addEventListener("click", this.selectContentTab.bind(this, true), false);
 
     this.headersElement = document.createElement("div");
     this.headersElement.className = "resource-view-headers";
@@ -118,6 +119,8 @@ WebInspector.ResourceView = function(resource)
     this._refreshRequestHeaders();
     this._refreshResponseHeaders();
     this._refreshHTTPInformation();
+    if (!this.hasContentTab())
+        this.contentTabElement.addStyleClass("hidden");
     this._selectTab();
 }
 
@@ -152,7 +155,7 @@ WebInspector.ResourceView.prototype = {
     _selectTab: function()
     {
         if (this._headersVisible) {
-            if (WebInspector.settings.resourceViewTab === "headers")
+            if (!this.hasContentTab() || WebInspector.settings.resourceViewTab === "headers")
                 this._selectHeadersTab();
             else
                 this.selectContentTab();
@@ -160,19 +163,27 @@ WebInspector.ResourceView.prototype = {
             this._innerSelectContentTab();
     },
 
-    _selectHeadersTab: function()
+    _selectHeadersTab: function(updatePrefs)
     {
-        WebInspector.settings.resourceViewTab = "headers";
+        if (updatePrefs)
+            WebInspector.settings.resourceViewTab = "headers";
         this.headersTabElement.addStyleClass("selected");
         this.contentTabElement.removeStyleClass("selected");
         this.headersElement.removeStyleClass("hidden");
         this.contentElement.addStyleClass("hidden");
     },
 
-    selectContentTab: function()
+    selectContentTab: function(updatePrefs)
     {
-        WebInspector.settings.resourceViewTab = "content";
+        if (updatePrefs)
+            WebInspector.settings.resourceViewTab = "content";
         this._innerSelectContentTab();
+    },
+
+    hasContentTab: function()
+    {
+        // Derived classes should override this method and define this.contentTabSelected for content rendering.
+        return false;
     },
 
     _innerSelectContentTab: function()
@@ -184,16 +195,6 @@ WebInspector.ResourceView.prototype = {
         if ("resize" in this)
             this.resize();
         this.contentTabSelected();
-    },
-
-    contentTabSelected: function()
-    {
-        if (!this._contentPlaceholderElement) {
-            this._contentPlaceholderElement = document.createElement("div");
-            this._contentPlaceholderElement.className = "resource-content-unavailable";
-            this._contentPlaceholderElement.textContent = WebInspector.UIString("No Content Available");
-            this.contentElement.appendChild(this._contentPlaceholderElement);
-        }
     },
 
     _refreshURL: function()

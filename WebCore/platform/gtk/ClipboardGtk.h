@@ -28,17 +28,26 @@
 #define ClipboardGtk_h
 
 #include "Clipboard.h"
+#include "DataObjectGtk.h"
+
+typedef struct _GtkClipboard GtkClipboard;
 
 namespace WebCore {
     class CachedImage;
+    class PasteboardHelper;
 
     // State available during IE's events for drag and drop and copy/paste
     // Created from the EventHandlerGtk to be used by the dom
     class ClipboardGtk : public Clipboard {
     public:
-        static PassRefPtr<ClipboardGtk> create(ClipboardAccessPolicy policy, bool isForDragging)
+        static PassRefPtr<ClipboardGtk> create(ClipboardAccessPolicy policy, GtkClipboard* clipboard, bool isForDragging)
         {
-            return adoptRef(new ClipboardGtk(policy, isForDragging));
+            return adoptRef(new ClipboardGtk(policy, clipboard));
+        }
+
+        static PassRefPtr<ClipboardGtk> create(ClipboardAccessPolicy policy, PassRefPtr<DataObjectGtk> dataObject, bool isForDragging)
+        {
+            return adoptRef(new ClipboardGtk(policy, dataObject, isForDragging));
         }
         virtual ~ClipboardGtk();
 
@@ -64,8 +73,16 @@ namespace WebCore {
 
         virtual bool hasData();
 
+        PasteboardHelper* helper() { return m_helper; }
+        PassRefPtr<DataObjectGtk> dataObject() { return m_dataObject; }
+
     private:
-        ClipboardGtk(ClipboardAccessPolicy, bool);
+        ClipboardGtk(ClipboardAccessPolicy, GtkClipboard*);
+        ClipboardGtk(ClipboardAccessPolicy, PassRefPtr<DataObjectGtk>, bool);
+
+        RefPtr<DataObjectGtk> m_dataObject;
+        GtkClipboard* m_clipboard;
+        PasteboardHelper* m_helper;
     };
 }
 

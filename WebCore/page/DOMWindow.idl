@@ -141,7 +141,7 @@ module window {
         readonly attribute Document document;
 
         // CSSOM View Module
-        readonly attribute Media media;
+        readonly attribute StyleMedia styleMedia;
 
         // DOM Level 2 Style Interface
         CSSStyleDeclaration getComputedStyle(in Element element,
@@ -164,7 +164,8 @@ module window {
             raises(DOMException);
 #endif
 #if defined(ENABLE_DOM_STORAGE) && ENABLE_DOM_STORAGE
-        readonly attribute [EnabledAtRuntime] Storage sessionStorage;
+        readonly attribute [EnabledAtRuntime] Storage sessionStorage
+            getter raises(DOMException);
         readonly attribute [EnabledAtRuntime] Storage localStorage
             getter raises(DOMException);
 #endif
@@ -294,10 +295,10 @@ module window {
 #if defined(ENABLE_ORIENTATION_EVENTS) && ENABLE_ORIENTATION_EVENTS
         attribute EventListener onorientationchange;
 #endif
-        attribute [DontEnum,Conditional=TOUCH_EVENTS] EventListener ontouchstart;
-        attribute [DontEnum,Conditional=TOUCH_EVENTS] EventListener ontouchmove;
-        attribute [DontEnum,Conditional=TOUCH_EVENTS] EventListener ontouchend;
-        attribute [DontEnum,Conditional=TOUCH_EVENTS] EventListener ontouchcancel;
+        attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchstart;
+        attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchmove;
+        attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchend;
+        attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchcancel;
 
         // EventTarget interface
         [Custom] void addEventListener(in DOMString type,
@@ -714,6 +715,8 @@ module window {
         attribute [Conditional=TOUCH_EVENTS] TouchEventConstructor TouchEvent;
 
         attribute DOMFormDataConstructor FormData;
+
+        attribute [Conditional=FILE_READER|FILE_WRITER] FileErrorConstructor FileError;
 
 #endif // defined(LANGUAGE_JAVASCRIPT)
 

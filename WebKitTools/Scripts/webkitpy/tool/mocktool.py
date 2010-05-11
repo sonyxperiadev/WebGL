@@ -260,7 +260,7 @@ class MockBugzilla(Mock):
                    bug_title,
                    bug_description,
                    component=None,
-                   patch_file_object=None,
+                   diff=None,
                    patch_description=None,
                    cc=None,
                    blocked=None,
@@ -302,7 +302,7 @@ class MockBugzilla(Mock):
 
     def add_patch_to_bug(self,
                          bug_id,
-                         patch_file_object,
+                         diff,
                          description,
                          comment_text=None,
                          mark_for_review=False,
@@ -384,7 +384,7 @@ class MockSCM(Mock):
         # will actually be the root.  Since getcwd() is wrong, use a globally fake root for now.
         self.checkout_root = self.fake_checkout_root
 
-    def create_patch(self):
+    def create_patch(self, git_commit, squash):
         return "Patch1"
 
     def commit_ids_from_commitish_arguments(self, args):
@@ -397,13 +397,6 @@ class MockSCM(Mock):
         if commit_id == "Commitish2":
             return CommitMessage("CommitMessage2\n" \
                 "https://bugs.example.org/show_bug.cgi?id=75\n")
-        raise Exception("Bogus commit_id in commit_message_for_local_commit.")
-
-    def create_patch_from_local_commit(self, commit_id):
-        if commit_id == "Commitish1":
-            return "Patch1"
-        if commit_id == "Commitish2":
-            return "Patch2"
         raise Exception("Bogus commit_id in commit_message_for_local_commit.")
 
     def diff_for_revision(self, revision):
@@ -431,12 +424,12 @@ class MockCheckout(object):
     def bug_id_for_revision(self, svn_revision):
         return 12345
 
-    def modified_changelogs(self):
+    def modified_changelogs(self, git_commit, squash):
         # Ideally we'd return something more interesting here.  The problem is
         # that LandDiff will try to actually read the patch from disk!
         return []
 
-    def commit_message_for_this_commit(self):
+    def commit_message_for_this_commit(self, git_commit, squash):
         commit_message = Mock()
         commit_message.message = lambda:"This is a fake commit message that is at least 50 characters."
         return commit_message
@@ -507,7 +500,8 @@ class MockExecute(Mock):
                     input=None,
                     error_handler=None,
                     return_exit_code=False,
-                    return_stderr=True):
+                    return_stderr=True,
+                    decode_output=False):
         return "MOCK output of child process"
 
 

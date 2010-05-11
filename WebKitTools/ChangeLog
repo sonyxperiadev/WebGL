@@ -1,3 +1,2420 @@
+2010-05-07  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Daniel Bates.
+
+        Refactored VCSUtils.pm's parse-related methods to leave inapplicable
+        hash values unset instead of setting them to "undef".
+
+        https://bugs.webkit.org/show_bug.cgi?id=38724
+
+        Preferring "not set" over "undef" keeps the unit tests smaller and
+        easier to maintain.  Otherwise, we would have to update every unit
+        test case each time we add support for a new key-value pair --
+        instead of just the relevant ones.
+
+        * Scripts/VCSUtils.pm:
+          - In parseGitDiffHeader(), adjusted the handling of these key-values:
+            executableBitDelta and isBinary.
+          - In parseSvnDiffHeader(), adjusted the handling of these key-values:
+            copiedFromPath, isBinary, and sourceRevision.
+          - In parseDiffHeader(), adjusted the handling of these key-values:
+            isGit and isSvn.
+          - In parseDiff(), adjusted the handling of these key-values:
+            isBinary, isGit, isSvn, and sourceRevision.
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseDiff.pl:
+          - Updated the unit tests as necessary.
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseDiffHeader.pl:
+          - Updated the unit tests as necessary.
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseGitDiffHeader.pl:
+          - Updated the unit tests as necessary.
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseSvnDiffHeader.pl:
+          - Updated the unit tests as necessary.
+
+2010-05-06  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Dan Bernstein.
+
+        Exclude leaks due to <rdar://problem/7815391> from the output.
+
+        * Scripts/old-run-webkit-tests:
+
+2010-05-06  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r58933.
+        http://trac.webkit.org/changeset/58933
+        https://bugs.webkit.org/show_bug.cgi?id=38717
+
+        "Broke all websocket tests on Tiger" (Requested by eseidel on
+        #webkit).
+
+        * Scripts/new-run-webkit-websocketserver:
+        * Scripts/old-run-webkit-tests:
+        * Scripts/run-webkit-websocketserver:
+        * Scripts/webkitpy/layout_tests/port/websocket_server.py:
+        * Scripts/webkitpy/thirdparty/__init__.py:
+        * Scripts/webkitpy/thirdparty/pywebsocket/COPYING: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/MANIFEST.in: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/README: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/README.webkit: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/example/echo_client.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/example/echo_wsh.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/example/handler_map.txt: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/mod_pywebsocket/__init__.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/mod_pywebsocket/dispatch.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/mod_pywebsocket/handshake.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/mod_pywebsocket/headerparserhandler.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/mod_pywebsocket/memorizingfile.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/mod_pywebsocket/msgutil.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/mod_pywebsocket/standalone.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/mod_pywebsocket/util.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/setup.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/config.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/mock.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/run_all.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/test_dispatch.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/test_handshake.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/test_memorizingfile.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/test_mock.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/test_msgutil.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/test_util.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/testdata/README: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/testdata/handlers/blank_wsh.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/testdata/handlers/origin_check_wsh.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/testdata/handlers/sub/exception_in_transfer_wsh.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/testdata/handlers/sub/no_wsh_at_the_end.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/testdata/handlers/sub/non_callable_wsh.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/testdata/handlers/sub/plain_wsh.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/testdata/handlers/sub/wrong_handshake_sig_wsh.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/testdata/handlers/sub/wrong_transfer_sig_wsh.py: Added.
+        * Scripts/webkitpy/thirdparty/pywebsocket/test/testdata/hello.pl: Added.
+
+2010-05-06  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Reviewed by David Levin.
+
+        WebSocket: pywebsocket 0.5
+        https://bugs.webkit.org/show_bug.cgi?id=38034
+
+        Remove pywebsocket from webkitpy/thirdparty.
+        Make pywebsocket autoinstalled.
+
+        * Scripts/new-run-webkit-websocketserver:
+          Add --output-dir option.
+        * Scripts/old-run-webkit-tests:
+          Use new-run-webkit-websocketserver, rather than directly run pywebsocket's standalone.py
+        * Scripts/run-webkit-websocketserver:
+          Ditto.
+        * Scripts/webkitpy/layout_tests/port/websocket_server.py:
+          Use autoinstalled pywebsocket.
+        * Scripts/webkitpy/thirdparty/__init__.py:
+          Autoinstall pywebsocket
+        * Scripts/webkitpy/thirdparty/pywebsocket: Removed.
+
+2010-05-06  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Daniel Bates.
+
+        svn-apply now understands the Git diff "copy from" syntax when the
+        similarity index is 100%.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38628
+
+        * Scripts/VCSUtils.pm:
+          - Adjusted parseGitDiffHeader() to parse the "copy from" and
+            "similarity index" lines.
+
+        * Scripts/svn-unapply:
+          - Adjusted the patch() subroutine so that copies are recognized
+            as file additions.
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseGitDiffHeader.pl:
+          - Added unit tests for the cases of a copy with similarity index
+            100% and less than 100%.
+
+2010-05-06  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Daniel Bates.
+
+        Removed the need for svn-apply and -unapply to re-parse whether
+        a diff is binary or not.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38320
+
+        * Scripts/VCSUtils.pm:
+          - Adjusted parseGitDiffHeader() to set the isBinary key.
+          - Adjusted parseSvnDiffHeader() to set the isBinary key.
+          - Adjusted parseDiffHeader() to set the isBinary key.
+          - Changed the scmFormat key set by parseDiffHeader() to
+            isGit and isSvn keys.
+          - Adjusted parseDiff() to set the isBinary, isGit, and isSvn keys.
+
+        * Scripts/svn-apply:
+          - Updated the patch() method to use the isBinary, isGit, and
+            isSvn keys.
+
+        * Scripts/svn-unapply:
+          - Updated the patch() method to use the isBinary and isSvn keys.
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseDiff.pl:
+          - Updated the unit tests as necessary.
+          - Added a test case to test that the isBinary key is getting set properly.
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseDiffHeader.pl:
+          - Updated the unit tests as necessary.
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseGitDiffHeader.pl:
+          - Updated the unit tests as necessary.
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseSvnDiffHeader.pl:
+          - Updated the unit tests as necessary.
+
+2010-05-06  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Add support for resources on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=38637
+
+        Repack webkit_chromium_resources.pak, webkit_strings_en-US.pak,
+        and webkit_resources.pak, and put them as Mac bundle resource.
+        The 'actions' section is almost same as a part of test_shell.gypi.
+
+        * DumpRenderTree/DumpRenderTree.gyp/DumpRenderTree.gyp:
+
+2010-05-06  Csaba Osztrogonác  <ossy@webkit.org>
+
+        [Qt] Unreviewed buildfix after r58917.
+
+        * DumpRenderTree/qt/LayoutTestControllerQt.h: Missing function declaration added.
+
+2010-05-06  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler and Dan Bernstein..
+
+        REGRESSION (r51617): when plugins are disabled, plugins show up as garbage characters
+        https://bugs.webkit.org/show_bug.cgi?id=38698
+        <rdar://problem/7942075>
+
+        Add a 'setPluginsEnabled' layoutTestController function for disabling plug-ins. This is only implemented on Mac currently
+        because the bug that needs this functionality is mac specific.
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (setPluginsEnabledCallback):
+        (LayoutTestController::staticFunctions):
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        (LayoutTestController::setPluginsEnabled):
+        * DumpRenderTree/mac/DumpRenderTree.mm:
+        (resetDefaultsToConsistentValues):
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::setPluginsEnabled):
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::setPluginsEnabled):
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::setPluginsEnabled):
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::setPluginsEnabled):
+
+2010-05-06  Jochen Eisinger  <jochen@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Make ImageDiff depend on WebKit. When compiled from within Chromium, WTF is not a standalone dynamic library but depends on WebKit.
+        https://bugs.webkit.org/show_bug.cgi?id=38632
+
+        * DumpRenderTree/DumpRenderTree.gyp/DumpRenderTree.gyp:
+
+2010-05-06  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Replace public inspector url with private property for QtLauncher
+        https://bugs.webkit.org/show_bug.cgi?id=35340
+
+        Replace the public API with a private dynamic property until this feature
+        is ready.
+
+        * QtLauncher/main.cpp:
+        (LauncherWindow::init):
+
+2010-05-05  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: build-webkit --inspector-frontend Should Exclude *.re2js
+        https://bugs.webkit.org/show_bug.cgi?id=38449
+
+        * Scripts/webkitdirs.pm:
+
+2010-05-05  Charles Wei  <charles.wei@torchmobile.com.cn>
+
+        Reviewed by George Staikos
+
+        This patch adds WCSS -wap-input-format and -wap-input-required support to WebKit
+        Make the test cases in fast/wcss optionional only when  WCSS is enabled.
+
+        https://bugs.webkit.org/show_bug.cgi?id=37848
+
+        * Scripts/old-run-webkit-tests:
+        * Scripts/webkitperl/features.pm:
+
+2010-05-05  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        [DRT/Chromium] Remove InitWebCoreSystemInterface() call
+        https://bugs.webkit.org/show_bug.cgi?id=38624
+
+        Chromium r45167 <http://src.chromium.org/viewvc/chrome?view=rev&revision=45167>
+        added InitWebCoreSystemInterface() to webkit/support/platform_support_mac.mm.
+        So we don't need to call it from DumpRenderTree.cpp anymore.
+
+        * DumpRenderTree/DumpRenderTree.gyp/DumpRenderTree.gyp:
+        * DumpRenderTree/chromium/DumpRenderTree.cpp:
+        (main): Remove InitWebCoreSystemInterface().
+
+2010-05-05  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        new-run-webkit-tests: clean up newline handling in printing
+
+        The new printing module seems to handle newlines somewhat
+        inconsistently, especially in --verbose mode. This change cleans up
+        the code to make things more consistent and adds a bunch of unit tests.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38616
+
+        * Scripts/webkitpy/common/array_stream.py: Added.
+        * Scripts/webkitpy/common/array_stream_unittest.py: Added.
+        * Scripts/webkitpy/layout_tests/layout_package/metered_stream.py:
+        * Scripts/webkitpy/layout_tests/layout_package/metered_stream_unittest.py: Added.
+        * Scripts/webkitpy/layout_tests/layout_package/printing.py:
+        * Scripts/webkitpy/layout_tests/layout_package/printing_unittest.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_unittest.py:
+
+2010-05-05  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Ban the single letter 'l' as an identifier name
+        http://trac.webkit.org/changeset/58844
+
+        Add a lint rule to ban the single letter 'l' as an identifier name
+        since it is very easy to confuse with the numeral '1', especially
+        in code like WebCore/css/CSSHelper.cpp.
+
+        See http://trac.webkit.org/changeset/58844 as an example of a bug
+        caused by confusing short variable names.
+
+        * Scripts/webkitpy/style/checkers/cpp.py:
+        * Scripts/webkitpy/style/checkers/cpp_unittest.py:
+
+2010-05-04  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Shinichiro Hamaji.
+
+        PrettyPatch.pretty_diff("") should not hang
+        https://bugs.webkit.org/show_bug.cgi?id=38552
+
+        Also found a bug in PrettyPatch.pretty_diff where it would
+        hang when passed "" as input.
+
+        I suspect there may be bugs in prettify.rb (or our use there-of)
+        where it can hang, which would then cause the testing thread to hang.
+
+        * Scripts/webkitpy/common/prettypatch.py:
+         - Don't hang when passed ""
+        * Scripts/webkitpy/common/prettypatch_unittest.py:
+         - Test that we don't hang when passed ""
+        * Scripts/webkitpy/layout_tests/port/base.py:
+         - Add a FIXME that we should share code with prettypatch.rb
+
+2010-05-04  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        new-run-webkit-tests: turn off threading on the Chromium Mac port until
+        we can stabilize the port more and figure out why it is hanging so
+        frequently.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38553
+
+        * Scripts/webkitpy/layout_tests/port/chromium_mac.py:
+          - override default_child_processes() and log a warning
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+          - fix a typo that caused us to print a method object instead of the
+            value the method object returns in the case where there is only
+            one child process.
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_unittest.py:
+          - Add unit tests for the output of run_webkit_tests - in this case,
+            the handling of --child-processes and --print config
+
+2010-05-04  Timothy Hatcher  <timothy@apple.com>
+
+        Fix the find command in extract-localizable-strings so skip
+        directories are correctly skipped and header files are searched.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38545
+        rdar://problem/7941295
+
+        Reviewed by Darin Adler.
+
+        * Scripts/extract-localizable-strings: Append -o after each -prune
+        so -and isn't implied. Surround all the -name arguments so they get
+        an implied -print action. Removed check for "icu". Skip any header that
+        ends in LocalizableStrings.h, so SafariLocalizableStrings.h is skipped.
+        * Scripts/update-webkit-localizable-strings: Add the two icu directories
+        to the skip list.
+
+2010-05-04  Jesus Sanchez-Palencia  <jesus@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Wrong documentation on 'webkit-patch help land'.
+        https://bugs.webkit.org/show_bug.cgi?id=37871
+
+        Small fix on the help documentation for webkit-patch
+        land.
+
+        * Scripts/webkitpy/tool/commands/download.py:
+
+2010-05-04  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] QWebPage viewMode property
+        https://bugs.webkit.org/show_bug.cgi?id=38119
+
+        Rename the property from wrt_viewMode to _q_viewMode.
+
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::setViewModeMediaFeature):
+
+2010-05-04  Jochen Eisinger  <jochen@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Fix typo in run_webkit_tests.py: s/_print\./_printer./
+        https://bugs.webkit.org/show_bug.cgi?id=38515
+
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+
+2010-05-04  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        This revision completes the terminology change from "processor" to
+        "checker" for the CarriageReturnProcessor, CppProcessor,
+        PythonProcessor, and TextProcessor classes, etc.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38262
+
+        The word "processor" currently has two uses in our code.  This
+        revision renames the lower-level use to "checker" and preserves the
+        word "processor" for higher-level, more general uses.  This
+        revision also makes whatever other name changes that logically
+        followed from this change.
+
+        * Scripts/check-webkit-style:
+          - Updated references to PatchChecker.
+
+        * Scripts/webkitpy/style/checker.py:
+          - Renamed the StyleCheckerConfiguration class to
+            StyleProcessorConfiguration.
+          - Renamed the ProcessorDispatcher class to CheckerDispatcher, and
+            made similar changes for the class's method names.
+          - Renamed the PatchChecker class to PatchReader.
+          - Updated the file as necessary to accommodate the other class
+            renames in this patch.
+
+        * Scripts/webkitpy/style/checker_unittest.py:
+          - Updated the unit test code as necessary.
+
+        * Scripts/webkitpy/style/checkers/common.py:
+          - Renamed the CarriageReturnProcessor class to CarriageReturnChecker,
+            and changed its process() method to check().
+
+        * Scripts/webkitpy/style/checkers/common_unittest.py:
+          - Updated the unit test code as necessary.
+
+        * Scripts/webkitpy/style/checkers/cpp.py:
+          - Renamed the CppProcessor class to CppChecker, and renamed its
+            process() method to check().
+
+        * Scripts/webkitpy/style/checkers/cpp_unittest.py:
+          - Updated the unit test code as necessary.
+
+        * Scripts/webkitpy/style/checkers/python.py:
+          - Renamed the PythonProcessor class to PythonChecker, and renamed
+            its process() method to check().
+
+        * Scripts/webkitpy/style/checkers/python_unittest.py:
+          - Updated the unit test code as necessary.
+
+        * Scripts/webkitpy/style/checkers/text.py:
+          - Renamed the TextProcessor class to TextChecker, and renamed
+            its process() method to check().
+
+        * Scripts/webkitpy/style/checkers/text_unittest.py:
+          - Updated the unit test code as necessary.
+
+        * Scripts/webkitpy/style/error_handlers.py:
+          - Updated the code as necessary.
+
+        * Scripts/webkitpy/style/error_handlers_unittest.py:
+          - Updated the unit test code as necessary.
+
+2010-05-04  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Adjusted svn-apply and -unapply to accept git diffs generated
+        using the --no-prefix flag.
+
+        https://bugs.webkit.org/show_bug.cgi?id=32438
+
+        * Scripts/VCSUtils.pm:
+          - Loosened the regular expression for the "diff --git" line to
+            match when the --no-prefix flag is used with "git diff".
+          - Also refactored the code parsing the first line so that the
+            script exits with an error message if the first line cannot
+            be parsed.
+        * Scripts/webkitperl/VCSUtils_unittest/parseGitDiffHeader.pl:
+          - Added a unit test case for the --no-prefix case.
+
+2010-05-04  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Daniel Bates.
+
+        Changed VCSUtils.pm's parseDiffHeader() to call the new
+        parseGitDiffHeader() method.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38454
+
+        This revision makes more progress towards adding executable-bit
+        support to svn-apply and svn-unapply.  It also makes more progress
+        towards refactoring the code into a more maintainable form.
+
+        * Scripts/VCSUtils.pm:
+          - Removed gitdiff2svndiff().
+          - Removed the Git-specific logic from parseDiffHeader() and
+            renamed it parseSvnDiffHeader().
+          - Added a new parseDiffHeader() subroutine which calls
+            parseSvnDiffHeader() or parseGitDiffHeader() depending on
+            the format of the first header line.
+
+        * Scripts/webkitperl/VCSUtils_unittest/gitdiff2svndiff.pl: Removed.
+        * Scripts/webkitperl/VCSUtils_unittest/parseDiffHeader.pl:
+          - Removed most of the test cases since these cases are now
+            covered by the unit tests for parseSvnDiffHeader() and
+            parseGitDiffHeader().
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseSvnDiffHeader.pl: Added.
+          - Copied the SVN unit tests from parseDiffHeader.pl and updated
+            them as necessary.
+
+2010-05-03  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Builders should run the perl and python unit tests on every commit
+        https://bugs.webkit.org/show_bug.cgi?id=37976
+
+        The unit tests take a few seconds to run, so they should not
+        have any noticable effect on builder speed.
+
+        We're running the tests everywhere but Tiger as Tiger's
+        Python version is ancient.
+        I would have rather have detected the python version of the
+        slave but I couldn't find any API to do that, and I didn't want
+        to hack version detection into test-webkitpy (at least not yet).
+
+        * BuildSlaveSupport/build.webkit.org-config/master.cfg:
+
+2010-05-03  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Fixed a recent REGRESSION that caused svn-apply and -unapply to
+        skip over changes to the first file in a diff if leading junk was
+        present (like in an e-mail diff) and if the --force option was used.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38507
+
+        * Scripts/svn-apply:
+          - Removed the bit of code at the beginning of the patch()
+            subroutine that checks for the "Index:" line at the beginning
+            of a file diff (since the parsePatch() subroutine already
+            checks this).
+
+        * Scripts/svn-unapply:
+          - Removed the bit of code at the beginning of the patch()
+            subroutine that checks for the "Index:" line at the beginning
+            of a file diff (since the parsePatch() subroutine already
+            checks this).
+
+2010-05-03  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Unreviewed.
+
+        Adjusted the ChangeLog entry below for r58732 (bug 35804) to reflect
+        the fact that the change will not become active until the patch
+        for bug 38454 lands.
+
+2010-05-03  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Added code for svn-apply and -unapply to display an instructive error
+        message if the --binary flag is left off the "git diff" command
+        for diffs containing binary file differences.
+
+        https://bugs.webkit.org/show_bug.cgi?id=35804
+
+        This change will become active when parseDiffHeader() is modified
+        to call parseGitDiffHeader (see bug 38454).
+
+        * Scripts/VCSUtils.pm:
+          - Adjusted parseDiffHeader() to exit with an appropriate error message
+            if it encounters a line of the form "Binary files <path1> and
+            <path2> differ".
+
+2010-05-03  Dirk Pranke  <dpranke@chromium.org>
+
+        Unreviewed, build fix.
+
+        new-run-webkit-tests: r58728 broke the buildbot logic for parsing the
+        output of the log; specifying --verbose should basically be equivalent
+        to --print everything, but instead it was equivalent to not specifying
+        --print and getting the default set. Now, --verbose acts as if
+        --print everything was implicitly specified as the default (you can
+        still override it if you specify both; this is a somewhat debatable
+        call).
+
+        https://bugs.webkit.org/show_bug.cgi?id=38504
+
+        * Scripts/webkitpy/layout_tests/layout_package/printing.py:
+
+2010-05-03  Dirk Pranke  <dpranke@chromium.org>
+
+        Unreviewed, build fix.
+
+        new-run-webkit-tests: Fix minor precedence bug introduced in r58728 where we printed
+        "-\n" 78 times instead of "-" 78 times followed by a single "\n".
+
+        * Scripts/webkitpy/layout_tests/layout_package/printing.py:
+
+2010-05-03  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        new-run-webkit-tests: refactor a large chunk of the printing/logging
+        code out of run-webkit-tests py (almost 300 lines out of 1900).
+
+        This change also renames --log to --print (to be slightly more
+        descriptive). I've also added better help messages for printing.
+
+        The new code has unit tests!
+
+        There is still more code to be moved, but this patch is big enough as
+        it is. Namely, still to move are the printing of the actual results
+        and the timing statistics, which should move another 300-400 lines
+        out of the file.
+
+        Notable changes to run_webkit_tests.py beyond code simply moving:
+        * MeteredStream is now hidden under the new printing.Printer class.
+          All the references to self._meter now point to self._printer.
+        * All logging configuration is done in printing.configure_logging()
+        * Instead of using write() lambdas to control what is and isn't
+          printed, we use separate methods on the printer object. This will
+          make it easier to grep which print statements are printed
+          under protection of each flag.
+        * The print_results flag I added a few revs back to suppress printing
+          in the unit tests has been replaced with --print nothing.
+        * The ResultSummary class now stores the entire TestResult for each
+          test, not just the actual result type.
+        * summarize_unexpected_results() got moved from a method on TestRunner
+          to a standalone function. This should move into a separate file
+          along with the ResultSummary class and the TestResult class
+        * The --trace option added recently has been replaced by
+          '--print trace-everything' and '--print trace-unexpected'
+
+        https://bugs.webkit.org/show_bug.cgi?id=38018
+
+        * Scripts/new-run-webkit-tests:
+          - update to new entry points in run_webkit_tests.py
+        * Scripts/webkitpy/layout_tests/layout_package/metered_stream.py:
+          - fix a minor nit where we were printing an empty string where
+            we didn't need to
+        * Scripts/webkitpy/layout_tests/layout_package/printing.py: Added.
+        * Scripts/webkitpy/layout_tests/layout_package/printing_unittest.py: Added
+        * Scripts/webkitpy/layout_tests/port/test.py:
+          - implement relative_test_filename() and expected_filename() so
+            we can test printing unexpected results in a platform-neutral
+            way
+        * Scripts/webkitpy/run_webkit_test.py:
+          - move a lot of the printing code into printing.py
+          - change the signatures of the exported entry points for easier
+            unit testing
+        * Scripts/webkitpy/run_webkit_tests_unittest.py:
+          - update w/ changes to run_webkit_tests entry points.
+
+2010-05-03  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        [wx] Build and use Mac's ComplexTextController to support complex text in wx.
+        https://bugs.webkit.org/show_bug.cgi?id=38482
+
+        * wx/build/settings.py:
+
+2010-05-03  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Add support for controlling clipboard access from javascript.
+        Clipboard access from javascript is enabled in test framework.
+        https://bugs.webkit.org/show_bug.cgi?id=27751
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (setJavaScriptCanAccessClipboardCallback):
+        (LayoutTestController::staticFunctions):
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (LayoutTestController::setJavaScriptCanAccessClipboard):
+        (LayoutTestController::overridePreference):
+        * DumpRenderTree/chromium/LayoutTestController.h:
+        * DumpRenderTree/chromium/TestShell.cpp:
+        (TestShell::resetWebSettings):
+        * DumpRenderTree/gtk/DumpRenderTree.cpp:
+        (resetDefaultsToConsistentValues):
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        (LayoutTestController::setJavaScriptCanAccessClipboard):
+        * DumpRenderTree/mac/DumpRenderTree.mm:
+        (resetDefaultsToConsistentValues):
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::setJavaScriptCanAccessClipboard):
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::WebPage::WebPage):
+        (WebCore::WebPage::resetSettings):
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::setJavaScriptCanAccessClipboard):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        * DumpRenderTree/win/DumpRenderTree.cpp:
+        (resetDefaultsToConsistentValues):
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::setJavaScriptCanAccessClipboard):
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::setJavaScriptCanAccessClipboard):
+
+2010-05-03  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Maui MiniBrowser: Add an option to show/hide the web view
+        https://bugs.webkit.org/show_bug.cgi?id=38486
+
+        * MiniBrowser/win/BrowserWindow.cpp:
+        (BrowserWindow::createWindow):
+        Set the background brush to something other than null.
+
+        (BrowserWindow::onCommand):
+        Show and hide the web view accordingly.
+        
+        * MiniBrowser/win/MiniBrowser.rc:
+        * MiniBrowser/win/resource.h:
+        Add new menu item.
+
+2010-05-03  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Daniel Bates.
+
+        Added a parseGitDiffHeader() subroutine to VCSUtils.pm that
+        parses any changes to the executable bit in a Git diff.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38425
+
+        This revision is more preparation towards adding "executable bit"
+        support to svn-apply and svn-unapply.  No code is going "live" in
+        this change except for the new unit tests in test-webkitperl.
+
+        * Scripts/VCSUtils.pm:
+          - Added isExecutable() to determine whether a file mode has the
+            executable bit set or not.
+          - Added parseGitDiffHeader() to parse the header of a Git diff.
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseGitDiffHeader.pl: Added.
+          - Added unit tests for parseGitDiffHeader().
+
+2010-05-03  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Chris Jerdonek.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38447
+
+        Refactor the unit tests in VCSUtils_unittest/parseDiff.pl to use
+        Test::More::is_deeply like we do in VCSUtils_unittest/parseDiffHeader.pl.
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseDiff.pl:
+
+2010-05-02  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Unreviewed.
+
+        Corrected a file path in the ChangeLog entry for r58663 (bug 38319) below.
+
+2010-05-02  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38319
+
+        * Scripts/VCSUtils.pm:
+          - In parseDiffHeader()--
+            - Added an "scmFormat" hash key to the return value to represent
+              whether the diff is Git or SVN formatted.
+            - Adjusted the code so the value of "copiedFromPath" will
+              be undef rather than "does not exist" if the file was not
+              copied.
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseDiff.pl:
+          - Added a FIXME to refactor these unit tests to use is_deeply().
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseDiffHeader.pl:
+          - Updated the unit tests to test the "scmFormat" value.
+          - Simplified the unit tests by refactoring them to use is_deeply().
+
+2010-05-01  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Chris Jerdonek.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38423
+
+        Adds infrastructure to change the file mode of a file using
+        the appropriate SCM-specific routines.
+
+        No functionality was changed, so no new tests.
+
+        * Scripts/VCSUtils.pm: Added subroutines scmToggleExecutableBit,
+        scmAddExecutableBit, and scmRemoveExecutableBit.
+        * Scripts/svn-apply: Check for the hash key executableBitDelta
+        and toggle the executable bit.
+        * Scripts/svn-unapply: Ditto.
+
+2010-04-30  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Enabled accelerated compositing in DRT for Windows
+        https://bugs.webkit.org/show_bug.cgi?id=38404
+
+        * DumpRenderTree/win/DumpRenderTree.cpp:
+        (main):
+
+2010-04-30  Anders Carlsson  <andersca@apple.com>
+
+        Try to fix GTK+ build.
+
+        * DumpRenderTree/unix/TestNetscapePlugin/TestNetscapePlugin.cpp:
+        (webkit_test_plugin_new_stream):
+
+2010-04-30  Anders Carlsson  <andersca@apple.com>
+
+        Fix build.
+
+        * DumpRenderTree/unix/TestNetscapePlugin/TestNetscapePlugin.cpp:
+
+2010-04-30  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Timothy Hatcher.
+
+        Next step towards fixing
+        
+        https://bugs.webkit.org/show_bug.cgi?id=20784
+        move npapi.h to C99 integer types
+
+        Use the C99 types everywhere. The "old" types are still around but will be removed
+        in a subsequent commit.
+
+        * DumpRenderTree/TestNetscapePlugIn.subproj/PluginObject.cpp:
+        (int32VariantToIdentifier):
+        (doubleVariantToIdentifier):
+        (testIdentifierToInt):
+        (testGetIntIdentifier):
+        * DumpRenderTree/TestNetscapePlugIn.subproj/main.cpp:
+        (NPP_New):
+        (NPP_NewStream):
+        (NPP_WriteReady):
+        (NPP_Write):
+        (NPP_HandleEvent):
+        * DumpRenderTree/win/TestNetscapePlugin/main.cpp:
+        (NPP_New):
+        (NPP_NewStream):
+        (NPP_WriteReady):
+        (NPP_Write):
+        (NPP_HandleEvent):
+
+2010-04-30  Steve Block  <steveblock@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Changed Steve Block from committer to reviewer.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-04-28  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        webkit-patch doesn't work if a git repo is tracking multiple svn repos
+        https://bugs.webkit.org/show_bug.cgi?id=38290
+        
+        Getting the tests to pass required getting our SVN repo to more closely
+        match the real svn.webkit.org repo by having a trunk directory.
+        That involved adding an extra commit at the beginning and thus changing
+        all the commit numbers in the tests.
+
+        * Scripts/webkitpy/common/checkout/scm.py:
+
+2010-04-29  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        new-run-webkit-tests can deadlock with Chromium's TestShell
+        https://bugs.webkit.org/show_bug.cgi?id=38298
+
+        Fix _write_command_and_read_line to never send unicode() to
+        test_shell, instead to always encode as utf-8.  This was causing
+        random hangs because if test_shell ever encounters a \0 in the
+        stream it can deadlock with NRWT.
+
+        There is still a deadlock bug to fix in NRWT/test_shell design, however
+        this fix should make the deadlock occur less often.
+
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_unittest.py:
+
+2010-04-29  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Refactored svn-apply and svn-unapply to use the new
+        parsePatch() subroutine.
+
+        https://bugs.webkit.org/show_bug.cgi?id=34033
+
+        * Scripts/VCSUtils.pm:
+          - Consolidated %diffHash documentation.
+          - Added prepareParsedPatch().
+
+        * Scripts/svn-apply:
+          - Replaced main while loop with calls to parsePatch() and
+            prepareParsedPatch().
+
+        * Scripts/svn-unapply:
+          - Replaced main while loop with calls to parsePatch() and
+            prepareParsedPatch().
+
+        * Scripts/test-webkitperl:
+          - Changed to render relative test paths rather than absolute
+            test paths.
+
+        * Scripts/webkitperl/VCSUtils_unittest/prepareParsedPatch.pl: Added.
+          - Added unit tests for prepareParsedPatch().
+
+2010-04-28  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Added to VCSUtils's parseDiffHeader() support for binary patches.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38094
+
+        The parseDiffHeader() function is part of new patch-parsing code
+        for svn-apply and svn-unapply that will go live in a subsequent
+        revision.
+
+        * Scripts/VCSUtils.pm:
+          - Added logic to parseDiffHeader() to recognize the ending of
+            the header portion of a binary diff.
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseDiffHeader.pl:
+          - Added unit test cases for SVN and Git binary diffs.
+
+2010-04-28  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by David Levin.
+
+        Document that subprocess.poll/wait are not threadsafe
+        https://bugs.webkit.org/show_bug.cgi?id=38289
+
+        * Scripts/webkitpy/common/system/executive.py:
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+        * Scripts/webkitpy/layout_tests/port/http_server.py:
+        * Scripts/webkitpy/layout_tests/port/server_process.py:
+        * Scripts/webkitpy/layout_tests/port/websocket_server.py:
+
+2010-04-28  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Daniel Bates.
+
+        Removed the dividing line (i.e. "====...") logic from the code
+        called by svn-apply and svn-unapply.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38093
+
+        The dividing line logic is unnecessary.  Removing it simplifies the
+        code and makes some subsequent changes easier.
+
+        * Scripts/VCSUtils.pm:
+          - Removed the logic in gitdiff2svndiff() to convert the git
+            "index" line to an SVN dividing line.
+          - Adjusted the logic similarly in parseDiffHeader().
+
+        * Scripts/webkitperl/VCSUtils_unittest/gitdiff2svndiff.pl:
+          - Updated the unit tests as necessary.
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseDiff.pl:
+          - Updated the unit tests as necessary.
+          - Corrected an error in the unit tests whereby all elements
+            of an array were referencing the same element rather than
+            distinct elements -- causing unit test failures to be masked.
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseDiffHeader.pl:
+          - Updated the unit tests as necessary.
+          - Made the same unit test correction as above for parseDiff.pl.
+
+2010-04-28  Evan Stade  <estade@chromium.org>
+
+        Unreviewed.
+
+        * Scripts/webkitpy/common/config/committers.py: adding myself as a committer
+
+2010-04-28  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Mark Rowe.
+
+        Add MiniBrowser to the lists of modules to build and only build it on
+        SnowLeopard and later.
+
+        * Makefile:
+        * MiniBrowser/Makefile:
+
+2010-04-28  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Mark Rowe.
+
+        Make running MiniBrowser.app without explicitly setting DYLD_FRAMEWORK_PATH.
+
+        * MiniBrowser/MiniBrowser.xcodeproj/project.pbxproj:
+        * MiniBrowser/mac/make-launchable.sh: Added.
+
+2010-04-28  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by David Levin.
+
+        Audit all uses of subprocess in webkitpy
+        https://bugs.webkit.org/show_bug.cgi?id=38284
+
+        After further discussions with Jeffrey Yasskin
+        about http://bugs.python.org/issue2320
+        and related issues of using subprocess from
+        multiple threads, I have learned that subprocess
+        is known to be non-threadsafe through recent
+        Python 2.7 builds.
+
+        I'm attempting to lessen our exposure to these
+        subprocess bugs by auditing each use of subprocess
+        in webkitpy.  I did not find any unsafe calls
+        in my audit, but I did remove numerous unneeded
+        import subprocess lines.
+
+        * Scripts/webkitpy/common/checkout/api.py:
+        * Scripts/webkitpy/common/net/bugzilla.py:
+        * Scripts/webkitpy/common/system/deprecated_logging_unittest.py:
+        * Scripts/webkitpy/common/system/user.py:
+        * Scripts/webkitpy/layout_tests/port/base.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_linux.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_mac.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_mac_unittest.py: Added.
+        * Scripts/webkitpy/layout_tests/port/chromium_win.py:
+        * Scripts/webkitpy/layout_tests/port/gtk.py:
+        * Scripts/webkitpy/layout_tests/port/mac.py:
+        * Scripts/webkitpy/layout_tests/port/qt.py:
+        * Scripts/webkitpy/layout_tests/port/webkit.py:
+        * Scripts/webkitpy/layout_tests/port/win.py:
+
+2010-04-28  Darin Adler  <darin@apple.com>
+
+        Ignore a directory the Python tools creates.
+
+        * Scripts/webkitpy/style: Modified property svn:ignore.
+
+2010-04-28  Darin Adler  <darin@apple.com>
+
+        * Scripts/extract-localizable-strings: Fix minor mistake in
+        argument checking.
+
+2010-04-28  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] QWebPage viewMode property
+        https://bugs.webkit.org/show_bug.cgi?id=38119
+
+        Replacing method qt_wrt_setViewMode by wrt_viewMode property.
+
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::setViewModeMediaFeature):
+
+2010-04-28  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Adjusted check-webkit-style so that files with file type NONE
+        are automatically skipped without warning.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38197
+
+        This change simplifies configuring which files to skip.  It also
+        addresses an issue whereby check-webkit-style was unintentionally
+        checking .vcproj files for carriage returns.
+
+        * Scripts/webkitpy/style/checker.py:
+          - Moved the C++, Python, and text file extensions to new
+            module-level configuration variables.
+          - Removed .pyc from the _SKIPPED_FILES_WITHOUT_WARNING configuration
+            variable.
+          - Changed the numeric values of the FileType enum so that
+            FileType.NONE evaluates to False.
+          - For ProcessorDispatcher.should_skip_without_warning():
+            - Changed the method to return True for FileType.NONE files.
+            - Made ChangeLog files an exception to getting skipped.
+          - Changed the StyleProcessor.process() method to raise an
+            exception if given a file path that should not be processed.
+
+        * Scripts/webkitpy/style/checker_unittest.py:
+          - Updated the unit tests and added more test cases as necessary.
+
+2010-04-28  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Jeremy Orlow.
+
+        webkitpy: ScriptError('Failed to run "[u\'taskkill.exe\', u\'/f\', u\'/im\', u\'httpd.exe\']" exit_code: 128',)
+        https://bugs.webkit.org/show_bug.cgi?id=38248
+
+        The previous code did not check the return code of taskkill.
+        When I moved that callsite from using subprocess.call to
+        Executive.run_command having a non-zero return code became an error.
+
+        In this change I've centralized our killall handling in executive,
+        and added tests for it to make sure it works.
+
+        Currently kill_process and kill_all swallow exceptions in the cases
+        where the process(es) to be killed do(es) not exist.
+
+        * Scripts/webkitpy/common/system/executive.py:
+        * Scripts/webkitpy/common/system/executive_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_linux.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_mac.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_win.py:
+        * Scripts/webkitpy/layout_tests/port/gtk.py:
+        * Scripts/webkitpy/layout_tests/port/mac.py:
+        * Scripts/webkitpy/layout_tests/port/qt.py:
+        * Scripts/webkitpy/layout_tests/port/win.py:
+
+2010-04-28  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Shinichiro Hamaji.
+
+        wdiff_text throws ScriptError because wdiff returns non-zero when files differ
+        https://bugs.webkit.org/show_bug.cgi?id=38246
+
+        wdiff returns 0 when files are the same, 1 when they differ.
+        run_command by default raises ScriptError if the return code is non-zero.
+        Fixed this by adding a custom error handler which only raises if the
+        return code is not 1.
+
+        I broke up the huge wdiff_text() method into little pieces
+        for easier unit testing.  There is only one functional change here
+        and that is the addition of the custom error handler.
+
+        * Scripts/webkitpy/layout_tests/port/base.py:
+        * Scripts/webkitpy/layout_tests/port/base_unittest.py:
+
+2010-04-28  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Unreviewed build fix.
+
+        * DumpRenderTree/chromium/TestShell.cpp:
+        (TestShell::dumpImage): format '%u' expects type 'unsigned int', but argument 2 has type 'size_t'.
+        * DumpRenderTree/chromium/WebViewHost.cpp:
+        (WebViewHost::willSendRequest): too few arguments for format.
+
+2010-04-27  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Reviewed by Darin Adler and Eric Seidel.
+
+        Add layoutTestController.setPrinting()
+        https://bugs.webkit.org/show_bug.cgi?id=37203
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (setPrintingCallback):
+        (LayoutTestController::staticFunctions):
+        * DumpRenderTree/LayoutTestController.h:
+        (LayoutTestController::isPrinting):
+        (LayoutTestController::setIsPrinting):
+        * DumpRenderTree/mac/DumpRenderTree.mm:
+        (dump):
+
+2010-04-27  Michael Nordman  <michaeln@google.com>
+
+        Reviewed by Dmitry Titov.
+
+        [Chromium] Add two things to the webkit API to support appcaches in workers.
+        1) WebURLRequest TargetTypes for worker and shared worker main resources.
+        2) Factory method on class WebCommonWorkerClient to
+           createApplicationCacheHost() for the associated worker.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38147
+
+        * DumpRenderTree/chromium/TestWebWorker.h add a stub impl of the factory method 
+        (TestWebWorker::createApplicationCacheHost):
+
+2010-04-27  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        run-bindings-tests doesn't work in an SVN checkout
+        https://bugs.webkit.org/show_bug.cgi?id=38225
+
+        Previously detect_scm_system needed an absolute path for SVN.  Now we
+        accept a relative path.
+
+        * Scripts/webkitpy/common/checkout/scm.py:
+        * Scripts/webkitpy/common/checkout/scm_unittest.py:
+
+2010-04-27  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Stephanie Lewis.
+
+        Always build WebKit2 when building on SnowLeopard and later. 
+
+        * Scripts/build-webkit:
+
+2010-04-27  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=38238
+        Allow both WebKit and WebKit2 to link to the same WebCore.framework
+
+        * Scripts/build-webkit: Remove the UMBRELLA_LDFLAGS override when building
+        WebCore for WebKit2, it is no longer necessary.
+
+2010-04-27  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by David Levin.
+
+        Fix a typo in chromium.py that causes NRWT to fail in --verbose
+        mode in a Chromium checkout.
+        https://bugs.webkit.org/show_bug.cgi?id=38234
+
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+
+2010-04-27  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [Chromium] Remove deprecated form of didChangeLocationWithinPage
+        https://bugs.webkit.org/show_bug.cgi?id=38178
+
+        Switch over to implementing didNavigateWithinPage.
+
+        * DumpRenderTree/chromium/WebViewHost.cpp:
+        (TestWebViewDelegate::didNavigateWithinPage):
+        (WebViewHost::didChangeLocationWithinPage):
+        * DumpRenderTree/chromium/WebViewHost.h:
+
+2010-04-27  Evan Martin  <evan@chromium.org>
+
+        Unreviewed.
+
+        Adding myself to commmitters list.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-04-27  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        run-bindings-tests should use --reset-results instead of --overwrite
+        https://bugs.webkit.org/show_bug.cgi?id=38200
+
+        As requested by Ojan.
+
+        * Scripts/run-bindings-tests:
+
+2010-04-27  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        REGRESSION(r58261): webkit-patch edit-changelogs is broken
+        https://bugs.webkit.org/show_bug.cgi?id=38204
+
+        In 58261, we added code to abstract step that interrogates the squash
+        and git_commit options, but it doesn't declare that it uses those
+        options.  That means any command that doesn't happen to declare those
+        options might be broken if it uses the cached_lookup mechanism.
+
+        * Scripts/webkitpy/tool/steps/abstractstep.py:
+        * Scripts/webkitpy/tool/steps/applypatch.py:
+        * Scripts/webkitpy/tool/steps/applypatchwithlocalcommit.py:
+        * Scripts/webkitpy/tool/steps/build.py:
+        * Scripts/webkitpy/tool/steps/checkstyle.py:
+        * Scripts/webkitpy/tool/steps/cleanworkingdirectory.py:
+        * Scripts/webkitpy/tool/steps/closebug.py:
+        * Scripts/webkitpy/tool/steps/closebugforlanddiff.py:
+        * Scripts/webkitpy/tool/steps/commit.py:
+        * Scripts/webkitpy/tool/steps/confirmdiff.py:
+        * Scripts/webkitpy/tool/steps/createbug.py:
+        * Scripts/webkitpy/tool/steps/ensurebuildersaregreen.py:
+        * Scripts/webkitpy/tool/steps/ensurelocalcommitifneeded.py:
+        * Scripts/webkitpy/tool/steps/obsoletepatches.py:
+        * Scripts/webkitpy/tool/steps/postcodereview.py:
+        * Scripts/webkitpy/tool/steps/postdiff.py:
+        * Scripts/webkitpy/tool/steps/preparechangelog.py:
+        * Scripts/webkitpy/tool/steps/runtests.py:
+        * Scripts/webkitpy/tool/steps/update.py:
+        * Scripts/webkitpy/tool/steps/updatechangelogswithreviewer.py:
+        * Scripts/webkitpy/tool/steps/validatereviewer.py:
+
+2010-04-27  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by David Levin.
+
+        prepare-ChangeLog --bug fails on some CYGWIN installs due to missing certs
+        https://bugs.webkit.org/show_bug.cgi?id=38212
+
+        * Scripts/prepare-ChangeLog:
+         - Pass --insecure to curl to work around CYGWIN missing certs.
+
+2010-04-27  Sam Weinig  <sam@webkit.org>
+
+        Rubber-stamped by Beth Dakin.
+
+        It is no longer necessary to set ENABLE_EXPERIMENTAL_SINGLE_VIEW_MODE
+        or WTF_USE_WEB_THREAD. Remove them.
+
+        * Scripts/build-webkit:
+
+2010-04-27  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by David Levin.
+
+        Changed Chris Jerdonek from committer to reviewer.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-04-27  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] QGraphicsWebView: Arrow keys scroll the graphics-view instead of the web-page
+        https://bugs.webkit.org/show_bug.cgi?id=35834
+
+        The scene should always have the size of the web view otherwhise it is
+        possible to scroll the graphics view.
+
+        * QtLauncher/webview.cpp:
+        (WebViewGraphicsBased::resizeEvent):
+
+2010-04-27  Diego Gonzalez  <diegohcg@webkit.org>
+
+        Unreviewed.
+
+        Adding myself to committers.py
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-04-27  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        [chromium] new-run-webkit-tests hangs on Chromium Bots (OS X and Linux)
+        https://bugs.webkit.org/show_bug.cgi?id=37987
+
+        After further research, I believe the hang is caused by:
+        http://bugs.python.org/issue2320
+        Basically Popen() is not reentrant.
+        The workaround is to pass close_fds=True to Popen() on Mac/Linux.
+
+        I fixed our main Popen wrapper "Executive.run_command" to use close_fds=True
+        when appropriate.
+
+        I audited all places we call Popen() and either moved them to run_command
+        or left a FIXME that they are not thread safe.  A few places I added the
+        close_fds workaround there and left an explanitory note.
+
+        * Scripts/webkitpy/common/checkout/scm_unittest.py:
+         - Added note that this Popen use is not threadsafe.
+        * Scripts/webkitpy/common/system/executive.py:
+         - Fixed our Executive.run_* to workaround python bug 2320.
+        * Scripts/webkitpy/common/system/user.py:
+         _ Added note that this Popen use is not threadsafe.
+        * Scripts/webkitpy/layout_tests/layout_package/json_results_generator.py: ditto.
+        * Scripts/webkitpy/layout_tests/port/apache_http_server.py: ditto.
+        * Scripts/webkitpy/layout_tests/port/base.py:
+         - Change wdiff back to using run_command now that we believe it
+           to be threadsafe.
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+         - Fix to use Executive in places.
+         - Pass self._executive down to the Driver for easier unit testing.
+        * Scripts/webkitpy/layout_tests/port/chromium_win.py:
+         - Re-factor to use a _kill_all method.
+         - Made the _kill_all method use run_command to be threadsafe.
+        * Scripts/webkitpy/layout_tests/port/http_server.py:
+         - Add FIXME about using Executive.
+        * Scripts/webkitpy/layout_tests/port/server_process.py:
+         - Use Executive to be threadsafe.
+        * Scripts/webkitpy/layout_tests/port/webkit.py:
+         - Pass self._executive down to the Driver.
+        * Scripts/webkitpy/layout_tests/port/websocket_server.py:
+         - Add note about Popen not being threadsafe.
+        * Scripts/webkitpy/layout_tests/rebaseline_chromium_webkit_tests.py:
+         - Move one caller to run_command add notes about moving others.
+
+2010-04-27  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        REGRESSION(r58261): webkit-patch upload does not work in an SVN checkout.
+        https://bugs.webkit.org/show_bug.cgi?id=38186
+
+        Unfortunately, we don't have a good way of testing this change because
+        our test coverage of the scm.py API is poor...
+
+        * Scripts/webkitpy/common/checkout/scm.py:
+        * Scripts/webkitpy/tool/steps/preparechangelog.py:
+
+2010-04-26  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Remove unused code from text_diff.py
+        https://bugs.webkit.org/show_bug.cgi?id=38170
+
+        * Scripts/webkitpy/layout_tests/test_types/text_diff.py:
+         - Remove is_render_tree_dump which appears unused.
+
+2010-04-26  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        webkit-patch pretty-diff is broken
+        https://bugs.webkit.org/show_bug.cgi?id=38172
+
+        We need to register for these options because they're used when we look
+        up the diff.
+
+        * Scripts/webkitpy/tool/steps/confirmdiff.py:
+
+2010-04-26  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Add ObjC and GObject to run-bindings-test
+        https://bugs.webkit.org/show_bug.cgi?id=38168
+
+        * Scripts/run-bindings-tests:
+
+2010-04-26  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Add testing infrastructure for JSC bindings generator
+        https://bugs.webkit.org/show_bug.cgi?id=38167
+
+        Add support for testing more than one bindings.  Also, converted the
+        script to PEP8 style.
+
+        * Scripts/run-bindings-tests:
+
+2010-04-26  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Refactor results.html generation out into a new method and test it
+        https://bugs.webkit.org/show_bug.cgi?id=38164
+
+        Hopefully this results in no change in functionality.
+
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_unittest.py:
+
+2010-04-26  Adam Barth  <abarth@webkit.org>
+
+        Unreviewed, rolling out r58265.
+        http://trac.webkit.org/changeset/58265
+        https://bugs.webkit.org/show_bug.cgi?id=38021
+
+        This change prevents me from uploading patches.  It also breaks sheriff-bot.
+
+        * Scripts/webkitpy/tool/steps/options.py:
+
+2010-04-26  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        [chromium] new-run-webkit-tests hangs on Chromium Bots (OS X and Linux)
+        https://bugs.webkit.org/show_bug.cgi?id=37987
+
+        Rolled out:
+        http://trac.webkit.org/changeset/58062
+        http://trac.webkit.org/changeset/58060
+        http://trac.webkit.org/changeset/58059
+        http://trac.webkit.org/changeset/58055
+        http://trac.webkit.org/changeset/58054
+        and parts of:
+        http://trac.webkit.org/changeset/58050
+
+        I also wrote some new comments and a tiny amount of new
+        code to help make ChromiumDriver.run_test easier to read.
+
+        In order to unit-test my new code, I had to change ChromiumDriver
+        to not automatically start itself when created.  That ended up
+        being a lot of plumbing, but is hopefully easier to understand now.
+
+        There are no tests for the (restored) wdiff code.  wdiff does not
+        exist on all systems, so for now we will assume it worked since
+        it is just old code being reverted.
+
+         * Scripts/webkitpy/layout_tests/driver_test.py:
+          - Use create_driver instead of start_driver, and be sure to call .stop()
+         * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+          - Use create_driver instead of start_driver
+         * Scripts/webkitpy/layout_tests/port/base.py:
+          - Added a comment to explain that diffs are binary files.
+          - Various patch reverts relating to wdiff
+          - Add Driver._command_wrapper to share code between WebKitDriver and ChromiumDriver.
+          - Made _command_wrapper use shlex.split to get rid of the FIXME.
+         * Scripts/webkitpy/layout_tests/port/base_unittest.py: Added.
+          - test the new _command_wrapper
+         * Scripts/webkitpy/layout_tests/port/chromium.py:
+         - Use _command_wrapper to get rid of a bunch of ugly code.
+         - Make __init__ stop auto-starting.
+         - Rename create_driver to start_driver.
+         - Added _write_command_and_read_line to make it possible to
+           put a FIXME next to read_line() w/o having to put it in two places.
+         - Moved test_shell command building into _test_shell_command and tested it.
+         - Fix comments to say test_shell since ChromiumDriver is test_shell only.
+         * Scripts/webkitpy/layout_tests/port/chromium_unittest.py: Added.
+          - Test the new test_shell_command method.
+         * Scripts/webkitpy/layout_tests/port/dryrun.py:
+          - Rename create_driver to start_driver.
+         * Scripts/webkitpy/layout_tests/port/test.py:
+          - Rename create_driver to start_driver.
+         * Scripts/webkitpy/layout_tests/port/webkit.py:
+          - Rename create_driver to start_driver.
+          - Treat output as binary arrays.
+         * Scripts/webkitpy/layout_tests/test_types/test_type_base.py:
+          - Treat diff files as binary.
+         * Scripts/webkitpy/layout_tests/test_types/text_diff.py:
+          - Treat diff files as binary.
+
+2010-04-26  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Move bindings test directory into the scripts directory
+        https://bugs.webkit.org/show_bug.cgi?id=38161
+
+        Change script to point to the new location of these data files.
+
+        * Scripts/run-bindings-tests:
+
+2010-04-26  Adam Barth  <abarth@webkit.org>
+
+        Unreviewed.  Mark run-bindings-tests executable so we can execute it.
+
+        * Scripts/run-bindings-tests:
+
+2010-04-26  Tony Chang  <tony@chromium.org>
+
+        Reviewed by David Levin.
+
+        [chromium] build-webkit --chromium should build release by default
+        https://bugs.webkit.org/show_bug.cgi?id=38028
+
+        * Scripts/build-dumprendertree: Also should build release by default
+        * Scripts/build-webkit: Make sure to pass command line args through
+        * Scripts/webkitdirs.pm: Build the right configuration
+
+2010-04-26  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        complete rietveld bugzilla integration
+        https://bugs.webkit.org/show_bug.cgi?id=38021
+
+        Makes --fancy-review the default. All this means is that the patch will
+        be uploaded to rietveld in addition to bugs.webkit.org. 
+
+        * Scripts/webkitpy/tool/steps/options.py:
+
+2010-04-26  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Shinichiro Hamaji.
+
+        For check-webkit-style, renamed the style/processors/ directory
+        to style/checkers/.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38122
+
+        * Scripts/webkitpy/style/checker.py:
+          - Updated import statements.
+
+        * Scripts/webkitpy/style/checker_unittest.py:
+          - Updated import statements.
+
+        * Scripts/webkitpy/style/checkers: Copied from WebKitTools/Scripts/webkitpy/style/processors.
+        * Scripts/webkitpy/style/processors: Removed.
+        * Scripts/webkitpy/style/processors/__init__.py: Removed.
+        * Scripts/webkitpy/style/processors/common.py: Removed.
+        * Scripts/webkitpy/style/processors/common_unittest.py: Removed.
+        * Scripts/webkitpy/style/processors/cpp.py: Removed.
+        * Scripts/webkitpy/style/processors/cpp_unittest.py: Removed.
+        * Scripts/webkitpy/style/processors/python.py: Removed.
+        * Scripts/webkitpy/style/processors/python_unittest.py: Removed.
+        * Scripts/webkitpy/style/processors/python_unittest_input.py: Removed.
+        * Scripts/webkitpy/style/processors/text.py: Removed.
+        * Scripts/webkitpy/style/processors/text_unittest.py: Removed.
+
+2010-04-06  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Include git commits in the diff for webkit-patch upload/land.
+        https://bugs.webkit.org/show_bug.cgi?id=36394
+
+        Adds --squash, --no-squash and --git-commit.
+
+        --git-commit will use a specific local commit for land/upload.
+        If a commit-range is specified, then that range is treated as
+        a single squashed commit.
+
+        --squash will squash all local changes including working copy changes
+        into a single patch.
+
+        --no-squash is the legacy behavior (upload only considers the working copy,
+        land commits the working copy and then each local commit separately to SVN)
+
+        If neither is specified, then an informative error is raised if there is
+        more than one local commit or when there are local commit(s) and working
+        copy changes.
+
+        If the webkit-patch.squash git config parameter is set, then
+        that will be respected instead of raising an error.
+
+        * Scripts/check-webkit-style:
+        * Scripts/webkitpy/common/checkout/api.py:
+        * Scripts/webkitpy/common/checkout/api_unittest.py:
+        * Scripts/webkitpy/common/checkout/scm.py:
+        * Scripts/webkitpy/common/checkout/scm_unittest.py:
+        * Scripts/webkitpy/style/optparser.py:
+        --git-since is removed and --git-commit no longer implies commit_id..
+        Instead, it treats that individual commit, but also supports commit ranges
+        (e.g. commit_id..) as arguments.
+        * Scripts/webkitpy/style/optparser_unittest.py:
+        * Scripts/webkitpy/style_references.py:
+        * Scripts/webkitpy/tool/commands/download.py:
+        * Scripts/webkitpy/tool/commands/upload.py:
+        * Scripts/webkitpy/tool/main.py:
+        * Scripts/webkitpy/tool/mocktool.py:
+        * Scripts/webkitpy/tool/steps/abstractstep.py:
+        * Scripts/webkitpy/tool/steps/applypatchwithlocalcommit.py:
+        * Scripts/webkitpy/tool/steps/checkstyle.py:
+        * Scripts/webkitpy/tool/steps/commit.py:
+        * Scripts/webkitpy/tool/steps/options.py:
+        * Scripts/webkitpy/tool/steps/postdiff.py:
+        * Scripts/webkitpy/tool/steps/preparechangelog.py:
+        * Scripts/webkitpy/tool/steps/preparechangelogforrevert.py:
+        * Scripts/webkitpy/tool/steps/updatechangelogswithreviewer.py:
+        * Scripts/webkitpy/tool/steps/validatereviewer.py:
+
+2010-04-26  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Deleted the StyleChecker-related classes that are no longer
+        being used.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38118
+
+        * Scripts/webkitpy/style/checker.py:
+          - Deleted the DeprecatedStyleChecker class.
+
+        * Scripts/webkitpy/style/checker_unittest.py:
+          - Deleted the StyleCheckerTest, StyleCheckerCheckFileBase,
+            StyleCheckerCheckFileTest, and StyleCheckerCheckPathsTest classes.
+
+2010-04-26  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Changed the StyleChecker class to use the new TextFileReader class.
+
+        https://bugs.webkit.org/show_bug.cgi?id=37066
+
+        This revision separates the code responsible for reading and iterating
+        over text files from the rest of check-webkit-style.
+
+        * Scripts/check-webkit-style:
+          - Changed the script to use the new StyleProcessor and
+            TextFileReader classes instead of the StyleChecker class.
+
+        * Scripts/webkitpy/style/checker.py:
+          - Added a FIXME to rename many of uses of the word "processor" to
+            "checker".  We did this to clarify the difference between
+            ProcessorBase instances passed to the TextFileReader and
+            classes that process and check lines for style.
+          - Added a FIXME to remove FileType.NONE as a possible return value
+            of ProcessorDispatcher._file_type().  This will better consolidate
+            the logic of which files should be skipped.
+          - Added a FIXME to delete the StyleChecker class.
+          - Added the StyleProcessor class which implements ProcessorBase.
+            This class is responsible for processing lines to check style
+            (but not for reading files).  For each file, this class creates
+            creates both a carriage-return checker and a format-specific
+            style checker (e.g. one of C++, Python, etc).
+          - Updated the PatchChecker class to use a TextFileReader instance
+            instead of a StyleChecker.
+
+        * Scripts/webkitpy/style/checker_unittest.py:
+          - Added the StyleProcessor_EndToEndTest class to do "end-to-end"
+            tests of the StyleProcessor class.
+          - Added the StyleProcessor_CodeCoverageTest to test the
+            StyleProcessor class with more complete code coverage.
+            Unlike the StyleProcessor_EndToEndTest class, this class makes
+            heavy use of mock parameters.
+          - Added FIXME's to delete the unit test classes that are no
+            longer needed.
+          - Updated the PatchCheckerTest class to use a MockTextFileReader
+            instead of a MockStyleChecker.
+
+        * Scripts/webkitpy/style/filereader.py:
+          - Updated the TextFileReader class to use the preferred logic
+            of checking file existence at the beginning of the process_file()
+            method instead of in the except block, per
+            https://bugs.webkit.org/show_bug.cgi?id=37122
+
+        * Scripts/webkitpy/style/filereader_unittest.py:
+          - In the TextFileReaderTest class:
+            - Moved the test_process_file__should_not_process() method.
+            - Added a test_process_file__file_stdin() method to test
+              the file path "-".
+
+2010-04-20  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Add more support for textInputController
+
+        Add support for selectedRange(), setMarkedText(), insertText(),
+        and firstRectForCharacterRange().
+
+        Unskip tests:
+
+        fast/forms/input-maxlength-ime-preedit.html
+        fast/forms/input-maxlength-ime-completed.html
+        fast/text/international/thai-cursor-position.html
+        fast/events/ime-composition-events-001.html
+        editing/selection/5825350-1.html
+        editing/selection/5825350-2.html
+        editing/selection/mixed-editability-10.html
+
+        https://bugs.webkit.org/show_bug.cgi?id=35702
+
+        * DumpRenderTree/qt/TextInputControllerQt.cpp:
+        (TextInputController::setMarkedText):
+        (TextInputController::insertText):
+        (TextInputController::selectedRange):
+        (TextInputController::firstRectForCharacterRange):
+        * DumpRenderTree/qt/TextInputControllerQt.h:
+
+2010-04-23  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        check-webkit-style complains about non-utf8 data in layout test result
+        https://bugs.webkit.org/show_bug.cgi?id=38027
+
+        The problem was we were assuming patch files/diff output as utf-8.
+        Turns out they're not.  We have to treat them as binary data because
+        a single patch may have multiple text files in it with conflicting encodings!
+
+        * Scripts/webkitpy/common/checkout/api.py:
+         - contents_at_revision returns a byte array, so decode it to unicode
+           before passing it to parse_latest_entry_from_file
+        * Scripts/webkitpy/common/checkout/api_unittest.py:
+         - Update our mock mock_contents_at_revision to match the encoding
+           semantics of the real one.
+        * Scripts/webkitpy/common/checkout/scm.py:
+         - Be careful not to decode output which may contain file contents
+           (like diff, cat or show) as the encoding for that content is unknown.
+        * Scripts/webkitpy/common/checkout/scm_unittest.py:
+         - Update our tests to use both latin1 and utf-8 encoded data.
+        * Scripts/webkitpy/common/net/bugzilla.py:
+         - _fill_attachment_form should not assume unicode data.  Callers
+           may wish to attach other types of files to bugs.
+        * Scripts/webkitpy/common/prettypatch.py:
+         - Diffs are byte arrays, deal with them as such.
+        * Scripts/webkitpy/common/prettypatch_unittest.py:
+         - Test to make sure we handle diffs with multiple conflicting encodings.
+        * Scripts/webkitpy/common/system/executive_unittest.py:
+         - Make sure that our unicode support does not break our
+           byte array input support for run_command.
+
+2010-04-23  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by David Levin.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=38060
+        Split up Threading.h
+
+        Add necessary forwarding headers.
+
+        * DumpRenderTree/ForwardingHeaders/wtf/Atomics.h: Added.
+        * DumpRenderTree/ForwardingHeaders/wtf/ThreadSafeShared.h: Added.
+        * DumpRenderTree/ForwardingHeaders/wtf/ThreadingPrimitives.h: Added.
+
+2010-04-23  Xiaomei Ji  <xji@chromium.org>
+
+        No need to review.
+
+        Add xji as committer.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-04-23  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix, add platform stub for new LayoutTestController method.
+
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::markerTextForListItem):
+
+2010-04-19  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        new-run-webkit-tests: add a "--retry-failures" flag and a
+        "--no-retry-failures" flag (the former is the default). Also, rename
+        "--print-unexpected-results" and "--retry-unexpected-results" to
+        "--print-last-failures" and "--retry-last-failures" because the
+        retry flag was confusing. The new flag names aren't great, but
+        hopefully they're less confusing.
+
+        https://bugs.webkit.org/show_bug.cgi?id=37838
+
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+
+2010-04-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=38022
+        Move isMainThread predicate function to MainThread.h
+
+        Added forwarding header for MainThread.h
+
+        * DumpRenderTree/ForwardingHeaders/wtf/MainThread.h: Added.
+
+2010-04-23  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Disable Netscape plugin support for minimal configuration
+        https://bugs.webkit.org/show_bug.cgi?id=38026
+
+        Pass the minimal configuration option to Qt build system 
+        as part of the CONFIG variable.
+
+        * Scripts/build-webkit:
+
+2010-04-22  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Unreviewed fix.
+
+        * Scripts/webkitpy/layout_tests/port/websocket_server.py: fix NameError: global name 'f' is not defined.
+
+2010-04-22  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Revert 58077 and follow-ups.  It's broken.
+        https://bugs.webkit.org/show_bug.cgi?id=37664
+
+        * Scripts/new-run-webkit-httpd:
+        * Scripts/new-run-webkit-websocketserver:
+        * Scripts/webkitpy/layout_tests/port/chromium_win.py:
+        * Scripts/webkitpy/layout_tests/port/http_server.py:
+        * Scripts/webkitpy/layout_tests/port/websocket_server.py:
+
+2010-04-22  Yaar Schnitman  <yaar@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Integrate v8 testing utility with webkit tests
+        https://bugs.webkit.org/show_bug.cgi?id=37731
+
+        * Scripts/run-bindings-tests: Added.
+
+2010-04-22  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        new-run-webkit-tests --verbose shows ever-increasing #EOF lines
+        https://bugs.webkit.org/show_bug.cgi?id=37794
+
+        * Scripts/webkitpy/layout_tests/port/webkit.py:
+         - Remove the assert() since our ServerProcess code does not always
+           seem to be reading the full stderr output (or we're not waiting for it to).
+
+2010-04-22  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Add code to help debug new-run-webkit-test hangs on the Chromium bots
+        https://bugs.webkit.org/show_bug.cgi?id=38011
+
+        I can see no reasonable way to test this change.
+        Stubbing out sys._current_frames() and traceback.extract_stack
+        seems folly.  Dumping real data would have line number
+        (and possibly other call stack) variance between runs.
+
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+         - Add _dump_thread_states and _dump_thread_states_if_necessary
+           to have our main thread dump the states of all threads every
+           60 seconds when running in verbose mode.
+         - Better document what is going on in our main loop.
+
+2010-04-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=38002
+        Add rudimentary statistics gathering for WebKit2
+
+        * MiniBrowser/MiniBrowser.xcodeproj/project.pbxproj:
+        * MiniBrowser/mac/AppDelegate.h:
+        * MiniBrowser/mac/AppDelegate.m:
+        (-[BrowserAppDelegate init]):
+        (-[BrowserAppDelegate newWindow:]):
+        (-[BrowserAppDelegate getCurrentPageNamespace]):
+        (-[BrowserAppDelegate _setProcessModel:]):
+        (-[BrowserAppDelegate showStatisticsWindow:]):
+        (-[BrowserAppDelegate applicationWillTerminate:]):
+        * MiniBrowser/mac/BrowserStatisticsWindow.xib: Added.
+        * MiniBrowser/mac/BrowserStatisticsWindowController.h: Added.
+        * MiniBrowser/mac/BrowserStatisticsWindowController.m: Added.
+        (-[BrowserStatisticsWindowController initWithThreadedWKContextRef:processWKContextRef:]):
+        (-[BrowserStatisticsWindowController dealloc]):
+        (-[BrowserStatisticsWindowController windowDidLoad]):
+        (-[BrowserStatisticsWindowController refreshStatistics:]):
+        * MiniBrowser/mac/BrowserWindowController.h:
+        * MiniBrowser/mac/English.lproj/MainMenu.xib:
+        * MiniBrowser/mac/MiniBrowser_Prefix.pch:
+
+2010-04-22  Dave Moore  <davemoore@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Add test support for icon changes.
+
+        https://bugs.webkit.org/show_bug.cgi?id=33812
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (dumpIconChangesCallback):
+        (LayoutTestController::staticFunctions):
+        * DumpRenderTree/LayoutTestController.h:
+        (LayoutTestController::dumpIconChanges):
+        (LayoutTestController::setDumpIconChanges):
+        * DumpRenderTree/win/FrameLoadDelegate.cpp:
+        (FrameLoadDelegate::didChangeIcons):
+        * DumpRenderTree/win/FrameLoadDelegate.h:
+        * WinLauncher/WinLauncher.h:
+        (WinLauncherWebHost::didChangeIcons):
+
+2010-04-22  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed.  Script fix.  Will ask dpranke to look tomorrow.
+
+        new-run-webkit-tests --verbose shows ever-increasing #EOF lines
+        https://bugs.webkit.org/show_bug.cgi?id=37794
+
+        The bots are seeing cases where .error is sometimes empty.
+        Lets make the code not crash in that case for now.
+
+        * Scripts/webkitpy/layout_tests/port/webkit.py:
+
+2010-04-22  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Unreviewed fix.
+
+        * Scripts/webkitpy/layout_tests/port/websocket_server.py: fix NameError: global name 'f' is not defined.
+
+2010-04-22  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Unreviewed fix.
+
+        * Scripts/new-run-webkit-websocketserver: PyWebSocket no longer takes keyword argument 'register_cygwin'.
+
+2010-04-22  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed.  Restore the Leopard bots to using
+        old-run-webkit-tests for now.
+
+        * Scripts/run-webkit-tests:
+
+2010-04-22  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Unreviewed fix.
+
+        * Scripts/webkitpy/layout_tests/port/http_server.py: fix NameError: global name 'env' is not defined.
+
+2010-04-22  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Unreviewed fix.
+
+        * Scripts/webkitpy/layout_tests/port/websocket_server.py: fix NameError: global name 'env' is not defined.
+
+2010-04-22  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Chromium: Add --chromium option to new-run-webkit-websocketserver
+        https://bugs.webkit.org/show_bug.cgi?id=37664
+
+        Move cygwin setup logic in chromium_win.py.
+
+        * Scripts/new-run-webkit-httpd: remove register_cygwin parameter to pass http_server.
+        * Scripts/new-run-webkit-websocketserver: add --chromium flag
+        * Scripts/webkitpy/layout_tests/port/chromium_win.py: setup for cygwin
+        * Scripts/webkitpy/layout_tests/port/http_server.py: remove cygwin setup logic
+        * Scripts/webkitpy/layout_tests/port/websocket_server.py: remove cygwin setup logic
+
+2010-04-22  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        new-run-webkit-tests --verbose shows ever-increasing #EOF lines
+        https://bugs.webkit.org/show_bug.cgi?id=37794
+
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+         - Fix the log message to explain that this is stderr output, not test output.
+        * Scripts/webkitpy/layout_tests/port/webkit.py:
+         - Be sure to reset the server_process.error after reading (seems like the wrong
+           place to do this, but at least this fixes the bug and dpranke and I can talk
+           about better designs later).
+         - Also remove the #EOF from the stderr output before returning it.
+
+2010-04-22  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed.  Fixing new-run-webkit-tests on the bots.
+
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+         - Fixing _compat_shim_option to take variable keyword args.
+         - Turns out that nargs + callback is ignored unless type is specified.
+           So I added the type so that the option was properly consumed.
+           This was why new-run-webkit-tests couldn't find any tests, it
+           was looking for them under "20" because that was the argument
+           which should have been consumed by --exit-after-n-failures.
+
+2010-04-22  Tony Chang  <tony@chromium.org>
+
+        Not reviewed, build fix for chromium Windows.
+
+        [chromium] fix ImageDiff compile on windows
+        https://bugs.webkit.org/show_bug.cgi?id=37979
+
+        * DumpRenderTree/chromium/ImageDiff.cpp:
+
+2010-04-22  Adam Barth  <abarth@webkit.org>
+
+        Unreviewed, rolling out r58069.
+        http://trac.webkit.org/changeset/58069
+        https://bugs.webkit.org/show_bug.cgi?id=27751
+
+        Broke compile on Windows.
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (LayoutTestController::staticFunctions):
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (LayoutTestController::overridePreference):
+        * DumpRenderTree/chromium/LayoutTestController.h:
+        * DumpRenderTree/chromium/TestShell.cpp:
+        (TestShell::resetWebSettings):
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        * DumpRenderTree/mac/DumpRenderTree.mm:
+        (resetDefaultsToConsistentValues):
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::WebPage::WebPage):
+        (WebCore::WebPage::resetSettings):
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        * DumpRenderTree/win/DumpRenderTree.cpp:
+        (resetDefaultsToConsistentValues):
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+
+2010-04-22  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed.  Just adding logging.
+
+        Adding logging to help debug why the Leopard Bot
+        can't find any tests to run.
+
+        * Scripts/webkitpy/layout_tests/layout_package/test_files.py:
+        * Scripts/webkitpy/layout_tests/port/base.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+         - Make it a fatal error to have no tests to run.
+
+2010-04-22  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Add support for controlling clipboard access from javascript.
+        Clipboard access from javascript is enabled in test framework.
+        https://bugs.webkit.org/show_bug.cgi?id=27751
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (setJavaScriptCanAccessClipboardCallback):
+        (LayoutTestController::staticFunctions):
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (LayoutTestController::setJavaScriptCanAccessClipboard):
+        (LayoutTestController::overridePreference):
+        * DumpRenderTree/chromium/LayoutTestController.h:
+        * DumpRenderTree/chromium/TestShell.cpp:
+        (TestShell::resetWebSettings):
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        (LayoutTestController::setJavaScriptCanAccessClipboard):
+        * DumpRenderTree/mac/DumpRenderTree.mm:
+        (resetDefaultsToConsistentValues):
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::setJavaScriptCanAccessClipboard):
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::WebPage::WebPage):
+        (WebCore::WebPage::resetSettings):
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::setJavaScriptCanAccessClipboard):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        * DumpRenderTree/win/DumpRenderTree.cpp:
+        (resetDefaultsToConsistentValues):
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::setJavaScriptCanAccessClipboard):
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::setJavaScriptCanAccessClipboard):
+
+2010-04-21  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        webkit-patch can't fetch attachments on security bugs
+        https://bugs.webkit.org/show_bug.cgi?id=37975
+
+        Instead of calling CURL, we just need to use our Mechanize object,
+        which understand bugs.webkit.org authentication.
+
+        * Scripts/webkitpy/common/checkout/api.py:
+        * Scripts/webkitpy/common/net/bugzilla.py:
+
+2010-04-21  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed.  Temporary commit, will roll-out before morning.
+
+        Turning on new-run-webkit-tests for the Leopard build bot
+        for testing of the harness.
+        Users should not noctice (except for the results.html difference).
+
+        * Scripts/run-webkit-tests:
+
+2010-04-21  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed.  Fix typo in my previous fix attempt.
+
+        REGRESSION(57531): the commit-queue still hates Tor Arne Vestbø
+        https://bugs.webkit.org/show_bug.cgi?id=37765
+
+        More on-the-bot debugging, sigh.  I wish I had a local build.
+
+        * Scripts/webkitpy/layout_tests/port/base.py:
+
+2010-04-21  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed.  Fix typo in my previous fix attempt.
+
+        REGRESSION(57531): the commit-queue still hates Tor Arne Vestbø
+        https://bugs.webkit.org/show_bug.cgi?id=37765
+
+        * Scripts/webkitpy/layout_tests/port/base.py:
+         - Add self. to class variable access.
+
+2010-04-21  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed.  Another attempt to fix NRWT for chromium.
+
+        REGRESSION(57531): the commit-queue still hates Tor Arne Vestbø
+        https://bugs.webkit.org/show_bug.cgi?id=37765
+
+        * Scripts/webkitpy/layout_tests/port/base.py:
+         - wdiff_text was returning a byte array instead of a
+           unicode string.  The simple fix was to just decode
+           the result.  However, seeing so much duplicated code
+           with Executive made me cry, so I re-wrote the function
+           to be more like pretty_patch_text and use run_command
+           (which already knows how to handle unicode).
+
+2010-04-21  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Windows tests buildbots are too slow to be core builders
+        https://bugs.webkit.org/show_bug.cgi?id=37970
+
+        It's 10:45.  The Windows test bots are still hours behind.  They're too
+        slow to be core builders.  When they get fast, we can add them back.
+
+        * Scripts/webkitpy/common/net/buildbot.py:
+        * Scripts/webkitpy/common/net/buildbot_unittest.py:
+
+2010-04-21  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed.  Attempt one more time to fix NRWT for chromium.
+
+        REGRESSION(57531): the commit-queue still hates Tor Arne Vestbø
+        https://bugs.webkit.org/show_bug.cgi?id=37765
+
+        I'm debugging in the blind because I don't have a chromium
+        build on this laptop.
+
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+         - Apply the previous fix to a second caller.
+
+2010-04-21  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed.  Attempt one more time to fix NRWT for chromium.
+
+        REGRESSION(57531): the commit-queue still hates Tor Arne Vestbø
+        https://bugs.webkit.org/show_bug.cgi?id=37765
+
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+         - Fix handling of test_shell output so that we always
+           decode it as utf-8.
+           Unlike DumpRenderTree test_shell does not ever return
+           pixel data.  It spits out the pixel dumps in a separate
+           file, thus all output over stdout is utf-8 text.
+
+2010-04-21  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed.  Attempt one more time to fix NRWT for chromium.
+
+        REGRESSION(57531): the commit-queue still hates Tor Arne Vestbø
+        https://bugs.webkit.org/show_bug.cgi?id=37765
+
+        * Scripts/webkitpy/layout_tests/test_types/image_diff.py:
+         - Pass encoding to _save_baseline_data and write_output_files
+        * Scripts/webkitpy/layout_tests/test_types/test_type_base.py:
+         - Make _save_baseline_data and write_output_files take an encoding.
+        * Scripts/webkitpy/layout_tests/test_types/text_diff.py:
+        - Pass encoding to _save_baseline_data and write_output_files
+
+2010-04-21  No'am Rosenthal  <noam.rosenthal@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] QtLauncher: make FPS measurement accurate
+        https://bugs.webkit.org/show_bug.cgi?id=37934
+
+        Instead of counting paints, which are not interchangeable with frames that
+        the user sees, we now set an arbitrary timer for FPS measurements. The idea is
+        that if the main thread is delayed for any reason, that timer would be delayed
+        as well.
+
+        * QtLauncher/QtLauncher.pro:
+        * QtLauncher/fpstimer.cpp: Added.
+        (FpsTimer::FpsTimer):
+        (FpsTimer::numFrames):
+        (FpsTimer::start):
+        (FpsTimer::stop):
+        (FpsTimer::timerEvent):
+        * QtLauncher/fpstimer.h: Added.
+        * QtLauncher/webview.cpp:
+        (WebViewGraphicsBased::setFrameRateMeasurementEnabled):
+        (WebViewGraphicsBased::updateFrameRate):
+        (WebViewGraphicsBased::paintEvent):
+        * QtLauncher/webview.h:
+
+2010-04-21  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed, just adding missing ":" in python file.
+
+        REGRESSION(57531): the commit-queue still hates Tor Arne Vestbø
+        https://bugs.webkit.org/show_bug.cgi?id=37765
+
+        new-run-webkit-tests --chromium was borked.
+
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+
+2010-04-21  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        REGRESSION(57531): the commit-queue still hates Tor Arne Vestbø
+        https://bugs.webkit.org/show_bug.cgi?id=37765
+
+        Third time is the charm.  I've fixed all the
+        new-run-webkit-tests regressions from previous attempts.
+
+        I fixed the queue to not ignore Tor as a reviwer in r57531,
+        but instead it throws an exception every time his name is in a patch.
+
+        This fixes our Executive.run_command code to work around a Popen
+        bug http://bugs.python.org/issue5290 whereby python versions before 2.6
+        do not correctly handle unicode objects as input or output to
+        Popen.communicate.
+
+        Following the advice of:
+        http://farmdev.com/talks/unicode/
+        I have changed all of webkitpy to use unicode() objects as strings
+        instead of str objects (which in Python 3 are renamed "bytes").
+
+        String literals were left as "foo" instead of converting to u"foo"
+        as u"foo" is only required if the string has a non-ascii code point.
+        Python is smart about comparing str() and unicode() values and will
+        log an error to the console if the comparison is ever invalid.
+
+        Executive.run* now correctly accept and return unicode() objects.
+        I attempted to fix all the places that we call .write() to make sure we
+        encode any unicode() objects into utf-8.
+
+        I removed several uses of StringIO.  StringIO should generally always be
+        passed a unicode() value.
+
+        Likewise I replaced most calls to open() with codecs.open().
+        codecs.open() matches Python 3 open semantics in requiring an encoding
+        parameter.  Files opened with codecs.open() with a unicode-compatible
+        encoding will vend unicode() objects from their read() calls, like how
+        StringIO created with a unicode() object will do.
+
+        I also deployed "with" statements wider (now that the project has
+        settled on Python 2.5) to close a bunch of file descriptor leaks.
+
+        * Scripts/webkitpy/common/checkout/api_unittest.py:
+         - Read/write utf-8 files instead of ascii.
+         - Update the tests to use test for proper unicode() handling.
+        * Scripts/webkitpy/common/checkout/changelog.py:
+         - Document that parse_latest_entry_from_file expects
+           file-like objects which return unicode strings.
+        * Scripts/webkitpy/common/checkout/changelog_unittest.py:
+         - Use unicode() strings instead of str() byte arrays.
+         - Deploy "with" to close file descriptor leaks.
+        * Scripts/webkitpy/common/checkout/commitinfo.py:
+         - Remove unneeded import.
+        * Scripts/webkitpy/common/checkout/scm.py:
+         - Remove use of str().
+        * Scripts/webkitpy/common/checkout/scm_unittest.py:
+         - Read/write utf-8 files and use unicode() strings in testing.
+        * Scripts/webkitpy/common/config/committers.py:
+         - Use \u instead of \x to make slightly clearer what we're doing.
+        * Scripts/webkitpy/common/net/bugzilla.py:
+         - Add a new _string_contents() method and explain why
+            we have to call unicode() on the result of soup.string
+            and why it's safe to do so w/o needing to pass a codec name.
+          - Remove the (unused) support for passing a file object to add_patch_to_bug().
+        * Scripts/webkitpy/common/net/buildbot.py:
+         - Use unicode() instead of str() when needing to coax a
+            NavigableString object into a unicode() object.
+        * Scripts/webkitpy/common/net/buildbot_unittest.py:
+         - Add a test which contains a unicode builder name.
+        * Scripts/webkitpy/common/net/statusserver.py:
+         - Remove use of str()
+        * Scripts/webkitpy/common/prettypatch.py:
+         - Write out the patch file as utf-8.
+        * Scripts/webkitpy/common/system/autoinstall.py:
+         - Write out files with a explicit encodings.
+         - Deploy "with" to close file descriptor leaks.
+        * Scripts/webkitpy/common/system/deprecated_logging.py:
+         - Write out log files as utf-8.
+        * Scripts/webkitpy/common/system/executive.py:
+         - Make run* properly take and return unicode() objects.
+         - Cleaned up input handling in run_command a little by adding
+           a _compute_input() method which can return early instead of having
+           such a long/cluttered if-block.
+        * Scripts/webkitpy/common/system/executive_unittest.py:
+         - Added a unit test to make sure we don't break Tor again!
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+         - Write out the test list as utf-8.
+        * Scripts/webkitpy/layout_tests/layout_package/json_results_generator.py:
+         - Write out json files as utf-8.
+        * Scripts/webkitpy/layout_tests/port/apache_http_server.py:
+         - Deploy "with" to close file descriptor leaks.
+        * Scripts/webkitpy/layout_tests/port/chromium.py: Add Executive.py FIXME.
+        * Scripts/webkitpy/layout_tests/port/chromium_linux.py: ditto.
+        * Scripts/webkitpy/layout_tests/port/chromium_mac.py: ditto.
+        * Scripts/webkitpy/layout_tests/port/gtk.py: ditto.
+        * Scripts/webkitpy/layout_tests/port/mac.py: ditto.
+        * Scripts/webkitpy/layout_tests/port/mac_unittest.py:
+         - Make the skipped file parsing test unicode.
+        * Scripts/webkitpy/layout_tests/port/qt.py: Add Executive.py FIXME.
+        * Scripts/webkitpy/layout_tests/port/server_process.py: ditto.
+        * Scripts/webkitpy/layout_tests/port/webkit.py:
+         - Deploy "with" to close file descriptor leaks.
+        * Scripts/webkitpy/layout_tests/port/websocket_server.py:
+         - Make explicit the encodings of log files and pid files.
+        * Scripts/webkitpy/layout_tests/rebaseline_chromium_webkit_tests.py:
+         - Make encodings explicit and deploy "with".
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py: ditto.
+        * Scripts/webkitpy/layout_tests/test_types/image_diff.py: ditto.
+        * Scripts/webkitpy/layout_tests/test_types/test_type_base.py: ditto.
+        * Scripts/webkitpy/layout_tests/test_types/text_diff.py: ditto.
+        * Scripts/webkitpy/style/filereader_unittest.py: ditto.
+        * Scripts/webkitpy/thirdparty/__init__.py: ditto.
+        * Scripts/webkitpy/tool/commands/earlywarningsystem.py:
+         - Removed extra import.
+        * Scripts/webkitpy/tool/commands/queues.py:
+         - No need to map args to strings now that run_command does.
+         - Update test results to match args changes.
+         - Document our global argument hacks.
+        * Scripts/webkitpy/tool/commands/upload.py:
+         - Pass the diff directly to add_patch_to_bug instead of creating a StringIO file wrapper.
+        * Scripts/webkitpy/tool/mocktool.py:
+         - Rename add_patch_to_bug argument to match bugzilla.py
+        * Scripts/webkitpy/tool/steps/abstractstep.py:
+         - Executive.run_* now require lists instead of strings.
+           The lack of this change was what broke webkit-patch
+           for svn users the first time this was landed.
+        * Scripts/webkitpy/tool/steps/postdiff.py:
+         - Pass the diff directly to add_patch_to_bug instead of creating a StringIO file wrapper.
+        * Scripts/webkitpy/tool/steps/postdiffforcommit.py: ditto
+        * Scripts/webkitpy/tool/steps/postdiffforrevert.py: ditto
+        * Scripts/webkitpy/tool/steps/steps_unittest.py:
+         - Fixed spurious logging seen when running test-webkitpy
+
 2010-04-21  Chris Fleizach  <cfleizach@apple.com>
 
         Reviewed by Alexey Proskuryakov.

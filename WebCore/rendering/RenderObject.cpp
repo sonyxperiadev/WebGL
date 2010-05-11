@@ -69,7 +69,7 @@
 #endif
 
 #if ENABLE(SVG)
-#include "RenderSVGResource.h"
+#include "RenderSVGResourceContainer.h"
 #include "SVGRenderSupport.h"
 #endif
 
@@ -2494,19 +2494,19 @@ VisiblePosition RenderObject::createVisiblePosition(const Position& position)
 }
 
 #if ENABLE(SVG)
-const SVGRenderBase* RenderObject::toSVGRenderBase() const
-{
-    ASSERT_NOT_REACHED();
-    return 0;
-}
-
-RenderSVGResource* RenderObject::toRenderSVGResource()
+RenderSVGResourceContainer* RenderObject::toRenderSVGResourceContainer()
 {
     ASSERT_NOT_REACHED();
     return 0;
 }
 
 FloatRect RenderObject::objectBoundingBox() const
+{
+    ASSERT_NOT_REACHED();
+    return FloatRect();
+}
+
+FloatRect RenderObject::strokeBoundingBox() const
 {
     ASSERT_NOT_REACHED();
     return FloatRect();

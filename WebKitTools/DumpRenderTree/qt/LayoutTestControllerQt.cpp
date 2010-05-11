@@ -37,7 +37,6 @@
 #include <QLocale>
 #include <qwebsettings.h>
 
-extern void qt_wrt_setViewMode(QWebPage* page, const QString& mode);
 extern void qt_dump_editing_callbacks(bool b);
 extern void qt_dump_frame_loader(bool b);
 extern void qt_dump_resource_load_callbacks(bool b);
@@ -141,7 +140,7 @@ QString LayoutTestController::counterValueForElementById(const QString& id)
 
 void LayoutTestController::setViewModeMediaFeature(const QString& mode)
 {
-    qt_wrt_setViewMode(m_drt->webPage(), mode);
+    m_drt->webPage()->setProperty("_q_viewMode", mode);
 }
 
 int LayoutTestController::webHistoryItemCount()
@@ -394,6 +393,11 @@ void LayoutTestController::setPopupBlockingEnabled(bool enable)
     m_drt->webPage()->settings()->setAttribute(QWebSettings::JavascriptCanOpenWindows, !enable);
 }
 
+void LayoutTestController::setPluginsEnabled(bool flag)
+{
+    // FIXME: Implement
+}
+
 void LayoutTestController::setPOSIXLocale(const QString& locale)
 {
     QLocale qlocale(locale);
@@ -408,6 +412,11 @@ void LayoutTestController::setWindowIsKey(bool isKey)
 void LayoutTestController::setMainFrameIsFirstResponder(bool isFirst)
 {
     //FIXME: only need this for the moment: https://bugs.webkit.org/show_bug.cgi?id=32990
+}
+
+void LayoutTestController::setJavaScriptCanAccessClipboard(bool enable)
+{
+    m_drt->webPage()->settings()->setAttribute(QWebSettings::JavaScriptCanAccessClipboard, enable);
 }
 
 void LayoutTestController::setXSSAuditorEnabled(bool enable)

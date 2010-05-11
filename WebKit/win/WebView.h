@@ -32,18 +32,23 @@
 #include "WebPreferences.h"
 #include <WebCore/DragActions.h>
 #include <WebCore/IntRect.h>
+#include <WebCore/RefCountedGDIHandle.h>
 #include <WebCore/Timer.h>
 #include <WebCore/WindowMessageListener.h>
 #include <WebCore/WKCACFLayer.h>
 #include <WebCore/WKCACFLayerRenderer.h>
 #include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/RefPtr.h>
 
 class FullscreenVideoController;
 class WebBackForwardList;
 class WebFrame;
 class WebInspector;
 class WebInspectorClient;
+
+typedef WebCore::RefCountedGDIHandle<HBITMAP> RefCountedHBITMAP;
+typedef WebCore::RefCountedGDIHandle<HRGN> RefCountedHRGN;
 
 WebView* kit(WebCore::Page*);
 WebCore::Page* core(IWebView*);
@@ -781,6 +786,8 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setDomainRelaxationForbiddenForURLScheme(BOOL forbidden, BSTR scheme);
     virtual HRESULT STDMETHODCALLTYPE registerURLSchemeAsSecure(BSTR);
 
+    virtual HRESULT STDMETHODCALLTYPE nextDisplayIsSynchronous();
+
     // WebView
     bool shouldUseEmbeddedView(const WebCore::String& mimeType) const;
 
@@ -939,9 +946,9 @@ protected:
     WebFrame* m_mainFrame;
     WebCore::Page* m_page;
     
-    OwnPtr<HBITMAP> m_backingStoreBitmap;
+    RefPtr<RefCountedHBITMAP> m_backingStoreBitmap;
     SIZE m_backingStoreSize;
-    OwnPtr<HRGN> m_backingStoreDirtyRegion;
+    RefPtr<RefCountedHRGN> m_backingStoreDirtyRegion;
 
     COMPtr<IWebEditingDelegate> m_editingDelegate;
     COMPtr<IWebFrameLoadDelegate> m_frameLoadDelegate;
@@ -1015,6 +1022,8 @@ protected:
     OwnPtr<WebCore::WKCACFLayerRenderer> m_layerRenderer;
     bool m_isAcceleratedCompositing;
 #endif
+
+    bool m_nextDisplayIsSynchronous;
 };
 
 #endif

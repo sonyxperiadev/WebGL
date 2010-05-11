@@ -93,6 +93,16 @@ ALWAYS_INLINE void JIT::emitGetFromCallFrameHeaderPtr(RegisterFile::CallFrameHea
 #endif
 }
 
+ALWAYS_INLINE void JIT::emitLoadCharacterString(RegisterID src, RegisterID dst, JumpList& failures)
+{
+    failures.append(branchPtr(NotEqual, Address(src), ImmPtr(m_globalData->jsStringVPtr)));
+    failures.append(branchTest32(NonZero, Address(src, OBJECT_OFFSETOF(JSString, m_fiberCount))));
+    failures.append(branch32(NotEqual, MacroAssembler::Address(src, ThunkHelpers::jsStringLengthOffset()), Imm32(1)));
+    loadPtr(MacroAssembler::Address(src, ThunkHelpers::jsStringValueOffset()), dst);
+    loadPtr(MacroAssembler::Address(dst, ThunkHelpers::stringImplDataOffset()), dst);
+    load16(MacroAssembler::Address(dst, 0), dst);
+}
+
 ALWAYS_INLINE void JIT::emitGetFromCallFrameHeader32(RegisterFile::CallFrameHeaderEntry entry, RegisterID to, RegisterID from)
 {
     load32(Address(from, entry * sizeof(Register)), to);
@@ -323,22 +333,12 @@ ALWAYS_INLINE void JIT::sampleCodeBlock(CodeBlock* codeBlock)
 #endif
 #endif
 
-inline JIT::Address JIT::addressFor(unsigned index, RegisterID base)
+ALWAYS_INLINE bool JIT::isOperandConstantImmediateChar(unsigned src)
 {
-    return Address(base, (index * sizeof(Register)));
+    return m_codeBlock->isConstantRegisterIndex(src) && getConstantOperand(src).isString() && asString(getConstantOperand(src).asCell())->length() == 1;
 }
 
 #if USE(JSVALUE32_64)
-
-inline JIT::Address JIT::tagFor(unsigned index, RegisterID base)
-{
-    return Address(base, (index * sizeof(Register)) + OBJECT_OFFSETOF(JSValue, u.asBits.tag));
-}
-
-inline JIT::Address JIT::payloadFor(unsigned index, RegisterID base)
-{
-    return Address(base, (index * sizeof(Register)) + OBJECT_OFFSETOF(JSValue, u.asBits.payload));
-}
 
 inline void JIT::emitLoadTag(unsigned index, RegisterID tag)
 {
@@ -560,7 +560,7 @@ inline bool JIT::getMappedTag(unsigned virtualRegisterIndex, RegisterID& tag)
 inline void JIT::emitJumpSlowCaseIfNotJSCell(unsigned virtualRegisterIndex)
 {
     if (!m_codeBlock->isKnownNotImmediate(virtualRegisterIndex))
-        addSlowCase(branch32(NotEqual, tagFor(virtualRegisterIndex), Imm32(JSValue::CellTag)));
+        addSlowCase(emitJumpIfNotJSCell(virtualRegisterIndex));
 }
 
 inline void JIT::emitJumpSlowCaseIfNotJSCell(unsigned virtualRegisterIndex, RegisterID tag)
@@ -737,14 +737,6 @@ ALWAYS_INLINE void JIT::emitJumpSlowCaseIfNotJSCell(RegisterID reg, int vReg)
 }
 
 #if USE(JSVALUE64)
-ALWAYS_INLINE JIT::Jump JIT::emitJumpIfImmediateNumber(RegisterID reg)
-{
-    return branchTestPtr(NonZero, reg, tagTypeNumberRegister);
-}
-ALWAYS_INLINE JIT::Jump JIT::emitJumpIfNotImmediateNumber(RegisterID reg)
-{
-    return branchTestPtr(Zero, reg, tagTypeNumberRegister);
-}
 
 inline void JIT::emitLoadDouble(unsigned index, FPRegisterID value)
 {

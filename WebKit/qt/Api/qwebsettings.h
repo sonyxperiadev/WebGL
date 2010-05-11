@@ -55,7 +55,7 @@ public:
         PluginsEnabled,
         PrivateBrowsingEnabled,
         JavascriptCanOpenWindows,
-        JavascriptCanAccessClipboard,
+        DOMPasteAllowed,
         DeveloperExtrasEnabled,
         LinksIncludedInFocusChain,
         ZoomTextOnly,
@@ -68,13 +68,14 @@ public:
 #endif
         LocalContentCanAccessRemoteUrls,
         DnsPrefetchEnabled,
+        JavaScriptCanAccessClipboard,
         XSSAuditingEnabled,
         AcceleratedCompositingEnabled,
-        WebGLEnabled,
         SpatialNavigationEnabled,
         LocalContentCanAccessFileUrls,
         TiledBackingStoreEnabled,
-        FrameFlatteningEnabled
+        FrameFlatteningEnabled,
+        WebGLEnabled
     };
     enum WebGraphic {
         MissingImageGraphic,
@@ -136,9 +137,6 @@ public:
     
     void setLocalStoragePath(const QString& path);
     QString localStoragePath() const; 
-
-    void setInspectorUrl(const QUrl &location);
-    QUrl inspectorUrl() const;
 
     static void clearMemoryCaches();
 

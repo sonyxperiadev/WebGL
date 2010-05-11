@@ -36,68 +36,21 @@ use warnings;
 use Test::More;
 use VCSUtils;
 
-my @diffHeaderHashRefKeys = ( # The $diffHeaderHashRef keys to check.
-    "copiedFromPath",
-    "indexPath",
-    "sourceRevision",
-    "svnConvertedText",
-);
-
-# The array of test cases.
+# The unit tests for parseGitDiffHeader() and parseSvnDiffHeader()
+# already thoroughly test parsing each format.
+#
+# For parseDiffHeader(), it should suffice to verify that -- (1) for each
+# format, the method can return non-trivial values back for each key
+# supported by that format (e.g. "sourceRevision" for SVN), (2) the method
+# correctly sets default values when specific key-values are not set
+# (e.g. undef for "sourceRevision" for Git), and (3) key-values unique to
+# this method are set correctly (e.g. "scmFormat").
 my @testCaseHashRefs = (
-{
-    # New test
-    diffName => "SVN: simple",
-    inputText => <<'END',
-Index: WebKitTools/Scripts/VCSUtils.pm
-===================================================================
---- WebKitTools/Scripts/VCSUtils.pm	(revision 53004)
-+++ WebKitTools/Scripts/VCSUtils.pm	(working copy)
-@@ -32,6 +32,7 @@ use strict;
- use warnings;
-END
-    # Header keys to check
-    svnConvertedText => <<'END',
-Index: WebKitTools/Scripts/VCSUtils.pm
-===================================================================
---- WebKitTools/Scripts/VCSUtils.pm	(revision 53004)
-+++ WebKitTools/Scripts/VCSUtils.pm	(working copy)
-END
-    copiedFromPath => undef,
-    indexPath => "WebKitTools/Scripts/VCSUtils.pm",
-    sourceRevision => "53004",
-    # Other values to check
-    lastReadLine => "@@ -32,6 +32,7 @@ use strict;\n",
-    nextLine => " use warnings;\n",
-},
-{
-    # New test
-    diffName => "SVN: new file",
-    inputText => <<'END',
-Index: WebKitTools/Scripts/webkitperl/VCSUtils_unittest/parseDiffHeader.pl
-===================================================================
---- WebKitTools/Scripts/webkitperl/VCSUtils_unittest/parseDiffHeader.pl	(revision 0)
-+++ WebKitTools/Scripts/webkitperl/VCSUtils_unittest/parseDiffHeader.pl	(revision 0)
-@@ -0,0 +1,262 @@
-+#!/usr/bin/perl -w
-END
-    # Header keys to check
-    svnConvertedText => <<'END',
-Index: WebKitTools/Scripts/webkitperl/VCSUtils_unittest/parseDiffHeader.pl
-===================================================================
---- WebKitTools/Scripts/webkitperl/VCSUtils_unittest/parseDiffHeader.pl	(revision 0)
-+++ WebKitTools/Scripts/webkitperl/VCSUtils_unittest/parseDiffHeader.pl	(revision 0)
-END
-    copiedFromPath => undef,
-    indexPath => "WebKitTools/Scripts/webkitperl/VCSUtils_unittest/parseDiffHeader.pl",
-    sourceRevision => undef,
-    # Other values to check
-    lastReadLine => "@@ -0,0 +1,262 @@\n",
-    nextLine => "+#!/usr/bin/perl -w\n",
-},
-{
-    # New test
-    diffName => "SVN: copy",
+####
+#    SVN test cases
+##
+{   # New test
+    diffName => "SVN: non-trivial copiedFromPath and sourceRevision values",
     inputText => <<'END',
 Index: index_path.py
 ===================================================================
@@ -106,7 +59,8 @@ Index: index_path.py
 @@ -0,0 +1,7 @@
 +# Python file...
 END
-    # Header keys to check
+    expectedReturn => [
+{
     svnConvertedText => <<'END',
 Index: index_path.py
 ===================================================================
@@ -115,174 +69,53 @@ Index: index_path.py
 END
     copiedFromPath => "copied_from_path.py",
     indexPath => "index_path.py",
+    isSvn => 1,
     sourceRevision => 53048,
-    # Other values to check
-    lastReadLine => "@@ -0,0 +1,7 @@\n",
-    nextLine => "+# Python file...\n",
 },
-{
-    # New test
-    diffName => "SVN: \\r\\n lines",
-    inputText => <<END, # No single quotes to allow interpolation of "\r"
-Index: index_path.py\r
-===================================================================\r
---- index_path.py	(revision 53048)	(from copied_from_path.py:53048)\r
-+++ index_path.py	(working copy)\r
-@@ -0,0 +1,7 @@\r
-+# Python file...\r
-END
-    # Header keys to check
-    svnConvertedText => <<END, # No single quotes to allow interpolation of "\r"
-Index: index_path.py\r
-===================================================================\r
---- index_path.py	(revision 53048)	(from copied_from_path.py:53048)\r
-+++ index_path.py	(working copy)\r
-END
-    copiedFromPath => "copied_from_path.py",
-    indexPath => "index_path.py",
-    sourceRevision => 53048,
-    # Other values to check
-    lastReadLine => "@@ -0,0 +1,7 @@\r\n",
-    nextLine => "+# Python file...\r\n",
+"@@ -0,0 +1,7 @@\n"],
+    expectedNextLine => "+# Python file...\n",
 },
-{
-    # New test
-    diffName => "SVN: path corrections",
+####
+#    Git test cases
+##
+{   # New test case
+    diffName => "Git: Non-zero executable bit",
     inputText => <<'END',
-Index: index_path.py
-===================================================================
---- bad_path	(revision 53048)	(from copied_from_path.py:53048)
-+++ bad_path	(working copy)
-@@ -0,0 +1,7 @@
-+# Python file...
+diff --git a/foo.exe b/foo.exe
+old mode 100644
+new mode 100755
 END
-    # Header keys to check
-    svnConvertedText => <<'END',
-Index: index_path.py
-===================================================================
---- index_path.py	(revision 53048)	(from copied_from_path.py:53048)
-+++ index_path.py	(working copy)
-END
-    copiedFromPath => "copied_from_path.py",
-    indexPath => "index_path.py",
-    sourceRevision => 53048,
-    # Other values to check
-    lastReadLine => "@@ -0,0 +1,7 @@\n",
-    nextLine => "+# Python file...\n",
-},
+    expectedReturn => [
 {
-    # New test
-    diffName => "Git: simple",
-    inputText => <<'END',
-diff --git a/WebCore/rendering/style/StyleFlexibleBoxData.h b/WebCore/rendering/style/StyleFlexibleBoxData.h
-index f5d5e74..3b6aa92 100644
---- a/WebCore/rendering/style/StyleFlexibleBoxData.h
-+++ b/WebCore/rendering/style/StyleFlexibleBoxData.h
-@@ -47,7 +47,6 @@ public:
-END
-    # Header keys to check
     svnConvertedText => <<'END',
-Index: WebCore/rendering/style/StyleFlexibleBoxData.h
-===================================================================
---- WebCore/rendering/style/StyleFlexibleBoxData.h
-+++ WebCore/rendering/style/StyleFlexibleBoxData.h
+Index: foo.exe
+old mode 100644
+new mode 100755
 END
-    copiedFromPath => undef,
-    indexPath => "WebCore/rendering/style/StyleFlexibleBoxData.h",
-    sourceRevision => undef,
-    # Other values to check
-    lastReadLine => "@@ -47,7 +47,6 @@ public:\n",
-    nextLine => undef,
+    executableBitDelta => 1,
+    indexPath => "foo.exe",
+    isGit => 1,
 },
-{
-    # New test
-    diffName => "Git: unrecognized lines",
-    inputText => <<'END',
-diff --git a/LayoutTests/http/tests/security/listener/xss-inactive-closure.html b/LayoutTests/http/tests/security/listener/xss-inactive-closure.html
-new file mode 100644
-index 0000000..3c9f114
---- /dev/null
-+++ b/LayoutTests/http/tests/security/listener/xss-inactive-closure.html
-@@ -0,0 +1,34 @@
-+<html>
-END
-    # Header keys to check
-    svnConvertedText => <<'END',
-Index: LayoutTests/http/tests/security/listener/xss-inactive-closure.html
-===================================================================
---- LayoutTests/http/tests/security/listener/xss-inactive-closure.html
-+++ LayoutTests/http/tests/security/listener/xss-inactive-closure.html
-END
-    copiedFromPath => undef,
-    indexPath => "LayoutTests/http/tests/security/listener/xss-inactive-closure.html",
-    sourceRevision => undef,
-    # Other values to check
-    lastReadLine => "@@ -0,0 +1,34 @@\n",
-    nextLine => "+<html>\n",
+undef],
+    expectedNextLine => undef,
 },
 );
 
-# Return the arguments for each assertion per test case.
-#
-# In particular, the number of assertions per test case is the length
-# of the return value of this subroutine on a sample input.
-#
-# Returns @assertionArgsArrayRefs:
-#   $assertionArgsArrayRef: A reference to an array of parameters to pass
-#                           to each call to is(). The parameters are--
-#                             $got: The value obtained
-#                             $expected: The expected value
-#                             $testName: The name of the test
-sub testParseDiffHeaderAssertionArgs($)
-{
-    my ($testCaseHashRef) = @_;
+my $testCasesCount = @testCaseHashRefs;
+plan(tests => 2 * $testCasesCount); # Total number of assertions.
+
+foreach my $testCase (@testCaseHashRefs) {
+    my $testNameStart = "parseDiffHeader(): $testCase->{diffName}: comparing";
 
     my $fileHandle;
-    open($fileHandle, "<", \$testCaseHashRef->{inputText});
-
+    open($fileHandle, "<", \$testCase->{inputText});
     my $line = <$fileHandle>;
 
-    my ($headerHashRef, $lastReadLine) = VCSUtils::parseDiffHeader($fileHandle, $line);
+    my @got = VCSUtils::parseDiffHeader($fileHandle, $line);
+    my $expectedReturn = $testCase->{expectedReturn};
 
-    my $testNameStart = "parseDiffHeader(): [$testCaseHashRef->{diffName}] ";
+    is_deeply(\@got, $expectedReturn, "$testNameStart return value.");
 
-    my @assertionArgsArrayRefs; # Return value
-    my @assertionArgs;
-    foreach my $diffHeaderHashRefKey (@diffHeaderHashRefKeys) {
-        my $testName = "${testNameStart}key=\"$diffHeaderHashRefKey\"";
-        @assertionArgs = ($headerHashRef->{$diffHeaderHashRefKey}, $testCaseHashRef->{$diffHeaderHashRefKey}, $testName);
-        push(@assertionArgsArrayRefs, \@assertionArgs);
-    }
-
-    @assertionArgs = ($lastReadLine, $testCaseHashRef->{lastReadLine}, "${testNameStart}lastReadLine");
-    push(@assertionArgsArrayRefs, \@assertionArgs);
-
-    my $nextLine = <$fileHandle>;
-    @assertionArgs = ($nextLine, $testCaseHashRef->{nextLine}, "${testNameStart}nextLine");
-    push(@assertionArgsArrayRefs, \@assertionArgs);
-
-    return @assertionArgsArrayRefs;
-}
-
-# Test parseDiffHeader() for the given test case.
-sub testParseDiffHeader($)
-{
-    my ($testCaseHashRef) = @_;
-
-    my @assertionArgsArrayRefs = testParseDiffHeaderAssertionArgs($testCaseHashRef);
-
-    foreach my $arrayRef (@assertionArgsArrayRefs) {
-        # The parameters are -- is($got, $expected, $testName).
-        is($arrayRef->[0], $arrayRef->[1], $arrayRef->[2]);
-    }
-}
-
-# Count the number of assertions per test case to calculate the total number
-# of Test::More tests. We could have used any test case for the count.
-my $assertionCount = testParseDiffHeaderAssertionArgs($testCaseHashRefs[0]);
-
-plan(tests => @testCaseHashRefs * $assertionCount); # Total number of tests
-
-foreach my $testCaseHashRef (@testCaseHashRefs) {
-    testParseDiffHeader($testCaseHashRef);
+    my $gotNextLine = <$fileHandle>;
+    is($gotNextLine, $testCase->{expectedNextLine},  "$testNameStart next read line.");
 }

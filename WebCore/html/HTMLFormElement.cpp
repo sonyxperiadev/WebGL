@@ -38,6 +38,7 @@
 #include "FormState.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "FrameLoaderClient.h"
 #include "HTMLDocument.h"
 #include "HTMLFormCollection.h"
 #include "HTMLImageElement.h"
@@ -175,20 +176,21 @@ Node* HTMLFormElement::item(unsigned index)
     return elements()->item(index);
 }
 
-void HTMLFormElement::submitClick(Event* event)
+void HTMLFormElement::submitImplicitly(Event* event, bool fromTextField)
 {
-    bool submitFound = false;
+    int textControlCount = 0;
     for (unsigned i = 0; i < formElements.size(); ++i) {
         if (formElements[i]->hasLocalName(inputTag)) {
             HTMLInputElement* element = static_cast<HTMLInputElement*>(formElements[i]);
             if (element->isSuccessfulSubmitButton() && element->renderer()) {
-                submitFound = true;
                 element->dispatchSimulatedClick(event);
-                break;
-            }
-        }
+                return;
+            } else if (element->isTextField())
+                ++textControlCount;
+        } else if (formElements[i]->hasLocalName(isindexTag))
+            ++textControlCount;
     }
-    if (!submitFound) // submit the form without a submit or image input
+    if (fromTextField && textControlCount == 1)
         prepareSubmit(event);
 }
 
@@ -290,6 +292,8 @@ bool HTMLFormElement::prepareSubmit(Event* event)
     // Interactive validation must be done before dispatching the submit event.
     if (!validateInteractively(event))
         return false;
+
+    frame->loader()->client()->dispatchWillSendSubmitEvent(this);
 
     if (dispatchEvent(Event::create(eventNames().submitEvent, true, true)) && !m_doingsubmit)
         m_doingsubmit = true;

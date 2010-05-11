@@ -83,9 +83,9 @@ SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDes
 {
     if (!m_smallCapsFontData) {
         FontDescription desc = FontDescription(fontDescription);
-        desc.setComputedSize(0.70f*fontDescription.computedSize());
-        const FontPlatformData* pdata = new FontPlatformData(desc, desc.family().family());
-        m_smallCapsFontData = new SimpleFontData(*pdata);
+        desc.setComputedSize(0.70f * fontDescription.computedSize());
+        FontPlatformData platformData(desc, desc.family().family());
+        m_smallCapsFontData = new SimpleFontData(platformData);
     }
     return m_smallCapsFontData;
 }
@@ -114,7 +114,12 @@ void SimpleFontData::determinePitch()
     m_treatAsFixedPitch = m_platformData.isFixedPitch();
 }
 
-GlyphMetrics SimpleFontData::platformMetricsForGlyph(Glyph glyph, GlyphMetricsMode) const
+FloatRect SimpleFontData::platformBoundsForGlyph(Glyph) const
+{
+    return FloatRect();
+}
+
+float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 {
     ASSERT(m_platformData.m_scaledFont);
 
@@ -125,10 +130,8 @@ GlyphMetrics SimpleFontData::platformMetricsForGlyph(Glyph glyph, GlyphMetricsMo
     float w = (float)m_spaceWidth;
     if (cairo_scaled_font_status(m_platformData.m_scaledFont) == CAIRO_STATUS_SUCCESS && extents.x_advance != 0)
         w = (float)extents.x_advance;
-    
-    GlyphMetrics metrics;
-    metrics.horizontalAdvance = w;
-    return metrics;
+
+    return w;    
 }
 
 }

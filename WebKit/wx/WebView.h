@@ -214,6 +214,12 @@ public:
 
     wxWebSettings GetWebSettings();
     wxWebKitParseMode GetParseMode() const;
+    
+    /*
+        This method allows cross site-scripting (XSS) in the WebView. 
+        Use with caution!
+    */
+    void GrantUniversalAccess();
 
 protected:
 
@@ -226,6 +232,7 @@ protected:
     void OnKeyEvents(wxKeyEvent& event);
     void OnSetFocus(wxFocusEvent& event);
     void OnKillFocus(wxFocusEvent& event);
+    void OnTLWActivated(wxActivateEvent& event);
     
 private:
     // any class wishing to process wxWindows events must use this macro

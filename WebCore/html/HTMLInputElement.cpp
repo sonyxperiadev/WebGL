@@ -46,7 +46,7 @@
 #include "HTMLImageLoader.h"
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
-#include "ScriptEventListener.h"
+#include "HTMLParser.h"
 #include "KeyboardEvent.h"
 #include "LocalizedStrings.h"
 #include "MappedAttribute.h"
@@ -60,6 +60,7 @@
 #include "RenderText.h"
 #include "RenderTextControlSingleLine.h"
 #include "RenderTheme.h"
+#include "ScriptEventListener.h"
 #include "StepRange.h"
 #include "StringHash.h"
 #include "TextEvent.h"
@@ -69,7 +70,6 @@
 #include <wtf/HashMap.h>
 #include <wtf/MathExtras.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/dtoa.h>
 
 using namespace std;
 
@@ -168,41 +168,50 @@ static inline CheckedRadioButtons& checkedRadioButtons(const HTMLInputElement* e
     return element->document()->checkedRadioButtons();
 }
 
+void HTMLInputElement::updateCheckedRadioButtons()
+{
+    if (attached() && checked())
+        checkedRadioButtons(this).addButton(this);
+   
+    if (renderer() && renderer()->style()->hasAppearance())
+        renderer()->theme()->stateChanged(renderer(), CheckedState);
+}
+
 bool HTMLInputElement::valueMissing() const
 {
     if (!isRequiredFormControl() || readOnly() || disabled())
         return false;
 
     switch (inputType()) {
-        case DATE:
-        case DATETIME:
-        case DATETIMELOCAL:
-        case EMAIL:
-        case FILE:
-        case MONTH:
-        case NUMBER:
-        case PASSWORD:
-        case SEARCH:
-        case TELEPHONE:
-        case TEXT:
-        case TIME:
-        case URL:
-        case WEEK:
-            return value().isEmpty();
-        case CHECKBOX:
-            return !checked();
-        case RADIO:
-            return !checkedRadioButtons(this).checkedButtonForGroup(name());
-        case COLOR:
-            return false;
-        case BUTTON:
-        case HIDDEN:
-        case IMAGE:
-        case ISINDEX:
-        case RANGE:
-        case RESET:
-        case SUBMIT:
-            break;
+    case DATE:
+    case DATETIME:
+    case DATETIMELOCAL:
+    case EMAIL:
+    case FILE:
+    case MONTH:
+    case NUMBER:
+    case PASSWORD:
+    case SEARCH:
+    case TELEPHONE:
+    case TEXT:
+    case TIME:
+    case URL:
+    case WEEK:
+        return value().isEmpty();
+    case CHECKBOX:
+        return !checked();
+    case RADIO:
+        return !checkedRadioButtons(this).checkedButtonForGroup(name());
+    case COLOR:
+        return false;
+    case BUTTON:
+    case HIDDEN:
+    case IMAGE:
+    case ISINDEX:
+    case RANGE:
+    case RESET:
+    case SUBMIT:
+        break;
     }
 
     ASSERT_NOT_REACHED();
@@ -212,46 +221,42 @@ bool HTMLInputElement::valueMissing() const
 bool HTMLInputElement::patternMismatch() const
 {
     switch (inputType()) {
-        case BUTTON:
-        case CHECKBOX:
-        case COLOR:
-        case DATE:
-        case DATETIME:
-        case DATETIMELOCAL:
-        case FILE:
-        case HIDDEN:
-        case IMAGE:
-        case ISINDEX:
-        case MONTH:
-        case NUMBER:
-        case RADIO:
-        case RANGE:
-        case RESET:
-        case SUBMIT:
-        case TIME:
-        case WEEK:
+    case BUTTON:
+    case CHECKBOX:
+    case COLOR:
+    case DATE:
+    case DATETIME:
+    case DATETIMELOCAL:
+    case FILE:
+    case HIDDEN:
+    case IMAGE:
+    case ISINDEX:
+    case MONTH:
+    case NUMBER:
+    case RADIO:
+    case RANGE:
+    case RESET:
+    case SUBMIT:
+    case TIME:
+    case WEEK:
+        return false;
+    case EMAIL:
+    case PASSWORD:
+    case SEARCH:
+    case TELEPHONE:
+    case TEXT:
+    case URL:
+        const AtomicString& pattern = getAttribute(patternAttr);
+        String value = this->value();
+         // Empty values can't be mismatched
+        if (pattern.isEmpty() || value.isEmpty())
             return false;
-        case EMAIL:
-        case PASSWORD:
-        case SEARCH:
-        case TELEPHONE:
-        case TEXT:
-        case URL:
-            const AtomicString& pattern = getAttribute(patternAttr);
-            String value = this->value();
-
-            // Empty values can't be mismatched
-            if (pattern.isEmpty() || value.isEmpty())
-                return false;
-
-            RegularExpression patternRegExp(pattern, TextCaseSensitive);
-            int matchLength = 0;
-            int valueLength = value.length();
-            int matchOffset = patternRegExp.match(value, 0, &matchLength);
-
-            return matchOffset != 0 || matchLength != valueLength;
+        RegularExpression patternRegExp(pattern, TextCaseSensitive);
+        int matchLength = 0;
+        int valueLength = value.length();
+        int matchOffset = patternRegExp.match(value, 0, &matchLength);
+        return matchOffset || matchLength != valueLength;
     }
-
     ASSERT_NOT_REACHED();
     return false;
 }
@@ -703,8 +708,7 @@ bool HTMLInputElement::isKeyboardFocusable(KeyboardEvent* event) const
         Node* currentFocusedNode = document()->focusedNode();
         if (currentFocusedNode && currentFocusedNode->hasTagName(inputTag)) {
             HTMLInputElement* focusedInput = static_cast<HTMLInputElement*>(currentFocusedNode);
-            if (focusedInput->inputType() == RADIO && focusedInput->form() == form() &&
-                focusedInput->name() == name())
+            if (focusedInput->inputType() == RADIO && focusedInput->form() == form() && focusedInput->name() == name())
                 return false;
         }
         
@@ -737,7 +741,11 @@ void HTMLInputElement::aboutToUnload()
 
 bool HTMLInputElement::shouldUseInputMethod() const
 {
-    return m_type == TEXT || m_type == SEARCH || m_type == ISINDEX;
+    // The reason IME's are disabled for the password field is because IMEs 
+    // can access the underlying password and display it in clear text --
+    // e.g. you can use it to access the stored password for any site 
+    // with only trivial effort.
+    return isTextField() && inputType() != PASSWORD;
 }
 
 void HTMLInputElement::handleFocusEvent()
@@ -913,39 +921,39 @@ const AtomicString& HTMLInputElement::formControlType() const
 bool HTMLInputElement::saveFormControlState(String& result) const
 {
     switch (inputType()) {
-        case BUTTON:
-        case COLOR:
-        case DATE:
-        case DATETIME:
-        case DATETIMELOCAL:
-        case EMAIL:
-        case FILE:
-        case HIDDEN:
-        case IMAGE:
-        case ISINDEX:
-        case MONTH:
-        case NUMBER:
-        case RANGE:
-        case RESET:
-        case SEARCH:
-        case SUBMIT:
-        case TELEPHONE:
-        case TEXT:
-        case TIME:
-        case URL:
-        case WEEK: {
-            String currentValue = value();
-            if (currentValue == defaultValue())
-                return false;
-            result = currentValue;
-            return true;
-        }
-        case CHECKBOX:
-        case RADIO:
-            result = checked() ? "on" : "off";
-            return true;
-        case PASSWORD:
+    case BUTTON:
+    case COLOR:
+    case DATE:
+    case DATETIME:
+    case DATETIMELOCAL:
+    case EMAIL:
+    case FILE:
+    case HIDDEN:
+    case IMAGE:
+    case ISINDEX:
+    case MONTH:
+    case NUMBER:
+    case RANGE:
+    case RESET:
+    case SEARCH:
+    case SUBMIT:
+    case TELEPHONE:
+    case TEXT:
+    case TIME:
+    case URL:
+    case WEEK: {
+        String currentValue = value();
+        if (currentValue == defaultValue())
             return false;
+        result = currentValue;
+        return true;
+    }
+    case CHECKBOX:
+    case RADIO:
+        result = checked() ? "on" : "off";
+        return true;
+    case PASSWORD:
+        return false;
     }
     ASSERT_NOT_REACHED();
     return false;
@@ -955,35 +963,35 @@ void HTMLInputElement::restoreFormControlState(const String& state)
 {
     ASSERT(inputType() != PASSWORD); // should never save/restore password fields
     switch (inputType()) {
-        case BUTTON:
-        case COLOR:
-        case DATE:
-        case DATETIME:
-        case DATETIMELOCAL:
-        case EMAIL:
-        case FILE:
-        case HIDDEN:
-        case IMAGE:
-        case ISINDEX:
-        case MONTH:
-        case NUMBER:
-        case RANGE:
-        case RESET:
-        case SEARCH:
-        case SUBMIT:
-        case TELEPHONE:
-        case TEXT:
-        case TIME:
-        case URL:
-        case WEEK:
-            setValue(state);
-            break;
-        case CHECKBOX:
-        case RADIO:
-            setChecked(state == "on");
-            break;
-        case PASSWORD:
-            break;
+    case BUTTON:
+    case COLOR:
+    case DATE:
+    case DATETIME:
+    case DATETIMELOCAL:
+    case EMAIL:
+    case FILE:
+    case HIDDEN:
+    case IMAGE:
+    case ISINDEX:
+    case MONTH:
+    case NUMBER:
+    case RANGE:
+    case RESET:
+    case SEARCH:
+    case SUBMIT:
+    case TELEPHONE:
+    case TEXT:
+    case TIME:
+    case URL:
+    case WEEK:
+        setValue(state);
+        break;
+    case CHECKBOX:
+    case RADIO:
+        setChecked(state == "on");
+        break;
+    case PASSWORD:
+        break;
     }
 }
 
@@ -1002,47 +1010,47 @@ bool HTMLInputElement::canHaveSelection() const
 void HTMLInputElement::accessKeyAction(bool sendToAnyElement)
 {
     switch (inputType()) {
-        case BUTTON:
-        case CHECKBOX:
-        case FILE:
-        case IMAGE:
-        case RADIO:
-        case RANGE:
-        case RESET:
-        case SUBMIT:
-            focus(false);
-            // send the mouse button events iff the caller specified sendToAnyElement
-            dispatchSimulatedClick(0, sendToAnyElement);
-            break;
-        case HIDDEN:
-            // a no-op for this type
-            break;
-        case COLOR:
-        case DATE:
-        case DATETIME:
-        case DATETIMELOCAL:
-        case EMAIL:
-        case ISINDEX:
-        case MONTH:
-        case NUMBER:
-        case PASSWORD:
-        case SEARCH:
-        case TELEPHONE:
-        case TEXT:
-        case TIME:
-        case URL:
-        case WEEK:
-            // should never restore previous selection here
-            focus(false);
-            break;
+    case BUTTON:
+    case CHECKBOX:
+    case FILE:
+    case IMAGE:
+    case RADIO:
+    case RANGE:
+    case RESET:
+    case SUBMIT:
+        focus(false);
+        // send the mouse button events iff the caller specified sendToAnyElement
+        dispatchSimulatedClick(0, sendToAnyElement);
+        break;
+    case HIDDEN:
+        // a no-op for this type
+        break;
+    case COLOR:
+    case DATE:
+    case DATETIME:
+    case DATETIMELOCAL:
+    case EMAIL:
+    case ISINDEX:
+    case MONTH:
+    case NUMBER:
+    case PASSWORD:
+    case SEARCH:
+    case TELEPHONE:
+    case TEXT:
+    case TIME:
+    case URL:
+    case WEEK:
+        // should never restore previous selection here
+        focus(false);
+         break;
     }
 }
 
 bool HTMLInputElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
 {
-    if (((attrName == heightAttr || attrName == widthAttr) && respectHeightAndWidthAttrs()) ||
-        attrName == vspaceAttr ||
-        attrName == hspaceAttr) {
+    if (((attrName == heightAttr || attrName == widthAttr) && respectHeightAndWidthAttrs())
+        || attrName == vspaceAttr 
+        || attrName == hspaceAttr) {
         result = eUniversal;
         return false;
     } 
@@ -1109,8 +1117,7 @@ void HTMLInputElement::parseMappedAttribute(MappedAttribute *attr)
                 m_imageLoader.set(new HTMLImageLoader(this));
             m_imageLoader->updateFromElementIgnoringPreviousError();
         }
-    } else if (attr->name() == usemapAttr ||
-               attr->name() == accesskeyAttr) {
+    } else if (attr->name() == usemapAttr || attr->name() == accesskeyAttr) {
         // FIXME: ignore for the moment
     } else if (attr->name() == vspaceAttr) {
         addCSSLength(attr, CSSPropertyMarginTop, attr->value());
@@ -1127,10 +1134,8 @@ void HTMLInputElement::parseMappedAttribute(MappedAttribute *attr)
     } else if (attr->name() == heightAttr) {
         if (respectHeightAndWidthAttrs())
             addCSSLength(attr, CSSPropertyHeight, attr->value());
-    }
-    // Search field and slider attributes all just cause updateFromElement to be called through style
-    // recalcing.
-    else if (attr->name() == onsearchAttr) {
+    } else if (attr->name() == onsearchAttr) {
+        // Search field and slider attributes all just cause updateFromElement to be called through style recalcing.
         setAttributeEventListener(eventNames().searchEvent, createAttributeEventListener(this, attr));
     } else if (attr->name() == resultsAttr) {
         int oldResults = m_maxResults;
@@ -1174,40 +1179,40 @@ bool HTMLInputElement::rendererIsNeeded(RenderStyle *style)
     return HTMLFormControlElementWithState::rendererIsNeeded(style);
 }
 
-RenderObject *HTMLInputElement::createRenderer(RenderArena *arena, RenderStyle *style)
+RenderObject* HTMLInputElement::createRenderer(RenderArena *arena, RenderStyle *style)
 {
     switch (inputType()) {
-        case BUTTON:
-        case RESET:
-        case SUBMIT:
-            return new (arena) RenderButton(this);
-        case CHECKBOX:
-        case RADIO:
-            return RenderObject::createObject(this, style);
-        case FILE:
-            return new (arena) RenderFileUploadControl(this);
-        case HIDDEN:
-            break;
-        case IMAGE:
-            return new (arena) RenderImage(this);
-        case RANGE:
-            return new (arena) RenderSlider(this);
-        case COLOR:
-        case DATE:
-        case DATETIME:
-        case DATETIMELOCAL:
-        case EMAIL:
-        case ISINDEX:
-        case MONTH:
-        case NUMBER:
-        case PASSWORD:
-        case SEARCH:
-        case TELEPHONE:
-        case TEXT:
-        case TIME:
-        case URL:
-        case WEEK:
-            return new (arena) RenderTextControlSingleLine(this, placeholderShouldBeVisible());
+    case BUTTON:
+    case RESET:
+    case SUBMIT:
+        return new (arena) RenderButton(this);
+    case CHECKBOX:
+    case RADIO:
+        return RenderObject::createObject(this, style);
+    case FILE:
+        return new (arena) RenderFileUploadControl(this);
+    case HIDDEN:
+        break;
+    case IMAGE:
+        return new (arena) RenderImage(this);
+    case RANGE:
+        return new (arena) RenderSlider(this);
+    case COLOR:
+    case DATE:
+    case DATETIME:
+    case DATETIMELOCAL:
+    case EMAIL:
+    case ISINDEX:
+    case MONTH:
+    case NUMBER:
+    case PASSWORD:
+    case SEARCH:
+    case TELEPHONE:
+    case TEXT:
+    case TIME:
+    case URL:
+    case WEEK:
+        return new (arena) RenderTextControlSingleLine(this, placeholderShouldBeVisible());
     }
     ASSERT(false);
     return 0;
@@ -1237,6 +1242,9 @@ void HTMLInputElement::attach()
                 imageObj->setImageSizeForAltText();
         }
     }
+
+    if (inputType() == RADIO)
+        updateCheckedRadioButtons();
 
     if (document()->focusedNode() == this)
         document()->updateFocusAppearanceSoon(true /* restore selection */);
@@ -1288,86 +1296,85 @@ bool HTMLInputElement::appendFormData(FormDataList& encoding, bool multipart)
         return false;
 
     switch (inputType()) {
-        case COLOR:
-        case DATE:
-        case DATETIME:
-        case DATETIMELOCAL:
-        case EMAIL:
-        case HIDDEN:
-        case ISINDEX:
-        case MONTH:
-        case NUMBER:
-        case PASSWORD:
-        case RANGE:
-        case SEARCH:
-        case TELEPHONE:
-        case TEXT:
-        case TIME:
-        case URL:
-        case WEEK:
-            // always successful
+    case COLOR:
+    case DATE:
+    case DATETIME:
+    case DATETIMELOCAL:
+    case EMAIL:
+    case HIDDEN:
+    case ISINDEX:
+    case MONTH:
+    case NUMBER:
+    case PASSWORD:
+    case RANGE:
+    case SEARCH:
+    case TELEPHONE:
+    case TEXT:
+    case TIME:
+    case URL:
+    case WEEK:
+        // always successful
+        encoding.appendData(name(), value());
+        return true;
+
+    case CHECKBOX:
+    case RADIO:
+        if (checked()) {
             encoding.appendData(name(), value());
             return true;
+        }
+        break;
 
-        case CHECKBOX:
-        case RADIO:
-            if (checked()) {
+    case BUTTON:
+    case RESET:
+        // these types of buttons are never successful
+        return false;
+
+    case IMAGE:
+        if (m_activeSubmit) {
+            encoding.appendData(name().isEmpty() ? "x" : (name() + ".x"), m_xPos);
+            encoding.appendData(name().isEmpty() ? "y" : (name() + ".y"), m_yPos);
+            if (!name().isEmpty() && !value().isEmpty())
                 encoding.appendData(name(), value());
-                return true;
-            }
-            break;
-
-        case BUTTON:
-        case RESET:
-            // these types of buttons are never successful
-            return false;
-
-        case IMAGE:
-            if (m_activeSubmit) {
-                encoding.appendData(name().isEmpty() ? "x" : (name() + ".x"), m_xPos);
-                encoding.appendData(name().isEmpty() ? "y" : (name() + ".y"), m_yPos);
-                if (!name().isEmpty() && !value().isEmpty())
-                    encoding.appendData(name(), value());
-                return true;
-            }
-            break;
-
-        case SUBMIT:
-            if (m_activeSubmit) {
-                String enc_str = valueWithDefault();
-                encoding.appendData(name(), enc_str);
-                return true;
-            }
-            break;
-
-        case FILE: {
-            unsigned numFiles = m_fileList->length();
-            if (!multipart) {
-                // Send only the basenames.
-                // 4.10.16.4 and 4.10.16.6 sections in HTML5.
-
-                // Unlike the multipart case, we have no special
-                // handling for the empty fileList because Netscape
-                // doesn't support for non-multipart submission of
-                // file inputs, and Firefox doesn't add "name=" query
-                // parameter.
-
-                for (unsigned i = 0; i < numFiles; ++i) {
-                    encoding.appendData(name(), m_fileList->item(i)->fileName());
-                }
-                return true;
-            }
-
-            // If no filename at all is entered, return successful but empty.
-            // Null would be more logical, but Netscape posts an empty file. Argh.
-            if (!numFiles) {
-                encoding.appendBlob(name(), File::create(""));
-                return true;
-            }
-
-            for (unsigned i = 0; i < numFiles; ++i)
-                encoding.appendBlob(name(), m_fileList->item(i));
             return true;
+        }
+        break;
+
+    case SUBMIT:
+        if (m_activeSubmit) {
+            String encstr = valueWithDefault();
+            encoding.appendData(name(), encstr);
+            return true;
+        }
+        break;
+
+    case FILE: {
+        unsigned numFiles = m_fileList->length();
+        if (!multipart) {
+            // Send only the basenames.
+            // 4.10.16.4 and 4.10.16.6 sections in HTML5.
+    
+            // Unlike the multipart case, we have no special
+            // handling for the empty fileList because Netscape
+            // doesn't support for non-multipart submission of
+            // file inputs, and Firefox doesn't add "name=" query
+            // parameter.
+
+            for (unsigned i = 0; i < numFiles; ++i) 
+                encoding.appendData(name(), m_fileList->item(i)->fileName());
+            return true;
+        }
+
+        // If no filename at all is entered, return successful but empty.
+        // Null would be more logical, but Netscape posts an empty file. Argh.
+        if (!numFiles) {
+            encoding.appendBlob(name(), File::create(""));
+            return true;
+        }
+
+        for (unsigned i = 0; i < numFiles; ++i)
+            encoding.appendBlob(name(), m_fileList->item(i));
+        return true;
         }
     }
     return false;
@@ -1427,10 +1434,7 @@ void HTMLInputElement::setChecked(bool nowChecked, bool sendChangeEvent)
     m_checked = nowChecked;
     setNeedsStyleRecalc();
 
-    checkedRadioButtons(this).addButton(this);
-
-    if (renderer() && renderer()->style()->hasAppearance())
-        renderer()->theme()->stateChanged(renderer(), CheckedState);
+    updateCheckedRadioButtons();
 
     // Ideally we'd do this from the render tree (matching
     // RenderTextView), but it's not possible to do it at the moment
@@ -1447,13 +1451,13 @@ void HTMLInputElement::setChecked(bool nowChecked, bool sendChangeEvent)
         dispatchFormControlChangeEvent();
 }
 
-void HTMLInputElement::setIndeterminate(bool _indeterminate)
+void HTMLInputElement::setIndeterminate(bool newValue)
 {
     // Only checkboxes and radio buttons honor indeterminate.
-    if (!allowsIndeterminate() || indeterminate() == _indeterminate)
+    if (!allowsIndeterminate() || indeterminate() == newValue)
         return;
 
-    m_indeterminate = _indeterminate;
+    m_indeterminate = newValue;
 
     setNeedsStyleRecalc();
 
@@ -1499,7 +1503,7 @@ String HTMLInputElement::value() const
         if (value.isNull()) {
             if (inputType() == CHECKBOX || inputType() == RADIO)
                 return checked() ? "on" : "";
-            else if (inputType() == RANGE)
+            if (inputType() == RANGE)
                 return serializeForNumberType(StepRange(this).defaultValue());
         }
     }
@@ -1512,35 +1516,35 @@ String HTMLInputElement::valueWithDefault() const
     String v = value();
     if (v.isNull()) {
         switch (inputType()) {
-            case BUTTON:
-            case CHECKBOX:
-            case COLOR:
-            case DATE:
-            case DATETIME:
-            case DATETIMELOCAL:
-            case EMAIL:
-            case FILE:
-            case HIDDEN:
-            case IMAGE:
-            case ISINDEX:
-            case MONTH:
-            case NUMBER:
-            case PASSWORD:
-            case RADIO:
-            case RANGE:
-            case SEARCH:
-            case TELEPHONE:
-            case TEXT:
-            case TIME:
-            case URL:
-            case WEEK:
-                break;
-            case RESET:
-                v = resetButtonDefaultLabel();
-                break;
-            case SUBMIT:
-                v = submitButtonDefaultLabel();
-                break;
+        case BUTTON:
+        case CHECKBOX:
+        case COLOR:
+        case DATE:
+        case DATETIME:
+        case DATETIMELOCAL:
+        case EMAIL:
+        case FILE:
+        case HIDDEN:
+        case IMAGE:
+        case ISINDEX:
+        case MONTH:
+        case NUMBER:
+        case PASSWORD:
+        case RADIO:
+        case RANGE:
+        case SEARCH:
+        case TELEPHONE:
+        case TEXT:
+        case TIME:
+        case URL:
+        case WEEK:
+            break;
+        case RESET:
+            v = resetButtonDefaultLabel();
+            break;
+        case SUBMIT:
+            v = submitButtonDefaultLabel();
+            break;
         }
     }
     return v;
@@ -1963,32 +1967,32 @@ void HTMLInputElement::setFileListFromRenderer(const Vector<String>& paths)
 bool HTMLInputElement::storesValueSeparateFromAttribute() const
 {
     switch (inputType()) {
-        case BUTTON:
-        case CHECKBOX:
-        case HIDDEN:
-        case IMAGE:
-        case RADIO:
-        case RESET:
-        case SUBMIT:
-            return false;
-        case COLOR:
-        case DATE:
-        case DATETIME:
-        case DATETIMELOCAL:
-        case EMAIL:
-        case FILE:
-        case ISINDEX:
-        case MONTH:
-        case NUMBER:
-        case PASSWORD:
-        case RANGE:
-        case SEARCH:
-        case TELEPHONE:
-        case TEXT:
-        case TIME:
-        case URL:
-        case WEEK:
-            return true;
+    case BUTTON:
+    case CHECKBOX:
+    case HIDDEN:
+    case IMAGE:
+    case RADIO:
+    case RESET:
+    case SUBMIT:
+        return false;
+    case COLOR:
+    case DATE:
+    case DATETIME:
+    case DATETIMELOCAL:
+    case EMAIL:
+    case FILE:
+    case ISINDEX:
+    case MONTH:
+    case NUMBER:
+    case PASSWORD:
+    case RANGE:
+    case SEARCH:
+    case TELEPHONE:
+    case TEXT:
+    case TIME:
+    case URL:
+    case WEEK:
+        return true;
     }
     return false;
 }
@@ -2078,10 +2082,10 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
     // FIXME: It would be better to refactor this for the different types of input element.
     // Having them all in one giant function makes this hard to read, and almost all the handling is type-specific.
 
-    bool clickDefaultFormButton = false;
+    bool implicitSubmission = false;
 
     if (isTextField() && evt->type() == eventNames().textInputEvent && evt->isTextEvent() && static_cast<TextEvent*>(evt)->data() == "\n")
-        clickDefaultFormButton = true;
+        implicitSubmission = true;
 
     if (inputType() == IMAGE && evt->isMouseEvent() && evt->type() == eventNames().clickEvent) {
         // record the mouse position for when we get the DOMActivate event
@@ -2120,7 +2124,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
     
     // Call the base event handler before any of our own event handling for almost all events in text fields.
     // Makes editing keyboard handling take precedence over the keydown and keypress handling in this function.
-    bool callBaseClassEarly = isTextField() && !clickDefaultFormButton
+    bool callBaseClassEarly = isTextField() && !implicitSubmission
         && (evt->type() == eventNames().keydownEvent || evt->type() == eventNames().keypressEvent);
     if (callBaseClassEarly) {
         HTMLFormControlElementWithState::defaultEventHandler(evt);
@@ -2163,52 +2167,51 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
 
         if (charCode == '\r') {
             switch (inputType()) {
-                case CHECKBOX:
-                case COLOR:
-                case DATE:
-                case DATETIME:
-                case DATETIMELOCAL:
-                case EMAIL:
-                case HIDDEN:
-                case ISINDEX:
-                case MONTH:
-                case NUMBER:
-                case PASSWORD:
-                case RANGE:
-                case SEARCH:
-                case TELEPHONE:
-                case TEXT:
-                case TIME:
-                case URL:
-                case WEEK:
-                    // Simulate mouse click on the default form button for enter for these types of elements.
-                    clickDefaultFormButton = true;
-                    break;
-                case BUTTON:
-                case FILE:
-                case IMAGE:
-                case RESET:
-                case SUBMIT:
-                    // Simulate mouse click for enter for these types of elements.
-                    clickElement = true;
-                    break;
-                case RADIO:
-                    break; // Don't do anything for enter on a radio button.
+            case CHECKBOX:
+            case COLOR:
+            case DATE:
+            case DATETIME:
+            case DATETIMELOCAL:
+            case EMAIL:
+            case HIDDEN:
+            case ISINDEX:
+            case MONTH:
+            case NUMBER:
+            case PASSWORD:
+            case RADIO:
+            case RANGE:
+            case SEARCH:
+            case TELEPHONE:
+            case TEXT:
+            case TIME:
+            case URL:
+            case WEEK:
+                // Simulate mouse click on the default form button for enter for these types of elements.
+                implicitSubmission = true;
+                break;
+            case BUTTON:
+            case FILE:
+            case IMAGE:
+            case RESET:
+            case SUBMIT:
+                // Simulate mouse click for enter for these types of elements.
+                clickElement = true;
+                break;
             }
         } else if (charCode == ' ') {
             switch (inputType()) {
-                case BUTTON:
-                case CHECKBOX:
-                case FILE:
-                case IMAGE:
-                case RESET:
-                case SUBMIT:
-                case RADIO:
-                    // Prevent scrolling down the page.
-                    evt->setDefaultHandled();
-                    return;
-                default:
-                    break;
+            case BUTTON:
+            case CHECKBOX:
+            case FILE:
+            case IMAGE:
+            case RESET:
+            case SUBMIT:
+            case RADIO:
+                // Prevent scrolling down the page.
+                evt->setDefaultHandled();
+                return;
+            default:
+                break;
             }
         }
 
@@ -2224,19 +2227,19 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
 
         if (key == "U+0020") {
             switch (inputType()) {
-                case BUTTON:
-                case CHECKBOX:
-                case FILE:
-                case IMAGE:
-                case RESET:
-                case SUBMIT:
-                case RADIO:
-                    setActive(true, true);
-                    // No setDefaultHandled(), because IE dispatches a keypress in this case
-                    // and the caller will only dispatch a keypress if we don't call setDefaultHandled.
-                    return;
-                default:
-                    break;
+            case BUTTON:
+            case CHECKBOX:
+            case FILE:
+            case IMAGE:
+            case RESET:
+            case SUBMIT:
+            case RADIO:
+                setActive(true, true);
+                // No setDefaultHandled(), because IE dispatches a keypress in this case
+                // and the caller will only dispatch a keypress if we don't call setDefaultHandled.
+                return;
+            default:
+                break;
             }
         }
 
@@ -2283,40 +2286,40 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
 
         if (key == "U+0020") {
             switch (inputType()) {
-                case BUTTON:
-                case CHECKBOX:
-                case FILE:
-                case IMAGE:
-                case RESET:
-                case SUBMIT:
-                    // Simulate mouse click for spacebar for these types of elements.
-                    // The AppKit already does this for some, but not all, of them.
+            case BUTTON:
+            case CHECKBOX:
+            case FILE:
+            case IMAGE:
+            case RESET:
+            case SUBMIT:
+                // Simulate mouse click for spacebar for these types of elements.
+                // The AppKit already does this for some, but not all, of them.
+                clickElement = true;
+                break;
+            case RADIO:
+                // If an unselected radio is tabbed into (because the entire group has nothing
+                // checked, or because of some explicit .focus() call), then allow space to check it.
+                if (!checked())
                     clickElement = true;
-                    break;
-                case RADIO:
-                    // If an unselected radio is tabbed into (because the entire group has nothing
-                    // checked, or because of some explicit .focus() call), then allow space to check it.
-                    if (!checked())
-                        clickElement = true;
-                    break;
-                case COLOR:
-                case DATE:
-                case DATETIME:
-                case DATETIMELOCAL:
-                case EMAIL:
-                case HIDDEN:
-                case ISINDEX:
-                case MONTH:
-                case NUMBER:
-                case PASSWORD:
-                case RANGE:
-                case SEARCH:
-                case TELEPHONE:
-                case TEXT:
-                case TIME:
-                case URL:
-                case WEEK:
-                    break;
+                break;
+            case COLOR:
+            case DATE:
+            case DATETIME:
+            case DATETIMELOCAL:
+            case EMAIL:
+            case HIDDEN:
+            case ISINDEX:
+            case MONTH:
+            case NUMBER:
+            case PASSWORD:
+            case RANGE:
+            case SEARCH:
+            case TELEPHONE:
+            case TEXT:
+            case TIME:
+            case URL:
+            case WEEK:
+                break;
             }
         }
 
@@ -2328,7 +2331,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
         }        
     }
 
-    if (clickDefaultFormButton) {
+    if (implicitSubmission) {
         if (isSearchField()) {
             addSearchResult();
             onSearch();
@@ -2350,7 +2353,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
 
         // Form may never have been present, or may have been destroyed by code responding to the change event.
         if (formForSubmission)
-            formForSubmission->submitClick(evt);
+            formForSubmission->submitImplicitly(evt, isTextField());
 
         evt->setDefaultHandled();
         return;
@@ -2475,9 +2478,9 @@ void HTMLInputElement::setMultiple(bool multiple)
     setAttribute(multipleAttr, multiple ? "" : 0);
 }
     
-void HTMLInputElement::setSize(unsigned _size)
+void HTMLInputElement::setSize(unsigned size)
 {
-    setAttribute(sizeAttr, String::number(_size));
+    setAttribute(sizeAttr, String::number(size));
 }
 
 KURL HTMLInputElement::src() const
@@ -2553,32 +2556,32 @@ bool HTMLInputElement::isRequiredFormControl() const
         return false;
 
     switch (inputType()) {
-        case CHECKBOX:
-        case DATE:
-        case DATETIME:
-        case DATETIMELOCAL:
-        case EMAIL:
-        case FILE:
-        case MONTH:
-        case NUMBER:
-        case PASSWORD:
-        case RADIO:
-        case SEARCH:
-        case TELEPHONE:
-        case TEXT:
-        case TIME:
-        case URL:
-        case WEEK:
-            return true;
-        case BUTTON:
-        case COLOR:
-        case HIDDEN:
-        case IMAGE:
-        case ISINDEX:
-        case RANGE:
-        case RESET:
-        case SUBMIT:
-            return false;
+    case CHECKBOX:
+    case DATE:
+    case DATETIME:
+    case DATETIMELOCAL:
+    case EMAIL:
+    case FILE:
+    case MONTH:
+    case NUMBER:
+    case PASSWORD:
+    case RADIO:
+    case SEARCH:
+    case TELEPHONE:
+    case TEXT:
+    case TIME:
+    case URL:
+    case WEEK:
+        return true;
+    case BUTTON:
+    case COLOR:
+    case HIDDEN:
+    case IMAGE:
+    case ISINDEX:
+    case RANGE:
+    case RESET:
+    case SUBMIT:
+        return false;
     }
 
     ASSERT_NOT_REACHED();
@@ -2644,42 +2647,6 @@ bool HTMLInputElement::recalcWillValidate() const
 {
     return HTMLFormControlElementWithState::recalcWillValidate()
         && inputType() != HIDDEN && inputType() != BUTTON && inputType() != RESET;
-}
-
-String HTMLInputElement::serializeForNumberType(double number)
-{
-    // According to HTML5, "the best representation of the number n as a floating
-    // point number" is a string produced by applying ToString() to n.
-    DtoaBuffer buffer;
-    unsigned length;
-    doubleToStringInJavaScriptFormat(number, buffer, &length);
-    return String(buffer, length);
-}
-
-bool HTMLInputElement::parseToDoubleForNumberType(const String& src, double* out)
-{
-    // See HTML5 2.4.4.3 `Real numbers.'
-
-    if (src.isEmpty())
-        return false;
-    // String::toDouble() accepts leading + \t \n \v \f \r and SPACE, which are invalid in HTML5.
-    // So, check the first character.
-    if (src[0] != '-' && (src[0] < '0' || src[0] > '9'))
-        return false;
-
-    bool valid = false;
-    double value = src.toDouble(&valid);
-    if (!valid)
-        return false;
-    // NaN and Infinity are not valid numbers according to the standard.
-    if (!isfinite(value))
-        return false;
-    // -0 -> 0
-    if (!value)
-        value = 0;
-    if (out)
-        *out = value;
-    return true;
 }
 
 bool HTMLInputElement::parseToDateComponents(InputType type, const String& formString, DateComponents* out)
@@ -2777,6 +2744,41 @@ HTMLOptionElement* HTMLInputElement::selectedOption() const
     }
     return 0;
 }
-#endif  // ENABLE(DATALIST)
+#endif // ENABLE(DATALIST)
+
+void HTMLInputElement::stepUpFromRenderer(int n)
+{
+    // The difference from stepUp()/stepDown() is:
+    // If the current value is invalid, the value will be
+    //  - the minimum value if n > 0
+    //  - the maximum value if n < 0
+
+    ASSERT(hasSpinButton());
+    if (!hasSpinButton())
+        return;
+    ASSERT(n);
+    if (!n)
+        return;
+
+    const double nan = numeric_limits<double>::quiet_NaN();
+    double current = parseToDouble(value(), nan);
+    if (!isfinite(current)) {
+        setValue(serialize(n > 0 ? minimum() : maximum()));
+        return;
+    }
+    ExceptionCode ec;
+    stepUp(n, ec);
+}
+
+#if ENABLE(WCSS)
+void HTMLInputElement::setWapInputFormat(String& mask)
+{
+    String validateMask = validateInputMask(m_data, mask);
+    if (!validateMask.isEmpty())
+        m_data.setInputFormatMask(validateMask);
+}
+#endif
+
+
 
 } // namespace

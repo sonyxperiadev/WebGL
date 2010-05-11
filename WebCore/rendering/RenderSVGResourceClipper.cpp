@@ -38,13 +38,14 @@
 #include "SVGStyledTransformableElement.h"
 #include "SVGUnitTypes.h"
 #include "SVGUseElement.h"
+#include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
 RenderSVGResourceType RenderSVGResourceClipper::s_resourceType = ClipperResourceType;
 
-RenderSVGResourceClipper::RenderSVGResourceClipper(SVGStyledElement* node)
-    : RenderSVGResource(node)
+RenderSVGResourceClipper::RenderSVGResourceClipper(SVGClipPathElement* node)
+    : RenderSVGResourceContainer(node)
 {
 }
 
@@ -78,10 +79,18 @@ void RenderSVGResourceClipper::invalidateClient(RenderObject* object)
         return;
 
     delete m_clipper.take(object);
+    markForLayoutAndResourceInvalidation(object);
 }
 
-bool RenderSVGResourceClipper::applyResource(RenderObject* object, GraphicsContext*& context)
+bool RenderSVGResourceClipper::applyResource(RenderObject* object, RenderStyle*, GraphicsContext*& context, unsigned short resourceMode)
 {
+    ASSERT(object);
+    ASSERT(context);
+#ifndef NDEBUG
+    ASSERT(resourceMode == ApplyToDefaultMode);
+#else
+    UNUSED_PARAM(resourceMode);
+#endif
     applyClippingToContext(object, object->objectBoundingBox(), object->repaintRectInLocalCoordinates(), context);
     return true;
 }
@@ -142,9 +151,6 @@ bool RenderSVGResourceClipper::pathOnlyClipping(GraphicsContext* context, const 
 bool RenderSVGResourceClipper::applyClippingToContext(RenderObject* object, const FloatRect& objectBoundingBox,
                                                       const FloatRect& repaintRect, GraphicsContext* context)
 {
-    ASSERT(object);
-    ASSERT(context);
-
     if (!m_clipper.contains(object))
         m_clipper.set(object, new ClipperData);
 

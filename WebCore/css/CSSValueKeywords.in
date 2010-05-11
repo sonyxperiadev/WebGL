@@ -380,10 +380,15 @@ collapse
 #
 # Unordered rest
 #
+a3
+a4
+a5
 above
 absolute
 always
 avoid
+b4
+b5
 below
 bidi-override
 blink
@@ -398,6 +403,9 @@ hide
 higher
 invert
 landscape
+ledger
+legal
+letter
 level
 line-through
 local
@@ -583,6 +591,7 @@ menulist-text
 menulist-textfield
 outer-spin-button
 progress-bar
+progress-bar-value
 slider-horizontal
 slider-vertical
 sliderthumb-horizontal
@@ -711,7 +720,8 @@ geometricPrecision
 sRGB
 
 # (-webkit-view-mode:) media feature:
-mini
 floating
-application
 fullscreen
+maximized
+minimized
+windowed

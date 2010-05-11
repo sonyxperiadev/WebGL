@@ -29,6 +29,7 @@
 #ifndef JSGlobalData_h
 #define JSGlobalData_h
 
+#include "CachedTranscendentalFunction.h"
 #include "Collector.h"
 #include "DateInstanceCache.h"
 #include "ExecutableAllocator.h"
@@ -91,16 +92,27 @@ namespace JSC {
 
     class JSGlobalData : public RefCounted<JSGlobalData> {
     public:
+        // WebCore has a one-to-one mapping of threads to JSGlobalDatas;
+        // either create() or createLeaked() should only be called once
+        // on a thread, this is the 'default' JSGlobalData (it uses the
+        // thread's default string uniquing table from wtfThreadData).
+        // API contexts created using the new context group aware interface
+        // create APIContextGroup objects which require less locking of JSC
+        // than the old singleton APIShared JSGlobalData created for use by
+        // the original API.
+        enum GlobalDataType { Default, APIContextGroup, APIShared };
+
         struct ClientData {
             virtual ~ClientData() = 0;
         };
 
+        bool isSharedInstance() { return globalDataType == APIShared; }
         static bool sharedInstanceExists();
         static JSGlobalData& sharedInstance();
 
         static PassRefPtr<JSGlobalData> create(ThreadStackType);
         static PassRefPtr<JSGlobalData> createLeaked(ThreadStackType);
-        static PassRefPtr<JSGlobalData> createNonDefault(ThreadStackType);
+        static PassRefPtr<JSGlobalData> createContextGroup(ThreadStackType);
         ~JSGlobalData();
 
 #if ENABLE(JSC_MULTIPLE_THREADS)
@@ -108,7 +120,7 @@ namespace JSC {
         void makeUsableFromMultipleThreads() { heap.makeUsableFromMultipleThreads(); }
 #endif
 
-        bool isSharedInstance;
+        GlobalDataType globalDataType;
         ClientData* clientData;
 
         const HashTable* arrayTable;
@@ -158,6 +170,10 @@ namespace JSC {
         Interpreter* interpreter;
 #if ENABLE(JIT)
         JITThunks jitStubs;
+        NativeExecutable* getThunk(ThunkGenerator generator)
+        {
+            return jitStubs.specializedThunk(this, generator);
+        }
 #endif
         TimeoutChecker timeoutChecker;
         Terminator terminator;
@@ -197,17 +213,19 @@ namespace JSC {
         ThreadIdentifier exclusiveThread;
 #endif
 
+        CachedTranscendentalFunction<sin> cachedSin;
+
         void resetDateCache();
 
         void startSampling();
         void stopSampling();
         void dumpSampleData(ExecState* exec);
     private:
-        JSGlobalData(bool isShared, ThreadStackType);
+        JSGlobalData(GlobalDataType, ThreadStackType);
         static JSGlobalData*& sharedInstanceInternal();
         void createNativeThunk();
     };
-    
+
 } // namespace JSC
 
 #endif // JSGlobalData_h

@@ -578,6 +578,9 @@ SYMBOL_STRING(ctiOpThrowNotCaught) ":" "\n"
 
 #elif COMPILER(RVCT) && CPU(ARM_TRADITIONAL)
 
+#define THUNK_RETURN_ADDRESS_OFFSET 32
+#define PRESERVEDR4_OFFSET          36
+
 __asm EncodedJSValue ctiTrampoline(void*, RegisterFile*, CallFrame*, JSValue*, Profiler**, JSGlobalData*)
 {
     ARM
@@ -833,6 +836,10 @@ JITThunks::JITThunks(JSGlobalData* globalData)
     ASSERT(OBJECT_OFFSETOF(struct JITStackFrame, globalData) == 68);
 
 #endif
+}
+
+JITThunks::~JITThunks()
+{
 }
 
 #if ENABLE(JIT_OPTIMIZE_PROPERTY_ACCESS)
@@ -3298,6 +3305,15 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, to_object)
 
     CallFrame* callFrame = stackFrame.callFrame;
     return JSValue::encode(stackFrame.args[0].jsValue().toObject(callFrame));
+}
+
+NativeExecutable* JITThunks::specializedThunk(JSGlobalData* globalData, ThunkGenerator generator)
+{
+    std::pair<ThunkMap::iterator, bool> entry = m_thunkMap.add(generator, 0);
+    if (!entry.second)
+        return entry.first->second.get();
+    entry.first->second = generator(globalData, m_executablePool.get());
+    return entry.first->second.get();
 }
 
 } // namespace JSC

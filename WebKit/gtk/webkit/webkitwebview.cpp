@@ -81,6 +81,7 @@
 #include "ResourceHandle.h"
 #include "ScriptValue.h"
 #include "Scrollbar.h"
+#include "webkit/WebKitDOMDocumentPrivate.h"
 #include <wtf/text/CString.h>
 
 #include <gdk/gdkkeysyms.h>
@@ -1123,6 +1124,8 @@ static void webkit_web_view_dispose(GObject* object)
         priv->subResources = NULL;
     }
 
+    priv->draggingDataObjects.clear();
+
     G_OBJECT_CLASS(webkit_web_view_parent_class)->dispose(object);
 }
 
@@ -1233,126 +1236,26 @@ static void webkit_web_view_screen_changed(GtkWidget* widget, GdkScreen* previou
 
 static void webkit_web_view_drag_end(GtkWidget* widget, GdkDragContext* context)
 {
-    g_object_unref(context);
-}
+    WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(WEBKIT_WEB_VIEW(widget));
 
-struct DNDContentsRequest
-{
-    gint info;
-    GtkSelectionData* dnd_selection_data;
-
-    gboolean is_url_label_request;
-    gchar* url;
-};
-
-void clipboard_contents_received(GtkClipboard* clipboard, GtkSelectionData* selection_data, gpointer data)
-{
-    DNDContentsRequest* contents_request = reinterpret_cast<DNDContentsRequest*>(data);
-
-    if (contents_request->is_url_label_request) {
-        // We have received contents of the label clipboard. Use them to form
-        // required structures. When formed, enhance the dnd's selection data
-        // with them and return.
-
-        // If the label is empty, use the url itself.
-        gchar* url_label = reinterpret_cast<gchar*>(gtk_selection_data_get_text(selection_data));
-        if (!url_label)
-            url_label = g_strdup(contents_request->url);
-
-        gchar* data = 0;
-        switch (contents_request->info) {
-        case WEBKIT_WEB_VIEW_TARGET_INFO_URI_LIST:
-            data = g_strdup_printf("%s\r\n%s\r\n", contents_request->url, url_label);
-            break;
-        case WEBKIT_WEB_VIEW_TARGET_INFO_NETSCAPE_URL:
-            data = g_strdup_printf("%s\n%s", contents_request->url, url_label);
-            break;
-        }
-
-        if (data) {
-            gtk_selection_data_set(contents_request->dnd_selection_data,
-                                   contents_request->dnd_selection_data->target, 8,
-                                   reinterpret_cast<const guchar*>(data), strlen(data));
-            g_free(data);
-        }
-
-        g_free(url_label);
-        g_free(contents_request->url);
-        g_free(contents_request);
-
+    // This might happen if a drag is still in progress after a WebKitWebView
+    // is diposed and before it is finalized.
+    if (!priv->draggingDataObjects.contains(context))
         return;
-    }
 
-    switch (contents_request->info) {
-    case WEBKIT_WEB_VIEW_TARGET_INFO_HTML:
-    case WEBKIT_WEB_VIEW_TARGET_INFO_TEXT:
-        {
-        gchar* data = reinterpret_cast<gchar*>(gtk_selection_data_get_text(selection_data));
-        if (data) {
-            gtk_selection_data_set(contents_request->dnd_selection_data,
-                                   contents_request->dnd_selection_data->target, 8,
-                                   reinterpret_cast<const guchar*>(data),
-                                   strlen(data));
-            g_free(data);
-        }
-        break;
-        }
-    case WEBKIT_WEB_VIEW_TARGET_INFO_IMAGE:
-        {
-        GdkPixbuf* pixbuf = gtk_selection_data_get_pixbuf(selection_data);
-        if (pixbuf) {
-            gtk_selection_data_set_pixbuf(contents_request->dnd_selection_data, pixbuf);
-            g_object_unref(pixbuf);
-        }
-        break;
-        }
-    case WEBKIT_WEB_VIEW_TARGET_INFO_URI_LIST:
-    case WEBKIT_WEB_VIEW_TARGET_INFO_NETSCAPE_URL:
-        // URL's label is stored in another clipboard, so we store URL into
-        // contents request, mark the latter as an url label request
-        // and request for contents of the label clipboard.
-        contents_request->is_url_label_request = TRUE;
-        contents_request->url = reinterpret_cast<gchar*>(gtk_selection_data_get_text(selection_data));
-
-        gtk_clipboard_request_contents(gtk_clipboard_get(gdk_atom_intern_static_string("WebKitClipboardUrlLabel")),
-                                       selection_data->target, clipboard_contents_received, contents_request);
-        break;
-    }
+    priv->draggingDataObjects.remove(context);
 }
 
-static void webkit_web_view_drag_data_get(GtkWidget* widget, GdkDragContext* context, GtkSelectionData* selection_data, guint info, guint time_)
+static void webkit_web_view_drag_data_get(GtkWidget* widget, GdkDragContext* context, GtkSelectionData* selectionData, guint info, guint)
 {
-    GdkAtom selection_atom = GDK_NONE;
-    GdkAtom target_atom = selection_data->target;
+    WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(WEBKIT_WEB_VIEW(widget));
 
-    switch (info) {
-        case WEBKIT_WEB_VIEW_TARGET_INFO_HTML:
-            selection_atom = gdk_atom_intern_static_string("WebKitClipboardHtml");
-            // HTML markup data is set as text, therefor, we need a text-like target atom
-            target_atom = gdk_atom_intern_static_string("UTF8_STRING");
-            break;
-        case WEBKIT_WEB_VIEW_TARGET_INFO_TEXT:
-            selection_atom = gdk_atom_intern_static_string("WebKitClipboardText");
-            break;
-        case WEBKIT_WEB_VIEW_TARGET_INFO_IMAGE:
-            selection_atom = gdk_atom_intern_static_string("WebKitClipboardImage");
-            break;
-        case WEBKIT_WEB_VIEW_TARGET_INFO_URI_LIST:
-        case WEBKIT_WEB_VIEW_TARGET_INFO_NETSCAPE_URL:
-            selection_atom = gdk_atom_intern_static_string("WebKitClipboardUrl");
-            // We require URL and label, which are both stored in text format
-            // and are needed to be retrieved as such.
-            target_atom = gdk_atom_intern_static_string("UTF8_STRING");
-            break;
-    }
+    // This might happen if a drag is still in progress after a WebKitWebView
+    // is diposed and before it is finalized.
+    if (!priv->draggingDataObjects.contains(context))
+        return;
 
-    DNDContentsRequest* contents_request = g_new(DNDContentsRequest, 1);
-    contents_request->info = info;
-    contents_request->is_url_label_request = FALSE;
-    contents_request->dnd_selection_data = selection_data;
-
-    gtk_clipboard_request_contents(gtk_clipboard_get(selection_atom), target_atom,
-                                   clipboard_contents_received, contents_request);
+    pasteboardHelperInstance()->fillSelectionData(selectionData, info, priv->draggingDataObjects.get(context).get());
 }
 
 #if GTK_CHECK_VERSION(2, 12, 0)
@@ -2695,7 +2598,8 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
     gboolean autoLoadImages, autoShrinkImages, printBackgrounds,
         enableScripts, enablePlugins, enableDeveloperExtras, resizableTextAreas,
         enablePrivateBrowsing, enableCaretBrowsing, enableHTML5Database, enableHTML5LocalStorage,
-        enableXSSAuditor, enableSpatialNavigation, javascriptCanOpenWindows, enableOfflineWebAppCache,
+        enableXSSAuditor, enableSpatialNavigation, javascriptCanOpenWindows,
+        javaScriptCanAccessClipboard, enableOfflineWebAppCache,
         enableUniversalAccessFromFileURI, enableFileAccessFromFileURI,
         enableDOMPaste, tabKeyCyclesThroughElements,
         enableSiteSpecificQuirks, usePageCache, enableJavaApplet;
@@ -2725,6 +2629,7 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
                  "enable-xss-auditor", &enableXSSAuditor,
                  "enable-spatial-navigation", &enableSpatialNavigation,
                  "javascript-can-open-windows-automatically", &javascriptCanOpenWindows,
+                 "javascript-can-access-clipboard", &javaScriptCanAccessClipboard,
                  "enable-offline-web-application-cache", &enableOfflineWebAppCache,
                  "editing-behavior", &editingBehavior,
                  "enable-universal-access-from-file-uris", &enableUniversalAccessFromFileURI,
@@ -2760,6 +2665,7 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
     settings->setXSSAuditorEnabled(enableXSSAuditor);
     settings->setSpatialNavigationEnabled(enableSpatialNavigation);
     settings->setJavaScriptCanOpenWindowsAutomatically(javascriptCanOpenWindows);
+    settings->setJavaScriptCanAccessClipboard(javaScriptCanAccessClipboard);
     settings->setOfflineWebApplicationCacheEnabled(enableOfflineWebAppCache);
     settings->setEditingBehavior(core(editingBehavior));
     settings->setAllowUniversalAccessFromFileURLs(enableUniversalAccessFromFileURI);
@@ -2857,6 +2763,8 @@ static void webkit_web_view_settings_notify(WebKitWebSettings* webSettings, GPar
         settings->setSpatialNavigationEnabled(g_value_get_boolean(&value));
     else if (name == g_intern_string("javascript-can-open-windows-automatically"))
         settings->setJavaScriptCanOpenWindowsAutomatically(g_value_get_boolean(&value));
+    else if (name == g_intern_string("javascript-can-access-clipboard"))
+        settings->setJavaScriptCanAccessClipboard(g_value_get_boolean(&value));
     else if (name == g_intern_string("enable-offline-web-application-cache"))
         settings->setOfflineWebApplicationCacheEnabled(g_value_get_boolean(&value));
     else if (name == g_intern_string("editing-behavior"))
@@ -4430,4 +4338,28 @@ WebKitCacheModel webkit_get_cache_model()
 {
     webkit_init();
     return cacheModel;
+}
+
+/**
+ * webkit_web_view_get_dom_document:
+ * @webView: a #WebKitWebView
+ * 
+ * Returns: the #WebKitDOMDocument currently loaded in the @webView
+ *
+ * Since: 1.3.0
+ **/
+WebKitDOMDocument*
+webkit_web_view_get_dom_document(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
+
+    Frame* coreFrame = core(webView)->mainFrame();
+    if (!coreFrame)
+        return 0;
+
+    Document* doc = coreFrame->document();
+    if (!doc)
+        return 0;
+
+    return static_cast<WebKitDOMDocument*>(kit(doc));
 }

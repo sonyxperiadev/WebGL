@@ -43,6 +43,7 @@ public:
     virtual bool isPasswordField() const = 0;
     virtual bool isSearchField() const = 0;
     virtual bool isTextField() const = 0;
+    virtual bool hasSpinButton() const { return false; }
 
     virtual bool searchEventsShouldBeDispatched() const = 0;
 
@@ -57,6 +58,10 @@ public:
 
     virtual void cacheSelection(int start, int end) = 0;
     virtual void select() = 0;
+  
+#if ENABLE(WCSS)
+    virtual InputElementData data() const = 0; 
+#endif
 
     static const int s_maximumLength;
     static const int s_defaultSize;
@@ -79,6 +84,11 @@ protected:
     static void parseMaxLengthAttribute(InputElementData&, InputElement*, Element*, MappedAttribute*);
     static void updateValueIfNeeded(InputElementData&, InputElement*);
     static void notifyFormStateChanged(Element*);
+#if ENABLE(WCSS)
+    static bool isConformToInputMask(const InputElementData&, const String&);
+    static bool isConformToInputMask(const InputElementData&, UChar, unsigned);
+    static String validateInputMask(InputElementData&, String&);
+#endif
 };
 
 // HTML/WMLInputElement hold this struct as member variable
@@ -108,6 +118,15 @@ public:
     int cachedSelectionEnd() const { return m_cachedSelectionEnd; }
     void setCachedSelectionEnd(int value) { m_cachedSelectionEnd = value; }
 
+#if ENABLE(WCSS)
+    String inputFormatMask() const { return m_inputFormatMask; }
+    void setInputFormatMask(const String& mask) { m_inputFormatMask = mask; }
+ 
+    unsigned maxInputCharsAllowed() const { return m_maxInputCharsAllowed; }
+    void setMaxInputCharsAllowed(unsigned maxLength) { m_maxInputCharsAllowed = maxLength; }
+  
+#endif
+
 private:
     AtomicString m_name;
     String m_value;
@@ -116,6 +135,10 @@ private:
     int m_maxLength;
     int m_cachedSelectionStart;
     int m_cachedSelectionEnd;
+#if ENABLE(WCSS)
+    String m_inputFormatMask;
+    unsigned m_maxInputCharsAllowed;
+#endif
 };
 
 InputElement* toInputElement(Element*);

@@ -350,6 +350,7 @@ static WebCacheModel cacheModelForMainBundle(void)
         [NSNumber numberWithBool:NO],   WebKitLocalFileContentSniffingEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitOfflineWebApplicationCacheEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitZoomsTextOnlyPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitJavaScriptCanAccessClipboardPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitXSSAuditorEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitAcceleratedCompositingEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitShowDebugBordersPreferenceKey,
@@ -831,6 +832,16 @@ static WebCacheModel cacheModelForMainBundle(void)
     [self _setBoolValue:flag forKey:WebKitZoomsTextOnlyPreferenceKey];
 }
 
+- (BOOL)javaScriptCanAccessClipboard
+{
+    return [self _boolValueForKey:WebKitJavaScriptCanAccessClipboardPreferenceKey];
+}
+
+- (void)setJavaScriptCanAccessClipboard:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitJavaScriptCanAccessClipboardPreferenceKey];
+}
+
 - (BOOL)isXSSAuditorEnabled
 {
     return [self _boolValueForKey:WebKitXSSAuditorEnabledPreferenceKey];
@@ -1097,8 +1108,8 @@ static WebCacheModel cacheModelForMainBundle(void)
 {
     NSString *systemEncodingName = (NSString *)CFStringConvertEncodingToIANACharSetName([self _systemCFStringEncoding]);
 
-    // CFStringConvertEncodingToIANACharSetName() returns cp949 for kTextEncodingDOSKorean AKA "extended EUC-KR" AKA windows-939.
-    // ICU uses this name for a different encoding, so we need to change the name to a value that actually gives us windows-939.
+    // CFStringConvertEncodingToIANACharSetName() returns cp949 for kTextEncodingDOSKorean AKA "extended EUC-KR" AKA windows-949.
+    // ICU uses this name for a different encoding, so we need to change the name to a value that actually gives us windows-949.
     // In addition, this value must match what is used in Safari, see <rdar://problem/5579292>.
     // On some OS versions, the result is CP949 (uppercase).
     if ([systemEncodingName _webkit_isCaseInsensitiveEqualToString:@"cp949"])

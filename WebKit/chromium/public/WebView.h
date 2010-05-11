@@ -225,13 +225,6 @@ public:
 
     // AutoFill / Autocomplete ---------------------------------------------
 
-    // DEPRECATED: WebView::applyAutocompleteSuggestions is the new way to
-    // access this.
-    virtual void applyAutofillSuggestions(
-        const WebNode&,
-        const WebVector<WebString>& suggestions,
-        int defaultSuggestionIndex) = 0;
-
     // Notifies the WebView that AutoFill suggestions are available for a node.
     virtual void applyAutoFillSuggestions(
         const WebNode&,
@@ -246,11 +239,8 @@ public:
         const WebVector<WebString>& suggestions,
         int defaultSuggestionIndex) = 0;
 
-    // DEPRECATED: WebView::hideSuggestionsPopup is the new way to access this.
-    virtual void hideAutofillPopup() = 0;
-
-    // Hides the suggestions popup if any are showing.
-    virtual void hideSuggestionsPopup() = 0;
+    // Hides any popup (suggestions, selects...) that might be showing.
+    virtual void hidePopups() = 0;
 
 
     // Context menu --------------------------------------------------------

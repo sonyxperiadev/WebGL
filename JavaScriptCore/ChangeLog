@@ -1,3 +1,1513 @@
+2010-05-06  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        JavaScriptCore/wtf/RandomNumber.h should provide using WTF::*
+        https://bugs.webkit.org/show_bug.cgi?id=38719
+
+        * wtf/RandomNumber.h:
+          Add using directives.
+
+2010-05-06  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Enable YARR_JIT for X86 Mac for QtWebKit
+        https://bugs.webkit.org/show_bug.cgi?id=38668
+
+        * wtf/Platform.h:
+
+2010-05-06  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Bug 38714 - Add result caching for Math.sin
+
+        Math.sin is frequently called with the same operand, caching the result should
+        improve performance.  CachedTranscendentalFunction adds a generic mechanism to
+        cache results for pure functions with the signature "double func(double)", and
+        where NaN maps to NaN.
+
+        CachedTranscendentalFunction uses a very simple hash function designed to be
+        fast to execute since we cannot cache the result, and trivial to JIT generate,
+        should we wish to do so.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/CachedTranscendentalFunction.h: Added.
+        (JSC::CachedTranscendentalFunction::CachedTranscendentalFunction):
+        (JSC::CachedTranscendentalFunction::~CachedTranscendentalFunction):
+        (JSC::CachedTranscendentalFunction::operator()):
+        (JSC::CachedTranscendentalFunction::initialize):
+        (JSC::CachedTranscendentalFunction::hash):
+        * runtime/JSGlobalData.h:
+        * runtime/MathObject.cpp:
+        (JSC::mathProtoFuncSin):
+        * wtf/Platform.h:
+
+2010-05-06  Geoffrey Garen  <ggaren@apple.com>
+
+        Windows build fix.
+
+        * bytecode/SamplingTool.cpp:
+        (JSC::SamplingFlags::sample): Use a cast, so Windows will be happy when
+        this code is enabled.
+        * wtf/Platform.h: Reverted last change to this file, which seems to have
+        been accidental.
+
+2010-05-06  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Add compile switch to make debugger keyword plant breakpoint instructions.
+
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitDebugHook):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_debug):
+        * wtf/Platform.h:
+
+2010-05-06  Oliver Hunt  <oliver@apple.com>
+
+        Build fix
+
+        Fix ARM builds
+
+        * assembler/MacroAssemblerARM.h:
+        (JSC::MacroAssemblerARM::load16):
+        * assembler/MacroAssemblerARMv7.h:
+        (JSC::MacroAssemblerARMv7::load16):
+
+2010-05-06  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Improve performance of single character string compares
+        https://bugs.webkit.org/show_bug.cgi?id=38659
+
+        Add logic to the jit to identify comparisons to single character string literals
+        and then just perform the comparison inline, rather than ignoring the evidence
+        and attempting to perform an integer comparison.
+
+        Multiple changes required -- add jnlesseq opcode, add helper function to identify
+        single character string constants, add a helper to load single character strings.
+        Then add the 32_64 and normal codepaths to the JIT.
+
+        * assembler/MacroAssemblerX86Common.h:
+        (JSC::MacroAssemblerX86Common::load16):
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitJumpIfTrue):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        (JSC::JIT::privateCompileSlowCases):
+        * jit/JIT.h:
+        * jit/JITArithmetic.cpp:
+        (JSC::JIT::emit_op_jnless):
+        (JSC::JIT::emitSlow_op_jnless):
+        (JSC::JIT::emit_op_jless):
+        (JSC::JIT::emitSlow_op_jless):
+        (JSC::JIT::emit_op_jlesseq):
+        (JSC::JIT::emit_op_jnlesseq):
+        (JSC::JIT::emitSlow_op_jlesseq):
+        (JSC::JIT::emitSlow_op_jnlesseq):
+        * jit/JITArithmetic32_64.cpp:
+        (JSC::JIT::emit_op_jnless):
+        (JSC::JIT::emitSlow_op_jnless):
+        (JSC::JIT::emit_op_jless):
+        (JSC::JIT::emitSlow_op_jless):
+        (JSC::JIT::emit_op_jlesseq):
+        (JSC::JIT::emit_op_jnlesseq):
+        (JSC::JIT::emitSlow_op_jlesseq):
+        (JSC::JIT::emitSlow_op_jnlesseq):
+        (JSC::JIT::emitBinaryDoubleOp):
+        * jit/JITInlineMethods.h:
+        (JSC::JIT::emitLoadCharacterString):
+        (JSC::JIT::isOperandConstantImmediateChar):
+        * jit/JSInterfaceJIT.h:
+        (JSC::ThunkHelpers::stringImplDataOffset):
+        (JSC::ThunkHelpers::jsStringLengthOffset):
+        (JSC::ThunkHelpers::jsStringValueOffset):
+         Moved from ThunkGenerators to make it possible to share.
+        * jit/ThunkGenerators.cpp:
+
+2010-05-06  Martin Robinson  <mrobinson@webkit.org>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Enable DOM clipboard and drag-and-drop access
+        https://bugs.webkit.org/show_bug.cgi?id=30623
+
+        Convert dragging portion of drag-and-drop to use DataObjectGtk.
+
+        * wtf/gobject/GRefPtr.h: Add forward declarations for GObject functions.
+
+2010-05-06  Steve Block  <steveblock@google.com>
+
+        Reviewed by Eric Seidel.
+
+        MAC_JAVA_BRIDGE should be renamed JAVA_BRIDGE
+        https://bugs.webkit.org/show_bug.cgi?id=38544
+
+        * wtf/Platform.h:
+
+2010-05-06  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        [WTFURL] Add a class to represent the segments of a URL
+        https://bugs.webkit.org/show_bug.cgi?id=38566
+
+        When paired with a string, this class represents a parsed URL.
+
+        * wtf/url/src/URLSegments.cpp: Added.
+        (WTF::URLSegments::length):
+        (WTF::URLSegments::charactersBefore):
+        * wtf/url/src/URLSegments.h: Added.
+        (WTF::URLSegments::):
+        (WTF::URLSegments::URLSegments):
+        * wtf/url/wtfurl.gyp:
+
+2010-05-05  Tony Gentilcore  <tonyg@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Adding comment with link to RefPtr documentation.
+        https://bugs.webkit.org/show_bug.cgi?id=38601
+
+        * wtf/RefPtr.h:
+
+2010-05-05  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Bug 38604 - workers-gc2 crashing on Qt
+
+        This appears to be due to a couple of issues.
+        (1) When the atomic string table is deleted it does not clear the 'inTable' bit
+        on AtomicStrings - it implicitly assumes that all AtomicStrings have already
+        been deleted at this point (otherwise they will crash in their destructor when
+        they try to remove themselves from the atomic string table).
+        (2) We don't fix the ordering in which WTF::WTFThreadData and
+        WebCore::ThreadGlobalData are destructed.
+
+        We should make sure that ThreadGlobalData is cleaned up before worker threads
+        terminate and WTF::WTFThreadData is destroyed, and we should clear the inTable
+        bit of members on atomic string table destruction.
+
+        WTF changes (fix issue 1, above) - ensure inTable property is cleared when the
+        atomic string table is destroyed (also, rename InTable to IsAtomic, to make it
+        clear which table we are refering to!)
+
+        * wtf/text/AtomicString.cpp:
+        (WebCore::AtomicStringTable::destroy):
+        (WebCore::CStringTranslator::translate):
+        (WebCore::UCharBufferTranslator::translate):
+        (WebCore::HashAndCharactersTranslator::translate):
+        (WebCore::AtomicString::add):
+        * wtf/text/StringImpl.cpp:
+        (WebCore::StringImpl::~StringImpl):
+        * wtf/text/StringImpl.h:
+        (WebCore::StringImpl::isAtomic):
+        (WebCore::StringImpl::setIsAtomic):
+        * wtf/text/StringImplBase.h:
+
+2010-05-05  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Make Array.join specialised for actual arrays
+        https://bugs.webkit.org/show_bug.cgi?id=38592
+
+        Bring Array.join in line with the other array methods by specialising for
+        this === an array.
+
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncJoin):
+
+2010-05-04  Yongjun Zhang  <yongjun_zhang@apple.com>
+
+        Reviewed by Darin Adler.
+
+        WebKit crashes at DebuggerCallFrame::functionName() if m_callFrame is the top global callframe.
+        https://bugs.webkit.org/show_bug.cgi?id=38535
+
+        Don't call asFunction if callee is not a FunctionType to prevent assertion failure
+        in JSCell::isObject().
+
+        * debugger/DebuggerCallFrame.cpp:
+        (JSC::DebuggerCallFrame::functionName):
+        (JSC::DebuggerCallFrame::calculatedFunctionName):
+
+2010-05-04  Steve Falkenburg  <sfalken@apple.com>
+
+        Remove redundant exports to fix Windows build warnings.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-05-04  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Holger Freyther.
+
+        Fix a memory leak inside the QScriptValue.
+
+        QSciptValuePrivate::toString should release all temporary variables.
+
+        [Qt] QScriptValue::toString have a memory leak.
+        https://bugs.webkit.org/show_bug.cgi?id=38112
+
+        * qt/api/qscriptvalue_p.h:
+        (QScriptValuePrivate::toString):
+
+2010-05-04  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Darin Adler.
+
+        Does not work on SPARC because of alignment issues
+        https://bugs.webkit.org/show_bug.cgi?id=38455
+
+        Use AllocAlignmentInteger instead of void* on pageheap_memory to
+        avoid crashing at runtime in some architectures. Investigated by
+        Mike Hommey <mh@glandium.org>, change suggested by Darin Adler.
+
+        * wtf/FastMalloc.cpp:
+
+2010-05-04  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Add first WTFURL file
+        https://bugs.webkit.org/show_bug.cgi?id=38470
+
+        This class represents a component of a URL, such as the scheme or path.
+        Essentially, the class is an index into a string buffer.
+
+        * wtf/url: Added.
+            - There was some discussion about where to put the URL library.
+              There are a number of reasonable options, but putting the library
+              in the WTF directory seems like a reasonable alternative.  This
+              location will make more sense once WTF is moved out of
+              JavaScriptCore and into a top-level directory.
+        * wtf/url/src: Added.
+            - I've added this extra directory to the usual structure because we
+              eventually want a "public" folder that defines the public
+              interface to this library that clients outside of svn.webkit.org
+              can rely upon, much like the various subfolders of the WebKit
+              directory often define a public API.
+        * wtf/url/src/URLComponent.h: Added.
+            - I've added this somewhat trivial class to get the ball rolling.
+        (WTF::URLComponent::URLComponent):
+        (WTF::URLComponent::isValid):
+        (WTF::URLComponent::isNonempty):
+        (WTF::URLComponent::reset):
+        (WTF::URLComponent::operator==):
+        (WTF::URLComponent::begin):
+        (WTF::URLComponent::setBegin):
+        (WTF::URLComponent::length):
+        (WTF::URLComponent::setLength):
+        (WTF::URLComponent::end):
+        * wtf/url/wtfurl.gyp: Added.
+            - WTFURL will be an independently buildable library, hence the
+              beginnings of a wtfurl.gyp file.
+
+2010-05-03  Stephanie Lewis  <slewis@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38368
+        <rdar://problem/7834433> REGRESSSION: 1.5% PLT regression due to 56028 
+        (return memory quicker).
+        Instead of returning everything but the smallest spans spread out 
+        the spans kept over several size lists.
+
+        * wtf/FastMalloc.cpp:
+        (WTF::TCMalloc_PageHeap::scavenge):
+
+2010-05-03  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Clean up a few compiler warnings
+        https://bugs.webkit.org/show_bug.cgi?id=38073
+
+        * wtf/text/StringImpl.cpp:
+        (WebCore::StringImpl::ascii):
+
+2010-05-03  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (reverting previous commit).
+
+        Rolling out r58114 - this introduced memory leaks of
+        AtomicStrings then workers terminated.
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * jit/ThunkGenerators.cpp:
+        (JSC::ThunkHelpers::stringImplDataOffset):
+        * runtime/Identifier.cpp:
+        (JSC::IdentifierTable::~IdentifierTable):
+        (JSC::IdentifierTable::add):
+        (JSC::IdentifierCStringTranslator::hash):
+        (JSC::IdentifierCStringTranslator::equal):
+        (JSC::IdentifierCStringTranslator::translate):
+        (JSC::Identifier::add):
+        (JSC::IdentifierUCharBufferTranslator::hash):
+        (JSC::IdentifierUCharBufferTranslator::equal):
+        (JSC::IdentifierUCharBufferTranslator::translate):
+        (JSC::Identifier::addSlowCase):
+        * runtime/Identifier.h:
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        (JSC::JSGlobalData::~JSGlobalData):
+        * runtime/JSGlobalData.h:
+        * wtf/WTFThreadData.cpp:
+        (WTF::WTFThreadData::WTFThreadData):
+        (WTF::WTFThreadData::~WTFThreadData):
+        * wtf/WTFThreadData.h:
+        (JSC::IdentifierTable::remove):
+        (JSC::IdentifierTable::literalTable):
+        (WTF::WTFThreadData::atomicStringTable):
+        * wtf/text/AtomicString.cpp:
+        (WebCore::AtomicStringTable::create):
+        (WebCore::AtomicStringTable::table):
+        (WebCore::AtomicStringTable::destroy):
+        (WebCore::stringTable):
+        (WebCore::CStringTranslator::hash):
+        (WebCore::CStringTranslator::equal):
+        (WebCore::CStringTranslator::translate):
+        (WebCore::operator==):
+        (WebCore::AtomicString::add):
+        (WebCore::equal):
+        (WebCore::UCharBufferTranslator::hash):
+        (WebCore::UCharBufferTranslator::equal):
+        (WebCore::UCharBufferTranslator::translate):
+        (WebCore::HashAndCharactersTranslator::hash):
+        (WebCore::HashAndCharactersTranslator::equal):
+        (WebCore::HashAndCharactersTranslator::translate):
+        (WebCore::AtomicString::find):
+        (WebCore::AtomicString::remove):
+        * wtf/text/AtomicStringTable.h: Removed.
+        * wtf/text/StringImpl.cpp:
+        (WebCore::StringImpl::~StringImpl):
+        * wtf/text/StringImpl.h:
+        (WebCore::StringImpl::inTable):
+        (WebCore::StringImpl::setInTable):
+        (WebCore::equal):
+        * wtf/text/StringImplBase.h:
+        (WTF::StringImplBase::StringImplBase):
+
+2010-05-03  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        [wx] Implement scheduleDispatchFunctionsOnMainThread for wx port.
+        https://bugs.webkit.org/show_bug.cgi?id=38480
+
+        * wtf/wx/MainThreadWx.cpp:
+        (wxCallAfter::wxCallAfter):
+        (wxCallAfter::OnCallback):
+        (WTF::scheduleDispatchFunctionsOnMainThread):
+
+2010-05-03  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        [wx] Build and use Mac's ComplexTextController to support complex text in wx.
+        https://bugs.webkit.org/show_bug.cgi?id=38482
+
+        * wtf/Platform.h:
+
+2010-05-03  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Interpreter crashes due to incorrect refcounting of cached structures.
+        https://bugs.webkit.org/show_bug.cgi?id=38491
+        rdar://problem/7926160
+
+        Make sure we ref/deref structures used for cached custom property getters
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::derefStructures):
+        (JSC::CodeBlock::refStructures):
+
+2010-05-02  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Eric Seidel.
+
+        [Qt] Enable JIT for QtWebKit on Symbian
+        https://bugs.webkit.org/show_bug.cgi?id=38339
+
+        JIT on Symbian has been stable for quite some time, it
+        is time to turn it on by default.
+
+        * wtf/Platform.h:
+
+2010-04-29  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Add codegen support for unsigned right shift
+        https://bugs.webkit.org/show_bug.cgi?id=38375
+
+        Expose unsigned right shift in the macro assembler, and make use of it
+        from the jit.  Currently if the result is outside the range 0..2^31-1
+        we simply fall back to the slow case, even in JSVALUE64 and JSVALUE32_64
+        where technically we could still return an immediate value.
+
+        * assembler/MacroAssemblerARM.h:
+        (JSC::MacroAssemblerARM::urshift32):
+        * assembler/MacroAssemblerARMv7.h:
+        (JSC::MacroAssemblerARMv7::urshift32):
+        * assembler/MacroAssemblerX86Common.h:
+        (JSC::MacroAssemblerX86Common::urshift32):
+        * assembler/X86Assembler.h:
+        (JSC::X86Assembler::):
+        (JSC::X86Assembler::shrl_i8r):
+        (JSC::X86Assembler::shrl_CLr):
+           Add unsigned right shift to the x86 assembler
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        (JSC::JIT::privateCompileSlowCases):
+           op_rshift no longer simply get thrown to a stub function
+        * jit/JIT.h:
+        * jit/JITArithmetic.cpp:
+        (JSC::JIT::emit_op_urshift):
+        (JSC::JIT::emitSlow_op_urshift):
+          JSVALUE32 and JSVALUE64 implementation.  Only supports
+          double lhs in JSVALUE64.
+        * jit/JITArithmetic32_64.cpp:
+        (JSC::JIT::emit_op_rshift):
+        (JSC::JIT::emitSlow_op_rshift):
+        (JSC::JIT::emit_op_urshift):
+        (JSC::JIT::emitSlow_op_urshift):
+          Refactor right shift code to have shared implementation between signed
+          and unsigned versions.
+
+2010-04-29  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Handle double on righthand side of a right shift
+        https://bugs.webkit.org/show_bug.cgi?id=38363
+
+        In 64-bit we support right shift of a double, and there's no
+        reason not to in 32-bit either.  This is a 1.1% sunspider
+        improvement in 32bit.
+
+        Given high performance javascript code frequently makes
+        use of bit operators to perform double->int conversion i'll
+        follow this patch up with similar patches for bitwise 'and'
+        and 'or'.
+
+        * jit/JITArithmetic32_64.cpp:
+        (JSC::JIT::emit_op_rshift):
+        (JSC::JIT::emitSlow_op_rshift):
+
+2010-04-29  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Hoist JSVALUE32_64 arithmetic implementations into a separate file.
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * jit/JITArithmetic.cpp:
+        (JSC::JIT::emitSlow_op_jnless):
+        (JSC::JIT::emitSlow_op_jless):
+        (JSC::JIT::emitSlow_op_jnlesseq):
+        (JSC::JIT::emit_op_mod):
+        (JSC::JIT::compileBinaryArithOpSlowCase):
+        (JSC::JIT::emit_op_div):
+        (JSC::JIT::compileBinaryArithOp):
+        * jit/JITArithmetic32_64.cpp: Added.
+        (JSC::JIT::emit_op_negate):
+        (JSC::JIT::emitSlow_op_negate):
+        (JSC::JIT::emit_op_jnless):
+        (JSC::JIT::emitSlow_op_jnless):
+        (JSC::JIT::emit_op_jless):
+        (JSC::JIT::emitSlow_op_jless):
+        (JSC::JIT::emit_op_jnlesseq):
+        (JSC::JIT::emitSlow_op_jnlesseq):
+        (JSC::JIT::emit_op_lshift):
+        (JSC::JIT::emitSlow_op_lshift):
+        (JSC::JIT::emit_op_rshift):
+        (JSC::JIT::emitSlow_op_rshift):
+        (JSC::JIT::emit_op_bitand):
+        (JSC::JIT::emitSlow_op_bitand):
+        (JSC::JIT::emit_op_bitor):
+        (JSC::JIT::emitSlow_op_bitor):
+        (JSC::JIT::emit_op_bitxor):
+        (JSC::JIT::emitSlow_op_bitxor):
+        (JSC::JIT::emit_op_bitnot):
+        (JSC::JIT::emitSlow_op_bitnot):
+        (JSC::JIT::emit_op_post_inc):
+        (JSC::JIT::emitSlow_op_post_inc):
+        (JSC::JIT::emit_op_post_dec):
+        (JSC::JIT::emitSlow_op_post_dec):
+        (JSC::JIT::emit_op_pre_inc):
+        (JSC::JIT::emitSlow_op_pre_inc):
+        (JSC::JIT::emit_op_pre_dec):
+        (JSC::JIT::emitSlow_op_pre_dec):
+        (JSC::JIT::emit_op_add):
+        (JSC::JIT::emitAdd32Constant):
+        (JSC::JIT::emitSlow_op_add):
+        (JSC::JIT::emit_op_sub):
+        (JSC::JIT::emitSub32Constant):
+        (JSC::JIT::emitSlow_op_sub):
+        (JSC::JIT::emitBinaryDoubleOp):
+        (JSC::JIT::emit_op_mul):
+        (JSC::JIT::emitSlow_op_mul):
+        (JSC::JIT::emit_op_div):
+        (JSC::JIT::emitSlow_op_div):
+        (JSC::JIT::emit_op_mod):
+        (JSC::JIT::emitSlow_op_mod):
+
+2010-04-29  Zoltan Herczeg  <zherczeg@webkit.org>
+
+        Reviewed by Oliver Hunt
+
+        Add sqrt() instruction support for ARM assembler (using VFP)
+        https://bugs.webkit.org/show_bug.cgi?id=38312
+
+        * assembler/ARMAssembler.h:
+        (JSC::ARMAssembler::):
+        (JSC::ARMAssembler::fsqrtd_r):
+        * assembler/MacroAssemblerARM.h:
+        (JSC::MacroAssemblerARM::supportsFloatingPointSqrt):
+        (JSC::MacroAssemblerARM::sqrtDouble):
+
+2010-04-29  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Refactor qtscriptglobal.h
+        https://bugs.webkit.org/show_bug.cgi?id=37953
+
+        Use the same pattern in qtscriptglobal.h as in 
+        qwebkitglobal.h without checking for specific OSs.
+
+        * qt/api/qtscriptglobal.h:
+
+2010-04-29  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Small cleanup.
+
+        QScriptValuePrivate constructor shouldn't take QScriptEngine pointer
+        as a parameter, because it breaks a private / public separation rule.
+        QScriptEnginePrivate::get(QScriptEngine*) should return
+        a QScriptEnginePrivate pointer instead of a QScriptEnginePtr, it simplifies
+        implementation.
+
+        [Qt] QScriptValuePrivate class needs some cleanup.
+        https://bugs.webkit.org/show_bug.cgi?id=37729
+
+        * qt/api/qscriptengine_p.h:
+        (QScriptEnginePrivate::get):
+        * qt/api/qscriptvalue.cpp:
+        (QScriptValue::QScriptValue):
+        * qt/api/qscriptvalue_p.h:
+        (QScriptValuePrivate::QScriptValuePrivate):
+
+2010-04-29  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Simon Hausmann.
+
+        [WINCE] Export g_stackBase with JS_EXPORTDATA
+        https://bugs.webkit.org/show_bug.cgi?id=37437
+
+        Export g_stackBase with JS_EXPORTDATA as it is used by SharedTimerWince.cpp.
+
+        * runtime/Collector.cpp:
+
+2010-04-28  Oliver Hunt  <oliver@apple.com>
+
+        Do an unordered compare so that we don't treat NaN incorrectly.
+
+        RS=Gavin Barraclough
+
+        * jit/ThunkGenerators.cpp:
+        (JSC::powThunkGenerator):
+
+2010-04-28  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Add fast paths for Math.pow and Math.sqrt
+        https://bugs.webkit.org/show_bug.cgi?id=38294
+
+        Add specialized thunks for Math.pow and Math.sqrt.
+        This requires adding a sqrtDouble function to the MacroAssembler
+        and sqrtsd to the x86 assembler.
+
+        Math.pow is slightly more complicated, in that we have
+        to implement exponentiation ourselves rather than relying
+        on hardware support.  The inline exponentiation is restricted
+        to positive integer exponents on a numeric base.  Exponentiation
+        is finally performed through the "Exponentiation by Squaring"
+        algorithm.
+
+        * assembler/AbstractMacroAssembler.h:
+        (JSC::AbstractMacroAssembler::ImmPtr::ImmPtr):
+        * assembler/MacroAssemblerARM.h:
+        (JSC::MacroAssemblerARM::supportsFloatingPointSqrt):
+        (JSC::MacroAssemblerARM::loadDouble):
+        (JSC::MacroAssemblerARM::sqrtDouble):
+        * assembler/MacroAssemblerARMv7.h:
+        (JSC::MacroAssemblerARMv7::supportsFloatingPointSqrt):
+        (JSC::MacroAssemblerARMv7::sqrtDouble):
+        * assembler/MacroAssemblerX86.h:
+        (JSC::MacroAssemblerX86::loadDouble):
+        (JSC::MacroAssemblerX86::supportsFloatingPointSqrt):
+        * assembler/MacroAssemblerX86Common.h:
+        (JSC::MacroAssemblerX86Common::sqrtDouble):
+        * assembler/MacroAssemblerX86_64.h:
+        (JSC::MacroAssemblerX86_64::loadDouble):
+        (JSC::MacroAssemblerX86_64::supportsFloatingPointSqrt):
+        * assembler/X86Assembler.h:
+        (JSC::X86Assembler::):
+        (JSC::X86Assembler::movsd_mr):
+        (JSC::X86Assembler::sqrtsd_rr):
+        (JSC::X86Assembler::X86InstructionFormatter::twoByteOp):
+        (JSC::X86Assembler::X86InstructionFormatter::memoryModRM):
+        * create_hash_table:
+        * jit/JIT.h:
+        * jit/JITInlineMethods.h:
+        * jit/JITOpcodes.cpp:
+        * jit/JITStubs.h:
+        (JSC::JITThunks::ctiNativeCallThunk):
+        * jit/JSInterfaceJIT.h:
+        (JSC::JSInterfaceJIT::emitLoadDouble):
+        (JSC::JSInterfaceJIT::emitJumpIfImmediateNumber):
+        (JSC::JSInterfaceJIT::emitJumpIfNotImmediateNumber):
+        (JSC::JSInterfaceJIT::emitLoadInt32):
+        * jit/SpecializedThunkJIT.h:
+        (JSC::SpecializedThunkJIT::loadDoubleArgument):
+        (JSC::SpecializedThunkJIT::loadInt32Argument):
+        (JSC::SpecializedThunkJIT::returnJSValue):
+        (JSC::SpecializedThunkJIT::returnDouble):
+        (JSC::SpecializedThunkJIT::finalize):
+        * jit/ThunkGenerators.cpp:
+        (JSC::sqrtThunkGenerator):
+        (JSC::powThunkGenerator):
+        * jit/ThunkGenerators.h:
+        * runtime/Executable.h:
+        (JSC::NativeExecutable::NativeExecutable):
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::JSFunction):
+
+2010-04-28  Mike Thole  <mthole@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Reenable WTF_USE_PROTECTION_SPACE_AUTH_CALLBACK now that an
+        exports file for it has been added.
+
+        * wtf/Platform.h:
+
+2010-04-28  Mike Thole  <mthole@apple.com>
+
+        Build fix, not reviewed.
+
+        * wtf/Platform.h:
+        Disable WTF_USE_PROTECTION_SPACE_AUTH_CALLBACK until an exports file is created.
+
+2010-04-28  Mike Thole  <mthole@apple.com>
+
+        Reviewed by David Kilzer.
+
+        Add canAuthenticateAgainstProtectionSpace() to frame loader so that a protection space 
+        can be inspected before attempting to authenticate against it
+        https://bugs.webkit.org/show_bug.cgi?id=38271
+
+        * wtf/Platform.h: Add WTF_USE_PROTECTION_SPACE_AUTH_CALLBACK define.
+
+2010-04-28  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Don't use CFAbsoluteTimeGetCurrent on Mac OS X, since it's just a cover
+        for gettimeofday anyway.
+
+        * wtf/CurrentTime.cpp:
+        (WTF::currentTime): Remove the CF version of this. Change the "other POSIX"
+        version to pass 0 for the time zone instead of ignoring a return value.
+        Also get rid of unneeded type casts, since operations involving both
+        integers and doubles are always evaluated as doubles in C without explicit
+        type casting.
+
+2010-04-28  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by David Levin.
+
+        [Chromium] callOnMainThread should equate to MessageLoop::PostTask
+        https://bugs.webkit.org/show_bug.cgi?id=38276
+
+        * JavaScriptCore.gyp/JavaScriptCore.gyp:
+        * wtf/MainThread.cpp:
+        * wtf/chromium/ChromiumThreading.h:
+        * wtf/chromium/MainThreadChromium.cpp:
+        (WTF::initializeMainThread):
+        (WTF::callOnMainThread):
+        (WTF::callOnMainThreadAndWait):
+        (WTF::setMainThreadCallbacksPaused):
+        (WTF::isMainThread):
+
+2010-04-28  Simon Hausmann  <simon.hausmann@nokia.com>, Kent Hansen <kent.hansen@nokia.com>
+
+        Reviewed by Darin Adler.
+
+        JSC's currentThreadStackBase is not reentrant on some platforms
+        https://bugs.webkit.org/show_bug.cgi?id=37195
+
+        This function needs to be reentrant to avoid memory corruption on platforms where
+        the implementation uses global variables.
+
+        This patch adds a mutex lock where necessary and makes the Symbian implementation
+        reentrant.
+
+        * runtime/Collector.cpp:
+        (JSC::currentThreadStackBaseMutex):
+        (JSC::currentThreadStackBase):
+
+2010-04-28  Thiago Macieira <thiago.macieira@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Fix compilation with gcc 3.4.
+
+        AtomicStringImpl.h:29: error: base `WebCore::StringImpl' with only
+        non-default constructor in class without a constructor
+
+        * wtf/text/AtomicStringImpl.h:
+        (WebCore::AtomicStringImpl::AtomicStringImpl): Provide a default constructor.
+        * wtf/text/StringImpl.h: Allow AtomicStringImpl to call a StringImpl constructor through a friend declaration.
+
+2010-04-27  Stephanie Lewis  <slewis@apple.com>
+
+        Fix Tiger build.
+
+        * wtf/FastMalloc.cpp:
+        (WTF::TCMalloc_PageHeap::Carve):
+
+2010-04-26  Stephanie Lewis  <slewis@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38154 FastMalloc calls madvise too often.
+        <rdar://problem/7834433> REGRESSSION: 1.5% PLT regression due to 56028 (return memory quicker).  
+        To save on madvise calls when recommitting memory recommit the entire span and then carve it
+        instead of carving the span up and only committing the part that will be used immediately.
+
+        * wtf/FastMalloc.cpp:
+        (WTF::TCMalloc_PageHeap::New):
+        (WTF::TCMalloc_PageHeap::AllocLarge):
+        (WTF::TCMalloc_PageHeap::Carve):
+
+2010-04-26  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Add specialized thunks for a char code related string functions
+        https://bugs.webkit.org/show_bug.cgi?id=38177
+
+        This is a simple extension to my prior patch.  Basically hoist the
+        existing character loading logic from the charCodeAt thunk and into
+        a helper function, then add a helper to load strings from the small
+        string cache.  This allows trivial implementations of fromCharCode
+        and charAt. 
+
+        * create_hash_table:
+        * jit/SpecializedThunkJIT.h:
+        (JSC::SpecializedThunkJIT::returnJSCell):
+        (JSC::SpecializedThunkJIT::tagReturnAsJSCell):
+        * jit/ThunkGenerators.cpp:
+        (JSC::stringCharLoad):
+        (JSC::charToString):
+        (JSC::charCodeAtThunkGenerator):
+        (JSC::charAtThunkGenerator):
+        (JSC::fromCharCodeThunkGenerator):
+        * jit/ThunkGenerators.h:
+        * runtime/SmallStrings.h:
+        (JSC::SmallStrings::singleCharacterStrings):
+        * runtime/StringConstructor.cpp:
+        (JSC::StringConstructor::StringConstructor):
+
+2010-04-27  Thomas Zander <t.zander@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Fix the build on Symbian on Linux using the Makefile based mkspec
+
+        * JavaScriptCore.pri: It is necessary to specify the library search path
+        when linking against JavaScriptCore.
+
+2010-04-21  Jocelyn Turcotte  <jocelyn.turcotte@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Compile fix for Visual Studio 2010
+        https://bugs.webkit.org/show_bug.cgi?id=37867
+
+        Patch by Prasanth Ullattil <prasanth.ullattil@nokia.com>
+
+        * runtime/Structure.cpp:
+        (JSC::Structure::transitionTableAdd):
+        * wtf/MathExtras.h:
+        * wtf/Platform.h:
+
+2010-04-27  Jocelyn Turcotte  <jocelyn.turcotte@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Rename COMPILER(MSVC7) to COMPILER(MSVC7_OR_LOWER)
+
+        * config.h:
+        (JSC::Structure::transitionTableAdd):
+        * wtf/Assertions.h:
+        * wtf/Atomics.h:
+        * wtf/CurrentTime.h:
+        (WTF::getLocalTime):
+        * wtf/Platform.h:
+        * wtf/StaticConstructors.h:
+        * wtf/StringExtras.h:
+        * wtf/Vector.h:
+        (WTF::::append):
+
+2010-04-15  Jocelyn Turcotte  <jocelyn.turcotte@nokia.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        [Qt] Fix Mac build break.
+
+        https://bugs.webkit.org/show_bug.cgi?id=37867
+        - Make sure JavaScriptCore's debug_and_release config follows that
+          of WebCore.
+        - Use different name for JavaScriptCore target in debug and release
+          since they might be written in the same path at the same time on
+          parallel builds
+        - Consolidate the DESTDIR determination logic in JavaScriptCore.pri
+
+        * JavaScriptCore.pri:
+        * JavaScriptCore.pro:
+
+2010-04-21  Jocelyn Turcotte  <jocelyn.turcotte@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Make sure WebKit is not compiled using C++0x.
+        https://bugs.webkit.org/show_bug.cgi?id=37867
+
+        As the rest of Qt compiles in the C++0x mode, people might start
+        compiling it in this mode. WebKit don't support this yet.
+
+        Patch by Thiago Macieira <thiago.macieira@nokia.com>
+
+        * JavaScriptCore.pro:
+
+2010-04-26  Oliver Hunt  <oliver@apple.com>
+
+        Fix windows
+
+        * jit/SpecializedThunkJIT.h:
+        (JSC::SpecializedThunkJIT::argumentToVirtualRegister):
+
+2010-04-26  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Need to support more efficient dispatch of lightweight builtins
+        https://bugs.webkit.org/show_bug.cgi?id=38155
+
+        The problem with calling lightweight builtins is that marshalling
+        the call from the nitro calling convention to the system calling
+        convention is very expensive relative to the cost of the actually
+        evaluating the function.  To work around this problem this patch
+        adds the ability to define a custom thunk for a builtin.
+
+        This allows us to use high performance custom implementations of
+        the common and sensible versions of simple builtins.  This patch
+        includes a simple (use of which is currently hardcoded) thunk for
+        charCodeAt.
+
+        This adds a JSInterfaceJIT subclass called SpecializedThunkJIT
+        that has helper functions to remove (or at least reduce) the need
+        to have separate thunk implementations for each JSValue encoding.
+
+        * GNUmakefile.am:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+          Many project file updates
+
+        * create_hash_table:
+          Add thunk generation callbacks to the hash tables, currently
+          we hardcode the script to only support charCodeAt
+
+        * jit/JITStubCall.h:
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::~JITThunks):
+        (JSC::JITThunks::specializedThunk):
+        * jit/JITStubs.h:
+        * jit/SpecializedThunkJIT.h: Added.
+        (JSC::SpecializedThunkJIT::SpecializedThunkJIT):
+        (JSC::SpecializedThunkJIT::loadCellArgument):
+        (JSC::SpecializedThunkJIT::loadJSStringArgument):
+        (JSC::SpecializedThunkJIT::loadInt32Argument):
+        (JSC::SpecializedThunkJIT::appendFailure):
+        (JSC::SpecializedThunkJIT::returnInt32):
+        (JSC::SpecializedThunkJIT::finalize):
+        (JSC::SpecializedThunkJIT::argumentToVirtualRegister):
+        (JSC::SpecializedThunkJIT::tagReturnAsInt32):
+        * jit/ThunkGenerators.cpp: Added.
+        (JSC::ThunkHelpers::stringImplDataOffset):
+        (JSC::ThunkHelpers::jsStringLengthOffset):
+        (JSC::ThunkHelpers::jsStringValueOffset):
+        (JSC::charCodeAtThunkGenerator):
+        * jit/ThunkGenerators.h: Added.
+        * runtime/Executable.h:
+        (JSC::NativeExecutable::NativeExecutable):
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::JSFunction):
+        * runtime/JSFunction.h:
+        * runtime/JSGlobalData.h:
+        (JSC::JSGlobalData::getThunk):
+        * runtime/JSString.h:
+        (JSC::):
+        * runtime/JSValue.h:
+          Protect some of the JSVALUE32 and JSVALUE32_64 only constants
+          and function behind appropriate USE() guards to make it harder
+          to use the wrong flags for the target build.
+        * runtime/Lookup.cpp:
+        (JSC::HashTable::createTable):
+        (JSC::setUpStaticFunctionSlot):
+        * runtime/Lookup.h:
+        (JSC::HashEntry::initialize):
+        (JSC::HashEntry::generator):
+        (JSC::HashEntry::):
+          Make the lookup tables use a specialized thunkGenerator
+          if present
+        * wtf/text/StringImpl.h:
+
+2010-04-26  Oliver Hunt  <oliver@apple.com>
+
+        Build fix
+
+        * runtime/JSImmediate.h:
+        * runtime/JSValue.h:
+
+2010-04-26  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Factor some basic JS interface logic out of JIT and into a superclass
+        https://bugs.webkit.org/show_bug.cgi?id=38163
+
+        Create JSInterfaceJIT to hold some common low level functions for
+        interacting with the JS RegisterFile.  Doing this separately from
+        https://bugs.webkit.org/show_bug.cgi?id=38155 to ease reviewing.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * jit/JIT.h:
+        * jit/JITInlineMethods.h:
+        (JSC::JIT::emitJumpSlowCaseIfNotJSCell):
+        * jit/JSInterfaceJIT.h: Added.
+        (JSC::JSInterfaceJIT::emitLoadJSCell):
+        (JSC::JSInterfaceJIT::emitJumpIfNotJSCell):
+        (JSC::JSInterfaceJIT::emitLoadInt32):
+        (JSC::JSInterfaceJIT::tagFor):
+        (JSC::JSInterfaceJIT::payloadFor):
+        (JSC::JSInterfaceJIT::addressFor):
+
+2010-04-26  Sam Weinig  <sam@webkit.org>
+
+        Fix Tiger build.
+
+        * wtf/mac/MainThreadMac.mm:
+        (WTF::isMainThread):
+
+2010-04-26  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        <rdar://problem/7766413>
+        
+        Fixed a crash seen when using the JavaScriptCore API with WebKit.
+        
+        No layout test because DumpRenderTree doesn't use the JavaScriptCore API
+        in this way.
+
+        * interpreter/RegisterFile.cpp:
+        (JSC::RegisterFile::setGlobalObject):
+        (JSC::RegisterFile::clearGlobalObject):
+        (JSC::RegisterFile::globalObject):
+        * interpreter/RegisterFile.h:
+        (JSC::RegisterFile::RegisterFile): Use WeakGCPtr for managing m_globalObject,
+        since it's a weak pointer. (We never noticed this error before because,
+        in WebKit, global objects always have a self-reference in a global variable,
+        so marking the register file's global variables would keep m_globalObject
+        alive. In the JavaScriptCore API, you can allocate a global object with
+        no self-reference.)
+
+        * runtime/JSActivation.h: Removed unneeded #include.
+
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::~JSGlobalObject): Don't use ==, since a weak
+        pointer is 0 when the object it points to runs its destructor.
+
+        * runtime/WeakGCPtr.h:
+        (JSC::WeakGCPtr::clear): Changed to return a bool indicating whether the
+        clear actually happened.
+        (JSC::WeakGCPtr::assign): Changed to forbid assignment of 0 as a shorthand
+        for calling clear(). A client should never clear by assigning 0, since
+        clear() should be conditional on whether the object doing the clearing
+        is still pointed to by the weak pointer. (Otherwise, a zombie object might
+        clear a pointer to a new, valid object.)
+
+2010-04-25  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=38097
+        Disentangle initializing the main thread from initializing threading
+
+        This is the first step in getting rid of the WEB_THREAD #define and
+        paving the way to allowing mac both WebKit and WebKit2 to use the same
+        WebCore.
+
+        * JavaScriptCore.exp: Export initializeMainThread and initializeMainThreadToProcessMainThread.
+        * JavaScriptCore.xcodeproj/project.pbxproj: Sort files.
+
+        * wtf/MainThread.cpp:
+        (WTF::mainThreadInitializationMutex):
+        (WTF::mainThreadFunctionQueueMutex):
+        (WTF::initializeMainThread):
+        (WTF::deprecatedInitializeMainThread):
+        * wtf/MainThread.h:
+        Added Mac only initializeMainThreadToProcessMainThread which sets up callOnMainThread
+        and isMainThead calls to assume that WebCore's main thread is also the
+        process's main thread. Since it is possible that both initializeMainThread
+        and initializeMainThreadToProcessMainThread could be called, the first one called
+        wins (either will work).
+
+        * wtf/Threading.h: Moved to top of file.
+
+        * wtf/ThreadingPthreads.cpp:
+        (WTF::initializeThreading): Remove call to initializeMainThread.
+        * wtf/ThreadingWin.cpp:
+        (WTF::initializeThreading): Ditto.
+        * wtf/gtk/ThreadingGtk.cpp:
+        (WTF::initializeThreading): Ditto.
+
+        * wtf/mac/MainThreadMac.mm:
+        (WTF::initializeMainThreadPlatform):
+        (WTF::initializeMainThreadToProcessMainThread):
+        (WTF::scheduleDispatchFunctionsOnMainThread):
+        (WTF::isMainThread):
+        Add runtime switch between the old behavior of using the system's main
+        thread and a stored pointer to the main thread. Tiger always uses the
+        system's main thread.
+
+        * wtf/qt/ThreadingQt.cpp:
+        (WTF::initializeThreading): Remove call to initializeMainThread.
+        * wtf/win/MainThreadWin.cpp:
+        (WTF::initializeMainThreadPlatform): Add call to initializeCurrentThreadInternal
+        removed from initializeThreading.
+
+2010-04-26  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Fix a memory leak in the QScriptString.
+
+        QScriptStringPrivate's constructor shouldn't call JSStringRetain as
+        QScriptConverter implicitly pass a JSStringRef ownership.
+
+        [Qt] QScriptStringPrivate c'tor problem
+        https://bugs.webkit.org/show_bug.cgi?id=38110
+
+        * qt/api/qscriptstring_p.h:
+        (QScriptStringPrivate::QScriptStringPrivate):
+
+2010-04-24  Darin Adler  <darin@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        REGRESSION (r56560): Crash in parseFloat if passed invalid UTF-16 data
+        https://bugs.webkit.org/show_bug.cgi?id=38083
+        rdar://problem/7901044
+
+        Tests: fast/js/ToNumber.html
+               fast/js/parseFloat.html
+
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::parseInt): Added a FIXME comment about a problem I noticed.
+        (JSC::parseFloat): Added a FIXME comment about a problem I noticed;
+        covered by test cases in the test I added.
+        * runtime/UString.cpp:
+        (JSC::UString::toDouble): Added FIXME comments about two problems I
+        noticed; covered by test cases in the tests I added. Added a return
+        statement so we don't crash when illegal UTF-16 sequences are present.
+
+2010-04-24  Anton Muhin  <antonm@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Allow to construct HashTraits<WebCore::QualifiedName>::constructDeletedValue
+
+        Former implementation attempted to use AtomicString(HashTableDeletedValue)
+        however those values cannot be used that way: one cannot construct
+        QualifiedNameImpl out of such AtomicString as we'll try to lookup this string
+        in the table, for example.
+        https://bugs.webkit.org/show_bug.cgi?id=37722
+
+        * wtf/RefPtr.h: expose hash table deleted value
+
+2010-04-23  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by David Levin.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=38060
+        Split up Threading.h
+
+        Move bits for of Threading.h into 3 new files.
+        - Atomics.h for atomic operations.
+        - ThreadSafeShared.h for the ThreadSafeShared class.
+        - ThreadingPrimitives.h for the primitives and platform types.
+
+        Basic threading operations (creation, etc.) remain in Threading.h.
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/Atomics.h: Copied from wtf/Threading.h.
+        * wtf/ThreadSafeShared.h: Copied from wtf/Threading.h.
+        * wtf/Threading.h:
+        * wtf/ThreadingPrimitives.h: Copied from wtf/Threading.h.
+
+2010-04-23  Sam Weinig  <sam@webkit.org>
+
+        Fix Qt build.
+
+        * wtf/qt/MainThreadQt.cpp: #include <QThread>
+
+2010-04-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=38022
+        Move isMainThread predicate function to MainThread.h
+
+        * wtf/MainThread.cpp:
+        (WTF::initializeMainThread):
+        (WTF::isMainThread):
+        * wtf/MainThread.h:
+        * wtf/Threading.h:
+        * wtf/ThreadingPthreads.cpp:
+        (WTF::initializeThreading):
+        * wtf/ThreadingWin.cpp:
+        (WTF::initializeThreading):
+        * wtf/gtk/ThreadingGtk.cpp:
+        (WTF::initializeThreading):
+        * wtf/mac/MainThreadMac.mm:
+        (WTF::initializeMainThreadPlatform):
+        (WTF::isMainThread):
+        * wtf/qt/MainThreadQt.cpp:
+        (WTF::isMainThread):
+        * wtf/qt/ThreadingQt.cpp:
+        (WTF::initializeThreading):
+        * wtf/text/AtomicString.cpp:
+
+2010-04-23  Gabor Rapcsanyi  <rgabor@inf.u-szeged.hu>
+
+        Reviewed by Laszlo Gombos.
+
+        Add RVCT support for Linux
+
+        Developed in cooperation with Gabor Loki.
+
+        * API/JSStringRef.h:
+        * jit/ExecutableAllocator.h:
+        * jit/ExecutableAllocatorPosix.cpp:
+        (JSC::ExecutableAllocator::cacheFlush):
+        * jit/JITStubs.cpp:
+        * wtf/MathExtras.h:
+        * wtf/unicode/qt4/UnicodeQt4.h:
+
+2010-04-23  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [WIN] Move OwnPtrWin.cpp into platform specific folder.
+        https://bugs.webkit.org/show_bug.cgi?id=38042
+
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * wtf/OwnPtrWin.cpp: Removed.
+        * wtf/win/OwnPtrWin.cpp: Copied from JavaScriptCore/wtf/OwnPtrWin.cpp.
+
+2010-04-23  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [BREWMP] Move OwnPtrBrew.cpp into platform specific folder.
+        https://bugs.webkit.org/show_bug.cgi?id=38042
+
+        * wtf/OwnPtrBrew.cpp: Removed.
+        * wtf/brew/OwnPtrBrew.cpp: Copied from JavaScriptCore/wtf/OwnPtrBrew.cpp.
+
+2010-04-22  Steve Block  <steveblock@google.com>
+
+        Reviewed by Adam Barth.
+
+        Update Android to use isfinite, isinf, isnan and signbit from namespace std.
+        https://bugs.webkit.org/show_bug.cgi?id=37948
+
+        * wtf/MathExtras.h:
+
+2010-04-22  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Unreviewed build fix.
+
+        * wtf/MD5.cpp: fix include path of CString.h
+
+2010-04-22  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        MD5 is required for WebSocket new protocol implementation
+        https://bugs.webkit.org/show_bug.cgi?id=37913
+
+        * GNUmakefile.am:
+        * JavaScriptCore.exp:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/MD5.cpp: Added.
+        * wtf/MD5.h: Added.
+
+2010-04-22  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (build fix).
+        Errk, accidentally committed commenting out two ASSERTs! reverting.
+
+        * runtime/Collector.cpp:
+        (JSC::Heap::protect):
+        (JSC::Heap::unprotect):
+
+2010-04-22  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38006
+        Change lifetime of JSC::IdentifierTables used by WebCores to match AtomicStringTable
+
+        Presently JSC's IdentifierTables are owned by the JSGlobalData.  For
+        JSGlobalData objects created via the API this should continue to be the case,
+        but for the JSGlobalData objects used by WebCore (the main thread's common
+        global data, and those for workers) use a IdentifierTable provided (and owned)
+        by wtfThreadData.  This allow the lifetime of these IdentifierTable to match
+        those of the corresponding AtomicStringTables.
+
+        * API/APIShims.h:
+        (JSC::APIEntryShim::APIEntryShim):
+        * API/JSContextRef.cpp:
+        (JSContextGroupCreate):
+        * runtime/Collector.cpp:
+        (JSC::Heap::protect):
+        (JSC::Heap::unprotect):
+        (JSC::Heap::markRoots):
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        (JSC::JSGlobalData::~JSGlobalData):
+        (JSC::JSGlobalData::createContextGroup):
+        (JSC::JSGlobalData::create):
+        (JSC::JSGlobalData::sharedInstance):
+        * runtime/JSGlobalData.h:
+        (JSC::JSGlobalData::):
+        (JSC::JSGlobalData::isSharedInstance):
+        * runtime/JSLock.cpp:
+        (JSC::JSLock::JSLock):
+        (JSC::JSLock::lock):
+        (JSC::JSLock::unlock):
+        (JSC::JSLock::DropAllLocks::DropAllLocks):
+        * wtf/WTFThreadData.cpp:
+        (WTF::WTFThreadData::WTFThreadData):
+        (WTF::WTFThreadData::~WTFThreadData):
+
+2010-04-22  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r58110.
+        http://trac.webkit.org/changeset/58110
+        https://bugs.webkit.org/show_bug.cgi?id=38007
+
+        Caused an internal compiler error on Qt (Requested by abarth
+        on #webkit).
+
+        * wtf/MathExtras.h:
+
+2010-04-22  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (windows build fix).
+
+        * API/JSWeakObjectMapRefPrivate.cpp:
+
+2010-04-22  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (windows build fix).
+
+        * API/JSBase.cpp:
+        * API/JSCallbackObject.cpp:
+
+2010-04-22  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=37978
+        Unify JSC::IdentifierTable and WebCore::AtomicStringTable implementations.
+
+        These two classes both implement a HashSet of uniqued StringImpls, with
+        translator classes to avoid unnecessary object creation. The only difference
+        between the classes is which flag (isIdentifier or inTable) is set.
+        Combine the two classes using a template predicated on which flag to use.
+
+        New class AtomicStringTable created, containing all the goodness from
+        IdentifierTable & AtomicStringTable, expect for Identifier's literalTable,
+        which has been moved onto JSGlobalData. Removed duplicate string translator
+        classes. Renamed StringImpl's inTable flag to more explicit 'isAtomic',
+        and set this on the empty string (which matches Identifier behaviour, and
+        removes a redundant check for zero-length).
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/Identifier.cpp:
+        (JSC::createLiteralTable):
+        (JSC::deleteLiteralTable):
+        (JSC::Identifier::add):
+        (JSC::Identifier::addSlowCase):
+        * runtime/Identifier.h:
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        (JSC::JSGlobalData::~JSGlobalData):
+        * runtime/JSGlobalData.h:
+        * wtf/WTFThreadData.cpp:
+        (WTF::WTFThreadData::WTFThreadData):
+        (WTF::WTFThreadData::~WTFThreadData):
+        * wtf/WTFThreadData.h:
+        (WTF::WTFThreadData::atomicStringTable):
+        * wtf/text/AtomicString.cpp:
+        (WebCore::table):
+        (WebCore::operator==):
+        (WebCore::AtomicString::add):
+        (WebCore::AtomicString::find):
+        (WebCore::AtomicString::remove):
+        * wtf/text/AtomicStringTable.h: Added.
+        (WTF::CStringTranslator::hash):
+        (WTF::CStringTranslator::equal):
+        (WTF::CStringTranslator::translate):
+        (WTF::UCharBufferTranslator::hash):
+        (WTF::UCharBufferTranslator::equal):
+        (WTF::UCharBufferTranslator::translate):
+        (WTF::HashAndCharactersTranslator::hash):
+        (WTF::HashAndCharactersTranslator::equal):
+        (WTF::HashAndCharactersTranslator::translate):
+        (WTF::IdentifierOrAtomicStringTable::remove):
+        (WTF::::~IdentifierOrAtomicStringTable):
+        (WTF::::add):
+        (WTF::::find):
+        * wtf/text/StringImpl.cpp:
+        (WebCore::StringImpl::~StringImpl):
+        * wtf/text/StringImpl.h:
+        (WebCore::StringImpl::isAtomic):
+        (WebCore::StringImpl::setIsAtomic):
+        (WebCore::equal):
+        * wtf/text/StringImplBase.h:
+        (WTF::StringImplBase::StringImplBase):
+
+2010-04-22  Steve Block  <steveblock@google.com>
+
+        Reviewed by Adam Barth.
+
+        Update Android to use isfinite, isinf, isnan and signbit from namespace std.
+        https://bugs.webkit.org/show_bug.cgi?id=37948
+
+        * wtf/MathExtras.h:
+
+2010-04-22  Jocelyn Turcotte  <jocelyn.turcotte@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Remove dependency of JSC to QtGui
+        https://bugs.webkit.org/show_bug.cgi?id=37867
+
+        The patch also make sure that hal.h is in the include path on Symbian.
+        The dependency to QtGui took care of that before.
+
+        Patch by Thiago Macieira <thiago.macieira@nokia.com>
+             and Rohan McGovern <rohan.mcgovern@nokia.com>
+
+        * JavaScriptCore.pri:
+        * JavaScriptCore.pro:
+
+2010-04-22  Jocelyn Turcotte  <jocelyn.turcotte@nokia.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        [Qt] Corrects symbols visibility for JavaScriptCore.
+
+        https://bugs.webkit.org/show_bug.cgi?id=37867
+
+        * JavaScriptCore.pro:
+
+2010-04-22  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        Use BLX and BX to keep happy the return stack predictor above ARMv4
+        https://bugs.webkit.org/show_bug.cgi?id=37862
+
+        Inspired by Jacob Bramley's patch from JaegerMonkey
+
+        * assembler/ARMAssembler.cpp:
+        (JSC::ARMAssembler::executableCopy):
+        * assembler/ARMAssembler.h:
+        (JSC::ARMAssembler::):
+        (JSC::ARMAssembler::bx):
+        (JSC::ARMAssembler::blx):
+        (JSC::ARMAssembler::loadBranchTarget):
+        (JSC::ARMAssembler::jmp):
+        (JSC::ARMAssembler::getLdrImmAddress):
+        * assembler/MacroAssemblerARM.h:
+        (JSC::MacroAssemblerARM::jump):
+        (JSC::MacroAssemblerARM::nearCall):
+        (JSC::MacroAssemblerARM::call):
+        (JSC::MacroAssemblerARM::ret):
+        (JSC::MacroAssemblerARM::prepareCall):
+        (JSC::MacroAssemblerARM::call32):
+
+2010-04-21  Andy Estes  <aestes@apple.com>
+
+        Rubber stamped by Mark Rowe.
+
+        Export WTF::deleteOwnedPtr(HFONT).
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
 2010-04-21  Gavin Barraclough  <barraclough@apple.com>
 
         Rubber Stamped by Oliver Hunt.

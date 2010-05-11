@@ -32,12 +32,12 @@ from webkitpy.tool.steps.options import Options
 class ApplyPatchWithLocalCommit(ApplyPatch):
     @classmethod
     def options(cls):
-        return [
+        return ApplyPatch.options() + [
             Options.local_commit,
-        ] + ApplyPatch.options()
+        ]
 
     def run(self, state):
         ApplyPatch.run(self, state)
         if self._options.local_commit:
-            commit_message = self._tool.checkout().commit_message_for_this_commit()
+            commit_message = self._tool.checkout().commit_message_for_this_commit(git_commit=None, squash=False)
             self._tool.scm().commit_locally_with_message(commit_message.message() or state["patch"].name())

@@ -362,6 +362,15 @@ void LayoutTestController::setPrivateBrowsingEnabled(bool flag)
     g_object_set(G_OBJECT(settings), "enable-private-browsing", flag, NULL);
 }
 
+void LayoutTestController::setJavaScriptCanAccessClipboard(bool flag)
+{
+    WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
+    ASSERT(view);
+
+    WebKitWebSettings* settings = webkit_web_view_get_settings(view);
+    g_object_set(G_OBJECT(settings), "javascript-can-access-clipboard", flag, NULL);
+}
+
 void LayoutTestController::setXSSAuditorEnabled(bool flag)
 {
     WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
@@ -455,6 +464,11 @@ void LayoutTestController::setPopupBlockingEnabled(bool flag)
     WebKitWebSettings* settings = webkit_web_view_get_settings(view);
     g_object_set(G_OBJECT(settings), "javascript-can-open-windows-automatically", !flag, NULL);
 
+}
+
+void LayoutTestController::setPluginsEnabled(bool flag)
+{
+    // FIXME: Implement
 }
 
 bool LayoutTestController::elementDoesAutoCompleteForElementWithId(JSStringRef id) 

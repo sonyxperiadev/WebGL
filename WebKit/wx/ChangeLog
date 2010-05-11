@@ -1,3 +1,69 @@
+2010-05-03  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Build and use Mac's ComplexTextController to support complex text in wx.
+        https://bugs.webkit.org/show_bug.cgi?id=38482
+
+        * WebView.cpp:
+        (wxWebView::Create):
+        * wscript:
+
+2010-05-03  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Provide access to GrantUniversalAccess to allow enabling of XSS support.
+        https://bugs.webkit.org/show_bug.cgi?id=38481
+
+        * WebFrame.cpp:
+        (wxWebFrame::GrantUniversalAccess):
+        * WebFrame.h:
+        * WebView.cpp:
+        (wxWebView::GetParseMode):
+        (wxWebView::GrantUniversalAccess):
+        * WebView.h:
+
+2010-05-03  Jens Alfke  <snej@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Add "willSendSubmitEvent" hook to WebFrameClient and FrameLoaderClient
+        https://bugs.webkit.org/show_bug.cgi?id=38397
+
+        No tests (functionality is exposed only through native WebKit API.)
+
+        * WebKitSupport/FrameLoaderClientWx.h:
+        (WebCore::FrameLoaderClientWx::dispatchWillSendSubmitEvent):
+
+2010-04-25  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=38097
+        Disentangle initializing the main thread from initializing threading
+
+        * WebView.cpp:
+        (wxWebView::Create): Add call to initializeMainThread.
+
+2010-04-25  Kevin Watters  <kevinwatters@gmail.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Update focus handling code to match current approaches used by other platforms,
+        and fix focus handling for corner cases such as when a mouse down pops up a dialog.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=38086
+
+        * WebView.cpp:
+        (wxWebView::Create):
+        (wxWebView::OnTLWActivated):
+        (wxWebView::OnPaint):
+        (wxWebView::OnMouseEvents):
+        (wxWebView::OnSetFocus):
+        (wxWebView::OnKillFocus):
+        * WebView.h:
+
 2010-04-20  Adam Barth  <abarth@webkit.org>
 
         Reviewed by Eric Seidel.

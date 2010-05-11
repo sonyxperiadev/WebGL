@@ -87,6 +87,8 @@ namespace WebCore {
         }
         virtual ~Gradient();
 
+        struct ColorStop;
+        void addColorStop(const ColorStop&);
         void addColorStop(float, const Color&);
 
         void getColor(float value, float* r, float* g, float* b, float* a) const;
@@ -97,7 +99,6 @@ namespace WebCore {
         float r0() const { return m_r0; }
         float r1() const { return m_r1; }
         bool isRadial() const { return m_radial; }
-        struct ColorStop;
         const Vector<ColorStop>& getStops() const;
 #else
 #if PLATFORM(ANDROID)

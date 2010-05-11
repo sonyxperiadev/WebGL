@@ -316,4 +316,19 @@ bool noExtendedTextEncodingNameUsed()
     return !didExtendTextCodecMaps;
 }
 
+#ifndef NDEBUG
+void dumpTextEncodingNameMap()
+{
+    unsigned size = textEncodingNameMap->size();
+    fprintf(stderr, "Dumping %u entries in WebCore::textEncodingNameMap...\n", size);
+
+    MutexLocker lock(encodingRegistryMutex());
+
+    TextEncodingNameMap::const_iterator it = textEncodingNameMap->begin();
+    TextEncodingNameMap::const_iterator end = textEncodingNameMap->end();
+    for (; it != end; ++it)
+        fprintf(stderr, "'%s' => '%s'\n", it->first, it->second);
+}
+#endif
+
 } // namespace WebCore

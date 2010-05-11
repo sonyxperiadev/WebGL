@@ -1,3 +1,730 @@
+2010-05-06  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Add support for resources on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=38637
+
+        * DEPS: Check out tools/data_pack.
+
+2010-05-06  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Timothy Hatcher.
+
+        Chromium Dev Tools: Large toolbar icons flash when dev
+        tools is opened in docked mode.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38631
+
+        * src/js/DevTools.js:
+        (devtools.domContentLoaded):
+
+2010-05-06  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        drop support for sessionStorage in sandbox iframes
+        https://bugs.webkit.org/show_bug.cgi?id=38151
+
+        Update client of sessionStorage to handle exceptions.
+
+        * src/StorageAreaProxy.cpp:
+        (WebCore::StorageAreaProxy::storageEvent):
+
+2010-05-05  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [chromium] clear out deprecated methods that are no longer used
+        https://bugs.webkit.org/show_bug.cgi?id=38610
+
+        * public/WebFormElement.h:
+        * public/WebInputElement.h:
+        * public/WebKitClient.h:
+        * public/WebView.h:
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::createPopupMenu):
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::popupOpened):
+        * src/WebFormElement.cpp:
+        * src/WebInputElement.cpp:
+        (WebKit::WebInputElement::setSelectionRange):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::hideSuggestionsPopup):
+        * src/WebViewImpl.h:
+
+2010-05-05  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        [chromium] Add quota parameter to  WebStorageNamespace::createSessionStorageNamespace
+        https://bugs.webkit.org/show_bug.cgi?id=38589
+
+        * public/WebStorageNamespace.h:
+        (WebKit::WebStorageNamespace::createSessionStorageNamespace):
+        * src/WebStorageNamespaceImpl.cpp:
+        (WebKit::WebStorageNamespace::createSessionStorageNamespace):
+
+2010-05-05  Stuart Morgan  <stuartmorgan@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Update the plugin container's setFocus implementation to pass the new
+        boolean argument to the next layer.
+
+        https://bugs.webkit.org/show_bug.cgi?id=37961
+
+        * src/WebPluginContainerImpl.cpp:
+        (WebKit::WebPluginContainerImpl::setFocus):
+        * src/WebPluginContainerImpl.h:
+
+2010-05-04  Vangelis Kokkevis  <vangelis@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Provide an API for querying whether a WebWidget is using gpu accelerated compositing.
+        Also changed: isAcceleratedCompositing to: isAcceleratedCompositingActive.
+        https://bugs.webkit.org/show_bug.cgi?id=38220
+
+        * public/WebWidget.h:
+        * src/WebPopupMenuImpl.h:
+        (WebKit::WebPopupMenuImpl::isAcceleratedCompositingActive):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+        (WebKit::WebViewImpl::paint):
+        (WebKit::WebViewImpl::isAcceleratedCompositingActive):
+        (WebKit::WebViewImpl::setRootGraphicsLayer):
+        (WebKit::WebViewImpl::setIsAcceleratedCompositingActive):
+        (WebKit::WebViewImpl::updateRootLayerContents):
+        * src/WebViewImpl.h:
+
+2010-04-29  John Gregg  <johnnyg@google.com>
+
+        Reviewed by Dmitry Titov.
+
+        notifications should have dir and replaceId attributes
+        https://bugs.webkit.org/show_bug.cgi?id=38336
+
+        * public/WebNotification.h:
+        * src/WebNotification.cpp:
+        (WebKit::WebNotification::dir):
+        (WebKit::WebNotification::replaceId):
+
+2010-05-04  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by David Levin.
+
+        [chromium] Make the select popup not close on right/middle clicks.
+        https://bugs.webkit.org/show_bug.cgi?id=38473
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::mouseDown):
+
+2010-05-03  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Add support for controlling clipboard access from javascript.
+        Clipboard access from javascript is disabled by default.
+        https://bugs.webkit.org/show_bug.cgi?id=27751
+
+        * public/WebSettings.h:
+        * src/WebSettingsImpl.cpp:
+        (WebKit::WebSettingsImpl::setJavaScriptCanAccessClipboard):
+        * src/WebSettingsImpl.h:
+
+2010-05-03  Jens Alfke  <snej@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Add "willSendSubmitEvent" hook to WebFrameClient and FrameLoaderClient
+        https://bugs.webkit.org/show_bug.cgi?id=38397
+
+        No tests (functionality is exposed only through native WebKit API.)
+
+        * public/WebFrameClient.h:
+        (WebKit::WebFrameClient::willSendSubmitEvent): New empty method
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::dispatchWillSendSubmitEvent): Delegate to client
+        * src/FrameLoaderClientImpl.h:
+
+2010-05-02  Michael Nordman  <michaeln@google.com>
+
+        Reviewed by Dmitry Titov.
+
+        Define two new ResourceRequestBase TargetTypes for worker and shared worker
+        main resources. Use the new target types where appropiate. Add logic to marshal
+        the target type specified by requests initiated on a background worker thread.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38295
+
+        * src/SharedWorkerRepository.cpp:  use TargetIsSharedWorker
+        (WebCore::SharedWorkerScriptLoader::SharedWorkerScriptLoader):
+
+2010-05-02  Rafael Weinstein  <rafaelw@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Include WebWindowFeatures in call to WebViewClient::createView.
+        https://bugs.webkit.org/show_bug.cgi?id=38301
+
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::createView):
+        * public/WebWindowFeatures.h:
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::createWindow):
+
+2010-05-01  Evan Stade  <estade@chromium.org>
+
+        Reviewed by David Levin
+
+        [chromium] Skia needs to fade DragImages
+        https://bugs.webkit.org/show_bug.cgi?id=38008
+
+        * tests/DragImageTest.cpp:
+        (DragImageTest.CreateDragImage): test that the drag image is a deep copy
+
+2010-04-30  Jian Li  <jianli@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Add WebFileSystem interface and hook up with all FileSystem methods.
+        https://bugs.webkit.org/show_bug.cgi?id=38228
+
+        * WebKit.gyp:
+        * public/WebFileSystem.h: Added.
+        * public/WebKitClient.h:
+        (WebKit::WebKitClient::fileSystem):
+        * src/ChromiumBridge.cpp:
+        (WebCore::ChromiumBridge::fileExists):
+        (WebCore::ChromiumBridge::deleteFile):
+        (WebCore::ChromiumBridge::deleteEmptyDirectory):
+        (WebCore::ChromiumBridge::getFileSize):
+        (WebCore::ChromiumBridge::getFileModificationTime):
+        (WebCore::ChromiumBridge::directoryName):
+        (WebCore::ChromiumBridge::pathByAppendingComponent):
+        (WebCore::ChromiumBridge::makeAllDirectories):
+        (WebCore::ChromiumBridge::getAbsolutePath):
+        (WebCore::ChromiumBridge::isDirectory):
+        (WebCore::ChromiumBridge::filePathToURL):
+        (WebCore::ChromiumBridge::openFile):
+        (WebCore::ChromiumBridge::closeFile):
+        (WebCore::ChromiumBridge::seekFile):
+        (WebCore::ChromiumBridge::truncateFile):
+        (WebCore::ChromiumBridge::readFromFile):
+        (WebCore::ChromiumBridge::writeToFile):
+
+2010-04-29  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Change StorageEvent.uri to StorageEvent.url to match the spec
+        https://bugs.webkit.org/show_bug.cgi?id=38331
+
+        Get rid of a stale FIXME and combine 2 lines that needn't be split.
+
+        * src/StorageEventDispatcherImpl.cpp:
+        (WebCore::StorageEventDispatcherImpl::dispatchStorageEvent):
+
+2010-04-29  Anton Muhin  <antonm@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Consider implementing addOriginAccessWhitelistEntry method
+        http://trac.webkit.org/changeset/57537 introduced a new method
+        to manage whitelisting of origins.
+        Expose this method in Chromium's bridge.
+        https://bugs.webkit.org/show_bug.cgi?id=37578
+
+        * public/WebSecurityPolicy.h: Start renaming (keep old function names) and add new removeOriginAccessWhitelistEntry method
+        * src/WebSecurityPolicy.cpp: Start renaming (keep old function names) and add new removeOriginAccessWhitelistEntry method
+
+2010-04-29  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r58498.
+        http://trac.webkit.org/changeset/58498
+        https://bugs.webkit.org/show_bug.cgi?id=38332
+
+        "Broke a bunch of tests on Chromium canaries" (Requested by
+        dglazkov on #webkit).
+
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::createView):
+        * public/WebWindowFeatures.h:
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::createWindow):
+
+2010-04-29  Adam Langley  <agl@chromium.org>
+
+        Unreviewed, DEPS roll.
+
+        WebKit's r58517 needs OTS's r30 which was rolled into Chromium in
+        r45932.
+
+        * DEPS:
+          Use Chromium r45932.
+
+2010-04-29  Rafael Weinstein  <rafaelw@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Include WindowFeatures in call to WebViewClient::createView.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38301
+
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::createView):
+        * public/WebWindowFeatures.h:
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::createWindow):
+
+2010-04-29  Garret Kelly  <gdk@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Expose the RuntimeFeature for touch events through the
+        WebRuntimeFeatures mechanism.
+        https://bugs.webkit.org/show_bug.cgi?id=37486
+
+        * public/WebRuntimeFeatures.h:
+        * src/WebRuntimeFeatures.cpp:
+        (WebKit::WebRuntimeFeatures::enableTouch):
+        (WebKit::WebRuntimeFeatures::isTouchEnabled):
+
+2010-04-29  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Remove the unnecessary texImage2D function with Image as input in GraphicsContext3D
+        https://bugs.webkit.org/show_bug.cgi?id=38235
+
+        * src/GraphicsContext3D.cpp: Remove tex*image implementation with Image input.
+
+2010-04-28  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: Allow editing script resources when resource tracking is enabled.
+
+        http://bugs.webkit.org/show_bug.cgi?id=38269
+ 
+        * src/js/DebuggerAgent.js:
+        * src/js/InspectorControllerImpl.js:
+        (.devtools.InspectorBackendImpl.prototype.setBreakpoint):
+        (.devtools.InspectorBackendImpl.prototype.editScriptSource):
+
+2010-04-28  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by David Levin.
+
+        [Chromium] callOnMainThread should equate to MessageLoop::PostTask
+        https://bugs.webkit.org/show_bug.cgi?id=38276
+
+        * public/WebKitClient.h:
+        (WebKit::WebKitClient::callOnMainThread):
+        * src/ChromiumThreading.cpp:
+        (WTF::ChromiumThreading::callOnMainThread):
+
+2010-04-27  John Abd-El-Malek  <jam@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Make WebThemeEngine::paint take a const ref of ExtraParams
+        https://bugs.webkit.org/show_bug.cgi?id=38242
+
+        * public/WebThemeEngine.h:
+        (WebKit::WebThemeEngine::paint):
+
+2010-04-28  Andrey Kosyakov  <caseq@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Fixed passing breakpoints to V8. 
+        https://bugs.webkit.org/show_bug.cgi?id=38266
+
+        * src/js/InspectorControllerImpl.js:
+        (.devtools.InspectorBackendImpl.prototype.setBreakpoint):
+
+2010-04-28  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Support pause on exceptions in v8 implementation of ScriptDebugServer.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38205        
+
+        * src/js/DebuggerScript.js:
+        (debuggerScriptConstructor.DebuggerScript.getScripts):
+        (debuggerScriptConstructor.DebuggerScript.pauseOnExceptionsState):
+        (debuggerScriptConstructor.DebuggerScript.setPauseOnExceptionsState):
+        (debuggerScriptConstructor.DebuggerScript._v8ToWebkitLineNumber):
+        (debuggerScriptConstructor):
+
+2010-04-27  Jens Alfke  <snej@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        [chromium] Fix bug that prevents autosave of forms without action attribute
+        https://bugs.webkit.org/show_bug.cgi?id=38014
+        Change is in the Chromium WebKit API so it can't be tested with a JS-based layout test.
+        It needs a native unit test, which would go in the Chromium repo, not WebKit.
+
+        * src/WebPasswordFormData.cpp:
+        (WebKit::WebPasswordFormData::WebPasswordFormData): Set correct URL if action is NULL
+
+2010-04-27  Michael Nordman  <michaeln@google.com>
+
+        Reviewed by Dmitry Titov.
+
+        [Chromium] Add two things to the webkit API to support appcaches in workers.
+        1) WebURLRequest TargetTypes for worker and shared worker main resources.
+        2) Factory method on class WebCommonWorkerClient to
+           createApplicationCacheHost() for the associated worker.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38147
+
+        * public/WebCommonWorkerClient.h: add the factory method
+        * public/WebURLRequest.h: add the TargetTypes
+        * src/WebWorkerBase.cpp: call the embedder's factory when needed
+        (WebKit::WebWorkerBase::didCreateDataSource)
+        (WebKit::WebWorkerBase::createApplicationCacheHost)
+        * src/WebWorkerBase.h: ditto
+        * src/WebWorkerClientImpl.h: add a stub impl of the factory method 
+        (WebKit::WebWorkerClientImpl::createApplicationCacheHost):
+
+2010-04-27  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Shinichiro Hamaji.
+
+        [DRT/Chromium] Enable Windows project generation
+        https://bugs.webkit.org/show_bug.cgi?id=38103
+
+        - Avoid platform.system(), which causes a crash with python.exe in
+          depot_tools. Use sys.platform instead.
+        - Process DumpRenderTree.gyp on all platforms.
+
+        * gyp_webkit:
+
+2010-04-27  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Makes clicking a select element close its associated popup if
+        it is open.
+        https://bugs.webkit.org/show_bug.cgi?id=38105
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::mouseDown):
+
+2010-04-27  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Merged the WebView public method to close suggestion popups
+        into a single method to close all popups (select and suggestions).
+        That ensures select popups are closed when the browser window is moved
+        or resized.
+        https://bugs.webkit.org/show_bug.cgi?id=37837
+
+        * public/WebView.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::hidePopups):
+        (WebKit::WebViewImpl::hideSuggestionsPopup):
+        * src/WebViewImpl.h:
+
+2010-04-27  John Abd-El-Malek  <jam@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Remove unnecessary header now that Chrome is updated
+        https://bugs.webkit.org/show_bug.cgi?id=38211
+
+        * public/win/WebThemeEngine.h: Removed.
+
+2010-04-27  Jens Alfke  <snej@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Add some notifications and an accessor to WebKit API
+        https://bugs.webkit.org/show_bug.cgi?id=37625
+
+        * public/WebFrameClient.h:
+        (WebKit::WebFrameClient::didFirstLayout):
+        (WebKit::WebFrameClient::didFirstVisuallyNonEmptyLayout):
+        * public/WebNode.h:
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::dispatchDidFirstLayout):
+        (WebKit::FrameLoaderClientImpl::dispatchDidFirstVisuallyNonEmptyLayout):
+        * src/WebElement.cpp:
+        * src/WebNode.cpp:
+        (WebKit::WebNode::hasNonEmptyBoundingBox):
+
+2010-04-27  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [Chromium] Remove deprecated form of didChangeLocationWithinPage
+        https://bugs.webkit.org/show_bug.cgi?id=38178
+
+        * public/WebFrameClient.h:
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::dispatchDidNavigateWithinPage):
+
+2010-04-27  Evan Martin  <evan@chromium.org>
+
+        Reviewed by David Levin.
+
+        [chromium] bold bengali text not rendered properly on Linux
+        Roll forward Chrome DEPS so we get new Skia API.
+
+        * DEPS: update Chrome to r45696.
+
+2010-04-27  Andrey Kosyakov  <caseq@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Restore breakpoints associated with script's URL once
+        script is parsed.
+        https://bugs.webkit.org/show_bug.cgi?id=38132
+
+        * src/js/DebuggerAgent.js:
+        (devtools.DebuggerAgent.prototype.initUI):
+        (devtools.DebuggerAgent.prototype.addBreakpoint):
+        (devtools.DebuggerAgent.prototype.addScriptInfo_):
+        (devtools.DebuggerAgent.prototype.restoreBreakpoints_):
+        (devtools.BreakpointInfo):
+        (devtools.BreakpointInfo.prototype.enabled):
+        (devtools.BreakpointInfo.prototype.condition):
+
+2010-04-27  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Chrome Dev Tools: Further beautify themes.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38187
+
+        * src/js/DevTools.js:
+        (WebInspector.setToolbarColors):
+        * src/js/devTools.css:
+        (body.platform-windows #toolbar, body.platform-windows.inactive #toolbar):
+
+2010-04-26  John Abd-El-Malek  <jam@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Prepare to making WebThemeEngine cross-platform
+        https://bugs.webkit.org/show_bug.cgi?id=38077
+
+        * WebKit.gyp:
+        * public/WebThemeEngine.h: Added.
+        * public/win/WebThemeEngine.h:
+
+2010-04-26  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        [Chromium] Crash after calling window.print() on a window object that has been closed.
+        https://bugs.webkit.org/show_bug.cgi?id=38148
+
+        It is unfortunately not possible to write a layout test for this as the
+        crash occurs in an API that is only called by Chrome while showing a
+        print dialog.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebView::willEnterModalLoop):
+        (WebKit::WebView::didExitModalLoop):
+
+2010-04-25  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=38097
+        Disentangle initializing the main thread from initializing threading
+
+        * src/WebKit.cpp:
+        (WebKit::initialize): Add call to initializeMainThread.
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl): Ditto.
+
+2010-04-26  Roman Gershman  <romange@google.com>
+
+        Reviewed by Adam Barth.
+
+        [Chromium] Font size in suggestions popup menu should be correlated with the font size of its text field.
+
+        https://bugs.webkit.org/show_bug.cgi?id=37977
+
+        * src/SuggestionsPopupMenuClient.cpp:
+        (WebKit::SuggestionsPopupMenuClient::initialize):
+
+2010-04-26  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Chromium Dev Tools: brush up images.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38124
+
+        * WebKit.gypi:
+        * src/js/DevTools.js:
+        (WebInspector.setToolbarColors):
+        * src/js/Images/segmentChromium.png:
+        * src/js/Images/segmentChromium2.png: Removed.
+        * src/js/Images/segmentHoverChromium2.png: Removed.
+        * src/js/Images/segmentSelectedChromium2.png: Removed.
+        * src/js/Images/statusbarBackgroundChromium.png:
+        * src/js/Images/statusbarBackgroundChromium2.png: Removed.
+        * src/js/Images/statusbarBottomBackgroundChromium.png:
+        * src/js/Images/statusbarButtonsChromium.png:
+        * src/js/Images/statusbarMenuButtonChromium.png:
+        * src/js/Images/statusbarMenuButtonChromium2.png: Removed.
+        * src/js/devTools.css:
+        (.section > .header):
+        (.console-group-messages .section > .header):
+        (#resources-filter):
+        (.crumbs .crumb):
+        (.crumbs .crumb.end):
+        (.crumbs .crumb.selected):
+        (.crumbs .crumb.selected:hover):
+        (.crumbs .crumb.selected.end, .crumbs .crumb.selected.end:hover):
+        (.crumbs .crumb:hover):
+        (.crumbs .crumb.dimmed:hover):
+        (.crumbs .crumb.end:hover):
+        (body.drawer-visible #main-status-bar):
+        (.status-bar):
+        (button.status-bar-item):
+        (select.status-bar-item:active):
+        (#drawer):
+        (select.status-bar-item):
+
+2010-04-23  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Darin Fisher.
+
+        Add isGLES2Compliant to GraphicsContext3D: make the method const.
+        https://bugs.webkit.org/show_bug.cgi?id=37872
+
+        * src/GraphicsContext3D.cpp: Make isGLES2Compliant() const.
+        (WebCore::GraphicsContext3DInternal::isGLES2Compliant):
+        (WebCore::GraphicsContext3D::isGLES2Compliant):
+
+2010-04-23  Rafael Weinstein  <rafaelw@grafaelw.sfo.corp.google.com>
+
+        Reviewed by Darin Fisher.
+
+        This patch adds a WebWindowFeatures binding struct for the
+        chromium client in anticipation of a follow-on patch which will
+        pass it to WebViewClient::createWindow.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38013
+
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::createView):
+        * public/WebWindowFeatures.h: Added.
+        (WebKit::WebWindowFeatures::WebWindowFeatures):
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::createWindow):
+
+2010-04-22  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Darin Fisher.
+
+        Add isGLES2Compliant to GraphicsContext3D
+        https://bugs.webkit.org/show_bug.cgi?id=37872
+
+        * public/WebGraphicsContext3D.h: Add isGLES2Compliant().
+        * src/GraphicsContext3D.cpp: Ditto.
+        * src/WebGraphicsContext3DDefaultImpl.cpp: Ditto.
+        (WebKit::WebGraphicsContext3DDefaultImpl::isGLES2Compliant):
+        * src/WebGraphicsContext3DDefaultImpl.h: Ditto.
+
+2010-04-22  Dave Moore  <davemoore@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Added notification when the favicons for a page are changed
+        from a script.
+        The Document object will notify the frame loader, which will
+        notify the client. Implementations of FrameLoaderClient will
+        have to add one method; dispatchDidChangeIcons().
+
+        https://bugs.webkit.org/show_bug.cgi?id=33812
+
+        * public/WebFrameClient.h:
+        (WebKit::WebFrameClient::didChangeIcons):
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::dispatchDidChangeIcons):
+        * src/FrameLoaderClientImpl.h:
+
+2010-04-22  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Emulate GL_IMPLEMENTATION_COLOR_READ_FORMAT/TYPE for glGet
+        https://bugs.webkit.org/show_bug.cgi?id=37281
+
+        * src/WebGraphicsContext3DDefaultImpl.cpp:
+        (WebKit::WebGraphicsContext3DDefaultImpl::getIntegerv): Emulate two  enums.
+
+2010-04-22  Adam Barth  <abarth@webkit.org>
+
+        Unreviewed, rolling out r58069.
+        http://trac.webkit.org/changeset/58069
+        https://bugs.webkit.org/show_bug.cgi?id=27751
+
+        Broke compile on Windows.
+
+        * public/WebSettings.h:
+        * src/WebSettingsImpl.cpp:
+        * src/WebSettingsImpl.h:
+
+2010-04-22  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Shinichiro Hamaji.
+
+        [chromium] roll chromium deps to pick up some windows build fixes
+        https://bugs.webkit.org/show_bug.cgi?id=37972
+
+        * DEPS:
+
+2010-04-22  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Add support for controlling clipboard access from javascript.
+        Clipboard access from javascript is disabled by default.
+        https://bugs.webkit.org/show_bug.cgi?id=27751
+
+        * public/WebSettings.h:
+        * src/WebSettingsImpl.cpp:
+        (WebKit::WebSettingsImpl::setJavaScriptCanAccessClipboard):
+        * src/WebSettingsImpl.h:
+
+2010-04-21  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Shinichiro Hamaji.
+
+        [chromium] gyp_webkit should be executable
+        https://bugs.webkit.org/show_bug.cgi?id=37971
+
+        * gyp_webkit: Added property svn:executable.
+
+2010-04-21  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Don't notify the WebView that a popup was
+        opened when the popup is handled externally, as the popup
+        is in that case transparent to the WebView.
+        The notification was causing an ASSERT on Mac (where
+        the popup is handled externally) as there would be no
+        notification that the popup was closed.
+        https://bugs.webkit.org/show_bug.cgi?id=37825
+
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::popupOpened):
+
 2010-04-21  Sheriff Bot  <webkit.review.bot@gmail.com>
 
         Unreviewed, rolling out r58028.

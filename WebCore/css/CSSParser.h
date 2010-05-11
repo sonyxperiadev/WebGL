@@ -2,6 +2,7 @@
  * Copyright (C) 2003 Lars Knoll (knoll@kde.org)
  * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
+ * Copyright (C) 2009 - 2010  Torch Mobile (Beijing) Co. Ltd. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -139,6 +140,10 @@ namespace WebCore {
         PassRefPtr<CSSValue> parseSVGStrokeDasharray();
 #endif
 
+#if ENABLE(WCSS)
+        PassRefPtr<CSSValue> parseWCSSInputProperty();
+#endif
+
         // CSS3 Parsing Routines (for properties specific to CSS3)
         bool parseShadow(int propId, bool important);
         bool parseBorderImage(int propId, bool important, RefPtr<CSSValue>&);
@@ -179,6 +184,10 @@ namespace WebCore {
         CSSRule* createStyleRule(Vector<CSSSelector*>* selectors);
         CSSRule* createFontFaceRule();
         CSSRule* createVariablesRule(MediaList*, bool variablesKeyword);
+        CSSRule* createPageRule(CSSSelector* pageSelector);
+        CSSRule* createMarginAtRule(CSSSelector::MarginBoxType marginBox);
+        void startDeclarationsForMarginBox();
+        void endDeclarationsForMarginBox();
 
         MediaQueryExp* createFloatingMediaQueryExp(const AtomicString&, CSSParserValueList*);
         MediaQueryExp* sinkFloatingMediaQueryExp(MediaQueryExp*);
@@ -212,6 +221,7 @@ namespace WebCore {
         CSSSelectorList* m_selectorListForParseSelector;
         unsigned m_numParsedProperties;
         unsigned m_maxParsedProperties;
+        unsigned m_numParsedPropertiesBeforeMarginBox;
 
         int m_inParseShorthand;
         int m_currentShorthand;
@@ -246,6 +256,18 @@ namespace WebCore {
         void clearVariables();
 
         void deleteFontFaceOnlyValues();
+
+        enum SizeParameterType {
+            None,
+            Auto,
+            Length,
+            PageSize,
+            Orientation,
+        };
+
+        bool parsePage(int propId, bool important);
+        bool parseSize(int propId, bool important);
+        SizeParameterType parseSizeParameter(CSSValueList* parsedValues, CSSParserValue* value, SizeParameterType prevParamType);
 
         UChar* m_data;
         UChar* yytext;

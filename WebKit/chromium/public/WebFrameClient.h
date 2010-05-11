@@ -138,6 +138,10 @@ public:
 
     // Navigational notifications ------------------------------------------
 
+    // A form submission has been requested, but the page's submit event handler
+    // hasn't yet had a chance to run (and possibly alter/interrupt the submit.)
+    virtual void willSendSubmitEvent(WebFrame*, const WebFormElement&) { }
+
     // A form submission is about to occur.
     virtual void willSubmitForm(WebFrame*, const WebFormElement&) { }
 
@@ -192,6 +196,9 @@ public:
     // The page title is available.
     virtual void didReceiveTitle(WebFrame*, const WebString& title) { }
 
+    // The icons for the page have changed.
+    virtual void didChangeIcons(WebFrame*) { }
+
     // The frame's document finished loading.
     virtual void didFinishDocumentLoad(WebFrame*) { }
 
@@ -211,8 +218,6 @@ public:
 
     // The navigation resulted in scrolling the page to a named anchor instead
     // of downloading a new document.
-    // FIXME: The isNewNavigation parameter is DEPRECATED.
-    virtual void didChangeLocationWithinPage(WebFrame*, bool isNewNavigation) { }
     virtual void didChangeLocationWithinPage(WebFrame*) { }
 
     // Called upon update to scroll position, document state, and other
@@ -291,6 +296,12 @@ public:
 
 
     // Geometry notifications ----------------------------------------------
+
+    // The frame's document finished the initial layout of a page.
+    virtual void didFirstLayout(WebFrame*) { }
+
+    // The frame's document finished the initial non-empty layout of a page.
+    virtual void didFirstVisuallyNonEmptyLayout(WebFrame*) { }
 
     // The size of the content area changed.
     virtual void didChangeContentsSize(WebFrame*, const WebSize&) { }

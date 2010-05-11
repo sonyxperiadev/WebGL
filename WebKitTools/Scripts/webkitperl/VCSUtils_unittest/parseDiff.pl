@@ -30,13 +30,6 @@ use warnings;
 use Test::More;
 use VCSUtils;
 
-my @diffHashRefKeys = ( # The $diffHashRef keys to check.
-    "copiedFromPath",
-    "indexPath",
-    "sourceRevision",
-    "svnConvertedText",
-);
-
 # The array of test cases.
 my @testCaseHashRefs = (
 {
@@ -53,7 +46,8 @@ Index: Makefile
  
  all:
 END
-    # Header keys to check
+    expectedReturn => [
+{
     svnConvertedText =>  <<'END', # Same as input text
 Index: Makefile
 ===================================================================
@@ -65,12 +59,52 @@ Index: Makefile
  
  all:
 END
-    copiedFromPath => undef,
     indexPath => "Makefile",
+    isSvn => 1,
     sourceRevision => "53052",
-    # Other values to check
-    lastReadLine => undef,
-    nextLine => undef,
+},
+undef],
+    expectedNextLine => undef,
+},
+{
+    # New test
+    diffName => "SVN: binary file (isBinary true)",
+    inputText => <<'END',
+Index: test_file.swf
+===================================================================
+Cannot display: file marked as a binary type.
+svn:mime-type = application/octet-stream
+
+Property changes on: test_file.swf
+___________________________________________________________________
+Name: svn:mime-type
+   + application/octet-stream
+
+
+Q1dTBx0AAAB42itg4GlgYJjGwMDDyODMxMDw34GBgQEAJPQDJA==
+END
+    expectedReturn => [
+{
+    svnConvertedText =>  <<'END', # Same as input text
+Index: test_file.swf
+===================================================================
+Cannot display: file marked as a binary type.
+svn:mime-type = application/octet-stream
+
+Property changes on: test_file.swf
+___________________________________________________________________
+Name: svn:mime-type
+   + application/octet-stream
+
+
+Q1dTBx0AAAB42itg4GlgYJjGwMDDyODMxMDw34GBgQEAJPQDJA==
+END
+    indexPath => "test_file.swf",
+    isBinary => 1,
+    isSvn => 1,
+},
+undef],
+    expectedNextLine => undef,
 },
 {
     # New test
@@ -89,7 +123,8 @@ Index: Makefile
  
  all:
 END
-    # Header keys to check
+    expectedReturn => [
+{
     svnConvertedText =>  <<'END', # Same as input text
 
 LEADING JUNK
@@ -104,12 +139,12 @@ Index: Makefile
  
  all:
 END
-    copiedFromPath => undef,
     indexPath => "Makefile",
+    isSvn => 1,
     sourceRevision => "53052",
-    # Other values to check
-    lastReadLine => undef,
-    nextLine => undef,
+},
+undef],
+    expectedNextLine => undef,
 },
 {
     # New test
@@ -122,7 +157,8 @@ Index: Makefile_new
 @@ -0,0 +1,1 @@
 +MODULES = JavaScriptCore JavaScriptGlue WebCore WebKit WebKitTools
 END
-    # Header keys to check
+    expectedReturn => [
+{
     svnConvertedText =>  <<'END', # Same as input text
 Index: Makefile_new
 ===================================================================
@@ -133,10 +169,11 @@ Index: Makefile_new
 END
     copiedFromPath => "Makefile",
     indexPath => "Makefile_new",
+    isSvn => 1,
     sourceRevision => "53131",
-    # Other values to check
-    lastReadLine => undef,
-    nextLine => undef,
+},
+undef],
+    expectedNextLine => undef,
 },
 {
     # New test
@@ -152,7 +189,8 @@ Index: Makefile_new
 ===================================================================
 --- Makefile_new	(revision 53131)	(from Makefile:53131)
 END
-    # Header keys to check
+    expectedReturn => [
+{
     svnConvertedText =>  <<'END',
 Index: Makefile
 ===================================================================
@@ -161,12 +199,12 @@ Index: Makefile
 @@ -1,1 +0,0 @@
 -MODULES = JavaScriptCore JavaScriptGlue WebCore WebKit WebKitTools
 END
-    copiedFromPath => undef,
     indexPath => "Makefile",
+    isSvn => 1,
     sourceRevision => "53131",
-    # Other values to check
-    lastReadLine => "Index: Makefile_new\n",
-    nextLine => "===================================================================\n",
+},
+"Index: Makefile_new\n"],
+    expectedNextLine => "===================================================================\n",
 },
 {
     # New test
@@ -184,7 +222,8 @@ index f5d5e74..3b6aa92 100644
 +++ b/Makefile
 @@ -1,1 1,1 @@ public:
 END
-    # Header keys to check
+    expectedReturn => [
+{
     svnConvertedText =>  <<'END', # Same as input text
 Index: Makefile
 ===================================================================
@@ -198,13 +237,16 @@ index f5d5e74..3b6aa92 100644
 +++ b/Makefile
 @@ -1,1 1,1 @@ public:
 END
-    copiedFromPath => undef,
     indexPath => "Makefile",
+    isSvn => 1,
     sourceRevision => "53131",
-    # Other values to check
-    lastReadLine => undef,
-    nextLine => undef,
 },
+undef],
+    expectedNextLine => undef,
+},
+####
+#    Git test cases
+##
 {
     # New test
     diffName => "Git: simple",
@@ -215,20 +257,20 @@ index f5d5e74..3b6aa92 100644
 +++ b/Makefile
 @@ -1,1 1,1 @@ public:
 END
-    # Header keys to check
+    expectedReturn => [
+{
     svnConvertedText =>  <<'END',
 Index: Makefile
-===================================================================
+index f5d5e74..3b6aa92 100644
 --- Makefile
 +++ Makefile
 @@ -1,1 1,1 @@ public:
 END
-    copiedFromPath => undef,
     indexPath => "Makefile",
-    sourceRevision => undef,
-    # Other values to check
-    lastReadLine => undef,
-    nextLine => undef,
+    isGit => 1,
+},
+undef],
+    expectedNextLine => undef,
 },
 {
     # New test
@@ -243,10 +285,11 @@ Index: Makefile_new
 ===================================================================
 --- Makefile_new	(revision 53131)	(from Makefile:53131)
 END
-    # Header keys to check
+    expectedReturn => [
+{
     svnConvertedText =>  <<'END',
 Index: Makefile
-===================================================================
+index f5d5e74..3b6aa92 100644
 --- Makefile
 +++ Makefile
 @@ -1,1 1,1 @@ public:
@@ -254,75 +297,29 @@ Index: Makefile_new
 ===================================================================
 --- Makefile_new	(revision 53131)	(from Makefile:53131)
 END
-    copiedFromPath => undef,
     indexPath => "Makefile",
-    sourceRevision => undef,
-    # Other values to check
-    lastReadLine => undef,
-    nextLine => undef,
+    isGit => 1,
+},
+undef],
+    expectedNextLine => undef,
 },
 );
 
-# Return the arguments for each assertion per test case.
-#
-# In particular, the number of assertions per test case is the length
-# of the return value of this subroutine on a sample input.
-#
-# Returns @assertionArgsArrayRefs:
-#   $assertionArgsArrayRef: A reference to an array of parameters to pass
-#                           to each call to is(). The parameters are--
-#                             $got: The value obtained
-#                             $expected: The expected value
-#                             $testName: The name of the test
-sub testParseDiffAssertionArgs($)
-{
-    my ($testCaseHashRef) = @_;
+my $testCasesCount = @testCaseHashRefs;
+plan(tests => 2 * $testCasesCount); # Total number of assertions.
+
+foreach my $testCase (@testCaseHashRefs) {
+    my $testNameStart = "parseDiff(): $testCase->{diffName}: comparing";
 
     my $fileHandle;
-    open($fileHandle, "<", \$testCaseHashRef->{inputText});
-
+    open($fileHandle, "<", \$testCase->{inputText});
     my $line = <$fileHandle>;
 
-    my ($diffHashRef, $lastReadLine) = VCSUtils::parseDiff($fileHandle, $line);
+    my @got = VCSUtils::parseDiff($fileHandle, $line);
+    my $expectedReturn = $testCase->{expectedReturn};
 
-    my $testNameStart = "parseDiff(): [$testCaseHashRef->{diffName}] ";
+    is_deeply(\@got, $expectedReturn, "$testNameStart return value.");
 
-    my @assertionArgsArrayRefs; # Return value
-    my @assertionArgs;
-    foreach my $diffHashRefKey (@diffHashRefKeys) {
-        my $testName = "${testNameStart}key=\"$diffHashRefKey\"";
-        @assertionArgs = ($diffHashRef->{$diffHashRefKey}, $testCaseHashRef->{$diffHashRefKey}, $testName);
-        push(@assertionArgsArrayRefs, \@assertionArgs);
-    }
-
-    @assertionArgs = ($lastReadLine, $testCaseHashRef->{lastReadLine}, "${testNameStart}lastReadLine");
-    push(@assertionArgsArrayRefs, \@assertionArgs);
-
-    my $nextLine = <$fileHandle>;
-    @assertionArgs = ($nextLine, $testCaseHashRef->{nextLine}, "${testNameStart}nextLine");
-    push(@assertionArgsArrayRefs, \@assertionArgs);
-
-    return @assertionArgsArrayRefs;
-}
-
-# Test parseDiff() for the given test case.
-sub testParseDiff($)
-{
-    my ($testCaseHashRef) = @_;
-
-    my @assertionArgsArrayRefs = testParseDiffAssertionArgs($testCaseHashRef);
-
-    foreach my $arrayRef (@assertionArgsArrayRefs) {
-        # The parameters are -- is($got, $expected, $testName).
-        is($arrayRef->[0], $arrayRef->[1], $arrayRef->[2]);
-    }
-}
-
-# Count the number of assertions per test case, using a sample test case.
-my $assertionCount = testParseDiffAssertionArgs($testCaseHashRefs[0]);
-
-plan(tests => @testCaseHashRefs * $assertionCount); # Total number of tests
-
-foreach my $testCaseHashRef (@testCaseHashRefs) {
-    testParseDiff($testCaseHashRef);
+    my $gotNextLine = <$fileHandle>;
+    is($gotNextLine, $testCase->{expectedNextLine},  "$testNameStart next read line.");
 }

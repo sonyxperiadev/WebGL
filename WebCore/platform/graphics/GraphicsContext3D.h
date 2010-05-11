@@ -479,6 +479,8 @@ namespace WebCore {
                               bool flipVertically,
                               AlphaOp alphaOp);
 
+        bool isGLES2Compliant() const;
+
         //----------------------------------------------------------------------
         // Entry points for WebGL.
         //
@@ -607,16 +609,12 @@ namespace WebCore {
         void stencilOp(unsigned long fail, unsigned long zfail, unsigned long zpass);
         void stencilOpSeparate(unsigned long face, unsigned long fail, unsigned long zfail, unsigned long zpass);
 
-        // These next several functions return an error code (0 if no errors) rather than using an ExceptionCode.
-        // Currently they return -1 on any error.
         int texImage2D(unsigned target, unsigned level, unsigned internalformat, unsigned width, unsigned height, unsigned border, unsigned format, unsigned type, void* pixels);
-        int texImage2D(unsigned target, unsigned level, Image* image, bool flipY, bool premultiplyAlpha);
 
         void texParameterf(unsigned target, unsigned pname, float param);
         void texParameteri(unsigned target, unsigned pname, int param);
 
         int texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, unsigned width, unsigned height, unsigned format, unsigned type, void* pixels);
-        int texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, Image* image, bool flipY, bool premultiplyAlpha);
 
         void uniform1f(long location, float x);
         void uniform1fv(long location, float* v, int size);
@@ -659,6 +657,9 @@ namespace WebCore {
         // Helpers for notification about paint events
         void beginPaint(WebGLRenderingContext* context);
         void endPaint();
+#if PLATFORM(QT)
+        void paint(QPainter* painter, const QRect& rect) const;
+#endif
 
         // Support for buffer creation and deletion
         unsigned createBuffer();

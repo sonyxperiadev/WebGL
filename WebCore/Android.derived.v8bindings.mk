@@ -52,10 +52,10 @@ GEN := \
     $(intermediates)/bindings/V8CSSVariablesDeclaration.h \
     $(intermediates)/bindings/V8CSSVariablesRule.h \
     $(intermediates)/bindings/V8Counter.h \
-    $(intermediates)/bindings/V8Media.h \
     $(intermediates)/bindings/V8MediaList.h \
     $(intermediates)/bindings/V8Rect.h \
     $(intermediates)/bindings/V8RGBColor.h \
+    $(intermediates)/bindings/V8StyleMedia.h \
     $(intermediates)/bindings/V8StyleSheet.h \
     $(intermediates)/bindings/V8StyleSheetList.h  \
     $(intermediates)/bindings/V8WebKitCSSKeyframeRule.h \
@@ -143,6 +143,7 @@ GEN := \
     $(intermediates)/bindings/V8DataGridColumn.h \
     $(intermediates)/bindings/V8DataGridColumnList.h \
     $(intermediates)/bindings/V8File.h \
+    $(intermediates)/bindings/V8FileError.h \
     $(intermediates)/bindings/V8FileList.h \
     $(intermediates)/bindings/V8HTMLAllCollection.h \
     $(intermediates)/bindings/V8HTMLAnchorElement.h \

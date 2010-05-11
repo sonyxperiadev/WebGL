@@ -89,12 +89,12 @@ class Land(AbstractSequencedCommand):
         steps.CloseBugForLandDiff,
     ]
     long_help = """land commits the current working copy diff (just as svn or git commit would).
-land will build and run the tests before committing.
+land will NOT build and run the tests before committing, but you can use the --build option for that.
 If a bug id is provided, or one can be found in the ChangeLog land will update the bug after committing."""
 
     def _prepare_state(self, options, args, tool):
         return {
-            "bug_id" : (args and args[0]) or tool.checkout().bug_id_for_this_commit()
+            "bug_id": (args and args[0]) or tool.checkout().bug_id_for_this_commit(options.git_commit, options.squash),
         }
 
 

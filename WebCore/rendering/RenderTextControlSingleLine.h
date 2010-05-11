@@ -32,6 +32,7 @@ class InputElement;
 class SearchFieldCancelButtonElement;
 class SearchFieldResultsButtonElement;
 class SearchPopupMenu;
+class SpinButtonElement;
 class TextControlInnerElement;
 
 class RenderTextControlSingleLine : public RenderTextControl, private PopupMenuClient {
@@ -53,12 +54,19 @@ public:
 
     void capsLockStateMayHaveChanged();
 
+    // Decoration width outside of the text field.
+    int decorationWidthRight() const;
+
 private:
+    int preferredDecorationWidthRight() const;
     virtual bool hasControlClip() const { return m_cancelButton; }
+    virtual IntRect controlClipRect(int tx, int ty) const;
     virtual bool isTextField() const { return true; }
 
     virtual void subtreeHasChanged();
     virtual void paint(PaintInfo&, int tx, int ty);
+    virtual void paintBoxDecorations(PaintInfo&, int tx, int ty);
+    virtual void addFocusRingRects(Vector<IntRect>&, int tx, int ty);
     virtual void layout();
 
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
@@ -89,6 +97,7 @@ private:
     PassRefPtr<RenderStyle> createInnerBlockStyle(const RenderStyle* startStyle) const;
     PassRefPtr<RenderStyle> createResultsButtonStyle(const RenderStyle* startStyle) const;
     PassRefPtr<RenderStyle> createCancelButtonStyle(const RenderStyle* startStyle) const;
+    PassRefPtr<RenderStyle> createOuterSpinButtonStyle() const;
 
     void updateCancelButtonVisibility() const;
     EVisibility visibilityForCancelButton() const;
@@ -130,6 +139,7 @@ private:
     RefPtr<TextControlInnerElement> m_innerBlock;
     RefPtr<SearchFieldResultsButtonElement> m_resultsButton;
     RefPtr<SearchFieldCancelButtonElement> m_cancelButton;
+    RefPtr<TextControlInnerElement> m_outerSpinButton;
 
     Timer<RenderTextControlSingleLine> m_searchEventTimer;
     RefPtr<SearchPopupMenu> m_searchPopup;

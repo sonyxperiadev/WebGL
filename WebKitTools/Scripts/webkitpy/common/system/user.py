@@ -62,11 +62,13 @@ class User(object):
     def edit(self, files):
         editor = os.environ.get("EDITOR") or "vi"
         args = shlex.split(editor)
+        # Note: Not thread safe: http://bugs.python.org/issue2320
         subprocess.call(args + files)
 
     def page(self, message):
         pager = os.environ.get("PAGER") or "less"
         try:
+            # Note: Not thread safe: http://bugs.python.org/issue2320
             child_process = subprocess.Popen([pager], stdin=subprocess.PIPE)
             child_process.communicate(input=message)
         except IOError, e:

@@ -115,7 +115,6 @@
       '../bindings/v8',
       '../bindings/v8/custom',
       '../bindings/v8/specialization',
-      '../bridge',
       '../css',
       '../dom',
       '../dom/default',
@@ -288,7 +287,6 @@
           'inputs': [
             '../css/makeprop.pl',
             '../css/CSSPropertyNames.in',
-            '../css/SVGCSSPropertyNames.in',
           ],
           'outputs': [
             '<(SHARED_INTERMEDIATE_DIR)/webkit/CSSPropertyNames.cpp',
@@ -301,13 +299,19 @@
             '--',
             '<@(_inputs)'
           ],
+          'conditions': [
+            ['enable_svg!=0', {
+              'inputs': [
+                '../css/SVGCSSPropertyNames.in',
+              ],
+            }],
+          ],
         },
         {
           'action_name': 'CSSValueKeywords',
           'inputs': [
             '../css/makevalues.pl',
             '../css/CSSValueKeywords.in',
-            '../css/SVGCSSValueKeywords.in',
           ],
           'outputs': [
             '<(SHARED_INTERMEDIATE_DIR)/webkit/CSSValueKeywords.c',
@@ -319,6 +323,13 @@
             '<@(_outputs)',
             '--',
             '<@(_inputs)'
+          ],
+          'conditions': [
+            ['enable_svg!=0', {
+              'inputs': [
+                '../css/SVGCSSValueKeywords.in',
+              ],
+            }],
           ],
         },
         {
@@ -988,6 +999,7 @@
             # Cherry-pick some files that can't be included by broader regexps.
             # Some of these are used instead of Chromium platform files, see
             # the specific exclusions in the "sources!" list below.
+            ['include', 'rendering/RenderThemeMac\\.mm$'],
             ['include', 'loader/archive/cf/LegacyWebArchive\\.cpp$'],
             ['include', 'platform/graphics/mac/ColorMac\\.mm$'],
             ['include', 'platform/graphics/mac/FloatPointMac\\.mm$'],

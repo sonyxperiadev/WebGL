@@ -39,7 +39,6 @@ WebInspector.SourceFrame = function(parentElement, addBreakpointDelegate, remove
     this._rowMessages = {};
     this._messageBubbles = {};
     this.breakpoints = [];
-    this._shortcuts = {};
 
     this._loaded = false;
 
@@ -55,9 +54,12 @@ WebInspector.SourceFrame.prototype = {
     {
         this._visible = visible;
         this._createViewerIfNeeded();
-        if (!visible && this._textViewer)
-            this._textViewer.freeCachedElements();
-            
+        
+        if (!visible) {
+            this._hidePopup();
+            if (this._textViewer)
+                this._textViewer.freeCachedElements();
+        }
     },
 
     get executionLine()
@@ -149,6 +151,11 @@ WebInspector.SourceFrame.prototype = {
         this._textModel.setText(null, content);
     },
 
+    get textModel()
+    {
+        return this._textModel;
+    },
+
     highlightLine: function(line)
     {
         if (this._textViewer)
@@ -164,7 +171,6 @@ WebInspector.SourceFrame.prototype = {
 
         this._textViewer = new WebInspector.TextViewer(this._textModel, WebInspector.platform, this._url);
         var element = this._textViewer.element;
-        element.addEventListener("keydown", this._keyDown.bind(this), true);
         element.addEventListener("contextmenu", this._contextMenu.bind(this), true);
         element.addEventListener("mousedown", this._mouseDown.bind(this), true);
         element.addEventListener("mousemove", this._mouseMove.bind(this), true);
@@ -669,17 +675,6 @@ WebInspector.SourceFrame.prototype = {
         return conditionElement;
     },
 
-    _keyDown: function(event)
-    {
-        var shortcut = WebInspector.KeyboardShortcut.makeKeyFromEvent(event);
-        var handler = this._shortcuts[shortcut];
-        if (handler) {
-            handler(event);
-            event.preventDefault();
-        } else
-            WebInspector.documentKeyDown(event);
-    },
-
     _evalSelectionInCallFrame: function(event)
     {
         if (!WebInspector.panels.scripts || !WebInspector.panels.scripts.paused)
@@ -689,7 +684,7 @@ WebInspector.SourceFrame.prototype = {
         if (!selection.rangeCount)
             return;
 
-        var expression = selection.getRangeAt(0).toString().trimWhitespace();
+        var expression = selection.getRangeAt(0).toString().trim();
         WebInspector.panels.scripts.evaluateInSelectedCallFrame(expression, false, "console", function(result, exception) {
             WebInspector.showConsole();
             var commandMessage = new WebInspector.ConsoleCommand(expression);

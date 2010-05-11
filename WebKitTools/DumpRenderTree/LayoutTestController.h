@@ -81,10 +81,12 @@ public:
     void setDomainRelaxationForbiddenForURLScheme(bool forbidden, JSStringRef scheme);
     void setIconDatabaseEnabled(bool iconDatabaseEnabled);
     void setJavaScriptProfilingEnabled(bool profilingEnabled);
+    void setJavaScriptCanAccessClipboard(bool flag);
     void setMainFrameIsFirstResponder(bool flag);
     void setMockGeolocationError(int code, JSStringRef message);
     void setMockGeolocationPosition(double latitude, double longitude, double accuracy);
     void setPersistentUserStyleSheetLocation(JSStringRef path);
+    void setPluginsEnabled(bool flag);
     void setPopupBlockingEnabled(bool flag);
     void setPrivateBrowsingEnabled(bool flag);
     void setSelectTrailingWhitespaceEnabled(bool flag);
@@ -156,6 +158,9 @@ public:
     bool dumpTitleChanges() const { return m_dumpTitleChanges; }
     void setDumpTitleChanges(bool dumpTitleChanges) { m_dumpTitleChanges = dumpTitleChanges; }
 
+    bool dumpIconChanges() const { return m_dumpIconChanges; }
+    void setDumpIconChanges(bool dumpIconChanges) { m_dumpIconChanges = dumpIconChanges; }
+
     bool dumpVisitedLinksCallback() const { return m_dumpVisitedLinksCallback; }
     void setDumpVisitedLinksCallback(bool dumpVisitedLinksCallback) { m_dumpVisitedLinksCallback = dumpVisitedLinksCallback; }
     
@@ -208,6 +213,9 @@ public:
     bool handlesAuthenticationChallenges() const { return m_handlesAuthenticationChallenges; }
     void setHandlesAuthenticationChallenges(bool handlesAuthenticationChallenges) { m_handlesAuthenticationChallenges = handlesAuthenticationChallenges; }
     
+    bool isPrinting() const { return m_isPrinting; }
+    void setIsPrinting(bool isPrinting) { m_isPrinting = isPrinting; }
+
     const std::string& authenticationUsername() const { return m_authenticationUsername; }
     void setAuthenticationUsername(std::string username) { m_authenticationUsername = username; }
     
@@ -278,6 +286,7 @@ private:
     bool m_dumpSourceAsWebArchive;
     bool m_dumpStatusCallbacks;
     bool m_dumpTitleChanges;
+    bool m_dumpIconChanges;
     bool m_dumpVisitedLinksCallback;
     bool m_dumpWillCacheResponse;
     bool m_callCloseOnWebViews;
@@ -297,6 +306,7 @@ private:
     bool m_isGeolocationPermissionSet;
     bool m_geolocationPermission;
     bool m_handlesAuthenticationChallenges;
+    bool m_isPrinting;
 
     std::string m_authenticationUsername;
     std::string m_authenticationPassword; 

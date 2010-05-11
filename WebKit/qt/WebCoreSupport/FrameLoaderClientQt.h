@@ -109,6 +109,7 @@ namespace WebCore {
         virtual void dispatchDidReceiveIcon();
         virtual void dispatchDidStartProvisionalLoad();
         virtual void dispatchDidReceiveTitle(const String& title);
+        virtual void dispatchDidChangeIcons();
         virtual void dispatchDidCommitLoad();
         virtual void dispatchDidFailProvisionalLoad(const ResourceError&);
         virtual void dispatchDidFailLoad(const WebCore::ResourceError&);
@@ -127,6 +128,7 @@ namespace WebCore {
 
         virtual void dispatchUnableToImplementPolicy(const WebCore::ResourceError&);
 
+        virtual void dispatchWillSendSubmitEvent(HTMLFormElement*) { }
         virtual void dispatchWillSubmitForm(FramePolicyFunction, PassRefPtr<FormState>);
 
         virtual void dispatchDidLoadMainResource(DocumentLoader*);

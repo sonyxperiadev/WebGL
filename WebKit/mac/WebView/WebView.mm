@@ -166,6 +166,7 @@
 #import <wtf/RefCountedLeakCounter.h>
 #import <wtf/RefPtr.h>
 #import <wtf/StdLibExtras.h>
+#import <wtf/Threading.h>
 
 #if ENABLE(DASHBOARD_SUPPORT)
 #import <WebKit/WebDashboardRegion.h>
@@ -188,6 +189,7 @@
 
 @interface NSWindow (WebNSWindowDetails) 
 - (id)_oldFirstResponderBeforeBecoming;
+- (void)_enableScreenUpdatesIfNeeded;
 @end
 
 using namespace WebCore;
@@ -758,10 +760,9 @@ static bool shouldEnableLoadDeferring()
     @try {
         [[self mainFrame] _drawRect:rect contentsOnly:NO];
 
-        WebView *webView = [self _webView];
-        [[webView _UIDelegateForwarder] webView:webView didDrawRect:rect];
+        [[self _UIDelegateForwarder] webView:self didDrawRect:rect];
 
-        if (WebNodeHighlight *currentHighlight = [webView currentNodeHighlight])
+        if (WebNodeHighlight *currentHighlight = [self currentNodeHighlight])
             [currentHighlight setNeedsUpdateInTargetViewRect:rect];
 
         [NSGraphicsContext restoreGraphicsState];
@@ -860,6 +861,25 @@ static bool shouldEnableLoadDeferring()
     return uniqueExtensions;
 }
 
+static NSMutableSet *knownPluginMIMETypes()
+{
+    static NSMutableSet *mimeTypes = [[NSMutableSet alloc] init];
+    
+    return mimeTypes;
+}
+
++ (void)_registerPluginMIMEType:(NSString *)MIMEType
+{
+    [WebView registerViewClass:[WebHTMLView class] representationClass:[WebHTMLRepresentation class] forMIMEType:MIMEType];
+    [knownPluginMIMETypes() addObject:MIMEType];
+}
+
++ (void)_unregisterPluginMIMEType:(NSString *)MIMEType
+{
+    [self _unregisterViewClassAndRepresentationClassForMIMEType:MIMEType];
+    [knownPluginMIMETypes() removeObject:MIMEType];
+}
+
 + (BOOL)_viewClass:(Class *)vClass andRepresentationClass:(Class *)rClass forMIMEType:(NSString *)MIMEType allowingPlugins:(BOOL)allowPlugins
 {
     MIMEType = [MIMEType lowercaseString];
@@ -880,11 +900,20 @@ static bool shouldEnableLoadDeferring()
     }
     
     if (viewClass && repClass) {
-        // Special-case WebHTMLView for text types that shouldn't be shown.
-        if (viewClass == [WebHTMLView class] &&
-            repClass == [WebHTMLRepresentation class] &&
-            [[WebHTMLView unsupportedTextMIMETypes] containsObject:MIMEType]) {
-            return NO;
+        if (viewClass == [WebHTMLView class] && repClass == [WebHTMLRepresentation class]) {
+            // Special-case WebHTMLView for text types that shouldn't be shown.
+            if ([[WebHTMLView unsupportedTextMIMETypes] containsObject:MIMEType])
+                return NO;
+
+            // If the MIME type is a known plug-in we might not want to load it.
+            if (!allowPlugins && [knownPluginMIMETypes() containsObject:MIMEType]) {
+                BOOL isSupportedByWebKit = [[WebHTMLView supportedNonImageMIMETypes] containsObject:MIMEType] ||
+                    [[WebHTMLView supportedMIMETypes] containsObject:MIMEType];
+                
+                // If this is a known plug-in MIME type and WebKit can't show it natively, we don't want to show it.
+                if (!isSupportedByWebKit)
+                    return NO;
+            }
         }
         if (vClass)
             *vClass = viewClass;
@@ -898,7 +927,7 @@ static bool shouldEnableLoadDeferring()
 
 - (BOOL)_viewClass:(Class *)vClass andRepresentationClass:(Class *)rClass forMIMEType:(NSString *)MIMEType
 {
-    if ([[self class] _viewClass:vClass andRepresentationClass:rClass forMIMEType:MIMEType allowingPlugins:[[[self _webView] preferences] arePlugInsEnabled]])
+    if ([[self class] _viewClass:vClass andRepresentationClass:rClass forMIMEType:MIMEType allowingPlugins:[_private->preferences arePlugInsEnabled]])
         return YES;
 
     if (_private->pluginDatabase) {
@@ -935,7 +964,9 @@ static bool shouldEnableLoadDeferring()
     DOMWindow::dispatchAllPendingUnloadEvents();
 
     // This will close the WebViews in a random order. Change this if close order is important.
-    NSEnumerator *enumerator = [(NSMutableSet *)allWebViewsSet objectEnumerator];
+    // Make a new set to avoid mutating the set we are enumerating.
+    NSSet *webViewsToClose = [NSSet setWithSet:(NSSet *)allWebViewsSet]; 
+    NSEnumerator *enumerator = [webViewsToClose objectEnumerator];
     while (WebView *webView = [enumerator nextObject])
         [webView close];
 }
@@ -1013,6 +1044,7 @@ static bool fastDocumentTeardownEnabled()
         return;
 
     _private->closed = YES;
+    [self _removeFromAllWebViewsSet];
 
     [self _closingEventHandling];
 
@@ -1034,7 +1066,6 @@ static bool fastDocumentTeardownEnabled()
     if (Frame* mainFrame = [self _mainCoreFrame])
         mainFrame->loader()->detachFromParent();
 
-    [self _removeFromAllWebViewsSet];
     [self setHostWindow:nil];
 
     [self setDownloadDelegate:nil];
@@ -1345,6 +1376,7 @@ static bool fastDocumentTeardownEnabled()
     settings->setLocalFileContentSniffingEnabled([preferences localFileContentSniffingEnabled]);
     settings->setOfflineWebApplicationCacheEnabled([preferences offlineWebApplicationCacheEnabled]);
     settings->setZoomMode([preferences zoomsTextOnly] ? ZoomTextOnly : ZoomPage);
+    settings->setJavaScriptCanAccessClipboard([preferences javaScriptCanAccessClipboard]);
     settings->setXSSAuditorEnabled([preferences isXSSAuditorEnabled]);
     settings->setEnforceCSSMIMETypeInStrictMode(!WKAppVersionCheckLessThan(@"com.apple.iWeb", -1, 2.1));
     
@@ -1379,6 +1411,9 @@ static inline IMP getMethod(id o, SEL s)
     cache->didFinishLoadingFromDataSourceFunc = getMethod(delegate, @selector(webView:resource:didFinishLoadingFromDataSource:));
     cache->didLoadResourceFromMemoryCacheFunc = getMethod(delegate, @selector(webView:didLoadResourceFromMemoryCache:response:length:fromDataSource:));
     cache->didReceiveAuthenticationChallengeFunc = getMethod(delegate, @selector(webView:resource:didReceiveAuthenticationChallenge:fromDataSource:));
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+    cache->canAuthenticateAgainstProtectionSpaceFunc = getMethod(delegate, @selector(webView:resource:canAuthenticateAgainstProtectionSpace:forDataSource:));
+#endif
     cache->didReceiveContentLengthFunc = getMethod(delegate, @selector(webView:resource:didReceiveContentLength:fromDataSource:));
     cache->didReceiveResponseFunc = getMethod(delegate, @selector(webView:resource:didReceiveResponse:fromDataSource:));
     cache->identifierForRequestFunc = getMethod(delegate, @selector(webView:identifierForInitialRequest:fromDataSource:));
@@ -2460,6 +2495,8 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
     initialized = YES;
 
     InitWebCoreSystemInterface();
+    JSC::initializeThreading();
+    WTF::initializeMainThreadToProcessMainThread();
 
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_applicationWillTerminate) name:NSApplicationWillTerminateNotification object:NSApp];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_preferencesChangedNotification:) name:WebPreferencesChangedNotification object:nil];
@@ -2504,7 +2541,7 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
 
 - (BOOL)_canShowMIMEType:(NSString *)MIMEType
 {
-    return [[self class] _canShowMIMEType:MIMEType allowingPlugins:[[[self _webView] preferences] arePlugInsEnabled]];
+    return [[self class] _canShowMIMEType:MIMEType allowingPlugins:[_private->preferences arePlugInsEnabled]];
 }
 
 - (WebBasePluginPackage *)_pluginForMIMEType:(NSString *)MIMEType
@@ -5604,9 +5641,27 @@ static WebFrameView *containingFrameView(NSView *view)
 
 static void layerSyncRunLoopObserverCallBack(CFRunLoopObserverRef, CFRunLoopActivity, void* info)
 {
-    WebView* webView = reinterpret_cast<WebView*>(info);
-    if ([webView _syncCompositingChanges])
+    WebView *webView = reinterpret_cast<WebView*>(info);
+    NSWindow *window = [webView window];
+
+    // An NSWindow may not display in the next runloop cycle after dirtying due to delayed window display logic,
+    // in which case this observer can fire first. So if the window is due for a display, don't commit
+    // layer changes, otherwise they'll show on screen before the view drawing.
+    if ([window viewsNeedDisplay])
+        return;
+
+    if ([webView _syncCompositingChanges]) {
         [webView _clearLayerSyncLoopObserver];
+        // AppKit may have disabled screen updates, thinking an upcoming window flush will re-enable them.
+        // In case setNeedsDisplayInRect() has prevented the window from needing to be flushed, re-enable screen
+        // updates here.
+        if (![window isFlushWindowDisabled])
+            [window _enableScreenUpdatesIfNeeded];
+    } else {
+        // Since the WebView does not need display, -viewWillDraw will not be called. Perform pending layout now,
+        // so that the layers draw with up-to-date layout. 
+        [webView _viewWillDrawInternal];
+    }
 }
 
 - (void)_scheduleCompositingLayerSync

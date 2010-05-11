@@ -38,6 +38,8 @@ import subprocess
 import sys
 import time
 
+from webkitpy.common.system.executive import Executive
+
 _log = logging.getLogger("webkitpy.layout_tests.port.server_process")
 
 
@@ -48,12 +50,13 @@ class ServerProcess:
     indefinitely. The class also handles transparently restarting processes
     as necessary to keep issuing commands."""
 
-    def __init__(self, port_obj, name, cmd, env=None):
+    def __init__(self, port_obj, name, cmd, env=None, executive=Executive()):
         self._port = port_obj
         self._name = name
         self._cmd = cmd
         self._env = env
         self._reset()
+        self._executive = executive
 
     def _reset(self):
         self._proc = None
@@ -66,6 +69,7 @@ class ServerProcess:
         if self._proc:
             raise ValueError("%s already running" % self._name)
         self._reset()
+        # close_fds is a workaround for http://bugs.python.org/issue2320
         close_fds = sys.platform not in ('win32', 'cygwin')
         self._proc = subprocess.Popen(self._cmd, stdin=subprocess.PIPE,
                                       stdout=subprocess.PIPE,
@@ -100,6 +104,8 @@ class ServerProcess:
         """Check to see if the underlying process is running; returns None
         if it still is (wrapper around subprocess.poll)."""
         if self._proc:
+            # poll() is not threadsafe and can throw OSError due to:
+            # http://bugs.python.org/issue1731717
             return self._proc.poll()
         return None
 
@@ -164,6 +170,8 @@ class ServerProcess:
         select_fds = (out_fd, err_fd)
         deadline = time.time() + timeout
         while not self.timed_out and not self.crashed:
+            # poll() is not threadsafe and can throw OSError due to:
+            # http://bugs.python.org/issue1731717
             if self._proc.poll() != None:
                 self.crashed = True
                 self.handle_interrupt()
@@ -210,14 +218,15 @@ class ServerProcess:
             # force-kill the process if necessary.
             KILL_TIMEOUT = 3.0
             timeout = time.time() + KILL_TIMEOUT
+            # poll() is not threadsafe and can throw OSError due to:
+            # http://bugs.python.org/issue1731717
             while self._proc.poll() is None and time.time() < timeout:
                 time.sleep(0.1)
+            # poll() is not threadsafe and can throw OSError due to:
+            # http://bugs.python.org/issue1731717
             if self._proc.poll() is None:
                 _log.warning('stopping %s timed out, killing it' %
                              self._name)
-                null = open(os.devnull, "w")
-                subprocess.Popen(["kill", "-9",
-                                  str(self._proc.pid)], stderr=null)
-                null.close()
+                self._executive.kill_process(self._proc.pid)
                 _log.warning('killed')
         self._reset()

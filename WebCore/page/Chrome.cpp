@@ -107,9 +107,10 @@ void Chrome::contentsSizeChanged(Frame* frame, const IntSize& size) const
     m_client->contentsSizeChanged(frame, size);
 }
 
-void Chrome::scrollRectIntoView(const IntRect& rect, const ScrollView* scrollView) const
+void Chrome::scrollRectIntoView(const IntRect& rect) const
 {
-    m_client->scrollRectIntoView(rect, scrollView);
+    // FIXME: The unused ScrollView* argument can and should be removed from ChromeClient::scrollRectIntoView.
+    m_client->scrollRectIntoView(rect, 0);
 }
 
 void Chrome::scrollbarsModeDidChange() const

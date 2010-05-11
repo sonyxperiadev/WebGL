@@ -38,8 +38,8 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
     if (!parent)
         return DefaultBehavior;
 
-    if (isMenuListPopup() || isMenuListOption())
-        return IgnoreObject;
+    if (roleValue() == SplitterRole)
+        return IncludeObject;
 
     if (isGroup()) {
         // When a list item is made up entirely of children (e.g. paragraphs)

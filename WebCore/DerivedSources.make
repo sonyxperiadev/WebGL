@@ -115,6 +115,7 @@ DOM_CLASSES = \
     DOMSelection \
     DOMWindow \
     Database \
+    DatabaseCallback \
     Document \
     DocumentFragment \
     DocumentType \
@@ -129,6 +130,7 @@ DOM_CLASSES = \
     EventSource \
     EventTarget \
     File \
+    FileError \
     FileList \
     Geolocation \
     Geoposition \
@@ -210,7 +212,6 @@ DOM_CLASSES = \
     InspectorFrontendHost \
     KeyboardEvent \
     Location \
-    Media \
     MediaError \
     MediaList \
     MessageChannel \
@@ -248,7 +249,11 @@ DOM_CLASSES = \
     SQLError \
     SQLResultSet \
     SQLResultSetRowList \
+    SQLStatementCallback \
+    SQLStatementErrorCallback \
     SQLTransaction \
+    SQLTransactionCallback \
+    SQLTransactionErrorCallback \
     Storage \
     StorageEvent \
     SVGAElement \
@@ -397,6 +402,7 @@ DOM_CLASSES = \
     SVGZoomAndPan \
     SVGZoomEvent \
     Screen \
+    StyleMedia \
     StyleSheet \
     StyleSheetList \
     Text \
@@ -821,7 +827,7 @@ CharsetData.cpp : platform/text/mac/make-charset-table.pl platform/text/mac/char
 
 # export file
 
-ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep ENABLE_MAC_JAVA_BRIDGE | cut -d' ' -f3), 1)
+ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep ENABLE_JAVA_BRIDGE | cut -d' ' -f3), 1)
     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.JNI.exp
 endif
 
@@ -879,6 +885,10 @@ endif
 
 ifeq ($(findstring ENABLE_GEOLOCATION,$(FEATURE_DEFINES)), ENABLE_GEOLOCATION)
     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.Geolocation.exp
+endif
+
+ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep WTF_USE_PROTECTION_SPACE_AUTH_CALLBACK | cut -d' ' -f3), 1)
+    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.ProtectionSpaceAuthCallback.exp
 endif
 
 WebCore.exp : WebCore.base.exp $(WEBCORE_EXPORT_DEPENDENCIES)

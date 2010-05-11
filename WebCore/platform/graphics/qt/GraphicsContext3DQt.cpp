@@ -154,8 +154,7 @@ public:
     ~GraphicsContext3DInternal();
 
     bool isContextValid() { return m_contextValid; }
-
-
+    QGLWidget* getOwnerGLWidget(QWebPageClient* webPageClient);
 
     glActiveTextureType activeTexture;
     glAttachShaderType attachShader;
@@ -248,6 +247,7 @@ public:
     glVertexAttribPointerType vertexAttribPointer;
 
     GraphicsContext3D::Attributes m_attrs;
+    HostWindow* m_hostWindow;
     QGLWidget* m_glWidget;
     GLuint m_texture;
     GLuint m_mainFbo;
@@ -258,7 +258,6 @@ public:
 
 private:
 
-    QGLWidget* getOwnerGLWidget(QWebPageClient* webPageClient);
     void* getProcAddress(const String& proc);
     bool m_contextValid;
 };
@@ -268,9 +267,20 @@ private:
 #else
 #define GET_PROC_ADDRESS(Proc) reinterpret_cast<Proc##Type>(getProcAddress(#Proc));
 #endif
+
+bool GraphicsContext3D::isGLES2Compliant() const
+{
+#if defined (QT_OPENGL_ES_2)
+    return true;
+#else
+    return false;
+#endif
+}
+
  
 GraphicsContext3DInternal::GraphicsContext3DInternal(GraphicsContext3D::Attributes attrs, HostWindow* hostWindow)
     : m_attrs(attrs)
+    , m_hostWindow(hostWindow)
     , m_glWidget(0)
     , m_texture(0)
     , m_mainFbo(0)
@@ -515,13 +525,30 @@ void GraphicsContext3D::beginPaint(WebGLRenderingContext* context)
     glReadPixels(/* x */ 0, /* y */ 0, m_currentWidth, m_currentHeight, GraphicsContext3D::RGBA, GraphicsContext3D::UNSIGNED_BYTE, m_internal->m_pixels.bits());
 
     QPainter* p = imageBuffer->context()->platformContext();
-    p->drawImage(/* x */ 0, /* y */ 0, m_internal->m_pixels.transformed(QMatrix().rotate(180)));
+    p->drawImage(/* x */ 0, /* y */ 0, m_internal->m_pixels.rgbSwapped().transformed(QMatrix().rotate(180)));
 
     m_internal->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, m_internal->m_currentFbo);
 }
 
 void GraphicsContext3D::endPaint()
 {
+}
+
+void GraphicsContext3D::paint(QPainter* painter, const QRect& rect) const
+{
+#if QT_VERSION >= QT_VERSION_CHECK(4, 7, 0)
+    QWebPageClient* webPageClient = m_internal->m_hostWindow->platformPageClient();
+    QGLWidget* ownerGLWidget  = m_internal->getOwnerGLWidget(webPageClient);
+    if (ownerGLWidget) {
+        ownerGLWidget->drawTexture(QPointF(0, 0), m_internal->m_texture);
+        return;
+    } 
+#endif
+    m_internal->m_glWidget->makeCurrent();
+    m_internal->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, m_internal->m_mainFbo);
+    glReadPixels(/* x */ 0, /* y */ 0, m_currentWidth, m_currentHeight, GraphicsContext3D::RGBA, GraphicsContext3D::UNSIGNED_BYTE, m_internal->m_pixels.bits());
+    painter->drawImage(/* x */ 0, /* y */ 0, m_internal->m_pixels.rgbSwapped().transformed(QMatrix().rotate(180)));
+    m_internal->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, m_internal->m_currentFbo); 
 }
 
 void GraphicsContext3D::reshape(int width, int height)
@@ -1466,53 +1493,16 @@ long GraphicsContext3D::getVertexAttribOffset(unsigned long index, unsigned long
 
 int GraphicsContext3D::texImage2D(unsigned target, unsigned level, unsigned internalformat, unsigned width, unsigned height, unsigned border, unsigned format, unsigned type, void* pixels)
 {
+    m_internal->m_glWidget->makeCurrent();
     glTexImage2D(target, level, internalformat, width, height, border, format, type, pixels);
     return 0;
 }
 
-int GraphicsContext3D::texImage2D(unsigned target, unsigned level, Image* image, bool flipY, bool premultiplyAlpha)
-{
-    ASSERT(image);
-    
-    m_internal->m_glWidget->makeCurrent();
-
-    Vector<uint8_t> imageData;
-    GLuint format;
-    GLuint internalFormat;
-
-    if (!extractImageData(image, flipY, premultiplyAlpha, imageData, &format, &internalFormat)) {
-        LOG_ERROR("GraphicsContext3D::texImage2D: could not extract Image data");
-        return -1;
-    }
-
-    glTexImage2D(target, level, internalFormat, image->width(), image->height(), 
-                 /* border */ 0, format, GraphicsContext3D::UNSIGNED_BYTE, imageData.data());
-
-    return 0;
-}
-    
+   
 int GraphicsContext3D::texSubImage2D(unsigned target, unsigned level, unsigned xoff, unsigned yoff, unsigned width, unsigned height, unsigned format, unsigned type, void* pixels)
 {
+    m_internal->m_glWidget->makeCurrent();
     glTexSubImage2D(target, level, xoff, yoff, width, height, format, type, pixels);
-    return 0;
-}
-
-int GraphicsContext3D::texSubImage2D(unsigned target, unsigned level, unsigned xoff, unsigned yoff, Image* image, bool flipY, bool premultiplyAlpha)
-{
-    ASSERT(image);
-
-    Vector<uint8_t> imageData;
-    GLuint format;
-    GLuint internalFormat;
-
-    if (!extractImageData(image, flipY, premultiplyAlpha, imageData, &format, &internalFormat)) {
-        LOG_ERROR("GraphicsContext3D::texSubImage2D: could not extract Image data");
-        return -1;
-    }
-
-    glTexSubImage2D(target, level, xoff, yoff, image->width(), image->height(), 
-                    format, GraphicsContext3D::UNSIGNED_BYTE, imageData.data());
-
     return 0;
 }
 
@@ -1630,18 +1620,17 @@ bool GraphicsContext3D::getImageData(Image* image,
                                      AlphaOp* neededAlphaOp,
                                      unsigned int* format)
 {
-    QImage::Format imageFormat = (!premultiplyAlpha) ? 
-        QImage::Format_ARGB32 :
-        QImage::Format_ARGB32_Premultiplied;
- 
-    QPixmap* nativePixmap = image->nativeImageForCurrentFrame(); 
 
     *hasAlphaChannel = true;
-    *neededAlphaOp = kAlphaDoNothing;
     *format = GraphicsContext3D::RGBA;
 
-    QImage nativeImage = nativePixmap->toImage().convertToFormat(imageFormat);
-    outputVector.append(nativeImage.bits(), nativeImage.byteCount());
+    *neededAlphaOp = kAlphaDoNothing;
+    if (!premultiplyAlpha && *hasAlphaChannel)
+        *neededAlphaOp = kAlphaDoUnmultiply;
+    
+    QPixmap* nativePixmap = image->nativeImageForCurrentFrame(); 
+    QImage nativeImage = nativePixmap->toImage().convertToFormat(QImage::Format_ARGB32);
+    outputVector.append(nativeImage.rgbSwapped().bits(), nativeImage.byteCount());
 
     return true;
 }

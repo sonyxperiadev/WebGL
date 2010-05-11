@@ -39,8 +39,8 @@ WTFThreadData::WTFThreadData()
     : m_atomicStringTable(0)
     , m_atomicStringTableDestructor(0)
 #if USE(JSC)
-    , m_defaultIdentifierTable(0)
-    , m_currentIdentifierTable(0)
+    , m_defaultIdentifierTable(new JSC::IdentifierTable())
+    , m_currentIdentifierTable(m_defaultIdentifierTable)
 #endif
 {
 }
@@ -49,6 +49,9 @@ WTFThreadData::~WTFThreadData()
 {
     if (m_atomicStringTableDestructor)
         m_atomicStringTableDestructor(m_atomicStringTable);
+#if USE(JSC)
+    delete m_defaultIdentifierTable;
+#endif
 }
 
 } // namespace WebCore

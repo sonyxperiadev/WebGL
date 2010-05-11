@@ -15,6 +15,8 @@
 		BC329498116A941B008635D0 /* BrowserWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = BC329497116A941B008635D0 /* BrowserWindowController.m */; };
 		BC3294A3116A9852008635D0 /* BrowserWindow.xib in Resources */ = {isa = PBXBuildFile; fileRef = BC3294A1116A9852008635D0 /* BrowserWindow.xib */; };
 		BC8FB5A8116AA1FE0080D413 /* WebKit2.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BC8FB5A7116AA1FE0080D413 /* WebKit2.framework */; };
+		BCE625EE117FC80E00572433 /* BrowserStatisticsWindow.xib in Resources */ = {isa = PBXBuildFile; fileRef = BCE625ED117FC80E00572433 /* BrowserStatisticsWindow.xib */; };
+		BCE625F1117FC82700572433 /* BrowserStatisticsWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = BCE625F0117FC82700572433 /* BrowserStatisticsWindowController.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -29,11 +31,15 @@
 		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		8D1107310486CEB800E47090 /* MiniBrowser-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "MiniBrowser-Info.plist"; path = "mac/MiniBrowser-Info.plist"; sourceTree = "<group>"; };
 		8D1107320486CEB800E47090 /* MiniBrowser.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MiniBrowser.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BC1770121188DF19007D9E9A /* make-launchable.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "make-launchable.sh"; path = "mac/make-launchable.sh"; sourceTree = "<group>"; };
 		BC329486116A92E2008635D0 /* main.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = main.m; path = mac/main.m; sourceTree = "<group>"; };
 		BC329496116A941B008635D0 /* BrowserWindowController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = BrowserWindowController.h; path = mac/BrowserWindowController.h; sourceTree = "<group>"; };
 		BC329497116A941B008635D0 /* BrowserWindowController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = BrowserWindowController.m; path = mac/BrowserWindowController.m; sourceTree = "<group>"; };
 		BC3294A2116A9852008635D0 /* English */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = English; path = mac/English.lproj/BrowserWindow.xib; sourceTree = "<group>"; };
 		BC8FB5A7116AA1FE0080D413 /* WebKit2.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = WebKit2.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		BCE625ED117FC80E00572433 /* BrowserStatisticsWindow.xib */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = BrowserStatisticsWindow.xib; path = mac/BrowserStatisticsWindow.xib; sourceTree = "<group>"; };
+		BCE625EF117FC82700572433 /* BrowserStatisticsWindowController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = BrowserStatisticsWindowController.h; path = mac/BrowserStatisticsWindowController.h; sourceTree = "<group>"; };
+		BCE625F0117FC82700572433 /* BrowserStatisticsWindowController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = BrowserStatisticsWindowController.m; path = mac/BrowserStatisticsWindowController.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -56,6 +62,8 @@
 				256AC3D90F4B6AC300CF3369 /* AppDelegate.m */,
 				BC329496116A941B008635D0 /* BrowserWindowController.h */,
 				BC329497116A941B008635D0 /* BrowserWindowController.m */,
+				BCE625EF117FC82700572433 /* BrowserStatisticsWindowController.h */,
+				BCE625F0117FC82700572433 /* BrowserStatisticsWindowController.m */,
 			);
 			name = Classes;
 			sourceTree = "<group>";
@@ -93,6 +101,7 @@
 				080E96DDFE201D6D7F000001 /* Classes */,
 				29B97315FDCFA39411CA2CEA /* Other Sources */,
 				29B97317FDCFA39411CA2CEA /* Resources */,
+				BC1770481188EB05007D9E9A /* Scripts */,
 				29B97323FDCFA39411CA2CEA /* Frameworks */,
 				19C28FACFE9D520D11CA2CBB /* Products */,
 			);
@@ -115,6 +124,7 @@
 				089C165CFE840E0CC02AAC07 /* InfoPlist.strings */,
 				BC3294A1116A9852008635D0 /* BrowserWindow.xib */,
 				1DDD58140DA1D0A300B32029 /* MainMenu.xib */,
+				BCE625ED117FC80E00572433 /* BrowserStatisticsWindow.xib */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -128,6 +138,14 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		BC1770481188EB05007D9E9A /* Scripts */ = {
+			isa = PBXGroup;
+			children = (
+				BC1770121188DF19007D9E9A /* make-launchable.sh */,
+			);
+			name = Scripts;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -138,6 +156,7 @@
 				8D1107290486CEB800E47090 /* Resources */,
 				8D11072C0486CEB800E47090 /* Sources */,
 				8D11072E0486CEB800E47090 /* Frameworks */,
+				BC17701E1188DFB4007D9E9A /* Make Launchable */,
 			);
 			buildRules = (
 			);
@@ -174,10 +193,28 @@
 				8D11072B0486CEB800E47090 /* InfoPlist.strings in Resources */,
 				1DDD58160DA1D0A300B32029 /* MainMenu.xib in Resources */,
 				BC3294A3116A9852008635D0 /* BrowserWindow.xib in Resources */,
+				BCE625EE117FC80E00572433 /* BrowserStatisticsWindow.xib in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		BC17701E1188DFB4007D9E9A /* Make Launchable */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Make Launchable";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "mac/make-launchable.sh\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		8D11072C0486CEB800E47090 /* Sources */ = {
@@ -187,6 +224,7 @@
 				256AC3DA0F4B6AC300CF3369 /* AppDelegate.m in Sources */,
 				BC329487116A92E2008635D0 /* main.m in Sources */,
 				BC329498116A941B008635D0 /* BrowserWindowController.m in Sources */,
+				BCE625F1117FC82700572433 /* BrowserStatisticsWindowController.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

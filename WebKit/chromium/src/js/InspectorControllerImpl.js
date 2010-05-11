@@ -128,8 +128,7 @@ if (!window.v8ScriptDebugServerEnabled) {
 devtools.InspectorBackendImpl.prototype.setBreakpoint = function(sourceID, line, enabled, condition)
 {
     this.removeBreakpoint(sourceID, line);
-    if (enabled)
-        devtools.tools.getDebuggerAgent().addBreakpoint(sourceID, line, condition);
+    devtools.tools.getDebuggerAgent().addBreakpoint(sourceID, line, enabled, condition);
 };
 
 
@@ -139,10 +138,10 @@ devtools.InspectorBackendImpl.prototype.removeBreakpoint = function(sourceID, li
 };
 
 
-devtools.InspectorBackendImpl.prototype.editScriptLine = function(callID, sourceID, line, newContent)
+devtools.InspectorBackendImpl.prototype.editScriptSource = function(callID, sourceID, newContent)
 {
-    devtools.tools.getDebuggerAgent().editScriptLine(sourceID, line, newContent, function(newFullBody) {
-        WebInspector.didEditScriptLine(callID, newFullBody);
+    devtools.tools.getDebuggerAgent().editScriptSource(sourceID, newContent, function(newFullBody) {
+        WebInspector.didEditScriptSource(callID, newFullBody);
     });
 };
 

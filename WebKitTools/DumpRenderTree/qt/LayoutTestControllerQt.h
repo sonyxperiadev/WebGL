@@ -139,11 +139,13 @@ public slots:
     void setFixedContentsSize(int width, int height);
     void setPrivateBrowsingEnabled(bool enable);
     void setSpatialNavigationEnabled(bool enabled);
+    void setPluginsEnabled(bool flag);
     void setPopupBlockingEnabled(bool enable);
     void setPOSIXLocale(const QString& locale);
     void resetLoadFinished() { m_loadFinished = false; }
     void setWindowIsKey(bool isKey);
     void setMainFrameIsFirstResponder(bool isFirst);
+    void setJavaScriptCanAccessClipboard(bool enable);
     void setXSSAuditorEnabled(bool enable);
     void setCaretBrowsingEnabled(bool enable);
     void setViewModeMediaFeature(const QString& mode);

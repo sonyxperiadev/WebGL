@@ -104,6 +104,9 @@ public:
     // content rendered via the normal painting path.
     void setNeedsOneShotDrawingSynchronization();
 #endif
+
+    bool isEnclosedInCompositingLayer() const;
+
     // Only used with accelerated compositing, but outside the #ifdef to make linkage easier.
     // Returns true if the sync was completed.
     bool syncCompositingStateRecursive();
@@ -137,9 +140,8 @@ public:
 
     virtual IntRect windowResizerRect() const;
 
-    virtual void scrollRectIntoViewRecursively(const IntRect&);
-    virtual void setScrollPosition(const IntPoint&);
-    void scrollPositionChanged();
+    void setScrollPosition(const IntPoint&);
+    virtual void scrollPositionChanged();
 
     String mediaType() const;
     void setMediaType(const String&);

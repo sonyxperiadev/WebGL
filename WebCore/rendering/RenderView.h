@@ -166,7 +166,6 @@ public:
 #if USE(ACCELERATED_COMPOSITING)
     RenderLayerCompositor* compositor();
     bool usesCompositing() const;
-    void compositingStateChanged(bool nowComposited);
 #endif
 
 protected:

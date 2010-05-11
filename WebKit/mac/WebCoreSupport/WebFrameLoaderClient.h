@@ -42,6 +42,7 @@ namespace WebCore {
     class AuthenticationChallenge;
     class CachedFrame;
     class HistoryItem;
+    class ProtectionSpace;
     class String;
     class ResourceLoader;
     class ResourceRequest;
@@ -79,6 +80,9 @@ private:
     virtual bool shouldUseCredentialStorage(WebCore::DocumentLoader*, unsigned long identifier);
     virtual void dispatchDidReceiveAuthenticationChallenge(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::AuthenticationChallenge&);
     virtual void dispatchDidCancelAuthenticationChallenge(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::AuthenticationChallenge&);
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+    virtual bool canAuthenticateAgainstProtectionSpace(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::ProtectionSpace&);
+#endif
     virtual void dispatchDidReceiveResponse(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::ResourceResponse&);
     virtual void dispatchDidReceiveContentLength(WebCore::DocumentLoader*, unsigned long identifier, int lengthReceived);
     virtual void dispatchDidFinishLoading(WebCore::DocumentLoader*, unsigned long identifier);
@@ -99,6 +103,7 @@ private:
     virtual void dispatchDidReceiveIcon();
     virtual void dispatchDidStartProvisionalLoad();
     virtual void dispatchDidReceiveTitle(const WebCore::String& title);
+    virtual void dispatchDidChangeIcons();
     virtual void dispatchDidCommitLoad();
     virtual void dispatchDidFailProvisionalLoad(const WebCore::ResourceError&);
     virtual void dispatchDidFailLoad(const WebCore::ResourceError&);
@@ -120,6 +125,7 @@ private:
 
     virtual void dispatchUnableToImplementPolicy(const WebCore::ResourceError&);
 
+    virtual void dispatchWillSendSubmitEvent(WebCore::HTMLFormElement*) { }
     virtual void dispatchWillSubmitForm(WebCore::FramePolicyFunction, PassRefPtr<WebCore::FormState>);
 
     virtual void dispatchDidLoadMainResource(WebCore::DocumentLoader*);
@@ -204,7 +210,7 @@ private:
 
     virtual void registerForIconNotification(bool listen);
 
-#if ENABLE(MAC_JAVA_BRIDGE)
+#if ENABLE(JAVA_BRIDGE)
     virtual jobject javaApplet(NSView*);
 #endif
 

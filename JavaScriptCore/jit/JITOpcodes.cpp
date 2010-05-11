@@ -400,7 +400,7 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
     *executablePool = finalCode.m_executablePool;
 
     trampolines->ctiVirtualCall = trampolineAt(finalCode, virtualCallBegin);
-    trampolines->ctiNativeCallThunk = trampolineAt(finalCode, nativeCallThunk);
+    trampolines->ctiNativeCallThunk = adoptRef(new NativeExecutable(JITCode(JITCode::HostFunction(trampolineAt(finalCode, nativeCallThunk)))));
 #if ENABLE(JIT_OPTIMIZE_PROPERTY_ACCESS)
     trampolines->ctiStringLengthTrampoline = trampolineAt(finalCode, stringLengthBegin);
 #else
@@ -1430,11 +1430,16 @@ void JIT::emit_op_new_error(Instruction* currentInstruction)
 
 void JIT::emit_op_debug(Instruction* currentInstruction)
 {
+#if ENABLE(DEBUG_WITH_BREAKPOINT)
+    UNUSED_PARAM(currentInstruction);
+    breakpoint();
+#else
     JITStubCall stubCall(this, cti_op_debug);
     stubCall.addArgument(Imm32(currentInstruction[1].u.operand));
     stubCall.addArgument(Imm32(currentInstruction[2].u.operand));
     stubCall.addArgument(Imm32(currentInstruction[3].u.operand));
     stubCall.call();
+#endif
 }
 
 
@@ -1937,7 +1942,7 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
 
     trampolines->ctiVirtualCallLink = trampolineAt(finalCode, virtualCallLinkBegin);
     trampolines->ctiVirtualCall = trampolineAt(finalCode, virtualCallBegin);
-    trampolines->ctiNativeCallThunk = trampolineAt(finalCode, nativeCallThunk);
+    trampolines->ctiNativeCallThunk = adoptRef(new NativeExecutable(JITCode(JITCode::HostFunction(trampolineAt(finalCode, nativeCallThunk)))));
 #if ENABLE(JIT_OPTIMIZE_MOD)
     trampolines->ctiSoftModulo = trampolineAt(finalCode, softModBegin);
 #endif
@@ -2721,11 +2726,16 @@ void JIT::emit_op_new_error(Instruction* currentInstruction)
 
 void JIT::emit_op_debug(Instruction* currentInstruction)
 {
+#if ENABLE(DEBUG_WITH_BREAKPOINT)
+    UNUSED_PARAM(currentInstruction);
+    breakpoint();
+#else
     JITStubCall stubCall(this, cti_op_debug);
     stubCall.addArgument(Imm32(currentInstruction[1].u.operand));
     stubCall.addArgument(Imm32(currentInstruction[2].u.operand));
     stubCall.addArgument(Imm32(currentInstruction[3].u.operand));
     stubCall.call();
+#endif
 }
 
 void JIT::emit_op_eq_null(Instruction* currentInstruction)

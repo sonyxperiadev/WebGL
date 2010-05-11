@@ -66,6 +66,13 @@ class TestPort(base.Port):
                   expected_filename, actual_filename):
         return ''
 
+    def relative_test_filename(self, filename):
+        return filename
+
+    def expected_filename(self, filename, suffix):
+        (basename, ext) = os.path.splitext(filename)
+        return basename + '.' + suffix
+
     def name(self):
         return self._name
 
@@ -81,7 +88,7 @@ class TestPort(base.Port):
     def show_results_html_file(self, filename):
         pass
 
-    def start_driver(self, image_path, options):
+    def create_driver(self, image_path, options):
         return TestDriver(image_path, options, self)
 
     def start_http_server(self):
@@ -131,6 +138,9 @@ class TestDriver(base.Driver):
 
     def run_test(self, uri, timeoutms, image_hash):
         return (False, False, image_hash, '', None)
+
+    def start(self):
+        pass
 
     def stop(self):
         pass

@@ -152,7 +152,7 @@ void RenderFileUploadControl::updateFromElement()
         renderer->setStyle(buttonStyle.release());
         renderer->updateFromElement();
         m_button->setAttached();
-        m_button->setInDocument(true);
+        m_button->setInDocument();
 
         addChild(renderer);
     }
@@ -285,7 +285,7 @@ void RenderFileUploadControl::calcPrefWidths()
         m_minPrefWidth = min(m_minPrefWidth, calcContentBoxWidth(style()->maxWidth().value()));
     }
 
-    int toAdd = paddingLeft() + paddingRight() + borderLeft() + borderRight();
+    int toAdd = borderAndPaddingWidth();
     m_minPrefWidth += toAdd;
     m_maxPrefWidth += toAdd;
 

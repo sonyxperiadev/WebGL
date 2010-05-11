@@ -235,6 +235,11 @@ void GraphicsContext3D::endPaint()
 {
 }
 
+bool GraphicsContext3D::isGLES2Compliant() const
+{
+    return false;
+}
+
 void GraphicsContext3D::reshape(int width, int height)
 {
     if (width == m_currentWidth && height == m_currentHeight || !m_contextObj)
@@ -1141,8 +1146,20 @@ void GraphicsContext3D::getFramebufferAttachmentParameteriv(unsigned long target
 
 void GraphicsContext3D::getIntegerv(unsigned long pname, int* value)
 {
+    // Need to emulate IMPLEMENTATION_COLOR_READ_FORMAT/TYPE for GL.  Any valid
+    // combination should work, but GL_RGB/GL_UNSIGNED_BYTE might be the most
+    // useful for desktop WebGL users.
     ensureContext(m_contextObj);
-    ::glGetIntegerv(pname, value);
+    switch (pname) {
+    case IMPLEMENTATION_COLOR_READ_FORMAT:
+        *value = GL_RGB;
+        break;
+    case IMPLEMENTATION_COLOR_READ_TYPE:
+        *value = GL_UNSIGNED_BYTE;
+        break;
+    default:
+        ::glGetIntegerv(pname, value);
+    }
 }
 
 void GraphicsContext3D::getProgramiv(WebGLProgram* program, unsigned long pname, int* value)
@@ -1278,39 +1295,18 @@ long GraphicsContext3D::getVertexAttribOffset(unsigned long index, unsigned long
 
 int GraphicsContext3D::texImage2D(unsigned target, unsigned level, unsigned internalformat, unsigned width, unsigned height, unsigned border, unsigned format, unsigned type, void* pixels)
 {
-    // FIXME: Need to do bounds checking on the buffer here.
+    ensureContext(m_contextObj);
+
     ::glTexImage2D(target, level, internalformat, width, height, border, format, type, pixels);
     return 0;
 }
 
-int GraphicsContext3D::texImage2D(unsigned target, unsigned level, Image* image, bool flipY, bool premultiplyAlpha)
-{
-    ensureContext(m_contextObj);
-    Vector<uint8_t> imageData;
-    unsigned int format, internalFormat;
-    if (!extractImageData(image, flipY, premultiplyAlpha, imageData, &format, &internalFormat))
-        return -1;
-    ::glTexImage2D(target, level, internalFormat, image->width(), image->height(), 0, format, GL_UNSIGNED_BYTE, imageData.data());
-    return 0;
-}
-    
 int GraphicsContext3D::texSubImage2D(unsigned target, unsigned level, unsigned xoff, unsigned yoff, unsigned width, unsigned height, unsigned format, unsigned type, void* pixels)
 {
-    // FIXME: we will need to deal with PixelStore params when dealing with image buffers that differ from the subimage size
-    // FIXME: Need to do bounds checking on the buffer here.
-    ::glTexSubImage2D(target, level, xoff, yoff, width, height, format, type, pixels);
-    return 0;
-}
-
-int GraphicsContext3D::texSubImage2D(unsigned target, unsigned level, unsigned xoff, unsigned yoff, Image* image, bool flipY, bool premultiplyAlpha)
-{
-    // FIXME: we will need to deal with PixelStore params when dealing with image buffers that differ from the subimage size
     ensureContext(m_contextObj);
-    Vector<uint8_t> imageData;
-    unsigned int format, internalFormat;
-    if (!extractImageData(image, flipY, premultiplyAlpha, imageData, &format, &internalFormat))
-        return -1;
-    ::glTexSubImage2D(target, level, xoff, yoff, image->width(), image->height(), format, GL_UNSIGNED_BYTE, imageData.data());
+
+    // FIXME: we will need to deal with PixelStore params when dealing with image buffers that differ from the subimage size
+    ::glTexSubImage2D(target, level, xoff, yoff, width, height, format, type, pixels);
     return 0;
 }
 

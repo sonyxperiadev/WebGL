@@ -34,6 +34,7 @@
 #include "HTMLElement.h"
 #include "HTMLNames.h"
 #include "InlineTextBox.h"
+#include "PrintContext.h"
 #include "RenderBR.h"
 #include "RenderFileUploadControl.h"
 #include "RenderInline.h"
@@ -51,6 +52,7 @@
 #if ENABLE(SVG)
 #include "RenderPath.h"
 #include "RenderSVGContainer.h"
+#include "RenderSVGGradientStop.h"
 #include "RenderSVGImage.h"
 #include "RenderSVGInlineText.h"
 #include "RenderSVGRoot.h"
@@ -396,8 +398,12 @@ void write(TextStream& ts, const RenderObject& o, int indent, RenderAsTextBehavi
         write(ts, *toRenderPath(&o), indent);
         return;
     }
-    if (o.isSVGResource()) {
-        writeSVGResource(ts, o, indent);
+    if (o.isSVGGradientStop()) {
+        writeSVGGradientStop(ts, *toRenderSVGGradientStop(&o), indent);
+        return;
+    }
+    if (o.isSVGResourceContainer()) {
+        writeSVGResourceContainer(ts, o, indent);
         return;
     }
     if (o.isSVGContainer()) {
@@ -612,6 +618,13 @@ static void writeSelection(TextStream& ts, const RenderObject* o)
 
 String externalRepresentation(Frame* frame, RenderAsTextBehavior behavior)
 {
+    PrintContext printContext(frame);
+    if (behavior & RenderAsTextPrintingMode) {
+        if (!frame->contentRenderer())
+            return String();
+        printContext.begin(frame->contentRenderer()->width());
+    }
+
     frame->document()->updateLayout();
 
     RenderObject* o = frame->contentRenderer();
@@ -619,9 +632,6 @@ String externalRepresentation(Frame* frame, RenderAsTextBehavior behavior)
         return String();
 
     TextStream ts;
-#if ENABLE(SVG)
-    writeRenderResources(ts, o->document());
-#endif
     if (o->hasLayer()) {
         RenderLayer* l = toRenderBox(o)->layer();
         writeLayers(ts, l, l, IntRect(l->x(), l->y(), l->width(), l->height()), 0, behavior);

@@ -50,16 +50,16 @@
 #import "WebFrameViewInternal.h"
 #import "WebHTMLRepresentationPrivate.h"
 #import "WebHTMLViewInternal.h"
-#import "WebHistoryItemInternal.h"
 #import "WebHistoryInternal.h"
+#import "WebHistoryItemInternal.h"
 #import "WebIconDatabaseInternal.h"
 #import "WebKitErrorsPrivate.h"
 #import "WebKitLogging.h"
 #import "WebKitNSStringExtras.h"
-#import "WebNavigationData.h"
 #import "WebNSURLExtras.h"
-#import "WebNetscapePluginView.h"
+#import "WebNavigationData.h"
 #import "WebNetscapePluginPackage.h"
+#import "WebNetscapePluginView.h"
 #import "WebPanelAuthenticationHandler.h"
 #import "WebPluginController.h"
 #import "WebPluginPackage.h"
@@ -73,7 +73,6 @@
 #import "WebUIDelegate.h"
 #import "WebUIDelegatePrivate.h"
 #import "WebViewInternal.h"
-#import <WebKitSystemInterface.h>
 #import <WebCore/AuthenticationMac.h>
 #import <WebCore/BlockExceptions.h>
 #import <WebCore/CachedFrame.h>
@@ -89,10 +88,10 @@
 #import <WebCore/FrameTree.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/HTMLAppletElement.h>
-#import <WebCore/HTMLHeadElement.h>
 #import <WebCore/HTMLFormElement.h>
 #import <WebCore/HTMLFrameElement.h>
 #import <WebCore/HTMLFrameOwnerElement.h>
+#import <WebCore/HTMLHeadElement.h>
 #import <WebCore/HTMLNames.h>
 #import <WebCore/HTMLPlugInElement.h>
 #import <WebCore/HistoryItem.h>
@@ -115,10 +114,12 @@
 #import <WebCore/Widget.h>
 #import <WebKit/DOMElement.h>
 #import <WebKit/DOMHTMLFormElement.h>
+#import <WebKitSystemInterface.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/PassRefPtr.h>
+#import <wtf/Threading.h>
 
-#if ENABLE(MAC_JAVA_BRIDGE)
+#if ENABLE(JAVA_BRIDGE)
 #import "WebJavaPlugIn.h"
 #endif
 
@@ -131,7 +132,7 @@ using namespace WebCore;
 using namespace HTMLNames;
 using namespace std;
 
-#if ENABLE(MAC_JAVA_BRIDGE)
+#if ENABLE(JAVA_BRIDGE)
 @interface NSView (WebJavaPluginDetails)
 - (jobject)pollForAppletInWindow:(NSWindow *)window;
 @end
@@ -413,6 +414,27 @@ void WebFrameLoaderClient::dispatchDidReceiveAuthenticationChallenge(DocumentLoa
     [[WebPanelAuthenticationHandler sharedHandler] startAuthentication:webChallenge window:window];
 }
 
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+bool WebFrameLoaderClient::canAuthenticateAgainstProtectionSpace(DocumentLoader* loader, unsigned long identifier, const ProtectionSpace& protectionSpace)
+{
+    WebView *webView = getWebView(m_webFrame.get());
+    WebResourceDelegateImplementationCache* implementations = WebViewGetResourceLoadDelegateImplementations(webView);
+    
+    NSURLProtectionSpace *webProtectionSpace = mac(protectionSpace);
+    
+    if (implementations->canAuthenticateAgainstProtectionSpaceFunc) {
+        if (id resource = [webView _objectForIdentifier:identifier]) {
+            return CallResourceLoadDelegateReturningBoolean(NO, implementations->canAuthenticateAgainstProtectionSpaceFunc, webView, @selector(webView:resource:canAuthenticateAgainstProtectionSpace:forDataSource:), resource, webProtectionSpace, dataSource(loader));
+        }
+    }
+
+    // If our resource load delegate doesn't handle the question, then only send authentication
+    // challenges for pre-10.6 protection spaces.  This is the same as the default implementation
+    // in CFNetwork.
+    return (protectionSpace.authenticationScheme() < ProtectionSpaceAuthenticationSchemeClientCertificateRequested);
+}
+#endif
+
 void WebFrameLoaderClient::dispatchDidCancelAuthenticationChallenge(DocumentLoader* loader, unsigned long identifier, const AuthenticationChallenge&challenge)
 {
     WebView *webView = getWebView(m_webFrame.get());
@@ -591,6 +613,11 @@ void WebFrameLoaderClient::dispatchDidReceiveTitle(const String& title)
     WebFrameLoadDelegateImplementationCache* implementations = WebViewGetFrameLoadDelegateImplementations(webView);
     if (implementations->didReceiveTitleForFrameFunc)
         CallFrameLoadDelegate(implementations->didReceiveTitleForFrameFunc, webView, @selector(webView:didReceiveTitle:forFrame:), (NSString *)title, m_webFrame.get());
+}
+
+void WebFrameLoaderClient::dispatchDidChangeIcons()
+{
+     // FIXME: Implement this to allow container to update favicon.
 }
 
 void WebFrameLoaderClient::dispatchDidCommitLoad()
@@ -1531,7 +1558,8 @@ PassRefPtr<Widget> WebFrameLoaderClient::createPlugin(const IntSize& size, HTMLP
             [NSNumber numberWithInt:loadManually ? WebPlugInModeFull : WebPlugInModeEmbed], WebPlugInModeKey,
             [NSNumber numberWithBool:!loadManually], WebPlugInShouldLoadMainResourceKey,
             kit(element), WebPlugInContainingElementKey,
-            baseURL, WebPlugInBaseURLKey,
+            // FIXME: We should be passing base URL, see <https://bugs.webkit.org/show_bug.cgi?id=35215>.
+            pluginURL, WebPlugInBaseURLKey, // pluginURL might be nil, so add it last
             nil];
 
         NSView *view = CallUIDelegate(webView, selector, arguments);
@@ -1647,7 +1675,7 @@ void WebFrameLoaderClient::redirectDataToPlugin(Widget* pluginWidget)
 PassRefPtr<Widget> WebFrameLoaderClient::createJavaAppletWidget(const IntSize& size, HTMLAppletElement* element, const KURL& baseURL, 
     const Vector<String>& paramNames, const Vector<String>& paramValues)
 {
-#if ENABLE(MAC_JAVA_BRIDGE)
+#if ENABLE(JAVA_BRIDGE)
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
     NSView *view = nil;
@@ -1708,7 +1736,7 @@ PassRefPtr<Widget> WebFrameLoaderClient::createJavaAppletWidget(const IntSize& s
     return adoptRef(new PluginWidget);
 #else
     return 0;
-#endif // ENABLE(MAC_JAVA_BRIDGE)
+#endif // ENABLE(JAVA_BRIDGE)
 }
 
 String WebFrameLoaderClient::overrideMediaType() const
@@ -1767,7 +1795,7 @@ void WebFrameLoaderClient::didPerformFirstNavigation() const
         [preferences setCacheModel:WebCacheModelDocumentBrowser];
 }
 
-#if ENABLE(MAC_JAVA_BRIDGE)
+#if ENABLE(JAVA_BRIDGE)
 jobject WebFrameLoaderClient::javaApplet(NSView* view)
 {
     if ([view respondsToSelector:@selector(webPlugInGetApplet)])
@@ -1786,6 +1814,7 @@ jobject WebFrameLoaderClient::javaApplet(NSView* view)
 + (void)initialize
 {
     JSC::initializeThreading();
+    WTF::initializeMainThreadToProcessMainThread();
 #ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
 #endif

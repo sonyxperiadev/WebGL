@@ -257,6 +257,21 @@ public:
     {
         m_assembler.asr(dest, dest, imm.m_value & 0x1f);
     }
+    
+    void urshift32(RegisterID shift_amount, RegisterID dest)
+    {
+        // Clamp the shift to the range 0..31
+        ARMThumbImmediate armImm = ARMThumbImmediate::makeEncodedImm(0x1f);
+        ASSERT(armImm.isValid());
+        m_assembler.ARM_and(dataTempRegister, shift_amount, armImm);
+        
+        m_assembler.lsr(dest, dest, dataTempRegister);
+    }
+    
+    void urshift32(Imm32 imm, RegisterID dest)
+    {
+        m_assembler.lsr(dest, dest, imm.m_value & 0x1f);
+    }
 
     void sub32(RegisterID src, RegisterID dest)
     {
@@ -441,6 +456,11 @@ public:
     {
         m_assembler.ldrh(dest, makeBaseIndexBase(address), address.index, address.scale);
     }
+    
+    void load16(ImplicitAddress address, RegisterID dest)
+    {
+        m_assembler.ldrh(dest, address.base, address.offset);
+    }
 
     DataLabel32 store32WithAddressOffsetPatch(RegisterID src, Address address)
     {
@@ -493,6 +513,11 @@ public:
     // operations, and make clients go directly to the m_assembler to plant truncation instructions.
     // In short, FIXME:.
     bool supportsFloatingPointTruncate() const { return false; }
+
+    bool supportsFloatingPointSqrt() const
+    {
+        return false;
+    }
 
     void loadDouble(ImplicitAddress address, FPRegisterID dest)
     {
@@ -555,6 +580,11 @@ public:
     {
         loadDouble(src, fpTempRegister);
         mulDouble(fpTempRegister, dest);
+    }
+
+    void sqrtDouble(FPRegisterID, FPRegisterID)
+    {
+        ASSERT_NOT_REACHED();
     }
 
     void convertInt32ToDouble(RegisterID src, FPRegisterID dest)
