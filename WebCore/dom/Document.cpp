@@ -2355,11 +2355,7 @@ void Document::processHttpEquiv(const String& equiv, const String& content)
 // Though isspace() considers \t and \v to be whitespace, Win IE doesn't.
 static bool isSeparator(UChar c)
 {
-#ifdef ANDROID_META_SUPPORT
-    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '=' || c == ',' || c == ';' || c == '\0';
-#else
     return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '=' || c == ',' || c == '\0';
-#endif
 }
 
 void Document::processArguments(const String& features, void* data, ArgumentsCallback callback)
@@ -2387,22 +2383,14 @@ void Document::processArguments(const String& features, void* data, ArgumentsCal
 
         // skip to first '=', but don't skip past a ',' or the end of the string
         while (buffer[i] != '=') {
-#ifdef ANDROID_META_SUPPORT
-            if (buffer[i] == ',' || buffer[i] == ';' || i >= length)
-#else
             if (buffer[i] == ',' || i >= length)
-#endif
                 break;
             i++;
         }
 
         // skip to first non-separator, but don't skip past a ',' or the end of the string
         while (isSeparator(buffer[i])) {
-#ifdef ANDROID_META_SUPPORT
-            if (buffer[i] == ',' || buffer[i] == ';' || i >= length)
-#else
             if (buffer[i] == ',' || i >= length)
-#endif
                 break;
             i++;
         }
