@@ -595,9 +595,9 @@ void PluginView::forceRedraw()
     this->invalidateRect(0);
 }
 
-void PluginView::setFocus()
+void PluginView::setFocus(bool focused)
 {
-    Widget::setFocus();
+    Widget::setFocus(focused);
 //    SkDebugf("------------- setFocus %p\n", this);
 }
 
