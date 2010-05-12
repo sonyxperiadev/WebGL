@@ -485,7 +485,8 @@ void WebViewCore::recordPicture(SkPicture* picture)
 
     WebCore::PlatformGraphicsContext pgc(arp.getRecordingCanvas(), &buttons);
     WebCore::GraphicsContext gc(&pgc);
-    view->platformWidget()->draw(&gc, WebCore::IntRect(0, 0, INT_MAX, INT_MAX));
+    view->platformWidget()->draw(&gc, WebCore::IntRect(0, 0,
+        view->contentsWidth(), view->contentsHeight()));
 
     gButtonMutex.lock();
     updateButtonList(&buttons);
