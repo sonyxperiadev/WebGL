@@ -95,7 +95,12 @@ void SimpleFontData::determinePitch()
     m_treatAsFixedPitch = false;
 }
 
-GlyphMetrics SimpleFontData::platformMetricsForGlyph(Glyph glyph, GlyphMetricsMode) const
+FloatRect SimpleFontData::platformBoundsForGlyph(Glyph) const
+{
+    return FloatRect();
+}
+
+float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 {
     SkASSERT(sizeof(glyph) == 2);   // compile-time assert
 
@@ -110,9 +115,8 @@ GlyphMetrics SimpleFontData::platformMetricsForGlyph(Glyph glyph, GlyphMetricsMo
         paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
         advanceWidth = SkScalarToFloat(paint.measureText(&glyph, 2));
     }
-    GlyphMetrics metrics;
-    metrics.horizontalAdvance = advanceWidth;
-    return metrics;
+    return advanceWidth;
 }
+
 
 }
