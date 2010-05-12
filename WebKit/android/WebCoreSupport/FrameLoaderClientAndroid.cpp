@@ -1298,4 +1298,8 @@ void FrameLoaderClientAndroid::didAddIconForPageUrl(const String& pageUrl) {
     }
 }
 
+void FrameLoaderClientAndroid::dispatchDidChangeIcons() {
+    notImplemented();
+}
+
 }

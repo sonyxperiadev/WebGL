@@ -208,6 +208,9 @@ namespace android {
         CacheBuilder& getCacheBuilder() { return m_cacheBuilder; }
 
         void enableOnDemandPlugins() { m_onDemandPluginsEnabled = true; }
+
+        void dispatchDidChangeIcons();
+        void dispatchWillSendSubmitEvent(HTMLFormElement*) { }
     private:
         CacheBuilder        m_cacheBuilder;
         Frame*              m_frame;
