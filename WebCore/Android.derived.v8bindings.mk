@@ -332,10 +332,15 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 # Database
 GEN := \
     $(intermediates)/bindings/V8Database.h \
+    $(intermediates)/bindings/V8DatabaseCallback.h \
     $(intermediates)/bindings/V8SQLError.h \
     $(intermediates)/bindings/V8SQLResultSet.h \
     $(intermediates)/bindings/V8SQLResultSetRowList.h \
-    $(intermediates)/bindings/V8SQLTransaction.h
+    $(intermediates)/bindings/V8SQLStatementCallback.h \
+    $(intermediates)/bindings/V8SQLStatementErrorCallback.h \
+    $(intermediates)/bindings/V8SQLTransaction.h \
+    $(intermediates)/bindings/V8SQLTransactionCallback.h \
+    $(intermediates)/bindings/V8SQLTransactionErrorCallback.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<

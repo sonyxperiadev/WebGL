@@ -38,6 +38,7 @@ LOCAL_SRC_FILES := \
 	wtf/DateMath.cpp \
 	wtf/FastMalloc.cpp \
 	wtf/HashTable.cpp \
+	wtf/MD5.cpp \
 	wtf/MainThread.cpp \
 	wtf/RandomNumber.cpp \
 	wtf/RefCountedLeakCounter.cpp \
@@ -60,7 +61,9 @@ LOCAL_SRC_FILES := \
 	wtf/unicode/CollatorDefault.cpp \
 	wtf/unicode/UTF8.cpp \
 	\
-	wtf/unicode/icu/CollatorICU.cpp
+	wtf/unicode/icu/CollatorICU.cpp \
+	\
+	wtf/url/src/URLSegments.cpp
 
 CHARTABLES := $(intermediates)/chartables.c
 $(CHARTABLES): PRIVATE_PATH := $(LOCAL_PATH)

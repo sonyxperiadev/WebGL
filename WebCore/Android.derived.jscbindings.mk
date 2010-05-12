@@ -337,10 +337,15 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/plugins/%.cpp : $(intermediates)/
 # Database
 GEN := \
     $(intermediates)/storage/JSDatabase.h \
+    $(intermediates)/storage/JSDatabaseCallback.h \
     $(intermediates)/storage/JSSQLError.h \
     $(intermediates)/storage/JSSQLResultSet.h \
     $(intermediates)/storage/JSSQLResultSetRowList.h \
-    $(intermediates)/storage/JSSQLTransaction.h
+    $(intermediates)/storage/JSSQLStatementCallback.h \
+    $(intermediates)/storage/JSSQLStatementErrorCallback.h \
+    $(intermediates)/storage/JSSQLTransaction.h \
+    $(intermediates)/storage/JSSQLTransactionCallback.h \
+    $(intermediates)/storage/JSSQLTransactionErrorCallback.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<

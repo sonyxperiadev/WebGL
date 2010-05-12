@@ -50,10 +50,12 @@ LOCAL_SRC_FILES := \
 	jit/ExecutableAllocatorPosix.cpp \
 	jit/JIT.cpp \
 	jit/JITArithmetic.cpp \
+	jit/JITArithmetic32_64.cpp \
 	jit/JITCall.cpp \
 	jit/JITOpcodes.cpp \
 	jit/JITPropertyAccess.cpp \
 	jit/JITStubs.cpp \
+	jit/ThunkGenerators.cpp \
 	\
 	parser/Lexer.cpp \
 	parser/Nodes.cpp \
@@ -159,6 +161,7 @@ LOCAL_SRC_FILES := \
 	wtf/DateMath.cpp \
 	wtf/FastMalloc.cpp \
 	wtf/HashTable.cpp \
+	wtf/MD5.cpp \
 	wtf/MainThread.cpp \
 	wtf/RandomNumber.cpp \
 	wtf/RefCountedLeakCounter.cpp \
@@ -166,9 +169,8 @@ LOCAL_SRC_FILES := \
 	wtf/ThreadIdentifierDataPthreads.cpp \
 	wtf/Threading.cpp \
 	wtf/ThreadingPthreads.cpp \
-	wtf/WTFThreadData.cpp \
-	\
 	wtf/TypeTraits.cpp \
+	wtf/WTFThreadData.cpp \
 	wtf/dtoa.cpp \
 	\
 	wtf/android/MainThreadAndroid.cpp \
@@ -182,6 +184,8 @@ LOCAL_SRC_FILES := \
 	wtf/unicode/UTF8.cpp \
 	\
 	wtf/unicode/icu/CollatorICU.cpp \
+	\
+	wtf/url/src/URLSegments.cpp \
 	\
 	yarr/RegexCompiler.cpp \
 	yarr/RegexInterpreter.cpp \

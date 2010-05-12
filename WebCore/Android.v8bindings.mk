@@ -110,15 +110,11 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8CustomEventListener.cpp \
 	bindings/v8/custom/V8CustomPositionCallback.cpp \
 	bindings/v8/custom/V8CustomPositionErrorCallback.cpp \
-	bindings/v8/custom/V8CustomSQLStatementCallback.cpp \
 	bindings/v8/custom/V8CustomSQLStatementErrorCallback.cpp \
-	bindings/v8/custom/V8CustomSQLTransactionCallback.cpp \
-	bindings/v8/custom/V8CustomSQLTransactionErrorCallback.cpp \
 	bindings/v8/custom/V8CustomVoidCallback.cpp \
 	bindings/v8/custom/V8DOMFormDataCustom.cpp \
 	bindings/v8/custom/V8DOMWindowCustom.cpp \
 	bindings/v8/custom/V8DataGridColumnListCustom.cpp \
-	bindings/v8/custom/V8DatabaseCallback.cpp \
 	bindings/v8/custom/V8DatabaseCustom.cpp \
 	bindings/v8/custom/V8DedicatedWorkerContextCustom.cpp \
 	bindings/v8/custom/V8DocumentCustom.cpp \
@@ -153,8 +149,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8NamedNodesCollection.cpp \
 	bindings/v8/custom/V8NavigatorCustom.cpp \
 	bindings/v8/custom/V8NodeCustom.cpp \
-	bindings/v8/custom/V8NodeFilterCustom.cpp \
-	bindings/v8/custom/V8NodeIteratorCustom.cpp \
 	bindings/v8/custom/V8NodeListCustom.cpp \
 	bindings/v8/custom/V8PopStateEventCustom.cpp \
 	bindings/v8/custom/V8SQLResultSetRowListCustom.cpp \
@@ -175,7 +169,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8StorageCustom.cpp \
 	bindings/v8/custom/V8StyleSheetCustom.cpp \
 	bindings/v8/custom/V8StyleSheetListCustom.cpp \
-	bindings/v8/custom/V8TreeWalkerCustom.cpp \
 	bindings/v8/custom/V8WebKitCSSMatrixConstructor.cpp \
 	bindings/v8/custom/V8WebKitPointConstructor.cpp \
 	bindings/v8/custom/V8WorkerContextCustom.cpp \

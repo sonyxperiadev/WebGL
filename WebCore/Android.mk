@@ -70,7 +70,6 @@ LOCAL_SRC_FILES := \
 	css/CSSVariablesRule.cpp \
 	css/FontFamilyValue.cpp \
 	css/FontValue.cpp \
-	css/Media.cpp \
 	css/MediaFeatureNames.cpp \
 	css/MediaList.cpp \
 	css/MediaQuery.cpp \
@@ -89,6 +88,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	css/ShadowValue.cpp \
 	css/StyleBase.cpp \
 	css/StyleList.cpp \
+	css/StyleMedia.cpp \
 	css/StyleSheet.cpp \
 	css/StyleSheetList.cpp \
 	css/WebKitCSSKeyframeRule.cpp \
@@ -251,6 +251,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/DOMFormData.cpp \
 	html/File.cpp \
 	html/FileList.cpp \
+	html/FileReader.cpp \
 	html/FormDataList.cpp \
 	html/HTMLAllCollection.cpp \
 	html/HTMLCollection.cpp \
@@ -745,6 +746,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/ChangeVersionWrapper.cpp \
 	storage/Database.cpp \
 	storage/DatabaseAuthorizer.cpp \
+	storage/DatabaseSync.cpp \
 	storage/DatabaseTask.cpp \
 	storage/DatabaseThread.cpp \
 	storage/DatabaseTracker.cpp \
@@ -758,6 +760,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/SQLTransaction.cpp \
 	storage/SQLTransactionClient.cpp \
 	storage/SQLTransactionCoordinator.cpp \
+	storage/SQLTransactionSync.cpp \
 	storage/Storage.cpp \
 	storage/StorageAreaImpl.cpp \
 	storage/StorageAreaSync.cpp \
