@@ -29,10 +29,10 @@
 
 namespace WebCore {
 
-    static uint32 gTimerID;
+    static uint32_t gTimerID;
 
     PluginTimer::PluginTimer(PluginTimer** list, NPP instance, bool repeat,
-                             void (*timerFunc)(NPP npp, uint32 timerID))
+                             void (*timerFunc)(NPP npp, uint32_t timerID))
                 : m_list(list),
                   m_instance(instance),
                   m_timerFunc(timerFunc),
@@ -71,7 +71,7 @@ namespace WebCore {
     }
     
     // may return null if timerID is not found
-    PluginTimer* PluginTimer::Find(PluginTimer* list, uint32 timerID)
+    PluginTimer* PluginTimer::Find(PluginTimer* list, uint32_t timerID)
     {
         PluginTimer* curr = list;
         while (curr) {
@@ -92,8 +92,8 @@ namespace WebCore {
         }
     }
 
-    uint32 PluginTimerList::schedule(NPP instance, uint32 interval, bool repeat,
-                                     void (*proc)(NPP npp, uint32 timerID))
+    uint32_t PluginTimerList::schedule(NPP instance, uint32_t interval, bool repeat,
+                                     void (*proc)(NPP npp, uint32_t timerID))
     {        
         PluginTimer* timer = new PluginTimer(&m_list, instance, repeat, proc);
         
@@ -106,7 +106,7 @@ namespace WebCore {
         return timer->timerID();
     }
     
-    void PluginTimerList::unschedule(NPP instance, uint32 timerID)
+    void PluginTimerList::unschedule(NPP instance, uint32_t timerID)
     {
         // Although it looks like simply deleting the timer would work here
         // (stop() will be executed by the dtor), we cannot do this, as

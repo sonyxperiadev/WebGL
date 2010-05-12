@@ -97,7 +97,7 @@ struct PluginWidgetAndroid {
     /*  Send this event to the plugin instance. A non-zero value will be
         returned if the plugin handled the event.
      */
-    int16 sendEvent(const ANPEvent&);
+    int16_t sendEvent(const ANPEvent&);
 
     /*  Update the plugins event flags. If a flag is set to true then the plugin
         wants to be notified of events of this type.

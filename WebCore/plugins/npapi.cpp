@@ -177,14 +177,14 @@ void NPN_PluginThreadAsyncCall(NPP instance, void (*func) (void *), void *userDa
 }
 
 #ifdef PLUGIN_SCHEDULE_TIMER
-uint32 NPN_ScheduleTimer(NPP instance, uint32 interval, NPBool repeat,
-                         void (*timerFunc)(NPP npp, uint32 timerID))
+uint32_t NPN_ScheduleTimer(NPP instance, uint32_t interval, NPBool repeat,
+                         void (*timerFunc)(NPP npp, uint32_t timerID))
 {
     return pluginViewForInstance(instance)->scheduleTimer(instance, interval,
                                                         repeat != 0, timerFunc);
 }
 
-void NPN_UnscheduleTimer(NPP instance, uint32 timerID)
+void NPN_UnscheduleTimer(NPP instance, uint32_t timerID)
 {
     pluginViewForInstance(instance)->unscheduleTimer(instance, timerID);
 }

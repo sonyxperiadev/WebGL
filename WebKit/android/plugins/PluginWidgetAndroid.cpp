@@ -275,7 +275,7 @@ void PluginWidgetAndroid::layoutSurface(bool pluginBoundsChanged) {
     }
 }
 
-int16 PluginWidgetAndroid::sendEvent(const ANPEvent& evt) {
+int16_t PluginWidgetAndroid::sendEvent(const ANPEvent& evt) {
     if (!m_acceptEvents)
         return 0;
     WebCore::PluginPackage* pkg = m_pluginView->plugin();
@@ -297,7 +297,7 @@ int16 PluginWidgetAndroid::sendEvent(const ANPEvent& evt) {
         // make a localCopy since the actual plugin may not respect its constness,
         // and so we don't want our caller to have its param modified
         ANPEvent localCopy = evt;
-        int16 result = pkg->pluginFuncs()->event(instance, &localCopy);
+        int16_t result = pkg->pluginFuncs()->event(instance, &localCopy);
 
 #if DEBUG_EVENTS
         SkMSec endTime = SkTime::GetMSecs();

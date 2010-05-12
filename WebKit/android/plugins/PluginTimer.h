@@ -37,14 +37,14 @@ namespace WebCore {
     class PluginTimer : public TimerBase {
     public:
         PluginTimer(PluginTimer** list, NPP instance, bool repeat,
-                    void (*proc)(NPP npp, uint32 timerID));
+                    void (*proc)(NPP npp, uint32_t timerID));
         virtual ~PluginTimer();
     
-        uint32 timerID() const { return m_timerID; }
+        uint32_t timerID() const { return m_timerID; }
 
         void unschedule() { m_unscheduled = true; }
 
-        static PluginTimer* Find(PluginTimer* list, uint32 timerID);
+        static PluginTimer* Find(PluginTimer* list, uint32_t timerID);
 
     private:
         // override from TimerBase
@@ -57,8 +57,8 @@ namespace WebCore {
         PluginTimer*    m_prev;
         PluginTimer*    m_next;
         NPP             m_instance;
-        void            (*m_timerFunc)(NPP, uint32);
-        uint32          m_timerID;
+        void            (*m_timerFunc)(NPP, uint32_t);
+        uint32_t          m_timerID;
         bool            m_repeat;
         bool            m_unscheduled;
     };
@@ -68,9 +68,9 @@ namespace WebCore {
         PluginTimerList() : m_list(0) {}
         ~PluginTimerList();
         
-        uint32 schedule(NPP instance, uint32 interval, bool repeat,
-                        void (*proc)(NPP npp, uint32 timerID));
-        void unschedule(NPP instance, uint32 timerID);
+        uint32_t schedule(NPP instance, uint32_t interval, bool repeat,
+                        void (*proc)(NPP npp, uint32_t timerID));
+        void unschedule(NPP instance, uint32_t timerID);
         
     private:
         PluginTimer* m_list;

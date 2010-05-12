@@ -1292,13 +1292,13 @@ NPError PluginView::handlePost(const char* url, const char* target, uint32_t len
 }
     
 #ifdef PLUGIN_SCHEDULE_TIMER
-uint32 PluginView::scheduleTimer(NPP instance, uint32 interval, bool repeat,
-                               void (*timerFunc)(NPP, uint32 timerID))
+uint32_t PluginView::scheduleTimer(NPP instance, uint32_t interval, bool repeat,
+                               void (*timerFunc)(NPP, uint32_t timerID))
 {
     return m_timerList.schedule(instance, interval, repeat, timerFunc);
 }
 
-void PluginView::unscheduleTimer(NPP instance, uint32 timerID)
+void PluginView::unscheduleTimer(NPP instance, uint32_t timerID)
 {
     m_timerList.unschedule(instance, timerID);
 }

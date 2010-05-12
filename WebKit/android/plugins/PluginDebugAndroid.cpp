@@ -60,7 +60,7 @@ void anp_logPlugin(const char format[], ...) {
     va_end(args);
 }
 
-void anp_logPluginEvent(void* npp, const ANPEvent* evt, int16 returnVal, int elapsedTime) {
+void anp_logPluginEvent(void* npp, const ANPEvent* evt, int16_t returnVal, int elapsedTime) {
 
     switch(evt->eventType) {
 

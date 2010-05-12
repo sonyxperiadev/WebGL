@@ -171,9 +171,9 @@ namespace WebCore {
         void pushPopupsEnabledState(bool state);
         void popPopupsEnabledState();
 #ifdef PLUGIN_SCHEDULE_TIMER
-        uint32 scheduleTimer(NPP, uint32 interval, bool repeat,
-                             void (*timerFunc)(NPP, uint32 timerID));
-        void unscheduleTimer(NPP, uint32 timerID);
+        uint32_t scheduleTimer(NPP, uint32_t interval, bool repeat,
+                             void (*timerFunc)(NPP, uint32_t timerID));
+        void unscheduleTimer(NPP, uint32_t timerID);
 #endif
 
         virtual void invalidateRect(const IntRect&);
