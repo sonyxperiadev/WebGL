@@ -26,7 +26,7 @@
 #include "GraphicsContext.h"
 #include "SVGRenderSupport.h"
 
-#if PLATFORM(SKIA)
+#if PLATFORM(SKIA) && !PLATFORM(ANDROID)
 #include "PlatformContextSkia.h"
 #endif
 
@@ -86,7 +86,7 @@ void RenderSVGResourceSolidColor::postApplyResource(RenderObject*, GraphicsConte
             context->strokePath();
     }
 
-#if PLATFORM(SKIA)
+#if PLATFORM(SKIA) && !PLATFORM(ANDROID)
     // FIXME: Move this into the GraphicsContext
     // WebKit implicitly expects us to reset the path.
     // For example in fillAndStrokePath() of RenderPath.cpp the path is 
