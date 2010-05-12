@@ -27,9 +27,6 @@
 #ifndef Geolocation_h
 #define Geolocation_h
 
-// ANDROID
-#include "EventListener.h"
-// END ANDROID
 #include "GeolocationPositionCache.h"
 #include "GeolocationService.h"
 #include "Geoposition.h"
@@ -48,9 +45,7 @@ class GeolocationPosition;
 class GeolocationError;
 #endif
 
-// ANDROID
-class Geolocation : public EventListener
-// END ANDROID
+class Geolocation : public RefCounted<Geolocation>
 #if !ENABLE(CLIENT_BASED_GEOLOCATION) && ENABLE(GEOLOCATION)
     , public GeolocationServiceClient
 #endif
@@ -69,6 +64,8 @@ public:
     // These methods are used by Android.
     void suspend();
     void resume();
+
+    void stop();
 
     void setIsAllowed(bool);
     Frame* frame() const { return m_frame; }
@@ -153,12 +150,6 @@ private:
 #endif
 
     PassRefPtr<GeoNotifier> startRequest(PassRefPtr<PositionCallback>, PassRefPtr<PositionErrorCallback>, PassRefPtr<PositionOptions>);
-
-// ANDROID
-    // EventListener
-    virtual bool operator==(const EventListener&);
-    virtual void handleEvent(ScriptExecutionContext*, Event*);
-// END ANDROID
 
     void fatalErrorOccurred(GeoNotifier*);
     void requestTimedOut(GeoNotifier*);
