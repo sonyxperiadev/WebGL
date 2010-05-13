@@ -228,10 +228,15 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
 {
 #ifdef ANDROID_ANIMATED_GIF
     // This is only necessary if we allow ourselves to partially decode GIF
+    bool disabledAnimatedGif = false;
     if (m_decoder.m_gifDecoder
             && !m_decoder.m_gifDecoder->failed()) {
         m_decoder.m_gifDecoder->setData(data, allDataReceived);
-        return;
+        if (!allDataReceived || m_decoder.m_gifDecoder->frameCount() != 1)
+            return;
+        disabledAnimatedGif = true;
+        delete m_decoder.m_gifDecoder;
+        m_decoder.m_gifDecoder = 0;
     }
 #endif
     if (NULL == m_decoder.m_image
@@ -258,17 +263,26 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
         // First, check to see if this is an animated GIF
         const Vector<char>& buffer = data->buffer();
         const char* contents = buffer.data();
-        if (buffer.size() > 3 && strncmp(contents, "GIF8", 4) == 0 &&
-                should_use_animated_gif(origW, origH)) {
+        if (buffer.size() > 3 && strncmp(contents, "GIF8", 4) == 0
+                && should_use_animated_gif(origW, origH)
+                && !disabledAnimatedGif) {
             // This means we are looking at a GIF, so create special
             // GIF Decoder
             // Need to wait for all data received if we are assigning an
             // allocator (which we are not at the moment).
             if (!m_decoder.m_gifDecoder /*&& allDataReceived*/)
                 m_decoder.m_gifDecoder = new GIFImageDecoder();
-            if (!m_decoder.m_gifDecoder->failed())
+            int frameCount = 0;
+            if (!m_decoder.m_gifDecoder->failed()) {
                 m_decoder.m_gifDecoder->setData(data, allDataReceived);
-            return;
+                if (!allDataReceived)
+                    return;
+                frameCount = m_decoder.m_gifDecoder->frameCount();
+            }
+            if (frameCount != 1)
+                return;
+            delete m_decoder.m_gifDecoder;
+            m_decoder.m_gifDecoder = 0;
         }
 #endif
         
