@@ -367,6 +367,8 @@ const char* CachedNode::Debug::type(android::CachedNodeType t) const
         case FRAME_CACHEDNODETYPE: return "FRAME"; break;
         case PLUGIN_CACHEDNODETYPE: return "PLUGIN"; break;
         case TEXT_INPUT_CACHEDNODETYPE: return "INPUT"; break;
+        case SELECT_CACHEDNODETYPE: return "SELECT"; break;
+        case CONTENT_EDITABLE_CACHEDNODETYPE: return "CONTENT_EDITABLE"; break;
         default: return "???";
     }
 }
@@ -419,7 +421,6 @@ void CachedNode::Debug::print() const
     DEBUG_PRINT_BOOL(mLast);
     DEBUG_PRINT_BOOL(mUseBounds);
     DEBUG_PRINT_BOOL(mUseHitBounds);
-    DUMP_NAV_LOGD("\n");
 }
 
 #endif

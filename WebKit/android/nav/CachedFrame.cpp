@@ -1390,6 +1390,7 @@ void CachedFrame::Debug::print() const
         const CachedInput* input = b->textInput(node);
         if (input)
             input->mDebug.print();
+        DUMP_NAV_LOGD("\n");
     }
     DUMP_NAV_LOGD("// }; // end of nodes\n");
 #if USE(ACCELERATED_COMPOSITING)

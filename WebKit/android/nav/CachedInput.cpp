@@ -60,7 +60,7 @@ void CachedInput::Debug::print() const
 {
     CachedInput* b = base();
     printWebCoreString("// char* mName=\"", b->mName);
-    DUMP_NAV_LOGD("// void* mForm=%p;", b->mForm);
+    DUMP_NAV_LOGD("// void* mForm=%p;\n", b->mForm);
     DUMP_NAV_LOGD("// int mMaxLength=%d;\n", b->mMaxLength);
     DUMP_NAV_LOGD("// int mTextSize=%d;\n", b->mTextSize);
     DUMP_NAV_LOGD("// int mInputType=%d;\n", b->mInputType);
