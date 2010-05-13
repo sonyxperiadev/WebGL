@@ -68,6 +68,9 @@ bool screenIsMonochrome(Widget* page)
 // the accuracy of these number are not too important.
 FloatRect screenRect(Widget* page)
 {
+    if (!page)
+        return FloatRect();
+
     IntRect rect = page->root()->platformWidget()->getBounds();
     return FloatRect(0.0, 0.0, rect.width(), rect.height());
 }
@@ -76,6 +79,9 @@ FloatRect screenRect(Widget* page)
 // to position and resize windows (usually to full screen). 
 FloatRect screenAvailableRect(Widget* page)
 {
+    if (!page)
+        return FloatRect();
+
     IntRect rect = page->root()->platformWidget()->getBounds();
     return FloatRect(0.0, 0.0, rect.width(), rect.height());
 }
