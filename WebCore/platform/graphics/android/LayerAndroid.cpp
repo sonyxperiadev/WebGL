@@ -87,9 +87,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_fixedMarginTop = layer.m_fixedMarginTop;
     m_fixedMarginRight = layer.m_fixedMarginRight;
     m_fixedMarginBottom = layer.m_fixedMarginBottom;
-    m_fixedOffset = layer.m_fixedOffset;
-    m_fixedWidth = layer.m_fixedWidth;
-    m_fixedHeight = layer.m_fixedHeight;
+    m_fixedRect = layer.m_fixedRect;
 
     m_recordingPicture = layer.m_recordingPicture;
     SkSafeRef(m_recordingPicture);
@@ -256,20 +254,6 @@ const LayerAndroid* LayerAndroid::find(int x, int y) const
 
 ///////////////////////////////////////////////////////////////////////////////
 
-// The Layer bounds and the renderview bounds are not always indentical.
-// We need to compute the intersection to correctly compute the
-// positiong...
-static SkRect computeLayerRect(LayerAndroid* layer) {
-  SkRect layerRect, viewRect;
-  SkScalar fX, fY;
-  fX = layer->getOffset().fX;
-  fY = layer->getOffset().fY;
-  layerRect.set(0, 0, layer->getSize().width(), layer->getSize().height());
-  viewRect.set(-fX, -fY, -fX + layer->getFixedWidth(), -fY + layer->getFixedHeight());
-  layerRect.intersect(viewRect);
-  return layerRect;
-}
-
 void LayerAndroid::updateFixedLayersPositions(const SkRect& viewport)
 {
     if (m_isFixed) {
@@ -280,23 +264,21 @@ void LayerAndroid::updateFixedLayersPositions(const SkRect& viewport)
         float x = dx;
         float y = dy;
 
-        SkRect layerRect = computeLayerRect(this);
-
         // Not defined corresponds to 'auto';
-        // so if right is auto, and left is auto, the w3c says we should set
-        // left to zero (in left-to-right layout). So basically, if right is not
-        // defined, we always apply auto.
-        if (m_fixedRight.defined())
-            x += w - m_fixedMarginRight.calcFloatValue(w) - m_fixedRight.calcFloatValue(w) - layerRect.width();
+        // If both left and right are auto, the w3c says we should set left
+        // to zero (in left-to-right layout). So we use left if it's defined
+        // or if right isn't defined.
+        if (m_fixedLeft.defined() || !m_fixedRight.defined())
+            x += m_fixedMarginLeft.calcFloatValue(w) + m_fixedLeft.calcFloatValue(w) - m_fixedRect.fLeft;
         else
-            x += m_fixedMarginLeft.calcFloatValue(w) + m_fixedLeft.calcFloatValue(w) - layerRect.fLeft;
+            x += w - m_fixedMarginRight.calcFloatValue(w) - m_fixedRight.calcFloatValue(w) - m_fixedRect.fRight;
 
         // Following the same reason as above, if bottom isn't defined, we apply
         // top regardless of it being defined or not.
-        if (m_fixedBottom.defined())
-            y += h - m_fixedMarginBottom.calcFloatValue(h) - m_fixedBottom.calcFloatValue(h) - layerRect.fTop - layerRect.height();
+        if (m_fixedTop.defined() || !m_fixedBottom.defined())
+            y += m_fixedMarginTop.calcFloatValue(h) + m_fixedTop.calcFloatValue(h) - m_fixedRect.fTop;
         else
-            y += m_fixedMarginTop.calcFloatValue(h) + m_fixedTop.calcFloatValue(h) - layerRect.fTop;
+            y += h - m_fixedMarginBottom.calcFloatValue(h) - m_fixedBottom.calcFloatValue(h) - m_fixedRect.fBottom;
 
         this->setPosition(x, y);
     }
@@ -375,10 +357,9 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity) {
     canvas->drawLine(w, 0, 0, 0, paint);
 
     if (m_isFixed) {
-      SkRect layerRect = computeLayerRect(this);
       SkPaint paint;
-      paint.setARGB(128, 0, 0, 255);
-      canvas->drawRect(layerRect, paint);
+      paint.setARGB(80, 255, 0, 0);
+      canvas->drawRect(m_fixedRect, paint);
     }
 #endif
 }
@@ -513,6 +494,13 @@ void writeSize(FILE* file, int indentLevel, const char* str, SkSize size)
     fprintf(file, "%s = { w = %.3f; h = %.3f; };\n", str, size.width(), size.height());
 }
 
+void writeRect(FILE* file, int indentLevel, const char* str, SkRect rect)
+{
+    writeIndent(file, indentLevel);
+    fprintf(file, "%s = { x = %.3f; y = %.3f; w = %.3f; h = %.3f; };\n",
+            str, rect.fLeft, rect.fTop, rect.width(), rect.height());
+}
+
 void writeLength(FILE* file, int indentLevel, const char* str, SkLength length)
 {
     if (!length.defined()) return;
@@ -549,9 +537,7 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
         writeLength(file, indentLevel + 1, "fixedMarginTop", m_fixedMarginTop);
         writeLength(file, indentLevel + 1, "fixedMarginRight", m_fixedMarginRight);
         writeLength(file, indentLevel + 1, "fixedMarginBottom", m_fixedMarginBottom);
-        writePoint(file, indentLevel + 1, "fixedOffset", m_fixedOffset);
-        writeIntVal(file, indentLevel + 1, "fixedWidth", m_fixedWidth);
-        writeIntVal(file, indentLevel + 1, "fixedHeight", m_fixedHeight);
+        writeRect(file, indentLevel + 1, "fixedRect", m_fixedRect);
     }
 
     if (m_recordingPicture) {

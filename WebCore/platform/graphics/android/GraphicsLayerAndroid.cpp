@@ -229,30 +229,39 @@ void GraphicsLayerAndroid::updateFixedPosition()
 
     // If we are a fixed position layer, just set it
     if (view->isPositioned() && view->style()->position() == FixedPosition) {
+        // We need to get the passed CSS properties for the element
         SkLength left, top, right, bottom;
         left = convertLength(view->style()->left());
         top = convertLength(view->style()->top());
         right = convertLength(view->style()->right());
         bottom = convertLength(view->style()->bottom());
-        // We need to pass the size of the element to compute the final fixed
-        // position -- we can't use the layer's size as it could possibly differs.
-        // We also have to use the visible overflow and not just the size,
-        // as some child elements could be overflowing.
-        int w = view->rightVisibleOverflow() - view->leftVisibleOverflow();
-        int h = view->bottomVisibleOverflow() - view->topVisibleOverflow();
 
+        // We also need to get the margin...
         SkLength marginLeft, marginTop, marginRight, marginBottom;
         marginLeft = convertLength(view->style()->marginLeft());
         marginTop = convertLength(view->style()->marginTop());
         marginRight = convertLength(view->style()->marginRight());
         marginBottom = convertLength(view->style()->marginBottom());
 
+        // The layer can be bigger than the element we want to draw;
+        // not only that, the layout rect of the element might also be
+        // different from the visible rect of that element (i.e. the element
+        // has a CSS shadow property -- the shadow is "outside" the element).
+        // We thus need to:
+        // 1/ get the size of the element (w,h), using the layoutOverflow rect
+        // 2/ pass the current offset of the painting relative to the layer
+        int w = view->rightLayoutOverflow() - view->leftLayoutOverflow();
+        int h = view->bottomLayoutOverflow() - view->topLayoutOverflow();
+        int paintingOffsetX = - offsetFromRenderer().width();
+        int paintingOffsetY = - offsetFromRenderer().height();
+
+        SkRect viewRect;
+        viewRect.set(paintingOffsetX, paintingOffsetY, paintingOffsetX + w, paintingOffsetY + h);
+
         m_contentLayer->setFixedPosition(left, top, right, bottom,
                                          marginLeft, marginTop,
                                          marginRight, marginBottom,
-                                         offsetFromRenderer().width(),
-                                         offsetFromRenderer().height(),
-                                         w, h);
+                                         viewRect);
     }
 }
 
@@ -283,6 +292,7 @@ void GraphicsLayerAndroid::setSize(const FloatSize& size)
         MLOG("(%x) setSize (%.2f,%.2f)", this, size.width(), size.height());
         GraphicsLayer::setSize(size);
         m_contentLayer->setSize(size.width(), size.height());
+        updateFixedPosition();
         askForSync();
     }
 }

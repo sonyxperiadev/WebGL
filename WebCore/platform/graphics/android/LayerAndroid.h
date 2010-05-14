@@ -104,10 +104,7 @@ public:
                           SkLength marginTop,    // CSS margin-top property
                           SkLength marginRight,  // CSS margin-right property
                           SkLength marginBottom, // CSS margin-bottom property
-                          int offsetX,     // X Offset from the renderer
-                          int offsetY,     // Y Offset from the renderer
-                          int width,       // visible overflow width
-                          int height) {    // visible overflow height
+                          SkRect viewRect) { // view rect, can be smaller than the layer's
         m_fixedLeft = left;
         m_fixedTop = top;
         m_fixedRight = right;
@@ -116,9 +113,7 @@ public:
         m_fixedMarginTop = marginTop;
         m_fixedMarginRight = marginRight;
         m_fixedMarginBottom = marginBottom;
-        m_fixedOffset.set(offsetX, offsetY);
-        m_fixedWidth = width;
-        m_fixedHeight = height;
+        m_fixedRect = viewRect;
         m_isFixed = true;
         setInheritFromRootTransform(true);
     }
@@ -171,9 +166,6 @@ public:
     void setExtra(DrawExtra* extra);  // does not assign ownership
     int uniqueId() const { return m_uniqueId; }
     bool isFixed() { return m_isFixed; }
-    const SkPoint& getOffset() const { return m_fixedOffset; }
-    int getFixedWidth() { return m_fixedWidth; }
-    int getFixedHeight() { return m_fixedHeight; }
 
     /** This sets a content image -- calling it means we will use
         the image directly when drawing the layer instead of using
@@ -208,9 +200,7 @@ private:
     SkLength m_fixedMarginTop;
     SkLength m_fixedMarginRight;
     SkLength m_fixedMarginBottom;
-    SkPoint  m_fixedOffset;
-    int m_fixedWidth;
-    int m_fixedHeight;
+    SkRect   m_fixedRect;
 
     SkPoint m_translation;
     SkPoint m_scale;
