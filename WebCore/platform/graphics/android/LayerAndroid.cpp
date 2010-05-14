@@ -282,15 +282,21 @@ void LayerAndroid::updateFixedLayersPositions(const SkRect& viewport)
 
         SkRect layerRect = computeLayerRect(this);
 
-        if (m_fixedLeft.defined())
-            x += m_fixedMarginLeft.calcFloatValue(w) + m_fixedLeft.calcFloatValue(w) - layerRect.fLeft;
-        else if (m_fixedRight.defined())
+        // Not defined corresponds to 'auto';
+        // so if right is auto, and left is auto, the w3c says we should set
+        // left to zero (in left-to-right layout). So basically, if right is not
+        // defined, we always apply auto.
+        if (m_fixedRight.defined())
             x += w - m_fixedMarginRight.calcFloatValue(w) - m_fixedRight.calcFloatValue(w) - layerRect.width();
+        else
+            x += m_fixedMarginLeft.calcFloatValue(w) + m_fixedLeft.calcFloatValue(w) - layerRect.fLeft;
 
-        if (m_fixedTop.defined())
-            y += m_fixedMarginTop.calcFloatValue(h) + m_fixedTop.calcFloatValue(h) - layerRect.fTop;
-        else if (m_fixedBottom.defined())
+        // Following the same reason as above, if bottom isn't defined, we apply
+        // top regardless of it being defined or not.
+        if (m_fixedBottom.defined())
             y += h - m_fixedMarginBottom.calcFloatValue(h) - m_fixedBottom.calcFloatValue(h) - layerRect.fTop - layerRect.height();
+        else
+            y += m_fixedMarginTop.calcFloatValue(h) + m_fixedTop.calcFloatValue(h) - layerRect.fTop;
 
         this->setPosition(x, y);
     }
