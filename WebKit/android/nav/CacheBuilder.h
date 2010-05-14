@@ -94,6 +94,7 @@ public:
     static IntRect getAreaRect(const HTMLAreaElement* area);
     static void GetGlobalOffset(Frame* , int* x, int * y);
     static void GetGlobalOffset(Node* , int* x, int * y);
+    bool pictureSetDisabled() { return mPictureSetDisabled; }
     static bool validNode(Frame* startFrame, void* framePtr, void* nodePtr);
 private:
     enum AddressProgress {
@@ -249,6 +250,7 @@ private:
     Node* tryFocus(Direction direction);
     Node* trySegment(Direction direction, int mainStart, int mainEnd);
     CachedNodeBits mAllowableTypes;
+    bool mPictureSetDisabled;
 #if DUMP_NAV_CACHE
 public:
     class Debug {

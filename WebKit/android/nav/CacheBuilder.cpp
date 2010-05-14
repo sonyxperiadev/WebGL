@@ -867,6 +867,7 @@ bool CacheBuilder::AnyIsClick(Node* node)
 void CacheBuilder::buildCache(CachedRoot* root)
 {
     Frame* frame = FrameAnd(this);
+    mPictureSetDisabled = false;
     BuildFrame(frame, frame, root, (CachedFrame*) root);
     root->finishInit(); // set up frame parent pointers, child pointers
     setData((CachedFrame*) root);
@@ -1131,6 +1132,8 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
 
         if (node->hasTagName(HTMLNames::bodyTag))
             bodyPos = originalAbsBounds.location();
+        else if (node->hasTagName(HTMLNames::canvasTag))
+            mPictureSetDisabled = true;
         if (checkForPluginViewThatWantsFocus(nodeRenderer)) {
             bounds = absBounds;
             isUnclipped = true;

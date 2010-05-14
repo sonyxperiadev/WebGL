@@ -590,6 +590,9 @@ void WebViewCore::recordPictureSet(PictureSet* content)
         height = view->contentsHeight();
     }
 
+    if (cacheBuilder().pictureSetDisabled())
+        content->clear();
+
     content->checkDimensions(width, height, &m_addInval);
 
     // The inval region may replace existing pictures. The existing pictures
