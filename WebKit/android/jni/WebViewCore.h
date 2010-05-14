@@ -261,6 +261,9 @@ namespace android {
         WTF::String retrieveAnchorText(WebCore::Frame* frame, WebCore::Node* node);
         WTF::String requestLabel(WebCore::Frame* , WebCore::Node* );
 
+        // If the focus is a textfield (<input>), textarea, or contentEditable,
+        // scroll the selection on screen (if necessary).
+        void revealSelection();
         // Create a single picture to represent the drawn DOM (used by navcache)
         void recordPicture(SkPicture* picture);
 

@@ -1286,6 +1286,22 @@ WTF::String WebViewCore::requestLabel(WebCore::Frame* frame,
     return WTF::String();
 }
 
+void WebViewCore::revealSelection()
+{
+    WebCore::Node* focus = currentFocus();
+    if (!focus)
+        return;
+    WebCore::RenderObject* renderer = focus->renderer();
+    if ((!renderer || (!renderer->isTextField() && !renderer->isTextArea()))
+        && !focus->isContentEditable())
+        return;
+    WebCore::Frame* focusedFrame = focus->document()->frame();
+    WebFrame* webFrame = WebFrame::getWebFrame(focusedFrame);
+    webFrame->setUserInitiatedAction(true);
+    focusedFrame->revealSelection();
+    webFrame->setUserInitiatedAction(false);
+}
+
 void WebViewCore::updateCacheOnNodeChange()
 {
     gCursorBoundsMutex.lock();
@@ -1854,7 +1870,15 @@ void WebViewCore::setSelection(int start, int end)
     rtc->setSelectionRange(start, end);
     client->setUiGeneratedSelectionChange(false);
     WebCore::Frame* focusedFrame = focus->document()->frame();
-    focusedFrame->revealSelection();
+    if (renderer->isTextArea()
+            // For password fields, this is done in the UI side via
+            // bringPointIntoView, since the UI does the drawing.
+            || !static_cast<WebCore::HTMLInputElement*>(focus)->isPasswordField()) {
+        WebFrame* webFrame = WebFrame::getWebFrame(focusedFrame);
+        webFrame->setUserInitiatedAction(true);
+        focusedFrame->revealSelection();
+        webFrame->setUserInitiatedAction(false);
+    }
 }
 
 String WebViewCore::modifySelection(const String& alter, const String& direction, const String& granularity)
@@ -1939,6 +1963,7 @@ void WebViewCore::replaceTextfieldText(int oldStart,
     WebCore::TypingCommand::insertText(focus->document(), replace,
         false);
     client->setUiGeneratedSelectionChange(false);
+    // setSelection calls revealSelection, so there is no need to do it here.
     setSelection(start, end);
     m_textGeneration = textGeneration;
 }
@@ -2217,16 +2242,26 @@ bool WebViewCore::key(const PlatformKeyboardEvent& event)
         event.keyIdentifier().utf8().data(), event.unichar(), focusNode);
     if (focusNode) {
         WebCore::Frame* frame = focusNode->document()->frame();
+        WebFrame* webFrame = WebFrame::getWebFrame(frame);
+        if (focusNode->isContentEditable() || (focusNode->renderer()
+                && (focusNode->renderer()->isTextArea()
+                // For password fields, this is done in the UI side via
+                // bringPointIntoView, since the UI does the drawing.
+                || !static_cast<WebCore:: HTMLInputElement*>(focusNode)->isPasswordField()))) {
+            webFrame->setUserInitiatedAction(true);
+        }
         eventHandler = frame->eventHandler();
+        VisibleSelection old = frame->selection()->selection();
+        bool handled = eventHandler->keyEvent(event);
+        webFrame->setUserInitiatedAction(false);
         if (focusNode->isContentEditable()) {
             // keyEvent will return true even if the contentEditable did not
             // change its selection.  In the case that it does not, we want to
             // return false so that the key will be sent back to our navigation
             // system.
-            VisibleSelection old = frame->selection()->selection();
-            eventHandler->keyEvent(event);
-            return frame->selection()->selection() != old;
+            handled = frame->selection()->selection() != old;
         }
+        return handled;
     } else {
         eventHandler = m_mainFrame->eventHandler();
     }
@@ -2414,9 +2449,9 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
     // Need to special case area tags because an image map could have an area element in the middle
     // so when attempting to get the default, the point chosen would be follow the wrong link.
         if (nodePtr->hasTagName(WebCore::HTMLNames::areaTag)) {
-            webFrame->setUserInitiatedClick(true);
+            webFrame->setUserInitiatedAction(true);
             nodePtr->dispatchSimulatedClick(0, true, true);
-            webFrame->setUserInitiatedClick(false);
+            webFrame->setUserInitiatedAction(false);
             DBG_NAV_LOG("area");
             return true;
         }
@@ -2465,7 +2500,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
         framePtr = m_mainFrame;
     if (nodePtr && valid)
         scrollLayer(nodePtr->renderer(), &m_mousePos);
-    webFrame->setUserInitiatedClick(true);
+    webFrame->setUserInitiatedAction(true);
     WebCore::PlatformMouseEvent mouseDown(m_mousePos, m_mousePos, WebCore::LeftButton,
             WebCore::MouseEventPressed, 1, false, false, false, false,
             WTF::currentTime());
@@ -2475,7 +2510,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             WebCore::MouseEventReleased, 1, false, false, false, false,
             WTF::currentTime());
     bool handled = framePtr->eventHandler()->handleMouseReleaseEvent(mouseUp);
-    webFrame->setUserInitiatedClick(false);
+    webFrame->setUserInitiatedAction(false);
 
     // If the user clicked on a textfield, make the focusController active
     // so we show the blinking cursor.
@@ -2882,6 +2917,11 @@ static jstring WebCoreStringToJString(JNIEnv *env, WTF::String string)
     jstring ret = env->NewString((jchar *)string.characters(), length);
     env->DeleteLocalRef(ret);
     return ret;
+}
+
+static void RevealSelection(JNIEnv *env, jobject obj)
+{
+    GET_NATIVE_VIEW(env, obj)->revealSelection();
 }
 
 static jstring RequestLabel(JNIEnv *env, jobject obj, int framePointer,
@@ -3606,6 +3646,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
     { "nativeSetJsFlags", "(Ljava/lang/String;)V", (void*) SetJsFlags },
     { "nativeRequestLabel", "(II)Ljava/lang/String;",
         (void*) RequestLabel },
+    { "nativeRevealSelection", "()V", (void*) RevealSelection },
     { "nativeUpdateFrameCacheIfLoading", "()V",
         (void*) UpdateFrameCacheIfLoading },
     { "nativeProvideVisitedHistory", "([Ljava/lang/String;)V",
