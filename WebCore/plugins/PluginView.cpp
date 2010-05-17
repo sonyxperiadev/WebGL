@@ -171,8 +171,10 @@ void PluginView::handleEvent(Event* event)
     else if (event->isKeyboardEvent())
         handleKeyboardEvent(static_cast<KeyboardEvent*>(event));
 #if defined(ANDROID_PLUGINS)
+#if ENABLE(TOUCH_EVENTS)
     else if (event->isTouchEvent())
         handleTouchEvent(static_cast<TouchEvent*>(event));
+#endif
     else if (event->type() == eventNames().DOMFocusOutEvent)
         handleFocusEvent(false);
     else if (event->type() == eventNames().DOMFocusInEvent)
