@@ -107,10 +107,6 @@
 #include <runtime/JSGlobalData.h>
 #endif
 
-#if ENABLE(TOUCH_EVENTS)
-#include "ChromeClient.h"
-#endif
-
 #define DUMP_NODE_STATISTICS 0
 
 using namespace std;
