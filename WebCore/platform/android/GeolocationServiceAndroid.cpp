@@ -96,7 +96,7 @@ bool GeolocationServiceAndroid::startUpdating(PositionOptions* options, bool sus
         // ANDROID
         // TODO: Upstream to webkit.org. See https://bugs.webkit.org/show_bug.cgi?id=34082
         if (!suspend)
-            m_javaBridge->start();
+            return m_javaBridge->start();
     }
 
     return true;
