@@ -308,7 +308,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_scrollBy = GetJMethod(env, clazz, "contentScrollBy", "(IIZ)V");
     m_javaGlue->m_contentDraw = GetJMethod(env, clazz, "contentDraw", "()V");
     m_javaGlue->m_requestListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[I[I)V");
-    m_javaGlue->m_openFileChooser = GetJMethod(env, clazz, "openFileChooser", "()Ljava/lang/String;");
+    m_javaGlue->m_openFileChooser = GetJMethod(env, clazz, "openFileChooser", "(Ljava/lang/String;)Ljava/lang/String;");
     m_javaGlue->m_requestSingleListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[II)V");
     m_javaGlue->m_jsAlert = GetJMethod(env, clazz, "jsAlert", "(Ljava/lang/String;Ljava/lang/String;)V");
     m_javaGlue->m_jsConfirm = GetJMethod(env, clazz, "jsConfirm", "(Ljava/lang/String;Ljava/lang/String;)Z");
@@ -1969,15 +1969,24 @@ void WebViewCore::openFileChooser(PassRefPtr<WebCore::FileChooser> chooser) {
     if (!chooser)
         return;
     JNIEnv* env = JSC::Bindings::getJNIEnv();
+
+    WebCore::String acceptType = chooser->acceptTypes();
+    jstring jAcceptType = env->NewString(const_cast<unsigned short*>(acceptType.characters()), acceptType.length());
     jstring jName = (jstring) env->CallObjectMethod(
-            m_javaGlue->object(env).get(), m_javaGlue->m_openFileChooser);
+            m_javaGlue->object(env).get(), m_javaGlue->m_openFileChooser, jAcceptType);
     checkException(env);
-    const UChar* string = (const UChar*) env->GetStringChars(jName, NULL);
+    env->DeleteLocalRef(jAcceptType);
+
+    const UChar* string = static_cast<const UChar*>(env->GetStringChars(jName, NULL));
+
     if (!string)
         return;
+
     WebCore::String webcoreString = to_string(env, jName);
     env->ReleaseStringChars(jName, string);
-    chooser->chooseFile(webcoreString);
+
+    if (webcoreString.length())
+        chooser->chooseFile(webcoreString);
 }
 
 void WebViewCore::listBoxRequest(WebCoreReply* reply, const uint16_t** labels, size_t count, const int enabled[], size_t enabledCount,
