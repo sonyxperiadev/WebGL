@@ -185,6 +185,7 @@ void PluginView::platformDestroy()
     delete m_window;
 }
 
+#if ENABLE(TOUCH_EVENTS)
 void PluginView::handleTouchEvent(TouchEvent* event)
 {
     if (!m_window->isAcceptingEvent(kTouch_ANPEventFlag))
@@ -228,6 +229,7 @@ void PluginView::handleTouchEvent(TouchEvent* event)
     if (m_window->sendEvent(evt))
         event->preventDefault();
 }
+#endif
 
 void PluginView::handleMouseEvent(MouseEvent* event)
 {
