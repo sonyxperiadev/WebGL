@@ -2146,7 +2146,8 @@ void Document::processMetadataSettings(const String& content)
         
         String key(buffer.substring(keyBegin, keyEnd - keyBegin));
         String value(buffer.substring(valueBegin, valueEnd - valueBegin));
-        frame()->settings()->setMetadataSettings(key, value);
+        if (frame())
+            frame()->settings()->setMetadataSettings(key, value);
     }
 }
 #endif
