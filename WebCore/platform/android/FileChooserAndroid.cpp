@@ -27,6 +27,7 @@
 #include "FileChooser.h"
 #include "FileSystem.h"
 #include "Font.h"
+#include "LocalizedStrings.h"
 #include "StringTruncator.h"
 
 namespace WebCore {
@@ -34,9 +35,10 @@ namespace WebCore {
 String FileChooser::basenameForWidth(const Font& font, int width) const 
 {
     if (!m_filenames.size())
-        return String();
+        return fileButtonNoFileSelectedLabel();
+
     String output = pathGetFileName(m_filenames[0]);
-    return StringTruncator::rightTruncate(output, static_cast<float>(width), font, false);
+    return StringTruncator::centerTruncate(output, static_cast<float>(width), font, false);
 }
 
 } // namespace WebCore

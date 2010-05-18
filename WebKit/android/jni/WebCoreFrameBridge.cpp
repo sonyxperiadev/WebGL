@@ -116,6 +116,7 @@ using namespace JSC::Bindings;
 static String* gUploadFileLabel;
 static String* gResetLabel;
 static String* gSubmitLabel;
+static String* gNoFileChosenLabel;
 
 String* WebCore::PlatformBridge::globalLocalizedName(
         WebCore::PlatformBridge::rawResId resId)
@@ -127,6 +128,9 @@ String* WebCore::PlatformBridge::globalLocalizedName(
         return gResetLabel;
     case WebCore::PlatformBridge::SubmitLabel:
         return gSubmitLabel;
+    case WebCore::PlatformBridge::FileUploadNoFileChosenLabel:
+        return gNoFileChosenLabel;
+
     default:
         return 0;
     }
@@ -147,6 +151,9 @@ void initGlobalLocalizedName(WebCore::PlatformBridge::rawResId resId,
         break;
     case WebCore::PlatformBridge::SubmitLabel:
         pointer = &gSubmitLabel;
+        break;
+    case WebCore::PlatformBridge::FileUploadNoFileChosenLabel:
+        pointer = &gNoFileChosenLabel;
         break;
     default:
         return;
@@ -927,7 +934,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
         WebCore::RenderSkinAndroid::Init(am, directory);
     }
     for (int i = WebCore::PlatformBridge::FileUploadLabel;
-            i <= WebCore::PlatformBridge::SubmitLabel; i++)
+            i <= WebCore::PlatformBridge::FileUploadNoFileChosenLabel; i++)
         initGlobalLocalizedName(
                 static_cast<WebCore::PlatformBridge::rawResId>(i), webFrame);
 }

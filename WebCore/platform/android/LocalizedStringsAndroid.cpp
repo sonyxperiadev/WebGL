@@ -48,8 +48,8 @@ String fileButtonChooseFileLabel()
 
 String fileButtonNoFileSelectedLabel()
 {
-    notImplemented();
-    return String();
+    return *(PlatformBridge::globalLocalizedName(
+            PlatformBridge::FileUploadNoFileChosenLabel));
 }
 
 String contextMenuItemTagInspectElement()

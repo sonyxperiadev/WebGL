@@ -119,7 +119,8 @@ public:
         DrawableDir,
         FileUploadLabel,
         ResetLabel,
-        SubmitLabel
+        SubmitLabel,
+        FileUploadNoFileChosenLabel
     };
     static String* globalLocalizedName(rawResId resId);
 
