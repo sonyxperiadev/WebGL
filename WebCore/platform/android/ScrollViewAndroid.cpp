@@ -31,7 +31,6 @@
 #include "FrameView.h"
 #include "IntRect.h"
 #include "SkRegion.h"
-#include "WebCoreFrameBridge.h"
 #include "WebCoreViewBridge.h"
 #include "WebViewCore.h"
 
@@ -69,6 +68,8 @@ IntSize ScrollView::platformContentsSize() const
 void ScrollView::platformSetScrollPosition(const WebCore::IntPoint& pt)
 {
     if (parent()) // don't attempt to scroll subframes; they're fully visible
+        return;
+    if (isFrameView() && !PlatformBridge::canScroll(static_cast<FrameView*>(this)))
         return;
     android::WebViewCore::getWebViewCore(this)->scrollTo(pt.x(), pt.y());
 }

@@ -27,9 +27,11 @@
 #include <PlatformBridge.h>
 
 #include "CookieClient.h"
+#include "FrameView.h"
 #include "JavaSharedClient.h"
 #include "KeyGeneratorClient.h"
 #include "PluginView.h"
+#include "WebCoreFrameBridge.h"
 #include "WebViewCore.h"
 #include "npruntime.h"
 #include <wtf/android/AndroidThreading.h>
@@ -133,6 +135,17 @@ bool PlatformBridge::isWebViewPaused(const WebCore::FrameView* frameView)
 {
     android::WebViewCore* webViewCore = android::WebViewCore::getWebViewCore(frameView);
     return webViewCore->isPaused();
+}
+
+bool PlatformBridge::canScroll(const WebCore::FrameView* frameView)
+{
+    // We want to ignore requests to scroll that were not initiated by the
+    // user.  An example of this is when text is inserted into a
+    // textfield/area, which results in a scroll.  We ignore this because
+    // we know how to do this ourselves in the UI thread.
+    // An example of it being initiated by the user is if the user clicks
+    // an anchor element which simply scrolls the page.
+    return android::WebFrame::getWebFrame(frameView->frame())->userInitiatedClick();
 }
 
 bool PlatformBridge::popupsAllowed(NPP)
