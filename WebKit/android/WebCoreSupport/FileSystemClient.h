@@ -1,5 +1,5 @@
 /*
- * Copyright 2006, The Android Open Source Project
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -23,20 +23,19 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "FileChooser.h"
-#include "FileSystem.h"
-#include "Font.h"
-#include "StringTruncator.h"
+#ifndef FILESYSTEM_CLIENT_H
+#define FILESYSTEM_CLIENT_H
 
-namespace WebCore {
+#include "PlatformString.h"
 
-String FileChooser::basenameForWidth(const Font& font, int width) const 
-{
-    if (!m_filenames.size())
-        return String();
-    String output = pathGetFileName(m_filenames[0]);
-    return StringTruncator::rightTruncate(output, static_cast<float>(width), font, false);
+using namespace WebCore;
+
+namespace android {
+
+class FileSystemClient {
+public:
+    virtual ~FileSystemClient() { }
+    virtual String resolveFileNameForContentUri(const String&) = 0;
+};
 }
-
-} // namespace WebCore
+#endif

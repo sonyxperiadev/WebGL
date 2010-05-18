@@ -31,6 +31,7 @@
 #include "Cache.h"
 #include "Connection.h"
 #include "CookieClient.h"
+#include "FileSystemClient.h"
 #include "JavaSharedClient.h"
 #include "KeyGeneratorClient.h"
 #include "KURL.h"
@@ -62,7 +63,7 @@ static jfieldID gJavaBridge_ObjectID;
 
 // ----------------------------------------------------------------------------
    
-class JavaBridge : public TimerClient, public CookieClient, public PluginClient, public KeyGeneratorClient
+class JavaBridge : public TimerClient, public CookieClient, public PluginClient, public KeyGeneratorClient, public FileSystemClient
 {
 public:
     JavaBridge(JNIEnv* env, jobject obj);
@@ -84,6 +85,7 @@ public:
     virtual WTF::Vector<String> getSupportedKeyStrengthList();
     virtual WebCore::String getSignedPublicKeyAndChallengeString(unsigned index,
             const WebCore::String& challenge, const WebCore::KURL& url);
+    virtual WebCore::String resolveFileNameForContentUri(const WebCore::String& uri);
 
     ////////////////////////////////////////////
 
@@ -120,6 +122,7 @@ private:
     jmethodID   mSignalFuncPtrQueue;
     jmethodID   mGetKeyStrengthList;
     jmethodID   mGetSignedPublicKey;
+    jmethodID   mResolveFileNameForContentUri;
 };
 
 static void (*sSharedTimerFiredCallback)();
@@ -139,6 +142,7 @@ JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
     mSignalFuncPtrQueue = env->GetMethodID(clazz, "signalServiceFuncPtrQueue", "()V");
     mGetKeyStrengthList = env->GetMethodID(clazz, "getKeyStrengthList", "()[Ljava/lang/String;");
     mGetSignedPublicKey = env->GetMethodID(clazz, "getSignedPublicKey", "(ILjava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
+    mResolveFileNameForContentUri = env->GetMethodID(clazz, "resolveFileNameForContentUri", "(Ljava/lang/String;)Ljava/lang/String;");
 
     LOG_ASSERT(mSetSharedTimer, "Could not find method setSharedTimer");
     LOG_ASSERT(mStopSharedTimer, "Could not find method stopSharedTimer");
@@ -154,6 +158,7 @@ JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
     JavaSharedClient::SetCookieClient(this);
     JavaSharedClient::SetPluginClient(this);
     JavaSharedClient::SetKeyGeneratorClient(this);
+    JavaSharedClient::SetFileSystemClient(this);
 }
 
 JavaBridge::~JavaBridge()
@@ -168,6 +173,7 @@ JavaBridge::~JavaBridge()
     JavaSharedClient::SetCookieClient(NULL);
     JavaSharedClient::SetPluginClient(NULL);
     JavaSharedClient::SetKeyGeneratorClient(NULL);
+    JavaSharedClient::SetFileSystemClient(NULL);
 }
 
 void
@@ -305,6 +311,17 @@ WebCore::String JavaBridge::getSignedPublicKeyAndChallengeString(unsigned index,
     env->DeleteLocalRef(jChallenge);
     env->DeleteLocalRef(jUrl);
     env->DeleteLocalRef(key);
+    return ret;
+}
+
+WebCore::String JavaBridge::resolveFileNameForContentUri(const WebCore::String& uri) {
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jstring jUri = env->NewString(uri.characters(), uri.length());
+    AutoJObject obj = getRealObject(env, mJavaObject);
+    jstring path = static_cast<jstring>(env->CallObjectMethod(obj.get(), mResolveFileNameForContentUri, jUri));
+    WebCore::String ret = to_string(env, path);
+    env->DeleteLocalRef(jUri);
+    env->DeleteLocalRef(path);
     return ret;
 }
 

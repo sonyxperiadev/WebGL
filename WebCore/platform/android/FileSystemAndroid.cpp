@@ -28,6 +28,7 @@
 #include "config.h"
 #include "FileSystem.h"
 
+#include "PlatformBridge.h"
 #include "StringBuilder.h"
 #include "cutils/log.h"
 #include <dirent.h>
@@ -105,5 +106,15 @@ Vector<String> listDirectory(const String& path, const String& filter)
     }
     return entries;
 }
+
+String pathGetFileName(const String& path)
+{
+    // If the path is a content:// URI then ask Java to resolve it for us.
+    if (path.startsWith("content://"))
+        return PlatformBridge::resolveFileNameForContentUri(path);
+    else
+        return path.substring(path.reverseFind('/') + 1);
+}
+
 
 } // namespace WebCore

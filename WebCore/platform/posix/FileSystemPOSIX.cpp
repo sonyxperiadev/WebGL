@@ -213,10 +213,12 @@ bool makeAllDirectories(const String& path)
     return true;
 }
 
+#if !PLATFORM(ANDROID)
 String pathGetFileName(const String& path)
 {
     return path.substring(path.reverseFind('/') + 1);
 }
+#endif
 
 String directoryName(const String& path)
 {

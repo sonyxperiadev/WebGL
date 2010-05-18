@@ -27,6 +27,7 @@
 #include <PlatformBridge.h>
 
 #include "CookieClient.h"
+#include "FileSystemClient.h"
 #include "FrameView.h"
 #include "JavaSharedClient.h"
 #include "KeyGeneratorClient.h"
@@ -151,6 +152,12 @@ bool PlatformBridge::canScroll(const WebCore::FrameView* frameView)
 bool PlatformBridge::popupsAllowed(NPP)
 {
     return false;
+}
+
+String PlatformBridge::resolveFileNameForContentUri(const String& contentUri)
+{
+    FileSystemClient* client = JavaSharedClient::GetFileSystemClient();
+    return client->resolveFileNameForContentUri(contentUri);
 }
 
 }  // namespace WebCore

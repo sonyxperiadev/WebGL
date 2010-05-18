@@ -320,19 +320,6 @@ static jobject createJavaMapFromHTTPHeaders(JNIEnv* env, const WebCore::HTTPHead
     return hashMap;
 }
 
-// In WebViewCore.java, we artificially append the filename to the URI so that
-// webkit treats the actual display name of the file as the filename, rather
-// than the last segment of the URI (which will simply be a number).  When we
-// pass the URI up to BrowserFrame, we no longer need the appended name (in fact
-// it causes problems), so remove it here.
-// FIXME: If we rewrite pathGetFileName (the current version is in
-// FileSystemPOSIX), we can get the filename that way rather than appending it.
-static jstring uriFromUriFileName(JNIEnv* env, const WebCore::String& name)
-{
-    const WebCore::String fileName = name.left(name.reverseFind('/'));
-    return env->NewString(fileName.characters(), fileName.length());
-}
-
 // This class stores the URI and the size of each file for upload.  The URI is
 // stored so we do not have to create it again.  The size is stored so we can
 // compare the actual size of the file with the stated size.  If the actual size
@@ -341,7 +328,7 @@ static jstring uriFromUriFileName(JNIEnv* env, const WebCore::String& name)
 class FileInfo {
 public:
     FileInfo(JNIEnv* env, const WebCore::String& name) {
-        m_uri = uriFromUriFileName(env, name);
+        m_uri = env->NewString(name.characters(), name.length());
         checkException(env);
         m_size = 0;
         m_env = env;

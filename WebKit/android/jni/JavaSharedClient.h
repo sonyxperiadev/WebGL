@@ -32,6 +32,7 @@ namespace android {
     class CookieClient;
     class PluginClient;
     class KeyGeneratorClient;
+    class FileSystemClient;
 
     class JavaSharedClient
     {
@@ -40,11 +41,13 @@ namespace android {
         static CookieClient* GetCookieClient();
         static PluginClient* GetPluginClient();
         static KeyGeneratorClient* GetKeyGeneratorClient();
+        static FileSystemClient* GetFileSystemClient();
 
         static void SetTimerClient(TimerClient* client);
         static void SetCookieClient(CookieClient* client);
         static void SetPluginClient(PluginClient* client);
         static void SetKeyGeneratorClient(KeyGeneratorClient* client);
+        static void SetFileSystemClient(FileSystemClient* client);
 
         // can be called from any thread, to be executed in webkit thread
         static void EnqueueFunctionPtr(void (*proc)(void*), void* payload);
@@ -56,6 +59,7 @@ namespace android {
         static CookieClient* gCookieClient;
         static PluginClient* gPluginClient;
         static KeyGeneratorClient* gKeyGeneratorClient;
+        static FileSystemClient* gFileSystemClient;
     };
 }
 #endif

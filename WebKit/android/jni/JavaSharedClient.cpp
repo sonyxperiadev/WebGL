@@ -24,6 +24,7 @@
  */
 
 #include "config.h"
+#include "FileSystemClient.h"
 #include "JavaSharedClient.h"
 #include "TimerClient.h"
 #include "SkDeque.h"
@@ -50,6 +51,11 @@ namespace android {
         return gKeyGeneratorClient;
     }
 
+    FileSystemClient* JavaSharedClient::GetFileSystemClient()
+    {
+        return gFileSystemClient;
+    }
+
     void JavaSharedClient::SetTimerClient(TimerClient* client)
     {
         gTimerClient = client;
@@ -70,10 +76,16 @@ namespace android {
         gKeyGeneratorClient = client;
     }
 
+    void JavaSharedClient::SetFileSystemClient(FileSystemClient* client)
+    {
+        gFileSystemClient = client;
+    }
+
     TimerClient*    JavaSharedClient::gTimerClient = NULL;
     CookieClient*   JavaSharedClient::gCookieClient = NULL;
     PluginClient*   JavaSharedClient::gPluginClient = NULL;
     KeyGeneratorClient* JavaSharedClient::gKeyGeneratorClient = NULL;
+    FileSystemClient* JavaSharedClient::gFileSystemClient = NULL;
 
     ///////////////////////////////////////////////////////////////////////////
     
