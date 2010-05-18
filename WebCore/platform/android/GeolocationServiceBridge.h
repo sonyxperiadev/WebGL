@@ -43,7 +43,7 @@ public:
     GeolocationServiceBridge(ListenerInterface* listener);
     ~GeolocationServiceBridge();
 
-    void start();
+    bool start();
     void stop();
     void setEnableGps(bool enable);
 

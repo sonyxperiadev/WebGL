@@ -84,11 +84,11 @@ GeolocationServiceBridge::~GeolocationServiceBridge()
     stopJavaImplementation();
 }
 
-void GeolocationServiceBridge::start()
+bool GeolocationServiceBridge::start()
 {
     ASSERT(m_javaGeolocationServiceObject);
-    getJNIEnv()->CallVoidMethod(m_javaGeolocationServiceObject,
-                                javaGeolocationServiceClassMethodIDs[GeolocationServiceMethodStart]);
+    return getJNIEnv()->CallBooleanMethod(m_javaGeolocationServiceObject,
+                                          javaGeolocationServiceClassMethodIDs[GeolocationServiceMethodStart]);
 }
 
 void GeolocationServiceBridge::stop()
@@ -177,7 +177,7 @@ void GeolocationServiceBridge::startJavaImplementation()
     javaGeolocationServiceClassMethodIDs[GeolocationServiceMethodInit] =
             env->GetMethodID(javaGeolocationServiceClass, "<init>", "(J)V");
     javaGeolocationServiceClassMethodIDs[GeolocationServiceMethodStart] =
-            env->GetMethodID(javaGeolocationServiceClass, "start", "()V");
+            env->GetMethodID(javaGeolocationServiceClass, "start", "()Z");
     javaGeolocationServiceClassMethodIDs[GeolocationServiceMethodStop] =
             env->GetMethodID(javaGeolocationServiceClass, "stop", "()V");
     javaGeolocationServiceClassMethodIDs[GeolocationServiceMethodSetEnableGps] =
