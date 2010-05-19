@@ -865,9 +865,17 @@ void EventHandler::allowDHTMLDrag(bool& flagDHTML, bool& flagUA) const
 }
 #endif // ENABLE(DRAG_SUPPORT)
     
+#ifdef ANDROID_HITTEST_WITHSIZE
+HitTestResult EventHandler::hitTestResultAtPoint(const IntPoint& point, bool allowShadowContent, bool ignoreClipping, HitTestScrollbars testScrollbars, const IntSize& pointPadding)
+#else
 HitTestResult EventHandler::hitTestResultAtPoint(const IntPoint& point, bool allowShadowContent, bool ignoreClipping, HitTestScrollbars testScrollbars)
+#endif
 {
+#ifdef ANDROID_HITTEST_WITHSIZE
+    HitTestResult result(point, pointPadding);
+#else
     HitTestResult result(point);
+#endif
     if (!m_frame->contentRenderer())
         return result;
     int hitType = HitTestRequest::ReadOnly | HitTestRequest::Active;
@@ -889,7 +897,11 @@ HitTestResult EventHandler::hitTestResultAtPoint(const IntPoint& point, bool all
         FrameView* view = static_cast<FrameView*>(widget);
         IntPoint widgetPoint(result.localPoint().x() + view->scrollX() - renderWidget->borderLeft() - renderWidget->paddingLeft(), 
             result.localPoint().y() + view->scrollY() - renderWidget->borderTop() - renderWidget->paddingTop());
+#ifdef ANDROID_HITTEST_WITHSIZE
+        HitTestResult widgetHitTestResult(widgetPoint, pointPadding);
+#else
         HitTestResult widgetHitTestResult(widgetPoint);
+#endif
         frame->contentRenderer()->layer()->hitTest(HitTestRequest(hitType), widgetHitTestResult);
         result = widgetHitTestResult;
 

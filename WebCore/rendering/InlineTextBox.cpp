@@ -266,8 +266,20 @@ bool InlineTextBox::nodeAtPoint(const HitTestRequest&, HitTestResult& result, in
         return false;
 
     IntRect rect(tx + m_x, ty + m_y, m_width, height());
+#ifdef ANDROID_HITTEST_WITHSIZE
+    if (m_truncation != cFullTruncation && visibleToHitTesting() && result.intersects(x, y, rect)) {
+#else
     if (m_truncation != cFullTruncation && visibleToHitTesting() && rect.contains(x, y)) {
+#endif
         renderer()->updateHitTestResult(result, IntPoint(x - tx, y - ty));
+#ifdef ANDROID_HITTEST_WITHSIZE
+        if (result.isRegionTest()) {
+            ASSERT(renderer()->node() || renderer()->isAnonymous());
+            result.addRawNode(renderer()->node());
+            if (!result.containedBy(x, y, rect))
+                return false;
+        }
+#endif
         return true;
     }
     return false;

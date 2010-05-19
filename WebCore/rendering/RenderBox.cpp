@@ -34,6 +34,9 @@
 #include "htmlediting.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
+#ifdef ANDROID_HITTEST_WITHSIZE
+#include "HitTestResult.h"
+#endif
 #include "ImageBuffer.h"
 #include "FloatQuad.h"
 #include "Frame.h"
@@ -556,10 +559,23 @@ bool RenderBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result
         }
     }
 
+#ifdef ANDROID_HITTEST_WITHSIZE
+    IntRect boundsRect = IntRect(tx, ty, width(), height());
+    if (visibleToHitTesting() && action == HitTestForeground && result.intersects(xPos, yPos, boundsRect)) {
+#else
     // Check our bounds next. For this purpose always assume that we can only be hit in the
     // foreground phase (which is true for replaced elements like images).
     if (visibleToHitTesting() && action == HitTestForeground && IntRect(tx, ty, width(), height()).contains(xPos, yPos)) {
+#endif
         updateHitTestResult(result, IntPoint(xPos - tx, yPos - ty));
+#ifdef ANDROID_HITTEST_WITHSIZE
+        if (result.isRegionTest()) {
+            ASSERT(node() || isAnonymous());
+            result.addRawNode(node());
+            if (!result.containedBy(xPos, yPos, boundsRect))
+                return false;
+        }
+#endif
         return true;
     }
 

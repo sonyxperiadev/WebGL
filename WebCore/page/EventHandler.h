@@ -105,7 +105,11 @@ public:
 
     void dispatchFakeMouseMoveEventSoonInQuad(const FloatQuad&);
 
+#ifdef ANDROID_HITTEST_WITHSIZE
+    HitTestResult hitTestResultAtPoint(const IntPoint&, bool allowShadowContent, bool ignoreClipping = false, HitTestScrollbars scrollbars = DontHitTestScrollbars, const IntSize& pointPadding = IntSize());
+#else
     HitTestResult hitTestResultAtPoint(const IntPoint&, bool allowShadowContent, bool ignoreClipping = false, HitTestScrollbars scrollbars = DontHitTestScrollbars);
+#endif
 
     bool mousePressed() const { return m_mousePressed; }
     void setMousePressed(bool pressed) { m_mousePressed = pressed; }

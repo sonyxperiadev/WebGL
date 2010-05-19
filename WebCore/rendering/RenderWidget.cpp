@@ -378,6 +378,12 @@ bool RenderWidget::nodeAtPoint(const HitTestRequest& request, HitTestResult& res
     // Check to see if we are really over the widget itself (and not just in the border/padding area).
     if (inside && !hadResult && result.innerNode() == node())
         result.setIsOverWidget(contentBoxRect().contains(result.localPoint()));
+#ifdef ANDROID_HITTEST_WITHSIZE
+    else if (result.isRegionTest() && !hadResult && result.innerNode() == node()) {
+        result.setIsOverWidget(contentBoxRect().contains(result.localPoint()));
+        return false;
+    }
+#endif
     return inside;
 }
 
