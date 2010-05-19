@@ -30,6 +30,7 @@
 #include "FloatRect.h"
 #include "FrameView.h"
 #include "IntRect.h"
+#include "PlatformBridge.h"
 #include "SkRegion.h"
 #include "WebCoreViewBridge.h"
 #include "WebViewCore.h"
