@@ -58,9 +58,7 @@ void RenderIFrame::calcHeight()
     updateWidgetPosition();
 
     // Layout to get the content height
-    do {
-        view->layout();
-    } while (view->layoutPending() || root->needsLayout());
+    view->layout();
 
     int extraHeight = paddingTop() + paddingBottom() + borderTop() + borderBottom();
     setHeight(max(width(), view->contentsHeight() + extraHeight));
@@ -110,9 +108,7 @@ void RenderIFrame::calcWidth()
     updateWidgetPosition();
 
     // Layout to get the content width
-    do {
-        view->layout();
-    } while (view->layoutPending() || root->needsLayout());
+    view->layout();
 
     setWidth(max(width(), view->contentsWidth() + extraWidth));
 
@@ -208,9 +204,7 @@ void RenderIFrame::layout()
                 }
 
                 // Layout the view.
-                do {
-                    view->layout();
-                } while (view->layoutPending() || root->needsLayout());
+                view->layout();
 
                 int contentHeight = view->contentsHeight();
                 int contentWidth = view->contentsWidth();
