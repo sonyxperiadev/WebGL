@@ -69,8 +69,6 @@
 #include "TouchEvent.h"
 #endif
 
-// ANDROID
-// TODO: Upstream to webkit.org
 #if USE(JSC)
 #include "JSDOMBinding.h"
 #include "JSDOMWindow.h"
@@ -233,7 +231,6 @@ bool PluginView::startOrAddToUnstartedList()
     return start();
 }
 
-
 bool PluginView::start()
 {
     if (m_isStarted)
@@ -249,7 +246,7 @@ bool PluginView::start()
     NPError npErr;
     {
         PluginView::setCurrentPluginView(this);
-#if USE(JSC)        
+#if USE(JSC)
         JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
 #endif
         setCallingPlugin(true);
@@ -362,6 +359,7 @@ void PluginView::stop()
     ASSERT(m_streams.isEmpty());
 
     m_isStarted = false;
+
 #if USE(JSC)
     JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
 #endif
@@ -447,22 +445,6 @@ static char* createUTF8String(const String& str)
     return result;
 }
 
-#if USE(JSC)
-static bool getString(ScriptController* proxy, JSValue result, String& string)
-{
-    if (!proxy || !result || result.isUndefined())
-        return false;
-    JSLock lock(JSC::SilenceAssertionsOnly);
-
-    ExecState* exec = proxy->globalObject(pluginWorld())->globalExec();
-    UString ustring = result.toString(exec);
-    exec->clearException();
-
-    string = ustringToString(ustring);
-    return true;
-}
-#endif
-
 void PluginView::performRequest(PluginRequest* request)
 {
     if (!m_isStarted)
@@ -495,7 +477,7 @@ void PluginView::performRequest(PluginRequest* request)
             // FIXME: <rdar://problem/4807469> This should be sent when the document has finished loading
             if (request->sendNotification()) {
                 PluginView::setCurrentPluginView(this);
-#if USE(JSC)                
+#if USE(JSC)
                 JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
 #endif
                 setCallingPlugin(true);
@@ -510,7 +492,7 @@ void PluginView::performRequest(PluginRequest* request)
     // Targeted JavaScript requests are only allowed on the frame that contains the JavaScript plugin
     // and this has been made sure in ::load.
     ASSERT(targetFrameName.isEmpty() || m_parentFrame->tree()->find(targetFrameName) == m_parentFrame);
-
+    
     // Executing a script can cause the plugin view to be destroyed, so we keep a reference to the parent frame.
     RefPtr<Frame> parentFrame = m_parentFrame;
     ScriptValue result = m_parentFrame->script()->executeScript(jsString, request->shouldAllowPopups());
@@ -518,19 +500,14 @@ void PluginView::performRequest(PluginRequest* request)
     if (targetFrameName.isNull()) {
         String resultString;
 
-        CString cstr;
 #if USE(JSC)
-        if (getString(parentFrame->script(), result.jsValue(), resultString))
-            cstr = resultString.utf8();
+        ScriptState* scriptState = parentFrame->script()->globalObject(pluginWorld())->globalExec();
 #elif USE(V8)
-        // #if PLATFORM(ANDROID)
-        // TODO. When upstreaming this, we could re-visit whether the JSC getString function in this file
-        // could be removed, and this code re-factored to call ScriptValue::getString(ScriptState* scriptState, String& result)
-        // in both cases, thus getting rid of the #ifs
-        // #endif
-        if (result.getString(resultString))
-            cstr = resultString.utf8();
+        ScriptState* scriptState = 0; // Not used with V8
 #endif
+        CString cstr;
+        if (result.getString(scriptState, resultString))
+            cstr = resultString.utf8();
 
         RefPtr<PluginStream> stream = PluginStream::create(this, m_parentFrame.get(), request->frameLoadRequest().resourceRequest(), request->sendNotification(), request->notifyData(), plugin()->pluginFuncs(), instance(), m_plugin->quirks());
         m_streams.add(stream);
@@ -786,7 +763,6 @@ void PluginView::setJavaScriptPaused(bool paused)
     else if (!m_requests.isEmpty())
         m_requestTimer.startOneShot(0);
 }
-
 
 #if USE(JSC)
 PassRefPtr<JSC::Bindings::Instance> PluginView::bindingInstance()

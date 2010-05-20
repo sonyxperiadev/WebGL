@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Collabora Ltd. All rights reserved.
@@ -140,8 +139,6 @@ namespace WebCore {
 
 #if USE(JSC)
         PassRefPtr<JSC::Bindings::Instance> bindingInstance();
-#elif USE(V8)
-        NPObject* getNPObject();
 #endif
 
         PluginStatus status() const { return m_status; }
@@ -174,6 +171,9 @@ namespace WebCore {
         uint32_t scheduleTimer(NPP, uint32_t interval, bool repeat,
                              void (*timerFunc)(NPP, uint32_t timerID));
         void unscheduleTimer(NPP, uint32_t timerID);
+#endif
+#if USE(V8)
+        NPObject* getNPObject();
 #endif
 
         virtual void invalidateRect(const IntRect&);
