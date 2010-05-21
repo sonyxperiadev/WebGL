@@ -81,4 +81,10 @@ private:
 
 }
 
+namespace WebCore {
+
+void ReverseBidi(UChar* chars, int len);
+
+}
+
 #endif

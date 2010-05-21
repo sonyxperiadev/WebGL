@@ -26,6 +26,7 @@
 #define LOG_TAG "webcoreglue"
 
 #include "CachedPrefix.h"
+#include "BidiResolver.h"
 #include "CachedRoot.h"
 #include "LayerAndroid.h"
 #include "SelectText.h"
@@ -39,10 +40,100 @@
 #include "SkRect.h"
 #include "SkRegion.h"
 #include "SkUtils.h"
+#include "TextRun.h"
 
 #ifdef DEBUG_NAV_UI
 #include <wtf/text/CString.h>
 #endif
+
+// TextRunIterator has been copied verbatim from GraphicsContext.cpp
+namespace WebCore {
+
+class TextRunIterator {
+public:
+    TextRunIterator()
+        : m_textRun(0)
+        , m_offset(0)
+    {
+    }
+
+    TextRunIterator(const TextRun* textRun, unsigned offset)
+        : m_textRun(textRun)
+        , m_offset(offset)
+    {
+    }
+
+    TextRunIterator(const TextRunIterator& other)
+        : m_textRun(other.m_textRun)
+        , m_offset(other.m_offset)
+    {
+    }
+
+    unsigned offset() const { return m_offset; }
+    void increment() { m_offset++; }
+    bool atEnd() const { return !m_textRun || m_offset >= m_textRun->length(); }
+    UChar current() const { return (*m_textRun)[m_offset]; }
+    WTF::Unicode::Direction direction() const { return atEnd() ? WTF::Unicode::OtherNeutral : WTF::Unicode::direction(current()); }
+
+    bool operator==(const TextRunIterator& other)
+    {
+        return m_offset == other.m_offset && m_textRun == other.m_textRun;
+    }
+
+    bool operator!=(const TextRunIterator& other) { return !operator==(other); }
+
+private:
+    const TextRun* m_textRun;
+    int m_offset;
+};
+
+// ReverseBidi is a trimmed-down version of GraphicsContext::drawBidiText()
+void ReverseBidi(UChar* chars, int len) {
+    using namespace WTF::Unicode;
+    WTF::Vector<UChar> result;
+    result.reserveCapacity(len);
+    TextRun run(chars, len);
+    BidiResolver<TextRunIterator, BidiCharacterRun> bidiResolver;
+    bidiResolver.setStatus(BidiStatus(LeftToRight, LeftToRight, LeftToRight,
+        BidiContext::create(0, LeftToRight, false)));
+    bidiResolver.setPosition(TextRunIterator(&run, 0));
+    bidiResolver.createBidiRunsForLine(TextRunIterator(&run, len));
+    if (!bidiResolver.runCount())
+        return;
+    BidiCharacterRun* bidiRun = bidiResolver.firstRun();
+    while (bidiRun) {
+        int bidiStart = bidiRun->start();
+        int bidiStop = bidiRun->stop();
+        int size = result.size();
+        int bidiCount = bidiStop - bidiStart;
+        result.append(chars + bidiStart, bidiCount);
+        if (bidiRun->level() % 2) {
+            UChar* start = &result[size];
+            UChar* end = start + bidiCount;
+            // reverse the order of any RTL substrings
+            while (start < end) {
+                UChar temp = *start;
+                *start++ = *--end;
+                *end = temp;
+            }
+            start = &result[size];
+            end = start + bidiCount - 1;
+            // if the RTL substring had a surrogate pair, restore its order
+            while (start < end) {
+                UChar trail = *start++;
+                if (!U16_IS_SURROGATE(trail))
+                    continue;
+                start[-1] = *start; // lead
+                *start++ = trail;
+            }
+        }
+        bidiRun = bidiRun->next();
+    }
+    bidiResolver.deleteRuns();
+    memcpy(chars, &result[0], len * sizeof(UChar));
+}
+
+}
 
 namespace android {
 
@@ -264,6 +355,19 @@ public:
     }
 
     WebCore::String text() {
+        // the text has been copied in visual order. Reverse as needed if
+        // result contains right-to-left characters.
+        const uint16_t* start = mSelectText.begin();
+        const uint16_t* end = mSelectText.end();
+        while (start < end) {
+            SkUnichar ch = SkUTF16_NextUnichar(&start);
+            WTF::Unicode::Direction charDirection = WTF::Unicode::direction(ch);
+            if (WTF::Unicode::RightToLeftArabic == charDirection
+                    || WTF::Unicode::RightToLeft == charDirection) {
+                WebCore::ReverseBidi(mSelectText.begin(), mSelectText.count());
+                break;
+            }
+        }
         return WebCore::String(mSelectText.begin(), mSelectText.count());
     }
 
