@@ -80,19 +80,11 @@ void HTMLLinkElement::setDisabledState(bool _disabled)
             // Check #1: If the sheet becomes disabled while it was loading, and if it was either
             // a main sheet or a sheet that was previously enabled via script, then we need
             // to remove it from the list of pending sheets.
-<<<<<<< HEAD
-            if (m_disabledState == 2 && (!m_rel.m_isAlternate || oldDisabledState == 1))
-                document()->removePendingSheet();
-
-            // Check #2: An alternate sheet becomes enabled while it is still loading.
-            if (m_rel.m_isAlternate && m_disabledState == 1)
-=======
             if (m_disabledState == Disabled && (!m_relAttribute.m_isAlternate || oldDisabledState == EnabledViaScript))
                 document()->removePendingSheet();
 
             // Check #2: An alternate sheet becomes enabled while it is still loading.
             if (m_relAttribute.m_isAlternate && m_disabledState == EnabledViaScript)
->>>>>>> webkit.org at r59636
                 document()->addPendingSheet();
 
             // Check #3: A main sheet becomes enabled while it was still loading and
@@ -100,11 +92,7 @@ void HTMLLinkElement::setDisabledState(bool _disabled)
             // happen (a double toggle for no reason essentially).  This happens on
             // virtualplastic.net, which manages to do about 12 enable/disables on only 3
             // sheets. :)
-<<<<<<< HEAD
-            if (!m_rel.m_isAlternate && m_disabledState == 1 && oldDisabledState == 2)
-=======
             if (!m_relAttribute.m_isAlternate && m_disabledState == EnabledViaScript && oldDisabledState == Disabled)
->>>>>>> webkit.org at r59636
                 document()->addPendingSheet();
 
             // If the sheet is already loading just bail.
@@ -127,11 +115,7 @@ StyleSheet* HTMLLinkElement::sheet() const
 void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == relAttr) {
-<<<<<<< HEAD
-        tokenizeRelAttribute(attr->value(), m_rel);
-=======
         tokenizeRelAttribute(attr->value(), m_relAttribute);
->>>>>>> webkit.org at r59636
         process();
     } else if (attr->name() == hrefAttr) {
         m_url = document()->completeURL(deprecatedParseURL(attr->value()));
@@ -144,71 +128,49 @@ void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
         process();
     } else if (attr->name() == disabledAttr)
         setDisabledState(!attr->isNull());
-<<<<<<< HEAD
-    } else if (attr->name() == onbeforeloadAttr) {
-=======
     else if (attr->name() == onbeforeloadAttr)
->>>>>>> webkit.org at r59636
         setAttributeEventListener(eventNames().beforeloadEvent, createAttributeEventListener(this, attr));
-    } else if (attr->name() == onloadAttr) {
+    else if (attr->name() == onloadAttr)
         setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
-    } else {
+    else {
         if (attr->name() == titleAttr && m_sheet)
             m_sheet->setTitle(attr->value());
         HTMLElement::parseMappedAttribute(attr);
     }
 }
 
-<<<<<<< HEAD
-void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, RelAttribute& attribute)
-{
-    attribute.m_isStyleSheet = false;
-    attribute.m_isIcon = false;
-    attribute.m_isAlternate = false;
-    attribute.m_isDNSPrefetch = false;
-#if ENABLE(LINK_PREFETCH)
-    attribute.m_isLinkPrefetch = false;
-#endif
-#ifdef ANDROID_APPLE_TOUCH_ICON
-    attribute.m_isTouchIcon = false;
-    attribute.m_isPrecomposedTouchIcon = false;
-#endif
-    if (equalIgnoringCase(rel, "stylesheet"))
-        attribute.m_isStyleSheet = true;
-    else if (equalIgnoringCase(rel, "icon") || equalIgnoringCase(rel, "shortcut icon"))
-        attribute.m_isIcon = true;
-#ifdef ANDROID_APPLE_TOUCH_ICON
-    else if (equalIgnoringCase(rel, "apple-touch-icon"))
-        attribute.m_isTouchIcon = true;
-    else if (equalIgnoringCase(rel, "apple-touch-icon-precomposed"))
-        attribute.m_isPrecomposedTouchIcon = true;
-#endif
-    else if (equalIgnoringCase(rel, "dns-prefetch"))
-        attribute.m_isDNSPrefetch = true;
-#if ENABLE(LINK_PREFETCH)
-    else if (equalIgnoringCase(rel, "prefetch"))
-        attribute.m_isLinkPrefetch = true;
-#endif
-    else if (equalIgnoringCase(rel, "alternate stylesheet") || equalIgnoringCase(rel, "stylesheet alternate")) {
-        attribute.m_isStyleSheet = true;
-        attribute.m_isAlternate = true;
-=======
 void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, RelAttribute& relAttribute)
 {
     relAttribute.m_isStyleSheet = false;
     relAttribute.m_isIcon = false;
     relAttribute.m_isAlternate = false;
     relAttribute.m_isDNSPrefetch = false;
+#if ENABLE(LINK_PREFETCH)
+    relAttribute.m_isLinkPrefetch = false;
+#endif
+#ifdef ANDROID_APPLE_TOUCH_ICON
+    relAttribute.m_isTouchIcon = false;
+    relAttribute.m_isPrecomposedTouchIcon = false;
+#endif
     if (equalIgnoringCase(rel, "stylesheet"))
         relAttribute.m_isStyleSheet = true;
     else if (equalIgnoringCase(rel, "icon") || equalIgnoringCase(rel, "shortcut icon"))
         relAttribute.m_isIcon = true;
+#ifdef ANDROID_APPLE_TOUCH_ICON
+    else if (equalIgnoringCase(rel, "apple-touch-icon"))
+        relAttribute.m_isTouchIcon = true;
+    else if (equalIgnoringCase(rel, "apple-touch-icon-precomposed"))
+        relAttribute.m_isPrecomposedTouchIcon = true;
+#endif
     else if (equalIgnoringCase(rel, "dns-prefetch"))
         relAttribute.m_isDNSPrefetch = true;
+#if ENABLE(LINK_PREFETCH)
+    else if (equalIgnoringCase(rel, "prefetch"))
+        relAttribute.m_isLinkPrefetch = true;
+#endif
     else if (equalIgnoringCase(rel, "alternate stylesheet") || equalIgnoringCase(rel, "stylesheet alternate")) {
         relAttribute.m_isStyleSheet = true;
         relAttribute.m_isAlternate = true;
->>>>>>> webkit.org at r59636
     } else {
         // Tokenize the rel attribute and set bits based on specific keywords that we find.
         String relString = rel.string();
@@ -218,19 +180,11 @@ void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, RelAttribute
         Vector<String>::const_iterator end = list.end();
         for (Vector<String>::const_iterator it = list.begin(); it != end; ++it) {
             if (equalIgnoringCase(*it, "stylesheet"))
-<<<<<<< HEAD
-                attribute.m_isStyleSheet = true;
-            else if (equalIgnoringCase(*it, "alternate"))
-                attribute.m_isAlternate = true;
-            else if (equalIgnoringCase(*it, "icon"))
-                attribute.m_isIcon = true;
-=======
                 relAttribute.m_isStyleSheet = true;
             else if (equalIgnoringCase(*it, "alternate"))
                 relAttribute.m_isAlternate = true;
             else if (equalIgnoringCase(*it, "icon"))
                 relAttribute.m_isIcon = true;
->>>>>>> webkit.org at r59636
         }
     }
 }
@@ -244,29 +198,22 @@ void HTMLLinkElement::process()
 
     // IE extension: location of small icon for locationbar / bookmarks
     // We'll record this URL per document, even if we later only use it in top level frames
-<<<<<<< HEAD
-    if (m_rel.m_isIcon && m_url.isValid() && !m_url.isEmpty())
-        document()->setIconURL(m_url.string(), type);
-
-#ifdef ANDROID_APPLE_TOUCH_ICON
-    if ((m_rel.m_isTouchIcon || m_rel.m_isPrecomposedTouchIcon) && m_url.isValid()
-            && !m_url.isEmpty())
-        document()->frame()->loader()->client()
-                ->dispatchDidReceiveTouchIconURL(m_url.string(),
-                        m_rel.m_isPrecomposedTouchIcon);
-#endif
-
-    if (m_rel.m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())
-=======
     if (m_relAttribute.m_isIcon && m_url.isValid() && !m_url.isEmpty())
         document()->setIconURL(m_url.string(), type);
 
+#ifdef ANDROID_APPLE_TOUCH_ICON
+    if ((m_relAttribute.m_isTouchIcon || m_relAttribute.m_isPrecomposedTouchIcon) && m_url.isValid()
+            && !m_url.isEmpty())
+        document()->frame()->loader()->client()
+                ->dispatchDidReceiveTouchIconURL(m_url.string(),
+                        m_relAttribute.m_isPrecomposedTouchIcon);
+#endif
+
     if (m_relAttribute.m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())
->>>>>>> webkit.org at r59636
         ResourceHandle::prepareForURL(m_url);
 
 #if ENABLE(LINK_PREFETCH)
-    if (m_rel.m_isLinkPrefetch && m_url.isValid()) {
+    if (m_relAttribute.m_isLinkPrefetch && m_url.isValid()) {
         m_cachedLinkPrefetch = document()->docLoader()->requestLinkPrefetch(m_url);
         m_loading = true;
 
@@ -279,11 +226,7 @@ void HTMLLinkElement::process()
 
     // Stylesheet
     // This was buggy and would incorrectly match <link rel="alternate">, which has a different specified meaning. -dwh
-<<<<<<< HEAD
-    if (m_disabledState != 2 && (m_rel.m_isStyleSheet || (acceptIfTypeContainsTextCSS && type.contains("text/css"))) && document()->frame() && m_url.isValid()) {
-=======
     if (m_disabledState != Disabled && (m_relAttribute.m_isStyleSheet || (acceptIfTypeContainsTextCSS && type.contains("text/css"))) && document()->frame() && m_url.isValid()) {
->>>>>>> webkit.org at r59636
         // also, don't load style sheets for standalone documents
         
         String charset = getAttribute(charsetAttr);
@@ -537,17 +480,10 @@ void HTMLLinkElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
     HTMLElement::addSubresourceAttributeURLs(urls);
 
     // Favicons are handled by a special case in LegacyWebArchive::create()
-<<<<<<< HEAD
-    if (m_rel.m_isIcon)
-        return;
-
-    if (!m_rel.m_isStyleSheet)
-=======
     if (m_relAttribute.m_isIcon)
         return;
 
     if (!m_relAttribute.m_isStyleSheet)
->>>>>>> webkit.org at r59636
         return;
     
     // Append the URL of this link element.

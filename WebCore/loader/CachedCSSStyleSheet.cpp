@@ -52,11 +52,7 @@ CachedCSSStyleSheet::~CachedCSSStyleSheet()
 
 void CachedCSSStyleSheet::didAddClient(CachedResourceClient *c)
 {
-<<<<<<< HEAD
-    if (!m_loading) {
-=======
-    if (!isLoading())
->>>>>>> webkit.org at r59636
+    if (!isLoading()) {
         c->setCSSStyleSheet(m_url, m_response.url(), m_decoder->encoding().name(), this);
         c->notifyFinished(this);
     }
