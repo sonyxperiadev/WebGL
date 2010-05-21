@@ -530,6 +530,21 @@ static NSString *createUserVisibleWebKitVersionString()
     return [NSString stringWithFormat:@"Mozilla/5.0 (Macintosh; U; " PROCESSOR " Mac OS X %@; %@) AppleWebKit/%@ (KHTML, like Gecko)", osVersion, language, webKitVersion];
 }
 
++ (void)_reportException:(JSValueRef)exception inContext:(JSContextRef)context
+{
+    if (!exception || !context)
+        return;
+
+    JSLock lock(SilenceAssertionsOnly);
+    JSC::ExecState* execState = toJS(context);
+
+    // Make sure the context has a DOMWindow global object, otherwise this context didn't originate from a WebView.
+    if (!toJSDOMWindow(execState->lexicalGlobalObject()))
+        return;
+
+    reportException(execState, toJS(execState, exception));
+}
+
 static void WebKitInitializeApplicationCachePathIfNecessary()
 {
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
@@ -1084,8 +1099,9 @@ static bool fastDocumentTeardownEnabled()
     // Deleteing the WebCore::Page will clear the page cache so we call destroy on 
     // all the plug-ins in the page cache to break any retain cycles.
     // See comment in HistoryItem::releaseAllPendingPageCaches() for more information.
-    delete _private->page;
+    Page* page = _private->page;
     _private->page = 0;
+    delete page;
 
     if (_private->hasSpellCheckerDocumentTag) {
         [[NSSpellChecker sharedSpellChecker] closeSpellDocumentWithTag:_private->spellCheckerDocumentTag];

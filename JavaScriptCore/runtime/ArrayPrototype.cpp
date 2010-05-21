@@ -76,10 +76,10 @@ static inline bool isNumericCompareFunction(ExecState* exec, CallType callType, 
 #if ENABLE(JIT)
     // If the JIT is enabled then we need to preserve the invariant that every
     // function with a CodeBlock also has JIT code.
-    callData.js.functionExecutable->jitCode(exec, callData.js.scopeChain);
-    CodeBlock& codeBlock = callData.js.functionExecutable->generatedBytecode();
+    callData.js.functionExecutable->jitCodeForCall(exec, callData.js.scopeChain);
+    CodeBlock& codeBlock = callData.js.functionExecutable->generatedBytecodeForCall();
 #else
-    CodeBlock& codeBlock = callData.js.functionExecutable->bytecode(exec, callData.js.scopeChain);
+    CodeBlock& codeBlock = callData.js.functionExecutable->bytecodeForCall(exec, callData.js.scopeChain);
 #endif
 
     return codeBlock.isNumericCompareFunction();
@@ -271,20 +271,37 @@ JSValue JSC_HOST_CALL arrayProtoFuncJoin(ExecState* exec, JSObject*, JSValue thi
     unsigned k = 0;
     if (isJSArray(&exec->globalData(), thisObj)) {
         JSArray* array = asArray(thisObj);
-        for (; k < length; k++) {
-            if (!array->canGetIndex(k))
-                break;
-            if (k >= 1) {
-                if (separator.isNull())
-                    strBuffer.append(',');
-                else
-                    strBuffer.append(separator);
-            }
+
+        if (length) {
+            if (!array->canGetIndex(k)) 
+                goto skipFirstLoop;
             JSValue element = array->getIndex(k);
             if (!element.isUndefinedOrNull())
                 strBuffer.append(element.toString(exec));
+            k++;
+        }
+
+        if (separator.isNull()) {
+            for (; k < length; k++) {
+                if (!array->canGetIndex(k))
+                    break;
+                strBuffer.append(',');
+                JSValue element = array->getIndex(k);
+                if (!element.isUndefinedOrNull())
+                    strBuffer.append(element.toString(exec));
+            }
+        } else {
+            for (; k < length; k++) {
+                if (!array->canGetIndex(k))
+                    break;
+                strBuffer.append(separator);
+                JSValue element = array->getIndex(k);
+                if (!element.isUndefinedOrNull())
+                    strBuffer.append(element.toString(exec));
+            }
         }
     }
+ skipFirstLoop:
     for (; k < length; k++) {
         if (k >= 1) {
             if (separator.isNull())

@@ -52,7 +52,7 @@ using namespace HTMLNames;
 HTMLLinkElement::HTMLLinkElement(const QualifiedName& qName, Document *doc, bool createdByParser)
     : HTMLElement(qName, doc)
     , m_cachedSheet(0)
-    , m_disabledState(0)
+    , m_disabledState(Unset)
     , m_loading(false)
     , m_createdByParser(createdByParser)
     , m_timer(this, &HTMLLinkElement::timerFired)
@@ -71,8 +71,8 @@ HTMLLinkElement::~HTMLLinkElement()
 
 void HTMLLinkElement::setDisabledState(bool _disabled)
 {
-    int oldDisabledState = m_disabledState;
-    m_disabledState = _disabled ? 2 : 1;
+    DisabledState oldDisabledState = m_disabledState;
+    m_disabledState = _disabled ? Disabled : EnabledViaScript;
     if (oldDisabledState != m_disabledState) {
         // If we change the disabled state while the sheet is still loading, then we have to
         // perform three checks:
@@ -80,11 +80,19 @@ void HTMLLinkElement::setDisabledState(bool _disabled)
             // Check #1: If the sheet becomes disabled while it was loading, and if it was either
             // a main sheet or a sheet that was previously enabled via script, then we need
             // to remove it from the list of pending sheets.
+<<<<<<< HEAD
             if (m_disabledState == 2 && (!m_rel.m_isAlternate || oldDisabledState == 1))
                 document()->removePendingSheet();
 
             // Check #2: An alternate sheet becomes enabled while it is still loading.
             if (m_rel.m_isAlternate && m_disabledState == 1)
+=======
+            if (m_disabledState == Disabled && (!m_relAttribute.m_isAlternate || oldDisabledState == EnabledViaScript))
+                document()->removePendingSheet();
+
+            // Check #2: An alternate sheet becomes enabled while it is still loading.
+            if (m_relAttribute.m_isAlternate && m_disabledState == EnabledViaScript)
+>>>>>>> webkit.org at r59636
                 document()->addPendingSheet();
 
             // Check #3: A main sheet becomes enabled while it was still loading and
@@ -92,7 +100,11 @@ void HTMLLinkElement::setDisabledState(bool _disabled)
             // happen (a double toggle for no reason essentially).  This happens on
             // virtualplastic.net, which manages to do about 12 enable/disables on only 3
             // sheets. :)
+<<<<<<< HEAD
             if (!m_rel.m_isAlternate && m_disabledState == 1 && oldDisabledState == 2)
+=======
+            if (!m_relAttribute.m_isAlternate && m_disabledState == EnabledViaScript && oldDisabledState == Disabled)
+>>>>>>> webkit.org at r59636
                 document()->addPendingSheet();
 
             // If the sheet is already loading just bail.
@@ -100,7 +112,7 @@ void HTMLLinkElement::setDisabledState(bool _disabled)
         }
 
         // Load the sheet, since it's never been loaded before.
-        if (!m_sheet && m_disabledState == 1)
+        if (!m_sheet && m_disabledState == EnabledViaScript)
             process();
         else
             document()->updateStyleSelector(); // Update the style selector.
@@ -115,7 +127,11 @@ StyleSheet* HTMLLinkElement::sheet() const
 void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
 {
     if (attr->name() == relAttr) {
+<<<<<<< HEAD
         tokenizeRelAttribute(attr->value(), m_rel);
+=======
+        tokenizeRelAttribute(attr->value(), m_relAttribute);
+>>>>>>> webkit.org at r59636
         process();
     } else if (attr->name() == hrefAttr) {
         m_url = document()->completeURL(deprecatedParseURL(attr->value()));
@@ -126,9 +142,13 @@ void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
     } else if (attr->name() == mediaAttr) {
         m_media = attr->value().string().lower();
         process();
-    } else if (attr->name() == disabledAttr) {
+    } else if (attr->name() == disabledAttr)
         setDisabledState(!attr->isNull());
+<<<<<<< HEAD
     } else if (attr->name() == onbeforeloadAttr) {
+=======
+    else if (attr->name() == onbeforeloadAttr)
+>>>>>>> webkit.org at r59636
         setAttributeEventListener(eventNames().beforeloadEvent, createAttributeEventListener(this, attr));
     } else if (attr->name() == onloadAttr) {
         setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
@@ -139,6 +159,7 @@ void HTMLLinkElement::parseMappedAttribute(MappedAttribute *attr)
     }
 }
 
+<<<<<<< HEAD
 void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, RelAttribute& attribute)
 {
     attribute.m_isStyleSheet = false;
@@ -171,6 +192,23 @@ void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, RelAttribute
     else if (equalIgnoringCase(rel, "alternate stylesheet") || equalIgnoringCase(rel, "stylesheet alternate")) {
         attribute.m_isStyleSheet = true;
         attribute.m_isAlternate = true;
+=======
+void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, RelAttribute& relAttribute)
+{
+    relAttribute.m_isStyleSheet = false;
+    relAttribute.m_isIcon = false;
+    relAttribute.m_isAlternate = false;
+    relAttribute.m_isDNSPrefetch = false;
+    if (equalIgnoringCase(rel, "stylesheet"))
+        relAttribute.m_isStyleSheet = true;
+    else if (equalIgnoringCase(rel, "icon") || equalIgnoringCase(rel, "shortcut icon"))
+        relAttribute.m_isIcon = true;
+    else if (equalIgnoringCase(rel, "dns-prefetch"))
+        relAttribute.m_isDNSPrefetch = true;
+    else if (equalIgnoringCase(rel, "alternate stylesheet") || equalIgnoringCase(rel, "stylesheet alternate")) {
+        relAttribute.m_isStyleSheet = true;
+        relAttribute.m_isAlternate = true;
+>>>>>>> webkit.org at r59636
     } else {
         // Tokenize the rel attribute and set bits based on specific keywords that we find.
         String relString = rel.string();
@@ -180,11 +218,19 @@ void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, RelAttribute
         Vector<String>::const_iterator end = list.end();
         for (Vector<String>::const_iterator it = list.begin(); it != end; ++it) {
             if (equalIgnoringCase(*it, "stylesheet"))
+<<<<<<< HEAD
                 attribute.m_isStyleSheet = true;
             else if (equalIgnoringCase(*it, "alternate"))
                 attribute.m_isAlternate = true;
             else if (equalIgnoringCase(*it, "icon"))
                 attribute.m_isIcon = true;
+=======
+                relAttribute.m_isStyleSheet = true;
+            else if (equalIgnoringCase(*it, "alternate"))
+                relAttribute.m_isAlternate = true;
+            else if (equalIgnoringCase(*it, "icon"))
+                relAttribute.m_isIcon = true;
+>>>>>>> webkit.org at r59636
         }
     }
 }
@@ -198,6 +244,7 @@ void HTMLLinkElement::process()
 
     // IE extension: location of small icon for locationbar / bookmarks
     // We'll record this URL per document, even if we later only use it in top level frames
+<<<<<<< HEAD
     if (m_rel.m_isIcon && m_url.isValid() && !m_url.isEmpty())
         document()->setIconURL(m_url.string(), type);
 
@@ -210,6 +257,12 @@ void HTMLLinkElement::process()
 #endif
 
     if (m_rel.m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())
+=======
+    if (m_relAttribute.m_isIcon && m_url.isValid() && !m_url.isEmpty())
+        document()->setIconURL(m_url.string(), type);
+
+    if (m_relAttribute.m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())
+>>>>>>> webkit.org at r59636
         ResourceHandle::prepareForURL(m_url);
 
 #if ENABLE(LINK_PREFETCH)
@@ -226,7 +279,11 @@ void HTMLLinkElement::process()
 
     // Stylesheet
     // This was buggy and would incorrectly match <link rel="alternate">, which has a different specified meaning. -dwh
+<<<<<<< HEAD
     if (m_disabledState != 2 && (m_rel.m_isStyleSheet || (acceptIfTypeContainsTextCSS && type.contains("text/css"))) && document()->frame() && m_url.isValid()) {
+=======
+    if (m_disabledState != Disabled && (m_relAttribute.m_isStyleSheet || (acceptIfTypeContainsTextCSS && type.contains("text/css"))) && document()->frame() && m_url.isValid()) {
+>>>>>>> webkit.org at r59636
         // also, don't load style sheets for standalone documents
         
         String charset = getAttribute(charsetAttr);
@@ -480,10 +537,17 @@ void HTMLLinkElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
     HTMLElement::addSubresourceAttributeURLs(urls);
 
     // Favicons are handled by a special case in LegacyWebArchive::create()
+<<<<<<< HEAD
     if (m_rel.m_isIcon)
         return;
 
     if (!m_rel.m_isStyleSheet)
+=======
+    if (m_relAttribute.m_isIcon)
+        return;
+
+    if (!m_relAttribute.m_isStyleSheet)
+>>>>>>> webkit.org at r59636
         return;
     
     // Append the URL of this link element.

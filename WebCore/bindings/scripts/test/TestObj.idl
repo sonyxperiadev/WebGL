@@ -48,13 +48,17 @@ module test {
         TestObj objMethod();
         TestObj objMethodWithArgs(in long intArg, in DOMString strArg, in TestObj objArg);
 
+        [RequiresAllArguments] TestObj methodThatRequiresAllArgs(in DOMString strArg, in TestObj objArg);
+        [RequiresAllArguments=Raise] TestObj methodThatRequiresAllArgsAndThrows(in DOMString strArg, in TestObj objArg)
+            raises(DOMException);
+
         void serializedValue(in SerializedScriptValue serializedArg);
 
         // Exceptions
         void    methodWithException() raises(DOMException);
         attribute long attrWithException raises(DOMException);
-        attribute long attrWithSetterException getraises(DOMException);
-        attribute long attrWithGetterException setraises(DOMException);
+        attribute long attrWithSetterException getter raises(DOMException);
+        attribute long attrWithGetterException setter raises(DOMException);
 
         // 'Custom' extended attribute
         attribute [Custom] long            customAttr;
@@ -92,7 +96,7 @@ module test {
         // 'ConvertScriptString' extended attribute
         readonly attribute [ConvertScriptString] DOMString scriptStringAttr;
 
-#ifdef TESTING_V8
+#if defined(TESTING_V8) || defined(TESTING_JS)
         // Overloads
         void    overloadedMethod(in TestObj objArg, in DOMString strArg);
         void    overloadedMethod(in TestObj objArg, in [Optional] long intArg);

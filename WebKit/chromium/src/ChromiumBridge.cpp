@@ -132,6 +132,13 @@ static WebCookieJar* getCookieJar(const Document* document)
     return cookieJar;
 }
 
+// Cache ----------------------------------------------------------------------
+
+void ChromiumBridge::cacheMetadata(const KURL& url, double responseTime, const Vector<char>& data)
+{
+    webKitClient()->cacheMetadata(url, responseTime, data.data(), data.size());
+}
+
 // Clipboard ------------------------------------------------------------------
 
 bool ChromiumBridge::clipboardIsFormatAvailable(
@@ -432,9 +439,9 @@ GeolocationServiceBridge* ChromiumBridge::createGeolocationServiceBridge(Geoloca
 // HTML5 DB -------------------------------------------------------------------
 
 #if ENABLE(DATABASE)
-PlatformFileHandle ChromiumBridge::databaseOpenFile(const String& vfsFileName, int desiredFlags, PlatformFileHandle* dirHandle)
+PlatformFileHandle ChromiumBridge::databaseOpenFile(const String& vfsFileName, int desiredFlags)
 {
-    return webKitClient()->databaseOpenFile(WebString(vfsFileName), desiredFlags, dirHandle);
+    return webKitClient()->databaseOpenFile(WebString(vfsFileName), desiredFlags);
 }
 
 int ChromiumBridge::databaseDeleteFile(const String& vfsFileName, bool syncDir)
@@ -670,6 +677,13 @@ void ChromiumBridge::paintTrackbar(
 {
     webKitClient()->themeEngine()->paintTrackbar(
         gc->platformContext()->canvas(), part, state, classicState, rect);
+}
+
+void ChromiumBridge::paintProgressBar(
+    GraphicsContext* gc, const IntRect& barRect, int valuePart, const IntRect& valueRect)
+{
+    webKitClient()->themeEngine()->paintProgressBar(
+        gc->platformContext()->canvas(), barRect, valuePart, valueRect);
 }
 
 #endif

@@ -39,8 +39,9 @@
 
 namespace WebCore {
 
-class IndexedDatabase;
 class Frame;
+class IDBAny;
+class IndexedDatabase;
 
 class IndexedDatabaseRequest : public RefCounted<IndexedDatabaseRequest> {
 public:
@@ -50,14 +51,15 @@ public:
     }
     ~IndexedDatabaseRequest();
 
-    void open(const String& name, const String& description, bool modifyDatabase, PassRefPtr<IDBDatabaseCallbacks>, ExceptionCode&);
+    PassRefPtr<IDBRequest> open(const String& name, const String& description, bool modifyDatabase, ExceptionCode&);
 
     void disconnectFrame() { m_frame = 0; }
 
 private:
     IndexedDatabaseRequest(IndexedDatabase*, Frame*);
 
-    PassRefPtr<IndexedDatabase> m_indexedDatabase;
+    RefPtr<IndexedDatabase> m_indexedDatabase;
+    RefPtr<IDBAny> m_this;
     Frame* m_frame;
 };
 

@@ -157,6 +157,7 @@ public slots:
     bool pauseAnimationAtTimeOnElementWithId(const QString& animationName, double time, const QString& elementId);
     bool pauseTransitionAtTimeOnElementWithId(const QString& propertyName, double time, const QString& elementId);
     bool sampleSVGAnimationForElementAtTime(const QString& animationId, double time, const QString& elementId);
+    bool elementDoesAutoCompleteForElementWithId(const QString& elementId);
 
     unsigned numberOfActiveAnimations() const;
 
@@ -168,6 +169,7 @@ public slots:
 
     void setDatabaseQuota(int size);
     void clearAllDatabases();
+    void setIconDatabaseEnabled(bool enable);
 
     void waitForPolicyDelegate();
     void overridePreference(const QString& name, const QVariant& value);
@@ -186,6 +188,7 @@ public slots:
     void setScrollbarPolicy(const QString& orientation, const QString& policy);
 
     QString markerTextForListItem(const QWebElement& listItem);
+    QVariantMap computedStyleIncludingVisitedInfo(const QWebElement& element) const;
 
     // Simulate a request an embedding application could make, populating per-session credential storage.
     void authenticateSession(const QString& url, const QString& username, const QString& password);

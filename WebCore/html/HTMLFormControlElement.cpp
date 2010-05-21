@@ -25,6 +25,7 @@
 #include "config.h"
 #include "HTMLFormControlElement.h"
 
+#include "CharacterNames.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "Document.h"
@@ -44,6 +45,7 @@
 #include "RenderTheme.h"
 #include "ScriptEventListener.h"
 #include "ValidityState.h"
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
@@ -189,8 +191,8 @@ void HTMLFormControlElement::removedFromTree(bool deep)
 
 const AtomicString& HTMLFormControlElement::formControlName() const
 {
-    const AtomicString& n = getAttribute(nameAttr);
-    return n.isNull() ? emptyAtom : n;
+    const AtomicString& name = fastGetAttribute(nameAttr);
+    return name.isNull() ? emptyAtom : name;
 }
 
 void HTMLFormControlElement::setName(const AtomicString &value)
@@ -400,6 +402,16 @@ void HTMLFormControlElement::removeFromForm()
     m_form = 0;
 }
 
+bool HTMLFormControlElement::isLabelable() const
+{
+    // FIXME: Add meterTag and outputTag to the list once we support them.
+    return hasTagName(buttonTag) || hasTagName(inputTag) || hasTagName(keygenTag)
+#if ENABLE(PROGRESS_TAG)
+        || hasTagName(progressTag)
+#endif
+        || hasTagName(selectTag) || hasTagName(textareaTag);
+}
+    
 HTMLFormControlElementWithState::HTMLFormControlElementWithState(const QualifiedName& tagName, Document* doc, HTMLFormElement* f)
     : HTMLFormControlElement(tagName, doc, f)
 {
@@ -489,12 +501,40 @@ void HTMLTextFormControlElement::dispatchBlurEvent()
     HTMLFormControlElementWithState::dispatchBlurEvent();
 }
 
+String HTMLTextFormControlElement::strippedPlaceholder() const
+{
+    // According to the HTML5 specification, we need to remove CR and LF from
+    // the attribute value.
+    const AtomicString& attributeValue = getAttribute(placeholderAttr);
+    if (!attributeValue.contains(newlineCharacter) && !attributeValue.contains(carriageReturn))
+        return attributeValue;
+
+    Vector<UChar> stripped;
+    unsigned length = attributeValue.length();
+    stripped.reserveCapacity(length);
+    for (unsigned i = 0; i < length; ++i) {
+        UChar character = attributeValue[i];
+        if (character == newlineCharacter || character == carriageReturn)
+            continue;
+        stripped.append(character);
+    }
+    return String::adopt(stripped);
+}
+
+static bool isNotLineBreak(UChar ch) { return ch != newlineCharacter && ch != carriageReturn; }
+
+bool HTMLTextFormControlElement::isPlaceholderEmpty() const
+{
+    const AtomicString& attributeValue = getAttribute(placeholderAttr);
+    return attributeValue.string().find(isNotLineBreak) == -1;
+}
+
 bool HTMLTextFormControlElement::placeholderShouldBeVisible() const
 {
     return supportsPlaceholder()
         && isEmptyValue()
         && document()->focusedNode() != this
-        && !getAttribute(placeholderAttr).isEmpty();
+        && !isPlaceholderEmpty();
 }
 
 void HTMLTextFormControlElement::updatePlaceholderVisibility(bool placeholderValueChanged)

@@ -5,7 +5,8 @@
 # Copyright (C) 2006 Alexey Proskuryakov <ap@webkit.org>
 # Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
 # Copyright (C) 2009 Cameron McCormack <cam@mcc.id.au>
-# 
+# Copyright (C) Research In Motion Limited 2010. All rights reserved.
+#
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Library General Public
 # License as published by the Free Software Foundation; either
@@ -100,6 +101,8 @@ sub GenerateInterface
     my $dataNode = shift;
     my $defines = shift;
 
+    $codeGenerator->LinkOverloadedFunctions($dataNode);
+
     # Start actual generation
     if ($dataNode->extendedAttributes->{"Callback"}) {
         $object->GenerateCallbackHeader($dataNode);
@@ -126,6 +129,32 @@ sub GenerateInterface
     }
 }
 
+sub GenerateAttributeEventListenerCall
+{
+    my $className = shift;
+    my $implSetterFunctionName = shift;
+    my $windowEventListener = shift;
+
+    my $wrapperObject = $windowEventListener ? "globalObject" : "thisObject";
+    my @GenerateEventListenerImpl = ();
+
+    if ($className eq "JSSVGElementInstance") {
+        # SVGElementInstances have to create JSEventListeners with the wrapper equal to the correspondingElement
+        $wrapperObject = "asObject(correspondingElementWrapper)";
+
+        push(@GenerateEventListenerImpl, <<END);
+    JSValue correspondingElementWrapper = toJS(exec, imp->correspondingElement());
+    if (correspondingElementWrapper.isObject())
+END
+
+        # Add leading whitespace to format the imp->set... line correctly
+        push(@GenerateEventListenerImpl, "    ");
+    }
+
+    push(@GenerateEventListenerImpl, "    imp->set$implSetterFunctionName(createJSAttributeEventListener(exec, value, $wrapperObject));\n");
+    return @GenerateEventListenerImpl;
+}
+
 sub GenerateEventListenerCall
 {
     my $className = shift;
@@ -135,11 +164,23 @@ sub GenerateEventListenerCall
     $implIncludes{"JSEventListener.h"} = 1;
 
     my @GenerateEventListenerImpl = ();
+    my $wrapperObject = "castedThis";
+    if ($className eq "JSSVGElementInstance") {
+        # SVGElementInstances have to create JSEventListeners with the wrapper equal to the correspondingElement
+        $wrapperObject = "asObject(correspondingElementWrapper)";
+
+        push(@GenerateEventListenerImpl, <<END);
+    JSValue correspondingElementWrapper = toJS(exec, imp->correspondingElement());
+    if (!correspondingElementWrapper.isObject())
+        return jsUndefined();
+END
+    }
+
     push(@GenerateEventListenerImpl, <<END);
     JSValue listener = args.at(1);
     if (!listener.isObject())
         return jsUndefined();
-    imp->${functionName}EventListener(ustringToAtomicString(args.at(0).toString(exec)), JSEventListener::create(asObject(listener), castedThis, false, currentWorld(exec))$passRefPtrHandling, args.at(2).toBoolean(exec));
+    imp->${functionName}EventListener(ustringToAtomicString(args.at(0).toString(exec)), JSEventListener::create(asObject(listener), $wrapperObject, false, currentWorld(exec))$passRefPtrHandling, args.at(2).toBoolean(exec));
     return jsUndefined();
 END
     return @GenerateEventListenerImpl;
@@ -944,6 +985,7 @@ sub GenerateHeader
     if ($numFunctions > 0) {
         push(@headerContent,"// Functions\n\n");
         foreach my $function (@{$dataNode->functions}) {
+            next if $function->{overloadIndex} > 1;
             my $functionName = $codeGenerator->WK_lcfirst($className) . "PrototypeFunction" . $codeGenerator->WK_ucfirst($function->signature->name);
             push(@headerContent, "JSC::JSValue JSC_HOST_CALL ${functionName}(JSC::ExecState*, JSC::JSObject*, JSC::JSValue, const JSC::ArgList&);\n");
         }
@@ -1019,7 +1061,7 @@ sub GenerateAttributesHashTable($$)
         push(@specials, "DontDelete") unless $attribute->signature->extendedAttributes->{"Deletable"};
         push(@specials, "DontEnum") if $attribute->signature->extendedAttributes->{"DontEnum"};
         push(@specials, "ReadOnly") if $attribute->type =~ /readonly/;
-        my $special = (@specials > 0) ? join("|", @specials) : "0";
+        my $special = (@specials > 0) ? join(" | ", @specials) : "0";
         push(@hashSpecials, $special);
 
         my $getter = "js" . $interfaceName . $codeGenerator->WK_ucfirst($attribute->signature->name) . ($attribute->signature->type =~ /Constructor$/ ? "Constructor" : "");
@@ -1043,7 +1085,7 @@ sub GenerateAttributesHashTable($$)
         my $getter = "js" . $interfaceName . "Constructor";
         push(@hashValue1, $getter);
         push(@hashValue2, "0");
-        push(@hashSpecials, "DontEnum|ReadOnly"); # FIXME: Setting the constructor should be possible.
+        push(@hashSpecials, "DontEnum | ReadOnly"); # FIXME: Setting the constructor should be possible.
     }
 
     $object->GenerateHashTable($hashName, $hashSize,
@@ -1051,6 +1093,79 @@ sub GenerateAttributesHashTable($$)
                                \@hashValue1, \@hashValue2,
                                \%conditionals);
     return $numAttributes;
+}
+
+sub GenerateParametersCheckExpression
+{
+    my $numParameters = shift;
+    my $function = shift;
+
+    my @andExpression = ();
+    push(@andExpression, "args.size() == $numParameters");
+    my $parameterIndex = 0;
+    foreach $parameter (@{$function->parameters}) {
+        last if $parameterIndex >= $numParameters;
+        my $value = "args.at($parameterIndex)";
+        my $type = $codeGenerator->StripModule($parameter->type);
+
+        # Only DOMString or wrapper types are checked.
+        # For DOMString, Null, Undefined and any Object are accepted too, as
+        # these are acceptable values for a DOMString argument (any Object can
+        # be converted to a string via .toString).
+        push(@andExpression, "(${value}.isNull() || ${value}.isUndefined() || ${value}.isString() || ${value}.isObject())") if $codeGenerator->IsStringType($type);
+        push(@andExpression, "(${value}.isNull() || asObject(${value})->inherits(JS${type}::s_info)") unless IsNativeType($type);
+
+        $parameterIndex++;
+    }
+    my $res = join(" && ", @andExpression);
+    $res = "($res)" if @andExpression > 1;
+    return $res;
+}
+
+sub GenerateFunctionParametersCheck
+{
+    my $function = shift;
+
+    my @orExpression = ();
+    my $numParameters = 0;
+    foreach $parameter (@{$function->parameters}) {
+        if ($parameter->extendedAttributes->{"Optional"}) {
+            push(@orExpression, GenerateParametersCheckExpression($numParameters, $function));
+        }
+        $numParameters++;
+    }
+    push(@orExpression, GenerateParametersCheckExpression($numParameters, $function));
+    return join(" || ", @orExpression);
+}
+
+sub GenerateOverloadedPrototypeFunction
+{
+    my $function = shift;
+    my $dataNode = shift;
+    my $implClassName = shift;
+
+    # Generate code for choosing the correct overload to call. Overloads are
+    # chosen based on the total number of arguments passed and the type of
+    # values passed in non-primitive argument slots. When more than a single
+    # overload is applicable, precedence is given according to the order of
+    # declaration in the IDL.
+
+    my $functionName = "js${implClassName}PrototypeFunction" . $codeGenerator->WK_ucfirst($function->signature->name);
+
+    push(@implContent, "JSValue JSC_HOST_CALL ${functionName}(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)\n");
+    push(@implContent, <<END);
+{
+END
+    foreach my $overload (@{$function->{overloads}}) {
+        my $parametersCheck = GenerateFunctionParametersCheck($overload);
+        push(@implContent, "    if ($parametersCheck)\n");
+        push(@implContent, "        return ${functionName}$overload->{overloadIndex}(exec, thisValue, args);\n");
+    }
+    push(@implContent, <<END);
+    return throwError(exec, TypeError);
+}
+
+END
 }
 
 sub GenerateImplementation
@@ -1107,7 +1222,7 @@ sub GenerateImplementation
             my $getter = "js" . $interfaceName . $codeGenerator->WK_ucfirst($constant->name);
             push(@hashValue1, $getter);
             push(@hashValue2, "0");
-            push(@hashSpecials, "DontDelete|ReadOnly");
+            push(@hashSpecials, "DontDelete | ReadOnly");
         }
 
         $object->GenerateHashTable($hashName, $hashSize,
@@ -1135,10 +1250,11 @@ sub GenerateImplementation
         my $getter = "js" . $interfaceName . $codeGenerator->WK_ucfirst($constant->name);
         push(@hashValue1, $getter);
         push(@hashValue2, "0");
-        push(@hashSpecials, "DontDelete|ReadOnly");
+        push(@hashSpecials, "DontDelete | ReadOnly");
     }
 
     foreach my $function (@{$dataNode->functions}) {
+        next if $function->{overloadIndex} > 1;
         my $name = $function->signature->name;
         push(@hashKeys, $name);
 
@@ -1152,7 +1268,7 @@ sub GenerateImplementation
         push(@specials, "DontDelete") unless $function->signature->extendedAttributes->{"Deletable"};
         push(@specials, "DontEnum") if $function->signature->extendedAttributes->{"DontEnum"};
         push(@specials, "Function");
-        my $special = (@specials > 0) ? join("|", @specials) : "0";
+        my $special = (@specials > 0) ? join(" | ", @specials) : "0";
         push(@hashSpecials, $special);
     }
 
@@ -1584,11 +1700,7 @@ sub GenerateImplementation
                                 $implIncludes{"JSWorkerContextErrorHandler.h"} = 1;
                                 push(@implContent, "    imp->set$implSetterFunctionName(createJSWorkerContextErrorHandler(exec, value, thisObject));\n");
                             } else {
-                                if ($windowEventListener) {
-                                    push(@implContent, "    imp->set$implSetterFunctionName(createJSAttributeEventListener(exec, value, globalObject));\n");
-                                } else {
-                                    push(@implContent, "    imp->set$implSetterFunctionName(createJSAttributeEventListener(exec, value, thisObject));\n");
-                                }
+                                push(@implContent, GenerateAttributeEventListenerCall($className, $implSetterFunctionName, $windowEventListener));
                             }
                         } elsif ($attribute->signature->type =~ /Constructor$/) {
                             my $constructorType = $attribute->signature->type;
@@ -1668,6 +1780,12 @@ sub GenerateImplementation
             AddIncludesForType($function->signature->type);
 
             my $functionName = $codeGenerator->WK_lcfirst($className) . "PrototypeFunction" . $codeGenerator->WK_ucfirst($function->signature->name);
+
+            if (@{$function->{overloads}} > 1) {
+                # Append a number to an overloaded method's name to make it unique:
+                $functionName = $functionName . $function->{overloadIndex};
+            }
+            
             my $functionImplementationName = $function->signature->extendedAttributes->{"ImplementationFunction"} || $codeGenerator->WK_lcfirst($function->signature->name);
 
             push(@implContent, "JSValue JSC_HOST_CALL ${functionName}(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)\n");
@@ -1724,9 +1842,14 @@ sub GenerateImplementation
 
                 my $numParameters = @{$function->parameters};
 
-                if ($function->signature->extendedAttributes->{"RequiresAllArguments"}) {
+                my $requiresAllArguments = $function->signature->extendedAttributes->{"RequiresAllArguments"};
+                if ($requiresAllArguments) {
                         push(@implContent, "    if (args.size() < $numParameters)\n");
-                        push(@implContent, "        return jsUndefined();\n");
+                        if ($requiresAllArguments eq "Raise") {
+                            push(@implContent, "        return throwError(exec, SyntaxError, \"Not enough arguments\");\n");
+                        } else {
+                            push(@implContent, "        return jsUndefined();\n");
+                        }
                 }
 
                 if (@{$function->raisesExceptions}) {
@@ -1771,12 +1894,12 @@ sub GenerateImplementation
                     }
 
                     foreach my $parameter (@{$function->parameters}) {
-                        if (!$hasOptionalArguments && $parameter->extendedAttributes->{"Optional"}) {
-                            push(@implContent, "\n    int argsCount = args.size();\n");
-                            $hasOptionalArguments = 1;
-                        }
-
-                        if ($hasOptionalArguments) {
+                        if ($parameter->extendedAttributes->{"Optional"}) {
+                            # Generate early call if there are enough parameters.
+                            if (!$hasOptionalArguments) {
+                                push(@implContent, "\n    int argsCount = args.size();\n");
+                                $hasOptionalArguments = 1;
+                            }
                             push(@implContent, "    if (argsCount < " . ($paramIndex + 1) . ") {\n");
                             GenerateImplementationFunctionCall($function, $functionString, $paramIndex, "    " x 2, $podType, $implClassName);
                             push(@implContent, "    }\n\n");
@@ -1829,6 +1952,11 @@ sub GenerateImplementation
                 }
             }
             push(@implContent, "}\n\n");
+
+            if (@{$function->{overloads}} > 1 && $function->{overloadIndex} == @{$function->{overloads}}) {
+                # Generate a function dispatching call to the rest of the overloads.
+                GenerateOverloadedPrototypeFunction($function, $dataNode, $implClassName);
+            }
         }
     }
 
@@ -1972,6 +2100,7 @@ sub GenerateCallbackHeader
     # Private members
     push(@headerContent, "    JSCallbackData* m_data;\n");
     push(@headerContent, "    RefPtr<DOMWrapperWorld> m_isolatedWorld;\n");
+    push(@headerContent, "    ScriptExecutionContext* m_scriptExecutionContext;\n");
     push(@headerContent, "};\n\n");
 
     push(@headerContent, "} // namespace WebCore\n\n");
@@ -2003,13 +2132,14 @@ sub GenerateCallbackImplementation
     push(@implContent, "${className}::${className}(JSObject* callback, JSDOMGlobalObject* globalObject)\n");
     push(@implContent, "    : m_data(new JSCallbackData(callback, globalObject))\n");
     push(@implContent, "    , m_isolatedWorld(globalObject->world())\n");
+    push(@implContent, "    , m_scriptExecutionContext(globalObject->scriptExecutionContext())\n");
     push(@implContent, "{\n");
     push(@implContent, "}\n\n");
 
     # Destructor
     push(@implContent, "${className}::~${className}()\n");
     push(@implContent, "{\n");
-    push(@implContent, "    callOnMainThread(JSCallbackData::deleteData, m_data);\n");
+    push(@implContent, "    m_scriptExecutionContext->postTask(DeleteCallbackDataTask::create(m_data));\n");
     push(@implContent, "#ifndef NDEBUG\n");
     push(@implContent, "    m_data = 0;\n");
     push(@implContent, "#endif\n");
@@ -2156,6 +2286,12 @@ sub GetNativeType
 
     # For all other types, the native type is a pointer with same type name as the IDL type.
     return "${type}*";
+}
+
+sub IsNativeType
+{
+    my $type = shift;
+    return exists $nativeType{$type};
 }
 
 sub JSValueToNative
@@ -2344,17 +2480,8 @@ sub GenerateHashTable
     my $value2 = shift;
     my $conditionals = shift;
 
-    # Generate size data for two hash tables
-    # - The 'perfect' size makes a table large enough for perfect hashing
-    # - The 'compact' size uses the legacy table format for smaller table sizes
+    # Generate size data for compact' size hash table
 
-    # Perfect size
-    my @hashes = ();
-    foreach my $key (@{$keys}) {
-        push @hashes, $object->GenerateHashValue($key);
-    }
-
-    # Compact size
     my @table = ();
     my @links = ();
 
@@ -2385,20 +2512,6 @@ sub GenerateHashTable
 
         $i++;
         $maxDepth = $depth if ($depth > $maxDepth);
-    }
-
-    # Collect hashtable information
-    my $perfectSize;
-tableSizeLoop:
-    for ($perfectSize = ceilingToPowerOf2(scalar @{$keys}); ; $perfectSize += $perfectSize) {
-        my @table = ();
-        my $i = 0;
-        foreach my $hash (@hashes) {
-            my $h = $hash % $perfectSize;
-            next tableSizeLoop if defined $table[$h];
-            $table[$h] = $i++;
-        }
-        last;
     }
 
     # Start outputing the hashtables
@@ -2457,14 +2570,8 @@ tableSizeLoop:
     push(@implContent, "    { 0, 0, 0, 0 THUNK_GENERATOR(0) }\n");
     push(@implContent, "};\n\n");
     push(@implContent, "#undef THUNK_GENERATOR\n");
-    my $perfectSizeMask = $perfectSize - 1;
     my $compactSizeMask = $numEntries - 1;
-    push(@implContent, "static JSC_CONST_HASHTABLE HashTable $name =\n");
-    push(@implContent, "#if ENABLE(PERFECT_HASH_SIZE)\n");
-    push(@implContent, "    { $perfectSizeMask, $nameEntries, 0 };\n");
-    push(@implContent, "#else\n");
-    push(@implContent, "    { $compactSize, $compactSizeMask, $nameEntries, 0 };\n");
-    push(@implContent, "#endif\n\n");
+    push(@implContent, "static JSC_CONST_HASHTABLE HashTable $name = { $compactSize, $compactSizeMask, $nameEntries, 0 };\n");
 }
 
 # Internal helper

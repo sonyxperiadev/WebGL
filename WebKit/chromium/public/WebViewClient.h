@@ -81,7 +81,7 @@ public:
     virtual WebWidget* createPopupMenu(const WebPopupMenuInfo&) { return 0; }
 
     // Create a session storage namespace object associated with this WebView.
-    virtual WebStorageNamespace* createSessionStorageNamespace() { return 0; }
+    virtual WebStorageNamespace* createSessionStorageNamespace(unsigned quota) { return 0; }
 
     // Misc ----------------------------------------------------------------
 
@@ -233,6 +233,9 @@ public:
     // in the containing window.
     virtual void focusNext() { }
     virtual void focusPrevious() { }
+
+    // Called when a new node gets focused.
+    virtual void focusedNodeChanged(const WebNode&) { }
 
 
     // Session history -----------------------------------------------------

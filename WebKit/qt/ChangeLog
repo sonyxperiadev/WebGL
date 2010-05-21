@@ -1,3 +1,458 @@
+2010-05-17  Tasuku Suzuki  <tasuku.suzuki@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Fix compilation with QT_NO_COMBOBOX
+        https://bugs.webkit.org/show_bug.cgi?id=38324
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::createSelectPopup):
+        * WebCoreSupport/QtFallbackWebPopup.cpp:
+        * WebCoreSupport/QtFallbackWebPopup.h:
+
+2010-05-17  Antti Koivisto  <koivisto@iki.fi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=39218
+        [Qt] Tiled backing store tiles sometimes flicker when exiting a zoom animation
+        
+        Tiles sometimes flicker when exiting a zoom animation. This happens as a result
+        of the visible rectangle being momentarily out of sync.
+        
+        Instead of updating the visible rect by explicitly setting it, pull it through
+        the client and recompute in WebKit the level.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebView::paint):
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::visibleRectForTiledBackingStore):
+        * WebCoreSupport/ChromeClientQt.h:
+
+2010-05-16  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Unskip fast/loader/main-document-url-for-non-http-loads.html
+
+        Fix FrameLoaderClientQt.cpp to print relative filename paths correctly.
+
+        Move qt_* functions in FrameLoaderClientQt, EditorClientQt, and NotificationPresenterClientQt
+        to DumpRenderTreeSupportQt. Create new functions to replace them in DumpRenderTreeSupportQt.
+        Support for the old function names is retained until confirmed that no one uses them outside
+        QtWebKit.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38867
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::dumpFrameLoader):
+        (DumpRenderTreeSupportQt::dumpResourceLoadCallbacks):
+        (DumpRenderTreeSupportQt::dumpResourceLoadCallbacksPath):
+        (DumpRenderTreeSupportQt::setWillSendRequestReturnsNullOnRedirect):
+        (DumpRenderTreeSupportQt::setWillSendRequestReturnsNull):
+        (DumpRenderTreeSupportQt::setWillSendRequestClearHeaders):
+        (DumpRenderTreeSupportQt::dumpEditingCallbacks):
+        (DumpRenderTreeSupportQt::dumpSetAcceptsEditing):
+        (DumpRenderTreeSupportQt::dumpNotification):
+        (qt_dump_frame_loader):
+        (qt_dump_resource_load_callbacks):
+        (qt_dump_resource_load_callbacks_path):
+        (qt_set_will_send_request_returns_null_on_redirect):
+        (qt_set_will_send_request_returns_null):
+        (qt_set_will_send_request_clear_headers):
+        (qt_dump_editing_callbacks):
+        (qt_dump_set_accepts_editing):
+        (qt_dump_notification):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+        * WebCoreSupport/EditorClientQt.cpp:
+        * WebCoreSupport/EditorClientQt.h:
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (drtDescriptionSuitableForTestResult):
+        * WebCoreSupport/FrameLoaderClientQt.h:
+        * WebCoreSupport/NotificationPresenterClientQt.cpp:
+        * WebCoreSupport/NotificationPresenterClientQt.h:
+
+2010-05-16  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt]Unskip security/set-form-autocomplete-attribute.html
+
+        Add support for layoutTestController.elementDoesAutoCompleteForElementWithId().
+
+        https://bugs.webkit.org/show_bug.cgi?id=38859
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::elementDoesAutoCompleteForElementWithId):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
+2010-05-16  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        [Qt] Prospective Qt/Mac build fix.
+
+        The friend declaration of QGraphicsWidget confuses gcc and thinks that it's an implicit
+        forward declaration, moving the class into the WebCore namespace (WebCore::QGraphicsWidget).
+
+        The declaration seems useless as no method of QGraphicsWidget is going to call anything
+        in this class.
+
+        * WebCoreSupport/PageClientQt.h:
+
+2010-05-15  Charles Wei  <charles.wei@torchmobile.com.cn>
+
+        Reviewed by Simon Hausmann.
+
+        This patch fixes the build failure of WebKit on Linux for Qt4.5
+        https://bugs.webkig.org/show_bug.cgi?id=39108
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::syncLayers):
+        * WebCoreSupport/QtPlatformPlugin.cpp:
+
+2010-05-14  Kent Hansen <kent.hansen@nokia.com>, Jocelyn Turcotte <jocelyn.turcotte@nokia.com>, Tor Arne Vestbø <tor.arne.vestbo@nokia.com>, Henry Haverinen <henry.haverinen@nokia.com>, Jedrzej Nowacki <jedrzej.nowacki@nokia.com>, Andreas Kling <andreas.kling@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Merge overhaul of the QtWebKit API documentation
+
+        Numerous improvements in wording, qdoc warning fixes and
+        clarifications, done in a team work effort.
+
+        No functional changes.
+
+        * Api/qwebdatabase.cpp:
+        * Api/qwebelement.cpp:
+        * Api/qwebframe.cpp:
+        * Api/qwebhistoryinterface.cpp:
+        * Api/qwebinspector.cpp:
+        * Api/qwebkitversion.cpp:
+        * Api/qwebpage.cpp:
+        * Api/qwebpluginfactory.cpp:
+        * Api/qwebsecurityorigin.cpp:
+        * Api/qwebsettings.cpp:
+        * Api/qwebsettings.h:
+        * docs/qtwebkit.qdoc:
+        * docs/webkitsnippets/qtwebkit_qwebinspector_snippet.cpp:
+        (wrapInFunction):
+        * docs/webkitsnippets/webelement/main.cpp:
+        (findButtonAndClick):
+        (autocomplete1):
+        (autocomplete2):
+        (main):
+
+2010-05-14  Martin Smith  <msmith@trolltech.com>
+
+        Reviewed by Simon Hausmann.
+
+        Documentation: Fix overview grouping.
+
+        * docs/qtwebkit.qdoc:
+
+2010-05-14  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [QT] Update the Symbian version for the user agent
+        https://bugs.webkit.org/show_bug.cgi?id=38389
+
+        Update the user agent for Symbian^2 to Symbian^4
+
+        * Api/qwebpage.cpp:
+        (QWebPage::userAgentForUrl):
+
+2010-05-14  Dawit Alemayehu  <adawit@kde.org>
+
+        Reviewed by Simon Hausmann.
+
+        Implemented createJavaAppletWidget to activate Java applet support.
+
+        https://bugs.webkit.org/show_bug.cgi?id=33044
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::createJavaAppletWidget):
+
+2010-05-13  Simon Hausmann  <hausmann@webkit.org>
+
+        Symbian build fix.
+
+        [Qt] Updated the def file with new exports.
+
+        * symbian/eabi/QtWebKitu.def: Add missing gc symbol for QtLauncher
+
+2010-05-13  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Symbian build fix.
+
+        [Qt] Updated the def file with new exports.
+
+        * symbian/eabi/QtWebKitu.def:
+
+2010-05-11  Diego Gonzalez  <diegohcg@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] tst_QWebPage::inputMethods failing on Maemo5
+        https://bugs.webkit.org/show_bug.cgi?id=38685
+
+        Check if the SIP (Software Input Panel) is triggered, which normally
+        happens on mobile platforms, when a user input form receives a mouse click.
+
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::inputMethods):
+
+2010-05-11  Kenneth Rohde Christiansen  <kenneth@webkit.org>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] REGRESSION(r58497) tst_QGraphicsWebView::crashOnViewlessWebPages() is failing
+        https://bugs.webkit.org/show_bug.cgi?id=38655
+
+        Fix double free by moving the connect till after the resize.
+
+        The bug is causes by the fact that a resize of an empty page causes a
+        layout, thus deleting the qgraphicswebview before setHtml is called,
+        which then deletes it again, causing a double free.
+
+        * tests/qgraphicswebview/tst_qgraphicswebview.cpp:
+        (tst_QGraphicsWebView::crashOnViewlessWebPages):
+
+2010-05-12  Kenneth Rohde Christiansen  <kenneth@webkit.org>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] Regression(r59152): QGraphicsPageClient is not forwarding scroll and update events to view
+        https://bugs.webkit.org/show_bug.cgi?id=39016
+
+        Some forward calls got lost during the refatory.
+
+        * WebCoreSupport/PageClientQt.cpp:
+        (WebCore::PageClientQGraphicsWidget::scroll):
+        (WebCore::PageClientQGraphicsWidget::update):
+
+2010-05-13  Antonio Gomes  <tonikitoo@webkit.org>, Yi Shen <yi.4.shen@nokia.com>
+
+        Reviewed by Kenneth Christiansen.
+
+        [Qt] Add LayoutTestController interface: computedStyleIncludingVisitedInfo
+        https://bugs.webkit.org/show_bug.cgi?id=37759
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::markerTextForListItem):
+        (DumpRenderTreeSupportQt::computedStyleIncludingVisitedInfo):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
+2010-05-12  Joe Ligman  <joseph.ligman@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] Nested overflow div does not scroll
+        https://bugs.webkit.org/show_bug.cgi?id=38641
+
+        Modify qtwebkit_webframe_scrollOverflow, if the current node's render layer
+        does not scroll it will try and scroll the parent's render layer. Also export
+        qtwebkit_webframe_scrollOverflow so we can use it independently of
+        qtwebkit_webframe_scrollRecursively
+
+        * Api/qwebframe.cpp:
+        (qtwebkit_webframe_scrollOverflow):
+        (qtwebkit_webframe_scrollRecursively):
+
+2010-05-12  Antonio Gomes  <tonikitoo@webkit.org>
+
+        Reviewed by Kenneth Christiansen.
+
+        [Qt] Remove the unneeded check for QWidgetPageClient @QGraphicsWebView::detachCurrentPage
+        https://bugs.webkit.org/show_bug.cgi?id=38989
+
+        Reasons:
+        - There is no need to check for a QWidgetPageClient-based in QGraphicsWebView.
+        - The client has always to be deleted anyways.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::detachPage):
+
+2010-05-12  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        Add a comment to explain the web inspector dynamic property url hook
+        and that it's there on purpose :)
+
+        https://bugs.webkit.org/show_bug.cgi?id=35340
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorClientQt::openInspectorFrontend):
+
+2010-05-11  Antonio Gomes  <tonikitoo@webkit.org>
+
+        Reviewed by Kenneth Christiansen.
+
+        [Qt] Implement a detachCurrentPage method for QGraphicsWebView and QWebView
+        https://bugs.webkit.org/show_bug.cgi?id=38939
+
+        unsetPageIfExists method was renamed to detachCurrentPage method and is now responsible
+        for doing all the unset logic of page and pageClient references previously done by
+        the Q{Graphics}WebView destructor(s).
+
+        It is a code clean up, no behaviour change.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::~QGraphicsWebViewPrivate):
+        (QGraphicsWebView::~QGraphicsWebView):
+        (QGraphicsWebViewPrivate::detachCurrentPage):
+        (QGraphicsWebView::setPage):
+        * Api/qwebview.cpp:
+        (QWebViewPrivate::~QWebViewPrivate):
+        (QWebView::~QWebView):
+        (QWebViewPrivate::detachCurrentPage):
+        (QWebView::setPage):
+
+2010-05-11  Antonio Gomes  <tonikitoo@webkit.org>
+
+        Reviewed by Kenneth Christiansen.
+
+        [Qt] emit initialLayoutCompleted signal from FrameLoaderClientQt::dispatchDidFirstVisuallyNonEmptyLayout
+        https://bugs.webkit.org/show_bug.cgi?id=38921
+
+        Emit initialLayoutCompleted signal from FrameLoaderClientQt::dispatchDidFirstVisuallyNonEmptyLayout
+        instead of FrameLoaderClientQt::dispatchDidFirstLayout , because the former ensures that a
+        visual content layed out on the frame.
+
+        It matches to QWebFrame::initialLayoutCompleted signal documentation at:
+
+        "... This is the first time you will see contents displayed on the frame ..."
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::dispatchDidFirstLayout):
+        (WebCore::FrameLoaderClientQt::dispatchDidFirstVisuallyNonEmptyLayout):
+
+2010-05-11  Jesus Sanchez-Palencia  <jesus@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Add PageClientQGraphicsWidget specific implementation.
+        QGraphicsWebViewPrivate doesn't inherit QWebPageClient anymore
+        and the needed functions were moved to this new PageClient class,
+        including Tiling and Accelerated Composite specific ones.
+
+        [Qt] PageClientQt specific implementation for QGraphicsWidget
+        https://bugs.webkit.org/show_bug.cgi?id=37866
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::QGraphicsWebViewPrivate):
+        (QGraphicsWebViewPrivate::~QGraphicsWebViewPrivate):
+        (QGraphicsWebViewPrivate::syncLayers):
+        (QGraphicsWebViewPrivate::_q_scaleChanged):
+        (QGraphicsWebView::event):
+        (QGraphicsWebView::setPage):
+        (QGraphicsWebView::updateGeometry):
+        (QGraphicsWebView::setGeometry):
+        (QGraphicsWebView::setResizesToContents):
+        * WebCoreSupport/PageClientQt.cpp:
+        (WebCore::PageClientQGraphicsWidget::~PageClientQGraphicsWidget):
+        (WebCore::PageClientQGraphicsWidget::scroll):
+        (WebCore::PageClientQGraphicsWidget::update):
+        (WebCore::PageClientQGraphicsWidget::createOrDeleteOverlay):
+        (WebCore::PageClientQGraphicsWidget::syncLayers):
+        (WebCore::PageClientQGraphicsWidget::setRootGraphicsLayer):
+        (WebCore::PageClientQGraphicsWidget::markForSync):
+        (WebCore::PageClientQGraphicsWidget::updateCompositingScrollPosition):
+        (WebCore::PageClientQGraphicsWidget::updateTiledBackingStoreScale):
+        (WebCore::PageClientQGraphicsWidget::setInputMethodEnabled):
+        (WebCore::PageClientQGraphicsWidget::inputMethodEnabled):
+        (WebCore::PageClientQGraphicsWidget::setInputMethodHint):
+        (WebCore::PageClientQGraphicsWidget::cursor):
+        (WebCore::PageClientQGraphicsWidget::updateCursor):
+        (WebCore::PageClientQGraphicsWidget::palette):
+        (WebCore::PageClientQGraphicsWidget::screenNumber):
+        (WebCore::PageClientQGraphicsWidget::ownerWidget):
+        (WebCore::PageClientQGraphicsWidget::geometryRelativeToOwnerWidget):
+        (WebCore::PageClientQGraphicsWidget::pluginParent):
+        (WebCore::PageClientQGraphicsWidget::style):
+        * WebCoreSupport/PageClientQt.h:
+        (WebCore::QGraphicsItemOverlay::page):
+        (WebCore::QGraphicsItemOverlay::boundingRect):
+        (WebCore::QGraphicsItemOverlay::paint):
+        (WebCore::QGraphicsItemOverlay::prepareGraphicsItemGeometryChange):
+        (WebCore::PageClientQGraphicsWidget::PageClientQGraphicsWidget):
+        (WebCore::PageClientQGraphicsWidget::isQWidgetClient):
+        (WebCore::PageClientQGraphicsWidget::allowsAcceleratedCompositing):
+        (WebCore::PageClientQGraphicsWidget::):
+
+2010-05-09  Noam Rosenthal  <noam.rosenthal@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Crash in QGraphicsWebViewPrivate::~QGraphicsWebViewPrivate when animation were used
+        https://bugs.webkit.org/show_bug.cgi?id=38574
+
+        The fix uses a QWeakPointer for rootGraphicsLayer, protecting from a crash in case the layer is deleted before the QGraphicsWebView.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::QGraphicsWebViewPrivate):
+        (QGraphicsWebViewPrivate::~QGraphicsWebViewPrivate):
+        (QGraphicsWebViewPrivate::setRootGraphicsLayer):
+        (QGraphicsWebViewPrivate::updateCompositingScrollPosition):
+
+2010-05-08  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Platform plugin
+        https://bugs.webkit.org/show_bug.cgi?id=38438
+
+        Select popups delegate private API. To provide select popup delegates
+        a plugin that implements QWebKitPlatformPlugin must be found
+        in QCoreApplication::libraryPaths.
+
+        * Api/headers.pri:
+        * Api/qwebkitplatformplugin.h: Added.
+        (QWebSelectData::~QWebSelectData):
+        (QWebSelectData::):
+        (QWebSelectMethod::~QWebSelectMethod):
+        (QWebKitPlatformPlugin::~QWebKitPlatformPlugin):
+        (QWebKitPlatformPlugin::):
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::createSelectPopup):
+        * WebCoreSupport/ChromeClientQt.h:
+        * WebCoreSupport/QtPlatformPlugin.cpp: Added.
+        (WebCore::SelectData::SelectData):
+        (WebCore::SelectData::itemText):
+        (WebCore::SelectData::itemToolTip):
+        (WebCore::SelectData::itemIsEnabled):
+        (WebCore::SelectData::itemCount):
+        (WebCore::SelectData::itemIsSelected):
+        (WebCore::SelectData::multiple):
+        (WebCore::SelectData::itemType):
+        (WebCore::SelectInputMethodWrapper::SelectInputMethodWrapper):
+        (WebCore::SelectInputMethodWrapper::show):
+        (WebCore::SelectInputMethodWrapper::hide):
+        (WebCore::SelectInputMethodWrapper::selectItem):
+        (WebCore::SelectInputMethodWrapper::didHide):
+        (WebCore::getPluginObject):
+        (WebCore::QtPlatformPlugin::~QtPlatformPlugin):
+        (WebCore::QtPlatformPlugin::plugin):
+        (WebCore::QtPlatformPlugin::createSelectInputMethod):
+        * WebCoreSupport/QtPlatformPlugin.h: Added.
+        (WebCore::QtPlatformPlugin::QtPlatformPlugin):
+
+2010-05-08  Jocelyn Turcotte  <jocelyn.turcotte@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Document a limitation of QWebPage::linkClicked
+        https://bugs.webkit.org/show_bug.cgi?id=37694
+
+        * Api/qwebpage.cpp:
+
+2010-05-02  Simon Hausmann  <hausmann@webkit.org>
+
+        [Qt] Unreviewed, QtWebKit versioning for the trunk.
+
+        The next version is going to be 2.1, based off the trunk.
+
+        * Api/qwebkitglobal.h:
+
 2010-05-07  Simon Hausmann  <simon.hausmann@nokia.com>
 
         Symbian build fix.

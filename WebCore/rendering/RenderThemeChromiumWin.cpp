@@ -38,6 +38,7 @@
 #include "HTMLNames.h"
 #include "MediaControlElements.h"
 #include "RenderBox.h"
+#include "RenderProgress.h"
 #include "RenderSlider.h"
 #include "ScrollbarTheme.h"
 #include "TransparencyWin.h"
@@ -652,5 +653,61 @@ bool RenderThemeChromiumWin::paintTextFieldInternal(RenderObject* o,
         i.context->restore();
     return false;
 }
+
+#if ENABLE(PROGRESS_TAG)
+
+// MSDN says that update intervals for the bar is 30ms.
+// http://msdn.microsoft.com/en-us/library/bb760842(v=VS.85).aspx
+static const double progressAnimationFrameRate = 0.033;
+// There is no documentation about the animation speed, frame-rate, nor 
+// size of moving overlay of the indeterminate progress bar. 
+// So we just observed real-world programs and guessed following parameters.
+static const double progressIndeterminateOverlayPixelsPerSecond =  175;
+static const int progressIndeterminateOverlayWidth = 120;
+
+double RenderThemeChromiumWin::animationRepeatIntervalForProgressBar(RenderProgress*) const
+{
+    return progressAnimationFrameRate;
+}
+
+double RenderThemeChromiumWin::animationDurationForProgressBar(RenderProgress* renderProgress) const
+{
+    if (renderProgress->isDeterminate())
+        return 0;
+    return (renderProgress->width() + progressIndeterminateOverlayWidth) / progressIndeterminateOverlayPixelsPerSecond;
+}
+
+void RenderThemeChromiumWin::adjustProgressBarStyle(CSSStyleSelector*, RenderStyle*, Element*) const
+{
+}
+
+bool RenderThemeChromiumWin::paintProgressBar(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+{
+    RenderProgress* renderProgress = toRenderProgress(o);
+
+    int valuePart;
+    IntRect valueRect;
+    if (renderProgress->isDeterminate()) {
+        valuePart = PP_FILL;
+        int dx = r.width() * renderProgress->position();
+        if (renderProgress->style()->direction() == RTL)
+            valueRect = IntRect(r.x() + r.width() - dx, r.y(), dx, r.height());
+        else
+            valueRect = IntRect(r.x(), r.y(), dx, r.height());
+    } else {
+        valuePart = PP_MOVEOVERLAY;
+        int dx = (r.width() + progressIndeterminateOverlayWidth) * renderProgress->animationProgress() - progressIndeterminateOverlayWidth;
+        valueRect = IntRect(r.x() + dx, r.y(), progressIndeterminateOverlayWidth, r.height());
+    }
+
+    ThemePainter painter(i.context, r);
+    ChromiumBridge::paintProgressBar(painter.context(),
+                                     r, 
+                                     valuePart,
+                                     valueRect);
+    return true;
+}
+
+#endif
 
 } // namespace WebCore

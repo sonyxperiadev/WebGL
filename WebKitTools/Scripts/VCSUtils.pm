@@ -43,6 +43,7 @@ BEGIN {
     $VERSION     = 1.00;
     @ISA         = qw(Exporter);
     @EXPORT      = qw(
+        &callSilently
         &canonicalizePath
         &changeLogEmailAddress
         &changeLogName
@@ -67,6 +68,7 @@ BEGIN {
         &pathRelativeToSVNRepositoryRootForPath
         &prepareParsedPatch
         &runPatchCommand
+        &setChangeLogDateAndReviewer
         &svnRevisionForDirectory
         &svnStatus
     );
@@ -83,6 +85,14 @@ my $isGitBranchBuild;
 my $isSVN;
 my $svnVersion;
 
+# Project time zone for Cupertino, CA, US
+my $changeLogTimeZone = "PST8PDT";
+
+my $gitDiffStartRegEx = qr#^diff --git (\w/)?(.+) (\w/)?([^\r\n]+)#;
+my $svnDiffStartRegEx = qr#^Index: ([^\r\n]+)#;
+my $svnPropertyStartRegEx = qr#^(Modified|Name|Added|Deleted): ([^\r\n]+)#; # $2 is the name of the property.
+my $svnPropertyValueStartRegEx = qr#^   (\+|-) ([^\r\n]+)#; # $2 is the start of the property's value (which may span multiple lines).
+
 # This method is for portability. Return the system-appropriate exit
 # status of a child process.
 #
@@ -95,6 +105,25 @@ sub exitStatus($)
         return $returnvalue >> 8;
     }
     return WEXITSTATUS($returnvalue);
+}
+
+# Call a function while suppressing STDERR, and return the return values
+# as an array.
+sub callSilently($@) {
+    my ($func, @args) = @_;
+
+    # The following pattern was taken from here:
+    #   http://www.sdsc.edu/~moreland/courses/IntroPerl/docs/manual/pod/perlfunc/open.html
+    #
+    # Also see this Perl documentation (search for "open OLDERR"):
+    #   http://perldoc.perl.org/functions/open.html
+    open(OLDERR, ">&STDERR");
+    close(STDERR);
+    my @returnValue = &$func(@args);
+    open(STDERR, ">&OLDERR");
+    close(OLDERR);
+
+    return @returnValue;
 }
 
 # Note, this method will not error if the file corresponding to the path does not exist.
@@ -425,14 +454,23 @@ sub isExecutable($)
 #
 # Returns ($headerHashRef, $lastReadLine):
 #   $headerHashRef: a hash reference representing a diff header, as follows--
-#     copiedFromPath: the path from which the file was copied if the diff
-#                     is a copy.
+#     copiedFromPath: the path from which the file was copied or moved if
+#                     the diff is a copy or move.
 #     executableBitDelta: the value 1 or -1 if the executable bit was added or
 #                         removed, respectively.  New and deleted files have
 #                         this value only if the file is executable, in which
 #                         case the value is 1 and -1, respectively.
 #     indexPath: the path of the target file.
 #     isBinary: the value 1 if the diff is for a binary file.
+#     isDeletion: the value 1 if the diff is a file deletion.
+#     isCopyWithChanges: the value 1 if the file was copied or moved and
+#                        the target file was changed in some way after being
+#                        copied or moved (e.g. if its contents or executable
+#                        bit were changed).
+#     isNew: the value 1 if the diff is for a new file.
+#     shouldDeleteSource: the value 1 if the file was copied or moved and
+#                         the source file was deleted -- i.e. if the copy
+#                         was actually a move.
 #     svnConvertedText: the header text with some lines converted to SVN
 #                       format.  Git-specific lines are preserved.
 #   $lastReadLine: the line last read from $fileHandle.
@@ -442,9 +480,8 @@ sub parseGitDiffHeader($$)
 
     $_ = $line;
 
-    my $headerStartRegEx = qr#^diff --git (\w/)?(.+) (\w/)?([^\r\n]+)#;
     my $indexPath;
-    if (/$headerStartRegEx/) {
+    if (/$gitDiffStartRegEx/) {
         # The first and second paths can differ in the case of copies
         # and renames.  We use the second file path because it is the
         # destination path.
@@ -458,9 +495,12 @@ sub parseGitDiffHeader($$)
     my $copiedFromPath;
     my $foundHeaderEnding;
     my $isBinary;
+    my $isDeletion;
+    my $isNew;
     my $newExecutableBit = 0;
     my $oldExecutableBit = 0;
-    my $similarityIndex;
+    my $shouldDeleteSource = 0;
+    my $similarityIndex = 0;
     my $svnConvertedText;
     while (1) {
         # Temporarily strip off any end-of-line characters to simplify
@@ -468,45 +508,60 @@ sub parseGitDiffHeader($$)
         s/([\n\r]+)$//;
         my $eol = $1;
 
-        if (/^(deleted file|old) mode ([0-9]{6})/) {
+        if (/^(deleted file|old) mode (\d+)/) {
             $oldExecutableBit = (isExecutable($2) ? 1 : 0);
-        } elsif (/^new( file)? mode ([0-9]{6})/) {
+            $isDeletion = 1 if $1 eq "deleted file";
+        } elsif (/^new( file)? mode (\d+)/) {
             $newExecutableBit = (isExecutable($2) ? 1 : 0);
+            $isNew = 1 if $1;
+        } elsif (/^similarity index (\d+)%/) {
+            $similarityIndex = $1;
+        } elsif (/^copy from (\S+)/) {
+            $copiedFromPath = $1;
+        } elsif (/^rename from (\S+)/) {
+            # FIXME: Record this as a move rather than as a copy-and-delete.
+            #        This will simplify adding rename support to svn-unapply.
+            #        Otherwise, the hash for a deletion would have to know
+            #        everything about the file being deleted in order to
+            #        support undoing itself.  Recording as a move will also
+            #        permit us to use "svn move" and "git move".
+            $copiedFromPath = $1;
+            $shouldDeleteSource = 1;
         } elsif (/^--- \S+/) {
             $_ = "--- $indexPath"; # Convert to SVN format.
         } elsif (/^\+\+\+ \S+/) {
             $_ = "+++ $indexPath"; # Convert to SVN format.
             $foundHeaderEnding = 1;
-        } elsif (/^similarity index (\d+)%/) {
-            $similarityIndex = $1;
-        } elsif (/^copy from (\S+)/) {
-            $copiedFromPath = $1;
+        } elsif (/^GIT binary patch$/ ) {
+            $isBinary = 1;
+            $foundHeaderEnding = 1;
         # The "git diff" command includes a line of the form "Binary files
         # <path1> and <path2> differ" if the --binary flag is not used.
         } elsif (/^Binary files / ) {
             die("Error: the Git diff contains a binary file without the binary data in ".
                 "line: \"$_\".  Be sure to use the --binary flag when invoking \"git diff\" ".
                 "with diffs containing binary files.");
-        } elsif (/^GIT binary patch$/ ) {
-            $isBinary = 1;
-            $foundHeaderEnding = 1;
         }
 
         $svnConvertedText .= "$_$eol"; # Also restore end-of-line characters.
 
         $_ = <$fileHandle>; # Not defined if end-of-file reached.
 
-        last if (!defined($_) || /$headerStartRegEx/ || $foundHeaderEnding);
+        last if (!defined($_) || /$gitDiffStartRegEx/ || $foundHeaderEnding);
     }
 
     my $executableBitDelta = $newExecutableBit - $oldExecutableBit;
 
     my %header;
 
-    $header{copiedFromPath} = $copiedFromPath if ($copiedFromPath && $similarityIndex == 100);
+    $header{copiedFromPath} = $copiedFromPath if $copiedFromPath;
     $header{executableBitDelta} = $executableBitDelta if $executableBitDelta;
     $header{indexPath} = $indexPath;
     $header{isBinary} = $isBinary if $isBinary;
+    $header{isCopyWithChanges} = 1 if ($copiedFromPath && ($similarityIndex != 100 || $executableBitDelta));
+    $header{isDeletion} = $isDeletion if $isDeletion;
+    $header{isNew} = $isNew if $isNew;
+    $header{shouldDeleteSource} = $shouldDeleteSource if $shouldDeleteSource;
     $header{svnConvertedText} = $svnConvertedText;
 
     return (\%header, $_);
@@ -531,6 +586,7 @@ sub parseGitDiffHeader($$)
 #     indexPath: the path of the target file, which is the path found in
 #                the "Index:" line.
 #     isBinary: the value 1 if the diff is for a binary file.
+#     isNew: the value 1 if the diff is for a new file.
 #     sourceRevision: the revision number of the source, if it exists.  This
 #                     is the same as the revision number the file was copied
 #                     from, in the case of a file copy.
@@ -543,16 +599,17 @@ sub parseSvnDiffHeader($$)
 
     $_ = $line;
 
-    my $headerStartRegEx = qr/^Index: /;
-
-    if (!/$headerStartRegEx/) {
+    my $indexPath;
+    if (/$svnDiffStartRegEx/) {
+        $indexPath = $1;
+    } else {
         die("First line of SVN diff does not begin with \"Index \": \"$_\"");
     }
 
     my $copiedFromPath;
     my $foundHeaderEnding;
-    my $indexPath;
     my $isBinary;
+    my $isNew;
     my $sourceRevision;
     my $svnConvertedText;
     while (1) {
@@ -563,12 +620,11 @@ sub parseSvnDiffHeader($$)
 
         # Fix paths on ""---" and "+++" lines to match the leading
         # index line.
-        if (/^Index: ([^\r\n]+)/) {
-            $indexPath = $1;
-        } elsif (s/^--- \S+/--- $indexPath/) {
+        if (s/^--- \S+/--- $indexPath/) {
             # ---
             if (/^--- .+\(revision (\d+)\)/) {
                 $sourceRevision = $1;
+                $isNew = 1 if !$sourceRevision; # if revision 0.
                 if (/\(from (\S+):(\d+)\)$/) {
                     # The "from" clause is created by svn-create-patch, in
                     # which case there is always also a "revision" clause.
@@ -588,7 +644,7 @@ sub parseSvnDiffHeader($$)
 
         $_ = <$fileHandle>; # Not defined if end-of-file reached.
 
-        last if (!defined($_) || /$headerStartRegEx/ || $foundHeaderEnding);
+        last if (!defined($_) || /$svnDiffStartRegEx/ || $foundHeaderEnding);
     }
 
     if (!$foundHeaderEnding) {
@@ -600,6 +656,7 @@ sub parseSvnDiffHeader($$)
     $header{copiedFromPath} = $copiedFromPath if $copiedFromPath;
     $header{indexPath} = $indexPath;
     $header{isBinary} = $isBinary if $isBinary;
+    $header{isNew} = $isNew if $isNew;
     $header{sourceRevision} = $sourceRevision if $sourceRevision;
     $header{svnConvertedText} = $svnConvertedText;
 
@@ -646,10 +703,10 @@ sub parseDiffHeader($$)
     my $isSvn;
     my $lastReadLine;
 
-    if ($line =~ /^Index:/) {
+    if ($line =~ $svnDiffStartRegEx) {
         $isSvn = 1;
         ($header, $lastReadLine) = parseSvnDiffHeader($fileHandle, $line);
-    } elsif ($line =~ /^diff --git/) {
+    } elsif ($line =~ $gitDiffStartRegEx) {
         $isGit = 1;
         ($header, $lastReadLine) = parseGitDiffHeader($fileHandle, $line);
     } else {
@@ -681,7 +738,9 @@ sub parseDiffHeader($$)
 #   indexPath: the path of the target file.  For SVN-formatted diffs,
 #              this is the same as the path in the "Index:" line.
 #   isBinary: the value 1 if the diff is for a binary file.
+#   isDeletion: the value 1 if the diff is known from the header to be a deletion.
 #   isGit: the value 1 if the diff is Git-formatted.
+#   isNew: the value 1 if the dif is known from the header to be a new file.
 #   isSvn: the value 1 if the diff is SVN-formatted.
 #   sourceRevision: the revision number of the source, if it exists.  This
 #                   is the same as the revision number the file was copied
@@ -700,25 +759,27 @@ sub parseDiffHeader($$)
 #                header block. Leading junk is okay.
 #   $line: the line last read from $fileHandle.
 #
-# Returns ($diffHashRef, $lastReadLine):
-#   $diffHashRef: A reference to a %diffHash.
-#                 See the %diffHash documentation above.
+# Returns ($diffHashRefs, $lastReadLine):
+#   $diffHashRefs: A reference to an array of references to %diffHash hashes.
+#                  See the %diffHash documentation above.
 #   $lastReadLine: the line last read from $fileHandle
 sub parseDiff($$)
 {
+    # FIXME: Adjust this method so that it dies if the first line does not
+    #        match the start of a diff.  This will require a change to
+    #        parsePatch() so that parsePatch() skips over leading junk.
     my ($fileHandle, $line) = @_;
 
-    my $headerStartRegEx = qr#^Index: #; # SVN-style header for the default
-    my $gitHeaderStartRegEx = qr#^diff --git \w/#;
+    my $headerStartRegEx = $svnDiffStartRegEx; # SVN-style header for the default
 
     my $headerHashRef; # Last header found, as returned by parseDiffHeader().
     my $svnText;
     while (defined($line)) {
-        if (!$headerHashRef && ($line =~ $gitHeaderStartRegEx)) {
+        if (!$headerHashRef && ($line =~ $gitDiffStartRegEx)) {
             # Then assume all diffs in the patch are Git-formatted. This
             # block was made to be enterable at most once since we assume
             # all diffs in the patch are formatted the same (SVN or Git).
-            $headerStartRegEx = $gitHeaderStartRegEx;
+            $headerStartRegEx = $gitDiffStartRegEx;
         }
 
         if ($line !~ $headerStartRegEx) {
@@ -738,19 +799,191 @@ sub parseDiff($$)
         $svnText .= $headerHashRef->{svnConvertedText};
     }
 
-    my %diffHashRef;
-    $diffHashRef{copiedFromPath} = $headerHashRef->{copiedFromPath} if $headerHashRef->{copiedFromPath};
-    # FIXME: Add executableBitDelta as a key.
-    $diffHashRef{indexPath} = $headerHashRef->{indexPath};
-    $diffHashRef{isBinary} = $headerHashRef->{isBinary} if $headerHashRef->{isBinary};
-    $diffHashRef{isGit} = $headerHashRef->{isGit} if $headerHashRef->{isGit};
-    $diffHashRef{isSvn} = $headerHashRef->{isSvn} if $headerHashRef->{isSvn};
-    $diffHashRef{sourceRevision} = $headerHashRef->{sourceRevision} if $headerHashRef->{sourceRevision};
-    # FIXME: Remove the need for svnConvertedText.  See the %diffHash
-    #        code comments above for more information.
-    $diffHashRef{svnConvertedText} = $svnText;
+    my @diffHashRefs;
 
-    return (\%diffHashRef, $line);
+    if ($headerHashRef->{shouldDeleteSource}) {
+        my %deletionHash;
+        $deletionHash{indexPath} = $headerHashRef->{copiedFromPath};
+        $deletionHash{isDeletion} = 1;
+        push @diffHashRefs, \%deletionHash;
+    }
+    if ($headerHashRef->{copiedFromPath}) {
+        my %copyHash;
+        $copyHash{copiedFromPath} = $headerHashRef->{copiedFromPath};
+        $copyHash{indexPath} = $headerHashRef->{indexPath};
+        $copyHash{sourceRevision} = $headerHashRef->{sourceRevision} if $headerHashRef->{sourceRevision};
+        push @diffHashRefs, \%copyHash;
+    }
+    if (!$headerHashRef->{copiedFromPath} || $headerHashRef->{isCopyWithChanges}) {
+        # Then add the usual file modification.
+        my %diffHash;
+        # FIXME: Add executableBitDelta as a key.
+        $diffHash{indexPath} = $headerHashRef->{indexPath};
+        $diffHash{isBinary} = $headerHashRef->{isBinary} if $headerHashRef->{isBinary};
+        $diffHash{isDeletion} = $headerHashRef->{isDeletion} if $headerHashRef->{isDeletion};
+        $diffHash{isGit} = $headerHashRef->{isGit} if $headerHashRef->{isGit};
+        $diffHash{isNew} = $headerHashRef->{isNew} if $headerHashRef->{isNew};
+        $diffHash{isSvn} = $headerHashRef->{isSvn} if $headerHashRef->{isSvn};
+        if (!$headerHashRef->{copiedFromPath}) {
+            # If the file was copied, then we have already incorporated the
+            # sourceRevision information into the change.
+            $diffHash{sourceRevision} = $headerHashRef->{sourceRevision} if $headerHashRef->{sourceRevision};
+        }
+        # FIXME: Remove the need for svnConvertedText.  See the %diffHash
+        #        code comments above for more information.
+        $diffHash{svnConvertedText} = $svnText;
+        push @diffHashRefs, \%diffHash;
+    }
+
+    return (\@diffHashRefs, $line);
+}
+
+# Parse the next SVN property from the given file handle, and advance the handle so the last
+# line read is the first line after the property.
+#
+# This subroutine dies if the first line is not a valid start of an SVN property,
+# or the property is missing a value, or the property change type (e.g. "Added")
+# does not correspond to the property value type (e.g. "+").
+#
+# Args:
+#   $fileHandle: advanced so the last line read from the handle is the first
+#                line of the property to parse.  This should be a line
+#                that matches $svnPropertyStartRegEx.
+#   $line: the line last read from $fileHandle.
+#
+# Returns ($propertyHashRef, $lastReadLine):
+#   $propertyHashRef: a hash reference representing a SVN property.
+#     name: the name of the property.
+#     value: the last property value.  For instance, suppose the property is "Modified".
+#            Then it has both a '-' and '+' property value in that order.  Therefore,
+#            the value of this key is the value of the '+' property by ordering (since
+#            it is the last value).
+#     propertyChangeDelta: the value 1 or -1 if the property was added or
+#                          removed, respectively.
+#   $lastReadLine: the line last read from $fileHandle.
+#
+# FIXME: This method is unused as of (05/16/2010).  We will call this function
+#        as part of parsing a SVN footer.  See <https://bugs.webkit.org/show_bug.cgi?id=38885>.
+sub parseSvnProperty($$)
+{
+    my ($fileHandle, $line) = @_;
+
+    $_ = $line;
+
+    my $propertyName;
+    my $propertyChangeType;
+    if (/$svnPropertyStartRegEx/) {
+        $propertyChangeType = $1;
+        $propertyName = $2;
+    } else {
+        die("Failed to find SVN property: \"$_\".");
+    }
+
+    $_ = <$fileHandle>; # Not defined if end-of-file reached.
+
+    # The "svn diff" command neither inserts newline characters between property values
+    # nor between successive properties.
+    #
+    # FIXME: We do not support property values that contain tailing newline characters
+    #        as it is difficult to disambiguate these trailing newlines from the empty
+    #        line that precedes the contents of a binary patch.
+    my $propertyValue;
+    my $propertyValueType;
+    while (defined($_) && /$svnPropertyValueStartRegEx/) {
+        # Note, a '-' property may be followed by a '+' property in the case of a "Modified"
+        # or "Name" property.  We only care about the ending value (i.e. the '+' property)
+        # in such circumstances.  So, we take the property value for the property to be its
+        # last parsed property value.
+        #
+        # FIXME: We may want to consider strictly enforcing a '-', '+' property ordering or
+        #        add error checking to prevent '+', '+', ..., '+' and other invalid combinations.
+        $propertyValueType = $1;
+        ($propertyValue, $_) = parseSvnPropertyValue($fileHandle, $_);
+    }
+
+    if (!$propertyValue) {
+        die("Failed to find the property value for the SVN property \"$propertyName\": \"$_\".");
+    }
+
+    my $propertyChangeDelta;
+    if ($propertyValueType eq '+') {
+        $propertyChangeDelta = 1;
+    } elsif ($propertyValueType eq '-') {
+        $propertyChangeDelta = -1;
+    } else {
+        die("Not reached.");
+    }
+
+    # We perform a simple validation that an "Added" or "Deleted" property
+    # change type corresponds with a "+" and "-" value type, respectively.
+    my $expectedChangeDelta;
+    if ($propertyChangeType eq "Added") {
+        $expectedChangeDelta = 1;
+    } elsif ($propertyChangeType eq "Deleted") {
+        $expectedChangeDelta = -1;
+    }
+
+    if ($expectedChangeDelta && $propertyChangeDelta != $expectedChangeDelta) {
+        die("The final property value type found \"$propertyValueType\" does not " .
+            "correspond to the property change type found \"$propertyChangeType\".");
+    }
+
+    my %propertyHash;
+    $propertyHash{name} = $propertyName;
+    $propertyHash{propertyChangeDelta} = $propertyChangeDelta;
+    $propertyHash{value} = $propertyValue;
+    return (\%propertyHash, $_);
+}
+
+# Parse the value of an SVN property from the given file handle, and advance
+# the handle so the last line read is the first line after the property value.
+#
+# This subroutine dies if the first line is an invalid SVN property value line
+# (i.e. a line that does not begin with "   +" or "   -").
+#
+# Args:
+#   $fileHandle: advanced so the last line read from the handle is the first
+#                line of the property value to parse.  This should be a line
+#                beginning with "   +" or "   -".
+#   $line: the line last read from $fileHandle.
+#
+# Returns ($propertyValue, $lastReadLine):
+#   $propertyValue: the value of the property.
+#   $lastReadLine: the line last read from $fileHandle.
+sub parseSvnPropertyValue($$)
+{
+    my ($fileHandle, $line) = @_;
+
+    $_ = $line;
+
+    my $propertyValue;
+    my $eol;
+    if (/$svnPropertyValueStartRegEx/) {
+        $propertyValue = $2; # Does not include the end-of-line character(s).
+        $eol = $POSTMATCH;
+    } else {
+        die("Failed to find property value beginning with '+' or '-': \"$_\".");
+    }
+
+    while (<$fileHandle>) {
+        if (/^$/ || /$svnPropertyValueStartRegEx/ || /$svnPropertyStartRegEx/) {
+            # Note, we may encounter an empty line before the contents of a binary patch.
+            # Also, we check for $svnPropertyValueStartRegEx because a '-' property may be
+            # followed by a '+' property in the case of a "Modified" or "Name" property.
+            # We check for $svnPropertyStartRegEx because it indicates the start of the
+            # next property to parse.
+            last;
+        }
+
+        # Temporarily strip off any end-of-line characters. We add the end-of-line characters
+        # from the previously processed line to the start of this line so that the last line
+        # of the property value does not end in end-of-line characters.
+        s/([\n\r]+)$//;
+        $propertyValue .= "$eol$_";
+        $eol = $1;
+    }
+
+    return ($propertyValue, $_);
 }
 
 # Parse a patch file created by svn-create-patch.
@@ -766,16 +999,16 @@ sub parsePatch($)
 {
     my ($fileHandle) = @_;
 
+    my $newDiffHashRefs;
     my @diffHashRefs; # return value
 
     my $line = <$fileHandle>;
 
     while (defined($line)) { # Otherwise, at EOF.
 
-        my $diffHashRef;
-        ($diffHashRef, $line) = parseDiff($fileHandle, $line);
+        ($newDiffHashRefs, $line) = parseDiff($fileHandle, $line);
 
-        push @diffHashRefs, $diffHashRef;
+        push @diffHashRefs, @$newDiffHashRefs;
     }
 
     return @diffHashRefs;
@@ -851,6 +1084,51 @@ sub prepareParsedPatch($@)
     $preparedPatchHash{sourceRevisionHash} = \%sourceRevisionHash;
 
     return \%preparedPatchHash;
+}
+
+# Return localtime() for the project's time zone, given an integer time as
+# returned by Perl's time() function.
+sub localTimeInProjectTimeZone($)
+{
+    my $epochTime = shift;
+
+    # Change the time zone temporarily for the localtime() call.
+    my $savedTimeZone = $ENV{'TZ'};
+    $ENV{'TZ'} = $changeLogTimeZone;
+    my @localTime = localtime($epochTime);
+    if (defined $savedTimeZone) {
+         $ENV{'TZ'} = $savedTimeZone;
+    } else {
+         delete $ENV{'TZ'};
+    }
+
+    return @localTime;
+}
+
+# Set the reviewer and date in a ChangeLog patch, and return the new patch.
+#
+# Args:
+#   $patch: a ChangeLog patch as a string.
+#   $reviewer: the name of the reviewer, or undef if the reviewer should not be set.
+#   $epochTime: an integer time as returned by Perl's time() function.
+sub setChangeLogDateAndReviewer($$$)
+{
+    my ($patch, $reviewer, $epochTime) = @_;
+
+    my @localTime = localTimeInProjectTimeZone($epochTime);
+    my $newDate = strftime("%Y-%m-%d", @localTime);
+
+    my $firstChangeLogLineRegEx = qr#(\n\+)\d{4}-[^-]{2}-[^-]{2}(  )#;
+    $patch =~ s/$firstChangeLogLineRegEx/$1$newDate$2/;
+
+    if (defined($reviewer)) {
+        # We include a leading plus ("+") in the regular expression to make
+        # the regular expression less likely to match text in the leading junk
+        # for the patch, if the patch has leading junk.
+        $patch =~ s/(\n\+.*)NOBODY \(OOPS!\)/$1$reviewer/;
+    }
+
+    return $patch;
 }
 
 # If possible, returns a ChangeLog patch equivalent to the given one,

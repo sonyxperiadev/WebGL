@@ -63,7 +63,7 @@ module xml {
         [Custom] void open(in DOMString method, in DOMString url, in boolean async, in DOMString user, in DOMString password)
             raises(DOMException);
 
-        [Custom] void setRequestHeader(in DOMString header, in DOMString value)
+        [RequiresAllArguments=Raise] void setRequestHeader(in DOMString header, in DOMString value)
             raises(DOMException);
 
         // void send();
@@ -78,7 +78,7 @@ module xml {
         // response
         [ConvertNullStringTo=Undefined] DOMString getAllResponseHeaders()
             raises(DOMException);
-        [Custom, ConvertNullStringTo=Null] DOMString getResponseHeader(in DOMString header)
+        [RequiresAllArguments=Raise, ConvertNullStringTo=Null] DOMString getResponseHeader(in DOMString header)
             raises(DOMException);
         readonly attribute [CustomGetter] DOMString responseText; // The custom getter implements ConvertNullStringTo=Null
         readonly attribute Document responseXML;
@@ -88,7 +88,7 @@ module xml {
             getter raises(DOMException);
 
         // Extension
-        [Custom] void overrideMimeType(in DOMString override);
+        [RequiresAllArguments=Raise] void overrideMimeType(in DOMString override);
 
         // EventTarget interface
         void addEventListener(in DOMString type, 

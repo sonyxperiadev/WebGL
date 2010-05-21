@@ -78,38 +78,7 @@
 #include <QStringList>
 #include "qwebhistory_p.h"
 
-static bool dumpFrameLoaderCallbacks = false;
-static bool dumpResourceLoadCallbacks = false;
-static bool sendRequestReturnsNullOnRedirect = false;
-static bool sendRequestReturnsNull = false;
-static QStringList sendRequestClearHeaders;
-
 static QMap<unsigned long, QString> dumpAssignedUrls;
-
-void QWEBKIT_EXPORT qt_dump_frame_loader(bool b)
-{
-    dumpFrameLoaderCallbacks = b;
-}
-
-void QWEBKIT_EXPORT qt_dump_resource_load_callbacks(bool b)
-{
-    dumpResourceLoadCallbacks = b;
-}
-
-void QWEBKIT_EXPORT qt_set_will_send_request_returns_null_on_redirect(bool b)
-{
-    sendRequestReturnsNullOnRedirect = b;
-}
-
-void QWEBKIT_EXPORT qt_set_will_send_request_returns_null(bool b)
-{
-    sendRequestReturnsNull = b;
-}
-
-void QWEBKIT_EXPORT qt_set_will_send_request_clear_headers(const QStringList& headers)
-{
-    sendRequestClearHeaders = headers;
-}
 
 // Compare with WebKitTools/DumpRenderTree/mac/FrameLoadDelegate.mm
 static QString drtDescriptionSuitableForTestResult(WebCore::Frame* _frame)
@@ -131,8 +100,10 @@ static QString drtDescriptionSuitableForTestResult(WebCore::Frame* _frame)
 
 static QString drtDescriptionSuitableForTestResult(const WebCore::KURL& _url)
 {
-    QUrl url = _url;
-    return url.toString();
+    if (_url.isEmpty() || !_url.isLocalFile())
+        return _url.string();
+    // Remove the leading path from file urls
+    return QString(_url.string()).replace(WebCore::FrameLoaderClientQt::dumpResourceLoadCallbacksPath, "").mid(1);
 }
 
 static QString drtDescriptionSuitableForTestResult(const WebCore::ResourceError& error)
@@ -143,15 +114,15 @@ static QString drtDescriptionSuitableForTestResult(const WebCore::ResourceError&
 
 static QString drtDescriptionSuitableForTestResult(const WebCore::ResourceRequest& request)
 {
-    QString url = request.url().string();
+    QString url = drtDescriptionSuitableForTestResult(request.url());
     QString httpMethod = request.httpMethod();
-    QString mainDocumentUrl = request.firstPartyForCookies().string();
+    QString mainDocumentUrl = drtDescriptionSuitableForTestResult(request.firstPartyForCookies());
     return QString::fromLatin1("<NSURLRequest URL %1, main document URL %2, http method %3>").arg(url).arg(mainDocumentUrl).arg(httpMethod);
 }
 
 static QString drtDescriptionSuitableForTestResult(const WebCore::ResourceResponse& response)
 {
-    QString url = response.url().string();
+    QString url = drtDescriptionSuitableForTestResult(response.url());
     int httpStatusCode = response.httpStatusCode();
     return QString::fromLatin1("<NSURLResponse %1, http status code %2>").arg(url).arg(httpStatusCode);
 }
@@ -159,6 +130,13 @@ static QString drtDescriptionSuitableForTestResult(const WebCore::ResourceRespon
 
 namespace WebCore
 {
+
+bool FrameLoaderClientQt::dumpFrameLoaderCallbacks = false;
+bool FrameLoaderClientQt::dumpResourceLoadCallbacks = false;
+bool FrameLoaderClientQt::sendRequestReturnsNullOnRedirect = false;
+bool FrameLoaderClientQt::sendRequestReturnsNull = false;
+QStringList FrameLoaderClientQt::sendRequestClearHeaders;
+QString FrameLoaderClientQt::dumpResourceLoadCallbacksPath;
 
 FrameLoaderClientQt::FrameLoaderClientQt()
     : m_frame(0)
@@ -446,13 +424,13 @@ void FrameLoaderClientQt::dispatchDidFinishLoad()
 
 void FrameLoaderClientQt::dispatchDidFirstLayout()
 {
-    if (m_webFrame)
-        emit m_webFrame->initialLayoutCompleted();
+    notImplemented();
 }
 
 void FrameLoaderClientQt::dispatchDidFirstVisuallyNonEmptyLayout()
 {
-    notImplemented();
+    if (m_webFrame)
+        emit m_webFrame->initialLayoutCompleted();
 }
 
 void FrameLoaderClientQt::dispatchShow()
@@ -1413,11 +1391,10 @@ void FrameLoaderClientQt::redirectDataToPlugin(Widget* pluginWidget)
     m_hasSentResponseToPlugin = false;
 }
 
-PassRefPtr<Widget> FrameLoaderClientQt::createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL&,
-                                                    const Vector<String>&, const Vector<String>&)
+PassRefPtr<Widget> FrameLoaderClientQt::createJavaAppletWidget(const IntSize& pluginSize, HTMLAppletElement* element, const KURL& url,
+                                                    const Vector<String>& paramNames, const Vector<String>& paramValues)
 {
-    notImplemented();
-    return 0;
+    return createPlugin(pluginSize, element, url, paramNames, paramValues, "application/x-java-applet", true);
 }
 
 String FrameLoaderClientQt::overrideMediaType() const

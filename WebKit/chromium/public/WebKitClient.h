@@ -135,7 +135,7 @@ public:
     // Opens a database file; dirHandle should be 0 if the caller does not need
     // a handle to the directory containing this file
     virtual FileHandle databaseOpenFile(
-        const WebString& vfsFileName, int desiredFlags, FileHandle* dirHandle) { return FileHandle(); }
+        const WebString& vfsFileName, int desiredFlags) { return FileHandle(); }
 
     // Deletes a database file and returns the error code
     virtual int databaseDeleteFile(const WebString& vfsFileName, bool syncDir) { return 0; }
@@ -191,6 +191,9 @@ public:
 
     // Returns the User-Agent string that should be used for the given URL.
     virtual WebString userAgent(const WebURL&) { return WebString(); }
+
+    // A suggestion to cache this metadata in association with this URL.
+    virtual void cacheMetadata(const WebURL&, double responseTime, const char* data, size_t dataSize) { }
 
 
     // Plugins -------------------------------------------------------------

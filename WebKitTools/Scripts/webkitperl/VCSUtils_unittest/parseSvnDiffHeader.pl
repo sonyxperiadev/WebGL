@@ -83,6 +83,7 @@ Index: WebKitTools/Scripts/webkitperl/VCSUtils_unittest/parseDiffHeader.pl
 +++ WebKitTools/Scripts/webkitperl/VCSUtils_unittest/parseDiffHeader.pl	(revision 0)
 END
     indexPath => "WebKitTools/Scripts/webkitperl/VCSUtils_unittest/parseDiffHeader.pl",
+    isNew => 1,
 },
 "@@ -0,0 +1,262 @@\n"],
     expectedNextLine => "+#!/usr/bin/perl -w\n",
@@ -119,7 +120,7 @@ END
     inputText => <<END, # No single quotes to allow interpolation of "\r"
 Index: index_path.py\r
 ===================================================================\r
---- index_path.py	(revision 53048)	(from copied_from_path.py:53048)\r
+--- index_path.py	(revision 53048)\r
 +++ index_path.py	(working copy)\r
 @@ -0,0 +1,7 @@\r
 +# Python file...\r
@@ -129,10 +130,9 @@ END
     svnConvertedText => <<END, # No single quotes to allow interpolation of "\r"
 Index: index_path.py\r
 ===================================================================\r
---- index_path.py	(revision 53048)	(from copied_from_path.py:53048)\r
+--- index_path.py	(revision 53048)\r
 +++ index_path.py	(working copy)\r
 END
-    copiedFromPath => "copied_from_path.py",
     indexPath => "index_path.py",
     sourceRevision => 53048,
 },

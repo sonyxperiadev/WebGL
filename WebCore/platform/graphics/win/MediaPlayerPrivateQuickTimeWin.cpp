@@ -34,7 +34,8 @@
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "KURL.h"
-#include "QTMovieWin.h"
+#include "MediaPlayerPrivateTaskTimer.h"
+#include "QTMovieTask.h"
 #include "ScrollView.h"
 #include "SoftLinking.h"
 #include "StringBuilder.h"
@@ -53,10 +54,8 @@
 #endif
 
 #if DRAW_FRAME_RATE
-#include "Font.h"
-#include "FrameView.h"
-#include "Frame.h"
 #include "Document.h"
+#include "Font.h"
 #include "RenderObject.h"
 #include "RenderStyle.h"
 #include "Windows.h"
@@ -104,6 +103,7 @@ MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
 MediaPlayerPrivate::~MediaPlayerPrivate()
 {
     tearDownVideoRendering();
+    m_qtGWorld->setMovie(0);
 }
 
 bool MediaPlayerPrivate::supportsFullscreen() const
@@ -114,7 +114,8 @@ bool MediaPlayerPrivate::supportsFullscreen() const
 PlatformMedia MediaPlayerPrivate::platformMedia() const
 {
     PlatformMedia p;
-    p.qtMovie = reinterpret_cast<QTMovie*>(m_qtMovie.get());
+    p.type = PlatformMedia::QTMovieGWorldType;
+    p.media.qtMovieGWorld = m_qtGWorld.get();
     return p;
 }
 
@@ -124,50 +125,6 @@ PlatformLayer* MediaPlayerPrivate::platformLayer() const
     return m_qtVideoLayer ? m_qtVideoLayer->platformLayer() : 0;
 }
 #endif
-
-class TaskTimer : TimerBase {
-public:
-    static void initialize();
-    
-private:
-    static void setTaskTimerDelay(double);
-    static void stopTaskTimer();
-
-    void fired();
-
-    static TaskTimer* s_timer;
-};
-
-TaskTimer* TaskTimer::s_timer = 0;
-
-void TaskTimer::initialize()
-{
-    if (s_timer)
-        return;
-
-    s_timer = new TaskTimer;
-
-    QTMovieWin::setTaskTimerFuncs(setTaskTimerDelay, stopTaskTimer);
-}
-
-void TaskTimer::setTaskTimerDelay(double delayInSeconds)
-{
-    ASSERT(s_timer);
-
-    s_timer->startOneShot(delayInSeconds);
-}
-
-void TaskTimer::stopTaskTimer()
-{
-    ASSERT(s_timer);
-
-    s_timer->stop();
-}
-
-void TaskTimer::fired()
-{
-    QTMovieWin::taskTimerFired();
-}
 
 String MediaPlayerPrivate::rfc2616DateStringFromTime(CFAbsoluteTime time)
 {
@@ -262,7 +219,7 @@ void MediaPlayerPrivate::setUpCookiesForQuickTime(const String& url)
 
 void MediaPlayerPrivate::load(const String& url)
 {
-    if (!QTMovieWin::initializeQuickTime()) {
+    if (!QTMovie::initializeQuickTime()) {
         // FIXME: is this the right error to return?
         m_networkState = MediaPlayer::DecodeError; 
         m_player->networkStateChanged();
@@ -270,7 +227,7 @@ void MediaPlayerPrivate::load(const String& url)
     }
 
     // Initialize the task timer.
-    TaskTimer::initialize();
+    MediaPlayerPrivateTaskTimer::initialize();
 
     if (m_networkState != MediaPlayer::Loading) {
         m_networkState = MediaPlayer::Loading;
@@ -284,10 +241,13 @@ void MediaPlayerPrivate::load(const String& url)
 
     setUpCookiesForQuickTime(url);
 
-    m_qtMovie.set(new QTMovieWin(this));
+    m_qtMovie = adoptRef(new QTMovie(this));
     m_qtMovie->load(url.characters(), url.length(), m_player->preservesPitch());
     m_qtMovie->setVolume(m_player->volume());
-    m_qtMovie->setVisible(m_player->visible());
+
+    m_qtGWorld = adoptRef(new QTMovieGWorld(this));
+    m_qtGWorld->setMovie(m_qtMovie.get());
+    m_qtGWorld->setVisible(m_player->visible());
 }
 
 void MediaPlayerPrivate::play()
@@ -388,7 +348,7 @@ bool MediaPlayerPrivate::paused() const
 {
     if (!m_qtMovie)
         return true;
-    return m_qtMovie->rate() == 0.0f;
+    return (!m_qtMovie->rate());
 }
 
 bool MediaPlayerPrivate::seeking() const
@@ -612,7 +572,7 @@ void MediaPlayerPrivate::setSize(const IntSize& size)
     if (m_hasUnsupportedTracks || !m_qtMovie || m_size == size)
         return;
     m_size = size;
-    m_qtMovie->setSize(size.width(), size.height());
+    m_qtGWorld->setSize(size.width(), size.height());
 }
 
 void MediaPlayerPrivate::setVisible(bool visible)
@@ -620,7 +580,7 @@ void MediaPlayerPrivate::setVisible(bool visible)
     if (m_hasUnsupportedTracks || !m_qtMovie || m_visible == visible)
         return;
 
-    m_qtMovie->setVisible(visible);
+    m_qtGWorld->setVisible(visible);
     m_visible = visible;
     if (m_visible) {
         if (isReadyForRendering())
@@ -643,7 +603,7 @@ void MediaPlayerPrivate::paint(GraphicsContext* p, const IntRect& r)
     HDC hdc = p->getWindowsContext(r);
     if (!hdc) {
         // The graphics context doesn't have an associated HDC so create a temporary
-        // bitmap where QTMovieWin can draw the frame and we can copy it.
+        // bitmap where QTMovieGWorld can draw the frame and we can copy it.
         usingTempBitmap = true;
         bitmap.set(p->createWindowsBitmap(r.size()));
         hdc = bitmap->hdc();
@@ -659,7 +619,7 @@ void MediaPlayerPrivate::paint(GraphicsContext* p, const IntRect& r)
         SetWorldTransform(hdc, &xform);
     }
 
-    m_qtMovie->paint(hdc, r.x(), r.y());
+    m_qtGWorld->paint(hdc, r.x(), r.y());
     if (usingTempBitmap)
         p->drawWindowsBitmap(bitmap.get(), r.topLeft());
     else
@@ -719,11 +679,11 @@ static HashSet<String> mimeTypeCache()
     static bool typeListInitialized = false;
 
     if (!typeListInitialized) {
-        unsigned count = QTMovieWin::countSupportedTypes();
+        unsigned count = QTMovie::countSupportedTypes();
         for (unsigned n = 0; n < count; n++) {
             const UChar* character;
             unsigned len;
-            QTMovieWin::getSupportedType(n, character, len);
+            QTMovie::getSupportedType(n, character, len);
             if (len)
                 typeCache.add(String(character, len));
         }
@@ -741,7 +701,7 @@ void MediaPlayerPrivate::getSupportedTypes(HashSet<String>& types)
 
 bool MediaPlayerPrivate::isAvailable()
 {
-    return QTMovieWin::initializeQuickTime();
+    return QTMovie::initializeQuickTime();
 }
 
 MediaPlayer::SupportsType MediaPlayerPrivate::supportsType(const String& type, const String& codecs)
@@ -751,7 +711,7 @@ MediaPlayer::SupportsType MediaPlayerPrivate::supportsType(const String& type, c
     return mimeTypeCache().contains(type) ? (codecs.isEmpty() ? MediaPlayer::MayBeSupported : MediaPlayer::IsSupported) : MediaPlayer::IsNotSupported;
 }
 
-void MediaPlayerPrivate::movieEnded(QTMovieWin* movie)
+void MediaPlayerPrivate::movieEnded(QTMovie* movie)
 {
     if (m_hasUnsupportedTracks)
         return;
@@ -760,7 +720,7 @@ void MediaPlayerPrivate::movieEnded(QTMovieWin* movie)
     didEnd();
 }
 
-void MediaPlayerPrivate::movieLoadStateChanged(QTMovieWin* movie)
+void MediaPlayerPrivate::movieLoadStateChanged(QTMovie* movie)
 {
     if (m_hasUnsupportedTracks)
         return;
@@ -769,7 +729,7 @@ void MediaPlayerPrivate::movieLoadStateChanged(QTMovieWin* movie)
     updateStates();
 }
 
-void MediaPlayerPrivate::movieTimeChanged(QTMovieWin* movie)
+void MediaPlayerPrivate::movieTimeChanged(QTMovie* movie)
 {
     if (m_hasUnsupportedTracks)
         return;
@@ -779,12 +739,12 @@ void MediaPlayerPrivate::movieTimeChanged(QTMovieWin* movie)
     m_player->timeChanged();
 }
 
-void MediaPlayerPrivate::movieNewImageAvailable(QTMovieWin* movie)
+void MediaPlayerPrivate::movieNewImageAvailable(QTMovieGWorld* movie)
 {
     if (m_hasUnsupportedTracks)
         return;
 
-    ASSERT(m_qtMovie.get() == movie);
+    ASSERT(m_qtGWorld.get() == movie);
 #if DRAW_FRAME_RATE
     if (m_startedPlaying) {
         m_frameCountWhilePlaying++;
@@ -900,9 +860,9 @@ void MediaPlayerPrivate::paintContents(const GraphicsLayer*, GraphicsContext& co
     unsigned width;
     unsigned height;
 
-    m_qtMovie->getCurrentFrameInfo(buffer, bitsPerPixel, rowBytes, width, height);
+    m_qtGWorld->getCurrentFrameInfo(buffer, bitsPerPixel, rowBytes, width, height);
     if (!buffer)
-        return ;
+        return;
 
     RetainPtr<CFDataRef> data(AdoptCF, CFDataCreateWithBytesNoCopy(0, static_cast<UInt8*>(buffer), rowBytes * height, kCFAllocatorNull));
     RetainPtr<CGDataProviderRef> provider(AdoptCF, CGDataProviderCreateWithCFData(data.get()));

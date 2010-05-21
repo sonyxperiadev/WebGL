@@ -114,11 +114,12 @@ void CanvasRenderingContext2D::reset()
 {
     m_stateStack.resize(1);
     m_stateStack.first() = State();
+    m_path.clear();
 }
 
 CanvasRenderingContext2D::State::State()
-    : m_strokeStyle(CanvasStyle::create("black"))
-    , m_fillStyle(CanvasStyle::create("black"))
+    : m_strokeStyle(CanvasStyle::create("#000000"))
+    , m_fillStyle(CanvasStyle::create("#000000"))
     , m_lineWidth(1)
     , m_lineCap(ButtCap)
     , m_lineJoin(MiterJoin)
@@ -214,7 +215,7 @@ float CanvasRenderingContext2D::lineWidth() const
 
 void CanvasRenderingContext2D::setLineWidth(float width)
 {
-    if (!(width > 0))
+    if (!(isfinite(width) && width > 0))
         return;
     state().m_lineWidth = width;
     GraphicsContext* c = drawingContext();
@@ -264,7 +265,7 @@ float CanvasRenderingContext2D::miterLimit() const
 
 void CanvasRenderingContext2D::setMiterLimit(float limit)
 {
-    if (!(limit > 0))
+    if (!(isfinite(limit) && limit > 0))
         return;
     state().m_miterLimit = limit;
     GraphicsContext* c = drawingContext();
@@ -280,6 +281,8 @@ float CanvasRenderingContext2D::shadowOffsetX() const
 
 void CanvasRenderingContext2D::setShadowOffsetX(float x)
 {
+    if (!isfinite(x))
+        return;
     state().m_shadowOffset.setWidth(x);
     applyShadow();
 }
@@ -291,6 +294,8 @@ float CanvasRenderingContext2D::shadowOffsetY() const
 
 void CanvasRenderingContext2D::setShadowOffsetY(float y)
 {
+    if (!isfinite(y))
+        return;
     state().m_shadowOffset.setHeight(y);
     applyShadow();
 }
@@ -302,6 +307,8 @@ float CanvasRenderingContext2D::shadowBlur() const
 
 void CanvasRenderingContext2D::setShadowBlur(float blur)
 {
+    if (!(isfinite(blur) && blur >= 0))
+        return;
     state().m_shadowBlur = blur;
     applyShadow();
 }
@@ -874,8 +881,6 @@ void CanvasRenderingContext2D::setShadow(float width, float height, float blur, 
         return;
 
     RGBA32 rgba = makeRGBA32FromFloats(r, g, b, a); // default is transparent black
-    if (!state().m_shadowColor.isEmpty())
-        CSSParser::parseColor(rgba, state().m_shadowColor);
     c->setShadow(IntSize(width, -height), state().m_shadowBlur, Color(rgba), DeviceColorSpace);
 }
 
@@ -1337,14 +1342,30 @@ static PassRefPtr<ImageData> createEmptyImageData(const IntSize& size)
     return data.get();
 }
 
+PassRefPtr<ImageData> CanvasRenderingContext2D::createImageData(PassRefPtr<ImageData> imageData, ExceptionCode& ec) const
+{
+    if (!imageData) {
+        ec = NOT_SUPPORTED_ERR;
+        return 0;
+    }
+
+    IntSize size(imageData->width(), imageData->height());
+    return createEmptyImageData(size);
+}
+
 PassRefPtr<ImageData> CanvasRenderingContext2D::createImageData(float sw, float sh, ExceptionCode& ec) const
 {
     ec = 0;
+    if (!sw || !sh) {
+        ec = INDEX_SIZE_ERR;
+        return 0;
+    }
     if (!isfinite(sw) || !isfinite(sh)) {
         ec = NOT_SUPPORTED_ERR;
         return 0;
     }
-    FloatSize unscaledSize(sw, sh);
+
+    FloatSize unscaledSize(fabs(sw), fabs(sh));
     IntSize scaledSize = canvas()->convertLogicalToDevice(unscaledSize);
     if (scaledSize.width() < 1)
         scaledSize.setWidth(1);
@@ -1360,7 +1381,15 @@ PassRefPtr<ImageData> CanvasRenderingContext2D::getImageData(float sx, float sy,
         ec = SECURITY_ERR;
         return 0;
     }
-    
+    if (!sw || !sh) {
+        ec = INDEX_SIZE_ERR;
+        return 0;
+    }
+    if (!isfinite(sx) || !isfinite(sy) || !isfinite(sw) || !isfinite(sh)) {
+        ec = NOT_SUPPORTED_ERR;
+        return 0;
+    }
+
     FloatRect unscaledRect(sx, sy, sw, sh);
     IntRect scaledRect = canvas()->convertLogicalToDevice(unscaledRect);
     if (scaledRect.width() < 1)
@@ -1391,7 +1420,7 @@ void CanvasRenderingContext2D::putImageData(ImageData* data, float dx, float dy,
     }
     if (!isfinite(dx) || !isfinite(dy) || !isfinite(dirtyX) || 
         !isfinite(dirtyY) || !isfinite(dirtyWidth) || !isfinite(dirtyHeight)) {
-        ec = INDEX_SIZE_ERR;
+        ec = NOT_SUPPORTED_ERR;
         return;
     }
 

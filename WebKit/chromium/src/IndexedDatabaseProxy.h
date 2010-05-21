@@ -42,7 +42,7 @@ public:
     static PassRefPtr<IndexedDatabase> create();
     virtual ~IndexedDatabaseProxy();
 
-    virtual void open(const String& name, const String& description, bool modifyDatabase, PassRefPtr<IDBDatabaseCallbacks>, Frame*, ExceptionCode&);
+    virtual void open(const String& name, const String& description, bool modifyDatabase, PassRefPtr<IDBCallbacks>, Frame*, ExceptionCode&);
 
 private:
     IndexedDatabaseProxy();

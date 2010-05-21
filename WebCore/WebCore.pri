@@ -58,6 +58,7 @@ contains(DEFINES, ENABLE_SINGLE_THREADED=1) {
 !contains(DEFINES, ENABLE_VIDEO=.): DEFINES += ENABLE_VIDEO=1
 !contains(DEFINES, ENABLE_RUBY=.): DEFINES += ENABLE_RUBY=1
 !contains(DEFINES, ENABLE_SANDBOX=.): DEFINES += ENABLE_SANDBOX=1
+!contains(DEFINES, ENABLE_METER_TAG=.): DEFINES += ENABLE_METER_TAG=1
 !contains(DEFINES, ENABLE_PROGRESS_TAG=.): DEFINES += ENABLE_PROGRESS_TAG=1
 !contains(DEFINES, ENABLE_BLOB_SLICE=.): DEFINES += ENABLE_BLOB_SLICE=0
 !contains(DEFINES, ENABLE_NOTIFICATIONS=.): DEFINES += ENABLE_NOTIFICATIONS=1
@@ -163,6 +164,7 @@ contains(DEFINES, ENABLE_WEB_SOCKETS=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_WE
 contains(DEFINES, ENABLE_TOUCH_EVENTS=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_TOUCH_EVENTS=1
 contains(DEFINES, ENABLE_TILED_BACKING_STORE=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_TILED_BACKING_STORE=1
 contains(DEFINES, ENABLE_NOTIFICATIONS=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_NOTIFICATIONS=1
+contains(DEFINES, ENABLE_METER_TAG=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_METER_TAG=1
 contains(DEFINES, ENABLE_PROGRESS_TAG=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_PROGRESS_TAG=1
 
 
@@ -301,12 +303,12 @@ IDL_BINDINGS += \
     dom/WebKitTransitionEvent.idl \
     dom/WheelEvent.idl \
     html/Blob.idl \
-    html/canvas/WebGLArray.idl \
-    html/canvas/WebGLArrayBuffer.idl \
-    html/canvas/WebGLByteArray.idl \
-    html/canvas/WebGLFloatArray.idl \
+    html/canvas/ArrayBufferView.idl \
+    html/canvas/ArrayBuffer.idl \
+    html/canvas/Int8Array.idl \
+    html/canvas/FloatArray.idl \
     html/canvas/CanvasGradient.idl \
-    html/canvas/WebGLIntArray.idl \
+    html/canvas/Int32Array.idl \
     html/canvas/CanvasPattern.idl \
     html/canvas/CanvasRenderingContext.idl \
     html/canvas/CanvasRenderingContext2D.idl \
@@ -318,18 +320,19 @@ IDL_BINDINGS += \
     html/canvas/WebGLRenderbuffer.idl \
     html/canvas/WebGLRenderingContext.idl \
     html/canvas/WebGLShader.idl \
-    html/canvas/WebGLShortArray.idl \
+    html/canvas/Int16Array.idl \
     html/canvas/WebGLTexture.idl \
     html/canvas/WebGLUniformLocation.idl \
-    html/canvas/WebGLUnsignedByteArray.idl \
-    html/canvas/WebGLUnsignedIntArray.idl \
-    html/canvas/WebGLUnsignedShortArray.idl \
+    html/canvas/Uint8Array.idl \
+    html/canvas/Uint32Array.idl \
+    html/canvas/Uint16Array.idl \
     html/DataGridColumn.idl \
     html/DataGridColumnList.idl \
     html/DOMFormData.idl \
     html/File.idl \
     html/FileError.idl \
     html/FileList.idl \
+    html/FileReader.idl \
     html/HTMLAllCollection.idl \
     html/HTMLAudioElement.idl \
     html/HTMLAnchorElement.idl \
@@ -376,6 +379,7 @@ IDL_BINDINGS += \
     html/HTMLMediaElement.idl \
     html/HTMLMenuElement.idl \
     html/HTMLMetaElement.idl \
+    html/HTMLMeterElement.idl \
     html/HTMLModElement.idl \
     html/HTMLObjectElement.idl \
     html/HTMLOListElement.idl \
@@ -437,6 +441,16 @@ IDL_BINDINGS += \
     plugins/MimeTypeArray.idl \
     storage/Database.idl \
     storage/DatabaseCallback.idl \
+    storage/DatabaseSync.idl \
+    storage/IDBAny.idl \
+    storage/IDBDatabaseError.idl \
+    storage/IDBDatabaseException.idl \
+    storage/IDBDatabaseRequest.idl \
+    storage/IDBErrorEvent.idl \
+    storage/IDBEvent.idl \
+    storage/IDBRequest.idl \
+    storage/IDBSuccessEvent.idl \
+    storage/IndexedDatabaseRequest.idl \
     storage/Storage.idl \
     storage/StorageEvent.idl \
     storage/SQLError.idl \
@@ -447,6 +461,8 @@ IDL_BINDINGS += \
     storage/SQLTransaction.idl \
     storage/SQLTransactionCallback.idl \
     storage/SQLTransactionErrorCallback.idl \
+    storage/SQLTransactionSync.idl \
+    storage/SQLTransactionSyncCallback.idl \
     svg/SVGZoomEvent.idl \
     svg/SVGAElement.idl \
     svg/SVGAltGlyphElement.idl \
@@ -580,6 +596,7 @@ IDL_BINDINGS += \
     svg/SVGUnitTypes.idl \
     svg/SVGUseElement.idl \
     svg/SVGViewElement.idl \
+    svg/SVGVKernElement.idl \
     websockets/WebSocket.idl \
     workers/AbstractWorker.idl \
     workers/DedicatedWorkerContext.idl \

@@ -25,7 +25,7 @@
 #include "qwebframe_p.h"
 #include "qwebpage.h"
 #include "qwebpage_p.h"
-#include "QWebPageClient.h"
+#include "PageClientQt.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "IntRect.h"
@@ -46,98 +46,24 @@
 #endif
 #include <Settings.h>
 
-// the overlay is here for one reason only: to have the scroll-bars and other
-// extra UI elements appear on top of any QGraphicsItems created by CSS compositing layers
-class QGraphicsWebViewOverlay : public QGraphicsItem {
-    public:
-    QGraphicsWebViewOverlay(QGraphicsWebView* view)
-            :QGraphicsItem(view)
-            , q(view)
-    {
-        setPos(0, 0);
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
-        setFlag(QGraphicsItem::ItemUsesExtendedStyleOption, true);
-#endif
-        setCacheMode(QGraphicsItem::DeviceCoordinateCache);
-    }
+using namespace WebCore;
 
-    QRectF boundingRect() const
-    {
-        return q->boundingRect();
-    }
-
-    void paint(QPainter* painter, const QStyleOptionGraphicsItem* options, QWidget*)
-    {
-        q->page()->mainFrame()->render(painter, static_cast<QWebFrame::RenderLayer>(QWebFrame::AllLayers&(~QWebFrame::ContentsLayer)), options->exposedRect.toRect());
-    }
-
-    friend class QGraphicsWebView;
-    QGraphicsWebView* q;
-};
-
-class QGraphicsWebViewPrivate : public QWebPageClient {
+class QGraphicsWebViewPrivate {
 public:
     QGraphicsWebViewPrivate(QGraphicsWebView* parent)
         : q(parent)
         , page(0)
-        , resizesToContents(false)
-#if USE(ACCELERATED_COMPOSITING)
-        , rootGraphicsLayer(0)
-        , shouldSync(false)
-#endif
-    {
-#if USE(ACCELERATED_COMPOSITING)
-        // the overlay and stays alive for the lifetime of
-        // this QGraphicsWebView as the scrollbars are needed when there's no compositing
-        q->setFlag(QGraphicsItem::ItemUsesExtendedStyleOption);
-        syncMetaMethod = q->metaObject()->method(q->metaObject()->indexOfMethod("syncLayers()"));
-#endif
-    }
+        , resizesToContents(false) {}
 
     virtual ~QGraphicsWebViewPrivate();
 
-    virtual void scroll(int dx, int dy, const QRect&);
-    virtual void update(const QRect& dirtyRect);
-    virtual void setInputMethodEnabled(bool enable);
-    virtual bool inputMethodEnabled() const;
-#if QT_VERSION >= 0x040600
-    virtual void setInputMethodHint(Qt::InputMethodHint hint, bool enable);
-#endif
-
-#ifndef QT_NO_CURSOR
-    virtual QCursor cursor() const;
-    virtual void updateCursor(const QCursor& cursor);
-#endif
-
-    virtual QPalette palette() const;
-    virtual int screenNumber() const;
-    virtual QWidget* ownerWidget() const;
-    virtual QRect geometryRelativeToOwnerWidget() const;
-
-    virtual QObject* pluginParent() const;
-
-    virtual QStyle* style() const;
-
-#if USE(ACCELERATED_COMPOSITING)
-    virtual void setRootGraphicsLayer(QGraphicsItem* layer);
-    virtual void markForSync(bool scheduleSync);
-    void updateCompositingScrollPosition();
-
-    // QGraphicsWebView can render composited layers
-    virtual bool allowsAcceleratedCompositing() const { return true; }
-#endif
-
-    void updateResizesToContentsForPage();
-    QRectF graphicsItemVisibleRect() const;
-#if ENABLE(TILED_BACKING_STORE)
-    void updateTiledBackingStoreScale();
-#endif
-
-    void createOrDeleteOverlay();
-
     void syncLayers();
 
-    void unsetPageIfExists();
+    void updateResizesToContentsForPage();
+    virtual QRectF graphicsItemVisibleRect() const;
+
+
+    void detachCurrentPage();
 
     void _q_doLoadFinished(bool success);
     void _q_contentsSizeChanged(const QSize&);
@@ -148,101 +74,21 @@ public:
 
     QGraphicsWebView* q;
     QWebPage* page;
-
     bool resizesToContents;
 
-    // the overlay gets instantiated when the root layer is attached, and get deleted when it's detached
-    QSharedPointer<QGraphicsWebViewOverlay> overlay;
-
-    // we need to put the root graphics layer behind the overlay (which contains the scrollbar)
-    enum { RootGraphicsLayerZValue, OverlayZValue };
-
-#if USE(ACCELERATED_COMPOSITING)
-    QGraphicsItem* rootGraphicsLayer;
-    // we need to sync the layers if we get a special call from the WebCore
-    // compositor telling us to do so. We'll get that call from ChromeClientQt
-    bool shouldSync;
-
-    // we have to flush quite often, so we use a meta-method instead of QTimer::singleShot for putting the event in the queue
-    QMetaMethod syncMetaMethod;
-#endif
+    // Just a convenience to avoid using page->client->overlay always
+    QSharedPointer<QGraphicsItemOverlay> overlay;
 };
 
 QGraphicsWebViewPrivate::~QGraphicsWebViewPrivate()
 {
-#if USE(ACCELERATED_COMPOSITING)
-    if (rootGraphicsLayer) {
-        // we don't need to delete the root graphics layer
-        // The lifecycle is managed in GraphicsLayerQt.cpp
-        rootGraphicsLayer->setParentItem(0);
-        q->scene()->removeItem(rootGraphicsLayer);
-    }
-#endif
+    detachCurrentPage();
 }
-
-void QGraphicsWebViewPrivate::createOrDeleteOverlay()
-{
-    bool useOverlay = false;
-    if (!resizesToContents) {
-#if USE(ACCELERATED_COMPOSITING)
-        useOverlay = useOverlay || rootGraphicsLayer;
-#endif
-#if ENABLE(TILED_BACKING_STORE)
-        useOverlay = useOverlay || QWebFramePrivate::core(q->page()->mainFrame())->tiledBackingStore();
-#endif
-    }
-    if (useOverlay == !!overlay)
-        return;
-    if (useOverlay) {
-        overlay = QSharedPointer<QGraphicsWebViewOverlay>(new QGraphicsWebViewOverlay(q));
-        overlay->setZValue(OverlayZValue);
-    } else
-        overlay.clear();
-}
-
-#if USE(ACCELERATED_COMPOSITING)
-void QGraphicsWebViewPrivate::setRootGraphicsLayer(QGraphicsItem* layer)
-{
-    if (rootGraphicsLayer) {
-        rootGraphicsLayer->setParentItem(0);
-        q->scene()->removeItem(rootGraphicsLayer);
-        QWebFramePrivate::core(q->page()->mainFrame())->view()->syncCompositingStateRecursive();
-    }
-
-    rootGraphicsLayer = layer;
-
-    if (layer) {
-        layer->setFlag(QGraphicsItem::ItemClipsChildrenToShape, true);
-        layer->setParentItem(q);
-        layer->setZValue(RootGraphicsLayerZValue);
-        updateCompositingScrollPosition();
-    }
-    createOrDeleteOverlay();
-}
-
-void QGraphicsWebViewPrivate::markForSync(bool scheduleSync)
-{
-    shouldSync = true;
-    if (scheduleSync)
-        syncMetaMethod.invoke(q, Qt::QueuedConnection);
-}
-
-void QGraphicsWebViewPrivate::updateCompositingScrollPosition()
-{
-    if (rootGraphicsLayer && q->page() && q->page()->mainFrame()) {
-        const QPoint scrollPosition = q->page()->mainFrame()->scrollPosition();
-        rootGraphicsLayer->setPos(-scrollPosition);
-    }
-}
-#endif
 
 void QGraphicsWebViewPrivate::syncLayers()
 {
 #if USE(ACCELERATED_COMPOSITING)
-    if (shouldSync) {
-        QWebFramePrivate::core(q->page()->mainFrame())->view()->syncCompositingStateRecursive();
-        shouldSync = false;
-    }
+    static_cast<PageClientQGraphicsWidget*>(page->d->client)->syncLayers();
 #endif
 }
 
@@ -273,117 +119,6 @@ void QGraphicsWebViewPrivate::_q_pageDestroyed()
 {
     page = 0;
     q->setPage(0);
-}
-
-void QGraphicsWebViewPrivate::scroll(int dx, int dy, const QRect& rectToScroll)
-{
-    q->scroll(qreal(dx), qreal(dy), QRectF(rectToScroll));
-
-#if USE(ACCELERATED_COMPOSITING)
-    updateCompositingScrollPosition();
-#endif
-}
-
-void QGraphicsWebViewPrivate::update(const QRect & dirtyRect)
-{
-    q->update(QRectF(dirtyRect));
-
-    createOrDeleteOverlay();
-    if (overlay)
-        overlay->update(QRectF(dirtyRect));
-#if USE(ACCELERATED_COMPOSITING)
-    updateCompositingScrollPosition();
-    syncLayers();
-#endif
-}
-
-
-void QGraphicsWebViewPrivate::setInputMethodEnabled(bool enable)
-{
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
-    q->setFlag(QGraphicsItem::ItemAcceptsInputMethod, enable);
-#endif
-}
-
-bool QGraphicsWebViewPrivate::inputMethodEnabled() const
-{
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
-    return q->flags() & QGraphicsItem::ItemAcceptsInputMethod;
-#else
-    return false;
-#endif
-}
-
-#if QT_VERSION >= 0x040600
-void QGraphicsWebViewPrivate::setInputMethodHint(Qt::InputMethodHint hint, bool enable)
-{
-    if (enable)
-        q->setInputMethodHints(q->inputMethodHints() | hint);
-    else
-        q->setInputMethodHints(q->inputMethodHints() & ~hint);
-}
-#endif
-#ifndef QT_NO_CURSOR
-QCursor QGraphicsWebViewPrivate::cursor() const
-{
-    return q->cursor();
-}
-
-void QGraphicsWebViewPrivate::updateCursor(const QCursor& cursor)
-{
-    q->setCursor(cursor);
-}
-#endif
-
-QPalette QGraphicsWebViewPrivate::palette() const
-{
-    return q->palette();
-}
-
-int QGraphicsWebViewPrivate::screenNumber() const
-{
-#if defined(Q_WS_X11)
-    if (QGraphicsScene* scene = q->scene()) {
-        const QList<QGraphicsView*> views = scene->views();
-
-        if (!views.isEmpty())
-            return views.at(0)->x11Info().screen();
-    }
-#endif
-
-    return 0;
-}
-
-QWidget* QGraphicsWebViewPrivate::ownerWidget() const
-{
-    if (QGraphicsScene* scene = q->scene()) {
-        const QList<QGraphicsView*> views = scene->views();
-        return views.value(0);
-    }
-    return 0;
-}
-
-QRect QGraphicsWebViewPrivate::geometryRelativeToOwnerWidget() const
-{
-    if (!q->scene())
-        return QRect();
-
-    QList<QGraphicsView*> views = q->scene()->views();
-    if (views.isEmpty())
-        return QRect();
-
-    QGraphicsView* view = views.at(0);
-    return view->mapFromScene(q->boundingRect()).boundingRect();
-}
-
-QObject* QGraphicsWebViewPrivate::pluginParent() const
-{
-    return q;
-}
-
-QStyle* QGraphicsWebViewPrivate::style() const
-{
-    return q->style();
 }
 
 void QGraphicsWebViewPrivate::updateResizesToContentsForPage()
@@ -418,7 +153,7 @@ void QGraphicsWebViewPrivate::_q_contentsSizeChanged(const QSize& size)
 void QGraphicsWebViewPrivate::_q_scaleChanged()
 {
 #if ENABLE(TILED_BACKING_STORE)
-    updateTiledBackingStoreScale();
+    static_cast<PageClientQGraphicsWidget*>(page->d->client)->updateTiledBackingStoreScale();
 #endif
 }
 
@@ -440,16 +175,6 @@ QRectF QGraphicsWebViewPrivate::graphicsItemVisibleRect() const
     int yPosition = views[0]->verticalScrollBar()->value();
     return q->mapRectFromScene(QRectF(QPoint(xPosition, yPosition), views[0]->viewport()->size()));
 }
-
-#if ENABLE(TILED_BACKING_STORE)
-void QGraphicsWebViewPrivate::updateTiledBackingStoreScale()
-{
-    WebCore::TiledBackingStore* backingStore = QWebFramePrivate::core(page->mainFrame())->tiledBackingStore();
-    if (!backingStore)
-        return;
-    backingStore->setContentsScale(q->scale());
-}
-#endif
 
 /*!
     \class QGraphicsWebView
@@ -554,18 +279,6 @@ QGraphicsWebView::QGraphicsWebView(QGraphicsItem* parent)
 */
 QGraphicsWebView::~QGraphicsWebView()
 {
-    if (d->page) {
-#if QT_VERSION >= 0x040600
-        d->page->d->view.clear();
-#else
-        d->page->d->view = 0;
-#endif
-        d->page->d->client = 0; // unset the page client
-    }
-
-    if (d->page && d->page->parent() == this)
-        delete d->page;
-
     delete d;
 }
 
@@ -599,12 +312,7 @@ void QGraphicsWebView::paint(QPainter* painter, const QStyleOptionGraphicsItem* 
 #if ENABLE(TILED_BACKING_STORE)
     if (WebCore::TiledBackingStore* backingStore = QWebFramePrivate::core(page()->mainFrame())->tiledBackingStore()) {
         // FIXME: We should set the backing store viewport earlier than in paint
-        if (d->resizesToContents)
-            backingStore->viewportChanged(WebCore::IntRect(d->graphicsItemVisibleRect()));
-        else {
-            QRectF visibleRect(d->page->mainFrame()->scrollPosition(), d->page->mainFrame()->geometry().size());
-            backingStore->viewportChanged(WebCore::IntRect(visibleRect));
-        }
+        backingStore->adjustVisibleRect();
         // QWebFrame::render is a public API, bypass it for tiled rendering so behavior does not need to change.
         WebCore::GraphicsContext context(painter); 
         page()->mainFrame()->d->renderFromTiledBackingStore(&context, option->exposedRect.toAlignedRect());
@@ -713,7 +421,7 @@ bool QGraphicsWebView::event(QEvent* event)
                 // WebCore.
                 // FIXME: Add a QEvent::CursorUnset or similar to Qt.
                 if (cursor().shape() == Qt::ArrowCursor)
-                    d->resetCursor();
+                    d->page->d->client->resetCursor();
             }
 #endif
         }
@@ -721,18 +429,19 @@ bool QGraphicsWebView::event(QEvent* event)
     return QGraphicsWidget::event(event);
 }
 
-void QGraphicsWebViewPrivate::unsetPageIfExists()
+void QGraphicsWebViewPrivate::detachCurrentPage()
 {
     if (!page)
         return;
 
-    // if the page client is the special client constructed for
-    // delegating the responsibilities to a QWidget, we need
-    // to destroy it.
+#if QT_VERSION >= 0x040600
+    page->d->view.clear();
+#else
+    page->d->view = 0;
+#endif
 
-    if (page->d->client && page->d->client->isQWidgetClient())
-        delete page->d->client;
-
+    // The client has always to be deleted.
+    delete page->d->client;
     page->d->client = 0;
 
     // if the page was created by us, we own it and need to
@@ -742,6 +451,8 @@ void QGraphicsWebViewPrivate::unsetPageIfExists()
         delete page;
     else
         page->disconnect(q);
+
+    page = 0;
 }
 
 /*!
@@ -758,16 +469,17 @@ void QGraphicsWebView::setPage(QWebPage* page)
     if (d->page == page)
         return;
 
-    d->unsetPageIfExists();
+    d->detachCurrentPage();
     d->page = page;
 
     if (!d->page)
         return;
 
-    d->page->d->client = d; // set the page client
+    d->page->d->client = new PageClientQGraphicsWidget(this, page); // set the page client
+    d->overlay = static_cast<PageClientQGraphicsWidget*>(d->page->d->client)->overlay;
 
     if (d->overlay)
-        d->overlay->prepareGeometryChange();
+        d->overlay->prepareGraphicsItemGeometryChange();
 
     QSize size = geometry().size().toSize();
     page->setViewportSize(size);
@@ -878,7 +590,7 @@ qreal QGraphicsWebView::zoomFactor() const
 void QGraphicsWebView::updateGeometry()
 {
     if (d->overlay)
-        d->overlay->prepareGeometryChange();
+        d->overlay->prepareGraphicsItemGeometryChange();
 
     QGraphicsWidget::updateGeometry();
 
@@ -896,7 +608,7 @@ void QGraphicsWebView::setGeometry(const QRectF& rect)
     QGraphicsWidget::setGeometry(rect);
 
     if (d->overlay)
-        d->overlay->prepareGeometryChange();
+        d->overlay->prepareGraphicsItemGeometryChange();
 
     if (!d->page)
         return;
@@ -1130,8 +842,10 @@ void QGraphicsWebView::setResizesToContents(bool enabled)
     if (d->resizesToContents == enabled)
         return;
     d->resizesToContents = enabled;
-    if (d->page)
+    if (d->page) {
+        static_cast<PageClientQGraphicsWidget*>(d->page->d->client)->viewResizesToContents = enabled;
         d->updateResizesToContentsForPage();
+    }
 }
 
 bool QGraphicsWebView::resizesToContents() const

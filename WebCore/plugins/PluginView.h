@@ -254,7 +254,6 @@ namespace WebCore {
 
         void setParameters(const Vector<String>& paramNames, const Vector<String>& paramValues);
         bool startOrAddToUnstartedList();
-        void removeFromUnstartedListIfNecessary();
         void init();
         bool platformStart();
         void stop();

@@ -22,29 +22,22 @@
 #include "config.h"
 
 #if ENABLE(SVG) && ENABLE(FILTERS)
-#include "SVGLightSource.h"
 #include "SVGFEDiffuseLighting.h"
+
+#include "SVGLightSource.h"
 #include "SVGRenderTreeAsText.h"
-#include "Filter.h"
 
 namespace WebCore {
 
-FEDiffuseLighting::FEDiffuseLighting(FilterEffect* in , const Color& lightingColor, const float& surfaceScale,
-    const float& diffuseConstant, const float& kernelUnitLengthX, const float& kernelUnitLengthY, PassRefPtr<LightSource> lightSource)
-    : FilterEffect()
-    , m_in(in)
-    , m_lightingColor(lightingColor)
-    , m_surfaceScale(surfaceScale)
-    , m_diffuseConstant(diffuseConstant)
-    , m_kernelUnitLengthX(kernelUnitLengthX)
-    , m_kernelUnitLengthY(kernelUnitLengthY)
-    , m_lightSource(lightSource)
+FEDiffuseLighting::FEDiffuseLighting(FilterEffect* in, const Color& lightingColor, float surfaceScale,
+    float diffuseConstant, float kernelUnitLengthX, float kernelUnitLengthY, PassRefPtr<LightSource> lightSource)
+    : FELighting(DiffuseLighting, in, lightingColor, surfaceScale, diffuseConstant, 0.0f, 0.0f, kernelUnitLengthX, kernelUnitLengthY, lightSource)
 {
 }
 
 PassRefPtr<FEDiffuseLighting> FEDiffuseLighting::create(FilterEffect* in , const Color& lightingColor,
-    const float& surfaceScale, const float& diffuseConstant, const float& kernelUnitLengthX,
-    const float& kernelUnitLengthY, PassRefPtr<LightSource> lightSource)
+    float surfaceScale, float diffuseConstant, float kernelUnitLengthX,
+    float kernelUnitLengthY, PassRefPtr<LightSource> lightSource)
 {
     return adoptRef(new FEDiffuseLighting(in, lightingColor, surfaceScale, diffuseConstant, kernelUnitLengthX, kernelUnitLengthY, lightSource));
 }
@@ -113,21 +106,19 @@ void FEDiffuseLighting::setLightSource(PassRefPtr<LightSource> lightSource)
     m_lightSource = lightSource;
 }
 
-void FEDiffuseLighting::apply(Filter*)
-{
-}
-
 void FEDiffuseLighting::dump()
 {
 }
 
-TextStream& FEDiffuseLighting::externalRepresentation(TextStream& ts) const
+TextStream& FEDiffuseLighting::externalRepresentation(TextStream& ts, int indent) const
 {
-    ts << "[type=DIFFUSE-LIGHTING] ";
+    writeIndent(ts, indent);
+    ts << "[feDiffuseLighting";
     FilterEffect::externalRepresentation(ts);
-    ts << " [surface scale=" << m_surfaceScale << "]"
-        << " [diffuse constant=" << m_diffuseConstant << "]"
-        << " [kernel unit length " << m_kernelUnitLengthX << ", " << m_kernelUnitLengthY << "]";
+    ts << " surfaceScale=\"" << m_surfaceScale << "\" "
+       << "diffuseConstant=\"" << m_diffuseConstant << "\" "
+       << "kernelUnitLength=\"" << m_kernelUnitLengthX << ", " << m_kernelUnitLengthY << "\"]\n";
+    m_in->externalRepresentation(ts, indent + 1);
     return ts;
 }
 

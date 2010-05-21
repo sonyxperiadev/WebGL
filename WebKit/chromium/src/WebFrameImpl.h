@@ -31,15 +31,14 @@
 #ifndef WebFrameImpl_h
 #define WebFrameImpl_h
 
-// FIXME: remove this relative path once consumers from glue are removed.
-#include "../public/WebFrame.h"
+#include "WebAnimationControllerImpl.h"
+#include "WebFrame.h"
+
 #include "Frame.h"
 #include "FrameLoaderClientImpl.h"
 #include "PlatformString.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/RefCounted.h>
-
-#include "WebAnimationControllerImpl.h"
 
 namespace WebCore {
 class GraphicsContext;
@@ -160,10 +159,9 @@ public:
     virtual void cancelPendingScopingEffort();
     virtual void increaseMatchCount(int count, int identifier);
     virtual void resetMatchCount();
-    virtual void registerPasswordListener(
+    virtual bool registerPasswordListener(
         WebInputElement, WebPasswordAutocompleteListener*);
 
-    virtual WebURL completeURL(const WebString& url) const;
     virtual WebString contentAsText(size_t maxChars) const;
     virtual WebString contentAsMarkup() const;
     virtual WebString renderTreeAsText() const;

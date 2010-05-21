@@ -33,6 +33,10 @@ StyleRareInheritedData::StyleRareInheritedData()
     , tapHighlightColor(RenderStyle::initialTapHighlightColor())
 #endif
     , textShadow(0)
+    , indent(RenderStyle::initialTextIndent())
+    , m_effectiveZoom(RenderStyle::initialZoom())
+    , widows(RenderStyle::initialWidows())
+    , orphans(RenderStyle::initialOrphans())
     , textSecurity(RenderStyle::initialTextSecurity())
     , userModify(READ_ONLY)
     , wordBreak(RenderStyle::initialWordBreak())
@@ -56,6 +60,11 @@ StyleRareInheritedData::StyleRareInheritedData(const StyleRareInheritedData& o)
 #endif
     , textShadow(o.textShadow ? new ShadowData(*o.textShadow) : 0)
     , highlight(o.highlight)
+    , cursorData(o.cursorData)
+    , indent(o.indent)
+    , m_effectiveZoom(o.m_effectiveZoom)
+    , widows(o.widows)
+    , orphans(o.orphans)
     , textSecurity(o.textSecurity)
     , userModify(o.userModify)
     , wordBreak(o.wordBreak)
@@ -74,6 +83,15 @@ StyleRareInheritedData::~StyleRareInheritedData()
     delete textShadow;
 }
 
+static bool cursorDataEquivalent(const CursorList* c1, const CursorList* c2)
+{
+    if (c1 == c2)
+        return true;
+    if ((!c1 && c2) || (c1 && !c2))
+        return false;
+    return (*c1 == *c2);
+}
+
 bool StyleRareInheritedData::operator==(const StyleRareInheritedData& o) const
 {
     return textStrokeColor == o.textStrokeColor
@@ -81,6 +99,11 @@ bool StyleRareInheritedData::operator==(const StyleRareInheritedData& o) const
         && textFillColor == o.textFillColor
         && shadowDataEquivalent(o)
         && highlight == o.highlight
+        && cursorDataEquivalent(cursorData.get(), o.cursorData.get())
+        && indent == o.indent
+        && m_effectiveZoom == o.m_effectiveZoom
+        && widows == o.widows
+        && orphans == o.orphans
         && textSecurity == o.textSecurity
         && userModify == o.userModify
         && wordBreak == o.wordBreak

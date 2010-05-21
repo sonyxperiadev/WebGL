@@ -71,7 +71,7 @@ public:
     Frame* frame() const { return m_frame; }
 
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
-    void setPosition(GeolocationPosition*);
+    void positionChanged();
     void setError(GeolocationError*);
 #else
     GeolocationService* getGeolocationService() const { return m_service.get(); }
@@ -128,13 +128,13 @@ private:
 
     void sendError(Vector<RefPtr<GeoNotifier> >&, PositionError*);
     void sendPosition(Vector<RefPtr<GeoNotifier> >&, Geoposition*);
-    
+
     static void stopTimer(Vector<RefPtr<GeoNotifier> >&);
     void stopTimersForOneShots();
     void stopTimersForWatchers();
     void stopTimers();
-    
-    void positionChanged(PassRefPtr<Geoposition>);
+
+    void positionChangedInternal();
     void makeSuccessCallbacks();
     void handleError(PositionError*);
 

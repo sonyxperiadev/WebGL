@@ -70,7 +70,8 @@ WebInspector.ElementsPanel = function()
     this.crumbsElement.addEventListener("mouseout", this._mouseMovedOutOfCrumbs.bind(this), false);
 
     this.sidebarPanes = {};
-    this.sidebarPanes.styles = new WebInspector.StylesSidebarPane();
+    this.sidebarPanes.computedStyle = new WebInspector.ComputedStyleSidebarPane();
+    this.sidebarPanes.styles = new WebInspector.StylesSidebarPane(this.sidebarPanes.computedStyle);
     this.sidebarPanes.metrics = new WebInspector.MetricsSidebarPane();
     this.sidebarPanes.properties = new WebInspector.PropertiesSidebarPane();
     this.sidebarPanes.eventListeners = new WebInspector.EventListenersSidebarPane();
@@ -89,6 +90,7 @@ WebInspector.ElementsPanel = function()
     this.sidebarElement = document.createElement("div");
     this.sidebarElement.id = "elements-sidebar";
 
+    this.sidebarElement.appendChild(this.sidebarPanes.computedStyle.element);
     this.sidebarElement.appendChild(this.sidebarPanes.styles.element);
     this.sidebarElement.appendChild(this.sidebarPanes.metrics.element);
     this.sidebarElement.appendChild(this.sidebarPanes.properties.element);
@@ -105,6 +107,7 @@ WebInspector.ElementsPanel = function()
     this.element.appendChild(this.sidebarElement);
     this.element.appendChild(this.sidebarResizeElement);
 
+    this._registerShortcuts();
     this._changedStyles = {};
 
     this.reset();
@@ -1060,6 +1063,25 @@ WebInspector.ElementsPanel.prototype = {
 
         eventListenersSidebarPane.update(this.focusedDOMNode);
         eventListenersSidebarPane.needsUpdate = false;
+    },
+
+    _registerShortcuts: function()
+    {
+        var shortcut = WebInspector.KeyboardShortcut;
+        var section = WebInspector.shortcutsHelp.section(WebInspector.UIString("Elements Panel"));
+        var keys = [
+            shortcut.shortcutToString(shortcut.Keys.Up),
+            shortcut.shortcutToString(shortcut.Keys.Down)
+        ];
+        section.addRelatedKeys(keys, WebInspector.UIString("Navigate elements"));
+        var keys = [
+            shortcut.shortcutToString(shortcut.Keys.Right),
+            shortcut.shortcutToString(shortcut.Keys.Left)
+        ];
+        section.addRelatedKeys(keys, WebInspector.UIString("Expand/collapse"));
+        section.addKey(shortcut.shortcutToString(shortcut.Keys.Enter), WebInspector.UIString("Edit attribute"));
+
+        this.sidebarPanes.styles.registerShortcuts();
     },
 
     handleShortcut: function(event)

@@ -43,22 +43,39 @@ class ChromiumWinPort(chromium.ChromiumPort):
 
     def __init__(self, port_name=None, options=None):
         if port_name is None:
-            port_name = 'chromium-win' + self.version()
-        if options and not hasattr(options, 'configuration'):
-            options.configuration = 'Release'
+            port_name = "chromium-win" + self.version()
+        if options and not hasattr(options, "configuration"):
+            options.configuration = "Release"
         chromium.ChromiumPort.__init__(self, port_name, options)
 
+    def setup_environ_for_server(self):
+        env = chromium.ChromiumPort.setup_environ_for_server(self)
+        # Put the cygwin directory first in the path to find cygwin1.dll.
+        env["PATH"] = "%s;%s" % (
+            self.path_from_chromium_base("third_party", "cygwin", "bin"),
+            env["PATH"])
+        # Configure the cygwin directory so that pywebsocket finds proper
+        # python executable to run cgi program.
+        env["CYGWIN_PATH"] = self.path_from_chromium_base(
+            "third_party", "cygwin", "bin")
+        if (sys.platform == "win32" and self._options and
+            hasattr(self._options, "register_cygwin") and
+            self._options.register_cygwin):
+            setup_mount = self.path_from_chromium_base("third_party",
+                                                       "cygwin",
+                                                       "setup_mount.bat")
+            self._executive.run_command(setup_mount)
+        return env
+
     def baseline_search_path(self):
-        dirs = []
+        port_names = []
         if self._name == 'chromium-win-xp':
-            dirs.append(self._webkit_baseline_path('chromium-win-xp'))
+            port_names.append("chromium-win-xp")
         if self._name in ('chromium-win-xp', 'chromium-win-vista'):
-            dirs.append(self._webkit_baseline_path('chromium-win-vista'))
-        dirs.append(self._webkit_baseline_path('chromium-win'))
-        dirs.append(self._webkit_baseline_path('chromium'))
-        dirs.append(self._webkit_baseline_path('win'))
-        dirs.append(self._webkit_baseline_path('mac'))
-        return dirs
+            port_names.append("chromium-win-vista")
+        # FIXME: This may need to include mac-snowleopard like win.py.
+        port_names.extend(["chromium-win", "chromium", "win", "mac"])
+        return map(self._webkit_baseline_path, port_names)
 
     def check_build(self, needs_http):
         result = chromium.ChromiumPort.check_build(self, needs_http)

@@ -106,7 +106,7 @@ namespace JSC {
         //
         // NB: depth does _not_ include the local scope.  eg. a depth of 0 refers
         // to the scope containing this codeblock.
-        bool findScopedProperty(const Identifier&, int& index, size_t& depth, bool forWriting, JSObject*& globalObject);
+        bool findScopedProperty(const Identifier&, int& index, size_t& depth, bool forWriting, bool& includesDynamicScopes, JSObject*& globalObject);
 
         // Returns the register storing "this"
         RegisterID* thisRegister() { return &m_thisRegister; }
@@ -264,7 +264,6 @@ namespace JSC {
         RegisterID* emitLoad(RegisterID* dst, bool);
         RegisterID* emitLoad(RegisterID* dst, double);
         RegisterID* emitLoad(RegisterID* dst, const Identifier&);
-        RegisterID* emitLoad(RegisterID* dst, RegExp* regExp);
         RegisterID* emitLoad(RegisterID* dst, JSValue);
 
         RegisterID* emitUnaryOp(OpcodeID, RegisterID* dst, RegisterID* src);
@@ -277,6 +276,7 @@ namespace JSC {
 
         RegisterID* emitNewFunction(RegisterID* dst, FunctionBodyNode* body);
         RegisterID* emitNewFunctionExpression(RegisterID* dst, FuncExprNode* func);
+        RegisterID* emitNewRegExp(RegisterID* dst, RegExp* regExp);
 
         RegisterID* emitMove(RegisterID* dst, RegisterID* src);
 
@@ -446,6 +446,7 @@ namespace JSC {
 
         unsigned addConstant(const Identifier&);
         RegisterID* addConstantValue(JSValue);
+        unsigned addRegExp(RegExp*);
 
         PassRefPtr<FunctionExecutable> makeFunction(ExecState* exec, FunctionBodyNode* body)
         {

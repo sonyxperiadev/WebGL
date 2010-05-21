@@ -69,13 +69,15 @@ LayerChromium::LayerChromium(LayerType type, GraphicsLayerChromium* owner)
     , m_skiaContext(0)
     , m_graphicsContext(0)
     , m_geometryFlipped(false)
+    , m_contents(0)
 {
     updateGraphicsContext(m_backingStoreRect);
 }
 
 LayerChromium::~LayerChromium()
 {
-    // Our superlayer should be holding a reference to us, so there should be no way for us to be destroyed while we still have a superlayer.
+    // Our superlayer should be holding a reference to us so there should be no
+    // way for us to be destroyed while we still have a superlayer.
     ASSERT(!superlayer());
 }
 
@@ -120,10 +122,18 @@ void LayerChromium::drawDebugBorder()
     m_graphicsContext->drawLine(IntPoint(0, m_bounds.height()), IntPoint(m_bounds.width(), m_bounds.height()));
 }
 
+void LayerChromium::setContents(NativeImagePtr contents)
+{
+    // Check if the image has changed.
+    if (m_contents == contents)
+        return;
+    m_contents = contents;
+}
+
 void LayerChromium::setNeedsCommit()
 {
     // Call notifySyncRequired(), which in this implementation plumbs through to
-    // call setRootLayerNeedsDisplay() on the WebView, which will cause LayerRendererSkia
+    // call setRootLayerNeedsDisplay() on the WebView, which will cause LayerRendererChromium
     // to render a frame.
     if (m_owner)
         m_owner->notifySyncRequired();
@@ -137,18 +147,16 @@ void LayerChromium::addSublayer(PassRefPtr<LayerChromium> sublayer)
 void LayerChromium::insertSublayer(PassRefPtr<LayerChromium> sublayer, size_t index)
 {
     index = min(index, m_sublayers.size());
-    m_sublayers.insert(index, sublayer);
+    sublayer->removeFromSuperlayer();
     sublayer->setSuperlayer(this);
+    m_sublayers.insert(index, sublayer);
     setNeedsCommit();
 }
 
 void LayerChromium::removeFromSuperlayer()
 {
-    LayerChromium* superlayer = this->superlayer();
-    if (!superlayer)
-        return;
-
-    superlayer->removeSublayer(this);
+    if (m_superlayer)
+        m_superlayer->removeSublayer(this);
 }
 
 void LayerChromium::removeSublayer(LayerChromium* sublayer)
@@ -157,9 +165,31 @@ void LayerChromium::removeSublayer(LayerChromium* sublayer)
     if (foundIndex == -1)
         return;
 
-    m_sublayers.remove(foundIndex);
     sublayer->setSuperlayer(0);
+    m_sublayers.remove(foundIndex);
     setNeedsCommit();
+}
+
+void LayerChromium::replaceSublayer(LayerChromium* reference, PassRefPtr<LayerChromium> newLayer)
+{
+    ASSERT_ARG(reference, reference);
+    ASSERT_ARG(reference, reference->superlayer() == this);
+
+    if (reference == newLayer)
+        return;
+
+    int referenceIndex = indexOfSublayer(reference);
+    if (referenceIndex == -1) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    reference->removeFromSuperlayer();
+
+    if (newLayer) {
+        newLayer->removeFromSuperlayer();
+        insertSublayer(newLayer, referenceIndex);
+    }
 }
 
 int LayerChromium::indexOfSublayer(const LayerChromium* reference)
@@ -214,18 +244,23 @@ const LayerChromium* LayerChromium::rootLayer() const
 
 void LayerChromium::removeAllSublayers()
 {
-    m_sublayers.clear();
+    while (m_sublayers.size()) {
+        LayerChromium* layer = m_sublayers[0].get();
+        ASSERT(layer->superlayer());
+        layer->removeFromSuperlayer();
+    }
     setNeedsCommit();
 }
 
 void LayerChromium::setSublayers(const Vector<RefPtr<LayerChromium> >& sublayers)
 {
-    m_sublayers = sublayers;
-}
+    if (sublayers == m_sublayers)
+        return;
 
-void LayerChromium::setSuperlayer(LayerChromium* superlayer)
-{
-    m_superlayer = superlayer;
+    removeAllSublayers();
+    size_t listSize = sublayers.size();
+    for (size_t i = 0; i < listSize; i++)
+        addSublayer(sublayers[i]);
 }
 
 LayerChromium* LayerChromium::superlayer() const

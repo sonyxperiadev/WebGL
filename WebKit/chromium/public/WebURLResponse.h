@@ -72,6 +72,9 @@ public:
     WEBKIT_API WebURL url() const;
     WEBKIT_API void setURL(const WebURL&);
 
+    WEBKIT_API double responseTime() const;
+    WEBKIT_API void setResponseTime(double);
+
     WEBKIT_API WebString mimeType() const;
     WEBKIT_API void setMIMEType(const WebString&);
 
@@ -122,6 +125,11 @@ public:
     // SPDY is an experimental web protocol, see http://dev.chromium.org/spdy
     WEBKIT_API bool wasFetchedViaSPDY() const;
     WEBKIT_API void setWasFetchedViaSPDY(bool);
+
+    // Flag whether this request was loaded after the TLS/Next-Protocol-Negotiation was used.
+    // This is related to SPDY.
+    WEBKIT_API bool wasNpnNegotiated() const;
+    WEBKIT_API void setWasNpnNegotiated(bool);
 
     // Flag whether this request is part of a multipart response.
     WEBKIT_API bool isMultipartPayload() const;

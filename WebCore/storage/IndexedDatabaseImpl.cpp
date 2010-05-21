@@ -31,6 +31,7 @@
 #include "IDBDatabase.h"
 #include "IDBDatabaseError.h"
 #include <wtf/Threading.h>
+#include <wtf/UnusedParam.h>
 
 #if ENABLE(INDEXED_DATABASE)
 
@@ -49,10 +50,13 @@ IndexedDatabaseImpl::~IndexedDatabaseImpl()
 {
 }
 
-void IndexedDatabaseImpl::open(const String& name, const String& description, bool modifyDatabase, PassRefPtr<IDBDatabaseCallbacks>, Frame*, ExceptionCode&)
+void IndexedDatabaseImpl::open(const String& name, const String& description, bool modifyDatabase, PassRefPtr<IDBCallbacks> callbacks, Frame*, ExceptionCode&)
 {
-    // FIXME: Write.
-    ASSERT_NOT_REACHED();
+    // FIXME: Write for realz.
+    UNUSED_PARAM(name);
+    UNUSED_PARAM(description);
+    UNUSED_PARAM(modifyDatabase);
+    callbacks->onError(IDBDatabaseError::create(0, "Not implemented"));
 }
 
 } // namespace WebCore

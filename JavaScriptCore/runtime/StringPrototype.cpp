@@ -245,8 +245,7 @@ public:
     int length;
 };
 
-JSValue jsSpliceSubstringsWithSeparators(ExecState* exec, JSString* sourceVal, const UString& source, const StringRange* substringRanges, int rangeCount, const UString* separators, int separatorCount);
-JSValue jsSpliceSubstringsWithSeparators(ExecState* exec, JSString* sourceVal, const UString& source, const StringRange* substringRanges, int rangeCount, const UString* separators, int separatorCount)
+static ALWAYS_INLINE JSValue jsSpliceSubstringsWithSeparators(ExecState* exec, JSString* sourceVal, const UString& source, const StringRange* substringRanges, int rangeCount, const UString* separators, int separatorCount)
 {
     if (rangeCount == 1 && separatorCount == 0) {
         int sourceSize = source.size();
@@ -288,35 +287,12 @@ JSValue jsSpliceSubstringsWithSeparators(ExecState* exec, JSString* sourceVal, c
     return jsString(exec, impl);
 }
 
-JSValue jsReplaceRange(ExecState* exec, const UString& source, int rangeStart, int rangeLength, const UString& replacement);
-JSValue jsReplaceRange(ExecState* exec, const UString& source, int rangeStart, int rangeLength, const UString& replacement)
-{
-    int replacementLength = replacement.size();
-    int totalLength = source.size() - rangeLength + replacementLength;
-    if (totalLength == 0)
-        return jsString(exec, "");
-
-    UChar* buffer;
-    PassRefPtr<UStringImpl> impl = UStringImpl::tryCreateUninitialized(totalLength, buffer);
-    if (!impl)
-        return throwOutOfMemoryError(exec);
-
-    UStringImpl::copyChars(buffer, source.data(), rangeStart);
-    UStringImpl::copyChars(buffer + rangeStart, replacement.data(), replacementLength);
-    int rangeEnd = rangeStart + rangeLength;
-    UStringImpl::copyChars(buffer + rangeStart + replacementLength, source.data() + rangeEnd, source.size() - rangeEnd);
-
-    return jsString(exec, impl);
-}
-
 JSValue JSC_HOST_CALL stringProtoFuncReplace(ExecState* exec, JSObject*, JSValue thisValue, const ArgList& args)
 {
     JSString* sourceVal = thisValue.toThisJSString(exec);
-    const UString& source = sourceVal->value(exec);
-
     JSValue pattern = args.at(0);
-
     JSValue replacement = args.at(1);
+
     UString replacementString;
     CallData callData;
     CallType callType = replacement.getCallData(callData);
@@ -324,6 +300,7 @@ JSValue JSC_HOST_CALL stringProtoFuncReplace(ExecState* exec, JSObject*, JSValue
         replacementString = replacement.toString(exec);
 
     if (pattern.inherits(&RegExpObject::info)) {
+        const UString& source = sourceVal->value(exec);
         RegExp* reg = asRegExpObject(pattern)->regExp();
         bool global = reg->global();
 
@@ -370,7 +347,10 @@ JSValue JSC_HOST_CALL stringProtoFuncReplace(ExecState* exec, JSObject*, JSValue
                 
                 cachedCall.setThis(exec->globalThisValue());
                 JSValue result = cachedCall.call();
-                replacements.append(result.toString(cachedCall.newCallFrame(exec)));
+                if (LIKELY(result.isString()))
+                    replacements.append(asString(result)->value(exec));
+                else
+                    replacements.append(result.toString(cachedCall.newCallFrame(exec)));
                 if (exec->hadException())
                     break;
 
@@ -442,6 +422,10 @@ JSValue JSC_HOST_CALL stringProtoFuncReplace(ExecState* exec, JSObject*, JSValue
     // Not a regular expression, so treat the pattern as a string.
 
     UString patternString = pattern.toString(exec);
+    if (patternString.size() == 1 && callType == CallTypeNone)
+        return sourceVal->replaceCharacter(exec, patternString[0], replacementString);
+    
+    const UString& source = sourceVal->value(exec);
     unsigned matchPos = source.find(patternString);
 
     if (matchPos == UString::NotFound)
@@ -456,9 +440,10 @@ JSValue JSC_HOST_CALL stringProtoFuncReplace(ExecState* exec, JSObject*, JSValue
 
         replacementString = call(exec, replacement, callType, callData, exec->globalThisValue(), args).toString(exec);
     }
-
-    int ovector[2] = { matchPos, matchPos + matchLen };
-    return jsReplaceRange(exec, source, matchPos, matchLen, substituteBackreferences(replacementString, source, ovector, 0));
+    
+    size_t matchEnd = matchPos + matchLen;
+    int ovector[2] = { matchPos, matchEnd };
+    return jsString(exec, source.substr(0, matchPos), substituteBackreferences(replacementString, source, ovector, 0), source.substr(matchEnd));
 }
 
 JSValue JSC_HOST_CALL stringProtoFuncToString(ExecState* exec, JSObject*, JSValue thisValue, const ArgList&)
@@ -768,21 +753,20 @@ JSValue JSC_HOST_CALL stringProtoFuncSubstring(ExecState* exec, JSObject*, JSVal
     JSValue a1 = args.at(1);
 
     double start = a0.toNumber(exec);
-    double end = a1.toNumber(exec);
-    if (isnan(start))
+    double end;
+    if (!(start >= 0)) // check for negative values or NaN
         start = 0;
-    if (isnan(end))
-        end = 0;
-    if (start < 0)
-        start = 0;
-    if (end < 0)
-        end = 0;
-    if (start > len)
+    else if (start > len)
         start = len;
-    if (end > len)
-        end = len;
     if (a1.isUndefined())
         end = len;
+    else { 
+        end = a1.toNumber(exec);
+        if (!(end >= 0)) // check for negative values or NaN
+            end = 0;
+        else if (end > len)
+            end = len;
+    }
     if (start > end) {
         double temp = end;
         end = start;

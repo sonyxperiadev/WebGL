@@ -78,15 +78,21 @@ class MainTest(unittest.TestCase):
         (res, buildbot_output, regular_output) = logging_run(
              ['--platform', 'test', '--print', 'config', '--child-processes',
               '1', 'fast/html'])
-        self.assertTrue('Running one DumpRenderTree'
+        self.assertTrue('Running one DumpRenderTree\n'
                         in regular_output.get())
 
         (res, buildbot_output, regular_output) = logging_run(
              ['--platform', 'test', '--print', 'config', '--child-processes',
               '2', 'fast/html'])
-        self.assertTrue('Running 2 DumpRenderTrees in parallel'
+        self.assertTrue('Running 2 DumpRenderTrees in parallel\n'
                         in regular_output.get())
 
+    def test_last_results(self):
+        passing_run(['--platform', 'test', 'fast/html'])
+        (res, buildbot_output, regular_output) = logging_run(
+            ['--platform', 'test', '--print-last-failures'])
+        self.assertEqual(regular_output.get(), ['\n\n'])
+        self.assertEqual(buildbot_output.get(), [])
 
 
 class TestRunnerTest(unittest.TestCase):
@@ -112,16 +118,17 @@ class TestRunnerTest(unittest.TestCase):
 
 class DryrunTest(unittest.TestCase):
     def test_basics(self):
+        # FIXME: it's hard to know which platforms are safe to test; the
+        # chromium platforms require a chromium checkout, and the mac platform
+        # requires fcntl, so it can't be tested on win32, etc. There is
+        # probably a better way of handling this.
+        if sys.platform != "mac":
+            return
         self.assertTrue(passing_run(['--platform', 'dryrun',
                                      'fast/html']))
-        #self.assertTrue(passing_run(['--platform', 'dryrun-mac',
-        #                             'fast/html']))
-        #self.assertTrue(passing_run(['--platform', 'dryrun-chromium-mac',
-        #                             'fast/html']))
-        #self.assertTrue(passing_run(['--platform', 'dryrun-chromium-win',
-        #                             'fast/html']))
-        #self.assertTrue(passing_run(['--platform', 'dryrun-chromium-linux',
-        #                             'fast/html']))
+        self.assertTrue(passing_run(['--platform', 'dryrun-mac',
+                                     'fast/html']))
+
 
 if __name__ == '__main__':
     unittest.main()

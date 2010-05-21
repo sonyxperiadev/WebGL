@@ -26,6 +26,7 @@
 
 #include "config.h"
 #include "AccessibilityUIElement.h"
+#include "GRefPtr.h"
 
 #include <JavaScriptCore/JSStringRef.h>
 #include <wtf/Assertions.h>
@@ -128,10 +129,22 @@ unsigned AccessibilityUIElement::indexOfChild(AccessibilityUIElement* element)
     return 0;
 }
 
+gchar* attributeSetToString(AtkAttributeSet* attributeSet)
+{
+    GString* str = g_string_new(0);
+    for (GSList* attributes = attributeSet; attributes; attributes = attributes->next) {
+        AtkAttribute* attribute = static_cast<AtkAttribute*>(attributes->data);
+        g_string_append(str, g_strconcat(attribute->name, ":", attribute->value, NULL));
+        if (attributes->next)
+            g_string_append(str, ", ");
+    }
+
+    return g_string_free(str, FALSE);
+}
+
 JSStringRef AccessibilityUIElement::allAttributes()
 {
-    // FIXME: implement
-    return JSStringCreateWithCharacters(0, 0);
+    return JSStringCreateWithUTF8CString(attributeSetToString(atk_object_get_attributes(ATK_OBJECT(m_element))));
 }
 
 JSStringRef AccessibilityUIElement::attributesOfLinkedUIElements()
@@ -364,8 +377,13 @@ bool AccessibilityUIElement::isRequired() const
 
 bool AccessibilityUIElement::isSelected() const
 {
-    // FIXME: implement
-    return false;
+    if (!ATK_IS_OBJECT(m_element))
+        return false;
+
+    GRefPtr<AtkStateSet> stateSet = adoptGRef(atk_object_ref_state_set(ATK_OBJECT(m_element)));
+    gboolean isSelected = atk_state_set_contains_state(stateSet.get(), ATK_STATE_SELECTED);
+
+    return isSelected;
 }
 
 int AccessibilityUIElement::hierarchicalLevel() const

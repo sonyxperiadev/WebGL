@@ -38,12 +38,14 @@
 namespace WebCore {
 
 class Database;
+class DatabaseSync;
 class ScriptExecutionContext;
 
 class DatabaseCallback : public ThreadSafeShared<DatabaseCallback> {
 public:
     virtual ~DatabaseCallback() { }
     virtual bool handleEvent(ScriptExecutionContext*, Database*) = 0;
+    virtual bool handleEvent(ScriptExecutionContext*, DatabaseSync*) = 0;
 };
 
 }

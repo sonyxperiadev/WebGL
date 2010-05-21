@@ -31,6 +31,7 @@
 
 use strict;
 use File::Basename;
+use File::Find;
 use File::Spec;
 use FindBin;
 use Getopt::Long qw(:config pass_through);
@@ -48,6 +49,9 @@ chdirWebKit();
 my $showHelp = 0;
 my $clean = 0;
 my $minimal = 0;
+my $installHeaders;
+my $installLibs;
+my $prefixPath;
 my $makeArgs;
 my $startTime = time();
 
@@ -178,7 +182,7 @@ my @features = (
       define => "ENABLE_XSLT", default => 1, value => \$xsltSupport },
 
     { option => "file-reader", desc => "Toggle FileReader support",
-      define => "ENABLE_FILE_READER", default => 0, value => \$fileReaderSupport },
+      define => "ENABLE_FILE_READER", default => isAppleWebKit(), value => \$fileReaderSupport },
 
     { option => "file-writer", desc => "Toggle FileWriter support",
       define => "ENABLE_FILE_WRITER", default => 0, value => \$fileWriterSupport },
@@ -225,6 +229,10 @@ Usage: $programName [options] [options to pass to build system]
   --qt                              Build the Qt port
   --inspector-frontend              Copy changes to the inspector front-end files to the build directory
 
+  --install-headers=<path>          Set installation path for the headers (Qt only)
+  --install-libs=<path>             Set installation path for the libraries (Qt only)
+
+  --prefix=<path>                   Set installation prefix to the given path (Gtk only)
   --makeargs=<arguments>            Optional Makefile flags
 
   --minimal                         No optional features, unless explicitly enabled.
@@ -234,6 +242,9 @@ EOF
 my %options = (
     'help' => \$showHelp,
     'clean' => \$clean,
+    'install-headers=s' => \$installHeaders,
+    'install-libs=s' => \$installLibs,
+    'prefix=s' => \$prefixPath,
     'makeargs=s' => \$makeArgs,
     'minimal' => \$minimal,
 );
@@ -257,6 +268,18 @@ setConfiguration();
 
 my $productDir = productDir();
 
+# Remove 0 byte sized files from productDir after slave lost for Qt buildbots.
+File::Find::find(\&unlinkZeroFiles, $productDir) if isQt();
+
+sub unlinkZeroFiles ()
+{
+    my $file = $File::Find::name;
+    if (! -s $file) {
+        unlink $file;
+        print "0 byte sized file removed from build directory: $file\n";
+    }
+}
+
 # Check that all the project directories are there.
 my @projects = ("JavaScriptCore", "WebCore", "WebKit");
 
@@ -276,13 +299,15 @@ if (isGtk()) {
         push @options, autotoolsFlag(${$_->{value}}, $_->{option});
     }
 
+    push @options, "--prefix=" . $prefixPath if defined($prefixPath);
     push @options, "--makeargs=" . $makeArgs if defined($makeArgs);
 } elsif (isAppleMacWebKit()) {
     push @options, XcodeOptions();
 
-    sub option($$)
+    sub option($$$)
     {
-        my ($feature, $isEnabled) = @_;
+        my ($feature, $isEnabled, $defaultValue) = @_;
+        return "" if $defaultValue == $isEnabled;
         return $feature . "=" . ($isEnabled ? $feature : " ");
     }
 
@@ -290,7 +315,8 @@ if (isGtk()) {
         if ($_->{option} eq "coverage") {
             push @options, XcodeCoverageSupportOptions() if $coverageSupport;
         } else {
-            push @options, option($_->{define}, ${$_->{value}});
+            my $option = option($_->{define}, ${$_->{value}}, $_->{default});
+            push @options, $option unless $option eq "";
         }
     }
 
@@ -338,12 +364,14 @@ if (isGtk()) {
     (system("perl WebKitTools/Scripts/update-webkit-support-libs") == 0) or die;
 } elsif (isQt()) {
     @options = @ARGV;
+    push @options, "--install-headers=" . $installHeaders if defined($installHeaders);
+    push @options, "--install-libs=" . $installLibs if defined($installLibs);
     push @options, "--makeargs=" . $makeArgs if defined($makeArgs);
 
     foreach (@features) {
         push @options, "DEFINES+=$_->{define}=${$_->{value}}" if ${$_->{value}} != $_->{default};
     }
-    
+
     if ($minimal) {
         push @options, "CONFIG+=minimal";
     }

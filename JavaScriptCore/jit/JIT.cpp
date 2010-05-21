@@ -275,6 +275,7 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_new_func)
         DEFINE_OP(op_new_func_exp)
         DEFINE_OP(op_new_object)
+        DEFINE_OP(op_new_regexp)
         DEFINE_OP(op_next_pname)
         DEFINE_OP(op_not)
         DEFINE_OP(op_nstricteq)
@@ -297,6 +298,7 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_resolve)
         DEFINE_OP(op_resolve_base)
         DEFINE_OP(op_resolve_global)
+        DEFINE_OP(op_resolve_global_dynamic)
         DEFINE_OP(op_resolve_skip)
         DEFINE_OP(op_resolve_with_base)
         DEFINE_OP(op_ret)
@@ -363,9 +365,7 @@ void JIT::privateCompileSlowCases()
     Instruction* instructionsBegin = m_codeBlock->instructions().begin();
 
     m_propertyAccessInstructionIndex = 0;
-#if USE(JSVALUE32_64)
     m_globalResolveInfoIndex = 0;
-#endif
     m_callLinkInfoIndex = 0;
 
     for (Vector<SlowCaseEntry>::iterator iter = m_slowCases.begin(); iter != m_slowCases.end();) {
@@ -425,9 +425,8 @@ void JIT::privateCompileSlowCases()
         DEFINE_SLOWCASE_OP(op_pre_inc)
         DEFINE_SLOWCASE_OP(op_put_by_id)
         DEFINE_SLOWCASE_OP(op_put_by_val)
-#if USE(JSVALUE32_64)
         DEFINE_SLOWCASE_OP(op_resolve_global)
-#endif
+        DEFINE_SLOWCASE_OP(op_resolve_global_dynamic)
         DEFINE_SLOWCASE_OP(op_rshift)
         DEFINE_SLOWCASE_OP(op_urshift)
         DEFINE_SLOWCASE_OP(op_stricteq)
@@ -466,31 +465,30 @@ JITCode JIT::privateCompile()
     preserveReturnAddressAfterCall(regT2);
     emitPutToCallFrameHeader(regT2, RegisterFile::ReturnPC);
 
-    Jump slowRegisterFileCheck;
-    Label afterRegisterFileCheck;
+    Jump registerFileCheck;
     if (m_codeBlock->codeType() == FunctionCode) {
         // In the case of a fast linked call, we do not set this up in the caller.
         emitPutImmediateToCallFrameHeader(m_codeBlock, RegisterFile::CodeBlock);
 
-        peek(regT0, OBJECT_OFFSETOF(JITStackFrame, registerFile) / sizeof (void*));
         addPtr(Imm32(m_codeBlock->m_numCalleeRegisters * sizeof(Register)), callFrameRegister, regT1);
-
-        slowRegisterFileCheck = branchPtr(Above, regT1, Address(regT0, OBJECT_OFFSETOF(RegisterFile, m_end)));
-        afterRegisterFileCheck = label();
+        registerFileCheck = branchPtr(Below, AbsoluteAddress(&m_globalData->interpreter->registerFile().
+        m_end), regT1);
     }
+
+    Label functionBody = label();
 
     privateCompileMainPass();
     privateCompileLinkPass();
     privateCompileSlowCases();
 
     if (m_codeBlock->codeType() == FunctionCode) {
-        slowRegisterFileCheck.link(this);
+        registerFileCheck.link(this);
         m_bytecodeIndex = 0;
         JITStubCall(this, cti_register_file_check).call();
 #ifndef NDEBUG
         m_bytecodeIndex = (unsigned)-1; // Reset this, in order to guard its use with ASSERTs.
 #endif
-        jump(afterRegisterFileCheck);
+        jump(functionBody);
     }
 
     ASSERT(m_jmpTable.isEmpty());
@@ -589,7 +587,7 @@ void JIT::emitPutVariableObjectRegister(RegisterID src, RegisterID variableObjec
 #endif
 
 #if ENABLE(JIT_OPTIMIZE_CALL)
-void JIT::unlinkCall(CallLinkInfo* callLinkInfo)
+void JIT::unlinkCallOrConstruct(CallLinkInfo* callLinkInfo)
 {
     // When the JSFunction is deleted the pointer embedded in the instruction stream will no longer be valid
     // (and, if a new JSFunction happened to be constructed at the same location, we could get a false positive
@@ -620,6 +618,26 @@ void JIT::linkCall(JSFunction* callee, CodeBlock* callerCodeBlock, CodeBlock* ca
 
     // patch the call so we do not continue to try to link.
     repatchBuffer.relink(callLinkInfo->callReturnLocation, globalData->jitStubs.ctiVirtualCall());
+}
+
+void JIT::linkConstruct(JSFunction* callee, CodeBlock* callerCodeBlock, CodeBlock* calleeCodeBlock, JITCode& code, CallLinkInfo* callLinkInfo, int callerArgCount, JSGlobalData* globalData)
+{
+    RepatchBuffer repatchBuffer(callerCodeBlock);
+
+    // Currently we only link calls with the exact number of arguments.
+    // If this is a native call calleeCodeBlock is null so the number of parameters is unimportant
+    if (!calleeCodeBlock || (callerArgCount == calleeCodeBlock->m_numParameters)) {
+        ASSERT(!callLinkInfo->isLinked());
+    
+        if (calleeCodeBlock)
+            calleeCodeBlock->addCaller(callLinkInfo);
+    
+        repatchBuffer.repatch(callLinkInfo->hotPathBegin, callee);
+        repatchBuffer.relink(callLinkInfo->hotPathOther, code.addressForCall());
+    }
+
+    // patch the call so we do not continue to try to link.
+    repatchBuffer.relink(callLinkInfo->callReturnLocation, globalData->jitStubs.ctiVirtualConstruct());
 }
 #endif // ENABLE(JIT_OPTIMIZE_CALL)
 

@@ -23,14 +23,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef MediaPlayerPrivateQTKit_h
-#define MediaPlayerPrivateQTKit_h
+#ifndef MediaPlayerPrivateQuickTimeWin_h
+#define MediaPlayerPrivateQuickTimeWin_h
 
 #if ENABLE(VIDEO)
 
 #include "MediaPlayerPrivate.h"
 #include "Timer.h"
-#include <QTMovieWin.h>
+#include <QTMovie.h>
+#include <QTMovieGWorld.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/RetainPtr.h>
 
@@ -51,7 +52,7 @@ class IntSize;
 class IntRect;
 class String;
 
-class MediaPlayerPrivate : public MediaPlayerPrivateInterface, public QTMovieWinClient 
+class MediaPlayerPrivate : public MediaPlayerPrivateInterface, public QTMovieClient, public QTMovieGWorldClient 
 #if USE(ACCELERATED_COMPOSITING)
         , public GraphicsLayerClient
 #endif 
@@ -130,10 +131,10 @@ private:
     float maxTimeLoaded() const;
     void sawUnsupportedTracks();
 
-    virtual void movieEnded(QTMovieWin*);
-    virtual void movieLoadStateChanged(QTMovieWin*);
-    virtual void movieTimeChanged(QTMovieWin*);
-    virtual void movieNewImageAvailable(QTMovieWin*);
+    virtual void movieEnded(QTMovie*);
+    virtual void movieLoadStateChanged(QTMovie*);
+    virtual void movieTimeChanged(QTMovie*);
+    virtual void movieNewImageAvailable(QTMovieGWorld*);
 
     // engine support
     static MediaPlayerPrivateInterface* create(MediaPlayer*);
@@ -162,7 +163,8 @@ private:
     String rfc2616DateStringFromTime(CFAbsoluteTime);
 
     MediaPlayer* m_player;
-    OwnPtr<QTMovieWin> m_qtMovie;
+    RefPtr<QTMovie> m_qtMovie;
+    RefPtr<QTMovieGWorld> m_qtGWorld;
 #if USE(ACCELERATED_COMPOSITING)
     OwnPtr<GraphicsLayer> m_qtVideoLayer;
 #endif
