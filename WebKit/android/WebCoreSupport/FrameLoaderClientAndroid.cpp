@@ -395,7 +395,9 @@ void FrameLoaderClientAndroid::dispatchDidFinishLoad() {
 
 void FrameLoaderClientAndroid::dispatchDidFirstLayout() {
     ASSERT(m_frame);
-    m_frame->document()->setExtraLayoutDelay(EXTRA_LAYOUT_DELAY);
+    // set EXTRA_LAYOUT_DELAY if the loader is not completed yet
+    if (!m_frame->loader()->isComplete())
+        m_frame->document()->setExtraLayoutDelay(EXTRA_LAYOUT_DELAY);
     // we need to do this here instead of dispatchDidFirstVisuallyNonEmptyLayout
     // so that about:blank will update the screen.
     if (!m_frame->tree()->parent()) {
