@@ -340,10 +340,10 @@ typedef enum {
     /* Used when the plugin returns 0 from NPN_WriteReady and wishes the browser
      * to wait a certain amount of millis before calling NPN_WriteReady again.
      */
-    NPPDataDeliveryDelayMs = 100,
+    , NPPDataDeliveryDelayMs = 100
 
     // TODO(reed): upstream
-    NPPFakeValueToForce32Bits = 0x7FFFFFFF
+    , NPPFakeValueToForce32Bits = 0x7FFFFFFF
 #endif
 } NPPVariable;
 
