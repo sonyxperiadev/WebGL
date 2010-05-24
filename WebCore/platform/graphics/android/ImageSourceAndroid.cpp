@@ -303,7 +303,7 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
     }
 
     PrivateAndroidImageSourceRec* decoder = m_decoder.m_image;
-    if (allDataReceived && !decoder->fAllDataReceived) {
+    if (allDataReceived && decoder && !decoder->fAllDataReceived) {
         decoder->fAllDataReceived = true;
 
         SkBitmap* bm = &decoder->bitmap();
