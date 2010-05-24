@@ -43,7 +43,7 @@ public:
     virtual ~CachedLinkPrefetch() { };
 
     virtual void didAddClient(CachedResourceClient* c) {
-        if (!m_loading)
+        if (!isLoading())
             c->notifyFinished(this);
     };
 
