@@ -31,10 +31,6 @@
 #if ENABLE(GEOLOCATION)
 
 #include "Chrome.h"
-// ANDROID
-#include "DOMWindow.h"
-#include "EventNames.h"
-// END ANDROID
 #include "Frame.h"
 #include "Page.h"
 #if PLATFORM(ANDROID)
@@ -208,10 +204,7 @@ void Geolocation::Watchers::getNotifiersVector(Vector<RefPtr<GeoNotifier> >& cop
 }
 
 Geolocation::Geolocation(Frame* frame)
-// ANDROID
-    : EventListener(GeolocationEventListenerType)
-    , m_frame(frame)
-// END ANDROID
+    : m_frame(frame)
 #if !ENABLE(CLIENT_BASED_GEOLOCATION)
     , m_service(GeolocationService::create(this))
 #endif
@@ -222,26 +215,23 @@ Geolocation::Geolocation(Frame* frame)
         return;
     ASSERT(m_frame->document());
     m_frame->document()->setUsingGeolocation(true);
-
-// ANDROID
-    if (m_frame->domWindow())
-        m_frame->domWindow()->addEventListener(eventNames().unloadEvent, this, false);
-// END ANDROID
 }
 
 Geolocation::~Geolocation()
 {
-// ANDROID
-    if (m_frame && m_frame->domWindow())
-        m_frame->domWindow()->removeEventListener(eventNames().unloadEvent, this, false);
-// END ANDROID
+}
+
+void Geolocation::stop()
+{
+    m_oneShots.clear();
+    m_watchers.clear();
+    stopUpdating();
 }
 
 void Geolocation::disconnectFrame()
 {
     if (m_frame && m_frame->page() && m_allowGeolocation == InProgress)
         m_frame->page()->chrome()->cancelGeolocationPermissionRequestForFrame(m_frame, this);
-    stopUpdating();
     if (m_frame && m_frame->document())
         m_frame->document()->setUsingGeolocation(false);
     m_frame = 0;
@@ -684,26 +674,6 @@ void Geolocation::stopUpdating()
 
 }
 
-// ANDROID
-bool Geolocation::operator==(const EventListener& listener)
-{
-    if (listener.type() != GeolocationEventListenerType)
-        return false;
-    const Geolocation* geolocation = static_cast<const Geolocation*>(&listener);
-    return m_frame == geolocation->m_frame;
-}
-
-void Geolocation::handleEvent(ScriptExecutionContext*, Event* event)
-{
-    ASSERT_UNUSED(event, event->type() == eventNames().unloadEvent);
-    // Cancel any ongoing requests on page unload. This is required to release
-    // references to JS callbacks in the page, to allow the frame to be cleaned up
-    // by WebKit.
-    m_oneShots.clear();
-    m_watchers.clear();
-}
-// END ANDROID
-
 } // namespace WebCore
 
 #else
@@ -719,6 +689,8 @@ Geolocation::Geolocation(Frame*) {}
 Geolocation::~Geolocation() {}
 
 void Geolocation::setIsAllowed(bool) {}
+
+void Geolocation::stop() {}
 
 }
                                                         

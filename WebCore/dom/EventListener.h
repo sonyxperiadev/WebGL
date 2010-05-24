@@ -41,8 +41,7 @@ namespace WebCore {
                     InspectorDOMAgentType,
                     InspectorDOMStorageResourceType,
                     ObjCEventListenerType, 
-                    ConditionEventListenerType,
-                    GeolocationEventListenerType };
+                    ConditionEventListenerType };
                     
         virtual ~EventListener() { }
         virtual bool operator==(const EventListener&) = 0;
