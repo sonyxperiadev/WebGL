@@ -234,7 +234,8 @@ namespace JSC {
         }
 
         static void linkCall(JSFunction* callee, CodeBlock* callerCodeBlock, CodeBlock* calleeCodeBlock, JITCode&, CallLinkInfo*, int callerArgCount, JSGlobalData*);
-        static void unlinkCall(CallLinkInfo*);
+        static void linkConstruct(JSFunction* callee, CodeBlock* callerCodeBlock, CodeBlock* calleeCodeBlock, JITCode&, CallLinkInfo*, int callerArgCount, JSGlobalData*);
+        static void unlinkCallOrConstruct(CallLinkInfo*);
 
     private:
         struct JSRInfo {
@@ -447,7 +448,6 @@ namespace JSC {
         Jump emitFastArithDeTagImmediateJumpIfZero(RegisterID);
 #endif
         void emitFastArithReTagImmediate(RegisterID src, RegisterID dest);
-        void emitFastArithImmToInt(RegisterID);
         void emitFastArithIntToImmNoCheck(RegisterID src, RegisterID dest);
 
         void emitTagAsBoolImmediate(RegisterID reg);
@@ -695,6 +695,7 @@ namespace JSC {
         void emit_op_new_func(Instruction*);
         void emit_op_new_func_exp(Instruction*);
         void emit_op_new_object(Instruction*);
+        void emit_op_new_regexp(Instruction*);
         void emit_op_get_pnames(Instruction*);
         void emit_op_next_pname(Instruction*);
         void emit_op_not(Instruction*);
@@ -717,7 +718,8 @@ namespace JSC {
         void emit_op_put_setter(Instruction*);
         void emit_op_resolve(Instruction*);
         void emit_op_resolve_base(Instruction*);
-        void emit_op_resolve_global(Instruction*);
+        void emit_op_resolve_global(Instruction*, bool dynamic = false);
+        void emit_op_resolve_global_dynamic(Instruction*);
         void emit_op_resolve_skip(Instruction*);
         void emit_op_resolve_with_base(Instruction*);
         void emit_op_ret(Instruction*);
@@ -782,6 +784,7 @@ namespace JSC {
         void emitSlow_op_put_by_id(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_put_by_val(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_resolve_global(Instruction*, Vector<SlowCaseEntry>::iterator&);
+        void emitSlow_op_resolve_global_dynamic(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_rshift(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_stricteq(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_sub(Instruction*, Vector<SlowCaseEntry>::iterator&);
@@ -902,6 +905,7 @@ namespace JSC {
         int m_uninterruptedConstantSequenceBegin;
 #endif
 #endif
+        static PassRefPtr<NativeExecutable> stringGetByValStubGenerator(JSGlobalData* globalData, ExecutablePool* pool);
     } JIT_CLASS_ALIGNMENT;
 
     inline void JIT::emit_op_loop(Instruction* currentInstruction)

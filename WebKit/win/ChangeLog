@@ -1,3 +1,79 @@
+2010-05-13  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Tim Hatcher.
+
+        <rdar://problem/7982652>
+
+        Allow reporting exceptions that occur when using JavaScriptCore APIs to the Web Inspector.
+
+        * Interfaces/IWebViewPrivate.idl: Add a reportException function off of IWebViewPrivate.
+        * Interfaces/WebKit.idl: Touch WebKit.idl to make sure Interfaces rebuild.
+        * WebView.cpp:
+        (WebView::reportException): Make sure the function was called with a context from a WebView, and call
+            WebCore::reportException.
+        * WebView.h:
+
+2010-05-12  Jer Noble  <jer.noble@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Bug 38689: #34005 will break fullscreen video playback
+        https://bugs.webkit.org/show_bug.cgi?id=38689
+
+        Use the new definition of PlatformMedia to check the actual type 
+        returned by MediaPlayer.
+
+        * FullscreenVideoController.cpp:
+        (FullscreenVideoController::movie):
+
+2010-05-11  Jer Noble  <jer.noble@apple.com>
+
+        No Review.
+
+        Fix build error: The QTMovieWin project is dependent on the JavaScriptCore project.
+
+        * WebKit.vcproj/WebKit.sln:
+
+2010-05-11  Alice Liu  <alice.liu@apple.com>
+
+        Rubber-stamped by Gavin Barraclough.
+
+        Fix build error when enabling debugging block in WebKit win painting code
+
+        * WebView.cpp:
+        (WebView::paintIntoBackingStore):
+
+2010-05-11  Alice Liu  <alice.liu@apple.com>
+
+        Reviewed by Steve Falkenburg.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38937        
+        W7 window preview paints content at the wrong location
+
+        * WebFrame.cpp:
+        (WebFrame::paintDocumentRectToContext): Revert r58895
+        (WebFrame::paintDocumentRectToContextAtPoint): Added
+
+        * Interfaces/IWebFramePrivate.idl: Added paintDocumentRectToContextAtPoint
+        * Interfaces/IWebViewPrivate.idl: ditto
+        * Interfaces/WebKit.idl: touch to rebuild
+        * WebFrame.h: ditto
+        * WebView.cpp: ditto
+        (WebView::paintDocumentRectToContextAtPoint): ditto
+        * WebView.h: ditto
+
+2010-05-07  Jer Noble  <jer.noble@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        Safari pegs CPU and drops tons of frames using HTML5 Vimeo player
+        https://bugs.webkit.org/show_bug.cgi?id=34005
+        
+        QTMovieWin is now QTMovieGWorld.  
+        * FullscreenVideoController.cpp:
+        (FullscreenVideoController::movie):
+        * FullscreenVideoController.h:
+
 2010-05-06  Adam Roben  <aroben@apple.com>
 
         Bail out of WebView::paint when there's nothing to paint

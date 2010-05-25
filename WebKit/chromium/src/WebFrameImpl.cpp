@@ -1608,14 +1608,6 @@ void WebFrameImpl::resetMatchCount()
     m_framesScopingCount = 0;
 }
 
-WebURL WebFrameImpl::completeURL(const WebString& url) const
-{
-    if (!m_frame || !m_frame->document())
-        return WebURL();
-
-    return m_frame->document()->completeURL(url);
-}
-
 WebString WebFrameImpl::contentAsText(size_t maxChars) const
 {
     if (!m_frame)
@@ -1942,13 +1934,16 @@ void WebFrameImpl::setCanHaveScrollbars(bool canHaveScrollbars)
     m_frame->view()->setCanHaveScrollbars(canHaveScrollbars);
 }
 
-void WebFrameImpl::registerPasswordListener(
+bool WebFrameImpl::registerPasswordListener(
     WebInputElement inputElement,
     WebPasswordAutocompleteListener* listener)
 {
     RefPtr<HTMLInputElement> element = inputElement.operator PassRefPtr<HTMLInputElement>();
-    ASSERT(m_passwordListeners.find(element) == m_passwordListeners.end());
-    m_passwordListeners.set(element, listener);
+    if (!m_passwordListeners.add(element, listener).second) {
+        delete listener;
+        return false;
+    }
+    return true;
 }
 
 WebPasswordAutocompleteListener* WebFrameImpl::getPasswordListener(
@@ -2030,7 +2025,8 @@ void WebFrameImpl::addMarker(Range* range, bool activeMatch)
 
 void WebFrameImpl::setMarkerActive(Range* range, bool active)
 {
-    if (!range)
+    WebCore::ExceptionCode ec;
+    if (!range || range->collapsed(ec))
         return;
 
     frame()->document()->setMarkersActive(range, active);

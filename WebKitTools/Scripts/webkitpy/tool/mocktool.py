@@ -184,15 +184,6 @@ _bug4 = {
 }
 
 
-class MockBuilder(object):
-
-    def name(self):
-        return "Mock builder name (Tests)"
-
-
-mock_builder = MockBuilder()
-
-
 class MockBugzillaQueries(Mock):
 
     def __init__(self, bugzilla):
@@ -319,6 +310,9 @@ class MockBuilder(object):
     def __init__(self, name):
         self._name = name
 
+    def name(self):
+        return self._name
+
     def force_build(self, username, comments):
         log("MOCK: force_build: name=%s, username=%s, comments=%s" % (
             self._name, username, comments))
@@ -369,7 +363,7 @@ class MockBuildBot(object):
 
     def revisions_causing_failures(self):
         return {
-            "29837": [mock_builder]
+            "29837": [self.builder_with_name("Builder1")],
         }
 
 
@@ -484,6 +478,7 @@ class MockStatusServer(object):
         return None
 
     def update_status(self, queue_name, status, patch=None, results_file=None):
+        log("MOCK: update_status: %s %s" % (queue_name, status))
         return 187
 
     def update_svn_revision(self, svn_revision, broken_bot):
@@ -491,7 +486,12 @@ class MockStatusServer(object):
 
 
 class MockExecute(Mock):
+    def __init__(self, should_log):
+        self._should_log = should_log
+
     def run_and_throw_if_fail(self, args, quiet=False):
+        if self._should_log:
+            log("MOCK run_and_throw_if_fail: %s" % args)
         return "MOCK output of child process"
 
     def run_command(self,
@@ -502,6 +502,8 @@ class MockExecute(Mock):
                     return_exit_code=False,
                     return_stderr=True,
                     decode_output=False):
+        if self._should_log:
+            log("MOCK run_command: %s" % args)
         return "MOCK output of child process"
 
 
@@ -511,9 +513,7 @@ class MockTool():
         self.wakeup_event = threading.Event()
         self.bugs = MockBugzilla()
         self.buildbot = MockBuildBot()
-        self.executive = MockExecute()
-        if log_executive:
-            self.executive.run_and_throw_if_fail = lambda args: log("MOCK run_and_throw_if_fail: %s" % args)
+        self.executive = MockExecute(should_log=log_executive)
         self._irc = None
         self.user = MockUser()
         self._scm = MockSCM()

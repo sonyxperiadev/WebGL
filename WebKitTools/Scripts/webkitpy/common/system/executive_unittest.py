@@ -72,22 +72,44 @@ class ExecutiveTest(unittest.TestCase):
 
     def test_kill_process(self):
         executive = Executive()
-        # FIXME: This may need edits to work right on windows.
         # We use "yes" because it loops forever.
         process = subprocess.Popen(["yes"], stdout=subprocess.PIPE)
         self.assertEqual(process.poll(), None)  # Process is running
         executive.kill_process(process.pid)
-        self.assertEqual(process.wait(), -signal.SIGKILL)
+        # Note: Can't use a ternary since signal.SIGKILL is undefined for sys.platform == "win32"
+        if sys.platform == "win32":
+            expected_exit_code = 0  # taskkill.exe results in exit(0)
+        else:
+            expected_exit_code = -signal.SIGKILL
+        self.assertEqual(process.wait(), expected_exit_code)
         # Killing again should fail silently.
         executive.kill_process(process.pid)
 
+    def _assert_windows_image_name(self, name, expected_windows_name):
+        executive = Executive()
+        windows_name = executive._windows_image_name(name)
+        self.assertEqual(windows_name, expected_windows_name)
+
+    def test_windows_image_name(self):
+        self._assert_windows_image_name("foo", "foo.exe")
+        self._assert_windows_image_name("foo.exe", "foo.exe")
+        self._assert_windows_image_name("foo.com", "foo.com")
+        # If the name looks like an extension, even if it isn't
+        # supposed to, we have no choice but to return the original name.
+        self._assert_windows_image_name("foo.baz", "foo.baz")
+        self._assert_windows_image_name("foo.baz.exe", "foo.baz.exe")
+
     def test_kill_all(self):
         executive = Executive()
-        # FIXME: This may need edits to work right on windows.
         # We use "yes" because it loops forever.
         process = subprocess.Popen(["yes"], stdout=subprocess.PIPE)
         self.assertEqual(process.poll(), None)  # Process is running
         executive.kill_all("yes")
-        self.assertEqual(process.wait(), -signal.SIGTERM)
+        # Note: Can't use a ternary since signal.SIGTERM is undefined for sys.platform == "win32"
+        if sys.platform in ("win32", "cygwin"):
+            expected_exit_code = 0  # taskkill.exe results in exit(0)
+        else:
+            expected_exit_code = -signal.SIGTERM
+        self.assertEqual(process.wait(), expected_exit_code)
         # Killing again should fail silently.
         executive.kill_all("yes")

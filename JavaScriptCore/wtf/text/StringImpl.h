@@ -151,7 +151,7 @@ public:
     static PassRefPtr<StringImpl> create(const char*, unsigned length);
     static PassRefPtr<StringImpl> create(const char*);
     static PassRefPtr<StringImpl> create(const UChar*, unsigned length, PassRefPtr<SharedUChar> sharedBuffer);
-    static PassRefPtr<StringImpl> create(PassRefPtr<StringImpl> rep, unsigned offset, unsigned length)
+    static ALWAYS_INLINE PassRefPtr<StringImpl> create(PassRefPtr<StringImpl> rep, unsigned offset, unsigned length)
     {
         ASSERT(rep);
         ASSERT(length <= rep->length());
@@ -164,18 +164,22 @@ public:
     }
 
     static PassRefPtr<StringImpl> createUninitialized(unsigned length, UChar*& data);
-    static PassRefPtr<StringImpl> tryCreateUninitialized(unsigned length, UChar*& output)
+    static ALWAYS_INLINE PassRefPtr<StringImpl> tryCreateUninitialized(unsigned length, UChar*& output)
     {
         if (!length) {
             output = 0;
             return empty();
         }
 
-        if (length > ((std::numeric_limits<size_t>::max() - sizeof(StringImpl)) / sizeof(UChar)))
+        if (length > ((std::numeric_limits<size_t>::max() - sizeof(StringImpl)) / sizeof(UChar))) {
+            output = 0;
             return 0;
+        }
         StringImpl* resultImpl;
-        if (!tryFastMalloc(sizeof(UChar) * length + sizeof(StringImpl)).getValue(resultImpl))
+        if (!tryFastMalloc(sizeof(UChar) * length + sizeof(StringImpl)).getValue(resultImpl)) {
+            output = 0;
             return 0;
+        }
         output = reinterpret_cast<UChar*>(resultImpl + 1);
         return adoptRef(new(resultImpl) StringImpl(length));
     }

@@ -52,6 +52,7 @@
 #include "Storage.h"
 #include "V8Binding.h"
 #include "V8BindingDOMWindow.h"
+#include "V8BindingMacros.h"
 #include "V8BindingState.h"
 #include "V8CustomEventListener.h"
 #include "V8Database.h"
@@ -67,6 +68,16 @@
 #include "V8Utilities.h"
 #if ENABLE(WEB_SOCKETS)
 #include "WebSocket.h"
+#endif
+#if ENABLE(3D_CANVAS)
+#include "V8ArrayBuffer.h"
+#include "V8Int8Array.h"
+#include "V8FloatArray.h"
+#include "V8Int32Array.h"
+#include "V8Int16Array.h"
+#include "V8Uint8Array.h"
+#include "V8Uint32Array.h"
+#include "V8Uint16Array.h"
 #endif
 #include "WindowFeatures.h"
 
@@ -247,6 +258,61 @@ v8::Handle<v8::Value> V8DOMWindow::OptionAccessorGetter(v8::Local<v8::String> na
     DOMWindow* window = V8DOMWindow::toNative(info.Holder());
     return V8DOMWrapper::getConstructor(&V8HTMLOptionElementConstructor::info, window);
 }
+
+#if ENABLE(3D_CANVAS)
+
+// Temporary aliases to keep current WebGL content working during transition period to TypedArray spec.
+// To be removed before WebGL spec is finalized. (FIXME)
+v8::Handle<v8::Value> V8DOMWindow::WebGLArrayBufferAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    DOMWindow* window = V8DOMWindow::toNative(info.Holder());
+    return V8DOMWrapper::getConstructor(&V8ArrayBuffer::info, window);
+}
+
+v8::Handle<v8::Value> V8DOMWindow::WebGLByteArrayAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    DOMWindow* window = V8DOMWindow::toNative(info.Holder());
+    return V8DOMWrapper::getConstructor(&V8Int8Array::info, window);
+}
+
+v8::Handle<v8::Value> V8DOMWindow::WebGLUnsignedByteArrayAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    DOMWindow* window = V8DOMWindow::toNative(info.Holder());
+    return V8DOMWrapper::getConstructor(&V8Uint8Array::info, window);
+}
+
+v8::Handle<v8::Value> V8DOMWindow::WebGLShortArrayAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    DOMWindow* window = V8DOMWindow::toNative(info.Holder());
+    return V8DOMWrapper::getConstructor(&V8Int16Array::info, window);
+}
+
+v8::Handle<v8::Value> V8DOMWindow::WebGLUnsignedShortArrayAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    DOMWindow* window = V8DOMWindow::toNative(info.Holder());
+    return V8DOMWrapper::getConstructor(&V8Uint16Array::info, window);
+}
+
+v8::Handle<v8::Value> V8DOMWindow::WebGLIntArrayAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    DOMWindow* window = V8DOMWindow::toNative(info.Holder());
+    return V8DOMWrapper::getConstructor(&V8Int32Array::info, window);
+}
+
+v8::Handle<v8::Value> V8DOMWindow::WebGLUnsignedIntArrayAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    DOMWindow* window = V8DOMWindow::toNative(info.Holder());
+    return V8DOMWrapper::getConstructor(&V8Uint32Array::info, window);
+}
+
+v8::Handle<v8::Value> V8DOMWindow::WebGLFloatArrayAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    DOMWindow* window = V8DOMWindow::toNative(info.Holder());
+    return V8DOMWrapper::getConstructor(&V8FloatArray::info, window);
+}
+
+#endif
+
 
 v8::Handle<v8::Value> V8DOMWindow::addEventListenerCallback(const v8::Arguments& args)
 {
@@ -719,21 +785,26 @@ v8::Handle<v8::Value> V8DOMWindow::openDatabaseCallback(const v8::Arguments& arg
 {
     INC_STATS("DOM.DOMWindow.openDatabase");
     if (args.Length() < 4)
-        return v8::Undefined();
+        return throwError(SYNTAX_ERR);
+
+    EXCEPTION_BLOCK(String, name, toWebCoreString(args[0]));
+    EXCEPTION_BLOCK(String, version, toWebCoreString(args[1]));
+    EXCEPTION_BLOCK(String, displayName, toWebCoreString(args[2]));
+    EXCEPTION_BLOCK(unsigned long, estimatedSize, args[3]->Uint32Value());
 
     DOMWindow* imp = V8DOMWindow::toNative(args.Holder());
     if (!V8BindingSecurity::canAccessFrame(V8BindingState::Only(), imp->frame(), true))
         return v8::Undefined();
 
-    ExceptionCode ec = 0;
-    String name = toWebCoreString(args[0]);
-    String version = toWebCoreString(args[1]);
-    String displayName = toWebCoreString(args[2]);
-    unsigned long estimatedSize = args[3]->IntegerValue();
     RefPtr<DatabaseCallback> creationCallback;
-    if ((args.Length() >= 5) && args[4]->IsObject())
-        creationCallback = V8DatabaseCallback::create(args[4], imp->frame());
+    if (args.Length() >= 5) {
+        if (!args[4]->IsObject())
+            return throwError(TYPE_MISMATCH_ERR);
 
+        creationCallback = V8DatabaseCallback::create(args[4], imp->frame());
+    }
+
+    ExceptionCode ec = 0;
     v8::Handle<v8::Value> result = toV8(imp->openDatabase(name, version, displayName, estimatedSize, creationCallback.release(), ec));
 
     V8Proxy::setDOMException(ec);

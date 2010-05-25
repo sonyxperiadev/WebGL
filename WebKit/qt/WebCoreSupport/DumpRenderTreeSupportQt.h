@@ -26,10 +26,9 @@
 #include "qwebkitglobal.h"
 #include <QVariant>
 
-#include "qwebelement.h"
-
-class QWebPage;
+class QWebElement;
 class QWebFrame;
+class QWebPage;
 
 class QWEBKIT_EXPORT DumpRenderTreeSupportQt {
 
@@ -78,6 +77,7 @@ public:
     static int numberOfPages(QWebFrame* frame, float width, float height);
     static int pageNumberForElementById(QWebFrame* frame, const QString& id, float width, float height);
     static bool hasDocumentElement(QWebFrame* frame);
+    static bool elementDoesAutoCompleteForElementWithId(QWebFrame* frame, const QString& elementId);
 
     static void whiteListAccessFromOrigin(const QString& sourceOrigin, const QString& destinationProtocol, const QString& destinationHost, bool allowDestinationSubdomains);
     static void resetOriginAccessWhiteLists();
@@ -85,6 +85,20 @@ public:
     static int workerThreadCount();
 
     static QString markerTextForListItem(const QWebElement& listItem);
+    static QVariantMap computedStyleIncludingVisitedInfo(const QWebElement& element);
+
+    static void dumpFrameLoader(bool b);
+    static void dumpResourceLoadCallbacks(bool b);
+    static void dumpResourceLoadCallbacksPath(const QString& path);
+    static void setWillSendRequestReturnsNullOnRedirect(bool b);
+    static void setWillSendRequestReturnsNull(bool b);
+    static void setWillSendRequestClearHeaders(const QStringList& headers);
+
+    static void dumpEditingCallbacks(bool b);
+    static void dumpSetAcceptsEditing(bool b);
+
+    static void dumpNotification(bool b);
+
 };
 
 #endif

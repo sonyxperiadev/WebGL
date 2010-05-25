@@ -96,7 +96,8 @@ namespace JSC {
         bool isOpcode(Opcode);
         
         JSValue execute(ProgramExecutable*, CallFrame*, ScopeChainNode*, JSObject* thisObj, JSValue* exception);
-        JSValue execute(FunctionExecutable*, CallFrame*, JSFunction*, JSObject* thisObj, const ArgList& args, ScopeChainNode*, JSValue* exception);
+        JSValue executeCall(FunctionExecutable*, CallFrame*, JSFunction*, JSObject* thisObj, const ArgList& args, ScopeChainNode*, JSValue* exception);
+        JSValue executeConstruct(FunctionExecutable*, CallFrame*, JSFunction*, JSObject* thisObj, const ArgList& args, ScopeChainNode*, JSValue* exception);
         JSValue execute(EvalExecutable* evalNode, CallFrame* exec, JSObject* thisObj, ScopeChainNode* scopeChain, JSValue* exception);
 
         JSValue retrieveArguments(CallFrame*, JSFunction*) const;
@@ -127,6 +128,7 @@ namespace JSC {
         NEVER_INLINE bool resolve(CallFrame*, Instruction*, JSValue& exceptionValue);
         NEVER_INLINE bool resolveSkip(CallFrame*, Instruction*, JSValue& exceptionValue);
         NEVER_INLINE bool resolveGlobal(CallFrame*, Instruction*, JSValue& exceptionValue);
+        NEVER_INLINE bool resolveGlobalDynamic(CallFrame*, Instruction*, JSValue& exceptionValue);
         NEVER_INLINE void resolveBase(CallFrame*, Instruction* vPC);
         NEVER_INLINE bool resolveBaseAndProperty(CallFrame*, Instruction*, JSValue& exceptionValue);
         NEVER_INLINE ScopeChainNode* createExceptionScope(CallFrame*, const Instruction* vPC);

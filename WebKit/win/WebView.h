@@ -694,6 +694,15 @@ public:
         /* [in] */ RECT rect,
         /* [in] */ OLE_HANDLE dc);
 
+    virtual HRESULT STDMETHODCALLTYPE paintDocumentRectToContextAtPoint(
+        /* [in] */ RECT rect,
+        /* [in] */ POINT pt,
+        /* [in] */ OLE_HANDLE dc);
+
+    virtual HRESULT STDMETHODCALLTYPE reportException(
+        /* [in] */ JSContextRef context,
+        /* [in] */ JSValueRef exception);
+
     virtual HRESULT STDMETHODCALLTYPE setCustomHTMLTokenizerTimeDelay(
         /* [in] */ double timeDelay);
 

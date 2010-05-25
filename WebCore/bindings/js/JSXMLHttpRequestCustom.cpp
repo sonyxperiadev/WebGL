@@ -91,17 +91,6 @@ JSValue JSXMLHttpRequest::open(ExecState* exec, const ArgList& args)
     return jsUndefined();
 }
 
-JSValue JSXMLHttpRequest::setRequestHeader(ExecState* exec, const ArgList& args)
-{
-    if (args.size() < 2)
-        return throwError(exec, SyntaxError, "Not enough arguments");
-
-    ExceptionCode ec = 0;
-    impl()->setRequestHeader(ustringToAtomicString(args.at(0).toString(exec)), ustringToString(args.at(1).toString(exec)), ec);
-    setDOMException(exec, ec);
-    return jsUndefined();
-}
-
 JSValue JSXMLHttpRequest::send(ExecState* exec, const ArgList& args)
 {
     ExceptionCode ec = 0;
@@ -130,26 +119,6 @@ JSValue JSXMLHttpRequest::send(ExecState* exec, const ArgList& args)
     impl()->setLastSendURL(ustringToString(sourceURL));
 
     setDOMException(exec, ec);
-    return jsUndefined();
-}
-
-JSValue JSXMLHttpRequest::getResponseHeader(ExecState* exec, const ArgList& args)
-{
-    if (args.size() < 1)
-        return throwError(exec, SyntaxError, "Not enough arguments");
-
-    ExceptionCode ec = 0;
-    JSValue header = jsStringOrNull(exec, impl()->getResponseHeader(ustringToAtomicString(args.at(0).toString(exec)), ec));
-    setDOMException(exec, ec);
-    return header;
-}
-
-JSValue JSXMLHttpRequest::overrideMimeType(ExecState* exec, const ArgList& args)
-{
-    if (args.size() < 1)
-        return throwError(exec, SyntaxError, "Not enough arguments");
-
-    impl()->overrideMimeType(ustringToString(args.at(0).toString(exec)));
     return jsUndefined();
 }
 

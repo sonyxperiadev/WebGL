@@ -58,6 +58,7 @@
 #include "WebPreferences.h"
 #include "WebScriptWorld.h"
 #include "WindowsTouch.h"
+#include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/InitializeThreading.h>
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/JSValue.h>
@@ -1029,7 +1030,7 @@ void WebView::paintIntoBackingStore(FrameView* frameView, HDC bitmapDC, const In
 
 #if FLASH_BACKING_STORE_REDRAW
     HDC dc = ::GetDC(m_viewWindow);
-    OwnPtr<HBRUSH> yellowBrush = CreateSolidBrush(RGB(255, 255, 0));
+    OwnPtr<HBRUSH> yellowBrush(CreateSolidBrush(RGB(255, 255, 0)));
     FillRect(dc, &rect, yellowBrush.get());
     GdiFlush();
     Sleep(50);
@@ -5610,6 +5611,38 @@ HRESULT STDMETHODCALLTYPE WebView::paintDocumentRectToContext(
         return E_FAIL;
 
     return m_mainFrame->paintDocumentRectToContext(rect, deviceContext);
+}
+
+HRESULT STDMETHODCALLTYPE WebView::paintDocumentRectToContextAtPoint(
+    /* [in] */ RECT rect,
+    /* [in] */ POINT pt,
+    /* [in] */ OLE_HANDLE deviceContext)
+{
+    if (!deviceContext)
+        return E_POINTER;
+
+    if (!m_mainFrame)
+        return E_FAIL;
+
+    return m_mainFrame->paintDocumentRectToContextAtPoint(rect, pt, deviceContext);
+}
+
+HRESULT STDMETHODCALLTYPE WebView::reportException(
+    /* [in] */ JSContextRef context,
+    /* [in] */ JSValueRef exception)
+{
+    if (!context || !exception)
+        return E_FAIL;
+
+    JSLock lock(JSC::SilenceAssertionsOnly);
+    JSC::ExecState* execState = toJS(context);
+
+    // Make sure the context has a DOMWindow global object, otherwise this context didn't originate from a WebView.
+    if (!toJSDOMWindow(execState->lexicalGlobalObject()))
+        return E_FAIL;
+
+    WebCore::reportException(execState, toJS(execState, exception));
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE WebView::setCustomHTMLTokenizerTimeDelay(

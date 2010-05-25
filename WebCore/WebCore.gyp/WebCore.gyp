@@ -190,7 +190,6 @@
       '../svg/SVGFilterPrimitiveStandardAttributes.idl',
       '../svg/SVGFitToViewBox.idl',
 
-      '../svg/SVGHKernElement.idl',
       '../svg/SVGLangSpace.idl',
       '../svg/SVGLocatable.idl',
       '../svg/SVGStylable.idl',
@@ -578,6 +577,7 @@
               '--include', '../notifications',
               '--include', '../page',
               '--include', '../plugins',
+              '--include', '../storage',
               '--include', '../svg',
               '--include', '../websockets',
               '--include', '../workers',

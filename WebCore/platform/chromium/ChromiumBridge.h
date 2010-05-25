@@ -72,6 +72,9 @@ namespace WebCore {
 
     class ChromiumBridge {
     public:
+        // Cache --------------------------------------------------------------
+        static void cacheMetadata(const KURL& url, double responseTime, const Vector<char>&);
+
         // Clipboard ----------------------------------------------------------
         static bool clipboardIsFormatAvailable(PasteboardPrivate::ClipboardFormat, PasteboardPrivate::ClipboardBuffer);
 
@@ -134,7 +137,7 @@ namespace WebCore {
         // HTML5 DB -----------------------------------------------------------
 #if ENABLE(DATABASE)
         // Returns a handle to the DB file and ooptionally a handle to its containing directory
-        static PlatformFileHandle databaseOpenFile(const String& vfsFleName, int desiredFlags, PlatformFileHandle* dirHandle = 0);
+        static PlatformFileHandle databaseOpenFile(const String& vfsFleName, int desiredFlags);
         // Returns a SQLite code (SQLITE_OK = 0, on success)
         static int databaseDeleteFile(const String& vfsFileName, bool syncDir = false);
         // Returns the attributes of the DB file
@@ -221,6 +224,8 @@ namespace WebCore {
             GraphicsContext*, int part, int state, int classicState, const IntRect&, const Color&, bool fillContentArea, bool drawEdges);
         static void paintTrackbar(
             GraphicsContext*, int part, int state, int classicState, const IntRect&);
+        static void paintProgressBar(
+            GraphicsContext*, const IntRect& barRect, int valuePart, const IntRect& valueRect);
 #endif
 
         // Trace Event --------------------------------------------------------

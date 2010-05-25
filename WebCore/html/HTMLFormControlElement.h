@@ -94,6 +94,7 @@ public:
 
     virtual bool isFormControlElement() const { return true; }
     virtual bool isRadioButton() const { return false; }
+    virtual bool canTriggerImplicitSubmission() const { return false; }
 
     /* Override in derived classes to get the encoded name=value pair for submitting.
      * Return true for a successful control (see HTML4-17.13.2).
@@ -121,6 +122,8 @@ public:
     virtual void dispatchFocusEvent();
     virtual void dispatchBlurEvent();
 
+    bool isLabelable() const;
+    
 protected:
     void removeFromForm();
     // This must be called any time the result of willValidate() has changed.
@@ -170,6 +173,8 @@ public:
     virtual void dispatchFocusEvent();
     virtual void dispatchBlurEvent();
 
+    String strippedPlaceholder() const;
+
     int selectionStart();
     int selectionEnd();
     void setSelectionStart(int);
@@ -179,6 +184,7 @@ public:
     VisibleSelection selection() const;
 
 protected:
+    bool isPlaceholderEmpty() const;
     bool placeholderShouldBeVisible() const;
     void updatePlaceholderVisibility(bool);
     virtual int cachedSelectionStart() const = 0;

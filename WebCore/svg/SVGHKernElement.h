@@ -23,6 +23,7 @@
 #define SVGHKernElement_h
 
 #if ENABLE(SVG_FONTS)
+#include "SVGFontElement.h"
 #include "SVGParserUtilities.h"
 #include "SVGStyledElement.h"
 
@@ -32,22 +33,6 @@ namespace WebCore {
 
     class AtomicString;
     class SVGFontData;
-
-    // Describe an SVG <hkern> element
-    struct SVGHorizontalKerningPair {
-        UnicodeRanges unicodeRange1;
-        HashSet<String> unicodeName1;
-        HashSet<String> glyphName1;
-        UnicodeRanges unicodeRange2;
-        HashSet<String> unicodeName2;
-        HashSet<String> glyphName2;
-        float kerning;
-        
-        SVGHorizontalKerningPair()
-            : kerning(0)
-        {
-        }
-    };
 
     class SVGHKernElement : public SVGElement {
     public:
@@ -59,7 +44,7 @@ namespace WebCore {
 
         virtual bool rendererIsNeeded(RenderStyle*) { return false; }
 
-        SVGHorizontalKerningPair buildHorizontalKerningPair() const;
+        void buildHorizontalKerningPair(KerningPairVector&);
     };
 
 } // namespace WebCore

@@ -1099,20 +1099,29 @@ RenderBoxModelObject* RenderObject::containerForRepaint() const
 
 void RenderObject::repaintUsingContainer(RenderBoxModelObject* repaintContainer, const IntRect& r, bool immediate)
 {
-    if (!repaintContainer || repaintContainer->isRenderView()) {
-        RenderView* v = repaintContainer ? toRenderView(repaintContainer) : view();
-        v->repaintViewRectangle(r, immediate);
-    } else {
-#if USE(ACCELERATED_COMPOSITING)
-        RenderView* v = view();
-        if (v->usesCompositing()) {
-            ASSERT(repaintContainer->hasLayer() && repaintContainer->layer()->isComposited());
-            repaintContainer->layer()->setBackingNeedsRepaintInRect(r);
-        }
-#else
-        ASSERT_NOT_REACHED();
-#endif
+    if (!repaintContainer) {
+        view()->repaintViewRectangle(r, immediate);
+        return;
     }
+
+#if USE(ACCELERATED_COMPOSITING)
+    RenderView* v = view();
+    if (repaintContainer->isRenderView()) {
+        ASSERT(repaintContainer == v);
+        if (!v->hasLayer() || !v->layer()->isComposited() || v->layer()->backing()->paintingGoesToWindow()) {
+            v->repaintViewRectangle(r, immediate);
+            return;
+        }
+    }
+    
+    if (v->usesCompositing()) {
+        ASSERT(repaintContainer->hasLayer() && repaintContainer->layer()->isComposited());
+        repaintContainer->layer()->setBackingNeedsRepaintInRect(r);
+    }
+#else
+    if (repaintContainer->isRenderView())
+        toRenderView(repaintContainer)->repaintViewRectangle(r, immediate);
+#endif
 }
 
 void RenderObject::repaint(bool immediate)

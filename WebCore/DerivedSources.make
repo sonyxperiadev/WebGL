@@ -72,15 +72,15 @@ DOM_CLASSES = \
     CSSVariablesRule \
     CSSVariablesDeclaration \
     WebGLActiveInfo \
-    WebGLArray \
-    WebGLArrayBuffer \
+    ArrayBufferView \
+    ArrayBuffer \
     WebGLBuffer \
-    WebGLByteArray \
+    Int8Array \
     WebGLContextAttributes \
-    WebGLFloatArray \
+    FloatArray \
     WebGLFramebuffer \
     CanvasGradient \
-    WebGLIntArray \
+    Int32Array \
     CanvasPattern \
     WebGLProgram \
     WebGLRenderbuffer \
@@ -88,12 +88,12 @@ DOM_CLASSES = \
     CanvasRenderingContext2D \
     WebGLRenderingContext \
     WebGLShader \
-    WebGLShortArray \
+    Int16Array \
     WebGLTexture \
     WebGLUniformLocation \
-    WebGLUnsignedByteArray \
-    WebGLUnsignedIntArray \
-    WebGLUnsignedShortArray \
+    Uint8Array \
+    Uint32Array \
+    Uint16Array \
     CharacterData \
     ClientRect \
     ClientRectList \
@@ -116,6 +116,7 @@ DOM_CLASSES = \
     DOMWindow \
     Database \
     DatabaseCallback \
+    DatabaseSync \
     Document \
     DocumentFragment \
     DocumentType \
@@ -132,6 +133,7 @@ DOM_CLASSES = \
     File \
     FileError \
     FileList \
+    FileReader \
     Geolocation \
     Geoposition \
     HTMLAllCollection \
@@ -180,6 +182,7 @@ DOM_CLASSES = \
     HTMLMediaElement \
     HTMLMenuElement \
     HTMLMetaElement \
+    HTMLMeterElement \
     HTMLModElement \
     HTMLOListElement \
     HTMLObjectElement \
@@ -206,7 +209,16 @@ DOM_CLASSES = \
     HTMLUListElement \
     HTMLVideoElement \
     History \
+    IDBAny \
+    IDBDatabaseError \
+    IDBDatabaseException \
+    IDBDatabaseRequest \
+    IDBErrorEvent \
+    IDBEvent \
+    IDBRequest \
+    IDBSuccessEvent \
     ImageData \
+    IndexedDatabaseRequest \
     InjectedScriptHost \
     InspectorBackend \
     InspectorFrontendHost \
@@ -254,6 +266,8 @@ DOM_CLASSES = \
     SQLTransaction \
     SQLTransactionCallback \
     SQLTransactionErrorCallback \
+    SQLTransactionSync \
+    SQLTransactionSyncCallback \
     Storage \
     StorageEvent \
     SVGAElement \
@@ -399,6 +413,7 @@ DOM_CLASSES = \
     SVGUnitTypes \
     SVGUseElement \
     SVGViewElement \
+    SVGVKernElement \
     SVGZoomAndPan \
     SVGZoomEvent \
     Screen \
@@ -632,6 +647,10 @@ UserAgentStyleSheets.h : css/make-css-file-arrays.pl $(USER_AGENT_STYLE_SHEETS)
 
 ifeq ($(findstring ENABLE_DATALIST,$(FEATURE_DEFINES)), ENABLE_DATALIST)
     HTML_FLAGS := $(HTML_FLAGS) ENABLE_DATALIST=1
+endif
+
+ifeq ($(findstring ENABLE_METER_TAG,$(FEATURE_DEFINES)), ENABLE_METER_TAG)
+    HTML_FLAGS := $(HTML_FLAGS) ENABLE_METER_TAG=1
 endif
 
 ifeq ($(findstring ENABLE_PROGRESS_TAG,$(FEATURE_DEFINES)), ENABLE_PROGRESS_TAG)

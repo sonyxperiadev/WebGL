@@ -33,6 +33,7 @@
 #include "RefCounted.h"
 #include "KURL.h"
 #include "PlatformString.h"
+#include "QtPlatformPlugin.h"
 
 QT_BEGIN_NAMESPACE
 class QEventLoop;
@@ -144,6 +145,10 @@ namespace WebCore {
         virtual bool allowsAcceleratedCompositing() const;
 #endif
 
+#if ENABLE(TILED_BACKING_STORE)
+        virtual IntRect visibleRectForTiledBackingStore() const;
+#endif
+
 #if ENABLE(TOUCH_EVENTS)
         virtual void needTouchEvents(bool) { }
 #endif
@@ -181,6 +186,8 @@ namespace WebCore {
         bool statusBarVisible;
         bool menuBarVisible;
         QEventLoop* m_eventLoop;
+
+        QtPlatformPlugin m_platformPlugin;
     };
 }
 

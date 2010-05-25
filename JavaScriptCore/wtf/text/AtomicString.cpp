@@ -20,19 +20,16 @@
 
 #include "config.h"
 
-#ifdef SKIP_STATIC_CONSTRUCTORS_ON_GCC
-#define ATOMICSTRING_HIDE_GLOBALS 1
-#endif
-
 #include "AtomicString.h"
 
-#include "StaticConstructors.h"
 #include "StringHash.h"
 #include <wtf/HashSet.h>
 #include <wtf/Threading.h>
 #include <wtf/WTFThreadData.h>
 
 namespace WebCore {
+
+COMPILE_ASSERT(sizeof(AtomicString) == sizeof(String), atomic_string_and_string_must_be_same_size);
 
 class AtomicStringTable {
 public:
@@ -255,14 +252,14 @@ PassRefPtr<StringImpl> AtomicString::add(const UChar* s)
     return addResult.second ? adoptRef(*addResult.first) : *addResult.first;
 }
 
-PassRefPtr<StringImpl> AtomicString::add(StringImpl* r)
+PassRefPtr<StringImpl> AtomicString::addSlowCase(StringImpl* r)
 {
     if (!r || r->isAtomic())
         return r;
 
     if (r->length() == 0)
         return StringImpl::empty();
-    
+
     StringImpl* result = *stringTable().add(r).first;
     if (result == r)
         r->setIsAtomic(true);
@@ -297,34 +294,6 @@ AtomicString AtomicString::lower() const
     if (LIKELY(newImpl == impl))
         return *this;
     return AtomicString(newImpl);
-}
-
-JS_EXPORTDATA DEFINE_GLOBAL(AtomicString, nullAtom)
-JS_EXPORTDATA DEFINE_GLOBAL(AtomicString, emptyAtom, "")
-JS_EXPORTDATA DEFINE_GLOBAL(AtomicString, textAtom, "#text")
-JS_EXPORTDATA DEFINE_GLOBAL(AtomicString, commentAtom, "#comment")
-JS_EXPORTDATA DEFINE_GLOBAL(AtomicString, starAtom, "*")
-JS_EXPORTDATA DEFINE_GLOBAL(AtomicString, xmlAtom, "xml")
-JS_EXPORTDATA DEFINE_GLOBAL(AtomicString, xmlnsAtom, "xmlns")
-
-void AtomicString::init()
-{
-    static bool initialized;
-    if (!initialized) {
-        // Initialization is not thread safe, so this function must be called from the main thread first.
-        ASSERT(isMainThread());
-
-        // Use placement new to initialize the globals.
-        new ((void*)&nullAtom) AtomicString;
-        new ((void*)&emptyAtom) AtomicString("");
-        new ((void*)&textAtom) AtomicString("#text");
-        new ((void*)&commentAtom) AtomicString("#comment");
-        new ((void*)&starAtom) AtomicString("*");
-        new ((void*)&xmlAtom) AtomicString("xml");
-        new ((void*)&xmlnsAtom) AtomicString("xmlns");
-
-        initialized = true;
-    }
 }
 
 }

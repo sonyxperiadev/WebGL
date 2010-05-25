@@ -47,8 +47,10 @@
 #include "V8DOMWindow.h"
 #include "V8EventListenerList.h"
 #include "V8EventSource.h"
+#include "V8FileReader.h"
 #include "V8HTMLCollection.h"
 #include "V8HTMLDocument.h"
+#include "V8IDBRequest.h"
 #include "V8IsolatedContext.h"
 #include "V8Location.h"
 #include "V8MessageChannel.h"
@@ -66,7 +68,7 @@
 #include "V8WorkerContext.h"
 #include "V8WorkerContextEventListener.h"
 #include "V8XMLHttpRequest.h"
-#include "WebGLArray.h"
+#include "ArrayBufferView.h"
 #include "WebGLContextAttributes.h"
 #include "WebGLUniformLocation.h"
 #include "WorkerContextExecutionProxy.h"
@@ -377,6 +379,11 @@ v8::Handle<v8::Value> V8DOMWrapper::convertEventTargetToV8Object(EventTarget* ta
         return toV8(notification);
 #endif
 
+#if ENABLE(INDEXED_DATABASE)
+    if (IDBRequest* idbRequest = target->toIDBRequest())
+        return toV8(idbRequest);
+#endif
+
 #if ENABLE(WEB_SOCKETS)
     if (WebSocket* webSocket = target->toWebSocket())
         return toV8(webSocket);
@@ -416,6 +423,11 @@ v8::Handle<v8::Value> V8DOMWrapper::convertEventTargetToV8Object(EventTarget* ta
 #if ENABLE(EVENTSOURCE)
     if (EventSource* eventSource = target->toEventSource())
         return toV8(eventSource);
+#endif
+
+#if ENABLE(FILE_READER)
+    if (FileReader* fileReader = target->toFileReader())
+        return toV8(fileReader);
 #endif
 
     ASSERT(0);

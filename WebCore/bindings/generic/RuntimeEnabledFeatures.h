@@ -75,10 +75,19 @@ public:
 
 #if ENABLE(DATABASE)
     static bool openDatabaseEnabled();
+    static bool openDatabaseSyncEnabled();
 #endif
 
 #if ENABLE(3D_CANVAS)
     static void setWebGLEnabled(bool isEnabled) { isWebGLEnabled = isEnabled; }
+    static bool arrayBufferEnabled() { return isWebGLEnabled; }
+    static bool int8ArrayEnabled() { return isWebGLEnabled; }
+    static bool uint8ArrayEnabled() { return isWebGLEnabled; }
+    static bool int16ArrayEnabled() { return isWebGLEnabled; }
+    static bool uint16ArrayEnabled() { return isWebGLEnabled; }
+    static bool int32ArrayEnabled() { return isWebGLEnabled; }
+    static bool uint32ArrayEnabled() { return isWebGLEnabled; }
+    static bool floatArrayEnabled() { return isWebGLEnabled; }
     static bool webGLRenderingContextEnabled() { return isWebGLEnabled; }
     static bool webGLArrayBufferEnabled() { return isWebGLEnabled; }
     static bool webGLByteArrayEnabled() { return isWebGLEnabled; }

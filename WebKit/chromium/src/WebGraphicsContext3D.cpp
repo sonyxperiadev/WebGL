@@ -31,8 +31,6 @@
 #include "config.h"
 #include "WebGraphicsContext3D.h"
 
-#if ENABLE(3D_CANVAS)
-
 #include "WebGraphicsContext3DDefaultImpl.h"
 
 namespace WebKit {
@@ -47,5 +45,3 @@ WebGraphicsContext3D* WebGraphicsContext3D::createDefault()
 }
 
 } // namespace WebKit
-
-#endif // ENABLE(3D_CANVAS)

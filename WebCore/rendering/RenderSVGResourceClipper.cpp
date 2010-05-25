@@ -21,6 +21,7 @@
  */
 
 #include "config.h"
+#if ENABLE(SVG)
 #include "RenderSVGResourceClipper.h"
 
 #include "AffineTransform.h"
@@ -65,6 +66,7 @@ void RenderSVGResourceClipper::invalidateClients()
     }
     deleteAllValues(m_clipper);
     m_clipper.clear();
+    m_clipBoundaries = FloatRect();
 }
 
 void RenderSVGResourceClipper::invalidateClient(RenderObject* object)
@@ -237,11 +239,10 @@ bool RenderSVGResourceClipper::createClipData(ClipperData* clipperData, const Fl
         svgStyle->setMaskerResource(String());
         renderer->setStyle(newRenderStyle.release());
 
-        // Get the renderer of the element, that is referenced by the <use>-element.
-        if (isUseElement)
-            renderer = childNode->renderer();
-
-        renderSubtreeToImage(clipperData->clipMaskImage.get(), renderer);
+        // In the case of a <use> element, we obtained its renderere above, to retrieve its clipRule.
+        // We hsve to pass the <use> renderer itself to renderSubtreeToImage() to apply it's x/y/transform/etc. values when rendering.
+        // So if isUseElement is true, refetch the childNode->renderer(), as renderer got overriden above.
+        renderSubtreeToImage(clipperData->clipMaskImage.get(), isUseElement ? childNode->renderer() : renderer);
 
         renderer->setStyle(oldRenderStyle.release());
     }
@@ -251,27 +252,37 @@ bool RenderSVGResourceClipper::createClipData(ClipperData* clipperData, const Fl
     return true;
 }
 
-FloatRect RenderSVGResourceClipper::resourceBoundingBox(const FloatRect& objectBoundingBox) const
+void RenderSVGResourceClipper::calculateClipContentRepaintRect()
 {
     // This is a rough heuristic to appraise the clip size and doesn't consider clip on clip.
-    FloatRect clipRect;
     for (Node* childNode = node()->firstChild(); childNode; childNode = childNode->nextSibling()) {
         RenderObject* renderer = childNode->renderer();
         if (!childNode->isSVGElement() || !static_cast<SVGElement*>(childNode)->isStyled() || !renderer)
             continue;
         if (!renderer->isRenderPath() && !renderer->isSVGText() && !renderer->isSVGShadowTreeRootContainer())
             continue;
-        clipRect.unite(renderer->localToParentTransform().mapRect(renderer->repaintRectInLocalCoordinates()));
+        RenderStyle* style = renderer->style();
+        if (!style || style->display() == NONE || style->visibility() != VISIBLE)
+             continue;
+        m_clipBoundaries.unite(renderer->localToParentTransform().mapRect(renderer->repaintRectInLocalCoordinates()));
     }
+}
+
+FloatRect RenderSVGResourceClipper::resourceBoundingBox(const FloatRect& objectBoundingBox)
+{
+    if (m_clipBoundaries.isEmpty())
+        calculateClipContentRepaintRect();
 
     if (static_cast<SVGClipPathElement*>(node())->clipPathUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX) {
         AffineTransform transform;
         transform.translate(objectBoundingBox.x(), objectBoundingBox.y());
         transform.scaleNonUniform(objectBoundingBox.width(), objectBoundingBox.height());
-        return transform.mapRect(clipRect);
+        return transform.mapRect(m_clipBoundaries);
     }
 
-    return clipRect;
+    return m_clipBoundaries;
 }
 
 }
+
+#endif // ENABLE(SVG)

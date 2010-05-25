@@ -462,20 +462,15 @@ public:
     // Registers a listener for the specified user name input element. The
     // listener will receive notifications for blur and when autocomplete
     // should be triggered.
-    // The WebFrame becomes the owner of the passed listener.
-    virtual void registerPasswordListener(
+    // An element can have only one listener. If a listener already exists,
+    // this method returns false and does not add the new one.
+    // Either way, the WebFrame becomes the owner of the passed listener.
+    virtual bool registerPasswordListener(
         WebInputElement,
         WebPasswordAutocompleteListener*) = 0;
 
 
     // Utility -------------------------------------------------------------
-
-    // Given a relative URL, returns an absolute URL by resolving the URL
-    // relative to the base URL of the frame's document.  This uses the
-    // same algorithm that WebKit uses to resolve hyperlinks found in a
-    // HTML document.
-    // Deprecated. Use document().completeURL() instead.
-    virtual WebURL completeURL(const WebString&) const = 0;
 
     // Returns the contents of this frame as a string.  If the text is
     // longer than maxChars, it will be clipped to that length.  WARNING:

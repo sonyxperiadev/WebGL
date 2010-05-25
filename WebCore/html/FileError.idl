@@ -32,8 +32,10 @@ module html {
     interface [
         Conditional=FILE_READER|FILE_WRITER
     ] FileError {
+#if !defined(LANGUAGE_OBJECTIVE_C)
         const unsigned short NO_MODIFICATION_ALLOWED_ERR = 7;
         const unsigned short NOT_FOUND_ERR = 8;
+#endif
         const unsigned short SECURITY_ERR = 18;
         const unsigned short ABORT_ERR = 20;
         const unsigned short NOT_READABLE_ERR = 24;

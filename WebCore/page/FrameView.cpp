@@ -487,6 +487,24 @@ void FrameView::setNeedsOneShotDrawingSynchronization()
 
 #endif // USE(ACCELERATED_COMPOSITING)
 
+bool FrameView::hasCompositedContent() const
+{
+#if USE(ACCELERATED_COMPOSITING)
+    if (RenderView* view = m_frame->contentRenderer())
+        return view->compositor()->inCompositingMode();
+#endif
+    return false;
+}
+
+// Sometimes (for plug-ins) we need to eagerly go into compositing mode.
+void FrameView::enterCompositingMode()
+{
+#if USE(ACCELERATED_COMPOSITING)
+    if (RenderView* view = m_frame->contentRenderer())
+        return view->compositor()->enableCompositingMode();
+#endif
+}
+
 bool FrameView::isEnclosedInCompositingLayer() const
 {
 #if USE(ACCELERATED_COMPOSITING)
@@ -915,6 +933,15 @@ void FrameView::setIsOverlapped(bool isOverlapped)
 
     m_isOverlapped = isOverlapped;
     setCanBlitOnScroll(!useSlowRepaints());
+    
+#if USE(ACCELERATED_COMPOSITING)
+    // Overlap can affect compositing tests, so if it changes, we need to trigger
+    // a recalcStyle in the parent document.
+    if (hasCompositedContent()) {
+        if (Element* ownerElement = m_frame->document()->ownerElement())
+            ownerElement->setNeedsStyleRecalc(SyntheticStyleChange);
+    }
+#endif    
 }
 
 void FrameView::setContentIsOpaque(bool contentIsOpaque)
@@ -1045,6 +1072,13 @@ void FrameView::scrollPositionChanged()
 #endif
         }
     }
+
+#if USE(ACCELERATED_COMPOSITING)
+    if (RenderView* root = m_frame->contentRenderer()) {
+        if (root->usesCompositing())
+            root->compositor()->updateContentLayerScrollPosition(scrollPosition());
+    }
+#endif
 }
 
 HostWindow* FrameView::hostWindow() const
@@ -1291,14 +1325,13 @@ void FrameView::scheduleRelayoutOfSubtree(RenderObject* relayoutRoot)
 {
     ASSERT(m_frame->view() == this);
 
-    if (!m_layoutSchedulingEnabled || (m_frame->contentRenderer()
-            && m_frame->contentRenderer()->needsLayout())) {
+    if (m_frame->contentRenderer() && m_frame->contentRenderer()->needsLayout()) {
         if (relayoutRoot)
             relayoutRoot->markContainingBlocksForLayout(false);
         return;
     }
 
-    if (layoutPending()) {
+    if (layoutPending() || !m_layoutSchedulingEnabled) {
         if (m_layoutRoot != relayoutRoot) {
             if (isObjectAncestorContainerOf(m_layoutRoot, relayoutRoot)) {
                 // Keep the current root
@@ -1315,7 +1348,7 @@ void FrameView::scheduleRelayoutOfSubtree(RenderObject* relayoutRoot)
                 relayoutRoot->markContainingBlocksForLayout(false);
             }
         }
-    } else {
+    } else if (m_layoutSchedulingEnabled) {
         int delay = m_frame->document()->minimumLayoutDelay();
         m_layoutRoot = relayoutRoot;
         m_delayedLayout = delay != 0;

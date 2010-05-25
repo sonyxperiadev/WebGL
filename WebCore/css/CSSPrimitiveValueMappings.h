@@ -44,6 +44,7 @@ namespace WebCore {
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EBorderStyle e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case BNONE:
@@ -86,6 +87,7 @@ template<> inline CSSPrimitiveValue::operator EBorderStyle() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(CompositeOperator e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case CompositeClear:
@@ -172,6 +174,7 @@ template<> inline CSSPrimitiveValue::operator CompositeOperator() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ControlPart e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case NoControlPart:
@@ -272,6 +275,9 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ControlPart e)
         case MenulistTextFieldPart:
             m_value.ident = CSSValueMenulistTextfield;
             break;
+        case MeterPart:
+            m_value.ident = CSSValueMeter;
+            break;
         case OuterSpinButtonPart:
             m_value.ident = CSSValueOuterSpinButton;
             break;
@@ -337,6 +343,7 @@ template<> inline CSSPrimitiveValue::operator ControlPart() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EFillAttachment e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case ScrollBackgroundAttachment:
@@ -368,6 +375,7 @@ template<> inline CSSPrimitiveValue::operator EFillAttachment() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EFillBox e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case BorderFillBox:
@@ -408,6 +416,7 @@ template<> inline CSSPrimitiveValue::operator EFillBox() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EFillRepeat e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case RepeatFill:
@@ -444,6 +453,7 @@ template<> inline CSSPrimitiveValue::operator EFillRepeat() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EBoxAlignment e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case BSTRETCH:
@@ -490,6 +500,7 @@ template<> inline CSSPrimitiveValue::operator EBoxAlignment() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EBoxDirection e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case BNORMAL:
@@ -516,6 +527,7 @@ template<> inline CSSPrimitiveValue::operator EBoxDirection() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EBoxLines e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case SINGLE:
@@ -542,6 +554,7 @@ template<> inline CSSPrimitiveValue::operator EBoxLines() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EBoxOrient e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case HORIZONTAL:
@@ -570,6 +583,7 @@ template<> inline CSSPrimitiveValue::operator EBoxOrient() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ECaptionSide e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case CAPLEFT:
@@ -606,6 +620,7 @@ template<> inline CSSPrimitiveValue::operator ECaptionSide() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EClear e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case CNONE:
@@ -642,6 +657,7 @@ template<> inline CSSPrimitiveValue::operator EClear() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ECursor e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case CURSOR_AUTO:
@@ -766,6 +782,7 @@ template<> inline CSSPrimitiveValue::operator ECursor() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EDisplay e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case INLINE:
@@ -842,6 +859,7 @@ template<> inline CSSPrimitiveValue::operator EDisplay() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EEmptyCell e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case SHOW:
@@ -868,6 +886,7 @@ template<> inline CSSPrimitiveValue::operator EEmptyCell() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EFloat e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case FNONE:
@@ -900,6 +919,7 @@ template<> inline CSSPrimitiveValue::operator EFloat() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EKHTMLLineBreak e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case LBNORMAL:
@@ -926,6 +946,7 @@ template<> inline CSSPrimitiveValue::operator EKHTMLLineBreak() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EListStylePosition e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case OUTSIDE:
@@ -944,6 +965,7 @@ template<> inline CSSPrimitiveValue::operator EListStylePosition() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EListStyleType e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
     case Afar:
@@ -1192,6 +1214,7 @@ template<> inline CSSPrimitiveValue::operator EListStyleType() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EMarginCollapse e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case MCOLLAPSE:
@@ -1223,6 +1246,7 @@ template<> inline CSSPrimitiveValue::operator EMarginCollapse() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EMarqueeBehavior e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case MNONE:
@@ -1259,6 +1283,7 @@ template<> inline CSSPrimitiveValue::operator EMarqueeBehavior() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EMarqueeDirection e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case MFORWARD:
@@ -1312,6 +1337,7 @@ template<> inline CSSPrimitiveValue::operator EMarqueeDirection() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EMatchNearestMailBlockquoteColor e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case BCNORMAL:
@@ -1338,6 +1364,7 @@ template<> inline CSSPrimitiveValue::operator EMatchNearestMailBlockquoteColor()
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ENBSPMode e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case NBNORMAL:
@@ -1364,6 +1391,7 @@ template<> inline CSSPrimitiveValue::operator ENBSPMode() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EOverflow e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case OVISIBLE:
@@ -1410,6 +1438,7 @@ template<> inline CSSPrimitiveValue::operator EOverflow() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EPageBreak e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case PBAUTO:
@@ -1443,6 +1472,7 @@ template<> inline CSSPrimitiveValue::operator EPageBreak() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EPosition e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case StaticPosition:
@@ -1479,6 +1509,7 @@ template<> inline CSSPrimitiveValue::operator EPosition() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EResize e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case RESIZE_BOTH:
@@ -1518,6 +1549,7 @@ template<> inline CSSPrimitiveValue::operator EResize() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ETableLayout e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case TAUTO:
@@ -1544,6 +1576,7 @@ template<> inline CSSPrimitiveValue::operator ETableLayout() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ETextAlign e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case TAAUTO:
@@ -1587,6 +1620,7 @@ template<> inline CSSPrimitiveValue::operator ETextAlign() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ETextSecurity e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case TSNONE:
@@ -1623,6 +1657,7 @@ template<> inline CSSPrimitiveValue::operator ETextSecurity() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ETextTransform e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case CAPITALIZE:
@@ -1659,6 +1694,7 @@ template<> inline CSSPrimitiveValue::operator ETextTransform() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EUnicodeBidi e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case UBNormal:
@@ -1690,6 +1726,7 @@ template<> inline CSSPrimitiveValue::operator EUnicodeBidi() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EUserDrag e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case DRAG_AUTO:
@@ -1721,6 +1758,7 @@ template<> inline CSSPrimitiveValue::operator EUserDrag() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EUserModify e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case READ_ONLY:
@@ -1742,6 +1780,7 @@ template<> inline CSSPrimitiveValue::operator EUserModify() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EUserSelect e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case SELECT_NONE:
@@ -1770,6 +1809,7 @@ template<> inline CSSPrimitiveValue::operator EUserSelect() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EVisibility e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case VISIBLE:
@@ -1801,6 +1841,7 @@ template<> inline CSSPrimitiveValue::operator EVisibility() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EWhiteSpace e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case NORMAL:
@@ -1847,6 +1888,7 @@ template<> inline CSSPrimitiveValue::operator EWhiteSpace() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EWordBreak e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case NormalWordBreak:
@@ -1878,6 +1920,7 @@ template<> inline CSSPrimitiveValue::operator EWordBreak() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EWordWrap e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case NormalWordWrap:
@@ -1904,6 +1947,7 @@ template<> inline CSSPrimitiveValue::operator EWordWrap() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(TextDirection e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case LTR:
@@ -1930,6 +1974,7 @@ template<> inline CSSPrimitiveValue::operator TextDirection() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EPointerEvents e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case PE_NONE:
@@ -1996,6 +2041,7 @@ template<> inline CSSPrimitiveValue::operator EPointerEvents() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(FontSmoothingMode smoothing)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (smoothing) {
     case AutoSmoothing:
@@ -2035,6 +2081,7 @@ template<> inline CSSPrimitiveValue::operator FontSmoothingMode() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(TextRenderingMode e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case AutoTextRendering:
@@ -2071,6 +2118,7 @@ template<> inline CSSPrimitiveValue::operator TextRenderingMode() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ColorSpace space)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (space) {
         case DeviceColorSpace:
@@ -2099,6 +2147,7 @@ template<> inline CSSPrimitiveValue::operator ColorSpace() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(LineCap e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case ButtCap:
@@ -2130,6 +2179,7 @@ template<> inline CSSPrimitiveValue::operator LineCap() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(LineJoin e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case MiterJoin:
@@ -2161,6 +2211,7 @@ template<> inline CSSPrimitiveValue::operator LineJoin() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(WindRule e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case RULE_NONZERO:
@@ -2188,6 +2239,7 @@ template<> inline CSSPrimitiveValue::operator WindRule() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EAlignmentBaseline e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case AB_AUTO:
@@ -2264,6 +2316,7 @@ template<> inline CSSPrimitiveValue::operator EAlignmentBaseline() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EColorInterpolation e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case CI_AUTO:
@@ -2295,6 +2348,7 @@ template<> inline CSSPrimitiveValue::operator EColorInterpolation() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EColorRendering e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case CR_AUTO:
@@ -2326,6 +2380,7 @@ template<> inline CSSPrimitiveValue::operator EColorRendering() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EDominantBaseline e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case DB_AUTO:
@@ -2402,6 +2457,7 @@ template<> inline CSSPrimitiveValue::operator EDominantBaseline() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EImageRendering e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case IR_AUTO:
@@ -2433,6 +2489,7 @@ template<> inline CSSPrimitiveValue::operator EImageRendering() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EShapeRendering e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case IR_AUTO:
@@ -2469,6 +2526,7 @@ template<> inline CSSPrimitiveValue::operator EShapeRendering() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ETextAnchor e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case TA_START:
@@ -2500,6 +2558,7 @@ template<> inline CSSPrimitiveValue::operator ETextAnchor() const
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EWritingMode e)
     : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
 {
     switch (e) {
         case WM_LRTB:

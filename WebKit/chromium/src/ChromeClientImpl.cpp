@@ -66,6 +66,7 @@
 #include "WebFrameImpl.h"
 #include "WebInputEvent.h"
 #include "WebKit.h"
+#include "WebNode.h"
 #include "WebPopupMenuImpl.h"
 #include "WebPopupMenuInfo.h"
 #include "WebPopupType.h"
@@ -214,6 +215,8 @@ void ChromeClientImpl::takeFocus(FocusDirection direction)
 
 void ChromeClientImpl::focusedNodeChanged(Node* node)
 {
+    m_webView->client()->focusedNodeChanged(WebNode(node));
+
     WebURL focus_url;
     if (node && node->isLink()) {
         // This HitTestResult hack is the easiest way to get a link URL out of a
@@ -689,6 +692,7 @@ void ChromeClientImpl::getPopupMenuInfo(PopupContainer* popupContainer,
     info->itemFontSize = popupContainer->menuItemFontSize();
     info->selectedIndex = popupContainer->selectedIndex();
     info->items.swap(outputItems);
+    info->rightAligned = popupContainer->menuStyle().textDirection() == RTL;
 }
 
 void ChromeClientImpl::didChangeAccessibilityObjectState(AccessibilityObject* obj)
@@ -708,6 +712,7 @@ NotificationPresenter* ChromeClientImpl::notificationPresenter() const
 void ChromeClientImpl::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geolocation)
 {
     GeolocationServiceChromium* geolocationService = static_cast<GeolocationServiceChromium*>(geolocation->getGeolocationService());
+    geolocationService->geolocationServiceBridge()->attachBridgeIfNeeded();
     m_webView->client()->geolocationService()->requestPermissionForFrame(geolocationService->geolocationServiceBridge()->getBridgeId(), frame->document()->url());
 }
 

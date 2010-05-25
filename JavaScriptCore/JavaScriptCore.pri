@@ -1,6 +1,6 @@
 # JavaScriptCore - Qt4 build info
 VPATH += $$PWD
-CONFIG(debug, debug|release) {
+!CONFIG(release, debug|release) {
     # Output in JavaScriptCore/<config>
     JAVASCRIPTCORE_DESTDIR = debug
     # Use a config-specific target to prevent parallel builds file clashes on Mac
@@ -51,16 +51,8 @@ win32-*: DEFINES += _HAS_TR1=0
 
 DEFINES += BUILDING_QT__ BUILDING_JavaScriptCore BUILDING_WTF
 
-contains(JAVASCRIPTCORE_JIT,yes) {
-    DEFINES+=ENABLE_JIT=1
-    DEFINES+=ENABLE_YARR_JIT=1
-    DEFINES+=ENABLE_YARR=1
-}
-contains(JAVASCRIPTCORE_JIT,no) {
-    DEFINES+=ENABLE_JIT=0
-    DEFINES+=ENABLE_YARR_JIT=0
-    DEFINES+=ENABLE_YARR=0
-}
+contains(JAVASCRIPTCORE_JIT,yes): DEFINES+=ENABLE_JIT=1
+contains(JAVASCRIPTCORE_JIT,no): DEFINES+=ENABLE_JIT=0
 
 wince* {
     INCLUDEPATH += $$QT_SOURCE_TREE/src/3rdparty/ce-compat

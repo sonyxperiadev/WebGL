@@ -95,8 +95,6 @@ namespace WebCore {
 
         void setCanStartMedia(bool);
         bool canStartMedia() const { return m_canStartMedia; }
-        void addMediaCanStartListener(MediaCanStartListener*);
-        void removeMediaCanStartListener(MediaCanStartListener*);
 
         EditorClient* editorClient() const { return m_editorClient; }
 
@@ -238,6 +236,8 @@ namespace WebCore {
         void checkFrameCountConsistency() const;
 #endif
 
+        MediaCanStartListener* takeAnyMediaCanStartListener();
+
         OwnPtr<Chrome> m_chrome;
         OwnPtr<SelectionController> m_dragCaretController;
 #if ENABLE(DRAG_SUPPORT)
@@ -295,7 +295,6 @@ namespace WebCore {
         int m_customHTMLTokenizerChunkSize;
 
         bool m_canStartMedia;
-        HashSet<MediaCanStartListener*> m_mediaCanStartListeners;
 
         OwnPtr<PluginHalter> m_pluginHalter;
 

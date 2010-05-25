@@ -38,6 +38,10 @@
 #include "JSCustomEvent.h"
 #include "JSCompositionEvent.h"
 #include "JSErrorEvent.h"
+#if ENABLE(INDEXED_DATABASE)
+#include "JSIDBErrorEvent.h"
+#include "JSIDBSuccessEvent.h"
+#endif
 #include "JSKeyboardEvent.h"
 #include "JSMessageEvent.h"
 #include "JSMouseEvent.h"
@@ -54,6 +58,10 @@
 #include "JSXMLHttpRequestProgressEvent.h"
 #include "BeforeLoadEvent.h"
 #include "ErrorEvent.h"
+#if ENABLE(INDEXED_DATABASE)
+#include "IDBErrorEvent.h"
+#include "IDBSuccessEvent.h"
+#endif
 #include "KeyboardEvent.h"
 #include "MessageEvent.h"
 #include "MouseEvent.h"
@@ -144,6 +152,12 @@ JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, Event* event)
 #if ENABLE(DOM_STORAGE)
     else if (event->isStorageEvent())
         wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, StorageEvent, event);
+#endif
+#if ENABLE(INDEXED_DATABASE)
+    else if (event->isIDBErrorEvent())
+        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, IDBErrorEvent, event);
+    else if (event->isIDBSuccessEvent())
+        wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, IDBSuccessEvent, event);
 #endif
     else if (event->isWebKitAnimationEvent())
         wrapper = CREATE_DOM_OBJECT_WRAPPER(exec, globalObject, WebKitAnimationEvent, event);

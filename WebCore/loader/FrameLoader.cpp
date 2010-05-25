@@ -39,6 +39,7 @@
 #include "ArchiveFactory.h"
 #endif
 #include "BackForwardList.h"
+#include "BeforeUnloadEvent.h"
 #include "Cache.h"
 #include "CachedPage.h"
 #include "Chrome.h"
@@ -195,7 +196,7 @@ FrameLoader::FrameLoader(Frame* frame, FrameLoaderClient* client)
     , m_isExecutingJavaScriptFormAction(false)
     , m_didCallImplicitClose(false)
     , m_wasUnloadEventEmitted(false)
-    , m_unloadEventBeingDispatched(false)
+    , m_pageDismissalEventBeingDispatched(false)
     , m_isComplete(false)
     , m_isLoadingMainResource(false)
     , m_needsClear(false)
@@ -349,17 +350,21 @@ void FrameLoader::changeLocation(const KURL& url, const String& referrer, bool l
     request.setUserGesture(userGesture);
 #endif
     
-    if (m_frame->script()->executeIfJavaScriptURL(request.url(), userGesture))
-        return;
-
-    urlSelected(request, "_self", 0, lockHistory, lockBackForwardList, userGesture, SendReferrer);
+    urlSelected(request, "_self", 0, lockHistory, lockBackForwardList, userGesture, SendReferrer, ReplaceDocumentIfJavaScriptURL);
 }
 
 void FrameLoader::urlSelected(const ResourceRequest& request, const String& passedTarget, PassRefPtr<Event> triggeringEvent, bool lockHistory, bool lockBackForwardList, bool userGesture, ReferrerPolicy referrerPolicy)
 {
+    urlSelected(request, passedTarget, triggeringEvent, lockHistory, lockBackForwardList, userGesture, referrerPolicy, DoNotReplaceDocumentIfJavaScriptURL);
+}
+
+// This overload will go away when the FIXME to eliminate the shouldReplaceDocumentIfJavaScriptURL
+// parameter from ScriptController::executeIfJavaScriptURL() is addressed.
+void FrameLoader::urlSelected(const ResourceRequest& request, const String& passedTarget, PassRefPtr<Event> triggeringEvent, bool lockHistory, bool lockBackForwardList, bool userGesture, ReferrerPolicy referrerPolicy, ShouldReplaceDocumentIfJavaScriptURL shouldReplaceDocumentIfJavaScriptURL)
+{
     ASSERT(!m_suppressOpenerInNewFrame);
 
-    if (m_frame->script()->executeIfJavaScriptURL(request.url(), userGesture, false))
+    if (m_frame->script()->executeIfJavaScriptURL(request.url(), userGesture, shouldReplaceDocumentIfJavaScriptURL))
         return;
 
     String target = passedTarget;
@@ -482,7 +487,7 @@ void FrameLoader::submitForm(const char* action, const String& url, PassRefPtr<F
 
     if (protocolIsJavaScript(u)) {
         m_isExecutingJavaScriptFormAction = true;
-        m_frame->script()->executeIfJavaScriptURL(u, false, false);
+        m_frame->script()->executeIfJavaScriptURL(u, false, DoNotReplaceDocumentIfJavaScriptURL);
         m_isExecutingJavaScriptFormAction = false;
         return;
     }
@@ -559,14 +564,14 @@ void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy, DatabasePolic
                 Node* currentFocusedNode = m_frame->document()->focusedNode();
                 if (currentFocusedNode)
                     currentFocusedNode->aboutToUnload();
-                m_unloadEventBeingDispatched = true;
+                m_pageDismissalEventBeingDispatched = true;
                 if (m_frame->domWindow()) {
                     if (unloadEventPolicy == UnloadEventPolicyUnloadAndPageHide)
                         m_frame->domWindow()->dispatchEvent(PageTransitionEvent::create(eventNames().pagehideEvent, m_frame->document()->inPageCache()), m_frame->document());
                     if (!m_frame->document()->inPageCache())
                         m_frame->domWindow()->dispatchEvent(Event::create(eventNames().unloadEvent, false, false), m_frame->domWindow()->document());
                 }
-                m_unloadEventBeingDispatched = false;
+                m_pageDismissalEventBeingDispatched = false;
                 if (m_frame->document())
                     m_frame->document()->updateStyleIfNeeded();
                 m_wasUnloadEventEmitted = true;
@@ -1891,7 +1896,7 @@ void FrameLoader::loadURL(const KURL& newURL, const String& referrer, const Stri
         return;
     }
 
-    if (m_unloadEventBeingDispatched)
+    if (m_pageDismissalEventBeingDispatched)
         return;
 
     NavigationAction action(newURL, newLoadType, isFormSubmission, event);
@@ -2017,7 +2022,7 @@ void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType t
 
     ASSERT(m_frame->view());
 
-    if (m_unloadEventBeingDispatched)
+    if (m_pageDismissalEventBeingDispatched)
         return;
 
     policyChecker()->setLoadType(type);
@@ -2259,7 +2264,7 @@ void FrameLoader::stopLoadingSubframes()
 void FrameLoader::stopAllLoaders(DatabasePolicy databasePolicy)
 {
     ASSERT(!m_frame->document() || !m_frame->document()->inPageCache());
-    if (m_unloadEventBeingDispatched)
+    if (m_pageDismissalEventBeingDispatched)
         return;
 
     // If this method is called from within this method, infinite recursion can occur (3442218). Avoid this.
@@ -2771,15 +2776,7 @@ void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
     
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
     // If loading a webarchive, run through webarchive machinery
-#if PLATFORM(CHROMIUM)
-    // https://bugs.webkit.org/show_bug.cgi?id=36426
-    // FIXME: For debugging purposes, should be removed before closing the bug.
-    // Make real copy of the string so we fail here if the responseMIMEType
-    // string is bad.
-    const String responseMIMEType = loader->responseMIMEType();
-#else
     const String& responseMIMEType = loader->responseMIMEType();
-#endif
 
     // FIXME: Mac's FrameLoaderClient::finishedLoading() method does work that is required even with Archive loads
     // so we still need to call it.  Other platforms should only call finishLoading for non-archive loads
@@ -3449,6 +3446,36 @@ void FrameLoader::callContinueLoadAfterNavigationPolicy(void* argument,
     loader->continueLoadAfterNavigationPolicy(request, formState, shouldContinue);
 }
 
+bool FrameLoader::shouldClose()
+{
+    Page* page = m_frame->page();
+    Chrome* chrome = page ? page->chrome() : 0;
+    if (!chrome || !chrome->canRunBeforeUnloadConfirmPanel())
+        return true;
+
+    DOMWindow* domWindow = m_frame->existingDOMWindow();
+    if (!domWindow)
+        return true;
+
+    RefPtr<Document> document = m_frame->document();
+    HTMLElement* body = document->body();
+    if (!body)
+        return true;
+
+    RefPtr<BeforeUnloadEvent> beforeUnloadEvent = BeforeUnloadEvent::create();
+    m_pageDismissalEventBeingDispatched = true;
+    domWindow->dispatchEvent(beforeUnloadEvent.get(), domWindow->document());
+    m_pageDismissalEventBeingDispatched = false;
+
+    if (!beforeUnloadEvent->defaultPrevented())
+        document->defaultEventHandler(beforeUnloadEvent.get());
+    if (beforeUnloadEvent->result().isNull())
+        return true;
+
+    String text = document->displayStringModifiedByEncoding(beforeUnloadEvent->result());
+    return chrome->runBeforeUnloadConfirmPanel(text, m_frame);
+}
+
 void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest&, PassRefPtr<FormState> formState, bool shouldContinue)
 {
     // If we loaded an alternate page to replace an unreachableURL, we'll get in here with a
@@ -3657,10 +3684,10 @@ void FrameLoader::cachePageForHistoryItem(HistoryItem* item)
 
 void FrameLoader::pageHidden()
 {
-    m_unloadEventBeingDispatched = true;
+    m_pageDismissalEventBeingDispatched = true;
     if (m_frame->domWindow())
         m_frame->domWindow()->dispatchEvent(PageTransitionEvent::create(eventNames().pagehideEvent, true), m_frame->document());
-    m_unloadEventBeingDispatched = false;
+    m_pageDismissalEventBeingDispatched = false;
 
     // Send pagehide event for subframes as well
     for (Frame* child = m_frame->tree()->firstChild(); child; child = child->tree()->nextSibling())

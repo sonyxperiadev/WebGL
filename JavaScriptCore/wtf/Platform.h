@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc.  All rights reserved.
  * Copyright (C) 2007-2009 Torch Mobile, Inc.
+ * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -222,11 +223,15 @@
 
 #elif defined(__ARM_ARCH_5__) \
     || defined(__ARM_ARCH_5T__) \
-    || defined(__ARM_ARCH_5E__) \
-    || defined(__ARM_ARCH_5TE__) \
-    || defined(__ARM_ARCH_5TEJ__) \
     || defined(__MARM_ARMV5__)
 #define WTF_ARM_ARCH_VERSION 5
+
+#elif defined(__ARM_ARCH_5E__) \
+    || defined(__ARM_ARCH_5TE__) \
+    || defined(__ARM_ARCH_5TEJ__)
+#define WTF_ARM_ARCH_VERSION 5
+/*ARMv5TE requires allocators to use aligned memory*/
+#define WTF_USE_ARENA_ALLOC_ALIGNMENT_INTEGER 1
 
 #elif defined(__ARM_ARCH_6__) \
     || defined(__ARM_ARCH_6J__) \
@@ -244,6 +249,13 @@
 /* RVCT sets _TARGET_ARCH_ARM */
 #elif defined(__TARGET_ARCH_ARM)
 #define WTF_ARM_ARCH_VERSION __TARGET_ARCH_ARM
+
+#if defined(__TARGET_ARCH_5E) \
+    || defined(__TARGET_ARCH_5TE) \
+    || defined(__TARGET_ARCH_5TEJ)
+/*ARMv5TE requires allocators to use aligned memory*/
+#define WTF_USE_ARENA_ALLOC_ALIGNMENT_INTEGER 1
+#endif
 
 #else
 #define WTF_ARM_ARCH_VERSION 0
@@ -515,20 +527,8 @@
 #endif
 
 
-/* OS(WINCE) && PLATFORM(QT)
-   We can not determine the endianess at compile time. For
-   Qt for Windows CE the endianess is specified in the
-   device specific makespec
-*/
 #if OS(WINCE) && PLATFORM(QT)
-#   include <QtGlobal>
-#   undef WTF_CPU_BIG_ENDIAN
-#   undef WTF_CPU_MIDDLE_ENDIAN
-#   if Q_BYTE_ORDER == Q_BIG_ENDIAN
-#       define WTF_CPU_BIG_ENDIAN 1
-#   endif
-
-#   include <ce_time.h>
+#include <ce_time.h>
 #endif
 
 #if (PLATFORM(IPHONE) || PLATFORM(MAC) || PLATFORM(WIN) || (PLATFORM(QT) && OS(DARWIN) && !ENABLE(SINGLE_THREADED))) && !defined(ENABLE_JSC_MULTIPLE_THREADS)
@@ -790,7 +790,7 @@
 /* ENABLE macro defaults */
 
 #if PLATFORM(QT)
-// We musn't customize the global operator new and delete for the Qt port.
+// We must not customize the global operator new and delete for the Qt port.
 #define ENABLE_GLOBAL_FASTMALLOC_NEW 0
 #endif
 
@@ -952,8 +952,6 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #elif CPU(X86) && OS(WINDOWS) && COMPILER(MINGW) && GCC_VERSION >= 40100
     #define ENABLE_JIT 1
     #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
-#elif CPU(X86_64) && OS(WINDOWS) && COMPILER(MINGW64) && GCC_VERSION >= 40100
-    #define ENABLE_JIT 1
 #elif CPU(X86) && OS(WINDOWS) && COMPILER(MSVC)
     #define ENABLE_JIT 1
     #define WTF_USE_JIT_STUB_ARGUMENT_REGISTER 1
@@ -1020,31 +1018,10 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 /* Yet Another Regex Runtime. */
 #if !defined(ENABLE_YARR_JIT)
 
-/* YARR supports x86 & x86-64, and has been tested on Mac and Windows. */
-#if (CPU(X86) && PLATFORM(MAC)) \
-    || (CPU(X86_64) && PLATFORM(MAC)) \
-    || (CPU(ARM_THUMB2) && PLATFORM(IPHONE)) \
-    || (CPU(ARM_THUMB2) && PLATFORM(ANDROID) && ENABLE(ANDROID_JSC_JIT)) \
-    || (CPU(X86) && PLATFORM(WIN)) \
-    || (CPU(X86) && PLATFORM(WX))
+/* YARR and YARR_JIT is usually turned on for JIT enabled ports */
+#if ENABLE(JIT)
 #define ENABLE_YARR 1
 #define ENABLE_YARR_JIT 1
-#endif
-
-#if PLATFORM(QT)
-#if (CPU(X86) && OS(WINDOWS) && COMPILER(MINGW) && GCC_VERSION >= 40100) \
-    || (CPU(X86_64) && OS(WINDOWS) && COMPILER(MINGW64) && GCC_VERSION >= 40100) \
-    || (CPU(X86) && OS(WINDOWS) && COMPILER(MSVC)) \
-    || (CPU(X86) && OS(LINUX) && GCC_VERSION >= 40100) \
-    || (CPU(X86_64) && OS(LINUX) && GCC_VERSION >= 40100) \
-    || (CPU(ARM_TRADITIONAL) && OS(LINUX)) \
-    || (CPU(ARM_TRADITIONAL) && OS(SYMBIAN) && COMPILER(RVCT)) \
-    || (CPU(MIPS) && OS(LINUX)) \
-    || (CPU(X86) && OS(DARWIN)) \
-    || (CPU(X86_64) && OS(DARWIN))
-#define ENABLE_YARR 1
-#define ENABLE_YARR_JIT 1
-#endif
 #endif
 
 #endif /* !defined(ENABLE_YARR_JIT) */

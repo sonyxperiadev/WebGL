@@ -45,6 +45,7 @@
 #include "KeyframeList.h"
 #include "PluginWidget.h"
 #include "RenderBox.h"
+#include "RenderIFrame.h"
 #include "RenderImage.h"
 #include "RenderLayerCompositor.h"
 #include "RenderEmbeddedObject.h"
@@ -232,6 +233,9 @@ bool RenderLayerBacking::updateGraphicsLayerConfiguration()
     }
 #endif
 
+    if (renderer()->isRenderIFrame())
+        layerConfigChanged = RenderLayerCompositor::parentIFrameContentLayers(toRenderIFrame(renderer()));
+
     return layerConfigChanged;
 }
 
@@ -384,25 +388,13 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
     }
 
     m_graphicsLayer->setContentsRect(contentsBox());
-    m_graphicsLayer->setDrawsContent(containsPaintedContent());
+    updateDrawsContent();
 
     // If this is an iframe parent, update the iframe content's box
-    RenderLayerCompositor* innerCompositor = innerRenderLayerCompositor();
-    if (innerCompositor)
-        innerCompositor->setRootPlatformLayerClippingBox(contentsBox());
-}
-
-RenderLayerCompositor* RenderLayerBacking::innerRenderLayerCompositor() const
-{
     if (renderer()->isRenderIFrame()) {
-        HTMLIFrameElement* element = static_cast<HTMLIFrameElement*>(renderer()->node());
-        if (Document* contentDocument = element->contentDocument()) {
-            if (RenderView* view = contentDocument->renderView())
-                return view->compositor();
-        }
+        if (RenderLayerCompositor* innerCompositor = RenderLayerCompositor::iframeContentsCompositor(toRenderIFrame(renderer())))
+            innerCompositor->updateContentLayerOffset(contentsBox().location());
     }
-
-    return 0;
 }
 
 void RenderLayerBacking::updateInternalHierarchy()
@@ -419,6 +411,11 @@ void RenderLayerBacking::updateInternalHierarchy()
         m_clippingLayer->removeFromParent();
         m_graphicsLayer->addChild(m_clippingLayer.get());
     }
+}
+
+void RenderLayerBacking::updateDrawsContent()
+{
+    m_graphicsLayer->setDrawsContent(containsPaintedContent());
 }
 
 // Return true if the layers changed.
@@ -842,11 +839,10 @@ FloatPoint RenderLayerBacking::contentsToGraphicsLayerCoordinates(const Graphics
 
 bool RenderLayerBacking::paintingGoesToWindow() const
 {
-    if (!m_owningLayer->isRootLayer())
-        return false;
-
-    // Iframe root layers paint into backing store.
-    return !toRenderView(renderer())->document()->ownerElement();
+    if (m_owningLayer->isRootLayer())
+        return compositor()->rootLayerAttachment() == RenderLayerCompositor::RootLayerAttachedViaChromeClient;
+    
+    return false;
 }
 
 void RenderLayerBacking::setContentsNeedDisplay()

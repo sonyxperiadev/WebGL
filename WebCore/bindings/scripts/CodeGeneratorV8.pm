@@ -206,23 +206,6 @@ sub GenerateConditionalString
     }
 }
 
-sub LinkOverloadedFunctions
-{
-    my $dataNode = shift;
-
-    # Identifies overloaded functions and for each function adds an array with
-    # links to its respective overloads (including itself).
-    my %nameToFunctionsMap = ();
-    foreach my $function (@{$dataNode->functions}) {
-        my $name = $function->signature->name;
-        $nameToFunctionsMap{$name} = [] if !exists $nameToFunctionsMap{$name};
-        push(@{$nameToFunctionsMap{$name}}, $function);
-        $function->{overloads} = $nameToFunctionsMap{$name};
-        $function->{overloadIndex} = @{$nameToFunctionsMap{$name}};
-    }
-
-}
-
 sub GenerateHeader
 {
     my $object = shift;
@@ -1141,8 +1124,14 @@ END
 
     my $numParameters = @{$function->parameters};
 
-    if ($function->signature->extendedAttributes->{"RequiresAllArguments"}) {
-        push(@implContentDecls, "    if (args.Length() < $numParameters)\n    return v8::Handle<v8::Value>();\n");
+    my $requiresAllArguments = $function->signature->extendedAttributes->{"RequiresAllArguments"};
+    if ($requiresAllArguments) {
+        push(@implContentDecls, "    if (args.Length() < $numParameters)\n");
+        if ($requiresAllArguments eq "Raise") {
+            push(@implContentDecls, "        return throwError(\"Not enough arguments\", V8Proxy::SyntaxError);\n");
+        } else {
+            push(@implContentDecls, "        return v8::Handle<v8::Value>();\n");
+        }
     }
 
     if (IsPodType($implClassName)) {
@@ -1658,7 +1647,7 @@ sub GenerateImplementation
         GenerateConstructorGetter($implClassName);
     }
 
-    LinkOverloadedFunctions($dataNode);
+    $codeGenerator->LinkOverloadedFunctions($dataNode);
 
     my $indexer;
     my $namedPropertyGetter;
@@ -2463,6 +2452,7 @@ sub IsActiveDomType
     return 1 if $type eq "WebSocket";
     return 1 if $type eq "Worker";
     return 1 if $type eq "SharedWorker";
+    return 1 if $type eq "IDBRequest";
     return 0;
 }
 
@@ -3067,7 +3057,7 @@ sub ReturnNativeToJSValue
             die "Unknown value for ConvertNullStringTo extended attribute";
         }
         $conv = $signature->extendedAttributes->{"ConvertScriptString"};
-        return "v8StringOrNull(exec, $value)" if $conv;
+        return "return v8StringOrNull($value)" if $conv;
         return "return v8String($value)";
     }
 

@@ -149,12 +149,17 @@
 
 - (int)attrWithSetterException
 {
-    return IMPL->attrWithSetterException();
+    WebCore::ExceptionCode ec = 0;
+    int result = IMPL->attrWithSetterException(ec);
+    WebCore::raiseOnDOMError(ec);
+    return result;
 }
 
 - (void)setAttrWithSetterException:(int)newAttrWithSetterException
 {
-    IMPL->setAttrWithSetterException(newAttrWithSetterException);
+    WebCore::ExceptionCode ec = 0;
+    IMPL->setAttrWithSetterException(newAttrWithSetterException, ec);
+    WebCore::raiseOnDOMError(ec);
 }
 
 - (int)attrWithGetterException
@@ -164,7 +169,9 @@
 
 - (void)setAttrWithGetterException:(int)newAttrWithGetterException
 {
-    IMPL->setAttrWithGetterException(newAttrWithGetterException);
+    WebCore::ExceptionCode ec = 0;
+    IMPL->setAttrWithGetterException(newAttrWithGetterException, ec);
+    WebCore::raiseOnDOMError(ec);
 }
 
 - (int)customAttr
@@ -210,6 +217,19 @@
 - (DOMTestObj *)objMethodWithArgs:(int)intArg strArg:(NSString *)strArg objArg:(DOMTestObj *)objArg
 {
     return kit(WTF::getPtr(IMPL->objMethodWithArgs(intArg, strArg, core(objArg))));
+}
+
+- (DOMTestObj *)methodThatRequiresAllArgs:(NSString *)strArg objArg:(DOMTestObj *)objArg
+{
+    return kit(WTF::getPtr(IMPL->methodThatRequiresAllArgs(strArg, core(objArg))));
+}
+
+- (DOMTestObj *)methodThatRequiresAllArgsAndThrows:(NSString *)strArg objArg:(DOMTestObj *)objArg
+{
+    WebCore::ExceptionCode ec = 0;
+    DOMTestObj *result = kit(WTF::getPtr(IMPL->methodThatRequiresAllArgsAndThrows(strArg, core(objArg), ec)));
+    WebCore::raiseOnDOMError(ec);
+    return result;
 }
 
 - (void)serializedValue:(NSString *)serializedArg

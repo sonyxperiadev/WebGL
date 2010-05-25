@@ -59,7 +59,7 @@ CONFIG(standalone_package) {
     isEmpty(WC_GENERATED_SOURCES_DIR):WC_GENERATED_SOURCES_DIR = generated
     isEmpty(JSC_GENERATED_SOURCES_DIR):JSC_GENERATED_SOURCES_DIR = ../JavaScriptCore/generated
 
-    CONFIG(debug, debug|release) {
+    !CONFIG(release, debug|release) {
         OBJECTS_DIR = obj/debug
     } else { # Release
         OBJECTS_DIR = obj/release
@@ -362,6 +362,7 @@ SOURCES += \
     bindings/js/ScriptDebugServer.cpp \
     bindings/js/ScriptEventListener.cpp \
     bindings/js/ScriptFunctionCall.cpp \
+    bindings/js/ScriptGCEvent.cpp \
     bindings/js/ScriptObject.cpp \
     bindings/js/ScriptState.cpp \
     bindings/js/ScriptValue.cpp \
@@ -654,6 +655,7 @@ SOURCES += \
     html/HTMLMarqueeElement.cpp \
     html/HTMLMenuElement.cpp \
     html/HTMLMetaElement.cpp \
+    html/HTMLMeterElement.cpp \
     html/HTMLModElement.cpp \
     html/HTMLNameCollection.cpp \
     html/HTMLObjectElement.cpp \
@@ -935,6 +937,7 @@ SOURCES += \
     rendering/RenderListMarker.cpp \
     rendering/RenderMarquee.cpp \
     rendering/RenderMenuList.cpp \
+    rendering/RenderMeter.cpp \
     rendering/RenderObject.cpp \
     rendering/RenderObjectChildList.cpp \
     rendering/RenderPart.cpp \
@@ -1375,6 +1378,7 @@ HEADERS += \
     html/HTMLMediaElement.h \
     html/HTMLMenuElement.h \
     html/HTMLMetaElement.h \
+    html/HTMLMeterElement.h \
     html/HTMLModElement.h \
     html/HTMLNameCollection.h \
     html/HTMLNoScriptElement.h \
@@ -1714,6 +1718,7 @@ HEADERS += \
     rendering/RenderMarquee.h \
     rendering/RenderMedia.h \
     rendering/RenderMenuList.h \
+    rendering/RenderMeter.h \
     rendering/RenderObjectChildList.h \
     rendering/RenderObject.h \
     rendering/RenderPart.h \
@@ -1809,6 +1814,7 @@ HEADERS += \
     rendering/SVGRootInlineBox.h \
     rendering/SVGShadowTreeElements.h \
     rendering/SVGTextChunkLayoutInfo.h \
+    rendering/SVGTextLayoutUtilities.h \
     rendering/TextControlInnerElements.h \
     rendering/TransformState.h \
     svg/animation/SMILTimeContainer.h \
@@ -1820,6 +1826,7 @@ HEADERS += \
     svg/graphics/filters/SVGFEDisplacementMap.h \
     svg/graphics/filters/SVGFEFlood.h \
     svg/graphics/filters/SVGFEImage.h \
+    svg/graphics/filters/SVGFELighting.h \
     svg/graphics/filters/SVGFEMerge.h \
     svg/graphics/filters/SVGFEMorphology.h \
     svg/graphics/filters/SVGFEOffset.h \
@@ -1962,6 +1969,7 @@ HEADERS += \
     svg/SVGUseElement.h \
     svg/SVGViewElement.h \
     svg/SVGViewSpec.h \
+    svg/SVGVKernElement.h \
     svg/SVGZoomAndPan.h \
     svg/SVGZoomEvent.h \
     wml/WMLAccessElement.h \
@@ -2041,6 +2049,7 @@ HEADERS += \
     $$PWD/../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/PageClientQt.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/QtPlatformPlugin.h \
     $$PWD/platform/network/qt/DnsPrefetchHelper.h
 
 SOURCES += \
@@ -2130,6 +2139,7 @@ SOURCES += \
     ../WebKit/qt/WebCoreSupport/InspectorClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/PageClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/QtPlatformPlugin.cpp \
     ../WebKit/qt/Api/qwebframe.cpp \
     ../WebKit/qt/Api/qgraphicswebview.cpp \
     ../WebKit/qt/Api/qwebpage.cpp \
@@ -2277,6 +2287,7 @@ contains(DEFINES, ENABLE_SQLITE=1) {
         platform/sql/SQLiteStatement.cpp \
         platform/sql/SQLiteTransaction.cpp \
         platform/sql/SQLValue.cpp \
+        storage/AbstractDatabase.cpp \
         storage/Database.cpp \
         storage/DatabaseAuthorizer.cpp \
         storage/DatabaseSync.cpp
@@ -2300,12 +2311,45 @@ contains(DEFINES, ENABLE_DATABASE=1) {
         storage/SQLTransactionSync.cpp \
         bindings/js/JSCustomSQLStatementErrorCallback.cpp \
         bindings/js/JSDatabaseCustom.cpp \
+        bindings/js/JSDatabaseSyncCustom.cpp \
         bindings/js/JSSQLResultSetRowListCustom.cpp \
-        bindings/js/JSSQLTransactionCustom.cpp
+        bindings/js/JSSQLTransactionCustom.cpp \
+        bindings/js/JSSQLTransactionSyncCustom.cpp
+}
+
+contains(DEFINES, ENABLE_INDEXED_DATABASE=1) {
+    HEADERS += \
+        storage/IDBAny.h \
+        storage/IDBCallbacks.h \
+        storage/IDBDatabase.h \
+        storage/IDBDatabaseError.h \
+        storage/IDBDatabaseException.h \
+        storage/IDBDatabaseRequest.h \
+        storage/IDBErrorEvent.h \
+        storage/IDBEvent.h \
+        storage/IDBRequest.h \
+        storage/IDBSuccessEvent.h \
+        storage/IndexedDatabase.h \
+        storage/IndexedDatabaseImpl.h \
+        storage/IndexedDatabaseRequest.h
+
+    SOURCES += \
+        bindings/js/JSIDBAnyCustom.cpp \
+        storage/IDBAny.cpp \
+        storage/IDBDatabase.cpp \
+        storage/IDBDatabaseRequest.cpp \
+        storage/IDBErrorEvent.cpp \
+        storage/IDBEvent.cpp \
+        storage/IDBRequest.cpp \
+        storage/IDBSuccessEvent.cpp \
+        storage/IndexedDatabase.cpp \
+        storage/IndexedDatabaseImpl.cpp \
+        storage/IndexedDatabaseRequest.cpp
 }
 
 contains(DEFINES, ENABLE_DOM_STORAGE=1) {
     HEADERS += \
+        storage/AbstractDatabase.h \
         storage/ChangeVersionWrapper.h \
         storage/DatabaseAuthorizer.h \
         storage/Database.h \
@@ -2325,6 +2369,7 @@ contains(DEFINES, ENABLE_DOM_STORAGE=1) {
         storage/SQLTransactionClient.h \
         storage/SQLTransactionCoordinator.h \
         storage/SQLTransactionSync.h \
+        storage/SQLTransactionSyncCallback.h \
         storage/StorageArea.h \
         storage/StorageAreaImpl.h \
         storage/StorageAreaSync.h \
@@ -2696,6 +2741,7 @@ contains(DEFINES, ENABLE_SVG=1) {
         svg/SVGUseElement.cpp \
         svg/SVGViewElement.cpp \
         svg/SVGViewSpec.cpp \
+        svg/SVGVKernElement.cpp \
         svg/SVGZoomAndPan.cpp \
         svg/animation/SMILTime.cpp \
         svg/animation/SMILTimeContainer.cpp \
@@ -2705,6 +2751,7 @@ contains(DEFINES, ENABLE_SVG=1) {
         svg/graphics/filters/SVGFEDisplacementMap.cpp \
         svg/graphics/filters/SVGFEFlood.cpp \
         svg/graphics/filters/SVGFEImage.cpp \
+        svg/graphics/filters/SVGFELighting.cpp \
         svg/graphics/filters/SVGFEMerge.cpp \
         svg/graphics/filters/SVGFEMorphology.cpp \
         svg/graphics/filters/SVGFEOffset.cpp \
@@ -2749,7 +2796,8 @@ contains(DEFINES, ENABLE_SVG=1) {
         rendering/SVGMarkerLayoutInfo.cpp \
         rendering/SVGRenderSupport.cpp \
         rendering/SVGRootInlineBox.cpp \
-        rendering/SVGShadowTreeElements.cpp
+        rendering/SVGShadowTreeElements.cpp \
+        rendering/SVGTextLayoutUtilities.cpp
 }
 
 contains(DEFINES, ENABLE_JAVASCRIPT_DEBUGGER=1) {
@@ -2806,78 +2854,78 @@ contains(DEFINES, ENABLE_WEB_SOCKETS=1) {
 contains(DEFINES, ENABLE_3D_CANVAS=1) {
 tobe|!tobe: QT += opengl
 HEADERS += \
-	bindings/js/JSWebGLArrayBufferConstructor.h \
-	bindings/js/JSWebGLArrayHelper.h \
-	bindings/js/JSWebGLByteArrayConstructor.h \
-	bindings/js/JSWebGLFloatArrayConstructor.h \
-	bindings/js/JSWebGLIntArrayConstructor.h \
-	bindings/js/JSWebGLShortArrayConstructor.h \
-	bindings/js/JSWebGLUnsignedByteArrayConstructor.h \
-	bindings/js/JSWebGLUnsignedIntArrayConstructor.h \
-	bindings/js/JSWebGLUnsignedShortArrayConstructor.h \
+	bindings/js/JSArrayBufferConstructor.h \
+	bindings/js/JSArrayBufferViewHelper.h \
+	bindings/js/JSInt8ArrayConstructor.h \
+	bindings/js/JSFloatArrayConstructor.h \
+	bindings/js/JSInt32ArrayConstructor.h \
+	bindings/js/JSInt16ArrayConstructor.h \
+	bindings/js/JSUint8ArrayConstructor.h \
+	bindings/js/JSUint32ArrayConstructor.h \
+	bindings/js/JSUint16ArrayConstructor.h \
 	html/canvas/CanvasContextAttributes.h \
 	html/canvas/CanvasObject.h \
 	html/canvas/WebGLActiveInfo.h \
-	html/canvas/WebGLArrayBuffer.h \
-	html/canvas/WebGLArray.h \
+	html/canvas/ArrayBuffer.h \
+	html/canvas/ArrayBufferView.h \
 	html/canvas/WebGLBuffer.h \
-	html/canvas/WebGLByteArray.h \
+	html/canvas/Int8Array.h \
 	html/canvas/WebGLContextAttributes.h \
-	html/canvas/WebGLFloatArray.h \
+	html/canvas/FloatArray.h \
 	html/canvas/WebGLFramebuffer.h \
 	html/canvas/WebGLGetInfo.h \
-	html/canvas/WebGLIntArray.h \
+	html/canvas/Int32Array.h \
 	html/canvas/WebGLProgram.h \
 	html/canvas/WebGLRenderbuffer.h \
 	html/canvas/WebGLRenderingContext.h \
 	html/canvas/WebGLShader.h \
-	html/canvas/WebGLShortArray.h \
+	html/canvas/Int16Array.h \
 	html/canvas/WebGLTexture.h \
 	html/canvas/WebGLUniformLocation.h \
-	html/canvas/WebGLUnsignedByteArray.h \
-	html/canvas/WebGLUnsignedIntArray.h \
-	html/canvas/WebGLUnsignedShortArray.h \
+	html/canvas/Uint8Array.h \
+	html/canvas/Uint32Array.h \
+	html/canvas/Uint16Array.h \
     platform/graphics/GraphicsContext3D.h 
 
 SOURCES += \
-	bindings/js/JSWebGLArrayBufferConstructor.cpp \
-	bindings/js/JSWebGLArrayCustom.cpp \
-	bindings/js/JSWebGLByteArrayConstructor.cpp \
-	bindings/js/JSWebGLByteArrayCustom.cpp \
-	bindings/js/JSWebGLFloatArrayConstructor.cpp \
-	bindings/js/JSWebGLFloatArrayCustom.cpp \
-	bindings/js/JSWebGLIntArrayConstructor.cpp \
-	bindings/js/JSWebGLIntArrayCustom.cpp \
+	bindings/js/JSArrayBufferConstructor.cpp \
+	bindings/js/JSArrayBufferViewCustom.cpp \
+	bindings/js/JSInt8ArrayConstructor.cpp \
+	bindings/js/JSInt8ArrayCustom.cpp \
+	bindings/js/JSFloatArrayConstructor.cpp \
+	bindings/js/JSFloatArrayCustom.cpp \
+	bindings/js/JSInt32ArrayConstructor.cpp \
+	bindings/js/JSInt32ArrayCustom.cpp \
 	bindings/js/JSWebGLRenderingContextCustom.cpp \
-	bindings/js/JSWebGLShortArrayConstructor.cpp \
-	bindings/js/JSWebGLShortArrayCustom.cpp \
-	bindings/js/JSWebGLUnsignedByteArrayConstructor.cpp \
-	bindings/js/JSWebGLUnsignedByteArrayCustom.cpp \
-	bindings/js/JSWebGLUnsignedIntArrayConstructor.cpp \
-	bindings/js/JSWebGLUnsignedIntArrayCustom.cpp \
-	bindings/js/JSWebGLUnsignedShortArrayConstructor.cpp \
-	bindings/js/JSWebGLUnsignedShortArrayCustom.cpp \
+	bindings/js/JSInt16ArrayConstructor.cpp \
+	bindings/js/JSInt16ArrayCustom.cpp \
+	bindings/js/JSUint8ArrayConstructor.cpp \
+	bindings/js/JSUint8ArrayCustom.cpp \
+	bindings/js/JSUint32ArrayConstructor.cpp \
+	bindings/js/JSUint32ArrayCustom.cpp \
+	bindings/js/JSUint16ArrayConstructor.cpp \
+	bindings/js/JSUint16ArrayCustom.cpp \
 	html/canvas/CanvasContextAttributes.cpp \
     html/canvas/CanvasObject.cpp \
-	html/canvas/WebGLArrayBuffer.cpp \
-	html/canvas/WebGLArray.cpp \
+	html/canvas/ArrayBuffer.cpp \
+	html/canvas/ArrayBufferView.cpp \
 	html/canvas/WebGLBuffer.cpp \
-	html/canvas/WebGLByteArray.cpp \
+	html/canvas/Int8Array.cpp \
 	html/canvas/WebGLContextAttributes.cpp \
-	html/canvas/WebGLFloatArray.cpp \
+	html/canvas/FloatArray.cpp \
 	html/canvas/WebGLFramebuffer.cpp \
 	html/canvas/WebGLGetInfo.cpp \
-	html/canvas/WebGLIntArray.cpp \
+	html/canvas/Int32Array.cpp \
 	html/canvas/WebGLProgram.cpp \
 	html/canvas/WebGLRenderbuffer.cpp \
 	html/canvas/WebGLRenderingContext.cpp \
 	html/canvas/WebGLShader.cpp \
-	html/canvas/WebGLShortArray.cpp \
+	html/canvas/Int16Array.cpp \
 	html/canvas/WebGLTexture.cpp \
 	html/canvas/WebGLUniformLocation.cpp \
-	html/canvas/WebGLUnsignedByteArray.cpp \
-	html/canvas/WebGLUnsignedIntArray.cpp \
-	html/canvas/WebGLUnsignedShortArray.cpp \
+	html/canvas/Uint8Array.cpp \
+	html/canvas/Uint32Array.cpp \
+	html/canvas/Uint16Array.cpp \
     platform/graphics/GraphicsContext3D.cpp \
     platform/graphics/qt/GraphicsContext3DQt.cpp \
 
@@ -2900,15 +2948,22 @@ HEADERS += $$WEBKIT_API_HEADERS
 
     !symbian {
         headers.files = $$WEBKIT_INSTALL_HEADERS
-        headers.path = $$[QT_INSTALL_HEADERS]/QtWebKit
-        target.path = $$[QT_INSTALL_LIBS]
+
+        headers.path = $$INSTALL_HEADERS/QtWebKit
+        target.path = $$INSTALL_LIBS
+
+        isEmpty(INSTALL_HEADERS): headers.path = $$[QT_INSTALL_HEADERS]/QtWebKit
+        isEmpty(INSTALL_LIBS): target.path = $$[QT_INSTALL_LIBS]
 
         INSTALLS += target headers
     } else {
         # INSTALLS is not implemented in qmake's s60 generators, copy headers manually
         inst_headers.commands = $$QMAKE_COPY ${QMAKE_FILE_NAME} ${QMAKE_FILE_OUT}
         inst_headers.input = WEBKIT_INSTALL_HEADERS
-        inst_headers.output = $$[QT_INSTALL_HEADERS]/QtWebKit/${QMAKE_FILE_BASE}${QMAKE_FILE_EXT}
+
+        isEmpty(INSTALL_HEADERS): inst_headers.output = $$[QT_INSTALL_HEADERS]/QtWebKit/${QMAKE_FILE_BASE}${QMAKE_FILE_EXT}
+        inst_headers.output = $$INSTALL_HEADERS/QtWebKit/${QMAKE_FILE_BASE}${QMAKE_FILE_EXT}
+
         QMAKE_EXTRA_COMPILERS += inst_headers
 
         install.depends += compiler_inst_headers_make_all

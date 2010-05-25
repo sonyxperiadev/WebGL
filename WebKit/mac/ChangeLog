@@ -1,3 +1,162 @@
+2010-05-14  Stephanie Lewis  <slewis@apple.com>
+
+        Rubber-stamped by Mark Rowe.
+
+        Update order files.
+
+        * WebKit.order:
+
+2010-05-13  Timothy Hatcher  <timothy@apple.com>
+
+        Allow reporting exceptions that occur when using JavaScriptCore APIs
+        to the Web Inspector.
+
+        <rdar://problem/7975410>
+
+        Reviewed by Sam Weinig.
+
+        * WebView/WebView.mm:
+        (+[WebView _reportException:inContext:]): Call WebCore::reportException after checking
+        that the global object is a DOMWindow.
+        * WebView/WebViewPrivate.h: Added _reportException:inContext:.
+
+2010-05-13  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=39089
+        <rdar://problem/7974044> Domain names in Russian '.рф' domain are displayed as punycode
+
+        Add a custom check for this domain. Currently, this is the only non-ASCII TLD, we'll
+        investigate a more extensible solution when there are more, and we know what the
+        typical restictions are.
+
+        * Misc/WebNSURLExtras.mm:
+        (allCharactersAllowedByTLDRules):
+        (-[NSString _web_mapHostNameWithRange:encode:makeString:]):
+
+2010-05-12  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by David Hyatt.
+
+        Composited plug-ins can cause missed painting
+        https://bugs.webkit.org/show_bug.cgi?id=39033
+        <rdar://problem/7972478>
+        
+        Eagerly enable compositing mode via the enclosing FrameView when the plug-in tells us it wants
+        to do compositing.
+
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        (-[WebHostedNetscapePluginView createPlugin]):
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView createPlugin]):
+
+2010-05-12  Jer Noble  <jer.noble@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Bug 38689: #34005 will break fullscreen video playback
+        https://bugs.webkit.org/show_bug.cgi?id=38689
+
+        Use the new definition of PlatformMedia to check the actual type 
+        returned by MediaPlayer.
+        
+        * WebView/WebVideoFullscreenController.mm:
+        (-[WebVideoFullscreenController windowDidLoad]):
+
+2010-05-11  Mark Rowe  <mrowe@apple.com>
+
+        Fix the world.
+
+        In r59162 a change was made to WebCore's FeatureDefines.xcconfig that enabled FILE_READER and FILE_WRITER.
+        The author and reviewer of that patch ignored the carefully-worded warning at the top of that file asking
+        that changes to the file be kept in sync across JavaScriptCore, WebCore and WebKit, as well as being kept
+        in sync with build-webkit.  This led to WebCore and WebKit having different views of Document's vtable
+        and results in crashes in Safari shortly after launch when virtual function calls resulted in the wrong
+        function in WebCore being called.
+
+        We fix this by bringing the FeatureDefines.xcconfig files in to sync.  Based on the ChangeLog message and
+        other changes in r59162 it appears that enabling FILE_WRITER was unintentional so that particular change
+        has been reverted.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-05-10  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Allow compositing layers to be connected across iframe boundaries on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=38856
+        
+        When painting an iframe into a compositing layer, the "PaintBehaviorFlattenCompositingLayers"
+        flag was mistakenly set, because we'd detect that we were drawing into a bitmap. This caused
+        content to show up in both compositing layers, and the painted background inside the iframe.
+        
+        Fix by taking the flattening state from the parent frame, if there is one. For the root
+        frame, we continue to look to see if we're painting into a bitmap.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _drawRect:contentsOnly:]):
+
+2010-05-10  Timothy Hatcher  <timothy@apple.com>
+
+        Fix a crash when closing a WebView while the Web Inspector is open.
+
+        <rdar://problem/7966830>
+
+        Reviewed by Mark Rowe.
+
+        * WebCoreSupport/WebInspectorClient.mm:
+        (-[WebInspectorWindowController destroyInspectorView]): Null check Page since it can be null.
+        * WebView/WebView.mm:
+        (-[WebView _close]): Null out _private->page before deleting the page, so code called
+        during destruction don't access a half deleted Page object.
+
+2010-05-10  Anders Carlsson  <andersca@apple.com>
+
+        Unbreak the world. (Fix Mac builds).
+
+        * Plugins/Hosted/WebKitPluginHostTypes.h:
+
+2010-05-10  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Change the order of the RendererType enum values, so that old versions of WebKitPluginHost will
+        use accelerated compositing and not layer backed views.
+
+        * Plugins/Hosted/WebKitPluginHostTypes.h:
+
+2010-05-07  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig and Simon Fraser.
+
+        <rdar://problem/7947356>
+        QT Plug-in in hardware-accelerated WebKit is missing the controller
+
+        Replace the useSoftwareRenderer boolean with an enum that lets the plug-in host opt into using a layer
+        backed NSView instead of inserting the layer into the WebCore layer hierarchy.
+
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        (WebKit::NetscapePluginHostManager::instantiatePlugin):
+        * Plugins/Hosted/NetscapePluginHostProxy.mm:
+        (WKPCInstantiatePluginReply):
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h:
+        (WebKit::NetscapePluginInstanceProxy::rendererType):
+        (WebKit::NetscapePluginInstanceProxy::setRendererType):
+        (WebKit::NetscapePluginInstanceProxy::InstantiatePluginReply::InstantiatePluginReply):
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::NetscapePluginInstanceProxy):
+        Replace the useSoftwareRenderer boolean everywhere with the RendererType enum.
+        
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        (-[WebHostedNetscapePluginView createPlugin]):
+        Only go into full compositing mode when the renderer type returned is UseAcceleratedCompositing.
+        Otherwise, use a layer backed NSView.
+
+        * Plugins/Hosted/WebKitPluginHostTypes.h:
+        Add a RendererType enum.
+
 2010-05-06  Anders Carlsson  <andersca@apple.com>
 
         Reviewed by Darin Adler and Dan Bernstein..

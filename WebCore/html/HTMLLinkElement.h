@@ -42,6 +42,7 @@ public:
         bool m_isIcon;
         bool m_isAlternate;
         bool m_isDNSPrefetch;
+<<<<<<< HEAD
 #ifdef ANDROID_APPLE_TOUCH_ICON
         bool m_isTouchIcon;
         bool m_isPrecomposedTouchIcon;
@@ -58,6 +59,10 @@ public:
             , m_isLinkPrefetch(false)
 #endif
             { };
+=======
+
+        RelAttribute() : m_isStyleSheet(false), m_isIcon(false), m_isAlternate(false), m_isDNSPrefetch(false) { }
+>>>>>>> webkit.org at r59636
     };
 
     HTMLLinkElement(const QualifiedName&, Document*, bool createdByParser);
@@ -110,17 +115,27 @@ public:
     bool isLoading() const;
     virtual bool sheetLoaded();
 
+<<<<<<< HEAD
     bool isAlternate() const { return m_disabledState == 0 && m_rel.m_isAlternate; }
     bool isDisabled() const { return m_disabledState == 2; }
     bool isEnabledViaScript() const { return m_disabledState == 1; }
     bool isIcon() const { return m_rel.m_isIcon; }
+=======
+    bool isAlternate() const { return m_disabledState == Unset && m_relAttribute.m_isAlternate; }
+    bool isDisabled() const { return m_disabledState == Disabled; }
+    bool isEnabledViaScript() const { return m_disabledState == EnabledViaScript; }
+    bool isIcon() const { return m_relAttribute.m_isIcon; }
+>>>>>>> webkit.org at r59636
     
-    int disabledState() { return m_disabledState; }
     void setDisabledState(bool _disabled);
 
     virtual bool isURLAttribute(Attribute*) const;
     
+<<<<<<< HEAD
     static void tokenizeRelAttribute(const AtomicString& value, RelAttribute& attribute);
+=======
+    static void tokenizeRelAttribute(const AtomicString& value, RelAttribute&);
+>>>>>>> webkit.org at r59636
 
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
@@ -135,7 +150,15 @@ public:
 #endif
 
 protected:
+<<<<<<< HEAD
     void timerFired(Timer<HTMLLinkElement>*);
+=======
+    enum DisabledState {
+        Unset,
+        EnabledViaScript,
+        Disabled
+    };
+>>>>>>> webkit.org at r59636
 
     CachedResourceHandle<CachedCSSStyleSheet> m_cachedSheet;
     RefPtr<CSSStyleSheet> m_sheet;
@@ -145,8 +168,13 @@ protected:
     KURL m_url;
     String m_type;
     String m_media;
+<<<<<<< HEAD
     int m_disabledState; // 0=unset(default), 1=enabled via script, 2=disabled
     RelAttribute m_rel;
+=======
+    DisabledState m_disabledState;
+    RelAttribute m_relAttribute;
+>>>>>>> webkit.org at r59636
     bool m_loading;
     bool m_createdByParser;
     Timer<HTMLLinkElement> m_timer;

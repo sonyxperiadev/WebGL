@@ -31,6 +31,7 @@
 {
     'includes': [
         'features.gypi',
+        '../../WebKitTools/DumpRenderTree/DumpRenderTree.gypi',
     ],
     'variables': {
         'webkit_target_type': 'static_library',
@@ -44,11 +45,6 @@
             },{
                 # WebKit is checked out in src/chromium/third_party/WebKit
                 'chromium_src_dir': '../../../..',
-            }],
-            # We can't turn on warnings on Windows and Linux until we upstream the
-            # WebKit API.
-            ['OS=="mac"', {
-                'chromium_code': 1,
             }],
         ],
     },
@@ -180,6 +176,8 @@
                 'public/WebRect.h',
                 'public/WebRegularExpression.h',
                 'public/WebRuntimeFeatures.h',
+                'public/WebScrollbar.h',
+                'public/WebScrollbarClient.h',
                 'public/WebScreenInfo.h',
                 'public/WebScriptController.h',
                 'public/WebScriptSource.h',
@@ -261,6 +259,7 @@
                 'src/gtk/WebFontInfo.cpp',
                 'src/gtk/WebFontInfo.h',
                 'src/gtk/WebInputEventFactory.cpp',
+                'src/IDBCallbacksProxy.cpp',
                 'src/IDBCallbacksProxy.h',
                 'src/IDBDatabaseProxy.cpp',
                 'src/IDBDatabaseProxy.h',
@@ -382,6 +381,8 @@
                 'src/WebRegularExpression.cpp',
                 'src/WebRuntimeFeatures.cpp',
                 'src/WebScriptController.cpp',
+                'src/WebScrollbarImpl.cpp',
+                'src/WebScrollbarImpl.h',
                 'src/WebSearchableFormData.cpp',
                 'src/WebSecurityOrigin.cpp',
                 'src/WebSecurityPolicy.cpp',
@@ -443,6 +444,11 @@
                     'sources/': [
                         ['exclude', 'Skia\\.cpp$'],
                     ],
+                    'variables': {
+                        # FIXME: Turn on warnings on other platforms and for
+                        # other targets.
+                        'chromium_code': 1,
+                    }
                 }, { # else: OS!="mac"
                     'sources/': [
                         ['exclude', '/mac/'],
@@ -526,7 +532,119 @@
                 }],
             ],
         },
+        {
+            'target_name': 'ImageDiff',
+            'type': 'executable',
+            'dependencies': [
+                'webkit',
+                '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:wtf',
+                '<(chromium_src_dir)/gfx/gfx.gyp:gfx',
+            ],
+            'include_dirs': [
+                '../../JavaScriptCore',
+                '<(DEPTH)',
+            ],
+            'sources': [
+                '../../WebKitTools/DumpRenderTree/chromium/ImageDiff.cpp',
+            ],
+        },
+        {
+            'target_name': 'DumpRenderTree',
+            'type': 'executable',
+            'mac_bundle': 1,
+            'dependencies': [
+                'webkit',
+                '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:wtf_config',
+                '<(chromium_src_dir)/third_party/icu/icu.gyp:icuuc',
+                '<(chromium_src_dir)/webkit/support/webkit_support.gyp:webkit_support',
+            ],
+            'include_dirs': [
+                '.',
+                '../../JavaScriptCore',
+                '../../JavaScriptCore/wtf', # wtf/text/*.h refers headers in wtf/ without wtf/.
+                '<(DEPTH)',
+            ],
+            'defines': [
+                # Technically not a unit test but require functions available only to
+                # unit tests.
+                'UNIT_TEST',
+            ],
+            'sources': [
+                '<@(drt_files)',
+            ],
+            'conditions': [
+                ['OS=="mac"', {
+                    'dependencies': ['LayoutTestHelper'],
+
+                    'mac_bundle_resources': [
+                        '../../WebKitTools/DumpRenderTree/qt/fonts/AHEM____.TTF',
+                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher100.ttf',
+                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher200.ttf',
+                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher300.ttf',
+                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher400.ttf',
+                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher500.ttf',
+                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher600.ttf',
+                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher700.ttf',
+                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher800.ttf',
+                        '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher900.ttf',
+                    ],
+                    'actions': [
+                        {
+                            'action_name': 'repack_locale',
+                            'variables': {
+                                'repack_path': '<(chromium_src_dir)/tools/data_pack/repack.py',
+                                'pak_inputs': [
+                                    '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_chromium_resources.pak',
+                                    '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_strings_en-US.pak',
+                                    '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_resources.pak',
+                            ]},
+                            'inputs': [
+                                '<(repack_path)',
+                                '<@(pak_inputs)',
+                            ],
+                            'outputs': [
+                                '<(INTERMEDIATE_DIR)/repack/DumpRenderTree.pak',
+                            ],
+                            'action': ['python', '<(repack_path)', '<@(_outputs)', '<@(pak_inputs)'],
+                            'process_outputs_as_mac_bundle_resources': 1,
+                        },
+                    ], # actions
+                }],
+                ['OS!="linux" and OS!="freebsd" and OS!="openbsd"', {
+                    'sources/': [
+                        ['exclude', '(Gtk|Linux)\\.cpp$']
+                    ]
+                }],
+                ['OS!="win"', {
+                    'sources/': [
+                        ['exclude', 'Win\\.cpp$'],
+                    ]
+                }],
+                ['OS!="mac"', {
+                    'sources/': [
+                        # .mm is already excluded by common.gypi
+                        ['exclude', 'Mac\\.cpp$'],
+                    ]
+                }],
+            ],
+        },
     ], # targets
+    'conditions': [
+        ['OS=="mac"', {
+            'targets': [
+                {
+                    'target_name': 'LayoutTestHelper',
+                    'type': 'executable',
+                    'sources': ['../../WebKitTools/DumpRenderTree/chromium/LayoutTestHelper.mm'],
+                    'link_settings': {
+                        'libraries': [
+                            '$(SDKROOT)/System/Library/Frameworks/AppKit.framework',
+                        ],
+                    },
+                },
+            ],
+        }],
+    ], # conditions
 }
 
 # Local Variables:

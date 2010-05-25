@@ -223,29 +223,6 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-class SynchronousHTMLTokenizerGuard {
-public:
-    SynchronousHTMLTokenizerGuard(Tokenizer* tokenizer)
-        : m_htmlTokenizer(tokenizer->asHTMLTokenizer())
-        , m_savedForceSynchronous(false)
-    {
-        if (m_htmlTokenizer) {
-            m_savedForceSynchronous = m_htmlTokenizer->forceSynchronous();
-            m_htmlTokenizer->setForceSynchronous(true);
-        }
-    }
-
-    ~SynchronousHTMLTokenizerGuard()
-    {
-        if (m_htmlTokenizer)
-            m_htmlTokenizer->setForceSynchronous(m_savedForceSynchronous);
-    }
-
-private:
-    HTMLTokenizer* m_htmlTokenizer;
-    bool m_savedForceSynchronous;
-};
-
 // #define INSTRUMENT_LAYOUT_SCHEDULING 1
 
 // This amount of time must have elapsed before we will even consider scheduling a layout without a delay.
@@ -2024,11 +2001,18 @@ void Document::write(const SegmentedString& text, Document* ownerDocument)
     if (!m_tokenizer)
         open(ownerDocument);
 
-    {
-        ASSERT(m_tokenizer);
-        SynchronousHTMLTokenizerGuard tokenizerGuard(m_tokenizer.get());
-        m_tokenizer->write(text, false);
+    ASSERT(m_tokenizer);
+    bool wasForcedSynchronous = false;
+    HTMLTokenizer* tokenizer = m_tokenizer->asHTMLTokenizer();
+    if (tokenizer) {
+        wasForcedSynchronous = tokenizer->forceSynchronous();
+        tokenizer->setForceSynchronous(true);
     }
+
+    m_tokenizer->write(text, false);
+
+    if (m_tokenizer && tokenizer && m_tokenizer->asHTMLTokenizer() == tokenizer)
+        tokenizer->setForceSynchronous(wasForcedSynchronous);
 
 #ifdef INSTRUMENT_LAYOUT_SCHEDULING
     if (!ownerElement())
@@ -2378,6 +2362,9 @@ void Document::processHttpEquiv(const String& equiv, const String& content)
         if (frameLoader->shouldInterruptLoadForXFrameOptions(content, url())) {
             frameLoader->stopAllLoaders();
             frame->redirectScheduler()->scheduleLocationChange(blankURL(), String());
+
+            DEFINE_STATIC_LOCAL(String, consoleMessage, ("Refused to display document because display forbidden by X-Frame-Options.\n"));
+            frame->domWindow()->console()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, consoleMessage, 1, String());
         }
     }
 }
@@ -3072,6 +3059,28 @@ void Document::nodeChildrenChanged(ContainerNode* container)
         HashSet<Range*>::const_iterator end = m_ranges.end();
         for (HashSet<Range*>::const_iterator it = m_ranges.begin(); it != end; ++it)
             (*it)->nodeChildrenChanged(container);
+    }
+}
+
+void Document::nodeChildrenWillBeRemoved(ContainerNode* container)
+{
+    if (!disableRangeMutation(page())) {
+        HashSet<Range*>::const_iterator end = m_ranges.end();
+        for (HashSet<Range*>::const_iterator it = m_ranges.begin(); it != end; ++it)
+            (*it)->nodeChildrenWillBeRemoved(container);
+    }
+
+    HashSet<NodeIterator*>::const_iterator nodeIteratorsEnd = m_nodeIterators.end();
+    for (HashSet<NodeIterator*>::const_iterator it = m_nodeIterators.begin(); it != nodeIteratorsEnd; ++it) {
+        for (Node* n = container->firstChild(); n; n = n->nextSibling())
+            (*it)->nodeWillBeRemoved(n);
+    }
+
+    if (Frame* frame = this->frame()) {
+        for (Node* n = container->firstChild(); n; n = n->nextSibling()) {
+            frame->selection()->nodeWillBeRemoved(n);
+            frame->dragCaretController()->nodeWillBeRemoved(n);
+        }
     }
 }
 
@@ -4953,6 +4962,28 @@ void Document::enqueuePopstateEvent(PassRefPtr<SerializedScriptValue> stateObjec
 {
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=36202 Popstate event needs to fire asynchronously
     dispatchWindowEvent(PopStateEvent::create(stateObject));
+}
+
+void Document::addMediaCanStartListener(MediaCanStartListener* listener)
+{
+    ASSERT(!m_mediaCanStartListeners.contains(listener));
+    m_mediaCanStartListeners.add(listener);
+}
+
+void Document::removeMediaCanStartListener(MediaCanStartListener* listener)
+{
+    ASSERT(m_mediaCanStartListeners.contains(listener));
+    m_mediaCanStartListeners.remove(listener);
+}
+
+MediaCanStartListener* Document::takeAnyMediaCanStartListener()
+{
+    HashSet<MediaCanStartListener*>::iterator slot = m_mediaCanStartListeners.begin();
+    if (slot == m_mediaCanStartListeners.end())
+        return 0;
+    MediaCanStartListener* listener = *slot;
+    m_mediaCanStartListeners.remove(slot);
+    return listener;
 }
 
 #if ENABLE(XHTMLMP)

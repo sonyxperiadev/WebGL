@@ -78,9 +78,19 @@
 #include "Notification.h"
 #endif
 
+#if ENABLE(INDEXED_DATABASE)
+#include "IDBRequest.h"
+#include "JSIDBRequest.h"
+#endif
+
 #if ENABLE(WEB_SOCKETS)
 #include "JSWebSocket.h"
 #include "WebSocket.h"
+#endif
+
+#if ENABLE(FILE_READER)
+#include "JSFileReader.h"
+#include "FileReader.h"
 #endif
 
 using namespace JSC;
@@ -144,9 +154,19 @@ JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, EventTarget* targ
         return toJS(exec, notification);
 #endif
 
+#if ENABLE(INDEXED_DATABASE)
+    if (IDBRequest* idbRequest = target->toIDBRequest())
+        return toJS(exec, idbRequest);
+#endif
+
 #if ENABLE(WEB_SOCKETS)
     if (WebSocket* webSocket = target->toWebSocket())
         return toJS(exec, webSocket);
+#endif
+
+#if ENABLE(FILE_READER)
+    if (FileReader* fileReader = target->toFileReader())
+        return toJS(exec, globalObject, fileReader);
 #endif
 
     ASSERT_NOT_REACHED();

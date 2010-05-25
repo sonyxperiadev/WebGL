@@ -62,18 +62,23 @@ void SVGHKernElement::removedFromDocument()
     }
 }
 
-SVGHorizontalKerningPair SVGHKernElement::buildHorizontalKerningPair() const
+void SVGHKernElement::buildHorizontalKerningPair(KerningPairVector& kerningPairs)
 {
-    SVGHorizontalKerningPair kerningPair;
+    String u1 = getAttribute(u1Attr);
+    String g1 = getAttribute(g1Attr);
+    String u2 = getAttribute(u2Attr);
+    String g2 = getAttribute(g2Attr);
+    if ((u1.isEmpty() && g1.isEmpty()) || (u2.isEmpty() && g2.isEmpty()))
+        return;
 
-    // FIXME: KerningPairs shouldn't be created on parsing errors.
-    parseGlyphName(getAttribute(g1Attr), kerningPair.glyphName1);
-    parseGlyphName(getAttribute(g2Attr), kerningPair.glyphName2);
-    parseKerningUnicodeString(getAttribute(u1Attr), kerningPair.unicodeRange1, kerningPair.unicodeName1);
-    parseKerningUnicodeString(getAttribute(u2Attr), kerningPair.unicodeRange2, kerningPair.unicodeName2);
-    kerningPair.kerning = getAttribute(kAttr).string().toFloat();
-
-    return kerningPair;
+    SVGKerningPair kerningPair;
+    if (parseGlyphName(g1, kerningPair.glyphName1)
+        && parseGlyphName(g2, kerningPair.glyphName2)
+        && parseKerningUnicodeString(u1, kerningPair.unicodeRange1, kerningPair.unicodeName1)
+        && parseKerningUnicodeString(u2, kerningPair.unicodeRange2, kerningPair.unicodeName2)) {
+        kerningPair.kerning = getAttribute(kAttr).string().toFloat();
+        kerningPairs.append(kerningPair);
+    }
 }
 
 }

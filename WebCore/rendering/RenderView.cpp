@@ -73,10 +73,6 @@ RenderView::RenderView(Node* node, FrameView* view)
     setPrefWidthsDirty(true, false);
     
     setPositioned(true); // to 0,0 :)
-
-    // Create a new root layer for our layer hierarchy.
-    m_layer = new (node->document()->renderArena()) RenderLayer(this);
-    setHasLayer(true);
 }
 
 RenderView::~RenderView()
@@ -216,6 +212,15 @@ void RenderView::paintBoxDecorations(PaintInfo& paintInfo, int, int)
             frameView()->setUseSlowRepaints();
             break;
         }
+
+#if USE(ACCELERATED_COMPOSITING)
+        if (RenderLayer* compositingLayer = layer->enclosingCompositingLayer()) {
+            if (!compositingLayer->backing()->paintingGoesToWindow()) {
+                frameView()->setUseSlowRepaints();
+                break;
+            }
+        }
+#endif
     }
 
     // If painting will entirely fill the view, no need to fill the background.

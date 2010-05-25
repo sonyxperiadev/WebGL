@@ -21,7 +21,7 @@ CONFIG(QTDIR_build) {
     # This line was extracted from qbase.pri instead of including the whole file
     win32|mac:!macx-xcode:CONFIG += debug_and_release
 } else {
-    CONFIG(debug, debug|release) {
+    !CONFIG(release, debug|release) {
         OBJECTS_DIR = obj/debug
     } else { # Release
         OBJECTS_DIR = obj/release
@@ -103,6 +103,7 @@ SOURCES += \
     jit/JITCall.cpp \
     jit/JIT.cpp \
     jit/JITOpcodes.cpp \
+    jit/JITOpcodes32_64.cpp \
     jit/JITPropertyAccess.cpp \
     jit/JITPropertyAccess32_64.cpp \
     jit/JITStubs.cpp \
@@ -220,6 +221,7 @@ SOURCES += \
     wtf/text/AtomicString.cpp \
     wtf/text/CString.cpp \
     wtf/text/StringImpl.cpp \
+    wtf/text/StringStatics.cpp \
     wtf/text/WTFString.cpp \
     wtf/unicode/CollatorDefault.cpp \
     wtf/unicode/icu/CollatorICU.cpp \
