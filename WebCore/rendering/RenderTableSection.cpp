@@ -28,6 +28,9 @@
 
 #include "CachedImage.h"
 #include "Document.h"
+#ifdef ANDROID_HITTEST_WITHSIZE
+#include "HitTestResult.h"
+#endif
 #include "HTMLNames.h"
 #include "RenderTableCell.h"
 #include "RenderTableCol.h"
@@ -1259,7 +1262,11 @@ bool RenderTableSection::nodeAtPoint(const HitTestRequest& request, HitTestResul
     tx += x();
     ty += y();
 
+#ifdef ANDROID_HITTEST_WITHSIZE
+    if (hasOverflowClip() && !result.intersects(xPos, yPos, overflowClipRect(tx, ty)))
+#else
     if (hasOverflowClip() && !overflowClipRect(tx, ty).contains(xPos, yPos))
+#endif
         return false;
 
     for (RenderObject* child = lastChild(); child; child = child->previousSibling()) {

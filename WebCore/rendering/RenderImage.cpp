@@ -513,10 +513,18 @@ HTMLMapElement* RenderImage::imageMap() const
 
 bool RenderImage::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int x, int y, int tx, int ty, HitTestAction hitTestAction)
 {
+#ifdef ANDROID_HITTEST_WITHSIZE
+    HitTestResult tempResult(result.point(), result.pointPadding());
+#else
     HitTestResult tempResult(result.point());
+#endif
     bool inside = RenderReplaced::nodeAtPoint(request, tempResult, x, y, tx, ty, hitTestAction);
 
+#ifdef ANDROID_HITTEST_WITHSIZE
+    if (tempResult.innerNode() && node()) {
+#else
     if (inside && node()) {
+#endif
         if (HTMLMapElement* map = imageMap()) {
             IntRect contentBox = contentBoxRect();
             float zoom = style()->effectiveZoom();
@@ -527,6 +535,10 @@ bool RenderImage::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
         }
     }
 
+#ifdef ANDROID_HITTEST_WITHSIZE
+    if (!inside && result.isRegionTest())
+        result.merge(tempResult);
+#endif
     if (inside)
         result = tempResult;
     return inside;

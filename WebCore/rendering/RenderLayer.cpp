@@ -2603,7 +2603,11 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
         if (parent()) {
             IntRect clipRect = backgroundClipRect(rootLayer, useTemporaryClipRects);
             // Go ahead and test the enclosing clip now.
+#ifdef ANDROID_HITTEST_WITHSIZE
+            if (!result.intersects(hitTestPoint.x(), hitTestPoint.y(), clipRect))
+#else
             if (!clipRect.contains(hitTestPoint))
+#endif
                 return 0;
         }
 
@@ -2700,9 +2704,20 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
     // Begin by walking our list of positive layers from highest z-index down to the lowest z-index.
     if (m_posZOrderList) {
         for (int i = m_posZOrderList->size() - 1; i >= 0; --i) {
+#ifdef ANDROID_HITTEST_WITHSIZE
+            HitTestResult tempResult(result.point(), result.pointPadding());
+#else
             HitTestResult tempResult(result.point());
+#endif
             RenderLayer* hitLayer = m_posZOrderList->at(i)->hitTestLayer(rootLayer, this, request, tempResult, hitTestRect, hitTestPoint, false, localTransformState.get(), zOffsetForDescendantsPtr);
+#ifdef ANDROID_HITTEST_WITHSIZE
+            if (result.isRegionTest())
+                result.merge(tempResult);
+#endif
             if (isHitCandidate(hitLayer, depthSortDescendants, zOffset, unflattenedTransformState.get())) {
+#ifdef ANDROID_HITTEST_WITHSIZE
+                if (!result.isRegionTest())
+#endif
                 result = tempResult;
                 if (!depthSortDescendants)
                     return hitLayer;
@@ -2716,9 +2731,20 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
     if (m_normalFlowList) {
         for (int i = m_normalFlowList->size() - 1; i >= 0; --i) {
             RenderLayer* currLayer = m_normalFlowList->at(i);
+#ifdef ANDROID_HITTEST_WITHSIZE
+            HitTestResult tempResult(result.point(), result.pointPadding());
+#else
             HitTestResult tempResult(result.point());
+#endif
             RenderLayer* hitLayer = currLayer->hitTestLayer(rootLayer, this, request, tempResult, hitTestRect, hitTestPoint, false, localTransformState.get(), zOffsetForDescendantsPtr);
+#ifdef ANDROID_HITTEST_WITHSIZE
+            if (result.isRegionTest())
+                result.merge(tempResult);
+#endif
             if (isHitCandidate(hitLayer, depthSortDescendants, zOffset, unflattenedTransformState.get())) {
+#ifdef ANDROID_HITTEST_WITHSIZE
+                if (!result.isRegionTest())
+#endif
                 result = tempResult;
                 if (!depthSortDescendants)
                     return hitLayer;
@@ -2729,25 +2755,53 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
     }
 
     // Next we want to see if the mouse pos is inside the child RenderObjects of the layer.
+#ifdef ANDROID_HITTEST_WITHSIZE
+    if (result.intersects(hitTestPoint.x(), hitTestPoint.y(), fgRect) && isSelfPaintingLayer()) {
+#else
     if (fgRect.contains(hitTestPoint) && isSelfPaintingLayer()) {
+#endif
         // Hit test with a temporary HitTestResult, because we only want to commit to 'result' if we know we're frontmost.
+#ifdef ANDROID_HITTEST_WITHSIZE
+        HitTestResult tempResult(result.point(), result.pointPadding());
+#else
         HitTestResult tempResult(result.point());
+#endif
         if (hitTestContents(request, tempResult, layerBounds, hitTestPoint, HitTestDescendants) &&
             isHitCandidate(this, false, zOffsetForContentsPtr, unflattenedTransformState.get())) {
+#ifdef ANDROID_HITTEST_WITHSIZE
+            if (result.isRegionTest())
+                result.merge(tempResult);
+            else
+#endif
             result = tempResult;
             if (!depthSortDescendants)
                 return this;
             // Foreground can depth-sort with descendant layers, so keep this as a candidate.
             candidateLayer = this;
         }
+#ifdef ANDROID_HITTEST_WITHSIZE
+        else if (result.isRegionTest())
+            result.merge(tempResult);
+#endif
     }
 
     // Now check our negative z-index children.
     if (m_negZOrderList) {
         for (int i = m_negZOrderList->size() - 1; i >= 0; --i) {
+#ifdef ANDROID_HITTEST_WITHSIZE
+            HitTestResult tempResult(result.point(), result.pointPadding());
+#else
             HitTestResult tempResult(result.point());
+#endif
             RenderLayer* hitLayer = m_negZOrderList->at(i)->hitTestLayer(rootLayer, this, request, tempResult, hitTestRect, hitTestPoint, false, localTransformState.get(), zOffsetForDescendantsPtr);
+#ifdef ANDROID_HITTEST_WITHSIZE
+            if (result.isRegionTest())
+                result.merge(tempResult);
+#endif
             if (isHitCandidate(hitLayer, depthSortDescendants, zOffset, unflattenedTransformState.get())) {
+#ifdef ANDROID_HITTEST_WITHSIZE
+                if (!result.isRegionTest())
+#endif
                 result = tempResult;
                 if (!depthSortDescendants)
                     return hitLayer;
@@ -2761,13 +2815,27 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
     if (candidateLayer)
         return candidateLayer;
 
+#ifdef ANDROID_HITTEST_WITHSIZE
+    if (result.intersects(hitTestPoint.x(), hitTestPoint.y(), bgRect) && isSelfPaintingLayer()) {
+        HitTestResult tempResult(result.point(), result.pointPadding());
+#else
     if (bgRect.contains(hitTestPoint) && isSelfPaintingLayer()) {
         HitTestResult tempResult(result.point());
+#endif
         if (hitTestContents(request, tempResult, layerBounds, hitTestPoint, HitTestSelf) &&
             isHitCandidate(this, false, zOffsetForContentsPtr, unflattenedTransformState.get())) {
+#ifdef ANDROID_HITTEST_WITHSIZE
+            if (result.isRegionTest())
+                result.merge(tempResult);
+            else
+#endif
             result = tempResult;
             return this;
         }
+#ifdef ANDROID_HITTEST_WITHSIZE
+        else if (result.isRegionTest())
+            result.merge(tempResult);
+#endif
     }
     
     return 0;

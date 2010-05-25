@@ -195,6 +195,9 @@
 // Enable prefetching when specified via the rel element of <link> elements.
 #define ENABLE_LINK_PREFETCH 1
 
+// Enable hit test with point plus a size
+#define ANDROID_HITTEST_WITHSIZE
+
 #endif /* PLATFORM(ANDROID) */
 
 #ifdef __cplusplus

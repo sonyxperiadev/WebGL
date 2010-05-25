@@ -22,6 +22,10 @@
 
 #include "IntPoint.h"
 #include "TextDirection.h"
+#ifdef ANDROID_HITTEST_WITHSIZE
+#include <IntSize.h>
+#include <wtf/Vector.h>
+#endif
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
@@ -76,6 +80,19 @@ public:
     bool isLiveLink() const;
     bool isContentEditable() const;
 
+#ifdef ANDROID_HITTEST_WITHSIZE
+    HitTestResult(const IntPoint&, const IntSize&);
+
+    IntSize pointPadding() const { return m_pointPadding; }
+    bool isRegionTest() const { return !m_pointPadding.isEmpty(); }
+    bool intersects(int, int, const IntRect&) const;
+    bool containedBy(int, int, const IntRect&) const;
+
+    void merge(const HitTestResult&);
+    void addRawNode(Node*);
+    const Vector<RefPtr<Node> >& rawNodeList() const { return m_rawNodeList; }
+#endif
+
 private:
     RefPtr<Node> m_innerNode;
     RefPtr<Node> m_innerNonSharedNode;
@@ -85,6 +102,11 @@ private:
     RefPtr<Element> m_innerURLElement;
     RefPtr<Scrollbar> m_scrollbar;
     bool m_isOverWidget; // Returns true if we are over a widget (and not in the border/padding area of a RenderWidget for example).
+
+#ifdef ANDROID_HITTEST_WITHSIZE
+    IntSize m_pointPadding;
+    Vector<RefPtr<Node> > m_rawNodeList;
+#endif
 };
 
 String displayString(const String&, const Node*);

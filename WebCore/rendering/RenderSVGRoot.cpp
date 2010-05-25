@@ -26,6 +26,9 @@
 #include "RenderSVGRoot.h"
 
 #include "GraphicsContext.h"
+#ifdef ANDROID_HITTEST_WITHSIZE
+#include "HitTestResult.h"
+#endif
 #include "RenderSVGContainer.h"
 #include "RenderView.h"
 #include "SVGLength.h"
@@ -313,6 +316,13 @@ bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
         if (child->nodeAtFloatPoint(request, result, localPoint, hitTestAction)) {
             // FIXME: CSS/HTML assumes the local point is relative to the border box, right?
             updateHitTestResult(result, pointInBorderBox);
+#ifdef ANDROID_HITTEST_WITHSIZE
+            // TODO: nodeAtFloatPoint() doesn't handle region test yet.
+            if (result.isRegionTest()) {
+                ASSERT(node() || isAnonymous());
+                result.addRawNode(node());
+            } else
+#endif
             return true;
         }
     }

@@ -52,6 +52,15 @@ HitTestResult::HitTestResult(const IntPoint& point)
 {
 }
 
+#ifdef ANDROID_HITTEST_WITHSIZE
+HitTestResult::HitTestResult(const IntPoint& point, const IntSize& padding)
+    : m_point(point)
+    , m_pointPadding(padding)
+    , m_isOverWidget(false)
+{
+}
+#endif
+
 HitTestResult::HitTestResult(const HitTestResult& other)
     : m_innerNode(other.innerNode())
     , m_innerNonSharedNode(other.innerNonSharedNode())
@@ -60,6 +69,10 @@ HitTestResult::HitTestResult(const HitTestResult& other)
     , m_innerURLElement(other.URLElement())
     , m_scrollbar(other.scrollbar())
     , m_isOverWidget(other.isOverWidget())
+#ifdef ANDROID_HITTEST_WITHSIZE
+    , m_pointPadding(other.pointPadding())
+    , m_rawNodeList(other.rawNodeList())
+#endif
 {
 }
 
@@ -76,6 +89,10 @@ HitTestResult& HitTestResult::operator=(const HitTestResult& other)
     m_innerURLElement = other.URLElement();
     m_scrollbar = other.scrollbar();
     m_isOverWidget = other.isOverWidget();
+#ifdef ANDROID_HITTEST_WITHSIZE
+    m_pointPadding = other.pointPadding();
+    m_rawNodeList = other.rawNodeList();
+#endif
     return *this;
 }
 
@@ -361,5 +378,51 @@ bool HitTestResult::isContentEditable() const
 
     return m_innerNonSharedNode->isContentEditable();
 }
+
+#ifdef ANDROID_HITTEST_WITHSIZE
+
+bool HitTestResult::intersects(int x, int y, const IntRect& other) const
+{
+    IntRect pointRect(x - m_pointPadding.width(), y - m_pointPadding.height(), 2 * m_pointPadding.width() + 1, 2* m_pointPadding.height() + 1);
+    return other.intersects(pointRect);
+}
+
+bool HitTestResult::containedBy(int x, int y, const IntRect& other) const
+{
+    IntRect pointRect(x - m_pointPadding.width(), y - m_pointPadding.height(), 2 * m_pointPadding.width() + 1, 2* m_pointPadding.height() + 1);
+    return other.contains(pointRect);
+}
+
+void HitTestResult::merge(const HitTestResult& other)
+{
+    if (!m_innerNode && other.innerNode()) {
+        m_innerNode = other.innerNode();
+        m_innerNonSharedNode = other.innerNonSharedNode();
+        m_localPoint = other.localPoint();
+        m_innerURLElement = other.URLElement();
+        m_scrollbar = other.scrollbar();
+        m_isOverWidget = other.isOverWidget();
+    }
+
+    const Vector<RefPtr<Node> >& list = other.rawNodeList();
+    Vector<RefPtr<Node> >::const_iterator last = list.end();
+    for (Vector<RefPtr<Node> >::const_iterator it = list.begin(); it != last; ++it)
+        addRawNode(it->get());
+}
+
+void HitTestResult::addRawNode(Node* node)
+{
+    if (!node)
+        return;
+
+    Vector<RefPtr<Node> >::const_iterator last = m_rawNodeList.end();
+    for (Vector<RefPtr<Node> >::const_iterator it = m_rawNodeList.begin(); it != last; ++it)
+        if ((*it) == node)
+            return;
+
+    m_rawNodeList.append(node);
+}
+
+#endif // ANDROID_HITTEST_WITHSIZE
 
 } // namespace WebCore

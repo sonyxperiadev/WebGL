@@ -31,6 +31,9 @@
 #include "Document.h"
 #include "FixedTableLayout.h"
 #include "FrameView.h"
+#ifdef ANDROID_HITTEST_WITHSIZE
+#include "HitTestResult.h"
+#endif
 #include "HTMLNames.h"
 #include "RenderLayer.h"
 #include "RenderTableCell.h"
@@ -1202,7 +1205,11 @@ bool RenderTable::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
     ty += y();
 
     // Check kids first.
+#ifdef ANDROID_HITTEST_WITHSIZE
+    if (!hasOverflowClip() || result.intersects(xPos, yPos, overflowClipRect(tx, ty))) {
+#else
     if (!hasOverflowClip() || overflowClipRect(tx, ty).contains(xPos, yPos)) {
+#endif
         for (RenderObject* child = lastChild(); child; child = child->previousSibling()) {
             if (child->isBox() && !toRenderBox(child)->hasSelfPaintingLayer() && (child->isTableSection() || child == m_caption) &&
                 child->nodeAtPoint(request, result, xPos, yPos, tx, ty, action)) {
@@ -1213,8 +1220,21 @@ bool RenderTable::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
     }
 
     // Check our bounds next.
+#ifdef ANDROID_HITTEST_WITHSIZE
+    IntRect boundsRect = IntRect(tx, ty, width(), height());
+    if (visibleToHitTesting() && (action == HitTestBlockBackground || action == HitTestChildBlockBackground) && result.intersects(xPos, yPos, boundsRect)) {
+#else
     if (visibleToHitTesting() && (action == HitTestBlockBackground || action == HitTestChildBlockBackground) && IntRect(tx, ty, width(), height()).contains(xPos, yPos)) {
+#endif
         updateHitTestResult(result, IntPoint(xPos - tx, yPos - ty));
+#ifdef ANDROID_HITTEST_WITHSIZE
+        if (result.isRegionTest()) {
+            ASSERT(node() || isAnonymous());
+            result.addRawNode(node());
+            if (!result.containedBy(xPos, yPos, boundsRect))
+                return false;
+        }
+#endif
         return true;
     }
 
