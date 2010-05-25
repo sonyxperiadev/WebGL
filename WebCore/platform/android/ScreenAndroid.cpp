@@ -62,28 +62,22 @@ bool screenIsMonochrome(Widget* page)
     return false;
 }
 
-// The only place I have seen these values used is
-// positioning popup windows. If we support multiple windows
-// they will be most likely full screen. Therefore,
-// the accuracy of these number are not too important.
+// This is used by JavaScript Screen object and media query for device info. We
+// should return the value in the device pixel.
 FloatRect screenRect(Widget* page)
 {
-    if (!page)
-        return FloatRect();
-
-    IntRect rect = page->root()->platformWidget()->getBounds();
-    return FloatRect(0.0, 0.0, rect.width(), rect.height());
+    android::DisplayInfo info;
+    android::SurfaceComposerClient::getDisplayInfo(android::DisplayID(0), &info);
+    return FloatRect(0.0, 0.0, info.w, info.h);
 }
 
-// Similar screenRect, this function is commonly used by javascripts
-// to position and resize windows (usually to full screen). 
+// Similar as screenRect, this is used by JavaScript Screen object. This is also
+// used by JavaScript Window to position and resize (usually to full screen).
 FloatRect screenAvailableRect(Widget* page)
 {
-    if (!page)
-        return FloatRect();
-
-    IntRect rect = page->root()->platformWidget()->getBounds();
-    return FloatRect(0.0, 0.0, rect.width(), rect.height());
+    android::DisplayInfo info;
+    android::SurfaceComposerClient::getDisplayInfo(android::DisplayID(0), &info);
+    return FloatRect(0.0, 0.0, info.w, info.h);
 }
 
 } // namespace WebCore
