@@ -92,6 +92,7 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSDataGridColumnListCustom.cpp \
 	bindings/js/JSDataGridDataSource.cpp \
 	bindings/js/JSDatabaseCustom.cpp \
+	bindings/js/JSDatabaseSyncCustom.cpp \
 	bindings/js/JSDedicatedWorkerContextCustom.cpp \
 	bindings/js/JSDocumentCustom.cpp \
 	bindings/js/JSElementCustom.cpp \
@@ -140,6 +141,7 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSPopStateEventCustom.cpp \
 	bindings/js/JSSQLResultSetRowListCustom.cpp \
 	bindings/js/JSSQLTransactionCustom.cpp \
+	bindings/js/JSSQLTransactionSyncCustom.cpp \
 	bindings/js/JSSVGElementInstanceCustom.cpp \
 	bindings/js/JSSVGLengthCustom.cpp \
 	bindings/js/JSSVGMatrixCustom.cpp \

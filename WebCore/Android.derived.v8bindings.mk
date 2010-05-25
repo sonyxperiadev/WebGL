@@ -145,6 +145,7 @@ GEN := \
     $(intermediates)/bindings/V8File.h \
     $(intermediates)/bindings/V8FileError.h \
     $(intermediates)/bindings/V8FileList.h \
+    $(intermediates)/bindings/V8FileReader.h \
     $(intermediates)/bindings/V8HTMLAllCollection.h \
     $(intermediates)/bindings/V8HTMLAnchorElement.h \
     $(intermediates)/bindings/V8HTMLAppletElement.h \
@@ -191,6 +192,7 @@ GEN := \
     $(intermediates)/bindings/V8HTMLMediaElement.h \
     $(intermediates)/bindings/V8HTMLMenuElement.h \
     $(intermediates)/bindings/V8HTMLMetaElement.h \
+    $(intermediates)/bindings/V8HTMLMeterElement.h \
     $(intermediates)/bindings/V8HTMLModElement.h \
     $(intermediates)/bindings/V8HTMLOListElement.h \
     $(intermediates)/bindings/V8HTMLObjectElement.h \
@@ -235,31 +237,30 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 
 # Canvas
 GEN := \
+    $(intermediates)/bindings/V8ArrayBuffer.h \
     $(intermediates)/bindings/V8CanvasGradient.h \
     $(intermediates)/bindings/V8CanvasNumberArray.h \
     $(intermediates)/bindings/V8CanvasPattern.h \
     $(intermediates)/bindings/V8CanvasPixelArray.h \
     $(intermediates)/bindings/V8CanvasRenderingContext.h \
     $(intermediates)/bindings/V8CanvasRenderingContext2D.h \
+    $(intermediates)/bindings/V8FloatArray.h \
+    $(intermediates)/bindings/V8Int8Array.h \
+    $(intermediates)/bindings/V8Int16Array.h \
+    $(intermediates)/bindings/V8Int32Array.h \
+    $(intermediates)/bindings/V8Uint8Array.h \
+    $(intermediates)/bindings/V8Uint16Array.h \
+    $(intermediates)/bindings/V8Uint32Array.h \
     $(intermediates)/bindings/V8WebGLActiveInfo.h \
-    $(intermediates)/bindings/V8WebGLArray.h \
-    $(intermediates)/bindings/V8WebGLArrayBuffer.h \
     $(intermediates)/bindings/V8WebGLBuffer.h \
-    $(intermediates)/bindings/V8WebGLByteArray.h \
     $(intermediates)/bindings/V8WebGLContextAttributes.h \
-    $(intermediates)/bindings/V8WebGLFloatArray.h \
     $(intermediates)/bindings/V8WebGLFramebuffer.h \
-    $(intermediates)/bindings/V8WebGLIntArray.h \
     $(intermediates)/bindings/V8WebGLProgram.h \
     $(intermediates)/bindings/V8WebGLRenderbuffer.h \
     $(intermediates)/bindings/V8WebGLRenderingContext.h \
     $(intermediates)/bindings/V8WebGLShader.h \
-    $(intermediates)/bindings/V8WebGLShortArray.h \
     $(intermediates)/bindings/V8WebGLTexture.h \
     $(intermediates)/bindings/V8WebGLUniformLocation.h \
-    $(intermediates)/bindings/V8WebGLUnsignedByteArray.h \
-    $(intermediates)/bindings/V8WebGLUnsignedIntArray.h \
-    $(intermediates)/bindings/V8WebGLUnsignedShortArray.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include html/canvas --outputdir $(dir $@) $<
@@ -333,6 +334,11 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 GEN := \
     $(intermediates)/bindings/V8Database.h \
     $(intermediates)/bindings/V8DatabaseCallback.h \
+    $(intermediates)/bindings/V8DatabaseSync.h \
+    $(intermediates)/bindings/V8IDBEvent.h \
+    $(intermediates)/bindings/V8IDBErrorEvent.h \
+    $(intermediates)/bindings/V8IDBRequest.h \
+    $(intermediates)/bindings/V8IDBSuccessEvent.h \
     $(intermediates)/bindings/V8SQLError.h \
     $(intermediates)/bindings/V8SQLResultSet.h \
     $(intermediates)/bindings/V8SQLResultSetRowList.h \
@@ -340,10 +346,12 @@ GEN := \
     $(intermediates)/bindings/V8SQLStatementErrorCallback.h \
     $(intermediates)/bindings/V8SQLTransaction.h \
     $(intermediates)/bindings/V8SQLTransactionCallback.h \
-    $(intermediates)/bindings/V8SQLTransactionErrorCallback.h
+    $(intermediates)/bindings/V8SQLTransactionErrorCallback.h \
+    $(intermediates)/bindings/V8SQLTransactionSync.h \
+    $(intermediates)/bindings/V8SQLTransactionSyncCallback.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include storage --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/storage/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)

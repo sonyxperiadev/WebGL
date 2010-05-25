@@ -161,6 +161,7 @@ GEN := \
     $(intermediates)/html/JSFile.h \
     $(intermediates)/html/JSFileError.h \
     $(intermediates)/html/JSFileList.h \
+    $(intermediates)/html/JSFileReader.h \
     $(intermediates)/html/JSHTMLAllCollection.h \
     $(intermediates)/html/JSHTMLAnchorElement.h \
     $(intermediates)/html/JSHTMLAppletElement.h \
@@ -207,6 +208,7 @@ GEN := \
     $(intermediates)/html/JSHTMLMediaElement.h \
     $(intermediates)/html/JSHTMLMenuElement.h \
     $(intermediates)/html/JSHTMLMetaElement.h \
+    $(intermediates)/html/JSHTMLMeterElement.h \
     $(intermediates)/html/JSHTMLModElement.h \
     $(intermediates)/html/JSHTMLOListElement.h \
     $(intermediates)/html/JSHTMLObjectElement.h \
@@ -251,20 +253,20 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/%.cpp : $(intermediates)/htm
 
 # Canvas
 GEN := \
+    $(intermediates)/html/canvas/JSArrayBuffer.h \
     $(intermediates)/html/canvas/JSCanvasGradient.h \
     $(intermediates)/html/canvas/JSCanvasNumberArray.h \
     $(intermediates)/html/canvas/JSCanvasPattern.h \
     $(intermediates)/html/canvas/JSCanvasRenderingContext.h \
     $(intermediates)/html/canvas/JSCanvasRenderingContext2D.h \
-    $(intermediates)/html/canvas/JSWebGLArrayBuffer.h \
-    $(intermediates)/html/canvas/JSWebGLByteArray.h \
-    $(intermediates)/html/canvas/JSWebGLFloatArray.h \
-    $(intermediates)/html/canvas/JSWebGLIntArray.h \
+    $(intermediates)/html/canvas/JSFloatArray.h \
+    $(intermediates)/html/canvas/JSInt8Array.h \
+    $(intermediates)/html/canvas/JSInt16Array.h \
+    $(intermediates)/html/canvas/JSInt32Array.h \
+    $(intermediates)/html/canvas/JSUint8Array.h \
+    $(intermediates)/html/canvas/JSUint16Array.h \
+    $(intermediates)/html/canvas/JSUint32Array.h \
     $(intermediates)/html/canvas/JSWebGLRenderingContext.h \
-    $(intermediates)/html/canvas/JSWebGLShortArray.h \
-    $(intermediates)/html/canvas/JSWebGLUnsignedByteArray.h \
-    $(intermediates)/html/canvas/JSWebGLUnsignedIntArray.h \
-    $(intermediates)/html/canvas/JSWebGLUnsignedShortArray.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
@@ -338,6 +340,11 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/plugins/%.cpp : $(intermediates)/
 GEN := \
     $(intermediates)/storage/JSDatabase.h \
     $(intermediates)/storage/JSDatabaseCallback.h \
+    $(intermediates)/storage/JSDatabaseSync.h \
+    $(intermediates)/storage/JSIDBErrorEvent.h \
+    $(intermediates)/storage/JSIDBEvent.h \
+    $(intermediates)/storage/JSIDBRequest.h \
+    $(intermediates)/storage/JSIDBSuccessEvent.h \
     $(intermediates)/storage/JSSQLError.h \
     $(intermediates)/storage/JSSQLResultSet.h \
     $(intermediates)/storage/JSSQLResultSetRowList.h \
@@ -345,10 +352,12 @@ GEN := \
     $(intermediates)/storage/JSSQLStatementErrorCallback.h \
     $(intermediates)/storage/JSSQLTransaction.h \
     $(intermediates)/storage/JSSQLTransactionCallback.h \
+    $(intermediates)/storage/JSSQLTransactionSync.h \
+    $(intermediates)/storage/JSSQLTransactionSyncCallback.h \
     $(intermediates)/storage/JSSQLTransactionErrorCallback.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
-$(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --include storage --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/storage/JS%.h : $(LOCAL_PATH)/storage/%.idl $(js_binding_scripts)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)

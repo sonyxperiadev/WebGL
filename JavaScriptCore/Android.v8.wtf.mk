@@ -56,6 +56,7 @@ LOCAL_SRC_FILES := \
 	wtf/text/AtomicString.cpp \
 	wtf/text/CString.cpp \
 	wtf/text/StringImpl.cpp \
+	wtf/text/StringStatics.cpp \
 	wtf/text/WTFString.cpp \
 	\
 	wtf/unicode/CollatorDefault.cpp \
