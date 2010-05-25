@@ -1343,7 +1343,7 @@ WebCore::String WebViewCore::requestLabel(WebCore::Frame* frame,
         for (unsigned i = 0; i < length; i++) {
             WebCore::HTMLLabelElement* label = static_cast<WebCore::HTMLLabelElement*>(
                     list->item(i));
-            if (label->correspondingControl() == node) {
+            if (label->control() == node) {
                 Node* node = label;
                 String result;
                 while ((node = node->traverseNextNode(label))) {
