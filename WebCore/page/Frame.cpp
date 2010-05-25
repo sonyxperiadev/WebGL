@@ -105,27 +105,16 @@
 #include "XLinkNames.h"
 #endif
 
-<<<<<<< HEAD
-#if PLATFORM(ANDROID)
-#include "WebViewCore.h"
-#endif
-
-#if ENABLE(WML)
-#include "WMLNames.h"
-#endif
-
-#if ENABLE(MATHML)
-#include "MathMLNames.h"
-#endif
-
-=======
->>>>>>> webkit.org at r59636
 #if ENABLE(TILED_BACKING_STORE)
 #include "TiledBackingStore.h"
 #endif
 
 #if ENABLE(WML)
 #include "WMLNames.h"
+#endif
+
+#if PLATFORM(ANDROID)
+#include "WebViewCore.h"
 #endif
 
 using namespace std;
