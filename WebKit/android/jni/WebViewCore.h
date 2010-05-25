@@ -444,6 +444,9 @@ namespace android {
         // in the current view.
         void centerFitRect(int x, int y, int width, int height);
 
+        // return a list of rects matching the touch point (x, y) with the slop
+        Vector<IntRect> getTouchHighlightRects(int x, int y, int slop);
+
         // other public functions
     public:
         // Open a file chooser for selecting a file to upload
