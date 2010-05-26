@@ -266,6 +266,36 @@ void ScrollView::setContentsSize(const IntSize& newSize)
         updateScrollbars(scrollOffset());
 }
 
+#if PLATFORM(ANDROID)
+int ScrollView::actualWidth() const
+{
+    if (platformWidget())
+        return platformActualWidth();
+    return width();
+}
+
+int ScrollView::actualHeight() const
+{
+    if (platformWidget())
+        return platformActualHeight();
+    return height();
+}
+
+int ScrollView::actualScrollX() const
+{
+    if (platformWidget())
+        return platformActualScrollX();
+    return scrollX();
+}
+
+int ScrollView::actualScrollY() const
+{
+    if (platformWidget())
+        return platformActualScrollY();
+    return scrollY();
+}
+#endif
+
 IntPoint ScrollView::maximumScrollPosition() const
 {
     IntSize maximumOffset = contentsSize() - visibleContentRect().size();

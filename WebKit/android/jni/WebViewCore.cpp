@@ -1183,6 +1183,7 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
     int ow = window->width();
     int oh = window->height();
     window->setSize(width, height);
+    window->setVisibleSize(realScreenWidth, screenHeight);
     int osw = m_screenWidth;
     int orsw = m_screenWidth * m_screenWidthScale / m_scale;
     int osh = m_screenHeight;

@@ -142,6 +142,13 @@ public:
     int contentsHeight() const { return contentsSize().height(); }
     virtual void setContentsSize(const IntSize&);
    
+#if PLATFORM(ANDROID)
+    int actualWidth() const;
+    int actualHeight() const;
+    int actualScrollX() const;
+    int actualScrollY() const;
+#endif
+
     // Functions for querying the current scrolled position (both as a point, a size, or as individual X and Y values).
     IntPoint scrollPosition() const { return visibleContentRect().location(); }
     IntSize scrollOffset() const { return visibleContentRect().location() - IntPoint(); } // Gets the scrolled position as an IntSize. Convenient for adding to other sizes.
@@ -318,6 +325,13 @@ private:
     void platformSetScrollbarsSuppressed(bool repaintOnUnsuppress);
     void platformRepaintContentRectangle(const IntRect&, bool now);
     bool platformIsOffscreen() const;
+
+#if PLATFORM(ANDROID)
+    int platformActualWidth() const;
+    int platformActualHeight() const;
+    int platformActualScrollX() const;
+    int platformActualScrollY() const;
+#endif
 
 #if PLATFORM(MAC) && defined __OBJC__
 public:
