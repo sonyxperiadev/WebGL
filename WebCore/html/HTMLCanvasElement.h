@@ -88,6 +88,22 @@ public:
     bool is3D() const;
 #endif
 
+#ifdef ANDROID_INSTRUMENT
+    void* operator new(size_t size) {
+        return HTMLElement::operator new(size);
+    }
+    void* operator new[](size_t size) {
+        return HTMLElement::operator new[](size);
+    }
+
+    void operator delete(void* p, size_t size) {
+        return HTMLElement::operator delete(p, size);
+    }
+    void operator delete[](void* p, size_t size) {
+        return HTMLElement::operator delete[](p, size);
+    }
+#endif
+
 private:
 #if ENABLE(DASHBOARD_SUPPORT)
     virtual HTMLTagStatus endTagRequirement() const;
