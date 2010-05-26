@@ -174,8 +174,7 @@ bool BytecodeGenerator::addVar(const Identifier& ident, bool isConstant, Registe
         return false;
     }
 
-    ++m_codeBlock->m_numVars;
-    r0 = newRegister();
+    r0 = addVar();
     return true;
 }
 
@@ -295,6 +294,7 @@ BytecodeGenerator::BytecodeGenerator(FunctionBodyNode* functionBody, const Debug
     , m_symbolTable(symbolTable)
     , m_scopeNode(functionBody)
     , m_codeBlock(codeBlock)
+    , m_activationRegister(0)
     , m_finallyDepth(0)
     , m_dynamicScopeDepth(0)
     , m_baseScopeDepth(0)
@@ -312,29 +312,35 @@ BytecodeGenerator::BytecodeGenerator(FunctionBodyNode* functionBody, const Debug
 
     codeBlock->setGlobalData(m_globalData);
 
-    bool usesArguments = functionBody->usesArguments();
-    codeBlock->setUsesArguments(usesArguments);
-    if (usesArguments) {
-        m_argumentsRegister.setIndex(RegisterFile::OptionalCalleeArguments);
-        addVar(propertyNames().arguments, false);
-    }
-
     if (m_codeBlock->needsFullScopeChain()) {
-        ++m_codeBlock->m_numVars;
-        m_activationRegisterIndex = newRegister()->index();
+        m_activationRegister = addVar();
         emitOpcode(op_enter_with_activation);
-        instructions().append(m_activationRegisterIndex);
+        instructions().append(m_activationRegister->index());
     } else
         emitOpcode(op_enter);
 
-    if (usesArguments) {
+    // Both op_tear_off_activation and op_tear_off_arguments tear off the 'arguments'
+    // object, if created.
+    if (m_codeBlock->needsFullScopeChain() || functionBody->usesArguments()) {
+        RegisterID* unmodifiedArgumentsRegister = addVar(); // Anonymous, so it can't be modified by user code.
+        RegisterID* argumentsRegister = addVar(propertyNames().arguments, false); // Can be changed by assigning to 'arguments'.
+
+        // We can save a little space by hard-coding the knowledge that the two
+        // 'arguments' values are stored in consecutive registers, and storing
+        // only the index of the assignable one.
+        codeBlock->setArgumentsRegister(argumentsRegister->index());
+        ASSERT_UNUSED(unmodifiedArgumentsRegister, unmodifiedArgumentsRegister->index() == JSC::unmodifiedArgumentsRegister(codeBlock->argumentsRegister()));
+
         emitOpcode(op_init_arguments);
+        instructions().append(argumentsRegister->index());
 
         // The debugger currently retrieves the arguments object from an activation rather than pulling
         // it from a call frame.  In the long-term it should stop doing that (<rdar://problem/6911886>),
         // but for now we force eager creation of the arguments object when debugging.
-        if (m_shouldEmitDebugHooks)
+        if (m_shouldEmitDebugHooks) {
             emitOpcode(op_create_arguments);
+            instructions().append(argumentsRegister->index());
+        }
     }
 
     const DeclarationStacks::FunctionStack& functionStack = functionBody->functionStack();
@@ -359,7 +365,7 @@ BytecodeGenerator::BytecodeGenerator(FunctionBodyNode* functionBody, const Debug
     ++m_nextParameterIndex;
     ++m_codeBlock->m_numParameters;
 
-    if (functionBody->usesThis() || m_shouldEmitDebugHooks) {
+    if (!isConstructor() && (functionBody->usesThis() || m_shouldEmitDebugHooks)) {
         emitOpcode(op_convert_this);
         instructions().append(m_thisRegister.index());
     }
@@ -1025,7 +1031,7 @@ bool BytecodeGenerator::findScopedProperty(const Identifier& property, int& inde
                     globalObject = currentVariableObject;
                 return false;
             }
-            stackDepth = depth;
+            stackDepth = depth + m_codeBlock->needsFullScopeChain();
             index = entry.getIndex();
             if (++iter == end)
                 globalObject = currentVariableObject;
@@ -1037,7 +1043,7 @@ bool BytecodeGenerator::findScopedProperty(const Identifier& property, int& inde
         requiresDynamicChecks |= scopeRequiresDynamicChecks;
     }
     // Can't locate the property but we're able to avoid a few lookups.
-    stackDepth = depth;
+    stackDepth = depth + m_codeBlock->needsFullScopeChain();
     index = missingSymbolMarker();
     JSObject* scope = *iter;
     if (++iter == end)
@@ -1385,7 +1391,6 @@ RegisterID* BytecodeGenerator::emitNewRegExp(RegisterID* dst, RegExp* regExp)
     return dst;
 }
 
-
 RegisterID* BytecodeGenerator::emitNewFunctionExpression(RegisterID* r0, FuncExprNode* n)
 {
     FunctionBodyNode* function = n->body();
@@ -1404,13 +1409,16 @@ RegisterID* BytecodeGenerator::emitCall(RegisterID* dst, RegisterID* func, Regis
 
 void BytecodeGenerator::createArgumentsIfNecessary()
 {
-    if (m_codeBlock->usesArguments() && m_codeType == FunctionCode)
-        emitOpcode(op_create_arguments);
+    if (m_codeType != FunctionCode)
+        return;
+    ASSERT(m_codeBlock->usesArguments());
+
+    emitOpcode(op_create_arguments);
+    instructions().append(m_codeBlock->argumentsRegister());
 }
 
 RegisterID* BytecodeGenerator::emitCallEval(RegisterID* dst, RegisterID* func, RegisterID* thisRegister, ArgumentsNode* argumentsNode, unsigned divot, unsigned startOffset, unsigned endOffset)
 {
-    createArgumentsIfNecessary();
     return emitCall(op_call_eval, dst, func, thisRegister, argumentsNode, divot, startOffset, endOffset);
 }
 
@@ -1466,10 +1474,13 @@ RegisterID* BytecodeGenerator::emitCall(OpcodeID opcodeID, RegisterID* dst, Regi
 
     // Emit call.
     emitOpcode(opcodeID);
-    instructions().append(dst->index()); // dst
     instructions().append(func->index()); // func
     instructions().append(argv.size()); // argCount
     instructions().append(argv[0]->index() + argv.size() + RegisterFile::CallFrameHeaderSize); // registerOffset
+    if (dst != ignoredResult()) {
+        emitOpcode(op_call_put_result);
+        instructions().append(dst->index()); // dst
+    }
 
     if (m_shouldEmitProfileHooks) {
         emitOpcode(op_profile_did_call);
@@ -1511,10 +1522,13 @@ RegisterID* BytecodeGenerator::emitCallVarargs(RegisterID* dst, RegisterID* func
     
     // Emit call.
     emitOpcode(op_call_varargs);
-    instructions().append(dst->index()); // dst
     instructions().append(func->index()); // func
     instructions().append(argCountRegister->index()); // arg count
     instructions().append(thisRegister->index() + RegisterFile::CallFrameHeaderSize); // initial registerOffset
+    if (dst != ignoredResult()) {
+        emitOpcode(op_call_put_result);
+        instructions().append(dst->index()); // dst
+    }
     if (m_shouldEmitProfileHooks) {
         emitOpcode(op_profile_did_call);
         instructions().append(func->index());
@@ -1526,10 +1540,22 @@ RegisterID* BytecodeGenerator::emitReturn(RegisterID* src)
 {
     if (m_codeBlock->needsFullScopeChain()) {
         emitOpcode(op_tear_off_activation);
-        instructions().append(m_activationRegisterIndex);
-    } else if (m_codeBlock->usesArguments() && m_codeBlock->m_numParameters > 1)
+        instructions().append(m_activationRegister->index());
+        instructions().append(m_codeBlock->argumentsRegister());
+    } else if (m_codeBlock->usesArguments() && m_codeBlock->m_numParameters > 1) { // If there are no named parameters, there's nothing to tear off, since extra / unnamed parameters get copied to the arguments object at construct time.
         emitOpcode(op_tear_off_arguments);
+        instructions().append(m_codeBlock->argumentsRegister());
+    }
 
+    // Constructors use op_ret_object_or_this to check the result is an
+    // object, unless we can trivially determine the check is not
+    // necessary (currently, if the return value is 'this').
+    if (isConstructor() && (src->index() != m_thisRegister.index())) {
+        emitOpcode(op_ret_object_or_this);
+        instructions().append(src->index());
+        instructions().append(m_thisRegister.index());
+        return src;
+    }
     return emitUnaryNoDstOp(op_ret, src);
 }
 
@@ -1589,16 +1615,15 @@ RegisterID* BytecodeGenerator::emitConstruct(RegisterID* dst, RegisterID* func, 
 #endif
 
     emitOpcode(op_construct);
-    instructions().append(dst->index()); // dst
     instructions().append(func->index()); // func
     instructions().append(argv.size()); // argCount
     instructions().append(argv[0]->index() + argv.size() + RegisterFile::CallFrameHeaderSize); // registerOffset
     instructions().append(funcProto->index()); // proto
     instructions().append(argv[0]->index()); // thisRegister
-
-    emitOpcode(op_construct_verify);
-    instructions().append(dst->index());
-    instructions().append(argv[0]->index());
+    if (dst != ignoredResult()) {
+        emitOpcode(op_call_put_result);
+        instructions().append(dst->index()); // dst
+    }
 
     if (m_shouldEmitProfileHooks) {
         emitOpcode(op_profile_did_call);
@@ -1635,7 +1660,6 @@ RegisterID* BytecodeGenerator::emitPushScope(RegisterID* scope)
     context.isFinallyBlock = false;
     m_scopeContextStack.append(context);
     m_dynamicScopeDepth++;
-    createArgumentsIfNecessary();
 
     return emitUnaryNoDstOp(op_push_scope, scope);
 }
@@ -1899,8 +1923,6 @@ void BytecodeGenerator::emitPushNewScope(RegisterID* dst, const Identifier& prop
     context.isFinallyBlock = false;
     m_scopeContextStack.append(context);
     m_dynamicScopeDepth++;
-    
-    createArgumentsIfNecessary();
 
     emitOpcode(op_push_new_scope);
     instructions().append(dst->index());

@@ -20,8 +20,10 @@
 #include "DragClientGtk.h"
 
 #include "ClipboardGtk.h"
+#include "ClipboardUtilitiesGtk.h"
 #include "DataObjectGtk.h"
 #include "Document.h"
+#include "DragController.h"
 #include "Element.h"
 #include "Frame.h"
 #include "GRefPtrGtk.h"
@@ -71,25 +73,24 @@ void DragClient::startDrag(DragImageRef image, const IntPoint& dragImageOrigin, 
 {
     ClipboardGtk* clipboardGtk = reinterpret_cast<ClipboardGtk*>(clipboard);
 
-    GdkDragAction dragAction = GDK_ACTION_COPY;
-    if (linkDrag)
-        dragAction = (GdkDragAction) (dragAction | GDK_ACTION_LINK);
-
     WebKitWebView* webView = webkit_web_frame_get_web_view(kit(frame));
     RefPtr<DataObjectGtk> dataObject = clipboardGtk->dataObject();
 
     GRefPtr<GtkTargetList> targetList(clipboardGtk->helper()->targetListForDataObject(dataObject.get()));
     GdkEvent* event = gdk_event_new(GDK_BUTTON_PRESS);
-    reinterpret_cast<GdkEventButton*>(event)->window = gtk_widget_get_window(GTK_WIDGET(m_webView));
-    reinterpret_cast<GdkEventButton*>(event)->time = GDK_CURRENT_TIME;
+    // This will be decremented by gdk_event_free() below.
+    event->button.window = static_cast<GdkWindow*>(g_object_ref(gtk_widget_get_window(GTK_WIDGET(m_webView))));
+    event->button.time = GDK_CURRENT_TIME;
 
-    GdkDragContext* context = gtk_drag_begin(GTK_WIDGET(m_webView), targetList.get(), dragAction, 1, event);
+    GdkDragContext* context = gtk_drag_begin(GTK_WIDGET(m_webView), targetList.get(), dragOperationToGdkDragActions(clipboard->sourceOperation()), 1, event);
     webView->priv->draggingDataObjects.set(context, dataObject);
 
     if (image)
         gtk_drag_set_icon_pixbuf(context, image, eventPos.x() - dragImageOrigin.x(), eventPos.y() - dragImageOrigin.y());
     else
         gtk_drag_set_icon_default(context);
+
+    gdk_event_free(event);
 }
 
 DragImageRef DragClient::createDragImageForLink(KURL&, const String&, Frame*)

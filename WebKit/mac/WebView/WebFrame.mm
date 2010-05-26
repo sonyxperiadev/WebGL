@@ -196,6 +196,18 @@ EditableLinkBehavior core(WebKitEditableLinkBehavior editableLinkBehavior)
     return EditableLinkDefaultBehavior;
 }
 
+WebCore::EditingBehavior core(WebKitEditingBehavior behavior)
+{
+    switch (behavior) {
+        case WebKitEditingMacBehavior:
+            return WebCore::EditingMacBehavior;
+        case WebKitEditingWinBehavior:
+            return WebCore::EditingWindowsBehavior;
+    }
+    ASSERT_NOT_REACHED();
+    return WebCore::EditingMacBehavior;
+}
+
 TextDirectionSubmenuInclusionBehavior core(WebTextDirectionSubmenuInclusionBehavior behavior)
 {
     switch (behavior) {
@@ -1025,7 +1037,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     RenderObject* bodyRenderer = body->renderer();
     if (!bodyRenderer)
         return nil;
-    Color color = bodyRenderer->style()->backgroundColor();
+    Color color = bodyRenderer->style()->visitedDependentColor(CSSPropertyBackgroundColor);
     if (!color.isValid())
         return nil;
     return nsColor(color);

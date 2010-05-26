@@ -51,6 +51,7 @@ webcore_cppflags += \
 	-I$(srcdir)/WebCore/platform/network \
 	-I$(srcdir)/WebCore/platform/sql \
 	-I$(srcdir)/WebCore/platform/text \
+	-I$(srcdir)/WebCore/platform/text/transcoder \
 	-I$(srcdir)/WebCore/plugins \
 	-I$(srcdir)/WebCore/rendering \
 	-I$(srcdir)/WebCore/rendering/style \
@@ -138,6 +139,8 @@ IDL_BINDINGS += \
 	Webcore/dom/CustomEvent.idl \
 	WebCore/dom/DOMCoreException.idl \
 	WebCore/dom/DOMImplementation.idl \
+	WebCore/dom/DOMStringList.idl \
+	WebCore/dom/DeviceOrientationEvent.idl \
 	WebCore/dom/Document.idl \
 	WebCore/dom/DocumentFragment.idl \
 	WebCore/dom/DocumentType.idl \
@@ -467,6 +470,8 @@ webcore_sources += \
 	WebCore/bindings/js/JSLazyEventListener.h \
 	WebCore/bindings/js/JSLocationCustom.cpp \
 	WebCore/bindings/js/JSLocationCustom.h \
+	WebCore/bindings/js/JSMainThreadExecState.cpp \
+	WebCore/bindings/js/JSMainThreadExecState.h \
 	WebCore/bindings/js/JSMessageChannelConstructor.cpp \
 	WebCore/bindings/js/JSMessageChannelConstructor.h \
 	WebCore/bindings/js/JSMessageChannelCustom.cpp \
@@ -760,11 +765,19 @@ webcore_sources += \
 	WebCore/dom/ContainerNode.cpp \
 	WebCore/dom/ContainerNode.h \
 	WebCore/dom/ContainerNodeAlgorithms.h \
+	WebCore/dom/CrossThreadTask.h \
 	WebCore/dom/CustomEvent.cpp \
 	WebCore/dom/CustomEvent.h \
 	WebCore/dom/DOMCoreException.h \
 	WebCore/dom/DOMImplementation.cpp \
 	WebCore/dom/DOMImplementation.h \
+	WebCore/dom/DOMStringList.cpp \
+	WebCore/dom/DOMStringList.h \
+	WebCore/dom/DeviceOrientation.cpp \
+	WebCore/dom/DeviceOrientation.h \
+	WebCore/dom/DeviceOrientationClient.h \
+	WebCore/dom/DeviceOrientationEvent.cpp \
+	WebCore/dom/DeviceOrientationEvent.h \
 	WebCore/dom/Document.cpp \
 	WebCore/dom/Document.h \
 	WebCore/dom/DocumentFragment.cpp \
@@ -801,8 +814,6 @@ webcore_sources += \
 	WebCore/dom/InputElement.h \
 	WebCore/dom/KeyboardEvent.cpp \
 	WebCore/dom/KeyboardEvent.h \
-	WebCore/dom/MappedAttribute.cpp \
-	WebCore/dom/MappedAttribute.h \
 	WebCore/dom/MappedAttributeEntry.h \
 	WebCore/dom/MessageChannel.cpp \
 	WebCore/dom/MessageChannel.h \
@@ -820,10 +831,7 @@ webcore_sources += \
 	WebCore/dom/MutationEvent.h \
 	WebCore/dom/NameNodeList.cpp \
 	WebCore/dom/NameNodeList.h \
-	WebCore/dom/NamedAttrMap.cpp \
-	WebCore/dom/NamedAttrMap.h \
-	WebCore/dom/NamedMappedAttrMap.cpp \
-	WebCore/dom/NamedMappedAttrMap.h \
+	WebCore/dom/NamedNodeMap.cpp \
 	WebCore/dom/NamedNodeMap.h \
 	WebCore/dom/Node.cpp \
 	WebCore/dom/Node.h \
@@ -1069,6 +1077,12 @@ webcore_sources += \
 	WebCore/html/FileThreadTask.h \
 	WebCore/html/FormDataList.cpp \
 	WebCore/html/FormDataList.h \
+	WebCore/html/HTML5Lexer.cpp \
+	WebCore/html/HTML5Lexer.h \
+	WebCore/html/HTML5Tokenizer.cpp \
+	WebCore/html/HTML5Tokenizer.h \
+	WebCore/html/HTML5TreeBuilder.cpp \
+	WebCore/html/HTML5TreeBuilder.h \
 	WebCore/html/HTMLAllCollection.cpp \
 	WebCore/html/HTMLAllCollection.h \
 	WebCore/html/HTMLAnchorElement.cpp \
@@ -1386,6 +1400,8 @@ webcore_sources += \
 	WebCore/loader/ResourceLoader.h \
 	WebCore/loader/ResourceLoadNotifier.cpp \
 	WebCore/loader/ResourceLoadNotifier.h \
+    WebCore/loader/SinkDocument.cpp \
+    WebCore/loader/SinkDocument.h \
 	WebCore/loader/SubresourceLoader.cpp \
 	WebCore/loader/SubresourceLoader.h \
 	WebCore/loader/SubresourceLoaderClient.h \
@@ -1792,6 +1808,8 @@ webcore_sources += \
 	WebCore/platform/text/TextStream.h \
 	WebCore/platform/text/UnicodeRange.cpp \
 	WebCore/platform/text/UnicodeRange.h \
+	WebCore/platform/text/transcoder/FontTranscoder.cpp \
+	WebCore/platform/text/transcoder/FontTranscoder.h \
 	WebCore/plugins/MimeType.cpp \
 	WebCore/plugins/MimeType.h \
 	WebCore/plugins/MimeTypeArray.cpp \
@@ -2097,6 +2115,8 @@ webcoregtk_sources += \
 	WebCore/platform/graphics/gtk/IntRectGtk.cpp \
 	WebCore/platform/gtk/ClipboardGtk.cpp \
 	WebCore/platform/gtk/ClipboardGtk.h \
+	WebCore/platform/gtk/ClipboardUtilitiesGtk.cpp \
+	WebCore/platform/gtk/ClipboardUtilitiesGtk.h \
 	WebCore/platform/gtk/ContextMenuGtk.cpp \
 	WebCore/platform/gtk/ContextMenuItemGtk.cpp \
 	WebCore/platform/gtk/CursorGtk.cpp \
@@ -2598,6 +2618,8 @@ webcoregtk_sources += \
 	WebCore/platform/graphics/gstreamer/DataSourceGStreamer.h \
 	WebCore/platform/graphics/gstreamer/GOwnPtrGStreamer.cpp \
 	WebCore/platform/graphics/gstreamer/GOwnPtrGStreamer.h \
+	WebCore/platform/graphics/gstreamer/GStreamerGWorld.cpp \
+	WebCore/platform/graphics/gstreamer/GStreamerGWorld.h \
 	WebCore/platform/graphics/gstreamer/ImageGStreamer.h \
 	WebCore/platform/graphics/gstreamer/ImageGStreamerCairo.cpp \
 	WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp \
@@ -2765,7 +2787,6 @@ webcore_sources += \
 	WebCore/workers/DedicatedWorkerContext.h \
 	WebCore/workers/DedicatedWorkerThread.cpp \
 	WebCore/workers/DedicatedWorkerThread.h \
-	WebCore/workers/GenericWorkerTask.h \
 	WebCore/workers/Worker.cpp \
 	WebCore/workers/Worker.h \
 	WebCore/workers/WorkerContext.cpp \
@@ -3891,6 +3912,7 @@ IDL_BINDINGS_GDOM += \
 	WebCore/dom/DocumentFragment.idl \
 	WebCore/dom/DocumentType.idl \
 	WebCore/dom/DOMImplementation.idl \
+	WebCore/dom/DOMStringList.idl \
 	WebCore/dom/Element.idl \
 	WebCore/dom/EntityReference.idl \
 	WebCore/dom/MessagePort.idl \

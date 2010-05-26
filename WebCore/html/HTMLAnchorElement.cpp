@@ -24,13 +24,13 @@
 #include "config.h"
 #include "HTMLAnchorElement.h"
 
+#include "Attribute.h"
 #include "EventNames.h"
 #include "Frame.h"
 #include "FrameLoaderTypes.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
 #include "KeyboardEvent.h"
-#include "MappedAttribute.h"
 #include "MouseEvent.h"
 #include "Page.h"
 #include "RenderImage.h"
@@ -78,7 +78,7 @@ bool HTMLAnchorElement::supportsFocus() const
 bool HTMLAnchorElement::isMouseFocusable() const
 {
     // Anchor elements should be mouse focusable, https://bugs.webkit.org/show_bug.cgi?id=26856
-#if !PLATFORM(GTK) && !PLATFORM(QT)
+#if !PLATFORM(GTK) && !PLATFORM(QT) && !PLATFORM(EFL)
     if (isLink())
         // Only allow links with tabIndex or contentEditable to be mouse focusable.
         return HTMLElement::supportsFocus();
@@ -251,7 +251,7 @@ void HTMLAnchorElement::setActive(bool down, bool pause)
     ContainerNode::setActive(down, pause);
 }
 
-void HTMLAnchorElement::parseMappedAttribute(MappedAttribute *attr)
+void HTMLAnchorElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == hrefAttr) {
         bool wasLink = isLink();

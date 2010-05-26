@@ -50,8 +50,7 @@ class CachedLinkPrefetch;
 #endif
 
 // The DocLoader manages the loading of scripts/images/stylesheets for a single document.
-class DocLoader : public Noncopyable
-{
+class DocLoader : public Noncopyable {
 friend class Cache;
 friend class ImageLoader;
 
@@ -129,7 +128,7 @@ private:
     
     int m_requestCount;
     
-    ListHashSet<CachedResource*> m_preloads;
+    OwnPtr<ListHashSet<CachedResource*> > m_preloads;
     struct PendingPreload {
         CachedResource::Type m_type;
         String m_url;

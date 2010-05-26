@@ -239,7 +239,6 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     , m_suggestionsPopup(0)
     , m_isTransparent(false)
     , m_tabsToLinks(false)
-    , m_haveMouseCapture(false)
 #if USE(ACCELERATED_COMPOSITING)
     , m_layerRenderer(0)
     , m_isAcceleratedCompositingActive(false)
@@ -255,13 +254,7 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     m_lastMousePosition = WebPoint(-1, -1);
 
     // the page will take ownership of the various clients
-    m_page.set(new Page(&m_chromeClientImpl,
-                        &m_contextMenuClientImpl,
-                        &m_editorClientImpl,
-                        &m_dragClientImpl,
-                        &m_inspectorClientImpl,
-                        0,
-                        0));
+    m_page.set(new Page(&m_chromeClientImpl, &m_contextMenuClientImpl, &m_editorClientImpl, &m_dragClientImpl, &m_inspectorClientImpl, 0, 0, 0));
 
     m_page->backForwardList()->setClient(&m_backForwardListClientImpl);
     m_page->setGroupName(pageGroupName);
@@ -337,19 +330,23 @@ void WebViewImpl::mouseDown(const WebMouseEvent& event)
     }
 
     m_lastMouseDownPoint = WebPoint(event.x, event.y);
-    m_haveMouseCapture = true;
 
-    // If a text field that has focus is clicked again, we should display the
-    // suggestions popup.
     RefPtr<Node> clickedNode;
     if (event.button == WebMouseEvent::ButtonLeft) {
+        IntPoint point(event.x, event.y);
+        point = m_page->mainFrame()->view()->windowToContents(point);
+        HitTestResult result(m_page->mainFrame()->eventHandler()->hitTestResultAtPoint(point, false));
+        Node* hitNode = result.innerNonSharedNode();
+
+        // Take capture on a mouse down on a plugin so we can send it mouse events.
+        if (hitNode && hitNode->renderer() && hitNode->renderer()->isEmbeddedObject())
+            m_mouseCaptureNode = hitNode;
+
+        // If a text field that has focus is clicked again, we should display the
+        // suggestions popup.
         RefPtr<Node> focusedNode = focusedWebCoreNode();
         if (focusedNode.get() && toHTMLInputElement(focusedNode.get())) {
-            IntPoint point(event.x, event.y);
-            point = m_page->mainFrame()->view()->windowToContents(point);
-            HitTestResult result(point);
-            result = m_page->mainFrame()->eventHandler()->hitTestResultAtPoint(point, false);
-            if (result.innerNonSharedNode() == focusedNode) {
+            if (hitNode == focusedNode) {
                 // Already focused text field was clicked, let's remember this.  If
                 // focus has not changed after the mouse event is processed, we'll
                 // trigger the autocomplete.
@@ -970,12 +967,19 @@ void WebViewImpl::paint(WebCanvas* canvas, const WebRect& rect)
         // Draw the contents of the root layer.
         updateRootLayerContents(rect);
 
-        // Composite everything into the canvas that's passed to us.
-#if PLATFORM(SKIA)
-        m_layerRenderer->drawLayersInCanvas(static_cast<skia::PlatformCanvas*>(canvas), IntRect(rect));
-#elif PLATFORM(CG)
-#error "Need to implement CG version"
-#endif
+        WebFrameImpl* webframe = mainFrameImpl();
+        if (!webframe)
+            return;
+        FrameView* view = webframe->frameView();
+        if (!view)
+            return;
+
+        // The visibleRect includes scrollbars whereas the contentRect doesn't.
+        IntRect visibleRect = view->visibleContentRect(true);
+        IntRect contentRect = view->visibleContentRect(false);
+
+        // Ask the layer compositor to redraw all the layers.
+        m_layerRenderer->drawLayers(rect, visibleRect, contentRect, IntPoint(view->scrollX(), view->scrollY()));
     }
 #endif
 }
@@ -994,36 +998,36 @@ bool WebViewImpl::handleInputEvent(const WebInputEvent& inputEvent)
     if (m_ignoreInputEvents)
         return true;
 
-    if (m_haveMouseCapture && WebInputEvent::isMouseEventType(inputEvent.type)) {
+    if (m_mouseCaptureNode.get() && WebInputEvent::isMouseEventType(inputEvent.type)) {
+        // Save m_mouseCaptureNode since mouseCaptureLost() will clear it.
+        RefPtr<Node> node = m_mouseCaptureNode;
+
         // Not all platforms call mouseCaptureLost() directly.
         if (inputEvent.type == WebInputEvent::MouseUp)
             mouseCaptureLost();
 
-        Node* node = focusedWebCoreNode();
-        if (node && node->renderer() && node->renderer()->isEmbeddedObject()) {
-            AtomicString eventType;
-            switch (inputEvent.type) {
-            case WebInputEvent::MouseMove:
-                eventType = eventNames().mousemoveEvent;
-                break;
-            case WebInputEvent::MouseLeave:
-                eventType = eventNames().mouseoutEvent;
-                break;
-            case WebInputEvent::MouseDown:
-                eventType = eventNames().mousedownEvent;
-                break;
-            case WebInputEvent::MouseUp:
-                eventType = eventNames().mouseupEvent;
-                break;
-            default:
-                ASSERT_NOT_REACHED();
-            }
-
-            node->dispatchMouseEvent(
-                  PlatformMouseEventBuilder(mainFrameImpl()->frameView(), *static_cast<const WebMouseEvent*>(&inputEvent)),
-                  eventType);
-            return true;
+        AtomicString eventType;
+        switch (inputEvent.type) {
+        case WebInputEvent::MouseMove:
+            eventType = eventNames().mousemoveEvent;
+            break;
+        case WebInputEvent::MouseLeave:
+            eventType = eventNames().mouseoutEvent;
+            break;
+        case WebInputEvent::MouseDown:
+            eventType = eventNames().mousedownEvent;
+            break;
+        case WebInputEvent::MouseUp:
+            eventType = eventNames().mouseupEvent;
+            break;
+        default:
+            ASSERT_NOT_REACHED();
         }
+
+        node->dispatchMouseEvent(
+              PlatformMouseEventBuilder(mainFrameImpl()->frameView(), *static_cast<const WebMouseEvent*>(&inputEvent)),
+              eventType);
+        return true;
     }
 
     // FIXME: Remove m_currentInputEvent.
@@ -1090,7 +1094,7 @@ bool WebViewImpl::handleInputEvent(const WebInputEvent& inputEvent)
 
 void WebViewImpl::mouseCaptureLost()
 {
-    m_haveMouseCapture = false;
+    m_mouseCaptureNode = 0;
 }
 
 void WebViewImpl::setFocus(bool enable)
@@ -1178,7 +1182,11 @@ bool WebViewImpl::handleCompositionEvent(WebCompositionCommand command,
             return false;
     }
 
-    if (command == WebCompositionCommandDiscard) {
+    // If we're not going to fire a keypress event, then the keydown event was
+    // canceled.  In that case, cancel any existing composition.
+    // FIXME: Ideally, we would only cancel a single keypress, rather than the
+    // whole composition.
+    if ((command == WebCompositionCommandDiscard) || m_suppressNextKeypressEvent) {
         // A browser process sent an IPC message which does not contain a valid
         // string, which means an ongoing composition has been canceled.
         // If the ongoing composition has been canceled, replace the ongoing
@@ -2072,9 +2080,13 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
         return;
 
     if (active) {
-        m_layerRenderer = LayerRendererChromium::create();
-        if (m_layerRenderer)
+        m_layerRenderer = LayerRendererChromium::create(page());
+        if (m_layerRenderer->hardwareCompositing())
             m_isAcceleratedCompositingActive = true;
+        else {
+            m_layerRenderer.clear();
+            m_isAcceleratedCompositingActive = false;
+        }
     } else {
         m_layerRenderer = 0;
         m_isAcceleratedCompositingActive = false;
@@ -2086,6 +2098,12 @@ void WebViewImpl::updateRootLayerContents(const WebRect& rect)
     if (!isAcceleratedCompositingActive())
         return;
 
+    // FIXME: The accelerated compositing path invalidates a 1x1 rect at (0, 0)
+    // in order to get the renderer to ask the compositor to redraw. This is only
+    // temporary until we get the compositor to render directly from its own thread.
+    if (!rect.x && !rect.y && rect.width == 1 && rect.height == 1)
+        return;
+
     WebFrameImpl* webframe = mainFrameImpl();
     if (!webframe)
         return;
@@ -2093,24 +2111,28 @@ void WebViewImpl::updateRootLayerContents(const WebRect& rect)
     if (!view)
         return;
 
-    WebRect viewRect = view->frameRect();
-    SkIRect scrollFrame;
-    scrollFrame.set(view->scrollX(), view->scrollY(), view->layoutWidth() + view->scrollX(), view->layoutHeight() + view->scrollY());
-    m_layerRenderer->setScrollFrame(scrollFrame);
     LayerChromium* rootLayer = m_layerRenderer->rootLayer();
     if (rootLayer) {
         IntRect visibleRect = view->visibleContentRect(true);
 
-        // Set the backing store size used by the root layer to be the size of the visible
-        // area. Note that the root layer bounds could be larger than the backing store size,
-        // but there's no reason to waste memory by allocating backing store larger than the
-        // visible portion.
-        rootLayer->setBackingStoreRect(IntSize(visibleRect.width(), visibleRect.height()));
+        // Update the root layer's backing store to be the size of the dirty rect.
+        // Unlike other layers the root layer doesn't have persistent storage for its
+        // contents in system memory.
+        rootLayer->setBackingStoreSize(IntSize(rect.width, rect.height));
         GraphicsContext* rootLayerContext = rootLayer->graphicsContext();
+        skia::PlatformCanvas* platformCanvas = rootLayer->platformCanvas();
+
+        platformCanvas->save();
+
+        // Bring the canvas into the coordinate system of the paint rect.
+        platformCanvas->translate(static_cast<SkScalar>(-rect.x), static_cast<SkScalar>(-rect.y));
+
         rootLayerContext->save();
 
         webframe->paintWithContext(*(rootLayer->graphicsContext()), rect);
         rootLayerContext->restore();
+
+        platformCanvas->restore();
     }
 }
 
@@ -2119,8 +2141,10 @@ void WebViewImpl::setRootLayerNeedsDisplay()
     // FIXME: For now we're posting a repaint event for the entire page which is an overkill.
     if (WebFrameImpl* webframe = mainFrameImpl()) {
         if (FrameView* view = webframe->frameView()) {
+            // FIXME: Temporary hack to invalidate part of the page so that we get called to render
+            //        again.
             IntRect visibleRect = view->visibleContentRect(true);
-            m_client->didInvalidateRect(visibleRect);
+            m_client->didInvalidateRect(IntRect(0, 0, 1, 1));
         }
     }
 

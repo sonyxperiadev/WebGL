@@ -43,6 +43,11 @@ typedef enum {
     WebTextDirectionSubmenuAlwaysIncluded
 } WebTextDirectionSubmenuInclusionBehavior;
 
+typedef enum {
+    WebKitEditingMacBehavior,
+    WebKitEditingWinBehavior
+} WebKitEditingBehavior;
+
 extern NSString *WebPreferencesChangedNotification;
 extern NSString *WebPreferencesRemovedNotification;
 
@@ -129,6 +134,9 @@ extern NSString *WebPreferencesRemovedNotification;
 - (WebKitEditableLinkBehavior)editableLinkBehavior;
 - (void)setEditableLinkBehavior:(WebKitEditableLinkBehavior)behavior;
 
+- (WebKitEditingBehavior)editingBehavior;
+- (void)setEditingBehavior:(WebKitEditingBehavior)behavior;
+
 - (WebTextDirectionSubmenuInclusionBehavior)textDirectionSubmenuInclusionBehavior;
 - (void)setTextDirectionSubmenuInclusionBehavior:(WebTextDirectionSubmenuInclusionBehavior)behavior;
 
@@ -166,6 +174,9 @@ extern NSString *WebPreferencesRemovedNotification;
 
 - (BOOL)webGLEnabled;
 - (void)setWebGLEnabled:(BOOL)enabled;
+
+- (BOOL)html5ParserEnabled;
+- (void)setHTML5ParserEnabled:(BOOL)flag;
 
 - (BOOL)usesProxiedOpenPanel;
 - (void)setUsesProxiedOpenPanel:(BOOL)enabled;

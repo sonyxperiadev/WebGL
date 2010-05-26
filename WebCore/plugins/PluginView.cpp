@@ -65,10 +65,13 @@
 #include "PluginMessageThrottlerWin.h"
 #endif
 
+<<<<<<< HEAD
 #if defined(ANDROID_PLUGINS)
 #include "TouchEvent.h"
 #endif
 
+=======
+>>>>>>> webkit.org at r60074
 #if USE(JSC)
 #include "JSDOMBinding.h"
 #include "JSDOMWindow.h"
@@ -799,6 +802,7 @@ PassRefPtr<JSC::Bindings::Instance> PluginView::bindingInstance()
     return 0;
 #endif  // NETSCAPE_PLUGIN_API
 }
+<<<<<<< HEAD
 #endif  // JSC
 
 #if USE(V8)
@@ -831,6 +835,9 @@ NPObject* PluginView::getNPObject() {
 #endif  // NETSCAPE_PLUGIN_API
 }
 #endif  // V8
+=======
+#endif
+>>>>>>> webkit.org at r60074
 
 void PluginView::disconnectStream(PluginStream* stream)
 {
@@ -920,6 +927,7 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
     , m_isJavaScriptPaused(false)
     , m_isHalted(false)
     , m_hasBeenHalted(false)
+    , m_haveCalledSetWindow(false)
 {
 #if defined(ANDROID_PLUGINS)
     platformInit();

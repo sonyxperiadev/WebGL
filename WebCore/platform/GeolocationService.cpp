@@ -42,6 +42,9 @@ static GeolocationService* createGeolocationServiceNull(GeolocationServiceClient
 }
 
 GeolocationService::FactoryFunction* GeolocationService::s_factoryFunction = &createGeolocationServiceNull;
+GeolocationService::FactoryFunction* GeolocationService::s_mockFactoryFunction = &createGeolocationServiceNull;
+#else
+GeolocationService::FactoryFunction* GeolocationService::s_mockFactoryFunction = &GeolocationServiceMock::create;
 #endif
 
 GeolocationService* GeolocationService::create(GeolocationServiceClient* client)
@@ -52,7 +55,12 @@ GeolocationService* GeolocationService::create(GeolocationServiceClient* client)
 #if ENABLE(GEOLOCATION)
 void GeolocationService::useMock()
 {
-    s_factoryFunction = &GeolocationServiceMock::create;
+    s_factoryFunction = s_mockFactoryFunction;
+}
+
+void GeolocationService::setCustomMockFactory(FactoryFunction f)
+{
+    s_mockFactoryFunction = f;
 }
 
 GeolocationService::GeolocationService(GeolocationServiceClient* client)

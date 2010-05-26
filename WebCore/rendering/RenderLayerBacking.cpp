@@ -62,7 +62,7 @@ namespace WebCore {
 using namespace HTMLNames;
 
 static bool hasBorderOutlineOrShadow(const RenderStyle*);
-static bool hasBoxDecorationsOrBackground(const RenderStyle*);
+static bool hasBoxDecorationsOrBackground(const RenderObject*);
 static bool hasBoxDecorationsOrBackgroundImage(const RenderStyle*);
 
 static inline bool is3DCanvas(RenderObject* renderer)
@@ -96,19 +96,7 @@ void RenderLayerBacking::createGraphicsLayer()
     m_graphicsLayer = GraphicsLayer::create(this);
     
 #ifndef NDEBUG
-    if (renderer()->node()) {
-        if (renderer()->node()->isDocumentNode())
-            m_graphicsLayer->setName("Document Node");
-        else {
-            if (renderer()->node()->isHTMLElement() && renderer()->node()->hasID())
-                m_graphicsLayer->setName(renderer()->renderName() + String(" ") + static_cast<HTMLElement*>(renderer()->node())->getIDAttribute());
-            else
-                m_graphicsLayer->setName(renderer()->renderName());
-        }
-    } else if (m_owningLayer->isReflection())
-        m_graphicsLayer->setName("Reflection");
-    else
-        m_graphicsLayer->setName("Anonymous Node");
+    m_graphicsLayer->setName(nameForLayer());
 #endif  // NDEBUG
 
     updateLayerOpacity(renderer()->style());
@@ -466,7 +454,7 @@ bool RenderLayerBacking::updateForegroundLayer(bool needsForegroundLayer)
         if (!m_foregroundLayer) {
             m_foregroundLayer = GraphicsLayer::create(this);
 #ifndef NDEBUG
-            m_foregroundLayer->setName("Foreground");
+            m_foregroundLayer->setName(nameForLayer() + " (foreground)");
 #endif
             m_foregroundLayer->setDrawsContent(true);
             m_foregroundLayer->setPaintingPhase(GraphicsLayerPaintForeground);
@@ -545,9 +533,9 @@ static bool hasBorderOutlineOrShadow(const RenderStyle* style)
     return style->hasBorder() || style->hasBorderRadius() || style->hasOutline() || style->hasAppearance() || style->boxShadow();
 }
 
-static bool hasBoxDecorationsOrBackground(const RenderStyle* style)
+static bool hasBoxDecorationsOrBackground(const RenderObject* renderer)
 {
-    return hasBorderOutlineOrShadow(style) || style->hasBackground();
+    return hasBorderOutlineOrShadow(renderer->style()) || renderer->hasBackground();
 }
 
 static bool hasBoxDecorationsOrBackgroundImage(const RenderStyle* style)
@@ -563,36 +551,32 @@ bool RenderLayerBacking::rendererHasBackground() const
         if (!htmlObject)
             return false;
         
-        RenderStyle* style = htmlObject->style();
-        if (style->hasBackground())
+        if (htmlObject->hasBackground())
             return true;
         
         RenderObject* bodyObject = htmlObject->firstChild();
         if (!bodyObject)
             return false;
         
-        style = bodyObject->style();
-        return style->hasBackground();
+        return bodyObject->hasBackground();
     }
     
-    return renderer()->style()->hasBackground();
+    return renderer()->hasBackground();
 }
 
-const Color& RenderLayerBacking::rendererBackgroundColor() const
+const Color RenderLayerBacking::rendererBackgroundColor() const
 {
     // FIXME: share more code here
     if (renderer()->node() && renderer()->node()->isDocumentNode()) {
         RenderObject* htmlObject = renderer()->firstChild();
-        RenderStyle* style = htmlObject->style();
-        if (style->hasBackground())
-            return style->backgroundColor();
+        if (htmlObject->hasBackground())
+            return htmlObject->style()->visitedDependentColor(CSSPropertyBackgroundColor);
 
         RenderObject* bodyObject = htmlObject->firstChild();
-        style = bodyObject->style();
-        return style->backgroundColor();
+        return bodyObject->style()->visitedDependentColor(CSSPropertyBackgroundColor);
     }
 
-    return renderer()->style()->backgroundColor();
+    return renderer()->style()->visitedDependentColor(CSSPropertyBackgroundColor);
 }
 
 // A "simple container layer" is a RenderLayer which has no visible content to render.
@@ -610,7 +594,7 @@ bool RenderLayerBacking::isSimpleContainerCompositingLayer() const
     // Reject anything that has a border, a border-radius or outline,
     // or any background (color or image).
     // FIXME: we could optimize layers for simple backgrounds.
-    if (hasBoxDecorationsOrBackground(style))
+    if (hasBoxDecorationsOrBackground(renderObject))
         return false;
 
     // If we have got this far and the renderer has no children, then we're ok.
@@ -720,7 +704,7 @@ bool RenderLayerBacking::containsPaintedContent() const
     // FIXME: we could optimize cases where the image, video or canvas is known to fill the border box entirely,
     // and set background color on the layer in that case, instead of allocating backing store and painting.
     if (renderer()->isVideo() || is3DCanvas(renderer()))
-        return hasBoxDecorationsOrBackground(renderer()->style());
+        return hasBoxDecorationsOrBackground(renderer());
 
     return true;
 }
@@ -730,7 +714,7 @@ bool RenderLayerBacking::containsPaintedContent() const
 bool RenderLayerBacking::isDirectlyCompositedImage() const
 {
     RenderObject* renderObject = renderer();
-    return renderObject->isImage() && !hasBoxDecorationsOrBackground(renderObject->style());
+    return renderObject->isImage() && !hasBoxDecorationsOrBackground(renderObject);
 }
 
 void RenderLayerBacking::rendererContentChanged()
@@ -1261,6 +1245,25 @@ AnimatedPropertyID RenderLayerBacking::cssToGraphicsLayerProperty(int cssPropert
     }
     return AnimatedPropertyInvalid;
 }
+
+#ifndef NDEBUG
+String RenderLayerBacking::nameForLayer() const
+{
+    String name = renderer()->renderName();
+    if (Node* node = renderer()->node()) {
+        if (node->isElementNode())
+            name += " " + static_cast<Element *>(node)->tagName();
+
+        if (node->isHTMLElement() && static_cast<HTMLElement *>(node)->hasID())
+            name += " \'" + static_cast<Element *>(node)->getIDAttribute() + "\'";
+    }
+
+    if (m_owningLayer->isReflection())
+        name += " (reflection)";
+
+    return name;
+}
+#endif
 
 } // namespace WebCore
 

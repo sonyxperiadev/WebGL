@@ -36,6 +36,8 @@ public:
 
     double position() const { return m_position; }
     double animationProgress() const;
+    double animationStartTime() const { return m_animationStartTime; }
+
     bool isDeterminate() const;
 
     HTMLProgressElement* progressElement() const;
@@ -47,6 +49,8 @@ private:
     virtual void updateFromElement();
     virtual void paint(PaintInfo&, int tx, int ty);
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
+
+    virtual bool requiresForcedStyleRecalcPropagation() const { return true; }
 
     void animationTimerFired(Timer<RenderProgress>*);
     void updateAnimationState();

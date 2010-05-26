@@ -25,9 +25,10 @@
  */
 
 #include "config.h"
-#include "JIT.h"
 
-#if ENABLE(JIT) && USE(JSVALUE32_64)
+#if ENABLE(JIT)
+#if USE(JSVALUE32_64)
+#include "JIT.h"
 
 #include "JITInlineMethods.h"
 #include "JITStubCall.h"
@@ -309,14 +310,16 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
     // Plant callframe
     move(callFrameRegister, X86Registers::edx);
 
-    call(Address(X86Registers::eax, OBJECT_OFFSETOF(JSFunction, m_data)));
+    loadPtr(Address(X86Registers::eax, OBJECT_OFFSETOF(JSFunction, m_executable)), X86Registers::ebx);
+    call(Address(X86Registers::ebx, OBJECT_OFFSETOF(NativeExecutable, m_function)));
 
     // JSValue is a non-POD type, so eax points to it
     emitLoad(0, regT1, regT0, X86Registers::eax);
 #else
     emitGetFromCallFrameHeaderPtr(RegisterFile::Callee, X86Registers::edx); // callee
     move(callFrameRegister, X86Registers::ecx); // callFrame
-    call(Address(X86Registers::edx, OBJECT_OFFSETOF(JSFunction, m_data)));
+    loadPtr(Address(X86Registers::edx, OBJECT_OFFSETOF(JSFunction, m_executable)), X86Registers::ebx);
+    call(Address(X86Registers::ebx, OBJECT_OFFSETOF(NativeExecutable, m_function)));
 #endif
 
     // We've put a few temporaries on the stack in addition to the actual arguments
@@ -373,7 +376,8 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
     // Setup arg0:
     move(stackPointerRegister, regT0);
 
-    call(Address(regT2, OBJECT_OFFSETOF(JSFunction, m_data)));
+    loadPtr(Address(regT2, OBJECT_OFFSETOF(JSFunction, m_executable)), regT3);
+    call(Address(regT3, OBJECT_OFFSETOF(NativeExecutable, m_function)));
 
     load32(Address(stackPointerRegister, 0), regT0);
     load32(Address(stackPointerRegister, 4), regT1);
@@ -401,7 +405,8 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
     // Setup arg1:
     move(callFrameRegister, regT1);
 
-    call(Address(regT2, OBJECT_OFFSETOF(JSFunction, m_data)));
+    loadPtr(Address(regT2, OBJECT_OFFSETOF(JSFunction, m_executable)), regT3);
+    call(Address(regT3, OBJECT_OFFSETOF(NativeExecutable, m_function)));
 
     // Load return value
     load32(Address(stackPointerRegister, 16), regT0);
@@ -476,7 +481,7 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
 
     trampolines->ctiVirtualCall = trampolineAt(finalCode, virtualCallBegin);
     trampolines->ctiVirtualConstruct = trampolineAt(finalCode, virtualConstructBegin);
-    trampolines->ctiNativeCallThunk = adoptRef(new NativeExecutable(JITCode(JITCode::HostFunction(trampolineAt(finalCode, nativeCallThunk)))));
+    trampolines->ctiNativeCall = trampolineAt(finalCode, nativeCallThunk);
 #if ENABLE(JIT_OPTIMIZE_PROPERTY_ACCESS)
     trampolines->ctiStringLengthTrampoline = trampolineAt(finalCode, stringLengthBegin);
 #endif
@@ -489,6 +494,251 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
 #endif
 }
 
+JIT::CodePtr JIT::privateCompileCTINativeCall(PassRefPtr<ExecutablePool> executablePool, JSGlobalData* globalData, NativeFunction func)
+{
+#if CPU(X86) || CPU(ARM_TRADITIONAL)
+    Label nativeCallThunk = align();
+    preserveReturnAddressAfterCall(regT0);
+    emitPutToCallFrameHeader(regT0, RegisterFile::ReturnPC); // Push return address
+
+    // Load caller frame's scope chain into this callframe so that whatever we call can
+    // get to its global data.
+    emitGetFromCallFrameHeaderPtr(RegisterFile::CallerFrame, regT1);
+    emitGetFromCallFrameHeaderPtr(RegisterFile::ScopeChain, regT1, regT1);
+    emitPutToCallFrameHeader(regT1, RegisterFile::ScopeChain);
+
+#if CPU(X86)
+    emitGetFromCallFrameHeader32(RegisterFile::ArgumentCount, regT0);
+
+    /* We have two structs that we use to describe the stackframe we set up for our
+     * call to native code.  NativeCallFrameStructure describes the how we set up the stack
+     * in advance of the call.  NativeFunctionCalleeSignature describes the callframe
+     * as the native code expects it.  We do this as we are using the fastcall calling
+     * convention which results in the callee popping its arguments off the stack, but
+     * not the rest of the callframe so we need a nice way to ensure we increment the
+     * stack pointer by the right amount after the call.
+     */
+
+#if COMPILER(MSVC) || OS(LINUX)
+#if COMPILER(MSVC)
+#pragma pack(push)
+#pragma pack(4)
+#endif // COMPILER(MSVC)
+    struct NativeCallFrameStructure {
+        //  CallFrame* callFrame; // passed in EDX
+        JSObject* callee;
+        JSValue thisValue;
+        ArgList* argPointer;
+        ArgList args;
+        JSValue result;
+    };
+    struct NativeFunctionCalleeSignature {
+        JSObject* callee;
+        JSValue thisValue;
+        ArgList* argPointer;
+    };
+#if COMPILER(MSVC)
+#pragma pack(pop)
+#endif // COMPILER(MSVC)
+#else
+    struct NativeCallFrameStructure {
+        //  CallFrame* callFrame; // passed in ECX
+        //  JSObject* callee; // passed in EDX
+        JSValue thisValue;
+        ArgList* argPointer;
+        ArgList args;
+    };
+    struct NativeFunctionCalleeSignature {
+        JSValue thisValue;
+        ArgList* argPointer;
+    };
+#endif
+
+    const int NativeCallFrameSize = (sizeof(NativeCallFrameStructure) + 15) & ~15;
+    // Allocate system stack frame
+    subPtr(Imm32(NativeCallFrameSize), stackPointerRegister);
+
+    // Set up arguments
+    subPtr(Imm32(1), regT0); // Don't include 'this' in argcount
+
+    // push argcount
+    storePtr(regT0, Address(stackPointerRegister, OBJECT_OFFSETOF(NativeCallFrameStructure, args) + OBJECT_OFFSETOF(ArgList, m_argCount)));
+
+    // Calculate the start of the callframe header, and store in regT1
+    addPtr(Imm32(-RegisterFile::CallFrameHeaderSize * (int)sizeof(Register)), callFrameRegister, regT1);
+
+    // Calculate start of arguments as callframe header - sizeof(Register) * argcount (regT0)
+    mul32(Imm32(sizeof(Register)), regT0, regT0);
+    subPtr(regT0, regT1);
+    storePtr(regT1, Address(stackPointerRegister, OBJECT_OFFSETOF(NativeCallFrameStructure, args) + OBJECT_OFFSETOF(ArgList, m_args)));
+
+    // ArgList is passed by reference so is stackPointerRegister + 4 * sizeof(Register)
+    addPtr(Imm32(OBJECT_OFFSETOF(NativeCallFrameStructure, args)), stackPointerRegister, regT0);
+    storePtr(regT0, Address(stackPointerRegister, OBJECT_OFFSETOF(NativeCallFrameStructure, argPointer)));
+
+    // regT1 currently points to the first argument, regT1 - sizeof(Register) points to 'this'
+    loadPtr(Address(regT1, -(int)sizeof(Register) + OBJECT_OFFSETOF(JSValue, u.asBits.payload)), regT2);
+    loadPtr(Address(regT1, -(int)sizeof(Register) + OBJECT_OFFSETOF(JSValue, u.asBits.tag)), regT3);
+    storePtr(regT2, Address(stackPointerRegister, OBJECT_OFFSETOF(NativeCallFrameStructure, thisValue) + OBJECT_OFFSETOF(JSValue, u.asBits.payload)));
+    storePtr(regT3, Address(stackPointerRegister, OBJECT_OFFSETOF(NativeCallFrameStructure, thisValue) + OBJECT_OFFSETOF(JSValue, u.asBits.tag)));
+
+#if COMPILER(MSVC) || OS(LINUX)
+    // ArgList is passed by reference so is stackPointerRegister + 4 * sizeof(Register)
+    addPtr(Imm32(OBJECT_OFFSETOF(NativeCallFrameStructure, result)), stackPointerRegister, X86Registers::ecx);
+
+    // Plant callee
+    emitGetFromCallFrameHeaderPtr(RegisterFile::Callee, X86Registers::eax);
+    storePtr(X86Registers::eax, Address(stackPointerRegister, OBJECT_OFFSETOF(NativeCallFrameStructure, callee)));
+
+    // Plant callframe
+    move(callFrameRegister, X86Registers::edx);
+
+    Call nativeCall = call();
+
+    // JSValue is a non-POD type, so eax points to it
+    emitLoad(0, regT1, regT0, X86Registers::eax);
+#else
+    emitGetFromCallFrameHeaderPtr(RegisterFile::Callee, X86Registers::edx); // callee
+    move(callFrameRegister, X86Registers::ecx); // callFrame
+    Call nativeCall = call();
+#endif
+
+    // We've put a few temporaries on the stack in addition to the actual arguments
+    // so pull them off now
+    addPtr(Imm32(NativeCallFrameSize - sizeof(NativeFunctionCalleeSignature)), stackPointerRegister);
+
+#elif CPU(ARM_TRADITIONAL)
+    emitGetFromCallFrameHeader32(RegisterFile::ArgumentCount, regT0);
+
+    // Allocate stack space for our arglist
+    COMPILE_ASSERT((sizeof(ArgList) & 0x7) == 0 && sizeof(JSValue) == 8 && sizeof(Register) == 8, ArgList_should_by_8byte_aligned);
+    subPtr(Imm32(sizeof(ArgList)), stackPointerRegister);
+
+    // Set up arguments
+    subPtr(Imm32(1), regT0); // Don't include 'this' in argcount
+
+    // Push argcount
+    storePtr(regT0, Address(stackPointerRegister, OBJECT_OFFSETOF(ArgList, m_argCount)));
+
+    // Calculate the start of the callframe header, and store in regT1
+    move(callFrameRegister, regT1);
+    sub32(Imm32(RegisterFile::CallFrameHeaderSize * (int32_t)sizeof(Register)), regT1);
+
+    // Calculate start of arguments as callframe header - sizeof(Register) * argcount (regT1)
+    mul32(Imm32(sizeof(Register)), regT0, regT0);
+    subPtr(regT0, regT1);
+
+    // push pointer to arguments
+    storePtr(regT1, Address(stackPointerRegister, OBJECT_OFFSETOF(ArgList, m_args)));
+
+    // Argument passing method:
+    // r0 - points to return value
+    // r1 - callFrame
+    // r2 - callee
+    // stack: this(JSValue) and a pointer to ArgList
+
+#if OS(WINCE)
+    // Setup arg4:
+    push(stackPointerRegister);
+
+    // Setup arg3:
+    // regT1 currently points to the first argument, regT1-sizeof(Register) points to 'this'
+    load32(Address(regT1, -(int32_t)sizeof(void*) * 2), ARMRegisters::r3);
+    push(ARMRegisters::r3);
+    load32(Address(regT1, -(int32_t)sizeof(void*)), regT3);
+    storePtr(regT3, Address(stackPointerRegister));
+
+    // Setup arg2:
+    emitGetFromCallFrameHeaderPtr(RegisterFile::Callee, regT2);
+
+    // Setup arg1:
+    move(callFrameRegister, regT1);
+
+    // Setup arg0:
+    move(stackPointerRegister, regT0);
+
+    Call nativeCall = call();
+
+    load32(Address(stackPointerRegister, 0), regT0);
+    load32(Address(stackPointerRegister, 4), regT1);
+
+    addPtr(Imm32(sizeof(ArgList) + 8), stackPointerRegister);
+#else // OS(WINCE)
+    move(stackPointerRegister, regT3);
+    subPtr(Imm32(8), stackPointerRegister);
+    move(stackPointerRegister, regT0);
+    subPtr(Imm32(8 + 4 + 4 /* padding */), stackPointerRegister);
+
+    // Setup arg4:
+    storePtr(regT3, Address(stackPointerRegister, 8));
+
+    // Setup arg3:
+    // regT1 currently points to the first argument, regT1-sizeof(Register) points to 'this'
+    load32(Address(regT1, -(int32_t)sizeof(void*) * 2), regT3);
+    storePtr(regT3, Address(stackPointerRegister, 0));
+    load32(Address(regT1, -(int32_t)sizeof(void*)), regT3);
+    storePtr(regT3, Address(stackPointerRegister, 4));
+
+    // Setup arg2:
+    emitGetFromCallFrameHeaderPtr(RegisterFile::Callee, regT2);
+
+    // Setup arg1:
+    move(callFrameRegister, regT1);
+
+    Call nativeCall = call();
+
+    // Load return value
+    load32(Address(stackPointerRegister, 16), regT0);
+    load32(Address(stackPointerRegister, 20), regT1);
+
+    addPtr(Imm32(sizeof(ArgList) + 16 + 8), stackPointerRegister);
+#endif // OS(WINCE)
+
+#endif
+
+    // Check for an exception
+    move(ImmPtr(&globalData->exception), regT2);
+    Jump sawException = branch32(NotEqual, tagFor(0, regT2), Imm32(JSValue::EmptyValueTag));
+
+    // Grab the return address.
+    emitGetFromCallFrameHeaderPtr(RegisterFile::ReturnPC, regT3);
+
+    // Restore our caller's "r".
+    emitGetFromCallFrameHeaderPtr(RegisterFile::CallerFrame, callFrameRegister);
+
+    // Return.
+    restoreReturnAddressBeforeReturn(regT3);
+    ret();
+
+    // Handle an exception
+    sawException.link(this);
+    // Grab the return address.
+    emitGetFromCallFrameHeaderPtr(RegisterFile::ReturnPC, regT1);
+    move(ImmPtr(&globalData->exceptionLocation), regT2);
+    storePtr(regT1, regT2);
+    move(ImmPtr(FunctionPtr(ctiVMThrowTrampoline).value()), regT2);
+    emitGetFromCallFrameHeaderPtr(RegisterFile::CallerFrame, callFrameRegister);
+    poke(callFrameRegister, OBJECT_OFFSETOF(struct JITStackFrame, callFrame) / sizeof(void*));
+    restoreReturnAddressBeforeReturn(regT2);
+    ret();
+
+#elif ENABLE(JIT_OPTIMIZE_NATIVE_CALL)
+#error "JIT_OPTIMIZE_NATIVE_CALL not yet supported on this platform."
+#else
+    breakpoint();
+#endif
+
+    // All trampolines constructed! copy the code, link up calls, and set the pointers on the Machine object.
+    LinkBuffer patchBuffer(this, executablePool);
+
+#if ENABLE(JIT_OPTIMIZE_NATIVE_CALL)
+    patchBuffer.link(nativeCall, FunctionPtr(func));
+#endif
+
+    CodeRef finalCode = patchBuffer.finalizeCode();
+    return trampolineAt(finalCode, nativeCallThunk);
+}
+
 void JIT::emit_op_mov(Instruction* currentInstruction)
 {
     unsigned dst = currentInstruction[1].u.operand;
@@ -499,7 +749,7 @@ void JIT::emit_op_mov(Instruction* currentInstruction)
     else {
         emitLoad(src, regT1, regT0);
         emitStore(dst, regT1, regT0);
-        map(m_bytecodeIndex + OPCODE_LENGTH(op_mov), dst, regT1, regT0);
+        map(m_bytecodeOffset + OPCODE_LENGTH(op_mov), dst, regT1, regT0);
     }
 }
 
@@ -649,7 +899,7 @@ void JIT::emit_op_get_global_var(Instruction* currentInstruction)
 
     emitLoad(index, regT1, regT0, regT2);
     emitStore(dst, regT1, regT0);
-    map(m_bytecodeIndex + OPCODE_LENGTH(op_get_global_var), dst, regT1, regT0);
+    map(m_bytecodeOffset + OPCODE_LENGTH(op_get_global_var), dst, regT1, regT0);
 }
 
 void JIT::emit_op_put_global_var(Instruction* currentInstruction)
@@ -663,14 +913,14 @@ void JIT::emit_op_put_global_var(Instruction* currentInstruction)
 
     loadPtr(&globalObject->d()->registers, regT2);
     emitStore(index, regT1, regT0, regT2);
-    map(m_bytecodeIndex + OPCODE_LENGTH(op_put_global_var), value, regT1, regT0);
+    map(m_bytecodeOffset + OPCODE_LENGTH(op_put_global_var), value, regT1, regT0);
 }
 
 void JIT::emit_op_get_scoped_var(Instruction* currentInstruction)
 {
     int dst = currentInstruction[1].u.operand;
     int index = currentInstruction[2].u.operand;
-    int skip = currentInstruction[3].u.operand + m_codeBlock->needsFullScopeChain();
+    int skip = currentInstruction[3].u.operand;
 
     emitGetFromCallFrameHeaderPtr(RegisterFile::ScopeChain, regT2);
     while (skip--)
@@ -682,13 +932,13 @@ void JIT::emit_op_get_scoped_var(Instruction* currentInstruction)
 
     emitLoad(index, regT1, regT0, regT2);
     emitStore(dst, regT1, regT0);
-    map(m_bytecodeIndex + OPCODE_LENGTH(op_get_scoped_var), dst, regT1, regT0);
+    map(m_bytecodeOffset + OPCODE_LENGTH(op_get_scoped_var), dst, regT1, regT0);
 }
 
 void JIT::emit_op_put_scoped_var(Instruction* currentInstruction)
 {
     int index = currentInstruction[1].u.operand;
-    int skip = currentInstruction[2].u.operand + m_codeBlock->needsFullScopeChain();
+    int skip = currentInstruction[2].u.operand;
     int value = currentInstruction[3].u.operand;
 
     emitLoad(value, regT1, regT0);
@@ -702,19 +952,26 @@ void JIT::emit_op_put_scoped_var(Instruction* currentInstruction)
     loadPtr(Address(regT2, OBJECT_OFFSETOF(JSVariableObject::JSVariableObjectData, registers)), regT2);
 
     emitStore(index, regT1, regT0, regT2);
-    map(m_bytecodeIndex + OPCODE_LENGTH(op_put_scoped_var), value, regT1, regT0);
+    map(m_bytecodeOffset + OPCODE_LENGTH(op_put_scoped_var), value, regT1, regT0);
 }
 
 void JIT::emit_op_tear_off_activation(Instruction* currentInstruction)
 {
     JITStubCall stubCall(this, cti_op_tear_off_activation);
     stubCall.addArgument(currentInstruction[1].u.operand);
+    stubCall.addArgument(unmodifiedArgumentsRegister(currentInstruction[2].u.operand));
     stubCall.call();
 }
 
-void JIT::emit_op_tear_off_arguments(Instruction*)
+void JIT::emit_op_tear_off_arguments(Instruction* currentInstruction)
 {
-    JITStubCall(this, cti_op_tear_off_arguments).call();
+    int dst = currentInstruction[1].u.operand;
+
+    Jump argsNotCreated = branch32(Equal, tagFor(unmodifiedArgumentsRegister(dst)), Imm32(JSValue::EmptyValueTag));
+    JITStubCall stubCall(this, cti_op_tear_off_arguments);
+    stubCall.addArgument(unmodifiedArgumentsRegister(dst));
+    stubCall.call();
+    argsNotCreated.link(this);
 }
 
 void JIT::emit_op_new_array(Instruction* currentInstruction)
@@ -745,7 +1002,7 @@ void JIT::emit_op_to_primitive(Instruction* currentInstruction)
 
     if (dst != src)
         emitStore(dst, regT1, regT0);
-    map(m_bytecodeIndex + OPCODE_LENGTH(op_to_primitive), dst, regT1, regT0);
+    map(m_bytecodeOffset + OPCODE_LENGTH(op_to_primitive), dst, regT1, regT0);
 }
 
 void JIT::emitSlow_op_to_primitive(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
@@ -778,7 +1035,7 @@ void JIT::emit_op_resolve_skip(Instruction* currentInstruction)
 {
     JITStubCall stubCall(this, cti_op_resolve_skip);
     stubCall.addArgument(ImmPtr(&m_codeBlock->identifier(currentInstruction[2].u.operand)));
-    stubCall.addArgument(Imm32(currentInstruction[3].u.operand + m_codeBlock->needsFullScopeChain()));
+    stubCall.addArgument(Imm32(currentInstruction[3].u.operand));
     stubCall.call(currentInstruction[1].u.operand);
 }
 
@@ -804,7 +1061,7 @@ void JIT::emit_op_resolve_global(Instruction* currentInstruction, bool dynamic)
     load32(BaseIndex(regT2, regT3, TimesEight), regT0); // payload
     load32(BaseIndex(regT2, regT3, TimesEight, 4), regT1); // tag
     emitStore(dst, regT1, regT0);
-    map(m_bytecodeIndex + dynamic ? OPCODE_LENGTH(op_resolve_global_dynamic) : OPCODE_LENGTH(op_resolve_global), dst, regT1, regT0);
+    map(m_bytecodeOffset + dynamic ? OPCODE_LENGTH(op_resolve_global_dynamic) : OPCODE_LENGTH(op_resolve_global), dst, regT1, regT0);
 }
 
 void JIT::emitSlow_op_resolve_global(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
@@ -1390,7 +1647,7 @@ void JIT::emit_op_to_jsnumber(Instruction* currentInstruction)
 
     if (src != dst)
         emitStore(dst, regT1, regT0);
-    map(m_bytecodeIndex + OPCODE_LENGTH(op_to_jsnumber), dst, regT1, regT0);
+    map(m_bytecodeOffset + OPCODE_LENGTH(op_to_jsnumber), dst, regT1, regT0);
 }
 
 void JIT::emitSlow_op_to_jsnumber(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
@@ -1424,7 +1681,7 @@ void JIT::emit_op_catch(Instruction* currentInstruction)
 
     // Now store the exception returned by cti_op_throw.
     emitStore(exception, regT1, regT0);
-    map(m_bytecodeIndex + OPCODE_LENGTH(op_catch), exception, regT1, regT0);
+    map(m_bytecodeOffset + OPCODE_LENGTH(op_catch), exception, regT1, regT0);
 }
 
 void JIT::emit_op_jmp_scopes(Instruction* currentInstruction)
@@ -1443,7 +1700,7 @@ void JIT::emit_op_switch_imm(Instruction* currentInstruction)
 
     // create jump table for switch destinations, track this switch statement.
     SimpleJumpTable* jumpTable = &m_codeBlock->immediateSwitchJumpTable(tableIndex);
-    m_switches.append(SwitchRecord(jumpTable, m_bytecodeIndex, defaultOffset, SwitchRecord::Immediate));
+    m_switches.append(SwitchRecord(jumpTable, m_bytecodeOffset, defaultOffset, SwitchRecord::Immediate));
     jumpTable->ctiOffsets.grow(jumpTable->branchOffsets.size());
 
     JITStubCall stubCall(this, cti_op_switch_imm);
@@ -1461,7 +1718,7 @@ void JIT::emit_op_switch_char(Instruction* currentInstruction)
 
     // create jump table for switch destinations, track this switch statement.
     SimpleJumpTable* jumpTable = &m_codeBlock->characterSwitchJumpTable(tableIndex);
-    m_switches.append(SwitchRecord(jumpTable, m_bytecodeIndex, defaultOffset, SwitchRecord::Character));
+    m_switches.append(SwitchRecord(jumpTable, m_bytecodeOffset, defaultOffset, SwitchRecord::Character));
     jumpTable->ctiOffsets.grow(jumpTable->branchOffsets.size());
 
     JITStubCall stubCall(this, cti_op_switch_char);
@@ -1479,7 +1736,7 @@ void JIT::emit_op_switch_string(Instruction* currentInstruction)
 
     // create jump table for switch destinations, track this switch statement.
     StringJumpTable* jumpTable = &m_codeBlock->stringSwitchJumpTable(tableIndex);
-    m_switches.append(SwitchRecord(jumpTable, m_bytecodeIndex, defaultOffset));
+    m_switches.append(SwitchRecord(jumpTable, m_bytecodeOffset, defaultOffset));
 
     JITStubCall stubCall(this, cti_op_switch_string);
     stubCall.addArgument(scrutinee);
@@ -1497,7 +1754,7 @@ void JIT::emit_op_new_error(Instruction* currentInstruction)
     JITStubCall stubCall(this, cti_op_new_error);
     stubCall.addArgument(Imm32(type));
     stubCall.addArgument(m_codeBlock->getConstant(message));
-    stubCall.addArgument(Imm32(m_bytecodeIndex));
+    stubCall.addArgument(Imm32(m_bytecodeOffset));
     stubCall.call(dst);
 }
 
@@ -1532,22 +1789,29 @@ void JIT::emit_op_enter_with_activation(Instruction* currentInstruction)
     JITStubCall(this, cti_op_push_activation).call(currentInstruction[1].u.operand);
 }
 
-void JIT::emit_op_create_arguments(Instruction*)
+void JIT::emit_op_create_arguments(Instruction* currentInstruction)
 {
-    Jump argsCreated = branch32(NotEqual, tagFor(RegisterFile::ArgumentsRegister, callFrameRegister), Imm32(JSValue::EmptyValueTag));
+    unsigned dst = currentInstruction[1].u.operand;
 
-    // If we get here the arguments pointer is a null cell - i.e. arguments need lazy creation.
+    Jump argsCreated = branch32(NotEqual, tagFor(dst), Imm32(JSValue::EmptyValueTag));
+
     if (m_codeBlock->m_numParameters == 1)
         JITStubCall(this, cti_op_create_arguments_no_params).call();
     else
         JITStubCall(this, cti_op_create_arguments).call();
 
+    emitStore(dst, regT1, regT0);
+    emitStore(unmodifiedArgumentsRegister(dst), regT1, regT0);
+
     argsCreated.link(this);
 }
 
-void JIT::emit_op_init_arguments(Instruction*)
+void JIT::emit_op_init_arguments(Instruction* currentInstruction)
 {
-    emitStore(RegisterFile::ArgumentsRegister, JSValue(), callFrameRegister);
+    unsigned dst = currentInstruction[1].u.operand;
+
+    emitStore(dst, JSValue());
+    emitStore(unmodifiedArgumentsRegister(dst), JSValue());
 }
 
 void JIT::emit_op_convert_this(Instruction* currentInstruction)
@@ -1561,7 +1825,7 @@ void JIT::emit_op_convert_this(Instruction* currentInstruction)
     loadPtr(Address(regT0, OBJECT_OFFSETOF(JSCell, m_structure)), regT2);
     addSlowCase(branchTest8(NonZero, Address(regT2, OBJECT_OFFSETOF(Structure, m_typeInfo.m_flags)), Imm32(NeedsThisConversion)));
 
-    map(m_bytecodeIndex + OPCODE_LENGTH(op_convert_this), thisRegister, regT1, regT0);
+    map(m_bytecodeOffset + OPCODE_LENGTH(op_convert_this), thisRegister, regT1, regT0);
 }
 
 void JIT::emitSlow_op_convert_this(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
@@ -1598,6 +1862,7 @@ void JIT::emit_op_profile_did_call(Instruction* currentInstruction)
     noProfiler.link(this);
 }
 
-}
+} // namespace JSC
 
-#endif // ENABLE(JIT) && USE(JSVALUE32_64)
+#endif // USE(JSVALUE32_64)
+#endif // ENABLE(JIT)

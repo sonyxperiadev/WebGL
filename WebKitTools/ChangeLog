@@ -1,3 +1,668 @@
+2010-05-24  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Chris Jerdonek.
+
+        webkit-patch needs --verbose flag to enable DEBUG logging
+        https://bugs.webkit.org/show_bug.cgi?id=39208
+
+        I also added some code to print out how long commands take to run.
+
+        * Scripts/webkit-patch:
+         - Add hackish -v/--verbose parsing (similar to check-webkit-style)
+        * Scripts/webkitpy/common/system/executive.py:
+         - Log how long commands take to run.
+        * Scripts/webkitpy/tool/main.py:
+         - Add -v/--verbose option to global options.
+
+2010-05-23  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Daniel Bates.
+
+        Split PatchReader out into its own file
+        https://bugs.webkit.org/show_bug.cgi?id=39576
+
+        This is in preparation for making check-webkit-style
+        support being passed paths to patch files on the command line.
+
+        * Scripts/check-webkit-style:
+        * Scripts/webkitpy/style/checker.py:
+        * Scripts/webkitpy/style/checker_unittest.py:
+        * Scripts/webkitpy/style/patchreader.py: Added.
+        * Scripts/webkitpy/style/patchreader_unittest.py: Added.
+        * Scripts/webkitpy/style_references.py:
+
+2010-05-23  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Daniel Bates.
+
+        webkit-patch should let you add a comment when uploading a patch
+        https://bugs.webkit.org/show_bug.cgi?id=39552
+
+        As requested by Dan "the man" Bates.
+
+        * Scripts/webkitpy/tool/steps/options.py:
+        * Scripts/webkitpy/tool/steps/postdiff.py:
+
+2010-05-23  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        webkit-patch should assign newly created bugs to their creator
+        https://bugs.webkit.org/show_bug.cgi?id=39548
+
+        As requested on webkit-dev.
+
+        * Scripts/webkitpy/common/net/bugzilla.py:
+
+2010-05-23  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Hide prepare and post commands for webkit-patch
+        https://bugs.webkit.org/show_bug.cgi?id=39539
+
+        It turns out these commands aren't very popular and they confuse new
+        users.  They'll still be there for advanced users, however.
+
+        * Scripts/webkitpy/tool/commands/upload.py:
+
+2010-05-23  Jesus Sanchez-Palencia  <jesus@webkit.org>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] QtTestBrowser has two graphicsview options that aren't enabled correctly
+        https://bugs.webkit.org/show_bug.cgi?id=39491
+
+        Making toggleResizesToContents and toggleTiledBackingStore checkable when
+        QtTestBrowser is started on graphics view mode.
+
+        * QtTestBrowser/main.cpp:
+        (LauncherWindow::createChrome):
+
+2010-05-23  Jesus Sanchez-Palencia  <jesus@webkit.org>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] QtTestBrowser is still called QtLauncher in the code
+        https://bugs.webkit.org/show_bug.cgi?id=39488
+
+        Finish the name change of QtLauncher to QtTestBrowser.
+
+        * QtTestBrowser/main.cpp:
+        (LauncherApplication::LauncherApplication):
+        (LauncherApplication::handleUserOptions):
+        * QtTestBrowser/mainwindow.cpp:
+        (MainWindow::MainWindow):
+        * QtTestBrowser/useragentlist.txt:
+
+2010-05-23  Marcus Bulach  <bulach@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [chromium] Adds Geolocation support to DumpRenderTree.
+        https://bugs.webkit.org/show_bug.cgi?id=39440
+
+        Existing LayoutTests/fast/dom/Geolocation/* should pass.
+
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (LayoutTestController::setGeolocationPermission):
+        (LayoutTestController::setMockGeolocationPosition):
+        (LayoutTestController::setMockGeolocationError):
+        * DumpRenderTree/chromium/LayoutTestController.h:
+        * DumpRenderTree/chromium/TestShell.cpp:
+        (TestShell::TestShell):
+        * DumpRenderTree/chromium/WebViewHost.cpp:
+        (WebViewHost::geolocationService):
+        * DumpRenderTree/chromium/WebViewHost.h:
+
+2010-05-22  Adam Barth  <abarth@webkit.org>
+
+        Unreviewed.
+
+        Re-order Yong's email addresses because his gmail account is the one he
+        uses for bugs.webkit.org.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-05-22  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Chris Jerdonek.
+
+        Add infrastructure to parse SVN property changes
+        https://bugs.webkit.org/show_bug.cgi?id=38885
+
+        Adds function VCSUtils::parseSvnDiffFooter to parse an SVN footer
+        that consists of one or more properties.
+
+        Note, the first line of an SVN footer begins with "Property changes on".
+
+        * Scripts/VCSUtils.pm:
+          - Added function parseSvnDiffFooter. Will use this function
+            towards resolving Bug #39409 <https://bugs.webkit.org/show_bug.cgi?id=39409>.
+          - Removed FIXME comment above function parseSvnProperty, since
+            it is being used by parseSvnDiffFooter.
+        * Scripts/webkitperl/VCSUtils_unittest/parseSvnDiffFooter.pl: Added.
+          - Added unit tests.
+
+2010-05-22  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed, fixing test results only.
+
+        Disable compositing tests on the commit-queue as a workaround for  bug 38912
+        https://bugs.webkit.org/show_bug.cgi?id=39067
+
+        * Scripts/webkitpy/tool/steps/steps_unittest.py:
+         - Update test results after my previous change.
+
+2010-05-22  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed.
+
+        Disable compositing tests on the commit-queue as a workaround for  bug 38912
+        https://bugs.webkit.org/show_bug.cgi?id=39067
+
+        * Scripts/webkitpy/tool/steps/runtests.py:
+         - Disable all of compositing, not just compositing/iframes
+
+2010-05-22  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Link resources and load Ahem font for Windows
+        https://bugs.webkit.org/show_bug.cgi?id=39473
+
+        * DumpRenderTree/chromium/DumpRenderTree.cpp:
+        (main): Call platformInit().
+        * DumpRenderTree/chromium/TestShell.h:
+         Declare platformInit(). It is not related to TestShell class, but the
+         implementation of paltformInit() is placed at TestShell*.{cpp,mm}.
+        * DumpRenderTree/chromium/TestShellGtk.cpp:
+        (platformInit):
+        * DumpRenderTree/chromium/TestShellMac.mm:
+        (platformInit):
+        * DumpRenderTree/chromium/TestShellWin.cpp:
+        (platformInit):
+         - Make stdout/stderr binary mode
+         - Load Ahem font
+
+2010-05-21  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed, EWS build fix only.
+
+        QueueStatusServer returns 500 error when EWS bots post empty queues
+        https://bugs.webkit.org/show_bug.cgi?id=39523
+
+        Mac python seems to have some built-in timezone support
+        however other python installs don't.  So we need to ignore
+        timezones in our parsing.
+
+        Date parsing is tested by existing unit tests.
+
+        * QueueStatusServer/handlers/updateworkitems.py:
+         - Fix typo causing exception on server.
+        * Scripts/webkitpy/common/net/bugzilla.py:
+         - Fix exception due to python's lack of timezone support.
+
+2010-05-21  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        QueueStatusServer returns 500 error when EWS bots post empty queues
+        https://bugs.webkit.org/show_bug.cgi?id=39523
+
+        updateworkitems handler was raising an exception because
+        int() couldn't convert "" to a number.
+
+        I attempted to unit test this but we don't yet have a system by
+        which to load unit tests for appengine classes which depend on
+        google.appengine libraries which are not in the python default install.
+
+        We'll need to write a wrapper script to load those into the python path
+        and then run the unit test files.
+
+        * QueueStatusServer/handlers/statusbubble.py:
+         - Hide cr-win-ews since we're not currently running this bot.
+        * QueueStatusServer/handlers/updateworkitems.py:
+         - Fix the parsing logic to be able to understand "".
+        * Scripts/webkitpy/common/net/statusserver.py:
+         - Only log the work items posted to the server to the debug log channel.
+
+2010-05-21  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed, fixing the commit-queue to run again.
+
+        Make the EWSes report queue position in white bubbles
+        https://bugs.webkit.org/show_bug.cgi?id=39519
+
+        * Scripts/webkitpy/common/net/statusserver.py:
+         - Fix exception in _post_work_items_to_server when passed
+           integers. Unfortunately we have no good way to mock
+           the Browser object yet, and after several attempts I was
+           not able to create a good one, so no tests. :(
+
+2010-05-14  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        webkit-patch land --squash commits too much if branch is not up to date
+        https://bugs.webkit.org/show_bug.cgi?id=38852
+
+        * Scripts/webkitpy/common/checkout/scm.py:
+        * Scripts/webkitpy/common/checkout/scm_unittest.py:
+
+2010-05-21  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Make the EWSes report queue position in white bubbles
+        https://bugs.webkit.org/show_bug.cgi?id=39519
+
+        This also fixes sorting of commit-queue patches
+        to be in order of patch attachment.
+        https://bugs.webkit.org/show_bug.cgi?id=33395
+
+        This makes the various Queues post what patches they are about to process
+        so that we can display a list of patches on status server pages, as well
+        as report queue position in status bubbles.
+
+        This is the first step towards creating a control-channel for the queues.
+        Next step will be to have them read back the patches in order from the server
+        and finally we will add the ability for the server to control that order.
+
+        * Scripts/webkitpy/common/net/bugzilla.py:
+         - Teach bugzilla how to parse attach_date for attachments.
+        * Scripts/webkitpy/common/net/bugzilla_unittest.py:
+         - Test that we're parsing dates correctly.
+           This may have timezone issues for non-PST contributers, unsure.
+        * Scripts/webkitpy/common/net/statusserver.py:
+         - Post work items to the status server for display.
+        * Scripts/webkitpy/tool/bot/patchcollection.py:
+         - Call StatusServer.update_work_items
+        * Scripts/webkitpy/tool/commands/earlywarningsystem_unittest.py:
+         - Update unit test results now that we're posting work item list.
+        * Scripts/webkitpy/tool/commands/queues.py:
+         - Call StatusSever.update_work_items
+         - Sort patches so that the server's list understands
+           that the commit-queue gives priority to rollout patches.
+         - I also fixed patch sorting per bug 33395 while I was here.
+        * Scripts/webkitpy/tool/commands/queues_unittest.py:
+         - Update results after update_work_items changes.
+         - Test attachment sorting.
+        * Scripts/webkitpy/tool/mocktool.py:
+         - Add mock for update_work_items
+
+2010-05-21  Robin Cao  <robin.cao@torchmobile.com.cn>
+
+        Reviewed by Adam Roben.
+
+        fast/dom/HTMLObjectElement/children-changed.html times out on Windows run-webkit-tests
+        https://bugs.webkit.org/show_bug.cgi?id=31315
+
+        * DumpRenderTree/win/FrameLoadDelegate.cpp:
+        (FrameLoadDelegate::didFailProvisionalLoadWithError): Need to invoke locationChangeDone here as mac port does.
+
+2010-05-20  Mark Rowe  <mrowe@apple.com>
+
+        Rubber-stamped by Dan Bernstein.
+
+        <rdar://problem/7848154> Remove the dependency on Foundation's private __COCOA_FORMAL_PROTOCOLS_2__ define.
+
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+
+2010-05-20  Tony Gentilcore  <tonyg@chromium.org>
+
+        Reviewed by Daniel Bates.
+
+        Look in /proc/registry64 for the Platform SDK on 64-bit Windows.
+        https://bugs.webkit.org/show_bug.cgi?id=39296
+
+        The build-webkit script failed for me on Vista 64. A web search turned
+        up this blog post with a patch that worked for me:
+        http://www.nicholaswilson.me.uk/2010/04/hacking-webkit-fail/
+
+        * Scripts/webkitdirs.pm:
+
+2010-05-20  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        ThreadedMessageQueue should use with_statement for exception safety
+        https://bugs.webkit.org/show_bug.cgi?id=39233
+
+        * Scripts/webkitpy/common/thread/threadedmessagequeue.py:
+
+2010-05-20  Diego Gonzalez  <diegohcg@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] QtTestBrowser does not support websites which requires HTTP Authentication via dialogs
+        https://bugs.webkit.org/show_bug.cgi?id=38456
+
+        * QtTestBrowser/webpage.cpp:
+        (WebPage::WebPage):
+        (WebPage::authenticationRequired):
+        * QtTestBrowser/webpage.h:
+
+2010-05-20  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Eric Seidel.
+
+        editingBehavior settings needs to be set back to a reasonable default between tests
+        https://bugs.webkit.org/show_bug.cgi?id=39433
+
+        For now, hard code the default setting during reset, so that the serialized
+        version of the setting stays in sync with expectations.
+
+        * DumpRenderTree/mac/DumpRenderTree.mm:
+        (resetDefaultsToConsistentValues): Reset editing behavior to the appropriate platform default.
+        * DumpRenderTree/win/DumpRenderTree.cpp:
+        (resetDefaultsToConsistentValues): Ditto.
+
+2010-05-20  Brent Fulgham  <bfulgham@webkit.org>
+
+        Build fix.  No review.
+
+        The WebKitAPITest targets do not use the "_debug" suffix needed
+        by the WinCairo port.  Added Debug_Cairo target to correct this.
+
+        * WebKitAPITest/WebKitAPITest.vcproj:
+
+2010-05-20  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Ojan Vafai.
+
+        editing/selection/extend-selection-after-double-click.html crashes on the Leopard Intel release bot
+        https://bugs.webkit.org/show_bug.cgi?id=39431
+
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::setEditingBehavior):
+        Prevent a double-free by not having this variable be in the auto-release pool.
+
+2010-05-20  Martin Robinson  <mrobinson@webkit.org>
+
+        Reviewed by Ojan Vafai.
+
+        Expose the editing behavior setting in DRT to test all editing code paths
+        https://bugs.webkit.org/show_bug.cgi?id=38603
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (setEditingBehaviorCallback): Added.
+        (LayoutTestController::staticFunctions): Expose the setEditingBehaviorCallback function.
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/chromium/LayoutTestController.cpp: Add callback method for setting editing behavior.
+        * DumpRenderTree/chromium/LayoutTestController.h: Declaration for this method.
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp: 
+        (LayoutTestController::setEditingBehavior): Implementation of editing behavior control.
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::setEditingBehavior): Ditto
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::setEditingBehavior): Added stub implementation of editing behavior control.
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        (LayoutTestController::setEditingBehavior): Add slot for controlling editor behavior.
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::setEditingBehavior): Implementation of editing behavior control.
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::setEditingBehavior): Added stub implementation of editing behavior control.
+
+2010-05-20  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        [DRT/Chromium] Increase the time out value
+        https://bugs.webkit.org/show_bug.cgi?id=39203
+
+        Change the time out value of Chromium DRT to 30 seconds, which is
+        the same as other ports.
+        If a DRT process exits before new-run-webkit-tests detects time
+        out, new-run-webkit-tests assumes the DRT process crashed.
+
+        * DumpRenderTree/chromium/TestShell.cpp:
+        (TestShell::layoutTestTimeout):
+          Change the time out value from 10 seconds to 30 seconds.
+
+2010-05-20  Chris Evans  <cevans@google.com>
+
+        Unreviewed.
+
+        Marking myself as a committer.
+
+        * Scripts/webkitpy/common/config/committers.py: Add cevans@google.com.
+
+2010-05-20  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Tor Arne Vestbo.
+
+        [Qt] Weekly binary builds on Mac OS X don't work when launched in the Finder
+        https://bugs.webkit.org/show_bug.cgi?id=37273
+
+        * QtTestBrowser/QtTestBrowser.pro: Build QtLauncher as bundle in package builds
+
+2010-05-20  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Unreviewed fix for websocket test failures.
+
+        * Scripts/new-run-webkit-websocketserver:
+         options is named parameter for factory.get().
+
+2010-05-20  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Chromium: Add --chromium option to new-run-webkit-websocketserver
+        https://bugs.webkit.org/show_bug.cgi?id=37664
+
+        Missed to pass options to factory.get() in r59595
+
+        * Scripts/new-run-webkit-websocketserver:
+          Pass options to factory.get().
+
+2010-05-19  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        WinEWS should build Debug instead of Release
+        https://bugs.webkit.org/show_bug.cgi?id=39242
+
+        This is a workaround for
+        https://bugs.webkit.org/show_bug.cgi?id=39197
+        Adam Roben and Brian Weinstein believe this may
+        also make building faster since Debug builds
+        take less time to link.
+
+        * Scripts/webkitpy/tool/commands/earlywarningsystem.py:
+
+2010-05-19  Dirk Pranke  <dpranke@chromium.org>
+
+        Unreviewed, build fix.
+
+        * DumpRenderTree/chromium/NotificationPresenter.cpp:
+        (NotificationPresenter::show):
+
+2010-05-19  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        user.py throws exception when readline module is missing
+        https://bugs.webkit.org/show_bug.cgi?id=39239
+
+        * Scripts/webkitpy/common/system/user.py:
+         - The error handling path requires the "sys" module,
+           so added an import sys at the top of the file.
+
+2010-05-18  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Fix a repaint issue and textarea tests
+        https://bugs.webkit.org/show_bug.cgi?id=39054
+
+        * DumpRenderTree/chromium/WebViewHost.cpp:
+        (WebViewHost::canvas): Remove m_paintRect initialization in canvas().
+         This line updated m_paintRect unexpectedly during paintRect().
+         We don't need to initialize m_paintRect because show() does it.
+
+2010-05-18  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [chromium] new-run-webkit-tests --use-drt should run on Linux
+        https://bugs.webkit.org/show_bug.cgi?id=37845
+
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_linux.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_mac.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_win.py:
+
+2010-05-18  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Fix some initialization/reset issues
+        https://bugs.webkit.org/show_bug.cgi?id=39281
+
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::reset): Reset m_userStyleSheetLocation.
+        * DumpRenderTree/chromium/LayoutTestController.h:
+          Remove unused variable, m_workQueueFrozen.
+        (LayoutTestController::WorkQueue::WorkQueue): Initialize m_frozen.
+        * DumpRenderTree/chromium/TestShell.cpp:
+        (TestShell::resetTestController): Reset WebSettings too.
+
+2010-05-18  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        new-run-webkit-tests: implement '--reset-results' flag to complement
+        the '--new-baseline' flag. '--new-baseline' will always write the
+        results into the platform directory; '--reset-results' will update the
+        existing baseline wherever it happens to be. Both sets of behavior
+        are useful in different circumstances.
+
+        https://bugs.webkit.org/show_bug.cgi?id=38879
+
+        * Scripts/webkitpy/layout_tests/data/image/canvas-bg.html: Added.
+        * Scripts/webkitpy/layout_tests/data/image/canvas-zoom-expected.checksum: Added.
+        * Scripts/webkitpy/layout_tests/data/image/canvas-zoom-expected.png: Added.
+        * Scripts/webkitpy/layout_tests/data/image/canvas-zoom-expected.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/image/canvas-zoom.html: Added.
+        * Scripts/webkitpy/layout_tests/data/misc/crash-expected.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/misc/crash.html: Added.
+        * Scripts/webkitpy/layout_tests/data/misc/missing-expectation.html: Added.
+        * Scripts/webkitpy/layout_tests/data/misc/passing-expected.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/misc/passing.html: Added.
+        * Scripts/webkitpy/layout_tests/data/platform/test/image/canvas-bg-expected.checksum: Added.
+        * Scripts/webkitpy/layout_tests/data/platform/test/image/canvas-bg-expected.png: Added.
+        * Scripts/webkitpy/layout_tests/data/platform/test/image/canvas-bg-expected.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/platform/test/test_expectations.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/text/article-element-expected.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/text/article-element.html: Added.
+        * Scripts/webkitpy/layout_tests/layout_package/test_expectations_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/test.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_unittest.py:
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+        * Scripts/webkitpy/layout_tests/layout_package/printing_unittest.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/test_types/image_diff.py:
+        * Scripts/webkitpy/layout_tests/test_types/test_type_base.py:
+        * Scripts/webkitpy/layout_tests/test_types/text_diff.py:
+        * Scripts/webkitpy/layout_tests/port/test.py:
+        * Scripts/webkitpy/layout_tests/port/dryrun.py:
+
+2010-05-18  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Add an --html5-parser option to DumpRenderTree to allow testing the new HTML5Lexer
+        https://bugs.webkit.org/show_bug.cgi?id=39311
+
+        This flag allows us to run the new HTML5Lexer code.
+        Right now all documents parse as empty documents, but
+        now that we're able to run the code we can fix that.
+
+        Once we're able to lex a few basic documents I'll add
+        an --html5-parser flag to run-webkit-tests so that we test
+        running all of the layout tests with the HTML5 parser.
+
+        * DumpRenderTree/mac/DumpRenderTree.mm:
+        (resetDefaultsToConsistentValues):
+        (initializeGlobalsFromCommandLineOptions):
+
+2010-05-08  Robert Hogan  <robert@roberthogan.net>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Fix http/tests/xmlhttprequest/cross-origin-no-authorization.html
+             and http/tests/xmlhttprequest/cross-origin-authorization.html
+
+        QHttpNetworkRequest adds Authorization and Cookie headers to XHRs
+        without knowing if this is valid behaviour or not. In order to allow
+        Qt to decide whether Cookie/Authorization headers should be added
+        to an XHR QtWebKit needs to use an attribute added to QNetworkRequest.
+        These new attributes are: QNetworkRequest::CookieLoadControlAttribute,
+        QNetworkRequest::CookieSaveControlAttribute,and
+        QNetworkRequest::AuthenticationReuseControlAttribute.
+
+        In order to properly support the tests, Qt's DRT needs to use one
+        NetworkAccessManager for all pages. This allows it to use cached
+        credentials where appropriate.
+
+        The tests now pass when run individually but there seems to be a problem with
+        leaking the results of requests across tests when run with the others in
+        http/tests. This will be addressed in a separate patch.
+
+        https://bugs.webkit.org/show_bug.cgi?id=32967
+
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::WebPage::WebPage):
+        (WebCore::DumpRenderTree::DumpRenderTree):
+        * DumpRenderTree/qt/DumpRenderTreeQt.h:
+
+
+2010-05-18  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        run_webkit_tests_unittest fails on SnowLeopard
+        https://bugs.webkit.org/show_bug.cgi?id=39279
+
+        * Scripts/webkitpy/layout_tests/port/base.py:
+         Return copy of os.environ.
+        * Scripts/webkitpy/layout_tests/port/chromium_win_unittest.py:
+         Check os.environ was not modified.
+
+2010-05-18  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Chromium: new-run-webkit-httpd fails to setup_mount
+        https://bugs.webkit.org/show_bug.cgi?id=39257
+
+        * Scripts/webkitpy/common/system/executive.py:
+         Assert type of args in run_command.
+        * Scripts/webkitpy/common/system/executive_unittest.py:
+         Add test_run_command_args_type
+        * Scripts/webkitpy/layout_tests/port/chromium_win.py:
+         Executive.run_command takes array for command line.
+        * Scripts/webkitpy/layout_tests/port/chromium_win_unittest.py:
+         Test if setup_environ_for_server() run setup_mount.bat.
+
+2010-05-17  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by David Levin.
+
+        Chromium Windows build system does not rebuild correctly when
+        enabling/disabling a feature
+        https://bugs.webkit.org/show_bug.cgi?id=38926
+
+        Add a workaround of this issue.
+
+        * Scripts/update-webkit:
+          Chromium-Windows only: If WebKit/chromium/features.gyp has been
+          updated, remove WebKit/chromium/Debug and WebKit/chromium/Release.
+
 2010-05-17  Sheriff Bot  <webkit.review.bot@gmail.com>
 
         Unreviewed, rolling out r59631.

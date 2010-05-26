@@ -29,6 +29,7 @@
 #include "HTMLPlugInElement.h"
 #include "InspectorTimelineAgent.h"
 #include "JSDocument.h"
+#include "JSMainThreadExecState.h"
 #include "NP_jsobject.h"
 #include "Page.h"
 #include "PageGroup.h"
@@ -110,12 +111,12 @@ JSDOMWindowShell* ScriptController::createWindowShell(DOMWrapperWorld* world)
     return windowShell;
 }
 
-ScriptValue ScriptController::evaluateInWorld(const ScriptSourceCode& sourceCode, DOMWrapperWorld* world)
+ScriptValue ScriptController::evaluateInWorld(const ScriptSourceCode& sourceCode, DOMWrapperWorld* world, ShouldAllowXSS shouldAllowXSS)
 {
     const SourceCode& jsSourceCode = sourceCode.jsSourceCode();
     String sourceURL = ustringToString(jsSourceCode.provider()->url());
 
-    if (!m_XSSAuditor->canEvaluate(sourceCode.source())) {
+    if (shouldAllowXSS == DoNotAllowXSS && !m_XSSAuditor->canEvaluate(sourceCode.source())) {
         // This script is not safe to be evaluated.
         return JSValue();
     }
@@ -142,7 +143,7 @@ ScriptValue ScriptController::evaluateInWorld(const ScriptSourceCode& sourceCode
 #endif
 
     exec->globalData().timeoutChecker.start();
-    Completion comp = JSC::evaluate(exec, exec->dynamicGlobalObject()->globalScopeChain(), jsSourceCode, shell);
+    Completion comp = JSMainThreadExecState::evaluate(exec, exec->dynamicGlobalObject()->globalScopeChain(), jsSourceCode, shell);
     exec->globalData().timeoutChecker.stop();
 
 #if ENABLE(INSPECTOR)
@@ -166,9 +167,9 @@ ScriptValue ScriptController::evaluateInWorld(const ScriptSourceCode& sourceCode
     return JSValue();
 }
 
-ScriptValue ScriptController::evaluate(const ScriptSourceCode& sourceCode) 
+ScriptValue ScriptController::evaluate(const ScriptSourceCode& sourceCode, ShouldAllowXSS shouldAllowXSS) 
 {
-    return evaluateInWorld(sourceCode, mainThreadNormalWorld());
+    return evaluateInWorld(sourceCode, mainThreadNormalWorld(), shouldAllowXSS);
 }
 
 PassRefPtr<DOMWrapperWorld> ScriptController::createWorld()
@@ -181,7 +182,7 @@ void ScriptController::getAllWorlds(Vector<DOMWrapperWorld*>& worlds)
     static_cast<WebCoreJSClientData*>(JSDOMWindow::commonJSGlobalData()->clientData)->getAllWorlds(worlds);
 }
 
-void ScriptController::clearWindowShell()
+void ScriptController::clearWindowShell(bool goingIntoPageCache)
 {
     if (m_windowShells.isEmpty())
         return;
@@ -203,8 +204,10 @@ void ScriptController::clearWindowShell()
         }
     }
 
-    // It's likely that resetting our windows created a lot of garbage.
-    gcController().garbageCollectSoon();
+    // It's likely that resetting our windows created a lot of garbage, unless
+    // it went in a back/forward cache.
+    if (!goingIntoPageCache)
+        gcController().garbageCollectSoon();
 }
 
 JSDOMWindowShell* ScriptController::initScript(DOMWrapperWorld* world)
@@ -281,6 +284,16 @@ bool ScriptController::anyPageIsProcessingUserGesture() const
     }
 
     return false;
+}
+
+bool ScriptController::canAccessFromCurrentOrigin(Frame *frame)
+{
+    ExecState* exec = JSMainThreadExecState::currentState();
+    if (exec)
+        return allowsAccessFromFrame(exec, frame);
+    // If the current state is 0 we're in a call path where the DOM security 
+    // check doesn't apply (eg. parser).
+    return true;
 }
 
 void ScriptController::attachDebugger(JSC::Debugger* debugger)
@@ -441,7 +454,7 @@ void ScriptController::clearScriptObjects()
 #endif
 }
 
-ScriptValue ScriptController::executeScriptInWorld(DOMWrapperWorld* world, const String& script, bool forceUserGesture)
+ScriptValue ScriptController::executeScriptInWorld(DOMWrapperWorld* world, const String& script, bool forceUserGesture, ShouldAllowXSS shouldAllowXSS)
 {
     ScriptSourceCode sourceCode(script, forceUserGesture ? KURL() : m_frame->loader()->url());
 
@@ -451,7 +464,7 @@ ScriptValue ScriptController::executeScriptInWorld(DOMWrapperWorld* world, const
     bool wasInExecuteScript = m_inExecuteScript;
     m_inExecuteScript = true;
 
-    ScriptValue result = evaluateInWorld(sourceCode, world);
+    ScriptValue result = evaluateInWorld(sourceCode, world, shouldAllowXSS);
 
     if (!wasInExecuteScript) {
         m_inExecuteScript = false;

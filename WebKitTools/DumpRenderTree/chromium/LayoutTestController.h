@@ -209,6 +209,8 @@ public:
     // Grants permission for desktop notifications to an origin
     void grantDesktopNotificationPermission(const CppArgumentList&, CppVariant*);
 
+    void setEditingBehavior(const CppArgumentList&, CppVariant*);
+
     // The following are only stubs.  TODO(pamg): Implement any of these that
     // are needed to pass the layout tests.
     void dumpAsWebArchive(const CppArgumentList&, CppVariant*);
@@ -279,6 +281,11 @@ public:
     void addUserScript(const CppArgumentList&, CppVariant*);
     void addUserStyleSheet(const CppArgumentList&, CppVariant*);
 
+    // Geolocation related functions.
+    void setGeolocationPermission(const CppArgumentList&, CppVariant*);
+    void setMockGeolocationPosition(const CppArgumentList&, CppVariant*);
+    void setMockGeolocationError(const CppArgumentList&, CppVariant*);
+
 public:
     // The following methods are not exposed to JavaScript.
     void setWorkQueueFrozen(bool frozen) { m_workQueue.setFrozen(frozen); }
@@ -331,7 +338,7 @@ private:
     // queueScript.
     class WorkQueue {
     public:
-        WorkQueue(LayoutTestController* controller) : m_controller(controller) {}
+        WorkQueue(LayoutTestController* controller) : m_frozen(false), m_controller(controller) {}
         virtual ~WorkQueue();
         void processWorkSoon();
 
@@ -440,10 +447,6 @@ private:
 
     // If true, don't dump output until notifyDone is called.
     bool m_waitUntilDone;
-
-    // To prevent infinite loops, only the first page of a test can add to a
-    // work queue (since we may well come back to that same page).
-    bool m_workQueueFrozen;
 
     WorkQueue m_workQueue;
 

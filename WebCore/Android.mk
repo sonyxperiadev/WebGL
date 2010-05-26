@@ -117,6 +117,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/ContainerNode.cpp \
 	dom/CustomEvent.cpp \
 	dom/DOMImplementation.cpp \
+        dom/DOMStringList.cpp \
 	dom/Document.cpp \
 	dom/DocumentFragment.cpp \
 	dom/DocumentType.cpp \
@@ -133,7 +134,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/ExceptionCode.cpp \
 	dom/InputElement.cpp \
 	dom/KeyboardEvent.cpp \
-	dom/MappedAttribute.cpp \
 	dom/MessageChannel.cpp \
 	dom/MessageEvent.cpp \
 	dom/MessagePort.cpp \
@@ -142,8 +142,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/MouseRelatedEvent.cpp \
 	dom/MutationEvent.cpp \
 	dom/NameNodeList.cpp \
-	dom/NamedAttrMap.cpp \
-	dom/NamedMappedAttrMap.cpp \
+	dom/NamedNodeMap.cpp \
 	dom/Node.cpp \
 	dom/NodeFilter.cpp \
 	dom/NodeFilterCondition.cpp \
@@ -151,6 +150,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/Notation.cpp \
 	dom/OptionElement.cpp \
 	dom/OptionGroupElement.cpp \
+	dom/DeviceOrientation.cpp \
+	dom/DeviceOrientationEvent.cpp \
 	dom/OverflowEvent.cpp \
 	dom/PageTransitionEvent.cpp \
 	dom/PopStateEvent.cpp \
@@ -253,6 +254,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/FileList.cpp \
 	html/FileReader.cpp \
 	html/FormDataList.cpp \
+	html/HTML5Lexer.cpp \
+	html/HTML5Tokenizer.cpp \
+	html/HTML5TreeBuilder.cpp \
 	html/HTMLAllCollection.cpp \
 	html/HTMLCollection.cpp \
 	html/HTMLDataListElement.cpp \

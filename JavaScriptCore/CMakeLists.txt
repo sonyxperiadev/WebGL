@@ -61,6 +61,7 @@ SET(JavaScriptCore_SOURCES
     jit/JITPropertyAccess32_64.cpp
     jit/JITArithmetic.cpp
     jit/JITCall.cpp
+    jit/JITCall32_64.cpp
     jit/JIT.cpp
 
     parser/Lexer.cpp
@@ -122,6 +123,7 @@ SET(JavaScriptCore_SOURCES
     runtime/JSNotAnObject.cpp
     runtime/JSNumberCell.cpp
     runtime/JSObject.cpp
+    runtime/JSObjectWithGlobalObject.cpp
     runtime/JSONObject.cpp
     runtime/JSPropertyNameIterator.cpp
     runtime/JSStaticScopeObject.cpp

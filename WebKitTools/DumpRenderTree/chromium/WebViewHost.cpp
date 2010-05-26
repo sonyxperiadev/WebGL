@@ -42,6 +42,7 @@
 #include "public/WebDataSource.h"
 #include "public/WebDragData.h"
 #include "public/WebFrame.h"
+#include "public/WebGeolocationServiceMock.h"
 #include "public/WebHistoryItem.h"
 #include "public/WebNode.h"
 #include "public/WebRange.h"
@@ -525,6 +526,13 @@ void WebViewHost::focusAccessibilityObject(const WebAccessibilityObject& object)
 WebNotificationPresenter* WebViewHost::notificationPresenter()
 {
     return m_shell->notificationPresenter();
+}
+
+WebKit::WebGeolocationService* WebViewHost::geolocationService()
+{
+    if (!m_geolocationServiceMock.get())
+        m_geolocationServiceMock.set(new WebGeolocationServiceMock);
+    return m_geolocationServiceMock.get();
 }
 
 // WebWidgetClient -----------------------------------------------------------
@@ -1321,7 +1329,6 @@ PlatformCanvas* WebViewHost::canvas()
         return m_canvas.get();
     WebSize widgetSize = webWidget()->size();
     resetScrollRect();
-    m_paintRect = WebRect(0, 0, widgetSize.width, widgetSize.height);
     m_canvas.set(new PlatformCanvas(widgetSize.width, widgetSize.height, true));
     return m_canvas.get();
 }

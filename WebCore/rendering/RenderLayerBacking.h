@@ -159,7 +159,7 @@ private:
     void updateImageContents();
 
     bool rendererHasBackground() const;
-    const Color& rendererBackgroundColor() const;
+    const Color rendererBackgroundColor() const;
 
     bool hasNonCompositingContent() const;
     
@@ -168,6 +168,10 @@ private:
 
     static int graphicsLayerToCSSProperty(AnimatedPropertyID);
     static AnimatedPropertyID cssToGraphicsLayerProperty(int);
+
+#ifndef NDEBUG
+    String nameForLayer() const;
+#endif
 
 private:
     RenderLayer* m_owningLayer;

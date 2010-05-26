@@ -66,16 +66,16 @@ namespace JSC {
 
     struct CallRecord {
         MacroAssembler::Call from;
-        unsigned bytecodeIndex;
+        unsigned bytecodeOffset;
         void* to;
 
         CallRecord()
         {
         }
 
-        CallRecord(MacroAssembler::Call from, unsigned bytecodeIndex, void* to = 0)
+        CallRecord(MacroAssembler::Call from, unsigned bytecodeOffset, void* to = 0)
             : from(from)
-            , bytecodeIndex(bytecodeIndex)
+            , bytecodeOffset(bytecodeOffset)
             , to(to)
         {
         }
@@ -83,11 +83,11 @@ namespace JSC {
 
     struct JumpTable {
         MacroAssembler::Jump from;
-        unsigned toBytecodeIndex;
+        unsigned toBytecodeOffset;
 
         JumpTable(MacroAssembler::Jump f, unsigned t)
             : from(f)
-            , toBytecodeIndex(t)
+            , toBytecodeOffset(t)
         {
         }
     };
@@ -119,20 +119,20 @@ namespace JSC {
             StringJumpTable* stringJumpTable;
         } jumpTable;
 
-        unsigned bytecodeIndex;
+        unsigned bytecodeOffset;
         unsigned defaultOffset;
 
-        SwitchRecord(SimpleJumpTable* jumpTable, unsigned bytecodeIndex, unsigned defaultOffset, Type type)
+        SwitchRecord(SimpleJumpTable* jumpTable, unsigned bytecodeOffset, unsigned defaultOffset, Type type)
             : type(type)
-            , bytecodeIndex(bytecodeIndex)
+            , bytecodeOffset(bytecodeOffset)
             , defaultOffset(defaultOffset)
         {
             this->jumpTable.simpleJumpTable = jumpTable;
         }
 
-        SwitchRecord(StringJumpTable* jumpTable, unsigned bytecodeIndex, unsigned defaultOffset)
+        SwitchRecord(StringJumpTable* jumpTable, unsigned bytecodeOffset, unsigned defaultOffset)
             : type(String)
-            , bytecodeIndex(bytecodeIndex)
+            , bytecodeOffset(bytecodeOffset)
             , defaultOffset(defaultOffset)
         {
             this->jumpTable.stringJumpTable = jumpTable;
@@ -223,6 +223,12 @@ namespace JSC {
             jit.privateCompileCTIMachineTrampolines(executablePool, globalData, trampolines);
         }
 
+        static CodePtr compileCTINativeCall(JSGlobalData* globalData, PassRefPtr<ExecutablePool> executablePool, NativeFunction func)
+        {
+            JIT jit(globalData);
+            return jit.privateCompileCTINativeCall(executablePool, globalData, func);
+        }
+
         static void patchGetByIdSelf(CodeBlock* codeblock, StructureStubInfo*, Structure*, size_t cachedOffset, ReturnAddressPtr returnAddress);
         static void patchPutByIdReplace(CodeBlock* codeblock, StructureStubInfo*, Structure*, size_t cachedOffset, ReturnAddressPtr returnAddress);
         static void patchMethodCallProto(CodeBlock* codeblock, MethodCallLinkInfo&, JSFunction*, Structure*, JSObject*, ReturnAddressPtr);
@@ -263,6 +269,7 @@ namespace JSC {
         void privateCompilePutByIdTransition(StructureStubInfo*, Structure*, Structure*, size_t cachedOffset, StructureChain*, ReturnAddressPtr returnAddress);
 
         void privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executablePool, JSGlobalData* data, TrampolineStructure *trampolines);
+        CodePtr privateCompileCTINativeCall(PassRefPtr<ExecutablePool> executablePool, JSGlobalData* data, NativeFunction func);
         void privateCompilePatchGetArrayLength(ReturnAddressPtr returnAddress);
 
         void addSlowCase(Jump);
@@ -306,8 +313,8 @@ namespace JSC {
         void emitStoreBool(unsigned index, RegisterID tag, bool indexIsBool = false);
         void emitStoreDouble(unsigned index, FPRegisterID value);
 
-        bool isLabeled(unsigned bytecodeIndex);
-        void map(unsigned bytecodeIndex, unsigned virtualRegisterIndex, RegisterID tag, RegisterID payload);
+        bool isLabeled(unsigned bytecodeOffset);
+        void map(unsigned bytecodeOffset, unsigned virtualRegisterIndex, RegisterID tag, RegisterID payload);
         void unmap(RegisterID);
         void unmap();
         bool isMapped(unsigned virtualRegisterIndex);
@@ -644,9 +651,9 @@ namespace JSC {
         void emit_op_call(Instruction*);
         void emit_op_call_eval(Instruction*);
         void emit_op_call_varargs(Instruction*);
+        void emit_op_call_put_result(Instruction*);
         void emit_op_catch(Instruction*);
         void emit_op_construct(Instruction*);
-        void emit_op_construct_verify(Instruction*);
         void emit_op_convert_this(Instruction*);
         void emit_op_create_arguments(Instruction*);
         void emit_op_debug(Instruction*);
@@ -723,6 +730,7 @@ namespace JSC {
         void emit_op_resolve_skip(Instruction*);
         void emit_op_resolve_with_base(Instruction*);
         void emit_op_ret(Instruction*);
+        void emit_op_ret_object_or_this(Instruction*);
         void emit_op_rshift(Instruction*);
         void emit_op_sret(Instruction*);
         void emit_op_strcat(Instruction*);
@@ -751,7 +759,6 @@ namespace JSC {
         void emitSlow_op_call_eval(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_call_varargs(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_construct(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_construct_verify(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_convert_this(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_div(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_eq(Instruction*, Vector<SlowCaseEntry>::iterator&);
@@ -879,7 +886,7 @@ namespace JSC {
         Vector<MethodCallCompilationInfo> m_methodCallCompilationInfo;
         Vector<JumpTable> m_jmpTable;
 
-        unsigned m_bytecodeIndex;
+        unsigned m_bytecodeOffset;
         Vector<JSRInfo> m_jsrSites;
         Vector<SlowCaseEntry> m_slowCases;
         Vector<SwitchRecord> m_switches;
@@ -890,7 +897,7 @@ namespace JSC {
 
 #if USE(JSVALUE32_64)
         unsigned m_jumpTargetIndex;
-        unsigned m_mappedBytecodeIndex;
+        unsigned m_mappedBytecodeOffset;
         unsigned m_mappedVirtualRegisterIndex;
         RegisterID m_mappedTag;
         RegisterID m_mappedPayload;
@@ -905,7 +912,7 @@ namespace JSC {
         int m_uninterruptedConstantSequenceBegin;
 #endif
 #endif
-        static PassRefPtr<NativeExecutable> stringGetByValStubGenerator(JSGlobalData* globalData, ExecutablePool* pool);
+        static CodePtr stringGetByValStubGenerator(JSGlobalData* globalData, ExecutablePool* pool);
     } JIT_CLASS_ALIGNMENT;
 
     inline void JIT::emit_op_loop(Instruction* currentInstruction)

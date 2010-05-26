@@ -260,11 +260,13 @@ IDL_BINDINGS += \
     dom/Comment.idl \
     dom/CompositionEvent.idl \
     dom/CustomEvent.idl \
+    dom/DeviceOrientationEvent.idl \
     dom/DocumentFragment.idl \
     dom/Document.idl \
     dom/DocumentType.idl \
     dom/DOMCoreException.idl \
     dom/DOMImplementation.idl \
+    dom/DOMStringList.idl \
     dom/Element.idl \
     dom/Entity.idl \
     dom/EntityReference.idl \

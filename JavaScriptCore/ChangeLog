@@ -1,3 +1,1202 @@
+2010-05-23  Sam Weinig  <sam@webkit.org>
+
+        Fix windows build.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-05-23  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Oliver Hunt.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=39575
+        Make JS DOMObject inherit from JSObjectWithGlobalObject instead of JSObject
+
+        Expose the global object stored in JSObjectWithGlobalObject.
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/JSObjectWithGlobalObject.cpp:
+        (JSC::JSObjectWithGlobalObject::JSObjectWithGlobalObject):
+        (JSC::JSObjectWithGlobalObject::globalObject):
+        * runtime/JSObjectWithGlobalObject.h:
+
+2010-05-21  Oliver Hunt  <oliver@apple.com>
+
+        "asm volatile" isn't valid outside of functions.
+
+        Reviewed by Gavin Barraclough.
+
+        * jit/JITStubs.cpp:
+
+2010-05-21  Gavin Barraclough  <barraclough@apple.com>
+
+        Unreviewed build fix.
+
+        Interpreter fix following r59974.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * runtime/JSPropertyNameIterator.cpp:
+        (JSC::JSPropertyNameIterator::get):
+        * runtime/JSPropertyNameIterator.h:
+
+2010-05-21  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Oliver Hunt.
+
+        Interpreter fix following r59939.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+
+2010-05-21  David Levin  <levin@chromium.org>
+
+        Unreviewed build fix.
+
+        * wtf/SizeLimits.cpp: Removed a check while I figure out how to write it properly.
+
+2010-05-21  David Levin  <levin@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Enforce size constraints on various data structures in JavaScriptCore/wtf.
+        https://bugs.webkit.org/show_bug.cgi?id=39327
+
+        I only modified the default build for OSX and Chromium's build file to include WTFCompileAsserts.cpp
+        as those should be sufficient to catch regressions on the size of the data structures.
+
+        * JavaScriptCore.gypi: Added the WTFCompileAsserts.cpp file.
+        * JavaScriptCore.xcodeproj/project.pbxproj: Added the WTFCompileAsserts.cpp file.
+        * runtime/UString.cpp: Added a compile assert for UString size.
+        * wtf/SizeLimits.cpp: Added compile asserts for data structures that didn't have cpp files.
+        * wtf/text/StringImpl.cpp: Added a compile assert for StringImpl size.
+
+2010-05-21  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 39509 - Exceptions raised when JSString::value() is called not always properly thrown.
+        Missing some CHECK_FOR_EXCEPTION()s, cleanup NativeError construction (adding a property
+        via the prototype was inefficient, and whilst trivially true that the property is is not
+        a rope - and thus couldn't except - it would be hard to prove this).
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::callEval):
+        (JSC::Interpreter::privateExecute):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * runtime/InternalFunction.cpp:
+        (JSC::InternalFunction::name):
+        (JSC::InternalFunction::displayName):
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::name):
+        (JSC::JSFunction::displayName):
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::reset):
+        * runtime/JSPropertyNameIterator.cpp:
+        * runtime/JSPropertyNameIterator.h:
+        * runtime/JSString.h:
+        (JSC::RopeBuilder::tryGetValue):
+        (JSC::JSString::getIndex):
+        * runtime/NativeErrorConstructor.cpp:
+        (JSC::NativeErrorConstructor::NativeErrorConstructor):
+        * runtime/NativeErrorConstructor.h:
+        * runtime/NativeErrorPrototype.cpp:
+        (JSC::NativeErrorPrototype::NativeErrorPrototype):
+        * runtime/NativeErrorPrototype.h:
+        * runtime/StringPrototype.cpp:
+        (JSC::stringProtoFuncReplace):
+
+2010-05-21  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (build fix).
+
+        Fix interpreter build.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+
+2010-05-21  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Split out JITCall32_64.cpp, and tightened up some #ifdefs in the hopes
+        of improving compile times.
+        https://bugs.webkit.org/show_bug.cgi?id=39507
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * jit/JIT.cpp:
+        * jit/JITArithmetic.cpp:
+        * jit/JITArithmetic32_64.cpp:
+        * jit/JITCall.cpp:
+        * jit/JITCall32_64.cpp: Copied from jit/JITCall.cpp.
+        * jit/JITOpcodes.cpp:
+        * jit/JITOpcodes32_64.cpp:
+        * jit/JITPropertyAccess.cpp:
+        * jit/JITPropertyAccess32_64.cpp:
+        * jit/JITStubs.cpp:
+
+2010-05-21  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Unreviewed buildfix for Qt after r59941.
+
+        * JavaScriptCore.pro: missing runtime/JSObjectWithGlobalObject.cpp added to SOURCES.
+
+2010-05-21  Oliver Hunt  <oliver@apple.com>
+
+        Windows build fix #3
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-05-21  Oliver Hunt  <oliver@apple.com>
+
+        Windows build fix #2
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-05-21  Oliver Hunt  <oliver@apple.com>
+
+        Windows build fix #1
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-05-21  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        All callable objects should have a global object reference
+        https://bugs.webkit.org/show_bug.cgi?id=39495
+
+        All objects that may ever return a value other CallTypeNone
+        or ConstructTypeNone now get a global object in their constructor
+        and store that in their first anonymous slot.  We add a new type
+        JSObjectWithGlobalObject to allow us to share this logic as much
+        as possible, however some objects have specific inheritance 
+        requirements so we can't just use it universally.
+
+        To enforce this requirement JSValue::getCallData and getConstructData
+        make use of a new "isValidCallee" function to assert that any object
+        that returns a value other than CallType/ConstructTypeNone has a
+        global object in anonymous slot 0.
+
+        In order to ensure that static function slots are converted into
+        function objects with the correct global object, all prototype objects
+        and other classes with static function slots also gain a global object
+        reference.  Happily this fixes the long standing issue where host
+        function objects get a prototype from the lexical global object of the
+        first function that calls them, instead of the global object that they
+        are defined on.
+
+        * API/JSCallbackConstructor.cpp:
+        (JSC::JSCallbackConstructor::JSCallbackConstructor):
+        * API/JSCallbackConstructor.h:
+        * API/JSCallbackFunction.cpp:
+        (JSC::JSCallbackFunction::JSCallbackFunction):
+        * API/JSCallbackFunction.h:
+        * API/JSCallbackObject.cpp:
+        (JSC::):
+        * API/JSCallbackObject.h:
+        * API/JSCallbackObjectFunctions.h:
+        (JSC::::JSCallbackObject):
+        (JSC::::staticFunctionGetter):
+        * API/JSClassRef.cpp:
+        (OpaqueJSClass::prototype):
+        * API/JSContextRef.cpp:
+        * API/JSObjectRef.cpp:
+        (JSObjectMake):
+        (JSObjectMakeFunctionWithCallback):
+        (JSObjectMakeConstructor):
+        (JSObjectGetPrivate):
+        (JSObjectSetPrivate):
+        (JSObjectGetPrivateProperty):
+        (JSObjectSetPrivateProperty):
+        (JSObjectDeletePrivateProperty):
+        * API/JSValueRef.cpp:
+        (JSValueIsObjectOfClass):
+        * API/JSWeakObjectMapRefPrivate.cpp:
+        * CMakeLists.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.exp:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jsc.cpp:
+        (GlobalObject::GlobalObject):
+        * runtime/ArrayConstructor.cpp:
+        (JSC::ArrayConstructor::ArrayConstructor):
+        * runtime/ArrayConstructor.h:
+        * runtime/ArrayPrototype.cpp:
+        (JSC::ArrayPrototype::ArrayPrototype):
+        * runtime/ArrayPrototype.h:
+        (JSC::ArrayPrototype::createStructure):
+        * runtime/BooleanConstructor.cpp:
+        (JSC::BooleanConstructor::BooleanConstructor):
+        * runtime/BooleanConstructor.h:
+        * runtime/BooleanPrototype.cpp:
+        (JSC::BooleanPrototype::BooleanPrototype):
+        * runtime/BooleanPrototype.h:
+        * runtime/DateConstructor.cpp:
+        (JSC::DateConstructor::DateConstructor):
+        * runtime/DateConstructor.h:
+        * runtime/DatePrototype.cpp:
+        (JSC::DatePrototype::DatePrototype):
+        * runtime/DatePrototype.h:
+        * runtime/ErrorConstructor.cpp:
+        (JSC::ErrorConstructor::ErrorConstructor):
+        * runtime/ErrorConstructor.h:
+        * runtime/ErrorPrototype.cpp:
+        (JSC::ErrorPrototype::ErrorPrototype):
+        * runtime/ErrorPrototype.h:
+        * runtime/FunctionConstructor.cpp:
+        (JSC::FunctionConstructor::FunctionConstructor):
+        * runtime/FunctionConstructor.h:
+        * runtime/FunctionPrototype.cpp:
+        (JSC::FunctionPrototype::FunctionPrototype):
+        (JSC::FunctionPrototype::addFunctionProperties):
+        * runtime/FunctionPrototype.h:
+        * runtime/GlobalEvalFunction.cpp:
+        (JSC::GlobalEvalFunction::GlobalEvalFunction):
+        * runtime/GlobalEvalFunction.h:
+        * runtime/InternalFunction.cpp:
+        (JSC::InternalFunction::InternalFunction):
+        * runtime/InternalFunction.h:
+        * runtime/JSCell.h:
+        (JSC::JSValue::getCallData):
+        (JSC::JSValue::getConstructData):
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::JSFunction):
+        * runtime/JSFunction.h:
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::reset):
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::JSGlobalObject):
+        * runtime/JSONObject.cpp:
+        (JSC::JSONObject::JSONObject):
+        * runtime/JSONObject.h:
+        * runtime/JSObject.h:
+        * runtime/JSObjectWithGlobalObject.cpp: Added.
+        (JSC::JSObjectWithGlobalObject::JSObjectWithGlobalObject):
+        * runtime/JSObjectWithGlobalObject.h: Added.
+        (JSC::JSObjectWithGlobalObject::createStructure):
+        (JSC::JSObjectWithGlobalObject::JSObjectWithGlobalObject):
+        * runtime/JSValue.cpp:
+        (JSC::JSValue::isValidCallee):
+        * runtime/JSValue.h:
+        * runtime/Lookup.cpp:
+        (JSC::setUpStaticFunctionSlot):
+        * runtime/MathObject.cpp:
+        (JSC::MathObject::MathObject):
+        * runtime/MathObject.h:
+        * runtime/NativeErrorConstructor.cpp:
+        (JSC::NativeErrorConstructor::NativeErrorConstructor):
+        * runtime/NativeErrorConstructor.h:
+        * runtime/NativeErrorPrototype.cpp:
+        (JSC::NativeErrorPrototype::NativeErrorPrototype):
+        * runtime/NativeErrorPrototype.h:
+        * runtime/NumberConstructor.cpp:
+        (JSC::NumberConstructor::NumberConstructor):
+        * runtime/NumberConstructor.h:
+        * runtime/NumberPrototype.cpp:
+        (JSC::NumberPrototype::NumberPrototype):
+        * runtime/NumberPrototype.h:
+        * runtime/ObjectConstructor.cpp:
+        (JSC::ObjectConstructor::ObjectConstructor):
+        * runtime/ObjectConstructor.h:
+        * runtime/ObjectPrototype.cpp:
+        (JSC::ObjectPrototype::ObjectPrototype):
+        * runtime/ObjectPrototype.h:
+        * runtime/PrototypeFunction.cpp:
+        (JSC::PrototypeFunction::PrototypeFunction):
+        * runtime/PrototypeFunction.h:
+        * runtime/RegExpConstructor.cpp:
+        (JSC::RegExpConstructor::RegExpConstructor):
+        (JSC::constructRegExp):
+        * runtime/RegExpConstructor.h:
+        * runtime/RegExpObject.cpp:
+        (JSC::RegExpObject::RegExpObject):
+        * runtime/RegExpObject.h:
+        * runtime/RegExpPrototype.cpp:
+        (JSC::RegExpPrototype::RegExpPrototype):
+        * runtime/RegExpPrototype.h:
+        * runtime/StringConstructor.cpp:
+        (JSC::StringConstructor::StringConstructor):
+        * runtime/StringConstructor.h:
+        * runtime/StringPrototype.cpp:
+        (JSC::StringPrototype::StringPrototype):
+        * runtime/StringPrototype.h:
+
+2010-05-21  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Removed the unused entry in the CallFrame
+        https://bugs.webkit.org/show_bug.cgi?id=39470
+        
+        Removed the unused entry in the CallFrame, and reordered CallFrame
+        writes on the hot path to be in forwards order.
+        
+        SunSpider says 0.3% faster.
+
+        * interpreter/RegisterFile.h:
+        (JSC::RegisterFile::):
+        * jit/JITCall.cpp:
+        (JSC::JIT::compileOpCall):
+
+2010-05-21  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Split the QScriptValue autotest into smaller chunks.
+
+        File tst_qscriptvalue_generated.cpp was huge and it was difficult to compile
+        it with MSVS2008, because of the code optimization.
+
+        Tests were splited into a few files for better use of distributed
+        compilation.
+        Repeated calls to insert() and operator<<() where replaced by loops,
+        that should reduce time of code optimizing.
+
+        New files were generated by the same application, test logic wasn't changed.
+
+        [Qt] The QScriptValue autotest should be refactored.
+        https://bugs.webkit.org/show_bug.cgi?id=38987
+
+        * qt/tests/qscriptvalue/qscriptvalue.pro:
+        * qt/tests/qscriptvalue/tst_qscriptvalue.h:
+        * qt/tests/qscriptvalue/tst_qscriptvalue_generated.cpp: Removed.
+        * qt/tests/qscriptvalue/tst_qscriptvalue_generated_init.cpp: Added.
+        (tst_QScriptValue::initScriptValues):
+        * qt/tests/qscriptvalue/tst_qscriptvalue_generated_istype.cpp: Added.
+        (tst_QScriptValue::isValid_initData):
+        (tst_QScriptValue::isValid_makeData):
+        (tst_QScriptValue::isValid_test):
+        (tst_QScriptValue::isBool_initData):
+        (tst_QScriptValue::isBool_makeData):
+        (tst_QScriptValue::isBool_test):
+        (tst_QScriptValue::isBoolean_initData):
+        (tst_QScriptValue::isBoolean_makeData):
+        (tst_QScriptValue::isBoolean_test):
+        (tst_QScriptValue::isNumber_initData):
+        (tst_QScriptValue::isNumber_makeData):
+        (tst_QScriptValue::isNumber_test):
+        (tst_QScriptValue::isFunction_initData):
+        (tst_QScriptValue::isFunction_makeData):
+        (tst_QScriptValue::isFunction_test):
+        (tst_QScriptValue::isNull_initData):
+        (tst_QScriptValue::isNull_makeData):
+        (tst_QScriptValue::isNull_test):
+        (tst_QScriptValue::isString_initData):
+        (tst_QScriptValue::isString_makeData):
+        (tst_QScriptValue::isString_test):
+        (tst_QScriptValue::isUndefined_initData):
+        (tst_QScriptValue::isUndefined_makeData):
+        (tst_QScriptValue::isUndefined_test):
+        (tst_QScriptValue::isObject_initData):
+        (tst_QScriptValue::isObject_makeData):
+        (tst_QScriptValue::isObject_test):
+        * qt/tests/qscriptvalue/tst_qscriptvalue_generated_totype.cpp: Added.
+        (tst_QScriptValue::toString_initData):
+        (tst_QScriptValue::toString_makeData):
+        (tst_QScriptValue::toString_test):
+        (tst_QScriptValue::toNumber_initData):
+        (tst_QScriptValue::toNumber_makeData):
+        (tst_QScriptValue::toNumber_test):
+        (tst_QScriptValue::toBool_initData):
+        (tst_QScriptValue::toBool_makeData):
+        (tst_QScriptValue::toBool_test):
+        (tst_QScriptValue::toBoolean_initData):
+        (tst_QScriptValue::toBoolean_makeData):
+        (tst_QScriptValue::toBoolean_test):
+        (tst_QScriptValue::toInteger_initData):
+        (tst_QScriptValue::toInteger_makeData):
+        (tst_QScriptValue::toInteger_test):
+        (tst_QScriptValue::toInt32_initData):
+        (tst_QScriptValue::toInt32_makeData):
+        (tst_QScriptValue::toInt32_test):
+        (tst_QScriptValue::toUInt32_initData):
+        (tst_QScriptValue::toUInt32_makeData):
+        (tst_QScriptValue::toUInt32_test):
+        (tst_QScriptValue::toUInt16_initData):
+        (tst_QScriptValue::toUInt16_makeData):
+        (tst_QScriptValue::toUInt16_test):
+
+2010-05-21  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Eric Seidel.
+
+        Add COMPILER(MSVC) guard for strnstr
+        https://bugs.webkit.org/show_bug.cgi?id=39397
+
+        BREWMP uses MSVC for simulator build, but it is not OS(WINDOWS).
+        Add COMPILER(MSVC) guard for strnstr.
+
+        * wtf/StringExtras.h:
+
+2010-05-21  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Eric Seidel.
+
+        [BREWMP] Add !PLATFORM(BREWMP) guard for isMainThread
+        https://bugs.webkit.org/show_bug.cgi?id=39396
+
+        BREWMP sets ENABLE(SINGLE_THREADED), so it uses isMainThread from ThreadingNone.cpp.
+        Exclude isMainThread in MainThread.cpp.
+
+        * wtf/MainThread.cpp:
+
+2010-05-20  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Eric Seidel.
+
+        [BREWMP] Use skia as BREW MP's graphics backend.
+        https://bugs.webkit.org/show_bug.cgi?id=39407
+
+        Define WTF_PLATFORM_SKIA=1 for BREW MP.
+
+        * wtf/Platform.h:
+
+2010-05-20  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Beth Dakin.
+
+        Fixed naming mixup: it's op_call_put_result, not ret_result.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+
+2010-05-20  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Whittling away at CodeBlock use: Removed a little wonkiness in closure lookup
+        https://bugs.webkit.org/show_bug.cgi?id=39444
+        
+        Calculate all lookup depths at compile time. I'm not sure why we couldn't
+        do this before, but whatever the reason, it seems to be gone now.
+
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::findScopedProperty):
+        * bytecompiler/BytecodeGenerator.h:
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::resolveSkip):
+        (JSC::Interpreter::resolveGlobalDynamic):
+        (JSC::Interpreter::privateExecute):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_get_scoped_var):
+        (JSC::JIT::emit_op_put_scoped_var):
+        (JSC::JIT::emit_op_resolve_skip):
+        (JSC::JIT::emit_op_resolve_global_dynamic):
+        (JSC::JIT::emitSlow_op_resolve_global_dynamic):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_get_scoped_var):
+        (JSC::JIT::emit_op_put_scoped_var):
+        (JSC::JIT::emit_op_resolve_skip):
+
+2010-05-20  Darin Adler  <darin@apple.com>
+
+        Reviewed by Eric Seidel.
+
+        Fix warnings seen on the buildbots today
+        https://bugs.webkit.org/show_bug.cgi?id=39368
+
+        * profiler/ProfileNode.cpp:
+        (JSC::getCount): Removed unneeded initialization of global variable.
+        These are all initialized to zero anyway, so no need to try to initialize
+        it and get a warning.
+
+        * wtf/CurrentTime.cpp:
+        (WTF::currentTime): Removed unused global variable.
+
+2010-05-20  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Removed some reliance on callFame[CodeBlock] by storing CodeBlock in a
+        local variable in the Interpreter.
+        https://bugs.webkit.org/show_bug.cgi?id=39447
+
+        Small speedup on SunSpider in Interpreter mode.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jsc.cpp:
+        * wtf/Platform.h:
+
+2010-05-19  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 39408 - Unify JIT/interpreter return behaviour.
+
+        Presently the JIT and the interpreter have differing implementations in how
+        they handle storing the result of a function call back to the register file.
+        In both cases the op_call ( / _eval / _varargs / op_construct) opcode has an
+        operand indicating the VM register in which the result should be stored.
+        The JIT plants code after the call to store the result, so the value will be
+        stored as soon as the callee has returned.  In the interpreter the call
+        passes the return value register id into the callee via the callee callframe,
+        and the callee is responsible for writing the result back into its callers
+        register file after it has restored the parents callframe pointer, but before
+        returning.
+
+        Instead, move the task of writing the call result to the register file into a
+        new opcode (op_call_put_result), and after returning the callee should leave
+        the return value in a canonical location.  In the case of the interpreter,
+        this canonical location is a local variable in privateExecute
+        (functionReturnValue), in the case of the JIT this is the normal return value
+        registers (regT0, or regT1:regT0 in JSVALUE32_64).  op_call_put_result stores
+        the result from the canonical location to the registerfile.
+
+        In addition to unifying JIT & interpreter behaviour this change allows us to
+        remove a slot from the callframe, omit the write of the result where the
+        return value from the call is not used, and provides a 2% speedup on sunspider
+        in the interpreter.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitCall):
+        (JSC::BytecodeGenerator::emitCallVarargs):
+        (JSC::BytecodeGenerator::emitConstruct):
+        * bytecompiler/BytecodeGenerator.h:
+        (JSC::BytecodeGenerator::finalDestinationOrIgnored):
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::NewExprNode::emitBytecode):
+        (JSC::FunctionCallValueNode::emitBytecode):
+        (JSC::FunctionCallResolveNode::emitBytecode):
+        (JSC::FunctionCallBracketNode::emitBytecode):
+        (JSC::FunctionCallDotNode::emitBytecode):
+        (JSC::CallFunctionCallDotNode::emitBytecode):
+        (JSC::ApplyFunctionCallDotNode::emitBytecode):
+        * interpreter/CallFrame.h:
+        (JSC::ExecState::init):
+        (JSC::ExecState::noCaller):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::dumpRegisters):
+        (JSC::Interpreter::throwException):
+        (JSC::Interpreter::privateExecute):
+        * interpreter/RegisterFile.h:
+        (JSC::RegisterFile::):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        * jit/JIT.h:
+        * jit/JITCall.cpp:
+        (JSC::JIT::compileOpCallSetupArgs):
+        (JSC::JIT::compileOpConstructSetupArgs):
+        (JSC::JIT::emit_op_call_put_result):
+        (JSC::JIT::compileOpCallVarargs):
+        (JSC::JIT::compileOpCallVarargsSlowCase):
+        (JSC::JIT::compileOpCall):
+        (JSC::JIT::compileOpCallSlowCase):
+        (JSC::JIT::compileOpCallVarargsSetupArgs):
+
+2010-05-20  Steve Block  <steveblock@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Provide bindings for DeviceOrientation
+        https://bugs.webkit.org/show_bug.cgi?id=39210
+
+        Adds ENABLE_DEVICE_ORIENTATION to XCode project file, always disabled.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-05-19  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Errk! rename op_constructor_ret as requested in review of Bug 39399.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitReturn):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        * jit/JIT.h:
+        * jit/JITCall.cpp:
+        (JSC::JIT::emit_op_ret_object_or_this):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_ret_object_or_this):
+
+2010-05-19  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Bug 39399 - Move responsibility for verifying constructors return objects from the caller to the callee.
+        
+        This is a necessary step to move object creation from caller to callee.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::emitReturn):
+        (JSC::BytecodeGenerator::emitConstruct):
+        * bytecompiler/BytecodeGenerator.h:
+        (JSC::BytecodeGenerator::isConstructor):
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::FunctionBodyNode::emitBytecode):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        (JSC::JIT::privateCompileSlowCases):
+        * jit/JIT.h:
+        * jit/JITCall.cpp:
+        (JSC::JIT::emit_op_constructor_ret):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_constructor_ret):
+
+2010-05-19  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (build fix).
+
+        Fix windows build II.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-05-19  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (build fix).
+
+        Fix windows build.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-05-19  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 39393 - JSFunction need not be a subclass of InternalFunction.
+
+        re-landing r59800.
+
+        * JavaScriptCore.exp:
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::retrieveCaller):
+        (JSC::Interpreter::findFunctionCallFrame):
+        * interpreter/Interpreter.h:
+        * profiler/Profiler.cpp:
+        (JSC::Profiler::createCallIdentifier):
+        * runtime/FunctionPrototype.cpp:
+        (JSC::functionProtoFuncToString):
+        * runtime/JSFunction.cpp:
+        (JSC::):
+        (JSC::JSFunction::JSFunction):
+        (JSC::JSFunction::name):
+        (JSC::JSFunction::displayName):
+        (JSC::JSFunction::calculatedDisplayName):
+        * runtime/JSFunction.h:
+        * runtime/JSObject.cpp:
+        (JSC::JSObject::putDirectFunction):
+        (JSC::JSObject::putDirectFunctionWithoutTransition):
+        * runtime/JSObject.h:
+        * runtime/Lookup.cpp:
+        (JSC::setUpStaticFunctionSlot):
+
+2010-05-19  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (build fix).
+
+        Reverting r59800, this b0rked stuff.
+
+        * JavaScriptCore.exp:
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::retrieveCaller):
+        (JSC::Interpreter::findFunctionCallFrame):
+        * interpreter/Interpreter.h:
+        * profiler/Profiler.cpp:
+        (JSC::Profiler::createCallIdentifier):
+        * runtime/FunctionPrototype.cpp:
+        (JSC::functionProtoFuncToString):
+        * runtime/JSFunction.cpp:
+        (JSC::):
+        (JSC::JSFunction::JSFunction):
+        * runtime/JSFunction.h:
+        * runtime/JSObject.cpp:
+        * runtime/JSObject.h:
+        * runtime/Lookup.cpp:
+        (JSC::setUpStaticFunctionSlot):
+
+2010-05-19  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 39393 - JSFunction need not be a subclass of InternalFunction.
+
+        This may prevent us from introducing a more useful parent class to
+        JSFunction, e.g. a JSObject that holds an executable, which could
+        also reference an eval or program executable.
+
+        * JavaScriptCore.exp:
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::retrieveCaller):
+        (JSC::Interpreter::findFunctionCallFrame):
+        * interpreter/Interpreter.h:
+        * profiler/Profiler.cpp:
+        (JSC::Profiler::createCallIdentifier):
+        * runtime/FunctionPrototype.cpp:
+        (JSC::functionProtoFuncToString):
+        * runtime/JSFunction.cpp:
+        (JSC::):
+        (JSC::JSFunction::JSFunction):
+        (JSC::JSFunction::name):
+        (JSC::JSFunction::displayName):
+        (JSC::JSFunction::calculatedDisplayName):
+        * runtime/JSFunction.h:
+        * runtime/JSObject.cpp:
+        (JSC::JSObject::putDirectFunction):
+        (JSC::JSObject::putDirectFunctionWithoutTransition):
+        * runtime/JSObject.h:
+        * runtime/Lookup.cpp:
+        (JSC::setUpStaticFunctionSlot):
+
+2010-05-19  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        emitJumpIfNotJSCell should special case constant immediate values
+        https://bugs.webkit.org/show_bug.cgi?id=39392
+        <rdar://problem/8001324>
+
+        Make emitJumpSlowCaseIfNotJSCell special case constant immediate
+        values, in addition to the immediate JSCell optimisation.
+
+        Also add assertions to make sure no one else produces code that
+        attempts to load constants from the register file.
+
+        * jit/JITInlineMethods.h:
+        (JSC::JIT::emitJumpSlowCaseIfNotJSCell):
+        * jit/JSInterfaceJIT.h:
+        (JSC::JSInterfaceJIT::emitJumpIfNotJSCell):
+        (JSC::JSInterfaceJIT::emitLoadInt32):
+        (JSC::JSInterfaceJIT::tagFor):
+        (JSC::JSInterfaceJIT::payloadFor):
+        (JSC::JSInterfaceJIT::emitLoadDouble):
+        (JSC::JSInterfaceJIT::addressFor):
+        * jit/ThunkGenerators.cpp:
+
+2010-05-19  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Slight refactoring to CodeBlock bytecode access
+        https://bugs.webkit.org/show_bug.cgi?id=39384
+
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::bytecodeOffset):
+        * interpreter/CallFrame.h:
+        (JSC::ExecState::returnPC):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::unwindCallFrame):
+        (JSC::Interpreter::retrieveLastCaller): Moved bytecode access into a
+        CodeBlock helper function. Changed CallFrame to accurately represent
+        how the returnPC is stored in JIT vs Interpreter.
+
+2010-05-19  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Don't build the Interpreter into JIT builds.
+        https://bugs.webkit.org/show_bug.cgi?id=39373
+
+        SunSpider says no change.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * interpreter/Interpreter.h:
+        * wtf/Platform.h:
+
+2010-05-19  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Gavin Barraclough.
+        
+        Standardized naming: "bytecode offset" wins; "bytecode index" loses.
+        
+        Also renamed getBytecodeOffset to bytecodeOffset, to match the WebKit
+        naming style.
+
+        * bytecode/CodeBlock.h:
+        (JSC::CallReturnOffsetToBytecodeOffset::CallReturnOffsetToBytecodeOffset):
+        (JSC::getCallReturnOffset):
+        (JSC::CodeBlock::bytecodeOffset):
+        (JSC::CodeBlock::callReturnIndexVector):
+        * interpreter/Interpreter.cpp:
+        (JSC::bytecodeOffsetForPC):
+        * jit/JIT.cpp:
+        (JSC::JIT::JIT):
+        (JSC::JIT::privateCompileMainPass):
+        (JSC::JIT::privateCompileLinkPass):
+        (JSC::JIT::privateCompileSlowCases):
+        (JSC::JIT::privateCompile):
+        * jit/JIT.h:
+        (JSC::CallRecord::CallRecord):
+        (JSC::JumpTable::JumpTable):
+        (JSC::SwitchRecord::SwitchRecord):
+        * jit/JITCall.cpp:
+        (JSC::JIT::compileOpCallVarargsSlowCase):
+        (JSC::JIT::compileOpCall):
+        * jit/JITInlineMethods.h:
+        (JSC::JIT::emitNakedCall):
+        (JSC::JIT::addSlowCase):
+        (JSC::JIT::addJump):
+        (JSC::JIT::emitJumpSlowToHot):
+        (JSC::JIT::isLabeled):
+        (JSC::JIT::map):
+        (JSC::JIT::unmap):
+        (JSC::JIT::isMapped):
+        (JSC::JIT::getMappedPayload):
+        (JSC::JIT::getMappedTag):
+        (JSC::JIT::emitGetVirtualRegister):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_switch_imm):
+        (JSC::JIT::emit_op_switch_char):
+        (JSC::JIT::emit_op_switch_string):
+        (JSC::JIT::emit_op_new_error):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_mov):
+        (JSC::JIT::emit_op_get_global_var):
+        (JSC::JIT::emit_op_put_global_var):
+        (JSC::JIT::emit_op_get_scoped_var):
+        (JSC::JIT::emit_op_put_scoped_var):
+        (JSC::JIT::emit_op_to_primitive):
+        (JSC::JIT::emit_op_resolve_global):
+        (JSC::JIT::emit_op_to_jsnumber):
+        (JSC::JIT::emit_op_catch):
+        (JSC::JIT::emit_op_switch_imm):
+        (JSC::JIT::emit_op_switch_char):
+        (JSC::JIT::emit_op_switch_string):
+        (JSC::JIT::emit_op_new_error):
+        (JSC::JIT::emit_op_convert_this):
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::emit_op_method_check):
+        (JSC::JIT::emitSlow_op_method_check):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::emit_op_method_check):
+        (JSC::JIT::emitSlow_op_method_check):
+        (JSC::JIT::emit_op_get_by_val):
+        (JSC::JIT::emit_op_get_by_id):
+        (JSC::JIT::emit_op_get_by_pname):
+        * jit/JITStubCall.h:
+        (JSC::JITStubCall::call):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+
+2010-05-19  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Darin Adler.
+
+        The backtrackParenthesesOnceEnd function should store the start position
+        of the subpattern's non-greedy match at the place of the subpattern's
+        start index in the output array instead of the place of the
+        subpattern's end index.
+        Add layout test for checking of non-greedy matching of subpattern in
+        regular expressions.
+        https://bugs.webkit.org/show_bug.cgi?id=39289
+
+        * yarr/RegexInterpreter.cpp:
+        (JSC::Yarr::Interpreter::backtrackParenthesesOnceEnd):
+
+2010-05-18  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Bug 39343 - Dynamically generate a native call thunk per NativeFunction
+        
+        https://bugs.webkit.org/show_bug.cgi?id=39252 regressed performance on i386,
+        by adding an extra indirection to making a native call.  By introducing per-
+        NativeFunction thunks we can hard code the function pointer into the thunk
+        so that it need not be loaded from the callee.
+
+        * jit/JIT.h:
+        (JSC::JIT::compileCTINativeCall):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::privateCompileCTINativeCall):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::privateCompileCTINativeCall):
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::emitSlow_op_get_by_val):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::emitSlow_op_get_by_val):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::ctiStub):
+        (JSC::JITThunks::hostFunctionStub):
+        * jit/JITStubs.h:
+        * jit/SpecializedThunkJIT.h:
+        (JSC::SpecializedThunkJIT::finalize):
+        * jit/ThunkGenerators.cpp:
+        (JSC::charCodeAtThunkGenerator):
+        (JSC::charAtThunkGenerator):
+        (JSC::fromCharCodeThunkGenerator):
+        (JSC::sqrtThunkGenerator):
+        (JSC::powThunkGenerator):
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::JSFunction):
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::getHostFunction):
+        * runtime/JSGlobalData.h:
+        (JSC::JSGlobalData::getCTIStub):
+        * runtime/Lookup.cpp:
+        (JSC::setUpStaticFunctionSlot):
+        * runtime/StringConstructor.cpp:
+        (JSC::StringConstructor::StringConstructor):
+        * wtf/Platform.h:
+
+2010-05-18  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Simplified handling of 'arguments' -- 1.2% SunSpider speedup
+        https://bugs.webkit.org/show_bug.cgi?id=39200
+        
+        Removed the reserved OptionalCalleeArguments slot from the CallFrame.
+        Now, slots for 'arguments' are allocated and initialized only by
+        functions that might need them.
+        
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump): Updated for new bytecode operands.
+
+        (JSC::CodeBlock::CodeBlock):
+        * bytecode/CodeBlock.h:
+        (JSC::unmodifiedArgumentsRegister): Added a helper function for mapping
+        from the arguments register to its unmodified counterpart.
+
+        (JSC::CodeBlock::setArgumentsRegister):
+        (JSC::CodeBlock::argumentsRegister):
+        (JSC::CodeBlock::usesArguments):  Changed from a "usesArguments" bool to
+        an optional int index representing the arguments register.
+
+        * bytecode/Opcode.h: Updated for new bytecode operands.
+
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::addVar): Factored out a helper function for
+        allocating an anonymous var.
+
+        (JSC::BytecodeGenerator::BytecodeGenerator): Merged / simplified some
+        arguments vs activation logic, and added code to allocate the arguments
+        registers when needed.
+
+        (JSC::BytecodeGenerator::createArgumentsIfNecessary): Updated for new bytecode operands.
+
+        (JSC::BytecodeGenerator::emitCallEval): No need to create the arguments
+        object before calling eval; the activation object will lazily create the
+        arguments object if eval resolves it.
+
+        (JSC::BytecodeGenerator::emitReturn): Updated for new bytecode operands.
+
+        (JSC::BytecodeGenerator::emitPushScope):
+        (JSC::BytecodeGenerator::emitPushNewScope): Ditto emitCallEval.
+
+        * bytecompiler/BytecodeGenerator.h:
+        (JSC::BytecodeGenerator::addVar): Factored out a helper function for
+        allocating an anonymous var.
+
+        (JSC::BytecodeGenerator::registerFor): No more need for special handling
+        of the arguments registers; they're allocated just like normal registers
+        now.
+
+        * interpreter/CallFrame.h:
+        (JSC::ExecState::callerFrame):
+        (JSC::ExecState::init):
+        * interpreter/CallFrameClosure.h:
+        (JSC::CallFrameClosure::resetCallFrame): Nixed optionalCalleeArguments.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::dumpRegisters):
+        (JSC::Interpreter::unwindCallFrame):
+        (JSC::Interpreter::privateExecute):
+        (JSC::Interpreter::retrieveArguments): Opcodes accessing 'arguments' now
+        take operands specifying registers, just like all other opcodes.
+        JSActivation::copyRegisters is no longer responsible for tearing off the
+        arguments object; instead, the VM is responsible for both.
+
+        Also, a behavior change: Each access to f.arguments creates a new object,
+        unless f itself uses 'arguments'. This matches Chrome, and is necessary
+        for the optimization. f.arguments is a nonstandard, deprecated feature,
+        so high fidelity to a given implementation is not necessarily a goal.
+        Also, as illustrated by the new test case, the identity of f.arguments
+        has been broken since 2008, except in the case where f itself accesses
+        f.arguments -- but nobody seemed to notice. So, hopefully this change won't
+        break the web.
+        
+        * interpreter/Register.h: Nixed the special arguments accessor. It's no
+        longer needed.
+
+        * interpreter/RegisterFile.h:
+        (JSC::RegisterFile::):
+        * jit/JITCall.cpp:
+        (JSC::JIT::compileOpCallInitializeCallFrame):
+        (JSC::JIT::compileOpCall):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_tear_off_activation):
+        (JSC::JIT::emit_op_tear_off_arguments):
+        (JSC::JIT::emit_op_create_arguments):
+        (JSC::JIT::emit_op_init_arguments):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_tear_off_activation):
+        (JSC::JIT::emit_op_tear_off_arguments):
+        (JSC::JIT::emit_op_create_arguments):
+        (JSC::JIT::emit_op_init_arguments): The actual optimization: Removed
+        OptionalCalleeArguments from the callframe slot. Now, it doesn't need
+        to be initialized for most calls.
+
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jit/JITStubs.h:
+        (JSC::): Updated stubs to support arbitrary 'arguments' registers,
+        instead of hard-coding something in the call frame.
+
+        * runtime/Arguments.h:
+        (JSC::JSActivation::copyRegisters): Removed some obfuscatory abstraction.
+
+        * runtime/Executable.h:
+        (JSC::FunctionExecutable::generatedByteCode): Added a helper for accessing
+        the 'arguments' register. In a future patch, that kind of data should
+        probably move out of CodeBlock and into Executable.
+
+        * runtime/JSActivation.cpp:
+        (JSC::JSActivation::getOwnPropertySlot):
+        (JSC::JSActivation::argumentsGetter):
+        * runtime/JSActivation.h: Simplified / fixed access to 'arguments' via
+        the activation object. It now implements the same behavior implemented
+        by optimized variable access in the VM. This simplifies some other
+        things, too -- like eval code generation.
+
+2010-05-18  Sam Weinig  <sam@webkit.org>
+
+        Try to fix the windows build.
+
+        * API/JSStringRefBSTR.cpp:
+
+2010-05-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Add an inlineCapacity template parameter to ListHashSet and use it to shrink the positioned object list hash set.
+        https://bugs.webkit.org/show_bug.cgi?id=39304
+        <rdar://problem/7998366>
+
+        Add an inlineCapacity template parameter to ListHashSet.
+
+        * wtf/ListHashSet.h:
+        (WTF::::ListHashSet):
+        (WTF::::operator):
+        (WTF::::swap):
+        (WTF::::~ListHashSet):
+        (WTF::::size):
+        (WTF::::capacity):
+        (WTF::::isEmpty):
+        (WTF::::begin):
+        (WTF::::end):
+        (WTF::::find):
+        (WTF::::contains):
+        (WTF::::add):
+        (WTF::::insertBefore):
+        (WTF::::remove):
+        (WTF::::clear):
+        (WTF::::unlinkAndDelete):
+        (WTF::::appendNode):
+        (WTF::::insertNodeBefore):
+        (WTF::::deleteAllNodes):
+        (WTF::::makeIterator):
+        (WTF::::makeConstIterator):
+        (WTF::deleteAllValues):
+
+2010-05-18  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Fix the interpreter after r59637
+        https://bugs.webkit.org/show_bug.cgi?id=39287
+
+        * runtime/Executable.h:
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::JSFunction):
+        (JSC::JSFunction::getCallData):
+        * runtime/JSGlobalData.cpp:
+        * runtime/JSGlobalData.h:
+
+2010-05-17  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Oops, meant ebx not eax there.  Fix Qt (and probably Win too).
+
+        * jit/JITOpcodes32_64.cpp:
+
+2010-05-17  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Bug 39252 - Move host/native JSFunction's NativeFunction onto NativeExecutable.
+
+        Currently host functions reuse JSFunction's ScopeChain as storage for their
+        NativeFunction (the C function pointer to the host function implementation).
+        Instead, move this onto NativeExecutable.  This will allow host functions to
+        have a scopechain (which will be implemented as a separate patch).
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * jit/JIT.h:
+        * jit/JITCall.cpp:
+        (JSC::JIT::compileOpCallInitializeCallFrame):
+        (JSC::JIT::compileOpCall):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::privateCompileCTIMachineTrampolines):
+        * jit/JITOpcodes32_64.cpp:
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::stringGetByValStubGenerator):
+        (JSC::JIT::emitSlow_op_get_by_val):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::stringGetByValStubGenerator):
+        (JSC::JIT::emitSlow_op_get_by_val):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::specializedThunk):
+        * jit/JITStubs.h:
+        (JSC::JITThunks::ctiNativeCall):
+        * jit/SpecializedThunkJIT.h:
+        (JSC::SpecializedThunkJIT::finalize):
+        * jit/ThunkGenerators.cpp:
+        (JSC::charCodeAtThunkGenerator):
+        (JSC::charAtThunkGenerator):
+        (JSC::fromCharCodeThunkGenerator):
+        (JSC::sqrtThunkGenerator):
+        (JSC::powThunkGenerator):
+        * jit/ThunkGenerators.h:
+        * runtime/Executable.h:
+        (JSC::NativeExecutable::create):
+        (JSC::NativeExecutable::function):
+        (JSC::NativeExecutable::NativeExecutable):
+        (JSC::JSFunction::nativeFunction):
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::JSFunction):
+        (JSC::JSFunction::~JSFunction):
+        (JSC::JSFunction::markChildren):
+        (JSC::JSFunction::getCallData):
+        (JSC::JSFunction::call):
+        (JSC::JSFunction::getOwnPropertySlot):
+        (JSC::JSFunction::getConstructData):
+        (JSC::JSFunction::construct):
+        * runtime/JSFunction.h:
+        (JSC::JSFunction::scope):
+        * runtime/JSGlobalData.h:
+        (JSC::JSGlobalData::getThunk):
+        * runtime/Lookup.cpp:
+        (JSC::setUpStaticFunctionSlot):
+        * runtime/StringConstructor.cpp:
+        (JSC::StringConstructor::StringConstructor):
+
 2010-05-17  Patrick Gansterer  <paroga@paroga.com>
 
         Reviewed by Laszlo Gombos.

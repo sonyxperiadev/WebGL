@@ -26,6 +26,7 @@
 #ifndef Executable_h
 #define Executable_h
 
+#include "CallData.h"
 #include "JSFunction.h"
 #include "Interpreter.h"
 #include "Nodes.h"
@@ -90,21 +91,27 @@ namespace JSC {
 
 #if ENABLE(JIT)
     class NativeExecutable : public ExecutableBase {
+        friend class JIT;
     public:
-        NativeExecutable(ExecState* exec)
-            : ExecutableBase(NUM_PARAMETERS_IS_HOST)
+        static PassRefPtr<NativeExecutable> create(MacroAssemblerCodePtr thunk, NativeFunction function)
         {
-            m_jitCodeForCall = exec->globalData().jitStubs.ctiNativeCallThunk()->m_jitCodeForCall;
-            m_jitCodeForConstruct = exec->globalData().jitStubs.ctiNativeCallThunk()->m_jitCodeForCall; // FIXME: this thunk should have a construct form
+            return adoptRef(new NativeExecutable(JITCode::HostFunction(thunk), function));
         }
-        NativeExecutable(JITCode thunk)
+
+        ~NativeExecutable();
+
+        NativeFunction function() { return m_function; }
+
+    private:
+        NativeExecutable(JITCode thunk, NativeFunction function)
             : ExecutableBase(NUM_PARAMETERS_IS_HOST)
+            , m_function(function)
         {
             m_jitCodeForCall = thunk;
             m_jitCodeForConstruct = thunk;
         }
 
-        ~NativeExecutable();
+        NativeFunction m_function;
     };
 #endif
 
@@ -278,6 +285,17 @@ namespace JSC {
         {
             return new (exec) JSFunction(exec, this, scopeChain);
         }
+        
+        // Returns either call or construct bytecode. This can be appropriate
+        // for answering questions that that don't vary between call and construct --
+        // for example, argumentsRegister().
+        FunctionCodeBlock& generatedByteCode()
+        {
+            if (m_codeBlockForCall)
+                return *m_codeBlockForCall;
+            ASSERT(m_codeBlockForConstruct);
+            return *m_codeBlockForConstruct;
+        }
 
         FunctionCodeBlock& bytecodeForCall(ExecState* exec, ScopeChainNode* scopeChainNode) 
         {
@@ -403,6 +421,13 @@ namespace JSC {
         return m_executable->isHostFunction();
     }
 
+#if ENABLE(JIT)
+    inline NativeFunction JSFunction::nativeFunction()
+    {
+        ASSERT(isHostFunction());
+        return static_cast<NativeExecutable*>(m_executable.get())->function();
+    }
+#endif
 }
 
 #endif

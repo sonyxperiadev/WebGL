@@ -124,7 +124,7 @@ RenderBlock::RenderBlock(Node* node)
       : RenderBox(node)
       , m_floatingObjects(0)
       , m_positionedObjects(0)
-      , m_inlineContinuation(0)
+      , m_continuation(0)
       , m_maxMargin(0)
       , m_lineHeight(-1)
 {
@@ -169,9 +169,9 @@ void RenderBlock::destroy()
     // Destroy our continuation before anything other than anonymous children.
     // The reason we don't destroy it before anonymous children is that they may
     // have continuations of their own that are anonymous children of our continuation.
-    if (m_inlineContinuation) {
-        m_inlineContinuation->destroy();
-        m_inlineContinuation = 0;
+    if (m_continuation) {
+        m_continuation->destroy();
+        m_continuation = 0;
     }
     
     if (!documentBeingDestroyed()) {
@@ -500,7 +500,7 @@ void RenderBlock::removeLeftoverAnonymousBlock(RenderBlock* child)
     ASSERT(child->isAnonymousBlock());
     ASSERT(!child->childrenInline());
     
-    if (child->inlineContinuation()) 
+    if (child->continuation()) 
         return;
     
     RenderObject* firstAnChild = child->m_children.firstChild();
@@ -544,10 +544,10 @@ void RenderBlock::removeChild(RenderObject* oldChild)
     // fold the inline content back together.
     RenderObject* prev = oldChild->previousSibling();
     RenderObject* next = oldChild->nextSibling();
-    bool canDeleteAnonymousBlocks = !documentBeingDestroyed() && !isInline() && !oldChild->isInline() && 
-                                    (!oldChild->isRenderBlock() || !toRenderBlock(oldChild)->inlineContinuation()) && 
-                                    (!prev || (prev->isAnonymousBlock() && prev->childrenInline())) &&
-                                    (!next || (next->isAnonymousBlock() && next->childrenInline()));
+    bool canDeleteAnonymousBlocks = !documentBeingDestroyed() && !isInline() && !oldChild->isInline()
+                                    && (!oldChild->isRenderBlock() || !toRenderBlock(oldChild)->continuation())
+                                    && (!prev || (prev->isAnonymousBlock() && prev->childrenInline()))
+                                    && (!next || (next->isAnonymousBlock() && next->childrenInline()));
     if (canDeleteAnonymousBlocks && prev && next) {
         // Take all the children out of the |next| block and put them in
         // the |prev| block.
@@ -756,7 +756,7 @@ void RenderBlock::layoutBlock(bool relayoutChildren)
     int repaintTop = 0;
     int repaintBottom = 0;
     int maxFloatBottom = 0;
-    if (!firstChild())
+    if (!firstChild() && !isAnonymousBlock())
         setChildrenInline(true);
     if (childrenInline())
         layoutInlineChildren(relayoutChildren, repaintTop, repaintBottom);
@@ -1628,24 +1628,27 @@ void RenderBlock::paintColumnContents(PaintInfo& paintInfo, int tx, int ty, bool
         // For each rect, we clip to the rect, and then we adjust our coords.
         IntRect colRect = colRects->at(i);
         colRect.move(tx, ty);
-        context->save();
-        
-        // Each strip pushes a clip, since column boxes are specified as being
-        // like overflow:hidden.
-        context->clip(colRect);
-        
-        // Adjust tx and ty to change where we paint.
         PaintInfo info(paintInfo);
         info.rect.intersect(colRect);
         
-        // Adjust our x and y when painting.
-        int finalX = tx + currXOffset;
-        int finalY = ty + currYOffset;
-        if (paintingFloats)
-            paintFloats(info, finalX, finalY, paintInfo.phase == PaintPhaseSelection || paintInfo.phase == PaintPhaseTextClip);
-        else
-            paintContents(info, finalX, finalY);
+        if (!info.rect.isEmpty()) {
+            context->save();
+            
+            // Each strip pushes a clip, since column boxes are specified as being
+            // like overflow:hidden.
+            context->clip(colRect);
+            
+            // Adjust our x and y when painting.
+            int finalX = tx + currXOffset;
+            int finalY = ty + currYOffset;
+            if (paintingFloats)
+                paintFloats(info, finalX, finalY, paintInfo.phase == PaintPhaseSelection || paintInfo.phase == PaintPhaseTextClip);
+            else
+                paintContents(info, finalX, finalY);
 
+            context->restore();
+        }
+        
         // Move to the next position.
         if (style()->direction() == LTR)
             currXOffset += colRect.width() + colGap;
@@ -1653,8 +1656,6 @@ void RenderBlock::paintColumnContents(PaintInfo& paintInfo, int tx, int ty, bool
             currXOffset -= (colRect.width() + colGap);
         
         currYOffset -= colRect.height();
-        
-        context->restore();
     }
 }
 
@@ -1791,8 +1792,9 @@ void RenderBlock::paintObject(PaintInfo& paintInfo, int tx, int ty)
 
     // 6. paint continuation outlines.
     if ((paintPhase == PaintPhaseOutline || paintPhase == PaintPhaseChildOutlines)) {
-        if (inlineContinuation() && inlineContinuation()->hasOutline() && inlineContinuation()->style()->visibility() == VISIBLE) {
-            RenderInline* inlineRenderer = toRenderInline(inlineContinuation()->node()->renderer());
+        RenderInline* inlineCont = inlineElementContinuation();
+        if (inlineCont && inlineCont->hasOutline() && inlineCont->style()->visibility() == VISIBLE) {
+            RenderInline* inlineRenderer = toRenderInline(inlineCont->node()->renderer());
             if (!inlineRenderer->hasSelfPaintingLayer())
                 containingBlock()->addContinuationWithOutline(inlineRenderer);
             else if (!inlineRenderer->firstLineBox())
@@ -1865,6 +1867,21 @@ void RenderBlock::paintEllipsisBoxes(PaintInfo& paintInfo, int tx, int ty)
     }
 }
 
+RenderInline* RenderBlock::inlineElementContinuation() const
+{ 
+    return m_continuation && m_continuation->isInline() ? toRenderInline(m_continuation) : 0;
+}
+
+RenderBlock* RenderBlock::blockElementContinuation() const
+{
+    if (!m_continuation || m_continuation->isInline())
+        return 0;
+    RenderBlock* nextContinuation = toRenderBlock(m_continuation);
+    if (nextContinuation->isAnonymousBlock())
+        return nextContinuation->blockElementContinuation();
+    return 0;
+}
+    
 static ContinuationOutlineTableMap* continuationOutlineTable()
 {
     DEFINE_STATIC_LOCAL(ContinuationOutlineTableMap, table, ());
@@ -1875,7 +1892,7 @@ void RenderBlock::addContinuationWithOutline(RenderInline* flow)
 {
     // We can't make this work if the inline is in a layer.  We'll just rely on the broken
     // way of painting.
-    ASSERT(!flow->layer() && !flow->isInlineContinuation());
+    ASSERT(!flow->layer() && !flow->isInlineElementContinuation());
     
     ContinuationOutlineTableMap* table = continuationOutlineTable();
     ListHashSet<RenderInline*>* continuations = table->get(this);
@@ -2009,13 +2026,13 @@ void RenderBlock::paintSelection(PaintInfo& paintInfo, int tx, int ty)
 }
 
 #ifndef BUILDING_ON_TIGER
-static void clipOutPositionedObjects(const RenderObject::PaintInfo* paintInfo, int tx, int ty, ListHashSet<RenderBox*>* positionedObjects)
+static void clipOutPositionedObjects(const RenderObject::PaintInfo* paintInfo, int tx, int ty, RenderBlock::PositionedObjectsListHashSet* positionedObjects)
 {
     if (!positionedObjects)
         return;
     
-    ListHashSet<RenderBox*>::const_iterator end = positionedObjects->end();
-    for (ListHashSet<RenderBox*>::const_iterator it = positionedObjects->begin(); it != end; ++it) {
+    RenderBlock::PositionedObjectsListHashSet::const_iterator end = positionedObjects->end();
+    for (RenderBlock::PositionedObjectsListHashSet::const_iterator it = positionedObjects->begin(); it != end; ++it) {
         RenderBox* r = *it;
         paintInfo->context->clipOut(IntRect(tx + r->x(), ty + r->y(), r->width(), r->height()));
     }
@@ -2301,7 +2318,7 @@ void RenderBlock::insertPositionedObject(RenderBox* o)
 {
     // Create the list of special objects if we don't aleady have one
     if (!m_positionedObjects)
-        m_positionedObjects = new ListHashSet<RenderBox*>;
+        m_positionedObjects = new PositionedObjectsListHashSet;
 
     m_positionedObjects->add(o);
 }
@@ -3420,17 +3437,19 @@ bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
 bool RenderBlock::hitTestColumns(const HitTestRequest& request, HitTestResult& result, int x, int y, int tx, int ty, HitTestAction hitTestAction)
 {
     // We need to do multiple passes, breaking up our hit testing into strips.
-    // We can always go left to right, since column contents are clipped (meaning that there
-    // can't be any overlap).
     Vector<IntRect>* colRects = columnRects();
-    unsigned colCount = colRects->size();
+    int colCount = colRects->size();
     if (!colCount)
         return false;
-    int currXOffset = style()->direction() == LTR ? 0 : contentWidth() - colRects->at(0).width();
+    int left = borderLeft() + paddingLeft();
     int currYOffset = 0;
-    int colGap = columnGap();
-    for (unsigned i = 0; i < colCount; i++) {
+    int i;
+    for (i = 0; i < colCount; i++)
+        currYOffset -= colRects->at(i).height();
+    for (i = colCount - 1; i >= 0; i--) {
         IntRect colRect = colRects->at(i);
+        int currXOffset = colRect.x() - left;
+        currYOffset += colRect.height();
         colRect.move(tx, ty);
         
 #ifdef ANDROID_HITTEST_WITHSIZE
@@ -3450,14 +3469,6 @@ bool RenderBlock::hitTestColumns(const HitTestRequest& request, HitTestResult& r
 #endif
             return hitTestContents(request, result, x, y, finalX, finalY, hitTestAction);
         }
-        
-        // Move to the next position.
-        if (style()->direction() == LTR)
-            currXOffset += colRect.width() + colGap;
-        else
-            currXOffset -= (colRect.width() + colGap);
-
-        currYOffset -= colRect.height();
     }
 
     return false;
@@ -3962,11 +3973,13 @@ void RenderBlock::adjustRectForColumns(IntRect& r) const
     unsigned colCount = colRects->size();
     if (!colCount)
         return;
-    int currXOffset = style()->direction() == LTR ? 0 : contentWidth() - colRects->at(0).width();
+    
+    int left = borderLeft() + paddingLeft();
+    
     int currYOffset = 0;
-    int colGap = columnGap();
     for (unsigned i = 0; i < colCount; i++) {
         IntRect colRect = colRects->at(i);
+        int currXOffset = colRect.x() - left;
         
         IntRect repaintRect = r;
         repaintRect.move(currXOffset, currYOffset);
@@ -3976,11 +3989,6 @@ void RenderBlock::adjustRectForColumns(IntRect& r) const
         result.unite(repaintRect);
 
         // Move to the next position.
-        if (style()->direction() == LTR)
-            currXOffset += colRect.width() + colGap;
-        else
-            currXOffset -= (colRect.width() + colGap);
-
         currYOffset -= colRect.height();
     }
 
@@ -3993,23 +4001,18 @@ void RenderBlock::adjustForColumns(IntSize& offset, const IntPoint& point) const
         return;
 
     Vector<IntRect>& columnRects = *this->columnRects();
-
-    int gapWidth = columnGap();
-    
-    int xOffset = style()->direction() == LTR ? 0 : contentWidth() - columnRects[0].width();
+  
+    int left = borderLeft() + paddingLeft();
     int yOffset = 0;
     size_t columnCount = columnRects.size();
     for (size_t i = 0; i < columnCount; ++i) {
         IntRect columnRect = columnRects[i];
+        int xOffset = columnRect.x() - left;
         if (point.y() < columnRect.bottom() + yOffset) {
             offset.expand(xOffset, -yOffset);
             return;
         }
 
-        if (style()->direction() == LTR)
-            xOffset += columnRect.width() + gapWidth;
-        else
-            xOffset -= columnRect.width() + gapWidth;
         yOffset += columnRect.height();
     }
 }
@@ -5009,12 +5012,12 @@ void RenderBlock::absoluteRects(Vector<IntRect>& rects, int tx, int ty)
     // For blocks inside inlines, we go ahead and include margins so that we run right up to the
     // inline boxes above and below us (thus getting merged with them to form a single irregular
     // shape).
-    if (inlineContinuation()) {
+    if (isAnonymousBlockContinuation()) {
         rects.append(IntRect(tx, ty - collapsedMarginTop(),
                              width(), height() + collapsedMarginTop() + collapsedMarginBottom()));
-        inlineContinuation()->absoluteRects(rects,
-                                            tx - x() + inlineContinuation()->containingBlock()->x(),
-                                            ty - y() + inlineContinuation()->containingBlock()->y());
+        continuation()->absoluteRects(rects,
+                                      tx - x() + inlineElementContinuation()->containingBlock()->x(),
+                                      ty - y() + inlineElementContinuation()->containingBlock()->y());
     } else
         rects.append(IntRect(tx, ty, width(), height()));
 }
@@ -5024,11 +5027,11 @@ void RenderBlock::absoluteQuads(Vector<FloatQuad>& quads)
     // For blocks inside inlines, we go ahead and include margins so that we run right up to the
     // inline boxes above and below us (thus getting merged with them to form a single irregular
     // shape).
-    if (inlineContinuation()) {
+    if (isAnonymousBlockContinuation()) {
         FloatRect localRect(0, -collapsedMarginTop(),
                             width(), height() + collapsedMarginTop() + collapsedMarginBottom());
         quads.append(localToAbsoluteQuad(localRect));
-        inlineContinuation()->absoluteQuads(quads);
+        continuation()->absoluteQuads(quads);
     } else
         quads.append(RenderBox::localToAbsoluteQuad(FloatRect(0, 0, width(), height())));
 }
@@ -5036,26 +5039,26 @@ void RenderBlock::absoluteQuads(Vector<FloatQuad>& quads)
 IntRect RenderBlock::rectWithOutlineForRepaint(RenderBoxModelObject* repaintContainer, int outlineWidth)
 {
     IntRect r(RenderBox::rectWithOutlineForRepaint(repaintContainer, outlineWidth));
-    if (inlineContinuation())
+    if (isAnonymousBlockContinuation())
         r.inflateY(collapsedMarginTop());
     return r;
 }
 
 RenderObject* RenderBlock::hoverAncestor() const
 {
-    return inlineContinuation() ? inlineContinuation() : RenderBox::hoverAncestor();
+    return isAnonymousBlockContinuation() ? continuation() : RenderBox::hoverAncestor();
 }
 
 void RenderBlock::updateDragState(bool dragOn)
 {
     RenderBox::updateDragState(dragOn);
-    if (inlineContinuation())
-        inlineContinuation()->updateDragState(dragOn);
+    if (continuation())
+        continuation()->updateDragState(dragOn);
 }
 
 RenderStyle* RenderBlock::outlineStyleForRepaint() const
 {
-    return inlineContinuation() ? inlineContinuation()->style() : style();
+    return isAnonymousBlockContinuation() ? continuation()->style() : style();
 }
 
 void RenderBlock::childBecameNonInline(RenderObject*)
@@ -5072,11 +5075,11 @@ void RenderBlock::updateHitTestResult(HitTestResult& result, const IntPoint& poi
         return;
 
     Node* n = node();
-    if (inlineContinuation())
+    if (isAnonymousBlockContinuation())
         // We are in the margins of block elements that are part of a continuation.  In
-        // this case we're actually still inside the enclosing inline element that was
+        // this case we're actually still inside the enclosing element that was
         // split.  Go ahead and set our inner node accordingly.
-        n = inlineContinuation()->node();
+        n = continuation()->node();
 
     if (n) {
         result.setInnerNode(n);
@@ -5169,11 +5172,11 @@ void RenderBlock::addFocusRingRects(Vector<IntRect>& rects, int tx, int ty)
     // For blocks inside inlines, we go ahead and include margins so that we run right up to the
     // inline boxes above and below us (thus getting merged with them to form a single irregular
     // shape).
-    if (inlineContinuation()) {
+    if (inlineElementContinuation()) {
         // FIXME: This check really isn't accurate. 
-        bool nextInlineHasLineBox = inlineContinuation()->firstLineBox();
+        bool nextInlineHasLineBox = inlineElementContinuation()->firstLineBox();
         // FIXME: This is wrong. The principal renderer may not be the continuation preceding this block.
-        bool prevInlineHasLineBox = toRenderInline(inlineContinuation()->node()->renderer())->firstLineBox(); 
+        bool prevInlineHasLineBox = toRenderInline(inlineElementContinuation()->node()->renderer())->firstLineBox(); 
         int topMargin = prevInlineHasLineBox ? collapsedMarginTop() : 0;
         int bottomMargin = nextInlineHasLineBox ? collapsedMarginBottom() : 0;
         IntRect rect(tx, ty - topMargin, width(), height() + topMargin + bottomMargin);
@@ -5205,10 +5208,10 @@ void RenderBlock::addFocusRingRects(Vector<IntRect>& rects, int tx, int ty)
         }
     }
 
-    if (inlineContinuation())
-        inlineContinuation()->addFocusRingRects(rects, 
-                                                tx - x() + inlineContinuation()->containingBlock()->x(),
-                                                ty - y() + inlineContinuation()->containingBlock()->y());
+    if (inlineElementContinuation())
+        inlineElementContinuation()->addFocusRingRects(rects, 
+                                                       tx - x() + inlineElementContinuation()->containingBlock()->x(),
+                                                       ty - y() + inlineElementContinuation()->containingBlock()->y());
 }
 
 RenderBlock* RenderBlock::createAnonymousBlock(bool isFlexibleBox) const

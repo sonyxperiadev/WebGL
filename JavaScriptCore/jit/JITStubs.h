@@ -81,7 +81,7 @@ namespace JSC {
         MacroAssemblerCodePtr ctiVirtualConstructLink;
         MacroAssemblerCodePtr ctiVirtualCall;
         MacroAssemblerCodePtr ctiVirtualConstruct;
-        RefPtr<NativeExecutable> ctiNativeCallThunk;
+        MacroAssemblerCodePtr ctiNativeCall;
         MacroAssemblerCodePtr ctiSoftModulo;
     };
 
@@ -279,13 +279,18 @@ namespace JSC {
         MacroAssemblerCodePtr ctiVirtualConstructLink() { return m_trampolineStructure.ctiVirtualConstructLink; }
         MacroAssemblerCodePtr ctiVirtualCall() { return m_trampolineStructure.ctiVirtualCall; }
         MacroAssemblerCodePtr ctiVirtualConstruct() { return m_trampolineStructure.ctiVirtualConstruct; }
-        NativeExecutable* ctiNativeCallThunk() { return m_trampolineStructure.ctiNativeCallThunk.get(); }
+        MacroAssemblerCodePtr ctiNativeCall() { return m_trampolineStructure.ctiNativeCall; }
         MacroAssemblerCodePtr ctiSoftModulo() { return m_trampolineStructure.ctiSoftModulo; }
 
-        NativeExecutable* specializedThunk(JSGlobalData* globalData, ThunkGenerator generator);
+        MacroAssemblerCodePtr ctiStub(JSGlobalData* globalData, ThunkGenerator generator);
+
+        PassRefPtr<NativeExecutable> hostFunctionStub(JSGlobalData* globalData, NativeFunction func);
+        PassRefPtr<NativeExecutable> hostFunctionStub(JSGlobalData* globalData, NativeFunction func, ThunkGenerator generator);
     private:
-        typedef HashMap<ThunkGenerator, RefPtr<NativeExecutable> > ThunkMap;
-        ThunkMap m_thunkMap;
+        typedef HashMap<ThunkGenerator, MacroAssemblerCodePtr> CTIStubMap;
+        CTIStubMap m_ctiStubMap;
+        typedef HashMap<NativeFunction, RefPtr<NativeExecutable> > HostFunctionStubMap;
+        HostFunctionStubMap m_hostFunctionStubMap;
         RefPtr<ExecutablePool> m_executablePool;
 
         TrampolineStructure m_trampolineStructure;
@@ -301,15 +306,17 @@ extern "C" {
     EncodedJSValue JIT_STUB cti_op_call_eval(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_construct_NotJSConstruct(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_convert_this(STUB_ARGS_DECLARATION);
+    EncodedJSValue JIT_STUB cti_op_create_arguments(STUB_ARGS_DECLARATION);
+    EncodedJSValue JIT_STUB cti_op_create_arguments_no_params(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_del_by_id(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_del_by_val(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_div(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_get_by_id(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_get_by_id_array_fail(STUB_ARGS_DECLARATION);
-    EncodedJSValue JIT_STUB cti_op_get_by_id_generic(STUB_ARGS_DECLARATION);
-    EncodedJSValue JIT_STUB cti_op_get_by_id_method_check(STUB_ARGS_DECLARATION);
-    EncodedJSValue JIT_STUB cti_op_get_by_id_getter_stub(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_get_by_id_custom_stub(STUB_ARGS_DECLARATION);
+    EncodedJSValue JIT_STUB cti_op_get_by_id_generic(STUB_ARGS_DECLARATION);
+    EncodedJSValue JIT_STUB cti_op_get_by_id_getter_stub(STUB_ARGS_DECLARATION);
+    EncodedJSValue JIT_STUB cti_op_get_by_id_method_check(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_get_by_id_proto_fail(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_get_by_id_proto_list(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_get_by_id_proto_list_full(STUB_ARGS_DECLARATION);
@@ -353,8 +360,8 @@ extern "C" {
     EncodedJSValue JIT_STUB cti_op_to_primitive(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_typeof(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_urshift(STUB_ARGS_DECLARATION);
-    EncodedJSValue JIT_STUB cti_vm_throw(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_to_object(STUB_ARGS_DECLARATION);
+    EncodedJSValue JIT_STUB cti_vm_throw(STUB_ARGS_DECLARATION);
     JSObject* JIT_STUB cti_op_construct_JSConstruct(STUB_ARGS_DECLARATION);
     JSObject* JIT_STUB cti_op_new_array(STUB_ARGS_DECLARATION);
     JSObject* JIT_STUB cti_op_new_error(STUB_ARGS_DECLARATION);
@@ -378,8 +385,6 @@ extern "C" {
     int JIT_STUB cti_op_loop_if_lesseq(STUB_ARGS_DECLARATION);
     int JIT_STUB cti_timeout_check(STUB_ARGS_DECLARATION);
     int JIT_STUB cti_has_property(STUB_ARGS_DECLARATION);
-    void JIT_STUB cti_op_create_arguments(STUB_ARGS_DECLARATION);
-    void JIT_STUB cti_op_create_arguments_no_params(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_debug(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_end(STUB_ARGS_DECLARATION);
     void JIT_STUB cti_op_jmp_scopes(STUB_ARGS_DECLARATION);

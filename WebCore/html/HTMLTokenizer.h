@@ -26,8 +26,8 @@
 
 #include "CachedResourceClient.h"
 #include "CachedResourceHandle.h"
-#include "NamedMappedAttrMap.h"
 #include "MappedAttributeEntry.h"
+#include "NamedNodeMap.h"
 #include "SegmentedString.h"
 #include "Timer.h"
 #include "Tokenizer.h"
@@ -83,7 +83,7 @@ struct Token {
 
     void addViewSourceChar(UChar c) { if (!m_sourceInfo.get()) m_sourceInfo.set(new Vector<UChar>); m_sourceInfo->append(c); }
 
-    RefPtr<NamedMappedAttrMap> attrs;
+    RefPtr<NamedNodeMap> attrs;
     RefPtr<StringImpl> text;
     AtomicString tagName;
     bool beginTag;
@@ -132,6 +132,11 @@ public:
 
 //-----------------------------------------------------------------------------
 
+// FIXME: This class does too much.  Right now it is both an HTML lexer as well
+// as handling all of the non-lexer-specific junk related to tokenizing HTML
+// (like dealing with <script> tags).  The HTML lexer bits should be pushed
+// down into a separate HTML lexer class.
+
 class HTMLTokenizer : public Tokenizer, public CachedResourceClient {
 public:
     HTMLTokenizer(HTMLDocument*, bool reportErrors);
@@ -167,6 +172,10 @@ private:
     void end();
 
     void reset();
+
+    void willWriteHTML(const SegmentedString&);
+    ALWAYS_INLINE void advance(State&);
+    void didWriteHTML();
 
     PassRefPtr<Node> processToken();
     void processDoctypeToken();

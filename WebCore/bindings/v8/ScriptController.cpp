@@ -88,6 +88,11 @@ Frame* ScriptController::retrieveFrameForCurrentContext()
     return V8Proxy::retrieveFrameForCurrentContext();
 }
 
+bool ScriptController::canAccessFromCurrentOrigin(Frame *frame)
+{
+    return !v8::Context::InContext() || V8BindingSecurity::canAccessFrame(V8BindingState::Only(), frame, true);
+}
+
 bool ScriptController::isSafeScript(Frame* target)
 {
     return V8BindingSecurity::canAccessFrame(V8BindingState::Only(), target, true);
@@ -219,13 +224,13 @@ void ScriptController::evaluateInIsolatedWorld(unsigned worldID, const Vector<Sc
 }
 
 // Evaluate a script file in the environment of this proxy.
-ScriptValue ScriptController::evaluate(const ScriptSourceCode& sourceCode)
+ScriptValue ScriptController::evaluate(const ScriptSourceCode& sourceCode, ShouldAllowXSS shouldAllowXSS)
 {
     String sourceURL = sourceCode.url();
     const String* savedSourceURL = m_sourceURL;
     m_sourceURL = &sourceURL;
 
-    if (!m_XSSAuditor->canEvaluate(sourceCode.source())) {
+    if (shouldAllowXSS == DoNotAllowXSS && !m_XSSAuditor->canEvaluate(sourceCode.source())) {
         // This script is not safe to be evaluated.
         return ScriptValue();
     }
@@ -444,7 +449,7 @@ NPObject* ScriptController::createScriptObjectForPluginElement(HTMLPlugInElement
 }
 
 
-void ScriptController::clearWindowShell()
+void ScriptController::clearWindowShell(bool)
 {
     // V8 binding expects ScriptController::clearWindowShell only be called
     // when a frame is loading a new page. V8Proxy::clearForNavigation

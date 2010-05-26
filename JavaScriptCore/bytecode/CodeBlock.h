@@ -62,6 +62,8 @@ namespace JSC {
 
     enum CodeType { GlobalCode, EvalCode, FunctionCode };
 
+    inline int unmodifiedArgumentsRegister(int argumentsRegister) { return argumentsRegister - 1; }
+
     static ALWAYS_INLINE int missingThisObjectMarker() { return std::numeric_limits<int>::max(); }
 
     struct HandlerInfo {
@@ -107,7 +109,7 @@ namespace JSC {
         {
         }
 
-        unsigned bytecodeIndex;
+        unsigned bytecodeOffset;
         CodeLocationNearCall callReturnLocation;
         CodeLocationDataLabelPtr hotPathBegin;
         CodeLocationNearCall hotPathOther;
@@ -189,15 +191,15 @@ namespace JSC {
     // (given as an offset in bytes into the JIT code) back to
     // the bytecode index of the corresponding bytecode operation.
     // This is then used to look up the corresponding handler.
-    struct CallReturnOffsetToBytecodeIndex {
-        CallReturnOffsetToBytecodeIndex(unsigned callReturnOffset, unsigned bytecodeIndex)
+    struct CallReturnOffsetToBytecodeOffset {
+        CallReturnOffsetToBytecodeOffset(unsigned callReturnOffset, unsigned bytecodeOffset)
             : callReturnOffset(callReturnOffset)
-            , bytecodeIndex(bytecodeIndex)
+            , bytecodeOffset(bytecodeOffset)
         {
         }
 
         unsigned callReturnOffset;
-        unsigned bytecodeIndex;
+        unsigned bytecodeOffset;
     };
 
     // valueAtPosition helpers for the binaryChop algorithm below.
@@ -217,7 +219,7 @@ namespace JSC {
         return methodCallLinkInfo->callReturnLocation.executableAddress();
     }
 
-    inline unsigned getCallReturnOffset(CallReturnOffsetToBytecodeIndex* pc)
+    inline unsigned getCallReturnOffset(CallReturnOffsetToBytecodeOffset* pc)
     {
         return pc->callReturnOffset;
     }
@@ -265,7 +267,7 @@ namespace JSC {
         Vector<GetByIdExceptionInfo> m_getByIdExceptionInfo;
 
 #if ENABLE(JIT)
-        Vector<CallReturnOffsetToBytecodeIndex> m_callReturnIndexVector;
+        Vector<CallReturnOffsetToBytecodeOffset> m_callReturnIndexVector;
 #endif
     };
 
@@ -347,13 +349,18 @@ namespace JSC {
             return *(binaryChop<MethodCallLinkInfo, void*, getMethodCallLinkInfoReturnLocation>(m_methodCallLinkInfos.begin(), m_methodCallLinkInfos.size(), returnAddress.value()));
         }
 
-        unsigned getBytecodeIndex(CallFrame* callFrame, ReturnAddressPtr returnAddress)
+        unsigned bytecodeOffset(CallFrame* callFrame, ReturnAddressPtr returnAddress)
         {
             reparseForExceptionInfoIfNecessary(callFrame);
-            return binaryChop<CallReturnOffsetToBytecodeIndex, unsigned, getCallReturnOffset>(callReturnIndexVector().begin(), callReturnIndexVector().size(), getJITCode().offsetOf(returnAddress.value()))->bytecodeIndex;
+            return binaryChop<CallReturnOffsetToBytecodeOffset, unsigned, getCallReturnOffset>(callReturnIndexVector().begin(), callReturnIndexVector().size(), getJITCode().offsetOf(returnAddress.value()))->bytecodeOffset;
         }
         
         bool functionRegisterForBytecodeOffset(unsigned bytecodeOffset, int& functionRegisterIndex);
+#else
+        unsigned bytecodeOffset(CallFrame*, Instruction* returnAddress)
+        {
+            return static_cast<Instruction*>(returnAddress) - instructions().begin();
+        }
 #endif
 
         void setIsNumericCompareFunction(bool isNumericCompareFunction) { m_isNumericCompareFunction = isNumericCompareFunction; }
@@ -383,8 +390,19 @@ namespace JSC {
         bool needsFullScopeChain() const { return m_needsFullScopeChain; }
         void setUsesEval(bool usesEval) { m_usesEval = usesEval; }
         bool usesEval() const { return m_usesEval; }
-        void setUsesArguments(bool usesArguments) { m_usesArguments = usesArguments; }
-        bool usesArguments() const { return m_usesArguments; }
+        
+        void setArgumentsRegister(int argumentsRegister)
+        {
+            ASSERT(argumentsRegister != -1);
+            m_argumentsRegister = argumentsRegister;
+            ASSERT(usesArguments());
+        }
+        int argumentsRegister()
+        {
+            ASSERT(usesArguments());
+            return m_argumentsRegister;
+        }
+        bool usesArguments() const { return m_argumentsRegister != -1; }
 
         CodeType codeType() const { return m_codeType; }
 
@@ -437,7 +455,7 @@ namespace JSC {
         LineInfo& lastLineInfo() { ASSERT(m_exceptionInfo); return m_exceptionInfo->m_lineInfo.last(); }
 
 #if ENABLE(JIT)
-        Vector<CallReturnOffsetToBytecodeIndex>& callReturnIndexVector() { ASSERT(m_exceptionInfo); return m_exceptionInfo->m_callReturnIndexVector; }
+        Vector<CallReturnOffsetToBytecodeOffset>& callReturnIndexVector() { ASSERT(m_exceptionInfo); return m_exceptionInfo->m_callReturnIndexVector; }
 #endif
 
         // Constant Pool
@@ -520,10 +538,10 @@ namespace JSC {
 #endif
 
         int m_thisRegister;
+        int m_argumentsRegister;
 
         bool m_needsFullScopeChain;
         bool m_usesEval;
-        bool m_usesArguments;
         bool m_isNumericCompareFunction;
 
         CodeType m_codeType;

@@ -1,3 +1,139 @@
+2010-05-21  Steve Block  <steveblock@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Add DeviceOrientation and DeviceOrientationClient
+        https://bugs.webkit.org/show_bug.cgi?id=39479
+
+        * WebView.cpp:
+        (WebView::initWithFrame):
+
+2010-05-20  Simon Fraser  <simon.fraser@apple.com>
+
+        Build fix, no review.
+
+        Fix the non-accelerated-compositing Windows build with some
+        #if USE(ACCELERATED_COMPOSITING) loving.
+
+        * WebView.cpp:
+        * WebView.h:
+
+2010-05-20  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Avoid flushing CA layers when a layout is pending
+        https://bugs.webkit.org/show_bug.cgi?id=39463
+
+        <rdar://problem/7999463>
+
+        Avoid rendering the compositing layers to the screen if there's a layout pending,
+        since the layer tree not in a state that should be presented to the user.
+        
+        This fixes flashes in some types of content that dynamically add and remove layers.
+
+        Have the WebView implement WKCACFLayerRendererClient so that the
+        WKCACFLayerRenderer can ask whether it's a good time to render. If the FrameView
+        has a layout pending, say no.
+
+        * WebView.h: 
+        * WebView.cpp:
+        (WebView::setAcceleratedCompositing):
+        (WebView::shouldRender):
+
+2010-05-18  Brent Fulgham  <bfulgham@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        [WinCairo] Correct scaling for print preview
+        https://bugs.webkit.org/show_bug.cgi?id=39329
+
+        Cairo does not properly deal with Windows HDCs that have been
+        scaled using MM_ANISOTROPIC mapping mode, and a WindowExt and
+        ViewportExt setting.
+        (see http://bugs.freedesktop.org/show_bug.cgi?id=28161)
+
+        Instead, reset the HDC's WorldTransform to be unscaled, then
+        scale the cairo context to the desired scaling, and perform
+        the drawing operation.
+
+        * WebFrame.cpp:
+        (WebFrame::drawHeader): Use pre-positioned context to simplify 
+          this method.
+        (WebFrame::drawFooter): Use pre-positioned context to simplify
+          this method.
+        (WebFrame::spoolPage): Revise scaling logic to turn off HDC
+          scaling, and scale using only Cairo.  Revert scaling at end
+          so that user-defined GDI-based routines (e.g., header/footer)
+          will draw in the right position.
+        (WebFrame::spoolPages): Identify print preview case, and
+          retrieve scaling factors from preview context.  Set the
+          Cairo context to use these factors during the spoolPage
+          operation.
+
+2010-05-20  Martin Robinson  <mrobinson@igalia.com>
+
+        Unreviewed.
+
+        Touch WebKit.idl to ensure that interfaces rebuild.
+
+        * Interfaces/WebKit.idl: Touched.
+
+2010-05-20  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Adam Roben.
+
+        Fix the Windows build and move new IDL declarations to the bottom of the file.
+
+        * Interfaces/IWebPreferences.idl: Move new API to the bottom of the IDL file to prevent vtable mismatch.
+        * WebPreferences.cpp: 
+        (WebPreferences::setEditingBehavior): Change the type of the parameter to setEditingBehavior to the proper type.
+
+2010-05-20  Martin Robinson  <mrobinson@igalia.com>
+
+        Unreviewed.
+
+        Fix the Windows build.
+
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged): Change behavior to 'editingBehavior'.
+
+2010-05-20  Martin Robinson  <mrobinson@webkit.org>
+
+        Reviewed by Ojan Vafai.
+
+        Expose the editing behavior setting in DRT to test all editing code paths
+        https://bugs.webkit.org/show_bug.cgi?id=38603
+
+        Expose the EditingBehavior setting in the Windows API.
+
+        * Interfaces/IWebPreferences.idl: Add the API point for setting the editing behavior.
+        * WebPreferenceKeysPrivate.h: Add a key for the editing behavior setting.
+        * WebPreferences.cpp:
+        (WebPreferences::editingBehavior): Added.
+        (WebPreferences::setEditingBehavior): Added.
+        * WebPreferences.h: Add method declarations.
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged): Update the WebCore setting based on the WebPreferences setting.
+
+2010-05-20  Chris Jerdonek  <cjerdonek@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Modified FrameLoader::urlSelected() to accept a KURL instead of a
+        ResourceRequest.
+
+        https://bugs.webkit.org/show_bug.cgi?id=39320
+
+        Since ResourceRequest has non-explicit single-parameter constructors for
+        String and KURL, urlSelected() previously accepted any of String, KURL,
+        and ResourceRequest.  This revision changes urlSelected() to accept only
+        a KURL to make the API tighter and easier to refactor.
+
+        * WebCoreSupport/WebContextMenuClient.cpp:
+        (WebContextMenuClient::searchWithGoogle):
+          - Updated the call to urlSelected().
+
 2010-05-13  Brian Weinstein  <bweinstein@apple.com>
 
         Reviewed by Tim Hatcher.

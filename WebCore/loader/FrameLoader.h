@@ -129,6 +129,7 @@ public:
     static void reportLocalLoadFailed(Frame*, const String& url);
 
     // Called by createWindow in JSDOMWindowBase.cpp, e.g. to fulfill a modal dialog creation
+    // FIXME: Move this method outside of the FrameLoader class.
     Frame* createWindow(FrameLoader* frameLoaderForFrameLookup, const FrameLoadRequest&, const WindowFeatures&, bool& created);
 
     unsigned long loadResourceSynchronously(const ResourceRequest&, StoredCredentials, ResourceError&, ResourceResponse&, Vector<char>& data);
@@ -224,7 +225,7 @@ public:
     void setDefersLoading(bool);
 
     void changeLocation(const KURL&, const String& referrer, bool lockHistory = true, bool lockBackForwardList = true, bool userGesture = false, bool refresh = false);
-    void urlSelected(const ResourceRequest&, const String& target, PassRefPtr<Event>, bool lockHistory, bool lockBackForwardList, bool userGesture, ReferrerPolicy);
+    void urlSelected(const KURL&, const String& target, PassRefPtr<Event>, bool lockHistory, bool lockBackForwardList, bool userGesture, ReferrerPolicy);
     bool requestFrame(HTMLFrameOwnerElement*, const String& url, const AtomicString& frameName, bool lockHistory = true, bool lockBackForwardList = true);
 
     void submitForm(const char* action, const String& url,
@@ -473,8 +474,6 @@ private:
     bool shouldTreatURLAsSameAsCurrent(const KURL&) const;
 
     void updateSandboxFlags();
-    // FIXME: isDocumentSandboxed should eventually replace isSandboxed.
-    bool isDocumentSandboxed(SandboxFlags) const;
 
     Frame* m_frame;
     FrameLoaderClient* m_client;

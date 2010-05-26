@@ -41,13 +41,13 @@ public:
 private:
     HTMLProgressElement(const QualifiedName&, Document*, HTMLFormElement*);
 
-    virtual bool isOptionalFormControl() const { return true; }
+    virtual bool recalcWillValidate() const { return false; }
 
     virtual const AtomicString& formControlType() const;
 
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
-    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual void parseMappedAttribute(Attribute*);
 };
 
 } // namespace

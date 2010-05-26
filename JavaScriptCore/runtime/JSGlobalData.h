@@ -170,10 +170,12 @@ namespace JSC {
         Interpreter* interpreter;
 #if ENABLE(JIT)
         JITThunks jitStubs;
-        NativeExecutable* getThunk(ThunkGenerator generator)
+        MacroAssemblerCodePtr getCTIStub(ThunkGenerator generator)
         {
-            return jitStubs.specializedThunk(this, generator);
+            return jitStubs.ctiStub(this, generator);
         }
+        PassRefPtr<NativeExecutable> getHostFunction(NativeFunction function);
+        PassRefPtr<NativeExecutable> getHostFunction(NativeFunction function, ThunkGenerator generator);
 #endif
         TimeoutChecker timeoutChecker;
         Terminator terminator;

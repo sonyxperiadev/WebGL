@@ -74,6 +74,7 @@ namespace JSC {
         friend class BatchedTransitionOptimizer;
         friend class JIT;
         friend class JSCell;
+        friend void setUpStaticFunctionSlot(ExecState* exec, const HashEntry* entry, JSObject* thisObj, const Identifier& propertyName, PropertySlot& slot);
 
     public:
         explicit JSObject(NonNullPassRefPtr<Structure>);
@@ -176,10 +177,12 @@ namespace JSC {
         void putDirectFunction(const Identifier& propertyName, JSCell* value, unsigned attr = 0);
         void putDirectFunction(const Identifier& propertyName, JSCell* value, unsigned attr, bool checkReadOnly, PutPropertySlot& slot);
         void putDirectFunction(ExecState* exec, InternalFunction* function, unsigned attr = 0);
+        void putDirectFunction(ExecState* exec, JSFunction* function, unsigned attr = 0);
 
         void putDirectWithoutTransition(const Identifier& propertyName, JSValue value, unsigned attr = 0);
         void putDirectFunctionWithoutTransition(const Identifier& propertyName, JSCell* value, unsigned attr = 0);
         void putDirectFunctionWithoutTransition(ExecState* exec, InternalFunction* function, unsigned attr = 0);
+        void putDirectFunctionWithoutTransition(ExecState* exec, JSFunction* function, unsigned attr = 0);
 
         // Fast access to known property offsets.
         JSValue getDirectOffset(size_t offset) const { return JSValue::decode(propertyStorage()[offset]); }
@@ -217,9 +220,6 @@ namespace JSC {
             m_structure->flattenDictionaryStructure(this);
         }
 
-    protected:
-        static const unsigned StructureFlags = 0;
-
         void putAnonymousValue(unsigned index, JSValue value)
         {
             ASSERT(index < m_structure->anonymousSlotCount());
@@ -230,7 +230,10 @@ namespace JSC {
             ASSERT(index < m_structure->anonymousSlotCount());
             return *locationForOffset(index);
         }
-
+        
+    protected:
+        static const unsigned StructureFlags = 0;
+        
     private:
         // Nobody should ever ask any of these questions on something already known to be a JSObject.
         using JSCell::isAPIValueWrapper;

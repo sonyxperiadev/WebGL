@@ -24,6 +24,7 @@
 #define CallFrame_h
 
 #include "JSGlobalData.h"
+#include "MacroAssemblerCodeRef.h"
 #include "RegisterFile.h"
 #include "ScopeChain.h"
 
@@ -107,15 +108,17 @@ namespace JSC  {
         CallFrame& operator=(const Register& r) { *static_cast<Register*>(this) = r; return *this; }
 
         CallFrame* callerFrame() const { return this[RegisterFile::CallerFrame].callFrame(); }
-        Arguments* optionalCalleeArguments() const { return this[RegisterFile::OptionalCalleeArguments].arguments(); }
+#if ENABLE(JIT)
+        ReturnAddressPtr returnPC() const { return ReturnAddressPtr(this[RegisterFile::ReturnPC].vPC()); }
+#else
         Instruction* returnPC() const { return this[RegisterFile::ReturnPC].vPC(); }
+#endif
 
-        void setCalleeArguments(JSValue arguments) { static_cast<Register*>(this)[RegisterFile::OptionalCalleeArguments] = arguments; }
         void setCallerFrame(CallFrame* callerFrame) { static_cast<Register*>(this)[RegisterFile::CallerFrame] = callerFrame; }
         void setScopeChain(ScopeChainNode* scopeChain) { static_cast<Register*>(this)[RegisterFile::ScopeChain] = scopeChain; }
 
         ALWAYS_INLINE void init(CodeBlock* codeBlock, Instruction* vPC, ScopeChainNode* scopeChain,
-            CallFrame* callerFrame, int returnValueRegister, int argc, JSFunction* function)
+            CallFrame* callerFrame, int, int argc, JSFunction* function)
         {
             ASSERT(callerFrame); // Use noCaller() rather than 0 for the outer host call frame caller.
 
@@ -123,17 +126,14 @@ namespace JSC  {
             setScopeChain(scopeChain);
             setCallerFrame(callerFrame);
             static_cast<Register*>(this)[RegisterFile::ReturnPC] = vPC; // This is either an Instruction* or a pointer into JIT generated code stored as an Instruction*.
-            static_cast<Register*>(this)[RegisterFile::ReturnValueRegister] = Register::withInt(returnValueRegister);
             setArgumentCount(argc); // original argument count (for the sake of the "arguments" object)
             setCallee(function);
-            setCalleeArguments(JSValue());
         }
 
         // Read a register from the codeframe (or constant from the CodeBlock).
         inline Register& r(int);
 
         static CallFrame* noCaller() { return reinterpret_cast<CallFrame*>(HostCallFrameFlag); }
-        int returnValueRegister() const { return this[RegisterFile::ReturnValueRegister].i(); }
 
         bool hasHostCallFrameFlag() const { return reinterpret_cast<intptr_t>(this) & HostCallFrameFlag; }
         CallFrame* addHostCallFrameFlag() const { return reinterpret_cast<CallFrame*>(reinterpret_cast<intptr_t>(this) | HostCallFrameFlag); }

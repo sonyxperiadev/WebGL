@@ -173,7 +173,7 @@ protected:
     HTMLMediaElement(const QualifiedName&, Document*);
     virtual ~HTMLMediaElement();
 
-    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual void parseMappedAttribute(Attribute*);
     virtual void attach();
 
     virtual void willMoveToNewOwnerDocument();
@@ -364,6 +364,7 @@ private:
 #endif
 
     bool m_dispatchingCanPlayEvent : 1;
+    bool m_loadInitiatedByUserGesture : 1;
 };
 
 } //namespace

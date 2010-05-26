@@ -28,13 +28,14 @@
 #if ENABLE(VIDEO)
 #include "HTMLMediaElement.h"
 
+#include "Attribute.h"
+#include "CSSHelper.h"
+#include "CSSPropertyNames.h"
+#include "CSSValueKeywords.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "ClientRect.h"
 #include "ClientRectList.h"
-#include "CSSHelper.h"
-#include "CSSPropertyNames.h"
-#include "CSSValueKeywords.h"
 #include "ContentType.h"
 #include "DocLoader.h"
 #include "Event.h"
@@ -49,7 +50,6 @@
 #include "HTMLSourceElement.h"
 #include "HTMLVideoElement.h"
 #include "MIMETypeRegistry.h"
-#include "MappedAttribute.h"
 #include "MediaDocument.h"
 #include "MediaError.h"
 #include "MediaList.h"
@@ -129,6 +129,7 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document* doc)
     , m_needWidgetUpdate(false)
 #endif
     , m_dispatchingCanPlayEvent(false)
+    , m_loadInitiatedByUserGesture(false)
 {
     document()->registerForDocumentActivationCallbacks(this);
     document()->registerForMediaVolumeCallbacks(this);
@@ -188,7 +189,7 @@ void HTMLMediaElement::attributeChanged(Attribute* attr, bool preserveDecls)
 #endif
 }
 
-void HTMLMediaElement::parseMappedAttribute(MappedAttribute* attr)
+void HTMLMediaElement::parseMappedAttribute(Attribute* attr)
 {
     const QualifiedName& attrName = attr->name();
 
@@ -468,6 +469,7 @@ void HTMLMediaElement::load(bool isUserGesture, ExceptionCode& ec)
     if (m_restrictions & RequireUserGestureForLoadRestriction && !isUserGesture)
         ec = INVALID_STATE_ERR;
     else {
+        m_loadInitiatedByUserGesture = isUserGesture;
         prepareForLoad();
         loadInternal();
     }
@@ -1206,7 +1208,7 @@ void HTMLMediaElement::play(bool isUserGesture)
 
     Document* doc = document();
     Settings* settings = doc->settings();
-    if (settings && settings->needsSiteSpecificQuirks() && m_dispatchingCanPlayEvent) {
+    if (settings && settings->needsSiteSpecificQuirks() && m_dispatchingCanPlayEvent && !m_loadInitiatedByUserGesture) {
         // It should be impossible to be processing the canplay event while handling a user gesture
         // since it is dispatched asynchronously.
         ASSERT(!isUserGesture);

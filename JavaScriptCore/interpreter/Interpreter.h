@@ -44,7 +44,6 @@ namespace JSC {
     class CodeBlock;
     class EvalExecutable;
     class FunctionExecutable;
-    class InternalFunction;
     class JSFunction;
     class JSGlobalObject;
     class ProgramExecutable;
@@ -101,7 +100,7 @@ namespace JSC {
         JSValue execute(EvalExecutable* evalNode, CallFrame* exec, JSObject* thisObj, ScopeChainNode* scopeChain, JSValue* exception);
 
         JSValue retrieveArguments(CallFrame*, JSFunction*) const;
-        JSValue retrieveCaller(CallFrame*, InternalFunction*) const;
+        JSValue retrieveCaller(CallFrame*, JSFunction*) const;
         void retrieveLastCaller(CallFrame*, int& lineNumber, intptr_t& sourceID, UString& sourceURL, JSValue& function) const;
         
         void getArgumentsData(CallFrame*, JSFunction*&, ptrdiff_t& firstParameterIndex, Register*& argv, int& argc);
@@ -124,7 +123,7 @@ namespace JSC {
 
         JSValue execute(EvalExecutable*, CallFrame*, JSObject* thisObject, int globalRegisterOffset, ScopeChainNode*, JSValue* exception);
 
-#if USE(INTERPRETER)
+#if !ENABLE(JIT)
         NEVER_INLINE bool resolve(CallFrame*, Instruction*, JSValue& exceptionValue);
         NEVER_INLINE bool resolveSkip(CallFrame*, Instruction*, JSValue& exceptionValue);
         NEVER_INLINE bool resolveGlobal(CallFrame*, Instruction*, JSValue& exceptionValue);
@@ -137,13 +136,13 @@ namespace JSC {
         void uncacheGetByID(CodeBlock*, Instruction* vPC);
         void tryCachePutByID(CallFrame*, CodeBlock*, Instruction*, JSValue baseValue, const PutPropertySlot&);
         void uncachePutByID(CodeBlock*, Instruction* vPC);        
-#endif
+#endif // !ENABLE(JIT)
 
         NEVER_INLINE bool unwindCallFrame(CallFrame*&, JSValue, unsigned& bytecodeOffset, CodeBlock*&);
 
         static ALWAYS_INLINE CallFrame* slideRegisterWindowForCall(CodeBlock*, RegisterFile*, CallFrame*, size_t registerOffset, int argc);
 
-        static CallFrame* findFunctionCallFrame(CallFrame*, InternalFunction*);
+        static CallFrame* findFunctionCallFrame(CallFrame*, JSFunction*);
 
         JSValue privateExecute(ExecutionFlag, RegisterFile*, CallFrame*, JSValue* exception);
 

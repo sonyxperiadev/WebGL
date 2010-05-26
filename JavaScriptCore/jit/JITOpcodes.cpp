@@ -25,9 +25,8 @@
  */
 
 #include "config.h"
-#include "JIT.h"
-
 #if ENABLE(JIT)
+#include "JIT.h"
 
 #include "JITInlineMethods.h"
 #include "JITStubCall.h"
@@ -42,7 +41,7 @@ namespace JSC {
 #if !USE(JSVALUE32_64)
 
 #define RECORD_JUMP_TARGET(targetOffset) \
-   do { m_labels[m_bytecodeIndex + (targetOffset)].used(); } while (false)
+   do { m_labels[m_bytecodeOffset + (targetOffset)].used(); } while (false)
 
 void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executablePool, JSGlobalData* globalData, TrampolineStructure *trampolines)
 {
@@ -259,7 +258,8 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
 
     move(callFrameRegister, X86Registers::edi); 
 
-    call(Address(X86Registers::esi, OBJECT_OFFSETOF(JSFunction, m_data)));
+    loadPtr(Address(X86Registers::esi, OBJECT_OFFSETOF(JSFunction, m_executable)), X86Registers::r9);
+    call(Address(X86Registers::r9, OBJECT_OFFSETOF(NativeExecutable, m_function)));
     
     addPtr(Imm32(sizeof(ArgList)), stackPointerRegister);
 #elif CPU(X86)
@@ -337,7 +337,8 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
     // Plant callframe
     move(callFrameRegister, X86Registers::edx);
 
-    call(Address(X86Registers::eax, OBJECT_OFFSETOF(JSFunction, m_data)));
+    loadPtr(Address(X86Registers::eax, OBJECT_OFFSETOF(JSFunction, m_executable)), X86Registers::ebx);
+    call(Address(X86Registers::ebx, OBJECT_OFFSETOF(NativeExecutable, m_function)));
 
     // JSValue is a non-POD type
     loadPtr(Address(X86Registers::eax), X86Registers::eax);
@@ -347,7 +348,8 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
 
     // Plant callframe
     move(callFrameRegister, X86Registers::ecx);
-    call(Address(X86Registers::edx, OBJECT_OFFSETOF(JSFunction, m_data)));
+    loadPtr(Address(X86Registers::edx, OBJECT_OFFSETOF(JSFunction, m_executable)), X86Registers::ebx);
+    call(Address(X86Registers::ebx, OBJECT_OFFSETOF(NativeExecutable, m_function)));
 #endif
 
     // We've put a few temporaries on the stack in addition to the actual arguments
@@ -395,7 +397,8 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
     subPtr(Imm32(sizeof(Register)), stackPointerRegister);
     storePtr(regT0, Address(stackPointerRegister));
 
-    call(Address(regT2, OBJECT_OFFSETOF(JSFunction, m_data)));
+    loadPtr(Address(regT2, OBJECT_OFFSETOF(JSFunction, m_executable)), regT3);
+    call(Address(regT3, OBJECT_OFFSETOF(NativeExecutable, m_function)));
 
     loadPtr(Address(regT0), regT0);
 
@@ -413,7 +416,8 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
     // Setup arg4: This is a plain hack
     move(stackPointerRegister, ARMRegisters::r3);
 
-    call(Address(regT1, OBJECT_OFFSETOF(JSFunction, m_data)));
+    loadPtr(Address(regT1, OBJECT_OFFSETOF(JSFunction, m_executable)), regT3);
+    call(Address(regT3, OBJECT_OFFSETOF(NativeExecutable, m_function)));
 
     addPtr(Imm32(sizeof(ArgList)), stackPointerRegister);
 #endif // OS(WINCE)
@@ -460,7 +464,8 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
     addPtr(Imm32(20), stackPointerRegister, MIPSRegisters::a0);
 
     // Call
-    call(Address(MIPSRegisters::a2, OBJECT_OFFSETOF(JSFunction, m_data)));
+    loadPtr(Address(MIPSRegisters::a2, OBJECT_OFFSETOF(JSFunction, m_executable)), regT2);
+    call(Address(regT2, OBJECT_OFFSETOF(NativeExecutable, m_function)));
 
     // Get returned value from 0($v0) which is the same as 20($sp)
     loadPtr(Address(returnValueRegister, 0), returnValueRegister);
@@ -535,13 +540,18 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
     trampolines->ctiVirtualConstructLink = trampolineAt(finalCode, virtualConstructLinkBegin);
     trampolines->ctiVirtualCall = trampolineAt(finalCode, virtualCallBegin);
     trampolines->ctiVirtualConstruct = trampolineAt(finalCode, virtualConstructBegin);
-    trampolines->ctiNativeCallThunk = adoptRef(new NativeExecutable(JITCode(JITCode::HostFunction(trampolineAt(finalCode, nativeCallThunk)))));
+    trampolines->ctiNativeCall = trampolineAt(finalCode, nativeCallThunk);
 #if ENABLE(JIT_OPTIMIZE_MOD)
     trampolines->ctiSoftModulo = trampolineAt(finalCode, softModBegin);
 #endif
 #if ENABLE(JIT_OPTIMIZE_PROPERTY_ACCESS)
     trampolines->ctiStringLengthTrampoline = trampolineAt(finalCode, stringLengthBegin);
 #endif
+}
+
+JIT::CodePtr JIT::privateCompileCTINativeCall(PassRefPtr<ExecutablePool>, JSGlobalData* globalData, NativeFunction)
+{
+    return globalData->jitStubs.ctiNativeCall();
 }
 
 void JIT::emit_op_mov(Instruction* currentInstruction)
@@ -711,7 +721,7 @@ void JIT::emit_op_put_global_var(Instruction* currentInstruction)
 
 void JIT::emit_op_get_scoped_var(Instruction* currentInstruction)
 {
-    int skip = currentInstruction[3].u.operand + m_codeBlock->needsFullScopeChain();
+    int skip = currentInstruction[3].u.operand;
 
     emitGetFromCallFrameHeaderPtr(RegisterFile::ScopeChain, regT0);
     while (skip--)
@@ -724,7 +734,7 @@ void JIT::emit_op_get_scoped_var(Instruction* currentInstruction)
 
 void JIT::emit_op_put_scoped_var(Instruction* currentInstruction)
 {
-    int skip = currentInstruction[2].u.operand + m_codeBlock->needsFullScopeChain();
+    int skip = currentInstruction[2].u.operand;
 
     emitGetFromCallFrameHeaderPtr(RegisterFile::ScopeChain, regT1);
     emitGetVirtualRegister(currentInstruction[3].u.operand, regT0);
@@ -739,12 +749,19 @@ void JIT::emit_op_tear_off_activation(Instruction* currentInstruction)
 {
     JITStubCall stubCall(this, cti_op_tear_off_activation);
     stubCall.addArgument(currentInstruction[1].u.operand, regT2);
+    stubCall.addArgument(unmodifiedArgumentsRegister(currentInstruction[2].u.operand), regT2);
     stubCall.call();
 }
 
-void JIT::emit_op_tear_off_arguments(Instruction*)
+void JIT::emit_op_tear_off_arguments(Instruction* currentInstruction)
 {
-    JITStubCall(this, cti_op_tear_off_arguments).call();
+    unsigned dst = currentInstruction[1].u.operand;
+
+    Jump argsNotCreated = branchTestPtr(Zero, Address(callFrameRegister, sizeof(Register) * (unmodifiedArgumentsRegister(dst))));
+    JITStubCall stubCall(this, cti_op_tear_off_arguments);
+    stubCall.addArgument(unmodifiedArgumentsRegister(dst), regT2);
+    stubCall.call();
+    argsNotCreated.link(this);
 }
 
 void JIT::emit_op_ret(Instruction* currentInstruction)
@@ -771,6 +788,48 @@ void JIT::emit_op_ret(Instruction* currentInstruction)
     ret();
 }
 
+void JIT::emit_op_ret_object_or_this(Instruction* currentInstruction)
+{
+    // We could JIT generate the deref, only calling out to C when the refcount hits zero.
+    if (m_codeBlock->needsFullScopeChain())
+        JITStubCall(this, cti_op_ret_scopeChain).call();
+
+    ASSERT(callFrameRegister != regT1);
+    ASSERT(regT1 != returnValueRegister);
+    ASSERT(returnValueRegister != callFrameRegister);
+
+    // Return the result in %eax.
+    emitGetVirtualRegister(currentInstruction[1].u.operand, returnValueRegister);
+    Jump notJSCell = emitJumpIfNotJSCell(returnValueRegister);
+    loadPtr(Address(returnValueRegister, OBJECT_OFFSETOF(JSCell, m_structure)), regT2);
+    Jump notObject = branch8(NotEqual, Address(regT2, OBJECT_OFFSETOF(Structure, m_typeInfo) + OBJECT_OFFSETOF(TypeInfo, m_type)), Imm32(ObjectType));
+
+    // Grab the return address.
+    emitGetFromCallFrameHeaderPtr(RegisterFile::ReturnPC, regT1);
+
+    // Restore our caller's "r".
+    emitGetFromCallFrameHeaderPtr(RegisterFile::CallerFrame, callFrameRegister);
+
+    // Return.
+    restoreReturnAddressBeforeReturn(regT1);
+    ret();
+
+    // Return 'this' in %eax.
+    notJSCell.link(this);
+    notObject.link(this);
+    emitGetVirtualRegister(currentInstruction[2].u.operand, returnValueRegister);
+
+    // Grab the return address.
+    emitGetFromCallFrameHeaderPtr(RegisterFile::ReturnPC, regT1);
+
+    // Restore our caller's "r".
+    emitGetFromCallFrameHeaderPtr(RegisterFile::CallerFrame, callFrameRegister);
+
+    // Return.
+    restoreReturnAddressBeforeReturn(regT1);
+    ret();
+}
+
 void JIT::emit_op_new_array(Instruction* currentInstruction)
 {
     JITStubCall stubCall(this, cti_op_new_array);
@@ -784,16 +843,6 @@ void JIT::emit_op_resolve(Instruction* currentInstruction)
     JITStubCall stubCall(this, cti_op_resolve);
     stubCall.addArgument(ImmPtr(&m_codeBlock->identifier(currentInstruction[2].u.operand)));
     stubCall.call(currentInstruction[1].u.operand);
-}
-
-void JIT::emit_op_construct_verify(Instruction* currentInstruction)
-{
-    emitGetVirtualRegister(currentInstruction[1].u.operand, regT0);
-
-    emitJumpSlowCaseIfNotJSCell(regT0);
-    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSCell, m_structure)), regT2);
-    addSlowCase(branch8(NotEqual, Address(regT2, OBJECT_OFFSETOF(Structure, m_typeInfo.m_type)), Imm32(ObjectType)));
-
 }
 
 void JIT::emit_op_to_primitive(Instruction* currentInstruction)
@@ -831,7 +880,7 @@ void JIT::emit_op_resolve_skip(Instruction* currentInstruction)
 {
     JITStubCall stubCall(this, cti_op_resolve_skip);
     stubCall.addArgument(ImmPtr(&m_codeBlock->identifier(currentInstruction[2].u.operand)));
-    stubCall.addArgument(Imm32(currentInstruction[3].u.operand + m_codeBlock->needsFullScopeChain()));
+    stubCall.addArgument(Imm32(currentInstruction[3].u.operand));
     stubCall.call(currentInstruction[1].u.operand);
 }
 
@@ -1266,7 +1315,7 @@ void JIT::emit_op_switch_imm(Instruction* currentInstruction)
 
     // create jump table for switch destinations, track this switch statement.
     SimpleJumpTable* jumpTable = &m_codeBlock->immediateSwitchJumpTable(tableIndex);
-    m_switches.append(SwitchRecord(jumpTable, m_bytecodeIndex, defaultOffset, SwitchRecord::Immediate));
+    m_switches.append(SwitchRecord(jumpTable, m_bytecodeOffset, defaultOffset, SwitchRecord::Immediate));
     jumpTable->ctiOffsets.grow(jumpTable->branchOffsets.size());
 
     JITStubCall stubCall(this, cti_op_switch_imm);
@@ -1284,7 +1333,7 @@ void JIT::emit_op_switch_char(Instruction* currentInstruction)
 
     // create jump table for switch destinations, track this switch statement.
     SimpleJumpTable* jumpTable = &m_codeBlock->characterSwitchJumpTable(tableIndex);
-    m_switches.append(SwitchRecord(jumpTable, m_bytecodeIndex, defaultOffset, SwitchRecord::Character));
+    m_switches.append(SwitchRecord(jumpTable, m_bytecodeOffset, defaultOffset, SwitchRecord::Character));
     jumpTable->ctiOffsets.grow(jumpTable->branchOffsets.size());
 
     JITStubCall stubCall(this, cti_op_switch_char);
@@ -1302,7 +1351,7 @@ void JIT::emit_op_switch_string(Instruction* currentInstruction)
 
     // create jump table for switch destinations, track this switch statement.
     StringJumpTable* jumpTable = &m_codeBlock->stringSwitchJumpTable(tableIndex);
-    m_switches.append(SwitchRecord(jumpTable, m_bytecodeIndex, defaultOffset));
+    m_switches.append(SwitchRecord(jumpTable, m_bytecodeOffset, defaultOffset));
 
     JITStubCall stubCall(this, cti_op_switch_string);
     stubCall.addArgument(scrutinee, regT2);
@@ -1316,7 +1365,7 @@ void JIT::emit_op_new_error(Instruction* currentInstruction)
     JITStubCall stubCall(this, cti_op_new_error);
     stubCall.addArgument(Imm32(currentInstruction[2].u.operand));
     stubCall.addArgument(ImmPtr(JSValue::encode(m_codeBlock->getConstant(currentInstruction[3].u.operand))));
-    stubCall.addArgument(Imm32(m_bytecodeIndex));
+    stubCall.addArgument(Imm32(m_bytecodeOffset));
     stubCall.call(currentInstruction[1].u.operand);
 }
 
@@ -1407,19 +1456,26 @@ void JIT::emit_op_enter_with_activation(Instruction* currentInstruction)
     JITStubCall(this, cti_op_push_activation).call(currentInstruction[1].u.operand);
 }
 
-void JIT::emit_op_create_arguments(Instruction*)
+void JIT::emit_op_create_arguments(Instruction* currentInstruction)
 {
-    Jump argsCreated = branchTestPtr(NonZero, Address(callFrameRegister, sizeof(Register) * RegisterFile::ArgumentsRegister));
+    unsigned dst = currentInstruction[1].u.operand;
+
+    Jump argsCreated = branchTestPtr(NonZero, Address(callFrameRegister, sizeof(Register) * dst));
     if (m_codeBlock->m_numParameters == 1)
         JITStubCall(this, cti_op_create_arguments_no_params).call();
     else
         JITStubCall(this, cti_op_create_arguments).call();
+    emitPutVirtualRegister(dst);
+    emitPutVirtualRegister(unmodifiedArgumentsRegister(dst));
     argsCreated.link(this);
 }
-    
-void JIT::emit_op_init_arguments(Instruction*)
+
+void JIT::emit_op_init_arguments(Instruction* currentInstruction)
 {
-    storePtr(ImmPtr(0), Address(callFrameRegister, sizeof(Register) * RegisterFile::ArgumentsRegister));
+    unsigned dst = currentInstruction[1].u.operand;
+
+    storePtr(ImmPtr(0), Address(callFrameRegister, sizeof(Register) * dst));
+    storePtr(ImmPtr(0), Address(callFrameRegister, sizeof(Register) * (unmodifiedArgumentsRegister(dst))));
 }
 
 void JIT::emit_op_convert_this(Instruction* currentInstruction)
@@ -1465,14 +1521,6 @@ void JIT::emitSlow_op_convert_this(Instruction* currentInstruction, Vector<SlowC
     JITStubCall stubCall(this, cti_op_convert_this);
     stubCall.addArgument(regT0);
     stubCall.call(currentInstruction[1].u.operand);
-}
-
-void JIT::emitSlow_op_construct_verify(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
-{
-    linkSlowCase(iter);
-    linkSlowCase(iter);
-    emitGetVirtualRegister(currentInstruction[2].u.operand, regT0);
-    emitPutVirtualRegister(currentInstruction[1].u.operand);
 }
 
 void JIT::emitSlow_op_to_primitive(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
@@ -1672,7 +1720,7 @@ void JIT::emitSlow_op_to_jsnumber(Instruction* currentInstruction, Vector<SlowCa
 
 void JIT::emit_op_resolve_global_dynamic(Instruction* currentInstruction)
 {
-    int skip = currentInstruction[6].u.operand + m_codeBlock->needsFullScopeChain();
+    int skip = currentInstruction[6].u.operand;
     
     emitGetFromCallFrameHeaderPtr(RegisterFile::ScopeChain, regT0);
     while (skip--) {
@@ -1688,7 +1736,7 @@ void JIT::emitSlow_op_resolve_global_dynamic(Instruction* currentInstruction, Ve
     unsigned dst = currentInstruction[1].u.operand;
     void* globalObject = currentInstruction[2].u.jsCell;
     Identifier* ident = &m_codeBlock->identifier(currentInstruction[3].u.operand);
-    int skip = currentInstruction[6].u.operand + m_codeBlock->needsFullScopeChain();
+    int skip = currentInstruction[6].u.operand;
     while (skip--)
         linkSlowCase(iter);
     JITStubCall resolveStubCall(this, cti_op_resolve);

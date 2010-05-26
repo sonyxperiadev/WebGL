@@ -70,8 +70,11 @@ namespace JSC {
     }
 }
 #endif
+<<<<<<< HEAD
 
 class NPObject;
+=======
+>>>>>>> webkit.org at r60074
 
 namespace WebCore {
     class Element;
@@ -433,6 +436,8 @@ private:
 
         bool m_isHalted;
         bool m_hasBeenHalted;
+
+        bool m_haveCalledSetWindow;
 
         static PluginView* s_currentPluginView;
     };

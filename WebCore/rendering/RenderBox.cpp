@@ -193,7 +193,7 @@ void RenderBox::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle
 
     // Set the text color if we're the body.
     if (isBody())
-        document()->setTextColor(style()->color());
+        document()->setTextColor(style()->visitedDependentColor(CSSPropertyColor));
 }
 
 void RenderBox::updateBoxModelInfoFromStyle()
@@ -599,9 +599,9 @@ void RenderBox::paint(PaintInfo& paintInfo, int tx, int ty)
 void RenderBox::paintRootBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
 {
     const FillLayer* bgLayer = style()->backgroundLayers();
-    Color bgColor = style()->backgroundColor();
+    Color bgColor = style()->visitedDependentColor(CSSPropertyBackgroundColor);
     RenderObject* bodyObject = 0;
-    if (!style()->hasBackground() && node() && node()->hasTagName(HTMLNames::htmlTag)) {
+    if (!hasBackground() && node() && node()->hasTagName(HTMLNames::htmlTag)) {
         // Locate the <body> element using the DOM.  This is easier than trying
         // to crawl around a render tree with potential :before/:after content and
         // anonymous blocks created by inline <body> tags etc.  We can locate the <body>
@@ -610,7 +610,7 @@ void RenderBox::paintRootBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
         bodyObject = (body && body->hasLocalName(bodyTag)) ? body->renderer() : 0;
         if (bodyObject) {
             bgLayer = bodyObject->style()->backgroundLayers();
-            bgColor = bodyObject->style()->backgroundColor();
+            bgColor = bodyObject->style()->visitedDependentColor(CSSPropertyBackgroundColor);
         }
     }
 
@@ -671,8 +671,8 @@ void RenderBox::paintBoxDecorationsWithSize(PaintInfo& paintInfo, int tx, int ty
         // The <body> only paints its background if the root element has defined a background
         // independent of the body.  Go through the DOM to get to the root element's render object,
         // since the root could be inline and wrapped in an anonymous block.
-        if (!isBody() || document()->documentElement()->renderer()->style()->hasBackground())
-            paintFillLayers(paintInfo, style()->backgroundColor(), style()->backgroundLayers(), tx, ty, width, height);
+        if (!isBody() || document()->documentElement()->renderer()->hasBackground())
+            paintFillLayers(paintInfo, style()->visitedDependentColor(CSSPropertyBackgroundColor), style()->backgroundLayers(), tx, ty, width, height);
         if (style()->hasAppearance())
             theme()->paintDecorations(this, paintInfo, IntRect(tx, ty, width, height));
     }
@@ -818,7 +818,7 @@ bool RenderBox::repaintLayerRectsForImage(WrappedImagePtr image, const FillLayer
             // Now that we know this image is being used, compute the renderer and the rect
             // if we haven't already
             if (!layerRenderer) {
-                bool drawingRootBackground = drawingBackground && (isRoot() || (isBody() && !document()->documentElement()->renderer()->style()->hasBackground()));
+                bool drawingRootBackground = drawingBackground && (isRoot() || (isBody() && !document()->documentElement()->renderer()->hasBackground()));
                 if (drawingRootBackground) {
                     layerRenderer = view();
 
@@ -1210,22 +1210,11 @@ void RenderBox::computeRectForRepaint(RenderBoxModelObject* repaintContainer, In
 
     EPosition position = style()->position();
 
-    if (o->isBlockFlow() && position != AbsolutePosition && position != FixedPosition) {
-        RenderBlock* cb = toRenderBlock(o);
-        if (cb->hasColumns()) {
-            IntRect repaintRect(topLeft, rect.size());
-            cb->adjustRectForColumns(repaintRect);
-            topLeft = repaintRect.location();
-            rect = repaintRect;
-        }
-    }
-
     // We are now in our parent container's coordinate space.  Apply our transform to obtain a bounding box
     // in the parent's coordinate space that encloses us.
     if (layer() && layer()->transform()) {
         fixed = position == FixedPosition;
         rect = layer()->transform()->mapRect(rect);
-        // FIXME: this clobbers topLeft adjustment done for multicol above
         topLeft = rect.location();
         topLeft.move(x(), y());
     } else if (position == FixedPosition)
@@ -1241,6 +1230,16 @@ void RenderBox::computeRectForRepaint(RenderBoxModelObject* repaintContainer, In
         topLeft += layer()->relativePositionOffset();
     }
     
+    if (o->isBlockFlow() && position != AbsolutePosition && position != FixedPosition) {
+        RenderBlock* cb = toRenderBlock(o);
+        if (cb->hasColumns()) {
+            IntRect repaintRect(topLeft, rect.size());
+            cb->adjustRectForColumns(repaintRect);
+            topLeft = repaintRect.location();
+            rect = repaintRect;
+        }
+    }
+
     // FIXME: We ignore the lightweight clipping rect that controls use, since if |o| is in mid-layout,
     // its controlClipRect will be wrong. For overflow clip we use the values cached by the layer.
     if (o->hasOverflowClip()) {

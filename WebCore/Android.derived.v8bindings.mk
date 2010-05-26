@@ -30,8 +30,12 @@ js_binding_scripts := \
 	$(LOCAL_PATH)/bindings/scripts/IDLStructure.pm \
 	$(LOCAL_PATH)/bindings/scripts/generate-bindings.pl
 
+<<<<<<< HEAD
 # Add ACCELERATED_COMPOSITING=1 and ENABLE_3D_RENDERING=1 for layers support
 FEATURE_DEFINES := ENABLE_ORIENTATION_EVENTS=1 ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_GEOLOCATION=1 ENABLE_CONNECTION=1 ENABLE_APPLICATION_INSTALLED=1 ENABLE_XPATH=1 ENABLE_XSLT=1
+=======
+FEATURE_DEFINES := ANDROID_ORIENTATION_SUPPORT ENABLE_TOUCH_EVENTS=1 ENABLE_DATABASE=1 ENABLE_OFFLINE_WEB_APPLICATIONS=1 ENABLE_DOM_STORAGE=1 ENABLE_VIDEO=1 ENABLE_WORKERS=1 ENABLE_GEOLOCATION=1 ENABLE_DEVICE_ORIENTATION=1
+>>>>>>> webkit.org at r60074
 FEATURE_DEFINES += V8_BINDING
 
 # CSS
@@ -87,6 +91,8 @@ GEN := \
     $(intermediates)/bindings/V8CustomEvent.h \
     $(intermediates)/bindings/V8DOMCoreException.h \
     $(intermediates)/bindings/V8DOMImplementation.h \
+    $(intermediates)/bindings/V8DOMStringList.h \
+    $(intermediates)/bindings/V8DeviceOrientationEvent.h \
     $(intermediates)/bindings/V8Document.h \
     $(intermediates)/bindings/V8DocumentFragment.h \
     $(intermediates)/bindings/V8DocumentType.h \

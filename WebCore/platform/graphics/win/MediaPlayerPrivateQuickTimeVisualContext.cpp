@@ -45,6 +45,7 @@
 #include "StringHash.h"
 #include "TimeRanges.h"
 #include "Timer.h"
+#include <CoreGraphics/CGContext.h>
 #include <Wininet.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/HashSet.h>
@@ -63,6 +64,8 @@ const CFStringRef kMinQuartzCoreVersion = CFSTR("1.0.43.0");
 const CFStringRef kMinCoreVideoVersion = CFSTR("1.0.0.2");
 
 namespace WebCore {
+
+static CGImageRef CreateCGImageFromPixelBuffer(QTPixelBuffer buffer);
 
 SOFT_LINK_LIBRARY(Wininet)
 SOFT_LINK(Wininet, InternetSetCookieExW, DWORD, WINAPI, (LPCWSTR lpszUrl, LPCWSTR lpszCookieName, LPCWSTR lpszCookieData, DWORD dwFlags, DWORD_PTR dwReserved), (lpszUrl, lpszCookieName, lpszCookieData, dwFlags, dwReserved))
@@ -141,12 +144,13 @@ MediaPlayerPrivateQuickTimeVisualContext::MediaPlayerPrivateQuickTimeVisualConte
 MediaPlayerPrivateQuickTimeVisualContext::~MediaPlayerPrivateQuickTimeVisualContext()
 {
     tearDownVideoRendering();
+    m_visualContext->setMovie(0);
     cancelCallOnMainThread(&VisualContextClient::retrieveCurrentImageProc, this);
 }
 
 bool MediaPlayerPrivateQuickTimeVisualContext::supportsFullscreen() const
 {
-    return true;
+    return false;
 }
 
 PlatformMedia MediaPlayerPrivateQuickTimeVisualContext::platformMedia() const
@@ -284,6 +288,7 @@ void MediaPlayerPrivateQuickTimeVisualContext::load(const String& url)
 
     CFDictionaryRef options = QTMovieVisualContext::getCGImageOptions();
     m_visualContext = adoptRef(new QTMovieVisualContext(m_visualContextClient.get(), options));
+    m_visualContext->setMovie(m_movie.get());
 }
 
 void MediaPlayerPrivateQuickTimeVisualContext::play()
@@ -629,7 +634,20 @@ void MediaPlayerPrivateQuickTimeVisualContext::paint(GraphicsContext* p, const I
     if (m_qtVideoLayer)
         return;
 #endif
+    QTPixelBuffer buffer = m_visualContext->imageForTime(0);
+    if (buffer.pixelBufferRef()) {
+        CGImageRef image = CreateCGImageFromPixelBuffer(buffer);
+        
+        CGContextRef context = p->platformContext();
+        CGContextSaveGState(context);
+        CGContextTranslateCTM(context, r.x(), r.y());
+        CGContextTranslateCTM(context, 0, r.height());
+        CGContextScaleCTM(context, 1, -1);
+        CGContextDrawImage(context, CGRectMake(0, 0, r.width(), r.height()), image);
+        CGContextRestoreGState(context);
 
+        CGImageRelease(image);
+    }
     paintCompleted(*p, r);
 }
 
@@ -654,16 +672,17 @@ void MediaPlayerPrivateQuickTimeVisualContext::VisualContextClient::imageAvailab
 
 void MediaPlayerPrivateQuickTimeVisualContext::visualContextTimerFired(Timer<MediaPlayerPrivateQuickTimeVisualContext>*)
 {
-    retrieveCurrentImage();
+    if (m_visualContext && m_visualContext->isImageAvailableForTime(0))
+        retrieveCurrentImage();
 }
 
 static CFDictionaryRef QTCFDictionaryCreateWithDataCallback(CFAllocatorRef allocator, const UInt8* bytes, CFIndex length)
 {
-    CFDataRef data = CFDataCreateWithBytesNoCopy(allocator, bytes, length, 0);
+    RetainPtr<CFDataRef> data(AdoptCF, CFDataCreateWithBytesNoCopy(allocator, bytes, length, kCFAllocatorNull));
     if (!data)
         return 0;
 
-    return reinterpret_cast<CFDictionaryRef>(CFPropertyListCreateFromXMLData(allocator, data, kCFPropertyListImmutable, 0));
+    return reinterpret_cast<CFDictionaryRef>(CFPropertyListCreateFromXMLData(allocator, data.get(), kCFPropertyListImmutable, 0));
 }
 
 static CGImageRef CreateCGImageFromPixelBuffer(QTPixelBuffer buffer)
@@ -729,38 +748,29 @@ void MediaPlayerPrivateQuickTimeVisualContext::retrieveCurrentImage()
         return;
 
 #if USE(ACCELERATED_COMPOSITING)
-    if (!m_qtVideoLayer)
-        return;
+    if (m_qtVideoLayer) {
 
-    QTPixelBuffer buffer = m_visualContext->imageForTime(0);
-    if (!buffer.pixelBufferRef())
-        return;
+        QTPixelBuffer buffer = m_visualContext->imageForTime(0);
+        if (!buffer.pixelBufferRef())
+            return;
 
-    WKCACFLayer* layer = static_cast<WKCACFLayer*>(m_qtVideoLayer->platformLayer());
+        WKCACFLayer* layer = static_cast<WKCACFLayer*>(m_qtVideoLayer->platformLayer());
 
-    if (!buffer.lockBaseAddress()) {
-#ifndef NDEBUG
-        // Debug QuickTime links against a non-Debug version of CoreFoundation, so the CFDictionary attached to the CVPixelBuffer cannot be directly passed on into the CAImageQueue without being converted to a non-Debug CFDictionary:
-        CFDictionaryRef attachments = QTCFDictionaryCreateCopyWithDataCallback(kCFAllocatorDefault, buffer.attachments(), &QTCFDictionaryCreateWithDataCallback);
-#else
-        // However, this is unnecssesary in the non-Debug case:
-        CFDictionaryRef attachments = static_cast<CFDictionaryRef>(CFRetain(buffer.attachments()));
+            if (!buffer.lockBaseAddress()) {
+               CFTimeInterval imageTime = QTMovieVisualContext::currentHostTime();
+
+                CGImageRef image = CreateCGImageFromPixelBuffer(buffer);
+                layer->setContents(image);
+                CGImageRelease(image);
+
+                buffer.unlockBaseAddress();
+                layer->rootLayer()->setNeedsRender();
+            }
+    } else
 #endif
+        m_player->repaint();
 
-        CFTimeInterval imageTime = QTMovieVisualContext::currentHostTime();
-
-        CGImageRef image = CreateCGImageFromPixelBuffer(buffer);
-        layer->setContents(image);
-        CGImageRelease(image);
-
-        if (attachments)
-            CFRelease(attachments);
-
-        buffer.unlockBaseAddress();
-        layer->rootLayer()->setNeedsRender();
-    }
     m_visualContext->task();
-#endif
 }
 
 static HashSet<String> mimeTypeCache()
@@ -886,8 +896,6 @@ void MediaPlayerPrivateQuickTimeVisualContext::setUpVideoRendering()
     if (currentMode == MediaRenderingMovieLayer || preferredMode == MediaRenderingMovieLayer)
         m_player->mediaPlayerClient()->mediaPlayerRenderingModeChanged(m_player);
 #endif
-
-    m_visualContext->setMovie(m_movie.get());
 }
 
 void MediaPlayerPrivateQuickTimeVisualContext::tearDownVideoRendering()
@@ -896,8 +904,6 @@ void MediaPlayerPrivateQuickTimeVisualContext::tearDownVideoRendering()
     if (m_qtVideoLayer)
         destroyLayerForMovie();
 #endif
-
-    m_visualContext->setMovie(0);
 }
 
 bool MediaPlayerPrivateQuickTimeVisualContext::hasSetUpVideoRendering() const

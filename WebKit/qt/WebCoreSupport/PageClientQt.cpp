@@ -132,6 +132,8 @@ void PageClientQGraphicsWidget::update(const QRect& dirtyRect)
         overlay->update(QRectF(dirtyRect));
 #if USE(ACCELERATED_COMPOSITING)
     syncLayers();
+    // This might be a slow-scroll. We ensure that the compositing layers are in the right position.
+    updateCompositingScrollPosition();
 #endif
 }
 
@@ -287,6 +289,23 @@ QRect PageClientQGraphicsWidget::geometryRelativeToOwnerWidget() const
     QGraphicsView* graphicsView = views.at(0);
     return graphicsView->mapFromScene(view->boundingRect()).boundingRect();
 }
+
+#if ENABLE(TILED_BACKING_STORE)
+QRectF PageClientQGraphicsWidget::graphicsItemVisibleRect() const
+{ 
+    if (!view->scene())
+        return QRectF();
+
+    QList<QGraphicsView*> views = view->scene()->views();
+    if (views.isEmpty())
+        return QRectF();
+    
+    QGraphicsView* graphicsView = views.at(0);
+    int xOffset = graphicsView->horizontalScrollBar()->value();
+    int yOffset = graphicsView->verticalScrollBar()->value();
+    return view->mapRectFromScene(QRectF(QPointF(xOffset, yOffset), graphicsView->viewport()->size()));
+}
+#endif
 
 QObject* PageClientQGraphicsWidget::pluginParent() const
 {

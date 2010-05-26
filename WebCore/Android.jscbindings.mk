@@ -122,6 +122,7 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSImageDataCustom.cpp \
 	bindings/js/JSLazyEventListener.cpp \
 	bindings/js/JSLocationCustom.cpp \
+	bindings/js/JSMainThreadExecState.cpp \
 	bindings/js/JSMessageChannelConstructor.cpp \
 	bindings/js/JSMessageChannelCustom.cpp \
 	bindings/js/JSMessageEventCustom.cpp \

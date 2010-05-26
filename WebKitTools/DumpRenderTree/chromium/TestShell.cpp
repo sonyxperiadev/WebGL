@@ -80,6 +80,7 @@ TestShell::TestShell()
     , m_testIsPreparing(false)
     , m_focusedWidget(0)
 {
+    WebRuntimeFeatures::enableGeolocation(true);
     m_accessibilityController.set(new AccessibilityController(this));
     m_layoutTestController.set(new LayoutTestController(this));
     m_eventSender.set(new EventSender(this));
@@ -211,6 +212,7 @@ void TestShell::resizeWindowForTest(WebViewHost* window, const WebURL& url)
 
 void TestShell::resetTestController()
 {
+    resetWebSettings(*webView());
     m_accessibilityController->reset();
     m_layoutTestController->reset();
     m_eventSender->reset();
@@ -565,7 +567,11 @@ void TestShell::bindJSObjectsToWindow(WebFrame* frame)
 
 int TestShell::layoutTestTimeout()
 {
-    return 10 * 1000;
+    // 30 second is the same as the value in Mac DRT.
+    // If we use a value smaller than the timeout value of
+    // (new-)run-webkit-tests, (new-)run-webkit-tests misunderstands that a
+    // timed-out DRT process was crashed.
+    return 30 * 1000;
 }
 
 WebViewHost* TestShell::createWebView()

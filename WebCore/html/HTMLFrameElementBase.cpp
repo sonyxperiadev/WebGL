@@ -24,6 +24,7 @@
 #include "config.h"
 #include "HTMLFrameElementBase.h"
 
+#include "Attribute.h"
 #include "CSSHelper.h"
 #include "Document.h"
 #include "EventNames.h"
@@ -34,11 +35,11 @@
 #include "FrameView.h"
 #include "HTMLFrameSetElement.h"
 #include "HTMLNames.h"
-#include "ScriptEventListener.h"
 #include "KURL.h"
-#include "MappedAttribute.h"
 #include "Page.h"
 #include "RenderFrame.h"
+#include "ScriptController.h"
+#include "ScriptEventListener.h"
 #include "Settings.h"
 
 namespace WebCore {
@@ -63,6 +64,12 @@ bool HTMLFrameElementBase::isURLAllowed() const
         return true;
 
     const KURL& completeURL = document()->completeURL(m_URL);
+
+    if (protocolIsJavaScript(completeURL)) { 
+        Document* contentDoc = this->contentDocument();
+        if (contentDoc && !ScriptController::canAccessFromCurrentOrigin(contentDoc->frame()))
+            return false;
+    }
 
     // Don't allow more than 200 total frames in a set. This seems
     // like a reasonable upper bound, and otherwise mutually recursive
@@ -109,7 +116,7 @@ void HTMLFrameElementBase::openURL(bool lockHistory, bool lockBackForwardList)
         contentFrame()->setInViewSourceMode(viewSourceMode());
 }
 
-void HTMLFrameElementBase::parseMappedAttribute(MappedAttribute *attr)
+void HTMLFrameElementBase::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == srcAttr)
         setLocation(deprecatedParseURL(attr->value()));

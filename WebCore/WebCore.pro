@@ -200,6 +200,7 @@ INCLUDEPATH = \
     $$PWD/platform/network \
     $$PWD/platform/sql \
     $$PWD/platform/text \
+    $$PWD/platform/text/transcoder \
     $$PWD/plugins \
     $$PWD/rendering \
     $$PWD/rendering/style \
@@ -351,6 +352,7 @@ SOURCES += \
     bindings/js/JSDOMBinding.cpp \
     bindings/js/JSEventListener.cpp \
     bindings/js/JSLazyEventListener.cpp \
+    bindings/js/JSMainThreadExecState.cpp \
     bindings/js/JSPluginElementFunctions.cpp \
     bindings/js/JSPopStateEventCustom.cpp \
     bindings/js/JSWorkerContextErrorHandler.cpp \
@@ -462,10 +464,13 @@ SOURCES += \
     dom/ContainerNode.cpp \
     dom/CSSMappedAttributeDeclaration.cpp \
     dom/CustomEvent.cpp \
+    dom/DeviceOrientation.cpp \
+    dom/DeviceOrientationEvent.cpp \
     dom/Document.cpp \
     dom/DocumentFragment.cpp \
     dom/DocumentType.cpp \
     dom/DOMImplementation.cpp \
+    dom/DOMStringList.cpp \
     dom/DynamicNodeList.cpp \
     dom/EditingText.cpp \
     dom/Element.cpp \
@@ -479,7 +484,6 @@ SOURCES += \
     dom/ExceptionCode.cpp \
     dom/InputElement.cpp \
     dom/KeyboardEvent.cpp \
-    dom/MappedAttribute.cpp \
     dom/MessageChannel.cpp \
     dom/MessageEvent.cpp \
     dom/MessagePort.cpp \
@@ -487,8 +491,7 @@ SOURCES += \
     dom/MouseEvent.cpp \
     dom/MouseRelatedEvent.cpp \
     dom/MutationEvent.cpp \
-    dom/NamedAttrMap.cpp \
-    dom/NamedMappedAttrMap.cpp \
+    dom/NamedNodeMap.cpp \
     dom/NameNodeList.cpp \
     dom/Node.cpp \
     dom/NodeFilterCondition.cpp \
@@ -605,6 +608,9 @@ SOURCES += \
     html/FileStreamProxy.cpp \
     html/FileThread.cpp \
     html/FormDataList.cpp \
+    html/HTML5Lexer.cpp \
+    html/HTML5Tokenizer.cpp \
+    html/HTML5TreeBuilder.cpp \
     html/HTMLAllCollection.cpp \
     html/HTMLAnchorElement.cpp \
     html/HTMLAppletElement.cpp \
@@ -747,6 +753,7 @@ SOURCES += \
     loader/Request.cpp \
     loader/ResourceLoader.cpp \
     loader/ResourceLoadNotifier.cpp \
+    loader/SinkDocument.cpp \
     loader/SubresourceLoader.cpp \
     loader/TextDocument.cpp \
     loader/TextResourceDecoder.cpp \
@@ -889,6 +896,7 @@ SOURCES += \
     platform/ThreadTimers.cpp \
     platform/Timer.cpp \
     platform/text/UnicodeRange.cpp \
+    platform/text/transcoder/FontTranscoder.cpp \
     platform/UUID.cpp \
     platform/Widget.cpp \
     plugins/PluginDatabase.cpp \
@@ -1185,10 +1193,14 @@ HEADERS += \
     dom/CSSMappedAttributeDeclaration.h \
     dom/CustomEvent.h \
     dom/default/PlatformMessagePortChannel.h \
+    dom/DeviceOrientation.h \
+    dom/DeviceOrientationClient.h \
+    dom/DeviceOrientationEvent.h \
     dom/DocumentFragment.h \
     dom/Document.h \
     dom/DocumentType.h \
     dom/DOMImplementation.h \
+    dom/DOMStringList.h \
     dom/DynamicNodeList.h \
     dom/EditingText.h \
     dom/Element.h \
@@ -1201,7 +1213,6 @@ HEADERS += \
     dom/ExceptionCode.h \
     dom/InputElement.h \
     dom/KeyboardEvent.h \
-    dom/MappedAttribute.h \
     dom/MessageChannel.h \
     dom/MessageEvent.h \
     dom/MessagePortChannel.h \
@@ -1209,8 +1220,7 @@ HEADERS += \
     dom/MouseEvent.h \
     dom/MouseRelatedEvent.h \
     dom/MutationEvent.h \
-    dom/NamedAttrMap.h \
-    dom/NamedMappedAttrMap.h \
+    dom/NamedNodeMap.h \
     dom/NameNodeList.h \
     dom/NodeFilterCondition.h \
     dom/NodeFilter.h \
@@ -1659,6 +1669,7 @@ HEADERS += \
     platform/text/TextEncodingRegistry.h \
     platform/text/TextStream.h \
     platform/text/UnicodeRange.h \
+    platform/text/transcoder/FontTranscoder.h \
     platform/ThreadGlobalData.h \
     platform/ThreadTimers.h \
     platform/Timer.h \

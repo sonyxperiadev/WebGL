@@ -113,10 +113,12 @@ DOM_CLASSES = \
     DOMImplementation \
     DOMParser \
     DOMSelection \
+    DOMStringList \
     DOMWindow \
     Database \
     DatabaseCallback \
     DatabaseSync \
+    DeviceOrientationEvent \
     Document \
     DocumentFragment \
     DocumentType \

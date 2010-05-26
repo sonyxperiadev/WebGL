@@ -272,7 +272,7 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
     contextMenuClient = new ContextMenuClientQt();
     editorClient = new EditorClientQt(q);
     page = new Page(chromeClient, contextMenuClient, editorClient,
-                    new DragClientQt(q), new InspectorClientQt(q), 0, 0);
+                    new DragClientQt(q), new InspectorClientQt(q), 0, 0, 0);
 
     settings = new QWebSettings(page->settings());
 
@@ -1369,7 +1369,7 @@ QVariant QWebPage::inputMethodQuery(Qt::InputMethodQuery property) const
                     RefPtr<Range> range = editor->compositionRange();
                     return QVariant(renderTextControl->selectionEnd() - TextIterator::rangeLength(range.get()));
                 }
-                return QVariant(renderTextControl->selectionEnd());
+                return QVariant(frame->selection()->extent().offsetInContainerNode());
             }
             return QVariant();
         }
@@ -1401,7 +1401,7 @@ QVariant QWebPage::inputMethodQuery(Qt::InputMethodQuery property) const
                     RefPtr<Range> range = editor->compositionRange();
                     return QVariant(renderTextControl->selectionStart() - TextIterator::rangeLength(range.get()));
                 }
-                return QVariant(renderTextControl->selectionStart());
+                return QVariant(frame->selection()->base().offsetInContainerNode());
             }
             return QVariant();
         }
@@ -3180,11 +3180,36 @@ QString QWebPage::userAgentForUrl(const QUrl&) const
 #elif defined Q_WS_X11
         "X11"
 #elif defined Q_OS_SYMBIAN
-        "SymbianOS"
+        "Symbian"
 #else
         "Unknown"
 #endif
     );
+
+#if defined Q_OS_SYMBIAN
+        QSysInfo::SymbianVersion symbianVersion = QSysInfo::symbianVersion();
+        switch (symbianVersion) {
+        case QSysInfo::SV_9_2:
+            firstPartTemp += QString::fromLatin1("OS/9.2");
+            break;
+        case QSysInfo::SV_9_3:
+            firstPartTemp += QString::fromLatin1("OS/9.3");
+            break;                
+        case QSysInfo::SV_9_4:
+            firstPartTemp += QString::fromLatin1("OS/9.4");
+            break;
+        case QSysInfo::SV_SF_2:
+            firstPartTemp += QString::fromLatin1("/2");
+            break;
+        case QSysInfo::SV_SF_3:
+            firstPartTemp += QString::fromLatin1("/3");
+            break;
+        case QSysInfo::SV_SF_4:
+            firstPartTemp += QString::fromLatin1("/4");
+        default:
+            break;
+        }
+#endif
 
         firstPartTemp += QString::fromLatin1("; ");
 
@@ -3309,51 +3334,22 @@ QString QWebPage::userAgentForUrl(const QUrl&) const
         firstPartTemp += QString::fromLatin1("Sun Solaris");
 #elif defined Q_OS_ULTRIX
         firstPartTemp += QString::fromLatin1("DEC Ultrix");
-#elif defined Q_OS_SYMBIAN
-        firstPartTemp += QString::fromLatin1("SymbianOS");
-        QSysInfo::SymbianVersion symbianVersion = QSysInfo::symbianVersion();
-        switch (symbianVersion) {
-        case QSysInfo::SV_9_2:
-            firstPartTemp += QString::fromLatin1("/9.2");
-            break;
-        case QSysInfo::SV_9_3:
-            firstPartTemp += QString::fromLatin1("/9.3");
-            break;
-        case QSysInfo::SV_9_4:
-            firstPartTemp += QString::fromLatin1("/9.4");
-            break;
-        case QSysInfo::SV_SF_2:
-            firstPartTemp += QString::fromLatin1("^2");
-            break;
-        case QSysInfo::SV_SF_3:
-            firstPartTemp += QString::fromLatin1("^3");
-            break;
-        case QSysInfo::SV_SF_4:
-            firstPartTemp += QString::fromLatin1("^4");
-            break;
-        default:
-            firstPartTemp += QString::fromLatin1("/Unknown");
-        }
-
-#if defined Q_WS_S60
+#elif defined Q_WS_S60
         firstPartTemp += QLatin1Char(' ');
-        firstPartTemp += QString::fromLatin1("Series60");
         QSysInfo::S60Version s60Version = QSysInfo::s60Version();
         switch (s60Version) {
         case QSysInfo::SV_S60_3_1:
-            firstPartTemp += QString::fromLatin1("/3.1");
+            firstPartTemp += QString::fromLatin1("Series60/3.1");
             break;
         case QSysInfo::SV_S60_3_2:
-            firstPartTemp += QString::fromLatin1("/3.2");
+            firstPartTemp += QString::fromLatin1("Series60/3.2");
             break;
         case QSysInfo::SV_S60_5_0:
-            firstPartTemp += QString::fromLatin1("/5.0");
+            firstPartTemp += QString::fromLatin1("Series60/5.0");
             break;
         default:
-            firstPartTemp += QString::fromLatin1("/Unknown");
+            break;
         }
-#endif
-
 #elif defined Q_OS_UNIX
         firstPartTemp += QString::fromLatin1("UNIX BSD/SYSV system");
 #elif defined Q_OS_UNIXWARE
@@ -3383,8 +3379,8 @@ QString QWebPage::userAgentForUrl(const QUrl&) const
 
         QString thirdPartTemp;
         thirdPartTemp.reserve(150);
-#if defined(Q_WS_S60) || defined(Q_WS_MAEMO_5)
-        thirdPartTemp + QLatin1String(" Mobile Safari/");
+#if defined(Q_OS_SYMBIAN) || defined(Q_WS_MAEMO_5)
+        thirdPartTemp += QLatin1String(" Mobile Safari/");
 #else
         thirdPartTemp += QLatin1String(" Safari/");
 #endif
@@ -3402,7 +3398,7 @@ QString QWebPage::userAgentForUrl(const QUrl&) const
         languageName = d->client->ownerWidget()->locale().name();
     else
         languageName = QLocale().name();
-    languageName[2] = QLatin1Char('-');
+    languageName.replace(QLatin1Char('_'), QLatin1Char('-'));
 
     // Application name/version
     QString appName = QCoreApplication::applicationName();

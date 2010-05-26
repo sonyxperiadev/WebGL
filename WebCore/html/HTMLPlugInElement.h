@@ -58,7 +58,7 @@ protected:
     static void updateWidgetCallback(Node*);
 
     virtual bool mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const;
-    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual void parseMappedAttribute(Attribute*);
 
 #if PLATFORM(ANDROID)
     // in Android, plugin has a focused mode where it accepts all the touch events.

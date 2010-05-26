@@ -25,11 +25,9 @@
 
 #include "config.h"
 
-#if USE(JSVALUE32_64)
-
-#include "JIT.h"
-
 #if ENABLE(JIT)
+#if USE(JSVALUE32_64)
+#include "JIT.h"
 
 #include "CodeBlock.h"
 #include "JITInlineMethods.h"
@@ -241,10 +239,10 @@ void JIT::emit_op_method_check(Instruction* currentInstruction)
     
     match.link(this);
     emitStore(dst, regT1, regT0);
-    map(m_bytecodeIndex + OPCODE_LENGTH(op_method_check), dst, regT1, regT0);
+    map(m_bytecodeOffset + OPCODE_LENGTH(op_method_check), dst, regT1, regT0);
     
     // We've already generated the following get_by_id, so make sure it's skipped over.
-    m_bytecodeIndex += OPCODE_LENGTH(op_get_by_id);
+    m_bytecodeOffset += OPCODE_LENGTH(op_get_by_id);
 }
 
 void JIT::emitSlow_op_method_check(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
@@ -258,7 +256,7 @@ void JIT::emitSlow_op_method_check(Instruction* currentInstruction, Vector<SlowC
     compileGetByIdSlowCase(dst, base, &(m_codeBlock->identifier(ident)), iter, true);
     
     // We've already generated the following get_by_id, so make sure it's skipped over.
-    m_bytecodeIndex += OPCODE_LENGTH(op_get_by_id);
+    m_bytecodeOffset += OPCODE_LENGTH(op_get_by_id);
 }
 
 #else //!ENABLE(JIT_OPTIMIZE_METHOD_CALLS)
@@ -269,7 +267,7 @@ void JIT::emitSlow_op_method_check(Instruction*, Vector<SlowCaseEntry>::iterator
 
 #endif
 
-PassRefPtr<NativeExecutable> JIT::stringGetByValStubGenerator(JSGlobalData* globalData, ExecutablePool* pool)
+JIT::CodePtr JIT::stringGetByValStubGenerator(JSGlobalData* globalData, ExecutablePool* pool)
 {
     JSInterfaceJIT jit;
     JumpList failures;
@@ -298,7 +296,7 @@ PassRefPtr<NativeExecutable> JIT::stringGetByValStubGenerator(JSGlobalData* glob
     jit.ret();
     
     LinkBuffer patchBuffer(&jit, pool);
-    return adoptRef(new NativeExecutable(patchBuffer.finalizeCode()));
+    return patchBuffer.finalizeCode().m_code;
 }
 
 void JIT::emit_op_get_by_val(Instruction* currentInstruction)
@@ -321,7 +319,7 @@ void JIT::emit_op_get_by_val(Instruction* currentInstruction)
     addSlowCase(branch32(Equal, regT1, Imm32(JSValue::EmptyValueTag)));
     
     emitStore(dst, regT1, regT0);
-    map(m_bytecodeIndex + OPCODE_LENGTH(op_get_by_val), dst, regT1, regT0);
+    map(m_bytecodeOffset + OPCODE_LENGTH(op_get_by_val), dst, regT1, regT0);
 }
 
 void JIT::emitSlow_op_get_by_val(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
@@ -336,7 +334,7 @@ void JIT::emitSlow_op_get_by_val(Instruction* currentInstruction, Vector<SlowCas
     Jump nonCell = jump();
     linkSlowCase(iter); // base array check
     Jump notString = branchPtr(NotEqual, Address(regT0), ImmPtr(m_globalData->jsStringVPtr));
-    emitNakedCall(m_globalData->getThunk(stringGetByValStubGenerator)->generatedJITCodeForCall().addressForCall());
+    emitNakedCall(m_globalData->getCTIStub(stringGetByValStubGenerator));
     Jump failed = branchTestPtr(Zero, regT0);
     emitStore(dst, regT1, regT0);
     emitJumpSlowToHot(jump(), OPCODE_LENGTH(op_get_by_val));
@@ -414,7 +412,7 @@ void JIT::emit_op_get_by_id(Instruction* currentInstruction)
     emitJumpSlowCaseIfNotJSCell(base, regT1);
     compileGetByIdHotPath();
     emitStore(dst, regT1, regT0);
-    map(m_bytecodeIndex + OPCODE_LENGTH(op_get_by_id), dst, regT1, regT0);
+    map(m_bytecodeOffset + OPCODE_LENGTH(op_get_by_id), dst, regT1, regT0);
 }
 
 void JIT::compileGetByIdHotPath()
@@ -1159,7 +1157,7 @@ void JIT::emit_op_get_by_pname(Instruction* currentInstruction)
     compileGetDirectOffset(regT2, regT1, regT0, regT0, regT3);    
     
     emitStore(dst, regT1, regT0);
-    map(m_bytecodeIndex + OPCODE_LENGTH(op_get_by_pname), dst, regT1, regT0);
+    map(m_bytecodeOffset + OPCODE_LENGTH(op_get_by_pname), dst, regT1, regT0);
 }
 
 void JIT::emitSlow_op_get_by_pname(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
@@ -1182,7 +1180,5 @@ void JIT::emitSlow_op_get_by_pname(Instruction* currentInstruction, Vector<SlowC
 
 } // namespace JSC
 
+#endif // USE(JSVALUE32_64)
 #endif // ENABLE(JIT)
-
-#endif // ENABLE(JSVALUE32_64)
-

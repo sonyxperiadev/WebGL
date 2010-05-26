@@ -144,9 +144,13 @@ Settings::Settings(Page* page)
     , m_webGLEnabled(false)
     , m_loadDeferringEnabled(true)
     , m_tiledBackingStoreEnabled(false)
+<<<<<<< HEAD
 #ifdef ANDROID_PLUGINS
     , m_pluginsOnDemand(false)
 #endif
+=======
+    , m_html5ParserEnabled(false)
+>>>>>>> webkit.org at r60074
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.

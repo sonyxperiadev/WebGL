@@ -41,10 +41,11 @@ public:
     Widget* pluginWidget();
     Node* pluginNode();
 
+    virtual bool isPluginDocument() const { return true; }
+
 private:
     PluginDocument(Frame*);
 
-    virtual bool isPluginDocument() const { return true; }
     virtual Tokenizer* createTokenizer();
 };
     

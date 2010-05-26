@@ -186,6 +186,7 @@ static const int computedProperties[] = {
     CSSPropertyWebkitColumnRuleColor,
     CSSPropertyWebkitColumnRuleStyle,
     CSSPropertyWebkitColumnRuleWidth,
+    CSSPropertyWebkitColumnSpan,
     CSSPropertyWebkitColumnWidth,
 #if ENABLE(DASHBOARD_SUPPORT)
     CSSPropertyWebkitDashboardRegion,
@@ -382,8 +383,9 @@ static PassRefPtr<CSSValue> getPositionOffsetValue(RenderStyle* style, int prope
     return CSSPrimitiveValue::createIdentifier(CSSValueAuto);
 }
 
-static PassRefPtr<CSSPrimitiveValue> currentColorOrValidColor(RenderStyle* style, const Color& color)
+PassRefPtr<CSSPrimitiveValue> CSSComputedStyleDeclaration::currentColorOrValidColor(RenderStyle* style, const Color& color) const
 {
+    // This function does NOT look at visited information, so that computed style doesn't expose that.
     if (!color.isValid())
         return CSSPrimitiveValue::createColor(style->color().rgb());
     return CSSPrimitiveValue::createColor(color.rgb());
@@ -825,6 +827,10 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
             return CSSPrimitiveValue::create(style->columnRuleStyle());
         case CSSPropertyWebkitColumnRuleWidth:
             return CSSPrimitiveValue::create(style->columnRuleWidth(), CSSPrimitiveValue::CSS_PX);
+        case CSSPropertyWebkitColumnSpan:
+            if (style->columnSpan())
+                return CSSPrimitiveValue::createIdentifier(CSSValueAll);
+            return CSSPrimitiveValue::create(1, CSSPrimitiveValue::CSS_NUMBER);
         case CSSPropertyWebkitColumnBreakAfter:
             return CSSPrimitiveValue::create(style->columnBreakAfter());
         case CSSPropertyWebkitColumnBreakBefore:

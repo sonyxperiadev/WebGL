@@ -522,6 +522,10 @@
 #endif
 #endif
 
+#if PLATFORM(BREWMP)
+#define WTF_PLATFORM_SKIA 1
+#endif
+
 #if PLATFORM(GTK)
 #define WTF_PLATFORM_CAIRO 1
 #endif
@@ -1007,12 +1011,6 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 
 #if COMPILER(GCC) && !ENABLE(JIT)
 #define HAVE_COMPUTED_GOTO 1
-#endif
-
-#if ENABLE(JIT) && defined(COVERAGE)
-    #define WTF_USE_INTERPRETER 0
-#else
-    #define WTF_USE_INTERPRETER 1
 #endif
 
 /* Yet Another Regex Runtime. */

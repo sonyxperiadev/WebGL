@@ -524,23 +524,14 @@ void PluginView::paintIntoTransformedContext(HDC hdc)
     m_npWindow.type = NPWindowTypeDrawable;
     m_npWindow.window = hdc;
 
-    WINDOWPOS windowpos = { 0 };
+    WINDOWPOS windowpos = { 0, 0, 0, 0, 0, 0, 0 };
 
-#if OS(WINCE)
     IntRect r = static_cast<FrameView*>(parent())->contentsToWindow(frameRect());
 
     windowpos.x = r.x();
     windowpos.y = r.y();
     windowpos.cx = r.width();
     windowpos.cy = r.height();
-#else
-    IntPoint p = static_cast<FrameView*>(parent())->contentsToWindow(frameRect().location());
-
-    windowpos.x = p.x();
-    windowpos.y = p.y();
-    windowpos.cx = frameRect().width();
-    windowpos.cy = frameRect().height();
-#endif
 
     NPEvent npEvent;
     npEvent.event = WM_WINDOWPOSCHANGED;
@@ -609,6 +600,10 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
 
     if (context->paintingDisabled())
         return;
+
+    // Ensure that we have called SetWindow before we try to paint.
+    if (!m_haveCalledSetWindow)
+        setNPWindowRect(frameRect());
 
     if (m_isWindowed) {
 #if !OS(WINCE)
@@ -814,6 +809,8 @@ void PluginView::setNPWindowRect(const IntRect& rect)
         setCallingPlugin(true);
         m_plugin->pluginFuncs()->setwindow(m_instance, &m_npWindow);
         setCallingPlugin(false);
+
+        m_haveCalledSetWindow = true;
 
         if (!m_isWindowed)
             return;

@@ -274,12 +274,14 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
 - (PortState)saveAndSetNewPortStateForUpdate:(BOOL)forUpdate
 {
     ASSERT([self currentWindow] != nil);
-
-    // Use AppKit to convert view coordinates to NSWindow coordinates.
-    NSRect boundsInWindow = [self convertRect:[self bounds] toView:nil];
-    NSRect visibleRectInWindow = [self convertRect:[self visibleRect] toView:nil];
     
-    // Flip Y to convert NSWindow coordinates to top-left-based window coordinates.
+    // The base coordinates of a window and it's contentView happen to be the equal at a userSpaceScaleFactor
+    // of 1. For non-1.0 scale factors this assumption is false.
+    NSView *windowContentView = [[self window] contentView];
+    NSRect boundsInWindow = [self convertRect:[self bounds] toView:windowContentView];
+    NSRect visibleRectInWindow = [self convertRect:[self visibleRect] toView:windowContentView];
+    
+    // Flip Y to convert -[NSWindow contentView] coordinates to top-left-based window coordinates.
     float borderViewHeight = [[self currentWindow] frame].size.height;
     boundsInWindow.origin.y = borderViewHeight - NSMaxY(boundsInWindow);
     visibleRectInWindow.origin.y = borderViewHeight - NSMaxY(visibleRectInWindow);
@@ -1091,6 +1093,19 @@ static inline void getNPRect(const NSRect& nr, NPRect& npr)
             accleratedCompositingEnabled = [[[self webView] preferences] acceleratedCompositingEnabled];
 #endif
             if (accleratedCompositingEnabled) {
+                // FIXME: This code can be shared between WebHostedNetscapePluginView and WebNetscapePluginView.
+#ifndef BUILDING_ON_LEOPARD
+                // Since this layer isn't going to be inserted into a view, we need to create another layer and flip its geometry
+                // in order to get the coordinate system right.
+                RetainPtr<CALayer> realPluginLayer(AdoptNS, _pluginLayer.releaseRef());
+                
+                _pluginLayer.adoptNS([[CALayer alloc] init]);
+                _pluginLayer.get().bounds = realPluginLayer.get().bounds;
+                _pluginLayer.get().geometryFlipped = YES;
+
+                realPluginLayer.get().autoresizingMask = kCALayerWidthSizable | kCALayerHeightSizable;
+                [_pluginLayer.get() addSublayer:realPluginLayer.get()];
+#endif
                 // Eagerly enter compositing mode, since we know we'll need it. This avoids firing setNeedsStyleRecalc()
                 // for iframes that contain composited plugins at bad times. https://bugs.webkit.org/show_bug.cgi?id=39033
                 core([self webFrame])->view()->enterCompositingMode();

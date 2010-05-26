@@ -2561,12 +2561,13 @@ HRESULT STDMETHODCALLTYPE WebView::initWithFrame(
 #else
     WebGeolocationControllerClient* geolocationControllerClient = 0;
 #endif
+    DeviceOrientationClient* deviceOrientationClient = 0;
 
     BOOL useHighResolutionTimer;
     if (SUCCEEDED(m_preferences->shouldUseHighResolutionTimers(&useHighResolutionTimer)))
         Settings::setShouldUseHighResolutionTimers(useHighResolutionTimer);
 
-    m_page = new Page(new WebChromeClient(this), new WebContextMenuClient(this), new WebEditorClient(this), new WebDragClient(this), new WebInspectorClient(this), new WebPluginHalterClient(this), geolocationControllerClient);
+    m_page = new Page(new WebChromeClient(this), new WebContextMenuClient(this), new WebEditorClient(this), new WebDragClient(this), new WebInspectorClient(this), new WebPluginHalterClient(this), geolocationControllerClient, deviceOrientationClient);
 
     BSTR localStoragePath;
     if (SUCCEEDED(m_preferences->localStorageDatabasePath(&localStoragePath))) {
@@ -4593,6 +4594,12 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     settings->setEditableLinkBehavior((EditableLinkBehavior)behavior);
 
+    WebKitEditingBehavior editingBehavior;
+    hr = preferences->editingBehavior(&editingBehavior);
+    if (FAILED(hr))
+        return hr;
+    settings->setEditingBehavior((EditingBehavior)editingBehavior);
+
     hr = preferences->usesPageCache(&enabled);
     if (FAILED(hr))
         return hr;
@@ -6155,7 +6162,7 @@ void WebView::setAcceleratedCompositing(bool accelerated)
         return;
 
     if (accelerated) {
-        m_layerRenderer = WKCACFLayerRenderer::create();
+        m_layerRenderer = WKCACFLayerRenderer::create(this);
         if (m_layerRenderer) {
             m_isAcceleratedCompositing = true;
 
@@ -6370,6 +6377,20 @@ HRESULT WebView::nextDisplayIsSynchronous()
     m_nextDisplayIsSynchronous = true;
     return S_OK;
 }
+
+#if USE(ACCELERATED_COMPOSITING)
+bool WebView::shouldRender() const
+{
+    Frame* coreFrame = core(m_mainFrame);
+    if (!coreFrame)
+        return true;
+    FrameView* frameView = coreFrame->view();
+    if (!frameView)
+        return true;
+
+    return !frameView->layoutPending();
+}
+#endif
 
 class EnumTextMatches : public IEnumTextMatches
 {

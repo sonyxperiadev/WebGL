@@ -26,6 +26,7 @@
 #include "config.h"
 #include "CSSStyleSelector.h"
 
+#include "Attribute.h"
 #include "CSSBorderImageValue.h"
 #include "CSSCursorImageValue.h"
 #include "CSSFontFaceRule.h"
@@ -61,9 +62,8 @@
 #include "HTMLTextAreaElement.h"
 #include "KeyframeList.h"
 #include "LinkHash.h"
-#include "MappedAttribute.h"
-#include "MatrixTransformOperation.h"
 #include "Matrix3DTransformOperation.h"
+#include "MatrixTransformOperation.h"
 #include "MediaList.h"
 #include "MediaQueryEvaluator.h"
 #include "NodeRenderStyle.h"
@@ -1037,7 +1037,7 @@ bool CSSStyleSelector::canShareStyleWithElement(Node* n)
             if (classesMatch) {
                 bool mappedAttrsMatch = true;
                 if (s->hasMappedAttributes())
-                    mappedAttrsMatch = s->mappedAttributes()->mapsEquivalent(m_styledElement->mappedAttributes());
+                    mappedAttrsMatch = s->mappedAttributes()->mappedMapsEquivalent(m_styledElement->mappedAttributes());
                 if (mappedAttrsMatch) {
                     if (s->isLink()) {
                         if (m_elementLinkState != style->insideLink())
@@ -1255,17 +1255,14 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
             // Ask if the HTML element has mapped attributes.
             if (m_styledElement->hasMappedAttributes()) {
                 // Walk our attribute list and add in each decl.
-                const NamedMappedAttrMap* map = m_styledElement->mappedAttributes();
+                const NamedNodeMap* map = m_styledElement->mappedAttributes();
                 for (unsigned i = 0; i < map->length(); i++) {
                     Attribute* attr = map->attributeItem(i);
-                    if (attr->isMappedAttribute()) {
-                        MappedAttribute* mappedAttr = static_cast<MappedAttribute*>(attr);
-                        if (mappedAttr->decl()) {
-                            lastAuthorRule = m_matchedDecls.size();
-                            if (firstAuthorRule == -1)
-                                firstAuthorRule = lastAuthorRule;
-                            addMatchedDeclaration(mappedAttr->decl());
-                        }
+                    if (attr->isMappedAttribute() && attr->decl()) {
+                        lastAuthorRule = m_matchedDecls.size();
+                        if (firstAuthorRule == -1)
+                            firstAuthorRule = lastAuthorRule;
+                        addMatchedDeclaration(attr->decl());
                     }
                 }
             }
@@ -2568,11 +2565,6 @@ bool CSSStyleSelector::SelectorChecker::checkOneSelector(CSSSelector* sel, Eleme
                     break;
                 return true;
             }
-            case CSSSelector::PseudoLeftPage:
-            case CSSSelector::PseudoRightPage:
-            case CSSSelector::PseudoFirstPage:
-                // Page media related pseudo-classes are not handled yet.
-                return false;
             case CSSSelector::PseudoUnknown:
             case CSSSelector::PseudoNotParsed:
             default:
@@ -4870,6 +4862,11 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             return;
         }
         m_style->setColumnGap(primitiveValue->computeLengthFloat(style(), m_rootElementStyle, zoomFactor));
+        return;
+    }
+    case CSSPropertyWebkitColumnSpan: {
+        HANDLE_INHERIT_AND_INITIAL(columnSpan, ColumnSpan)
+        m_style->setColumnSpan(primitiveValue->getIdent() == CSSValueAll);
         return;
     }
     case CSSPropertyWebkitColumnWidth: {

@@ -76,6 +76,8 @@ public:
     virtual QObject* pluginParent() const;
 
     virtual QStyle* style() const;
+    
+    virtual bool viewResizesToContentsEnabled() const { return false; }
 
     QWidget* view;
 };
@@ -161,10 +163,13 @@ public:
 
     virtual QStyle* style() const;
 
+    virtual bool viewResizesToContentsEnabled() const { return viewResizesToContents; }
+
     void createOrDeleteOverlay();
 
 #if ENABLE(TILED_BACKING_STORE)
     void updateTiledBackingStoreScale();
+    virtual QRectF graphicsItemVisibleRect() const;
 #endif
 
 #if USE(ACCELERATED_COMPOSITING)

@@ -1,3 +1,365 @@
+2010-05-21  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        [chromium] if keydown is prevented, don't update the IME and clear the IME state
+        https://bugs.webkit.org/show_bug.cgi?id=39475
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::handleCompositionEvent):
+
+2010-05-23  Roman Gershman  <romange@google.com>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Suggestion popup is not closed when the view is scrolled.
+        https://bugs.webkit.org/show_bug.cgi?id=38640
+
+        This bug appears on both Windows and Linux platforms.
+        Mac OS, however handles window messages differently and
+        closes popup menu in RenderWidgetHostViewMac::Destroy().
+
+        No tests were added because test_shell does not support suggestion
+        popup.
+
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::invalidateContentsForSlowScroll):
+        (WebKit::ChromeClientImpl::scroll):
+
+2010-05-23  Marcus Bulach  <bulach@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [chromium] Adds Geolocation support to DumpRenderTree.
+        https://bugs.webkit.org/show_bug.cgi?id=39440
+
+        Existing LayoutTests/fast/dom/Geolocation/* should pass.
+
+        * public/WebGeolocationServiceMock.h:
+        * src/WebGeolocationServiceMock.cpp:
+        (WebKit::WebGeolocationServiceMock::setMockGeolocationPermission):
+        (WebKit::WebGeolocationServiceMock::requestPermissionForFrame):
+        (WebKit::WebGeolocationServiceMock::attachBridge):
+        (WebKit::WebGeolocationServiceMock::detachBridge):
+
+2010-05-22  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Link resources and load Ahem font for Windows
+        https://bugs.webkit.org/show_bug.cgi?id=39473
+
+        * WebKit.gyp:
+          Add net and webkit resources for Windows.
+          Copy AHEM____.TTF to DumpRenderTree.exe directory.
+
+2010-05-21  Steve Block  <steveblock@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Add DeviceOrientation and DeviceOrientationClient
+        https://bugs.webkit.org/show_bug.cgi?id=39479
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+
+2010-05-20  Viet-Trung Luu  <viettrungluu@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Don't rely on focused node to route mouse events to plugins.
+        https://bugs.webkit.org/show_bug.cgi?id=39375
+        http://crbug.com/43935
+
+        On mouse down, do a hit test and check if a plugin was hit. If so, then
+        save the node for future mouse events (until mouse up or capture lost).
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+        (WebKit::WebViewImpl::mouseDown):
+        (WebKit::WebViewImpl::handleInputEvent):
+        (WebKit::WebViewImpl::mouseCaptureLost):
+        * src/WebViewImpl.h: Remove m_haveMouseCapture; add m_mouseCaptureNode.
+
+2010-05-20  Dominic Mazzoni  <dmazzoni@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Add headingLevel and setFocused methods.
+
+        https://bugs.webkit.org/show_bug.cgi?id=39238
+
+        * public/WebAccessibilityObject.h:
+        * src/WebAccessibilityObject.cpp:
+        (WebKit::WebAccessibilityObject::headingLevel):
+        (WebKit::WebAccessibilityObject::setFocused):
+
+2010-05-20  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Map RGBA4/RGB5_A1 to RGBA and RGB565 to RGB in RenderbufferStorage
+        https://bugs.webkit.org/show_bug.cgi?id=39077
+
+        * src/WebGraphicsContext3DDefaultImpl.cpp:
+        (WebKit::WebGraphicsContext3DDefaultImpl::renderbufferStorage): Mapping the enums.
+
+2010-05-20  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Added method to WebSecurityOrigin for invoking
+        SecurityOrigin::canAccessPasswordManager.
+        https://bugs.webkit.org/show_bug.cgi?id=38916
+
+        * public/WebSecurityOrigin.h:
+        * src/WebSecurityOrigin.cpp:
+        (WebKit::WebSecurityOrigin::canAccessPasswordManager):
+
+2010-05-20  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by Nate Chapin.
+
+        [chromium] Provide a way to catch exceptions thrown while interacting
+        with a NPObject via WebBindings methods.
+        https://bugs.webkit.org/show_bug.cgi?id=39378
+
+        * public/WebBindings.h:
+        * src/WebBindings.cpp:
+        (WebKit::WebBindings::pushExceptionHandler):
+        (WebKit::WebBindings::popExceptionHandler):
+
+2010-05-20  Jian Li  <jianli@chromium.org>
+
+        Reviewed by David Levin.
+
+        Rename GenericWorkerTask.h to CrossThreadTask.h and move it to dom directory.
+        https://bugs.webkit.org/show_bug.cgi?id=39135
+
+        * src/WebSharedWorkerImpl.cpp:
+        * src/WebWorkerBase.cpp:
+        * src/WebWorkerClientImpl.cpp:
+        * src/WebWorkerImpl.cpp:
+
+2010-05-20  Martin Robinson  <mrobinson@webkit.org>
+
+        Reviewed by Ojan Vafai.
+
+        Expose the editing behavior setting in DRT to test all editing code paths
+        https://bugs.webkit.org/show_bug.cgi?id=38603
+
+        * public/WebSettings.h:
+        (WebKit::WebSettings::): Added an enum for EditingBehavior types.
+        * src/WebSettingsImpl.cpp: 
+        (WebKit::WebSettingsImpl::setEditingBehavior): Added.
+        * src/WebSettingsImpl.h:
+
+2010-05-19  Vangelis Kokkevis  <vangelis@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Modifying WebViewImpl to support new hardware compositing for
+        LayerChromium layers.
+        https://bugs.webkit.org/show_bug.cgi?id=38783
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::paint):
+        (WebKit::WebViewImpl::setIsAcceleratedCompositingActive):
+        (WebKit::WebViewImpl::updateRootLayerContents):
+        (WebKit::WebViewImpl::setRootLayerNeedsDisplay):
+
+2010-05-19  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [chromium] disable spelling suggestions if spellcheck=false
+        https://bugs.webkit.org/show_bug.cgi?id=39402
+        
+        This is the Chromium fix for bug 25639 that was fixed in the
+        other ports in r59585.
+
+        * src/ContextMenuClientImpl.cpp:
+        (WebKit::ContextMenuClientImpl::getCustomMenuFromDefaultItems):
+
+2010-05-19  Darin Fisher  <darin@chromium.org>
+
+        Revert r59790 due to failing Chromium npruntime tests.
+
+        * public/WebBindings.h:
+        * src/WebBindings.cpp:
+
+2010-05-19  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by Nate Chapin.
+
+        [chromium] Provide a way to catch exceptions thrown while interacting
+        with a NPObject via WebBindings methods.
+        https://bugs.webkit.org/show_bug.cgi?id=39378
+
+        * public/WebBindings.h:
+        * src/WebBindings.cpp:
+        (WebKit::WebBindings::pushExceptionHandler):
+        (WebKit::WebBindings::popExceptionHandler):
+
+2010-05-19  Dirk Pranke  <dpranke@chromium.org>
+
+        Try again to roll out r58765.
+
+        * public/WebNotification.h:
+        * src/WebNotification.cpp:
+
+2010-05-19  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r59782.
+        http://trac.webkit.org/changeset/59782
+        https://bugs.webkit.org/show_bug.cgi?id=39379
+
+        broke DRT build (Requested by dpranke on #webkit).
+
+        * public/WebNotification.h:
+        * src/WebNotification.cpp:
+        (WebKit::WebNotification::dir):
+        (WebKit::WebNotification::replaceId):
+
+2010-05-18  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Attempt to revert r58765 to see if it was causing a performance
+        regression.
+
+        https://bugs.webkit.org/show_bug.cgi?id=39328
+
+        * public/WebNotification.h:
+        * src/WebNotification.cpp:
+
+2010-05-19  Jian Li  <jianli@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Remove obsolete ChromiumBridge code that routes FileSystem calls to WebKitClient.
+        https://bugs.webkit.org/show_bug.cgi?id=39332
+
+        * public/WebKitClient.h:
+        * src/ChromiumBridge.cpp:
+        (WebCore::ChromiumBridge::fileExists):
+        (WebCore::ChromiumBridge::deleteFile):
+        (WebCore::ChromiumBridge::deleteEmptyDirectory):
+        (WebCore::ChromiumBridge::getFileSize):
+        (WebCore::ChromiumBridge::getFileModificationTime):
+        (WebCore::ChromiumBridge::directoryName):
+        (WebCore::ChromiumBridge::pathByAppendingComponent):
+        (WebCore::ChromiumBridge::makeAllDirectories):
+        (WebCore::ChromiumBridge::getAbsolutePath):
+        (WebCore::ChromiumBridge::isDirectory):
+        (WebCore::ChromiumBridge::filePathToURL):
+
+2010-05-19  Marcus Bulach  <bulach@chromium.org>
+
+        Reviewed by Steve Block.
+
+        [chromium] Adds supports for layout tests using GeolocationServiceMock.
+        https://bugs.webkit.org/show_bug.cgi?id=39081
+
+        Allows injection of GeolocationServiceMock factory.
+        Tests: existing fast/dom/Geolocation/*
+
+        * WebKit.gyp:
+        * public/WebGeolocationServiceMock.h: Added.
+        * src/WebGeolocationServiceMock.cpp: Added.
+        (WebCore::GeolocationServiceChromiumMock::create):
+        (WebCore::GeolocationServiceChromiumMock::GeolocationServiceChromiumMock):
+        (WebCore::GeolocationServiceChromiumMock::startUpdating):
+        (WebCore::GeolocationServiceChromiumMock::stopUpdating):
+        (WebCore::GeolocationServiceChromiumMock::lastPosition):
+        (WebCore::GeolocationServiceChromiumMock::lastError):
+        (WebCore::GeolocationServiceChromiumMock::geolocationServicePositionChanged):
+        (WebCore::GeolocationServiceChromiumMock::geolocationServiceErrorOccurred):
+        (WebKit::WebGeolocationServiceMock::setMockGeolocationPosition):
+        (WebKit::WebGeolocationServiceMock::setMockGeolocationError):
+
+2010-05-17  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Hook Chromium's WebIndexedDatabaseImpl up to IndexedDatabaseImpl
+        https://bugs.webkit.org/show_bug.cgi?id=39216
+
+        Web____Impl is for re-entering the WebKit layer from the browser layer.
+        Thus the previous IDBCallbacksProxy was mis-named (and should have been
+        WebIDBCallbacksImpl).  This patch renames it and then implements the
+        proper proxy (which is for going from WebCore to WebKit).
+
+        Also change using security origin strings to using WebSecurityOrigin
+        objects.
+
+        This patch also implements the glue between WebIndexedDatabaseImpl and
+        IndexedDatabaseImpl.
+
+        * WebKit.gyp:
+        * src/IDBCallbacksProxy.cpp:
+        (WebCore::IDBCallbacksProxy::create):
+        (WebCore::IDBCallbacksProxy::IDBCallbacksProxy):
+        (WebCore::IDBCallbacksProxy::onError):
+        (WebCore::IDBCallbacksProxy::onSuccess):
+        * src/IDBCallbacksProxy.h:
+        * src/IndexedDatabaseProxy.cpp:
+        (WebCore::IndexedDatabaseProxy::open):
+        * src/IndexedDatabaseProxy.h:
+        * src/WebIDBCallbacksImpl.cpp: Added.
+        (WebCore::WebIDBCallbacksImpl::WebIDBCallbacksImpl):
+        (WebCore::WebIDBCallbacksImpl::~WebIDBCallbacksImpl):
+        (WebCore::WebIDBCallbacksImpl::onError):
+        (WebCore::WebIDBCallbacksImpl::onSuccess):
+        * src/WebIDBCallbacksImpl.h: Added.
+        * src/WebIDBDatabaseImpl.cpp: Added.
+        (WebKit::WebIDBDatabaseImpl::WebIDBDatabaseImpl):
+        (WebKit::WebIDBDatabaseImpl::~WebIDBDatabaseImpl):
+        * src/WebIDBDatabaseImpl.h: Added.
+        * src/WebIndexedDatabaseImpl.cpp:
+        (WebKit::WebIndexedDatabaseImpl::WebIndexedDatabaseImpl):
+        (WebKit::WebIndexedDatabaseImpl::open):
+        * src/WebIndexedDatabaseImpl.h:
+
+2010-05-18  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Fix a repaint issue and textarea tests
+        https://bugs.webkit.org/show_bug.cgi?id=39054
+
+        * DEPS: Update to Chromium r47248 to use a fix for CommandLine assertion
+          and textAreaResizeCorner.png
+        * WebKit.gyp: Add textAreaResizeCorner.png as a Mac resource
+
+2010-05-18  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        [chromium] ignore IME events if the keydown event was prevented
+        https://bugs.webkit.org/show_bug.cgi?id=37692
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::handleCompositionEvent):
+
+2010-05-18  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Kent Tamura.
+
+        [Chromium] Windows: Determinate progress bar should have glossy overlay
+        https://bugs.webkit.org/show_bug.cgi?id=39269
+
+        Changed WebThemeEngine::drawProgressBar() signature to delegate
+        theme implementation detail to the engine.
+        Chromium side will come to http://crbug.com/44430.
+        
+        No new tests, animation effect can be confirmed only manually.        
+
+        * public/WebThemeEngine.h:
+        (WebKit::WebThemeEngine::paintProgressBar):
+        * src/ChromiumBridge.cpp:
+        (WebCore::ChromiumBridge::paintProgressBar):
+
 2010-05-16  Mike Belshe  <mbelshe@chromium.org>
 
         Reviewed by Dimitri Glazkov.

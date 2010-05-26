@@ -1,3 +1,198 @@
+2010-05-21  David Hyatt  <hyatt@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        https://bugs.webkit.org/show_bug.cgi?id=39420
+
+        Make sure everyone who needs to is using visitedDependentColor rather than accessing styles
+        directly.
+
+        * Misc/WebNSAttributedStringExtras.mm:
+        (+[NSAttributedString _web_attributedStringFromRange:]):
+        * WebView/WebFrame.mm:
+        (-[WebFrame _bodyBackgroundColor]):
+
+2010-05-21  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        All callable objects should have a global object reference
+        https://bugs.webkit.org/show_bug.cgi?id=39495
+
+        Update the plugin proxy to handle the need for global object.
+
+        * Plugins/Hosted/ProxyInstance.mm:
+        (WebKit::ProxyInstance::newRuntimeObject):
+        (WebKit::ProxyRuntimeMethod::ProxyRuntimeMethod):
+        (WebKit::ProxyInstance::getMethod):
+        * Plugins/Hosted/ProxyRuntimeObject.h:
+        * Plugins/Hosted/ProxyRuntimeObject.mm:
+        (WebKit::ProxyRuntimeObject::ProxyRuntimeObject):
+
+2010-05-21  Steve Block  <steveblock@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Add DeviceOrientation and DeviceOrientationClient
+        https://bugs.webkit.org/show_bug.cgi?id=39479
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:usesDocumentViews:]):
+
+2010-05-20  Mike Thole  <mthole@apple.com>
+
+        Reviewed by Dave Hyatt.
+
+        When using a scale factor > 1, scrollbars sometimes appear when not necessary
+        https://bugs.webkit.org/show_bug.cgi?id=39458
+
+        * WebView/WebDynamicScrollBarsView.mm:
+        (-[WebDynamicScrollBarsView updateScrollers]): Round up non-integral sizes from AppKit
+        so that they can be compared against the integral document size.
+
+2010-05-20  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        https://bugs.webkit.org/show_bug.cgi?id=39441
+        <rdar://problem/7985715> Flash context menu is both horizontally and vertically offset from point of click
+        <rdar://problem/7986109> Youtube video controller UI entirely missing
+        <rdar://problem/7986154> Flash content paints at horizontally and vertically shifted locations (within the plug-in region)
+
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        (-[WebHostedNetscapePluginView updateAndSetWindow]): The base coordinates of a window and
+         it's contentView happen to be the equal at a userSpaceScaleFactor of 1. For non-1.0 scale
+         factors this assumption is false. Accordingly we now convert to the window contentView
+        coordinate system when computing bounds in "window" and the visible rect.
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView saveAndSetNewPortStateForUpdate:]): Ditto.
+
+2010-05-20  Steve Block  <steveblock@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Provide bindings for DeviceOrientation
+        https://bugs.webkit.org/show_bug.cgi?id=39210
+
+        Adds ENABLE_DEVICE_ORIENTATION to XCode project file, always disabled.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-05-20  Martin Robinson  <mrobinson@webkit.org>
+
+        Reviewed by Ojan Vafai.
+
+        Expose the editing behavior setting in DRT to test all editing code paths
+        https://bugs.webkit.org/show_bug.cgi?id=38603
+
+        * WebView/WebFrame.mm:
+        (core):
+        * WebView/WebFrameInternal.h: Added a conversion method from the API enum to the WebCore enum.
+        * WebView/WebPreferenceKeysPrivate.h: Added a preference key for the new setting.
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]): Initialize the EditingBehavior to Mac style.
+        (-[WebPreferences editingBehavior]): Added.
+        (-[WebPreferences setEditingBehavior:]): Added.
+        * WebView/WebPreferencesPrivate.h: Added the new API points to the private API.
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]): Set the editing behavior via the WebPreferences setting.
+
+2010-05-19  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Kevin Decker and Simon Fraser.
+
+        <rdar://problem/8004528> 
+        REGRESSION: Coordinate system for Core Animation NPAPI plug-ins is flipped with accelerated compositing turned on
+        
+        When needed, create a new CALayer and set it's geometry to be flipped. Add the plug-in layer as a sublayer and then return
+        the newly created layer.
+
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        (-[WebHostedNetscapePluginView createPlugin]):
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView createPlugin]):
+
+2010-05-18  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=24943
+        Command-B and Command-I do not generate keydown events in contentEditable regions.
+
+        Manual test because performKeyEquivalent is not called by DRT.
+
+        Test: manual-tests/style-keypress-events.html
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView performKeyEquivalent:]): Move style key handling until after webcore gets a chance to handle the event
+
+2010-05-18  Daniel Cheng  <dcheng@chromium.org>
+
+        Reviewed by Darin Adler, Jian Li.
+
+        DragData::asURL() shouldn't do file validity checks
+        https://bugs.webkit.org/show_bug.cgi?id=38711
+
+        Change [NSPasteboard _web_bestURL] to still return a file URL for paths
+        that don't exist. Callers who care about the existence of the file or
+        whether or not it is a directory should check themselves when they
+        want to use the file. The directory check has been left in for now,
+        since the Mac implementation of ResourceHandle, which uses this function
+        indirectly via DragController::performDrag) handles directories somewhat
+        non-intuitively: it opens the parent directory in the Finder, rather
+        than opening the directory itself.
+
+        * Misc/WebNSPasteboardExtras.mm:
+        (-[NSPasteboard _web_bestURL]):
+
+2010-05-18  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth (and Maciej Stachowiak).
+
+        Make it possible to enable the new HTML5Tokenizer for testing
+        https://bugs.webkit.org/show_bug.cgi?id=39275
+
+        Expose the WebCore::Settings::html5ParserEnabled as a private WebKit setting.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (-[WebPreferences html5ParserEnabled]):
+        (-[WebPreferences setHTML5ParserEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+
+2010-05-17  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r59652.
+        http://trac.webkit.org/changeset/59652
+        https://bugs.webkit.org/show_bug.cgi?id=39268
+
+        file-input-files-access test is broken on Mac (Requested by
+        dcheng on #webkit).
+
+        * Misc/WebNSPasteboardExtras.mm:
+        (-[NSPasteboard _web_bestURL]):
+
+2010-05-17  Daniel Cheng  <dcheng@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        DragData::asURL() shouldn't do file validity checks
+        https://bugs.webkit.org/show_bug.cgi?id=38711
+
+        Change [NSPasteboard _web_bestURL] to still return a file URL for paths
+        that don't exist. Callers who care about the existence of the file or
+        whether or not it is a directory should check themselves when they
+        want to use the file. The directory check has been left in for now,
+        since the Mac implementation of ResourceHandle, which uses this function
+        indirectly via DragController::performDrag) handles directories somewhat
+        non-intuitively: it opens the parent directory in the Finder, rather
+        than opening the directory itself.
+
+        * Misc/WebNSPasteboardExtras.mm:
+        (-[NSPasteboard _web_bestURL]):
+
 2010-05-14  Stephanie Lewis  <slewis@apple.com>
 
         Rubber-stamped by Mark Rowe.

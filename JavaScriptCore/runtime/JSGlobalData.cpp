@@ -253,6 +253,17 @@ const Vector<Instruction>& JSGlobalData::numericCompareFunction(ExecState* exec)
     return lazyNumericCompareFunction;
 }
 
+#if ENABLE(JIT)
+PassRefPtr<NativeExecutable> JSGlobalData::getHostFunction(NativeFunction function)
+{
+    return jitStubs.hostFunctionStub(this, function);
+}
+PassRefPtr<NativeExecutable> JSGlobalData::getHostFunction(NativeFunction function, ThunkGenerator generator)
+{
+    return jitStubs.hostFunctionStub(this, function, generator);
+}
+#endif
+
 JSGlobalData::ClientData::~ClientData()
 {
 }

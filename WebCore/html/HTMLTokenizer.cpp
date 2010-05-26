@@ -28,6 +28,7 @@
 #include "config.h"
 #include "HTMLTokenizer.h"
 
+#include "Attribute.h"
 #include "CSSHelper.h"
 #include "Cache.h"
 #include "CachedScript.h"
@@ -45,7 +46,6 @@
 #include "HTMLViewSourceDocument.h"
 #include "ImageLoader.h"
 #include "InspectorTimelineAgent.h"
-#include "MappedAttribute.h"
 #include "Page.h"
 #include "PreloadScanner.h"
 #include "ScriptController.h"
@@ -139,9 +139,9 @@ inline void Token::addAttribute(AtomicString& attrName, const AtomicString& attr
 {
     if (!attrName.isEmpty()) {
         ASSERT(!attrName.contains('/'));
-        RefPtr<MappedAttribute> a = MappedAttribute::create(attrName, attributeValue);
+        RefPtr<Attribute> a = Attribute::createMapped(attrName, attributeValue);
         if (!attrs) {
-            attrs = NamedMappedAttrMap::create();
+            attrs = NamedNodeMap::create();
             attrs->reserveInitialCapacity(10);
         }
         attrs->insertAttribute(a.release(), viewSourceMode);
@@ -1632,7 +1632,143 @@ inline bool HTMLTokenizer::continueProcessing(int& processedCount, double startT
     processedCount++;
     return true;
 }
-    
+
+// Turns the statemachine one crank using the passed in State object.
+// FIXME: Eventually this should modify m_state directly.
+ALWAYS_INLINE void HTMLTokenizer::advance(State& state)
+{
+    // do we need to enlarge the buffer?
+    checkBuffer();
+
+    UChar cc = *m_src;
+
+    bool wasSkipLF = state.skipLF();
+    if (wasSkipLF)
+        state.setSkipLF(false);
+
+    if (wasSkipLF && (cc == '\n'))
+        m_src.advance();
+    else if (state.needsSpecialWriteHandling()) {
+        // it's important to keep needsSpecialWriteHandling with the flags this block tests
+        if (state.hasEntityState())
+            state = parseEntity(m_src, m_dest, state, m_cBufferPos, false, state.hasTagState());
+        else if (state.inPlainText())
+            state = parseText(m_src, state);
+        else if (state.inAnyNonHTMLText())
+            state = parseNonHTMLText(m_src, state);
+        else if (state.inComment())
+            state = parseComment(m_src, state);
+        else if (state.inDoctype())
+            state = parseDoctype(m_src, state);
+        else if (state.inServer())
+            state = parseServer(m_src, state);
+        else if (state.inProcessingInstruction())
+            state = parseProcessingInstruction(m_src, state);
+        else if (state.hasTagState())
+            state = parseTag(m_src, state);
+        else if (state.startTag()) {
+            state.setStartTag(false);
+            
+            switch (cc) {
+            case '/':
+                break;
+            case '!': {
+                // <!-- comment --> or <!DOCTYPE ...>
+                searchCount = 1; // Look for '<!--' sequence to start comment or '<!DOCTYPE' sequence to start doctype
+                m_doctypeSearchCount = 1;
+                break;
+            }
+            case '?': {
+                // xml processing instruction
+                state.setInProcessingInstruction(true);
+                tquote = NoQuote;
+                state = parseProcessingInstruction(m_src, state);
+                return;
+            }
+            case '%':
+                if (!m_brokenServer) {
+                    // <% server stuff, handle as comment %>
+                    state.setInServer(true);
+                    tquote = NoQuote;
+                    state = parseServer(m_src, state);
+                    return;
+                }
+                // else fall through
+            default: {
+                if (((cc >= 'a') && (cc <= 'z')) || ((cc >= 'A') && (cc <= 'Z'))) {
+                    // Start of a Start-Tag
+                } else {
+                    // Invalid tag
+                    // Add as is
+                    *m_dest = '<';
+                    m_dest++;
+                    return;
+                }
+            }
+            }; // end case
+
+            processToken();
+
+            m_cBufferPos = 0;
+            state.setTagState(TagName);
+            state = parseTag(m_src, state);
+        }
+    } else if (cc == '&' && !m_src.escaped()) {
+        m_src.advancePastNonNewline();
+        state = parseEntity(m_src, m_dest, state, m_cBufferPos, true, state.hasTagState());
+    } else if (cc == '<' && !m_src.escaped()) {
+        m_currentTagStartLineNumber = m_lineNumber;
+        m_src.advancePastNonNewline();
+        state.setStartTag(true);
+        state.setDiscardLF(false);
+    } else if (cc == '\n' || cc == '\r') {
+        if (state.discardLF())
+            // Ignore this LF
+            state.setDiscardLF(false); // We have discarded 1 LF
+        else {
+            // Process this LF
+            *m_dest++ = '\n';
+            if (cc == '\r' && !m_src.excludeLineNumbers())
+                m_lineNumber++;
+        }
+
+        /* Check for MS-DOS CRLF sequence */
+        if (cc == '\r')
+            state.setSkipLF(true);
+        m_src.advance(m_lineNumber);
+    } else {
+        state.setDiscardLF(false);
+        *m_dest++ = cc;
+        m_src.advancePastNonNewline();
+    }
+}
+
+void HTMLTokenizer::willWriteHTML(const SegmentedString& source)
+{
+    #ifdef INSTRUMENT_LAYOUT_SCHEDULING
+        if (!m_doc->ownerElement())
+            printf("Beginning write at time %d\n", m_doc->elapsedTime());
+    #endif
+
+    #if ENABLE(INSPECTOR)
+        if (InspectorTimelineAgent* timelineAgent = m_doc->inspectorTimelineAgent())
+            timelineAgent->willWriteHTML(source.length(), m_lineNumber);
+    #endif
+}
+
+void HTMLTokenizer::didWriteHTML()
+{
+    #ifdef INSTRUMENT_LAYOUT_SCHEDULING
+        if (!m_doc->ownerElement())
+            printf("Ending write at time %d\n", m_doc->elapsedTime());
+    #endif
+
+    #if ENABLE(INSPECTOR)
+        if (InspectorTimelineAgent* timelineAgent = m_doc->inspectorTimelineAgent())
+            timelineAgent->didWriteHTML(m_lineNumber);
+    #endif
+}
+
 void HTMLTokenizer::write(const SegmentedString& str, bool appendData)
 {
     if (!m_buffer)
@@ -1675,151 +1811,31 @@ void HTMLTokenizer::write(const SegmentedString& str, bool appendData)
 
     bool wasInWrite = m_inWrite;
     m_inWrite = true;
-    
-#ifdef INSTRUMENT_LAYOUT_SCHEDULING
-    if (!m_doc->ownerElement())
-        printf("Beginning write at time %d\n", m_doc->elapsedTime());
-#endif
 
+<<<<<<< HEAD
     int processedCount = 0;
     double startTime = currentTime();
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::ParsingTimeCounter);
 #endif
+=======
+    willWriteHTML(source);
+>>>>>>> webkit.org at r60074
 
-#if ENABLE(INSPECTOR)
-    if (InspectorTimelineAgent* timelineAgent = m_doc->inspectorTimelineAgent())
-        timelineAgent->willWriteHTML(source.length(), m_lineNumber);
-#endif
-  
     Frame* frame = m_doc->frame();
-
     State state = m_state;
+    int processedCount = 0;
+    double startTime = currentTime();
 
     while (!m_src.isEmpty() && (!frame || !frame->redirectScheduler()->locationChangePending())) {
         if (!continueProcessing(processedCount, startTime, state))
             break;
-
-        // do we need to enlarge the buffer?
-        checkBuffer();
-
-        UChar cc = *m_src;
-
-        bool wasSkipLF = state.skipLF();
-        if (wasSkipLF)
-            state.setSkipLF(false);
-
-        if (wasSkipLF && (cc == '\n'))
-            m_src.advance();
-        else if (state.needsSpecialWriteHandling()) {
-            // it's important to keep needsSpecialWriteHandling with the flags this block tests
-            if (state.hasEntityState())
-                state = parseEntity(m_src, m_dest, state, m_cBufferPos, false, state.hasTagState());
-            else if (state.inPlainText())
-                state = parseText(m_src, state);
-            else if (state.inAnyNonHTMLText())
-                state = parseNonHTMLText(m_src, state);
-            else if (state.inComment())
-                state = parseComment(m_src, state);
-            else if (state.inDoctype())
-                state = parseDoctype(m_src, state);
-            else if (state.inServer())
-                state = parseServer(m_src, state);
-            else if (state.inProcessingInstruction())
-                state = parseProcessingInstruction(m_src, state);
-            else if (state.hasTagState())
-                state = parseTag(m_src, state);
-            else if (state.startTag()) {
-                state.setStartTag(false);
-                
-                switch (cc) {
-                case '/':
-                    break;
-                case '!': {
-                    // <!-- comment --> or <!DOCTYPE ...>
-                    searchCount = 1; // Look for '<!--' sequence to start comment or '<!DOCTYPE' sequence to start doctype
-                    m_doctypeSearchCount = 1;
-                    break;
-                }
-                case '?': {
-                    // xml processing instruction
-                    state.setInProcessingInstruction(true);
-                    tquote = NoQuote;
-                    state = parseProcessingInstruction(m_src, state);
-                    continue;
-
-                    break;
-                }
-                case '%':
-                    if (!m_brokenServer) {
-                        // <% server stuff, handle as comment %>
-                        state.setInServer(true);
-                        tquote = NoQuote;
-                        state = parseServer(m_src, state);
-                        continue;
-                    }
-                    // else fall through
-                default: {
-                    if ( ((cc >= 'a') && (cc <= 'z')) || ((cc >= 'A') && (cc <= 'Z'))) {
-                        // Start of a Start-Tag
-                    } else {
-                        // Invalid tag
-                        // Add as is
-                        *m_dest = '<';
-                        m_dest++;
-                        continue;
-                    }
-                }
-                }; // end case
-
-                processToken();
-
-                m_cBufferPos = 0;
-                state.setTagState(TagName);
-                state = parseTag(m_src, state);
-            }
-        } else if (cc == '&' && !m_src.escaped()) {
-            m_src.advancePastNonNewline();
-            state = parseEntity(m_src, m_dest, state, m_cBufferPos, true, state.hasTagState());
-        } else if (cc == '<' && !m_src.escaped()) {
-            m_currentTagStartLineNumber = m_lineNumber;
-            m_src.advancePastNonNewline();
-            state.setStartTag(true);
-            state.setDiscardLF(false);
-        } else if (cc == '\n' || cc == '\r') {
-            if (state.discardLF())
-                // Ignore this LF
-                state.setDiscardLF(false); // We have discarded 1 LF
-            else {
-                // Process this LF
-                *m_dest++ = '\n';
-                if (cc == '\r' && !m_src.excludeLineNumbers())
-                    m_lineNumber++;
-            }
-
-            /* Check for MS-DOS CRLF sequence */
-            if (cc == '\r')
-                state.setSkipLF(true);
-            m_src.advance(m_lineNumber);
-        } else {
-            state.setDiscardLF(false);
-            *m_dest++ = cc;
-            m_src.advancePastNonNewline();
-        }
+        advance(state);
     }
-    
-#ifdef INSTRUMENT_LAYOUT_SCHEDULING
-    if (!m_doc->ownerElement())
-        printf("Ending write at time %d\n", m_doc->elapsedTime());
-#endif
 
-#if ENABLE(INSPECTOR)
-    if (InspectorTimelineAgent* timelineAgent = m_doc->inspectorTimelineAgent())
-        timelineAgent->didWriteHTML(m_lineNumber);
-#endif
+    didWriteHTML();
 
     m_inWrite = wasInWrite;
-
     m_state = state;
 
 #ifdef ANDROID_INSTRUMENT
@@ -1951,7 +1967,7 @@ PassRefPtr<Node> HTMLTokenizer::processToken()
     RefPtr<Node> n;
     
     if (!m_parserStopped) {
-        if (NamedMappedAttrMap* map = m_currentToken.attrs.get())
+        if (NamedNodeMap* map = m_currentToken.attrs.get())
             map->shrinkToLength();
         if (inViewSourceMode())
             static_cast<HTMLViewSourceDocument*>(m_doc)->addViewSourceToken(&m_currentToken);

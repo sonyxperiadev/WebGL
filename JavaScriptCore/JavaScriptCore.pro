@@ -101,6 +101,7 @@ SOURCES += \
     jit/JITArithmetic.cpp \
     jit/JITArithmetic32_64.cpp \
     jit/JITCall.cpp \
+    jit/JITCall32_64.cpp \
     jit/JIT.cpp \
     jit/JITOpcodes.cpp \
     jit/JITOpcodes32_64.cpp \
@@ -159,6 +160,7 @@ SOURCES += \
     runtime/JSNotAnObject.cpp \
     runtime/JSNumberCell.cpp \
     runtime/JSObject.cpp \
+    runtime/JSObjectWithGlobalObject.cpp \
     runtime/JSONObject.cpp \
     runtime/JSPropertyNameIterator.cpp \
     runtime/JSStaticScopeObject.cpp \

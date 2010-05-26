@@ -198,7 +198,7 @@ bool WKCACFLayerRenderer::acceleratedCompositingAvailable()
         return available;
     }
 
-    OwnPtr<WKCACFLayerRenderer> testLayerRenderer = WKCACFLayerRenderer::create();
+    OwnPtr<WKCACFLayerRenderer> testLayerRenderer = WKCACFLayerRenderer::create(0);
     testLayerRenderer->setHostWindow(testWindow);
     available = testLayerRenderer->createRenderer();
     ::DestroyWindow(testWindow);
@@ -215,16 +215,21 @@ void WKCACFLayerRenderer::didFlushContext(CACFContextRef context)
     window->renderSoon();
 }
 
-PassOwnPtr<WKCACFLayerRenderer> WKCACFLayerRenderer::create()
+PassOwnPtr<WKCACFLayerRenderer> WKCACFLayerRenderer::create(WKCACFLayerRendererClient* client)
 {
     if (!acceleratedCompositingAvailable())
         return 0;
-    return new WKCACFLayerRenderer;
+    return new WKCACFLayerRenderer(client);
 }
 
-WKCACFLayerRenderer::WKCACFLayerRenderer()
-    : m_triedToCreateD3DRenderer(false)
-    , m_renderContext(0)
+WKCACFLayerRenderer::WKCACFLayerRenderer(WKCACFLayerRendererClient* client)
+    : m_client(client)
+    , m_mightBeAbleToCreateDeviceLater(true)
+    , m_rootLayer(WKCACFRootLayer::create(this))
+    , m_scrollLayer(WKCACFLayer::create(WKCACFLayer::Layer))
+    , m_clipLayer(WKCACFLayer::create(WKCACFLayer::Layer))
+    , m_context(AdoptCF, CACFContextCreate(0))
+    , m_renderContext(static_cast<CARenderContext*>(CACFContextGetRenderContext(m_context.get())))
     , m_renderer(0)
     , m_hostWindow(0)
     , m_renderTimer(this, &WKCACFLayerRenderer::renderTimerFired)
@@ -233,6 +238,37 @@ WKCACFLayerRenderer::WKCACFLayerRenderer()
     , m_backingStoreDirty(false)
     , m_mustResetLostDeviceBeforeRendering(false)
 {
+    windowsForContexts().set(m_context.get(), this);
+
+    // Under the root layer, we have a clipping layer to clip the content,
+    // that contains a scroll layer that we use for scrolling the content.
+    // The root layer is the size of the client area of the window.
+    // The clipping layer is the size of the WebView client area (window less the scrollbars).
+    // The scroll layer is the size of the root child layer.
+    // Resizing the window will change the bounds of the rootLayer and the clip layer and will not
+    // cause any repositioning.
+    // Scrolling will affect only the position of the scroll layer without affecting the bounds.
+
+    m_rootLayer->setName("WKCACFLayerRenderer rootLayer");
+    m_clipLayer->setName("WKCACFLayerRenderer clipLayer");
+    m_scrollLayer->setName("WKCACFLayerRenderer scrollLayer");
+
+    m_rootLayer->addSublayer(m_clipLayer);
+    m_clipLayer->addSublayer(m_scrollLayer);
+    m_clipLayer->setMasksToBounds(true);
+    m_rootLayer->setAnchorPoint(CGPointMake(0, 0));
+    m_scrollLayer->setAnchorPoint(CGPointMake(0, 1));
+    m_clipLayer->setAnchorPoint(CGPointMake(0, 1));
+
+#ifndef NDEBUG
+    CGColorRef debugColor = createCGColor(Color(255, 0, 0, 204));
+    m_rootLayer->setBackgroundColor(debugColor);
+    CGColorRelease(debugColor);
+#endif
+
+    if (m_context)
+        m_rootLayer->becomeRootLayerForContext(m_context.get());
+
 #ifndef NDEBUG
     char* printTreeFlag = getenv("CA_PRINT_TREE");
     m_printTree = printTreeFlag && atoi(printTreeFlag);
@@ -306,10 +342,10 @@ void WKCACFLayerRenderer::setNeedsDisplay()
 
 bool WKCACFLayerRenderer::createRenderer()
 {
-    if (m_triedToCreateD3DRenderer)
+    if (m_d3dDevice || !m_mightBeAbleToCreateDeviceLater)
         return m_d3dDevice;
 
-    m_triedToCreateD3DRenderer = true;
+    m_mightBeAbleToCreateDeviceLater = false;
     D3DPRESENT_PARAMETERS parameters = initialPresentationParameters();
 
     if (!d3d() || !::IsWindow(m_hostWindow))
@@ -326,9 +362,31 @@ bool WKCACFLayerRenderer::createRenderer()
         parameters.BackBufferHeight = 1;
     }
 
-    COMPtr<IDirect3DDevice9> device;
-    if (FAILED(d3d()->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, m_hostWindow, D3DCREATE_HARDWARE_VERTEXPROCESSING | D3DCREATE_FPU_PRESERVE, &parameters, &device)))
+    D3DCAPS9 d3dCaps;
+    if (FAILED(d3d()->GetDeviceCaps(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, &d3dCaps)))
         return false;
+
+    DWORD behaviorFlags = D3DCREATE_FPU_PRESERVE;
+    if ((d3dCaps.DevCaps & D3DDEVCAPS_HWTRANSFORMANDLIGHT) && d3dCaps.VertexProcessingCaps)
+        behaviorFlags |= D3DCREATE_HARDWARE_VERTEXPROCESSING;
+    else
+        behaviorFlags |= D3DCREATE_SOFTWARE_VERTEXPROCESSING;
+
+    COMPtr<IDirect3DDevice9> device;
+    if (FAILED(d3d()->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, m_hostWindow, behaviorFlags, &parameters, &device))) {
+        // In certain situations (e.g., shortly after waking from sleep), Direct3DCreate9() will
+        // return an IDirect3D9 for which IDirect3D9::CreateDevice will always fail. In case we
+        // have one of these bad IDirect3D9s, get rid of it so we'll fetch a new one the next time
+        // we want to call CreateDevice.
+        s_d3d->Release();
+        s_d3d = 0;
+
+        // Even if we don't have a bad IDirect3D9, in certain situations (e.g., shortly after
+        // waking from sleep), CreateDevice will fail, but will later succeed if called again.
+        m_mightBeAbleToCreateDeviceLater = true;
+
+        return false;
+    }
 
     // Now that we've created the IDirect3DDevice9 based on the capabilities we
     // got from the IDirect3D9 global object, we requery the device for its
@@ -349,48 +407,10 @@ bool WKCACFLayerRenderer::createRenderer()
 
     m_d3dDevice->SetTransform(D3DTS_PROJECTION, &projection);
 
-    m_context.adoptCF(CACFContextCreate(0));
-    windowsForContexts().set(m_context.get(), this);
-
-    m_renderContext = static_cast<CARenderContext*>(CACFContextGetRenderContext(m_context.get()));
     m_renderer = CARenderOGLNew(&kCARenderDX9Callbacks, m_d3dDevice.get(), 0);
 
-    // Create the root hierarchy.
-    // Under the root layer, we have a clipping layer to clip the content,
-    // that contains a scroll layer that we use for scrolling the content.
-    // The root layer is the size of the client area of the window.
-    // The clipping layer is the size of the WebView client area (window less the scrollbars).
-    // The scroll layer is the size of the root child layer.
-    // Resizing the window will change the bounds of the rootLayer and the clip layer and will not
-    // cause any repositioning.
-    // Scrolling will affect only the position of the scroll layer without affecting the bounds.
-
-    m_rootLayer = WKCACFRootLayer::create(this);
-    m_rootLayer->setName("WKCACFLayerRenderer rootLayer");
-
-    m_clipLayer = WKCACFLayer::create(WKCACFLayer::Layer);
-    m_clipLayer->setName("WKCACFLayerRenderer clipLayer");
-    
-    m_scrollLayer = WKCACFLayer::create(WKCACFLayer::Layer);
-    m_scrollLayer->setName("WKCACFLayerRenderer scrollLayer");
-
-    m_rootLayer->addSublayer(m_clipLayer);
-    m_clipLayer->addSublayer(m_scrollLayer);
-    m_clipLayer->setMasksToBounds(true);
-    m_scrollLayer->setAnchorPoint(CGPointMake(0, 1));
-    m_clipLayer->setAnchorPoint(CGPointMake(0, 1));
-
-#ifndef NDEBUG
-    CGColorRef debugColor = createCGColor(Color(255, 0, 0, 204));
-    m_rootLayer->setBackgroundColor(debugColor);
-    CGColorRelease(debugColor);
-#endif
-
     if (IsWindow(m_hostWindow))
-        m_rootLayer->setFrame(bounds());
-
-    if (m_context)
-        m_rootLayer->becomeRootLayerForContext(m_context.get());
+        m_rootLayer->setBounds(bounds());
 
     return true;
 }
@@ -398,6 +418,7 @@ bool WKCACFLayerRenderer::createRenderer()
 void WKCACFLayerRenderer::destroyRenderer()
 {
     if (m_context) {
+        CACFContextSetLayer(m_context.get(), 0);
         windowsForContexts().remove(m_context.get());
         WKCACFContextFlusher::shared().removeContext(m_context.get());
     }
@@ -415,7 +436,7 @@ void WKCACFLayerRenderer::destroyRenderer()
     m_scrollLayer = 0;
     m_rootChildLayer = 0;
 
-    m_triedToCreateD3DRenderer = false;
+    m_mightBeAbleToCreateDeviceLater = true;
 }
 
 void WKCACFLayerRenderer::resize()
@@ -428,7 +449,7 @@ void WKCACFLayerRenderer::resize()
     resetDevice(ChangedWindowSize);
 
     if (m_rootLayer) {
-        m_rootLayer->setFrame(bounds());
+        m_rootLayer->setBounds(bounds());
         WKCACFContextFlusher::shared().flushAllContexts();
         updateScrollFrame();
     }
@@ -442,8 +463,8 @@ static void getDirtyRects(HWND window, Vector<CGRect>& outRects)
     if (!GetClientRect(window, &clientRect))
         return;
 
-    HRGN region = CreateRectRgn(0, 0, 0, 0);
-    int regionType = GetUpdateRgn(window, region, false);
+    OwnPtr<HRGN> region(CreateRectRgn(0, 0, 0, 0));
+    int regionType = GetUpdateRgn(window, region.get(), false);
     if (regionType != COMPLEXREGION) {
         RECT dirtyRect;
         if (GetUpdateRect(window, &dirtyRect, false))
@@ -451,10 +472,10 @@ static void getDirtyRects(HWND window, Vector<CGRect>& outRects)
         return;
     }
 
-    DWORD dataSize = GetRegionData(region, 0, 0);
+    DWORD dataSize = GetRegionData(region.get(), 0, 0);
     OwnArrayPtr<unsigned char> regionDataBuffer(new unsigned char[dataSize]);
     RGNDATA* regionData = reinterpret_cast<RGNDATA*>(regionDataBuffer.get());
-    if (!GetRegionData(region, dataSize, regionData))
+    if (!GetRegionData(region.get(), dataSize, regionData))
         return;
 
     outRects.resize(regionData->rdh.nCount);
@@ -462,8 +483,6 @@ static void getDirtyRects(HWND window, Vector<CGRect>& outRects)
     RECT* rect = reinterpret_cast<RECT*>(regionData->Buffer);
     for (size_t i = 0; i < outRects.size(); ++i, ++rect)
         outRects[i] = winRectToCGRect(*rect, clientRect);
-
-    DeleteObject(region);
 }
 
 void WKCACFLayerRenderer::renderTimerFired(Timer<WKCACFLayerRenderer>*)
@@ -473,8 +492,12 @@ void WKCACFLayerRenderer::renderTimerFired(Timer<WKCACFLayerRenderer>*)
 
 void WKCACFLayerRenderer::paint()
 {
-    if (!m_d3dDevice)
+    createRenderer();
+    if (!m_d3dDevice) {
+        if (m_mightBeAbleToCreateDeviceLater)
+            renderSoon();
         return;
+    }
 
     if (m_backingStoreDirty) {
         // If the backing store is still dirty when we are about to draw the
@@ -496,6 +519,11 @@ void WKCACFLayerRenderer::render(const Vector<CGRect>& dirtyRects)
 
     if (m_mustResetLostDeviceBeforeRendering && !resetDevice(LostDevice)) {
         // We can't reset the device right now. Try again soon.
+        renderSoon();
+        return;
+    }
+
+    if (m_client && !m_client->shouldRender()) {
         renderSoon();
         return;
     }

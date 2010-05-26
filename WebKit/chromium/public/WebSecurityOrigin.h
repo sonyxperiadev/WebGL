@@ -90,7 +90,11 @@ public:
 
     // Returns a string representation of this WebSecurityOrigin that can
     // be used as a file.  Should be used in storage APIs only.
-    WEBKIT_API WebString databaseIdentifier();
+    WEBKIT_API WebString databaseIdentifier() const;
+
+    // Returns true if this WebSecurityOrigin can access usernames and 
+    // passwords stored in password manager.
+    WEBKIT_API bool canAccessPasswordManager() const;
 
 #if WEBKIT_IMPLEMENTATION
     WebSecurityOrigin(const WTF::PassRefPtr<WebCore::SecurityOrigin>&);

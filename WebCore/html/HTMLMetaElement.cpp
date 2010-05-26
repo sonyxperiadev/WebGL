@@ -23,9 +23,9 @@
 #include "config.h"
 #include "HTMLMetaElement.h"
 
+#include "Attribute.h"
 #include "Document.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
 
 #ifdef ANDROID_META_SUPPORT
 #include "Settings.h"
@@ -46,7 +46,7 @@ HTMLMetaElement::~HTMLMetaElement()
 {
 }
 
-void HTMLMetaElement::parseMappedAttribute(MappedAttribute* attr)
+void HTMLMetaElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == http_equivAttr) {
         m_equiv = attr->value();

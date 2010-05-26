@@ -25,6 +25,7 @@
 #include "config.h"
 #include "HTMLViewSourceDocument.h"
 
+#include "Attribute.h"
 #include "DOMImplementation.h"
 #include "HTMLAnchorElement.h"
 #include "HTMLBodyElement.h"
@@ -36,7 +37,6 @@
 #include "HTMLTableRowElement.h"
 #include "HTMLTableSectionElement.h"
 #include "HTMLTokenizer.h"
-#include "MappedAttribute.h"
 #include "Text.h"
 #include "TextDocument.h"
 
@@ -59,6 +59,7 @@ Tokenizer* HTMLViewSourceDocument::createTokenizer()
         || m_type == "application/vnd.wap.xhtml+xml"
 #endif
         ) {
+        // FIXME: Should respect Settings::html5ParserEnabled()
         return new HTMLTokenizer(this);
     }
 
@@ -77,8 +78,8 @@ void HTMLViewSourceDocument::createContainingTable()
     // Create a line gutter div that can be used to make sure the gutter extends down the height of the whole
     // document.
     RefPtr<HTMLDivElement> div = new HTMLDivElement(divTag, this);
-    RefPtr<NamedMappedAttrMap> attrs = NamedMappedAttrMap::create();
-    attrs->addAttribute(MappedAttribute::create(classAttr, "webkit-line-gutter-backdrop"));
+    RefPtr<NamedNodeMap> attrs = NamedNodeMap::create();
+    attrs->addAttribute(Attribute::createMapped(classAttr, "webkit-line-gutter-backdrop"));
     div->setAttributeMap(attrs.release());
     body->addChild(div);
     div->attach();
@@ -210,8 +211,8 @@ PassRefPtr<Element> HTMLViewSourceDocument::addSpanWithClassName(const String& c
     }
 
     RefPtr<HTMLElement> span = HTMLElement::create(spanTag, this);
-    RefPtr<NamedMappedAttrMap> attrs = NamedMappedAttrMap::create();
-    attrs->addAttribute(MappedAttribute::create(classAttr, className));
+    RefPtr<NamedNodeMap> attrs = NamedNodeMap::create();
+    attrs->addAttribute(Attribute::createMapped(classAttr, className));
     span->setAttributeMap(attrs.release());
     m_current->addChild(span);
     span->attach();
@@ -227,16 +228,16 @@ void HTMLViewSourceDocument::addLine(const String& className)
     
     // Create a cell that will hold the line number (it is generated in the stylesheet using counters).
     RefPtr<HTMLTableCellElement> td = new HTMLTableCellElement(tdTag, this);
-    RefPtr<NamedMappedAttrMap> attrs = NamedMappedAttrMap::create();
-    attrs->addAttribute(MappedAttribute::create(classAttr, "webkit-line-number"));
+    RefPtr<NamedNodeMap> attrs = NamedNodeMap::create();
+    attrs->addAttribute(Attribute::createMapped(classAttr, "webkit-line-number"));
     td->setAttributeMap(attrs.release());
     trow->addChild(td);
     td->attach();
 
     // Create a second cell for the line contents
     td = new HTMLTableCellElement(tdTag, this);
-    attrs = NamedMappedAttrMap::create();
-    attrs->addAttribute(MappedAttribute::create(classAttr, "webkit-line-content"));
+    attrs = NamedNodeMap::create();
+    attrs->addAttribute(Attribute::createMapped(classAttr, "webkit-line-content"));
     td->setAttributeMap(attrs.release());
     trow->addChild(td);
     td->attach();
@@ -293,15 +294,15 @@ PassRefPtr<Element> HTMLViewSourceDocument::addLink(const String& url, bool isAn
     
     // Now create a link for the attribute value instead of a span.
     RefPtr<HTMLAnchorElement> anchor = HTMLAnchorElement::create(this);
-    RefPtr<NamedMappedAttrMap> attrs = NamedMappedAttrMap::create();
+    RefPtr<NamedNodeMap> attrs = NamedNodeMap::create();
     const char* classValue;
     if (isAnchor)
         classValue = "webkit-html-attribute-value webkit-html-external-link";
     else
         classValue = "webkit-html-attribute-value webkit-html-resource-link";
-    attrs->addAttribute(MappedAttribute::create(classAttr, classValue));
-    attrs->addAttribute(MappedAttribute::create(targetAttr, "_blank"));
-    attrs->addAttribute(MappedAttribute::create(hrefAttr, url));
+    attrs->addAttribute(Attribute::createMapped(classAttr, classValue));
+    attrs->addAttribute(Attribute::createMapped(targetAttr, "_blank"));
+    attrs->addAttribute(Attribute::createMapped(hrefAttr, url));
     anchor->setAttributeMap(attrs.release());
     m_current->addChild(anchor);
     anchor->attach();

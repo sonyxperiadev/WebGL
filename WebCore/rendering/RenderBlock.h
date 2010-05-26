@@ -74,7 +74,9 @@ public:
     void insertPositionedObject(RenderBox*);
     void removePositionedObject(RenderBox*);
     void removePositionedObjects(RenderBlock*);
-    ListHashSet<RenderBox*>* positionedObjects() const { return m_positionedObjects; }
+
+    typedef ListHashSet<RenderBox*, 4> PositionedObjectsListHashSet;
+    PositionedObjectsListHashSet* positionedObjects() const { return m_positionedObjects; }
 
     void addPercentHeightDescendant(RenderBox*);
     static void removePercentHeightDescendant(RenderBox*);
@@ -131,8 +133,12 @@ public:
 
     void addContinuationWithOutline(RenderInline*);
 
-    RenderInline* inlineContinuation() const { return m_inlineContinuation; }
-    void setInlineContinuation(RenderInline* c) { m_inlineContinuation = c; }
+    RenderBoxModelObject* continuation() const { return m_continuation; }
+    void setContinuation(RenderBoxModelObject* c) { m_continuation = c; }
+    virtual RenderBoxModelObject* virtualContinuation() const { return continuation(); }
+    bool isAnonymousBlockContinuation() const { return continuation() && isAnonymousBlock(); }
+    RenderInline* inlineElementContinuation() const;
+    RenderBlock* blockElementContinuation() const;
 
     // This function is a convenience helper for creating an anonymous block that inherits its
     // style from this RenderBlock.
@@ -141,6 +147,9 @@ public:
     static void appendRunsForObject(int start, int end, RenderObject*, InlineBidiResolver&);    
     static bool requiresLineBox(const InlineIterator&, bool isLineEmpty = true, bool previousLineBrokeCleanly = true);
 
+    Vector<IntRect>* columnRects() const;
+    int columnGap() const;
+    
 protected:
     void moveChildTo(RenderObject* to, RenderObjectChildList* toChildList, RenderObject* child);
     void moveChildTo(RenderObject* to, RenderObjectChildList* toChildList, RenderObject* beforeChild, RenderObject* child);
@@ -198,7 +207,7 @@ protected:
 
     virtual bool hasLineIfEmpty() const;
     bool layoutOnlyPositionedObjects();
-
+    
 private:
     virtual RenderObjectChildList* virtualChildren() { return children(); }
     virtual const RenderObjectChildList* virtualChildren() const { return children(); }
@@ -346,6 +355,7 @@ private:
 
     int desiredColumnWidth() const;
     unsigned desiredColumnCount() const;
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 public:
 #endif
@@ -362,6 +372,10 @@ public:
 private:
 #endif
     
+=======
+    void setDesiredColumnCountAndWidth(int count, int width);
+
+>>>>>>> webkit.org at r60074
     void paintContinuationOutlines(PaintInfo&, int tx, int ty);
 
     virtual IntRect localCaretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
@@ -495,15 +509,16 @@ private:
     void setCollapsedBottomMargin(const MarginInfo&);
     // End helper functions and structs used by layoutBlockChildren.
 
-    typedef ListHashSet<RenderBox*>::const_iterator Iterator;
+    typedef PositionedObjectsListHashSet::const_iterator Iterator;
     DeprecatedPtrList<FloatingObject>* m_floatingObjects;
-    ListHashSet<RenderBox*>* m_positionedObjects;
+    
+    PositionedObjectsListHashSet* m_positionedObjects;
 
     // An inline can be split with blocks occurring in between the inline content.
     // When this occurs we need a pointer to our next object.  We can basically be
     // split into a sequence of inlines and blocks.  The continuation will either be
     // an anonymous block (that houses other blocks) or it will be an inline flow.
-    RenderInline* m_inlineContinuation;
+    RenderBoxModelObject* m_continuation;
 
     // Allocated only when some of these fields have non-default values
     struct MaxMargin : Noncopyable {

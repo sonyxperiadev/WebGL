@@ -325,6 +325,8 @@ public:
     bool cellWidthChanged() const { return m_cellWidthChanged; }
     void setCellWidthChanged(bool b = true) { m_cellWidthChanged = b; }
 
+    virtual bool requiresForcedStyleRecalcPropagation() const { return false; }
+
 #if ENABLE(MATHML)
     virtual bool isRenderMathMLBlock() const { return false; }
 #endif // ENABLE(MATHML)
@@ -384,7 +386,11 @@ public:
     {
         return m_isAnonymous && style()->display() == BLOCK && style()->styleType() == NOPSEUDO && !isListMarker();
     }
-    bool isInlineContinuation() const { return (node() ? node()->renderer() != this : false) && isRenderInline(); }
+    bool isElementContinuation() const { return node() && node()->renderer() != this; }
+    bool isInlineElementContinuation() const { return isElementContinuation() && isInline(); }
+    bool isBlockElementContinuation() const { return isElementContinuation() && !isInline(); }
+    virtual RenderBoxModelObject* virtualContinuation() const { return 0; }
+
     bool isFloating() const { return m_floating; }
     bool isPositioned() const { return m_positioned; } // absolute or fixed positioning
     bool isRelPositioned() const { return m_relPositioned; } // relative positioning
@@ -399,6 +405,13 @@ public:
     
     bool hasBoxDecorations() const { return m_paintBackground; }
     bool mustRepaintBackgroundOrBorder() const;
+    bool hasBackground() const
+    {
+        Color color = style()->visitedDependentColor(CSSPropertyBackgroundColor);
+        if (color.isValid() && color.alpha() > 0)
+            return true;
+        return style()->hasBackgroundImage();
+    }
 
     bool needsLayout() const { return m_needsLayout || m_normalChildNeedsLayout || m_posChildNeedsLayout || m_needsPositionedMovementLayout; }
     bool selfNeedsLayout() const { return m_needsLayout; }
@@ -422,7 +435,6 @@ public:
     void drawArcForBoxSide(GraphicsContext*, int x, int y, float thickness, IntSize radius, int angleStart,
                            int angleSpan, BoxSide, Color, EBorderStyle, bool firstCorner);
 
-public:
     // The pseudo element style can be cached or uncached.  Use the cached method if the pseudo element doesn't respect
     // any pseudo classes (and therefore has no concept of changing state).
     RenderStyle* getCachedPseudoStyle(PseudoId, RenderStyle* parentStyle = 0) const;
@@ -870,7 +882,7 @@ private:
     bool m_isDragging                : 1;
 
     bool m_hasLayer                  : 1;
-    bool m_hasOverflowClip           : 1;
+    bool m_hasOverflowClip           : 1; // Set in the case of overflow:auto/scroll/hidden
     bool m_hasTransform              : 1;
     bool m_hasReflection             : 1;
 

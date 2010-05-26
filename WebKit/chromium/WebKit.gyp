@@ -47,6 +47,7 @@
                 'chromium_src_dir': '../../../..',
             }],
         ],
+        'ahem_path': '../../WebKitTools/DumpRenderTree/qt/fonts/AHEM____.TTF',
     },
     'targets': [
         {
@@ -126,6 +127,7 @@
                 'public/WebFormElement.h',
                 'public/WebGeolocationService.h',
                 'public/WebGeolocationServiceBridge.h',
+                'public/WebGeolocationServiceMock.h',
                 'public/WebGlyphCache.h',
                 'public/WebGLES2Context.h',
                 'public/WebGraphicsContext3D.h',
@@ -337,13 +339,18 @@
                 'src/WebFrameImpl.h',
                 'src/WebGeolocationServiceBridgeImpl.cpp',
                 'src/WebGeolocationServiceBridgeImpl.h',
+                'src/WebGeolocationServiceMock.cpp',
                 'src/WebGlyphCache.cpp',
                 'src/WebGraphicsContext3D.cpp',
                 'src/WebGraphicsContext3DDefaultImpl.cpp',
                 'src/WebGraphicsContext3DDefaultImpl.h',
                 'src/WebHistoryItem.cpp',
                 'src/WebHTTPBody.cpp',
+                'src/WebIDBCallbacksImpl.cpp',
+                'src/WebIDBCallbacksImpl.h',
                 'src/WebIDBDatabaseError.cpp',
+                'src/WebIDBDatabaseImpl.cpp',
+                'src/WebIDBDatabaseImpl.h',
                 'src/WebImageCG.cpp',
                 'src/WebImageDecoder.cpp',
                 'src/WebImageSkia.cpp',
@@ -573,11 +580,24 @@
                 '<@(drt_files)',
             ],
             'conditions': [
+                ['OS=="win"', {
+                    'resource_include_dirs': ['<(SHARED_INTERMEDIATE_DIR)/webkit'],
+                    'sources': [
+                       '<(SHARED_INTERMEDIATE_DIR)/net/net_resources.rc',
+                       '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_chromium_resources.rc',
+                       '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_resources.rc',
+                       '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_strings_en-US.rc',
+                    ],
+                    'copies': [{
+                       'destination': '<(PRODUCT_DIR)',
+                       'files': ['<(ahem_path)'],
+                    }],
+                }],
                 ['OS=="mac"', {
                     'dependencies': ['LayoutTestHelper'],
 
                     'mac_bundle_resources': [
-                        '../../WebKitTools/DumpRenderTree/qt/fonts/AHEM____.TTF',
+                        '<(ahem_path)',
                         '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher100.ttf',
                         '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher200.ttf',
                         '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher300.ttf',
@@ -587,6 +607,7 @@
                         '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher700.ttf',
                         '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher800.ttf',
                         '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher900.ttf',
+                        '<(SHARED_INTERMEDIATE_DIR)/webkit/textAreaResizeCorner.png',
                     ],
                     'actions': [
                         {
