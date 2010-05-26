@@ -97,10 +97,10 @@ public:
     }
 
     void operator delete(void* p, size_t size) {
-        return HTMLElement::operator delete(p, size);
+        HTMLElement::operator delete(p, size);
     }
     void operator delete[](void* p, size_t size) {
-        return HTMLElement::operator delete[](p, size);
+        HTMLElement::operator delete[](p, size);
     }
 #endif
 
