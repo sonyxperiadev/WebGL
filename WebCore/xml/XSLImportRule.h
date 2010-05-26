@@ -60,10 +60,10 @@ public:
     }
 
     void operator delete(void* p, size_t size) {
-        return StyleBase::operator delete(p, size);
+        StyleBase::operator delete(p, size);
     }
     void operator delete[](void* p, size_t size) {
-        return StyleBase::operator delete[](p, size);
+        StyleBase::operator delete[](p, size);
     }
 #endif
 

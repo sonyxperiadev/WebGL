@@ -50,10 +50,10 @@ namespace WebCore {
         }
 
         void operator delete(void* p, size_t size) {
-            return SVGElement::operator delete(p, size);
+            SVGElement::operator delete(p, size);
         }
         void operator delete[](void* p, size_t size) {
-            return SVGElement::operator delete[](p, size);
+            SVGElement::operator delete[](p, size);
         }
 #endif
 
