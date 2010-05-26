@@ -443,7 +443,7 @@ void RenderThemeAndroid::adjustMenuListStyle(CSSStyleSelector*, RenderStyle* sty
 
 bool RenderThemeAndroid::paintCombo(RenderObject* obj, const RenderObject::PaintInfo& info,  const IntRect& rect)
 {
-    if (obj->style() && !obj->style()->backgroundColor().alpha())
+  if (obj->style() && !obj->style()->visitedDependentColor(CSSPropertyBackgroundColor).alpha())
         return true;
     return RenderSkinCombo::Draw(getCanvasFromInfo(info), obj->node(), rect.x(), rect.y(), rect.width(), rect.height());
 }

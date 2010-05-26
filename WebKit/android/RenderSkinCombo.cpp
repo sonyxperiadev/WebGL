@@ -120,15 +120,15 @@ bool RenderSkinCombo::Draw(SkCanvas* canvas, Node* element, int x, int y, int wi
     bounds.set(SkIntToScalar(x+1), SkIntToScalar(y+1), SkIntToScalar(x + width-1), SkIntToScalar(y + height-1));
     RenderStyle* style = element->renderStyle();
     SkPaint paint;
-    paint.setColor(style->backgroundColor().rgb());
+    paint.setColor(style->visitedDependentColor(CSSPropertyBackgroundColor).rgb());
     canvas->drawRect(bounds, paint);
 
     bounds.set(SkIntToScalar(x), SkIntToScalar(y), SkIntToScalar(x + width), SkIntToScalar(y + height));
 
-    if (style->borderLeftColor().isValid() ||
-        style->borderRightColor().isValid() ||
-        style->borderTopColor().isValid() ||
-        style->borderBottomColor().isValid()) {
+    if (style->visitedDependentColor(CSSPropertyBorderLeftColor).isValid() ||
+        style->visitedDependentColor(CSSPropertyBorderRightColor).isValid() ||
+        style->visitedDependentColor(CSSPropertyBorderTopColor).isValid() ||
+        style->visitedDependentColor(CSSPropertyBorderBottomColor).isValid()) {
         bounds.fLeft += SkIntToScalar(width - RenderSkinCombo::extraWidth());
         bounds.fRight -= SkIntToScalar(style->borderRightWidth());
         bounds.fTop += SkIntToScalar(style->borderTopWidth());

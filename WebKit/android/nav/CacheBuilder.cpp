@@ -1055,7 +1055,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             RenderStyle* style = nodeRenderer->style();
             if (style->visibility() == HIDDEN)
                 continue;
-            isTransparent = style->hasBackground() == false;
+            isTransparent = nodeRenderer->hasBackground() == false;
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
             hasCursorRing = style->tapHighlightColor().alpha() > 0;
 #endif
