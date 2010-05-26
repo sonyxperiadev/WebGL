@@ -70,11 +70,8 @@ namespace JSC {
     }
 }
 #endif
-<<<<<<< HEAD
 
 class NPObject;
-=======
->>>>>>> webkit.org at r60074
 
 namespace WebCore {
     class Element;

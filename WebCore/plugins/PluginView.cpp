@@ -65,13 +65,10 @@
 #include "PluginMessageThrottlerWin.h"
 #endif
 
-<<<<<<< HEAD
 #if defined(ANDROID_PLUGINS)
 #include "TouchEvent.h"
 #endif
 
-=======
->>>>>>> webkit.org at r60074
 #if USE(JSC)
 #include "JSDOMBinding.h"
 #include "JSDOMWindow.h"
@@ -800,10 +797,9 @@ PassRefPtr<JSC::Bindings::Instance> PluginView::bindingInstance()
     return instance.release();
 #else
     return 0;
-#endif  // NETSCAPE_PLUGIN_API
+#endif
 }
-<<<<<<< HEAD
-#endif  // JSC
+#endif
 
 #if USE(V8)
 // This is really JS engine independent
@@ -835,9 +831,6 @@ NPObject* PluginView::getNPObject() {
 #endif  // NETSCAPE_PLUGIN_API
 }
 #endif  // V8
-=======
-#endif
->>>>>>> webkit.org at r60074
 
 void PluginView::disconnectStream(PluginStream* stream)
 {

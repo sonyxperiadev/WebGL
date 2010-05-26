@@ -493,13 +493,10 @@ namespace WebCore {
         bool m_webGLEnabled : 1;
         bool m_loadDeferringEnabled : 1;
         bool m_tiledBackingStoreEnabled : 1;
-<<<<<<< HEAD
+        bool m_html5ParserEnabled: 1;
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif
-=======
-        bool m_html5ParserEnabled: 1;
->>>>>>> webkit.org at r60074
 
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;

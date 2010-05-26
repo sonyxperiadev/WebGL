@@ -355,27 +355,8 @@ private:
 
     int desiredColumnWidth() const;
     unsigned desiredColumnCount() const;
-<<<<<<< HEAD
-#if PLATFORM(ANDROID)
-public:
-#endif
-    Vector<IntRect>* columnRects() const;
-#if PLATFORM(ANDROID)
-private:
-#endif
-    void setDesiredColumnCountAndWidth(int count, int width);
-#if PLATFORM(ANDROID)
-public:
-#endif
-    int columnGap() const;
-#if PLATFORM(ANDROID)
-private:
-#endif
-    
-=======
     void setDesiredColumnCountAndWidth(int count, int width);
 
->>>>>>> webkit.org at r60074
     void paintContinuationOutlines(PaintInfo&, int tx, int ty);
 
     virtual IntRect localCaretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);

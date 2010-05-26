@@ -351,14 +351,10 @@ bool CSSParser::parseColor(CSSMutableStyleDeclaration* declaration, const String
 }
 
 void CSSParser::parseSelector(const String& string, Document* doc, CSSSelectorList& selectorList)
-<<<<<<< HEAD
-{    
+{
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
 #endif
-=======
-{
->>>>>>> webkit.org at r60074
     RefPtr<CSSStyleSheet> dummyStyleSheet = CSSStyleSheet::create(doc);
 
     m_styleSheet = dummyStyleSheet.get();

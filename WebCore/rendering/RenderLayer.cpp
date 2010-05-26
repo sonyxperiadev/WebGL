@@ -2844,58 +2844,6 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
     RenderLayer* candidateLayer = 0;
 
     // Begin by walking our list of positive layers from highest z-index down to the lowest z-index.
-<<<<<<< HEAD
-    if (m_posZOrderList) {
-        for (int i = m_posZOrderList->size() - 1; i >= 0; --i) {
-#ifdef ANDROID_HITTEST_WITHSIZE
-            HitTestResult tempResult(result.point(), result.pointPadding());
-#else
-            HitTestResult tempResult(result.point());
-#endif
-            RenderLayer* hitLayer = m_posZOrderList->at(i)->hitTestLayer(rootLayer, this, request, tempResult, hitTestRect, hitTestPoint, false, localTransformState.get(), zOffsetForDescendantsPtr);
-#ifdef ANDROID_HITTEST_WITHSIZE
-            if (result.isRegionTest())
-                result.merge(tempResult);
-#endif
-            if (isHitCandidate(hitLayer, depthSortDescendants, zOffset, unflattenedTransformState.get())) {
-#ifdef ANDROID_HITTEST_WITHSIZE
-                if (!result.isRegionTest())
-#endif
-                result = tempResult;
-                if (!depthSortDescendants)
-                    return hitLayer;
-
-                candidateLayer = hitLayer;
-            }
-        }
-    }
-
-    // Now check our overflow objects.
-    if (m_normalFlowList) {
-        for (int i = m_normalFlowList->size() - 1; i >= 0; --i) {
-            RenderLayer* currLayer = m_normalFlowList->at(i);
-#ifdef ANDROID_HITTEST_WITHSIZE
-            HitTestResult tempResult(result.point(), result.pointPadding());
-#else
-            HitTestResult tempResult(result.point());
-#endif
-            RenderLayer* hitLayer = currLayer->hitTestLayer(rootLayer, this, request, tempResult, hitTestRect, hitTestPoint, false, localTransformState.get(), zOffsetForDescendantsPtr);
-#ifdef ANDROID_HITTEST_WITHSIZE
-            if (result.isRegionTest())
-                result.merge(tempResult);
-#endif
-            if (isHitCandidate(hitLayer, depthSortDescendants, zOffset, unflattenedTransformState.get())) {
-#ifdef ANDROID_HITTEST_WITHSIZE
-                if (!result.isRegionTest())
-#endif
-                result = tempResult;
-                if (!depthSortDescendants)
-                    return hitLayer;
-
-                candidateLayer = hitLayer;
-            }
-        }
-=======
     RenderLayer* hitLayer = hitTestList(m_posZOrderList, rootLayer, request, result, hitTestRect, hitTestPoint,
                                         localTransformState.get(), zOffsetForDescendantsPtr, zOffset, unflattenedTransformState.get(), depthSortDescendants);
     if (hitLayer) {
@@ -2911,7 +2859,6 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
         if (!depthSortDescendants)
             return hitLayer;
         candidateLayer = hitLayer;
->>>>>>> webkit.org at r60074
     }
 
     // Next we want to see if the mouse pos is inside the child RenderObjects of the layer.
@@ -2946,38 +2893,12 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
     }
 
     // Now check our negative z-index children.
-<<<<<<< HEAD
-    if (m_negZOrderList) {
-        for (int i = m_negZOrderList->size() - 1; i >= 0; --i) {
-#ifdef ANDROID_HITTEST_WITHSIZE
-            HitTestResult tempResult(result.point(), result.pointPadding());
-#else
-            HitTestResult tempResult(result.point());
-#endif
-            RenderLayer* hitLayer = m_negZOrderList->at(i)->hitTestLayer(rootLayer, this, request, tempResult, hitTestRect, hitTestPoint, false, localTransformState.get(), zOffsetForDescendantsPtr);
-#ifdef ANDROID_HITTEST_WITHSIZE
-            if (result.isRegionTest())
-                result.merge(tempResult);
-#endif
-            if (isHitCandidate(hitLayer, depthSortDescendants, zOffset, unflattenedTransformState.get())) {
-#ifdef ANDROID_HITTEST_WITHSIZE
-                if (!result.isRegionTest())
-#endif
-                result = tempResult;
-                if (!depthSortDescendants)
-                    return hitLayer;
-
-                candidateLayer = hitLayer;
-            }
-        }
-=======
     hitLayer = hitTestList(m_negZOrderList, rootLayer, request, result, hitTestRect, hitTestPoint,
                                         localTransformState.get(), zOffsetForDescendantsPtr, zOffset, unflattenedTransformState.get(), depthSortDescendants);
     if (hitLayer) {
         if (!depthSortDescendants)
             return hitLayer;
         candidateLayer = hitLayer;
->>>>>>> webkit.org at r60074
     }
 
     // If we found a layer, return. Child layers, and foreground always render in front of background.
@@ -3051,12 +2972,23 @@ RenderLayer* RenderLayer::hitTestList(Vector<RenderLayer*>* list, RenderLayer* r
     for (int i = list->size() - 1; i >= 0; --i) {
         RenderLayer* childLayer = list->at(i);
         RenderLayer* hitLayer = 0;
+#ifdef ANDROID_HITTEST_WITHSIZE
+        HitTestResult tempResult(result.point(), result.pointPadding());
+#else
         HitTestResult tempResult(result.point());
+#endif
         if (childLayer->isPaginated())
             hitLayer = hitTestPaginatedChildLayer(childLayer, rootLayer, request, tempResult, hitTestRect, hitTestPoint, transformState, zOffsetForDescendants);
         else
             hitLayer = childLayer->hitTestLayer(rootLayer, this, request, tempResult, hitTestRect, hitTestPoint, false, transformState, zOffsetForDescendants);
+#ifdef ANDROID_HITTEST_WITHSIZE
+        if (result.isRegionTest())
+            result.merge(tempResult);
+#endif
         if (isHitCandidate(hitLayer, depthSortDescendants, zOffset, unflattenedTransformState)) {
+#ifdef ANDROID_HITTEST_WITHSIZE
+            if (!result.isRegionTest())
+#endif
             resultLayer = hitLayer;
             result = tempResult;
             if (!depthSortDescendants)

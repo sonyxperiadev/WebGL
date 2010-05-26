@@ -1215,11 +1215,10 @@ public:
     static const Vector<StyleDashboardRegion>& noneDashboardRegions();
 #endif
 
-<<<<<<< HEAD
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     static Color initialTapHighlightColor() { return Color::tap; }
 #endif
-=======
+
 private:
     // Color accessors are all private to make sure callers use visitedDependentColor instead to access them.
     const Color& borderLeftColor() const { return surround->border.left().color(); }
@@ -1234,7 +1233,6 @@ private:
     const Color& textStrokeColor() const { return rareInheritedData->textStrokeColor; }
     
     const Color colorIncludingFallback(int colorProperty, EBorderStyle borderStyle) const;
->>>>>>> webkit.org at r60074
 };
 
 } // namespace WebCore

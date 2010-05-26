@@ -1812,15 +1812,11 @@ void HTMLTokenizer::write(const SegmentedString& str, bool appendData)
     bool wasInWrite = m_inWrite;
     m_inWrite = true;
 
-<<<<<<< HEAD
-    int processedCount = 0;
-    double startTime = currentTime();
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::ParsingTimeCounter);
 #endif
-=======
+
     willWriteHTML(source);
->>>>>>> webkit.org at r60074
 
     Frame* frame = m_doc->frame();
     State state = m_state;
