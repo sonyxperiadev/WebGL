@@ -40,7 +40,6 @@
 #include "GraphicsLayerAndroid.h"
 #include "Icon.h"
 #include "Page.h"
-#include "Screen.h"
 #include "ScriptController.h"
 #include "WebCoreFrameBridge.h"
 #include "WebCoreViewBridge.h"
@@ -171,10 +170,10 @@ Page* ChromeClientAndroid::createWindow(Frame* frame, const FrameLoadRequest&,
         return frame->page();
 #endif
 
-    WTF::PassRefPtr<WebCore::Screen> screen = WebCore::Screen::create(frame);
+    const WebCoreViewBridge* bridge = frame->view()->platformWidget();
     bool dialog = features.dialog || !features.resizable
-            || (features.heightSet && features.height < screen.get()->height()
-                    && features.widthSet && features.width < screen.get()->width())
+            || (features.heightSet && features.height < bridge->height()
+                    && features.widthSet && features.width < bridge->width())
             || (!features.menuBarVisible && !features.statusBarVisible
                     && !features.toolBarVisible && !features.locationBarVisible
                     && !features.scrollbarsVisible);
