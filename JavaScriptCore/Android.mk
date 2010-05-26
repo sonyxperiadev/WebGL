@@ -118,6 +118,7 @@ LOCAL_SRC_FILES := \
 	runtime/JSNumberCell.cpp \
 	runtime/JSONObject.cpp \
 	runtime/JSObject.cpp \
+	runtime/JSObjectWithGlobalObject.cpp \
 	runtime/JSPropertyNameIterator.cpp \
 	runtime/JSStaticScopeObject.cpp \
 	runtime/JSString.cpp \

@@ -318,6 +318,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/Request.cpp \
 	loader/ResourceLoadNotifier.cpp \
 	loader/ResourceLoader.cpp \
+	loader/SinkDocument.cpp \
 	loader/SubresourceLoader.cpp \
 	loader/TextDocument.cpp \
 	loader/TextResourceDecoder.cpp \
@@ -573,6 +574,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/text/UnicodeRange.cpp \
 	\
 	platform/text/android/TextBreakIteratorInternalICU.cpp \
+	\
+	platform/text/transcoder/FontTranscoder.cpp \
 	\
 	plugins/MimeType.cpp \
 	plugins/MimeTypeArray.cpp \

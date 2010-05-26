@@ -150,6 +150,7 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebCore/platform/network/android \
 	$(LOCAL_PATH)/WebCore/platform/sql \
 	$(LOCAL_PATH)/WebCore/platform/text \
+	$(LOCAL_PATH)/WebCore/platform/text/transcoder \
 	$(LOCAL_PATH)/WebCore/plugins \
 	$(LOCAL_PATH)/WebCore/plugins/android \
 	$(LOCAL_PATH)/WebCore/rendering \
