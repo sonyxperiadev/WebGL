@@ -1152,9 +1152,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             RenderBlock* renderBlock = (RenderBlock*) nodeRenderer;
             if (renderBlock->hasColumns()) {
                 columns = renderBlock->columnRects();
-#ifdef ANDROID_EXPOSE_COLUMN_GAP
                 columnGap = renderBlock->columnGap();
-#endif
                 direction = renderBlock->style()->direction();
             }
         }
