@@ -1,0 +1,2 @@
+ALERT: unload-called
+You should have seen one unload alert appear.
