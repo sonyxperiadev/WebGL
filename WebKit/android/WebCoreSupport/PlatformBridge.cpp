@@ -142,10 +142,10 @@ bool PlatformBridge::popupsAllowed(NPP)
     return false;
 }
 
-String PlatformBridge::resolveFileNameForContentUri(const String& contentUri)
+String PlatformBridge::resolveFilePathForContentUri(const String& contentUri)
 {
     FileSystemClient* client = JavaSharedClient::GetFileSystemClient();
-    return client->resolveFileNameForContentUri(contentUri);
+    return client->resolveFilePathForContentUri(contentUri);
 }
 
 }  // namespace WebCore

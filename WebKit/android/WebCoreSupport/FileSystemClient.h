@@ -35,7 +35,7 @@ namespace android {
 class FileSystemClient {
 public:
     virtual ~FileSystemClient() { }
-    virtual String resolveFileNameForContentUri(const String&) = 0;
+    virtual String resolveFilePathForContentUri(const String&) = 0;
 };
 }
 #endif

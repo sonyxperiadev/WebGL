@@ -130,6 +130,9 @@
 #undef ENABLE_COMPOSITED_FIXED_ELEMENTS // Disabled by default in Platform.h
 #define ENABLE_COMPOSITED_FIXED_ELEMENTS 1
 
+#define ENABLE_FILE_READER 1
+#define ENABLE_BLOB_SLICE 1
+
 #define ANDROID_FLATTEN_FRAMESET
 #define ANDROID_FLATTEN_IFRAME
 
@@ -199,6 +202,7 @@
 
 // Enable hit test with point plus a size
 #define ANDROID_HITTEST_WITHSIZE
+
 
 #endif /* PLATFORM(ANDROID) */
 

@@ -136,7 +136,7 @@ public:
     static bool isWebViewPaused(const FrameView*);
 
     static bool canScroll(const FrameView*);
-    static String resolveFileNameForContentUri(const String&);
+    static String resolveFilePathForContentUri(const String&);
 };
 
 }

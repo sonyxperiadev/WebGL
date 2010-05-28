@@ -253,6 +253,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/File.cpp \
 	html/FileList.cpp \
 	html/FileReader.cpp \
+	html/FileStream.cpp \
+	html/FileStreamProxy.cpp \
+	html/FileThread.cpp \
 	html/FormDataList.cpp \
 	html/HTML5Lexer.cpp \
 	html/HTML5Tokenizer.cpp \
@@ -408,6 +411,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/ThreadGlobalData.cpp \
 	platform/ThreadTimers.cpp \
 	platform/Timer.cpp \
+	platform/UUID.cpp \
 	platform/Widget.cpp \
 	\
 	platform/android/ClipboardAndroid.cpp \

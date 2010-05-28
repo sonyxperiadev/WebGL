@@ -85,7 +85,7 @@ public:
     virtual WTF::Vector<String> getSupportedKeyStrengthList();
     virtual WebCore::String getSignedPublicKeyAndChallengeString(unsigned index,
             const WebCore::String& challenge, const WebCore::KURL& url);
-    virtual WebCore::String resolveFileNameForContentUri(const WebCore::String& uri);
+    virtual WebCore::String resolveFilePathForContentUri(const WebCore::String& uri);
 
     ////////////////////////////////////////////
 
@@ -122,7 +122,7 @@ private:
     jmethodID   mSignalFuncPtrQueue;
     jmethodID   mGetKeyStrengthList;
     jmethodID   mGetSignedPublicKey;
-    jmethodID   mResolveFileNameForContentUri;
+    jmethodID   mResolveFilePathForContentUri;
 };
 
 static void (*sSharedTimerFiredCallback)();
@@ -142,7 +142,7 @@ JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
     mSignalFuncPtrQueue = env->GetMethodID(clazz, "signalServiceFuncPtrQueue", "()V");
     mGetKeyStrengthList = env->GetMethodID(clazz, "getKeyStrengthList", "()[Ljava/lang/String;");
     mGetSignedPublicKey = env->GetMethodID(clazz, "getSignedPublicKey", "(ILjava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
-    mResolveFileNameForContentUri = env->GetMethodID(clazz, "resolveFileNameForContentUri", "(Ljava/lang/String;)Ljava/lang/String;");
+    mResolveFilePathForContentUri = env->GetMethodID(clazz, "resolveFilePathForContentUri", "(Ljava/lang/String;)Ljava/lang/String;");
 
     LOG_ASSERT(mSetSharedTimer, "Could not find method setSharedTimer");
     LOG_ASSERT(mStopSharedTimer, "Could not find method stopSharedTimer");
@@ -314,11 +314,11 @@ WebCore::String JavaBridge::getSignedPublicKeyAndChallengeString(unsigned index,
     return ret;
 }
 
-WebCore::String JavaBridge::resolveFileNameForContentUri(const WebCore::String& uri) {
+WebCore::String JavaBridge::resolveFilePathForContentUri(const WebCore::String& uri) {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring jUri = env->NewString(uri.characters(), uri.length());
     AutoJObject obj = getRealObject(env, mJavaObject);
-    jstring path = static_cast<jstring>(env->CallObjectMethod(obj.get(), mResolveFileNameForContentUri, jUri));
+    jstring path = static_cast<jstring>(env->CallObjectMethod(obj.get(), mResolveFilePathForContentUri, jUri));
     WebCore::String ret = to_string(env, path);
     env->DeleteLocalRef(jUri);
     env->DeleteLocalRef(path);

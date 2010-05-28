@@ -46,6 +46,12 @@ String sPluginPath;
 
 CString fileSystemRepresentation(const String& path)
 {
+    // If the path is a content:// URI then ask Java to resolve it for us.
+    if (path.startsWith("content://"))
+        return PlatformBridge::resolveFilePathForContentUri(path).utf8();
+    else if (path.startsWith("file://"))
+        return path.substring(strlen("file://")).utf8();
+
     return path.utf8();
 }
 
@@ -107,13 +113,15 @@ Vector<String> listDirectory(const String& path, const String& filter)
     return entries;
 }
 
+// We define our own pathGetFileName rather than use the POSIX versions as we
+// may get passed a content URI representing the path to the file. We pass
+// the input through fileSystemRepresentation before using it to resolve it if
+// it is a content URI.
 String pathGetFileName(const String& path)
 {
-    // If the path is a content:// URI then ask Java to resolve it for us.
-    if (path.startsWith("content://"))
-        return PlatformBridge::resolveFileNameForContentUri(path);
-    else
-        return path.substring(path.reverseFind('/') + 1);
+    CString fsRep = fileSystemRepresentation(path);
+    String fsPath = String(fsRep.data());
+    return fsPath.substring(fsPath.reverseFind('/') + 1);
 }
 
 
