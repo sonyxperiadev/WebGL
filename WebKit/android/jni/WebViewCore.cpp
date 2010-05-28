@@ -1184,6 +1184,12 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
     int oh = window->height();
     window->setSize(width, height);
     window->setVisibleSize(realScreenWidth, screenHeight);
+    if (width > 0) {
+        m_mainFrame->view()->setUseFixedLayout(true);
+        m_mainFrame->view()->setFixedLayoutSize(IntSize(width, height));
+    } else {
+        m_mainFrame->view()->setUseFixedLayout(false);
+    }
     int osw = m_screenWidth;
     int orsw = m_screenWidth * m_screenWidthScale / m_scale;
     int osh = m_screenHeight;

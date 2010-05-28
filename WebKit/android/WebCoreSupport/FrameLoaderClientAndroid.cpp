@@ -909,14 +909,17 @@ void FrameLoaderClientAndroid::transitionToCommittedForNewPage() {
     // Save the old WebFrameView's bounds and apply them to the new WebFrameView
     WebFrameView* oldWebFrameView = static_cast<WebFrameView*> (m_frame->view()->platformWidget());
     IntRect bounds = oldWebFrameView->getBounds();
+    IntRect visBounds = oldWebFrameView->getVisibleBounds();
     IntRect windowBounds = oldWebFrameView->getWindowBounds();
     WebCore::FrameView* oldFrameView = oldWebFrameView->view();
-    m_frame->createView(bounds.size(), oldFrameView->baseBackgroundColor(), oldFrameView->isTransparent(), IntSize(), false);
+    m_frame->createView(bounds.size(), oldFrameView->baseBackgroundColor(), oldFrameView->isTransparent(),
+            oldFrameView->fixedLayoutSize(), oldFrameView->useFixedLayout());
 
     // Create a new WebFrameView for the new FrameView
     WebFrameView* newFrameView = new WebFrameView(m_frame->view(), webViewCore);
     newFrameView->setLocation(bounds.x(), bounds.y());
     newFrameView->setSize(bounds.width(), bounds.height());
+    newFrameView->setVisibleSize(visBounds.width(), visBounds.height());
     newFrameView->setWindowBounds(windowBounds.x(), windowBounds.y(), windowBounds.width(), windowBounds.height());
     // newFrameView attaches itself to FrameView which Retains the reference, so
     // call Release for newFrameView
