@@ -107,7 +107,7 @@ void Widget::setIsSelected(bool isSelected)
     notImplemented();
 }
 
-int Widget::screenWidth() const
+int Widget::textWrapWidth() const
 {
     const Widget* widget = this;
     while (!widget->isFrameView()) {
@@ -121,7 +121,7 @@ int Widget::screenWidth() const
         static_cast<const ScrollView*>(widget));
     if (!core)
         return 0;
-    return core->screenWidth();
+    return core->textWrapWidth();
 }
 
 } // WebCore namepsace

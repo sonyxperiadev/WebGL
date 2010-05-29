@@ -44,9 +44,9 @@ public:
     static void UpdateHistoryIndex(const AutoJObject&, int);
 };
 
-// there are two scale factors saved with each history item. mScale reflects the
-// viewport scale factor, default to 100 means 100%. mScreenWidthScale records
-// the scale factor for the screen width used to wrap the text paragraph.
+// there are two scale factors saved with each history item. m_scale reflects the
+// viewport scale factor, default to 100 means 100%. m_textWrapScale records
+// the scale factor for wrapping the text paragraph.
 class WebHistoryItem : public WebCore::AndroidWebHistoryBridge {
 public:
     WebHistoryItem(WebHistoryItem* parent)

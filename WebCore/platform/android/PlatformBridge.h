@@ -129,8 +129,6 @@ public:
     static void setUIRootLayer(const FrameView* view, const LayerAndroid* layer);
     static void immediateRepaint(const FrameView* view);
 #endif // USE(ACCELERATED_COMPOSITING)
-    static int screenWidth(const FrameView* view);
-    static int screenHeight(const FrameView* view);
 
     // Whether the WebView is paused.
     // ANDROID

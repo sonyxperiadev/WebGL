@@ -170,15 +170,9 @@ namespace android {
 
         /**
          * Notify the view to restore the screen width, which in turn restores
-         * the scale.
+         * the scale. Also restore the scale for the text wrap.
          */
-        void restoreScale(int);
-
-        /**
-         * Notify the view to restore the scale used to calculate the screen
-         * width for wrapping the text
-         */
-        void restoreScreenWidthScale(int);
+        void restoreScale(int scale, int textWrapScale);
 
         /**
          * Tell the java side to update the focused textfield
@@ -465,10 +459,9 @@ namespace android {
 
         // record the inval area, and the picture size
         bool recordContent(SkRegion* , SkIPoint* );
-        int screenWidth() const { return m_screenWidth; }
-        int screenHeight() const { return m_screenHeight; }
+        int textWrapWidth() const { return m_textWrapWidth; }
         float scale() const { return m_scale; }
-        float screenWidthScale() const { return m_screenWidthScale; }
+        float textWrapScale() const { return m_screenWidth * m_scale / m_textWrapWidth; }
         WebCore::Frame* mainFrame() const { return m_mainFrame; }
         void updateCursorBounds(const CachedRoot* root,
                 const CachedFrame* cachedFrame, const CachedNode* cachedNode);
@@ -551,8 +544,8 @@ namespace android {
         CachedHistory m_history;
         int m_screenWidth; // width of the visible rect in document coordinates
         int m_screenHeight;// height of the visible rect in document coordinates
+        int m_textWrapWidth;
         float m_scale;
-        float m_screenWidthScale;
         unsigned m_domtree_version;
         bool m_check_domtree_version;
         PageGroup* m_groupForVisitedLinks;

@@ -236,7 +236,6 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_updateTextSelection;
     jmethodID   m_clearTextEntry;
     jmethodID   m_restoreScale;
-    jmethodID   m_restoreScreenWidthScale;
     jmethodID   m_needTouchEvents;
     jmethodID   m_requestKeyboard;
     jmethodID   m_requestKeyboardWithSelection;
@@ -293,8 +292,8 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_maxYScroll = 240/4;
     m_textGeneration = 0;
     m_screenWidth = 320;
+    m_textWrapWidth = 320;
     m_scale = 1;
-    m_screenWidthScale = 1;
 #if ENABLE(TOUCH_EVENTS)
     m_forwardingTouchEvents = false;
 #endif
@@ -326,8 +325,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_updateTextfield = GetJMethod(env, clazz, "updateTextfield", "(IZLjava/lang/String;I)V");
     m_javaGlue->m_updateTextSelection = GetJMethod(env, clazz, "updateTextSelection", "(IIII)V");
     m_javaGlue->m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
-    m_javaGlue->m_restoreScale = GetJMethod(env, clazz, "restoreScale", "(I)V");
-    m_javaGlue->m_restoreScreenWidthScale = GetJMethod(env, clazz, "restoreScreenWidthScale", "(I)V");
+    m_javaGlue->m_restoreScale = GetJMethod(env, clazz, "restoreScale", "(II)V");
     m_javaGlue->m_needTouchEvents = GetJMethod(env, clazz, "needTouchEvents", "(Z)V");
     m_javaGlue->m_requestKeyboard = GetJMethod(env, clazz, "requestKeyboard", "(Z)V");
     m_javaGlue->m_requestKeyboardWithSelection = GetJMethod(env, clazz, "requestKeyboardWithSelection", "(IIII)V");
@@ -1048,24 +1046,13 @@ void WebViewCore::updateViewport()
     checkException(env);
 }
 
-void WebViewCore::restoreScale(int scale)
+void WebViewCore::restoreScale(int scale, int textWrapScale)
 {
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_restoreScale, scale);
-    checkException(env);
-}
-
-void WebViewCore::restoreScreenWidthScale(int scale)
-{
-    DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
-    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
-
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
-            m_javaGlue->m_restoreScreenWidthScale, scale);
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_restoreScale, scale, textWrapScale);
     checkException(env);
 }
 
@@ -1176,49 +1163,45 @@ void WebViewCore::setGlobalBounds(int x, int y, int h, int v)
 }
 
 void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
-    int screenWidth, float scale, int realScreenWidth, int screenHeight,
+    int textWrapWidth, float scale, int screenWidth, int screenHeight,
     int anchorX, int anchorY, bool ignoreHeight)
 {
     WebCoreViewBridge* window = m_mainFrame->view()->platformWidget();
     int ow = window->width();
     int oh = window->height();
     window->setSize(width, height);
-    window->setVisibleSize(realScreenWidth, screenHeight);
-    if (width > 0) {
+    window->setVisibleSize(screenWidth, screenHeight);
+    if (width != screenWidth) {
         m_mainFrame->view()->setUseFixedLayout(true);
         m_mainFrame->view()->setFixedLayoutSize(IntSize(width, height));
     } else {
         m_mainFrame->view()->setUseFixedLayout(false);
     }
     int osw = m_screenWidth;
-    int orsw = m_screenWidth * m_screenWidthScale / m_scale;
     int osh = m_screenHeight;
+    int otw = m_textWrapWidth;
     DBG_NAV_LOGD("old:(w=%d,h=%d,sw=%d,scale=%g) new:(w=%d,h=%d,sw=%d,scale=%g)",
         ow, oh, osw, m_scale, width, height, screenWidth, scale);
     m_screenWidth = screenWidth;
     m_screenHeight = screenHeight;
-    if (scale >= 0) { // negative means ignore
+    m_textWrapWidth = textWrapWidth;
+    if (scale >= 0) // negative means keep the current scale
         m_scale = scale;
-        if (screenWidth != realScreenWidth)
-            m_screenWidthScale = realScreenWidth * scale / screenWidth;
-        else
-            m_screenWidthScale = m_scale;
-    }
     m_maxXScroll = screenWidth >> 2;
-    m_maxYScroll = (screenWidth * height / width) >> 2;
-    if (ow != width || (!ignoreHeight && oh != height) || osw != screenWidth) {
+    m_maxYScroll = m_maxXScroll * height / width;
+    if (ow != width || (!ignoreHeight && oh != height) || otw != textWrapWidth) {
         WebCore::RenderObject *r = m_mainFrame->contentRenderer();
         DBG_NAV_LOGD("renderer=%p view=(w=%d,h=%d)", r,
-            realScreenWidth, screenHeight);
+                screenWidth, screenHeight);
         if (r) {
             WebCore::IntPoint anchorPoint = WebCore::IntPoint(anchorX, anchorY);
             DBG_NAV_LOGD("anchorX=%d anchorY=%d", anchorX, anchorY);
-            WebCore::Node* node = 0;
+            RefPtr<WebCore::Node> node;
             WebCore::IntRect bounds;
             WebCore::IntPoint offset;
-            // If the screen width changed, it is probably zoom change or
+            // If the text wrap changed, it is probably zoom change or
             // orientation change. Try to keep the anchor at the same place.
-            if (osw && screenWidth && osw != screenWidth) {
+            if (otw && textWrapWidth && otw != textWrapWidth) {
                 WebCore::HitTestResult hitTestResult =
                         m_mainFrame->eventHandler()-> hitTestResultAtPoint(
                                 anchorPoint, false);
@@ -1248,19 +1231,19 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
                 DBG_NAV_LOGD("nb:(x=%d,y=%d,w=%d,"
                     "h=%d)", newBounds.x(), newBounds.y(),
                     newBounds.width(), newBounds.height());
-                if ((orsw && osh && bounds.width() && bounds.height())
+                if ((osw && osh && bounds.width() && bounds.height())
                     && (bounds != newBounds)) {
                     WebCore::FrameView* view = m_mainFrame->view();
                     // force left align if width is not changed while height changed.
                     // the anchorPoint is probably at some white space in the node
                     // which is affected by text wrap around the screen width.
-                    const bool leftAlign = (osw != m_screenWidth)
+                    const bool leftAlign = (otw != textWrapWidth)
                         && (bounds.width() == newBounds.width())
                         && (bounds.height() != newBounds.height());
                     const float xPercentInDoc =
                         leftAlign ? 0.0 : (float) (anchorX - bounds.x()) / bounds.width();
                     const float xPercentInView =
-                        leftAlign ? 0.0 : (float) (anchorX - m_scrollOffsetX) / orsw;
+                        leftAlign ? 0.0 : (float) (anchorX - m_scrollOffsetX) / osw;
                     const float yPercentInDoc = (float) (anchorY - bounds.y()) / bounds.height();
                     const float yPercentInView = (float) (anchorY - m_scrollOffsetY) / osh;
                     showRect(newBounds.x(), newBounds.y(), newBounds.width(),
@@ -2908,7 +2891,7 @@ static void UpdateFrameCacheIfLoading(JNIEnv *env, jobject obj)
 }
 
 static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
-        jint screenWidth, jfloat scale, jint realScreenWidth, jint screenHeight,
+        jint textWrapWidth, jfloat scale, jint screenWidth, jint screenHeight,
         jint anchorX, jint anchorY, jboolean ignoreHeight)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -2917,8 +2900,8 @@ static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOGV("webviewcore::nativeSetSize(%u %u)\n viewImpl: %p", (unsigned)width, (unsigned)height, viewImpl);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetSize");
-    viewImpl->setSizeScreenWidthAndScale(width, height, screenWidth, scale,
-        realScreenWidth, screenHeight, anchorX, anchorY, ignoreHeight);
+    viewImpl->setSizeScreenWidthAndScale(width, height, textWrapWidth, scale,
+            screenWidth, screenHeight, anchorX, anchorY, ignoreHeight);
 }
 
 static void SetScrollOffset(JNIEnv *env, jobject obj, jint gen, jint x, jint y)

@@ -276,7 +276,7 @@ private:
 #endif
 #if PLATFORM(ANDROID)
 public:
-    int screenWidth() const;
+    int textWrapWidth() const;
 #endif
 };
 

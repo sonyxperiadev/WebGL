@@ -419,9 +419,9 @@ static void write_item(WTF::Vector<char>& v, WebCore::HistoryItem* item)
     const int scale = bridge->scale();
     LOGV("Writing scale %d", scale);
     v.append((char*)&scale, sizeof(int));
-    const int screenWidthScale = bridge->screenWidthScale();
-    LOGV("Writing screen width scale %d", screenWidthScale);
-    v.append((char*)&screenWidthScale, sizeof(int));
+    const int textWrapScale = bridge->textWrapScale();
+    LOGV("Writing text wrap scale %d", textWrapScale);
+    v.append((char*)&textWrapScale, sizeof(int));
 
     // Document state
     const WTF::Vector<WebCore::String>& docState = item->documentState();
@@ -603,8 +603,8 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
     bridge->setScale(l);
     data += sizeofUnsigned;
     memcpy(&l, data, sizeofUnsigned);
-    LOGV("Screen width scale    %d", l);
-    bridge->setScreenWidthScale(l);
+    LOGV("Text wrap scale    %d", l);
+    bridge->setTextWrapScale(l);
     data += sizeofUnsigned;
 
     if (end - data < sizeofUnsigned)

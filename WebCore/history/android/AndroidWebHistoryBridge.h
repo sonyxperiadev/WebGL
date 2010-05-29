@@ -36,23 +36,23 @@ class AndroidWebHistoryBridge : public RefCounted<AndroidWebHistoryBridge> {
 public:
     AndroidWebHistoryBridge(HistoryItem* item)
         : m_scale(0)
-        , m_screenWidthScale(0)
+        , m_textWrapScale(0)
         , m_active(false)
         , m_historyItem(item) { }
     virtual ~AndroidWebHistoryBridge() { }
     virtual void updateHistoryItem(HistoryItem* item) = 0;
 
     void setScale(int s) { m_scale = s; }
-    void setScreenWidthScale(int s) { m_screenWidthScale = s; }
+    void setTextWrapScale(int s) { m_textWrapScale = s; }
     int scale() const { return m_scale; }
-    int screenWidthScale() const { return m_screenWidthScale; }
+    int textWrapScale() const { return m_textWrapScale; }
     void detachHistoryItem() { m_historyItem = 0; }
     HistoryItem* historyItem() const { return m_historyItem; }
     void setActive() { m_active = true; }
 
 protected:
     int m_scale;
-    int m_screenWidthScale;
+    int m_textWrapScale;
     bool m_active;
     HistoryItem* m_historyItem;
 };

@@ -62,18 +62,6 @@ void PlatformBridge::immediateRepaint(const WebCore::FrameView* view)
 
 #endif // USE(ACCELERATED_COMPOSITING)
 
-int PlatformBridge::screenWidth(const WebCore::FrameView* view)
-{
-    android::WebViewCore* core = android::WebViewCore::getWebViewCore(view);
-    return static_cast<int>((core->screenWidthScale() * core->screenWidth()) / core->scale());
-}
-
-int PlatformBridge::screenHeight(const WebCore::FrameView* view)
-{
-    android::WebViewCore* core = android::WebViewCore::getWebViewCore(view);
-    return core->screenHeight();
-}
-
 WTF::Vector<String> PlatformBridge::getSupportedKeyStrengthList()
 {
     KeyGeneratorClient* client = JavaSharedClient::GetKeyGeneratorClient();

@@ -271,7 +271,7 @@ void RenderTableSection::setCellWidths()
         const Settings* settings = document()->settings();
         ASSERT(settings);
         if (settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen)
-            visibleWidth = view()->frameView()->screenWidth();
+            visibleWidth = view()->frameView()->textWrapWidth();
     }
 #endif
 

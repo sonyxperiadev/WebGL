@@ -1293,7 +1293,7 @@ void RenderBox::calcWidth()
         const Settings* settings = document()->settings();
         ASSERT(settings);
         if (settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen) {
-            m_visibleWidth = view()->frameView()->screenWidth();
+            m_visibleWidth = view()->frameView()->textWrapWidth();
         }
     }
 #endif
