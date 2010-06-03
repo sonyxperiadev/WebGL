@@ -1408,8 +1408,8 @@ static jboolean HasPasswordField(JNIEnv *env, jobject obj)
     // class, but just normal Element class.
     while (node && !found && !node->namespaceURI().isNull() &&
            !node->namespaceURI().isEmpty()) {
-        WTF::Vector<WebCore::HTMLFormControlElement*>& elements =
-        		((WebCore::HTMLFormElement*)node)->formElements;
+        const WTF::Vector<WebCore::HTMLFormControlElement*>& elements =
+            ((WebCore::HTMLFormElement*)node)->associatedElements();
         size_t size = elements.size();
         for (size_t i = 0; i< size && !found; i++) {
             WebCore::HTMLFormControlElement* e = elements[i];
@@ -1439,8 +1439,8 @@ static jobjectArray GetUsernamePassword(JNIEnv *env, jobject obj)
     WebCore::Node* node = form->firstItem();
     while (node && !found && !node->namespaceURI().isNull() &&
            !node->namespaceURI().isEmpty()) {
-        WTF::Vector<WebCore::HTMLFormControlElement*>& elements =
-        		((WebCore::HTMLFormElement*)node)->formElements;
+        const WTF::Vector<WebCore::HTMLFormControlElement*>& elements =
+            ((WebCore::HTMLFormElement*)node)->associatedElements();
         size_t size = elements.size();
         for (size_t i = 0; i< size && !found; i++) {
             WebCore::HTMLFormControlElement* e = elements[i];
@@ -1485,8 +1485,8 @@ static void SetUsernamePassword(JNIEnv *env, jobject obj,
     WebCore::Node* node = form->firstItem();
     while (node && !found && !node->namespaceURI().isNull() &&
            !node->namespaceURI().isEmpty()) {
-        WTF::Vector<WebCore::HTMLFormControlElement*>& elements =
-        		((WebCore::HTMLFormElement*)node)->formElements;
+        const WTF::Vector<WebCore::HTMLFormControlElement*>& elements =
+            ((WebCore::HTMLFormElement*)node)->associatedElements();
         size_t size = elements.size();
         for (size_t i = 0; i< size && !found; i++) {
             WebCore::HTMLFormControlElement* e = elements[i];
@@ -1538,7 +1538,7 @@ static jobject GetFormTextData(JNIEnv *env, jobject obj)
              node = collection->nextItem()) {
             form = static_cast<WebCore::HTMLFormElement*>(node);
             if (form->autoComplete()) {
-                WTF::Vector<WebCore::HTMLFormControlElement*> elements = form->formElements;
+                WTF::Vector<WebCore::HTMLFormControlElement*> elements = form->associatedElements();
                 size_t size = elements.size();
                 for (size_t i = 0; i < size; i++) {
                     WebCore::HTMLFormControlElement* e = elements[i];
