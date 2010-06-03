@@ -99,13 +99,10 @@ void HTMLTableCellElement::parseMappedAttribute(Attribute* attr)
         if (renderer() && renderer()->isTableCell())
             toRenderTableCell(renderer())->updateFromElement();
     } else if (attr->name() == nowrapAttr) {
-<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
         if (!(document()->frame()) || document()->frame()->settings()->layoutAlgorithm() != Settings::kLayoutSSR)
 #endif
-=======
         // FIXME: What about removing the property when the attribute becomes null?
->>>>>>> webkit.org at r60469
         if (!attr->isNull())
             addCSSProperty(attr, CSSPropertyWhiteSpace, CSSValueWebkitNowrap);
     } else if (attr->name() == widthAttr) {

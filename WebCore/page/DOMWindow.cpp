@@ -954,15 +954,11 @@ int DOMWindow::innerHeight() const
     if (!view)
         return 0;
     
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
-    return static_cast<int>(view->actualHeight() / m_frame->pageZoomFactor());
+    return static_cast<int>(view->actualHeight() / view->pageZoomFactor());
 #else
-    return static_cast<int>(view->height() / m_frame->pageZoomFactor());
-#endif
-=======
     return static_cast<int>(view->height() / view->pageZoomFactor());
->>>>>>> webkit.org at r60469
+#endif
 }
 
 int DOMWindow::innerWidth() const
@@ -974,15 +970,11 @@ int DOMWindow::innerWidth() const
     if (!view)
         return 0;
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
-    return static_cast<int>(view->actualWidth() / m_frame->pageZoomFactor());
+    return static_cast<int>(view->actualWidth() / view->pageZoomFactor());
 #else
-    return static_cast<int>(view->width() / m_frame->pageZoomFactor());
-#endif
-=======
     return static_cast<int>(view->width() / view->pageZoomFactor());
->>>>>>> webkit.org at r60469
+#endif
 }
 
 int DOMWindow::screenX() const
@@ -1020,15 +1012,11 @@ int DOMWindow::scrollX() const
 
     m_frame->document()->updateLayoutIgnorePendingStylesheets();
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
-    return static_cast<int>(view->actualScrollX() / m_frame->pageZoomFactor());
+    return static_cast<int>(view->actualScrollX() / view->pageZoomFactor());
 #else
-    return static_cast<int>(view->scrollX() / m_frame->pageZoomFactor());
-#endif
-=======
     return static_cast<int>(view->scrollX() / view->pageZoomFactor());
->>>>>>> webkit.org at r60469
+#endif
 }
 
 int DOMWindow::scrollY() const
@@ -1042,15 +1030,11 @@ int DOMWindow::scrollY() const
 
     m_frame->document()->updateLayoutIgnorePendingStylesheets();
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
-    return static_cast<int>(view->actualScrollY() / m_frame->pageZoomFactor());
+    return static_cast<int>(view->actualScrollY() / view->pageZoomFactor());
 #else
-    return static_cast<int>(view->scrollY() / m_frame->pageZoomFactor());
-#endif
-=======
     return static_cast<int>(view->scrollY() / view->pageZoomFactor());
->>>>>>> webkit.org at r60469
+#endif
 }
 
 bool DOMWindow::closed() const

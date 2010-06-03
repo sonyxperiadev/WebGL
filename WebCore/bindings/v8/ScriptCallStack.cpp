@@ -52,17 +52,13 @@ ScriptCallStack* ScriptCallStack::create(const v8::Arguments& arguments, unsigne
 
 bool ScriptCallStack::callLocation(String* sourceName, int* sourceLineNumber, String* functionName)
 {
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     return false;
 #else
-    if (!topStackFrame(*sourceName, *sourceLineNumber, *functionName))
-=======
     v8::HandleScope scope;
     v8::Context::Scope contextScope(v8::Context::GetCurrent());
     v8::Handle<v8::StackTrace> stackTrace(v8::StackTrace::CurrentStackTrace(1));
     if (stackTrace.IsEmpty())
->>>>>>> webkit.org at r60469
         return false;
     if (stackTrace->GetFrameCount() <= 0) {
         // Successfully grabbed stack trace, but there are no frames.

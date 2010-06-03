@@ -111,12 +111,8 @@ private:
 
     // from CachedResourceClient
     virtual void setCSSStyleSheet(const String& href, const KURL& baseURL, const String& charset, const CachedCSSStyleSheet* sheet);
-<<<<<<< HEAD
     virtual void notifyFinished(CachedResource*);
 
-    bool isLoading() const;
-=======
->>>>>>> webkit.org at r60469
     virtual bool sheetLoaded();
 
     bool isAlternate() const { return m_disabledState == Unset && m_relAttribute.m_isAlternate; }
@@ -133,7 +129,6 @@ private:
 
     virtual void finishParsingChildren();
 
-<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
     // Overridden to resolve the ambiguous
     void* operator new(size_t size);
@@ -142,12 +137,9 @@ private:
     void operator delete[](void* p, size_t size);
 #endif
 
-protected:
-    void timerFired(Timer<HTMLLinkElement>*);
-=======
 private:
+    void timerFired(Timer<HTMLLinkElement>*);
     HTMLLinkElement(const QualifiedName&, Document*, bool createdByParser);
->>>>>>> webkit.org at r60469
 
     enum DisabledState {
         Unset,
