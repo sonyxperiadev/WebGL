@@ -27,6 +27,13 @@
 #include "HTMLFormControlElement.h"
 #include "OptionElement.h"
 
+#if PLATFORM(ANDROID)
+namespace android {
+class WebViewCore;
+class ListBoxReply;
+};
+#endif
+
 namespace WebCore {
 
 class HTMLSelectElement;
@@ -34,6 +41,11 @@ class HTMLSelectElement;
 class HTMLOptionElement : public HTMLFormControlElement, public OptionElement {
     friend class HTMLSelectElement;
     friend class RenderMenuList;
+#if PLATFORM(ANDROID)
+    friend class RenderThemeAndroid;
+    friend class android::WebViewCore;
+    friend class android::ListBoxReply;
+#endif
 
 public:
     static PassRefPtr<HTMLOptionElement> create(Document*, HTMLFormElement*);
