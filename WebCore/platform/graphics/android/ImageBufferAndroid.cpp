@@ -209,7 +209,7 @@ void ImageBuffer::putUnmultipliedImageData(ImageData* source, const IntRect& sou
 }
 
     
-String ImageBuffer::toDataURL(const String&) const
+String ImageBuffer::toDataURL(const String&, double) const
 {  
     // Encode the image into a vector.
     SkDynamicMemoryWStream pngStream;
