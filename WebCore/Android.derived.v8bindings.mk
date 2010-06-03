@@ -337,10 +337,6 @@ GEN := \
     $(intermediates)/bindings/V8Database.h \
     $(intermediates)/bindings/V8DatabaseCallback.h \
     $(intermediates)/bindings/V8DatabaseSync.h \
-    $(intermediates)/bindings/V8IDBEvent.h \
-    $(intermediates)/bindings/V8IDBErrorEvent.h \
-    $(intermediates)/bindings/V8IDBRequest.h \
-    $(intermediates)/bindings/V8IDBSuccessEvent.h \
     $(intermediates)/bindings/V8SQLError.h \
     $(intermediates)/bindings/V8SQLResultSet.h \
     $(intermediates)/bindings/V8SQLResultSetRowList.h \

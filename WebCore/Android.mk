@@ -276,6 +276,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLTokenizer.cpp \
 	html/HTMLViewSourceDocument.cpp \
 	html/ImageData.cpp \
+	html/LabelsNodeList.cpp \
 	html/PreloadScanner.cpp \
 	html/StepRange.cpp \
 	html/TimeRanges.cpp \
@@ -401,6 +402,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/GeolocationService.cpp \
 	platform/KURL.cpp \
 	platform/KURLGoogle.cpp \
+	platform/KillRingNone.cpp \
 	platform/Length.cpp \
 	platform/LinkHash.cpp \
 	platform/Logging.cpp \
@@ -589,7 +591,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	plugins/PluginArray.cpp \
 	plugins/PluginData.cpp \
 	plugins/PluginDatabase.cpp \
-	plugins/PluginInfoStore.cpp \
 	plugins/PluginMainThreadScheduler.cpp \
 	plugins/PluginPackage.cpp \
 	plugins/PluginStream.cpp \
@@ -777,7 +778,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/IDBSuccessEvent.cpp \
 	storage/IndexedDatabase.cpp \
 	storage/IndexedDatabaseImpl.cpp \
-	storage/IndexedDatabaseRequest.cpp
+	storage/IndexedDatabaseRequest.cpp \
 	storage/LocalStorageTask.cpp \
 	storage/LocalStorageThread.cpp \
 	storage/OriginQuotaManager.cpp \
