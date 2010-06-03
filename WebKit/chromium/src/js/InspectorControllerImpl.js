@@ -56,6 +56,8 @@ devtools.InspectorBackendImpl = function()
     this.installInspectorControllerDelegate_("getEventListenersForNode");
     this.installInspectorControllerDelegate_("getProfile");
     this.installInspectorControllerDelegate_("getProfileHeaders");
+    this.installInspectorControllerDelegate_("removeProfile");
+    this.installInspectorControllerDelegate_("clearProfiles");
     this.installInspectorControllerDelegate_("getResourceContent");
     this.installInspectorControllerDelegate_("highlightDOMNode");
     this.installInspectorControllerDelegate_("hideDOMNodeHighlight");
@@ -80,6 +82,8 @@ devtools.InspectorBackendImpl = function()
     this.installInspectorControllerDelegate_("getStyles");
     this.installInspectorControllerDelegate_("getComputedStyle");
     this.installInspectorControllerDelegate_("getInlineStyle");
+    this.installInspectorControllerDelegate_("getStyleSheet");
+    this.installInspectorControllerDelegate_("getRuleRangesForStyleSheetId");
     this.installInspectorControllerDelegate_("applyStyleText");
     this.installInspectorControllerDelegate_("setStyleText");
     this.installInspectorControllerDelegate_("setStyleProperty");
@@ -94,7 +98,6 @@ devtools.InspectorBackendImpl = function()
     this.installInspectorControllerDelegate_("removeBreakpoint");
     this.installInspectorControllerDelegate_("activateBreakpoints");
     this.installInspectorControllerDelegate_("deactivateBreakpoints");
-    this.installInspectorControllerDelegate_("pauseInDebugger");
     this.installInspectorControllerDelegate_("resumeDebugger");
     this.installInspectorControllerDelegate_("stepIntoStatementInDebugger");
     this.installInspectorControllerDelegate_("stepOutOfFunctionInDebugger");
@@ -215,6 +218,13 @@ devtools.InspectorBackendImpl.prototype.pauseOnExceptions = function()
 devtools.InspectorBackendImpl.prototype.setPauseOnExceptions = function(value)
 {
     return devtools.tools.getDebuggerAgent().setPauseOnExceptions(value);
+};
+
+} else {
+
+devtools.InspectorBackendImpl.prototype.pauseInDebugger = function()
+{
+    RemoteDebuggerCommandExecutor.DebuggerPauseScript();
 };
 
 }

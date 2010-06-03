@@ -1,3 +1,566 @@
+2010-05-31  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Chromium: save inspector settings as dictionary, not as string.
+        https://bugs.webkit.org/show_bug.cgi?id=32118
+
+        * public/WebView.h:
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::didUpdateInspectorSetting):
+        * src/InspectorClientImpl.cpp:
+        (WebKit::InspectorClientImpl::populateSetting):
+        (WebKit::InspectorClientImpl::storeSetting):
+        * src/InspectorClientImpl.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+        (WebKit::WebViewImpl::inspectorSetting):
+        (WebKit::WebViewImpl::setInspectorSetting):
+        * src/WebViewImpl.h:
+
+2010-05-31  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Expose html5 parser enabled flag in WebSettings
+        https://bugs.webkit.org/show_bug.cgi?id=39913
+
+        * public/WebSettings.h:
+        * src/WebSettingsImpl.cpp:
+        (WebKit::WebSettingsImpl::setHTML5ParserEnabled):
+        * src/WebSettingsImpl.h:
+
+2010-05-31  Lyon Chen  <liachen@rim.com>
+
+        Reviewed by Kent Tamura.
+
+        Enum value FORWARD, BACKWARD, RIGHT, LEFT are causing macro conflicts.
+        https://bugs.webkit.org/show_bug.cgi?id=35530
+
+        Change enum EAlteration from { MOVE, EXTEND } to { AlterationMove, AlterationExtend } and enum EDirection { FORWARD, BACKWARD, RIGHT, LEFT} to { DirectionForward, DirectionBackward, DirectionRight, DirectionLeft } to avoid macro conflict, and also better coding style conformance.
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::executeCommand):
+
+2010-05-31  Roland Steiner  <rolandsteiner@chromium.org>
+
+        Bug 39977 - Missing Chromium bindings for InspectorController methods introduced in r60443
+        https://bugs.webkit.org/show_bug.cgi?id=39977
+        
+        add missing InspectorController JS bindings:
+        - getStyleSheet
+        - getRuleRangesForStyleSheetId
+        
+        Tests: inspector/styles-source-offsets.html
+
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+
+2010-05-31  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r60456.
+        http://trac.webkit.org/changeset/60456
+        https://bugs.webkit.org/show_bug.cgi?id=39974
+
+        Broke Chromium Linux/Max build (Requested by tkent on
+        #webkit).
+
+        * DEPS:
+
+2010-05-31  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Checking out lighttpd
+        https://bugs.webkit.org/show_bug.cgi?id=39948
+
+        - Checking out lighttpd only on Windows. It is used by new-run-webkit-tests.
+        - Update Chromium revision to use Windows resource query code
+
+        * DEPS:
+
+2010-05-31  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: allow hiding Scripts panel from Chromium code. This
+        is needed to support v8 debugging protocol which has an implementation
+        that conflicts with debugger provided by the inspector.
+        https://bugs.webkit.org/show_bug.cgi?id=39952
+
+        * public/WebDevToolsAgentClient.h:
+        (WebKit::WebDevToolsAgentClient::exposeV8DebuggerProtocol):
+        * public/WebDevToolsFrontendClient.h:
+        (WebKit::WebDevToolsFrontendClient::WebDevToolsFrontendClient):
+        (WebKit::WebDevToolsFrontendClient::sendMessageToAgent):
+        (WebKit::WebDevToolsFrontendClient::sendDebuggerCommandToAgent):
+        (WebKit::WebDevToolsFrontendClient::sendDebuggerPauseScript):
+        (WebKit::WebDevToolsFrontendClient::activateWindow):
+        (WebKit::WebDevToolsFrontendClient::closeWindow):
+        (WebKit::WebDevToolsFrontendClient::requestDockWindow):
+        (WebKit::WebDevToolsFrontendClient::requestUndockWindow):
+        (WebKit::WebDevToolsFrontendClient::hideScriptsPanel):
+        * src/DebuggerAgentManager.cpp:
+        (WebKit::DebuggerAgentManager::debugAttach):
+        (WebKit::DebuggerAgentManager::debugDetach):
+        (WebKit::DebuggerAgentManager::setExposeV8DebuggerProtocol):
+        * src/DebuggerAgentManager.h:
+        * src/InspectorFrontendClientImpl.cpp:
+        (WebKit::InspectorFrontendClientImpl::hiddenPanels):
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::WebDevToolsAgentImpl):
+        (WebKit::WebDevToolsAgentImpl::attach):
+
+2010-05-30  Lyon Chen  <liachen@rim.com>
+
+        Reviewed by Kent Tamura.
+
+        This is a coding style cleanup before fixing to bug 35530.
+
+        Enum value FORWARD, BACKWARD, RIGHT, LEFT are causing macro conflicts.
+        https://bugs.webkit.org/show_bug.cgi?id=35530
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::find):
+        (WebKit::WebFrameImpl::scopeStringMatches):
+        (WebKit::WebFrameImpl::createChildFrame):
+        (WebKit::WebFrameImpl::shouldScopeMatches):
+
+2010-05-30  Daniel Bates  <dbates@rim.com>
+
+        Unreviewed, attempt to fix the build after http://trac.webkit.org/changeset/60418.
+
+        I missed a few call sites in the Chromium source when I
+        landed http://trac.webkit.org/changeset/60419.
+
+        Credit to Chris Jerdonek for looking over both this patch and the patch
+        committed in r60419.
+
+        * src/WebSearchableFormData.cpp:
+        (WebCore::GetButtonToActivate):
+        (WebCore::HasSuitableTextElement):
+
+2010-05-30  Daniel Bates  <dbates@rim.com>
+
+        Unreviewed, attempt to fix the build after http://trac.webkit.org/changeset/60418.
+
+        * src/EditorClientImpl.cpp:
+        (WebKit::EditorClientImpl::autofill):
+        * src/WebFormControlElement.cpp:
+        (WebKit::WebFormControlElement::formControlName):
+        (WebKit::WebFormControlElement::formControlType):
+        * src/WebFormElement.cpp:
+        (WebKit::WebFormElement::getFormControlElements):
+        * src/WebPasswordFormUtils.cpp:
+        (WebKit::findPasswordFormFields):
+
+2010-05-30  Jessie Berlin  <jberlin@webkit.org>
+
+        Reviewed by Pavel Feldman.
+
+        https://bugs.webkit.org/show_bug.cgi?id=39224
+        Bug 39224 - Web Inspector: There should be a way to clean up profiles
+
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+
+2010-05-29  Vangelis Kokkevis  <vangelis@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Adding support for a runtime flag to enable accelerated
+        compositing in chromium.
+        https://bugs.webkit.org/show_bug.cgi?id=39917
+
+        * public/WebSettings.h:
+        * src/WebSettingsImpl.cpp:
+        (WebKit::WebSettingsImpl::setAcceleratedCompositingEnabled):
+        * src/WebSettingsImpl.h:
+
+2010-05-28  Aaron Boodman  <aa@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Add isXHTMLDocument() to WebDocument.
+
+        https://bugs.webkit.org/show_bug.cgi?id=39887
+
+        * public/WebDocument.h: Add isXHTMLDocument().
+        * src/WebDocument.cpp: ditto.
+        (WebKit::WebDocument::isXHTMLDocument): dittorama.
+
+2010-05-27  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Add IndexedDB's IDBIndex
+        https://bugs.webkit.org/show_bug.cgi?id=39850
+
+        Add WebKit layer for IDBIndex.
+
+        * WebKit.gyp:
+        * public/WebCommon.h:
+        * public/WebIDBCallbacks.h:
+        (WebKit::WebIDBCallbacks::onError):
+        (WebKit::WebIDBCallbacks::onSuccess):
+        * public/WebIDBDatabase.h:
+        * public/WebIDBIndex.h: Added.
+        (WebKit::WebIDBIndex::~WebIDBIndex):
+        (WebKit::WebIDBIndex::name):
+        (WebKit::WebIDBIndex::keyPath):
+        (WebKit::WebIDBIndex::unique):
+        * src/IDBCallbacksProxy.cpp:
+        (WebCore::IDBCallbacksProxy::onSuccess):
+        * src/IDBCallbacksProxy.h:
+        * src/IDBDatabaseProxy.cpp:
+        * src/IDBDatabaseProxy.h:
+        * src/IDBIndexProxy.cpp: Added.
+        (WebCore::IDBIndexProxy::create):
+        (WebCore::IDBIndexProxy::IDBIndexProxy):
+        (WebCore::IDBIndexProxy::~IDBIndexProxy):
+        (WebCore::IDBIndexProxy::name):
+        (WebCore::IDBIndexProxy::keyPath):
+        (WebCore::IDBIndexProxy::unique):
+        * src/IDBIndexProxy.h: Added.
+        * src/WebIDBCallbacksImpl.cpp:
+        (WebCore::WebIDBCallbacksImpl::onSuccess):
+        * src/WebIDBCallbacksImpl.h:
+        * src/WebIDBDatabaseImpl.cpp:
+        * src/WebIDBDatabaseImpl.h:
+        * src/WebIDBIndexImpl.cpp: Added.
+        (WebKit::WebIDBIndexImpl::WebIDBIndexImpl):
+        (WebKit::WebIDBIndexImpl::~WebIDBIndexImpl):
+        (WebKit::WebIDBIndexImpl::name):
+        (WebKit::WebIDBIndexImpl::keyPath):
+        (WebKit::WebIDBIndexImpl::unique):
+        * src/WebIDBIndexImpl.h: Added.
+
+2010-05-28  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: check that ClientMessageLoopAdapter is not 0 before
+        accessing its fileds from inspectedViewClosed method. It may be 0
+        if inspector frontend has not been open.
+        https://bugs.webkit.org/show_bug.cgi?id=39876
+
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::):
+
+2010-05-27  Eric Uhrhane  <ericu@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Add v8 bindings for async DB API in workers
+        https://bugs.webkit.org/show_bug.cgi?id=39145
+        
+        * src/DatabaseObserver.cpp:
+        We should check that we're on the context thread now, not the main
+        thread.
+        (WebCore::DatabaseObserver::databaseOpened):
+        (WebCore::DatabaseObserver::databaseModified):
+        (WebCore::DatabaseObserver::databaseClosed):
+
+2010-05-27  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Resume script execution if user tries to navigate to another URL
+        https://bugs.webkit.org/show_bug.cgi?id=39842
+
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::):
+        (WebKit::WebDevToolsAgentImpl::didNavigate):
+
+2010-05-27  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Implement lazy clearing of renderbuffers
+        https://bugs.webkit.org/show_bug.cgi?id=36248
+
+        * src/WebGraphicsContext3DDefaultImpl.cpp:
+        (WebKit::WebGraphicsContext3DDefaultImpl::reshape): Clear WebGL internal buffers.
+
+2010-05-26  Roland Steiner  <rolandsteiner@chromium.org>
+
+        Reviewed by NOBODY (layout test crashing fix).
+
+        Bug 39811 - WebPluginListBuilderImpl::addMediaTypeToLastPlugin does not initialize pluginIndex
+        https://bugs.webkit.org/show_bug.cgi?id=39811
+
+        Initialize the pluginIndex field (quick fix).
+
+        Tests: covered by fast/dom/prototype-inheritance-2.html
+        (crashed under Chromium Linux and Windows)
+
+        * src/WebPluginListBuilderImpl.cpp:
+        (WebKit::WebPluginListBuilderImpl::addMediaTypeToLastPlugin):
+
+2010-05-26  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Clean up MimeClassInfo and PluginInfo
+        https://bugs.webkit.org/show_bug.cgi?id=39700
+
+        Update for WebCore changes.
+
+        * src/WebPluginListBuilderImpl.cpp:
+        (WebKit::WebPluginListBuilderImpl::addPlugin):
+        (WebKit::WebPluginListBuilderImpl::addMediaTypeToLastPlugin):
+        (WebKit::WebPluginListBuilderImpl::addFileExtensionToLastMediaType):
+        * src/WebPluginListBuilderImpl.h:
+        (WebKit::WebPluginListBuilderImpl::WebPluginListBuilderImpl):
+
+2010-05-26  Jeremy Orlow  <jorlow@chromium.org>
+
+        Unreviewed chromium build fix
+        https://bugs.webkit.org/show_bug.cgi?id=39739
+
+        The backwards compat function needs to take in a WebSecurityOrigin
+        instead of a WebString.
+
+        * public/WebIndexedDatabase.h:
+        (WebKit::WebIndexedDatabase::open):
+
+2010-05-26  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Implement WebDOMStorageList and make WebIDBDatabase use it
+        https://bugs.webkit.org/show_bug.cgi?id=39731
+
+        * WebKit.gyp:
+        * public/WebDOMStringList.h: Added.
+        (WebKit::WebDOMStringList::~WebDOMStringList):
+        (WebKit::WebDOMStringList::WebDOMStringList):
+        (WebKit::WebDOMStringList::operator=):
+        * public/WebIDBDatabase.h:
+        (WebKit::WebIDBDatabase::objectStores):
+        * src/IDBDatabaseProxy.cpp:
+        (WebCore::IDBDatabaseProxy::objectStores):
+        * src/WebDOMStringList.cpp: Added.
+        (WebKit::WebDOMStringList::reset):
+        (WebKit::WebDOMStringList::assign):
+        (WebKit::WebDOMStringList::append):
+        (WebKit::WebDOMStringList::length):
+        (WebKit::WebDOMStringList::item):
+        (WebKit::WebDOMStringList::WebDOMStringList):
+        (WebKit::WebDOMStringList::operator=):
+        (WebKit::WebDOMStringList::operator WTF::PassRefPtr<WebCore::DOMStringList>):
+        * src/WebIDBDatabaseImpl.cpp:
+        (WebKit::WebIDBDatabaseImpl::objectStores):
+        * src/WebIDBDatabaseImpl.h:
+
+2010-05-24  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Add IDBDatabase's attributes
+        https://bugs.webkit.org/show_bug.cgi?id=39602
+
+        Plumbing to hook up the synchronous attribute requests
+        on IDBDatabase.
+
+        * public/WebIDBDatabase.h:
+        (WebKit::WebIDBDatabase::name):
+        (WebKit::WebIDBDatabase::description):
+        (WebKit::WebIDBDatabase::version):
+        (WebKit::WebIDBDatabase::objectStores):
+        * src/IDBDatabaseProxy.cpp:
+        (WebCore::IDBDatabaseProxy::name):
+        (WebCore::IDBDatabaseProxy::description):
+        (WebCore::IDBDatabaseProxy::version):
+        (WebCore::IDBDatabaseProxy::objectStores):
+        * src/IDBDatabaseProxy.h:
+        * src/WebIDBDatabaseImpl.cpp:
+        (WebKit::WebIDBDatabaseImpl::WebIDBDatabaseImpl):
+        (WebKit::WebIDBDatabaseImpl::name):
+        (WebKit::WebIDBDatabaseImpl::description):
+        (WebKit::WebIDBDatabaseImpl::version):
+        (WebKit::WebIDBDatabaseImpl::objectStores):
+        * src/WebIDBDatabaseImpl.h:
+
+2010-05-24  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Re-commit r58765 - it had been rolled out to see if it was causing
+        a perf regression (in r59787 and r59789), but that does not seem to
+        have been the case.
+
+        * public/WebNotification.h:
+        * src/WebNotification.cpp:
+        (WebKit::WebNotification::dir):
+        (WebKit::WebNotification::replaceId):
+
+2010-05-25  Brett Wilson  <brettw@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Remove obsolete code for Mac & Windows plugin creation in the Chromium
+        port. This non-Windows code was to prevent a crash which we no longer
+        seem to have, and it is preventing other types of plugins from working.
+        https://bugs.webkit.org/show_bug.cgi?id=39684
+
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::createPlugin):
+
+2010-05-25  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Enable 3D_CANVAS, FILTERS, METER_TAG and PROGRESS_TAG
+        https://bugs.webkit.org/show_bug.cgi?id=39652
+
+        3D_CANVAS and FILTERS have been enabled for Chromium tree
+        build. They fix dozens of unexpected test results in a case of
+        upstreaming build.
+        Enable METER_TAG and PROGRESS_TAG too because they will be enabled
+        in Chromium tree in the near future.
+
+        * features.gypi:
+
+2010-05-25  Vangelis Kokkevis  <vangelis@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        The GraphicsContext that serves as a backing store for the root layer
+        updates when doing accelerated compositing is now stored in LayerRendererChromium
+        instead of the Layer itself. Updating code in WebViewImpl to reflect
+        that change.
+        https://bugs.webkit.org/show_bug.cgi?id=39640
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::updateRootLayerContents):
+
+2010-05-24  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        ScriptDebugServer is now implemented as DebugEventListener which means it doesn't
+        depend on v8 debugging protocol, instead it uses ExecState to collect debugging
+        info and pass it to the listeners.
+
+        New implementation of ScriptDebugServer uses methods provided by client to dispatch
+        its messages while JS is paused(previously the messages was dispatched in a callback
+        passed to v8 along with DebugEventHandler).
+
+        Pause command is dispatched on IO thread.
+
+        https://bugs.webkit.org/show_bug.cgi?id=39594
+
+        * public/WebDevToolsAgentClient.h:
+        (WebKit::WebDevToolsAgentClient::ClientMessageLoop::~ClientMessageLoop):
+        (WebKit::WebDevToolsAgentClient::createClientMessageLoop): Returns an object that allows to run
+        nested client message loop while script execution is paused on a breakpoint.
+        * src/DebuggerAgentManager.cpp:
+        (WebKit::DebuggerAgentManager::setMessageLoopDispatchHandler):
+        * src/DebuggerAgentManager.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::):
+        (WebKit::WebDevToolsAgentImpl::~WebDevToolsAgentImpl):
+        (WebKit::WebDevToolsAgentImpl::attach):
+        * src/js/DebuggerScript.js:
+        (debuggerScriptConstructor.DebuggerScript.getAfterCompileScript):
+        (debuggerScriptConstructor.DebuggerScript.stepIntoStatement):
+        (debuggerScriptConstructor.DebuggerScript.stepOverStatement):
+        (debuggerScriptConstructor.DebuggerScript.stepOutOfFunction):
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+        (else.devtools.InspectorBackendImpl.prototype.pauseInDebugger): Pause command should be handled on IO
+        thread so that script can be paused even if it's in an infinite loop.
+
+2010-05-25  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Add memory graph to Timeline overview pane.
+
+        https://bugs.webkit.org/show_bug.cgi?id=37879
+
+        * src/js/devTools.css:
+        (.timeline-category-statusbar-item input):
+
+2010-05-24  Tony Chang  <tony@chromium.org>
+
+        Reviewed by David Levin.
+
+        [chromium] Fix zoom tests after r60104
+        https://bugs.webkit.org/show_bug.cgi?id=39645
+        
+        m_zoomFactor moved from Frame to FrameView.  FrameView has separate
+        notions of page zoom and text zoom.  In my hurried compile fix, I
+        assumed that m_zoomFactor was for page zoom, but it's not always.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setZoomLevel):
+
+2010-05-24  Kent Tamura  <tkent@chromium.org>
+
+        Unreviewed. Sort features.
+
+        * features.gypi:
+
+2010-05-24  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Import layout_test_helper for Windows
+        https://bugs.webkit.org/show_bug.cgi?id=39581
+
+        * WebKit.gyp: Add a build rule for LayoutTestHelper.exe for Windows.
+
+2010-05-24  Marcus Bulach  <bulach@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [chromium] Adds WebGeolocationServiceMockImpl to remove public dependency on wtf/HashMap.h
+        https://bugs.webkit.org/show_bug.cgi?id=39587
+
+        * public/WebGeolocationServiceMock.h:
+        * src/WebGeolocationServiceMock.cpp:
+        (WebKit::WebGeolocationServiceMockImpl::~WebGeolocationServiceMockImpl):
+        (WebKit::WebGeolocationServiceMock::createWebGeolocationServiceMock):
+        (WebKit::WebGeolocationServiceMockImpl::requestPermissionForFrame):
+        (WebKit::WebGeolocationServiceMockImpl::attachBridge):
+        (WebKit::WebGeolocationServiceMockImpl::detachBridge):
+
+2010-05-24  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [chromium] setup fonts on chromium linux DRT
+        https://bugs.webkit.org/show_bug.cgi?id=39644
+
+        * WebKit.gyp:
+
+2010-05-24  Tony Chang  <tony@chromium.org>
+
+        Not reviewed, build fix.
+
+        Fix the chromium compile due to pageZoomFactor refactoring.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setZoomLevel):
+
+2010-05-24  Darin Adler  <darin@apple.com>
+
+        Reviewed by Eric Seidel.
+
+        Move view-related functions from Frame to FrameView
+        https://bugs.webkit.org/show_bug.cgi?id=39366
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setZoomLevel): Call setZoomLevel on FrameView.
+
+2010-05-24  Anders Carlsson  <andersca@apple.com>
+
+        Attempt to fix the Chromium build.
+
+        * src/WebViewImpl.cpp:
+
 2010-05-21  Tony Chang  <tony@chromium.org>
 
         Reviewed by Ojan Vafai.
@@ -220,18 +783,6 @@
         * src/WebNotification.cpp:
         (WebKit::WebNotification::dir):
         (WebKit::WebNotification::replaceId):
-
-2010-05-18  Dirk Pranke  <dpranke@chromium.org>
-
-        Reviewed by Dimitri Glazkov.
-
-        Attempt to revert r58765 to see if it was causing a performance
-        regression.
-
-        https://bugs.webkit.org/show_bug.cgi?id=39328
-
-        * public/WebNotification.h:
-        * src/WebNotification.cpp:
 
 2010-05-19  Jian Li  <jianli@chromium.org>
 

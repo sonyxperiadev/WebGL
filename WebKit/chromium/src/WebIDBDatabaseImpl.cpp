@@ -10,9 +10,6 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
- *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -29,6 +26,7 @@
 #include "config.h"
 #include "WebIDBDatabaseImpl.h"
 
+#include "DOMStringList.h"
 #include "IDBDatabase.h"
 
 #if ENABLE(INDEXED_DATABASE)
@@ -38,11 +36,32 @@ using namespace WebCore;
 namespace WebKit {
 
 WebIDBDatabaseImpl::WebIDBDatabaseImpl(PassRefPtr<IDBDatabase> idbDatabase)
+    : m_idbDatabase(idbDatabase)
 {
 }
 
 WebIDBDatabaseImpl::~WebIDBDatabaseImpl()
 {
+}
+
+WebString WebIDBDatabaseImpl::name()
+{
+    return m_idbDatabase->name();
+}
+
+WebString WebIDBDatabaseImpl::description()
+{
+    return m_idbDatabase->description();
+}
+
+WebString WebIDBDatabaseImpl::version()
+{
+    return m_idbDatabase->version();
+}
+
+WebDOMStringList WebIDBDatabaseImpl::objectStores()
+{
+    return m_idbDatabase->objectStores();
 }
 
 } // namespace WebCore

@@ -26,6 +26,11 @@ package CodeGeneratorGObject;
 my %implIncludes = ();
 my %hdrIncludes = ();
 
+my $defineTypeMacro = "G_DEFINE_TYPE";
+my $defineTypeInterfaceImplementation = ")";
+my @txtEventListeners = ();
+my @txtInstallEventListeners = ();
+my @txtInstallSignals = ();
 my @txtInstallProps = ();
 my @txtSetProps = ();
 my @txtGetProps = ();
@@ -153,10 +158,6 @@ sub SkipAttribute {
     }
     
     my $propType = $attribute->signature->type;
-    if ($propType eq "EventListener") {
-        return 1;
-    }
-
     if ($propType =~ /Constructor$/) {
         return 1;
     }
@@ -198,10 +199,6 @@ sub SkipFunction {
         return 1;
     }
 
-    if ($function->signature->type eq "Event") {
-        return 1;
-    }
-
     if ($function->signature->name eq "getSVGDocument") {
         return 1;
     }
@@ -218,6 +215,7 @@ sub GetGValueTypeName {
     my $type = shift;
 
     my %types = ("DOMString", "string",
+                 "DOMTimeStamp", "uint",
                  "float", "float",
                  "double", "double",
                  "boolean", "boolean",
@@ -242,6 +240,7 @@ sub GetGlibTypeName {
     my $name = GetClassName($type);
 
     my %types = ("DOMString", "gchar* ",
+                 "DOMTimeStamp", "guint32",
                  "CompareHow", "gushort",
                  "float", "gfloat",
                  "double", "gdouble",
@@ -319,9 +318,6 @@ sub GenerateProperty {
 
     my $propType = $attribute->signature->type;
     my ${propGType} = decamelize($propType);
-    if ($propGType eq "event_target") {
-        $propGType = "event_target_node";
-    }
     my ${ucPropGType} = uc($propGType);
 
     my $gtype = GetGValueTypeName($propType);
@@ -446,6 +442,64 @@ EOF
     push(@txtInstallProps, $txtInstallProp);
 }
 
+my %breakWords = ("before" => 1, "can" => 1, "context" => 1, "dbl" => 1, "drag" => 1,
+                  "drag" => 1, "duration" => 1, "has" => 1, "key" => 1, "loaded" => 1,
+                  "mouse" => 1, "page" => 1, "pop" => 1, "rate" => 1, "select" => 1,
+                  "time" => 1, "touch" => 1, "volume" => 1);
+
+sub SplitEventListenerAttrName {
+    my $attrName = shift;
+
+    my @matches = grep { $attrName =~ /^$_/ } keys (%breakWords);
+
+    if (@matches && (length $matches[0] < length $attrName)) {
+        $attrName = $matches[0] . "-" . substr($attrName, length $matches[0]);
+    }
+
+    return $attrName;
+}
+
+sub EventSignalName {
+    my $attrName = shift;
+    my $name = SplitEventListenerAttrName($attrName) . "-event";
+
+    return $name;
+}
+
+sub GenerateEventListener {
+    my $attribute = shift;
+    my $object = shift;
+    my $interfaceName = shift;
+
+    my $name = $attribute->signature->name;
+    my $domSignalName = substr($name, 2);
+    my $gobjectSignalName = EventSignalName($domSignalName);
+
+    my $txtInstallSignal = << "EOF";
+    g_signal_new("${gobjectSignalName}",
+                 G_TYPE_FROM_CLASS(gobjectClass),
+                 G_SIGNAL_RUN_LAST,
+                 0,
+                 g_signal_accumulator_true_handled, 0,
+                 webkit_marshal_BOOLEAN__OBJECT,
+                 G_TYPE_BOOLEAN, 1,
+                 WEBKIT_TYPE_DOM_EVENT | G_SIGNAL_TYPE_STATIC_SCOPE);
+
+EOF
+    push(@txtInstallSignals, $txtInstallSignal);
+
+    my ${listenerName} = $domSignalName . "Listener";
+
+    my $txtInstallEventListener = << "EOF";
+    RefPtr<WebCore::GObjectEventListener> ${listenerName} = WebCore::GObjectEventListener::create(reinterpret_cast<GObject*>(wrapper), "${gobjectSignalName}");
+    coreObject->addEventListener("${domSignalName}", ${listenerName}, false);
+EOF
+    push(@txtInstallEventListeners, $txtInstallEventListener);
+
+    $implIncludes{"webkit/WebKitDOMEvent.h"} = 1;
+    $implIncludes{"GObjectEventListener.h"} = 1;
+}
+
 sub GenerateProperties {
     my ($object, $interfaceName, $dataNode) = @_;
 
@@ -506,7 +560,11 @@ EOF
     push(@txtSetProps, $txtSetProps);
 
     foreach my $attribute (@readableProperties) {
-        GenerateProperty($attribute, $interfaceName, \@writeableProperties);
+        if ($attribute->signature->type eq "EventListener") {
+            GenerateEventListener($attribute, $object, $interfaceName);
+        } else {
+            GenerateProperty($attribute, $interfaceName, \@writeableProperties);
+        }
     }
 
     push(@cBodyPriv, "};\n\n");
@@ -529,17 +587,13 @@ EOF
 EOF
     push(@txtSetProps, $txtSetProps);
 
-    # TODO: work out if it's appropriate to split this into many different
-    # signals e.g. "click" etc.
-    my $txtInstallSignals = "";
-
     $implContent = << "EOF";
 
 static void ${lowerCaseIfaceName}_finalize(GObject* object)
 {
     WebKitDOMObject* dom_object = WEBKIT_DOM_OBJECT(object);
     
-    if (dom_object->coreObject != NULL) {
+    if (dom_object->coreObject) {
         WebCore::${interfaceName}* coreObject = static_cast<WebCore::${interfaceName} *>(dom_object->coreObject);
 
         WebKit::DOMObjectCache::forget(coreObject);
@@ -563,8 +617,7 @@ static void ${lowerCaseIfaceName}_class_init(${className}Class* requestClass)
     gobjectClass->get_property = ${lowerCaseIfaceName}_get_property;
 
 @txtInstallProps
-
-$txtInstallSignals
+@txtInstallSignals
 }
 
 static void ${lowerCaseIfaceName}_init(${className}* request)
@@ -674,6 +727,11 @@ sub addIncludeInBody {
     }
 }
 
+# Some methods' body (only the body, since the public API can't be
+# conditional) should be guarded by #ifdefs depending on whether
+# certain features in WebKit are enabled.
+my %conditionalMethods = ("webkit_dom_geolocation_clear_watch" => "GEOLOCATION");
+
 sub GenerateFunction {
     my ($object, $interfaceName, $function, $prefix) = @_;
 
@@ -699,7 +757,7 @@ sub GenerateFunction {
 
     foreach my $param (@{$function->parameters}) {
         my $paramIDLType = $param->type;
-        if ($paramIDLType eq "Event" || $paramIDLType eq "EventListener") {
+        if ($paramIDLType eq "EventListener") {
             push(@hBody, "\n/* TODO: event function ${functionName} */\n\n");
             push(@cBody, "\n/* TODO: event function ${functionName} */\n\n");
             return;
@@ -730,6 +788,8 @@ sub GenerateFunction {
         if ($functionSigType ne "EventTarget") {
             $implIncludes{"webkit/WebKitDOM${functionSigType}Private.h"} = 1;
             $implIncludes{"webkit/WebKitDOM${functionSigType}.h"} = 1;
+        } else {
+            $implIncludes{"WebKitDOM${functionSigType}.h"} = 1;
         }
 
         $implIncludes{"${functionSigType}.h"} = 1;
@@ -741,6 +801,10 @@ sub GenerateFunction {
 
     push(@hBody, "WEBKIT_API $returnType\n$functionName ($functionSig);\n\n");
     push(@cBody, "$returnType\n$functionName ($functionSig)\n{\n");
+
+    if ($conditionalMethods{$functionName}) {
+        push(@cBody, "#if ENABLE($conditionalMethods{$functionName})\n");
+    }
 
     if ($returnType ne "void") {
         # TODO: return proper default result
@@ -900,6 +964,11 @@ EOF
             push(@cBody, "    return res;\n");
         }
     }
+
+    if ($conditionalMethods{$functionName}) {
+        push(@cBody, "#endif\n");
+    }
+
     push(@cBody, "\n}\n\n");
 }
 
@@ -924,7 +993,7 @@ sub GenerateFunctions {
 
     TOP:
     foreach my $attribute (@{$dataNode->attributes}) {
-        if (SkipAttribute($attribute)) {
+        if (SkipAttribute($attribute) || $attribute->signature->type eq "EventListener") {
             next TOP;
         }
         
@@ -982,41 +1051,28 @@ sub GenerateFunctions {
 
 sub GenerateCFile {
     my ($object, $interfaceName, $parentClassName, $parentGObjType, $dataNode) = @_;
+
+    if ($dataNode->extendedAttributes->{"EventTarget"}) {
+        $object->GenerateEventTargetIface($dataNode);
+    }
+
     my $implContent = "";
 
     my $clsCaps = uc(FixUpDecamelizedName(decamelize($interfaceName)));
     my $lowerCaseIfaceName = "webkit_dom_" . FixUpDecamelizedName(decamelize($interfaceName));
 
     $implContent = << "EOF";
-G_DEFINE_TYPE(${className}, ${lowerCaseIfaceName}, ${parentGObjType})
+${defineTypeMacro}(${className}, ${lowerCaseIfaceName}, ${parentGObjType}${defineTypeInterfaceImplementation}
 
 namespace WebKit {
 
-${className}* wrap${interfaceName}(WebCore::${interfaceName}* coreObject)
-{
-    g_return_val_if_fail(coreObject != 0, 0);
-    
-    ${className}* wrapper = WEBKIT_DOM_${clsCaps}(g_object_new(WEBKIT_TYPE_DOM_${clsCaps}, NULL));
-    g_return_val_if_fail(wrapper != 0, 0);
-
-    /* We call ref() rather than using a C++ smart pointer because we can't store a C++ object
-     * in a C-allocated GObject structure.  See the finalize() code for the
-     * matching deref().
-     */
-
-    coreObject->ref();
-    WEBKIT_DOM_OBJECT(wrapper)->coreObject = coreObject;
-
-    return wrapper;
-}
-
 WebCore::${interfaceName}* core(${className}* request)
 {
-    g_return_val_if_fail(request != 0, 0);
-    
+    g_return_val_if_fail(request, 0);
+
     WebCore::${interfaceName}* coreObject = static_cast<WebCore::${interfaceName}*>(WEBKIT_DOM_OBJECT(request)->coreObject);
-    g_return_val_if_fail(coreObject != 0, 0);
-    
+    g_return_val_if_fail(coreObject, 0);
+
     return coreObject;
 }
 
@@ -1026,6 +1082,30 @@ EOF
     push(@cBodyPriv, $implContent);
     $object->GenerateProperties($interfaceName, $dataNode);
     $object->GenerateFunctions($interfaceName, $dataNode);
+
+    my $wrapMethod = << "EOF";
+namespace WebKit {
+${className}* wrap${interfaceName}(WebCore::${interfaceName}* coreObject)
+{
+    g_return_val_if_fail(coreObject, 0);
+    
+    ${className}* wrapper = WEBKIT_DOM_${clsCaps}(g_object_new(WEBKIT_TYPE_DOM_${clsCaps}, NULL));
+    g_return_val_if_fail(wrapper, 0);
+
+    /* We call ref() rather than using a C++ smart pointer because we can't store a C++ object
+     * in a C-allocated GObject structure.  See the finalize() code for the
+     * matching deref().
+     */
+
+    coreObject->ref();
+    WEBKIT_DOM_OBJECT(wrapper)->coreObject = coreObject;
+@txtInstallEventListeners
+
+    return wrapper;
+}
+} // namespace WebKit
+EOF
+    push(@cBodyPriv, $wrapMethod);
 }
 
 sub GenerateEndHeader {
@@ -1107,6 +1187,44 @@ sub UsesManualKitImplementation {
     return 0;
 }
 
+sub GenerateEventTargetIface {
+    my $object = shift;
+    my $dataNode = shift;
+
+    my $interfaceName = $dataNode->name;
+    my $decamelize = FixUpDecamelizedName(decamelize($interfaceName));
+
+    $implIncludes{"WebKitDOMEventTarget.h"} = 1;
+    $implIncludes{"WebKitDOMEventPrivate.h"} = 1;
+
+    my $impl = << "EOF";
+static void webkit_dom_${decamelize}_dispatch_event(WebKitDOMEventTarget* target, WebKitDOMEvent* event, GError** error)
+{
+    WebCore::Event* coreEvent = WebKit::core(event);
+    WebCore::${interfaceName}* coreTarget = static_cast<WebCore::${interfaceName}*>(WEBKIT_DOM_OBJECT(target)->coreObject);
+
+    WebCore::ExceptionCode ec = 0;
+    coreTarget->dispatchEvent(coreEvent, ec);
+    if (ec) {
+        WebCore::ExceptionCodeDescription description;
+        WebCore::getExceptionCodeDescription(ec, description);
+        g_set_error_literal(error, g_quark_from_string("WEBKIT_DOM"), description.code, description.name);
+    }
+}
+
+static void webkit_dom_event_target_init(WebKitDOMEventTargetIface* iface)
+{
+    iface->dispatch_event = webkit_dom_${decamelize}_dispatch_event;
+}
+
+EOF
+
+    push(@cBody, $impl);
+
+    $defineTypeMacro = "G_DEFINE_TYPE_WITH_CODE";
+    $defineTypeInterfaceImplementation = ", G_IMPLEMENT_INTERFACE(WEBKIT_TYPE_DOM_EVENT_TARGET, webkit_dom_event_target_init))";
+}
+
 sub Generate {
     my ($object, $dataNode) = @_;
 
@@ -1138,7 +1256,7 @@ namespace WebKit {
     
 gpointer kit(WebCore::$interfaceName* obj)
 {
-    g_return_val_if_fail(obj != 0, 0);
+    g_return_val_if_fail(obj, 0);
 
     if (gpointer ret = DOMObjectCache::get(obj))
         return ret;
@@ -1156,6 +1274,7 @@ EOF
     $object->GenerateCFile($interfaceName, $parentClassName, $parentGObjType, $dataNode);
     $object->GenerateEndHeader();
     $object->GeneratePrivateHeader($dataNode);
+
 }
 
 # Internal helper

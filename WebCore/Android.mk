@@ -260,6 +260,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTML5Lexer.cpp \
 	html/HTML5Tokenizer.cpp \
 	html/HTML5TreeBuilder.cpp \
+	html/HTML5ScriptRunner.cpp \
 	html/HTMLAllCollection.cpp \
 	html/HTMLCollection.cpp \
 	html/HTMLDataListElement.cpp \
@@ -374,6 +375,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/SecurityOrigin.cpp \
 	page/Settings.cpp \
 	page/SpatialNavigation.cpp \
+	page/SuspendableTimer.cpp \
 	page/UserContentURLPattern.cpp \
 	page/WindowFeatures.cpp \
 	page/WorkerNavigator.cpp \
@@ -762,6 +764,20 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/DatabaseTask.cpp \
 	storage/DatabaseThread.cpp \
 	storage/DatabaseTracker.cpp \
+	storage/IDBAny.cpp \
+	storage/IDBDatabaseImpl.cpp \
+	storage/IDBDatabaseRequest.cpp \
+	storage/IDBErrorEvent.cpp \
+	storage/IDBEvent.cpp \
+	storage/IDBIndexImpl.cpp \
+	storage/IDBIndexRequest.cpp \
+	storage/IDBObjectStore.cpp \
+	storage/IDBObjectStoreRequest.cpp \
+	storage/IDBRequest.cpp \
+	storage/IDBSuccessEvent.cpp \
+	storage/IndexedDatabase.cpp \
+	storage/IndexedDatabaseImpl.cpp \
+	storage/IndexedDatabaseRequest.cpp
 	storage/LocalStorageTask.cpp \
 	storage/LocalStorageThread.cpp \
 	storage/OriginQuotaManager.cpp \
@@ -781,7 +797,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/StorageMap.cpp \
 	storage/StorageNamespace.cpp \
 	storage/StorageNamespaceImpl.cpp \
-	storage/StorageSyncManager.cpp \
+	storage/StorageSyncManager.cpp
 
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

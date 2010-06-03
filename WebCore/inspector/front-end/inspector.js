@@ -465,6 +465,8 @@ WebInspector.loaded = function()
         other: new WebInspector.ResourceCategory("other", WebInspector.UIString("Other"), "rgb(186,186,186)")
     };
 
+    this.breakpointManager = new WebInspector.BreakpointManager();
+
     this.panels = {};
     this._createPanels();
     this._panelHistory = new WebInspector.PanelHistory();
@@ -705,19 +707,20 @@ WebInspector._registerShortcuts = function()
 
 WebInspector.documentKeyDown = function(event)
 {
+    var isInEditMode = event.target.enclosingNodeOrSelfWithClass("text-prompt") || WebInspector.isEditingAnyField();
     const helpKey = WebInspector.isMac() ? "U+003F" : "U+00BF"; // "?" for both platforms
 
     if (event.keyIdentifier === "F1" ||
-        (event.keyIdentifier === helpKey && (!WebInspector.isEditingAnyField() || event.metaKey))) {
-            WebInspector.shortcutsHelp.show();
-            event.stopPropagation();
-            event.preventDefault();
+        (event.keyIdentifier === helpKey && event.shiftKey && (!isInEditMode || event.metaKey))) {
+        WebInspector.shortcutsHelp.show();
+        event.stopPropagation();
+        event.preventDefault();
+        return;
     }
 
     if (WebInspector.isEditingAnyField())
         return;
 
-    var isInTextPrompt = event.target.enclosingNodeOrSelfWithClass("text-prompt");
     if (this.currentFocusElement && this.currentFocusElement.handleKeyEvent) {
         this.currentFocusElement.handleKeyEvent(event);
         if (event.handled) {
@@ -737,7 +740,7 @@ WebInspector.documentKeyDown = function(event)
     var isMac = WebInspector.isMac();
     switch (event.keyIdentifier) {
         case "Left":
-            var isBackKey = !isInTextPrompt && (isMac ? event.metaKey : event.ctrlKey);
+            var isBackKey = !isInEditMode && (isMac ? event.metaKey : event.ctrlKey);
             if (isBackKey && this._panelHistory.canGoBack()) {
                 this._panelHistory.goBack();
                 event.preventDefault();
@@ -745,7 +748,7 @@ WebInspector.documentKeyDown = function(event)
             break;
 
         case "Right":
-            var isForwardKey = !isInTextPrompt && (isMac ? event.metaKey : event.ctrlKey);
+            var isForwardKey = !isInEditMode && (isMac ? event.metaKey : event.ctrlKey);
             if (isForwardKey && this._panelHistory.canGoForward()) {
                 this._panelHistory.goForward();
                 event.preventDefault();
@@ -1159,6 +1162,7 @@ WebInspector.updateResource = function(identifier, payload)
         resource.suggestedFilename = payload.suggestedFilename;
         resource.expectedContentLength = payload.expectedContentLength;
         resource.statusCode = payload.statusCode;
+        resource.statusText = payload.statusText;
         resource.suggestedFilename = payload.suggestedFilename;
         resource.responseHeaders = payload.responseHeaders;
     }
@@ -1321,9 +1325,7 @@ WebInspector.parsedScriptSource = function(sourceID, sourceURL, source, starting
 
 WebInspector.restoredBreakpoint = function(sourceID, sourceURL, line, enabled, condition)
 {
-    var breakpoint = new WebInspector.Breakpoint(sourceURL, line, sourceID, condition);
-    breakpoint.enabled = enabled;
-    this.panels.scripts.addBreakpoint(breakpoint);
+    this.breakpointManager.addBreakpoint(sourceID, sourceURL, line, enabled, condition);
 }
 
 WebInspector.failedToParseScriptSource = function(sourceURL, source, startingLine, errorLine, errorMessage)
@@ -1357,6 +1359,8 @@ WebInspector.reset = function()
         if ("reset" in panel)
             panel.reset();
     }
+
+    this.breakpointManager.reset();
 
     for (var category in this.resourceCategories)
         this.resourceCategories[category].removeAllResources();

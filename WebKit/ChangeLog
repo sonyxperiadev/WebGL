@@ -1,3 +1,167 @@
+2010-05-31  Lyon Chen  <liachen@rim.com>
+
+        Reviewed by Kent Tamura.
+
+        Enum value FORWARD, BACKWARD, RIGHT, LEFT are causing macro conflicts.
+        https://bugs.webkit.org/show_bug.cgi?id=35530
+
+        Change enum EAlteration from { MOVE, EXTEND } to { AlterationMove, AlterationExtend } and enum EDirection { FORWARD, BACKWARD, RIGHT, LEFT} to { DirectionForward, DirectionBackward, DirectionRight, DirectionLeft } to avoid macro conflict, and also better coding style conformance.
+
+        * efl/WebCoreSupport/EditorClientEfl.cpp:
+        (WebCore::EditorClientEfl::handleEditingKeyboardEvent):
+
+2010-05-31  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Add Context Menu implementation
+        https://bugs.webkit.org/show_bug.cgi?id=39821
+
+        * CMakeListsEfl.txt: add context menu files.
+        * efl/WebCoreSupport/ContextMenuClientEfl.cpp:
+        (WebCore::ContextMenuClientEfl::getCustomMenuFromDefaultItems):
+        (WebCore::ContextMenuClientEfl::newPlatformDescription):
+        (WebCore::ContextMenuClientEfl::freePlatformDescription):
+        (WebCore::ContextMenuClientEfl::appendItem):
+        (WebCore::ContextMenuClientEfl::show):
+        * efl/WebCoreSupport/ContextMenuClientEfl.h:
+        * efl/ewk/EWebKit.h:
+        * efl/ewk/ewk_contextmenu.cpp: Added. Implement the API used by
+        browser for manipulating context menus.
+        (ewk_context_menu_ref):
+        (ewk_context_menu_unref):
+        (ewk_context_menu_destroy):
+        (ewk_context_menu_item_list_get):
+        (ewk_context_menu_item_new):
+        (ewk_context_menu_item_select):
+        (ewk_context_menu_item_free):
+        (ewk_context_menu_item_type_get):
+        (ewk_context_menu_item_type_set):
+        (ewk_context_menu_item_action_get):
+        (ewk_context_menu_item_action_set):
+        (ewk_context_menu_item_title_get):
+        (ewk_context_menu_item_title_set):
+        (ewk_context_menu_item_checked_get):
+        (ewk_context_menu_item_checked_set):
+        (ewk_context_menu_item_enabled_get):
+        (ewk_context_menu_item_enabled_set):
+        (ewk_context_menu_new):
+        (ewk_context_menu_free):
+        (ewk_context_menu_item_append):
+        (ewk_context_menu_custom_get):
+        (ewk_context_menu_show):
+        * efl/ewk/ewk_contextmenu.h: Added.
+        * efl/ewk/ewk_private.h:
+        * efl/ewk/ewk_view.cpp:
+        (ewk_view_context_menu_forward_event): inform browser a new context
+        menu was created.
+        (ewk_view_exceeded_database_quota): small fix to previous
+        changed function.
+        * efl/ewk/ewk_view.h:
+
+2010-05-28  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EF] Remove compiler warnings and add test for switching page
+        encoding.
+        https://bugs.webkit.org/show_bug.cgi?id=39871
+
+        * efl/EWebLauncher/main.c:
+        (print_history):
+        (on_key_down):
+        (main):
+
+2010-05-28  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Allow client to override default database quota. We increase the
+        default database quota to 1MB (it was incorrectly set to 1KB, which is
+        too low) and add methods to allow client to iteratively database quota
+        when it becomes greater than the allowed value.
+        https://bugs.webkit.org/show_bug.cgi?id=39867
+
+        * efl/WebCoreSupport/ChromeClientEfl.cpp:
+        (WebCore::ChromeClientEfl::exceededDatabaseQuota): reimplement method
+        to allow client to increase database quota iteratively.
+        * efl/ewk/ewk_private.h:
+        * efl/ewk/ewk_settings.cpp:
+        * efl/ewk/ewk_view.h:
+
+2010-05-28  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Add default path to web database and methods to set it.
+        If a default path is not set, it will default to "/", in which a
+        normal user usually does not have write permission.
+
+        * efl/EWebLauncher/main.c: overwrite default directory with another
+        one.
+        (main):
+        * efl/ewk/ewk_main.cpp:
+        (ewk_init): add default path
+        * efl/ewk/ewk_settings.cpp: add methods to set and get database path
+        (ewk_settings_web_database_path_set):
+        (ewk_settings_web_database_path_get):
+        * efl/ewk/ewk_settings.h:
+
+2010-05-28  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Fix wrongly set clipper. Now the scrollbars from main
+        frame are shown even on a zoom level lower than 1.0.
+
+        * efl/ewk/ewk_view_single.c:
+        (_ewk_view_single_smart_add):
+        (_ewk_view_single_smart_backing_store_add):
+        (ewk_view_single_smart_set):
+
+2010-05-28  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Add support for Popup menus
+        https://bugs.webkit.org/show_bug.cgi?id=39629
+
+        * efl/WebCoreSupport/ChromeClientEfl.cpp: implement methods to create
+        and destroy popup menu.
+        (WebCore::ChromeClientEfl::createSelectPopup): ditto.
+        (WebCore::ChromeClientEfl::destroySelectPopup): ditto.
+        * efl/WebCoreSupport/ChromeClientEfl.h: ditto.
+        * efl/ewk/ewk_private.h: add function to call browser when a popup is
+        created/deleted
+
+2010-05-25  Joone Hur  <joone.hur@samsung.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [EFL] Build fix.
+        http://webkit.org/b/39648
+
+        * efl/ewk/ewk_frame.cpp:
+        (ewk_frame_zoom_get): Add missed namespace 
+        (ewk_frame_zoom_set): Ditto.
+        (ewk_frame_zoom_text_only_set): Ditto.
+        * efl/ewk/ewk_view.cpp:
+        (_ewk_view_priv_new): Add a null parameter when creating a Page.
+
+2010-05-24  Darin Adler  <darin@apple.com>
+
+        Reviewed by Eric Seidel.
+
+        Move view-related functions from Frame to FrameView
+        https://bugs.webkit.org/show_bug.cgi?id=39366
+
+        * efl/ewk/ewk_frame.cpp:
+        (ewk_frame_editable_set): Removed call to empty function,
+        removeEditingStyleFromBodyElement.
+        (ewk_frame_zoom_get): Call function on FrameView.
+        (ewk_frame_zoom_set): Ditto.
+        (ewk_frame_zoom_text_only_set): Ditto.
+
 2010-05-15  Leandro Pereira  <leandro@profusion.mobi>
 
         Reviewed by Adam Treat.

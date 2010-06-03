@@ -10,9 +10,6 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
- *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -30,15 +27,19 @@
 #define WebIDBDatabase_h
 
 #include "WebCommon.h"
+#include "WebDOMStringList.h"
 
 namespace WebKit {
 
-// See comment in WebIndexedDatabase for a high level overview these classes.
+// See comment in WebIndexedDatabase for a high level overview of these classes.
 class WebIDBDatabase {
 public:
     virtual ~WebIDBDatabase() { }
 
-    // FIXME: Implement.
+    virtual WebString name() { return WebString(); }
+    virtual WebString description() { return WebString(); }
+    virtual WebString version() { return WebString(); }
+    virtual WebDOMStringList objectStores() { return WebDOMStringList(); }
 };
 
 } // namespace WebKit

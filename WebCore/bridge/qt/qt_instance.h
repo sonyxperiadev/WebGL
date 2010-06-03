@@ -17,8 +17,8 @@
  *
  */
 
-#ifndef BINDINGS_QT_INSTANCE_H_
-#define BINDINGS_QT_INSTANCE_H_
+#ifndef qt_instance_h
+#define qt_instance_h
 
 #include "Bridge.h"
 #include "runtime_root.h"
@@ -51,7 +51,7 @@ public:
     void markAggregate(MarkStack&);
 
     virtual JSValue getMethod(ExecState* exec, const Identifier& propertyName);
-    virtual JSValue invokeMethod(ExecState*, RuntimeMethod*, const ArgList&);
+    virtual JSValue invokeMethod(ExecState*, RuntimeMethod*);
 
     virtual void getPropertyNames(ExecState*, PropertyNameArray&);
 

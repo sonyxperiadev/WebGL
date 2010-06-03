@@ -31,7 +31,10 @@
 
 #if ENABLE(DATABASE)
 
+<<<<<<< HEAD
 // ANDROID
+=======
+>>>>>>> webkit.org at r60469
 #include <wtf/RefCounted.h>
 #include <wtf/Threading.h>
 

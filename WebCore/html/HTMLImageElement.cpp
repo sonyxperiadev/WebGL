@@ -28,7 +28,7 @@
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "EventNames.h"
-#include "Frame.h"
+#include "FrameView.h"
 #include "HTMLDocument.h"
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
@@ -41,8 +41,8 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLImageElement::HTMLImageElement(const QualifiedName& tagName, Document* doc, HTMLFormElement* form)
-    : HTMLElement(tagName, doc)
+HTMLImageElement::HTMLImageElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
+    : HTMLElement(tagName, document)
     , m_imageLoader(this)
     , ismap(false)
     , m_form(form)
@@ -51,6 +51,16 @@ HTMLImageElement::HTMLImageElement(const QualifiedName& tagName, Document* doc, 
     ASSERT(hasTagName(imgTag));
     if (form)
         form->registerImgElement(this);
+}
+
+PassRefPtr<HTMLImageElement> HTMLImageElement::create(Document* document)
+{
+    return new HTMLImageElement(imgTag, document);
+}
+
+PassRefPtr<HTMLImageElement> HTMLImageElement::create(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
+{
+    return new HTMLImageElement(tagName, document, form);
 }
 
 HTMLImageElement::~HTMLImageElement()
@@ -255,7 +265,7 @@ int HTMLImageElement::width(bool ignorePendingStylesheets) const
 
         // if the image is available, use its width
         if (m_imageLoader.image()) {
-            float zoomFactor = document()->frame() ? document()->frame()->pageZoomFactor() : 1.0f;
+            float zoomFactor = document()->view() ? document()->view()->pageZoomFactor() : 1.0f;
             return m_imageLoader.image()->imageSize(zoomFactor).width();
         }
     }
@@ -279,7 +289,7 @@ int HTMLImageElement::height(bool ignorePendingStylesheets) const
 
         // if the image is available, use its height
         if (m_imageLoader.image()) {
-            float zoomFactor = document()->frame() ? document()->frame()->pageZoomFactor() : 1.0f;
+            float zoomFactor = document()->view() ? document()->view()->pageZoomFactor() : 1.0f;
             return m_imageLoader.image()->imageSize(zoomFactor).height();
         }
     }

@@ -1,3 +1,85 @@
+2010-05-31  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Text copied from a WebView cannot be pasted into gnome-terminal
+        https://bugs.webkit.org/show_bug.cgi?id=39827
+
+        Add a test to prevent regressions for this issue.
+
+        * tests/testcopyandpaste.c: Added.
+        (test_info_new):
+        (test_info_destroy):
+        (copy_and_paste_fixture_setup):
+        (copy_and_paste_fixture_teardown):
+        (load_status_cb):
+        (map_event_cb):
+        (test_copy_and_paste):
+        (main):
+
+2010-05-27  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Update documentation control files, and fix Since tags for 1.3.1.
+
+        * docs/webkitgtk-docs.sgml:
+        * docs/webkitgtk-sections.txt:
+        * webkit/webkitwebbackforwardlist.cpp:
+        * webkit/webkitwebview.cpp:
+
+2010-05-27  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Update for 1.3.1 release.
+
+        * NEWS:
+
+2010-05-27  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Dragging onto the desktop causes a critical GLib warning
+        https://bugs.webkit.org/show_bug.cgi?id=39718
+
+        Only increment the window reference count if it is not null during drag-end
+        signal processing.
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_drag_end): Guard against null window values.
+
+2010-05-26  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Add support for DOM events in the GObject DOM bindings
+        https://bugs.webkit.org/show_bug.cgi?id=38844
+
+        Test DOMWindow signals.
+
+        * tests/testdomdomwindow.c: Added.
+        (finish_loading):
+        (dom_domview_fixture_setup):
+        (dom_domview_fixture_teardown):
+        (loadedCallback):
+        (clickedCallback):
+        (map_event_cb):
+        (load_event_callback):
+        (test_dom_domview_signals):
+        (main):
+
+2010-05-24  Darin Adler  <darin@apple.com>
+
+        Reviewed by Eric Seidel.
+
+        Move view-related functions from Frame to FrameView
+        https://bugs.webkit.org/show_bug.cgi?id=39366
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_set_editable): Remove call to empty function
+        removeEditngStyleFromBodyElement.
+        (webkit_web_view_get_zoom_level): Call functions on FrameView.
+        (webkit_web_view_apply_zoom_level): Ditto.
+
 2010-05-22  Martin Robinson  <mrobinson@igalia.com>
 
         Reviewed by Xan Lopez.

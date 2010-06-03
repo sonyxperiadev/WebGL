@@ -57,11 +57,88 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+namespace {
+
+static const UChar windowsLatin1ExtensionArray[32] = {
+    0x20AC, 0x0081, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, // 80-87
+    0x02C6, 0x2030, 0x0160, 0x2039, 0x0152, 0x008D, 0x017D, 0x008F, // 88-8F
+    0x0090, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014, // 90-97
+    0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x009D, 0x017E, 0x0178, // 98-9F
+};
+
 inline UChar toLowerCase(UChar cc)
 {
     ASSERT(cc >= 'A' && cc <= 'Z');
     const int lowerCaseOffset = 0x20;
     return cc + lowerCaseOffset;
+}
+
+inline void advanceStringAndASSERTIgnoringCase(SegmentedString& source, const char* expectedCharacters)
+{
+    while (*expectedCharacters)
+        source.advanceAndASSERTIgnoringCase(*expectedCharacters++);
+}
+
+inline bool vectorEqualsString(const Vector<UChar, 32>& vector, const String& string)
+{
+    if (vector.size() != string.length())
+        return false;
+    const UChar* stringData = string.characters();
+    const UChar* vectorData = vector.data();
+    // FIXME: Is there a higher-level function we should be calling here?
+    return !memcmp(stringData, vectorData, vector.size() * sizeof(UChar));
+}
+
+inline UChar adjustEntity(unsigned value)
+{
+    if ((value & ~0x1F) != 0x0080)
+        return value;
+    return windowsLatin1ExtensionArray[value - 0x80];
+}
+
+inline unsigned legalEntityFor(unsigned value)
+{
+    // FIXME: A number of specific entity values generate parse errors.
+    if (value == 0 || value > 0x10FFFF || (value >= 0xD800 && value <= 0xDFFF))
+        return 0xFFFD;
+    if (value < 0xFFFF)
+        return adjustEntity(value);
+    return value;
+}
+
+inline bool isHexDigit(UChar cc)
+{
+    return (cc >= '0' && cc <= '9') || (cc >= 'a' && cc <= 'f') || (cc >= 'A' && cc <= 'F');
+}
+
+inline bool isAlphaNumeric(UChar cc)
+{
+    return (cc >= '0' && cc <= '9') || (cc >= 'a' && cc <= 'z') || (cc >= 'A' && cc <= 'Z');
+}
+
+void unconsumeCharacters(SegmentedString& source, const Vector<UChar, 10>& consumedCharacters)
+{
+    if (consumedCharacters.size() == 1)
+        source.push(consumedCharacters[0]);
+    else if (consumedCharacters.size() == 2) {
+        source.push(consumedCharacters[0]);
+        source.push(consumedCharacters[1]);
+    } else
+        source.prepend(SegmentedString(String(consumedCharacters.data(), consumedCharacters.size())));
+}
+
+inline bool isEndTagBufferingState(HTML5Lexer::State state)
+{
+    return state == HTML5Lexer::RCDATAEndTagOpenState
+        || state == HTML5Lexer::RCDATAEndTagNameState
+        || state == HTML5Lexer::RAWTEXTEndTagOpenState
+        || state == HTML5Lexer::RAWTEXTEndTagNameState
+        || state == HTML5Lexer::ScriptDataEndTagOpenState
+        || state == HTML5Lexer::ScriptDataEndTagNameState
+        || state == HTML5Lexer::ScriptDataEscapedEndTagOpenState
+        || state == HTML5Lexer::ScriptDataEscapedEndTagNameState;
+}
+
 }
 
 HTML5Lexer::HTML5Lexer()
@@ -77,79 +154,83 @@ void HTML5Lexer::reset()
 {
     m_state = DataState;
     m_token = 0;
+    m_skipLeadingNewLineForListing = false;
     m_emitPending = false;
     m_additionalAllowedCharacter = '\0';
 }
 
-static inline bool isWhitespace(UChar c)
-{
-    return c == ' ' || c == '\n' || c == '\r' || c == '\t';
-}
-    
-static inline unsigned legalEntityFor(unsigned value)
-{
-    // FIXME There is a table for more exceptions in the HTML5 specification.
-    if (value == 0 || value > 0x10FFFF || (value >= 0xD800 && value <= 0xDFFF))
-        return 0xFFFD;
-    return value;
-}
-    
 unsigned HTML5Lexer::consumeEntity(SegmentedString& source, bool& notEnoughCharacters)
 {
+    ASSERT(m_state != CharacterReferenceInAttributeValueState || m_additionalAllowedCharacter == '"' || m_additionalAllowedCharacter == '\'' || m_additionalAllowedCharacter == '>');
+    ASSERT(!notEnoughCharacters);
+
     enum EntityState {
         Initial,
         NumberType,
-        MaybeHex,
+        MaybeHexLowerCaseX,
+        MaybeHexUpperCaseX,
         Hex,
         Decimal,
         Named
     };
     EntityState entityState = Initial;
     unsigned result = 0;
-    Vector<UChar, 10> seenChars;
+    Vector<UChar, 10> consumedCharacters;
     Vector<char, 10> entityName;
 
     while (!source.isEmpty()) {
         UChar cc = *source;
-        seenChars.append(cc);
         switch (entityState) {
-        case Initial:
-            if (isWhitespace(cc) || cc == '<' || cc == '&')
+        case Initial: {
+            if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ' || cc == '<' || cc == '&')
                 return 0;
-            else if (cc == '#') 
+            if (m_state == CharacterReferenceInAttributeValueState && cc == m_additionalAllowedCharacter)
+                return 0;
+            if (cc == '#') {
                 entityState = NumberType;
-            else if ((cc >= 'a' && cc <= 'z') || (cc >= 'A' && cc <= 'Z')) {
-                entityName.append(cc);
+                break;
+            }
+            if ((cc >= 'a' && cc <= 'z') || (cc >= 'A' && cc <= 'Z')) {
                 entityState = Named;
-            } else
-                return 0;
-            break;
-        case NumberType:
-            if (cc == 'x' || cc == 'X')
-                entityState = MaybeHex;
-            else if (cc >= '0' && cc <= '9') {
+                continue;
+            }
+            return 0;
+        }
+        case NumberType: {
+            if (cc == 'x') {
+                entityState = MaybeHexLowerCaseX;
+                break;
+            }
+            if (cc == 'X') {
+                entityState = MaybeHexUpperCaseX;
+                break;
+            }
+            if (cc >= '0' && cc <= '9') {
                 entityState = Decimal;
-                result = cc - '0';
-            } else {
-                source.push('#');
-                return 0;
+                continue;
             }
-            break;
-        case MaybeHex:
-            if (cc >= '0' && cc <= '9')
-                result = cc - '0';
-            else if (cc >= 'a' && cc <= 'f')
-                result = 10 + cc - 'a';
-            else if (cc >= 'A' && cc <= 'F')
-                result = 10 + cc - 'A';
-            else {
-                source.push('#');
-                source.push(seenChars[1]);
-                return 0;
+            source.push('#');
+            return 0;
+        }
+        case MaybeHexLowerCaseX: {
+            if (isHexDigit(cc)) {
+                entityState = Hex;
+                continue;
             }
-            entityState = Hex;
-            break;
-        case Hex:
+            source.push('#');
+            source.push('x');
+            return 0;
+        }
+        case MaybeHexUpperCaseX: {
+            if (isHexDigit(cc)) {
+                entityState = Hex;
+                continue;
+            }
+            source.push('#');
+            source.push('X');
+            return 0;
+        }
+        case Hex: {
             if (cc >= '0' && cc <= '9')
                 result = result * 16 + cc - '0';
             else if (cc >= 'a' && cc <= 'f')
@@ -162,7 +243,8 @@ unsigned HTML5Lexer::consumeEntity(SegmentedString& source, bool& notEnoughChara
             } else 
                 return legalEntityFor(result);
             break;
-        case Decimal:
+        }
+        case Decimal: {
             if (cc >= '0' && cc <= '9')
                 result = result * 10 + cc - '0';
             else if (cc == ';') {
@@ -170,46 +252,69 @@ unsigned HTML5Lexer::consumeEntity(SegmentedString& source, bool& notEnoughChara
                 return legalEntityFor(result);
             } else
                 return legalEntityFor(result);
-            break;               
-        case Named:
-            // This is the attribute only version, generic version matches somewhat differently
-            while (entityName.size() <= 8) {
+            break;
+        }
+        case Named: {
+            // FIXME: This code is wrong. We need to find the longest matching entity.
+            //        The examples from the spec are:
+            //            I'm &notit; I tell you
+            //            I'm &notin; I tell you
+            //        In the first case, "&not" is the entity.  In the second
+            //        case, "&notin;" is the entity.
+            // FIXME: Our list of HTML entities is incomplete.
+            // FIXME: The number 8 below is bogus.
+            while (!source.isEmpty() && entityName.size() <= 8) {
+                cc = *source;
                 if (cc == ';') {
                     const Entity* entity = findEntity(entityName.data(), entityName.size());
                     if (entity) {
-                        source.advance();
+                        source.advanceAndASSERT(';');
+                        return entity->code;
+                    }
+                    emitParseError();
+                    break;
+                }
+                if (!isAlphaNumeric(cc)) {
+                    const Entity* entity = findEntity(entityName.data(), entityName.size());
+                    if (entity) {
+                        // HTML5 tells us to ignore this entity, for historical reasons,
+                        // if the lookhead character is '='.
+                        if (m_state == CharacterReferenceInAttributeValueState && cc == '=')
+                            break;
+                        emitParseError();
                         return entity->code;
                     }
                     break;
                 }
-                if (!(cc >= 'a' && cc <= 'z') && !(cc >= 'A' && cc <= 'Z') && !(cc >= '0' && cc <= '9')) {
-                    const Entity* entity = findEntity(entityName.data(), entityName.size());
-                    if (entity)
-                        return entity->code;
-                    break;
-                }
                 entityName.append(cc);
-                source.advance();
-                if (source.isEmpty())
-                    goto outOfCharacters;
-                cc = *source;
-                seenChars.append(cc);
+                consumedCharacters.append(cc);
+                source.advanceAndASSERT(cc);
             }
-            if (seenChars.size() == 2)
-                source.push(seenChars[0]);
-            else if (seenChars.size() == 3) {
-                source.push(seenChars[0]);
-                source.push(seenChars[1]);
-            } else
-                source.prepend(SegmentedString(String(seenChars.data(), seenChars.size() - 1)));
+            notEnoughCharacters = source.isEmpty();
+            unconsumeCharacters(source, consumedCharacters);
             return 0;
         }
-        source.advance();
+        }
+        consumedCharacters.append(cc);
+        source.advanceAndASSERT(cc);
     }
-outOfCharacters:
+    ASSERT(source.isEmpty());
     notEnoughCharacters = true;
-    source.prepend(SegmentedString(String(seenChars.data(), seenChars.size())));
+    unconsumeCharacters(source, consumedCharacters);
     return 0;
+}
+
+inline bool HTML5Lexer::processEntity(SegmentedString& source)
+{
+    bool notEnoughCharacters = false;
+    unsigned value = consumeEntity(source, notEnoughCharacters);
+    if (notEnoughCharacters)
+        return false;
+    if (!value)
+        emitCharacter('&');
+    else
+        emitCodePoint(value);
+    return true;
 }
 
 bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
@@ -219,7 +324,8 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
     ASSERT(!m_token || m_token == &token || token.type() == HTML5Token::Uninitialized);
     m_token = &token;
 
-    if (!m_bufferedEndTagName.isEmpty()) {
+    if (!m_bufferedEndTagName.isEmpty() && !isEndTagBufferingState(m_state)) {
+        // FIXME: This should call flushBufferedEndTag().
         // We started an end tag during our last iteration.
         m_token->beginEndTag(m_bufferedEndTagName);
         m_bufferedEndTagName.clear();
@@ -228,6 +334,11 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             return true;
         }
     }
+
+    // http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html#parsing-main-inbody
+    if (m_skipLeadingNewLineForListing && m_state == DataState && !source.isEmpty() && *source == '\x0A')
+        source.advanceAndASSERT('\x0A');
+    m_skipLeadingNewLineForListing = false;
 
     // Source: http://www.whatwg.org/specs/web-apps/current-work/#tokenisation0
     // FIXME: This while should stop as soon as we have a token to return.
@@ -249,8 +360,10 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             break;
         }
         case CharacterReferenceInDataState: {
-            notImplemented();
-            break;
+            if (!processEntity(source))
+                return shouldEmitBufferedCharacterToken(source);
+            m_state = DataState;
+            continue;
         }
         case RCDATAState: {
             if (cc == '&')
@@ -262,8 +375,10 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             break;
         }
         case CharacterReferenceInRCDATAState: {
-            notImplemented();
-            break;
+            if (!processEntity(source))
+                return shouldEmitBufferedCharacterToken(source);
+            m_state = RCDATAState;
+            continue;
         }
         case RAWTEXTState: {
             if (cc == '<')
@@ -297,6 +412,10 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             } else if (cc == '?') {
                 emitParseError();
                 m_state = BogusCommentState;
+                // The spec consumes the current character before switching
+                // to the bogus comment state, but it's easier to implement
+                // if we reconsume the current character.
+                continue;
             } else {
                 emitParseError();
                 m_state = DataState;
@@ -317,7 +436,8 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
                 m_state = DataState;
             } else {
                 emitParseError();
-                m_state = DataState;
+                m_state = BogusCommentState;
+                continue;
             }
             // FIXME: Handle EOF properly.
             break;
@@ -340,6 +460,7 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
         case RCDATALessThanSignState: {
             if (cc == '/') {
                 m_temporaryBuffer.clear();
+                ASSERT(m_bufferedEndTagName.isEmpty());
                 m_state = RCDATAEndTagOpenState;
             } else {
                 emitCharacter('<');
@@ -350,11 +471,14 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
         }
         case RCDATAEndTagOpenState: {
             if (cc >= 'A' && cc <= 'Z') {
-                notImplemented();
+                m_temporaryBuffer.append(cc);
+                addToPossibleEndTag(toLowerCase(cc));
                 m_state = RCDATAEndTagNameState;
             } else if (cc >= 'a' && cc <= 'z') {
-                notImplemented();
+                m_temporaryBuffer.append(cc);
+                addToPossibleEndTag(cc);
                 m_state = RCDATAEndTagNameState;
+            } else {
                 emitCharacter('<');
                 emitCharacter('/');
                 m_state = RCDATAState;
@@ -363,23 +487,36 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             break;
         }
         case RCDATAEndTagNameState: {
-            if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ') {
-                notImplemented();
-                m_state = BeforeAttributeNameState;
-            } else if (cc == '/') {
-                notImplemented();
-                m_state = SelfClosingStartTagState;
-            } else if (cc == '>') {
-                notImplemented();
-                m_state = DataState;
-            } else if (cc >= 'A' && cc <= 'Z')
-                notImplemented();
-            else if (cc >= 'a' && cc <= 'z')
-                notImplemented();
-            else {
+            if (cc >= 'A' && cc <= 'Z') {
+                m_temporaryBuffer.append(cc);
+                addToPossibleEndTag(toLowerCase(cc));
+            } else if (cc >= 'a' && cc <= 'z') {
+                m_temporaryBuffer.append(cc);
+                addToPossibleEndTag(cc);
+            } else {
+                if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ') {
+                    if (isAppropriateEndTag()) {
+                        m_state = BeforeAttributeNameState;
+                        maybeFlushBufferedEndTag();
+                        break;
+                    }
+                } else if (cc == '/') {
+                    if (isAppropriateEndTag()) {
+                        m_state = SelfClosingStartTagState;
+                        maybeFlushBufferedEndTag();
+                        break;
+                    }
+                } else if (cc == '>') {
+                    if (isAppropriateEndTag()) {
+                        m_state = DataState;
+                        maybeFlushBufferedEndTag();
+                        break;
+                    }
+                }
                 emitCharacter('<');
                 emitCharacter('/');
-                notImplemented();
+                m_token->appendToCharacter(m_temporaryBuffer);
+                m_bufferedEndTagName.clear();
                 m_state = RCDATAState;
                 continue;
             }
@@ -388,6 +525,7 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
         case RAWTEXTLessThanSignState: {
             if (cc == '/') {
                 m_temporaryBuffer.clear();
+                ASSERT(m_bufferedEndTagName.isEmpty());
                 m_state = RAWTEXTEndTagOpenState;
             } else {
                 emitCharacter('<');
@@ -398,10 +536,12 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
         }
         case RAWTEXTEndTagOpenState: {
             if (cc >= 'A' && cc <= 'Z') {
-                notImplemented();
+                m_temporaryBuffer.append(cc);
+                addToPossibleEndTag(toLowerCase(cc));
                 m_state = RAWTEXTEndTagNameState;
             } else if (cc >= 'a' && cc <= 'z') {
-                notImplemented();
+                m_temporaryBuffer.append(cc);
+                addToPossibleEndTag(cc);
                 m_state = RAWTEXTEndTagNameState;
             } else {
                 emitCharacter('<');
@@ -412,26 +552,40 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             break;
         }
         case RAWTEXTEndTagNameState: {
-            if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ') {
-                notImplemented();
-                m_state = BeforeAttributeNameState;
-            } else if (cc == '/') {
-                notImplemented();
-                m_state = SelfClosingStartTagState;
-            } else if (cc == '>') {
-                notImplemented();
-                m_state = DataState;
-            } else if (cc >= 'A' && cc <= 'Z')
-                notImplemented();
-            else if (cc >= 'a' && cc <= 'z')
-                notImplemented();
-            else {
+            if (cc >= 'A' && cc <= 'Z') {
+                m_temporaryBuffer.append(cc);
+                addToPossibleEndTag(toLowerCase(cc));
+            } else if (cc >= 'a' && cc <= 'z') {
+                m_temporaryBuffer.append(cc);
+                addToPossibleEndTag(cc);
+            } else {
+                if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ') {
+                    if (isAppropriateEndTag()) {
+                        m_state = BeforeAttributeNameState;
+                        maybeFlushBufferedEndTag();
+                        break;
+                    }
+                } else if (cc == '/') {
+                    if (isAppropriateEndTag()) {
+                        m_state = SelfClosingStartTagState;
+                        maybeFlushBufferedEndTag();
+                        break;
+                    }
+                } else if (cc == '>') {
+                    if (isAppropriateEndTag()) {
+                        m_state = DataState;
+                        maybeFlushBufferedEndTag();
+                        break;
+                    }
+                }
                 emitCharacter('<');
                 emitCharacter('/');
-                notImplemented();
+                m_token->appendToCharacter(m_temporaryBuffer);
+                m_bufferedEndTagName.clear();
                 m_state = RAWTEXTState;
                 continue;
             }
+            break;
         }
         case ScriptDataLessThanSignState: {
             if (cc == '/') {
@@ -452,11 +606,11 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
         case ScriptDataEndTagOpenState: {
             if (cc >= 'A' && cc <= 'Z') {
                 m_temporaryBuffer.append(cc);
-                m_bufferedEndTagName.append(toLowerCase(cc));
+                addToPossibleEndTag(toLowerCase(cc));
                 m_state = ScriptDataEndTagNameState;
             } else if (cc >= 'a' && cc <= 'z') {
                 m_temporaryBuffer.append(cc);
-                m_bufferedEndTagName.append(cc);
+                addToPossibleEndTag(cc);
                 m_state = ScriptDataEndTagNameState;
             } else {
                 emitCharacter('<');
@@ -469,30 +623,27 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
         case ScriptDataEndTagNameState: {
             if (cc >= 'A' && cc <= 'Z') {
                 m_temporaryBuffer.append(cc);
-                m_bufferedEndTagName.append(toLowerCase(cc));
+                addToPossibleEndTag(toLowerCase(cc));
             } else if (cc >= 'a' && cc <= 'z') {
                 m_temporaryBuffer.append(cc);
-                m_bufferedEndTagName.append(cc);
+                addToPossibleEndTag(cc);
             } else {
                 if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ') {
                     if (isAppropriateEndTag()) {
                         m_state = BeforeAttributeNameState;
-                        ASSERT(m_token->type() == HTML5Token::Character);
-                        emitCurrentToken();
+                        maybeFlushBufferedEndTag();
                         break;
                     }
                 } else if (cc == '/') {
                     if (isAppropriateEndTag()) {
                         m_state = SelfClosingStartTagState;
-                        ASSERT(m_token->type() == HTML5Token::Character);
-                        emitCurrentToken();
+                        maybeFlushBufferedEndTag();
                         break;
                     }
                 } else if (cc == '>') {
                     if (isAppropriateEndTag()) {
                         m_state = DataState;
-                        ASSERT(m_token->type() == HTML5Token::Character);
-                        emitCurrentToken();
+                        maybeFlushBufferedEndTag();
                         break;
                     }
                 }
@@ -567,12 +718,19 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
         case ScriptDataEscapedLessThanSignState: {
             if (cc == '/') {
                 m_temporaryBuffer.clear();
+                ASSERT(m_bufferedEndTagName.isEmpty());
                 m_state = ScriptDataEscapedEndTagOpenState;
             } else if (cc >= 'A' && cc <= 'Z') {
-                notImplemented();
+                emitCharacter('<');
+                emitCharacter(cc);
+                m_temporaryBuffer.clear();
+                m_temporaryBuffer.append(toLowerCase(cc));
                 m_state = ScriptDataDoubleEscapeStartState;
             } else if (cc >= 'a' && cc <= 'z') {
-                notImplemented();
+                emitCharacter('<');
+                emitCharacter(cc);
+                m_temporaryBuffer.clear();
+                m_temporaryBuffer.append(cc);
                 m_state = ScriptDataDoubleEscapeStartState;
             } else {
                 emitCharacter('<');
@@ -583,10 +741,12 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
         }
         case ScriptDataEscapedEndTagOpenState: {
             if (cc >= 'A' && cc <= 'Z') {
-                notImplemented();
+                m_temporaryBuffer.append(cc);
+                addToPossibleEndTag(toLowerCase(cc));
                 m_state = ScriptDataEscapedEndTagNameState;
             } else if (cc >= 'a' && cc <= 'z') {
-                notImplemented();
+                m_temporaryBuffer.append(cc);
+                addToPossibleEndTag(cc);
                 m_state = ScriptDataEscapedEndTagNameState;
             } else {
                 emitCharacter('<');
@@ -597,23 +757,36 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             break;
         }
         case ScriptDataEscapedEndTagNameState: {
-            if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ') {
-                notImplemented();
-                m_state = BeforeAttributeNameState;
-            } else if (cc == '/') {
-                notImplemented();
-                m_state = SelfClosingStartTagState;
-            } else if (cc == '>') {
-                notImplemented();
-                m_state = DataState;
-            } else if (cc >= 'A' && cc <= 'Z')
-                notImplemented();
-            else if (cc >= 'a' && cc <= 'z')
-                notImplemented();
-            else {
+            if (cc >= 'A' && cc <= 'Z') {
+                m_temporaryBuffer.append(cc);
+                addToPossibleEndTag(toLowerCase(cc));
+            } else if (cc >= 'a' && cc <= 'z') {
+                m_temporaryBuffer.append(cc);
+                addToPossibleEndTag(cc);
+            } else {
+                if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ') {
+                    if (isAppropriateEndTag()) {
+                        m_state = BeforeAttributeNameState;
+                        maybeFlushBufferedEndTag();
+                        break;
+                    }
+                } else if (cc == '/') {
+                    if (isAppropriateEndTag()) {
+                        m_state = SelfClosingStartTagState;
+                        maybeFlushBufferedEndTag();
+                        break;
+                    }
+                } else if (cc == '>') {
+                    if (isAppropriateEndTag()) {
+                        m_state = DataState;
+                        maybeFlushBufferedEndTag();
+                        break;
+                    }
+                }
                 emitCharacter('<');
                 emitCharacter('/');
-                notImplemented();
+                m_token->appendToCharacter(m_temporaryBuffer);
+                m_bufferedEndTagName.clear();
                 m_state = ScriptDataEscapedState;
                 continue;
             }
@@ -622,15 +795,17 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
         case ScriptDataDoubleEscapeStartState: {
             if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ' || cc == '/' || cc == '>') {
                 emitCharacter(cc);
-                if (temporaryBufferIs("string"))
+                if (temporaryBufferIs(scriptTag.localName()))
                     m_state = ScriptDataDoubleEscapedState;
                 else
                     m_state = ScriptDataEscapedState;
-            } else if (cc >= 'A' && cc <= 'Z')
-                notImplemented();
-            else if (cc >= 'a' && cc <= 'z')
-                notImplemented();
-            else {
+            } else if (cc >= 'A' && cc <= 'Z') {
+                emitCharacter(cc);
+                m_temporaryBuffer.append(toLowerCase(cc));
+            } else if (cc >= 'a' && cc <= 'z') {
+                emitCharacter(cc);
+                m_temporaryBuffer.append(cc);
+            } else {
                 m_state = ScriptDataEscapedState;
                 continue;
             }
@@ -692,15 +867,17 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
         case ScriptDataDoubleEscapeEndState: {
             if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ' || cc == '/' || cc == '>') {
                 emitCharacter(cc);
-                if (temporaryBufferIs("string"))
+                if (temporaryBufferIs(scriptTag.localName()))
                     m_state = ScriptDataEscapedState;
                 else
                     m_state = ScriptDataDoubleEscapedState;
-            } else if (cc >= 'A' && cc <= 'Z')
-                notImplemented();
-            else if (cc >= 'a' && cc <= 'z')
-                notImplemented();
-            else {
+            } else if (cc >= 'A' && cc <= 'Z') {
+                emitCharacter(cc);
+                m_temporaryBuffer.append(toLowerCase(cc));
+            } else if (cc >= 'a' && cc <= 'z') {
+                emitCharacter(cc);
+                m_temporaryBuffer.append(cc);
+            } else {
                 m_state = ScriptDataDoubleEscapedState;
                 continue;
             }
@@ -835,8 +1012,31 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             break;
         }
         case CharacterReferenceInAttributeValueState: {
-            notImplemented();
-            break;
+            bool notEnoughCharacters = false;
+            unsigned value = consumeEntity(source, notEnoughCharacters);
+            if (notEnoughCharacters)
+                return shouldEmitBufferedCharacterToken(source);
+            if (!value)
+                m_token->appendToAttributeValue('&');
+            else if (value < 0xFFFF)
+                m_token->appendToAttributeValue(value);
+            else {
+                m_token->appendToAttributeValue(U16_LEAD(value));
+                m_token->appendToAttributeValue(U16_TRAIL(value));
+            }
+            // We're supposed to switch back to the attribute value state that
+            // we were in when we were switched into this state.  Rather than
+            // keeping track of this explictly, we observe that the previous
+            // state can be determined by m_additionalAllowedCharacter.
+            if (m_additionalAllowedCharacter == '"')
+                m_state = AttributeValueDoubleQuotedState;
+            else if (m_additionalAllowedCharacter == '\'')
+                m_state = AttributeValueSingleQuotedState;
+            else if (m_additionalAllowedCharacter == '>')
+                m_state = AttributeValueUnquotedState;
+            else
+                ASSERT_NOT_REACHED();
+            continue;
         }
         case AfterAttributeValueQuotedState: {
             if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ')
@@ -868,12 +1068,24 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             break;
         }
         case BogusCommentState: {
-            notImplemented();
+            m_token->beginComment();
+            while (!source.isEmpty()) {
+                cc = *source;
+                if (cc == '>')
+                    break;
+                m_token->appendToComment(cc);
+                source.advance();
+            }
+            emitCurrentToken();
             m_state = DataState;
+            if (source.isEmpty())
+                return true;
+            // FIXME: Handle EOF properly.
             break;
         }
         case MarkupDeclarationOpenState: {
             DEFINE_STATIC_LOCAL(String, dashDashString, ("--"));
+            DEFINE_STATIC_LOCAL(String, doctypeString, ("doctype"));
             if (cc == '-') {
                 SegmentedString::LookAheadResult result = source.lookAhead(dashDashString);
                 if (result == SegmentedString::DidMatch) {
@@ -883,10 +1095,22 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
                     m_state = CommentStartState;
                     continue;
                 } else if (result == SegmentedString::NotEnoughCharacters)
-                    return false; // We need to wait for more characters to arrive.
+                    return shouldEmitBufferedCharacterToken(source);
+            } else if (cc == 'D' || cc == 'd') {
+                SegmentedString::LookAheadResult result = source.lookAheadIgnoringCase(doctypeString);
+                if (result == SegmentedString::DidMatch) {
+                    advanceStringAndASSERTIgnoringCase(source, "doctype");
+                    m_state = DOCTYPEState;
+                    continue;
+                } else if (result == SegmentedString::NotEnoughCharacters)
+                    return shouldEmitBufferedCharacterToken(source);
             }
             notImplemented();
-            break;
+            // FIXME: We're still missing the bits about the insertion mode being in foreign content:
+            // http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html#markup-declaration-open-state
+            emitParseError();
+            m_state = BogusCommentState;
+            continue;
         }
         case CommentStartState: {
             if (cc == '-')
@@ -1012,15 +1236,16 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ')
                 break;
             else if (cc >= 'A' && cc <= 'Z') {
-                notImplemented();
+                m_token->beginDOCTYPE(toLowerCase(cc));
                 m_state = DOCTYPENameState;
             } else if (cc == '>') {
                 emitParseError();
+                m_token->beginDOCTYPE();
                 notImplemented();
-                emitCurrentDoctypeToken();
+                emitCurrentToken();
                 m_state = DataState;
             } else {
-                notImplemented();
+                m_token->beginDOCTYPE(cc);
                 m_state = DOCTYPENameState;
             }
             // FIXME: Handle EOF properly.
@@ -1030,23 +1255,45 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ')
                 m_state = AfterDOCTYPENameState;
             else if (cc == '>') {
-                emitCurrentDoctypeToken();
+                emitCurrentToken();
                 m_state = DataState;
             } else if (cc >= 'A' && cc <= 'Z')
-                notImplemented();
+                m_token->appendToName(toLowerCase(cc));
             else
-                notImplemented();
+                m_token->appendToName(cc);
             // FIXME: Handle EOF properly.
             break;
         }
         case AfterDOCTYPENameState: {
             if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ')
                 break;
-            else if (cc == '>') {
-                emitCurrentDoctypeToken();
+            if (cc == '>') {
+                emitCurrentToken();
                 m_state = DataState;
-            } else
+            } else {
+                DEFINE_STATIC_LOCAL(String, publicString, ("public"));
+                DEFINE_STATIC_LOCAL(String, systemString, ("system"));
+                if (cc == 'P' || cc == 'p') {
+                    SegmentedString::LookAheadResult result = source.lookAheadIgnoringCase(publicString);
+                    if (result == SegmentedString::DidMatch) {
+                        advanceStringAndASSERTIgnoringCase(source, "public");
+                        m_state = AfterDOCTYPEPublicKeywordState;
+                        continue;
+                    } else if (result == SegmentedString::NotEnoughCharacters)
+                        return shouldEmitBufferedCharacterToken(source);
+                } else if (cc == 'S' || cc == 's') {
+                    SegmentedString::LookAheadResult result = source.lookAheadIgnoringCase(systemString);
+                    if (result == SegmentedString::DidMatch) {
+                        advanceStringAndASSERTIgnoringCase(source, "system");
+                        m_state = AfterDOCTYPESystemKeywordState;
+                        continue;
+                    } else if (result == SegmentedString::NotEnoughCharacters)
+                        return shouldEmitBufferedCharacterToken(source);
+                }
+                emitParseError();
                 notImplemented();
+                m_state = BogusDOCTYPEState;
+            }
             // FIXME: Handle EOF properly.
             break;
         }
@@ -1055,16 +1302,16 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
                 m_state = BeforeDOCTYPEPublicIdentifierState;
             else if (cc == '"') {
                 emitParseError();
-                notImplemented();
+                m_token->setPublicIdentifierToEmptyString();
                 m_state = DOCTYPEPublicIdentifierDoubleQuotedState;
             } else if (cc == '\'') {
                 emitParseError();
-                notImplemented();
+                m_token->setPublicIdentifierToEmptyString();
                 m_state = DOCTYPEPublicIdentifierSingleQuotedState;
             } else if (cc == '>') {
                 emitParseError();
                 notImplemented();
-                emitCurrentDoctypeToken();
+                emitCurrentToken();
                 m_state = DataState;
             } else {
                 emitParseError();
@@ -1078,15 +1325,15 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ')
                 break;
             else if (cc == '"') {
-                notImplemented();
+                m_token->setPublicIdentifierToEmptyString();
                 m_state = DOCTYPEPublicIdentifierDoubleQuotedState;
             } else if (cc == '\'') {
-                notImplemented();
+                m_token->setPublicIdentifierToEmptyString();
                 m_state = DOCTYPEPublicIdentifierSingleQuotedState;
             } else if (cc == '>') {
                 emitParseError();
                 notImplemented();
-                emitCurrentDoctypeToken();
+                emitCurrentToken();
                 m_state = DataState;
             } else {
                 emitParseError();
@@ -1102,10 +1349,10 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             else if (cc == '>') {
                 emitParseError();
                 notImplemented();
-                emitCurrentDoctypeToken();
+                emitCurrentToken();
                 m_state = DataState;
             } else
-                notImplemented();
+                m_token->appendToPublicIdentifier(cc);
             // FIXME: Handle EOF properly.
             break;
         }
@@ -1115,10 +1362,10 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             else if (cc == '>') {
                 emitParseError();
                 notImplemented();
-                emitCurrentDoctypeToken();
+                emitCurrentToken();
                 m_state = DataState;
             } else
-                notImplemented();
+                m_token->appendToPublicIdentifier(cc);
             // FIXME: Handle EOF properly.
             break;
         }
@@ -1126,15 +1373,15 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ')
                 m_state = BetweenDOCTYPEPublicAndSystemIdentifiersState;
             else if (cc == '>') {
-                emitCurrentDoctypeToken();
+                emitCurrentToken();
                 m_state = DataState;
             } else if (cc == '"') {
                 emitParseError();
-                notImplemented();
+                m_token->setPublicIdentifierToEmptyString();
                 m_state = DOCTYPESystemIdentifierDoubleQuotedState;
             } else if (cc == '\'') {
                 emitParseError();
-                notImplemented();
+                m_token->setPublicIdentifierToEmptyString();
                 m_state = DOCTYPESystemIdentifierSingleQuotedState;
             } else {
                 emitParseError();
@@ -1148,13 +1395,13 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ')
                 m_state = BetweenDOCTYPEPublicAndSystemIdentifiersState;
             else if (cc == '>') {
-                emitCurrentDoctypeToken();
+                emitCurrentToken();
                 m_state = DataState;
             } else if (cc == '"') {
-                notImplemented();
+                m_token->setSystemIdentifierToEmptyString();
                 m_state = DOCTYPESystemIdentifierDoubleQuotedState;
             } else if (cc == '\'') {
-                notImplemented();
+                m_token->setSystemIdentifierToEmptyString();
                 m_state = DOCTYPESystemIdentifierSingleQuotedState;
             } else {
                 emitParseError();
@@ -1169,16 +1416,16 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
                 m_state = BeforeDOCTYPESystemIdentifierState;
             else if (cc == '"') {
                 emitParseError();
-                notImplemented();
+                m_token->setSystemIdentifierToEmptyString();
                 m_state = DOCTYPESystemIdentifierDoubleQuotedState;
             } else if (cc == '\'') {
                 emitParseError();
-                notImplemented();
+                m_token->setSystemIdentifierToEmptyString();
                 m_state = DOCTYPESystemIdentifierSingleQuotedState;
             } else if (cc == '>') {
                 emitParseError();
                 notImplemented();
-                emitCurrentDoctypeToken();
+                emitCurrentToken();
                 m_state = DataState;
             } else {
                 emitParseError();
@@ -1191,16 +1438,16 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
         case BeforeDOCTYPESystemIdentifierState: {
             if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ')
                 break;
-            else if (cc == '"') {
-                notImplemented();
+            if (cc == '"') {
+                m_token->setSystemIdentifierToEmptyString();
                 m_state = DOCTYPESystemIdentifierDoubleQuotedState;
             } else if (cc == '\'') {
-                notImplemented();
+                m_token->setSystemIdentifierToEmptyString();
                 m_state = DOCTYPESystemIdentifierSingleQuotedState;
             } else if (cc == '>') {
                 emitParseError();
                 notImplemented();
-                emitCurrentDoctypeToken();
+                emitCurrentToken();
                 m_state = DataState;
             } else {
                 emitParseError();
@@ -1216,10 +1463,10 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             else if (cc == '>') {
                 emitParseError();
                 notImplemented();
-                emitCurrentDoctypeToken();
+                emitCurrentToken();
                 m_state = DataState;
             } else
-                notImplemented();
+                m_token->appendToSystemIdentifier(cc);
             // FIXME: Handle EOF properly.
             break;
         }
@@ -1229,10 +1476,10 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             else if (cc == '>') {
                 emitParseError();
                 notImplemented();
-                emitCurrentDoctypeToken();
+                emitCurrentToken();
                 m_state = DataState;
             } else
-                notImplemented();
+                m_token->appendToSystemIdentifier(cc);
             // FIXME: Handle EOF properly.
             break;
         }
@@ -1240,7 +1487,7 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             if (cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ')
                 break;
             else if (cc == '>') {
-                emitCurrentDoctypeToken();
+                emitCurrentToken();
                 m_state = DataState;
             } else {
                 emitParseError();
@@ -1250,16 +1497,14 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
             break;
         }
         case BogusDOCTYPEState: {
-            if (cc == '>')
-                emitCurrentDoctypeToken();
+            if (cc == '>') {
+                emitCurrentToken();
+                m_state = DataState;
+            }
             // FIXME: Handle EOF properly.
             break;
         }
         case CDATASectionState: {
-            notImplemented();
-            break;
-        }
-        case TokenizingCharacterReferencesState: {
             notImplemented();
             break;
         }
@@ -1272,23 +1517,23 @@ bool HTML5Lexer::nextToken(SegmentedString& source, HTML5Token& token)
     }
     // We've reached the end of the input stream.  If we have a character
     // token buffered, we should emit it.
-    return m_token->type() == HTML5Token::Character;
+    return shouldEmitBufferedCharacterToken(source);
 }
 
-inline bool HTML5Lexer::temporaryBufferIs(const char*)
+inline bool HTML5Lexer::temporaryBufferIs(const String& expectedString)
 {
-    notImplemented();
-    return true;
+    return vectorEqualsString(m_temporaryBuffer, expectedString);
+}
+
+inline void HTML5Lexer::addToPossibleEndTag(UChar cc)
+{
+    ASSERT(isEndTagBufferingState(m_state));
+    m_bufferedEndTagName.append(cc);
 }
 
 inline bool HTML5Lexer::isAppropriateEndTag()
 {
-    if (m_bufferedEndTagName.size() != m_appropriateEndTagName.length())
-        return false;
-    const UChar* appropriate = m_appropriateEndTagName.characters();
-    const UChar* actual = m_bufferedEndTagName.data();
-    // FIXME: Is there a higher-level function we should be calling here?
-    return !memcmp(appropriate, actual, m_bufferedEndTagName.size() * sizeof(UChar));
+    return vectorEqualsString(m_bufferedEndTagName, m_appropriateEndTagName);
 }
 
 inline void HTML5Lexer::emitCharacter(UChar character)
@@ -1300,20 +1545,52 @@ inline void HTML5Lexer::emitCharacter(UChar character)
     m_token->appendToCharacter(character);
 }
 
+inline void HTML5Lexer::emitCodePoint(unsigned value)
+{
+    if (value < 0xFFFF) {
+        emitCharacter(value);
+        return;
+    }
+    emitCharacter(U16_LEAD(value));
+    emitCharacter(U16_TRAIL(value));
+}
+
 inline void HTML5Lexer::emitParseError()
 {
     notImplemented();
 }
 
+inline void HTML5Lexer::maybeFlushBufferedEndTag()
+{
+    ASSERT(m_token->type() == HTML5Token::Character || m_token->type() == HTML5Token::Uninitialized);
+    if (m_token->type() == HTML5Token::Character) {
+        // We have a character token queued up.  We need to emit it before we
+        // can start begin the buffered end tag token.
+        emitCurrentToken();
+        return;
+    }
+    flushBufferedEndTag();
+}
+
+inline void HTML5Lexer::flushBufferedEndTag()
+{
+    m_token->beginEndTag(m_bufferedEndTagName);
+    m_bufferedEndTagName.clear();
+    if (m_state == DataState)
+        emitCurrentToken();
+}
+
 inline void HTML5Lexer::emitCurrentToken()
 {
+    ASSERT(m_token->type() != HTML5Token::Uninitialized);
     m_emitPending = true;
     if (m_token->type() == HTML5Token::StartTag)
         m_appropriateEndTagName = m_token->name();
 }
 
-inline void HTML5Lexer::emitCurrentDoctypeToken()
+inline bool HTML5Lexer::shouldEmitBufferedCharacterToken(const SegmentedString& source)
 {
+    return source.isClosed() && m_token->type() == HTML5Token::Character;
 }
 
 }

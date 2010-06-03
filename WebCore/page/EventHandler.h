@@ -114,7 +114,7 @@ public:
     bool mousePressed() const { return m_mousePressed; }
     void setMousePressed(bool pressed) { m_mousePressed = pressed; }
 
-    void setCapturingMouseEventsNode(PassRefPtr<Node>);
+    void setCapturingMouseEventsNode(PassRefPtr<Node>); // A caller is responsible for resetting capturing node to 0.
 
 #if ENABLE(DRAG_SUPPORT)
     bool updateDragAndDrop(const PlatformMouseEvent&, Clipboard*);
@@ -134,9 +134,9 @@ public:
 
     static Frame* subframeForTargetNode(Node*);
 
-    bool scrollOverflow(ScrollDirection, ScrollGranularity);
+    bool scrollOverflow(ScrollDirection, ScrollGranularity, Node* startingNode = 0);
 
-    bool scrollRecursively(ScrollDirection, ScrollGranularity);
+    bool scrollRecursively(ScrollDirection, ScrollGranularity, Node* startingNode = 0);
 
 #if ENABLE(DRAG_SUPPORT)
     bool shouldDragAutoNode(Node*, const IntPoint&) const; // -webkit-user-drag == auto
@@ -396,6 +396,7 @@ private:
     RenderLayer* m_resizeLayer;
 
     RefPtr<Node> m_capturingMouseEventsNode;
+    bool m_eventHandlerWillResetCapturingMouseEventsNode;
     
     RefPtr<Node> m_nodeUnderMouse;
     RefPtr<Node> m_lastNodeUnderMouse;

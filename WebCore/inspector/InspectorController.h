@@ -6,13 +6,13 @@
  * are met:
  *
  * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
+ *     notice, this list of conditions and the following disclaimer.
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
+ *     documentation and/or other materials provided with the distribution.
  * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
  *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
+ *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -65,7 +65,7 @@ class InjectedScript;
 class InjectedScriptHost;
 class InspectorBackend;
 class InspectorClient;
-struct InspectorCSSStore;
+class InspectorCSSStore;
 class InspectorFrontend;
 class InspectorFrontendClient;
 class InspectorTimelineAgent;
@@ -147,7 +147,7 @@ public:
 
     void setInspectorFrontendClient(PassOwnPtr<InspectorFrontendClient> client);
     bool hasInspectorFrontendClient() const { return m_inspectorFrontendClient; }
-                                                        
+
     void inspectedWindowScriptObjectCleared(Frame*);
 
     bool windowVisible();
@@ -203,6 +203,8 @@ public:
 #endif
 
     const ResourcesMap& resources() const { return m_resources; }
+    InspectorResource* resourceForURL(const String& url);
+    InspectorFrontend* inspectorFrontend() { return m_frontend.get(); }
 
     void drawNodeHighlight(GraphicsContext&) const;
 
@@ -211,7 +213,7 @@ public:
     void startTiming(const String& title);
     bool stopTiming(const String& title, double& elapsed);
 
-    void startGroup(MessageSource source, ScriptCallStack* callFrame);
+    void startGroup(MessageSource source, ScriptCallStack* callFrame, bool collapsed = false);
     void endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL);
 
     void markTimeline(const String& message);
@@ -220,6 +222,8 @@ public:
     void addProfile(PassRefPtr<ScriptProfile>, unsigned lineNumber, const String& sourceURL);
     void addProfileFinishedMessageToConsole(PassRefPtr<ScriptProfile>, unsigned lineNumber, const String& sourceURL);
     void addStartProfilingMessageToConsole(const String& title, unsigned lineNumber, const String& sourceURL);
+    void removeProfile(unsigned);
+    void clearProfiles();
 
     bool isRecordingUserInitiatedProfile() const { return m_recordingUserInitiatedProfile; }
 
@@ -241,7 +245,7 @@ public:
 
     virtual void didParseSource(const String& sourceID, const String& url, const String& data, int firstLine);
     virtual void failedToParseSource(const String& url, const String& data, int firstLine, int errorLine, const String& errorMessage);
-    virtual void didPause();
+    virtual void didPause(ScriptState*);
     virtual void didContinue();
 #endif
 
@@ -258,14 +262,12 @@ private:
 
     friend class InspectorBackend;
     friend class InjectedScriptHost;
-                                                        
+
     void populateScriptObjects();
     void unbindAllResources();
-                                                        
-    // Following are used from InspectorBackend and internally.
-    void setSearchingForNode(bool enabled);
 
     // Following are used from InspectorBackend and internally.
+    void setSearchingForNode(bool enabled);
     void storeLastActivePanel(const String& panelName);
     InspectorDOMAgent* domAgent() { return m_domAgent.get(); }
     void releaseDOMAgent();
@@ -292,7 +294,7 @@ private:
 #if ENABLE(DOM_STORAGE)
     InspectorDOMStorageResource* getDOMStorageResourceForId(long storageId);
 #endif
-                                                        
+
     ScriptObject buildObjectForCookie(const Cookie&);
     ScriptArray buildArrayForCookies(ListHashSet<Cookie>&);
 

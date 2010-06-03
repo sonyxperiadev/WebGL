@@ -262,6 +262,11 @@ double UString::toDouble(bool tolerateTrailingJunk, bool tolerateEmptyString) co
     // encounters invalid UTF-16. Further, we have no need to convert the
     // non-ASCII characters to UTF-8, so the UTF8String does quite a bit of
     // unnecessary work.
+
+    // FIXME: The space skipping code below skips only ASCII spaces, but callers
+    // need to skip all StrWhiteSpace. The isStrWhiteSpace function does the
+    // right thing but requires UChar, not char, for its argument.
+
     CString s = UTF8String();
     if (s.isNull())
         return NaN;
@@ -324,13 +329,13 @@ double UString::toDouble(bool tolerateTrailingJunk, bool tolerateEmptyString) co
         }
     }
 
-    // allow trailing white space
-    while (isASCIISpace(*c))
-        c++;
-    // don't allow anything after - unless tolerant=true
-    // FIXME: If string contains a U+0000 character, then this check is incorrect.
-    if (!tolerateTrailingJunk && *c != '\0')
-        d = NaN;
+    if (!tolerateTrailingJunk) {
+        // allow trailing white space
+        while (isASCIISpace(*c))
+            c++;
+        if (c != s.data() + s.length())
+            d = NaN;
+    }
 
     return d;
 }
@@ -573,29 +578,6 @@ bool operator>(const UString& s1, const UString& s2)
         return (c1[0] > c2[0]);
 
     return (l1 > l2);
-}
-
-int compare(const UString& s1, const UString& s2)
-{
-    const unsigned l1 = s1.size();
-    const unsigned l2 = s2.size();
-    const unsigned lmin = l1 < l2 ? l1 : l2;
-    const UChar* c1 = s1.data();
-    const UChar* c2 = s2.data();
-    unsigned l = 0;
-    while (l < lmin && *c1 == *c2) {
-        c1++;
-        c2++;
-        l++;
-    }
-
-    if (l < lmin)
-        return (c1[0] > c2[0]) ? 1 : -1;
-
-    if (l1 == l2)
-        return 0;
-
-    return (l1 > l2) ? 1 : -1;
 }
 
 CString UString::UTF8String(bool strict) const

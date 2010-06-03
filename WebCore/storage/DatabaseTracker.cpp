@@ -57,15 +57,30 @@ static WebCore::OriginQuotaManager& originQuotaManager()
 
 namespace WebCore {
 
-DatabaseTracker& DatabaseTracker::tracker()
+static DatabaseTracker* staticTracker = 0;
+
+void DatabaseTracker::initializeTracker(const String& databasePath)
 {
-    DEFINE_STATIC_LOCAL(DatabaseTracker, tracker, ());
-    return tracker;
+    ASSERT(!staticTracker);
+    if (staticTracker)
+        return;
+
+    staticTracker = new DatabaseTracker(databasePath);
 }
 
-DatabaseTracker::DatabaseTracker()
+DatabaseTracker& DatabaseTracker::tracker()
+{
+    if (!staticTracker)
+        staticTracker = new DatabaseTracker("");
+
+    return *staticTracker;
+}
+
+DatabaseTracker::DatabaseTracker(const String& databasePath)
     : m_client(0)
 {
+    setDatabaseDirectoryPath(databasePath);
+    
     SQLiteFileSystem::registerSQLiteVFS();
 
     MutexLocker lockDatabase(m_databaseGuard);
@@ -126,7 +141,6 @@ bool DatabaseTracker::canEstablishDatabase(ScriptExecutionContext* context, cons
     ProposedDatabase details;
 
     unsigned long long requirement;
-    unsigned long long tempUsage;
     {
         MutexLocker lockDatabase(m_databaseGuard);
         Locker<OriginQuotaManager> quotaManagerLocker(originQuotaManager());
@@ -146,7 +160,6 @@ bool DatabaseTracker::canEstablishDatabase(ScriptExecutionContext* context, cons
 
         // If the database will fit, allow its creation.
         requirement = usage + max(1UL, estimatedSize);
-        tempUsage = usage;
         if (requirement < usage) {
             doneCreatingDatabase(origin, name);
             return false; // If the estimated size is so big it causes an overflow, don't allow creation.

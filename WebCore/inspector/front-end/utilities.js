@@ -369,7 +369,7 @@ String.prototype.escapeForRegExp = function()
 
 String.prototype.escapeHTML = function()
 {
-    return this.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    return this.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 String.prototype.collapseWhitespace = function()
@@ -621,7 +621,7 @@ Number.bytesToString = function(bytes, formatterFunction, higherResolution)
 
     var megabytes = kilobytes / 1024;
     if (higherResolution)
-        return formatterFunction("%.3fMB", megabytes);
+        return formatterFunction("%.2fMB", megabytes);
     else
         return formatterFunction("%.0fMB", megabytes);
 }

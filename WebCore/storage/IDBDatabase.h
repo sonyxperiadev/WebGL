@@ -10,9 +10,6 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
- *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -29,11 +26,15 @@
 #ifndef IDBDatabase_h
 #define IDBDatabase_h
 
+#include "PlatformString.h"
+#include <wtf/PassRefPtr.h>
 #include <wtf/Threading.h>
 
 #if ENABLE(INDEXED_DATABASE)
 
 namespace WebCore {
+
+class DOMStringList;
 
 // This class is shared by IDBDatabaseRequest (async) and IDBDatabaseSync (sync).
 // This is implemented by IDBDatabaseImpl and optionally others (in order to proxy
@@ -42,7 +43,11 @@ namespace WebCore {
 class IDBDatabase : public ThreadSafeShared<IDBDatabase> {
 public:
     virtual ~IDBDatabase() { }
-    // FIXME: Write.
+
+    virtual String name() = 0;
+    virtual String description() = 0;
+    virtual String version() = 0;
+    virtual PassRefPtr<DOMStringList> objectStores() = 0;
 };
 
 } // namespace WebCore
@@ -50,4 +55,3 @@ public:
 #endif
 
 #endif // IDBDatabase_h
-

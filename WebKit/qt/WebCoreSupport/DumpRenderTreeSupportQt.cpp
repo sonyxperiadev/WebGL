@@ -60,6 +60,9 @@
 
 using namespace WebCore;
 
+CheckPermissionFunctionType* checkPermissionFunction = 0;
+RequestPermissionFunctionType* requestPermissionFunction = 0;
+
 DumpRenderTreeSupportQt::DumpRenderTreeSupportQt()
 {
 }
@@ -332,6 +335,11 @@ void DumpRenderTreeSupportQt::whiteListAccessFromOrigin(const QString& sourceOri
     SecurityOrigin::addOriginAccessWhitelistEntry(*SecurityOrigin::createFromString(sourceOrigin), destinationProtocol, destinationHost, allowDestinationSubdomains);
 }
 
+void DumpRenderTreeSupportQt::removeWhiteListAccessFromOrigin(const QString& sourceOrigin, const QString& destinationProtocol, const QString& destinationHost, bool allowDestinationSubdomains)
+{
+    SecurityOrigin::removeOriginAccessWhitelistEntry(*SecurityOrigin::createFromString(sourceOrigin), destinationProtocol, destinationHost, allowDestinationSubdomains);
+}
+
 void DumpRenderTreeSupportQt::resetOriginAccessWhiteLists()
 {
     SecurityOrigin::resetOriginAccessWhitelists();
@@ -466,6 +474,22 @@ bool DumpRenderTreeSupportQt::elementDoesAutoCompleteForElementWithId(QWebFrame*
             && inputElement->autoComplete());
 }
 
+void DumpRenderTreeSupportQt::setEditingBehavior(QWebPage* page, const QString& editingBehavior)
+{
+    WebCore::EditingBehavior coreEditingBehavior;
+
+    if (editingBehavior == "win")
+        coreEditingBehavior = EditingWindowsBehavior;
+    else if (editingBehavior == "mac")
+        coreEditingBehavior = EditingMacBehavior;
+
+    Page* corePage = QWebPagePrivate::core(page);
+    if (!corePage)
+        return;
+
+    corePage->settings()->setEditingBehavior(coreEditingBehavior);
+}
+
 void DumpRenderTreeSupportQt::dumpFrameLoader(bool b)
 {
     FrameLoaderClientQt::dumpFrameLoaderCallbacks = b;
@@ -512,6 +536,31 @@ void DumpRenderTreeSupportQt::dumpNotification(bool b)
     NotificationPresenterClientQt::dumpNotification = b;
 #endif
 }
+
+void DumpRenderTreeSupportQt::setNotificationsReceiver(QWebPage* page, QObject* receiver)
+{
+#if ENABLE(NOTIFICATIONS)
+    page->d->notificationPresenterClient->setReceiver(receiver);
+#endif
+}
+
+void DumpRenderTreeSupportQt::allowNotificationForOrigin(QWebPage* page, const QString& origin)
+{
+#if ENABLE(NOTIFICATIONS)
+    page->d->notificationPresenterClient->allowNotificationForOrigin(origin);
+#endif
+}
+
+void DumpRenderTreeSupportQt::setCheckPermissionFunction(CheckPermissionFunctionType* f)
+{
+    checkPermissionFunction = f;
+}
+
+void DumpRenderTreeSupportQt::setRequestPermissionFunction(RequestPermissionFunctionType* f)
+{
+    requestPermissionFunction = f;
+}
+
 // Provide a backward compatibility with previously exported private symbols as of QtWebKit 4.6 release
 
 void QWEBKIT_EXPORT qt_resumeActiveDOMObjects(QWebFrame* frame)

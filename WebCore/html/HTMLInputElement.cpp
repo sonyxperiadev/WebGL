@@ -94,23 +94,12 @@ static const double weekDefaultStep = 1.0;
 static const double weekStepScaleFactor = 604800000.0;
 
 // Constant values for minimum().
-static const double dateDefaultMinimum = -12219292800000.0; // This means 1582-10-15T00:00Z.
-static const double dateTimeDefaultMinimum = -12219292800000.0; // ditto.
-static const double monthDefaultMinimum = (1582.0 - 1970) * 12 + 10 - 1; // 1582-10
 static const double numberDefaultMinimum = -DBL_MAX;
 static const double rangeDefaultMinimum = 0.0;
-static const double timeDefaultMinimum = 0.0; // 00:00:00.000
-static const double weekDefaultMinimum = -12212380800000.0; // 1583-01-03, the first Monday of 1583.
 
 // Constant values for maximum().
-static const double dateDefaultMaximum = DBL_MAX;
-static const double dateTimeDefaultMaximum = DBL_MAX;
-// DateComponents::m_year can't represent a year greater than INT_MAX.
-static const double monthDefaultMaximum = (INT_MAX - 1970) * 12.0 + 12 - 1;
 static const double numberDefaultMaximum = DBL_MAX;
 static const double rangeDefaultMaximum = 100.0;
-static const double timeDefaultMaximum = 86399999.0; // 23:59:59.999
-static const double weekDefaultMaximum = DBL_MAX;
 
 static const double defaultStepBase = 0.0;
 static const double weekDefaultStepBase = -259200000.0; // The first day of 1970-W01.
@@ -118,8 +107,8 @@ static const double weekDefaultStepBase = -259200000.0; // The first day of 1970
 static const double msecPerMinute = 60 * 1000;
 static const double msecPerSecond = 1000;
 
-HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document* doc, HTMLFormElement* f)
-    : HTMLTextFormControlElement(tagName, doc, f)
+HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
+    : HTMLTextFormControlElement(tagName, document, form)
     , m_xPos(0)
     , m_yPos(0)
     , m_maxResults(-1)
@@ -135,6 +124,11 @@ HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document* doc, 
     , m_inited(false)
 {
     ASSERT(hasTagName(inputTag) || hasTagName(isindexTag));
+}
+
+PassRefPtr<HTMLInputElement> HTMLInputElement::create(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
+{
+    return new HTMLInputElement(tagName, document, form);
 }
 
 HTMLInputElement::~HTMLInputElement()
@@ -381,20 +375,20 @@ double HTMLInputElement::minimum() const
 {
     switch (inputType()) {
     case DATE:
-        return parseToDouble(getAttribute(minAttr), dateDefaultMinimum);
+        return parseToDouble(getAttribute(minAttr), DateComponents::minimumDate());
     case DATETIME:
     case DATETIMELOCAL:
-        return parseToDouble(getAttribute(minAttr), dateTimeDefaultMinimum);
+        return parseToDouble(getAttribute(minAttr), DateComponents::minimumDateTime());
     case MONTH:
-        return parseToDouble(getAttribute(minAttr), monthDefaultMinimum);
+        return parseToDouble(getAttribute(minAttr), DateComponents::minimumMonth());
     case NUMBER:
         return parseToDouble(getAttribute(minAttr), numberDefaultMinimum);
     case RANGE:
         return parseToDouble(getAttribute(minAttr), rangeDefaultMinimum);
     case TIME:
-        return parseToDouble(getAttribute(minAttr), timeDefaultMinimum);
+        return parseToDouble(getAttribute(minAttr), DateComponents::minimumTime());
     case WEEK:
-        return parseToDouble(getAttribute(minAttr), weekDefaultMinimum);
+        return parseToDouble(getAttribute(minAttr), DateComponents::minimumWeek());
     case BUTTON:
     case CHECKBOX:
     case COLOR:
@@ -421,12 +415,12 @@ double HTMLInputElement::maximum() const
 {
     switch (inputType()) {
     case DATE:
-        return parseToDouble(getAttribute(maxAttr), dateDefaultMaximum);
+        return parseToDouble(getAttribute(maxAttr), DateComponents::maximumDate());
     case DATETIME:
     case DATETIMELOCAL:
-        return parseToDouble(getAttribute(maxAttr), dateTimeDefaultMaximum);
+        return parseToDouble(getAttribute(maxAttr), DateComponents::maximumDateTime());
     case MONTH:
-        return parseToDouble(getAttribute(maxAttr), monthDefaultMaximum);
+        return parseToDouble(getAttribute(maxAttr), DateComponents::maximumMonth());
     case NUMBER:
         return parseToDouble(getAttribute(maxAttr), numberDefaultMaximum);
     case RANGE: {
@@ -439,9 +433,9 @@ double HTMLInputElement::maximum() const
         return max;
     }
     case TIME:
-        return parseToDouble(getAttribute(maxAttr), timeDefaultMaximum);
+        return parseToDouble(getAttribute(maxAttr), DateComponents::maximumTime());
     case WEEK:
-        return parseToDouble(getAttribute(maxAttr), weekDefaultMaximum);
+        return parseToDouble(getAttribute(maxAttr), DateComponents::maximumWeek());
     case BUTTON:
     case CHECKBOX:
     case COLOR:
@@ -2375,7 +2369,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
 
 PassRefPtr<HTMLFormElement> HTMLInputElement::createTemporaryFormForIsIndex()
 {
-    RefPtr<HTMLFormElement> form = new HTMLFormElement(formTag, document());
+    RefPtr<HTMLFormElement> form = HTMLFormElement::create(document());
     form->registerFormElement(this);
     form->setMethod("GET");
     if (!document()->baseURL().isEmpty()) {

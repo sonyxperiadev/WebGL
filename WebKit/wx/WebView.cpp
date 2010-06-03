@@ -56,6 +56,9 @@
 #include "Settings.h"
 #include "SubstituteData.h"
 #include "Threading.h"
+#if __WXMSW__
+#include "WebCoreInstanceHandle.h"
+#endif
 
 #include "ChromeClientWx.h"
 #include "ContextMenuClientWx.h"
@@ -319,7 +322,7 @@ bool wxWebView::Create(wxWindow* parent, int id, const wxPoint& position,
 // due to a problem with exceptions getting eaten when using the callback
 // approach to timers (which wx itself uses).
 #if __WXMSW__
-    WebCore::Page::setInstanceHandle(wxGetInstance());
+    WebCore::setInstanceHandle(wxGetInstance());
 #endif
 
     // this helps reduce flicker on platforms like MSW
@@ -331,7 +334,11 @@ bool wxWebView::Create(wxWindow* parent, int id, const wxPoint& position,
     WebCore::HTMLFrameOwnerElement* parentFrame = 0;
 
     WebCore::EditorClientWx* editorClient = new WebCore::EditorClientWx();
-    m_impl->page = new WebCore::Page(new WebCore::ChromeClientWx(this), new WebCore::ContextMenuClientWx(), editorClient, new WebCore::DragClientWx(), new WebCore::InspectorClientWx(), 0, 0);
+    m_impl->page = new WebCore::Page(new WebCore::ChromeClientWx(this), 
+                        new WebCore::ContextMenuClientWx(), 
+                        editorClient, 
+                        new WebCore::DragClientWx(), 
+                        new WebCore::InspectorClientWx(), 0, 0, 0);
     editorClient->setPage(m_impl->page);
     
     m_mainFrame = new wxWebFrame(this);

@@ -44,8 +44,14 @@
 
 namespace WebCore {
 
-class WKCACFAnimation;
-class WKCACFTimingFunction;
+class WKCACFLayer;
+
+class WKCACFLayerLayoutClient {
+public:
+    virtual void layoutSublayersOfLayer(WKCACFLayer*) = 0;
+protected:
+    virtual ~WKCACFLayerLayoutClient() {}
+};
 
 class WKCACFLayer : public RefCounted<WKCACFLayer> {
 public:
@@ -62,6 +68,10 @@ public:
     virtual void setNeedsRender() { }
 
     virtual void drawInContext(PlatformGraphicsContext*) { }
+
+    void setLayoutClient(WKCACFLayerLayoutClient*);
+    WKCACFLayerLayoutClient* layoutClient() const { return m_layoutClient; }
+    void setNeedsLayout() { CACFLayerSetNeedsLayout(layer()); }
 
     void setNeedsDisplay(const CGRect* dirtyRect = 0)
     {
@@ -155,8 +165,8 @@ public:
     void setClearsContext(bool clears) { CACFLayerSetClearsContext(layer(), clears); setNeedsCommit(); }
     bool clearsContext() const { return CACFLayerGetClearsContext(layer()); }
 
-    void setContents(CGImageRef contents) { CACFLayerSetContents(layer(), contents); setNeedsCommit(); }
-    CGImageRef contents() const { return static_cast<CGImageRef>(const_cast<void*>(CACFLayerGetContents(layer()))); }
+    void setContents(CFTypeRef contents) { CACFLayerSetContents(layer(), contents); setNeedsCommit(); }
+    CFTypeRef contents() const { return CACFLayerGetContents(layer()); }
 
     void setContentsRect(const CGRect& contentsRect) { CACFLayerSetContentsRect(layer(), contentsRect); setNeedsCommit(); }
     CGRect contentsRect() const { return CACFLayerGetContentsRect(layer()); }
@@ -172,6 +182,9 @@ public:
 
     void setFilters(CFArrayRef filters) { CACFLayerSetFilters(layer(), filters); setNeedsCommit(); }
     CFArrayRef filters() const { return CACFLayerGetFilters(layer()); }
+
+    virtual void setFrame(const CGRect&);
+    CGRect frame() const { return CACFLayerGetFrame(layer()); }
 
     void setHidden(bool hidden) { CACFLayerSetHidden(layer(), hidden); setNeedsCommit(); }
     bool isHidden() const { return CACFLayerIsHidden(layer()); }
@@ -206,10 +219,10 @@ public:
     CGFloat zPosition() const { return CACFLayerGetZPosition(layer()); }
 
     void setSpeed(float speed) { CACFLayerSetSpeed(layer(), speed); }
-    CFTimeInterval speed() const { CACFLayerGetSpeed(layer()); }
+    CFTimeInterval speed() const { return CACFLayerGetSpeed(layer()); }
 
     void setTimeOffset(CFTimeInterval t) { CACFLayerSetTimeOffset(layer(), t); }
-    CFTimeInterval timeOffset() const { CACFLayerGetTimeOffset(layer()); }
+    CFTimeInterval timeOffset() const { return CACFLayerGetTimeOffset(layer()); }
 
     WKCACFLayer* rootLayer() const;
 
@@ -261,7 +274,10 @@ protected:
 #endif
 
 private:
+    static void layoutSublayersProc(CACFLayerRef);
+
     RetainPtr<CACFLayerRef> m_layer;
+    WKCACFLayerLayoutClient* m_layoutClient;
     bool m_needsDisplayOnBoundsChange;
 };
 

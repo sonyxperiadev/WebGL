@@ -155,7 +155,7 @@ static inline RenderObject* firstChildConsideringContinuation(RenderObject* rend
 static inline RenderObject* lastChildConsideringContinuation(RenderObject* renderer)
 {
     RenderObject* lastChild = renderer->lastChild();
-    RenderObject* prev = renderer;
+    RenderObject* prev;
     RenderObject* cur = renderer;
 
     if (!cur->isRenderInline() && !cur->isRenderBlock())
@@ -2418,7 +2418,7 @@ VisiblePositionRange AccessibilityRenderObject::visiblePositionRangeForLine(unsi
     // will be a caret at visiblePos.
     SelectionController selection;
     selection.setSelection(VisibleSelection(visiblePos));
-    selection.modify(SelectionController::EXTEND, SelectionController::RIGHT, LineBoundary);
+    selection.modify(SelectionController::AlterationExtend, SelectionController::DirectionRight, LineBoundary);
     
     return VisiblePositionRange(selection.selection().visibleStart(), selection.selection().visibleEnd());
 }
@@ -2630,8 +2630,8 @@ PlainTextRange AccessibilityRenderObject::doAXRangeForLine(unsigned lineNumber) 
     // will be a caret at visiblePos.
     SelectionController selection;
     selection.setSelection(VisibleSelection(visiblePos));
-    selection.modify(SelectionController::EXTEND, SelectionController::LEFT, LineBoundary);
-    selection.modify(SelectionController::EXTEND, SelectionController::RIGHT, LineBoundary);
+    selection.modify(SelectionController::AlterationExtend, SelectionController::DirectionLeft, LineBoundary);
+    selection.modify(SelectionController::AlterationExtend, SelectionController::DirectionRight, LineBoundary);
     
     // calculate the indices for the selection start and end
     VisiblePosition startPosition = selection.selection().visibleStart();

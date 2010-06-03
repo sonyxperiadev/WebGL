@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -93,20 +93,33 @@ private:
 
 class ImageDocumentElement : public HTMLImageElement {
 public:
-    ImageDocumentElement(ImageDocument* doc)
-        : HTMLImageElement(imgTag, doc)
-        , m_imageDocument(doc)
+    static PassRefPtr<ImageDocumentElement> create(ImageDocument*);
+
+private:
+    ImageDocumentElement(ImageDocument* document)
+        : HTMLImageElement(imgTag, document)
+        , m_imageDocument(document)
     {
     }
 
     virtual ~ImageDocumentElement();
     virtual void willMoveToNewOwnerDocument();
 
-private:
     ImageDocument* m_imageDocument;
 };
 
+inline PassRefPtr<ImageDocumentElement> ImageDocumentElement::create(ImageDocument* document)
+{
+    return new ImageDocumentElement(document);
+}
+
 // --------
+
+static float pageZoomFactor(Document* document)
+{
+    FrameView* view = document->view();
+    return view ? view->pageZoomFactor() : 1;
+}
 
 void ImageTokenizer::write(const SegmentedString&, bool)
 {
@@ -145,7 +158,7 @@ void ImageTokenizer::finish()
 
         cachedImage->setResponse(m_doc->frame()->loader()->documentLoader()->response());
 
-        IntSize size = cachedImage->imageSize(m_doc->frame()->pageZoomFactor());
+        IntSize size = cachedImage->imageSize(pageZoomFactor(m_doc));
         if (size.width()) {
             // Compute the title, we use the decoded filename of the resource, falling
             // back on the (decoded) hostname if there is no path.
@@ -196,7 +209,7 @@ void ImageDocument::createDocumentStructure()
     
     rootElement->appendChild(body, ec);
     
-    RefPtr<ImageDocumentElement> imageElement = new ImageDocumentElement(this);
+    RefPtr<ImageDocumentElement> imageElement = ImageDocumentElement::create(this);
     
     imageElement->setAttribute(styleAttr, "-webkit-user-select: none");        
     imageElement->setLoadManually(true);
@@ -220,8 +233,12 @@ float ImageDocument::scale() const
     if (!m_imageElement)
         return 1.0f;
 
-    IntSize imageSize = m_imageElement->cachedImage()->imageSize(frame()->pageZoomFactor());
-    IntSize windowSize = IntSize(frame()->view()->width(), frame()->view()->height());
+    FrameView* view = frame()->view();
+    if (!view)
+        return 1;
+
+    IntSize imageSize = m_imageElement->cachedImage()->imageSize(view->pageZoomFactor());
+    IntSize windowSize = IntSize(view->width(), view->height());
     
     float widthScale = (float)windowSize.width() / imageSize.width();
     float heightScale = (float)windowSize.height() / imageSize.height();
@@ -234,7 +251,7 @@ void ImageDocument::resizeImageToFit()
     if (!m_imageElement)
         return;
 
-    IntSize imageSize = m_imageElement->cachedImage()->imageSize(frame()->pageZoomFactor());
+    IntSize imageSize = m_imageElement->cachedImage()->imageSize(pageZoomFactor(this));
 
     float scale = this->scale();
     m_imageElement->setWidth(static_cast<int>(imageSize.width() * scale));
@@ -274,7 +291,7 @@ void ImageDocument::imageChanged()
     if (m_imageSizeIsKnown)
         return;
 
-    if (m_imageElement->cachedImage()->imageSize(frame()->pageZoomFactor()).isEmpty())
+    if (m_imageElement->cachedImage()->imageSize(pageZoomFactor(this)).isEmpty())
         return;
     
     m_imageSizeIsKnown = true;
@@ -290,8 +307,8 @@ void ImageDocument::restoreImageSize()
     if (!m_imageElement || !m_imageSizeIsKnown)
         return;
     
-    m_imageElement->setWidth(m_imageElement->cachedImage()->imageSize(frame()->pageZoomFactor()).width());
-    m_imageElement->setHeight(m_imageElement->cachedImage()->imageSize(frame()->pageZoomFactor()).height());
+    m_imageElement->setWidth(m_imageElement->cachedImage()->imageSize(pageZoomFactor(this)).width());
+    m_imageElement->setHeight(m_imageElement->cachedImage()->imageSize(pageZoomFactor(this)).height());
     
     ExceptionCode ec;
     if (imageFitsInWindow())
@@ -307,8 +324,10 @@ bool ImageDocument::imageFitsInWindow() const
     if (!m_imageElement)
         return true;
 
-    IntSize imageSize = m_imageElement->cachedImage()->imageSize(frame()->pageZoomFactor());
-    IntSize windowSize = IntSize(frame()->view()->width(), frame()->view()->height());
+    FrameView* view = frame()->view();
+
+    IntSize imageSize = m_imageElement->cachedImage()->imageSize(view->pageZoomFactor());
+    IntSize windowSize = IntSize(view->width(), view->height());
     
     return imageSize.width() <= windowSize.width() && imageSize.height() <= windowSize.height();    
 }

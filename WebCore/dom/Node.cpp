@@ -58,6 +58,7 @@
 #include "HTMLNames.h"
 #include "InspectorTimelineAgent.h"
 #include "KeyboardEvent.h"
+#include "LabelsNodeList.h"
 #include "Logging.h"
 #include "MouseEvent.h"
 #include "MutationEvent.h"
@@ -299,8 +300,13 @@ Node::StyleChange Node::diff(const RenderStyle* s1, const RenderStyle* s2)
     bool fl1 = s1 && s1->hasPseudoStyle(FIRST_LETTER);
     EDisplay display2 = s2 ? s2->display() : NONE;
     bool fl2 = s2 && s2->hasPseudoStyle(FIRST_LETTER);
-        
-    if (display1 != display2 || fl1 != fl2 || (s1 && s2 && !s1->contentDataEquivalent(s2)))
+    
+    // We just detach if a renderer acquires or loses a column-span, since spanning elements
+    // typically won't contain much content.
+    bool colSpan1 = s1 && s1->columnSpan();
+    bool colSpan2 = s2 && s2->columnSpan();
+    
+    if (display1 != display2 || fl1 != fl2 || colSpan1 != colSpan2 || (s1 && s2 && !s1->contentDataEquivalent(s2)))
         ch = Detach;
     else if (!s1 || !s2)
         ch = Inherit;
@@ -896,6 +902,18 @@ void Node::notifyNodeListsChildrenChanged()
         n->notifyLocalNodeListsChildrenChanged();
 }
 
+void Node::notifyLocalNodeListsLabelChanged()
+{
+    if (!hasRareData())
+        return;
+    NodeRareData* data = rareData();
+    if (!data->nodeLists())
+        return;
+
+    if (data->nodeLists()->m_labelsNodeListCache)
+        data->nodeLists()->m_labelsNodeListCache->invalidateCache();
+}
+
 void Node::removeCachedClassNodeList(ClassNodeList* list, const String& className)
 {
     ASSERT(rareData());
@@ -927,6 +945,16 @@ void Node::removeCachedTagNodeList(TagNodeList* list, const QualifiedName& name)
     NodeListsNodeData* data = rareData()->nodeLists();
     ASSERT_UNUSED(list, list == data->m_tagNodeListCache.get(name.impl()));
     data->m_tagNodeListCache.remove(name.impl());
+}
+
+void Node::removeCachedLabelsNodeList(DynamicNodeList* list)
+{
+    ASSERT(rareData());
+    ASSERT(rareData()->nodeLists());
+    ASSERT_UNUSED(list, list->hasOwnCaches());
+    
+    NodeListsNodeData* data = rareData()->nodeLists();
+    data->m_labelsNodeListCache = 0;
 }
 
 Node *Node::traverseNextNode(const Node *stayWithin) const
@@ -1538,12 +1566,12 @@ bool Node::inSameContainingBlockFlowElement(Node *n)
 
 // FIXME: End of obviously misplaced HTML editing functions.  Try to move these out of Node.
 
-PassRefPtr<NodeList> Node::getElementsByTagName(const String& name)
+PassRefPtr<NodeList> Node::getElementsByTagName(const AtomicString& name)
 {
     return getElementsByTagNameNS(starAtom, name);
 }
  
-PassRefPtr<NodeList> Node::getElementsByTagNameNS(const AtomicString& namespaceURI, const String& localName)
+PassRefPtr<NodeList> Node::getElementsByTagNameNS(const AtomicString& namespaceURI, const AtomicString& localName)
 {
     if (localName.isNull())
         return 0;
@@ -2242,6 +2270,9 @@ void Node::formatForDebugger(char* buffer, unsigned length) const
 void NodeListsNodeData::invalidateCaches()
 {
     m_childNodeListCaches->reset();
+
+    if (m_labelsNodeListCache)
+        m_labelsNodeListCache->invalidateCache();
     TagNodeListCache::const_iterator tagCacheEnd = m_tagNodeListCache.end();
     for (TagNodeListCache::const_iterator it = m_tagNodeListCache.begin(); it != tagCacheEnd; ++it)
         it->second->invalidateCache();
@@ -2257,6 +2288,8 @@ void NodeListsNodeData::invalidateCachesThatDependOnAttributes()
     NameNodeListCache::iterator nameCacheEnd = m_nameNodeListCache.end();
     for (NameNodeListCache::iterator it = m_nameNodeListCache.begin(); it != nameCacheEnd; ++it)
         it->second->invalidateCache();
+    if (m_labelsNodeListCache)
+        m_labelsNodeListCache->invalidateCache();
 }
 
 bool NodeListsNodeData::isEmpty() const
@@ -2284,6 +2317,9 @@ bool NodeListsNodeData::isEmpty() const
         if (it->second->refCount())
             return false;
     }
+
+    if (m_labelsNodeListCache)
+        return false;
 
     return true;
 }
@@ -2908,8 +2944,8 @@ bool Node::dispatchMouseEvent(const AtomicString& eventType, int button, int det
 
     int adjustedPageX = pageX;
     int adjustedPageY = pageY;
-    if (Frame* frame = document()->frame()) {
-        float pageZoom = frame->pageZoomFactor();
+    if (FrameView* view = document()->view()) {
+        float pageZoom = view->pageZoomFactor();
         if (pageZoom != 1.0f) {
             // Adjust our pageX and pageY to account for the page zoom.
             adjustedPageX = lroundf(pageX / pageZoom);
@@ -2965,8 +3001,8 @@ void Node::dispatchWheelEvent(PlatformWheelEvent& e)
 
     int adjustedPageX = pos.x();
     int adjustedPageY = pos.y();
-    if (Frame* frame = document()->frame()) {
-        float pageZoom = frame->pageZoomFactor();
+    if (FrameView* view = document()->view()) {
+        float pageZoom = view->pageZoomFactor();
         if (pageZoom != 1.0f) {
             // Adjust our pageX and pageY to account for the page zoom.
             adjustedPageX = lroundf(pos.x() / pageZoom);

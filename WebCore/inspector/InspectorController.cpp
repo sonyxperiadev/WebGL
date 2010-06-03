@@ -145,7 +145,7 @@ InspectorController::InspectorController(Page* page, InspectorClient* client)
     : m_inspectedPage(page)
     , m_client(client)
     , m_openingFrontend(false)
-    , m_cssStore(new InspectorCSSStore())
+    , m_cssStore(new InspectorCSSStore(this))
     , m_expiredConsoleMessageCount(0)
     , m_showAfterVisible(CurrentPanel)
     , m_groupLevel(0)
@@ -177,6 +177,7 @@ InspectorController::~InspectorController()
     // These should have been cleared in inspectedPageDestroyed().
     ASSERT(!m_client);
     ASSERT(!m_inspectedPage);
+    ASSERT(!m_highlightedNode);
 
     deleteAllValues(m_frameResources);
     deleteAllValues(m_consoleMessages);
@@ -194,6 +195,8 @@ void InspectorController::inspectedPageDestroyed()
 {
     if (m_frontend)
         m_frontend->inspectedPageDestroyed();
+
+    hideHighlight();
 
     ASSERT(m_inspectedPage);
     m_inspectedPage = 0;
@@ -336,11 +339,11 @@ void InspectorController::clearConsoleMessages()
         m_frontend->clearConsoleMessages();
 }
 
-void InspectorController::startGroup(MessageSource source, ScriptCallStack* callStack)
+void InspectorController::startGroup(MessageSource source, ScriptCallStack* callStack, bool collapsed)
 {
     ++m_groupLevel;
 
-    addConsoleMessage(callStack->state(), new ConsoleMessage(source, StartGroupMessageType, LogMessageLevel, callStack, m_groupLevel));
+    addConsoleMessage(callStack->state(), new ConsoleMessage(source, collapsed ? StartGroupCollapsedMessageType : StartGroupMessageType, LogMessageLevel, callStack, m_groupLevel));
 }
 
 void InspectorController::endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL)
@@ -773,6 +776,15 @@ InspectorResource* InspectorController::getTrackedResource(unsigned long identif
     if (isMainResource)
         return m_mainResource.get();
 
+    return 0;
+}
+
+InspectorResource* InspectorController::resourceForURL(const String& url)
+{
+    for (InspectorController::ResourcesMap::iterator resIt = m_resources.begin(); resIt != m_resources.end(); ++resIt) {
+        if (resIt->second->requestURL().string() == url)
+            return resIt->second.get();
+    }
     return 0;
 }
 
@@ -1376,6 +1388,25 @@ void InspectorController::addStartProfilingMessageToConsole(const String& title,
     addMessageToConsole(JSMessageSource, LogMessageType, LogMessageLevel, message, lineNumber, sourceURL);
 }
 
+void InspectorController::removeProfile(unsigned uid)
+{
+    if (!enabled())
+        return;
+
+    if (m_profiles.contains(uid))
+        m_profiles.remove(uid);
+}
+
+void InspectorController::clearProfiles()
+{
+    if (!enabled())
+        return;
+
+    m_profiles.clear();
+    m_currentUserInitiatedProfileNumber = 1;
+    m_nextUserInitiatedProfileNumber = 1;
+}
+
 void InspectorController::getProfileHeaders(long callId)
 {
     if (!m_frontend)
@@ -1628,9 +1659,8 @@ void InspectorController::failedToParseSource(const String& url, const String& d
     m_frontend->failedToParseScriptSource(url, data, firstLine, errorLine, errorMessage);
 }
 
-void InspectorController::didPause()
+void InspectorController::didPause(ScriptState* scriptState)
 {
-    ScriptState* scriptState = ScriptDebugServer::shared().currentCallFrameState();
     ASSERT(scriptState);
     InjectedScript injectedScript = m_injectedScriptHost->injectedScriptFor(scriptState);
     RefPtr<SerializedScriptValue> callFrames = injectedScript.callFrames();

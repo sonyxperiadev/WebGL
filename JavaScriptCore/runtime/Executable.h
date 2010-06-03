@@ -86,6 +86,8 @@ namespace JSC {
     protected:
         JITCode m_jitCodeForCall;
         JITCode m_jitCodeForConstruct;
+        MacroAssemblerCodePtr m_jitCodeForCallWithArityCheck;
+        MacroAssemblerCodePtr m_jitCodeForConstructWithArityCheck;
 #endif
     };
 
@@ -93,9 +95,9 @@ namespace JSC {
     class NativeExecutable : public ExecutableBase {
         friend class JIT;
     public:
-        static PassRefPtr<NativeExecutable> create(MacroAssemblerCodePtr thunk, NativeFunction function)
+        static PassRefPtr<NativeExecutable> create(MacroAssemblerCodePtr callThunk, NativeFunction function, MacroAssemblerCodePtr constructThunk, NativeFunction constructor)
         {
-            return adoptRef(new NativeExecutable(JITCode::HostFunction(thunk), function));
+            return adoptRef(new NativeExecutable(JITCode::HostFunction(callThunk), function, JITCode::HostFunction(constructThunk), constructor));
         }
 
         ~NativeExecutable();
@@ -103,15 +105,21 @@ namespace JSC {
         NativeFunction function() { return m_function; }
 
     private:
-        NativeExecutable(JITCode thunk, NativeFunction function)
+        NativeExecutable(JITCode callThunk, NativeFunction function, JITCode constructThunk, NativeFunction constructor)
             : ExecutableBase(NUM_PARAMETERS_IS_HOST)
             , m_function(function)
+            , m_constructor(constructor)
         {
-            m_jitCodeForCall = thunk;
-            m_jitCodeForConstruct = thunk;
+            m_jitCodeForCall = callThunk;
+            m_jitCodeForConstruct = constructThunk;
+            m_jitCodeForCallWithArityCheck = callThunk.addressForCall();
+            m_jitCodeForConstructWithArityCheck = constructThunk.addressForCall();
         }
 
         NativeFunction m_function;
+        // Probably should be a NativeConstructor, but this will currently require rewriting the JIT
+        // trampoline. It may be easier to make NativeFunction be passed 'this' as a part of the ArgList.
+        NativeFunction m_constructor;
     };
 #endif
 
@@ -401,6 +409,20 @@ namespace JSC {
             if (!m_jitCodeForConstruct)
                 generateJITCodeForConstruct(exec, scopeChainNode);
             return m_jitCodeForConstruct;
+        }
+
+        MacroAssemblerCodePtr generatedJITCodeForCallWithArityCheck()
+        {
+            ASSERT(m_jitCodeForCall);
+            ASSERT(m_jitCodeForCallWithArityCheck);
+            return m_jitCodeForCallWithArityCheck;
+        }
+
+        MacroAssemblerCodePtr generatedJITCodeForConstructWithArityCheck()
+        {
+            ASSERT(m_jitCodeForConstruct);
+            ASSERT(m_jitCodeForConstructWithArityCheck);
+            return m_jitCodeForConstructWithArityCheck;
         }
 
     private:

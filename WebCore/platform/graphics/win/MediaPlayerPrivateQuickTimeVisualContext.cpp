@@ -40,6 +40,7 @@
 #include "QTMovieTask.h"
 #include "QTMovieVisualContext.h"
 #include "ScrollView.h"
+#include "Settings.h"
 #include "SoftLinking.h"
 #include "StringBuilder.h"
 #include "StringHash.h"
@@ -56,16 +57,15 @@
 #if USE(ACCELERATED_COMPOSITING)
 #include "GraphicsLayerCACF.h"
 #include "WKCACFLayer.h"
+#include "WKCAImageQueue.h"
 #endif
 
 using namespace std;
 
-const CFStringRef kMinQuartzCoreVersion = CFSTR("1.0.43.0");
-const CFStringRef kMinCoreVideoVersion = CFSTR("1.0.0.2");
-
 namespace WebCore {
 
 static CGImageRef CreateCGImageFromPixelBuffer(QTPixelBuffer buffer);
+static bool requiredDllsAvailable();
 
 SOFT_LINK_LIBRARY(Wininet)
 SOFT_LINK(Wininet, InternetSetCookieExW, DWORD, WINAPI, (LPCWSTR lpszUrl, LPCWSTR lpszCookieName, LPCWSTR lpszCookieData, DWORD dwFlags, DWORD_PTR dwReserved), (lpszUrl, lpszCookieName, lpszCookieData, dwFlags, dwReserved))
@@ -144,12 +144,16 @@ MediaPlayerPrivateQuickTimeVisualContext::MediaPlayerPrivateQuickTimeVisualConte
 MediaPlayerPrivateQuickTimeVisualContext::~MediaPlayerPrivateQuickTimeVisualContext()
 {
     tearDownVideoRendering();
-    m_visualContext->setMovie(0);
     cancelCallOnMainThread(&VisualContextClient::retrieveCurrentImageProc, this);
 }
 
 bool MediaPlayerPrivateQuickTimeVisualContext::supportsFullscreen() const
 {
+#if USE(ACCELERATED_COMPOSITING)
+    Document* document = m_player->mediaPlayerClient()->mediaPlayerOwningDocument(); 
+    if (document && document->settings())
+        return document->settings()->acceleratedCompositingEnabled();
+#endif
     return false;
 }
 
@@ -285,10 +289,6 @@ void MediaPlayerPrivateQuickTimeVisualContext::load(const String& url)
     m_movie = adoptRef(new QTMovie(m_movieClient.get()));
     m_movie->load(url.characters(), url.length(), m_player->preservesPitch());
     m_movie->setVolume(m_player->volume());
-
-    CFDictionaryRef options = QTMovieVisualContext::getCGImageOptions();
-    m_visualContext = adoptRef(new QTMovieVisualContext(m_visualContextClient.get(), options));
-    m_visualContext->setMovie(m_movie.get());
 }
 
 void MediaPlayerPrivateQuickTimeVisualContext::play()
@@ -630,6 +630,14 @@ void MediaPlayerPrivateQuickTimeVisualContext::setVisible(bool visible)
 
 void MediaPlayerPrivateQuickTimeVisualContext::paint(GraphicsContext* p, const IntRect& r)
 {
+    MediaRenderingMode currentMode = currentRenderingMode();
+ 
+    if (currentMode == MediaRenderingNone)
+        return;
+
+    if (currentMode == MediaRenderingSoftwareRenderer && !m_visualContext)
+        return;
+
 #if USE(ACCELERATED_COMPOSITING)
     if (m_qtVideoLayer)
         return;
@@ -756,16 +764,40 @@ void MediaPlayerPrivateQuickTimeVisualContext::retrieveCurrentImage()
 
         WKCACFLayer* layer = static_cast<WKCACFLayer*>(m_qtVideoLayer->platformLayer());
 
-            if (!buffer.lockBaseAddress()) {
-               CFTimeInterval imageTime = QTMovieVisualContext::currentHostTime();
+        if (!buffer.lockBaseAddress()) {
+            if (requiredDllsAvailable()) {
+                if (!m_imageQueue) {
+                    m_imageQueue = new WKCAImageQueue(buffer.width(), buffer.height(), 30);
+                    m_imageQueue->setFlags(WKCAImageQueue::Fill, WKCAImageQueue::Fill);
+                    layer->setContents(m_imageQueue->get());
+                }
 
+                // Debug QuickTime links against a non-Debug version of CoreFoundation, so the
+                // CFDictionary attached to the CVPixelBuffer cannot be directly passed on into the
+                // CAImageQueue without being converted to a non-Debug CFDictionary.  Additionally,
+                // old versions of QuickTime used a non-AAS CoreFoundation, so the types are not 
+                // interchangable even in the release case.
+                RetainPtr<CFDictionaryRef> attachments(AdoptCF, QTCFDictionaryCreateCopyWithDataCallback(kCFAllocatorDefault, buffer.attachments(), &QTCFDictionaryCreateWithDataCallback));
+                CFTimeInterval imageTime = QTMovieVisualContext::currentHostTime();
+
+                m_imageQueue->collect();
+
+                uint64_t imageId = m_imageQueue->registerPixelBuffer(buffer.baseAddress(), buffer.dataSize(), buffer.bytesPerRow(), buffer.width(), buffer.height(), buffer.pixelFormatType(), attachments.get(), 0);
+
+                if (m_imageQueue->insertImage(imageTime, WKCAImageQueue::Buffer, imageId, WKCAImageQueue::Opaque | WKCAImageQueue::Flush, &QTPixelBuffer::imageQueueReleaseCallback, buffer.pixelBufferRef())) {
+                    // Retain the buffer one extra time so it doesn't dissappear before CAImageQueue decides to release it:
+                    QTPixelBuffer::retainCallback(buffer.pixelBufferRef());
+                }
+
+            } else {
                 CGImageRef image = CreateCGImageFromPixelBuffer(buffer);
                 layer->setContents(image);
                 CGImageRelease(image);
-
-                buffer.unlockBaseAddress();
-                layer->rootLayer()->setNeedsRender();
             }
+
+            buffer.unlockBaseAddress();
+            layer->rootLayer()->setNeedsRender();
+        }
     } else
 #endif
         m_player->repaint();
@@ -792,6 +824,69 @@ static HashSet<String> mimeTypeCache()
     }
     
     return typeCache;
+}
+
+static CFStringRef createVersionStringFromModuleName(LPCWSTR moduleName)
+{
+    HMODULE module = GetModuleHandleW(moduleName);
+    if (!module) 
+        return 0;
+
+    wchar_t filePath[MAX_PATH] = {0};
+    if (!GetModuleFileNameW(module, filePath, MAX_PATH)) 
+        return 0;
+
+    DWORD versionInfoSize = GetFileVersionInfoSizeW(filePath, 0);
+    if (!versionInfoSize)
+        return 0;
+
+    CFStringRef versionString = 0;
+    void* versionInfo = calloc(versionInfoSize, sizeof(char));
+    if (GetFileVersionInfo(filePath, 0, versionInfoSize, versionInfo)) {
+        VS_FIXEDFILEINFO* fileInfo = 0;
+        UINT fileInfoLength = 0;
+
+        if (VerQueryValueW(versionInfo, L"\\", reinterpret_cast<LPVOID*>(&fileInfo), &fileInfoLength)) {
+            versionString = CFStringCreateWithFormat(kCFAllocatorDefault, 0, CFSTR("%d.%d.%d.%d"), 
+                HIWORD(fileInfo->dwFileVersionMS), LOWORD(fileInfo->dwFileVersionMS), 
+                HIWORD(fileInfo->dwFileVersionLS), LOWORD(fileInfo->dwFileVersionLS));
+        }
+    }
+    free(versionInfo);
+
+    return versionString;
+}
+
+static bool requiredDllsAvailable() 
+{
+    static bool s_prerequisitesChecked = false;
+    static bool s_prerequisitesSatisfied;
+    static const CFStringRef kMinQuartzCoreVersion = CFSTR("1.0.42.0");
+    static const CFStringRef kMinCoreVideoVersion = CFSTR("1.0.1.0");
+
+    if (s_prerequisitesChecked)
+        return s_prerequisitesSatisfied;
+    s_prerequisitesChecked = true;
+    s_prerequisitesSatisfied = false;
+
+    CFStringRef quartzCoreString = createVersionStringFromModuleName(L"QuartzCore");
+    if (!quartzCoreString)
+        quartzCoreString = createVersionStringFromModuleName(L"QuartzCore_debug");
+
+    CFStringRef coreVideoString = createVersionStringFromModuleName(L"CoreVideo");
+    if (!coreVideoString)
+        coreVideoString = createVersionStringFromModuleName(L"CoreVideo_debug");
+
+    s_prerequisitesSatisfied = (quartzCoreString && coreVideoString
+        && CFStringCompare(quartzCoreString, kMinQuartzCoreVersion, kCFCompareNumerically) != kCFCompareLessThan 
+        && CFStringCompare(coreVideoString, kMinCoreVideoVersion, kCFCompareNumerically) != kCFCompareLessThan);
+
+    if (quartzCoreString)
+        CFRelease(quartzCoreString);
+    if (coreVideoString)
+        CFRelease(coreVideoString);
+
+    return s_prerequisitesSatisfied;
 }
 
 void MediaPlayerPrivateQuickTimeVisualContext::getSupportedTypes(HashSet<String>& types)
@@ -858,7 +953,7 @@ MediaPlayerPrivateQuickTimeVisualContext::MediaRenderingMode MediaPlayerPrivateQ
         return MediaRenderingMovieLayer;
 #endif
 
-    return MediaRenderingSoftwareRenderer;
+    return m_visualContext ? MediaRenderingSoftwareRenderer : MediaRenderingNone;
 }
 
 MediaPlayerPrivateQuickTimeVisualContext::MediaRenderingMode MediaPlayerPrivateQuickTimeVisualContext::preferredRenderingMode() const
@@ -896,6 +991,10 @@ void MediaPlayerPrivateQuickTimeVisualContext::setUpVideoRendering()
     if (currentMode == MediaRenderingMovieLayer || preferredMode == MediaRenderingMovieLayer)
         m_player->mediaPlayerClient()->mediaPlayerRenderingModeChanged(m_player);
 #endif
+
+    QTMovieVisualContext::Type contextType = requiredDllsAvailable() && preferredMode == MediaRenderingMovieLayer ? QTMovieVisualContext::ConfigureForCAImageQueue : QTMovieVisualContext::ConfigureForCGImage;
+    m_visualContext = QTMovieVisualContext::create(m_visualContextClient.get(), contextType);
+    m_visualContext->setMovie(m_movie.get());
 }
 
 void MediaPlayerPrivateQuickTimeVisualContext::tearDownVideoRendering()
@@ -904,12 +1003,14 @@ void MediaPlayerPrivateQuickTimeVisualContext::tearDownVideoRendering()
     if (m_qtVideoLayer)
         destroyLayerForMovie();
 #endif
+
+    m_visualContext = 0;
 }
 
 bool MediaPlayerPrivateQuickTimeVisualContext::hasSetUpVideoRendering() const
 {
 #if USE(ACCELERATED_COMPOSITING)
-    return m_qtVideoLayer || currentRenderingMode() != MediaRenderingMovieLayer;
+    return m_qtVideoLayer || (currentRenderingMode() != MediaRenderingMovieLayer && m_visualContext);
 #else
     return true;
 #endif
@@ -939,14 +1040,22 @@ void MediaPlayerPrivateQuickTimeVisualContext::createLayerForMovie()
 #endif
     // The layer will get hooked up via RenderLayerBacking::updateGraphicsLayerConfiguration().
 #endif
+
+    // Fill the newly created layer with image data, so we're not looking at 
+    // an empty layer until the next time a new image is available, which could
+    // be a long time if we're paused.
+    if (m_visualContext)
+        retrieveCurrentImage();
 }
 
 void MediaPlayerPrivateQuickTimeVisualContext::destroyLayerForMovie()
 {
 #if USE(ACCELERATED_COMPOSITING)
-    if (!m_qtVideoLayer)
-        return;
-    m_qtVideoLayer = 0;
+    if (m_qtVideoLayer)
+        m_qtVideoLayer = 0;
+
+    if (m_imageQueue)
+        m_imageQueue = 0;
 #endif
 }
 

@@ -28,8 +28,10 @@
 #include "CodeBlock.h"
 #include "CommonIdentifiers.h"
 #include "CallFrame.h"
+#include "ExceptionHelpers.h"
 #include "FunctionPrototype.h"
 #include "JSGlobalObject.h"
+#include "JSNotAnObject.h"
 #include "Interpreter.h"
 #include "ObjectPrototype.h"
 #include "Parser.h"
@@ -40,6 +42,14 @@ using namespace WTF;
 using namespace Unicode;
 
 namespace JSC {
+
+JSValue JSC_HOST_CALL callHostFunctionAsConstructor(ExecState* exec)
+{
+    CodeBlock* codeBlock = exec->callerFrame()->codeBlock();
+    unsigned vPCIndex = codeBlock->bytecodeOffset(exec, exec->returnPC());
+    exec->setException(createNotAConstructorError(exec, exec->callee(), vPCIndex, codeBlock));
+    return JSValue();
+}
 
 ASSERT_CLASS_FITS_IN_CELL(JSFunction);
 
@@ -57,22 +67,16 @@ JSFunction::JSFunction(NonNullPassRefPtr<Structure> structure)
 {
 }
 
+#if ENABLE(JIT)
 JSFunction::JSFunction(ExecState* exec, JSGlobalObject* globalObject, NonNullPassRefPtr<Structure> structure, int length, const Identifier& name, PassRefPtr<NativeExecutable> thunk)
     : Base(globalObject, structure)
-#if ENABLE(JIT)
     , m_executable(thunk)
-#endif
     , m_scopeChain(globalObject->globalScopeChain())
 {
     putDirect(exec->globalData().propertyNames->name, jsString(exec, name.isNull() ? "" : name.ustring()), DontDelete | ReadOnly | DontEnum);
-#if ENABLE(JIT)
     putDirect(exec->propertyNames().length, jsNumber(exec, length), DontDelete | ReadOnly | DontEnum);
-#else
-    UNUSED_PARAM(thunk);
-    UNUSED_PARAM(length);
-    ASSERT_NOT_REACHED();
-#endif
 }
+#endif
 
 JSFunction::JSFunction(ExecState* exec, JSGlobalObject* globalObject, NonNullPassRefPtr<Structure> structure, int length, const Identifier& name, NativeFunction func)
     : Base(globalObject, structure)
@@ -163,12 +167,6 @@ CallType JSFunction::getCallData(CallData& callData)
     callData.js.functionExecutable = jsExecutable();
     callData.js.scopeChain = scope().node();
     return CallTypeJS;
-}
-
-JSValue JSFunction::call(ExecState* exec, JSValue thisValue, const ArgList& args)
-{
-    ASSERT(!isHostFunction());
-    return exec->interpreter()->executeCall(jsExecutable(), exec, this, thisValue.toThisObject(exec), args, scope().node(), exec->exceptionSlot());
 }
 
 JSValue JSFunction::argumentsGetter(ExecState* exec, JSValue slotBase, const Identifier&)
@@ -296,23 +294,6 @@ ConstructType JSFunction::getConstructData(ConstructData& constructData)
     constructData.js.functionExecutable = jsExecutable();
     constructData.js.scopeChain = scope().node();
     return ConstructTypeJS;
-}
-
-JSObject* JSFunction::construct(ExecState* exec, const ArgList& args)
-{
-    ASSERT(!isHostFunction());
-    Structure* structure;
-    JSValue prototype = get(exec, exec->propertyNames().prototype);
-    if (prototype.isObject())
-        structure = asObject(prototype)->inheritorID();
-    else
-        structure = exec->lexicalGlobalObject()->emptyObjectStructure();
-    JSObject* thisObj = new (exec) JSObject(structure);
-
-    JSValue result = exec->interpreter()->executeConstruct(jsExecutable(), exec, this, thisObj, args, scope().node(), exec->exceptionSlot());
-    if (exec->hadException() || !result.isObject())
-        return thisObj;
-    return asObject(result);
 }
 
 } // namespace JSC

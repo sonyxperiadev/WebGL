@@ -274,4 +274,14 @@ void WebSettingsImpl::setEditingBehavior(EditingBehavior behavior)
     m_settings->setEditingBehavior(static_cast<WebCore::EditingBehavior>(behavior));
 }
 
+void WebSettingsImpl::setAcceleratedCompositingEnabled(bool enabled)
+{
+    m_settings->setAcceleratedCompositingEnabled(enabled);
+}
+
+void WebSettingsImpl::setHTML5ParserEnabled(bool enabled)
+{
+    m_settings->setHTML5ParserEnabled(enabled);
+}
+
 } // namespace WebKit

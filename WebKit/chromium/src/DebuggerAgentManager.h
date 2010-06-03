@@ -70,6 +70,7 @@ public:
     static void pauseScript();
     static void executeDebuggerCommand(const WebCore::String& command, int callerId);
     static void setMessageLoopDispatchHandler(WebDevToolsAgent::MessageLoopDispatchHandler handler);
+    static void setExposeV8DebuggerProtocol(bool);
 
     // Sets |hostId| as the frame context data. This id is used to filter scripts
     // related to the inspected page.
@@ -100,7 +101,6 @@ private:
     DebuggerAgentManager();
     ~DebuggerAgentManager();
 
-    static void hostDispatchHandler(const Vector<WebCore::Page*>&);
     static void debugHostDispatchHandler();
     static void onV8DebugMessage(const v8::Debug::Message& message);
     static void sendCommandToV8(const WebCore::String& cmd,
@@ -120,6 +120,7 @@ private:
 
     static bool s_inUtilityContext;
     static bool s_debugBreakDelayed;
+    static bool s_exposeV8DebuggerProtocol;
 };
 
 } // namespace WebKit

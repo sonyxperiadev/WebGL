@@ -1039,7 +1039,7 @@ Element* Document::elementFromPoint(int x, int y) const
     if (!frameView)
         return 0;
 
-    float zoomFactor = frame->pageZoomFactor();
+    float zoomFactor = frameView->pageZoomFactor();
     IntPoint point = roundedIntPoint(FloatPoint(x * zoomFactor  + view()->scrollX(), y * zoomFactor + view()->scrollY()));
 
     if (!frameView->visibleContentRect().contains(point))
@@ -1069,7 +1069,7 @@ PassRefPtr<Range> Document::caretRangeFromPoint(int x, int y)
     if (!frameView)
         return 0;
 
-    float zoomFactor = frame->pageZoomFactor();
+    float zoomFactor = frameView->pageZoomFactor();
     IntPoint point = roundedIntPoint(FloatPoint(x * zoomFactor + view()->scrollX(), y * zoomFactor + view()->scrollY()));
 
     if (!frameView->visibleContentRect().contains(point))
@@ -1862,10 +1862,10 @@ void Document::implicitClose()
             
             // The implicit <head> isn't expected in older versions of Mail - <rdar://problem/6863795>
             if (!head() && shouldCreateImplicitHead(this)) {
-                documentElement->appendChild(new HTMLHeadElement(headTag, this), ec);
+                documentElement->appendChild(HTMLHeadElement::create(this), ec);
                 ASSERT(!ec);
             }
-            documentElement->appendChild(new HTMLBodyElement(bodyTag, this), ec);
+            documentElement->appendChild(HTMLBodyElement::create(this), ec);
             ASSERT(!ec);
         }
     }
@@ -4834,7 +4834,7 @@ HTMLCanvasElement* Document::getCSSCanvasElement(const String& name)
 {
     RefPtr<HTMLCanvasElement> result = m_cssCanvasElements.get(name).get();
     if (!result) {
-        result = new HTMLCanvasElement(canvasTag, this);
+        result = HTMLCanvasElement::create(this);
         m_cssCanvasElements.set(name, result);
     }
     return result.get();

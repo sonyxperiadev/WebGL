@@ -874,27 +874,27 @@ bool isEmptyTableCell(const Node* node)
 
 PassRefPtr<HTMLElement> createDefaultParagraphElement(Document* document)
 {
-    return new HTMLDivElement(divTag, document);
+    return HTMLDivElement::create(document);
 }
 
 PassRefPtr<HTMLElement> createBreakElement(Document* document)
 {
-    return new HTMLBRElement(brTag, document);
+    return HTMLBRElement::create(document);
 }
 
 PassRefPtr<HTMLElement> createOrderedListElement(Document* document)
 {
-    return new HTMLOListElement(olTag, document);
+    return HTMLOListElement::create(document);
 }
 
 PassRefPtr<HTMLElement> createUnorderedListElement(Document* document)
 {
-    return new HTMLUListElement(ulTag, document);
+    return HTMLUListElement::create(document);
 }
 
 PassRefPtr<HTMLElement> createListItemElement(Document* document)
 {
-    return new HTMLLIElement(liTag, document);
+    return HTMLLIElement::create(document);
 }
 
 PassRefPtr<HTMLElement> createHTMLElement(Document* document, const QualifiedName& name)

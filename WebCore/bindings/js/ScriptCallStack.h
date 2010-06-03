@@ -31,6 +31,7 @@
 #ifndef ScriptCallStack_h
 #define ScriptCallStack_h
 
+#include "ScriptArray.h"
 #include "ScriptCallFrame.h"
 #include "ScriptState.h"
 #include "ScriptString.h"
@@ -45,7 +46,7 @@ namespace WebCore {
 
     class ScriptCallStack : public Noncopyable {
     public:
-        ScriptCallStack(JSC::ExecState*, const JSC::ArgList&, unsigned skipArgumentCount = 0);
+        ScriptCallStack(JSC::ExecState*, unsigned skipArgumentCount = 0);
         ~ScriptCallStack();
 
         ScriptState* state() const { return m_exec; }
@@ -53,7 +54,7 @@ namespace WebCore {
         // frame retrieval methods
         const ScriptCallFrame &at(unsigned);
         unsigned size();
-        static bool callLocation(String*, int*, String*);
+        static bool stackTrace(int, ScriptState*, ScriptArray&);
 
     private:
         void initialize();

@@ -1,3 +1,204 @@
+2010-05-31  Lyon Chen  <liachen@rim.com>
+
+        Reviewed by Kent Tamura.
+
+        Enum value FORWARD, BACKWARD, RIGHT, LEFT are causing macro conflicts.
+        https://bugs.webkit.org/show_bug.cgi?id=35530
+
+        Change enum EAlteration from { MOVE, EXTEND } to { AlterationMove, AlterationExtend } and enum EDirection { FORWARD, BACKWARD, RIGHT, LEFT} to { DirectionForward, DirectionBackward, DirectionRight, DirectionLeft } to avoid macro conflict, and also better coding style conformance.
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::handleKeyboardEvent):
+
+2010-05-31  Oswald Buddenhagen  <oswald.buddenhagen@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Escape backslashes in the .pro files
+
+        qmake in Qt 4.7 warns about unescaped backspaces and deprecates them.
+
+        * Api/DerivedSources.pro:
+        * docs/docs.pri:
+
+2010-05-30  Lyon Chen  <liachen@rim.com>
+
+        Reviewed by Kent Tamura.
+
+        This is a coding style cleanup before fixing to bug 35530.
+
+        Enum value FORWARD, BACKWARD, RIGHT, LEFT are causing macro conflicts.
+        https://bugs.webkit.org/show_bug.cgi?id=35530
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::registerCommandForUndo):
+        (WebCore::EditorClientQt::handleKeyboardEvent):
+
+2010-05-29  Dawit Alemayehu  <adawit@kde.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Added a WebAction to stop all pending page refresh/redirect
+        requests set through the <meta http-equiv="refresh"...> tag.
+
+        https://bugs.webkit.org/show_bug.cgi?id=29899
+
+        * Api/qwebpage.cpp:
+        (QWebPage::triggerAction):
+        * Api/qwebpage.h:
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::testStopScheduledPageRefresh):
+
+2010-05-28  Antti Koivisto  <koivisto@iki.fi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+    
+        Add a missing #if ENABLE(), some null checking.
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::dynamicPropertyChangeEvent):
+
+2010-05-28  Antti Koivisto  <koivisto@iki.fi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=39874
+        [Qt] Make tiled backing store more configurable
+    
+        Make tile size, tile creation delay and tiling area dynamically configurable.
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::dynamicPropertyChangeEvent):
+
+2010-05-28  Yael Aharon  <yael.aharon@nokia.com>
+
+        Unreviewed build fix after r60348.
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::setNotificationsReceiver):
+
+2010-05-28  Yael Aharon  <yael.aharon@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] Pass all web notification layout tests
+        https://bugs.webkit.org/show_bug.cgi?id=39146
+
+        Add support for multiple simultaneous notifications.
+        Add a private callback mechanism to the client for security checks. 
+        Notifications are disabled if the client does not set the callbacks. 
+        Support replaceId and cancel.
+        Send close and display events when needed.   
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::QWebPagePrivate):
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::setNotificationsReceiver):
+        (DumpRenderTreeSupportQt::allowNotificationForOrigin):
+        (DumpRenderTreeSupportQt::setCheckPermissionFunction):
+        (DumpRenderTreeSupportQt::setRequestPermissionFunction):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::dispatchDidClearWindowObjectInWorld):
+        * WebCoreSupport/NotificationPresenterClientQt.cpp:
+        (NotificationIconWrapper::NotificationIconWrapper):
+        (NotificationIconWrapper::~NotificationIconWrapper):
+        (NotificationPresenterClientQt::NotificationPresenterClientQt):
+        (NotificationPresenterClientQt::show):
+        (NotificationPresenterClientQt::cancel):
+        (NotificationPresenterClientQt::notificationObjectDestroyed):
+        (NotificationPresenterClientQt::requestPermission):
+        (NotificationPresenterClientQt::checkPermission):
+        (NotificationPresenterClientQt::allowNotificationForOrigin):
+        (NotificationPresenterClientQt::clearNotificationsList):
+        (NotificationPresenterClientQt::sendEvent):
+        * WebCoreSupport/NotificationPresenterClientQt.h:
+        (WebCore::NotificationPresenterClientQt::~NotificationPresenterClientQt):
+        (WebCore::NotificationPresenterClientQt::setReceiver):
+
+2010-05-27  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Platform plugin example
+        https://bugs.webkit.org/show_bug.cgi?id=39489
+
+        Adding a Qt platform plugin example to repository.
+
+        * examples/platformplugin/README: Added.
+        * examples/platformplugin/WebPlugin.cpp: Added.
+        (Popup::populateList):
+        (Popup::onItemSelected):
+        (WebPopup::WebPopup):
+        (WebPopup::~WebPopup):
+        (WebPopup::createSingleSelectionPopup):
+        (WebPopup::createMultipleSelectionPopup):
+        (WebPopup::createPopup):
+        (WebPopup::show):
+        (WebPopup::hide):
+        (WebPopup::popupClosed):
+        (WebPopup::itemClicked):
+        (SingleSelectionPopup::SingleSelectionPopup):
+        (MultipleItemListDelegate::MultipleItemListDelegate):
+        (MultipleItemListDelegate::paint):
+        (MultipleSelectionPopup::MultipleSelectionPopup):
+        (WebPlugin::supportsExtension):
+        * examples/platformplugin/WebPlugin.h: Added.
+        (Popup::Popup):
+        (WebPlugin::createSelectInputMethod):
+        * examples/platformplugin/platformplugin.pro: Added.
+        * examples/platformplugin/qwebkitplatformplugin.h: Copied from WebKit/qt/Api/qwebkitplatformplugin.h.
+        (QWebSelectData::~QWebSelectData):
+        (QWebSelectData::):
+        (QWebSelectMethod::~QWebSelectMethod):
+        (QWebKitPlatformPlugin::~QWebKitPlatformPlugin):
+        (QWebKitPlatformPlugin::):
+
+2010-05-25  Antonio Gomes  <tonikitoo@webkit.org>
+
+        Reviewed by Ojan Vafai.
+
+        [Qt] Expose the editing behavior setting in DRT to test all editing code paths
+        https://bugs.webkit.org/show_bug.cgi?id=39680
+
+        Add support to Qt's DRT to setting the editing behavior. Patch is a follow up of
+        bug 38603, which just stubbed out the Qt bits of it.
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp: Implementation of editing behavior control.
+        (DumpRenderTreeSupportQt::setEditingBehavior):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
+2010-05-24  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] DRT Support for removeOriginAccessWhitelistEntry
+
+        Unskips http/tests/xmlhttprequest/origin-whitelisting-removal.html
+
+        [Qt] DRT Support for removeOriginAccessWhitelistEntry
+        https://bugs.webkit.org/show_bug.cgi?id=39565
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::removeWhiteListAccessFromOrigin):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
+2010-05-24  Darin Adler  <darin@apple.com>
+
+        Reviewed by Eric Seidel.
+
+        Move view-related functions from Frame to FrameView
+        https://bugs.webkit.org/show_bug.cgi?id=39366
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::setTextSizeMultiplier): Call functions on FrameView.
+        (QWebFrame::textSizeMultiplier): Ditto.
+        (QWebFrame::setZoomFactor): Ditto.
+        (QWebFrame::zoomFactor): Ditto.
+        * Api/qwebpage.cpp:
+        (QWebPage::setContentEditable): Removed call to empty function,
+        removeEditingStyleFromBodyElement.
+
 2010-05-23  Noam Rosenthal  <noam.rosenthal@nokia.com>
 
         Reviewed by Kenneth Rohde Christiansen.

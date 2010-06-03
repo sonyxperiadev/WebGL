@@ -108,7 +108,6 @@ namespace WebCore {
             AfterDOCTYPESystemIdentifierState,
             BogusDOCTYPEState,
             CDATASectionState,
-            TokenizingCharacterReferencesState,
         };
 
         HTML5Lexer();
@@ -123,17 +122,30 @@ namespace WebCore {
 
         void setState(State state) { m_state = state; }
 
-        static unsigned consumeEntity(SegmentedString&, bool& notEnoughCharacters);
+        // Hack to skip leading newline in <pre>/<listing> for authoring ease.
+        // http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html#parsing-main-inbody
+        void skipLeadingNewLineForListing() { m_skipLeadingNewLineForListing = true; }
 
     private:
         inline void emitCharacter(UChar);
         inline void emitParseError();
         inline void emitCurrentToken();
-        inline void emitCurrentDoctypeToken();
+        inline void emitCodePoint(unsigned);
 
-        inline bool temporaryBufferIs(const char*);
+        unsigned consumeEntity(SegmentedString&, bool& notEnoughCharacters);
+        inline bool processEntity(SegmentedString& source);
 
+        inline bool temporaryBufferIs(const String&);
+
+        // Sometimes we speculatively consume input characters and we don't
+        // know whether they represent end tags or RCDATA, etc.  These
+        // functions help manage these state.
+        inline void addToPossibleEndTag(UChar cc);
         inline bool isAppropriateEndTag();
+        inline void maybeFlushBufferedEndTag();
+        inline void flushBufferedEndTag();
+
+        inline bool shouldEmitBufferedCharacterToken(const SegmentedString&);
 
         State m_state;
 
@@ -143,6 +155,7 @@ namespace WebCore {
         // this member might be pointing to unallocated memory.
         HTML5Token* m_token;
 
+        bool m_skipLeadingNewLineForListing;
         bool m_emitPending;
 
         // http://www.whatwg.org/specs/web-apps/current-work/#temporary-buffer

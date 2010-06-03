@@ -41,6 +41,13 @@ extern "C" {
 // If defined, ewk will do type checking to ensure objects are of correct type
 #define EWK_TYPE_CHECK 1
 
+// forward declarations
+namespace WebCore {
+struct PopupMenuClient;
+struct ContextMenu;
+struct ContextMenuItem;
+}
+
 void             ewk_view_ready(Evas_Object *o);
 void             ewk_view_title_set(Evas_Object *o, const char *title);
 void             ewk_view_uri_changed(Evas_Object *o);
@@ -74,7 +81,7 @@ void             ewk_view_run_javascript_alert(Evas_Object *o, Evas_Object *fram
 Eina_Bool        ewk_view_run_javascript_confirm(Evas_Object *o, Evas_Object *frame, const char *message);
 Eina_Bool        ewk_view_run_javascript_prompt(Evas_Object *o, Evas_Object *frame, const char *message, const char *defaultValue, char **value);
 Eina_Bool        ewk_view_should_interrupt_javascript(Evas_Object *o);
-void             ewk_view_exceeded_database_quota(Evas_Object *o, Evas_Object *frame, const char *databaseName);
+uint64_t         ewk_view_exceeded_database_quota(Evas_Object *o, Evas_Object *frame, const char *databaseName, uint64_t current_size, uint64_t expected_size);
 
 void             ewk_view_repaint(Evas_Object *o, Evas_Coord x, Evas_Coord y, Evas_Coord w, Evas_Coord h);
 void             ewk_view_scroll(Evas_Object *o, Evas_Coord dx, Evas_Coord dy, Evas_Coord sx, Evas_Coord sy, Evas_Coord sw, Evas_Coord sh, Evas_Coord cx, Evas_Coord cy, Evas_Coord cw, Evas_Coord ch, Eina_Bool main_frame);
@@ -84,8 +91,16 @@ WTF::PassRefPtr<WebCore::Frame> ewk_view_frame_create(Evas_Object *o, Evas_Objec
 
 WTF::PassRefPtr<WebCore::Widget> ewk_view_plugin_create(Evas_Object* o, Evas_Object* frame, const WebCore::IntSize& pluginSize, WebCore::HTMLPlugInElement* element, const WebCore::KURL& url, const WTF::Vector<WebCore::String>& paramNames, const WTF::Vector<WebCore::String>& paramValues, const WebCore::String& mimeType, bool loadManually);
 
+void             ewk_view_popup_new(Evas_Object *o, WebCore::PopupMenuClient* client, int selected, const WebCore::IntRect& rect);
+
 Ewk_History      *ewk_history_new(WebCore::BackForwardList *history);
 void              ewk_history_free(Ewk_History *history);
+
+Ewk_Context_Menu *ewk_context_menu_new(Evas_Object *view, WebCore::ContextMenuController *controller);
+Eina_Bool         ewk_context_menu_free(Ewk_Context_Menu *o);
+void              ewk_context_menu_item_append(Ewk_Context_Menu *o, WebCore::ContextMenuItem& core);
+Ewk_Context_Menu *ewk_context_menu_custom_get(Ewk_Context_Menu *o);
+void              ewk_context_menu_show(Ewk_Context_Menu *o);
 
 Evas_Object      *ewk_frame_add(Evas *e);
 Eina_Bool         ewk_frame_init(Evas_Object *o, Evas_Object *view, WebCore::Frame *frame);

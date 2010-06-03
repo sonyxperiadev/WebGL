@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann (hausmann@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -48,6 +48,16 @@ HTMLBodyElement::HTMLBodyElement(const QualifiedName& tagName, Document* documen
     : HTMLElement(tagName, document)
 {
     ASSERT(hasTagName(bodyTag));
+}
+
+PassRefPtr<HTMLBodyElement> HTMLBodyElement::create(Document* document)
+{
+    return new HTMLBodyElement(bodyTag, document);
+}
+
+PassRefPtr<HTMLBodyElement> HTMLBodyElement::create(const QualifiedName& tagName, Document* document)
+{
+    return new HTMLBodyElement(tagName, document);
 }
 
 HTMLBodyElement::~HTMLBodyElement()
@@ -267,7 +277,7 @@ void HTMLBodyElement::setVLink(const String& value)
 
 static int adjustForZoom(int value, FrameView* frameView)
 {
-    float zoomFactor = frameView->frame()->zoomFactor();
+    float zoomFactor = frameView->zoomFactor();
     if (zoomFactor == 1)
         return value;
     // Needed because of truncation (rather than rounding) when scaling up.
@@ -287,12 +297,12 @@ int HTMLBodyElement::scrollLeft() const
 
 void HTMLBodyElement::setScrollLeft(int scrollLeft)
 {
-    FrameView* sview = ownerDocument()->view();
-    if (sview) {
-        // Update the document's layout
-        document()->updateLayoutIgnorePendingStylesheets();
-        sview->setScrollPosition(IntPoint(static_cast<int>(scrollLeft * sview->frame()->zoomFactor()), sview->scrollY()));
-    }    
+    Document* document = this->document();
+    document->updateLayoutIgnorePendingStylesheets();
+    FrameView* view = document->view();
+    if (!view)
+        return;
+    view->setScrollPosition(IntPoint(static_cast<int>(scrollLeft * view->zoomFactor()), view->scrollY()));
 }
 
 int HTMLBodyElement::scrollTop() const
@@ -306,12 +316,12 @@ int HTMLBodyElement::scrollTop() const
 
 void HTMLBodyElement::setScrollTop(int scrollTop)
 {
-    FrameView* sview = ownerDocument()->view();
-    if (sview) {
-        // Update the document's layout
-        document()->updateLayoutIgnorePendingStylesheets();
-        sview->setScrollPosition(IntPoint(sview->scrollX(), static_cast<int>(scrollTop * sview->frame()->zoomFactor())));
-    }        
+    Document* document = this->document();
+    document->updateLayoutIgnorePendingStylesheets();
+    FrameView* view = document->view();
+    if (!view)
+        return;
+    view->setScrollPosition(IntPoint(view->scrollX(), static_cast<int>(scrollTop * view->zoomFactor())));
 }
 
 int HTMLBodyElement::scrollHeight() const

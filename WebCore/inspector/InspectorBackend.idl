@@ -73,6 +73,9 @@ module core {
 
         void getProfileHeaders(in long callId);
         void getProfile(in long callId, in unsigned long uid);
+
+        void removeProfile(in unsigned long uid);
+        void clearProfiles();
 #endif
         void setInjectedScriptSource(in DOMString scriptSource);
         void dispatchOnInjectedScript(in long callId, in long injectedScriptId, in DOMString methodName, in DOMString arguments, in boolean async);
@@ -95,6 +98,8 @@ module core {
         void getAllStyles(in long callId);
         void getInlineStyle(in long callId, in long nodeId);
         void getComputedStyle(in long callId, in long nodeId);
+        void getStyleSheet(in long callId, in long styleSheetId);
+        void getRuleRangesForStyleSheetId(in long callId, in long styleSheetId);
         void applyStyleText(in long callId, in long styleId, in DOMString styleText, in DOMString propertyName);
         void setStyleText(in long callId, in long styleId, in DOMString styleText);
         void setStyleProperty(in long callId, in long styleId, in DOMString name, in DOMString value);

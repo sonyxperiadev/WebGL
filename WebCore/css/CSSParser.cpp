@@ -150,6 +150,9 @@ CSSParser::CSSParser(bool strictParsing)
     , m_hasFontFaceOnlyValues(false)
     , m_hadSyntacticallyValidCSSRule(false)
     , m_defaultNamespace(starAtom)
+    , m_ruleBodyStartOffset(0)
+    , m_ruleBodyEndOffset(0)
+    , m_ruleRanges(0)
     , m_data(0)
     , yy_start(1)
     , m_line(0)
@@ -229,18 +232,21 @@ void CSSParser::setupParser(const char* prefix, const String& string, const char
     yyleng = 0;
     yytext = yy_c_buf_p = m_data;
     yy_hold_char = *yy_c_buf_p;
+    resetRuleBodyMarks();
 }
 
-void CSSParser::parseSheet(CSSStyleSheet* sheet, const String& string)
+void CSSParser::parseSheet(CSSStyleSheet* sheet, const String& string, StyleRuleRanges* ruleRangeMap)
 {
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
 #endif
     m_styleSheet = sheet;
     m_defaultNamespace = starAtom; // Reset the default namespace.
+    m_ruleRanges = ruleRangeMap;
 
     setupParser("", string, "");
     cssyyparse(this);
+    m_ruleRanges = 0;
     m_rule = 0;
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
@@ -3624,9 +3630,8 @@ bool CSSParser::parseFontFaceSrc()
 bool CSSParser::parseFontFaceUnicodeRange()
 {
     RefPtr<CSSValueList> values = CSSValueList::createCommaSeparated();
-    CSSParserValue* currentValue;
     bool failed = false;
-    while ((currentValue = m_valueList->current())) {
+    while (m_valueList->current()) {
         if (m_valueList->current()->unit != CSSPrimitiveValue::CSS_UNICODE_RANGE) {
             failed = true;
             break;
@@ -5295,6 +5300,7 @@ CSSRule* CSSParser::createStyleRule(Vector<CSSSelector*>* selectors)
 {
     m_allowImportRules = m_allowNamespaceDeclarations = m_allowVariablesRules = false;
     CSSStyleRule* result = 0;
+    markRuleBodyEnd();
     if (selectors) {
         RefPtr<CSSStyleRule> rule = CSSStyleRule::create(m_styleSheet, m_lastSelectorLine);
         rule->adoptSelectorVector(*selectors);
@@ -5303,7 +5309,10 @@ CSSRule* CSSParser::createStyleRule(Vector<CSSSelector*>* selectors)
         rule->setDeclaration(CSSMutableStyleDeclaration::create(rule.get(), m_parsedProperties, m_numParsedProperties));
         result = rule.get();
         m_parsedStyleObjects.append(rule.release());
+        if (m_ruleRanges)
+            m_ruleRanges->set(result, std::pair<unsigned, unsigned>(m_ruleBodyStartOffset, m_ruleBodyEndOffset));
     }
+    resetRuleBodyMarks();
     clearProperties();
     return result;
 }
@@ -5549,6 +5558,26 @@ void CSSParser::invalidBlockHit()
 {
     if (m_styleSheet && !m_hadSyntacticallyValidCSSRule)
         m_styleSheet->setHasSyntacticallyValidCSSHeader(false);
+}
+
+void CSSParser::updateLastSelectorLineAndPosition()
+{
+    m_lastSelectorLine = m_line;
+    markRuleBodyStart();
+}
+
+void CSSParser::markRuleBodyStart()
+{
+    unsigned offset = yytext - m_data;
+    if (!m_ruleBodyStartOffset || offset < m_ruleBodyStartOffset)
+        m_ruleBodyStartOffset = offset;
+}
+
+void CSSParser::markRuleBodyEnd()
+{
+    unsigned offset = yytext - m_data;
+    if (offset > m_ruleBodyEndOffset)
+        m_ruleBodyEndOffset = offset;
 }
 
 static int cssPropertyID(const UChar* propertyName, unsigned length)

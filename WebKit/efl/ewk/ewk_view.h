@@ -125,7 +125,7 @@ struct _Ewk_View_Smart_Class {
     Eina_Bool (*run_javascript_confirm)(Ewk_View_Smart_Data *sd, Evas_Object *frame, const char *message);
     Eina_Bool (*run_javascript_prompt)(Ewk_View_Smart_Data *sd, Evas_Object *frame, const char *message, const char *defaultValue, char **value);
     Eina_Bool (*should_interrupt_javascript)(Ewk_View_Smart_Data *sd);
-    void (*exceeded_database_quota)(Ewk_View_Smart_Data *sd, Evas_Object *frame, const char *databaseName);
+    uint64_t (*exceeded_database_quota)(Ewk_View_Smart_Data *sd, Evas_Object *frame, const char *databaseName, uint64_t current_size, uint64_t expected_size);
 
     Eina_Bool (*run_open_panel)(Ewk_View_Smart_Data *sd, Evas_Object *frame, Eina_Bool allows_multiple_files, const Eina_List *suggested_filenames, Eina_List **selected_filenames);
 };
@@ -304,6 +304,8 @@ EAPI Eina_Bool    ewk_view_select_paragraph(Evas_Object *o);
 EAPI Eina_Bool    ewk_view_select_sentence(Evas_Object *o);
 EAPI Eina_Bool    ewk_view_select_line(Evas_Object *o);
 EAPI Eina_Bool    ewk_view_select_word(Evas_Object *o);
+
+EAPI Eina_Bool    ewk_view_context_menu_forward_event(Evas_Object *o, const Evas_Event_Mouse_Down *ev);
 
 EAPI void         ewk_view_popup_selected_set(Evas_Object *o, int index);
 EAPI Eina_Bool    ewk_view_popup_destroy(Evas_Object *o);

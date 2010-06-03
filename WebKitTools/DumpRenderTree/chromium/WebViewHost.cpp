@@ -531,7 +531,7 @@ WebNotificationPresenter* WebViewHost::notificationPresenter()
 WebKit::WebGeolocationService* WebViewHost::geolocationService()
 {
     if (!m_geolocationServiceMock.get())
-        m_geolocationServiceMock.set(new WebGeolocationServiceMock);
+        m_geolocationServiceMock.set(WebGeolocationServiceMock::createWebGeolocationServiceMock());
     return m_geolocationServiceMock.get();
 }
 
@@ -1036,6 +1036,7 @@ void WebViewHost::reset()
     this->~WebViewHost();
     new (this) WebViewHost(shell);
     setWebWidget(widget);
+    webView()->mainFrame()->clearName();
 }
 
 void WebViewHost::setSelectTrailingWhitespaceEnabled(bool enabled)
@@ -1285,7 +1286,7 @@ void WebViewHost::paintRect(const WebRect& rect)
 #if PLATFORM(CG)
     webWidget()->paint(m_canvas->getTopPlatformDevice().GetBitmapContext(), rect);
 #else
-    webWidget()->paint(m_canvas.get(), rect);
+    webWidget()->paint(canvas(), rect);
 #endif
     m_isPainting = false;
 }

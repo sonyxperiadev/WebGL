@@ -73,7 +73,6 @@
 #include "PlatformKeyboardEvent.h"
 #include "PlatformMouseEvent.h"
 #include "PlatformWheelEvent.h"
-#include "PluginInfoStore.h"
 #include "PopupMenuChromium.h"
 #include "PopupMenuClient.h"
 #include "ProgressTracker.h"
@@ -258,6 +257,8 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
 
     m_page->backForwardList()->setClient(&m_backForwardListClientImpl);
     m_page->setGroupName(pageGroupName);
+
+    m_inspectorSettingsMap.set(new SettingsMap);
 }
 
 WebViewImpl::~WebViewImpl()
@@ -1462,9 +1463,12 @@ int WebViewImpl::setZoomLevel(bool textOnly, int zoomLevel)
                           maxTextSizeMultiplier),
                  minTextSizeMultiplier));
     Frame* frame = mainFrameImpl()->frame();
-    if (zoomFactor != frame->zoomFactor()) {
+    FrameView* view = frame->view();
+    if (!view)
+        return m_zoomLevel;
+    if (zoomFactor != view->zoomFactor()) {
         m_zoomLevel = zoomLevel;
-        frame->setZoomFactor(zoomFactor, textOnly ? ZoomTextOnly : ZoomPage);
+        view->setZoomFactor(zoomFactor, textOnly ? ZoomTextOnly : ZoomPage);
     }
     return m_zoomLevel;
 }
@@ -1690,6 +1694,21 @@ WebString WebViewImpl::inspectorSettings() const
 void WebViewImpl::setInspectorSettings(const WebString& settings)
 {
     m_inspectorSettings = settings;
+}
+
+bool WebViewImpl::inspectorSetting(const WebString& key, WebString* value) const
+{
+    if (!m_inspectorSettingsMap->contains(key))
+        return false;
+    *value = m_inspectorSettingsMap->get(key);
+    return true;
+}
+
+void WebViewImpl::setInspectorSetting(const WebString& key,
+                                      const WebString& value)
+{
+    m_inspectorSettingsMap->set(key, value);
+    client()->didUpdateInspectorSetting(key, value);
 }
 
 WebDevToolsAgent* WebViewImpl::devToolsAgent()
@@ -2115,12 +2134,12 @@ void WebViewImpl::updateRootLayerContents(const WebRect& rect)
     if (rootLayer) {
         IntRect visibleRect = view->visibleContentRect(true);
 
-        // Update the root layer's backing store to be the size of the dirty rect.
-        // Unlike other layers the root layer doesn't have persistent storage for its
-        // contents in system memory.
-        rootLayer->setBackingStoreSize(IntSize(rect.width, rect.height));
-        GraphicsContext* rootLayerContext = rootLayer->graphicsContext();
-        skia::PlatformCanvas* platformCanvas = rootLayer->platformCanvas();
+        m_layerRenderer->setRootLayerCanvasSize(IntSize(rect.width, rect.height));
+        GraphicsContext* rootLayerContext = m_layerRenderer->rootLayerGraphicsContext();
+
+#if PLATFORM(SKIA)
+        PlatformContextSkia* skiaContext = rootLayerContext->platformContext();
+        skia::PlatformCanvas* platformCanvas = skiaContext->canvas();
 
         platformCanvas->save();
 
@@ -2129,10 +2148,11 @@ void WebViewImpl::updateRootLayerContents(const WebRect& rect)
 
         rootLayerContext->save();
 
-        webframe->paintWithContext(*(rootLayer->graphicsContext()), rect);
+        webframe->paintWithContext(*rootLayerContext, rect);
         rootLayerContext->restore();
 
         platformCanvas->restore();
+#endif
     }
 }
 

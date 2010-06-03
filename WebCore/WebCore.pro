@@ -156,7 +156,7 @@ defineTest(addExtraCompiler) {
 
     for(file,input) {
         base = $$basename(file)
-        base ~= s/\..+//
+        base ~= s/\\..+//
         newfile=$$replace(outputRule,\\$\\{QMAKE_FILE_BASE\\},$$base)
         SOURCES += $$newfile
     }
@@ -611,6 +611,7 @@ SOURCES += \
     html/HTML5Lexer.cpp \
     html/HTML5Tokenizer.cpp \
     html/HTML5TreeBuilder.cpp \
+    html/HTML5ScriptRunner.cpp \
     html/HTMLAllCollection.cpp \
     html/HTMLAnchorElement.cpp \
     html/HTMLAppletElement.cpp \
@@ -695,6 +696,7 @@ SOURCES += \
     html/HTMLUListElement.cpp \
     html/HTMLViewSourceDocument.cpp \
     html/ImageData.cpp \
+    html/LabelsNodeList.cpp \
     html/PreloadScanner.cpp \
     html/StepRange.cpp \
     html/ValidityState.cpp \
@@ -712,6 +714,7 @@ SOURCES += \
     inspector/InspectorFrontendHost.cpp \
     inspector/InspectorResource.cpp \
     inspector/InspectorTimelineAgent.cpp \
+    inspector/InspectorValues.cpp \
     inspector/TimelineRecordFactory.cpp \
     loader/archive/ArchiveFactory.cpp \
     loader/archive/ArchiveResource.cpp \
@@ -797,6 +800,7 @@ SOURCES += \
     page/Screen.cpp \
     page/Settings.cpp \
     page/SpatialNavigation.cpp \
+    page/SuspendableTimer.cpp \
     page/UserContentURLPattern.cpp \
     page/WindowFeatures.cpp \
     page/XSSAuditor.cpp \
@@ -858,6 +862,7 @@ SOURCES += \
     platform/graphics/transforms/SkewTransformOperation.cpp \
     platform/graphics/transforms/TransformOperations.cpp \
     platform/graphics/transforms/TranslateTransformOperation.cpp \
+    platform/KillRingNone.cpp \
     platform/KURL.cpp \
     platform/Length.cpp \
     platform/LinkHash.cpp \
@@ -901,7 +906,6 @@ SOURCES += \
     platform/Widget.cpp \
     plugins/PluginDatabase.cpp \
     plugins/PluginDebug.cpp \
-    plugins/PluginInfoStore.cpp \
     plugins/PluginPackage.cpp \
     plugins/PluginStream.cpp \
     plugins/PluginView.cpp \
@@ -1425,6 +1429,7 @@ HEADERS += \
     html/HTMLVideoElement.h \
     html/HTMLViewSourceDocument.h \
     html/ImageData.h \
+    html/LabelsNodeList.h \
     html/PreloadScanner.h \
     html/StepRange.h \
     html/TimeRanges.h \
@@ -1617,6 +1622,7 @@ HEADERS += \
     platform/graphics/transforms/TransformationMatrix.h \
     platform/graphics/transforms/TransformOperations.h \
     platform/graphics/transforms/TranslateTransformOperation.h \
+    platform/KillRing.h \
     platform/KURL.h \
     platform/Length.h \
     platform/LinkHash.h \
@@ -1681,7 +1687,6 @@ HEADERS += \
     plugins/PluginData.h \
     plugins/PluginDebug.h \
     plugins/Plugin.h \
-    plugins/PluginInfoStore.h \
     plugins/PluginMainThreadScheduler.h \
     plugins/PluginPackage.h \
     plugins/PluginStream.h \
@@ -2333,11 +2338,17 @@ contains(DEFINES, ENABLE_INDEXED_DATABASE=1) {
         storage/IDBAny.h \
         storage/IDBCallbacks.h \
         storage/IDBDatabase.h \
+        storage/IDBDatabaseImpl.h \
         storage/IDBDatabaseError.h \
         storage/IDBDatabaseException.h \
         storage/IDBDatabaseRequest.h \
         storage/IDBErrorEvent.h \
         storage/IDBEvent.h \
+        storage/IDBIndex.h \
+        storage/IDBIndexImpl.h \
+        storage/IDBIndexRequest.h \
+        storage/IDBObjectStore.h \
+        storage/IDBObjectStoreRequest.h \
         storage/IDBRequest.h \
         storage/IDBSuccessEvent.h \
         storage/IndexedDatabase.h \
@@ -2347,10 +2358,14 @@ contains(DEFINES, ENABLE_INDEXED_DATABASE=1) {
     SOURCES += \
         bindings/js/JSIDBAnyCustom.cpp \
         storage/IDBAny.cpp \
-        storage/IDBDatabase.cpp \
+        storage/IDBDatabaseImpl.cpp \
         storage/IDBDatabaseRequest.cpp \
         storage/IDBErrorEvent.cpp \
         storage/IDBEvent.cpp \
+        storage/IDBIndexImpl.cpp \
+        storage/IDBIndexRequest.cpp \
+        storage/IDBObjectStore.cpp \
+        storage/IDBObjectStoreRequest.cpp \
         storage/IDBRequest.cpp \
         storage/IDBSuccessEvent.cpp \
         storage/IndexedDatabase.cpp \

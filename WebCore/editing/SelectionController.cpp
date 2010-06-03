@@ -32,8 +32,8 @@
 #include "Element.h"
 #include "EventHandler.h"
 #include "ExceptionCode.h"
-#include "FocusController.h"
 #include "FloatQuad.h"
+#include "FocusController.h"
 #include "Frame.h"
 #include "FrameTree.h"
 #include "FrameView.h"
@@ -79,9 +79,9 @@ SelectionController::SelectionController(Frame* frame, bool isDragCaretControlle
     setIsDirectional(false);
 }
 
-void SelectionController::moveTo(const VisiblePosition &pos, bool userTriggered)
+void SelectionController::moveTo(const VisiblePosition &pos, bool userTriggered, CursorAlignOnScroll align)
 {
-    setSelection(VisibleSelection(pos.deepEquivalent(), pos.deepEquivalent(), pos.affinity()), true, true, userTriggered);
+    setSelection(VisibleSelection(pos.deepEquivalent(), pos.deepEquivalent(), pos.affinity()), true, true, userTriggered, align);
 }
 
 void SelectionController::moveTo(const VisiblePosition &base, const VisiblePosition &extent, bool userTriggered)
@@ -105,7 +105,7 @@ void SelectionController::moveTo(const Position &base, const Position &extent, E
     setSelection(VisibleSelection(base, extent, affinity), true, true, userTriggered);
 }
 
-void SelectionController::setSelection(const VisibleSelection& s, bool closeTyping, bool clearTypingStyle, bool userTriggered, TextGranularity granularity)
+void SelectionController::setSelection(const VisibleSelection& s, bool closeTyping, bool clearTypingStyle, bool userTriggered, CursorAlignOnScroll align, TextGranularity granularity)
 {
     m_granularity = granularity;
 
@@ -161,8 +161,16 @@ void SelectionController::setSelection(const VisibleSelection& s, bool closeTypi
     selectFrameElementInParentIfFullySelected();
     m_frame->notifyRendererOfSelectionChange(userTriggered);
     m_frame->respondToChangedSelection(oldSelection, closeTyping);
-    if (userTriggered)
-        m_frame->revealSelection(ScrollAlignment::alignToEdgeIfNeeded, true);
+    if (userTriggered) {
+        ScrollAlignment alignment;
+
+        if (m_frame->settings() && m_frame->settings()->editingBehavior() == EditingMacBehavior)
+            alignment = (align == AlignCursorOnScrollAlways) ? ScrollAlignment::alignCenterAlways : ScrollAlignment::alignCenterIfNeeded;
+        else
+            alignment = (align == AlignCursorOnScrollAlways) ? ScrollAlignment::alignTopAlways : ScrollAlignment::alignToEdgeIfNeeded;
+
+        m_frame->revealSelection(alignment, true);
+    }
 
     notifyAccessibilityForSelectionChange();
 }
@@ -241,7 +249,7 @@ void SelectionController::setIsDirectional(bool isDirectional)
 
 void SelectionController::willBeModified(EAlteration alter, EDirection direction)
 {
-    if (alter != EXTEND)
+    if (alter != AlterationExtend)
         return;
 
     Position start = m_selection.start();
@@ -261,13 +269,13 @@ void SelectionController::willBeModified(EAlteration alter, EDirection direction
     } else {
         // FIXME: This is probably not correct for right and left when the direction is RTL.
         switch (direction) {
-        case RIGHT:
-        case FORWARD:
+        case DirectionRight:
+        case DirectionForward:
             m_selection.setBase(start);
             m_selection.setExtent(end);
             break;
-        case LEFT:
-        case BACKWARD:
+        case DirectionLeft:
+        case DirectionBackward:
             m_selection.setBase(end);
             m_selection.setExtent(start);
             break;
@@ -324,27 +332,27 @@ VisiblePosition SelectionController::modifyExtendingRight(TextGranularity granul
     // it extends forward logically if the enclosing block is LTR direction,
     // but it extends backward logically if the enclosing block is RTL direction.
     switch (granularity) {
-        case CharacterGranularity:
-            if (directionOfEnclosingBlock() == LTR)
-                pos = pos.next(true);                
-            else
-                pos = pos.previous(true);
-            break;
-        case WordGranularity:
-            if (directionOfEnclosingBlock() == LTR)
-                pos = nextWordPosition(pos);
-            else
-                pos = previousWordPosition(pos);
-            break;
-        case SentenceGranularity:
-        case LineGranularity:
-        case ParagraphGranularity:
-        case SentenceBoundary:
-        case LineBoundary:
-        case ParagraphBoundary:
-        case DocumentBoundary:
-            // FIXME: implement all of the above?
-            pos = modifyExtendingForward(granularity);
+    case CharacterGranularity:
+        if (directionOfEnclosingBlock() == LTR)
+            pos = pos.next(true);
+        else
+            pos = pos.previous(true);
+        break;
+    case WordGranularity:
+        if (directionOfEnclosingBlock() == LTR)
+            pos = nextWordPosition(pos);
+        else
+            pos = previousWordPosition(pos);
+        break;
+    case SentenceGranularity:
+    case LineGranularity:
+    case ParagraphGranularity:
+    case SentenceBoundary:
+    case LineBoundary:
+    case ParagraphBoundary:
+    case DocumentBoundary:
+        // FIXME: implement all of the above?
+        pos = modifyExtendingForward(granularity);
     }
     return pos;
 }
@@ -353,39 +361,39 @@ VisiblePosition SelectionController::modifyExtendingForward(TextGranularity gran
 {
     VisiblePosition pos(m_selection.extent(), m_selection.affinity());
     switch (granularity) {
-        case CharacterGranularity:
-            pos = pos.next(true);
-            break;
-        case WordGranularity:
-            pos = nextWordPosition(pos);
-            break;
-        case SentenceGranularity:
-            pos = nextSentencePosition(pos);
-            break;
-        case LineGranularity:
-            pos = nextLinePosition(pos, xPosForVerticalArrowNavigation(EXTENT));
-            break;
-        case ParagraphGranularity:
-            pos = nextParagraphPosition(pos, xPosForVerticalArrowNavigation(EXTENT));
-            break;
-        case SentenceBoundary:
-            pos = endOfSentence(endForPlatform());
-            break;
-        case LineBoundary:
-            pos = endForPlatform();
-            pos.setAffinity(UPSTREAM);
-            pos = logicalEndOfLine(pos);
-            break;
-        case ParagraphBoundary:
-            pos = endOfParagraph(endForPlatform());
-            break;
-        case DocumentBoundary:
-            pos = endForPlatform();
-            if (isEditablePosition(pos.deepEquivalent()))
-                pos = endOfEditableContent(pos);
-            else
-                pos = endOfDocument(pos);
-            break;
+    case CharacterGranularity:
+        pos = pos.next(true);
+        break;
+    case WordGranularity:
+        pos = nextWordPosition(pos);
+        break;
+    case SentenceGranularity:
+        pos = nextSentencePosition(pos);
+        break;
+    case LineGranularity:
+        pos = nextLinePosition(pos, xPosForVerticalArrowNavigation(EXTENT));
+        break;
+    case ParagraphGranularity:
+        pos = nextParagraphPosition(pos, xPosForVerticalArrowNavigation(EXTENT));
+        break;
+    case SentenceBoundary:
+        pos = endOfSentence(endForPlatform());
+        break;
+    case LineBoundary:
+        pos = endForPlatform();
+        pos.setAffinity(UPSTREAM);
+        pos = logicalEndOfLine(pos);
+        break;
+    case ParagraphBoundary:
+        pos = endOfParagraph(endForPlatform());
+        break;
+    case DocumentBoundary:
+        pos = endForPlatform();
+        if (isEditablePosition(pos.deepEquivalent()))
+            pos = endOfEditableContent(pos);
+        else
+            pos = endOfDocument(pos);
+        break;
     }
     
     return pos;
@@ -395,23 +403,23 @@ VisiblePosition SelectionController::modifyMovingRight(TextGranularity granulari
 {
     VisiblePosition pos;
     switch (granularity) {
-        case CharacterGranularity:
-            if (isRange()) 
-                pos = VisiblePosition(m_selection.end(), m_selection.affinity());
-            else
-                pos = VisiblePosition(m_selection.extent(), m_selection.affinity()).right(true);
-            break;
-        case WordGranularity:
-        case SentenceGranularity:
-        case LineGranularity:
-        case ParagraphGranularity:
-        case SentenceBoundary:
-        case LineBoundary:
-        case ParagraphBoundary:
-        case DocumentBoundary:
-            // FIXME: Implement all of the above.
-            pos = modifyMovingForward(granularity);
-            break;
+    case CharacterGranularity:
+        if (isRange())
+            pos = VisiblePosition(m_selection.end(), m_selection.affinity());
+        else
+            pos = VisiblePosition(m_selection.extent(), m_selection.affinity()).right(true);
+        break;
+    case WordGranularity:
+    case SentenceGranularity:
+    case LineGranularity:
+    case ParagraphGranularity:
+    case SentenceBoundary:
+    case LineBoundary:
+    case ParagraphBoundary:
+    case DocumentBoundary:
+        // FIXME: Implement all of the above.
+        pos = modifyMovingForward(granularity);
+        break;
     }
     return pos;
 }
@@ -421,46 +429,45 @@ VisiblePosition SelectionController::modifyMovingForward(TextGranularity granula
     VisiblePosition pos;
     // FIXME: Stay in editable content for the less common granularities.
     switch (granularity) {
-        case CharacterGranularity:
-            if (isRange()) 
-                pos = VisiblePosition(m_selection.end(), m_selection.affinity());
-            else
-                pos = VisiblePosition(m_selection.extent(), m_selection.affinity()).next(true);
-            break;
-        case WordGranularity:
-            pos = nextWordPosition(VisiblePosition(m_selection.extent(), m_selection.affinity()));
-            break;
-        case SentenceGranularity:
-            pos = nextSentencePosition(VisiblePosition(m_selection.extent(), m_selection.affinity()));
-            break;
-        case LineGranularity: {
-            // down-arrowing from a range selection that ends at the start of a line needs
-            // to leave the selection at that line start (no need to call nextLinePosition!)
-            pos = endForPlatform();
-            if (!isRange() || !isStartOfLine(pos))
-                pos = nextLinePosition(pos, xPosForVerticalArrowNavigation(START));
-            break;
-        }
-        case ParagraphGranularity:
-            pos = nextParagraphPosition(endForPlatform(), xPosForVerticalArrowNavigation(START));
-            break;
-        case SentenceBoundary:
-            pos = endOfSentence(endForPlatform());
-            break;
-        case LineBoundary:
-            pos = logicalEndOfLine(endForPlatform());
-            break;
-        case ParagraphBoundary:
-            pos = endOfParagraph(endForPlatform());
-            break;
-        case DocumentBoundary:
-            pos = endForPlatform();
-            if (isEditablePosition(pos.deepEquivalent()))
-                pos = endOfEditableContent(pos);
-            else
-                pos = endOfDocument(pos);
-            break;
-            
+    case CharacterGranularity:
+        if (isRange())
+            pos = VisiblePosition(m_selection.end(), m_selection.affinity());
+        else
+            pos = VisiblePosition(m_selection.extent(), m_selection.affinity()).next(true);
+        break;
+    case WordGranularity:
+        pos = nextWordPosition(VisiblePosition(m_selection.extent(), m_selection.affinity()));
+        break;
+    case SentenceGranularity:
+        pos = nextSentencePosition(VisiblePosition(m_selection.extent(), m_selection.affinity()));
+        break;
+    case LineGranularity: {
+        // down-arrowing from a range selection that ends at the start of a line needs
+        // to leave the selection at that line start (no need to call nextLinePosition!)
+        pos = endForPlatform();
+        if (!isRange() || !isStartOfLine(pos))
+            pos = nextLinePosition(pos, xPosForVerticalArrowNavigation(START));
+        break;
+    }
+    case ParagraphGranularity:
+        pos = nextParagraphPosition(endForPlatform(), xPosForVerticalArrowNavigation(START));
+        break;
+    case SentenceBoundary:
+        pos = endOfSentence(endForPlatform());
+        break;
+    case LineBoundary:
+        pos = logicalEndOfLine(endForPlatform());
+        break;
+    case ParagraphBoundary:
+        pos = endOfParagraph(endForPlatform());
+        break;
+    case DocumentBoundary:
+        pos = endForPlatform();
+        if (isEditablePosition(pos.deepEquivalent()))
+            pos = endOfEditableContent(pos);
+        else
+            pos = endOfDocument(pos);
+        break;
     }
     return pos;
 }
@@ -475,26 +482,26 @@ VisiblePosition SelectionController::modifyExtendingLeft(TextGranularity granula
     // it extends backward logically if the enclosing block is LTR direction,
     // but it extends forward logically if the enclosing block is RTL direction.
     switch (granularity) {
-        case CharacterGranularity:
-            if (directionOfEnclosingBlock() == LTR)
-                pos = pos.previous(true);
-            else
-                pos = pos.next(true);
-            break;
-        case WordGranularity:
-            if (directionOfEnclosingBlock() == LTR)
-                pos = previousWordPosition(pos);
-            else
-                pos = nextWordPosition(pos);
-            break;
-        case SentenceGranularity:
-        case LineGranularity:
-        case ParagraphGranularity:
-        case SentenceBoundary:
-        case LineBoundary:
-        case ParagraphBoundary:
-        case DocumentBoundary:
-            pos = modifyExtendingBackward(granularity);
+    case CharacterGranularity:
+        if (directionOfEnclosingBlock() == LTR)
+            pos = pos.previous(true);
+        else
+            pos = pos.next(true);
+        break;
+    case WordGranularity:
+        if (directionOfEnclosingBlock() == LTR)
+            pos = previousWordPosition(pos);
+        else
+            pos = nextWordPosition(pos);
+        break;
+    case SentenceGranularity:
+    case LineGranularity:
+    case ParagraphGranularity:
+    case SentenceBoundary:
+    case LineBoundary:
+    case ParagraphBoundary:
+    case DocumentBoundary:
+        pos = modifyExtendingBackward(granularity);
     }
     return pos;
 }
@@ -508,37 +515,37 @@ VisiblePosition SelectionController::modifyExtendingBackward(TextGranularity gra
     // It was done here instead of in VisiblePosition because we want VPs to iterate
     // over everything.
     switch (granularity) {
-        case CharacterGranularity:
-            pos = pos.previous(true);
-            break;
-        case WordGranularity:
-            pos = previousWordPosition(pos);
-            break;
-        case SentenceGranularity:
-            pos = previousSentencePosition(pos);
-            break;
-        case LineGranularity:
-            pos = previousLinePosition(pos, xPosForVerticalArrowNavigation(EXTENT));
-            break;
-        case ParagraphGranularity:
-            pos = previousParagraphPosition(pos, xPosForVerticalArrowNavigation(EXTENT));
-            break;
-        case SentenceBoundary:
-            pos = startOfSentence(startForPlatform());
-            break;
-        case LineBoundary:
-            pos = logicalStartOfLine(startForPlatform());
-            break;
-        case ParagraphBoundary:
-            pos = startOfParagraph(startForPlatform());
-            break;
-        case DocumentBoundary:
-            pos = startForPlatform();
-            if (isEditablePosition(pos.deepEquivalent()))
-                pos = startOfEditableContent(pos);
-            else 
-                pos = startOfDocument(pos);
-            break;
+    case CharacterGranularity:
+        pos = pos.previous(true);
+        break;
+    case WordGranularity:
+        pos = previousWordPosition(pos);
+        break;
+    case SentenceGranularity:
+        pos = previousSentencePosition(pos);
+        break;
+    case LineGranularity:
+        pos = previousLinePosition(pos, xPosForVerticalArrowNavigation(EXTENT));
+        break;
+    case ParagraphGranularity:
+        pos = previousParagraphPosition(pos, xPosForVerticalArrowNavigation(EXTENT));
+        break;
+    case SentenceBoundary:
+        pos = startOfSentence(startForPlatform());
+        break;
+    case LineBoundary:
+        pos = logicalStartOfLine(startForPlatform());
+        break;
+    case ParagraphBoundary:
+        pos = startOfParagraph(startForPlatform());
+        break;
+    case DocumentBoundary:
+        pos = startForPlatform();
+        if (isEditablePosition(pos.deepEquivalent()))
+            pos = startOfEditableContent(pos);
+        else
+            pos = startOfDocument(pos);
+        break;
     }
     return pos;
 }
@@ -547,23 +554,23 @@ VisiblePosition SelectionController::modifyMovingLeft(TextGranularity granularit
 {
     VisiblePosition pos;
     switch (granularity) {
-        case CharacterGranularity:
-            if (isRange()) 
-                pos = VisiblePosition(m_selection.start(), m_selection.affinity());
-            else
-                pos = VisiblePosition(m_selection.extent(), m_selection.affinity()).left(true);
-            break;
-        case WordGranularity:
-        case SentenceGranularity:
-        case LineGranularity:
-        case ParagraphGranularity:
-        case SentenceBoundary:
-        case LineBoundary:
-        case ParagraphBoundary:
-        case DocumentBoundary:
-            // FIXME: Implement all of the above.
-            pos = modifyMovingBackward(granularity);
-            break;
+    case CharacterGranularity:
+        if (isRange())
+            pos = VisiblePosition(m_selection.start(), m_selection.affinity());
+        else
+            pos = VisiblePosition(m_selection.extent(), m_selection.affinity()).left(true);
+        break;
+    case WordGranularity:
+    case SentenceGranularity:
+    case LineGranularity:
+    case ParagraphGranularity:
+    case SentenceBoundary:
+    case LineBoundary:
+    case ParagraphBoundary:
+    case DocumentBoundary:
+        // FIXME: Implement all of the above.
+        pos = modifyMovingBackward(granularity);
+        break;
     }
     return pos;
 }
@@ -572,40 +579,40 @@ VisiblePosition SelectionController::modifyMovingBackward(TextGranularity granul
 {
     VisiblePosition pos;
     switch (granularity) {
-        case CharacterGranularity:
-            if (isRange()) 
-                pos = VisiblePosition(m_selection.start(), m_selection.affinity());
-            else
-                pos = VisiblePosition(m_selection.extent(), m_selection.affinity()).previous(true);
-            break;
-        case WordGranularity:
-            pos = previousWordPosition(VisiblePosition(m_selection.extent(), m_selection.affinity()));
-            break;
-        case SentenceGranularity:
-            pos = previousSentencePosition(VisiblePosition(m_selection.extent(), m_selection.affinity()));
-            break;
-        case LineGranularity:
-            pos = previousLinePosition(startForPlatform(), xPosForVerticalArrowNavigation(START));
-            break;
-        case ParagraphGranularity:
-            pos = previousParagraphPosition(startForPlatform(), xPosForVerticalArrowNavigation(START));
-            break;
-        case SentenceBoundary:
-            pos = startOfSentence(startForPlatform());
-            break;
-        case LineBoundary:
-            pos = logicalStartOfLine(startForPlatform());
-            break;
-        case ParagraphBoundary:
-            pos = startOfParagraph(startForPlatform());
-            break;
-        case DocumentBoundary:
-            pos = startForPlatform();
-            if (isEditablePosition(pos.deepEquivalent()))
-                pos = startOfEditableContent(pos);
-            else 
-                pos = startOfDocument(pos);
-            break;
+    case CharacterGranularity:
+        if (isRange())
+            pos = VisiblePosition(m_selection.start(), m_selection.affinity());
+        else
+            pos = VisiblePosition(m_selection.extent(), m_selection.affinity()).previous(true);
+        break;
+    case WordGranularity:
+        pos = previousWordPosition(VisiblePosition(m_selection.extent(), m_selection.affinity()));
+        break;
+    case SentenceGranularity:
+        pos = previousSentencePosition(VisiblePosition(m_selection.extent(), m_selection.affinity()));
+        break;
+    case LineGranularity:
+        pos = previousLinePosition(startForPlatform(), xPosForVerticalArrowNavigation(START));
+        break;
+    case ParagraphGranularity:
+        pos = previousParagraphPosition(startForPlatform(), xPosForVerticalArrowNavigation(START));
+        break;
+    case SentenceBoundary:
+        pos = startOfSentence(startForPlatform());
+        break;
+    case LineBoundary:
+        pos = logicalStartOfLine(startForPlatform());
+        break;
+    case ParagraphBoundary:
+        pos = startOfParagraph(startForPlatform());
+        break;
+    case DocumentBoundary:
+        pos = startForPlatform();
+        if (isEditablePosition(pos.deepEquivalent()))
+            pos = startOfEditableContent(pos);
+        else
+            pos = startOfDocument(pos);
+        break;
     }
     return pos;
 }
@@ -638,30 +645,30 @@ bool SelectionController::modify(EAlteration alter, EDirection direction, TextGr
 
     VisiblePosition position;
     switch (direction) {
-        case RIGHT:
-            if (alter == MOVE)
-                position = modifyMovingRight(granularity);
-            else
-                position = modifyExtendingRight(granularity);
-            break;
-        case FORWARD:
-            if (alter == EXTEND)
-                position = modifyExtendingForward(granularity);
-            else
-                position = modifyMovingForward(granularity);
-            break;
-        case LEFT:
-            if (alter == MOVE)
-                position = modifyMovingLeft(granularity);
-            else
-                position = modifyExtendingLeft(granularity);
-            break;
-        case BACKWARD:
-            if (alter == EXTEND)
-                position = modifyExtendingBackward(granularity);
-            else
-                position = modifyMovingBackward(granularity);
-            break;
+    case DirectionRight:
+        if (alter == AlterationMove)
+            position = modifyMovingRight(granularity);
+        else
+            position = modifyExtendingRight(granularity);
+        break;
+    case DirectionForward:
+        if (alter == AlterationExtend)
+            position = modifyExtendingForward(granularity);
+        else
+            position = modifyMovingForward(granularity);
+        break;
+    case DirectionLeft:
+        if (alter == AlterationMove)
+            position = modifyMovingLeft(granularity);
+        else
+            position = modifyExtendingLeft(granularity);
+        break;
+    case DirectionBackward:
+        if (alter == AlterationExtend)
+            position = modifyExtendingBackward(granularity);
+        else
+            position = modifyMovingBackward(granularity);
+        break;
     }
 
     if (position.isNull())
@@ -674,20 +681,20 @@ bool SelectionController::modify(EAlteration alter, EDirection direction, TextGr
     int x = xPosForVerticalArrowNavigation(START);
 
     switch (alter) {
-        case MOVE:
-            moveTo(position, userTriggered);
-            break;
-        case EXTEND:
-            if (!settings || settings->editingBehavior() != EditingMacBehavior || m_selection.isCaret() || !isBoundary(granularity))
-                setExtent(position, userTriggered);
-            else {
-                // Standard Mac behavior when extending to a boundary is grow the selection rather
-                // than leaving the base in place and moving the extent. Matches NSTextView.
-                if (direction == FORWARD || direction == RIGHT)
-                    setEnd(position, userTriggered);
-                else
-                    setStart(position, userTriggered);
-            }
+    case AlterationMove:
+        moveTo(position, userTriggered);
+        break;
+    case AlterationExtend:
+        if (!settings || settings->editingBehavior() != EditingMacBehavior || m_selection.isCaret() || !isBoundary(granularity))
+            setExtent(position, userTriggered);
+        else {
+            // Standard Mac behavior when extending to a boundary is grow the selection rather
+            // than leaving the base in place and moving the extent. Matches NSTextView.
+            if (direction == DirectionForward || direction == DirectionRight)
+                setEnd(position, userTriggered);
+            else
+                setStart(position, userTriggered);
+        }
     }
     
     if (granularity == LineGranularity || granularity == ParagraphGranularity)
@@ -699,7 +706,7 @@ bool SelectionController::modify(EAlteration alter, EDirection direction, TextGr
 
     setNeedsLayout();
 
-    setIsDirectional(alter == EXTEND);
+    setIsDirectional(alter == AlterationExtend);
 
     return true;
 }
@@ -714,9 +721,9 @@ static bool absoluteCaretY(const VisiblePosition &c, int &y)
     return true;
 }
 
-bool SelectionController::modify(EAlteration alter, int verticalDistance, bool userTriggered)
+bool SelectionController::modify(EAlteration alter, int verticalDistance, bool userTriggered, CursorAlignOnScroll align)
 {
-    if (verticalDistance == 0)
+    if (!verticalDistance)
         return false;
 
     if (userTriggered) {
@@ -734,21 +741,21 @@ bool SelectionController::modify(EAlteration alter, int verticalDistance, bool u
     if (up)
         verticalDistance = -verticalDistance;
 
-    willBeModified(alter, up ? BACKWARD : FORWARD);
+    willBeModified(alter, up ? DirectionBackward : DirectionForward);
 
     VisiblePosition pos;
     int xPos = 0;
     switch (alter) {
-        case MOVE:
-            pos = VisiblePosition(up ? m_selection.start() : m_selection.end(), m_selection.affinity());
-            xPos = xPosForVerticalArrowNavigation(up ? START : END);
-            m_selection.setAffinity(up ? UPSTREAM : DOWNSTREAM);
-            break;
-        case EXTEND:
-            pos = VisiblePosition(m_selection.extent(), m_selection.affinity());
-            xPos = xPosForVerticalArrowNavigation(EXTENT);
-            m_selection.setAffinity(DOWNSTREAM);
-            break;
+    case AlterationMove:
+        pos = VisiblePosition(up ? m_selection.start() : m_selection.end(), m_selection.affinity());
+        xPos = xPosForVerticalArrowNavigation(up ? START : END);
+        m_selection.setAffinity(up ? UPSTREAM : DOWNSTREAM);
+        break;
+    case AlterationExtend:
+        pos = VisiblePosition(m_selection.extent(), m_selection.affinity());
+        xPos = xPosForVerticalArrowNavigation(EXTENT);
+        m_selection.setAffinity(DOWNSTREAM);
+        break;
     }
 
     int startY;
@@ -781,18 +788,18 @@ bool SelectionController::modify(EAlteration alter, int verticalDistance, bool u
         return false;
 
     switch (alter) {
-        case MOVE:
-            moveTo(result, userTriggered);
-            break;
-        case EXTEND:
-            setExtent(result, userTriggered);
-            break;
+    case AlterationMove:
+        moveTo(result, userTriggered, align);
+        break;
+    case AlterationExtend:
+        setExtent(result, userTriggered);
+        break;
     }
 
     if (userTriggered)
         m_granularity = CharacterGranularity;
 
-    setIsDirectional(alter == EXTEND);
+    setIsDirectional(alter == AlterationExtend);
 
     return true;
 }
@@ -806,21 +813,21 @@ int SelectionController::xPosForVerticalArrowNavigation(EPositionType type)
 
     Position pos;
     switch (type) {
-        case START:
-            pos = m_selection.start();
-            break;
-        case END:
-            pos = m_selection.end();
-            break;
-        case BASE:
-            pos = m_selection.base();
-            break;
-        case EXTENT:
-            pos = m_selection.extent();
-            break;
+    case START:
+        pos = m_selection.start();
+        break;
+    case END:
+        pos = m_selection.end();
+        break;
+    case BASE:
+        pos = m_selection.base();
+        break;
+    case EXTENT:
+        pos = m_selection.extent();
+        break;
     }
 
-    Frame *frame = pos.node()->document()->frame();
+    Frame* frame = pos.node()->document()->frame();
     if (!frame)
         return x;
         
@@ -830,8 +837,7 @@ int SelectionController::xPosForVerticalArrowNavigation(EPositionType type)
         // after the selection is created and before this function is called.
         x = visiblePosition.isNotNull() ? visiblePosition.xOffsetForVerticalNavigation() : 0;
         m_xPosForVerticalArrowNavigation = x;
-    }
-    else
+    } else
         x = m_xPosForVerticalArrowNavigation;
         
     return x;
@@ -1098,12 +1104,11 @@ void SelectionController::paintCaret(GraphicsContext* context, int tx, int ty, c
 void SelectionController::debugRenderer(RenderObject *r, bool selected) const
 {
     if (r->node()->isElementNode()) {
-        Element *element = static_cast<Element *>(r->node());
+        Element* element = static_cast<Element *>(r->node());
         fprintf(stderr, "%s%s\n", selected ? "==> " : "    ", element->localName().string().utf8().data());
-    }
-    else if (r->isText()) {
+    } else if (r->isText()) {
         RenderText* textRenderer = toRenderText(r);
-        if (textRenderer->textLength() == 0 || !textRenderer->firstTextBox()) {
+        if (!textRenderer->textLength() || !textRenderer->firstTextBox()) {
             fprintf(stderr, "%s#text (empty)\n", selected ? "==> " : "    ");
             return;
         }
@@ -1119,7 +1124,7 @@ void SelectionController::debugRenderer(RenderObject *r, bool selected) const
                 offset = m_selection.end().deprecatedEditingOffset();
                 
             int pos;
-            InlineTextBox *box = textRenderer->findNextInlineTextBox(offset, pos);
+            InlineTextBox* box = textRenderer->findNextInlineTextBox(offset, pos);
             text = text.substring(box->start(), box->len());
             
             String show;
@@ -1130,22 +1135,16 @@ void SelectionController::debugRenderer(RenderObject *r, bool selected) const
             if (textLength < max) {
                 show = text;
                 caret = pos;
-            }
-            
-            // too few characters to left
-            else if (pos - mid < 0) {
+            } else if (pos - mid < 0) {
+                // too few characters to left
                 show = text.left(max - 3) + "...";
                 caret = pos;
-            }
-            
-            // enough characters on each side
-            else if (pos - mid >= 0 && pos + mid <= textLength) {
+            } else if (pos - mid >= 0 && pos + mid <= textLength) {
+                // enough characters on each side
                 show = "..." + text.substring(pos - mid + 3, max - 6) + "...";
                 caret = mid;
-            }
-            
-            // too few characters on right
-            else {
+            } else {
+                // too few characters on right
                 show = "..." + text.right(max - 3);
                 caret = pos - (textLength - show.length());
             }
@@ -1157,8 +1156,7 @@ void SelectionController::debugRenderer(RenderObject *r, bool selected) const
             for (int i = 0; i < caret; i++)
                 fprintf(stderr, " ");
             fprintf(stderr, "^\n");
-        }
-        else {
+        } else {
             if ((int)text.length() > max)
                 text = text.left(max - 3) + "...";
             else

@@ -35,6 +35,8 @@ namespace JSC {
     class JSGlobalObject;
     class NativeExecutable;
 
+    JSValue JSC_HOST_CALL callHostFunctionAsConstructor(ExecState*);
+
     class JSFunction : public JSObjectWithGlobalObject {
         friend class JIT;
         friend class JSGlobalData;
@@ -43,12 +45,11 @@ namespace JSC {
 
     public:
         JSFunction(ExecState*, JSGlobalObject*, NonNullPassRefPtr<Structure>, int length, const Identifier&, NativeFunction);
+#if ENABLE(JIT)
         JSFunction(ExecState*, JSGlobalObject*, NonNullPassRefPtr<Structure>, int length, const Identifier&, PassRefPtr<NativeExecutable>);
+#endif
         JSFunction(ExecState*, NonNullPassRefPtr<FunctionExecutable>, ScopeChainNode*);
         virtual ~JSFunction();
-
-        JSObject* construct(ExecState*, const ArgList&);
-        JSValue call(ExecState*, JSValue thisValue, const ArgList&);
 
         const UString& name(ExecState*);
         const UString displayName(ExecState*);

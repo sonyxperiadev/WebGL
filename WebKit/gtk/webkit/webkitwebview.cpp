@@ -1257,7 +1257,11 @@ static void webkit_web_view_drag_end(GtkWidget* widget, GdkDragContext* context)
     GdkDisplay* display = gdk_display_get_default();
     gdk_display_get_pointer(display, 0, &xRoot, &yRoot, &modifiers);
 
-    event->button.window = static_cast<GdkWindow*>(g_object_ref(gdk_display_get_window_at_pointer(display, &x, &y)));
+    GdkWindow* window = gdk_display_get_window_at_pointer(display, &x, &y);
+    if (window) {
+        g_object_ref(window);
+        event->button.window = window;
+    }
     event->button.x = x;
     event->button.y = y;
     event->button.x_root = xRoot;
@@ -3636,8 +3640,7 @@ void webkit_web_view_set_editable(WebKitWebView* webView, gboolean flag)
         // TODO: If the WebKitWebView is made editable and the selection is empty, set it to something.
         //if (!webkit_web_view_get_selected_dom_range(webView))
         //    mainFrame->setSelectionFromNone();
-    } else
-        frame->removeEditingStyleFromBodyElement();
+    }
     g_object_notify(G_OBJECT(webView), "editable");
 }
 
@@ -3761,7 +3764,11 @@ gfloat webkit_web_view_get_zoom_level(WebKitWebView* webView)
     if (!frame)
         return 1.0f;
 
-    return frame->zoomFactor();
+    FrameView* view = frame->view();
+    if (!view)
+        return 1;
+
+    return view->zoomFactor();
 }
 
 static void webkit_web_view_apply_zoom_level(WebKitWebView* webView, gfloat zoomLevel)
@@ -3770,8 +3777,12 @@ static void webkit_web_view_apply_zoom_level(WebKitWebView* webView, gfloat zoom
     if (!frame)
         return;
 
+    FrameView* view = frame->view();
+    if (!view)
+        return;
+
     WebKitWebViewPrivate* priv = webView->priv;
-    frame->setZoomFactor(zoomLevel, priv->zoomFullContent ? ZoomPage : ZoomTextOnly);
+    view->setZoomFactor(zoomLevel, priv->zoomFullContent ? ZoomPage : ZoomTextOnly);
 }
 
 /**
@@ -4370,7 +4381,7 @@ WebKitCacheModel webkit_get_cache_model()
  * 
  * Returns: the #WebKitDOMDocument currently loaded in the @webView
  *
- * Since: 1.3.0
+ * Since: 1.3.1
  **/
 WebKitDOMDocument*
 webkit_web_view_get_dom_document(WebKitWebView* webView)

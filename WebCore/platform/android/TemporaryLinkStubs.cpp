@@ -65,8 +65,11 @@
 #include "PageCache.h"
 #include "Pasteboard.h"
 #include "Path.h"
+<<<<<<< HEAD
 #include "PluginInfoStore.h"
 #include "PluginWidget.h"
+=======
+>>>>>>> webkit.org at r60469
 #include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "ResourceLoader.h"
@@ -104,6 +107,7 @@ String WebCore::defaultLanguage()
 
 namespace WebCore {
 
+<<<<<<< HEAD
 #if !defined(ANDROID_PLUGINS)
 // If plugins support is turned on, don't use these stubs.
 
@@ -148,6 +152,8 @@ void refreshPlugins(bool)
 // defines this in plugins/mac/PluginWidgetMac.mm
 void PluginWidget::invalidateRect(const IntRect&) {}
 
+=======
+>>>>>>> webkit.org at r60469
 // This function tells the bridge that a resource was loaded from the cache and thus
 // the app may update progress with the amount of data loaded.
 void CheckCacheObjectStatus(DocLoader*, CachedResource*)

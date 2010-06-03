@@ -27,9 +27,8 @@
 #ifndef DOMTimer_h
 #define DOMTimer_h
 
-#include "ActiveDOMObject.h"
 #include "ScheduledAction.h"
-#include "Timer.h"
+#include "SuspendableTimer.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 
@@ -37,7 +36,7 @@ namespace WebCore {
 
     class InspectorTimelineAgent;
 
-    class DOMTimer : public TimerBase, public ActiveDOMObject {
+    class DOMTimer : public SuspendableTimer {
     public:
         virtual ~DOMTimer();
         // Creates a new timer owned by specified ScriptExecutionContext, starts it
@@ -46,12 +45,8 @@ namespace WebCore {
         static void removeById(ScriptExecutionContext*, int timeoutId);
 
         // ActiveDOMObject
-        virtual bool hasPendingActivity() const;
         virtual void contextDestroyed();
         virtual void stop();
-        virtual bool canSuspend() const;
-        virtual void suspend();
-        virtual void resume();
 
         // The lowest allowable timer setting (in seconds, 0.001 == 1 ms).
         // Default is 10ms.
@@ -66,11 +61,6 @@ namespace WebCore {
         int m_timeoutId;
         int m_nestingLevel;
         OwnPtr<ScheduledAction> m_action;
-        double m_nextFireInterval;
-        double m_repeatInterval;
-#if !ASSERT_DISABLED
-        bool m_suspended;
-#endif
         static double s_minTimerInterval;
     };
 

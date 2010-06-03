@@ -489,6 +489,7 @@ WebInspector.EventListeners.getEventListenersForNodeAsync = function(node, callb
 WebInspector.CSSStyleDeclaration = function(payload)
 {
     this.id = payload.id;
+    this.parentStyleSheetId = payload.parentStyleSheetId;
     this.width = payload.width;
     this.height = payload.height;
     this.__disabledProperties = {};
@@ -672,6 +673,7 @@ WebInspector.didGetEventListenersForNode = WebInspector.Callback.processCallback
 
 WebInspector.didGetStyles = WebInspector.Callback.processCallback;
 WebInspector.didGetAllStyles = WebInspector.Callback.processCallback;
+WebInspector.didGetStyleSheet = WebInspector.Callback.processCallback;
 WebInspector.didGetInlineStyle = WebInspector.Callback.processCallback;
 WebInspector.didGetComputedStyle = WebInspector.Callback.processCallback;
 WebInspector.didApplyStyleText = WebInspector.Callback.processCallback;

@@ -144,7 +144,7 @@ void RenderTextControl::createSubtreeIfNeeded(TextControlInnerElement* innerBloc
         // For non-search fields, there is no intermediate innerBlock as the shadow node.
         // m_innerText will be the shadow node in that case.        
         RenderStyle* parentStyle = innerBlock ? innerBlock->renderer()->style() : style();
-        m_innerText = new TextControlInnerTextElement(document(), innerBlock ? 0 : node());
+        m_innerText = TextControlInnerTextElement::create(document(), innerBlock ? 0 : node());
         m_innerText->attachInnerElement(innerBlock ? innerBlock : node(), createInnerTextStyle(parentStyle), renderArena());
     }
 }
@@ -182,7 +182,7 @@ void RenderTextControl::setInnerTextValue(const String& innerTextValue)
         ASSERT(!ec);
 
         if (value.endsWith("\n") || value.endsWith("\r")) {
-            m_innerText->appendChild(new HTMLBRElement(brTag, document()), ec);
+            m_innerText->appendChild(HTMLBRElement::create(document()), ec);
             ASSERT(!ec);
         }
 

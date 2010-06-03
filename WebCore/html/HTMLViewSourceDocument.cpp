@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,26 +68,26 @@ Tokenizer* HTMLViewSourceDocument::createTokenizer()
 
 void HTMLViewSourceDocument::createContainingTable()
 {
-    RefPtr<HTMLHtmlElement> html = new HTMLHtmlElement(htmlTag, this);
+    RefPtr<HTMLHtmlElement> html = HTMLHtmlElement::create(this);
     addChild(html);
     html->attach();
-    RefPtr<HTMLBodyElement> body = new HTMLBodyElement(bodyTag, this);
+    RefPtr<HTMLBodyElement> body = HTMLBodyElement::create(this);
     html->addChild(body);
     body->attach();
     
     // Create a line gutter div that can be used to make sure the gutter extends down the height of the whole
     // document.
-    RefPtr<HTMLDivElement> div = new HTMLDivElement(divTag, this);
+    RefPtr<HTMLDivElement> div = HTMLDivElement::create(this);
     RefPtr<NamedNodeMap> attrs = NamedNodeMap::create();
     attrs->addAttribute(Attribute::createMapped(classAttr, "webkit-line-gutter-backdrop"));
     div->setAttributeMap(attrs.release());
     body->addChild(div);
     div->attach();
 
-    RefPtr<HTMLTableElement> table = new HTMLTableElement(tableTag, this);
+    RefPtr<HTMLTableElement> table = HTMLTableElement::create(this);
     body->addChild(table);
     table->attach();
-    m_tbody = new HTMLTableSectionElement(tbodyTag, this);
+    m_tbody = HTMLTableSectionElement::create(tbodyTag, this);
     table->addChild(m_tbody);
     m_tbody->attach();
     m_current = m_tbody;
@@ -222,12 +222,12 @@ PassRefPtr<Element> HTMLViewSourceDocument::addSpanWithClassName(const String& c
 void HTMLViewSourceDocument::addLine(const String& className)
 {
     // Create a table row.
-    RefPtr<HTMLTableRowElement> trow = new HTMLTableRowElement(trTag, this);
+    RefPtr<HTMLTableRowElement> trow = HTMLTableRowElement::create(this);
     m_tbody->addChild(trow);
     trow->attach();
     
     // Create a cell that will hold the line number (it is generated in the stylesheet using counters).
-    RefPtr<HTMLTableCellElement> td = new HTMLTableCellElement(tdTag, this);
+    RefPtr<HTMLTableCellElement> td = HTMLTableCellElement::create(tdTag, this);
     RefPtr<NamedNodeMap> attrs = NamedNodeMap::create();
     attrs->addAttribute(Attribute::createMapped(classAttr, "webkit-line-number"));
     td->setAttributeMap(attrs.release());
@@ -235,7 +235,7 @@ void HTMLViewSourceDocument::addLine(const String& className)
     td->attach();
 
     // Create a second cell for the line contents
-    td = new HTMLTableCellElement(tdTag, this);
+    td = HTMLTableCellElement::create(tdTag, this);
     attrs = NamedNodeMap::create();
     attrs->addAttribute(Attribute::createMapped(classAttr, "webkit-line-content"));
     td->setAttributeMap(attrs.release());

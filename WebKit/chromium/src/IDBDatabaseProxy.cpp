@@ -10,9 +10,6 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
- *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -29,7 +26,7 @@
 #include "config.h"
 #include "IDBDatabaseProxy.h"
 
-#include "IDBDatabaseError.h"
+#include "DOMStringList.h"
 #include "WebIDBDatabase.h"
 #include "WebIDBDatabaseError.h"
 
@@ -51,7 +48,26 @@ IDBDatabaseProxy::~IDBDatabaseProxy()
 {
 }
 
+String IDBDatabaseProxy::name()
+{
+    return m_webIDBDatabase->name();
+}
+
+String IDBDatabaseProxy::description()
+{
+    return m_webIDBDatabase->description();
+}
+
+String IDBDatabaseProxy::version()
+{
+    return m_webIDBDatabase->version();
+}
+
+PassRefPtr<DOMStringList> IDBDatabaseProxy::objectStores()
+{
+    return m_webIDBDatabase->objectStores();
+}
+
 } // namespace WebCore
 
 #endif // ENABLE(INDEXED_DATABASE)
-

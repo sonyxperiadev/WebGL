@@ -35,28 +35,17 @@ WebInspector.ResourceView = function(resource)
 
     this.resource = resource;
 
-    this.tabsElement = document.createElement("div");
-    this.tabsElement.className = "scope-bar";
-    this.element.appendChild(this.tabsElement);
-
-    this.headersTabElement = document.createElement("li");
-    this.headersTabElement.textContent = WebInspector.UIString("Headers");
-    this.contentTabElement = document.createElement("li");
-    this.contentTabElement.textContent = WebInspector.UIString("Content");
-
-    this.tabsElement.appendChild(this.headersTabElement);
-    this.tabsElement.appendChild(this.contentTabElement);
-
-    this.headersTabElement.addEventListener("click", this._selectHeadersTab.bind(this, true), false);
-    this.contentTabElement.addEventListener("click", this.selectContentTab.bind(this, true), false);
+    this.tabbedPane = new WebInspector.TabbedPane(this.element);
 
     this.headersElement = document.createElement("div");
     this.headersElement.className = "resource-view-headers";
-    this.element.appendChild(this.headersElement);
+    this.tabbedPane.appendTab("headers", WebInspector.UIString("Headers"), this.headersElement, this._selectHeadersTab.bind(this, true));
 
-    this.contentElement = document.createElement("div");
-    this.contentElement.className = "resource-view-content";
-    this.element.appendChild(this.contentElement);
+    if (this.hasContentTab()) {
+        this.contentElement = document.createElement("div");
+        this.contentElement.className = "resource-view-content";
+        this.tabbedPane.appendTab("content", WebInspector.UIString("Content"), this.contentElement, this.selectContentTab.bind(this, true));
+    }
 
     this.headersListElement = document.createElement("ol");
     this.headersListElement.className = "outline-disclosure";
@@ -116,11 +105,10 @@ WebInspector.ResourceView = function(resource)
     resource.addEventListener("finished", this._refreshHTTPInformation, this);
 
     this._refreshURL();
+    this._refreshQueryString();
     this._refreshRequestHeaders();
     this._refreshResponseHeaders();
     this._refreshHTTPInformation();
-    if (!this.hasContentTab())
-        this.contentTabElement.addStyleClass("hidden");
     this._selectTab();
 }
 
@@ -167,10 +155,7 @@ WebInspector.ResourceView.prototype = {
     {
         if (updatePrefs)
             WebInspector.settings.resourceViewTab = "headers";
-        this.headersTabElement.addStyleClass("selected");
-        this.contentTabElement.removeStyleClass("selected");
-        this.headersElement.removeStyleClass("hidden");
-        this.contentElement.addStyleClass("hidden");
+        this.tabbedPane.selectTabById("headers");
     },
 
     selectContentTab: function(updatePrefs)
@@ -188,10 +173,7 @@ WebInspector.ResourceView.prototype = {
 
     _innerSelectContentTab: function()
     {
-        this.contentTabElement.addStyleClass("selected");
-        this.headersTabElement.removeStyleClass("selected");
-        this.contentElement.removeStyleClass("hidden");
-        this.headersElement.addStyleClass("hidden");
+        this.tabbedPane.selectTabById("content");
         if ("resize" in this)
             this.resize();
         this.contentTabSelected();
@@ -245,8 +227,7 @@ WebInspector.ResourceView.prototype = {
     {
         this.requestPayloadTreeElement.removeChildren();
 
-        var title = "<div class=\"header-name\">&nbsp;</div>";
-        title += "<div class=\"raw-form-data header-value source-code\">" + formData.escapeHTML() + "</div>";
+        var title = "<div class=\"raw-form-data header-value source-code\">" + formData.escapeHTML() + "</div>";
         var parmTreeElement = new TreeElement(title, null, false);
         parmTreeElement.selectable = false;
         this.requestPayloadTreeElement.appendChild(parmTreeElement);
@@ -342,13 +323,15 @@ WebInspector.ResourceView.prototype = {
                 statusImageSource = "Images/warningOrangeDot.png";
             else
                 statusImageSource = "Images/errorRedDot.png";
-            statusCodeImage = "<img class=\"resource-status-image\" src=\"" + statusImageSource + "\" title=\"" + WebInspector.Resource.StatusTextForCode(this.resource.statusCode) + "\">";
+
+            var statusTextEscaped = this.resource.statusCode + " " + this.resource.statusText.escapeHTML();
+            statusCodeImage = "<img class=\"resource-status-image\" src=\"" + statusImageSource + "\" title=\"" + statusTextEscaped + "\">";
     
             requestMethodElement.title = "<div class=\"header-name\">" + WebInspector.UIString("Request Method") + ":</div>" +
                 "<div class=\"header-value source-code\">" + this.resource.requestMethod + "</div>";
 
             statusCodeElement.title = "<div class=\"header-name\">" + WebInspector.UIString("Status Code") + ":</div>" +
-                statusCodeImage + "<div class=\"header-value source-code\">" + WebInspector.Resource.StatusTextForCode(this.resource.statusCode) + "</div>";
+                statusCodeImage + "<div class=\"header-value source-code\">" + statusTextEscaped + "</div>";
         }
     },
     

@@ -33,6 +33,9 @@ WebInspector.Panel = function()
     this.element.addStyleClass("panel");
 }
 
+// Should by in sync with style declarations.
+WebInspector.Panel.counterRightMargin = 25;
+
 WebInspector.Panel.prototype = {
     get toolbarItem()
     {
@@ -313,6 +316,7 @@ WebInspector.Panel.prototype = {
         this.sidebarElement.appendChild(this.sidebarTreeElement);
 
         this.sidebarTree = new TreeOutline(this.sidebarTreeElement);
+        this.sidebarTree.panel = this;
     },
 
     _startSidebarDragging: function(event)

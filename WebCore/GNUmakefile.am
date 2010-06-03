@@ -136,7 +136,7 @@ IDL_BINDINGS += \
 	WebCore/dom/Clipboard.idl \
 	WebCore/dom/Comment.idl \
 	WebCore/dom/CompositionEvent.idl \
-	Webcore/dom/CustomEvent.idl \
+	WebCore/dom/CustomEvent.idl \
 	WebCore/dom/DOMCoreException.idl \
 	WebCore/dom/DOMImplementation.idl \
 	WebCore/dom/DOMStringList.idl \
@@ -323,8 +323,12 @@ IDL_BINDINGS += \
 webcoregtk_dom_sources = \
 	WebCore/bindings/gobject/ConvertToUTF8String.cpp \
 	WebCore/bindings/gobject/ConvertToUTF8String.h \
+	WebCore/bindings/gobject/GObjectEventListener.cpp \
+	WebCore/bindings/gobject/GObjectEventListener.h \
 	WebCore/bindings/gobject/WebKitDOMBinding.cpp \
 	WebCore/bindings/gobject/WebKitDOMBinding.h \
+	WebCore/bindings/gobject/WebKitDOMEventTarget.cpp \
+	WebCore/bindings/gobject/WebKitDOMEventTarget.h \
 	WebCore/bindings/gobject/WebKitHTMLElementWrapperFactory.cpp \
 	WebCore/bindings/gobject/WebKitHTMLElementWrapperFactory.h \
 	WebCore/bindings/gobject/WebKitDOMObject.cpp \
@@ -585,6 +589,7 @@ webcore_sources += \
 	WebCore/bridge/npruntime_impl.h \
 	WebCore/bridge/npruntime_internal.h \
 	WebCore/bridge/npruntime_priv.h \
+	WebCore/bridge/nptypes.h \
 	WebCore/bridge/runtime_array.cpp \
 	WebCore/bridge/runtime_array.h \
 	WebCore/bridge/runtime_method.cpp \
@@ -1079,10 +1084,14 @@ webcore_sources += \
 	WebCore/html/FormDataList.h \
 	WebCore/html/HTML5Lexer.cpp \
 	WebCore/html/HTML5Lexer.h \
+	WebCore/html/HTML5Token.h \
 	WebCore/html/HTML5Tokenizer.cpp \
 	WebCore/html/HTML5Tokenizer.h \
 	WebCore/html/HTML5TreeBuilder.cpp \
 	WebCore/html/HTML5TreeBuilder.h \
+	WebCore/html/HTML5ScriptRunner.cpp \
+	WebCore/html/HTML5ScriptRunner.h \
+	WebCore/html/HTML5ScriptRunnerHost.h \
 	WebCore/html/HTMLAllCollection.cpp \
 	WebCore/html/HTMLAllCollection.h \
 	WebCore/html/HTMLAnchorElement.cpp \
@@ -1252,6 +1261,8 @@ webcore_sources += \
 	WebCore/html/HTMLViewSourceDocument.h \
 	WebCore/html/ImageData.cpp \
 	WebCore/html/ImageData.h \
+	WebCore/html/LabelsNodeList.cpp \
+	WebCore/html/LabelsNodeList.h \
 	WebCore/html/MediaError.h \
 	WebCore/html/PreloadScanner.cpp \
 	WebCore/html/PreloadScanner.h \
@@ -1318,6 +1329,8 @@ webcore_sources += \
 	WebCore/inspector/InspectorResource.h \
 	WebCore/inspector/InspectorTimelineAgent.cpp \
 	WebCore/inspector/InspectorTimelineAgent.h \
+	WebCore/inspector/InspectorValues.cpp \
+	WebCore/inspector/InspectorValues.h \
 	WebCore/inspector/InspectorWorkerResource.h \
 	WebCore/inspector/ScriptBreakpoint.h \
 	WebCore/inspector/ScriptDebugListener.h \
@@ -1333,6 +1346,7 @@ webcore_sources += \
 	WebCore/loader/CachedFont.h \
 	WebCore/loader/CachedImage.cpp \
 	WebCore/loader/CachedImage.h \
+	WebCore/loader/CachedMetadata.h \
 	WebCore/loader/CachedResource.cpp \
 	WebCore/loader/CachedResource.h \
 	WebCore/loader/CachedResourceClient.h \
@@ -1514,6 +1528,8 @@ webcore_sources += \
 	WebCore/page/Settings.h \
 	WebCore/page/SpatialNavigation.cpp \
 	WebCore/page/SpatialNavigation.h \
+	WebCore/page/SuspendableTimer.cpp \
+	WebCore/page/SuspendableTimer.h \
 	WebCore/page/UserContentURLPattern.cpp \
 	WebCore/page/UserContentURLPattern.h \
 	WebCore/page/UserScript.h \
@@ -1565,6 +1581,8 @@ webcore_sources += \
 	WebCore/platform/GeolocationService.cpp \
 	WebCore/platform/GeolocationService.h \
 	WebCore/platform/HostWindow.h \
+	WebCore/platform/KillRing.h \
+	WebCore/platform/KillRingNone.cpp \
 	WebCore/platform/KURL.cpp \
 	WebCore/platform/KURL.h \
 	WebCore/platform/KURLHash.h \
@@ -1609,7 +1627,6 @@ webcore_sources += \
 	WebCore/platform/SharedBuffer.h \
 	WebCore/platform/SharedTimer.h \
 	WebCore/platform/Sound.h \
-	WebCore/platform/StaticConstructors.h \
 	WebCore/platform/SuddenTermination.h \
 	WebCore/platform/SystemTime.h \
 	WebCore/platform/ThemeTypes.h \
@@ -1742,6 +1759,7 @@ webcore_sources += \
 	WebCore/platform/network/AuthenticationClient.h \
 	WebCore/platform/network/Credential.cpp \
 	WebCore/platform/network/Credential.h \
+	WebCore/platform/network/DNS.h \
 	WebCore/platform/network/FormData.cpp \
 	WebCore/platform/network/FormData.h \
 	WebCore/platform/network/FormDataBuilder.cpp \
@@ -1822,11 +1840,8 @@ webcore_sources += \
 	WebCore/plugins/PluginData.h \
 	WebCore/plugins/PluginDatabase.cpp \
 	WebCore/plugins/PluginDatabase.h \
-	WebCore/plugins/PluginDatabaseClient.h \
 	WebCore/plugins/PluginDebug.cpp \
 	WebCore/plugins/PluginDebug.h \
-	WebCore/plugins/PluginInfoStore.cpp \
-	WebCore/plugins/PluginInfoStore.h \
 	WebCore/plugins/PluginMainThreadScheduler.cpp \
 	WebCore/plugins/PluginMainThreadScheduler.h \
 	WebCore/plugins/PluginPackage.cpp \
@@ -1951,6 +1966,7 @@ webcore_sources += \
 	WebCore/rendering/RenderScrollbarPart.h \
 	WebCore/rendering/RenderScrollbarTheme.cpp \
 	WebCore/rendering/RenderScrollbarTheme.h \
+	WebCore/rendering/RenderSVGResourceContainer.h \
 	WebCore/rendering/RenderSelectionInfo.h \
 	WebCore/rendering/RenderSlider.cpp \
 	WebCore/rendering/RenderSlider.h \
@@ -2457,12 +2473,14 @@ if ENABLE_INDEXED_DATABASE
 FEATURE_DEFINES += ENABLE_INDEXED_DATABASE=1
 
 IDL_BINDINGS += \
-	WebCore/storage/IDBDAny.idl \
+	WebCore/storage/IDBAny.idl \
 	WebCore/storage/IDBDatabaseError.idl \
 	WebCore/storage/IDBDatabaseException.idl \
 	WebCore/storage/IDBDatabaseRequest.idl \
 	WebCore/storage/IDBErrorEvent.idl \
 	WebCore/storage/IDBEvent.idl \
+	WebCore/storage/IDBIndexRequest.idl \
+	WebCore/storage/IDBObjectStoreRequest.idl \
 	WebCore/storage/IDBRequest.idl \
 	WebCore/storage/IDBSuccessEvent.idl \
 	WebCore/storage/IndexedDatabaseRequest.idl
@@ -2471,13 +2489,12 @@ webcore_cppflags += \
 	-DENABLE_INDEXED_DATABASE=1
 
 webcore_sources += \
-	WebCore/bindings/js/JSIDBRequestCustom.cpp \
 	WebCore/storage/IDBAny.cpp \
 	WebCore/storage/IDBAny.h \
-	WebCore/storage/IDBCallbacks.cpp \
 	WebCore/storage/IDBCallbacks.h \
-	WebCore/storage/IDBDatabase.cpp \
 	WebCore/storage/IDBDatabase.h \
+	WebCore/storage/IDBDatabaseImpl.cpp \
+	WebCore/storage/IDBDatabaseImpl.h \
 	WebCore/storage/IDBDatabaseError.h \
 	WebCore/storage/IDBDatabaseException.h \
 	WebCore/storage/IDBDatabaseRequest.cpp \
@@ -2486,6 +2503,15 @@ webcore_sources += \
 	WebCore/storage/IDBErrorEvent.h \
 	WebCore/storage/IDBEvent.cpp \
 	WebCore/storage/IDBEvent.h \
+	WebCore/storage/IDBIndex.h \
+	WebCore/storage/IDBIndexImpl.cpp \
+	WebCore/storage/IDBIndexImpl.h \
+	WebCore/storage/IDBIndexRequest.cpp \
+	WebCore/storage/IDBIndexRequest.h \
+	WebCore/storage/IDBObjectStore.cpp \
+	WebCore/storage/IDBObjectStore.h \
+	WebCore/storage/IDBObjectStoreRequest.cpp \
+	WebCore/storage/IDBObjectStoreRequest.h \
 	WebCore/storage/IDBRequest.cpp \
 	WebCore/storage/IDBRequest.h \
 	WebCore/storage/IDBSuccessEvent.cpp \
@@ -3890,8 +3916,11 @@ DerivedSources/webkit/webkitdomdummy.c:
 # DerivedSources/webkit directory.  The reason is that we want all header files distributed in the
 # include/webkit-x.y/webkit directory, but do not want to name the WebCore/bindings/gobject directory 
 # "webkit", as that's a bit presumptuous for a GTK binding.
-$(top_builddir)/DerivedSources/webkit/WebKitDOMObject.h:
-	cp -f $(WebCore)/bindings/gobject/WebKitDOMObject.h $@
+$(top_builddir)/DerivedSources/webkit/WebKitDOMObject.h: $(WebCore)/bindings/gobject/WebKitDOMObject.h
+	$(AM_V_GEN)cp -f $< $@
+
+$(top_builddir)/DerivedSources/webkit/WebKitDOMEventTarget.h: $(WebCore)/bindings/gobject/WebKitDOMEventTarget.h
+	$(AM_V_GEN)cp -f $< $@
 
 # Start with a subset of all the DOM bindings
 IDL_BINDINGS_GDOM += \
@@ -3915,6 +3944,7 @@ IDL_BINDINGS_GDOM += \
 	WebCore/dom/DOMStringList.idl \
 	WebCore/dom/Element.idl \
 	WebCore/dom/EntityReference.idl \
+	WebCore/dom/Event.idl \
 	WebCore/dom/MessagePort.idl \
 	WebCore/dom/NamedNodeMap.idl \
 	WebCore/dom/Node.idl \
@@ -4014,7 +4044,7 @@ IDL_BINDINGS_GDOM += \
 GDOM_AUTO_CLASSES += $(basename $(notdir $(IDL_BINDINGS_GDOM)))
 
 # The classes implemented manually
-GDOM_FIXED_CLASSES += Object
+GDOM_FIXED_CLASSES += Object EventTarget
 
 GDOM_CLASSES += $(GDOM_AUTO_CLASSES) $(GDOM_FIXED_CLASSES)
 
@@ -4025,6 +4055,7 @@ FEATURE_DEFINES_GDOM := $(filter-out ENABLE-SVG%, $(FEATURE_DEFINES))
 GDOM_HEADERS_BUILT += $(patsubst %,$(top_builddir)/DerivedSources/webkit/WebKitDOM%.h,$(GDOM_AUTO_CLASSES)) \
 	$(top_builddir)/DerivedSources/webkit/webkitdom.h \
 	$(top_builddir)/DerivedSources/webkit/webkitdomdefines.h \
+	$(top_builddir)/DerivedSources/webkit/WebKitDOMEventTarget.h \
 	$(top_builddir)/DerivedSources/webkit/WebKitDOMObject.h
 
 # Autogenerated source files
@@ -4036,7 +4067,7 @@ GDOM_HEADERS_FIXED += $(patsubst %,$(srcdir)/WebCore/bindings/gobject/WebKitDOM%
 # All header files that get installed
 libgdom_h_api += $(GDOM_HEADERS_FIXED) $(GDOM_HEADERS_BUILT)
 
-DerivedSources/webkit/webkitdom.h: $(WebCore)/bindings/scripts/gobject-generate-headers.pl
+DerivedSources/webkit/webkitdom.h: $(WebCore)/bindings/scripts/gobject-generate-headers.pl $(WebCore)/GNUmakefile.am
 	$(AM_V_GEN)echo $(GDOM_CLASSES) | $(PERL) $< gdom > $@
 
 DerivedSources/webkit/webkitdomdefines.h: $(WebCore)/bindings/scripts/gobject-generate-headers.pl $(IDL_BINDINGS_GDOM) $(WebCore)/GNUmakefile.am
@@ -4050,9 +4081,10 @@ DerivedSources/webkit/WebKitDOM%.cpp: %.idl $(SCRIPTS_BINDINGS) $(WebCore)/bindi
 gdom_built_nosources := $(GDOM_HEADERS_BUILT) $(GDOM_SOURCES_BUILT)
 
 libgdom_objects := $(subst .cpp,.lo,$(GDOM_SOURCES_BUILT))
+libgdom_depfiles := $(patsubst %.lo,$(top_builddir)/DerivedSources/webkit/$(DEPDIR)/%.Plo,$(notdir $(libgdom_objects)))
+libgdom_depfiles += $(patsubst %.h,$(WebCore)/bindings/gobject/$(DEPDIR)/%.Plo,$(notdir $(GDOM_HEADERS_FIXED)))
 
--include WebCore/bindings/gobject/$(DEPDIR)/%.Plo
--include DerivedSources/webkit/$(DEPDIR)/%.Plo
+-include $(libgdom_depfiles)
 
 $(libgdom_objects): AM_CPPFLAGS+=$(libwebkit_1_0_la_CPPFLAGS)
 $(libgdom_objects): AM_CXXFLAGS+=$(libwebkit_1_0_la_CXXFLAGS)
@@ -4076,6 +4108,7 @@ webcore_dist += \
 	WebCore/bindings/scripts/generate-bindings.pl \
 	WebCore/bindings/scripts/CodeGeneratorJS.pm \
 	WebCore/bindings/scripts/CodeGeneratorGObject.pm \
+	WebCore/bindings/scripts/gobject-generate-headers.pl \
 	WebCore/css/html.css \
 	WebCore/css/mathml.css \
 	WebCore/css/quirks.css \

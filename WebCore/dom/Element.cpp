@@ -208,6 +208,16 @@ Node::NodeType Element::nodeType() const
 
 const AtomicString& Element::getIDAttribute() const
 {
+    // FIXME: There are two problems with this function for general purpose use.
+    //
+    // 1) If this is not a StyledElement, then the result will always be null.
+    // 2) If the document this element is part of is in compatibility mode
+    // (inCompatMode), then the ID will be lowercased.
+    //
+    // See StyledElement::parseMappedAttribute for details. Because of these issues,
+    // this function and NamedNodeMap::id should both probably be renamed to make it
+    // clear this does not give the same result as getAttribute.
+
     return namedAttrMap ? namedAttrMap->id() : nullAtom;
 }
 
@@ -936,7 +946,7 @@ void Element::recalcStyle(StyleChange change)
                 newStyle->setChildrenAffectedByDirectAdjacentRules();
         }
 
-        if (ch != NoChange || pseudoStyleCacheIsInvalid(currentStyle.get(), newStyle.get()) || change == Force && renderer() && renderer()->requiresForcedStyleRecalcPropagation()) {
+        if (ch != NoChange || pseudoStyleCacheIsInvalid(currentStyle.get(), newStyle.get()) || (change == Force && renderer() && renderer()->requiresForcedStyleRecalcPropagation())) {
             setRenderStyle(newStyle);
         } else if (needsStyleRecalc() && (styleChangeType() != SyntheticStyleChange) && (document()->usesSiblingRules() || document()->usesDescendantRules())) {
             // Although no change occurred, we use the new style so that the cousin style sharing code won't get

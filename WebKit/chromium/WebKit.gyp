@@ -100,6 +100,7 @@
                 'public/WebCrossOriginPreflightResultCache.h',
                 'public/WebCString.h',
                 'public/WebCursorInfo.h',
+                'public/WebDOMStringList.h',
                 'public/WebData.h',
                 'public/WebDatabase.h',
                 'public/WebDatabaseObserver.h',
@@ -138,6 +139,7 @@
                 'public/WebIDBCallbacks.h',
                 'public/WebIDBDatabase.h',
                 'public/WebIDBDatabaseError.h',
+                'public/WebIDBIndex.h',
                 'public/WebIndexedDatabase.h',
                 'public/WebInputElement.h',
                 'public/WebInputEvent.h',
@@ -265,6 +267,8 @@
                 'src/IDBCallbacksProxy.h',
                 'src/IDBDatabaseProxy.cpp',
                 'src/IDBDatabaseProxy.h',
+                'src/IDBIndexProxy.cpp',
+                'src/IDBIndexProxy.h',
                 'src/IndexedDatabaseProxy.cpp',
                 'src/IndexedDatabaseProxy.h',
                 'src/InspectorClientImpl.cpp',
@@ -313,6 +317,7 @@
                 'src/WebCrossOriginPreflightResultCache.cpp',
                 'src/WebCString.cpp',
                 'src/WebCursorInfo.cpp',
+                'src/WebDOMStringList.cpp',
                 'src/WebData.cpp',
                 'src/WebDatabase.cpp',
                 'src/WebDataSourceImpl.cpp',
@@ -351,6 +356,8 @@
                 'src/WebIDBDatabaseError.cpp',
                 'src/WebIDBDatabaseImpl.cpp',
                 'src/WebIDBDatabaseImpl.h',
+                'src/WebIDBIndexImpl.cpp',
+                'src/WebIDBIndexImpl.h',
                 'src/WebImageCG.cpp',
                 'src/WebImageDecoder.cpp',
                 'src/WebImageSkia.cpp',
@@ -581,16 +588,18 @@
             ],
             'conditions': [
                 ['OS=="win"', {
+                    'dependencies': ['LayoutTestHelper'],
+
                     'resource_include_dirs': ['<(SHARED_INTERMEDIATE_DIR)/webkit'],
                     'sources': [
-                       '<(SHARED_INTERMEDIATE_DIR)/net/net_resources.rc',
-                       '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_chromium_resources.rc',
-                       '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_resources.rc',
-                       '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_strings_en-US.rc',
+                        '<(SHARED_INTERMEDIATE_DIR)/net/net_resources.rc',
+                        '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_chromium_resources.rc',
+                        '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_resources.rc',
+                        '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_strings_en-US.rc',
                     ],
                     'copies': [{
-                       'destination': '<(PRODUCT_DIR)',
-                       'files': ['<(ahem_path)'],
+                        'destination': '<(PRODUCT_DIR)',
+                        'files': ['<(ahem_path)'],
                     }],
                 }],
                 ['OS=="mac"', {
@@ -631,6 +640,15 @@
                         },
                     ], # actions
                 }],
+                ['OS=="linux"', {
+                    'copies': [{
+                        'destination': '<(PRODUCT_DIR)',
+                        'files': [
+                            '<(ahem_path)',
+                            '../../WebKitTools/DumpRenderTree/chromium/fonts.conf',
+                        ],
+                    }],
+                }],
                 ['OS!="linux" and OS!="freebsd" and OS!="openbsd"', {
                     'sources/': [
                         ['exclude', '(Gtk|Linux)\\.cpp$']
@@ -651,6 +669,13 @@
         },
     ], # targets
     'conditions': [
+        ['OS=="win"', {
+            'targets': [{
+                'target_name': 'LayoutTestHelper',
+                'type': 'executable',
+                'sources': ['../../WebKitTools/DumpRenderTree/chromium/LayoutTestHelperWin.cpp'],
+            }],
+        }],
         ['OS=="mac"', {
             'targets': [
                 {

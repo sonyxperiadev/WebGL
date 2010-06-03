@@ -43,11 +43,13 @@
 #include "InspectorResource.h"
 #include "Node.h"
 #include "Page.h"
+#include "PageGroup.h"
 #include "PlatformString.h"
 #include "ProfilerAgentImpl.h"
 #include "ResourceError.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
+#include "ScriptDebugServer.h"
 #include "ScriptObject.h"
 #include "ScriptState.h"
 #include "ScriptValue.h"
@@ -129,6 +131,90 @@ public:
     }
 };
 
+class ClientMessageLoopAdapter : public WebCore::ScriptDebugServer::ClientMessageLoop {
+public:
+    static void ensureClientMessageLoopCreated(WebDevToolsAgentClient* client)
+    {
+        if (s_instance)
+            return;
+        s_instance = new ClientMessageLoopAdapter(client->createClientMessageLoop());
+        WebCore::ScriptDebugServer::shared().setClientMessageLoop(s_instance);
+    }
+
+    static void inspectedViewClosed(WebViewImpl* view)
+    {
+        if (s_instance)
+            s_instance->m_frozenViews.remove(view);
+    }
+
+    static void didNavigate()
+    {
+        // Release render thread if necessary.
+        if (s_instance && s_instance->m_running)
+            WebCore::ScriptDebugServer::shared().continueProgram();
+    }
+
+private:
+    ClientMessageLoopAdapter(PassOwnPtr<WebKit::WebDevToolsAgentClient::WebKitClientMessageLoop> messageLoop)
+        : m_running(false)
+        , m_messageLoop(messageLoop) { }
+
+
+    virtual void run(Page* page)
+    {
+        if (m_running)
+            return;
+        m_running = true;
+
+        Vector<WebViewImpl*> views;
+
+        // 1. Disable input events.
+        HashSet<Page*>::const_iterator end =  page->group().pages().end();
+        for (HashSet<Page*>::const_iterator it =  page->group().pages().begin(); it != end; ++it) {
+            WebViewImpl* view = WebViewImpl::fromPage(*it);
+            m_frozenViews.add(view);
+            views.append(view);
+            view->setIgnoreInputEvents(true);
+        }
+
+        // 2. Disable active objects
+        WebView::willEnterModalLoop();
+
+        // 3. Process messages until quitNow is called.
+        m_messageLoop->run();
+
+        // 4. Resume active objects
+        WebView::didExitModalLoop();
+
+        // 5. Resume input events.
+        for (Vector<WebViewImpl*>::iterator it = views.begin(); it != views.end(); ++it) {
+            if (m_frozenViews.contains(*it)) {
+                // The view was not closed during the dispatch.
+                (*it)->setIgnoreInputEvents(false);
+            }
+        }
+
+        // 6. All views have been resumed, clear the set.
+        m_frozenViews.clear();
+
+        m_running = false;
+    }
+
+    virtual void quitNow()
+    {
+        m_messageLoop->quitNow();
+    }
+
+    bool m_running;
+    OwnPtr<WebKit::WebDevToolsAgentClient::WebKitClientMessageLoop> m_messageLoop;
+    typedef HashSet<WebViewImpl*> FrozenViewsSet;
+    FrozenViewsSet m_frozenViews;
+    static ClientMessageLoopAdapter* s_instance;
+
+};
+
+ClientMessageLoopAdapter* ClientMessageLoopAdapter::s_instance = 0;
+
 } //  namespace
 
 WebDevToolsAgentImpl::WebDevToolsAgentImpl(
@@ -141,6 +227,8 @@ WebDevToolsAgentImpl::WebDevToolsAgentImpl(
     , m_resourceTrackingWasEnabled(false)
     , m_attached(false)
 {
+    DebuggerAgentManager::setExposeV8DebuggerProtocol(
+        client->exposeV8DebuggerProtocol());
     m_debuggerAgentDelegateStub.set(new DebuggerAgentDelegateStub(this));
     m_toolsAgentDelegateStub.set(new ToolsAgentDelegateStub(this));
     m_apuAgentDelegateStub.set(new ApuAgentDelegateStub(this));
@@ -149,6 +237,9 @@ WebDevToolsAgentImpl::WebDevToolsAgentImpl(
 WebDevToolsAgentImpl::~WebDevToolsAgentImpl()
 {
     DebuggerAgentManager::onWebViewClosed(m_webViewImpl);
+#if ENABLE(V8_SCRIPT_DEBUG_SERVER)
+    ClientMessageLoopAdapter::inspectedViewClosed(m_webViewImpl);
+#endif
     disposeUtilityContext();
 }
 
@@ -164,6 +255,12 @@ void WebDevToolsAgentImpl::attach()
 {
     if (m_attached)
         return;
+
+#if ENABLE(V8_SCRIPT_DEBUG_SERVER)
+    if (!m_client->exposeV8DebuggerProtocol())
+        ClientMessageLoopAdapter::ensureClientMessageLoopCreated(m_client);
+#endif
+
     m_debuggerAgentImpl.set(
         new DebuggerAgentImpl(m_webViewImpl,
                               m_debuggerAgentDelegateStub.get(),
@@ -203,6 +300,9 @@ void WebDevToolsAgentImpl::detach()
 
 void WebDevToolsAgentImpl::didNavigate()
 {
+#if ENABLE(V8_SCRIPT_DEBUG_SERVER)
+    ClientMessageLoopAdapter::didNavigate();
+#endif
     DebuggerAgentManager::onNavigate();
 }
 

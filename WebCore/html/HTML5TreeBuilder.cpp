@@ -26,19 +26,24 @@
 #include "config.h"
 #include "HTML5TreeBuilder.h"
 
-#include "Attribute.h"
+#include "Element.h"
 #include "HTML5Lexer.h"
 #include "HTML5Token.h"
 #include "HTMLDocument.h"
+#include "HTMLNames.h"
 #include "HTMLParser.h"
 #include "HTMLTokenizer.h"
 #include "NotImplemented.h"
+#include <wtf/UnusedParam.h>
 
 namespace WebCore {
+
+using namespace HTMLNames;
 
 HTML5TreeBuilder::HTML5TreeBuilder(HTML5Lexer* lexer, HTMLDocument* document, bool reportErrors)
     : m_document(document)
     , m_reportErrors(reportErrors)
+    , m_isPaused(false)
     , m_lexer(lexer)
     , m_legacyHTMLParser(new HTMLParser(document, reportErrors))
 {
@@ -52,9 +57,9 @@ static void convertToOldStyle(HTML5Token& token, Token& oldStyleToken)
 {
     switch (token.type()) {
     case HTML5Token::Uninitialized:
+    case HTML5Token::DOCTYPE:
         ASSERT_NOT_REACHED();
         break;
-    case HTML5Token::DOCTYPE:
     case HTML5Token::EndOfFile:
         ASSERT_NOT_REACHED();
         notImplemented();
@@ -80,37 +85,119 @@ static void convertToOldStyle(HTML5Token& token, Token& oldStyleToken)
     }
     case HTML5Token::Comment:
         oldStyleToken.tagName = commentAtom;
-        oldStyleToken.text = token.data().impl();
+        oldStyleToken.text = token.takeComment().impl();
         break;
     case HTML5Token::Character:
         oldStyleToken.tagName = textAtom;
-        oldStyleToken.text = token.characters().impl();
+        oldStyleToken.text = token.takeCharacters().impl();
         break;
     }
+}
+
+void HTML5TreeBuilder::handleScriptStartTag()
+{
+    notImplemented(); // The HTML frgment case?
+    m_lexer->setState(HTML5Lexer::ScriptDataState);
+    notImplemented(); // Save insertion mode.
+}
+
+void HTML5TreeBuilder::handleScriptEndTag(Element* scriptElement)
+{
+    ASSERT(!m_scriptToProcess); // Caller never called takeScriptToProcess!
+    notImplemented(); // Save insertion mode and insertion point?
+
+    // Pause ourselves so that parsing stops until the script can be processed by the caller.
+    m_isPaused = true;
+    m_scriptToProcess = scriptElement;
+}
+
+PassRefPtr<Element> HTML5TreeBuilder::takeScriptToProcess()
+{
+    // Unpause ourselves, callers may pause us again when processing the script.
+    // The HTML5 spec is written as though scripts are executed inside the tree
+    // builder.  We pause the parser to exit the tree builder, and then resume
+    // before running scripts.
+    m_isPaused = false;
+    return m_scriptToProcess.release();
 }
 
 PassRefPtr<Node> HTML5TreeBuilder::passTokenToLegacyParser(HTML5Token& token)
 {
-    if (token.type() == HTML5Token::StartTag && token.name() == "script") {
-        // This work is supposed to be done by the parser, but
-        // when using the old parser for we have to do this manually.
-        m_lexer->setState(HTML5Lexer::ScriptDataState);
+    if (token.type() == HTML5Token::DOCTYPE) {
+        DoctypeToken doctypeToken;
+        doctypeToken.m_name.append(token.name().characters(), token.name().length());
+        doctypeToken.m_publicID = token.publicIdentifier();
+        doctypeToken.m_systemID = token.systemIdentifier();
+
+        m_legacyHTMLParser->parseDoctypeToken(&doctypeToken);
+        return 0;
     }
+
     // For now, we translate into an old-style token for testing.
     Token oldStyleToken;
     convertToOldStyle(token, oldStyleToken);
 
-    return m_legacyHTMLParser->parseToken(&oldStyleToken);
+    RefPtr<Node> result =  m_legacyHTMLParser->parseToken(&oldStyleToken);
+    if (token.type() == HTML5Token::StartTag) {
+        // This work is supposed to be done by the parser, but
+        // when using the old parser for we have to do this manually.
+        if (token.name() == scriptTag) {
+            handleScriptStartTag();
+            m_lastScriptElement = static_pointer_cast<Element>(result);
+        } else if (token.name() == textareaTag || token.name() == titleTag)
+            m_lexer->setState(HTML5Lexer::RCDATAState);
+        else if (token.name() == styleTag || token.name() == iframeTag
+                 || token.name() == xmpTag || token.name() == noembedTag) {
+            // FIXME: noscript and noframes may conditionally enter this state as well.
+            m_lexer->setState(HTML5Lexer::RAWTEXTState);
+        } else if (token.name() == plaintextTag)
+            m_lexer->setState(HTML5Lexer::PLAINTEXTState);
+        else if (token.name() == preTag || token.name() == listingTag)
+            m_lexer->skipLeadingNewLineForListing();
+    }
+    if (token.type() == HTML5Token::EndTag) {
+        if (token.name() == scriptTag) {
+            if (m_lastScriptElement) {
+                handleScriptEndTag(m_lastScriptElement.get());
+                m_lastScriptElement = 0;
+            }
+        }
+    }
+    return result.release();
 }
 
 PassRefPtr<Node> HTML5TreeBuilder::constructTreeFromToken(HTML5Token& token)
 {
-    return passTokenToLegacyParser(token);
-    // Our HTML5 parser implementation will go here in a separate patch.
+    // Make MSVC ignore our unreachable code for now.
+    if (true)
+        return passTokenToLegacyParser(token);
+
+    // HTML5 expects the tokenizer to call the parser every time a character is
+    // emitted.  We instead collect characters and call the parser with a batch.
+    // In order to make our first-pass parser code simple, processToken matches
+    // the spec in only handling one character at a time.
+    if (token.type() == HTML5Token::Character) {
+        HTML5Token::DataVector characters = token.characters();
+        HTML5Token::DataVector::const_iterator itr = characters.begin();
+        for (;itr; ++itr)
+            processToken(token, *itr);
+        return 0; // FIXME: Should we be returning the Text node?
+    }
+    return processToken(token);
+}
+
+PassRefPtr<Node> HTML5TreeBuilder::processToken(HTML5Token& token, UChar currentCharacter)
+{
+    UNUSED_PARAM(token);
+    UNUSED_PARAM(currentCharacter);
+    // Implementation coming in the next patch.
+    return 0;
 }
 
 void HTML5TreeBuilder::finished()
 {
+    // We should call m_document->finishedParsing() here, except
+    // m_legacyHTMLParser->finished() does it for us.
     m_legacyHTMLParser->finished();
 }
 

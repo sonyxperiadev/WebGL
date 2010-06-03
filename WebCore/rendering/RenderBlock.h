@@ -111,8 +111,6 @@ public:
 
     bool containsNonZeroBidiLevel() const;
 
-    virtual void setSelectionState(SelectionState s);
-
     GapRects selectionGapRectsForRepaint(RenderBoxModelObject* repaintContainer);
     IntRect fillLeftSelectionGap(RenderObject* selObj, int xPos, int yPos, int height, RenderBlock* rootBlock, 
                                  int blockX, int blockY, int tx, int ty, const PaintInfo*);
@@ -143,19 +141,41 @@ public:
     // This function is a convenience helper for creating an anonymous block that inherits its
     // style from this RenderBlock.
     RenderBlock* createAnonymousBlock(bool isFlexibleBox = false) const;
-
+    RenderBlock* createAnonymousColumnsBlock() const;
+    RenderBlock* createAnonymousColumnSpanBlock() const;
+    RenderBlock* createAnonymousBlockWithSameTypeAs(RenderBlock* otherAnonymousBlock) const;
+    
     static void appendRunsForObject(int start, int end, RenderObject*, InlineBidiResolver&);    
     static bool requiresLineBox(const InlineIterator&, bool isLineEmpty = true, bool previousLineBrokeCleanly = true);
 
     Vector<IntRect>* columnRects() const;
     int columnGap() const;
-    
-protected:
-    void moveChildTo(RenderObject* to, RenderObjectChildList* toChildList, RenderObject* child);
-    void moveChildTo(RenderObject* to, RenderObjectChildList* toChildList, RenderObject* beforeChild, RenderObject* child);
-    void moveAllChildrenTo(RenderObject* to, RenderObjectChildList* toChildList);
-    void moveAllChildrenTo(RenderObject* to, RenderObjectChildList* toChildList, RenderObject* beforeChild);
 
+protected:
+    // These functions are only used internally to manipulate the render tree structure via remove/insert/appendChildNode.
+    // Since they are typically called only to move objects around within anonymous blocks (which only have layers in
+    // the case of column spans), the default for fullRemoveInsert is false rather than true.
+    void moveChildTo(RenderBlock* to, RenderObject* child, bool fullRemoveInsert = false)
+    {
+        return moveChildTo(to, child, 0, fullRemoveInsert);
+    }
+    void moveChildTo(RenderBlock* to, RenderObject* child, RenderObject* beforeChild, bool fullRemoveInsert = false);
+    void moveAllChildrenTo(RenderBlock* to, bool fullRemoveInsert = false)
+    {
+        return moveAllChildrenTo(to, 0, fullRemoveInsert);
+    }
+    void moveAllChildrenTo(RenderBlock* to, RenderObject* beforeChild, bool fullRemoveInsert = false)
+    {
+        return moveChildrenTo(to, firstChild(), 0, beforeChild, fullRemoveInsert);
+    }
+    // Move all of the kids from |startChild| up to but excluding |endChild|.  0 can be passed as the endChild to denote
+    // that all the kids from |startChild| onwards should be added.
+    void moveChildrenTo(RenderBlock* to, RenderObject* startChild, RenderObject* endChild, bool fullRemoveInsert = false)
+    {
+        return moveChildrenTo(to, startChild, endChild, 0, fullRemoveInsert);
+    }
+    void moveChildrenTo(RenderBlock* to, RenderObject* startChild, RenderObject* endChild, RenderObject* beforeChild, bool fullRemoveInsert = false);
+    
     int maxTopPosMargin() const { return m_maxMargin ? m_maxMargin->m_topPos : MaxMargin::topPosDefault(this); }
     int maxTopNegMargin() const { return m_maxMargin ? m_maxMargin->m_topNeg : MaxMargin::topNegDefault(this); }
     int maxBottomPosMargin() const { return m_maxMargin ? m_maxMargin->m_bottomPos : MaxMargin::bottomPosDefault(this); }
@@ -223,6 +243,9 @@ private:
 
     virtual void dirtyLinesFromChangedChild(RenderObject* child) { m_lineBoxes.dirtyLinesFromChangedChild(this, child); }
 
+    void addChildToAnonymousColumnBlocks(RenderObject* newChild, RenderObject* beforeChild);
+    virtual void addChildIgnoringAnonymousColumnBlocks(RenderObject* newChild, RenderObject* beforeChild = 0);
+    
     virtual bool isSelfCollapsingBlock() const;
 
     virtual int maxTopMargin(bool positive) const { return positive ? maxTopPosMargin() : maxTopNegMargin(); }
@@ -380,11 +403,14 @@ private:
     void calcColumnWidth();
     int layoutColumns(int endOfContent = -1, int requestedColumnHeight = -1);
     int visibleTopOfHighestFloatExtendingBelow(int bottom, int maxHeight) const;
+    void makeChildrenAnonymousColumnBlocks(RenderObject* beforeChild, RenderBlock* newBlockBox, RenderObject* newChild);
 
     bool expandsToEncloseOverhangingFloats() const;
 
     void updateScrollInfoAfterLayout();
 
+    RenderObject* splitAnonymousBlocksAroundChild(RenderObject* beforeChild);
+    
     struct FloatingObject : Noncopyable {
         enum Type {
             FloatLeft,
@@ -528,7 +554,7 @@ private:
     RenderLineBoxList m_lineBoxes;   // All of the root line boxes created for this block flow.  For example, <div>Hello<br>world.</div> will have two total lines for the <div>.
 
     mutable int m_lineHeight;
-    
+
     // RenderRubyBase objects need to be able to split and merge, moving their children around
     // (calling moveChildTo, moveAllChildrenTo, and makeChildrenNonInline).
     friend class RenderRubyBase;

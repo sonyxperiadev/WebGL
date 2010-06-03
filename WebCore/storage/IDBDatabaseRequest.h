@@ -10,9 +10,6 @@
  * 2.  Redistributions in binary form must reproduce the above copyright
  *     notice, this list of conditions and the following disclaimer in the
  *     documentation and/or other materials provided with the distribution.
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
- *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -25,15 +22,15 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #ifndef IDBDatabaseRequest_h
 #define IDBDatabaseRequest_h
 
+#include "DOMStringList.h"
 #include "IDBDatabase.h"
-#include "PlatformString.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
-#include <wtf/UnusedParam.h>
 
 #if ENABLE(INDEXED_DATABASE)
 
@@ -47,13 +44,11 @@ public:
     }
     ~IDBDatabaseRequest();
 
-    // FIXME: Write.
-    void createObjectStore(const String& name, const String& keyPath, bool autoIncrement)
-    {
-        UNUSED_PARAM(name);
-        UNUSED_PARAM(keyPath);
-        UNUSED_PARAM(autoIncrement);
-    }
+    // Implement the IDL
+    String name() const { return m_idbDatabase->name(); }
+    String description() const { return m_idbDatabase->description(); }
+    String version() const { return m_idbDatabase->version(); }
+    PassRefPtr<DOMStringList> objectStores() const { return m_idbDatabase->objectStores(); }
 
 private:
     IDBDatabaseRequest(PassRefPtr<IDBDatabase>);
@@ -66,4 +61,3 @@ private:
 #endif
 
 #endif // IDBDatabaseRequest_h
-
