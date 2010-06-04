@@ -359,6 +359,9 @@ ifeq ($(JAVASCRIPT_ENGINE),jsc)
 LOCAL_STATIC_LIBRARIES += libjs
 endif
 LOCAL_LDFLAGS := -fvisibility=hidden
+# This is required to work around a gold problem.  This can be removed once
+# gold is fixed.
+LOCAL_LDFLAGS += -fuse-ld=bfd
 LOCAL_CFLAGS := $(WEBKIT_CFLAGS)
 LOCAL_C_INCLUDES := $(WEBKIT_C_INCLUDES)
 LOCAL_PATH := $(BASE_PATH)
