@@ -360,8 +360,10 @@ LOCAL_STATIC_LIBRARIES += libjs
 endif
 LOCAL_LDFLAGS := -fvisibility=hidden
 # This is required to work around a gold problem.  This can be removed once
-# gold is fixed.
-LOCAL_LDFLAGS += -fuse-ld=bfd
+# gold is fixed.  Gold generates more stubs than ld so it is easier for gold
+# to have too many stubs in a stub group.
+LOCAL_LDFLAGS += -Wl,--stub-group-size=1024276
+
 LOCAL_CFLAGS := $(WEBKIT_CFLAGS)
 LOCAL_C_INCLUDES := $(WEBKIT_C_INCLUDES)
 LOCAL_PATH := $(BASE_PATH)
