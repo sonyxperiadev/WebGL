@@ -46,22 +46,22 @@ void JSNavigator::markChildren(MarkStack& markStack)
 
 #if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
 
-JSC::JSValue  WebCore::JSNavigator::isApplicationInstalled(JSC::ExecState* exec, JSC::ArgList const& args)
+JSC::JSValue  WebCore::JSNavigator::isApplicationInstalled(JSC::ExecState* exec)
 {
-    if (args.size() < 2) {
+    if (exec->argumentCount() < 2) {
         setDOMException(exec, SYNTAX_ERR);
         return jsUndefined();
     }
 
-    if (!args.at(1).inherits(&InternalFunction::info)) {
+    if (!exec->argument(1).inherits(&InternalFunction::info)) {
         setDOMException(exec, TYPE_MISMATCH_ERR);
         return jsUndefined();
     }
 
-    String appName = ustringToString(args.at(0).toString(exec));
+    String appName = ustringToString(exec->argument(0).toString(exec));
 
     JSObject* object;
-    if (!(object = args.at(1).getObject())) {
+    if (!(object = exec->argument(1).getObject())) {
         setDOMException(exec, TYPE_MISMATCH_ERR);
         return jsUndefined();
     }
