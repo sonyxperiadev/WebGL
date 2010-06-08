@@ -52,9 +52,6 @@ ScriptCallStack* ScriptCallStack::create(const v8::Arguments& arguments, unsigne
 
 bool ScriptCallStack::callLocation(String* sourceName, int* sourceLineNumber, String* functionName)
 {
-#if PLATFORM(ANDROID)
-    return false;
-#else
     v8::HandleScope scope;
     v8::Context::Scope contextScope(v8::Context::GetCurrent());
     v8::Handle<v8::StackTrace> stackTrace(v8::StackTrace::CurrentStackTrace(1));
@@ -77,7 +74,6 @@ bool ScriptCallStack::callLocation(String* sourceName, int* sourceLineNumber, St
     *functionName = functionNameValue.IsEmpty() ? "" : toWebCoreString(functionNameValue);
     *sourceLineNumber = frame->GetLineNumber();
     return true;
-#endif
 }
 
 ScriptCallStack::ScriptCallStack(const v8::Arguments& arguments, unsigned skipArgumentCount, String sourceName, int sourceLineNumber, String functionName)
