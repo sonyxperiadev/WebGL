@@ -32,11 +32,6 @@
 #define V8CustomVoidCallback_h
 
 #include "VoidCallback.h"
-#if PLATFORM(ANDROID)
-// Temporary workaround until this bug is resolved
-// https://bugs.webkit.org/show_bug.cgi?id=40290
-#include "V8Proxy.h"
-#endif
 #include <v8.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
