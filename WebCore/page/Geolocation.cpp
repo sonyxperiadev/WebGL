@@ -221,12 +221,25 @@ Geolocation::~Geolocation()
 {
 }
 
+#if PLATFORM(ANDROID)
+void Geolocation::stop()
+{
+    m_oneShots.clear();
+    m_watchers.clear();
+    stopUpdating();
+}
+#endif // PLATFORM(ANDROID)
+
 void Geolocation::disconnectFrame()
 {
     if (m_frame && m_frame->page() && m_allowGeolocation == InProgress)
         m_frame->page()->chrome()->cancelGeolocationPermissionRequestForFrame(m_frame, this);
+#if PLATFORM(ANDROID)
+    // See Geolocation::stop()
+#else
     stopTimers();
     stopUpdating();
+#endif // PLATFORM(ANDROID)
     if (m_frame && m_frame->document())
         m_frame->document()->setUsingGeolocation(false);
     m_frame = 0;
@@ -682,6 +695,10 @@ Geolocation::Geolocation(Frame*) {}
 Geolocation::~Geolocation() {}
 
 void Geolocation::setIsAllowed(bool) {}
+
+#if PLATFORM(ANDROID)
+void Geolocation::stop() {}
+#endif // PLATFORM(ANDROID)
 
 }
                                                         

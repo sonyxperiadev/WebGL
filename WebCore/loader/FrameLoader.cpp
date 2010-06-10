@@ -60,6 +60,9 @@
 #include "FrameLoaderClient.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#if PLATFORM(ANDROID)
+#include "Geolocation.h"
+#endif // PLATFORM(ANDROID)
 #include "HTMLAnchorElement.h"
 #include "HTMLAppletElement.h"
 #include "HTMLFormElement.h"
@@ -77,6 +80,9 @@
 #include "Logging.h"
 #include "MIMETypeRegistry.h"
 #include "MainResourceLoader.h"
+#if PLATFORM(ANDROID)
+#include "Navigator.h"
+#endif // PLATFORM(ANDROID)
 #include "Page.h"
 #include "PageCache.h"
 #include "PageGroup.h"
@@ -621,6 +627,13 @@ void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy, DatabasePolic
     UNUSED_PARAM(databasePolicy);
 #endif
     }
+
+#if PLATFORM(ANDROID)
+     // Stop the Geolocation object, if present. This call is made after the unload
+     // event has fired, so no new Geolocation activity is possible.
+    if (m_frame->domWindow()->navigator()->optionalGeolocation())
+        m_frame->domWindow()->navigator()->optionalGeolocation()->stop();
+#endif // PLATFORM(ANDROID)
 
     // tell all subframes to stop as well
     for (Frame* child = m_frame->tree()->firstChild(); child; child = child->tree()->nextSibling())
