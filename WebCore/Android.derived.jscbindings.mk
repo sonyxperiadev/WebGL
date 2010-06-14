@@ -343,10 +343,6 @@ GEN := \
     $(intermediates)/storage/JSDatabase.h \
     $(intermediates)/storage/JSDatabaseCallback.h \
     $(intermediates)/storage/JSDatabaseSync.h \
-    $(intermediates)/storage/JSIDBErrorEvent.h \
-    $(intermediates)/storage/JSIDBEvent.h \
-    $(intermediates)/storage/JSIDBRequest.h \
-    $(intermediates)/storage/JSIDBSuccessEvent.h \
     $(intermediates)/storage/JSSQLError.h \
     $(intermediates)/storage/JSSQLResultSet.h \
     $(intermediates)/storage/JSSQLResultSetRowList.h \
