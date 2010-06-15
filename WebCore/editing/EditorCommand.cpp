@@ -49,6 +49,7 @@
 #include "InsertListCommand.h"
 #include "KillRing.h"
 #include "Page.h"
+#include "RenderBox.h"
 #include "ReplaceSelectionCommand.h"
 #include "Scrollbar.h"
 #include "Settings.h"
@@ -166,7 +167,7 @@ static bool executeToggleStyle(Frame* frame, EditorCommandSource source, EditAct
     // other: present throughout the selection
     Settings* settings = frame->document()->settings();
     bool styleIsPresent;
-    if (settings && settings->editingBehavior() == EditingMacBehavior)
+    if (settings && settings->editingBehaviorType() == EditingMacBehavior)
         styleIsPresent = frame->editor()->selectionStartHasStyle(style.get());
     else
         styleIsPresent = frame->editor()->selectionHasStyle(style.get()) == TrueTriState;
@@ -474,7 +475,7 @@ static bool executeInsertHorizontalRule(Frame* frame, Event*, EditorCommandSourc
 {
     RefPtr<HTMLHRElement> rule = HTMLHRElement::create(frame->document());
     if (!value.isEmpty())
-        rule->setAttribute(rule->idAttributeName(), value);
+        rule->setIdAttribute(value);
     return executeInsertNode(frame, rule.release());
 }
 

@@ -51,9 +51,11 @@ public:
     virtual void invalidateClient(RenderObject*);
 
     virtual bool applyResource(RenderObject*, RenderStyle*, GraphicsContext*&, unsigned short resourceMode);
-    virtual FloatRect resourceBoundingBox(const FloatRect&);
+    virtual FloatRect resourceBoundingBox(RenderObject*);
 
     virtual RenderSVGResourceType resourceType() const { return ClipperResourceType; }
+    
+    bool hitTestClipContent(const FloatRect&, const FloatPoint&);
 
     SVGUnitTypes::SVGUnitType clipPathUnits() const { return toUnitType(static_cast<SVGClipPathElement*>(node())->clipPathUnits()); }
 

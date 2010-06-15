@@ -29,7 +29,9 @@
 module xml {
 
     interface [
-        CustomConstructor,
+        CanBeConstructed,
+        CustomConstructFunction,
+        V8CustomConstructor,
         CustomMarkFunction,
         EventTarget,
         NoStaticTables

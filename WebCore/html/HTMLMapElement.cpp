@@ -56,7 +56,6 @@ PassRefPtr<HTMLMapElement> HTMLMapElement::create(const QualifiedName& tagName, 
 
 HTMLMapElement::~HTMLMapElement()
 {
-    document()->removeImageMap(this);
 }
 
 bool HTMLMapElement::checkDTD(const Node* newChild)
@@ -104,26 +103,33 @@ HTMLImageElement* HTMLMapElement::imageElement() const
     
     return 0;    
 }
-    
-void HTMLMapElement::parseMappedAttribute(Attribute* attr)
+
+void HTMLMapElement::parseMappedAttribute(Attribute* attribute)
 {
-    const QualifiedName& attrName = attr->name();
-    if (attrName == idAttributeName() || attrName == nameAttr) {
-        Document* doc = document();
-        if (attrName == idAttributeName()) {
+    // FIXME: This logic seems wrong for XML documents.
+    // Either the id or name will be used depending on the order the attributes are parsed.
+
+    const QualifiedName& attrName = attribute->name();
+    if (isIdAttributeName(attrName) || attrName == nameAttr) {
+        Document* document = this->document();
+        if (isIdAttributeName(attrName)) {
             // Call base class so that hasID bit gets set.
-            HTMLElement::parseMappedAttribute(attr);
-            if (doc->isHTMLDocument())
+            HTMLElement::parseMappedAttribute(attribute);
+            if (document->isHTMLDocument())
                 return;
         }
-        doc->removeImageMap(this);
-        String mapName = attr->value();
+        if (inDocument())
+            document->removeImageMap(this);
+        String mapName = attribute->value();
         if (mapName[0] == '#')
             mapName = mapName.substring(1);
-        m_name = doc->isHTMLDocument() ? mapName.lower() : mapName;
-        doc->addImageMap(this);
-    } else
-        HTMLElement::parseMappedAttribute(attr);
+        m_name = document->isHTMLDocument() ? mapName.lower() : mapName;
+        if (inDocument())
+            document->addImageMap(this);
+        return;
+    }
+
+    HTMLElement::parseMappedAttribute(attribute);
 }
 
 PassRefPtr<HTMLCollection> HTMLMapElement::areas()
@@ -139,6 +145,18 @@ String HTMLMapElement::name() const
 void HTMLMapElement::setName(const String& value)
 {
     setAttribute(nameAttr, value);
+}
+
+void HTMLMapElement::insertedIntoDocument()
+{
+    document()->addImageMap(this);
+    HTMLElement::insertedIntoDocument();
+}
+
+void HTMLMapElement::removedFromDocument()
+{
+    document()->removeImageMap(this);
+    HTMLElement::removedFromDocument();
 }
 
 }

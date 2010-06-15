@@ -132,6 +132,10 @@ public:
         const WebPoint& clientPoint,
         const WebPoint& screenPoint,
         WebDragOperation operation);
+    virtual void dragSourceMovedTo(
+        const WebPoint& clientPoint, 
+        const WebPoint& screenPoint, 
+        WebDragOperation operation);
     virtual void dragSourceSystemDragEnded();
     virtual WebDragOperation dragTargetDragEnter(
         const WebDragData& dragData, int identity,
@@ -162,7 +166,7 @@ public:
         const WebNode&,
         const WebVector<WebString>& names,
         const WebVector<WebString>& labels,
-        int defaultSuggestionIndex);
+        int separatorIndex);
     virtual void applyAutocompleteSuggestions(
         const WebNode&,
         const WebVector<WebString>& suggestions,
@@ -346,6 +350,8 @@ private:
 
     // Returns true if the view was scrolled.
     bool scrollViewWithKeyboard(int keyCode, int modifiers);
+
+    void scrollForDragging(const WebPoint&);
 
     void hideSelectPopup();
 

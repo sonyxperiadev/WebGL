@@ -76,10 +76,10 @@
 #include "HTMLMapElement.h"
 #include "HTMLNameCollection.h"
 #include "HTMLNames.h"
-#include "HTMLParser.h"
+#include "LegacyHTMLTreeConstructor.h"
 #include "HTMLStyleElement.h"
 #include "HTMLTitleElement.h"
-#include "HTMLTokenizer.h"
+#include "HTMLDocumentParser.h"
 #include "HTTPParsers.h"
 #include "HistoryItem.h"
 #include "HitTestRequest.h"
@@ -107,6 +107,7 @@
 #include "ProgressEvent.h"
 #include "RegisteredEventListener.h"
 #include "RenderArena.h"
+#include "RenderLayer.h"
 #include "RenderTextControl.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
@@ -134,7 +135,7 @@
 #include "XMLHttpRequest.h"
 #include "XMLNSNames.h"
 #include "XMLNames.h"
-#include "XMLTokenizer.h"
+#include "XMLDocumentParser.h"
 #include "htmlediting.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/HashFunctions.h>
@@ -418,6 +419,7 @@ Document::Document(Frame* frame, bool isXHTML, bool isHTML)
     , m_containsWMLContent(false)
 #endif
     , m_weakReference(DocumentWeakReference::create(this))
+    , m_idAttributeName(idAttr)
 {
     m_document = this;
 
@@ -508,7 +510,7 @@ void Document::removedLastRef()
         deleteAllValues(m_markers);
         m_markers.clear();
 
-        m_tokenizer.clear();
+        m_parser.clear();
 
         m_cssCanvasElements.clear();
 
@@ -542,7 +544,7 @@ Document::~Document()
     destroyAllWrapperCaches();
 #endif
 
-    m_tokenizer.clear();
+    m_parser.clear();
     m_document = 0;
     m_docLoader.clear();
 
@@ -903,7 +905,7 @@ PassRefPtr<Element> Document::createElement(const QualifiedName& qName, bool cre
     else if (qName.namespaceURI() == MathMLNames::mathmlNamespaceURI)
         e = MathMLElementFactory::createMathMLElement(qName, this, createdByParser);
 #endif
-    
+
     if (!e)
         e = Element::create(qName, document());
 
@@ -947,7 +949,7 @@ Element* Document::getElementById(const AtomicString& elementId) const
         for (Node *n = traverseNextNode(); n != 0; n = n->traverseNextNode()) {
             if (n->isElementNode()) {
                 element = static_cast<Element*>(n);
-                if (element->hasID() && element->getAttribute(element->idAttributeName()) == elementId) {
+                if (element->hasID() && element->getIdAttribute() == elementId) {
                     m_duplicateIds.remove(elementId.impl());
                     m_elementsById.set(elementId.impl(), element);
                     return element;
@@ -1706,10 +1708,10 @@ void Document::setVisuallyOrdered()
         renderer()->style()->setVisuallyOrdered(true);
 }
 
-Tokenizer* Document::createTokenizer()
+DocumentParser* Document::createParser()
 {
     // FIXME: this should probably pass the frame instead
-    return new XMLTokenizer(this, view());
+    return new XMLDocumentParser(this, view());
 }
 
 void Document::open(Document* ownerDocument)
@@ -1721,7 +1723,7 @@ void Document::open(Document* ownerDocument)
     }
 
     if (m_frame) {
-        if (m_frame->loader()->isLoadingMainResource() || (tokenizer() && tokenizer()->executingScript()))
+        if (m_frame->loader()->isLoadingMainResource() || (parser() && parser()->executingScript()))
             return;
     
         if (m_frame->loader()->state() == FrameStateProvisional)
@@ -1739,12 +1741,12 @@ void Document::open(Document* ownerDocument)
 
 void Document::cancelParsing()
 {
-    if (m_tokenizer) {
-        // We have to clear the tokenizer to avoid possibly triggering
+    if (m_parser) {
+        // We have to clear the parser to avoid possibly triggering
         // the onload handler when closing as a side effect of a cancel-style
         // change, such as opening a new document or closing the window while
         // still parsing
-        m_tokenizer.clear();
+        m_parser.clear();
         close();
     }
 }
@@ -1753,15 +1755,15 @@ void Document::implicitOpen()
 {
     cancelParsing();
 
-    m_tokenizer.clear();
+    m_parser.clear();
 
     removeChildren();
 
-    m_tokenizer = createTokenizer();
+    m_parser = createParser();
     setParsing(true);
 
     if (m_frame)
-        m_tokenizer->setXSSAuditor(m_frame->script()->xssAuditor());
+        m_parser->setXSSAuditor(m_frame->script()->xssAuditor());
 
     // If we reload, the animation controller sticks around and has
     // a stale animation time. We need to update it here.
@@ -1839,18 +1841,18 @@ void Document::implicitClose()
     }
 
     bool wasLocationChangePending = frame() && frame()->redirectScheduler()->locationChangePending();
-    bool doload = !parsing() && m_tokenizer && !m_processingLoadEvent && !wasLocationChangePending;
+    bool doload = !parsing() && m_parser && !m_processingLoadEvent && !wasLocationChangePending;
     
     if (!doload)
         return;
 
     m_processingLoadEvent = true;
 
-    m_wellFormed = m_tokenizer && m_tokenizer->wellFormed();
+    m_wellFormed = m_parser && m_parser->wellFormed();
 
-    // We have to clear the tokenizer, in case someone document.write()s from the
+    // We have to clear the parser, in case someone document.write()s from the
     // onLoad event handler, as in Radar 3206524.
-    m_tokenizer.clear();
+    m_parser.clear();
 
     // Parser should have picked up all preloads by now
     m_docLoader->clearPreloads();
@@ -1998,21 +2000,21 @@ void Document::write(const SegmentedString& text, Document* ownerDocument)
         printf("Beginning a document.write at %d\n", elapsedTime());
 #endif
 
-    if (!m_tokenizer)
+    if (!m_parser)
         open(ownerDocument);
 
-    ASSERT(m_tokenizer);
+    ASSERT(m_parser);
     bool wasForcedSynchronous = false;
-    HTMLTokenizer* tokenizer = m_tokenizer->asHTMLTokenizer();
-    if (tokenizer) {
-        wasForcedSynchronous = tokenizer->forceSynchronous();
-        tokenizer->setForceSynchronous(true);
+    HTMLDocumentParser* parser = m_parser->asHTMLDocumentParser();
+    if (parser) {
+        wasForcedSynchronous = parser->forceSynchronous();
+        parser->setForceSynchronous(true);
     }
 
-    m_tokenizer->write(text, false);
+    m_parser->write(text, false);
 
-    if (m_tokenizer && tokenizer && m_tokenizer->asHTMLTokenizer() == tokenizer)
-        tokenizer->setForceSynchronous(wasForcedSynchronous);
+    if (m_parser && parser && m_parser->asHTMLDocumentParser() == parser)
+        parser->setForceSynchronous(wasForcedSynchronous);
 
 #ifdef INSTRUMENT_LAYOUT_SCHEDULING
     if (!ownerElement())
@@ -2038,13 +2040,13 @@ void Document::finishParsing()
         printf("Received all data at %d\n", elapsedTime());
 #endif
     
-    // Let the tokenizer go through as much data as it can.  There will be three possible outcomes after
+    // Let the parser go through as much data as it can.  There will be three possible outcomes after
     // finish() is called:
     // (1) All remaining data is parsed, document isn't loaded yet
-    // (2) All remaining data is parsed, document is loaded, tokenizer gets deleted
+    // (2) All remaining data is parsed, document is loaded, parser gets deleted
     // (3) Data is still remaining to be parsed.
-    if (m_tokenizer)
-        m_tokenizer->finish();
+    if (m_parser)
+        m_parser->finish();
 }
 
 const KURL& Document::virtualURL() const
@@ -2622,8 +2624,8 @@ void Document::removePendingSheet()
 
     updateStyleSelector();
     
-    if (!m_pendingStylesheets && m_tokenizer)
-        m_tokenizer->executeScriptsWaitingForStylesheets();
+    if (!m_pendingStylesheets && m_parser)
+        m_parser->executeScriptsWaitingForStylesheets();
 
     if (!m_pendingStylesheets && m_gotoAnchorNeededAfterStylesheetsLoad && view())
         view()->scrollToFragment(m_frame->loader()->url());
@@ -4715,7 +4717,9 @@ void Document::updateURLForPushOrReplaceState(const KURL& url)
     if (!f)
         return;
 
+    // FIXME: Eliminate this redundancy.
     setURL(url);
+    f->loader()->setURL(url);
     f->loader()->documentLoader()->replaceRequestURLForSameDocumentNavigation(url);
 }
 

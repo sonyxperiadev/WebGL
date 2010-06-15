@@ -36,6 +36,7 @@
 #include "HTMLNames.h"
 #include "HitTestResult.h"
 #include "Page.h"
+#include "RenderLayer.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
 #include "SelectionController.h"
@@ -451,7 +452,7 @@ void RenderImage::paint(PaintInfo& paintInfo, int tx, int ty)
 void RenderImage::paintFocusRings(PaintInfo& paintInfo, const RenderStyle* style)
 {
     // Don't draw focus rings if printing.
-    if (document()->printing() || !document()->frame()->selection()->isFocusedAndActive())
+    if (document()->printing() || !frame()->selection()->isFocusedAndActive())
         return;
     
     if (paintInfo.context->paintingDisabled() && !paintInfo.context->updatingControlTints())

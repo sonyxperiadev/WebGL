@@ -388,8 +388,18 @@ void dump()
 
         if (gLayoutTestController->dumpAsText())
             result = dumpFramesAsText(mainFrame);
-        else
+        else {
+            // Widget resizing is done asynchronously in GTK+. We pump the main
+            // loop here, to flush any pending resize requests. This prevents
+            // timing issues which affect the size of elements in the output.
+            // We only enable this workaround for tests that print the render tree
+            // because this seems to break some dumpAsText tests: see bug 39988
+            // After fixing that test, we should apply this approach to all dumps.
+            while (gtk_events_pending())
+                gtk_main_iteration();
+
             result = webkit_web_frame_dump_render_tree(mainFrame);
+        }
 
         if (!result) {
             const char* errorMessage;
@@ -525,8 +535,10 @@ static void runTest(const string& testPathOrURL)
     gtk_main();
 
     // If developer extras enabled Web Inspector may have been open by the test.
-    if (shouldEnableDeveloperExtras(pathOrURL.c_str()))
+    if (shouldEnableDeveloperExtras(pathOrURL.c_str())) {
         gLayoutTestController->closeWebInspector();
+        gLayoutTestController->setDeveloperExtrasEnabled(false);
+    }
 
     // Also check if we still have opened webViews and free them.
     if (gLayoutTestController->closeRemainingWindowsWhenComplete() || webViewList) {
@@ -663,7 +675,7 @@ static void webViewWindowObjectCleared(WebKitWebView* view, WebKitWebFrame* fram
     ASSERT(!exception);
 
     JSStringRef eventSenderStr = JSStringCreateWithUTF8CString("eventSender");
-    JSValueRef eventSender = makeEventSender(context);
+    JSValueRef eventSender = makeEventSender(context, !webkit_web_frame_get_parent(frame));
     JSObjectSetProperty(context, windowObject, eventSenderStr, eventSender, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete, 0);
     JSStringRelease(eventSenderStr);
 }

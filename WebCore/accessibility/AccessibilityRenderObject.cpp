@@ -60,6 +60,7 @@
 #include "RenderHTMLCanvas.h"
 #include "RenderImage.h"
 #include "RenderInline.h"
+#include "RenderLayer.h"
 #include "RenderListBox.h"
 #include "RenderListMarker.h"
 #include "RenderMenuList.h"
@@ -649,7 +650,7 @@ bool AccessibilityRenderObject::isOffScreen() const
 {
     ASSERT(m_renderer);
     IntRect contentRect = m_renderer->absoluteClippedOverflowRect();
-    FrameView* view = m_renderer->document()->frame()->view();
+    FrameView* view = m_renderer->frame()->view();
     FloatRect viewRect = view->visibleContentRect();
     viewRect.intersect(contentRect);
     return viewRect.isEmpty();
@@ -928,6 +929,10 @@ String AccessibilityRenderObject::helpText() const
     if (!m_renderer)
         return String();
     
+    const AtomicString& ariaHelp = getAttribute(aria_helpAttr);
+    if (!ariaHelp.isEmpty())
+        return ariaHelp;
+    
     for (RenderObject* curr = m_renderer; curr; curr = curr->parent()) {
         if (curr->node() && curr->node()->isHTMLElement()) {
             const AtomicString& summary = static_cast<Element*>(curr->node())->getAttribute(summaryAttr);
@@ -1126,7 +1131,7 @@ String AccessibilityRenderObject::stringValue() const
         return toRenderButton(m_renderer)->text();
 
     if (isWebArea()) {
-        if (m_renderer->document()->frame())
+        if (m_renderer->frame())
             return String();
         
         // FIXME: should use startOfDocument and endOfDocument (or rangeForDocument?) here
@@ -1469,8 +1474,8 @@ AccessibilityObject* AccessibilityRenderObject::internalLinkElement() const
         return 0;
     
     // check if URL is the same as current URL
-    linkURL.removeFragmentIdentifier();
-    if (m_renderer->document()->url() != linkURL)
+    KURL documentURL = m_renderer->document()->url();
+    if (!equalIgnoringFragmentIdentifier(documentURL, linkURL))
         return 0;
     
     Node* linkedNode = m_renderer->document()->findAnchor(fragmentIdentifier);
@@ -1848,7 +1853,7 @@ bool AccessibilityRenderObject::accessibilityIsIgnored() const
 
 bool AccessibilityRenderObject::isLoaded() const
 {
-    return !m_renderer->document()->tokenizer();
+    return !m_renderer->document()->parser();
 }
 
 double AccessibilityRenderObject::estimatedLoadingProgress() const
@@ -1968,7 +1973,7 @@ const AtomicString& AccessibilityRenderObject::accessKey() const
 
 VisibleSelection AccessibilityRenderObject::selection() const
 {
-    return m_renderer->document()->frame()->selection()->selection();
+    return m_renderer->frame()->selection()->selection();
 }
 
 PlainTextRange AccessibilityRenderObject::selectedTextRange() const
@@ -2521,10 +2526,10 @@ void AccessibilityRenderObject::setSelectedVisiblePositionRange(const VisiblePos
     
     // make selection and tell the document to use it. if it's zero length, then move to that position
     if (range.start == range.end)
-        m_renderer->document()->frame()->selection()->moveTo(range.start, true);
+        m_renderer->frame()->selection()->moveTo(range.start, true);
     else {
         VisibleSelection newSelection = VisibleSelection(range.start, range.end);
-        m_renderer->document()->frame()->selection()->setSelection(newSelection);
+        m_renderer->frame()->selection()->setSelection(newSelection);
     }    
 }
 

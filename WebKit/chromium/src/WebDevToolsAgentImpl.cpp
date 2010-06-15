@@ -462,6 +462,11 @@ void WebDevToolsAgentImpl::createInspectorFrontendProxy()
     m_utilityContext = v8::Context::New();
     compileUtilityScripts();
     initDevToolsAgentHost();
+#if ENABLE(V8_SCRIPT_DEBUG_SERVER)
+    WebCString debuggerScriptJs = m_client->debuggerScriptSource();
+    WebCore::ScriptDebugServer::shared().setDebuggerScriptSource(
+        WebCore::String(debuggerScriptJs.data(), debuggerScriptJs.length()));
+#endif
 }
 
 void WebDevToolsAgentImpl::setInspectorFrontendProxyToInspectorController()
@@ -470,8 +475,7 @@ void WebDevToolsAgentImpl::setInspectorFrontendProxyToInspectorController()
     ScriptState* state = ScriptState::forContext(
         v8::Local<v8::Context>::New(m_utilityContext));
     InspectorController* ic = inspectorController();
-    ic->setFrontend(new InspectorFrontend(
-        ScriptObject(state, m_utilityContext->Global())));
+    ic->connectFrontend(ScriptObject(state, m_utilityContext->Global()));
 }
 
 void WebDevToolsAgentImpl::setApuAgentEnabled(bool enabled)

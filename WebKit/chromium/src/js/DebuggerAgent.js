@@ -181,7 +181,7 @@ devtools.DebuggerAgent.prototype.initUI = function()
         // pending addition into the UI.
         for (var scriptId in this.parsedScripts_) {
           var script = this.parsedScripts_[scriptId];
-          WebInspector.parsedScriptSource(scriptId, script.getUrl(), undefined /* script source */, script.getLineOffset() + 1);
+          WebInspector.parsedScriptSource(scriptId, script.getUrl(), undefined /* script source */, script.getLineOffset() + 1, script.worldType());
           this.restoreBreakpoints_(scriptId, script.getUrl());
         }
         return;
@@ -307,7 +307,7 @@ devtools.DebuggerAgent.prototype.addBreakpoint = function(sourceId, line, enable
 
 
 /**
- * Changes given line of the script. 
+ * Changes given line of the script.
  */
 devtools.DebuggerAgent.prototype.editScriptSource = function(sourceId, newContent, callback)
 {
@@ -319,12 +319,31 @@ devtools.DebuggerAgent.prototype.editScriptSource = function(sourceId, newConten
     var cmd = new devtools.DebugCommand("changelive", commandArguments);
     devtools.DebuggerAgent.sendCommand_(cmd);
     this.requestSeqToCallback_[cmd.getSequenceNumber()] = function(msg) {
-        if (!msg.isSuccess())
-            WebInspector.log("Unable to modify source code within given scope. Only function bodies are editable at the moment.", WebInspector.ConsoleMessage.MessageLevel.Warning);
-        this.resolveScriptSource(sourceId, callback);
-        if (WebInspector.panels.scripts.paused)
-            this.requestBacktrace_();
+        if (!msg.isSuccess()) {
+            callback(false, "Unable to modify source code within given scope. Only function bodies are editable at the moment.", null);
+            return;
+        }
+
+        this.resolveScriptSource(sourceId, requestBacktrace.bind(this));
     }.bind(this);
+
+
+    function requestBacktrace(newScriptSource) {
+        if (WebInspector.panels.scripts.paused)
+            this.requestBacktrace_(handleBacktraceResponse.bind(this, newScriptSource));
+        else
+            reportDidCommitEditing(newScriptSource);
+    }
+
+    function handleBacktraceResponse(newScriptSource, msg) {
+        this.updateCallFramesFromBacktraceResponse_(msg);
+        reportDidCommitEditing(newScriptSource, this.callFrames_);
+    }
+
+    function reportDidCommitEditing(newScriptSource, callFrames) {
+        callback(true, newScriptSource, callFrames);
+    }
+
     RemoteDebuggerAgent.processDebugCommands();
 };
 
@@ -679,12 +698,14 @@ devtools.DebuggerAgent.prototype.requestClearBreakpoint_ = function(breakpointId
 /**
  * Sends "backtrace" request to v8.
  */
-devtools.DebuggerAgent.prototype.requestBacktrace_ = function()
+devtools.DebuggerAgent.prototype.requestBacktrace_ = function(opt_customHandler)
 {
     var cmd = new devtools.DebugCommand("backtrace", {
         "compactFormat":true
     });
     devtools.DebuggerAgent.sendCommand_(cmd);
+    var responseHandler = opt_customHandler ? opt_customHandler : this.handleBacktraceResponse_.bind(this);
+    this.requestSeqToCallback_[cmd.getSequenceNumber()] = responseHandler;
 };
 
 
@@ -800,7 +821,7 @@ devtools.DebuggerAgent.prototype.handleDebuggerOutput_ = function(output)
         else if (msg.getCommand() === "clearbreakpoint")
             this.handleClearBreakpointResponse_(msg);
         else if (msg.getCommand() === "backtrace")
-            this.handleBacktraceResponse_(msg);
+            this.invokeCallbackForResponse_(msg);
         else if (msg.getCommand() === "lookup")
             this.invokeCallbackForResponse_(msg);
         else if (msg.getCommand() === "evaluate")
@@ -948,17 +969,17 @@ devtools.DebuggerAgent.prototype.handleAfterCompileEvent_ = function(msg)
 devtools.DebuggerAgent.prototype.addScriptInfo_ = function(script, msg)
 {
     var context = msg.lookup(script.context.ref);
-    var contextType;
     // Find the type from context data. The context data has the format
     // "type,id".
     var comma = context.data.indexOf(",");
     if (comma < 0)
-        return
-    contextType = context.data.substring(0, comma);
-    this.parsedScripts_[script.id] = new devtools.ScriptInfo(script.id, script.name, script.lineOffset, contextType);
+        return;
+    var contextType = context.data.substring(0, comma);
+    var info = new devtools.ScriptInfo(script.id, script.name, script.lineOffset, contextType);
+    this.parsedScripts_[script.id] = info;
     if (this.scriptsPanelInitialized_) {
         // Only report script as parsed after scripts panel has been shown.
-        WebInspector.parsedScriptSource(script.id, script.name, script.source, script.lineOffset + 1);
+        WebInspector.parsedScriptSource(script.id, script.name, script.source, script.lineOffset + 1, info.worldType());
         this.restoreBreakpoints_(script.id, script.name);
     }
 };
@@ -991,13 +1012,20 @@ devtools.DebuggerAgent.prototype.handleBacktraceResponse_ = function(msg)
  */
 devtools.DebuggerAgent.prototype.doHandleBacktraceResponse_ = function(msg)
 {
+    this.updateCallFramesFromBacktraceResponse_(msg);
+    WebInspector.pausedScript(this.callFrames_);
+    this.showPendingExceptionMessage_();
+    InspectorFrontendHost.bringToFront();
+};
+
+
+devtools.DebuggerAgent.prototype.updateCallFramesFromBacktraceResponse_ = function(msg)
+{
     var frames = msg.getBody().frames;
     this.callFrames_ = [];
     for (var i = 0; i <  frames.length; ++i)
         this.callFrames_.push(this.formatCallFrame_(frames[i]));
-    WebInspector.pausedScript(this.callFrames_);
-    this.showPendingExceptionMessage_();
-    InspectorFrontendHost.bringToFront();
+    return this.callFrames_;
 };
 
 
@@ -1044,7 +1072,7 @@ devtools.DebuggerAgent.prototype.formatCallFrame_ = function(stackFrame)
     var existingScript = this.parsedScripts_[sourceId];
     if (!existingScript) {
         this.parsedScripts_[sourceId] = new devtools.ScriptInfo(sourceId, null /* name */, 0 /* line */, "unknown" /* type */, true /* unresolved */);
-        WebInspector.parsedScriptSource(sourceId, null, null, 0);
+        WebInspector.parsedScriptSource(sourceId, null, null, 0, WebInspector.Script.WorldType.MAIN_WORLD);
     }
 
     var funcName = func.name || func.inferredName || "(anonymous function)";
@@ -1254,6 +1282,14 @@ devtools.ScriptInfo.prototype.getUrl = function()
 devtools.ScriptInfo.prototype.isUnresolved = function()
 {
     return this.isUnresolved_;
+};
+
+
+devtools.ScriptInfo.prototype.worldType = function()
+{
+    if (this.contextType_ === "injected")
+        return WebInspector.Script.WorldType.EXTENSIONS_WORLD;
+    return WebInspector.Script.WorldType.MAIN_WORLD;
 };
 
 

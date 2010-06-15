@@ -27,6 +27,8 @@
 #include "IDBDatabaseImpl.h"
 
 #include "DOMStringList.h"
+#include "IDBDatabaseException.h"
+#include "IDBObjectStoreImpl.h"
 
 #if ENABLE(INDEXED_DATABASE)
 
@@ -43,10 +45,42 @@ IDBDatabaseImpl::~IDBDatabaseImpl()
 {
 }
 
-PassRefPtr<DOMStringList> IDBDatabaseImpl::objectStores()
+PassRefPtr<DOMStringList> IDBDatabaseImpl::objectStores() const
 {
-    // FIXME: This should return the actual list.
-    return DOMStringList::create();
+    RefPtr<DOMStringList> objectStoreNames = DOMStringList::create();
+    for (ObjectStoreMap::const_iterator it = m_objectStores.begin(); it != m_objectStores.end(); ++it)
+        objectStoreNames->append(it->first);
+    return objectStoreNames.release();
+}
+
+void IDBDatabaseImpl::createObjectStore(const String& name, const String& keyPath, bool autoIncrement, PassRefPtr<IDBCallbacks> callbacks)
+{
+    if (m_objectStores.contains(name)) {
+        callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::CONSTRAINT_ERR, "An objectStore with that name already exists."));
+        return;
+    }
+
+    RefPtr<IDBObjectStore> objectStore = IDBObjectStoreImpl::create(name, keyPath, autoIncrement);
+    m_objectStores.set(name, objectStore);
+    callbacks->onSuccess(objectStore.release());
+}
+
+PassRefPtr<IDBObjectStore> IDBDatabaseImpl::objectStore(const String& name, unsigned short mode)
+{
+    // FIXME: If no transaction is running, this should implicitly start one.
+    ASSERT(!mode); // FIXME: Handle non-standard modes.
+    return m_objectStores.get(name);
+}
+
+void IDBDatabaseImpl::removeObjectStore(const String& name, PassRefPtr<IDBCallbacks> callbacks)
+{
+    if (!m_objectStores.contains(name)) {
+        callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::NOT_FOUND_ERR, "No objectStore with that name exists."));
+        return;
+    }
+
+    m_objectStores.remove(name);
+    callbacks->onSuccess();
 }
 
 } // namespace WebCore

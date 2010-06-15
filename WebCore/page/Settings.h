@@ -28,6 +28,7 @@
 #define Settings_h
 
 #include "AtomicString.h"
+#include "EditingBehaviorTypes.h"
 #include "FontRenderingMode.h"
 #include "KURL.h"
 #include "ZoomMode.h"
@@ -49,21 +50,6 @@ namespace WebCore {
         TextDirectionSubmenuAutomaticallyIncluded,
         TextDirectionSubmenuAlwaysIncluded
     };
-
-    // There are multiple editing details that are different on Windows than Macintosh.
-    // We use a single switch for all of them. Some examples:
-    //
-    //    1) Clicking below the last line of an editable area puts the caret at the end
-    //       of the last line on Mac, but in the middle of the last line on Windows.
-    //    2) Pushing the down arrow key on the last line puts the caret at the end of the
-    //       last line on Mac, but does nothing on Windows. A similar case exists on the
-    //       top line.
-    //
-    // This setting is intended to control these sorts of behaviors. There are some other
-    // behaviors with individual function calls on EditorClient (smart copy and paste and
-    // selecting the space after a double click) that could be combined with this if
-    // if possible in the future.
-    enum EditingBehavior { EditingMacBehavior, EditingWindowsBehavior };
 
     class Settings : public Noncopyable {
     public:
@@ -336,9 +322,9 @@ namespace WebCore {
         void setAllowScriptsToCloseWindows(bool);
         bool allowScriptsToCloseWindows() const { return m_allowScriptsToCloseWindows; }
 
-        void setEditingBehavior(EditingBehavior behavior) { m_editingBehavior = behavior; }
-        EditingBehavior editingBehavior() const { return static_cast<EditingBehavior>(m_editingBehavior); }
-        
+        void setEditingBehaviorType(EditingBehaviorType behavior) { m_editingBehaviorType = behavior; }
+        EditingBehaviorType editingBehaviorType() const { return static_cast<EditingBehaviorType>(m_editingBehaviorType); }
+
         void setDownloadableBinaryFontsEnabled(bool);
         bool downloadableBinaryFontsEnabled() const { return m_downloadableBinaryFontsEnabled; }
 
@@ -376,6 +362,9 @@ namespace WebCore {
 
         void setHTML5ParserEnabled(bool flag) { m_html5ParserEnabled = flag; }
         bool html5ParserEnabled() const { return m_html5ParserEnabled; }
+
+        void setPaginateDuringLayoutEnabled(bool flag) { m_paginateDuringLayoutEnabled = flag; }
+        bool paginateDuringLayoutEnabled() const { return m_paginateDuringLayoutEnabled; }
 
     private:
         Page* m_page;
@@ -483,7 +472,7 @@ namespace WebCore {
         bool m_enforceCSSMIMETypeInStrictMode : 1;
         bool m_usesEncodingDetector : 1;
         bool m_allowScriptsToCloseWindows : 1;
-        unsigned m_editingBehavior : 1;
+        unsigned m_editingBehaviorType : 1;
         bool m_downloadableBinaryFontsEnabled : 1;
         bool m_xssAuditorEnabled : 1;
         bool m_acceleratedCompositingEnabled : 1;
@@ -494,10 +483,15 @@ namespace WebCore {
         bool m_loadDeferringEnabled : 1;
         bool m_tiledBackingStoreEnabled : 1;
         bool m_html5ParserEnabled: 1;
+<<<<<<< HEAD:WebCore/page/Settings.h
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif
 
+=======
+        bool m_paginateDuringLayoutEnabled : 1;
+    
+>>>>>>> Webkit.org at r61121:WebCore/page/Settings.h
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;
 #endif

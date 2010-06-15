@@ -26,17 +26,16 @@
 #include "config.h"
 #include "SinkDocument.h"
 
-#include "Tokenizer.h"
+#include "DocumentParser.h"
 
 namespace WebCore {
 
-class SinkTokenizer : public Tokenizer {
+class SinkDocumentParser : public DocumentParser {
 public:
-    SinkTokenizer(Document* document) : m_document(document) { }
+    SinkDocumentParser(Document* document) : m_document(document) { }
         
 private:
     virtual void write(const SegmentedString&, bool) { ASSERT_NOT_REACHED(); }
-    virtual void stopParsing();
     virtual void finish();
     virtual bool isWaitingForScripts() const { return false; }
         
@@ -46,12 +45,7 @@ private:
     Document* m_document;
 };
 
-void SinkTokenizer::stopParsing()
-{
-    Tokenizer::stopParsing();
-}
-
-void SinkTokenizer::finish()
+void SinkDocumentParser::finish()
 {
     if (!m_parserStopped) 
         m_document->finishedParsing();    
@@ -63,9 +57,9 @@ SinkDocument::SinkDocument(Frame* frame)
     setParseMode(Compat);
 }
     
-Tokenizer* SinkDocument::createTokenizer()
+DocumentParser* SinkDocument::createParser()
 {
-    return new SinkTokenizer(this);
+    return new SinkDocumentParser(this);
 }
 
 } // namespace WebCore

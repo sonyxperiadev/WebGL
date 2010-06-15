@@ -42,15 +42,15 @@ public:
         return adoptRef(new HTMLViewSourceDocument(frame, mimeType));
     }
 
-    void addViewSourceToken(Token*); // Used by the HTML tokenizer.
-    void addViewSourceText(const String&); // Used by the plaintext tokenizer.
+    void addViewSourceToken(Token*); // Used by the HTMLDocumentParser.
+    void addViewSourceText(const String&); // Used by the TextDocumentParser.
     void addViewSourceDoctypeToken(DoctypeToken*);
 
 private:
     HTMLViewSourceDocument(Frame*, const String& mimeType);
 
-    // Returns HTMLTokenizer or TextTokenizer based on m_type.
-    virtual Tokenizer* createTokenizer();
+    // Returns HTMLDocumentParser or TextDocumentParser based on m_type.
+    virtual DocumentParser* createParser();
 
     void createContainingTable();
     PassRefPtr<Element> addSpanWithClassName(const String&);

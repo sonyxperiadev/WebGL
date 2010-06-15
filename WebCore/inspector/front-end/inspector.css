@@ -2351,6 +2351,10 @@ button.enable-toggle-status-bar-item.toggled-on .glyph {
     max-width: 250px;
 }
 
+#scripts-files option.extension-script {
+    color: rgb(70, 134, 240);
+}
+
 #scripts-functions {
     max-width: 150px;
 }
@@ -3976,7 +3980,6 @@ ol.breakpoint-list {
 
 .styles-selector {
     cursor: text;
-    -webkit-user-select: text;
 }
 
 .workers-list {
@@ -4004,6 +4007,7 @@ a.worker-item {
     white-space: nowrap;
     -webkit-background-origin: padding;
     -webkit-background-clip: padding;
+    -webkit-user-select: text;
 }
 
 .styles-section:not(.first-styles-section) {
@@ -4058,7 +4062,6 @@ a.worker-item {
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;
-    -webkit-user-select: text;
     cursor: auto;
 }
 

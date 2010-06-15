@@ -45,19 +45,34 @@ const ClassInfo JSUint32ArrayConstructor::s_info = { "Uint32ArrayConstructor", &
 JSUint32ArrayConstructor::JSUint32ArrayConstructor(ExecState* exec, JSDOMGlobalObject* globalObject)
     : DOMConstructorObject(JSUint32ArrayConstructor::createStructure(globalObject->objectPrototype()), globalObject)
 {
-    putDirect(exec->propertyNames().prototype, JSUint32ArrayPrototype::self(exec, globalObject), None);
-    putDirect(exec->propertyNames().length, jsNumber(exec, 2), ReadOnly|DontDelete|DontEnum);
+    putDirect(exec->propertyNames().prototype, JSUint32ArrayPrototype::self(exec, globalObject), DontDelete | ReadOnly);
 }
 
-static JSObject* constructCanvasUnsignedIntArray(ExecState* exec, JSObject* constructor, const ArgList& args)
+JSObject* JSUint32ArrayConstructor::createPrototype(ExecState* exec, JSGlobalObject* globalObject)
 {
-    JSUint32ArrayConstructor* jsConstructor = static_cast<JSUint32ArrayConstructor*>(constructor);
+    return new (exec) JSUint32ArrayPrototype(globalObject, JSUint32ArrayPrototype::createStructure(globalObject->objectPrototype()));
+}
+
+bool JSUint32ArrayConstructor::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
+{
+    return getStaticValueSlot<JSUint32ArrayConstructor, DOMObject>(exec, JSUint32ArrayPrototype::s_info.staticPropHashTable, this, propertyName, slot);
+}
+
+bool JSUint32ArrayConstructor::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+{
+    return getStaticValueDescriptor<JSUint32ArrayConstructor, DOMObject>(exec, JSUint32ArrayPrototype::s_info.staticPropHashTable, this, propertyName, descriptor);
+}
+
+static EncodedJSValue JSC_HOST_CALL constructCanvasUnsignedIntArray(ExecState* exec)
+{
+    ArgList args(exec);
+    JSUint32ArrayConstructor* jsConstructor = static_cast<JSUint32ArrayConstructor*>(exec->callee());
     RefPtr<Uint32Array> array = static_cast<Uint32Array*>(construct<Uint32Array, unsigned int>(exec, args).get());
     if (!array.get()) {
         setDOMException(exec, INDEX_SIZE_ERR);
-        return 0;
+        return JSValue::encode(JSValue());
     }
-    return asObject(toJS(exec, jsConstructor->globalObject(), array.get()));
+    return JSValue::encode(asObject(toJS(exec, jsConstructor->globalObject(), array.get())));
 }
 
 JSC::ConstructType JSUint32ArrayConstructor::getConstructData(JSC::ConstructData& constructData)

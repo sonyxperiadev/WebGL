@@ -77,6 +77,7 @@ private slots:
 
     void acceptNavigationRequest();
     void infiniteLoopJS();
+    void geolocationRequestJS();
     void loadFinished();
     void acceptNavigationRequestWithNewWindow();
     void userStyleSheet();
@@ -123,6 +124,7 @@ private slots:
     void testJSPrompt();
     void showModalDialog();
     void testStopScheduledPageRefresh();
+    void findText();
     
 private:
     QWebView* m_view;
@@ -213,16 +215,52 @@ public:
 
 public slots:
     bool shouldInterruptJavaScript() {
-        return true; 
+        return true;
     }
+    bool allowGeolocationRequest(QWebFrame *frame) 
+    {
+        return m_allowGeolocation;
+    }
+
+public:
+    void setGeolocationPermission(bool allow) 
+    {
+        m_allowGeolocation = allow;
+    }
+
+private: 
+    bool m_allowGeolocation;
 };
 
 void tst_QWebPage::infiniteLoopJS()
 {
     JSTestPage* newPage = new JSTestPage(m_view);
     m_view->setPage(newPage);
-    m_view->setHtml(QString("<html><bodytest</body></html>"), QUrl());
+    m_view->setHtml(QString("<html><body>test</body></html>"), QUrl());
     m_view->page()->mainFrame()->evaluateJavaScript("var run = true;var a = 1;while(run){a++;}");
+    delete newPage;
+}
+
+void tst_QWebPage::geolocationRequestJS()
+{
+    JSTestPage* newPage = new JSTestPage(m_view);
+    newPage->setGeolocationPermission(false);
+    m_view->setPage(newPage);
+    m_view->setHtml(QString("<html><body>test</body></html>"), QUrl());
+    m_view->page()->mainFrame()->evaluateJavaScript("var errorCode = 0; function error(err) { errorCode = err.code; } function success(pos) { } navigator.geolocation.getCurrentPosition(success, error)");
+    QTest::qWait(2000);
+    QVariant empty = m_view->page()->mainFrame()->evaluateJavaScript("errorCode");
+
+    QVERIFY(empty.type() == QVariant::Double && empty.toInt() != 0);
+
+    newPage->setGeolocationPermission(true);
+    m_view->page()->mainFrame()->evaluateJavaScript("errorCode = 0; navigator.geolocation.getCurrentPosition(success, error);");
+    empty = m_view->page()->mainFrame()->evaluateJavaScript("errorCode");
+
+    //http://dev.w3.org/geo/api/spec-source.html#position
+    //PositionError: const unsigned short PERMISSION_DENIED = 1;
+    QVERIFY(empty.type() == QVariant::Double && empty.toInt() != 1);
+    delete newPage;
 }
 
 void tst_QWebPage::loadFinished()
@@ -2114,6 +2152,22 @@ void tst_QWebPage::testStopScheduledPageRefresh()
     page2.triggerAction(QWebPage::StopScheduledPageRefresh);
     QTest::qWait(1500);
     QCOMPARE(page2.mainFrame()->url().toString(), QString("about:blank"));
+}
+
+void tst_QWebPage::findText()
+{
+    m_view->setHtml(QString("<html><head></head><body><div>foo bar</div></body></html>"));
+    m_page->triggerAction(QWebPage::SelectAll);
+    QVERIFY(!m_page->selectedText().isEmpty());
+    m_page->findText("");
+    QVERIFY(m_page->selectedText().isEmpty());
+    QStringList words = (QStringList() << "foo" << "bar");
+    foreach (QString subString, words) {
+        m_page->findText(subString, QWebPage::FindWrapsAroundDocument);
+        QCOMPARE(m_page->selectedText(), subString);
+        m_page->findText("");
+        QVERIFY(m_page->selectedText().isEmpty());
+    }
 }
 
 QTEST_MAIN(tst_QWebPage)

@@ -27,6 +27,8 @@
 #include "AffineTransform.h"
 #include "FloatRect.h"
 #include "GraphicsContext.h"
+#include "HitTestRequest.h"
+#include "HitTestResult.h"
 #include "ImageBuffer.h"
 #include "IntRect.h"
 #include "RenderObject.h"
@@ -266,12 +268,49 @@ void RenderSVGResourceClipper::calculateClipContentRepaintRect()
     }
 }
 
-FloatRect RenderSVGResourceClipper::resourceBoundingBox(const FloatRect& objectBoundingBox)
+bool RenderSVGResourceClipper::hitTestClipContent(const FloatRect& objectBoundingBox, const FloatPoint& nodeAtPoint)
 {
+    FloatPoint point = nodeAtPoint;
+    if (!pointInClippingArea(this, point))
+        return false;
+
+    if (static_cast<SVGClipPathElement*>(node())->clipPathUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX) {
+        AffineTransform transform;
+        transform.translate(objectBoundingBox.x(), objectBoundingBox.y());
+        transform.scaleNonUniform(objectBoundingBox.width(), objectBoundingBox.height());
+        point = transform.inverse().mapPoint(point);
+    }
+
+    for (Node* childNode = node()->firstChild(); childNode; childNode = childNode->nextSibling()) {
+        RenderObject* renderer = childNode->renderer();
+        if (!childNode->isSVGElement() || !static_cast<SVGElement*>(childNode)->isStyled() || !renderer)
+            continue;
+        if (!renderer->isRenderPath() && !renderer->isSVGText() && !renderer->isSVGShadowTreeRootContainer())
+            continue;
+        IntPoint hitPoint;
+        HitTestResult result(hitPoint);
+        if (renderer->nodeAtFloatPoint(HitTestRequest(HitTestRequest::SVGClipContent), result, point, HitTestForeground))
+            return true;
+    }
+
+    return false;
+}
+
+FloatRect RenderSVGResourceClipper::resourceBoundingBox(RenderObject* object)
+{
+    // Save the reference to the calling object for relayouting it on changing resource properties.
+    if (!m_clipper.contains(object))
+        m_clipper.set(object, new ClipperData);
+
+    // Resource was not layouted yet. Give back the boundingBox of the object.
+    if (selfNeedsLayout())
+        return object->objectBoundingBox();
+    
     if (m_clipBoundaries.isEmpty())
         calculateClipContentRepaintRect();
 
     if (static_cast<SVGClipPathElement*>(node())->clipPathUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX) {
+        FloatRect objectBoundingBox = object->objectBoundingBox();
         AffineTransform transform;
         transform.translate(objectBoundingBox.x(), objectBoundingBox.y());
         transform.scaleNonUniform(objectBoundingBox.width(), objectBoundingBox.height());

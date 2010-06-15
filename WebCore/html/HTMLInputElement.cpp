@@ -47,7 +47,7 @@
 #include "HTMLImageLoader.h"
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
-#include "HTMLParser.h"
+#include "LegacyHTMLTreeConstructor.h"
 #include "KeyboardEvent.h"
 #include "LocalizedStrings.h"
 #include "MouseEvent.h"
@@ -166,6 +166,33 @@ void HTMLInputElement::updateCheckedRadioButtons()
 {
     if (attached() && checked())
         checkedRadioButtons(this).addButton(this);
+
+    if (form()) {
+        const Vector<HTMLFormControlElement*>& controls = form()->associatedElements();
+        for (unsigned i = 0; i < controls.size(); ++i) {
+            HTMLFormControlElement* control = controls[i];
+            if (control->name() != name())
+                continue;
+            if (control->type() != type())
+                continue;
+            control->setNeedsValidityCheck();
+        }
+    } else {
+        // FIXME: Traversing the document is inefficient.
+        for (Node* node = document()->body(); node; node = node->traverseNextNode()) {
+            if (!node->isElementNode())
+                continue;
+            Element* element = static_cast<Element*>(node);
+            if (element->formControlName() != name())
+                continue;
+            if (element->formControlType() != type())
+                continue;
+            HTMLFormControlElement* control = static_cast<HTMLFormControlElement*>(element);
+            if (control->form())
+                continue;
+            control->setNeedsValidityCheck();
+        }
+    }
    
     if (renderer() && renderer()->style()->hasAppearance())
         renderer()->theme()->stateChanged(renderer(), CheckedState);
@@ -1423,7 +1450,6 @@ void HTMLInputElement::setChecked(bool nowChecked, bool sendChangeEvent)
 
     m_useDefaultChecked = false;
     m_checked = nowChecked;
-    setNeedsValidityCheck();
     setNeedsStyleRecalc();
 
     updateCheckedRadioButtons();

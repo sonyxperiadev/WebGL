@@ -241,9 +241,9 @@ WebInspector.ScriptsPanel.prototype = {
         return this.toggleBreakpointsButton.toggled;
     },
 
-    addScript: function(sourceID, sourceURL, source, startingLine, errorLine, errorMessage)
+    addScript: function(sourceID, sourceURL, source, startingLine, errorLine, errorMessage, scriptWorldType)
     {
-        var script = new WebInspector.Script(sourceID, sourceURL, source, startingLine, errorLine, errorMessage);
+        var script = new WebInspector.Script(sourceID, sourceURL, source, startingLine, errorLine, errorMessage, scriptWorldType);
         this._sourceIDMap[sourceID] = script;
 
         var resource = WebInspector.resourceURLMap[sourceURL];
@@ -262,6 +262,13 @@ WebInspector.ScriptsPanel.prototype = {
             }
         }
         this._addScriptToFilesMenu(script);
+    },
+
+    continueToLine: function(sourceID, line)
+    {
+        WebInspector.breakpointManager.setOneTimeBreakpoint(sourceID, line);
+        if (this.paused)
+            this._togglePause();
     },
 
     _resourceLoadingFinished: function(e)
@@ -334,10 +341,10 @@ WebInspector.ScriptsPanel.prototype = {
 
     canEditScripts: function()
     {
-        return !!InspectorBackend.editScriptSource;
+        return Preferences.canEditScriptSource;
     },
 
-    editScriptSource: function(sourceID, newContent, line, linesCountToShift, callback)
+    editScriptSource: function(sourceID, newContent, line, linesCountToShift, commitEditingCallback, cancelEditingCallback)
     {
         if (!this.canEditScripts())
             return;
@@ -347,12 +354,19 @@ WebInspector.ScriptsPanel.prototype = {
         for (var i = 0; i < breakpoints.length; ++i)
             WebInspector.breakpointManager.removeBreakpoint(breakpoints[i]);
 
-        function mycallback(newBody)
+        function mycallback(success, newBodyOrErrorMessage, callFrames)
         {
-            callback(newBody);
+            if (success) {
+                commitEditingCallback(newBodyOrErrorMessage);
+                if (callFrames && callFrames.length)
+                    this.debuggerPaused(callFrames);
+            } else {
+                cancelEditingCallback();
+                WebInspector.log(newBodyOrErrorMessage, WebInspector.ConsoleMessage.MessageLevel.Warning);
+            }
             for (var i = 0; i < breakpoints.length; ++i) {
                 var breakpoint = breakpoints[i];
-                if (breakpoint.line >= line)
+                if (success && breakpoint.line >= line)
                     breakpoint.line += linesCountToShift;
                 WebInspector.breakpointManager.addBreakpoint(breakpoint);
             }
@@ -400,6 +414,7 @@ WebInspector.ScriptsPanel.prototype = {
 
     debuggerPaused: function(callFrames)
     {
+        WebInspector.breakpointManager.removeOneTimeBreakpoint();
         this._paused = true;
         this._waitingToPause = false;
         this._stepping = false;
@@ -624,7 +639,7 @@ WebInspector.ScriptsPanel.prototype = {
 
         var url = scriptOrResource.url || scriptOrResource.sourceURL;
         if (url && !options.initialLoad)
-            WebInspector.settings.lastViewedScriptFile = url;
+            WebInspector.applicationSettings.lastViewedScriptFile = url;
 
         if (!options.fromBackForwardAction) {
             var oldIndex = this._currentBackForwardIndex;
@@ -725,10 +740,13 @@ WebInspector.ScriptsPanel.prototype = {
         else {
             // if not first item, check to see if this was the last viewed
             var url = option.representedObject.url || option.representedObject.sourceURL;
-            var lastURL = WebInspector.settings.lastViewedScriptFile;
+            var lastURL = WebInspector.applicationSettings.lastViewedScriptFile;
             if (url && url === lastURL)
                 this._showScriptOrResource(option.representedObject, {initialLoad: true});
         }
+
+        if (script.worldType === WebInspector.Script.WorldType.EXTENSIONS_WORLD)
+            script.filesSelectOption.addStyleClass("extension-script");
     },
 
     _clearCurrentExecutionLine: function()

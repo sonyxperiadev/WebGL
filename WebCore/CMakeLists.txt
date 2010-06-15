@@ -277,7 +277,7 @@ SET(WebCore_IDL_FILES
 
     html/canvas/ArrayBuffer.idl
     html/canvas/ArrayBufferView.idl
-    html/canvas/FloatArray.idl
+    html/canvas/Float32Array.idl
     html/canvas/Int16Array.idl
     html/canvas/Int32Array.idl
     html/canvas/Int8Array.idl
@@ -307,6 +307,7 @@ SET(WebCore_IDL_FILES
     page/Geoposition.idl
     page/History.idl
     page/Location.idl
+    page/MemoryInfo.idl
     page/Navigator.idl
     page/PositionError.idl
     page/Screen.idl
@@ -328,6 +329,7 @@ SET(WebCore_IDL_FILES
     storage/IDBErrorEvent.idl
     storage/IDBEvent.idl
     storage/IDBIndexRequest.idl
+    storage/IDBKeyRange.idl
     storage/IDBObjectStoreRequest.idl
     storage/IDBRequest.idl
     storage/IDBSuccessEvent.idl
@@ -645,7 +647,6 @@ SET(WebCore_SOURCES
     bindings/js/JSWorkerContextCustom.cpp
     bindings/js/JSWorkerContextErrorHandler.cpp
     bindings/js/JSWorkerCustom.cpp
-    bindings/js/JSXMLHttpRequestConstructor.cpp
     bindings/js/JSXMLHttpRequestCustom.cpp
     bindings/js/JSXMLHttpRequestUploadCustom.cpp
     bindings/js/JSXSLTProcessorConstructor.cpp
@@ -704,6 +705,7 @@ SET(WebCore_SOURCES
     css/CSSInitialValue.cpp
     css/CSSMediaRule.cpp
     css/CSSMutableStyleDeclaration.cpp
+    css/CSSOMUtils.cpp
     css/CSSPageRule.cpp
     css/CSSParser.cpp
     css/CSSParserValues.cpp
@@ -832,9 +834,9 @@ SET(WebCore_SOURCES
     dom/WebKitAnimationEvent.cpp
     dom/WebKitTransitionEvent.cpp
     dom/WheelEvent.cpp
-    dom/XMLTokenizer.cpp
-    dom/XMLTokenizerLibxml2.cpp
-    dom/XMLTokenizerScope.cpp
+    dom/XMLDocumentParser.cpp
+    dom/XMLDocumentParserLibxml2.cpp
+    dom/XMLDocumentParserScope.cpp
 
     dom/default/PlatformMessagePortChannel.cpp
 
@@ -891,6 +893,7 @@ SET(WebCore_SOURCES
     history/HistoryItem.cpp
     history/PageCache.cpp
 
+    html/AsyncImageResizer.cpp
     html/Blob.cpp
     html/CollectionCache.cpp
     html/DOMDataGridDataSource.cpp
@@ -901,8 +904,9 @@ SET(WebCore_SOURCES
     html/File.cpp
     html/FileList.cpp
     html/FormDataList.cpp
+    html/HTML5EntityParser.cpp
     html/HTML5Lexer.cpp
-    html/HTML5Tokenizer.cpp
+    html/HTML5DocumentParser.cpp
     html/HTML5TreeBuilder.cpp
     html/HTML5ScriptRunner.cpp
     html/HTMLAllCollection.cpp
@@ -965,7 +969,7 @@ SET(WebCore_SOURCES
     html/HTMLOptionsCollection.cpp
     html/HTMLParagraphElement.cpp
     html/HTMLParamElement.cpp
-    html/HTMLParser.cpp
+    html/LegacyHTMLTreeConstructor.cpp
     html/HTMLParserErrorCodes.cpp
     html/HTMLPlugInElement.cpp
     html/HTMLPlugInImageElement.cpp
@@ -985,10 +989,11 @@ SET(WebCore_SOURCES
     html/HTMLTableSectionElement.cpp
     html/HTMLTextAreaElement.cpp
     html/HTMLTitleElement.cpp
-    html/HTMLTokenizer.cpp
+    html/HTMLDocumentParser.cpp
     html/HTMLUListElement.cpp
     html/HTMLViewSourceDocument.cpp
     html/ImageData.cpp
+    html/ImageResizerThread.cpp
     html/LabelsNodeList.cpp
     html/PreloadScanner.cpp
     html/StepRange.cpp
@@ -1095,6 +1100,7 @@ SET(WebCore_SOURCES
     page/GeolocationPositionCache.cpp
     page/History.cpp
     page/Location.cpp
+    page/MemoryInfo.cpp
     page/MouseEventWithHitTestResults.cpp
     page/Navigator.cpp
     page/NavigatorBase.cpp
@@ -1121,6 +1127,7 @@ SET(WebCore_SOURCES
     page/animation/KeyframeAnimation.cpp
 
     platform/Arena.cpp
+    platform/BlobItem.cpp
     platform/ContentType.cpp
     platform/ContextMenu.cpp
     platform/CrossThreadCopier.cpp
@@ -1130,6 +1137,7 @@ SET(WebCore_SOURCES
     platform/FileChooser.cpp
     platform/GeolocationService.cpp
     platform/KURL.cpp
+    platform/KillRingNone.cpp
     platform/Length.cpp
     platform/LinkHash.cpp
     platform/Logging.cpp
@@ -1257,7 +1265,6 @@ SET(WebCore_SOURCES
     plugins/PluginDataNone.cpp
     plugins/PluginMainThreadScheduler.cpp
     plugins/PluginViewNone.cpp
-    plugins/npapi.cpp
 
     rendering/AutoTableLayout.cpp
     rendering/BidiRun.cpp
@@ -1330,6 +1337,7 @@ SET(WebCore_SOURCES
     rendering/RenderWordBreak.cpp
     rendering/RootInlineBox.cpp
     rendering/ScrollBehavior.cpp
+    rendering/ShadowElement.cpp
     rendering/TextControlInnerElements.cpp
     rendering/TransformState.cpp
     rendering/break_lines.cpp
@@ -1364,12 +1372,13 @@ SET(WebCore_SOURCES
     storage/DatabaseThread.cpp
     storage/DatabaseTracker.cpp
     storage/IDBAny.cpp
-    storage/IDBDatabase.cpp
+    storage/IDBDatabaseImpl.cpp
     storage/IDBDatabaseRequest.cpp
     storage/IDBErrorEvent.cpp
     storage/IDBEvent.cpp
+    storage/IDBKeyRange.cpp
     storage/IDBRequest.cpp
-    storage/IDBObjectStore.cpp
+    storage/IDBObjectStoreImpl.cpp
     storage/IDBObjectStoreRequest.cpp
     storage/IDBSuccessEvent.cpp
     storage/IndexedDatabase.cpp
@@ -1729,11 +1738,16 @@ SOURCE_GROUP(wml "wml/")
 SOURCE_GROUP(workers "workers/")
 SOURCE_GROUP(xml "xml/")
 
+SET(WebCore_LINK_FLAGS "")
 INCLUDE_IF_EXISTS(${WEBCORE_DIR}/CMakeLists${PORT}.txt)
 
 ADD_DEFINITIONS(-DBUILDING_WebCore)
 INCLUDE_DIRECTORIES(${WebCore_INCLUDE_DIRECTORIES})
 ADD_LIBRARY(${WebCore_LIBRARY_NAME} ${WebCore_LIBRARY_TYPE} ${WebCore_SOURCES})
 TARGET_LINK_LIBRARIES(${WebCore_LIBRARY_NAME} ${WebCore_LIBRARIES})
+ADD_TARGET_PROPERTIES(${WebCore_LIBRARY_NAME} LINK_FLAGS ${WebCore_LINK_FLAGS})
 
-INSTALL(TARGETS ${WebCore_LIBRARY_NAME} DESTINATION lib)
+
+IF (SHARED_CORE)
+    INSTALL(TARGETS ${WebCore_LIBRARY_NAME} DESTINATION lib)
+ENDIF ()

@@ -39,13 +39,13 @@
 #include "HTMLElementFactory.h"
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
-#include "HTMLTokenizer.h"
+#include "HTMLDocumentParser.h"
 #include "RenderWordBreak.h"
 #include "ScriptEventListener.h"
 #include "Settings.h"
 #include "Text.h"
 #include "TextIterator.h"
-#include "XMLTokenizer.h"
+#include "XMLDocumentParser.h"
 #include "markup.h"
 #include <wtf/StdLibExtras.h>
 
@@ -144,7 +144,7 @@ bool HTMLElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry
     
 void HTMLElement::parseMappedAttribute(Attribute* attr)
 {
-    if (attr->name() == idAttributeName() || attr->name() == classAttr || attr->name() == styleAttr)
+    if (isIdAttributeName(attr->name()) || attr->name() == classAttr || attr->name() == styleAttr)
         return StyledElement::parseMappedAttribute(attr);
 
     String indexstring;

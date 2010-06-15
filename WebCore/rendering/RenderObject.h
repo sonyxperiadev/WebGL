@@ -66,6 +66,7 @@ class RenderSVGResourceContainer;
  *  three phases invoked on them during this phase.
  */
 
+// FIXME: These enums should move to their own header since they're used by other headers.
 enum PaintPhase {
     PaintPhaseBlockBackground,
     PaintPhaseChildBlockBackground,
@@ -450,8 +451,10 @@ public:
     bool isRooted(RenderView** = 0);
 
     Node* node() const { return m_isAnonymous ? 0 : m_node; }
-    Document* document() const { return m_node->document(); }
     void setNode(Node* node) { m_node = node; }
+
+    Document* document() const { return m_node->document(); }
+    Frame* frame() const { return document()->frame(); }
 
     bool hasOutlineAnnotation() const;
     bool hasOutline() const { return style()->hasOutline() || hasOutlineAnnotation(); }

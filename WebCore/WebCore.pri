@@ -8,6 +8,9 @@ CONFIG(minimal) {
   DEFINES += ENABLE_NETSCAPE_PLUGIN_API=0
 }
 
+## load mobilityconfig if mobility is available 
+load(mobilityconfig, true)
+
 ## Define default features macros for optional components
 ## (look for defs in config.h and included files!)
 # Try to locate sqlite3 source
@@ -62,6 +65,7 @@ contains(DEFINES, ENABLE_SINGLE_THREADED=1) {
 !contains(DEFINES, ENABLE_PROGRESS_TAG=.): DEFINES += ENABLE_PROGRESS_TAG=1
 !contains(DEFINES, ENABLE_BLOB_SLICE=.): DEFINES += ENABLE_BLOB_SLICE=0
 !contains(DEFINES, ENABLE_NOTIFICATIONS=.): DEFINES += ENABLE_NOTIFICATIONS=1
+!contains(DEFINES, ENABLE_IMAGE_RESIZER=.): DEFINES += ENABLE_IMAGE_RESIZER=0
 
 greaterThan(QT_MINOR_VERSION, 5) {
     !contains(DEFINES, ENABLE_3D_RENDERING=.): DEFINES += ENABLE_3D_RENDERING=1
@@ -108,17 +112,24 @@ greaterThan(QT_MINOR_VERSION, 5) {
     else:DEFINES += ENABLE_XSLT=0
 }
 
-!CONFIG(QTDIR_build):!contains(DEFINES, ENABLE_QT_BEARER=.) {
-    symbian: {
-        exists($${EPOCROOT}epoc32/release/winscw/udeb/QtBearer.lib)| \
-        exists($${EPOCROOT}epoc32/release/armv5/lib/QtBearer.lib) {
-            DEFINES += ENABLE_QT_BEARER=1
-        }
+# geolocation support if QtMobility exists
+!CONFIG(QTDIR_build):!contains(DEFINES, ENABLE_GEOLOCATION=.) {
+    contains(MOBILITY_CONFIG, location) {
+       DEFINES += ENABLE_GEOLOCATION=1
     }
 }
 
 # Bearer management is part of Qt 4.7
-!lessThan(QT_MINOR_VERSION, 7):!contains(DEFINES, ENABLE_QT_BEARER=.):DEFINES += ENABLE_QT_BEARER=1
+# for older version, check for mobility with bearer 
+!contains(DEFINES, ENABLE_QT_BEARER=.) {
+     !lessThan(QT_MINOR_VERSION, 7) {
+        DEFINES += ENABLE_QT_BEARER=1
+     } else {
+        contains(MOBILITY_CONFIG, bearer) {
+            DEFINES += ENABLE_QT_BEARER=1
+        }
+    }
+}
 
 # Enable touch event support with Qt 4.6
 !lessThan(QT_MINOR_VERSION, 6): DEFINES += ENABLE_TOUCH_EVENTS=1
@@ -166,7 +177,7 @@ contains(DEFINES, ENABLE_TILED_BACKING_STORE=1): FEATURE_DEFINES_JAVASCRIPT += E
 contains(DEFINES, ENABLE_NOTIFICATIONS=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_NOTIFICATIONS=1
 contains(DEFINES, ENABLE_METER_TAG=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_METER_TAG=1
 contains(DEFINES, ENABLE_PROGRESS_TAG=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_PROGRESS_TAG=1
-
+contains(DEFINES, ENABLE_GEOLOCATION=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_GEOLOCATION=1
 
 ## Derived source generators
 MATHML_NAMES = $$PWD/mathml/mathtags.in
@@ -179,7 +190,7 @@ XLINK_NAMES = $$PWD/svg/xlinkattrs.in
 
 TOKENIZER = $$PWD/css/tokenizer.flex
 
-DOCTYPESTRINGS = $$PWD/html/DocTypeStrings.gperf
+DOCTYPESTRINGS_GPERF = $$PWD/html/DocTypeStrings.gperf
 
 CSSBISON = $$PWD/css/CSSGrammar.y
 
@@ -191,7 +202,7 @@ XMLNS_NAMES = $$PWD/xml/xmlnsattrs.in
 
 ENTITIES_GPERF = $$PWD/html/HTMLEntityNames.gperf
 
-COLORDAT_GPERF = $$PWD/platform/ColorData.gperf
+COLORDATA_GPERF = $$PWD/platform/ColorData.gperf
 
 WALDOCSSPROPS = $$PWD/css/CSSPropertyNames.in
 
@@ -308,7 +319,7 @@ IDL_BINDINGS += \
     html/canvas/ArrayBufferView.idl \
     html/canvas/ArrayBuffer.idl \
     html/canvas/Int8Array.idl \
-    html/canvas/FloatArray.idl \
+    html/canvas/Float32Array.idl \
     html/canvas/CanvasGradient.idl \
     html/canvas/Int32Array.idl \
     html/canvas/CanvasPattern.idl \
@@ -432,6 +443,7 @@ IDL_BINDINGS += \
     page/Geoposition.idl \
     page/History.idl \
     page/Location.idl \
+    page/MemoryInfo.idl \
     page/Navigator.idl \
     page/PositionError.idl \
     page/Screen.idl \
@@ -451,6 +463,7 @@ IDL_BINDINGS += \
     storage/IDBErrorEvent.idl \
     storage/IDBEvent.idl \
     storage/IDBIndexRequest.idl \
+    storage/IDBKeyRange.idl \
     storage/IDBObjectStoreRequest.idl \
     storage/IDBRequest.idl \
     storage/IDBSuccessEvent.idl \
@@ -644,6 +657,7 @@ contains(DEFINES, ENABLE_SVG=1) {
     # GENERATOR 5-C:
     svgnames.output = $${WC_GENERATED_SOURCES_DIR}/SVGNames.cpp
     svgnames.input = SVG_NAMES
+    svgnames.depends = $$PWD/svg/svgattrs.in
     svgnames.wkScript = $$PWD/dom/make_names.pl
     svgnames.commands = perl -I$$PWD/bindings/scripts $$svgnames.wkScript --tags $$PWD/svg/svgtags.in --attrs $$PWD/svg/svgattrs.in --extraDefines \"$${DEFINES}\" --preprocessor \"$${QMAKE_MOC} -E\" --factory --wrapperFactory --outputDir $$WC_GENERATED_SOURCES_DIR
     svgnames.wkExtraSources = $${WC_GENERATED_SOURCES_DIR}/SVGElementFactory.cpp $${WC_GENERATED_SOURCES_DIR}/JSSVGElementWrapperFactory.cpp
@@ -658,17 +672,17 @@ xlinknames.input = XLINK_NAMES
 addExtraCompiler(xlinknames)
 
 # GENERATOR 6-A:
-cssprops.output = $${WC_GENERATED_SOURCES_DIR}/${QMAKE_FILE_BASE}.cpp
-cssprops.input = WALDOCSSPROPS
 cssprops.wkScript = $$PWD/css/makeprop.pl
+cssprops.output = $${WC_GENERATED_SOURCES_DIR}/CSSPropertyNames.cpp
+cssprops.input = WALDOCSSPROPS
 cssprops.commands = perl -ne \"print lc\" ${QMAKE_FILE_NAME} $${DASHBOARDSUPPORTCSSPROPERTIES} $${EXTRACSSPROPERTIES} > $${WC_GENERATED_SOURCES_DIR}/${QMAKE_FILE_BASE}.in && cd $$WC_GENERATED_SOURCES_DIR && perl $$cssprops.wkScript && $(DEL_FILE) ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.gperf
 cssprops.depends = ${QMAKE_FILE_NAME} $${DASHBOARDSUPPORTCSSPROPERTIES} $${EXTRACSSPROPERTIES}
 addExtraCompiler(cssprops)
 
 # GENERATOR 6-B:
-cssvalues.output = $${WC_GENERATED_SOURCES_DIR}/${QMAKE_FILE_BASE}.c
-cssvalues.input = WALDOCSSVALUES
 cssvalues.wkScript = $$PWD/css/makevalues.pl
+cssvalues.output = $${WC_GENERATED_SOURCES_DIR}/CSSValueKeywords.cpp
+cssvalues.input = WALDOCSSVALUES
 cssvalues.commands = perl -ne \"print lc\" ${QMAKE_FILE_NAME} $$EXTRACSSVALUES > $${WC_GENERATED_SOURCES_DIR}/${QMAKE_FILE_BASE}.in && cd $$WC_GENERATED_SOURCES_DIR && perl $$cssvalues.wkScript && $(DEL_FILE) ${QMAKE_FILE_BASE}.in ${QMAKE_FILE_BASE}.gperf
 cssvalues.depends = ${QMAKE_FILE_NAME} $${EXTRACSSVALUES}
 cssvalues.clean = ${QMAKE_FILE_OUT} ${QMAKE_VAR_WC_GENERATED_SOURCES_DIR}/${QMAKE_FILE_BASE}.h
@@ -725,23 +739,30 @@ xmlnames.commands = perl -I$$PWD/bindings/scripts $$xmlnames.wkScript --attrs $$
 addExtraCompiler(xmlnames)
 
 # GENERATOR 8-A:
-entities.output = $${WC_GENERATED_SOURCES_DIR}/HTMLEntityNames.c
+entities.output = $${WC_GENERATED_SOURCES_DIR}/HTMLEntityNames.cpp
 entities.input = ENTITIES_GPERF
-entities.commands = gperf -a -L ANSI-C -C -G -c -o -t --includes --key-positions="*" -N findEntity -D -s 2 < $$PWD/html/HTMLEntityNames.gperf > $${WC_GENERATED_SOURCES_DIR}/HTMLEntityNames.c
+entities.wkScript = $$PWD/make-hash-tools.pl
+entities.commands = perl $$entities.wkScript $${WC_GENERATED_SOURCES_DIR} $$ENTITIES_GPERF
 entities.clean = ${QMAKE_FILE_OUT}
+entities.depends = $$PWD/make-hash-tools.pl
 addExtraCompiler(entities)
 
 # GENERATOR 8-B:
-doctypestrings.output = $${WC_GENERATED_SOURCES_DIR}/${QMAKE_FILE_BASE}.cpp
-doctypestrings.input = DOCTYPESTRINGS
-doctypestrings.commands = gperf -CEot -L ANSI-C --includes --key-positions="*" -N findDoctypeEntry -F ,PubIDInfo::eAlmostStandards,PubIDInfo::eAlmostStandards < ${QMAKE_FILE_NAME} >> ${QMAKE_FILE_OUT}
+doctypestrings.output = $${WC_GENERATED_SOURCES_DIR}/DocTypeStrings.cpp
+doctypestrings.input = DOCTYPESTRINGS_GPERF
+doctypestrings.wkScript = $$PWD/make-hash-tools.pl
+doctypestrings.commands = perl $$doctypestrings.wkScript $${WC_GENERATED_SOURCES_DIR} $$DOCTYPESTRINGS_GPERF
 doctypestrings.clean = ${QMAKE_FILE_OUT}
+doctypestrings.depends = $$PWD/make-hash-tools.pl
 addExtraCompiler(doctypestrings)
 
 # GENERATOR 8-C:
-colordata.output = $${WC_GENERATED_SOURCES_DIR}/ColorData.c
-colordata.input = COLORDAT_GPERF
-colordata.commands = gperf -CDEot -L ANSI-C --includes --key-positions="*" -N findColor -D -s 2 < ${QMAKE_FILE_NAME} >> ${QMAKE_FILE_OUT}
+colordata.output = $${WC_GENERATED_SOURCES_DIR}/ColorData.cpp
+colordata.input = COLORDATA_GPERF
+colordata.wkScript = $$PWD/make-hash-tools.pl
+colordata.commands = perl $$colordata.wkScript $${WC_GENERATED_SOURCES_DIR} $$COLORDATA_GPERF
+colordata.clean = ${QMAKE_FILE_OUT}
+colordata.depends = $$PWD/make-hash-tools.pl
 addExtraCompiler(colordata)
 
 # GENERATOR 9:

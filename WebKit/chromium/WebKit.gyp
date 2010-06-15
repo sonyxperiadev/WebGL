@@ -140,6 +140,7 @@
                 'public/WebIDBDatabase.h',
                 'public/WebIDBDatabaseError.h',
                 'public/WebIDBIndex.h',
+                'public/WebIDBObjectStore.h',
                 'public/WebIndexedDatabase.h',
                 'public/WebInputElement.h',
                 'public/WebInputEvent.h',
@@ -269,6 +270,8 @@
                 'src/IDBDatabaseProxy.h',
                 'src/IDBIndexProxy.cpp',
                 'src/IDBIndexProxy.h',
+                'src/IDBObjectStoreProxy.cpp',
+                'src/IDBObjectStoreProxy.h',
                 'src/IndexedDatabaseProxy.cpp',
                 'src/IndexedDatabaseProxy.h',
                 'src/InspectorClientImpl.cpp',
@@ -358,6 +361,8 @@
                 'src/WebIDBDatabaseImpl.h',
                 'src/WebIDBIndexImpl.cpp',
                 'src/WebIDBIndexImpl.h',
+                'src/WebIDBObjectStoreImpl.cpp',
+                'src/WebIDBObjectStoreImpl.h',
                 'src/WebImageCG.cpp',
                 'src/WebImageDecoder.cpp',
                 'src/WebImageSkia.cpp',
@@ -518,6 +523,7 @@
                 '<(chromium_src_dir)/testing/gtest.gyp:gtest',
                 '<(chromium_src_dir)/base/base.gyp:base',
                 '<(chromium_src_dir)/base/base.gyp:base_i18n',
+                '<(chromium_src_dir)/gpu/gpu.gyp:gles2_c_lib',
             ],
             'include_dirs': [
                 'public',
@@ -570,7 +576,9 @@
                 'webkit',
                 '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:wtf_config',
                 '<(chromium_src_dir)/third_party/icu/icu.gyp:icuuc',
+                '<(chromium_src_dir)/webkit/support/webkit_support.gyp:npapi_layout_test_plugin',
                 '<(chromium_src_dir)/webkit/support/webkit_support.gyp:webkit_support',
+                '<(chromium_src_dir)/gpu/gpu.gyp:gles2_c_lib'
             ],
             'include_dirs': [
                 '.',
@@ -600,7 +608,43 @@
                     'copies': [{
                         'destination': '<(PRODUCT_DIR)',
                         'files': ['<(ahem_path)'],
+                    }, {
+                        # This should really be done in the 'npapi_layout_test_plugin'
+                        # target, but the current VS generator handles 'copies'
+                        # settings as AdditionalDependencies, which means that
+                        # when it's over there, it tries to do the copy *before*
+                        # the file is built, instead of after.  We work around this
+                        # by attaching the copy here, since it depends on that
+                        # target.
+                        'destination': '<(PRODUCT_DIR)/plugins',
+                        'files': ['<(PRODUCT_DIR)/npapi_layout_test_plugin.dll'],
                     }],
+                },{ # OS!="win"
+                    'sources/': [
+                        ['exclude', 'Win\\.cpp$'],
+                    ],
+                    'actions': [
+                        {
+                            'action_name': 'repack_locale',
+                            'variables': {
+                                'repack_path': '<(chromium_src_dir)/tools/data_pack/repack.py',
+                                'pak_inputs': [
+                                    '<(SHARED_INTERMEDIATE_DIR)/net/net_resources.pak',
+                                    '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_chromium_resources.pak',
+                                    '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_strings_en-US.pak',
+                                    '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_resources.pak',
+                            ]},
+                            'inputs': [
+                                '<(repack_path)',
+                                '<@(pak_inputs)',
+                            ],
+                            'outputs': [
+                                '<(INTERMEDIATE_DIR)/repack/DumpRenderTree.pak',
+                            ],
+                            'action': ['python', '<(repack_path)', '<@(_outputs)', '<@(pak_inputs)'],
+                            'process_outputs_as_mac_bundle_resources': 1,
+                        },
+                    ], # actions
                 }],
                 ['OS=="mac"', {
                     'dependencies': ['LayoutTestHelper'],
@@ -618,51 +662,31 @@
                         '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher900.ttf',
                         '<(SHARED_INTERMEDIATE_DIR)/webkit/textAreaResizeCorner.png',
                     ],
-                    'actions': [
-                        {
-                            'action_name': 'repack_locale',
-                            'variables': {
-                                'repack_path': '<(chromium_src_dir)/tools/data_pack/repack.py',
-                                'pak_inputs': [
-                                    '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_chromium_resources.pak',
-                                    '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_strings_en-US.pak',
-                                    '<(SHARED_INTERMEDIATE_DIR)/webkit/webkit_resources.pak',
-                            ]},
-                            'inputs': [
-                                '<(repack_path)',
-                                '<@(pak_inputs)',
-                            ],
-                            'outputs': [
-                                '<(INTERMEDIATE_DIR)/repack/DumpRenderTree.pak',
-                            ],
-                            'action': ['python', '<(repack_path)', '<@(_outputs)', '<@(pak_inputs)'],
-                            'process_outputs_as_mac_bundle_resources': 1,
-                        },
-                    ], # actions
+                    'copies': [{
+                        'destination': '<(PRODUCT_DIR)/DumpRenderTree.app/Contents/PlugIns/',
+                        'files': ['<(PRODUCT_DIR)/TestNetscapePlugIn.plugin/'],
+                    }],
+                },{ # OS!="mac"
+                    'sources/': [
+                        # .mm is already excluded by common.gypi
+                        ['exclude', 'Mac\\.cpp$'],
+                    ]
                 }],
-                ['OS=="linux"', {
+                ['OS=="linux" or OS=="freebsd" or OS=="openbsd" or OS=="solaris"', {
                     'copies': [{
                         'destination': '<(PRODUCT_DIR)',
                         'files': [
                             '<(ahem_path)',
                             '../../WebKitTools/DumpRenderTree/chromium/fonts.conf',
-                        ],
+                            '<(INTERMEDIATE_DIR)/repack/DumpRenderTree.pak',
+                        ]
+                    }, {
+                        'destination': '<(PRODUCT_DIR)/plugins',
+                        'files': ['<(PRODUCT_DIR)/libnpapi_layout_test_plugin.so'],
                     }],
-                }],
-                ['OS!="linux" and OS!="freebsd" and OS!="openbsd"', {
+                },{ # OS!="linux" and OS!="freebsd" and OS!="openbsd" and OS!="solaris"
                     'sources/': [
                         ['exclude', '(Gtk|Linux)\\.cpp$']
-                    ]
-                }],
-                ['OS!="win"', {
-                    'sources/': [
-                        ['exclude', 'Win\\.cpp$'],
-                    ]
-                }],
-                ['OS!="mac"', {
-                    'sources/': [
-                        # .mm is already excluded by common.gypi
-                        ['exclude', 'Mac\\.cpp$'],
                     ]
                 }],
             ],

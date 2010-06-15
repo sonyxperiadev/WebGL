@@ -43,6 +43,9 @@
 #include "NotificationPresenter.h"
 #include "NotificationContents.h"
 #include "RegisteredEventListener.h"
+#include "SharedBuffer.h"
+#include "ThreadableLoader.h"
+#include "ThreadableLoaderClient.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -53,10 +56,10 @@ namespace WebCore {
 
     class WorkerContext;
 
-    class Notification : public RefCounted<Notification>, public ActiveDOMObject, public EventTarget { 
+    class Notification : public RefCounted<Notification>, public ActiveDOMObject, public ThreadableLoaderClient, public EventTarget {
     public:
-        static Notification* create(const KURL& url, ScriptExecutionContext* context, ExceptionCode& ec, NotificationPresenter* provider) { return new Notification(url, context, ec, provider); }
-        static Notification* create(const NotificationContents& contents, ScriptExecutionContext* context, ExceptionCode& ec, NotificationPresenter* provider) { return new Notification(contents, context, ec, provider); }
+        static PassRefPtr<Notification> create(const KURL& url, ScriptExecutionContext* context, ExceptionCode& ec, NotificationPresenter* provider) { return adoptRef(new Notification(url, context, ec, provider)); }
+        static PassRefPtr<Notification> create(const NotificationContents& contents, ScriptExecutionContext* context, ExceptionCode& ec, NotificationPresenter* provider) { return adoptRef(new Notification(contents, context, ec, provider)); }
         
         virtual ~Notification();
 
@@ -84,6 +87,21 @@ namespace WebCore {
         virtual ScriptExecutionContext* scriptExecutionContext() const { return ActiveDOMObject::scriptExecutionContext(); }
         virtual Notification* toNotification() { return this; }
 
+        void stopLoading();
+
+        SharedBuffer* iconData() { return m_iconData.get(); }
+        void releaseIconData() { m_iconData = 0; }
+
+        // Called if the presenter is deleted before the notification is GC'd
+        void detachPresenter() { m_presenter = 0; }
+
+        virtual void didReceiveResponse(const ResourceResponse&);
+        virtual void didReceiveData(const char* data, int lengthReceived);
+        virtual void didFinishLoading(unsigned long identifier);
+        virtual void didFail(const ResourceError&);
+        virtual void didFailRedirectCheck();
+        virtual void didReceiveAuthenticationCancellation(const ResourceResponse&);
+
     private:
         Notification(const KURL&, ScriptExecutionContext*, ExceptionCode&, NotificationPresenter*);
         Notification(const NotificationContents&, ScriptExecutionContext*, ExceptionCode&, NotificationPresenter*);
@@ -94,18 +112,31 @@ namespace WebCore {
         virtual EventTargetData* eventTargetData();
         virtual EventTargetData* ensureEventTargetData();
 
+        void startLoading();
+        void finishLoading();
+
         bool m_isHTML;
         KURL m_notificationURL;
         NotificationContents m_contents;
 
         String m_direction;
         String m_replaceId;
-      
-        bool m_isShowing;
+
+        enum NotificationState {
+            Idle = 0,
+            Loading = 1,
+            Showing = 2,
+            Cancelled = 3
+        };
+
+        NotificationState m_state;
 
         NotificationPresenter* m_presenter;
         
         EventTargetData m_eventTargetData;
+
+        RefPtr<ThreadableLoader> m_loader;
+        RefPtr<SharedBuffer> m_iconData;
     };
 
 } // namespace WebCore

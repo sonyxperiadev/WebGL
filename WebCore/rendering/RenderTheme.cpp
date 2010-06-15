@@ -226,6 +226,10 @@ void RenderTheme::adjustStyle(CSSStyleSelector* selector, RenderStyle* style, El
 #endif
 #if ENABLE(METER_TAG)
         case MeterPart:
+        case RelevancyLevelIndicatorPart:
+        case ContinuousCapacityLevelIndicatorPart:
+        case DiscreteCapacityLevelIndicatorPart:
+        case RatingLevelIndicatorPart:
             return adjustMeterStyle(selector, style, e);
 #endif
         default:
@@ -288,6 +292,10 @@ bool RenderTheme::paint(RenderObject* o, const RenderObject::PaintInfo& paintInf
             return paintMenuList(o, paintInfo, r);
 #if ENABLE(METER_TAG)
         case MeterPart:
+        case RelevancyLevelIndicatorPart:
+        case ContinuousCapacityLevelIndicatorPart:
+        case DiscreteCapacityLevelIndicatorPart:
+        case RatingLevelIndicatorPart:
             return paintMeter(o, paintInfo, r);
 #endif
 #if ENABLE(PROGRESS_TAG)
@@ -386,6 +394,10 @@ bool RenderTheme::paintBorderOnly(RenderObject* o, const RenderObject::PaintInfo
         case MenulistPart:
 #if ENABLE(METER_TAG)
         case MeterPart:
+        case RelevancyLevelIndicatorPart:
+        case ContinuousCapacityLevelIndicatorPart:
+        case DiscreteCapacityLevelIndicatorPart:
+        case RatingLevelIndicatorPart:
 #endif
 #if ENABLE(PROGRESS_TAG)
         case ProgressBarPart:
@@ -427,6 +439,10 @@ bool RenderTheme::paintDecorations(RenderObject* o, const RenderObject::PaintInf
         case MenulistPart:
 #if ENABLE(METER_TAG)
         case MeterPart:
+        case RelevancyLevelIndicatorPart:
+        case ContinuousCapacityLevelIndicatorPart:
+        case DiscreteCapacityLevelIndicatorPart:
+        case RatingLevelIndicatorPart:
 #endif
 #if ENABLE(PROGRESS_TAG)
         case ProgressBarPart:
@@ -897,8 +913,16 @@ void RenderTheme::adjustMeterStyle(CSSStyleSelector*, RenderStyle* style, Elemen
     style->setBoxShadow(0);
 }
 
+IntSize RenderTheme::meterSizeForBounds(const RenderMeter*, const IntRect& bounds) const
+{
+    return bounds.size();
+}
+
 bool RenderTheme::paintMeter(RenderObject* renderObject, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
 {
+    if (!renderObject->isMeter())
+        return true;
+
     // Some platforms do not have a native gauge widget, so we draw here a default implementation.
     RenderMeter* renderMeter = toRenderMeter(renderObject);
     RenderStyle* style = renderObject->style();

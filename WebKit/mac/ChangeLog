@@ -1,3 +1,187 @@
+2010-06-14  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        WebInspector: On the way to Remote Debugging we want to transfer dom/timeline/etc
+        data from inspected page to WebInspector as JSON string via http. The native
+        serialization to JSON string is supported by InspectorValue's classes. This patch
+        has the implementation of sendMessageToFrontend function. WebKit version of it still
+        uses ScriptFunctionCall and will be switched to another transport a little bit later.
+        https://bugs.webkit.org/show_bug.cgi?id=40134
+
+        * WebCoreSupport/WebInspectorClient.h:
+        * WebCoreSupport/WebInspectorClient.mm:
+        (WebInspectorClient::WebInspectorClient):
+        (WebInspectorClient::openInspectorFrontend):
+
+2010-06-10  David Hyatt  <hyatt@apple.com>
+
+        Reviewed by John Sullivan.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40441, back out the original fix for 29601, since it has broken continuous
+        wheel delta values.
+
+        * WebView/WebDynamicScrollBarsView.mm:
+        (-[WebDynamicScrollBarsView scrollWheel:]):
+
+2010-06-09  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r60889.
+        http://trac.webkit.org/changeset/60889
+        https://bugs.webkit.org/show_bug.cgi?id=40365
+
+        gtk bot has some kind of memory corruption (Requested by
+        loislo on #webkit).
+
+        * WebCoreSupport/WebInspectorClient.h:
+        * WebCoreSupport/WebInspectorClient.mm:
+        (WebInspectorClient::WebInspectorClient):
+        (WebInspectorClient::openInspectorFrontend):
+        (-[WebInspectorWindowController destroyInspectorView]):
+
+2010-06-07  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        WebInspector: On the way to Remote Debugging we want to transfer dom/timeline/etc
+        data from inspected page to WebInspector as JSON string via http. The native
+        serialization to JSON string is supported by InspectorValue's classes. This patch
+        has the implementation of sendMessageToFrontend function. WebKit version of it still
+        uses ScriptFunctionCall and will be switched to another transport a little bit later.
+        https://bugs.webkit.org/show_bug.cgi?id=40134
+
+        * WebCoreSupport/WebInspectorClient.h:
+        * WebCoreSupport/WebInspectorClient.mm:
+        (WebInspectorClient::WebInspectorClient):
+        (WebInspectorClient::openInspectorFrontend):
+
+2010-06-08  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Adele Peterson.
+
+        <rdar://problem/8072136> REGRESSION (r56051): Inspect Element context menu does nothing in applications linked against 10.4 SDK
+
+        * WebCoreSupport/WebContextMenuClient.mm:
+        (fixMenusReceivedFromOldClients): Fix up the tag on the Inspect Element menu item. This ensures that even if the
+        context menu layout doesn't match our expectations that the menu item will continue to trigger the web inspector.
+
+2010-06-08  Antonio Gomes  <tonikitoo@webkit.org>
+
+        Reviewed by Ojan Vafai and Darin Adler.
+
+        Refactor platform dependent editing behavior code out of Settings
+        https://bugs.webkit.org/show_bug.cgi?id=39854
+
+        EditingBehavior enum was renamed to EditingBehaviorTypes and moved out from Settings.h to
+        EditingBehaviorTypes.h . Call sites in WebKit/ adjusted accordingly.
+
+        * WebView/WebFrame.mm:
+        (core):
+        * WebView/WebFrameInternal.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+
+2010-06-06  MORITA Hajime  <morrita@google.com>
+
+        Unreviewd, follow up to r60820
+
+        https://bugs.webkit.org/show_bug.cgi?id=40219
+        [Mac] ENABLE_METER_TAG should be enabled
+        
+        Added ENABLE_METER_TAG.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-06-06  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 40214 - Clean up error construction / throwing in JSC.
+        
+        The one egregious insanity here is that creating an error requires
+        a VM-entry-esqe-host call (the string argument is wrapped as a JS
+        object & pushed on the RegisterFile, then unwrapped back to a
+        UString).  Changing this also means you only require a global
+        object, not an ExecState, to create an error.
+
+        The methods to create error objects are also parameterized
+        requiring a switch on the type, which can be made cleaner and
+        faster by moving to a separate method per error type.  Code to add
+        divot information to error had been duplicated, and is coalesced
+        back into a single function.
+
+        Convenience methods added to create & throw type & syntax error
+        with a default error message, since this is a common case.
+
+        Also, errors are currently thrown either using
+        "throwError(exec, error)" or "exec->setException(error)" - unify
+        on the former, since this is more commonly used.  Add
+        "throwVMError(exec, error)" equivalents, as a convenience for
+        cases where the result was being wrapped in "JSValue::encode(...)".
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::moveGlobalExceptionToExecState):
+        * Plugins/Hosted/ProxyInstance.mm:
+        (WebKit::ProxyInstance::invokeMethod):
+
+2010-06-02  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 40094 - The return type of NativeFunction should be EncodedJSValue
+        On Windows & Linux, using JSVALUE32_64, EncodedJSValue is returned in registers, but JSValue is not.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h:
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::invoke):
+
+2010-06-02  Sterling Swigart  <sswigart@google.com>
+
+        Reviewed by David Levin.
+
+        Image Resizer Patch 0: Added compilation argument to conditionally compile pending patches.
+        https://bugs.webkit.org/show_bug.cgi?id=39906
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-06-01  David Hyatt  <hyatt@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Add a preference for paginating during layout (the new model for computing page breaks).
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (-[WebPreferences paginateDuringLayoutEnabled]):
+        (-[WebPreferences setPaginateDuringLayoutEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+
+2010-06-01  Kevin Decker  <kdecker@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40025
+        <rdar://problem/8046273> All Flash content crashes after installing CS5 Design Premium.
+        
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (-[WebBaseNetscapePluginView supportsSnapshotting]): Do not support snapshotting Flash 10.1 if
+        the version is less than 10.1.53.60.
+
+2010-06-01  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=39434
+        REGRESSION (r59811): Geolocation callbacks cannot be created
+
+        Removing unused WebGeolocationMock.
+
+        * WebCoreSupport/WebGeolocationMock.mm: Removed.
+        * WebCoreSupport/WebGeolocationMockPrivate.h: Removed.
+        * WebKit.exp:
+
 2010-05-30  Darin Adler  <darin@apple.com>
 
         Reviewed by Sam Weinig.

@@ -28,7 +28,7 @@
 
 #include "CanvasRenderingContext.h"
 #include "ExceptionCode.h"
-#include "FloatArray.h"
+#include "Float32Array.h"
 #include "WebGLGetInfo.h"
 #include "Int32Array.h"
 #include "Uint8Array.h"
@@ -117,7 +117,7 @@ class WebKitCSSMatrix;
         void disable(unsigned long cap);
         void disableVertexAttribArray(unsigned long index, ExceptionCode&);
         void drawArrays(unsigned long mode, long first, long count, ExceptionCode&);
-        void drawElements(unsigned long mode, unsigned long count, unsigned long type, long offset, ExceptionCode&);
+        void drawElements(unsigned long mode, long count, unsigned long type, long offset, ExceptionCode&);
 
         void enable(unsigned long cap);
         void enableVertexAttribArray(unsigned long index, ExceptionCode&);
@@ -181,9 +181,7 @@ class WebKitCSSMatrix;
         void linkProgram(WebGLProgram*, ExceptionCode&);
         void pixelStorei(unsigned long pname, long param);
         void polygonOffset(double factor, double units);
-        
-        PassRefPtr<ArrayBufferView> readPixels(long x, long y, unsigned long width, unsigned long height, unsigned long format, unsigned long type);
-        
+        void readPixels(long x, long y, long width, long height, unsigned long format, unsigned long type, ArrayBufferView* pixels);
         void releaseShaderCompiler();
         void renderbufferStorage(unsigned long target, unsigned long internalformat, unsigned long width, unsigned long height);
         void sampleCoverage(double value, bool invert);
@@ -199,6 +197,15 @@ class WebKitCSSMatrix;
         void texImage2D(unsigned target, unsigned level, unsigned internalformat,
                         unsigned width, unsigned height, unsigned border,
                         unsigned format, unsigned type, ArrayBufferView* pixels, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, unsigned internalformat,
+                        unsigned format, unsigned type, ImageData* pixels, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, unsigned internalformat,
+                        unsigned format, unsigned type, HTMLImageElement* image, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, unsigned internalformat,
+                        unsigned format, unsigned type, HTMLCanvasElement* canvas, ExceptionCode&);
+        void texImage2D(unsigned target, unsigned level, unsigned internalformat,
+                        unsigned format, unsigned type, HTMLVideoElement* video, ExceptionCode&);
+        // Obsolete entry points -- to be removed shortly. (FIXME)
         void texImage2D(unsigned target, unsigned level, ImageData* pixels, ExceptionCode&);
         void texImage2D(unsigned target, unsigned level, ImageData* pixels, bool flipY, ExceptionCode&);
         void texImage2D(unsigned target, unsigned level, ImageData* pixels, bool flipY, bool premultiplyAlpha, ExceptionCode&);
@@ -218,6 +225,15 @@ class WebKitCSSMatrix;
         void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
                            unsigned width, unsigned height,
                            unsigned format, unsigned type, ArrayBufferView* pixels, ExceptionCode&);
+        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
+                           unsigned format, unsigned type, ImageData* pixels, ExceptionCode&);
+        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
+                           unsigned format, unsigned type, HTMLImageElement* image, ExceptionCode&);
+        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
+                           unsigned format, unsigned type, HTMLCanvasElement* canvas, ExceptionCode&);
+        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
+                           unsigned format, unsigned type, HTMLVideoElement* video, ExceptionCode&);
+        // Obsolete entry points -- to be removed shortly. (FIXME)
         void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, ImageData* pixels, ExceptionCode&);
         void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, ImageData* pixels, bool flipY, ExceptionCode&);
         void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, ImageData* pixels, bool flipY, bool premultiplyAlpha, ExceptionCode&);
@@ -232,50 +248,50 @@ class WebKitCSSMatrix;
         void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset, HTMLVideoElement* video, bool flipY, bool premultiplyAlpha, ExceptionCode&);
 
         void uniform1f(const WebGLUniformLocation* location, float x, ExceptionCode&);
-        void uniform1fv(const WebGLUniformLocation* location, FloatArray* v, ExceptionCode&);
+        void uniform1fv(const WebGLUniformLocation* location, Float32Array* v, ExceptionCode&);
         void uniform1fv(const WebGLUniformLocation* location, float* v, int size, ExceptionCode&);
         void uniform1i(const WebGLUniformLocation* location, int x, ExceptionCode&);
         void uniform1iv(const WebGLUniformLocation* location, Int32Array* v, ExceptionCode&);
         void uniform1iv(const WebGLUniformLocation* location, int* v, int size, ExceptionCode&);
         void uniform2f(const WebGLUniformLocation* location, float x, float y, ExceptionCode&);
-        void uniform2fv(const WebGLUniformLocation* location, FloatArray* v, ExceptionCode&);
+        void uniform2fv(const WebGLUniformLocation* location, Float32Array* v, ExceptionCode&);
         void uniform2fv(const WebGLUniformLocation* location, float* v, int size, ExceptionCode&);
         void uniform2i(const WebGLUniformLocation* location, int x, int y, ExceptionCode&);
         void uniform2iv(const WebGLUniformLocation* location, Int32Array* v, ExceptionCode&);
         void uniform2iv(const WebGLUniformLocation* location, int* v, int size, ExceptionCode&);
         void uniform3f(const WebGLUniformLocation* location, float x, float y, float z, ExceptionCode&);
-        void uniform3fv(const WebGLUniformLocation* location, FloatArray* v, ExceptionCode&);
+        void uniform3fv(const WebGLUniformLocation* location, Float32Array* v, ExceptionCode&);
         void uniform3fv(const WebGLUniformLocation* location, float* v, int size, ExceptionCode&);
         void uniform3i(const WebGLUniformLocation* location, int x, int y, int z, ExceptionCode&);
         void uniform3iv(const WebGLUniformLocation* location, Int32Array* v, ExceptionCode&);
         void uniform3iv(const WebGLUniformLocation* location, int* v, int size, ExceptionCode&);
         void uniform4f(const WebGLUniformLocation* location, float x, float y, float z, float w, ExceptionCode&);
-        void uniform4fv(const WebGLUniformLocation* location, FloatArray* v, ExceptionCode&);
+        void uniform4fv(const WebGLUniformLocation* location, Float32Array* v, ExceptionCode&);
         void uniform4fv(const WebGLUniformLocation* location, float* v, int size, ExceptionCode&);
         void uniform4i(const WebGLUniformLocation* location, int x, int y, int z, int w, ExceptionCode&);
         void uniform4iv(const WebGLUniformLocation* location, Int32Array* v, ExceptionCode&);
         void uniform4iv(const WebGLUniformLocation* location, int* v, int size, ExceptionCode&);
-        void uniformMatrix2fv(const WebGLUniformLocation* location, bool transpose, FloatArray* value, ExceptionCode&);
+        void uniformMatrix2fv(const WebGLUniformLocation* location, bool transpose, Float32Array* value, ExceptionCode&);
         void uniformMatrix2fv(const WebGLUniformLocation* location, bool transpose, float* value, int size, ExceptionCode&);
-        void uniformMatrix3fv(const WebGLUniformLocation* location, bool transpose, FloatArray* value, ExceptionCode&);
+        void uniformMatrix3fv(const WebGLUniformLocation* location, bool transpose, Float32Array* value, ExceptionCode&);
         void uniformMatrix3fv(const WebGLUniformLocation* location, bool transpose, float* value, int size, ExceptionCode&);
-        void uniformMatrix4fv(const WebGLUniformLocation* location, bool transpose, FloatArray* value, ExceptionCode&);
+        void uniformMatrix4fv(const WebGLUniformLocation* location, bool transpose, Float32Array* value, ExceptionCode&);
         void uniformMatrix4fv(const WebGLUniformLocation* location, bool transpose, float* value, int size, ExceptionCode&);
 
         void useProgram(WebGLProgram*, ExceptionCode&);
         void validateProgram(WebGLProgram*, ExceptionCode&);
 
         void vertexAttrib1f(unsigned long indx, float x);
-        void vertexAttrib1fv(unsigned long indx, FloatArray* values);
+        void vertexAttrib1fv(unsigned long indx, Float32Array* values);
         void vertexAttrib1fv(unsigned long indx, float* values, int size);
         void vertexAttrib2f(unsigned long indx, float x, float y);
-        void vertexAttrib2fv(unsigned long indx, FloatArray* values);
+        void vertexAttrib2fv(unsigned long indx, Float32Array* values);
         void vertexAttrib2fv(unsigned long indx, float* values, int size);
         void vertexAttrib3f(unsigned long indx, float x, float y, float z);
-        void vertexAttrib3fv(unsigned long indx, FloatArray* values);
+        void vertexAttrib3fv(unsigned long indx, Float32Array* values);
         void vertexAttrib3fv(unsigned long indx, float* values, int size);
         void vertexAttrib4f(unsigned long indx, float x, float y, float z, float w);
-        void vertexAttrib4fv(unsigned long indx, FloatArray* values);
+        void vertexAttrib4fv(unsigned long indx, Float32Array* values);
         void vertexAttrib4fv(unsigned long indx, float* values, int size);
         void vertexAttribPointer(unsigned long indx, long size, unsigned long type, bool normalized,
                                  unsigned long stride, unsigned long offset, ExceptionCode&);
@@ -340,6 +356,7 @@ class WebKitCSSMatrix;
             VertexAttribState() : enabled(false), numElements(0) { }
             bool enabled;
             long numElements;
+            RefPtr<WebGLBuffer> bufferBinding;
         };
         
         Vector<VertexAttribState> m_vertexAttribState;
@@ -353,16 +370,21 @@ class WebKitCSSMatrix;
             RefPtr<WebGLTexture> m_texture2DBinding;
             RefPtr<WebGLTexture> m_textureCubeMapBinding;
         };
-        TextureUnitState m_textureUnits[32];
+        Vector<TextureUnitState> m_textureUnits;
         unsigned long m_activeTextureUnit;
 
         RefPtr<WebGLTexture> m_blackTexture2D;
         RefPtr<WebGLTexture> m_blackTextureCubeMap;
 
+        long m_maxTextureSize;
+        long m_maxCubeMapTextureSize;
+
         int m_packAlignment;
         int m_unpackAlignment;
         unsigned long m_implementationColorReadFormat;
         unsigned long m_implementationColorReadType;
+        bool m_unpackFlipY;
+        bool m_unpackPremultiplyAlpha;
 
         // Helpers for getParameter and others
         WebGLGetInfo getBooleanParameter(unsigned long pname);
@@ -377,17 +399,49 @@ class WebKitCSSMatrix;
         void texImage2DBase(unsigned target, unsigned level, unsigned internalformat,
                             unsigned width, unsigned height, unsigned border,
                             unsigned format, unsigned type, void* pixels, ExceptionCode&);
-        void texImage2D(unsigned target, unsigned level, Image* image,
-                        bool flipY, bool premultiplyAlpha, ExceptionCode&);
+        void texImage2DImpl(unsigned target, unsigned level, unsigned internalformat,
+                            unsigned format, unsigned type, Image* image,
+                            bool flipY, bool premultiplyAlpha, ExceptionCode&);
         void texSubImage2DBase(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
                                unsigned width, unsigned height,
                                unsigned format, unsigned type, void* pixels, ExceptionCode&);
-        void texSubImage2D(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
-                           Image* image, bool flipY, bool premultiplyAlpha, ExceptionCode&);
+        void texSubImage2DImpl(unsigned target, unsigned level, unsigned xoffset, unsigned yoffset,
+                               unsigned format, unsigned type,
+                               Image* image, bool flipY, bool premultiplyAlpha, ExceptionCode&);
 
         void handleNPOTTextures(bool prepareToDraw);
 
         void createFallbackBlackTextures1x1();
+
+        // Helper function for copyTex{Sub}Image, check whether the internalformat
+        // and the color buffer format of the current bound framebuffer combination
+        // is valid.
+        bool isTexInternalformatColorBufferCombinationValid(unsigned long texInternalformat,
+                                                            unsigned long colorBufferFormat);
+
+        // Helper function to get the current bound texture.
+        WebGLTexture* getTextureBinding(unsigned long target);
+
+        // Helper function to check input format/type for functions {copy}Tex{Sub}Image.
+        // Generate GL error and return false if parameters are invalid.
+        bool validateTexFuncFormatAndType(unsigned long format, unsigned long type);
+
+        // Helper function to check input parameters for functions {copy}Tex{Sub}Image.
+        // Generate GL error and return false if parameters are invalid.
+        bool validateTexFuncParameters(unsigned long target, long level,
+                                       unsigned long internalformat,
+                                       long width, long height, long border,
+                                       unsigned long format, unsigned long type);
+
+        // Helper function to validate mode for draw{Arrays/Elements}.
+        bool validateDrawMode(unsigned long);
+
+        // Helper function for texParameterf and texParameteri.
+        void texParameter(unsigned long target, unsigned long pname, float parami, int paramf, bool isFloat);
+
+        // Helper function to print warnings to console. Currently
+        // used only to warn about use of obsolete functions.
+        void printWarningToConsole(const String& message);
 
         friend class WebGLStateRestorer;
     };

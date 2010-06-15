@@ -26,6 +26,7 @@
 
 #include "ArrayPrototype.h"
 #include "Error.h"
+#include "ExceptionHelpers.h"
 #include "JSArray.h"
 #include "JSFunction.h"
 #include "Lookup.h"
@@ -35,7 +36,7 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(ArrayConstructor);
     
-static JSValue JSC_HOST_CALL arrayConstructorIsArray(ExecState*);
+static EncodedJSValue JSC_HOST_CALL arrayConstructorIsArray(ExecState*);
 
 ArrayConstructor::ArrayConstructor(ExecState* exec, JSGlobalObject* globalObject, NonNullPassRefPtr<Structure> structure, ArrayPrototype* arrayPrototype, Structure* prototypeFunctionStructure)
     : InternalFunction(&exec->globalData(), globalObject, structure, Identifier(exec, arrayPrototype->classInfo()->className))
@@ -56,7 +57,7 @@ static inline JSObject* constructArrayWithSizeQuirk(ExecState* exec, const ArgLi
     if (args.size() == 1 && args.at(0).isNumber()) {
         uint32_t n = args.at(0).toUInt32(exec);
         if (n != args.at(0).toNumber(exec))
-            return throwError(exec, RangeError, "Array size is not a small enough positive integer.");
+            return throwError(exec, createRangeError(exec, "Array size is not a small enough positive integer."));
         return new (exec) JSArray(exec->lexicalGlobalObject()->arrayStructure(), n);
     }
 
@@ -64,9 +65,10 @@ static inline JSObject* constructArrayWithSizeQuirk(ExecState* exec, const ArgLi
     return new (exec) JSArray(exec->lexicalGlobalObject()->arrayStructure(), args);
 }
 
-static JSObject* constructWithArrayConstructor(ExecState* exec, JSObject*, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL constructWithArrayConstructor(ExecState* exec)
 {
-    return constructArrayWithSizeQuirk(exec, args);
+    ArgList args(exec);
+    return JSValue::encode(constructArrayWithSizeQuirk(exec, args));
 }
 
 // ECMA 15.4.2
@@ -76,10 +78,10 @@ ConstructType ArrayConstructor::getConstructData(ConstructData& constructData)
     return ConstructTypeHost;
 }
 
-static JSValue JSC_HOST_CALL callArrayConstructor(ExecState* exec)
+static EncodedJSValue JSC_HOST_CALL callArrayConstructor(ExecState* exec)
 {
     ArgList args(exec);
-    return constructArrayWithSizeQuirk(exec, args);
+    return JSValue::encode(constructArrayWithSizeQuirk(exec, args));
 }
 
 // ECMA 15.6.1
@@ -90,9 +92,9 @@ CallType ArrayConstructor::getCallData(CallData& callData)
     return CallTypeHost;
 }
 
-JSValue JSC_HOST_CALL arrayConstructorIsArray(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL arrayConstructorIsArray(ExecState* exec)
 {
-    return jsBoolean(exec->argument(0).inherits(&JSArray::info));
+    return JSValue::encode(jsBoolean(exec->argument(0).inherits(&JSArray::info)));
 }
 
 } // namespace JSC

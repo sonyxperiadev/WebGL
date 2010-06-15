@@ -34,7 +34,7 @@ WebInspector.ScriptView = function(script)
     this._frameNeedsSetup = true;
     this._sourceFrameSetup = false;
     var canEditScripts = WebInspector.panels.scripts.canEditScripts();
-    this.sourceFrame = new WebInspector.SourceFrame(this.element, this._addBreakpoint.bind(this), this._removeBreakpoint.bind(this), canEditScripts ? this._editLine.bind(this) : null);
+    this.sourceFrame = new WebInspector.SourceFrame(this.element, this._addBreakpoint.bind(this), this._removeBreakpoint.bind(this), canEditScripts ? this._editLine.bind(this) : null, this._continueToLine.bind(this));
 }
 
 WebInspector.ScriptView.prototype = {
@@ -50,12 +50,28 @@ WebInspector.ScriptView.prototype = {
     {
         if (!this._frameNeedsSetup)
             return;
+        delete this._frameNeedsSetup;
 
         this.attach();
 
+        if (this.script.source)
+            this._sourceFrameSetupFinished();
+        else {
+            var callbackId = WebInspector.Callback.wrap(this._didGetScriptSource.bind(this))
+            InspectorBackend.getScriptSource(callbackId, this.script.sourceID);
+        }
+    },
+
+    _didGetScriptSource: function(source)
+    {
+        this.script.source = source || WebInspector.UIString("<source is not available>");
+        this._sourceFrameSetupFinished();
+    },
+
+    _sourceFrameSetupFinished: function()
+    {
         this.sourceFrame.setContent("text/javascript", this._prependWhitespace(this.script.source));
         this._sourceFrameSetup = true;
-        delete this._frameNeedsSetup;
     },
 
     _prependWhitespace: function(content) {
@@ -69,6 +85,13 @@ WebInspector.ScriptView.prototype = {
     {
         if (!this.element.parentNode)
             document.getElementById("script-resource-views").appendChild(this.element);
+    },
+
+    _continueToLine: function(line)
+    {
+        var scriptsPanel = WebInspector.panels.scripts;
+        if (scriptsPanel)
+            scriptsPanel.continueToLine(this.script.sourceID, line);
     },
 
     _addBreakpoint: function(line)
@@ -99,10 +122,11 @@ WebInspector.ScriptView.prototype = {
     showingFirstSearchResult: WebInspector.SourceView.prototype.showingFirstSearchResult,
     showingLastSearchResult: WebInspector.SourceView.prototype.showingLastSearchResult,
     _jumpToSearchResult: WebInspector.SourceView.prototype._jumpToSearchResult,
-    _sourceFrameSetupFinished: WebInspector.SourceView.prototype._sourceFrameSetupFinished,
     _removeBreakpoint: WebInspector.SourceView.prototype._removeBreakpoint,
     _editLine: WebInspector.SourceView.prototype._editLine,
     resize: WebInspector.SourceView.prototype.resize
 }
 
 WebInspector.ScriptView.prototype.__proto__ = WebInspector.View.prototype;
+
+WebInspector.didGetScriptSource = WebInspector.Callback.processCallback;

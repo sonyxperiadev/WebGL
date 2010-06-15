@@ -45,19 +45,18 @@
 #include "SegmentedString.h"
 #include "Settings.h"
 #include "Text.h"
-#include "XMLTokenizer.h"
+#include "XMLDocumentParser.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-class MediaTokenizer : public Tokenizer {
+class MediaDocumentParser : public DocumentParser {
 public:
-    MediaTokenizer(Document* doc) : m_doc(doc), m_mediaElement(0) {}
+    MediaDocumentParser(Document* doc) : m_doc(doc), m_mediaElement(0) {}
         
 private:
     virtual void write(const SegmentedString&, bool appendData);
-    virtual void stopParsing();
     virtual void finish();
     virtual bool isWaitingForScripts() const;
         
@@ -70,12 +69,12 @@ private:
     HTMLMediaElement* m_mediaElement;
 };
 
-void MediaTokenizer::write(const SegmentedString&, bool)
+void MediaDocumentParser::write(const SegmentedString&, bool)
 {
     ASSERT_NOT_REACHED();
 }
     
-void MediaTokenizer::createDocumentStructure()
+void MediaDocumentParser::createDocumentStructure()
 {
     ExceptionCode ec;
     RefPtr<Element> rootElement = m_doc->createElement(htmlTag, false);
@@ -105,7 +104,7 @@ void MediaTokenizer::createDocumentStructure()
     frame->loader()->activeDocumentLoader()->mainResourceLoader()->setShouldBufferData(false);
 }
     
-bool MediaTokenizer::writeRawData(const char*, int)
+bool MediaDocumentParser::writeRawData(const char*, int)
 {
     ASSERT(!m_mediaElement);
     if (m_mediaElement)
@@ -115,19 +114,14 @@ bool MediaTokenizer::writeRawData(const char*, int)
     finish();
     return false;
 }
-    
-void MediaTokenizer::stopParsing()
-{
-    Tokenizer::stopParsing();        
-}
-    
-void MediaTokenizer::finish()
+
+void MediaDocumentParser::finish()
 {
     if (!m_parserStopped) 
         m_doc->finishedParsing();
 }
     
-bool MediaTokenizer::isWaitingForScripts() const
+bool MediaDocumentParser::isWaitingForScripts() const
 {
     // A media document is never waiting for scripts
     return false;
@@ -145,9 +139,9 @@ MediaDocument::~MediaDocument()
     ASSERT(!m_replaceMediaElementTimer.isActive());
 }
 
-Tokenizer* MediaDocument::createTokenizer()
+DocumentParser* MediaDocument::createParser()
 {
-    return new MediaTokenizer(this);
+    return new MediaDocumentParser(this);
 }
 
 void MediaDocument::defaultEventHandler(Event* event)

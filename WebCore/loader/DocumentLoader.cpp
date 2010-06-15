@@ -50,7 +50,7 @@
 #include "PlatformString.h"
 #include "Settings.h"
 #include "SharedBuffer.h"
-#include "XMLTokenizer.h"
+#include "XMLDocumentParser.h"
 
 #include <wtf/Assertions.h>
 #include <wtf/unicode/Unicode.h>
@@ -259,7 +259,7 @@ void DocumentLoader::commitIfReady()
 {
     if (m_gotFirstByte && !m_committed) {
         m_committed = true;
-        frameLoader()->commitProvisionalLoad(0);
+        frameLoader()->commitProvisionalLoad();
     }
 }
 
@@ -399,8 +399,8 @@ bool DocumentLoader::isLoadingInAPISense() const
         Document* doc = m_frame->document();
         if (doc->docLoader()->requestCount())
             return true;
-        if (Tokenizer* tok = doc->tokenizer())
-            if (tok->processingData())
+        if (DocumentParser* parser = doc->parser())
+            if (parser->processingData())
                 return true;
     }
     return frameLoader()->subframeIsLoading();

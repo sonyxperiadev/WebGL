@@ -32,6 +32,7 @@
 #include "Document.h"
 #include "ImageBuffer.h"
 #include "NodeRenderStyle.h"
+#include "RenderLayer.h"
 #include "RenderObject.h"
 #include "RenderSVGContainer.h"
 #include "RenderSVGResource.h"
@@ -81,7 +82,7 @@ void SVGRenderBase::mapLocalToContainer(const RenderObject* object, RenderBoxMod
     object->parent()->mapLocalToContainer(repaintContainer, fixed, useTransforms, transformState);
 }
 
-bool SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject::PaintInfo& paintInfo, const FloatRect& repaintRect, RenderSVGResourceFilter*& filter, RenderSVGResourceFilter* rootFilter)
+bool SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject::PaintInfo& paintInfo, const FloatRect& repaintRect, RenderSVGResourceFilter*& filter)
 {
 #if !ENABLE(FILTERS)
     UNUSED_PARAM(filter);
@@ -99,7 +100,7 @@ bool SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject
     const SVGRenderStyle* svgStyle = style->svgStyle();
     ASSERT(svgStyle);
 
-    // Setup transparency layers before setting up filters!
+    // Setup transparency layers before setting up SVG resources!
     float opacity = style->opacity(); 
     if (opacity < 1.0f) {
         paintInfo.context->clip(repaintRect);
@@ -112,43 +113,35 @@ bool SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject
         paintInfo.context->beginTransparencyLayer(1.0f);
     }
 
-#if ENABLE(FILTERS)
-    AtomicString filterId(svgStyle->filterResource());
-#endif
-
-    AtomicString clipperId(svgStyle->clipperResource());
-    AtomicString maskerId(svgStyle->maskerResource());
-
     Document* document = object->document();
 
-#if ENABLE(FILTERS)
-    RenderSVGResourceFilter* newFilter = getRenderSVGResourceById<RenderSVGResourceFilter>(document, filterId);
-    if (newFilter == rootFilter) {
-        // Catch <text filter="url(#foo)">Test<tspan filter="url(#foo)">123</tspan></text>.
-        // The filter is NOT meant to be applied twice in that case!
-        filter = 0;
-        filterId = String();
-    } else
-        filter = newFilter;
-#endif
+    if (svgStyle->hasMasker()) {
+        AtomicString maskerId(svgStyle->maskerResource());
+        if (RenderSVGResourceMasker* masker = getRenderSVGResourceById<RenderSVGResourceMasker>(document, maskerId)) {
+            if (!masker->applyResource(object, style, paintInfo.context, ApplyToDefaultMode))
+                return false;
+        } else
+            svgElement->document()->accessSVGExtensions()->addPendingResource(maskerId, styledElement);
+    }
 
-    if (RenderSVGResourceMasker* masker = getRenderSVGResourceById<RenderSVGResourceMasker>(document, maskerId)) {
-        if (!masker->applyResource(object, style, paintInfo.context, ApplyToDefaultMode))
-            return false;
-    } else if (!maskerId.isEmpty())
-        svgElement->document()->accessSVGExtensions()->addPendingResource(maskerId, styledElement);
-
-    if (RenderSVGResourceClipper* clipper = getRenderSVGResourceById<RenderSVGResourceClipper>(document, clipperId))
-        clipper->applyResource(object, style, paintInfo.context, ApplyToDefaultMode);
-    else if (!clipperId.isEmpty())
-        svgElement->document()->accessSVGExtensions()->addPendingResource(clipperId, styledElement);
+    if (svgStyle->hasClipper()) {
+        AtomicString clipperId(svgStyle->clipperResource());
+        if (RenderSVGResourceClipper* clipper = getRenderSVGResourceById<RenderSVGResourceClipper>(document, clipperId))
+            clipper->applyResource(object, style, paintInfo.context, ApplyToDefaultMode);
+        else
+            svgElement->document()->accessSVGExtensions()->addPendingResource(clipperId, styledElement);
+    }
 
 #if ENABLE(FILTERS)
-    if (filter) {
-        if (!filter->applyResource(object, style, paintInfo.context, ApplyToDefaultMode))
-            return false;
-    } else if (!filterId.isEmpty())
-        svgElement->document()->accessSVGExtensions()->addPendingResource(filterId, styledElement);
+    if (svgStyle->hasFilter()) {
+        AtomicString filterId(svgStyle->filterResource());
+        filter = getRenderSVGResourceById<RenderSVGResourceFilter>(document, filterId);
+        if (filter) {
+            if (!filter->applyResource(object, style, paintInfo.context, ApplyToDefaultMode))
+                return false;
+        } else
+            svgElement->document()->accessSVGExtensions()->addPendingResource(filterId, styledElement);
+    }
 #endif
 
     return true;
@@ -280,31 +273,33 @@ bool SVGRenderBase::isOverflowHidden(const RenderObject* object)
     return object->style()->overflowX() == OHIDDEN;
 }
 
-FloatRect SVGRenderBase::filterBoundingBoxForRenderer(const RenderObject* object) const
+void SVGRenderBase::intersectRepaintRectWithResources(const RenderObject* object, FloatRect& repaintRect) const
 {
+    ASSERT(object);
+    ASSERT(object->style());
+    const SVGRenderStyle* svgStyle = object->style()->svgStyle();
+    if (!svgStyle)
+        return;
+        
+    RenderObject* renderer = const_cast<RenderObject*>(object);
 #if ENABLE(FILTERS)
-    if (RenderSVGResourceFilter* filter = getRenderSVGResourceById<RenderSVGResourceFilter>(object->document(), object->style()->svgStyle()->filterResource()))
-        return filter->resourceBoundingBox(object->objectBoundingBox());
-#else
-    UNUSED_PARAM(object);
+    if (svgStyle->hasFilter()) {
+        if (RenderSVGResourceFilter* filter = getRenderSVGResourceById<RenderSVGResourceFilter>(object->document(), svgStyle->filterResource()))
+            repaintRect = filter->resourceBoundingBox(renderer);
+    }
 #endif
-    return FloatRect();
-}
 
-FloatRect SVGRenderBase::clipperBoundingBoxForRenderer(const RenderObject* object) const
-{
-    if (RenderSVGResourceClipper* clipper = getRenderSVGResourceById<RenderSVGResourceClipper>(object->document(), object->style()->svgStyle()->clipperResource()))
-        return clipper->resourceBoundingBox(object->objectBoundingBox());
-
-    return FloatRect();
-}
-
-FloatRect SVGRenderBase::maskerBoundingBoxForRenderer(const RenderObject* object) const
-{
-    if (RenderSVGResourceMasker* masker = getRenderSVGResourceById<RenderSVGResourceMasker>(object->document(), object->style()->svgStyle()->maskerResource()))
-        return masker->resourceBoundingBox(object->objectBoundingBox());
-
-    return FloatRect();
+    if (svgStyle->hasClipper()) {
+        if (RenderSVGResourceClipper* clipper = getRenderSVGResourceById<RenderSVGResourceClipper>(object->document(), svgStyle->clipperResource()))
+            repaintRect.intersect(clipper->resourceBoundingBox(renderer));
+    }
+    
+    if (svgStyle->hasMasker()) {
+        if (RenderSVGResourceMasker* masker = getRenderSVGResourceById<RenderSVGResourceMasker>(object->document(), svgStyle->maskerResource()))
+            repaintRect.intersect(masker->resourceBoundingBox(renderer));
+    }
+    
+    svgStyle->inflateForShadow(repaintRect);
 }
 
 static inline void invalidatePaintingResource(SVGPaint* paint, RenderObject* object)
@@ -318,6 +313,27 @@ static inline void invalidatePaintingResource(SVGPaint* paint, RenderObject* obj
     AtomicString id(SVGURIReference::getTarget(paint->uri()));
     if (RenderSVGResourceContainer* paintingResource = getRenderSVGResourceContainerById(object->document(), id))
         paintingResource->invalidateClient(object);
+}
+
+bool pointInClippingArea(const RenderObject* object, const FloatPoint& point)
+{
+    ASSERT(object);
+    ASSERT(object->style());
+
+    Document* document = object->document();
+    ASSERT(document);
+
+    const SVGRenderStyle* svgStyle = object->style()->svgStyle();
+    ASSERT(svgStyle);
+
+    // We just take clippers into account to determine if a point is on the node. The Specification may
+    // change later and we also need to check maskers.
+    if (svgStyle->hasClipper()) {
+        if (RenderSVGResourceClipper* clipper = getRenderSVGResourceById<RenderSVGResourceClipper>(document, svgStyle->clipperResource()))
+            return clipper->hitTestClipContent(object->objectBoundingBox(), point);
+    }
+
+    return true;
 }
 
 void deregisterFromResources(RenderObject* object)

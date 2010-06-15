@@ -180,6 +180,15 @@ public slots:
     int pageNumberForElementById(const QString& id, float width = 0, float height = 0);
     int numberOfPages(float width = maxViewWidth, float height = maxViewHeight);
     bool callShouldCloseOnWebView();
+    // For now, this is a no-op. This may change depending on outcome of
+    // https://bugs.webkit.org/show_bug.cgi?id=33333
+    void setCallCloseOnWebViews() {}
+
+    void setMockGeolocationError(int code, const QString& message);
+    void setMockGeolocationPosition(double latitude, double longitude, double accuracy);
+    void setGeolocationPermission(bool allow);
+    bool isGeolocationPermissionSet() const { return m_isGeolocationPermissionSet; }
+    bool geolocationPermission() const { return m_geolocationPermission; }
 
     /*
         Policy values: 'on', 'auto' or 'off'.
@@ -212,6 +221,8 @@ private:
     bool m_handleErrorPages;
     bool m_loadFinished;
     bool m_globalFlag;
+    bool m_isGeolocationPermissionSet;
+    bool m_geolocationPermission;
 
     QUrl m_userStyleSheetLocation;
     QBasicTimer m_timeoutTimer;

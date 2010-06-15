@@ -92,6 +92,28 @@ static bool gUseFrameFlattening = false;
 static bool gUseQGLWidgetViewport = false;
 #endif
 
+class NotificationsPermissionController : public QObject {
+    Q_OBJECT
+public:
+    NotificationsPermissionController(QObject* parent) : QObject(parent) 
+    {
+        DumpRenderTreeSupportQt::setNotificationsReceiver(this);
+        DumpRenderTreeSupportQt::setCheckPermissionFunction(checkPermission);
+        DumpRenderTreeSupportQt::setRequestPermissionFunction(requestPermission);
+    }
+
+    static void checkPermission(QObject*, const QUrl&, NotificationPermission& permission)
+    {
+        permission = NotificationAllowed;
+    }
+
+    static void requestPermission(QObject*, const QString& origin)
+    {
+        DumpRenderTreeSupportQt::allowNotificationForOrigin(origin);
+    }
+};
+
+NotificationsPermissionController* notificationsPermissionController = 0;
 
 class LauncherWindow : public MainWindow {
     Q_OBJECT
@@ -144,6 +166,7 @@ protected slots:
     void changeViewportUpdateMode(int mode);
     void toggleFrameFlattening(bool toggle);
     void toggleInterruptingJavaScriptEnabled(bool enable);
+    void toggleJavascriptCanOpenWindows(bool enable);
 
 #if defined(QT_CONFIGURED_WITH_OPENGL)
     void toggleQGLWidgetViewport(bool enable);
@@ -210,6 +233,8 @@ LauncherWindow::LauncherWindow(LauncherWindow* other, bool shareScene)
     }
 
     createChrome();
+    if (!notificationsPermissionController)
+        notificationsPermissionController = new NotificationsPermissionController(QCoreApplication::instance());
 }
 
 LauncherWindow::~LauncherWindow()
@@ -238,8 +263,10 @@ void LauncherWindow::init(bool useGraphicsView)
     connect(this, SIGNAL(enteredFullScreenMode(bool)), this, SLOT(toggleFullScreenMode(bool)));
 
     m_inspector = new WebInspector(splitter);
+#ifndef QT_NO_PROPERTIES
     if (!gInspectorUrl.isEmpty())
         m_inspector->setProperty("_q_inspectorUrl", gInspectorUrl);
+#endif
     m_inspector->setPage(page());
     m_inspector->hide();
     connect(this, SIGNAL(destroyed()), m_inspector, SLOT(deleteLater()));
@@ -705,6 +732,11 @@ void LauncherWindow::toggleInterruptingJavaScriptEnabled(bool enable)
     page()->setInterruptingJavaScriptEnabled(enable);
 }
 
+void LauncherWindow::toggleJavascriptCanOpenWindows(bool enable)
+{
+    page()->settings()->setAttribute(QWebSettings::JavascriptCanOpenWindows, enable);
+}
+
 #if defined(QT_CONFIGURED_WITH_OPENGL)
 void LauncherWindow::toggleQGLWidgetViewport(bool enable)
 {
@@ -903,6 +935,10 @@ void LauncherWindow::createChrome()
     QAction* toggleInterruptingJavaScripteEnabled = toolsMenu->addAction("Enable interrupting js scripts", this, SLOT(toggleInterruptingJavaScriptEnabled(bool)));
     toggleInterruptingJavaScripteEnabled->setCheckable(true);
     toggleInterruptingJavaScripteEnabled->setChecked(false);
+
+    QAction* toggleJavascriptCanOpenWindows = toolsMenu->addAction("Enable js popup windows", this, SLOT(toggleJavascriptCanOpenWindows(bool)));
+    toggleJavascriptCanOpenWindows->setCheckable(true);
+    toggleJavascriptCanOpenWindows->setChecked(false);
 
 #if defined(QT_CONFIGURED_WITH_OPENGL)
     QAction* toggleQGLWidgetViewport = graphicsViewMenu->addAction("Toggle use of QGLWidget Viewport", this, SLOT(toggleQGLWidgetViewport(bool)));

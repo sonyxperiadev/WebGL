@@ -681,7 +681,7 @@ bool WebViewImpl::sendContextMenuEvent(const WebKeyboardEvent& event)
     Node* focusedNode = focusedFrame->document()->focusedNode();
     Position start = mainFrameImpl->selection()->selection().start();
 
-    if (focusedFrame->editor() && focusedFrame->editor()->canEdit() && start.node()) {
+    if (start.node()) {
         RenderObject* renderer = start.node()->renderer();
         if (!renderer)
             return false;
@@ -825,6 +825,45 @@ bool WebViewImpl::mapKeyCodeForScroll(int keyCode,
     }
 
     return true;
+}
+
+// Computes the distance from a point outside a rect to the nearest edge of the rect.
+static IntSize distanceToRect(const IntPoint& point, const IntRect& rect)
+{
+    int dx = 0, dy = 0;
+    if (point.x() < rect.x())
+        dx = point.x() - rect.x();
+    else if (rect.right() < point.x())
+        dx = point.x() - rect.right();
+    if (point.y() < rect.y())
+        dy = point.y() - rect.y();
+    else if (rect.bottom() < point.y())
+        dy = point.y() - rect.bottom();
+    return IntSize(dx, dy);
+}
+
+void WebViewImpl::scrollForDragging(const WebPoint& clientPoint)
+{
+    // This margin approximates Safari behavior, derived from an observation.
+    static const int scrollMargin = 30;
+
+    FrameView* view = mainFrameImpl()->frameView();
+    if (!view)
+        return;
+
+    IntRect bounds(0, 0, view->visibleWidth(), view->visibleHeight());
+    bounds.setY(bounds.y() + scrollMargin);
+    bounds.setHeight(bounds.height() - scrollMargin * 2);
+    bounds.setX(bounds.x() + scrollMargin);
+    bounds.setWidth(bounds.width() - scrollMargin * 2);
+
+    IntPoint point = clientPoint;
+    if (bounds.contains(point))
+        return;    
+
+    IntSize toScroll = distanceToRect(point, bounds);
+    if (!toScroll.isZero())
+        view->scrollBy(toScroll);
 }
 
 void WebViewImpl::hideSelectPopup()
@@ -1539,6 +1578,14 @@ void WebViewImpl::dragSourceEndedAt(
         static_cast<DragOperation>(operation));
 }
 
+void WebViewImpl::dragSourceMovedTo(
+    const WebPoint& clientPoint,
+    const WebPoint& screenPoint,
+    WebDragOperation operation)
+{
+    scrollForDragging(clientPoint);
+}
+
 void WebViewImpl::dragSourceSystemDragEnded()
 {
     // It's possible for us to get this callback while not doing a drag if
@@ -1659,6 +1706,9 @@ WebDragOperation WebViewImpl::dragTargetDragEnterOrOver(const WebPoint& clientPo
     } else
         m_dragOperation = static_cast<WebDragOperation>(effect);
 
+    if (dragAction == DragOver)
+        scrollForDragging(clientPoint);
+
     return m_dragOperation;
 }
 
@@ -1736,10 +1786,10 @@ void WebViewImpl::applyAutoFillSuggestions(
     const WebNode& node,
     const WebVector<WebString>& names,
     const WebVector<WebString>& labels,
-    int defaultSuggestionIndex)
+    int separatorIndex)
 {
     ASSERT(names.size() == labels.size());
-    ASSERT(defaultSuggestionIndex < static_cast<int>(names.size()));
+    ASSERT(separatorIndex < static_cast<int>(names.size()));
 
     if (names.isEmpty()) {
         hideSuggestionsPopup();
@@ -1764,7 +1814,7 @@ void WebViewImpl::applyAutoFillSuggestions(
         m_autoFillPopupClient.set(new AutoFillPopupMenuClient);
 
     m_autoFillPopupClient->initialize(inputElem, names, labels,
-                                      defaultSuggestionIndex);
+                                      separatorIndex);
 
     if (m_suggestionsPopupClient != m_autoFillPopupClient.get()) {
         hideSuggestionsPopup();
@@ -1781,7 +1831,7 @@ void WebViewImpl::applyAutoFillSuggestions(
         m_suggestionsPopup = m_autoFillPopup.get();
 
     if (m_suggestionsPopupShowing) {
-        m_autoFillPopupClient->setSuggestions(names, labels);
+        m_autoFillPopupClient->setSuggestions(names, labels, separatorIndex);
         refreshSuggestionsPopup();
     } else {
         m_suggestionsPopup->show(focusedNode->getRect(),

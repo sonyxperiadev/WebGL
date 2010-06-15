@@ -46,6 +46,7 @@ LOCAL_SRC_FILES := \
 	css/CSSInitialValue.cpp \
 	css/CSSMediaRule.cpp \
 	css/CSSMutableStyleDeclaration.cpp \
+	css/CSSOMUtils.cpp \
 	css/CSSPageRule.cpp \
 	css/CSSParser.cpp \
 	css/CSSParserValues.cpp \
@@ -185,9 +186,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/WebKitAnimationEvent.cpp \
 	dom/WebKitTransitionEvent.cpp \
 	dom/WheelEvent.cpp \
-	dom/XMLTokenizer.cpp \
-	dom/XMLTokenizerLibxml2.cpp \
-	dom/XMLTokenizerScope.cpp \
+	dom/XMLDocumentParser.cpp \
+	dom/XMLDocumentParserLibxml2.cpp \
+	dom/XMLDocumentParserScope.cpp \
 	dom/default/PlatformMessagePortChannel.cpp \
 	\
 	editing/AppendNodeCommand.cpp \
@@ -246,6 +247,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	history/android/HistoryItemAndroid.cpp \
 	\
+	html/AsyncImageResizer.cpp \
 	html/Blob.cpp \
 	html/CollectionCache.cpp \
 	html/DateComponents.cpp \
@@ -257,8 +259,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/FileStreamProxy.cpp \
 	html/FileThread.cpp \
 	html/FormDataList.cpp \
+	html/HTML5EntityParser.cpp \
 	html/HTML5Lexer.cpp \
-	html/HTML5Tokenizer.cpp \
+	html/HTML5DocumentParser.cpp \
 	html/HTML5TreeBuilder.cpp \
 	html/HTML5ScriptRunner.cpp \
 	html/HTMLAllCollection.cpp \
@@ -270,13 +273,17 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLImageLoader.cpp \
 	html/HTMLNameCollection.cpp \
 	html/HTMLOptionsCollection.cpp \
-	html/HTMLParser.cpp \
+	html/LegacyHTMLTreeConstructor.cpp \
 	html/HTMLParserErrorCodes.cpp \
 	html/HTMLTableRowsCollection.cpp \
-	html/HTMLTokenizer.cpp \
+	html/HTMLDocumentParser.cpp \
 	html/HTMLViewSourceDocument.cpp \
 	html/ImageData.cpp \
+<<<<<<< HEAD:WebCore/Android.mk
 	html/LabelsNodeList.cpp \
+=======
+	html/ImageResizerThread.cpp \
+>>>>>>> Webkit.org at r61121:WebCore/Android.mk
 	html/PreloadScanner.cpp \
 	html/StepRange.cpp \
 	html/TimeRanges.cpp \
@@ -772,7 +779,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/IDBEvent.cpp \
 	storage/IDBIndexImpl.cpp \
 	storage/IDBIndexRequest.cpp \
-	storage/IDBObjectStore.cpp \
+	storage/IDBKeyRange.cpp \
+	storage/IDBObjectStoreImpl.cpp \
 	storage/IDBObjectStoreRequest.cpp \
 	storage/IDBRequest.cpp \
 	storage/IDBSuccessEvent.cpp \

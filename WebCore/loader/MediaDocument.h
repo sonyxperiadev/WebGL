@@ -46,7 +46,7 @@ private:
     MediaDocument(Frame*);
 
     virtual bool isMediaDocument() const { return true; }        
-    virtual Tokenizer* createTokenizer();
+    virtual DocumentParser* createParser();
 
     virtual void defaultEventHandler(Event*);
 

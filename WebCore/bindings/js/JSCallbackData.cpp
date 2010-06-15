@@ -51,7 +51,7 @@ JSValue JSCallbackData::invokeCallback(MarkedArgumentBuffer& args, bool* raisedE
     JSValue function = callback()->get(exec, Identifier(exec, "handleEvent"));
 
     CallData callData;
-    CallType callType = function.getCallData(callData);
+    CallType callType = getCallData(function, callData);
     if (callType == CallTypeNone) {
         callType = callback()->getCallData(callData);
         if (callType == CallTypeNone)
@@ -60,7 +60,12 @@ JSValue JSCallbackData::invokeCallback(MarkedArgumentBuffer& args, bool* raisedE
     }
     
     globalObject()->globalData()->timeoutChecker.start();
-    JSValue result = globalObject()->scriptExecutionContext()->isDocument() 
+    ScriptExecutionContext* context = globalObject()->scriptExecutionContext();
+    // We will fail to get the context if the frame has been detached.
+    if (!context)
+        return JSValue();
+
+    JSValue result = context->isDocument() 
         ? JSMainThreadExecState::call(exec, function, callType, callData, callback(), args)
         : JSC::call(exec, function, callType, callData, callback(), args);
     globalObject()->globalData()->timeoutChecker.stop();

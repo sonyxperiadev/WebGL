@@ -86,6 +86,7 @@ _patch3 = {
     "name": "Patch3",
     "is_obsolete": False,
     "is_patch": True,
+    "in-rietveld": "?",
     "review": "?",
     "attacher_email": "eric@webkit.org",
 }
@@ -112,6 +113,7 @@ _patch5 = {
     "name": "Patch5",
     "is_obsolete": False,
     "is_patch": True,
+    "in-rietveld": "?",
     "review": "+",
     "reviewer_email": "foo@bar.com",
     "attacher_email": "eric@webkit.org",
@@ -125,6 +127,7 @@ _patch6 = { # Valid committer, but no reviewer.
     "name": "ROLLOUT of r3489",
     "is_obsolete": False,
     "is_patch": True,
+    "in-rietveld": "-",
     "commit-queue": "+",
     "committer_email": "foo@bar.com",
     "attacher_email": "eric@webkit.org",
@@ -138,6 +141,7 @@ _patch7 = { # Valid review, patch is marked obsolete.
     "name": "Patch7",
     "is_obsolete": True,
     "is_patch": True,
+    "in-rietveld": "+",
     "review": "+",
     "reviewer_email": "foo@bar.com",
     "attacher_email": "eric@webkit.org",
@@ -221,6 +225,12 @@ class MockBugzillaQueries(Mock):
     def fetch_patches_from_pending_commit_list(self):
         return sum([bug.reviewed_patches() for bug in self._all_bugs()], [])
 
+    def fetch_first_patch_from_rietveld_queue(self):
+        for bug in self._all_bugs():
+            patches = bug.in_rietveld_queue_patches()
+            if len(patches):
+                return patches[0]
+        raise Exception('No patches in the rietveld queue')
 
 # FIXME: Bugzilla is the wrong Mock-point.  Once we have a BugzillaNetwork
 #        class we should mock that instead.
@@ -286,6 +296,15 @@ class MockBugzilla(Mock):
         if action and action != "view":
             action_param = "&action=%s" % action
         return "%s/%s%s" % (self.bug_server_url, attachment_id, action_param)
+
+    def set_flag_on_attachment(self,
+                               attachment_id,
+                               flag_name,
+                               flag_value,
+                               comment_text=None,
+                               additional_comment_text=None):
+        log("MOCK setting flag '%s' to '%s' on attachment '%s' with comment '%s' and additional comment '%s'" % (
+            flag_name, flag_value, attachment_id, comment_text, additional_comment_text))
 
     def post_comment_to_bug(self, bug_id, comment_text, cc=None):
         log("MOCK bug comment: bug_id=%s, cc=%s\n--- Begin comment ---\%s\n--- End comment ---\n" % (
@@ -453,6 +472,9 @@ class MockUser(object):
     def confirm(self, message=None):
         return True
 
+    def can_open_url(self):
+        return True
+
     def open_url(self, url):
         if url.startswith("file://"):
             log("MOCK: user.open_url: file://...")
@@ -490,6 +512,8 @@ class MockStatusServer(object):
     def update_svn_revision(self, svn_revision, broken_bot):
         return 191
 
+    def results_url_for_status(self, status_id):
+        return "http://dummy_url"
 
 class MockExecute(Mock):
     def __init__(self, should_log):
@@ -513,6 +537,15 @@ class MockExecute(Mock):
         return "MOCK output of child process"
 
 
+class MockRietveld():
+
+    def __init__(self, executive, dryrun=False):
+        pass
+
+    def post(self, diff, message=None, codereview_issue=None, cc=None):
+        log("MOCK: Uploading patch to rietveld")
+
+
 class MockTool():
 
     def __init__(self, log_executive=False):
@@ -526,7 +559,7 @@ class MockTool():
         self._checkout = MockCheckout()
         self.status_server = MockStatusServer()
         self.irc_password = "MOCK irc password"
-        self.codereview = Rietveld(self.executive)
+        self.codereview = MockRietveld(self.executive)
 
     def scm(self):
         return self._scm

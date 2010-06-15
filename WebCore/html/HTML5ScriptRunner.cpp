@@ -48,6 +48,7 @@ HTML5ScriptRunner::HTML5ScriptRunner(Document* document, HTML5ScriptRunnerHost* 
     , m_scriptNestingLevel(0)
     , m_hasScriptsWaitingForStylesheets(false)
 {
+    ASSERT(m_host);
 }
 
 HTML5ScriptRunner::~HTML5ScriptRunner()
@@ -84,8 +85,7 @@ ScriptSourceCode HTML5ScriptRunner::sourceFromPendingScript(const PendingScript&
         return ScriptSourceCode(script.cachedScript.get());
     }
     errorOccurred = false;
-    // FIXME: Line numbers are wrong.
-    return ScriptSourceCode(script.element->textContent(), documentURLForScriptExecution(m_document));
+    return ScriptSourceCode(script.element->textContent(), documentURLForScriptExecution(m_document), script.startingLineNumber);
 }
 
 bool HTML5ScriptRunner::isPendingScriptReady(const PendingScript& script)
@@ -127,6 +127,10 @@ void HTML5ScriptRunner::executePendingScript()
 
 void HTML5ScriptRunner::executeScript(Element* element, const ScriptSourceCode& sourceCode)
 {
+    // FIXME: We do not block inline <script> tags on stylesheets for now.
+    // When we do,  || !element->hasAttribute(srcAttr) should be removed from
+    // the ASSERT below.  See https://bugs.webkit.org/show_bug.cgi?id=40047
+    ASSERT(m_document->haveStylesheetsLoaded() || !element->hasAttribute(srcAttr));
     ScriptElement* scriptElement = toScriptElement(element);
     ASSERT(scriptElement);
     if (!scriptElement->shouldExecuteAsJavaScript())
@@ -153,26 +157,31 @@ void HTML5ScriptRunner::stopWatchingForLoad(PendingScript& pendingScript)
 
 // This function should match 10.2.5.11 "An end tag whose tag name is 'script'"
 // Script handling lives outside the tree builder to keep the each class simple.
-bool HTML5ScriptRunner::execute(PassRefPtr<Element> scriptElement)
+bool HTML5ScriptRunner::execute(PassRefPtr<Element> scriptElement, int startLine)
 {
     ASSERT(scriptElement);
     // FIXME: If scripting is disabled, always just return true;
 
     // Try to execute the script given to us.
-    runScript(scriptElement.get());
-    if (m_scriptNestingLevel)
-        return false; // Don't continue parsing.
-    if (!executeParsingBlockingScripts())
-        return false;
+    runScript(scriptElement.get(), startLine);
 
-    notImplemented(); // Restore insertion point?
-    // FIXME: Handle re-entrant scripts and m_pendingParsingBlockinScript.
-    return true;
+    if (haveParsingBlockingScript()) {
+        if (m_scriptNestingLevel)
+            return false; // Block the parser.  Unwind to the outermost HTML5ScriptRunner::execute before continuing parsing.
+        if (!executeParsingBlockingScripts())
+            return false; // We still have a parsing blocking script, block the parser.
+    }
+    return true; // Scripts executed as expected, continue parsing.
+}
+
+bool HTML5ScriptRunner::haveParsingBlockingScript() const
+{
+    return !!m_parsingBlockingScript.element;
 }
 
 bool HTML5ScriptRunner::executeParsingBlockingScripts()
 {
-    while (m_parsingBlockingScript.element) {
+    while (haveParsingBlockingScript()) {
         // We only really need to check once.
         if (!isPendingScriptReady(m_parsingBlockingScript))
             return false;
@@ -184,7 +193,7 @@ bool HTML5ScriptRunner::executeParsingBlockingScripts()
 bool HTML5ScriptRunner::executeScriptsWaitingForLoad(CachedResource*)
 {
     ASSERT(!m_scriptNestingLevel);
-    ASSERT(m_parsingBlockingScript.element);
+    ASSERT(haveParsingBlockingScript());
     ASSERT(m_parsingBlockingScript.cachedScript->isLoaded());
     return executeParsingBlockingScripts();
 }
@@ -203,6 +212,10 @@ void HTML5ScriptRunner::requestScript(Element* script)
 {
     ASSERT(!m_parsingBlockingScript.element);
     AtomicString srcValue = script->getAttribute(srcAttr);
+    // Allow the host to disllow script loads (using the XSSAuditor, etc.)
+    if (!m_host->shouldLoadExternalScriptFromSrc(srcValue))
+        return;
+
     // FIXME: We need to resolve the url relative to the element.
     m_parsingBlockingScript.element = script;
     if (!script->dispatchBeforeLoadEvent(srcValue)) // Part of HTML5?
@@ -224,9 +237,9 @@ void HTML5ScriptRunner::requestScript(Element* script)
 
 // This method is meant to match the HTML5 definition of "running a script"
 // http://www.whatwg.org/specs/web-apps/current-work/multipage/scripting-1.html#running-a-script
-void HTML5ScriptRunner::runScript(Element* script)
+void HTML5ScriptRunner::runScript(Element* script, int startingLineNumber)
 {
-    ASSERT(!m_parsingBlockingScript.element);
+    ASSERT(!haveParsingBlockingScript());
     m_scriptNestingLevel++;
     // Check script type and language, current code uses ScriptElement::shouldExecuteAsJavaScript(), but that may not be HTML5 compliant.
     notImplemented(); // event for support
@@ -234,11 +247,10 @@ void HTML5ScriptRunner::runScript(Element* script)
     if (script->hasAttribute(srcAttr)) {
         // FIXME: Handle defer and async
         requestScript(script);
-    } else if (!m_document->haveStylesheetsLoaded()) {
-        m_parsingBlockingScript.element = script;
     } else {
-        // FIXME: Need a line numbers implemenation.
-        ScriptSourceCode sourceCode(script->textContent(), documentURLForScriptExecution(m_document), 0);
+        // FIXME: We do not block inline <script> tags on stylesheets to match the
+        // old parser for now.  See https://bugs.webkit.org/show_bug.cgi?id=40047
+        ScriptSourceCode sourceCode(script->textContent(), documentURLForScriptExecution(m_document), startingLineNumber);
         executeScript(script, sourceCode);
     }
     m_scriptNestingLevel--;

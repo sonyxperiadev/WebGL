@@ -79,10 +79,16 @@ InspectorBackend::~InspectorBackend()
 {
 }
 
-void InspectorBackend::saveFrontendSettings(const String& settings)
+void InspectorBackend::saveApplicationSettings(const String& settings)
 {
     if (m_inspectorController)
         m_inspectorController->setSetting(InspectorController::frontendSettingsSettingName(), settings);
+}
+
+void InspectorBackend::saveSessionSettings(const String& settings)
+{
+    if (m_inspectorController)
+        m_inspectorController->setSessionSettings(settings);
 }
 
 void InspectorBackend::storeLastActivePanel(const String& panelName)
@@ -215,9 +221,17 @@ void InspectorBackend::setPauseOnExceptionsState(long pauseState)
         frontend->updatePauseOnExceptionsState(ScriptDebugServer::shared().pauseOnExceptionsState());
 }
 
-#endif
+void InspectorBackend::editScriptSource(long callId, const String& sourceID, const String& newContent)
+{
+    if (m_inspectorController)
+        m_inspectorController->editScriptSource(callId, sourceID, newContent);
+}
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
+void InspectorBackend::getScriptSource(long callId, const String& sourceID)
+{
+    if (m_inspectorController)
+        m_inspectorController->getScriptSource(callId, sourceID);
+}
 
 void InspectorBackend::enableProfiler(bool always)
 {
@@ -349,6 +363,18 @@ void InspectorBackend::changeTagName(long callId, long nodeId, const AtomicStrin
 {
     if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
         domAgent->changeTagName(callId, nodeId, tagName, expanded);
+}
+
+void InspectorBackend::performSearch(const String& query, bool runSynchronously)
+{
+    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
+        domAgent->performSearch(query, runSynchronously);
+}
+
+void InspectorBackend::searchCanceled()
+{
+    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
+        domAgent->searchCanceled();
 }
 
 void InspectorBackend::getStyles(long callId, long nodeId, bool authorOnly)

@@ -35,12 +35,17 @@
 #include "FrameLoaderClientQt.h"
 #include "FrameView.h"
 #include "GCController.h"
+#include "Geolocation.h"
+#include "GeolocationServiceMock.h"
+#include "Geoposition.h"
+#include "HistoryItem.h"
 #include "HTMLInputElement.h"
 #include "InspectorController.h"
 #include "NotificationPresenterClientQt.h"
 #include "Page.h"
 #include "PageGroup.h"
 #include "PluginDatabase.h"
+#include "PositionError.h"
 #include "PrintContext.h"
 #include "RenderListItem.h"
 #include "RenderTreeAsText.h"
@@ -51,10 +56,13 @@
 #endif
 #include "TextIterator.h"
 #include "WorkerThread.h"
+#include <wtf/CurrentTime.h>
 
 #include "qwebelement.h"
 #include "qwebframe.h"
 #include "qwebframe_p.h"
+#include "qwebhistory.h"
+#include "qwebhistory_p.h"
 #include "qwebpage.h"
 #include "qwebpage_p.h"
 
@@ -437,7 +445,7 @@ QVariantList DumpRenderTreeSupportQt::firstRectForCharacterRange(QWebPage* page,
     WebCore::Frame* frame = page->handle()->page->focusController()->focusedOrMainFrame();
     QVariantList rect;
 
-    if ((location + length < location) && (location + length != 0))
+    if ((location + length < location) && (location + length))
         length = 0;
 
     Element* selectionRoot = frame->selection()->rootEditableElement();
@@ -476,18 +484,22 @@ bool DumpRenderTreeSupportQt::elementDoesAutoCompleteForElementWithId(QWebFrame*
 
 void DumpRenderTreeSupportQt::setEditingBehavior(QWebPage* page, const QString& editingBehavior)
 {
-    WebCore::EditingBehavior coreEditingBehavior;
+    WebCore::EditingBehaviorType coreEditingBehavior;
 
     if (editingBehavior == "win")
         coreEditingBehavior = EditingWindowsBehavior;
     else if (editingBehavior == "mac")
         coreEditingBehavior = EditingMacBehavior;
+    else {
+        ASSERT_NOT_REACHED();
+        return;
+    }
 
     Page* corePage = QWebPagePrivate::core(page);
     if (!corePage)
         return;
 
-    corePage->settings()->setEditingBehavior(coreEditingBehavior);
+    corePage->settings()->setEditingBehaviorType(coreEditingBehavior);
 }
 
 void DumpRenderTreeSupportQt::dumpFrameLoader(bool b)
@@ -537,17 +549,33 @@ void DumpRenderTreeSupportQt::dumpNotification(bool b)
 #endif
 }
 
-void DumpRenderTreeSupportQt::setNotificationsReceiver(QWebPage* page, QObject* receiver)
+void DumpRenderTreeSupportQt::setNotificationsReceiver(QObject* receiver)
 {
 #if ENABLE(NOTIFICATIONS)
-    page->d->notificationPresenterClient->setReceiver(receiver);
+    NotificationPresenterClientQt::notificationPresenter()->setReceiver(receiver);
 #endif
 }
 
-void DumpRenderTreeSupportQt::allowNotificationForOrigin(QWebPage* page, const QString& origin)
+void DumpRenderTreeSupportQt::allowNotificationForOrigin(const QString& origin)
 {
 #if ENABLE(NOTIFICATIONS)
-    page->d->notificationPresenterClient->allowNotificationForOrigin(origin);
+    NotificationPresenterClientQt::notificationPresenter()->allowNotificationForOrigin(origin);
+#endif
+}
+
+void DumpRenderTreeSupportQt::setMockGeolocationPosition(double latitude, double longitude, double accuracy)
+{
+#if ENABLE(GEOLOCATION)
+    RefPtr<Geoposition> geoposition = Geoposition::create(Coordinates::create(latitude, longitude, false, 0, accuracy, true, 0, false, 0, false, 0), currentTime() * 1000.0);
+    GeolocationServiceMock::setPosition(geoposition);
+#endif
+}
+
+void DumpRenderTreeSupportQt::setMockGeolocationError(int errorCode, const QString& message)
+{
+#if ENABLE(GEOLOCATION)
+    RefPtr<PositionError> positionError = PositionError::create(static_cast<PositionError::ErrorCode>(errorCode), message);
+    GeolocationServiceMock::setError(positionError);
 #endif
 }
 
@@ -559,6 +587,41 @@ void DumpRenderTreeSupportQt::setCheckPermissionFunction(CheckPermissionFunction
 void DumpRenderTreeSupportQt::setRequestPermissionFunction(RequestPermissionFunctionType* f)
 {
     requestPermissionFunction = f;
+}
+
+bool DumpRenderTreeSupportQt::isTargetItem(const QWebHistoryItem& historyItem)
+{
+    QWebHistoryItem it = historyItem;
+    if (QWebHistoryItemPrivate::core(&it)->isTargetItem())
+        return true;
+    return false;
+}
+
+QString DumpRenderTreeSupportQt::historyItemTarget(const QWebHistoryItem& historyItem)
+{
+    QWebHistoryItem it = historyItem;
+    return (QWebHistoryItemPrivate::core(&it)->target());
+}
+
+QList<QWebHistoryItem> DumpRenderTreeSupportQt::getChildHistoryItems(const QWebHistoryItem& historyItem)
+{
+    QWebHistoryItem it = historyItem;
+    HistoryItem* item = QWebHistoryItemPrivate::core(&it);
+    const WebCore::HistoryItemVector& children = item->children();
+
+    unsigned size = children.size();
+    QList<QWebHistoryItem> kids;
+    for (unsigned i = 0; i < size; ++i) {
+        QWebHistoryItem kid(new QWebHistoryItemPrivate(children[i].get()));
+        kids.prepend(kid);
+    }
+    return kids;
+}
+
+bool DumpRenderTreeSupportQt::shouldClose(QWebFrame* frame)
+{
+    WebCore::Frame* coreFrame = QWebFramePrivate::core(frame);
+    return coreFrame->shouldClose();
 }
 
 // Provide a backward compatibility with previously exported private symbols as of QtWebKit 4.6 release

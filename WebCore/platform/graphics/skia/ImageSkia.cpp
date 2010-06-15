@@ -66,6 +66,16 @@ enum ResamplingMode {
 
 static ResamplingMode computeResamplingMode(PlatformContextSkia* platformContext, const NativeImageSkia& bitmap, int srcWidth, int srcHeight, float destWidth, float destHeight)
 {
+    if (platformContext->hasImageResamplingHint()) {
+        IntSize srcSize;
+        FloatSize dstSize;
+        platformContext->getImageResamplingHint(&srcSize, &dstSize);
+        srcWidth = srcSize.width();
+        srcHeight = srcSize.height();
+        destWidth = dstSize.width();
+        destHeight = dstSize.height();
+    }
+
     int destIWidth = static_cast<int>(destWidth);
     int destIHeight = static_cast<int>(destHeight);
 
@@ -188,7 +198,7 @@ static void drawResampledBitmap(SkCanvas& canvas, SkPaint& paint, const NativeIm
     if (!destBitmapSubsetSkI.intersect(resizedImageRect))
         return;  // Resized image does not intersect.
 
-    if (srcIsFull || bitmap.shouldCacheResampling(
+    if (srcIsFull && bitmap.shouldCacheResampling(
             resizedImageRect.width(),
             resizedImageRect.height(),
             destBitmapSubsetSkI.width(),

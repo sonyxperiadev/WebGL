@@ -26,17 +26,15 @@
 #include "DragController.h"
 #include "Element.h"
 #include "Frame.h"
+#include "GOwnPtrGtk.h"
 #include "GRefPtrGtk.h"
+#include "GtkVersioning.h"
 #include "NotImplemented.h"
 #include "PasteboardHelper.h"
 #include "RenderObject.h"
 #include "webkitprivate.h"
 #include "webkitwebview.h"
-
 #include <gtk/gtk.h>
-#if !GTK_CHECK_VERSION(2, 14, 0)
-#define gtk_widget_get_window(widget) (widget)->window
-#endif
 
 using namespace WebCore;
 
@@ -75,22 +73,16 @@ void DragClient::startDrag(DragImageRef image, const IntPoint& dragImageOrigin, 
 
     WebKitWebView* webView = webkit_web_frame_get_web_view(kit(frame));
     RefPtr<DataObjectGtk> dataObject = clipboardGtk->dataObject();
-
     GRefPtr<GtkTargetList> targetList(clipboardGtk->helper()->targetListForDataObject(dataObject.get()));
-    GdkEvent* event = gdk_event_new(GDK_BUTTON_PRESS);
-    // This will be decremented by gdk_event_free() below.
-    event->button.window = static_cast<GdkWindow*>(g_object_ref(gtk_widget_get_window(GTK_WIDGET(m_webView))));
-    event->button.time = GDK_CURRENT_TIME;
+    GOwnPtr<GdkEvent> currentEvent(gtk_get_current_event());
 
-    GdkDragContext* context = gtk_drag_begin(GTK_WIDGET(m_webView), targetList.get(), dragOperationToGdkDragActions(clipboard->sourceOperation()), 1, event);
+    GdkDragContext* context = gtk_drag_begin(GTK_WIDGET(m_webView), targetList.get(), dragOperationToGdkDragActions(clipboard->sourceOperation()), 1, currentEvent.get());
     webView->priv->draggingDataObjects.set(context, dataObject);
 
     if (image)
         gtk_drag_set_icon_pixbuf(context, image, eventPos.x() - dragImageOrigin.x(), eventPos.y() - dragImageOrigin.y());
     else
         gtk_drag_set_icon_default(context);
-
-    gdk_event_free(event);
 }
 
 DragImageRef DragClient::createDragImageForLink(KURL&, const String&, Frame*)

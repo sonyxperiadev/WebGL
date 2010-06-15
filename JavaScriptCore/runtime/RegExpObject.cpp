@@ -22,6 +22,7 @@
 #include "RegExpObject.h"
 
 #include "Error.h"
+#include "ExceptionHelpers.h"
 #include "JSArray.h"
 #include "JSGlobalObject.h"
 #include "JSString.h"
@@ -125,9 +126,9 @@ JSValue RegExpObject::exec(ExecState* exec)
     return jsNull();
 }
 
-static JSValue JSC_HOST_CALL callRegExpObject(ExecState* exec)
+static EncodedJSValue JSC_HOST_CALL callRegExpObject(ExecState* exec)
 {
-    return asRegExpObject(exec->callee())->exec(exec);
+    return JSValue::encode(asRegExpObject(exec->callee())->exec(exec));
 }
 
 CallType RegExpObject::getCallData(CallData& callData)
@@ -143,7 +144,7 @@ bool RegExpObject::match(ExecState* exec)
 
     UString input = !exec->argumentCount() ? regExpConstructor->input() : exec->argument(0).toString(exec);
     if (input.isNull()) {
-        throwError(exec, GeneralError, makeString("No input to ", toString(exec), "."));
+        throwError(exec, createError(exec, makeString("No input to ", toString(exec), ".")));
         return false;
     }
 

@@ -23,8 +23,8 @@
 #if ENABLE(PROGRESS_TAG)
 
 #include "RenderProgress.h"
-
-#include "HTMLDivElement.h"
+#include "ShadowElement.h"
+#include "HTMLNames.h"
 #include "HTMLProgressElement.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
@@ -34,32 +34,6 @@
 using namespace std;
 
 namespace WebCore {
-
-using namespace HTMLNames;
-
-class ProgressValueElement : public HTMLDivElement {
-public:
-    static PassRefPtr<ProgressValueElement> create(Node* shadowParent);
-
-private:        
-    ProgressValueElement(Node* shadowParent);
-
-    virtual bool isShadowNode() const { return true; }
-    virtual Node* shadowParentNode() { return m_shadowParent; }
-
-    Node* m_shadowParent;
-};
-
-inline ProgressValueElement::ProgressValueElement(Node* shadowParent)
-    : HTMLDivElement(divTag, shadowParent->document())
-    , m_shadowParent(shadowParent)
-{
-}
-
-inline PassRefPtr<ProgressValueElement> ProgressValueElement::create(Node* shadowParent)
-{
-    return new ProgressValueElement(shadowParent);
-}
 
 RenderProgress::RenderProgress(HTMLProgressElement* element)
     : RenderBlock(element)
@@ -144,7 +118,7 @@ void RenderProgress::updateValuePartState()
 {
     bool needLayout = !style()->hasAppearance() || m_valuePart;
     if (!style()->hasAppearance() && !m_valuePart) {
-        m_valuePart = ProgressValueElement::create(node());
+        m_valuePart = ShadowBlockElement::create(node());
         RefPtr<RenderStyle> styleForValuePart = createStyleForValuePart(style());
         m_valuePart->setRenderer(m_valuePart->createRenderer(renderArena(), styleForValuePart.get()));
         m_valuePart->renderer()->setStyle(styleForValuePart.release());

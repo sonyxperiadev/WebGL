@@ -44,7 +44,6 @@ namespace WebCore {
     class EditorClientQt;
     class Element;
     class InspectorController;
-    class NotificationPresenterClientQt;
     class Node;
     class Page;
     class Frame;
@@ -113,7 +112,9 @@ public:
 
     void inputMethodEvent(QInputMethodEvent*);
 
+#ifndef QT_NO_PROPERTIES
     void dynamicPropertyChangeEvent(QDynamicPropertyChangeEvent*);
+#endif
 
     void shortcutOverrideEvent(QKeyEvent*);
     void leaveEvent(QEvent*);
@@ -191,8 +192,6 @@ public:
     bool inspectorIsInternalOnly; // True if created through the Inspect context menu action
     Qt::DropAction m_lastDropAction;
     
-    WebCore::NotificationPresenterClientQt* notificationPresenterClient;
-
     QString viewMode;
 
     static bool drtRun;

@@ -1,3 +1,1121 @@
+2010-06-11  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Rename the rest of the *Tokenizer classes to *DocumentParser
+        https://bugs.webkit.org/show_bug.cgi?id=40507
+
+        * wtf/Platform.h:
+         - fixed a comment to match new names.
+
+2010-06-11  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Explicit conversions from QtScript types to JSC opaque types were removed.
+        https://bugs.webkit.org/show_bug.cgi?id=40412
+
+        Conversion between a JSC C types and a QtScript private types, takes
+        main part of the source code. In most cases a mapping between the types
+        is one to one. New cast operators were added to simplify the code.
+
+        The QScriptValuePrivate could be casted to the JSValueRef and the JSObjectRef.
+        The QScriptEnginePrivate could be casted to the JSGlobalContext.
+        The QScriptProgramPrivate could be casted to the JSStringRef.
+
+        * qt/api/qscriptengine_p.cpp:
+        (QScriptEnginePrivate::evaluate):
+        (QScriptEnginePrivate::newObject):
+        (QScriptEnginePrivate::globalObject):
+        * qt/api/qscriptengine_p.h:
+        (QScriptEnginePrivate::operator JSGlobalContextRef):
+        * qt/api/qscriptprogram_p.h:
+        (QScriptProgramPrivate::operator JSStringRef):
+        * qt/api/qscriptsyntaxcheckresult.cpp:
+        (QScriptSyntaxCheckResultPrivate::~QScriptSyntaxCheckResultPrivate):
+        (QScriptSyntaxCheckResultPrivate::errorMessage):
+        (QScriptSyntaxCheckResultPrivate::errorLineNumber):
+        * qt/api/qscriptvalue_p.h:
+        (QScriptValuePrivate::~QScriptValuePrivate):
+        (QScriptValuePrivate::QScriptValuePrivate):
+        (QScriptValuePrivate::isBool):
+        (QScriptValuePrivate::isNumber):
+        (QScriptValuePrivate::isNull):
+        (QScriptValuePrivate::isString):
+        (QScriptValuePrivate::isUndefined):
+        (QScriptValuePrivate::isFunction):
+        (QScriptValuePrivate::toString):
+        (QScriptValuePrivate::toNumber):
+        (QScriptValuePrivate::toBool):
+        (QScriptValuePrivate::toObject):
+        (QScriptValuePrivate::equals):
+        (QScriptValuePrivate::strictlyEquals):
+        (QScriptValuePrivate::instanceOf):
+        (QScriptValuePrivate::call):
+        (QScriptValuePrivate::operator JSValueRef):
+        (QScriptValuePrivate::operator JSObjectRef):
+        (QScriptValuePrivate::setValue):
+        (QScriptValuePrivate::inherits):
+        (QScriptValuePrivate::refinedJSValue):
+
+2010-05-31  Jocelyn Turcotte  <jocelyn.turcotte@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Implement the simple text code path.
+        https://bugs.webkit.org/show_bug.cgi?id=40077
+
+        Remove the FONT_FAST_PATH macro and use the Qt's
+        fast text implementation instead of the one of WebKit.
+
+        The Qt::TextBypassShaping flag is used to tell Qt to
+        only use the glyph advances.
+
+        Qt 4.7 is needed to get this flag thus the complex path is always
+        used if QtWebKit is compiled against an earlier version.
+
+        Contrary to the WebKit's implementation, the complex code path
+        is taken if the text is RightToLeft, justified or is formatted
+        with non-zero letter or word spacing.
+
+        * wtf/Platform.h:
+
+2010-06-11  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        add codePointCompare to JavaScriptCore.exp
+        https://bugs.webkit.org/show_bug.cgi?id=40426
+
+        * JavaScriptCore.exp:
+
+2010-06-10  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Math Javascript Bug on Safari 5 (webkit 533.16) under "32bit" mode
+        https://bugs.webkit.org/show_bug.cgi?id=40367
+
+        If we're in the slow case of right shift we must write the type tag as
+        the only reason we hit this code path is because we know we're working
+        with a double.  eg. we are guaranteed that the tag cannot be reused.
+
+        * jit/JITArithmetic32_64.cpp:
+        (JSC::JIT::emitRightShiftSlowCase):
+
+2010-06-10  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Eric Seidel.
+
+        Remove weakRandomNumber
+        https://bugs.webkit.org/show_bug.cgi?id=40291
+
+        weakRandomNumber is used nowhere. Currently, WeakRandom is used instead.
+
+        * wtf/RandomNumber.cpp:
+        * wtf/RandomNumber.h:
+
+2010-06-09  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Brady Eidson.
+
+        Export StringImpl::ascii(). It might be not very useful, but it's a public function.
+
+        * JavaScriptCore.exp:
+
+2010-06-09  Leandro Pereira  <leandro@profusion.mobi>
+
+        Reviewed by Adam Treat.
+
+        [EFL] Allow building core libraries as shared objects to speed up
+        linking time on machines with small amounts of memory.
+        http://webkit.org/b/39899
+
+        * CMakeLists.txt: If building with shared core, install the lib.
+        * jsc/CMakeListsEfl.txt: Needs Glib and Ecore to link dynamically.
+        * wtf/CMakeLists.txt: If building with shared core, install the lib.
+
+2010-06-09  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by David Levin.
+
+        Remove some unused variable warnings from JITOpcodes
+        https://bugs.webkit.org/show_bug.cgi?id=40298
+
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::privateCompileCTINativeCall):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::privateCompileCTINativeCall):
+
+2010-05-18  Yuzo Fujishima  <yuzo@google.com>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Fix for Bug 34529 -  [CSSOM] issues with cssText and selectorText
+        Add U16_LENGTH that is needed to implement CSS character serialization.
+        https://bugs.webkit.org/show_bug.cgi?id=34529
+
+        * wtf/unicode/qt4/UnicodeQt4.h:
+        * wtf/unicode/wince/UnicodeWince.h:
+
+2010-06-08  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r60830.
+        http://trac.webkit.org/changeset/60830
+        https://bugs.webkit.org/show_bug.cgi?id=40305
+
+        Broke the Windows build (Requested by abarth on #webkit).
+
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * wtf/OwnPtrCommon.h:
+        * wtf/brew/OwnPtrBrew.h: Removed.
+        * wtf/win/OwnPtrWin.h: Removed.
+
+2010-06-08  MORITA Hajime  <morrita@google.com>
+
+        Unreviewed. An attempt to fix test break.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-06-08  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Adam Barth.
+
+        Change OwnPtrCommon to include platform-specific headers
+        https://bugs.webkit.org/show_bug.cgi?id=40279
+
+        Adding new type to OwnPtrCommon needlessly causes all ports to do full rebuilds.
+        Change OwnPtrCommon to include platform-specific headers to avoid all ports rebuilds.
+
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * wtf/OwnPtrCommon.h:
+        * wtf/brew/OwnPtrBrew.h: Added.
+        * wtf/win/OwnPtrWin.h: Added.
+
+2010-06-07  MORITA Hajime  <morrita@google.com>
+        
+        Reviewed by Kent Tamura.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40219
+        [Mac] ENABLE_METER_TAG should be enabled
+        
+        Added ENABLE_METER_TAG.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-06-07  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Eric Seidel.
+
+        [BREWMP] Add more types to OwnPtr
+        https://bugs.webkit.org/show_bug.cgi?id=39667
+
+        Add ISSL and ISocket to the list of OwnPtr-ed type.
+
+        * wtf/OwnPtrCommon.h:
+        * wtf/brew/OwnPtrBrew.cpp:
+        (WTF::deleteOwnedPtr):
+
+2010-06-07  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Crash when compiling on Snow Leopard and running on Leopard
+        https://bugs.webkit.org/show_bug.cgi?id=31403
+
+        Disable the use of pthread_setname_np and other symbols
+        when targetting Leopard.
+
+        Use the defines TARGETING_XX instead of BUILDING_ON_XX 
+        for features that cannot be used before Snow Leopard.
+
+        * wtf/Platform.h:
+
+2010-06-07  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by NOBODY (JSVALUE32_64 build fix).
+
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::privateCompileCTINativeCall):
+
+2010-06-06  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (windows build fix pt 2).
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-06-06  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (windows build fix pt 1).
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-06-06  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 40214 - Clean up error construction / throwing in JSC.
+        
+        The one egregious insanity here is that creating an error requires
+        a VM-entry-esqe-host call (the string argument is wrapped as a JS
+        object & pushed on the RegisterFile, then unwrapped back to a
+        UString).  Changing this also means you only require a global
+        object, not an ExecState, to create an error.
+
+        The methods to create error objects are also parameterized
+        requiring a switch on the type, which can be made cleaner and
+        faster by moving to a separate method per error type.  Code to add
+        divot information to error had been duplicated, and is coalesced
+        back into a single function.
+
+        Convenience methods added to create & throw type & syntax error
+        with a default error message, since this is a common case.
+
+        Also, errors are currently thrown either using
+        "throwError(exec, error)" or "exec->setException(error)" - unify
+        on the former, since this is more commonly used.  Add
+        "throwVMError(exec, error)" equivalents, as a convenience for
+        cases where the result was being wrapped in "JSValue::encode(...)".
+
+        * API/JSCallbackConstructor.cpp:
+        (JSC::constructJSCallback):
+        * API/JSCallbackFunction.cpp:
+        (JSC::JSCallbackFunction::call):
+        * API/JSCallbackObjectFunctions.h:
+        (JSC::::getOwnPropertySlot):
+        (JSC::::put):
+        (JSC::::deleteProperty):
+        (JSC::::construct):
+        (JSC::::hasInstance):
+        (JSC::::call):
+        (JSC::::toNumber):
+        (JSC::::toString):
+        (JSC::::staticValueGetter):
+        (JSC::::staticFunctionGetter):
+        (JSC::::callbackGetter):
+        * API/JSObjectRef.cpp:
+        (JSObjectMakeError):
+        * JavaScriptCore.exp:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitNewError):
+        (JSC::BytecodeGenerator::emitThrowExpressionTooDeepException):
+        * bytecompiler/BytecodeGenerator.h:
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::ThrowableExpressionData::emitThrowError):
+        (JSC::RegExpNode::emitBytecode):
+        (JSC::PostfixErrorNode::emitBytecode):
+        (JSC::PrefixErrorNode::emitBytecode):
+        (JSC::AssignErrorNode::emitBytecode):
+        (JSC::ForInNode::emitBytecode):
+        (JSC::ContinueNode::emitBytecode):
+        (JSC::BreakNode::emitBytecode):
+        (JSC::ReturnNode::emitBytecode):
+        (JSC::LabelNode::emitBytecode):
+        * interpreter/CallFrame.h:
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::throwException):
+        (JSC::Interpreter::privateExecute):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jsc.cpp:
+        (functionRun):
+        (functionLoad):
+        (functionCheckSyntax):
+        * parser/Nodes.h:
+        * runtime/ArrayConstructor.cpp:
+        (JSC::constructArrayWithSizeQuirk):
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncToString):
+        (JSC::arrayProtoFuncToLocaleString):
+        (JSC::arrayProtoFuncJoin):
+        (JSC::arrayProtoFuncFilter):
+        (JSC::arrayProtoFuncMap):
+        (JSC::arrayProtoFuncEvery):
+        (JSC::arrayProtoFuncForEach):
+        (JSC::arrayProtoFuncSome):
+        (JSC::arrayProtoFuncReduce):
+        (JSC::arrayProtoFuncReduceRight):
+        * runtime/BooleanPrototype.cpp:
+        (JSC::booleanProtoFuncToString):
+        (JSC::booleanProtoFuncValueOf):
+        * runtime/DatePrototype.cpp:
+        (JSC::dateProtoFuncToString):
+        (JSC::dateProtoFuncToUTCString):
+        (JSC::dateProtoFuncToISOString):
+        (JSC::dateProtoFuncToDateString):
+        (JSC::dateProtoFuncToTimeString):
+        (JSC::dateProtoFuncToLocaleString):
+        (JSC::dateProtoFuncToLocaleDateString):
+        (JSC::dateProtoFuncToLocaleTimeString):
+        (JSC::dateProtoFuncGetTime):
+        (JSC::dateProtoFuncGetFullYear):
+        (JSC::dateProtoFuncGetUTCFullYear):
+        (JSC::dateProtoFuncToGMTString):
+        (JSC::dateProtoFuncGetMonth):
+        (JSC::dateProtoFuncGetUTCMonth):
+        (JSC::dateProtoFuncGetDate):
+        (JSC::dateProtoFuncGetUTCDate):
+        (JSC::dateProtoFuncGetDay):
+        (JSC::dateProtoFuncGetUTCDay):
+        (JSC::dateProtoFuncGetHours):
+        (JSC::dateProtoFuncGetUTCHours):
+        (JSC::dateProtoFuncGetMinutes):
+        (JSC::dateProtoFuncGetUTCMinutes):
+        (JSC::dateProtoFuncGetSeconds):
+        (JSC::dateProtoFuncGetUTCSeconds):
+        (JSC::dateProtoFuncGetMilliSeconds):
+        (JSC::dateProtoFuncGetUTCMilliseconds):
+        (JSC::dateProtoFuncGetTimezoneOffset):
+        (JSC::dateProtoFuncSetTime):
+        (JSC::setNewValueFromTimeArgs):
+        (JSC::setNewValueFromDateArgs):
+        (JSC::dateProtoFuncSetMilliSeconds):
+        (JSC::dateProtoFuncSetUTCMilliseconds):
+        (JSC::dateProtoFuncSetSeconds):
+        (JSC::dateProtoFuncSetUTCSeconds):
+        (JSC::dateProtoFuncSetMinutes):
+        (JSC::dateProtoFuncSetUTCMinutes):
+        (JSC::dateProtoFuncSetHours):
+        (JSC::dateProtoFuncSetUTCHours):
+        (JSC::dateProtoFuncSetDate):
+        (JSC::dateProtoFuncSetUTCDate):
+        (JSC::dateProtoFuncSetMonth):
+        (JSC::dateProtoFuncSetUTCMonth):
+        (JSC::dateProtoFuncSetFullYear):
+        (JSC::dateProtoFuncSetUTCFullYear):
+        (JSC::dateProtoFuncSetYear):
+        (JSC::dateProtoFuncGetYear):
+        (JSC::dateProtoFuncToJSON):
+        * runtime/Error.cpp:
+        (JSC::createError):
+        (JSC::createEvalError):
+        (JSC::createRangeError):
+        (JSC::createReferenceError):
+        (JSC::createSyntaxError):
+        (JSC::createTypeError):
+        (JSC::createURIError):
+        (JSC::addErrorSourceInfo):
+        (JSC::addErrorDivotInfo):
+        (JSC::addErrorInfo):
+        (JSC::hasErrorInfo):
+        (JSC::throwError):
+        (JSC::throwTypeError):
+        (JSC::throwSyntaxError):
+        * runtime/Error.h:
+        (JSC::throwVMError):
+        (JSC::throwVMTypeError):
+        * runtime/ErrorConstructor.cpp:
+        (JSC::constructWithErrorConstructor):
+        (JSC::callErrorConstructor):
+        * runtime/ErrorConstructor.h:
+        * runtime/ErrorInstance.cpp:
+        (JSC::ErrorInstance::ErrorInstance):
+        (JSC::ErrorInstance::create):
+        * runtime/ErrorInstance.h:
+        * runtime/ErrorPrototype.cpp:
+        (JSC::ErrorPrototype::ErrorPrototype):
+        * runtime/ExceptionHelpers.cpp:
+        (JSC::createStackOverflowError):
+        (JSC::createUndefinedVariableError):
+        (JSC::createInvalidParamError):
+        (JSC::createNotAConstructorError):
+        (JSC::createNotAFunctionError):
+        (JSC::createNotAnObjectError):
+        (JSC::throwOutOfMemoryError):
+        * runtime/ExceptionHelpers.h:
+        * runtime/Executable.cpp:
+        (JSC::EvalExecutable::compile):
+        (JSC::ProgramExecutable::checkSyntax):
+        (JSC::ProgramExecutable::compile):
+        * runtime/FunctionConstructor.cpp:
+        (JSC::constructFunction):
+        * runtime/FunctionPrototype.cpp:
+        (JSC::functionProtoFuncToString):
+        (JSC::functionProtoFuncApply):
+        (JSC::functionProtoFuncCall):
+        * runtime/Identifier.cpp:
+        (JSC::Identifier::from):
+        * runtime/Identifier.h:
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::put):
+        * runtime/JSFunction.cpp:
+        (JSC::callHostFunctionAsConstructor):
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::encode):
+        (JSC::decode):
+        (JSC::globalFuncEval):
+        * runtime/JSONObject.cpp:
+        (JSC::Stringifier::appendStringifiedValue):
+        (JSC::Walker::walk):
+        (JSC::JSONProtoFuncParse):
+        (JSC::JSONProtoFuncStringify):
+        * runtime/JSObject.cpp:
+        (JSC::throwSetterError):
+        (JSC::JSObject::put):
+        (JSC::JSObject::putWithAttributes):
+        (JSC::JSObject::defaultValue):
+        (JSC::JSObject::hasInstance):
+        (JSC::JSObject::defineOwnProperty):
+        * runtime/JSObject.h:
+        * runtime/JSValue.cpp:
+        (JSC::JSValue::toObjectSlowCase):
+        (JSC::JSValue::synthesizeObject):
+        (JSC::JSValue::synthesizePrototype):
+        * runtime/NativeErrorConstructor.cpp:
+        (JSC::constructWithNativeErrorConstructor):
+        (JSC::callNativeErrorConstructor):
+        * runtime/NativeErrorConstructor.h:
+        * runtime/NumberPrototype.cpp:
+        (JSC::numberProtoFuncToString):
+        (JSC::numberProtoFuncToLocaleString):
+        (JSC::numberProtoFuncValueOf):
+        (JSC::numberProtoFuncToFixed):
+        (JSC::numberProtoFuncToExponential):
+        (JSC::numberProtoFuncToPrecision):
+        * runtime/ObjectConstructor.cpp:
+        (JSC::objectConstructorGetPrototypeOf):
+        (JSC::objectConstructorGetOwnPropertyDescriptor):
+        (JSC::objectConstructorGetOwnPropertyNames):
+        (JSC::objectConstructorKeys):
+        (JSC::toPropertyDescriptor):
+        (JSC::objectConstructorDefineProperty):
+        (JSC::objectConstructorDefineProperties):
+        (JSC::objectConstructorCreate):
+        * runtime/ObjectPrototype.cpp:
+        (JSC::objectProtoFuncDefineGetter):
+        (JSC::objectProtoFuncDefineSetter):
+        * runtime/RegExpConstructor.cpp:
+        (JSC::constructRegExp):
+        * runtime/RegExpObject.cpp:
+        (JSC::RegExpObject::match):
+        * runtime/RegExpPrototype.cpp:
+        (JSC::regExpProtoFuncTest):
+        (JSC::regExpProtoFuncExec):
+        (JSC::regExpProtoFuncCompile):
+        (JSC::regExpProtoFuncToString):
+        * runtime/StringPrototype.cpp:
+        (JSC::stringProtoFuncToString):
+
+2010-06-05  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Eric Seidel.
+
+        [BREWMP] Add PLATFORM(BREWMP) guard for using std::xxx
+        https://bugs.webkit.org/show_bug.cgi?id=39710
+
+        Build fix for BREW MP.
+
+        * wtf/MathExtras.h:
+
+2010-06-04  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        HTML5 parser should be within 1% of old parser performance
+        https://bugs.webkit.org/show_bug.cgi?id=40172
+
+        Fix cast in this operator= to allow for assignment between vectors with
+        different inline capacities (as clearly intended by its author).
+
+        * wtf/Vector.h:
+        (WTF::::operator):
+
+2010-06-04  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        New QtScript API; QScriptValue::instanceOf.
+
+        New function create an easy way to check value's prototype hierarchy.
+
+        [Qt] QScriptValue should have an instanceOf method
+        https://bugs.webkit.org/show_bug.cgi?id=40120
+
+        * qt/api/qscriptvalue.cpp:
+        (QScriptValue::instanceOf):
+        * qt/api/qscriptvalue.h:
+        * qt/api/qscriptvalue_p.h:
+        (QScriptValuePrivate::instanceOf):
+        * qt/tests/qscriptvalue/tst_qscriptvalue.h:
+        * qt/tests/qscriptvalue/tst_qscriptvalue_generated_comparison.cpp:
+        (tst_QScriptValue::instanceOf_initData):
+        (tst_QScriptValue::instanceOf_makeData):
+        (tst_QScriptValue::instanceOf_test):
+
+2010-06-04  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (interpreter build fix).
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+
+2010-06-04  Mark Rowe  <mrowe@apple.com>
+
+        Silence some warnings seen on the build bot.
+
+        * JavaScriptCore.JSVALUE32_64only.exp: Add a trailing newline.
+        * JavaScriptCore.JSVALUE32only.exp: Ditto.
+        * JavaScriptCore.JSVALUE64only.exp: Ditto.
+        * JavaScriptCore.xcodeproj/project.pbxproj: Remove the .exp files from all targets so that Xcode doesn't
+        complain about not knowing how to compile them.
+
+2010-06-04  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 40187 - Change function signature of NativeConstructor to match NativeFunction
+
+        Mostly for consistency, but constructor & args arguments are redundant,
+        and this will help if we wish to be able to JIT calls to more constructors.
+
+        * API/JSCallbackConstructor.cpp:
+        (JSC::constructJSCallback):
+        * API/JSCallbackObject.h:
+        * API/JSCallbackObjectFunctions.h:
+        (JSC::::construct):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::executeConstruct):
+        * interpreter/Interpreter.h:
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * runtime/ArrayConstructor.cpp:
+        (JSC::constructWithArrayConstructor):
+        * runtime/BooleanConstructor.cpp:
+        (JSC::constructWithBooleanConstructor):
+        * runtime/ConstructData.cpp:
+        (JSC::construct):
+        * runtime/ConstructData.h:
+        * runtime/DateConstructor.cpp:
+        (JSC::constructWithDateConstructor):
+        * runtime/Error.cpp:
+        (JSC::constructNativeError):
+        (JSC::Error::create):
+        * runtime/ErrorConstructor.cpp:
+        (JSC::constructWithErrorConstructor):
+        * runtime/FunctionConstructor.cpp:
+        (JSC::constructWithFunctionConstructor):
+        * runtime/NativeErrorConstructor.cpp:
+        (JSC::constructWithNativeErrorConstructor):
+        * runtime/NativeErrorConstructor.h:
+        (JSC::NativeErrorConstructor::errorStructure):
+        * runtime/NumberConstructor.cpp:
+        (JSC::constructWithNumberConstructor):
+        * runtime/ObjectConstructor.cpp:
+        (JSC::constructWithObjectConstructor):
+        * runtime/RegExpConstructor.cpp:
+        (JSC::constructWithRegExpConstructor):
+        * runtime/StringConstructor.cpp:
+        (JSC::constructWithStringConstructor):
+
+2010-06-04  Tony Gentilcore  <tonyg@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Add a takeFirst() method to Deque and use it where appropriate.
+        https://bugs.webkit.org/show_bug.cgi?id=40089
+
+        * wtf/Deque.h:
+        (WTF::::takeFirst):
+        * wtf/MainThread.cpp:
+        (WTF::dispatchFunctionsFromMainThread):
+        * wtf/MessageQueue.h:
+        (WTF::::tryGetMessage):
+
+2010-06-04  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Remove a QEXPECT_FAIL flag from an autotest.
+
+        Test tst_QScriptEngine::globalObject pass after 36600 bug
+        fix have been applied.
+
+        [Qt] Expected fail in the tst_QScriptEngine::globalObject should be removed.
+        https://bugs.webkit.org/show_bug.cgi?id=40114
+
+        * qt/tests/qscriptengine/tst_qscriptengine.cpp:
+        (tst_QScriptEngine::globalObject):
+
+2010-06-04  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Fix QScriptValue::equals.
+
+        Handling for a few edge cases were added. Now comparison between
+        NaN, an invalid objects should works as supposed.
+
+        [Qt] QScriptValue::equals problems
+        https://bugs.webkit.org/show_bug.cgi?id=40110
+
+        * qt/api/qscriptvalue.cpp:
+        (QScriptValue::equals):
+        * qt/api/qscriptvalue_p.h:
+        (QScriptValuePrivate::equals):
+        * qt/tests/qscriptvalue/tst_qscriptvalue.h:
+        * qt/tests/qscriptvalue/tst_qscriptvalue_generated_comparison.cpp:
+        (tst_QScriptValue::equals_initData):
+        (tst_QScriptValue::equals_makeData):
+        (tst_QScriptValue::equals_test):
+
+2010-06-03  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        New states in QScriptValuePrivate.
+
+        The CSpecial state was divided into CNull and CUndefined. It simplify
+        the QScriptValue code by avoiding a few "cast" and "if".
+        Moreover the MSVS compiler didn't like casting between a double and an
+        enum which is avoided now.
+
+        [Qt] The QScriptValuePrivate::CSpecial is too generic.
+        https://bugs.webkit.org/show_bug.cgi?id=40067
+
+        * qt/api/qscriptvalue_p.h:
+        (QScriptValuePrivate::):
+        (QScriptValuePrivate::QScriptValuePrivate):
+        (QScriptValuePrivate::isNull):
+        (QScriptValuePrivate::isUndefined):
+        (QScriptValuePrivate::toString):
+        (QScriptValuePrivate::toNumber):
+        (QScriptValuePrivate::toBool):
+        (QScriptValuePrivate::toObject):
+        (QScriptValuePrivate::assignEngine):
+        (QScriptValuePrivate::isNumberBased):
+
+2010-06-03  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (Qt build fix).
+
+        * wtf/Platform.h:
+
+2010-06-03  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Bug 40150 - ENABLE_JIT_OPTIMIZE_NATIVE_CALL on all x86/x86_64 platforms
+        This was fixed in bug #40094.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * wtf/Platform.h:
+
+2010-06-03  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (Interpreter build fix).
+
+        * JavaScriptCore.JSVALUE32_64only.exp:
+        * JavaScriptCore.JSVALUE32only.exp:
+        * JavaScriptCore.JSVALUE64only.exp:
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+
+2010-06-03  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (windows build fix II).
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-06-03  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by NOBODY (windows build fix).
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-06-02  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 40094 - The return type of NativeFunction should be EncodedJSValue
+        On Windows & Linux, using JSVALUE32_64, EncodedJSValue is returned in registers, but JSValue is not.
+
+        * API/JSCallbackFunction.cpp:
+        (JSC::JSCallbackFunction::call):
+        * API/JSCallbackFunction.h:
+        * API/JSCallbackObject.h:
+        * API/JSCallbackObjectFunctions.h:
+        (JSC::::call):
+        * JavaScriptCore.exp:
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::executeCall):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jit/JITStubs.h:
+        * jsc.cpp:
+        (functionPrint):
+        (functionDebug):
+        (functionGC):
+        (functionVersion):
+        (functionRun):
+        (functionLoad):
+        (functionCheckSyntax):
+        (functionSetSamplingFlags):
+        (functionClearSamplingFlags):
+        (functionReadline):
+        (functionQuit):
+        * runtime/ArrayConstructor.cpp:
+        (JSC::callArrayConstructor):
+        (JSC::arrayConstructorIsArray):
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncToString):
+        (JSC::arrayProtoFuncToLocaleString):
+        (JSC::arrayProtoFuncJoin):
+        (JSC::arrayProtoFuncConcat):
+        (JSC::arrayProtoFuncPop):
+        (JSC::arrayProtoFuncPush):
+        (JSC::arrayProtoFuncReverse):
+        (JSC::arrayProtoFuncShift):
+        (JSC::arrayProtoFuncSlice):
+        (JSC::arrayProtoFuncSort):
+        (JSC::arrayProtoFuncSplice):
+        (JSC::arrayProtoFuncUnShift):
+        (JSC::arrayProtoFuncFilter):
+        (JSC::arrayProtoFuncMap):
+        (JSC::arrayProtoFuncEvery):
+        (JSC::arrayProtoFuncForEach):
+        (JSC::arrayProtoFuncSome):
+        (JSC::arrayProtoFuncReduce):
+        (JSC::arrayProtoFuncReduceRight):
+        (JSC::arrayProtoFuncIndexOf):
+        (JSC::arrayProtoFuncLastIndexOf):
+        * runtime/BooleanConstructor.cpp:
+        (JSC::callBooleanConstructor):
+        * runtime/BooleanPrototype.cpp:
+        (JSC::booleanProtoFuncToString):
+        (JSC::booleanProtoFuncValueOf):
+        * runtime/CallData.h:
+        * runtime/DateConstructor.cpp:
+        (JSC::callDate):
+        (JSC::dateParse):
+        (JSC::dateNow):
+        (JSC::dateUTC):
+        * runtime/DatePrototype.cpp:
+        (JSC::dateProtoFuncToString):
+        (JSC::dateProtoFuncToUTCString):
+        (JSC::dateProtoFuncToISOString):
+        (JSC::dateProtoFuncToDateString):
+        (JSC::dateProtoFuncToTimeString):
+        (JSC::dateProtoFuncToLocaleString):
+        (JSC::dateProtoFuncToLocaleDateString):
+        (JSC::dateProtoFuncToLocaleTimeString):
+        (JSC::dateProtoFuncGetTime):
+        (JSC::dateProtoFuncGetFullYear):
+        (JSC::dateProtoFuncGetUTCFullYear):
+        (JSC::dateProtoFuncToGMTString):
+        (JSC::dateProtoFuncGetMonth):
+        (JSC::dateProtoFuncGetUTCMonth):
+        (JSC::dateProtoFuncGetDate):
+        (JSC::dateProtoFuncGetUTCDate):
+        (JSC::dateProtoFuncGetDay):
+        (JSC::dateProtoFuncGetUTCDay):
+        (JSC::dateProtoFuncGetHours):
+        (JSC::dateProtoFuncGetUTCHours):
+        (JSC::dateProtoFuncGetMinutes):
+        (JSC::dateProtoFuncGetUTCMinutes):
+        (JSC::dateProtoFuncGetSeconds):
+        (JSC::dateProtoFuncGetUTCSeconds):
+        (JSC::dateProtoFuncGetMilliSeconds):
+        (JSC::dateProtoFuncGetUTCMilliseconds):
+        (JSC::dateProtoFuncGetTimezoneOffset):
+        (JSC::dateProtoFuncSetTime):
+        (JSC::dateProtoFuncSetMilliSeconds):
+        (JSC::dateProtoFuncSetUTCMilliseconds):
+        (JSC::dateProtoFuncSetSeconds):
+        (JSC::dateProtoFuncSetUTCSeconds):
+        (JSC::dateProtoFuncSetMinutes):
+        (JSC::dateProtoFuncSetUTCMinutes):
+        (JSC::dateProtoFuncSetHours):
+        (JSC::dateProtoFuncSetUTCHours):
+        (JSC::dateProtoFuncSetDate):
+        (JSC::dateProtoFuncSetUTCDate):
+        (JSC::dateProtoFuncSetMonth):
+        (JSC::dateProtoFuncSetUTCMonth):
+        (JSC::dateProtoFuncSetFullYear):
+        (JSC::dateProtoFuncSetUTCFullYear):
+        (JSC::dateProtoFuncSetYear):
+        (JSC::dateProtoFuncGetYear):
+        (JSC::dateProtoFuncToJSON):
+        * runtime/ErrorConstructor.cpp:
+        (JSC::callErrorConstructor):
+        * runtime/ErrorPrototype.cpp:
+        (JSC::errorProtoFuncToString):
+        * runtime/FunctionConstructor.cpp:
+        (JSC::callFunctionConstructor):
+        * runtime/FunctionPrototype.cpp:
+        (JSC::callFunctionPrototype):
+        (JSC::functionProtoFuncToString):
+        (JSC::functionProtoFuncApply):
+        (JSC::functionProtoFuncCall):
+        * runtime/JSCell.h:
+        (JSC::getCallData):
+        (JSC::getConstructData):
+        * runtime/JSFunction.cpp:
+        (JSC::callHostFunctionAsConstructor):
+        * runtime/JSFunction.h:
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::globalFuncEval):
+        (JSC::globalFuncParseInt):
+        (JSC::globalFuncParseFloat):
+        (JSC::globalFuncIsNaN):
+        (JSC::globalFuncIsFinite):
+        (JSC::globalFuncDecodeURI):
+        (JSC::globalFuncDecodeURIComponent):
+        (JSC::globalFuncEncodeURI):
+        (JSC::globalFuncEncodeURIComponent):
+        (JSC::globalFuncEscape):
+        (JSC::globalFuncUnescape):
+        (JSC::globalFuncJSCPrint):
+        * runtime/JSGlobalObjectFunctions.h:
+        * runtime/JSONObject.cpp:
+        (JSC::JSONProtoFuncParse):
+        (JSC::JSONProtoFuncStringify):
+        * runtime/JSObject.cpp:
+        (JSC::callDefaultValueFunction):
+        * runtime/JSValue.h:
+        * runtime/MathObject.cpp:
+        (JSC::mathProtoFuncAbs):
+        (JSC::mathProtoFuncACos):
+        (JSC::mathProtoFuncASin):
+        (JSC::mathProtoFuncATan):
+        (JSC::mathProtoFuncATan2):
+        (JSC::mathProtoFuncCeil):
+        (JSC::mathProtoFuncCos):
+        (JSC::mathProtoFuncExp):
+        (JSC::mathProtoFuncFloor):
+        (JSC::mathProtoFuncLog):
+        (JSC::mathProtoFuncMax):
+        (JSC::mathProtoFuncMin):
+        (JSC::mathProtoFuncPow):
+        (JSC::mathProtoFuncRandom):
+        (JSC::mathProtoFuncRound):
+        (JSC::mathProtoFuncSin):
+        (JSC::mathProtoFuncSqrt):
+        (JSC::mathProtoFuncTan):
+        * runtime/NativeErrorConstructor.cpp:
+        (JSC::callNativeErrorConstructor):
+        * runtime/NumberConstructor.cpp:
+        (JSC::callNumberConstructor):
+        * runtime/NumberPrototype.cpp:
+        (JSC::numberProtoFuncToString):
+        (JSC::numberProtoFuncToLocaleString):
+        (JSC::numberProtoFuncValueOf):
+        (JSC::numberProtoFuncToFixed):
+        (JSC::numberProtoFuncToExponential):
+        (JSC::numberProtoFuncToPrecision):
+        * runtime/ObjectConstructor.cpp:
+        (JSC::callObjectConstructor):
+        (JSC::objectConstructorGetPrototypeOf):
+        (JSC::objectConstructorGetOwnPropertyDescriptor):
+        (JSC::objectConstructorGetOwnPropertyNames):
+        (JSC::objectConstructorKeys):
+        (JSC::toPropertyDescriptor):
+        (JSC::objectConstructorDefineProperty):
+        (JSC::objectConstructorDefineProperties):
+        (JSC::objectConstructorCreate):
+        * runtime/ObjectPrototype.cpp:
+        (JSC::objectProtoFuncValueOf):
+        (JSC::objectProtoFuncHasOwnProperty):
+        (JSC::objectProtoFuncIsPrototypeOf):
+        (JSC::objectProtoFuncDefineGetter):
+        (JSC::objectProtoFuncDefineSetter):
+        (JSC::objectProtoFuncLookupGetter):
+        (JSC::objectProtoFuncLookupSetter):
+        (JSC::objectProtoFuncPropertyIsEnumerable):
+        (JSC::objectProtoFuncToLocaleString):
+        (JSC::objectProtoFuncToString):
+        * runtime/ObjectPrototype.h:
+        * runtime/RegExpConstructor.cpp:
+        (JSC::callRegExpConstructor):
+        * runtime/RegExpObject.cpp:
+        (JSC::callRegExpObject):
+        * runtime/RegExpPrototype.cpp:
+        (JSC::regExpProtoFuncTest):
+        (JSC::regExpProtoFuncExec):
+        (JSC::regExpProtoFuncCompile):
+        (JSC::regExpProtoFuncToString):
+        * runtime/StringConstructor.cpp:
+        (JSC::stringFromCharCode):
+        (JSC::callStringConstructor):
+        * runtime/StringPrototype.cpp:
+        (JSC::stringProtoFuncReplace):
+        (JSC::stringProtoFuncToString):
+        (JSC::stringProtoFuncCharAt):
+        (JSC::stringProtoFuncCharCodeAt):
+        (JSC::stringProtoFuncConcat):
+        (JSC::stringProtoFuncIndexOf):
+        (JSC::stringProtoFuncLastIndexOf):
+        (JSC::stringProtoFuncMatch):
+        (JSC::stringProtoFuncSearch):
+        (JSC::stringProtoFuncSlice):
+        (JSC::stringProtoFuncSplit):
+        (JSC::stringProtoFuncSubstr):
+        (JSC::stringProtoFuncSubstring):
+        (JSC::stringProtoFuncToLowerCase):
+        (JSC::stringProtoFuncToUpperCase):
+        (JSC::stringProtoFuncLocaleCompare):
+        (JSC::stringProtoFuncBig):
+        (JSC::stringProtoFuncSmall):
+        (JSC::stringProtoFuncBlink):
+        (JSC::stringProtoFuncBold):
+        (JSC::stringProtoFuncFixed):
+        (JSC::stringProtoFuncItalics):
+        (JSC::stringProtoFuncStrike):
+        (JSC::stringProtoFuncSub):
+        (JSC::stringProtoFuncSup):
+        (JSC::stringProtoFuncFontcolor):
+        (JSC::stringProtoFuncFontsize):
+        (JSC::stringProtoFuncAnchor):
+        (JSC::stringProtoFuncLink):
+        (JSC::stringProtoFuncTrim):
+        (JSC::stringProtoFuncTrimLeft):
+        (JSC::stringProtoFuncTrimRight):
+
+2010-06-02  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Add value-representation specific sections to the mac export file.
+
+        * Configurations/JavaScriptCore.xcconfig:
+        * DerivedSources.make:
+        * JavaScriptCore.JSVALUE32_64only.exp: Added.
+        * JavaScriptCore.JSVALUE32only.exp: Added.
+        * JavaScriptCore.JSVALUE64only.exp: Added.
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2010-06-02  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        <rdar://problem/8054988> Work around an LLVM GCC code generation bug that results in crashes inside PCRE.
+
+        * pcre/pcre_exec.cpp:
+        (repeatInformationFromInstructionOffset): Change the type of instructionOffset to int.  There's no good
+        reason for it to be a short, and using int prevents this code from triggering the LLVM GCC bug.
+
+2010-06-02  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Fix the QScriptValue::strictlyEquals function.
+
+        Handling for a few edge cases was added.
+
+        New autotest that covers the QScriptValue::strictlyEquals function.
+
+        [Qt] QScriptValue::strictlyEquals is broken
+        https://bugs.webkit.org/show_bug.cgi?id=36600
+
+        * qt/api/qscriptvalue.cpp:
+        (QScriptValue::strictlyEquals):
+        * qt/api/qscriptvalue_p.h:
+        (QScriptValuePrivate::strictlyEquals):
+        * qt/tests/qscriptvalue/qscriptvalue.pro:
+        * qt/tests/qscriptvalue/tst_qscriptvalue.h:
+        * qt/tests/qscriptvalue/tst_qscriptvalue_generated_comparison.cpp: Added.
+        (tst_QScriptValue::strictlyEquals_initData):
+        (tst_QScriptValue::strictlyEquals_makeData):
+        (tst_QScriptValue::strictlyEquals_test):
+
+2010-06-02  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        New function QScriptEngine::newObject.
+
+        The function creates a object of class Object and returns it
+        as a QScriptValue.
+
+        [Qt] QScriptEngine API should contain a newObject function
+        https://bugs.webkit.org/show_bug.cgi?id=39114
+
+        * qt/api/qscriptengine.cpp:
+        (QScriptEngine::newObject):
+        * qt/api/qscriptengine.h:
+        * qt/api/qscriptengine_p.cpp:
+        (QScriptEnginePrivate::newObject):
+        * qt/api/qscriptengine_p.h:
+        * qt/tests/qscriptengine/tst_qscriptengine.cpp:
+        (tst_QScriptEngine::newObject):
+
+2010-06-02  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+        https://bugs.webkit.org/show_bug.cgi?id=40011
+
+        Thumb-2 build fix: The offset parameter of ldrh should be encoded as an
+        imm12 immediate constant in load16. If it is not fit in the instruction
+        a temporary register has to be used.
+
+        * assembler/MacroAssemblerARMv7.h:
+        (JSC::MacroAssemblerARMv7::load16):
+
+2010-06-02  Sterling Swigart  <sswigart@google.com>
+
+        Reviewed by David Levin.
+
+        Image Resizer Patch 0: Added compilation argument to conditionally compile pending patches.
+        https://bugs.webkit.org/show_bug.cgi?id=39906
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-06-01  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 40021 - Refactor bytecode generation for calls so that register for this & args are allocated together
+
+        This is a useful stepping stone towards reversing argument order.
+
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::addParameter):
+        (JSC::BytecodeGenerator::emitCall):
+        (JSC::BytecodeGenerator::emitCallEval):
+        (JSC::BytecodeGenerator::emitConstruct):
+        * bytecompiler/BytecodeGenerator.h:
+        (JSC::CallArguments::thisRegister):
+        (JSC::CallArguments::argumentRegister):
+        (JSC::CallArguments::callFrame):
+        (JSC::CallArguments::count):
+        (JSC::BytecodeGenerator::shouldEmitProfileHooks):
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::NewExprNode::emitBytecode):
+        (JSC::CallArguments::CallArguments):
+        (JSC::EvalFunctionCallNode::emitBytecode):
+        (JSC::FunctionCallValueNode::emitBytecode):
+        (JSC::FunctionCallResolveNode::emitBytecode):
+        (JSC::FunctionCallBracketNode::emitBytecode):
+        (JSC::FunctionCallDotNode::emitBytecode):
+        (JSC::CallFunctionCallDotNode::emitBytecode):
+        (JSC::ApplyFunctionCallDotNode::emitBytecode):
+
+2010-06-01  Yong Li  <yoli@rim.com>
+
+        Reviewed by Darin Adler.
+
+        Explicitly use PTHREAD_MUTEX_NORMAL to create pthread mutex.
+        https://bugs.webkit.org/show_bug.cgi?id=39893
+
+        * wtf/ThreadingPthreads.cpp:
+        (WTF::Mutex::Mutex):
+
+2010-06-01  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Use DEFINE_STATIC_LOCAL for threadMapMutex and threadMap
+        https://bugs.webkit.org/show_bug.cgi?id=39831
+
+        Use DEFINE_STATIC_LOCAL for static local variables.
+
+        * wtf/gtk/ThreadingGtk.cpp:
+        (WTF::threadMapMutex):
+        (WTF::threadMap):
+        (WTF::identifierByGthreadHandle):
+
 2010-06-01  Kent Tamura  <tkent@chromium.org>
 
         Reviewed by Shinichiro Hamaji.

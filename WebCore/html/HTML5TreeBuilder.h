@@ -39,7 +39,7 @@ class Frame;
 class HTML5Lexer;
 class HTML5Token;
 class HTMLDocument;
-class HTMLParser;
+class LegacyHTMLTreeConstructor;
 class Node;
 
 class HTML5TreeBuilder : public Noncopyable {
@@ -53,29 +53,53 @@ public:
     // The token really should be passed as a const& since it's never modified.
     PassRefPtr<Node> constructTreeFromToken(HTML5Token&);
     // Must be called when parser is paused before calling the parser again.
-    PassRefPtr<Element> takeScriptToProcess();
+    PassRefPtr<Element> takeScriptToProcess(int& scriptStartLine);
 
     // Done, close any open tags, etc.
     void finished();
 
+    // FIXME: This is a dirty, rotten hack to keep HTMLFormControlElement happy
+    // until we stop using the legacy parser. DO NOT CALL THIS METHOD.
+    LegacyHTMLTreeConstructor* legacyTreeConstructor() const { return m_legacyTreeConstructor.get(); }
+
 private:
+    // Represents HTML5 "insertion mode"
+    // http://www.w3.org/TR/html5/syntax.html#insertion-mode
+    // FIXME: Implement remainder of states.
+    enum InsertionMode {
+        Initial,
+        AfterFrameset,
+    };
+
     PassRefPtr<Node> passTokenToLegacyParser(HTML5Token&);
     PassRefPtr<Node> processToken(HTML5Token&, UChar currentCharacter = 0);
     
     void handleScriptStartTag();
-    void handleScriptEndTag(Element*);
+    void handleScriptEndTag(Element*, int scriptStartLine);
+
+    void setInsertionMode(InsertionMode value) { m_insertionMode = value; }
+    InsertionMode insertionMode() const { return m_insertionMode; }
 
     Document* m_document; // This is only used by the m_legacyParser for now.
     bool m_reportErrors;
     bool m_isPaused;
+
+    InsertionMode m_insertionMode;
+
     // HTML5 spec requires that we be able to change the state of the lexer
     // from within parser actions.
     HTML5Lexer* m_lexer;
 
-    // We're re-using logic from the old HTMLParser while this class is being written.
-    OwnPtr<HTMLParser> m_legacyHTMLParser;
-    RefPtr<Element> m_lastScriptElement; // FIXME: This is a hack for <script> support.
-    RefPtr<Element> m_scriptToProcess; // Set to a <script> tag which needs processing.
+    // We're re-using logic from the old LegacyHTMLTreeConstructor while this class is being written.
+    OwnPtr<LegacyHTMLTreeConstructor> m_legacyTreeConstructor;
+
+    // These members are intentionally duplicated as the first set is a hack
+    // on top of the legacy parser which will eventually be removed.
+    RefPtr<Element> m_lastScriptElement; // FIXME: Hack for <script> support on top of the old parser.
+    int m_lastScriptElementStartLine; // FIXME: Hack for <script> support on top of the old parser.
+
+    RefPtr<Element> m_scriptToProcess; // <script> tag which needs processing before resuming the parser.
+    int m_scriptToProcessStartLine; // Starting line number of the script tag needing processing.
 };
 
 }

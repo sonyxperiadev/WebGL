@@ -27,8 +27,6 @@
 #define IDBObjectStore_h
 
 #include "PlatformString.h"
-#include "StringHash.h"
-#include <wtf/HashMap.h>
 #include <wtf/Threading.h>
 
 #if ENABLE(INDEXED_DATABASE)
@@ -36,33 +34,20 @@
 namespace WebCore {
 
 class DOMStringList;
-class IDBIndex;
 class IDBCallbacks;
+class IDBIndex;
 
-// FIXME: This needs to be split into an interface and Impl classes.
 class IDBObjectStore : public ThreadSafeShared<IDBObjectStore> {
 public:
-    static PassRefPtr<IDBObjectStore> create()
-    {
-        return adoptRef(new IDBObjectStore());
-    }
-    virtual ~IDBObjectStore();
+    virtual ~IDBObjectStore() { }
 
-    String name() const { return m_name; }
-    String keyPath() const { return m_keyPath; }
-    PassRefPtr<DOMStringList> indexNames() const;
+    virtual String name() const = 0;
+    virtual String keyPath() const = 0;
+    virtual PassRefPtr<DOMStringList> indexNames() const = 0;
 
-    void createIndex(const String& name, const String& keyPath, bool unique, PassRefPtr<IDBCallbacks>);
-    PassRefPtr<IDBIndex> index(const String& name);
-    void removeIndex(const String& name, PassRefPtr<IDBCallbacks>);
-
-private:
-    IDBObjectStore();
-
-    String m_name;
-    String m_keyPath;
-    typedef HashMap<String, RefPtr<IDBIndex> > IndexMap;
-    IndexMap m_indexes;
+    virtual void createIndex(const String& name, const String& keyPath, bool unique, PassRefPtr<IDBCallbacks>) = 0;
+    virtual PassRefPtr<IDBIndex> index(const String& name) = 0;
+    virtual void removeIndex(const String& name, PassRefPtr<IDBCallbacks>) = 0;
 };
 
 } // namespace WebCore

@@ -207,7 +207,7 @@ void CSSStyleSheet::checkLoaded()
     if (parent())
         parent()->checkLoaded();
 
-    // Avoid |this| being deleted by scripts that run via HTMLTokenizer::executeScriptsWaitingForStylesheets().
+    // Avoid |this| being deleted by scripts that run via HTMLDocumentParser::executeScriptsWaitingForStylesheets().
     // See <rdar://problem/6622300>.
     RefPtr<CSSStyleSheet> protector(this);
     m_loadCompleted = ownerNode() ? ownerNode()->sheetLoaded() : true;
@@ -245,8 +245,7 @@ void CSSStyleSheet::addSubresourceStyleURLs(ListHashSet<KURL>& urls)
     styleSheetQueue.append(this);
 
     while (!styleSheetQueue.isEmpty()) {
-        CSSStyleSheet* styleSheet = styleSheetQueue.first();
-        styleSheetQueue.removeFirst();
+        CSSStyleSheet* styleSheet = styleSheetQueue.takeFirst();
 
         for (unsigned i = 0; i < styleSheet->length(); ++i) {
             StyleBase* styleBase = styleSheet->item(i);

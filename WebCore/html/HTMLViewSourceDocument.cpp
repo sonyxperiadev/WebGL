@@ -36,7 +36,7 @@
 #include "HTMLTableElement.h"
 #include "HTMLTableRowElement.h"
 #include "HTMLTableSectionElement.h"
-#include "HTMLTokenizer.h"
+#include "HTMLDocumentParser.h"
 #include "Text.h"
 #include "TextDocument.h"
 
@@ -51,19 +51,19 @@ HTMLViewSourceDocument::HTMLViewSourceDocument(Frame* frame, const String& mimeT
     setUsesBeforeAfterRules(true);
 }
 
-Tokenizer* HTMLViewSourceDocument::createTokenizer()
+DocumentParser* HTMLViewSourceDocument::createParser()
 {
-    // Use HTMLTokenizer if applicable, otherwise use TextTokenizer.
+    // Use HTMLDocumentParser if applicable, otherwise use TextDocumentParser.
     if (m_type == "text/html" || m_type == "application/xhtml+xml" || m_type == "image/svg+xml" || DOMImplementation::isXMLMIMEType(m_type)
 #if ENABLE(XHTMLMP)
         || m_type == "application/vnd.wap.xhtml+xml"
 #endif
         ) {
         // FIXME: Should respect Settings::html5ParserEnabled()
-        return new HTMLTokenizer(this);
+        return new HTMLDocumentParser(this);
     }
 
-    return createTextTokenizer(this);
+    return createTextDocumentParser(this);
 }
 
 void HTMLViewSourceDocument::createContainingTable()
@@ -157,7 +157,7 @@ void HTMLViewSourceDocument::addViewSourceToken(Token* token)
                         } else {
                             const String& value = attr->value().string();
 
-                            // Compare ignoring case since HTMLTokenizer doesn't
+                            // Compare ignoring case since HTMLDocumentParser doesn't
                             // lower names when passing in tokens to
                             // HTMLViewSourceDocument.
                             if (equalIgnoringCase(token->tagName, "base") && equalIgnoringCase(attr->name().localName(), "href")) {
@@ -244,7 +244,7 @@ void HTMLViewSourceDocument::addLine(const String& className)
     m_current = m_td = td;
 
 #ifdef DEBUG_LINE_NUMBERS
-    RefPtr<Text> lineNumberText = Text::create(this, String::number(tokenizer()->lineNumber() + 1) + " ");
+    RefPtr<Text> lineNumberText = Text::create(this, String::number(parser()->lineNumber() + 1) + " ");
     td->addChild(lineNumberText);
     lineNumberText->attach();
 #endif

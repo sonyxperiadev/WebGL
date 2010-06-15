@@ -57,7 +57,8 @@ public:
     InspectorController* inspectorController() { return m_inspectorController; }
     void disconnectController() { m_inspectorController = 0; }
 
-    void saveFrontendSettings(const String&);
+    void saveApplicationSettings(const String&);
+    void saveSessionSettings(const String&);
 
     void storeLastActivePanel(const String& panelName);
 
@@ -84,11 +85,14 @@ public:
     void pauseInDebugger();
     void resumeDebugger();
 
-    void setPauseOnExceptionsState(long pauseState);
-
     void stepOverStatementInDebugger();
     void stepIntoStatementInDebugger();
     void stepOutOfFunctionInDebugger();
+
+    void setPauseOnExceptionsState(long pauseState);
+
+    void editScriptSource(long callId, const String& sourceID, const String& newContent);
+    void getScriptSource(long callId, const String& sourceID);
 
     void enableProfiler(bool always);
     void disableProfiler(bool always);
@@ -116,6 +120,8 @@ public:
     void copyNode(long nodeId);
     void removeNode(long callId, long nodeId);
     void changeTagName(long callId, long nodeId, const AtomicString& tagName, bool expanded);
+    void performSearch(const String& query, bool runSynchronously);
+    void searchCanceled();
 
     void getStyles(long callId, long nodeId, bool authOnly);
     void getAllStyles(long callId);

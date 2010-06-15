@@ -29,7 +29,7 @@
 #include "CharacterNames.h"
 #include "HTMLNames.h"
 #include "HTMLTableElement.h"
-#include "HTMLTokenizer.h"
+#include "HTMLDocumentParser.h"
 #include "LocalizedStrings.h"
 #include "Logging.h"
 #include "FTPDirectoryParser.h"
@@ -48,9 +48,9 @@ namespace WebCore {
 
 using namespace HTMLNames;
     
-class FTPDirectoryTokenizer : public HTMLTokenizer {
+class FTPDirectoryDocumentParser : public HTMLDocumentParser {
 public:
-    FTPDirectoryTokenizer(HTMLDocument*);
+    FTPDirectoryDocumentParser(HTMLDocument*);
 
     virtual void write(const SegmentedString&, bool appendData);
     virtual void finish();
@@ -70,7 +70,7 @@ public:
     }
         
 private:
-    // The tokenizer will attempt to load the document template specified via the preference
+    // The parser will attempt to load the document template specified via the preference
     // Failing that, it will fall back and create the basic document which will have a minimal
     // table for presenting the FTP directory in a useful manner
     bool loadDocumentTemplate();
@@ -94,8 +94,8 @@ private:
     ListState m_listState;
 };
 
-FTPDirectoryTokenizer::FTPDirectoryTokenizer(HTMLDocument* doc)
-    : HTMLTokenizer(doc, false)
+FTPDirectoryDocumentParser::FTPDirectoryDocumentParser(HTMLDocument* doc)
+    : HTMLDocumentParser(doc, false)
     , m_doc(doc)
     , m_skipLF(false)
     , m_parsedTemplate(false)
@@ -105,7 +105,7 @@ FTPDirectoryTokenizer::FTPDirectoryTokenizer(HTMLDocument* doc)
 {    
 }    
 
-void FTPDirectoryTokenizer::appendEntry(const String& filename, const String& size, const String& date, bool isDirectory)
+void FTPDirectoryDocumentParser::appendEntry(const String& filename, const String& size, const String& date, bool isDirectory)
 {
     ExceptionCode ec;
 
@@ -135,7 +135,7 @@ void FTPDirectoryTokenizer::appendEntry(const String& filename, const String& si
     rowElement->appendChild(element, ec);
 }
 
-PassRefPtr<Element> FTPDirectoryTokenizer::createTDForFilename(const String& filename)
+PassRefPtr<Element> FTPDirectoryDocumentParser::createTDForFilename(const String& filename)
 {
     ExceptionCode ec;
     
@@ -257,7 +257,7 @@ static String processFileDateString(const FTPTime& fileTime)
     return dateString + timeOfDay;
 }
 
-void FTPDirectoryTokenizer::parseAndAppendOneLine(const String& inputLine)
+void FTPDirectoryDocumentParser::parseAndAppendOneLine(const String& inputLine)
 {
     ListResult result;
     CString latin1Input = inputLine.latin1();
@@ -292,7 +292,7 @@ static inline PassRefPtr<SharedBuffer> createTemplateDocumentData(Settings* sett
     return buffer.release();
 }
     
-bool FTPDirectoryTokenizer::loadDocumentTemplate()
+bool FTPDirectoryDocumentParser::loadDocumentTemplate()
 {
     DEFINE_STATIC_LOCAL(RefPtr<SharedBuffer>, templateDocumentData, (createTemplateDocumentData(m_doc->settings())));
     // FIXME: Instead of storing the data, we'd rather actually parse the template data into the template Document once,
@@ -306,7 +306,7 @@ bool FTPDirectoryTokenizer::loadDocumentTemplate()
     
     // Tokenize the template as an HTML document synchronously
     setForceSynchronous(true);
-    HTMLTokenizer::write(String(templateDocumentData->data(), templateDocumentData->size()), true);
+    HTMLDocumentParser::write(String(templateDocumentData->data(), templateDocumentData->size()), true);
     setForceSynchronous(false);
     
     RefPtr<Element> tableElement = m_doc->getElementById("ftpDirectoryTable");
@@ -338,7 +338,7 @@ bool FTPDirectoryTokenizer::loadDocumentTemplate()
     return true;
 }
 
-void FTPDirectoryTokenizer::createBasicDocument()
+void FTPDirectoryDocumentParser::createBasicDocument()
 {
     LOG(FTP, "Creating a basic FTP document structure as no template was loaded");
 
@@ -357,7 +357,7 @@ void FTPDirectoryTokenizer::createBasicDocument()
     bodyElement->appendChild(m_tableElement, ec);
 }
 
-void FTPDirectoryTokenizer::write(const SegmentedString& s, bool /*appendData*/)
+void FTPDirectoryDocumentParser::write(const SegmentedString& s, bool /*appendData*/)
 {    
     // Make sure we have the table element to append to by loading the template set in the pref, or
     // creating a very basic document with the appropriate table
@@ -420,7 +420,7 @@ void FTPDirectoryTokenizer::write(const SegmentedString& s, bool /*appendData*/)
         m_carryOver.append(String(start, cursor - start - 1));
 }
 
-void FTPDirectoryTokenizer::finish()
+void FTPDirectoryDocumentParser::finish()
 {
     // Possible the last line in the listing had no newline, so try to parse it now
     if (!m_carryOver.isEmpty()) {
@@ -431,7 +431,7 @@ void FTPDirectoryTokenizer::finish()
     m_tableElement = 0;
     fastFree(m_buffer);
         
-    HTMLTokenizer::finish();
+    HTMLDocumentParser::finish();
 }
 
 FTPDirectoryDocument::FTPDirectoryDocument(Frame* frame)
@@ -442,9 +442,9 @@ FTPDirectoryDocument::FTPDirectoryDocument(Frame* frame)
 #endif
 }
 
-Tokenizer* FTPDirectoryDocument::createTokenizer()
+DocumentParser* FTPDirectoryDocument::createParser()
 {
-    return new FTPDirectoryTokenizer(this);
+    return new FTPDirectoryDocumentParser(this);
 }
 
 }

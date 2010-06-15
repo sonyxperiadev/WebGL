@@ -64,6 +64,7 @@
 #include "Page.h"
 #include "PageGroup.h"
 #include "RegularExpression.h"
+#include "RenderLayer.h"
 #include "RenderPart.h"
 #include "RenderTableCell.h"
 #include "RenderTextControl.h"
@@ -141,8 +142,8 @@ Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient*
     , m_redirectScheduler(this)
     , m_ownerElement(ownerElement)
     , m_script(this)
-    , m_selectionController(this)
     , m_editor(this)
+    , m_selectionController(this)
     , m_eventHandler(this)
     , m_animationController(this)
     , m_lifeSupportTimer(this, &Frame::lifeSupportTimerFired)

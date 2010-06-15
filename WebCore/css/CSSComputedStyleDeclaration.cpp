@@ -268,7 +268,8 @@ static const int computedProperties[] = {
     CSSPropertyWritingMode,
     CSSPropertyGlyphOrientationHorizontal,
     CSSPropertyGlyphOrientationVertical,
-    CSSPropertyWebkitSvgShadow
+    CSSPropertyWebkitSvgShadow,
+    CSSPropertyVectorEffect
 #endif
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     ,

@@ -39,28 +39,32 @@
 
 namespace WebCore {
 
-class Frame;
 class IDBAny;
+class IDBKeyRange;
+class IDBRequest;
 class IndexedDatabase;
+class ScriptExecutionContext;
+class SerializedScriptValue;
 
 class IndexedDatabaseRequest : public RefCounted<IndexedDatabaseRequest> {
 public:
-    static PassRefPtr<IndexedDatabaseRequest> create(IndexedDatabase* indexedDatabase, Frame* frame)
+    static PassRefPtr<IndexedDatabaseRequest> create(IndexedDatabase* indexedDatabase)
     {
-        return adoptRef(new IndexedDatabaseRequest(indexedDatabase, frame));
+        return adoptRef(new IndexedDatabaseRequest(indexedDatabase));
     }
     ~IndexedDatabaseRequest();
 
-    PassRefPtr<IDBRequest> open(const String& name, const String& description, ExceptionCode&);
-
-    void disconnectFrame() { m_frame = 0; }
+    PassRefPtr<IDBRequest> open(ScriptExecutionContext*, const String& name, const String& description);
+    PassRefPtr<IDBKeyRange> makeSingleKeyRange(PassRefPtr<SerializedScriptValue> value);
+    PassRefPtr<IDBKeyRange> makeLeftBoundKeyRange(PassRefPtr<SerializedScriptValue> bound, bool open = false);
+    PassRefPtr<IDBKeyRange> makeRightBoundKeyRange(PassRefPtr<SerializedScriptValue> bound, bool open = false);
+    PassRefPtr<IDBKeyRange> makeBoundKeyRange(PassRefPtr<SerializedScriptValue> left, PassRefPtr<SerializedScriptValue> right, bool openLeft = false, bool openRight = false);
 
 private:
-    IndexedDatabaseRequest(IndexedDatabase*, Frame*);
+    IndexedDatabaseRequest(IndexedDatabase*);
 
     RefPtr<IndexedDatabase> m_indexedDatabase;
     RefPtr<IDBAny> m_this;
-    Frame* m_frame;
 };
 
 } // namespace WebCore

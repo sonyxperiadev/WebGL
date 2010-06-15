@@ -1,3 +1,803 @@
+2010-06-14  Jeremy Orlow  <jorlow@chromium.org>
+
+        Build fix.
+
+        * src/IDBCallbacksProxy.h:
+
+2010-06-14  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        WebInspector: On the way to Remote Debugging we want to transfer dom/timeline/etc
+        data from inspected page to WebInspector as JSON string via http. The native
+        serialization to JSON string is supported by InspectorValue's classes. This patch
+        has the implementation of sendMessageToFrontend function. WebKit version of it still
+        uses ScriptFunctionCall and will be switched to another transport a little bit later.
+        https://bugs.webkit.org/show_bug.cgi?id=40134
+
+        * src/InspectorClientImpl.cpp:
+        (WebKit::InspectorClientImpl::sendMessageToFrontend):
+        * src/InspectorClientImpl.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::setInspectorFrontendProxyToInspectorController):
+
+2010-06-13  Tony Chang  <tony@chromium.org>
+
+        Build fix, not reviewed.
+
+        fix chromium compile after r61094 (id attribute refactor)
+        https://bugs.webkit.org/show_bug.cgi?id=40553
+
+        * src/ChromeClientImpl.cpp:
+        * src/WebFormControlElement.cpp:
+        (WebKit::WebFormControlElement::nameForAutofill):
+
+2010-06-13  Andras Becsi  <abecsi@inf.u-szeged.hu>
+
+        Reviewed by Darin Adler.
+
+        Centralize the gperf code generation commands into make-hash-tools.pl
+        to avoid redundancy across multiple build systems.
+        Do this in preparation of refactoring the usage of these generated
+        sources to fix the debug linking error on Linux with gcc >= 4.4.0.
+
+        webkit.org/b/29244
+
+        * src/WebEntities.cpp:
+
+2010-06-11  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Rename the rest of the *Tokenizer classes to *DocumentParser
+        https://bugs.webkit.org/show_bug.cgi?id=40507
+
+        * src/WebEntities.cpp:
+         - Fix a comment to match new class names.
+
+2010-06-12  Evan Stade  <estade@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        [chromium] Menu key should act on current selection even if it is not editable
+        https://bugs.webkit.org/show_bug.cgi?id=40348
+
+        Allow the menu key to act on non-editable selections.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::sendContextMenuEvent):
+
+2010-06-11  James Hawkins  <jhawkins@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Notify the WebView when the AutoFill popup hides.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40459
+
+        * src/AutoFillPopupMenuClient.cpp:
+        (WebKit::AutoFillPopupMenuClient::selectionCleared):
+
+2010-06-11  Tony Gentilcore  <tonyg@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Roll chromium DEPS 49376:49521
+        https://bugs.webkit.org/show_bug.cgi?id=40488
+
+        * DEPS:
+
+2010-06-10  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Implement more of IndexedDB's Indexes and ObjectStores
+        https://bugs.webkit.org/show_bug.cgi?id=40424
+
+        Add plumbing for both of these classes.
+
+        * public/WebIDBDatabase.h:
+        (WebKit::WebIDBDatabase::name):
+        (WebKit::WebIDBDatabase::description):
+        (WebKit::WebIDBDatabase::version):
+        (WebKit::WebIDBDatabase::objectStores):
+        (WebKit::WebIDBDatabase::objectStore):
+        (WebKit::WebIDBDatabase::removeObjectStore):
+        * public/WebIDBObjectStore.h:
+        (WebKit::WebIDBObjectStore::indexNames):
+        (WebKit::WebIDBObjectStore::createIndex):
+        (WebKit::WebIDBObjectStore::index):
+        (WebKit::WebIDBObjectStore::removeIndex):
+        * src/IDBDatabaseProxy.cpp:
+        (WebCore::IDBDatabaseProxy::name):
+        (WebCore::IDBDatabaseProxy::description):
+        (WebCore::IDBDatabaseProxy::version):
+        (WebCore::IDBDatabaseProxy::objectStores):
+        (WebCore::IDBDatabaseProxy::objectStore):
+        (WebCore::IDBDatabaseProxy::removeObjectStore):
+        * src/IDBDatabaseProxy.h:
+        * src/IDBObjectStoreProxy.cpp:
+        (WebCore::IDBObjectStoreProxy::indexNames):
+        (WebCore::IDBObjectStoreProxy::createIndex):
+        (WebCore::IDBObjectStoreProxy::index):
+        (WebCore::IDBObjectStoreProxy::removeIndex):
+        * src/IDBObjectStoreProxy.h:
+        * src/WebIDBDatabaseImpl.cpp:
+        (WebKit::WebIDBDatabaseImpl::WebIDBDatabaseImpl):
+        (WebKit::WebIDBDatabaseImpl::name):
+        (WebKit::WebIDBDatabaseImpl::description):
+        (WebKit::WebIDBDatabaseImpl::version):
+        (WebKit::WebIDBDatabaseImpl::objectStores):
+        (WebKit::WebIDBDatabaseImpl::createObjectStore):
+        (WebKit::WebIDBDatabaseImpl::objectStore):
+        (WebKit::WebIDBDatabaseImpl::removeObjectStore):
+        * src/WebIDBDatabaseImpl.h:
+        * src/WebIDBObjectStoreImpl.cpp:
+        (WebKit::WebIDBObjectStoreImpl::WebIDBObjectStoreImpl):
+        (WebKit::WebIDBObjectStoreImpl::name):
+        (WebKit::WebIDBObjectStoreImpl::keyPath):
+        (WebKit::WebIDBObjectStoreImpl::indexNames):
+        (WebKit::WebIDBObjectStoreImpl::createIndex):
+        (WebKit::WebIDBObjectStoreImpl::index):
+        (WebKit::WebIDBObjectStoreImpl::removeIndex):
+        * src/WebIDBObjectStoreImpl.h:
+
+2010-06-11  Alexander Pavlov  <apavlov@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: Enable serialization/deserialization of the frontend state
+        https://bugs.webkit.org/show_bug.cgi?id=40228
+
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+
+2010-06-10  Søren Gjesse  <sgjesse@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        V8: Chromium test expectations not matching improved V8 JavaScript stepping
+        https://bugs.webkit.org/show_bug.cgi?id=40419
+
+        Update test expetations to match chaged V8 break locations.
+
+        * src/js/Tests.js:
+
+2010-06-10  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: Port performSearch from InjectedScript to InspectorDOMAgent.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40422
+
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+
+2010-06-11  Vangelis Kokkevis  <vangelis@chromium.org>
+
+        Reviewed by David Levin.
+
+        [chromium] Adding a build dependency to the gles2 C library to the webkit_unit_tests
+        project to allow it to link when WebCore is compiled with the ACCELERATED_COMPOSITING
+        flag.
+        https://bugs.webkit.org/show_bug.cgi?id=40341
+
+        * WebKit.gyp:
+
+2010-06-10  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Support plugin tests
+        https://bugs.webkit.org/show_bug.cgi?id=40413
+
+        * DEPS:
+         Bump the Chromium revision to r49376 to have a npapi_layout_test_plugin
+         change and Linux <progress> resources.
+         Add third_party/mesa because app/ depends on them
+         since r49332.
+        * WebKit.gyp:
+          Copy a plugin binary for DRT to recognize it.
+
+2010-06-10  James Hawkins  <jhawkins@chromium.org>
+
+        Not reviwed.
+
+        Build fix for Chromium Mac Release.
+
+        * src/AutoFillPopupMenuClient.cpp:
+        (WebKit::AutoFillPopupMenuClient::getSuggestion):
+        (WebKit::AutoFillPopupMenuClient::valueChanged):
+        (WebKit::AutoFillPopupMenuClient::selectionChanged):
+        (WebKit::AutoFillPopupMenuClient::itemIsSeparator):
+
+2010-06-09  James Hawkins  <jhawkins@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Add the ability to specify a separator in
+        AutoFillPopupMenuClient.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40397
+
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::didAcceptAutoFillSuggestion):
+        * src/AutoFillPopupMenuClient.cpp:
+        (WebKit::AutoFillPopupMenuClient::getSuggestionsCount):
+        (WebKit::AutoFillPopupMenuClient::getSuggestion):
+        (WebKit::AutoFillPopupMenuClient::valueChanged):
+        (WebKit::AutoFillPopupMenuClient::selectionChanged):
+        (WebKit::AutoFillPopupMenuClient::itemIsSeparator):
+        (WebKit::AutoFillPopupMenuClient::initialize):
+        (WebKit::AutoFillPopupMenuClient::setSuggestions):
+        * src/AutoFillPopupMenuClient.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::applyAutoFillSuggestions):
+        * src/WebViewImpl.h:
+
+2010-06-10  Dmitry Titov  <dimich@chromium.org>
+
+        Not reviewed, Chromium build fix from Abhishek Arya.
+
+        * src/WebImageCG.cpp:
+        (WebKit::WebImage::WebImage):
+        (WebKit::WebImage::operator=):
+
+2010-06-10  Abhishek Arya  <inferno@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Add null pointer checks for nativeImageForCurrentFrame
+        function calls.
+        https://bugs.webkit.org/show_bug.cgi?id=39797
+
+        * src/WebImageCG.cpp:
+        (WebKit::WebImage::WebImage):
+        (WebKit::WebImage::operator=):
+
+2010-06-10  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: to reduce the front end start up time don't push script
+        sources to frontend if debugger is always enabled, instead request
+        script content lazily at the moment it should be displyed. It is critical for
+        always enabled debugger because in that case lots of script may have
+        already been parsed when the front end is opening and pushing all
+        of them at once may slow things down(even though the script sources will never
+        be used if scripts panel isn't open).
+        https://bugs.webkit.org/show_bug.cgi?id=40364
+
+        * src/js/DevTools.js:
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+        (.devtools.InspectorBackendImpl.prototype.getScriptSource):
+
+2010-06-10  Mike Belshe  <mbelshe@google.com>
+
+        Reviewed by David Levin
+
+        Track whether a resource is loaded via a proxy.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40312
+
+        * public/WebURLResponse.h:
+        * src/WebURLResponse.cpp:
+        (WebKit::WebURLResponse::wasFetchedViaProxy):
+        (WebKit::WebURLResponse::setWasFetchedViaProxy):
+
+2010-06-10  Vangelis Kokkevis  <vangelis@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [chromium] Adding the ANGLE project to the DEPS file as it's required
+        by the gpu-accelerated compositor.
+        https://bugs.webkit.org/show_bug.cgi?id=40379
+
+        * DEPS:
+
+2010-06-09  Bo Liu  <boliu@chromium.org>
+
+        Reviewed by David Levin.
+
+        [Chromium] Pass <video> full screen calls to Chromium port client
+        https://bugs.webkit.org/show_bug.cgi?id=40317
+
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::supportsFullscreen):
+        (WebKit::WebViewClient::enterFullscreenForNode):
+        (WebKit::WebViewClient::exitFullscreenForNode):
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::supportsFullscreenForNode):
+        (WebKit::ChromeClientImpl::enterFullscreenForNode):
+        (WebKit::ChromeClientImpl::exitFullscreenForNode):
+        * src/ChromeClientImpl.h:
+
+2010-06-09  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Rename FloatArray to Float32Array
+        https://bugs.webkit.org/show_bug.cgi?id=40323
+
+        Used do-webcore-rename to perform renaming. Manually undid
+        incorrect changes to WebCore/bridge/jni/jsc/JNIBridgeJSC.cpp,
+        WebCore/manual-tests/resources/ArrayParameterTestApplet.java and
+        ArrayParameterTestApplet.class. Updated LayoutTests. Built and ran
+        all layout tests on Safari; built Chromium and ran selected WebGL
+        tests.
+
+        * src/GraphicsContext3D.cpp:
+
+2010-06-09  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r60889.
+        http://trac.webkit.org/changeset/60889
+        https://bugs.webkit.org/show_bug.cgi?id=40365
+
+        gtk bot has some kind of memory corruption (Requested by
+        loislo on #webkit).
+
+        * src/InspectorClientImpl.cpp:
+        * src/InspectorClientImpl.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::setInspectorFrontendProxyToInspectorController):
+
+2010-06-09  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: retreive debugger script source synchronously when
+        frontend is attached. We need this to be able to stop on top-level
+        breakpoints.
+        https://bugs.webkit.org/show_bug.cgi?id=40289
+
+        * WebKit.gypi:
+        * src/DebuggerAgent.h:
+        * src/DebuggerAgentImpl.cpp:
+        * src/DebuggerAgentImpl.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::createInspectorFrontendProxy):
+        * src/js/DebuggerScript.js:
+        * src/js/DevTools.js:
+        (WebInspector.loaded):
+        * src/js/DevToolsHostStub.js:
+
+2010-06-07  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        WebInspector: On the way to Remote Debugging we want to transfer dom/timeline/etc
+        data from inspected page to WebInspector as JSON string via http. The native
+        serialization to JSON string is supported by InspectorValue's classes. This patch
+        has the implementation of sendMessageToFrontend function. WebKit version of it still
+        uses ScriptFunctionCall and will be switched to another transport a little bit later.
+        https://bugs.webkit.org/show_bug.cgi?id=40134
+
+        * src/InspectorClientImpl.cpp:
+        (WebKit::InspectorClientImpl::sendMessageToFrontend):
+        * src/InspectorClientImpl.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::setInspectorFrontendProxyToInspectorController):
+
+2010-06-09  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: update stack trace after script source editing
+        https://bugs.webkit.org/show_bug.cgi?id=40357
+
+        * src/js/DebuggerAgent.js:
+        (devtools.DebuggerAgent.prototype.editScriptSource.this.requestSeqToCallback_.cmd.getSequenceNumber):
+        (devtools.DebuggerAgent.prototype.editScriptSource.requestBacktrace):
+        (devtools.DebuggerAgent.prototype.editScriptSource.handleBacktraceResponse):
+        (devtools.DebuggerAgent.prototype.editScriptSource.reportDidCommitEditing):
+        (devtools.DebuggerAgent.prototype.editScriptSource):
+        (devtools.DebuggerAgent.prototype.requestBacktrace_):
+        (devtools.DebuggerAgent.prototype.handleDebuggerOutput_):
+        (devtools.DebuggerAgent.prototype.doHandleBacktraceResponse_):
+        (devtools.DebuggerAgent.prototype.updateCallFramesFromBacktraceResponse_):
+        * src/js/InspectorControllerImpl.js:
+        (.devtools.InspectorBackendImpl.prototype.editScriptSource):
+
+2010-06-08  Tony Chang  <tony@chromium.org>
+
+        Reviewed by David Levin.
+
+        [chromium] compile linux chromium in WebKit/out instead of WebKit/WebKit/chromium/out
+        https://bugs.webkit.org/show_bug.cgi?id=40285
+
+        Take 2 at landing this patch, this time rolling DEPS just a bit
+        further to pick up some chromium fixes.
+
+        * DEPS
+        * gyp_webkit:
+
+2010-06-08  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r60878.
+        http://trac.webkit.org/changeset/60878
+        https://bugs.webkit.org/show_bug.cgi?id=40349
+
+        broke linux build (Requested by tony^work on #webkit).
+
+        * DEPS:
+        * gyp_webkit:
+
+2010-06-08  Tony Chang  <tony@chromium.org>
+
+        Reviewed by David Levin.
+
+        [chromium] compile linux chromium in WebKit/out instead of WebKit/WebKit/chromium/out
+        https://bugs.webkit.org/show_bug.cgi?id=40285
+
+        * gyp_webkit:
+
+2010-06-08  Tony Chang  <tony@chromium.org>
+
+        Not reviewed, build fix.
+
+        [chromium] fix linux compile
+        https://bugs.webkit.org/show_bug.cgi?id=40343
+
+        * DEPS:
+
+2010-06-08  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: extend ScriptDebugServer to support script source editing
+        https://bugs.webkit.org/show_bug.cgi?id=40297
+
+        * src/js/DebuggerAgent.js:
+        (devtools.ScriptInfo.prototype.worldType):
+        * src/js/DebuggerScript.js:
+        (debuggerScriptConstructor.DebuggerScript.editScriptSource):
+        * src/js/DevTools.js:
+        (WebInspector.loaded):
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+
+2010-06-08  Antonio Gomes  <tonikitoo@webkit.org>
+
+        Reviewed by Ojan Vafai and Darin Adler.
+
+        Refactor platform dependent editing behavior code out of Settings
+        https://bugs.webkit.org/show_bug.cgi?id=39854
+
+        EditingBehavior enum was renamed to EditingBehaviorTypes and moved out from Settings.h to
+        EditingBehaviorTypes.h . Call sites in WebKit/ adjusted accordingly.
+
+        * src/WebSettingsImpl.cpp:
+        (WebKit::WebSettingsImpl::setEditingBehavior):
+2010-06-07  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [chromium] roll chromium DEPS
+        https://bugs.webkit.org/show_bug.cgi?id=40277
+
+        * DEPS:
+
+2010-06-07  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by Jian Li.
+
+        Refactor FormData and Blob for better support of Blobs synthesized by BlobBuilder.
+        https://bugs.webkit.org/show_bug.cgi?id=39083
+
+        Replace FormDataList::Item list with BlobItemList to get it compiled
+        with the refactoring in FormDataList.
+
+        * src/WebSearchableFormData.cpp:
+        (WebCore::HasSuitableTextElement):
+
+2010-06-07  Andrei Popescu  <andreip@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        [indexedDB] It is impossible to create object stores
+        https://bugs.webkit.org/show_bug.cgi?id=40054
+
+        * WebKit.gyp:
+        * public/WebIDBCallbacks.h:
+        (WebKit::WebIDBCallbacks::onSuccess):
+        * public/WebIDBDatabase.h:
+        (WebKit::WebIDBDatabase::createObjectStore):
+        * public/WebIDBObjectStore.h: Added.
+        (WebKit::WebIDBObjectStore::~WebIDBObjectStore):
+        (WebKit::WebIDBObjectStore::name):
+        (WebKit::WebIDBObjectStore::keyPath):
+        * src/IDBCallbacksProxy.cpp:
+        (WebCore::IDBCallbacksProxy::onSuccess):
+        * src/IDBCallbacksProxy.h:
+        * src/IDBDatabaseProxy.cpp:
+        (WebCore::IDBDatabaseProxy::createObjectStore):
+        * src/IDBDatabaseProxy.h:
+        * src/IDBObjectStoreProxy.cpp: Added.
+        (WebCore::IDBObjectStoreProxy::create):
+        (WebCore::IDBObjectStoreProxy::IDBObjectStoreProxy):
+        (WebCore::IDBObjectStoreProxy::~IDBObjectStoreProxy):
+        (WebCore::IDBObjectStoreProxy::name):
+        (WebCore::IDBObjectStoreProxy::keyPath):
+        (WebCore::IDBObjectStoreProxy::indexNames):
+        (WebCore::IDBObjectStoreProxy::createIndex):
+        (WebCore::IDBObjectStoreProxy::index):
+        (WebCore::IDBObjectStoreProxy::removeIndex):
+        * src/IDBObjectStoreProxy.h: Added.
+        * src/IndexedDatabaseProxy.cpp:
+        (WebCore::IndexedDatabaseProxy::open):
+        * src/WebIDBCallbacksImpl.cpp:
+        (WebCore::WebIDBCallbacksImpl::onSuccess):
+        * src/WebIDBCallbacksImpl.h:
+        * src/WebIDBDatabaseImpl.cpp:
+        (WebKit::WebIDBDatabaseImpl::createObjectStore):
+        * src/WebIDBDatabaseImpl.h:
+        * src/WebIDBObjectStoreImpl.cpp: Added.
+        (WebKit::WebIDBObjectStoreImpl::WebIDBObjectStoreImpl):
+        (WebKit::WebIDBObjectStoreImpl::~WebIDBObjectStoreImpl):
+        (WebKit::WebIDBObjectStoreImpl::name):
+        (WebKit::WebIDBObjectStoreImpl::keyPath):
+        * src/WebIDBObjectStoreImpl.h: Added.
+        * src/WebIndexedDatabaseImpl.cpp:
+        (WebKit::WebIndexedDatabaseImpl::open):
+
+2010-06-07  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: should be possible to distinguish extension scripts from main world scripts
+        https://bugs.webkit.org/show_bug.cgi?id=40220
+
+        * src/js/DebuggerAgent.js:
+        (devtools.DebuggerAgent.prototype.initUI):
+        (devtools.DebuggerAgent.prototype.addScriptInfo_):
+        (devtools.DebuggerAgent.prototype.formatCallFrame_):
+        (devtools.ScriptInfo.prototype.worldType):
+        * src/js/DebuggerScript.js:
+        (debuggerScriptConstructor.DebuggerScript.getScripts): use only context id without context type
+        when filtering scripts so that extension scripts are also included.
+        (debuggerScriptConstructor.DebuggerScript._formatScript):
+        * src/js/devTools.css:
+
+2010-06-04  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Accessibility focus change notifications are now sent from
+        ChromeClientImpl::focusedNodeChanged().
+        https://bugs.webkit.org/show_bug.cgi?id=39792
+
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::focus):
+        (WebKit::ChromeClientImpl::focusedNodeChanged):
+
+2010-06-04  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by David Levin.
+
+        [chromium] Adding support for the left and right Windows keys to the
+                   NativeWebKeyboardEvent.
+        https://bugs.webkit.org/show_bug.cgi?id=39752
+
+        * src/gtk/WebInputEventFactory.cpp:
+        (WebKit::gdkEventToWindowsKeyCode):
+
+2010-06-04  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: Create resource for DebuggerScript.js.
+        https://bugs.webkit.org/show_bug.cgi?id=40122
+
+        * WebKit.grd:
+        * public/WebDevToolsAgentClient.h:
+        (WebKit::WebDevToolsAgentClient::debuggerScriptSource):
+
+2010-05-26  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Jian Li.
+
+        [Chromium] Dragging over an element with scrollbars should scroll the element when dragging near edges
+        https://bugs.webkit.org/show_bug.cgi?id=39725
+
+        Added WebViewImpl::scrollForDragging() to handle scroll-on-drag.
+        Note that this change handes both source and destination cases.
+        
+        * public/WebView.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::dragSourceMovedTo):
+        (WebKit::WebViewImpl::dragTargetDragEnterOrOver):
+        (WebKit::WebViewImpl::scrollForDragging):
+        * src/WebViewImpl.h:
+
+2010-06-03  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [v8] Web Inspector: show "Object" as description for values with anonymous constructor
+        https://bugs.webkit.org/show_bug.cgi?id=40121
+
+        * src/js/DevTools.js: don't call DebuggerAgent methods if ScriptDebugServer is used.
+
+2010-06-03  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Checking out lighttpd
+        https://bugs.webkit.org/show_bug.cgi?id=39948
+
+        - Add lighttpd only on Windows. It is used by new-run-webkit-tests.
+        - Add libvpx.
+        - Remove pthreads-win32 from DEPS.
+          It has not been used since Chromium r28642.
+        - Update Chromium revision to use Windows resource query code and
+          webkit_glue dependency fix.
+
+        * DEPS:
+
+2010-06-02  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [chromium] refactor WebKit.gyp's DRT section so the conditions are less messy
+        https://bugs.webkit.org/show_bug.cgi?id=40104
+
+        * WebKit.gyp:
+
+2010-06-02  Tony Chang  <tony@chromium.org>
+
+        Not reviewed, build fix in downstream chromium.
+
+        Fix the path to repack.py so it works in a chromium checkout too.
+
+        * WebKit.gyp:
+
+2010-06-02  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [chromium] generate DumpRenderTree.pak on DRT linux
+        https://bugs.webkit.org/show_bug.cgi?id=40098
+
+        * WebKit.gyp:
+
+2010-06-02  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r60592.
+        http://trac.webkit.org/changeset/60592
+        https://bugs.webkit.org/show_bug.cgi?id=40099
+
+        broke the build, need to coordiate updating DEPS (Requested by
+        tony^work on #webkit).
+
+        * DEPS:
+        * public/WebMediaPlayer.h:
+
+2010-06-02  Victoria Kirst  <vrk@google.com>
+
+        Reviewed by David Levin.
+
+        Modifying the WebMediaPlayer interface to be compatible with
+        a change in chrome.
+        This is a part 2 of 3 one-sided changes to chrome and WebKit. Chrome
+        has been updated, so this commit should NOT break chromium anymore.
+        https://bugs.webkit.org/show_bug.cgi?id=39445
+
+        * DEPS: Updated to a newer chrome revision number.
+        * public/WebMediaPlayer.h: Changed buffered() to be non-const.
+
+2010-06-02  Peter Kasting  <pkasting@google.com>
+
+        Unreviewed, emergency fix for test crashes (verbal r+ beforehand from
+        John Gregg).
+
+        Temporarily make notificationObjectDestroyed() a no-op to avoid an
+        ASSERT failure.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40097
+
+        * src/NotificationPresenterImpl.cpp:
+        (WebKit::NotificationPresenterImpl::notificationObjectDestroyed):
+
+2010-06-02  Sterling Swigart  <sswigart@google.com>
+
+        Reviewed by David Levin.
+
+        Image Resizer Patch 0: Added compilation argument to conditionally compile pending patches.
+        https://bugs.webkit.org/show_bug.cgi?id=39906
+
+        * features.gypi:
+
+2010-06-01  James Hawkins  <jhawkins@chromium.org>
+
+        UNREVIEWED: build fix.
+
+        Implement the added virtual methods from PopupMenuClient to
+        TestPopupMenuClient.
+
+        * tests/PopupMenuTest.cpp:
+        (WebKit::TestPopupMenuClient::selectionChanged):
+        (WebKit::TestPopupMenuClient::selectionCleared):
+
+2010-05-24  James Hawkins  <jhawkins@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Implement new PopupMenuClient methods selectionChanged()
+        and selectionCleared().  Expose placeHolder methods and isAutoFilled()
+        in WebInputElement.
+
+        https://bugs.webkit.org/show_bug.cgi?id=39639
+
+        * public/WebInputElement.h:
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::didSelectAutoFillSuggestion):
+        (WebKit::WebViewClient::didClearAutoFillSelection):
+        * src/AutoFillPopupMenuClient.cpp:
+        (WebKit::AutoFillPopupMenuClient::selectionChanged):
+        (WebKit::AutoFillPopupMenuClient::selectionCleared):
+        (WebKit::AutoFillPopupMenuClient::popupDidHide):
+        * src/AutoFillPopupMenuClient.h:
+        * src/SuggestionsPopupMenuClient.h:
+        (WebKit::SuggestionsPopupMenuClient::selectionChanged):
+        (WebKit::SuggestionsPopupMenuClient::selectionCleared):
+        * src/WebInputElement.cpp:
+        (WebKit::WebInputElement::setPlaceholder):
+        (WebKit::WebInputElement::placeholder):
+        (WebKit::WebInputElement::isAutofilled):
+
+2010-06-01  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r60483.
+        http://trac.webkit.org/changeset/60483
+        https://bugs.webkit.org/show_bug.cgi?id=40013
+
+        Breaks Mac and Linux builds (Requested by antonm on #webkit).
+
+        * DEPS:
+
+2010-06-01  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        IndexedDB cleanup
+        https://bugs.webkit.org/show_bug.cgi?id=40007
+
+        Remove the exception code paramter (that hasn't been used for a while).
+        Add asserts to default implementations.
+
+        * public/WebIDBDatabase.h:
+        (WebKit::WebIDBDatabase::name):
+        (WebKit::WebIDBDatabase::description):
+        (WebKit::WebIDBDatabase::version):
+        (WebKit::WebIDBDatabase::objectStores):
+        * public/WebIndexedDatabase.h:
+        (WebKit::WebIndexedDatabase::open):
+        * src/WebIndexedDatabaseImpl.cpp:
+        (WebKit::WebIndexedDatabaseImpl::open):
+        * src/WebIndexedDatabaseImpl.h:
+
+2010-06-01  Anton Muhin  <antonm@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Rolling Chromium revision to bring recent changes to V8.
+
+        * DEPS:
+
+2010-06-01  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r60470.
+        http://trac.webkit.org/changeset/60470
+        https://bugs.webkit.org/show_bug.cgi?id=39990
+
+        Need to rollout until bot can be updated (Requested by jorlow
+        on #webkit).
+
+        * DEPS:
+
 2010-05-31  Pavel Podivilov  <podivilov@chromium.org>
 
         Reviewed by Pavel Feldman.

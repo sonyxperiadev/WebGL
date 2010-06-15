@@ -253,14 +253,14 @@ JSValue RuntimeObject::defaultValue(ExecState* exec, PreferredPrimitiveType hint
     return result;
 }
 
-static JSValue JSC_HOST_CALL callRuntimeObject(ExecState* exec)
+static EncodedJSValue JSC_HOST_CALL callRuntimeObject(ExecState* exec)
 {
     ASSERT(exec->callee()->inherits(&RuntimeObject::s_info));
     RefPtr<Instance> instance(static_cast<RuntimeObject*>(exec->callee())->getInternalInstance());
     instance->begin();
     JSValue result = instance->invokeDefaultMethod(exec);
     instance->end();
-    return result;
+    return JSValue::encode(result);
 }
 
 CallType RuntimeObject::getCallData(CallData& callData)
@@ -276,16 +276,18 @@ CallType RuntimeObject::getCallData(CallData& callData)
     return CallTypeHost;
 }
 
-static JSObject* callRuntimeConstructor(ExecState* exec, JSObject* constructor, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL callRuntimeConstructor(ExecState* exec)
 {
+    JSObject* constructor = exec->callee();
     ASSERT(constructor->inherits(&RuntimeObject::s_info));
-    RefPtr<Instance> instance(static_cast<RuntimeObject*>(constructor)->getInternalInstance());
+    RefPtr<Instance> instance(static_cast<RuntimeObject*>(exec->callee())->getInternalInstance());
     instance->begin();
+    ArgList args(exec);
     JSValue result = instance->invokeConstruct(exec, args);
     instance->end();
     
     ASSERT(result);
-    return result.isObject() ? static_cast<JSObject*>(result.asCell()) : constructor;
+    return JSValue::encode(result.isObject() ? static_cast<JSObject*>(result.asCell()) : constructor);
 }
 
 ConstructType RuntimeObject::getConstructData(ConstructData& constructData)
@@ -317,7 +319,7 @@ void RuntimeObject::getOwnPropertyNames(ExecState* exec, PropertyNameArray& prop
 
 JSObject* RuntimeObject::throwInvalidAccessError(ExecState* exec)
 {
-    return throwError(exec, ReferenceError, "Trying to access object from destroyed plug-in.");
+    return throwError(exec, createReferenceError(exec, "Trying to access object from destroyed plug-in."));
 }
 
 }

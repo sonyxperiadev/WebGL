@@ -34,6 +34,7 @@
 #include "Color.h"
 #include "Document.h"
 #include "DocumentMarker.h"
+#include "QualifiedName.h"
 #include "ScriptExecutionContext.h"
 #include "Timer.h"
 #include <wtf/HashCountedSet.h>
@@ -108,7 +109,7 @@ namespace WebCore {
     class StyleSheetList;
     class Text;
     class TextResourceDecoder;
-    class Tokenizer;
+    class DocumentParser;
     class TreeWalker;
     class XMLHttpRequest;
 
@@ -319,7 +320,7 @@ public:
     String xmlVersion() const { return m_xmlVersion; }
     bool xmlStandalone() const { return m_xmlStandalone; }
 
-    void setXMLEncoding(const String& encoding) { m_xmlEncoding = encoding; } // read-only property, only to be set from XMLTokenizer
+    void setXMLEncoding(const String& encoding) { m_xmlEncoding = encoding; } // read-only property, only to be set from XMLDocumentParser
     void setXMLVersion(const String&, ExceptionCode&);
     void setXMLStandalone(bool, ExceptionCode&);
 
@@ -535,8 +536,8 @@ public:
     CSSStyleSheet* elementSheet();
     CSSStyleSheet* mappedElementSheet();
     
-    virtual Tokenizer* createTokenizer();
-    Tokenizer* tokenizer() { return m_tokenizer.get(); }
+    virtual DocumentParser* createParser();
+    DocumentParser* parser() { return m_parser.get(); }
     
     bool printing() const { return m_printing; }
     void setPrinting(bool p) { m_printing = p; }
@@ -988,6 +989,8 @@ public:
     void removeMediaCanStartListener(MediaCanStartListener*);
     MediaCanStartListener* takeAnyMediaCanStartListener();
 
+    const QualifiedName& idAttributeName() const { return m_idAttributeName; }
+
 protected:
     Document(Frame*, bool isXHTML, bool isHTML);
 
@@ -1039,7 +1042,7 @@ private:
 
     Frame* m_frame;
     OwnPtr<DocLoader> m_docLoader;
-    OwnPtr<Tokenizer> m_tokenizer;
+    OwnPtr<DocumentParser> m_parser;
     bool m_wellFormed;
 
     // Document URLs.
@@ -1267,6 +1270,8 @@ private:
     RefPtr<DocumentWeakReference> m_weakReference;
 
     HashSet<MediaCanStartListener*> m_mediaCanStartListeners;
+
+    QualifiedName m_idAttributeName;
 };
 
 inline bool Document::hasElementWithId(AtomicStringImpl* id) const

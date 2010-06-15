@@ -45,8 +45,8 @@ const  PlatformGraphicsContext3D NullPlatformGraphicsContext3D = 0;
 typedef GLuint Platform3DObject;
 const Platform3DObject NullPlatform3DObject = 0;
 #elif PLATFORM(QT)
-#include <QtOpenGL/QtOpenGL>
-
+class QPainter;
+class QRect;
 typedef void* PlatformGraphicsContext3D;
 const  PlatformGraphicsContext3D NullPlatformGraphicsContext3D = 0;
 typedef int Platform3DObject;
@@ -63,7 +63,7 @@ namespace WebCore {
     class ArrayBufferView;
     class WebGLBuffer;
     class Uint8Array;
-    class FloatArray;
+    class Float32Array;
     class WebGLFramebuffer;
     class Int32Array;
     class WebGLProgram;
@@ -390,7 +390,11 @@ namespace WebCore {
             FRAMEBUFFER_BINDING = 0x8CA6,
             RENDERBUFFER_BINDING = 0x8CA7,
             MAX_RENDERBUFFER_SIZE = 0x84E8,
-            INVALID_FRAMEBUFFER_OPERATION = 0x0506
+            INVALID_FRAMEBUFFER_OPERATION = 0x0506,
+
+            // WebGL-specific enums
+            UNPACK_FLIP_Y_WEBGL = 0x9240,
+            UNPACK_PREMULTIPLY_ALPHA_WEBGL = 0x9241
         };
         
         // Context creation attributes.
@@ -398,7 +402,7 @@ namespace WebCore {
             Attributes()
                 : alpha(true)
                 , depth(true)
-                , stencil(true)
+                , stencil(false)
                 , antialias(true)
                 , premultipliedAlpha(true)
             {

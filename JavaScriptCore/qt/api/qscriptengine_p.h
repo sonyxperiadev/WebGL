@@ -56,11 +56,12 @@ public:
     inline JSValueRef makeJSValue(bool number) const;
     inline JSValueRef makeJSValue(QScriptValue::SpecialValue value) const;
 
+    QScriptValuePrivate* newObject() const;
     QScriptValuePrivate* globalObject() const;
 
     inline QScriptStringPrivate* toStringHandle(const QString& str) const;
 
-    inline JSGlobalContextRef context() const;
+    inline operator JSGlobalContextRef() const;
 private:
     QScriptEngine* q_ptr;
     JSGlobalContextRef m_context;
@@ -132,8 +133,9 @@ QScriptStringPrivate* QScriptEnginePrivate::toStringHandle(const QString& str) c
     return new QScriptStringPrivate(str);
 }
 
-JSGlobalContextRef QScriptEnginePrivate::context() const
+QScriptEnginePrivate::operator JSGlobalContextRef() const
 {
+    Q_ASSERT(this);
     return m_context;
 }
 

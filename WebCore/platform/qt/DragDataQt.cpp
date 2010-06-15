@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -31,10 +31,10 @@
 #include "DocumentFragment.h"
 #include "markup.h"
 
+#include <QColor>
 #include <QList>
 #include <QMimeData>
 #include <QUrl>
-#include <QColor>
 
 namespace WebCore {
 
@@ -90,7 +90,7 @@ String DragData::asPlainText() const
         return text;
 
     // FIXME: Should handle rich text here
-    return asURL(0);
+    return asURL(DoNotConvertFilenames, 0);
 }
 
 Color DragData::asColor() const
@@ -112,15 +112,17 @@ bool DragData::containsCompatibleContent() const
     return containsColor() || containsURL() || m_platformDragData->hasHtml() || m_platformDragData->hasText();
 }
 
-bool DragData::containsURL() const
+bool DragData::containsURL(FilenameConversionPolicy filenamePolicy) const
 {
+    // FIXME: Use filenamePolicy.
     if (!m_platformDragData)
         return false;
     return m_platformDragData->hasUrls();
 }
 
-String DragData::asURL(String*) const
+String DragData::asURL(FilenameConversionPolicy filenamePolicy, String*) const
 {
+    // FIXME: Use filenamePolicy.
     if (!m_platformDragData)
         return String();
     QList<QUrl> urls = m_platformDragData->urls();

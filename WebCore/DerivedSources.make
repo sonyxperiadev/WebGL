@@ -77,7 +77,7 @@ DOM_CLASSES = \
     WebGLBuffer \
     Int8Array \
     WebGLContextAttributes \
-    FloatArray \
+    Float32Array \
     WebGLFramebuffer \
     CanvasGradient \
     Int32Array \
@@ -218,6 +218,7 @@ DOM_CLASSES = \
     IDBErrorEvent \
     IDBEvent \
     IDBIndexRequest \
+    IDBKeyRange \
     IDBObjectStoreRequest \
     IDBRequest \
     IDBSuccessEvent \
@@ -230,6 +231,7 @@ DOM_CLASSES = \
     Location \
     MediaError \
     MediaList \
+    MemoryInfo \
     MessageChannel \
     MessageEvent \
     MessagePort \
@@ -472,10 +474,10 @@ all : \
     CSSGrammar.cpp \
     CSSPropertyNames.h \
     CSSValueKeywords.h \
-    ColorData.c \
+    ColorData.cpp \
     DocTypeStrings.cpp \
     HTMLElementFactory.cpp \
-    HTMLEntityNames.c \
+    HTMLEntityNames.cpp \
     HTMLNames.cpp \
     WMLElementFactory.cpp \
     WMLNames.cpp \
@@ -563,22 +565,22 @@ CSSValueKeywords.h : $(WEBCORE_CSS_VALUE_KEYWORDS) css/makevalues.pl
 
 # DOCTYPE strings
 
-DocTypeStrings.cpp : html/DocTypeStrings.gperf
-	gperf -CEot -L ANSI-C -k "*" -N findDoctypeEntry -F ,PubIDInfo::eAlmostStandards,PubIDInfo::eAlmostStandards $< > $@
+DocTypeStrings.cpp : html/DocTypeStrings.gperf $(WebCore)/make-hash-tools.pl
+	perl $(WebCore)/make-hash-tools.pl . $(WebCore)/html/DocTypeStrings.gperf
 
 # --------
 
 # HTML entity names
 
-HTMLEntityNames.c : html/HTMLEntityNames.gperf
-	gperf -a -L ANSI-C -C -G -c -o -t -k '*' -N findEntity -D -s 2 $< > $@
+HTMLEntityNames.cpp : html/HTMLEntityNames.gperf $(WebCore)/make-hash-tools.pl
+	perl $(WebCore)/make-hash-tools.pl . $(WebCore)/html/HTMLEntityNames.gperf
 
 # --------
 
 # color names
 
-ColorData.c : platform/ColorData.gperf
-	gperf -CDEot -L ANSI-C -k '*' -N findColor -D -s 2 $< > $@
+ColorData.cpp : platform/ColorData.gperf $(WebCore)/make-hash-tools.pl
+	perl $(WebCore)/make-hash-tools.pl . $(WebCore)/platform/ColorData.gperf
 
 # --------
 
@@ -901,13 +903,12 @@ ifeq ($(findstring ENABLE_VIDEO,$(FEATURE_DEFINES)), ENABLE_VIDEO)
      WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.Video.exp
 endif
 
-
+ifeq ($(findstring ENABLE_GEOLOCATION,$(FEATURE_DEFINES)), ENABLE_GEOLOCATION)
 ifeq ($(findstring ENABLE_CLIENT_BASED_GEOLOCATION,$(FEATURE_DEFINES)), ENABLE_CLIENT_BASED_GEOLOCATION)
     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.ClientBasedGeolocation.exp
-endif
-
-ifeq ($(findstring ENABLE_GEOLOCATION,$(FEATURE_DEFINES)), ENABLE_GEOLOCATION)
+else
     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.Geolocation.exp
+endif
 endif
 
 ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep WTF_USE_PROTECTION_SPACE_AUTH_CALLBACK | cut -d' ' -f3), 1)

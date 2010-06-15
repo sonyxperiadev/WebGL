@@ -83,7 +83,7 @@ webcoregtk_cppflags += \
 webcore_built_nosources += \
 	DerivedSources/DocTypeStrings.cpp \
 	DerivedSources/tokenizer.cpp \
-	DerivedSources/ColorData.c \
+	DerivedSources/ColorData.cpp \
 	DerivedSources/webkit/webkitdomdummy.c
 
 webcore_built_sources += \
@@ -92,7 +92,7 @@ webcore_built_sources += \
 	DerivedSources/CSSPropertyNames.h \
 	DerivedSources/CSSValueKeywords.h \
 	DerivedSources/HTMLElementFactory.cpp \
-	DerivedSources/HTMLEntityNames.c \
+	DerivedSources/HTMLEntityNames.cpp \
 	DerivedSources/HTMLNames.cpp \
 	DerivedSources/JSHTMLElementWrapperFactory.cpp \
 	DerivedSources/UserAgentStyleSheets.h \
@@ -183,7 +183,7 @@ IDL_BINDINGS += \
 	WebCore/html/canvas/ArrayBufferView.idl \
 	WebCore/html/canvas/ArrayBuffer.idl \
 	WebCore/html/canvas/Int8Array.idl \
-	WebCore/html/canvas/FloatArray.idl \
+	WebCore/html/canvas/Float32Array.idl \
 	WebCore/html/canvas/CanvasGradient.idl \
 	WebCore/html/canvas/Int32Array.idl \
 	WebCore/html/canvas/CanvasPattern.idl \
@@ -296,6 +296,7 @@ IDL_BINDINGS += \
 	WebCore/page/Geoposition.idl \
 	WebCore/page/History.idl \
 	WebCore/page/Location.idl \
+	WebCore/page/MemoryInfo.idl \
 	WebCore/page/Navigator.idl \
 	WebCore/page/PositionError.idl \
 	WebCore/page/Screen.idl \
@@ -511,8 +512,6 @@ webcore_sources += \
 	WebCore/bindings/js/JSWebKitPointConstructor.h \
 	WebCore/bindings/js/JSWorkerContextErrorHandler.cpp \
 	WebCore/bindings/js/JSWorkerContextErrorHandler.h \
-	WebCore/bindings/js/JSXMLHttpRequestConstructor.cpp \
-	WebCore/bindings/js/JSXMLHttpRequestConstructor.h \
 	WebCore/bindings/js/JSXMLHttpRequestCustom.cpp \
 	WebCore/bindings/js/JSXMLHttpRequestUploadCustom.cpp \
 	WebCore/bindings/js/JSXSLTProcessorConstructor.cpp \
@@ -640,6 +639,8 @@ webcore_sources += \
 	WebCore/css/CSSMutableStyleDeclaration.cpp \
 	WebCore/css/CSSMutableStyleDeclaration.h \
 	WebCore/css/CSSNamespace.h \
+	WebCore/css/CSSOMUtils.cpp \
+	WebCore/css/CSSOMUtils.h \
 	WebCore/css/CSSPageRule.cpp \
 	WebCore/css/CSSPageRule.h \
 	WebCore/css/CSSParser.cpp \
@@ -900,7 +901,7 @@ webcore_sources += \
 	WebCore/dom/Text.h \
 	WebCore/dom/TextEvent.cpp \
 	WebCore/dom/TextEvent.h \
-	WebCore/dom/Tokenizer.h \
+	WebCore/dom/DocumentParser.h \
 	WebCore/dom/Traversal.cpp \
 	WebCore/dom/Traversal.h \
 	WebCore/dom/TreeDepthLimit.h \
@@ -920,11 +921,11 @@ webcore_sources += \
 	WebCore/dom/WebKitTransitionEvent.h \
 	WebCore/dom/WheelEvent.cpp \
 	WebCore/dom/WheelEvent.h \
-	WebCore/dom/XMLTokenizer.cpp \
-	WebCore/dom/XMLTokenizer.h \
-	WebCore/dom/XMLTokenizerLibxml2.cpp \
-	WebCore/dom/XMLTokenizerScope.cpp \
-	WebCore/dom/XMLTokenizerScope.h \
+	WebCore/dom/XMLDocumentParser.cpp \
+	WebCore/dom/XMLDocumentParser.h \
+	WebCore/dom/XMLDocumentParserLibxml2.cpp \
+	WebCore/dom/XMLDocumentParserScope.cpp \
+	WebCore/dom/XMLDocumentParserScope.h \
 	WebCore/dom/default/PlatformMessagePortChannel.cpp \
 	WebCore/dom/default/PlatformMessagePortChannel.h \
 	WebCore/editing/AppendNodeCommand.cpp \
@@ -948,6 +949,8 @@ webcore_sources += \
 	WebCore/editing/EditAction.h \
 	WebCore/editing/EditCommand.cpp \
 	WebCore/editing/EditCommand.h \
+	WebCore/editing/EditingBehavior.h \
+	WebCore/editing/EditingBehaviorTypes.h \
 	WebCore/editing/Editor.cpp \
 	WebCore/editing/Editor.h \
 	WebCore/editing/EditorCommand.cpp \
@@ -1036,6 +1039,8 @@ webcore_sources += \
 	WebCore/history/HistoryItem.h \
 	WebCore/history/PageCache.cpp \
 	WebCore/history/PageCache.h \
+	WebCore/html/AsyncImageResizer.cpp \
+	WebCore/html/AsyncImageResizer.h \
 	WebCore/html/Blob.cpp \
 	WebCore/html/Blob.h \
 	WebCore/html/canvas/CanvasContextAttributes.h \
@@ -1082,11 +1087,13 @@ webcore_sources += \
 	WebCore/html/FileThreadTask.h \
 	WebCore/html/FormDataList.cpp \
 	WebCore/html/FormDataList.h \
+	WebCore/html/HTML5EntityParser.cpp \
+	WebCore/html/HTML5EntityParser.h \
 	WebCore/html/HTML5Lexer.cpp \
 	WebCore/html/HTML5Lexer.h \
 	WebCore/html/HTML5Token.h \
-	WebCore/html/HTML5Tokenizer.cpp \
-	WebCore/html/HTML5Tokenizer.h \
+	WebCore/html/HTML5DocumentParser.cpp \
+	WebCore/html/HTML5DocumentParser.h \
 	WebCore/html/HTML5TreeBuilder.cpp \
 	WebCore/html/HTML5TreeBuilder.h \
 	WebCore/html/HTML5ScriptRunner.cpp \
@@ -1212,8 +1219,8 @@ webcore_sources += \
 	WebCore/html/HTMLParagraphElement.h \
 	WebCore/html/HTMLParamElement.cpp \
 	WebCore/html/HTMLParamElement.h \
-	WebCore/html/HTMLParser.cpp \
-	WebCore/html/HTMLParser.h \
+	WebCore/html/LegacyHTMLTreeConstructor.cpp \
+	WebCore/html/LegacyHTMLTreeConstructor.h \
 	WebCore/html/HTMLParserErrorCodes.cpp \
 	WebCore/html/HTMLParserErrorCodes.h \
 	WebCore/html/HTMLParserQuirks.h \
@@ -1253,14 +1260,16 @@ webcore_sources += \
 	WebCore/html/HTMLTextAreaElement.h \
 	WebCore/html/HTMLTitleElement.cpp \
 	WebCore/html/HTMLTitleElement.h \
-	WebCore/html/HTMLTokenizer.cpp \
-	WebCore/html/HTMLTokenizer.h \
+	WebCore/html/HTMLDocumentParser.cpp \
+	WebCore/html/HTMLDocumentParser.h \
 	WebCore/html/HTMLUListElement.cpp \
 	WebCore/html/HTMLUListElement.h \
 	WebCore/html/HTMLViewSourceDocument.cpp \
 	WebCore/html/HTMLViewSourceDocument.h \
 	WebCore/html/ImageData.cpp \
 	WebCore/html/ImageData.h \
+	WebCore/html/ImageResizerThread.cpp \
+	WebCore/html/ImageResizerThread.h \
 	WebCore/html/LabelsNodeList.cpp \
 	WebCore/html/LabelsNodeList.h \
 	WebCore/html/MediaError.h \
@@ -1496,6 +1505,8 @@ webcore_sources += \
 	WebCore/page/Location.cpp \
 	WebCore/page/Location.h \
 	WebCore/page/MediaCanStartListener.h \
+	WebCore/page/MemoryInfo.cpp \
+	WebCore/page/MemoryInfo.h \
 	WebCore/page/MouseEventWithHitTestResults.cpp \
 	WebCore/page/MouseEventWithHitTestResults.h \
 	WebCore/page/Navigator.cpp \
@@ -1556,6 +1567,8 @@ webcore_sources += \
 	WebCore/platform/Arena.cpp \
 	WebCore/platform/Arena.h \
 	WebCore/platform/AutodrainedPool.h \
+	WebCore/platform/BlobItem.cpp \
+	WebCore/platform/BlobItem.h \
 	WebCore/platform/ContentType.cpp \
 	WebCore/platform/ContentType.h \
 	WebCore/platform/ContextMenu.cpp \
@@ -1565,6 +1578,7 @@ webcore_sources += \
 	WebCore/platform/CookieJar.h \
 	WebCore/platform/CrossThreadCopier.cpp \
 	WebCore/platform/CrossThreadCopier.h \
+	WebCore/platform/Cursor.cpp \
 	WebCore/platform/Cursor.h \
 	WebCore/platform/DeprecatedPtrList.h \
 	WebCore/platform/DeprecatedPtrListImpl.cpp \
@@ -2005,6 +2019,8 @@ webcore_sources += \
 	WebCore/rendering/RootInlineBox.h \
 	WebCore/rendering/ScrollBehavior.cpp \
 	WebCore/rendering/ScrollBehavior.h \
+	WebCore/rendering/ShadowElement.cpp \
+	WebCore/rendering/ShadowElement.h \
 	WebCore/rendering/TableLayout.h \
 	WebCore/rendering/TextControlInnerElements.cpp \
 	WebCore/rendering/TextControlInnerElements.h \
@@ -2114,6 +2130,8 @@ webcoregtk_sources += \
 	WebCore/platform/graphics/cairo/GradientCairo.cpp \
 	WebCore/platform/graphics/cairo/GraphicsContextCairo.cpp \
 	WebCore/platform/graphics/cairo/GraphicsContextPlatformPrivateCairo.h \
+	WebCore/platform/graphics/cairo/GOwnPtrCairo.cpp \
+	WebCore/platform/graphics/cairo/GOwnPtrCairo.h \
 	WebCore/platform/graphics/cairo/ImageBufferCairo.cpp \
 	WebCore/platform/graphics/cairo/ImageBufferData.h \
 	WebCore/platform/graphics/cairo/ImageCairo.cpp \
@@ -2144,6 +2162,8 @@ webcoregtk_sources += \
 	WebCore/platform/gtk/EventLoopGtk.cpp \
 	WebCore/platform/gtk/FileChooserGtk.cpp \
 	WebCore/platform/gtk/FileSystemGtk.cpp \
+	WebCore/platform/gtk/GOwnPtrGtk.cpp \
+	WebCore/platform/gtk/GOwnPtrGtk.h \
 	WebCore/platform/gtk/GRefPtrGtk.cpp \
 	WebCore/platform/gtk/GRefPtrGtk.h \
 	WebCore/platform/gtk/GtkPluginWidget.cpp \
@@ -2480,6 +2500,7 @@ IDL_BINDINGS += \
 	WebCore/storage/IDBErrorEvent.idl \
 	WebCore/storage/IDBEvent.idl \
 	WebCore/storage/IDBIndexRequest.idl \
+	WebCore/storage/IDBKeyRange.idl \
 	WebCore/storage/IDBObjectStoreRequest.idl \
 	WebCore/storage/IDBRequest.idl \
 	WebCore/storage/IDBSuccessEvent.idl \
@@ -2508,8 +2529,11 @@ webcore_sources += \
 	WebCore/storage/IDBIndexImpl.h \
 	WebCore/storage/IDBIndexRequest.cpp \
 	WebCore/storage/IDBIndexRequest.h \
-	WebCore/storage/IDBObjectStore.cpp \
+	WebCore/storage/IDBKeyRange.cpp \
+	WebCore/storage/IDBKeyRange.h \
 	WebCore/storage/IDBObjectStore.h \
+	WebCore/storage/IDBObjectStoreImpl.cpp \
+	WebCore/storage/IDBObjectStoreImpl.h \
 	WebCore/storage/IDBObjectStoreRequest.cpp \
 	WebCore/storage/IDBObjectStoreRequest.h \
 	WebCore/storage/IDBRequest.cpp \
@@ -2586,6 +2610,19 @@ webcore_sources += \
 webcore_cppflags += -DENABLE_ICONDATABASE=0
 
 endif # END ENABLE_ICONDATABASE
+
+# ----
+# Image Resizer Support
+# ----
+if ENABLE_IMAGE_RESIZER
+FEATURE_DEFINES += ENABLE_IMAGE_RESIZER=1
+
+webcore_cppflags += -DENABLE_IMAGE_RESIZER=1
+
+else
+webcore_cppflags += -DENABLE_IMAGE_RESIZER=0
+
+endif # END ENABLE_IMAGE_RESIZER
 
 # ----
 # Orientation Events
@@ -2992,8 +3029,12 @@ webcore_sources += \
 	WebCore/mathml/RenderMathMLMath.h \
 	WebCore/mathml/RenderMathMLOperator.cpp \
 	WebCore/mathml/RenderMathMLOperator.h \
+	WebCore/mathml/RenderMathMLRoot.cpp \
+	WebCore/mathml/RenderMathMLRoot.h \
 	WebCore/mathml/RenderMathMLRow.cpp \
 	WebCore/mathml/RenderMathMLRow.h \
+	WebCore/mathml/RenderMathMLSquareRoot.cpp \
+	WebCore/mathml/RenderMathMLSquareRoot.h \
 	WebCore/mathml/RenderMathMLSubSup.cpp \
 	WebCore/mathml/RenderMathMLSubSup.h \
 	WebCore/mathml/RenderMathMLUnderOver.cpp \
@@ -3766,17 +3807,16 @@ DerivedSources/CSSValueKeywords.h : $(WEBCORE_CSS_VALUE_KEYWORDS) $(WebCore)/css
 	mv CSSValueKeywords.* $(GENSOURCES)
 
 # DOCTYPE strings
-DerivedSources/DocTypeStrings.cpp : $(WebCore)/html/DocTypeStrings.gperf
-	$(AM_V_GEN)$(GPERF) -CEot -I -L ANSI-C -k "*" -N findDoctypeEntry -F ,PubIDInfo::eAlmostStandards,PubIDInfo::eAlmostStandards $(WebCore)/html/DocTypeStrings.gperf > $@
+DerivedSources/DocTypeStrings.cpp : $(WebCore)/html/DocTypeStrings.gperf $(WebCore)/make-hash-tools.pl
+	$(PERL) $(WebCore)/make-hash-tools.pl $(GENSOURCES) $(WebCore)/html/DocTypeStrings.gperf
 
 # HTML entity names
-DerivedSources/HTMLEntityNames.c : $(WebCore)/html/HTMLEntityNames.gperf
-	$(AM_V_GEN)$(GPERF) -a -I -L ANSI-C -C -G -c -o -t -k '*' -N findEntity -D -s 2 \
-	$(WebCore)/html/HTMLEntityNames.gperf > $@
+DerivedSources/HTMLEntityNames.cpp : $(WebCore)/html/HTMLEntityNames.gperf $(WebCore)/make-hash-tools.pl
+	$(PERL) $(WebCore)/make-hash-tools.pl $(GENSOURCES) $(WebCore)/html/HTMLEntityNames.gperf
 
 # color names
-DerivedSources/ColorData.c: $(WebCore)/platform/ColorData.gperf
-	$(AM_V_GEN)$(GPERF) -CDEot -L ANSI-C -k '*' -N findColor -D -s 2 $< > $@
+DerivedSources/ColorData.cpp: $(WebCore)/platform/ColorData.gperf $(WebCore)/make-hash-tools.pl
+	$(PERL) $(WebCore)/make-hash-tools.pl $(GENSOURCES) $(WebCore)/platform/ColorData.gperf
 
 # CSS tokenizer
 DerivedSources/tokenizer.cpp : $(WebCore)/css/tokenizer.flex $(WebCore)/css/maketokenizer
@@ -4027,6 +4067,7 @@ IDL_BINDINGS_GDOM += \
 	WebCore/page/Geolocation.idl \
 	WebCore/page/History.idl \
 	WebCore/page/Location.idl \
+	WebCore/page/MemoryInfo.idl \
 	WebCore/page/Navigator.idl \
 	WebCore/page/Screen.idl \
 	WebCore/page/WebKitPoint.idl \

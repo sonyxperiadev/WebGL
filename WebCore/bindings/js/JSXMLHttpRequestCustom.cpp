@@ -65,7 +65,7 @@ void JSXMLHttpRequest::markChildren(MarkStack& markStack)
 JSValue JSXMLHttpRequest::open(ExecState* exec)
 {
     if (exec->argumentCount() < 2)
-        return throwError(exec, SyntaxError, "Not enough arguments");
+        return throwError(exec, createSyntaxError(exec, "Not enough arguments"));
 
     const KURL& url = impl()->scriptExecutionContext()->completeURL(ustringToString(exec->argument(1).toString(exec)));
     String method = ustringToString(exec->argument(0).toString(exec));
@@ -125,6 +125,17 @@ JSValue JSXMLHttpRequest::send(ExecState* exec)
 JSValue JSXMLHttpRequest::responseText(ExecState* exec) const
 {
     return jsOwnedStringOrNull(exec, impl()->responseText());
+}
+
+EncodedJSValue JSC_HOST_CALL JSXMLHttpRequestConstructor::constructJSXMLHttpRequest(ExecState* exec)
+{
+    JSXMLHttpRequestConstructor* jsConstructor = static_cast<JSXMLHttpRequestConstructor*>(exec->callee());
+    ScriptExecutionContext* context = jsConstructor->scriptExecutionContext();
+    if (!context)
+        return throwVMError(exec, createReferenceError(exec, "XMLHttpRequest constructor associated document is unavailable"));
+
+    RefPtr<XMLHttpRequest> xmlHttpRequest = XMLHttpRequest::create(context);
+    return JSValue::encode(CREATE_DOM_OBJECT_WRAPPER(exec, jsConstructor->globalObject(), XMLHttpRequest, xmlHttpRequest.get()));
 }
 
 } // namespace WebCore

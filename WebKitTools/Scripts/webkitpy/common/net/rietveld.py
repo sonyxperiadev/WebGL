@@ -51,6 +51,10 @@ class Rietveld(object):
         if not message:
             raise ScriptError("Rietveld requires a message.")
 
+        # Rietveld has a 100 character limit on message length.
+        if len(message) > 100:
+            message = message[:100]
+
         args = [
             # First argument is empty string to mimic sys.argv.
             "",
@@ -70,5 +74,5 @@ class Rietveld(object):
         # Use RealMain instead of calling upload from the commandline so that
         # we can pass in the diff ourselves. Otherwise, upload will just use
         # git diff for git checkouts, which doesn't respect --squash and --git-commit.
-        issue, patchset = upload.RealMain(args[1:], data=diff)
+        issue, patchset = upload.RealMain(args, data=diff)
         return issue

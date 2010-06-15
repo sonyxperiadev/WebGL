@@ -62,6 +62,7 @@
 #include "PluginView.h"
 #endif
 #include "RenderFrameSet.h"
+#include "RenderLayer.h"
 #include "RenderTextControlSingleLine.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
@@ -377,7 +378,7 @@ bool EventHandler::handleMousePressEventSingleClick(const MouseEventWithHitTestR
         m_frame->selection()->setIsDirectional(false);
         
         ASSERT(m_frame->settings());
-        if (m_frame->settings()->editingBehavior() == EditingMacBehavior) {
+        if (m_frame->settings()->editingBehaviorType() == EditingMacBehavior) {
             // See <rdar://problem/3668157> REGRESSION (Mail): shift-click deselects when selection
             // was created right-to-left
             Position start = newSelection.start();
@@ -496,7 +497,7 @@ static bool canAutoscroll(RenderObject* renderer)
     // The code for this is in RenderLayer::scrollRectToVisible.
     if (renderer->node() != renderer->document())
         return false;
-    Frame* frame = renderer->document()->frame();
+    Frame* frame = renderer->frame();
     if (!frame)
         return false;
     Page* page = frame->page();
@@ -1095,9 +1096,6 @@ Cursor EventHandler::selectCursor(const MouseEventWithHitTestResults& event, Scr
             // Limit the size of cursors so that they cannot be used to cover UI elements in chrome.
             IntSize size = cimage->image()->size();
             if (size.width() > 128 || size.height() > 128)
-                continue;
-            // Do not let the hotspot be outside the bounds of the image. 
-            if (hotSpot.x() < 0 || hotSpot.y() < 0 || hotSpot.x() > size.width() || hotSpot.y() > size.height())
                 continue;
             if (cimage->image()->isNull())
                 break;

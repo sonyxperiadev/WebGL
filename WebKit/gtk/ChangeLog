@@ -1,3 +1,243 @@
+2010-06-14  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        WebInspector: On the way to Remote Debugging we want to transfer dom/timeline/etc
+        data from inspected page to WebInspector as JSON string via http. The native
+        serialization to JSON string is supported by InspectorValue's classes. This patch
+        has the implementation of sendMessageToFrontend function. WebKit version of it still
+        uses ScriptFunctionCall and will be switched to another transport a little bit later.
+        https://bugs.webkit.org/show_bug.cgi?id=40134
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::releaseFrontendPage):
+        (WebKit::InspectorClient::sendMessageToFrontend):
+        * WebCoreSupport/InspectorClientGtk.h:
+
+2010-06-10  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Reduce FrameView.h includes to speed up build times
+        https://bugs.webkit.org/show_bug.cgi?id=40408
+
+        * webkit/webkitwebinspector.cpp:
+         - Include RenderLayer.h
+
+2010-06-09  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r60889.
+        http://trac.webkit.org/changeset/60889
+        https://bugs.webkit.org/show_bug.cgi?id=40365
+
+        gtk bot has some kind of memory corruption (Requested by
+        loislo on #webkit).
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::InspectorClient):
+        (WebKit::InspectorClient::openInspectorFrontend):
+        (WebKit::InspectorFrontendClient::InspectorFrontendClient):
+        (WebKit::InspectorFrontendClient::destroyInspectorWindow):
+        * WebCoreSupport/InspectorClientGtk.h:
+
+2010-06-07  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        WebInspector: On the way to Remote Debugging we want to transfer dom/timeline/etc
+        data from inspected page to WebInspector as JSON string via http. The native
+        serialization to JSON string is supported by InspectorValue's classes. This patch
+        has the implementation of sendMessageToFrontend function. WebKit version of it still
+        uses ScriptFunctionCall and will be switched to another transport a little bit later.
+        https://bugs.webkit.org/show_bug.cgi?id=40134
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::releaseFrontendPage):
+        (WebKit::InspectorClient::sendMessageToFrontend):
+        * WebCoreSupport/InspectorClientGtk.h:
+
+2010-06-08  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Unit testing for WebKitDOMNode hierarchy walk
+        https://bugs.webkit.org/show_bug.cgi?id=40171
+
+        Add some DOM node unit testing.
+
+        * tests/testdomnode.c: Added.
+        (finish_loading):
+        (dom_node_fixture_setup):
+        (dom_node_fixture_teardown):
+        (test_dom_node_hierarchy_navigation):
+        (main):
+
+2010-06-08  Antonio Gomes  <tonikitoo@webkit.org>
+
+        Reviewed by Ojan Vafai and Darin Adler.
+
+        Refactor platform dependent editing behavior code out of Settings
+        https://bugs.webkit.org/show_bug.cgi?id=39854
+
+        EditingBehavior enum was renamed to EditingBehaviorTypes and moved out from Settings.h to
+        EditingBehaviorTypes.h . Call sites in WebKit/ adjusted accordingly.
+
+        * webkit/webkitprivate.cpp:
+        (WebKit::core):
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_update_settings):
+        (webkit_web_view_settings_notify):
+
+2010-06-08  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Add inner-node property to WebKitHitTestResult
+        https://bugs.webkit.org/show_bug.cgi?id=40131
+
+        Add a 'inner-node' property to WebKitHitTestResult, carrying the
+        DOM node where the hit test happened.
+
+        * tests/testhittestresult.c:
+        (load_status_cb):
+        * webkit/webkithittestresult.cpp:
+        (webkit_hit_test_result_get_property):
+        (webkit_hit_test_result_set_property):
+        (webkit_hit_test_result_class_init):
+        * webkit/webkitprivate.cpp:
+        (WebKit::kit):
+
+2010-06-07  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] gtk_widget_get_window should replace widget->window
+        https://bugs.webkit.org/show_bug.cgi?id=40180
+
+        Replace uses of widget->window with gtk_widget_get_window.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::invalidateContentsAndWindow): Replace widget->window uses.
+        (WebKit::ChromeClient::scroll): Ditto.
+        (WebKit::widgetScreenPosition): Ditto.
+        * WebCoreSupport/DragClientGtk.cpp: Move gtk_widget_get_window define to GtkVersioning.h.
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_popup_menu_handler): Replace widget->window uses.
+        (webkit_web_view_button_press_event): Ditto.
+
+2010-06-04  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Drag gesture can take mouse grab indefinitely
+        https://bugs.webkit.org/show_bug.cgi?id=32840
+
+        Initiate drag events with the current GTK+ event instead of synthesizing
+        an event. Something about synthesized events is causing a drag freeze in
+        certain situations.
+
+        * WebCoreSupport/DragClientGtk.cpp:
+        (WebKit::DragClient::startDrag): Start the drag with the current GTK+ event.
+
+2010-06-03  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r60632.
+        http://trac.webkit.org/changeset/60632
+        https://bugs.webkit.org/show_bug.cgi?id=40143
+
+        This change broke the 64-bit bots. (Requested by mrobinson on
+        #webkit).
+
+        * WebCoreSupport/DragClientGtk.cpp:
+        (WebKit::DragClient::DragClient):
+        (WebKit::DragClient::startDrag):
+        * WebCoreSupport/DragClientGtk.h:
+
+2010-06-03  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Drag gesture can take mouse grab indefinitely
+        https://bugs.webkit.org/show_bug.cgi?id=32840
+
+        Start GTK+ drags with the previous mouse button down event instead of
+        synthesizing the event. The synthesized event was not completely valid
+        and froze some drags indefinitely.
+
+        * WebCoreSupport/DragClientGtk.cpp:
+        (WebKit::buttonPressEvent): Added.
+        (WebKit::DragClient::DragClient):
+        Connect to the 'button-press-event' signal of the WebView.
+        (WebKit::DragClient::startDrag):
+        Instead of synthesizing a button press event use the last real one.
+        * WebCoreSupport/DragClientGtk.h:
+        (WebKit::DragClient::setLastButtonPressEvent): Added.
+
+2010-06-01  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Memory Leak: The main resource of page is not free.
+        https://bugs.webkit.org/show_bug.cgi?id=39973
+
+        Fix refcount tracking of the main resource. Patch by Genhua Liu.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::dispatchDidFinishLoading):
+
+2010-06-01  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Fix-up for previous leak fix, the identifier was not always duped.
+
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_add_resource):
+
+2010-06-01  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Plug a small leak.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::assignIdentifierToInitialRequest):
+
+2010-06-01  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Double clicks cause three button press events
+        https://bugs.webkit.org/show_bug.cgi?id=38853
+
+        Handle click counting much like the Windows port. GTK+ only
+        counts triple-clicks natively, so use GTK+ double-click settings
+        to count clicks with even larger click counts. Also filter the
+        extra GDK_BUTTON_PRESS before GDK_{2,3}BUTTON_PRESS events using
+        gdk_event_peek().
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_button_press_event): Count clicks manually. Filter extra events.
+
+2010-05-31  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Missing links to documentation of general functions
+        https://bugs.webkit.org/show_bug.cgi?id=39964
+
+        Add global functions section, and move those functions that are
+        currently in WebKitWebView's source file to the bottom, along with
+        the description.
+
+        * docs/webkitgtk-docs.sgml:
+        * docs/webkitgtk-sections.txt:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_get_dom_document):
+        (webkit_get_default_session):
+
 2010-05-31  Martin Robinson  <mrobinson@igalia.com>
 
         Reviewed by Gustavo Noronha Silva.

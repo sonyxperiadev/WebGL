@@ -713,11 +713,11 @@
 #define HAVE_SYS_TIME_H 1
 #define HAVE_SYS_TIMEB_H 1
 
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#if !defined(TARGETING_TIGER) && !defined(TARGETING_LEOPARD)
 
 #define HAVE_DISPATCH_H 1
 
-#if !PLATFORM(IPHONE) && !PLATFORM(QT)
+#if !PLATFORM(IPHONE)
 #define HAVE_MADV_FREE_REUSE 1
 #define HAVE_MADV_FREE 1
 #define HAVE_PTHREAD_SETNAME_NP 1
@@ -982,15 +982,16 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #define ENABLE_JIT_OPTIMIZE_MOD 1
 #endif
 #endif
+#if (CPU(X86) && USE(JSVALUE32_64)) || (CPU(X86_64) && USE(JSVALUE64))
+#define ENABLE_JIT_OPTIMIZE_NATIVE_CALL 1
+#endif
 
 #if ENABLE(JIT)
 #ifndef ENABLE_JIT_OPTIMIZE_CALL
 #define ENABLE_JIT_OPTIMIZE_CALL 1
 #endif
 #ifndef ENABLE_JIT_OPTIMIZE_NATIVE_CALL
-#if PLATFORM(MAC)
-#define ENABLE_JIT_OPTIMIZE_NATIVE_CALL 1
-#endif
+#define ENABLE_JIT_OPTIMIZE_NATIVE_CALL 0
 #endif
 #ifndef ENABLE_JIT_OPTIMIZE_PROPERTY_ACCESS
 #define ENABLE_JIT_OPTIMIZE_PROPERTY_ACCESS 1
@@ -1046,15 +1047,11 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #define ENABLE_PAN_SCROLLING 1
 #endif
 
-/* Use the QXmlStreamReader implementation for XMLTokenizer */
+/* Use the QXmlStreamReader implementation for XMLDocumentParser */
 /* Use the QXmlQuery implementation for XSLTProcessor */
 #if PLATFORM(QT)
 #define WTF_USE_QXMLSTREAM 1
 #define WTF_USE_QXMLQUERY 1
-#endif
-
-#if !PLATFORM(QT)
-#define WTF_USE_FONT_FAST_PATH 1
 #endif
 
 /* Accelerated compositing */

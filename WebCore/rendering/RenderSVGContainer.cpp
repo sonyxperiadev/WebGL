@@ -146,20 +146,7 @@ FloatRect RenderSVGContainer::strokeBoundingBox() const
 FloatRect RenderSVGContainer::repaintRectInLocalCoordinates() const
 {
     FloatRect repaintRect = computeContainerBoundingBox(this, true);
-
-    FloatRect rect = filterBoundingBoxForRenderer(this);
-    if (!rect.isEmpty())
-        repaintRect = rect;
-
-    rect = clipperBoundingBoxForRenderer(this);
-    if (!rect.isEmpty())
-        repaintRect.intersect(rect);
-
-    rect = maskerBoundingBoxForRenderer(this);
-    if (!rect.isEmpty())
-        repaintRect.intersect(rect);
-
-    style()->svgStyle()->inflateForShadow(repaintRect);
+    intersectRepaintRectWithResources(this, repaintRect);
 
     return repaintRect;
 }
@@ -172,6 +159,9 @@ bool RenderSVGContainer::nodeAtFloatPoint(const HitTestRequest& request, HitTest
 
     FloatPoint localPoint = localToParentTransform().inverse().mapPoint(pointInParent);
 
+    if (!pointInClippingArea(this, localPoint))
+        return false;
+                
     for (RenderObject* child = lastChild(); child; child = child->previousSibling()) {
         if (child->nodeAtFloatPoint(request, result, localPoint, hitTestAction)) {
             updateHitTestResult(result, roundedIntPoint(localPoint));

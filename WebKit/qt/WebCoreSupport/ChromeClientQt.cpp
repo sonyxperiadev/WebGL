@@ -29,19 +29,20 @@
 #include "config.h"
 #include "ChromeClientQt.h"
 
+#include "DatabaseTracker.h"
 #include "FileChooser.h"
 #include "Frame.h"
 #include "FrameLoadRequest.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientQt.h"
 #include "FrameView.h"
+#include "Geolocation.h"
 #include "HitTestResult.h"
 #include "Icon.h"
-#include "NotificationPresenterClientQt.h"
 #include "NotImplemented.h"
+#include "NotificationPresenterClientQt.h"
 #include "ScrollbarTheme.h"
 #include "WindowFeatures.h"
-#include "DatabaseTracker.h"
 #if defined(Q_WS_MAEMO_5)
 #include "QtMaemoWebPopup.h"
 #else
@@ -50,17 +51,17 @@
 #include "QWebPageClient.h"
 #include "SecurityOrigin.h"
 
+#include "qwebframe_p.h"
+#include "qwebpage.h"
+#include "qwebpage_p.h"
+#include "qwebsecurityorigin.h"
+#include "qwebsecurityorigin_p.h"
+#include "qwebview.h"
+
 #include <qdebug.h>
 #include <qeventloop.h>
 #include <qtextdocument.h>
 #include <qtooltip.h>
-
-#include "qwebpage.h"
-#include "qwebpage_p.h"
-#include "qwebframe_p.h"
-#include "qwebsecurityorigin.h"
-#include "qwebsecurityorigin_p.h"
-#include "qwebview.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 #include "GraphicsLayerQt.h"
@@ -106,7 +107,7 @@ FloatRect ChromeClientQt::pageRect()
 {
     if (!m_webPage)
         return FloatRect();
-    return FloatRect(QRectF(QPointF(0,0), m_webPage->viewportSize()));
+    return FloatRect(QRectF(QPointF(0, 0), m_webPage->viewportSize()));
 }
 
 
@@ -163,7 +164,7 @@ void ChromeClientQt::focusedNodeChanged(WebCore::Node*)
 
 Page* ChromeClientQt::createWindow(Frame*, const FrameLoadRequest& request, const WindowFeatures& features)
 {
-    QWebPage *newPage = m_webPage->createWindow(features.dialog ? QWebPage::WebModalDialog : QWebPage::WebBrowserWindow);
+    QWebPage* newPage = m_webPage->createWindow(features.dialog ? QWebPage::WebModalDialog : QWebPage::WebBrowserWindow);
     if (!newPage)
         return 0;
 
@@ -290,21 +291,21 @@ void ChromeClientQt::closeWindowSoon()
 void ChromeClientQt::runJavaScriptAlert(Frame* f, const String& msg)
 {
     QString x = msg;
-    FrameLoaderClientQt *fl = static_cast<FrameLoaderClientQt*>(f->loader()->client());
+    FrameLoaderClientQt* fl = static_cast<FrameLoaderClientQt*>(f->loader()->client());
     m_webPage->javaScriptAlert(fl->webFrame(), x);
 }
 
 bool ChromeClientQt::runJavaScriptConfirm(Frame* f, const String& msg)
 {
     QString x = msg;
-    FrameLoaderClientQt *fl = static_cast<FrameLoaderClientQt*>(f->loader()->client());
+    FrameLoaderClientQt* fl = static_cast<FrameLoaderClientQt*>(f->loader()->client());
     return m_webPage->javaScriptConfirm(fl->webFrame(), x);
 }
 
 bool ChromeClientQt::runJavaScriptPrompt(Frame* f, const String& message, const String& defaultValue, String& result)
 {
     QString x = result;
-    FrameLoaderClientQt *fl = static_cast<FrameLoaderClientQt*>(f->loader()->client());
+    FrameLoaderClientQt* fl = static_cast<FrameLoaderClientQt*>(f->loader()->client());
     bool rc = m_webPage->javaScriptPrompt(fl->webFrame(), (QString)message, (QString)defaultValue, &x);
 
     // Fix up a quirk in the QInputDialog class. If no input happened the string should be empty
@@ -459,7 +460,7 @@ void ChromeClientQt::setToolTip(const String &tip, TextDirection)
 #endif
 }
 
-void ChromeClientQt::print(Frame *frame)
+void ChromeClientQt::print(Frame* frame)
 {
     emit m_webPage->printRequested(QWebFramePrivate::kit(frame));
 }
@@ -487,7 +488,7 @@ void ChromeClientQt::reachedMaxAppCacheSize(int64_t)
 #if ENABLE(NOTIFICATIONS)
 NotificationPresenter* ChromeClientQt::notificationPresenter() const
 {
-    return m_webPage->d->notificationPresenterClient;
+    return NotificationPresenterClientQt::notificationPresenter();
 }
 #endif
 
@@ -534,15 +535,17 @@ bool ChromeClientQt::setCursor(PlatformCursorHandle)
     return false;
 }
 
-void ChromeClientQt::requestGeolocationPermissionForFrame(Frame*, Geolocation*)
+void ChromeClientQt::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geolocation)
 {
-    // See the comment in WebCore/page/ChromeClient.h
-    notImplemented();
+    bool allow = false;
+    QWebFrame* webFrame = QWebFramePrivate::kit(frame);
+    QMetaObject::invokeMethod(m_webPage, "allowGeolocationRequest", Qt::DirectConnection, Q_RETURN_ARG(bool, allow), Q_ARG(QWebFrame*, webFrame));
+    geolocation->setIsAllowed(allow);
 }
 
 #if USE(ACCELERATED_COMPOSITING)
 void ChromeClientQt::attachRootGraphicsLayer(Frame* frame, GraphicsLayer* graphicsLayer)
-{    
+{
     if (platformPageClient())
         platformPageClient()->setRootGraphicsLayer(graphicsLayer ? graphicsLayer->nativeLayer() : 0);
 }
@@ -567,10 +570,10 @@ bool ChromeClientQt::allowsAcceleratedCompositing() const
 }
 
 #endif
-    
+
 #if ENABLE(TILED_BACKING_STORE)
 IntRect ChromeClientQt::visibleRectForTiledBackingStore() const
-{ 
+{
     if (!platformPageClient() || !m_webPage)
         return IntRect();
 

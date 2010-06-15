@@ -30,6 +30,7 @@
 #ifndef InspectorFrontend_h
 #define InspectorFrontend_h
 
+#include "InspectorValues.h"
 #include "ScriptArray.h"
 #include "ScriptObject.h"
 #include "ScriptState.h"
@@ -39,16 +40,20 @@ namespace WebCore {
     class ConsoleMessage;
     class Database;
     class Frame;
+    class InspectorClient;
     class InspectorResource;
+    class InspectorWorkerResource;
     class Node;
     class ScriptString;
     class SerializedScriptValue;
     class Storage;
-    class InspectorWorkerResource;
 
     class InspectorFrontend : public Noncopyable {
     public:
-        InspectorFrontend(ScriptObject webInspector);
+        // We are in transition from JS transport via webInspector to native
+        // transport via inspectorClient. After migration, webInspector parameter should
+        // be removed.
+        InspectorFrontend(ScriptObject webInspector, InspectorClient* inspectorClient);
         ~InspectorFrontend();
 
         void close();
@@ -59,7 +64,8 @@ namespace WebCore {
 
         void didCommitLoad();
 
-        void populateFrontendSettings(const String& settings);
+        void populateApplicationSettings(const String& settings);
+        void populateSessionSettings(const String& settings);
 
         void updateConsoleMessageExpiredCount(unsigned count);
         void addConsoleMessage(const ScriptObject& messageObj, const Vector<ScriptString>& frames, const Vector<RefPtr<SerializedScriptValue> >& arguments, const String& message);
@@ -92,11 +98,14 @@ namespace WebCore {
         void debuggerWasEnabled();
         void debuggerWasDisabled();
 
-        void parsedScriptSource(const String& sourceID, const String& url, const String& data, int firstLine);
+        void parsedScriptSource(const String& sourceID, const String& url, const String& data, int firstLine, int scriptWorldType);
         void restoredBreakpoint(const String& sourceID, const String& url, int line, bool enabled, const String& condition);
         void failedToParseScriptSource(const String& url, const String& data, int firstLine, int errorLine, const String& errorMessage);
         void pausedScript(SerializedScriptValue* callFrames);
         void resumedScript();
+
+        void didEditScriptSource(long callId, bool success, const String& result, SerializedScriptValue* newCallFrames);
+        void didGetScriptSource(long callId, const String& result);
 
         void profilerWasEnabled();
         void profilerWasDisabled();
@@ -158,7 +167,7 @@ namespace WebCore {
         void didGetCookies(long callId, const ScriptArray& cookies, const String& cookiesString);
         void didDispatchOnInjectedScript(long callId, SerializedScriptValue* result, bool isException);
 
-        void addNodesToSearchResult(const String& nodeIds);
+        void addNodesToSearchResult(const ScriptArray& nodeIds);
 
         void contextMenuItemSelected(int itemId);
         void contextMenuCleared();
@@ -169,6 +178,7 @@ namespace WebCore {
     private:
         void callSimpleFunction(const String& functionName);
         ScriptObject m_webInspector;
+        InspectorClient* m_inspectorClient;
     };
 
 } // namespace WebCore

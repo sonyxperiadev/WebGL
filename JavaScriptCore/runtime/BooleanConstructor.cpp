@@ -45,9 +45,10 @@ JSObject* constructBoolean(ExecState* exec, const ArgList& args)
     return obj;
 }
 
-static JSObject* constructWithBooleanConstructor(ExecState* exec, JSObject*, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL constructWithBooleanConstructor(ExecState* exec)
 {
-    return constructBoolean(exec, args);
+    ArgList args(exec);
+    return JSValue::encode(constructBoolean(exec, args));
 }
 
 ConstructType BooleanConstructor::getConstructData(ConstructData& constructData)
@@ -57,9 +58,9 @@ ConstructType BooleanConstructor::getConstructData(ConstructData& constructData)
 }
 
 // ECMA 15.6.1
-static JSValue JSC_HOST_CALL callBooleanConstructor(ExecState* exec)
+static EncodedJSValue JSC_HOST_CALL callBooleanConstructor(ExecState* exec)
 {
-    return jsBoolean(exec->argument(0).toBoolean(exec));
+    return JSValue::encode(jsBoolean(exec->argument(0).toBoolean(exec)));
 }
 
 CallType BooleanConstructor::getCallData(CallData& callData)

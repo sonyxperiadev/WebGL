@@ -202,7 +202,11 @@ void Gradient::setGradientSpaceTransform(const AffineTransform& gradientSpaceTra
     setPlatformGradientSpaceTransform(gradientSpaceTransformation);
 }
 
+<<<<<<< HEAD:WebCore/platform/graphics/Gradient.cpp
 #if !(PLATFORM(SKIA) && !PLATFORM(ANDROID))
+=======
+#if !PLATFORM(SKIA) && !PLATFORM(CAIRO)
+>>>>>>> Webkit.org at r61121:WebCore/platform/graphics/Gradient.cpp
 void Gradient::setPlatformGradientSpaceTransform(const AffineTransform&)
 {
 }

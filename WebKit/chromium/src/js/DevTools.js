@@ -183,8 +183,8 @@ WebInspector.loaded = function()
     Preferences.heapProfilerPresent = true;
     Preferences.debuggerAlwaysEnabled = true;
     Preferences.profilerAlwaysEnabled = true;
-    RemoteDebuggerAgent.setDebuggerScriptSource("(" + debuggerScriptConstructor + ")();");
- 
+    Preferences.canEditScriptSource = true;
+
     oldLoaded.call(this);
 
     InspectorFrontendHost.loaded();
@@ -209,42 +209,6 @@ document.addEventListener("DOMContentLoaded", devtools.domContentLoaded, false);
 
 
 if (!window.v8ScriptDebugServerEnabled) {
-
-/**
- * This override is necessary for adding script source asynchronously.
- * @override
- */
-WebInspector.ScriptView.prototype.setupSourceFrameIfNeeded = function()
-{
-    if (!this._frameNeedsSetup)
-        return;
-
-    this.attach();
-
-    if (this.script.source)
-        this.didResolveScriptSource_();
-    else {
-        var self = this;
-        devtools.tools.getDebuggerAgent().resolveScriptSource(
-            this.script.sourceID,
-            function(source) {
-                self.script.source = source || WebInspector.UIString("<source is not available>");
-                self.didResolveScriptSource_();
-            });
-    }
-};
-
-
-/**
- * Performs source frame setup when script source is aready resolved.
- */
-WebInspector.ScriptView.prototype.didResolveScriptSource_ = function()
-{
-    this.sourceFrame.setContent("text/javascript", this._prependWhitespace(this.script.source));
-    this._sourceFrameSetup = true;
-    delete this._frameNeedsSetup;
-};
-
 
 (function()
 {
@@ -296,6 +260,21 @@ InjectedScriptAccess.prototype.getCompletions = function(expressionString, inclu
 };
 })();
 
+// Highlight extension content scripts in the scripts list.
+(function () {
+    var original = WebInspector.ScriptsPanel.prototype._addScriptToFilesMenu;
+    WebInspector.ScriptsPanel.prototype._addScriptToFilesMenu = function(script)
+    {
+        var result = original.apply(this, arguments);
+        var debuggerAgent = devtools.tools.getDebuggerAgent();
+        var type = debuggerAgent.getScriptContextType(script.sourceID);
+        var option = script.filesSelectOption;
+        if (type === "injected" && option)
+            option.addStyleClass("injected");
+        return result;
+    };
+})();
+
 }
 
 
@@ -345,22 +324,6 @@ WebInspector.UIString = function(string)
         var resource = this.resources[identifier];
         if (resource && resource.mainResource && resource.finished)
             document.title = WebInspector.UIString("Developer Tools - %s", resource.url);
-    };
-})();
-
-
-// Highlight extension content scripts in the scripts list.
-(function () {
-    var original = WebInspector.ScriptsPanel.prototype._addScriptToFilesMenu;
-    WebInspector.ScriptsPanel.prototype._addScriptToFilesMenu = function(script)
-    {
-        var result = original.apply(this, arguments);
-        var debuggerAgent = devtools.tools.getDebuggerAgent();
-        var type = debuggerAgent.getScriptContextType(script.sourceID);
-        var option = script.filesSelectOption;
-        if (type === "injected" && option)
-            option.addStyleClass("injected");
-        return result;
     };
 })();
 

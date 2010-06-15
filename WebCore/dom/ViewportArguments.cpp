@@ -33,7 +33,7 @@
 #include "Frame.h"
 #include "Page.h"
 #include "PlatformString.h"
-#include "Tokenizer.h"
+#include "DocumentParser.h"
 
 namespace WebCore {
 
@@ -105,7 +105,7 @@ static MessageLevel viewportErrorMessageLevel(ViewportErrorCode errorCode)
 
 void reportViewportWarning(Document* document, ViewportErrorCode errorCode, const String& replacement)
 {
-    Tokenizer* tokenizer = document->tokenizer();
+    DocumentParser* parser = document->parser();
 
     Frame* frame = document->frame();
     if (!frame)
@@ -114,7 +114,7 @@ void reportViewportWarning(Document* document, ViewportErrorCode errorCode, cons
     String message = viewportErrorMessageTemplate(errorCode);
     message.replace("%replacement", replacement);
 
-    frame->domWindow()->console()->addMessage(HTMLMessageSource, LogMessageType, viewportErrorMessageLevel(errorCode), message, tokenizer ? tokenizer->lineNumber() + 1 : 0, document->url().string());
+    frame->domWindow()->console()->addMessage(HTMLMessageSource, LogMessageType, viewportErrorMessageLevel(errorCode), message, parser ? parser->lineNumber() + 1 : 0, document->url().string());
 }
 
 } // namespace WebCore

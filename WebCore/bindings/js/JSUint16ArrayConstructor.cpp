@@ -45,19 +45,34 @@ const ClassInfo JSUint16ArrayConstructor::s_info = { "Uint16ArrayConstructor", &
 JSUint16ArrayConstructor::JSUint16ArrayConstructor(ExecState* exec, JSDOMGlobalObject* globalObject)
     : DOMConstructorObject(JSUint16ArrayConstructor::createStructure(globalObject->objectPrototype()), globalObject)
 {
-    putDirect(exec->propertyNames().prototype, JSUint16ArrayPrototype::self(exec, globalObject), None);
-    putDirect(exec->propertyNames().length, jsNumber(exec, 2), ReadOnly|DontDelete|DontEnum);
+    putDirect(exec->propertyNames().prototype, JSUint16ArrayPrototype::self(exec, globalObject), DontDelete | ReadOnly);
 }
 
-static JSObject* constructCanvasUnsignedShortArray(ExecState* exec, JSObject* constructor, const ArgList& args)
+JSObject* JSUint16ArrayConstructor::createPrototype(ExecState* exec, JSGlobalObject* globalObject)
 {
-    JSUint16ArrayConstructor* jsConstructor = static_cast<JSUint16ArrayConstructor*>(constructor);
+    return new (exec) JSUint16ArrayPrototype(globalObject, JSUint16ArrayPrototype::createStructure(globalObject->objectPrototype()));
+}
+
+bool JSUint16ArrayConstructor::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
+{
+    return getStaticValueSlot<JSUint16ArrayConstructor, DOMObject>(exec, JSUint16ArrayPrototype::s_info.staticPropHashTable, this, propertyName, slot);
+}
+
+bool JSUint16ArrayConstructor::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+{
+    return getStaticValueDescriptor<JSUint16ArrayConstructor, DOMObject>(exec, JSUint16ArrayPrototype::s_info.staticPropHashTable, this, propertyName, descriptor);
+}
+
+static EncodedJSValue JSC_HOST_CALL constructCanvasUnsignedShortArray(ExecState* exec)
+{
+    ArgList args(exec);
+    JSUint16ArrayConstructor* jsConstructor = static_cast<JSUint16ArrayConstructor*>(exec->callee());
     RefPtr<Uint16Array> array = static_cast<Uint16Array*>(construct<Uint16Array, unsigned short>(exec, args).get());
     if (!array.get()) {
         setDOMException(exec, INDEX_SIZE_ERR);
-        return 0;
+        return JSValue::encode(JSValue());
     }
-    return asObject(toJS(exec, jsConstructor->globalObject(), array.get()));
+    return JSValue::encode(asObject(toJS(exec, jsConstructor->globalObject(), array.get())));
 }
 
 JSC::ConstructType JSUint16ArrayConstructor::getConstructData(JSC::ConstructData& constructData)

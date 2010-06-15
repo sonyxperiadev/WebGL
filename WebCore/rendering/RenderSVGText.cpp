@@ -33,6 +33,7 @@
 #include "FloatConversion.h"
 #include "FloatQuad.h"
 #include "GraphicsContext.h"
+#include "HitTestRequest.h"
 #include "PointerEventsHitRules.h"
 #include "RenderLayer.h"
 #include "RenderSVGRoot.h"
@@ -98,12 +99,16 @@ RootInlineBox* RenderSVGText::createRootInlineBox()
 
 bool RenderSVGText::nodeAtFloatPoint(const HitTestRequest& request, HitTestResult& result, const FloatPoint& pointInParent, HitTestAction hitTestAction)
 {
-    PointerEventsHitRules hitRules(PointerEventsHitRules::SVG_TEXT_HITTESTING, style()->pointerEvents());
+    PointerEventsHitRules hitRules(PointerEventsHitRules::SVG_TEXT_HITTESTING, request, style()->pointerEvents());
     bool isVisible = (style()->visibility() == VISIBLE);
     if (isVisible || !hitRules.requireVisible) {
         if ((hitRules.canHitStroke && (style()->svgStyle()->hasStroke() || !hitRules.requireStroke))
             || (hitRules.canHitFill && (style()->svgStyle()->hasFill() || !hitRules.requireFill))) {
             FloatPoint localPoint = localToParentTransform().inverse().mapPoint(pointInParent);
+
+            if (!pointInClippingArea(this, localPoint))
+                return false;       
+
             return RenderBlock::nodeAtPoint(request, result, (int)localPoint.x(), (int)localPoint.y(), 0, 0, hitTestAction);
         }
     }
@@ -186,7 +191,7 @@ FloatRect RenderSVGText::objectBoundingBox() const
 
 FloatRect RenderSVGText::strokeBoundingBox() const
 {
-    FloatRect repaintRect = objectBoundingBox();
+    FloatRect strokeRect = objectBoundingBox();
 
     // SVG needs to include the strokeWidth(), not the textStrokeWidth().
     if (style()->svgStyle()->hasStroke()) {
@@ -202,33 +207,31 @@ FloatRect RenderSVGText::strokeBoundingBox() const
         }
 #endif
 
-        repaintRect.inflate(strokeWidth);
+        strokeRect.inflate(strokeWidth);
     }
 
-    return repaintRect;
+    return strokeRect;
 }
 
 FloatRect RenderSVGText::repaintRectInLocalCoordinates() const
 {
     FloatRect repaintRect = strokeBoundingBox();
-
-    // FIXME: We need to be careful here. We assume that there is no filter,
-    // clipper or masker if the rects are empty.
-    FloatRect rect = filterBoundingBoxForRenderer(this);
-    if (!rect.isEmpty())
-        repaintRect = rect;
-
-    rect = clipperBoundingBoxForRenderer(this);
-    if (!rect.isEmpty())
-        repaintRect.intersect(rect);
-
-    rect = maskerBoundingBoxForRenderer(this);
-    if (!rect.isEmpty())
-        repaintRect.intersect(rect);
-
-    style()->svgStyle()->inflateForShadow(repaintRect);
+    intersectRepaintRectWithResources(this, repaintRect);
 
     return repaintRect;
+}
+
+// Fix for <rdar://problem/8048875>. We should not render :first-line CSS Style
+// in a SVG text element context.
+RenderBlock* RenderSVGText::firstLineBlock() const
+{
+    return 0;
+}
+
+// Fix for <rdar://problem/8048875>. We should not render :first-letter CSS Style
+// in a SVG text element context.
+void RenderSVGText::updateFirstLetter()
+{
 }
 
 }

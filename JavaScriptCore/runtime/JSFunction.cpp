@@ -43,12 +43,11 @@ using namespace Unicode;
 
 namespace JSC {
 
-JSValue JSC_HOST_CALL callHostFunctionAsConstructor(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL callHostFunctionAsConstructor(ExecState* exec)
 {
     CodeBlock* codeBlock = exec->callerFrame()->codeBlock();
     unsigned vPCIndex = codeBlock->bytecodeOffset(exec, exec->returnPC());
-    exec->setException(createNotAConstructorError(exec, exec->callee(), vPCIndex, codeBlock));
-    return JSValue();
+    return throwVMError(exec, createNotAConstructorError(exec, exec->callee(), vPCIndex, codeBlock));
 }
 
 ASSERT_CLASS_FITS_IN_CELL(JSFunction);

@@ -36,6 +36,7 @@
 #include "Frame.h"
 #include "InjectedScript.h"
 #include "InjectedScriptHost.h"
+#include "InspectorClient.h"
 #include "InspectorController.h"
 #include "InspectorWorkerResource.h"
 #include "Node.h"
@@ -49,8 +50,9 @@
 
 namespace WebCore {
 
-InspectorFrontend::InspectorFrontend(ScriptObject webInspector)
+InspectorFrontend::InspectorFrontend(ScriptObject webInspector, InspectorClient* inspectorClient)
     : m_webInspector(webInspector)
+    , m_inspectorClient(inspectorClient)
 {
 }
 
@@ -86,10 +88,18 @@ void InspectorFrontend::didCommitLoad()
     callSimpleFunction("didCommitLoad");
 }
 
-void InspectorFrontend::populateFrontendSettings(const String& settings)
+void InspectorFrontend::populateApplicationSettings(const String& settings)
 {
     ScriptFunctionCall function(m_webInspector, "dispatch");
-    function.appendArgument("populateFrontendSettings");
+    function.appendArgument("populateApplicationSettings");
+    function.appendArgument(settings);
+    function.call();
+}
+
+void InspectorFrontend::populateSessionSettings(const String& settings)
+{
+    ScriptFunctionCall function(m_webInspector, "dispatch");
+    function.appendArgument("populateSessionSettings");
     function.appendArgument(settings);
     function.call();
 }
@@ -305,7 +315,7 @@ void InspectorFrontend::debuggerWasDisabled()
     callSimpleFunction("debuggerWasDisabled");
 }
 
-void InspectorFrontend::parsedScriptSource(const String& sourceID, const String& url, const String& data, int firstLine)
+void InspectorFrontend::parsedScriptSource(const String& sourceID, const String& url, const String& data, int firstLine, int scriptWorldType)
 {
     ScriptFunctionCall function(m_webInspector, "dispatch"); 
     function.appendArgument("parsedScriptSource");
@@ -313,6 +323,7 @@ void InspectorFrontend::parsedScriptSource(const String& sourceID, const String&
     function.appendArgument(url);
     function.appendArgument(data);
     function.appendArgument(firstLine);
+    function.appendArgument(scriptWorldType);
     function.call();
 }
 
@@ -352,6 +363,30 @@ void InspectorFrontend::pausedScript(SerializedScriptValue* callFrames)
 void InspectorFrontend::resumedScript()
 {
     callSimpleFunction("resumedScript");
+}
+
+void InspectorFrontend::didEditScriptSource(long callId, bool success, const String& result, SerializedScriptValue* newCallFrames)
+{
+    ScriptFunctionCall function(m_webInspector, "dispatch");
+    function.appendArgument("didEditScriptSource");
+    function.appendArgument(callId);
+    function.appendArgument(success);
+    function.appendArgument(result);
+    if (success && newCallFrames) {
+        ScriptValue newCallFramesValue = ScriptValue::deserialize(scriptState(), newCallFrames);
+        ASSERT(!newCallFramesValue .hasNoValue());
+        function.appendArgument(newCallFramesValue);
+    }
+    function.call();
+}
+
+void InspectorFrontend::didGetScriptSource(long callId, const String& result)
+{
+    ScriptFunctionCall function(m_webInspector, "dispatch");
+    function.appendArgument("didGetScriptSource");
+    function.appendArgument(callId);
+    function.appendArgument(result);
+    function.call();
 }
 
 void InspectorFrontend::profilerWasEnabled()
@@ -738,7 +773,7 @@ void InspectorFrontend::updateDOMStorage(long storageId)
 }
 #endif
 
-void InspectorFrontend::addNodesToSearchResult(const String& nodeIds)
+void InspectorFrontend::addNodesToSearchResult(const ScriptArray& nodeIds)
 {
     ScriptFunctionCall function(m_webInspector, "dispatch"); 
     function.appendArgument("addNodesToSearchResult");

@@ -26,7 +26,10 @@
 #ifndef IDBDatabaseImpl_h
 #define IDBDatabaseImpl_h
 
+#include "IDBCallbacks.h"
 #include "IDBDatabase.h"
+#include "StringHash.h"
+#include <wtf/HashMap.h>
 
 #if ENABLE(INDEXED_DATABASE)
 
@@ -41,10 +44,14 @@ public:
     virtual ~IDBDatabaseImpl();
 
     // Implements IDBDatabase
-    virtual String name() { return m_name; }
-    virtual String description() { return m_description; }
-    virtual String version() { return m_version; }
-    virtual PassRefPtr<DOMStringList> objectStores();
+    virtual String name() const { return m_name; }
+    virtual String description() const { return m_description; }
+    virtual String version() const { return m_version; }
+    virtual PassRefPtr<DOMStringList> objectStores() const;
+
+    virtual void createObjectStore(const String& name, const String& keyPath, bool autoIncrement, PassRefPtr<IDBCallbacks>);
+    virtual PassRefPtr<IDBObjectStore> objectStore(const String& name, unsigned short mode);
+    virtual void removeObjectStore(const String& name, PassRefPtr<IDBCallbacks>);
 
 private:
     IDBDatabaseImpl(const String& name, const String& description, const String& version);
@@ -52,6 +59,9 @@ private:
     String m_name;
     String m_description;
     String m_version;
+
+    typedef HashMap<String, RefPtr<IDBObjectStore> > ObjectStoreMap;
+    ObjectStoreMap m_objectStores;
 };
 
 } // namespace WebCore

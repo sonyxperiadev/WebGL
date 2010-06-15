@@ -23,9 +23,11 @@
 
 #include "QtAbstractWebPopup.h"
 #include <QObject>
+#include <QPluginLoader>
 
 class QWebSelectMethod;
 class QWebKitPlatformPlugin;
+class QWebNotificationPresenter;
 
 namespace WebCore {
 
@@ -51,12 +53,16 @@ public:
     ~QtPlatformPlugin();
 
     QtAbstractWebPopup* createSelectInputMethod();
+    QWebNotificationPresenter* createNotificationPresenter();
+
+    QWebKitPlatformPlugin* plugin();
 
 private:
     bool m_loaded;
     QWebKitPlatformPlugin* m_plugin;
-
-    QWebKitPlatformPlugin* plugin();
+    QPluginLoader m_loader;
+    bool load();
+    bool load(const QString& file);
 };
 
 }

@@ -95,7 +95,7 @@ namespace WebKit {
 
     WebCore::ResourceResponse core(WebKitNetworkResponse* response);
 
-    WebCore::EditingBehavior core(WebKitEditingBehavior type);
+    WebCore::EditingBehaviorType core(WebKitEditingBehavior type);
 
     WebKitSecurityOrigin* kit(WebCore::SecurityOrigin*);
     WebCore::SecurityOrigin* core(WebKitSecurityOrigin*);
@@ -241,7 +241,7 @@ extern "C" {
     webkit_web_view_request_download(WebKitWebView* web_view, WebKitNetworkRequest* request, const WebCore::ResourceResponse& response = WebCore::ResourceResponse(), WebCore::ResourceHandle* handle = 0);
 
     void
-    webkit_web_view_add_resource(WebKitWebView*, char*, WebKitWebResource*);
+    webkit_web_view_add_resource(WebKitWebView*, const char*, WebKitWebResource*);
 
     WebKitWebResource*
     webkit_web_view_get_resource(WebKitWebView*, char*);

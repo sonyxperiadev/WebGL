@@ -28,7 +28,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-function debuggerScriptConstructor() {
+(function () {
 
 var DebuggerScript = {};
 DebuggerScript._breakpoints = {};
@@ -37,6 +37,11 @@ DebuggerScript.PauseOnExceptionsState = {
     DontPauseOnExceptions : 0,
     PauseOnAllExceptions : 1,
     PauseOnUncaughtExceptions: 2
+};
+
+DebuggerScript.ScriptWorldType = {
+    MainWorld : 0,
+    ExtensionsWorld : 1
 };
 
 DebuggerScript._pauseOnExceptionsState = DebuggerScript.PauseOnExceptionsState.DontPauseOnExceptions;
@@ -50,11 +55,21 @@ DebuggerScript.getAfterCompileScript = function(eventData)
 
 DebuggerScript.getScripts = function(contextData)
 {
-    var scripts = Debug.scripts();
     var result = [];
+
+    if (!contextData)
+        return result;
+    var comma = contextData.indexOf(",");
+    if (comma === -1)
+        return result;
+    // Context data is a string in the following format:
+    // ("page"|"injected")","<page id>
+    var idSuffix = contextData.substring(comma); // including the comma
+
+    var scripts = Debug.scripts();
     for (var i = 0; i < scripts.length; ++i) {
         var script = scripts[i];
-        if (contextData === script.context_data)
+        if (script.context_data && script.context_data.lastIndexOf(idSuffix) != -1)
             result.push(DebuggerScript._formatScript(script));
     }
     return result;
@@ -62,13 +77,16 @@ DebuggerScript.getScripts = function(contextData)
 
 DebuggerScript._formatScript = function(script)
 {
+    var scriptWorldType = DebuggerScript.ScriptWorldType.MainWorld;
+    if (script.context_data && script.context_data.indexOf("injected") == 0)
+        scriptWorldType = DebuggerScript.ScriptWorldType.ExtensionsWorld;
     return {
         id: script.id,
         name: script.name,
         source: script.source,
         lineOffset: script.line_offset,
         lineCount: script.lineCount(),
-        contextData: script.context_data
+        scriptWorldType: scriptWorldType
     };
 }
 
@@ -150,6 +168,24 @@ DebuggerScript.stepOverStatement = function(execState)
 DebuggerScript.stepOutOfFunction = function(execState)
 {
     execState.prepareStep(Debug.StepAction.StepOut, 1);
+}
+
+DebuggerScript.editScriptSource = function(scriptId, newSource)
+{
+    var scripts = Debug.scripts();
+    var scriptToEdit = null;
+    for (var i = 0; i < scripts.length; i++) {
+        if (scripts[i].id == scriptId) {
+            scriptToEdit = scripts[i];
+            break;
+        }
+    }
+    if (!scriptToEdit)
+        throw("Script not found");
+
+    var changeLog = [];
+    Debug.LiveEdit.SetScriptSource(scriptToEdit, newSource, changeLog);
+    return scriptToEdit.source;
 }
 
 DebuggerScript.clearBreakpoints = function(execState, args)
@@ -239,4 +275,4 @@ DebuggerScript._v8ToWebkitLineNumber = function(line)
 
 return DebuggerScript;
 
-}
+})();

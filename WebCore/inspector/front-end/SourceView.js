@@ -32,8 +32,8 @@ WebInspector.SourceView = function(resource)
 
     this.element.addStyleClass("source");
 
-    var canEditScripts = WebInspector.panels.scripts.canEditScripts() && resource.type === WebInspector.Resource.Type.Script;
-    this.sourceFrame = new WebInspector.SourceFrame(this.contentElement, this._addBreakpoint.bind(this), this._removeBreakpoint.bind(this), canEditScripts ? this._editLine.bind(this) : null);
+    var canEditScripts = WebInspector.panels.scripts && WebInspector.panels.scripts.canEditScripts() && resource.type === WebInspector.Resource.Type.Script;
+    this.sourceFrame = new WebInspector.SourceFrame(this.contentElement, this._addBreakpoint.bind(this), this._removeBreakpoint.bind(this), canEditScripts ? this._editLine.bind(this) : null, this._continueToLine.bind(this));
     resource.addEventListener("finished", this._resourceLoadingFinished, this);
     this._frameNeedsSetup = true;
 }
@@ -115,6 +115,15 @@ WebInspector.SourceView.prototype = {
         this.resource.removeEventListener("finished", this._resourceLoadingFinished, this);
     },
 
+    _continueToLine: function(line)
+    {
+        var scriptsPanel = WebInspector.panels.scripts;
+        if (scriptsPanel) {
+            var sourceID = this._sourceIDForLine(line);
+            scriptsPanel.continueToLine(sourceID, line);
+        }
+    },
+
     _addBreakpoint: function(line)
     {
         var sourceID = this._sourceIDForLine(line);
@@ -126,7 +135,7 @@ WebInspector.SourceView.prototype = {
         WebInspector.breakpointManager.removeBreakpoint(breakpoint);
     },
 
-    _editLine: function(line, newContent)
+    _editLine: function(line, newContent, cancelEditingCallback)
     {
         var lines = [];
         var textModel = this.sourceFrame.textModel;
@@ -138,7 +147,7 @@ WebInspector.SourceView.prototype = {
         }
 
         var linesCountToShift = newContent.split("\n").length - 1;
-        WebInspector.panels.scripts.editScriptSource(this._sourceIDForLine(line), lines.join("\n"), line, linesCountToShift, this._editLineComplete.bind(this));
+        WebInspector.panels.scripts.editScriptSource(this._sourceIDForLine(line), lines.join("\n"), line, linesCountToShift, this._editLineComplete.bind(this), cancelEditingCallback);
     },
 
     _editLineComplete: function(newBody)
@@ -202,7 +211,7 @@ WebInspector.SourceView.prototype = {
             this.localContentElement = document.createElement("div");
             this.localContentElement.className = "resource-view-content";
             this.tabbedPane.appendTab("local", WebInspector.UIString("Local"), this.localContentElement, this.selectLocalContentTab.bind(this));
-            this.localSourceFrame = new WebInspector.SourceFrame(this.localContentElement, this._addBreakpoint.bind(this), this._removeBreakpoint.bind(this));
+            this.localSourceFrame = new WebInspector.SourceFrame(this.localContentElement, this._addBreakpoint.bind(this), this._removeBreakpoint.bind(this), null, this._continueToLine.bind(this));
         }
         this.localSourceFrame.setContent(mimeType, content, "");
     },

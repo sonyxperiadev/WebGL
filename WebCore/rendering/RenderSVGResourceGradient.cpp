@@ -159,9 +159,28 @@ bool RenderSVGResourceGradient::applyResource(RenderObject* object, RenderStyle*
 
     GradientData* gradientData = m_gradient.get(object);
 
+    bool isPaintingText = resourceMode & ApplyToTextMode;
+
     // Create gradient object
-    if (!gradientData->gradient)
+    if (!gradientData->gradient) {
         buildGradient(gradientData, gradientElement);
+
+        // CG platforms will handle the gradient space transform for text after applying the
+        // resource, so don't apply it here. For non-CG platforms, we want the text bounding
+        // box applied to the gradient space transform now, so the gradient shader can use it.
+#if PLATFORM(CG)
+        if (gradientData->boundingBoxMode && !isPaintingText) {
+#else
+        if (gradientData->boundingBoxMode) {
+#endif
+            FloatRect objectBoundingBox = object->objectBoundingBox();
+            gradientData->userspaceTransform.translate(objectBoundingBox.x(), objectBoundingBox.y());
+            gradientData->userspaceTransform.scaleNonUniform(objectBoundingBox.width(), objectBoundingBox.height());
+        }
+
+        gradientData->userspaceTransform.multiply(gradientData->transform);
+        gradientData->gradient->setGradientSpaceTransform(gradientData->userspaceTransform);
+    }
 
     if (!gradientData->gradient)
         return false;
@@ -169,7 +188,6 @@ bool RenderSVGResourceGradient::applyResource(RenderObject* object, RenderStyle*
     // Draw gradient
     context->save();
 
-    bool isPaintingText = resourceMode & ApplyToTextMode;
     if (isPaintingText) {
 #if PLATFORM(CG)
         if (!createMaskAndSwapContextForTextGradient(context, m_savedContext, m_imageBuffer, object)) {
@@ -181,24 +199,6 @@ bool RenderSVGResourceGradient::applyResource(RenderObject* object, RenderStyle*
         context->setTextDrawingMode(resourceMode & ApplyToFillMode ? cTextFill : cTextStroke);
     }
 
-    AffineTransform transform;
-
-    // CG platforms will handle the gradient space transform for text after applying the
-    // resource, so don't apply it here. For non-CG platforms, we want the text bounding
-    // box applied to the gradient space transform now, so the gradient shader can use it.
-#if PLATFORM(CG)
-    if (gradientData->boundingBoxMode && !isPaintingText) {
-#else
-    if (gradientData->boundingBoxMode) {
-#endif
-        FloatRect objectBoundingBox = object->objectBoundingBox();
-        transform.translate(objectBoundingBox.x(), objectBoundingBox.y());
-        transform.scaleNonUniform(objectBoundingBox.width(), objectBoundingBox.height());
-    }
-
-    transform.multiply(gradientData->transform);
-    gradientData->gradient->setGradientSpaceTransform(transform);
-
     const SVGRenderStyle* svgStyle = style->svgStyle();
     ASSERT(svgStyle);
 
@@ -207,6 +207,8 @@ bool RenderSVGResourceGradient::applyResource(RenderObject* object, RenderStyle*
         context->setFillGradient(gradientData->gradient);
         context->setFillRule(svgStyle->fillRule());
     } else if (resourceMode & ApplyToStrokeMode) {
+        if (svgStyle->vectorEffect() == VE_NON_SCALING_STROKE)
+            gradientData->gradient->setGradientSpaceTransform(transformOnNonScalingStroke(object, gradientData->userspaceTransform));
         context->setAlpha(svgStyle->strokeOpacity());
         context->setStrokeGradient(gradientData->gradient);
         applyStrokeStyleToContext(context, style, object);

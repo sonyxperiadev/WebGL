@@ -218,6 +218,36 @@ static v8::Handle<v8::Value> scriptStringAttrAttrGetter(v8::Local<v8::String> na
     return v8StringOrNull(imp->scriptStringAttr());
 }
 
+static v8::Handle<v8::Value> descriptionAttrGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.TestObj.description._get");
+    TestObj* imp = V8TestObj::toNative(info.Holder());
+    return v8::Integer::New(imp->description());
+}
+
+static v8::Handle<v8::Value> idAttrGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.TestObj.id._get");
+    TestObj* imp = V8TestObj::toNative(info.Holder());
+    return v8::Integer::New(imp->id());
+}
+
+static void idAttrSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.TestObj.id._set");
+    TestObj* imp = V8TestObj::toNative(info.Holder());
+    int v = toInt32(value);
+    imp->setId(v);
+    return;
+}
+
+static v8::Handle<v8::Value> hashAttrGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.TestObj.hash._get");
+    TestObj* imp = V8TestObj::toNative(info.Holder());
+    return v8String(imp->hash());
+}
+
 static v8::Handle<v8::Value> voidMethodCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.TestObj.voidMethod");
@@ -507,6 +537,17 @@ static v8::Handle<v8::Value> withScriptStateObjExceptionCallback(const v8::Argum
     return v8::Handle<v8::Value>();
 }
 
+static v8::Handle<v8::Value> withScriptExecutionContextCallback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.TestObj.withScriptExecutionContext");
+    TestObj* imp = V8TestObj::toNative(args.Holder());
+    ScriptExecutionContext* scriptContext = getScriptExecutionContext();
+    if (!scriptContext)
+        return v8::Undefined();
+    imp->withScriptExecutionContext(scriptContext);
+    return v8::Handle<v8::Value>();
+}
+
 static v8::Handle<v8::Value> methodWithOptionalArgCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.TestObj.methodWithOptionalArg");
@@ -635,6 +676,12 @@ static const BatchedAttribute TestObjAttrs[] = {
     {"customAttr", V8TestObj::customAttrAccessorGetter, V8TestObj::customAttrAccessorSetter, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
     // Attribute 'scriptStringAttr' (Type: 'readonly attribute' ExtAttr: 'ConvertScriptString')
     {"scriptStringAttr", TestObjInternal::scriptStringAttrAttrGetter, 0, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
+    // Attribute 'description' (Type: 'readonly attribute' ExtAttr: '')
+    {"description", TestObjInternal::descriptionAttrGetter, 0, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
+    // Attribute 'id' (Type: 'attribute' ExtAttr: '')
+    {"id", TestObjInternal::idAttrGetter, TestObjInternal::idAttrSetter, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
+    // Attribute 'hash' (Type: 'readonly attribute' ExtAttr: '')
+    {"hash", TestObjInternal::hashAttrGetter, 0, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
 };
 static const BatchedCallback TestObjCallbacks[] = {
     {"voidMethod", TestObjInternal::voidMethodCallback},
@@ -655,6 +702,7 @@ static const BatchedCallback TestObjCallbacks[] = {
     {"withScriptStateObj", TestObjInternal::withScriptStateObjCallback},
     {"withScriptStateVoidException", TestObjInternal::withScriptStateVoidExceptionCallback},
     {"withScriptStateObjException", TestObjInternal::withScriptStateObjExceptionCallback},
+    {"withScriptExecutionContext", TestObjInternal::withScriptExecutionContextCallback},
     {"methodWithOptionalArg", TestObjInternal::methodWithOptionalArgCallback},
     {"methodWithNonOptionalArgAndOptionalArg", TestObjInternal::methodWithNonOptionalArgAndOptionalArgCallback},
     {"methodWithNonOptionalArgAndTwoOptionalArgs", TestObjInternal::methodWithNonOptionalArgAndTwoOptionalArgsCallback},

@@ -32,6 +32,7 @@
 #include "Console.h"
 #include "Cookie.h"
 #include "InspectorDOMAgent.h"
+#include "InspectorValues.h"
 #include "PlatformString.h"
 #include "ScriptArray.h"
 #include "ScriptBreakpoint.h"
@@ -126,6 +127,7 @@ public:
 
     String setting(const String& key) const;
     void setSetting(const String& key, const String& value);
+    void setSessionSettings(const String&);
 
     void inspect(Node*);
     void highlight(Node*);
@@ -134,6 +136,11 @@ public:
     void show();
     void showPanel(SpecialPanels);
     void close();
+
+    // We are in transition from JS transport via webInspector to native
+    // transport via InspectorClient. After migration, webInspector parameter should
+    // be removed.
+    void connectFrontend(const ScriptObject& webInspector);
     void disconnectFrontend();
 
     void addMessageToConsole(MessageSource, MessageType, MessageLevel, ScriptCallStack*);
@@ -151,7 +158,6 @@ public:
     void inspectedWindowScriptObjectCleared(Frame*);
 
     bool windowVisible();
-    void setFrontend(PassOwnPtr<InspectorFrontend>);
 
     void didCommitLoad(DocumentLoader*);
     void frameDetachedFromParent(Frame*);
@@ -241,9 +247,13 @@ public:
     void disableDebugger(bool always = false);
     bool debuggerEnabled() const { return m_debuggerEnabled; }
 
-    void resumeDebugger();
+    void editScriptSource(long callId, const String& sourceID, const String& newContent);
+    void getScriptSource(long callId, const String& sourceID);
 
-    virtual void didParseSource(const String& sourceID, const String& url, const String& data, int firstLine);
+    void resumeDebugger();
+    PassRefPtr<SerializedScriptValue> currentCallFrames();
+
+    virtual void didParseSource(const String& sourceID, const String& url, const String& data, int firstLine, ScriptWorldType);
     virtual void failedToParseSource(const String& url, const String& data, int firstLine, int errorLine, const String& errorMessage);
     virtual void didPause(ScriptState*);
     virtual void didContinue();
@@ -340,6 +350,7 @@ private:
 #endif
     SpecialPanels m_showAfterVisible;
     RefPtr<Node> m_highlightedNode;
+    RefPtr<InspectorValue> m_sessionSettings;
     unsigned m_groupLevel;
     bool m_searchingForNode;
     ConsoleMessage* m_previousMessage;
@@ -356,7 +367,9 @@ private:
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     bool m_debuggerEnabled;
     bool m_attachDebuggerWhenShown;
+    ScriptState* m_pausedScriptState;
     HashMap<String, String> m_sourceIDToURL;
+    HashMap<String, String> m_scriptIDToContent;
     HashMap<String, SourceBreakpoints> m_stickyBreakpoints;
 
     bool m_profilerEnabled;

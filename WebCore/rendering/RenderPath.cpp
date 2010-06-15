@@ -5,6 +5,7 @@
                   2009 Google, Inc.
                   2009 Dirk Schulze <krit@webkit.org>
     Copyright (C) Research In Motion Limited 2010. All rights reserved.
+                  2009 Jeff Schiller <codedread@gmail.com>
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -30,6 +31,7 @@
 #include "FloatPoint.h"
 #include "FloatQuad.h"
 #include "GraphicsContext.h"
+#include "HitTestRequest.h"
 #include "PointerEventsHitRules.h"
 #include "RenderSVGContainer.h"
 #include "RenderSVGResourceFilter.h"
@@ -71,7 +73,7 @@ RenderPath::RenderPath(SVGStyledTransformableElement* node)
 {
 }
 
-bool RenderPath::fillContains(const FloatPoint& point, bool requiresFill) const
+bool RenderPath::fillContains(const FloatPoint& point, bool requiresFill, WindRule fillRule) const
 {
     if (!m_fillBoundingBox.contains(point))
         return false;
@@ -79,7 +81,7 @@ bool RenderPath::fillContains(const FloatPoint& point, bool requiresFill) const
     if (requiresFill && !RenderSVGResource::fillPaintingResource(this, style()))
         return false;
 
-    return m_path.contains(point, style()->svgStyle()->fillRule());
+    return m_path.contains(point, fillRule);
 }
 
 bool RenderPath::strokeContains(const FloatPoint& point, bool requiresStroke) const
@@ -130,16 +132,28 @@ void RenderPath::layout()
 static inline void fillAndStrokePath(const Path& path, GraphicsContext* context, RenderPath* object)
 {
     context->beginPath();
+    RenderStyle* style = object->style();
 
-    if (RenderSVGResource* fillPaintingResource = RenderSVGResource::fillPaintingResource(object, object->style())) {
+    if (RenderSVGResource* fillPaintingResource = RenderSVGResource::fillPaintingResource(object, style)) {
         context->addPath(path);
-        if (fillPaintingResource->applyResource(object, object->style(), context, ApplyToFillMode))
+        if (fillPaintingResource->applyResource(object, style, context, ApplyToFillMode))
             fillPaintingResource->postApplyResource(object, context, ApplyToFillMode);
     }
 
-    if (RenderSVGResource* strokePaintingResource = RenderSVGResource::strokePaintingResource(object, object->style())) {
-        context->addPath(path);
-        if (strokePaintingResource->applyResource(object, object->style(), context, ApplyToStrokeMode))
+    if (RenderSVGResource* strokePaintingResource = RenderSVGResource::strokePaintingResource(object, style)) {
+        if (style->svgStyle()->vectorEffect() == VE_NON_SCALING_STROKE) {
+            SVGStyledTransformableElement* element = static_cast<SVGStyledTransformableElement*>(object->node());
+            AffineTransform transform = element->getScreenCTM();
+            if (!transform.isInvertible())
+                return;
+
+            Path transformedPath = path;
+            context->concatCTM(transform.inverse());
+            transformedPath.transform(transform);
+            context->addPath(transformedPath);
+        } else
+            context->addPath(path);
+        if (strokePaintingResource->applyResource(object, style, context, ApplyToStrokeMode))
             strokePaintingResource->postApplyResource(object, context, ApplyToStrokeMode);
     }
 }
@@ -195,7 +209,7 @@ void RenderPath::addFocusRingRects(Vector<IntRect>& rects, int, int)
         rects.append(rect);
 }
 
-bool RenderPath::nodeAtFloatPoint(const HitTestRequest&, HitTestResult& result, const FloatPoint& pointInParent, HitTestAction hitTestAction)
+bool RenderPath::nodeAtFloatPoint(const HitTestRequest& request, HitTestResult& result, const FloatPoint& pointInParent, HitTestAction hitTestAction)
 {
     // We only draw in the forground phase, so we only hit-test then.
     if (hitTestAction != HitTestForeground)
@@ -203,17 +217,22 @@ bool RenderPath::nodeAtFloatPoint(const HitTestRequest&, HitTestResult& result, 
 
     FloatPoint localPoint = m_localTransform.inverse().mapPoint(pointInParent);
 
-    PointerEventsHitRules hitRules(PointerEventsHitRules::SVG_PATH_HITTESTING, style()->pointerEvents());
+    if (!pointInClippingArea(this, localPoint))
+        return false;
 
+    PointerEventsHitRules hitRules(PointerEventsHitRules::SVG_PATH_HITTESTING, request, style()->pointerEvents());
     bool isVisible = (style()->visibility() == VISIBLE);
     if (isVisible || !hitRules.requireVisible) {
-        if ((hitRules.canHitStroke && (style()->svgStyle()->hasStroke() || !hitRules.requireStroke) && strokeContains(localPoint, hitRules.requireStroke))
-            || (hitRules.canHitFill && (style()->svgStyle()->hasFill() || !hitRules.requireFill) && fillContains(localPoint, hitRules.requireFill))) {
+        const SVGRenderStyle* svgStyle = style()->svgStyle();
+        WindRule fillRule = svgStyle->fillRule();
+        if (request.svgClipContent())
+            fillRule = svgStyle->clipRule();
+        if ((hitRules.canHitStroke && (svgStyle->hasStroke() || !hitRules.requireStroke) && strokeContains(localPoint, hitRules.requireStroke))
+            || (hitRules.canHitFill && (svgStyle->hasFill() || !hitRules.requireFill) && fillContains(localPoint, hitRules.requireFill, fillRule))) {
             updateHitTestResult(result, roundedIntPoint(localPoint));
             return true;
         }
     }
-
     return false;
 }
 
@@ -297,23 +316,8 @@ void RenderPath::updateCachedBoundaries()
     }
 
     // Cache smallest possible repaint rectangle
-
-    // FIXME: We need to be careful here. We assume that there is no resource, if the rect is empty.
-    FloatRect rect = filterBoundingBoxForRenderer(this);
-    if (rect.isEmpty())
-        m_repaintBoundingBox = m_strokeAndMarkerBoundingBox;
-    else
-        m_repaintBoundingBox = rect;
-
-    rect = clipperBoundingBoxForRenderer(this);
-    if (!rect.isEmpty())
-        m_repaintBoundingBox.intersect(rect);
-
-    rect = maskerBoundingBoxForRenderer(this);
-    if (!rect.isEmpty())
-        m_repaintBoundingBox.intersect(rect);
-
-    svgStyle->inflateForShadow(m_repaintBoundingBox);
+    m_repaintBoundingBox = m_strokeAndMarkerBoundingBox;
+    intersectRepaintRectWithResources(this, m_repaintBoundingBox);
 }
 
 }

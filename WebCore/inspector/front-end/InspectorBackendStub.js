@@ -185,6 +185,16 @@ WebInspector.InspectorBackendStub.prototype = {
         WebInspector.updatePauseOnExceptionsState(value);
     },
 
+    editScriptSource: function()
+    {
+        WebInspector.didEditScriptSource(callId, false);
+    },
+
+    getScriptSource: function(callId, sourceID)
+    {
+        WebInspector.didGetScriptSource(callId, null);
+    },
+
     resumeDebugger: function()
     {
     },
@@ -237,7 +247,11 @@ WebInspector.InspectorBackendStub.prototype = {
     {
     },
 
-    saveFrontendSettings: function()
+    saveApplicationSettings: function()
+    {
+    },
+
+    saveSessionSettings: function()
     {
     },
 
@@ -258,6 +272,14 @@ WebInspector.InspectorBackendStub.prototype = {
     },
 
     removeAllScriptsToEvaluateOnLoad: function()
+    {
+    },
+
+    performSearch: function()
+    {
+    },
+
+    searchCanceled: function()
     {
     }
 }

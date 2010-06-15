@@ -212,6 +212,30 @@
     return IMPL->scriptStringAttr();
 }
 
+- (int)descriptionName
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->description();
+}
+
+- (int)idName
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->id();
+}
+
+- (void)setIdName:(int)newIdName
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->setId(newIdName);
+}
+
+- (NSString *)hashName
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->hash();
+}
+
 - (void)voidMethod
 {
     WebCore::JSMainThreadNullState state;
@@ -368,6 +392,12 @@
     DOMTestObj *result = kit(WTF::getPtr(IMPL->withScriptStateObjException(ec)));
     WebCore::raiseOnDOMError(ec);
     return result;
+}
+
+- (void)withScriptExecutionContext
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->withScriptExecutionContext();
 }
 
 - (void)methodWithOptionalArg:(int)opt

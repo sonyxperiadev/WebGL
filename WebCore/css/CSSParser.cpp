@@ -89,7 +89,7 @@ using namespace std;
 using namespace WTF;
 
 #include "CSSPropertyNames.cpp"
-#include "CSSValueKeywords.c"
+#include "CSSValueKeywords.cpp"
 
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
@@ -894,17 +894,17 @@ bool CSSParser::parseValue(int propId, bool important)
                 coords.append(int(value->fValue));
                 value = m_valueList->next();
             }
-            IntPoint hotspot;
+            IntPoint hotSpot(-1, -1);
             int nrcoords = coords.size();
             if (nrcoords > 0 && nrcoords != 2)
                 return false;
             if (nrcoords == 2)
-                hotspot = IntPoint(coords[0], coords[1]);
+                hotSpot = IntPoint(coords[0], coords[1]);
 
             if (!uri.isNull() && m_styleSheet) {
                 // FIXME: The completeURL call should be done when using the CSSCursorImageValue,
                 // not when creating it.
-                list->append(CSSCursorImageValue::create(m_styleSheet->completeURL(uri), hotspot));
+                list->append(CSSCursorImageValue::create(m_styleSheet->completeURL(uri), hotSpot));
             }
 
             if ((m_strict && !value) || (value && !(value->unit == CSSParserValue::Operator && value->iValue == ',')))
@@ -3855,7 +3855,7 @@ PassRefPtr<CSSPrimitiveValue> CSSParser::parseColor(CSSParserValue* value)
     return CSSPrimitiveValue::createColor(c);
 }
 
-bool CSSParser::parseColorFromValue(CSSParserValue* value, RGBA32& c, bool svg)
+bool CSSParser::parseColorFromValue(CSSParserValue* value, RGBA32& c)
 {
     if (!m_strict && value->unit == CSSPrimitiveValue::CSS_NUMBER &&
         value->fValue >= 0. && value->fValue < 1000000.) {
@@ -3875,7 +3875,7 @@ bool CSSParser::parseColorFromValue(CSSParserValue* value, RGBA32& c, bool svg)
         if (!parseColorParameters(value, colorValues, false))
             return false;
         c = makeRGB(colorValues[0], colorValues[1], colorValues[2]);
-    } else if (!svg) {
+    } else {
         if (value->unit == CSSParserValue::Function &&
                 value->function->args != 0 &&
                 value->function->args->size() == 7 /* rgba + three commas */ &&
@@ -3902,8 +3902,7 @@ bool CSSParser::parseColorFromValue(CSSParserValue* value, RGBA32& c, bool svg)
             c = makeRGBAFromHSLA(colorValues[0], colorValues[1], colorValues[2], colorValues[3]);
         } else
             return false;
-    } else
-        return false;
+    }
 
     return true;
 }
@@ -5628,7 +5627,7 @@ static int cssPropertyID(const UChar* propertyName, unsigned length)
         }
     }
 
-    const props* hashTableEntry = findProp(name, length);
+    const Property* hashTableEntry = findProperty(name, length);
     return hashTableEntry ? hashTableEntry->id : 0;
 }
 
@@ -5670,7 +5669,7 @@ int cssValueKeywordID(const CSSParserString& string)
         }
     }
 
-    const css_value* hashTableEntry = findValue(buffer, length);
+    const Value* hashTableEntry = findValue(buffer, length);
     return hashTableEntry ? hashTableEntry->id : 0;
 }
 

@@ -46,7 +46,7 @@ public:
     // FIXME: These are only public for SVGRootInlineBox.
     // It's unclear if these should be exposed or not.  SVGRootInlineBox may
     // pass the wrong RenderObject* and boundingBox to these functions.
-    static bool prepareToRenderSVGContent(RenderObject*, RenderObject::PaintInfo&, const FloatRect& boundingBox, RenderSVGResourceFilter*&, RenderSVGResourceFilter* rootFilter = 0);
+    static bool prepareToRenderSVGContent(RenderObject*, RenderObject::PaintInfo&, const FloatRect& boundingBox, RenderSVGResourceFilter*&);
     static void finishRenderSVGContent(RenderObject*, RenderObject::PaintInfo&, RenderSVGResourceFilter*&, GraphicsContext* savedContext);
 
     // Layout all children of the passed render object
@@ -58,10 +58,8 @@ public:
     // strokeBoundingBox() includes the marker boundaries for a RenderPath object
     virtual FloatRect strokeBoundingBox() const { return FloatRect(); }
 
-    // returns the bounding box of filter, clipper, marker and masker (or the empty rect if no filter) in local coordinates
-    FloatRect filterBoundingBoxForRenderer(const RenderObject*) const;
-    FloatRect clipperBoundingBoxForRenderer(const RenderObject*) const;
-    FloatRect maskerBoundingBoxForRenderer(const RenderObject*) const;
+    // Calculates the repaintRect in combination with filter, clipper and masker in local coordinates.
+    void intersectRepaintRectWithResources(const RenderObject*, FloatRect&) const;
 
 protected:
     static IntRect clippedOverflowRectForRepaint(RenderObject*, RenderBoxModelObject* repaintContainer);
@@ -80,6 +78,8 @@ void applyTransformToPaintInfo(RenderObject::PaintInfo&, const AffineTransform& 
 
 // This offers a way to render parts of a WebKit rendering tree into a ImageBuffer.
 void renderSubtreeToImage(ImageBuffer*, RenderObject*);
+
+bool pointInClippingArea(const RenderObject*, const FloatPoint&);
 
 void deregisterFromResources(RenderObject*);
 void clampImageBufferSizeToViewport(FrameView*, IntSize& imageBufferSize);

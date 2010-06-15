@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 2004-2005 Allan Sandfeld Jensen (kde@carewolf.com)
  * Copyright (C) 2006, 2007 Nicholas Shanks (webkit@nickshanks.com)
- * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alexey Proskuryakov <ap@webkit.org>
  * Copyright (C) 2007, 2008 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
@@ -357,7 +357,8 @@ public:
     typedef HashMap<AtomicStringImpl*, CSSRuleDataList*> AtomRuleMap;
     
     void addRulesFromSheet(CSSStyleSheet*, const MediaQueryEvaluator&, CSSStyleSelector* = 0);
-    
+
+    void addStyleRule(StyleBase* item);
     void addRule(CSSStyleRule* rule, CSSSelector* sel);
     void addPageRule(CSSStyleRule* rule, CSSSelector* sel);
     void addToRuleSet(AtomicStringImpl* key, AtomRuleMap& map,
@@ -666,7 +667,7 @@ void CSSStyleSelector::matchRules(CSSRuleSet* rules, int& firstRuleIndex, int& l
     // We need to collect the rules for id, class, tag, and everything else into a buffer and
     // then sort the buffer.
     if (m_element->hasID())
-        matchRulesForList(rules->getIDRules(m_element->getIDAttribute().impl()), firstRuleIndex, lastRuleIndex);
+        matchRulesForList(rules->getIDRules(m_element->idForStyleResolution().impl()), firstRuleIndex, lastRuleIndex);
     if (m_element->hasClass()) {
         ASSERT(m_styledElement);
         const SpaceSplitString& classNames = m_styledElement->classNames();
@@ -2037,7 +2038,7 @@ bool CSSStyleSelector::SelectorChecker::checkOneSelector(CSSSelector* sel, Eleme
             return e->hasClass() && static_cast<StyledElement*>(e)->classNames().contains(sel->m_value);
 
         if (sel->m_match == CSSSelector::Id)
-            return e->hasID() && e->getIDAttribute() == sel->m_value;
+            return e->hasID() && e->idForStyleResolution() == sel->m_value;
         
         const QualifiedName& attr = sel->attribute();
 
@@ -2768,14 +2769,7 @@ void CSSRuleSet::addRulesFromSheet(CSSStyleSheet* sheet, const MediaQueryEvaluat
     for (int i = 0; i < len; i++) {
         StyleBase* item = sheet->item(i);
         if (item->isStyleRule()) {
-            if (item->isPageRule()) {
-                CSSPageRule* pageRule = static_cast<CSSPageRule*>(item);
-                addPageRule(pageRule, pageRule->selectorList().first());
-            } else {
-                CSSStyleRule* rule = static_cast<CSSStyleRule*>(item);
-                for (CSSSelector* s = rule->selectorList().first(); s; s = CSSSelectorList::next(s))
-                    addRule(rule, s);
-            }
+            addStyleRule(item);
         }
         else if (item->isImportRule()) {
             CSSImportRule* import = static_cast<CSSImportRule*>(item);
@@ -2792,9 +2786,7 @@ void CSSRuleSet::addRulesFromSheet(CSSStyleSheet* sheet, const MediaQueryEvaluat
                     CSSRule *childItem = rules->item(j);
                     if (childItem->isStyleRule()) {
                         // It is a StyleRule, so append it to our list
-                        CSSStyleRule* rule = static_cast<CSSStyleRule*>(childItem);
-                        for (CSSSelector* s = rule->selectorList().first(); s; s = CSSSelectorList::next(s))
-                            addRule(rule, s);
+                        addStyleRule(childItem);
                     } else if (childItem->isFontFaceRule() && styleSelector) {
                         // Add this font face to our set.
                         const CSSFontFaceRule* fontFaceRule = static_cast<CSSFontFaceRule*>(childItem);
@@ -2816,6 +2808,18 @@ void CSSRuleSet::addRulesFromSheet(CSSStyleSheet* sheet, const MediaQueryEvaluat
                 styleSelector->addVariables(variables);
         } else if (item->isKeyframesRule())
             styleSelector->addKeyframeStyle(static_cast<WebKitCSSKeyframesRule*>(item));
+    }
+}
+
+void CSSRuleSet::addStyleRule(StyleBase* item)
+{
+    if (item->isPageRule()) {
+        CSSPageRule* pageRule = static_cast<CSSPageRule*>(item);
+        addPageRule(pageRule, pageRule->selectorList().first());
+    } else {
+        CSSStyleRule* rule = static_cast<CSSStyleRule*>(item);
+        for (CSSSelector* s = rule->selectorList().first(); s; s = CSSSelectorList::next(s))
+            addRule(rule, s);
     }
 }
 
@@ -3393,7 +3397,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
                     // StyleImage.
                     RefPtr<StyleCachedImage> styleCachedImage(image->cachedImage(m_element->document()->docLoader()));
                     if (styleCachedImage)
-                        m_style->addCursor(styleCachedImage->cachedImage(), image->hotspot());
+                        m_style->addCursor(styleCachedImage->cachedImage(), image->hotSpot());
                 } else if (type == CSSPrimitiveValue::CSS_IDENT)
                     m_style->setCursor(*primitiveValue);
             }

@@ -71,7 +71,8 @@ installer.install(url="http://pypi.python.org/packages/source/m/mechanize/mechan
                   url_subpath="mechanize")
 installer.install(url="http://pypi.python.org/packages/source/p/pep8/pep8-0.5.0.tar.gz#md5=512a818af9979290cd619cce8e9c2e2b",
                   url_subpath="pep8-0.5.0/pep8.py")
-
+installer.install(url="http://www.adambarth.com/webkit/eliza",
+                  target_name="eliza.py")
 
 rietveld_dir = os.path.join(autoinstalled_dir, "rietveld")
 installer = AutoInstaller(target_dir=rietveld_dir)
@@ -84,9 +85,9 @@ installer.install(url="http://webkit-rietveld.googlecode.com/svn/trunk/static/up
 # organization purposes.
 irc_dir = os.path.join(autoinstalled_dir, "irc")
 installer = AutoInstaller(target_dir=irc_dir)
-installer.install(url="http://iweb.dl.sourceforge.net/project/python-irclib/python-irclib/0.4.8/python-irclib-0.4.8.zip",
+installer.install(url="http://hivelocity.dl.sourceforge.net/project/python-irclib/python-irclib/0.4.8/python-irclib-0.4.8.zip",
                   url_subpath="irclib.py")
-installer.install(url="http://iweb.dl.sourceforge.net/project/python-irclib/python-irclib/0.4.8/python-irclib-0.4.8.zip",
+installer.install(url="http://hivelocity.dl.sourceforge.net/project/python-irclib/python-irclib/0.4.8/python-irclib-0.4.8.zip",
                   url_subpath="ircbot.py")
 
 pywebsocket_dir = os.path.join(autoinstalled_dir, "pywebsocket")

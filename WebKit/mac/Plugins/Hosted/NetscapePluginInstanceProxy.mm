@@ -901,7 +901,7 @@ bool NetscapePluginInstanceProxy::invoke(uint32_t objectID, const Identifier& me
     JSLock lock(SilenceAssertionsOnly);
     JSValue function = object->get(exec, methodName);
     CallData callData;
-    CallType callType = function.getCallData(callData);
+    CallType callType = getCallData(function, callData);
     if (callType == CallTypeNone)
         return false;
 
@@ -1659,7 +1659,7 @@ void NetscapePluginInstanceProxy::moveGlobalExceptionToExecState(ExecState* exec
 
     {
         JSLock lock(SilenceAssertionsOnly);
-        throwError(exec, GeneralError, stringToUString(globalExceptionString()));
+        throwError(exec, createError(exec, stringToUString(globalExceptionString())));
     }
 
     globalExceptionString() = String();

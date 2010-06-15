@@ -72,6 +72,10 @@ Path& Path::operator=(const Path& other)
 // Check whether a point is on the border
 bool isPointOnPathBorder(const QPolygonF& border, const QPointF& p)
 {
+    // null border doesn't contain points
+    if (border.isEmpty())
+        return false;
+
     QPointF p1 = border.at(0);
     QPointF p2;
 
@@ -186,6 +190,15 @@ void Path::addBezierCurveTo(const FloatPoint& cp1, const FloatPoint& cp2, const 
 
 void Path::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radius)
 {
+    // Make sure there is a subpath for p1, the behavior depend on the last element of the subpath.
+    // When the user agent is to ensure there is a subpath  for a coordinate (x, y), the user agent must 
+    // check to see if the context has any subpaths, and if it does not, then the user agent must create 
+    // a new subpath with the point (x, y) as its first (and only) point, as if the moveTo()  method had been called.
+    if (!m_path.elementCount()) {
+        m_path.moveTo(p1);
+        return;
+    }
+
     FloatPoint p0(m_path.currentPosition());
 
     if ((p1.x() == p0.x() && p1.y() == p0.y()) || (p1.x() == p2.x() && p1.y() == p2.y()) || radius == 0.f) {
@@ -286,22 +299,34 @@ void Path::addArc(const FloatPoint& p, float r, float sar, float ear, bool antic
     double width  = radius*2;
     double height = radius*2;
 
-    if (!anticlockwise && (ea < sa))
-        span += 360;
-    else if (anticlockwise && (sa < ea))
-        span -= 360;
+    if ((!anticlockwise && (ea - sa >= 360)) || (anticlockwise && (sa - ea >= 360)))
+        // If the anticlockwise argument is false and endAngle-startAngle is equal to or greater than 2*PI, or, if the
+        // anticlockwise argument is true and startAngle-endAngle is equal to or greater than 2*PI, then the arc is the whole
+        // circumference of this circle.
+        span = 360;
+    else {
+        if (!anticlockwise && (ea < sa))
+            span += 360;
+        else if (anticlockwise && (sa < ea))
+            span -= 360;
 
-    // this is also due to switched coordinate system
-    // we would end up with a 0 span instead of 360
-    if (!(qFuzzyCompare(span + (ea - sa) + 1, 1.0) &&
-          qFuzzyCompare(qAbs(span), 360.0))) {
-        span += ea - sa;
+        // this is also due to switched coordinate system
+        // we would end up with a 0 span instead of 360
+        if (!(qFuzzyCompare(span + (ea - sa) + 1, 1.0)
+            && qFuzzyCompare(qAbs(span), 360.0))) {
+            // mod 360
+            span += (ea - sa) - (static_cast<int>((ea - sa) / 360)) * 360;
+        }
     }
 
     // If the path is empty, move to where the arc will start to avoid painting a line from (0,0)
     // NOTE: QPainterPath::isEmpty() won't work here since it ignores a lone MoveToElement
     if (!m_path.elementCount())
         m_path.arcMoveTo(xs, ys, width, height, sa);
+    else if (!radius) {
+        m_path.lineTo(xc, yc);
+        return;
+    }
 
     m_path.arcTo(xs, ys, width, height, sa, span);
 
@@ -413,7 +438,16 @@ void Path::apply(void* info, PathApplierFunction function) const
 
 void Path::transform(const AffineTransform& transform)
 {
-    m_path = QTransform(transform).map(m_path);
+    QTransform qTransform(transform);
+#if QT_VERSION < QT_VERSION_CHECK(4, 7, 0)
+    // Workaround for http://bugreports.qt.nokia.com/browse/QTBUG-11264
+    // QTransform.map doesn't handle the MoveTo element because of the isEmpty issue
+    if (m_path.isEmpty() && m_path.elementCount()) {
+        QPointF point = qTransform.map(m_path.currentPosition());
+        m_path.moveTo(point);
+    } else 
+#endif
+        m_path = qTransform.map(m_path);
 }
 
 }

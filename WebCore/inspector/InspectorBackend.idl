@@ -34,7 +34,8 @@ module core {
     interface [Conditional=INSPECTOR] InspectorBackend {
         void storeLastActivePanel(in DOMString panelName);
 
-        void saveFrontendSettings(in DOMString settings);
+        void saveApplicationSettings(in DOMString settings);
+        void saveSessionSettings(in DOMString settings);
 
         void enableSearchingForNode();
         void disableSearchingForNode();
@@ -65,6 +66,9 @@ module core {
 
         void setPauseOnExceptionsState(in long pauseOnExceptionsState);
 
+        void editScriptSource(in long callId, in DOMString sourceID, in DOMString newContent);
+        void getScriptSource(in long callId, in DOMString sourceID);
+
         void enableProfiler(in boolean always);
         void disableProfiler(in boolean always);
 
@@ -91,6 +95,9 @@ module core {
         void copyNode(in long nodeId);
         void removeNode(in long callId, in long nodeId);
         void changeTagName(in long callId, in long nodeId, in DOMString newTagName, in boolean expanded);
+        void performSearch(in DOMString query, in boolean runSynchronously);
+        void searchCanceled();
+
         void highlightDOMNode(in long nodeId);
         void hideDOMNodeHighlight();
 

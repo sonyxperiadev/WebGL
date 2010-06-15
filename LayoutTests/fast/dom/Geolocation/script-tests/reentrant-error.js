@@ -1,9 +1,13 @@
 description("Tests that reentrant calls to Geolocation methods from the error callback are OK.");
 
-var mockCode = 0;
+var mockCode = 2;
 var mockMessage = 'test';
 
-window.layoutTestController.setMockGeolocationError(mockCode, mockMessage);
+if (window.layoutTestController) {
+    layoutTestController.setGeolocationPermission(true);
+    layoutTestController.setMockGeolocationError(mockCode, mockMessage);
+} else
+    debug('This test can not be run without the LayoutTestController');
 
 var error;
 var errorCallbackInvoked = false;
@@ -25,10 +29,10 @@ navigator.geolocation.getCurrentPosition(function(p) {
 });
 
 function continueTest() {
-    mockCode += 1;
     mockMessage += ' repeat';
 
-    window.layoutTestController.setMockGeolocationError(mockCode, mockMessage);
+    if (window.layoutTestController)
+        layoutTestController.setMockGeolocationError(mockCode, mockMessage);
 
     navigator.geolocation.getCurrentPosition(function(p) {
         testFailed('Success callback invoked unexpectedly');
@@ -40,7 +44,6 @@ function continueTest() {
         finishJSTest();
     });
 }
-window.layoutTestController.waitUntilDone();
 
 window.jsTestIsAsync = true;
 window.successfullyParsed = true;

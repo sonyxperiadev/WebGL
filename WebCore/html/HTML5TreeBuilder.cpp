@@ -31,8 +31,8 @@
 #include "HTML5Token.h"
 #include "HTMLDocument.h"
 #include "HTMLNames.h"
-#include "HTMLParser.h"
-#include "HTMLTokenizer.h"
+#include "LegacyHTMLTreeConstructor.h"
+#include "HTMLDocumentParser.h"
 #include "NotImplemented.h"
 #include <wtf/UnusedParam.h>
 
@@ -40,12 +40,17 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+static const int uninitializedLineNumberValue = -1;
+
 HTML5TreeBuilder::HTML5TreeBuilder(HTML5Lexer* lexer, HTMLDocument* document, bool reportErrors)
     : m_document(document)
     , m_reportErrors(reportErrors)
     , m_isPaused(false)
+    , m_insertionMode(Initial)
     , m_lexer(lexer)
-    , m_legacyHTMLParser(new HTMLParser(document, reportErrors))
+    , m_legacyTreeConstructor(new LegacyHTMLTreeConstructor(document, reportErrors))
+    , m_lastScriptElementStartLine(uninitializedLineNumberValue)
+    , m_scriptToProcessStartLine(uninitializedLineNumberValue)
 {
 }
 
@@ -68,7 +73,7 @@ static void convertToOldStyle(HTML5Token& token, Token& oldStyleToken)
     case HTML5Token::EndTag: {
         oldStyleToken.beginTag = (token.type() == HTML5Token::StartTag);
         oldStyleToken.selfClosingTag = token.selfClosing();
-        oldStyleToken.tagName = token.name();
+        oldStyleToken.tagName = AtomicString(token.name().data(), token.name().size());
         HTML5Token::AttributeList& attributes = token.attributes();
         for (HTML5Token::AttributeList::iterator iter = attributes.begin();
              iter != attributes.end(); ++iter) {
@@ -85,11 +90,11 @@ static void convertToOldStyle(HTML5Token& token, Token& oldStyleToken)
     }
     case HTML5Token::Comment:
         oldStyleToken.tagName = commentAtom;
-        oldStyleToken.text = token.takeComment().impl();
+        oldStyleToken.text = StringImpl::create(token.comment().data(), token.comment().size());
         break;
     case HTML5Token::Character:
         oldStyleToken.tagName = textAtom;
-        oldStyleToken.text = token.takeCharacters().impl();
+        oldStyleToken.text = StringImpl::create(token.characters().data(), token.characters().size());
         break;
     }
 }
@@ -101,23 +106,29 @@ void HTML5TreeBuilder::handleScriptStartTag()
     notImplemented(); // Save insertion mode.
 }
 
-void HTML5TreeBuilder::handleScriptEndTag(Element* scriptElement)
+void HTML5TreeBuilder::handleScriptEndTag(Element* scriptElement, int scriptStartLine)
 {
     ASSERT(!m_scriptToProcess); // Caller never called takeScriptToProcess!
+    ASSERT(m_scriptToProcessStartLine == uninitializedLineNumberValue); // Caller never called takeScriptToProcess!
     notImplemented(); // Save insertion mode and insertion point?
 
     // Pause ourselves so that parsing stops until the script can be processed by the caller.
     m_isPaused = true;
     m_scriptToProcess = scriptElement;
+    // Lexer line numbers are 0-based, ScriptSourceCode expects 1-based lines,
+    // so we convert here before passing the line number off to HTML5ScriptRunner.
+    m_scriptToProcessStartLine = scriptStartLine + 1;
 }
 
-PassRefPtr<Element> HTML5TreeBuilder::takeScriptToProcess()
+PassRefPtr<Element> HTML5TreeBuilder::takeScriptToProcess(int& scriptStartLine)
 {
     // Unpause ourselves, callers may pause us again when processing the script.
     // The HTML5 spec is written as though scripts are executed inside the tree
     // builder.  We pause the parser to exit the tree builder, and then resume
     // before running scripts.
     m_isPaused = false;
+    scriptStartLine = m_scriptToProcessStartLine;
+    m_scriptToProcessStartLine = uninitializedLineNumberValue;
     return m_scriptToProcess.release();
 }
 
@@ -125,11 +136,12 @@ PassRefPtr<Node> HTML5TreeBuilder::passTokenToLegacyParser(HTML5Token& token)
 {
     if (token.type() == HTML5Token::DOCTYPE) {
         DoctypeToken doctypeToken;
-        doctypeToken.m_name.append(token.name().characters(), token.name().length());
+        doctypeToken.m_name.append(token.name().data(), token.name().size());
         doctypeToken.m_publicID = token.publicIdentifier();
         doctypeToken.m_systemID = token.systemIdentifier();
+        doctypeToken.m_forceQuirks = token.forceQuirks();
 
-        m_legacyHTMLParser->parseDoctypeToken(&doctypeToken);
+        m_legacyTreeConstructor->parseDoctypeToken(&doctypeToken);
         return 0;
     }
 
@@ -137,31 +149,35 @@ PassRefPtr<Node> HTML5TreeBuilder::passTokenToLegacyParser(HTML5Token& token)
     Token oldStyleToken;
     convertToOldStyle(token, oldStyleToken);
 
-    RefPtr<Node> result =  m_legacyHTMLParser->parseToken(&oldStyleToken);
+    RefPtr<Node> result =  m_legacyTreeConstructor->parseToken(&oldStyleToken);
     if (token.type() == HTML5Token::StartTag) {
         // This work is supposed to be done by the parser, but
         // when using the old parser for we have to do this manually.
-        if (token.name() == scriptTag) {
+        if (oldStyleToken.tagName == scriptTag) {
             handleScriptStartTag();
             m_lastScriptElement = static_pointer_cast<Element>(result);
-        } else if (token.name() == textareaTag || token.name() == titleTag)
+            m_lastScriptElementStartLine = m_lexer->lineNumber();
+        } else if (oldStyleToken.tagName == textareaTag || oldStyleToken.tagName == titleTag)
             m_lexer->setState(HTML5Lexer::RCDATAState);
-        else if (token.name() == styleTag || token.name() == iframeTag
-                 || token.name() == xmpTag || token.name() == noembedTag) {
+        else if (oldStyleToken.tagName == styleTag || oldStyleToken.tagName == iframeTag
+                 || oldStyleToken.tagName == xmpTag || oldStyleToken.tagName == noembedTag) {
             // FIXME: noscript and noframes may conditionally enter this state as well.
             m_lexer->setState(HTML5Lexer::RAWTEXTState);
-        } else if (token.name() == plaintextTag)
+        } else if (oldStyleToken.tagName == plaintextTag)
             m_lexer->setState(HTML5Lexer::PLAINTEXTState);
-        else if (token.name() == preTag || token.name() == listingTag)
+        else if (oldStyleToken.tagName == preTag || oldStyleToken.tagName == listingTag)
             m_lexer->skipLeadingNewLineForListing();
     }
     if (token.type() == HTML5Token::EndTag) {
-        if (token.name() == scriptTag) {
+        if (oldStyleToken.tagName == scriptTag && insertionMode() != AfterFrameset) {
             if (m_lastScriptElement) {
-                handleScriptEndTag(m_lastScriptElement.get());
+                ASSERT(m_lastScriptElementStartLine != uninitializedLineNumberValue);
+                handleScriptEndTag(m_lastScriptElement.get(), m_lastScriptElementStartLine);
                 m_lastScriptElement = 0;
+                m_lastScriptElementStartLine = uninitializedLineNumberValue;
             }
-        }
+        } else if (oldStyleToken.tagName == framesetTag)
+            setInsertionMode(AfterFrameset);
     }
     return result.release();
 }
@@ -197,8 +213,8 @@ PassRefPtr<Node> HTML5TreeBuilder::processToken(HTML5Token& token, UChar current
 void HTML5TreeBuilder::finished()
 {
     // We should call m_document->finishedParsing() here, except
-    // m_legacyHTMLParser->finished() does it for us.
-    m_legacyHTMLParser->finished();
+    // m_legacyTreeConstructor->finished() does it for us.
+    m_legacyTreeConstructor->finished();
 }
 
 }

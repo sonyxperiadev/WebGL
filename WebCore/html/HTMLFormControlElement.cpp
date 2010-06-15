@@ -38,8 +38,8 @@
 #include "HTMLFormElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
-#include "HTMLParser.h"
-#include "HTMLTokenizer.h"
+#include "LegacyHTMLTreeConstructor.h"
+#include "HTMLDocumentParser.h"
 #include "LabelsNodeList.h"
 #include "Page.h"
 #include "RenderBox.h"
@@ -178,12 +178,11 @@ void HTMLFormControlElement::removedFromTree(bool deep)
 {
     // If the form and element are both in the same tree, preserve the connection to the form.
     // Otherwise, null out our form and remove ourselves from the form's list of elements.
-    HTMLParser* parser = 0;
-    if (Tokenizer* tokenizer = document()->tokenizer())
-        if (tokenizer->isHTMLTokenizer())
-            parser = static_cast<HTMLTokenizer*>(tokenizer)->htmlParser();
-    
-    if (m_form && !(parser && parser->isHandlingResidualStyleAcrossBlocks()) && findRoot(this) != findRoot(m_form)) {
+    LegacyHTMLTreeConstructor* treeConstructor = 0;
+    if (DocumentParser* parser = document()->parser())
+        treeConstructor = parser->htmlTreeConstructor();
+
+    if (m_form && !(treeConstructor && treeConstructor->isHandlingResidualStyleAcrossBlocks()) && findRoot(this) != findRoot(m_form)) {
         m_form->removeFormElement(this);
         m_form = 0;
     }

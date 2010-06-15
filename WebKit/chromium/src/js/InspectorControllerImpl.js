@@ -61,13 +61,16 @@ devtools.InspectorBackendImpl = function()
     this.installInspectorControllerDelegate_("getResourceContent");
     this.installInspectorControllerDelegate_("highlightDOMNode");
     this.installInspectorControllerDelegate_("hideDOMNodeHighlight");
+    this.installInspectorControllerDelegate_("performSearch");
     this.installInspectorControllerDelegate_("releaseWrapperObjectGroup");
     this.installInspectorControllerDelegate_("removeAllScriptsToEvaluateOnLoad");
     this.installInspectorControllerDelegate_("reloadPage");
     this.installInspectorControllerDelegate_("removeAttribute");
     this.installInspectorControllerDelegate_("removeDOMStorageItem");
     this.installInspectorControllerDelegate_("removeNode");
-    this.installInspectorControllerDelegate_("saveFrontendSettings");
+    this.installInspectorControllerDelegate_("saveApplicationSettings");
+    this.installInspectorControllerDelegate_("saveSessionSettings");
+    this.installInspectorControllerDelegate_("searchCanceled");
     this.installInspectorControllerDelegate_("setAttribute");
     this.installInspectorControllerDelegate_("setDOMStorageItem");
     this.installInspectorControllerDelegate_("setInjectedScriptSource");
@@ -93,6 +96,8 @@ devtools.InspectorBackendImpl = function()
 
     if (window.v8ScriptDebugServerEnabled) {
     this.installInspectorControllerDelegate_("disableDebugger");
+    this.installInspectorControllerDelegate_("editScriptSource");
+    this.installInspectorControllerDelegate_("getScriptSource");
     this.installInspectorControllerDelegate_("enableDebugger");
     this.installInspectorControllerDelegate_("setBreakpoint");
     this.installInspectorControllerDelegate_("removeBreakpoint");
@@ -143,9 +148,19 @@ devtools.InspectorBackendImpl.prototype.removeBreakpoint = function(sourceID, li
 
 devtools.InspectorBackendImpl.prototype.editScriptSource = function(callID, sourceID, newContent)
 {
-    devtools.tools.getDebuggerAgent().editScriptSource(sourceID, newContent, function(newFullBody) {
-        WebInspector.didEditScriptSource(callID, newFullBody);
+    devtools.tools.getDebuggerAgent().editScriptSource(sourceID, newContent, function(success, newBodyOrErrorMessage, callFrames) {
+        WebInspector.didEditScriptSource(callID, success, newBodyOrErrorMessage, callFrames);
     });
+};
+
+
+devtools.InspectorBackendImpl.prototype.getScriptSource = function(callID, sourceID)
+{
+    devtools.tools.getDebuggerAgent().resolveScriptSource(
+        sourceID,
+        function(source) {
+             WebInspector.didGetScriptSource(callID, source);
+        });
 };
 
 

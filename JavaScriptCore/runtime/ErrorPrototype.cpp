@@ -32,21 +32,19 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(ErrorPrototype);
 
-static JSValue JSC_HOST_CALL errorProtoFuncToString(ExecState*);
+static EncodedJSValue JSC_HOST_CALL errorProtoFuncToString(ExecState*);
 
 // ECMA 15.9.4
 ErrorPrototype::ErrorPrototype(ExecState* exec, JSGlobalObject* globalObject, NonNullPassRefPtr<Structure> structure, Structure* prototypeFunctionStructure)
-    : ErrorInstance(structure)
+    : ErrorInstance(&exec->globalData(), structure, "Unknown error")
 {
     // The constructor will be added later in ErrorConstructor's constructor
 
     putDirectWithoutTransition(exec->propertyNames().name, jsNontrivialString(exec, "Error"), DontEnum);
-    putDirectWithoutTransition(exec->propertyNames().message, jsNontrivialString(exec, "Unknown error"), DontEnum);
-
     putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, globalObject, prototypeFunctionStructure, 0, exec->propertyNames().toString, errorProtoFuncToString), DontEnum);
 }
 
-JSValue JSC_HOST_CALL errorProtoFuncToString(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL errorProtoFuncToString(ExecState* exec)
 {
     JSObject* thisObj = exec->hostThisValue().toThisObject(exec);
     JSValue name = thisObj->get(exec, exec->propertyNames().name);
@@ -56,12 +54,12 @@ JSValue JSC_HOST_CALL errorProtoFuncToString(ExecState* exec)
 
     if (!name.isUndefined()) {
         if (!message.isUndefined())
-            return jsMakeNontrivialString(exec, name.toString(exec), ": ", message.toString(exec));
-        return jsNontrivialString(exec, name.toString(exec));
+            return JSValue::encode(jsMakeNontrivialString(exec, name.toString(exec), ": ", message.toString(exec)));
+        return JSValue::encode(jsNontrivialString(exec, name.toString(exec)));
     }
     if (!message.isUndefined())
-        return jsMakeNontrivialString(exec, "Error: ", message.toString(exec));
-    return jsNontrivialString(exec, "Error");
+        return JSValue::encode(jsMakeNontrivialString(exec, "Error: ", message.toString(exec)));
+    return JSValue::encode(jsNontrivialString(exec, "Error"));
 }
 
 } // namespace JSC

@@ -143,7 +143,7 @@ WebInspector.ResourceView.prototype = {
     _selectTab: function()
     {
         if (this._headersVisible) {
-            if (!this.hasContentTab() || WebInspector.settings.resourceViewTab === "headers")
+            if (!this.hasContentTab() || WebInspector.applicationSettings.resourceViewTab === "headers")
                 this._selectHeadersTab();
             else
                 this.selectContentTab();
@@ -154,14 +154,14 @@ WebInspector.ResourceView.prototype = {
     _selectHeadersTab: function(updatePrefs)
     {
         if (updatePrefs)
-            WebInspector.settings.resourceViewTab = "headers";
+            WebInspector.applicationSettings.resourceViewTab = "headers";
         this.tabbedPane.selectTabById("headers");
     },
 
     selectContentTab: function(updatePrefs)
     {
         if (updatePrefs)
-            WebInspector.settings.resourceViewTab = "content";
+            WebInspector.applicationSettings.resourceViewTab = "content";
         this._innerSelectContentTab();
     },
 
@@ -187,17 +187,10 @@ WebInspector.ResourceView.prototype = {
 
     _refreshQueryString: function()
     {
-        var url = this.resource.url;
-        var hasQueryString = url.indexOf("?") >= 0;
-
-        if (!hasQueryString) {
-            this.queryStringTreeElement.hidden = true;
-            return;
-        }
-
-        this.queryStringTreeElement.hidden = false;
-        var parmString = url.split("?", 2)[1];
-        this._refreshParms(WebInspector.UIString("Query String Parameters"), parmString, this.queryStringTreeElement);
+        var queryParameters = this.resource.queryParameters;
+        this.queryStringTreeElement.hidden = !queryParameters;
+        if (queryParameters)
+            this._refreshParms(WebInspector.UIString("Query String Parameters"), queryParameters, this.queryStringTreeElement);
     },
 
     _refreshFormData: function()
@@ -205,21 +198,17 @@ WebInspector.ResourceView.prototype = {
         this.formDataTreeElement.hidden = true;
         this.requestPayloadTreeElement.hidden = true;
 
-        var isFormData = this.resource.requestFormData;
-        if (!isFormData)
+        var formData = this.resource.requestFormData;
+        if (!formData)
             return;
 
-        var isFormEncoded = false;
-        var requestContentType = this._getHeaderValue(this.resource.requestHeaders, "Content-Type");
-        if (requestContentType && requestContentType.match(/^application\/x-www-form-urlencoded\s*(;.*)?$/i))
-            isFormEncoded = true;
-
-        if (isFormEncoded) {
+        var formParameters = this.resource.formParameters;
+        if (formParameters) {
             this.formDataTreeElement.hidden = false;
-            this._refreshParms(WebInspector.UIString("Form Data"), this.resource.requestFormData, this.formDataTreeElement);
+            this._refreshParms(WebInspector.UIString("Form Data"), formParameters, this.formDataTreeElement);
         } else {
             this.requestPayloadTreeElement.hidden = false;
-            this._refreshRequestPayload(this.resource.requestFormData);
+            this._refreshRequestPayload(formData);
         }
     },
 
@@ -233,24 +222,15 @@ WebInspector.ResourceView.prototype = {
         this.requestPayloadTreeElement.appendChild(parmTreeElement);
     },
 
-    _refreshParms: function(title, parmString, parmsTreeElement)
+    _refreshParms: function(title, parms, parmsTreeElement)
     {
-        var parms = parmString.split("&");
-        for (var i = 0; i < parms.length; ++i) {
-            var parm = parms[i];
-            parm = parm.split("=", 2);
-            if (parm.length == 1)
-                parm.push("");
-            parms[i] = parm;
-        }
-
         parmsTreeElement.removeChildren();
 
         parmsTreeElement.title = title + "<span class=\"header-count\">" + WebInspector.UIString(" (%d)", parms.length) + "</span>";
 
         for (var i = 0; i < parms.length; ++i) {
-            var key = parms[i][0];
-            var value = parms[i][1];
+            var name = parms[i].name;
+            var value = parms[i].value;
 
             var errorDecoding = false;
             if (this._decodeRequestParameters) {
@@ -269,7 +249,7 @@ WebInspector.ResourceView.prototype = {
             if (errorDecoding)
                 valueEscaped += " <span class=\"error-message\">" + WebInspector.UIString("(unable to decode value)").escapeHTML() + "</span>";
 
-            var title = "<div class=\"header-name\">" + key.escapeHTML() + ":</div>";
+            var title = "<div class=\"header-name\">" + name.escapeHTML() + ":</div>";
             title += "<div class=\"header-value source-code\">" + valueEscaped + "</div>";
 
             var parmTreeElement = new TreeElement(title, null, false);

@@ -101,6 +101,7 @@ struct PlatformContextSkia::State {
     WTF::Vector<SkPath> m_antiAliasClipPaths;
     WebCore::InterpolationQuality m_interpolationQuality;
 
+    PlatformContextSkia::State cloneInheritedProperties();
 private:
     // Not supported.
     void operator=(const State&);
@@ -149,6 +150,7 @@ PlatformContextSkia::State::State(const State& other)
     , m_imageBufferClip(other.m_imageBufferClip)
     , m_clip(other.m_clip)
 #endif
+    , m_antiAliasClipPaths(other.m_antiAliasClipPaths)
     , m_interpolationQuality(other.m_interpolationQuality)
 {
     // Up the ref count of these. saveRef does nothing if 'this' is NULL.
@@ -164,6 +166,17 @@ PlatformContextSkia::State::~State()
     m_dash->safeUnref();
     m_fillShader->safeUnref();
     m_strokeShader->safeUnref();
+}
+
+// Returns a new State with all of this object's inherited properties copied.
+PlatformContextSkia::State PlatformContextSkia::State::cloneInheritedProperties()
+{
+    PlatformContextSkia::State state(*this);
+
+    // Everything is inherited except for the clip paths.
+    state.m_antiAliasClipPaths.clear();  
+
+    return state;
 }
 
 SkColor PlatformContextSkia::State::applyAlpha(SkColor c) const
@@ -214,7 +227,9 @@ bool PlatformContextSkia::isDrawingToImageBuffer() const
 
 void PlatformContextSkia::save()
 {
-    m_stateStack.append(*m_state);
+    ASSERT(!hasImageResamplingHint());
+
+    m_stateStack.append(m_state->cloneInheritedProperties());
     m_state = &m_stateStack.last();
 
 #if OS(LINUX) || OS(WINDOWS)
@@ -574,6 +589,29 @@ const SkBitmap* PlatformContextSkia::bitmap() const
 bool PlatformContextSkia::isPrinting()
 {
     return m_canvas->getTopPlatformDevice().IsVectorial();
+}
+
+void PlatformContextSkia::getImageResamplingHint(WebCore::IntSize* srcSize, WebCore::FloatSize* dstSize) const
+{
+    *srcSize = m_imageResamplingHintSrcSize;
+    *dstSize = m_imageResamplingHintDstSize;
+}
+
+void PlatformContextSkia::setImageResamplingHint(const WebCore::IntSize& srcSize, const WebCore::FloatSize& dstSize)
+{
+    m_imageResamplingHintSrcSize = srcSize;
+    m_imageResamplingHintDstSize = dstSize;
+}
+
+void PlatformContextSkia::clearImageResamplingHint()
+{
+    m_imageResamplingHintSrcSize = WebCore::IntSize();
+    m_imageResamplingHintDstSize = WebCore::FloatSize();
+}
+
+bool PlatformContextSkia::hasImageResamplingHint() const
+{
+    return !m_imageResamplingHintSrcSize.isEmpty() && !m_imageResamplingHintDstSize.isEmpty();
 }
 
 #if OS(LINUX) || OS(WINDOWS)

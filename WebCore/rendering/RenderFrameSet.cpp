@@ -749,7 +749,7 @@ void RenderFrameSet::positionFramesWithFlattening()
 
 bool RenderFrameSet::flattenFrameSet() const
 {
-    return document()->frame() && document()->frame()->settings()->frameFlatteningEnabled();
+    return frame() && frame()->settings()->frameFlatteningEnabled();
 }
 
 void RenderFrameSet::startResizing(GridAxis& axis, int position)
@@ -817,7 +817,7 @@ void RenderFrameSet::setIsResizing(bool isResizing)
         if (ancestor->isFrameSet())
             toRenderFrameSet(ancestor)->m_isChildResizing = isResizing;
     }
-    if (Frame* frame = document()->frame())
+    if (Frame* frame = this->frame())
         frame->eventHandler()->setResizingFrameSet(isResizing ? frameSet() : 0);
 }
 

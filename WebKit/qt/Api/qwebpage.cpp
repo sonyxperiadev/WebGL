@@ -267,6 +267,9 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
     JSC::initializeThreading();
     WTF::initializeMainThread();
     WebCore::SecurityOrigin::setLocalLoadPolicy(WebCore::SecurityOrigin::AllowLocalLoadsForLocalAndSubstituteData);
+#if QT_VERSION < QT_VERSION_CHECK(4, 7, 0)
+    WebCore::Font::setCodePath(WebCore::Font::Complex);
+#endif
 
     chromeClient = new ChromeClientQt(q);
     contextMenuClient = new ContextMenuClientQt();
@@ -299,7 +302,7 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
     PageGroup::setShouldTrackVisitedLinks(true);
     
 #if ENABLE(NOTIFICATIONS)    
-    notificationPresenterClient = new NotificationPresenterClientQt(q);
+    NotificationPresenterClientQt::notificationPresenter()->addClient();
 #endif
 }
 
@@ -315,7 +318,7 @@ QWebPagePrivate::~QWebPagePrivate()
     delete page;
     
 #if ENABLE(NOTIFICATIONS)
-    delete notificationPresenterClient;
+    NotificationPresenterClientQt::notificationPresenter()->removeClient();
 #endif
 }
 
@@ -1008,7 +1011,7 @@ void QWebPagePrivate::dragEnterEvent(QGraphicsSceneDragDropEvent* ev)
     Qt::DropAction action = dragOpToDropAction(page->dragController()->dragEntered(&dragData));
     ev->setDropAction(action);
     if (action != Qt::IgnoreAction)
-        ev->accept();
+        ev->acceptProposedAction();
 #endif
 }
 
@@ -1021,7 +1024,7 @@ void QWebPagePrivate::dragEnterEvent(QDragEnterEvent* ev)
     ev->setDropAction(action);
     // We must accept this event in order to receive the drag move events that are sent
     // while the drag and drop action is in progress.
-    ev->accept();
+    ev->acceptProposedAction();
 #endif
 }
 
@@ -1051,7 +1054,7 @@ void QWebPagePrivate::dragMoveEvent(QGraphicsSceneDragDropEvent* ev)
     Qt::DropAction action = dragOpToDropAction(page->dragController()->dragUpdated(&dragData));
     ev->setDropAction(action);
     if (action != Qt::IgnoreAction)
-        ev->accept();
+        ev->acceptProposedAction();
 #endif
 }
 
@@ -1065,7 +1068,7 @@ void QWebPagePrivate::dragMoveEvent(QDragMoveEvent* ev)
     ev->setDropAction(action);
     // We must accept this event in order to receive the drag move events that are sent
     // while the drag and drop action is in progress.
-    ev->accept();
+    ev->acceptProposedAction();
 #endif
 }
 
@@ -1075,7 +1078,7 @@ void QWebPagePrivate::dropEvent(QGraphicsSceneDragDropEvent* ev)
     DragData dragData(ev->mimeData(), ev->pos().toPoint(),
             QCursor::pos(), dropActionToDragOp(ev->possibleActions()));
     if (page->dragController()->performDrag(&dragData))
-        ev->accept();
+        ev->acceptProposedAction();
 #endif
 }
 
@@ -1087,7 +1090,7 @@ void QWebPagePrivate::dropEvent(QDropEvent* ev)
     DragData dragData(ev->mimeData(), ev->pos(), QCursor::pos(),
                       dropActionToDragOp(Qt::DropAction(ev->dropAction())));
     if (page->dragController()->performDrag(&dragData))
-        ev->accept();
+        ev->acceptProposedAction();
 #endif
 }
 
@@ -1203,6 +1206,7 @@ void QWebPagePrivate::inputMethodEvent(QInputMethodEvent *ev)
     ev->accept();
 }
 
+#ifndef QT_NO_PROPERTIES
 void QWebPagePrivate::dynamicPropertyChangeEvent(QDynamicPropertyChangeEvent* event)
 {
     if (event->propertyName() == "_q_viewMode") {
@@ -1257,6 +1261,7 @@ void QWebPagePrivate::dynamicPropertyChangeEvent(QDynamicPropertyChangeEvent* ev
     }
 #endif
 }
+#endif
 
 void QWebPagePrivate::shortcutOverrideEvent(QKeyEvent* event)
 {
@@ -1927,6 +1932,30 @@ bool QWebPage::shouldInterruptJavaScript()
 #else
     QWidget* parent = (d->client) ? d->client->ownerWidget() : 0;
     return QMessageBox::Yes == QMessageBox::information(parent, tr("JavaScript Problem - %1").arg(mainFrame()->url().host()), tr("The script on this page appears to have a problem. Do you want to stop the script?"), QMessageBox::Yes, QMessageBox::No);
+#endif
+}
+
+/*!
+    \fn bool QWebPage::allowGeolocationRequest()
+    \since 4.7
+
+    This function is called whenever a JavaScript program running inside \a frame tries to access user location through navigator.geolocation.
+
+    If the user wants to allow access to location then it should return true; otherwise false.
+
+    The default implementation executes the query using QMessageBox::information with QMessageBox::Yes and QMessageBox::No buttons.
+
+    \warning Because of binary compatibility constraints, this function is not virtual. If you want to
+    provide your own implementation in a QWebPage subclass, reimplement the allowGeolocationRequest()
+    slot in your subclass instead. QtWebKit will dynamically detect the slot and call it.
+*/
+bool QWebPage::allowGeolocationRequest(QWebFrame *frame)
+{
+#ifdef QT_NO_MESSAGEBOX
+    return false;
+#else
+    QWidget* parent = (d->client) ? d->client->ownerWidget() : 0;
+    return QMessageBox::Yes == QMessageBox::information(parent, tr("Location Request by- %1").arg(frame->url().host()), tr("The page wants to access your location information. Do you want to allow the request?"), QMessageBox::Yes, QMessageBox::No);
 #endif
 }
 
@@ -2641,9 +2670,11 @@ bool QWebPage::event(QEvent *ev)
         d->touchEvent(static_cast<QTouchEvent*>(ev));
         break;
 #endif
+#ifndef QT_NO_PROPERTIES
     case QEvent::DynamicPropertyChange:
         d->dynamicPropertyChangeEvent(static_cast<QDynamicPropertyChangeEvent*>(ev));
         break;
+#endif
     default:
         return QObject::event(ev);
     }
@@ -3095,6 +3126,14 @@ bool QWebPage::findText(const QString &subString, FindFlags options)
         } else
             return d->page->markAllMatchesForText(subString, caseSensitivity, true, 0);
     } else {
+        if (subString.isEmpty()) {
+            d->page->mainFrame()->selection()->clear();
+            Frame* frame = d->page->mainFrame()->tree()->firstChild();
+            while (frame) {
+                frame->selection()->clear();
+                frame = frame->tree()->traverseNextWithWrap(false);
+            }
+        }
         ::FindDirection direction = ::FindDirectionForward;
         if (options & FindBackward)
             direction = ::FindDirectionBackward;

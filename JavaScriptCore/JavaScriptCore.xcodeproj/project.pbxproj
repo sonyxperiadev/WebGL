@@ -766,6 +766,9 @@
 		86565740115BE3DA00291F40 /* CString.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = CString.cpp; path = text/CString.cpp; sourceTree = "<group>"; };
 		86565741115BE3DA00291F40 /* CString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CString.h; path = text/CString.h; sourceTree = "<group>"; };
 		865F408710E7D56300947361 /* APIShims.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = APIShims.h; sourceTree = "<group>"; };
+		867FC35F11B763950025105E /* JavaScriptCore.JSVALUE32_64only.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = JavaScriptCore.JSVALUE32_64only.exp; sourceTree = "<group>"; };
+		867FC36011B763950025105E /* JavaScriptCore.JSVALUE32only.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = JavaScriptCore.JSVALUE32only.exp; sourceTree = "<group>"; };
+		867FC36111B763950025105E /* JavaScriptCore.JSVALUE64only.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = JavaScriptCore.JSVALUE64only.exp; sourceTree = "<group>"; };
 		868BFA00117CEFD100B908B1 /* AtomicString.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = AtomicString.cpp; path = text/AtomicString.cpp; sourceTree = "<group>"; };
 		868BFA01117CEFD100B908B1 /* AtomicString.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AtomicString.h; path = text/AtomicString.h; sourceTree = "<group>"; };
 		868BFA02117CEFD100B908B1 /* AtomicStringImpl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = AtomicStringImpl.h; path = text/AtomicStringImpl.h; sourceTree = "<group>"; };
@@ -1162,6 +1165,9 @@
 				937B63CC09E766D200A671DD /* DerivedSources.make */,
 				F692A8540255597D01FF60F7 /* create_hash_table */,
 				14B8ECA60A5653980062BE54 /* JavaScriptCore.exp */,
+				867FC36011B763950025105E /* JavaScriptCore.JSVALUE32only.exp */,
+				867FC35F11B763950025105E /* JavaScriptCore.JSVALUE32_64only.exp */,
+				867FC36111B763950025105E /* JavaScriptCore.JSVALUE64only.exp */,
 				F5C290E60284F98E018635CA /* JavaScriptCorePrefix.h */,
 				45E12D8806A49B0F00E9DF84 /* jsc.cpp */,
 				F68EBB8C0255D4C601FF60F7 /* config.h */,
@@ -2210,7 +2216,6 @@
 				5D2F7CF90C6875BB00B5B72B /* Update Info.plist with version information */,
 				932F5B3F0822A1C700736975 /* Headers */,
 				932F5B910822A1C700736975 /* Sources */,
-				1C395CBC0C6BCC16000D1E52 /* Generate 64-bit Export File */,
 				932F5BD20822A1C700736975 /* Frameworks */,
 				9319586B09D9F91A00A56FD4 /* Check For Global Initializers */,
 				933457200EBFDC3F00B80894 /* Check For Exit Time Destructors */,
@@ -2296,22 +2301,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "cp \"${SRCROOT}/API/tests/testapi.js\" \"${BUILT_PRODUCTS_DIR}\"";
-		};
-		1C395CBC0C6BCC16000D1E52 /* Generate 64-bit Export File */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-				"$(SRCROOT)/JavaScriptCore.exp",
-			);
-			name = "Generate 64-bit Export File";
-			outputPaths = (
-				"$(BUILT_PRODUCTS_DIR)/DerivedSources/JavaScriptCore/JavaScriptCore.LP64.exp",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# exclude NPN functions on 64-bit\nsed -e s/^.\\*NPN.\\*$// \"${SRCROOT}/JavaScriptCore.exp\" > \"${BUILT_PRODUCTS_DIR}/DerivedSources/JavaScriptCore/JavaScriptCore.LP64.exp\"\n";
 		};
 		5D29D8BE0E9860B400C3D2D0 /* Check For Weak VTables and Externals */ = {
 			isa = PBXShellScriptBuildPhase;

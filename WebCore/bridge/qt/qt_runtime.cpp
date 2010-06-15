@@ -877,7 +877,7 @@ JSValue convertQVariantToValue(ExecState* exec, PassRefPtr<RootObject> root, con
     }
 
     if (QtPixmapInstance::canHandle(static_cast<QMetaType::Type>(variant.type())))
-        return QtPixmapInstance::createRuntimeObject(exec, root, variant);
+        return QtPixmapInstance::createPixmapRuntimeObject(exec, root, variant);
 
     if (type == qMetaTypeId<QWebElement>()) {
         if (!root->globalObject()->inherits(&JSDOMWindow::s_info))
@@ -1280,7 +1280,7 @@ static int findMethodIndex(ExecState* exec,
                 QMetaMethod mtd = meta->method(conversionFailed.at(i));
                 message += QString::fromLatin1("    %0").arg(QString::fromLatin1(mtd.signature()));
             }
-            *pError = throwError(exec, TypeError, message.toLatin1().constData());
+            *pError = throwError(exec, createTypeError(exec, message.toLatin1().constData()));
         } else if (!unresolved.isEmpty()) {
             QtMethodMatchData argsInstance = unresolved.first();
             int unresolvedIndex = argsInstance.firstUnresolvedIndex();
@@ -1289,7 +1289,7 @@ static int findMethodIndex(ExecState* exec,
             QString message = QString::fromLatin1("cannot call %0(): unknown type `%1'")
                 .arg(QString::fromLatin1(signature))
                 .arg(QLatin1String(unresolvedType.name()));
-            *pError = throwError(exec, TypeError, message.toLatin1().constData());
+            *pError = throwError(exec, createTypeError(exec, message.toLatin1().constData()));
         } else {
             QString message = QString::fromLatin1("too few arguments in call to %0(); candidates are\n")
                               .arg(QLatin1String(signature));
@@ -1299,7 +1299,7 @@ static int findMethodIndex(ExecState* exec,
                 QMetaMethod mtd = meta->method(tooFewArgs.at(i));
                 message += QString::fromLatin1("    %0").arg(QString::fromLatin1(mtd.signature()));
             }
-            *pError = throwError(exec, SyntaxError, message.toLatin1().constData());
+            *pError = throwError(exec, createSyntaxError(exec, message.toLatin1().constData()));
         }
     }
 
@@ -1321,7 +1321,7 @@ static int findMethodIndex(ExecState* exec,
                     message += QString::fromLatin1("    %0").arg(QString::fromLatin1(mtd.signature()));
                 }
             }
-            *pError = throwError(exec, TypeError, message.toLatin1().constData());
+            *pError = throwError(exec, createTypeError(exec, message.toLatin1().constData()));
         } else {
             chosenIndex = bestMatch.index;
             args = bestMatch.args;
@@ -1377,13 +1377,13 @@ void QtRuntimeMetaMethod::markChildren(MarkStack& markStack)
         markStack.append(d->m_disconnect);
 }
 
-JSValue QtRuntimeMetaMethod::call(ExecState* exec)
+EncodedJSValue QtRuntimeMetaMethod::call(ExecState* exec)
 {
     QtRuntimeMetaMethodData* d = static_cast<QtRuntimeMetaMethod *>(exec->callee())->d_func();
 
     // We're limited to 10 args
     if (exec->argumentCount() > 10)
-        return jsUndefined();
+        return JSValue::encode(jsUndefined());
 
     // We have to pick a method that matches..
     JSLock lock(SilenceAssertionsOnly);
@@ -1397,20 +1397,20 @@ JSValue QtRuntimeMetaMethod::call(ExecState* exec)
         JSObject* errorObj = 0;
         if ((methodIndex = findMethodIndex(exec, obj->metaObject(), d->m_signature, d->m_allowPrivate, vargs, (void **)qargs, &errorObj)) != -1) {
             if (QMetaObject::metacall(obj, QMetaObject::InvokeMetaMethod, methodIndex, qargs) >= 0)
-                return jsUndefined();
+                return JSValue::encode(jsUndefined());
 
             if (vargs[0].isValid())
-                return convertQVariantToValue(exec, d->m_instance->rootObject(), vargs[0]);
+                return JSValue::encode(convertQVariantToValue(exec, d->m_instance->rootObject(), vargs[0]));
         }
 
         if (errorObj)
-            return errorObj;
+            return JSValue::encode(errorObj);
     } else {
-        return throwError(exec, GeneralError, "cannot call function of deleted QObject");
+        return throwVMError(exec, createError(exec, "cannot call function of deleted QObject"));
     }
 
     // void functions return undefined
-    return jsUndefined();
+    return JSValue::encode(jsUndefined());
 }
 
 CallType QtRuntimeMetaMethod::getCallData(CallData& callData)
@@ -1512,7 +1512,7 @@ QtRuntimeConnectionMethod::QtRuntimeConnectionMethod(ExecState* exec, const Iden
     d->m_isConnect = isConnect;
 }
 
-JSValue QtRuntimeConnectionMethod::call(ExecState* exec)
+EncodedJSValue QtRuntimeConnectionMethod::call(ExecState* exec)
 {
     QtRuntimeConnectionMethodData* d = static_cast<QtRuntimeConnectionMethod *>(exec->callee())->d_func();
 
@@ -1539,9 +1539,9 @@ JSValue QtRuntimeConnectionMethod::call(ExecState* exec)
                 CallData callData;
                 if (funcObject->getCallData(callData) == CallTypeNone) {
                     if (d->m_isConnect)
-                        return throwError(exec, TypeError, "QtMetaMethod.connect: target is not a function");
+                        return throwVMError(exec, createTypeError(exec, "QtMetaMethod.connect: target is not a function"));
                     else
-                        return throwError(exec, TypeError, "QtMetaMethod.disconnect: target is not a function");
+                        return throwVMError(exec, createTypeError(exec, "QtMetaMethod.disconnect: target is not a function"));
                 }
             } else if (exec->argumentCount() >= 2) {
                 if (exec->argument(0).isObject()) {
@@ -1567,22 +1567,22 @@ JSValue QtRuntimeConnectionMethod::call(ExecState* exec)
                             funcObject = asFuncObj;
                         } else {
                             if (d->m_isConnect)
-                                return throwError(exec, TypeError, "QtMetaMethod.connect: target is not a function");
+                                return throwVMError(exec, createTypeError(exec, "QtMetaMethod.connect: target is not a function"));
                             else
-                                return throwError(exec, TypeError, "QtMetaMethod.disconnect: target is not a function");
+                                return throwVMError(exec, createTypeError(exec, "QtMetaMethod.disconnect: target is not a function"));
                         }
                     }
                 } else {
                     if (d->m_isConnect)
-                        return throwError(exec, TypeError, "QtMetaMethod.connect: thisObject is not an object");
+                        return throwVMError(exec, createTypeError(exec, "QtMetaMethod.connect: thisObject is not an object"));
                     else
-                        return throwError(exec, TypeError, "QtMetaMethod.disconnect: thisObject is not an object");
+                        return throwVMError(exec, createTypeError(exec, "QtMetaMethod.disconnect: thisObject is not an object"));
                 }
             } else {
                 if (d->m_isConnect)
-                    return throwError(exec, GeneralError, "QtMetaMethod.connect: no arguments given");
+                    return throwVMError(exec, createError(exec, "QtMetaMethod.connect: no arguments given"));
                 else
-                    return throwError(exec, GeneralError, "QtMetaMethod.disconnect: no arguments given");
+                    return throwVMError(exec, createError(exec, "QtMetaMethod.disconnect: no arguments given"));
             }
 
             if (d->m_isConnect) {
@@ -1599,7 +1599,7 @@ JSValue QtRuntimeConnectionMethod::call(ExecState* exec)
                     QString msg = QString(QLatin1String("QtMetaMethod.connect: failed to connect to %1::%2()"))
                             .arg(QLatin1String(sender->metaObject()->className()))
                             .arg(QLatin1String(d->m_signature));
-                    return throwError(exec, GeneralError, msg.toLatin1().constData());
+                    return throwVMError(exec, createError(exec, msg.toLatin1().constData()));
                 }
                 else {
                     // Store connection
@@ -1625,7 +1625,7 @@ JSValue QtRuntimeConnectionMethod::call(ExecState* exec)
                     QString msg = QString(QLatin1String("QtMetaMethod.disconnect: failed to disconnect from %1::%2()"))
                             .arg(QLatin1String(sender->metaObject()->className()))
                             .arg(QLatin1String(d->m_signature));
-                    return throwError(exec, GeneralError, msg.toLatin1().constData());
+                    return throwVMError(exec, createError(exec, msg.toLatin1().constData()));
                 }
             }
         } else {
@@ -1633,13 +1633,13 @@ JSValue QtRuntimeConnectionMethod::call(ExecState* exec)
                     .arg(QLatin1String(d->m_isConnect ? "connect": "disconnect"))
                     .arg(QLatin1String(sender->metaObject()->className()))
                     .arg(QLatin1String(d->m_signature));
-            return throwError(exec, TypeError, msg.toLatin1().constData());
+            return throwVMError(exec, createTypeError(exec, msg.toLatin1().constData()));
         }
     } else {
-        return throwError(exec, GeneralError, "cannot call function of deleted QObject");
+        return throwVMError(exec, createError(exec, "cannot call function of deleted QObject"));
     }
 
-    return jsUndefined();
+    return JSValue::encode(jsUndefined());
 }
 
 CallType QtRuntimeConnectionMethod::getCallData(CallData& callData)

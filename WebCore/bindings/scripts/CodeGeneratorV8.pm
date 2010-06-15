@@ -273,6 +273,13 @@ END
 END
     }
 
+    if ($implClassName eq "HTMLDocument") {
+      push(@headerContent, <<END);
+  static v8::Local<v8::Object> WrapInShadowObject(v8::Local<v8::Object> wrapper, Node* impl);
+  static v8::Handle<v8::Value> GetNamedProperty(HTMLDocument* htmlDocument, const AtomicString& key);
+END
+    }
+
     my @enabledAtRuntime;
     foreach my $function (@{$dataNode->functions}) {
         my $name = $function->signature->name;
@@ -289,7 +296,7 @@ END
         }
     }
 
-    if ($dataNode->extendedAttributes->{"CustomConstructor"} || $dataNode->extendedAttributes->{"CanBeConstructed"}) {
+    if ($dataNode->extendedAttributes->{"CustomConstructor"} || $dataNode->extendedAttributes->{"V8CustomConstructor"} || $dataNode->extendedAttributes->{"CanBeConstructed"}) {
         push(@headerContent, <<END);
     static v8::Handle<v8::Value> constructorCallback(const v8::Arguments& args);
 END
@@ -360,9 +367,6 @@ sub GetInternalFields
 
     if (IsSubType($dataNode, "Document")) {
         push(@customInternalFields, "implementationIndex");
-        if ($name eq "HTMLDocument") {
-            push(@customInternalFields, ("markerIndex", "shadowIndex"));
-        }
     } elsif ($name eq "DOMWindow") {
         push(@customInternalFields, "enteredIsolatedWorldIndex");
     }
@@ -399,7 +403,6 @@ END
 my %indexerSpecialCases = (
     "Storage" => 1,
     "HTMLAppletElement" => 1,
-    "HTMLDocument" => 1,
     "HTMLEmbedElement" => 1,
     "HTMLObjectElement" => 1
 );
@@ -426,42 +429,47 @@ sub GenerateHeaderNamedAndIndexedPropertyAccessors
     if ($interfaceName eq "HTMLSelectElement" || $interfaceName eq "HTMLAppletElement" || $interfaceName eq "HTMLEmbedElement" || $interfaceName eq "HTMLObjectElement") {
         $hasCustomNamedGetter = 1;
     }
+    if ($interfaceName eq "HTMLDocument") {
+        $hasCustomNamedGetter = 0;
+        $hasCustomIndexedGetter = 0;
+    }
     my $isIndexerSpecialCase = exists $indexerSpecialCases{$interfaceName};
 
     if ($hasCustomIndexedGetter || $isIndexerSpecialCase) {
         push(@headerContent, <<END);
-    static v8::Handle<v8::Value> indexedPropertyGetter(uint32_t index, const v8::AccessorInfo& info);
+    static v8::Handle<v8::Value> indexedPropertyGetter(uint32_t, const v8::AccessorInfo&);
 END
     }
 
     if ($isIndexerSpecialCase || $hasCustomIndexedSetter) {
         push(@headerContent, <<END);
-    static v8::Handle<v8::Value> indexedPropertySetter(uint32_t index, v8::Local<v8::Value> value, const v8::AccessorInfo& info);
+    static v8::Handle<v8::Value> indexedPropertySetter(uint32_t, v8::Local<v8::Value>, const v8::AccessorInfo&);
 END
     }
     if ($hasCustomDeleters) {
         push(@headerContent, <<END);
-    static v8::Handle<v8::Boolean> indexedPropertyDeleter(uint32_t index, const v8::AccessorInfo& info);
+    static v8::Handle<v8::Boolean> indexedPropertyDeleter(uint32_t, const v8::AccessorInfo&);
 END
     }
     if ($hasCustomNamedGetter) {
         push(@headerContent, <<END);
-    static v8::Handle<v8::Value> namedPropertyGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info);
+    static v8::Handle<v8::Value> namedPropertyGetter(v8::Local<v8::String>, const v8::AccessorInfo&);
 END
     }
     if ($hasCustomNamedSetter) {
         push(@headerContent, <<END);
-    static v8::Handle<v8::Value> namedPropertySetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info);
+    static v8::Handle<v8::Value> namedPropertySetter(v8::Local<v8::String>, v8::Local<v8::Value>, const v8::AccessorInfo&);
 END
     }
-    if ($hasCustomDeleters || $interfaceName eq "HTMLDocument") {
+    if ($hasCustomDeleters) {
         push(@headerContent, <<END);
-    static v8::Handle<v8::Boolean> namedPropertyDeleter(v8::Local<v8::String> name, const v8::AccessorInfo& info);
+    static v8::Handle<v8::Boolean> namedPropertyDeleter(v8::Local<v8::String>, const v8::AccessorInfo&);
 END
     }
     if ($hasCustomEnumerator) {
         push(@headerContent, <<END);
-    static v8::Handle<v8::Array> namedPropertyEnumerator(const v8::AccessorInfo& info);
+    static v8::Handle<v8::Array> namedPropertyEnumerator(const v8::AccessorInfo&);
+    static v8::Handle<v8::Integer> namedPropertyQuery(v8::Local<v8::String>, const v8::AccessorInfo&);
 END
     }
 }
@@ -1504,6 +1512,10 @@ sub GenerateImplementationNamedPropertyGetter
         $hasCustomGetter = 1;
     }
 
+    if ($interfaceName eq "HTMLDocument") {
+        $hasCustomGetter = 0;
+    }
+
     my $hasGetter = $dataNode->extendedAttributes->{"HasNameGetter"} || $hasCustomGetter || $namedPropertyGetter;
     if (!$hasGetter) {
         return;
@@ -1519,8 +1531,7 @@ END
     }
 
     my $hasSetter = $dataNode->extendedAttributes->{"DelegatingPutFunction"};
-    # FIXME: Try to remove hard-coded HTMLDocument reference by aligning handling of document.all with JSC bindings.
-    my $hasDeleter = $dataNode->extendedAttributes->{"CustomDeleteProperty"} || $interfaceName eq "HTMLDocument";
+    my $hasDeleter = $dataNode->extendedAttributes->{"CustomDeleteProperty"};
     my $hasEnumerator = $dataNode->extendedAttributes->{"CustomGetPropertyNames"};
     my $setOn = "Instance";
 
@@ -1536,7 +1547,8 @@ END
 
     push(@implContent, "    desc->${setOn}Template()->SetNamedPropertyHandler(V8${interfaceName}::namedPropertyGetter, ");
     push(@implContent, $hasSetter ? "V8${interfaceName}::namedPropertySetter, " : "0, ");
-    push(@implContent, "0, "); # NamedPropertyQuery -- not being used at the moment.
+    # If there is a custom enumerator, there MUST be custom query to properly communicate property attributes.
+    push(@implContent, $hasEnumerator ? "V8${interfaceName}::namedPropertyQuery, " : "0, ");
     push(@implContent, $hasDeleter ? "V8${interfaceName}::namedPropertyDeleter, " : "0, ");
     push(@implContent, $hasEnumerator ? "V8${interfaceName}::namedPropertyEnumerator" : "0");
     push(@implContent, ");\n");
@@ -1780,7 +1792,7 @@ END
     push(@implContentDecls, "} // namespace ${interfaceName}Internal\n\n");
 
     # In namespace WebCore, add generated implementation for 'CanBeConstructed'.
-    if ($dataNode->extendedAttributes->{"CanBeConstructed"} && !$dataNode->extendedAttributes->{"CustomConstructor"}) {
+    if ($dataNode->extendedAttributes->{"CanBeConstructed"} && !$dataNode->extendedAttributes->{"CustomConstructor"} && !$dataNode->extendedAttributes->{"V8CustomConstructor"}) {
         my $v8ConstructFunction;
         my $callWith = $dataNode->extendedAttributes->{"CallWith"};
         if ($callWith and $callWith eq "ScriptExecutionContext") {
@@ -1858,7 +1870,7 @@ END
 END
     }
 
-    if ($dataNode->extendedAttributes->{"CustomConstructor"} || $dataNode->extendedAttributes->{"CanBeConstructed"}) {
+    if ($dataNode->extendedAttributes->{"CustomConstructor"} || $dataNode->extendedAttributes->{"V8CustomConstructor"} || $dataNode->extendedAttributes->{"CanBeConstructed"}) {
         push(@implContent, <<END);
         desc->SetCallHandler(V8${interfaceName}::constructorCallback);
 END
@@ -2001,6 +2013,11 @@ END
     // When a context is detached from a frame, turn on the access check.
     // Turning on checks also invalidates inline caches of the object.
     instance->SetAccessCheckCallbacks(V8DOMWindow::namedSecurityCheck, V8DOMWindow::indexedSecurityCheck, v8::External::Wrap(&V8DOMWindow::info), false);
+END
+    }
+    if ($interfaceName eq "HTMLDocument") {
+        push(@implContent, <<END);
+    desc->SetHiddenPrototype(true);
 END
     }
     if ($interfaceName eq "Location") {
@@ -2220,6 +2237,7 @@ sub GenerateCallbackImplementation
     $implIncludes{"V8CustomVoidCallback.h"} = 1;
     $implIncludes{"V8Proxy.h"} = 1;
 
+    push(@implContent, "#include <wtf/Assertions.h>\n\n");
     push(@implContent, "namespace WebCore {\n\n");
     push(@implContent, <<END);
 ${className}::${className}(v8::Local<v8::Object> callback)
@@ -2261,15 +2279,20 @@ END
             push(@implContent, "    if (v8Context.IsEmpty())\n");
             push(@implContent, "        return true;\n\n");
             push(@implContent, "    v8::Context::Scope scope(v8Context);\n\n");
-            push(@implContent, "    v8::Handle<v8::Value> argv[] = {\n");
 
             my @argvs = ();
             foreach my $param (@params) {
                 my $paramName = $param->name;
-                push(@argvs, "        toV8(${paramName})");
+                push(@implContent, "    v8::Handle<v8::Value> ${paramName}Handle = toV8(${paramName});\n");
+                push(@implContent, "    if (${paramName}Handle.IsEmpty()) {\n");
+                push(@implContent, "        CRASH();\n");
+                push(@implContent, "        return true;\n");
+                push(@implContent, "    }\n");
+                push(@argvs, "        ${paramName}Handle");
             }
-            push(@implContent, join(",\n", @argvs));
 
+            push(@implContent, "\n    v8::Handle<v8::Value> argv[] = {\n");
+            push(@implContent, join(",\n", @argvs));
             push(@implContent, "\n    };\n\n");
             push(@implContent, "    bool callbackReturnValue = false;\n");
             push(@implContent, "    return !invokeCallback(m_callback, " . scalar(@params) . ", argv, callbackReturnValue, context);\n");
@@ -2531,6 +2554,11 @@ sub GenerateFunctionCallString()
             $result .= $indent . "EmptyScriptState state;\n";
             $callWithArg = "&state";
             $hasScriptState = 1;
+        } elsif ($callWith eq "ScriptExecutionContext") {
+            $result .= $indent . "ScriptExecutionContext* scriptContext = getScriptExecutionContext();\n";
+            $result .= $indent . "if (!scriptContext)\n";
+            $result .= $indent . "    return v8::Undefined();\n";
+            $callWithArg = "scriptContext";
         }
         $functionString .= ", " if $index;
         $functionString .= $callWithArg;

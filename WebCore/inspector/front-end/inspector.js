@@ -440,7 +440,8 @@ WebInspector.loaded = function()
     var port = WebInspector.port;
     document.body.addStyleClass("port-" + port);
 
-    this.settings = new WebInspector.Settings();
+    this.applicationSettings = new WebInspector.Settings(false);
+    this.sessionSettings = new WebInspector.Settings(true);
     this._registerShortcuts();
 
     // set order of some sections explicitly
@@ -466,6 +467,7 @@ WebInspector.loaded = function()
     };
 
     this.breakpointManager = new WebInspector.BreakpointManager();
+    this.cssModel = new WebInspector.CSSStyleModel();
 
     this.panels = {};
     this._createPanels();
@@ -570,6 +572,13 @@ WebInspector.dispatch = function() {
     WebInspector.pendingDispatches++;
     setTimeout(delayDispatch, 0);
 }
+
+WebInspector.dispatchMessageFromBackend = function(arguments)
+{
+    var methodName = arguments.shift();
+    WebInspector[methodName].apply(this, arguments);
+}
+
 
 WebInspector.windowResize = function(event)
 {
@@ -696,7 +705,7 @@ WebInspector._registerShortcuts = function()
         shortcut.shortcutToString("[", shortcut.Modifiers.CtrlOrMeta)
     ];
     section.addRelatedKeys(keys, WebInspector.UIString("Next/previous panel"));
-    section.addKey(shortcut.Keys.Esc.name, WebInspector.UIString("Toggle console"));
+    section.addKey(shortcut.shortcutToString(shortcut.Keys.Esc), WebInspector.UIString("Toggle console"));
     section.addKey(shortcut.shortcutToString("f", shortcut.Modifiers.CtrlOrMeta), WebInspector.UIString("Search"));
     keys = [
         shortcut.shortcutToString("g", shortcut.Modifiers.CtrlOrMeta),
@@ -1318,9 +1327,9 @@ WebInspector.profilerWasDisabled = function()
     this.panels.profiles.profilerWasDisabled();
 }
 
-WebInspector.parsedScriptSource = function(sourceID, sourceURL, source, startingLine)
+WebInspector.parsedScriptSource = function(sourceID, sourceURL, source, startingLine, scriptWorldType)
 {
-    this.panels.scripts.addScript(sourceID, sourceURL, source, startingLine);
+    this.panels.scripts.addScript(sourceID, sourceURL, source, startingLine, undefined, undefined, scriptWorldType);
 }
 
 WebInspector.restoredBreakpoint = function(sourceID, sourceURL, line, enabled, condition)
@@ -1360,6 +1369,7 @@ WebInspector.reset = function()
             panel.reset();
     }
 
+    this.sessionSettings.reset();
     this.breakpointManager.reset();
 
     for (var category in this.resourceCategories)

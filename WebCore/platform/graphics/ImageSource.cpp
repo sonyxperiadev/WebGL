@@ -37,6 +37,10 @@
 
 namespace WebCore {
 
+#if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
+unsigned ImageSource::s_maxPixelsPerDecodedImage = 1024 * 1024;
+#endif
+
 ImageSource::ImageSource()
     : m_decoder(0)
 {
@@ -75,11 +79,8 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
     if (!m_decoder) {
         m_decoder = static_cast<NativeImageSourcePtr>(ImageDecoder::create(*data));
 #if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
-#ifndef IMAGE_DECODER_DOWN_SAMPLING_MAX_NUMBER_OF_PIXELS
-#define IMAGE_DECODER_DOWN_SAMPLING_MAX_NUMBER_OF_PIXELS (1024 * 1024)
-#endif
-        if (m_decoder)
-            m_decoder->setMaxNumPixels(IMAGE_DECODER_DOWN_SAMPLING_MAX_NUMBER_OF_PIXELS);
+        if (m_decoder && s_maxPixelsPerDecodedImage)
+            m_decoder->setMaxNumPixels(s_maxPixelsPerDecodedImage);
 #endif
     }
 
@@ -105,6 +106,11 @@ IntSize ImageSource::size() const
 IntSize ImageSource::frameSizeAtIndex(size_t index) const
 {
     return m_decoder ? m_decoder->frameSizeAtIndex(index) : IntSize();
+}
+
+bool ImageSource::getHotSpot(IntPoint&) const
+{
+    return false;
 }
 
 int ImageSource::repetitionCount()

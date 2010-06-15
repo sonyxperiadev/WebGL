@@ -27,13 +27,14 @@
 #include "EventNames.h"
 #include "Frame.h"
 #include "FrameView.h"
-#include "HitTestResult.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "HitTestResult.h"
 #include "InputElement.h"
 #include "LocalizedStrings.h"
 #include "MouseEvent.h"
 #include "PlatformKeyboardEvent.h"
+#include "RenderLayer.h"
 #include "RenderScrollbar.h"
 #include "RenderTheme.h"
 #include "SearchPopupMenu.h"
@@ -171,7 +172,7 @@ void RenderTextControlSingleLine::subtreeHasChanged()
         startSearchEventTimer();
 
     if (!wasChanged && node()->focused()) {
-        if (Frame* frame = document()->frame())
+        if (Frame* frame = this->frame())
             frame->textFieldDidBeginEditing(static_cast<Element*>(node()));
     }
 

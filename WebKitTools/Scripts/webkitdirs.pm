@@ -115,7 +115,9 @@ sub determineBaseProductDir
     return if defined $baseProductDir;
     determineSourceDir();
 
-    if (isAppleMacWebKit()) {
+    $baseProductDir = $ENV{"WEBKITOUTPUTDIR"};
+
+    if (!defined($baseProductDir) and isAppleMacWebKit()) {
         # Silently remove ~/Library/Preferences/xcodebuild.plist which can
         # cause build failure. The presence of
         # ~/Library/Preferences/xcodebuild.plist can prevent xcodebuild from
@@ -148,7 +150,7 @@ sub determineBaseProductDir
     }
 
     if (!defined($baseProductDir)) { # Port-spesific checks failed, use default
-        $baseProductDir = $ENV{"WEBKITOUTPUTDIR"} || "$sourceDir/WebKitBuild";
+        $baseProductDir = "$sourceDir/WebKitBuild";
     }
 
     if (isGit() && isGitBranchBuild()) {
@@ -1434,16 +1436,15 @@ sub buildGtkProject($$@)
     return buildAutotoolsProject($clean, @buildArgs);
 }
 
-sub buildChromiumMakefile($$$)
+sub buildChromiumMakefile($$)
 {
-    my ($dir, $target, $clean) = @_;
-    chdir $dir;
+    my ($target, $clean) = @_;
     if ($clean) {
         return system qw(rm -rf out);
     }
     my $config = configuration();
     my $numCpus = (grep /processor/, `cat /proc/cpuinfo`) || 1;
-    my @command = ("make", "-j$numCpus", "BUILDTYPE=$config", $target);
+    my @command = ("make", "-fMakefile.chromium", "-j$numCpus", "BUILDTYPE=$config", $target);
     print join(" ", @command) . "\n";
     return system @command;
 }
@@ -1501,7 +1502,7 @@ sub buildChromium($@)
         $result = buildChromiumVisualStudioProject("WebKit/chromium/WebKit.sln", $clean);
     } elsif (isLinux()) {
         # Linux build - build using make.
-        $ result = buildChromiumMakefile("WebKit/chromium/", "all", $clean);
+        $ result = buildChromiumMakefile("all", $clean);
     } else {
         print STDERR "This platform is not supported by chromium.\n";
     }

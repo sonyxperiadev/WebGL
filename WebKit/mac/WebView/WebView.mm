@@ -1369,7 +1369,7 @@ static bool fastDocumentTeardownEnabled()
     settings->setTextAreasAreResizable([preferences textAreasAreResizable]);
     settings->setShrinksStandaloneImagesToFit([preferences shrinksStandaloneImagesToFit]);
     settings->setEditableLinkBehavior(core([preferences editableLinkBehavior]));
-    settings->setEditingBehavior(core([preferences editingBehavior]));
+    settings->setEditingBehaviorType(core([preferences editingBehavior]));
     settings->setTextDirectionSubmenuInclusionBehavior(core([preferences textDirectionSubmenuInclusionBehavior]));
     settings->setDOMPasteAllowed([preferences isDOMPasteAllowed]);
     settings->setUsesPageCache([self usesPageCache]);
@@ -1408,6 +1408,7 @@ static bool fastDocumentTeardownEnabled()
     settings->setLoadDeferringEnabled(shouldEnableLoadDeferring());
     settings->setFrameFlatteningEnabled([preferences isFrameFlatteningEnabled]);
     settings->setHTML5ParserEnabled([preferences html5ParserEnabled]);
+    settings->setPaginateDuringLayoutEnabled([preferences paginateDuringLayoutEnabled]);
 }
 
 static inline IMP getMethod(id o, SEL s)

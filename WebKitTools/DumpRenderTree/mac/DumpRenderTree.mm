@@ -41,6 +41,7 @@
 #import "HistoryDelegate.h"
 #import "JavaScriptThreading.h"
 #import "LayoutTestController.h"
+#import "MockGeolocationProvider.h"
 #import "NavigationController.h"
 #import "ObjCPlugin.h"
 #import "ObjCPluginFunction.h"
@@ -291,6 +292,7 @@ WebView *createWebViewAndOffscreenWindow()
     [webView setFrameLoadDelegate:frameLoadDelegate];
     [webView setEditingDelegate:editingDelegate];
     [webView setResourceLoadDelegate:resourceLoadDelegate];
+    [webView _setGeolocationProvider:[MockGeolocationProvider shared]];
 
     // Register the same schemes that Safari does
     [WebView registerURLSchemeAsLocal:@"feed"];
@@ -1181,6 +1183,8 @@ static void resetWebViewToConsistentStateBeforeTesting()
 
     [WebView _setUsesTestModeFocusRingColor:YES];
     [WebView _resetOriginAccessWhitelists];
+
+    [[MockGeolocationProvider shared] stopTimer];
 }
 
 static void runTest(const string& testPathOrURL)
@@ -1291,8 +1295,10 @@ static void runTest(const string& testPathOrURL)
     }
 
     // If developer extras enabled Web Inspector may have been open by the test.
-    if (shouldEnableDeveloperExtras(pathOrURL.c_str()))
+    if (shouldEnableDeveloperExtras(pathOrURL.c_str())) {
         gLayoutTestController->closeWebInspector();
+        gLayoutTestController->setDeveloperExtrasEnabled(false);
+    }
 
     resetWebViewToConsistentStateBeforeTesting();
 

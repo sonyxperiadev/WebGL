@@ -44,14 +44,25 @@ namespace WebKit {
 
 unsigned AutoFillPopupMenuClient::getSuggestionsCount() const
 {
-    return m_names.size();
+    return m_names.size() + ((m_separatorIndex == -1) ? 0 : 1);
 }
 
 WebString AutoFillPopupMenuClient::getSuggestion(unsigned listIndex) const
 {
+    if (listIndex == static_cast<unsigned>(m_separatorIndex))
+        return WebString();
+
+    if (m_separatorIndex != -1 && listIndex > static_cast<unsigned>(m_separatorIndex))
+        --listIndex;
+
     // FIXME: Modify the PopupMenu to add the label in gray right-justified.
     ASSERT(listIndex >= 0 && listIndex < m_names.size());
-    return m_names[listIndex] + String(" (") + m_labels[listIndex] + String(")");
+
+    WebString suggestion = m_names[listIndex];
+    if (m_labels[listIndex].isEmpty())
+        return suggestion;
+
+    return suggestion + String(" (") + m_labels[listIndex] + String(")");
 }
 
 void AutoFillPopupMenuClient::removeSuggestionAtIndex(unsigned listIndex)
@@ -64,37 +75,85 @@ void AutoFillPopupMenuClient::removeSuggestionAtIndex(unsigned listIndex)
 
 void AutoFillPopupMenuClient::valueChanged(unsigned listIndex, bool fireEvents)
 {
-    ASSERT(listIndex >= 0 && listIndex < m_names.size());
-
     WebViewImpl* webView = getWebView();
     if (!webView)
         return;
 
+    if (m_separatorIndex != -1 && listIndex > static_cast<unsigned>(m_separatorIndex))
+        --listIndex;
+
+    ASSERT(listIndex >= 0 && listIndex < m_names.size());
+
     webView->client()->didAcceptAutoFillSuggestion(WebNode(getTextField()),
                                                    m_names[listIndex],
+                                                   m_labels[listIndex],
+                                                   listIndex);
+}
+
+void AutoFillPopupMenuClient::selectionChanged(unsigned listIndex, bool fireEvents)
+{
+    WebViewImpl* webView = getWebView();
+    if (!webView)
+        return;
+
+    if (m_separatorIndex != -1 && listIndex > static_cast<unsigned>(m_separatorIndex))
+        --listIndex;
+
+    ASSERT(listIndex >= 0 && listIndex < m_names.size());
+
+    webView->client()->didSelectAutoFillSuggestion(WebNode(getTextField()),
+                                                   m_names[listIndex],
                                                    m_labels[listIndex]);
+}
+
+void AutoFillPopupMenuClient::selectionCleared()
+{
+    WebViewImpl* webView = getWebView();
+    if (!webView)
+        return;
+
+    webView->suggestionsPopupDidHide();
+    webView->client()->didClearAutoFillSelection(WebNode(getTextField()));
+}
+
+void AutoFillPopupMenuClient::popupDidHide()
+{
+    // FIXME: Refactor this method, as selectionCleared() and popupDidHide()
+    // share the exact same functionality.
+    WebViewImpl* webView = getWebView();
+    if (!webView)
+        return;
+
+    webView->client()->didClearAutoFillSelection(WebNode(getTextField()));
+}
+
+bool AutoFillPopupMenuClient::itemIsSeparator(unsigned listIndex) const
+{
+    return (m_separatorIndex != -1 && static_cast<unsigned>(m_separatorIndex) == listIndex);
 }
 
 void AutoFillPopupMenuClient::initialize(
     HTMLInputElement* textField,
     const WebVector<WebString>& names,
     const WebVector<WebString>& labels,
-    int defaultSuggestionIndex)
+    int separatorIndex)
 {
     ASSERT(names.size() == labels.size());
-    ASSERT(defaultSuggestionIndex < static_cast<int>(names.size()));
+    ASSERT(separatorIndex < static_cast<int>(names.size()));
 
     // The suggestions must be set before initializing the
     // SuggestionsPopupMenuClient.
-    setSuggestions(names, labels);
+    setSuggestions(names, labels, separatorIndex);
 
-    SuggestionsPopupMenuClient::initialize(textField, defaultSuggestionIndex);
+    SuggestionsPopupMenuClient::initialize(textField, -1);
 }
 
 void AutoFillPopupMenuClient::setSuggestions(const WebVector<WebString>& names,
-                                             const WebVector<WebString>& labels)
+                                             const WebVector<WebString>& labels,
+                                             int separatorIndex)
 {
     ASSERT(names.size() == labels.size());
+    ASSERT(separatorIndex < static_cast<int>(names.size()));
 
     m_names.clear();
     m_labels.clear();
@@ -102,6 +161,8 @@ void AutoFillPopupMenuClient::setSuggestions(const WebVector<WebString>& names,
         m_names.append(names[i]);
         m_labels.append(labels[i]);
     }
+
+    m_separatorIndex = separatorIndex;
 
     // Try to preserve selection if possible.
     if (getSelectedIndex() >= static_cast<int>(names.size()))

@@ -63,6 +63,7 @@
 #include "FrameView.h"
 #include <glib/gi18n-lib.h>
 #include <GOwnPtr.h>
+#include <GOwnPtrGtk.h>
 #include "GraphicsContext.h"
 #include "GtkVersioning.h"
 #include "HitTestRequest.h"
@@ -370,7 +371,7 @@ static gboolean webkit_web_view_popup_menu_handler(GtkWidget* widget)
     }
 
     int x, y;
-    gdk_window_get_origin(GTK_WIDGET(view->hostWindow()->platformPageClient())->window, &x, &y);
+    gdk_window_get_origin(gtk_widget_get_window(GTK_WIDGET(view->hostWindow()->platformPageClient())), &x, &y);
 
     // FIXME: The IntSize(0, -1) is a hack to get the hit-testing to result in the selected element.
     // Ideally we'd have the position of a context menu event be separate from its target node.
@@ -588,10 +589,51 @@ static gboolean webkit_web_view_key_release_event(GtkWidget* widget, GdkEventKey
 
 static gboolean webkit_web_view_button_press_event(GtkWidget* widget, GdkEventButton* event)
 {
+    // Eventually it may make sense for these to be per-view and per-device,
+    // but at this time the implementation matches the Windows port.
+    static int currentClickCount = 1;
+    static IntPoint previousPoint;
+    static guint previousButton;
+    static guint32 previousTime;
+
     WebKitWebView* webView = WEBKIT_WEB_VIEW(widget);
 
     // FIXME: need to keep track of subframe focus for key events
     gtk_widget_grab_focus(widget);
+
+    // For double and triple clicks GDK sends both a normal button press event
+    // and a specific type (like GDK_2BUTTON_PRESS). If we detect a special press
+    // coming up, ignore this event as it certainly generated the double or triple
+    // click. The consequence of not eating this event is two DOM button press events
+    // are generated.
+    GOwnPtr<GdkEvent> nextEvent(gdk_event_peek());
+    if (nextEvent && (nextEvent->any.type == GDK_2BUTTON_PRESS || nextEvent->any.type == GDK_3BUTTON_PRESS))
+        return TRUE;
+
+    gint doubleClickDistance = 250;
+    gint doubleClickTime = 5;
+    GtkSettings* settings = gtk_settings_get_for_screen(gdk_drawable_get_screen(gtk_widget_get_window(widget)));
+    g_object_get(settings, 
+        "gtk-double-click-distance", &doubleClickDistance,
+        "gtk-double-click-time", &doubleClickTime, NULL);
+
+    // GTK+ only counts up to triple clicks, but WebCore wants to know about
+    // quadruple clicks, quintuple clicks, ad infinitum. Here, we replicate the
+    // GDK logic for counting clicks.
+    if ((event->type == GDK_2BUTTON_PRESS || event->type == GDK_3BUTTON_PRESS)
+        || ((abs(event->x - previousPoint.x()) < doubleClickDistance)
+            && (abs(event->y - previousPoint.y()) < doubleClickDistance)
+            && (event->time - previousTime < static_cast<guint>(doubleClickTime))
+            && (event->button == previousButton)))
+        currentClickCount++;
+    else
+        currentClickCount = 1;
+
+    PlatformMouseEvent platformEvent(event);
+    platformEvent.setClickCount(currentClickCount);
+    previousPoint = platformEvent.pos();
+    previousButton = event->button;
+    previousTime = event->time;
 
     if (event->button == 3)
         return webkit_web_view_forward_context_menu_event(webView, PlatformMouseEvent(event));
@@ -600,7 +642,8 @@ static gboolean webkit_web_view_button_press_event(GtkWidget* widget, GdkEventBu
     if (!frame->view())
         return FALSE;
 
-    gboolean result = frame->eventHandler()->handleMousePressEvent(PlatformMouseEvent(event));
+
+    gboolean result = frame->eventHandler()->handleMousePressEvent(platformEvent);
 
 #if PLATFORM(X11)
     /* Copy selection to the X11 selection clipboard */
@@ -2695,7 +2738,7 @@ static void webkit_web_view_update_settings(WebKitWebView* webView)
     settings->setJavaScriptCanOpenWindowsAutomatically(javascriptCanOpenWindows);
     settings->setJavaScriptCanAccessClipboard(javaScriptCanAccessClipboard);
     settings->setOfflineWebApplicationCacheEnabled(enableOfflineWebAppCache);
-    settings->setEditingBehavior(core(editingBehavior));
+    settings->setEditingBehaviorType(core(editingBehavior));
     settings->setAllowUniversalAccessFromFileURLs(enableUniversalAccessFromFileURI);
     settings->setAllowFileAccessFromFileURLs(enableFileAccessFromFileURI);
     settings->setDOMPasteAllowed(enableDOMPaste);
@@ -2796,7 +2839,7 @@ static void webkit_web_view_settings_notify(WebKitWebSettings* webSettings, GPar
     else if (name == g_intern_string("enable-offline-web-application-cache"))
         settings->setOfflineWebApplicationCacheEnabled(g_value_get_boolean(&value));
     else if (name == g_intern_string("editing-behavior"))
-        settings->setEditingBehavior(core(static_cast<WebKitEditingBehavior>(g_value_get_enum(&value))));
+        settings->setEditingBehaviorType(core(static_cast<WebKitEditingBehavior>(g_value_get_enum(&value))));
     else if (name == g_intern_string("enable-universal-access-from-file-uris"))
         settings->setAllowUniversalAccessFromFileURLs(g_value_get_boolean(&value));
     else if (name == g_intern_string("enable-file-access-from-file-uris"))
@@ -3892,24 +3935,6 @@ void webkit_web_view_set_full_content_zoom(WebKitWebView* webView, gboolean zoom
 }
 
 /**
- * webkit_get_default_session:
- *
- * Retrieves the default #SoupSession used by all web views.
- * Note that the session features are added by WebKit on demand,
- * so if you insert your own #SoupCookieJar before any network
- * traffic occurs, WebKit will use it instead of the default.
- *
- * Return value: the default #SoupSession
- *
- * Since: 1.1.1
- */
-SoupSession* webkit_get_default_session ()
-{
-    webkit_init();
-    return ResourceHandle::defaultSession();
-}
-
-/**
  * webkit_web_view_get_load_status:
  * @web_view: a #WebKitWebView
  *
@@ -4152,7 +4177,7 @@ gboolean webkit_web_view_get_view_source_mode (WebKitWebView* webView)
 }
 
 // Internal subresource management
-void webkit_web_view_add_resource(WebKitWebView* webView, char* identifier, WebKitWebResource* webResource)
+void webkit_web_view_add_resource(WebKitWebView* webView, const char* identifier, WebKitWebResource* webResource)
 {
     WebKitWebViewPrivate* priv = webView->priv;
 
@@ -4162,7 +4187,7 @@ void webkit_web_view_add_resource(WebKitWebView* webView, char* identifier, WebK
         return;
     }
 
-    g_hash_table_insert(priv->subResources, identifier, webResource);
+    g_hash_table_insert(priv->subResources, g_strdup(identifier), webResource);
 }
 
 WebKitWebResource* webkit_web_view_get_resource(WebKitWebView* webView, char* identifier)
@@ -4295,6 +4320,57 @@ G_CONST_RETURN gchar* webkit_web_view_get_icon_uri(WebKitWebView* webView)
 }
 
 /**
+ * webkit_web_view_get_dom_document:
+ * @webView: a #WebKitWebView
+ * 
+ * Returns: the #WebKitDOMDocument currently loaded in the @webView
+ *
+ * Since: 1.3.1
+ **/
+WebKitDOMDocument*
+webkit_web_view_get_dom_document(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
+
+    Frame* coreFrame = core(webView)->mainFrame();
+    if (!coreFrame)
+        return 0;
+
+    Document* doc = coreFrame->document();
+    if (!doc)
+        return 0;
+
+    return static_cast<WebKitDOMDocument*>(kit(doc));
+}
+
+/**
+ * SECTION:webkit
+ * @short_description: Global functions controlling WebKit
+ *
+ * WebKit manages many resources which are not related to specific
+ * views. These functions relate to cross-view limits, such as cache
+ * sizes, database quotas, and the HTTP session management.
+ */
+
+/**
+ * webkit_get_default_session:
+ *
+ * Retrieves the default #SoupSession used by all web views.
+ * Note that the session features are added by WebKit on demand,
+ * so if you insert your own #SoupCookieJar before any network
+ * traffic occurs, WebKit will use it instead of the default.
+ *
+ * Return value: the default #SoupSession
+ *
+ * Since: 1.1.1
+ */
+SoupSession* webkit_get_default_session ()
+{
+    webkit_init();
+    return ResourceHandle::defaultSession();
+}
+
+/**
  * webkit_set_cache_model:
  * @cache_model: a #WebKitCacheModel
  *
@@ -4375,26 +4451,3 @@ WebKitCacheModel webkit_get_cache_model()
     return cacheModel;
 }
 
-/**
- * webkit_web_view_get_dom_document:
- * @webView: a #WebKitWebView
- * 
- * Returns: the #WebKitDOMDocument currently loaded in the @webView
- *
- * Since: 1.3.1
- **/
-WebKitDOMDocument*
-webkit_web_view_get_dom_document(WebKitWebView* webView)
-{
-    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
-
-    Frame* coreFrame = core(webView)->mainFrame();
-    if (!coreFrame)
-        return 0;
-
-    Document* doc = coreFrame->document();
-    if (!doc)
-        return 0;
-
-    return static_cast<WebKitDOMDocument*>(kit(doc));
-}

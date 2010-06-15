@@ -24,7 +24,7 @@
  * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
 #include "config.h"
@@ -148,6 +148,7 @@ InspectorController::InspectorController(Page* page, InspectorClient* client)
     , m_cssStore(new InspectorCSSStore(this))
     , m_expiredConsoleMessageCount(0)
     , m_showAfterVisible(CurrentPanel)
+    , m_sessionSettings(InspectorObject::create())
     , m_groupLevel(0)
     , m_searchingForNode(false)
     , m_previousMessage(0)
@@ -158,8 +159,7 @@ InspectorController::InspectorController(Page* page, InspectorClient* client)
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     , m_debuggerEnabled(false)
     , m_attachDebuggerWhenShown(false)
-#endif
-#if ENABLE(JAVASCRIPT_DEBUGGER)
+    , m_pausedScriptState(0)
     , m_profilerEnabled(!WTF_USE_JSC)
     , m_recordingUserInitiatedProfile(false)
     , m_currentUserInitiatedProfileNumber(-1)
@@ -228,6 +228,11 @@ void InspectorController::setSetting(const String& key, const String& value)
 {
     m_settings.set(key, value);
     m_client->storeSetting(key, value);
+}
+
+void InspectorController::setSessionSettings(const String& settingsJSON)
+{
+    m_sessionSettings = InspectorValue::readJSON(settingsJSON);
 }
 
 void InspectorController::inspect(Node* node)
@@ -426,22 +431,27 @@ void InspectorController::setSearchingForNode(bool enabled)
     }
 }
 
-void InspectorController::setFrontend(PassOwnPtr<InspectorFrontend> frontend)
+void InspectorController::connectFrontend(const ScriptObject& webInspector)
 {
-    ASSERT(frontend);
     m_openingFrontend = false;
-    m_frontend = frontend;
+    m_frontend = new InspectorFrontend(webInspector, m_client);
     releaseDOMAgent();
     m_domAgent = InspectorDOMAgent::create(m_cssStore.get(), m_frontend.get());
     if (m_timelineAgent)
         m_timelineAgent->resetFrontendProxyObject(m_frontend.get());
-#if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
-    String debuggerEnabled = setting(debuggerEnabledSettingName);
-    if (debuggerEnabled == "true")
-        enableDebugger();
-    String profilerEnabled = setting(profilerEnabledSettingName);
-    if (profilerEnabled == "true")
-        enableProfiler();
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    if (ScriptDebugServer::shared().isDebuggerAlwaysEnabled()) {
+        // FIXME (40364): This will force pushing script sources to frontend even if script
+        // panel is inactive.
+        enableDebuggerFromFrontend(false);
+    } else {
+        String debuggerEnabled = setting(debuggerEnabledSettingName);
+        if (debuggerEnabled == "true")
+            enableDebugger();
+        String profilerEnabled = setting(profilerEnabledSettingName);
+        if (profilerEnabled == "true")
+            enableProfiler();
+    }
 #endif
 
     // Initialize Web Inspector title.
@@ -550,7 +560,7 @@ void InspectorController::populateScriptObjects()
     if (!m_frontend)
         return;
 
-    m_frontend->populateFrontendSettings(setting(frontendSettingsSettingName()));
+    m_frontend->populateApplicationSettings(setting(frontendSettingsSettingName()));
 
     if (m_resourceTrackingEnabled)
         m_frontend->resourceTrackingWasEnabled();
@@ -597,6 +607,7 @@ void InspectorController::populateScriptObjects()
         m_frontend->didCreateWorker(*it->second);
 #endif
 
+    m_frontend->populateSessionSettings(m_sessionSettings->toJSONString());
     m_frontend->populateInterface();
 
     // Dispatch pending frontend commands
@@ -662,6 +673,7 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
         m_counts.clear();
 #if ENABLE(JAVASCRIPT_DEBUGGER)
         m_sourceIDToURL.clear();
+        m_scriptIDToContent.clear();
 #endif
 #if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
         m_profiles.clear();
@@ -673,6 +685,7 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
         unbindAllResources();
 
         m_cssStore->reset();
+        m_sessionSettings = InspectorObject::create();
         if (m_frontend) {
             m_frontend->reset();
             m_domAgent->reset();
@@ -875,6 +888,9 @@ bool InspectorController::isMainResourceLoader(DocumentLoader* loader, const KUR
 
 void InspectorController::willSendRequest(unsigned long identifier, const ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
+    if (!enabled())
+        return;
+
     bool isMainResource = (m_mainResource && m_mainResource->identifier() == identifier);
     if (m_timelineAgent)
         m_timelineAgent->willSendResourceRequest(identifier, isMainResource, request);
@@ -884,20 +900,24 @@ void InspectorController::willSendRequest(unsigned long identifier, const Resour
         return;
 
     if (!redirectResponse.isNull()) {
-        resource->markResponseReceivedTime();
-        resource->endTiming();
-        resource->updateResponse(redirectResponse);
+        // Redirect may have empty URL and we'd like to not crash with invalid HashMap entry.
+        // See http/tests/misc/will-send-request-returns-null-on-redirect.html
+        if (!request.url().isEmpty()) {
+            resource->markResponseReceivedTime();
+            resource->endTiming();
+            resource->updateResponse(redirectResponse);
 
-        // We always store last redirect by the original id key. Rest of the redirects are stored within the last one.
-        unsigned long id = m_inspectedPage->progress()->createUniqueIdentifier();
-        RefPtr<InspectorResource> withRedirect = resource->appendRedirect(id, request.url());
-        removeResource(resource.get());
-        addResource(withRedirect.get());
-        if (isMainResource) {
-            m_mainResource = withRedirect;
-            withRedirect->markMainResource();
+            // We always store last redirect by the original id key. Rest of the redirects are stored within the last one.
+            unsigned long id = m_inspectedPage->progress()->createUniqueIdentifier();
+            RefPtr<InspectorResource> withRedirect = resource->appendRedirect(id, request.url());
+            removeResource(resource.get());
+            addResource(withRedirect.get());
+            if (isMainResource) {
+                m_mainResource = withRedirect;
+                withRedirect->markMainResource();
+            }
+            resource = withRedirect;
         }
-        resource = withRedirect;
     }
 
     resource->startTiming();
@@ -909,6 +929,9 @@ void InspectorController::willSendRequest(unsigned long identifier, const Resour
 
 void InspectorController::didReceiveResponse(unsigned long identifier, const ResourceResponse& response)
 {
+    if (!enabled())
+        return;
+
     if (RefPtr<InspectorResource> resource = getTrackedResource(identifier)) {
         resource->updateResponse(response);
         resource->markResponseReceivedTime();
@@ -926,6 +949,9 @@ void InspectorController::didReceiveResponse(unsigned long identifier, const Res
 
 void InspectorController::didReceiveContentLength(unsigned long identifier, int lengthReceived)
 {
+    if (!enabled())
+        return;
+
     RefPtr<InspectorResource> resource = getTrackedResource(identifier);
     if (!resource)
         return;
@@ -938,6 +964,9 @@ void InspectorController::didReceiveContentLength(unsigned long identifier, int 
 
 void InspectorController::didFinishLoading(unsigned long identifier)
 {
+    if (!enabled())
+        return;
+
     if (m_timelineAgent)
         m_timelineAgent->didFinishLoadingResource(identifier, false);
 
@@ -954,6 +983,9 @@ void InspectorController::didFinishLoading(unsigned long identifier)
 
 void InspectorController::didFailLoading(unsigned long identifier, const ResourceError& error)
 {
+    if (!enabled())
+        return;
+
     if (m_timelineAgent)
         m_timelineAgent->didFinishLoadingResource(identifier, true);
 
@@ -1498,6 +1530,8 @@ void InspectorController::stopUserInitiatedProfiling()
 #if USE(JSC)
     JSC::ExecState* scriptState = toJSDOMWindow(m_inspectedPage->mainFrame(), debuggerWorld())->globalExec();
 #else
+    // Use null script state to avoid filtering by context security token.
+    // All functions from all iframes should be visible from Inspector UI.
     ScriptState* scriptState = 0;
 #endif
     RefPtr<ScriptProfile> profile = ScriptProfiler::stop(scriptState, title);
@@ -1593,9 +1627,28 @@ void InspectorController::disableDebugger(bool always)
 
     m_debuggerEnabled = false;
     m_attachDebuggerWhenShown = false;
+    m_pausedScriptState = 0;
 
     if (m_frontend)
         m_frontend->debuggerWasDisabled();
+}
+
+void InspectorController::editScriptSource(long callId, const String& sourceID, const String& newContent)
+{
+    String result;
+    bool success = ScriptDebugServer::shared().editScriptSource(sourceID, newContent, result);
+    RefPtr<SerializedScriptValue> callFrames;
+    if (success)
+        callFrames = currentCallFrames();
+    m_frontend->didEditScriptSource(callId, success, result, callFrames.get());
+}
+
+void InspectorController::getScriptSource(long callId, const String& sourceID)
+{
+    if (!m_frontend)
+        return;
+    String scriptSource = m_scriptIDToContent.get(sourceID);
+    m_frontend->didGetScriptSource(callId, scriptSource);
 }
 
 void InspectorController::resumeDebugger()
@@ -1603,6 +1656,18 @@ void InspectorController::resumeDebugger()
     if (!m_debuggerEnabled)
         return;
     ScriptDebugServer::shared().continueProgram();
+}
+
+PassRefPtr<SerializedScriptValue> InspectorController::currentCallFrames()
+{
+    if (!m_pausedScriptState)
+        return 0;
+    InjectedScript injectedScript = m_injectedScriptHost->injectedScriptFor(m_pausedScriptState);
+    if (injectedScript.hasNoValue()) {
+        ASSERT_NOT_REACHED();
+        return 0;
+    }
+    return injectedScript.callFrames();
 }
 
 void InspectorController::setBreakpoint(const String& sourceID, unsigned lineNumber, bool enabled, const String& condition)
@@ -1634,9 +1699,10 @@ void InspectorController::removeBreakpoint(const String& sourceID, unsigned line
 
 // JavaScriptDebugListener functions
 
-void InspectorController::didParseSource(const String& sourceID, const String& url, const String& data, int firstLine)
+void InspectorController::didParseSource(const String& sourceID, const String& url, const String& data, int firstLine, ScriptWorldType worldType)
 {
-    m_frontend->parsedScriptSource(sourceID, url, data, firstLine);
+    // Don't send script content to the front end until it's really needed.
+    m_frontend->parsedScriptSource(sourceID, url, "", firstLine, worldType);
 
     if (url.isEmpty())
         return;
@@ -1652,6 +1718,7 @@ void InspectorController::didParseSource(const String& sourceID, const String& u
     }
 
     m_sourceIDToURL.set(sourceID, url);
+    m_scriptIDToContent.set(sourceID, data);
 }
 
 void InspectorController::failedToParseSource(const String& url, const String& data, int firstLine, int errorLine, const String& errorMessage)
@@ -1661,14 +1728,15 @@ void InspectorController::failedToParseSource(const String& url, const String& d
 
 void InspectorController::didPause(ScriptState* scriptState)
 {
-    ASSERT(scriptState);
-    InjectedScript injectedScript = m_injectedScriptHost->injectedScriptFor(scriptState);
-    RefPtr<SerializedScriptValue> callFrames = injectedScript.callFrames();
+    ASSERT(scriptState && !m_pausedScriptState);
+    m_pausedScriptState = scriptState;
+    RefPtr<SerializedScriptValue> callFrames = currentCallFrames();
     m_frontend->pausedScript(callFrames.get());
 }
 
 void InspectorController::didContinue()
 {
+    m_pausedScriptState = 0;
     m_frontend->resumedScript();
 }
 

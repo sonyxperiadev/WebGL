@@ -51,7 +51,6 @@
 #include "HTMLFormElement.h"
 #include "HTMLPlugInElement.h"
 #include "HTTPParsers.h"
-#include "NotificationPresenterClientQt.h"
 #include "NotImplemented.h"
 #include "QNetworkReplyHandler.h"
 #include "ResourceHandleInternal.h"
@@ -543,14 +542,16 @@ void FrameLoaderClientQt::finishedLoading(DocumentLoader* loader)
 
 bool FrameLoaderClientQt::canShowMIMEType(const String& MIMEType) const
 {
-    if (MIMETypeRegistry::isSupportedImageMIMEType(MIMEType))
+    String type = MIMEType;
+    type.makeLower();
+    if (MIMETypeRegistry::isSupportedImageMIMEType(type))
         return true;
 
-    if (MIMETypeRegistry::isSupportedNonImageMIMEType(MIMEType))
+    if (MIMETypeRegistry::isSupportedNonImageMIMEType(type))
         return true;
 
     if (m_frame && m_frame->settings()  && m_frame->settings()->arePluginsEnabled()
-        && PluginDatabase::installedPlugins()->isMIMETypeRegistered(MIMEType))
+        && PluginDatabase::installedPlugins()->isMIMETypeRegistered(type))
         return true;
 
     return false;
@@ -641,9 +642,6 @@ void FrameLoaderClientQt::dispatchDidClearWindowObjectInWorld(DOMWrapperWorld* w
 
     if (m_webFrame) {
         emit m_webFrame->javaScriptWindowObjectCleared();
-#if ENABLE(NOTIFICATIONS)
-        m_webFrame->page()->d->notificationPresenterClient->clearNotificationsList();
-#endif
     }
 }
 

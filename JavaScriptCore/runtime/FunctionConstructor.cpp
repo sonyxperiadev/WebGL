@@ -22,6 +22,7 @@
 #include "FunctionConstructor.h"
 
 #include "Debugger.h"
+#include "ExceptionHelpers.h"
 #include "FunctionPrototype.h"
 #include "JSFunction.h"
 #include "JSGlobalObject.h"
@@ -44,9 +45,10 @@ FunctionConstructor::FunctionConstructor(ExecState* exec, JSGlobalObject* global
     putDirectWithoutTransition(exec->propertyNames().length, jsNumber(exec, 1), ReadOnly | DontDelete | DontEnum);
 }
 
-static JSObject* constructWithFunctionConstructor(ExecState* exec, JSObject*, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL constructWithFunctionConstructor(ExecState* exec)
 {
-    return constructFunction(exec, args);
+    ArgList args(exec);
+    return JSValue::encode(constructFunction(exec, args));
 }
 
 ConstructType FunctionConstructor::getConstructData(ConstructData& constructData)
@@ -55,10 +57,10 @@ ConstructType FunctionConstructor::getConstructData(ConstructData& constructData
     return ConstructTypeHost;
 }
 
-static JSValue JSC_HOST_CALL callFunctionConstructor(ExecState* exec)
+static EncodedJSValue JSC_HOST_CALL callFunctionConstructor(ExecState* exec)
 {
     ArgList args(exec);
-    return constructFunction(exec, args);
+    return JSValue::encode(constructFunction(exec, args));
 }
 
 // ECMA 15.3.1 The Function Constructor Called as a Function
@@ -95,13 +97,14 @@ JSObject* constructFunction(ExecState* exec, const ArgList& args, const Identifi
 
     int errLine;
     UString errMsg;
+    JSGlobalObject* globalObject = exec->lexicalGlobalObject();
+    JSGlobalData* globalData = globalObject->globalData();
     SourceCode source = makeSource(program, sourceURL, lineNumber);
     RefPtr<FunctionExecutable> function = FunctionExecutable::fromGlobalCode(functionName, exec, exec->dynamicGlobalObject()->debugger(), source, &errLine, &errMsg);
     if (!function)
-        return throwError(exec, SyntaxError, errMsg, errLine, source.provider()->asID(), source.provider()->url());
+        return throwError(exec, addErrorInfo(globalData, createSyntaxError(globalObject, errMsg), errLine, source));
 
-    JSGlobalObject* globalObject = exec->lexicalGlobalObject();
-    ScopeChain scopeChain(globalObject, globalObject->globalData(), globalObject, exec->globalThisValue());
+    ScopeChain scopeChain(globalObject, globalData, globalObject, exec->globalThisValue());
     return new (exec) JSFunction(exec, function, scopeChain.node());
 }
 

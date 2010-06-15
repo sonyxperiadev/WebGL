@@ -56,6 +56,7 @@
 #include "PlatformKeyboardEvent.h"
 #include "RenderFileUploadControl.h"
 #include "RenderImage.h"
+#include "RenderLayer.h"
 #include "RenderView.h"
 #include "ReplaceSelectionCommand.h"
 #include "ResourceRequest.h"
@@ -109,9 +110,9 @@ static PassRefPtr<DocumentFragment> documentFragmentFromDragData(DragData* dragD
         if (PassRefPtr<DocumentFragment> fragment = dragData->asFragment(document))
             return fragment;
 
-        if (dragData->containsURL()) {
+        if (dragData->containsURL(DragData::DoNotConvertFilenames)) {
             String title;
-            String url = dragData->asURL(&title);
+            String url = dragData->asURL(DragData::DoNotConvertFilenames, &title);
             if (!url.isEmpty()) {
                 RefPtr<HTMLAnchorElement> anchor = HTMLAnchorElement::create(document);
                 anchor->setHref(url);

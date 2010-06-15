@@ -40,14 +40,13 @@ namespace WebCore {
 class DOMStringList;
 class IDBAny;
 class IDBIndexRequest;
-class ScriptExecutionContext;
 class SerializedScriptValue;
 
 class IDBObjectStoreRequest : public RefCounted<IDBObjectStoreRequest> {
 public:
-    static PassRefPtr<IDBObjectStoreRequest> create(ScriptExecutionContext* context, PassRefPtr<IDBObjectStore> idbObjectStore)
+    static PassRefPtr<IDBObjectStoreRequest> create(PassRefPtr<IDBObjectStore> idbObjectStore)
     {
-        return adoptRef(new IDBObjectStoreRequest(context, idbObjectStore));
+        return adoptRef(new IDBObjectStoreRequest(idbObjectStore));
     }
     ~IDBObjectStoreRequest() { }
 
@@ -55,21 +54,20 @@ public:
     String keyPath() const;
     PassRefPtr<DOMStringList> indexNames() const;
 
-    PassRefPtr<IDBRequest> get(PassRefPtr<SerializedScriptValue> key);
-    PassRefPtr<IDBRequest> add(PassRefPtr<SerializedScriptValue> value, PassRefPtr<SerializedScriptValue> key = 0);
-    PassRefPtr<IDBRequest> modify(PassRefPtr<SerializedScriptValue> value, PassRefPtr<SerializedScriptValue> key = 0);
-    PassRefPtr<IDBRequest> addOrModify(PassRefPtr<SerializedScriptValue> value, PassRefPtr<SerializedScriptValue> key = 0);
-    PassRefPtr<IDBRequest> remove(PassRefPtr<SerializedScriptValue> key);
+    PassRefPtr<IDBRequest> get(ScriptExecutionContext*, PassRefPtr<SerializedScriptValue> key);
+    PassRefPtr<IDBRequest> add(ScriptExecutionContext*, PassRefPtr<SerializedScriptValue> value, PassRefPtr<SerializedScriptValue> key = 0);
+    PassRefPtr<IDBRequest> modify(ScriptExecutionContext*, PassRefPtr<SerializedScriptValue> value, PassRefPtr<SerializedScriptValue> key = 0);
+    PassRefPtr<IDBRequest> addOrModify(ScriptExecutionContext*, PassRefPtr<SerializedScriptValue> value, PassRefPtr<SerializedScriptValue> key = 0);
+    PassRefPtr<IDBRequest> remove(ScriptExecutionContext*, PassRefPtr<SerializedScriptValue> key);
 
-    PassRefPtr<IDBRequest> createIndex(const String& name, const String& keyPath, bool unique = false) const;
-    PassRefPtr<IDBIndexRequest> index(const String& name) const;
-    PassRefPtr<IDBRequest> removeIndex(const String& name) const;
+    PassRefPtr<IDBRequest> createIndex(ScriptExecutionContext*, const String& name, const String& keyPath, bool unique = false);
+    PassRefPtr<IDBIndexRequest> index(const String& name);
+    PassRefPtr<IDBRequest> removeIndex(ScriptExecutionContext*, const String& name);
 
 private:
-    IDBObjectStoreRequest(ScriptExecutionContext*, PassRefPtr<IDBObjectStore>);
+    IDBObjectStoreRequest(PassRefPtr<IDBObjectStore>);
 
     RefPtr<IDBObjectStore> m_objectStore;
-    RefPtr<ScriptExecutionContext> m_scriptExecutionContext;
     RefPtr<IDBAny> m_this;
 };
 
@@ -77,5 +75,5 @@ private:
 
 #endif
 
-#endif // IDBDatabaseRequest_h
+#endif // IDBObjectStoreRequest_h
 

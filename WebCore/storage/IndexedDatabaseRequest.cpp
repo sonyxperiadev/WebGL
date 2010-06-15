@@ -33,6 +33,7 @@
 #include "ExceptionCode.h"
 #include "Frame.h"
 #include "IDBDatabase.h"
+#include "IDBKeyRange.h"
 #include "IDBRequest.h"
 #include "IndexedDatabase.h"
 
@@ -40,9 +41,8 @@
 
 namespace WebCore {
 
-IndexedDatabaseRequest::IndexedDatabaseRequest(IndexedDatabase* indexedDatabase, Frame* frame)
+IndexedDatabaseRequest::IndexedDatabaseRequest(IndexedDatabase* indexedDatabase)
     : m_indexedDatabase(indexedDatabase)
-    , m_frame(frame)
 {
     m_this = IDBAny::create();
     m_this->set(this);
@@ -52,11 +52,43 @@ IndexedDatabaseRequest::~IndexedDatabaseRequest()
 {
 }
 
-PassRefPtr<IDBRequest> IndexedDatabaseRequest::open(const String& name, const String& description, ExceptionCode& exception)
+PassRefPtr<IDBRequest> IndexedDatabaseRequest::open(ScriptExecutionContext* context, const String& name, const String& description)
 {
-    RefPtr<IDBRequest> request = IDBRequest::create(m_frame->document(), m_this);
-    m_indexedDatabase->open(name, description, request, m_frame->document()->securityOrigin(), m_frame, exception);
+    if (!context->isDocument()) {
+        // FIXME: make this work with workers.
+        return 0;
+    }
+
+    Document* document = static_cast<Document*>(context);
+    if (!document->frame())
+        return 0;
+
+    RefPtr<IDBRequest> request = IDBRequest::create(document, m_this);
+    m_indexedDatabase->open(name, description, request, document->securityOrigin(), document->frame());
     return request;
+}
+
+PassRefPtr<IDBKeyRange> IndexedDatabaseRequest::makeSingleKeyRange(PassRefPtr<SerializedScriptValue> prpValue)
+{
+    RefPtr<SerializedScriptValue> value = prpValue;
+    return IDBKeyRange::create(value, value, IDBKeyRange::SINGLE);
+}
+
+PassRefPtr<IDBKeyRange> IndexedDatabaseRequest::makeLeftBoundKeyRange(PassRefPtr<SerializedScriptValue> bound, bool open)
+{
+    return IDBKeyRange::create(bound, SerializedScriptValue::create(), open ? IDBKeyRange::LEFT_OPEN : IDBKeyRange::LEFT_BOUND);
+}
+
+PassRefPtr<IDBKeyRange> IndexedDatabaseRequest::makeRightBoundKeyRange(PassRefPtr<SerializedScriptValue> bound, bool open)
+{
+    return IDBKeyRange::create(SerializedScriptValue::create(), bound, open ? IDBKeyRange::RIGHT_OPEN : IDBKeyRange::RIGHT_BOUND);
+}
+
+PassRefPtr<IDBKeyRange> IndexedDatabaseRequest::makeBoundKeyRange(PassRefPtr<SerializedScriptValue> left, PassRefPtr<SerializedScriptValue> right, bool openLeft, bool openRight)
+{
+    unsigned short flags = openLeft ? IDBKeyRange::LEFT_OPEN : IDBKeyRange::LEFT_BOUND;
+    flags |= openRight ? IDBKeyRange::RIGHT_OPEN : IDBKeyRange::RIGHT_BOUND;
+    return IDBKeyRange::create(left, right, flags);
 }
 
 } // namespace WebCore

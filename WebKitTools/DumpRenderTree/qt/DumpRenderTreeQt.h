@@ -41,6 +41,8 @@
 #endif
 
 #include "../../../WebKit/qt/WebCoreSupport/DumpRenderTreeSupportQt.h"
+#include <qgraphicsview.h>
+#include <qgraphicswebview.h>
 #include <qwebframe.h>
 #include <qwebinspector.h>
 #include <qwebpage.h>
@@ -80,6 +82,9 @@ public:
     void setSingleFileMode(bool flag) { m_singleFileMode = flag; }
     bool isSingleFileMode() { return m_singleFileMode; }
 
+    void setGraphicsBased(bool flag) { m_graphicsBased = flag; }
+    bool isGraphicsBased() { return m_graphicsBased; }
+
     void setDumpPixels(bool);
 
     void closeRemainingWindows();
@@ -115,7 +120,7 @@ public Q_SLOTS:
     void statusBarMessage(const QString& message);
     void windowCloseRequested();
     void checkPermission(const QUrl&, NotificationPermission&);
-    void requestPermission(QWebPage* page, const QString&);
+    void requestPermission(const QString&);
 
 Q_SIGNALS:
     void quit();
@@ -135,7 +140,7 @@ private:
     QString m_expectedHash;
 
     WebPage *m_page;
-    QWebView* m_mainView;
+    QWidget* m_mainView;
 
     EventSender *m_eventSender;
     TextInputController *m_textInputController;
@@ -147,6 +152,7 @@ private:
     QList<QObject*> windows;
     bool m_enableTextOutput;
     bool m_singleFileMode;
+    bool m_graphicsBased;
     QString m_persistentStoragePath;
 };
 
@@ -185,6 +191,7 @@ public:
 
 public slots:
     bool shouldInterruptJavaScript() { return false; }
+    bool allowGeolocationRequest(QWebFrame *frame);
 
 protected:
     bool acceptNavigationRequest(QWebFrame* frame, const QNetworkRequest& request, NavigationType type);
@@ -200,6 +207,18 @@ private slots:
 private:
     QWebInspector* m_webInspector;
     DumpRenderTree *m_drt;
+};
+
+class WebViewGraphicsBased : public QGraphicsView {
+    Q_OBJECT
+
+public:
+    WebViewGraphicsBased(QWidget* parent);
+    QGraphicsWebView* graphicsView() const { return m_item; }
+    void setPage(QWebPage* page) { m_item->setPage(page); }
+
+private:
+    QGraphicsWebView* m_item;
 };
 
 }

@@ -33,6 +33,7 @@ namespace WebKit {
 class WebIDBDatabase;
 class WebIDBDatabaseError;
 class WebIDBIndex;
+class WebIDBObjectStore;
 class WebSerializedScriptValue;
 
 class WebIDBCallbacks {
@@ -45,6 +46,7 @@ public:
     virtual void onSuccess() { WEBKIT_ASSERT_NOT_REACHED(); } // For "null".
     virtual void onSuccess(WebIDBDatabase*) { WEBKIT_ASSERT_NOT_REACHED(); }
     virtual void onSuccess(WebIDBIndex*) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void onSuccess(WebIDBObjectStore*) { WEBKIT_ASSERT_NOT_REACHED(); }
     virtual void onSuccess(const WebSerializedScriptValue&) { WEBKIT_ASSERT_NOT_REACHED(); }
 };
 

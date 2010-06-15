@@ -156,6 +156,13 @@ static GLuint createLayerTexture()
     return textureId;
 }
 
+static inline bool compareLayerZ(const LayerChromium* a, const LayerChromium* b)
+{
+    const TransformationMatrix& transformA = a->drawTransform();
+    const TransformationMatrix& transformB = b->drawTransform();
+
+    return transformA.m43() < transformB.m43();
+}
 
 PassOwnPtr<LayerRendererChromium> LayerRendererChromium::create(Page* page)
 {
@@ -173,6 +180,7 @@ LayerRendererChromium::LayerRendererChromium(Page* page)
     , m_page(page)
     , m_rootLayerTextureWidth(0)
     , m_rootLayerTextureHeight(0)
+    , m_scrollPosition(IntPoint(-1, -1))
 {
     m_quadVboIds[Vertices] = m_quadVboIds[LayerElements] = 0;
     m_hardwareCompositing = (initGL() && initializeSharedGLObjects());
@@ -284,6 +292,9 @@ void LayerRendererChromium::drawLayers(const IntRect& updateRect, const IntRect&
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
 
+    if (m_scrollPosition == IntPoint(-1, -1))
+        m_scrollPosition = scrollPosition;
+
     IntPoint scrollDelta = toPoint(scrollPosition - m_scrollPosition);
     // Scroll only when the updateRect contains pixels for the newly uncovered region to avoid flashing.
     if ((scrollDelta.x() && updateRect.width() >= abs(scrollDelta.x()) && updateRect.height() >= contentRect.height())
@@ -358,19 +369,26 @@ void LayerRendererChromium::drawLayers(const IntRect& updateRect, const IntRect&
 
     checkGLError();
 
-    // FIXME: Sublayers need to be sorted in Z to get the correct transparency effect.
+    // Translate all the composited layers by the scroll position.
+    TransformationMatrix matrix;
+    matrix.translate3d(-m_scrollPosition.x(), -m_scrollPosition.y(), 0);
+
+    float opacity = 1;
+    m_layerList.shrink(0);
+    const Vector<RefPtr<LayerChromium> >& sublayers = m_rootLayer->getSublayers();
+    for (size_t i = 0; i < sublayers.size(); i++)
+        updateLayersRecursive(sublayers[i].get(), matrix, opacity, visibleRect);
+
+    // Sort layers by the z coordinate of their center so that layers further
+    // away get drawn first.
+    std::stable_sort(m_layerList.begin(), m_layerList.end(), compareLayerZ);
 
     // Enable scissoring to avoid rendering composited layers over the scrollbars.
     glEnable(GL_SCISSOR_TEST);
     glScissor(0, visibleRect.height() - contentRect.height(), contentRect.width(), contentRect.height());
 
-    // Translate all the composited layers by the scroll position.
-    TransformationMatrix matrix;
-    matrix.translate3d(-m_scrollPosition.x(), -m_scrollPosition.y(), 0);
-    float opacity = 1;
-    const Vector<RefPtr<LayerChromium> >& sublayers = m_rootLayer->getSublayers();
-    for (size_t i = 0; i < sublayers.size(); i++)
-        compositeLayersRecursive(sublayers[i].get(), matrix, opacity, visibleRect);
+    for (size_t j = 0; j < m_layerList.size(); j++)
+        drawLayer(m_layerList[j]);
 
     glDisable(GL_SCISSOR_TEST);
 
@@ -464,65 +482,108 @@ bool LayerRendererChromium::isLayerVisible(LayerChromium* layer, const Transform
     return mappedRect.intersects(FloatRect(-1, -1, 2, 2));
 }
 
-void LayerRendererChromium::compositeLayersRecursive(LayerChromium* layer, const TransformationMatrix& matrix, float opacity, const IntRect& visibleRect)
+// Updates and caches the layer transforms and opacity values that will be used
+// when rendering them.
+void LayerRendererChromium::updateLayersRecursive(LayerChromium* layer, const TransformationMatrix& parentMatrix, float opacity, const IntRect& visibleRect)
 {
-    static GLfloat glMatrix[16];
-
     // Compute the new matrix transformation that will be applied to this layer and
-    // all its sublayers.
-    // The basic transformation chain for the layer is (using the Matrix x Vector order):
-    // M = M[p] * T[l] * T[a] * M[l] * T[-a]
+    // all its sublayers. It's important to remember that the layer's position
+    // is the position of the layer's anchor point. Also, the coordinate system used
+    // assumes that the origin is at the lower left even though the coordinates the browser
+    // gives us for the layers are for the upper left corner. The Y flip happens via
+    // the orthographic projection applied at render time.
+    // The transformation chain for the layer is (using the Matrix x Vector order):
+    // M = M[p] * Tr[l] * M[l] * Tr[c]
     // Where M[p] is the parent matrix passed down to the function
-    //       T[l] is the translation of the layer's center
-    //       T[a] and T[-a] is a translation/inverse translation by the anchor point
-    //       M[l] is the layer's matrix
+    //       Tr[l] is the translation matrix locating the layer's anchor point
+    //       Tr[c] is the translation offset between the anchor point and the center of the layer
+    //       M[l] is the layer's matrix (applied at the anchor point)
+    // This transform creates a coordinate system whose origin is the center of the layer.
     // Note that the final matrix used by the shader for the layer is P * M * S . This final product
-    // is effectively computed in drawTexturedQuad().
+    // is computed in drawTexturedQuad().
     // Where: P is the projection matrix
     //        M is the layer's matrix computed above
     //        S is the scale adjustment (to scale up to the layer size)
     IntSize bounds = layer->bounds();
     FloatPoint anchorPoint = layer->anchorPoint();
     FloatPoint position = layer->position();
-    float anchorX = (anchorPoint.x() - 0.5) * bounds.width();
-    float anchorY = (0.5 - anchorPoint.y()) * bounds.height();
+
+    // Offset between anchor point and the center of the quad.
+    float centerOffsetX = (0.5 - anchorPoint.x()) * bounds.width();
+    float centerOffsetY = (0.5 - anchorPoint.y()) * bounds.height();
 
     // M = M[p]
-    TransformationMatrix localMatrix = matrix;
-    // M = M[p] * T[l]
-    localMatrix.translate3d(position.x(), position.y(), 0);
-    // M = M[p] * T[l] * T[a]
-    localMatrix.translate3d(anchorX, anchorY, 0);
-    // M = M[p] * T[l] * T[a] * M[l]
+    TransformationMatrix localMatrix = parentMatrix;
+    // M = M[p] * Tr[l]
+    localMatrix.translate3d(position.x(), position.y(), layer->anchorPointZ());
+    // M = M[p] * Tr[l] * M[l]
     localMatrix.multLeft(layer->transform());
-    // M = M[p] * T[l] * T[a] * M[l] * T[-a]
-    localMatrix.translate3d(-anchorX, -anchorY, 0);
+    // M = M[p] * Tr[l] * M[l] * Tr[c]
+    localMatrix.translate3d(centerOffsetX, centerOffsetY, -layer->anchorPointZ());
+
+    // Check if the layer falls within the visible bounds of the page.
+    bool layerVisible = isLayerVisible(layer, localMatrix, visibleRect);
+
+    bool layerHasContent = layer->drawsContent() || layer->contents();
 
     bool skipLayer = false;
     if (bounds.width() > 2048 || bounds.height() > 2048) {
-        LOG(LayerRenderer, "Skipping layer with size %d %d", bounds.width(), bounds.height());
+        if (layerHasContent)
+            LOG(LayerRenderer, "Skipping layer with size %d %d", bounds.width(), bounds.height());
         skipLayer = true;
     }
 
     // Calculate the layer's opacity.
     opacity *= layer->opacity();
 
-    bool layerVisible = isLayerVisible(layer, localMatrix, visibleRect);
+    layer->setDrawTransform(localMatrix);
+    layer->setDrawOpacity(opacity);
+    if (layerVisible && !skipLayer)
+        m_layerList.append(layer);
+
+    // Flatten to 2D if the layer doesn't preserve 3D.
+    if (!layer->preserves3D()) {
+        localMatrix.setM13(0);
+        localMatrix.setM23(0);
+        localMatrix.setM31(0);
+        localMatrix.setM32(0);
+        localMatrix.setM33(1);
+        localMatrix.setM34(0);
+        localMatrix.setM43(0);
+    }
+
+    // Apply the sublayer transform at the center of the layer.
+    localMatrix.multLeft(layer->sublayerTransform());
+
+    // The origin of the sublayers is actually the bottom left corner of the layer
+    // (or top left when looking it it from the browser's pespective) instead of the center.
+    // The matrix passed down to the sublayers is therefore:
+    // M[s] = M * Tr[-center]
+    localMatrix.translate3d(-bounds.width() * 0.5, -bounds.height() * 0.5, 0);
+
+    const Vector<RefPtr<LayerChromium> >& sublayers = layer->getSublayers();
+    for (size_t i = 0; i < sublayers.size(); i++)
+        updateLayersRecursive(sublayers[i].get(), localMatrix, opacity, visibleRect);
+}
+
+void LayerRendererChromium::drawLayer(LayerChromium* layer)
+{
+    const TransformationMatrix& localMatrix = layer->drawTransform();
+    IntSize bounds = layer->bounds();
 
     // Note that there are two types of layers:
-    // 1. Layers that have their own GraphicsContext and can draw their contents on demand (layer->drawsContent() == true).
-    // 2. Layers that are just containers of images/video/etc that don't own a GraphicsContext (layer->contents() == true).
-    if ((layer->drawsContent() || layer->contents()) && !skipLayer && layerVisible) {
+    // 1. Layers that draw their own content via the GraphicsContext (layer->drawsContent() == true).
+    // 2. Layers that are pure containers of images/video/etc whose content is simply
+    //    copied into the backing texture (layer->contents() == true).
+    if (layer->drawsContent() || layer->contents()) {
         int textureId = getTextureId(layer);
         // If no texture has been created for the layer yet then create one now.
         if (textureId == -1)
             textureId = assignTextureForLayer(layer);
 
         // Redraw the contents of the layer if necessary.
-        if ((layer->drawsContent() || layer->contents()) && layer->contentsDirty()) {
-            // Update the contents of the layer before taking a snapshot. For layers that
-            // are simply containers, the following call just clears the dirty flag but doesn't
-            // actually do any draws/copies.
+        if (layer->contentsDirty()) {
+            // Update the backing texture contents for any dirty portion of the layer.
             layer->updateTextureContents(textureId);
         }
 
@@ -533,22 +594,11 @@ void LayerRendererChromium::compositeLayersRecursive(LayerChromium* layer, const
 
         glBindTexture(GL_TEXTURE_2D, textureId);
 
-        drawTexturedQuad(localMatrix, bounds.width(), bounds.height(), opacity, false);
+        drawTexturedQuad(localMatrix, bounds.width(), bounds.height(), layer->drawOpacity(), false);
     }
 
     // Draw the debug border if there is one.
     drawDebugBorder(layer, localMatrix);
-
-    // Apply the sublayer transform.
-    localMatrix.multLeft(layer->sublayerTransform());
-
-    // The origin of the sublayers is actually the left top corner of the layer
-    // instead of the center. The matrix passed down to the sublayers is therefore:
-    // M[s] = M * T[-center]
-    localMatrix.translate3d(-bounds.width() * 0.5, -bounds.height() * 0.5, 0);
-    const Vector<RefPtr<LayerChromium> >& sublayers = layer->getSublayers();
-    for (size_t i = 0; i < sublayers.size(); i++)
-        compositeLayersRecursive(sublayers[i].get(), localMatrix, opacity, visibleRect);
 }
 
 bool LayerRendererChromium::makeContextCurrent()
@@ -590,8 +640,7 @@ bool LayerRendererChromium::initializeSharedGLObjects()
         "  v_texCoord = a_texCoord;   \n"
         "}                            \n";
     char fragmentShaderString[] =
-        // FIXME: Re-introduce precision qualifier when we need GL ES shaders.
-        "//precision mediump float;                            \n"
+        "precision mediump float;                            \n"
         "varying vec2 v_texCoord;                            \n"
         "uniform sampler2D s_texture;                        \n"
         "uniform float alpha;                                \n"
@@ -605,8 +654,7 @@ bool LayerRendererChromium::initializeSharedGLObjects()
     // from fragmentShaderString in that it doesn't swizzle the colors and doesn't
     // take an alpha value.
     char scrollFragmentShaderString[] =
-        // FIXME: Re-introduce precision qualifier when we need GL ES shaders.
-        "//precision mediump float;                            \n"
+        "precision mediump float;                            \n"
         "varying vec2 v_texCoord;                            \n"
         "uniform sampler2D s_texture;                        \n"
         "void main()                                         \n"
@@ -624,8 +672,7 @@ bool LayerRendererChromium::initializeSharedGLObjects()
         "   gl_Position = matrix * a_position; \n"
         "}                            \n";
     char borderFragmentShaderString[] =
-        // FIXME: Re-introduce precision qualifier when we need GL ES shaders.
-        "//precision mediump float;                            \n"
+        "precision mediump float;                            \n"
         "uniform vec4 color;                                 \n"
         "void main()                                         \n"
         "{                                                   \n"

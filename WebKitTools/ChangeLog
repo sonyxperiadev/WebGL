@@ -1,3 +1,937 @@
+2010-06-14  Mahesh Kulkarni  <mahesh.kulkarni@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] navigator.geolocation support for Qt port
+        https://bugs.webkit.org/show_bug.cgi?id=39724
+
+        Implementation for geolocation cases to DumpRenderTreeQt
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::WebPage::allowGeolocationRequest):
+        * DumpRenderTree/qt/DumpRenderTreeQt.h:
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::setGeolocationPermission):
+        (LayoutTestController::setMockGeolocationError):
+        (LayoutTestController::setMockGeolocationPosition):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        (LayoutTestController::isGeolocationPermissionSet):
+        (LayoutTestController::geolocationPermission):
+
+2010-06-13  Nathan Lawrence  <nlawrence@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Outside of Xcode (make or WebKitTools/Scripts), there doesn't seem to
+        be a way of overwriting the Xcode system path.  Making
+        $WEBKITOUTPUTDIR take precedence over the system default would make
+        this possible.
+
+        * Scripts/webkitdirs.pm:
+
+2010-06-13  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Darin Adler.
+
+        AX: link won't return linked element if URL contains #
+        https://bugs.webkit.org/show_bug.cgi?id=40192
+
+        * DumpRenderTree/AccessibilityUIElement.cpp:
+        (linkedUIElementAtIndexCallback):
+        (AccessibilityUIElement::getJSClass):
+        * DumpRenderTree/AccessibilityUIElement.h:
+        * DumpRenderTree/gtk/AccessibilityUIElementGtk.cpp:
+        (AccessibilityUIElement::linkedUIElementAtIndex):
+        * DumpRenderTree/mac/AccessibilityUIElementMac.mm:
+        (AccessibilityUIElement::linkedUIElementAtIndex):
+        * DumpRenderTree/win/AccessibilityUIElementWin.cpp:
+        (AccessibilityUIElement::linkedUIElementAtIndex):
+
+2010-06-13  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        webkit-patch should add a bug URL to ChangeLogs if they don't have one yet
+        https://bugs.webkit.org/show_bug.cgi?id=39550
+
+        This can cause an extra request to bugs.webkit.org durig upload, but it
+        shouldn't be too bad.  Also, this won't work if you remove the
+        boilerplate created by prepare-ChangeLog.
+
+        * Scripts/webkitpy/common/checkout/changelog.py:
+        * Scripts/webkitpy/common/checkout/changelog_unittest.py:
+        * Scripts/webkitpy/common/net/bugzilla.py:
+        * Scripts/webkitpy/tool/steps/abstractstep.py:
+        * Scripts/webkitpy/tool/steps/preparechangelog.py:
+        * Scripts/webkitpy/tool/steps/preparechangelog_unittest.py: Added.
+
+2010-06-08  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        [Qt] Add support for callShouldCloseOnWebView() to DRT
+        https://bugs.webkit.org/show_bug.cgi?id=40330
+
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::callShouldCloseOnWebView):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        (LayoutTestController::setCallCloseOnWebViews):
+
+2010-06-12  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Daniel Bates.
+
+        do-webcore-rename should have a --verbose option
+        https://bugs.webkit.org/show_bug.cgi?id=40497
+
+        * Scripts/do-webcore-rename:
+         - Unified how we handle skipping files/directories
+           this will allow us to "black list" certain files and
+           directories when performing renames.
+         - Made do-webcore-rename log what it's skipping when passed --verbose.
+
+2010-06-12  Darin Adler  <darin@apple.com>
+
+        * Scripts/run-bindings-tests: Fixed a typo in a message.
+
+2010-06-12  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [Chromium] new-run-webkit-tests --use-drt should work with Chromium checkout
+        https://bugs.webkit.org/show_bug.cgi?id=40402
+
+        _build_path() of each Chromium port check existence of build path
+        of Chromium checkout first, then check existence of build path of
+        WebKit-only checkout.
+
+        * Scripts/webkitpy/layout_tests/port/chromium_linux.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_mac.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_win.py:
+
+2010-06-12  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Back-forward list dumping is incorrect
+
+        https://bugs.webkit.org/show_bug.cgi?id=36392
+
+        Support dumping child history items in DRT.
+
+        Unskip:
+
+        fast/loader/frame-src-change-added-to-history.html
+        fast/loader/frame-src-change-not-added-to-history.html
+        fast/loader/frame-location-change-not-added-to-history.html
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::dumpHistoryItem):
+
+2010-06-10  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        upload all patches that lack in-rietveld to rietveld
+        https://bugs.webkit.org/show_bug.cgi?id=40444
+
+        If it's a patch, then we'll try to upload it as long as it
+        doesn't have in-rietveld set. No longer set in-rietveld? since
+        it's not needed.
+
+        * Scripts/webkitpy/common/net/bugzilla.py:
+
+2010-06-10  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Fix rietveld upload when message length > 100 characters
+        https://bugs.webkit.org/show_bug.cgi?id=40457
+
+        * Scripts/webkitpy/common/net/rietveld.py:
+
+2010-06-11  Yael Aharon  <yael.aharon@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] There should be a way to enable popups in QtTestBrowser
+        https://bugs.webkit.org/show_bug.cgi?id=40427
+
+        * QtTestBrowser/main.cpp:
+        (LauncherWindow::toggleJavascriptCanOpenWindows):
+        (LauncherWindow::createChrome):
+
+2010-06-10  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Daniel Bates.
+
+        Make SheriffBot more chatty
+        https://bugs.webkit.org/show_bug.cgi?id=40463
+
+        People seem to like to talk to SheriffBot, so let's make him chat back.
+
+        * Scripts/webkitpy/thirdparty/__init__.py:
+        * Scripts/webkitpy/tool/bot/irc_command.py:
+        * Scripts/webkitpy/tool/bot/irc_command_unittest.py: Added.
+        * Scripts/webkitpy/tool/bot/sheriffircbot.py:
+        * Scripts/webkitpy/tool/bot/sheriffircbot_unittest.py:
+
+2010-06-10  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Fix the Windows buildbot when WebKitAuxiliaryLibs.zip cannot be found on our server.
+        
+        Robustify update-webkit-auxiliary-libs to be able to handle the case when WebKitAuxiliaryLibs.zip doesn't exist,
+        and allow the script to fall back to an existing file, only failing if there is no fallback file. Also switch to checking
+        WEXITSTATUS on $result instead of just comparing $result to 0.
+
+        * Scripts/update-webkit-auxiliary-libs:
+
+2010-06-10  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        don't use Exception.message as it's deprecated in python 2.6+
+        https://bugs.webkit.org/show_bug.cgi?id=40449
+
+        * Scripts/webkitpy/tool/commands/queues.py:
+
+2010-06-10  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        fix handle_script_error in rietveld upload queue and add testing for handle_script_error
+        https://bugs.webkit.org/show_bug.cgi?id=40436
+
+        * Scripts/webkitpy/common/system/outputcapture.py:
+        * Scripts/webkitpy/tool/commands/earlywarningsystem_unittest.py:
+        * Scripts/webkitpy/tool/commands/queues.py:
+        * Scripts/webkitpy/tool/commands/queues_unittest.py:
+        * Scripts/webkitpy/tool/commands/queuestest.py:
+        * Scripts/webkitpy/tool/mocktool.py:
+
+2010-06-10  Jarkko Sakkinen  <jarkko.j.sakkinen@gmail.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] *All* WebGL layout tests fail!
+        https://bugs.webkit.org/show_bug.cgi?id=40296
+
+        Added test for WebKitWebGLEnabled to
+        LayoutTestController::overridePreference().
+
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::overridePreference):
+
+2010-06-10  Diego Gonzalez  <diegohcg@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] DRT EventSender support to graphics mouse events activation
+        https://bugs.webkit.org/show_bug.cgi?id=40017
+
+        * DumpRenderTree/qt/EventSenderQt.cpp:
+        (EventSender::mouseDown):
+        (EventSender::mouseUp):
+        (EventSender::mouseMoveTo):
+        (EventSender::keyDown):
+        (EventSender::contextClick):
+        (EventSender::sendTouchEvent):
+        (EventSender::sendOrQueueEvent):
+        (EventSender::eventFilter):
+        (EventSender::createGraphicsSceneMouseEvent):
+        (EventSender::sendEvent):
+        * DumpRenderTree/qt/EventSenderQt.h:
+        (EventSender::isGraphicsBased):
+
+2010-06-09  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Ojan Vafai.
+
+        webkit-patch upload fails for security bugs because there's no rietveld flag
+        https://bugs.webkit.org/show_bug.cgi?id=40309
+
+        There's probably a more elegant way of seeing whether the form control
+        exists, but this seems to work.
+
+        * Scripts/webkitpy/common/net/bugzilla.py:
+
+2010-06-09  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        make rietveld upload faster and avoid posting to bug on errors
+        https://bugs.webkit.org/show_bug.cgi?id=40389
+
+        Only grab the first item of the upload queue instead of trying
+        to compute the whole list upfront (which is O(n) bugzilla lookups!).
+
+        Also, don't post comments to the bug when uploading fails.
+
+        * Scripts/webkitpy/common/net/bugzilla.py:
+        * Scripts/webkitpy/tool/commands/queues.py:
+        * Scripts/webkitpy/tool/commands/queues_unittest.py:
+        * Scripts/webkitpy/tool/commands/stepsequence.py:
+        * Scripts/webkitpy/tool/mocktool.py:
+
+2010-06-09  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Rietveld upload queue fails when setting in-rietveld flag
+        https://bugs.webkit.org/show_bug.cgi?id=40371
+
+        Make the comment arguments to set_flag_on_attachment optional
+        and add it to the MockBugzilla.
+
+        * Scripts/webkitpy/common/net/bugzilla.py:
+        * Scripts/webkitpy/tool/bot/queueengine.py:
+        * Scripts/webkitpy/tool/commands/download_unittest.py:
+        * Scripts/webkitpy/tool/commands/queues.py:
+        * Scripts/webkitpy/tool/commands/queues_unittest.py:
+        * Scripts/webkitpy/tool/mocktool.py:
+
+2010-06-09  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Rename FloatArray to Float32Array
+        https://bugs.webkit.org/show_bug.cgi?id=40323
+
+        Used do-webcore-rename to perform renaming. Manually undid
+        incorrect changes to WebCore/bridge/jni/jsc/JNIBridgeJSC.cpp,
+        WebCore/manual-tests/resources/ArrayParameterTestApplet.java and
+        ArrayParameterTestApplet.class. Updated LayoutTests. Built and ran
+        all layout tests on Safari; built Chromium and ran selected WebGL
+        tests.
+
+        * Scripts/do-webcore-rename:
+
+2010-06-08  Tony Chang  <tony@chromium.org>
+
+        Reviewed by David Levin.
+
+        [chromium] compile linux chromium in WebKit/out instead of WebKit/WebKit/chromium/out
+        https://bugs.webkit.org/show_bug.cgi?id=40285
+
+        * Scripts/webkitdirs.pm:
+        * Scripts/webkitpy/layout_tests/port/chromium_linux.py:
+
+2010-06-03  Roland Steiner  <rolandsteiner@chromium.org>
+
+        Reviewed by Tamura Kent.
+
+        Bug 40052 - [DRT/Chromium] Upstream test_shell_webthemeengine as WebThemeEngineDRT
+        https://bugs.webkit.org/show_bug.cgi?id=40052
+        
+        Add WebThemeEngineDRT and WebThemeControlDRT ported from Chromium rev. 48907
+
+        * DumpRenderTree/DumpRenderTree.gypi:
+        * DumpRenderTree/chromium/TestShellWin.cpp:
+        (platformInit):
+        * DumpRenderTree/chromium/WebThemeControlDRT.cpp: Added.
+        (WebKit::):
+        (WebKit::WebThemeControlDRT::WebThemeControlDRT):
+        (WebKit::WebThemeControlDRT::~WebThemeControlDRT):
+        (WebKit::WebThemeControlDRT::box):
+        (WebKit::WebThemeControlDRT::line):
+        (WebKit::WebThemeControlDRT::triangle):
+        (WebKit::WebThemeControlDRT::roundRect):
+        (WebKit::WebThemeControlDRT::oval):
+        (WebKit::WebThemeControlDRT::circle):
+        (WebKit::WebThemeControlDRT::nestedBoxes):
+        (WebKit::WebThemeControlDRT::markState):
+        (WebKit::WebThemeControlDRT::draw):
+        (WebKit::WebThemeControlDRT::drawTextField):
+        (WebKit::WebThemeControlDRT::drawProgressBar):
+        * DumpRenderTree/chromium/WebThemeControlDRT.h: Added.
+        (WebKit::WebThemeControlDRT::):
+        * DumpRenderTree/chromium/WebThemeEngineDRT.cpp: Added.
+        (WebKit::):
+        (WebKit::WebThemeEngineDRT::paintButton):
+        (WebKit::WebThemeEngineDRT::paintMenuList):
+        (WebKit::WebThemeEngineDRT::paintScrollbarArrow):
+        (WebKit::WebThemeEngineDRT::paintScrollbarThumb):
+        (WebKit::WebThemeEngineDRT::paintScrollbarTrack):
+        (WebKit::WebThemeEngineDRT::paintTextField):
+        (WebKit::WebThemeEngineDRT::paintTrackbar):
+        (WebKit::WebThemeEngineDRT::paintProgressBar):
+        * DumpRenderTree/chromium/WebThemeEngineDRT.h: Added.
+        (WebKit::WebThemeEngineDRT::WebThemeEngineDRT):
+
+2010-06-08  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r60878.
+        http://trac.webkit.org/changeset/60878
+        https://bugs.webkit.org/show_bug.cgi?id=40349
+
+        broke linux build (Requested by tony^work on #webkit).
+
+        * Scripts/webkitdirs.pm:
+        * Scripts/webkitpy/layout_tests/port/chromium_linux.py:
+
+2010-06-08  Tony Chang  <tony@chromium.org>
+
+        Reviewed by David Levin.
+
+        [chromium] compile linux chromium in WebKit/out instead of WebKit/WebKit/chromium/out
+        https://bugs.webkit.org/show_bug.cgi?id=40285
+
+        * Scripts/webkitdirs.pm:
+        * Scripts/webkitpy/layout_tests/port/chromium_linux.py:
+
+2010-06-08  Kenneth Russell  <kbr@google.com>
+
+        Unreviewed, build fix.
+
+        Fix build breakage from 38145
+        https://bugs.webkit.org/show_bug.cgi?id=40346
+
+        The fix for bug 38145 broke the Chromium Win build because
+        Microsoft's cmath doesn't define log2. Suggested fix by zmo is to
+        change log2(x) to log(x) / log(2). Built and ran WebGL layout
+        tests in Safari on Mac OS X. Changed download mirrors for
+        python-irclib to working ones.
+
+        * Scripts/webkitpy/thirdparty/__init__.py:
+
+2010-06-08  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        old-run-webkit-tests should use ensure-valid-python to check if it can run the websockets tests
+        https://bugs.webkit.org/show_bug.cgi?id=39058
+
+        * Scripts/old-run-webkit-tests:
+         use sourceDir() to find ensure-valid-python in checkPythonVersion()
+
+2010-06-08  Andras Becsi  <abecsi@webkit.org>
+
+        Unreviewed buildfix after r60479.
+
+        [GTK] Move the declaration of getRootCoords higher up to fix the build on GTK
+        versions other than 2.17.3.
+
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (getRootCoords):
+
+2010-06-07  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Oliver Hunt.
+
+        [GTK] Mouse movement should not trigger a replay of saved events in the event sender
+        https://bugs.webkit.org/show_bug.cgi?id=40267
+
+        When a mouse button is down, automatically queue mouse motion events and
+        do not play them back until the mouse button is released. This matches the
+        behavior of other ports' EventSenders.
+
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (mouseMoveToCallback): Don't automatically replaySavedEvents for mouse motion.
+        (sendOrQueueEvent): Add a shouldReplaySavedEvents argument defaulting to true.
+
+2010-06-07  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Sam Weinig.
+
+        Add CPP bindings generator
+        https://bugs.webkit.org/show_bug.cgi?id=38279
+
+        Integrate CPP bindings in run-bindings-tests.
+
+        * Scripts/run-bindings-tests:
+
+2010-06-04  Tony Gentilcore  <tonyg@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        Rename 'svn_merge_base' -> 'remote_merge_base'. This was left out of r60633.
+        https://bugs.webkit.org/show_bug.cgi?id=40183
+
+        * Scripts/webkitpy/tool/steps/preparechangelog.py:
+
+2010-06-04  Martin Robinson  <mrobinson@igalia.com>
+
+        Unreviewed.
+
+        Add my new email and IRC nick to committers.py.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-06-04  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Unreviewed.
+
+        Revert changes in json_results_generator.py's _get_svn_revision.
+
+        * Scripts/webkitpy/layout_tests/layout_package/json_results_generator.py:
+
+2010-06-04  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] GtkLauncher should support relative file paths
+        https://bugs.webkit.org/show_bug.cgi?id=39944
+
+        Allow GtkLauncher to handle relative file paths passed via command-line arguments.
+
+        * GtkLauncher/main.c:
+        (filename_to_url): Added.
+        (main): Try to resolve arguments as relative file URLs first.
+
+2010-06-04  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] EventSender should call gtk_main_do_event instead of invoking signal handlers directly
+        https://bugs.webkit.org/show_bug.cgi?id=40182
+
+        Instead of invoking signal handlers directly via g_signal_emit_by_name, call
+        gtk_main_do_event. This will allow us to call gtk_get_current_event() in WebKit
+        without breaking DRT.
+
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (dispatchEvent): Use gtk_main_do_event instead of invoking signal handlers directly.
+        (keyDownCallback): Use dispatchEvent here which now uses gtk_main_do_event.
+
+2010-06-04  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by David Hyatt.
+
+        Make the editing/spelling/context-menu-suggestions.html test more robust
+        https://bugs.webkit.org/show_bug.cgi?id=40178
+
+        Change the contextClick method to return an array of strings describing the context menu items.
+
+        * DumpRenderTree/mac/EventSendingController.mm:
+        (+[EventSendingController isSelectorExcludedFromWebScript:]):
+        (+[EventSendingController webScriptNameForSelector:]):
+        (-[EventSendingController contextClick]):
+
+2010-06-03  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Clean up chromium-specific code from json_results_generator.py.
+        https://bugs.webkit.org/show_bug.cgi?id=39665
+
+        * Scripts/webkitpy/layout_tests/layout_package/json_layout_results_generator.py:
+        * Scripts/webkitpy/layout_tests/layout_package/json_results_generator.py:
+        * Scripts/webkitpy/layout_tests/port/base.py:
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+
+2010-06-04  Tony Gentilcore  <tonyg@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Utilize new takeFirst() method where appropriate.
+        https://bugs.webkit.org/show_bug.cgi?id=40089
+
+        * DumpRenderTree/chromium/EventSender.cpp:
+        (EventSender::replaySavedEvents):
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::WorkQueue::processWork):
+        (LayoutTestController::WorkQueue::reset):
+
+2010-06-04  Yael Aharon  <yael.aharon@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] QtTestLauncher should allow notifications by default.
+        https://bugs.webkit.org/show_bug.cgi?id=40078
+
+        * QtTestBrowser/main.cpp:
+        (NotificationsPermissionController::NotificationsPermissionController):
+        (NotificationsPermissionController::checkPermission):
+        (NotificationsPermissionController::requestPermission):
+        (LauncherWindow::LauncherWindow):
+
+2010-06-04  Tony Gentilcore  <tonyg@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Detect whether the user's environment can open a browser.
+        https://bugs.webkit.org/show_bug.cgi?id=40136
+
+        Some environments like cygwin silently fail webbrowser.open() causing
+        webkit-patch upload not to display any diff. This detects environments
+        where webbrowser.open() would fail by testing if webbrowser.get()
+        raises an exception.
+
+        * Scripts/webkitpy/common/system/user.py:
+        * Scripts/webkitpy/tool/mocktool.py:
+        * Scripts/webkitpy/tool/steps/confirmdiff.py:
+
+2010-06-03  Tony Gentilcore  <tonyg@chromium.org>
+
+        Reviewed by David Levin.
+
+        Add dependencies required to link with VS Express 2005.
+        https://bugs.webkit.org/show_bug.cgi?id=40038
+
+        Visual Studio implicitly links against these libs.
+        VC++ Express does not.
+
+        * WebKitAPITest/WebKitAPITestCommon.vsprops:
+        * WinLauncher/WinLauncher.vcproj:
+
+2010-06-03  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Reviewed by David Levin.
+
+        bad codecs.open in webkitpy/layout_tests/ports/websocket_server.py
+        https://bugs.webkit.org/show_bug.cgi?id=40105
+
+        * Scripts/webkitpy/layout_tests/port/websocket_server.py:
+        - kill pywebsocket process when url is not alive and the process is not
+          terminated, not to leave pywebsocket server running.
+        - fix codecs.open parameters.
+
+2010-06-03  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Reviewed by Alexey Proskuryakov.
+
+        old-run-webkit-tests should use ensure-valid-python to check if it can run the websockets tests
+        https://bugs.webkit.org/show_bug.cgi?id=39058
+
+        * Scripts/ensure-valid-python:
+          - Perl 5.8 doesn't have File::Temp->newdir().  Use File::Temp->tempdir() instead.
+          - Add --check-only and --help option.
+          - --check-only option only checks python version and don't try to install Python 2.5.
+          - Set executable bit.
+        * Scripts/old-run-webkit-tests:
+          - Check if it can run the websocket tests by calling ensure-valid-python --check-only.
+
+2010-05-14  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        add a RietveldUploadQueue to upload in-rietveld? patches to rietveld
+        https://bugs.webkit.org/show_bug.cgi?id=38918
+
+        Patches with in-rietveld? get uploaded to rietveld and get marked
+        in-rietveld+. If the upload fails, they are marked in-rietveld-
+        and an error is logged to the bug, like the commit-queue.
+
+        Also, get rid of --fancy-review and the ability to upload to rietveld
+        using webkit-patch upload/post.
+
+        * Scripts/webkitpy/common/net/bugzilla.py:
+        * Scripts/webkitpy/common/net/bugzilla_unittest.py:
+        * Scripts/webkitpy/tool/commands/download.py:
+        * Scripts/webkitpy/tool/commands/download_unittest.py:
+        * Scripts/webkitpy/tool/commands/queues.py:
+        * Scripts/webkitpy/tool/commands/queues_unittest.py:
+        * Scripts/webkitpy/tool/commands/upload.py:
+        * Scripts/webkitpy/tool/commands/upload_unittest.py:
+        * Scripts/webkitpy/tool/mocktool.py:
+        * Scripts/webkitpy/tool/steps/options.py:
+        * Scripts/webkitpy/tool/steps/postcodereview.py:
+
+2010-05-24  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Chris Jerdonek.
+
+        many webkit-patch commands fail in a non-svn tracking git checkout
+        https://bugs.webkit.org/show_bug.cgi?id=38156
+
+        If the svn-tracking-branch (trunk) doesn't exist, fallback to the git remote-tracking-branch (master).
+        If neither exists, then error out. This makes webkit-patch work
+        for anyone that follows the intructions at http://trac.webkit.org/wiki/UsingGitWithWebKit
+        to checkout webkit. The fallback to master is for people who don't
+        do the steps on that page for tracking svn.
+
+        * Scripts/webkitpy/common/checkout/scm.py:
+        * Scripts/webkitpy/common/checkout/scm_unittest.py:
+
+2010-06-03  Mike Fenton  <mifenton@rim.com>
+
+        Unreviewed.
+
+        Reverse e-mail for myself in committers.py to correspond with bugzilla account.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-06-03  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: a number of fixes that make InspectorController
+        happy with null redirects.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40109
+
+        * DumpRenderTree/gtk/DumpRenderTree.cpp:
+        (runTest):
+        * DumpRenderTree/mac/DumpRenderTree.mm:
+        (runTest):
+        * DumpRenderTree/win/DumpRenderTree.cpp:
+        (runTest):
+
+2010-06-02  Tasuku Suzuki  <tasuku.suzuki@nokia.com>
+
+        Reviewed by Shinichiro Hamaji.
+
+        [Qt] Fix compilation with QT_NO_PROPERTIES
+        https://bugs.webkit.org/show_bug.cgi?id=38324
+
+        * QtTestBrowser/main.cpp:
+        (LauncherWindow::init):
+
+2010-06-02  Diego Gonzalez  <diegohcg@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Make possible run DRT with QGraphicsWebView
+        https://bugs.webkit.org/show_bug.cgi?id=40016
+
+        Make possible to use a environment variable for switching backend.
+        Usage: QT_DRT_WEBVIEW_MODE=graphics WebKitTools/Scripts/run-webkit-tests --qt
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::WebViewGraphicsBased::WebViewGraphicsBased):
+        (WebCore::DumpRenderTree::DumpRenderTree):
+        * DumpRenderTree/qt/DumpRenderTreeQt.h:
+        (WebCore::DumpRenderTree::setGraphicsBased):
+        (WebCore::DumpRenderTree::isGraphicsBased):
+        (WebCore::WebViewGraphicsBased::graphicsView):
+        (WebCore::WebViewGraphicsBased::setPage):
+        * Scripts/old-run-webkit-tests:
+
+2010-06-02  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Slave lost shouldn't be recognized as build failed.
+        https://bugs.webkit.org/show_bug.cgi?id=39282
+
+        * Scripts/webkitpy/common/net/buildbot.py: Treat slave lost as green.
+        * Scripts/webkitpy/common/net/buildbot_unittest.py: Add unit test for slave lost.
+
+2010-06-01  Yael Aharon  <yael.aharon@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Fix the lifecycle of notification objects
+        https://bugs.webkit.org/show_bug.cgi?id=40003
+
+        Remove the dependency of notifications on QWebPage.
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::requestPermissionCallback):
+        (WebCore::WebPage::WebPage):
+        (WebCore::DumpRenderTree::requestPermission):
+        * DumpRenderTree/qt/DumpRenderTreeQt.h:
+
+2010-06-02  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r60559.
+        http://trac.webkit.org/changeset/60559
+        https://bugs.webkit.org/show_bug.cgi?id=40055
+
+        It broke python unit test (Requested by Ossy on #webkit).
+
+        * Scripts/webkitpy/common/net/buildbot.py:
+
+2010-06-02  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Slave lost shouldn't be recognized as build failed.
+        https://bugs.webkit.org/show_bug.cgi?id=39282
+
+        * Scripts/webkitpy/common/net/buildbot.py:
+
+2010-06-02  Tony Gentilcore  <tonyg@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Fix crash caused when assigned_to is disabled
+        https://bugs.webkit.org/show_bug.cgi?id=40039
+
+        * Scripts/webkitpy/common/net/bugzilla.py:
+
+2010-06-02  Sterling Swigart  <sswigart@google.com>
+
+        Reviewed by David Levin.
+
+        Image Resizer Patch 0: Added compilation argument to conditionally compile pending patches.
+        https://bugs.webkit.org/show_bug.cgi?id=39906
+
+        * Scripts/build-webkit:
+
+2010-06-01  Raine Makelainen  <raine.makelainen@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Fixed tests to use QWebSettings::JavascriptCanAccessClipboard instead of QWebSettings::JavaScriptCanAccessClipboard.
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::WebPage::WebPage):
+        (WebCore::WebPage::resetSettings):
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::setJavaScriptCanAccessClipboard):
+
+2010-06-01  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        A nicer Tiger build fix.
+
+        * DumpRenderTree/DumpRenderTree.xcodeproj/project.pbxproj:
+        * DumpRenderTree/mac/Configurations/Base.xcconfig:
+        Enable GCC_OBJC_CALL_CXX_CDTORS via .xcconfig.
+
+2010-06-01  Alexey Proskuryakov  <ap@apple.com>
+
+        A real Tiger build fix.
+
+        * DumpRenderTree/DumpRenderTree.xcodeproj/project.pbxproj: Enable GCC_OBJC_CALL_CXX_CDTORS
+        for all configurations, not just debug.
+
+2010-06-01  Alexey Proskuryakov  <ap@apple.com>
+
+        Tiger build fix.
+
+        * DumpRenderTree/DumpRenderTree.xcodeproj/project.pbxproj: Enable GCC_OBJC_CALL_CXX_CDTORS.
+
+2010-06-01  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Get more mouse tests passing
+        https://bugs.webkit.org/show_bug.cgi?id=39040
+
+        Reproduce the logic from the Windows EventSender for mapping
+        button numbers to GDK button numbers. Move this logic to the
+        prepareMouseButtonEvent helper.
+
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (prepareMouseButtonEvent): Reproduce Windows logic.
+        (contextClickCallback): Move mapping logic to prepareMouseButtonEvent.
+        (mouseDownCallback): Ditto.
+        (mouseUpCallback): Ditto.
+
+2010-06-01  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=39434
+        REGRESSION (r59811): Geolocation callbacks cannot be created
+
+        * DumpRenderTree/DumpRenderTree.xcodeproj/project.pbxproj: Added MockGeolocationProvider.
+
+        * DumpRenderTree/mac/DumpRenderTree.mm:
+        (createWebViewAndOffscreenWindow): Tell the view to use MockGeolocationProvider. 
+        (resetWebViewToConsistentStateBeforeTesting): Make sure that mock notifications don't leak
+        into subsequent tests.
+
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::setMockGeolocationPosition): Changed to use MockGeolocationProvider.
+        (LayoutTestController::setMockGeolocationError): Ditto.
+
+        * DumpRenderTree/mac/MockGeolocationProvider.h: Added.
+        * DumpRenderTree/mac/MockGeolocationProvider.mm: Added.
+        (+[MockGeolocationProvider shared]):
+        (-[MockGeolocationProvider dealloc]):
+        (-[MockGeolocationProvider setPosition:]):
+        (-[MockGeolocationProvider setError:]):
+        (-[MockGeolocationProvider registerWebView:]):
+        (-[MockGeolocationProvider unregisterWebView:]):
+        (-[MockGeolocationProvider lastPosition]):
+        (-[MockGeolocationProvider stopTimer]):
+        (-[MockGeolocationProvider timerFired]):
+
+        * DumpRenderTree/mac/UIDelegate.mm:
+        (-[UIDelegate webView:decidePolicyForGeolocationRequestFromOrigin:frame:listener:]):
+        This delegate method must send a response. I'm not sure what the two-stage check is supposed
+        to achieve, it seems unnecessary.
+
+2010-05-12  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Double clicks cause three button press events
+        https://bugs.webkit.org/show_bug.cgi?id=38853
+
+        WebKit now filters the extra GDK_BUTTON_PRESS before GDK_2BUTTON_PRESS
+        and GDK_3BUTTON_PRESS via gdk_event_peek(). Since EventSender bypasses
+        the GDK event queue entirely, we simply do not send the extra event.
+
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (mouseDownCallback): Do not send extra event. Send GDK_3BUTTON_PRESS appropriately.
+        (dispatchEvent): Properly handle GDK_3BUTTON_PRESS.
+
+2010-06-01  Martin Robinson  <mrobinson@igalia.com>
+
+        Not reviewed. Build fix.
+
+        Fix GTK+ build caused by a bad merge.
+
+        * DumpRenderTree/gtk/EventSender.cpp: 
+        (prepareMouseButtonEvent): Use the GdkEvent union as a pointer here.
+
+2010-06-01  Martin Robinson  <mrobinson@webkit.org>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Double clicks cause three button press events
+        https://bugs.webkit.org/show_bug.cgi?id=38853
+
+        Small EventSender cleanups. Consolidate some common code. Style fixes.
+
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (prepareMouseButtonEvent): Added.
+        (contextClickCallback): Use prepareMouseButtonEvent.
+        (mouseDownCallback): Use prepareMouseButtonEvent.
+        (mouseUpCallback): Use prepareMouseButtonEvent.
+        (mouseMoveToCallback): Small style fix.
+
+2010-06-01  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Double clicks cause three button press events
+        https://bugs.webkit.org/show_bug.cgi?id=38853
+
+        Add rudimentary leapForward support to the GTK+ DRT. leapForward allows a test
+        to pause for a specified amount of time. It is used in the processing of drag-
+        -and-drop data as well as to separate distinct mouse double-clicks in some tests.
+        This patch enables tests that rely on the latter behavior to pass.
+
+        * DumpRenderTree/gtk/DumpRenderTree.cpp:
+        (webViewWindowObjectCleared): Only initialize the EventSender when loading the top frame.
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (leapForwardCallback): Add support for adjusting the time offset on leapForward().
+        (contextClickCallback): Use sendOrQueueEvent.
+        (updateClickCount): Take the time offset into account when counting clicks.
+        (mouseDownCallback): Use sendOrQueueEvent.
+        (getStateFlags): Change down/currentEventButton into buttonCurrentlyDown/lastClickButton.
+        (mouseUpCallback): Use sendOrQueueEvent.
+        (mouseMoveToCallback): Ditto.
+        (mouseWheelToCallback): Ditto.
+        (sendOrQueueEvent): Added.
+        (dispatchEvent): Added.
+        (replaySavedEvents): Pause when an event has a delay and defer to dispatchEvent.
+        (makeEventSender): Only initialize the EventSender when loading the top frame.
+        * DumpRenderTree/gtk/EventSender.h: Ditto.
+
+2010-06-01  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] css1/color_and_background/background_attachment.html fails on the 32-bit debug bot
+        https://bugs.webkit.org/show_bug.cgi?id=39101
+
+        Work around timing issues for render tree dumps by pumping the
+        main loop before doing the dump. Resize events are asynchronous
+        in GTK+, so sometimes resize requests are still pending when DRT
+        dumps the tree.
+
+        * DumpRenderTree/gtk/DumpRenderTree.cpp:
+        (dump): Pump the main loop before dumping the render tree.
+
 2010-05-31  Kent Tamura  <tkent@chromium.org>
 
         Reviewed by Dimitri Glazkov.

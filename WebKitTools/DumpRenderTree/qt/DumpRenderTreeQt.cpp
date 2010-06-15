@@ -135,9 +135,9 @@ void checkPermissionCallback(QObject* receiver, const QUrl& url, NotificationPer
     qobject_cast<DumpRenderTree*>(receiver)->checkPermission(url, permission);
 }
 
-void requestPermissionCallback(QObject* receiver, QWebPage* page, const QString& origin)
+void requestPermissionCallback(QObject* receiver, const QString& origin)
 {
-    qobject_cast<DumpRenderTree*>(receiver)->requestPermission(page, origin);
+    qobject_cast<DumpRenderTree*>(receiver)->requestPermission(origin);
 }
 
 WebPage::WebPage(QObject* parent, DumpRenderTree* drt)
@@ -153,14 +153,13 @@ WebPage::WebPage(QObject* parent, DumpRenderTree* drt)
     globalSettings->setFontSize(QWebSettings::DefaultFixedFontSize, 13);
 
     globalSettings->setAttribute(QWebSettings::JavascriptCanOpenWindows, true);
-    globalSettings->setAttribute(QWebSettings::DOMPasteAllowed, true);
+    globalSettings->setAttribute(QWebSettings::JavascriptCanAccessClipboard, true);
     globalSettings->setAttribute(QWebSettings::LinksIncludedInFocusChain, false);
     globalSettings->setAttribute(QWebSettings::PluginsEnabled, true);
     globalSettings->setAttribute(QWebSettings::LocalContentCanAccessRemoteUrls, true);
     globalSettings->setAttribute(QWebSettings::JavascriptEnabled, true);
     globalSettings->setAttribute(QWebSettings::PrivateBrowsingEnabled, false);
     globalSettings->setAttribute(QWebSettings::SpatialNavigationEnabled, false);
-    globalSettings->setAttribute(QWebSettings::JavaScriptCanAccessClipboard, true);
 
     connect(this, SIGNAL(geometryChangeRequested(const QRect &)),
             this, SLOT(setViewGeometry(const QRect & )));
@@ -168,7 +167,7 @@ WebPage::WebPage(QObject* parent, DumpRenderTree* drt)
     setNetworkAccessManager(m_drt->networkAccessManager());
     setPluginFactory(new TestPlugin(this));
 
-    DumpRenderTreeSupportQt::setNotificationsReceiver(this, m_drt);
+    DumpRenderTreeSupportQt::setNotificationsReceiver(m_drt);
     DumpRenderTreeSupportQt::setCheckPermissionFunction(checkPermissionCallback);
     DumpRenderTreeSupportQt::setRequestPermissionFunction(requestPermissionCallback);
 
@@ -201,7 +200,7 @@ void WebPage::resetSettings()
     settings()->resetAttribute(QWebSettings::OfflineWebApplicationCacheEnabled);
     settings()->resetAttribute(QWebSettings::LocalContentCanAccessRemoteUrls);
     settings()->resetAttribute(QWebSettings::PluginsEnabled);
-    settings()->resetAttribute(QWebSettings::JavaScriptCanAccessClipboard);
+    settings()->resetAttribute(QWebSettings::JavascriptCanAccessClipboard);
     settings()->resetAttribute(QWebSettings::AutoLoadImages);
 
     m_drt->layoutTestController()->setCaretBrowsingEnabled(false);
@@ -349,24 +348,51 @@ QObject* WebPage::createPlugin(const QString& classId, const QUrl& url, const QS
 #endif
 }
 
+bool WebPage::allowGeolocationRequest(QWebFrame *)
+{
+    return m_drt->layoutTestController()->geolocationPermission();
+}
+
+WebViewGraphicsBased::WebViewGraphicsBased(QWidget* parent)
+    : m_item(new QGraphicsWebView)
+{
+    setScene(new QGraphicsScene(this));
+    scene()->addItem(m_item);
+}
+
 DumpRenderTree::DumpRenderTree()
     : m_dumpPixels(false)
     , m_stdin(0)
     , m_enableTextOutput(false)
     , m_singleFileMode(false)
+    , m_graphicsBased(false)
     , m_persistentStoragePath(QString(getenv("DUMPRENDERTREE_TEMP")))
 {
+
+    QByteArray viewMode = getenv("QT_DRT_WEBVIEW_MODE");
+    if (viewMode == "graphics")
+        setGraphicsBased(true);
+
     DumpRenderTreeSupportQt::overwritePluginDirectories();
 
     QWebSettings::enablePersistentStorage(m_persistentStoragePath);
 
     m_networkAccessManager = new NetworkAccessManager(this);
     // create our primary testing page/view.
-    m_mainView = new QWebView(0);
-    m_mainView->resize(QSize(LayoutTestController::maxViewWidth, LayoutTestController::maxViewHeight));
-    m_page = new WebPage(m_mainView, this);
-    m_mainView->setPage(m_page);
+    if (isGraphicsBased()) {
+        WebViewGraphicsBased* view = new WebViewGraphicsBased(0);
+        m_page = new WebPage(view, this);
+        view->setPage(m_page);
+        m_mainView = view;
+    } else {
+        QWebView* view = new QWebView(0);
+        m_page = new WebPage(view, this);
+        view->setPage(m_page);
+        m_mainView = view;
+    }
+
     m_mainView->setContextMenuPolicy(Qt::NoContextMenu);
+    m_mainView->resize(QSize(LayoutTestController::maxViewWidth, LayoutTestController::maxViewHeight));
 
     // clean up cache by resetting quota.
     qint64 quota = webPage()->settings()->offlineWebApplicationCacheQuota();
@@ -687,9 +713,17 @@ static QString dumpHistoryItem(const QWebHistoryItem& item, int indent, bool cur
         result.append(url);
     }
 
-    // FIXME: Wrong, need (private?) API for determining this.
-    result.append(QLatin1String("  **nav target**"));
+    QString target = DumpRenderTreeSupportQt::historyItemTarget(item);
+    if (!target.isEmpty())
+        result.append(QString(QLatin1String(" (in frame \"%1\")")).arg(target));
+
+    if (DumpRenderTreeSupportQt::isTargetItem(item))
+        result.append(QLatin1String("  **nav target**"));
     result.append(QLatin1String("\n"));
+
+    QList<QWebHistoryItem> children = DumpRenderTreeSupportQt::getChildHistoryItems(item);
+    for (int i = 0; i < children.size(); ++i)
+        result += dumpHistoryItem(children.at(i), 12, false);
 
     return result;
 }
@@ -920,9 +954,9 @@ void DumpRenderTree::checkPermission(const QUrl& url, NotificationPermission& pe
     permission = m_controller->checkDesktopNotificationPermission(url.scheme() + "://" + url.host()) ? NotificationAllowed : NotificationDenied;
 }
 
-void DumpRenderTree::requestPermission(QWebPage* page, const QString& origin)
+void DumpRenderTree::requestPermission(const QString& origin)
 {
-    DumpRenderTreeSupportQt::allowNotificationForOrigin(page, origin);
+    DumpRenderTreeSupportQt::allowNotificationForOrigin(origin);
 }
 
 #if defined(Q_WS_X11)

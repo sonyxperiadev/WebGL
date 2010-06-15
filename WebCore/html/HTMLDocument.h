@@ -96,7 +96,7 @@ private:
     virtual PassRefPtr<Element> createElement(const AtomicString& tagName, ExceptionCode&);
 
     virtual bool isFrameSet() const;
-    virtual Tokenizer* createTokenizer();
+    virtual DocumentParser* createParser();
     virtual void determineParseMode();
 
     void addItemToMap(HashCountedSet<AtomicStringImpl*>&, const AtomicString&);

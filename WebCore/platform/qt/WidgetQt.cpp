@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Dirk Mueller <mueller@kde.org>
- * Copyright (C) 2006 George Stiakos <staikos@kde.org>
+ * Copyright (C) 2006 George Staikos <staikos@kde.org>
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
  * Copyright (C) 2006 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2008 Holger Hans Peter Freyther
@@ -37,19 +37,18 @@
 #include "GraphicsContext.h"
 #include "HostWindow.h"
 #include "IntRect.h"
-#include "ScrollView.h"
 #include "NotImplemented.h"
 #include "QWebPageClient.h"
+#include "ScrollView.h"
 
 #include "qwebframe.h"
 #include "qwebframe_p.h"
 #include "qwebpage.h"
 
 #include <QCoreApplication>
-#include <QPainter>
-#include <QPaintEngine>
-
 #include <QDebug>
+#include <QPaintEngine>
+#include <QPainter>
 
 namespace WebCore {
 

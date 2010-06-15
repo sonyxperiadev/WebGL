@@ -56,6 +56,10 @@
 - (int)customAttr;
 - (void)setCustomAttr:(int)newCustomAttr;
 - (NSString *)scriptStringAttr;
+- (int)descriptionName;
+- (int)idName;
+- (void)setIdName:(int)newIdName;
+- (NSString *)hashName;
 - (void)voidMethod;
 - (void)voidMethodWithArgs:(int)intArg strArg:(NSString *)strArg objArg:(DOMTestObj *)objArg;
 - (int)intMethod;
@@ -80,6 +84,7 @@
 - (DOMTestObj *)withScriptStateObj;
 - (void)withScriptStateVoidException;
 - (DOMTestObj *)withScriptStateObjException;
+- (void)withScriptExecutionContext;
 - (void)methodWithOptionalArg:(int)opt;
 - (void)methodWithNonOptionalArgAndOptionalArg:(int)nonOpt opt:(int)opt;
 - (void)methodWithNonOptionalArgAndTwoOptionalArgs:(int)nonOpt opt1:(int)opt1 opt2:(int)opt2;

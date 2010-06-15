@@ -494,6 +494,7 @@ public:
 
     virtual void populateSetting(const String&, String*) { }
     virtual void storeSetting(const String&, const String&) { }
+    virtual bool sendMessageToFrontend(const String&) { return false; }
 };
 
 }

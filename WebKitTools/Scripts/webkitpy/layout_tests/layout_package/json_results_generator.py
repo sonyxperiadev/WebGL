@@ -38,6 +38,8 @@ import time
 import urllib2
 import xml.dom.minidom
 
+from webkitpy.common.checkout import scm
+from webkitpy.common.system.executive import ScriptError
 from webkitpy.layout_tests.layout_package import test_expectations
 import webkitpy.thirdparty.simplejson as simplejson
 
@@ -46,6 +48,7 @@ _log = logging.getLogger("webkitpy.layout_tests.layout_package."
 
 
 class JSONResultsGenerator(object):
+    """A JSON results generator for generic tests."""
 
     MAX_NUMBER_OF_BUILD_RESULTS_TO_LOG = 750
     # Min time (seconds) that will be added to the JSON.
@@ -60,8 +63,6 @@ class JSONResultsGenerator(object):
     RESULTS = "results"
     TIMES = "times"
     BUILD_NUMBERS = "buildNumbers"
-    WEBKIT_SVN = "webkitRevision"
-    CHROME_SVN = "chromeRevision"
     TIME = "secondsSinceEpoch"
     TESTS = "tests"
 
@@ -102,7 +103,6 @@ class JSONResultsGenerator(object):
           all_tests: List of all the tests that were run.  This should not
               include skipped tests.
         """
-        self._port = port
         self._builder_name = builder_name
         self._build_name = build_name
         self._build_number = build_number
@@ -114,6 +114,7 @@ class JSONResultsGenerator(object):
         self._passed_tests = passed_tests
         self._skipped_tests = skipped_tests
         self._all_tests = all_tests
+        self._svn_repositories = port.test_repository_paths()
 
         self._generate_json_output()
 
@@ -132,6 +133,7 @@ class JSONResultsGenerator(object):
         Args:
           in_directory: The directory where svn is to be run.
         """
+
         if os.path.exists(os.path.join(in_directory, '.svn')):
             # Note: Not thread safe: http://bugs.python.org/issue2320
             output = subprocess.Popen(["svn", "info", "--xml"],
@@ -312,23 +314,11 @@ class JSONResultsGenerator(object):
         self._insert_item_into_raw_list(results_for_builder,
             self._build_number, self.BUILD_NUMBERS)
 
-        # These next two branches test to see which source repos we can
-        # pull revisions from.
-        if hasattr(self._port, 'path_from_webkit_base'):
-            path_to_webkit = self._port.path_from_webkit_base('WebCore')
+        # Include SVN revisions for the given repositories.
+        for (name, path) in self._svn_repositories:
             self._insert_item_into_raw_list(results_for_builder,
-                self._get_svn_revision(path_to_webkit),
-                self.WEBKIT_SVN)
-
-        if hasattr(self._port, 'path_from_chromium_base'):
-            try:
-                path_to_chrome = self._port.path_from_chromium_base()
-                self._insert_item_into_raw_list(results_for_builder,
-                    self._get_svn_revision(path_to_chrome),
-                    self.CHROME_SVN)
-            except AssertionError:
-                # We're not in a Chromium checkout, that's ok.
-                pass
+                self._get_svn_revision(path),
+                name + 'Revision')
 
         self._insert_item_into_raw_list(results_for_builder,
             int(time.time()),

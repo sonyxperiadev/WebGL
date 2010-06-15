@@ -1750,7 +1750,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_instanceof)
             return JSValue::encode(jsBoolean(false));
 
         if (!proto.isObject()) {
-            throwError(callFrame, TypeError, "instanceof called on an object with an invalid prototype property.");
+            throwError(callFrame, createTypeError(callFrame, "instanceof called on an object with an invalid prototype property."));
             VM_THROW_EXCEPTION();
         }
     }
@@ -2031,7 +2031,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_call_NotJSFunction)
     JSValue funcVal = stackFrame.args[0].jsValue();
 
     CallData callData;
-    CallType callType = funcVal.getCallData(callData);
+    CallType callType = getCallData(funcVal, callData);
 
     ASSERT(callType != CallTypeJS);
 
@@ -2044,7 +2044,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_call_NotJSFunction)
         callFrame->init(0, static_cast<Instruction*>((STUB_RETURN_ADDRESS).value()), previousCallFrame->scopeChain(), previousCallFrame, argCount, asObject(funcVal));
         stackFrame.callFrame = callFrame;
 
-        JSValue returnValue;
+        EncodedJSValue returnValue;
         {
             SamplingTool::HostCallRecord callRecord(CTI_SAMPLER);
             returnValue = callData.native.function(callFrame);
@@ -2052,7 +2052,7 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_call_NotJSFunction)
         stackFrame.callFrame = previousCallFrame;
         CHECK_FOR_EXCEPTION();
 
-        return JSValue::encode(returnValue);
+        return returnValue;
     }
 
     ASSERT(callType == CallTypeNone);
@@ -2163,31 +2163,36 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_construct_NotJSConstruct)
 {
     STUB_INIT_STACK_FRAME(stackFrame);
 
-    CallFrame* callFrame = stackFrame.callFrame;
-
     JSValue constrVal = stackFrame.args[0].jsValue();
-    int argCount = stackFrame.args[2].int32();
 
     ConstructData constructData;
-    ConstructType constructType = constrVal.getConstructData(constructData);
+    ConstructType constructType = getConstructData(constrVal, constructData);
+
+    ASSERT(constructType != ConstructTypeJS);
 
     if (constructType == ConstructTypeHost) {
         int registerOffset = stackFrame.args[1].int32();
-        Register* thisRegister = callFrame->registers() + registerOffset - RegisterFile::CallFrameHeaderSize - argCount;
-        ArgList argList(thisRegister + 1, argCount - 1);
+        int argCount = stackFrame.args[2].int32();
+        CallFrame* previousCallFrame = stackFrame.callFrame;
+        CallFrame* callFrame = CallFrame::create(previousCallFrame->registers() + registerOffset);
 
-        JSValue returnValue;
+        callFrame->init(0, static_cast<Instruction*>((STUB_RETURN_ADDRESS).value()), previousCallFrame->scopeChain(), previousCallFrame, argCount, asObject(constrVal));
+        stackFrame.callFrame = callFrame;
+
+        EncodedJSValue returnValue;
         {
             SamplingTool::HostCallRecord callRecord(CTI_SAMPLER);
-            returnValue = constructData.native.function(callFrame, asObject(constrVal), argList);
+            returnValue = constructData.native.function(callFrame);
         }
+        stackFrame.callFrame = previousCallFrame;
         CHECK_FOR_EXCEPTION();
 
-        return JSValue::encode(returnValue);
+        return returnValue;
     }
 
     ASSERT(constructType == ConstructTypeNone);
 
+    CallFrame* callFrame = stackFrame.callFrame;
     CodeBlock* codeBlock = callFrame->codeBlock();
     unsigned vPCIndex = codeBlock->bytecodeOffset(callFrame, STUB_RETURN_ADDRESS);
     stackFrame.globalData->exception = createNotAConstructorError(callFrame, constrVal, vPCIndex, codeBlock);
@@ -3389,12 +3394,13 @@ DEFINE_STUB_FUNCTION(JSObject*, op_new_error)
 
     CallFrame* callFrame = stackFrame.callFrame;
     CodeBlock* codeBlock = callFrame->codeBlock();
-    unsigned type = stackFrame.args[0].int32();
-    JSValue message = stackFrame.args[1].jsValue();
+    unsigned isReference = stackFrame.args[0].int32();
+    UString message = stackFrame.args[1].jsValue().toString(callFrame);
     unsigned bytecodeOffset = stackFrame.args[2].int32();
 
+    JSObject* error = isReference ? createReferenceError(callFrame, message) : createSyntaxError(callFrame, message);
     unsigned lineNumber = codeBlock->lineNumberForBytecodeOffset(callFrame, bytecodeOffset);
-    return Error::create(callFrame, static_cast<ErrorType>(type), message.toString(callFrame), lineNumber, codeBlock->ownerExecutable()->sourceID(), codeBlock->ownerExecutable()->sourceURL());
+    return addErrorInfo(stackFrame.globalData, error, lineNumber, codeBlock->ownerExecutable()->source());
 }
 
 DEFINE_STUB_FUNCTION(void, op_debug)

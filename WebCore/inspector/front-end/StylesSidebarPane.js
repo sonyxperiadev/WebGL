@@ -60,7 +60,7 @@ WebInspector.StylesSidebarPane = function(computedStylePane)
 
     this.settingsSelectElement.addEventListener("click", function(event) { event.stopPropagation() }, false);
     this.settingsSelectElement.addEventListener("change", this._changeSetting.bind(this), false);
-    WebInspector.settings.addEventListener("loaded", this._settingsLoaded, this);
+    WebInspector.applicationSettings.addEventListener("loaded", this._settingsLoaded, this);
 
     this.titleElement.appendChild(this.settingsSelectElement);
     this._computedStylePane = computedStylePane;
@@ -96,7 +96,7 @@ WebInspector.StylesSidebarPane.PseudoIdNames = [
 WebInspector.StylesSidebarPane.prototype = {
     _settingsLoaded: function()
     {
-        var format = WebInspector.settings.colorFormat;
+        var format = WebInspector.applicationSettings.colorFormat;
         if (format === "hex")
             this.settingsSelectElement[0].selected = true;
         if (format === "rgb")
@@ -133,22 +133,22 @@ WebInspector.StylesSidebarPane.prototype = {
             return;
         }
 
-        function getStylesCallback(styles)
+        function stylesCallback(styles)
         {
             if (styles)
                 this._rebuildUpdate(node, styles);
         }
 
-        function getComputedStyleCallback(computedStyle)
+        function computedStyleCallback(computedStyle)
         {
             if (computedStyle)
                 this._refreshUpdate(node, computedStyle, editedSection);
         };
 
         if (refresh)
-            InspectorBackend.getComputedStyle(WebInspector.Callback.wrap(getComputedStyleCallback.bind(this)), node.id);
+            WebInspector.cssModel.getComputedStyleAsync(node.id, computedStyleCallback.bind(this));
         else
-            InspectorBackend.getStyles(WebInspector.Callback.wrap(getStylesCallback.bind(this)), node.id, !WebInspector.settings.showUserAgentStyles);
+            WebInspector.cssModel.getStylesAsync(node.id, !WebInspector.applicationSettings.showUserAgentStyles, stylesCallback.bind(this));
     },
 
     _refreshUpdate: function(node, computedStyle, editedSection)
@@ -466,7 +466,7 @@ WebInspector.StylesSidebarPane.prototype = {
     {
         for (var i = 0; i < properties.length; ++i) {
             var property = properties[i];
-            // Does this style contain non-overriden inherited property?
+            // Does this style contain non-overridden inherited property?
             if (property.name in WebInspector.StylesSidebarPane.InheritedProperties)
                 return true;
         }
@@ -482,7 +482,7 @@ WebInspector.StylesSidebarPane.prototype = {
         // Select the correct color format setting again, since it needs to be selected.
         var selectedIndex = 0;
         for (var i = 0; i < options.length; ++i) {
-            if (options[i].value === WebInspector.settings.colorFormat) {
+            if (options[i].value === WebInspector.applicationSettings.colorFormat) {
                 selectedIndex = i;
                 break;
             }
@@ -494,7 +494,7 @@ WebInspector.StylesSidebarPane.prototype = {
     _changeColorFormat: function(event)
     {
         var selectedOption = this.settingsSelectElement[this.settingsSelectElement.selectedIndex];
-        WebInspector.settings.colorFormat = selectedOption.value;
+        WebInspector.applicationSettings.colorFormat = selectedOption.value;
 
         for (var pseudoId in this.sections) {
             var sections = this.sections[pseudoId];
@@ -581,18 +581,18 @@ WebInspector.ComputedStyleSidebarPane = function()
 
     function settingsLoaded()
     {
-        if (WebInspector.settings.showInheritedComputedStyleProperties) {
+        if (WebInspector.applicationSettings.showInheritedComputedStyleProperties) {
             this.bodyElement.addStyleClass("show-inherited");
             showInheritedCheckbox.checked = true;
         }
     }
 
-    WebInspector.settings.addEventListener("loaded", settingsLoaded.bind(this));
+    WebInspector.applicationSettings.addEventListener("loaded", settingsLoaded.bind(this));
 
     function showInheritedToggleFunction(event)
     {
-        WebInspector.settings.showInheritedComputedStyleProperties = showInheritedCheckbox.checked;
-        if (WebInspector.settings.showInheritedComputedStyleProperties)
+        WebInspector.applicationSettings.showInheritedComputedStyleProperties = showInheritedCheckbox.checked;
+        if (WebInspector.applicationSettings.showInheritedComputedStyleProperties)
             this.bodyElement.addStyleClass("show-inherited");
         else
             this.bodyElement.removeStyleClass("show-inherited");
@@ -600,7 +600,7 @@ WebInspector.ComputedStyleSidebarPane = function()
 
     showInheritedCheckbox.addEventListener(showInheritedToggleFunction.bind(this));
 }
- 
+
 WebInspector.ComputedStyleSidebarPane.prototype.__proto__ = WebInspector.SidebarPane.prototype;
 
 WebInspector.StylePropertiesSection = function(styleRule, subtitle, computedStyle, usedProperties, editable, isInherited, isFirstSection)
@@ -882,14 +882,9 @@ WebInspector.StylePropertiesSection.prototype = {
             return moveToNextIfNeeded.call(this);
 
         var self = this;
-        function callback(newRulePayload, doesAffectSelectedNode)
-        {
-            if (!newRulePayload) {
-                // Invalid Syntax for a Selector
-                moveToNextIfNeeded.call(self);
-                return;
-            }
 
+        function successCallback(newRule, doesAffectSelectedNode)
+        {
             if (!doesAffectSelectedNode) {
                 self.noAffect = true;
                 self.element.addStyleClass("no-affect");
@@ -898,7 +893,6 @@ WebInspector.StylePropertiesSection.prototype = {
                 self.element.removeStyleClass("no-affect");
             }
 
-            var newRule = WebInspector.CSSStyleDeclaration.parseRule(newRulePayload);
             self.rule = newRule;
             self.styleRule = { section: self, style: newRule.style, selectorText: newRule.selectorText, parentStyleSheet: newRule.parentStyleSheet, rule: newRule };
 
@@ -912,7 +906,7 @@ WebInspector.StylePropertiesSection.prototype = {
             moveToNextIfNeeded.call(self);
         }
 
-        InspectorBackend.setRuleSelector(WebInspector.Callback.wrap(callback), this.rule.id, newContent, this.pane.node.id);
+        WebInspector.cssModel.setRuleSelector(this.rule.id, newContent, this.pane.node.id, successCallback, moveToNextIfNeeded.bind(this));
     },
 
     editingSelectorCancelled: function()
@@ -939,17 +933,8 @@ WebInspector.BlankStylePropertiesSection.prototype = {
     editingSelectorCommitted: function(element, newContent, oldContent, context)
     {
         var self = this;
-        function callback(rule, doesSelectorAffectSelectedNode)
+        function successCallback(styleRule, doesSelectorAffectSelectedNode)
         {
-            if (!rule) {
-                // Invalid Syntax for a Selector
-                self.editingSelectorCancelled();
-                return;
-            }
-
-            var styleRule = WebInspector.CSSStyleDeclaration.parseRule(rule);
-            styleRule.rule = rule;
-
             self.makeNormal(styleRule);
 
             if (!doesSelectorAffectSelectedNode) {
@@ -963,7 +948,7 @@ WebInspector.BlankStylePropertiesSection.prototype = {
             self.addNewBlankProperty().startEditing();
         }
 
-        InspectorBackend.addRule(WebInspector.Callback.wrap(callback), newContent, this.pane.node.id);
+        WebInspector.cssModel.addRule(this.pane.node.id, newContent, successCallback, this.editingSelectorCancelled.bind(this));
     },
 
     editingSelectorCancelled: function()
@@ -1137,9 +1122,9 @@ WebInspector.StylePropertyTreeElement.prototype = {
                 var format;
                 if (Preferences.showColorNicknames && color.nickname)
                     format = "nickname";
-                else if (WebInspector.settings.colorFormat === "rgb")
+                else if (WebInspector.applicationSettings.colorFormat === "rgb")
                     format = (color.simple ? "rgb" : "rgba");
-                else if (WebInspector.settings.colorFormat === "hsl")
+                else if (WebInspector.applicationSettings.colorFormat === "hsl")
                     format = (color.simple ? "hsl" : "hsla");
                 else if (color.simple)
                     format = (color.hasShortHex() ? "shorthex" : "hex");
@@ -1220,6 +1205,9 @@ WebInspector.StylePropertyTreeElement.prototype = {
 
         this.listItemElement.removeChildren();
 
+        if (!this.treeOutline)
+            return;
+
         // Append the checkbox for root elements of an editable section.
         if (this.treeOutline.section && this.treeOutline.section.editable && this.parent.root)
             this.listItemElement.appendChild(enabledCheckboxElement);
@@ -1254,12 +1242,12 @@ WebInspector.StylePropertyTreeElement.prototype = {
         var disabled = !event.target.checked;
 
         var self = this;
-        function callback(newPayload)
+        function callback(newStyle)
         {
-            if (!newPayload)
+            if (!newStyle)
                 return;
 
-            self.style = WebInspector.CSSStyleDeclaration.parseStyle(newPayload);
+            self.style = newStyle;
             self._styleRule.style = self.style;
 
             // Set the disabled property here, since the code above replies on it not changing
@@ -1272,7 +1260,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
             self.updateAll(true);
         }
 
-        InspectorBackend.toggleStyleEnabled(WebInspector.Callback.wrap(callback), this.style.id, this.name, disabled);
+        WebInspector.cssModel.toggleStyleEnabled(this.style.id, this.name, disabled, callback);
     },
 
     updateState: function()
@@ -1434,7 +1422,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
         } else {
             // Restore the original CSS text before applying user changes. This is needed to prevent
             // new properties from sticking around if the user adds one, then removes it.
-            InspectorBackend.setStyleText(WebInspector.Callback.wrap(null), this.style.id, this.originalCSSText);
+            WebInspector.cssModel.setCSSText(this.style.id, this.originalCSSText);
         }
 
         this.applyStyleText(this.listItemElement.textContent);
@@ -1454,7 +1442,7 @@ WebInspector.StylePropertyTreeElement.prototype = {
         if (this._newProperty)
             this.treeOutline.removeChild(this);
         else if (this.originalCSSText) {
-            InspectorBackend.setStyleText(WebInspector.Callback.wrap(null), this.style.id, this.originalCSSText);
+            WebInspector.cssModel.setCSSText(this.style.id, this.originalCSSText);
 
             if (this.treeOutline.section && this.treeOutline.section.pane)
                 this.treeOutline.section.pane.dispatchEventToListeners("style edited");
@@ -1541,28 +1529,29 @@ WebInspector.StylePropertyTreeElement.prototype = {
         }
 
         var self = this;
-        function callback(success, newPayload, changedProperties)
+
+        function failureCallback()
         {
-            if (!success) {
-                // The user typed something, but it didn't parse. Just abort and restore
-                // the original title for this property.  If this was a new attribute and
-                // we couldn't parse, then just remove it.
-                if (self._newProperty) {
-                    self.parent.removeChild(self);
-                    return;
-                }
-                if (updateInterface)
-                    self.updateTitle();
+            // The user typed something, but it didn't parse. Just abort and restore
+            // the original title for this property.  If this was a new attribute and
+            // we couldn't parse, then just remove it.
+            if (self._newProperty) {
+                self.parent.removeChild(self);
                 return;
             }
+            if (updateInterface)
+                self.updateTitle();
+        }
 
+        function successCallback(newStyle, changedProperties)
+        {
             elementsPanel.removeStyleChange(section.identifier, self.style, self.name);
 
             if (!styleTextLength) {
                 // Do remove ourselves from UI when the property removal is confirmed.
                 self.parent.removeChild(self);
             } else {
-                self.style = WebInspector.CSSStyleDeclaration.parseStyle(newPayload);
+                self.style = newStyle;
                 for (var i = 0; i < changedProperties.length; ++i)
                     elementsPanel.addStyleChange(section.identifier, self.style, changedProperties[i]);
                 self._styleRule.style = self.style;
@@ -1574,7 +1563,8 @@ WebInspector.StylePropertyTreeElement.prototype = {
             if (updateInterface)
                 self.updateAll(true);
         }
-        InspectorBackend.applyStyleText(WebInspector.Callback.wrap(callback), this.style.id, styleText, this.name);
+
+        WebInspector.cssModel.applyStyleText(this.style.id, styleText, this.name, successCallback, failureCallback);
     }
 }
 

@@ -410,7 +410,7 @@ void LayoutTestController::setMainFrameIsFirstResponder(bool isFirst)
 
 void LayoutTestController::setJavaScriptCanAccessClipboard(bool enable)
 {
-    m_drt->webPage()->settings()->setAttribute(QWebSettings::JavaScriptCanAccessClipboard, enable);
+    m_drt->webPage()->settings()->setAttribute(QWebSettings::JavascriptCanAccessClipboard, enable);
 }
 
 void LayoutTestController::setXSSAuditorEnabled(bool enable)
@@ -513,6 +513,8 @@ void LayoutTestController::overridePreference(const QString& name, const QVarian
         setCaretBrowsingEnabled(value.toBool());
     else if (name == "WebKitPluginsEnabled")
         settings->setAttribute(QWebSettings::PluginsEnabled, value.toBool());
+    else if (name == "WebKitWebGLEnabled")
+        settings->setAttribute(QWebSettings::WebGLEnabled, value.toBool());
     else
         printf("ERROR: LayoutTestController::overridePreference() does not support the '%s' preference\n",
             name.toLatin1().data());
@@ -564,8 +566,7 @@ int LayoutTestController::numberOfPages(float width, float height)
 
 bool LayoutTestController::callShouldCloseOnWebView()
 {
-    // FIXME: Implement for testing fix for https://bugs.webkit.org/show_bug.cgi?id=27481
-    return false;
+    return DumpRenderTreeSupportQt::shouldClose(m_drt->webPage()->mainFrame());
 }
 
 void LayoutTestController::setScrollbarPolicy(const QString& orientation, const QString& policy)
@@ -643,6 +644,22 @@ void LayoutTestController::setIconDatabaseEnabled(bool enable)
 void LayoutTestController::setEditingBehavior(const QString& editingBehavior)
 {
     DumpRenderTreeSupportQt::setEditingBehavior(m_drt->webPage(), editingBehavior);
+}
+
+void LayoutTestController::setGeolocationPermission(bool allow)
+{
+     m_isGeolocationPermissionSet = true;
+     m_geolocationPermission = allow;
+}
+
+void LayoutTestController::setMockGeolocationError(int code, const QString& message)
+{
+    DumpRenderTreeSupportQt::setMockGeolocationError(code, message);
+}
+
+void LayoutTestController::setMockGeolocationPosition(double latitude, double longitude, double accuracy)
+{
+    DumpRenderTreeSupportQt::setMockGeolocationPosition(latitude, longitude, accuracy);
 }
 
 const unsigned LayoutTestController::maxViewWidth = 800;

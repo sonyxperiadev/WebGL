@@ -29,6 +29,7 @@
 #include "APIShims.h"
 #include "APICast.h"
 #include "CodeBlock.h"
+#include "ExceptionHelpers.h"
 #include "JSFunction.h"
 #include "FunctionPrototype.h"
 #include <runtime/JSGlobalObject.h>
@@ -47,7 +48,7 @@ JSCallbackFunction::JSCallbackFunction(ExecState* exec, JSGlobalObject* globalOb
 {
 }
 
-JSValue JSCallbackFunction::call(ExecState* exec)
+EncodedJSValue JSCallbackFunction::call(ExecState* exec)
 {
     JSContextRef execRef = toRef(exec);
     JSObjectRef functionRef = toRef(exec->callee());
@@ -65,9 +66,9 @@ JSValue JSCallbackFunction::call(ExecState* exec)
         result = static_cast<JSCallbackFunction*>(toJS(functionRef))->m_callback(execRef, functionRef, thisObjRef, argumentCount, arguments.data(), &exception);
     }
     if (exception)
-        exec->setException(toJS(exec, exception));
+        throwError(exec, toJS(exec, exception));
 
-    return toJS(exec, result);
+    return JSValue::encode(toJS(exec, result));
 }
 
 CallType JSCallbackFunction::getCallData(CallData& callData)

@@ -51,6 +51,7 @@ const SegmentedString& SegmentedString::operator=(const SegmentedString &other)
         m_currentChar = &m_pushedChar2;
     else
         m_currentChar = other.m_currentChar;
+    m_closed = other.m_closed;
     return *this;
 }
 
@@ -152,8 +153,7 @@ void SegmentedString::prepend(const SegmentedString &s)
 void SegmentedString::advanceSubstring()
 {
     if (m_composite) {
-        m_currentString = m_substrings.first();
-        m_substrings.removeFirst();
+        m_currentString = m_substrings.takeFirst();
         if (m_substrings.isEmpty())
             m_composite = false;
     } else {

@@ -29,6 +29,7 @@
 class QWebElement;
 class QWebFrame;
 class QWebPage;
+class QWebHistoryItem;
 
 enum NotificationPermission {
     NotificationAllowed,
@@ -37,7 +38,7 @@ enum NotificationPermission {
 };
 
 typedef void (CheckPermissionFunctionType) (QObject* receiver, const QUrl&, NotificationPermission&);
-typedef void (RequestPermissionFunctionType) (QObject* receiver, QWebPage* page, const QString&);
+typedef void (RequestPermissionFunctionType) (QObject* receiver, const QString&);
 
 extern CheckPermissionFunctionType* checkPermissionFunction;
 extern RequestPermissionFunctionType* requestPermissionFunction;
@@ -96,6 +97,9 @@ public:
     static void removeWhiteListAccessFromOrigin(const QString& sourceOrigin, const QString& destinationProtocol, const QString& destinationHost, bool allowDestinationSubdomains);
     static void resetOriginAccessWhiteLists();
 
+    static void setMockGeolocationPosition(double latitude, double longitude, double accuracy);
+    static void setMockGeolocationError(int errorCode, const QString& message);
+
     static int workerThreadCount();
 
     static QString markerTextForListItem(const QWebElement& listItem);
@@ -114,10 +118,16 @@ public:
     static void dumpNotification(bool b);
     // These functions should eventually turn into public API
     // and the "receiver" concept would go away
-    static void setNotificationsReceiver(QWebPage* page, QObject* receiver);
-    static void allowNotificationForOrigin(QWebPage* page, const QString& origin);
+    static void setNotificationsReceiver(QObject* receiver);
+    static void allowNotificationForOrigin(const QString& origin);
     static void setCheckPermissionFunction(CheckPermissionFunctionType*);
     static void setRequestPermissionFunction(RequestPermissionFunctionType*);
+
+    static QList<QWebHistoryItem> getChildHistoryItems(const QWebHistoryItem& historyItem);
+    static bool isTargetItem(const QWebHistoryItem& historyItem);
+    static QString historyItemTarget(const QWebHistoryItem& historyItem);
+
+    static bool shouldClose(QWebFrame* frame);
 };
 
 #endif
