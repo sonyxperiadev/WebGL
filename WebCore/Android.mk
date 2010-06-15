@@ -268,19 +268,19 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLCollection.cpp \
 	html/HTMLDataListElement.cpp \
 	html/HTMLDocument.cpp \
+	html/HTMLDocumentParser.cpp \
 	html/HTMLElementsAllInOne.cpp \
 	html/HTMLFormCollection.cpp \
 	html/HTMLImageLoader.cpp \
 	html/HTMLNameCollection.cpp \
 	html/HTMLOptionsCollection.cpp \
-	html/LegacyHTMLTreeConstructor.cpp \
 	html/HTMLParserErrorCodes.cpp \
 	html/HTMLTableRowsCollection.cpp \
-	html/HTMLDocumentParser.cpp \
 	html/HTMLViewSourceDocument.cpp \
 	html/ImageData.cpp \
 	html/ImageResizerThread.cpp \
 	html/LabelsNodeList.cpp \
+	html/LegacyHTMLTreeConstructor.cpp \
 	html/PreloadScanner.cpp \
 	html/StepRange.cpp \
 	html/TimeRanges.cpp \
@@ -294,6 +294,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/canvas/CanvasRenderingContext.cpp \
 	html/canvas/CanvasRenderingContext2D.cpp \
 	html/canvas/CanvasStyle.cpp \
+	html/canvas/Float32Array.cpp \
 	\
 	loader/Cache.cpp \
 	loader/CachedCSSStyleSheet.cpp \
@@ -367,6 +368,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/GeolocationPositionCache.cpp \
 	page/History.cpp \
 	page/Location.cpp \
+	page/MemoryInfo.cpp \
 	page/MouseEventWithHitTestResults.cpp \
 	page/Navigator.cpp \
 	page/NavigatorBase.cpp \
@@ -396,9 +398,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/animation/KeyframeAnimation.cpp \
 	\
 	platform/Arena.cpp \
+	platform/BlobItem.cpp \
 	platform/ContentType.cpp \
 	platform/ContextMenu.cpp \
 	platform/CrossThreadCopier.cpp \
+	platform/Cursor.cpp \
 	platform/DeprecatedPtrListImpl.cpp \
 	platform/DragData.cpp \
 	platform/DragImage.cpp \
@@ -728,6 +732,7 @@ endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/ScrollBehavior.cpp \
+	rendering/ShadowElement.cpp \
 	rendering/TextControlInnerElements.cpp \
 	rendering/TransformState.cpp \
 	rendering/break_lines.cpp \

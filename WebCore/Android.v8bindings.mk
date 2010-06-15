@@ -104,6 +104,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8CanvasRenderingContext2DCustom.cpp \
 	bindings/v8/custom/V8CanvasPixelArrayCustom.cpp \
 	bindings/v8/custom/V8ClipboardCustom.cpp \
+	bindings/v8/custom/V8ConsoleCustom.cpp \
 	bindings/v8/custom/V8CoordinatesCustom.cpp \
 	bindings/v8/custom/V8CustomApplicationInstalledCallback.cpp \
 	bindings/v8/custom/V8CustomEventListener.cpp \
@@ -122,6 +123,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8ElementCustom.cpp \
 	bindings/v8/custom/V8EventCustom.cpp \
 	bindings/v8/custom/V8EventSourceConstructor.cpp \
+	bindings/v8/custom/V8Float32ArrayCustom.cpp \
 	bindings/v8/custom/V8GeolocationCustom.cpp \
 	bindings/v8/custom/V8HistoryCustom.cpp \
 	bindings/v8/custom/V8HTMLAllCollectionCustom.cpp \

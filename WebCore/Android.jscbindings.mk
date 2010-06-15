@@ -100,6 +100,8 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSEventListener.cpp \
 	bindings/js/JSEventTarget.cpp \
 	bindings/js/JSExceptionBase.cpp \
+	bindings/js/JSFloat32ArrayConstructor.cpp \
+	bindings/js/JSFloat32ArrayCustom.cpp \
 	bindings/js/JSGeolocationCustom.cpp \
 	bindings/js/JSHTMLAllCollectionCustom.cpp \
 	bindings/js/JSHTMLAppletElementCustom.cpp \

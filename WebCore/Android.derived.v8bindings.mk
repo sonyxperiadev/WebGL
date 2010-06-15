@@ -246,7 +246,7 @@ GEN := \
     $(intermediates)/bindings/V8CanvasPixelArray.h \
     $(intermediates)/bindings/V8CanvasRenderingContext.h \
     $(intermediates)/bindings/V8CanvasRenderingContext2D.h \
-    $(intermediates)/bindings/V8FloatArray.h \
+    $(intermediates)/bindings/V8Float32Array.h \
     $(intermediates)/bindings/V8Int8Array.h \
     $(intermediates)/bindings/V8Int16Array.h \
     $(intermediates)/bindings/V8Int32Array.h \
@@ -301,6 +301,7 @@ GEN := \
     $(intermediates)/bindings/V8Geoposition.h \
     $(intermediates)/bindings/V8History.h \
     $(intermediates)/bindings/V8Location.h \
+    $(intermediates)/bindings/V8MemoryInfo.h \
     $(intermediates)/bindings/V8Navigator.h \
     $(intermediates)/bindings/V8PositionError.h \
     $(intermediates)/bindings/V8Screen.h \
@@ -606,7 +607,8 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 GEN := \
     $(intermediates)/bindings/V8InjectedScriptHost.h \
     $(intermediates)/bindings/V8InspectorBackend.h \
-    $(intermediates)/bindings/V8InspectorFrontendHost.h
+    $(intermediates)/bindings/V8InspectorFrontendHost.h \
+    $(intermediates)/bindings/V8ScriptProfile.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
