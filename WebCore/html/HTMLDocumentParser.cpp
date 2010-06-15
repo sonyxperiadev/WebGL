@@ -483,15 +483,11 @@ HTMLDocumentParser::State HTMLDocumentParser::scriptHandler(State state)
     SegmentedString prependingSrc;
     m_currentPrependingSrc = &prependingSrc;
 
-<<<<<<< HEAD:WebCore/html/HTMLTokenizer.cpp
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::recordNoCounter(android::TimeCounter::ParsingTimeCounter, __FUNCTION__);
 #endif
 
-    if (!m_parser->skipMode() && !followingFrameset) {
-=======
     if (!m_treeConstructor->skipMode() && !followingFrameset) {
->>>>>>> Webkit.org at r61121:WebCore/html/HTMLDocumentParser.cpp
         if (cs) {
             if (savedPrependingSrc)
                 savedPrependingSrc->append(m_src);

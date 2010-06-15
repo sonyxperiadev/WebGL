@@ -187,18 +187,16 @@ public:
     bool frameHasAlphaAtIndex(size_t); // Whether or not the frame actually used any alpha.
     bool frameIsCompleteAtIndex(size_t); // Whether or not the frame is completely decoded.
 
-<<<<<<< HEAD:WebCore/platform/graphics/ImageSource.h
-#if PLATFORM(ANDROID)
-    void clearURL();
-    void setURL(const String& url);
-#endif
-=======
 #if ENABLE(IMAGE_DECODER_DOWN_SAMPLING)
     static unsigned maxPixelsPerDecodedImage() { return s_maxPixelsPerDecodedImage; }
     static void setMaxPixelsPerDecodedImage(unsigned maxPixels) { s_maxPixelsPerDecodedImage = maxPixels; }
 #endif
 
->>>>>>> Webkit.org at r61121:WebCore/platform/graphics/ImageSource.h
+#if PLATFORM(ANDROID)
+    void clearURL();
+    void setURL(const String& url);
+#endif
+
 private:
 #if PLATFORM(ANDROID)
     // FIXME: This is protected only to allow ImageSourceSkia to set ICO decoder

@@ -145,13 +145,11 @@ Settings::Settings(Page* page)
     , m_loadDeferringEnabled(true)
     , m_tiledBackingStoreEnabled(false)
     , m_html5ParserEnabled(false)
-<<<<<<< HEAD:WebCore/page/Settings.cpp
+    , m_paginateDuringLayoutEnabled(false)
 #ifdef ANDROID_PLUGINS
     , m_pluginsOnDemand(false)
 #endif
-=======
-    , m_paginateDuringLayoutEnabled(false)
->>>>>>> Webkit.org at r61121:WebCore/page/Settings.cpp
+
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.

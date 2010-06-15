@@ -279,11 +279,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLDocumentParser.cpp \
 	html/HTMLViewSourceDocument.cpp \
 	html/ImageData.cpp \
-<<<<<<< HEAD:WebCore/Android.mk
-	html/LabelsNodeList.cpp \
-=======
 	html/ImageResizerThread.cpp \
->>>>>>> Webkit.org at r61121:WebCore/Android.mk
+	html/LabelsNodeList.cpp \
 	html/PreloadScanner.cpp \
 	html/StepRange.cpp \
 	html/TimeRanges.cpp \

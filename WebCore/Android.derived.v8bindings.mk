@@ -382,10 +382,7 @@ GEN := \
     $(intermediates)/bindings/V8IDBErrorEvent.h \
     $(intermediates)/bindings/V8IDBEvent.h \
     $(intermediates)/bindings/V8IDBIndexRequest.h \
-<<<<<<< HEAD:WebCore/Android.derived.v8bindings.mk
-=======
     $(intermediates)/bindings/V8IDBKeyRange.h \
->>>>>>> Webkit.org at r61121:WebCore/Android.derived.v8bindings.mk
     $(intermediates)/bindings/V8IDBRequest.h \
     $(intermediates)/bindings/V8IDBSuccessEvent.h \
     $(intermediates)/bindings/V8IndexedDatabaseRequest.h
