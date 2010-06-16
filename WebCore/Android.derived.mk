@@ -56,28 +56,34 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 # DOCTYPE strings
 
 GEN := $(intermediates)/html/DocTypeStrings.cpp
-$(GEN): PRIVATE_CUSTOM_TOOL = gperf -CEot -L ANSI-C -k "*" -N findDoctypeEntry -F ,PubIDInfo::eAlmostStandards,PubIDInfo::eAlmostStandards $< > $@
+$(GEN): SCRIPT := $(LOCAL_PATH)/make-hash-tools.pl
+$(GEN): PRIVATE_CUSTOM_TOOL = perl $(SCRIPT) . $<
 $(GEN): $(LOCAL_PATH)/html/DocTypeStrings.gperf
 	$(transform-generated-source)
+	@mv ./DocTypeStrings.cpp $@
 # we have to do this dep by hand:
 $(intermediates)/html/HTMLDocument.o : $(GEN)
 
 
 # HTML entity names
 
-GEN := $(intermediates)/html/HTMLEntityNames.c
-$(GEN): PRIVATE_CUSTOM_TOOL = gperf -a -L ANSI-C -C -G -c -o -t -k '*' -N findEntity -D -s 2 $< > $@
+GEN := $(intermediates)/html/HTMLEntityNames.cpp
+$(GEN): SCRIPT := $(LOCAL_PATH)/make-hash-tools.pl
+$(GEN): PRIVATE_CUSTOM_TOOL = perl $(SCRIPT) . $<
 $(GEN): $(LOCAL_PATH)/html/HTMLEntityNames.gperf
 	$(transform-generated-source)
+	@mv ./HTMLEntityNames.cpp $@
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 
 # color names
 
-GEN := $(intermediates)/platform/ColorData.c
-$(GEN): PRIVATE_CUSTOM_TOOL = gperf -CDEot -L ANSI-C -k '*' -N findColor -D -s 2 $< > $@
+GEN := $(intermediates)/platform/ColorData.cpp
+$(GEN): SCRIPT := $(LOCAL_PATH)/make-hash-tools.pl
+$(GEN): PRIVATE_CUSTOM_TOOL = perl $(SCRIPT) . $<
 $(GEN): $(LOCAL_PATH)/platform/ColorData.gperf
 	$(transform-generated-source)
+	@mv ./ColorData.cpp $@
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 
