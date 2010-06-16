@@ -494,4 +494,9 @@ String ImageSource::filenameExtension() const
     return String();
 }
 
+bool ImageSource::getHotSpot(IntPoint&) const
+{
+    return false;
+}
+
 }
