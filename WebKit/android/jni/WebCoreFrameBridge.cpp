@@ -317,9 +317,9 @@ static jobject createJavaMapFromHTTPHeaders(JNIEnv* env, const WebCore::HTTPHead
         jstring val = env->NewString((unsigned short *)i->second.characters(), i->second.length());
         if (key && val) {
             env->CallObjectMethod(hashMap, put, key, val);
-            env->DeleteLocalRef(key);
-            env->DeleteLocalRef(val);
         }
+        env->DeleteLocalRef(key);
+        env->DeleteLocalRef(val);
     }
 
     env->DeleteLocalRef(mapClass);
@@ -716,6 +716,7 @@ WebFrame::didReceiveTouchIconURL(const WebCore::String& url, bool precomposed)
 
     env->CallVoidMethod(mJavaFrame->frame(env).get(),
             mJavaFrame->mDidReceiveTouchIconUrl, jUrlStr, precomposed);
+    env->DeleteLocalRef(jUrlStr);
     checkException(env);
 }
 
@@ -730,6 +731,7 @@ WebFrame::updateVisitedHistory(const WebCore::KURL& url, bool reload)
     jstring jUrlStr = env->NewString((unsigned short*)urlStr.characters(), urlStr.length());
 
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mUpdateVisitedHistory, jUrlStr, reload);
+    env->DeleteLocalRef(jUrlStr);
     checkException(env);
 }
 
@@ -759,6 +761,7 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
     // if browser app handles the url, we will return false to bail out WebCore loading
     jboolean ret = env->CallBooleanMethod(mJavaFrame->frame(env).get(), mJavaFrame->mHandleUrl, jUrlStr);
     checkException(env);
+    env->DeleteLocalRef(jUrlStr);
     return (ret == 0);
 }
 
