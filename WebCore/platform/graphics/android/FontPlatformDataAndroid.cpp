@@ -30,6 +30,9 @@
 #include "config.h"
 #include "FontPlatformData.h"
 
+#ifdef SUPPORT_COMPLEX_SCRIPTS
+#include "HarfbuzzSkia.h"
+#endif
 #include "SkPaint.h"
 #include "SkTypeface.h"
 
@@ -63,6 +66,13 @@ static void dec_count() { --gCount; }
 
 namespace WebCore {
 
+FontPlatformData::RefCountedHarfbuzzFace::~RefCountedHarfbuzzFace()
+{
+#ifdef SUPPORT_COMPLEX_SCRIPTS
+    HB_FreeFace(m_harfbuzzFace);
+#endif
+}
+
 FontPlatformData::FontPlatformData()
     : mTypeface(NULL), mTextSize(0), mFakeBold(false), mFakeItalic(false)
 {
@@ -81,6 +91,7 @@ FontPlatformData::FontPlatformData(const FontPlatformData& src)
     mTextSize   = src.mTextSize;
     mFakeBold   = src.mFakeBold;
     mFakeItalic = src.mFakeItalic;
+    m_harfbuzzFace = src.m_harfbuzzFace;
 
     inc_count();
     trace(2);
@@ -92,13 +103,14 @@ FontPlatformData::FontPlatformData(SkTypeface* tf, float textSize, bool fakeBold
     if (hashTableDeletedFontValue() != mTypeface) {
         mTypeface->safeRef();
     }
-    
+
     inc_count();
     trace(3);
 }
 
 FontPlatformData::FontPlatformData(const FontPlatformData& src, float textSize)
-    : mTypeface(src.mTypeface), mTextSize(textSize), mFakeBold(src.mFakeBold), mFakeItalic(src.mFakeItalic)
+    : mTypeface(src.mTypeface), mTextSize(textSize), mFakeBold(src.mFakeBold), mFakeItalic(src.mFakeItalic),
+      m_harfbuzzFace(src.m_harfbuzzFace)
 {
     if (hashTableDeletedFontValue() != mTypeface) {
         mTypeface->safeRef();
@@ -107,7 +119,7 @@ FontPlatformData::FontPlatformData(const FontPlatformData& src, float textSize)
     inc_count();
     trace(4);
 }
-    
+
 FontPlatformData::FontPlatformData(float size, bool bold, bool oblique)
     : mTypeface(NULL), mTextSize(size), mFakeBold(bold), mFakeItalic(oblique)
 {
@@ -140,7 +152,8 @@ FontPlatformData& FontPlatformData::operator=(const FontPlatformData& src)
     mTextSize   = src.mTextSize;
     mFakeBold   = src.mFakeBold;
     mFakeItalic = src.mFakeItalic;
-    
+    m_harfbuzzFace = src.m_harfbuzzFace;
+
     return *this;
 }
 
@@ -157,7 +170,14 @@ void FontPlatformData::setupPaint(SkPaint* paint) const
     paint->setTypeface(mTypeface);
     paint->setFakeBoldText(mFakeBold);
     paint->setTextSkewX(mFakeItalic ? -SK_Scalar1/4 : 0);
+#ifndef SUPPORT_COMPLEX_SCRIPTS
     paint->setTextEncoding(SkPaint::kUTF16_TextEncoding);
+#endif
+}
+
+uint32_t FontPlatformData::uniqueID() const
+{
+    return mTypeface->uniqueID();
 }
 
 bool FontPlatformData::operator==(const FontPlatformData& a) const
@@ -171,13 +191,13 @@ bool FontPlatformData::operator==(const FontPlatformData& a) const
 unsigned FontPlatformData::hash() const
 {
     unsigned h;
-    
+
     if (hashTableDeletedFontValue() == mTypeface) {
         h = reinterpret_cast<unsigned>(mTypeface);
     } else {
         h = SkTypeface::UniqueID(mTypeface);
     }
-    
+
     uint32_t sizeAsInt = *reinterpret_cast<const uint32_t*>(&mTextSize);
 
     h ^= 0x01010101 * (((int)mFakeBold << 1) | (int)mFakeItalic);
@@ -185,4 +205,16 @@ unsigned FontPlatformData::hash() const
     return h;
 }
 
+HB_FaceRec_* FontPlatformData::harfbuzzFace() const
+{
+#ifdef SUPPORT_COMPLEX_SCRIPTS
+    if (!m_harfbuzzFace)
+        m_harfbuzzFace = RefCountedHarfbuzzFace::create(
+            HB_NewFace(const_cast<FontPlatformData*>(this), harfbuzzSkiaGetTable));
+
+    return m_harfbuzzFace->face();
+#else
+    return NULL;
+#endif
+}
 }

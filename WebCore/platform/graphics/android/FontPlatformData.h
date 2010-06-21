@@ -39,6 +39,8 @@
 class SkPaint;
 class SkTypeface;
 
+struct HB_FaceRec_;
+
 namespace WebCore {
 
 class FontPlatformData {
@@ -65,6 +67,13 @@ public:
     bool operator==(const FontPlatformData& a) const;
 
     void     setupPaint(SkPaint*) const;
+
+    // -------------------------------------------------------------------------
+    // Return Skia's unique id for this font. This encodes both the style and
+    // the font's file name so refers to a single face.
+    // -------------------------------------------------------------------------
+    uint32_t uniqueID() const;
+
     float size() const { return mTextSize; }
     unsigned hash() const;
 
@@ -72,17 +81,39 @@ public:
     String description() const { return ""; }
 #endif
 
+    HB_FaceRec_* harfbuzzFace() const;
+
 private:
+    class RefCountedHarfbuzzFace : public RefCounted<RefCountedHarfbuzzFace> {
+    public:
+        static PassRefPtr<RefCountedHarfbuzzFace> create(HB_FaceRec_* harfbuzzFace)
+        {
+            return adoptRef(new RefCountedHarfbuzzFace(harfbuzzFace));
+        }
+
+        ~RefCountedHarfbuzzFace();
+
+        HB_FaceRec_* face() const { return m_harfbuzzFace; }
+
+    private:
+        RefCountedHarfbuzzFace(HB_FaceRec_* harfbuzzFace) : m_harfbuzzFace(harfbuzzFace)
+        {
+        }
+
+        HB_FaceRec_* m_harfbuzzFace;
+    };
+
     SkTypeface* mTypeface;
     float       mTextSize;
     bool        mFakeBold;
     bool        mFakeItalic;
+    mutable RefPtr<RefCountedHarfbuzzFace> m_harfbuzzFace;
 
     static SkTypeface* hashTableDeletedFontValue() {
         return reinterpret_cast<SkTypeface*>(-1);
     }
 };
-    
+
 } /* namespace */
 
 #endif

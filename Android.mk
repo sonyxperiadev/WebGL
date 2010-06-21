@@ -298,6 +298,15 @@ LOCAL_SHARED_LIBRARIES += libdl libstlport
 include external/stlport/libstlport.mk
 endif
 
+# We need Harfbuzz library to support complex scripts(Arabic, Thai, Hindi...).
+ifeq ($(SUPPORT_COMPLEX_SCRIPTS),true)
+LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
+	external/harfbuzz/src \
+	external/harfbuzz/contrib
+LOCAL_SHARED_LIBRARIES += libharfbuzz
+LOCAL_CFLAGS += -DSUPPORT_COMPLEX_SCRIPTS=1
+endif
+
 # Build the list of static libraries
 LOCAL_STATIC_LIBRARIES := libxml2 libxslt
 ifeq ($(JAVASCRIPT_ENGINE),v8)

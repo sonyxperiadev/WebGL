@@ -1018,3 +1018,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	xml/XSLImportRule.cpp \
 	loader/CachedXSLStyleSheet.cpp \
 	dom/TransformSourceLibxslt.cpp
+
+# For complex scripts(Arabic, Thai, Hindi...).
+ifeq ($(SUPPORT_COMPLEX_SCRIPTS),true)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	platform/graphics/android/HarfbuzzSkia.cpp
+endif
