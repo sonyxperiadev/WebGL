@@ -73,6 +73,7 @@
 #include "SecurityOrigin.h"
 #include "SelectionController.h"
 #include "Settings.h"
+#include "StringBuilder.h"
 #include "SubstituteData.h"
 #include "WebCoreJni.h"
 #include "WebCoreResourceLoader.h"
@@ -1110,6 +1111,28 @@ static jstring ExternalRepresentation(JNIEnv *env, jobject obj)
     return env->NewString(renderDump.characters(), len);
 }
 
+static WebCore::StringBuilder FrameAsText(WebCore::Frame *pFrame, jboolean dumpChildFrames) {
+    WebCore::StringBuilder renderDump;
+    if (!pFrame)
+        return renderDump;
+    WebCore::Element *documentElement = pFrame->document()->documentElement();
+    if (!documentElement)
+        return renderDump;
+    if (pFrame->tree()->parent()) {
+        renderDump.append("\n--------\nFrame: '");
+        renderDump.append(pFrame->tree()->name());
+        renderDump.append("'\n--------\n");
+    }
+    renderDump.append(((WebCore::HTMLElement*)documentElement)->innerText());
+    renderDump.append("\n");
+    if (dumpChildFrames) {
+        for (unsigned i = 0; i < pFrame->tree()->childCount(); ++i) {
+            renderDump.append(FrameAsText(pFrame->tree()->child(i), dumpChildFrames).toString());
+        }
+    }
+    return renderDump;
+}
+
 static jstring DocumentAsText(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -1118,11 +1141,26 @@ static jstring DocumentAsText(JNIEnv *env, jobject obj)
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "android_webcore_nativeDocumentAsText must take a valid frame pointer!");
 
-    WebCore::Element *documentElement = pFrame->document()->documentElement();
-    if (!documentElement)
+    WebCore::String renderDump = FrameAsText(pFrame, false /* dumpChildFrames */).toString();
+    unsigned len = renderDump.length();
+    if (!len)
         return NULL;
-    WebCore::String renderDump = ((WebCore::HTMLElement*)documentElement)->innerText();
-    renderDump.append("\n");
+    return env->NewString((unsigned short*)renderDump.characters(), len);
+}
+
+static jstring ChildFramesAsText(JNIEnv *env, jobject obj)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
+#endif
+    WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
+    LOG_ASSERT(pFrame, "android_webcore_nativeDocumentAsText must take a valid frame pointer!");
+
+    WebCore::StringBuilder renderDumpBuilder;
+    for (unsigned i = 0; i < pFrame->tree()->childCount(); ++i) {
+        renderDumpBuilder.append(FrameAsText(pFrame->tree()->child(i), true /* dumpChildFrames */).toString());
+    }
+    WebCore::String renderDump = renderDumpBuilder.toString();
     unsigned len = renderDump.length();
     if (!len)
         return NULL;
@@ -1606,6 +1644,8 @@ static JNINativeMethod gBrowserFrameNativeMethods[] = {
         (void*) ExternalRepresentation },
     { "documentAsText", "()Ljava/lang/String;",
         (void*) DocumentAsText },
+    { "childFramesAsText", "()Ljava/lang/String;",
+        (void*) ChildFramesAsText },
     { "reload", "(Z)V",
         (void*) Reload },
     { "nativeGoBackOrForward", "(I)V",
