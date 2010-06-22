@@ -108,6 +108,7 @@ struct FieldIds {
 #endif
         mGeolocationEnabled = env->GetFieldID(clazz, "mGeolocationEnabled", "Z");
         mGeolocationDatabasePath = env->GetFieldID(clazz, "mGeolocationDatabasePath", "Ljava/lang/String;");
+        mXSSAuditorEnabled = env->GetFieldID(clazz, "mXSSAuditorEnabled", "Z");
         mJavaScriptCanOpenWindowsAutomatically = env->GetFieldID(clazz,
                 "mJavaScriptCanOpenWindowsAutomatically", "Z");
         mUseWideViewport = env->GetFieldID(clazz, "mUseWideViewport", "Z");
@@ -208,6 +209,7 @@ struct FieldIds {
 #endif
     jfieldID mGeolocationEnabled;
     jfieldID mGeolocationDatabasePath;
+    jfieldID mXSSAuditorEnabled;
 #if ENABLE(DATABASE) || ENABLE(DOM_STORAGE)
     jfieldID mDatabasePath;
     jfieldID mDatabasePathHasBeenSet;
@@ -384,6 +386,9 @@ public:
             GeolocationPermissions::setDatabasePath(to_string(env,str));
             WebCore::GeolocationPositionCache::setDatabasePath(to_string(env,str));
         }
+
+        flag = env->GetBooleanField(obj, gFieldIds->mXSSAuditorEnabled);
+        s->setXSSAuditorEnabled(flag);
 
         size = env->GetIntField(obj, gFieldIds->mPageCacheCapacity);
         if (size > 0) {
