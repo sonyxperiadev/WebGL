@@ -627,8 +627,9 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
                     // renderer to be destroyed, if for example a frames onresize handler
                     // deletes the frame - see http://trac.webkit.org/changeset/61070 for example.
                     // We may be able to remove this protector when we switch to the upstream
-                    // frame flattening code.
-                    RefPtr<Node> protector(o->node());
+                    // frame flattening code. In the case of an anonymous render object like RenderListMarker
+                    // the document is the DOM node associated with this RenderObject.
+                    RefPtr<Node> protector(o->isAnonymous() ? o->document() : o->node());
 #endif
                     o->layoutIfNeeded();
 #if defined(ANDROID_FLATTEN_IFRAME) || defined(ANDROID_FLATTEN_FRAMESET)
