@@ -31,6 +31,12 @@ ifneq ($(ENABLE_SVG),false)
     ENABLE_SVG = true
 endif
 
+# Control complex scripts support compiling in webkit.
+# Default is true unless explictly disabled.
+ifneq ($(SUPPORT_COMPLEX_SCRIPTS),false)
+    SUPPORT_COMPLEX_SCRIPTS = true
+endif
+
 # Two ways to control which JS engine is used:
 # 1. use JS_ENGINE environment variable, value can be either 'jsc' or 'v8'
 #    This is the preferred way.
