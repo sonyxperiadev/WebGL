@@ -112,6 +112,10 @@
 #include "TimeCounter.h"
 #endif
 
+#if ENABLE(ARCHIVE)
+#include "WebArchiveAndroid.h"
+#endif
+
 using namespace JSC::Bindings;
 
 static String* gUploadFileLabel;
@@ -1095,6 +1099,91 @@ static void StopLoading(JNIEnv *env, jobject obj)
     pFrame->loader()->stopForUserCancel();
 }
 
+#if ENABLE(ARCHIVE)
+static String saveArchiveAutoname(String basename, String name, String extension) {
+    if (name.isNull() || name.isEmpty()) {
+        name = String("index");
+    }
+
+    String testname = basename;
+    testname.append(name);
+    testname.append(extension);
+
+    errno = 0;
+    struct stat permissions;
+    if (stat(testname.utf8().data(), &permissions) < 0) {
+        if (errno == ENOENT)
+            return testname;
+        return String();
+    }
+
+    const int maxAttempts = 100;
+    for (int i = 1; i < maxAttempts; i++) {
+        String testname = basename;
+        testname.append(name);
+        testname.append("-");
+        testname.append(String::number(i));
+        testname.append(extension);
+
+        errno = 0;
+        if (stat(testname.utf8().data(), &permissions) < 0) {
+            if (errno == ENOENT)
+                return testname;
+            return String();
+        }
+    }
+
+    return String();
+}
+#endif
+
+static jobject SaveWebArchive(JNIEnv *env, jobject obj, jstring basename, jboolean autoname)
+{
+#if ENABLE(ARCHIVE)
+    WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
+    LOG_ASSERT(pFrame, "nativeSaveWebArchive must take a valid frame pointer!");
+
+    const char* basenameNative = getCharactersFromJStringInEnv(env, basename);
+    String basenameString = String::fromUTF8(basenameNative);
+    String filename;
+
+    if (autoname) {
+        String name = pFrame->loader()->documentLoader()->originalURL().lastPathComponent();
+        String extension = String(".webarchivexml");
+        filename = saveArchiveAutoname(basenameString, name, extension);
+    } else {
+        filename = basenameString;
+    }
+
+    if (filename.isNull() || filename.isEmpty()) {
+        LOGD("saveWebArchive: Failed to select a filename to save.");
+        releaseCharactersForJStringInEnv(env, basename, basenameNative);
+        return JNI_FALSE;
+    }
+
+    const int noCompression = 0;
+    xmlTextWriterPtr writer = xmlNewTextWriterFilename(filename.utf8().data(), noCompression);
+    if (writer == NULL) {
+        LOGD("saveWebArchive: Failed to initialize xml writer.");
+        releaseCharactersForJStringInEnv(env, basename, basenameNative);
+        return JNI_FALSE;
+    }
+
+    RefPtr<WebArchiveAndroid> archive = WebCore::WebArchiveAndroid::create(pFrame);
+
+    bool result = archive->saveWebArchive(writer);
+
+    releaseCharactersForJStringInEnv(env, basename, basenameNative);
+    xmlFreeTextWriter(writer);
+
+    if (result) {
+        return env->NewStringUTF(filename.utf8().data());
+    }
+
+    return NULL;
+#endif
+}
+
 static jstring ExternalRepresentation(JNIEnv *env, jobject obj)
 {
 #ifdef ANDROID_INSTRUMENT
@@ -1640,6 +1729,8 @@ static JNINativeMethod gBrowserFrameNativeMethods[] = {
         (void*) PostUrl },
     { "nativeLoadData", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V",
         (void*) LoadData },
+    { "nativeSaveWebArchive", "(Ljava/lang/String;Z)Ljava/lang/String;",
+        (void*) SaveWebArchive },
     { "externalRepresentation", "()Ljava/lang/String;",
         (void*) ExternalRepresentation },
     { "documentAsText", "()Ljava/lang/String;",

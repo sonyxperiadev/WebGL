@@ -34,6 +34,8 @@
 
 #if PLATFORM(CF) && !PLATFORM(QT)
 #include "LegacyWebArchive.h"
+#elif PLATFORM(ANDROID)
+#include "WebArchiveAndroid.h"
 #endif
 
 #include <wtf/HashMap.h>
@@ -62,6 +64,8 @@ static ArchiveMIMETypesMap& archiveMIMETypes()
 
 #if PLATFORM(CF) && !PLATFORM(QT)
     mimeTypes.set("application/x-webarchive", archiveFactoryCreate<LegacyWebArchive>);
+#elif PLATFORM(ANDROID)
+    mimeTypes.set("application/x-webarchive-xml", archiveFactoryCreate<WebArchiveAndroid>);
 #endif
 
     initialized = true;

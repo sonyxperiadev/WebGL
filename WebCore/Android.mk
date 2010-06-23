@@ -1042,6 +1042,13 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/CachedXSLStyleSheet.cpp \
 	dom/TransformSourceLibxslt.cpp
 
+# For Archive
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	loader/archive/ArchiveFactory.cpp \
+	loader/archive/ArchiveResource.cpp \
+	loader/archive/ArchiveResourceCollection.cpp \
+	loader/archive/android/WebArchiveAndroid.cpp
+
 # For complex scripts(Arabic, Thai, Hindi...).
 ifeq ($(SUPPORT_COMPLEX_SCRIPTS),true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
