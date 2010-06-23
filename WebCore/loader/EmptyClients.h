@@ -68,6 +68,10 @@ public:
 
     virtual float scaleFactor() { return 1.f; }
 
+#if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
+    virtual void webAppCanBeInstalled() { }
+#endif
+
 #ifdef ANDROID_USER_GESTURE
     virtual void focus(bool userGesture) { }
 #else

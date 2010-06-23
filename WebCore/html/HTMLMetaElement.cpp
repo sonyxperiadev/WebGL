@@ -32,6 +32,10 @@
 #include "WebViewCore.h"
 #endif
 
+#if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
+#include "ChromeClient.h"
+#endif
+
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -96,6 +100,16 @@ void HTMLMetaElement::process()
 #else
     if (equalIgnoringCase(name(), "viewport"))
         document()->processViewport(m_content);
+#endif
+
+#if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
+    // If this web site is informing us it is possible for it to be installed, inform the chrome
+    // client so it can offer this to the user.
+    if (equalIgnoringCase(name(), "fullscreen-web-app-capable")
+        && equalIgnoringCase(m_content, "yes")) {
+        if (Page* page = document()->page())
+            page->chrome()->client()->webAppCanBeInstalled();
+    }
 #endif
 
     // Get the document to process the tag, but only if we're actually part of DOM tree (changing a meta tag while

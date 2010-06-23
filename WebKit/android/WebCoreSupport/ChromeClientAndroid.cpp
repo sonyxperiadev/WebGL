@@ -530,4 +530,14 @@ void ChromeClientAndroid::needTouchEvents(bool needTouchEvents)
 }
 #endif
 
+#if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
+void ChromeClientAndroid::webAppCanBeInstalled()
+{
+    FrameView* frameView = m_webFrame->page()->mainFrame()->view();
+    android::WebViewCore* core = android::WebViewCore::getWebViewCore(frameView);
+    if (core)
+        core->notifyWebAppCanBeInstalled();
+}
+#endif
+
 }

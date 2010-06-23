@@ -172,6 +172,10 @@ namespace android {
         void layersSync();
 #endif
 
+#if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
+        virtual void webAppCanBeInstalled();
+#endif
+
     private:
         android::WebFrame* m_webFrame;
         // The Geolocation permissions manager.

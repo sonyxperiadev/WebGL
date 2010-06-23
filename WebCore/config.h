@@ -126,6 +126,8 @@
 #undef ENABLE_APPLICATION_INSTALLED
 #define ENABLE_APPLICATION_INSTALLED 1
 
+#define ENABLE_ANDROID_INSTALLABLE_WEB_APPS 1
+
 // Uses composited RenderLayers for fixed elements
 #undef ENABLE_COMPOSITED_FIXED_ELEMENTS // Disabled by default in Platform.h
 #define ENABLE_COMPOSITED_FIXED_ELEMENTS 1

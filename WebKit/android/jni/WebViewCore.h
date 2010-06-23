@@ -470,6 +470,8 @@ namespace android {
         // utility to split slow parts of the picture set
         void splitContent();
 
+        void notifyWebAppCanBeInstalled();
+
         // these members are shared with webview.cpp
         static Mutex gFrameCacheMutex;
         CachedRoot* m_frameCacheKit; // nav data being built by webcore

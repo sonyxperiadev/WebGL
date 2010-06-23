@@ -256,6 +256,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_showRect;
     jmethodID   m_centerFitRect;
     jmethodID   m_setScrollbarModes;
+    jmethodID   m_setInstallableWebApp;
     AutoJObject object(JNIEnv* env) {
         return getRealObject(env, m_obj);
     }
@@ -346,6 +347,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_showRect = GetJMethod(env, clazz, "showRect", "(IIIIIIFFFF)V");
     m_javaGlue->m_centerFitRect = GetJMethod(env, clazz, "centerFitRect", "(IIII)V");
     m_javaGlue->m_setScrollbarModes = GetJMethod(env, clazz, "setScrollbarModes", "(II)V");
+    m_javaGlue->m_setInstallableWebApp = GetJMethod(env, clazz, "setInstallableWebApp", "()V");
 
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
 
@@ -2862,6 +2864,13 @@ void WebViewCore::setScrollbarModes(ScrollbarMode horizontalMode, ScrollbarMode 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_setScrollbarModes,
             horizontalMode, verticalMode);
+    checkException(env);
+}
+
+void WebViewCore::notifyWebAppCanBeInstalled()
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_setInstallableWebApp);
     checkException(env);
 }
 

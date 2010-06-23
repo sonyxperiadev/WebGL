@@ -252,6 +252,10 @@ namespace WebCore {
         virtual bool isMinimized() { return false; }
 #endif
 
+#if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
+        virtual void webAppCanBeInstalled() = 0;
+#endif
+
     protected:
         virtual ~ChromeClient() { }
     };
