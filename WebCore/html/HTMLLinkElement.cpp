@@ -207,7 +207,7 @@ void HTMLLinkElement::process()
 
 #ifdef ANDROID_APPLE_TOUCH_ICON
     if ((m_relAttribute.m_isTouchIcon || m_relAttribute.m_isPrecomposedTouchIcon) && m_url.isValid()
-            && !m_url.isEmpty())
+        && !m_url.isEmpty() && document()->frame())
         document()->frame()->loader()->client()
                 ->dispatchDidReceiveTouchIconURL(m_url.string(),
                         m_relAttribute.m_isPrecomposedTouchIcon);
