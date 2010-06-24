@@ -1491,7 +1491,7 @@ static jobjectArray GetUsernamePassword(JNIEnv *env, jobject obj)
                     continue;
                 if (input->inputType() == WebCore::HTMLInputElement::PASSWORD)
                     password = input->value();
-                else if (input->inputType() == WebCore::HTMLInputElement::TEXT)
+                else if (input->inputType() == WebCore::HTMLInputElement::TEXT || input->inputType() == WebCore::HTMLInputElement::EMAIL)
                     username = input->value();
                 if (!username.isNull() && !password.isNull())
                     found = true;
@@ -1537,7 +1537,7 @@ static void SetUsernamePassword(JNIEnv *env, jobject obj,
                     continue;
                 if (input->inputType() == WebCore::HTMLInputElement::PASSWORD)
                     passwordEle = input;
-                else if (input->inputType() == WebCore::HTMLInputElement::TEXT)
+                else if (input->inputType() == WebCore::HTMLInputElement::TEXT || input->inputType() == WebCore::HTMLInputElement::EMAIL)
                     usernameEle = input;
                 if (usernameEle != NULL && passwordEle != NULL)
                     found = true;
