@@ -95,7 +95,7 @@ SkPixelRef* SkCreateRLEPixelRef(const SkBitmap& src);
  
     Perhaps this value should be some fraction of the available RAM...
 */
-static size_t computeMaxBitmapSizeForCache() {
+size_t computeMaxBitmapSizeForCache() {
     return MAX_SIZE_BEFORE_SUBSAMPLE;
 }
 

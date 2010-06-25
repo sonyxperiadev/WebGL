@@ -29,6 +29,7 @@
 #include <wtf/Platform.h>
 
 #include "ApplicationCacheStorage.h"
+#include "BitmapAllocatorAndroid.h"
 #include "DatabaseTracker.h"
 #include "Database.h"
 #include "DocLoader.h"
@@ -114,6 +115,7 @@ struct FieldIds {
         mUseWideViewport = env->GetFieldID(clazz, "mUseWideViewport", "Z");
         mSupportMultipleWindows = env->GetFieldID(clazz, "mSupportMultipleWindows", "Z");
         mShrinksStandaloneImagesToFit = env->GetFieldID(clazz, "mShrinksStandaloneImagesToFit", "Z");
+        mMaximumDecodedImageSize = env->GetFieldID(clazz, "mMaximumDecodedImageSize", "J");
         mUseDoubleTree = env->GetFieldID(clazz, "mUseDoubleTree", "Z");
         mPageCacheCapacity = env->GetFieldID(clazz, "mPageCacheCapacity", "I");
 
@@ -150,6 +152,7 @@ struct FieldIds {
         LOG_ASSERT(mUseWideViewport, "Could not find field mUseWideViewport");
         LOG_ASSERT(mSupportMultipleWindows, "Could not find field mSupportMultipleWindows");
         LOG_ASSERT(mShrinksStandaloneImagesToFit, "Could not find field mShrinksStandaloneImagesToFit");
+        LOG_ASSERT(mMaximumDecodedImageSize, "Could not find field mMaximumDecodedImageSize");
         LOG_ASSERT(mUseDoubleTree, "Could not find field mUseDoubleTree");
         LOG_ASSERT(mPageCacheCapacity, "Could not find field mPageCacheCapacity");
 
@@ -195,6 +198,7 @@ struct FieldIds {
     jfieldID mUseWideViewport;
     jfieldID mSupportMultipleWindows;
     jfieldID mShrinksStandaloneImagesToFit;
+    jfieldID mMaximumDecodedImageSize;
     jfieldID mUseDoubleTree;
     jfieldID mPageCacheCapacity;
     // Ordinal() method and value field for enums
@@ -355,6 +359,10 @@ public:
 #endif
         flag = env->GetBooleanField(obj, gFieldIds->mShrinksStandaloneImagesToFit);
         s->setShrinksStandaloneImagesToFit(flag);
+        jlong maxImage = env->GetIntField(obj, gFieldIds->mMaximumDecodedImageSize);
+        if (maxImage == 0)
+            maxImage = computeMaxBitmapSizeForCache();
+        s->setMaximumDecodedImageSize(maxImage);
 #if ENABLE(DATABASE)
         flag = env->GetBooleanField(obj, gFieldIds->mDatabaseEnabled);
         WebCore::Database::setIsAvailable(flag);

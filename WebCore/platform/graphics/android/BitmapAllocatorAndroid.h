@@ -53,4 +53,6 @@ namespace WebCore {
 
 }
 
+size_t computeMaxBitmapSizeForCache();
+
 #endif
