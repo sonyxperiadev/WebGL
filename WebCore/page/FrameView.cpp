@@ -90,23 +90,25 @@ using namespace HTMLNames;
 
 double FrameView::sCurrentPaintTimeStamp = 0.0;
 
+// REPAINT_THROTTLING now chooses default values for throttling parameters.
+// Should be removed when applications start using runtime configuration.
 #if ENABLE(REPAINT_THROTTLING)
 // Normal delay
-static const double deferredRepaintDelay = 0.025;
+double FrameView::s_deferredRepaintDelay = 0.025;
 // Negative value would mean that first few repaints happen without a delay
-static const double initialDeferredRepaintDelayDuringLoading = 0;
+double FrameView::s_initialDeferredRepaintDelayDuringLoading = 0;
 // The delay grows on each repaint to this maximum value
-static const double maxDeferredRepaintDelayDuringLoading = 2.5;
+double FrameView::s_maxDeferredRepaintDelayDuringLoading = 2.5;
 // On each repaint the delay increses by this amount
-static const double deferredRepaintDelayIncrementDuringLoading = 0.5;
+double FrameView::s_deferredRepaintDelayIncrementDuringLoading = 0.5;
 #else
 // FIXME: Repaint throttling could be good to have on all platform.
 // The balance between CPU use and repaint frequency will need some tuning for desktop.
 // More hooks may be needed to reset the delay on things like GIF and CSS animations.
-static const double deferredRepaintDelay = 0;
-static const double initialDeferredRepaintDelayDuringLoading = 0;
-static const double maxDeferredRepaintDelayDuringLoading = 0;
-static const double deferredRepaintDelayIncrementDuringLoading = 0;
+double FrameView::s_deferredRepaintDelay = 0;
+double FrameView::s_initialDeferredRepaintDelayDuringLoading = 0;
+double FrameView::s_maxDeferredRepaintDelayDuringLoading = 0;
+double FrameView::s_deferredRepaintDelayIncrementDuringLoading = 0;
 #endif
 
 // The maximum number of updateWidgets iterations that should be done before returning.
@@ -222,7 +224,7 @@ void FrameView::reset()
     m_deferringRepaints = 0;
     m_repaintCount = 0;
     m_repaintRects.clear();
-    m_deferredRepaintDelay = initialDeferredRepaintDelayDuringLoading;
+    m_deferredRepaintDelay = s_initialDeferredRepaintDelayDuringLoading;
     m_deferredRepaintTimer.stop();
     m_lastPaintTime = 0;
     m_paintBehavior = PaintBehaviorNormal;
@@ -930,6 +932,8 @@ void FrameView::removeSlowRepaintObject()
 
 void FrameView::addFixedObject()
 {
+    if (!m_fixedObjectCount && platformWidget())
+        setCanBlitOnScroll(false);
     ++m_fixedObjectCount;
 }
 
@@ -937,6 +941,64 @@ void FrameView::removeFixedObject()
 {
     ASSERT(m_fixedObjectCount > 0);
     --m_fixedObjectCount;
+    if (!m_fixedObjectCount)
+        setCanBlitOnScroll(!useSlowRepaints());
+}
+
+bool FrameView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect)
+{
+    const size_t fixedObjectThreshold = 5;
+
+    RenderBlock::PositionedObjectsListHashSet* positionedObjects = 0;
+    if (RenderView* root = m_frame->contentRenderer())
+        positionedObjects = root->positionedObjects();
+
+    if (!positionedObjects || positionedObjects->isEmpty()) {
+        hostWindow()->scroll(scrollDelta, rectToScroll, clipRect);
+        return true;
+    }
+
+    // Get the rects of the fixed objects visible in the rectToScroll
+    Vector<IntRect, fixedObjectThreshold> subRectToUpdate;
+    bool updateInvalidatedSubRect = true;
+    RenderBlock::PositionedObjectsListHashSet::const_iterator end = positionedObjects->end();
+    for (RenderBlock::PositionedObjectsListHashSet::const_iterator it = positionedObjects->begin(); it != end; ++it) {
+        RenderBox* renderBox = *it;
+        if (renderBox->style()->position() != FixedPosition)
+            continue;
+        IntRect updateRect = renderBox->layer()->repaintRectIncludingDescendants();
+        updateRect = contentsToWindow(updateRect);
+
+        updateRect.intersect(rectToScroll);
+        if (!updateRect.isEmpty()) {
+            if (subRectToUpdate.size() >= fixedObjectThreshold) {
+                updateInvalidatedSubRect = false;
+                break;
+            }
+            subRectToUpdate.append(updateRect);
+        }
+    }
+
+    // Scroll the view
+    if (updateInvalidatedSubRect) {
+        // 1) scroll
+        hostWindow()->scroll(scrollDelta, rectToScroll, clipRect);
+
+        // 2) update the area of fixed objects that has been invalidated
+        size_t fixObjectsCount = subRectToUpdate.size();
+        for (size_t i = 0; i < fixObjectsCount; ++i) {
+            IntRect updateRect = subRectToUpdate[i];
+            IntRect scrolledRect = updateRect;
+            scrolledRect.move(scrollDelta);
+            updateRect.unite(scrolledRect);
+            updateRect.intersect(rectToScroll);
+            hostWindow()->invalidateContentsAndWindow(updateRect, false);
+        }
+        return true;
+    }
+
+    // the number of fixed objects exceed the threshold, we cannot use the fast path
+    return false;
 }
 
 void FrameView::setIsOverlapped(bool isOverlapped)
@@ -1240,13 +1302,13 @@ void FrameView::updateDeferredRepaintDelay()
 {
     Document* document = m_frame->document();
     if (!document || (!document->parsing() && !document->docLoader()->requestCount())) {
-        m_deferredRepaintDelay = deferredRepaintDelay;
+        m_deferredRepaintDelay = s_deferredRepaintDelay;
         return;
     }
-    if (m_deferredRepaintDelay < maxDeferredRepaintDelayDuringLoading) {
-        m_deferredRepaintDelay += deferredRepaintDelayIncrementDuringLoading;
-        if (m_deferredRepaintDelay > maxDeferredRepaintDelayDuringLoading)
-            m_deferredRepaintDelay = maxDeferredRepaintDelayDuringLoading;
+    if (m_deferredRepaintDelay < s_maxDeferredRepaintDelayDuringLoading) {
+        m_deferredRepaintDelay += s_deferredRepaintDelayIncrementDuringLoading;
+        if (m_deferredRepaintDelay > s_maxDeferredRepaintDelayDuringLoading)
+            m_deferredRepaintDelay = s_maxDeferredRepaintDelayDuringLoading;
     }
 }
 
@@ -2249,6 +2311,31 @@ void FrameView::setZoomFactor(float percent, ZoomMode mode)
 
     if (document->renderer() && document->renderer()->needsLayout() && didFirstLayout())
         layout();
+}
+
+
+// Normal delay
+void FrameView::setRepaintThrottlingDeferredRepaintDelay(double p)
+{
+    s_deferredRepaintDelay = p;
+}
+
+// Negative value would mean that first few repaints happen without a delay
+void FrameView::setRepaintThrottlingnInitialDeferredRepaintDelayDuringLoading(double p)
+{
+    s_initialDeferredRepaintDelayDuringLoading = p;
+}
+
+// The delay grows on each repaint to this maximum value
+void FrameView::setRepaintThrottlingMaxDeferredRepaintDelayDuringLoading(double p)
+{
+    s_maxDeferredRepaintDelayDuringLoading = p;
+}
+
+// On each repaint the delay increases by this amount
+void FrameView::setRepaintThrottlingDeferredRepaintDelayIncrementDuringLoading(double p)
+{
+    s_deferredRepaintDelayIncrementDuringLoading = p;
 }
 
 } // namespace WebCore

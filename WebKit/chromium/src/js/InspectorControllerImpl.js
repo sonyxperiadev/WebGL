@@ -38,14 +38,18 @@ if (!this.devtools)
 devtools.InspectorBackendImpl = function()
 {
     WebInspector.InspectorBackendStub.call(this);
+    this.installInspectorControllerDelegate_("addInspectedNode");
     this.installInspectorControllerDelegate_("addScriptToEvaluateOnLoad");
-    this.installInspectorControllerDelegate_("clearMessages");
+    this.installInspectorControllerDelegate_("changeTagName");
+    this.installInspectorControllerDelegate_("clearConsoleMessages");
     this.installInspectorControllerDelegate_("copyNode");
     this.installInspectorControllerDelegate_("deleteCookie");
     this.installInspectorControllerDelegate_("didEvaluateForTestInFrontend");
+    this.installInspectorControllerDelegate_("disableMonitoringXHR");
     this.installInspectorControllerDelegate_("disableResourceTracking");
     this.installInspectorControllerDelegate_("disableSearchingForNode");
     this.installInspectorControllerDelegate_("disableTimeline");
+    this.installInspectorControllerDelegate_("enableMonitoringXHR");
     this.installInspectorControllerDelegate_("enableResourceTracking");
     this.installInspectorControllerDelegate_("enableSearchingForNode");
     this.installInspectorControllerDelegate_("enableTimeline");
@@ -54,6 +58,7 @@ devtools.InspectorBackendImpl = function()
     this.installInspectorControllerDelegate_("getDatabaseTableNames");
     this.installInspectorControllerDelegate_("getDOMStorageEntries");
     this.installInspectorControllerDelegate_("getEventListenersForNode");
+    this.installInspectorControllerDelegate_("getOuterHTML");
     this.installInspectorControllerDelegate_("getProfile");
     this.installInspectorControllerDelegate_("getProfileHeaders");
     this.installInspectorControllerDelegate_("removeProfile");
@@ -62,6 +67,7 @@ devtools.InspectorBackendImpl = function()
     this.installInspectorControllerDelegate_("highlightDOMNode");
     this.installInspectorControllerDelegate_("hideDOMNodeHighlight");
     this.installInspectorControllerDelegate_("performSearch");
+    this.installInspectorControllerDelegate_("pushNodeByPathToFrontend");
     this.installInspectorControllerDelegate_("releaseWrapperObjectGroup");
     this.installInspectorControllerDelegate_("removeAllScriptsToEvaluateOnLoad");
     this.installInspectorControllerDelegate_("reloadPage");
@@ -74,12 +80,14 @@ devtools.InspectorBackendImpl = function()
     this.installInspectorControllerDelegate_("setAttribute");
     this.installInspectorControllerDelegate_("setDOMStorageItem");
     this.installInspectorControllerDelegate_("setInjectedScriptSource");
+    this.installInspectorControllerDelegate_("setOuterHTML");
     this.installInspectorControllerDelegate_("setTextNodeValue");
     this.installInspectorControllerDelegate_("startProfiling");
     this.installInspectorControllerDelegate_("startTimelineProfiler");
     this.installInspectorControllerDelegate_("stopProfiling");
     this.installInspectorControllerDelegate_("stopTimelineProfiler");
     this.installInspectorControllerDelegate_("storeLastActivePanel");
+    this.installInspectorControllerDelegate_("takeHeapSnapshot");
 
     this.installInspectorControllerDelegate_("getAllStyles");
     this.installInspectorControllerDelegate_("getStyles");
@@ -111,24 +119,6 @@ devtools.InspectorBackendImpl = function()
     }
 };
 devtools.InspectorBackendImpl.prototype.__proto__ = WebInspector.InspectorBackendStub.prototype;
-
-
-/**
- * @override
- */
-devtools.InspectorBackendImpl.prototype.debuggerEnabled = function()
-{
-    return true;
-};
-
-
-/**
- * @override
- */
-devtools.InspectorBackendImpl.prototype.profilerEnabled = function()
-{
-    return true;
-};
 
 
 if (!window.v8ScriptDebugServerEnabled) {
@@ -243,17 +233,6 @@ devtools.InspectorBackendImpl.prototype.pauseInDebugger = function()
 };
 
 }
-
-
-/**
- * @override
- */
-devtools.InspectorBackendImpl.prototype.takeHeapSnapshot = function()
-{
-    devtools.tools.getProfilerAgent().startProfiling(devtools.ProfilerAgent.ProfilerModules.PROFILER_MODULE_HEAP_SNAPSHOT
-        | devtools.ProfilerAgent.ProfilerModules.PROFILER_MODULE_HEAP_STATS
-        | devtools.ProfilerAgent.ProfilerModules.PROFILER_MODULE_JS_CONSTRUCTORS);
-};
 
 
 /**

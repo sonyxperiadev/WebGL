@@ -185,13 +185,13 @@ enum PageshowEventPersistence {
     
 class Document : public ContainerNode, public ScriptExecutionContext {
 public:
-    static PassRefPtr<Document> create(Frame* frame)
+    static PassRefPtr<Document> create(Frame* frame, const KURL& url)
     {
-        return adoptRef(new Document(frame, false, false));
+        return adoptRef(new Document(frame, url, false, false));
     }
-    static PassRefPtr<Document> createXHTML(Frame* frame)
+    static PassRefPtr<Document> createXHTML(Frame* frame, const KURL& url)
     {
-        return adoptRef(new Document(frame, true, false));
+        return adoptRef(new Document(frame, url, true, false));
     }
     virtual ~Document();
 
@@ -482,6 +482,10 @@ public:
     void updateLayout();
     void updateLayoutIgnorePendingStylesheets();
     PassRefPtr<RenderStyle> styleForElementIgnoringPendingStylesheets(Element*);
+    PassRefPtr<RenderStyle> styleForPage(int pageIndex);
+    bool isPageBoxVisible(int pageIndex);
+    IntRect pageAreaRectInPixels(int pageIndex);
+    IntSize preferredPageSizeInPixels(int pageIndex);
     static void updateStyleForAllDocuments(); // FIXME: Try to reduce the # of calls to this function.
     DocLoader* docLoader() { return m_docLoader.get(); }
 
@@ -823,6 +827,9 @@ public:
 
     void executeScriptSoon(ScriptElementData*, CachedResourceHandle<CachedScript>);
 
+    void suspendExecuteScriptSoonTimer();
+    void resumeExecuteScriptSoonTimer();
+
 #if ENABLE(XSLT)
     void applyXSLTransform(ProcessingInstruction* pi);
     PassRefPtr<Document> transformSourceDocument() { return m_transformSourceDocument; }
@@ -992,7 +999,7 @@ public:
     const QualifiedName& idAttributeName() const { return m_idAttributeName; }
 
 protected:
-    Document(Frame*, bool isXHTML, bool isHTML);
+    Document(Frame*, const KURL&, bool isXHTML, bool isHTML);
 
     void clearXMLVersion() { m_xmlVersion = String(); }
 

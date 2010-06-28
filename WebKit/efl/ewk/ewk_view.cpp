@@ -18,6 +18,7 @@
     Boston, MA 02110-1301, USA.
 */
 
+#define __STDC_FORMAT_MACROS
 #include "config.h"
 #include "ewk_view.h"
 
@@ -43,6 +44,7 @@
 #include <Eina.h>
 #include <Evas.h>
 #include <eina_safety_checks.h>
+#include <inttypes.h>
 #include <sys/time.h>
 
 #define ZOOM_MIN (0.05)
@@ -706,6 +708,7 @@ static void _ewk_view_smart_del(Evas_Object* o)
     EWK_VIEW_SD_GET(o, sd);
     Ewk_View_Private_Data* priv = sd ? sd->_priv : 0;
 
+    ewk_view_stop(o);
     _parent_sc.del(o);
     _ewk_view_priv_del(priv);
 }
@@ -3150,21 +3153,36 @@ void ewk_view_restore_state(Evas_Object* o, Evas_Object* frame)
 /**
  * @internal
  * Delegates to browser the creation of a new window. If it is not implemented,
- * current view is returned, so navigation might continue in same window.
+ * current view is returned, so navigation might continue in same window. If
+ * browser supports the creation of new windows, a new Ewk_Window_Features is
+ * created and passed to browser. If it intends to keep the request for opening
+ * the window later it must increments the Ewk_Winwdow_Features ref count by
+ * calling ewk_window_features_ref(window_features). Otherwise this struct will
+ * be freed after returning to this function.
  *
  * @param o Current view.
+ * @param javascript @c EINA_TRUE if the new window is originated from javascript,
+ * @c EINA_FALSE otherwise
+ * @param window_features Features of the new window being created. If it's @c
+ * NULL, it will be created a window with default features.
  *
  * @return New view, in case smart class implements the creation of new windows;
  * else, current view @param o.
+ *
+ * @see ewk_window_features_ref().
  */
-Evas_Object* ewk_view_window_create(Evas_Object* o)
+Evas_Object* ewk_view_window_create(Evas_Object* o, Eina_Bool javascript, const WebCore::WindowFeatures* coreFeatures)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, 0);
 
     if (!sd->api->window_create)
         return o;
 
-    return sd->api->window_create(sd);
+    Ewk_Window_Features* window_features = ewk_window_features_new_from_core(coreFeatures);
+    Evas_Object* view = sd->api->window_create(sd, javascript, window_features);
+    ewk_window_features_unref(window_features);
+
+    return view;
 }
 
 /**
@@ -3449,7 +3467,7 @@ uint64_t ewk_view_exceeded_database_quota(Evas_Object* o, Evas_Object* frame, co
     if (!sd->api->exceeded_database_quota)
         return 0;
 
-    ERR("##### %lu %lu", current_size, expected_size);
+    INF("current_size=%"PRIu64" expected_size="PRIu64, current_size, expected_size);
     return sd->api->exceeded_database_quota(sd, frame, databaseName, current_size, expected_size);
 }
 

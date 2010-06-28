@@ -332,6 +332,7 @@ public:
     virtual bool isContentRichlyEditable() const;
     virtual bool shouldUseInputMethod() const;
     virtual IntRect getRect() const;
+    IntRect renderRect(bool* isReplaced);
 
     // Returns true if the node has a non-empty bounding box in layout.
     // This does not 100% guarantee the user can see it, but is pretty close.
@@ -666,7 +667,7 @@ private:
     void clearFlag(NodeFlags mask) const { m_nodeFlags &= ~mask; } 
 
 protected:
-    // CreateElementZeroRefCount is deprecated and can be removed once we convert all element
+    // CreateWithZeroRefCountFlag is deprecated and can be removed once we convert all element
     // classes to start with a reference count of 1.
     enum ConstructionType { 
         CreateOther = DefaultNodeFlags,
@@ -674,11 +675,9 @@ protected:
         CreateComment = DefaultNodeFlags | IsCommentFlag,
         CreateContainer = DefaultNodeFlags | IsContainerFlag, 
         CreateElement = CreateContainer | IsElementFlag, 
-        CreateElementZeroRefCount = IsElementFlag | CreateWithZeroRefCountFlag, 
         CreateStyledElement = CreateElement | IsStyledElementFlag, 
         CreateStyledElementZeroRefCount =  CreateStyledElement | CreateWithZeroRefCountFlag, 
         CreateHTMLElement = CreateStyledElement | IsHTMLFlag, 
-        CreateHTMLElementZeroRefCount = CreateHTMLElement | CreateWithZeroRefCountFlag,
         CreateSVGElement = CreateStyledElement | IsSVGFlag, 
         CreateSVGElementZeroRefCount = CreateSVGElement | CreateWithZeroRefCountFlag,
     };

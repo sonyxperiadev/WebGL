@@ -36,6 +36,7 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
+#include "FrameLoaderStateMachine.h"
 #include "HistoryItem.h"
 #include "Logging.h"
 #include "Page.h"
@@ -77,7 +78,7 @@ static void pageCacheLog(const String& prefix, const String& message)
 static bool logCanCacheFrameDecision(Frame* frame, int indentLevel)
 {
     // Only bother logging for frames that have actually loaded and have content.
-    if (frame->loader()->creatingInitialEmptyDocument())
+    if (frame->loader()->stateMachine()->creatingInitialEmptyDocument())
         return false;
     KURL currentURL = frame->loader()->documentLoader() ? frame->loader()->documentLoader()->url() : KURL();
     if (currentURL.isEmpty())
@@ -102,7 +103,7 @@ static bool logCanCacheFrameDecision(Frame* frame, int indentLevel)
             PCLOG("   -Main document has an error");
             cannotCache = true;
         }
-        if (frame->loader()->containsPlugins()) {
+        if (frame->loader()->subframeLoader()->containsPlugins()) {
             PCLOG("   -Frame contains plugins");
             cannotCache = true;
         }
@@ -175,7 +176,7 @@ static bool logCanCacheFrameDecision(Frame* frame, int indentLevel)
 static void logCanCachePageDecision(Page* page)
 {
     // Only bother logging for main frames that have actually loaded and have content.
-    if (page->mainFrame()->loader()->creatingInitialEmptyDocument())
+    if (page->mainFrame()->loader()->stateMachine()->creatingInitialEmptyDocument())
         return;
     KURL currentURL = page->mainFrame()->loader()->documentLoader() ? page->mainFrame()->loader()->documentLoader()->url() : KURL();
     if (currentURL.isEmpty())
@@ -246,7 +247,7 @@ bool PageCache::canCachePageContainingThisFrame(Frame* frame)
         // (objects created by the plug-in). Since there is no way to pause/resume a Netscape plug-in,
         // they would need to be destroyed and then recreated, and there is no way that we can recreate
         // the right NPObjects. See <rdar://problem/5197041> for more information.
-        && !frame->loader()->containsPlugins()
+        && !frame->loader()->subframeLoader()->containsPlugins()
         && !frame->loader()->url().protocolIs("https")
         && (!frame->domWindow() || !frame->domWindow()->hasEventListeners(eventNames().unloadEvent))
 #if ENABLE(DATABASE)

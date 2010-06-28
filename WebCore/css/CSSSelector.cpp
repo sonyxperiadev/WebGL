@@ -5,6 +5,7 @@
  *               2001-2003 Dirk Mueller (mueller@kde.org)
  * Copyright (C) 2002, 2006, 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2008 David Smith (catfish.man@gmail.com)
+ * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -37,6 +38,9 @@ using namespace HTMLNames;
 
 unsigned int CSSSelector::specificity()
 {
+    if (m_isForPage)
+        return specificityForPage();
+
     // FIXME: Pseudo-elements and pseudo-classes do not have the same specificity. This function
     // isn't quite correct.
     int s = (m_tag.localName() == starAtom ? 0 : 1);
@@ -66,6 +70,27 @@ unsigned int CSSSelector::specificity()
     return s & 0xffffff;
 }
 
+unsigned CSSSelector::specificityForPage()
+{
+    // See http://dev.w3.org/csswg/css3-page/#cascading-and-page-context
+    unsigned s = (m_tag.localName() == starAtom ? 0 : 4);
+
+    switch (pseudoType()) {
+    case PseudoFirstPage:
+        s += 2;
+        break;
+    case PseudoLeftPage:
+    case PseudoRightPage:
+        s += 1;
+        break;
+    case PseudoNotParsed:
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+    }
+    return s;
+}
+
 PseudoId CSSSelector::pseudoId(PseudoType type)
 {
     switch (type) {
@@ -83,6 +108,10 @@ PseudoId CSSSelector::pseudoId(PseudoType type)
         return FILE_UPLOAD_BUTTON;
     case PseudoInputPlaceholder:
         return INPUT_PLACEHOLDER;
+#if ENABLE(INPUT_SPEECH)
+    case PseudoInputSpeechButton:
+        return INPUT_SPEECH_BUTTON;
+#endif
     case PseudoSliderThumb:
         return SLIDER_THUMB;
     case PseudoSearchCancelButton:
@@ -150,6 +179,37 @@ PseudoId CSSSelector::pseudoId(PseudoType type)
         ASSERT_NOT_REACHED();
         return NOPSEUDO;
 #endif
+
+#if ENABLE(METER_TAG)
+    case PseudoMeterHorizontalBar:
+        return METER_HORIZONTAL_BAR;
+    case PseudoMeterHorizontalOptimum:
+        return METER_HORIZONTAL_OPTIMUM;
+    case PseudoMeterHorizontalSuboptimal:
+        return METER_HORIZONTAL_SUBOPTIMAL;
+    case PseudoMeterHorizontalEvenLessGood:
+        return METER_HORIZONTAL_EVEN_LESS_GOOD;
+    case PseudoMeterVerticalBar:
+        return METER_VERTICAL_BAR;
+    case PseudoMeterVerticalOptimum:
+        return METER_VERTICAL_OPTIMUM;
+    case PseudoMeterVerticalSuboptimal:
+        return METER_VERTICAL_SUBOPTIMAL;
+    case PseudoMeterVerticalEvenLessGood:
+        return METER_VERTICAL_EVEN_LESS_GOOD;
+#else
+    case PseudoMeterHorizontalBar:
+    case PseudoMeterHorizontalOptimum:
+    case PseudoMeterHorizontalSuboptimal:
+    case PseudoMeterHorizontalEvenLessGood:
+    case PseudoMeterVerticalBar:
+    case PseudoMeterVerticalOptimum:
+    case PseudoMeterVerticalSuboptimal:
+    case PseudoMeterVerticalEvenLessGood:
+        ASSERT_NOT_REACHED();
+        return NOPSEUDO;
+#endif
+
     case PseudoInputListButton:
 #if ENABLE(DATALIST)
         return INPUT_LIST_BUTTON;
@@ -225,6 +285,9 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
     DEFINE_STATIC_LOCAL(AtomicString, before, ("before"));
     DEFINE_STATIC_LOCAL(AtomicString, checked, ("checked"));
     DEFINE_STATIC_LOCAL(AtomicString, fileUploadButton, ("-webkit-file-upload-button"));
+#if ENABLE(INPUT_SPEECH)
+    DEFINE_STATIC_LOCAL(AtomicString, inputSpeechButton, ("-webkit-input-speech-button"));
+#endif
     DEFINE_STATIC_LOCAL(AtomicString, defaultString, ("default"));
     DEFINE_STATIC_LOCAL(AtomicString, disabled, ("disabled"));
     DEFINE_STATIC_LOCAL(AtomicString, readOnly, ("read-only"));
@@ -280,6 +343,18 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
 #if ENABLE(PROGRESS_TAG)
     DEFINE_STATIC_LOCAL(AtomicString, progressBarValue, ("-webkit-progress-bar-value"));
 #endif
+
+#if ENABLE(METER_TAG)
+    DEFINE_STATIC_LOCAL(AtomicString, meterHorizontalBar, ("-webkit-meter-horizontal-bar"));
+    DEFINE_STATIC_LOCAL(AtomicString, meterHorizontalOptimumValue, ("-webkit-meter-horizontal-optimum-value"));
+    DEFINE_STATIC_LOCAL(AtomicString, meterHorizontalSuboptimalValue, ("-webkit-meter-horizontal-suboptimal-value"));
+    DEFINE_STATIC_LOCAL(AtomicString, meterHorizontalEvenLessGoodValue, ("-webkit-meter-horizontal-even-less-good-value"));
+    DEFINE_STATIC_LOCAL(AtomicString, meterVerticalBar, ("-webkit-meter-vertical-bar"));
+    DEFINE_STATIC_LOCAL(AtomicString, meterVerticalOptimumValue, ("-webkit-meter-vertical-optimum-value"));
+    DEFINE_STATIC_LOCAL(AtomicString, meterVerticalSuboptimalValue, ("-webkit-meter-vertical-suboptimal-value"));
+    DEFINE_STATIC_LOCAL(AtomicString, meterVerticalEvenLessGoodValue, ("-webkit-meter-vertical-even-less-good-value"));
+#endif
+
     DEFINE_STATIC_LOCAL(AtomicString, required, ("required"));
     DEFINE_STATIC_LOCAL(AtomicString, resizer, ("-webkit-resizer"));
     DEFINE_STATIC_LOCAL(AtomicString, root, ("root"));
@@ -323,6 +398,9 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
         nameToPseudoType->set(before.impl(), CSSSelector::PseudoBefore);
         nameToPseudoType->set(checked.impl(), CSSSelector::PseudoChecked);
         nameToPseudoType->set(fileUploadButton.impl(), CSSSelector::PseudoFileUploadButton);
+#if ENABLE(INPUT_SPEECH)
+        nameToPseudoType->set(inputSpeechButton.impl(), CSSSelector::PseudoInputSpeechButton);
+#endif
         nameToPseudoType->set(defaultString.impl(), CSSSelector::PseudoDefault);
         nameToPseudoType->set(disabled.impl(), CSSSelector::PseudoDisabled);
         nameToPseudoType->set(readOnly.impl(), CSSSelector::PseudoReadOnly);
@@ -376,6 +454,16 @@ static HashMap<AtomicStringImpl*, CSSSelector::PseudoType>* nameToPseudoTypeMap(
         nameToPseudoType->set(outerSpinButton.impl(), CSSSelector::PseudoOuterSpinButton);
 #if ENABLE(PROGRESS_TAG)
         nameToPseudoType->set(progressBarValue.impl(), CSSSelector::PseudoProgressBarValue);
+#endif
+#if ENABLE(METER_TAG)
+        nameToPseudoType->set(meterHorizontalBar.impl(), CSSSelector::PseudoMeterHorizontalBar);
+        nameToPseudoType->set(meterHorizontalOptimumValue.impl(), CSSSelector::PseudoMeterHorizontalOptimum);
+        nameToPseudoType->set(meterHorizontalSuboptimalValue.impl(), CSSSelector::PseudoMeterHorizontalSuboptimal);
+        nameToPseudoType->set(meterHorizontalEvenLessGoodValue.impl(), CSSSelector::PseudoMeterHorizontalEvenLessGood);
+        nameToPseudoType->set(meterVerticalBar.impl(), CSSSelector::PseudoMeterVerticalBar);
+        nameToPseudoType->set(meterVerticalOptimumValue.impl(), CSSSelector::PseudoMeterVerticalOptimum);
+        nameToPseudoType->set(meterVerticalSuboptimalValue.impl(), CSSSelector::PseudoMeterVerticalSuboptimal);
+        nameToPseudoType->set(meterVerticalEvenLessGoodValue.impl(), CSSSelector::PseudoMeterVerticalEvenLessGood);
 #endif
         nameToPseudoType->set(root.impl(), CSSSelector::PseudoRoot);
         nameToPseudoType->set(windowInactive.impl(), CSSSelector::PseudoWindowInactive);
@@ -442,6 +530,9 @@ void CSSSelector::extractPseudoType() const
     case PseudoFileUploadButton:
     case PseudoInputListButton:
     case PseudoInputPlaceholder:
+#if ENABLE(INPUT_SPEECH)
+    case PseudoInputSpeechButton:
+#endif
     case PseudoInnerSpinButton:
     case PseudoMediaControlsPanel:
     case PseudoMediaControlsMuteButton:
@@ -459,6 +550,14 @@ void CSSSelector::extractPseudoType() const
     case PseudoMediaControlsFullscreenButton:
     case PseudoMediaControlsTimelineContainer:
     case PseudoMediaControlsVolumeSliderContainer:
+    case PseudoMeterHorizontalBar:
+    case PseudoMeterHorizontalOptimum:
+    case PseudoMeterHorizontalSuboptimal:
+    case PseudoMeterHorizontalEvenLessGood:
+    case PseudoMeterVerticalBar:
+    case PseudoMeterVerticalOptimum:
+    case PseudoMeterVerticalSuboptimal:
+    case PseudoMeterVerticalEvenLessGood:
     case PseudoOuterSpinButton:
     case PseudoProgressBarValue:
     case PseudoResizer:

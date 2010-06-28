@@ -183,6 +183,10 @@ public slots:
     // For now, this is a no-op. This may change depending on outcome of
     // https://bugs.webkit.org/show_bug.cgi?id=33333
     void setCallCloseOnWebViews() {}
+    // This is a no-op - it allows us to pass
+    // plugins/get-url-that-the-resource-load-delegate-will-disallow.html
+    // which is a Mac-specific test.
+    void addDisallowedURL(const QString&) {}
 
     void setMockGeolocationError(int code, const QString& message);
     void setMockGeolocationPosition(double latitude, double longitude, double accuracy);
@@ -204,6 +208,8 @@ public slots:
 
     void setEditingBehavior(const QString& editingBehavior);
 
+    void evaluateScriptInIsolatedWorld(int worldID, const QString& script);
+
 private slots:
     void processWork();
 
@@ -224,6 +230,7 @@ private:
     bool m_isGeolocationPermissionSet;
     bool m_geolocationPermission;
 
+    QMap<int, QWebScriptWorld*> m_worldMap;
     QUrl m_userStyleSheetLocation;
     QBasicTimer m_timeoutTimer;
     QWebFrame* m_topLoadingFrame;

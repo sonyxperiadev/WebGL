@@ -43,7 +43,7 @@ CONFIG(QTDIR_build) {
 }
 
 # Pick up 3rdparty libraries from INCLUDE/LIB just like with MSVC
-win32-g++ {
+win32-g++* {
     TMPPATH            = $$quote($$(INCLUDE))
     QMAKE_INCDIR_POST += $$split(TMPPATH,";")
     TMPPATH            = $$quote($$(LIB))
@@ -109,6 +109,7 @@ SOURCES += \
     jit/JITPropertyAccess32_64.cpp \
     jit/JITStubs.cpp \
     jit/ThunkGenerators.cpp \
+    parser/JSParser.cpp \
     parser/Lexer.cpp \
     parser/Nodes.cpp \
     parser/ParserArena.cpp \
@@ -191,6 +192,7 @@ SOURCES += \
     runtime/RegExp.cpp \
     runtime/RegExpObject.cpp \
     runtime/RegExpPrototype.cpp \
+    runtime/RegExpCache.cpp \
     runtime/RopeImpl.cpp \
     runtime/ScopeChain.cpp \
     runtime/SmallStrings.cpp \

@@ -56,8 +56,13 @@ typedef char GLchar;
 #define APIENTRY
 #endif
 
+#ifdef QT_OPENGL_ES_2
+typedef GLsizeiptr GLsizeiptrType;
+typedef GLintptr GLintptrType;
+#else
 typedef ptrdiff_t GLsizeiptrType;
 typedef ptrdiff_t GLintptrType;
+#endif
 
 typedef void (APIENTRY* glActiveTextureType) (GLenum);
 typedef void (APIENTRY* glAttachShaderType) (GLuint, GLuint);
@@ -517,18 +522,10 @@ void GraphicsContext3D::makeContextCurrent()
 void GraphicsContext3D::beginPaint(WebGLRenderingContext* context)
 {
     m_internal->m_glWidget->makeCurrent();
-
     HTMLCanvasElement* canvas = context->canvas();
     ImageBuffer* imageBuffer = canvas->buffer();
-
-    m_internal->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, m_internal->m_mainFbo);
-
-    glReadPixels(/* x */ 0, /* y */ 0, m_currentWidth, m_currentHeight, GraphicsContext3D::RGBA, GraphicsContext3D::UNSIGNED_BYTE, m_internal->m_pixels.bits());
-
-    QPainter* p = imageBuffer->context()->platformContext();
-    p->drawImage(/* x */ 0, /* y */ 0, m_internal->m_pixels.rgbSwapped().transformed(QMatrix().rotate(180)));
-
-    m_internal->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, m_internal->m_currentFbo);
+    QPainter* painter = imageBuffer->context()->platformContext();
+    paint(painter, QRect(QPoint(0, 0), QSize(m_currentWidth, m_currentHeight)));
 }
 
 void GraphicsContext3D::endPaint()
@@ -541,7 +538,7 @@ void GraphicsContext3D::paint(QPainter* painter, const QRect& rect) const
     QWebPageClient* webPageClient = m_internal->m_hostWindow->platformPageClient();
     QGLWidget* ownerGLWidget  = m_internal->getOwnerGLWidget(webPageClient);
     if (ownerGLWidget) {
-        ownerGLWidget->drawTexture(QPointF(0, 0), m_internal->m_texture);
+        ownerGLWidget->drawTexture(rect, m_internal->m_texture);
         return;
     } 
 #endif
@@ -1082,12 +1079,20 @@ void GraphicsContext3D::scissor(long x, long y, unsigned long width, unsigned lo
 void GraphicsContext3D::shaderSource(WebGLShader* shader, const String& source)
 {
     ASSERT(shader);
-    
+
     m_internal->m_glWidget->makeCurrent();
 
-    CString sourceCS = source.utf8();
+    String prefixedSource;
+
+#if defined (QT_OPENGL_ES_2)
+    prefixedSource.append("precision mediump float;\n");
+#endif
+
+    prefixedSource.append(source);
+
+    CString sourceCS = prefixedSource.utf8();
     const char* data = sourceCS.data();
-    int length = source.length();
+    int length = prefixedSource.length();
     m_internal->shaderSource((GLuint) shader->object(), /* count */ 1, &data, &length);
 }
 
@@ -1615,11 +1620,10 @@ void GraphicsContext3D::synthesizeGLError(unsigned long error)
 }
 
 bool GraphicsContext3D::getImageData(Image* image,
-                                     Vector<uint8_t>& outputVector,
+                                     unsigned int format,
+                                     unsigned int type,
                                      bool premultiplyAlpha,
-                                     bool* hasAlphaChannel,
-                                     AlphaOp* neededAlphaOp,
-                                     unsigned int* format)
+                                     Vector<uint8_t>& outputVector)
 {
     if (!image)
         return false;
@@ -1627,17 +1631,14 @@ bool GraphicsContext3D::getImageData(Image* image,
     if (!nativePixmap)
         return false;
 
-    *hasAlphaChannel = true;
-    *format = GraphicsContext3D::RGBA;
-
-    *neededAlphaOp = kAlphaDoNothing;
+    AlphaOp neededAlphaOp = kAlphaDoNothing;
     if (!premultiplyAlpha && *hasAlphaChannel)
-        *neededAlphaOp = kAlphaDoUnmultiply;
- 
+        // FIXME: must fetch the image data before the premultiplication step
+        neededAlphaOp = kAlphaDoUnmultiply;
     QImage nativeImage = nativePixmap->toImage().convertToFormat(QImage::Format_ARGB32);
-    outputVector.append(nativeImage.rgbSwapped().bits(), nativeImage.byteCount());
-
-    return true;
+    outputVector.resize(nativeImage.byteCount());
+    return packPixels(nativeImage.rgbSwapped().bits(), kSourceFormatRGBA8, image->width(), image->height(),
+                      format, type, neededAlphaOp, outputVector.data());
 }
 
 }

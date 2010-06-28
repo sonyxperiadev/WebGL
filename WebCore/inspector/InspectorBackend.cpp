@@ -109,6 +109,18 @@ void InspectorBackend::disableSearchingForNode()
         m_inspectorController->setSearchingForNode(false);
 }
 
+void InspectorBackend::enableMonitoringXHR()
+{
+    if (m_inspectorController)
+        m_inspectorController->setMonitoringXHR(true);
+}
+
+void InspectorBackend::disableMonitoringXHR()
+{
+    if (m_inspectorController)
+        m_inspectorController->setMonitoringXHR(false);
+}
+
 void InspectorBackend::enableResourceTracking(bool always)
 {
     if (m_inspectorController)
@@ -280,6 +292,12 @@ void InspectorBackend::clearProfiles()
     if (m_inspectorController)
         m_inspectorController->clearProfiles();
 }
+
+void InspectorBackend::takeHeapSnapshot()
+{
+    if (m_inspectorController)
+        m_inspectorController->takeHeapSnapshot();
+}
 #endif
 
 void InspectorBackend::setInjectedScriptSource(const String& source)
@@ -359,10 +377,28 @@ void InspectorBackend::removeNode(long callId, long nodeId)
         domAgent->removeNode(callId, nodeId);
 }
 
-void InspectorBackend::changeTagName(long callId, long nodeId, const AtomicString& tagName, bool expanded)
+void InspectorBackend::changeTagName(long callId, long nodeId, const String& tagName)
 {
     if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->changeTagName(callId, nodeId, tagName, expanded);
+        domAgent->changeTagName(callId, nodeId, tagName);
+}
+
+void InspectorBackend::getOuterHTML(long callId, long nodeId)
+{
+    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
+        domAgent->getOuterHTML(callId, nodeId);
+}
+
+void InspectorBackend::setOuterHTML(long callId, long nodeId, const String& outerHTML)
+{
+    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
+        domAgent->setOuterHTML(callId, nodeId, outerHTML);
+}
+
+void InspectorBackend::addInspectedNode(long nodeId)
+{
+    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
+        domAgent->addInspectedNode(nodeId);
 }
 
 void InspectorBackend::performSearch(const String& query, bool runSynchronously)
@@ -375,6 +411,23 @@ void InspectorBackend::searchCanceled()
 {
     if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
         domAgent->searchCanceled();
+}
+
+void InspectorBackend::pushNodeByPathToFrontend(long callId, const String& path)
+{
+    InspectorDOMAgent* domAgent = inspectorDOMAgent();
+    InspectorFrontend* frontend = inspectorFrontend();
+    if (!domAgent || !frontend)
+        return;
+    
+    long id = domAgent->pushNodeByPathToFrontend(path);
+    frontend->didPushNodeByPathToFrontend(callId, id);
+}
+
+void InspectorBackend::clearConsoleMessages()
+{
+    if (m_inspectorController)
+        m_inspectorController->clearConsoleMessages();
 }
 
 void InspectorBackend::getStyles(long callId, long nodeId, bool authorOnly)

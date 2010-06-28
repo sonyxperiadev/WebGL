@@ -54,6 +54,7 @@ DOM_CLASSES = \
     BarInfo \
     BeforeLoadEvent \
     Blob \
+    BlobBuilder \
     CDATASection \
     CSSCharsetRule \
     CSSFontFaceRule \
@@ -265,6 +266,7 @@ DOM_CLASSES = \
     ScriptProfile \
     ScriptProfileNode \
     SQLError \
+    SQLException \
     SQLResultSet \
     SQLResultSetRowList \
     SQLStatementCallback \

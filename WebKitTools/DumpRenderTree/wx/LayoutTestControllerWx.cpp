@@ -451,3 +451,26 @@ void LayoutTestController::setEditingBehavior(const char* editingBehavior)
 {
     // FIXME: Implement
 }
+
+JSRetainPtr<JSStringRef> LayoutTestController::pageProperty(const char* propertyName, int pageNumber) const
+{
+
+}
+
+bool LayoutTestController::isPageBoxVisible(int pageNumber) const
+{
+    // FIXME: Implement
+    return true;
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::pageAreaRectInPixels(int pageNumber) const
+{
+    // FIXME: Implement
+    return 0;
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::preferredPageSizeInPixels(int pageNumber) const
+{
+    // FIXME: Implement
+    return 0;
+}

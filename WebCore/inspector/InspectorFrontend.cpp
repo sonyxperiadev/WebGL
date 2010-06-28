@@ -184,14 +184,6 @@ void InspectorFrontend::updateFocusedNode(long nodeId)
     function.call();
 }
 
-void InspectorFrontend::setAttachedWindow(bool attached)
-{
-    ScriptFunctionCall function(m_webInspector, "dispatch"); 
-    function.appendArgument("setAttachedWindow");
-    function.appendArgument(attached);
-    function.call();
-}
-
 void InspectorFrontend::showPanel(int panel)
 {
     const char* showFunctionName;
@@ -239,6 +231,11 @@ void InspectorFrontend::reset()
     callSimpleFunction("reset");
 }
 
+void InspectorFrontend::resetProfilesPanel()
+{
+    callSimpleFunction("resetProfilesPanel");
+}
+
 void InspectorFrontend::bringToFront()
 {
     callSimpleFunction("bringToFront");
@@ -262,7 +259,6 @@ void InspectorFrontend::resourceTrackingWasDisabled()
     callSimpleFunction("resourceTrackingWasDisabled");
 }
 
-
 void InspectorFrontend::searchingForNodeWasEnabled()
 {
     callSimpleFunction("searchingForNodeWasEnabled");
@@ -271,6 +267,16 @@ void InspectorFrontend::searchingForNodeWasEnabled()
 void InspectorFrontend::searchingForNodeWasDisabled()
 {
     callSimpleFunction("searchingForNodeWasDisabled");
+}
+
+void InspectorFrontend::monitoringXHRWasEnabled()
+{
+    callSimpleFunction("monitoringXHRWasEnabled");
+}
+
+void InspectorFrontend::monitoringXHRWasDisabled()
+{
+    callSimpleFunction("monitoringXHRWasDisabled");
 }
 
 void InspectorFrontend::updatePauseOnExceptionsState(long state)
@@ -509,6 +515,33 @@ void InspectorFrontend::didChangeTagName(long callId, long nodeId)
 {
     ScriptFunctionCall function(m_webInspector, "dispatch"); 
     function.appendArgument("didChangeTagName");
+    function.appendArgument(callId);
+    function.appendArgument(nodeId);
+    function.call();
+}
+
+void InspectorFrontend::didGetOuterHTML(long callId, const String& outerHTML)
+{
+    ScriptFunctionCall function(m_webInspector, "dispatch"); 
+    function.appendArgument("didGetOuterHTML");
+    function.appendArgument(callId);
+    function.appendArgument(outerHTML);
+    function.call();
+}
+
+void InspectorFrontend::didSetOuterHTML(long callId, long nodeId)
+{
+    ScriptFunctionCall function(m_webInspector, "dispatch"); 
+    function.appendArgument("didSetOuterHTML");
+    function.appendArgument(callId);
+    function.appendArgument(nodeId);
+    function.call();
+}
+
+void InspectorFrontend::didPushNodeByPathToFrontend(long callId, long nodeId)
+{
+    ScriptFunctionCall function(m_webInspector, "dispatch"); 
+    function.appendArgument("didPushNodeByPathToFrontend");
     function.appendArgument(callId);
     function.appendArgument(nodeId);
     function.call();

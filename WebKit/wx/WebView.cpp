@@ -74,7 +74,7 @@
 #include <wtf/text/CString.h>
 
 #if ENABLE(DATABASE)
-#include "Database.h"
+#include "AbstractDatabase.h"
 #include "DatabaseTracker.h"
 #endif
 
@@ -258,10 +258,8 @@ wxWebViewCachePolicy wxWebView::GetCachePolicy()
 }
 
 #if OS(DARWIN)
-// prototype - function is in WebKitSystemInterface.mm
-extern "C" {
+// prototype - function is in WebSystemInterface.mm
 void InitWebCoreSystemInterface(void);
-}
 #endif
 
 BEGIN_EVENT_TABLE(wxWebView, wxWindow)
@@ -995,7 +993,7 @@ wxString wxWebView::GetDatabaseDirectory()
 void wxWebView::SetDatabasesEnabled(bool enabled)
 {
 #if ENABLE(DATABASE)
-    WebCore::Database::setIsAvailable(enabled);
+    WebCore::AbstractDatabase::setIsAvailable(enabled);
 #endif
 }
 
@@ -1003,7 +1001,7 @@ void wxWebView::SetDatabasesEnabled(bool enabled)
 bool wxWebView::AreDatabasesEnabled()
 {
 #if ENABLE(DATABASE)
-    return WebCore::Database::isAvailable();
+    return WebCore::AbstractDatabase::isAvailable();
 #endif
     return false;
 }

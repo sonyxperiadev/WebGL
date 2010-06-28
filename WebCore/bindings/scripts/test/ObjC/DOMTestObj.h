@@ -47,15 +47,45 @@
 - (void)setStringAttr:(NSString *)newStringAttr;
 - (DOMTestObj *)testObjAttr;
 - (void)setTestObjAttr:(DOMTestObj *)newTestObjAttr;
-- (int)attrWithException;
-- (void)setAttrWithException:(int)newAttrWithException;
-- (int)attrWithSetterException;
-- (void)setAttrWithSetterException:(int)newAttrWithSetterException;
+- (NSString *)reflectedStringAttr;
+- (void)setReflectedStringAttr:(NSString *)newReflectedStringAttr;
+- (int)reflectedIntegralAttr;
+- (void)setReflectedIntegralAttr:(int)newReflectedIntegralAttr;
+- (BOOL)reflectedBooleanAttr;
+- (void)setReflectedBooleanAttr:(BOOL)newReflectedBooleanAttr;
+- (NSString *)reflectedURLAttr;
+- (void)setReflectedURLAttr:(NSString *)newReflectedURLAttr;
+- (NSString *)reflectedStringAttr;
+- (void)setReflectedStringAttr:(NSString *)newReflectedStringAttr;
+- (int)reflectedCustomIntegralAttr;
+- (void)setReflectedCustomIntegralAttr:(int)newReflectedCustomIntegralAttr;
+- (BOOL)reflectedCustomBooleanAttr;
+- (void)setReflectedCustomBooleanAttr:(BOOL)newReflectedCustomBooleanAttr;
+- (NSString *)reflectedURLAttr;
+- (void)setReflectedURLAttr:(NSString *)newReflectedURLAttr;
 - (int)attrWithGetterException;
 - (void)setAttrWithGetterException:(int)newAttrWithGetterException;
+- (int)attrWithSetterException;
+- (void)setAttrWithSetterException:(int)newAttrWithSetterException;
+- (NSString *)stringAttrWithGetterException;
+- (void)setStringAttrWithGetterException:(NSString *)newStringAttrWithGetterException;
+- (NSString *)stringAttrWithSetterException;
+- (void)setStringAttrWithSetterException:(NSString *)newStringAttrWithSetterException;
 - (int)customAttr;
 - (void)setCustomAttr:(int)newCustomAttr;
 - (NSString *)scriptStringAttr;
+#if ENABLE(Condition1)
+- (int)conditionalAttr1;
+- (void)setConditionalAttr1:(int)newConditionalAttr1;
+#endif
+#if ENABLE(Condition1) && ENABLE(Condition2)
+- (int)conditionalAttr2;
+- (void)setConditionalAttr2:(int)newConditionalAttr2;
+#endif
+#if ENABLE(Condition1) || ENABLE(Condition2)
+- (int)conditionalAttr3;
+- (void)setConditionalAttr3:(int)newConditionalAttr3;
+#endif
 - (int)descriptionName;
 - (int)idName;
 - (void)setIdName:(int)newIdName;

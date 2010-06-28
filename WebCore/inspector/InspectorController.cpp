@@ -62,6 +62,7 @@
 #include "InspectorDatabaseResource.h"
 #include "InspectorFrontend.h"
 #include "InspectorResource.h"
+#include "InspectorValues.h"
 #include "InspectorWorkerResource.h"
 #include "InspectorTimelineAgent.h"
 #include "Page.h"
@@ -86,6 +87,7 @@
 #include <wtf/text/CString.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/ListHashSet.h>
+#include <wtf/MD5.h>
 #include <wtf/RefCounted.h>
 #include <wtf/StdLibExtras.h>
 
@@ -120,6 +122,7 @@ static const char* const debuggerEnabledSettingName = "debuggerEnabled";
 static const char* const profilerEnabledSettingName = "profilerEnabled";
 static const char* const inspectorAttachedHeightName = "inspectorAttachedHeight";
 static const char* const lastActivePanelSettingName = "lastActivePanel";
+static const char* const monitoringXHRSettingName = "xhrMonitor";
 
 const String& InspectorController::frontendSettingsSettingName()
 {
@@ -141,6 +144,27 @@ static const unsigned expireConsoleMessagesStep = 100;
 
 static unsigned s_inspectorControllerCount;
 
+namespace {
+
+String md5Base16(const String& string)
+{
+    static const char digits[] = "0123456789abcdef";
+
+    MD5 md5;
+    md5.addBytes(reinterpret_cast<const uint8_t*>(string.characters()), string.length() * 2);
+    Vector<uint8_t, 16> digest;
+    md5.checksum(digest);
+
+    Vector<char, 32> result;
+    for (int i = 0; i < 16; ++i) {
+        result.append(digits[(digest[i] >> 4) & 0xf]);
+        result.append(digits[digest[i] & 0xf]);
+    }
+    return String(result.data(), result.size());
+}
+
+}
+
 InspectorController::InspectorController(Page* page, InspectorClient* client)
     : m_inspectedPage(page)
     , m_client(client)
@@ -151,15 +175,17 @@ InspectorController::InspectorController(Page* page, InspectorClient* client)
     , m_sessionSettings(InspectorObject::create())
     , m_groupLevel(0)
     , m_searchingForNode(false)
+    , m_monitoringXHR(false)
     , m_previousMessage(0)
     , m_resourceTrackingEnabled(false)
-    , m_resourceTrackingSettingsLoaded(false)
+    , m_settingsLoaded(false)
     , m_inspectorBackend(InspectorBackend::create(this))
     , m_injectedScriptHost(InjectedScriptHost::create(this))
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     , m_debuggerEnabled(false)
     , m_attachDebuggerWhenShown(false)
     , m_pausedScriptState(0)
+    , m_breakpointsLoaded(false)
     , m_profilerEnabled(!WTF_USE_JSC)
     , m_recordingUserInitiatedProfile(false)
     , m_currentUserInitiatedProfileNumber(-1)
@@ -232,7 +258,7 @@ void InspectorController::setSetting(const String& key, const String& value)
 
 void InspectorController::setSessionSettings(const String& settingsJSON)
 {
-    m_sessionSettings = InspectorValue::readJSON(settingsJSON);
+    m_sessionSettings = InspectorValue::parseJSON(settingsJSON);
 }
 
 void InspectorController::inspect(Node* node)
@@ -431,6 +457,20 @@ void InspectorController::setSearchingForNode(bool enabled)
     }
 }
 
+void InspectorController::setMonitoringXHR(bool enabled)
+{
+    if (m_monitoringXHR == enabled)
+        return;
+    m_monitoringXHR = enabled;
+    setSetting(monitoringXHRSettingName, enabled ? "true" : "false");
+    if (m_frontend) {
+        if (enabled)
+            m_frontend->monitoringXHRWasEnabled();
+        else
+            m_frontend->monitoringXHRWasDisabled();
+    }
+}
+
 void InspectorController::connectFrontend(const ScriptObject& webInspector)
 {
     m_openingFrontend = false;
@@ -439,6 +479,12 @@ void InspectorController::connectFrontend(const ScriptObject& webInspector)
     m_domAgent = InspectorDOMAgent::create(m_cssStore.get(), m_frontend.get());
     if (m_timelineAgent)
         m_timelineAgent->resetFrontendProxyObject(m_frontend.get());
+
+    // Initialize Web Inspector title.
+    m_frontend->inspectedURLChanged(m_inspectedPage->mainFrame()->loader()->url().string());
+
+    populateScriptObjects();
+
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     if (ScriptDebugServer::shared().isDebuggerAlwaysEnabled()) {
         // FIXME (40364): This will force pushing script sources to frontend even if script
@@ -446,18 +492,13 @@ void InspectorController::connectFrontend(const ScriptObject& webInspector)
         enableDebuggerFromFrontend(false);
     } else {
         String debuggerEnabled = setting(debuggerEnabledSettingName);
-        if (debuggerEnabled == "true")
+        if (debuggerEnabled == "true" || m_attachDebuggerWhenShown)
             enableDebugger();
         String profilerEnabled = setting(profilerEnabledSettingName);
         if (profilerEnabled == "true")
             enableProfiler();
     }
 #endif
-
-    // Initialize Web Inspector title.
-    m_frontend->inspectedURLChanged(m_inspectedPage->mainFrame()->loader()->url().string());
-
-    populateScriptObjects();
 
     if (m_showAfterVisible == CurrentPanel) {
         String lastActivePanelSetting = setting(lastActivePanelSettingName);
@@ -466,10 +507,6 @@ void InspectorController::connectFrontend(const ScriptObject& webInspector)
 
     if (m_nodeToFocus)
         focusNode();
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-    if (m_attachDebuggerWhenShown)
-        enableDebugger();
-#endif
     showPanel(m_showAfterVisible);
 }
 
@@ -526,8 +563,7 @@ void InspectorController::disconnectFrontend()
     // opening.
     bool debuggerWasEnabled = m_debuggerEnabled;
     disableDebugger();
-    if (debuggerWasEnabled)
-        m_attachDebuggerWhenShown = true;
+    m_attachDebuggerWhenShown = debuggerWasEnabled;
 #endif
     setSearchingForNode(false);
     unbindAllResources();
@@ -567,8 +603,9 @@ void InspectorController::populateScriptObjects()
 
     if (m_searchingForNode)
         m_frontend->searchingForNodeWasEnabled();
-    else
-        m_frontend->searchingForNodeWasDisabled();
+
+    if (m_monitoringXHR)
+        m_frontend->monitoringXHRWasEnabled();
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     if (m_profilerEnabled)
@@ -674,11 +711,15 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
 #if ENABLE(JAVASCRIPT_DEBUGGER)
         m_sourceIDToURL.clear();
         m_scriptIDToContent.clear();
+        m_stickyBreakpoints.clear();
+        m_breakpointsLoaded = false;
 #endif
 #if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
         m_profiles.clear();
         m_currentUserInitiatedProfileNumber = 1;
         m_nextUserInitiatedProfileNumber = 1;
+        if (m_frontend)
+            m_frontend->resetProfilesPanel();
 #endif
         // unbindAllResources should be called before database and DOM storage
         // resources are cleared so that it has a chance to unbind them.
@@ -812,7 +853,7 @@ void InspectorController::didLoadResourceFromMemoryCache(DocumentLoader* loader,
 
     ASSERT(m_inspectedPage);
     bool isMainResource = isMainResourceLoader(loader, KURL(ParsedURLString, cachedResource->url()));
-    ensureResourceTrackingSettingsLoaded();
+    ensureSettingsLoaded();
     if (!isMainResource && !m_resourceTrackingEnabled)
         return;
 
@@ -836,7 +877,7 @@ void InspectorController::identifierForInitialRequest(unsigned long identifier, 
     ASSERT(m_inspectedPage);
 
     bool isMainResource = isMainResourceLoader(loader, request.url());
-    ensureResourceTrackingSettingsLoaded();
+    ensureSettingsLoaded();
     if (!isMainResource && !m_resourceTrackingEnabled)
         return;
 
@@ -1006,9 +1047,15 @@ void InspectorController::didFailLoading(unsigned long identifier, const Resourc
         resource->updateScriptObject(m_frontend.get());
 }
 
-void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString)
+void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString, const String& url, const String& sendURL, unsigned sendLineNumber)
 {
-    if (!enabled() || !m_resourceTrackingEnabled)
+    if (!enabled())
+        return;
+
+    if (m_monitoringXHR)
+        addMessageToConsole(JSMessageSource, LogMessageType, LogMessageLevel, "XHR finished loading: \"" + url + "\".", sendLineNumber, sendURL);
+
+    if (!m_resourceTrackingEnabled)
         return;
 
     InspectorResource* resource = m_resources.get(identifier).get();
@@ -1051,6 +1098,7 @@ void InspectorController::enableResourceTracking(bool always, bool reload)
     m_resourceTrackingEnabled = true;
     if (m_frontend)
         m_frontend->resourceTrackingWasEnabled();
+    m_client->resourceTrackingWasEnabled();
 
     if (reload)
         m_inspectedPage->mainFrame()->redirectScheduler()->scheduleRefresh(true);
@@ -1068,17 +1116,23 @@ void InspectorController::disableResourceTracking(bool always)
     m_resourceTrackingEnabled = false;
     if (m_frontend)
         m_frontend->resourceTrackingWasDisabled();
+    m_client->resourceTrackingWasDisabled();
 }
 
-void InspectorController::ensureResourceTrackingSettingsLoaded()
+void InspectorController::ensureSettingsLoaded()
 {
-    if (m_resourceTrackingSettingsLoaded)
+    if (m_settingsLoaded)
         return;
-    m_resourceTrackingSettingsLoaded = true;
+    m_settingsLoaded = true;
 
     String resourceTracking = setting(resourceTrackingEnabledSettingName);
     if (resourceTracking == "true")
         m_resourceTrackingEnabled = true;
+    m_client->resourceTrackingWasEnabled();
+
+    String monitoringXHR = setting(monitoringXHRSettingName);
+    if (monitoringXHR == "true")
+        m_monitoringXHR = true;
 }
 
 void InspectorController::startTimelineProfiler()
@@ -1092,6 +1146,7 @@ void InspectorController::startTimelineProfiler()
     m_timelineAgent = new InspectorTimelineAgent(m_frontend.get());
     if (m_frontend)
         m_frontend->timelineProfilerWasStarted();
+    m_client->timelineProfilerWasStarted();
 }
 
 void InspectorController::stopTimelineProfiler()
@@ -1105,6 +1160,7 @@ void InspectorController::stopTimelineProfiler()
     m_timelineAgent = 0;
     if (m_frontend)
         m_frontend->timelineProfilerWasStopped();
+    m_client->timelineProfilerWasStopped();
 }
 
 #if ENABLE(WORKERS)
@@ -1580,18 +1636,27 @@ void InspectorController::disableProfiler(bool always)
     if (m_frontend)
         m_frontend->profilerWasDisabled();
 }
+
+void InspectorController::takeHeapSnapshot()
+{
+    if (!enabled())
+        return;
+
+    ScriptProfiler::takeHeapSnapshot();
+}
 #endif
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 void InspectorController::enableDebuggerFromFrontend(bool always)
 {
+    ASSERT(!m_debuggerEnabled);
     if (always)
         setSetting(debuggerEnabledSettingName, "true");
 
     ASSERT(m_inspectedPage);
 
-    ScriptDebugServer::shared().addListener(this, m_inspectedPage);
     ScriptDebugServer::shared().clearBreakpoints();
+    ScriptDebugServer::shared().addListener(this, m_inspectedPage);
 
     m_debuggerEnabled = true;
     m_frontend->debuggerWasEnabled();
@@ -1678,10 +1743,12 @@ void InspectorController::setBreakpoint(const String& sourceID, unsigned lineNum
     if (url.isEmpty())
         return;
 
-    HashMap<String, SourceBreakpoints>::iterator it = m_stickyBreakpoints.find(url);
+    String key = md5Base16(url);
+    HashMap<String, SourceBreakpoints>::iterator it = m_stickyBreakpoints.find(key);
     if (it == m_stickyBreakpoints.end())
-        it = m_stickyBreakpoints.set(url, SourceBreakpoints()).first;
+        it = m_stickyBreakpoints.set(key, SourceBreakpoints()).first;
     it->second.set(lineNumber, breakpoint);
+    saveBreakpoints();
 }
 
 void InspectorController::removeBreakpoint(const String& sourceID, unsigned lineNumber)
@@ -1692,9 +1759,10 @@ void InspectorController::removeBreakpoint(const String& sourceID, unsigned line
     if (url.isEmpty())
         return;
 
-    HashMap<String, SourceBreakpoints>::iterator it = m_stickyBreakpoints.find(url);
+    HashMap<String, SourceBreakpoints>::iterator it = m_stickyBreakpoints.find(md5Base16(url));
     if (it != m_stickyBreakpoints.end())
         it->second.remove(lineNumber);
+    saveBreakpoints();
 }
 
 // JavaScriptDebugListener functions
@@ -1704,10 +1772,13 @@ void InspectorController::didParseSource(const String& sourceID, const String& u
     // Don't send script content to the front end until it's really needed.
     m_frontend->parsedScriptSource(sourceID, url, "", firstLine, worldType);
 
+    m_scriptIDToContent.set(sourceID, data);
+
     if (url.isEmpty())
         return;
 
-    HashMap<String, SourceBreakpoints>::iterator it = m_stickyBreakpoints.find(url);
+    loadBreakpoints();
+    HashMap<String, SourceBreakpoints>::iterator it = m_stickyBreakpoints.find(md5Base16(url));
     if (it != m_stickyBreakpoints.end()) {
         for (SourceBreakpoints::iterator breakpointIt = it->second.begin(); breakpointIt != it->second.end(); ++breakpointIt) {
             if (firstLine <= breakpointIt->first) {
@@ -1716,9 +1787,7 @@ void InspectorController::didParseSource(const String& sourceID, const String& u
             }
         }
     }
-
     m_sourceIDToURL.set(sourceID, url);
-    m_scriptIDToContent.set(sourceID, data);
 }
 
 void InspectorController::failedToParseSource(const String& url, const String& data, int firstLine, int errorLine, const String& errorMessage)
@@ -1760,6 +1829,47 @@ void InspectorController::didEvaluateForTestInFrontend(long callId, const String
     function.appendArgument(jsonResult);
     function.call();
 }
+
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+String InspectorController::breakpointsSettingKey()
+{
+    DEFINE_STATIC_LOCAL(String, keyPrefix, ("breakpoints:"));
+    return keyPrefix + md5Base16(m_mainResource->requestURL());
+}
+
+void InspectorController::loadBreakpoints()
+{
+    if (m_breakpointsLoaded)
+        return;
+    m_breakpointsLoaded = true;
+
+    RefPtr<InspectorValue> parsedSetting = InspectorValue::parseJSON(setting(breakpointsSettingKey()));
+    if (!parsedSetting)
+        return;
+    RefPtr<InspectorObject> breakpoints = parsedSetting->asObject();
+    if (!breakpoints)
+        return;
+    for (InspectorObject::iterator it = breakpoints->begin(); it != breakpoints->end(); ++it) {
+        RefPtr<InspectorObject> breakpointsForURL = it->second->asObject();
+        if (!breakpointsForURL)
+            continue;
+        HashMap<String, SourceBreakpoints>::iterator sourceBreakpointsIt = m_stickyBreakpoints.set(it->first, SourceBreakpoints()).first;
+        ScriptBreakpoint::sourceBreakpointsFromInspectorObject(breakpointsForURL, &sourceBreakpointsIt->second);
+    }
+}
+
+void InspectorController::saveBreakpoints()
+{
+    RefPtr<InspectorObject> breakpoints = InspectorObject::create();
+    for (HashMap<String, SourceBreakpoints>::iterator it(m_stickyBreakpoints.begin()); it != m_stickyBreakpoints.end(); ++it) {
+        if (it->second.isEmpty())
+            continue;
+        RefPtr<InspectorObject> breakpointsForURL = ScriptBreakpoint::inspectorObjectFromSourceBreakpoints(it->second);
+        breakpoints->set(it->first, breakpointsForURL);
+    }
+    setSetting(breakpointsSettingKey(), breakpoints->toJSONString());
+}
+#endif
 
 static Path quadToPath(const FloatQuad& quad)
 {
@@ -1826,7 +1936,7 @@ static void drawHighlightForBox(GraphicsContext& context, const FloatQuad& conte
     drawOutlinedQuad(context, contentQuad, contentBoxColor);
 }
 
-static void drawHighlightForLineBoxes(GraphicsContext& context, const Vector<FloatQuad>& lineBoxQuads)
+static void drawHighlightForLineBoxesOrSVGRenderer(GraphicsContext& context, const Vector<FloatQuad>& lineBoxQuads)
 {
     static const Color lineBoxColor(125, 173, 217, 128);
 
@@ -1867,7 +1977,14 @@ void InspectorController::drawNodeHighlight(GraphicsContext& context) const
         overlayRect = view->visibleContentRect();
     context.translate(-overlayRect.x(), -overlayRect.y());
 
-    if (renderer->isBox()) {
+    // RenderSVGRoot should be highlighted through the isBox() code path, all other SVG elements should just dump their absoluteQuads().
+#if ENABLE(SVG)
+    bool isSVGRenderer = renderer->node() && renderer->node()->isSVGElement() && !renderer->isSVGRoot();
+#else
+    bool isSVGRenderer = false;
+#endif
+
+    if (renderer->isBox() && !isSVGRenderer) {
         RenderBox* renderBox = toRenderBox(renderer);
 
         IntRect contentBox = renderBox->contentBoxRect();
@@ -1890,16 +2007,14 @@ void InspectorController::drawNodeHighlight(GraphicsContext& context) const
         absMarginQuad.move(mainFrameOffset);
 
         drawHighlightForBox(context, absContentQuad, absPaddingQuad, absBorderQuad, absMarginQuad);
-    } else if (renderer->isRenderInline()) {
-        RenderInline* renderInline = toRenderInline(renderer);
-
+    } else if (renderer->isRenderInline() || isSVGRenderer) {
         // FIXME: We should show margins/padding/border for inlines.
         Vector<FloatQuad> lineBoxQuads;
-        renderInline->absoluteQuads(lineBoxQuads);
+        renderer->absoluteQuads(lineBoxQuads);
         for (unsigned i = 0; i < lineBoxQuads.size(); ++i)
             lineBoxQuads[i] += mainFrameOffset;
 
-        drawHighlightForLineBoxes(context, lineBoxQuads);
+        drawHighlightForLineBoxesOrSVGRenderer(context, lineBoxQuads);
     }
 }
 

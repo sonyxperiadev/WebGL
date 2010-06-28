@@ -30,6 +30,7 @@
 #include "CSSBorderImageValue.h"
 #include "CSSCursorImageValue.h"
 #include "CSSFontFaceRule.h"
+#include "CSSHelper.h"
 #include "CSSImportRule.h"
 #include "CSSMediaRule.h"
 #include "CSSPageRule.h"
@@ -528,7 +529,7 @@ static void loadFullDefaultStyle()
     if (simpleDefaultStyleSheet) {
         ASSERT(defaultStyle);
         delete defaultStyle;
-        delete simpleDefaultStyleSheet;
+        simpleDefaultStyleSheet->deref();
         defaultStyle = new CSSRuleSet;
         simpleDefaultStyleSheet = 0;
     } else {
@@ -1544,6 +1545,36 @@ PassRefPtr<RenderStyle> CSSStyleSelector::pseudoStyleForElement(PseudoId pseudo,
     if (visitedStyle)
         m_style->addCachedPseudoStyle(visitedStyle.release());
         
+    // Now return the style.
+    return m_style.release();
+}
+
+PassRefPtr<RenderStyle> CSSStyleSelector::styleForPage(int pageIndex)
+{
+    initForStyleResolve(m_checker.m_document->body());
+
+    m_style = RenderStyle::create();
+    m_style->inheritFrom(m_rootElementStyle);
+
+    const bool isLeft = isLeftPage(pageIndex);
+    const bool isFirst = isFirstPage(pageIndex);
+    const String page = pageName(pageIndex);
+    matchPageRules(defaultPrintStyle, isLeft, isFirst, page);
+    matchPageRules(m_userStyle, isLeft, isFirst, page);
+    matchPageRules(m_authorStyle, isLeft, isFirst, page);
+    m_lineHeightValue = 0;
+    applyDeclarations<true>(false, 0, m_matchedDecls.size() - 1);
+
+    // If our font got dirtied, go ahead and update it now.
+    if (m_fontDirty)
+        updateFont();
+
+    // Line-height is set when we are sure we decided on the font-size
+    if (m_lineHeightValue)
+        applyProperty(CSSPropertyLineHeight, m_lineHeightValue);
+
+    applyDeclarations<false>(false, 0, m_matchedDecls.size() - 1);
+
     // Now return the style.
     return m_style.release();
 }
@@ -2889,6 +2920,74 @@ void CSSStyleSelector::applyDeclarations(bool isImportant, int startIndex, int e
     }
 }
 
+void CSSStyleSelector::matchPageRules(CSSRuleSet* rules, bool isLeftPage, bool isFirstPage, const String& pageName)
+{
+    m_matchedRules.clear();
+
+    if (!rules)
+        return;
+
+    matchPageRulesForList(rules->getPageRules(), isLeftPage, isFirstPage, pageName);
+
+    // If we didn't match any rules, we're done.
+    if (m_matchedRules.isEmpty())
+        return;
+
+    // Sort the set of matched rules.
+    sortMatchedRules(0, m_matchedRules.size());
+
+    // Now transfer the set of matched rules over to our list of decls.
+    for (unsigned i = 0; i < m_matchedRules.size(); i++)
+        addMatchedDeclaration(m_matchedRules[i]->rule()->declaration());
+}
+
+void CSSStyleSelector::matchPageRulesForList(CSSRuleDataList* rules, bool isLeftPage, bool isFirstPage, const String& pageName)
+{
+    if (!rules)
+        return;
+
+    for (CSSRuleData* d = rules->first(); d; d = d->next()) {
+        CSSStyleRule* rule = d->rule();
+        const AtomicString& selectorLocalName = d->selector()->m_tag.localName();
+        if (selectorLocalName != starAtom && selectorLocalName != pageName)
+            continue;
+        CSSSelector::PseudoType pseudoType = d->selector()->pseudoType();
+        if ((pseudoType == CSSSelector::PseudoLeftPage && !isLeftPage)
+            || (pseudoType == CSSSelector::PseudoRightPage && isLeftPage)
+            || (pseudoType == CSSSelector::PseudoFirstPage && !isFirstPage))
+            continue;
+
+        // If the rule has no properties to apply, then ignore it.
+        CSSMutableStyleDeclaration* decl = rule->declaration();
+        if (!decl || !decl->length())
+            continue;
+
+        // Add this rule to our list of matched rules.
+        addMatchedRule(d);
+    }
+}
+
+bool CSSStyleSelector::isLeftPage(int pageIndex) const
+{
+    bool isFirstPageLeft = false;
+    if (m_rootElementStyle->direction() == RTL)
+        isFirstPageLeft = true;
+
+    return (pageIndex + (isFirstPageLeft ? 1 : 0)) % 2;
+}
+
+bool CSSStyleSelector::isFirstPage(int pageIndex) const
+{
+    // FIXME: In case of forced left/right page, page at index 1 (not 0) can be the first page.
+    return (!pageIndex);
+}
+
+String CSSStyleSelector::pageName(int /* pageIndex */) const
+{
+    // FIXME: Implement page index to page name mapping.
+    return "";
+}
+
 static void applyCounterList(RenderStyle* style, CSSValueList* list, bool isReset)
 {
     CounterDirectiveMap& map = style->accessCounterDirectives();
@@ -3760,12 +3859,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
                 l = Length(primitiveValue->getDoubleValue(), Percent);
             else
                 return;
-            if (id == CSSPropertyPaddingLeft || id == CSSPropertyPaddingRight ||
-                id == CSSPropertyPaddingTop || id == CSSPropertyPaddingBottom)
-                // Padding can't be negative
-                apply = !((l.isFixed() || l.isPercent()) && l.calcValue(100) < 0);
-            else
-                apply = true;
+            apply = true;
         }
         if (!apply) return;
         switch (id) {
@@ -5087,6 +5181,19 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             m_style->setHighlight(primitiveValue->getStringValue());
         return;
     }
+    case CSSPropertyWebkitHyphens: {
+        HANDLE_INHERIT_AND_INITIAL(hyphens, Hyphens);
+        m_style->setHyphens(*primitiveValue);
+        return;
+    }
+    case CSSPropertyWebkitHyphenateCharacter: {
+        HANDLE_INHERIT_AND_INITIAL(hyphenateCharacter, HyphenateCharacter);
+        if (primitiveValue->getIdent() == CSSValueAuto)
+            m_style->setHyphenateCharacter(nullAtom);
+        else
+            m_style->setHyphenateCharacter(primitiveValue->getStringValue());
+        return;
+    }
     case CSSPropertyWebkitBorderFit: {
         HANDLE_INHERIT_AND_INITIAL(borderFit, BorderFit);
         if (primitiveValue->getIdent() == CSSValueBorder)
@@ -5351,12 +5458,14 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
             m_style->setColorSpace(*primitiveValue);
         }
         return;
+    case CSSPropertySize:
+        applyPageSizeProperty(value);
+        return;
     case CSSPropertyInvalid:
         return;
     case CSSPropertyFontStretch:
     case CSSPropertyPage:
     case CSSPropertyQuotes:
-    case CSSPropertySize:
     case CSSPropertyTextLineThrough:
     case CSSPropertyTextLineThroughColor:
     case CSSPropertyTextLineThroughMode:
@@ -5414,6 +5523,161 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         applySVGProperty(id, value);
 #endif
     }
+}
+
+void CSSStyleSelector::applyPageSizeProperty(CSSValue* value)
+{
+    if (!value->isValueList())
+        return;
+    CSSValueList* valueList = static_cast<CSSValueList*>(value);
+    Length width;
+    Length height;
+    switch (valueList->length()) {
+    case 2: {
+        // <length>{2} | <page-size> <orientation>
+        if (!valueList->item(0)->isPrimitiveValue() || !valueList->item(1)->isPrimitiveValue())
+            return;
+        CSSPrimitiveValue* primitiveValue0 = static_cast<CSSPrimitiveValue*>(valueList->item(0));
+        CSSPrimitiveValue* primitiveValue1 = static_cast<CSSPrimitiveValue*>(valueList->item(1));
+        int type0 = primitiveValue0->primitiveType();
+        int type1 = primitiveValue1->primitiveType();
+        if (CSSPrimitiveValue::isUnitTypeLength(type0)) {
+            // <length>{2}
+            if (!CSSPrimitiveValue::isUnitTypeLength(type1))
+                return;
+            width = Length(primitiveValue0->computeLengthIntForLength(style(), m_rootElementStyle), Fixed);
+            height = Length(primitiveValue1->computeLengthIntForLength(style(), m_rootElementStyle), Fixed);
+        } else {
+            // <page-size> <orientation>
+            // The value order is guaranteed. See CSSParser::parseSizeParameter.
+            if (!pageSizeFromName(primitiveValue0, primitiveValue1, width, height))
+                return;
+        }
+        break;
+    }
+    case 1: {
+        // <length> | auto | <page-size> | [ portrait | landscape]
+        if (!valueList->item(0)->isPrimitiveValue())
+            return;
+        CSSPrimitiveValue* primitiveValue = static_cast<CSSPrimitiveValue*>(valueList->item(0));
+        int type = primitiveValue->primitiveType();
+        if (CSSPrimitiveValue::isUnitTypeLength(type)) {
+            // <length>
+            width = height = Length(primitiveValue->computeLengthIntForLength(style(), m_rootElementStyle), Fixed);
+        } else {
+            if (type != CSSPrimitiveValue::CSS_IDENT)
+                return;
+            switch (primitiveValue->getIdent()) {
+            case CSSValueAuto:
+                // auto
+                if (!pageSizeFromName(0, 0, width, height))
+                    return;
+                break;
+            case CSSValuePortrait:
+            case CSSValueLandscape:
+                // <page-size>
+                if (!pageSizeFromName(0, primitiveValue, width, height))
+                    return;
+                break;
+            default:
+                // [ portrait | landscape]
+                if (!pageSizeFromName(primitiveValue, 0, width, height))
+                    return;
+            }
+        }
+        break;
+    }
+    default:
+        return;
+    }
+    m_style->setPageSize(LengthSize(width, height));
+    return;
+}
+
+bool CSSStyleSelector::pageSizeFromName(CSSPrimitiveValue* pageSizeName, CSSPrimitiveValue* pageOrientation, Length& width, Length& height)
+{
+    static const Length a5Width = mmLength(148), a5Height = mmLength(210);
+    static const Length a4Width = mmLength(210), a4Height = mmLength(297);
+    static const Length a3Width = mmLength(297), a3Height = mmLength(420);
+    static const Length b5Width = mmLength(176), b5Height = mmLength(250);
+    static const Length b4Width = mmLength(250), b4Height = mmLength(353);
+    static const Length letterWidth = inchLength(8.5), letterHeight = inchLength(11);
+    static const Length legalWidth = inchLength(8.5), legalHeight = inchLength(14);
+    static const Length ledgerWidth = inchLength(11), ledgerHeight = inchLength(17);
+
+    // FIXME: Define UA default page size. Assume letter for now.
+    int ident = CSSValueLetter;
+    if (pageSizeName) {
+        if (pageSizeName->primitiveType() != CSSPrimitiveValue::CSS_IDENT)
+            return false;
+        ident = pageSizeName->getIdent();
+    }
+
+    // FIXME: Define UA default page orientation. Assume portrait for now.
+    bool portrait = true;
+    if (pageOrientation) {
+        if (pageOrientation->primitiveType() != CSSPrimitiveValue::CSS_IDENT)
+            return false;
+        switch (pageOrientation->getIdent()) {
+        case CSSValueLandscape:
+            portrait = false;
+            break;
+        case CSSValuePortrait:
+            portrait = true;
+            break;
+        default:
+            return false;
+        }
+    }
+    switch (ident) {
+    case CSSValueA5:
+        width = a5Width;
+        height = a5Height;
+        break;
+    case CSSValueA4:
+        width = a4Width;
+        height = a4Height;
+        break;
+    case CSSValueA3:
+        width = a3Width;
+        height = a3Height;
+        break;
+    case CSSValueB5:
+        width = b5Width;
+        height = b5Height;
+        break;
+    case CSSValueB4:
+        width = b4Width;
+        height = b4Height;
+        break;
+    case CSSValueLetter:
+        width = letterWidth;
+        height = letterHeight;
+        break;
+    case CSSValueLegal:
+        width = legalWidth;
+        height = legalHeight;
+        break;
+    case CSSValueLedger:
+        width = ledgerWidth;
+        height = ledgerHeight;
+        break;
+    default:
+        return false;
+    }
+    if (!portrait)
+        swap(width, height);
+    return true;
+}
+
+Length CSSStyleSelector::mmLength(double mm)
+{
+    return Length(CSSPrimitiveValue::create(mm, CSSPrimitiveValue::CSS_MM)->computeLengthIntForLength(style(), m_rootElementStyle), Fixed);
+}
+
+Length CSSStyleSelector::inchLength(double inch)
+{
+    return Length(CSSPrimitiveValue::create(inch, CSSPrimitiveValue::CSS_IN)->computeLengthIntForLength(style(), m_rootElementStyle), Fixed);
 }
 
 void CSSStyleSelector::mapFillAttachment(FillLayer* layer, CSSValue* value)

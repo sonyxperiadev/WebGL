@@ -100,7 +100,10 @@
 #undef _WIN32
 #endif
 
-
+/* COMPILER(INTEL) - Intel C++ Compiler */
+#if defined(__INTEL_COMPILER)
+#define WTF_COMPILER_INTEL 1
+#endif
 
 /* ==== CPU() - the target CPU architecture ==== */
 
@@ -982,8 +985,11 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #define ENABLE_JIT_OPTIMIZE_MOD 1
 #endif
 #endif
-#if (CPU(X86) && USE(JSVALUE32_64)) || (CPU(X86_64) && USE(JSVALUE64))
+#if (CPU(X86) && USE(JSVALUE32_64)) || (CPU(X86_64) && USE(JSVALUE64)) \
+     || CPU(ARM)
+#if ENABLE(JIT) && !defined(ENABLE_JIT_OPTIMIZE_NATIVE_CALL)
 #define ENABLE_JIT_OPTIMIZE_NATIVE_CALL 1
+#endif
 #endif
 
 #if ENABLE(JIT)
@@ -1098,5 +1104,14 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #define WTF_PLATFORM_CFNETWORK Error USE_macro_should_be_used_with_CFNETWORK
 
 #define ENABLE_JSC_ZOMBIES 0
+
+#if !defined(BUILDING_ON_TIGER)
+#define ENABLE_RECURSIVE_PARSE 1
+#endif
+
+/* FIXME: Eventually we should enable this for all platforms and get rid of the define. */
+#if PLATFORM(MAC)
+#define WTF_USE_PLATFORM_STRATEGIES 1
+#endif
 
 #endif /* WTF_Platform_h */

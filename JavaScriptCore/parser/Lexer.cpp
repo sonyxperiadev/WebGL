@@ -24,7 +24,9 @@
 #include "Lexer.h"
 
 #include "JSFunction.h"
+
 #include "JSGlobalObjectFunctions.h"
+#include "Identifier.h"
 #include "NodeInfo.h"
 #include "Nodes.h"
 #include "dtoa.h"
@@ -36,10 +38,13 @@
 using namespace WTF;
 using namespace Unicode;
 
-// We can't specify the namespace in yacc's C output, so do it here instead.
+#if ENABLE(RECURSIVE_PARSE)
+#include "JSParser.h"
+#else
 using namespace JSC;
-
 #include "Grammar.h"
+#endif
+
 #include "Lookup.h"
 #include "Lexer.lut.h"
 
@@ -872,7 +877,7 @@ doneIdentifierOrKeyword: {
     m_delimited = false;
     m_buffer16.resize(0);
     const HashEntry* entry = m_keywordTable.entry(m_globalData, *lvalp->ident);
-    token = entry ? entry->lexerValue() : IDENT;
+    token = entry ? entry->lexerValue() : static_cast<int>(IDENT);
     goto returnToken;
 }
 
@@ -893,7 +898,6 @@ returnToken: {
     llocp->last_line = lineNumber;
     llocp->first_column = startOffset;
     llocp->last_column = currentOffset();
-
     m_lastToken = token;
     return token;
 }
@@ -1024,20 +1028,23 @@ SourceCode Lexer::sourceCode(int openBrace, int closeBrace, int firstLine)
         return SourceCode(m_source->provider(), openBrace, closeBrace + 1, firstLine);
 
     const UChar* data = m_source->provider()->data();
+    
+    ASSERT(openBrace < closeBrace);
+    int i;
+    for (i = m_source->startOffset(); i < openBrace; ++i) {
+        if (data[i] == byteOrderMark) {
+            openBrace++;
+            closeBrace++;
+        }
+    }
+    for (; i < closeBrace; ++i) {
+        if (data[i] == byteOrderMark)
+            closeBrace++;
+    }
 
     ASSERT(openBrace < closeBrace);
 
-    int numBOMsBeforeOpenBrace = 0;
-    int numBOMsBetweenBraces = 0;
-
-    int i;
-    for (i = m_source->startOffset(); i < openBrace; ++i)
-        numBOMsBeforeOpenBrace += data[i] == byteOrderMark;
-    for (; i < closeBrace; ++i)
-        numBOMsBetweenBraces += data[i] == byteOrderMark;
-
-    return SourceCode(m_source->provider(), openBrace + numBOMsBeforeOpenBrace,
-        closeBrace + numBOMsBeforeOpenBrace + numBOMsBetweenBraces + 1, firstLine);
+    return SourceCode(m_source->provider(), openBrace, closeBrace + 1, firstLine);
 }
 
 } // namespace JSC

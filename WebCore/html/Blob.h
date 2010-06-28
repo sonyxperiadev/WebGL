@@ -41,9 +41,9 @@ namespace WebCore {
 
 class Blob : public RefCounted<Blob> {
 public:
-    static PassRefPtr<Blob> create()
+    static PassRefPtr<Blob> create(const String& type, const BlobItemList& items)
     {
-        return adoptRef(new Blob());
+        return adoptRef(new Blob(type, items));
     }
 
     // FIXME: Deprecated method.  This is called only from
@@ -63,15 +63,14 @@ public:
     // FIXME: Deprecated method.
     const String& path() const;
 
-    void append(PassRefPtr<BlobItem>);
     const BlobItemList& items() const { return m_items; }
 
 #if ENABLE(BLOB_SLICE)
-    PassRefPtr<Blob> slice(long long start, long long length) const;
+    PassRefPtr<Blob> slice(long long start, long long length, const String& contentType = String()) const;
 #endif
 
 protected:
-    Blob() { }
+    Blob(const String& type, const BlobItemList&);
 
     // FIXME: Deprecated constructor.  See also the comment for Blob::create(path).
     Blob(const String& path);

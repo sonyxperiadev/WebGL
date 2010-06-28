@@ -351,7 +351,8 @@ namespace JSC {
 
         unsigned bytecodeOffset(CallFrame* callFrame, ReturnAddressPtr returnAddress)
         {
-            reparseForExceptionInfoIfNecessary(callFrame);
+            if (!reparseForExceptionInfoIfNecessary(callFrame))
+                return 1;
             return binaryChop<CallReturnOffsetToBytecodeOffset, unsigned, getCallReturnOffset>(callReturnIndexVector().begin(), callReturnIndexVector().size(), getJITCode().offsetOf(returnAddress.value()))->bytecodeOffset;
         }
         
@@ -521,7 +522,7 @@ namespace JSC {
         void printPutByIdOp(ExecState*, int location, Vector<Instruction>::const_iterator&, const char* op) const;
 #endif
 
-        void reparseForExceptionInfoIfNecessary(CallFrame*);
+        bool reparseForExceptionInfoIfNecessary(CallFrame*) WARN_UNUSED_RETURN;
 
         void createRareDataIfNecessary()
         {
@@ -655,7 +656,7 @@ namespace JSC {
         // symbol table, so we just pass as a raw pointer with a ref count of 1.  We then manually deref
         // in the destructor.
         FunctionCodeBlock(FunctionExecutable* ownerExecutable, CodeType codeType, PassRefPtr<SourceProvider> sourceProvider, unsigned sourceOffset, bool isConstructor)
-            : CodeBlock(ownerExecutable, codeType, sourceProvider, sourceOffset, new SharedSymbolTable, isConstructor)
+            : CodeBlock(ownerExecutable, codeType, sourceProvider, sourceOffset, SharedSymbolTable::create().releaseRef(), isConstructor)
         {
         }
         ~FunctionCodeBlock()

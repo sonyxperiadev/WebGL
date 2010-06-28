@@ -102,7 +102,11 @@ public:
 
     // The name of this frame.
     virtual WebString name() const = 0;
-    virtual void clearName() = 0;
+
+    // Sets the name of this frame. For child frames (frames that are not a
+    // top-most frame) the actual name may have a suffix appended to make the
+    // frame name unique within the hierarchy.
+    virtual void setName(const WebString&) = 0;
 
     // The url of the document loaded in this frame.  This is equivalent to
     // dataSource()->request().url().
@@ -398,6 +402,17 @@ public:
 
     // Reformats the WebFrame for screen display.
     virtual void printEnd() = 0;
+
+    // CSS3 Paged Media ----------------------------------------------------
+
+    // Returns true if page box (margin boxes and page borders) is visible.
+    virtual bool isPageBoxVisible(int pageIndex) = 0;
+
+    // Returns the page area rectangle in pixels, assuming 96 pixels per inch.
+    virtual WebRect pageAreaRectInPixels(int pageIndex) = 0;
+
+    // Returns the preferred page size in pixels, assuming 96 pixels per inch.
+    virtual WebSize preferredPageSizeInPixels(int pageIndex) = 0;
 
 
     // Find-in-page --------------------------------------------------------

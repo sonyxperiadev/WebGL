@@ -269,6 +269,14 @@ WKSoftwareCARendererRef WKSoftwareCARendererCreate(uint32_t contextID);
 void WKSoftwareCARendererDestroy(WKSoftwareCARendererRef);
 void WKSoftwareCARendererRender(WKSoftwareCARendererRef, CGContextRef, CGRect);
 
+typedef struct __WKCARemoteLayerClientRef *WKCARemoteLayerClientRef;
+
+WKCARemoteLayerClientRef WKCARemoteLayerClientMakeWithServerPort(mach_port_t port);
+void WKCARemoteLayerClientInvalidate(WKCARemoteLayerClientRef);
+uint32_t WKCARemoteLayerClientGetClientId(WKCARemoteLayerClientRef);
+void WKCARemoteLayerClientSetLayer(WKCARemoteLayerClientRef, CALayer *);
+CALayer *WKCARemoteLayerClientGetLayer(WKCARemoteLayerClientRef);
+
 #import <mach/mig.h>
 
 CFRunLoopSourceRef WKCreateMIGServerSource(mig_subsystem_t subsystem, mach_port_t serverPort);
@@ -298,6 +306,10 @@ void WKWindowSetScaledFrame(NSWindow *window, NSRect scaleFrame, NSRect nonScale
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
 NSMutableArray *WKNoteOpenPanelFiles(NSArray *paths);
 void WKSyncSurfaceToView(NSView *view);
+#endif
+
+#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD) || defined(BUILDING_ON_SNOW_LEOPARD)
+CFIndex WKGetHyphenationLocationBeforeIndex(CFStringRef string, CFIndex index);
 #endif
 
 #ifdef __cplusplus

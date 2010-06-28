@@ -1297,6 +1297,16 @@ WebInspector.searchingForNodeWasDisabled = function()
     this.panels.elements.searchingForNodeWasDisabled();
 }
 
+WebInspector.monitoringXHRWasEnabled = function()
+{
+    this.monitoringXHREnabled = true;
+}
+
+WebInspector.monitoringXHRWasDisabled = function()
+{
+    this.monitoringXHREnabled = false;
+}
+
 WebInspector.attachDebuggerWhenShown = function()
 {
     this.panels.scripts.attachDebuggerWhenShown();
@@ -1334,7 +1344,7 @@ WebInspector.parsedScriptSource = function(sourceID, sourceURL, source, starting
 
 WebInspector.restoredBreakpoint = function(sourceID, sourceURL, line, enabled, condition)
 {
-    this.breakpointManager.addBreakpoint(sourceID, sourceURL, line, enabled, condition);
+    this.breakpointManager.restoredBreakpoint(sourceID, sourceURL, line, enabled, condition);
 }
 
 WebInspector.failedToParseScriptSource = function(sourceURL, source, startingLine, errorLine, errorMessage)
@@ -1383,6 +1393,12 @@ WebInspector.reset = function()
     delete this.mainResource;
 
     this.console.clearMessages();
+}
+
+WebInspector.resetProfilesPanel = function()
+{
+    if (WebInspector.panels.profiles)
+        WebInspector.panels.profiles.resetProfiles();
 }
 
 WebInspector.bringToFront = function()

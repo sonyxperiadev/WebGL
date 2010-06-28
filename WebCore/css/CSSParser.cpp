@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2003 Lars Knoll (knoll@kde.org)
  * Copyright (C) 2005 Allan Sandfeld Jensen (kde@carewolf.com)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Nicholas Shanks <webkit@nickshanks.com>
  * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
@@ -845,7 +845,7 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSSPropertyOutlineColor:        // <color> | invert | inherit
         // Outline color has "invert" as additional keyword.
         // Also, we want to allow the special focus color even in strict parsing mode.
-        if (propId == CSSPropertyOutlineColor && (id == CSSValueInvert || id == CSSValueWebkitFocusRingColor)) {
+        if (id == CSSValueInvert || id == CSSValueWebkitFocusRingColor) {
             validPrimitive = true;
             break;
         }
@@ -882,7 +882,7 @@ bool CSSParser::parseValue(int propId, bool important)
         // nw-resize | n-resize | se-resize | sw-resize | s-resize | w-resize | ew-resize |
         // ns-resize | nesw-resize | nwse-resize | col-resize | row-resize | text | wait | help |
         // vertical-text | cell | context-menu | alias | copy | no-drop | not-allowed | -webkit-zoom-in
-        // -webkit-zoom-in | -webkit-zoom-out | all-scroll | -webkit-grab | -webkit-grabbing ] ] | inherit
+        // -webkit-zoom-out | all-scroll | -webkit-grab | -webkit-grabbing ] ] | inherit
         RefPtr<CSSValueList> list;
         while (value && value->unit == CSSPrimitiveValue::CSS_URI) {
             if (!list)
@@ -1030,12 +1030,15 @@ bool CSSParser::parseValue(int propId, bool important)
         break;
 
     case CSSPropertyTextIndent:          // <length> | <percentage> | inherit
+        validPrimitive = (!id && validUnit(value, FLength | FPercent, m_strict));
+        break;
+
     case CSSPropertyPaddingTop:          //// <padding-width> | inherit
     case CSSPropertyPaddingRight:        //   Which is defined as
     case CSSPropertyPaddingBottom:       //   <length> | <percentage>
     case CSSPropertyPaddingLeft:         ////
     case CSSPropertyWebkitPaddingStart:
-        validPrimitive = (!id && validUnit(value, FLength | FPercent, m_strict));
+        validPrimitive = (!id && validUnit(value, FLength | FPercent | FNonNeg, m_strict));
         break;
 
     case CSSPropertyMaxHeight:           // <length> | <percentage> | none | inherit
@@ -1603,6 +1606,16 @@ bool CSSParser::parseValue(int propId, bool important)
 
     case CSSPropertyWebkitHighlight:
         if (id == CSSValueNone || value->unit == CSSPrimitiveValue::CSS_STRING)
+            validPrimitive = true;
+        break;
+
+    case CSSPropertyWebkitHyphens:
+        if (id == CSSValueNone || id == CSSValueManual || id == CSSValueAuto)
+            validPrimitive = true;
+        break;
+
+    case CSSPropertyWebkitHyphenateCharacter:
+        if (id == CSSValueAuto || value->unit == CSSPrimitiveValue::CSS_STRING)
             validPrimitive = true;
         break;
 
@@ -2294,13 +2307,13 @@ CSSParser::SizeParameterType CSSParser::parseSizeParameter(CSSValueList* parsedV
     case CSSValueLetter:
         if (prevParamType == None || prevParamType == Orientation) {
             // Normalize to Page Size then Orientation order by prepending.
-            // This is not specified by the CSS3 Paged Media specification, but for simpler processing hereafter.
+            // This is not specified by the CSS3 Paged Media specification, but for simpler processing later (CSSStyleSelector::applyPageSizeProperty).
             parsedValues->prepend(CSSPrimitiveValue::createIdentifier(value->id));
             return PageSize;
         }
         return None;
     case 0:
-        if (validUnit(value, FLength, m_strict) && (prevParamType == None || prevParamType == Length)) {
+        if (validUnit(value, FLength | FNonNeg, m_strict) && (prevParamType == None || prevParamType == Length)) {
             parsedValues->append(CSSPrimitiveValue::create(value->fValue, static_cast<CSSPrimitiveValue::UnitTypes>(value->unit)));
             return Length;
         }

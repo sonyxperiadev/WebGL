@@ -135,7 +135,7 @@ static inline Frame* parentFromOwnerElement(HTMLFrameOwnerElement* ownerElement)
     return ownerElement->document()->frame();
 }
 
-Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient* frameLoaderClient)
+inline Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient* frameLoaderClient)
     : m_page(page)
     , m_treeNode(this, parentFromOwnerElement(ownerElement))
     , m_loader(this, frameLoaderClient)
@@ -178,21 +178,30 @@ Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient*
     XMLNames::init();
 
     if (!ownerElement) {
-        page->setMainFrame(this);
 #if ENABLE(TILED_BACKING_STORE)
         // Top level frame only for now.
         setTiledBackingStoreEnabled(page->settings()->tiledBackingStoreEnabled());
 #endif
     } else {
         page->incrementFrameCount();
+
         // Make sure we will not end up with two frames referencing the same owner element.
-        ASSERT((!(ownerElement->m_contentFrame)) || (ownerElement->m_contentFrame->ownerElement() != ownerElement));
-        ownerElement->m_contentFrame = this;
+        Frame*& contentFrameSlot = ownerElement->m_contentFrame;
+        ASSERT(!contentFrameSlot || contentFrameSlot->ownerElement() != ownerElement);
+        contentFrameSlot = this;
     }
 
 #ifndef NDEBUG
     frameCounter.increment();
 #endif
+}
+
+PassRefPtr<Frame> Frame::create(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoaderClient* client)
+{
+    RefPtr<Frame> frame = adoptRef(new Frame(page, ownerElement, client));
+    if (!ownerElement)
+        page->setMainFrame(frame);
+    return frame.release();
 }
 
 Frame::~Frame()
@@ -622,22 +631,6 @@ void Frame::setPrinting(bool printing, float minPageWidth, float maxPageWidth, b
 
     for (Frame* child = tree()->firstChild(); child; child = child->tree()->nextSibling())
         child->setPrinting(printing, minPageWidth, maxPageWidth, adjustViewSize);
-}
-
-void Frame::setJSStatusBarText(const String& text)
-{
-    ASSERT(m_doc); // Client calls shouldn't be made when the frame is in inconsistent state.
-    m_kjsStatusBarText = text;
-    if (m_page)
-        m_page->chrome()->setStatusbarText(this, m_kjsStatusBarText);
-}
-
-void Frame::setJSDefaultStatusBarText(const String& text)
-{
-    ASSERT(m_doc); // Client calls shouldn't be made when the frame is in inconsistent state.
-    m_kjsDefaultStatusBarText = text;
-    if (m_page)
-        m_page->chrome()->setStatusbarText(this, m_kjsDefaultStatusBarText);
 }
 
 void Frame::setNeedsReapplyStyles()
@@ -1436,6 +1429,7 @@ String Frame::documentTypeString() const
     return String();
 }
 
+<<<<<<< HEAD
 void Frame::focusWindow()
 {
     if (!page())
@@ -1474,6 +1468,8 @@ void Frame::scheduleClose()
         chrome->closeWindowSoon();
 }
 
+=======
+>>>>>>> webkit.org at r61871
 void Frame::respondToChangedSelection(const VisibleSelection& oldSelection, bool closeTyping)
 {
     bool isContinuousSpellCheckingEnabled = editor()->isContinuousSpellCheckingEnabled();

@@ -33,6 +33,7 @@
 
 namespace WebKit {
 
+// DEPRECATED.
 enum WebCompositionCommand {
     WebCompositionCommandDiscard,
     WebCompositionCommandSet,

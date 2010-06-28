@@ -232,6 +232,10 @@ void RenderTheme::adjustStyle(CSSStyleSelector* selector, RenderStyle* style, El
         case RatingLevelIndicatorPart:
             return adjustMeterStyle(selector, style, e);
 #endif
+#if ENABLE(INPUT_SPEECH)
+        case InputSpeechButtonPart:
+            // FIXME: Adjust the speech button's style and sizes.
+#endif
         default:
             break;
     }
@@ -362,6 +366,10 @@ bool RenderTheme::paint(RenderObject* o, const RenderObject::PaintInfo& paintInf
             return paintSearchFieldResultsDecoration(o, paintInfo, r);
         case SearchFieldResultsButtonPart:
             return paintSearchFieldResultsButton(o, paintInfo, r);
+#if ENABLE(INPUT_SPEECH)
+        case InputSpeechButtonPart:
+            // FIXME: Add painting code to draw the speech button.
+#endif
         default:
             break;
     }
@@ -410,6 +418,9 @@ bool RenderTheme::paintBorderOnly(RenderObject* o, const RenderObject::PaintInfo
         case SearchFieldDecorationPart:
         case SearchFieldResultsDecorationPart:
         case SearchFieldResultsButtonPart:
+#if ENABLE(INPUT_SPEECH)
+        case InputSpeechButtonPart:
+#endif
         default:
             break;
     }
@@ -456,6 +467,9 @@ bool RenderTheme::paintDecorations(RenderObject* o, const RenderObject::PaintInf
         case SearchFieldDecorationPart:
         case SearchFieldResultsDecorationPart:
         case SearchFieldResultsButtonPart:
+#if ENABLE(INPUT_SPEECH)
+        case InputSpeechButtonPart:
+#endif
         default:
             break;
     }
@@ -655,6 +669,11 @@ bool RenderTheme::isControlStyled(const RenderStyle* style, const BorderData& bo
         case ListboxPart:
         case MenulistPart:
         case ProgressBarPart:
+        case MeterPart:
+        case RelevancyLevelIndicatorPart:
+        case ContinuousCapacityLevelIndicatorPart:
+        case DiscreteCapacityLevelIndicatorPart:
+        case RatingLevelIndicatorPart:
         // FIXME: Uncomment this when making search fields style-able.
         // case SearchFieldPart:
         case TextFieldPart:
@@ -918,56 +937,16 @@ IntSize RenderTheme::meterSizeForBounds(const RenderMeter*, const IntRect& bound
     return bounds.size();
 }
 
-bool RenderTheme::paintMeter(RenderObject* renderObject, const RenderObject::PaintInfo& paintInfo, const IntRect& rect)
+bool RenderTheme::supportsMeter(ControlPart, bool) const
 {
-    if (!renderObject->isMeter())
-        return true;
-
-    // Some platforms do not have a native gauge widget, so we draw here a default implementation.
-    RenderMeter* renderMeter = toRenderMeter(renderObject);
-    RenderStyle* style = renderObject->style();
-    int left = style->borderLeft().width() + style->paddingLeft().value();
-    int top = style->borderTop().width() + style->paddingTop().value();
-    int right = style->borderRight().width() + style->paddingRight().value();
-    int bottom = style->borderBottom().width() + style->paddingBottom().value();
-    FloatRect innerRect(rect.x() + left, rect.y() + top, rect.width() - left - right, rect.height() - top - bottom);
-
-    HTMLMeterElement* element = static_cast<HTMLMeterElement*>(renderMeter->node());
-    double min = element->min();
-    double max = element->max();
-    double value = element->value();
-
-    if (min >= max) {
-        paintInfo.context->fillRect(innerRect, Color::black, style->colorSpace());
-        return false;
-    }
-
-    // Paint the background first
-    paintInfo.context->fillRect(innerRect, Color::lightGray, style->colorSpace());
-
-    FloatRect valueRect;
-
-    if (rect.width() < rect.height()) {
-        // Vertical gauge
-        double scale = innerRect.height() / (max - min);
-        valueRect.setLocation(FloatPoint(innerRect.x(), innerRect.y() + narrowPrecisionToFloat((max - value) * scale)));
-        valueRect.setSize(FloatSize(innerRect.width(), narrowPrecisionToFloat((value - min) * scale)));
-    } else if (renderMeter->style()->direction() == RTL) {
-        // right to left horizontal gauge
-        double scale = innerRect.width() / (max - min);
-        valueRect.setLocation(FloatPoint(innerRect.x() + narrowPrecisionToFloat((max - value) * scale), innerRect.y()));
-        valueRect.setSize(FloatSize(narrowPrecisionToFloat((value - min) * scale), innerRect.height()));
-    } else {
-        // left to right horizontal gauge
-        double scale = innerRect.width() / (max - min);
-        valueRect.setLocation(innerRect.location());
-        valueRect.setSize(FloatSize(narrowPrecisionToFloat((value - min) * scale), innerRect.height()));
-    }
-    if (!valueRect.isEmpty())
-        paintInfo.context->fillRect(valueRect, Color::black, style->colorSpace());
-
     return false;
 }
+
+bool RenderTheme::paintMeter(RenderObject*, const RenderObject::PaintInfo&, const IntRect&)
+{
+    return true;
+}
+
 #endif
 
 #if ENABLE(PROGRESS_TAG)

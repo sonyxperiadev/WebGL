@@ -1,3 +1,184 @@
+2010-06-25  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Stop frame loaders when deleting view.
+        Frame loaders were still alive after view is deleted, causing
+        segmentation fault when libsoup had something to deliver yet.
+        https://bugs.webkit.org/show_bug.cgi?id=41007
+
+        * efl/ewk/ewk_view.cpp:
+        (_ewk_view_smart_del): stop loaders.
+
+2010-06-25  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Fix warnings about printf format
+        When printing uint64_t the macro PRIu64 is needed in order to be
+        portable across 32 and 64 bits. It was previously showing warning
+        messages on 32-bits systems.
+        https://bugs.webkit.org/show_bug.cgi?id=40965
+
+        * efl/ewk/ewk_view.cpp:
+        (ewk_view_exceeded_database_quota):
+
+2010-06-25  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Do not load error message for download and cancellation.
+        When a download is made or a request is cancelled an error page should
+        not be shown.
+        https://bugs.webkit.org/show_bug.cgi?id=40956
+
+        * efl/WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::dispatchDidFailLoading): return if it
+        should not fallback.
+        (WebCore::FrameLoaderClientEfl::dispatchDidFailLoad): return if it
+        should not fallback.
+        (WebCore::FrameLoaderClientEfl::interruptForPolicyChangeError): fix
+        typo in related error message.
+        (WebCore::FrameLoaderClientEfl::shouldFallBack): if user cancelled the
+        request or the policy changed (for example, because the request is a
+        download) then it should not fallback.
+
+2010-06-25  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Implement runOpenPanel method. The interface with browser was
+        already implemented. Now we are actually calling it.
+        https://bugs.webkit.org/show_bug.cgi?id=40923
+
+        * efl/WebCoreSupport/ChromeClientEfl.cpp:
+        (WebCore::ChromeClientEfl::runOpenPanel): implement method.
+        * efl/ewk/ewk_private.h: export to WebCoreSupport the needed method
+
+2010-06-24  Jer Noble  <jer.noble@apple.com>
+
+        Reviewed by Eric Carlson.
+
+        Full-screened content doesn't keep the display on: Safari not grabbing a power assertion?
+        https://bugs.webkit.org/show_bug.cgi?id=40939
+        rdar://problem/7996172
+        
+        Add IOKit.framework to the list of linked frameworks.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2010-06-23  Leandro Pereira  <leandro@profusion.mobi>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [EFL] Add Libs.private to ewebkit.pc when building with SHARED_CORE.
+        https://bugs.webkit.org/show_bug.cgi?id=40862
+        
+        * CMakeListsEfl.txt:
+        * efl/ewebkit.pc.in:
+
+2010-06-23  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        Add implementaion of new windows for EFL port. Both cases of a link
+        with target="_blank" and a javascript that does window.open() are
+        treated, delegating to browser the role of actually creating the
+        window (or blocking it).
+        https://bugs.webkit.org/show_bug.cgi?id=40930
+
+        * CMakeListsEfl.txt: add new file that wraps the WindowFeatures struct
+        * efl/WebCoreSupport/ChromeClientEfl.cpp:
+        (WebCore::ChromeClientEfl::createWindow): implement method for
+        creating new window by delegating to browser its creation. Browser
+        might decide to continue on the same window by returning the same
+        view object.
+        * efl/WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::dispatchCreatePage): implement method
+        for creating new window when its creation is done by a javascript
+        script.
+        * efl/ewk/EWebKit.h: new header for WindowFeatures.
+        * efl/ewk/ewk_private.h:
+        * efl/ewk/ewk_view.cpp:
+        (ewk_view_window_create): call the method implemented by browser.
+        * efl/ewk/ewk_view.h:
+        * efl/ewk/ewk_window_features.cpp: Added.
+        (ewk_window_features_unref):
+        (ewk_window_features_ref):
+        (ewk_window_features_bool_property_get):
+        (ewk_window_features_int_property_get):
+        (ewk_window_features_new_from_core): create and wrapped struct
+        containing the core struct.
+        * efl/ewk/ewk_window_features.h: Added.
+
+2010-06-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Rename WebPluginPackage.m to make it an Objective-C++ file.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2010-06-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Make WebCoreSystemInterface.h a C++ only header
+        https://bugs.webkit.org/show_bug.cgi?id=40867
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2010-06-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Add stubbed out WebPlatformStrategies class to WebKit.
+        https://bugs.webkit.org/show_bug.cgi?id=40851
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2010-06-18  Alexis Menard  <alexis.menard@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [qt] Better check for the declarative plugin inclusion.
+
+        * WebKit.pro:
+
+2010-06-17  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Eric Seidel.
+
+        Clean EFL header files in order to diminish the compilation time with
+        EFL from subversion. We remove the EFL includes from header files and use
+        forward declarations, including the headers in correspondent source
+        files when needed. This causes only the needed source files to be
+        recompiled in case a new version of EFL is installed instead of
+        triggering a recompilation of almost all WebCore/WebKit.
+        https://bugs.webkit.org/show_bug.cgi?id=40575
+
+        * efl/WebCoreSupport/ChromeClientEfl.cpp: include needed header.
+        * efl/WebCoreSupport/ChromeClientEfl.h: forward declaration.
+        * efl/WebCoreSupport/EditorClientEfl.h: forward declaration.
+
+2010-06-15  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Unreviewed EFL build fix. Simple typo.
+
+        * efl/WebCoreSupport/InspectorClientEfl.cpp:
+        (WebCore::InspectorClientEfl::sendMessageToFrontend):
+
+2010-06-14  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Chromium shouldn't build inside the source directory
+        https://bugs.webkit.org/show_bug.cgi?id=40489
+
+        Ignore directories fetched by chromium and chromium mac output dir.
+
+        * chromium: Added property svn:ignore.
+
 2010-06-14  Ilya Tikhonovsky  <loislo@chromium.org>
 
         Reviewed by Pavel Feldman.

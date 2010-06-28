@@ -566,6 +566,7 @@ button
 button-bevel
 default-button
 inner-spin-button
+input-speech-button
 list-button
 listbox
 listitem
@@ -730,3 +731,8 @@ fullscreen
 maximized
 minimized
 windowed
+
+# -webkit-hyphens
+# none
+manual
+# auto

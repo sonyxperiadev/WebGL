@@ -25,6 +25,13 @@ symbian: {
     webkitbackup.sources = ../WebKit/qt/symbian/backup_registration.xml
     webkitbackup.path = /private/10202D56/import/packages/$$replace(TARGET.UID3, 0x,)
 
+    contains(QT_CONFIG, declarative) {
+         declarativeImport.sources = qmlwebkitplugin$${QT_LIBINFIX}.dll
+         declarativeImport.sources += ../WebKit/qt/declarative/qmldir
+         declarativeImport.path = c:$$QT_IMPORTS_BASE_DIR/QtWebKit
+         DEPLOYMENT += declarativeImport
+    }
+
     DEPLOYMENT += webkitlibs webkitbackup
 
     # Need to guarantee that these come before system includes of /epoc32/include
@@ -100,7 +107,7 @@ win32-msvc2005|win32-msvc2008:{
 }
 
 # Pick up 3rdparty libraries from INCLUDE/LIB just like with MSVC
-win32-g++ {
+win32-g++* {
     TMPPATH            = $$quote($$(INCLUDE))
     QMAKE_INCDIR_POST += $$split(TMPPATH,";")
     TMPPATH            = $$quote($$(LIB))
@@ -298,7 +305,7 @@ SOURCES += \
     bindings/js/JSDOMWrapper.cpp \
     bindings/js/JSElementCustom.cpp \
     bindings/js/JSEventCustom.cpp \
-    bindings/js/JSEventSourceConstructor.cpp \
+    bindings/js/JSEventSourceCustom.cpp \
     bindings/js/JSEventTarget.cpp \
     bindings/js/JSExceptionBase.cpp \
     bindings/js/JSGeolocationCustom.cpp \
@@ -337,13 +344,12 @@ SOURCES += \
     bindings/js/JSStyleSheetListCustom.cpp \
     bindings/js/JSTextCustom.cpp \
     bindings/js/JSTreeWalkerCustom.cpp \
-    bindings/js/JSWebKitCSSMatrixConstructor.cpp \
-    bindings/js/JSWebKitPointConstructor.cpp \
+    bindings/js/JSWebKitCSSMatrixCustom.cpp \
+    bindings/js/JSWebKitPointCustom.cpp \
     bindings/js/JSXMLHttpRequestCustom.cpp \
     bindings/js/JSXMLHttpRequestUploadCustom.cpp \
     bindings/js/JSPluginCustom.cpp \
     bindings/js/JSPluginArrayCustom.cpp \
-    bindings/js/JSMessageChannelConstructor.cpp \
     bindings/js/JSMessageChannelCustom.cpp \
     bindings/js/JSMessageEventCustom.cpp \
     bindings/js/JSMessagePortCustom.cpp \
@@ -501,6 +507,7 @@ SOURCES += \
     dom/Notation.cpp \
     dom/OptionGroupElement.cpp \
     dom/OptionElement.cpp \
+    dom/StaticHashSetNodeList.cpp \
     dom/OverflowEvent.cpp \
     dom/PageTransitionEvent.cpp \
     dom/PopStateEvent.cpp \
@@ -510,6 +517,7 @@ SOURCES += \
     dom/ProgressEvent.cpp \
     dom/QualifiedName.cpp \
     dom/Range.cpp \
+    dom/RawDataDocumentParser.h \
     dom/RegisteredEventListener.cpp \
     dom/ScriptElement.cpp \
     dom/ScriptExecutionContext.cpp \
@@ -591,6 +599,7 @@ SOURCES += \
     history/PageCache.cpp \
     html/AsyncImageResizer.cpp \
     html/Blob.cpp \
+    html/BlobBuilder.cpp \
     html/canvas/CanvasGradient.cpp \
     html/canvas/CanvasPattern.cpp \
     html/canvas/CanvasPixelArray.cpp \
@@ -598,6 +607,7 @@ SOURCES += \
     html/canvas/CanvasRenderingContext2D.cpp \
     html/canvas/CanvasStyle.cpp \
     html/CollectionCache.cpp \
+    html/CSSPreloadScanner.cpp \
     html/DataGridColumn.cpp \
     html/DataGridColumnList.cpp \
     html/DateComponents.cpp \
@@ -610,11 +620,12 @@ SOURCES += \
     html/FileStreamProxy.cpp \
     html/FileThread.cpp \
     html/FormDataList.cpp \
-    html/HTML5EntityParser.cpp \
-    html/HTML5Lexer.cpp \
-    html/HTML5DocumentParser.cpp \
-    html/HTML5TreeBuilder.cpp \
-    html/HTML5ScriptRunner.cpp \
+    html/HTMLEntityParser.cpp \
+    html/HTMLTokenizer.cpp \
+    html/HTMLDocumentParser.cpp \
+    html/HTMLPreloadScanner.cpp \
+    html/HTMLScriptRunner.cpp \
+    html/HTMLTreeBuilder.cpp \
     html/HTMLAllCollection.cpp \
     html/HTMLAnchorElement.cpp \
     html/HTMLAppletElement.cpp \
@@ -675,8 +686,9 @@ SOURCES += \
     html/HTMLOptionsCollection.cpp \
     html/HTMLParagraphElement.cpp \
     html/HTMLParamElement.cpp \
-    html/LegacyHTMLTreeConstructor.cpp \
+    html/LegacyHTMLTreeBuilder.cpp \
     html/HTMLParserErrorCodes.cpp \
+    html/HTMLParserScheduler.cpp \
     html/HTMLPlugInElement.cpp \
     html/HTMLPlugInImageElement.cpp \
     html/HTMLPreElement.cpp \
@@ -695,13 +707,13 @@ SOURCES += \
     html/HTMLTableSectionElement.cpp \
     html/HTMLTextAreaElement.cpp \
     html/HTMLTitleElement.cpp \
-    html/HTMLDocumentParser.cpp \
+    html/LegacyHTMLDocumentParser.cpp \
     html/HTMLUListElement.cpp \
     html/HTMLViewSourceDocument.cpp \
     html/ImageData.cpp \
     html/ImageResizerThread.cpp \
     html/LabelsNodeList.cpp \
-    html/PreloadScanner.cpp \
+    html/LegacyPreloadScanner.cpp \
     html/StepRange.cpp \
     html/ValidityState.cpp \
     inspector/ConsoleMessage.cpp \
@@ -719,6 +731,7 @@ SOURCES += \
     inspector/InspectorResource.cpp \
     inspector/InspectorTimelineAgent.cpp \
     inspector/InspectorValues.cpp \
+    inspector/ScriptBreakpoint.cpp \
     inspector/TimelineRecordFactory.cpp \
     loader/archive/ArchiveFactory.cpp \
     loader/archive/ArchiveResource.cpp \
@@ -739,7 +752,9 @@ SOURCES += \
     loader/DocumentThreadableLoader.cpp \
     loader/DocumentWriter.cpp \
     loader/FormState.cpp \
+    loader/FormSubmission.cpp \
     loader/FrameLoader.cpp \
+    loader/FrameLoaderStateMachine.cpp \
     loader/HistoryController.cpp \
     loader/FTPDirectoryDocument.cpp \
     loader/FTPDirectoryParser.cpp \
@@ -761,6 +776,7 @@ SOURCES += \
     loader/ResourceLoader.cpp \
     loader/ResourceLoadNotifier.cpp \
     loader/SinkDocument.cpp \
+    loader/SubframeLoader.cpp \
     loader/SubresourceLoader.cpp \
     loader/TextDocument.cpp \
     loader/TextResourceDecoder.cpp \
@@ -821,6 +837,7 @@ SOURCES += \
     platform/BlobItem.cpp \
     platform/text/Base64.cpp \
     platform/text/BidiContext.cpp \
+    platform/text/Hyphenation.cpp \
     platform/ContentType.cpp \
     platform/ContextMenu.cpp \
     platform/CrossThreadCopier.cpp \
@@ -947,6 +964,7 @@ SOURCES += \
     rendering/RenderIFrame.cpp \
     rendering/RenderImage.cpp \
     rendering/RenderImageGeneratedContent.cpp \
+    rendering/RenderIndicator.cpp \
     rendering/RenderInline.cpp \
     rendering/RenderLayer.cpp \
     rendering/RenderLineBoxList.cpp \
@@ -1059,7 +1077,6 @@ HEADERS += \
     bindings/js/JSDOMWindowShell.h \
     bindings/js/JSDOMWrapper.h \
     bindings/js/JSEventListener.h \
-    bindings/js/JSEventSourceConstructor.h \
     bindings/js/JSEventTarget.h \
     bindings/js/JSHistoryCustom.h \
     bindings/js/JSHTMLAppletElementCustom.h \
@@ -1070,19 +1087,13 @@ HEADERS += \
     bindings/js/JSImageConstructor.h \
     bindings/js/JSLazyEventListener.h \
     bindings/js/JSLocationCustom.h \
-    bindings/js/JSMessageChannelConstructor.h \
     bindings/js/JSNodeCustom.h \
     bindings/js/JSNodeFilterCondition.h \
     bindings/js/JSOptionConstructor.h \
     bindings/js/JSPluginElementFunctions.h \
-    bindings/js/JSSharedWorkerConstructor.h \
     bindings/js/JSStorageCustom.h \
-    bindings/js/JSWebKitCSSMatrixConstructor.h \
-    bindings/js/JSWebKitPointConstructor.h \
-    bindings/js/JSWorkerConstructor.h \
     bindings/js/JSWorkerContextBase.h \
     bindings/js/JSWorkerContextErrorHandler.h \
-    bindings/js/JSXSLTProcessorConstructor.h \
     bindings/js/JavaScriptCallFrame.h \
     bindings/js/ScheduledAction.h \
     bindings/js/ScriptArray.h \
@@ -1222,6 +1233,7 @@ HEADERS += \
     dom/EventTarget.h \
     dom/ExceptionBase.h \
     dom/ExceptionCode.h \
+    dom/FragmentScriptingPermission.h \
     dom/InputElement.h \
     dom/KeyboardEvent.h \
     dom/MessageChannel.h \
@@ -1240,6 +1252,7 @@ HEADERS += \
     dom/Notation.h \
     dom/OptionElement.h \
     dom/OptionGroupElement.h \
+    dom/StaticHashSetNodeList.h \
     dom/OverflowEvent.h \
     dom/PageTransitionEvent.h \
     dom/Position.h \
@@ -1328,6 +1341,7 @@ HEADERS += \
     history/PageCache.h \
     html/AsyncImageResizer.h \
     html/Blob.h \
+    html/BlobBuilder.h \
     html/canvas/CanvasGradient.h \
     html/canvas/CanvasPattern.h \
     html/canvas/CanvasPixelArray.h \
@@ -1413,7 +1427,7 @@ HEADERS += \
     html/HTMLParagraphElement.h \
     html/HTMLParamElement.h \
     html/HTMLParserErrorCodes.h \
-    html/LegacyHTMLTreeConstructor.h \
+    html/LegacyHTMLTreeBuilder.h \
     html/HTMLPlugInElement.h \
     html/HTMLPlugInImageElement.h \
     html/HTMLPreElement.h \
@@ -1433,14 +1447,14 @@ HEADERS += \
     html/HTMLTableSectionElement.h \
     html/HTMLTextAreaElement.h \
     html/HTMLTitleElement.h \
-    html/HTMLDocumentParser.h \
+    html/LegacyHTMLDocumentParser.h \
     html/HTMLUListElement.h \
     html/HTMLVideoElement.h \
     html/HTMLViewSourceDocument.h \
     html/ImageData.h \
     html/ImageResizerThread.h \
     html/LabelsNodeList.h \
-    html/PreloadScanner.h \
+    html/LegacyPreloadScanner.h \
     html/StepRange.h \
     html/TimeRanges.h \
     html/ValidityState.h \
@@ -1485,6 +1499,7 @@ HEADERS += \
     loader/DocumentThreadableLoader.h \
     loader/FormState.h \
     loader/FrameLoader.h \
+    loader/FrameLoaderStateMachine.h \
     loader/FTPDirectoryDocument.h \
     loader/FTPDirectoryParser.h \
     loader/icon/IconDatabase.h \
@@ -1673,6 +1688,7 @@ HEADERS += \
     platform/text/AtomicString.h \
     platform/text/Base64.h \
     platform/text/BidiContext.h \
+    platform/text/Hyphenation.h \
     platform/text/qt/TextCodecQt.h \
     platform/text/RegularExpression.h \
     platform/text/SegmentedString.h \
@@ -1736,6 +1752,7 @@ HEADERS += \
     rendering/RenderIFrame.h \
     rendering/RenderImageGeneratedContent.h \
     rendering/RenderImage.h \
+    rendering/RenderIndicator.h \
     rendering/RenderInline.h \
     rendering/RenderLayer.h \
     rendering/RenderLineBoxList.h \
@@ -1843,6 +1860,7 @@ HEADERS += \
     rendering/SVGShadowTreeElements.h \
     rendering/SVGTextChunkLayoutInfo.h \
     rendering/SVGTextLayoutUtilities.h \
+    rendering/SVGTextQuery.h \
     rendering/TextControlInnerElements.h \
     rendering/TransformState.h \
     svg/animation/SMILTimeContainer.h \
@@ -2180,6 +2198,7 @@ SOURCES += \
     ../WebKit/qt/Api/qwebplugindatabase.cpp \
     ../WebKit/qt/Api/qwebpluginfactory.cpp \
     ../WebKit/qt/Api/qwebsecurityorigin.cpp \
+    ../WebKit/qt/Api/qwebscriptworld.cpp \
     ../WebKit/qt/Api/qwebdatabase.cpp \
     ../WebKit/qt/Api/qwebinspector.cpp \
     ../WebKit/qt/Api/qwebkitversion.cpp
@@ -2451,7 +2470,6 @@ contains(DEFINES, ENABLE_ICONDATABASE=1) {
 contains(DEFINES, ENABLE_WORKERS=1) {
     SOURCES += \
         bindings/js/JSDedicatedWorkerContextCustom.cpp \
-        bindings/js/JSWorkerConstructor.cpp \
         bindings/js/JSWorkerContextBase.cpp \
         bindings/js/JSWorkerContextCustom.cpp \
         bindings/js/JSWorkerCustom.cpp \
@@ -2472,7 +2490,6 @@ contains(DEFINES, ENABLE_WORKERS=1) {
 
 contains(DEFINES, ENABLE_SHARED_WORKERS=1) {
     SOURCES += \
-        bindings/js/JSSharedWorkerConstructor.cpp \
         bindings/js/JSSharedWorkerCustom.cpp \
         workers/DefaultSharedWorkerRepository.cpp \
         workers/SharedWorker.cpp \
@@ -2546,7 +2563,6 @@ contains(DEFINES, ENABLE_XSLT=1) {
     tobe|!tobe: QT += xmlpatterns
 
     SOURCES += \
-        bindings/js/JSXSLTProcessorConstructor.cpp \
         bindings/js/JSXSLTProcessorCustom.cpp \
         dom/TransformSourceQt.cpp \
         xml/XSLStyleSheetQt.cpp \
@@ -2853,7 +2869,9 @@ contains(DEFINES, ENABLE_SVG=1) {
         rendering/SVGRenderSupport.cpp \
         rendering/SVGRootInlineBox.cpp \
         rendering/SVGShadowTreeElements.cpp \
-        rendering/SVGTextLayoutUtilities.cpp
+        rendering/SVGTextChunkLayoutInfo.cpp \
+        rendering/SVGTextLayoutUtilities.cpp \
+        rendering/SVGTextQuery.cpp
 }
 
 contains(DEFINES, ENABLE_JAVASCRIPT_DEBUGGER=1) {
@@ -2884,6 +2902,7 @@ contains(DEFINES, ENABLE_WEB_SOCKETS=1) {
         websockets/WebSocketChannelClient.h \
         websockets/WebSocketHandshake.h \
         websockets/WebSocketHandshakeRequest.h \
+        websockets/WebSocketHandshakeResponse.h \
         platform/network/qt/SocketStreamHandlePrivate.h
 
     SOURCES += \
@@ -2891,12 +2910,12 @@ contains(DEFINES, ENABLE_WEB_SOCKETS=1) {
         websockets/WebSocketChannel.cpp \
         websockets/WebSocketHandshake.cpp \
         websockets/WebSocketHandshakeRequest.cpp \
+        websockets/WebSocketHandshakeResponse.cpp \
         websockets/ThreadableWebSocketChannel.cpp \
         platform/network/SocketStreamErrorBase.cpp \
         platform/network/SocketStreamHandleBase.cpp \
         platform/network/qt/SocketStreamHandleQt.cpp \
-        bindings/js/JSWebSocketCustom.cpp \
-        bindings/js/JSWebSocketConstructor.cpp
+        bindings/js/JSWebSocketCustom.cpp
 
     contains(DEFINES, ENABLE_WORKERS=1) {
         HEADERS += \
@@ -2910,80 +2929,65 @@ contains(DEFINES, ENABLE_WEB_SOCKETS=1) {
 contains(DEFINES, ENABLE_3D_CANVAS=1) {
 tobe|!tobe: QT += opengl
 HEADERS += \
-	bindings/js/JSArrayBufferConstructor.h \
-	bindings/js/JSArrayBufferViewHelper.h \
-	bindings/js/JSInt8ArrayConstructor.h \
-	bindings/js/JSFloat32ArrayConstructor.h \
-	bindings/js/JSInt32ArrayConstructor.h \
-	bindings/js/JSInt16ArrayConstructor.h \
-	bindings/js/JSUint8ArrayConstructor.h \
-	bindings/js/JSUint32ArrayConstructor.h \
-	bindings/js/JSUint16ArrayConstructor.h \
-	html/canvas/CanvasContextAttributes.h \
-	html/canvas/CanvasObject.h \
-	html/canvas/WebGLActiveInfo.h \
-	html/canvas/ArrayBuffer.h \
-	html/canvas/ArrayBufferView.h \
-	html/canvas/WebGLBuffer.h \
-	html/canvas/Int8Array.h \
-	html/canvas/WebGLContextAttributes.h \
-	html/canvas/Float32Array.h \
-	html/canvas/WebGLFramebuffer.h \
-	html/canvas/WebGLGetInfo.h \
-	html/canvas/Int32Array.h \
-	html/canvas/WebGLProgram.h \
-	html/canvas/WebGLRenderbuffer.h \
-	html/canvas/WebGLRenderingContext.h \
-	html/canvas/WebGLShader.h \
-	html/canvas/Int16Array.h \
-	html/canvas/WebGLTexture.h \
-	html/canvas/WebGLUniformLocation.h \
-	html/canvas/Uint8Array.h \
-	html/canvas/Uint32Array.h \
-	html/canvas/Uint16Array.h \
-    platform/graphics/GraphicsContext3D.h 
+        bindings/js/JSArrayBufferViewHelper.h \
+        html/canvas/CanvasContextAttributes.h \
+        html/canvas/CanvasObject.h \
+        html/canvas/WebGLActiveInfo.h \
+        html/canvas/ArrayBuffer.h \
+        html/canvas/ArrayBufferView.h \
+        html/canvas/WebGLBuffer.h \
+        html/canvas/Int8Array.h \
+        html/canvas/WebGLContextAttributes.h \
+        html/canvas/Float32Array.h \
+        html/canvas/WebGLFramebuffer.h \
+        html/canvas/WebGLGetInfo.h \
+        html/canvas/Int32Array.h \
+        html/canvas/WebGLProgram.h \
+        html/canvas/WebGLRenderbuffer.h \
+        html/canvas/WebGLRenderingContext.h \
+        html/canvas/WebGLShader.h \
+        html/canvas/Int16Array.h \
+        html/canvas/WebGLTexture.h \
+        html/canvas/WebGLUniformLocation.h \
+        html/canvas/Uint8Array.h \
+        html/canvas/Uint32Array.h \
+        html/canvas/Uint16Array.h \
+        platform/graphics/GraphicsContext3D.h
 
 SOURCES += \
-	bindings/js/JSArrayBufferConstructor.cpp \
-	bindings/js/JSArrayBufferViewCustom.cpp \
-	bindings/js/JSInt8ArrayConstructor.cpp \
-	bindings/js/JSInt8ArrayCustom.cpp \
-	bindings/js/JSFloat32ArrayConstructor.cpp \
-	bindings/js/JSFloat32ArrayCustom.cpp \
-	bindings/js/JSInt32ArrayConstructor.cpp \
-	bindings/js/JSInt32ArrayCustom.cpp \
-	bindings/js/JSWebGLRenderingContextCustom.cpp \
-	bindings/js/JSInt16ArrayConstructor.cpp \
-	bindings/js/JSInt16ArrayCustom.cpp \
-	bindings/js/JSUint8ArrayConstructor.cpp \
-	bindings/js/JSUint8ArrayCustom.cpp \
-	bindings/js/JSUint32ArrayConstructor.cpp \
-	bindings/js/JSUint32ArrayCustom.cpp \
-	bindings/js/JSUint16ArrayConstructor.cpp \
-	bindings/js/JSUint16ArrayCustom.cpp \
-	html/canvas/CanvasContextAttributes.cpp \
-    html/canvas/CanvasObject.cpp \
-	html/canvas/ArrayBuffer.cpp \
-	html/canvas/ArrayBufferView.cpp \
-	html/canvas/WebGLBuffer.cpp \
-	html/canvas/Int8Array.cpp \
-	html/canvas/WebGLContextAttributes.cpp \
-	html/canvas/Float32Array.cpp \
-	html/canvas/WebGLFramebuffer.cpp \
-	html/canvas/WebGLGetInfo.cpp \
-	html/canvas/Int32Array.cpp \
-	html/canvas/WebGLProgram.cpp \
-	html/canvas/WebGLRenderbuffer.cpp \
-	html/canvas/WebGLRenderingContext.cpp \
-	html/canvas/WebGLShader.cpp \
-	html/canvas/Int16Array.cpp \
-	html/canvas/WebGLTexture.cpp \
-	html/canvas/WebGLUniformLocation.cpp \
-	html/canvas/Uint8Array.cpp \
-	html/canvas/Uint32Array.cpp \
-	html/canvas/Uint16Array.cpp \
-    platform/graphics/GraphicsContext3D.cpp \
-    platform/graphics/qt/GraphicsContext3DQt.cpp \
+        bindings/js/JSArrayBufferCustom.cpp \
+        bindings/js/JSArrayBufferViewCustom.cpp \
+        bindings/js/JSInt8ArrayCustom.cpp \
+        bindings/js/JSFloat32ArrayCustom.cpp \
+        bindings/js/JSInt32ArrayCustom.cpp \
+        bindings/js/JSWebGLRenderingContextCustom.cpp \
+        bindings/js/JSInt16ArrayCustom.cpp \
+        bindings/js/JSUint8ArrayCustom.cpp \
+        bindings/js/JSUint32ArrayCustom.cpp \
+        bindings/js/JSUint16ArrayCustom.cpp \
+        html/canvas/CanvasContextAttributes.cpp \
+        html/canvas/CanvasObject.cpp \
+        html/canvas/ArrayBuffer.cpp \
+        html/canvas/ArrayBufferView.cpp \
+        html/canvas/WebGLBuffer.cpp \
+        html/canvas/Int8Array.cpp \
+        html/canvas/WebGLContextAttributes.cpp \
+        html/canvas/Float32Array.cpp \
+        html/canvas/WebGLFramebuffer.cpp \
+        html/canvas/WebGLGetInfo.cpp \
+        html/canvas/Int32Array.cpp \
+        html/canvas/WebGLProgram.cpp \
+        html/canvas/WebGLRenderbuffer.cpp \
+        html/canvas/WebGLRenderingContext.cpp \
+        html/canvas/WebGLShader.cpp \
+        html/canvas/Int16Array.cpp \
+        html/canvas/WebGLTexture.cpp \
+        html/canvas/WebGLUniformLocation.cpp \
+        html/canvas/Uint8Array.cpp \
+        html/canvas/Uint32Array.cpp \
+        html/canvas/Uint16Array.cpp \
+        platform/graphics/GraphicsContext3D.cpp \
+        platform/graphics/qt/GraphicsContext3DQt.cpp \
 
 }
 
@@ -2998,12 +3002,7 @@ contains(DEFINES, ENABLE_SYMBIAN_DIALOG_PROVIDERS) {
 include($$PWD/../WebKit/qt/Api/headers.pri)
 HEADERS += $$WEBKIT_API_HEADERS
 
-CONFIG(QTDIR_build) {
-    modfile.files = $$moduleFile
-    modfile.path = $$[QMAKE_MKSPECS]/modules
-
-    INSTALLS += modfile
-} else {
+!CONFIG(QTDIR_build) {
     exists($$OUTPUT_DIR/include/QtWebKit/classheaders.pri): include($$OUTPUT_DIR/include/QtWebKit/classheaders.pri)
     WEBKIT_INSTALL_HEADERS = $$WEBKIT_API_HEADERS $$WEBKIT_CLASS_HEADERS
 
@@ -3024,6 +3023,7 @@ CONFIG(QTDIR_build) {
         # INSTALLS is not implemented in qmake's s60 generators, copy headers manually
         inst_headers.commands = $$QMAKE_COPY ${QMAKE_FILE_NAME} ${QMAKE_FILE_OUT}
         inst_headers.input = WEBKIT_INSTALL_HEADERS
+        inst_headers.CONFIG = no_clean
 
         !isEmpty(INSTALL_HEADERS): inst_headers.output = $$INSTALL_HEADERS/QtWebKit/${QMAKE_FILE_BASE}${QMAKE_FILE_EXT}
         else: inst_headers.output = $$[QT_INSTALL_HEADERS]/QtWebKit/${QMAKE_FILE_BASE}${QMAKE_FILE_EXT}
@@ -3033,6 +3033,7 @@ CONFIG(QTDIR_build) {
         inst_modfile.commands = $$inst_headers.commands
         inst_modfile.input = moduleFile
         inst_modfile.output = $$[QMAKE_MKSPECS]/modules
+        inst_modfile.CONFIG = no_clean
 
         QMAKE_EXTRA_COMPILERS += inst_modfile
 
@@ -3088,7 +3089,7 @@ CONFIG(QTDIR_build) {
     CONFIG += no_debug_info
 }
 
-!win32-g++:win32:contains(QMAKE_HOST.arch, x86_64):{
+win32:!win32-g++*:contains(QMAKE_HOST.arch, x86_64):{
     asm_compiler.commands = ml64 /c
     asm_compiler.commands +=  /Fo ${QMAKE_FILE_OUT} ${QMAKE_FILE_IN}
     asm_compiler.output = ${QMAKE_VAR_OBJECTS_DIR}${QMAKE_FILE_BASE}$${first(QMAKE_EXT_OBJ)}

@@ -1,3 +1,82 @@
+2010-06-21  Nate Chapin  <japhet@chromium.org>
+
+        Unreviewed, Windows build fix.
+
+        Update WebFrame to use FrameLoaderStateMachine in
+         firstLayoutDone().
+
+        * WebFrame.cpp:
+        (WebFrame::firstLayoutDone):
+
+2010-06-15  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Move isAvailable()/setIsAvailable() from Database/DatabaseSync to AbstractDatabase.
+        https://bugs.webkit.org/show_bug.cgi?id=39041
+
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2010-06-16  Adam Roben  <aroben@apple.com>
+
+        Add a "forPrinting" boolean parameter to
+        IWebFramePrivate::renderTreeAsExternalRepresentation
+
+        Fixes <http://webkit.org/b/40727> Respect
+        LayoutTestController::isPrinting on Windows.
+
+        Reviewed by Dan Bernstein.
+
+        * Interfaces/IWebFramePrivate.idl: Renamed the current
+        renderTreeAsExternalRepresentation to unused1, and added a new version
+        that takes a boolean "forPrinting" parameter.
+
+        * Interfaces/WebKit.idl: Touched to force a build.
+
+        * WebFrame.cpp:
+        (WebFrame::renderTreeAsExternalRepresentation): Added a boolean
+        "forPrinting" parameter, and used it to tell externalRepresentation
+        what kind of behavior to use.
+
+        * WebFrame.h: Renamed the old renderTreeAsExternalRepresentation and
+        added the new one.
+
+2010-06-15  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Move functions out of Frame class that were marked "move to Chrome"
+        https://bugs.webkit.org/show_bug.cgi?id=39636
+
+        * WebView.cpp:
+        (WebView::shouldClose): Call shouldClose on FrameLoader instead of
+        going through Frame.
+
+2010-06-14  Adam Roben  <aroben@apple.com>
+
+        Add WebKitLauncherWin to WebKit.sln
+
+        Fixes <http://webkit.org/b/40583>.
+
+        Reviewed by Darin Adler.
+
+        * WebKit.vcproj/WebKit.sln: Added WebKitLauncherWin.vcproj. It depends
+        on WebKitAPITest, so is the last project to build. (Also removed
+        QTMovieWin's direct dependency on JavaScriptCore, since it already has
+        an indirect dependency on it.)
+
+2010-06-14  Chang Shu  <chang.shu@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [win] Make windows compile after API changes.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40434
+
+        * WebKitGraphics.cpp:
+        (WebDrawText):
+
 2010-06-14  Ilya Tikhonovsky  <loislo@chromium.org>
 
         Reviewed by Pavel Feldman.

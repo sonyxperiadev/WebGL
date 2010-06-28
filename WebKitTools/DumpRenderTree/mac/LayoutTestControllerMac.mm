@@ -212,6 +212,29 @@ int LayoutTestController::pageNumberForElementById(JSStringRef id, float pageWid
     return [mainFrame pageNumberForElement:element:pageWidthInPixels:pageHeightInPixels];
 }
 
+JSRetainPtr<JSStringRef> LayoutTestController::pageProperty(const char* propertyName, int pageNumber) const
+{
+    JSRetainPtr<JSStringRef> propertyValue(Adopt, JSStringCreateWithCFString((CFStringRef)[mainFrame pageProperty:propertyName:pageNumber]));
+    return propertyValue;
+}
+
+bool LayoutTestController::isPageBoxVisible(int pageNumber) const
+{
+    return [mainFrame isPageBoxVisible:pageNumber];
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::pageAreaRectInPixels(int pageNumber) const
+{
+    JSRetainPtr<JSStringRef> propertyValue(Adopt, JSStringCreateWithCFString((CFStringRef)[mainFrame pageAreaRectInPixels:pageNumber]));
+    return propertyValue;
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::preferredPageSizeInPixels(int pageNumber) const
+{
+    JSRetainPtr<JSStringRef> propertyValue(Adopt, JSStringCreateWithCFString((CFStringRef)[mainFrame preferredPageSizeInPixels:pageNumber]));
+    return propertyValue;
+}
+
 int LayoutTestController::numberOfPages(float pageWidthInPixels, float pageHeightInPixels)
 {
     return [mainFrame numberOfPages:pageWidthInPixels:pageHeightInPixels];
@@ -487,9 +510,9 @@ int LayoutTestController::windowCount()
     return CFArrayGetCount(openWindowsRef);
 }
 
-bool LayoutTestController::elementDoesAutoCompleteForElementWithId(JSStringRef id)
+bool LayoutTestController::elementDoesAutoCompleteForElementWithId(JSStringRef jsString)
 {
-    RetainPtr<CFStringRef> idCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, id));
+    RetainPtr<CFStringRef> idCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, jsString));
     NSString *idNS = (NSString *)idCF.get();
     
     DOMElement *element = [[mainFrame DOMDocument] getElementById:idNS];
@@ -520,7 +543,7 @@ void LayoutTestController::setCacheModel(int cacheModel)
 bool LayoutTestController::isCommandEnabled(JSStringRef name)
 {
     RetainPtr<CFStringRef> nameCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, name));
-    NSString *nameNS = reinterpret_cast<const NSString *>(nameCF.get());
+    NSString *nameNS = (NSString *)nameCF.get();
 
     // Accept command strings with capital letters for first letter without trailing colon.
     if (![nameNS hasSuffix:@":"] && [nameNS length]) {
@@ -859,4 +882,9 @@ void LayoutTestController::setEditingBehavior(const char* editingBehavior)
     if ([editingBehaviorNS isEqualToString:@"win"])
         [[WebPreferences standardPreferences] setEditingBehavior:WebKitEditingWinBehavior];
     [editingBehaviorNS release];
+}
+
+void LayoutTestController::abortModal()
+{
+    [NSApp abortModal];
 }

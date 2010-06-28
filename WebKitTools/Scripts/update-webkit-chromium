@@ -28,6 +28,8 @@
 
 # Update script for the WebKit Chromium Port.
 
+use File::Path;
+
 chdir("WebKit/chromium") or die $!;
 
 # Find gclient or install it.

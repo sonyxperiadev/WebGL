@@ -22,8 +22,8 @@
  *
  */
 
-#ifndef XMLTokenizer_h
-#define XMLTokenizer_h
+#ifndef XMLDocumentParser_h
+#define XMLDocumentParser_h
 
 #if USE(EXPAT)
 
@@ -136,10 +136,10 @@ bool parseXMLDocumentFragment(const String&, DocumentFragment*, Element* parent 
 
 #include "CachedResourceClient.h"
 #include "CachedResourceHandle.h"
-#include "MappedAttributeEntry.h"
 #include "SegmentedString.h"
 #include "StringHash.h"
 #include "DocumentParser.h"
+#include "FragmentScriptingPermission.h"
 #include <wtf/HashMap.h>
 #include <wtf/OwnPtr.h>
 
@@ -185,18 +185,9 @@ namespace WebCore {
         XMLDocumentParser(DocumentFragment*, Element*, FragmentScriptingPermission);
         ~XMLDocumentParser();
 
+        // Exposed for callbacks:
         enum ErrorType { warning, nonFatal, fatal };
-
-        // from DocumentParser
-        virtual void write(const SegmentedString&, bool appendData);
-        virtual void finish();
-        virtual bool isWaitingForScripts() const;
-        virtual void stopParsing();
-
-        void end();
-
-        void pauseParsing();
-        void resumeParsing();
+        void handleError(ErrorType, const char* message, int lineNumber, int columnNumber);
 
         void setIsXHTMLDocument(bool isXHTML) { m_isXHTMLDocument = isXHTML; }
         bool isXHTMLDocument() const { return m_isXHTMLDocument; }
@@ -208,16 +199,24 @@ namespace WebCore {
         bool isWMLDocument() const;
 #endif
 
-        // from CachedResourceClient
-        virtual void notifyFinished(CachedResource* finishedObj);
-
-
-        void handleError(ErrorType type, const char* m, int lineNumber, int columnNumber);
-
+    private:
+        // From DocumentParser
+        virtual void write(const SegmentedString&, bool appendData);
+        virtual void finish();
+        virtual bool finishWasCalled();
+        virtual bool isWaitingForScripts() const;
+        virtual void stopParsing();
         virtual bool wellFormed() const { return !m_sawError; }
+        virtual int lineNumber() const;
+        virtual int columnNumber() const;
 
-        int lineNumber() const;
-        int columnNumber() const;
+        // from CachedResourceClient
+        virtual void notifyFinished(CachedResource*);
+
+        void end();
+
+        void pauseParsing();
+        void resumeParsing();
 
 #if USE(QXMLSTREAM)
 private:
@@ -264,7 +263,6 @@ public:
         void doWrite(const String&);
         void doEnd();
 
-        Document* m_doc;
         FrameView* m_view;
 
         String m_originalSourceForTransform;
@@ -321,6 +319,10 @@ bool parseXMLDocumentFragment(const String&, DocumentFragment*, Element* parent 
 
 } // namespace WebCore
 
+<<<<<<< HEAD
 #endif // USE(EXPAT)
 
 #endif // XMLTokenizer_h
+=======
+#endif // XMLDocumentParser_h
+>>>>>>> webkit.org at r61871

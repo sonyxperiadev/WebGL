@@ -1,3 +1,85 @@
+2010-06-24  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Cannot change the selection via the keyboard
+        https://bugs.webkit.org/show_bug.cgi?id=41162
+
+        Fix issue where the selection could not be extended via the keyboard by
+        adjusting the logic guarding against inserting text in non-editable nodes.
+
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::EditorClient::handleKeyboardEvent):
+        Allow editor commands that do not insert text in non-editable nodes. This
+        fixes keyboard selection extension in non-editable nodes. Move the existing
+        check to after the execution of any editor commands.
+
+2010-06-15  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Move isAvailable()/setIsAvailable() from Database/DatabaseSync to AbstractDatabase.
+        https://bugs.webkit.org/show_bug.cgi?id=39041
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_update_settings):
+        (webkit_web_view_settings_notify):
+        (webkit_get_cache_model):
+
+2010-06-16  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Remove the abuse of GDK_CURRENT_TIME in the DRT
+        https://bugs.webkit.org/show_bug.cgi?id=40600
+
+        * WebCoreSupport/DragClientGtk.cpp: 
+        (WebKit::DragClient::startDrag): Reset the click count after a drag starts.
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::postCommitFrameViewSetup): Reset the click count after a load is committed.
+        * webkit/webkitprivate.h: Move static click counting variables to be per-view.
+        * webkit/webkitwebview.cpp: 
+        (getEventTime): Added.
+        (webkit_web_view_button_press_event): If the event time is zero, use the current time.
+        (webkit_web_view_finalize): Clean up click counting member.
+        (webkit_web_view_init): Initialize click counting member.
+
+2010-06-15  Xan Lopez  <xlopez@igalia.com>
+
+        Fix compilation with older GTK+.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::pageRect):
+
+2010-06-15  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Does not compile with -DGSEAL_ENABLE
+        https://bugs.webkit.org/show_bug.cgi?id=37851
+
+        Fix compilation with GSEAL_ENABLE.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::pageRect):
+        (WebKit::ChromeClient::contentsSizeChanged):
+        * tests/testdomnode.c:
+        (test_dom_node_insertion):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_realize):
+        (webkit_web_view_script_dialog):
+        (webkit_web_view_drag_end):
+        (webkit_web_view_init):
+
+2010-06-14  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Unreviewed build fix.
+
+        This is a fix for flaky inspector tests at gtk-debug bots.
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorFrontendClient::destroyInspectorWindow):
+
 2010-06-14  Ilya Tikhonovsky  <loislo@chromium.org>
 
         Reviewed by Pavel Feldman.

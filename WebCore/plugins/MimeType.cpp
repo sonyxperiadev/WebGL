@@ -25,6 +25,7 @@
 #include "Plugin.h"
 #include "PluginData.h"
 #include "Settings.h"
+#include "StringBuilder.h"
 
 namespace WebCore {
 
@@ -43,9 +44,17 @@ const String &MimeType::type() const
     return mimeClassInfo().type;
 }
 
-const String &MimeType::suffixes() const
+String MimeType::suffixes() const
 {
-    return mimeClassInfo().suffixes;
+    const Vector<String>& extensions = mimeClassInfo().extensions;
+
+    StringBuilder builder;
+    for (size_t i = 0; i < extensions.size(); ++i) {
+        if (i)
+            builder.append(',');
+        builder.append(extensions[i]);
+    }
+    return builder.toString();
 }
 
 const String &MimeType::description() const
@@ -56,10 +65,10 @@ const String &MimeType::description() const
 PassRefPtr<Plugin> MimeType::enabledPlugin() const
 {
     const Page* p = m_pluginData->page();
-    if (!p || !p->mainFrame()->loader()->allowPlugins(NotAboutToInstantiatePlugin))
+    if (!p || !p->mainFrame()->loader()->subframeLoader()->allowPlugins(NotAboutToInstantiatePlugin))
         return 0;
 
-    return Plugin::create(m_pluginData.get(), mimeClassInfo().pluginIndex);
+    return Plugin::create(m_pluginData.get(), m_pluginData->mimePluginIndices()[m_index]);
 }
 
 } // namespace WebCore

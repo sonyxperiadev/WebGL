@@ -110,17 +110,13 @@ long InjectedScriptHost::pushNodePathToFrontend(Node* node, bool withChildren, b
     return id;
 }
 
-long InjectedScriptHost::pushNodeByPathToFrontend(const String& path)
+long InjectedScriptHost::inspectedNode(unsigned long num)
 {
     InspectorDOMAgent* domAgent = inspectorDOMAgent();
     if (!domAgent)
         return 0;
 
-    Node* node = domAgent->nodeForPath(path);
-    if (!node)
-        return 0;
-
-    return domAgent->pushNodePathToFrontend(node);
+    return domAgent->inspectedNode(num);
 }
 
 #if ENABLE(DATABASE)

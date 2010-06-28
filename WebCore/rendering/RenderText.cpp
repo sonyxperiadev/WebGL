@@ -314,7 +314,7 @@ void RenderText::absoluteRectsForRange(Vector<IntRect>& rects, unsigned start, u
 void RenderText::absoluteQuads(Vector<FloatQuad>& quads)
 {
     for (InlineTextBox* box = firstTextBox(); box; box = box->nextTextBox())
-        quads.append(localToAbsoluteQuad(FloatRect(box->x(), box->y(), box->width(), box->height())));
+        quads.append(localToAbsoluteQuad(FloatRect(box->calculateBoundaries())));
 }
 
 void RenderText::absoluteQuadsForRange(Vector<FloatQuad>& quads, unsigned start, unsigned end, bool useSelectionHeight)
@@ -332,7 +332,7 @@ void RenderText::absoluteQuadsForRange(Vector<FloatQuad>& quads, unsigned start,
     for (InlineTextBox* box = firstTextBox(); box; box = box->nextTextBox()) {
         // Note: box->end() returns the index of the last character, not the index past it
         if (start <= box->start() && box->end() < end) {
-            IntRect r = IntRect(box->x(), box->y(), box->width(), box->height());
+            IntRect r(box->calculateBoundaries());
             if (useSelectionHeight) {
                 IntRect selectionRect = box->selectionRect(0, 0, start, end);
                 r.setHeight(selectionRect.height());
@@ -1051,7 +1051,7 @@ void RenderText::setTextInternal(PassRefPtr<StringImpl> text)
     ASSERT(m_text);
 
 #if ENABLE(SVG)
-    if (isSVGText()) {
+    if (isSVGInlineText()) {
         if (style() && style()->whiteSpace() == PRE) {
             // Spec: When xml:space="preserve", the SVG user agent will do the following using a
             // copy of the original character data content. It will convert all newline and tab

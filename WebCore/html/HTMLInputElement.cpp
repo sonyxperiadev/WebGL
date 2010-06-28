@@ -5,6 +5,7 @@
  * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *           (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  * Copyright (C) 2007 Samuel Weinig (sam@webkit.org)
+ * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -47,7 +48,7 @@
 #include "HTMLImageLoader.h"
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
-#include "LegacyHTMLTreeConstructor.h"
+#include "LegacyHTMLTreeBuilder.h"
 #include "KeyboardEvent.h"
 #include "LocalizedStrings.h"
 #include "MouseEvent.h"
@@ -128,7 +129,7 @@ HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document* docum
 
 PassRefPtr<HTMLInputElement> HTMLInputElement::create(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
 {
-    return new HTMLInputElement(tagName, document, form);
+    return adoptRef(new HTMLInputElement(tagName, document, form));
 }
 
 HTMLInputElement::~HTMLInputElement()
@@ -2828,6 +2829,40 @@ void HTMLInputElement::setWapInputFormat(String& mask)
 }
 #endif
 
-
+#if ENABLE(INPUT_SPEECH)
+bool HTMLInputElement::isSpeechEnabled() const
+{
+    switch (inputType()) {
+    // FIXME: Add support for RANGE, EMAIL, URL, COLOR and DATE/TIME input types.
+    case NUMBER:
+    case PASSWORD:
+    case SEARCH:
+    case TELEPHONE:
+    case TEXT:
+        return hasAttribute(speechAttr);
+    case BUTTON:
+    case CHECKBOX:
+    case COLOR:
+    case DATE:
+    case DATETIME:
+    case DATETIMELOCAL:
+    case EMAIL:
+    case FILE:
+    case HIDDEN:
+    case IMAGE:
+    case ISINDEX:
+    case MONTH:
+    case RADIO:
+    case RANGE:
+    case RESET:
+    case SUBMIT:
+    case TIME:
+    case URL:
+    case WEEK:
+        return false;
+    }
+    return false;
+}
+#endif
 
 } // namespace

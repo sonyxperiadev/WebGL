@@ -49,6 +49,7 @@
 #include "Lookup.h"
 #include "Nodes.h"
 #include "Parser.h"
+#include "RegExpCache.h"
 #include <wtf/WTFThreadData.h>
 
 #if ENABLE(JSC_MULTIPLE_THREADS)
@@ -147,6 +148,7 @@ JSGlobalData::JSGlobalData(GlobalDataType globalDataType, ThreadStackType thread
     , cachedUTCOffset(NaN)
     , weakRandom(static_cast<int>(currentTime()))
     , maxReentryDepth(threadStackType == ThreadStackTypeSmall ? MaxSmallThreadReentryDepth : MaxLargeThreadReentryDepth)
+    , m_regExpCache(new RegExpCache(this))
 #ifndef NDEBUG
     , exclusiveThread(0)
 #endif
@@ -196,6 +198,7 @@ JSGlobalData::~JSGlobalData()
         deleteIdentifierTable(identifierTable);
 
     delete clientData;
+    delete m_regExpCache;
 }
 
 PassRefPtr<JSGlobalData> JSGlobalData::createContextGroup(ThreadStackType type)
@@ -246,7 +249,7 @@ const Vector<Instruction>& JSGlobalData::numericCompareFunction(ExecState* exec)
     if (!lazyNumericCompareFunction.size() && !initializingLazyNumericCompareFunction) {
         initializingLazyNumericCompareFunction = true;
         RefPtr<FunctionExecutable> function = FunctionExecutable::fromGlobalCode(Identifier(exec, "numericCompare"), exec, 0, makeSource(UString("(function (v1, v2) { return v1 - v2; })")), 0, 0);
-        lazyNumericCompareFunction = function->bytecodeForCall(exec, exec->scopeChain()).instructions();
+        lazyNumericCompareFunction = function->bytecodeForCall(exec, exec->scopeChain())->instructions();
         initializingLazyNumericCompareFunction = false;
     }
 

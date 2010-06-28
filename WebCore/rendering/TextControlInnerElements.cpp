@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2008, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -89,7 +90,7 @@ TextControlInnerElement::TextControlInnerElement(Document* document, Node* shado
 
 PassRefPtr<TextControlInnerElement> TextControlInnerElement::create(Node* shadowParent)
 {
-    return new TextControlInnerElement(shadowParent->document(), shadowParent);
+    return adoptRef(new TextControlInnerElement(shadowParent->document(), shadowParent));
 }
 
 void TextControlInnerElement::attachInnerElement(Node* parent, PassRefPtr<RenderStyle> style, RenderArena* arena)
@@ -126,7 +127,7 @@ inline TextControlInnerTextElement::TextControlInnerTextElement(Document* docume
 
 PassRefPtr<TextControlInnerTextElement> TextControlInnerTextElement::create(Document* document, Node* shadowParent)
 {
-    return new TextControlInnerTextElement(document, shadowParent);
+    return adoptRef(new TextControlInnerTextElement(document, shadowParent));
 }
 
 void TextControlInnerTextElement::defaultEventHandler(Event* event)
@@ -162,7 +163,7 @@ inline SearchFieldResultsButtonElement::SearchFieldResultsButtonElement(Document
 
 PassRefPtr<SearchFieldResultsButtonElement> SearchFieldResultsButtonElement::create(Document* document)
 {
-    return new SearchFieldResultsButtonElement(document);
+    return adoptRef(new SearchFieldResultsButtonElement(document));
 }
 
 void SearchFieldResultsButtonElement::defaultEventHandler(Event* event)
@@ -194,7 +195,7 @@ inline SearchFieldCancelButtonElement::SearchFieldCancelButtonElement(Document* 
 
 PassRefPtr<SearchFieldCancelButtonElement> SearchFieldCancelButtonElement::create(Document* document)
 {
-    return new SearchFieldCancelButtonElement(document);
+    return adoptRef(new SearchFieldCancelButtonElement(document));
 }
 
 void SearchFieldCancelButtonElement::detach()
@@ -251,7 +252,7 @@ inline SpinButtonElement::SpinButtonElement(Node* shadowParent)
 
 PassRefPtr<SpinButtonElement> SpinButtonElement::create(Node* shadowParent)
 {
-    return new SpinButtonElement(shadowParent);
+    return adoptRef(new SpinButtonElement(shadowParent));
 }
 
 void SpinButtonElement::defaultEventHandler(Event* event)
@@ -269,20 +270,27 @@ void SpinButtonElement::defaultEventHandler(Event* event)
         return;
     }
 
+    RenderBox* box = renderBox();
+    if (!box) {
+        if (!event->defaultHandled())
+            HTMLDivElement::defaultEventHandler(event);
+        return;        
+    }
+    
     HTMLInputElement* input = static_cast<HTMLInputElement*>(shadowAncestorNode());
-    IntPoint local = roundedIntPoint(renderBox()->absoluteToLocal(mouseEvent->absoluteLocation(), false, true));
+    IntPoint local = roundedIntPoint(box->absoluteToLocal(mouseEvent->absoluteLocation(), false, true));
     if (event->type() == eventNames().clickEvent) {
-        if (renderBox()->borderBoxRect().contains(local)) {
+        if (box->borderBoxRect().contains(local)) {
             input->focus();
             input->select();
-            if (local.y() < renderBox()->y() + renderBox()->height() / 2)
+            if (local.y() < box->y() + box->height() / 2)
                 input->stepUpFromRenderer(1);
             else
                 input->stepUpFromRenderer(-1);
             event->setDefaultHandled();
         }
     } else if (event->type() == eventNames().mousemoveEvent) {
-        if (renderBox()->borderBoxRect().contains(local)) {
+        if (box->borderBoxRect().contains(local)) {
             if (!m_capturing) {
                 if (Frame* frame = document()->frame()) {
                     frame->eventHandler()->setCapturingMouseEventsNode(input);
@@ -290,7 +298,7 @@ void SpinButtonElement::defaultEventHandler(Event* event)
                 }
             }
             bool oldOnUpButton = m_onUpButton;
-            m_onUpButton = local.y() < renderBox()->y() + renderBox()->height() / 2;
+            m_onUpButton = local.y() < box->y() + box->height() / 2;
             if (m_onUpButton != oldOnUpButton)
                 renderer()->repaint();
         } else {
@@ -306,5 +314,27 @@ void SpinButtonElement::defaultEventHandler(Event* event)
     if (!event->defaultHandled())
         HTMLDivElement::defaultEventHandler(event);
 }
+
+// ----------------------------
+
+#if ENABLE(INPUT_SPEECH)
+
+inline InputFieldSpeechButtonElement::InputFieldSpeechButtonElement(Document* document)
+    : TextControlInnerElement(document)
+{
+}
+
+PassRefPtr<InputFieldSpeechButtonElement> InputFieldSpeechButtonElement::create(Document* document)
+{
+    return adoptRef(new InputFieldSpeechButtonElement(document));
+}
+
+void InputFieldSpeechButtonElement::defaultEventHandler(Event* event)
+{
+    // FIXME: Start speech recognition here.
+    HTMLDivElement::defaultEventHandler(event);
+}
+
+#endif // ENABLE(INPUT_SPEECH)
 
 }

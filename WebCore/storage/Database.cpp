@@ -73,18 +73,6 @@ const String& Database::databaseInfoTableName()
     return name;
 }
 
-static bool isDatabaseAvailable = true;
-
-void Database::setIsAvailable(bool available)
-{
-    isDatabaseAvailable = available;
-}
-
-bool Database::isAvailable()
-{
-    return isDatabaseAvailable;
-}
-
 static Mutex& guidMutex()
 {
     // Note: We don't have to use AtomicallyInitializedStatic here because
@@ -449,6 +437,15 @@ void Database::close(ClosePolicy policy)
     m_scriptExecutionContext->databaseThread()->unscheduleDatabaseTasks(this);
     if (policy == RemoveDatabaseFromContext)
         m_scriptExecutionContext->postTask(ContextRemoveOpenDatabaseTask::create(this));
+}
+
+void Database::closeImmediately()
+{
+    DatabaseThread* databaseThread = scriptExecutionContext()->databaseThread();
+    if (databaseThread && !databaseThread->terminationRequested()) {
+        stop();
+        databaseThread->scheduleTask(DatabaseCloseTask::create(this, Database::RemoveDatabaseFromContext, 0));
+    }
 }
 
 void Database::stop()

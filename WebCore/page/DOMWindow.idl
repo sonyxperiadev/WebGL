@@ -54,7 +54,7 @@ module window {
         attribute [Replaceable] BarInfo toolbar;
         attribute [Replaceable] Navigator navigator;
         attribute [Replaceable] Navigator clientInformation;
-        attribute [DoNotCheckDomainSecurity, JSCCustom, V8CustomSetter, V8DisallowShadowing] Location location;
+        attribute [DoNotCheckDomainSecurity, JSCCustom, V8CustomSetter, V8DisallowShadowing, CPPCustom] Location location;
 
         attribute [Replaceable, CustomGetter, V8CustomSetter] Event event;
 
@@ -730,12 +730,18 @@ module window {
 #endif
 #endif
 
+#if defined(ENABLE_DATABASE)
+        attribute SQLExceptionConstructor SQLException;
+#endif
+
         attribute [Conditional=TOUCH_EVENTS] TouchEventConstructor TouchEvent;
 
         attribute DOMFormDataConstructor FormData;
 
         attribute [Conditional=FILE_READER|FILE_WRITER] FileErrorConstructor FileError;
         attribute [Conditional=FILE_READER] FileReaderConstructor FileReader;
+
+        attribute BlobBuilderConstructor BlobBuilder;
 
 #endif // defined(LANGUAGE_JAVASCRIPT)
 

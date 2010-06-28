@@ -34,6 +34,7 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
+#include "FrameLoaderStateMachine.h"
 #include "FrameView.h"
 #include "PlaceholderDocument.h"
 #include "PluginDocument.h"
@@ -58,11 +59,26 @@ DocumentWriter::DocumentWriter(Frame* frame)
 {
 }
 
-void DocumentWriter::replaceDocument(const String& html)
+// This is only called by ScriptController::executeIfJavaScriptURL
+// and always contains the result of evaluating a javascript: url.
+// This is the <iframe src="javascript:'html'"> case.
+void DocumentWriter::replaceDocument(const String& source)
 {
     m_frame->loader()->stopAllLoaders();
     begin(m_frame->loader()->url(), true, m_frame->document()->securityOrigin());
-    addData(html);
+
+    if (!source.isNull()) {
+        if (!m_receivedData) {
+            m_receivedData = true;
+            m_frame->document()->setParseMode(Document::Strict);
+        }
+
+        // FIXME: If we wanted to support the <img src='javascript:'imagedata'>
+        // case then we would need to call addData(char*, int) instead.
+        if (DocumentParser* parser = m_frame->document()->parser())
+            parser->write(source, true);
+    }
+
     end();
 }
 
@@ -79,13 +95,13 @@ void DocumentWriter::begin()
     begin(KURL());
 }
 
-PassRefPtr<Document> DocumentWriter::createDocument()
+PassRefPtr<Document> DocumentWriter::createDocument(const KURL& url)
 {
-    if (!m_frame->loader()->isDisplayingInitialEmptyDocument() && m_frame->loader()->client()->shouldUsePluginDocument(m_mimeType))
-        return PluginDocument::create(m_frame);
+    if (!m_frame->loader()->stateMachine()->isDisplayingInitialEmptyDocument() && m_frame->loader()->client()->shouldUsePluginDocument(m_mimeType))
+        return PluginDocument::create(m_frame, url);
     if (!m_frame->loader()->client()->hasHTMLView())
-        return PlaceholderDocument::create(m_frame);
-    return DOMImplementation::createDocument(m_mimeType, m_frame, m_frame->inViewSourceMode());
+        return PlaceholderDocument::create(m_frame, url);
+    return DOMImplementation::createDocument(m_mimeType, m_frame, url, m_frame->inViewSourceMode());
 }
 
 void DocumentWriter::begin(const KURL& url, bool dispatch, SecurityOrigin* origin)
@@ -96,20 +112,19 @@ void DocumentWriter::begin(const KURL& url, bool dispatch, SecurityOrigin* origi
 
     // Create a new document before clearing the frame, because it may need to
     // inherit an aliased security context.
-    RefPtr<Document> document = createDocument();
+    RefPtr<Document> document = createDocument(url);
     
     // If the new document is for a Plugin but we're supposed to be sandboxed from Plugins,
     // then replace the document with one whose parser will ignore the incoming data (bug 39323)
     if (document->isPluginDocument() && m_frame->loader()->isSandboxed(SandboxPlugins))
-        document = SinkDocument::create(m_frame);
+        document = SinkDocument::create(m_frame, url);
 
-    bool resetScripting = !(m_frame->loader()->isDisplayingInitialEmptyDocument() && m_frame->document()->securityOrigin()->isSecureTransitionTo(url));
+    bool resetScripting = !(m_frame->loader()->stateMachine()->isDisplayingInitialEmptyDocument() && m_frame->document()->securityOrigin()->isSecureTransitionTo(url));
     m_frame->loader()->clear(resetScripting, resetScripting);
     if (resetScripting)
         m_frame->script()->updatePlatformScriptObjects();
 
     m_frame->loader()->setURL(url);
-    document->setURL(url);
     m_frame->setDocument(document);
 
     if (m_decoder)
@@ -190,20 +205,6 @@ void DocumentWriter::addData(const char* str, int len, bool flush)
         ASSERT(!parser->wantsRawData());
         parser->write(decoded, true);
     }
-}
-
-void DocumentWriter::addData(const String& str)
-{
-    if (str.isNull())
-        return;
-
-    if (!m_receivedData) {
-        m_receivedData = true;
-        m_frame->document()->setParseMode(Document::Strict);
-    }
-
-    if (DocumentParser* parser = m_frame->document()->parser())
-        parser->write(str, true);
 }
 
 void DocumentWriter::end()

@@ -36,10 +36,17 @@
 
 namespace WebCore {
 
+Blob::Blob(const String& type, const BlobItemList& items)
+    : m_type(type)
+{
+    for (size_t i = 0; i < items.size(); ++i)
+        m_items.append(items[i]);
+}
+
 Blob::Blob(const String& path)
 {
     // Note: this doesn't initialize the type unlike File(path).
-    append(FileBlobItem::create(path));
+    m_items.append(FileBlobItem::create(path));
 }
 
 unsigned long long Blob::size() const
@@ -58,13 +65,8 @@ const String& Blob::path() const
     return m_items[0]->toFileBlobItem()->path();
 }
 
-void Blob::append(PassRefPtr<BlobItem> item)
-{
-    m_items.append(item);
-}
-
 #if ENABLE(BLOB_SLICE)
-PassRefPtr<Blob> Blob::slice(long long start, long long length) const
+PassRefPtr<Blob> Blob::slice(long long start, long long length, const String& contentType) const
 {
     if (start < 0)
         start = 0;
@@ -80,15 +82,15 @@ PassRefPtr<Blob> Blob::slice(long long start, long long length) const
         length = totalSize - start;
 
     size_t i = 0;
-    RefPtr<Blob> blob = Blob::create();
+    BlobItemList items;
     for (; i < m_items.size() && static_cast<unsigned long long>(start) >= m_items[i]->size(); ++i)
         start -= m_items[i]->size();
     for (; length > 0 && i < m_items.size(); ++i) {
-        blob->m_items.append(m_items[i]->slice(start, length));
-        length -= blob->m_items.last()->size();
+        items.append(m_items[i]->slice(start, length));
+        length -= items.last()->size();
         start = 0;
     }
-    return blob.release();
+    return Blob::create(contentType, items);
 }
 #endif // ENABLE(BLOB_SLICE)
 

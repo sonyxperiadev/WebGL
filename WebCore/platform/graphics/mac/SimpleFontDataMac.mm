@@ -270,7 +270,7 @@ void SimpleFontData::platformInit()
         // and web pages that foolishly use this metric for width will be laid out
         // poorly if we return an accurate height. Classic case is Times 13 point,
         // which has an "x" that is 7x6 pixels.
-        m_xHeight = static_cast<float>(max(CGRectGetMaxX(xBox), CGRectGetMaxY(xBox)));
+        m_xHeight = static_cast<float>(max(CGRectGetMaxX(xBox), -CGRectGetMinY(xBox)));
     } else {
 #ifndef BUILDING_ON_TIGER
         m_xHeight = static_cast<float>(CGFontGetXHeight(m_platformData.cgFont())) / m_unitsPerEm;
@@ -427,6 +427,7 @@ FloatRect SimpleFontData::platformBoundsForGlyph(Glyph glyph) const
     if (!m_platformData.font())
         return boundingBox;
     boundingBox = [m_platformData.font() boundingRectForGlyph:glyph];
+    boundingBox.setY(-boundingBox.bottom());
 #endif
     if (m_syntheticBoldOffset)
         boundingBox.setWidth(boundingBox.width() + m_syntheticBoldOffset);

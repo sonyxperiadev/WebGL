@@ -77,10 +77,10 @@ namespace WebCore {
         void didGetResourceContent(long callId, const String& content);
 
         void updateFocusedNode(long nodeId);
-        void setAttachedWindow(bool attached);
         void showPanel(int panel);
         void populateInterface();
         void reset();
+        void resetProfilesPanel();
 
         void bringToFront();
         void inspectedURLChanged(const String&);
@@ -90,6 +90,9 @@ namespace WebCore {
 
         void searchingForNodeWasEnabled();
         void searchingForNodeWasDisabled();
+
+        void monitoringXHRWasEnabled();
+        void monitoringXHRWasDisabled();
 
         void updatePauseOnExceptionsState(long state);
 
@@ -142,6 +145,9 @@ namespace WebCore {
         void didGetEventListenersForNode(long callId, long nodeId, const ScriptArray& listenersArray);
         void didRemoveNode(long callId, long nodeId);
         void didChangeTagName(long callId, long nodeId);
+        void didGetOuterHTML(long callId, const String& outerHTML);
+        void didSetOuterHTML(long callId, long nodeId);
+        void didPushNodeByPathToFrontend(long callId, long nodeId);
 
         void didGetStyles(long callId, const ScriptValue& styles);
         void didGetAllStyles(long callId, const ScriptArray& styles);

@@ -64,11 +64,11 @@
 #include "FrameLoader.h"
 #include "FrameTree.h"
 #include "FrameView.h"
-#include "HTML5DocumentParser.h"
+#include "HTMLDocumentParser.h"
 #include "HTMLBodyElement.h"
 #include "HTMLElementFactory.h"
 #include "HTMLNames.h"
-#include "HTMLDocumentParser.h"
+#include "LegacyHTMLDocumentParser.h"
 #include "InspectorController.h"
 #include "KURL.h"
 #include "Page.h"
@@ -81,8 +81,8 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLDocument::HTMLDocument(Frame* frame)
-    : Document(frame, false, true)
+HTMLDocument::HTMLDocument(Frame* frame, const KURL& url)
+    : Document(frame, url, false, true)
 {
     clearXMLVersion();
     setParseMode(Compat);
@@ -292,9 +292,9 @@ DocumentParser* HTMLDocument::createParser()
 #endif
 
     if (settings() && settings()->html5ParserEnabled())
-        return new HTML5DocumentParser(this, reportErrors);
+        return new HTMLDocumentParser(this, reportErrors);
 
-    return new HTMLDocumentParser(this, reportErrors);
+    return new LegacyHTMLDocumentParser(this, reportErrors);
 }
 
 // --------------------------------------------------------------------------

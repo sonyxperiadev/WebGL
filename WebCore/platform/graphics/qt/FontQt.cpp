@@ -109,7 +109,7 @@ static void drawTextCommon(GraphicsContext* ctx, const TextRun& run, const Float
     QPointF pt(point.x(), point.y());
 
     // text shadow
-    IntSize shadowSize;
+    FloatSize shadowSize;
     float shadowBlur;
     Color shadowColor;
     bool hasShadow = ctx->textDrawingMode() == cTextFill && ctx->getShadow(shadowSize, shadowBlur, shadowColor);
@@ -234,7 +234,7 @@ float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFon
         return 0;
 
     if (run.length() == 1 && treatAsSpace(run[0]))
-        return QFontMetrics(font()).width(run[0]) - m_wordSpacing + run.padding();
+        return QFontMetrics(font()).width(run[0]) + run.padding();
 
     String sanitized = Font::normalizeSpaces(String(run.characters(), run.length()));
     QString string = fromRawDataWithoutRef(sanitized);
@@ -247,14 +247,14 @@ float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFon
     return w + run.padding();
 }
 
-int Font::offsetForPositionForSimpleText(const TextRun& run, int position, bool includePartialGlyphs) const
+int Font::offsetForPositionForSimpleText(const TextRun& run, float position, bool includePartialGlyphs) const
 {
 #if QT_VERSION >= QT_VERSION_CHECK(4, 7, 0)
     String sanitized = Font::normalizeSpaces(String(run.characters(), run.length()));
     QString string = fromRawDataWithoutRef(sanitized);
 
     QFontMetrics fm(font());
-    float delta = (float)position;
+    float delta = position;
     int curPos = 0;
     do {
         float charWidth = fm.width(string[curPos]);
@@ -275,7 +275,7 @@ int Font::offsetForPositionForSimpleText(const TextRun& run, int position, bool 
 #endif
 }
 
-int Font::offsetForPositionForComplexText(const TextRun& run, int position, bool) const
+int Font::offsetForPositionForComplexText(const TextRun& run, float position, bool) const
 {
     String sanitized = Font::normalizeSpaces(String(run.characters(), run.length()));
     QString string = fromRawDataWithoutRef(sanitized);
@@ -285,7 +285,7 @@ int Font::offsetForPositionForComplexText(const TextRun& run, int position, bool
     return line.xToCursor(position);
 }
 
-FloatRect Font::selectionRectForSimpleText(const TextRun& run, const IntPoint& pt, int h, int from, int to) const
+FloatRect Font::selectionRectForSimpleText(const TextRun& run, const FloatPoint& pt, int h, int from, int to) const
 {
 #if QT_VERSION >= QT_VERSION_CHECK(4, 7, 0)
     String sanitized = Font::normalizeSpaces(String(run.characters(), run.length()));
@@ -302,7 +302,7 @@ FloatRect Font::selectionRectForSimpleText(const TextRun& run, const IntPoint& p
 #endif
 }
 
-FloatRect Font::selectionRectForComplexText(const TextRun& run, const IntPoint& pt, int h, int from, int to) const
+FloatRect Font::selectionRectForComplexText(const TextRun& run, const FloatPoint& pt, int h, int from, int to) const
 {
     String sanitized = Font::normalizeSpaces(String(run.characters(), run.length()));
     QString string = fromRawDataWithoutRef(sanitized);

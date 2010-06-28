@@ -1256,11 +1256,11 @@ static HTMLLabelElement* labelForElement(Element* element)
 HTMLLabelElement* AccessibilityRenderObject::labelElementContainer() const
 {
     if (!m_renderer)
-        return false;
+        return 0;
 
     // the control element should not be considered part of the label
     if (isControl())
-        return false;
+        return 0;
     
     // find if this has a parent that is a label
     for (Node* parentNode = m_renderer->node(); parentNode; parentNode = parentNode->parentNode()) {
@@ -1733,6 +1733,9 @@ bool AccessibilityRenderObject::accessibilityIsIgnored() const
         return true;    
     
     if (roleValue() == IgnoredRole)
+        return true;
+    
+    if (roleValue() == PresentationalRole || inheritsPresentationalRole())
         return true;
     
     // An ARIA tree can only have tree items and static text as children.
@@ -2829,6 +2832,39 @@ AccessibilityObject* AccessibilityRenderObject::activeDescendant() const
     return 0;
 }
 
+void AccessibilityRenderObject::handleAriaExpandedChanged()
+{
+    // Find if a parent of this object should handle aria-expanded changes.
+    AccessibilityObject* containerParent = this->parentObject();
+    while (containerParent) {
+        bool foundParent = false;
+        
+        switch (containerParent->roleValue()) {
+        case TreeRole:
+        case TreeGridRole:
+        case GridRole:
+        case TableRole:
+        case BrowserRole:
+            foundParent = true;
+            break;
+        default:
+            break;
+        }
+        
+        if (foundParent)
+            break;
+        
+        containerParent = containerParent->parentObject();
+    }
+    
+    // Post that the row count changed.
+    if (containerParent)
+        axObjectCache()->postNotification(containerParent, document(), AXObjectCache::AXRowCountChanged, true);
+
+    // Post that the specific row either collapsed or expanded.
+    if (roleValue() == RowRole || roleValue() == TreeItemRole)
+        axObjectCache()->postNotification(this, document(), isExpanded() ? AXObjectCache::AXRowExpanded : AXObjectCache::AXRowCollapsed, true);
+}
 
 void AccessibilityRenderObject::handleActiveDescendantChanged()
 {
@@ -2954,6 +2990,8 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
             return ImageMapRole;
         return WebCoreLinkRole;
     }
+    if (m_renderer->isListItem())
+        return ListItemRole;
     if (m_renderer->isListMarker())
         return ListMarkerRole;
     if (node && node->hasTagName(buttonTag))
@@ -3044,6 +3082,49 @@ AccessibilityOrientation AccessibilityRenderObject::orientation() const
         return AccessibilityOrientationVertical;
     
     return AccessibilityObject::orientation();
+}
+    
+bool AccessibilityRenderObject::inheritsPresentationalRole() const
+{
+    // ARIA spec says that when a parent object is presentational, and it has required child elements,
+    // those child elements are also presentational. For example, <li> becomes presentational from <ul>.
+    // http://www.w3.org/WAI/PF/aria/complete#presentation
+    DEFINE_STATIC_LOCAL(HashSet<QualifiedName>, listItemParents, ());
+
+    HashSet<QualifiedName>* possibleParentTagNames = 0;
+    switch (roleValue()) {
+    case ListItemRole:
+    case ListMarkerRole:
+        if (listItemParents.isEmpty()) {
+            listItemParents.add(ulTag);
+            listItemParents.add(olTag);
+            listItemParents.add(dlTag);
+        }
+        possibleParentTagNames = &listItemParents;
+        break;
+    default:
+        break;
+    }
+    
+    // Not all elements need to check for this, only ones that are required children.
+    if (!possibleParentTagNames)
+        return false;
+    
+    for (AccessibilityObject* parent = parentObject(); parent; parent = parent->parentObject()) { 
+        if (!parent->isAccessibilityRenderObject())
+            continue;
+        
+        Node* elementNode = static_cast<AccessibilityRenderObject*>(parent)->node();
+        if (!elementNode || !elementNode->isElementNode())
+            continue;
+        
+        // If native tag of the parent element matches an acceptable name, then return
+        // based on its presentational status.
+        if (possibleParentTagNames->contains(static_cast<Element*>(elementNode)->tagQName()))
+            return parent->roleValue() == PresentationalRole;
+    }
+    
+    return false;
 }
     
 bool AccessibilityRenderObject::isPresentationalChildOfAriaRole() const
@@ -3142,18 +3223,16 @@ void AccessibilityRenderObject::contentChanged()
     
 void AccessibilityRenderObject::childrenChanged()
 {
-    // this method is meant as a quick way of marking dirty
-    // a portion of the accessibility tree
-    
+    // This method is meant as a quick way of marking a portion of the accessibility tree dirty.
     if (!m_renderer)
         return;
     
-    // Go up the render parent chain, marking children as dirty.
-    // We can't rely on the accessibilityParent() because it may not exist and we must not create an AX object here either
+    // Go up the accessibility parent chain, but only if the element already exists. This method is
+    // called during render layouts, minimal work should be done. 
+    // If AX elements are created now, they could interrogate the render tree while it's in a funky state.
     // At the same time, process ARIA live region changes.
-    for (RenderObject* renderParent = m_renderer; renderParent; renderParent = renderParent->parent()) {
-        AccessibilityObject* parent = m_renderer->document()->axObjectCache()->get(renderParent);
-        if (!parent || !parent->isAccessibilityRenderObject())
+    for (AccessibilityObject* parent = this; parent; parent = parent->parentObjectIfExists()) {
+        if (!parent->isAccessibilityRenderObject())
             continue;
         
         AccessibilityRenderObject* axParent = static_cast<AccessibilityRenderObject*>(parent);
@@ -3165,7 +3244,7 @@ void AccessibilityRenderObject::childrenChanged()
             
             // If this element supports ARIA live regions, then notify the AT of changes.
             if (axParent->supportsARIALiveRegion())
-                axObjectCache()->postNotification(renderParent, AXObjectCache::AXLiveRegionChanged, true);
+                axObjectCache()->postNotification(axParent->renderer(), AXObjectCache::AXLiveRegionChanged, true);
         }
     }
 }
@@ -3232,8 +3311,7 @@ void AccessibilityRenderObject::addChildren()
     // add all unignored acc children
     for (RefPtr<AccessibilityObject> obj = firstChild(); obj; obj = obj->nextSibling()) {
         if (obj->accessibilityIsIgnored()) {
-            if (!obj->hasChildren())
-                obj->addChildren();
+            obj->updateChildrenIfNecessary();
             AccessibilityChildrenVector children = obj->children();
             unsigned length = children.size();
             for (unsigned i = 0; i < length; ++i)

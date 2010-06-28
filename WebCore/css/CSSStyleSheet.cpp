@@ -134,10 +134,10 @@ int CSSStyleSheet::addRule(const String& selector, const String& style, Exceptio
     return addRule(selector, style, length(), ec);
 }
 
-
 PassRefPtr<CSSRuleList> CSSStyleSheet::cssRules(bool omitCharsetRules)
 {
-    if (doc() && !doc()->securityOrigin()->canRequest(baseURL()))
+    KURL url = finalURL();
+    if (!url.isEmpty() && doc() && !doc()->securityOrigin()->canRequest(url))
         return 0;
     return CSSRuleList::create(this, omitCharsetRules);
 }
@@ -207,7 +207,7 @@ void CSSStyleSheet::checkLoaded()
     if (parent())
         parent()->checkLoaded();
 
-    // Avoid |this| being deleted by scripts that run via HTMLDocumentParser::executeScriptsWaitingForStylesheets().
+    // Avoid |this| being deleted by scripts that run via LegacyHTMLDocumentParser::executeScriptsWaitingForStylesheets().
     // See <rdar://problem/6622300>.
     RefPtr<CSSStyleSheet> protector(this);
     m_loadCompleted = ownerNode() ? ownerNode()->sheetLoaded() : true;

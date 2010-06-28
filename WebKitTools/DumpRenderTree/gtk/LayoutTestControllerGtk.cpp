@@ -171,6 +171,30 @@ int LayoutTestController::numberOfPages(float pageWidth, float pageHeight)
     return webkit_web_frame_number_of_pages(mainFrame, pageWidth, pageHeight);
 }
 
+JSRetainPtr<JSStringRef> LayoutTestController::pageProperty(const char* propertyName, int pageNumber) const
+{
+    // FIXME: implement
+    return JSRetainPtr<JSStringRef>();
+}
+
+bool LayoutTestController::isPageBoxVisible(int pageNumber) const
+{
+    // FIXME: implement
+    return false;
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::pageAreaRectInPixels(int pageNumber) const
+{
+    // FIXME: implement
+    return JSRetainPtr<JSStringRef>();
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::preferredPageSizeInPixels(int pageNumber) const
+{
+    // FIXME: implement
+    return JSRetainPtr<JSStringRef>();
+}
+
 size_t LayoutTestController::webHistoryItemCount()
 {
     // FIXME: implement

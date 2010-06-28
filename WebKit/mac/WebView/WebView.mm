@@ -86,6 +86,7 @@
 #import "WebPDFView.h"
 #import "WebPanelAuthenticationHandler.h"
 #import "WebPasteboardHelper.h"
+#import "WebPlatformStrategies.h"
 #import "WebPluginDatabase.h"
 #import "WebPluginHalterClient.h"
 #import "WebPolicyDelegate.h"
@@ -103,13 +104,13 @@
 #import <Foundation/NSURLConnection.h>
 #import <JavaScriptCore/APICast.h>
 #import <JavaScriptCore/JSValueRef.h>
+#import <WebCore/AbstractDatabase.h>
 #import <WebCore/ApplicationCacheStorage.h>
 #import <WebCore/BackForwardList.h>
 #import <WebCore/Cache.h>
 #import <WebCore/ColorMac.h>
 #import <WebCore/CSSComputedStyleDeclaration.h>
 #import <WebCore/Cursor.h>
-#import <WebCore/Database.h>
 #import <WebCore/Document.h>
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/DragController.h>
@@ -190,6 +191,7 @@
 @interface NSWindow (WebNSWindowDetails) 
 - (id)_oldFirstResponderBeforeBecoming;
 - (void)_enableScreenUpdatesIfNeeded;
+- (BOOL)_wrapsCarbonWindow;
 @end
 
 using namespace WebCore;
@@ -654,6 +656,10 @@ static bool shouldEnableLoadDeferring()
 #endif
         WebKitInitializeApplicationCachePathIfNecessary();
         patchMailRemoveAttributesMethod();
+        
+        // Initialize our platform strategies.
+        WebPlatformStrategies::initialize();
+
         didOneTimeInitialization = true;
     }
 
@@ -1356,7 +1362,7 @@ static bool fastDocumentTeardownEnabled()
     settings->setMinimumLogicalFontSize([preferences minimumLogicalFontSize]);
     settings->setPluginsEnabled([preferences arePlugInsEnabled]);
 #if ENABLE(DATABASE)
-    Database::setIsAvailable([preferences databasesEnabled]);
+    AbstractDatabase::setIsAvailable([preferences databasesEnabled]);
 #endif
     settings->setLocalStorageEnabled([preferences localStorageEnabled]);
     settings->setExperimentalNotificationsEnabled([preferences experimentalNotificationsEnabled]);
@@ -4209,7 +4215,7 @@ static WebFrame *incrementFrame(WebFrame *frame, BOOL forward, BOOL wrapFlag)
     Frame* coreFrame = [self _mainCoreFrame];
     if (!coreFrame)
         return YES;
-    return coreFrame->shouldClose();
+    return coreFrame->loader()->shouldClose();
 }
 
 static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValue)
@@ -5389,7 +5395,7 @@ static WebFrameView *containingFrameView(NSView *view)
     NSDictionary *element = [sender representedObject];
     ASSERT([element isKindOfClass:[NSDictionary class]]);
 
-    WebDataSource *dataSource = [[element objectForKey:WebElementFrameKey] dataSource];
+    WebDataSource *dataSource = [(WebFrame *)[element objectForKey:WebElementFrameKey] dataSource];
     NSURLRequest *request = [[dataSource request] copy];
     ASSERT(request);
     
@@ -5669,7 +5675,15 @@ static void layerSyncRunLoopObserverCallBack(CFRunLoopObserverRef, CFRunLoopActi
     // An NSWindow may not display in the next runloop cycle after dirtying due to delayed window display logic,
     // in which case this observer can fire first. So if the window is due for a display, don't commit
     // layer changes, otherwise they'll show on screen before the view drawing.
-    if ([window viewsNeedDisplay])
+    bool viewsNeedDisplay;
+#ifndef __LP64__
+    if (window && [window _wrapsCarbonWindow])
+        viewsNeedDisplay = HIViewGetNeedsDisplay(HIViewGetRoot(static_cast<WindowRef>([window windowRef])));
+    else
+#endif
+        viewsNeedDisplay = [window viewsNeedDisplay];
+
+    if (viewsNeedDisplay)
         return;
 
     if ([webView _syncCompositingChanges]) {
@@ -5766,7 +5780,7 @@ static void layerSyncRunLoopObserverCallBack(CFRunLoopObserverRef, CFRunLoopActi
     return nil;
 }
 
-- (void)_geolocationDidChangePosition:(WebGeolocationPosition *)position;
+- (void)_geolocationDidChangePosition:(WebGeolocationPosition *)position
 {
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
     if (_private && _private->page)

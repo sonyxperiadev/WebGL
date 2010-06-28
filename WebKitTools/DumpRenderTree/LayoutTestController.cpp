@@ -83,6 +83,11 @@ LayoutTestController::LayoutTestController(const std::string& testPathOrURL, con
 {
 }
 
+PassRefPtr<LayoutTestController> LayoutTestController::create(const std::string& testPathOrURL, const std::string& expectedPixelHash)
+{
+    return adoptRef(new LayoutTestController(testPathOrURL, expectedPixelHash));
+}
+
 // Static Functions
 
 static JSValueRef dumpAsPDFCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
@@ -521,6 +526,41 @@ static bool parsePageParameters(JSContextRef context, int argumentCount, const J
     return true;
 }
 
+// Caller needs to delete[] propertyName.
+static bool parsePagePropertyParameters(JSContextRef context, int argumentCount, const JSValueRef* arguments, JSValueRef* exception, char*& propertyName, int& pageNumber)
+{
+    pageNumber = 0;
+    switch (argumentCount) {
+    case 2:
+        pageNumber = static_cast<float>(JSValueToNumber(context, arguments[1], exception));
+        if (*exception)
+            return false;
+        // Fall through.
+    case 1: {
+        JSRetainPtr<JSStringRef> propertyNameString(Adopt, JSValueToStringCopy(context, arguments[0], exception));
+        if (*exception)
+            return false;
+
+        size_t maxLength = JSStringGetMaximumUTF8CStringSize(propertyNameString.get());
+        propertyName = new char[maxLength + 1];
+        JSStringGetUTF8CString(propertyNameString.get(), propertyName, maxLength + 1);
+        return true;
+    }
+    case 0:
+    default:
+        return false;
+    }
+}
+
+static bool parsePageNumber(JSContextRef context, int argumentCount, const JSValueRef* arguments, JSValueRef* exception, int& pageNumber)
+{
+    pageNumber = 0;
+    if (argumentCount != 1)
+        return false;
+    pageNumber = static_cast<int>(JSValueToNumber(context, arguments[0], exception));
+    return !*exception;
+}
+
 static JSValueRef pageNumberForElementByIdCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
     float pageWidthInPixels = 0;
@@ -546,6 +586,50 @@ static JSValueRef numberOfPagesCallback(JSContextRef context, JSObjectRef functi
 
     LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
     return JSValueMakeNumber(context, controller->numberOfPages(pageWidthInPixels, pageHeightInPixels));
+}
+
+static JSValueRef pagePropertyCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    char* propertyName = 0;
+    int pageNumber = 0;
+    if (!parsePagePropertyParameters(context, argumentCount, arguments, exception, propertyName, pageNumber))
+        return JSValueMakeUndefined(context);
+
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    JSValueRef value = JSValueMakeString(context, controller->pageProperty(propertyName, pageNumber).get());
+
+    delete[] propertyName;
+    return value;
+}
+
+static JSValueRef isPageBoxVisibleCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    int pageNumber = 0;
+    if (!parsePageNumber(context, argumentCount, arguments, exception, pageNumber))
+        return JSValueMakeUndefined(context);
+
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    return JSValueMakeBoolean(context, controller->isPageBoxVisible(pageNumber));
+}
+
+static JSValueRef pageAreaRectInPixelsCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    int pageNumber = 0;
+    if (!parsePageNumber(context, argumentCount, arguments, exception, pageNumber))
+        return JSValueMakeUndefined(context);
+
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    return JSValueMakeString(context, controller->pageAreaRectInPixels(pageNumber).get());
+}
+
+static JSValueRef preferredPageSizeInPixelsCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    int pageNumber = 0;
+    if (!parsePageNumber(context, argumentCount, arguments, exception, pageNumber))
+        return JSValueMakeUndefined(context);
+
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    return JSValueMakeString(context, controller->preferredPageSizeInPixels(pageNumber).get());
 }
 
 static JSValueRef queueBackNavigationCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
@@ -1428,6 +1512,16 @@ static JSValueRef setWebViewEditableCallback(JSContextRef context, JSObjectRef f
     return JSValueMakeUndefined(context);
 }
 
+
+#if PLATFORM(MAC)
+static JSValueRef abortModalCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    controller->abortModal();
+    return JSValueMakeUndefined(context);
+}
+#endif
+
 static JSValueRef markerTextForListItemCallback(JSContextRef context, JSObjectRef, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
     LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
@@ -1554,6 +1648,9 @@ JSStaticValue* LayoutTestController::staticValues()
 JSStaticFunction* LayoutTestController::staticFunctions()
 {
     static JSStaticFunction staticFunctions[] = {
+#if PLATFORM(MAC)
+        { "abortModal", abortModalCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+#endif
         { "addDisallowedURL", addDisallowedURLCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "addUserScript", addUserScriptCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "addUserStyleSheet", addUserStyleSheetCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
@@ -1593,6 +1690,7 @@ JSStaticFunction* LayoutTestController::staticFunctions()
         { "counterValueForElementById", counterValueForElementByIdCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "grantDesktopNotificationPermission", grantDesktopNotificationPermissionCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete }, 
         { "isCommandEnabled", isCommandEnabledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "isPageBoxVisible", isPageBoxVisibleCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "keepWebHistory", keepWebHistoryCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "layerTreeAsText", layerTreeAsTextCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "numberOfPages", numberOfPagesCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
@@ -1601,9 +1699,12 @@ JSStaticFunction* LayoutTestController::staticFunctions()
         { "numberOfActiveAnimations", numberOfActiveAnimationsCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "overridePreference", overridePreferenceCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "pageNumberForElementById", pageNumberForElementByIdCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "pageAreaRectInPixels", pageAreaRectInPixelsCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "pageProperty", pagePropertyCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "pathToLocalResource", pathToLocalResourceCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "pauseAnimationAtTimeOnElementWithId", pauseAnimationAtTimeOnElementWithIdCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "pauseTransitionAtTimeOnElementWithId", pauseTransitionAtTimeOnElementWithIdCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "preferredPageSizeInPixels", preferredPageSizeInPixelsCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "sampleSVGAnimationForElementAtTime", sampleSVGAnimationForElementAtTimeCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "printToPDF", dumpAsPDFCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "queueBackNavigation", queueBackNavigationCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },

@@ -44,6 +44,7 @@
 #include "SVGTransformList.h"
 #include "SVGURIReference.h"
 #include "SimpleFontData.h"
+#include "TransformState.h"
 
 namespace WebCore {
 
@@ -63,7 +64,7 @@ void RenderSVGText::computeRectForRepaint(RenderBoxModelObject* repaintContainer
     SVGRenderBase::computeRectForRepaint(this, repaintContainer, repaintRect, fixed);
 }
 
-void RenderSVGText::mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool fixed , bool useTransforms, TransformState& transformState) const
+void RenderSVGText::mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool fixed, bool useTransforms, TransformState& transformState) const
 {
     SVGRenderBase::mapLocalToContainer(this, repaintContainer, fixed, useTransforms, transformState);
 }
@@ -73,18 +74,28 @@ void RenderSVGText::layout()
     ASSERT(needsLayout());
     LayoutRepainter repainter(*this, checkForRepaintDuringLayout());
 
-    // Best guess for a relative starting point
-    SVGTextElement* text = static_cast<SVGTextElement*>(node());
-    int xOffset = (int)(text->x()->getFirst().value(text));
-    int yOffset = (int)(text->y()->getFirst().value(text));
-    setLocation(xOffset, yOffset);
-
     if (m_needsTransformUpdate) {
+        SVGTextElement* text = static_cast<SVGTextElement*>(node());
         m_localTransform = text->animatedLocalTransform();
         m_needsTransformUpdate = false;
     }
 
-    RenderBlock::layout();
+    // Reduced version of RenderBlock::layoutBlock(), which only takes care of SVG text.
+    // All if branches that could cause early exit in RenderBlocks layoutBlock() method are turned into assertions.
+    ASSERT(!isInline());
+    ASSERT(!layoutOnlyPositionedObjects());
+    ASSERT(!scrollsOverflow());
+    ASSERT(!hasControlClip());
+    ASSERT(!hasColumns());
+    ASSERT(!positionedObjects());
+    ASSERT(!m_overflow);
+    ASSERT(!isAnonymousBlock());
+
+    if (!firstChild())
+        setChildrenInline(true);
+
+    ASSERT(childrenInline());
+    forceLayoutInlineChildren();
 
     repainter.repaintAfterLayout();
     setNeedsLayout(false);
@@ -128,40 +139,9 @@ bool RenderSVGText::nodeAtPoint(const HitTestRequest&, HitTestResult&, int, int,
     return false;
 }
 
-void RenderSVGText::absoluteRects(Vector<IntRect>& rects, int, int)
-{
-    RenderSVGRoot* root = findSVGRootObject(parent());
-    if (!root)
-        return;
- 
-    // Don't use objectBoundingBox here, as it's unites the selection rects. Makes it hard
-    // to spot errors, if there are any using WebInspector. Individually feed them into 'rects'.
-    for (InlineFlowBox* flow = firstLineBox(); flow; flow = flow->nextLineBox()) {
-        for (InlineBox* box = flow->firstChild(); box; box = box->nextOnLine()) {
-            FloatRect boxRect(box->x(), box->y(), box->width(), box->height());
-            // FIXME: crawling up the parent chain to map each rect is very inefficient
-            // we should compute the absoluteTransform outside this loop first.
-            rects.append(enclosingIntRect(localToAbsoluteQuad(boxRect).boundingBox()));
-        }
-    }
-}
-
 void RenderSVGText::absoluteQuads(Vector<FloatQuad>& quads)
 {
-    RenderSVGRoot* root = findSVGRootObject(parent());
-    if (!root)
-        return;
- 
-    // Don't use objectBoundingBox here, as it's unites the selection rects. Makes it hard
-    // to spot errors, if there are any using WebInspector. Individually feed them into 'rects'.
-    for (InlineFlowBox* flow = firstLineBox(); flow; flow = flow->nextLineBox()) {
-        for (InlineBox* box = flow->firstChild(); box; box = box->nextOnLine()) {
-            FloatRect boxRect(box->x(), box->y(), box->width(), box->height());
-            // FIXME: crawling up the parent chain to map each quad is very inefficient
-            // we should compute the absoluteTransform outside this loop first.
-            quads.append(localToAbsoluteQuad(boxRect));
-        }
-    }
+    quads.append(localToAbsoluteQuad(strokeBoundingBox()));
 }
 
 void RenderSVGText::paint(PaintInfo& paintInfo, int, int)
@@ -169,48 +149,26 @@ void RenderSVGText::paint(PaintInfo& paintInfo, int, int)
     if (paintInfo.context->paintingDisabled())
         return;
 
-    PaintInfo pi(paintInfo);
-    pi.context->save();
-    applyTransformToPaintInfo(pi, localToParentTransform());
-    RenderBlock::paint(pi, 0, 0);
-    pi.context->restore();
-}
+    if (paintInfo.phase != PaintPhaseForeground
+     && paintInfo.phase != PaintPhaseSelfOutline
+     && paintInfo.phase != PaintPhaseSelection)
+         return;
 
-FloatRect RenderSVGText::objectBoundingBox() const
-{
-    FloatRect boundingBox;
-
-    for (InlineFlowBox* flow = firstLineBox(); flow; flow = flow->nextLineBox()) {
-        for (InlineBox* box = flow->firstChild(); box; box = box->nextOnLine())
-            boundingBox.unite(FloatRect(box->x(), box->y(), box->width(), box->height()));
-    }
-
-    boundingBox.move(x(), y());
-    return boundingBox;
+    PaintInfo blockInfo(paintInfo);
+    blockInfo.context->save();
+    applyTransformToPaintInfo(blockInfo, localToParentTransform());
+    RenderBlock::paint(blockInfo, 0, 0);
+    blockInfo.context->restore();
 }
 
 FloatRect RenderSVGText::strokeBoundingBox() const
 {
-    FloatRect strokeRect = objectBoundingBox();
+    FloatRect strokeBoundaries = objectBoundingBox();
+    if (!style()->svgStyle()->hasStroke())
+        return strokeBoundaries;
 
-    // SVG needs to include the strokeWidth(), not the textStrokeWidth().
-    if (style()->svgStyle()->hasStroke()) {
-        float strokeWidth = SVGRenderStyle::cssPrimitiveToLength(this, style()->svgStyle()->strokeWidth(), 1.0f);
-
-#if ENABLE(SVG_FONTS)
-        const Font& font = style()->font();
-        if (font.primaryFont()->isSVGFont()) {
-            float scale = font.unitsPerEm() > 0 ? font.size() / font.unitsPerEm() : 0.0f;
-
-            if (scale != 0.0f)
-                strokeWidth /= scale;
-        }
-#endif
-
-        strokeRect.inflate(strokeWidth);
-    }
-
-    return strokeRect;
+    strokeBoundaries.inflate(SVGRenderStyle::cssPrimitiveToLength(this, style()->svgStyle()->strokeWidth(), 1.0f));
+    return strokeBoundaries;
 }
 
 FloatRect RenderSVGText::repaintRectInLocalCoordinates() const
@@ -237,5 +195,3 @@ void RenderSVGText::updateFirstLetter()
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

@@ -116,6 +116,13 @@ RGBA32Buffer* ICOImageDecoder::frameBufferAtIndex(size_t index)
     return buffer;
 }
 
+bool ICOImageDecoder::setFailed()
+{
+    m_bmpReaders.clear();
+    m_pngDecoders.clear();
+    return ImageDecoder::setFailed();
+}
+
 // static
 bool ICOImageDecoder::compareEntries(const IconDirectoryEntry& a, const IconDirectoryEntry& b)
 {
@@ -147,6 +154,13 @@ void ICOImageDecoder::decode(size_t index, bool onlySize)
     // has failed.
     if ((!decodeDirectory() || (!onlySize && !decodeAtIndex(index))) && isAllDataReceived())
         setFailed();
+    // If we're done decoding this frame, we don't need the BMPImageReader or
+    // PNGImageDecoder anymore.  (If we failed, these have already been
+    // cleared.)
+    else if ((m_frameBufferCache.size() > index) && (m_frameBufferCache[index].status() == RGBA32Buffer::FrameComplete)) {
+        m_bmpReaders[index].clear();
+        m_pngDecoders[index].clear();
+    }
 }
 
 bool ICOImageDecoder::decodeDirectory()
@@ -241,8 +255,9 @@ bool ICOImageDecoder::processDirectoryEntries()
 
     // The image size is the size of the largest entry.
     const IconDirectoryEntry& dirEntry = m_dirEntries.first();
-    setSize(dirEntry.m_size.width(), dirEntry.m_size.height());
-    return true;
+    // Technically, this next call shouldn't be able to fail, since the width
+    // and height here are each <= 256, and |m_frameSize| is empty.
+    return setSize(dirEntry.m_size.width(), dirEntry.m_size.height());
 }
 
 ICOImageDecoder::IconDirectoryEntry ICOImageDecoder::readDirectoryEntry()

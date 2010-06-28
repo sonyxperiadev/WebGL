@@ -31,6 +31,7 @@
 #ifndef WebViewImpl_h
 #define WebViewImpl_h
 
+#include "WebGLES2Context.h"
 #include "WebNavigationPolicy.h"
 #include "WebPoint.h"
 #include "WebSize.h"
@@ -68,8 +69,10 @@ namespace WebKit {
 class AutocompletePopupMenuClient;
 class AutoFillPopupMenuClient;
 class ContextMenuClientImpl;
+class DragScrollTimer;
 class SuggestionsPopupMenuClient;
 class WebAccessibilityObject;
+class WebDevToolsAgentClient;
 class WebDevToolsAgentPrivate;
 class WebFrameImpl;
 class WebImage;
@@ -90,13 +93,24 @@ public:
     virtual bool handleInputEvent(const WebInputEvent&);
     virtual void mouseCaptureLost();
     virtual void setFocus(bool enable);
+
+    // DEPRECATED, will be removed later.
     virtual bool handleCompositionEvent(WebCompositionCommand command,
                                         int cursorPosition,
                                         int targetStart,
                                         int targetEnd,
                                         const WebString& text);
-    virtual bool queryCompositionStatus(bool* enabled,
-                                        WebRect* caretRect);
+    virtual bool setComposition(
+        const WebString& text,
+        const WebVector<WebCompositionUnderline>& underlines,
+        int selectionStart,
+        int selectionEnd);
+    virtual bool confirmComposition();
+
+    // DEPRECATED, will be removed later.
+    virtual bool queryCompositionStatus(bool* enabled, WebRect* caretRect);
+    virtual WebTextInputType textInputType();
+    virtual WebRect caretOrSelectionBounds();
     virtual void setTextDirection(WebTextDirection direction);
     virtual bool isAcceleratedCompositingActive() const;
 
@@ -322,6 +336,10 @@ public:
                                    WebCore::ScrollDirection* scrollDirection,
                                    WebCore::ScrollGranularity* scrollGranularity);
 
+    // Returns the GLES2Context associated with this WebView. One will be created
+    // if it doesn't already exist.
+    WebGLES2Context* gles2Context();
+
 private:
     friend class WebView;  // So WebView::Create can call our constructor
     friend class WTF::RefCounted<WebViewImpl>;
@@ -331,7 +349,7 @@ private:
       DragOver
     };
 
-    WebViewImpl(WebViewClient* client);
+    WebViewImpl(WebViewClient* client, WebDevToolsAgentClient* devToolsClient);
     ~WebViewImpl();
 
     // Returns true if the event was actually processed.
@@ -350,8 +368,6 @@ private:
 
     // Returns true if the view was scrolled.
     bool scrollViewWithKeyboard(int keyCode, int modifiers);
-
-    void scrollForDragging(const WebPoint&);
 
     void hideSelectPopup();
 
@@ -496,6 +512,7 @@ private:
 
     typedef HashMap<WebCore::String, WebCore::String> SettingsMap;
     OwnPtr<SettingsMap> m_inspectorSettingsMap;
+    OwnPtr<DragScrollTimer> m_dragScrollTimer;
 
 #if ENABLE(NOTIFICATIONS)
     // The provider of desktop notifications;
@@ -510,6 +527,8 @@ private:
     bool m_isAcceleratedCompositingActive;
 #endif
     static const WebInputEvent* m_currentInputEvent;
+
+    OwnPtr<WebGLES2Context> m_gles2Context;
 };
 
 } // namespace WebKit

@@ -160,6 +160,7 @@ enum AccessibilityRole {
     AnnotationRole,
     SliderThumbRole,
     IgnoredRole,
+    PresentationalRole,
     TabRole,
     TabListRole,
     TabPanelRole,
@@ -296,6 +297,7 @@ public:
     bool isTreeItem() const { return roleValue() == TreeItemRole; }
     bool isScrollbar() const { return roleValue() == ScrollBarRole; }
     bool isButton() const { return roleValue() == ButtonRole; }
+    bool isListItem() const { return roleValue() == ListItemRole; }
     
     virtual bool isChecked() const { return false; }
     virtual bool isEnabled() const { return false; }
@@ -442,13 +444,15 @@ public:
     virtual void addChildren() { }
     virtual bool canHaveChildren() const { return true; }
     virtual bool hasChildren() const { return m_haveChildren; }
+    virtual void updateChildrenIfNecessary() { }
     virtual void selectedChildren(AccessibilityChildrenVector&) { }
     virtual void visibleChildren(AccessibilityChildrenVector&) { }
     virtual void tabChildren(AccessibilityChildrenVector&) { }
     virtual bool shouldFocusActiveDescendant() const { return false; }
     virtual AccessibilityObject* activeDescendant() const { return 0; }    
     virtual void handleActiveDescendantChanged() { }
-
+    virtual void handleAriaExpandedChanged() { }
+    
     static AccessibilityRole ariaRoleToWebCoreRole(const String&);
     static const AtomicString& getAttribute(Node*, const QualifiedName&);
 

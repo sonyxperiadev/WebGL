@@ -35,6 +35,7 @@
 
 namespace WebKit {
 class WebDevToolsAgentClient;
+class WebDevToolsMessageTransport;
 class WebFrame;
 class WebString;
 class WebURLRequest;
@@ -73,7 +74,7 @@ public:
     // Asynchronously request debugger to pause immediately.
     WEBKIT_API static void debuggerPauseScript();
 
-    WEBKIT_API static bool dispatchMessageFromFrontendOnIOThread(const WebDevToolsMessageData&);
+    WEBKIT_API static bool dispatchMessageFromFrontendOnIOThread(WebDevToolsMessageTransport*, const WebDevToolsMessageData&);
 
     typedef void (*MessageLoopDispatchHandler)();
 

@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2008, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -97,6 +97,9 @@ public:
     bool isDisabled() const { return m_disabledState == Disabled; }
     bool isEnabledViaScript() const { return m_disabledState == EnabledViaScript; }
     bool isIcon() const { return m_relAttribute.m_isIcon; }
+    
+    virtual void attach();
+    virtual bool canLazyAttach() { return false; }
 
 private:
     virtual HTMLTagStatus endTagRequirement() const { return TagStatusForbidden; }
@@ -105,6 +108,7 @@ private:
     virtual void parseMappedAttribute(Attribute*);
 
     void process();
+    static void processCallback(Node*);
 
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
@@ -120,7 +124,7 @@ private:
     void setDisabledState(bool _disabled);
 
     virtual bool isURLAttribute(Attribute*) const;
-    
+
 public:
     static void tokenizeRelAttribute(const AtomicString& value, RelAttribute&);
 
@@ -159,7 +163,11 @@ private:
     RelAttribute m_relAttribute;
     bool m_loading;
     bool m_createdByParser;
+<<<<<<< HEAD
     Timer<HTMLLinkElement> m_timer;
+=======
+    bool m_shouldProcessAfterAttach;
+>>>>>>> webkit.org at r61871
 };
 
 } //namespace

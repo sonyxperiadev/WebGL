@@ -54,16 +54,19 @@ SET(JavaScriptCore_SOURCES
     jit/ExecutableAllocatorPosix.cpp
     jit/ExecutableAllocatorSymbian.cpp
     jit/ExecutableAllocatorWin.cpp
-    jit/JITStubs.cpp
-    jit/JITOpcodes.cpp
-    jit/JITOpcodes32_64.cpp
-    jit/JITPropertyAccess.cpp
-    jit/JITPropertyAccess32_64.cpp
+    jit/JITArithmetic32_64.cpp
     jit/JITArithmetic.cpp
-    jit/JITCall.cpp
     jit/JITCall32_64.cpp
+    jit/JITCall.cpp
     jit/JIT.cpp
+    jit/JITOpcodes32_64.cpp
+    jit/JITOpcodes.cpp
+    jit/JITPropertyAccess32_64.cpp
+    jit/JITPropertyAccess.cpp
+    jit/JITStubs.cpp
+    jit/ThunkGenerators.cpp
 
+    parser/JSParser.cpp
     parser/Lexer.cpp
     parser/Nodes.cpp
     parser/Parser.cpp
@@ -149,6 +152,7 @@ SET(JavaScriptCore_SOURCES
     runtime/PropertySlot.cpp
     runtime/PrototypeFunction.cpp
     runtime/RegExp.cpp
+    runtime/RegExpCache.cpp
     runtime/RegExpConstructor.cpp
     runtime/RegExpObject.cpp
     runtime/RegExpPrototype.cpp

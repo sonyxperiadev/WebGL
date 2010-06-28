@@ -38,8 +38,8 @@
 #include "HTMLFormElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
-#include "LegacyHTMLTreeConstructor.h"
-#include "HTMLDocumentParser.h"
+#include "LegacyHTMLTreeBuilder.h"
+#include "LegacyHTMLDocumentParser.h"
 #include "LabelsNodeList.h"
 #include "Page.h"
 #include "RenderBox.h"
@@ -53,9 +53,9 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLFormControlElement::HTMLFormControlElement(const QualifiedName& tagName, Document* doc, HTMLFormElement* f, ConstructionType constructionType)
-    : HTMLElement(tagName, doc, constructionType)
-    , m_form(f)
+HTMLFormControlElement::HTMLFormControlElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
+    : HTMLElement(tagName, document)
+    , m_form(form)
     , m_disabled(false)
     , m_readOnly(false)
     , m_required(false)
@@ -178,11 +178,11 @@ void HTMLFormControlElement::removedFromTree(bool deep)
 {
     // If the form and element are both in the same tree, preserve the connection to the form.
     // Otherwise, null out our form and remove ourselves from the form's list of elements.
-    LegacyHTMLTreeConstructor* treeConstructor = 0;
+    LegacyHTMLTreeBuilder* treeBuilder = 0;
     if (DocumentParser* parser = document()->parser())
-        treeConstructor = parser->htmlTreeConstructor();
+        treeBuilder = parser->htmlTreeBuilder();
 
-    if (m_form && !(treeConstructor && treeConstructor->isHandlingResidualStyleAcrossBlocks()) && findRoot(this) != findRoot(m_form)) {
+    if (m_form && !(treeBuilder && treeBuilder->isHandlingResidualStyleAcrossBlocks()) && findRoot(this) != findRoot(m_form)) {
         m_form->removeFormElement(this);
         m_form = 0;
     }
@@ -223,7 +223,7 @@ bool HTMLFormControlElement::autofocus() const
 
 void HTMLFormControlElement::setAutofocus(bool b)
 {
-    setAttribute(autofocusAttr, b ? "autofocus" : 0);
+    setAttribute(autofocusAttr, b ? "" : 0);
 }
 
 bool HTMLFormControlElement::required() const
@@ -233,7 +233,7 @@ bool HTMLFormControlElement::required() const
 
 void HTMLFormControlElement::setRequired(bool b)
 {
-    setAttribute(requiredAttr, b ? "required" : 0);
+    setAttribute(requiredAttr, b ? "" : 0);
 }
 
 static void updateFromElementCallback(Node* node)

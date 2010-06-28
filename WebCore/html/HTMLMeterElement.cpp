@@ -28,7 +28,7 @@
 #include "FormDataList.h"
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
-#include "LegacyHTMLTreeConstructor.h"
+#include "LegacyHTMLTreeBuilder.h"
 #include "RenderMeter.h"
 #include <wtf/StdLibExtras.h>
 
@@ -36,8 +36,10 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
+// FIXME: This constructor should take an explicit form element pointer passed from the
+// parser like the constructors for all the other classes derived from HTMLFormControlElement.
 HTMLMeterElement::HTMLMeterElement(const QualifiedName& tagName, Document* document)
-    : HTMLFormControlElement(tagName, document, 0, CreateHTMLElement)
+    : HTMLFormControlElement(tagName, document, 0)
 {
     ASSERT(hasTagName(meterTag));
 }
@@ -189,7 +191,7 @@ HTMLMeterElement::GaugeRegion HTMLMeterElement::gaugeRegion() const
     }
 
     // The optimum range stays between high and low
-    if (lowValue < highValue && theValue < highValue)
+    if (lowValue < theValue && theValue < highValue)
         return GaugeRegionOptimum;
     if (theValue == min() || max() == theValue)
         return GaugeRegionEvenLessGood;

@@ -1,3 +1,42 @@
+2010-06-21  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Update WebKitSystemInterface.
+
+        * WebKitSystemInterface.h:
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2010-06-21  Dan Bernstein  <mitz@apple.com>
+
+        Speculative build fix.
+
+        * WebKitSystemInterface.h:
+
+2010-06-21  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Darin Adler.
+
+        WebKitSystemInterface part of CSS3: Implement the 'hyphens' and 'hyphenate-character' properties
+        https://bugs.webkit.org/show_bug.cgi?id=10228
+
+        * WebKitSystemInterface.h: Added WKGetHyphenationLocationBeforeIndex().
+        * libWebKitSystemInterfaceLeopard.a:
+        * libWebKitSystemInterfaceSnowLeopard.a:
+        * libWebKitSystemInterfaceTiger.a:
+
+2010-06-21  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Speech Input Patch 0: Added compilation argument to conditionally compile pending patches.
+        https://bugs.webkit.org/show_bug.cgi?id=40878
+
+        * win/tools/vsprops/FeatureDefines.vsprops:
+        * win/tools/vsprops/FeatureDefinesCairo.vsprops:
+
 2010-06-02  Sterling Swigart  <sswigart@google.com>
 
         Reviewed by David Levin.

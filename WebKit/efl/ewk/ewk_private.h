@@ -56,6 +56,7 @@ void             ewk_view_frame_main_load_started(Evas_Object *o);
 void             ewk_view_load_finished(Evas_Object *o, const Ewk_Frame_Load_Error *error);
 void             ewk_view_load_error(Evas_Object *o, const Ewk_Frame_Load_Error *error);
 void             ewk_view_load_progress_changed(Evas_Object *o);
+Evas_Object     *ewk_view_window_create(Evas_Object *o, Eina_Bool javascript, const WebCore::WindowFeatures* coreFeatures);
 
 void             ewk_view_mouse_link_hover_in(Evas_Object *o, void *data);
 void             ewk_view_mouse_link_hover_out(Evas_Object *o);
@@ -83,6 +84,8 @@ Eina_Bool        ewk_view_run_javascript_prompt(Evas_Object *o, Evas_Object *fra
 Eina_Bool        ewk_view_should_interrupt_javascript(Evas_Object *o);
 uint64_t         ewk_view_exceeded_database_quota(Evas_Object *o, Evas_Object *frame, const char *databaseName, uint64_t current_size, uint64_t expected_size);
 
+Eina_Bool        ewk_view_run_open_panel(Evas_Object *o, Evas_Object *frame, Eina_Bool allows_multiple_files, const Eina_List *suggested_filenames, Eina_List **selected_filenames);
+
 void             ewk_view_repaint(Evas_Object *o, Evas_Coord x, Evas_Coord y, Evas_Coord w, Evas_Coord h);
 void             ewk_view_scroll(Evas_Object *o, Evas_Coord dx, Evas_Coord dy, Evas_Coord sx, Evas_Coord sy, Evas_Coord sw, Evas_Coord sh, Evas_Coord cx, Evas_Coord cy, Evas_Coord cw, Evas_Coord ch, Eina_Bool main_frame);
 WebCore::Page   *ewk_view_core_page_get(const Evas_Object *o);
@@ -101,6 +104,8 @@ Eina_Bool         ewk_context_menu_free(Ewk_Context_Menu *o);
 void              ewk_context_menu_item_append(Ewk_Context_Menu *o, WebCore::ContextMenuItem& core);
 Ewk_Context_Menu *ewk_context_menu_custom_get(Ewk_Context_Menu *o);
 void              ewk_context_menu_show(Ewk_Context_Menu *o);
+
+Ewk_Window_Features *ewk_window_features_new_from_core(const WebCore::WindowFeatures* core);
 
 Evas_Object      *ewk_frame_add(Evas *e);
 Eina_Bool         ewk_frame_init(Evas_Object *o, Evas_Object *view, WebCore::Frame *frame);

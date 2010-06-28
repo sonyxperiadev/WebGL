@@ -1,3 +1,6 @@
+
+include(../common.pri)
+
 CONFIG(standalone_package) {
     isEmpty(WC_GENERATED_SOURCES_DIR):WC_GENERATED_SOURCES_DIR = $$PWD/generated
 } else {
@@ -66,6 +69,7 @@ contains(DEFINES, ENABLE_SINGLE_THREADED=1) {
 !contains(DEFINES, ENABLE_BLOB_SLICE=.): DEFINES += ENABLE_BLOB_SLICE=0
 !contains(DEFINES, ENABLE_NOTIFICATIONS=.): DEFINES += ENABLE_NOTIFICATIONS=1
 !contains(DEFINES, ENABLE_IMAGE_RESIZER=.): DEFINES += ENABLE_IMAGE_RESIZER=0
+!contains(DEFINES, ENABLE_INPUT_SPEECH=.): DEFINES += ENABLE_INPUT_SPEECH=0
 
 greaterThan(QT_MINOR_VERSION, 5) {
     !contains(DEFINES, ENABLE_3D_RENDERING=.): DEFINES += ENABLE_3D_RENDERING=1
@@ -316,6 +320,7 @@ IDL_BINDINGS += \
     dom/WebKitTransitionEvent.idl \
     dom/WheelEvent.idl \
     html/Blob.idl \
+    html/BlobBuilder.idl \
     html/canvas/ArrayBufferView.idl \
     html/canvas/ArrayBuffer.idl \
     html/canvas/Int8Array.idl \
@@ -471,6 +476,7 @@ IDL_BINDINGS += \
     storage/Storage.idl \
     storage/StorageEvent.idl \
     storage/SQLError.idl \
+    storage/SQLException.idl \
     storage/SQLResultSet.idl \
     storage/SQLResultSetRowList.idl \
     storage/SQLStatementCallback.idl \

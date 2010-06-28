@@ -44,6 +44,7 @@
 #include "NotificationContents.h"
 #include "RegisteredEventListener.h"
 #include "SharedBuffer.h"
+#include "TextDirection.h"
 #include "ThreadableLoader.h"
 #include "ThreadableLoaderClient.h"
 #include <wtf/OwnPtr.h>
@@ -76,6 +77,8 @@ namespace WebCore {
         String replaceId() const { return m_replaceId; }
         void setReplaceId(const String& replaceId) { m_replaceId = replaceId; }
 
+        TextDirection direction() const { return dir() == "rtl" ? RTL : LTR; }
+
         DEFINE_ATTRIBUTE_EVENT_LISTENER(display);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(close);
@@ -86,6 +89,9 @@ namespace WebCore {
         // EventTarget interface
         virtual ScriptExecutionContext* scriptExecutionContext() const { return ActiveDOMObject::scriptExecutionContext(); }
         virtual Notification* toNotification() { return this; }
+
+        // ActiveDOMObject interface
+        virtual void contextDestroyed();
 
         void stopLoading();
 

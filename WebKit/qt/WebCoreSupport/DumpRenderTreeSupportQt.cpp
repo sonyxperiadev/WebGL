@@ -331,13 +331,6 @@ void DumpRenderTreeSupportQt::resumeActiveDOMObjects(QWebFrame* frame)
         coreFrame->document()->resumeActiveDOMObjects();
 }
 
-void DumpRenderTreeSupportQt::evaluateScriptInIsolatedWorld(QWebFrame* frame, int worldId, const QString& script)
-{
-    Frame* coreFrame = QWebFramePrivate::core(frame);
-    if (coreFrame)
-        JSC::JSValue result = coreFrame->script()->executeScriptInWorld(mainThreadNormalWorld(), script, true).jsValue();
-}
-
 void DumpRenderTreeSupportQt::whiteListAccessFromOrigin(const QString& sourceOrigin, const QString& destinationProtocol, const QString& destinationHost, bool allowDestinationSubdomains)
 {
     SecurityOrigin::addOriginAccessWhitelistEntry(*SecurityOrigin::createFromString(sourceOrigin), destinationProtocol, destinationHost, allowDestinationSubdomains);
@@ -621,7 +614,7 @@ QList<QWebHistoryItem> DumpRenderTreeSupportQt::getChildHistoryItems(const QWebH
 bool DumpRenderTreeSupportQt::shouldClose(QWebFrame* frame)
 {
     WebCore::Frame* coreFrame = QWebFramePrivate::core(frame);
-    return coreFrame->shouldClose();
+    return coreFrame->loader()->shouldClose();
 }
 
 // Provide a backward compatibility with previously exported private symbols as of QtWebKit 4.6 release

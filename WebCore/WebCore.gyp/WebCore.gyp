@@ -726,7 +726,7 @@
         '<@(webcore_files)',
 
         # For WebCoreSystemInterface, Mac-only.
-        '../../WebKit/mac/WebCoreSupport/WebSystemInterface.m',
+        '../../WebKit/mac/WebCoreSupport/WebSystemInterface.mm',
       ],
       'sources/': [
         # Exclude JSC custom bindings.
@@ -896,6 +896,11 @@
             ['exclude', 'rendering/SVG'],
           ],
         }],
+        ['use_accelerated_compositing==1', {
+          'dependencies': [
+            '<(chromium_src_dir)/gpu/gpu.gyp:gles2_c_lib',
+          ],
+        }],
         ['OS=="linux" or OS=="freebsd"', {
           'dependencies': [
             '<(chromium_src_dir)/build/linux/system.gyp:fontconfig',
@@ -1016,7 +1021,7 @@
             # Use USE_NEW_THEME on Mac.
             ['include', 'platform/Theme\\.cpp$'],
 
-            ['include', 'WebKit/mac/WebCoreSupport/WebSystemInterface\\.m$'],
+            ['include', 'WebKit/mac/WebCoreSupport/WebSystemInterface\\.mm$'],
           ],
           'sources!': [
             # The Mac uses platform/mac/KillRingMac.mm instead of the dummy

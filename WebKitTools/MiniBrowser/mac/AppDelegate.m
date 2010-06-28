@@ -28,26 +28,53 @@
 #import "BrowserWindowController.h"
 #import "BrowserStatisticsWindowController.h"
 
-static NSString *defaultURL = @"http://webkit.org/";
+#import <WebKit2/WKStringCF.h>
+#import <WebKit2/WKContextPrivate.h>
+
+static NSString *defaultURL = @"file:///Users/andersca/Desktop/t.html";
 
 @implementation BrowserAppDelegate
+
+void _didRecieveMessageFromInjectedBundle(WKContextRef context, WKStringRef message, const void *clientInfo)
+{
+    CFStringRef cfMessage = WKStringCopyCFString(0, message);
+    LOG(@"ContextInjectedBundleClient - didRecieveMessage - message: %@", cfMessage);
+    CFRelease(cfMessage);
+
+    WKStringRef newMessage = WKStringCreateWithCFString(CFSTR("Roger that!"));
+    WKContextPostMessageToInjectedBundle(context, newMessage);
+    WKStringRelease(newMessage);
+}
 
 - (id)init
 {
     self = [super init];
     if (self) {
         if ([NSEvent modifierFlags] & NSShiftKeyMask)
-            currentProcessModel = kWKProcessModelSecondaryThread;
+            currentProcessModel = kProcessModelSharedSecondaryThread;
         else
-            currentProcessModel = kWKProcessModelSecondaryProcess;
+            currentProcessModel = kProcessModelSharedSecondaryProcess;
 
-        WKContextRef threadContext = WKContextCreateWithProcessModel(kWKProcessModelSecondaryThread);
+        WKContextRef threadContext = WKContextGetSharedThreadContext();
         threadPageNamespace = WKPageNamespaceCreate(threadContext);
         WKContextRelease(threadContext);
 
-        WKContextRef processContext = WKContextCreateWithProcessModel(kWKProcessModelSecondaryProcess);
+        CFStringRef bundlePathCF = (CFStringRef)[[NSBundle mainBundle] pathForAuxiliaryExecutable:@"WebBundle.bundle"];
+        WKStringRef bundlePath = WKStringCreateWithCFString(bundlePathCF);
+
+        WKContextRef processContext = WKContextCreateWithInjectedBundlePath(bundlePath);
+        
+        WKContextInjectedBundleClient bundleClient = {
+            0,      /* version */
+            0,      /* clientInfo */
+            _didRecieveMessageFromInjectedBundle
+        };
+        WKContextSetInjectedBundleClient(processContext, &bundleClient);
+        
         processPageNamespace = WKPageNamespaceCreate(processContext);
         WKContextRelease(processContext);
+
+        WKStringRelease(bundlePath);
     }
 
     return self;
@@ -63,19 +90,19 @@ static NSString *defaultURL = @"http://webkit.org/";
 
 - (WKPageNamespaceRef)getCurrentPageNamespace
 {
-    return (currentProcessModel == kWKProcessModelSecondaryThread) ? threadPageNamespace : processPageNamespace;
+    return (currentProcessModel == kProcessModelSharedSecondaryThread) ? threadPageNamespace : processPageNamespace;
 }
 
 - (BOOL)validateMenuItem:(NSMenuItem *)menuItem
 {
     if ([menuItem action] == @selector(setSharedProcessProcessModel:))
-        [menuItem setState:currentProcessModel == kWKProcessModelSecondaryProcess ? NSOnState : NSOffState];
+        [menuItem setState:currentProcessModel == kProcessModelSharedSecondaryProcess ? NSOnState : NSOffState];
     else if ([menuItem action] == @selector(setSharedThreadProcessModel:))
-        [menuItem setState:currentProcessModel == kWKProcessModelSecondaryThread ? NSOnState : NSOffState];
+        [menuItem setState:currentProcessModel == kProcessModelSharedSecondaryThread ? NSOnState : NSOffState];
     return YES;
 }        
 
-- (void)_setProcessModel:(WKProcessModel)processModel
+- (void)_setProcessModel:(ProcessModel)processModel
 {
     if (processModel == currentProcessModel)
         return;
@@ -85,12 +112,12 @@ static NSString *defaultURL = @"http://webkit.org/";
 
 - (IBAction)setSharedProcessProcessModel:(id)sender
 {
-    [self _setProcessModel:kWKProcessModelSecondaryProcess];
+    [self _setProcessModel:kProcessModelSharedSecondaryProcess];
 }
 
 - (IBAction)setSharedThreadProcessModel:(id)sender
 {
-    [self _setProcessModel:kWKProcessModelSecondaryThread];
+    [self _setProcessModel:kProcessModelSharedSecondaryThread];
 }
 
 - (IBAction)showStatisticsWindow:(id)sender

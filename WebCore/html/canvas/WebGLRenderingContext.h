@@ -315,8 +315,9 @@ class WebKitCSSMatrix;
 
         void addObject(CanvasObject*);
         void detachAndRemoveAllObjects();
-        PassRefPtr<WebGLTexture> findTexture(Platform3DObject);
-        PassRefPtr<WebGLRenderbuffer> findRenderbuffer(Platform3DObject);
+        WebGLTexture* findTexture(Platform3DObject);
+        WebGLRenderbuffer* findRenderbuffer(Platform3DObject);
+        WebGLBuffer* findBuffer(Platform3DObject);
 
         void markContextChanged();
         void cleanupAfterGraphicsCall(bool changed)
@@ -416,7 +417,7 @@ class WebKitCSSMatrix;
         // Helper function for copyTex{Sub}Image, check whether the internalformat
         // and the color buffer format of the current bound framebuffer combination
         // is valid.
-        bool isTexInternalformatColorBufferCombinationValid(unsigned long texInternalformat,
+        bool isTexInternalFormatColorBufferCombinationValid(unsigned long texInternalFormat,
                                                             unsigned long colorBufferFormat);
 
         // Helper function to get the current bound texture.
@@ -442,6 +443,10 @@ class WebKitCSSMatrix;
         // Helper function to print warnings to console. Currently
         // used only to warn about use of obsolete functions.
         void printWarningToConsole(const String& message);
+
+        // Helper function to validate input parameters for framebuffer functions.
+        // Generate GL error if parameters are illegal.
+        bool validateFramebufferFuncParameters(unsigned long target, unsigned long attachment);
 
         friend class WebGLStateRestorer;
     };

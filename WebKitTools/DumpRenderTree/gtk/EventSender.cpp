@@ -87,6 +87,15 @@ static void sendOrQueueEvent(GdkEvent, bool = true);
 static void dispatchEvent(GdkEvent event);
 static guint getStateFlags();
 
+#if !GTK_CHECK_VERSION(2, 17, 3)
+static void gdk_window_get_root_coords(GdkWindow* window, gint x, gint y, gint* rootX, gint* rootY)
+{
+    gdk_window_get_root_origin(window, rootX, rootY);
+    *rootX = *rootX + x;
+    *rootY = *rootY + y;
+}
+#endif
+
 static JSValueRef getDragModeCallback(JSContextRef context, JSObjectRef object, JSStringRef propertyName, JSValueRef* exception)
 {
     return JSValueMakeBoolean(context, dragMode);
@@ -108,21 +117,6 @@ static JSValueRef leapForwardCallback(JSContextRef context, JSObjectRef function
 
     return JSValueMakeUndefined(context);
 }
-
-#if !GTK_CHECK_VERSION(2,17,3)
-static void getRootCoords(GtkWidget* view, int* rootX, int* rootY)
-{
-    GtkWidget* window = gtk_widget_get_toplevel(GTK_WIDGET(view));
-    int tmpX, tmpY;
-
-    gtk_widget_translate_coordinates(view, window, lastMousePositionX, lastMousePositionY, &tmpX, &tmpY);
-
-    gdk_window_get_origin(window->window, rootX, rootY);
-
-    *rootX += tmpX;
-    *rootY += tmpY;
-}
-#endif
 
 bool prepareMouseButtonEvent(GdkEvent* event, int eventSenderButtonNumber)
 {
@@ -148,19 +142,10 @@ bool prepareMouseButtonEvent(GdkEvent* event, int eventSenderButtonNumber)
     event->button.window = GTK_WIDGET(view)->window;
     event->button.device = gdk_device_get_core_pointer();
     event->button.state = getStateFlags();
-
-    // Mouse up & down events dispatched via g_signal_emit_by_name must offset
-    // their time value, so that WebKit can detect where sequences of mouse
-    // clicks begin and end. This should not interfere with GDK or GTK+ event
-    // processing, because the event is only seen by the widget.
-    event->button.time = GDK_CURRENT_TIME + timeOffset;
+    event->button.time = GDK_CURRENT_TIME;
 
     int xRoot, yRoot;
-#if GTK_CHECK_VERSION(2, 17, 3)
     gdk_window_get_root_coords(GTK_WIDGET(view)->window, lastMousePositionX, lastMousePositionY, &xRoot, &yRoot);
-#else
-    getRootCoords(GTK_WIDGET(view), &xRoot, &yRoot);
-#endif
     event->button.x_root = xRoot;
     event->button.y_root = yRoot;
 
@@ -286,11 +271,7 @@ static JSValueRef mouseMoveToCallback(JSContextRef context, JSObjectRef function
     event.motion.state = getStateFlags();
 
     int xRoot, yRoot;
-#if GTK_CHECK_VERSION(2,17,3)
     gdk_window_get_root_coords(GTK_WIDGET(view)->window, lastMousePositionX, lastMousePositionY, &xRoot, &yRoot);
-#else
-    getRootCoords(GTK_WIDGET(view), &xRoot, &yRoot);
-#endif
     event.motion.x_root = xRoot;
     event.motion.y_root = yRoot;
 
@@ -350,7 +331,7 @@ static void sendOrQueueEvent(GdkEvent event, bool shouldReplaySavedEvents)
 {
     // Mouse move events are queued if the previous event was queued or if a
     // delay was set up by leapForward().
-    if (buttonCurrentlyDown || endOfQueue != startOfQueue || msgQueue[endOfQueue].delay) {
+    if ((dragMode && buttonCurrentlyDown) || endOfQueue != startOfQueue || msgQueue[endOfQueue].delay) {
         msgQueue[endOfQueue++].event = event;
 
         if (shouldReplaySavedEvents)
@@ -467,7 +448,7 @@ static JSValueRef keyDownCallback(JSContextRef context, JSObjectRef function, JS
         else if (JSStringIsEqualToUTF8CString(character, "end"))
             gdkKeySym = GDK_End;
         else if (JSStringIsEqualToUTF8CString(character, "delete"))
-            gdkKeySym = GDK_BackSpace;
+            gdkKeySym = GDK_Delete;
         else if (JSStringIsEqualToUTF8CString(character, "F1"))
             gdkKeySym = GDK_F1;
         else if (JSStringIsEqualToUTF8CString(character, "F2"))

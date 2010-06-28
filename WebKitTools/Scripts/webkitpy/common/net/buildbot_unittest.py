@@ -275,6 +275,9 @@ class BuildBotTest(unittest.TestCase):
             {'name': u'Chromium Linux Release', },
             {'name': u'Chromium Mac Release', },
             {'name': u'Chromium Win Release', },
+            {'name': u'Chromium Linux Release (Tests)', },
+            {'name': u'Chromium Mac Release (Tests)', },
+            {'name': u'Chromium Win Release (Tests)', },
             {'name': u'New run-webkit-tests', },
         ]
         name_regexps = [
@@ -283,9 +286,10 @@ class BuildBotTest(unittest.TestCase):
             "Leopard",
             "Tiger",
             "Windows.*Build",
-            "GTK",
+            "GTK.*32",
+            "GTK.*64.*Debug",  # Disallow the 64-bit Release bot which is broken.
             "Qt",
-            "Chromium",
+            "Chromium.*Release$",
         ]
         expected_builders = [
             {'name': u'Tiger Intel Release', },
@@ -300,7 +304,6 @@ class BuildBotTest(unittest.TestCase):
             {'name': u'GTK Linux 32-bit Release', },
             {'name': u'GTK Linux 32-bit Debug', },
             {'name': u'GTK Linux 64-bit Debug', },
-            {'name': u'GTK Linux 64-bit Release', },
             {'name': u'Qt Linux Release', },
             {'name': u'Qt Linux Release minimal', },
             {'name': u'Qt Linux ARMv5 Release', },

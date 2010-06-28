@@ -472,9 +472,9 @@ WebString WebFrameImpl::name() const
     return m_frame->tree()->name();
 }
 
-void WebFrameImpl::clearName()
+void WebFrameImpl::setName(const WebString& name)
 {
-    m_frame->tree()->clearName();
+    m_frame->tree()->setName(name);
 }
 
 WebURL WebFrameImpl::url() const
@@ -1277,6 +1277,21 @@ void WebFrameImpl::printEnd()
     if (m_printContext.get())
         m_printContext->end();
     m_printContext.clear();
+}
+
+bool WebFrameImpl::isPageBoxVisible(int pageIndex)
+{
+    return frame()->document()->isPageBoxVisible(pageIndex);
+}
+
+WebRect WebFrameImpl::pageAreaRectInPixels(int pageIndex)
+{
+    return frame()->document()->pageAreaRectInPixels(pageIndex);
+}
+
+WebSize WebFrameImpl::preferredPageSizeInPixels(int pageIndex)
+{
+    return frame()->document()->preferredPageSizeInPixels(pageIndex);
 }
 
 bool WebFrameImpl::find(int identifier,
@@ -2135,14 +2150,8 @@ void WebFrameImpl::loadJavaScriptURL(const KURL& url)
     if (!result.getString(scriptResult))
         return;
 
-    SecurityOrigin* securityOrigin = m_frame->document()->securityOrigin();
-
-    if (!m_frame->redirectScheduler()->locationChangePending()) {
-        m_frame->loader()->stopAllLoaders();
-        m_frame->loader()->writer()->begin(m_frame->loader()->url(), true, securityOrigin);
-        m_frame->loader()->writer()->addData(scriptResult);
-        m_frame->loader()->writer()->end();
-    }
+    if (!m_frame->redirectScheduler()->locationChangePending())
+        m_frame->loader()->writer()->replaceDocument(scriptResult);
 }
 
 } // namespace WebKit

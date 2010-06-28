@@ -53,6 +53,7 @@
 
 namespace WebCore {
 
+    class CachedScript;
     class DOMWindow;
     class Frame;
     class Node;
@@ -201,7 +202,6 @@ namespace WebCore {
         }
 #endif
 
-        void setEventHandlerLineNumber(int lineNumber) { m_handlerLineNumber = lineNumber; }
         void finishedWithEvent(Event*) { }
 
         // Evaluate JavaScript in a new isolated world. The script gets its own
@@ -289,7 +289,7 @@ namespace WebCore {
 
         static v8::Handle<v8::Value> checkNewLegal(const v8::Arguments&);
 
-        static v8::Handle<v8::Script> compileScript(v8::Handle<v8::String> code, const String& fileName, int baseLine);
+        static v8::Handle<v8::Script> compileScript(v8::Handle<v8::String> code, const String& fileName, int baseLine, v8::ScriptData* = 0);
 
 #ifdef ANDROID_INSTRUMENT
         static v8::Handle<v8::Script> compileScriptInternal(v8::Handle<v8::String> code, const String& fileName, int baseLine);
@@ -301,6 +301,10 @@ namespace WebCore {
 
         // Schedule an error object to be thrown.
         static v8::Handle<v8::Value> throwError(ErrorType, const char* message);
+
+        // Helpers for throwing syntax and type errors with predefined messages.
+        static v8::Handle<v8::Value> throwTypeError();
+        static v8::Handle<v8::Value> throwSyntaxError();
 
         template <typename T>
         static v8::Handle<v8::Value> constructDOMObject(const v8::Arguments&, WrapperTypeInfo*);
@@ -345,6 +349,8 @@ namespace WebCore {
 
         void resetIsolatedWorlds();
 
+        PassOwnPtr<v8::ScriptData> precompileScript(v8::Handle<v8::String>, CachedScript*);
+
         // Returns false when we're out of memory in V8.
         bool setInjectedScriptContextDebugId(v8::Handle<v8::Context> targetContext);
 
@@ -361,12 +367,14 @@ namespace WebCore {
         static const char* svgExceptionName(int exceptionCode);
 #endif
 
+#if ENABLE(DATABASE)
+        static const char* sqlExceptionName(int exceptionCode);
+#endif
+
         Frame* m_frame;
 
         // For the moment, we have one of these.  Soon we will have one per DOMWrapperWorld.
         RefPtr<V8DOMWindowShell> m_windowShell;
-
-        int m_handlerLineNumber;
 
         // True for <a href="javascript:foo()"> and false for <script>foo()</script>.
         // Only valid during execution.

@@ -26,41 +26,36 @@
 #include "PluginDocument.h"
 
 #include "DocumentLoader.h"
-#include "Element.h"
 #include "Frame.h"
-#include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "HTMLEmbedElement.h"
 #include "HTMLNames.h"
 #include "MainResourceLoader.h"
 #include "Page.h"
+#include "RawDataDocumentParser.h"
 #include "RenderEmbeddedObject.h"
-#include "RenderWidget.h"
-#include "SegmentedString.h"
 #include "Settings.h"
-#include "Text.h"
-#include "XMLDocumentParser.h"
 
 namespace WebCore {
     
 using namespace HTMLNames;
-    
-class PluginDocumentParser : public DocumentParser {
+
+// FIXME: Share more code with MediaDocumentParser.
+class PluginDocumentParser : public RawDataDocumentParser {
 public:
-    PluginDocumentParser(Document* doc) : m_doc(doc), m_embedElement(0) {}
-    static Widget* pluginWidgetFromDocument(Document* doc);
-        
+    PluginDocumentParser(Document* document)
+        : RawDataDocumentParser(document)
+        , m_embedElement(0)
+    {
+    }
+
+    static Widget* pluginWidgetFromDocument(Document*);
+
 private:
-    virtual void write(const SegmentedString&, bool appendData);
-    virtual void finish();
-    virtual bool isWaitingForScripts() const;
-        
-    virtual bool wantsRawData() const { return true; }
     virtual bool writeRawData(const char* data, int len);
-        
+
     void createDocumentStructure();
 
-    Document* m_doc;
     HTMLEmbedElement* m_embedElement;
 };
 
@@ -78,33 +73,28 @@ Widget* PluginDocumentParser::pluginWidgetFromDocument(Document* doc)
     return 0;
 }
 
-void PluginDocumentParser::write(const SegmentedString&, bool)
-{
-    ASSERT_NOT_REACHED();
-}
-    
 void PluginDocumentParser::createDocumentStructure()
 {
     ExceptionCode ec;
-    RefPtr<Element> rootElement = m_doc->createElement(htmlTag, false);
-    m_doc->appendChild(rootElement, ec);
+    RefPtr<Element> rootElement = document()->createElement(htmlTag, false);
+    document()->appendChild(rootElement, ec);
 
-    RefPtr<Element> body = m_doc->createElement(bodyTag, false);
+    RefPtr<Element> body = document()->createElement(bodyTag, false);
     body->setAttribute(marginwidthAttr, "0");
     body->setAttribute(marginheightAttr, "0");
     body->setAttribute(bgcolorAttr, "rgb(38,38,38)");
 
     rootElement->appendChild(body, ec);
         
-    RefPtr<Element> embedElement = m_doc->createElement(embedTag, false);
+    RefPtr<Element> embedElement = document()->createElement(embedTag, false);
         
     m_embedElement = static_cast<HTMLEmbedElement*>(embedElement.get());
     m_embedElement->setAttribute(widthAttr, "100%");
     m_embedElement->setAttribute(heightAttr, "100%");
     
     m_embedElement->setAttribute(nameAttr, "plugin");
-    m_embedElement->setAttribute(srcAttr, m_doc->url().string());
-    m_embedElement->setAttribute(typeAttr, m_doc->frame()->loader()->writer()->mimeType());
+    m_embedElement->setAttribute(srcAttr, document()->url().string());
+    m_embedElement->setAttribute(typeAttr, document()->frame()->loader()->writer()->mimeType());
     
     body->appendChild(embedElement, ec);    
 }
@@ -117,10 +107,10 @@ bool PluginDocumentParser::writeRawData(const char*, int)
     
     createDocumentStructure();
 
-    if (Frame* frame = m_doc->frame()) {
+    if (Frame* frame = document()->frame()) {
         Settings* settings = frame->settings();
-        if (settings && frame->loader()->allowPlugins(NotAboutToInstantiatePlugin)) {
-            m_doc->updateLayout();
+        if (settings && frame->loader()->subframeLoader()->allowPlugins(NotAboutToInstantiatePlugin)) {
+            document()->updateLayout();
 
             if (RenderWidget* renderer = toRenderWidget(m_embedElement->renderer())) {
                 frame->loader()->client()->redirectDataToPlugin(renderer->widget());
@@ -134,20 +124,8 @@ bool PluginDocumentParser::writeRawData(const char*, int)
     return false;
 }
 
-void PluginDocumentParser::finish()
-{
-    if (!m_parserStopped) 
-        m_doc->finishedParsing();            
-}
-    
-bool PluginDocumentParser::isWaitingForScripts() const
-{
-    // A plugin document is never waiting for scripts
-    return false;
-}
-    
-PluginDocument::PluginDocument(Frame* frame)
-    : HTMLDocument(frame)
+PluginDocument::PluginDocument(Frame* frame, const KURL& url)
+    : HTMLDocument(frame, url)
 {
     setParseMode(Compat);
 }

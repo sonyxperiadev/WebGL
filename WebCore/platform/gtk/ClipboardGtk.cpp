@@ -331,23 +331,7 @@ void ClipboardGtk::declareAndWriteDragImage(Element* element, const KURL& url, c
 
 void ClipboardGtk::writeURL(const KURL& url, const String& label, Frame*)
 {
-    String actualLabel(label);
-    if (actualLabel.isEmpty())
-        actualLabel = url;
-    m_dataObject->setText(actualLabel);
-
-    Vector<UChar> markup;
-    append(markup, "<a href=\"");
-    append(markup, url.string());
-    append(markup, "\">");
-    append(markup, label);
-    append(markup, "</a>");
-    m_dataObject->setMarkup(String::adopt(markup));
-
-    Vector<KURL> uriList;
-    uriList.append(url);
-    m_dataObject->setURIList(uriList);
-
+    m_dataObject->setURL(url, label);
     if (m_clipboard)
         m_helper->writeClipboardContents(m_clipboard);
 }
@@ -357,7 +341,7 @@ void ClipboardGtk::writeRange(Range* range, Frame* frame)
     ASSERT(range);
 
     m_dataObject->setText(frame->selectedText());
-    m_dataObject->setMarkup(createMarkup(range, 0, AnnotateForInterchange));
+    m_dataObject->setMarkup(createMarkup(range, 0, AnnotateForInterchange, false, AbsoluteURLs));
 
     if (m_clipboard)
         m_helper->writeClipboardContents(m_clipboard);

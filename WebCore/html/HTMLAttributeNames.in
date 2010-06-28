@@ -43,6 +43,7 @@ aria-valuemax
 aria-valuemin
 aria-valuenow
 aria-valuetext
+async
 autocomplete
 autofocus
 autoplay
@@ -254,6 +255,7 @@ size
 sortable
 sortdirection
 span
+speech
 spellcheck
 src
 standby

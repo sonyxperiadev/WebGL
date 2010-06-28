@@ -102,6 +102,7 @@ private:
     ResourceHandle(const ResourceRequest&, ResourceHandleClient*, bool defersLoading, bool shouldContentSniff);
 
     enum FailureType {
+        NoFailure,
         BlockedFailure,
         InvalidURLFailure
     };
@@ -209,6 +210,8 @@ public:
     using RefCounted<ResourceHandle>::deref;
 
 private:
+    void platformSetDefersLoading(bool);
+
     void scheduleFailure(FailureType);
 
     bool start(Frame*);

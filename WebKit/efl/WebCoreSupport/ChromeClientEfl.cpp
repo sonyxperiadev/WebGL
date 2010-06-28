@@ -38,6 +38,7 @@
 #include "DatabaseTracker.h"
 #endif
 #include "EWebKit.h"
+#include "FileChooser.h"
 #include "FloatRect.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientEfl.h"
@@ -49,6 +50,8 @@
 #include "WindowFeatures.h"
 #include "ewk_private.h"
 #include <wtf/text/CString.h>
+
+#include <Evas.h>
 
 using namespace WebCore;
 
@@ -115,10 +118,16 @@ void ChromeClientEfl::unfocus()
     evas_object_focus_set(m_view, EINA_FALSE);
 }
 
-Page* ChromeClientEfl::createWindow(Frame*, const FrameLoadRequest& request, const WindowFeatures& features)
+Page* ChromeClientEfl::createWindow(Frame*, const FrameLoadRequest& frameLoadRequest, const WindowFeatures& features)
 {
-    notImplemented();
-    return 0;
+    Evas_Object* newView = ewk_view_window_create(m_view, EINA_TRUE, &features);
+    if (!newView)
+        return 0;
+
+    if (!frameLoadRequest.isEmpty())
+        ewk_view_uri_set(newView, frameLoadRequest.resourceRequest().url().string().utf8().data());
+
+    return ewk_view_core_page_get(newView);
 }
 
 void ChromeClientEfl::show()
@@ -376,7 +385,35 @@ void ChromeClientEfl::exceededDatabaseQuota(Frame* frame, const String& database
 
 void ChromeClientEfl::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> prpFileChooser)
 {
-    notImplemented();
+    RefPtr<FileChooser> chooser = prpFileChooser;
+    bool confirm;
+    Eina_List* selectedFilenames = 0;
+    Eina_List* suggestedFilenames = 0;
+    void* filename;
+    Vector<String> filenames;
+
+    for (unsigned i = 0; i < chooser->filenames().size(); i++) {
+        CString str = chooser->filenames()[i].utf8();
+        filename = strdup(str.data());
+        suggestedFilenames = eina_list_append(suggestedFilenames, filename);
+    }
+
+    confirm = ewk_view_run_open_panel(m_view, kit(frame), chooser->allowsMultipleFiles(), suggestedFilenames, &selectedFilenames);
+    EINA_LIST_FREE(suggestedFilenames, filename)
+        free(filename);
+
+    if (!confirm)
+        return;
+
+    EINA_LIST_FREE(selectedFilenames, filename) {
+        filenames.append((char *)filename);
+        free(filename);
+    }
+
+    if (chooser->allowsMultipleFiles())
+        chooser->chooseFiles(filenames);
+    else
+        chooser->chooseFile(filenames[0]);
 }
 
 void ChromeClientEfl::formStateDidChange(const Node*)

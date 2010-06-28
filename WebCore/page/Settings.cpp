@@ -144,7 +144,7 @@ Settings::Settings(Page* page)
     , m_webGLEnabled(false)
     , m_loadDeferringEnabled(true)
     , m_tiledBackingStoreEnabled(false)
-    , m_html5ParserEnabled(false)
+    , m_html5ParserEnabled(true)
     , m_paginateDuringLayoutEnabled(false)
 #ifdef ANDROID_PLUGINS
     , m_pluginsOnDemand(false)

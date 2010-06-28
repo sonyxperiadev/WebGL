@@ -29,11 +29,8 @@
 #include "MediaDocument.h"
 
 #include "DocumentLoader.h"
-#include "Element.h"
-#include "Event.h"
 #include "EventNames.h"
 #include "Frame.h"
-#include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "HTMLEmbedElement.h"
 #include "HTMLNames.h"
@@ -41,51 +38,41 @@
 #include "KeyboardEvent.h"
 #include "MainResourceLoader.h"
 #include "NodeList.h"
-#include "Page.h"
-#include "SegmentedString.h"
-#include "Settings.h"
-#include "Text.h"
-#include "XMLDocumentParser.h"
+#include "RawDataDocumentParser.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-class MediaDocumentParser : public DocumentParser {
+// FIXME: Share more code with PluginDocumentParser.
+class MediaDocumentParser : public RawDataDocumentParser {
 public:
-    MediaDocumentParser(Document* doc) : m_doc(doc), m_mediaElement(0) {}
-        
+    MediaDocumentParser(Document* document)
+        : RawDataDocumentParser(document)
+        , m_mediaElement(0)
+    {
+    }
+
 private:
-    virtual void write(const SegmentedString&, bool appendData);
-    virtual void finish();
-    virtual bool isWaitingForScripts() const;
-        
-    virtual bool wantsRawData() const { return true; }
     virtual bool writeRawData(const char* data, int len);
-        
+
     void createDocumentStructure();
 
-    Document* m_doc;
     HTMLMediaElement* m_mediaElement;
 };
-
-void MediaDocumentParser::write(const SegmentedString&, bool)
-{
-    ASSERT_NOT_REACHED();
-}
     
 void MediaDocumentParser::createDocumentStructure()
 {
     ExceptionCode ec;
-    RefPtr<Element> rootElement = m_doc->createElement(htmlTag, false);
-    m_doc->appendChild(rootElement, ec);
+    RefPtr<Element> rootElement = document()->createElement(htmlTag, false);
+    document()->appendChild(rootElement, ec);
         
-    RefPtr<Element> body = m_doc->createElement(bodyTag, false);
+    RefPtr<Element> body = document()->createElement(bodyTag, false);
     body->setAttribute(styleAttr, "background-color: rgb(38,38,38);");
 
     rootElement->appendChild(body, ec);
         
-    RefPtr<Element> mediaElement = m_doc->createElement(videoTag, false);
+    RefPtr<Element> mediaElement = document()->createElement(videoTag, false);
         
     m_mediaElement = static_cast<HTMLVideoElement*>(mediaElement.get());
     m_mediaElement->setAttribute(controlsAttr, "");
@@ -93,11 +80,11 @@ void MediaDocumentParser::createDocumentStructure()
     m_mediaElement->setAttribute(styleAttr, "margin: auto; position: absolute; top: 0; right: 0; bottom: 0; left: 0;");
 
     m_mediaElement->setAttribute(nameAttr, "media");
-    m_mediaElement->setSrc(m_doc->url());
+    m_mediaElement->setSrc(document()->url());
     
     body->appendChild(mediaElement, ec);
 
-    Frame* frame = m_doc->frame();
+    Frame* frame = document()->frame();
     if (!frame)
         return;
 
@@ -114,21 +101,9 @@ bool MediaDocumentParser::writeRawData(const char*, int)
     finish();
     return false;
 }
-
-void MediaDocumentParser::finish()
-{
-    if (!m_parserStopped) 
-        m_doc->finishedParsing();
-}
     
-bool MediaDocumentParser::isWaitingForScripts() const
-{
-    // A media document is never waiting for scripts
-    return false;
-}
-    
-MediaDocument::MediaDocument(Frame* frame)
-    : HTMLDocument(frame)
+MediaDocument::MediaDocument(Frame* frame, const KURL& url)
+    : HTMLDocument(frame, url)
     , m_replaceMediaElementTimer(this, &MediaDocument::replaceMediaElementTimerFired)
 {
     setParseMode(Compat);

@@ -1998,7 +1998,7 @@ void HTMLMediaElement::createMediaPlayerProxy()
     
     // Hang onto the proxy widget so it won't be destroyed if the plug-in is set to
     // display:none
-    m_proxyWidget = loader->loadMediaPlayerProxyPlugin(this, url, paramNames, paramValues);
+    m_proxyWidget = loader->subframeLoader()->loadMediaPlayerProxyPlugin(this, url, paramNames, paramValues);
     if (m_proxyWidget)
         m_needWidgetUpdate = false;
 }
@@ -2078,6 +2078,11 @@ void HTMLMediaElement::mediaCanStart()
     ASSERT(m_isWaitingUntilMediaCanStart);
     m_isWaitingUntilMediaCanStart = false;
     loadInternal();
+}
+
+bool HTMLMediaElement::isURLAttribute(Attribute* attribute) const
+{
+    return attribute->name() == srcAttr;
 }
 
 }

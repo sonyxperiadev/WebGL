@@ -45,12 +45,12 @@ inline HTMLScriptElement::HTMLScriptElement(const QualifiedName& tagName, Docume
 
 PassRefPtr<HTMLScriptElement> HTMLScriptElement::create(const QualifiedName& tagName, Document* document, bool createdByParser)
 {
-    return new HTMLScriptElement(tagName, document, createdByParser);
+    return adoptRef(new HTMLScriptElement(tagName, document, createdByParser));
 }
 
 bool HTMLScriptElement::isURLAttribute(Attribute* attr) const
 {
-    return attr->name() == sourceAttributeValue();
+    return attr->name() == srcAttr;
 }
 
 bool HTMLScriptElement::shouldExecuteAsJavaScript() const
@@ -149,9 +149,19 @@ void HTMLScriptElement::setCharset(const String &value)
     setAttribute(charsetAttr, value);
 }
 
+bool HTMLScriptElement::async() const
+{
+    return asyncAttributeValue();
+}
+
+void HTMLScriptElement::setAsync(bool async)
+{
+    setAttribute(asyncAttr, async ? "" : 0);
+}
+
 bool HTMLScriptElement::defer() const
 {
-    return !getAttribute(deferAttr).isNull();
+    return deferAttributeValue();
 }
 
 void HTMLScriptElement::setDefer(bool defer)
@@ -224,6 +234,16 @@ String HTMLScriptElement::forAttributeValue() const
 String HTMLScriptElement::eventAttributeValue() const
 {
     return getAttribute(eventAttr).string();
+}
+
+bool HTMLScriptElement::asyncAttributeValue() const
+{
+    return !getAttribute(asyncAttr).isNull();
+}
+
+bool HTMLScriptElement::deferAttributeValue() const
+{
+    return !getAttribute(deferAttr).isNull();
 }
 
 void HTMLScriptElement::dispatchLoadEvent()

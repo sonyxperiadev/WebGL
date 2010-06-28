@@ -35,6 +35,7 @@
 #include "AutocompletePopupMenuClient.h"
 #include "AXObjectCache.h"
 #include "Chrome.h"
+#include "CompositionUnderlineVectorBuilder.h"
 #include "ContextMenu.h"
 #include "ContextMenuController.h"
 #include "ContextMenuItem.h"
@@ -45,6 +46,7 @@
 #include "DocumentLoader.h"
 #include "DOMUtilitiesPrivate.h"
 #include "DragController.h"
+#include "DragScrollTimer.h"
 #include "DragData.h"
 #include "Editor.h"
 #include "EventHandler.h"
@@ -81,14 +83,18 @@
 #include "SecurityOrigin.h"
 #include "SelectionController.h"
 #include "Settings.h"
+#include "Timer.h"
 #include "TypingCommand.h"
 #include "WebAccessibilityObject.h"
 #include "WebDevToolsAgentPrivate.h"
+#include "WebDevToolsAgentImpl.h"
 #include "WebDragData.h"
 #include "WebFrameImpl.h"
 #include "WebImage.h"
 #include "WebInputEvent.h"
 #include "WebInputEventConversion.h"
+#include "WebKit.h"
+#include "WebKitClient.h"
 #include "WebMediaPlayerAction.h"
 #include "WebNode.h"
 #include "WebPoint.h"
@@ -160,9 +166,9 @@ static const PopupContainerSettings suggestionsPopupSettings = {
 
 // WebView ----------------------------------------------------------------
 
-WebView* WebView::create(WebViewClient* client)
+WebView* WebView::create(WebViewClient* client, WebDevToolsAgentClient* devToolsClient)
 {
-    return new WebViewImpl(client);
+    return new WebViewImpl(client, devToolsClient);
 }
 
 void WebView::updateVisitedLinkState(unsigned long long linkHash)
@@ -209,7 +215,7 @@ void WebViewImpl::initializeMainFrame(WebFrameClient* frameClient)
     SecurityOrigin::setLocalLoadPolicy(SecurityOrigin::AllowLocalLoadsForLocalOnly);
 }
 
-WebViewImpl::WebViewImpl(WebViewClient* client)
+WebViewImpl::WebViewImpl(WebViewClient* client, WebDevToolsAgentClient* devToolsClient)
     : m_client(client)
     , m_backForwardListClientImpl(this)
     , m_chromeClientImpl(this)
@@ -238,10 +244,12 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     , m_suggestionsPopup(0)
     , m_isTransparent(false)
     , m_tabsToLinks(false)
+    , m_dragScrollTimer(new DragScrollTimer())
 #if USE(ACCELERATED_COMPOSITING)
     , m_layerRenderer(0)
     , m_isAcceleratedCompositingActive(false)
 #endif
+    , m_gles2Context(0)
 {
     // WebKit/win/WebView.cpp does the same thing, except they call the
     // KJS specific wrapper around this method. We need to have threading
@@ -252,8 +260,12 @@ WebViewImpl::WebViewImpl(WebViewClient* client)
     // set to impossible point so we always get the first mouse pos
     m_lastMousePosition = WebPoint(-1, -1);
 
-    // the page will take ownership of the various clients
+    if (devToolsClient)
+        m_devToolsAgent = static_cast<WebDevToolsAgentImpl*>(WebDevToolsAgent::create(this, devToolsClient));
+
     m_page.set(new Page(&m_chromeClientImpl, &m_contextMenuClientImpl, &m_editorClientImpl, &m_dragClientImpl, &m_inspectorClientImpl, 0, 0, 0));
+
+    // the page will take ownership of the various clients
 
     m_page->backForwardList()->setClient(&m_backForwardListClientImpl);
     m_page->setGroupName(pageGroupName);
@@ -827,45 +839,6 @@ bool WebViewImpl::mapKeyCodeForScroll(int keyCode,
     return true;
 }
 
-// Computes the distance from a point outside a rect to the nearest edge of the rect.
-static IntSize distanceToRect(const IntPoint& point, const IntRect& rect)
-{
-    int dx = 0, dy = 0;
-    if (point.x() < rect.x())
-        dx = point.x() - rect.x();
-    else if (rect.right() < point.x())
-        dx = point.x() - rect.right();
-    if (point.y() < rect.y())
-        dy = point.y() - rect.y();
-    else if (rect.bottom() < point.y())
-        dy = point.y() - rect.bottom();
-    return IntSize(dx, dy);
-}
-
-void WebViewImpl::scrollForDragging(const WebPoint& clientPoint)
-{
-    // This margin approximates Safari behavior, derived from an observation.
-    static const int scrollMargin = 30;
-
-    FrameView* view = mainFrameImpl()->frameView();
-    if (!view)
-        return;
-
-    IntRect bounds(0, 0, view->visibleWidth(), view->visibleHeight());
-    bounds.setY(bounds.y() + scrollMargin);
-    bounds.setHeight(bounds.height() - scrollMargin * 2);
-    bounds.setX(bounds.x() + scrollMargin);
-    bounds.setWidth(bounds.width() - scrollMargin * 2);
-
-    IntPoint point = clientPoint;
-    if (bounds.contains(point))
-        return;    
-
-    IntSize toScroll = distanceToRect(point, bounds);
-    if (!toScroll.isZero())
-        view->scrollBy(toScroll);
-}
-
 void WebViewImpl::hideSelectPopup()
 {
     if (m_selectPopup.get())
@@ -1191,11 +1164,53 @@ void WebViewImpl::setFocus(bool enable)
     }
 }
 
+// DEPRECATED, will be removed later.
 bool WebViewImpl::handleCompositionEvent(WebCompositionCommand command,
                                          int cursorPosition,
                                          int targetStart,
                                          int targetEnd,
                                          const WebString& imeString)
+{
+    if (command == WebKit::WebCompositionCommandSet) {
+        if (targetStart < 0)
+            targetStart = 0;
+        if (targetEnd < 0)
+            targetEnd = static_cast<int>(imeString.length());
+
+        // Create custom underlines.
+        // To emphasize the selection, the selected region uses a solid black
+        // for its underline while other regions uses a pale gray for theirs.
+        WebVector<WebCompositionUnderline> underlines(static_cast<size_t>(3));
+        underlines[0].startOffset = 0;
+        underlines[0].endOffset = targetStart;
+        underlines[0].thick = true;
+        underlines[0].color = 0xffd3d3d3;
+        underlines[1].startOffset = targetStart;
+        underlines[1].endOffset = targetEnd;
+        underlines[1].thick = true;
+        underlines[1].color = 0xff000000;
+        underlines[2].startOffset = targetEnd;
+        underlines[2].endOffset = static_cast<unsigned>(imeString.length());
+        underlines[2].thick = true;
+        underlines[2].color = 0xffd3d3d3;
+        return setComposition(imeString, underlines, cursorPosition, cursorPosition);
+    }
+
+    if (command == WebKit::WebCompositionCommandDiscard)
+        setComposition(WebString(), WebVector<WebCompositionUnderline>(), 0, 0);
+    else if (command == WebKit::WebCompositionCommandConfirm) {
+        setComposition(imeString, WebVector<WebCompositionUnderline>(), 0, 0);
+        confirmComposition();
+    }
+
+    return true;
+}
+
+bool WebViewImpl::setComposition(
+    const WebString& text,
+    const WebVector<WebCompositionUnderline>& underlines,
+    int selectionStart,
+    int selectionEnd)
 {
     Frame* focused = focusedWebCoreFrame();
     if (!focused || !m_imeAcceptEvents)
@@ -1203,13 +1218,12 @@ bool WebViewImpl::handleCompositionEvent(WebCompositionCommand command,
     Editor* editor = focused->editor();
     if (!editor)
         return false;
-    if (!editor->canEdit()) {
-        // The input focus has been moved to another WebWidget object.
-        // We should use this |editor| object only to complete the ongoing
-        // composition.
-        if (!editor->hasComposition())
-            return false;
-    }
+
+    // The input focus has been moved to another WebWidget object.
+    // We should use this |editor| object only to complete the ongoing
+    // composition.
+    if (!editor->canEdit() && !editor->hasComposition())
+        return false;
 
     // We should verify the parent node of this IME composition node are
     // editable because JavaScript may delete a parent node of the composition
@@ -1224,9 +1238,7 @@ bool WebViewImpl::handleCompositionEvent(WebCompositionCommand command,
 
     // If we're not going to fire a keypress event, then the keydown event was
     // canceled.  In that case, cancel any existing composition.
-    // FIXME: Ideally, we would only cancel a single keypress, rather than the
-    // whole composition.
-    if ((command == WebCompositionCommandDiscard) || m_suppressNextKeypressEvent) {
+    if (text.isEmpty() || m_suppressNextKeypressEvent) {
         // A browser process sent an IPC message which does not contain a valid
         // string, which means an ongoing composition has been canceled.
         // If the ongoing composition has been canceled, replace the ongoing
@@ -1234,49 +1246,45 @@ bool WebViewImpl::handleCompositionEvent(WebCompositionCommand command,
         String emptyString;
         Vector<CompositionUnderline> emptyUnderlines;
         editor->setComposition(emptyString, emptyUnderlines, 0, 0);
-    } else {
-        // A browser process sent an IPC message which contains a string to be
-        // displayed in this Editor object.
-        // To display the given string, set the given string to the
-        // m_compositionNode member of this Editor object and display it.
-        if (targetStart < 0)
-            targetStart = 0;
-        if (targetEnd < 0)
-            targetEnd = static_cast<int>(imeString.length());
-        String compositionString(imeString);
-        // Create custom underlines.
-        // To emphasize the selection, the selected region uses a solid black
-        // for its underline while other regions uses a pale gray for theirs.
-        Vector<CompositionUnderline> underlines(3);
-        underlines[0].startOffset = 0;
-        underlines[0].endOffset = targetStart;
-        underlines[0].thick = true;
-        underlines[0].color.setRGB(0xd3, 0xd3, 0xd3);
-        underlines[1].startOffset = targetStart;
-        underlines[1].endOffset = targetEnd;
-        underlines[1].thick = true;
-        underlines[1].color.setRGB(0x00, 0x00, 0x00);
-        underlines[2].startOffset = targetEnd;
-        underlines[2].endOffset = static_cast<int>(imeString.length());
-        underlines[2].thick = true;
-        underlines[2].color.setRGB(0xd3, 0xd3, 0xd3);
-        // When we use custom underlines, WebKit ("InlineTextBox.cpp" Line 282)
-        // prevents from writing a text in between 'selectionStart' and
-        // 'selectionEnd' somehow.
-        // Therefore, we use the 'cursorPosition' for these arguments so that
-        // there are not any characters in the above region.
-        editor->setComposition(compositionString, underlines,
-                               cursorPosition, cursorPosition);
-        // The given string is a result string, which means the ongoing
-        // composition has been completed. I have to call the
-        // Editor::confirmCompletion() and complete this composition.
-        if (command == WebCompositionCommandConfirm)
-            editor->confirmComposition();
+        return text.isEmpty();
     }
+
+    // When the range of composition underlines overlap with the range between
+    // selectionStart and selectionEnd, WebKit somehow won't paint the selection
+    // at all (see InlineTextBox::paint() function in InlineTextBox.cpp).
+    // But the selection range actually takes effect.
+    editor->setComposition(String(text),
+                           CompositionUnderlineVectorBuilder(underlines),
+                           selectionStart, selectionEnd);
 
     return editor->hasComposition();
 }
 
+bool WebViewImpl::confirmComposition()
+{
+    Frame* focused = focusedWebCoreFrame();
+    if (!focused || !m_imeAcceptEvents)
+        return false;
+    Editor* editor = focused->editor();
+    if (!editor || !editor->hasComposition())
+        return false;
+
+    // We should verify the parent node of this IME composition node are
+    // editable because JavaScript may delete a parent node of the composition
+    // node. In this case, WebKit crashes while deleting texts from the parent
+    // node, which doesn't exist any longer.
+    PassRefPtr<Range> range = editor->compositionRange();
+    if (range) {
+        const Node* node = range->startPosition().node();
+        if (!node || !node->isContentEditable())
+            return false;
+    }
+
+    editor->confirmComposition();
+    return true;
+}
+
+// DEPRECATED, will be removed later.
 bool WebViewImpl::queryCompositionStatus(bool* enableIME, WebRect* caretRect)
 {
     // Store whether the selected node needs IME and the caret rectangle.
@@ -1309,6 +1317,59 @@ bool WebViewImpl::queryCompositionStatus(bool* enableIME, WebRect* caretRect)
 
     *caretRect = view->contentsToWindow(controller->absoluteCaretBounds());
     return true;
+}
+
+WebTextInputType WebViewImpl::textInputType()
+{
+    WebTextInputType type = WebTextInputTypeNone;
+    const Frame* focused = focusedWebCoreFrame();
+    if (!focused)
+        return type;
+
+    const Editor* editor = focused->editor();
+    if (!editor || !editor->canEdit())
+        return type;
+
+    SelectionController* controller = focused->selection();
+    if (!controller)
+        return type;
+
+    const Node* node = controller->start().node();
+    if (!node)
+        return type;
+
+    // FIXME: Support more text input types when necessary, eg. Number,
+    // Date, Email, URL, etc.
+    if (controller->isInPasswordField())
+        type = WebTextInputTypePassword;
+    else if (node->shouldUseInputMethod())
+        type = WebTextInputTypeText;
+
+    return type;
+}
+
+WebRect WebViewImpl::caretOrSelectionBounds()
+{
+    WebRect rect;
+    const Frame* focused = focusedWebCoreFrame();
+    if (!focused)
+        return rect;
+
+    SelectionController* controller = focused->selection();
+    if (!controller)
+        return rect;
+
+    const FrameView* view = focused->view();
+    if (!view)
+        return rect;
+
+    if (controller->isCaret())
+        rect = view->contentsToWindow(controller->absoluteCaretBounds());
+    else if (controller->isRange()) {
+        RefPtr<Range> range = controller->toNormalizedRange();
+        rect = view->contentsToWindow(focused->firstRectForRange(range.get()));
+    }
+    return rect;
 }
 
 void WebViewImpl::setTextDirection(WebTextDirection direction)
@@ -1393,7 +1454,7 @@ bool WebViewImpl::dispatchBeforeUnloadEvent()
     if (!frame)
         return true;
 
-    return frame->shouldClose();
+    return frame->loader()->shouldClose();
 }
 
 void WebViewImpl::dispatchUnloadEvent()
@@ -1576,6 +1637,7 @@ void WebViewImpl::dragSourceEndedAt(
                            false, 0);
     m_page->mainFrame()->eventHandler()->dragSourceEndedAt(pme,
         static_cast<DragOperation>(operation));
+    m_dragScrollTimer->stop();
 }
 
 void WebViewImpl::dragSourceMovedTo(
@@ -1583,7 +1645,7 @@ void WebViewImpl::dragSourceMovedTo(
     const WebPoint& screenPoint,
     WebDragOperation operation)
 {
-    scrollForDragging(clientPoint);
+    m_dragScrollTimer->triggerScroll(mainFrameImpl()->frameView(), clientPoint);
 }
 
 void WebViewImpl::dragSourceSystemDragEnded()
@@ -1672,6 +1734,7 @@ void WebViewImpl::dragTargetDrop(const WebPoint& clientPoint,
     m_dropEffect = DropEffectDefault;
     m_dragOperation = WebDragOperationNone;
     m_dragIdentity = 0;
+    m_dragScrollTimer->stop();
 }
 
 int WebViewImpl::dragIdentity()
@@ -1707,7 +1770,10 @@ WebDragOperation WebViewImpl::dragTargetDragEnterOrOver(const WebPoint& clientPo
         m_dragOperation = static_cast<WebDragOperation>(effect);
 
     if (dragAction == DragOver)
-        scrollForDragging(clientPoint);
+        m_dragScrollTimer->triggerScroll(mainFrameImpl()->frameView(), clientPoint);
+    else
+        m_dragScrollTimer->stop();
+
 
     return m_dragOperation;
 }
@@ -2221,7 +2287,23 @@ void WebViewImpl::setRootLayerNeedsDisplay()
     if (m_layerRenderer)
         m_layerRenderer->setNeedsDisplay();
 }
+#endif // USE(ACCELERATED_COMPOSITING)
 
-#endif
+// Returns the GLES2 context associated with this View. If one doesn't exist
+// it will get created first.
+WebGLES2Context* WebViewImpl::gles2Context()
+{
+    if (!m_gles2Context) {
+        m_gles2Context = webKitClient()->createGLES2Context();
+        if (!m_gles2Context)
+            return 0;
+
+        if (!m_gles2Context->initialize(this, 0)) {
+            m_gles2Context.clear();
+            return 0;
+        }
+    }
+    return m_gles2Context.get();
+}
 
 } // namespace WebKit

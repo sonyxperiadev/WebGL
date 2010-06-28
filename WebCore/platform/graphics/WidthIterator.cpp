@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006, 2008, 2009, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Holger Hans Peter Freyther
  *
  * This library is free software; you can redistribute it and/or
@@ -60,15 +60,16 @@ WidthIterator::WidthIterator(const Font* font, const TextRun& run, HashSet<const
     if (!m_padding)
         m_padPerSpace = 0;
     else {
-        float numSpaces = 0;
-        for (int i = 0; i < run.length(); i++)
+        int numSpaces = 0;
+        for (int i = 0; i < run.length(); i++) {
             if (Font::treatAsSpace(m_run[i]))
                 numSpaces++;
+        }
 
-        if (numSpaces == 0)
+        if (!numSpaces)
             m_padPerSpace = 0;
         else
-            m_padPerSpace = ceilf(m_run.padding() / numSpaces);
+            m_padPerSpace = m_padding / numSpaces;
     }
 }
 
@@ -133,6 +134,11 @@ void WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
             width = tabWidth - fmodf(m_run.xPos() + runWidthSoFar, tabWidth);
         } else {
             width = fontData->widthForGlyph(glyph);
+
+            // SVG uses glyphScale(), when textLength is used to stretch/squeeze text.
+            if (m_run.applyGlyphScaling())
+                width *= m_run.glyphScale();
+
             // We special case spaces in two ways when applying word rounding.
             // First, we round spaces to an adjusted width in all fonts.
             // Second, in fixed-pitch fonts we ensure that all characters that
@@ -170,8 +176,9 @@ void WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
                         width += m_padding;
                         m_padding = 0;
                     } else {
-                        width += m_padPerSpace;
+                        float previousPadding = m_padding;
                         m_padding -= m_padPerSpace;
+                        width += roundf(previousPadding) - roundf(m_padding);
                     }
                 }
 

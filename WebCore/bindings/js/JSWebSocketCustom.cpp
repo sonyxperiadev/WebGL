@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc.  All rights reserved.
- * Copyright (C) 2009 Apple, Inc.  All rights reserved.
+ * Copyright (C) 2009, 2010 Apple, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -44,21 +44,34 @@ using namespace JSC;
 
 namespace WebCore {
 
-// Custom functions
-JSValue JSWebSocket::send(ExecState* exec)
+EncodedJSValue JSC_HOST_CALL JSWebSocketConstructor::constructJSWebSocket(ExecState* exec)
 {
-    if (exec->argumentCount() < 1)
-        return throwError(exec, createSyntaxError(exec, "Not enough arguments"));
+    JSWebSocketConstructor* jsConstructor = static_cast<JSWebSocketConstructor*>(exec->callee());
+    ScriptExecutionContext* context = jsConstructor->scriptExecutionContext();
+    if (!context)
+        return throwVMError(exec, createReferenceError(exec, "WebSocket constructor associated document is unavailable"));
 
-    const String& msg = ustringToString(exec->argument(0).toString(exec));
+    if (!exec->argumentCount())
+        return throwVMError(exec, createSyntaxError(exec, "Not enough arguments"));
+
+    const String& urlString = ustringToString(exec->argument(0).toString(exec));
     if (exec->hadException())
-        return throwError(exec, createSyntaxError(exec, "bad message data."));
+        return throwVMError(exec, createSyntaxError(exec, "wrong URL"));
+    const KURL& url = context->completeURL(urlString);
+    RefPtr<WebSocket> webSocket = WebSocket::create(context);
     ExceptionCode ec = 0;
-    JSValue ret = jsBoolean(impl()->send(msg, ec));
+    if (exec->argumentCount() < 2)
+        webSocket->connect(url, ec);
+    else {
+        const String& protocol = ustringToString(exec->argument(1).toString(exec));
+        if (exec->hadException())
+            return JSValue::encode(JSValue());
+        webSocket->connect(url, protocol, ec);
+    }
     setDOMException(exec, ec);
-    return ret;
+    return JSValue::encode(CREATE_DOM_OBJECT_WRAPPER(exec, jsConstructor->globalObject(), WebSocket, webSocket.get()));
 }
 
-}  // namespace WebCore
+} // namespace WebCore
 
 #endif

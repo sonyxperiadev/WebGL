@@ -170,13 +170,14 @@ public:
     void didReceiveContentLength(unsigned long identifier, int lengthReceived);
     void didFinishLoading(unsigned long identifier);
     void didFailLoading(unsigned long identifier, const ResourceError&);
-    void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString);
+    void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString, const String& url, const String& sendURL, unsigned sendLineNumber);
     void scriptImported(unsigned long identifier, const String& sourceString);
 
     void enableResourceTracking(bool always = false, bool reload = true);
     void disableResourceTracking(bool always = false);
     bool resourceTrackingEnabled() const { return m_resourceTrackingEnabled; }
-    void ensureResourceTrackingSettingsLoaded();
+
+    void ensureSettingsLoaded();
 
     void startTimelineProfiler();
     void stopTimelineProfiler();
@@ -240,6 +241,8 @@ public:
     void enableProfiler(bool always = false, bool skipRecompile = false);
     void disableProfiler(bool always = false);
     bool profilerEnabled() const { return enabled() && m_profilerEnabled; }
+
+    void takeHeapSnapshot();
 #endif
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
@@ -278,6 +281,7 @@ private:
 
     // Following are used from InspectorBackend and internally.
     void setSearchingForNode(bool enabled);
+    void setMonitoringXHR(bool enabled);
     void storeLastActivePanel(const String& panelName);
     InspectorDOMAgent* domAgent() { return m_domAgent.get(); }
     void releaseDOMAgent();
@@ -325,6 +329,12 @@ private:
 
     void didEvaluateForTestInFrontend(long callId, const String& jsonResult);
 
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    String breakpointsSettingKey();
+    void loadBreakpoints();
+    void saveBreakpoints();
+#endif
+
     Page* m_inspectedPage;
     InspectorClient* m_client;
     OwnPtr<InspectorFrontendClient> m_inspectorFrontendClient;
@@ -350,12 +360,15 @@ private:
 #endif
     SpecialPanels m_showAfterVisible;
     RefPtr<Node> m_highlightedNode;
+#if ENABLE(INSPECTOR)
     RefPtr<InspectorValue> m_sessionSettings;
+#endif
     unsigned m_groupLevel;
     bool m_searchingForNode;
+    bool m_monitoringXHR;
     ConsoleMessage* m_previousMessage;
     bool m_resourceTrackingEnabled;
-    bool m_resourceTrackingSettingsLoaded;
+    bool m_settingsLoaded;
     RefPtr<InspectorBackend> m_inspectorBackend;
     RefPtr<InjectedScriptHost> m_injectedScriptHost;
 
@@ -371,6 +384,7 @@ private:
     HashMap<String, String> m_sourceIDToURL;
     HashMap<String, String> m_scriptIDToContent;
     HashMap<String, SourceBreakpoints> m_stickyBreakpoints;
+    bool m_breakpointsLoaded;
 
     bool m_profilerEnabled;
     bool m_recordingUserInitiatedProfile;

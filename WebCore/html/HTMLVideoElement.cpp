@@ -54,7 +54,7 @@ inline HTMLVideoElement::HTMLVideoElement(const QualifiedName& tagName, Document
 
 PassRefPtr<HTMLVideoElement> HTMLVideoElement::create(const QualifiedName& tagName, Document* document)
 {
-    return new HTMLVideoElement(tagName, document);
+    return adoptRef(new HTMLVideoElement(tagName, document));
 }
 
 bool HTMLVideoElement::rendererIsNeeded(RenderStyle* style) 
@@ -177,9 +177,10 @@ void HTMLVideoElement::setPoster(const String& value)
     setAttribute(posterAttr, value);
 }
 
-bool HTMLVideoElement::isURLAttribute(Attribute* attr) const
+bool HTMLVideoElement::isURLAttribute(Attribute* attribute) const
 {
-    return attr->name() == posterAttr;
+    return HTMLMediaElement::isURLAttribute(attribute)
+        || attribute->name() == posterAttr;
 }
 
 const QualifiedName& HTMLVideoElement::imageSourceAttributeName() const
@@ -258,4 +259,5 @@ void HTMLVideoElement::willMoveToNewOwnerDocument()
 }
 
 }
+
 #endif

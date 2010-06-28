@@ -65,6 +65,9 @@ public:
     void enableSearchingForNode();
     void disableSearchingForNode();
 
+    void enableMonitoringXHR();
+    void disableMonitoringXHR();
+
     void enableResourceTracking(bool always);
     void disableResourceTracking(bool always);
     void getResourceContent(long callId, unsigned long identifier);
@@ -105,6 +108,8 @@ public:
 
     void removeProfile(unsigned uid);
     void clearProfiles();
+
+    void takeHeapSnapshot();
 #endif
 
     void setInjectedScriptSource(const String& source);
@@ -119,9 +124,15 @@ public:
     void getEventListenersForNode(long callId, long nodeId);
     void copyNode(long nodeId);
     void removeNode(long callId, long nodeId);
-    void changeTagName(long callId, long nodeId, const AtomicString& tagName, bool expanded);
+    void changeTagName(long callId, long nodeId, const String& tagName);
+    void getOuterHTML(long callId, long nodeId);
+    void setOuterHTML(long callId, long nodeId, const String& outerHTML);
+    void addInspectedNode(long nodeId);
     void performSearch(const String& query, bool runSynchronously);
     void searchCanceled();
+    void pushNodeByPathToFrontend(long callId, const String& path);
+
+    void clearConsoleMessages();
 
     void getStyles(long callId, long nodeId, bool authOnly);
     void getAllStyles(long callId);

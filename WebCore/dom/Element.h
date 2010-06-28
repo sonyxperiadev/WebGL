@@ -26,7 +26,7 @@
 #define Element_h
 
 #include "Document.h"
-#include "MappedAttributeEntry.h"
+#include "FragmentScriptingPermission.h"
 #include "NamedNodeMap.h"
 #include "ScrollTypes.h"
 
@@ -100,6 +100,12 @@ public:
     const AtomicString& getAttribute(const QualifiedName&) const;
     void setAttribute(const QualifiedName&, const AtomicString& value, ExceptionCode&);
     void removeAttribute(const QualifiedName&, ExceptionCode&);
+
+    // Typed getters and setters for language bindings.
+    int getIntegralAttribute(const QualifiedName& attributeName) const;
+    void setIntegralAttribute(const QualifiedName& attributeName, int value);
+    unsigned getUnsignedIntegralAttribute(const QualifiedName& attributeName) const;
+    void setUnsignedIntegralAttribute(const QualifiedName& attributeName, unsigned value);
 
     // Call this to get the value of an attribute that is known not to be the style
     // attribute or one of the SVG animatable attributes.
@@ -278,6 +284,10 @@ public:
     virtual void restoreFormControlState(const String&) { }
 
     virtual void dispatchFormControlChangeEvent() { }
+
+#if ENABLE(SVG)
+    virtual bool childShouldCreateRenderer(Node*) const; 
+#endif
 
 protected:
     Element(const QualifiedName& tagName, Document* document, ConstructionType type)

@@ -301,11 +301,29 @@ sub GetWriteableProperties {
     return @result;
 }
 
+sub GenerateConditionalString
+{
+    my $node = shift;
+    my $conditional = $node->extendedAttributes->{"Conditional"};
+    if ($conditional) {
+        if ($conditional =~ /&/) {
+            return "ENABLE(" . join(") && ENABLE(", split(/&/, $conditional)) . ")";
+        } elsif ($conditional =~ /\|/) {
+            return "ENABLE(" . join(") || ENABLE(", split(/\|/, $conditional)) . ")";
+        } else {
+            return "ENABLE(" . $conditional . ")";
+        }
+    } else {
+        return "";
+    }
+}
+
 sub GenerateProperty {
     my $attribute = shift;
     my $interfaceName = shift;
     my @writeableProperties = @{shift @_};
 
+    my $conditionalString = GenerateConditionalString($attribute->signature);
     my $camelPropName = $attribute->signature->name;
     my $setPropNameFunction = $codeGenerator->WK_ucfirst($camelPropName);
     my $getPropNameFunction = $codeGenerator->WK_lcfirst($camelPropName);
@@ -314,7 +332,9 @@ sub GenerateProperty {
     my $propNameCaps = uc($propName);
     $propName =~ s/_/-/g;
     my ${propEnum} = "PROP_${propNameCaps}";
+    push(@cBodyPriv, "#if ${conditionalString}\n") if $conditionalString;
     push(@cBodyPriv, "    ${propEnum},\n");
+    push(@cBodyPriv, "#endif /* ${conditionalString} */\n") if $conditionalString;
 
     my $propType = $attribute->signature->type;
     my ${propGType} = decamelize($propType);
@@ -341,35 +361,26 @@ sub GenerateProperty {
     my $convertFunction = "";
     if ($gtype eq "string") {
         $convertFunction = "WebCore::String::fromUTF8";
-    } elsif ($attribute->signature->extendedAttributes->{"ConvertFromString"}) {
-        $convertFunction = "WebCore::String::number";
     }
 
-    my $setterContentHead;
-    my $getterContentHead;
-    my $reflect = $attribute->signature->extendedAttributes->{"Reflect"};
-    my $reflectURL = $attribute->signature->extendedAttributes->{"ReflectURL"};
-    if ($reflect || $reflectURL) {
-        my $contentAttributeName = (($reflect || $reflectURL) eq "1") ? $camelPropName : ($reflect || $reflectURL);
-        my $namespace = $codeGenerator->NamespaceForAttributeName($interfaceName, $contentAttributeName);
-        $implIncludes{"${namespace}.h"} = 1;
-        my $getAttributeFunctionName = $reflectURL ? "getURLAttribute" : "getAttribute";
-        $setterContentHead = "coreSelf->setAttribute(WebCore::${namespace}::${contentAttributeName}Attr, ${convertFunction}(g_value_get_$gtype(value))";
-        $getterContentHead = "coreSelf->${getAttributeFunctionName}(WebCore::${namespace}::${contentAttributeName}Attr";
-    } else {
-        $setterContentHead = "coreSelf->set${setPropNameFunction}(${convertFunction}(g_value_get_$gtype(value))";
-        $getterContentHead = "coreSelf->${getPropNameFunction}(";
-    }
+    my $getterExpressionPrefix = $codeGenerator->GetterExpressionPrefix(\%implIncludes, $interfaceName, $attribute);
+    my $setterExpressionPrefix = $codeGenerator->SetterExpressionPrefix(\%implIncludes, $interfaceName, $attribute);
+
+    my $getterContentHead = "coreSelf->$getterExpressionPrefix";
+    my $setterContentHead = "coreSelf->$setterExpressionPrefix${convertFunction}(g_value_get_$gtype(value))";
 
     if (grep {$_ eq $attribute} @writeableProperties) {
+        push(@txtSetProps, "#if ${conditionalString}\n") if $conditionalString;
         push(@txtSetProps, "    case ${propEnum}:\n    {\n");
         push(@txtSetProps, "        WebCore::ExceptionCode ec = 0;\n") if @{$attribute->setterExceptions};
         push(@txtSetProps, "        ${setterContentHead}");
         push(@txtSetProps, ", ec") if @{$attribute->setterExceptions};
         push(@txtSetProps, ");\n");
         push(@txtSetProps, "        break;\n    }\n");
+        push(@txtSetProps, "#endif /* ${conditionalString} */\n") if $conditionalString;
     }
 
+    push(@txtGetProps, "#if ${conditionalString}\n") if $conditionalString;
     push(@txtGetProps, "    case ${propEnum}:\n    {\n");
 
     my $exception = "";
@@ -392,17 +403,6 @@ EOF
         $done = 1;
     }
 
-    if($attribute->signature->extendedAttributes->{"ConvertFromString"}) {
-        # TODO: Add other conversion functions for different types.  Current
-        # IDLs only list longs.
-        if($gtype eq "long") {
-            $convertFunction = "";
-            $postConvertFunction = ".toInt()";
-        } else {
-            die "Can't convert to type ${gtype}.";
-        }
-    }
-
     # FIXME: get rid of this glitch?
     my $_gtype = $gtype;
     if ($gtype eq "ushort") {
@@ -410,10 +410,11 @@ EOF
     }
 
     if (!$done) {
-        push(@txtGetProps, "        g_value_set_$_gtype(value, ${convertFunction}coreSelf->${getPropNameFunction}(${exception})${postConvertFunction});\n");
+        push(@txtGetProps, "        g_value_set_$_gtype(value, ${convertFunction}coreSelf->${getterExpressionPrefix}${exception})${postConvertFunction});\n");
     }
 
     push(@txtGetProps, "        break;\n    }\n");
+    push(@txtGetProps, "#endif /* ${conditionalString} */\n") if $conditionalString;
 
     my %param_spec_options = ("int", "G_MININT, /* min */\nG_MAXINT, /* max */\n0, /* default */",
                               "boolean", "FALSE, /* default */",
@@ -439,7 +440,9 @@ EOF
                                                            $param_spec_options{$gtype}
                                                            ${gparamflag}));
 EOF
+    push(@txtInstallProps, "#if ${conditionalString}\n") if $conditionalString;
     push(@txtInstallProps, $txtInstallProp);
+    push(@txtInstallProps, "#endif /* ${conditionalString} */\n") if $conditionalString;
 }
 
 my %breakWords = ("before" => 1, "can" => 1, "context" => 1, "dbl" => 1, "drag" => 1,
@@ -755,10 +758,11 @@ sub GenerateFunction {
     }
 
     my $functionSigName = $function->signature->name;
-    my $functionSigType = $function->signature->type;
+    my $functionSigType = $prefix eq "set_" ? "void" : $function->signature->type;
     my $functionName = "webkit_dom_" . $decamelize . "_" . $prefix . decamelize($functionSigName);
     my $returnType = GetGlibTypeName($functionSigType);
     my $returnValueIsGDOMType = IsGDOMClassType($functionSigType);
+    my $conditionalString = GenerateConditionalString($function->signature);
 
     my $functionSig = "${className}* self";
 
@@ -788,7 +792,7 @@ sub GenerateFunction {
             }
         }
         if ($paramIsGDOMType || ($paramIDLType eq "DOMString") || ($paramIDLType eq "CompareHow")) {
-            $paramName = "_g_" . $paramName;
+            $paramName = "converted_" . $paramName;
         }
         if ($callImplParams) {
             $callImplParams .= ", $paramName";
@@ -812,7 +816,12 @@ sub GenerateFunction {
         $functionSig .= ", GError **error";
     }
 
-    push(@hBody, "WEBKIT_API $returnType\n$functionName($functionSig);\n\n");
+    push(@hBody, "#if ${conditionalString}\n") if $conditionalString;
+    push(@hBody, "WEBKIT_API $returnType\n$functionName($functionSig);\n");
+    push(@hBody, "#endif /* ${conditionalString} */\n") if $conditionalString;
+    push(@hBody, "\n");
+
+    push(@cBody, "#if ${conditionalString}\n") if $conditionalString;
     push(@cBody, "$returnType\n$functionName($functionSig)\n{\n");
 
     if ($conditionalMethods{$functionName}) {
@@ -821,9 +830,9 @@ sub GenerateFunction {
 
     if ($returnType ne "void") {
         # TODO: return proper default result
-        push(@cBody, "    g_return_val_if_fail (self, 0);\n");
+        push(@cBody, "    g_return_val_if_fail(self, 0);\n");
     } else {
-        push(@cBody, "    g_return_if_fail (self);\n");
+        push(@cBody, "    g_return_if_fail(self);\n");
     }
 
     # The WebKit::core implementations check for NULL already; no need to
@@ -838,9 +847,9 @@ sub GenerateFunction {
         if (!$paramTypeIsPrimitive) {
             if ($returnType ne "void") {
                 # TODO: return proper default result
-                push(@cBody, "    g_return_val_if_fail ($paramName, 0);\n");
+                push(@cBody, "    g_return_val_if_fail($paramName, 0);\n");
             } else {
-                push(@cBody, "    g_return_if_fail ($paramName);\n");
+                push(@cBody, "    g_return_if_fail($paramName);\n");
             }
         }
     }
@@ -852,19 +861,19 @@ sub GenerateFunction {
 
         my $paramIsGDOMType = IsGDOMClassType($paramIDLType);
         if ($paramIDLType eq "DOMString") {
-            push(@cBody, "    WebCore::String _g_${paramName} = WebCore::String::fromUTF8($paramName);\n");
+            push(@cBody, "    WebCore::String converted_${paramName} = WebCore::String::fromUTF8($paramName);\n");
         } elsif ($paramIDLType eq "CompareHow") {
-            push(@cBody, "    WebCore::Range::CompareHow _g_${paramName} = static_cast<WebCore::Range::CompareHow>($paramName);\n");
+            push(@cBody, "    WebCore::Range::CompareHow converted_${paramName} = static_cast<WebCore::Range::CompareHow>($paramName);\n");
         } elsif ($paramIsGDOMType) {
-            push(@cBody, "    WebCore::${paramIDLType} * _g_${paramName} = WebKit::core($paramName);\n");
+            push(@cBody, "    WebCore::${paramIDLType} * converted_${paramName} = WebKit::core($paramName);\n");
             if ($returnType ne "void") {
                 # TODO: return proper default result
-                push(@cBody, "    g_return_val_if_fail (_g_${paramName}, 0);\n");
+                push(@cBody, "    g_return_val_if_fail(converted_${paramName}, 0);\n");
             } else {
-                push(@cBody, "    g_return_if_fail (_g_${paramName});\n");
+                push(@cBody, "    g_return_if_fail(converted_${paramName});\n");
             }
         }
-        $returnParamName = "_g_".$paramName if $param->extendedAttributes->{"Return"};
+        $returnParamName = "converted_".$paramName if $param->extendedAttributes->{"Return"};
     }
 
     my $assign = "";
@@ -923,35 +932,25 @@ EOF
         return;
     } elsif ($functionSigType eq "DOMString") {
         my $getterContentHead;
-        my $reflect = $function->signature->extendedAttributes->{"Reflect"};
-        my $reflectURL = $function->signature->extendedAttributes->{"ReflectURL"};
-        if ($reflect || $reflectURL) {
-            my $contentAttributeName = (($reflect || $reflectURL) eq "1") ? $functionSigName : ($reflect || $reflectURL);
-            my $namespace = $codeGenerator->NamespaceForAttributeName($interfaceName, $contentAttributeName);
-            $implIncludes{"${namespace}.h"} = 1;
-            my $getAttributeFunctionName = $reflectURL ? "getURLAttribute" : "getAttribute";
-            $getterContentHead = "${assign}convertToUTF8String(item->${getAttributeFunctionName}(WebCore::${namespace}::${contentAttributeName}Attr));\n";
+        if ($prefix) {
+            my $getterExpressionPrefix = $codeGenerator->GetterExpressionPrefix(\%implIncludes, $interfaceName, $function);
+            $getterContentHead = "${assign}convertToUTF8String(item->$getterExpressionPrefix${exceptions}));\n";
         } else {
             $getterContentHead = "${assign}convertToUTF8String(item->${functionSigName}(${callImplParams}${exceptions}));\n";
         }
-
         push(@cBody, "    ${getterContentHead}");
     } else {
-        my $setterContentHead;
-        my $reflect = $function->signature->extendedAttributes->{"Reflect"};
-        my $reflectURL = $function->signature->extendedAttributes->{"ReflectURL"};
-        if ($reflect || $reflectURL) {
-            my $contentAttributeName = (($reflect || $reflectURL) eq "1") ? $functionSigName : ($reflect || $reflectURL);
-            $contentAttributeName =~ s/set//;
-            $contentAttributeName = $codeGenerator->WK_lcfirst($contentAttributeName);
-            my $namespace = $codeGenerator->NamespaceForAttributeName($interfaceName, $contentAttributeName);
-            $implIncludes{"${namespace}.h"} = 1;
-            $setterContentHead = "${assign}${assignPre}item->setAttribute(WebCore::${namespace}::${contentAttributeName}Attr, ${callImplParams}${exceptions}${assignPost});\n";
+        my $contentHead;
+        if ($prefix eq "get_") {
+            my $getterExpressionPrefix = $codeGenerator->GetterExpressionPrefix(\%implIncludes, $interfaceName, $function);
+            $contentHead = "${assign}${assignPre}item->$getterExpressionPrefix${callImplParams}${exceptions}${assignPost});\n";
+        } elsif ($prefix eq "set_") {
+            my $setterExpressionPrefix = $codeGenerator->SetterExpressionPrefix(\%implIncludes, $interfaceName, $function);
+            $contentHead = "${assign}${assignPre}item->$setterExpressionPrefix${callImplParams}${exceptions}${assignPost});\n";
         } else {
-            $setterContentHead = "${assign}${assignPre}item->${functionSigName}(${callImplParams}${exceptions}${assignPost});\n";
+            $contentHead = "${assign}${assignPre}item->${functionSigName}(${callImplParams}${exceptions}${assignPost});\n";
         }
-
-        push(@cBody, "    ${setterContentHead}");
+        push(@cBody, "    ${contentHead}");
         
         if(@{$function->raisesExceptions}) {
             my $exceptionHandling = << "EOF";
@@ -982,7 +981,9 @@ EOF
         push(@cBody, "#endif\n");
     }
 
-    push(@cBody, "}\n\n");
+    push(@cBody, "}\n");
+    push(@cBody, "#endif /* ${conditionalString} */\n") if $conditionalString;
+    push(@cBody, "\n");
 }
 
 sub ClassHasFunction {
@@ -1014,7 +1015,6 @@ sub GenerateFunctions {
             # This will conflict with the get_type() function we define to return a GType
             # according to GObject conventions.  Skip this for now.
             || $attribute->signature->name eq "URL"     # TODO: handle this
-            || $attribute->signature->extendedAttributes->{"ConvertFromString"}    # TODO: handle this
             ) {
             next TOP;
         }
@@ -1044,8 +1044,8 @@ sub GenerateFunctions {
         $function = new domFunction();
         
         $function->signature(new domSignature());
-        $function->signature->name($setname);
-        $function->signature->type("void");
+        $function->signature->name($attribute->signature->name);
+        $function->signature->type($attribute->signature->type);
         $function->signature->extendedAttributes($attribute->signature->extendedAttributes);
         
         my $param = new domSignature();
@@ -1058,7 +1058,7 @@ sub GenerateFunctions {
         
         $function->raisesExceptions($attribute->setterExceptions);
         
-        $object->GenerateFunction($interfaceName, $function, "");
+        $object->GenerateFunction($interfaceName, $function, "set_");
     }
 }
 
@@ -1128,7 +1128,7 @@ sub GenerateEndHeader {
     my $guard = $className . "_h";
 
     push(@hBody, "G_END_DECLS\n\n");
-    push(@hBody, "#endif /* $guard */\n");
+    push(@hPrefixGuardEnd, "#endif /* $guard */\n");
 }
 
 sub GeneratePrivateHeader {
@@ -1189,7 +1189,7 @@ EOF
 #endif /* ${guard} */
 EOF
     print PRIVHEADER $text;
-    
+
     close(PRIVHEADER);
 }
 
@@ -1247,6 +1247,11 @@ sub Generate {
     my $parentClassName = GetParentClassName($dataNode);
     my $parentGObjType = GetParentGObjType($dataNode);
     my $interfaceName = $dataNode->name;
+
+    # Add the guard if the 'Conditional' extended attribute exists
+    my $conditionalString = GenerateConditionalString($dataNode);
+    push(@conditionGuardStart, "#if ${conditionalString}\n\n") if $conditionalString;
+    push(@conditionGuardEnd, "#endif /* ${conditionalString} */\n") if $conditionalString;
 
     # Add the default impl header template
     @cPrefix = split("\r", $licenceTemplate);
@@ -1308,6 +1313,7 @@ sub WriteData {
     print HEADER "\n";
     print HEADER @hBodyPre;
     print HEADER @hBody;
+    print HEADER @hPrefixGuardEnd;
 
     close(HEADER);
 
@@ -1318,6 +1324,7 @@ sub WriteData {
     print IMPL @cPrefix;
     print IMPL "#include <glib-object.h>\n";
     print IMPL "#include \"config.h\"\n\n";
+    print IMPL @conditionGuardStart;
     print IMPL "#include <wtf/GetPtr.h>\n";
     print IMPL "#include <wtf/RefPtr.h>\n";
     print IMPL map { "#include \"$_\"\n" } sort keys(%implIncludes);
@@ -1326,6 +1333,7 @@ sub WriteData {
 
     print IMPL "\n";
     print IMPL @cBodyPriv;
+    print IMPL @conditionGuardEnd;
 
     close(IMPL);
 

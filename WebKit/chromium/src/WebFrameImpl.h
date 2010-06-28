@@ -64,7 +64,7 @@ class WebFrameImpl : public WebFrame, public RefCounted<WebFrameImpl> {
 public:
     // WebFrame methods:
     virtual WebString name() const;
-    virtual void clearName();
+    virtual void setName(const WebString&);
     virtual WebURL url() const;
     virtual WebURL favIconURL() const;
     virtual WebURL openSearchDescriptionURL() const;
@@ -149,6 +149,9 @@ public:
     virtual float printPage(int pageToPrint, WebCanvas*);
     virtual float getPrintPageShrink(int page);
     virtual void printEnd();
+    virtual bool isPageBoxVisible(int pageIndex);
+    virtual WebRect pageAreaRectInPixels(int pageIndex);
+    virtual WebSize preferredPageSizeInPixels(int pageIndex);
     virtual bool find(
         int identifier, const WebString& searchText, const WebFindOptions&,
         bool wrapWithinFrame, WebRect* selectionRect);

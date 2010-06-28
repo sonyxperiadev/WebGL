@@ -1,3 +1,779 @@
+2010-06-24  Jer Noble  <jer.noble@apple.com>
+
+        Reviewed by Eric Carlson.
+
+        Full-screened content doesn't keep the display on: Safari not grabbing a power assertion?
+        https://bugs.webkit.org/show_bug.cgi?id=40939
+        rdar://problem/7996172
+        
+        Take a IOKit power assertion when playing video in fullscreen mode.  Release the
+        assertion when paused in fullscreen mode, and when exiting fullscreen mode.
+
+        * WebView/WebVideoFullscreenController.h:
+        * WebView/WebVideoFullscreenController.mm:
+        (-[WebVideoFullscreenController windowDidExitFullscreen]): Call updatePowerAssertions.
+        (-[WebVideoFullscreenController windowDidEnterFullscreen]): Call updatePowerAssertions.
+        (-[WebVideoFullscreenController _disableIdleDisplaySleep]):
+        (-[WebVideoFullscreenController _enableIdleDisplaySleep]):
+        (-[WebVideoFullscreenController _disableIdleSystemSleep]):
+        (-[WebVideoFullscreenController _enableIdleSystemSleep]):
+        (-[WebVideoFullscreenController updatePowerAssertions]): Call _(enable|disable)Idle(System|Display)sleep depending on current playback rate and fullscreen status.
+        (-[WebVideoFullscreenController rateChanged:]): Call updatePowerAssertions.
+
+2010-06-24  Jer Noble  <jer.noble@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Playing movie full screen on second monitor hides menu bar and title bar on main monitor
+        https://bugs.webkit.org/show_bug.cgi?id=40933
+        rdar://problem/7858452
+        
+        Remove all references to GetSystemUIMode and SetSystemUIMode.  Replace these calls with 
+        [NSApplication setPresentationOptions:].  Do not auto-hide the menu bar if the fullscreen
+        screen is does not contain the menu-bar.  Do not auto-hide the dock if the fullscreen screen
+        is both not the menu-bar screen and not the dock screen.
+
+        * WebView/WebVideoFullscreenController.mm:
+        (-[WebVideoFullscreenController windowDidLoad]): Register the applicationDidChangeScreenParameters: listener.
+        (-[WebVideoFullscreenController windowDidExitFullscreen]): Calls updateMenuAndDockForFullscreen.
+        (-[WebVideoFullscreenController windowDidEnterFullscreen]): Calls updateMenuAndDockForFullscreen.
+        (-[WebVideoFullscreenController applicationDidChangeScreenParameters:]):  New notification handler; catches NSApplicationDidChangeScreenParameters.
+        (-[WebVideoFullscreenController updateMenuAndDockForFullscreen]): Hide/show the menu-bar and dock according to the fullscreen window's screen.
+
+2010-06-24  Jer Noble  <jer.noble@apple.com>
+
+        Reviewed by Eric Carlson.
+
+        Full screen video in Safari exits full-screen if you switch to another app
+        https://bugs.webkit.org/show_bug.cgi?id=40635
+        rdar://problem/7885101
+
+        Implement the following rules for exiting full screen when switching apps:
+        1. If the system has a single screen, switching apps will cause Safari to exit full-screen.
+        2. Otherwise, if the full-screen screen is the "main screen" (the one with the title bar), 
+           switching apps will cause Safari to exit full-screen.
+        3. Overriding rules 1 & 2, if the full-screen screen is not on the "current space", 
+           switching apps will NOT cause Safari to exit full-screen.
+
+        * WebView/WebVideoFullscreenController.mm:
+        (-[WebVideoFullscreenController windowDidLoad]):
+        (-[WebVideoFullscreenController applicationDidResignActive:]):
+
+2010-06-24  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Updated fix for <rdar://problem/8093680> "Paste and Match Style" should fire paste events
+        https://bugs.webkit.org/show_bug.cgi?id=41085
+
+        * WebView/WebHTMLView.mm: Use the WebCore command system for the pasteAsPlainText selector.
+        Also remove internal methods that no one is using.
+
+2010-06-24  Damian Kaleta  <dkaleta@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Added an ObjC wrapper to Node::renderRect(bool&).
+
+        * DOM/WebDOMOperations.mm:
+        (-[DOMNode _renderRect:]):
+        * DOM/WebDOMOperationsPrivate.h:
+
+2010-06-24  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Eric Carlson.
+
+        Fix for <rdar://problem/8093680> "Paste and Match Style" should fire paste events
+        https://bugs.webkit.org/show_bug.cgi?id=41085
+
+        * WebView/WebHTMLView.mm: (-[WebHTMLView pasteAsPlainText:]): Reuse code in WebCore
+        which does everything done here and also fires paste events.
+
+2010-06-23  Yuzo Fujishima  <yuzo@google.com>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Implement page format data programming interface.
+        Add methods for testing.
+        https://bugs.webkit.org/show_bug.cgi?id=37538
+
+        * Misc/WebCoreStatistics.h:
+        * Misc/WebCoreStatistics.mm:
+        (-[WebFrame isPageBoxVisible:]):
+        (-[WebFrame pageAreaRectInPixels:]):
+        (-[WebFrame preferredPageSizeInPixels:]):
+
+2010-06-22  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Get rid of more USE_LIBDISPATCH code.
+
+        * Plugins/Hosted/NetscapePluginHostProxy.h:
+
+2010-06-22  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Get rid of the USE_LIBDISPATCH code.
+
+        * Plugins/Hosted/NetscapePluginHostProxy.mm:
+        (WebKit::NetscapePluginHostProxy::NetscapePluginHostProxy):
+        (WebKit::NetscapePluginHostProxy::~NetscapePluginHostProxy):
+
+2010-06-22  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Wean NetscapePluginHostManager of any knowledge about WebNetscapePluginPackage
+        https://bugs.webkit.org/show_bug.cgi?id=41006
+
+        * Plugins/Hosted/NetscapePluginHostManager.h:
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        (WebKit::NetscapePluginHostManager::hostForPlugin):
+        (WebKit::NetscapePluginHostManager::spawnPluginHost):
+        (WebKit::NetscapePluginHostManager::instantiatePlugin):
+        (WebKit::NetscapePluginHostManager::createPropertyListFile):
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm:
+        (-[WebHostedNetscapePluginView createPlugin]):
+        * Plugins/WebNetscapePluginPackage.mm:
+        (-[WebNetscapePluginPackage createPropertyListFile]):
+
+2010-06-21  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Fix an off-by-one bug I introduced.
+
+        * Plugins/WebNetscapePluginPackage.mm:
+        (-[WebNetscapePluginPackage getPluginInfoFromResources]):
+
+2010-06-21  Nate Chapin  <japhet@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        FrameLoader cleanup: Split high level subframe and plugin
+        loading functions into a separate class.
+        https://bugs.webkit.org/show_bug.cgi?id=40453
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _cacheabilityDictionary]):
+
+2010-06-21  Anders Carlsson  <andersca@apple.com>
+
+        Another Tiger build fix.
+
+        * Plugins/WebNetscapePluginPackage.mm:
+        (-[WebNetscapePluginPackage _tryLoad]):
+
+2010-06-21  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        More WebBasePluginPackage cleanup
+        https://bugs.webkit.org/show_bug.cgi?id=40944
+
+        * Plugins/Hosted/HostedNetscapePluginStream.mm:
+        (WebKit::HostedNetscapePluginStream::pluginCancelledConnectionError):
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        (WebKit::NetscapePluginHostManager::spawnPluginHost):
+        * Plugins/WebBaseNetscapePluginStream.mm:
+        (WebNetscapePluginStream::pluginCancelledConnectionError):
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (WebHaltablePlugin::pluginName):
+        * Plugins/WebBasePluginPackage.h:
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage initWithPath:]):
+        (-[WebBasePluginPackage _objectForInfoDictionaryKey:]):
+        (-[WebBasePluginPackage getPluginInfoFromPLists]):
+        (-[WebBasePluginPackage load]):
+        (-[WebBasePluginPackage dealloc]):
+        (-[WebBasePluginPackage finalize]):
+        (-[WebBasePluginPackage pluginInfo]):
+        (-[WebBasePluginPackage supportsExtension:]):
+        (-[WebBasePluginPackage supportsMIMEType:WebCore::]):
+        (-[WebBasePluginPackage MIMETypeForExtension:]):
+        (-[WebBasePluginPackage isJavaPlugIn]):
+        (-[WebBasePluginPackage versionNumber]):
+        (-[WebBasePluginPackage WebCore::]):
+        * Plugins/WebNetscapePluginPackage.mm:
+        (-[WebNetscapePluginPackage openResourceFile]):
+        (-[WebNetscapePluginPackage closeResourceFile:]):
+        (-[WebNetscapePluginPackage getPluginInfoFromResources]):
+        (-[WebNetscapePluginPackage _initWithPath:]):
+        (-[WebNetscapePluginPackage _applyDjVuWorkaround]):
+        (-[WebNetscapePluginPackage _tryLoad]):
+        (-[WebNetscapePluginPackage supportsSnapshotting]):
+        (-[WebNetscapePluginPackage _unloadWithShutdown:]):
+        * Plugins/WebPluginDatabase.mm:
+        (-[WebPluginDatabase refresh]):
+        (-[WebPluginDatabase _removePlugin:]):
+        * Plugins/WebPluginPackage.mm:
+        (-[WebPluginPackage initWithPath:]):
+        (-[WebPluginPackage load]):
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::createPlugin):
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::getPluginInfo):
+
+2010-06-21  Anders Carlsson  <andersca@apple.com>
+
+        Another PowerPC build fix.
+
+        * Plugins/WebNetscapePluginPackage.mm:
+        (-[WebNetscapePluginPackage openResourceFile]):
+        (-[WebNetscapePluginPackage _tryLoad]):
+
+2010-06-21  Anders Carlsson  <andersca@apple.com>
+
+        Try to fix the PowerPC build.
+
+        * Plugins/WebNetscapePluginPackage.mm:
+        (-[WebNetscapePluginPackage _tryLoad]):
+
+2010-06-21  Nate Chapin  <japhet@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Update relevant calls into FrameLoader to make use of 
+        FrameLoaderStateMachine.
+        https://bugs.webkit.org/show_bug.cgi?id=39695
+
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::transitionToCommittedForNewPage):
+        * WebView/WebFrame.mm:
+        (-[WebFrame _firstLayoutDone]):
+
+2010-06-21  Dimitri Glazkov  <dglazkov@chromium.org>
+
+        Reviewed by Dan Bernstein.
+
+        Chromium/Mac build fix.
+
+        * WebCoreSupport/WebSystemInterface.mm: Change the order of wtf/Platform.h include to let other 
+            headers smell it.
+
+2010-06-21  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Make all of WebKit build with clang++
+
+        * DefaultDelegates/WebDefaultPolicyDelegate.m:
+        (-[WebDefaultPolicyDelegate webView:decidePolicyForMIMEType:request:frame:decisionListener:]):
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (-[WebBaseNetscapePluginView resolvedURLStringForURL:target:]):
+        * WebView/WebDynamicScrollBarsView.mm:
+        (-[WebDynamicScrollBarsView setSuppressLayout:]):
+        * WebView/WebHTMLRepresentation.mm:
+        * WebView/WebNavigationData.mm:
+        (-[WebNavigationData initWithURLString:title:originalRequest:response:hasSubstituteData:clientRedirectSource:]):
+        * WebView/WebPDFRepresentation.mm:
+        (-[WebPDFRepresentation setDataSource:]):
+        (-[WebPDFRepresentation receivedData:withDataSource:]):
+        (-[WebPDFRepresentation receivedError:withDataSource:]):
+        * WebView/WebResource.mm:
+        (-[WebResource description]):
+        * WebView/WebSerializedJSValue.mm:
+        (-[WebSerializedJSValue initWithValue:context:exception:]):
+        * WebView/WebVideoFullscreenController.mm:
+        (-[WebVideoFullscreenController WebCore::]):
+        (-[WebVideoFullscreenController setMediaElement:WebCore::]):
+        (-[WebVideoFullscreenController setDelegate:]):
+        (-[WebVideoFullscreenController enterFullscreen:]):
+        * WebView/WebView.mm:
+        (-[WebView _openFrameInNewWindowFromMenu:]):
+        (-[WebView _geolocationDidChangePosition:]):
+
+2010-06-21  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Remove unused dictionary ivars from WebBasePluginPackage
+        https://bugs.webkit.org/show_bug.cgi?id=40928
+
+        * Plugins/WebBasePluginPackage.h:
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage getPluginInfoFromPLists]):
+        (-[WebBasePluginPackage dealloc]):
+        * Plugins/WebNetscapePluginPackage.mm:
+        (-[WebNetscapePluginPackage getPluginInfoFromResources]):
+
+2010-06-21  Dan Bernstein  <mitz@apple.com>
+
+        Build fix
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface):
+
+2010-06-21  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Darin Adler.
+
+        WebKit part of implementing the 'hyphens' and 'hyphenate-character' properties
+        https://bugs.webkit.org/show_bug.cgi?id=10228
+
+        * WebCoreSupport/WebSystemInterface.mm:
+        (InitWebCoreSystemInterface): Initialize wkGetHyphenationLocationBeforeIndex.
+
+2010-06-21  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Speech Input Patch 0: Added compilation argument to conditionally compile pending patches.
+        https://bugs.webkit.org/show_bug.cgi?id=40878
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-06-20  Anders Carlsson  <andersca@apple.com>
+
+        Fix Tiger build.
+
+        * Plugins/WebNetscapePluginPackage.mm:
+
+2010-06-20  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Get rid of the old MIMETypes getter method
+        https://bugs.webkit.org/show_bug.cgi?id=40898
+
+        * Plugins/WebBasePluginPackage.h:
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage supportsExtension:]):
+        (-[WebBasePluginPackage supportsMIMEType:WebCore::]):
+        (-[WebBasePluginPackage MIMETypeForExtension:]):
+        * Plugins/WebPluginDatabase.mm:
+        (-[WebPluginDatabase refresh]):
+        (-[WebPluginDatabase _removePlugin:]):
+
+2010-06-20  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Remove bogus const qualifiers.
+
+        * WebCoreSupport/WebPasteboardHelper.h:
+        * WebCoreSupport/WebPasteboardHelper.mm:
+        (WebPasteboardHelper::urlFromPasteboard):
+        (WebPasteboardHelper::plainTextFromPasteboard):
+        (WebPasteboardHelper::fragmentFromPasteboard):
+
+2010-06-20  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Get rid of the extensionToMIME mapping in WebBasePluginPackage
+        https://bugs.webkit.org/show_bug.cgi?id=40897
+
+        Instead of using the extensionToMIME mutable dictionary, use the MIME types vector.
+        While this makes lookup of MIME types based on extensions linear instead of constant,
+        the number of extensions per plug-in is too small for it to matter.
+
+        * Plugins/WebBasePluginPackage.h:
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage initWithPath:]):
+        (-[WebBasePluginPackage dealloc]):
+        (-[WebBasePluginPackage supportsExtension:]):
+        (-[WebBasePluginPackage MIMETypeForExtension:]):
+        (-[WebBasePluginPackage setMIMEToExtensionsDictionary:]):
+
+2010-06-20  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Add a MimeClassInfo Vector to WebBasePluginPackage
+        https://bugs.webkit.org/show_bug.cgi?id=40896
+
+        * Plugins/WebBasePluginPackage.h:
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage getPluginInfoFromPLists]):
+        (-[WebBasePluginPackage WebCore::]):
+        * Plugins/WebNetscapePluginPackage.mm:
+        (-[WebNetscapePluginPackage getPluginInfoFromResources]):
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::getPluginInfo):
+
+2010-06-20  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Move the NSBundle ivar to WebPluginPackage
+        https://bugs.webkit.org/show_bug.cgi?id=40894
+
+        * Plugins/WebBasePluginPackage.h:
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage initWithPath:]):
+        (-[WebBasePluginPackage _objectForInfoDictionaryKey:]):
+        (-[WebBasePluginPackage getPluginInfoFromPLists]):
+        (-[WebBasePluginPackage load]):
+        (-[WebBasePluginPackage dealloc]):
+        * Plugins/WebNetscapePluginPackage.mm:
+        (-[WebNetscapePluginPackage _initWithPath:]):
+        * Plugins/WebPluginPackage.h:
+        * Plugins/WebPluginPackage.mm:
+        (-[WebPluginPackage initWithPath:]):
+        (-[WebPluginPackage dealloc]):
+        (-[WebPluginPackage viewFactory]):
+        (-[WebPluginPackage load]):
+
+2010-06-20  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Remove -[WebBasePluginPackage bundle]
+        https://bugs.webkit.org/show_bug.cgi?id=40892
+
+        Add -[WebBasePluginPackage bundleIdentifier] and switch clients over to it.
+        
+        Move the supportsSnapshotting method over to the plug-in package.
+        
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        (WebKit::NetscapePluginHostManager::hostForPackage):
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (-[WebBaseNetscapePluginView initWithFrame:pluginPackage:URL:baseURL:MIMEType:attributeKeys:attributeValues:loadManually:element:WebCore::]):
+        (-[WebBaseNetscapePluginView supportsSnapshotting]):
+        * Plugins/WebBasePluginPackage.h:
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage isQuickTimePlugIn]):
+        (-[WebBasePluginPackage isJavaPlugIn]):
+        (-[WebBasePluginPackage WebCore::]):
+        Call bundleIdentifier directly instead of asking the bundle 
+        * Plugins/WebNetscapePluginPackage.h:
+        * Plugins/WebNetscapePluginPackage.mm:
+        (-[WebNetscapePluginPackage supportsSnapshotting]):
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView setAttributeKeys:andValues:]):
+        (-[WebNetscapePluginView _createPlugin]):
+        * Plugins/WebPluginDatabase.mm:
+        (checkCandidate):
+
+2010-06-20  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Change some WebPluginDabase ivars to use WebCore::String instead of NSString.
+        https://bugs.webkit.org/show_bug.cgi?id=40869
+        
+        Re-land r61459, with extra null-checks in WebFrameLoaderClient.
+
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        (WebKit::NetscapePluginHostManager::spawnPluginHost):
+        * Plugins/WebBasePluginPackage.h:
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage initWithPath:]):
+        (-[WebBasePluginPackage getPluginInfoFromPLists]):
+        (-[WebBasePluginPackage dealloc]):
+        (-[WebBasePluginPackage name]):
+        (-[WebBasePluginPackage path]):
+        (-[WebBasePluginPackage filename]):
+        (-[WebBasePluginPackage pluginDescription]):
+        (-[WebBasePluginPackage description]):
+        (-[WebBasePluginPackage isJavaPlugIn]):
+        * Plugins/WebNetscapePluginPackage.mm:
+        (-[WebNetscapePluginPackage getPluginInfoFromResources]):
+        (-[WebNetscapePluginPackage _tryLoad]):
+        (-[WebNetscapePluginPackage _unloadWithShutdown:]):
+        * Plugins/WebPluginPackage.mm:
+        (-[WebPluginPackage load]):
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::createPlugin):
+
+2010-06-18  Adam Barth  <abarth@webkit.org>
+
+        Unreviewed, rolling out r61459.
+        http://trac.webkit.org/changeset/61459
+        https://bugs.webkit.org/show_bug.cgi?id=40869
+
+        Seems to have broken two tests on the Tiger buildbot:
+
+        dom/html/level2/html/AppletsCollection.html
+        plugins/qt-qwidget-plugin.html
+
+        Anders wasn't on #webkit...
+
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        (WebKit::NetscapePluginHostManager::spawnPluginHost):
+        * Plugins/WebBasePluginPackage.h:
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage initWithPath:]):
+        (-[WebBasePluginPackage getPluginInfoFromPLists]):
+        (-[WebBasePluginPackage dealloc]):
+        (-[WebBasePluginPackage name]):
+        (-[WebBasePluginPackage path]):
+        (-[WebBasePluginPackage filename]):
+        (-[WebBasePluginPackage pluginDescription]):
+        (-[WebBasePluginPackage setName:]):
+        (-[WebBasePluginPackage setPath:]):
+        (-[WebBasePluginPackage setPluginDescription:]):
+        (-[WebBasePluginPackage description]):
+        (-[WebBasePluginPackage isJavaPlugIn]):
+        * Plugins/WebNetscapePluginPackage.mm:
+        (-[WebNetscapePluginPackage getPluginInfoFromResources]):
+        (-[WebNetscapePluginPackage _tryLoad]):
+        (-[WebNetscapePluginPackage _unloadWithShutdown:]):
+        * Plugins/WebPluginPackage.mm:
+        (-[WebPluginPackage load]):
+
+2010-06-18  Anders Carlsson  <andersca@apple.com>
+
+        Fix Tiger build.
+
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage isJavaPlugIn]):
+
+2010-06-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Change some WebPluginDabase ivars to use WebCore::String instead of NSString.
+        https://bugs.webkit.org/show_bug.cgi?id=40869
+
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        (WebKit::NetscapePluginHostManager::spawnPluginHost):
+        * Plugins/WebBasePluginPackage.h:
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage initWithPath:]):
+        (-[WebBasePluginPackage getPluginInfoFromPLists]):
+        (-[WebBasePluginPackage dealloc]):
+        (-[WebBasePluginPackage name]):
+        (-[WebBasePluginPackage path]):
+        (-[WebBasePluginPackage filename]):
+        (-[WebBasePluginPackage pluginDescription]):
+        (-[WebBasePluginPackage description]):
+        (-[WebBasePluginPackage isJavaPlugIn]):
+        * Plugins/WebNetscapePluginPackage.mm:
+        (-[WebNetscapePluginPackage getPluginInfoFromResources]):
+        (-[WebNetscapePluginPackage _tryLoad]):
+        (-[WebNetscapePluginPackage _unloadWithShutdown:]):
+        * Plugins/WebPluginPackage.mm:
+        (-[WebPluginPackage load]):
+
+2010-06-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Rename WebPluginPackage.m to make it an Objective-C++ file.
+        
+        * Plugins/WebPluginPackage.m: Removed.
+        * Plugins/WebPluginPackage.mm: Copied from Plugins/WebPluginPackage.m.
+
+2010-06-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Get rid of the NSEnumerators from WebBasePluginPackage
+        https://bugs.webkit.org/show_bug.cgi?id=40868
+
+        * Plugins/WebBasePluginPackage.h:
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage MIMETypes]):
+        (-[WebBasePluginPackage supportsExtension:]):
+        (-[WebBasePluginPackage supportsMIMEType:]):
+        * Plugins/WebPluginDatabase.mm:
+        (-[WebPluginDatabase pluginForMIMEType:]):
+        (-[WebPluginDatabase pluginForExtension:]):
+        (-[WebPluginDatabase refresh]):
+        (-[WebPluginDatabase _removePlugin:]):
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::getPluginInfo):
+
+2010-06-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Make WebCoreSystemInterface.h a C++ only header
+        https://bugs.webkit.org/show_bug.cgi?id=40867
+
+        * WebCoreSupport/WebSystemInterface.h:
+        * WebCoreSupport/WebSystemInterface.m: Removed.
+        * WebCoreSupport/WebSystemInterface.mm: Copied from WebKit/mac/WebCoreSupport/WebSystemInterface.m.
+
+2010-06-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Clean up WebPluginDatabase.mm
+        https://bugs.webkit.org/show_bug.cgi?id=40866
+
+        * Plugins/WebBasePluginPackage.h:
+        * Plugins/WebBasePluginPackage.mm:
+        (pathByResolvingSymlinksAndAliases):
+        (-[WebBasePluginPackage initWithPath:]):
+        Change an instance method into a static function.
+        
+        * Plugins/WebPluginDatabase.mm:
+        (PluginPackageCandidates::PluginPackageCandidates):
+        (PluginPackageCandidates::update):
+        (PluginPackageCandidates::bestCandidate):
+        Add a new PluginPackageCandidates class.
+        
+        (-[WebPluginDatabase pluginForKey:withEnumeratorSelector:]):
+        Use PluginPackageCandidates here.
+
+2010-06-18  Anders Carlsson  <andersca@apple.com>
+
+        Fix Tiger build.
+        
+        * WebCoreSupport/WebPlatformStrategies.mm:
+
+2010-06-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Get rid of PluginDataMac.mm and use the plug-in strategy instead
+        https://bugs.webkit.org/show_bug.cgi?id=40860
+
+        * Plugins/WebBasePluginPackage.h:
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::createPluginStrategy):
+        (WebPlatformStrategies::refreshPlugins):
+        (WebPlatformStrategies::getPluginInfo):
+        * WebCoreSupport/WebViewFactory.mm:
+
+2010-06-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Add stubbed out WebPlatformStrategies class to WebKit.
+        https://bugs.webkit.org/show_bug.cgi?id=40851
+
+        * WebCoreSupport/WebPlatformStrategies.h: Added.
+        * WebCoreSupport/WebPlatformStrategies.mm: Added.
+        (WebPlatformStrategies::initialize):
+        (WebPlatformStrategies::WebPlatformStrategies):
+        (WebPlatformStrategies::createPluginStrategy):
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:usesDocumentViews:]):
+
+2010-06-15  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Move isAvailable()/setIsAvailable() from Database/DatabaseSync to AbstractDatabase.
+        https://bugs.webkit.org/show_bug.cgi?id=39041
+
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+
+2010-06-17  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Use adoptRef and create functions in more code paths
+        https://bugs.webkit.org/show_bug.cgi?id=40760
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h: Made create no longer
+        be an inline function.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::NetscapePluginInstanceProxy):
+        Moved the call to addPluginInstance out of here.
+        (WebKit::NetscapePluginInstanceProxy::create): Move it in here.
+        This makes sure we call adoptRef on the new proxy before any caller
+        calls ref on it.
+
+2010-06-16  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Enable HTML5 Parser in Safari on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=40739
+
+        The HTML5 parser is probably off on all webkit ports.
+        We should either flip the meaning of the default so that
+        "false" means HTML5 on all ports, or we'll have to write
+        more code like this for all the other ports.
+
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+
+2010-06-15  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Don't leak WebGeolocationPositionInternal and GeolocationPosition instances for every WebGeolocationPosition created.
+
+        * WebView/WebGeolocationPosition.mm:
+        (-[WebGeolocationPosition dealloc]): Implement -dealloc and release our WebGeolocationPositionInternal instance.
+
+2010-06-10  Yuzo Fujishima  <yuzo@google.com>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Implement render style selection for pages to support CSS3 Paged Media.
+        https://bugs.webkit.org/show_bug.cgi?id=35961
+
+        * Misc/WebCoreStatistics.h:
+        * Misc/WebCoreStatistics.mm:
+        (-[WebFrame pageProperty:propertyName:]):
+
+2010-06-15  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Move functions out of Frame class that were marked "move to Chrome"
+        https://bugs.webkit.org/show_bug.cgi?id=39636
+
+        * WebView/WebView.mm:
+        (-[WebView shouldClose]): Call shouldClose on FrameLoader instead of
+        going through Frame.
+
+2010-06-15  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Remove getPluginInfoFromBundleAndMIMEDictionary:
+
+        * Plugins/WebBasePluginPackage.mm:
+
+2010-06-15  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Fold getPluginInfoFromBundleAndMIMEDictionary: into its sole caller.
+
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage getPluginInfoFromPLists]):
+
+2010-06-11  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/8084721> Pages using accelerated compositing fail to update correctly in Carbon apps
+        
+        The run loop observer used to commit compositing layer changes does not do
+        updates if [window viewsNeedDisplay] is true, because this indicates that a delayed window
+        update is pending (added in r58623).
+        
+        However, Carbon apps don't use the NSWindow updating mechanism, so [window viewsNeedDisplay] always returns YES.
+        This caused us to never sync compositing layers.
+        
+        So detect if the current window is wrapping a carbon window, and in that case consult the root
+        HIView to detect if display is pending.
+
+        * WebView/WebView.mm:
+        (layerSyncRunLoopObserverCallBack):
+
+2010-06-15  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by John Sullivan.
+
+        <rdar://problem/8077032> REGRESSION (r50796): Black background on AppleScript generated email
+
+        Test: platform/mac/editing/input/NSBackgroundColor-transparent.html
+
+        r50796 changed the initial background color from invalid to transparent. As a result,
+        NSAttributedStrings returned from +_web_attributedStringFromRange started including the
+        NSBackgroundColor attribute, with a transparent color as the value. This caused problems for
+        components in the system that ignore the alpha component, turning the color into opaque black.
+
+        * Misc/WebNSAttributedStringExtras.mm:
+        (+[NSAttributedString _web_attributedStringFromRange:]): Change to not include the background
+        and foreground color attributes if the color are transparent.
+
 2010-06-14  Ilya Tikhonovsky  <loislo@chromium.org>
 
         Reviewed by Pavel Feldman.

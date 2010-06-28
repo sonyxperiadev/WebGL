@@ -142,7 +142,11 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 # HTML
 GEN := \
     $(intermediates)/bindings/V8Blob.h \
+<<<<<<< HEAD
     $(intermediates)/bindings/V8DOMFormData.h \
+=======
+    $(intermediates)/bindings/V8BlobBuilder.h \
+>>>>>>> webkit.org at r61871
     $(intermediates)/bindings/V8DataGridColumn.h \
     $(intermediates)/bindings/V8DataGridColumnList.h \
     $(intermediates)/bindings/V8File.h \
@@ -340,6 +344,7 @@ GEN := \
     $(intermediates)/bindings/V8DatabaseCallback.h \
     $(intermediates)/bindings/V8DatabaseSync.h \
     $(intermediates)/bindings/V8SQLError.h \
+    $(intermediates)/bindings/V8SQLException.h \
     $(intermediates)/bindings/V8SQLResultSet.h \
     $(intermediates)/bindings/V8SQLResultSetRowList.h \
     $(intermediates)/bindings/V8SQLStatementCallback.h \

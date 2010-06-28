@@ -182,6 +182,7 @@ SET(WebCore_IDL_FILES
     dom/WheelEvent.idl
 
     html/Blob.idl
+    html/BlobBuilder.idl
     html/DataGridColumn.idl
     html/DataGridColumnList.idl
     html/DOMFormData.idl
@@ -335,6 +336,7 @@ SET(WebCore_IDL_FILES
     storage/IDBSuccessEvent.idl
     storage/IndexedDatabaseRequest.idl
     storage/SQLError.idl
+    storage/SQLException.idl
     storage/SQLResultSet.idl
     storage/SQLResultSetRowList.idl
     storage/SQLStatementCallback.idl
@@ -346,6 +348,8 @@ SET(WebCore_IDL_FILES
     storage/SQLTransactionSyncCallback.idl
     storage/Storage.idl
     storage/StorageEvent.idl
+
+    websockets/WebSocket.idl
 
     workers/AbstractWorker.idl
     workers/DedicatedWorkerContext.idl
@@ -511,7 +515,7 @@ ENDIF()
 SET(WebCore_SOURCES
     ${DERIVED_SOURCES_DIR}/CSSGrammar.cpp
     ${DERIVED_SOURCES_DIR}/HTMLElementFactory.cpp
-    ${DERIVED_SOURCES_DIR}/HTMLEntityNames.c
+    ${DERIVED_SOURCES_DIR}/HTMLEntityNames.cpp
     ${DERIVED_SOURCES_DIR}/HTMLNames.cpp
     ${DERIVED_SOURCES_DIR}/JSHTMLElementWrapperFactory.cpp
     ${DERIVED_SOURCES_DIR}/UserAgentStyleSheetsData.cpp
@@ -583,7 +587,7 @@ SET(WebCore_SOURCES
     bindings/js/JSElementCustom.cpp
     bindings/js/JSEventCustom.cpp
     bindings/js/JSEventListener.cpp
-    bindings/js/JSEventSourceConstructor.cpp
+    bindings/js/JSEventSourceCustom.cpp
     bindings/js/JSEventTarget.cpp
     bindings/js/JSExceptionBase.cpp
     bindings/js/JSGeolocationCustom.cpp
@@ -612,7 +616,6 @@ SET(WebCore_SOURCES
     bindings/js/JSLazyEventListener.cpp
     bindings/js/JSLocationCustom.cpp
     bindings/js/JSMainThreadExecState.cpp
-    bindings/js/JSMessageChannelConstructor.cpp
     bindings/js/JSMessageChannelCustom.cpp
     bindings/js/JSMessageEventCustom.cpp
     bindings/js/JSMessagePortCustom.cpp
@@ -630,7 +633,6 @@ SET(WebCore_SOURCES
     bindings/js/JSPluginElementFunctions.cpp
     bindings/js/JSPopStateEventCustom.cpp
     bindings/js/JSScriptProfileNodeCustom.cpp
-    bindings/js/JSSharedWorkerConstructor.cpp
     bindings/js/JSSharedWorkerCustom.cpp
     bindings/js/JSSQLResultSetRowListCustom.cpp
     bindings/js/JSSQLTransactionCustom.cpp
@@ -640,16 +642,14 @@ SET(WebCore_SOURCES
     bindings/js/JSStyleSheetListCustom.cpp
     bindings/js/JSTextCustom.cpp
     bindings/js/JSTreeWalkerCustom.cpp
-    bindings/js/JSWebKitCSSMatrixConstructor.cpp
-    bindings/js/JSWebKitPointConstructor.cpp
-    bindings/js/JSWorkerConstructor.cpp
+    bindings/js/JSWebKitCSSMatrixCustom.cpp
+    bindings/js/JSWebKitPointCustom.cpp
     bindings/js/JSWorkerContextBase.cpp
     bindings/js/JSWorkerContextCustom.cpp
     bindings/js/JSWorkerContextErrorHandler.cpp
     bindings/js/JSWorkerCustom.cpp
     bindings/js/JSXMLHttpRequestCustom.cpp
     bindings/js/JSXMLHttpRequestUploadCustom.cpp
-    bindings/js/JSXSLTProcessorConstructor.cpp
     bindings/js/JSXSLTProcessorCustom.cpp
     bindings/js/ScheduledAction.cpp
     bindings/js/ScriptArray.cpp
@@ -818,6 +818,7 @@ SET(WebCore_SOURCES
     dom/SelectElement.cpp
     dom/SelectorNodeList.cpp
     dom/SpaceSplitString.cpp
+    dom/StaticHashSetNodeList.cpp
     dom/StaticNodeList.cpp
     dom/StyleElement.cpp
     dom/StyledElement.cpp
@@ -895,7 +896,9 @@ SET(WebCore_SOURCES
 
     html/AsyncImageResizer.cpp
     html/Blob.cpp
+    html/BlobBuilder.cpp
     html/CollectionCache.cpp
+    html/CSSPreloadScanner.cpp
     html/DOMDataGridDataSource.cpp
     html/DOMFormData.cpp
     html/DataGridColumn.cpp
@@ -904,11 +907,12 @@ SET(WebCore_SOURCES
     html/File.cpp
     html/FileList.cpp
     html/FormDataList.cpp
-    html/HTML5EntityParser.cpp
-    html/HTML5Lexer.cpp
-    html/HTML5DocumentParser.cpp
-    html/HTML5TreeBuilder.cpp
-    html/HTML5ScriptRunner.cpp
+    html/HTMLEntityParser.cpp
+    html/HTMLTokenizer.cpp
+    html/HTMLDocumentParser.cpp
+    html/HTMLPreloadScanner.cpp
+    html/HTMLScriptRunner.cpp
+    html/HTMLTreeBuilder.cpp
     html/HTMLAllCollection.cpp
     html/HTMLAnchorElement.cpp
     html/HTMLAppletElement.cpp
@@ -969,8 +973,9 @@ SET(WebCore_SOURCES
     html/HTMLOptionsCollection.cpp
     html/HTMLParagraphElement.cpp
     html/HTMLParamElement.cpp
-    html/LegacyHTMLTreeConstructor.cpp
+    html/LegacyHTMLTreeBuilder.cpp
     html/HTMLParserErrorCodes.cpp
+    html/HTMLParserScheduler.cpp
     html/HTMLPlugInElement.cpp
     html/HTMLPlugInImageElement.cpp
     html/HTMLPreElement.cpp
@@ -989,13 +994,13 @@ SET(WebCore_SOURCES
     html/HTMLTableSectionElement.cpp
     html/HTMLTextAreaElement.cpp
     html/HTMLTitleElement.cpp
-    html/HTMLDocumentParser.cpp
+    html/LegacyHTMLDocumentParser.cpp
     html/HTMLUListElement.cpp
     html/HTMLViewSourceDocument.cpp
     html/ImageData.cpp
     html/ImageResizerThread.cpp
     html/LabelsNodeList.cpp
-    html/PreloadScanner.cpp
+    html/LegacyPreloadScanner.cpp
     html/StepRange.cpp
     html/ValidityState.cpp
     html/canvas/CanvasGradient.cpp
@@ -1018,7 +1023,9 @@ SET(WebCore_SOURCES
     inspector/InspectorFrontendClientLocal.cpp
     inspector/InspectorFrontendHost.cpp
     inspector/InspectorResource.cpp
+    inspector/InspectorValues.cpp
     inspector/InspectorTimelineAgent.cpp
+    inspector/ScriptBreakpoint.cpp
     inspector/TimelineRecordFactory.cpp
 
     loader/Cache.cpp
@@ -1039,7 +1046,9 @@ SET(WebCore_SOURCES
     loader/FTPDirectoryDocument.cpp
     loader/FTPDirectoryParser.cpp
     loader/FormState.cpp
+    loader/FormSubmission.cpp
     loader/FrameLoader.cpp
+    loader/FrameLoaderStateMachine.cpp
     loader/HistoryController.cpp
     loader/ImageDocument.cpp
     loader/ImageLoader.cpp
@@ -1057,6 +1066,7 @@ SET(WebCore_SOURCES
     loader/ResourceLoadNotifier.cpp
     loader/ResourceLoader.cpp
     loader/SinkDocument.cpp
+    loader/SubframeLoader.cpp
     loader/SubresourceLoader.cpp
     loader/TextDocument.cpp
     loader/TextResourceDecoder.cpp
@@ -1241,6 +1251,7 @@ SET(WebCore_SOURCES
 
     platform/text/Base64.cpp
     platform/text/BidiContext.cpp
+    platform/text/Hyphenation.cpp
     platform/text/RegularExpression.cpp
     platform/text/SegmentedString.cpp
     platform/text/String.cpp
@@ -1297,6 +1308,7 @@ SET(WebCore_SOURCES
     rendering/RenderIFrame.cpp
     rendering/RenderImage.cpp
     rendering/RenderImageGeneratedContent.cpp
+    rendering/RenderIndicator.cpp
     rendering/RenderInline.cpp
     rendering/RenderLayer.cpp
     rendering/RenderLineBoxList.cpp
@@ -1405,6 +1417,13 @@ SET(WebCore_SOURCES
     storage/StorageNamespaceImpl.cpp
     storage/StorageSyncManager.cpp
 
+    websockets/ThreadableWebSocketChannel.cpp
+    websockets/WebSocket.cpp
+    websockets/WebSocketChannel.cpp
+    websockets/WebSocketHandshake.cpp
+    websockets/WebSocketHandshakeRequest.cpp
+    websockets/WorkerThreadableWebSocketChannel.cpp
+
     workers/AbstractWorker.cpp
     workers/DedicatedWorkerContext.cpp
     workers/DedicatedWorkerThread.cpp
@@ -1500,7 +1519,9 @@ IF (ENABLE_SVG)
         rendering/SVGRenderTreeAsText.cpp
         rendering/SVGRootInlineBox.cpp
         rendering/SVGShadowTreeElements.cpp
+        rendering/SVGTextChunkLayoutInfo.cpp
         rendering/SVGTextLayoutUtilities.cpp
+        rendering/SVGTextQuery.cpp
         rendering/style/SVGRenderStyle.cpp
         rendering/style/SVGRenderStyleDefs.cpp
         svg/ColorDistance.cpp
@@ -1672,9 +1693,9 @@ ENDFOREACH ()
 
 LIST(APPEND WebCore_SOURCES ${JS_IDL_FILES})
 
-GENERATE_GPERF("c" ${WEBCORE_DIR}/html/HTMLEntityNames.gperf findEntity "-c")
-GENERATE_GPERF("c" ${WEBCORE_DIR}/platform/ColorData.gperf findColor "")
-GENERATE_GPERF("cpp" ${WEBCORE_DIR}/html/DocTypeStrings.gperf findDoctypeEntry "-F,PubIDInfo::eAlmostStandards,PubIDInfo::eAlmostStandards")
+GENERATE_GPERF(${WEBCORE_DIR}/html/HTMLEntityNames.gperf)
+GENERATE_GPERF(${WEBCORE_DIR}/platform/ColorData.gperf)
+GENERATE_GPERF(${WEBCORE_DIR}/html/DocTypeStrings.gperf)
 
 GENERATE_TOKENIZER()
 GENERATE_USER_AGENT_STYLES()
@@ -1689,9 +1710,10 @@ ADD_SOURCE_DERIVED_DEPENDENCIES(${DERIVED_SOURCES_DIR}/CSSGrammar.cpp CSSValueKe
 ADD_SOURCE_DERIVED_DEPENDENCIES(${DERIVED_SOURCES_DIR}/CSSGrammar.cpp CSSPropertyNames.h)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSPrimitiveValueMappings.h CSSValueKeywords.h)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/HTMLDocument.cpp DocTypeStrings.cpp)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/platform/graphics/Color.cpp ColorData.c)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/platform/graphics/Color.cpp ColorData.cpp)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSParser.cpp tokenizer.cpp)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/PreloadScanner.cpp HTMLEntityNames.c)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/LegacyPreloadScanner.cpp HTMLEntityNames.cpp)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/HTMLEntityParser.cpp HTMLEntityNames.cpp)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSStyleSelector.cpp UserAgentStyleSheetsData.cpp UserAgentStyleSheets.h)
 
 GENERATE_DOM_NAMES_FACTORY(HTML ${WEBCORE_DIR}/html/HTMLTagNames.in ${WEBCORE_DIR}/html/HTMLAttributeNames.in "${HTML_FEATURES}")

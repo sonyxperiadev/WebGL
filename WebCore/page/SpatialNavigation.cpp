@@ -125,8 +125,11 @@ static IntRect renderRectRelativeToRootDocument(RenderObject* render)
 
     // Handle nested frames.
     for (Frame* frame = render->document()->frame(); frame; frame = frame->tree()->parent()) {
-        if (HTMLFrameOwnerElement* ownerElement = frame->ownerElement())
-            rect.move(ownerElement->offsetLeft(), ownerElement->offsetTop());
+        if (Element* element = static_cast<Element*>(frame->ownerElement())) {
+            do {
+                rect.move(element->offsetLeft(), element->offsetTop());
+            } while ((element = element->offsetParent()));
+        }
     }
 
     return rect;
@@ -445,7 +448,7 @@ bool hasOffscreenRect(Node* node)
 
 // In a bottom-up way, this method tries to scroll |frame| in a given direction
 // |direction|, going up in the frame tree hierarchy in case it does not succeed.
-bool scrollInDirection(Frame* frame, FocusDirection direction)
+bool scrollInDirection(Frame* frame, FocusDirection direction, const FocusCandidate& candidate)
 {
     if (!frame)
         return false;
@@ -468,6 +471,9 @@ bool scrollInDirection(Frame* frame, FocusDirection direction)
     default:
         return false;
     }
+
+    if (!candidate.isNull() && isScrollableContainerNode(candidate.enclosingScrollableBox))
+        return frame->eventHandler()->scrollRecursively(scrollDirection, ScrollByLine, candidate.enclosingScrollableBox);
 
     return frame->eventHandler()->scrollRecursively(scrollDirection, ScrollByLine);
 }
@@ -525,6 +531,19 @@ static bool checkNegativeCoordsForNode(Node* node, const IntRect& curRect)
     }
 
     return canBeScrolled;
+}
+
+bool isScrollableContainerNode(Node* node)
+{
+    if (!node)
+        return false;
+
+    if (RenderObject* renderer = node->renderer()) {
+        return (renderer->isBox() && toRenderBox(renderer)->canBeScrolledAndHasScrollableArea()
+             && node->hasChildNodes() && !node->isDocumentNode());
+    }
+
+    return false;
 }
 
 } // namespace WebCore

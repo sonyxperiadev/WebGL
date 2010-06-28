@@ -1089,11 +1089,23 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\runtime\RegExpCache.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\RegExpCache.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\runtime\RegExpConstructor.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\..\runtime\RegExpConstructor.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\RegExpKey.h"
 				>
 			</File>
 			<File
@@ -1789,6 +1801,18 @@
 			Name="parser"
 			>
 			<File
+				RelativePath="..\..\parser\ASTBuilder.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\parser\JSParser.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\parser\JSParser.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\parser\Lexer.cpp"
 				>
 			</File>
@@ -1838,6 +1862,10 @@
 			</File>
 			<File
 				RelativePath="..\..\parser\SourceProvider.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\parser\SyntaxChecker.h"
 				>
 			</File>
 		</Filter>

@@ -53,7 +53,7 @@ public:
 #endif
         , m_endsWithBreak(false)
         , m_hasSelectedChildren(false)
-        , m_hasEllipsisBox(false)
+        , m_hasEllipsisBoxOrHyphen(false)
         , m_dirOverride(false)
         , m_isText(false)
         , m_determinedIfNextOnLineExists(false)
@@ -86,7 +86,7 @@ public:
 #endif
         , m_endsWithBreak(false)
         , m_hasSelectedChildren(false)   
-        , m_hasEllipsisBox(false)
+        , m_hasEllipsisBoxOrHyphen(false)
         , m_dirOverride(false)
         , m_isText(false)
         , m_determinedIfNextOnLineExists(false)
@@ -133,18 +133,28 @@ public:
     bool isText() const { return m_isText; }
     void setIsText(bool b) { m_isText = b; }
  
-    virtual bool isInlineBox() { return false; }
     virtual bool isInlineFlowBox() const { return false; }
-    virtual bool isInlineTextBox() { return false; }
+    virtual bool isInlineTextBox() const { return false; }
     virtual bool isRootInlineBox() const { return false; }
-#if ENABLE(SVG) 
-    virtual bool isSVGRootInlineBox() { return false; }
+#if ENABLE(SVG)
+    virtual bool isSVGInlineTextBox() const { return false; }
+    virtual bool isSVGRootInlineBox() const { return false; }
 
     bool hasVirtualHeight() const { return m_hasVirtualHeight; }
     void setHasVirtualHeight() { m_hasVirtualHeight = true; }
-    virtual int virtualHeight() const { ASSERT_NOT_REACHED(); return 0; }
+    virtual int virtualHeight() const
+    {
+        ASSERT_NOT_REACHED();
+        return 0;
+    }
 #endif
-    
+
+    virtual IntRect calculateBoundaries() const
+    {
+        ASSERT_NOT_REACHED();
+        return IntRect();
+    }
+
     bool isConstructed() { return m_constructed; }
     virtual void setConstructed()
     {
@@ -274,7 +284,7 @@ protected:
     // for RootInlineBox
     bool m_endsWithBreak : 1;  // Whether the line ends with a <br>.
     bool m_hasSelectedChildren : 1; // Whether we have any children selected (this bit will also be set if the <br> that terminates our line is selected).
-    bool m_hasEllipsisBox : 1; 
+    bool m_hasEllipsisBoxOrHyphen : 1; 
 
     // for InlineTextBox
 public:

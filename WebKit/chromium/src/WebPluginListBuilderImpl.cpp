@@ -53,16 +53,13 @@ void WebPluginListBuilderImpl::addMediaTypeToLastPlugin(const WebString& name, c
     MimeClassInfo info;
     info.type = name;
     info.desc = description;
-    info.pluginIndex = m_results->size() - 1;
     m_results->last().mimes.append(info);
 }
 
 void WebPluginListBuilderImpl::addFileExtensionToLastMediaType(const WebString& extension)
 {
     MimeClassInfo& info = m_results->last().mimes.last();
-    if (!info.suffixes.isEmpty())
-        info.suffixes.append(',');
-    info.suffixes.append(extension);
+    info.extensions.append(extension);
 }
 
 } // namespace WebKit

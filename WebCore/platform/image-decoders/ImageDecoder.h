@@ -41,6 +41,7 @@
 #include "NativeImageSkia.h"
 #include "SkColorPriv.h"
 #elif PLATFORM(QT)
+#include <QPixmap>
 #include <QImage>
 #endif
 
@@ -136,8 +137,7 @@ namespace WebCore {
         }
 
 #if PLATFORM(QT)
-        void setDecodedImage(const QImage& image);
-        QImage decodedImage() const { return m_image; }
+        void setPixmap(const QPixmap& pixmap);
 #endif
 
     private:
@@ -149,6 +149,8 @@ namespace WebCore {
 #if PLATFORM(SKIA)
             return m_bitmap.getAddr32(x, y);
 #elif PLATFORM(QT)
+            m_image = m_pixmap.toImage();
+            m_pixmap = QPixmap();
             return reinterpret_cast<QRgb*>(m_image.scanLine(y)) + x;
 #else
             return m_bytes.data() + (y * width()) + x;
@@ -178,6 +180,7 @@ namespace WebCore {
 #if PLATFORM(SKIA)
         NativeImageSkia m_bitmap;
 #elif PLATFORM(QT)
+        mutable QPixmap m_pixmap;
         mutable QImage m_image;
         bool m_hasAlpha;
         IntSize m_size;
@@ -236,7 +239,7 @@ namespace WebCore {
 
         virtual void setData(SharedBuffer* data, bool allDataReceived)
         {
-            if (failed())
+            if (m_failed)
                 return;
             m_data = data;
             m_isAllDataReceived = allDataReceived;
@@ -305,7 +308,8 @@ namespace WebCore {
 
         // Sets the "decode failure" flag.  For caller convenience (since so
         // many callers want to return false after calling this), returns false
-        // to enable easy tailcalling.
+        // to enable easy tailcalling.  Subclasses may override this to also
+        // clean up any local data.
         virtual bool setFailed()
         {
             m_failed = true;

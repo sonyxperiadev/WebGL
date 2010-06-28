@@ -168,6 +168,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/SelectElement.cpp \
 	dom/SelectorNodeList.cpp \
 	dom/SpaceSplitString.cpp \
+	dom/StaticHashSetNodeList.cpp \
 	dom/StaticNodeList.cpp \
 	dom/StyleElement.cpp \
 	dom/StyledElement.cpp \
@@ -250,7 +251,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/AsyncImageResizer.cpp \
 	html/Blob.cpp \
 	html/CollectionCache.cpp \
+<<<<<<< HEAD
 	html/DateComponents.cpp \
+=======
+	html/CSSPreloadScanner.cpp \
+>>>>>>> webkit.org at r61871
 	html/DOMFormData.cpp \
 	html/File.cpp \
 	html/FileList.cpp \
@@ -259,11 +264,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/FileStreamProxy.cpp \
 	html/FileThread.cpp \
 	html/FormDataList.cpp \
-	html/HTML5EntityParser.cpp \
-	html/HTML5Lexer.cpp \
-	html/HTML5DocumentParser.cpp \
-	html/HTML5TreeBuilder.cpp \
-	html/HTML5ScriptRunner.cpp \
+	html/HTMLEntityParser.cpp \
+	html/HTMLTokenizer.cpp \
+	html/HTMLDocumentParser.cpp \
+	html/HTMLPreloadScanner.cpp \
+	html/HTMLScriptRunner.cpp \
+	html/HTMLTreeBuilder.cpp \
 	html/HTMLAllCollection.cpp \
 	html/HTMLCollection.cpp \
 	html/HTMLDataListElement.cpp \
@@ -274,8 +280,14 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLImageLoader.cpp \
 	html/HTMLNameCollection.cpp \
 	html/HTMLOptionsCollection.cpp \
+<<<<<<< HEAD
+=======
+	html/LegacyHTMLTreeBuilder.cpp \
+>>>>>>> webkit.org at r61871
 	html/HTMLParserErrorCodes.cpp \
+	html/HTMLParserScheduler.cpp \
 	html/HTMLTableRowsCollection.cpp \
+<<<<<<< HEAD
 	html/HTMLViewSourceDocument.cpp \
 	html/ImageData.cpp \
 	html/ImageResizerThread.cpp \
@@ -283,6 +295,13 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/LegacyHTMLTreeConstructor.cpp \
 	html/PreloadScanner.cpp \
 	html/StepRange.cpp \
+=======
+	html/LegacyHTMLDocumentParser.cpp \
+	html/HTMLViewSourceDocument.cpp \
+	html/ImageData.cpp \
+	html/ImageResizerThread.cpp \
+	html/LegacyPreloadScanner.cpp \
+>>>>>>> webkit.org at r61871
 	html/TimeRanges.cpp \
 	html/ValidityState.cpp \
 	\
@@ -311,7 +330,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/DocumentThreadableLoader.cpp \
 	loader/DocumentWriter.cpp \
 	loader/FormState.cpp \
+	loader/FormSubmission.cpp \
 	loader/FrameLoader.cpp \
+	loader/FrameLoaderStateMachine.cpp \
 	loader/HistoryController.cpp \
 	loader/ImageDocument.cpp \
 	loader/ImageLoader.cpp \
@@ -328,7 +349,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/Request.cpp \
 	loader/ResourceLoadNotifier.cpp \
 	loader/ResourceLoader.cpp \
+<<<<<<< HEAD
 	loader/SinkDocument.cpp \
+=======
+	loader/SubframeLoader.cpp \
+>>>>>>> webkit.org at r61871
 	loader/SubresourceLoader.cpp \
 	loader/TextDocument.cpp \
 	loader/TextResourceDecoder.cpp \
@@ -572,6 +597,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	platform/text/Base64.cpp \
 	platform/text/BidiContext.cpp \
+	platform/text/Hyphenation.cpp \
 	platform/text/RegularExpression.cpp \
 	platform/text/SegmentedString.cpp \
 	platform/text/String.cpp \
@@ -727,7 +753,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/SVGRenderTreeAsText.cpp \
 	rendering/SVGRootInlineBox.cpp \
 	rendering/SVGShadowTreeElements.cpp \
-	rendering/SVGTextLayoutUtilities.cpp
+	rendering/SVGTextChunkLayoutInfo.cpp \
+	rendering/SVGTextLayoutUtilities.cpp \
+	rendering/SVGTextQuery.cpp
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

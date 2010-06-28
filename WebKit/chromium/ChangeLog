@@ -1,3 +1,826 @@
+2010-06-25  Lei Zheng  <lzheng@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [Chromium] Add a flag to the ResourceResponse for tracking if a request was fetched
+        when Alternate-Protocol is available.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41001
+
+        * public/WebURLResponse.h:
+        * src/WebURLResponse.cpp:
+        (WebKit::WebURLResponse::wasAlternateProtocolAvailable):
+        (WebKit::WebURLResponse::setWasAlternateProtocolAvailable):
+
+2010-06-25  Michael Nordman  <michaeln@google.com>
+
+        Reviewed by Dumitru Daniliuc.
+
+        Additional API to pass additional info needed for AppCache progress events.
+        https://bugs.webkit.org/show_bug.cgi?id=37602
+
+        Also, delete an obsolete method from the worker API.
+
+        * public/WebApplicationCacheHostClient.h: define a new method
+        * public/WebSharedWorker.h: remove an obsolte method
+        * src/ApplicationCacheHostInternal.h: implement the new method
+        (WebCore::ApplicationCacheHostInternal::notifyProgressEventListener):
+
+2010-06-25  John Gregg  <johnnyg@google.com>
+
+        Reviewed by Darin Fisher.
+
+        Notification should expose ltr/rtl as TextDirection, not String
+        https://bugs.webkit.org/show_bug.cgi?id=40871
+
+        * public/WebNotification.h:
+        * src/WebNotification.cpp:
+        (WebKit::WebNotification::direction):
+
+2010-06-24  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Clean up and document DocumentWriter::replaceDocument code path
+        https://bugs.webkit.org/show_bug.cgi?id=41182
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::loadJavaScriptURL):
+         - Make Chromium use DocumentWriter like it should.
+
+2010-06-24  Vangelis Kokkevis  <vangelis@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] A WebView can now own a GLES2Context which gets created on
+        demand. This context will typically be created for the gpu compositor
+        and used as a parent context for any elements on the page that use the
+        gpu for rendering (e.g. WebGL) and need to pass their backbuffer directly
+        to the compositor.
+        https://bugs.webkit.org/show_bug.cgi?id=41010
+
+        * public/WebGLES2Context.h:
+        * src/GLES2Context.cpp:
+        (WebCore::GLES2ContextInternal::getWebGLES2Context):
+        (WebCore::GLES2ContextInternal::initialize):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+        (WebKit::WebViewImpl::gles2Context):
+        * src/WebViewImpl.h:
+
+2010-06-24  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+ 
+        Web Inspector: Inspector cleanup + better DevTools alignment with Inspector.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41094
+
+        - Merged InspectorClient implementation into WebDevToolsAgent
+        - Changed the way WebDevToolsAgent is initialized (will break chromium bot, needs coordinated landing)
+        - Removed a lot of legacy code from WebDevToolsAgentImpl
+        - Removed a lot of overrides from DevTools.js
+        - Simplified devtools stubs
+        - Got rid of all logic from within InjectDispatch.js
+
+        * public/WebView.h:
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::dispatchDidCommitLoad):
+        * src/InspectorClientImpl.cpp:
+        (WebKit::InspectorClientImpl::inspectorDestroyed):
+        (WebKit::InspectorClientImpl::openInspectorFrontend):
+        (WebKit::InspectorClientImpl::highlight):
+        (WebKit::InspectorClientImpl::hideHighlight):
+        (WebKit::InspectorClientImpl::populateSetting):
+        (WebKit::InspectorClientImpl::storeSetting):
+        (WebKit::InspectorClientImpl::sendMessageToFrontend):
+        (WebKit::InspectorClientImpl::resourceTrackingWasEnabled):
+        (WebKit::InspectorClientImpl::resourceTrackingWasDisabled):
+        (WebKit::InspectorClientImpl::timelineProfilerWasStarted):
+        (WebKit::InspectorClientImpl::timelineProfilerWasStopped):
+        (WebKit::InspectorClientImpl::devToolsAgent):
+        * src/InspectorClientImpl.h:
+        * src/InspectorFrontendClientImpl.cpp:
+        (WebKit::InspectorFrontendClientImpl::inspectedURLChanged):
+        * src/ToolsAgent.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::):
+        (WebKit::WebDevToolsAgentImpl::initDevToolsAgentHost):
+        (WebKit::WebDevToolsAgentImpl::setApuAgentEnabled):
+        (WebKit::WebDevToolsAgentImpl::jsDispatchOnClient):
+        (WebKit::WebDevToolsAgentImpl::inspectorDestroyed):
+        (WebKit::WebDevToolsAgentImpl::openInspectorFrontend):
+        (WebKit::WebDevToolsAgentImpl::highlight):
+        (WebKit::WebDevToolsAgentImpl::hideHighlight):
+        (WebKit::WebDevToolsAgentImpl::populateSetting):
+        (WebKit::WebDevToolsAgentImpl::storeSetting):
+        (WebKit::WebDevToolsAgentImpl::sendMessageToFrontend):
+        (WebKit::WebDevToolsAgentImpl::resourceTrackingWasEnabled):
+        (WebKit::WebDevToolsAgentImpl::resourceTrackingWasDisabled):
+        (WebKit::WebDevToolsAgentImpl::timelineProfilerWasStarted):
+        (WebKit::WebDevToolsAgentImpl::timelineProfilerWasStopped):
+        * src/WebDevToolsAgentImpl.h:
+        * src/WebDevToolsAgentPrivate.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebView::create):
+        (WebKit::WebViewImpl::WebViewImpl):
+        * src/WebViewImpl.h:
+        * src/js/DevTools.js:
+        (devtools.ToolsAgent):
+        ():
+        (devtools):
+        * src/js/DevToolsHostStub.js:
+        (.window.setDebuggerScriptSource):
+        (.window.dispatchOnInjectedScript):
+        * src/js/InjectDispatch.js:
+        (dispatch):
+        * src/js/InspectorControllerImpl.js:
+
+2010-06-24  Pavel Feldman  <pfeldman@chromium.org>
+
+        Not reviewed: revert 61766.
+
+        * WebKit.gyp:
+        * public/WebView.h:
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::dispatchDidCommitLoad):
+        * src/InspectorClientImpl.cpp: Added.
+        (WebKit::InspectorClientImpl::InspectorClientImpl):
+        (WebKit::InspectorClientImpl::~InspectorClientImpl):
+        (WebKit::InspectorClientImpl::inspectorDestroyed):
+        (WebKit::InspectorClientImpl::openInspectorFrontend):
+        (WebKit::invalidateNodeBoundingRect):
+        (WebKit::InspectorClientImpl::highlight):
+        (WebKit::InspectorClientImpl::hideHighlight):
+        (WebKit::InspectorClientImpl::populateSetting):
+        (WebKit::InspectorClientImpl::storeSetting):
+        (WebKit::InspectorClientImpl::sendMessageToFrontend):
+        * src/InspectorClientImpl.h: Added.
+        * src/InspectorFrontendClientImpl.cpp:
+        (WebKit::InspectorFrontendClientImpl::inspectedURLChanged):
+        * src/ToolsAgent.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::):
+        (WebKit::WebDevToolsAgentImpl::didCommitProvisionalLoad):
+        (WebKit::WebDevToolsAgentImpl::initDevToolsAgentHost):
+        (WebKit::WebDevToolsAgentImpl::setApuAgentEnabled):
+        (WebKit::WebDevToolsAgentImpl::jsDispatchOnClient):
+        (WebKit::WebDevToolsAgentImpl::jsDispatchToApu):
+        (WebKit::WebDevToolsAgentImpl::jsEvaluateOnSelf):
+        (WebKit::WebDevToolsAgentImpl::jsOnRuntimeFeatureStateChanged):
+        * src/WebDevToolsAgentImpl.h:
+        * src/WebDevToolsAgentPrivate.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebView::create):
+        (WebKit::WebViewImpl::WebViewImpl):
+        (WebKit::WebViewImpl::setDevToolsAgent):
+        * src/WebViewImpl.h:
+        * src/WebWorkerBase.cpp:
+        (WebKit::WebWorkerBase::initializeLoader):
+        * src/js/DevTools.js:
+        (devtools.ToolsAgent):
+        (devtools.ToolsAgent.prototype.frameNavigate_):
+        ():
+        * src/js/DevToolsHostStub.js:
+        (.RemoteDebuggerAgentStub):
+        (.RemoteDebuggerAgentStub.prototype.getContextId):
+        (.RemoteDebuggerAgentStub.prototype.processDebugCommands):
+        (.RemoteProfilerAgentStub):
+        (.RemoteProfilerAgentStub.prototype.getActiveProfilerModules):
+        (.RemoteProfilerAgentStub.prototype.getLogLines):
+        (.RemoteToolsAgentStub):
+        (.RemoteToolsAgentStub.prototype.dispatchOnInjectedScript):
+        (.RemoteToolsAgentStub.prototype.dispatchOnInspectorController):
+        (.ProfilerStubHelper):
+        (.ProfilerStubHelper.GetInstance):
+        (.ProfilerStubHelper.prototype.StopProfiling):
+        (.ProfilerStubHelper.prototype.StartProfiling):
+        (.ProfilerStubHelper.prototype.getActiveProfilerModules):
+        (.ProfilerStubHelper.prototype.getLogLines):
+        (.RemoteDebuggerCommandExecutorStub):
+        (.RemoteDebuggerCommandExecutorStub.prototype.DebuggerCommand):
+        (.RemoteDebuggerCommandExecutorStub.prototype.DebuggerPauseScript):
+        (.RemoteDebuggerCommandExecutorStub.prototype.sendResponse_):
+        (.DevToolsHostStub):
+        (.DevToolsHostStub.prototype.reset):
+        (.DevToolsHostStub.prototype.setting):
+        (.DevToolsHostStub.prototype.setSetting):
+        * src/js/InjectDispatch.js:
+        (ApuAgentDispatcher.dispatchToApu):
+        (dispatch):
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl.prototype.debuggerEnabled):
+        (devtools.InspectorBackendImpl.prototype.profilerEnabled):
+
+2010-06-23  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: Inspector cleanup + better DevTools alignment with Inspector.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=41094
+
+        - Merged InspectorClient implementation into WebDevToolsAgent
+        - Changed the way WebDevToolsAgent is initialized (will break chromium bot, needs coordinated landing)
+        - Removed a lot of legacy code from WebDevToolsAgentImpl
+        - Removed a lot of overrides from DevTools.js
+        - Simplified devtools stubs
+        - Got rid of all logic from within InjectDispatch.js
+
+        * WebKit.gyp:
+        * public/WebDevToolsAgent.h:
+        * public/WebView.h:
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::dispatchDidCommitLoad):
+        * src/InspectorFrontendClientImpl.cpp:
+        (WebKit::InspectorFrontendClientImpl::inspectedURLChanged):
+        * src/ToolsAgent.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::):
+        (WebKit::WebDevToolsAgentImpl::initDevToolsAgentHost):
+        (WebKit::WebDevToolsAgentImpl::setApuAgentEnabled):
+        (WebKit::WebDevToolsAgentImpl::jsDispatchOnClient):
+        (WebKit::WebDevToolsAgentImpl::inspectorDestroyed):
+        (WebKit::WebDevToolsAgentImpl::openInspectorFrontend):
+        (WebKit::WebDevToolsAgentImpl::highlight):
+        (WebKit::WebDevToolsAgentImpl::hideHighlight):
+        (WebKit::WebDevToolsAgentImpl::populateSetting):
+        (WebKit::WebDevToolsAgentImpl::storeSetting):
+        (WebKit::WebDevToolsAgentImpl::sendMessageToFrontend):
+        (WebKit::WebDevToolsAgentImpl::resourceTrackingWasEnabled):
+        (WebKit::WebDevToolsAgentImpl::resourceTrackingWasDisabled):
+        (WebKit::WebDevToolsAgentImpl::timelineProfilerWasStarted):
+        (WebKit::WebDevToolsAgentImpl::timelineProfilerWasStopped):
+        * src/WebDevToolsAgentImpl.h:
+        * src/WebDevToolsAgentPrivate.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebView::create):
+        (WebKit::WebViewImpl::WebViewImpl):
+        * src/WebViewImpl.h:
+        * src/WebWorkerBase.cpp:
+        (WebKit::WebWorkerBase::initializeLoader):
+        * src/js/DevTools.js:
+        (devtools.ToolsAgent):
+        ():
+        (devtools):
+        * src/js/DevToolsHostStub.js:
+        (.window.setDebuggerScriptSource):
+        (.window.dispatchOnInjectedScript):
+        * src/js/InjectDispatch.js:
+        (dispatch):
+        * src/js/InspectorControllerImpl.js:
+
+2010-06-24  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: implement layout tests for debugger
+        https://bugs.webkit.org/show_bug.cgi?id=40774
+
+        * src/WebDevToolsFrontendImpl.cpp:
+        (WebKit::WebDevToolsFrontendImpl::WebDevToolsFrontendImpl):
+
+2010-06-23  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        layout test for a crash in chromium multipart request handling
+        https://bugs.webkit.org/show_bug.cgi?id=41050
+
+        Also roll DEPS to pick up the crash fix.
+
+        * DEPS:
+
+2010-06-23  Yuzo Fujishima  <yuzo@google.com>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Make page format data methods accessible from Chromium
+        https://bugs.webkit.org/show_bug.cgi?id=41056
+
+        * public/WebFrame.h:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::isPageBoxVisible):
+        (WebKit::WebFrameImpl::pageAreaRectInPixels):
+        (WebKit::WebFrameImpl::preferredPageSizeInPixels):
+        * src/WebFrameImpl.h:
+
+2010-06-22  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Rename HTMLDocumentParser to LegacyHTMLDocumentParser
+        https://bugs.webkit.org/show_bug.cgi?id=41043
+
+        * src/WebEntities.cpp:
+
+2010-06-22  Pavel Feldman  <pfeldman@chromium.org>
+
+        Not reviewed: follow up to r61655 to make Chromium tests happy.
+
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+
+2010-06-22  Mikhail Naganov  <mnaganov@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [Chromium] Clean up after removal of static WebDevToolsAgentClient::sendMessageToFrontendOnIOThread.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40914
+
+        * public/WebDevToolsAgentClient.h:
+
+2010-06-22  Mikhail Naganov  <mnaganov@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [Chromium] Add a sanity test for heap profiler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40917
+
+        * src/js/Tests.js:
+        (.TestSuite.prototype.testHeapProfiler.findDisplayedNode):
+        (.TestSuite.prototype.testHeapProfiler.findVisibleView):
+        (.TestSuite.prototype.testHeapProfiler):
+
+2010-06-21  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Dragging outside the frame immediately causes page to scroll
+        http://webkit.org/b/40461
+
+        This is regression that was introduced at http://webkit.org/b/39725.
+        
+        There are 2 problems:
+        1. It starts auto-scrolling immediately. We should have some delay.
+        2. The scroll continues even after a mouse cursor goes outside a frame.
+           The scroll should be stopped when the curosr has left.
+        
+        This change introduced DragScrollTimer to handle 1. 
+        At the same time, it fixed DragScrollTimer::scrollDistanceFor() to
+        handle 2, We now stop scrolling when the cursor gone.
+        
+        * WebKit.gyp:
+        * src/DragScrollTimer.cpp: Added.
+        (WebKit::distanceToRect):
+        (WebKit::DragScrollTimer::DragScrollTimer):
+        (WebKit::DragScrollTimer::~DragScrollTimer):
+        (WebKit::DragScrollTimer::stop):
+        (WebKit::DragScrollTimer::scroll):
+        (WebKit::DragScrollTimer::update):
+        (WebKit::DragScrollTimer::triggerScroll):
+        (WebKit::DragScrollTimer::scrollDistanceFor):
+        * src/DragScrollTimer.h: Added.
+        (WebKit::DragScrollTimer::fired):
+        (WebKit::DragScrollTimer::shouldScroll):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+        (WebKit::WebViewImpl::dragSourceEndedAt):
+        (WebKit::WebViewImpl::dragSourceMovedTo):
+        (WebKit::WebViewImpl::dragTargetDrop):
+        (WebKit::WebViewImpl::dragTargetDragEnterOrOver):
+        * src/WebViewImpl.h:
+
+2010-06-21  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [Chromium] Enable EVENTSOURCE, FILE_WRITER, and IMAGE_RESIZER
+        https://bugs.webkit.org/show_bug.cgi?id=40905
+
+        EVENTSOURCE: It is already enabled in Chromium browser. This fixes
+        some tests with Chromium DRT.
+
+        FILE_WRITER and IMAGE_RESIZER: Enable experimental features in
+        order to test them before enabling them in Chromium browser.
+
+        * features.gypi:
+
+2010-06-21  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Speech Input Patch 0: Added compilation argument to conditionally compile pending patches.
+        https://bugs.webkit.org/show_bug.cgi?id=40878
+
+        * features.gypi:
+
+2010-06-21  Mikhail Naganov  <mnaganov@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        [Chromium] Remove usage of static WebDevToolsAgentClient::sendMessageToFrontendOnIOThread.
+
+        Also, move WebDevToolsMessageTransport to its own header file.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40913
+
+        * DEPS:
+        * WebKit.gyp:
+        * public/WebDevToolsAgent.h:
+        * public/WebDevToolsAgentClient.h:
+        * public/WebDevToolsMessageTransport.h: Added.
+        (WebKit::WebDevToolsMessageTransport::~WebDevToolsMessageTransport):
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::):
+
+2010-06-20  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [v8] Web Inspector: don't add ScriptDebugServer as v8 listener if browser exposes
+        v8 debugging protocol.
+
+        * src/DebuggerAgentManager.cpp:
+        (WebKit::DebuggerAgentManager::setExposeV8DebuggerProtocol):
+
+2010-06-19  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by David Levin.
+
+        Adding a < operator to WebURLs so they can be used in std::maps.
+        https://bugs.webkit.org/show_bug.cgi?id=40632
+
+        * public/WebCString.h:
+        (WebKit::operator<):
+        * public/WebURL.h:
+        (WebKit::operator<):
+        * src/WebCString.cpp:
+        (WebKit::WebCString::compare):
+
+2010-06-19  Kent Tamura  <tkent@chromium.org>
+
+        Unreviewed. Build fix for r61488.
+
+        * features.gypi: Define use_accelerated_compositing.
+
+2010-06-19  Thomas Van Lenten  <thomasvl@chromium.org>
+
+        Reviewed by David Levin.
+
+        Warnings from -Wextra in a Chromium Mac build
+        1. checks of unsigned >= 0
+        2. enumeral and non-enumeral type in conditional expression
+        3. copy ctors that don't call the super copy ctor or ctor
+
+        https://bugs.webkit.org/show_bug.cgi?id=40791
+
+        * src/AutoFillPopupMenuClient.cpp:
+        (WebKit::AutoFillPopupMenuClient::getSuggestion):
+        (WebKit::AutoFillPopupMenuClient::removeSuggestionAtIndex):
+        (WebKit::AutoFillPopupMenuClient::valueChanged):
+        (WebKit::AutoFillPopupMenuClient::selectionChanged):
+        * src/AutocompletePopupMenuClient.cpp:
+        (WebKit::AutocompletePopupMenuClient::getSuggestion):
+        (WebKit::AutocompletePopupMenuClient::removeSuggestionAtIndex):
+
+2010-06-19  Zhe Su  <suzhe@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium]Refactor input method related APIs.
+        https://bugs.webkit.org/show_bug.cgi?id=40608
+
+        * WebKit.gyp:
+        * public/WebCompositionCommand.h:
+        * public/WebCompositionUnderline.h: Added.
+        (WebKit::WebCompositionUnderline::WebCompositionUnderline):
+        * public/WebTextInputType.h: Added.
+        (WebKit::):
+        * public/WebViewClient.h:
+        * public/WebWidget.h:
+        * public/WebWidgetClient.h:
+        (WebKit::WebWidgetClient::resetInputMethod):
+        * src/CompositionUnderlineBuilder.h: Added.
+        (WebKit::CompositionUnderlineBuilder::CompositionUnderlineBuilder):
+        * src/CompositionUnderlineVectorBuilder.cpp: Added.
+        (WebKit::CompositionUnderlineVectorBuilder::CompositionUnderlineVectorBuilder):
+        * src/CompositionUnderlineVectorBuilder.h: Added.
+        * src/EditorClientImpl.cpp:
+        (WebKit::EditorClientImpl::setInputMethodState):
+        * src/WebPopupMenuImpl.cpp:
+        (WebKit::WebPopupMenuImpl::setComposition):
+        (WebKit::WebPopupMenuImpl::confirmComposition):
+        (WebKit::WebPopupMenuImpl::textInputType):
+        (WebKit::WebPopupMenuImpl::caretOrSelectionBounds):
+        * src/WebPopupMenuImpl.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::handleCompositionEvent):
+        (WebKit::WebViewImpl::setComposition):
+        (WebKit::WebViewImpl::confirmComposition):
+        (WebKit::WebViewImpl::textInputType):
+        (WebKit::WebViewImpl::caretOrSelectionBounds):
+        * src/WebViewImpl.h:
+
+2010-06-19  Victoria Kirst  <vrk@google.com>
+
+        Reviewed by David Levin.
+
+        Modifying the WebMediaPlayer interface to be compatible with
+        a change in chrome.
+        This is a part 2 of 3 one-sided changes to chrome and WebKit. Chrome
+        has been updated, so this commit should NOT break chromium anymore,
+        nor should it cause any test failures.
+        https://bugs.webkit.org/show_bug.cgi?id=39445
+
+        * public/WebMediaPlayer.h: Changed buffered() to be non-const.
+
+2010-06-19  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        fast/canvas/webgl/get-active-test.html failed in Chrome Mac
+        https://bugs.webkit.org/show_bug.cgi?id=40496
+
+        * src/WebGraphicsContext3DDefaultImpl.cpp: Call makeContextCurrent().
+        (WebKit::WebGraphicsContext3DDefaultImpl::getActiveAttrib):
+        (WebKit::WebGraphicsContext3DDefaultImpl::getActiveUniform):
+        (WebKit::WebGraphicsContext3DDefaultImpl::readPixels):
+
+2010-06-18  Aaron Boodman  <aa@chromium.org>
+
+        Remove WebKit::WebDocument::isXHTMLDocument.
+        https://bugs.webkit.org/show_bug.cgi?id=40815
+
+        * public/WebDocument.h: Remove isXHTMLDocument().
+        * src/WebDocument.cpp: Ditto.
+
+2010-06-19  Aaron Boodman  <aa@chromium.org>
+
+        Unreviewed, rolling out r61466.
+        http://trac.webkit.org/changeset/61466
+        https://bugs.webkit.org/show_bug.cgi?id=40816
+
+        Landed wrong change
+
+        * src/WebKit.cpp:
+        (WebKit::shutdown):
+
+2010-06-18  Aaron Boodman  <aa@chromium.org>
+
+        WebKit API: Undo static hooks into V8 when WebKit is shut downm
+        https://bugs.webkit.org/show_bug.cgi?id=40816
+
+        * src/WebKit.cpp:
+        (WebKit::shutdown): Call new WebCore::V8DOMWindowShell::uninitializeV8IfNeeded().
+
+2010-06-18  Drew Wilson  <atwilson@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Plumbing for top-level frame names
+        https://bugs.webkit.org/show_bug.cgi?id=40430
+
+        * public/WebFrame.h:
+        Removed obsolete clearName() API and added better documentation for
+        setName().
+        * src/WebFrameImpl.cpp:
+        Removed clearName() API.
+        * src/WebFrameImpl.h:
+        Removed clearName() API.
+
+2010-06-18  Drew Wilson  <atwilson@chromium.org>
+
+        Reviewed by Dumitru Daniliuc.
+
+        Roll chromium DEPS 50089:50171
+        https://bugs.webkit.org/show_bug.cgi?id=40842
+
+        * DEPS:
+        Update chromium_rev to r50171 to remove downstream reference to WebFrame::clearName().
+
+2010-06-18  Mikhail Naganov  <mnaganov@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Implement 'takeHeapSnapshot' in InspectorController.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40834
+
+        * src/js/HeapProfilerPanel.js:
+        (WebInspector.HeapSnapshotProfileType.prototype.buttonClicked):
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+        * src/js/ProfilerAgent.js:
+        (devtools.ProfilerAgent.prototype.startProfiling):
+
+2010-06-18  Anton Muhin  <antonm@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [v8] Finish migration to new named property query API
+        https://bugs.webkit.org/show_bug.cgi?id=40771
+        Remove definition which allowed gradual transition to new API.
+        See https://bugs.webkit.org/show_bug.cgi?id=40303 for first phase.
+        Requires V8 roll.
+
+        * DEPS:
+
+2010-06-17  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: bring XHR console records back.
+        - adds "Enable XHR Monitor" / "Disable XHR Monitor" actions to the console's context menu
+        - make the chosen option persist in the settings.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40799
+
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+
+2010-06-15  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Move isAvailable()/setIsAvailable() from Database/DatabaseSync to AbstractDatabase.
+        https://bugs.webkit.org/show_bug.cgi?id=39041
+
+        * src/WebRuntimeFeatures.cpp:
+        (WebKit::WebRuntimeFeatures::enableDatabase):
+        (WebKit::WebRuntimeFeatures::isDatabaseEnabled):
+
+2010-06-17  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [chromium] cleanup redundant DEPS value and remove buildbot cleanup code
+        https://bugs.webkit.org/show_bug.cgi?id=40615
+
+        * DEPS: tools/data_pack was listed twice for linux (harmless, but unnecessary)
+
+2010-06-17  Jeremy Moskovich  <jeremy@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium API] Implement WebSandboxSupport on OS X and add stubs to allow
+        OOP loading of fonts.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40544
+
+        * WebKit.gyp: Add mac WebSandboxSupport.h
+        * public/mac/WebSandboxSupport.h: Added.
+        * src/ChromiumBridge.cpp:
+        (WebCore::ChromiumBridge::loadFont):
+
+2010-06-17  Pavel Feldman  <pfeldman@chromium.org>
+
+        Unreviewed: chromium tests fix. Added InspectorBackend delegates for new inspector methods.
+
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+
+2010-06-17  Mikhail Naganov  <mnaganov@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [Chromium] Prepare to making WebDevToolsAgentClient::sendMessageToFrontendOnIOThread virtual
+
+        https://bugs.webkit.org/show_bug.cgi?id=39302
+
+        * public/WebDevToolsAgent.h:
+        * public/WebDevToolsAgentClient.h:
+        (WebKit::WebDevToolsMessageTransport::~WebDevToolsMessageTransport):
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::):
+        (WebKit::WebDevToolsAgent::dispatchMessageFromFrontendOnIOThread):
+
+2010-06-17  John Gregg  <johnnyg@google.com>
+
+        Reviewed by David Levin.
+
+        Undo the build fix with the correct patch: Chromium NotificationPresenter
+        is now informed of the destruction before it actually happens, so this
+        use of the Notification object is correct. 
+        https://bugs.webkit.org/show_bug.cgi?id=40097
+
+        * src/NotificationPresenterImpl.cpp:
+        (WebKit::NotificationPresenterImpl::notificationObjectDestroyed):
+
+2010-06-16  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Set current working directory for each of tests
+        https://bugs.webkit.org/show_bug.cgi?id=40668
+
+        * DEPS: Update Chromium to r49915 to have
+          webkit_support::SetCurrentDirectoryForFileURL().
+
+2010-06-16  Drew Wilson  <atwilson@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        Added plumbing to Chromium WebKit API to allow setting/getting the name
+        of top level frames.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40430
+        * public/WebFrame.h:
+        Added setName() API.
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::createView):
+        Now takes a "name" parameter.
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::createWindow):
+        Passes a name parameter.
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::setName):
+        Allows setting the frame name by calling through to the WebCore API.
+        * src/WebFrameImpl.h:
+
+2010-06-15  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Move functions out of Frame class that were marked "move to Chrome"
+        https://bugs.webkit.org/show_bug.cgi?id=39636
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::dispatchBeforeUnloadEvent): Call shouldClose
+        on FrameLoader instead of going through Frame.
+
+2010-06-11  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by Brady Eidson.
+
+        Expose WebHistoryItem::itemSequenceNumber.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40451
+
+        * public/WebHistoryItem.h:
+        * src/WebHistoryItem.cpp:
+        (WebKit::WebHistoryItem::itemSequenceNumber):
+        (WebKit::WebHistoryItem::setItemSequenceNumber):
+
+2010-06-15  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [v8] Web Inspector: make ui tests pass when ScriptDebugServer is used
+        https://bugs.webkit.org/show_bug.cgi?id=40623
+
+        * src/js/DebuggerAgent.js:
+        (devtools.DebuggerAgent.prototype.formatCallFrame_): return empty function name for anonymous functions.
+        * src/js/DebuggerScript.js:
+        * src/js/Tests.js:
+        (.TestSuite.prototype.testProfilerTab.findVisibleView):
+        (.TestSuite.prototype.testProfilerTab):
+        (.TestSuite.prototype.testScriptsTabIsPopulatedOnInspectedPageRefresh.waitUntilScriptIsParsed):
+        (.TestSuite.prototype.testSetBreakpoint.this):
+        (.TestSuite.prototype.testSetBreakpoint):
+        (.TestSuite.prototype.testEvalOnCallFrame.waitForBreakpointHit):
+        (.TestSuite.prototype._executeCodeWhenScriptsAreParsed.executeFunctionInInspectedPage):
+        (.TestSuite.prototype.testExpandScope.examineScopes):
+        (.TestSuite.prototype.testExpandScope):
+        (.TestSuite.prototype.testDebugIntrinsicProperties):
+
+2010-06-14  Anders Carlsson  <andersca@apple.com>
+
+        Fix Chromium build.
+
+        * src/WebPluginListBuilderImpl.cpp:
+        (WebKit::WebPluginListBuilderImpl::addFileExtensionToLastMediaType):
+
+2010-06-14  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Get DatabaseTracker ready for sync DBs.
+        https://bugs.webkit.org/show_bug.cgi?id=39041
+
+        * public/WebDatabase.h:
+        * src/DatabaseObserver.cpp:
+        (WebCore::DatabaseObserver::databaseOpened):
+        (WebCore::DatabaseObserver::databaseModified):
+        (WebCore::DatabaseObserver::databaseClosed):
+        * src/WebDatabase.cpp:
+        (WebKit::WebDatabase::closeDatabaseImmediately):
+        (WebKit::WebDatabase::WebDatabase):
+        (WebKit::WebDatabase::operator=):
+        (WebKit::WebDatabase::operator WTF::PassRefPtr<AbstractDatabase>):
+
+2010-06-14  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Darin Adler.
+
+        AX: need ListItemRole and PresentationalRole
+        https://bugs.webkit.org/show_bug.cgi?id=40133
+
+        * public/WebAccessibilityRole.h:
+        * src/AssertMatchingEnums.cpp:
+
+2010-06-14  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Remove pluginIndex from MimeClassInfo
+        https://bugs.webkit.org/show_bug.cgi?id=40588
+
+        * src/WebPluginListBuilderImpl.cpp:
+        (WebKit::WebPluginListBuilderImpl::addMediaTypeToLastPlugin):
+
 2010-06-14  Jeremy Orlow  <jorlow@chromium.org>
 
         Build fix.
@@ -20,6 +843,15 @@
         * src/InspectorClientImpl.h:
         * src/WebDevToolsAgentImpl.cpp:
         (WebKit::WebDevToolsAgentImpl::setInspectorFrontendProxyToInspectorController):
+
+2010-06-13  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] checkout chromium third_party directly
+        https://bugs.webkit.org/show_bug.cgi?id=40556
+
+        * DEPS:
 
 2010-06-13  Tony Chang  <tony@chromium.org>
 

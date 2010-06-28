@@ -1967,7 +1967,11 @@ DEFINE_STUB_FUNCTION(void*, vm_lazyLinkCall)
         codePtr = executable->generatedJITCodeForCall().addressForCall();
     else {
         FunctionExecutable* functionExecutable = static_cast<FunctionExecutable*>(executable);
-        codeBlock = &functionExecutable->bytecodeForCall(stackFrame.callFrame, callee->scope().node());
+        codeBlock = functionExecutable->bytecodeForCall(stackFrame.callFrame, callee->scope().node());
+        if (!codeBlock) {
+            stackFrame.callFrame->globalData().exception = createStackOverflowError(callFrame);
+            return 0;
+        }
         functionExecutable->jitCodeForCall(callFrame, callee->scope().node());
         if (callFrame->argumentCountIncludingThis() == static_cast<size_t>(codeBlock->m_numParameters))
             codePtr = functionExecutable->generatedJITCodeForCall().addressForCall();
@@ -1997,7 +2001,11 @@ DEFINE_STUB_FUNCTION(void*, vm_lazyLinkConstruct)
         codePtr = executable->generatedJITCodeForConstruct().addressForCall();
     else {
         FunctionExecutable* functionExecutable = static_cast<FunctionExecutable*>(executable);
-        codeBlock = &functionExecutable->bytecodeForConstruct(stackFrame.callFrame, callee->scope().node());
+        codeBlock = functionExecutable->bytecodeForConstruct(stackFrame.callFrame, callee->scope().node());
+        if (!codeBlock) {
+            throwStackOverflowError(callFrame, stackFrame.globalData, ReturnAddressPtr(callFrame->returnPC()), STUB_RETURN_ADDRESS);
+            VM_THROW_EXCEPTION();
+        }
         functionExecutable->jitCodeForConstruct(callFrame, callee->scope().node());
         if (callFrame->argumentCountIncludingThis() == static_cast<size_t>(codeBlock->m_numParameters))
             codePtr = functionExecutable->generatedJITCodeForConstruct().addressForCall();
@@ -2040,7 +2048,10 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_call_NotJSFunction)
         int argCount = stackFrame.args[2].int32();
         CallFrame* previousCallFrame = stackFrame.callFrame;
         CallFrame* callFrame = CallFrame::create(previousCallFrame->registers() + registerOffset);
-
+        if (!stackFrame.registerFile->grow(callFrame->registers())) {
+            throwStackOverflowError(previousCallFrame, stackFrame.globalData, callFrame->returnPC(), STUB_RETURN_ADDRESS);
+            VM_THROW_EXCEPTION();
+        }
         callFrame->init(0, static_cast<Instruction*>((STUB_RETURN_ADDRESS).value()), previousCallFrame->scopeChain(), previousCallFrame, argCount, asObject(funcVal));
         stackFrame.callFrame = callFrame;
 
@@ -2175,6 +2186,10 @@ DEFINE_STUB_FUNCTION(EncodedJSValue, op_construct_NotJSConstruct)
         int argCount = stackFrame.args[2].int32();
         CallFrame* previousCallFrame = stackFrame.callFrame;
         CallFrame* callFrame = CallFrame::create(previousCallFrame->registers() + registerOffset);
+        if (!stackFrame.registerFile->grow(callFrame->registers())) {
+            throwStackOverflowError(previousCallFrame, stackFrame.globalData, callFrame->returnPC(), STUB_RETURN_ADDRESS);
+            VM_THROW_EXCEPTION();
+        }
 
         callFrame->init(0, static_cast<Instruction*>((STUB_RETURN_ADDRESS).value()), previousCallFrame->scopeChain(), previousCallFrame, argCount, asObject(constrVal));
         stackFrame.callFrame = callFrame;

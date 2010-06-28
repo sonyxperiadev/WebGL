@@ -1,3 +1,957 @@
+2010-06-25  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        New QtScript API; setPrototype() and prototype().
+
+        This patch implements QScriptValue's prototype accessors.
+
+        [Qt] QScriptValue should have accessors to a prototype.
+        https://bugs.webkit.org/show_bug.cgi?id=39356
+
+        * qt/api/qscriptvalue.cpp:
+        (QScriptValue::prototype):
+        (QScriptValue::setPrototype):
+        * qt/api/qscriptvalue.h:
+        * qt/api/qscriptvalue_p.h:
+        (QScriptValuePrivate::prototype):
+        (QScriptValuePrivate::setPrototype):
+        * qt/tests/qscriptvalue/tst_qscriptvalue.cpp:
+        (tst_QScriptValue::getSetPrototype):
+        * qt/tests/qscriptvalue/tst_qscriptvalue.h:
+
+2010-06-25  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [CMake] Add option to enable JIT.
+        JIT is disabled by default, but now it's possible to enable it through
+        an option to CMake: -DENABLE_JIT will enable it.
+        https://bugs.webkit.org/show_bug.cgi?id=40936
+
+        * CMakeLists.txt: Add missing files and re-sort.
+
+2010-06-25  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [CMake] Remove unused variable in EFL build system. It was previously
+        being used to set the flags of each port but it was superseded by
+        other flags.
+        https://bugs.webkit.org/show_bug.cgi?id=40931
+
+        * jsc/CMakeLists.txt:
+
+2010-06-25  Nathan Lawrence  <nlawrence@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Aligning AssemblerBuffer to 128 bytes gives a 0.4% speedup on
+        sunspider.
+
+        * assembler/AssemblerBuffer.h:
+        (JSC::AssemblerBuffer::AssemblerBuffer):
+
+2010-06-25  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r61842.
+        http://trac.webkit.org/changeset/61842
+        https://bugs.webkit.org/show_bug.cgi?id=41208
+
+        It broke Windows build (Requested by Ossy_ on #webkit).
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreCommon.vsprops:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * wtf/OwnPtrCommon.h:
+        * wtf/brew/OwnPtrBrew.h: Removed.
+        * wtf/win/OwnPtrWin.h: Removed.
+
+2010-06-25  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r61833.
+        http://trac.webkit.org/changeset/61833
+        https://bugs.webkit.org/show_bug.cgi?id=41205
+
+        It broke Leopard and GTK (Requested by Ossy_ on #webkit).
+
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::RegExp):
+        (JSC::RegExp::create):
+        * runtime/RegExp.h:
+        * runtime/RegExpCache.cpp:
+        (JSC::RegExpCache::lookupOrCreate):
+        (JSC::RegExpCache::create):
+        * runtime/RegExpCache.h:
+
+2010-06-25  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Adam Barth.
+
+        Change OwnPtrCommon to include platform-specific headers
+        https://bugs.webkit.org/show_bug.cgi?id=40279
+
+        Adding new type to OwnPtrCommon needlessly causes all ports to do full rebuilds.
+        Change OwnPtrCommon to include platform-specific headers to avoid all ports rebuilds.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreCommon.vsprops:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * wtf/OwnPtrCommon.h:
+        * wtf/brew/OwnPtrBrew.h: Added.
+        * wtf/win/OwnPtrWin.h: Added.
+
+2010-06-25  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Darin Adler.
+
+        Add the possibility for a head and footer section to create_jit_stubs.
+        https://bugs.webkit.org/show_bug.cgi?id=36050
+
+        * create_jit_stubs:
+
+2010-06-24  Renata Hodovan  <reni@inf.u-szeged.hu>
+
+        Reviewed by Geoffrey Garen.
+
+        Merge RegExp constructor and RegExp::create methods into one.
+        Both of function are called with tree parameters and check whether 
+        flags (the third param) is given or not.
+        Simplify hash lookups in RegExpCache::create with giving them an extra 
+        iterator parameter.
+        https://bugs.webkit.org/show_bug.cgi?id=41055
+
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::RegExp):
+        * runtime/RegExp.h:
+        * runtime/RegExpCache.cpp:
+        (JSC::RegExpCache::lookupOrCreate):
+        (JSC::RegExpCache::create):
+        * runtime/RegExpCache.h:
+
+2010-06-24  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Incorrect use of '+ 4' and 0 instead of tag and payload offsets in JSValue32_64
+        https://bugs.webkit.org/show_bug.cgi?id=41193
+
+        I noticed a use of '+ 4' in some of the 32_64 code paths and realised there
+        were a few places where endianness was being hardcoded.  This patch fixes
+        the errors i could find through code inspection.
+
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_resolve_global):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::emit_op_get_by_val):
+        (JSC::JIT::emit_op_put_by_val):
+        (JSC::JIT::compileGetDirectOffset):
+        (JSC::JIT::privateCompilePutByIdTransition):
+        (JSC::JIT::patchGetByIdSelf):
+        (JSC::JIT::patchPutByIdReplace):
+
+2010-06-24  Oliver Hunt  <oliver@apple.com>
+
+        Build fix
+
+        Temporarily get the tiger bot working again by disabling the
+        new JS parser.  GCC on tiger is miscompiling the parser and
+        I don't have access to a tiger machine right now.
+
+        * wtf/Platform.h:
+
+ 2010-06-21  Nathan Lawrence  <nlawrence@apple.com>
+
+         Reviewed by Geoff Garen.
+
+         https://bugs.webkit.org/show_bug.cgi?id=40128
+         Fixed broken debug functionality.
+
+         * interpreter/Interpreter.cpp:
+         (JSC::Interpreter::dumpRegisters):
+             Fixed to work with updated call frame.
+         * runtime/JSImmediate.h:
+         (JSC::JSValue::isCell):
+             Added assert for aligned cell.
+         * runtime/JSValue.cpp:
+         (JSC::JSValue::description):
+             Fixed to work with current JSValue implementation.
+         * runtime/JSZombie.cpp:
+         (JSC::JSZombie::leakedZombieStructure):
+             JSombies compile again.
+
+2010-06-24  Leandro Pereira  <leandro@profusion.mobi>
+
+        Unreviewed build fix.
+
+        * CMakeLists.txt: Add JSParser.cpp.
+
+2010-06-24  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Single character string replacement may replace too many characters
+        https://bugs.webkit.org/show_bug.cgi?id=41138
+        <rdar://problem/8097496>
+
+        Simple fix to stop the rope path of single character replacement
+        once the first replacement occurs.
+
+        * runtime/JSString.cpp:
+        (JSC::JSString::replaceCharacter):
+
+2010-06-24  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        Fix the length of instruction stream controlled by constant pool
+        https://bugs.webkit.org/show_bug.cgi?id=40293
+
+        The initial/maximum length of instruction stream (m_maxDistance) should
+        be set when the first constant arrives to the constant pool. Otherwise
+        the constant pool could be placed into an uninterrupted sequence.
+
+        * assembler/AssemblerBufferWithConstantPool.h:
+        (JSC::):
+
+2010-06-24  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        We assume bytecodeOffset will always return a value > 1,
+        so we adjust the failure case to return 1 instead of 0.
+
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::bytecodeOffset):
+
+2010-06-23  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Custom-written JavaScript parser
+        https://bugs.webkit.org/show_bug.cgi?id=34019
+
+        Implement a recursive descent parser similar to that used by V8 and
+        SpiderMonkey.  Greater than 2x improvement in SunSpider parsing tests.
+
+        The parser consists of a JSParser class that uses a TreeBuilder to actually
+        build the AST.  There are currently two builders -- the ASTBuilder and
+        SyntaxChecker which separate the job of building an AST for code generation
+        and simply checking syntactic correctness.
+
+        There's still some less than ideal code remaining in the parser to allow
+        us to retain the existing lexing code with minimal changes.  We'll tidy
+        this up at a later date.
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * parser/ASTBuilder.h: Added.
+        (JSC::ASTBuilder::BinaryOpInfo::BinaryOpInfo):
+        (JSC::ASTBuilder::AssignmentInfo::AssignmentInfo):
+        (JSC::ASTBuilder::ASTBuilder):
+        (JSC::ASTBuilder::createSourceElements):
+        (JSC::ASTBuilder::varDeclarations):
+        (JSC::ASTBuilder::funcDeclarations):
+        (JSC::ASTBuilder::features):
+        (JSC::ASTBuilder::numConstants):
+        (JSC::ASTBuilder::appendToComma):
+        (JSC::ASTBuilder::createCommaExpr):
+        (JSC::ASTBuilder::createLogicalNot):
+        (JSC::ASTBuilder::createUnaryPlus):
+        (JSC::ASTBuilder::createVoid):
+        (JSC::ASTBuilder::thisExpr):
+        (JSC::ASTBuilder::createResolve):
+        (JSC::ASTBuilder::createObjectLiteral):
+        (JSC::ASTBuilder::createArray):
+        (JSC::ASTBuilder::createNumberExpr):
+        (JSC::ASTBuilder::createString):
+        (JSC::ASTBuilder::createBoolean):
+        (JSC::ASTBuilder::createNull):
+        (JSC::ASTBuilder::createBracketAccess):
+        (JSC::ASTBuilder::createDotAccess):
+        (JSC::ASTBuilder::createRegex):
+        (JSC::ASTBuilder::createNewExpr):
+        (JSC::ASTBuilder::createConditionalExpr):
+        (JSC::ASTBuilder::createAssignResolve):
+        (JSC::ASTBuilder::createFunctionExpr):
+        (JSC::ASTBuilder::createFunctionBody):
+        (JSC::ASTBuilder::createGetterOrSetterProperty):
+        (JSC::ASTBuilder::createArguments):
+        (JSC::ASTBuilder::createArgumentsList):
+        (JSC::ASTBuilder::createProperty):
+        (JSC::ASTBuilder::createPropertyList):
+        (JSC::ASTBuilder::createElementList):
+        (JSC::ASTBuilder::createFormalParameterList):
+        (JSC::ASTBuilder::createClause):
+        (JSC::ASTBuilder::createClauseList):
+        (JSC::ASTBuilder::setUsesArguments):
+        (JSC::ASTBuilder::createFuncDeclStatement):
+        (JSC::ASTBuilder::createBlockStatement):
+        (JSC::ASTBuilder::createExprStatement):
+        (JSC::ASTBuilder::createIfStatement):
+        (JSC::ASTBuilder::createForLoop):
+        (JSC::ASTBuilder::createForInLoop):
+        (JSC::ASTBuilder::createEmptyStatement):
+        (JSC::ASTBuilder::createVarStatement):
+        (JSC::ASTBuilder::createReturnStatement):
+        (JSC::ASTBuilder::createBreakStatement):
+        (JSC::ASTBuilder::createContinueStatement):
+        (JSC::ASTBuilder::createTryStatement):
+        (JSC::ASTBuilder::createSwitchStatement):
+        (JSC::ASTBuilder::createWhileStatement):
+        (JSC::ASTBuilder::createDoWhileStatement):
+        (JSC::ASTBuilder::createLabelStatement):
+        (JSC::ASTBuilder::createWithStatement):
+        (JSC::ASTBuilder::createThrowStatement):
+        (JSC::ASTBuilder::createDebugger):
+        (JSC::ASTBuilder::createConstStatement):
+        (JSC::ASTBuilder::appendConstDecl):
+        (JSC::ASTBuilder::appendStatement):
+        (JSC::ASTBuilder::addVar):
+        (JSC::ASTBuilder::combineCommaNodes):
+        (JSC::ASTBuilder::evalCount):
+        (JSC::ASTBuilder::appendBinaryExpressionInfo):
+        (JSC::ASTBuilder::operatorStackPop):
+        (JSC::ASTBuilder::operatorStackHasHigherPrecedence):
+        (JSC::ASTBuilder::getFromOperandStack):
+        (JSC::ASTBuilder::shrinkOperandStackBy):
+        (JSC::ASTBuilder::appendBinaryOperation):
+        (JSC::ASTBuilder::operatorStackAppend):
+        (JSC::ASTBuilder::popOperandStack):
+        (JSC::ASTBuilder::appendUnaryToken):
+        (JSC::ASTBuilder::unaryTokenStackLastType):
+        (JSC::ASTBuilder::unaryTokenStackLastStart):
+        (JSC::ASTBuilder::unaryTokenStackRemoveLast):
+        (JSC::ASTBuilder::assignmentStackAppend):
+        (JSC::ASTBuilder::createAssignment):
+        (JSC::ASTBuilder::Scope::Scope):
+        (JSC::ASTBuilder::setExceptionLocation):
+        (JSC::ASTBuilder::incConstants):
+        (JSC::ASTBuilder::usesThis):
+        (JSC::ASTBuilder::usesCatch):
+        (JSC::ASTBuilder::usesClosures):
+        (JSC::ASTBuilder::usesArguments):
+        (JSC::ASTBuilder::usesAssignment):
+        (JSC::ASTBuilder::usesWith):
+        (JSC::ASTBuilder::usesEval):
+        (JSC::ASTBuilder::createNumber):
+        (JSC::ASTBuilder::makeTypeOfNode):
+        (JSC::ASTBuilder::makeDeleteNode):
+        (JSC::ASTBuilder::makeNegateNode):
+        (JSC::ASTBuilder::makeBitwiseNotNode):
+        (JSC::ASTBuilder::makeMultNode):
+        (JSC::ASTBuilder::makeDivNode):
+        (JSC::ASTBuilder::makeAddNode):
+        (JSC::ASTBuilder::makeSubNode):
+        (JSC::ASTBuilder::makeLeftShiftNode):
+        (JSC::ASTBuilder::makeRightShiftNode):
+        (JSC::ASTBuilder::makeFunctionCallNode):
+        (JSC::ASTBuilder::makeBinaryNode):
+        (JSC::ASTBuilder::makeAssignNode):
+        (JSC::ASTBuilder::makePrefixNode):
+        (JSC::ASTBuilder::makePostfixNode):
+        * parser/JSParser.cpp: Added.
+        (JSC::JSParser::AllowInOverride::AllowInOverride):
+        (JSC::JSParser::AllowInOverride::~AllowInOverride):
+        (JSC::JSParser::token):
+        (JSC::JSParser::next):
+        (JSC::JSParser::consume):
+        (JSC::JSParser::match):
+        (JSC::JSParser::tokenStart):
+        (JSC::JSParser::tokenLine):
+        (JSC::JSParser::tokenEnd):
+        (JSC::JSParser::):
+        (JSC::JSParser::autoSemiColon):
+        (JSC::JSParser::canRecurse):
+        (JSC::JSParser::lastTokenEnd):
+        (JSC::jsParse):
+        (JSC::JSParser::JSParser):
+        (JSC::JSParser::parseProgram):
+        (JSC::JSParser::allowAutomaticSemicolon):
+        (JSC::JSParser::parseSourceElements):
+        (JSC::JSParser::parseVarDeclaration):
+        (JSC::JSParser::parseConstDeclaration):
+        (JSC::JSParser::parseDoWhileStatement):
+        (JSC::JSParser::parseWhileStatement):
+        (JSC::JSParser::parseVarDeclarationList):
+        (JSC::JSParser::parseConstDeclarationList):
+        (JSC::JSParser::parseForStatement):
+        (JSC::JSParser::parseBreakStatement):
+        (JSC::JSParser::parseContinueStatement):
+        (JSC::JSParser::parseReturnStatement):
+        (JSC::JSParser::parseThrowStatement):
+        (JSC::JSParser::parseWithStatement):
+        (JSC::JSParser::parseSwitchStatement):
+        (JSC::JSParser::parseSwitchClauses):
+        (JSC::JSParser::parseSwitchDefaultClause):
+        (JSC::JSParser::parseTryStatement):
+        (JSC::JSParser::parseDebuggerStatement):
+        (JSC::JSParser::parseBlockStatement):
+        (JSC::JSParser::parseStatement):
+        (JSC::JSParser::parseFormalParameters):
+        (JSC::JSParser::parseFunctionBody):
+        (JSC::JSParser::parseFunctionInfo):
+        (JSC::JSParser::parseFunctionDeclaration):
+        (JSC::JSParser::parseExpressionOrLabelStatement):
+        (JSC::JSParser::parseExpressionStatement):
+        (JSC::JSParser::parseIfStatement):
+        (JSC::JSParser::parseExpression):
+        (JSC::JSParser::parseAssignmentExpression):
+        (JSC::JSParser::parseConditionalExpression):
+        (JSC::isUnaryOp):
+        (JSC::JSParser::isBinaryOperator):
+        (JSC::JSParser::parseBinaryExpression):
+        (JSC::JSParser::parseProperty):
+        (JSC::JSParser::parseObjectLiteral):
+        (JSC::JSParser::parseArrayLiteral):
+        (JSC::JSParser::parsePrimaryExpression):
+        (JSC::JSParser::parseArguments):
+        (JSC::JSParser::parseMemberExpression):
+        (JSC::JSParser::parseUnaryExpression):
+        * parser/JSParser.h: Added.
+        (JSC::):
+        (JSC::JSTokenInfo::JSTokenInfo):
+        * parser/Lexer.cpp:
+        (JSC::Lexer::lex):
+        * parser/Lexer.h:
+        (JSC::Lexer::setLastLineNumber):
+        (JSC::Lexer::lastLineNumber):
+        * parser/NodeConstructors.h:
+        (JSC::Node::Node):
+        * parser/Parser.cpp:
+        (JSC::Parser::parse):
+        * parser/SyntaxChecker.h: Added.
+        (JSC::SyntaxChecker::SyntaxChecker):
+        (JSC::SyntaxChecker::createSourceElements):
+        (JSC::SyntaxChecker::makeFunctionCallNode):
+        (JSC::SyntaxChecker::appendToComma):
+        (JSC::SyntaxChecker::createCommaExpr):
+        (JSC::SyntaxChecker::makeAssignNode):
+        (JSC::SyntaxChecker::makePrefixNode):
+        (JSC::SyntaxChecker::makePostfixNode):
+        (JSC::SyntaxChecker::makeTypeOfNode):
+        (JSC::SyntaxChecker::makeDeleteNode):
+        (JSC::SyntaxChecker::makeNegateNode):
+        (JSC::SyntaxChecker::makeBitwiseNotNode):
+        (JSC::SyntaxChecker::createLogicalNot):
+        (JSC::SyntaxChecker::createUnaryPlus):
+        (JSC::SyntaxChecker::createVoid):
+        (JSC::SyntaxChecker::thisExpr):
+        (JSC::SyntaxChecker::createResolve):
+        (JSC::SyntaxChecker::createObjectLiteral):
+        (JSC::SyntaxChecker::createArray):
+        (JSC::SyntaxChecker::createNumberExpr):
+        (JSC::SyntaxChecker::createString):
+        (JSC::SyntaxChecker::createBoolean):
+        (JSC::SyntaxChecker::createNull):
+        (JSC::SyntaxChecker::createBracketAccess):
+        (JSC::SyntaxChecker::createDotAccess):
+        (JSC::SyntaxChecker::createRegex):
+        (JSC::SyntaxChecker::createNewExpr):
+        (JSC::SyntaxChecker::createConditionalExpr):
+        (JSC::SyntaxChecker::createAssignResolve):
+        (JSC::SyntaxChecker::createFunctionExpr):
+        (JSC::SyntaxChecker::createFunctionBody):
+        (JSC::SyntaxChecker::createArguments):
+        (JSC::SyntaxChecker::createArgumentsList):
+        (JSC::SyntaxChecker::createProperty):
+        (JSC::SyntaxChecker::createPropertyList):
+        (JSC::SyntaxChecker::createElementList):
+        (JSC::SyntaxChecker::createFormalParameterList):
+        (JSC::SyntaxChecker::createClause):
+        (JSC::SyntaxChecker::createClauseList):
+        (JSC::SyntaxChecker::setUsesArguments):
+        (JSC::SyntaxChecker::createFuncDeclStatement):
+        (JSC::SyntaxChecker::createBlockStatement):
+        (JSC::SyntaxChecker::createExprStatement):
+        (JSC::SyntaxChecker::createIfStatement):
+        (JSC::SyntaxChecker::createForLoop):
+        (JSC::SyntaxChecker::createForInLoop):
+        (JSC::SyntaxChecker::createEmptyStatement):
+        (JSC::SyntaxChecker::createVarStatement):
+        (JSC::SyntaxChecker::createReturnStatement):
+        (JSC::SyntaxChecker::createBreakStatement):
+        (JSC::SyntaxChecker::createContinueStatement):
+        (JSC::SyntaxChecker::createTryStatement):
+        (JSC::SyntaxChecker::createSwitchStatement):
+        (JSC::SyntaxChecker::createWhileStatement):
+        (JSC::SyntaxChecker::createWithStatement):
+        (JSC::SyntaxChecker::createDoWhileStatement):
+        (JSC::SyntaxChecker::createLabelStatement):
+        (JSC::SyntaxChecker::createThrowStatement):
+        (JSC::SyntaxChecker::createDebugger):
+        (JSC::SyntaxChecker::createConstStatement):
+        (JSC::SyntaxChecker::appendConstDecl):
+        (JSC::SyntaxChecker::createGetterOrSetterProperty):
+        (JSC::SyntaxChecker::appendStatement):
+        (JSC::SyntaxChecker::addVar):
+        (JSC::SyntaxChecker::combineCommaNodes):
+        (JSC::SyntaxChecker::evalCount):
+        (JSC::SyntaxChecker::appendBinaryExpressionInfo):
+        (JSC::SyntaxChecker::operatorStackPop):
+        * runtime/JSGlobalData.h:
+        * wtf/Platform.h:
+        * wtf/ThreadSpecific.h:
+        (WTF::T):
+
+2010-06-23  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Optimization of the QScriptValuePrivate.
+
+        Patch change only internals of the QScriptValuePrivate.
+        Most of the QScriptValuePrivate's attributes were moved
+        into an union.
+
+        [Qt] Optimization of the QScriptVAluePrivate.
+        https://bugs.webkit.org/show_bug.cgi?id=40415
+
+        * qt/api/qscriptengine_p.cpp:
+        (QScriptEnginePrivate::globalObject):
+        * qt/api/qscriptvalue_p.h:
+        (QScriptValuePrivate::):
+        (QScriptValuePrivate::~QScriptValuePrivate):
+        (QScriptValuePrivate::QScriptValuePrivate):
+        (QScriptValuePrivate::toString):
+        (QScriptValuePrivate::toNumber):
+        (QScriptValuePrivate::toBool):
+        (QScriptValuePrivate::toObject):
+        (QScriptValuePrivate::equals):
+        (QScriptValuePrivate::strictlyEquals):
+        (QScriptValuePrivate::assignEngine):
+        (QScriptValuePrivate::operator JSValueRef):
+        (QScriptValuePrivate::operator JSObjectRef):
+        (QScriptValuePrivate::refinedJSValue):
+
+2010-06-23  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Oliver Hunt.
+
+        [GTK] Implement ThreadSpecific with glib
+        https://bugs.webkit.org/show_bug.cgi?id=39829
+
+        Implement ThreadSpecific with glib's GStaticPrivate.
+        This patch makes it possible to build GTK port without pthread.
+
+        * wtf/ThreadSpecific.h:
+        (WTF::::ThreadSpecific):
+        (WTF::::~ThreadSpecific):
+        (WTF::::get):
+        (WTF::::set):
+        (WTF::::destroy):
+
+2010-06-23  Leandro Pereira  <leandro@profusion.mobi>
+
+        Unreviewed build fix.
+
+        * CMakeLists.txt: Add runtime/RegExpCache.cpp.
+
+2010-06-22  Renata Hodovan  <hodovan@inf.u-szeged.hu>
+
+        Reviewed by Geoffrey Garen.
+
+        Adding regular expression caching to JavaScriptCore
+        https://bugs.webkit.org/show_bug.cgi?id=38142
+
+        The cache is based on Round Robin eviction policy, and
+        can cache at most 256 character long regular expressions,
+        and at most 256 of them. These values can be changed at compile time.
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::RegExpNode::emitBytecode):
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        (JSC::JSGlobalData::~JSGlobalData):
+        * runtime/JSGlobalData.h:
+        (JSC::JSGlobalData::regExpCache):
+        * runtime/RegExpCache.cpp: Added.
+        (JSC::RegExpCache::lookupOrCreate):
+        (JSC::RegExpCache::create):
+        (JSC::RegExpCache::RegExpCache):
+        * runtime/RegExpCache.h: Added.
+        * runtime/RegExpConstructor.cpp:
+        (JSC::constructRegExp):
+        * runtime/RegExpKey.h: Added.
+        (JSC::RegExpKey::RegExpKey):
+        (JSC::RegExpKey::getFlagsValue):
+        (WTF::operator==):
+        (WTF::):
+        * runtime/RegExpPrototype.cpp:
+        (JSC::regExpProtoFuncCompile):
+        * runtime/StringPrototype.cpp:
+        (JSC::stringProtoFuncMatch):
+        (JSC::stringProtoFuncSearch):
+
+2010-06-22  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Geoffrey Garen.
+
+        Add native call support for ARM and Thumb-2 JIT.
+        https://bugs.webkit.org/show_bug.cgi?id=40231
+
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::privateCompileCTINativeCall):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::privateCompileCTINativeCall):
+        * wtf/Platform.h:
+
+2010-06-21  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Make JSC more resilient in the face of parse failures
+        https://bugs.webkit.org/show_bug.cgi?id=40951
+
+        A number of recent bugs have occurred due to issues like miscounting
+        BOMs, etc which lead to interesting crashes later on.  Adding this
+        logic hardens JSC in the face of these errors, and has no impact on
+        performance (32bit jit actually gets 0.7% faster but I put that down
+        to cache effects).
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::reparseForExceptionInfoIfNecessary):
+        (JSC::CodeBlock::lineNumberForBytecodeOffset):
+        (JSC::CodeBlock::expressionRangeForBytecodeOffset):
+        (JSC::CodeBlock::getByIdExceptionInfoForBytecodeOffset):
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::bytecodeOffset):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::execute):
+        (JSC::Interpreter::executeCall):
+        (JSC::Interpreter::executeConstruct):
+        (JSC::Interpreter::prepareForRepeatCall):
+        (JSC::Interpreter::privateExecute):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::privateCompileCTIMachineTrampolines):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::privateCompileCTIMachineTrampolines):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * runtime/ArrayPrototype.cpp:
+        (JSC::isNumericCompareFunction):
+        * runtime/Executable.cpp:
+        (JSC::FunctionExecutable::compileForCall):
+        (JSC::FunctionExecutable::compileForConstruct):
+        (JSC::FunctionExecutable::generateJITCodeForCall):
+        (JSC::FunctionExecutable::generateJITCodeForConstruct):
+        (JSC::FunctionExecutable::reparseExceptionInfo):
+        (JSC::EvalExecutable::reparseExceptionInfo):
+        * runtime/Executable.h:
+        (JSC::FunctionExecutable::bytecodeForCall):
+        (JSC::FunctionExecutable::bytecodeForConstruct):
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::numericCompareFunction):
+
+2010-06-21  John Sullivan  <sullivan@apple.com>
+
+        Reviewed by Adam Roben.
+
+        RetainPtr can't be used in HashMaps or HashSets
+        <https://bugs.webkit.org/show_bug.cgi?id=40938>
+        
+        Added hashing knowledge similar to that in COMPtr.h.
+
+        * wtf/RetainPtr.h:
+        (WTF::RetainPtr::RetainPtr):
+        New function, copied from COMPtr.h but for the type change.
+        (WTF::RetainPtr::isHashTableDeletedValue):
+        Ditto.
+        (WTF::RetainPtr::hashTableDeletedValue):
+        Ditto.
+        Added template code for HashTraits and PtrHash copied from COMPtr.h but for the type change.
+        The only difference is that constructDeletedValue() matches the RefPtr implementation (in HashTraits.h)
+        rather than the COMPtr implementation.
+
+2010-06-19  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Need to ensure that we grow the RegisterFile when creating a callframe for host code
+        https://bugs.webkit.org/show_bug.cgi?id=40858
+        <rdar://problem/8108986>
+
+        In the past the use of the callframe in hostcode was much more
+        limited.  Now that we expect the callframe to always be valid
+        we need to grow the RegisterFile so that this is actually the
+        case.  In this particular case the problem was failing to grow
+        the registerfile could lead to a callframe that extended beyond
+        RegisterFiler::end(), so vm re-entry would clobber the callframe
+        other scenarios could also lead to badness.
+
+        I was unable to construct a simple testcase to trigger badness,
+        and any such testcase would be so dependent on exact vm stack
+        layout that it would be unlikely to work as a testcase following
+        any callframe or register allocation changes anyway.
+
+        Thankfully the new assertion I added should help to catch these
+        failures in future, and triggers on a couple of tests currently.
+
+        * interpreter/CallFrame.cpp:
+        (JSC::CallFrame::registerFile):
+        * interpreter/CallFrame.h:
+        (JSC::ExecState::init):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+
+2010-06-21  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Speech Input Patch 0: Added compilation argument to conditionally compile pending patches.
+        https://bugs.webkit.org/show_bug.cgi?id=40878
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-06-21  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Kent Tamura.
+
+        [BREWMP] Use global new/delete operator overloading with USE_SYSTEM_MALLOC=1
+        https://bugs.webkit.org/show_bug.cgi?id=40653
+
+        Currently, other ports do not use global new/delete operator overloading
+        when USE_SYSTEM_MALLOC=1. Brew MP uses system malloc, but it needs to enable
+        "global fastMalloc new" because the default new/delete causes crash on device.
+        We need to replace them with Brew MP's MALLOC/FREE.
+
+        * wtf/FastMalloc.h:
+
+2010-06-18  Jocelyn Turcotte  <jocelyn.turcotte@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Work around a build problem with libjscore on Symbian.
+        https://bugs.webkit.org/show_bug.cgi?id=40840
+
+        Sbsv2 sometimes have problems with debug/release configuration
+        determination causing QtWebKit in release to try linking with the debug
+        JavaScriptCore static library. This patch limit the jscore/jscored
+        r58306 fix necessary for mac builds only to the mac platform to prevent the
+        different name problem.
+
+        The real fix would be to fix qmake or the toolchain, this patch might
+        help meanwhile.
+
+        * JavaScriptCore.pri:
+
+2010-06-21  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Kent Tamura.
+
+        Buildfix after r61338.
+        https://bugs.webkit.org/show_bug.cgi?id=40888
+
+        roundUpAllocationSize is needed in RegisterFile.h.
+
+        * jit/ExecutableAllocator.h:
+
+2010-06-19  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Darin Adler.
+
+        Include <string.h> in StringExtras.h
+        https://bugs.webkit.org/show_bug.cgi?id=40808
+
+        Without string.h, RVCT 2.2 can't compile StringExtras.h.
+        It can't find strlen and strncmp.
+
+        * wtf/StringExtras.h:
+
+2010-06-19  Thiago Macieira <thiago.macieira@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Don't use __attribute__((may_alias)) with the Intel compiler,
+        as it doesn't understand it.
+
+        * wtf/Vector.h:
+
+2010-06-19  Thiago Macieira <thiago.macieira@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Fix compilation with the Intel C++ compiler (11.1.072).
+
+        Like RVCT, label pointers must be void*, not const void*.
+
+        * bytecode/Opcode.h:
+
+2010-06-19  Thiago Macieira <thiago.macieira@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Add the WTF_COMPILER_INTEL for when the Intel compiler is used
+        for building. Usually, the Intel compiler masquerades as
+        another compiler in the system and gets away with it, but some
+        times specific fixes are required (such as when using language
+        extensions).
+
+        * wtf/Platform.h:
+
+2010-06-18  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Incorrect handling of multiple BOMs scattered through a file.
+        https://bugs.webkit.org/show_bug.cgi?id=40865
+
+        When determining the offset of open and close braces in a source
+        with BOMs we were finishing our count early as we failed to account
+        for BOMs prior to the open/close brace positions effecting those
+        positions.
+
+        * parser/Lexer.cpp:
+        (JSC::Lexer::sourceCode):
+
+2010-06-17  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Don't throw away exception information for functions that use exceptions
+        https://bugs.webkit.org/show_bug.cgi?id=40786
+
+        Simple patch to stop JSC from throwing away the exception information
+        of a function that uses "exceptiony" features like try and throw.  This
+        is a speed up for catching expressions but it's difficult to quantify as
+        the old cost of reparsing is amortised over all exceptions caught in the
+        effected function.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::reparseForExceptionInfoIfNecessary):
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::generate):
+        (JSC::BytecodeGenerator::emitCatch):
+        * bytecompiler/BytecodeGenerator.h:
+        (JSC::BytecodeGenerator::emitThrow):
+
+2010-06-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Add PlatformStrategies and PluginStrategy classes.
+        https://bugs.webkit.org/show_bug.cgi?id=40850
+
+        * wtf/Platform.h:
+
+2010-06-18  Leandro Pereira  <leandro@profusion.mobi>
+
+        [EFL] Unreviewed build fix.
+
+        * wtf/CMakeLists.txt: Add MD5.cpp.
+
+2010-06-17  Shu Chang  <chang.shu@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Fix the link error on symbian with ENABLE_JIT=0.
+        1. Add "#if ENABLE(JIT)" in the header file;
+        2. Put feature enable/disable logic to a common.pri so
+        that both JavaScriptCore.pri and WebCore.pri can share.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40780
+
+        * JavaScriptCore.pri:
+        * jit/ExecutableAllocator.h:
+
+2010-06-17  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Use adoptRef and create functions in more code paths
+        https://bugs.webkit.org/show_bug.cgi?id=40760
+
+        * API/JSClassRef.h: Removed unneeded include of RefCounted.h.
+        * API/JSWeakObjectMapRefPrivate.cpp: Ditto.
+
+        * bytecode/CodeBlock.h:
+        (JSC::FunctionCodeBlock::FunctionCodeBlock): Use the
+        SharedSymbolTable::create function instead of calling new directly.
+
+        * runtime/SymbolTable.h: Added a create function to the SharedSymbolTable
+        class and made the constructor private.
+
+2010-06-17  Mark Brand  <mabrand@mabrand.nl>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] use "win32-g++*" scope to match all MinGW makespecs
+
+        The scope "win32-g++" comes from the name of the makespec. However, it
+        is frequently used to check for MinGW. This works fine as long as
+        win32-g++ is the only makespec for MinGW. Now we need the wildcard
+        to cover "win32-g++-cross" as well.
+
+        * JavaScriptCore.pro:
+
+2010-06-16  Darin Adler  <darin@apple.com>
+
+        Reviewed by David Levin.
+
+        Deploy adoptRef in more places, including all HTML and MathML elements
+        https://bugs.webkit.org/show_bug.cgi?id=39941
+
+        * wtf/ThreadSafeShared.h: Made the constructor protected and removed the
+        unneeded support for initial reference counts other than 1.
+
+2010-06-16  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Geoffrey Garen.
+
+        Store matchBegin directly in the array of output instead of the stack.
+        https://bugs.webkit.org/show_bug.cgi?id=38988
+
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::generateDisjunction):
+        (JSC::Yarr::RegexGenerator::generate):
+
+2010-06-15  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Make JavaScriptCore build with clang++.
+
+        * jit/JITInlineMethods.h:
+        (JSC::JIT::emitPutVirtualRegister):
+        Explicitly cast to an int.
+
+        * yarr/RegexCompiler.cpp:
+        (JSC::Yarr::compileRegex):
+        Return 0 instead of false.
+
+2010-06-15  Adam Roben  <aroben@apple.com>
+
+        Make WebCore's and JavaScriptCore's DerivedSources available for debugging in production builds
+
+        Fixes <http://webkit.org/b/40626> <rdar://problem/8094205>.
+
+        Reviewed by Sam Weinig.
+
+        * JavaScriptCore.vcproj/JavaScriptCore.make: Copy the contents of
+        JavaScriptCore's DerivedSources directory to
+        AppleInternal/Sources/JavaScriptCore.
+
+2010-06-15  Gabor Loki  <loki@webkit.org>
+
+        Rubber-stamped by Eric Seidel.
+
+        Fix invalid access to non-static data member warning in JITPropertyAccess32_64 on ARM
+        https://bugs.webkit.org/show_bug.cgi?id=40423
+
+        Using OBJECT_OFFSETOF macro instead of objectof to bypass access to
+        non-static data member warning.
+
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::privateCompilePutByIdTransition):
+
 2010-06-11  Eric Seidel  <eric@webkit.org>
 
         Reviewed by Adam Barth.

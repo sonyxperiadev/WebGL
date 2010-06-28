@@ -65,16 +65,21 @@ public:
 
     unsigned short truncation() { return m_truncation; }
 
+    bool hasHyphen() const { return m_hasEllipsisBoxOrHyphen; }
+    void setHasHyphen(bool hasHyphen) { m_hasEllipsisBoxOrHyphen = hasHyphen; }
+
 private:
     virtual int selectionTop();
     virtual int selectionHeight();
 
 public:
+    virtual IntRect calculateBoundaries() const { return IntRect(x(), y(), width(), height()); }
+
     virtual IntRect selectionRect(int absx, int absy, int startPos, int endPos);
     bool isSelected(int startPos, int endPos) const;
-    void selectionStartEnd(int& sPos, int& ePos);
+    virtual void selectionStartEnd(int& sPos, int& ePos);
 
-private:
+protected:
     virtual void paint(RenderObject::PaintInfo&, int tx, int ty);
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty);
 
@@ -99,7 +104,7 @@ public:
     void setSpaceAdd(int add) { m_width -= m_toAdd; m_toAdd = add; m_width += m_toAdd; }
 
 private:
-    virtual bool isInlineTextBox() { return true; }    
+    virtual bool isInlineTextBox() const { return true; }    
 
 public:
     virtual int caretMinOffset() const;

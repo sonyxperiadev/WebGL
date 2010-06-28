@@ -80,6 +80,7 @@ TestShell::TestShell(bool testShellMode)
     , m_testIsPreparing(false)
     , m_focusedWidget(0)
     , m_testShellMode(testShellMode)
+    , m_allowExternalPages(false)
 {
     WebRuntimeFeatures::enableGeolocation(true);
     m_accessibilityController.set(new AccessibilityController(this));
@@ -200,6 +201,11 @@ void TestShell::runFileTest(const TestParams& params)
     bool inspectorTestMode = testUrl.find("/inspector/") != string::npos
         || testUrl.find("\\inspector\\") != string::npos;
     m_webView->settings()->setDeveloperExtrasEnabled(inspectorTestMode);
+
+    if (testUrl.find("loading/") != string::npos
+        || testUrl.find("loading\\") != string::npos)
+        m_layoutTestController->setShouldDumpFrameLoadCallbacks(true);
+
     m_printer->handleTestHeader(testUrl.c_str());
     loadURL(m_params.testUrl);
 

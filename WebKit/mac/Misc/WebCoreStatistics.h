@@ -87,4 +87,8 @@
 - (NSString *)counterValueForElement:(DOMElement*)element;
 - (int)pageNumberForElement:(DOMElement*)element:(float)pageWidthInPixels:(float)pageHeightInPixels;
 - (int)numberOfPages:(float)pageWidthInPixels:(float)pageHeightInPixels;
+- (NSString *)pageProperty:(const char*)propertyName:(int)pageNumber;
+- (bool)isPageBoxVisible:(int)pageNumber;
+- (NSString *)pageAreaRectInPixels:(int)pageNumber;
+- (NSString *)preferredPageSizeInPixels:(int)pageNumber;
 @end

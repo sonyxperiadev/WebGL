@@ -62,6 +62,7 @@
 #include <JavaScriptCore/InitializeThreading.h>
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/JSValue.h>
+#include <WebCore/AbstractDatabase.h>
 #include <WebCore/AXObjectCache.h>
 #include <WebCore/ApplicationCacheStorage.h>
 #include <WebCore/BString.h>
@@ -73,7 +74,6 @@
 #include <WebCore/ContextMenuController.h>
 #include <WebCore/CookieStorageWin.h>
 #include <WebCore/Cursor.h>
-#include <WebCore/Database.h>
 #include <WebCore/Document.h>
 #include <WebCore/DragController.h>
 #include <WebCore/DragData.h>
@@ -4710,7 +4710,7 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     hr = prefsPrivate->databasesEnabled(&enabled);
     if (FAILED(hr))
         return hr;
-    Database::setIsAvailable(enabled);
+    AbstractDatabase::setIsAvailable(enabled);
 #endif
 
     hr = prefsPrivate->localStorageEnabled(&enabled);
@@ -5197,7 +5197,7 @@ HRESULT STDMETHODCALLTYPE WebView::shouldClose(
 
     *result = TRUE;
     if (Frame* frame = m_page->mainFrame())
-        *result = frame->shouldClose() ? TRUE : FALSE;
+        *result = frame->loader()->shouldClose();
     return S_OK;
 }
 

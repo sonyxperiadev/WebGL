@@ -21,8 +21,8 @@
  *
  */
 
-#ifndef SVGRenderBase_h
-#define SVGRenderBase_h
+#ifndef SVGRenderSupport_h
+#define SVGRenderSupport_h
 
 #if ENABLE(SVG)
 #include "DashArray.h"
@@ -54,9 +54,6 @@ public:
 
     // Helper function determining wheter overflow is hidden
     static bool isOverflowHidden(const RenderObject*);
-
-    // strokeBoundingBox() includes the marker boundaries for a RenderPath object
-    virtual FloatRect strokeBoundingBox() const { return FloatRect(); }
 
     // Calculates the repaintRect in combination with filter, clipper and masker in local coordinates.
     void intersectRepaintRectWithResources(const RenderObject*, FloatRect&) const;
@@ -93,4 +90,4 @@ const RenderObject* findTextRootObject(const RenderObject* start);
 
 #endif // ENABLE(SVG)
 
-#endif // SVGRenderBase_h
+#endif // SVGRenderSupport_h

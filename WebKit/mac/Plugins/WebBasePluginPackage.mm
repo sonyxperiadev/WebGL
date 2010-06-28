@@ -28,6 +28,7 @@
 
 #import <WebKit/WebBasePluginPackage.h>
 
+#import <algorithm>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebKit/WebKitNSStringExtras.h>
 #import <WebKit/WebNSObjectExtras.h>
@@ -47,17 +48,19 @@
 #import <mach-o/fat.h>
 #import <mach-o/loader.h>
 
+#define JavaCocoaPluginIdentifier   "com.apple.JavaPluginCocoa"
+#define JavaCarbonPluginIdentifier  "com.apple.JavaAppletPlugin"
+#define JavaCFMPluginFilename       "Java Applet Plugin Enabler"
 
-#define JavaCocoaPluginIdentifier   @"com.apple.JavaPluginCocoa"
-#define JavaCarbonPluginIdentifier  @"com.apple.JavaAppletPlugin"
-#define JavaCFMPluginFilename       @"Java Applet Plugin Enabler"
-
-#define QuickTimeCarbonPluginIdentifier       @"com.apple.QuickTime Plugin.plugin"
-#define QuickTimeCocoaPluginIdentifier        @"com.apple.quicktime.webplugin"
+#define QuickTimeCarbonPluginIdentifier       "com.apple.QuickTime Plugin.plugin"
+#define QuickTimeCocoaPluginIdentifier        "com.apple.quicktime.webplugin"
 
 @interface NSArray (WebPluginExtensions)
 - (NSArray *)_web_lowercaseStrings;
 @end;
+
+using namespace std;
+using namespace WebCore;
 
 @implementation WebBasePluginPackage
 
@@ -91,7 +94,7 @@
     return WebCFAutorelease(WKCopyCFLocalizationPreferredName(NULL));
 }
 
-- (NSString *)pathByResolvingSymlinksAndAliasesInPath:(NSString *)thePath
+static NSString *pathByResolvingSymlinksAndAliases(NSString *thePath)
 {
     NSString *newPath = [thePath stringByResolvingSymlinksInPath];
 
@@ -122,78 +125,18 @@
     if (!(self = [super init]))
         return nil;
         
-    path = [[self pathByResolvingSymlinksAndAliasesInPath:pluginPath] retain];
-    bundle = [[NSBundle alloc] initWithPath:path];
+    path = pathByResolvingSymlinksAndAliases(pluginPath);
+    cfBundle.adoptCF(CFBundleCreate(kCFAllocatorDefault, (CFURLRef)[NSURL fileURLWithPath:path]));
+
 #ifndef __ppc__
     // 32-bit PowerPC is the only platform where non-bundled CFM plugins are supported
-    if (!bundle) {
+    if (!cfBundle) {
         [self release];
         return nil;
     }
 #endif
-    cfBundle = CFBundleCreate(NULL, (CFURLRef)[NSURL fileURLWithPath:path]);
-    extensionToMIME = [[NSMutableDictionary alloc] init];
     
     return self;
-}
-
-- (BOOL)getPluginInfoFromBundleAndMIMEDictionary:(NSDictionary *)MIMETypes
-{
-    if (!bundle)
-        return NO;
-    
-    if (!MIMETypes) {
-        MIMETypes = [bundle objectForInfoDictionaryKey:WebPluginMIMETypesKey];
-        if (!MIMETypes)
-            return NO;
-    }
-
-    NSMutableDictionary *MIMEToExtensionsDictionary = [NSMutableDictionary dictionary];
-    NSMutableDictionary *MIMEToDescriptionDictionary = [NSMutableDictionary dictionary];
-    NSEnumerator *keyEnumerator = [MIMETypes keyEnumerator];
-    NSDictionary *MIMEDictionary;
-    NSString *MIME, *description;
-    NSArray *extensions;
-
-    while ((MIME = [keyEnumerator nextObject]) != nil) {
-        MIMEDictionary = [MIMETypes objectForKey:MIME];
-        
-        // FIXME: Consider storing disabled MIME types.
-        NSNumber *isEnabled = [MIMEDictionary objectForKey:WebPluginTypeEnabledKey];
-        if (isEnabled && [isEnabled boolValue] == NO)
-            continue;
-
-        extensions = [[MIMEDictionary objectForKey:WebPluginExtensionsKey] _web_lowercaseStrings];
-        if ([extensions count] == 0)
-            extensions = [NSArray arrayWithObject:@""];
-
-        MIME = [MIME lowercaseString];
-
-        [MIMEToExtensionsDictionary setObject:extensions forKey:MIME];
-
-        description = [MIMEDictionary objectForKey:WebPluginTypeDescriptionKey];
-        if (!description)
-            description = @"";
-
-        [MIMEToDescriptionDictionary setObject:description forKey:MIME];
-    }
-
-    [self setMIMEToExtensionsDictionary:MIMEToExtensionsDictionary];
-    [self setMIMEToDescriptionDictionary:MIMEToDescriptionDictionary];
-
-    NSString *filename = [self filename];
-
-    NSString *theName = [bundle objectForInfoDictionaryKey:WebPluginNameKey];
-    if (!theName)
-        theName = filename;
-    [self setName:theName];
-
-    description = [bundle objectForInfoDictionaryKey:WebPluginDescriptionKey];
-    if (!description)
-        description = filename;
-    [self setPluginDescription:description];
-
-    return YES;
 }
 
 - (void)unload
@@ -225,13 +168,22 @@
     return pList;
 }
 
+- (id)_objectForInfoDictionaryKey:(NSString *)key
+{
+    CFDictionaryRef bundleInfoDictionary = CFBundleGetInfoDictionary(cfBundle.get());
+    if (!bundleInfoDictionary)
+        return nil;
+
+    return (id)CFDictionaryGetValue(bundleInfoDictionary, key);
+}
+
 - (BOOL)getPluginInfoFromPLists
 {
-    if (!bundle)
+    if (!cfBundle)
         return NO;
     
     NSDictionary *MIMETypes = nil;
-    NSString *pListFilename = [bundle objectForInfoDictionaryKey:WebPluginMIMETypesFilenameKey];
+    NSString *pListFilename = [self _objectForInfoDictionaryKey:WebPluginMIMETypesFilenameKey];
     
     // Check if the MIME types are claimed in a plist in the user's preferences directory.
     if (pListFilename) {
@@ -247,15 +199,65 @@
             // Plist doesn't exist, ask the plug-in to create it.
             MIMETypes = [[self pListForPath:pListPath createFile:YES] objectForKey:WebPluginMIMETypesKey];
     }
-    
-    // Pass the MIME dictionary to the superclass to parse it.
-    return [self getPluginInfoFromBundleAndMIMEDictionary:MIMETypes];
+
+    if (!MIMETypes) {
+        MIMETypes = [self _objectForInfoDictionaryKey:WebPluginMIMETypesKey];
+        if (!MIMETypes)
+            return NO;
+    }
+
+    NSEnumerator *keyEnumerator = [MIMETypes keyEnumerator];
+    NSDictionary *MIMEDictionary;
+    NSString *MIME, *description;
+    NSArray *extensions;
+
+    while ((MIME = [keyEnumerator nextObject]) != nil) {
+        MIMEDictionary = [MIMETypes objectForKey:MIME];
+        
+        // FIXME: Consider storing disabled MIME types.
+        NSNumber *isEnabled = [MIMEDictionary objectForKey:WebPluginTypeEnabledKey];
+        if (isEnabled && [isEnabled boolValue] == NO)
+            continue;
+
+        MimeClassInfo mimeClassInfo;
+        
+        extensions = [[MIMEDictionary objectForKey:WebPluginExtensionsKey] _web_lowercaseStrings];
+        for (NSUInteger i = 0; i < [extensions count]; ++i)
+            mimeClassInfo.extensions.append((NSString *)[extensions objectAtIndex:i]);
+
+        if ([extensions count] == 0)
+            extensions = [NSArray arrayWithObject:@""];
+
+        mimeClassInfo.type = String(MIME).lower();
+
+        description = [MIMEDictionary objectForKey:WebPluginTypeDescriptionKey];
+        mimeClassInfo.desc = description;
+
+        pluginInfo.mimes.append(mimeClassInfo);
+        if (!description)
+            description = @"";
+    }
+
+    NSString *filename = [(NSString *)path lastPathComponent];
+    pluginInfo.file = filename;
+
+    NSString *theName = [self _objectForInfoDictionaryKey:WebPluginNameKey];
+    if (!theName)
+        theName = filename;
+    pluginInfo.name = theName;
+
+    description = [self _objectForInfoDictionaryKey:WebPluginDescriptionKey];
+    if (!description)
+        description = filename;
+    pluginInfo.desc = description;
+
+    return YES;
 }
 
 - (BOOL)load
 {
-    if (bundle && !BP_CreatePluginMIMETypesPreferences)
-        BP_CreatePluginMIMETypesPreferences = (BP_CreatePluginMIMETypesPreferencesFuncPtr)CFBundleGetFunctionPointerForName(cfBundle, CFSTR("BP_CreatePluginMIMETypesPreferences"));
+    if (cfBundle && !BP_CreatePluginMIMETypesPreferences)
+        BP_CreatePluginMIMETypesPreferences = (BP_CreatePluginMIMETypesPreferencesFuncPtr)CFBundleGetFunctionPointerForName(cfBundle.get(), CFSTR("BP_CreatePluginMIMETypesPreferences"));
     
     return YES;
 }
@@ -264,18 +266,6 @@
 {
     ASSERT(!pluginDatabases || [pluginDatabases count] == 0);
     [pluginDatabases release];
-    
-    [name release];
-    [path release];
-    [pluginDescription release];
-
-    [MIMEToDescription release];
-    [MIMEToExtensions release];
-    [extensionToMIME release];
-
-    [bundle release];
-    if (cfBundle)
-        CFRelease(cfBundle);
     
     [super dealloc];
 }
@@ -286,128 +276,71 @@
     ASSERT(!pluginDatabases || [pluginDatabases count] == 0);
     [pluginDatabases release];
 
-    if (cfBundle)
-        CFRelease(cfBundle);
-
     [super finalize];
 }
 
-- (NSString *)name
-{
-    return name;
-}
-
-- (NSString *)path
+- (const String&)path
 {
     return path;
 }
 
-- (NSString *)filename
+- (const PluginInfo&)pluginInfo
 {
-    return [path lastPathComponent];
+    return pluginInfo;
 }
 
-- (NSString *)pluginDescription
+- (BOOL)supportsExtension:(const String&)extension
 {
-    return pluginDescription;
-}
-
-- (NSEnumerator *)extensionEnumerator
-{
-    return [extensionToMIME keyEnumerator];
-}
-
-- (NSEnumerator *)MIMETypeEnumerator
-{
-    return [MIMEToExtensions keyEnumerator];
-}
-
-- (NSString *)descriptionForMIMEType:(NSString *)MIMEType
-{
-    return [MIMEToDescription objectForKey:MIMEType];
-}
-
-- (NSString *)MIMETypeForExtension:(NSString *)extension
-{
-    return [extensionToMIME objectForKey:extension];
-}
-
-- (NSArray *)extensionsForMIMEType:(NSString *)MIMEType
-{
-    return [MIMEToExtensions objectForKey:MIMEType];
-}
-
-- (NSBundle *)bundle
-{
-    return bundle;
-}
-
-- (void)setName:(NSString *)theName
-{
-    [name release];
-    name = [theName retain];
-}
-
-- (void)setPath:(NSString *)thePath
-{
-    [path release];
-    path = [thePath retain];
-}
-
-- (void)setPluginDescription:(NSString *)description
-{
-    [pluginDescription release];
-    pluginDescription = [description retain];
-}
-
-- (void)setMIMEToDescriptionDictionary:(NSDictionary *)MIMEToDescriptionDictionary
-{
-    [MIMEToDescription release];
-    MIMEToDescription = [MIMEToDescriptionDictionary retain];
-}
-
-- (void)setMIMEToExtensionsDictionary:(NSDictionary *)MIMEToExtensionsDictionary
-{
-    [MIMEToExtensions release];
-    MIMEToExtensions = [MIMEToExtensionsDictionary retain];
-
-    // Reverse the mapping
-    [extensionToMIME removeAllObjects];
-
-    NSEnumerator *MIMEEnumerator = [MIMEToExtensions keyEnumerator], *extensionEnumerator;
-    NSString *MIME, *extension;
-    NSArray *extensions;
+    ASSERT(extension.lower() == extension);
     
-    while ((MIME = [MIMEEnumerator nextObject]) != nil) {
-        extensions = [MIMEToExtensions objectForKey:MIME];
-        extensionEnumerator = [extensions objectEnumerator];
+    for (size_t i = 0; i < pluginInfo.mimes.size(); ++i) {
+        const Vector<String>& extensions = pluginInfo.mimes[i].extensions;
 
-        while ((extension = [extensionEnumerator nextObject]) != nil) {
-            if (![extension isEqualToString:@""])
-                [extensionToMIME setObject:MIME forKey:extension];
-        }
+        if (find(extensions.begin(), extensions.end(), extension) != extensions.end())
+            return YES;
     }
+
+    return NO;
 }
 
-- (NSString *)description
+- (BOOL)supportsMIMEType:(const WebCore::String&)mimeType
 {
-    return [NSString stringWithFormat:@"name: %@\npath: %@\nmimeTypes:\n%@\npluginDescription:%@",
-        name, path, [MIMEToExtensions description], [MIMEToDescription description], pluginDescription];
+    ASSERT(mimeType.lower() == mimeType);
+    
+    for (size_t i = 0; i < pluginInfo.mimes.size(); ++i) {
+        if (pluginInfo.mimes[i].type == mimeType)
+            return YES;
+    }
+    
+    return NO;
+}
+
+- (NSString *)MIMETypeForExtension:(const String&)extension
+{
+    ASSERT(extension.lower() == extension);
+    
+    for (size_t i = 0; i < pluginInfo.mimes.size(); ++i) {
+        const MimeClassInfo& mimeClassInfo = pluginInfo.mimes[i];
+        const Vector<String>& extensions = mimeClassInfo.extensions;
+
+        if (find(extensions.begin(), extensions.end(), extension) != extensions.end())
+            return mimeClassInfo.type;
+    }
+
+    return nil;
 }
 
 - (BOOL)isQuickTimePlugIn
 {
-    NSString *bundleIdentifier = [[self bundle] bundleIdentifier];
-    return [bundleIdentifier _webkit_isCaseInsensitiveEqualToString:QuickTimeCarbonPluginIdentifier] || 
-        [bundleIdentifier _webkit_isCaseInsensitiveEqualToString:QuickTimeCocoaPluginIdentifier];
+    const String& bundleIdentifier = [self bundleIdentifier];
+    return bundleIdentifier == QuickTimeCocoaPluginIdentifier || bundleIdentifier == QuickTimeCocoaPluginIdentifier;
 }
 
 - (BOOL)isJavaPlugIn
 {
-    NSString *bundleIdentifier = [[self bundle] bundleIdentifier];
-    return [bundleIdentifier _webkit_isCaseInsensitiveEqualToString:JavaCocoaPluginIdentifier] || 
-        [bundleIdentifier _webkit_isCaseInsensitiveEqualToString:JavaCarbonPluginIdentifier] ||
-        [[path lastPathComponent] _webkit_isCaseInsensitiveEqualToString:JavaCFMPluginFilename];
+    const String& bundleIdentifier = [self bundleIdentifier];
+    return bundleIdentifier == JavaCocoaPluginIdentifier || bundleIdentifier == JavaCarbonPluginIdentifier ||
+        equalIgnoringCase(pluginInfo.file, JavaCFMPluginFilename);
 }
 
 static inline void swapIntsInHeader(uint8_t* bytes, unsigned length)
@@ -492,7 +425,7 @@ static inline void swapIntsInHeader(uint8_t* bytes, unsigned length)
 - (UInt32)versionNumber
 {
     // CFBundleGetVersionNumber doesn't work with all possible versioning schemes, but we think for now it's good enough for us.
-    return CFBundleGetVersionNumber(cfBundle);
+    return CFBundleGetVersionNumber(cfBundle.get());
 }
 
 - (void)wasAddedToPluginDatabase:(WebPluginDatabase *)database
@@ -510,6 +443,11 @@ static inline void swapIntsInHeader(uint8_t* bytes, unsigned length)
     ASSERT([pluginDatabases containsObject:database]);
 
     [pluginDatabases removeObject:database];
+}
+
+- (WebCore::String)bundleIdentifier
+{
+    return CFBundleGetIdentifier(cfBundle.get());
 }
 
 @end

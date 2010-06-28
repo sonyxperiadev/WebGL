@@ -27,6 +27,10 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+html {
+    height: 100%;
+}
+
 body {
     cursor: default;
     position: absolute;
@@ -4036,6 +4040,10 @@ a.worker-item {
 
 .styles-section .header .subtitle a {
     color: inherit;
+}
+
+.styles-section .subtitle::before, .styles-section .subtitle a::before {
+    content: attr(data-uncopyable);
 }
 
 .styles-section .properties {

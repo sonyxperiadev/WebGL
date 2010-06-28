@@ -34,11 +34,12 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
 class LayoutTestController : public RefCounted<LayoutTestController> {
 public:
-    LayoutTestController(const std::string& testPathOrURL, const std::string& expectedPixelHash);
+    static PassRefPtr<LayoutTestController> create(const std::string& testPathOrURL, const std::string& expectedPixelHash);
     ~LayoutTestController();
 
     void makeWindowObject(JSContextRef context, JSObjectRef windowObject, JSValueRef* exception);
@@ -62,6 +63,10 @@ public:
     int numberOfPages(float pageWidthInPixels, float pageHeightInPixels);
     void overridePreference(JSStringRef key, JSStringRef value);
     int pageNumberForElementById(JSStringRef id, float pageWidthInPixels, float pageHeightInPixels);
+    JSRetainPtr<JSStringRef> pageProperty(const char* propertyName, int pageNumber) const;
+    bool isPageBoxVisible(int pageNumber) const;
+    JSRetainPtr<JSStringRef> pageAreaRectInPixels(int pageNumber) const;
+    JSRetainPtr<JSStringRef> preferredPageSizeInPixels(int pageNumber) const;
     JSStringRef pathToLocalResource(JSContextRef, JSStringRef url);
     void queueBackNavigation(int howFarBackward);
     void queueForwardNavigation(int howFarForward);
@@ -255,6 +260,11 @@ public:
 
     void setWebViewEditable(bool);
 
+
+#if PLATFORM(MAC)
+    void abortModal();
+#endif
+
     // The following API test functions should probably be moved to platform-specific 
     // unit tests outside of DRT once they exist.
     void apiTestNewWindowDataLoadBaseURL(JSStringRef utf8Data, JSStringRef baseURL);
@@ -271,6 +281,8 @@ public:
     static const unsigned maxViewHeight;
 
 private:
+    LayoutTestController(const std::string& testPathOrURL, const std::string& expectedPixelHash);
+
     bool m_dumpAsPDF;
     bool m_dumpAsText;
     bool m_dumpBackForwardList;

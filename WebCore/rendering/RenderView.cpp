@@ -193,9 +193,17 @@ void RenderView::paint(PaintInfo& paintInfo, int tx, int ty)
     paintObject(paintInfo, tx, ty);
 }
 
+static inline bool isComposited(RenderObject* object)
+{
+    return object->hasLayer() && toRenderBoxModelObject(object)->layer()->isComposited();
+}
+
 static inline bool rendererObscuresBackground(RenderObject* object)
 {
-    return object && object->style()->visibility() == VISIBLE && object->style()->opacity() == 1 && !object->style()->hasTransform();
+    return object && object->style()->visibility() == VISIBLE
+        && object->style()->opacity() == 1
+        && !object->style()->hasTransform()
+        && !isComposited(object);
 }
     
 void RenderView::paintBoxDecorations(PaintInfo& paintInfo, int, int)
@@ -223,8 +231,19 @@ void RenderView::paintBoxDecorations(PaintInfo& paintInfo, int, int)
 #endif
     }
 
+    if (document()->ownerElement() || !view())
+        return;
+
+    bool rootFillsViewport = false;
+    Node* documentElement = document()->documentElement();
+    if (RenderObject* rootRenderer = documentElement ? documentElement->renderer() : 0) {
+        // The document element's renderer is currently forced to be a block, but may not always be.
+        RenderBox* rootBox = rootRenderer->isBox() ? toRenderBox(rootRenderer) : 0;
+        rootFillsViewport = rootBox && !rootBox->x() && !rootBox->y() && rootBox->width() >= width() && rootBox->height() >= height();
+    }
+    
     // If painting will entirely fill the view, no need to fill the background.
-    if (elt || rendererObscuresBackground(firstChild()) || !view())
+    if (rootFillsViewport && rendererObscuresBackground(firstChild()))
         return;
 
     // This code typically only executes if the root element's visibility has been set to hidden,

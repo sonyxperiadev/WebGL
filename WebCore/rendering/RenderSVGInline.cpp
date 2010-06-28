@@ -26,11 +26,7 @@
 #if ENABLE(SVG)
 #include "RenderSVGInline.h"
 
-#include "FloatQuad.h"
-#include "RenderBlock.h"
 #include "SVGInlineFlowBox.h"
-#include "SVGInlineTextBox.h"
-#include "SVGRootInlineBox.h"
 
 namespace WebCore {
     
@@ -44,25 +40,6 @@ InlineFlowBox* RenderSVGInline::createInlineFlowBox()
     InlineFlowBox* box = new (renderArena()) SVGInlineFlowBox(this);
     box->setHasVirtualHeight();
     return box;
-}
-
-void RenderSVGInline::absoluteRects(Vector<IntRect>& rects, int, int)
-{
-    InlineFlowBox* firstBox = firstLineBox();
-
-    RootInlineBox* rootBox = firstBox ? firstBox->root() : 0;
-    RenderBox* object = rootBox ? rootBox->block() : 0;
-
-    if (!object)
-        return;
-
-    int xRef = object->x();
-    int yRef = object->y();
-
-    for (InlineFlowBox* curr = firstBox; curr; curr = curr->nextLineBox()) {
-        FloatRect rect(xRef + curr->x(), yRef + curr->y(), curr->width(), curr->height());
-        rects.append(enclosingIntRect(localToAbsoluteQuad(rect).boundingBox()));
-    }
 }
 
 FloatRect RenderSVGInline::objectBoundingBox() const
@@ -89,24 +66,32 @@ FloatRect RenderSVGInline::repaintRectInLocalCoordinates() const
     return FloatRect();
 }
 
+IntRect RenderSVGInline::clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer)
+{
+    return SVGRenderBase::clippedOverflowRectForRepaint(this, repaintContainer);
+}
+
+void RenderSVGInline::computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect& repaintRect, bool fixed)
+{
+    SVGRenderBase::computeRectForRepaint(this, repaintContainer, repaintRect, fixed);
+}
+
+void RenderSVGInline::mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool useTransforms, bool fixed, TransformState& transformState) const
+{
+    SVGRenderBase::mapLocalToContainer(this, repaintContainer, useTransforms, fixed, transformState);
+}
+
 void RenderSVGInline::absoluteQuads(Vector<FloatQuad>& quads)
 {
-    InlineFlowBox* firstBox = firstLineBox();
-
-    RootInlineBox* rootBox = firstBox ? firstBox->root() : 0;
-    RenderBox* object = rootBox ? rootBox->block() : 0;
-
+    const RenderObject* object = findTextRootObject(this);
     if (!object)
         return;
 
-    int xRef = object->x();
-    int yRef = object->y();
-
-    for (InlineFlowBox* curr = firstBox; curr; curr = curr->nextLineBox()) {
-        FloatRect rect(xRef + curr->x(), yRef + curr->y(), curr->width(), curr->height());
-        quads.append(localToAbsoluteQuad(rect));
-    }
+    FloatRect textBoundingBox = object->strokeBoundingBox();
+    for (InlineFlowBox* box = firstLineBox(); box; box = box->nextLineBox())
+        quads.append(localToAbsoluteQuad(FloatRect(textBoundingBox.x() + box->x(), textBoundingBox.y() + box->y(), box->width(), box->height())));
 }
+
 
 }
 

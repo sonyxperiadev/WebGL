@@ -4,7 +4,7 @@
  *           (C) 2001 Peter Kelly (pmk@post.com)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  *           (C) 2007 David Smith (catfish.man@gmail.com)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *           (C) 2007 Eric Seidel (eric@webkit.org)
  *
  * This library is free software; you can redistribute it and/or
@@ -42,7 +42,6 @@
 #include "FrameView.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
-#include "HTMLDocumentParser.h"
 #include "InspectorController.h"
 #include "NodeList.h"
 #include "NodeRenderStyle.h"
@@ -52,7 +51,6 @@
 #include "RenderWidget.h"
 #include "TextIterator.h"
 #include "XMLNames.h"
-#include "XMLDocumentParser.h"
 #include <wtf/text/CString.h>
 
 #if ENABLE(SVG)
@@ -93,12 +91,12 @@ NodeRareData* Element::createRareData()
 
 PassRefPtr<DocumentFragment> Element::createContextualFragment(const String& markup, FragmentScriptingPermission scriptingPermission)
 {
-    RefPtr<DocumentFragment> fragment = DocumentFragment::create(document());
-    
+    RefPtr<DocumentFragment> fragment = document()->createDocumentFragment();
+
     if (document()->isHTMLDocument())
-        parseHTMLDocumentFragment(markup, fragment.get(), scriptingPermission);
+        fragment->parseHTML(markup, scriptingPermission);
     else {
-        if (!parseXMLDocumentFragment(markup, fragment.get(), this, scriptingPermission))
+        if (!fragment->parseXML(markup, this, scriptingPermission))
             // FIXME: We should propagate a syntax error exception out here.
             return 0;
     }
@@ -189,7 +187,7 @@ void Element::setCStringAttribute(const QualifiedName& name, const char* cString
 void Element::setBooleanAttribute(const QualifiedName& name, bool b)
 {
     if (b)
-        setAttribute(name, name.localName());
+        setAttribute(name, emptyAtom);
     else {
         ExceptionCode ex;
         removeAttribute(name, ex);
@@ -639,6 +637,8 @@ void Element::updateAfterAttributeChanged(Attribute* attr)
         document()->axObjectCache()->contentChanged(renderer());
     } else if (attrName == aria_selectedAttr)
         document()->axObjectCache()->selectedChildrenChanged(renderer());
+    else if (attrName == aria_expandedAttr)
+        document()->axObjectCache()->handleAriaExpandedChange(renderer());
 }
     
 void Element::recalcStyleIfNeededAfterAttributeChanged(Attribute* attr)
@@ -1098,7 +1098,7 @@ void Element::dispatchAttrRemovalEvent(Attribute*)
     if (!document()->hasListenerType(Document::DOMATTRMODIFIED_LISTENER))
         return;
     ExceptionCode ec = 0;
-    dispatchEvent(new MutationEvent(DOMAttrModifiedEvent, true, false, attr, attr->value(),
+    dispatchEvent(MutationEvent::create(DOMAttrModifiedEvent, true, attr, attr->value(),
         attr->value(), document()->attrName(attr->id()), MutationEvent::REMOVAL), ec);
 #endif
 }
@@ -1111,7 +1111,7 @@ void Element::dispatchAttrAdditionEvent(Attribute*)
     if (!document()->hasListenerType(Document::DOMATTRMODIFIED_LISTENER))
         return;
     ExceptionCode ec = 0;
-    dispatchEvent(new MutationEvent(DOMAttrModifiedEvent, true, false, attr, attr->value(),
+    dispatchEvent(MutationEvent::create(DOMAttrModifiedEvent, true, attr, attr->value(),
         attr->value(), document()->attrName(attr->id()), MutationEvent::ADDITION), ec);
 #endif
 }
@@ -1530,5 +1530,40 @@ KURL Element::getURLAttribute(const QualifiedName& name) const
 #endif
     return document()->completeURL(deprecatedParseURL(getAttribute(name)));
 }
+
+int Element::getIntegralAttribute(const QualifiedName& attributeName) const
+{
+    return getAttribute(attributeName).string().toInt();
+}
+
+void Element::setIntegralAttribute(const QualifiedName& attributeName, int value)
+{
+    // FIXME: Need an AtomicString version of String::number.
+    ExceptionCode ec;
+    setAttribute(attributeName, String::number(value), ec);
+}
+
+unsigned Element::getUnsignedIntegralAttribute(const QualifiedName& attributeName) const
+{
+    return getAttribute(attributeName).string().toUInt();
+}
+
+void Element::setUnsignedIntegralAttribute(const QualifiedName& attributeName, unsigned value)
+{
+    // FIXME: Need an AtomicString version of String::number.
+    ExceptionCode ec;
+    setAttribute(attributeName, String::number(value), ec);
+}
+
+#if ENABLE(SVG)
+bool Element::childShouldCreateRenderer(Node* child) const
+{
+    // Only create renderers for SVG elements whose parents are SVG elements, or for proper <svg xmlns="svgNS"> subdocuments.
+    if (child->isSVGElement())
+        return child->hasTagName(SVGNames::svgTag) || isSVGElement();
+
+    return Node::childShouldCreateRenderer(child);
+}
+#endif
 
 } // namespace WebCore

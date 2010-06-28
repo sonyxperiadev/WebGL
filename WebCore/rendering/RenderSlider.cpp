@@ -29,7 +29,7 @@
 #include "Frame.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
-#include "LegacyHTMLTreeConstructor.h"
+#include "LegacyHTMLTreeBuilder.h"
 #include "MediaControlElements.h"
 #include "MouseEvent.h"
 #include "RenderLayer.h"
@@ -56,7 +56,6 @@ static double sliderPosition(HTMLInputElement* element)
     return range.proportionFromValue(range.valueFromElement(element));
 }
 
-// FIXME: Could share code with the SliderDivElement class in RenderProgress.
 class SliderThumbElement : public ShadowBlockElement {
 public:
     static PassRefPtr<SliderThumbElement> create(Node* shadowParent);
@@ -68,7 +67,7 @@ public:
 
 private:        
     SliderThumbElement(Node* shadowParent);
-    
+
     FloatPoint m_offsetToThumb;
     bool m_inDragMode;
 };
@@ -81,7 +80,7 @@ inline SliderThumbElement::SliderThumbElement(Node* shadowParent)
 
 inline PassRefPtr<SliderThumbElement> SliderThumbElement::create(Node* shadowParent)
 {
-    return new SliderThumbElement(shadowParent);
+    return adoptRef(new SliderThumbElement(shadowParent));
 }
 
 void SliderThumbElement::defaultEventHandler(Event* event)
@@ -111,7 +110,7 @@ void SliderThumbElement::defaultEventHandler(Event* event)
                 }
 
                 m_inDragMode = true;
-                document()->frame()->eventHandler()->setCapturingMouseEventsNode(shadowParentNode());
+                document()->frame()->eventHandler()->setCapturingMouseEventsNode(shadowParent());
                 event->setDefaultHandled();
                 return;
             }

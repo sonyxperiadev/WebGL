@@ -319,9 +319,10 @@ class BuildBot(object):
             "Leopard",
             "Tiger",
             "Windows.*Build",
-            "GTK",
+            "GTK.*32",
+            "GTK.*64.*Debug",  # Disallow the 64-bit Release bot which is broken.
             "Qt",
-            "Chromium",
+            "Chromium.*Release$",
         ]
 
     def _parse_last_build_cell(self, builder, cell):

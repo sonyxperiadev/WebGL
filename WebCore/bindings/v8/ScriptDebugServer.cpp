@@ -72,6 +72,7 @@ ScriptDebugServer& ScriptDebugServer::shared()
 ScriptDebugServer::ScriptDebugServer()
     : m_pauseOnExceptionsState(DontPauseOnExceptions)
     , m_pausedPage(0)
+    , m_enabled(true)
 {
 }
 
@@ -83,6 +84,8 @@ void ScriptDebugServer::setDebuggerScriptSource(const String& scriptSource)
 void ScriptDebugServer::addListener(ScriptDebugListener* listener, Page* page)
 {
 #if ENABLE(V8_SCRIPT_DEBUG_SERVER)
+    if (!m_enabled)
+        return;
     v8::HandleScope scope;
     v8::Local<v8::Context> debuggerContext = v8::Debug::GetDebugContext();
     v8::Context::Scope contextScope(debuggerContext);
@@ -301,9 +304,14 @@ PassRefPtr<JavaScriptCallFrame> ScriptDebugServer::currentCallFrame()
     return m_currentCallFrame;
 }
 
+void ScriptDebugServer::setEnabled(bool value)
+{
+     m_enabled = value;
+}
+
 bool ScriptDebugServer::isDebuggerAlwaysEnabled()
 {
-    return true;
+    return m_enabled;
 }
 
 #if ENABLE(V8_SCRIPT_DEBUG_SERVER)
@@ -335,6 +343,12 @@ void ScriptDebugServer::handleV8DebugEvent(const v8::Debug::EventDetails& eventD
                 v8::Handle<v8::Object> object = v8::Handle<v8::Object>::Cast(value);
                 dispatchDidParseSource(listener, object);
             } else if (event == v8::Break || event == v8::Exception) {
+                if (event == v8::Exception) {
+                    v8::Local<v8::StackTrace> stackTrace = v8::StackTrace::CurrentStackTrace(1);
+                    // Stack trace is empty in case of syntax error. Silently continue execution in such cases.
+                    if (!stackTrace->GetFrameCount())
+                        return;
+                }
                 m_executionState.set(eventDetails.GetExecutionState());
                 m_pausedPage = frame->page();
                 ScriptState* currentCallFrameState = mainWorldScriptState(frame);

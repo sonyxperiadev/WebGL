@@ -31,6 +31,7 @@
 
 #if ENABLE(DATABASE)
 #include "Database.h"
+#include "DatabaseSync.h"
 #include "JSDatabase.h"
 #include "JSDatabaseCallback.h"
 #include "JSDatabaseSync.h"
@@ -39,10 +40,9 @@
 #include "JSDOMBinding.h"
 #include "JSDOMGlobalObject.h"
 #include "JSEventListener.h"
-#include "JSEventSourceConstructor.h"
-#include "JSMessageChannelConstructor.h"
+#include "JSEventSource.h"
+#include "JSMessageChannel.h"
 #include "JSMessagePort.h"
-#include "JSWebSocketConstructor.h"
 #include "JSWorkerLocation.h"
 #include "JSWorkerNavigator.h"
 #include "JSXMLHttpRequest.h"
@@ -51,6 +51,10 @@
 #include "WorkerLocation.h"
 #include "WorkerNavigator.h"
 #include <interpreter/Interpreter.h>
+
+#if ENABLE(WEB_SOCKETS)
+#include "JSWebSocket.h"
+#endif
 
 using namespace JSC;
 

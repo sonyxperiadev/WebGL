@@ -69,7 +69,7 @@
 
 namespace WebCore {
 
-static inline QPainter::CompositionMode toQtCompositionMode(CompositeOperator op)
+QPainter::CompositionMode GraphicsContext::toQtCompositionMode(CompositeOperator op)
 {
     switch (op) {
     case CompositeClear:
@@ -333,7 +333,7 @@ void GraphicsContext::drawRect(const IntRect& rect)
     p->setRenderHint(QPainter::Antialiasing, m_data->antiAliasingForRectsAndLines);
 
     if (m_common->state.shadowColor.isValid()) {
-        IntSize shadowSize;
+        FloatSize shadowSize;
         float shadowBlur;
         Color shadowColor;
         if (getShadow(shadowSize, shadowBlur, shadowColor)) {
@@ -371,7 +371,7 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
     p->setRenderHint(QPainter::Antialiasing, m_data->antiAliasingForRectsAndLines);
     adjustLineToPixelBoundaries(p1, p2, width, style);
 
-    IntSize shadowSize;
+    FloatSize shadowSize;
     float shadowBlur;
     Color shadowColor;
     if (textDrawingMode() == cTextFill && getShadow(shadowSize, shadowBlur, shadowColor)) {
@@ -473,7 +473,7 @@ void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSp
     const bool antiAlias = p->testRenderHint(QPainter::Antialiasing);
     p->setRenderHint(QPainter::Antialiasing, true);
 
-    IntSize shadowSize;
+    FloatSize shadowSize;
     float shadowBlur;
     Color shadowColor;
     startAngle *= 16;
@@ -508,7 +508,7 @@ void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points
     QPainter* p = m_data->p();
     p->save();
     p->setRenderHint(QPainter::Antialiasing, shouldAntialias);
-    IntSize shadowSize;
+    FloatSize shadowSize;
     float shadowBlur;
     Color shadowColor;
     if (getShadow(shadowSize, shadowBlur, shadowColor)) {
@@ -539,7 +539,7 @@ QPen GraphicsContext::pen()
 
 static void inline drawFilledShadowPath(GraphicsContext* context, QPainter* p, const QPainterPath& path)
 {
-    IntSize shadowSize;
+    FloatSize shadowSize;
     float shadowBlur;
     Color shadowColor;
     if (context->getShadow(shadowSize, shadowBlur, shadowColor)) {
@@ -586,7 +586,7 @@ void GraphicsContext::strokePath()
     path.setFillRule(toQtFillRule(fillRule()));
 
     if (m_common->state.strokePattern || m_common->state.strokeGradient || strokeColor().alpha()) {
-        IntSize shadowSize;
+        FloatSize shadowSize;
         float shadowBlur;
         Color shadowColor;
         if (getShadow(shadowSize, shadowBlur, shadowColor)) {
@@ -618,13 +618,80 @@ void GraphicsContext::strokePath()
 
 static inline void drawBorderlessRectShadow(GraphicsContext* context, QPainter* p, const FloatRect& rect)
 {
-    IntSize shadowSize;
+    FloatSize shadowSize;
     float shadowBlur;
     Color shadowColor;
     if (context->getShadow(shadowSize, shadowBlur, shadowColor)) {
         FloatRect shadowRect(rect);
         shadowRect.move(shadowSize.width(), shadowSize.height());
         p->fillRect(shadowRect, QColor(shadowColor));
+    }
+}
+
+static inline void drawRepeatPattern(QPainter* p, QPixmap* image, const FloatRect& rect, const bool repeatX, const bool repeatY)
+{
+    // Patterns must be painted so that the top left of the first image is anchored at
+    // the origin of the coordinate space
+    if (image) {
+        int w = image->width();
+        int h = image->height();
+        int startX, startY;
+        QRect r(static_cast<int>(rect.x()), static_cast<int>(rect.y()), static_cast<int>(rect.width()), static_cast<int>(rect.height()));
+
+        // startX, startY is the coordinate of the first image we need to put on the left-top of the rect
+        if (repeatX && repeatY) {
+            // repeat
+            // startX, startY is at the left top side of the left-top of the rect
+            startX = r.x() >=0 ? r.x() - (r.x() % w) : r.x() - (w - qAbs(r.x()) % w);
+            startY = r.y() >=0 ? r.y() - (r.y() % h) : r.y() - (h - qAbs(r.y()) % h);
+        } else {
+           if (!repeatX && !repeatY) {
+               // no-repeat
+               // only draw the image once at orgin once, check if need to draw
+               QRect imageRect(0, 0, w, h);
+               if (imageRect.intersects(r)) {
+                   startX = 0;
+                   startY = 0;
+               } else
+                   return;   
+           } else if (repeatX && !repeatY) {
+               // repeat-x
+               // startY is fixed, but startX change based on the left-top of the rect
+               QRect imageRect(r.x(), 0, r.width(), h);
+               if (imageRect.intersects(r)) {
+                   startX = r.x() >=0 ? r.x() - (r.x() % w) : r.x() - (w - qAbs(r.x()) % w);
+                   startY = 0;
+               } else
+                   return;
+           } else {
+               // repeat-y
+               // startX is fixed, but startY change based on the left-top of the rect
+               QRect imageRect(0, r.y(), w, r.height());
+               if (imageRect.intersects(r)) {
+                   startX = 0;
+                   startY = r.y() >=0 ? r.y() - (r.y() % h) : r.y() - (h - qAbs(r.y()) % h);
+               } else
+                   return;
+           }
+        }
+
+        int x = startX;
+        int y = startY; 
+        do {
+            // repeat Y
+            do {
+                // repeat X
+                QRect   imageRect(x, y, w, h);
+                QRect   intersectRect = imageRect.intersected(r);
+                QPoint  destStart(intersectRect.x(), intersectRect.y());
+                QRect   sourceRect(intersectRect.x() - imageRect.x(), intersectRect.y() - imageRect.y(), intersectRect.width(), intersectRect.height());
+
+                p->drawPixmap(destStart, *image, sourceRect);
+                x += w;
+            } while (repeatX && x < r.x() + r.width());
+            x = startX;
+            y += h;
+        } while (repeatY && y < r.y() + r.height());
     }
 }
 
@@ -644,12 +711,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
             QBrush brush(m_common->state.fillPattern->createPlatformPattern(affine));
             QPixmap* image = m_common->state.fillPattern->tileImage()->nativeImageForCurrentFrame();
 
-            if (!m_common->state.fillPattern->repeatX() && image)
-                rectM.setWidth(image->width());
-            if (!m_common->state.fillPattern->repeatY() && image)
-                rectM.setHeight(image->height());
-            p->fillRect(rectM, brush);
-
+            drawRepeatPattern(p, image, rect, m_common->state.fillPattern->repeatX(), m_common->state.fillPattern->repeatY());
         } else if (m_common->state.fillGradient) {
             QBrush brush(*m_common->state.fillGradient->platformGradient());
             brush.setTransform(m_common->state.fillGradient->gradientSpaceTransform());
@@ -820,7 +882,7 @@ FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& frect)
     return FloatRect(roundedOrigin, roundedLowerRight - roundedOrigin);
 }
 
-void GraphicsContext::setPlatformShadow(const IntSize& size, float, const Color&, ColorSpace)
+void GraphicsContext::setPlatformShadow(const FloatSize& size, float, const Color&, ColorSpace)
 {
     // Qt doesn't support shadows natively, they are drawn manually in the draw*
     // functions
@@ -828,7 +890,7 @@ void GraphicsContext::setPlatformShadow(const IntSize& size, float, const Color&
     if (m_common->state.shadowsIgnoreTransforms) {
         // Meaning that this graphics context is associated with a CanvasRenderingContext
         // We flip the height since CG and HTML5 Canvas have opposite Y axis
-        m_common->state.shadowSize = IntSize(size.width(), -size.height());
+        m_common->state.shadowSize = FloatSize(size.width(), -size.height());
     }
 }
 

@@ -216,8 +216,8 @@ bool RenderLayerBacking::updateGraphicsLayerConfiguration()
     else if (is3DCanvas(renderer())) {
         HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(renderer()->node());
         WebGLRenderingContext* context = static_cast<WebGLRenderingContext*>(canvas->renderingContext());
-        if (context->graphicsContext3D()->platformGraphicsContext3D())
-            m_graphicsLayer->setContentsToGraphicsContext3D(context->graphicsContext3D());
+        if (context->graphicsContext3D()->platformLayer())
+            m_graphicsLayer->setContentsToWebGL(context->graphicsContext3D()->platformLayer());
     }
 #endif
 
@@ -225,6 +225,18 @@ bool RenderLayerBacking::updateGraphicsLayerConfiguration()
         layerConfigChanged = RenderLayerCompositor::parentIFrameContentLayers(toRenderIFrame(renderer()));
 
     return layerConfigChanged;
+}
+
+static IntRect clipBox(RenderBox* renderer)
+{
+    IntRect result = ClipRects::infiniteRect();
+    if (renderer->hasOverflowClip())
+        result = renderer->overflowClipRect(0, 0);
+
+    if (renderer->hasClip())
+        result.intersect(renderer->clipRect(0, 0));
+
+    return result;
 }
 
 void RenderLayerBacking::updateGraphicsLayerGeometry()
@@ -266,7 +278,8 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
     if (compAncestor && compAncestor->backing()->hasClippingLayer()) {
         // If the compositing ancestor has a layer to clip children, we parent in that, and therefore
         // position relative to it.
-        graphicsLayerParentLocation = toRenderBox(compAncestor->renderer())->overflowClipRect(0, 0).location();
+        IntRect clippingBox = clipBox(toRenderBox(compAncestor->renderer()));
+        graphicsLayerParentLocation = clippingBox.location();
     } else
         graphicsLayerParentLocation = ancestorCompositingBounds.location();
     
@@ -302,7 +315,7 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
     // If we have a layer that clips children, position it.
     IntRect clippingBox;
     if (m_clippingLayer) {
-        clippingBox = toRenderBox(renderer())->overflowClipRect(0, 0);
+        clippingBox = clipBox(toRenderBox(renderer()));
         m_clippingLayer->setPosition(FloatPoint() + (clippingBox.location() - localCompositingBounds.location()));
         m_clippingLayer->setSize(clippingBox.size());
         m_clippingLayer->setOffsetFromRenderer(clippingBox.location() - IntPoint());
@@ -714,7 +727,7 @@ bool RenderLayerBacking::containsPaintedContent() const
 bool RenderLayerBacking::isDirectlyCompositedImage() const
 {
     RenderObject* renderObject = renderer();
-    return renderObject->isImage() && !hasBoxDecorationsOrBackground(renderObject);
+    return renderObject->isImage() && !hasBoxDecorationsOrBackground(renderObject) && !renderObject->hasClip();
 }
 
 void RenderLayerBacking::rendererContentChanged()
@@ -726,7 +739,7 @@ void RenderLayerBacking::rendererContentChanged()
 
 #if ENABLE(3D_CANVAS)    
     if (is3DCanvas(renderer())) {
-        m_graphicsLayer->setGraphicsContext3DNeedsDisplay();
+        m_graphicsLayer->setContentsNeedsDisplay();
         return;
     }
 #endif

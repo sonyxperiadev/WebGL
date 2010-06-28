@@ -38,13 +38,11 @@ public:
     RenderSVGText(SVGTextElement* node);
 
     virtual void setNeedsTransformUpdate() { m_needsTransformUpdate = true; }
+    virtual FloatRect repaintRectInLocalCoordinates() const;
 
 private:
     virtual const char* renderName() const { return "RenderSVGText"; }
-
     virtual bool isSVGText() const { return true; }
-
-    virtual const AffineTransform& localToParentTransform() const { return m_localTransform; }
 
     virtual void paint(PaintInfo&, int tx, int ty);
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
@@ -55,7 +53,6 @@ private:
 
     virtual void destroy();
 
-    virtual void absoluteRects(Vector<IntRect>&, int tx, int ty);
     virtual void absoluteQuads(Vector<FloatQuad>&);
 
     virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);
@@ -63,12 +60,11 @@ private:
 
     virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool useTransforms, bool fixed, TransformState&) const;
 
-    virtual FloatRect objectBoundingBox() const;
+    virtual FloatRect objectBoundingBox() const { return frameRect(); }
     virtual FloatRect strokeBoundingBox() const;
-    virtual FloatRect repaintRectInLocalCoordinates() const;
 
+    virtual const AffineTransform& localToParentTransform() const { return m_localTransform; }
     virtual AffineTransform localTransform() const { return m_localTransform; }
-
     virtual RootInlineBox* createRootInlineBox();
 
     virtual RenderBlock* firstLineBlock() const;
@@ -82,5 +78,3 @@ private:
 
 #endif // ENABLE(SVG)
 #endif
-
-// vim:ts=4:noet

@@ -26,7 +26,6 @@
 #include "HTMLFormElement.h"
 
 #include "Attribute.h"
-#include "CSSHelper.h"
 #include "DOMFormData.h"
 #include "DOMWindow.h"
 #include "Document.h"
@@ -37,6 +36,7 @@
 #include "FormData.h"
 #include "FormDataList.h"
 #include "FormState.h"
+#include "FormSubmission.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
@@ -86,12 +86,12 @@ HTMLFormElement::HTMLFormElement(const QualifiedName& tagName, Document* documen
 
 PassRefPtr<HTMLFormElement> HTMLFormElement::create(Document* document)
 {
-    return new HTMLFormElement(formTag, document);
+    return adoptRef(new HTMLFormElement(formTag, document));
 }
 
 PassRefPtr<HTMLFormElement> HTMLFormElement::create(const QualifiedName& tagName, Document* document)
 {
-    return new HTMLFormElement(tagName, document);
+    return adoptRef(new HTMLFormElement(tagName, document));
 }
 
 HTMLFormElement::~HTMLFormElement()
@@ -192,32 +192,77 @@ void HTMLFormElement::submitImplicitly(Event* event, bool fromImplicitSubmission
         prepareSubmit(event);
 }
 
-TextEncoding HTMLFormElement::dataEncoding() const
+static void appendMailtoPostFormDataToURL(KURL& url, const FormData& data, const String& encodingType)
 {
-    if (isMailtoForm())
-        return UTF8Encoding();
+    String body = data.flattenToString();
 
-    return m_formDataBuilder.dataEncoding(document());
+    if (equalIgnoringCase(encodingType, "text/plain")) {
+        // Convention seems to be to decode, and s/&/\r\n/. Also, spaces are encoded as %20.
+        body = decodeURLEscapeSequences(body.replace('&', "\r\n").replace('+', ' ') + "\r\n");
+    }
+
+    Vector<char> bodyData;
+    bodyData.append("body=", 5);
+    FormDataBuilder::encodeStringAsFormData(bodyData, body.utf8());
+    body = String(bodyData.data(), bodyData.size()).replace('+', "%20");
+
+    String query = url.query();
+    if (!query.isEmpty())
+        query.append('&');
+    query.append(body);
+    url.setQuery(query);
 }
 
-PassRefPtr<FormData> HTMLFormElement::createFormData()
+PassRefPtr<FormSubmission> HTMLFormElement::prepareFormSubmission(Event* event, bool lockHistory, FormSubmissionTrigger trigger)
 {
-    RefPtr<DOMFormData> domFormData = DOMFormData::create(dataEncoding().encodingForFormSubmission());
+    KURL actionURL = document()->completeURL(m_formDataBuilder.action().isEmpty() ? document()->url().string() : m_formDataBuilder.action());
+    bool isMailtoForm = actionURL.protocolIs("mailto");
+
+    if (m_formDataBuilder.isPostMethod()) {
+        if (m_formDataBuilder.isMultiPartForm() && isMailtoForm) {
+            m_formDataBuilder.parseEncodingType("application/x-www-form-urlencoded");
+            ASSERT(!m_formDataBuilder.isMultiPartForm());
+        }
+    } else
+        m_formDataBuilder.setIsMultiPartForm(false);
+
+    TextEncoding dataEncoding = isMailtoForm ? UTF8Encoding() : m_formDataBuilder.dataEncoding(document());
+    RefPtr<DOMFormData> domFormData = DOMFormData::create(dataEncoding.encodingForFormSubmission());
+    Vector<pair<String, String> > formValues;
+
     for (unsigned i = 0; i < m_associatedElements.size(); ++i) {
         HTMLFormControlElement* control = m_associatedElements[i];
         if (!control->disabled())
             control->appendFormData(*domFormData, m_formDataBuilder.isMultiPartForm());
+        if (control->hasLocalName(inputTag)) {
+            HTMLInputElement* input = static_cast<HTMLInputElement*>(control);
+            if (input->isTextField()) {
+                formValues.append(pair<String, String>(input->name(), input->value()));
+                if (input->isSearchField())
+                    input->addSearchResult();
+            }
+        }
     }
 
-    RefPtr<FormData> result = (m_formDataBuilder.isMultiPartForm()) ? FormData::createMultiPart(domFormData->items(), domFormData->encoding(), document()) : FormData::create(domFormData->items(), domFormData->encoding());
+    RefPtr<FormData> formData;
+    String boundary;
 
-    result->setIdentifier(generateFormDataIdentifier());
-    return result;
-}
+    if (m_formDataBuilder.isMultiPartForm()) {
+        formData = FormData::createMultiPart(domFormData->items(), domFormData->encoding(), document());
+        boundary = formData->boundary().data();
+    } else {
+        formData = FormData::create(domFormData->items(), domFormData->encoding());
+        if (m_formDataBuilder.isPostMethod() && isMailtoForm) {
+            // Convert the form data into a string that we put into the URL.
+            appendMailtoPostFormDataToURL(actionURL, *formData, m_formDataBuilder.encodingType());
+            formData = FormData::create();
+        }
+    }
 
-bool HTMLFormElement::isMailtoForm() const
-{
-    return protocolIs(m_url, "mailto");
+    formData->setIdentifier(generateFormDataIdentifier());
+    FormSubmission::Method method = m_formDataBuilder.isPostMethod() ? FormSubmission::PostMethod : FormSubmission::GetMethod;
+    String targetOrBaseTarget = m_formDataBuilder.target().isEmpty() ? document()->baseTarget() : m_formDataBuilder.target();
+    return FormSubmission::create(method, actionURL, targetOrBaseTarget, m_formDataBuilder.encodingType(), FormState::create(this, formValues, document()->frame(), trigger), formData.release(), boundary, lockHistory, event);
 }
 
 static inline HTMLFormControlElement* submitElementFromEvent(const Event* event)
@@ -304,28 +349,6 @@ bool HTMLFormElement::prepareSubmit(Event* event)
     return m_doingsubmit;
 }
 
-static void transferMailtoPostFormDataToURL(RefPtr<FormData>& data, KURL& url, const String& encodingType)
-{
-    String body = data->flattenToString();
-    data = FormData::create();
-
-    if (equalIgnoringCase(encodingType, "text/plain")) {
-        // Convention seems to be to decode, and s/&/\r\n/. Also, spaces are encoded as %20.
-        body = decodeURLEscapeSequences(body.replace('&', "\r\n").replace('+', ' ') + "\r\n");
-    }
-
-    Vector<char> bodyData;
-    bodyData.append("body=", 5);
-    FormDataBuilder::encodeStringAsFormData(bodyData, body.utf8());
-    body = String(bodyData.data(), bodyData.size()).replace('+', "%20");
-
-    String query = url.query();
-    if (!query.isEmpty())
-        query.append('&');
-    query.append(body);
-    url.setQuery(query);
-}
-
 void HTMLFormElement::submit(Frame* javaScriptActiveFrame)
 {
     if (javaScriptActiveFrame)
@@ -351,18 +374,8 @@ void HTMLFormElement::submit(Event* event, bool activateSubmitButton, bool lockH
     HTMLFormControlElement* firstSuccessfulSubmitButton = 0;
     bool needButtonActivation = activateSubmitButton; // do we need to activate a submit button?
     
-    Vector<pair<String, String> > formValues;
-
     for (unsigned i = 0; i < m_associatedElements.size(); ++i) {
         HTMLFormControlElement* control = m_associatedElements[i];
-        if (control->hasLocalName(inputTag)) {
-            HTMLInputElement* input = static_cast<HTMLInputElement*>(control);
-            if (input->isTextField()) {
-                formValues.append(pair<String, String>(input->name(), input->value()));
-                if (input->isSearchField())
-                    input->addSearchResult();
-            }
-        }
         if (needButtonActivation) {
             if (control->isActivatedSubmit())
                 needButtonActivation = false;
@@ -371,37 +384,10 @@ void HTMLFormElement::submit(Event* event, bool activateSubmitButton, bool lockH
         }
     }
 
-    RefPtr<FormState> formState = FormState::create(this, formValues, frame, formSubmissionTrigger);
-
     if (needButtonActivation && firstSuccessfulSubmitButton)
         firstSuccessfulSubmitButton->setActivatedSubmit(true);
-    
-    if (m_url.isEmpty())
-        m_url = document()->url().string();
 
-    if (m_formDataBuilder.isPostMethod()) {
-        if (m_formDataBuilder.isMultiPartForm() && isMailtoForm()) {
-            setEnctype("application/x-www-form-urlencoded");
-            ASSERT(!m_formDataBuilder.isMultiPartForm());
-        }
-
-        RefPtr<FormData> data = createFormData();
-        if (!m_formDataBuilder.isMultiPartForm()) {
-
-            if (isMailtoForm()) {
-                // Convert the form data into a string that we put into the URL.
-                KURL url = document()->completeURL(m_url);
-                transferMailtoPostFormDataToURL(data, url, m_formDataBuilder.encodingType());
-                m_url = url.string();
-            }
-
-            frame->loader()->submitForm("POST", m_url, data.release(), m_target, m_formDataBuilder.encodingType(), String(), lockHistory, event, formState.release());
-        } else
-            frame->loader()->submitForm("POST", m_url, data.get(), m_target, m_formDataBuilder.encodingType(), data->boundary().data(), lockHistory, event, formState.release());
-    } else {
-        m_formDataBuilder.setIsMultiPartForm(false);
-        frame->loader()->submitForm("GET", m_url, createFormData(), m_target, String(), String(), lockHistory, event, formState.release());
-    }
+    frame->loader()->submitForm(prepareFormSubmission(event, lockHistory, formSubmissionTrigger));
 
     if (needButtonActivation && firstSuccessfulSubmitButton)
         firstSuccessfulSubmitButton->setActivatedSubmit(false);
@@ -433,9 +419,9 @@ void HTMLFormElement::reset()
 void HTMLFormElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == actionAttr)
-        m_url = deprecatedParseURL(attr->value());
+        m_formDataBuilder.parseAction(attr->value());
     else if (attr->name() == targetAttr)
-        m_target = attr->value();
+        m_formDataBuilder.setTarget(attr->value());
     else if (attr->name() == methodAttr)
         m_formDataBuilder.parseMethodType(attr->value());
     else if (attr->name() == enctypeAttr)
@@ -648,7 +634,7 @@ void HTMLFormElement::getNamedElements(const AtomicString& name, Vector<RefPtr<N
 
     // see if we have seen something with this name before
     RefPtr<HTMLFormControlElement> aliasElem;
-    if (aliasElem = elementForAlias(name)) {
+    if ((aliasElem = elementForAlias(name))) {
         bool found = false;
         for (unsigned n = 0; n < namedItems.size(); n++) {
             if (namedItems[n] == aliasElem.get()) {

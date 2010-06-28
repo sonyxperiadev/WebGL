@@ -1237,9 +1237,33 @@ int LayoutTestController::numberOfPages(float pageWidthInPixels, float pageHeigh
     return pageNumber;
 }
 
+JSRetainPtr<JSStringRef> LayoutTestController::pageProperty(const char* propertyName, int pageNumber) const
+{
+    // FIXME: Implement this.
+    return JSRetainPtr<JSStringRef>();
+}
+
 void LayoutTestController::apiTestNewWindowDataLoadBaseURL(JSStringRef utf8Data, JSStringRef baseURL)
 {
 
+}
+
+bool LayoutTestController::isPageBoxVisible(int pageNumber) const
+{
+    // FIXME: implement
+    return false;
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::pageAreaRectInPixels(int pageNumber) const
+{
+    // FIXME: implement
+    return JSRetainPtr<JSStringRef>();
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::preferredPageSizeInPixels(int pageNumber) const
+{
+    // FIXME: implement
+    return JSRetainPtr<JSStringRef>();
 }
 
 void LayoutTestController::apiTestGoToCurrentBackForwardItem()

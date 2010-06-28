@@ -253,12 +253,7 @@ static string textAffinityDescription(WebTextAffinity affinity)
 
 // WebViewClient -------------------------------------------------------------
 
-WebView* WebViewHost::createView(WebFrame* creator)
-{
-    return createView(creator, WebWindowFeatures());
-}
-
-WebView* WebViewHost::createView(WebFrame*, const WebWindowFeatures&)
+WebView* WebViewHost::createView(WebFrame*, const WebWindowFeatures&, const WebString&)
 {
     if (!layoutTestController()->canOpenWindows())
         return 0;
@@ -923,7 +918,8 @@ void WebViewHost::willSendRequest(WebFrame*, unsigned identifier, WebURLRequest&
     if (!host.empty() && (url.SchemeIs("http") || url.SchemeIs("https"))
         && host != "127.0.0.1"
         && host != "255.255.255.255"
-        && host != "localhost") {
+        && host != "localhost"
+        && !m_shell->allowExternalPages()) {
         printf("Blocked access to external URL %s\n", requestURL.c_str());
 
         // To block the request, we set its URL to an empty one.
@@ -1036,7 +1032,7 @@ void WebViewHost::reset()
     this->~WebViewHost();
     new (this) WebViewHost(shell);
     setWebWidget(widget);
-    webView()->mainFrame()->clearName();
+    webView()->mainFrame()->setName(WebString());
 }
 
 void WebViewHost::setSelectTrailingWhitespaceEnabled(bool enabled)
@@ -1284,7 +1280,7 @@ void WebViewHost::paintRect(const WebRect& rect)
     ASSERT(canvas());
     m_isPainting = true;
 #if PLATFORM(CG)
-    webWidget()->paint(m_canvas->getTopPlatformDevice().GetBitmapContext(), rect);
+    webWidget()->paint(canvas()->getTopPlatformDevice().GetBitmapContext(), rect);
 #else
     webWidget()->paint(canvas(), rect);
 #endif

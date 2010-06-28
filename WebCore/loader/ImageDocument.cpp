@@ -25,14 +25,11 @@
 #include "config.h"
 #include "ImageDocument.h"
 
-#include "CSSStyleDeclaration.h"
 #include "CachedImage.h"
 #include "DocumentLoader.h"
-#include "Element.h"
 #include "EventListener.h"
 #include "EventNames.h"
 #include "Frame.h"
-#include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "FrameView.h"
 #include "HTMLImageElement.h"
@@ -41,10 +38,8 @@
 #include "MouseEvent.h"
 #include "NotImplemented.h"
 #include "Page.h"
-#include "SegmentedString.h"
+#include "RawDataDocumentParser.h"
 #include "Settings.h"
-#include "Text.h"
-#include "XMLDocumentParser.h"
 
 using std::min;
 
@@ -76,19 +71,21 @@ private:
     ImageDocument* m_doc;
 };
     
-class ImageTokenizer : public DocumentParser {
+class ImageDocumentParser : public RawDataDocumentParser {
 public:
-    ImageTokenizer(ImageDocument* doc) : m_doc(doc) {}
+    ImageDocumentParser(ImageDocument* document)
+        : RawDataDocumentParser(document)
+    {
+    }
 
-    virtual void write(const SegmentedString&, bool appendData);
-    virtual void finish();
-    virtual bool isWaitingForScripts() const;
-    
-    virtual bool wantsRawData() const { return true; }
-    virtual bool writeRawData(const char* data, int len);
+    ImageDocument* document() const
+    {
+        return static_cast<ImageDocument*>(m_document);
+    }
 
 private:
-    ImageDocument* m_doc;
+    virtual bool writeRawData(const char* data, int len);
+    virtual void finish();
 };
 
 class ImageDocumentElement : public HTMLImageElement {
@@ -110,7 +107,7 @@ private:
 
 inline PassRefPtr<ImageDocumentElement> ImageDocumentElement::create(ImageDocument* document)
 {
-    return new ImageDocumentElement(document);
+    return adoptRef(new ImageDocumentElement(document));
 }
 
 // --------
@@ -121,69 +118,57 @@ static float pageZoomFactor(Document* document)
     return view ? view->pageZoomFactor() : 1;
 }
 
-void ImageTokenizer::write(const SegmentedString&, bool)
+bool ImageDocumentParser::writeRawData(const char*, int)
 {
-    // <https://bugs.webkit.org/show_bug.cgi?id=25397>: JS code can always call document.write, we need to handle it.
-    notImplemented();
-}
-
-bool ImageTokenizer::writeRawData(const char*, int)
-{
-    Frame* frame = m_doc->frame();
+    Frame* frame = document()->frame();
     Settings* settings = frame->settings();
     if (!frame->loader()->client()->allowImages(!settings || settings->areImagesEnabled()))
         return false;
-    
-    CachedImage* cachedImage = m_doc->cachedImage();
+
+    CachedImage* cachedImage = document()->cachedImage();
     cachedImage->data(frame->loader()->documentLoader()->mainResourceData(), false);
 
-    m_doc->imageChanged();
+    document()->imageChanged();
     
     return false;
 }
 
-void ImageTokenizer::finish()
+void ImageDocumentParser::finish()
 {
-    if (!m_parserStopped && m_doc->imageElement()) {
-        CachedImage* cachedImage = m_doc->cachedImage();
-        RefPtr<SharedBuffer> data = m_doc->frame()->loader()->documentLoader()->mainResourceData();
+    if (!m_parserStopped && document()->imageElement()) {
+        CachedImage* cachedImage = document()->cachedImage();
+        RefPtr<SharedBuffer> data = document()->frame()->loader()->documentLoader()->mainResourceData();
 
         // If this is a multipart image, make a copy of the current part, since the resource data
         // will be overwritten by the next part.
-        if (m_doc->frame()->loader()->documentLoader()->isLoadingMultipartContent())
+        if (document()->frame()->loader()->documentLoader()->isLoadingMultipartContent())
             data = data->copy();
 
         cachedImage->data(data.release(), true);
         cachedImage->finish();
 
-        cachedImage->setResponse(m_doc->frame()->loader()->documentLoader()->response());
+        cachedImage->setResponse(document()->frame()->loader()->documentLoader()->response());
 
-        IntSize size = cachedImage->imageSize(pageZoomFactor(m_doc));
+        IntSize size = cachedImage->imageSize(pageZoomFactor(document()));
         if (size.width()) {
             // Compute the title, we use the decoded filename of the resource, falling
             // back on the (decoded) hostname if there is no path.
-            String fileName = decodeURLEscapeSequences(m_doc->url().lastPathComponent());
+            String fileName = decodeURLEscapeSequences(document()->url().lastPathComponent());
             if (fileName.isEmpty())
-                fileName = m_doc->url().host();
-            m_doc->setTitle(imageTitle(fileName, size));
+                fileName = document()->url().host();
+            document()->setTitle(imageTitle(fileName, size));
         }
 
-        m_doc->imageChanged();
+        document()->imageChanged();
     }
 
-    m_doc->finishedParsing();
-}
-    
-bool ImageTokenizer::isWaitingForScripts() const
-{
-    // An image document is never waiting for scripts
-    return false;
+    document()->finishedParsing();
 }
     
 // --------
 
-ImageDocument::ImageDocument(Frame* frame)
-    : HTMLDocument(frame)
+ImageDocument::ImageDocument(Frame* frame, const KURL& url)
+    : HTMLDocument(frame, url)
     , m_imageElement(0)
     , m_imageSizeIsKnown(false)
     , m_didShrinkImage(false)
@@ -194,7 +179,7 @@ ImageDocument::ImageDocument(Frame* frame)
     
 DocumentParser* ImageDocument::createParser()
 {
-    return new ImageTokenizer(this);
+    return new ImageDocumentParser(this);
 }
 
 void ImageDocument::createDocumentStructure()
@@ -203,6 +188,9 @@ void ImageDocument::createDocumentStructure()
     
     RefPtr<Element> rootElement = Document::createElement(htmlTag, false);
     appendChild(rootElement, ec);
+
+    if (frame() && frame()->loader())
+        frame()->loader()->dispatchDocumentElementAvailable();
     
     RefPtr<Element> body = Document::createElement(bodyTag, false);
     body->setAttribute(styleAttr, "margin: 0px;");

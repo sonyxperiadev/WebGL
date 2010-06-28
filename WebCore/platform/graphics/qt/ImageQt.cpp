@@ -177,17 +177,17 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dst,
 
     IntSize selfSize = size();
 
-    ctxt->save();
-
-    // Set the compositing operation.
-    ctxt->setCompositeOperation(op);
-
     QPainter* painter(ctxt->platformContext());
 
-    if (!image->hasAlpha() && painter->compositionMode() == QPainter::CompositionMode_SourceOver)
-        painter->setCompositionMode(QPainter::CompositionMode_Source);
+    QPainter::CompositionMode compositionMode = GraphicsContext::toQtCompositionMode(op);
 
-    IntSize shadowSize;
+    if (!image->hasAlpha() && painter->compositionMode() == QPainter::CompositionMode_SourceOver)
+        compositionMode = QPainter::CompositionMode_Source;
+
+    QPainter::CompositionMode lastCompositionMode = painter->compositionMode();
+    painter->setCompositionMode(compositionMode);
+
+    FloatSize shadowSize;
     float shadowBlur;
     Color shadowColor;
     if (ctxt->getShadow(shadowSize, shadowBlur, shadowColor)) {
@@ -208,7 +208,7 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dst,
     // http://www.meyerweb.com/eric/css/edge/complexspiral/demo.html
     painter->drawPixmap(dst, *image, src);
 
-    ctxt->restore();
+    painter->setCompositionMode(lastCompositionMode);
 
     if (imageObserver())
         imageObserver()->didDraw(this);

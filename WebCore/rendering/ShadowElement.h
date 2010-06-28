@@ -40,20 +40,31 @@ protected:
     ShadowElement(const QualifiedName& name, Node* shadowParent)
         : BaseElement(name, shadowParent->document())
         , m_shadowParent(shadowParent)
-    {}
+    {
+    }
 
+    Node* shadowParent() const { return m_shadowParent; }
+
+private:
     virtual bool isShadowNode() const { return true; }
     virtual Node* shadowParentNode() { return m_shadowParent; }
 
-private:
     Node* m_shadowParent;
 };
 
 class ShadowBlockElement : public ShadowElement<HTMLDivElement> {
 public:
     static PassRefPtr<ShadowBlockElement> create(Node*);
+    static PassRefPtr<ShadowBlockElement> createForPart(Node*, PseudoId);
+    static bool partShouldHaveStyle(const RenderObject* parentRenderer, PseudoId pseudoId);
+    void layoutAsPart(const IntRect& partRect);
+    void updateStyleForPart(PseudoId);
+
 protected:
     ShadowBlockElement(Node*);
+
+private:
+    static PassRefPtr<RenderStyle> createStyleForPart(RenderObject*, PseudoId);
 };
 
 class ShadowInputElement : public ShadowElement<HTMLInputElement> {

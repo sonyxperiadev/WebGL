@@ -1519,11 +1519,12 @@ void CodeBlock::markAggregate(MarkStack& markStack)
         m_functionDecls[i]->markAggregate(markStack);
 }
 
-void CodeBlock::reparseForExceptionInfoIfNecessary(CallFrame* callFrame)
+bool CodeBlock::reparseForExceptionInfoIfNecessary(CallFrame* callFrame)
 {
     if (m_exceptionInfo)
-        return;
+        return true;
 
+    ASSERT(!m_rareData || !m_rareData->m_exceptionHandlers.size());
     ScopeChainNode* scopeChain = callFrame->scopeChain();
     if (m_needsFullScopeChain) {
         ScopeChain sc(scopeChain);
@@ -1538,6 +1539,7 @@ void CodeBlock::reparseForExceptionInfoIfNecessary(CallFrame* callFrame)
     }
 
     m_exceptionInfo.set(m_ownerExecutable->reparseExceptionInfo(m_globalData, scopeChain, this));
+    return m_exceptionInfo;
 }
 
 HandlerInfo* CodeBlock::handlerForBytecodeOffset(unsigned bytecodeOffset)
@@ -1562,11 +1564,8 @@ int CodeBlock::lineNumberForBytecodeOffset(CallFrame* callFrame, unsigned byteco
 {
     ASSERT(bytecodeOffset < m_instructionCount);
 
-    reparseForExceptionInfoIfNecessary(callFrame);
-    ASSERT(m_exceptionInfo);
-
-    if (!m_exceptionInfo->m_lineInfo.size())
-        return m_ownerExecutable->source().firstLine(); // Empty function
+    if (!reparseForExceptionInfoIfNecessary(callFrame) || !m_exceptionInfo->m_lineInfo.size())
+        return m_ownerExecutable->source().firstLine(); // Empty function or unable to reparse
 
     int low = 0;
     int high = m_exceptionInfo->m_lineInfo.size();
@@ -1587,11 +1586,9 @@ int CodeBlock::expressionRangeForBytecodeOffset(CallFrame* callFrame, unsigned b
 {
     ASSERT(bytecodeOffset < m_instructionCount);
 
-    reparseForExceptionInfoIfNecessary(callFrame);
-    ASSERT(m_exceptionInfo);
-
-    if (!m_exceptionInfo->m_expressionInfo.size()) {
+    if (!reparseForExceptionInfoIfNecessary(callFrame) || !m_exceptionInfo->m_expressionInfo.size()) {
         // We didn't think anything could throw.  Apparently we were wrong.
+        // Alternatively something went wrong when trying to reparse
         startOffset = 0;
         endOffset = 0;
         divot = 0;
@@ -1626,10 +1623,7 @@ bool CodeBlock::getByIdExceptionInfoForBytecodeOffset(CallFrame* callFrame, unsi
 {
     ASSERT(bytecodeOffset < m_instructionCount);
 
-    reparseForExceptionInfoIfNecessary(callFrame);
-    ASSERT(m_exceptionInfo);        
-
-    if (!m_exceptionInfo->m_getByIdExceptionInfo.size())
+    if (!reparseForExceptionInfoIfNecessary(callFrame) || !m_exceptionInfo->m_getByIdExceptionInfo.size())
         return false;
 
     int low = 0;
