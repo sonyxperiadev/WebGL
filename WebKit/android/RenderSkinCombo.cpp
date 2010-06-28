@@ -125,10 +125,14 @@ bool RenderSkinCombo::Draw(SkCanvas* canvas, Node* element, int x, int y, int wi
 
     bounds.set(SkIntToScalar(x), SkIntToScalar(y), SkIntToScalar(x + width), SkIntToScalar(y + height));
 
-    if (style->visitedDependentColor(CSSPropertyBorderLeftColor).isValid() ||
-        style->visitedDependentColor(CSSPropertyBorderRightColor).isValid() ||
-        style->visitedDependentColor(CSSPropertyBorderTopColor).isValid() ||
-        style->visitedDependentColor(CSSPropertyBorderBottomColor).isValid()) {
+    // If this is an appearance where RenderTheme::paint returns true
+    // without doing anything, this means that
+    // RenderBox::PaintBoxDecorationWithSize will end up painting the
+    // border, so we shouldn't paint a border here.
+    if (style->appearance() == MenulistButtonPart ||
+        style->appearance() == ListboxPart ||
+        style->appearance() == TextFieldPart ||
+        style->appearance() == TextAreaPart) {
         bounds.fLeft += SkIntToScalar(width - RenderSkinCombo::extraWidth());
         bounds.fRight -= SkIntToScalar(style->borderRightWidth());
         bounds.fTop += SkIntToScalar(style->borderTopWidth());
