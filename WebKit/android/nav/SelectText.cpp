@@ -221,7 +221,8 @@ public:
     bool addNewLine(const SkBounder::GlyphRec& rec)
     {
         SkFixed lineSpacing = SkFixedAbs(mLastGlyph.fLSB.fY - rec.fLSB.fY);
-        return lineSpacing >= SkIntToFixed((bottom() - top()) * 2);
+        SkFixed lineHeight = SkIntToFixed(bottom() - top());
+        return lineSpacing >= lineHeight + (lineHeight >> 1); // 1.5
     }
 
     bool addSpace(const SkBounder::GlyphRec& rec)
@@ -541,9 +542,7 @@ public:
 
     virtual bool onIRect(const SkIRect& rect)
     {
-        if (top() > mBestBounds.fTop)
-            return false;
-        if (top() < mBestBounds.fTop || rect.fLeft < mBestBounds.fLeft)
+        if (mBestBounds.isEmpty())
             mBestBounds.set(rect.fLeft, top(), rect.fRight, bottom());
         return false;
     }
@@ -564,10 +563,7 @@ public:
 
     virtual bool onIRect(const SkIRect& rect)
     {
-        if (bottom() < mBestBounds.fBottom)
-            return false;
-        if (bottom() > mBestBounds.fBottom || rect.fRight > mBestBounds.fRight)
-            mBestBounds.set(rect.fLeft, top(), rect.fRight, bottom());
+        mBestBounds.set(rect.fLeft, top(), rect.fRight, bottom());
         return false;
     }
 
@@ -633,9 +629,11 @@ private:
 
 class TextExtractor : public CommonCheck {
 public:
-    TextExtractor(const SkRegion& region, const SkIRect& area)
+    TextExtractor(const SkIRect& start, const SkIRect& end, const SkIRect& area)
         : INHERITED(area.width(), area.height())
-        , mSelectRegion(region)
+        , mRecord(false)
+        , mSelectEnd(end)
+        , mSelectStart(start)
         , mSkipFirstSpace(true) // don't start with a space
     {
     }
@@ -645,7 +643,9 @@ public:
     {
         SkIRect full;
         full.set(rect.fLeft, top(), rect.fRight, bottom());
-        if (mSelectRegion.contains(full)) {
+        if (full == mSelectStart)
+            mRecord = true;
+        if (mRecord) {
             if (!mSkipFirstSpace) {
                 if (addNewLine(rec)) {
                     DBG_NAV_LOG("write new line");
@@ -675,6 +675,8 @@ public:
             DBG_NAV_LOGD("TextExtractor [%02x] skip full=(%d,%d,r=%d,b=%d)",
                 rec.fGlyphID, full.fLeft, full.fTop, full.fRight, full.fBottom);
         }
+        if (full == mSelectEnd)
+            mRecord = false;
         return false;
     }
 
@@ -696,7 +698,9 @@ public:
     }
 
 protected:
-    const SkRegion& mSelectRegion;
+    bool mRecord;
+    const SkIRect& mSelectEnd;
+    const SkIRect& mSelectStart;
     SkTDArray<uint16_t> mSelectText;
     bool mSkipFirstSpace;
 private:
@@ -865,15 +869,9 @@ static SkIRect findRight(const SkPicture& picture, const SkIRect& area,
 }
 
 static WebCore::String text(const SkPicture& picture, const SkIRect& area,
-        const SkRegion& region)
+        const SkIRect& start, const SkIRect& end)
 {
-    SkRegion copy = region;
-    copy.translate(-area.fLeft, -area.fTop);
-    const SkIRect& bounds = copy.getBounds();
-    DBG_NAV_LOGD("area=(%d, %d, %d, %d) region=(%d, %d, %d, %d)",
-        area.fLeft, area.fTop, area.fRight, area.fBottom,
-        bounds.fLeft, bounds.fTop, bounds.fRight, bounds.fBottom);
-    TextExtractor extractor(copy, area);
+    TextExtractor extractor(start, end, area);
     TextCanvas checker(&extractor, area);
     checker.drawPicture(const_cast<SkPicture&>(picture));
     return extractor.text();
@@ -1063,10 +1061,14 @@ void SelectText::extendSelection(const SkPicture* picture, int x, int y)
 
 const String SelectText::getSelection()
 {
-    SkIRect clipRect = m_selRegion.getBounds();
-    DBG_NAV_LOGD("clip=(%d,%d,%d,%d)", clipRect.fLeft,
-        clipRect.fTop, clipRect.fRight, clipRect.fBottom);
-    String result = text(*m_picture, clipRect, m_selRegion);
+    SkIRect clipRect;
+    clipRect.set(0, 0, m_picture->width(), m_picture->height());
+    String result = text(*m_picture, clipRect, m_selStart, m_selEnd);
+    DBG_NAV_LOGD("clip=(%d,%d,%d,%d)"
+        " m_selStart=(%d, %d, %d, %d) m_selEnd=(%d, %d, %d, %d)",
+        clipRect.fLeft, clipRect.fTop, clipRect.fRight, clipRect.fBottom,
+        m_selStart.fLeft, m_selStart.fTop, m_selStart.fRight, m_selStart.fBottom,
+        m_selEnd.fLeft, m_selEnd.fTop, m_selEnd.fRight, m_selEnd.fBottom);
     DBG_NAV_LOGD("text=%s", result.latin1().data()); // uses CString
     return result;
 }
