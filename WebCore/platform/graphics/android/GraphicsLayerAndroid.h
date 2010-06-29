@@ -97,7 +97,6 @@ public:
     virtual void resumeAnimations();
 
     virtual void setContentsToImage(Image*);
-    bool repaintAll();
     virtual PlatformLayer* platformLayer() const;
 
     void pauseDisplay(bool state);
@@ -127,7 +126,8 @@ private:
 
     void updateFixedPosition();
 
-    bool repaint(const FloatRect& rect);
+    // with SkPicture, we always repaint the entire layer's content.
+    bool repaint();
     void needsNotifyClient();
 
     bool m_needsSyncChildren;

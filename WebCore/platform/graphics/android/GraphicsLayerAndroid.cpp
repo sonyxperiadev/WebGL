@@ -398,29 +398,6 @@ void GraphicsLayerAndroid::setOpacity(float opacity)
     askForSync();
 }
 
-bool GraphicsLayerAndroid::repaintAll()
-{
-     LOG("(%x) repaintAll", this);
-     bool ret = false;
-     for (unsigned int i = 0; i < m_children.size(); i++) {
-         GraphicsLayerAndroid* layer = static_cast<GraphicsLayerAndroid*>(m_children[i]);
-         if (layer && layer->repaintAll())
-             ret = true;
-     }
-     int nbRects = m_invalidatedRects.size();
-
-     for (int i = 0; !gPaused && i < nbRects; i++) {
-         FloatRect rect = m_invalidatedRects[i];
-         if (repaint(rect))
-             ret = true;
-     }
-     if (!gPaused) {
-         m_needsRepaint = false;
-         m_invalidatedRects.clear();
-     }
-     return ret;
-}
-
 void GraphicsLayerAndroid::setNeedsDisplay()
 {
     LOG("(%x) setNeedsDisplay()", this);
@@ -455,11 +432,10 @@ void GraphicsLayerAndroid::sendImmediateRepaint()
     }
 }
 
-bool GraphicsLayerAndroid::repaint(const FloatRect& rect)
+bool GraphicsLayerAndroid::repaint()
 {
-    LOG("(%x) repaint(%.2f,%.2f,%.2f,%.2f), gPaused(%d) m_needsRepaint(%d) m_haveContents(%d) ",
-        this, rect.x(), rect.y(), rect.width(), rect.height(),
-        gPaused, m_needsRepaint, m_haveContents);
+    LOG("(%x) repaint(), gPaused(%d) m_needsRepaint(%d) m_haveContents(%d) ",
+        this, gPaused, m_needsRepaint, m_haveContents);
 
     if (!gPaused && m_haveContents && m_needsRepaint && !m_haveImage) {
         SkAutoPictureRecord arp(m_contentLayer->recordContext(), m_size.width(), m_size.height());
@@ -468,28 +444,23 @@ bool GraphicsLayerAndroid::repaint(const FloatRect& rect)
         if (!recordingCanvas)
             return false;
 
-        if ((rect.width() > 0.5) && (rect.height() > 0.5)) {
-            IntRect r((int)rect.x(), (int)rect.y(),
-                  (int)rect.width(), (int)rect.height());
+        PlatformGraphicsContext pgc(recordingCanvas, 0);
+        GraphicsContext gc(&pgc);
 
-            PlatformGraphicsContext pgc(recordingCanvas, 0);
-            GraphicsContext gc(&pgc);
+        // with SkPicture, we request the entire layer's content.
+        IntRect r(0, 0, m_contentLayer->getWidth(), m_contentLayer->getHeight());
+        paintGraphicsLayerContents(gc, r);
 
-            // with SkPicture, we request the entire layer's content.
-            r.setX(0);
-            r.setY(0);
-            r.setWidth(m_contentLayer->getWidth());
-            r.setHeight(m_contentLayer->getHeight());
-            paintGraphicsLayerContents(gc, r);
+        TLOG("(%x) repaint() on (%.2f,%.2f) contentlayer(%.2f,%.2f,%.2f,%.2f)paintGraphicsLayer called!",
+            this, m_size.width(), m_size.height(),
+            m_contentLayer->getPosition().fX,
+            m_contentLayer->getPosition().fY,
+            m_contentLayer->getSize().width(),
+            m_contentLayer->getSize().height());
 
-            TLOG("(%x) repaint(%.2f,%.2f,%.2f,%.2f) on (%.2f,%.2f) contentlayer(%.2f,%.2f,%.2f,%.2f)paintGraphicsLayer called!",
-                this, rect.x(), rect.y(), rect.width(),
-                rect.height(), m_size.width(), m_size.height(),
-                m_contentLayer->getPosition().fX,
-                m_contentLayer->getPosition().fY,
-                m_contentLayer->getSize().width(),
-                m_contentLayer->getSize().height());
-        }
+        m_needsRepaint = false;
+        m_invalidatedRects.clear();
+
         return true;
     }
     return false;
@@ -911,7 +882,7 @@ void GraphicsLayerAndroid::syncCompositingState()
     syncPositionState();
 
     if (!gPaused || WTF::currentTime() >= gPausedDelay)
-        repaintAll();
+        repaint();
 }
 
 void GraphicsLayerAndroid::notifyClientAnimationStarted()
