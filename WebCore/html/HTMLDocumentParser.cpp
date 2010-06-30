@@ -38,22 +38,13 @@
 #include "XSSAuditor.h"
 #include <wtf/CurrentTime.h>
 
-<<<<<<< HEAD
-#include "HTMLEntityNames.cpp"
-
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
 #endif
 
-#define PRELOAD_SCANNER_ENABLED 1
-
-using namespace WTF;
-using namespace std;
-=======
 #if ENABLE(INSPECTOR)
 #include "InspectorTimelineAgent.h"
 #endif
->>>>>>> webkit.org at r61871
 
 namespace WebCore {
 
@@ -128,204 +119,8 @@ bool HTMLDocumentParser::processingData() const
 
 void HTMLDocumentParser::pumpTokenizerIfPossible(SynchronousMode mode)
 {
-<<<<<<< HEAD
-    // We are inside a <script>
-    bool doScriptExec = false;
-    int startLine = m_currentScriptTagStartLineNumber + 1; // Script line numbers are 1 based, HTMLTokenzier line numbers are 0 based
-
-    // Reset m_currentScriptTagStartLineNumber to indicate that we've finished parsing the current script element
-    m_currentScriptTagStartLineNumber = 0;
-
-    // (Bugzilla 3837) Scripts following a frameset element should not execute or,
-    // in the case of extern scripts, even load.
-    bool followingFrameset = (m_doc->body() && m_doc->body()->hasTagName(framesetTag));
-
-    CachedScript* cs = 0;
-    // don't load external scripts for standalone documents (for now)
-    if (!inViewSourceMode()) {
-        if (!m_scriptTagSrcAttrValue.isEmpty() && m_doc->frame()) {
-            // forget what we just got; load from src url instead
-            if (!m_treeConstructor->skipMode() && !followingFrameset) {
-                // The parser might have been stopped by for example a window.close call in an earlier script.
-                // If so, we don't want to load scripts.
-                if (!m_parserStopped && m_scriptNode->dispatchBeforeLoadEvent(m_scriptTagSrcAttrValue) &&
-                    (cs = m_doc->docLoader()->requestScript(m_scriptTagSrcAttrValue, m_scriptTagCharsetAttrValue)))
-                    m_pendingScripts.append(cs);
-                else
-                    m_scriptNode = 0;
-            } else
-                m_scriptNode = 0;
-            m_scriptTagSrcAttrValue = String();
-        } else {
-            // Parse m_scriptCode containing <script> info
-            doScriptExec = m_scriptNode->shouldExecuteAsJavaScript();
-#if ENABLE(XHTMLMP)
-            if (!doScriptExec)
-                m_doc->setShouldProcessNoscriptElement(true);
-#endif
-            m_scriptNode = 0;
-        }
-    }
-
-    state = processListing(SegmentedString(m_scriptCode, m_scriptCodeSize), state);
-    RefPtr<Node> node = processToken();
-
-    if (node && m_scriptingPermission == FragmentScriptingNotAllowed) {
-        ExceptionCode ec;
-        node->remove(ec);
-        node = 0;
-    }
-
-    String scriptString = node ? node->textContent() : "";
-    m_currentToken.tagName = scriptTag.localName();
-    m_currentToken.beginTag = false;
-    processToken();
-
-    state.setInScript(false);
-    m_scriptCodeSize = m_scriptCodeResync = 0;
-
-    // FIXME: The script should be syntax highlighted.
-    if (inViewSourceMode())
-        return state;
-
-    SegmentedString* savedPrependingSrc = m_currentPrependingSrc;
-    SegmentedString prependingSrc;
-    m_currentPrependingSrc = &prependingSrc;
-
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::recordNoCounter(android::TimeCounter::ParsingTimeCounter, __FUNCTION__);
-#endif
-
-    if (!m_treeConstructor->skipMode() && !followingFrameset) {
-        if (cs) {
-            if (savedPrependingSrc)
-                savedPrependingSrc->append(m_src);
-            else
-                m_pendingSrc.prepend(m_src);
-            setSrc(SegmentedString());
-
-            // the ref() call below may call notifyFinished if the script is already in cache,
-            // and that mucks with the state directly, so we must write it back to the object.
-            m_state = state;
-            bool savedRequestingScript = m_requestingScript;
-            m_requestingScript = true;
-            cs->addClient(this);
-            m_requestingScript = savedRequestingScript;
-            state = m_state;
-            // will be 0 if script was already loaded and ref() executed it
-            if (!m_pendingScripts.isEmpty())
-                state.setLoadingExtScript(true);
-        } else if (!m_fragment && doScriptExec) {
-            if (!m_executingScript)
-                m_pendingSrc.prepend(m_src);
-            else
-                prependingSrc = m_src;
-            setSrc(SegmentedString());
-            state = scriptExecution(ScriptSourceCode(scriptString, m_doc->frame() ? m_doc->frame()->document()->url() : KURL(), startLine), state);
-        }
-    }
-
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::start(android::TimeCounter::ParsingTimeCounter);
-#endif
-
-    if (!m_executingScript && !state.loadingExtScript()) {
-        m_src.append(m_pendingSrc);
-        m_pendingSrc.clear();
-    } else if (!prependingSrc.isEmpty()) {
-        // restore first so that the write appends in the right place
-        // (does not hurt to do it again below)
-        m_currentPrependingSrc = savedPrependingSrc;
-
-        // we need to do this slightly modified bit of one of the write() cases
-        // because we want to prepend to m_pendingSrc rather than appending
-        // if there's no previous prependingSrc
-        if (!m_pendingScripts.isEmpty()) {
-            if (m_currentPrependingSrc)
-                m_currentPrependingSrc->append(prependingSrc);
-            else
-                m_pendingSrc.prepend(prependingSrc);
-        } else {
-            m_state = state;
-            write(prependingSrc, false);
-            state = m_state;
-        }
-    }
-
-#if PRELOAD_SCANNER_ENABLED
-    if (!m_pendingScripts.isEmpty() && !m_executingScript) {
-        if (!m_preloadScanner)
-            m_preloadScanner.set(new PreloadScanner(m_doc));
-        if (!m_preloadScanner->inProgress()) {
-            m_preloadScanner->begin();
-            m_preloadScanner->write(m_pendingSrc);
-        }
-    }
-#endif
-    m_currentPrependingSrc = savedPrependingSrc;
-
-    return state;
-}
-
-HTMLDocumentParser::State HTMLDocumentParser::scriptExecution(const ScriptSourceCode& sourceCode, State state)
-{
-    if (m_fragment || !m_doc->frame())
-        return state;
-    m_executingScript++;
-
-    SegmentedString* savedPrependingSrc = m_currentPrependingSrc;
-    SegmentedString prependingSrc;
-    m_currentPrependingSrc = &prependingSrc;
-
-    m_state = state;
-    m_doc->frame()->script()->executeScript(sourceCode);
-    state = m_state;
-
-    state.setAllowYield(true);
-
-    m_executingScript--;
-
-    if (!m_executingScript && !state.loadingExtScript()) {
-        m_pendingSrc.prepend(prependingSrc);
-        m_src.append(m_pendingSrc);
-        m_pendingSrc.clear();
-    } else if (!prependingSrc.isEmpty()) {
-        // restore first so that the write appends in the right place
-        // (does not hurt to do it again below)
-        m_currentPrependingSrc = savedPrependingSrc;
-
-        // we need to do this slightly modified bit of one of the write() cases
-        // because we want to prepend to m_pendingSrc rather than appending
-        // if there's no previous prependingSrc
-        if (!m_pendingScripts.isEmpty()) {
-            if (m_currentPrependingSrc)
-                m_currentPrependingSrc->append(prependingSrc);
-            else
-                m_pendingSrc.prepend(prependingSrc);
-
-#if PRELOAD_SCANNER_ENABLED
-            // We are stuck waiting for another script. Lets check the source that
-            // was just document.write()n for anything to load.
-            PreloadScanner documentWritePreloadScanner(m_doc);
-            documentWritePreloadScanner.begin();
-            documentWritePreloadScanner.write(prependingSrc);
-            documentWritePreloadScanner.end();
-#endif
-        } else {
-            m_state = state;
-            write(prependingSrc, false);
-            state = m_state;
-        }
-    }
-
-    m_currentPrependingSrc = savedPrependingSrc;
-
-    return state;
-}
-=======
     if (m_parserStopped || m_treeBuilder->isPaused())
         return;
->>>>>>> webkit.org at r61871
 
     // Once a resume is scheduled, HTMLParserScheduler controls when we next pump.
     if (isScheduledForResume()) {
@@ -427,6 +222,9 @@ void HTMLDocumentParser::write(const SegmentedString& source, bool isFromNetwork
     if (m_parserStopped)
         return;
 
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::start(android::TimeCounter::ParsingTimeCounter);
+#endif
     NestingLevelIncrementer nestingLevelIncrementer(m_writeNestingLevel);
 
     if (isFromNetwork) {
@@ -438,6 +236,9 @@ void HTMLDocumentParser::write(const SegmentedString& source, bool isFromNetwork
             // We've gotten data off the network in a nested call to write().
             // We don't want to consume any more of the input stream now.  Do
             // not worry.  We'll consume this data in a less-nested write().
+#ifdef ANDROID_INSTRUMENT
+            android::TimeCounter::record(android::TimeCounter::ParsingTimeCounter, __FUNCTION__);
+#endif
             return;
         }
     } else
@@ -445,6 +246,9 @@ void HTMLDocumentParser::write(const SegmentedString& source, bool isFromNetwork
 
     pumpTokenizerIfPossible(isFromNetwork ? AllowYield : ForceSynchronous);
     endIfDelayed();
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::ParsingTimeCounter, __FUNCTION__);
+#endif
 }
 
 void HTMLDocumentParser::end()
@@ -467,59 +271,7 @@ void HTMLDocumentParser::attemptToEnd()
         m_endWasDelayed = true;
         return;
     }
-<<<<<<< HEAD
-
-#if PRELOAD_SCANNER_ENABLED
-    if (m_preloadScanner && m_preloadScanner->inProgress() && appendData)
-        m_preloadScanner->end();
-#endif
-
-    if (!m_src.isEmpty())
-        m_src.append(source);
-    else
-        setSrc(source);
-
-    // Once a timer is set, it has control of when the parser continues.
-    if (m_timer.isActive())
-        return;
-
-    bool wasInWrite = m_inWrite;
-    m_inWrite = true;
-
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::start(android::TimeCounter::ParsingTimeCounter);
-#endif
-
-    willWriteHTML(source);
-
-    Frame* frame = m_doc->frame();
-    State state = m_state;
-    int processedCount = 0;
-    double startTime = currentTime();
-
-    while (!m_src.isEmpty() && (!frame || !frame->redirectScheduler()->locationChangePending())) {
-        if (!continueProcessing(processedCount, startTime, state))
-            break;
-        advance(state);
-    }
-
-    didWriteHTML();
-
-    m_inWrite = wasInWrite;
-    m_state = state;
-
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::record(android::TimeCounter::ParsingTimeCounter, __FUNCTION__);
-#endif
-
-    if (m_noMoreData && !m_inWrite && !state.loadingExtScript() && !m_executingScript && !m_timer.isActive())
-        end(); // this actually causes us to be deleted
-
-    // After parsing, go ahead and dispatch image beforeload events.
-    ImageLoader::dispatchPendingBeforeLoadEvents();
-=======
     end();
->>>>>>> webkit.org at r61871
 }
 
 void HTMLDocumentParser::endIfDelayed()

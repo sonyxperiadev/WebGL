@@ -93,7 +93,7 @@ static const char* timeCounterNames[] = {
     "javascript execution",
     "calculate style", 
     "Java callback (frame bridge)",
-    "parsing (may include calcStyle or Java callback)", 
+    "parsing (may include calcStyle, Java callback or inline script execution)",
     "layout", 
     "native 1 (frame bridge)",
     "native 2 (resource load)", 
