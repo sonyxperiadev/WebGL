@@ -243,8 +243,7 @@ V8Proxy::~V8Proxy()
     windowShell()->destroyGlobal();
 }
 
-<<<<<<< HEAD
-v8::Handle<v8::Script> V8Proxy::compileScript(v8::Handle<v8::String> code, const String& fileName, int baseLine)
+v8::Handle<v8::Script> V8Proxy::compileScript(v8::Handle<v8::String> code, const String& fileName, int baseLine, v8::ScriptData* scriptData)
 #ifdef ANDROID_INSTRUMENT
 {
     android::TimeCounter::start(android::TimeCounter::JavaScriptParseTimeCounter);
@@ -253,11 +252,8 @@ v8::Handle<v8::Script> V8Proxy::compileScript(v8::Handle<v8::String> code, const
     return script;
 }
 
-v8::Handle<v8::Script> V8Proxy::compileScriptInternal(v8::Handle<v8::String> code, const String& fileName, int baseLine)
+v8::Handle<v8::Script> V8Proxy::compileScriptInternal(v8::Handle<v8::String> code, const String& fileName, int baseLine, v8::ScriptData* scriptData)
 #endif
-=======
-v8::Handle<v8::Script> V8Proxy::compileScript(v8::Handle<v8::String> code, const String& fileName, int baseLine, v8::ScriptData* scriptData)
->>>>>>> webkit.org at r61871
 {
     const uint16_t* fileNameString = fromWebCoreString(fileName);
     v8::Handle<v8::String> name = v8::String::New(fileNameString, fileName.length());

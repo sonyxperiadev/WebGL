@@ -84,7 +84,6 @@ bool ResourceHandle::supportsBufferedData()
     return false;
 }
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 // TODO: this needs upstreaming.
 void ResourceHandle::pauseLoad(bool pause)
@@ -94,10 +93,7 @@ void ResourceHandle::pauseLoad(bool pause)
 }
 #endif
 
-void ResourceHandle::setDefersLoading(bool defers)
-=======
 void ResourceHandle::platformSetDefersLoading(bool)
->>>>>>> webkit.org at r61871
 {
     notImplemented();
 }

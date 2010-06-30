@@ -431,13 +431,10 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
 
     m_frame = frame;
 
-<<<<<<< HEAD
-#if !PLATFORM(ANDROID)
-=======
     if (frame || !url.isEmpty())
         setURL(url);
 
->>>>>>> webkit.org at r61871
+#if !PLATFORM(ANDROID)
     m_axObjectCache = 0;
 #endif
     

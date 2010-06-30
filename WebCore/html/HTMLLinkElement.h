@@ -163,11 +163,10 @@ private:
     RelAttribute m_relAttribute;
     bool m_loading;
     bool m_createdByParser;
-<<<<<<< HEAD
-    Timer<HTMLLinkElement> m_timer;
-=======
     bool m_shouldProcessAfterAttach;
->>>>>>> webkit.org at r61871
+#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
+    Timer<HTMLLinkElement> m_timer;
+#endif
 };
 
 } //namespace

@@ -54,11 +54,10 @@ inline HTMLLinkElement::HTMLLinkElement(const QualifiedName& tagName, Document* 
     , m_disabledState(Unset)
     , m_loading(false)
     , m_createdByParser(createdByParser)
-<<<<<<< HEAD
-    , m_timer(this, &HTMLLinkElement::timerFired)
-=======
     , m_shouldProcessAfterAttach(false)
->>>>>>> webkit.org at r61871
+#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
+    , m_timer(this, &HTMLLinkElement::timerFired)
+#endif
 {
     ASSERT(hasTagName(linkTag));
 }

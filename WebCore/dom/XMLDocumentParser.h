@@ -319,10 +319,6 @@ bool parseXMLDocumentFragment(const String&, DocumentFragment*, Element* parent 
 
 } // namespace WebCore
 
-<<<<<<< HEAD
 #endif // USE(EXPAT)
 
-#endif // XMLTokenizer_h
-=======
 #endif // XMLDocumentParser_h
->>>>>>> webkit.org at r61871
