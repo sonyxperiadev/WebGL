@@ -625,7 +625,7 @@ private:
 
 
 FloatRect Font::selectionRectForComplexText(const TextRun& run,
-    const IntPoint& point, int height, int from, int to) const
+    const FloatPoint& point, int height, int from, int to) const
 {
 
     int fromX = -1, toX = -1, fromAdvance = -1, toAdvance = -1;
@@ -755,7 +755,7 @@ static int glyphIndexForXPositionInScriptRun(const TextRunWalker& walker, int x)
     return glyphIndex;
 }
 
-int Font::offsetForPositionForComplexText(const TextRun& run, int x,
+int Font::offsetForPositionForComplexText(const TextRun& run, float x,
                                           bool includePartialGlyphs) const
 {
     // (Mac code ignores includePartialGlyphs, and they don't know what it's
