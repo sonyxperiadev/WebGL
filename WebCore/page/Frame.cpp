@@ -1429,47 +1429,6 @@ String Frame::documentTypeString() const
     return String();
 }
 
-<<<<<<< HEAD
-void Frame::focusWindow()
-{
-    if (!page())
-        return;
-
-    // If we're a top level window, bring the window to the front.
-    if (!tree()->parent())
-#ifdef ANDROID_USER_GESTURE
-        // FrameLoader::isProcessingUserGesture() will be false when a
-        // different frame tries to focus this frame through javascript.
-        page()->chrome()->focus(m_loader.isProcessingUserGesture());
-#else
-        page()->chrome()->focus();
-#endif
-
-    eventHandler()->focusDocumentView();
-}
-
-void Frame::unfocusWindow()
-{
-    if (!page())
-        return;
-
-    // If we're a top level window, deactivate the window.
-    if (!tree()->parent())
-        page()->chrome()->unfocus();
-}
-
-void Frame::scheduleClose()
-{
-    if (!shouldClose())
-        return;
-
-    Chrome* chrome = page() ? page()->chrome() : 0;
-    if (chrome)
-        chrome->closeWindowSoon();
-}
-
-=======
->>>>>>> webkit.org at r61871
 void Frame::respondToChangedSelection(const VisibleSelection& oldSelection, bool closeTyping)
 {
     bool isContinuousSpellCheckingEnabled = editor()->isContinuousSpellCheckingEnabled();

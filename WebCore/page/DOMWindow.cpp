@@ -763,7 +763,11 @@ void DOMWindow::focus()
 
     // If we're a top level window, bring the window to the front.
     if (m_frame == page->mainFrame())
+#ifdef ANDROID_USER_GESTURE
+        page->chrome()->focus(m_frame->loader()->isProcessingUserGesture());
+#else
         page->chrome()->focus();
+#endif
 
     if (!m_frame)
         return;
