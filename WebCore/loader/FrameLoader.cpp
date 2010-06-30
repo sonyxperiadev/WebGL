@@ -413,17 +413,7 @@ void FrameLoader::submitForm(PassRefPtr<FormSubmission> submission)
         return;
     }
 
-<<<<<<< HEAD
-    FrameLoadRequest frameRequest;
-#ifdef ANDROID_USER_GESTURE
-    frameRequest.resourceRequest().setUserGesture(isProcessingUserGesture());
-#endif
-
-    String targetOrBaseTarget = target.isEmpty() ? m_frame->document()->baseTarget() : target;
-    Frame* targetFrame = m_frame->tree()->find(targetOrBaseTarget);
-=======
     Frame* targetFrame = m_frame->tree()->find(submission->target());
->>>>>>> webkit.org at r61871
     if (!shouldAllowNavigation(targetFrame))
         return;
     if (!targetFrame) {
@@ -521,7 +511,6 @@ void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy, DatabasePolic
 #endif
     }
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
      // Stop the Geolocation object, if present. This call is made after the unload
      // event has fired, so no new Geolocation activity is possible.
@@ -529,13 +518,7 @@ void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy, DatabasePolic
         m_frame->domWindow()->navigator()->optionalGeolocation()->stop();
 #endif // PLATFORM(ANDROID)
 
-    // tell all subframes to stop as well
-    for (Frame* child = m_frame->tree()->firstChild(); child; child = child->tree()->nextSibling())
-        child->loader()->stopLoading(unloadEventPolicy);
-
-=======
     // FIXME: This will cancel redirection timer, which really needs to be restarted when restoring the frame from b/f cache.
->>>>>>> webkit.org at r61871
     m_frame->redirectScheduler()->cancel();
 }
 
@@ -1163,18 +1146,13 @@ void FrameLoader::handleFallbackContent()
 }
 
 void FrameLoader::provisionalLoadStarted()
-<<<<<<< HEAD
 {    
 #ifdef ANDROID_INSTRUMENT
     if (!m_frame->tree()->parent())
         android::TimeCounter::reset();
 #endif
-    m_firstLayoutDone = false;
-=======
-{
     if (m_stateMachine.firstLayoutDone())
         m_stateMachine.advanceTo(FrameLoaderStateMachine::CommittedFirstRealLoad);
->>>>>>> webkit.org at r61871
     m_frame->redirectScheduler()->cancel(true);
     m_client->provisionalLoadStarted();
 }
@@ -2344,13 +2322,8 @@ void FrameLoader::didReceiveServerRedirectForProvisionalLoadForFrame()
 void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
 {
     // FIXME: Platforms shouldn't differ here!
-<<<<<<< HEAD
 #if PLATFORM(WIN) || PLATFORM(CHROMIUM) || defined(ANDROID)
-    if (m_creatingInitialEmptyDocument)
-=======
-#if PLATFORM(WIN) || PLATFORM(CHROMIUM)
     if (m_stateMachine.creatingInitialEmptyDocument())
->>>>>>> webkit.org at r61871
         return;
 #endif
     
