@@ -250,13 +250,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	html/AsyncImageResizer.cpp \
 	html/Blob.cpp \
+	html/BlobBuilder.cpp \
 	html/CollectionCache.cpp \
-<<<<<<< HEAD
-	html/DateComponents.cpp \
-=======
 	html/CSSPreloadScanner.cpp \
->>>>>>> webkit.org at r61871
 	html/DOMFormData.cpp \
+	html/DateComponents.cpp \
 	html/File.cpp \
 	html/FileList.cpp \
 	html/FileReader.cpp \
@@ -266,7 +264,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/FormDataList.cpp \
 	html/HTMLEntityParser.cpp \
 	html/HTMLTokenizer.cpp \
-	html/HTMLDocumentParser.cpp \
 	html/HTMLPreloadScanner.cpp \
 	html/HTMLScriptRunner.cpp \
 	html/HTMLTreeBuilder.cpp \
@@ -280,28 +277,17 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLImageLoader.cpp \
 	html/HTMLNameCollection.cpp \
 	html/HTMLOptionsCollection.cpp \
-<<<<<<< HEAD
-=======
-	html/LegacyHTMLTreeBuilder.cpp \
->>>>>>> webkit.org at r61871
 	html/HTMLParserErrorCodes.cpp \
 	html/HTMLParserScheduler.cpp \
 	html/HTMLTableRowsCollection.cpp \
-<<<<<<< HEAD
 	html/HTMLViewSourceDocument.cpp \
 	html/ImageData.cpp \
 	html/ImageResizerThread.cpp \
 	html/LabelsNodeList.cpp \
-	html/LegacyHTMLTreeConstructor.cpp \
-	html/PreloadScanner.cpp \
+	html/LegacyHTMLTreeBuilder.cpp \
 	html/StepRange.cpp \
-=======
 	html/LegacyHTMLDocumentParser.cpp \
-	html/HTMLViewSourceDocument.cpp \
-	html/ImageData.cpp \
-	html/ImageResizerThread.cpp \
 	html/LegacyPreloadScanner.cpp \
->>>>>>> webkit.org at r61871
 	html/TimeRanges.cpp \
 	html/ValidityState.cpp \
 	\
@@ -349,11 +335,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/Request.cpp \
 	loader/ResourceLoadNotifier.cpp \
 	loader/ResourceLoader.cpp \
-<<<<<<< HEAD
 	loader/SinkDocument.cpp \
-=======
 	loader/SubframeLoader.cpp \
->>>>>>> webkit.org at r61871
 	loader/SubresourceLoader.cpp \
 	loader/TextDocument.cpp \
 	loader/TextResourceDecoder.cpp \
@@ -795,6 +778,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/style/StyleTransformData.cpp \
 	rendering/style/StyleVisualData.cpp \
 	\
+	storage/AbstractDatabase.cpp \
 	storage/ChangeVersionWrapper.cpp \
 	storage/Database.cpp \
 	storage/DatabaseAuthorizer.cpp \

@@ -303,6 +303,7 @@ GEN := \
     $(intermediates)/page/JSCoordinates.h \
     $(intermediates)/page/JSDOMSelection.h \
     $(intermediates)/page/JSDOMWindow.h \
+    $(intermediates)/page/JSEventSource.h \
     $(intermediates)/page/JSGeolocation.h \
     $(intermediates)/page/JSGeoposition.h \
     $(intermediates)/page/JSHistory.h \

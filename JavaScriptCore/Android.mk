@@ -58,6 +58,7 @@ LOCAL_SRC_FILES := \
 	jit/JITStubs.cpp \
 	jit/ThunkGenerators.cpp \
 	\
+	parser/JSParser.cpp \
 	parser/Lexer.cpp \
 	parser/Nodes.cpp \
 	parser/Parser.cpp \
@@ -143,6 +144,7 @@ LOCAL_SRC_FILES := \
 	runtime/PropertySlot.cpp \
 	runtime/PrototypeFunction.cpp \
 	runtime/RegExp.cpp \
+	runtime/RegExpCache.cpp \
 	runtime/RegExpConstructor.cpp \
 	runtime/RegExpObject.cpp \
 	runtime/RegExpPrototype.cpp \
