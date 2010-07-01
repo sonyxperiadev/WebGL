@@ -374,6 +374,13 @@ ifeq ($(JAVASCRIPT_ENGINE),jsc)
 LOCAL_STATIC_LIBRARIES += libjs
 endif
 LOCAL_LDFLAGS := -fvisibility=hidden
+
+# Disable ICF for the time being since the browser crahses in tests with
+# ICF enabled.
+ifeq ($(TARGET_ARCH),arm)
+LOCAL_LDFLAGS += -Wl,--icf=none
+endif
+
 LOCAL_CFLAGS := $(WEBKIT_CFLAGS)
 LOCAL_C_INCLUDES := $(WEBKIT_C_INCLUDES)
 LOCAL_PATH := $(BASE_PATH)
