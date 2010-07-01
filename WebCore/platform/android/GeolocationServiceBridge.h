@@ -31,6 +31,7 @@
 
 namespace WebCore {
 
+class Frame;
 class GeolocationServiceAndroid;
 class Geoposition;
 
@@ -40,7 +41,7 @@ class Geoposition;
 class GeolocationServiceBridge {
 public:
     typedef GeolocationServiceAndroid ListenerInterface;
-    GeolocationServiceBridge(ListenerInterface* listener);
+    GeolocationServiceBridge(ListenerInterface* listener, Frame* frame);
     ~GeolocationServiceBridge();
 
     bool start();
@@ -53,7 +54,7 @@ public:
     static PassRefPtr<Geoposition> toGeoposition(JNIEnv *env, const jobject &location);
 
 private:
-    void startJavaImplementation();
+    void startJavaImplementation(Frame* frame);
     void stopJavaImplementation();
 
     ListenerInterface* m_listener;

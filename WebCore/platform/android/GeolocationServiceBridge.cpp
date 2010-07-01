@@ -26,6 +26,7 @@
 #include "config.h"
 #include "GeolocationServiceBridge.h"
 
+#include "Frame.h"
 #include "GeolocationServiceAndroid.h"
 #include "Geoposition.h"
 #include "PositionError.h"
@@ -70,12 +71,12 @@ enum javaLocationClassMethods {
 };
 static jmethodID javaLocationClassMethodIDs[LocationMethodCount];
 
-GeolocationServiceBridge::GeolocationServiceBridge(ListenerInterface* listener)
+GeolocationServiceBridge::GeolocationServiceBridge(ListenerInterface* listener, Frame* frame)
     : m_listener(listener)
     , m_javaGeolocationServiceObject(0)
 {
     ASSERT(m_listener);
-    startJavaImplementation();
+    startJavaImplementation(frame);
 }
 
 GeolocationServiceBridge::~GeolocationServiceBridge()
@@ -165,7 +166,7 @@ PassRefPtr<Geoposition> GeolocationServiceBridge::toGeoposition(JNIEnv *env, con
          env->CallLongMethod(location, javaLocationClassMethodIDs[LocationMethodGetTime]));
 }
 
-void GeolocationServiceBridge::startJavaImplementation()
+void GeolocationServiceBridge::startJavaImplementation(Frame* frame)
 {
     JNIEnv* env = getJNIEnv();
 
@@ -175,7 +176,7 @@ void GeolocationServiceBridge::startJavaImplementation()
 
     // Set up the methods we wish to call on the Java GeolocationService class.
     javaGeolocationServiceClassMethodIDs[GeolocationServiceMethodInit] =
-            env->GetMethodID(javaGeolocationServiceClass, "<init>", "(J)V");
+            env->GetMethodID(javaGeolocationServiceClass, "<init>", "(Landroid/content/Context;J)V");
     javaGeolocationServiceClassMethodIDs[GeolocationServiceMethodStart] =
             env->GetMethodID(javaGeolocationServiceClass, "start", "()Z");
     javaGeolocationServiceClassMethodIDs[GeolocationServiceMethodStop] =
@@ -187,6 +188,7 @@ void GeolocationServiceBridge::startJavaImplementation()
     jlong nativeObject = reinterpret_cast<jlong>(this);
     jobject object = env->NewObject(javaGeolocationServiceClass,
                                     javaGeolocationServiceClassMethodIDs[GeolocationServiceMethodInit],
+                                    android::WebViewCore::getWebViewCore(frame->view())->getContext(),
                                     nativeObject);
 
     m_javaGeolocationServiceObject = getJNIEnv()->NewGlobalRef(object);

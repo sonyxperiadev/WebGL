@@ -26,6 +26,7 @@
 #include "config.h"
 #include "GeolocationServiceAndroid.h"
 
+#include "Geolocation.h"
 #include "GeolocationServiceBridge.h"
 #include "Geoposition.h"
 #include "PositionError.h"
@@ -69,6 +70,14 @@ GeolocationServiceAndroid::GeolocationServiceAndroid(GeolocationServiceClient* c
 // TODO: Upstream to webkit.org. See https://bugs.webkit.org/show_bug.cgi?id=34082
 bool GeolocationServiceAndroid::startUpdating(PositionOptions* options, bool suspend)
 {
+    // ANDROID
+    // This is an ugly hack. A correct fix would require a change to WebCore,
+    // but this isn't worth the effort as we're in the process of switching to a
+    // client-based implementation. See https://bugs.webkit.org/show_bug.cgi?id=40373
+    Frame* frame = reinterpret_cast<Geolocation*>(geolocationServiceClient())->frame();
+    if (!frame)
+        return false;
+
     // This method is called every time a new watch or one-shot position request
     // is started. If we already have a position or an error, call back
     // immediately.
@@ -80,7 +89,7 @@ bool GeolocationServiceAndroid::startUpdating(PositionOptions* options, bool sus
     // Lazilly create the Java object.
     bool haveJavaBridge = m_javaBridge;
     if (!haveJavaBridge)
-        m_javaBridge.set(new GeolocationServiceBridge(this));
+        m_javaBridge.set(new GeolocationServiceBridge(this, frame));
     ASSERT(m_javaBridge);
 
     // On Android, high power == GPS. Set whether to use GPS before we start the
