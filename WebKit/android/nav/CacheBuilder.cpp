@@ -412,7 +412,7 @@ void CacheBuilder::Debug::groups() {
             comma(scratch);
             Element* element = static_cast<Element*>(node);
             if (node->isElementNode() && element->hasID())
-                wideString(element->getIDAttribute());
+                wideString(element->getIdAttribute());
             else if (node->isTextNode()) {
  #if 01 // set to one to abbreviate text that can be omitted from the address detection code
                if (rect.isEmpty() && node->textContent().length() > 100) {
@@ -475,7 +475,7 @@ void CacheBuilder::Debug::groups() {
                     " visibility=%s hasBackGround=%d"
                     " tapHighlightColor().alpha()=0x%02x",
                     style->visibility() == HIDDEN ? "HIDDEN" : "VISIBLE",
-                    style->hasBackground(), style->tapHighlightColor().alpha());
+                    renderer->hasBackground(), style->tapHighlightColor().alpha());
                 newLine();
                 print(scratch);
                 RenderBlock* renderBlock = static_cast<RenderBlock*>(renderer);
@@ -2709,7 +2709,8 @@ bool CacheBuilder::isFocusableText(NodeWalk* walk, bool more, Node* node,
             do {
                 do {
                     do {
-                        node = node->traverseNextNode();
+                        if (node)
+                            node = node->traverseNextNode();
                         if (node == NULL || node->hasTagName(HTMLNames::aTag)
                                 || node->hasTagName(HTMLNames::inputTag)
                                 || node->hasTagName(HTMLNames::textareaTag)) {
