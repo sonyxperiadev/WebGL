@@ -191,9 +191,6 @@ public:
         if (!m_submission->state()->sourceFrame()->loader()->shouldAllowNavigation(frame))
             return;
         FrameLoadRequest frameRequest;
-#ifdef ANDROID_USER_GESTURE
-        frameRequest.resourceRequest().setUserGesture(m_submission->state()->sourceFrame()->loader()->isProcessingUserGesture());
-#endif
         m_submission->populateFrameLoadRequest(frameRequest);
         frame->loader()->loadFrameRequest(frameRequest, lockHistory(), lockBackForwardList(), m_submission->event(), m_submission->state(), SendReferrer);
     }

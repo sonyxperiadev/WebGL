@@ -46,6 +46,7 @@
 #include "WebViewCore.h"
 #include "WindowFeatures.h"
 #include "Settings.h"
+#include "UserGestureIndicator.h"
 #include <wtf/text/CString.h>
 
 namespace android {
@@ -123,18 +124,16 @@ float ChromeClientAndroid::scaleFactor()
     return m_webFrame->density();
 }
 
-#ifdef ANDROID_USER_GESTURE
-void ChromeClientAndroid::focus(bool userGesture) {
-#else
-void ChromeClientAndroid::focus() {
-    // The old behavior was to always allow javascript to focus a window. If we
-    // turn off ANDROID_USER_GESTURE, go back to the old behavior by forcing
-    // userGesture to be true.
-    bool userGesture = true;
-#endif
+void ChromeClientAndroid::focus()
+{
     ASSERT(m_webFrame);
-    // Ask the application to focus this WebView.
-    if (userGesture)
+#ifdef ANDROID_USER_GESTURE_CHECK
+    bool isUserGesture = UserGestureIndicator::processingUserGesture();
+#else
+    bool isUserGesture = true;
+#endif
+    // Ask the application to focus this WebView if the action is intiated by the user
+    if (isUserGesture)
         m_webFrame->requestFocus();
 }
 void ChromeClientAndroid::unfocus() { notImplemented(); }

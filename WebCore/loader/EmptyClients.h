@@ -72,11 +72,7 @@ public:
     virtual void webAppCanBeInstalled() { }
 #endif
 
-#ifdef ANDROID_USER_GESTURE
-    virtual void focus(bool userGesture) { }
-#else
     virtual void focus() { }
-#endif
     virtual void unfocus() { }
 
     virtual bool canTakeFocus(FocusDirection) { return false; }
