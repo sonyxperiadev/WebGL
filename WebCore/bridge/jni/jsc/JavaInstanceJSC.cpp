@@ -43,8 +43,8 @@
 #include <runtime/JSLock.h>
 
 #if PLATFORM(ANDROID)
-#include <cutils/log.h>
 #define LOG_TAG JavaInstanceJSC.cpp
+#include <utils/Log.h>
 #endif
 
 using namespace JSC::Bindings;
