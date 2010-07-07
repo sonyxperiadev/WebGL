@@ -54,21 +54,12 @@ namespace WebCore {
 
 IntRect ScrollView::platformVisibleContentRect(bool includeScrollbars) const
 {
-    if (parent()) {
-        const ScrollView* sv = this;
-        int offsetX = 0;
-        int offsetY = 0;
-        while (sv->parent()) {
-            offsetX += sv->x();
-            offsetY += sv->y();
-            sv = sv->parent();
-        }
-        IntRect rect = sv->platformWidget()->getVisibleBounds();
-        rect.move(-offsetX, -offsetY);
-        rect.intersect(IntRect(0, 0, width(), height()));
-        return rect;
-    }
-    return platformWidget()->getVisibleBounds();
+    // iframe's visible content rect is relative to its parent, not the viewport.
+    // As we auto expand the iframe, the frame rect is the content rect.
+    if (parent())
+        return IntRect(0, 0, width(), height());
+    else
+        return platformWidget()->getVisibleBounds();
 }
 
 IntSize ScrollView::platformContentsSize() const

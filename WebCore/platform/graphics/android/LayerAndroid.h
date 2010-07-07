@@ -123,6 +123,7 @@ public:
     void setMasksToBounds(bool);
 
     void setIsRootLayer(bool isRootLayer) { m_isRootLayer = isRootLayer; }
+    bool isRootLayer() const { return m_isRootLayer; }
 
     SkPicture* recordContext();
 
