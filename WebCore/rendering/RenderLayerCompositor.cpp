@@ -1122,20 +1122,11 @@ bool RenderLayerCompositor::needsToBeComposited(const RenderLayer* layer) const
 #if PLATFORM(ANDROID)
 bool RenderLayerCompositor::requiresCompositingForMobileSites(const RenderLayer* layer) const
 {
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
     // First, check if we are in an iframe, and if so bail out
     if (m_renderView->document()->frame()->tree()->parent())
         return false;
 
-    RenderObject* renderer = layer->renderer();
-    // Check for transforms
-    if (requiresCompositingForTransform(renderer))
-        return true;
-
-    // Check for animations
-    if (requiresCompositingForAnimation(renderer))
-        return true;
-
-#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
     // For the moment, we want to only enable fixed composited layers on mobile websites.
     // We can consider a website as being a 'mobile' site if all the
     // following checks are true:
@@ -1152,7 +1143,6 @@ bool RenderLayerCompositor::requiresCompositingForMobileSites(const RenderLayer*
         !settings->viewportUserScalable())
         return true;
 #endif
-
     return false;
 }
 #endif
@@ -1168,12 +1158,10 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) c
         renderer = renderer->parent(); // The RenderReplica's parent is the object being reflected.
         layer = toRenderBoxModelObject(renderer)->layer();
     }
-#if PLATFORM(ANDROID)
-    return requiresCompositingForMobileSites(layer)
-             || renderer->style()->backfaceVisibility() == BackfaceVisibilityHidden
-             || clipsCompositingDescendants(layer);
-#else
     return requiresCompositingForTransform(renderer)
+#if PLATFORM(ANDROID)
+             || requiresCompositingForMobileSites(layer)
+#endif
              || requiresCompositingForVideo(renderer)
              || requiresCompositingForCanvas(renderer)
              || requiresCompositingForPlugin(renderer)
@@ -1181,7 +1169,6 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) c
              || renderer->style()->backfaceVisibility() == BackfaceVisibilityHidden
              || clipsCompositingDescendants(layer)
              || requiresCompositingForAnimation(renderer);
-#endif
 }
 
 bool RenderLayerCompositor::canBeComposited(const RenderLayer* layer) const

@@ -125,7 +125,8 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     if (m_client) {
         RenderLayerBacking* backing = static_cast<RenderLayerBacking*>(m_client);
         RenderLayer* renderLayer = backing->owningLayer();
-        m_contentLayer->setIsRootLayer(renderLayer->isRootLayer());
+        m_contentLayer->setIsRootLayer(renderLayer->isRootLayer() &&
+                !(renderLayer->renderer()->frame()->ownerElement()));
     }
     gDebugGraphicsLayerAndroidInstances++;
 }
@@ -350,7 +351,8 @@ void GraphicsLayerAndroid::setMasksToBounds(bool masksToBounds)
 void GraphicsLayerAndroid::setDrawsContent(bool drawsContent)
 {
     GraphicsLayer::setDrawsContent(drawsContent);
-
+    if (m_contentLayer->isRootLayer())
+        return;
     if (m_drawsContent) {
         m_haveContents = true;
         setNeedsDisplay();
