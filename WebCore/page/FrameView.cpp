@@ -695,9 +695,11 @@ void FrameView::layout(bool allowSubtree)
         Node* body = document->body();
         if (body && body->renderer()) {
             if (body->hasTagName(framesetTag) && !m_frame->settings()->frameFlatteningEnabled()) {
+#if !defined(ANDROID_FLATTEN_IFRAME) && !defined(ANDROID_FLATTEN_FRAMESET)
                 body->renderer()->setChildNeedsLayout(true);
                 vMode = ScrollbarAlwaysOff;
                 hMode = ScrollbarAlwaysOff;
+#endif
             } else if (body->hasTagName(bodyTag)) {
                 if (!m_firstLayout && m_size.height() != layoutHeight() && body->renderer()->enclosingBox()->stretchesToViewHeight())
                     body->renderer()->setChildNeedsLayout(true);
