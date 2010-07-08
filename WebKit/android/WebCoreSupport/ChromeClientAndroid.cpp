@@ -56,27 +56,14 @@ static unsigned long long tryToReclaimDatabaseQuota(SecurityOrigin* originNeedin
 
 #if USE(ACCELERATED_COMPOSITING)
 
-void ChromeClientAndroid::layersSync()
+WebCore::GraphicsLayer* ChromeClientAndroid::layersSync()
 {
-    if (!m_rootGraphicsLayer)
-        return;
-
-    if (!m_needsLayerSync)
-        return;
-
-    m_needsLayerSync = false;
-
-    if (m_webFrame) {
-        FrameView* frameView = m_webFrame->page()->mainFrame()->view();
-        if (frameView && frameView->syncCompositingStateRecursive()) {
-            GraphicsLayerAndroid* androidGraphicsLayer =
-                    static_cast<GraphicsLayerAndroid*>(m_rootGraphicsLayer);
-            if (androidGraphicsLayer) {
-                androidGraphicsLayer->sendImmediateRepaint();
-                androidGraphicsLayer->notifyClientAnimationStarted();
-            }
-        }
+    if (m_rootGraphicsLayer && m_needsLayerSync && m_webFrame) {
+        if (FrameView* frameView = m_webFrame->page()->mainFrame()->view())
+            frameView->syncCompositingStateRecursive();
     }
+    m_needsLayerSync = false;
+    return m_rootGraphicsLayer;
 }
 
 void ChromeClientAndroid::scheduleCompositingLayerSync()
@@ -89,15 +76,12 @@ void ChromeClientAndroid::setNeedsOneShotDrawingSynchronization()
     // This should not be needed
 }
 
-void ChromeClientAndroid::attachRootGraphicsLayer(WebCore::Frame* frame, WebCore::GraphicsLayer* layer)
+void ChromeClientAndroid::attachRootGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer* layer)
 {
+    // frame is not used in Android as we should only get root graphics layer for the main frame
     m_rootGraphicsLayer = layer;
-    if (!layer) {
-        WebViewCore::getWebViewCore(frame->view())->setUIRootLayer(0);
+    if (!layer)
         return;
-    }
-    WebCore::GraphicsLayerAndroid* androidGraphicsLayer = static_cast<GraphicsLayerAndroid*>(layer);
-    androidGraphicsLayer->setFrame(frame);
     scheduleCompositingLayerSync();
 }
 

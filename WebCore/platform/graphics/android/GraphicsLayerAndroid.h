@@ -108,21 +108,20 @@ public:
 
     virtual void setZPosition(float);
 
-    void askForSync();
-    void syncPositionState();
-    void needsSyncChildren();
-    void syncChildren();
-    void syncMask();
     virtual void syncCompositingState();
-    void setFrame(Frame*);
     void notifyClientAnimationStarted();
 
-    void sendImmediateRepaint();
     LayerAndroid* contentLayer() { return m_contentLayer; }
 
     static int instancesCount();
 
 private:
+
+    void askForSync();
+    void syncPositionState();
+    void needsSyncChildren();
+    void syncChildren();
+    void syncMask();
 
     void updateFixedPosition();
 
@@ -145,8 +144,6 @@ private:
     float m_currentTranslateY;
 
     FloatPoint m_currentPosition;
-
-    RefPtr<Frame> m_frame;
 
     Vector<FloatRect> m_invalidatedRects;
 

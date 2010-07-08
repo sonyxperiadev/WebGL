@@ -30,6 +30,7 @@
 #include "AndroidAnimation.h"
 #include "AndroidLog.h"
 #include "AtomicString.h"
+#include "BaseLayerAndroid.h"
 #include "CachedFrame.h"
 #include "CachedNode.h"
 #include "CachedRoot.h"
@@ -177,7 +178,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     m_lastDx = 0;
     m_lastDxTime = 0;
     m_ringAnimationEnd = 0;
-    m_rootLayer = 0;
+    m_baseLayer = 0;
 }
 
 ~WebView()
@@ -190,7 +191,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     }
     delete m_frameCacheUI;
     delete m_navPictureUI;
-    delete m_rootLayer;
+    delete m_baseLayer;
 }
 
 WebViewCore* getWebViewCore() const {
@@ -303,10 +304,11 @@ void scrollRectOnScreen(const IntRect& rect)
     SkRect visible;
     calcOurContentVisibleRect(&visible);
 #if USE(ACCELERATED_COMPOSITING)
-    if (m_rootLayer) {
-        m_rootLayer->updateFixedLayersPositions(visible);
-        m_rootLayer->updatePositions();
-        visible = m_rootLayer->subtractLayers(visible);
+    LayerAndroid* root = compositeRoot();
+    if (root) {
+        root->updateFixedLayersPositions(visible);
+        root->updatePositions();
+        visible = root->subtractLayers(visible);
     }
 #endif
     int dx = 0;
@@ -394,14 +396,30 @@ void drawCursorPostamble()
     }
 }
 
-void drawExtras(SkCanvas* canvas, int extras)
+PictureSet* draw(SkCanvas* canvas, SkColor bgColor, int extras, bool split)
 {
+    PictureSet* ret = 0;
+    if (!m_baseLayer) {
+        canvas->drawColor(bgColor);
+        return ret;
+    }
+
+    // draw the content of the base layer first
+    PictureSet* content = m_baseLayer->content();
+    int sc = canvas->save(SkCanvas::kClip_SaveFlag);
+    canvas->clipRect(SkRect::MakeLTRB(0, 0, content->width(),
+                content->height()), SkRegion::kDifference_Op);
+    canvas->drawColor(bgColor);
+    canvas->restoreToCount(sc);
+    if (content->draw(canvas))
+        ret = split ? new PictureSet(*content) : 0;
+
     CachedRoot* root = getFrameCache(AllowNewer);
     if (!root) {
         DBG_NAV_LOG("!root");
         if (extras == DrawExtrasCursorRing)
             resetCursorRing();
-        return;
+        return ret;
     }
     LayerAndroid mainPicture(m_navPictureUI);
     DrawExtra* extra = 0;
@@ -425,22 +443,24 @@ void drawExtras(SkCanvas* canvas, int extras)
     if (extra)
         extra->draw(canvas, &mainPicture);
 #if USE(ACCELERATED_COMPOSITING)
-    if (!m_rootLayer)
-        return;
-    m_rootLayer->setExtra(extra);
+    LayerAndroid* compositeLayer = compositeRoot();
+    if (!compositeLayer)
+        return ret;
+    compositeLayer->setExtra(extra);
     SkRect visible;
     calcOurContentVisibleRect(&visible);
     // call this to be sure we've adjusted for any scrolling or animations
     // before we actually draw
-    m_rootLayer->updateFixedLayersPositions(visible);
-    m_rootLayer->updatePositions();
-    // We have to set the canvas' matrix on the root layer
+    compositeLayer->updateFixedLayersPositions(visible);
+    compositeLayer->updatePositions();
+    // We have to set the canvas' matrix on the base layer
     // (to have fixed layers work as intended)
     SkAutoCanvasRestore restore(canvas, true);
-    m_rootLayer->setMatrix(canvas->getTotalMatrix());
+    m_baseLayer->setMatrix(canvas->getTotalMatrix());
     canvas->resetMatrix();
-    m_rootLayer->draw(canvas);
+    m_baseLayer->draw(canvas);
 #endif
+    return ret;
 }
 
 
@@ -565,7 +585,7 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
     m_viewImpl->m_navPictureKit = 0;
     m_viewImpl->gFrameCacheMutex.unlock();
     if (m_frameCacheUI)
-        m_frameCacheUI->setRootLayer(m_rootLayer);
+        m_frameCacheUI->setRootLayer(compositeRoot());
 #if USE(ACCELERATED_COMPOSITING)
     if (layerId >= 0) {
         SkRect visible;
@@ -1170,20 +1190,49 @@ int moveGeneration()
     return m_viewImpl->m_moveGeneration;
 }
 
-LayerAndroid* rootLayer() const
+LayerAndroid* compositeRoot() const
 {
-    return m_rootLayer;
+    LOG_ASSERT(!m_baseLayer || m_baseLayer->countChildren() == 1,
+            "base layer can't have more than one child %s", __FUNCTION__);
+    if (m_baseLayer && m_baseLayer->countChildren() == 1)
+        return static_cast<LayerAndroid*>(m_baseLayer->getChild(0));
+    else
+        return 0;
 }
 
-void setRootLayer(LayerAndroid* layer)
+void setBaseLayer(BaseLayerAndroid* layer)
 {
-    delete m_rootLayer;
-    m_rootLayer = layer;
+    delete m_baseLayer;
+    m_baseLayer = layer;
     CachedRoot* root = getFrameCache(DontAllowNewer);
     if (!root)
         return;
     root->resetLayers();
-    root->setRootLayer(m_rootLayer);
+    root->setRootLayer(compositeRoot());
+}
+
+void replaceBaseContent(PictureSet* set)
+{
+    if (!m_baseLayer)
+        return;
+    m_baseLayer->setContent(*set);
+    delete set;
+}
+
+void copyBaseContentToPicture(SkPicture* picture)
+{
+    if (!m_baseLayer)
+        return;
+    PictureSet* content = m_baseLayer->content();
+    content->draw(picture->beginRecording(content->width(), content->height(),
+            SkPicture::kUsePathBoundsForClip_RecordingFlag));
+    picture->endRecording();
+}
+
+bool hasContent() {
+    if (!m_baseLayer)
+        return false;
+    return !m_baseLayer->content()->isEmpty();
 }
 
 private: // local state for WebView
@@ -1200,7 +1249,7 @@ private: // local state for WebView
     SelectText m_selectText;
     FindOnPage m_findOnPage;
     CursorRing m_ring;
-    LayerAndroid* m_rootLayer;
+    BaseLayerAndroid* m_baseLayer;
 }; // end of WebView class
 
 /*
@@ -1431,28 +1480,43 @@ static void nativeDebugDump(JNIEnv *env, jobject obj)
 #endif
 }
 
-static void nativeDrawExtras(JNIEnv *env, jobject obj, jobject canv, jint extras)
-{
+static jint nativeDraw(JNIEnv *env, jobject obj, jobject canv, jint color,
+        jint extras, jboolean split) {
     SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
-    GET_NATIVE_VIEW(env, obj)->drawExtras(canvas, extras);
+    return reinterpret_cast<jint>(GET_NATIVE_VIEW(env, obj)->draw(canvas, color, extras, split));
 }
 
 static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj)
 {
 #if USE(ACCELERATED_COMPOSITING)
-    const LayerAndroid* root = GET_NATIVE_VIEW(env, obj)->rootLayer();
+    const LayerAndroid* root = GET_NATIVE_VIEW(env, obj)->compositeRoot();
     if (root)
         return root->evaluateAnimations();
 #endif
     return false;
 }
 
-static void nativeSetRootLayer(JNIEnv *env, jobject obj, jint layer)
+static void nativeSetBaseLayer(JNIEnv *env, jobject obj, jint layer)
 {
-#if USE(ACCELERATED_COMPOSITING)
-    LayerAndroid* layerImpl = reinterpret_cast<LayerAndroid*>(layer);
-    GET_NATIVE_VIEW(env, obj)->setRootLayer(layerImpl);
-#endif
+    BaseLayerAndroid* layerImpl = reinterpret_cast<BaseLayerAndroid*>(layer);
+    GET_NATIVE_VIEW(env, obj)->setBaseLayer(layerImpl);
+}
+
+static void nativeReplaceBaseContent(JNIEnv *env, jobject obj, jint content)
+{
+    PictureSet* set = reinterpret_cast<PictureSet*>(content);
+    GET_NATIVE_VIEW(env, obj)->replaceBaseContent(set);
+}
+
+static void nativeCopyBaseContentToPicture(JNIEnv *env, jobject obj, jobject pict)
+{
+    SkPicture* picture = GraphicsJNI::getNativePicture(env, pict);
+    GET_NATIVE_VIEW(env, obj)->copyBaseContentToPicture(picture);
+}
+
+static bool nativeHasContent(JNIEnv *env, jobject obj)
+{
+    return GET_NATIVE_VIEW(env, obj)->hasContent();
 }
 
 static jobject nativeImageURI(JNIEnv *env, jobject obj, jint x, jint y)
@@ -1642,7 +1706,7 @@ static jobject nativeSubtractLayers(JNIEnv* env, jobject obj, jobject jrect)
 {
     SkIRect irect = jrect_to_webrect(env, jrect);
 #if USE(ACCELERATED_COMPOSITING)
-    LayerAndroid* root = GET_NATIVE_VIEW(env, obj)->rootLayer();
+    LayerAndroid* root = GET_NATIVE_VIEW(env, obj)->compositeRoot();
     if (root) {
         SkRect rect;
         rect.set(irect);
@@ -1981,26 +2045,13 @@ static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
             SkDumpCanvas canvas(&dumper);
             // this will playback the picture into the canvas, which will
             // spew its contents to the dumper
-            view->getWebViewCore()->drawContent(&canvas, 0);
-#if USE(ACCELERATED_COMPOSITING)
-            if (true) {
-                LayerAndroid* rootLayer = view->rootLayer();
-                if (rootLayer) {
-                    // We have to set the canvas' matrix on the root layer
-                    // (to have fixed layers work as intended)
-                    SkAutoCanvasRestore restore(&canvas, true);
-                    rootLayer->setMatrix(canvas.getTotalMatrix());
-                    canvas.resetMatrix();
-                    rootLayer->draw(&canvas);
-                }
-            }
-#endif
+            view->draw(&canvas, 0, 0, false);
             // we're done with the file now
             fwrite("\n", 1, 1, file);
             fclose(file);
         }
 #if USE(ACCELERATED_COMPOSITING)
-        const LayerAndroid* rootLayer = view->rootLayer();
+        const LayerAndroid* rootLayer = view->compositeRoot();
         if (rootLayer) {
           FILE* file = fopen(LAYERS_TREE_LOG_FILE,"w");
           if (file) {
@@ -2053,8 +2104,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeDebugDump },
     { "nativeDestroy", "()V",
         (void*) nativeDestroy },
-    { "nativeDrawExtras", "(Landroid/graphics/Canvas;I)V",
-        (void*) nativeDrawExtras },
+    { "nativeDraw", "(Landroid/graphics/Canvas;IIZ)I",
+        (void*) nativeDraw },
     { "nativeDumpDisplayTree", "(Ljava/lang/String;)V",
         (void*) nativeDumpDisplayTree },
     { "nativeEvaluateLayersAnimations", "()Z",
@@ -2147,8 +2198,14 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetFollowedLink },
     { "nativeSetHeightCanMeasure", "(Z)V",
         (void*) nativeSetHeightCanMeasure },
-    { "nativeSetRootLayer", "(I)V",
-        (void*) nativeSetRootLayer },
+    { "nativeSetBaseLayer", "(I)V",
+        (void*) nativeSetBaseLayer },
+    { "nativeReplaceBaseContent", "(I)V",
+        (void*) nativeReplaceBaseContent },
+    { "nativeCopyBaseContentToPicture", "(Landroid/graphics/Picture;)V",
+        (void*) nativeCopyBaseContentToPicture },
+    { "nativeHasContent", "()Z",
+        (void*) nativeHasContent },
     { "nativeSetSelectionPointer", "(ZFII)V",
         (void*) nativeSetSelectionPointer },
     { "nativeStartSelection", "(II)Z",

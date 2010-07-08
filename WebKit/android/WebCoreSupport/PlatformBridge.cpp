@@ -38,29 +38,9 @@
 #include <wtf/android/AndroidThreading.h>
 #include <wtf/MainThread.h>
 
-#if USE(ACCELERATED_COMPOSITING)
-#include "LayerAndroid.h"
-#endif
-
 using namespace android;
 
 namespace WebCore {
-
-#if USE(ACCELERATED_COMPOSITING)
-
-void PlatformBridge::setUIRootLayer(const WebCore::FrameView* view, const LayerAndroid* layer)
-{
-    android::WebViewCore* core = android::WebViewCore::getWebViewCore(view);
-    core->setUIRootLayer(layer);
-}
-
-void PlatformBridge::immediateRepaint(const WebCore::FrameView* view)
-{
-    android::WebViewCore* core = android::WebViewCore::getWebViewCore(view);
-    core->immediateRepaint();
-}
-
-#endif // USE(ACCELERATED_COMPOSITING)
 
 WTF::Vector<String> PlatformBridge::getSupportedKeyStrengthList()
 {

@@ -169,7 +169,7 @@ namespace android {
         virtual void attachRootGraphicsLayer(WebCore::Frame*, WebCore::GraphicsLayer* g);
         virtual void setNeedsOneShotDrawingSynchronization();
         virtual void scheduleCompositingLayerSync();
-        void layersSync();
+        WebCore::GraphicsLayer* layersSync();
 #endif
 
 #if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)

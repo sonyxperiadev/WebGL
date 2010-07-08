@@ -29,6 +29,7 @@
 #include "WebViewCore.h"
 
 #include "AtomicString.h"
+#include "BaseLayerAndroid.h"
 #include "CachedNode.h"
 #include "CachedRoot.h"
 #include "Chrome.h"
@@ -230,8 +231,6 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_updateViewport;
     jmethodID   m_sendNotifyProgressFinished;
     jmethodID   m_sendViewInvalidate;
-    jmethodID   m_sendImmediateRepaint;
-    jmethodID   m_setRootLayer;
     jmethodID   m_updateTextfield;
     jmethodID   m_updateTextSelection;
     jmethodID   m_clearTextEntry;
@@ -276,7 +275,6 @@ static jmethodID GetJMethod(JNIEnv* env, jclass clazz, const char name[], const 
 Mutex WebViewCore::gFrameCacheMutex;
 Mutex WebViewCore::gButtonMutex;
 Mutex WebViewCore::gCursorBoundsMutex;
-Mutex WebViewCore::m_contentMutex;
 
 WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* mainframe)
         : m_pluginInvalTimer(this, &WebViewCore::pluginInvalTimerFired)
@@ -321,8 +319,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_updateViewport = GetJMethod(env, clazz, "updateViewport", "()V");
     m_javaGlue->m_sendNotifyProgressFinished = GetJMethod(env, clazz, "sendNotifyProgressFinished", "()V");
     m_javaGlue->m_sendViewInvalidate = GetJMethod(env, clazz, "sendViewInvalidate", "(IIII)V");
-    m_javaGlue->m_sendImmediateRepaint = GetJMethod(env, clazz, "sendImmediateRepaint", "()V");
-    m_javaGlue->m_setRootLayer = GetJMethod(env, clazz, "setRootLayer", "(I)V");
     m_javaGlue->m_updateTextfield = GetJMethod(env, clazz, "updateTextfield", "(IZLjava/lang/String;I)V");
     m_javaGlue->m_updateTextSelection = GetJMethod(env, clazz, "updateTextSelection", "(IIII)V");
     m_javaGlue->m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
@@ -749,48 +745,9 @@ void WebViewCore::updateCursorBounds(const CachedRoot* root,
 void WebViewCore::clearContent()
 {
     DBG_SET_LOG("");
-    m_contentMutex.lock();
     m_content.clear();
-    m_contentMutex.unlock();
     m_addInval.setEmpty();
     m_rebuildInval.setEmpty();
-}
-
-void WebViewCore::copyContentToPicture(SkPicture* picture)
-{
-    DBG_SET_LOG("start");
-    m_contentMutex.lock();
-    PictureSet copyContent = PictureSet(m_content);
-    m_contentMutex.unlock();
-
-    int w = copyContent.width();
-    int h = copyContent.height();
-    copyContent.draw(picture->beginRecording(w, h, PICT_RECORD_FLAGS));
-    picture->endRecording();
-    DBG_SET_LOG("end");
-}
-
-bool WebViewCore::drawContent(SkCanvas* canvas, SkColor color)
-{
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewUIDrawTimeCounter);
-#endif
-    DBG_SET_LOG("start");
-    m_contentMutex.lock();
-    PictureSet copyContent = PictureSet(m_content);
-    m_contentMutex.unlock();
-    int sc = canvas->save(SkCanvas::kClip_SaveFlag);
-    SkRect clip;
-    clip.set(0, 0, copyContent.width(), copyContent.height());
-    canvas->clipRect(clip, SkRegion::kDifference_Op);
-    canvas->drawColor(color);
-    canvas->restoreToCount(sc);
-    bool tookTooLong = copyContent.draw(canvas);
-    m_contentMutex.lock();
-    m_content.setDrawTimes(copyContent);
-    m_contentMutex.unlock();
-    DBG_SET_LOG("end");
-    return tookTooLong;
 }
 
 bool WebViewCore::focusBoundsChanged()
@@ -798,18 +755,6 @@ bool WebViewCore::focusBoundsChanged()
     bool result = m_focusBoundsChanged;
     m_focusBoundsChanged = false;
     return result;
-}
-
-bool WebViewCore::pictureReady()
-{
-    bool done;
-    m_contentMutex.lock();
-    PictureSet copyContent = PictureSet(m_content);
-    done = m_progressDone;
-    m_contentMutex.unlock();
-    DBG_NAV_LOGD("done=%s empty=%s", done ? "true" : "false",
-        copyContent.isEmpty() ? "true" : "false");
-    return done || !copyContent.isEmpty();
 }
 
 SkPicture* WebViewCore::rebuildPicture(const SkIRect& inval)
@@ -859,54 +804,52 @@ void WebViewCore::rebuildPictureSet(PictureSet* pictureSet)
     pictureSet->validate(__FUNCTION__);
 }
 
-bool WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
+BaseLayerAndroid* WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
 {
     DBG_SET_LOG("start");
     float progress = (float) m_mainFrame->page()->progress()->estimatedProgress();
-    m_contentMutex.lock();
-    PictureSet contentCopy(m_content);
     m_progressDone = progress <= 0.0f || progress >= 1.0f;
-    m_contentMutex.unlock();
-    recordPictureSet(&contentCopy);
-    if (!m_progressDone && contentCopy.isEmpty()) {
+    recordPictureSet(&m_content);
+    if (!m_progressDone && m_content.isEmpty()) {
         DBG_SET_LOGD("empty (progress=%g)", progress);
-        return false;
+        return 0;
     }
     region->set(m_addInval);
     m_addInval.setEmpty();
     region->op(m_rebuildInval, SkRegion::kUnion_Op);
     m_rebuildInval.setEmpty();
-    m_contentMutex.lock();
-    contentCopy.setDrawTimes(m_content);
-    m_content.set(contentCopy);
     point->fX = m_content.width();
     point->fY = m_content.height();
-    m_contentMutex.unlock();
     DBG_SET_LOGD("region={%d,%d,r=%d,b=%d}", region->getBounds().fLeft,
         region->getBounds().fTop, region->getBounds().fRight,
         region->getBounds().fBottom);
     DBG_SET_LOG("end");
 
+    BaseLayerAndroid* base = new BaseLayerAndroid();
+    base->setContent(m_content);
+
 #if USE(ACCELERATED_COMPOSITING)
     // We update the layers
     ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(m_mainFrame->page()->chrome()->client());
-    chromeC->layersSync();
+    GraphicsLayerAndroid* root = static_cast<GraphicsLayerAndroid*>(chromeC->layersSync());
+    if (root) {
+        root->notifyClientAnimationStarted();
+        LayerAndroid* copyLayer = new LayerAndroid(*root->contentLayer());
+        base->addChild(copyLayer);
+        copyLayer->unref();
+    }
 #endif
-    return true;
+
+    return base;
 }
 
-void WebViewCore::splitContent()
+void WebViewCore::splitContent(PictureSet* content)
 {
     bool layoutSuceeded = layoutIfNeededRecursive(m_mainFrame);
     LOG_ASSERT(layoutSuceeded, "Can never be called recursively");
-    PictureSet tempPictureSet;
-    m_contentMutex.lock();
-    m_content.split(&tempPictureSet);
-    m_contentMutex.unlock();
-    rebuildPictureSet(&tempPictureSet);
-    m_contentMutex.lock();
-    m_content.set(tempPictureSet);
-    m_contentMutex.unlock();
+    content->split(&m_content);
+    rebuildPictureSet(&m_content);
+    content->set(m_content);
 }
 
 void WebViewCore::scrollTo(int x, int y, bool animate)
@@ -949,28 +892,6 @@ void WebViewCore::scrollBy(int dx, int dy, bool animate)
         dx, dy, animate);
     checkException(env);
 }
-
-#if USE(ACCELERATED_COMPOSITING)
-
-void WebViewCore::immediateRepaint()
-{
-    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
-                        m_javaGlue->m_sendImmediateRepaint);
-    checkException(env);
-}
-
-void WebViewCore::setUIRootLayer(const LayerAndroid* layer)
-{
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(),
-                        m_javaGlue->m_setRootLayer,
-                        reinterpret_cast<jint>(layer));
-    checkException(env);
-}
-
-#endif // USE(ACCELERATED_COMPOSITING)
 
 void WebViewCore::contentDraw()
 {
@@ -3058,7 +2979,7 @@ void WebViewCore::addVisitedLink(const UChar* string, int length)
         m_groupForVisitedLinks->addVisitedLink(string, length);
 }
 
-static bool RecordContent(JNIEnv *env, jobject obj, jobject region, jobject pt)
+static jint RecordContent(JNIEnv *env, jobject obj, jobject region, jobject pt)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -3066,18 +2987,18 @@ static bool RecordContent(JNIEnv *env, jobject obj, jobject region, jobject pt)
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     SkRegion* nativeRegion = GraphicsJNI::getNativeRegion(env, region);
     SkIPoint nativePt;
-    bool result = viewImpl->recordContent(nativeRegion, &nativePt);
+    BaseLayerAndroid* result = viewImpl->recordContent(nativeRegion, &nativePt);
     GraphicsJNI::ipoint_to_jpoint(nativePt, env, pt);
-    return result;
+    return reinterpret_cast<jint>(result);
 }
 
-static void SplitContent(JNIEnv *env, jobject obj)
+static void SplitContent(JNIEnv *env, jobject obj, jint content)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    viewImpl->splitContent();
+    viewImpl->splitContent(reinterpret_cast<PictureSet*>(content));
 }
 
 static void SendListBoxChoice(JNIEnv* env, jobject obj, jint choice)
@@ -3366,43 +3287,9 @@ static void RegisterURLSchemeAsLocal(JNIEnv* env, jobject obj, jstring scheme) {
     WebCore::SecurityOrigin::registerURLSchemeAsLocal(to_string(env, scheme));
 }
 
-static void ClearContent(JNIEnv *env, jobject obj)
-{
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    viewImpl->clearContent();
-}
-
-static void CopyContentToPicture(JNIEnv *env, jobject obj, jobject pict)
-{
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    if (!viewImpl)
-        return;
-    SkPicture* picture = GraphicsJNI::getNativePicture(env, pict);
-    viewImpl->copyContentToPicture(picture);
-}
-
-static bool DrawContent(JNIEnv *env, jobject obj, jobject canv, jint color)
-{
-    // Note: this is called from UI thread, don't count it for WebViewCoreTimeCounter
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
-    return viewImpl->drawContent(canvas, color);
-}
-
 static bool FocusBoundsChanged(JNIEnv* env, jobject obj)
 {
     return GET_NATIVE_VIEW(env, obj)->focusBoundsChanged();
-}
-
-static bool PictureReady(JNIEnv* env, jobject obj)
-{
-    return GET_NATIVE_VIEW(env, obj)->pictureReady();
 }
 
 static void Pause(JNIEnv* env, jobject obj)
@@ -3541,20 +3428,12 @@ static jobject GetTouchHighlightRects(JNIEnv* env, jobject obj, jint x, jint y, 
  * JNI registration.
  */
 static JNINativeMethod gJavaWebViewCoreMethods[] = {
-    { "nativeClearContent", "()V",
-        (void*) ClearContent },
-    { "nativeCopyContentToPicture", "(Landroid/graphics/Picture;)V",
-        (void*) CopyContentToPicture },
-    { "nativeDrawContent", "(Landroid/graphics/Canvas;I)Z",
-        (void*) DrawContent } ,
     { "nativeFocusBoundsChanged", "()Z",
         (void*) FocusBoundsChanged } ,
     { "nativeKey", "(IIIZZZZ)Z",
         (void*) Key },
     { "nativeClick", "(II)V",
         (void*) Click },
-    { "nativePictureReady", "()Z",
-        (void*) PictureReady } ,
     { "nativeSendListBoxChoices", "([ZI)V",
         (void*) SendListBoxChoices },
     { "nativeSendListBoxChoice", "(I)V",
@@ -3601,11 +3480,11 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) UpdateFrameCache },
     { "nativeGetContentMinPrefWidth", "()I",
         (void*) GetContentMinPrefWidth },
-    { "nativeRecordContent", "(Landroid/graphics/Region;Landroid/graphics/Point;)Z",
+    { "nativeRecordContent", "(Landroid/graphics/Region;Landroid/graphics/Point;)I",
         (void*) RecordContent },
     { "setViewportSettingsFromNative", "()V",
         (void*) SetViewportSettingsFromNative },
-    { "nativeSplitContent", "()V",
+    { "nativeSplitContent", "(I)V",
         (void*) SplitContent },
     { "nativeSetBackgroundColor", "(I)V",
         (void*) SetBackgroundColor },

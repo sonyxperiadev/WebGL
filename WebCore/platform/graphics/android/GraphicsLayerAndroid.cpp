@@ -407,33 +407,6 @@ void GraphicsLayerAndroid::setNeedsDisplay()
     setNeedsDisplayInRect(rect);
 }
 
-void GraphicsLayerAndroid::setFrame(Frame* f)
-{
-    m_frame = f;
-}
-
-void GraphicsLayerAndroid::sendImmediateRepaint()
-{
-    LOG("(%x) sendImmediateRepaint()", this);
-    GraphicsLayerAndroid* rootGraphicsLayer = this;
-
-    while (rootGraphicsLayer->parent())
-        rootGraphicsLayer = static_cast<GraphicsLayerAndroid*>(rootGraphicsLayer->parent());
-
-    if (rootGraphicsLayer->m_frame
-        && rootGraphicsLayer->m_frame->view()) {
-        LayerAndroid* rootLayer = new LayerAndroid(true);
-        LayerAndroid* copyLayer = new LayerAndroid(*m_contentLayer);
-        rootLayer->addChild(copyLayer);
-        copyLayer->unref();
-        TLOG("(%x) sendImmediateRepaint, copy the layer, (%.2f,%.2f => %.2f,%.2f)",
-            this, m_contentLayer->getSize().width(), m_contentLayer->getSize().height(),
-            copyLayer->getSize().width(), copyLayer->getSize().height());
-        PlatformBridge::setUIRootLayer(m_frame->view(), rootLayer);
-        PlatformBridge::immediateRepaint(m_frame->view());
-    }
-}
-
 bool GraphicsLayerAndroid::repaint()
 {
     LOG("(%x) repaint(), gPaused(%d) m_needsRepaint(%d) m_haveContents(%d) ",

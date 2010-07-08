@@ -61,9 +61,12 @@ namespace WebCore {
 #if USE(ACCELERATED_COMPOSITING)
 namespace WebCore {
     class GraphicsLayerAndroid;
-    class LayerAndroid;
 }
 #endif
+
+namespace WebCore {
+    class BaseLayerAndroid;
+}
 
 struct PluginWidgetAndroid;
 class SkPicture;
@@ -137,8 +140,6 @@ namespace android {
 
 #if USE(ACCELERATED_COMPOSITING)
         GraphicsLayerAndroid* graphicsRootLayer() const;
-        void immediateRepaint();
-        void setUIRootLayer(const LayerAndroid* layer);
 #endif
 
         /** Invalidate the view/screen, NOT the content/DOM, but expressed in
@@ -449,16 +450,10 @@ namespace android {
         // reset the picture set to empty
         void clearContent();
 
-        // flatten the picture set to a picture
-        void copyContentToPicture(SkPicture* );
-
-        // draw the picture set with the specified background color
-        bool drawContent(SkCanvas* , SkColor );
         bool focusBoundsChanged();
-        bool pictureReady();
 
         // record the inval area, and the picture size
-        bool recordContent(SkRegion* , SkIPoint* );
+        BaseLayerAndroid* recordContent(SkRegion* , SkIPoint* );
         int textWrapWidth() const { return m_textWrapWidth; }
         float scale() const { return m_scale; }
         float textWrapScale() const { return m_screenWidth * m_scale / m_textWrapWidth; }
@@ -468,7 +463,7 @@ namespace android {
         void updateFrameCacheIfLoading();
 
         // utility to split slow parts of the picture set
-        void splitContent();
+        void splitContent(PictureSet*);
 
         void notifyWebAppCanBeInstalled();
 
@@ -520,8 +515,7 @@ namespace android {
         WebCore::IntRect m_lastFocusedBounds;
         int m_lastFocusedSelStart;
         int m_lastFocusedSelEnd;
-        static Mutex m_contentMutex; // protects ui/core thread pictureset access
-        PictureSet m_content; // the set of pictures to draw (accessed by UI too)
+        PictureSet m_content; // the set of pictures to draw
         SkRegion m_addInval; // the accumulated inval region (not yet drawn)
         SkRegion m_rebuildInval; // the accumulated region for rebuilt pictures
         // Used in passToJS to avoid updating the UI text field until after the
