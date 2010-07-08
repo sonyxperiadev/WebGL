@@ -1173,6 +1173,17 @@ void GraphicsContext::setImageInterpolationQuality(InterpolationQuality mode)
      */
 }
 
+void GraphicsContext::clipConvexPolygon(size_t numPoints, const FloatPoint*)
+{
+    if (paintingDisabled())
+        return;
+
+    if (numPoints <= 1)
+        return;
+
+    // FIXME: IMPLEMENT!
+}
+
 } // namespace WebCore
 
 ///////////////////////////////////////////////////////////////////////////////
