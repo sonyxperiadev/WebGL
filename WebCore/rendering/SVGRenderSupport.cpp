@@ -28,31 +28,23 @@
 #if ENABLE(SVG)
 #include "SVGRenderSupport.h"
 
-#include "AffineTransform.h"
-#include "Document.h"
+#include "FrameView.h"
 #include "ImageBuffer.h"
 #include "NodeRenderStyle.h"
 #include "RenderLayer.h"
-#include "RenderObject.h"
 #include "RenderSVGContainer.h"
 #include "RenderSVGResource.h"
 #include "RenderSVGResourceClipper.h"
 #include "RenderSVGResourceFilter.h"
 #include "RenderSVGResourceMarker.h"
 #include "RenderSVGResourceMasker.h"
-#include "RenderView.h"
 #include "SVGStyledElement.h"
-#include "SVGURIReference.h"
 #include "TransformState.h"
 #include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
-SVGRenderBase::~SVGRenderBase()
-{
-}
-
-IntRect SVGRenderBase::clippedOverflowRectForRepaint(RenderObject* object, RenderBoxModelObject* repaintContainer)
+IntRect SVGRenderSupport::clippedOverflowRectForRepaint(RenderObject* object, RenderBoxModelObject* repaintContainer)
 {
     // Return early for any cases where we don't actually paint
     if (object->style()->visibility() != VISIBLE && !object->enclosingLayer()->hasVisibleContent())
@@ -65,7 +57,7 @@ IntRect SVGRenderBase::clippedOverflowRectForRepaint(RenderObject* object, Rende
     return repaintRect;
 }
 
-void SVGRenderBase::computeRectForRepaint(RenderObject* object, RenderBoxModelObject* repaintContainer, IntRect& repaintRect, bool fixed)
+void SVGRenderSupport::computeRectForRepaint(RenderObject* object, RenderBoxModelObject* repaintContainer, IntRect& repaintRect, bool fixed)
 {
     object->style()->svgStyle()->inflateForShadow(repaintRect);
 
@@ -74,7 +66,7 @@ void SVGRenderBase::computeRectForRepaint(RenderObject* object, RenderBoxModelOb
     object->parent()->computeRectForRepaint(repaintContainer, repaintRect, fixed);
 }
 
-void SVGRenderBase::mapLocalToContainer(const RenderObject* object, RenderBoxModelObject* repaintContainer, bool fixed , bool useTransforms, TransformState& transformState)
+void SVGRenderSupport::mapLocalToContainer(const RenderObject* object, RenderBoxModelObject* repaintContainer, bool fixed , bool useTransforms, TransformState& transformState)
 {
     ASSERT(!fixed); // We should have no fixed content in the SVG rendering tree.
     ASSERT(useTransforms); // Mapping a point through SVG w/o respecting transforms is useless.
@@ -82,12 +74,8 @@ void SVGRenderBase::mapLocalToContainer(const RenderObject* object, RenderBoxMod
     object->parent()->mapLocalToContainer(repaintContainer, fixed, useTransforms, transformState);
 }
 
-bool SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject::PaintInfo& paintInfo, const FloatRect& repaintRect, RenderSVGResourceFilter*& filter)
+bool SVGRenderSupport::prepareToRenderSVGContent(RenderObject* object, PaintInfo& paintInfo)
 {
-#if !ENABLE(FILTERS)
-    UNUSED_PARAM(filter);
-#endif
-
     ASSERT(object);
     SVGElement* svgElement = static_cast<SVGElement*>(object->node());
     ASSERT(svgElement && svgElement->document() && svgElement->isStyled());
@@ -99,17 +87,24 @@ bool SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject
     const SVGRenderStyle* svgStyle = style->svgStyle();
     ASSERT(svgStyle);
 
+    FloatRect repaintRect;
+
     // Setup transparency layers before setting up SVG resources!
-    float opacity = style->opacity(); 
-    if (opacity < 1.0f) {
+    float opacity = style->opacity();
+    if (opacity < 1) {
+        repaintRect = object->repaintRectInLocalCoordinates();
         paintInfo.context->clip(repaintRect);
         paintInfo.context->beginTransparencyLayer(opacity);
     }
 
     if (const ShadowData* shadow = svgStyle->shadow()) {
+        // Eventually compute repaint rect, if not done so far.
+        if (opacity >= 1)
+            repaintRect = object->repaintRectInLocalCoordinates();
+
         paintInfo.context->clip(repaintRect);
         paintInfo.context->setShadow(IntSize(shadow->x(), shadow->y()), shadow->blur(), shadow->color(), style->colorSpace());
-        paintInfo.context->beginTransparencyLayer(1.0f);
+        paintInfo.context->beginTransparencyLayer(1);
     }
 
     Document* document = object->document();
@@ -120,7 +115,7 @@ bool SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject
             if (!masker->applyResource(object, style, paintInfo.context, ApplyToDefaultMode))
                 return false;
         } else
-            svgElement->document()->accessSVGExtensions()->addPendingResource(maskerId, styledElement);
+            document->accessSVGExtensions()->addPendingResource(maskerId, styledElement);
     }
 
     if (svgStyle->hasClipper()) {
@@ -128,28 +123,26 @@ bool SVGRenderBase::prepareToRenderSVGContent(RenderObject* object, RenderObject
         if (RenderSVGResourceClipper* clipper = getRenderSVGResourceById<RenderSVGResourceClipper>(document, clipperId))
             clipper->applyResource(object, style, paintInfo.context, ApplyToDefaultMode);
         else
-            svgElement->document()->accessSVGExtensions()->addPendingResource(clipperId, styledElement);
+            document->accessSVGExtensions()->addPendingResource(clipperId, styledElement);
     }
 
 #if ENABLE(FILTERS)
     if (svgStyle->hasFilter()) {
         AtomicString filterId(svgStyle->filterResource());
-        filter = getRenderSVGResourceById<RenderSVGResourceFilter>(document, filterId);
-        if (filter) {
+        if (RenderSVGResourceFilter* filter = getRenderSVGResourceById<RenderSVGResourceFilter>(document, filterId)) { 
             if (!filter->applyResource(object, style, paintInfo.context, ApplyToDefaultMode))
                 return false;
         } else
-            svgElement->document()->accessSVGExtensions()->addPendingResource(filterId, styledElement);
+            document->accessSVGExtensions()->addPendingResource(filterId, styledElement);
     }
 #endif
 
     return true;
 }
 
-void SVGRenderBase::finishRenderSVGContent(RenderObject* object, RenderObject::PaintInfo& paintInfo, RenderSVGResourceFilter*& filter, GraphicsContext* savedContext)
+void SVGRenderSupport::finishRenderSVGContent(RenderObject* object, PaintInfo& paintInfo, GraphicsContext* savedContext)
 {
 #if !ENABLE(FILTERS)
-    UNUSED_PARAM(filter);
     UNUSED_PARAM(savedContext);
 #endif
 
@@ -158,24 +151,30 @@ void SVGRenderBase::finishRenderSVGContent(RenderObject* object, RenderObject::P
     const RenderStyle* style = object->style();
     ASSERT(style);
 
+    const SVGRenderStyle* svgStyle = style->svgStyle();
+    ASSERT(svgStyle);
+
 #if ENABLE(FILTERS)
-    if (filter) {
-        filter->postApplyResource(object, paintInfo.context, ApplyToDefaultMode);
-        paintInfo.context = savedContext;
+    if (svgStyle->hasFilter()) {
+        AtomicString filterId(svgStyle->filterResource());
+        if (RenderSVGResourceFilter* filter = getRenderSVGResourceById<RenderSVGResourceFilter>(object->document(), filterId)) { 
+            filter->postApplyResource(object, paintInfo.context, ApplyToDefaultMode);
+            paintInfo.context = savedContext;
+        }
     }
 #endif
 
     float opacity = style->opacity();    
-    if (opacity < 1.0f)
+    if (opacity < 1)
         paintInfo.context->endTransparencyLayer();
 
     // This needs to be done separately from opacity, because if both properties are set,
     // then the transparency layers are nested. 
-    if (style->svgStyle()->shadow())
+    if (svgStyle->shadow())
         paintInfo.context->endTransparencyLayer();
 }
 
-void renderSubtreeToImage(ImageBuffer* image, RenderObject* item)
+void SVGRenderSupport::renderSubtreeToImage(ImageBuffer* image, RenderObject* item)
 {
     ASSERT(item);
     ASSERT(image);
@@ -187,7 +186,7 @@ void renderSubtreeToImage(ImageBuffer* image, RenderObject* item)
     FrameView* frameView = item->document()->view();
     if (frameView)
         rect = IntRect(0, 0, frameView->visibleWidth(), frameView->visibleHeight());
-    RenderObject::PaintInfo info(image->context(), rect, PaintPhaseForeground, 0, 0, 0);
+    PaintInfo info(image->context(), rect, PaintPhaseForeground, 0, 0, 0);
 
     // FIXME: isSVGContainer returns true for RenderSVGViewportContainer, so if this is ever
     // called with one of those, we will read from the wrong offset in an object due to a bad cast.
@@ -206,36 +205,32 @@ void renderSubtreeToImage(ImageBuffer* image, RenderObject* item)
         svgContainer->setDrawsContents(false);
 }
 
-void clampImageBufferSizeToViewport(FrameView* frameView, IntSize& size)
-{
-    if (!frameView)
-        return;
-
-    int viewWidth = frameView->visibleWidth();
-    int viewHeight = frameView->visibleHeight();
-
-    if (size.width() > viewWidth)
-        size.setWidth(viewWidth);
-
-    if (size.height() > viewHeight)
-        size.setHeight(viewHeight);
-}
-
-FloatRect SVGRenderBase::computeContainerBoundingBox(const RenderObject* container, bool includeAllPaintedContent)
+FloatRect SVGRenderSupport::computeContainerBoundingBox(const RenderObject* container, ContainerBoundingBoxMode mode)
 {
     FloatRect boundingBox;
 
-    RenderObject* current = container->firstChild();
-    for (; current != 0; current = current->nextSibling()) {
-        FloatRect childBBox = includeAllPaintedContent ? current->repaintRectInLocalCoordinates() : current->objectBoundingBox();
-        FloatRect childBBoxInLocalCoords = current->localToParentTransform().mapRect(childBBox);
-        boundingBox.unite(childBBoxInLocalCoords);
+    for (RenderObject* current = container->firstChild(); current; current = current->nextSibling()) {
+        FloatRect childBoundingBox;
+
+        switch (mode) {
+        case ObjectBoundingBox:
+            childBoundingBox = current->objectBoundingBox();
+            break;
+        case StrokeBoundingBox:
+            childBoundingBox = current->strokeBoundingBox();
+            break;
+        case RepaintBoundingBox:
+            childBoundingBox = current->repaintRectInLocalCoordinates();
+            break;
+        }
+
+        boundingBox.unite(current->localToParentTransform().mapRect(childBoundingBox));
     }
 
     return boundingBox;
 }
 
-void SVGRenderBase::layoutChildren(RenderObject* start, bool selfNeedsLayout)
+void SVGRenderSupport::layoutChildren(RenderObject* start, bool selfNeedsLayout)
 {
     for (RenderObject* child = start->firstChild(); child; child = child->nextSibling()) {
         // Only force our kids to layout if we're being asked to relayout as a result of a parent changing
@@ -246,7 +241,7 @@ void SVGRenderBase::layoutChildren(RenderObject* start, bool selfNeedsLayout)
         if (!needsLayout) {
             if (SVGElement* element = child->node()->isSVGElement() ? static_cast<SVGElement*>(child->node()) : 0) {
                 if (element->isStyled())
-                    needsLayout = static_cast<SVGStyledElement*>(element)->hasRelativeValues();
+                    needsLayout = static_cast<SVGStyledElement*>(element)->hasRelativeLengths();
             }
         }
 
@@ -258,7 +253,7 @@ void SVGRenderBase::layoutChildren(RenderObject* start, bool selfNeedsLayout)
     }
 }
 
-bool SVGRenderBase::isOverflowHidden(const RenderObject* object)
+bool SVGRenderSupport::isOverflowHidden(const RenderObject* object)
 {
     // SVG doesn't support independent x/y overflow
     ASSERT(object->style()->overflowX() == object->style()->overflowY());
@@ -272,7 +267,7 @@ bool SVGRenderBase::isOverflowHidden(const RenderObject* object)
     return object->style()->overflowX() == OHIDDEN;
 }
 
-void SVGRenderBase::intersectRepaintRectWithResources(const RenderObject* object, FloatRect& repaintRect) const
+void SVGRenderSupport::intersectRepaintRectWithResources(const RenderObject* object, FloatRect& repaintRect)
 {
     ASSERT(object);
     ASSERT(object->style());
@@ -301,20 +296,7 @@ void SVGRenderBase::intersectRepaintRectWithResources(const RenderObject* object
     svgStyle->inflateForShadow(repaintRect);
 }
 
-static inline void invalidatePaintingResource(SVGPaint* paint, RenderObject* object)
-{
-    ASSERT(paint);
-
-    SVGPaint::SVGPaintType paintType = paint->paintType();
-    if (paintType != SVGPaint::SVG_PAINTTYPE_URI && paintType != SVGPaint::SVG_PAINTTYPE_URI_RGBCOLOR)
-        return;
-
-    AtomicString id(SVGURIReference::getTarget(paint->uri()));
-    if (RenderSVGResourceContainer* paintingResource = getRenderSVGResourceContainerById(object->document(), id))
-        paintingResource->invalidateClient(object);
-}
-
-bool pointInClippingArea(const RenderObject* object, const FloatPoint& point)
+bool SVGRenderSupport::pointInClippingArea(const RenderObject* object, const FloatPoint& point)
 {
     ASSERT(object);
     ASSERT(object->style());
@@ -335,76 +317,28 @@ bool pointInClippingArea(const RenderObject* object, const FloatPoint& point)
     return true;
 }
 
-void deregisterFromResources(RenderObject* object)
-{
-    ASSERT(object);
-    ASSERT(object->style());
-
-    Document* document = object->document();
-    ASSERT(document);
-
-    const SVGRenderStyle* svgStyle = object->style()->svgStyle();
-    ASSERT(svgStyle);
-
-    // Masker
-    if (RenderSVGResourceMasker* masker = getRenderSVGResourceById<RenderSVGResourceMasker>(document, svgStyle->maskerResource()))
-        masker->invalidateClient(object);
-
-    // Clipper
-    if (RenderSVGResourceClipper* clipper = getRenderSVGResourceById<RenderSVGResourceClipper>(document, svgStyle->clipperResource()))
-        clipper->invalidateClient(object);
-
-    // Filter
-#if ENABLE(FILTERS)
-    if (RenderSVGResourceFilter* filter = getRenderSVGResourceById<RenderSVGResourceFilter>(document, svgStyle->filterResource()))
-        filter->invalidateClient(object);
-#endif
-
-    // Markers
-    if (RenderSVGResourceMarker* startMarker = getRenderSVGResourceById<RenderSVGResourceMarker>(document, svgStyle->markerStartResource()))
-        startMarker->invalidateClient(object);
-    if (RenderSVGResourceMarker* midMarker = getRenderSVGResourceById<RenderSVGResourceMarker>(document, svgStyle->markerMidResource()))
-        midMarker->invalidateClient(object);
-    if (RenderSVGResourceMarker* endMarker = getRenderSVGResourceById<RenderSVGResourceMarker>(document, svgStyle->markerEndResource()))
-        endMarker->invalidateClient(object);
-
-    // Gradients/Patterns
-    if (svgStyle->hasFill())
-        invalidatePaintingResource(svgStyle->fillPaint(), object);
-    if (svgStyle->hasStroke())
-        invalidatePaintingResource(svgStyle->strokePaint(), object);
-}
-
-void applyTransformToPaintInfo(RenderObject::PaintInfo& paintInfo, const AffineTransform& localToAncestorTransform)
-{
-    if (localToAncestorTransform.isIdentity())
-        return;
-
-    paintInfo.context->concatCTM(localToAncestorTransform);
-    paintInfo.rect = localToAncestorTransform.inverse().mapRect(paintInfo.rect);
-}
-
-DashArray dashArrayFromRenderingStyle(const RenderStyle* style, RenderStyle* rootStyle)
+DashArray SVGRenderSupport::dashArrayFromRenderingStyle(const RenderStyle* style, RenderStyle* rootStyle)
 {
     DashArray array;
     
     CSSValueList* dashes = style->svgStyle()->strokeDashArray();
-    if (dashes) {
-        CSSPrimitiveValue* dash = 0;
-        unsigned long len = dashes->length();
-        for (unsigned long i = 0; i < len; i++) {
-            dash = static_cast<CSSPrimitiveValue*>(dashes->itemWithoutBoundsCheck(i));
-            if (!dash)
-                continue;
+    if (!dashes)
+        return array;
 
-            array.append((float) dash->computeLengthFloat(const_cast<RenderStyle*>(style), rootStyle));
-        }
+    CSSPrimitiveValue* dash = 0;
+    unsigned long len = dashes->length();
+    for (unsigned long i = 0; i < len; ++i) {
+        dash = static_cast<CSSPrimitiveValue*>(dashes->itemWithoutBoundsCheck(i));
+        if (!dash)
+            continue;
+
+        array.append(dash->computeLengthFloat(const_cast<RenderStyle*>(style), rootStyle));
     }
 
     return array;
 }
 
-void applyStrokeStyleToContext(GraphicsContext* context, const RenderStyle* style, const RenderObject* object)
+void SVGRenderSupport::applyStrokeStyleToContext(GraphicsContext* context, const RenderStyle* style, const RenderObject* object)
 {
     context->setStrokeThickness(SVGRenderStyle::cssPrimitiveToLength(object, style->svgStyle()->strokeWidth(), 1.0f));
     context->setLineCap(style->svgStyle()->capStyle());
@@ -420,7 +354,7 @@ void applyStrokeStyleToContext(GraphicsContext* context, const RenderStyle* styl
         context->setLineDash(dashes, dashOffset);
 }
 
-const RenderObject* findTextRootObject(const RenderObject* start)
+const RenderObject* SVGRenderSupport::findTextRootObject(const RenderObject* start)
 {
     while (start && !start->isSVGText())
         start = start->parent();

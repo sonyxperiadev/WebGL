@@ -192,7 +192,7 @@ sub SkipFunction {
     if ($isCustomFunction &&
         $functionName ne "webkit_dom_node_replace_child" &&
         $functionName ne "webkit_dom_node_insert_before" &&
-        $functionName ne "webkit_dom_node_replace_child" &&
+        $functionName ne "webkit_dom_node_remove_child" &&
         $functionName ne "webkit_dom_node_append_child" &&
         $functionName ne "webkit_dom_html_collection_item" &&
         $functionName ne "webkit_dom_html_collection_named_item") {
@@ -504,7 +504,7 @@ EOF
     my ${listenerName} = $domSignalName . "Listener";
 
     my $txtInstallEventListener = << "EOF";
-    RefPtr<WebCore::GObjectEventListener> ${listenerName} = WebCore::GObjectEventListener::create(reinterpret_cast<GObject*>(wrapper), "${gobjectSignalName}");
+    RefPtr<WebCore::GObjectEventListener> ${listenerName} = WebCore::GObjectEventListener::create(reinterpret_cast<GObject*>(object), "${gobjectSignalName}");
     coreObject->addEventListener("${domSignalName}", ${listenerName}, false);
 EOF
     push(@txtInstallEventListeners, $txtInstallEventListener);
@@ -536,6 +536,7 @@ EOF
     my $txtGetProp = << "EOF";
 static void ${lowerCaseIfaceName}_get_property(GObject* object, guint prop_id, GValue* value, GParamSpec* pspec)
 {
+    WebCore::JSMainThreadNullState state;
 EOF
     push(@txtGetProps, $txtGetProp);
     if (scalar @readableProperties > 0) {
@@ -556,6 +557,7 @@ EOF
     my $txtSetProps = << "EOF";
 static void ${lowerCaseIfaceName}_set_property(GObject* object, guint prop_id, const GValue* value, GParamSpec* pspec)
 {
+    WebCore::JSMainThreadNullState state;
 EOF
     push(@txtSetProps, $txtSetProps);
 
@@ -625,12 +627,31 @@ static void ${lowerCaseIfaceName}_finalize(GObject* object)
 
 @txtGetProps
 
+static void ${lowerCaseIfaceName}_constructed(GObject* object)
+{
+EOF
+    push(@cBodyPriv, $implContent);
+
+    if (scalar @txtInstallEventListeners > 0) {
+        $implContent = << "EOF";
+    WebCore::${interfaceName}* coreObject = static_cast<WebCore::${interfaceName}*>(WEBKIT_DOM_OBJECT(object)->coreObject);
+EOF
+    push(@cBodyPriv, $implContent);
+    }
+
+    $implContent = << "EOF";
+@txtInstallEventListeners
+    if (G_OBJECT_CLASS(${lowerCaseIfaceName}_parent_class)->constructed)
+        G_OBJECT_CLASS(${lowerCaseIfaceName}_parent_class)->constructed(object);
+}
+
 static void ${lowerCaseIfaceName}_class_init(${className}Class* requestClass)
 {
     GObjectClass *gobjectClass = G_OBJECT_CLASS(requestClass);
     gobjectClass->finalize = ${lowerCaseIfaceName}_finalize;
     gobjectClass->set_property = ${lowerCaseIfaceName}_set_property;
     gobjectClass->get_property = ${lowerCaseIfaceName}_get_property;
+    gobjectClass->constructed = ${lowerCaseIfaceName}_constructed;
 
 @txtInstallProps
 @txtInstallSignals
@@ -823,6 +844,7 @@ sub GenerateFunction {
 
     push(@cBody, "#if ${conditionalString}\n") if $conditionalString;
     push(@cBody, "$returnType\n$functionName($functionSig)\n{\n");
+    push(@cBody, "    WebCore::JSMainThreadNullState state;\n");
 
     if ($conditionalMethods{$functionName}) {
         push(@cBody, "#if ENABLE($conditionalMethods{$functionName})\n");
@@ -1101,20 +1123,15 @@ namespace WebKit {
 ${className}* wrap${interfaceName}(WebCore::${interfaceName}* coreObject)
 {
     g_return_val_if_fail(coreObject, 0);
-    
-    ${className}* wrapper = WEBKIT_DOM_${clsCaps}(g_object_new(WEBKIT_TYPE_DOM_${clsCaps}, NULL));
-    g_return_val_if_fail(wrapper, 0);
 
     /* We call ref() rather than using a C++ smart pointer because we can't store a C++ object
      * in a C-allocated GObject structure.  See the finalize() code for the
      * matching deref().
      */
-
     coreObject->ref();
-    WEBKIT_DOM_OBJECT(wrapper)->coreObject = coreObject;
-@txtInstallEventListeners
 
-    return wrapper;
+    return  WEBKIT_DOM_${clsCaps}(g_object_new(WEBKIT_TYPE_DOM_${clsCaps},
+                                               "core-object", coreObject, NULL));
 }
 } // namespace WebKit
 EOF
@@ -1264,6 +1281,7 @@ sub Generate {
     $implIncludes{"webkit/$className.h"} = 1;
     $implIncludes{"webkit/${className}Private.h"} = 1;
     $implIncludes{"${interfaceName}.h"} = 1;
+    $implIncludes{"JSMainThreadExecState.h"} = 1;
     $implIncludes{"ExceptionCode.h"} = 1;
 
     $hdrIncludes{"webkit/${parentClassName}.h"} = 1;

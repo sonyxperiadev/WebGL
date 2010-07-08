@@ -34,6 +34,7 @@
 #include "V8Database.h"
 
 #include "Database.h"
+#include "ExceptionCode.h"
 #include "V8Binding.h"
 #include "V8BindingMacros.h"
 #include "V8SQLTransactionCallback.h"
@@ -50,8 +51,8 @@ v8::Handle<v8::Value> V8Database::changeVersionCallback(const v8::Arguments& arg
     if (args.Length() < 2)
         return throwError(SYNTAX_ERR);
 
-    EXCEPTION_BLOCK(String, oldVersion, toWebCoreString(args[0]));
-    EXCEPTION_BLOCK(String, newVersion, toWebCoreString(args[1]));
+    TO_WEBCORE_STRING_EXCEPTION_BLOCK(oldVersion, args[0]);
+    TO_WEBCORE_STRING_EXCEPTION_BLOCK(newVersion, args[1]);
 
     Database* database = V8Database::toNative(args.Holder());
 

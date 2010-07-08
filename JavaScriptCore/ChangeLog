@@ -1,3 +1,811 @@
+2010-07-05  Steve Block  <steveblock@google.com>
+
+        Reviewed by Darin Adler.
+
+        ThreadingPthreads.cpp should use JNIUtility.h on Android, not outdated jni_utility.h
+        https://bugs.webkit.org/show_bug.cgi?id=41594
+
+        * wtf/ThreadingPthreads.cpp:
+
+2010-07-04  Mark Rowe  <mrowe@apple.com>
+
+        Build fix after r62456.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute): Be slightly more consistent in using uint32_t to prevent
+        warnings about comparisons between signed and unsigned types, and attempts to call an overload
+        of std::min that doesn't exist.
+
+2010-07-02  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=41553
+        Make StringExtras.h versions of snprintf and vsnprintf match the unix versions.
+
+        - MSVC does not ensure the buffers are null terminated as the unix versions do.
+
+        * runtime/JSGlobalObjectFunctions.cpp: Cleanup includes.
+        * runtime/UString.cpp: Clean up includes.
+        (JSC::UString::from): Don't pass sizeof(buf) - 1, that is wrong.
+        * wtf/StringExtras.h:
+        (snprintf): Ensure null termination of buffer.
+        (vsnprintf): Ditto.
+
+2010-07-03  Yong Li  <yoli@rim.com>
+
+        Reviewed by Darin Adler.
+
+        Make Arguments::MaxArguments clamping work for numbers >= 0x80000000 in
+        the interpreter as well as the JIT.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41351
+        rdar://problem/8142141
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute): Fix signed integer overflow problem
+        in op_load_varargs handling. 0xFFFFFFFF was read as -1.
+
+2010-06-26  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Dumitru Daniliuc.
+
+        Support for keys and in-memory storage for IndexedDB
+        https://bugs.webkit.org/show_bug.cgi?id=41252
+
+        Set the role to Private.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2010-07-02  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Move BOM handling out of the lexer and parser
+        https://bugs.webkit.org/show_bug.cgi?id=41539
+
+        Doing the BOM stripping in the lexer meant that we could
+        end up having to strip the BOMs from a source multiple times.
+        To deal with this we now require all strings provided by
+        a SourceProvider to already have had the BOMs stripped.
+        This also simplifies some of the lexer logic.
+
+        * parser/Lexer.cpp:
+        (JSC::Lexer::setCode):
+        (JSC::Lexer::sourceCode):
+        * parser/SourceProvider.h:
+        (JSC::SourceProvider::SourceProvider):
+        (JSC::UStringSourceProvider::create):
+        (JSC::UStringSourceProvider::getRange):
+        (JSC::UStringSourceProvider::UStringSourceProvider):
+        * wtf/text/StringImpl.h:
+        (WebCore::StringImpl::copyStringWithoutBOMs):
+
+2010-07-03  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Kent Tamura.
+
+        [WINCE] Implement Unicode::isAlphanumeric and Unicode::isArabicChar.
+        https://bugs.webkit.org/show_bug.cgi?id=41411
+
+        * wtf/unicode/wince/UnicodeWince.cpp:
+        (WTF::Unicode::isAlphanumeric):
+        * wtf/unicode/wince/UnicodeWince.h:
+        (WTF::Unicode::isArabicChar):
+
+2010-07-03  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Kent Tamura.
+
+        [BREWMP] Change the CRASH() macro to print "WebKit CRASH" log.
+        https://bugs.webkit.org/show_bug.cgi?id=41524
+
+        Print "WebKit CRASH" before crashing.
+
+        * wtf/Assertions.h:
+
+2010-07-02  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 41565 - Repatching in ARMv7Assembler::repatchLoadPtrToLEA is broken
+
+        This method tried to repatch a LDR (T2) into an ADD (T3) - but it only
+        repatches the first instruction word.  The layout of the fields in the
+        second word is different, and also needs repatching.
+
+        * assembler/ARMv7Assembler.h:
+        (JSC::ARMv7Assembler::repatchLoadPtrToLEA):
+
+2010-07-02  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Clamp the number of arguments supported by function.apply
+        https://bugs.webkit.org/show_bug.cgi?id=41351
+        <rdar://problem/8142141>
+
+        Add clamping logic to function.apply similar to that
+        enforced by firefox.  We have a smaller clamp than
+        firefox as our calling convention means that stack
+        usage is proportional to argument count -- the firefox
+        limit is larger than you could actually call.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * runtime/Arguments.h:
+        (JSC::Arguments::):
+
+2010-07-02  Chao-ying Fu  <fu@mips.com>
+
+        Reviewed by Oliver Hunt.
+
+        Re-enable JIT_OPTIMIZE_NATIVE_CALL on MIPS
+        https://bugs.webkit.org/show_bug.cgi?id=40179
+
+        Add the MIPS part to re-enable JIT_OPTIMIZE_NATIVE_CALL.
+
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::privateCompileCTINativeCall):
+        * wtf/Platform.h:
+
+2010-07-02  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 41552 - Clean up ARMv7 vfp code generation
+        Emit separate opcode individually, remove magic numbers.
+
+        Also remove invalid assert from JSImmediate (number cells are not CELL_MASK aligned).
+
+        * assembler/ARMv7Assembler.h:
+        (JSC::ARMv7Assembler::):
+        (JSC::ARMv7Assembler::vadd_F64):
+        (JSC::ARMv7Assembler::vcmp_F64):
+        (JSC::ARMv7Assembler::vcvt_F64_S32):
+        (JSC::ARMv7Assembler::vcvtr_S32_F64):
+        (JSC::ARMv7Assembler::vdiv_F64):
+        (JSC::ARMv7Assembler::vldr):
+        (JSC::ARMv7Assembler::vmov_F64_0):
+        (JSC::ARMv7Assembler::vmov):
+        (JSC::ARMv7Assembler::vmrs):
+        (JSC::ARMv7Assembler::vmul_F64):
+        (JSC::ARMv7Assembler::vstr):
+        (JSC::ARMv7Assembler::vsub_F64):
+        (JSC::ARMv7Assembler::VFPOperand::VFPOperand):
+        (JSC::ARMv7Assembler::VFPOperand::bits1):
+        (JSC::ARMv7Assembler::VFPOperand::bits4):
+        (JSC::ARMv7Assembler::vcvtOp):
+        (JSC::ARMv7Assembler::ARMInstructionFormatter::vfpOp):
+        (JSC::ARMv7Assembler::ARMInstructionFormatter::vfpMemOp):
+        * assembler/MacroAssemblerARMv7.h:
+        (JSC::MacroAssemblerARMv7::branchDouble):
+        * runtime/JSImmediate.h:
+        (JSC::JSValue::isCell):
+
+2010-07-02  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r62410.
+        http://trac.webkit.org/changeset/62410
+        https://bugs.webkit.org/show_bug.cgi?id=41549
+
+        accursed last minute changes (Requested by olliej on #webkit).
+
+        * parser/Lexer.cpp:
+        (JSC::Lexer::setCode):
+        (JSC::Lexer::copyCodeWithoutBOMs):
+        (JSC::Lexer::sourceCode):
+        * parser/SourceProvider.h:
+        (JSC::):
+        (JSC::SourceProvider::SourceProvider):
+        (JSC::SourceProvider::hasBOMs):
+        (JSC::UStringSourceProvider::create):
+        (JSC::UStringSourceProvider::getRange):
+        (JSC::UStringSourceProvider::UStringSourceProvider):
+        * wtf/text/StringImpl.h:
+
+2010-07-02  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Geoffrey Garen.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=41548
+        Use snprintf instead of sprintf everywhere in JavaScriptCore
+
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::encode):
+        (JSC::globalFuncEscape):
+        * runtime/UString.cpp:
+        (JSC::UString::from):
+
+2010-07-02  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Move BOM handling out of the lexer and parser
+        https://bugs.webkit.org/show_bug.cgi?id=41539
+
+        Doing the BOM stripping in the lexer meant that we could
+        end up having to strip the BOMs from a source multiple times.
+        To deal with this we now require all strings provided by
+        a SourceProvider to already have had the BOMs stripped.
+        This also simplifies some of the lexer logic.
+
+        * parser/Lexer.cpp:
+        (JSC::Lexer::setCode):
+        (JSC::Lexer::sourceCode):
+        * parser/SourceProvider.h:
+        (JSC::SourceProvider::SourceProvider):
+        (JSC::UStringSourceProvider::create):
+        (JSC::UStringSourceProvider::getRange):
+        (JSC::UStringSourceProvider::UStringSourceProvider):
+        * wtf/text/StringImpl.h:
+        (WebCore::StringImpl::copyStringWithoutBOMs):
+
+2010-07-02  Renata Hodovan  <reni@inf.u-szeged.hu>
+
+        Reviewed by Oliver Hunt.
+        
+        [ Updated after rollout. ]
+
+        Merged RegExp constructor and RegExp::create methods.
+        Both functions are called with three parameters and check whether 
+        flags (the third param) is given or not.
+        Avoid extra hash lookups in RegExpCache::create by passing a pre-computed
+        iterator parameter.
+        https://bugs.webkit.org/show_bug.cgi?id=41055
+
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::RegExp):
+        * runtime/RegExp.h:
+        * runtime/RegExpCache.cpp:
+        (JSC::RegExpCache::lookupOrCreate):
+        (JSC::RegExpCache::create):
+        * runtime/RegExpCache.h:
+
+2010-07-02  Martin Robinson  <mrobinson@igalia.com>
+
+        Unreviewed. Build fix for GTK+.
+
+        Build Lexer.lut.h with the rest of the .lut.h files. Later these should
+        all probably be moved to DerivedSources.
+
+        * GNUmakefile.am:
+
+2010-06-23  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Separate DerivedSources per-project
+        https://bugs.webkit.org/show_bug.cgi?id=41109
+
+        Generate JavaScriptCore derived sources in <builddir>/DerivedSources/JavaScriptCore.
+
+        * GNUmakefile.am:
+
+2010-07-02  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Oliver Hunt.
+
+        The alternativeFrameLocation value is wrong in the emitDisjunction function in
+        case of PatternTerm::TypeParentheticalAssertion. This value needs to be
+        computed from term.frameLocation instead of term.inputPosition. This mistake caused glibc
+        memory corruption in some cases.
+        Layout test added for checking of TypeParentheticalAssertion case.
+        https://bugs.webkit.org/show_bug.cgi?id=41458
+
+        * yarr/RegexInterpreter.cpp:
+        (JSC::Yarr::ByteCompiler::emitDisjunction):
+
+2010-07-01  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Add a FixedArray template to encapsulate fixed length arrays
+        https://bugs.webkit.org/show_bug.cgi?id=41506
+
+        This new type is used in place of fixed length C arrays so
+        that debug builds can guard against attempts to go beyond
+        the end of the array.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * bytecode/Opcode.cpp:
+        (JSC::OpcodeStats::~OpcodeStats):
+        * pcre/pcre_compile.cpp:
+        (calculateCompiledPatternLength):
+        * runtime/Collector.cpp:
+        (JSC::Heap::allocateBlock):
+        (JSC::Heap::allocate):
+        * runtime/Collector.h:
+        (JSC::CollectorBitmap::clearAll):
+        * runtime/CollectorHeapIterator.h:
+        (JSC::CollectorHeapIterator::operator*):
+        * runtime/DateInstanceCache.h:
+        * runtime/JSString.cpp:
+        (JSC::JSString::replaceCharacter):
+        * runtime/JSString.h:
+        (JSC::RopeBuilder::JSStringFinalizerStruct::):
+        * runtime/NumericStrings.h:
+        * runtime/RegExpCache.h:
+        * runtime/SmallStrings.h:
+        (JSC::SmallStrings::singleCharacterStrings):
+        * wtf/AVLTree.h:
+        * wtf/FixedArray.h: Added.
+        (WTF::FixedArray::operator[]):
+        (WTF::FixedArray::data):
+
+2010-07-01  Zoltan Herczeg  <zherczeg@webkit.org>
+
+        Reviewed by Oliver Hunt.
+
+        Improve the main lexer switch by mapping input characters to their type
+        https://bugs.webkit.org/show_bug.cgi?id=41459
+
+        Sunsipder: no change (from 532.9ms to 531.5ms)
+        SunSpider --parse-only: 1.025x as fast (from 33.1ms to 32.3ms)
+
+        * parser/Lexer.cpp:
+        (JSC::):
+        (JSC::Lexer::lex):
+
+2010-07-01  Sam Weinig  <sam@webkit.org>
+
+        Rubber-stamped by Ander Carlsson.
+
+        Define HAVE_HOSTED_CORE_ANIMATION on Snow Leopard.
+
+        * wtf/Platform.h:
+
+2010-07-01  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 41490 - Add missing operations to MacroAssemblerARMv7
+        Also, make single, double, quad register numbers in ARMv7Assembler distinct & strongly typed.
+
+        * assembler/ARMv7Assembler.h:
+        (JSC::ARMRegisters::):
+        (JSC::ARMRegisters::asSingle):
+        (JSC::ARMRegisters::asDouble):
+        (JSC::VFPImmediate::VFPImmediate):
+        (JSC::VFPImmediate::isValid):
+        (JSC::VFPImmediate::value):
+        (JSC::ARMv7Assembler::singleRegisterMask):
+        (JSC::ARMv7Assembler::doubleRegisterMask):
+        (JSC::ARMv7Assembler::):
+        (JSC::ARMv7Assembler::add_S):
+        (JSC::ARMv7Assembler::neg):
+        (JSC::ARMv7Assembler::orr_S):
+        (JSC::ARMv7Assembler::sub):
+        (JSC::ARMv7Assembler::sub_S):
+        (JSC::ARMv7Assembler::vadd_F64):
+        (JSC::ARMv7Assembler::vcmp_F64):
+        (JSC::ARMv7Assembler::vcvt_F64_S32):
+        (JSC::ARMv7Assembler::vcvtr_S32_F64):
+        (JSC::ARMv7Assembler::vdiv_F64):
+        (JSC::ARMv7Assembler::vldr):
+        (JSC::ARMv7Assembler::vmov_F64_0):
+        (JSC::ARMv7Assembler::vmov):
+        (JSC::ARMv7Assembler::vmul_F64):
+        (JSC::ARMv7Assembler::vstr):
+        (JSC::ARMv7Assembler::vsub_F64):
+        (JSC::ARMv7Assembler::vcvt):
+        (JSC::ARMv7Assembler::vmem):
+        * assembler/AbstractMacroAssembler.h:
+        * assembler/MacroAssemblerARM.h:
+        * assembler/MacroAssemblerARMv7.h:
+        (JSC::MacroAssemblerARMv7::fpTempRegisterAsSingle):
+        (JSC::MacroAssemblerARMv7::neg32):
+        (JSC::MacroAssemblerARMv7::loadDouble):
+        (JSC::MacroAssemblerARMv7::divDouble):
+        (JSC::MacroAssemblerARMv7::convertInt32ToDouble):
+        (JSC::MacroAssemblerARMv7::branchConvertDoubleToInt32):
+        (JSC::MacroAssemblerARMv7::zeroDouble):
+        (JSC::MacroAssemblerARMv7::branchOr32):
+        (JSC::MacroAssemblerARMv7::set32):
+        (JSC::MacroAssemblerARMv7::set8):
+        * assembler/MacroAssemblerMIPS.h:
+        * assembler/MacroAssemblerX86Common.h:
+
+2010-07-01  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Improve reentrancy logic in polymorphic cache stubs
+        <https://bugs.webkit.org/show_bug.cgi?id=41482>
+        <rdar://problem/8094380>
+
+        Make the polymorphic cache stubs handle reentrancy
+        better.
+
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        (JSC::getPolymorphicAccessStructureListSlot):
+
+2010-07-01  Antti Koivisto  <koivisto@iki.fi>
+
+        Revert accidental commit.
+
+        * runtime/Collector.cpp:
+        (JSC::Heap::allocateBlock):
+
+2010-06-30  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Add assertion, off by default, for when you forget to do adoptRef
+        https://bugs.webkit.org/show_bug.cgi?id=41422
+
+        * wtf/PassRefPtr.h: Tweaked formatting. Added a new adopted
+        function, called on the pointer by adoptRef, with an empty inline
+        default version, meant to be overloaded. Unified the inlining
+        with a macro named REF_DEREF_INLINE to make it clearer what's
+        going on in the refIfNotNull/derefIfNotNull functions. Renamed
+        releaseRef to leakRef, but left the old name in for compatibility
+        for now.
+
+        * wtf/RefCounted.h: Added code to require adoption and assert if
+        you don't call adoptRef. For now, it is turned off because of the
+        LOOSE_REF_COUNTED define in this header. Later we can turn it on
+        once we get everything working without asserting.
+
+2010-06-29  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Bug 41238 - RegExp performance slow on Dromaeo benchmark
+
+        Other javascript engines appear to cache prior results of regular 
+        expression operations.
+
+        Suggest adding some sort of caching mechanism to regular expression 
+        processing.
+
+        Added a single entry cache of match() results to RegExp class.
+
+        Also added performance improvements to UString == operator.
+        First check the impls for equality.  Then get the length of
+        each of the non-null impls.  Next check the sizes for equality.
+        Then check the data for the case of different impls that point 
+        to the same data (most likely due to substrings from the beginning of
+        another string).  Lastly we check the underlying data for equality.
+
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::RegExp):
+        (JSC::RegExp::match):
+        * runtime/RegExp.h:
+        * runtime/UString.h:
+        (JSC::operator==):
+
+2010-06-29  Nathan Lawrence  <nlawrence@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        WTF::HashSet iterators are quasi-mutable.  Changing the value through
+        dereferencing an iterator will not change the behavior of methods like
+        contains or find, but will change the behavior of iterating.
+
+        * wtf/HashSet.h:
+        (WTF::::begin):
+        (WTF::::end):
+        (WTF::::find):
+        (WTF::::remove):
+        * wtf/HashTable.h:
+
+2010-06-29  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Clean up the source lists in the GNUMakefile.am files
+        https://bugs.webkit.org/show_bug.cgi?id=41229
+
+        Clean up the GNUMakefile.am a little bit. Alphabetize and conglomerate
+        the source lists.
+
+        * GNUmakefile.am:
+
+2010-06-29  Caio Marcelo de Oliveira Filho  <caio.oliveira@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Fix QtScript build after QScriptValuePrivate ctor changes
+        https://bugs.webkit.org/show_bug.cgi?id=41307
+
+        * qt/api/qscriptvalue_p.h:
+        (QScriptValuePrivate::prototype):
+        * qt/benchmarks/qscriptengine/qscriptengine.pro:
+
+2010-06-28  Caio Marcelo de Oliveira Filho  <caio.oliveira@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] QScriptEngine API should contain a newArray function
+        https://bugs.webkit.org/show_bug.cgi?id=39115
+
+        * qt/api/qscriptengine.cpp:
+        (QScriptEngine::newArray):
+        * qt/api/qscriptengine.h:
+        * qt/api/qscriptengine_p.cpp:
+        (QScriptEnginePrivate::newArray):
+        * qt/api/qscriptengine_p.h:
+        * qt/tests/qscriptengine/tst_qscriptengine.cpp:
+        (tst_QScriptEngine::newArray):
+
+2010-06-28  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Install jsc as jsc-X where X is the major API version to allow
+        parallel installation of both GTK+ 2.x and 3.x versions.
+
+        * GNUmakefile.am:
+
+2010-06-28  John Gregg  <johnnyg@google.com>
+
+        Reviewed by Kent Tamura.
+
+        add ENABLE_DIRECTORY_UPLOAD build support
+        https://bugs.webkit.org/show_bug.cgi?id=41100
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-06-28  Xan Lopez  <xlopez@igalia.com>
+
+        Revert to build jsc, since the tests expect this.
+
+        * GNUmakefile.am:
+
+2010-06-28  Zoltan Herczeg  <zherczeg@webkit.org>
+
+        Reviewed by Oliver Hunt.
+
+        Only one character lookahead should be enough for the lexer
+        https://bugs.webkit.org/show_bug.cgi?id=41213
+
+        The lexer had 4 character lookahead before, which required
+        a complex shifting mechanism. This can be improved by using
+        only one character lookahead for most decisions, and a
+        peek() function as a fallback when it is absolutely necessary.
+
+        * parser/Lexer.cpp:
+        (JSC::Lexer::currentCharacter):
+        (JSC::Lexer::currentOffset):
+        (JSC::Lexer::setCode):
+        (JSC::Lexer::shift):
+        (JSC::Lexer::peek):
+        (JSC::Lexer::getUnicodeCharacter):
+        (JSC::Lexer::shiftLineTerminator):
+        (JSC::Lexer::lastTokenWasRestrKeyword):
+        (JSC::Lexer::lex):
+        (JSC::Lexer::scanRegExp):
+        (JSC::Lexer::skipRegExp):
+        * parser/Lexer.h:
+
+2010-06-28  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Unreviewed build fix.
+
+        [EFL] Build fix for latest version of Ecore library.
+        Ecore recently changed return type of callbacks from int to Eina_Bool.
+
+        * wtf/efl/MainThreadEfl.cpp:
+        (WTF::timeoutFired): Return Eina_Bool instead of int.
+
+2010-06-28  Caio Marcelo de Oliveira Filho  <caio.oliveira@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] QScriptValue should have API for accessing object properties
+        https://bugs.webkit.org/show_bug.cgi?id=40903
+
+        Make possible to access properties inside QScriptValues. While this
+        still doesn't support the ResolveLocal parameter, it is already useful
+        for testing the API.
+
+        The tests from upstream QtScript weren't imported since most of them
+        depend on the setProperty() function as well. A simple test was created.
+
+        * qt/api/qscriptvalue.cpp:
+        (QScriptValue::property):
+        * qt/api/qscriptvalue.h:
+        (QScriptValue::):
+        * qt/api/qscriptvalue_p.h:
+        (QScriptValuePrivate::property):
+        * qt/tests/qscriptvalue/tst_qscriptvalue.cpp:
+        (tst_QScriptValue::propertySimple):
+        * qt/tests/qscriptvalue/tst_qscriptvalue.h:
+
+2010-06-28  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Add support for GTK+3
+        https://bugs.webkit.org/show_bug.cgi?id=41253
+
+        Suffix jsc with the API version of the library, so that
+        libwebkitgtk 1.x and 3.x can install jsc.
+
+        * GNUmakefile.am:
+
+2010-06-27  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Kent Tamura.
+
+        [BREWMP] Turn ENABLE(SINGLE_THREADED) on.
+        https://bugs.webkit.org/show_bug.cgi?id=41135
+
+        Brew MP does not support preemptive multi-threading.
+        Disable threading for Brew MP.
+
+        * wtf/Platform.h:
+
+2010-06-26  Tony Gentilcore  <tonyg@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Add an ENABLE_WEB_TIMING option for enabling Web Timing support.
+        https://bugs.webkit.org/show_bug.cgi?id=38924
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-06-25  Nathan Lawrence  <nlawrence@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        We assume in testapi.c that the value aHeapRef refers to will not be
+        moved.  When we have movable objects, this will not be the case.
+
+        * API/tests/testapi.c:
+        (main):
+
+2010-06-25  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r61924.
+        http://trac.webkit.org/changeset/61924
+        https://bugs.webkit.org/show_bug.cgi?id=41240
+
+        It was rolled out, but cq+ wasn't removed (Requested by Ossy_
+        on #webkit).
+
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::RegExp):
+        (JSC::RegExp::create):
+        * runtime/RegExp.h:
+        * runtime/RegExpCache.cpp:
+        (JSC::RegExpCache::lookupOrCreate):
+        (JSC::RegExpCache::create):
+        * runtime/RegExpCache.h:
+
+2010-06-25  Renata Hodovan  <reni@inf.u-szeged.hu>
+
+        Reviewed by Geoffrey Garen.
+
+        Merge RegExp constructor and RegExp::create methods into one.
+        Both of function are called with tree parameters and check whether 
+        flags (the third param) is given or not.
+        Simplify hash lookups in RegExpCache::create with giving them an extra 
+        iterator parameter.
+        https://bugs.webkit.org/show_bug.cgi?id=41055
+
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::RegExp):
+        * runtime/RegExp.h:
+        * runtime/RegExpCache.cpp:
+        (JSC::RegExpCache::lookupOrCreate):
+        (JSC::RegExpCache::create):
+        * runtime/RegExpCache.h:
+
+2010-06-25  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Introduce QtScript benchmarks.
+
+        The QtScript performance should be tested regularly. The patch introduces
+        micro benchmarks for existing API.
+
+        [Qt] Performance of the QtScript API is not tested.
+        https://bugs.webkit.org/show_bug.cgi?id=40911
+
+        * qt/benchmarks/benchmarks.pri: Copied from JavaScriptCore/qt/tests/tests.pri.
+        * qt/benchmarks/benchmarks.pro: Added.
+        * qt/benchmarks/qscriptengine/qscriptengine.pro: Added.
+        * qt/benchmarks/qscriptengine/tst_qscriptengine.cpp: Added.
+        (tst_QScriptEngine::checkSyntax_data):
+        (tst_QScriptEngine::checkSyntax):
+        (tst_QScriptEngine::constructor):
+        (tst_QScriptEngine::evaluateString_data):
+        (tst_QScriptEngine::evaluateString):
+        (tst_QScriptEngine::evaluateProgram_data):
+        (tst_QScriptEngine::evaluateProgram):
+        (tst_QScriptEngine::newObject):
+        (tst_QScriptEngine::nullValue):
+        (tst_QScriptEngine::undefinedValue):
+        (tst_QScriptEngine::globalObject):
+        (tst_QScriptEngine::toStringHandle):
+        * qt/benchmarks/qscriptvalue/qscriptvalue.pro: Added.
+        * qt/benchmarks/qscriptvalue/tst_qscriptvalue.cpp: Added.
+        (tst_QScriptValue::tst_QScriptValue):
+        (tst_QScriptValue::~tst_QScriptValue):
+        (tst_QScriptValue::values_data):
+        (tst_QScriptValue::ctorBool):
+        (tst_QScriptValue::ctorReal):
+        (tst_QScriptValue::ctorNumber):
+        (tst_QScriptValue::ctorQString):
+        (tst_QScriptValue::ctorCString):
+        (tst_QScriptValue::ctorSpecial):
+        (tst_QScriptValue::ctorQScriptValue):
+        (tst_QScriptValue::isValid_data):
+        (tst_QScriptValue::isValid):
+        (tst_QScriptValue::isBool_data):
+        (tst_QScriptValue::isBool):
+        (tst_QScriptValue::isNumber_data):
+        (tst_QScriptValue::isNumber):
+        (tst_QScriptValue::isFunction_data):
+        (tst_QScriptValue::isFunction):
+        (tst_QScriptValue::isNull_data):
+        (tst_QScriptValue::isNull):
+        (tst_QScriptValue::isString_data):
+        (tst_QScriptValue::isString):
+        (tst_QScriptValue::isUndefined_data):
+        (tst_QScriptValue::isUndefined):
+        (tst_QScriptValue::isObject_data):
+        (tst_QScriptValue::isObject):
+        (tst_QScriptValue::isError_data):
+        (tst_QScriptValue::isError):
+        (tst_QScriptValue::toString_data):
+        (tst_QScriptValue::toString):
+        (tst_QScriptValue::toNumber_data):
+        (tst_QScriptValue::toNumber):
+        (tst_QScriptValue::toBool_data):
+        (tst_QScriptValue::toBool):
+        (tst_QScriptValue::toInteger_data):
+        (tst_QScriptValue::toInteger):
+        (tst_QScriptValue::toInt32_data):
+        (tst_QScriptValue::toInt32):
+        (tst_QScriptValue::toUInt32_data):
+        (tst_QScriptValue::toUInt32):
+        (tst_QScriptValue::toUInt16_data):
+        (tst_QScriptValue::toUInt16):
+        (tst_QScriptValue::toObject_data):
+        (tst_QScriptValue::toObject):
+        (tst_QScriptValue::equals_data):
+        (tst_QScriptValue::equals):
+        (tst_QScriptValue::strictlyEquals_data):
+        (tst_QScriptValue::strictlyEquals):
+        (tst_QScriptValue::instanceOf_data):
+        (tst_QScriptValue::instanceOf):
+
+2010-06-25  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Remove old js parser
+        https://bugs.webkit.org/show_bug.cgi?id=41222
+
+        Remove the old yacc parser, this also solves the tiger problem.  Which
+        was a conflict between yacc generated token values and those in the
+        custom parser
+
+        * Android.mk:
+        * CMakeLists.txt:
+        * DerivedSources.make:
+        * DerivedSources.pro:
+        * GNUmakefile.am:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * parser/Grammar.y: Removed.
+        * parser/JSParser.cpp:
+        * parser/JSParser.h:
+        * parser/Lexer.cpp:
+        * parser/NodeConstructors.h:
+        (JSC::Node::Node):
+        * parser/Parser.cpp:
+        (JSC::Parser::parse):
+        * wtf/Platform.h:
+
 2010-06-25  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
 
         Reviewed by Simon Hausmann.

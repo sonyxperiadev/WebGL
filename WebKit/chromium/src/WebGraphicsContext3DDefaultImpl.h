@@ -42,6 +42,9 @@
 #endif
 
 #include "GL/glew.h"
+#if OS(WINDOWS)
+#include "GL/wglew.h"
+#endif
 
 #if PLATFORM(CG)
 #include <OpenGL/OpenGL.h>
@@ -67,7 +70,7 @@ public:
 
     //----------------------------------------------------------------------
     // WebGraphicsContext3D methods
-    virtual bool initialize(WebGraphicsContext3D::Attributes attributes);
+    virtual bool initialize(WebGraphicsContext3D::Attributes attributes, WebView*);
     virtual bool makeContextCurrent();
 
     virtual int width();
@@ -80,6 +83,9 @@ public:
     virtual void reshape(int width, int height);
 
     virtual bool readBackFramebuffer(unsigned char* pixels, size_t bufferSize);
+
+    virtual unsigned int getPlatformTextureId();
+    virtual void prepareTexture();
 
     virtual void synthesizeGLError(unsigned long error);
 
@@ -130,6 +136,8 @@ public:
 
     virtual bool getActiveAttrib(WebGLId program, unsigned long index, ActiveInfo&);
     virtual bool getActiveUniform(WebGLId program, unsigned long index, ActiveInfo&);
+
+    virtual void getAttachedShaders(WebGLId program, int maxCount, int* count, unsigned int* shaders);
 
     virtual int  getAttribLocation(WebGLId program, const char* name);
 

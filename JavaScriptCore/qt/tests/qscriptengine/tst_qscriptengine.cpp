@@ -47,6 +47,8 @@ private slots:
     void checkSyntax();
     void toObject();
     void toObjectTwoEngines();
+    void newArray();
+    void uncaughtException();
 };
 
 /* Evaluating a script that throw an unhandled exception should return an invalid value. */
@@ -406,6 +408,108 @@ void tst_QScriptEngine::toObjectTwoEngines()
         QTest::ignoreMessage(QtWarningMsg, "QScriptEngine::toObject: cannot convert value created in a different engine");
         QVERIFY(engine2.toObject(object).engine() != &engine2);
         QVERIFY(object.isObject());
+    }
+}
+
+void tst_QScriptEngine::newArray()
+{
+    QScriptEngine eng;
+    QScriptValue array = eng.newArray();
+    QCOMPARE(array.isValid(), true);
+    // QCOMPARE(array.isArray(), true);
+    QCOMPARE(array.isObject(), true);
+    QVERIFY(!array.isFunction());
+    // QCOMPARE(array.scriptClass(), (QScriptClass*)0);
+
+    // Prototype should be Array.prototype.
+    QCOMPARE(array.prototype().isValid(), true);
+    // QCOMPARE(array.prototype().isArray(), true);
+    QCOMPARE(array.prototype().strictlyEquals(eng.evaluate("Array.prototype")), true);
+
+    QScriptValue arrayWithSize = eng.newArray(42);
+    QCOMPARE(arrayWithSize.isValid(), true);
+    // QCOMPARE(arrayWithSize.isArray(), true);
+    QCOMPARE(arrayWithSize.isObject(), true);
+    QCOMPARE(arrayWithSize.property("length").toInt32(), 42);
+}
+
+void tst_QScriptEngine::uncaughtException()
+{
+    QScriptEngine eng;
+    QScriptValue fun = eng.evaluate("(function foo () { return null; });");
+    QVERIFY(!eng.uncaughtException().isValid());
+    QVERIFY(fun.isFunction());
+    QScriptValue throwFun = eng.evaluate("( function() { throw new Error('Pong'); });");
+    QVERIFY(throwFun.isFunction());
+    {
+        eng.evaluate("a = 10");
+        QVERIFY(!eng.hasUncaughtException());
+        QVERIFY(!eng.uncaughtException().isValid());
+    }
+    {
+        eng.evaluate("1 = 2");
+        QVERIFY(eng.hasUncaughtException());
+        eng.clearExceptions();
+        QVERIFY(!eng.hasUncaughtException());
+    }
+    {
+        // Check if the call or toString functions can remove the last exception.
+        QVERIFY(throwFun.call().isError());
+        QVERIFY(eng.hasUncaughtException());
+        QScriptValue exception = eng.uncaughtException();
+        fun.call();
+        exception.toString();
+        QVERIFY(eng.hasUncaughtException());
+        QVERIFY(eng.uncaughtException().strictlyEquals(exception));
+    }
+    eng.clearExceptions();
+    {
+        // Check if in the call function a new exception can override an existing one.
+        throwFun.call();
+        QVERIFY(eng.hasUncaughtException());
+        QScriptValue exception = eng.uncaughtException();
+        throwFun.call();
+        QVERIFY(eng.hasUncaughtException());
+        QVERIFY(!exception.strictlyEquals(eng.uncaughtException()));
+    }
+    {
+        eng.evaluate("throwFun = (function foo () { throw new Error('bla') });");
+        eng.evaluate("1;\nthrowFun();");
+        QVERIFY(eng.hasUncaughtException());
+        QCOMPARE(eng.uncaughtExceptionLineNumber(), 1);
+        eng.clearExceptions();
+        QVERIFY(!eng.hasUncaughtException());
+    }
+    for (int x = 1; x < 4; ++x) {
+        QScriptValue ret = eng.evaluate("a = 10;\nb = 20;\n0 = 0;\n",
+                                        QString::fromLatin1("FooScript") + QString::number(x),
+                                        /* lineNumber */ x);
+        QVERIFY(eng.hasUncaughtException());
+        QCOMPARE(eng.uncaughtExceptionLineNumber(), x + 2);
+        QVERIFY(eng.uncaughtException().strictlyEquals(ret));
+        QVERIFY(eng.hasUncaughtException());
+        QVERIFY(eng.uncaughtException().strictlyEquals(ret));
+        QString backtrace = QString::fromLatin1("<anonymous>()@FooScript") + QString::number(x) + ":" + QString::number(x + 2);
+        QCOMPARE(eng.uncaughtExceptionBacktrace().join(""), backtrace);
+        QVERIFY(fun.call().isNull());
+        QVERIFY(eng.hasUncaughtException());
+        QCOMPARE(eng.uncaughtExceptionLineNumber(), x + 2);
+        QVERIFY(eng.uncaughtException().strictlyEquals(ret));
+        eng.clearExceptions();
+        QVERIFY(!eng.hasUncaughtException());
+        QCOMPARE(eng.uncaughtExceptionLineNumber(), -1);
+        QVERIFY(!eng.uncaughtException().isValid());
+        eng.evaluate("2 = 3");
+        QVERIFY(eng.hasUncaughtException());
+        QScriptValue ret2 = throwFun.call();
+        QVERIFY(ret2.isError());
+        QVERIFY(eng.hasUncaughtException());
+        QVERIFY(eng.uncaughtException().strictlyEquals(ret2));
+        QCOMPARE(eng.uncaughtExceptionLineNumber(), 1);
+        eng.clearExceptions();
+        QVERIFY(!eng.hasUncaughtException());
+        eng.evaluate("1 + 2");
+        QVERIFY(!eng.hasUncaughtException());
     }
 }
 

@@ -35,7 +35,7 @@ public:
     static PassRefPtr<HTMLTableRowElement> create(Document*);
     static PassRefPtr<HTMLTableRowElement> create(const QualifiedName&, Document*);
 
-    virtual ContainerNode* addChild(PassRefPtr<Node>);
+    virtual ContainerNode* legacyParserAddChild(PassRefPtr<Node>);
 
     int rowIndex() const;
     void setRowIndex(int);
@@ -48,21 +48,6 @@ public:
 
     PassRefPtr<HTMLCollection> cells();
     void setCells(HTMLCollection *, ExceptionCode&);
-
-    String align() const;
-    void setAlign(const String&);
-
-    String bgColor() const;
-    void setBgColor(const String&);
-
-    String ch() const;
-    void setCh(const String&);
-
-    String chOff() const;
-    void setChOff(const String&);
-
-    String vAlign() const;
-    void setVAlign(const String&);
 
 private:
     HTMLTableRowElement(const QualifiedName&, Document*);

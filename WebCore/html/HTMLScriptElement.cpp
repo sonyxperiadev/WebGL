@@ -74,6 +74,8 @@ void HTMLScriptElement::parseMappedAttribute(Attribute* attr)
         setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
     else if (attrName == onbeforeloadAttr)
         setAttributeEventListener(eventNames().beforeloadEvent, createAttributeEventListener(this, attr));
+    else if (attrName == onbeforeprocessAttr)
+        setAttributeEventListener(eventNames().beforeprocessEvent, createAttributeEventListener(this, attr));
     else
         HTMLElement::parseMappedAttribute(attr);
 }
@@ -117,76 +119,9 @@ void HTMLScriptElement::setText(const String &value)
     appendChild(document()->createTextNode(value.impl()), ec);
 }
 
-String HTMLScriptElement::htmlFor() const
-{
-    // DOM Level 1 says: reserved for future use.
-    return String();
-}
-
-void HTMLScriptElement::setHtmlFor(const String&)
-{
-    // DOM Level 1 says: reserved for future use.
-}
-
-String HTMLScriptElement::event() const
-{
-    // DOM Level 1 says: reserved for future use.
-    return String();
-}
-
-void HTMLScriptElement::setEvent(const String&)
-{
-    // DOM Level 1 says: reserved for future use.
-}
-
-String HTMLScriptElement::charset() const
-{
-    return charsetAttributeValue();
-}
-
-void HTMLScriptElement::setCharset(const String &value)
-{
-    setAttribute(charsetAttr, value);
-}
-
-bool HTMLScriptElement::async() const
-{
-    return asyncAttributeValue();
-}
-
-void HTMLScriptElement::setAsync(bool async)
-{
-    setAttribute(asyncAttr, async ? "" : 0);
-}
-
-bool HTMLScriptElement::defer() const
-{
-    return deferAttributeValue();
-}
-
-void HTMLScriptElement::setDefer(bool defer)
-{
-    setAttribute(deferAttr, defer ? "" : 0);
-}
-
 KURL HTMLScriptElement::src() const
 {
     return document()->completeURL(sourceAttributeValue());
-}
-
-void HTMLScriptElement::setSrc(const String &value)
-{
-    setAttribute(srcAttr, value);
-}
-
-String HTMLScriptElement::type() const
-{
-    return typeAttributeValue();
-}
-
-void HTMLScriptElement::setType(const String &value)
-{
-    setAttribute(typeAttr, value);
 }
 
 String HTMLScriptElement::scriptCharset() const

@@ -644,9 +644,14 @@ const AtomicString& Node::virtualNamespaceURI() const
     return nullAtom;
 }
 
-ContainerNode* Node::addChild(PassRefPtr<Node>)
+ContainerNode* Node::legacyParserAddChild(PassRefPtr<Node>)
 {
     return 0;
+}
+
+void Node::parserAddChild(PassRefPtr<Node>)
+{
+    ASSERT_NOT_REACHED();
 }
 
 bool Node::isContentEditable() const

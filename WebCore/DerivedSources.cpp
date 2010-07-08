@@ -25,6 +25,7 @@
 
 // This all-in-one cpp file cuts down on template bloat to allow us to build our Windows release build.
 
+#include "HTMLElementFactory.cpp"
 #include "JSAbstractWorker.cpp"
 #include "JSAttr.cpp"
 #include "JSBarInfo.cpp"
@@ -81,6 +82,7 @@
 #include "JSDOMParser.cpp"
 #include "JSDOMSelection.cpp"
 #include "JSDOMStringList.cpp"
+#include "JSDOMStringMap.cpp"
 #include "JSDOMWindow.cpp"
 #include "JSElement.cpp"
 #include "JSEntity.cpp"
@@ -182,6 +184,9 @@
 #include "JSIDBSuccessEvent.cpp"
 #include "JSImageData.cpp"
 #include "JSIndexedDatabaseRequest.cpp"
+#include "JSInjectedScriptHost.cpp"
+#include "JSInspectorBackend.cpp"
+#include "JSInspectorFrontendHost.cpp"
 #include "JSJavaScriptCallFrame.cpp"
 #include "JSKeyboardEvent.cpp"
 #include "JSLocation.cpp"
@@ -196,6 +201,7 @@
 #include "JSMouseEvent.cpp"
 #include "JSMutationEvent.cpp"
 #include "JSNamedNodeMap.cpp"
+#include "JSNavigation.cpp"
 #include "JSNavigator.cpp"
 #include "JSNode.cpp"
 #include "JSNodeFilter.cpp"
@@ -206,6 +212,7 @@
 #include "JSNotification.cpp"
 #include "JSOverflowEvent.cpp"
 #include "JSPageTransitionEvent.cpp"
+#include "JSPerformance.cpp"
 #include "JSPlugin.cpp"
 #include "JSPluginArray.cpp"
 #include "JSPopStateEvent.cpp"
@@ -273,6 +280,7 @@
 #include "JSSVGFEColorMatrixElement.cpp"
 #include "JSSVGFEComponentTransferElement.cpp"
 #include "JSSVGFECompositeElement.cpp"
+#include "JSSVGFEConvolveMatrixElement.cpp"
 #include "JSSVGFEDiffuseLightingElement.cpp"
 #include "JSSVGFEDisplacementMapElement.cpp"
 #include "JSSVGFEDistantLightElement.cpp"
@@ -375,6 +383,7 @@
 #include "JSTextEvent.cpp"
 #include "JSTextMetrics.cpp"
 #include "JSTimeRanges.cpp"
+#include "JSTiming.cpp"
 #include "JSTouch.cpp"
 #include "JSTouchEvent.cpp"
 #include "JSTouchList.cpp"
@@ -405,6 +414,8 @@
 #include "JSXPathNSResolver.cpp"
 #include "JSXPathResult.cpp"
 #include "JSXSLTProcessor.cpp"
+#include "WMLElementFactory.cpp"
+#include "WMLNames.cpp"
 #include "UserAgentStyleSheetsData.cpp"
 
 // On MSVC, including StaticConstructors.h causes all global objects not to be

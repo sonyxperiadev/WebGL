@@ -55,6 +55,9 @@ extern NSString *WebPreferencesRemovedNotification;
 
 // Preferences that might be public in a future release
 
+- (BOOL)isDNSPrefetchingEnabled;
+- (void)setDNSPrefetchingEnabled:(BOOL)flag;
+
 - (BOOL)developerExtrasEnabled;
 - (void)setDeveloperExtrasEnabled:(BOOL)flag;
 
@@ -177,6 +180,10 @@ extern NSString *WebPreferencesRemovedNotification;
 
 - (BOOL)html5ParserEnabled;
 - (void)setHTML5ParserEnabled:(BOOL)flag;
+
+// Will be deleted soon, do not use.
+- (BOOL)html5TreeBuilderEnabled;
+- (void)setHTML5TreeBuilderEnabled:(BOOL)flag;
 
 - (BOOL)paginateDuringLayoutEnabled;
 - (void)setPaginateDuringLayoutEnabled:(BOOL)flag;

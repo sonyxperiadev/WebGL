@@ -1,3 +1,228 @@
+2010-07-03  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Return usable property names from DRT's computedStyleIncludingVisitedInfo()
+
+        Object property names such as 'background-color' need to be returned in camel
+        case, i.e. backgroundColor so that JS can reference them. Add support for this
+        to DumpRenderTreeSupportQt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40445
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (convertToPropertyName):
+        (DumpRenderTreeSupportQt::computedStyleIncludingVisitedInfo):
+
+2010-07-01  Robert Hogan <robert@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] dump frames in ascending alphabetical order of title
+
+        https://bugs.webkit.org/show_bug.cgi?id=41261
+
+        Unskip:
+        http/tests/navigation/metaredirect-frames.html
+        http/tests/navigation/redirect302-frames.html
+        http/tests/navigation/redirect302-subframeload.html
+        http/tests/navigation/timerredirect-frames.html
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::getChildHistoryItems):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
+2010-07-01  Bea Lam  <bea.lam@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Doc improvements for QDeclarativeWebView
+
+        * declarative/qdeclarativewebview.cpp:
+
+2010-07-01  Jocelyn Turcotte  <jocelyn.turcotte@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Create QComboBoxes when clicked and destroy on hide.
+        https://bugs.webkit.org/show_bug.cgi?id=41451
+
+        Currently a QComboBox is created for each RenderMenuList and
+        it gets destroyed either when the RenderMenuList or the
+        QWebView (its Qt parent) is destroyed. This cause a crash
+        when the QWebView is destroyed before the render tree (which
+        is kept in cache).
+
+        This patch aim to destroy the QComboBox as soon as its popup
+        gets hidden, and likewise, create it only when the popup is
+        requested to be shown.
+        It also removes the unneeded reference to the QGraphicsProxyWidget,
+        destroying the QComboBox automatically destroys its bound
+        proxywidget.
+
+        * WebCoreSupport/QtFallbackWebPopup.cpp:
+        (WebCore::QtFallbackWebPopupCombo::hidePopup):
+        (WebCore::QtFallbackWebPopup::QtFallbackWebPopup):
+        (WebCore::QtFallbackWebPopup::~QtFallbackWebPopup):
+        (WebCore::QtFallbackWebPopup::show):
+        (WebCore::QtFallbackWebPopup::hide):
+        (WebCore::QtFallbackWebPopup::destroyPopup):
+        (WebCore::QtFallbackWebPopup::populate):
+        * WebCoreSupport/QtFallbackWebPopup.h:
+
+2010-07-01  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        Rendering the speech button in input elements.
+        https://bugs.webkit.org/show_bug.cgi?id=40984
+
+        * Api/qwebsettings.cpp:
+        (graphics):
+        * Api/qwebsettings.h:
+
+2010-06-30  Jocelyn Turcotte  <jocelyn.turcotte@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Make sure we catch closed QComboBox popups.
+        https://bugs.webkit.org/show_bug.cgi?id=39019
+
+        The way it works currently is using the QComboBox::show/hidePopup
+        virtual method to catch popup requests in the middle. There is
+        some cases however that the popup widget gets closed without
+        going through the hidePopup method.
+
+        This patch adds an event filter to the popup's view to know when
+        it gets closed and calls hidePopup to call our handling code.
+        This may get hidePopup called twice but this shouldn't have any
+        effect.
+
+        * WebCoreSupport/QtFallbackWebPopup.cpp:
+        (WebCore::QtFallbackWebPopupCombo::QtFallbackWebPopupCombo):
+        (WebCore::QtFallbackWebPopupCombo::eventFilter):
+        * WebCoreSupport/QtFallbackWebPopup.h:
+
+2010-06-30  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Unreviewed Symbian build fix.
+
+        [Qt] Update the def files to link DumpRenderTree.
+
+        * symbian/eabi/QtWebKitu.def:
+
+2010-06-30  Samuel Nevala  <samuel.nevala@digia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Auto test wont compile from \3rdparty\webkit\WebKit\qt\tests
+        https://bugs.webkit.org/show_bug.cgi?id=38720
+        
+        Load qttest_p4.prf under QTDIR_build.
+
+        * tests/tests.pri:
+
+2010-06-29  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] support dumpResourceResponseMIMETypes
+        https://bugs.webkit.org/show_bug.cgi?id=41260
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::dumpResourceResponseMIMETypes):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::dispatchDidReceiveResponse):
+        * WebCoreSupport/FrameLoaderClientQt.h:
+
+2010-06-28  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Unreviewed Symbian build fix.
+
+        [Qt] Update the def file after r61879.
+
+        * symbian/eabi/QtWebKitu.def:
+
+2010-06-28  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] QGraphicsWebView crash when calling setScale() before setUrl()
+        https://bugs.webkit.org/show_bug.cgi?id=40000
+
+        Check 'page' before dereference in _q_scaleChanged()
+        Autotest included.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::_q_scaleChanged):
+        * tests/qgraphicswebview/tst_qgraphicswebview.cpp:
+        (tst_QGraphicsWebView::crashOnSetScaleBeforeSetUrl):
+
+2010-06-26  Simon Hausmann  <hausmann@webkit.org>
+
+        [Qt] Prospective build fix for MSVC
+
+        In order for the forward declaration of QWebScriptWorldPrivate
+        to work with QExplicitlySharedDataPointer, then copy constructor
+        and assignment operators must not be compiler generated, to
+        avoid them ending up in places where the private class is not
+        declared.
+
+        * Api/qwebscriptworld.cpp:
+        (QWebScriptWorld::QWebScriptWorld):
+        (QWebScriptWorld::operator=):
+        * Api/qwebscriptworld.h:
+
+2010-06-26  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] DRT Support for setCustomPolicyDelegate
+
+        https://bugs.webkit.org/show_bug.cgi?id=39564
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::setCustomPolicyDelegate):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (drtDescriptionSuitableForTestResult):
+        (WebCore::navigationTypeToString):
+        (WebCore::FrameLoaderClientQt::dispatchDecidePolicyForNavigationAction):
+        * WebCoreSupport/FrameLoaderClientQt.h:
+
+2010-06-25  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] QtWebKit crashes if <select>'s render changes in its onchange event
+        https://bugs.webkit.org/show_bug.cgi?id=41164
+
+        QtWebKit crashes if <select>'s renderer changes in its onchange event.
+
+        * WebCoreSupport/QtFallbackWebPopup.cpp:
+        (WebCore::QtFallbackWebPopup::~QtFallbackWebPopup):
+
+2010-06-25  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Support evaluateScriptInIsolatedWorld()
+
+        https://bugs.webkit.org/show_bug.cgi?id=40079
+
+        Remove evaluateScriptInIsolatedWorld() from QtWebKit API.
+        Remove QWebScriptWorld from exported headers.
+        Confine support to DumpRenderTreeSupportQt so that the tests can pass.
+
+        * Api/headers.pri:
+        * Api/qwebframe.cpp:
+        * Api/qwebframe.h:
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::clearScriptWorlds):
+        (DumpRenderTreeSupportQt::evaluateScriptInIsolatedWorld):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
 2010-06-24  Simon Hausmann  <simon.hausmann@nokia.com>
 
         Unreviewed Symbian build fix.

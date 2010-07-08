@@ -48,7 +48,9 @@ public:
     virtual bool removeChild(Node* child, ExceptionCode&);
     virtual bool appendChild(PassRefPtr<Node> newChild, ExceptionCode&, bool shouldLazyAttach = false);
 
-    virtual ContainerNode* addChild(PassRefPtr<Node>);
+    virtual ContainerNode* legacyParserAddChild(PassRefPtr<Node>);
+    virtual void parserAddChild(PassRefPtr<Node>);
+
     bool hasChildNodes() const { return m_firstChild; }
     virtual void attach();
     virtual void detach();
@@ -89,10 +91,13 @@ protected:
 
     void setFirstChild(Node* child) { m_firstChild = child; }
     void setLastChild(Node* child) { m_lastChild = child; }
-    
+
 private:
+    // FIXME: This should take a PassRefPtr.
+    void addChildCommon(Node*);
+
     static void dispatchPostAttachCallbacks();
-    
+
     bool getUpperLeftCorner(FloatPoint&) const;
     bool getLowerRightCorner(FloatPoint&) const;
 

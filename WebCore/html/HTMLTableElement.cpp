@@ -251,18 +251,18 @@ void HTMLTableElement::deleteRow(int index, ExceptionCode& ec)
     row->remove(ec);
 }
 
-ContainerNode* HTMLTableElement::addChild(PassRefPtr<Node> child)
+ContainerNode* HTMLTableElement::legacyParserAddChild(PassRefPtr<Node> child)
 {
     if (child->hasTagName(formTag)) {
         // First add the child.
-        HTMLElement::addChild(child);
+        HTMLElement::legacyParserAddChild(child);
 
         // Now simply return ourselves as the container to insert into.
         // This has the effect of demoting the form to a leaf and moving it safely out of the way.
         return this;
     }
 
-    return HTMLElement::addChild(child.get());
+    return HTMLElement::legacyParserAddChild(child.get());
 }
 
 bool HTMLTableElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
@@ -669,94 +669,14 @@ PassRefPtr<HTMLCollection> HTMLTableElement::tBodies()
     return HTMLCollection::create(this, TableTBodies);
 }
 
-String HTMLTableElement::align() const
-{
-    return getAttribute(alignAttr);
-}
-
-void HTMLTableElement::setAlign(const String &value)
-{
-    setAttribute(alignAttr, value);
-}
-
-String HTMLTableElement::bgColor() const
-{
-    return getAttribute(bgcolorAttr);
-}
-
-void HTMLTableElement::setBgColor(const String &value)
-{
-    setAttribute(bgcolorAttr, value);
-}
-
-String HTMLTableElement::border() const
-{
-    return getAttribute(borderAttr);
-}
-
-void HTMLTableElement::setBorder(const String &value)
-{
-    setAttribute(borderAttr, value);
-}
-
-String HTMLTableElement::cellPadding() const
-{
-    return getAttribute(cellpaddingAttr);
-}
-
-void HTMLTableElement::setCellPadding(const String &value)
-{
-    setAttribute(cellpaddingAttr, value);
-}
-
-String HTMLTableElement::cellSpacing() const
-{
-    return getAttribute(cellspacingAttr);
-}
-
-void HTMLTableElement::setCellSpacing(const String &value)
-{
-    setAttribute(cellspacingAttr, value);
-}
-
-String HTMLTableElement::frame() const
-{
-    return getAttribute(frameAttr);
-}
-
-void HTMLTableElement::setFrame(const String &value)
-{
-    setAttribute(frameAttr, value);
-}
-
 String HTMLTableElement::rules() const
 {
     return getAttribute(rulesAttr);
 }
 
-void HTMLTableElement::setRules(const String &value)
-{
-    setAttribute(rulesAttr, value);
-}
-
 String HTMLTableElement::summary() const
 {
     return getAttribute(summaryAttr);
-}
-
-void HTMLTableElement::setSummary(const String &value)
-{
-    setAttribute(summaryAttr, value);
-}
-
-String HTMLTableElement::width() const
-{
-    return getAttribute(widthAttr);
-}
-
-void HTMLTableElement::setWidth(const String &value)
-{
-    setAttribute(widthAttr, value);
 }
 
 void HTMLTableElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const

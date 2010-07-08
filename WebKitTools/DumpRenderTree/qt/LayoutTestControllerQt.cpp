@@ -35,7 +35,6 @@
 #include "WorkQueueItemQt.h"
 #include <QDir>
 #include <QLocale>
-#include <qwebscriptworld.h>
 #include <qwebsettings.h>
 
 LayoutTestController::LayoutTestController(WebCore::DumpRenderTree* drt)
@@ -54,6 +53,7 @@ void LayoutTestController::reset()
     m_textDump = false;
     m_dumpBackForwardList = false;
     m_dumpChildrenAsText = false;
+    m_dumpChildFrameScrollPositions = false;
     m_canOpenWindows = false;
     m_waitForDone = false;
     m_dumpTitleChanges = false;
@@ -65,14 +65,18 @@ void LayoutTestController::reset()
     m_handleErrorPages = false;
     m_webHistory = 0;
     m_globalFlag = false;
+    m_userStyleSheetEnabled = false;
     m_desktopNotificationAllowedOrigins.clear();
 
     DumpRenderTreeSupportQt::dumpEditingCallbacks(false);
     DumpRenderTreeSupportQt::dumpFrameLoader(false);
     DumpRenderTreeSupportQt::dumpResourceLoadCallbacks(false);
+    DumpRenderTreeSupportQt::dumpResourceResponseMIMETypes(false);
     DumpRenderTreeSupportQt::setWillSendRequestReturnsNullOnRedirect(false);
     DumpRenderTreeSupportQt::setWillSendRequestReturnsNull(false);
     DumpRenderTreeSupportQt::setWillSendRequestClearHeaders(QStringList());
+    DumpRenderTreeSupportQt::clearScriptWorlds();
+    DumpRenderTreeSupportQt::setCustomPolicyDelegate(false, false);
     setIconDatabaseEnabled(false);
 
     emit hidePage();
@@ -223,6 +227,11 @@ void LayoutTestController::dumpFrameLoadCallbacks()
 void LayoutTestController::dumpResourceLoadCallbacks()
 {
     DumpRenderTreeSupportQt::dumpResourceLoadCallbacks(true);
+}
+
+void LayoutTestController::dumpResourceResponseMIMETypes()
+{
+    DumpRenderTreeSupportQt::dumpResourceResponseMIMETypes(true);
 }
 
 void LayoutTestController::setWillSendRequestReturnsNullOnRedirect(bool enabled)
@@ -490,6 +499,11 @@ void LayoutTestController::removeOriginAccessWhitelistEntry(const QString& sourc
     DumpRenderTreeSupportQt::removeWhiteListAccessFromOrigin(sourceOrigin, destinationProtocol, destinationHost, allowDestinationSubdomains);
 }
 
+void LayoutTestController::setCustomPolicyDelegate(bool enabled, bool permissive)
+{
+    DumpRenderTreeSupportQt::setCustomPolicyDelegate(enabled, permissive);
+}
+
 void LayoutTestController::waitForPolicyDelegate()
 {
     m_waitForPolicy = true;
@@ -524,6 +538,9 @@ void LayoutTestController::overridePreference(const QString& name, const QVarian
 void LayoutTestController::setUserStyleSheetLocation(const QString& url)
 {
     m_userStyleSheetLocation = QUrl(url);
+
+    if (m_userStyleSheetEnabled)
+        setUserStyleSheetEnabled(true);
 }
 
 void LayoutTestController::setCaretBrowsingEnabled(bool value)
@@ -533,6 +550,8 @@ void LayoutTestController::setCaretBrowsingEnabled(bool value)
 
 void LayoutTestController::setUserStyleSheetEnabled(bool enabled)
 {
+    m_userStyleSheetEnabled = enabled;
+
     if (enabled)
         m_drt->webPage()->settings()->setUserStyleSheetUrl(m_userStyleSheetLocation);
     else
@@ -665,16 +684,7 @@ void LayoutTestController::setMockGeolocationPosition(double latitude, double lo
 
 void LayoutTestController::evaluateScriptInIsolatedWorld(int worldID, const QString& script)
 {
-    QWebScriptWorld* scriptWorld;
-    if (!worldID) {
-        scriptWorld = new QWebScriptWorld();
-    } else if (!m_worldMap.contains(worldID)) {
-        scriptWorld = new QWebScriptWorld();
-        m_worldMap.insert(worldID, scriptWorld);
-    } else
-        scriptWorld = m_worldMap.value(worldID);
-
-    m_drt->webPage()->mainFrame()->evaluateScriptInIsolatedWorld(scriptWorld, script);
+    DumpRenderTreeSupportQt::evaluateScriptInIsolatedWorld(m_drt->webPage()->mainFrame(), worldID, script);
 }
 
 const unsigned LayoutTestController::maxViewWidth = 800;

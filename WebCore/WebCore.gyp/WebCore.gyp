@@ -202,6 +202,8 @@
       # FIXME: I don't know why these are excluded, either.
       # Someone (me?) should figure it out and add appropriate comments.
       '../css/CSSUnknownRule.idl',
+
+      '../dom/DOMStringMap.idl',
     ],
 
     'conditions': [
@@ -659,6 +661,13 @@
           'dependencies': [
             '<(chromium_src_dir)/v8/tools/gyp/v8.gyp:v8',
           ],
+          'conditions': [
+            ['inside_chromium_build==1 and OS=="win" and component=="shared_library"', {
+              'defines': [
+                'USING_V8_SHARED',
+              ],
+            }],
+          ],
         }],
         ['enable_svg!=0', {
           'sources': [
@@ -880,6 +889,13 @@
           ],
           'export_dependent_settings': [
             '<(chromium_src_dir)/v8/tools/gyp/v8.gyp:v8',
+          ],
+          'conditions': [
+            ['inside_chromium_build==1 and OS=="win" and component=="shared_library"', {
+              'defines': [
+                'USING_V8_SHARED',
+              ],
+            }],
           ],
         }],
         ['enable_svg!=0', {

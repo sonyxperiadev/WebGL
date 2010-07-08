@@ -35,8 +35,7 @@ namespace WebCore {
 
 class SVGInlineTextBox;
 
-class SVGRootInlineBox : public RootInlineBox
-                       , protected SVGRenderBase {
+class SVGRootInlineBox : public RootInlineBox {
 public:
     SVGRootInlineBox(RenderObject* obj)
         : RootInlineBox(obj)
@@ -49,7 +48,7 @@ public:
     virtual int virtualHeight() const { return m_height; }
     void setHeight(int height) { m_height = height; }
 
-    virtual void paint(RenderObject::PaintInfo&, int tx, int ty);
+    virtual void paint(PaintInfo&, int tx, int ty);
 
     void computePerCharacterLayoutInformation();
 

@@ -241,7 +241,10 @@ void LayerRendererChromium::setRootLayerCanvasSize(const IntSize& size)
     // the old ones.
     m_rootLayerCanvas = new skia::PlatformCanvas(size.width(), size.height(), false);
     m_rootLayerSkiaContext = new PlatformContextSkia(m_rootLayerCanvas.get());
+#if OS(WINDOWS)
+    // FIXME: why is this is a windows-only call ?
     m_rootLayerSkiaContext->setDrawingToImageBuffer(true);
+#endif
     m_rootLayerGraphicsContext = new GraphicsContext(reinterpret_cast<PlatformGraphicsContext*>(m_rootLayerSkiaContext.get()));
 #else
 #error "Need to implement for your platform."
@@ -622,11 +625,6 @@ void LayerRendererChromium::drawLayer(LayerChromium* layer)
             // Update the backing texture contents for any dirty portion of the layer.
             layer->updateTextureContents(textureId);
         }
-
-        // FIXME: This is temporary until WebGL layers stop changing the current
-        // context.
-        if (layer->ownsTexture())
-            makeContextCurrent();
 
         if (layer->doubleSided())
             glDisable(GL_CULL_FACE);

@@ -85,13 +85,10 @@ public:
     bool formWouldHaveSecureSubmission(const String& url);
 
     String name() const;
-    void setName(const String&);
 
     bool noValidate() const;
-    void setNoValidate(bool);
 
     String acceptCharset() const { return m_formDataBuilder.acceptCharset(); }
-    void setAcceptCharset(const String&);
 
     String action() const;
     void setAction(const String&);
@@ -100,7 +97,6 @@ public:
     void setMethod(const String&);
 
     virtual String target() const;
-    void setTarget(const String&);
 
     HTMLFormControlElement* defaultButton() const;
 

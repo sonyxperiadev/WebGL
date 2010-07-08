@@ -133,7 +133,8 @@ private Q_SLOTS:
 
 private:
     QString dumpFramesAsText(QWebFrame* frame);
-    QString dumpBackForwardList();
+    QString dumpBackForwardList(QWebPage* page);
+    QString dumpFrameScrollPosition(QWebFrame* frame);
     LayoutTestController *m_controller;
 
     bool m_dumpPixels;
@@ -198,12 +199,8 @@ protected:
     bool isTextOutputEnabled() { return m_drt->isTextOutputEnabled(); }
 
 private slots:
-    void setViewGeometry(const QRect &r)
-    {
-        QWidget *v = view();
-        if (v)
-            v->setGeometry(r);
-    }
+    void setViewGeometry(const QRect&);
+
 private:
     QWebInspector* m_webInspector;
     DumpRenderTree *m_drt;

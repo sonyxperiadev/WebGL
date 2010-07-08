@@ -1,3 +1,553 @@
+2010-07-05  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [v8] Web Inspector: remove v8-specific code dealing with getOwnPropertyNames from InjectedScript.js
+        https://bugs.webkit.org/show_bug.cgi?id=41595
+
+        * src/js/DebuggerScript.js:
+
+2010-07-03  Erik Arvidsson  <arv@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        Fix issue where a contextmenu event was reporting the wrong target
+        if the context menu was shown due to pressing the context menu key
+        (or Shift+F10).
+
+        https://bugs.webkit.org/show_bug.cgi?id=38129
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::sendContextMenuEvent):
+
+2010-07-02  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [v8] Web Inspector: inspected page crashes on attempt to change iframe's src attribute
+        https://bugs.webkit.org/show_bug.cgi?id=41511
+
+        * src/WebBindings.cpp:
+        (WebKit::getEvent):
+
+2010-07-01  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r62349.
+        http://trac.webkit.org/changeset/62349
+        https://bugs.webkit.org/show_bug.cgi?id=41499
+
+        It broke the chromium Linux build. (Requested by dave_levin on
+        #webkit).
+
+        * public/WebNode.h:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::registerPasswordListener):
+        (WebKit::WebFrameImpl::notifiyPasswordListenerOfAutocomplete):
+
+2010-07-01  David Holloway  <dhollowa@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Exposes WebNode::unwrap() and WebNode::constUnwrap() for 
+        use by other code in WebKit/chromium/src.
+
+        Specific use of these methods is made in WebFrameImpl.cpp.  This is
+        preferred to the cast operator call that was happening prior to this
+        change.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41477
+
+        * public/WebNode.h:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::registerPasswordListener):
+        (WebKit::WebFrameImpl::notifiyPasswordListenerOfAutocomplete):
+
+2010-07-01  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Stop linking against opengl32.lib in Windows Chromium port
+        https://bugs.webkit.org/show_bug.cgi?id=41424
+
+        * WebKit.gyp:
+        * src/WebGraphicsContext3DDefaultImpl.cpp:
+        (WebKit::WebGraphicsContext3DDefaultImpl::~WebGraphicsContext3DDefaultImpl):
+        (WebKit::WebGraphicsContext3DDefaultImpl::initialize):
+        (WebKit::WebGraphicsContext3DDefaultImpl::makeContextCurrent):
+        * src/WebGraphicsContext3DDefaultImpl.h:
+
+2010-07-01  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r62246.
+        http://trac.webkit.org/changeset/62246
+        https://bugs.webkit.org/show_bug.cgi?id=41470
+
+        "Worker tests are broken in Chromium" (Requested by yurys on
+        #webkit).
+
+        * src/WebBindings.cpp:
+        (WebKit::getEvent):
+
+2010-07-01  David Holloway  <dhollowa@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Consolidates AutoFill and Autocomplete popup menus into a single popup menu.
+
+        This change combines SuggestionsPopupMenuClient, AutoFillPopupMenuClient, and 
+        AutocompletePopupMenuClient classes into a single consolidated AutoFillPopupMenuClient class.
+        Prior to this change the contents of the AutoFill popup menu only included AutoFill
+        suggestions and similarly the Autocomplete popup menu only included Autocomplete
+        suggestions.  With this consolidation, both AutoFill and Autocomplete suggestions can
+        now be displayed in a single menu.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41236
+
+        * WebKit.gyp:
+        * public/WebFrame.h:
+        * public/WebView.h:
+        * src/AutoFillPopupMenuClient.cpp:
+        (WebKit::AutoFillPopupMenuClient::AutoFillPopupMenuClient):
+        (WebKit::AutoFillPopupMenuClient::~AutoFillPopupMenuClient):
+        (WebKit::AutoFillPopupMenuClient::valueChanged):
+        (WebKit::AutoFillPopupMenuClient::selectionCleared):
+        (WebKit::AutoFillPopupMenuClient::itemText):
+        (WebKit::AutoFillPopupMenuClient::itemStyle):
+        (WebKit::AutoFillPopupMenuClient::menuStyle):
+        (WebKit::AutoFillPopupMenuClient::clientPaddingLeft):
+        (WebKit::AutoFillPopupMenuClient::clientPaddingRight):
+        (WebKit::AutoFillPopupMenuClient::popupDidHide):
+        (WebKit::AutoFillPopupMenuClient::setTextFromItem):
+        (WebKit::AutoFillPopupMenuClient::fontSelector):
+        (WebKit::AutoFillPopupMenuClient::hostWindow):
+        (WebKit::AutoFillPopupMenuClient::createScrollbar):
+        (WebKit::AutoFillPopupMenuClient::initialize):
+        (WebKit::AutoFillPopupMenuClient::getWebView):
+        (WebKit::AutoFillPopupMenuClient::textFieldStyle):
+        * src/AutoFillPopupMenuClient.h:
+        (WebKit::AutoFillPopupMenuClient::itemToolTip):
+        (WebKit::AutoFillPopupMenuClient::itemAccessibilityText):
+        (WebKit::AutoFillPopupMenuClient::itemIsEnabled):
+        (WebKit::AutoFillPopupMenuClient::clientInsetLeft):
+        (WebKit::AutoFillPopupMenuClient::clientInsetRight):
+        (WebKit::AutoFillPopupMenuClient::listSize):
+        (WebKit::AutoFillPopupMenuClient::selectedIndex):
+        (WebKit::AutoFillPopupMenuClient::itemIsLabel):
+        (WebKit::AutoFillPopupMenuClient::itemIsSelected):
+        (WebKit::AutoFillPopupMenuClient::shouldPopOver):
+        (WebKit::AutoFillPopupMenuClient::valueShouldChangeOnHotTrack):
+        (WebKit::AutoFillPopupMenuClient::setAutocompleteMode):
+        (WebKit::AutoFillPopupMenuClient::getTextField):
+        (WebKit::AutoFillPopupMenuClient::getSelectedIndex):
+        (WebKit::AutoFillPopupMenuClient::setSelectedIndex):
+        * src/AutocompletePopupMenuClient.cpp: Removed.
+        * src/AutocompletePopupMenuClient.h: Removed.
+        * src/EditorClientImpl.cpp:
+        (WebKit::EditorClientImpl::textFieldDidEndEditing):
+        (WebKit::EditorClientImpl::doAutofill):
+        (WebKit::EditorClientImpl::onAutocompleteSuggestionAccepted):
+        * src/SuggestionsPopupMenuClient.cpp: Removed.
+        * src/SuggestionsPopupMenuClient.h: Removed.
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::currentHistoryItem):
+        (WebKit::WebFrameImpl::notifiyPasswordListenerOfAutocomplete):
+        * src/WebFrameImpl.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::):
+        (WebKit::WebViewImpl::WebViewImpl):
+        (WebKit::WebViewImpl::mouseDown):
+        (WebKit::WebViewImpl::mouseUp):
+        (WebKit::WebViewImpl::selectPopupHandleKeyEvent):
+        (WebKit::WebViewImpl::autocompleteHandleKeyEvent):
+        (WebKit::WebViewImpl::hideAutoFillPopup):
+        (WebKit::WebViewImpl::setFocus):
+        (WebKit::WebViewImpl::applyAutoFillSuggestions):
+        (WebKit::WebViewImpl::applyAutocompleteSuggestions):
+        (WebKit::WebViewImpl::hidePopups):
+        (WebKit::WebViewImpl::refreshAutoFillPopup):
+        * src/WebViewImpl.h:
+        (WebKit::WebViewImpl::autoFillPopupDidHide):
+
+2010-07-01  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        [v8] Web Inspector: inspected page crashes on attempt to change iframe's src attribute
+        https://bugs.webkit.org/show_bug.cgi?id=41350
+
+        * src/WebBindings.cpp:
+        (WebKit::getEvent):
+
+2010-07-01  Aaron Boodman  <aa@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Make the user script API static. This makes it more convenient to use
+        if you don't have a WebView instance yet.
+
+        Added static versions of the three methods and re-route current ones
+        temporarily through the static versions. Will remove the non-static
+        versions once Chromium has been updated.
+
+        Also, expose the URLPattern configuration for user stylesheets, since
+        they were not before.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41385
+
+        * public/WebView.h:
+        (WebKit::WebView::addUserScript):
+        (WebKit::WebView::addUserStyleSheet):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebView::addUserScript):
+        (WebKit::WebView::addUserStyleSheet):
+        (WebKit::WebView::removeAllUserContent):
+
+2010-06-30  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Roll forward Chromium DEPS to r51287
+        https://bugs.webkit.org/show_bug.cgi?id=41430
+
+        * DEPS:
+
+2010-06-25  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Chrome DevTools: Finalize migration to new WebView constructor
+        (devtools agent is now created within WebViewImpl only).
+
+        https://bugs.webkit.org/show_bug.cgi?id=41212
+
+        * public/WebDevToolsAgent.h:
+        * public/WebView.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+        * src/WebViewImpl.h:
+        * src/WebWorkerBase.cpp:
+        (WebKit::WebWorkerBase::initializeLoader):
+        * tests/PopupMenuTest.cpp:
+        (WebKit::SelectPopupMenuTest::SetUp):
+
+2010-06-29  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Implement getAttachedShaders
+        https://bugs.webkit.org/show_bug.cgi?id=31172
+
+        * public/WebGraphicsContext3D.h: Declaration of getAttachedShaders().
+        * src/GraphicsContext3D.cpp: Implementation of getAttachedShaders().
+        * src/WebGraphicsContext3DDefaultImpl.cpp: Ditto.
+        * src/WebGraphicsContext3DDefaultImpl.h: Declaration of getAttachedShaders().
+
+2010-06-29  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Simplify the WebDatabase interface.
+        https://bugs.webkit.org/show_bug.cgi?id=40607
+
+        Do not ref()/deref() the private AbstractDatabase member. This
+        allows us to use WebDatabase in the destructors of the DB
+        classes.
+
+        * public/WebDatabase.h:
+        (WebKit::WebDatabase::WebDatabase):
+        * src/WebDatabase.cpp:
+        (WebKit::WebDatabase::name):
+        (WebKit::WebDatabase::displayName):
+        (WebKit::WebDatabase::estimatedSize):
+        (WebKit::WebDatabase::securityOrigin):
+        (WebKit::WebDatabase::WebDatabase):
+
+2010-06-29  Zhe Su  <suzhe@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        A crash caused by the patch of bug 40608.
+        https://bugs.webkit.org/show_bug.cgi?id=41334
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::caretOrSelectionBounds):
+
+2010-06-29  Victor Wang  <victorw@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium]: Update webkit for chromium multi dll build.
+
+        1. Export more webkit APIs for chromium multi dll build.
+        2. Update DumpRenderTree sources so it can build with webkit.dll
+        3. Temp disable webkit unit tests for chromium multi dll build.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41231
+
+        * WebKit.gyp:
+        * public/WebAccessibilityCache.h:
+        * public/WebAccessibilityObject.h:
+        * public/WebEventListener.h:
+        * public/WebGeolocationServiceMock.h:
+        * public/WebGraphicsContext3D.h:
+        * public/WebIDBDatabaseError.h:
+        (WebKit::WebIDBDatabaseError::WebIDBDatabaseError):
+        (WebKit::WebIDBDatabaseError::operator=):
+        * public/WebNotification.h:
+        * public/WebPasswordFormData.h:
+        * public/WebSearchableFormData.h:
+        * public/WebStorageEventDispatcher.h:
+        * public/WebString.h:
+        (WebKit::WebString::WebString):
+        (WebKit::WebString::operator=):
+
+2010-06-29  Vangelis Kokkevis  <vangelis@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Hooking up GraphicsContext3D to the gpu compositor.
+        GraphicsContext3DInternal is now initialized with a pointer to the HostWindow
+        that corresponds to the WebView containing the context. The initializer
+        forces a WebGLES2Context to be created for the WebView (if one doesn't already
+        exist) and uses the view's GL context as a parent to the GL context created
+        for WebGL. This allows the compositor to read the texture associated with 
+        WebGL's frame buffer. We also plumb though GraphicsContext3D's prepareTexture
+        and platformLayer methods which are required by the compositor code.
+        https://bugs.webkit.org/show_bug.cgi?id=41243
+
+        * public/WebGraphicsContext3D.h:
+        * public/WebView.h:
+            Made gles2Context() a virtual method on WebView instead of WebViewImpl
+            to allow access to it from GraphicsContext3DInternal::initialize().
+        * src/GraphicsContext3D.cpp:
+        (WebCore::GraphicsContext3DInternal::initialize):
+        (WebCore::GraphicsContext3DInternal::platformGraphicsContext3D):
+        (WebCore::GraphicsContext3DInternal::platformTexture):
+        (WebCore::GraphicsContext3DInternal::prepareTexture):
+        (WebCore::GraphicsContext3DInternal::platformLayer):
+        (WebCore::GraphicsContext3D::create):
+        (WebCore::GraphicsContext3D::prepareTexture):
+        (WebCore::GraphicsContext3D::platformLayer):
+        * src/WebGraphicsContext3DDefaultImpl.cpp:
+        (WebKit::WebGraphicsContext3DDefaultImpl::initialize):
+        (WebKit::WebGraphicsContext3DDefaultImpl::getPlatformTextureId):
+        (WebKit::WebGraphicsContext3DDefaultImpl::prepareTexture):
+        * src/WebGraphicsContext3DDefaultImpl.h:
+        * src/WebViewImpl.h:
+
+2010-06-29  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: return line number where breakpoint was actually set by v8 from setBreakpoint function.
+        https://bugs.webkit.org/show_bug.cgi?id=40781
+
+        * src/js/DebuggerScript.js:
+        ():
+
+2010-06-23  John Gregg  <johnnyg@google.com>
+
+        Reviewed by Kent Tamura.
+
+        add ENABLE_DIRECTORY_UPLOAD build support
+        https://bugs.webkit.org/show_bug.cgi?id=41100
+
+        * features.gypi:
+
+2010-06-28  Zhe Su  <suzhe@chromium.org>
+
+        Reviewed by Jian Li.
+
+        [chromium]Remove deprecated code related to input method.
+        https://bugs.webkit.org/show_bug.cgi?id=41244
+
+        Also update TestWebWidget in tests/PopupMenuTest.cpp to add missing implementations.
+
+        * WebKit.gyp:
+        * public/WebCompositionCommand.h: Removed.
+        * public/WebViewClient.h:
+        * public/WebWidget.h:
+        * src/EditorClientImpl.cpp:
+        (WebKit::EditorClientImpl::setInputMethodState):
+        * src/WebPopupMenuImpl.cpp:
+        * src/WebPopupMenuImpl.h:
+        * src/WebViewImpl.cpp:
+        * src/WebViewImpl.h:
+        * tests/PopupMenuTest.cpp:
+        (WebKit::TestWebWidget::setComposition):
+        (WebKit::TestWebWidget::confirmComposition):
+        (WebKit::TestWebWidget::textInputType):
+        (WebKit::TestWebWidget::caretOrSelectionBounds):
+
+2010-06-27  John Abd-El-Malek  <jam@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Get the selected text from plugins for right click menu
+        https://bugs.webkit.org/show_bug.cgi?id=41242
+
+        * public/WebContextMenuData.h:
+        (WebKit::WebContextMenuData::):
+        * public/WebPlugin.h:
+        (WebKit::WebPlugin::selectedText):
+        * src/ContextMenuClientImpl.cpp:
+        (WebKit::ContextMenuClientImpl::getCustomMenuFromDefaultItems):
+        * src/WebPluginContainerImpl.cpp:
+        (WebKit::WebPluginContainerImpl::selectedText):
+        * src/WebPluginContainerImpl.h:
+
+2010-06-28  Yury Semikhatsky  <yurys@chromium.org>
+
+        Unreviewed. Fix Chromium debugger tests.
+
+        * src/js/Tests.js:
+        (.TestSuite.prototype.testDebugIntrinsicProperties):
+
+2010-06-25  Yuzo Fujishima  <yuzo@google.com>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Improve default value handling for page format properties.
+        https://bugs.webkit.org/show_bug.cgi?id=41150
+
+        * public/WebFrame.h:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::pageSizeAndMarginsInPixels):
+        * src/WebFrameImpl.h:
+
+2010-06-26  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r61943.
+        http://trac.webkit.org/changeset/61943
+        https://bugs.webkit.org/show_bug.cgi?id=41251
+
+        Totally breaks webkit_unit_tests on Chromium linux and mac
+        (Requested by mnaganov on #webkit).
+
+        * WebKit.gyp:
+        * src/WebFrameImpl.cpp:
+        (WebKit::frameContentAsPlainText):
+        * tests/RunAllTests.cpp:
+        (main):
+        * tests/WebFrameTest.cpp: Removed.
+        * tests/data/iframes_test.html: Removed.
+        * tests/data/invisible_iframe.html: Removed.
+        * tests/data/visible_iframe.html: Removed.
+        * tests/data/zero_sized_iframe.html: Removed.
+
+2010-06-26  Tony Gentilcore  <tonyg@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Disable Web Timing support by default for chromium port.
+        https://bugs.webkit.org/show_bug.cgi?id=38924
+
+        * features.gypi:
+
+2010-06-25  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Made WebFrame not report the text from hidden frames.
+        (some pages contain hidden frames with garbage text that
+        should not be indexed or used to detect the page's language).
+        https://bugs.webkit.org/show_bug.cgi?id=39456
+
+        * DEPS:
+        * WebKit.gyp:
+        * src/WebFrameImpl.cpp:
+        (WebKit::frameContentAsPlainText):
+        * tests/RunAllTests.cpp:
+        (main):
+        * tests/WebFrameTest.cpp: Added.
+        * tests/data: Added.
+        * tests/data/iframes_test.html: Added.
+        * tests/data/invisible_iframe.html: Added.
+        * tests/data/visible_iframe.html: Added.
+        * tests/data/zero_sized_iframe.html: Added.
+
+2010-06-25  Bernhard Bauer  <bauerb@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Add plugin accessors to WebPluginContainer.
+        https://bugs.webkit.org/show_bug.cgi?id=41145
+
+        * public/WebPluginContainer.h:
+        * src/WebPluginContainerImpl.h:
+        (WebKit::WebPluginContainerImpl::setPlugin):
+
+2010-06-25  Sterling Swigart  <sswigart@google.com>
+
+        Reviewed by David Levin.
+
+        Resetting ENABLE_IMAGE_RESIZER to 0. Image.webkitGetImage needs to be developed under
+        a 0 value, at least until both the JSC and V8 bindings are in place.
+        https://bugs.webkit.org/show_bug.cgi?id=41116
+
+        * features.gypi: ENABLE_IMAGE_RESIZER=0
+
+2010-06-25  Victor Wang  <victorw@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Update chromium webkit gyp so it has
+        option to be built as DLL.
+
+        Chromium webkit is built as webkit.dll on windows
+        if it is inside chromium build and variable component
+        is set to shared_library.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41161
+
+        * WebKit.gyp:
+
+2010-06-25  John Abd-El-Malek  <jam@chromium.org>
+
+        Reviewed by David Levin.
+
+        [chromium] Send unhandled events to Node's default handler
+        https://bugs.webkit.org/show_bug.cgi?id=41223
+
+        * src/WebPluginContainerImpl.cpp:
+        (WebKit::WebPluginContainerImpl::handleEvent):
+
+2010-06-25  Daniel Cheng  <dcheng@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Add new stubs for querying platform drag-and-drop and copy-and-paste data.
+
+        This change adds new stubs for querying for data in a clipboard or drag operation. This is
+        so adding support for more data types in clipboard/drag operations doesn't become
+        increasingly expensive, since we currently copy all the drag data we need every time a new
+        web drop target is entered. It also adds a new mechanism to write back to the system
+        clipboard that isn't tied to one data type.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40540
+
+        * public/WebClipboard.h:
+        (WebKit::WebClipboard::):
+        (WebKit::WebClipboard::isFormatAvailable):
+        (WebKit::WebClipboard::readPlainText):
+        (WebKit::WebClipboard::readHTML):
+        (WebKit::WebClipboard::writePlainText):
+        (WebKit::WebClipboard::writeHTML):
+        (WebKit::WebClipboard::writeURL):
+        (WebKit::WebClipboard::writeImage):
+        (WebKit::WebClipboard::writeData):
+        (WebKit::WebClipboard::readAvailableTypes):
+        (WebKit::WebClipboard::readData):
+        (WebKit::WebClipboard::readFilenames):
+        * public/WebKitClient.h:
+        * src/AssertMatchingEnums.cpp:
+        * src/ChromiumBridge.cpp:
+        (WebCore::ChromiumBridge::clipboardWriteData):
+        (WebCore::ChromiumBridge::clipboardReadAvailableTypes):
+        (WebCore::ChromiumBridge::clipboardReadData):
+        (WebCore::ChromiumBridge::clipboardReadFilenames):
+
 2010-06-25  Lei Zheng  <lzheng@chromium.org>
 
         Reviewed by Dimitri Glazkov.

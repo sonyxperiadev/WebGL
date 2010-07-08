@@ -43,8 +43,16 @@ namespace WebCore {
         // cacheActiveAttribLocation() is only called once after linkProgram()
         // succeeds.
         bool cacheActiveAttribLocations();
-        int numActiveAttribLocations();
-        int getActiveAttribLocation(int index);
+        int numActiveAttribLocations() const;
+        int getActiveAttribLocation(int index) const;
+
+        bool isUsingVertexAttrib0() const;
+
+        // Return true means getProgramParameter(LINK_STATUS) should return
+        // false; return false means we should actually call
+        // getProgramParameter(LINK_STATUS) to find out.
+        bool isLinkFailureFlagSet() const { return m_linkFailure; }
+        void setLinkFailureFlag(bool failed) { m_linkFailure = failed; }
 
     protected:
         WebGLProgram(WebGLRenderingContext*);
@@ -55,6 +63,8 @@ namespace WebCore {
         virtual bool isProgram() const { return true; }
 
         Vector<int> m_activeAttribLocations;
+
+        bool m_linkFailure;
     };
     
 } // namespace WebCore

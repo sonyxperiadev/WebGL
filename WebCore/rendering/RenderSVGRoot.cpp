@@ -30,6 +30,7 @@
 #include "HitTestResult.h"
 #endif
 #include "RenderSVGContainer.h"
+#include "RenderSVGResource.h"
 #include "RenderView.h"
 #include "SVGLength.h"
 #include "SVGRenderSupport.h"
@@ -121,7 +122,7 @@ void RenderSVGRoot::layout()
     // RenderSVGRoot needs to take special care to propagate window size changes to the children,
     // if the outermost <svg> is using relative x/y/width/height values. Hence the additonal parameters.
     SVGSVGElement* svg = static_cast<SVGSVGElement*>(node());
-    layoutChildren(this, needsLayout || (svg->hasRelativeValues() && oldSize != size()));
+    SVGRenderSupport::layoutChildren(this, needsLayout || (svg->hasRelativeLengths() && oldSize != size()));
     repainter.repaintAfterLayout();
 
     view()->enableLayoutState();
@@ -162,8 +163,8 @@ void RenderSVGRoot::paint(PaintInfo& paintInfo, int parentX, int parentY)
     if (!firstChild() && !selfWillPaint())
         return;
 
-    // Make a copy of the PaintInfo because applyTransformToPaintInfo will modify the damage rect.
-    RenderObject::PaintInfo childPaintInfo(paintInfo);
+    // Make a copy of the PaintInfo because applyTransform will modify the damage rect.
+    PaintInfo childPaintInfo(paintInfo);
     childPaintInfo.context->save();
 
     // Apply initial viewport clip - not affected by overflow handling
@@ -171,20 +172,17 @@ void RenderSVGRoot::paint(PaintInfo& paintInfo, int parentX, int parentY)
 
     // Convert from container offsets (html renderers) to a relative transform (svg renderers).
     // Transform from our paint container's coordinate system to our local coords.
-    applyTransformToPaintInfo(childPaintInfo, localToRepaintContainerTransform(parentOriginInContainer));
-
-    RenderSVGResourceFilter* filter = 0;
-    FloatRect boundingBox = repaintRectInLocalCoordinates();
+    childPaintInfo.applyTransform(localToRepaintContainerTransform(parentOriginInContainer));
 
     bool continueRendering = true;
     if (childPaintInfo.phase == PaintPhaseForeground)
-        continueRendering = prepareToRenderSVGContent(this, childPaintInfo, boundingBox, filter);
+        continueRendering = SVGRenderSupport::prepareToRenderSVGContent(this, childPaintInfo);
 
     if (continueRendering)
         RenderBox::paint(childPaintInfo, 0, 0);
 
     if (childPaintInfo.phase == PaintPhaseForeground)
-        finishRenderSVGContent(this, childPaintInfo, filter, paintInfo.context);
+        SVGRenderSupport::finishRenderSVGContent(this, childPaintInfo, paintInfo.context);
 
     childPaintInfo.context->restore();
 
@@ -194,7 +192,7 @@ void RenderSVGRoot::paint(PaintInfo& paintInfo, int parentX, int parentY)
 
 void RenderSVGRoot::destroy()
 {
-    deregisterFromResources(this);
+    RenderSVGResource::invalidateAllResourcesOfRenderer(this);
     RenderBox::destroy();
 }
 
@@ -202,7 +200,7 @@ void RenderSVGRoot::calcViewport()
 {
     SVGSVGElement* svg = static_cast<SVGSVGElement*>(node());
 
-    if (!selfNeedsLayout() && !svg->hasRelativeValues())
+    if (!selfNeedsLayout() && !svg->hasRelativeLengths())
         return;
 
     if (!svg->hasSetContainerSize()) {
@@ -262,20 +260,20 @@ const AffineTransform& RenderSVGRoot::localToParentTransform() const
 
 FloatRect RenderSVGRoot::objectBoundingBox() const
 {
-    return computeContainerBoundingBox(this, false);
+    return SVGRenderSupport::computeContainerBoundingBox(this, SVGRenderSupport::ObjectBoundingBox);
+}
+
+FloatRect RenderSVGRoot::strokeBoundingBox() const
+{
+    return SVGRenderSupport::computeContainerBoundingBox(this, SVGRenderSupport::StrokeBoundingBox);
 }
 
 FloatRect RenderSVGRoot::repaintRectInLocalCoordinates() const
 {
     // FIXME: This does not include the border but it should!
-    FloatRect repaintRect = computeContainerBoundingBox(this, true);
+    FloatRect repaintRect = SVGRenderSupport::computeContainerBoundingBox(this, SVGRenderSupport::RepaintBoundingBox);
     style()->svgStyle()->inflateForShadow(repaintRect);
     return repaintRect;
-}
-
-AffineTransform RenderSVGRoot::localTransform() const
-{
-    return AffineTransform();
 }
 
 void RenderSVGRoot::computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect& repaintRect, bool fixed)

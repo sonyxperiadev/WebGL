@@ -49,6 +49,7 @@
 #include "PrintContext.h"
 #include "RenderListItem.h"
 #include "RenderTreeAsText.h"
+#include "ScriptController.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
 #if ENABLE(SVG)
@@ -65,11 +66,13 @@
 #include "qwebhistory_p.h"
 #include "qwebpage.h"
 #include "qwebpage_p.h"
+#include "qwebscriptworld.h"
 
 using namespace WebCore;
 
 CheckPermissionFunctionType* checkPermissionFunction = 0;
 RequestPermissionFunctionType* requestPermissionFunction = 0;
+QMap<int, QWebScriptWorld*> m_worldMap;
 
 DumpRenderTreeSupportQt::DumpRenderTreeSupportQt()
 {
@@ -392,6 +395,20 @@ QString DumpRenderTreeSupportQt::markerTextForListItem(const QWebElement& listIt
     return WebCore::markerTextForListItem(listItem.m_element);
 }
 
+static QString convertToPropertyName(const QString& name)
+{
+    QStringList parts = name.split('-');
+    QString camelCaseName;
+    for (int j = 0; j < parts.count(); ++j) {
+        QString part = parts.at(j);
+        if (j)
+            camelCaseName.append(part.replace(0, 1, part.left(1).toUpper()));
+        else
+            camelCaseName.append(part);
+    }
+    return camelCaseName;
+}
+
 QVariantMap DumpRenderTreeSupportQt::computedStyleIncludingVisitedInfo(const QWebElement& element)
 {
     QVariantMap res;
@@ -404,7 +421,7 @@ QVariantMap DumpRenderTreeSupportQt::computedStyleIncludingVisitedInfo(const QWe
     for (int i = 0; i < style->length(); i++) {
         QString name = style->item(i);
         QString value = (static_cast<WebCore::CSSStyleDeclaration*>(style.get()))->getPropertyValue(name);
-        res[name] = QVariant(value);
+        res[convertToPropertyName(name)] = QVariant(value);
     }
     return res;
 }
@@ -510,6 +527,11 @@ void DumpRenderTreeSupportQt::dumpResourceLoadCallbacksPath(const QString& path)
     FrameLoaderClientQt::dumpResourceLoadCallbacksPath = path;
 }
 
+void DumpRenderTreeSupportQt::dumpResourceResponseMIMETypes(bool b)
+{
+    FrameLoaderClientQt::dumpResourceResponseMIMETypes = b;
+}
+
 void DumpRenderTreeSupportQt::setWillSendRequestReturnsNullOnRedirect(bool b)
 {
     FrameLoaderClientQt::sendRequestReturnsNullOnRedirect = b;
@@ -523,6 +545,12 @@ void DumpRenderTreeSupportQt::setWillSendRequestReturnsNull(bool b)
 void DumpRenderTreeSupportQt::setWillSendRequestClearHeaders(const QStringList& headers)
 {
     FrameLoaderClientQt::sendRequestClearHeaders = headers;
+}
+
+void DumpRenderTreeSupportQt::setCustomPolicyDelegate(bool enabled, bool permissive)
+{
+    FrameLoaderClientQt::policyDelegateEnabled = enabled;
+    FrameLoaderClientQt::policyDelegatePermissive = permissive;
 }
 
 void DumpRenderTreeSupportQt::dumpEditingCallbacks(bool b)
@@ -596,17 +624,17 @@ QString DumpRenderTreeSupportQt::historyItemTarget(const QWebHistoryItem& histor
     return (QWebHistoryItemPrivate::core(&it)->target());
 }
 
-QList<QWebHistoryItem> DumpRenderTreeSupportQt::getChildHistoryItems(const QWebHistoryItem& historyItem)
+QMap<QString, QWebHistoryItem> DumpRenderTreeSupportQt::getChildHistoryItems(const QWebHistoryItem& historyItem)
 {
     QWebHistoryItem it = historyItem;
     HistoryItem* item = QWebHistoryItemPrivate::core(&it);
     const WebCore::HistoryItemVector& children = item->children();
 
     unsigned size = children.size();
-    QList<QWebHistoryItem> kids;
+    QMap<QString, QWebHistoryItem> kids;
     for (unsigned i = 0; i < size; ++i) {
         QWebHistoryItem kid(new QWebHistoryItemPrivate(children[i].get()));
-        kids.prepend(kid);
+        kids.insert(DumpRenderTreeSupportQt::historyItemTarget(kid), kid);
     }
     return kids;
 }
@@ -615,6 +643,30 @@ bool DumpRenderTreeSupportQt::shouldClose(QWebFrame* frame)
 {
     WebCore::Frame* coreFrame = QWebFramePrivate::core(frame);
     return coreFrame->loader()->shouldClose();
+}
+
+void DumpRenderTreeSupportQt::clearScriptWorlds()
+{
+    m_worldMap.clear();
+}
+
+void DumpRenderTreeSupportQt::evaluateScriptInIsolatedWorld(QWebFrame* frame, int worldID, const QString& script)
+{
+    QWebScriptWorld* scriptWorld;
+    if (!worldID) {
+        scriptWorld = new QWebScriptWorld();
+    } else if (!m_worldMap.contains(worldID)) {
+        scriptWorld = new QWebScriptWorld();
+        m_worldMap.insert(worldID, scriptWorld);
+    } else
+        scriptWorld = m_worldMap.value(worldID);
+
+    WebCore::Frame* coreFrame = QWebFramePrivate::core(frame);
+
+    ScriptController* proxy = coreFrame->script();
+
+    if (proxy)
+        proxy->executeScriptInWorld(scriptWorld->world(), script, true);
 }
 
 // Provide a backward compatibility with previously exported private symbols as of QtWebKit 4.6 release

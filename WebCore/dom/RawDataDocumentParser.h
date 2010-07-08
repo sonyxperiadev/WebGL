@@ -30,12 +30,6 @@
 
 namespace WebCore {
 
-// FIXME: It seems wrong that RawDataDocumentParser is a subclass of
-// DocumentParser.  RawDataDocumentParser, just wants to override an earlier
-// version of write() before the data is decoded.  Seems the decoding could
-// move into the base-class DocumentParser, and then RawDataDocumentParser
-// would just be short-circuting.  That could simplify some of the
-// DocumentWriter logic.
 class RawDataDocumentParser : public DocumentParser {
 public:
     RawDataDocumentParser(Document* document)
@@ -51,9 +45,14 @@ protected:
     }
 
 private:
-    virtual void write(const SegmentedString&, bool)
+    virtual void insert(const SegmentedString&)
     {
         // <https://bugs.webkit.org/show_bug.cgi?id=25397>: JS code can always call document.write, we need to handle it.
+        ASSERT_NOT_REACHED();
+    }
+
+    virtual void append(const SegmentedString&)
+    {
         ASSERT_NOT_REACHED();
     }
 
@@ -63,11 +62,6 @@ private:
         // deleted after finish().
         return false;
     }
-
-    virtual bool isWaitingForScripts() const { return false; }
-
-    virtual bool wantsRawData() const { return true; }
-    virtual bool writeRawData(const char*, int) { return false; }
 };
 
 };

@@ -70,7 +70,6 @@ class AutocompletePopupMenuClient;
 class AutoFillPopupMenuClient;
 class ContextMenuClientImpl;
 class DragScrollTimer;
-class SuggestionsPopupMenuClient;
 class WebAccessibilityObject;
 class WebDevToolsAgentClient;
 class WebDevToolsAgentPrivate;
@@ -93,22 +92,12 @@ public:
     virtual bool handleInputEvent(const WebInputEvent&);
     virtual void mouseCaptureLost();
     virtual void setFocus(bool enable);
-
-    // DEPRECATED, will be removed later.
-    virtual bool handleCompositionEvent(WebCompositionCommand command,
-                                        int cursorPosition,
-                                        int targetStart,
-                                        int targetEnd,
-                                        const WebString& text);
     virtual bool setComposition(
         const WebString& text,
         const WebVector<WebCompositionUnderline>& underlines,
         int selectionStart,
         int selectionEnd);
     virtual bool confirmComposition();
-
-    // DEPRECATED, will be removed later.
-    virtual bool queryCompositionStatus(bool* enabled, WebRect* caretRect);
     virtual WebTextInputType textInputType();
     virtual WebRect caretOrSelectionBounds();
     virtual void setTextDirection(WebTextDirection direction);
@@ -147,8 +136,8 @@ public:
         const WebPoint& screenPoint,
         WebDragOperation operation);
     virtual void dragSourceMovedTo(
-        const WebPoint& clientPoint, 
-        const WebPoint& screenPoint, 
+        const WebPoint& clientPoint,
+        const WebPoint& screenPoint,
         WebDragOperation operation);
     virtual void dragSourceSystemDragEnded();
     virtual WebDragOperation dragTargetDragEnter(
@@ -174,13 +163,13 @@ public:
     virtual void setInspectorSetting(const WebString& key,
                                      const WebString& value);
     virtual WebDevToolsAgent* devToolsAgent();
-    virtual void setDevToolsAgent(WebDevToolsAgent*);
     virtual WebAccessibilityObject accessibilityObject();
     virtual void applyAutoFillSuggestions(
         const WebNode&,
         const WebVector<WebString>& names,
         const WebVector<WebString>& labels,
         int separatorIndex);
+    // DEPRECATED: replacing with applyAutoFillSuggestions.
     virtual void applyAutocompleteSuggestions(
         const WebNode&,
         const WebVector<WebString>& suggestions,
@@ -194,10 +183,7 @@ public:
                                     unsigned inactiveBackgroundColor,
                                     unsigned inactiveForegroundColor);
     virtual void performCustomContextMenuAction(unsigned action);
-    virtual void addUserScript(const WebString& sourceCode,
-                               bool runAtStart);
-    virtual void addUserStyleSheet(const WebString& sourceCode);
-    virtual void removeAllUserContent();
+    virtual WebGLES2Context* gles2Context();
 
     // WebViewImpl
 
@@ -296,9 +282,9 @@ public:
         const WebImage& dragImage,
         const WebPoint& dragImageOffset);
 
-    void suggestionsPopupDidHide()
+    void autoFillPopupDidHide()
     {
-        m_suggestionsPopupShowing = false;
+        m_autoFillPopupShowing = false;
     }
 
 #if ENABLE(NOTIFICATIONS)
@@ -314,7 +300,7 @@ public:
     void popupOpened(WebCore::PopupContainer* popupContainer);
     void popupClosed(WebCore::PopupContainer* popupContainer);
 
-    void hideSuggestionsPopup();
+    void hideAutoFillPopup();
 
     // HACK: currentInputEvent() is for ChromeClientImpl::show(), until we can
     // fix WebKit to pass enough information up into ChromeClient::show() so we
@@ -335,10 +321,6 @@ public:
     static bool mapKeyCodeForScroll(int keyCode,
                                    WebCore::ScrollDirection* scrollDirection,
                                    WebCore::ScrollGranularity* scrollGranularity);
-
-    // Returns the GLES2Context associated with this WebView. One will be created
-    // if it doesn't already exist.
-    WebGLES2Context* gles2Context();
 
 private:
     friend class WebView;  // So WebView::Create can call our constructor
@@ -361,10 +343,10 @@ private:
     // Returns true if the autocomple has consumed the event.
     bool autocompleteHandleKeyEvent(const WebKeyboardEvent&);
 
-    // Repaints the suggestions popup. Should be called when the suggestions
-    // have changed. Note that this should only be called when the suggestions
+    // Repaints the AutoFill popup. Should be called when the suggestions
+    // have changed. Note that this should only be called when the AutoFill
     // popup is showing.
-    void refreshSuggestionsPopup();
+    void refreshAutoFillPopup();
 
     // Returns true if the view was scrolled.
     bool scrollViewWithKeyboard(int keyCode, int modifiers);
@@ -473,31 +455,17 @@ private:
     // current drop target in this WebView (the drop target can accept the drop).
     WebDragOperation m_dragOperation;
 
-    // Whether a suggestions popup is currently showing.
-    bool m_suggestionsPopupShowing;
-
-    // A pointer to the current suggestions popup menu client. This can be
-    // either an AutoFillPopupMenuClient or an AutocompletePopupMenuClient. We
-    // do not own this pointer.
-    SuggestionsPopupMenuClient* m_suggestionsPopupClient;
+    // Whether an AutoFill popup is currently showing.
+    bool m_autoFillPopupShowing;
 
     // The AutoFill popup client.
     OwnPtr<AutoFillPopupMenuClient> m_autoFillPopupClient;
 
-    // The Autocomplete popup client.
-    OwnPtr<AutocompletePopupMenuClient> m_autocompletePopupClient;
-
-    // A pointer to the current suggestions popup. We do not own this pointer.
-    WebCore::PopupContainer* m_suggestionsPopup;
+    // The AutoFill popup.
+    RefPtr<WebCore::PopupContainer> m_autoFillPopup;
 
     // The popup associated with a select element.
     RefPtr<WebCore::PopupContainer> m_selectPopup;
-
-    // The AutoFill suggestions popup.
-    RefPtr<WebCore::PopupContainer> m_autoFillPopup;
-
-    // The AutoComplete suggestions popup.
-    RefPtr<WebCore::PopupContainer> m_autocompletePopup;
 
     OwnPtr<WebDevToolsAgentPrivate> m_devToolsAgent;
 

@@ -80,7 +80,7 @@ public:
     virtual void selectionStartEnd(int& sPos, int& ePos);
 
 protected:
-    virtual void paint(RenderObject::PaintInfo&, int tx, int ty);
+    virtual void paint(PaintInfo&, int tx, int ty);
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty);
 
 public:
@@ -120,6 +120,9 @@ public:
     virtual int positionForOffset(int offset) const;
 
     bool containsCaretOffset(int offset) const; // false for offset after line break
+
+    // Needs to be public, so the static paintTextWithShadows() function can use it.
+    static FloatSize applyShadowToGraphicsContext(GraphicsContext*, const ShadowData*, const FloatRect& textRect, bool stroked, bool opaque);
 
 private:
     InlineTextBox* m_prevTextBox; // The previous box that also uses our RenderObject

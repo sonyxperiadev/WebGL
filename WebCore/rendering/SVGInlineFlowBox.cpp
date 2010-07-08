@@ -30,7 +30,7 @@
 
 namespace WebCore {
 
-void SVGInlineFlowBox::paint(RenderObject::PaintInfo& paintInfo, int, int)
+void SVGInlineFlowBox::paint(PaintInfo& paintInfo, int, int)
 {
     ASSERT(paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseSelection);
     ASSERT(!paintInfo.context->paintingDisabled());
@@ -38,18 +38,15 @@ void SVGInlineFlowBox::paint(RenderObject::PaintInfo& paintInfo, int, int)
     RenderObject* boxRenderer = renderer();
     ASSERT(boxRenderer);
 
-    RenderObject::PaintInfo childPaintInfo(paintInfo);
+    PaintInfo childPaintInfo(paintInfo);
     childPaintInfo.context->save();
 
-    RenderSVGResourceFilter* filter = 0;
-    FloatRect repaintRect = boxRenderer->repaintRectInLocalCoordinates();
-
-    if (SVGRenderBase::prepareToRenderSVGContent(boxRenderer, childPaintInfo, repaintRect, filter)) {
+    if (SVGRenderSupport::prepareToRenderSVGContent(boxRenderer, childPaintInfo)) {
         for (InlineBox* child = firstChild(); child; child = child->nextOnLine())
             child->paint(childPaintInfo, 0, 0);
     }
 
-    SVGRenderBase::finishRenderSVGContent(boxRenderer, childPaintInfo, filter, paintInfo.context);
+    SVGRenderSupport::finishRenderSVGContent(boxRenderer, childPaintInfo, paintInfo.context);
     childPaintInfo.context->restore();
 }
 

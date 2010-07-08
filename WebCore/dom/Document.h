@@ -37,6 +37,7 @@
 #include "QualifiedName.h"
 #include "ScriptExecutionContext.h"
 #include "Timer.h"
+#include <wtf/FixedArray.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
@@ -100,6 +101,7 @@ namespace WebCore {
     class RegisteredEventListener;
     class RenderArena;
     class RenderView;
+    class ScriptableDocumentParser;
     class ScriptElementData;
     class SecurityOrigin;
     class SerializedScriptValue;
@@ -483,9 +485,16 @@ public:
     void updateLayoutIgnorePendingStylesheets();
     PassRefPtr<RenderStyle> styleForElementIgnoringPendingStylesheets(Element*);
     PassRefPtr<RenderStyle> styleForPage(int pageIndex);
+
+    // Returns true if page box (margin boxes and page borders) is visible.
     bool isPageBoxVisible(int pageIndex);
-    IntRect pageAreaRectInPixels(int pageIndex);
-    IntSize preferredPageSizeInPixels(int pageIndex);
+
+    // Returns the preferred page size and margins in pixels, assuming 96
+    // pixels per inch. pageSize, marginTop, marginRight, marginBottom,
+    // marginLeft must be initialized to the default values that are used if
+    // auto is specified.
+    void pageSizeAndMarginsInPixels(int pageIndex, IntSize& pageSize, int& marginTop, int& marginRight, int& marginBottom, int& marginLeft);
+
     static void updateStyleForAllDocuments(); // FIXME: Try to reduce the # of calls to this function.
     DocLoader* docLoader() { return m_docLoader.get(); }
 
@@ -541,7 +550,8 @@ public:
     CSSStyleSheet* mappedElementSheet();
     
     virtual DocumentParser* createParser();
-    DocumentParser* parser() { return m_parser.get(); }
+    DocumentParser* parser() const { return m_parser.get(); }
+    ScriptableDocumentParser* scriptableDocumentParser() const;
     
     bool printing() const { return m_printing; }
     void setPrinting(bool p) { m_printing = p; }
@@ -663,7 +673,8 @@ public:
         ANIMATIONITERATION_LISTENER          = 0x400,
         TRANSITIONEND_LISTENER               = 0x800,
         BEFORELOAD_LISTENER                  = 0x1000,
-        TOUCH_LISTENER                       = 0x2000
+        TOUCH_LISTENER                       = 0x2000,
+        BEFOREPROCESS_LISTENER               = 0x4000
     };
 
     bool hasListenerType(ListenerType listenerType) const { return (m_listenerTypes & listenerType); }
@@ -1226,8 +1237,8 @@ private:
     CheckedRadioButtons m_checkedRadioButtons;
 
     typedef HashMap<AtomicStringImpl*, CollectionCache*> NamedCollectionMap;
-    CollectionCache m_collectionInfo[NumUnnamedDocumentCachedTypes];
-    NamedCollectionMap m_nameCollectionInfo[NumNamedDocumentCachedTypes];
+    FixedArray<CollectionCache, NumUnnamedDocumentCachedTypes> m_collectionInfo;
+    FixedArray<NamedCollectionMap, NumNamedDocumentCachedTypes> m_nameCollectionInfo;
 
 #if ENABLE(XPATH)
     RefPtr<XPathEvaluator> m_xpathEvaluator;

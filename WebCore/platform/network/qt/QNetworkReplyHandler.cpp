@@ -60,6 +60,9 @@ FormDataIODevice::FormDataIODevice(FormData* data)
     , m_currentDelta(0)
 {
     setOpenMode(FormDataIODevice::ReadOnly);
+
+    if (!m_formElements.isEmpty() && m_formElements[0].m_type == FormDataElement::encodedFile)
+        openFileForCurrentElement();
 }
 
 FormDataIODevice::~FormDataIODevice()
@@ -78,6 +81,11 @@ void FormDataIODevice::moveToNextElement()
     if (m_formElements.isEmpty() || m_formElements[0].m_type == FormDataElement::data)
         return;
 
+    openFileForCurrentElement();
+}
+
+void FormDataIODevice::openFileForCurrentElement()
+{
     if (!m_currentFile)
         m_currentFile = new QFile;
 
@@ -353,7 +361,7 @@ void QNetworkReplyHandler::sendResponseIfNeeded()
         ResourceRequest newRequest = m_resourceHandle->request();
         newRequest.setURL(newUrl);
 
-        if (((statusCode >= 301 && statusCode <= 303) || statusCode == 307) && m_method == QNetworkAccessManager::PostOperation) {
+        if (((statusCode >= 301 && statusCode <= 303) || statusCode == 307) && newRequest.httpMethod() == "POST") {
             m_method = QNetworkAccessManager::GetOperation;
             newRequest.setHTTPMethod("GET");
         }

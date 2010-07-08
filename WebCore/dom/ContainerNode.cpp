@@ -537,7 +537,31 @@ bool ContainerNode::appendChild(PassRefPtr<Node> newChild, ExceptionCode& ec, bo
     return true;
 }
 
-ContainerNode* ContainerNode::addChild(PassRefPtr<Node> newChild)
+void ContainerNode::addChildCommon(Node* newChild)
+{
+    ASSERT(!newChild->parent()); // Use appendChild if you need to handle reparenting.
+    forbidEventDispatch();
+    Node* last = m_lastChild;
+    // FIXME: This method should take a PassRefPtr.
+    appendChildToContainer<Node, ContainerNode>(newChild, this);
+    allowEventDispatch();
+
+    document()->incDOMTreeVersion();
+    if (inDocument())
+        newChild->insertedIntoDocument();
+    childrenChanged(true, last, 0, 1);
+}
+
+void ContainerNode::parserAddChild(PassRefPtr<Node> newChild)
+{
+    ASSERT(newChild);
+    // This function is only used during parsing.
+    // It does not send any DOM mutation events or handle reparenting.
+
+    addChildCommon(newChild.get());
+}
+
+ContainerNode* ContainerNode::legacyParserAddChild(PassRefPtr<Node> newChild)
 {
     ASSERT(newChild);
     // This function is only used during parsing.
@@ -547,16 +571,8 @@ ContainerNode* ContainerNode::addChild(PassRefPtr<Node> newChild)
     if (document()->isHTMLDocument() && !childAllowed(newChild.get()))
         return 0;
 
-    forbidEventDispatch();
-    Node* last = m_lastChild;
-    appendChildToContainer<Node, ContainerNode>(newChild.get(), this);
-    allowEventDispatch();
+    addChildCommon(newChild.get());
 
-    document()->incDOMTreeVersion();
-    if (inDocument())
-        newChild->insertedIntoDocument();
-    childrenChanged(true, last, 0, 1);
-    
     if (newChild->isElementNode())
         return static_cast<ContainerNode*>(newChild.get());
     return this;

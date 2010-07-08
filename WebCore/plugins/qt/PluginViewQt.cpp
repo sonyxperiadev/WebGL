@@ -493,10 +493,10 @@ void PluginView::setNPWindowIfNeeded()
         m_npWindow.x = m_windowRect.x();
         m_npWindow.y = m_windowRect.y();
 
-        m_npWindow.clipRect.left = m_clipRect.x();
-        m_npWindow.clipRect.top = m_clipRect.y();
-        m_npWindow.clipRect.right = m_clipRect.width();
-        m_npWindow.clipRect.bottom = m_clipRect.height();
+        m_npWindow.clipRect.left = max(0, m_clipRect.x());
+        m_npWindow.clipRect.top = max(0, m_clipRect.y());
+        m_npWindow.clipRect.right = m_clipRect.x() + m_clipRect.width();
+        m_npWindow.clipRect.bottom = m_clipRect.y() + m_clipRect.height();
     } else {
         m_npWindow.x = 0;
         m_npWindow.y = 0;
@@ -507,9 +507,14 @@ void PluginView::setNPWindowIfNeeded()
         m_npWindow.clipRect.bottom = 0;
     }
 
-    // FLASH WORKAROUND: Only set initially. Multiple calls to
-    // setNPWindow() cause the plugin to crash in windowed mode.
-    if (!m_isWindowed || m_npWindow.width == -1 || m_npWindow.height == -1) {
+    if (m_plugin->quirks().contains(PluginQuirkDontCallSetWindowMoreThanOnce)) {
+        // FLASH WORKAROUND: Only set initially. Multiple calls to
+        // setNPWindow() cause the plugin to crash in windowed mode.
+        if (!m_isWindowed || m_npWindow.width == -1 || m_npWindow.height == -1) {
+            m_npWindow.width = m_windowRect.width();
+            m_npWindow.height = m_windowRect.height();
+        }
+    } else {
         m_npWindow.width = m_windowRect.width();
         m_npWindow.height = m_windowRect.height();
     }

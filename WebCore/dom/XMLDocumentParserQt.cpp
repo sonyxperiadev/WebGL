@@ -44,6 +44,7 @@
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
+#include "ScriptableDocumentParser.h"
 #include "ScriptController.h"
 #include "ScriptElement.h"
 #include "ScriptSourceCode.h"
@@ -78,7 +79,7 @@ QString EntityResolver::resolveUndeclaredEntity(const QString &name)
 // --------------------------------
 
 XMLDocumentParser::XMLDocumentParser(Document* document, FrameView* frameView)
-    : DocumentParser(document)
+    : ScriptableDocumentParser(document)
     , m_view(frameView)
     , m_wroteText(false)
     , m_currentNode(document)
@@ -105,7 +106,7 @@ XMLDocumentParser::XMLDocumentParser(Document* document, FrameView* frameView)
 }
 
 XMLDocumentParser::XMLDocumentParser(DocumentFragment* fragment, Element* parentElement, FragmentScriptingPermission permission)
-    : DocumentParser(fragment->document())
+    : ScriptableDocumentParser(fragment->document())
     , m_view(0)
     , m_wroteText(false)
     , m_currentNode(fragment)
@@ -228,7 +229,7 @@ int XMLDocumentParser::columnNumber() const
 
 void XMLDocumentParser::stopParsing()
 {
-    DocumentParser::stopParsing();
+    ScriptableDocumentParser::stopParsing();
 }
 
 void XMLDocumentParser::resumeParsing()
@@ -245,24 +246,24 @@ void XMLDocumentParser::resumeParsing()
     // Then, write any pending data
     SegmentedString rest = m_pendingSrc;
     m_pendingSrc.clear();
-    write(rest, false);
+    append(rest);
 
-    // Finally, if finish() has been called and write() didn't result
+    // Finally, if finish() has been called and append() didn't result
     // in any further callbacks being queued, call end()
     if (m_finishCalled && !m_parserPaused && !m_pendingScript)
         end();
 }
 
-bool parseXMLDocumentFragment(const String& chunk, DocumentFragment* fragment, Element* parent, FragmentScriptingPermission scriptingPermission)
+bool XMLDocumentParser::parseDocumentFragment(const String& chunk, DocumentFragment* fragment, Element* parent, FragmentScriptingPermission scriptingPermission)
 {
     if (!chunk.length())
         return true;
 
     XMLDocumentParser parser(fragment, parent, scriptingPermission);
 
-    parser.write(String("<qxmlstreamdummyelement>"), false);
-    parser.write(chunk, false);
-    parser.write(String("</qxmlstreamdummyelement>"), false);
+    parser.append(String("<qxmlstreamdummyelement>"));
+    parser.append(chunk);
+    parser.append(String("</qxmlstreamdummyelement>"));
     parser.finish();
     return !parser.hasError();
 }
@@ -516,7 +517,7 @@ void XMLDocumentParser::parseStartElement()
     if (scriptElement)
         m_scriptStartLine = lineNumber();
 
-    if (!m_currentNode->addChild(newElement.get())) {
+    if (!m_currentNode->legacyParserAddChild(newElement.get())) {
         stopParsing();
         return;
     }
@@ -617,7 +618,7 @@ void XMLDocumentParser::parseProcessingInstruction()
 
     pi->setCreatedByParser(true);
 
-    if (!m_currentNode->addChild(pi.get()))
+    if (!m_currentNode->legacyParserAddChild(pi.get()))
         return;
     if (m_view && !pi->attached())
         pi->attach();
@@ -636,7 +637,7 @@ void XMLDocumentParser::parseCdata()
     exitText();
 
     RefPtr<Node> newNode = CDATASection::create(document(), m_stream.text());
-    if (!m_currentNode->addChild(newNode.get()))
+    if (!m_currentNode->legacyParserAddChild(newNode.get()))
         return;
     if (m_view && !newNode->attached())
         newNode->attach();
@@ -647,7 +648,7 @@ void XMLDocumentParser::parseComment()
     exitText();
 
     RefPtr<Node> newNode = Comment::create(document(), m_stream.text());
-    m_currentNode->addChild(newNode.get());
+    m_currentNode->legacyParserAddChild(newNode.get());
     if (m_view && !newNode->attached())
         newNode->attach();
 }
@@ -706,7 +707,7 @@ void XMLDocumentParser::parseDtd()
         handleError(fatal, "Invalid DTD Public ID", lineNumber(), columnNumber());
 #endif
     if (!m_parsingFragment)
-        document()->addChild(DocumentType::create(document(), name, publicId, systemId));
+        document()->legacyParserAddChild(DocumentType::create(document(), name, publicId, systemId));
 
 }
 }

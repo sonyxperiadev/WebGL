@@ -123,39 +123,14 @@ String HTMLMetaElement::content() const
     return getAttribute(contentAttr);
 }
 
-void HTMLMetaElement::setContent(const String& value)
-{
-    setAttribute(contentAttr, value);
-}
-
 String HTMLMetaElement::httpEquiv() const
 {
     return getAttribute(http_equivAttr);
 }
 
-void HTMLMetaElement::setHttpEquiv(const String& value)
-{
-    setAttribute(http_equivAttr, value);
-}
-
 String HTMLMetaElement::name() const
 {
     return getAttribute(nameAttr);
-}
-
-void HTMLMetaElement::setName(const String& value)
-{
-    setAttribute(nameAttr, value);
-}
-
-String HTMLMetaElement::scheme() const
-{
-    return getAttribute(schemeAttr);
-}
-
-void HTMLMetaElement::setScheme(const String &value)
-{
-    setAttribute(schemeAttr, value);
 }
 
 }

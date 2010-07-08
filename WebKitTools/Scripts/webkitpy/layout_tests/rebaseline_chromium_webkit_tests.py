@@ -58,7 +58,9 @@ import urllib
 import webbrowser
 import zipfile
 
-from webkitpy.common.system.executive import run_command
+from webkitpy.common.system.executive import run_command, ScriptError
+from webkitpy.common.checkout.scm import detect_scm_system
+import webkitpy.common.checkout.scm as scm
 
 import port
 from layout_package import test_expectations
@@ -67,9 +69,6 @@ from test_types import text_diff
 
 _log = logging.getLogger("webkitpy.layout_tests."
                          "rebaseline_chromium_webkit_tests")
-
-# Repository type constants.
-REPO_SVN, REPO_UNKNOWN = range(2)
 
 BASELINE_SUFFIXES = ['.txt', '.png', '.checksum']
 REBASELINE_PLATFORM_ORDER = ['mac', 'win', 'win-xp', 'win-vista', 'linux']
@@ -241,8 +240,7 @@ class Rebaseliner(object):
                                                self._platform,
                                                False,
                                                False)
-
-        self._repo_type = self._get_repo_type()
+        self._scm = detect_scm_system(os.getcwd())
 
     def run(self, backup):
         """Run rebaseline process."""
@@ -284,15 +282,6 @@ class Rebaseliner(object):
 
     def get_rebaselining_tests(self):
         return self._rebaselining_tests
-
-    # FIXME: Callers should use scm.py instead.
-    def _get_repo_type(self):
-        """Get the repository type that client is using."""
-        return_code = run_command(['svn', 'info'], return_exit_code=True)
-        if return_code == 0:
-            return REPO_SVN
-
-        return REPO_UNKNOWN
 
     def _compile_rebaselining_tests(self):
         """Compile list of tests that need rebaselining for the platform.
@@ -371,6 +360,9 @@ class Rebaseliner(object):
           None on failure
         """
 
+        if self._options.force_archive_url:
+            return self._options.force_archive_url
+
         dir_name = self._get_archive_dir_name(self._platform,
                                               self._options.webkit_canary)
         if not dir_name:
@@ -431,7 +423,7 @@ class Rebaseliner(object):
             _log.info('Test %d: %s', test_no, test)
 
             found = False
-            svn_error = False
+            scm_error = False
             test_basename = os.path.splitext(test)[0]
             for suffix in BASELINE_SUFFIXES:
                 archive_test_name = ('layout-test-results/%s-actual%s' %
@@ -480,16 +472,17 @@ class Rebaseliner(object):
 
                 shutil.move(temp_name, expected_fullpath)
 
-                if not self._svn_add(expected_fullpath):
-                    svn_error = True
+                if 0 != self._scm.add(expected_fullpath, return_exit_code=True):
+                    # FIXME: print detailed diagnose messages
+                    scm_error = True
                 elif suffix != '.checksum':
                     self._create_html_baseline_files(expected_fullpath)
 
             if not found:
                 _log.warn('  No new baselines found in archive.')
             else:
-                if svn_error:
-                    _log.warn('  Failed to add baselines to SVN.')
+                if scm_error:
+                    _log.warn('  Failed to add baselines to your repository.')
                 else:
                     _log.info('  Rebaseline succeeded.')
                     self._rebaselined_tests.append(test)
@@ -572,15 +565,7 @@ class Rebaseliner(object):
 
         if not filename or not os.path.isfile(filename):
             return
-
-        if self._repo_type == REPO_SVN:
-            parent_dir, basename = os.path.split(filename)
-            original_dir = os.getcwd()
-            os.chdir(parent_dir)
-            run_shell(['svn', 'delete', '--force', basename], False)
-            os.chdir(original_dir)
-        else:
-            os.remove(filename)
+        self._scm.delete(filename)
 
     def _update_rebaselined_tests_in_file(self, backup):
         """Update the rebaselined tests in test expectations file.
@@ -609,90 +594,9 @@ class Rebaseliner(object):
             # Or is new_expectations always a byte array?
             with open(path, "w") as file:
                 file.write(new_expectations)
+            self._scm.add(path)
         else:
             _log.info('No test was rebaselined so nothing to remove.')
-
-    # FIXME: Callers should move to SCM.add instead.
-    def _svn_add(self, filename):
-        """Add the file to SVN repository.
-
-        Args:
-          filename: full path of the file to add.
-
-        Returns:
-          True if the file already exists in SVN or is sucessfully added
-               to SVN.
-          False otherwise.
-        """
-
-        if not filename:
-            return False
-
-        parent_dir, basename = os.path.split(filename)
-        if self._repo_type != REPO_SVN or parent_dir == filename:
-            _log.info("No svn checkout found, skip svn add.")
-            return True
-
-        original_dir = os.getcwd()
-        os.chdir(parent_dir)
-        status_output = run_shell(['svn', 'status', basename], False)
-        os.chdir(original_dir)
-        output = status_output.upper()
-        if output.startswith('A') or output.startswith('M'):
-            _log.info('  File already added to SVN: "%s"', filename)
-            return True
-
-        if output.find('IS NOT A WORKING COPY') >= 0:
-            _log.info('  File is not a working copy, add its parent: "%s"',
-                      parent_dir)
-            return self._svn_add(parent_dir)
-
-        os.chdir(parent_dir)
-        add_output = run_shell(['svn', 'add', basename], True)
-        os.chdir(original_dir)
-        output = add_output.upper().rstrip()
-        if output.startswith('A') and output.find(basename.upper()) >= 0:
-            _log.info('  Added new file: "%s"', filename)
-            self._svn_prop_set(filename)
-            return True
-
-        if (not status_output) and (add_output.upper().find(
-            'ALREADY UNDER VERSION CONTROL') >= 0):
-            _log.info('  File already under SVN and has no change: "%s"',
-                      filename)
-            return True
-
-        _log.warn('  Failed to add file to SVN: "%s"', filename)
-        _log.warn('  Svn status output: "%s"', status_output)
-        _log.warn('  Svn add output: "%s"', add_output)
-        return False
-
-    def _svn_prop_set(self, filename):
-        """Set the baseline property
-
-        Args:
-          filename: full path of the file to add.
-
-        Returns:
-          True if the file already exists in SVN or is sucessfully added
-               to SVN.
-          False otherwise.
-        """
-        ext = os.path.splitext(filename)[1].upper()
-        if ext != '.TXT' and ext != '.PNG' and ext != '.CHECKSUM':
-            return
-
-        parent_dir, basename = os.path.split(filename)
-        original_dir = os.getcwd()
-        os.chdir(parent_dir)
-        if ext == '.PNG':
-            cmd = ['svn', 'pset', 'svn:mime-type', 'image/png', basename]
-        else:
-            cmd = ['svn', 'pset', 'svn:eol-style', 'LF', basename]
-
-        _log.debug('  Set svn prop: %s', ' '.join(cmd))
-        run_shell(cmd, False)
-        os.chdir(original_dir)
 
     def _create_html_baseline_files(self, baseline_fullpath):
         """Create baseline files (old, new and diff) in html directory.
@@ -715,8 +619,13 @@ class Rebaseliner(object):
         _log.info('  Html: copied new baseline file from "%s" to "%s".',
                   baseline_fullpath, new_file)
 
-        # Get the old baseline from SVN and save to the html directory.
-        output = run_shell(['svn', 'cat', '-r', 'BASE', baseline_fullpath])
+        # Get the old baseline from the repository and save to the html directory.
+        try:
+            output = self._scm.show_head(baseline_fullpath)
+        except ScriptError, e:
+            _log.info(e)
+            output = ""
+
         if (not output) or (output.upper().rstrip().endswith(
             'NO SUCH FILE OR DIRECTORY')):
             _log.info('  No base file: "%s"', baseline_fullpath)
@@ -733,27 +642,7 @@ class Rebaseliner(object):
 
         # Get the diff between old and new baselines and save to the html dir.
         if baseline_filename.upper().endswith('.TXT'):
-            # If the user specified a custom diff command in their svn config
-            # file, then it'll be used when we do svn diff, which we don't want
-            # to happen since we want the unified diff.  Using --diff-cmd=diff
-            # doesn't always work, since they can have another diff executable
-            # in their path that gives different line endings.  So we use a
-            # bogus temp directory as the config directory, which gets
-            # around these problems.
-            if sys.platform.startswith("win"):
-                parent_dir = tempfile.gettempdir()
-            else:
-                parent_dir = sys.path[0]  # tempdir is not secure.
-            bogus_dir = os.path.join(parent_dir, "temp_svn_config")
-            _log.debug('  Html: temp config dir: "%s".', bogus_dir)
-            if not os.path.exists(bogus_dir):
-                os.mkdir(bogus_dir)
-                delete_bogus_dir = True
-            else:
-                delete_bogus_dir = False
-
-            output = run_shell(["svn", "diff", "--config-dir", bogus_dir,
-                               baseline_fullpath])
+            output = self._scm.diff_for_file(baseline_fullpath, log=_log)
             if output:
                 diff_file = get_result_file_fullpath(
                     self._options.html_directory, baseline_filename,
@@ -763,12 +652,6 @@ class Rebaseliner(object):
                     file.write(output)
                 _log.info('  Html: created baseline diff file: "%s".',
                           diff_file)
-
-            if delete_bogus_dir:
-                shutil.rmtree(bogus_dir, True)
-                _log.debug('  Html: removed temp config dir: "%s".',
-                           bogus_dir)
-
 
 class HtmlGenerator(object):
     """Class to generate rebaselining result comparison html."""
@@ -1001,6 +884,10 @@ def main():
                              default=False,
                              help='include debug-level logging.')
 
+    option_parser.add_option('-q', '--quiet',
+                             action='store_true',
+                             help='Suppress result HTML viewing')
+
     option_parser.add_option('-p', '--platforms',
                              default='mac,win,win-xp,win-vista,linux',
                              help=('Comma delimited list of platforms '
@@ -1011,6 +898,9 @@ def main():
                                       'layout_test_results'),
                              help=('Url to find the layout test result archive'
                                    ' file.'))
+    option_parser.add_option('-U', '--force_archive_url',
+                             help=('Url of result zip file. This option is for debugging '
+                                   'purposes'))
 
     option_parser.add_option('-w', '--webkit_canary',
                              action='store_true',
@@ -1106,7 +996,8 @@ def main():
                                    rebaseline_platforms,
                                    rebaselining_tests)
     html_generator.generate_html()
-    html_generator.show_html()
+    if not options.quiet:
+        html_generator.show_html()
     log_dashed_string('Rebaselining result comparison done', None)
 
     sys.exit(0)

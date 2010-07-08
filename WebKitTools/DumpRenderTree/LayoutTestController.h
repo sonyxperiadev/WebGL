@@ -64,9 +64,8 @@ public:
     void overridePreference(JSStringRef key, JSStringRef value);
     int pageNumberForElementById(JSStringRef id, float pageWidthInPixels, float pageHeightInPixels);
     JSRetainPtr<JSStringRef> pageProperty(const char* propertyName, int pageNumber) const;
+    JSRetainPtr<JSStringRef> pageSizeAndMarginsInPixels(int pageNumber, int width, int height, int marginTop, int marginRight, int marginBottom, int marginLeft) const;
     bool isPageBoxVisible(int pageNumber) const;
-    JSRetainPtr<JSStringRef> pageAreaRectInPixels(int pageNumber) const;
-    JSRetainPtr<JSStringRef> preferredPageSizeInPixels(int pageNumber) const;
     JSStringRef pathToLocalResource(JSContextRef, JSStringRef url);
     void queueBackNavigation(int howFarBackward);
     void queueForwardNavigation(int howFarForward);
@@ -260,10 +259,7 @@ public:
 
     void setWebViewEditable(bool);
 
-
-#if PLATFORM(MAC)
     void abortModal();
-#endif
 
     // The following API test functions should probably be moved to platform-specific 
     // unit tests outside of DRT once they exist.

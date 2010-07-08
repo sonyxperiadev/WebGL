@@ -1549,29 +1549,42 @@ bool Document::isPageBoxVisible(int pageIndex)
     return style->visibility() != HIDDEN; // display property doesn't apply to @page.
 }
 
-IntRect Document::pageAreaRectInPixels(int pageIndex)
+void Document::pageSizeAndMarginsInPixels(int pageIndex, IntSize& pageSize, int& marginTop, int& marginRight, int& marginBottom, int& marginLeft)
 {
     RefPtr<RenderStyle> style = styleForPage(pageIndex);
-    IntSize pageSize = preferredPageSizeInPixels(pageIndex);
-    // 100% value for margin-{left,right,top,bottom}. This is used also for top and bottom. http://www.w3.org/TR/CSS2/box.html#value-def-margin-width
-    int maxValue = pageSize.width();
-    int surroundLeft = style->marginLeft().calcValue(maxValue) + style->borderLeft().width() + style->paddingLeft().calcValue(maxValue);
-    int surroundRight = style->marginRight().calcValue(maxValue) + style->borderRight().width() + style->paddingRight().calcValue(maxValue);
-    int surroundTop = style->marginTop().calcValue(maxValue) + style->borderTop().width() + style->paddingTop().calcValue(maxValue);
-    int surroundBottom = style->marginBottom().calcValue(maxValue) + style->borderBottom().width() + style->paddingBottom().calcValue(maxValue);
-    int width = pageSize.width() - surroundLeft - surroundRight;
-    int height = pageSize.height() - surroundTop - surroundBottom;
 
-    return IntRect(surroundLeft, surroundTop, width, height);
-}
+    int width = pageSize.width();
+    int height = pageSize.height();
+    switch (style->pageSizeType()) {
+    case PAGE_SIZE_AUTO:
+        break;
+    case PAGE_SIZE_AUTO_LANDSCAPE:
+        if (width < height)
+            std::swap(width, height);
+        break;
+    case PAGE_SIZE_AUTO_PORTRAIT:
+        if (width > height)
+            std::swap(width, height);
+        break;
+    case PAGE_SIZE_RESOLVED: {
+        LengthSize size = style->pageSize();
+        ASSERT(size.width().isFixed());
+        ASSERT(size.height().isFixed());
+        width = size.width().calcValue(0);
+        height = size.height().calcValue(0);
+        break;
+    }
+    default:
+        ASSERT_NOT_REACHED();
+    }
+    pageSize = IntSize(width, height);
 
-IntSize Document::preferredPageSizeInPixels(int pageIndex)
-{
-    RefPtr<RenderStyle> style = styleForPage(pageIndex);
-    LengthSize size = style->pageSize();
-    ASSERT(size.width().isFixed());
-    ASSERT(size.height().isFixed());
-    return IntSize(size.width().calcValue(0), size.height().calcValue(0));
+    // The percentage is calculated with respect to the width even for margin top and bottom.
+    // http://www.w3.org/TR/CSS2/box.html#margin-properties
+    marginTop = style->marginTop().isAuto() ? marginTop : style->marginTop().calcValue(width);
+    marginRight = style->marginRight().isAuto() ? marginRight : style->marginRight().calcValue(width);
+    marginBottom = style->marginBottom().isAuto() ? marginBottom : style->marginBottom().calcValue(width);
+    marginLeft = style->marginLeft().isAuto() ? marginLeft : style->marginLeft().calcValue(width);
 }
 
 void Document::createStyleSelector()
@@ -1754,6 +1767,11 @@ DocumentParser* Document::createParser()
     return new XMLDocumentParser(this, view());
 }
 
+ScriptableDocumentParser* Document::scriptableDocumentParser() const
+{
+    return parser() ? parser()->asScriptableDocumentParser() : 0;
+}
+
 void Document::open(Document* ownerDocument)
 {
     if (ownerDocument) {
@@ -1763,9 +1781,10 @@ void Document::open(Document* ownerDocument)
     }
 
     if (m_frame) {
-        if (m_frame->loader()->isLoadingMainResource() || (parser() && parser()->isExecutingScript()))
+        ScriptableDocumentParser* parser = scriptableDocumentParser();
+        if (m_frame->loader()->isLoadingMainResource() || (parser && parser->isExecutingScript()))
             return;
-    
+
         if (m_frame->loader()->state() == FrameStateProvisional)
             m_frame->loader()->stopAllLoaders();
     }
@@ -1802,8 +1821,9 @@ void Document::implicitOpen()
     m_parser = createParser();
     setParsing(true);
 
-    if (m_frame)
-        m_parser->setXSSAuditor(m_frame->script()->xssAuditor());
+    ScriptableDocumentParser* parser = scriptableDocumentParser();
+    if (m_frame && parser)
+        parser->setXSSAuditor(m_frame->script()->xssAuditor());
 
     // If we reload, the animation controller sticks around and has
     // a stale animation time. We need to update it here.
@@ -1888,7 +1908,8 @@ void Document::implicitClose()
 
     m_processingLoadEvent = true;
 
-    m_wellFormed = m_parser && m_parser->wellFormed();
+    ScriptableDocumentParser* parser = scriptableDocumentParser();
+    m_wellFormed = parser && parser->wellFormed();
 
     // We have to clear the parser, in case someone document.write()s from the
     // onLoad event handler, as in Radar 3206524.
@@ -2044,21 +2065,7 @@ void Document::write(const SegmentedString& text, Document* ownerDocument)
         open(ownerDocument);
 
     ASSERT(m_parser);
-    // FIXME: forceSynchronous should always be the same as the bool passed to
-    // write().  However LegacyHTMLDocumentParser uses write("", false) to pump
-    // the parser (after running external scripts, etc.) thus necessitating a
-    // separate state for forceSynchronous.
-    bool wasForcedSynchronous = false;
-    LegacyHTMLDocumentParser* parser = m_parser->asHTMLDocumentParser();
-    if (parser) {
-        wasForcedSynchronous = parser->forceSynchronous();
-        parser->setForceSynchronous(true);
-    }
-
-    m_parser->write(text, false);
-
-    if (m_parser && parser && m_parser->asHTMLDocumentParser() == parser)
-        parser->setForceSynchronous(wasForcedSynchronous);
+    m_parser->insert(text);
 
 #ifdef INSTRUMENT_LAYOUT_SCHEDULING
     if (!ownerElement())
@@ -2667,9 +2674,10 @@ void Document::removePendingSheet()
 #endif
 
     updateStyleSelector();
-    
-    if (!m_pendingStylesheets && m_parser)
-        m_parser->executeScriptsWaitingForStylesheets();
+
+    ScriptableDocumentParser* parser = scriptableDocumentParser();
+    if (!m_pendingStylesheets && parser)
+        parser->executeScriptsWaitingForStylesheets();
 
     if (!m_pendingStylesheets && m_gotoAnchorNeededAfterStylesheetsLoad && view())
         view()->scrollToFragment(m_frame->loader()->url());
@@ -3348,6 +3356,8 @@ void Document::addListenerTypeIfNeeded(const AtomicString& eventType)
         addListenerType(TRANSITIONEND_LISTENER);
     else if (eventType == eventNames().beforeloadEvent)
         addListenerType(BEFORELOAD_LISTENER);
+    else if (eventType == eventNames().beforeprocessEvent)
+        addListenerType(BEFOREPROCESS_LISTENER);
 #if ENABLE(TOUCH_EVENTS)
     else if (eventType == eventNames().touchstartEvent
              || eventType == eventNames().touchmoveEvent
@@ -4900,8 +4910,10 @@ HTMLCanvasElement* Document::getCSSCanvasElement(const String& name)
 
 void Document::initDNSPrefetch()
 {
+    Settings* settings = this->settings();
+
     m_haveExplicitlyDisabledDNSPrefetch = false;
-    m_isDNSPrefetchEnabled = securityOrigin()->protocol() == "http";
+    m_isDNSPrefetchEnabled = settings && settings->dnsPrefetchingEnabled() && securityOrigin()->protocol() == "http";
 
     // Inherit DNS prefetch opt-out from parent frame    
     if (Document* parent = parentDocument()) {

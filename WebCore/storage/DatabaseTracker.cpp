@@ -506,6 +506,12 @@ void DatabaseTracker::addOpenDatabase(AbstractDatabase* database)
         databaseSet->add(database);
 
         LOG(StorageAPI, "Added open Database %s (%p)\n", database->stringIdentifier().ascii().data(), database);
+
+        Locker<OriginQuotaManager> quotaManagerLocker(originQuotaManager());
+        if (!originQuotaManager().tracksOrigin(database->securityOrigin())) {
+            originQuotaManager().trackOrigin(database->securityOrigin());
+            originQuotaManager().addDatabase(database->securityOrigin(), database->stringIdentifier(), database->fileName());
+        }
     }
 
     MutexLocker lockDatabase(m_databaseGuard);
@@ -553,10 +559,10 @@ void DatabaseTracker::removeOpenDatabase(AbstractDatabase* database)
 
         m_openDatabaseMap->remove(database->securityOrigin());
         delete nameMap;
-    }
 
-    Locker<OriginQuotaManager> quotaManagerLocker(originQuotaManager());
-    originQuotaManager().removeOrigin(database->securityOrigin());
+        Locker<OriginQuotaManager> quotaManagerLocker(originQuotaManager());
+        originQuotaManager().removeOrigin(database->securityOrigin());
+    }
 }
 
 void DatabaseTracker::getOpenDatabases(SecurityOrigin* origin, const String& name, HashSet<RefPtr<AbstractDatabase> >* databases)

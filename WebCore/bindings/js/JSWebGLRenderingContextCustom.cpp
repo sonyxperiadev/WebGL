@@ -55,6 +55,7 @@
 #include "WebGLProgram.h"
 #include "WebGLRenderingContext.h"
 #include <runtime/Error.h>
+#include <runtime/JSArray.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/OwnFastMallocPtr.h>
 
@@ -72,6 +73,13 @@ static JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, const WebG
     switch (info.getType()) {
     case WebGLGetInfo::kTypeBool:
         return jsBoolean(info.getBool());
+    case WebGLGetInfo::kTypeBoolArray: {
+        MarkedArgumentBuffer list;
+        const Vector<bool>& value = info.getBoolArray();
+        for (size_t ii = 0; ii < value.size(); ++ii)
+            list.append(jsBoolean(value[ii]));
+        return constructArray(exec, list);
+    }
     case WebGLGetInfo::kTypeFloat:
         return jsNumber(exec, info.getFloat());
     case WebGLGetInfo::kTypeLong:
@@ -152,6 +160,29 @@ static JSValue getObjectParameter(JSWebGLRenderingContext* obj, ExecState* exec,
 enum WhichProgramCall {
     kProgramParameter, kUniform
 };
+
+JSValue JSWebGLRenderingContext::getAttachedShaders(ExecState* exec)
+{
+    if (exec->argumentCount() < 1)
+        return throwSyntaxError(exec);
+    ExceptionCode ec = 0;
+    WebGLRenderingContext* context = static_cast<WebGLRenderingContext*>(impl());
+    WebGLProgram* program = toWebGLProgram(exec->argument(0));
+    if (exec->hadException())
+        return jsUndefined();
+    Vector<WebGLShader*> shaders;
+    bool succeed = context->getAttachedShaders(program, shaders, ec);
+    if (ec) {
+        setDOMException(exec, ec);
+        return jsUndefined();
+    }
+    if (!succeed)
+        return jsUndefined();
+    MarkedArgumentBuffer list;
+    for (size_t ii = 0; ii < shaders.size(); ++ii)
+        list.append(toJS(exec, globalObject(), shaders[ii]));
+    return constructArray(exec, list);
+}
 
 JSValue JSWebGLRenderingContext::getBufferParameter(ExecState* exec)
 {

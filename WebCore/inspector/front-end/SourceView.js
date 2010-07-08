@@ -58,8 +58,8 @@ WebInspector.SourceView.prototype = {
 
     hide: function()
     {
-        WebInspector.View.prototype.hide.call(this);
         this.sourceFrame.visible = false;
+        WebInspector.View.prototype.hide.call(this);
         if (this.localSourceFrame)
             this.localSourceFrame.visible = false;
         this._currentSearchResultIndex = -1;
@@ -127,7 +127,7 @@ WebInspector.SourceView.prototype = {
     _addBreakpoint: function(line)
     {
         var sourceID = this._sourceIDForLine(line);
-        WebInspector.breakpointManager.addBreakpoint(sourceID, this.resource.url, line, true, "");
+        WebInspector.breakpointManager.setBreakpoint(sourceID, this.resource.url, line, true, "");
     },
 
     _removeBreakpoint: function(breakpoint)

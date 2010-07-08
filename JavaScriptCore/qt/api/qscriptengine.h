@@ -42,6 +42,12 @@ public:
     QScriptValue evaluate(const QString& program, const QString& fileName = QString(), int lineNumber = 1);
     QScriptValue evaluate(const QScriptProgram& program);
 
+    bool hasUncaughtException() const;
+    QScriptValue uncaughtException() const;
+    void clearExceptions();
+    int uncaughtExceptionLineNumber() const;
+    QStringList uncaughtExceptionBacktrace() const;
+
     void collectGarbage();
     void reportAdditionalMemoryCost(int cost);
 
@@ -51,6 +57,7 @@ public:
     QScriptValue nullValue();
     QScriptValue undefinedValue();
     QScriptValue newObject();
+    QScriptValue newArray(uint length = 0);
     QScriptValue globalObject() const;
 private:
     friend class QScriptEnginePrivate;

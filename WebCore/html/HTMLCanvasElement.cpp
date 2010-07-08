@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2004, 2006, 2007 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
+ * Copyright (C) 2010 Torch Mobile (Beijing) Co. Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -209,10 +210,10 @@ void HTMLCanvasElement::reset()
 
     bool ok;
     int w = getAttribute(widthAttr).toInt(&ok);
-    if (!ok)
+    if (!ok || w < 0)
         w = DefaultWidth;
     int h = getAttribute(heightAttr).toInt(&ok);
-    if (!ok)
+    if (!ok || h < 0)
         h = DefaultHeight;
 
     IntSize oldSize = size();
@@ -277,5 +278,16 @@ bool HTMLCanvasElement::is3D() const
     return m_context && m_context->is3d();
 }
 #endif
+
+void HTMLCanvasElement::recalcStyle(StyleChange change)
+{
+    HTMLElement::recalcStyle(change);
+
+    // Update font if needed.
+    if (change == Force && m_context && m_context->is2d()) {
+        CanvasRenderingContext2D* ctx = static_cast<CanvasRenderingContext2D*>(m_context.get());
+        ctx->updateFont();
+    }
+}
 
 }

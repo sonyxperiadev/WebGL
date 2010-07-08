@@ -736,6 +736,16 @@ bool GraphicsContext3D::getActiveUniform(WebGLProgram* program, unsigned long in
     return true;
 }
 
+void GraphicsContext3D::getAttachedShaders(WebGLProgram* program, int maxCount, int* count, unsigned int* shaders)
+{
+    if (!program || !program->object()) {
+        synthesizeGLError(INVALID_VALUE);
+        return;
+    }
+    ensureContext(m_contextObj);
+    ::glGetAttachedShaders(static_cast<GLuint>(program->object()), maxCount, count, shaders);
+}
+
 int GraphicsContext3D::getAttribLocation(WebGLProgram* program, const String& name)
 {
     if (!program)
@@ -1103,10 +1113,8 @@ void GraphicsContext3D::uniformMatrix4fv(long location, bool transpose, float* a
 
 void GraphicsContext3D::useProgram(WebGLProgram* program)
 {
-    ASSERT(program);
-    
     ensureContext(m_contextObj);
-    ::glUseProgram((GLuint) program->object());
+    ::glUseProgram(program ? ((GLuint) program->object()) : 0);
 }
 
 void GraphicsContext3D::validateProgram(WebGLProgram* program)

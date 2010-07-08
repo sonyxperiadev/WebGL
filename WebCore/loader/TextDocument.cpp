@@ -25,12 +25,12 @@
 #include "config.h"
 #include "TextDocument.h"
 
+#include "DecodedDataDocumentParser.h"
 #include "Element.h"
 #include "HTMLNames.h"
 #include "HTMLViewSourceDocument.h"
 #include "SegmentedString.h"
 #include "Text.h"
-#include "XMLDocumentParser.h"
 
 using namespace std;
 
@@ -38,18 +38,20 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-class TextDocumentParser : public DocumentParser {
+// FIXME: TextDocumentParser could just be an HTMLDocumentParser
+// which started the Tokenizer in the PlainText state.
+class TextDocumentParser : public DecodedDataDocumentParser {
 public:
     TextDocumentParser(Document*);
     virtual ~TextDocumentParser();
     TextDocumentParser(HTMLViewSourceDocument*);
 
 private:
-    virtual void write(const SegmentedString&, bool appendData);
+    virtual void insert(const SegmentedString&);
+    virtual void append(const SegmentedString&);
     virtual void finish();
     virtual bool finishWasCalled();
-    virtual bool isWaitingForScripts() const;
-    
+
     inline void checkBuffer(int len = 10)
     {
         if ((m_dest - m_buffer) > m_size - len) {
@@ -62,6 +64,7 @@ private:
         }
     }
 
+private:
     Element* m_preElement;
 
     bool m_skipLF;
@@ -72,7 +75,7 @@ private:
 };
 
 TextDocumentParser::TextDocumentParser(Document* document)
-    : DocumentParser(document)
+    : DecodedDataDocumentParser(document)
     , m_preElement(0)
     , m_skipLF(false)
 {    
@@ -83,7 +86,7 @@ TextDocumentParser::TextDocumentParser(Document* document)
 }    
 
 TextDocumentParser::TextDocumentParser(HTMLViewSourceDocument* document)
-    : DocumentParser(document, true)
+    : DecodedDataDocumentParser(document, true)
     , m_preElement(0)
     , m_skipLF(false)
 {    
@@ -99,7 +102,12 @@ TextDocumentParser::~TextDocumentParser()
     ASSERT(!m_buffer);
 }
 
-void TextDocumentParser::write(const SegmentedString& s, bool)
+void TextDocumentParser::insert(const SegmentedString&)
+{
+    ASSERT_NOT_REACHED();
+}
+
+void TextDocumentParser::append(const SegmentedString& s)
 {
     ExceptionCode ec;
 
@@ -162,12 +170,14 @@ void TextDocumentParser::write(const SegmentedString& s, bool)
 void TextDocumentParser::finish()
 {
     if (!m_preElement)
-        write(SegmentedString(), true); // Create document structure for an empty text document.
+        append(SegmentedString()); // Create document structure for an empty text document.
     m_preElement = 0;
     fastFree(m_buffer);
     m_buffer = 0;
     m_dest = 0;
 
+    // FIXME: Should this call finishParsing even if m_parserStopped is true?
+    // See equivalent implementation in RawDataDocumentParser.
     document()->finishedParsing();
 }
 
@@ -175,12 +185,6 @@ bool TextDocumentParser::finishWasCalled()
 {
     // finish() always calls document()->finishedParsing() so we'll be deleted
     // after finish().
-    return false;
-}
-
-bool TextDocumentParser::isWaitingForScripts() const
-{
-    // A text document is never waiting for scripts
     return false;
 }
 

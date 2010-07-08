@@ -84,6 +84,12 @@ GraphicsContext::GraphicsContext(HDC dc, bool hasAlpha)
     }
 }
 
+static void setRGBABitmapAlpha(unsigned char* bytes, size_t length, unsigned char level)
+{
+    for (size_t i = 0; i < length; i += 4)
+        bytes[i + 3] = level;
+}
+
 void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, bool supportAlphaBlend, bool mayCreateBitmap)
 {
     if (!mayCreateBitmap || !hdc || !inTransparencyLayer()) {
@@ -100,9 +106,16 @@ void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, boo
     GetObject(bitmap, sizeof(info), &info);
     ASSERT(info.bmBitsPixel == 32);
 
+    // If this context does not support alpha blending, then it may have
+    // been drawn with GDI functions which always set the alpha channel
+    // to zero. We need to manually set the bitmap to be fully opaque.
+    unsigned char* bytes = reinterpret_cast<unsigned char*>(info.bmBits);
+    if (!supportAlphaBlend)
+        setRGBABitmapAlpha(bytes, info.bmHeight * info.bmWidthBytes, 255);
+
     // Need to make a cairo_surface_t out of the bitmap's pixel buffer and then draw
     // it into our context.
-    cairo_surface_t* image = cairo_image_surface_create_for_data((unsigned char*)info.bmBits,
+    cairo_surface_t* image = cairo_image_surface_create_for_data(bytes,
                                             CAIRO_FORMAT_ARGB32,
                                             info.bmWidth,
                                             info.bmHeight,
@@ -111,9 +124,10 @@ void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, boo
     // Scale the target surface to the new image size, and flip it
     // so that when we set the srcImage as the surface it will draw
     // right-side-up.
-    cairo_translate(m_data->cr, 0, dstRect.height());
-    cairo_scale(m_data->cr, dstRect.width(), -dstRect.height());
-    cairo_set_source_surface (m_data->cr, image, dstRect.x(), dstRect.y());
+    cairo_save(m_data->cr);
+    cairo_translate(m_data->cr, dstRect.x(), dstRect.height() + dstRect.y());
+    cairo_scale(m_data->cr, 1.0, -1.0);
+    cairo_set_source_surface(m_data->cr, image, 0, 0);
 
     if (m_data->layers.size())
         cairo_paint_with_alpha(m_data->cr, m_data->layers.last());
@@ -124,6 +138,7 @@ void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, boo
     cairo_surface_destroy(image);
     ::DeleteDC(hdc);
     ::DeleteObject(bitmap);
+    cairo_restore(m_data->cr);
 }
 
 void GraphicsContextPlatformPrivate::syncContext(PlatformGraphicsContext* cr)

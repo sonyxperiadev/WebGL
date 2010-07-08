@@ -73,6 +73,10 @@ class BView;
 typedef BView* PlatformWidget;
 #endif
 
+#if PLATFORM(BREWMP)
+typedef void* PlatformWidget;
+#endif
+
 #if PLATFORM(CHROMIUM)
 #include "PlatformWidget.h"
 #endif

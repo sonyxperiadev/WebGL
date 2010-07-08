@@ -83,6 +83,10 @@ public:
         AfterAttributeValueQuotedState,
         SelfClosingStartTagState,
         BogusCommentState,
+        // The ContinueBogusCommentState is not in the HTML5 spec, but we use
+        // it internally to keep track of whether we've started the bogus
+        // comment token yet.
+        ContinueBogusCommentState,
         MarkupDeclarationOpenState,
         CommentStartState,
         CommentStartDashState,
@@ -164,7 +168,7 @@ private:
                 // a number of specific character values are parse errors and should be replaced
                 // by the replacement character. We suspect this is a problem with the spec as doing
                 // that filtering breaks surrogate pair handling and causes us not to match Minefield.
-                if (m_nextInputCharacter == '\0')
+                if (m_nextInputCharacter == '\0' && !shouldTreatNullAsEndOfFileMarker(source))
                     m_nextInputCharacter = 0xFFFD;
             }
             return true;
@@ -179,25 +183,40 @@ private:
             return peek(source, lineNumber);
         }
 
+        static const UChar endOfFileMarker;
+
     private:
+        bool shouldTreatNullAsEndOfFileMarker(SegmentedString& source) const
+        {
+            return source.isClosed() && source.length() == 1;
+        }
+
         // http://www.whatwg.org/specs/web-apps/current-work/#next-input-character
         UChar m_nextInputCharacter;
         bool m_skipNextNewLine;
     };
 
-    inline void emitCharacter(UChar);
-    inline void emitParseError();
-    inline void emitCurrentToken();
-    inline void emitCodePoint(unsigned);
+    inline bool processEntity(SegmentedString&);
 
-    inline bool processEntity(SegmentedString& source);
+    inline void parseError();
+    inline void bufferCharacter(UChar);
+    inline void bufferCodePoint(unsigned);
 
+    inline bool emitAndResumeIn(SegmentedString&, State);
+    inline bool emitAndReconsumeIn(SegmentedString&, State);
+    inline bool emitEndOfFile(SegmentedString&);
+    inline bool flushEmitAndResumeIn(SegmentedString&, State);
+
+    // Return whether we need to emit a character token before dealing with
+    // the buffered end tag.
+    inline bool flushBufferedEndTag(SegmentedString&);
     inline bool temporaryBufferIs(const String&);
 
     // Sometimes we speculatively consume input characters and we don't
     // know whether they represent end tags or RCDATA, etc.  These
     // functions help manage these state.
     inline void addToPossibleEndTag(UChar cc);
+    inline void saveEndTagNameIfNeeded();
     inline bool isAppropriateEndTag();
 
     inline bool shouldEmitBufferedCharacterToken(const SegmentedString&);

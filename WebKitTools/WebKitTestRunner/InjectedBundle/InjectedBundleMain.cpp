@@ -23,84 +23,10 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <WebKit2/WKBundle.h>
+#include "InjectedBundle.h"
 #include <WebKit2/WKBundleInitialize.h>
-#include <WebKit2/WKBundlePage.h>
-#include <WebKit2/WebKit2.h>
-
-static WKBundleRef globalBundle;
-
-// WKBundlePageClient
-
-void _didStartProvisionalLoadForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo)
-{
-}
-
-void _didReceiveServerRedirectForProvisionalLoadForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo)
-{
-}
-
-void _didFailProvisionalLoadWithErrorForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo)
-{
-}
-
-void _didCommitLoadForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo)
-{
-}
-
-void _didFinishLoadForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo)
-{
-}
-
-void _didFailLoadWithErrorForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo)
-{
-}
-
-void _didReceiveTitleForFrame(WKBundlePageRef page, WKStringRef title, WKBundleFrameRef frame, const void *clientInfo)
-{
-}
-
-void _didClearWindow(WKBundlePageRef page, WKBundleFrameRef frame, JSContextRef ctx, JSObjectRef window, const void *clientInfo)
-{
-}
-
-// WKBundleClient
-
-void _didCreatePage(WKBundleRef bundle, WKBundlePageRef page, const void* clientInfo)
-{
-    WKBundlePageClient client = {
-        0,
-        0,
-        _didStartProvisionalLoadForFrame,
-        _didReceiveServerRedirectForProvisionalLoadForFrame,
-        _didFailProvisionalLoadWithErrorForFrame,
-        _didCommitLoadForFrame,
-        _didFinishLoadForFrame,
-        _didFailLoadWithErrorForFrame,
-        _didReceiveTitleForFrame,
-        _didClearWindow
-    };
-    WKBundlePageSetClient(page, &client);
-}
-
-void _willDestroyPage(WKBundleRef bundle, WKBundlePageRef page, const void* clientInfo)
-{
-}
-
-void _didRecieveMessage(WKBundleRef bundle, WKStringRef message, const void *clientInfo)
-{
-}
 
 extern "C" void WKBundleInitialize(WKBundleRef bundle)
 {
-    globalBundle = bundle;
-
-    WKBundleClient client = {
-        0,
-        0,
-        _didCreatePage,
-        _willDestroyPage,
-        _didRecieveMessage
-    };
-    WKBundleSetClient(bundle, &client);
+    WTR::InjectedBundle::shared().initialize(bundle);
 }

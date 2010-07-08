@@ -504,6 +504,17 @@ void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points
     cairo_restore(cr);
 }
 
+void GraphicsContext::clipConvexPolygon(size_t numPoints, const FloatPoint* points)
+{
+    if (paintingDisabled())
+        return;
+
+    if (numPoints <= 1)
+        return;
+    
+    // FIXME: IMPLEMENT!
+}
+
 void GraphicsContext::fillPath()
 {
     if (paintingDisabled())
@@ -632,13 +643,27 @@ void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int
     cairo_new_path(cr);
 
 #if PLATFORM(GTK)
+#ifdef GTK_API_VERSION_2
     GdkRegion* reg = gdk_region_new();
+#else
+    cairo_region_t* reg = cairo_region_create();
+#endif
+
     for (unsigned i = 0; i < rectCount; i++) {
+#ifdef GTK_API_VERSION_2
         GdkRectangle rect = rects[i];
         gdk_region_union_with_rect(reg, &rect);
+#else
+        cairo_rectangle_int_t rect = rects[i];
+        cairo_region_union_rectangle(reg, &rect);
+#endif
     }
     gdk_cairo_region(cr, reg);
+#ifdef GTK_API_VERSION_2
     gdk_region_destroy(reg);
+#else
+    cairo_region_destroy(reg);
+#endif
 
     setColor(cr, color);
     cairo_set_line_width(cr, 2.0f);
@@ -683,6 +708,10 @@ void GraphicsContext::drawLineForText(const IntPoint& origin, int width, bool pr
     setStrokeStyle(savedStrokeStyle);
 }
 
+#if !PLATFORM(GTK)
+#include "DrawErrorUnderline.h"
+#endif
+
 void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint& origin, int width, bool grammar)
 {
     if (paintingDisabled())
@@ -702,7 +731,7 @@ void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint& origin,
     // We ignore most of the provided constants in favour of the platform style
     pango_cairo_show_error_underline(cr, origin.x(), origin.y(), width, cMisspellingLineThickness);
 #else
-    notImplemented();
+    drawErrorUnderline(cr, origin.x(), origin.y(), width, cMisspellingLineThickness);
 #endif
 
     cairo_restore(cr);

@@ -44,6 +44,10 @@
 #include "RenderMeter.h"
 #endif
 
+#if ENABLE(INPUT_SPEECH)
+#include "RenderInputSpeech.h"
+#endif
+
 // The methods in this file are shared by all themes on every platform.
 
 namespace WebCore {
@@ -234,14 +238,14 @@ void RenderTheme::adjustStyle(CSSStyleSelector* selector, RenderStyle* style, El
 #endif
 #if ENABLE(INPUT_SPEECH)
         case InputSpeechButtonPart:
-            // FIXME: Adjust the speech button's style and sizes.
+            return adjustInputFieldSpeechButtonStyle(selector, style, e);
 #endif
         default:
             break;
     }
 }
 
-bool RenderTheme::paint(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderTheme::paint(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
     // If painting is disabled, but we aren't updating control tints, then just bail.
     // If we are updating control tints, just schedule a repaint if the theme supports tinting
@@ -368,7 +372,7 @@ bool RenderTheme::paint(RenderObject* o, const RenderObject::PaintInfo& paintInf
             return paintSearchFieldResultsButton(o, paintInfo, r);
 #if ENABLE(INPUT_SPEECH)
         case InputSpeechButtonPart:
-            // FIXME: Add painting code to draw the speech button.
+            return paintInputFieldSpeechButton(o, paintInfo, r);
 #endif
         default:
             break;
@@ -377,7 +381,7 @@ bool RenderTheme::paint(RenderObject* o, const RenderObject::PaintInfo& paintInf
     return true; // We don't support the appearance, so let the normal background/border paint.
 }
 
-bool RenderTheme::paintBorderOnly(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderTheme::paintBorderOnly(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
     if (paintInfo.context->paintingDisabled())
         return false;
@@ -428,7 +432,7 @@ bool RenderTheme::paintBorderOnly(RenderObject* o, const RenderObject::PaintInfo
     return false;
 }
 
-bool RenderTheme::paintDecorations(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderTheme::paintDecorations(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
     if (paintInfo.context->paintingDisabled())
         return false;
@@ -926,6 +930,18 @@ void RenderTheme::adjustMenuListStyle(CSSStyleSelector*, RenderStyle*, Element*)
 {
 }
 
+#if ENABLE(INPUT_SPEECH)
+void RenderTheme::adjustInputFieldSpeechButtonStyle(CSSStyleSelector* selector, RenderStyle* style, Element* element) const
+{
+    RenderInputSpeech::adjustInputFieldSpeechButtonStyle(selector, style, element);
+}
+
+bool RenderTheme::paintInputFieldSpeechButton(RenderObject* object, const PaintInfo& paintInfo, const IntRect& rect)
+{
+    return RenderInputSpeech::paintInputFieldSpeechButton(object, paintInfo, rect);
+}
+#endif
+
 #if ENABLE(METER_TAG)
 void RenderTheme::adjustMeterStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
@@ -942,7 +958,7 @@ bool RenderTheme::supportsMeter(ControlPart, bool) const
     return false;
 }
 
-bool RenderTheme::paintMeter(RenderObject*, const RenderObject::PaintInfo&, const IntRect&)
+bool RenderTheme::paintMeter(RenderObject*, const PaintInfo&, const IntRect&)
 {
     return true;
 }

@@ -118,9 +118,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/ContainerNode.cpp \
 	dom/CustomEvent.cpp \
 	dom/DOMImplementation.cpp \
-        dom/DOMStringList.cpp \
+	dom/DOMStringList.cpp \
+	dom/DecodedDataDocumentParser.cpp \
 	dom/Document.cpp \
 	dom/DocumentFragment.cpp \
+	dom/DocumentParser.cpp \
 	dom/DocumentType.cpp \
 	dom/DynamicNodeList.cpp \
 	dom/EditingText.cpp \
@@ -163,6 +165,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/QualifiedName.cpp \
 	dom/Range.cpp \
 	dom/RegisteredEventListener.cpp \
+	dom/ScriptableDocumentParser.cpp \
 	dom/ScriptElement.cpp \
 	dom/ScriptExecutionContext.cpp \
 	dom/SelectElement.cpp \
@@ -273,6 +276,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLDocument.cpp \
 	html/HTMLDocumentParser.cpp \
 	html/HTMLElementsAllInOne.cpp \
+	html/HTMLElementStack.cpp \
+	html/HTMLFormattingElementList.cpp \
 	html/HTMLFormCollection.cpp \
 	html/HTMLImageLoader.cpp \
 	html/HTMLNameCollection.cpp \
@@ -378,12 +383,14 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/Location.cpp \
 	page/MemoryInfo.cpp \
 	page/MouseEventWithHitTestResults.cpp \
+	page/Navigation.cpp \
 	page/Navigator.cpp \
 	page/NavigatorBase.cpp \
 	page/OriginAccessEntry.cpp \
 	page/Page.cpp \
 	page/PageGroup.cpp \
 	page/PageGroupLoadDeferrer.cpp \
+	page/Performance.cpp \
 	page/PluginHalter.cpp \
 	page/PrintContext.cpp \
 	page/Screen.cpp \
@@ -391,6 +398,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/Settings.cpp \
 	page/SpatialNavigation.cpp \
 	page/SuspendableTimer.cpp \
+	page/Timing.cpp \
 	page/UserContentURLPattern.cpp \
 	page/WindowFeatures.cpp \
 	page/WorkerNavigator.cpp \
@@ -854,6 +862,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/SVGFEColorMatrixElement.cpp \
 	svg/SVGFEComponentTransferElement.cpp \
 	svg/SVGFECompositeElement.cpp \
+	svg/SVGFEConvolveMatrixElement.cpp \
 	svg/SVGFEDiffuseLightingElement.cpp \
 	svg/SVGFEDisplacementMapElement.cpp \
 	svg/SVGFEDistantLightElement.cpp \

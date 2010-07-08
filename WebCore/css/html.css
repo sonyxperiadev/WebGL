@@ -584,10 +584,12 @@ progress {
     height: 1em;
     width: 10em;
     vertical-align: -0.2em;
+    background-color: gray;
 }
 
-progress::-webkit-progress-bar {
+progress::-webkit-progress-bar-value {
     -webkit-appearance: progress-bar;
+    background-color: green;
 }
 
 /* datagrid */
@@ -627,6 +629,11 @@ pre, xmp, plaintext, listing {
     font-family: monospace;
     white-space: pre;
     margin: 1__qem 0
+}
+
+mark {
+    background-color: yellow;
+    color: black
 }
 
 big {
@@ -733,7 +740,9 @@ iframe {
 @page {
     /* FIXME: Define the right default values for page properties. */
     size: auto;
-    margin: 1in;
+    margin: auto;
+    padding: 0px;
+    border-width: 0px;
 }
 
 /* noscript is handled internally, as it depends on settings */

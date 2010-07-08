@@ -62,6 +62,7 @@ public:
     bool shouldDumpAsText() const { return m_textDump; }
     bool shouldDumpBackForwardList() const { return m_dumpBackForwardList; }
     bool shouldDumpChildrenAsText() const { return m_dumpChildrenAsText; }
+    bool shouldDumpChildFrameScrollPositions() const { return m_dumpChildFrameScrollPositions; }
     bool shouldDumpDatabaseCallbacks() const { return m_dumpDatabaseCallbacks; }
     bool shouldDumpStatusCallbacks() const { return m_dumpStatusCallbacks; }
     bool shouldWaitUntilDone() const { return m_waitForDone; }
@@ -88,6 +89,7 @@ public slots:
     void maybeDump(bool ok);
     void dumpAsText() { m_textDump = true; }
     void dumpChildFramesAsText() { m_dumpChildrenAsText = true; }
+    void dumpChildFrameScrollPositions() { m_dumpChildFrameScrollPositions = true; }
     void dumpDatabaseCallbacks() { m_dumpDatabaseCallbacks = true; }
     void dumpStatusCallbacks() { m_dumpStatusCallbacks = true; }
     void setCanOpenWindows() { m_canOpenWindows = true; }
@@ -103,6 +105,7 @@ public slots:
     void dumpEditingCallbacks();
     void dumpFrameLoadCallbacks();
     void dumpResourceLoadCallbacks();
+    void dumpResourceResponseMIMETypes();
     void setWillSendRequestReturnsNullOnRedirect(bool enabled);
     void setWillSendRequestReturnsNull(bool enabled);
     void setWillSendRequestClearHeader(const QStringList& headers);
@@ -171,7 +174,9 @@ public slots:
     void clearAllDatabases();
     void setIconDatabaseEnabled(bool enable);
 
+    void setCustomPolicyDelegate(bool enabled, bool permissive = true);
     void waitForPolicyDelegate();
+
     void overridePreference(const QString& name, const QVariant& value);
     void setUserStyleSheetLocation(const QString& url);
     void setUserStyleSheetEnabled(bool enabled);
@@ -193,6 +198,9 @@ public slots:
     void setGeolocationPermission(bool allow);
     bool isGeolocationPermissionSet() const { return m_isGeolocationPermissionSet; }
     bool geolocationPermission() const { return m_geolocationPermission; }
+
+    // Empty stub method to keep parity with object model exposed by global LayoutTestController.
+    void abortModal() {}
 
     /*
         Policy values: 'on', 'auto' or 'off'.
@@ -218,6 +226,7 @@ private:
     bool m_textDump;
     bool m_dumpBackForwardList;
     bool m_dumpChildrenAsText;
+    bool m_dumpChildFrameScrollPositions;
     bool m_canOpenWindows;
     bool m_waitForDone;
     bool m_dumpTitleChanges;
@@ -227,10 +236,10 @@ private:
     bool m_handleErrorPages;
     bool m_loadFinished;
     bool m_globalFlag;
+    bool m_userStyleSheetEnabled;
     bool m_isGeolocationPermissionSet;
     bool m_geolocationPermission;
 
-    QMap<int, QWebScriptWorld*> m_worldMap;
     QUrl m_userStyleSheetLocation;
     QBasicTimer m_timeoutTimer;
     QWebFrame* m_topLoadingFrame;

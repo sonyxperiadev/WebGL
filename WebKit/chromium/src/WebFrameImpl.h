@@ -150,8 +150,12 @@ public:
     virtual float getPrintPageShrink(int page);
     virtual void printEnd();
     virtual bool isPageBoxVisible(int pageIndex);
-    virtual WebRect pageAreaRectInPixels(int pageIndex);
-    virtual WebSize preferredPageSizeInPixels(int pageIndex);
+    virtual void pageSizeAndMarginsInPixels(int pageIndex,
+                                            WebSize& pageSize,
+                                            int& marginTop,
+                                            int& marginRight,
+                                            int& marginBottom,
+                                            int& marginLeft);
     virtual bool find(
         int identifier, const WebString& searchText, const WebFindOptions&,
         bool wrapWithinFrame, WebRect* selectionRect);
@@ -164,6 +168,8 @@ public:
     virtual void resetMatchCount();
     virtual bool registerPasswordListener(
         WebInputElement, WebPasswordAutocompleteListener*);
+    virtual void notifiyPasswordListenerOfAutocomplete(
+        const WebInputElement&);
 
     virtual WebString contentAsText(size_t maxChars) const;
     virtual WebString contentAsMarkup() const;

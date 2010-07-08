@@ -40,7 +40,6 @@ namespace WebCore {
 
 class AnimationList;
 class CSSStyleSelector;
-class LengthSize;
 class ShadowData;
 class StyleFlexibleBoxData;
 class StyleMarqueeData;
@@ -49,6 +48,7 @@ class StyleReflection;
 class StyleTransformData;
 
 struct ContentData;
+struct LengthSize;
 
 #if ENABLE(DASHBOARD_SUPPORT)
 struct StyleDashboardRegion;
@@ -57,6 +57,16 @@ struct StyleDashboardRegion;
 #if ENABLE(XBL)
 class BindingURI;
 #endif
+
+// Page size type.
+// StyleRareNonInheritedData::m_pageSize is meaningful only when 
+// StyleRareNonInheritedData::m_pageSizeType is PAGE_SIZE_RESOLVED.
+enum PageSizeType {
+    PAGE_SIZE_AUTO, // size: auto
+    PAGE_SIZE_AUTO_LANDSCAPE, // size: landscape
+    PAGE_SIZE_AUTO_PORTRAIT, // size: portrait
+    PAGE_SIZE_RESOLVED // Size is fully resolved.
+};
 
 // This struct is for rarely used non-inherited CSS3, CSS2, and WebKit-specific properties.
 // By grouping them together, we save space, and only allocate this object when someone
@@ -125,6 +135,7 @@ public:
     Length m_perspectiveOriginY;
 
     LengthSize m_pageSize;
+    PageSizeType m_pageSizeType;
 
 #if ENABLE(XBL)
     OwnPtr<BindingURI> bindingURI; // The XBL binding URI list.

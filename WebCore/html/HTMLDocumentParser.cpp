@@ -70,7 +70,7 @@ private:
 } // namespace
 
 HTMLDocumentParser::HTMLDocumentParser(HTMLDocument* document, bool reportErrors)
-    : DocumentParser(document)
+    : ScriptableDocumentParser(document)
     , m_tokenizer(new HTMLTokenizer)
     , m_scriptRunner(new HTMLScriptRunner(document, this))
     , m_treeBuilder(new HTMLTreeBuilder(m_tokenizer.get(), document, reportErrors))
@@ -84,7 +84,7 @@ HTMLDocumentParser::HTMLDocumentParser(HTMLDocument* document, bool reportErrors
 // FIXME: Member variables should be grouped into self-initializing structs to
 // minimize code duplication between these constructors.
 HTMLDocumentParser::HTMLDocumentParser(DocumentFragment* fragment, FragmentScriptingPermission scriptingPermission)
-    : DocumentParser(fragment->document())
+    : ScriptableDocumentParser(fragment->document())
     , m_tokenizer(new HTMLTokenizer)
     , m_treeBuilder(new HTMLTreeBuilder(m_tokenizer.get(), fragment, scriptingPermission))
     , m_endWasDelayed(false)
@@ -217,23 +217,44 @@ void HTMLDocumentParser::didPumpLexer()
 #endif
 }
 
-void HTMLDocumentParser::write(const SegmentedString& source, bool isFromNetwork)
+void HTMLDocumentParser::insert(const SegmentedString& source)
 {
     if (m_parserStopped)
         return;
 
+<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::ParsingTimeCounter);
 #endif
     NestingLevelIncrementer nestingLevelIncrementer(m_writeNestingLevel);
+=======
+    {
+        NestingLevelIncrementer nestingLevelIncrementer(m_writeNestingLevel);
 
-    if (isFromNetwork) {
+        SegmentedString excludedLineNumberSource(source);
+        excludedLineNumberSource.setExcludeLineNumbers();
+        m_input.insertAtCurrentInsertionPoint(excludedLineNumberSource);
+        pumpTokenizerIfPossible(ForceSynchronous);
+    }
+
+    endIfDelayed();
+}
+
+void HTMLDocumentParser::append(const SegmentedString& source)
+{
+    if (m_parserStopped)
+        return;
+
+    {
+        NestingLevelIncrementer nestingLevelIncrementer(m_writeNestingLevel);
+>>>>>>> webkit.org at r62496
+
         m_input.appendToEnd(source);
         if (m_preloadScanner)
             m_preloadScanner->appendToEnd(source);
 
         if (m_writeNestingLevel > 1) {
-            // We've gotten data off the network in a nested call to write().
+            // We've gotten data off the network in a nested write.
             // We don't want to consume any more of the input stream now.  Do
             // not worry.  We'll consume this data in a less-nested write().
 #ifdef ANDROID_INSTRUMENT
@@ -241,10 +262,10 @@ void HTMLDocumentParser::write(const SegmentedString& source, bool isFromNetwork
 #endif
             return;
         }
-    } else
-        m_input.insertAtCurrentInsertionPoint(source);
 
-    pumpTokenizerIfPossible(isFromNetwork ? AllowYield : ForceSynchronous);
+        pumpTokenizerIfPossible(AllowYield);
+    }
+
     endIfDelayed();
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::record(android::TimeCounter::ParsingTimeCounter, __FUNCTION__);
@@ -267,7 +288,7 @@ void HTMLDocumentParser::attemptToEnd()
     // finish() indicates we will not receive any more data. If we are waiting on
     // an external script to load, we can't finish parsing quite yet.
 
-    if (inWrite() || isWaitingForScripts() || inScriptExecution() || isScheduledForResume()) {
+    if (shouldDelayEnd()) {
         m_endWasDelayed = true;
         return;
     }
@@ -276,9 +297,7 @@ void HTMLDocumentParser::attemptToEnd()
 
 void HTMLDocumentParser::endIfDelayed()
 {
-    // We don't check inWrite() here since inWrite() will be true if this was
-    // called from write().
-    if (!m_endWasDelayed || isWaitingForScripts() || inScriptExecution() || isScheduledForResume())
+    if (!m_endWasDelayed || shouldDelayEnd())
         return;
 
     m_endWasDelayed = false;
@@ -287,15 +306,17 @@ void HTMLDocumentParser::endIfDelayed()
 
 void HTMLDocumentParser::finish()
 {
-    // We're not going to get any more data off the network, so we close the
-    // input stream to indicate EOF.
-    m_input.close();
+    // We're not going to get any more data off the network, so we tell the
+    // input stream we've reached the end of file.  finish() can be called more
+    // than once, if the first time does not call end().
+    if (!m_input.haveSeenEndOfFile())
+        m_input.markEndOfFile();
     attemptToEnd();
 }
 
 bool HTMLDocumentParser::finishWasCalled()
 {
-    return m_input.isClosed();
+    return m_input.haveSeenEndOfFile();
 }
 
 // This function is virtual and just for the DocumentParser interface.
@@ -338,13 +359,15 @@ void HTMLDocumentParser::resumeParsingAfterScriptExecution()
     ASSERT(!m_treeBuilder->isPaused());
 
     pumpTokenizerIfPossible(AllowYield);
-
-    // The document already finished parsing we were just waiting on scripts when finished() was called.
     endIfDelayed();
 }
 
 void HTMLDocumentParser::watchForLoad(CachedResource* cachedScript)
 {
+    ASSERT(!cachedScript->isLoaded());
+    // addClient would call notifyFinished if the load were complete.
+    // Callers do not expect to be re-entered from this call, so they should
+    // not an already-loaded CachedResource.
     cachedScript->addClient(this);
 }
 
@@ -355,22 +378,14 @@ void HTMLDocumentParser::stopWatchingForLoad(CachedResource* cachedScript)
 
 bool HTMLDocumentParser::shouldLoadExternalScriptFromSrc(const AtomicString& srcValue)
 {
-    if (!m_XSSAuditor)
+    if (!xssAuditor())
         return true;
-    return m_XSSAuditor->canLoadExternalScriptFromSrc(srcValue);
+    return xssAuditor()->canLoadExternalScriptFromSrc(srcValue);
 }
 
 void HTMLDocumentParser::notifyFinished(CachedResource* cachedResource)
 {
     ASSERT(m_scriptRunner);
-    // Ignore calls unless we have a script blocking the parser waiting
-    // for its own load.  Otherwise this may be a load callback from
-    // CachedResource::addClient because the script was already in the cache.
-    // HTMLScriptRunner may not be ready to handle running that script yet.
-    if (!m_scriptRunner->hasScriptsWaitingForLoad()) {
-        ASSERT(m_scriptRunner->inScriptExecution());
-        return;
-    }
     ASSERT(!inScriptExecution());
     ASSERT(m_treeBuilder->isPaused());
     // Note: We only ever wait on one script at a time, so we always know this
@@ -411,7 +426,7 @@ ScriptController* HTMLDocumentParser::script() const
 void HTMLDocumentParser::parseDocumentFragment(const String& source, DocumentFragment* fragment, FragmentScriptingPermission scriptingPermission)
 {
     HTMLDocumentParser parser(fragment, scriptingPermission);
-    parser.write(source, false);
+    parser.insert(source); // Use insert() so that the parser will not yield.
     parser.finish();
     ASSERT(!parser.processingData()); // Make sure we're done. <rdar://problem/3963151>
 }

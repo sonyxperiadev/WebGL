@@ -33,6 +33,7 @@
 #include "CSSStyleSelector.h"
 #include "ClientRect.h"
 #include "ClientRectList.h"
+#include "DatasetDOMStringMap.h"
 #include "Document.h"
 #include "DocumentFragment.h"
 #include "ElementRareData.h"
@@ -153,10 +154,10 @@ PassRefPtr<Element> Element::cloneElementWithoutChildren()
     // This is a sanity check as HTML overloads some of the DOM methods.
     ASSERT(isHTMLElement() == clone->isHTMLElement());
 
-    // Clone attributes.
-    if (namedAttrMap)
-        clone->attributes()->setAttributes(*attributes(true)); // Call attributes(true) to force attribute synchronization to occur (for svg and style) before cloning happens.
-    
+    // Call attributes(true) to force attribute synchronization to occur for SVG and style attributes.
+    if (NamedNodeMap* attributeMap = attributes(true))
+        clone->attributes()->setAttributes(*attributeMap);
+
     clone->copyNonAttributeProperties(this);
 
     return clone.release();
@@ -1518,6 +1519,14 @@ bool Element::webkitMatchesSelector(const String& selector, ExceptionCode& ec)
     }
 
     return false;
+}
+
+DOMStringMap* Element::dataset()
+{
+    ElementRareData* data = ensureRareData();
+    if (!data->m_datasetDOMStringMap)
+        data->m_datasetDOMStringMap = DatasetDOMStringMap::create(this);
+    return data->m_datasetDOMStringMap.get();
 }
 
 KURL Element::getURLAttribute(const QualifiedName& name) const

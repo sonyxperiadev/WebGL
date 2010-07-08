@@ -180,6 +180,9 @@ namespace WebCore {
         void setUsesEncodingDetector(bool);
         bool usesEncodingDetector() const { return m_usesEncodingDetector; }
 
+        void setDNSPrefetchingEnabled(bool);
+        bool dnsPrefetchingEnabled() const { return m_dnsPrefetchingEnabled; }
+
         void setUserStyleSheetLocation(const KURL&);
         const KURL& userStyleSheetLocation() const { return m_userStyleSheetLocation; }
 
@@ -363,6 +366,13 @@ namespace WebCore {
         void setHTML5ParserEnabled(bool flag) { m_html5ParserEnabled = flag; }
         bool html5ParserEnabled() const { return m_html5ParserEnabled; }
 
+        // NOTE: This code will be deleted once the HTML5TreeBuilder is ready
+        // to replace LegacyHTMLTreeBuilder.  Using the HTML5DocumentParser
+        // with LegacyHTMLTreeBuilder will not be supported long-term.
+        // Setting is only for testing the new tree builder in DumpRenderTree.
+        void setHTML5TreeBuilderEnabled_DO_NOT_USE(bool flag) { m_html5TreeBuilderEnabled = flag; }
+        bool html5TreeBuilderEnabled() const { return m_html5TreeBuilderEnabled; }
+
         void setPaginateDuringLayoutEnabled(bool flag) { m_paginateDuringLayoutEnabled = flag; }
         bool paginateDuringLayoutEnabled() const { return m_paginateDuringLayoutEnabled; }
 
@@ -483,11 +493,17 @@ namespace WebCore {
         bool m_loadDeferringEnabled : 1;
         bool m_tiledBackingStoreEnabled : 1;
         bool m_html5ParserEnabled: 1;
+        bool m_html5TreeBuilderEnabled: 1; // Will be deleted soon, do not use.
         bool m_paginateDuringLayoutEnabled : 1;
+<<<<<<< HEAD
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif
 
+=======
+        bool m_dnsPrefetchingEnabled : 1;
+    
+>>>>>>> webkit.org at r62496
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;
 #endif

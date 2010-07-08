@@ -24,6 +24,8 @@
 #include "HTMLPlugInElement.h"
 
 #include "Attribute.h"
+#include "Chrome.h"
+#include "ChromeClient.h"
 #include "CSSPropertyNames.h"
 #include "Document.h"
 #include "Frame.h"
@@ -31,6 +33,7 @@
 #include "FrameTree.h"
 #include "HTMLNames.h"
 #include "Page.h"
+#include "RenderEmbeddedObject.h"
 #include "RenderWidget.h"
 #include "ScriptController.h"
 #include "Settings.h"
@@ -88,26 +91,6 @@ PassScriptInstance HTMLPlugInElement::getInstance() const
     return m_instance;
 }
 
-String HTMLPlugInElement::height() const
-{
-    return getAttribute(heightAttr);
-}
-
-void HTMLPlugInElement::setHeight(const String& value)
-{
-    setAttribute(heightAttr, value);
-}
-
-String HTMLPlugInElement::width() const
-{
-    return getAttribute(widthAttr);
-}
-
-void HTMLPlugInElement::setWidth(const String& value)
-{
-    setAttribute(widthAttr, value);
-}
-
 bool HTMLPlugInElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
 {
     if (attrName == widthAttr ||
@@ -158,6 +141,18 @@ void HTMLPlugInElement::defaultEventHandler(Event* event)
     // FIXME: Mouse down and scroll events are passed down to plug-in via custom code in EventHandler; these code paths should be united.
 
     RenderObject* r = renderer();
+    if (r && r->isEmbeddedObject() && toRenderEmbeddedObject(r)->showsMissingPluginIndicator()) {
+        if (event->type() != eventNames().clickEvent)
+            return;
+
+        Page* page = document()->page();
+        if (!page)
+            return;
+
+        page->chrome()->client()->missingPluginButtonClicked(this);
+        return;
+    }
+
     if (!r || !r->isWidget())
         return;
     Widget* widget = toRenderWidget(r)->widget();

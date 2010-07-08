@@ -136,10 +136,10 @@ bool parseXMLDocumentFragment(const String&, DocumentFragment*, Element* parent 
 
 #include "CachedResourceClient.h"
 #include "CachedResourceHandle.h"
+#include "FragmentScriptingPermission.h"
+#include "ScriptableDocumentParser.h"
 #include "SegmentedString.h"
 #include "StringHash.h"
-#include "DocumentParser.h"
-#include "FragmentScriptingPermission.h"
 #include <wtf/HashMap.h>
 #include <wtf/OwnPtr.h>
 
@@ -179,7 +179,7 @@ namespace WebCore {
     };
 #endif
 
-    class XMLDocumentParser : public DocumentParser, public CachedResourceClient {
+    class XMLDocumentParser : public ScriptableDocumentParser, public CachedResourceClient {
     public:
         XMLDocumentParser(Document*, FrameView* = 0);
         XMLDocumentParser(DocumentFragment*, Element*, FragmentScriptingPermission);
@@ -199,9 +199,12 @@ namespace WebCore {
         bool isWMLDocument() const;
 #endif
 
+    static bool parseDocumentFragment(const String&, DocumentFragment*, Element* parent = 0, FragmentScriptingPermission = FragmentScriptingAllowed);
+
     private:
         // From DocumentParser
-        virtual void write(const SegmentedString&, bool appendData);
+        virtual void insert(const SegmentedString&);
+        virtual void append(const SegmentedString&);
         virtual void finish();
         virtual bool finishWasCalled();
         virtual bool isWaitingForScripts() const;
@@ -247,8 +250,6 @@ public:
         void endDocument();
 #endif
     private:
-        friend bool parseXMLDocumentFragment(const String&, DocumentFragment*, Element*, FragmentScriptingPermission);
-
         void initializeParserContext(const char* chunk = 0);
 
         void pushCurrentNode(Node*);
@@ -315,7 +316,6 @@ void* xmlDocPtrForString(DocLoader*, const String& source, const String& url);
 #endif
 
 HashMap<String, String> parseAttributes(const String&, bool& attrsOK);
-bool parseXMLDocumentFragment(const String&, DocumentFragment*, Element* parent = 0, FragmentScriptingPermission = FragmentScriptingAllowed);
 
 } // namespace WebCore
 

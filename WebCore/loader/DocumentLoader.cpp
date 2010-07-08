@@ -39,6 +39,7 @@
 #include "CachedPage.h"
 #include "DocLoader.h"
 #include "Document.h"
+#include "DocumentParser.h"
 #include "Event.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -50,7 +51,6 @@
 #include "PlatformString.h"
 #include "Settings.h"
 #include "SharedBuffer.h"
-#include "XMLDocumentParser.h"
 
 #include <wtf/Assertions.h>
 #include <wtf/unicode/Unicode.h>

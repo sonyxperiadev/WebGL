@@ -147,7 +147,7 @@ inline void Token::addAttribute(AtomicString& attrName, const AtomicString& attr
 // ----------------------------------------------------------------------------
 
 LegacyHTMLDocumentParser::LegacyHTMLDocumentParser(HTMLDocument* document, bool reportErrors)
-    : DocumentParser(document)
+    : ScriptableDocumentParser(document)
     , m_buffer(0)
     , m_scriptCode(0)
     , m_scriptCodeSize(0)
@@ -167,7 +167,7 @@ LegacyHTMLDocumentParser::LegacyHTMLDocumentParser(HTMLDocument* document, bool 
 }
 
 LegacyHTMLDocumentParser::LegacyHTMLDocumentParser(HTMLViewSourceDocument* document)
-    : DocumentParser(document, true)
+    : ScriptableDocumentParser(document, true)
     , m_buffer(0)
     , m_scriptCode(0)
     , m_scriptCodeSize(0)
@@ -186,7 +186,7 @@ LegacyHTMLDocumentParser::LegacyHTMLDocumentParser(HTMLViewSourceDocument* docum
 }
 
 LegacyHTMLDocumentParser::LegacyHTMLDocumentParser(DocumentFragment* frag, FragmentScriptingPermission scriptingPermission)
-    : DocumentParser(frag->document())
+    : ScriptableDocumentParser(frag->document())
     , m_buffer(0)
     , m_scriptCode(0)
     , m_scriptCodeSize(0)
@@ -1391,7 +1391,7 @@ LegacyHTMLDocumentParser::State LegacyHTMLDocumentParser::parseTag(SegmentedStri
 
                         if (m_currentToken.beginTag && m_currentToken.tagName == scriptTag && !inViewSourceMode() && !m_treeBuilder->skipMode() && m_attrName == srcAttr) {
                             String context(m_rawAttributeBeforeValue.data(), m_rawAttributeBeforeValue.size());
-                            if (m_XSSAuditor && !m_XSSAuditor->canLoadExternalScriptFromSrc(attributeValue))
+                            if (xssAuditor() && !xssAuditor()->canLoadExternalScriptFromSrc(attributeValue))
                                 attributeValue = blankURL().string();
                         }
 
@@ -1428,7 +1428,7 @@ LegacyHTMLDocumentParser::State LegacyHTMLDocumentParser::parseTag(SegmentedStri
 
                         if (m_currentToken.beginTag && m_currentToken.tagName == scriptTag && !inViewSourceMode() && !m_treeBuilder->skipMode() && m_attrName == srcAttr) {
                             String context(m_rawAttributeBeforeValue.data(), m_rawAttributeBeforeValue.size());
-                            if (m_XSSAuditor && !m_XSSAuditor->canLoadExternalScriptFromSrc(attributeValue))
+                            if (xssAuditor() && !xssAuditor()->canLoadExternalScriptFromSrc(attributeValue))
                                 attributeValue = blankURL().string();
                         }
 
@@ -1787,8 +1787,28 @@ void LegacyHTMLDocumentParser::write(const SegmentedString& str, bool appendData
     if (m_noMoreData && !m_inWrite && !state.loadingExtScript() && !m_executingScript && !m_timer.isActive())
         end(); // this actually causes us to be deleted
 
-    // After parsing, go ahead and dispatch image beforeload events.
-    ImageLoader::dispatchPendingBeforeLoadEvents();
+    // After parsing, go ahead and dispatch image beforeload events, but only if we're doing
+    // document parsing.  For document fragments we wait, since they'll likely end up in the document by the time
+    // the beforeload events fire.
+    if (!m_fragment)
+        ImageLoader::dispatchPendingBeforeLoadEvents();
+}
+
+void LegacyHTMLDocumentParser::insert(const SegmentedString& source)
+{
+    // FIXME: forceSynchronous should always be the same as the bool passed to
+    // write().  However LegacyHTMLDocumentParser uses write("", false) to pump
+    // the parser (after running external scripts, etc.) thus necessitating a
+    // separate state for forceSynchronous.
+    bool wasForcedSynchronous = forceSynchronous();
+    setForceSynchronous(true);
+    write(source, false);
+    setForceSynchronous(wasForcedSynchronous);
+}
+
+void LegacyHTMLDocumentParser::append(const SegmentedString& source)
+{
+    write(source, true);
 }
 
 void LegacyHTMLDocumentParser::stopParsing()

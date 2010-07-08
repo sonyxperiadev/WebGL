@@ -32,6 +32,8 @@
 #define WebView_h
 
 #include "WebDragOperation.h"
+#include "WebString.h"
+#include "WebVector.h"
 #include "WebWidget.h"
 
 namespace WebKit {
@@ -42,13 +44,13 @@ class WebDevToolsAgentClient;
 class WebDragData;
 class WebFrame;
 class WebFrameClient;
+class WebGLES2Context;
 class WebNode;
 class WebSettings;
 class WebString;
 class WebViewClient;
 struct WebMediaPlayerAction;
 struct WebPoint;
-template <typename T> class WebVector;
 
 class WebView : public WebWidget {
 public:
@@ -57,7 +59,7 @@ public:
     // Creates a WebView that is NOT yet initialized.  You will need to
     // call initializeMainFrame to finish the initialization.  It is valid
     // to pass null WebViewClient and WebDevToolsAgentClient pointers.
-    WEBKIT_API static WebView* create(WebViewClient*, WebDevToolsAgentClient* = 0);
+    WEBKIT_API static WebView* create(WebViewClient*, WebDevToolsAgentClient*);
 
     // After creating a WebView, you should immediately call this method.
     // You can optionally modify the settings before calling this method.
@@ -224,7 +226,6 @@ public:
     // The embedder may optionally engage a WebDevToolsAgent.  This may only
     // be set once per WebView.
     virtual WebDevToolsAgent* devToolsAgent() = 0;
-    virtual void setDevToolsAgent(WebDevToolsAgent*) = 0;
 
 
     // Accessibility -------------------------------------------------------
@@ -233,17 +234,18 @@ public:
     virtual WebAccessibilityObject accessibilityObject() = 0;
 
 
-    // AutoFill / Autocomplete ---------------------------------------------
+    // AutoFill  -----------------------------------------------------------
 
     // Notifies the WebView that AutoFill suggestions are available for a node.
     virtual void applyAutoFillSuggestions(
         const WebNode&,
         const WebVector<WebString>& names,
         const WebVector<WebString>& labels,
-        int defaultSuggestionIndex) = 0;
+        int separatorIndex) = 0;
 
     // Notifies the WebView that Autocomplete suggestions are available for a
     // node.
+    // DEPRECATED: merging with applyAutoFillSuggestions.
     virtual void applyAutocompleteSuggestions(
         const WebNode&,
         const WebVector<WebString>& suggestions,
@@ -281,10 +283,22 @@ public:
                                     unsigned inactiveForegroundColor) = 0;
 
     // User scripts --------------------------------------------------------
-    virtual void addUserScript(const WebString& sourceCode,
-                               bool runAtStart) = 0;
-    virtual void addUserStyleSheet(const WebString& sourceCode) = 0;
-    virtual void removeAllUserContent() = 0;
+    // FIXME: These two methods are DEPRECATED. Remove once Chromium has been rolled.
+    virtual void addUserScript(const WebString& sourceCode, bool runAtStart)
+    {
+        addUserScript(sourceCode, WebVector<WebString>(), runAtStart);
+    }
+    virtual void addUserStyleSheet(const WebString& sourceCode)
+    {
+        addUserStyleSheet(sourceCode, WebVector<WebString>());
+    }
+
+    WEBKIT_API static void addUserScript(const WebString& sourceCode,
+                                         const WebVector<WebString>& patterns,
+                                         bool runAtStart);
+    WEBKIT_API static void addUserStyleSheet(const WebString& sourceCode,
+                                             const WebVector<WebString>& patterns);
+    WEBKIT_API static void removeAllUserContent();
 
     // Modal dialog support ------------------------------------------------
 
@@ -292,6 +306,12 @@ public:
     // to suspend script callbacks and resource loads.
     WEBKIT_API static void willEnterModalLoop();
     WEBKIT_API static void didExitModalLoop();
+
+    // GPU acceleration support --------------------------------------------
+
+    // Returns the GLES2Context associated with this WebView. One will be
+    // created if it doesn't already exist.
+    virtual WebGLES2Context* gles2Context() = 0;
 
 protected:
     ~WebView() {}

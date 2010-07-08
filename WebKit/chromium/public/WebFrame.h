@@ -408,12 +408,16 @@ public:
     // Returns true if page box (margin boxes and page borders) is visible.
     virtual bool isPageBoxVisible(int pageIndex) = 0;
 
-    // Returns the page area rectangle in pixels, assuming 96 pixels per inch.
-    virtual WebRect pageAreaRectInPixels(int pageIndex) = 0;
-
-    // Returns the preferred page size in pixels, assuming 96 pixels per inch.
-    virtual WebSize preferredPageSizeInPixels(int pageIndex) = 0;
-
+    // Returns the preferred page size and margins in pixels, assuming 96
+    // pixels per inch. pageSize, marginTop, marginRight, marginBottom,
+    // marginLeft must be initialized to the default values that are used if
+    // auto is specified.
+    virtual void pageSizeAndMarginsInPixels(int pageIndex,
+                                            WebSize& pageSize,
+                                            int& marginTop,
+                                            int& marginRight,
+                                            int& marginBottom,
+                                            int& marginLeft) = 0;
 
     // Find-in-page --------------------------------------------------------
 
@@ -483,6 +487,11 @@ public:
     virtual bool registerPasswordListener(
         WebInputElement,
         WebPasswordAutocompleteListener*) = 0;
+
+    // Dispatches an Autocompletion notification to registered listener if one
+    // exists that is registered against the WebInputElement specified.
+    virtual void notifiyPasswordListenerOfAutocomplete(
+        const WebInputElement&) = 0;
 
 
     // Utility -------------------------------------------------------------

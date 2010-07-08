@@ -183,13 +183,7 @@ bool LayoutTestController::isPageBoxVisible(int pageNumber) const
     return false;
 }
 
-JSRetainPtr<JSStringRef> LayoutTestController::pageAreaRectInPixels(int pageNumber) const
-{
-    // FIXME: implement
-    return JSRetainPtr<JSStringRef>();
-}
-
-JSRetainPtr<JSStringRef> LayoutTestController::preferredPageSizeInPixels(int pageNumber) const
+JSRetainPtr<JSStringRef> LayoutTestController::pageSizeAndMarginsInPixels(int pageNumber, int width, int height, int marginTop, int marginRight, int marginBottom, int marginLeft) const
 {
     // FIXME: implement
     return JSRetainPtr<JSStringRef>();
@@ -728,4 +722,8 @@ void LayoutTestController::setEditingBehavior(const char* editingBehavior)
         g_object_set(G_OBJECT(settings), "editing-behavior", WEBKIT_EDITING_BEHAVIOR_WINDOWS, NULL);
     if (!strcmp(editingBehavior, "mac"))
         g_object_set(G_OBJECT(settings), "editing-behavior", WEBKIT_EDITING_BEHAVIOR_MAC, NULL);
+}
+
+void LayoutTestController::abortModal()
+{
 }

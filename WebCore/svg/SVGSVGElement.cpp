@@ -294,21 +294,32 @@ void SVGSVGElement::svgAttributeChanged(const QualifiedName& attrName)
     // Thus the CSS length value for width is not updated, and width() calcWidth()
     // calculations on RenderSVGRoot will be wrong.
     // https://bugs.webkit.org/show_bug.cgi?id=25387
-    if (attrName == SVGNames::widthAttr)
+    bool updateRelativeLengths = false;
+    if (attrName == SVGNames::widthAttr) {
         updateCSSForAttribute(this, attrName, CSSPropertyWidth, widthBaseValue());
-    else if (attrName == SVGNames::heightAttr)
+        updateRelativeLengths = true;
+    } else if (attrName == SVGNames::heightAttr) {
         updateCSSForAttribute(this, attrName, CSSPropertyHeight, heightBaseValue());
+        updateRelativeLengths = true;
+    }
+
+    if (updateRelativeLengths
+        || attrName == SVGNames::xAttr
+        || attrName == SVGNames::yAttr
+        || SVGFitToViewBox::isKnownAttribute(attrName)) {
+        updateRelativeLengths = true;
+        updateRelativeLengthsInformation();
+    }
 
     if (!renderer())
         return;
 
-    if (attrName == SVGNames::xAttr || attrName == SVGNames::yAttr ||
-        SVGTests::isKnownAttribute(attrName) ||
-        SVGLangSpace::isKnownAttribute(attrName) ||
-        SVGExternalResourcesRequired::isKnownAttribute(attrName) ||
-        SVGFitToViewBox::isKnownAttribute(attrName) ||
-        SVGZoomAndPan::isKnownAttribute(attrName) ||
-        SVGStyledLocatableElement::isKnownAttribute(attrName))
+    if (updateRelativeLengths
+        || SVGTests::isKnownAttribute(attrName)
+        || SVGLangSpace::isKnownAttribute(attrName)
+        || SVGExternalResourcesRequired::isKnownAttribute(attrName)
+        || SVGZoomAndPan::isKnownAttribute(attrName)
+        || SVGStyledLocatableElement::isKnownAttribute(attrName))
         renderer()->setNeedsLayout(true);
 }
 
@@ -430,7 +441,7 @@ FloatRect SVGSVGElement::createSVGRect()
 
 SVGTransform SVGSVGElement::createSVGTransform()
 {
-    return SVGTransform();
+    return SVGTransform(SVGTransform::SVG_TRANSFORM_MATRIX);
 }
 
 SVGTransform SVGSVGElement::createSVGTransformFromMatrix(const AffineTransform& matrix)
@@ -510,10 +521,13 @@ void SVGSVGElement::setCurrentTime(float /* seconds */)
     // FIXME: Implement me, bug 12073
 }
 
-bool SVGSVGElement::hasRelativeValues() const
+bool SVGSVGElement::selfHasRelativeLengths() const
 {
-    return (x().isRelative() || width().isRelative() ||
-            y().isRelative() || height().isRelative());
+    return x().isRelative()
+        || y().isRelative()
+        || width().isRelative()
+        || height().isRelative()
+        || hasAttribute(SVGNames::viewBoxAttr);
 }
 
 bool SVGSVGElement::isOutermostSVG() const
@@ -522,9 +536,11 @@ bool SVGSVGElement::isOutermostSVG() const
     if (!parentNode())
         return true;
 
+#if ENABLE(SVG_FOREIGN_OBJECT)
     // We act like an outermost SVG element, if we're a direct child of a <foreignObject> element.
     if (parentNode()->hasTagName(SVGNames::foreignObjectTag))
         return true;
+#endif
 
     // This is true whenever this is the outermost SVG, even if there are HTML elements outside it
     return !parentNode()->isSVGElement();
@@ -579,5 +595,3 @@ void SVGSVGElement::documentDidBecomeActive()
 }
 
 #endif // ENABLE(SVG)
-
-// vim:ts=4:noet

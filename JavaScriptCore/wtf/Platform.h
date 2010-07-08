@@ -615,6 +615,10 @@
 #define WTF_USE_CARBON_SECURE_INPUT_MODE 1
 #endif
 
+#if PLATFORM(BREWMP)
+#define ENABLE_SINGLE_THREADED 1
+#endif
+
 #if PLATFORM(QT) && OS(DARWIN)
 #define WTF_PLATFORM_CF 1
 #endif
@@ -719,6 +723,7 @@
 #if !defined(TARGETING_TIGER) && !defined(TARGETING_LEOPARD)
 
 #define HAVE_DISPATCH_H 1
+#define HAVE_HOSTED_CORE_ANIMATION 1
 
 #if !PLATFORM(IPHONE)
 #define HAVE_MADV_FREE_REUSE 1
@@ -986,7 +991,8 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #endif
 #endif
 #if (CPU(X86) && USE(JSVALUE32_64)) || (CPU(X86_64) && USE(JSVALUE64)) \
-     || CPU(ARM)
+     || CPU(ARM) \
+     || CPU(MIPS)
 #if ENABLE(JIT) && !defined(ENABLE_JIT_OPTIMIZE_NATIVE_CALL)
 #define ENABLE_JIT_OPTIMIZE_NATIVE_CALL 1
 #endif
@@ -1104,10 +1110,6 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #define WTF_PLATFORM_CFNETWORK Error USE_macro_should_be_used_with_CFNETWORK
 
 #define ENABLE_JSC_ZOMBIES 0
-
-#if !defined(BUILDING_ON_TIGER)
-#define ENABLE_RECURSIVE_PARSE 1
-#endif
 
 /* FIXME: Eventually we should enable this for all platforms and get rid of the define. */
 #if PLATFORM(MAC)

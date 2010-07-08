@@ -27,7 +27,6 @@
 #if ENABLE(SVG)
 #include "GraphicsContext.h"
 #include "RenderBlock.h"
-#include "RenderSVGResourceFilter.h"
 #include "SVGInlineFlowBox.h"
 #include "SVGInlineTextBox.h"
 #include "SVGRenderSupport.h"
@@ -39,7 +38,7 @@
 
 namespace WebCore {
 
-void SVGRootInlineBox::paint(RenderObject::PaintInfo& paintInfo, int, int)
+void SVGRootInlineBox::paint(PaintInfo& paintInfo, int, int)
 {
     ASSERT(paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseSelection);
     ASSERT(!paintInfo.context->paintingDisabled());
@@ -47,18 +46,15 @@ void SVGRootInlineBox::paint(RenderObject::PaintInfo& paintInfo, int, int)
     RenderObject* boxRenderer = renderer();
     ASSERT(boxRenderer);
 
-    RenderObject::PaintInfo childPaintInfo(paintInfo);
+    PaintInfo childPaintInfo(paintInfo);
     childPaintInfo.context->save();
 
-    FloatRect repaintRect = boxRenderer->repaintRectInLocalCoordinates();
-
-    RenderSVGResourceFilter* filter = 0;
-    if (SVGRenderBase::prepareToRenderSVGContent(boxRenderer, childPaintInfo, repaintRect, filter)) {
+    if (SVGRenderSupport::prepareToRenderSVGContent(boxRenderer, childPaintInfo)) {
         for (InlineBox* child = firstChild(); child; child = child->nextOnLine())
             child->paint(childPaintInfo, 0, 0);
     }
 
-    SVGRenderBase::finishRenderSVGContent(boxRenderer, childPaintInfo, filter, paintInfo.context);
+    SVGRenderSupport::finishRenderSVGContent(boxRenderer, childPaintInfo, paintInfo.context);
     childPaintInfo.context->restore();
 }
 

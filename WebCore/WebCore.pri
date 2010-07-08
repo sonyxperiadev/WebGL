@@ -41,6 +41,7 @@ contains(DEFINES, ENABLE_SINGLE_THREADED=1) {
 !contains(DEFINES, ENABLE_ICONDATABASE=.): DEFINES += ENABLE_ICONDATABASE=1
 !contains(DEFINES, ENABLE_CHANNEL_MESSAGING=.): DEFINES += ENABLE_CHANNEL_MESSAGING=1
 !contains(DEFINES, ENABLE_ORIENTATION_EVENTS=.): DEFINES += ENABLE_ORIENTATION_EVENTS=0
+!contains(DEFINES, ENABLE_DIRECTORY_UPLOAD=.): DEFINES += ENABLE_DIRECTORY_UPLOAD=0
 
 # turn on SQLITE support if any of the dependent features are turned on
 !contains(DEFINES, ENABLE_SQLITE=.) {
@@ -110,6 +111,9 @@ greaterThan(QT_MINOR_VERSION, 5) {
 # Web Socket support.
 !contains(DEFINES, ENABLE_WEB_SOCKETS=.): DEFINES += ENABLE_WEB_SOCKETS=1
 
+# Web Timing support.
+!contains(DEFINES, ENABLE_WEB_TIMING=.): DEFINES += ENABLE_WEB_TIMING=0
+
 # XSLT support with QtXmlPatterns
 !contains(DEFINES, ENABLE_XSLT=.) {
     contains(QT_CONFIG, xmlpatterns):DEFINES += ENABLE_XSLT=1
@@ -176,6 +180,7 @@ contains(DEFINES, ENABLE_SVG=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_SVG=1
 contains(DEFINES, ENABLE_JAVASCRIPT_DEBUGGER=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_JAVASCRIPT_DEBUGGER=1
 contains(DEFINES, ENABLE_OFFLINE_WEB_APPLICATIONS=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_OFFLINE_WEB_APPLICATIONS=1
 contains(DEFINES, ENABLE_WEB_SOCKETS=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_WEB_SOCKETS=1
+contains(DEFINES, ENABLE_WEB_TIMING=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_WEB_TIMING=1
 contains(DEFINES, ENABLE_TOUCH_EVENTS=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_TOUCH_EVENTS=1
 contains(DEFINES, ENABLE_TILED_BACKING_STORE=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_TILED_BACKING_STORE=1
 contains(DEFINES, ENABLE_NOTIFICATIONS=1): FEATURE_DEFINES_JAVASCRIPT += ENABLE_NOTIFICATIONS=1
@@ -267,6 +272,7 @@ IDL_BINDINGS += \
     css/WebKitCSSTransformValue.idl \
     dom/Attr.idl \
     dom/BeforeLoadEvent.idl \
+    dom/BeforeProcessEvent.idl \
     dom/CharacterData.idl \
     dom/ClientRect.idl \
     dom/ClientRectList.idl \
@@ -282,6 +288,7 @@ IDL_BINDINGS += \
     dom/DOMCoreException.idl \
     dom/DOMImplementation.idl \
     dom/DOMStringList.idl \
+    dom/DOMStringMap.idl \
     dom/Element.idl \
     dom/Entity.idl \
     dom/EntityReference.idl \
@@ -449,9 +456,12 @@ IDL_BINDINGS += \
     page/History.idl \
     page/Location.idl \
     page/MemoryInfo.idl \
+    page/Navigation.idl \
     page/Navigator.idl \
+    page/Performance.idl \
     page/PositionError.idl \
     page/Screen.idl \
+    page/Timing.idl \
     page/WebKitPoint.idl \
     page/WorkerNavigator.idl \
     plugins/Plugin.idl \
@@ -523,6 +533,7 @@ IDL_BINDINGS += \
     svg/SVGFEColorMatrixElement.idl \
     svg/SVGFEComponentTransferElement.idl \
     svg/SVGFECompositeElement.idl \
+    svg/SVGFEConvolveMatrixElement.idl \
     svg/SVGFEDiffuseLightingElement.idl \
     svg/SVGFEDisplacementMapElement.idl \
     svg/SVGFEDistantLightElement.idl \

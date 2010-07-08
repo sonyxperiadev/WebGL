@@ -962,7 +962,7 @@ WebHistoryItem WebFrameImpl::previousHistoryItem() const
 WebHistoryItem WebFrameImpl::currentHistoryItem() const
 {
     // If we are still loading, then we don't want to clobber the current
-    // history item as this could cause us to lose the scroll position and 
+    // history item as this could cause us to lose the scroll position and
     // document state.  However, it is OK for new navigations.
     if (m_frame->loader()->loadType() == FrameLoadTypeStandard
         || !m_frame->loader()->activeDocumentLoader()->isLoadingInAPISense())
@@ -1284,14 +1284,21 @@ bool WebFrameImpl::isPageBoxVisible(int pageIndex)
     return frame()->document()->isPageBoxVisible(pageIndex);
 }
 
-WebRect WebFrameImpl::pageAreaRectInPixels(int pageIndex)
+void WebFrameImpl::pageSizeAndMarginsInPixels(int pageIndex,
+                                              WebSize& pageSize,
+                                              int& marginTop,
+                                              int& marginRight,
+                                              int& marginBottom,
+                                              int& marginLeft)
 {
-    return frame()->document()->pageAreaRectInPixels(pageIndex);
-}
-
-WebSize WebFrameImpl::preferredPageSizeInPixels(int pageIndex)
-{
-    return frame()->document()->preferredPageSizeInPixels(pageIndex);
+    IntSize size(pageSize.width, pageSize.height);
+    frame()->document()->pageSizeAndMarginsInPixels(pageIndex,
+                                                    size,
+                                                    marginTop,
+                                                    marginRight,
+                                                    marginBottom,
+                                                    marginLeft);
+    pageSize = size;
 }
 
 bool WebFrameImpl::find(int identifier,
@@ -1959,6 +1966,17 @@ bool WebFrameImpl::registerPasswordListener(
         return false;
     }
     return true;
+}
+
+void WebFrameImpl::notifiyPasswordListenerOfAutocomplete(
+    const WebInputElement& inputElement)
+{
+    RefPtr<HTMLInputElement> element = inputElement.operator PassRefPtr<HTMLInputElement>();
+    WebPasswordAutocompleteListener* listener = getPasswordListener(element.get());
+    // Password listeners need to autocomplete other fields that depend on the
+    // input element with autofill suggestions.
+    if (listener)
+        listener->performInlineAutocomplete(element->value(), false, false);
 }
 
 WebPasswordAutocompleteListener* WebFrameImpl::getPasswordListener(

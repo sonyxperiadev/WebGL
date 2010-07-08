@@ -34,7 +34,6 @@
 #include "HitTestRequest.h"
 #include "PointerEventsHitRules.h"
 #include "RenderSVGContainer.h"
-#include "RenderSVGResourceFilter.h"
 #include "RenderSVGResourceMarker.h"
 #include "StrokeStyleApplier.h"
 #include "SVGRenderSupport.h"
@@ -57,7 +56,7 @@ public:
 
     void strokeStyle(GraphicsContext* gc)
     {
-        applyStrokeStyleToContext(gc, m_style, m_object);
+        SVGRenderSupport::applyStrokeStyleToContext(gc, m_style, m_object);
     }
 
 private:
@@ -105,7 +104,7 @@ void RenderPath::layout()
     // as the viewport size may have changed. It would be nice to optimize this to detect these changes, and only
     // update when needed, even when using relative values.
     bool needsPathUpdate = m_needsPathUpdate;
-    if (!needsPathUpdate && element->hasRelativeValues())
+    if (!needsPathUpdate && element->hasRelativeLengths())
         needsPathUpdate = true;
 
     if (needsPathUpdate) {
@@ -172,13 +171,12 @@ void RenderPath::paint(PaintInfo& paintInfo, int, int)
     bool drawsOutline = style()->outlineWidth() && (childPaintInfo.phase == PaintPhaseOutline || childPaintInfo.phase == PaintPhaseSelfOutline);
     if (drawsOutline || childPaintInfo.phase == PaintPhaseForeground) {
         childPaintInfo.context->save();
-        applyTransformToPaintInfo(childPaintInfo, m_localTransform);
-        RenderSVGResourceFilter* filter = 0;
+        childPaintInfo.applyTransform(m_localTransform);
 
         if (childPaintInfo.phase == PaintPhaseForeground) {
             PaintInfo savedInfo(childPaintInfo);
 
-            if (prepareToRenderSVGContent(this, childPaintInfo, boundingBox, filter)) {
+            if (SVGRenderSupport::prepareToRenderSVGContent(this, childPaintInfo)) {
                 const SVGRenderStyle* svgStyle = style()->svgStyle();
                 if (svgStyle->shapeRendering() == SR_CRISPEDGES)
                     childPaintInfo.context->setShouldAntialias(false);
@@ -189,7 +187,7 @@ void RenderPath::paint(PaintInfo& paintInfo, int, int)
                     m_markerLayoutInfo.drawMarkers(childPaintInfo);
             }
 
-            finishRenderSVGContent(this, childPaintInfo, filter, savedInfo.context);
+            SVGRenderSupport::finishRenderSVGContent(this, childPaintInfo, savedInfo.context);
         }
 
         if (drawsOutline)
@@ -217,7 +215,7 @@ bool RenderPath::nodeAtFloatPoint(const HitTestRequest& request, HitTestResult& 
 
     FloatPoint localPoint = m_localTransform.inverse().mapPoint(pointInParent);
 
-    if (!pointInClippingArea(this, localPoint))
+    if (!SVGRenderSupport::pointInClippingArea(this, localPoint))
         return false;
 
     PointerEventsHitRules hitRules(PointerEventsHitRules::SVG_PATH_HITTESTING, request, style()->pointerEvents());
@@ -317,7 +315,7 @@ void RenderPath::updateCachedBoundaries()
 
     // Cache smallest possible repaint rectangle
     m_repaintBoundingBox = m_strokeAndMarkerBoundingBox;
-    intersectRepaintRectWithResources(this, m_repaintBoundingBox);
+    SVGRenderSupport::intersectRepaintRectWithResources(this, m_repaintBoundingBox);
 }
 
 }

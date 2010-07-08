@@ -1,3 +1,144 @@
+2010-06-23  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Eric Carlson.
+
+        [GStreamer] on Mac OS use a runloop observer to process the glib context iterations
+        https://bugs.webkit.org/show_bug.cgi?id=35747
+
+        If VIDEO and GSTREAMER are enabled, make the WebView start a
+        runloop observer that will trigger the glib main context
+        iterations. Those are needed by the GStreamer player only at the
+        moment but could later be used for other GLib-dependant components
+        if required.
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:usesDocumentViews:]):
+        (-[WebView _close]):
+        (-[WebView _clearGlibLoopObserver]):
+        (glibContextIterationCallback):
+        (-[WebView _scheduleGlibContextIterations]):
+        * WebView/WebViewData.h:
+        * WebView/WebViewInternal.h:
+
+2010-07-03  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        The missing plug-in indicator should be clickable
+
+        https://bugs.webkit.org/show_bug.cgi?id=41550
+        <rdar://problem/8132162>
+
+        From an original patch by Kevin Decker.
+
+        Reviewed by Darin Adler.
+
+        * WebCoreSupport/WebChromeClient.h:
+        Declare an override of missingPluginButtonClicked().
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::missingPluginButtonClicked):
+        Call the UIDelegate's method.
+
+        * WebView/WebUIDelegatePrivate.h:
+        Declare didPressMissingPluginButton.
+
+2010-07-01  Timothy Hatcher  <timothy@apple.com>
+
+        Provide a WebView preference to disable DNS prefetching.
+
+        https://bugs.webkit.org/show_bug.cgi?id=28825
+        rdar://problem/7181249
+
+        Reviewed by Darin Adler.
+
+        * WebView/WebPreferenceKeysPrivate.h: Added WebKitDNSPrefetchingEnabledPreferenceKey.
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]): Set WebKitDNSPrefetchingEnabledPreferenceKey to YES.
+        (-[WebPreferences isDNSPrefetchingEnabled]): Added. Return WebKitDNSPrefetchingEnabledPreferenceKey's value.
+        (-[WebPreferences setDNSPrefetchingEnabled:]): Added. Set WebKitDNSPrefetchingEnabledPreferenceKey's value.
+        * WebView/WebPreferencesPrivate.h: Added isDNSPrefetchingEnabled and setDNSPrefetchingEnabled:.
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]): Call WebCore::Settings::setDNSPrefetchingEnabled.
+
+2010-07-01  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        <rdar://problem/8148656> <https://bugs.webkit.org/show_bug.cgi?id=41431>
+        REGRESSION (r49411): Various crashes due to JavaScript execution during plug-in destruction
+
+        Strengthen m_inDestroy "swipe under the carpet" fix.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h: Added a long comment about m_inDestroy, and
+        changed it to static.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::NetscapePluginInstanceProxy): m_inDestroy is now
+        static, so we don't initialize it in constructor.
+        (WebKit::NetscapePluginInstanceProxy::destroy): Assert that we aren't already destroying
+        some plug-in.
+        (WebKit::NetscapePluginInstanceProxy::evaluate): This function accidentally lacked an
+        m_inDestroy check in r42789.
+
+2010-06-29  Zoltan Herczeg  <zherczeg@webkit.org>
+
+        Reviewed by Nikolas Zimmermann.
+
+        Add ConvolveMatrixElement to MigrateHeaders.make
+        https://bugs.webkit.org/show_bug.cgi?id=5861
+
+        * MigrateHeaders.make:
+
+2010-06-23  John Gregg  <johnnyg@google.com>
+
+        Reviewed by Kent Tamura.
+
+        add ENABLE_DIRECTORY_UPLOAD build support
+        https://bugs.webkit.org/show_bug.cgi?id=41100
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-06-28  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Make it possible to test the new HTML5 TreeBuilder
+        https://bugs.webkit.org/show_bug.cgi?id=41276
+
+        Adam was concerned that someone might make their port
+        depend on this setting (I guess we had some trouble with that
+        with the HTML5Parser setting), so I littered the code with warnings.
+
+        test-html5-parser now tests this code path.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences html5TreeBuilderEnabled]):
+        (-[WebPreferences setHTML5TreeBuilderEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+
+2010-06-25  Yuzo Fujishima  <yuzo@google.com>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Improve default value handling for page format properties.
+        https://bugs.webkit.org/show_bug.cgi?id=41150
+
+        * Misc/WebCoreStatistics.h:
+        * Misc/WebCoreStatistics.mm:
+        (-[WebFrame pageSizeAndMarginsInPixels:pageNumber:width:height:marginTop:marginRight:marginBottom:]):
+
+2010-06-26  Tony Gentilcore  <tonyg@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Add an ENABLE_WEB_TIMING option for enabling Web Timing support.
+        https://bugs.webkit.org/show_bug.cgi?id=38924
+
+        * Configurations/FeatureDefines.xcconfig:
+
 2010-06-24  Jer Noble  <jer.noble@apple.com>
 
         Reviewed by Eric Carlson.

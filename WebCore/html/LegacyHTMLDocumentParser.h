@@ -28,9 +28,9 @@
 #include "CachedResourceHandle.h"
 #include "FragmentScriptingPermission.h"
 #include "NamedNodeMap.h"
+#include "ScriptableDocumentParser.h"
 #include "SegmentedString.h"
 #include "Timer.h"
-#include "DocumentParser.h"
 #include <wtf/Deque.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/Vector.h>
@@ -140,7 +140,7 @@ public:
 // (like dealing with <script> tags).  The HTML tokenizer bits should be pushed
 // down into a separate HTML tokenizer class.
 
-class LegacyHTMLDocumentParser : public DocumentParser, public CachedResourceClient {
+class LegacyHTMLDocumentParser : public ScriptableDocumentParser, public CachedResourceClient {
 public:
     LegacyHTMLDocumentParser(HTMLDocument*, bool reportErrors);
     LegacyHTMLDocumentParser(HTMLViewSourceDocument*);
@@ -150,18 +150,16 @@ public:
     bool forceSynchronous() const { return m_state.forceSynchronous(); }
     void setForceSynchronous(bool force);
 
-    // Exposed for LegacyHTMLTreeBuilder::reportErrorToConsole
-    bool processingContentWrittenByScript() const { return m_src.excludeLineNumbers(); }
-
     static void parseDocumentFragment(const String&, DocumentFragment*, FragmentScriptingPermission = FragmentScriptingAllowed);
 
 protected:
     // Exposed for FTPDirectoryDocumentParser
-    virtual void write(const SegmentedString&, bool appendData);
+    virtual void insert(const SegmentedString&);
     virtual void finish();
 
 private:
-    // DocumentParser
+    // ScriptableDocumentParser
+    virtual void append(const SegmentedString&);
     virtual bool finishWasCalled();
     virtual bool isWaitingForScripts() const;
     virtual void stopParsing();
@@ -171,10 +169,11 @@ private:
     virtual int lineNumber() const { return m_lineNumber; }
     virtual int columnNumber() const { return 1; }
 
+    virtual bool processingContentWrittenByScript() const { return m_src.excludeLineNumbers(); }
+
     virtual void executeScriptsWaitingForStylesheets();
 
     virtual LegacyHTMLTreeBuilder* htmlTreeBuilder() const { return m_treeBuilder.get(); }
-    virtual LegacyHTMLDocumentParser* asHTMLDocumentParser() { return this; }
 
     class State;
 
@@ -183,6 +182,7 @@ private:
     void reset();
 
     void willWriteHTML(const SegmentedString&);
+    void write(const SegmentedString&, bool appendData);
     ALWAYS_INLINE void advance(State&);
     void didWriteHTML();
 

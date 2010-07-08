@@ -214,10 +214,13 @@ public:
 
     static bool dumpFrameLoaderCallbacks;
     static bool dumpResourceLoadCallbacks;
+    static bool dumpResourceResponseMIMETypes;
     static QString dumpResourceLoadCallbacksPath;
     static bool sendRequestReturnsNullOnRedirect;
     static bool sendRequestReturnsNull;
     static QStringList sendRequestClearHeaders;
+    static bool policyDelegateEnabled;
+    static bool policyDelegatePermissive;
 
 private:
     Frame *m_frame;

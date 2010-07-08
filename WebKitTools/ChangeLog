@@ -1,6 +1,841 @@
+2010-07-05  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Oliver Hunt.
+
+        The style checker exempts gtk2drawing.h when it should exempt gtkdrawing.h
+        https://bugs.webkit.org/show_bug.cgi?id=41017
+
+        * Scripts/webkitpy/style/checker.py: Exempt gtkdrawing.h instead of gtk2drawing.h
+        * Scripts/webkitpy/style/checker_unittest.py: Update the unit test to reflect the change.
+
+2010-07-04  MORITA Hajime  <morrita@google.com>
+
+        rebaseline-chromium-webkit-tests: UnicodeDecodeError
+        https://bugs.webkit.org/show_bug.cgi?id=41589
+
+        * run() method can result non-utf-8 bytes, that causes utf-8
+          decoding fail.  Fixed to disable decoding.
+        * Fixed Git.find_checkout_root() to make a test pass.
+
+        * Scripts/webkitpy/common/checkout/scm.py:
+        * Scripts/webkitpy/common/checkout/scm_unittest.py:
+
+2010-07-03  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Fix DumpRenderTree userStyleSheet handling.
+        https://bugs.webkit.org/show_bug.cgi?id=41570
+
+        DumpRenderTree did only set the userStyleSheet at
+        layoutTestController.setUserStyleSheetEnabled().
+
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::reset):
+        (LayoutTestController::setUserStyleSheetLocation):
+        (LayoutTestController::setUserStyleSheetEnabled):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+
+2010-07-03  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] support dumpChildFrameScrollPositions
+
+        https://bugs.webkit.org/show_bug.cgi?id=41088
+
+        Unskip:
+
+        http/tests/navigation/anchor-subframeload.html
+        http/tests/navigation/relativeanchor-frames.html
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::DumpRenderTree::dumpFrameScrollPosition):
+        (WebCore::DumpRenderTree::dump):
+        * DumpRenderTree/qt/DumpRenderTreeQt.h:
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::reset):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        (LayoutTestController::shouldDumpChildFrameScrollPositions):
+        (LayoutTestController::dumpChildFrameScrollPositions):
+
+2010-07-02  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Rename new scripts so that they don't make autocompleting run-webkit-tests annoying.
+
+        * Scripts/debug-test-runner: Copied from Scripts/debug-webkittestrunner.
+        * Scripts/debug-webkittestrunner: Removed.
+        * Scripts/run-test-runner: Copied from Scripts/run-webkittestrunner.
+        * Scripts/run-webkittestrunner: Removed.
+
+2010-07-02  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Steve Falkenburg.
+
+        Some http tests fail on Windows with Cygwin 1.7
+        https://bugs.webkit.org/show_bug.cgi?id=41537
+        
+        With Cygwin 1.7, the registry key at SOFTWARE\\Cygnus Solutions\\Cygwin\\mounts v2\\/
+        doesn't exist anymore, because the mount points are stored in /etc/fstab. However, we
+        just need root mount point, which is defined in SOFTWARE\\Cygwin\\setup.
+
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (resolveCygwinPath): Fall back to SOFTWARE\\Cygwin\\setup if 
+            SOFTWARE\\Cygnus Solutions\\Cygwin\\mounts v2\\/ doesn't work.
+
+2010-06-23  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Separate DerivedSources per-project
+        https://bugs.webkit.org/show_bug.cgi?id=41109
+
+        The JavaScriptCore cppflags used to include the top-level DerivedSources directory
+        allowing the tools to build as a side-effect. Now that the top-level directory
+        is no longer in the list of JavaScriptCore includes, include it explicitly.
+
+        * GNUmakefile.am:
+
+2010-07-01  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Make context menus show up in the right place in QTestBrowser
+
+        Context menus were shown at scene-relative coordinates for
+        QGraphicsWebView while QMenu expects them to be global. The
+        change to the QWidget case was to get rid of the mapToGlobal.
+
+        * QtTestBrowser/webview.cpp:
+
+2010-07-01  Robert Hogan <robert@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] dump frames in ascending alphabetical order of title
+
+        https://bugs.webkit.org/show_bug.cgi?id=41261
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::dumpHistoryItem):
+
+2010-07-01  Martin Robinson  <mrobinson@igalia.com>
+
+        Unreviewed. 
+
+        Fix the GTK+ build after r62278.
+
+        * Scripts/webkitdirs.pm: If the make arguments have already been specified,
+        let them override the automatic CPU detection for autotools builds.
+
+2010-07-01  Martin Robinson  <mrobinson@igalia.com>
+
+        Unreviewed.
+
+        Fix the Windows build after r62278.
+
+        * Scripts/num-cpus: Use FindBin to add the Scripts directory to the list of library directories.
+
+2010-07-01  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] build-webkit does not detect the number of CPUs
+        https://bugs.webkit.org/show_bug.cgi?id=41469
+
+        Pass the appropriate -j<#> flag to make when building autotools builds.
+        This causes make to spawn that many number of child processes for doing
+        parallel builds.
+
+        * Scripts/num-cpus: Use the newly abstracted numberOfCPUs to return the number
+        of CPUs. This makes the script work across more platforms.
+        * Scripts/webkitdirs.pm: Create a numberOfCPUs/determineNumberOfCPUs to determine the
+        number of CPUs across several platforms. Use this new function to determine the appropriate
+        arguments to pass to make for doing parallel builds with autotools build files.
+
+2010-07-01  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Rubber-stamped by Laszlo Gombos.
+
+        [Qt][Symbian] Bumped up the maximum heap size to 96MB
+
+        * QtTestBrowser/QtTestBrowser.pro: Removed explicit heap size declaration
+        and use the one from WebKit.pri instead.
+
+2010-07-01  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Promote webkit-patch land-safely to main help
+        https://bugs.webkit.org/show_bug.cgi?id=41446
+
+        I've been using this command a bunch and recommending it to folks.  We
+        should show it in main help as it's past the experimental phase.
+
+        * Scripts/webkitpy/tool/commands/upload.py:
+
+2010-06-28  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Shinichiro Hamaji.
+
+        rebaseline-chromium-webkit-tests doesn't do diffs right with a Git checkout of WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=38775
+
+        - Introduced SCM.show_head() and SCM.diff_for_file().
+        - Replaced direct svn invocations with newly implement SCM methods.
+
+        * Scripts/webkitpy/common/checkout/scm.py:
+        * Scripts/webkitpy/common/checkout/scm_unittest.py:
+        * Scripts/webkitpy/layout_tests/rebaseline_chromium_webkit_tests.py:
+
+2010-06-30  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Allow MiniBrowser to open local files
+        https://bugs.webkit.org/show_bug.cgi?id=41104
+
+        Wire up the openDocument: message with an NSOpenPanel, so we can open
+        local files.
+        
+        Also change the xib so that the window remembers its size.
+        
+        * MiniBrowser/mac/AppDelegate.m:
+        (-[BrowserAppDelegate frontmostBrowserWindowController]):
+        (-[BrowserAppDelegate openDocument:]):
+        (-[BrowserAppDelegate openPanelDidEnd:returnCode:contextInfo:]):
+        * MiniBrowser/mac/English.lproj/BrowserWindow.xib:
+
+2010-06-30  Sam Weinig  <sam@webkit.org>
+
+        Rubber-stamped by Anders Carlsson.
+
+        Add debug-webkittestrunner and cleanup related scripts.
+
+        * Scripts/debug-webkittestrunner: Added.
+        * Scripts/run-webkittestrunner:
+        * Scripts/webkitdirs.pm:
+
+2010-06-30  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix after recent changes to LayoutTestController.
+
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::pageSizeAndMarginsInPixels):
+
+2010-06-29  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=41389
+        Make WebKitTestRunner work with more than one test at a time.
+
+        This converts WebKitTestRunner to a similar model as DumpRenderTree,
+        where there is a single WKView and each test is run it, rather than
+        the design I was using where each test got its own WKView.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.cpp:
+        (WTR::InjectedBundle::didRecieveMessage):
+        (WTR::InjectedBundle::reset):
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.h:
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::initialize):
+        (WTR::TestController::runTest):
+        (WTR::TestController::_didRecieveMessageFromInjectedBundle):
+        (WTR::TestController::didRecieveMessageFromInjectedBundle):
+        * WebKitTestRunner/TestController.h:
+        (WTR::TestController::mainWebView):
+        (WTR::TestController::pageNamespace):
+        (WTR::TestController::context):
+        * WebKitTestRunner/TestInvocation.cpp:
+        (WTR::TestInvocation::TestInvocation):
+        (WTR::TestInvocation::~TestInvocation):
+        (WTR::TestInvocation::invoke):
+        (WTR::TestInvocation::didRecieveMessageFromInjectedBundle):
+        * WebKitTestRunner/TestInvocation.h:
+
+2010-06-30  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt][Symbian] Only 10 websites can be loaded consecutively when using QtWebkit 2.0
+        https://bugs.webkit.org/show_bug.cgi?id=40446
+
+        We quickly run out of memory on Symbian when loading web pages. This is
+        caused by the default heap size, which is not suited for a web browser.
+
+        This change bumps the max heap size to 32MB.
+
+        * QtTestBrowser/QtTestBrowser.pro:
+
+2010-06-30  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        webkit-patch land allow the user to continue even if the builders are red
+        https://bugs.webkit.org/show_bug.cgi?id=41395
+
+        I don't think it's good that we've been teaching people
+        to always pass --ignore-builders.  At least land is now
+        useable w/o --ignore-builders.
+
+        * Scripts/webkitpy/tool/steps/ensurebuildersaregreen.py:
+
+2010-06-29  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] support dumpResourceResponseMIMETypes
+        https://bugs.webkit.org/show_bug.cgi?id=41260
+
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::reset):
+        (LayoutTestController::dumpResourceResponseMIMETypes):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+
+2010-06-29  Diego Gonzalez  <diegohcg@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Resize scene when Qt DRT WebPage receives a geometry change request
+        https://bugs.webkit.org/show_bug.cgi?id=41173
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::WebPage::setViewGeometry):
+        * DumpRenderTree/qt/DumpRenderTreeQt.h:
+
+2010-06-29  Diego Gonzalez  <diegohcg@webkit.org>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Deal with postEvent in case of graphics based DRT
+        https://bugs.webkit.org/show_bug.cgi?id=41174
+
+        QGraphicsScene does not have a postEvent method, so make scene
+        send the event, in case of graphics based DRT, and delete it after that.
+
+        * DumpRenderTree/qt/EventSenderQt.cpp:
+        (EventSender::scheduleAsynchronousClick):
+        (EventSender::replaySavedEvents):
+        (EventSender::postEvent):
+        * DumpRenderTree/qt/EventSenderQt.h:
+
+2010-06-29  Diego Gonzalez  <diegohcg@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Make switchFocus() method works with QGraphicsWebView in Qt DRT
+        https://bugs.webkit.org/show_bug.cgi?id=41172
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::DumpRenderTree::switchFocus):
+
+2010-06-29  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [Gtk] Make DRT more coherent with other ports to allow reusing more tests
+        https://bugs.webkit.org/show_bug.cgi?id=40009
+
+        Make sure "AXRole: ", "AXTitle: " and "AXDescription: " prefixes
+        are used when returning those values, for coherency with other ports.
+
+        * DumpRenderTree/gtk/AccessibilityUIElementGtk.cpp:
+        (AccessibilityUIElement::role):
+        (AccessibilityUIElement::title):
+        (AccessibilityUIElement::description):
+
+2010-06-29  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r62106.
+        http://trac.webkit.org/changeset/62106
+        https://bugs.webkit.org/show_bug.cgi?id=41346
+
+        "Broke editing tests" (Requested by xan_ on #webkit).
+
+        * Scripts/old-run-webkit-tests:
+
+2010-06-29  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        Ensure DRT loads GAIL (Gtk+ module), for a11y tests
+        https://bugs.webkit.org/show_bug.cgi?id=38648
+
+        Add the GTK_MODULES envvar (set to "gail") to the clean
+        environment when running DRT for the Gtk+ port
+
+        * Scripts/old-run-webkit-tests:
+
+2010-06-28  Adam Barth  <abarth@webkit.org>
+
+        Unreviewed.
+
+        Switch test-html5-parser back to using runner.html.
+
+        * Scripts/test-html5-parser:
+
+2010-06-28  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Restore webkit-runner.html for use with new tree builder
+        https://bugs.webkit.org/show_bug.cgi?id=41317
+
+        For now, we just want to run webkit-runner when we test-html5-parser.
+
+        * Scripts/test-html5-parser:
+
+2010-06-23  John Gregg  <johnnyg@google.com>
+
+        Reviewed by Kent Tamura.
+
+        add ENABLE_DIRECTORY_UPLOAD build support
+        https://bugs.webkit.org/show_bug.cgi?id=41100
+
+        * Scripts/build-webkit:
+
+2010-06-28  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Rubber-stamped by Xan Lopez.
+
+        Update webkitdirs's knowledge of our library's name.
+
+        * Scripts/webkitdirs.pm:
+
+2010-06-28  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=41299
+        Build up WebKitTestRunner output in the InjectedBundle
+
+        Simplify WebKitTestRunner by building up the output in the InjectedBundle
+        and sending it over postMessage when done, instead of using the async
+        WKPageRenderTreeExternalRepresentation.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.cpp:
+        (WTR::InjectedBundle::done):
+        (WTR::InjectedBundle::didRecieveMessage):
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.h:
+        (WTR::InjectedBundle::os):
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::WKStringToUTF8):
+        (WTR::InjectedBundlePage::didFinishLoadForFrame):
+        (WTR::InjectedBundlePage::didFailLoadWithErrorForFrame):
+        * WebKitTestRunner/TestInvocation.cpp:
+        (WTR::WKStringToUTF8):
+        (WTR::TestInvocation::TestInvocation):
+        (WTR::TestInvocation::invoke):
+        (WTR::TestInvocation::initializeMainWebView):
+        (WTR::TestInvocation::_didRecieveMessageFromInjectedBundle):
+        (WTR::TestInvocation::didRecieveMessageFromInjectedBundle):
+        * WebKitTestRunner/TestInvocation.h:
+
+2010-06-28  Robert Hogan  <robert@webkit.org>
+
+        Unreviewed, rolling out r62021.
+        http://trac.webkit.org/changeset/62021
+        https://bugs.webkit.org/show_bug.cgi?id=41261
+
+        Broke http/navigation tests among other
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::DumpRenderTree::dumpFramesAsText):
+
+2010-06-28  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Add run-webkittestrunner to run WebKitTestRunner with the appropriate
+        environment.
+
+        * Scripts/run-webkittestrunner: Added.
+        * Scripts/webkitdirs.pm:
+
+2010-06-28  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] dump frames in ascending alphabetical order of title
+
+        https://bugs.webkit.org/show_bug.cgi?id=41261
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::DumpRenderTree::dumpFramesAsText):
+
+2010-06-28  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] dump bf history of child windows
+
+        https://bugs.webkit.org/show_bug.cgi?id=41266
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::DumpRenderTree::dumpBackForwardList):
+        (WebCore::DumpRenderTree::dump):
+        * DumpRenderTree/qt/DumpRenderTreeQt.h:
+
+2010-06-28  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=41288
+        WebKit2: Add frame API for InjectedBundle code
+
+        * MiniBrowser/mac/WebBundle/WebBundleMain.m:
+        (_didClearWindowForFrame):
+
+2010-06-28  Jesus Sanchez-Palencia  <jesus.palencia@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] QtTestBrowser does not have a "Load" button ; therefore, unable to load pages on touch only symbian devices (portrait mode).
+        https://bugs.webkit.org/show_bug.cgi?id=38597
+
+        Fix behavior so reload button really acts as a load and a reload button.
+
+        * QtTestBrowser/mainwindow.cpp:
+        (MainWindow::changeLocation):
+
+2010-06-28  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Does not compile with -DGSEAL_ENABLE
+        https://bugs.webkit.org/show_bug.cgi?id=37851
+
+        Fix build with GSEAL enabled.
+
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (gtk_widget_get_window):
+        (prepareMouseButtonEvent):
+        (mouseMoveToCallback):
+        (mouseWheelToCallback):
+        (keyDownCallback):
+
+2010-06-28  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Add support for GTK+3
+        https://bugs.webkit.org/show_bug.cgi?id=41253
+
+        Adapt build system for 3.x support.
+
+        * GNUmakefile.am:
+
+2010-06-10  Mahesh Kulkarni  <mahesh.kulkarni@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [QT][S60] build-webkit scripts picks wrong make spec for windows build
+        https://bugs.webkit.org/show_bug.cgi?id=41198
+
+        Instead of checking for existence of %EPOCROOT% on windows, mandatory use of --symbian flag for symbian builds. 
+
+        * Scripts/webkitdirs.pm:
+        (determineIsSymbian): remove check for %EPOCROOT% as one can build for windows port of QT as well
+
+2010-06-28  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Make it possible to test the new HTML5 TreeBuilder
+        https://bugs.webkit.org/show_bug.cgi?id=41276
+
+        Adam was concerned that someone might make their port
+        depend on this setting (I guess we had some trouble with that
+        with the HTML5Parser setting), so I littered the code with warnings.
+
+        test-html5-parser now tests this code path.
+
+        * DumpRenderTree/mac/DumpRenderTree.mm:
+        (resetDefaultsToConsistentValues):
+        (initializeGlobalsFromCommandLineOptions):
+        * Scripts/test-html5-parser:
+
+2010-06-27  MORITA Hajime  <morrita@google.com>
+
+        Unreviewed. 
+        
+        Some never-called @staticmethods touched self. 
+        Fixed it to replace these self with a class.
+
+        * Scripts/webkitpy/common/checkout/scm.py:
+
+2010-06-27  MORITA Hajime  <morrita@google.com>
+
+        Unreviewed.
+        
+        Fixed exception raising syntax that is pointed out at
+        https://bugs.webkit.org/show_bug.cgi?id=41153
+
+        * Scripts/webkitpy/common/checkout/scm.py:
+        * Scripts/webkitpy/common/checkout/scm_unittest.py: 
+          Removed a bad line that I accidentally checked-in at last revision.
+
+2010-06-24  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Eric Seidel.
+
+        rebaseline-chromium-webkit-tests should add or remove files to local git repository
+        https://bugs.webkit.org/show_bug.cgi?id=41153
+
+        - Added SCM.add() and SCM.remove()
+        - Replaced "svn add" and "svn remove"
+          rebaseline_chromium_webkit_tests.py: in with SCM method equivalents.
+        - add "-U" and "-q" options to rebaseline_chromium_webkit_tests.py
+          for debugging purpose.
+
+        * Scripts/webkitpy/common/checkout/scm.py:
+        * Scripts/webkitpy/common/checkout/scm_unittest.py:
+        * Scripts/webkitpy/layout_tests/rebaseline_chromium_webkit_tests.py:
+
+2010-06-25  Yuzo Fujishima  <yuzo@google.com>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Improve default value handling for page format properties.
+        https://bugs.webkit.org/show_bug.cgi?id=41150
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (parsePageNumber):
+        (parsePageNumberSizeMarings):
+        (pageSizeAndMarginsInPixelsCallback):
+        (LayoutTestController::staticFunctions):
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        (LayoutTestController::pageSizeAndMarginsInPixels):
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::pageSizeAndMarginsInPixels):
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::pageSizeAndMarginsInPixels):
+
+2010-06-21  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] DRT Support for setCustomPolicyDelegate
+
+        https://bugs.webkit.org/show_bug.cgi?id=39564
+
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::setCustomPolicyDelegate):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+
+2010-06-26  Robert Hogan  <robert@webkit.org>
+
+        Unreviewed, Qt build fix following http://trac.webkit.org/changeset/61879
+        
+        Remove qwebscriptworld.h from LayoutTestControllerQt.cpp - it is no longer
+        exported.
+
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+
+2010-06-26  Tony Gentilcore  <tonyg@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Add a build-webkit option for enabling Web Timing support.
+        https://bugs.webkit.org/show_bug.cgi?id=38924
+
+        * Scripts/build-webkit:
+
+2010-06-25  Jesus Sanchez-Palencia  <jesus.palencia@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] QtTestBrowser does not have a "Load" button ; therefore, unable to load pages on touch only symbian devices (portrait mode).
+        https://bugs.webkit.org/show_bug.cgi?id=38597
+
+        Make the reload button act as a load button as well.
+
+        * QtTestBrowser/mainwindow.cpp:
+        (MainWindow::buildUI):
+        (MainWindow::changeLocation):
+
+2010-06-25  Prasad Tammana  <prasadt@chromium.org>
+
+        Reviewed by Dmitry Titov.
+
+        Add empty abortModal() method to all platforms.
+        https://bugs.webkit.org/show_bug.cgi?id=40864
+
+        Add an empty abortModal() stub to LayoutTestController on all platforms to get rid of platform specific #ifs in
+        platform independent LayoutTestController code.  Without this change, layout tests using LayoutTestController tests
+        that use abortModal will become mac specific which is not desirable.
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (abortModalCallback):
+        (LayoutTestController::staticFunctions):
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (LayoutTestController::abortModal):
+        * DumpRenderTree/chromium/LayoutTestController.h:
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        (LayoutTestController::abortModal):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        (LayoutTestController::abortModal):
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::abortModal):
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::abortModal):
+
+2010-06-25  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=41226
+        Flesh out injected bundle code for WebKitTestRunner and add basic LayoutTestController.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.cpp: Added.
+        (WTR::InjectedBundle::shared):
+        (WTR::InjectedBundle::InjectedBundle):
+        (WTR::InjectedBundle::_didCreatePage):
+        (WTR::InjectedBundle::_willDestroyPage):
+        (WTR::InjectedBundle::_didRecieveMessage):
+        (WTR::InjectedBundle::initialize):
+        (WTR::InjectedBundle::didCreatePage):
+        (WTR::InjectedBundle::willDestroyPage):
+        (WTR::InjectedBundle::didRecieveMessage):
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.h: Added.
+        (WTR::InjectedBundle::layoutTestController):
+        * WebKitTestRunner/InjectedBundle/InjectedBundleMain.cpp:
+        (WKBundleInitialize):
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp: Added.
+        (WTR::InjectedBundlePage::InjectedBundlePage):
+        (WTR::InjectedBundlePage::~InjectedBundlePage):
+        (WTR::InjectedBundlePage::_didStartProvisionalLoadForFrame):
+        (WTR::InjectedBundlePage::_didReceiveServerRedirectForProvisionalLoadForFrame):
+        (WTR::InjectedBundlePage::_didFailProvisionalLoadWithErrorForFrame):
+        (WTR::InjectedBundlePage::_didCommitLoadForFrame):
+        (WTR::InjectedBundlePage::_didFinishLoadForFrame):
+        (WTR::InjectedBundlePage::_didFailLoadWithErrorForFrame):
+        (WTR::InjectedBundlePage::_didReceiveTitleForFrame):
+        (WTR::InjectedBundlePage::_didClearWindowForFrame):
+        (WTR::InjectedBundlePage::didStartProvisionalLoadForFrame):
+        (WTR::InjectedBundlePage::didReceiveServerRedirectForProvisionalLoadForFrame):
+        (WTR::InjectedBundlePage::didFailProvisionalLoadWithErrorForFrame):
+        (WTR::InjectedBundlePage::didCommitLoadForFrame):
+        (WTR::InjectedBundlePage::didFinishLoadForFrame):
+        (WTR::InjectedBundlePage::didFailLoadWithErrorForFrame):
+        (WTR::InjectedBundlePage::didReceiveTitleForFrame):
+        (WTR::InjectedBundlePage::didClearWindowForFrame):
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.h: Added.
+        (WTR::InjectedBundlePage::page):
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp: Added.
+        (WTR::LayoutTestController::create):
+        (WTR::LayoutTestController::LayoutTestController):
+        (WTR::LayoutTestController::~LayoutTestController):
+        (WTR::dumpAsTextCallback):
+        (WTR::layoutTestControllerObjectFinalize):
+        (WTR::LayoutTestController::makeWindowObject):
+        (WTR::LayoutTestController::getJSClass):
+        (WTR::LayoutTestController::staticFunctions):
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h: Added.
+        (WTR::LayoutTestController::dumpAsText):
+        (WTR::LayoutTestController::setDumpAsText):
+        * WebKitTestRunner/WebKitTestRunner.xcodeproj/project.pbxproj:
+
+2010-06-25  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Make WebKitTestRunner really work with run-webkit-tests. 
+
+        - Add Forwarding headers to allow some cleanup.
+
+        * WebKitTestRunner/ForwardingHeaders: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/ASCIICType.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/Assertions.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/Atomics.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/FastMalloc.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/HashMap.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/HashSet.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/HashTraits.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/Locker.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/MainThread.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/MathExtras.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/Noncopyable.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/OwnPtr.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/OwnPtrCommon.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/PassOwnPtr.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/PassRefPtr.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/Platform.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/RefCounted.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/RefPtr.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/RetainPtr.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/StringExtras.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/ThreadSafeShared.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/Threading.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/ThreadingPrimitives.h: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/Vector.h: Added.
+        * WebKitTestRunner/TestInvocation.cpp:
+        (WTR::TestInvocation::dump): Dump the right number of #EOFs.
+        * WebKitTestRunner/TestInvocation.h:
+
+2010-06-25  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Mark Rowe.
+
+        Add support for WebKitTestRunner to old-run-webkit-tests
+
+        - Also adds a script to build WebKitTestRunner for old-run-webkit-tests to use.
+
+        * Scripts/build-webkittestrunner: Added.
+        * Scripts/old-run-webkit-tests:
+
+2010-06-25  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by David Levin.
+
+        Incremental build failed on Chromium ews
+        https://bugs.webkit.org/show_bug.cgi?id=41011
+
+        The division of responsibility between update-webkit --chromium and
+        build-webkit --chromium is slightly unclear.  In this patch, we make
+        build-webkit --chromium also update DEPS and re-run GYP in case the
+        developer has changed either since they updated.
+
+        This change is also helpful for the EWS, which wants to update DEPS and
+        re-run GYP after applying patches, but the EWS doesn't want to run
+        update-webkit --chromium because it has a dirty working copy.
+
+        * Scripts/webkitdirs.pm:
+
+2010-06-25  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Support evaluateScriptInIsolatedWorld()
+
+        https://bugs.webkit.org/show_bug.cgi?id=40079
+
+        Remove evaluateScriptInIsolatedWorld() from QtWebKit API.
+        Remove QWebScriptWorld from exported headers.
+        Confine support to DumpRenderTreeSupportQt so that the tests can pass.
+
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::reset):
+        (LayoutTestController::evaluateScriptInIsolatedWorld):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+
 2010-06-25  Anders Carlsson  <andersca@apple.com>
 
-        Reviewed by Dan Bernstein.
+        Revert accidental part and add a newline.
+
+        * MiniBrowser/mac/AppDelegate.m:
+        * MiniBrowser/mac/MiniBrowser_Prefix.pch:
+
+2010-06-25  Anders Carlsson  <andersca@apple.com>
+
+        Rubber-stamped by Dan Bernstein.
 
         Add a LOG macro that expands to a no-op by default.
 

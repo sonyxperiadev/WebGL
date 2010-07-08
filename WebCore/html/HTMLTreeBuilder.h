@@ -26,10 +26,14 @@
 #ifndef HTMLTreeBuilder_h
 #define HTMLTreeBuilder_h
 
+#include "Element.h"
 #include "FragmentScriptingPermission.h"
+#include "HTMLElementStack.h"
+#include "HTMLFormattingElementList.h"
 #include "HTMLTokenizer.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/unicode/Unicode.h>
@@ -39,7 +43,6 @@ namespace WebCore {
 class AtomicHTMLToken;
 class Document;
 class DocumentFragment;
-class Element;
 class Frame;
 class HTMLToken;
 class HTMLDocument;
@@ -57,7 +60,7 @@ public:
     bool isPaused() const { return m_isPaused; }
 
     // The token really should be passed as a const& since it's never modified.
-    PassRefPtr<Node> constructTreeFromToken(HTMLToken&);
+    void constructTreeFromToken(HTMLToken&);
     // Must be called when parser is paused before calling the parser again.
     PassRefPtr<Element> takeScriptToProcess(int& scriptStartLine);
 
@@ -99,27 +102,83 @@ private:
         AfterAfterFramesetMode,
     };
 
-    class ElementStack : public Noncopyable {
-    public:
-        void pop() { }
-        void push(Element*) { }
-        void remove(Element*) { }
-        Element* top() const { return 0; }
-    };
+    void passTokenToLegacyParser(HTMLToken&);
 
-    PassRefPtr<Node> passTokenToLegacyParser(HTMLToken&);
-    PassRefPtr<Node> processToken(AtomicHTMLToken&, UChar cc = 0);
+    // Specialized functions for processing the different types of tokens.
+    void processToken(AtomicHTMLToken&);
+    void processDoctypeToken(AtomicHTMLToken&);
+    void processStartTag(AtomicHTMLToken&);
+    void processEndTag(AtomicHTMLToken&);
+    void processComment(AtomicHTMLToken&);
+    void processCharacter(AtomicHTMLToken&);
+    void processEndOfFile(AtomicHTMLToken&);
 
-    PassRefPtr<Node> insertDoctype(AtomicHTMLToken&);
-    PassRefPtr<Node> insertComment(AtomicHTMLToken&);
-    PassRefPtr<Element> insertElement(AtomicHTMLToken&);
-    void insertCharacter(UChar cc);
-    PassRefPtr<Node> insertGenericRCDATAElement(AtomicHTMLToken&);
-    PassRefPtr<Node> insertGenericRawTextElement(AtomicHTMLToken&);
-    PassRefPtr<Node> insertScriptElement(AtomicHTMLToken&);
+    // Default processing for the different insertion modes.
+    void processDefaultForInitialMode(AtomicHTMLToken&);
+    void processDefaultForBeforeHTMLMode(AtomicHTMLToken&);
+    void processDefaultForBeforeHeadMode(AtomicHTMLToken&);
+    void processDefaultForInHeadMode(AtomicHTMLToken&);
+    void processDefaultForInHeadNoscriptMode(AtomicHTMLToken&);
+    void processDefaultForAfterHeadMode(AtomicHTMLToken&);
+
+    bool processStartTagForInHead(AtomicHTMLToken&);
+    bool processBodyEndTagForInBody(AtomicHTMLToken&);
+    void processFakePEndTagIfPInScope();
+
+    HTMLElementStack::ElementRecord* furthestBlockForFormattingElement(Element*);
+    void findFosterParentFor(Element*);
+    void reparentChildren(Element* oldParent, Element* newParent);
+    void callTheAdoptionAgency(AtomicHTMLToken&);
+
+    template<typename ChildType>
+    PassRefPtr<ChildType> attach(Node* parent, PassRefPtr<ChildType> prpChild)
+    {
+        RefPtr<ChildType> child = prpChild;
+        parent->parserAddChild(child);
+        // It's slightly unfortunate that we need to hold a reference to child
+        // here to call attach().  We should investigate whether we can rely on
+        // |parent| to hold a ref at this point.  In the common case (at least
+        // for elements), however, we'll get to use this ref in the stack of
+        // open elements.
+        child->attach();
+        return child.release();
+    }
+
+    void insertDoctype(AtomicHTMLToken&);
+    void insertComment(AtomicHTMLToken&);
+    void insertCommentOnDocument(AtomicHTMLToken&);
+    void insertCommentOnHTMLHtmlElement(AtomicHTMLToken&);
+    void insertHTMLHtmlElement(AtomicHTMLToken&);
+    void insertHTMLHeadElement(AtomicHTMLToken&);
+    void insertHTMLBodyElement(AtomicHTMLToken&);
+    void insertElement(AtomicHTMLToken&);
+    void insertSelfClosingElement(AtomicHTMLToken&);
+    void insertFormattingElement(AtomicHTMLToken&);
+    void insertGenericRCDATAElement(AtomicHTMLToken&);
+    void insertGenericRawTextElement(AtomicHTMLToken&);
+    void insertScriptElement(AtomicHTMLToken&);
+    void insertTextNode(AtomicHTMLToken&);
+
+    void insertHTMLStartTagBeforeHTML(AtomicHTMLToken&);
+    void insertHTMLStartTagInBody(AtomicHTMLToken&);
+
+    PassRefPtr<Element> createElement(AtomicHTMLToken&);
+    PassRefPtr<Element> createElementAndAttachToCurrent(AtomicHTMLToken&);
+
+    void mergeAttributesFromTokenIntoElement(AtomicHTMLToken&, Element*);
+
+    bool indexOfFirstUnopenFormattingElement(unsigned& firstUnopenElementIndex) const;
+    void reconstructTheActiveFormattingElements();
+
+    void generateImpliedEndTags();
+    void generateImpliedEndTagsWithExclusion(const AtomicString& tagName);
+
+    Element* currentElement() { return m_openElements.top(); }
 
     RefPtr<Element> m_headElement;
-    ElementStack m_openElements;
+    RefPtr<Element> m_formElement;
+    HTMLElementStack m_openElements;
+    HTMLFormattingElementList m_activeFormattingElements;
     bool m_framesetOk;
 
     // FIXME: Implement error reporting.
@@ -138,6 +197,7 @@ private:
     bool m_isPaused;
 
     InsertionMode m_insertionMode;
+    InsertionMode m_originalInsertionMode;
 
     // HTML5 spec requires that we be able to change the state of the tokenizer
     // from within parser actions.
@@ -158,6 +218,7 @@ private:
     // FragmentScriptingNotAllowed causes the Parser to remove children
     // from <script> tags (so javascript doesn't show up in pastes).
     FragmentScriptingPermission m_fragmentScriptingPermission;
+    bool m_isParsingFragment;
 };
 
 }

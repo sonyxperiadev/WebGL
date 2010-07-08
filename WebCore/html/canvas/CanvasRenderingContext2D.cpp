@@ -4,6 +4,7 @@
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2008 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) 2010 Torch Mobile (Beijing) Co. Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,6 +45,7 @@
 #include "GraphicsContext.h"
 #include "HTMLCanvasElement.h"
 #include "HTMLImageElement.h"
+#include "HTMLMediaElement.h"
 #include "HTMLNames.h"
 #include "ImageBuffer.h"
 #include "ImageData.h"
@@ -572,9 +574,8 @@ void CanvasRenderingContext2D::quadraticCurveTo(float cpx, float cpy, float x, f
     if (!state().m_invertibleCTM)
         return;
     if (!m_path.hasCurrentPoint())
-        m_path.moveTo(FloatPoint(x, y));
-    else
-        m_path.addQuadCurveTo(FloatPoint(cpx, cpy), FloatPoint(x, y));
+        m_path.moveTo(FloatPoint(cpx, cpy));
+    m_path.addQuadCurveTo(FloatPoint(cpx, cpy), FloatPoint(x, y));
 }
 
 void CanvasRenderingContext2D::bezierCurveTo(float cp1x, float cp1y, float cp2x, float cp2y, float x, float y)
@@ -584,9 +585,8 @@ void CanvasRenderingContext2D::bezierCurveTo(float cp1x, float cp1y, float cp2x,
     if (!state().m_invertibleCTM)
         return;
     if (!m_path.hasCurrentPoint())
-        m_path.moveTo(FloatPoint(x, y));
-    else
-        m_path.addBezierCurveTo(FloatPoint(cp1x, cp1y), FloatPoint(cp2x, cp2y), FloatPoint(x, y));
+        m_path.moveTo(FloatPoint(cp1x, cp1y));
+    m_path.addBezierCurveTo(FloatPoint(cp1x, cp1y), FloatPoint(cp2x, cp2y), FloatPoint(x, y));
 }
 
 void CanvasRenderingContext2D::arcTo(float x0, float y0, float x1, float y1, float r, ExceptionCode& ec)
@@ -755,8 +755,9 @@ void CanvasRenderingContext2D::fillRect(float x, float y, float width, float hei
 
     // from the HTML5 Canvas spec:
     // If x0 = x1 and y0 = y1, then the linear gradient must paint nothing
+    // If x0 = x1 and y0 = y1 and r0 = r1, then the radial gradient must paint nothing
     Gradient* gradient = c->fillGradient();
-    if (gradient && gradient->isZeroSize() && !gradient->isRadial())
+    if (gradient && gradient->isZeroSize())
         return;
 
     FloatRect rect(x, y, width, height);
@@ -958,12 +959,20 @@ static inline FloatRect normalizeRect(const FloatRect& rect)
 
 void CanvasRenderingContext2D::checkOrigin(const KURL& url)
 {
+    if (m_cleanOrigins.contains(url.string()))
+        return;
+
     if (canvas()->securityOrigin().taintsCanvas(url))
         canvas()->setOriginTainted();
+    else
+        m_cleanOrigins.add(url.string());
 }
 
 void CanvasRenderingContext2D::checkOrigin(const String& url)
 {
+    if (m_cleanOrigins.contains(url))
+        return;
+
     checkOrigin(KURL(KURL(), url));
 }
 
@@ -1008,6 +1017,13 @@ void CanvasRenderingContext2D::drawImage(HTMLImageElement* image, const FloatRec
     }
 
     ec = 0;
+
+    if (!isfinite(dstRect.x()) || !isfinite(dstRect.y()) || !isfinite(dstRect.width()) || !isfinite(dstRect.height())
+        || !isfinite(srcRect.x()) || !isfinite(srcRect.y()) || !isfinite(srcRect.width()) || !isfinite(srcRect.height()))
+        return;
+
+    if (!image->complete())
+        return;
 
     FloatRect imageRect = FloatRect(FloatPoint(), size(image));
     if (!imageRect.contains(normalizeRect(srcRect)) || srcRect.width() == 0 || srcRect.height() == 0) {
@@ -1074,13 +1090,19 @@ void CanvasRenderingContext2D::drawImage(HTMLCanvasElement* sourceCanvas, const 
         return;
     }
 
-    ec = 0;
-
     FloatRect srcCanvasRect = FloatRect(FloatPoint(), sourceCanvas->size());
+
+    if (!srcCanvasRect.width() || !srcCanvasRect.height()) {
+        ec = INVALID_STATE_ERR;
+        return;
+    }
+
     if (!srcCanvasRect.contains(normalizeRect(srcRect)) || srcRect.width() == 0 || srcRect.height() == 0) {
         ec = INDEX_SIZE_ERR;
         return;
     }
+
+    ec = 0;
 
     if (!dstRect.width() || !dstRect.height())
         return;
@@ -1145,6 +1167,10 @@ void CanvasRenderingContext2D::drawImage(HTMLVideoElement* video, const FloatRec
     }
     
     ec = 0;
+
+    if (video->readyState() == HTMLMediaElement::HAVE_NOTHING || video->readyState() == HTMLMediaElement::HAVE_METADATA)
+        return;
+
     FloatRect videoRect = FloatRect(FloatPoint(), size(video));
     if (!videoRect.contains(normalizeRect(srcRect)) || srcRect.width() == 0 || srcRect.height() == 0) {
         ec = INDEX_SIZE_ERR;
@@ -1489,7 +1515,16 @@ void CanvasRenderingContext2D::setFont(const String& newFont)
     state().m_font.update(styleSelector->fontSelector());
     state().m_realizedFont = true;
 }
-        
+
+void CanvasRenderingContext2D::updateFont()
+{
+    if (!state().m_realizedFont)
+        return;
+
+    const Font& font = state().m_font;
+    font.update(font.fontSelector());
+}
+
 String CanvasRenderingContext2D::textAlign() const
 {
     return textAlignName(state().m_textAlign);

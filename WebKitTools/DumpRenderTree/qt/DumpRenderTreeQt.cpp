@@ -353,6 +353,14 @@ bool WebPage::allowGeolocationRequest(QWebFrame *)
     return m_drt->layoutTestController()->geolocationPermission();
 }
 
+void WebPage::setViewGeometry(const QRect& rect)
+{
+    if (WebViewGraphicsBased* v = qobject_cast<WebViewGraphicsBased*>(view()))
+        v->scene()->setSceneRect(QRectF(rect));
+    else if (QWidget *v = view())
+        v->setGeometry(rect);
+}
+
 WebViewGraphicsBased::WebViewGraphicsBased(QWidget* parent)
     : m_item(new QGraphicsWebView)
 {
@@ -660,13 +668,35 @@ void DumpRenderTree::hidePage()
     m_mainView->hide();
 }
 
+QString DumpRenderTree::dumpFrameScrollPosition(QWebFrame* frame)
+{
+    if (!frame || !DumpRenderTreeSupportQt::hasDocumentElement(frame))
+        return QString();
+
+    QString result;
+    QPoint pos = frame->scrollPosition();
+    if (pos.x() > 0 || pos.y() > 0) {
+        QWebFrame* parent = qobject_cast<QWebFrame *>(frame->parent());
+        if (parent)
+            result.append(QString("frame '%1' ").arg(frame->title()));
+        result.append(QString("scrolled to %1,%2\n").arg(pos.x()).arg(pos.y()));
+    }
+
+    if (m_controller->shouldDumpChildFrameScrollPositions()) {
+        QList<QWebFrame*> children = frame->childFrames();
+        for (int i = 0; i < children.size(); ++i)
+            result += dumpFrameScrollPosition(children.at(i));
+    }
+    return result;
+}
+
 QString DumpRenderTree::dumpFramesAsText(QWebFrame* frame)
 {
     if (!frame || !DumpRenderTreeSupportQt::hasDocumentElement(frame))
         return QString();
 
     QString result;
-    QWebFrame *parent = qobject_cast<QWebFrame *>(frame->parent());
+    QWebFrame* parent = qobject_cast<QWebFrame*>(frame->parent());
     if (parent) {
         result.append(QLatin1String("\n--------\nFrame: '"));
         result.append(frame->frameName());
@@ -721,16 +751,16 @@ static QString dumpHistoryItem(const QWebHistoryItem& item, int indent, bool cur
         result.append(QLatin1String("  **nav target**"));
     result.append(QLatin1String("\n"));
 
-    QList<QWebHistoryItem> children = DumpRenderTreeSupportQt::getChildHistoryItems(item);
-    for (int i = 0; i < children.size(); ++i)
-        result += dumpHistoryItem(children.at(i), 12, false);
+    QMap<QString, QWebHistoryItem> children = DumpRenderTreeSupportQt::getChildHistoryItems(item);
+    foreach (QWebHistoryItem item, children)
+        result += dumpHistoryItem(item, 12, false);
 
     return result;
 }
 
-QString DumpRenderTree::dumpBackForwardList()
+QString DumpRenderTree::dumpBackForwardList(QWebPage* page)
 {
-    QWebHistory* history = webPage()->history();
+    QWebHistory* history = page->history();
 
     QString result;
     result.append(QLatin1String("\n============== Back Forward List ==============\n"));
@@ -794,15 +824,21 @@ void DumpRenderTree::dump()
     QString resultString;
     if (m_controller->shouldDumpAsText())
         resultString = dumpFramesAsText(mainFrame);
-    else
+    else {
         resultString = mainFrame->renderTreeDump();
-
+        resultString += dumpFrameScrollPosition(mainFrame);
+    }
     if (!resultString.isEmpty()) {
         fprintf(stdout, "Content-Type: text/plain\n");
         fprintf(stdout, "%s", resultString.toUtf8().constData());
 
-        if (m_controller->shouldDumpBackForwardList())
-            fprintf(stdout, "%s", dumpBackForwardList().toUtf8().constData());
+        if (m_controller->shouldDumpBackForwardList()) {
+            fprintf(stdout, "%s", dumpBackForwardList(webPage()).toUtf8().constData());
+            foreach (QObject* widget, windows) {
+                QWebPage* page = qobject_cast<QWebPage*>(widget->findChild<QWebPage*>());
+                fprintf(stdout, "%s", dumpBackForwardList(page).toUtf8().constData());
+            }
+        }
 
     } else
         printf("ERROR: nil result from %s", methodNameStringForFailedTest(m_controller));
@@ -946,7 +982,13 @@ int DumpRenderTree::windowCount() const
 void DumpRenderTree::switchFocus(bool focused)
 {
     QFocusEvent event((focused) ? QEvent::FocusIn : QEvent::FocusOut, Qt::ActiveWindowFocusReason);
-    QApplication::sendEvent(m_mainView, &event);
+    if (!isGraphicsBased())
+        QApplication::sendEvent(m_mainView, &event);
+    else {
+        if (WebViewGraphicsBased* view = qobject_cast<WebViewGraphicsBased*>(m_mainView))
+            view->scene()->sendEvent(view->graphicsView(), &event);
+    }
+
 }
 
 void DumpRenderTree::checkPermission(const QUrl& url, NotificationPermission& permission)

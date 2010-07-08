@@ -523,7 +523,7 @@ PassRefPtr<XMLParserContext> XMLParserContext::createMemoryParser(xmlSAXHandlerP
 // --------------------------------
 
 XMLDocumentParser::XMLDocumentParser(Document* document, FrameView* frameView)
-    : DocumentParser(document)
+    : ScriptableDocumentParser(document)
     , m_view(frameView)
     , m_context(0)
     , m_pendingCallbacks(new PendingCallbacks)
@@ -550,7 +550,7 @@ XMLDocumentParser::XMLDocumentParser(Document* document, FrameView* frameView)
 }
 
 XMLDocumentParser::XMLDocumentParser(DocumentFragment* fragment, Element* parentElement, FragmentScriptingPermission scriptingPermission)
-    : DocumentParser(fragment->document())
+    : ScriptableDocumentParser(fragment->document())
     , m_view(0)
     , m_context(0)
     , m_pendingCallbacks(new PendingCallbacks)
@@ -790,7 +790,7 @@ void XMLDocumentParser::startElementNs(const xmlChar* xmlLocalName, const xmlCha
     if (scriptElement)
         m_scriptStartLine = lineNumber();
 
-    if (!m_currentNode->addChild(newElement.get())) {
+    if (!m_currentNode->legacyParserAddChild(newElement.get())) {
         stopParsing();
         return;
     }
@@ -935,7 +935,7 @@ void XMLDocumentParser::processingInstruction(const xmlChar* target, const xmlCh
 
     pi->setCreatedByParser(true);
 
-    if (!m_currentNode->addChild(pi.get()))
+    if (!m_currentNode->legacyParserAddChild(pi.get()))
         return;
     if (m_view && !pi->attached())
         pi->attach();
@@ -962,7 +962,7 @@ void XMLDocumentParser::cdataBlock(const xmlChar* s, int len)
     exitText();
 
     RefPtr<Node> newNode = CDATASection::create(document(), toString(s, len));
-    if (!m_currentNode->addChild(newNode.get()))
+    if (!m_currentNode->legacyParserAddChild(newNode.get()))
         return;
     if (m_view && !newNode->attached())
         newNode->attach();
@@ -981,7 +981,7 @@ void XMLDocumentParser::comment(const xmlChar* s)
     exitText();
 
     RefPtr<Node> newNode = Comment::create(document(), toString(s));
-    m_currentNode->addChild(newNode.get());
+    m_currentNode->legacyParserAddChild(newNode.get());
     if (m_view && !newNode->attached())
         newNode->attach();
 }
@@ -1045,7 +1045,7 @@ void XMLDocumentParser::internalSubset(const xmlChar* name, const xmlChar* exter
         }
 #endif
 
-        document()->addChild(DocumentType::create(document(), toString(name), toString(externalID), toString(systemID)));
+        document()->legacyParserAddChild(DocumentType::create(document(), toString(name), toString(externalID), toString(systemID)));
     }
 }
 
@@ -1363,7 +1363,7 @@ void XMLDocumentParser::resumeParsing()
     // Then, write any pending data
     SegmentedString rest = m_pendingSrc;
     m_pendingSrc.clear();
-    write(rest, false);
+    append(rest);
 
     // Finally, if finish() has been called and write() didn't result
     // in any further callbacks being queued, call end()
@@ -1373,7 +1373,7 @@ void XMLDocumentParser::resumeParsing()
 
 // FIXME: This method should be possible to implement using the DocumentParser
 // API, instead of needing to grab at libxml2 state directly.
-bool parseXMLDocumentFragment(const String& chunk, DocumentFragment* fragment, Element* parent, FragmentScriptingPermission scriptingPermission)
+bool XMLDocumentParser::parseDocumentFragment(const String& chunk, DocumentFragment* fragment, Element* parent, FragmentScriptingPermission scriptingPermission)
 {
     if (!chunk.length())
         return true;

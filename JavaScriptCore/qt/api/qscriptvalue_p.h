@@ -120,6 +120,9 @@ public:
     inline bool instanceOf(QScriptValuePrivate* other);
     inline bool assignEngine(QScriptEnginePrivate* engine);
 
+    inline QScriptValuePrivate* property(const QString& name, const QScriptValue::ResolveFlags& mode);
+    inline QScriptValuePrivate* property(quint32 arrayIndex, const QScriptValue::ResolveFlags& mode);
+
     inline QScriptValuePrivate* call(const QScriptValuePrivate* , const QScriptValueList& args);
 
     inline operator JSValueRef() const;
@@ -442,7 +445,9 @@ QString QScriptValuePrivate::toString() const
     case JSValue:
     case JSPrimitive:
     case JSObject:
-        JSRetainPtr<JSStringRef> ptr(Adopt, JSValueToStringCopy(*m_engine, *this, /* exception */ 0));
+        JSValueRef exception = 0;
+        JSRetainPtr<JSStringRef> ptr(Adopt, JSValueToStringCopy(*m_engine, *this, &exception));
+        m_engine->setException(exception);
         return QScriptConverter::toString(ptr.get());
     }
 
@@ -456,7 +461,12 @@ qsreal QScriptValuePrivate::toNumber() const
     case JSValue:
     case JSPrimitive:
     case JSObject:
-        return JSValueToNumber(*m_engine, *this, /* exception */ 0);
+        {
+            JSValueRef exception = 0;
+            qsreal result = JSValueToNumber(*m_engine, *this, &exception);
+            m_engine->setException(exception);
+            return result;
+        }
     case CNumber:
         return u.m_number;
     case CBool:
@@ -585,9 +595,13 @@ QScriptValuePrivate* QScriptValuePrivate::toObject(QScriptEnginePrivate* engine)
         {
             if (engine != this->engine())
                 qWarning("QScriptEngine::toObject: cannot convert value created in a different engine");
-            JSObjectRef object = JSValueToObject(*m_engine, *this, /* exception */ 0);
+            JSValueRef exception = 0;
+            JSObjectRef object = JSValueToObject(*m_engine, *this, &exception);
             if (object)
                 return new QScriptValuePrivate(m_engine.constData(), object);
+            else
+                m_engine->setException(exception, QScriptEnginePrivate::NotNullException);
+
         }
         return new QScriptValuePrivate;
     case JSObject:
@@ -621,7 +635,7 @@ inline QScriptValuePrivate* QScriptValuePrivate::prototype()
             return new QScriptValuePrivate(engine(), prototype);
         // The prototype could be either a null or a JSObject, so it is safe to cast the prototype
         // to the JSObjectRef here.
-        return new QScriptValuePrivate(engine(), prototype, const_cast<JSObjectRef>(prototype));
+        return new QScriptValuePrivate(engine(), const_cast<JSObjectRef>(prototype));
     }
     return new QScriptValuePrivate;
 }
@@ -672,7 +686,10 @@ bool QScriptValuePrivate::equals(QScriptValuePrivate* other)
         }
     }
 
-    return JSValueIsEqual(*m_engine, *this, *other, /* exception */ 0);
+    JSValueRef exception = 0;
+    bool result = JSValueIsEqual(*m_engine, *this, *other, &exception);
+    m_engine->setException(exception);
+    return result;
 }
 
 bool QScriptValuePrivate::strictlyEquals(QScriptValuePrivate* other)
@@ -716,7 +733,10 @@ inline bool QScriptValuePrivate::instanceOf(QScriptValuePrivate* other)
 {
     if (!isJSBased() || !other->isObject())
         return false;
-    return JSValueIsInstanceOfConstructor(*m_engine, *this, *other, /* exception */ 0);
+    JSValueRef exception = 0;
+    bool result = JSValueIsInstanceOfConstructor(*m_engine, *this, *other, &exception);
+    m_engine->setException(exception);
+    return result;
 }
 
 /*!
@@ -756,6 +776,35 @@ bool QScriptValuePrivate::assignEngine(QScriptEnginePrivate* engine)
     return true;
 }
 
+inline QScriptValuePrivate* QScriptValuePrivate::property(const QString& name, const QScriptValue::ResolveFlags& mode)
+{
+    if (!isObject())
+        return new QScriptValuePrivate;
+
+    if (mode & QScriptValue::ResolveLocal) {
+        qWarning("QScriptValue::property(): ResolveLocal not supported yet.");
+        return new QScriptValuePrivate;
+    }
+
+    JSRetainPtr<JSStringRef> nameRef(Adopt, QScriptConverter::toString(name));
+    QScriptValuePrivate* result = new QScriptValuePrivate(m_engine.constData(), JSObjectGetProperty(*m_engine, *this, nameRef.get(), /* exception */ 0));
+
+    return result;
+}
+
+inline QScriptValuePrivate* QScriptValuePrivate::property(quint32 arrayIndex, const QScriptValue::ResolveFlags& mode)
+{
+    if (!isObject())
+        return new QScriptValuePrivate;
+
+    if (mode & QScriptValue::ResolveLocal) {
+        qWarning("QScriptValue::property(): ResolveLocal not supported yet.");
+        return new QScriptValuePrivate;
+    }
+
+    return new QScriptValuePrivate(m_engine.constData(), JSObjectGetPropertyAtIndex(*m_engine, *this, arrayIndex, /* exception */ 0));
+}
+
 QScriptValuePrivate* QScriptValuePrivate::call(const QScriptValuePrivate*, const QScriptValueList& args)
 {
     switch (m_state) {
@@ -781,8 +830,10 @@ QScriptValuePrivate* QScriptValuePrivate::call(const QScriptValuePrivate*, const
             // Make the call
             JSValueRef exception = 0;
             JSValueRef result = JSObjectCallAsFunction(*m_engine, *this, /* thisObject */ 0, argc, argv.constData(), &exception);
-            if (!result && exception)
+            if (!result && exception) {
+                m_engine->setException(exception);
                 return new QScriptValuePrivate(engine(), exception);
+            }
             if (result && !exception)
                 return new QScriptValuePrivate(engine(), result);
         }
@@ -823,9 +874,12 @@ bool QScriptValuePrivate::inherits(const char* name)
     Q_ASSERT(isJSBased());
     JSObjectRef globalObject = JSContextGetGlobalObject(*m_engine);
     JSStringRef errorAttrName = QScriptConverter::toString(name);
-    JSValueRef error = JSObjectGetProperty(*m_engine, globalObject, errorAttrName, /* exception */ 0);
+    JSValueRef exception = 0;
+    JSValueRef error = JSObjectGetProperty(*m_engine, globalObject, errorAttrName, &exception);
     JSStringRelease(errorAttrName);
-    return JSValueIsInstanceOfConstructor(*m_engine, *this, JSValueToObject(*m_engine, error, /* exception */ 0), /* exception */ 0);
+    bool result = JSValueIsInstanceOfConstructor(*m_engine, *this, JSValueToObject(*m_engine, error, &exception), &exception);
+    m_engine->setException(exception);
+    return result;
 }
 
 /*!

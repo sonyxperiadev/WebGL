@@ -52,10 +52,17 @@ typedef struct IDataObject* DragDataRef;
 #elif PLATFORM(WX)
 typedef class wxDataObject* DragDataRef;
 #elif PLATFORM(GTK)
+<<<<<<< HEAD
 // FIXME: this should probably be something gdk-specific
 typedef void* DragDataRef;
 #elif defined ANDROID
 typedef void* DragDataRef;
+=======
+namespace WebCore {
+class DataObjectGtk;
+}
+typedef WebCore::DataObjectGtk* DragDataRef;
+>>>>>>> webkit.org at r62496
 #elif PLATFORM(CHROMIUM)
 #include "DragDataRef.h"
 #elif PLATFORM(HAIKU)

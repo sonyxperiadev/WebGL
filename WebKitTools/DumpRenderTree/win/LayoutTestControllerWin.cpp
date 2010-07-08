@@ -617,8 +617,14 @@ static bool resolveCygwinPath(const wstring& cygwinPath, wstring& windowsPath)
     DWORD keyType;
     DWORD result = ::SHGetValueW(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\Cygnus Solutions\\Cygwin\\mounts v2\\/"), TEXT("native"), &keyType, &rootPath, &rootPathSize);
 
-    if (result != ERROR_SUCCESS || keyType != REG_SZ)
-        return false;
+    if (result != ERROR_SUCCESS || keyType != REG_SZ) {
+        // Cygwin 1.7 doesn't store Cygwin's root as a mount point anymore, because mount points are now stored in /etc/fstab.
+        // However, /etc/fstab doesn't contain any information about where / is located as a Windows path, so we need to use Cygwin's
+        // new registry key that has the root.
+        result = ::SHGetValueW(HKEY_LOCAL_MACHINE, TEXT("SOFTWARE\\Cygwin\\setup"), TEXT("rootdir"), &keyType, &rootPath, &rootPathSize);
+        if (result != ERROR_SUCCESS || keyType != REG_SZ)
+            return false;
+    }
 
     windowsPath = wstring(rootPath, rootPathSize);
 
@@ -1254,13 +1260,7 @@ bool LayoutTestController::isPageBoxVisible(int pageNumber) const
     return false;
 }
 
-JSRetainPtr<JSStringRef> LayoutTestController::pageAreaRectInPixels(int pageNumber) const
-{
-    // FIXME: implement
-    return JSRetainPtr<JSStringRef>();
-}
-
-JSRetainPtr<JSStringRef> LayoutTestController::preferredPageSizeInPixels(int pageNumber) const
+JSRetainPtr<JSStringRef> LayoutTestController::pageSizeAndMarginsInPixels(int pageNumber, int width, int height, int marginTop, int marginRight, int marginBottom, int marginLeft) const
 {
     // FIXME: implement
     return JSRetainPtr<JSStringRef>();
@@ -1307,4 +1307,8 @@ void LayoutTestController::setEditingBehavior(const char* editingBehavior)
         preferences->setEditingBehavior(WebKitEditingMacBehavior);
     if (behaviorString == "win")
         preferences->setEditingBehavior(WebKitEditingWinBehavior);
+}
+
+void LayoutTestController::abortModal()
+{
 }

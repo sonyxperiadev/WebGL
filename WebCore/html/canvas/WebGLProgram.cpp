@@ -39,6 +39,7 @@ PassRefPtr<WebGLProgram> WebGLProgram::create(WebGLRenderingContext* ctx)
 
 WebGLProgram::WebGLProgram(WebGLRenderingContext* ctx)
     : CanvasObject(ctx)
+    , m_linkFailure(false)
 {
     setObject(context()->graphicsContext3D()->createProgram());
 }
@@ -71,16 +72,25 @@ bool WebGLProgram::cacheActiveAttribLocations()
     return true;
 }
 
-int WebGLProgram::numActiveAttribLocations()
+int WebGLProgram::numActiveAttribLocations() const
 {
     return static_cast<int>(m_activeAttribLocations.size());
 }
 
-int WebGLProgram::getActiveAttribLocation(int index)
+int WebGLProgram::getActiveAttribLocation(int index) const
 {
     if (index < 0 || index >= numActiveAttribLocations())
         return -1;
     return m_activeAttribLocations[static_cast<size_t>(index)];
+}
+
+bool WebGLProgram::isUsingVertexAttrib0() const
+{
+    for (int ii = 0; ii < numActiveAttribLocations(); ++ii) {
+        if (!getActiveAttribLocation(ii))
+            return true;
+    }
+    return false;
 }
 
 }

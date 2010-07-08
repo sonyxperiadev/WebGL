@@ -224,9 +224,9 @@ WebInspector.ScriptsPanel.prototype = {
     
     hide: function()
     {
-        WebInspector.Panel.prototype.hide.call(this);
         if (this.visibleView)
             this.visibleView.hide();
+        WebInspector.Panel.prototype.hide.call(this);
     },
 
     get searchableViews()
@@ -364,9 +364,10 @@ WebInspector.ScriptsPanel.prototype = {
             }
             for (var i = 0; i < breakpoints.length; ++i) {
                 var breakpoint = breakpoints[i];
+                var newLine = breakpoint.line;
                 if (success && breakpoint.line >= line)
-                    breakpoint.line += linesCountToShift;
-                WebInspector.breakpointManager.addBreakpoint(breakpoint);
+                    newLine += linesCountToShift;
+                WebInspector.breakpointManager.setBreakpoint(sourceID, breakpoint.url, newLine, breakpoint.enabled, breakpoint.condition);
             }
         };
         var callbackId = WebInspector.Callback.wrap(mycallback.bind(this))

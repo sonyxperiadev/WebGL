@@ -528,6 +528,17 @@ void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points
     p->restore();
 }
 
+void GraphicsContext::clipConvexPolygon(size_t numPoints, const FloatPoint* points)
+{
+    if (paintingDisabled())
+        return;
+
+    if (numPoints <= 1)
+        return;
+    
+    // FIXME: IMPLEMENT!!
+}
+
 QPen GraphicsContext::pen()
 {
     if (paintingDisabled())
@@ -1056,7 +1067,12 @@ void GraphicsContext::clip(const Path& path)
 
 void GraphicsContext::canvasClip(const Path& path)
 {
-    clip(path);
+    if (paintingDisabled())
+        return;
+
+    QPainterPath clipPath = path.platformPath();
+    clipPath.setFillRule(Qt::WindingFill);
+    m_data->p()->setClipPath(clipPath, Qt::IntersectClip);
 }
 
 void GraphicsContext::clipOut(const Path& path)

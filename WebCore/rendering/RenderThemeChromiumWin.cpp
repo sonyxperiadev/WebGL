@@ -374,16 +374,16 @@ void RenderThemeChromiumWin::adjustSliderThumbSize(RenderObject* o) const
         RenderThemeChromiumSkia::adjustSliderThumbSize(o);
 }
 
-bool RenderThemeChromiumWin::paintCheckbox(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+bool RenderThemeChromiumWin::paintCheckbox(RenderObject* o, const PaintInfo& i, const IntRect& r)
 {
     return paintButton(o, i, r);
 }
-bool RenderThemeChromiumWin::paintRadio(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+bool RenderThemeChromiumWin::paintRadio(RenderObject* o, const PaintInfo& i, const IntRect& r)
 {
     return paintButton(o, i, r);
 }
 
-bool RenderThemeChromiumWin::paintButton(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+bool RenderThemeChromiumWin::paintButton(RenderObject* o, const PaintInfo& i, const IntRect& r)
 {
     const ThemeData& themeData = getThemeData(o);
 
@@ -396,12 +396,12 @@ bool RenderThemeChromiumWin::paintButton(RenderObject* o, const RenderObject::Pa
     return false;
 }
 
-bool RenderThemeChromiumWin::paintTextField(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+bool RenderThemeChromiumWin::paintTextField(RenderObject* o, const PaintInfo& i, const IntRect& r)
 {
     return paintTextFieldInternal(o, i, r, true);
 }
 
-bool RenderThemeChromiumWin::paintSliderTrack(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+bool RenderThemeChromiumWin::paintSliderTrack(RenderObject* o, const PaintInfo& i, const IntRect& r)
 {
     const ThemeData& themeData = getThemeData(o);
 
@@ -414,13 +414,13 @@ bool RenderThemeChromiumWin::paintSliderTrack(RenderObject* o, const RenderObjec
     return false;
 }
 
-bool RenderThemeChromiumWin::paintSliderThumb(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+bool RenderThemeChromiumWin::paintSliderThumb(RenderObject* o, const PaintInfo& i, const IntRect& r)
 {
     return paintSliderTrack(o, i, r);
 }
 
 // Used to paint unstyled menulists (i.e. with the default border)
-bool RenderThemeChromiumWin::paintMenuList(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+bool RenderThemeChromiumWin::paintMenuList(RenderObject* o, const PaintInfo& i, const IntRect& r)
 {
     if (!o->isBox())
         return false;
@@ -501,8 +501,14 @@ unsigned RenderThemeChromiumWin::determineState(RenderObject* o)
         result = ETS_FOCUSED;
     else if (isHovered(o))
         result = TS_HOT;
-    if (isChecked(o))
-        result += 4; // 4 unchecked states, 4 checked states.
+
+    // CBS_UNCHECKED*: 1-4
+    // CBS_CHECKED*: 5-8
+    // CBS_MIXED*: 9-12
+    if (isIndeterminate(o))
+        result += 8;
+    else if (isChecked(o))
+        result += 4;
     return result;
 }
 
@@ -550,7 +556,8 @@ unsigned RenderThemeChromiumWin::determineClassicState(RenderObject* o)
             result = 0;
         else if (isHovered(o))
             result = DFCS_HOT;
-        if (isChecked(o))
+        // Classic theme can't represent indeterminate states. Use unchecked appearance.
+        if (isChecked(o) && !isIndeterminate(o))
             result |= DFCS_CHECKED;
     }
     return result;
@@ -609,7 +616,7 @@ ThemeData RenderThemeChromiumWin::getThemeData(RenderObject* o)
 }
 
 bool RenderThemeChromiumWin::paintTextFieldInternal(RenderObject* o,
-                                                    const RenderObject::PaintInfo& i,
+                                                    const PaintInfo& i,
                                                     const IntRect& r,
                                                     bool drawEdges)
 {
@@ -677,7 +684,7 @@ void RenderThemeChromiumWin::adjustProgressBarStyle(CSSStyleSelector*, RenderSty
 {
 }
 
-bool RenderThemeChromiumWin::paintProgressBar(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+bool RenderThemeChromiumWin::paintProgressBar(RenderObject* o, const PaintInfo& i, const IntRect& r)
 {
     if (!o->isProgress())
         return true;
@@ -689,7 +696,7 @@ bool RenderThemeChromiumWin::paintProgressBar(RenderObject* o, const RenderObjec
     double animatedSeconds = renderProgress->animationStartTime() ?  WTF::currentTime() - renderProgress->animationStartTime() : 0;
     ThemePainter painter(i.context, r);
     ChromiumBridge::paintProgressBar(painter.context(), r, valueRect, renderProgress->isDeterminate(), animatedSeconds);
-    return true;
+    return false;
 }
 
 #endif

@@ -28,11 +28,11 @@
 
 #include "CachedResourceClient.h"
 #include "FragmentScriptingPermission.h"
+#include "HTMLInputStream.h"
 #include "HTMLScriptRunnerHost.h"
 #include "HTMLToken.h"
-#include "HTMLInputStream.h"
+#include "ScriptableDocumentParser.h"
 #include "SegmentedString.h"
-#include "DocumentParser.h"
 #include "Timer.h"
 #include <wtf/OwnPtr.h>
 
@@ -50,7 +50,7 @@ class LegacyHTMLTreeBuilder;
 class ScriptController;
 class ScriptSourceCode;
 
-class HTMLDocumentParser :  public DocumentParser, HTMLScriptRunnerHost, CachedResourceClient {
+class HTMLDocumentParser :  public ScriptableDocumentParser, HTMLScriptRunnerHost, CachedResourceClient {
 public:
     // FIXME: These constructors should be made private and replaced by create() methods.
     HTMLDocumentParser(HTMLDocument*, bool reportErrors);
@@ -64,8 +64,8 @@ public:
 
 private:
     // DocumentParser
-    virtual void begin();
-    virtual void write(const SegmentedString&, bool isFromNetwork);
+    virtual void insert(const SegmentedString&);
+    virtual void append(const SegmentedString&);
     virtual void finish();
     virtual bool finishWasCalled();
     virtual bool processingData() const;
@@ -101,6 +101,7 @@ private:
     bool runScriptsForPausedTreeBuilder();
     void resumeParsingAfterScriptExecution();
 
+    void begin();
     void attemptToEnd();
     void endIfDelayed();
     void end();
@@ -108,6 +109,7 @@ private:
     bool isScheduledForResume() const;
     bool inScriptExecution() const;
     bool inWrite() const { return m_writeNestingLevel > 0; }
+    bool shouldDelayEnd() const { return inWrite() || isWaitingForScripts() || inScriptExecution() || isScheduledForResume(); }
 
     ScriptController* script() const;
 

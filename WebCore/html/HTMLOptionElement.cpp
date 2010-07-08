@@ -223,11 +223,6 @@ String HTMLOptionElement::label() const
     return m_data.label();
 }
 
-void HTMLOptionElement::setLabel(const String& value)
-{
-    setAttribute(labelAttr, value);
-}
-
 void HTMLOptionElement::setRenderStyle(PassRefPtr<RenderStyle> newStyle)
 {
     m_style = newStyle;

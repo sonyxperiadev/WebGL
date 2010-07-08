@@ -51,6 +51,8 @@ QGradient* Gradient::platformGradient()
     else
         m_gradient = new QLinearGradient(m_p0.x(), m_p0.y(), m_p1.x(), m_p1.y());
 
+    m_gradient->setInterpolationMode(QGradient::ComponentInterpolation);
+
     sortStopsIfNecessary();
 
     QColor stopColor;
@@ -65,7 +67,7 @@ QGradient* Gradient::platformGradient()
             lastStop = stopIterator->stop;
         if (m_radial && m_r0)
             lastStop = m_r0 / m_r1 + lastStop * (1.0f - m_r0 / m_r1);
-        m_gradient->setColorAt(lastStop, stopColor);
+        m_gradient->setColorAt(qMin(lastStop, qreal(1.0f)), stopColor);
         // Keep the lastStop as orginal value, since the following stopColor depend it
         lastStop = stopIterator->stop;
         ++stopIterator;

@@ -267,10 +267,10 @@ void PluginView::setNPWindowIfNeeded()
         m_npWindow.x = m_windowRect.x();
         m_npWindow.y = m_windowRect.y();
 
-        m_npWindow.clipRect.left = m_clipRect.x();
-        m_npWindow.clipRect.top = m_clipRect.y();
-        m_npWindow.clipRect.right = m_clipRect.width();
-        m_npWindow.clipRect.bottom = m_clipRect.height();
+        m_npWindow.clipRect.left = max(0, m_clipRect.x());
+        m_npWindow.clipRect.top = max(0, m_clipRect.y());
+        m_npWindow.clipRect.right = m_clipRect.x() + m_clipRect.width();
+        m_npWindow.clipRect.bottom = m_clipRect.y() + m_clipRect.height();
     
     } else {
         // always call this method before painting.
@@ -418,8 +418,10 @@ void PluginView::platformDestroy()
 {
     if (platformPluginWidget()) {
         PluginContainerSymbian* container = static_cast<PluginContainerSymbian*>(platformPluginWidget());
-        delete container->proxy();
-        delete container;
+        if (container && container->proxy())
+            delete container->proxy();
+        else
+            delete container;
     }
 }
 

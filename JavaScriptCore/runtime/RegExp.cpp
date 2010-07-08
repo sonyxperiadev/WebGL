@@ -46,30 +46,23 @@
 
 namespace JSC {
 
-inline RegExp::RegExp(JSGlobalData* globalData, const UString& pattern)
-    : m_pattern(pattern)
-    , m_flagBits(0)
-    , m_constructionError(0)
-    , m_numSubpatterns(0)
-{
-    compile(globalData);
-}
-
 inline RegExp::RegExp(JSGlobalData* globalData, const UString& pattern, const UString& flags)
     : m_pattern(pattern)
     , m_flagBits(0)
     , m_constructionError(0)
     , m_numSubpatterns(0)
+    , m_lastMatchStart(-1)
 {
     // NOTE: The global flag is handled on a case-by-case basis by functions like
     // String::match and RegExpObject::match.
-    if (flags.find('g') != UString::NotFound)
-        m_flagBits |= Global;
-    if (flags.find('i') != UString::NotFound)
-        m_flagBits |= IgnoreCase;
-    if (flags.find('m') != UString::NotFound)
-        m_flagBits |= Multiline;
-
+    if (!flags.isNull()) {
+        if (flags.find('g') != UString::NotFound)
+            m_flagBits |= Global;
+        if (flags.find('i') != UString::NotFound)
+            m_flagBits |= IgnoreCase;
+        if (flags.find('m') != UString::NotFound)
+            m_flagBits |= Multiline;
+    }
     compile(globalData);
 }
 
@@ -79,11 +72,6 @@ RegExp::~RegExp()
     jsRegExpFree(m_regExp);
 }
 #endif
-
-PassRefPtr<RegExp> RegExp::create(JSGlobalData* globalData, const UString& pattern)
-{
-    return adoptRef(new RegExp(globalData, pattern));
-}
 
 PassRefPtr<RegExp> RegExp::create(JSGlobalData* globalData, const UString& pattern, const UString& flags)
 {
@@ -109,8 +97,24 @@ int RegExp::match(const UString& s, int startOffset, Vector<int, 32>* ovector)
     if (ovector)
         ovector->resize(0);
 
-    if (static_cast<unsigned>(startOffset) > s.size() || s.isNull())
+    if (static_cast<unsigned>(startOffset) > s.size() || s.isNull()) {
+        m_lastMatchString = UString();
+        m_lastMatchStart = -1;
+        m_lastOVector.shrink(0);
         return -1;
+    }
+    
+    // Perform check to see if this match call is the same as the last match invocation
+    // and if it is return the prior result.
+    if ((startOffset == m_lastMatchStart) && (s.rep() == m_lastMatchString.rep())) {
+        if (ovector)
+            *ovector = m_lastOVector;
+        
+        if (m_lastOVector.isEmpty())
+            return -1;
+
+        return m_lastOVector.at(0);
+    }
 
 #if ENABLE(YARR_JIT)
     if (!!m_regExpJITCode) {
@@ -147,8 +151,21 @@ int RegExp::match(const UString& s, int startOffset, Vector<int, 32>* ovector)
             if (ovector)
                 ovector->clear();
         }
+        
+        m_lastMatchString = s;
+        m_lastMatchStart = startOffset;
+
+        if (ovector)
+            m_lastOVector = *ovector;
+        else
+            m_lastOVector = nonReturnedOvector;
+
         return result;
     }
+
+    m_lastMatchString = UString();
+    m_lastMatchStart = -1;
+    m_lastOVector.shrink(0);
 
     return -1;
 }

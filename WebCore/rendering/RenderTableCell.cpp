@@ -681,7 +681,7 @@ int RenderTableCell::borderHalfBottom(bool outer) const
 void RenderTableCell::paint(PaintInfo& paintInfo, int tx, int ty)
 {
     if (paintInfo.phase == PaintPhaseCollapsedTableBorders && style()->visibility() == VISIBLE) {
-        if (!shouldPaintWithinRoot(paintInfo))
+        if (!paintInfo.shouldPaintWithinRoot(this))
             return;
 
         tx += x();
@@ -855,7 +855,7 @@ void RenderTableCell::paintCollapsedBorder(GraphicsContext* graphicsContext, int
 
 void RenderTableCell::paintBackgroundsBehindCell(PaintInfo& paintInfo, int tx, int ty, RenderObject* backgroundObject)
 {
-    if (!shouldPaintWithinRoot(paintInfo))
+    if (!paintInfo.shouldPaintWithinRoot(this))
         return;
 
     if (!backgroundObject)
@@ -897,7 +897,7 @@ void RenderTableCell::paintBackgroundsBehindCell(PaintInfo& paintInfo, int tx, i
 
 void RenderTableCell::paintBoxDecorations(PaintInfo& paintInfo, int tx, int ty)
 {
-    if (!shouldPaintWithinRoot(paintInfo))
+    if (!paintInfo.shouldPaintWithinRoot(this))
         return;
 
     RenderTable* tableElt = table();

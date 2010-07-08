@@ -62,18 +62,18 @@ bool HTMLTableRowElement::checkDTD(const Node* newChild)
            newChild->hasTagName(formTag) || newChild->hasTagName(scriptTag);
 }
 
-ContainerNode* HTMLTableRowElement::addChild(PassRefPtr<Node> child)
+ContainerNode* HTMLTableRowElement::legacyParserAddChild(PassRefPtr<Node> child)
 {
     if (child->hasTagName(formTag)) {
         // First add the child.
-        HTMLTablePartElement::addChild(child);
+        HTMLTablePartElement::legacyParserAddChild(child);
 
         // Now simply return ourselves as the container to insert into.
         // This has the effect of demoting the form to a leaf and moving it safely out of the way.
         return this;
     }
 
-    return HTMLTablePartElement::addChild(child);
+    return HTMLTablePartElement::legacyParserAddChild(child);
 }
 
 int HTMLTableRowElement::rowIndex() const
@@ -181,59 +181,9 @@ PassRefPtr<HTMLCollection> HTMLTableRowElement::cells()
     return HTMLCollection::create(this, TRCells);
 }
 
-void HTMLTableRowElement::setCells(HTMLCollection *, ExceptionCode& ec)
+void HTMLTableRowElement::setCells(HTMLCollection*, ExceptionCode& ec)
 {
     ec = NO_MODIFICATION_ALLOWED_ERR;
-}
-
-String HTMLTableRowElement::align() const
-{
-    return getAttribute(alignAttr);
-}
-
-void HTMLTableRowElement::setAlign(const String &value)
-{
-    setAttribute(alignAttr, value);
-}
-
-String HTMLTableRowElement::bgColor() const
-{
-    return getAttribute(bgcolorAttr);
-}
-
-void HTMLTableRowElement::setBgColor(const String &value)
-{
-    setAttribute(bgcolorAttr, value);
-}
-
-String HTMLTableRowElement::ch() const
-{
-    return getAttribute(charAttr);
-}
-
-void HTMLTableRowElement::setCh(const String &value)
-{
-    setAttribute(charAttr, value);
-}
-
-String HTMLTableRowElement::chOff() const
-{
-    return getAttribute(charoffAttr);
-}
-
-void HTMLTableRowElement::setChOff(const String &value)
-{
-    setAttribute(charoffAttr, value);
-}
-
-String HTMLTableRowElement::vAlign() const
-{
-    return getAttribute(valignAttr);
-}
-
-void HTMLTableRowElement::setVAlign(const String &value)
-{
-    setAttribute(valignAttr, value);
 }
 
 }

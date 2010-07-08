@@ -26,47 +26,31 @@
 #ifndef TestInvocation_h
 #define TestInvocation_h
 
-#include "PlatformWebView.h"
 #include <WebKit2/WKRetainPtr.h>
-#include <JavaScriptCore/Noncopyable.h>
+#include <wtf/Noncopyable.h>
 
 namespace WTR {
 
-class TestInvocation : Noncopyable {
+class TestInvocation : public Noncopyable {
 public:
     TestInvocation(const char*);
     ~TestInvocation();
 
     void invoke();
+    void didRecieveMessageFromInjectedBundle(WKStringRef message);
 
 private:
-    void initializeMainWebView();
     void dump(const char*);
 
     // Helper
     static void runUntil(bool& done);
 
-    // PageLoaderClient
-    static void didStartProvisionalLoadForFrame(WKPageRef page, WKFrameRef, const void*);
-    static void didReceiveServerRedirectForProvisionalLoadForFrame(WKPageRef, WKFrameRef, const void*);
-    static void didFailProvisionalLoadWithErrorForFrame(WKPageRef, WKFrameRef, const void*);
-    static void didCommitLoadForFrame(WKPageRef, WKFrameRef, const void*);
-    static void didFinishLoadForFrame(WKPageRef, WKFrameRef, const void*);
-    static void didFailLoadForFrame(WKPageRef, WKFrameRef, const void*);
-
-    // RenderTreeExternalRepresentation callbacks
-    static void renderTreeExternalRepresentationFunction(WKStringRef, void*);
-    static void renderTreeExternalRepresentationDisposeFunction(void*);
-
-    WKStringRef injectedBundlePath();
-
     WKRetainPtr<WKURLRef> m_url;
-    PlatformWebView* m_mainWebView;
 
     // Invocation state
-    bool m_loadDone;
-    bool m_renderTreeFetchDone;
-    bool m_failed;
+    bool m_gotInitialResponse;
+    bool m_gotFinalMessage;
+    bool m_error;
 };
 
 } // namespace WTR

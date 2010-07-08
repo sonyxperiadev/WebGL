@@ -145,11 +145,16 @@ Settings::Settings(Page* page)
     , m_loadDeferringEnabled(true)
     , m_tiledBackingStoreEnabled(false)
     , m_html5ParserEnabled(true)
+    , m_html5TreeBuilderEnabled(false) // Will be deleted soon, do not use.
     , m_paginateDuringLayoutEnabled(false)
+<<<<<<< HEAD
 #ifdef ANDROID_PLUGINS
     , m_pluginsOnDemand(false)
 #endif
 
+=======
+    , m_dnsPrefetchingEnabled(true)
+>>>>>>> webkit.org at r62496
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
@@ -721,6 +726,11 @@ void Settings::setShouldPaintNativeControls(bool shouldPaintNativeControls)
 void Settings::setUsesEncodingDetector(bool usesEncodingDetector)
 {
     m_usesEncodingDetector = usesEncodingDetector;
+}
+
+void Settings::setDNSPrefetchingEnabled(bool dnsPrefetchingEnabled)
+{
+    m_dnsPrefetchingEnabled = dnsPrefetchingEnabled;
 }
 
 void Settings::setAllowScriptsToCloseWindows(bool allowScriptsToCloseWindows)

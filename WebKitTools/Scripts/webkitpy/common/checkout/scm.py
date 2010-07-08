@@ -31,6 +31,8 @@
 
 import os
 import re
+import sys
+import shutil
 
 from webkitpy.common.system.executive import Executive, run_command, ScriptError
 from webkitpy.common.system.user import User
@@ -166,82 +168,95 @@ class SCM:
         return match.group('svn_revision')
 
     @staticmethod
+    def _subclass_must_implement():
+        raise NotImplementedError("subclasses must implement")
+
+    @staticmethod
     def in_working_directory(path):
-        raise NotImplementedError, "subclasses must implement"
+        SCM._subclass_must_implement()
 
     @staticmethod
     def find_checkout_root(path):
-        raise NotImplementedError, "subclasses must implement"
+        SCM._subclass_must_implement()
 
     @staticmethod
     def commit_success_regexp():
-        raise NotImplementedError, "subclasses must implement"
+        SCM._subclass_must_implement()
 
     def working_directory_is_clean(self):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
 
     def clean_working_directory(self):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
 
     def status_command(self):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
 
-    def add(self, path):
-        raise NotImplementedError, "subclasses must implement"
+    def add(self, path, return_exit_code=False):
+        self._subclass_must_implement()
+
+    def delete(self, path):
+        self._subclass_must_implement()
 
     def changed_files(self, git_commit=None, squash=None):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
 
     def changed_files_for_revision(self):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
 
     def added_files(self):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
 
     def conflicted_files(self):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
 
     def display_name(self):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
 
     def create_patch(self, git_commit=None, squash=None):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
 
     def committer_email_for_revision(self, revision):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
 
     def contents_at_revision(self, path, revision):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
 
     def diff_for_revision(self, revision):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
+
+    def diff_for_file(self, path, log=None):
+        self._subclass_must_implement()
+
+    def show_head(self, path):
+        self._subclass_must_implement()
 
     def apply_reverse_diff(self, revision):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
 
     def revert_files(self, file_paths):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
 
     def should_squash(self, squash):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
 
     def commit_with_message(self, message, username=None, git_commit=None, squash=None):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
 
     def svn_commit_log(self, svn_revision):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
 
     def last_svn_commit_log(self):
-        raise NotImplementedError, "subclasses must implement"
+        self._subclass_must_implement()
 
     # Subclasses must indicate if they support local commits,
     # but the SCM baseclass will only call local_commits methods when this is true.
     @staticmethod
     def supports_local_commits():
-        raise NotImplementedError, "subclasses must implement"
+        SCM._subclass_must_implement()
 
     def remote_merge_base():
-        raise NotImplementedError, "subclasses must implement"
+        SCM._subclass_must_implement()
 
     def commit_locally_with_message(self, message):
         error("Your source control manager does not support local commits.")
@@ -261,7 +276,8 @@ class SVN(SCM):
     def __init__(self, cwd):
         SCM.__init__(self, cwd)
         self.cached_version = None
-    
+        self._bogus_dir = None
+
     @staticmethod
     def in_working_directory(path):
         return os.path.isdir(os.path.join(path, '.svn'))
@@ -343,9 +359,23 @@ class SVN(SCM):
         field_count = 6 if self.svn_version() > "1.6" else 5
         return "^(?P<status>[%s]).{%s} (?P<filename>.+)$" % (expected_types, field_count)
 
-    def add(self, path):
-        # path is assumed to be cwd relative?
-        self.run(["svn", "add", path])
+    def _add_parent_directories(self, path):
+        """Does 'svn add' to the path and its parents."""
+        if self.in_working_directory(path):
+            return
+        dirname = os.path.dirname(path)
+        # We have dirname directry - ensure it added.
+        if dirname != path:
+            self._add_parent_directories(dirname)
+        self.add(path)
+
+    def add(self, path, return_exit_code=False):
+        self._add_parent_directories(os.path.dirname(os.path.abspath(path)))
+        return self.run(["svn", "add", path], return_exit_code=return_exit_code)
+
+    def delete(self, path):
+        parent, base = os.path.split(os.path.abspath(path))
+        return self.run(["svn", "delete", "--force", base], cwd=parent)
 
     def changed_files(self, git_commit=None, squash=None):
         return self.run_status_and_extract_filenames(self.status_command(), self._status_regexp("ACDMR"))
@@ -361,6 +391,9 @@ class SVN(SCM):
 
     def added_files(self):
         return self.run_status_and_extract_filenames(self.status_command(), self._status_regexp("A"))
+
+    def deleted_files(self):
+        return self.run_status_and_extract_filenames(self.status_command(), self._status_regexp("D"))
 
     @staticmethod
     def supports_local_commits():
@@ -390,6 +423,44 @@ class SVN(SCM):
     def diff_for_revision(self, revision):
         # FIXME: This should probably use cwd=self.checkout_root
         return self.run(['svn', 'diff', '-c', revision])
+
+    def _bogus_dir_name(self):
+        if sys.platform.startswith("win"):
+            parent_dir = tempfile.gettempdir()
+        else:
+            parent_dir = sys.path[0]  # tempdir is not secure.
+        return os.path.join(parent_dir, "temp_svn_config")
+
+    def _setup_bogus_dir(self, log):
+        self._bogus_dir = self._bogus_dir_name()
+        if not os.path.exists(self._bogus_dir):
+            os.mkdir(self._bogus_dir)
+            self._delete_bogus_dir = True
+        else:
+            self._delete_bogus_dir = False
+        if log:
+            log.debug('  Html: temp config dir: "%s".', self._bogus_dir)
+
+    def _teardown_bogus_dir(self, log):
+        if self._delete_bogus_dir:
+            shutil.rmtree(self._bogus_dir, True)
+            if log:
+                log.debug('  Html: removed temp config dir: "%s".', self._bogus_dir)
+        self._bogus_dir = None
+
+    def diff_for_file(self, path, log=None):
+        self._setup_bogus_dir(log)
+        try:
+            args = ['svn', 'diff']
+            if self._bogus_dir:
+                args += ['--config-dir', self._bogus_dir]
+            args.append(path)
+            return self.run(args)
+        finally:
+            self._teardown_bogus_dir(log)
+
+    def show_head(self, path):
+        return self.run(['svn', 'cat', '-r', 'BASE', path], decode_output=False)
 
     def _repository_url(self):
         return self.value_from_svn_info(self.checkout_root, 'URL')
@@ -435,6 +506,14 @@ class SVN(SCM):
         # http://svnbook.red-bean.com/en/1.0/ch03s03.html
         return self.svn_commit_log('BASE')
 
+    def propset(self, pname, pvalue, path):
+        dir, base = os.path.split(path)
+        return self.run(['svn', 'pset', pname, pvalue, base], cwd=dir)
+
+    def propget(self, pname, path):
+        dir, base = os.path.split(path)
+        return self.run(['svn', 'pget', pname, base], cwd=dir).encode('utf-8').rstrip("\n")
+
 # All git-specific logic should go here.
 class Git(SCM):
     def __init__(self, cwd):
@@ -447,11 +526,16 @@ class Git(SCM):
     @classmethod
     def find_checkout_root(cls, path):
         # "git rev-parse --show-cdup" would be another way to get to the root
-        (checkout_root, dot_git) = os.path.split(run_command(['git', 'rev-parse', '--git-dir'], cwd=path))
+        (checkout_root, dot_git) = os.path.split(run_command(['git', 'rev-parse', '--git-dir'], cwd=(path or "./")))
         # If we were using 2.6 # checkout_root = os.path.relpath(checkout_root, path)
         if not os.path.isabs(checkout_root): # Sometimes git returns relative paths
             checkout_root = os.path.join(path, checkout_root)
         return checkout_root
+
+    @classmethod
+    def to_object_name(cls, filepath):
+        root_end_with_slash = os.path.join(cls.find_checkout_root(os.path.dirname(filepath)), '')
+        return filepath.replace(root_end_with_slash, '')
 
     @classmethod
     def read_git_config(cls, key):
@@ -494,9 +578,11 @@ class Git(SCM):
     def _status_regexp(self, expected_types):
         return '^(?P<status>[%s])\t(?P<filename>.+)$' % expected_types
 
-    def add(self, path):
-        # path is assumed to be cwd relative?
-        self.run(["git", "add", path])
+    def add(self, path, return_exit_code=False):
+        return self.run(["git", "add", path], return_exit_code=return_exit_code)
+
+    def delete(self, path):
+        return self.run(["git", "rm", "-f", path])
 
     def _merge_base(self, git_commit, squash):
         if git_commit:
@@ -537,6 +623,9 @@ class Git(SCM):
     def added_files(self):
         return self.run_status_and_extract_filenames(self.status_command(), self._status_regexp("A"))
 
+    def deleted_files(self):
+        return self.run_status_and_extract_filenames(self.status_command(), self._status_regexp("D"))
+
     @staticmethod
     def supports_local_commits():
         return True
@@ -568,6 +657,12 @@ class Git(SCM):
     def diff_for_revision(self, revision):
         git_commit = self.git_commit_from_svn_revision(revision)
         return self.create_patch(git_commit)
+
+    def diff_for_file(self, path, log=None):
+        return self.run(['git', 'diff', 'HEAD', '--', path])
+
+    def show_head(self, path):
+        return self.run(['git', 'show', 'HEAD:' + self.to_object_name(path)], decode_output=False)
 
     def committer_email_for_revision(self, revision):
         git_commit = self.git_commit_from_svn_revision(revision)

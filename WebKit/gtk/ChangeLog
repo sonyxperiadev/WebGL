@@ -1,3 +1,245 @@
+2010-06-23  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Separate DerivedSources per-project
+        https://bugs.webkit.org/show_bug.cgi?id=41109
+
+        Separate WebKitGTK+ DerivedSources into per-project subdirectories to prepare
+        for properly building WebKit2.
+
+        * webkitmarshal.list: Touch this file to force a rebuild of the marshaling code.
+
+2010-07-01  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Stop using GdkRegion in 3.x mode
+        https://bugs.webkit.org/show_bug.cgi?id=41463
+
+        Make us compile without using GdkRegion, since it's gone from GTK+
+        3.x.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::scroll):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_expose_event):
+
+2010-07-01  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Convert WebKitWebView's private draggingDataObjects member to a pointer
+        https://bugs.webkit.org/show_bug.cgi?id=40333
+
+        Convert draggingDataObjects to a pointer. The constructor and destructor of the
+        HashMap should be called explicitly. GObject memory allocation does not do this.
+
+        * WebCoreSupport/DragClientGtk.cpp:
+        (WebKit::DragClient::startDrag):
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_dispose):
+        (webkit_web_view_drag_end):
+        (webkit_web_view_drag_data_get):
+        (webkit_web_view_init):
+
+2010-06-30  Martin Robinson  <mrobinson@igalia.com>
+
+        Unreviewed, rolling out r62226.
+        http://trac.webkit.org/changeset/62226
+        https://bugs.webkit.org/show_bug.cgi?id=40333
+
+        This change caused 13 new crashers.
+
+        * WebCoreSupport/DragClientGtk.cpp:
+        (WebKit::DragClient::startDrag):
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_dispose):
+        (webkit_web_view_drag_end):
+        (webkit_web_view_drag_data_get):
+        (webkit_web_view_init):
+
+2010-06-30  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Convert WebKitWebView's private draggingDataObjects member to a pointer
+        https://bugs.webkit.org/show_bug.cgi?id=40333
+
+        Convert draggingDataObjects to a pointer. The constructor and destructor of the
+        HashMap should be called explicitly. GObject memory allocation does not do this.
+
+        * WebCoreSupport/DragClientGtk.cpp:
+        (WebKit::DragClient::startDrag):
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_dispose):
+        (webkit_web_view_drag_end):
+        (webkit_web_view_drag_data_get):
+        (webkit_web_view_init):
+
+2010-06-30  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Unit test for DOM insertion methods
+        https://bugs.webkit.org/show_bug.cgi?id=40495
+
+        Add unit test for webkit_dom_node_remove_child.
+
+        * tests/testdomnode.c:
+        (test_dom_node_insertion):
+
+2010-06-30  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Unit test for DOM insertion methods
+        https://bugs.webkit.org/show_bug.cgi?id=40495
+
+        Add unit tests for node insertion and replacement methods.
+
+        * tests/testdomnode.c:
+        (test_dom_node_insertion):
+        (main):
+
+2010-06-30  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Random failure on 'testdownload' unit test
+        https://bugs.webkit.org/show_bug.cgi?id=38256
+
+        Make sure the set_filename function is called after handling the
+        'download-requested' signal for the asynchronous test. This change
+        is needed because it could happen, with the current code, that the
+        set_filename () function got called too early in the mainloop,
+        therefore screwing the tests because the 'theDownload' global
+        variable wouldn't be properly set yet.
+
+        With this modification we ensure the set_filename() function gets
+        called always after handling the download-requested signal,
+        therefore avoiding potentialproblems.
+
+        * tests/testdownload.c:
+        (set_filename):
+        (handle_download_requested_cb):
+        (download_requested_cb):
+        (download_requested_asynch_cb):
+        (test_webkit_download_perform):
+
+2010-06-30  José Millán Soto  <jmillan@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [Gtk] Text attributes not exposed
+        https://bugs.webkit.org/show_bug.cgi?id=25528
+
+        Added new tests for accessible text attributes
+
+        * tests/testatk.c:
+        (compAtkAttribute):
+        (compAtkAttributeName):
+        (atkAttributeSetAttributeHasValue):
+        (atkAttributeSetAreEqual):
+        (testWebkitAtkTextAttributes):
+        (main):
+
+2010-06-28  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Update for 1.3.2.
+
+        * NEWS:
+
+2010-06-28  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Does not compile with -DGSEAL_ENABLE
+        https://bugs.webkit.org/show_bug.cgi?id=37851
+
+        Fix build with GSEAL enabled.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::transitionToCommittedForNewPage):
+        * webkit/webkitsoupauthdialog.c:
+        (show_auth_dialog):
+
+2010-06-28  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Add support for GTK+3
+        https://bugs.webkit.org/show_bug.cgi?id=41253
+
+        Adapt build system to 3.x support, allow the JSCore gir and webkit
+        pc files to be configurable at build time for different API
+        versions.
+
+        * JSCore-1.0.gir: Removed.
+        * JSCore.gir.in: Added.
+        * docs/GNUmakefile.am:
+        * webkit.pc.in:
+
+2010-06-25  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [Gtk] Implement atk_table_get_column_header
+        https://bugs.webkit.org/show_bug.cgi?id=30896
+
+        Replace g_timeout_add() with g_idle_add().
+
+        * tests/testatk.c:
+        (test_webkit_atk_get_text_at_offset_forms):
+        (test_webkit_atk_get_text_at_offset):
+        (test_webkit_atk_get_text_at_offset_newlines):
+        (test_webkit_atk_get_text_at_offset_textarea):
+        (test_webkit_atk_get_text_at_offset_text_input):
+        (testWebkitAtkGetTextInParagraphAndBodySimple):
+        (testWebkitAtkGetTextInParagraphAndBodyModerate):
+        (testWebkitAtkGetTextInTable):
+        (testWebkitAtkGetHeadersInTable):
+
+2010-06-25  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [Gtk] Implement atk_table_get_column_header
+        https://bugs.webkit.org/show_bug.cgi?id=30896
+
+        Added new test to check whether the implementation of
+        get_column_headers() and get_row_headers() works ok.
+
+        * tests/testatk.c:
+        (testWebkitAtkGetHeadersInTable):
+        (main):
+
+2010-06-25  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Pasteboard code does not take into account the nil character when getting and setting markup/netscape-url data
+        https://bugs.webkit.org/show_bug.cgi?id=41221
+
+        Add a test for this issue which simulates a paste keyboard event into an editable
+        body. The pasteboard should contain a markup portion containing a null terminator.
+
+        * tests/testcopyandpaste.c:
+        (test_info_new):
+        (test_info_destroy):
+        (load_status_cb):
+        (runPasteTestCallback):
+        (window_object_cleared_callback):
+        (pasting_test_get_data_callback):
+        (pasting_test_clear_data_callback):
+        (test_pasting_markup):
+        (main):
+
 2010-06-24  Martin Robinson  <mrobinson@igalia.com>
 
         Reviewed by Xan Lopez.

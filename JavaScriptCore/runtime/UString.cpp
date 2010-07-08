@@ -32,17 +32,14 @@
 #include <ctype.h>
 #include <limits.h>
 #include <limits>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <wtf/ASCIICType.h>
 #include <wtf/Assertions.h>
 #include <wtf/MathExtras.h>
 #include <wtf/StringExtras.h>
 #include <wtf/Vector.h>
 #include <wtf/unicode/UTF8.h>
-#include <wtf/StringExtras.h>
 
 #if HAVE(STRINGS_H)
 #include <strings.h>
@@ -96,7 +93,7 @@ UString UString::from(int i)
         *--p = '0';
     else if (i == INT_MIN) {
         char minBuf[1 + sizeof(i) * 3];
-        sprintf(minBuf, "%d", INT_MIN);
+        snprintf(minBuf, sizeof(minBuf), "%d", INT_MIN);
         return UString(minBuf);
     } else {
         bool negative = false;
@@ -126,9 +123,9 @@ UString UString::from(long long i)
     else if (i == std::numeric_limits<long long>::min()) {
         char minBuf[1 + sizeof(i) * 3];
 #if OS(WINDOWS)
-        snprintf(minBuf, sizeof(minBuf) - 1, "%I64d", std::numeric_limits<long long>::min());
+        snprintf(minBuf, sizeof(minBuf), "%I64d", std::numeric_limits<long long>::min());
 #else
-        snprintf(minBuf, sizeof(minBuf) - 1, "%lld", std::numeric_limits<long long>::min());
+        snprintf(minBuf, sizeof(minBuf), "%lld", std::numeric_limits<long long>::min());
 #endif
         return UString(minBuf);
     } else {
@@ -176,7 +173,7 @@ UString UString::from(long l)
         *--p = '0';
     else if (l == LONG_MIN) {
         char minBuf[1 + sizeof(l) * 3];
-        sprintf(minBuf, "%ld", LONG_MIN);
+        snprintf(minBuf, sizeof(minBuf), "%ld", LONG_MIN);
         return UString(minBuf);
     } else {
         bool negative = false;

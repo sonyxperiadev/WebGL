@@ -145,6 +145,7 @@ SET(WebCore_IDL_FILES
     dom/DOMCoreException.idl
     dom/DOMImplementation.idl
     dom/DOMStringList.idl
+    dom/DOMStringMap.idl
     dom/Element.idl
     dom/Entity.idl
     dom/EntityReference.idl
@@ -309,9 +310,12 @@ SET(WebCore_IDL_FILES
     page/History.idl
     page/Location.idl
     page/MemoryInfo.idl
+    page/Navigation.idl
     page/Navigator.idl
+    page/Performance.idl
     page/PositionError.idl
     page/Screen.idl
+    page/Timing.idl
     page/WebKitPoint.idl
     page/WorkerNavigator.idl
 
@@ -411,6 +415,7 @@ IF (ENABLE_SVG)
         svg/SVGFEColorMatrixElement.idl
         svg/SVGFEComponentTransferElement.idl
         svg/SVGFECompositeElement.idl
+        svg/SVGFEConvolveMatrixElement.idl
         svg/SVGFEDiffuseLightingElement.idl
         svg/SVGFEDisplacementMapElement.idl
         svg/SVGFEDistantLightElement.idl
@@ -580,6 +585,7 @@ SET(WebCore_SOURCES
     bindings/js/JSDOMBinding.cpp
     bindings/js/JSDOMFormDataCustom.cpp
     bindings/js/JSDOMGlobalObject.cpp
+    bindings/js/JSDOMStringMapCustom.cpp
     bindings/js/JSDOMWindowBase.cpp
     bindings/js/JSDOMWindowCustom.cpp
     bindings/js/JSDOMWindowShell.cpp
@@ -603,7 +609,6 @@ SET(WebCore_SOURCES
     bindings/js/JSHTMLFormElementCustom.cpp
     bindings/js/JSHTMLFrameElementCustom.cpp
     bindings/js/JSHTMLFrameSetElementCustom.cpp
-    bindings/js/JSHTMLIFrameElementCustom.cpp
     bindings/js/JSHTMLInputElementCustom.cpp
     bindings/js/JSHTMLObjectElementCustom.cpp
     bindings/js/JSHTMLOptionsCollectionCustom.cpp
@@ -752,9 +757,8 @@ SET(WebCore_SOURCES
     dom/Attribute.cpp
     dom/BeforeTextInsertedEvent.cpp
     dom/BeforeUnloadEvent.cpp
-    dom/CDATASection.cpp
-    dom/CSSMappedAttributeDeclaration.cpp
     dom/CanvasSurface.cpp
+    dom/CDATASection.cpp
     dom/CharacterData.cpp
     dom/CheckedRadioButtons.cpp
     dom/ChildNodeList.cpp
@@ -766,14 +770,19 @@ SET(WebCore_SOURCES
     dom/Comment.cpp
     dom/CompositionEvent.cpp
     dom/ContainerNode.cpp
+    dom/CSSMappedAttributeDeclaration.cpp
     dom/CustomEvent.cpp
-    dom/DOMImplementation.cpp
-    dom/DOMStringList.cpp
+    dom/DatasetDOMStringMap.cpp
+    dom/DecodedDataDocumentParser.cpp
     dom/DeviceOrientation.cpp
     dom/DeviceOrientationEvent.cpp
     dom/Document.cpp
     dom/DocumentFragment.cpp
+    dom/DocumentParser.cpp
     dom/DocumentType.cpp
+    dom/DOMImplementation.cpp
+    dom/DOMStringList.cpp
+    dom/DOMStringMap.cpp
     dom/DynamicNodeList.cpp
     dom/EditingText.cpp
     dom/Element.cpp
@@ -789,16 +798,16 @@ SET(WebCore_SOURCES
     dom/KeyboardEvent.cpp
     dom/MessageChannel.cpp
     dom/MessageEvent.cpp
-    dom/MessagePort.cpp
     dom/MessagePortChannel.cpp
+    dom/MessagePort.cpp
     dom/MouseEvent.cpp
     dom/MouseRelatedEvent.cpp
     dom/MutationEvent.cpp
-    dom/NameNodeList.cpp
     dom/NamedNodeMap.cpp
+    dom/NameNodeList.cpp
     dom/Node.cpp
-    dom/NodeFilter.cpp
     dom/NodeFilterCondition.cpp
+    dom/NodeFilter.cpp
     dom/NodeIterator.cpp
     dom/Notation.cpp
     dom/OptionElement.cpp
@@ -813,6 +822,7 @@ SET(WebCore_SOURCES
     dom/QualifiedName.cpp
     dom/Range.cpp
     dom/RegisteredEventListener.cpp
+    dom/ScriptableDocumentParser.cpp
     dom/ScriptElement.cpp
     dom/ScriptExecutionContext.cpp
     dom/SelectElement.cpp
@@ -820,8 +830,8 @@ SET(WebCore_SOURCES
     dom/SpaceSplitString.cpp
     dom/StaticHashSetNodeList.cpp
     dom/StaticNodeList.cpp
-    dom/StyleElement.cpp
     dom/StyledElement.cpp
+    dom/StyleElement.cpp
     dom/TagNodeList.cpp
     dom/Text.cpp
     dom/TextEvent.cpp
@@ -935,8 +945,10 @@ SET(WebCore_SOURCES
     html/HTMLDivElement.cpp
     html/HTMLDocument.cpp
     html/HTMLElement.cpp
+    html/HTMLElementStack.cpp
     html/HTMLEmbedElement.cpp
     html/HTMLFieldSetElement.cpp
+    html/HTMLFormattingElementList.cpp
     html/HTMLFontElement.cpp
     html/HTMLFormCollection.cpp
     html/HTMLFormControlElement.cpp
@@ -1112,12 +1124,14 @@ SET(WebCore_SOURCES
     page/Location.cpp
     page/MemoryInfo.cpp
     page/MouseEventWithHitTestResults.cpp
+    page/Navigation.cpp
     page/Navigator.cpp
     page/NavigatorBase.cpp
     page/OriginAccessEntry.cpp
     page/Page.cpp
     page/PageGroup.cpp
     page/PageGroupLoadDeferrer.cpp
+    page/Performance.cpp
     page/PluginHalter.cpp
     page/PrintContext.cpp
     page/Screen.cpp
@@ -1125,6 +1139,7 @@ SET(WebCore_SOURCES
     page/Settings.cpp
     page/SpatialNavigation.cpp
     page/SuspendableTimer.cpp
+    page/Timing.cpp
     page/UserContentURLPattern.cpp
     page/WindowFeatures.cpp
     page/WorkerNavigator.cpp
@@ -1553,6 +1568,7 @@ IF (ENABLE_SVG)
         svg/SVGFEColorMatrixElement.cpp
         svg/SVGFEComponentTransferElement.cpp
         svg/SVGFECompositeElement.cpp
+        svg/SVGFEConvolveMatrixElement.cpp
         svg/SVGFEDiffuseLightingElement.cpp
         svg/SVGFEDisplacementMapElement.cpp
         svg/SVGFEDistantLightElement.cpp

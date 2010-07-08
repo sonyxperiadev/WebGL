@@ -50,7 +50,7 @@ public:
     virtual int offsetForPosition(int x, bool includePartialGlyphs = true) const;
     virtual int positionForOffset(int offset) const;
 
-    virtual void paint(RenderObject::PaintInfo&, int tx, int ty);
+    virtual void paint(PaintInfo&, int tx, int ty);
     virtual IntRect selectionRect(int absx, int absy, int startPos, int endPos);
 
     virtual void selectionStartEnd(int& startPos, int& endPos);
@@ -86,6 +86,7 @@ private:
     void paintDecorationWithStyle(GraphicsContext*, const FloatPoint& textOrigin, RenderStyle*, ETextDecoration);
     void paintSelection(GraphicsContext*, const FloatPoint& textOrigin, RenderStyle*);
     void paintText(GraphicsContext*, const FloatPoint& textOrigin, RenderStyle*, RenderStyle* selectionStyle, bool hasSelection, bool paintSelectedTextOnly);
+    void paintTextWithShadows(GraphicsContext*, const FloatPoint& textOrigin, RenderStyle*, TextRun&, int startPos, int endPos);
 
     FloatRect selectionRectForTextChunkPart(const SVGTextChunkPart&, int partStartPos, int partEndPos, RenderStyle*);
 

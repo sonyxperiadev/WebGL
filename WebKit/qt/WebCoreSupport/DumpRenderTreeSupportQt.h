@@ -30,6 +30,7 @@ class QWebElement;
 class QWebFrame;
 class QWebPage;
 class QWebHistoryItem;
+class QWebScriptWorld;
 
 enum NotificationPermission {
     NotificationAllowed,
@@ -42,6 +43,7 @@ typedef void (RequestPermissionFunctionType) (QObject* receiver, const QString&)
 
 extern CheckPermissionFunctionType* checkPermissionFunction;
 extern RequestPermissionFunctionType* requestPermissionFunction;
+extern QMap<int, QWebScriptWorld*> m_worldMap;
 
 class QWEBKIT_EXPORT DumpRenderTreeSupportQt {
 
@@ -74,6 +76,8 @@ public:
     static void garbageCollectorCollectOnAlternateThread(bool waitUntilDone);
     static void setJavaScriptProfilingEnabled(QWebFrame*, bool enabled);
     static int javaScriptObjectsCount();
+    static void clearScriptWorlds();
+    static void evaluateScriptInIsolatedWorld(QWebFrame* frame, int worldID, const QString& script);
 
     static void setTimelineProfilingEnabled(QWebPage*, bool enabled);
     static void webInspectorExecuteScript(QWebPage* page, long callId, const QString& script);
@@ -106,6 +110,7 @@ public:
 
     static void dumpFrameLoader(bool b);
     static void dumpResourceLoadCallbacks(bool b);
+    static void dumpResourceResponseMIMETypes(bool b);
     static void dumpResourceLoadCallbacksPath(const QString& path);
     static void setWillSendRequestReturnsNullOnRedirect(bool b);
     static void setWillSendRequestReturnsNull(bool b);
@@ -115,6 +120,7 @@ public:
     static void dumpSetAcceptsEditing(bool b);
 
     static void dumpNotification(bool b);
+
     // These functions should eventually turn into public API
     // and the "receiver" concept would go away
     static void setNotificationsReceiver(QObject* receiver);
@@ -122,11 +128,13 @@ public:
     static void setCheckPermissionFunction(CheckPermissionFunctionType*);
     static void setRequestPermissionFunction(RequestPermissionFunctionType*);
 
-    static QList<QWebHistoryItem> getChildHistoryItems(const QWebHistoryItem& historyItem);
+    static QMap<QString, QWebHistoryItem> getChildHistoryItems(const QWebHistoryItem& historyItem);
     static bool isTargetItem(const QWebHistoryItem& historyItem);
     static QString historyItemTarget(const QWebHistoryItem& historyItem);
 
     static bool shouldClose(QWebFrame* frame);
+
+    static void setCustomPolicyDelegate(bool enabled, bool permissive);
 };
 
 #endif

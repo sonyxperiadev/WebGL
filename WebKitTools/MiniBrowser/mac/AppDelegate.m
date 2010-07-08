@@ -31,7 +31,7 @@
 #import <WebKit2/WKStringCF.h>
 #import <WebKit2/WKContextPrivate.h>
 
-static NSString *defaultURL = @"file:///Users/andersca/Desktop/t.html";
+static NSString *defaultURL = @"http://www.webkit.org/";
 
 @implementation BrowserAppDelegate
 
@@ -151,6 +151,46 @@ void _didRecieveMessageFromInjectedBundle(WKContextRef context, WKStringRef mess
 
     WKPageNamespaceRelease(processPageNamespace);
     processPageNamespace = 0;
+}
+
+- (BrowserWindowController *)frontmostBrowserWindowController
+{
+    NSArray* windows = [NSApp windows];
+    for (NSWindow* window in windows) {
+        id delegate = [window delegate];
+        if ([delegate isKindOfClass:[BrowserWindowController class]])
+            return (BrowserWindowController *)delegate;
+    }
+
+    return 0;
+}
+
+- (IBAction)openDocument:(id)sender
+{
+    NSOpenPanel *openPanel = [[NSOpenPanel openPanel] retain];
+    [openPanel beginForDirectory:nil
+        file:nil
+        types:nil
+        modelessDelegate:self
+        didEndSelector:@selector(openPanelDidEnd:returnCode:contextInfo:)
+        contextInfo:0];
+}
+
+- (void)openPanelDidEnd:(NSOpenPanel *)sheet returnCode:(int)returnCode contextInfo:(void *)contextInfo
+{
+    [sheet autorelease];
+    if (returnCode != NSOKButton || ![[sheet filenames] count])
+        return;
+    
+    NSString* filePath = [[sheet filenames] objectAtIndex:0];
+
+    BrowserWindowController *controller = [self frontmostBrowserWindowController];
+    if (!controller) {
+        controller = [[BrowserWindowController alloc] initWithPageNamespace:[self getCurrentPageNamespace]];
+        [[controller window] makeKeyAndOrderFront:self];
+    }
+    
+    [controller loadURLString:[[NSURL fileURLWithPath:filePath] absoluteString]];
 }
 
 @end

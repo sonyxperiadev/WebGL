@@ -60,7 +60,7 @@ void RenderSVGContainer::layout()
     LayoutRepainter repainter(*this, checkForRepaintDuringLayout() || selfWillPaint());
     calculateLocalTransform(); // Allow RenderSVGTransformableContainer to update its transform
 
-    layoutChildren(this, selfNeedsLayout());
+    SVGRenderSupport::layoutChildren(this, selfNeedsLayout());
     repainter.repaintAfterLayout();
 
     setNeedsLayout(false);
@@ -87,29 +87,25 @@ void RenderSVGContainer::paint(PaintInfo& paintInfo, int, int)
         return;
 
     PaintInfo childPaintInfo(paintInfo);
-
     childPaintInfo.context->save();
 
     // Let the RenderSVGViewportContainer subclass clip if necessary
     applyViewportClip(childPaintInfo);
 
-    applyTransformToPaintInfo(childPaintInfo, localToParentTransform());
-
-    RenderSVGResourceFilter* filter = 0;
-    FloatRect boundingBox = repaintRectInLocalCoordinates();
+    childPaintInfo.applyTransform(localToParentTransform());
 
     bool continueRendering = true;
     if (childPaintInfo.phase == PaintPhaseForeground)
-        continueRendering = prepareToRenderSVGContent(this, childPaintInfo, boundingBox, filter);
+        continueRendering = SVGRenderSupport::prepareToRenderSVGContent(this, childPaintInfo);
 
     if (continueRendering) {
-        childPaintInfo.paintingRoot = paintingRootForChildren(childPaintInfo);
+        childPaintInfo.updatePaintingRootForChildren(this);
         for (RenderObject* child = firstChild(); child; child = child->nextSibling())
             child->paint(childPaintInfo, 0, 0);
     }
 
     if (paintInfo.phase == PaintPhaseForeground)
-        finishRenderSVGContent(this, childPaintInfo, filter, paintInfo.context);
+        SVGRenderSupport::finishRenderSVGContent(this, childPaintInfo, paintInfo.context);
 
     childPaintInfo.context->restore();
 
@@ -118,9 +114,10 @@ void RenderSVGContainer::paint(PaintInfo& paintInfo, int, int)
     // outline rect into parent coords before drawing.
     // FIXME: This means our focus ring won't share our rotation like it should.
     // We should instead disable our clip during PaintPhaseOutline
-    IntRect paintRectInParent = enclosingIntRect(localToParentTransform().mapRect(repaintRectInLocalCoordinates()));
-    if ((paintInfo.phase == PaintPhaseOutline || paintInfo.phase == PaintPhaseSelfOutline) && style()->outlineWidth() && style()->visibility() == VISIBLE)
+    if ((paintInfo.phase == PaintPhaseOutline || paintInfo.phase == PaintPhaseSelfOutline) && style()->outlineWidth() && style()->visibility() == VISIBLE) {
+        IntRect paintRectInParent = enclosingIntRect(localToParentTransform().mapRect(repaintRectInLocalCoordinates()));
         paintOutline(paintInfo.context, paintRectInParent.x(), paintRectInParent.y(), paintRectInParent.width(), paintRectInParent.height());
+    }
 }
 
 // addFocusRingRects is called from paintOutline and needs to be in the same coordinates as the paintOuline call
@@ -133,21 +130,18 @@ void RenderSVGContainer::addFocusRingRects(Vector<IntRect>& rects, int, int)
 
 FloatRect RenderSVGContainer::objectBoundingBox() const
 {
-    return computeContainerBoundingBox(this, false);
+    return SVGRenderSupport::computeContainerBoundingBox(this, SVGRenderSupport::ObjectBoundingBox);
 }
 
 FloatRect RenderSVGContainer::strokeBoundingBox() const
 {
-    return computeContainerBoundingBox(this, true);
+    return SVGRenderSupport::computeContainerBoundingBox(this, SVGRenderSupport::StrokeBoundingBox);
 }
 
-// RenderSVGContainer is used for <g> elements which do not themselves have a
-// width or height, so we union all of our child rects as our repaint rect.
 FloatRect RenderSVGContainer::repaintRectInLocalCoordinates() const
 {
-    FloatRect repaintRect = computeContainerBoundingBox(this, true);
-    intersectRepaintRectWithResources(this, repaintRect);
-
+    FloatRect repaintRect = SVGRenderSupport::computeContainerBoundingBox(this, SVGRenderSupport::RepaintBoundingBox);
+    SVGRenderSupport::intersectRepaintRectWithResources(this, repaintRect);
     return repaintRect;
 }
 
@@ -159,7 +153,7 @@ bool RenderSVGContainer::nodeAtFloatPoint(const HitTestRequest& request, HitTest
 
     FloatPoint localPoint = localToParentTransform().inverse().mapPoint(pointInParent);
 
-    if (!pointInClippingArea(this, localPoint))
+    if (!SVGRenderSupport::pointInClippingArea(this, localPoint))
         return false;
                 
     for (RenderObject* child = lastChild(); child; child = child->previousSibling()) {

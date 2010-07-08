@@ -122,12 +122,14 @@ public:
     virtual bool handleInputEvent(const WebInputEvent&) { return true; }
     virtual void mouseCaptureLost() { }
     virtual void setFocus(bool) { }
-    virtual bool handleCompositionEvent(WebCompositionCommand command,
-                                        int cursorPosition,
-                                        int targetStart,
-                                        int targetEnd,
-                                        const WebString& text) { return true; }
-    virtual bool queryCompositionStatus(bool* enabled, WebRect* caretBounds) { return true; }
+    virtual bool setComposition(
+        const WebString& text,
+        const WebVector<WebCompositionUnderline>& underlines,
+        int selectionStart,
+        int selectionEnd) { return true; }
+    virtual bool confirmComposition() { return true; }
+    virtual WebTextInputType textInputType() { return WebKit::WebTextInputTypeNone; }
+    virtual WebRect caretOrSelectionBounds() { return WebRect(); }
     virtual void setTextDirection(WebTextDirection) { }
 };
 
@@ -167,7 +169,7 @@ public:
 protected:
     virtual void SetUp()
     {
-        m_webView = static_cast<WebViewImpl*>(WebView::create(&m_webviewClient));
+        m_webView = static_cast<WebViewImpl*>(WebView::create(&m_webviewClient, 0));
         m_webView->initializeMainFrame(&m_webFrameClient);
         m_popupMenu = PopupMenu::create(&m_popupMenuClient);
     }

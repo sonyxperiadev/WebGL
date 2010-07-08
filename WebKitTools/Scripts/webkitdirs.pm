@@ -1,4 +1,4 @@
-# Copyright (C) 2005, 2006, 2007 Apple Inc. All rights reserved.
+# Copyright (C) 2005, 2006, 2007, 2010 Apple Inc. All rights reserved.
 # Copyright (C) 2009 Google Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -50,6 +50,7 @@ BEGIN {
 our @EXPORT_OK;
 
 my $architecture;
+my $numberOfCPUs;
 my $baseProductDir;
 my @baseProductDirOption;
 my $configuration;
@@ -226,6 +227,28 @@ sub determineArchitecture
             $architecture = $supports64Bit ? 'x86_64' : `arch`;
         }
         chomp $architecture;
+    }
+}
+
+sub determineNumberOfCPUs
+{
+    return if defined $numberOfCPUs;
+    if (isLinux()) {
+        # First try the nproc utility, if it exists. If we get no
+        # results fall back to just interpretting /proc directly.
+        $numberOfCPUs = `nproc 2> /dev/null`;
+        if ($numberOfCPUs eq "") {
+            $numberOfCPUs = (grep /processor/, `cat /proc/cpuinfo`);
+        }
+    } elsif (isWindows() || isCygwin()) {
+        if (defined($ENV{NUMBER_OF_PROCESSORS})) {
+            $numberOfCPUs = $ENV{NUMBER_OF_PROCESSORS};
+        } else {
+            # Assumes cygwin
+            $numberOfCPUs = `ls /proc/registry/HKEY_LOCAL_MACHINE/HARDWARE/DESCRIPTION/System/CentralProcessor | wc -w`;
+        }
+    } elsif (isDarwin()) {
+        $numberOfCPUs = `sysctl -n hw.ncpu`;
     }
 }
 
@@ -468,6 +491,12 @@ sub architecture()
     return $architecture;
 }
 
+sub numberOfCPUs()
+{
+    determineNumberOfCPUs();
+    return $numberOfCPUs;
+}
+
 sub setArchitecture
 {
     if (my $arch = shift @_) {
@@ -566,7 +595,7 @@ sub builtDylibPathForName
         return "$configurationProductDir/libwxwebkit.dylib";
     }
     if (isGtk()) {
-        return "$configurationProductDir/$libraryName/../.libs/libwebkit-1.0.so";
+        return "$configurationProductDir/$libraryName/../.libs/libwebkitgtk-1.0.so";
     }
     if (isEfl()) {
         return "$configurationProductDir/$libraryName/../.libs/libewebkit.so";
@@ -687,8 +716,6 @@ sub determineIsSymbian()
         $isSymbian = 1;
         return;
     }
-
-    $isSymbian = defined($ENV{'EPOCROOT'});
 }
 
 sub determineIsEfl()
@@ -1260,6 +1287,12 @@ sub buildAutotoolsProject($@)
         }
     }
 
+    # Automatically determine the number of CPUs for make only
+    # if make arguments haven't already been specified.
+    if ($makeArgs eq "") {
+        $makeArgs = "-j" . numberOfCPUs();
+    }
+
     $prefix = $ENV{"WebKitInstallationPrefix"} if !defined($prefix);
     push @buildArgs, "--prefix=" . $prefix if defined($prefix);
 
@@ -1443,7 +1476,7 @@ sub buildChromiumMakefile($$)
         return system qw(rm -rf out);
     }
     my $config = configuration();
-    my $numCpus = (grep /processor/, `cat /proc/cpuinfo`) || 1;
+    my $numCpus = numberOfCPUs();
     my @command = ("make", "-fMakefile.chromium", "-j$numCpus", "BUILDTYPE=$config", $target);
     print join(" ", @command) . "\n";
     return system @command;
@@ -1492,6 +1525,9 @@ sub buildChromiumVisualStudioProject($$)
 sub buildChromium($@)
 {
     my ($clean, @options) = @_;
+
+    # We might need to update DEPS or re-run GYP if things have changed.
+    system("perl", "WebKitTools/Scripts/update-webkit-chromium") == 0 or die $!;
 
     my $result = 1;
     if (isDarwin()) {
@@ -1607,6 +1643,45 @@ sub debugMiniBrowser
         return;
     }
     
+    return 1;
+}
+
+sub runWebKitTestRunner
+{
+    if (isAppleMacWebKit()) {
+        my $productDir = productDir();
+        print "Starting WebKitTestRunner with DYLD_FRAMEWORK_PATH set to point to $productDir.\n";
+        $ENV{DYLD_FRAMEWORK_PATH} = $productDir;
+        $ENV{WEBKIT_UNSET_DYLD_FRAMEWORK_PATH} = "YES";
+        my $webKitTestRunnerPath = "$productDir/WebKitTestRunner";
+        if (!isTiger() && architecture()) {
+            return system "arch", "-" . architecture(), $webKitTestRunnerPath, @ARGV;
+        } else {
+            return system $webKitTestRunnerPath, @ARGV;
+        }
+    }
+
+    return 1;
+}
+
+sub debugWebKitTestRunner
+{
+    if (isAppleMacWebKit()) {
+        my $gdbPath = "/usr/bin/gdb";
+        die "Can't find gdb executable. Is gdb installed?\n" unless -x $gdbPath;
+
+        my $productDir = productDir();
+        $ENV{DYLD_FRAMEWORK_PATH} = $productDir;
+        $ENV{WEBKIT_UNSET_DYLD_FRAMEWORK_PATH} = 'YES';
+
+        my $webKitTestRunnerPath = "$productDir/WebKitTestRunner";
+
+        print "Starting WebKitTestRunner under gdb with DYLD_FRAMEWORK_PATH set to point to $productDir.\n";
+        my @architectureFlags = ("-arch", architecture()) if !isTiger();
+        exec $gdbPath, @architectureFlags, $webKitTestRunnerPath or die;
+        return;
+    }
+
     return 1;
 }
 
