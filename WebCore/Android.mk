@@ -119,6 +119,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/CustomEvent.cpp \
 	dom/DOMImplementation.cpp \
 	dom/DOMStringList.cpp \
+	dom/DOMStringMap.cpp \
+	dom/DatasetDOMStringMap.cpp \
 	dom/DecodedDataDocumentParser.cpp \
 	dom/Document.cpp \
 	dom/DocumentFragment.cpp \
