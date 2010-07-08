@@ -495,15 +495,11 @@ namespace WebCore {
         bool m_html5ParserEnabled: 1;
         bool m_html5TreeBuilderEnabled: 1; // Will be deleted soon, do not use.
         bool m_paginateDuringLayoutEnabled : 1;
-<<<<<<< HEAD
+        bool m_dnsPrefetchingEnabled : 1;
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif
-
-=======
-        bool m_dnsPrefetchingEnabled : 1;
     
->>>>>>> webkit.org at r62496
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;
 #endif

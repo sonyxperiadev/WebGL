@@ -230,7 +230,6 @@ bool RenderThemeAndroid::paintButton(RenderObject* obj, const PaintInfo& info, c
     return false;
 }
 
-<<<<<<< HEAD
 #if ENABLE(VIDEO)
 
 String RenderThemeAndroid::extraMediaControlsStyleSheet()
@@ -320,10 +319,7 @@ void RenderThemeAndroid::adjustSliderThumbSize(RenderObject* o) const
 
 #endif
 
-bool RenderThemeAndroid::paintRadio(RenderObject* obj, const RenderObject::PaintInfo& info, const IntRect& rect)
-=======
 bool RenderThemeAndroid::paintRadio(RenderObject* obj, const PaintInfo& info, const IntRect& rect)
->>>>>>> webkit.org at r62496
 {
     RenderSkinRadio::Draw(getCanvasFromInfo(info), obj->node(), rect, false);
     return false;

@@ -147,14 +147,10 @@ Settings::Settings(Page* page)
     , m_html5ParserEnabled(true)
     , m_html5TreeBuilderEnabled(false) // Will be deleted soon, do not use.
     , m_paginateDuringLayoutEnabled(false)
-<<<<<<< HEAD
+    , m_dnsPrefetchingEnabled(true)
 #ifdef ANDROID_PLUGINS
     , m_pluginsOnDemand(false)
 #endif
-
-=======
-    , m_dnsPrefetchingEnabled(true)
->>>>>>> webkit.org at r62496
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.

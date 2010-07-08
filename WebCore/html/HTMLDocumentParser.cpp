@@ -222,12 +222,9 @@ void HTMLDocumentParser::insert(const SegmentedString& source)
     if (m_parserStopped)
         return;
 
-<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::ParsingTimeCounter);
 #endif
-    NestingLevelIncrementer nestingLevelIncrementer(m_writeNestingLevel);
-=======
     {
         NestingLevelIncrementer nestingLevelIncrementer(m_writeNestingLevel);
 
@@ -247,7 +244,6 @@ void HTMLDocumentParser::append(const SegmentedString& source)
 
     {
         NestingLevelIncrementer nestingLevelIncrementer(m_writeNestingLevel);
->>>>>>> webkit.org at r62496
 
         m_input.appendToEnd(source);
         if (m_preloadScanner)

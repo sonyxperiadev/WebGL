@@ -694,12 +694,8 @@ void FrameView::layout(bool allowSubtree)
         RenderObject* rootRenderer = documentElement ? documentElement->renderer() : 0;
         Node* body = document->body();
         if (body && body->renderer()) {
-<<<<<<< HEAD
-            if (body->hasTagName(framesetTag) && !m_frame->settings()->frameFlatteningEnabled()) {
-#if !defined(ANDROID_FLATTEN_IFRAME) && !defined(ANDROID_FLATTEN_FRAMESET)
-=======
             if (body->hasTagName(framesetTag) && m_frame->settings() && !m_frame->settings()->frameFlatteningEnabled()) {
->>>>>>> webkit.org at r62496
+#if !defined(ANDROID_FLATTEN_IFRAME) && !defined(ANDROID_FLATTEN_FRAMESET)
                 body->renderer()->setChildNeedsLayout(true);
                 vMode = ScrollbarAlwaysOff;
                 hMode = ScrollbarAlwaysOff;

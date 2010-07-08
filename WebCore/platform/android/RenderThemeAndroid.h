@@ -77,7 +77,6 @@ protected:
     virtual bool paintCheckbox(RenderObject*, const PaintInfo&, const IntRect&);
     virtual void setCheckboxSize(RenderStyle*) const;
 
-<<<<<<< HEAD
 #if ENABLE(VIDEO)
     virtual String extraMediaControlsStyleSheet();
     virtual void adjustSliderThumbSize(RenderObject* o) const;
@@ -91,10 +90,7 @@ protected:
     virtual bool paintMediaControlsBackground(RenderObject* object, const RenderObject::PaintInfo& paintInfo, const IntRect& rect);
 #endif
 
-    virtual bool paintRadio(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-=======
     virtual bool paintRadio(RenderObject*, const PaintInfo&, const IntRect&);
->>>>>>> webkit.org at r62496
     virtual void setRadioSize(RenderStyle*) const;
 
     virtual void adjustButtonStyle(CSSStyleSelector*, RenderStyle*, WebCore::Element*) const;
