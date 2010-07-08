@@ -81,13 +81,13 @@ protected:
     virtual String extraMediaControlsStyleSheet();
     virtual void adjustSliderThumbSize(RenderObject* o) const;
     virtual bool shouldRenderMediaControlPart(ControlPart part, Element* e);
-    bool paintMediaMuteButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r);
-    bool paintMediaPlayButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r);
-    bool paintMediaSeekBackButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r);
-    bool paintMediaSeekForwardButton(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r);
-    bool paintMediaSliderTrack(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r);
-    bool paintMediaSliderThumb(RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r);
-    virtual bool paintMediaControlsBackground(RenderObject* object, const RenderObject::PaintInfo& paintInfo, const IntRect& rect);
+    bool paintMediaMuteButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r);
+    bool paintMediaPlayButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r);
+    bool paintMediaSeekBackButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r);
+    bool paintMediaSeekForwardButton(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r);
+    bool paintMediaSliderTrack(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r);
+    bool paintMediaSliderThumb(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r);
+    virtual bool paintMediaControlsBackground(RenderObject* object, const PaintInfo& paintInfo, const IntRect& rect);
 #endif
 
     virtual bool paintRadio(RenderObject*, const PaintInfo&, const IntRect&);
