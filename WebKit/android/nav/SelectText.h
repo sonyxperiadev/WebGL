@@ -70,6 +70,8 @@ private:
     SkIPoint m_original; // computed start of extend selection
     SkIRect m_selStart;
     SkIRect m_selEnd;
+    int m_startBase;
+    int m_endBase;
     SkIRect m_visibleRect; // constrains picture computations to visible area
     SkRegion m_selRegion; // computed from sel start, end
     SkPicture m_startControl;
@@ -77,6 +79,7 @@ private:
     const SkPicture* m_picture;
     bool m_drawPointer;
     bool m_extendSelection; // false when trackball is moving pointer
+    bool m_flipped;
     bool m_hitTopLeft;
     bool m_startSelection;
 };
