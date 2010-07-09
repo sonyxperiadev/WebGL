@@ -236,7 +236,7 @@ public:
         return isSpace(rec);
     }
 
-    void finish()
+    void finishGlyph()
     {
         mLastGlyph = mLastCandidate;
         mLastUni = mLastUniCandidate;
@@ -400,8 +400,9 @@ public:
         reset();
     }
 
-    const SkIRect& adjustedBounds(const SkIRect& area)
+    const SkIRect& adjustedBounds(const SkIRect& area, int* base)
     {
+        *base = mBestBase + area.fTop;
         mBestBounds.offset(area.fLeft, area.fTop);
         DBG_NAV_LOGD("FirstCheck mBestBounds:(%d, %d, %d, %d) mTop=%d mBottom=%d",
             mBestBounds.fLeft, mBestBounds.fTop, mBestBounds.fRight, 
@@ -424,6 +425,7 @@ public:
             DBG_NAV_LOGD("FirstCheck distance=%d mDistance=%d", distance, mDistance);
 #endif
         if (mDistance > distance) {
+            mBestBase = base();
             mBestBounds.set(rect.fLeft, top(), rect.fRight, bottom());
             if (distance < 100) {
                 DBG_NAV_LOGD("FirstCheck mBestBounds={%d,%d,r=%d,b=%d} distance=%d",
@@ -449,6 +451,7 @@ public:
     }
 
 protected:
+    int mBestBase;
     SkIRect mBestBounds;
     int mDistance;
     int mFocusX;
@@ -475,8 +478,9 @@ public:
         return !mLast.isSpace(mLastGlyph);
     }
 
-    const SkIRect& bestBounds()
+    const SkIRect& bestBounds(int* base)
     {
+        *base = mBestBase;
         return mBestBounds;
     }
 
@@ -501,6 +505,7 @@ public:
             }
             recordGlyph(rec);
             mDistance = distance;
+            mBestBase = base();
             mBestBounds.set(rect.fLeft, top(), rect.fRight, bottom());
             if (distance <= 100) {
                 DBG_NAV_LOGD("EdgeCheck mBestBounds={%d,%d,r=%d,b=%d} distance=%d",
@@ -535,19 +540,23 @@ public:
         mBestBounds.set(width, height, width, height);
     }
 
-    const SkIRect& bestBounds()
+    const SkIRect& bestBounds(int* base)
     {
+        *base = mBestBase;
         return mBestBounds;
     }
 
     virtual bool onIRect(const SkIRect& rect)
     {
-        if (mBestBounds.isEmpty())
+        if (mBestBounds.isEmpty()) {
+            mBestBase = base();
             mBestBounds.set(rect.fLeft, top(), rect.fRight, bottom());
+        }
         return false;
     }
 
 protected:
+    int mBestBase;
     SkIRect mBestBounds;
 private:
     typedef CommonCheck INHERITED;
@@ -563,6 +572,7 @@ public:
 
     virtual bool onIRect(const SkIRect& rect)
     {
+        mBestBase = base();
         mBestBounds.set(rect.fLeft, top(), rect.fRight, bottom());
         return false;
     }
@@ -571,71 +581,197 @@ private:
     typedef FindFirst INHERITED;
 };
 
+static bool baseLinesAgree(const SkIRect& rectA, int baseA,
+    const SkIRect& rectB, int baseB)
+{
+    return (rectA.fTop < baseB && rectA.fBottom >= baseB)
+        || (rectB.fTop < baseA && rectB.fBottom >= baseA);
+}
+
 class MultilineBuilder : public CommonCheck {
 public:
-    MultilineBuilder(const SkIRect& start, const SkIRect& end,
-            const SkIRect& area, SkRegion* region)
+    MultilineBuilder(const SkIRect& start, int startBase, const SkIRect& end,
+            int endBase, const SkIRect& area, SkRegion* region)
         : INHERITED(area.width(),area.height())
-        , mStart(start)
-        , mEnd(end)
-        , mSelectRegion(region)
         , mCapture(false)
+        , mEnd(end)
+        , mEndBase(endBase)
+        , mFlipped(false)
+        , mSelectRegion(region)
+        , mStart(start)
+        , mStartBase(startBase)
     {
+        mEnd.offset(-area.fLeft, -area.fTop);
+        mEndBase -= area.fTop;
         mLast.setEmpty();
         mLastBase = INT_MAX;
         mStart.offset(-area.fLeft, -area.fTop);
-        mEnd.offset(-area.fLeft, -area.fTop);
+        mStartBase -= area.fTop;
+    }
+
+    void finish() {
+        if (!mFlipped || SkIRect::Intersects(mLast, mSelectRect)) {
+            if (VERBOSE_LOGGING) DBG_NAV_LOGD(" mLast=(%d,%d,r=%d,b=%d)",
+                mLast.fLeft, mLast.fTop, mLast.fRight, mLast.fBottom);
+            mSelectRegion->op(mLast, SkRegion::kUnion_Op);
+        }
+    }
+
+    // return true if capture end was not found after capture begin
+    bool flipped() {
+        DBG_NAV_LOGD("flipped=%s", mCapture ? "true" : "false");
+        if (!mCapture)
+            return false;
+        mFlipped = true;
+        mSelectRect = mStart;
+        mSelectRect.join(mEnd);
+        mLast.setEmpty();
+        mLastBase = INT_MAX;
+        mSelectRegion->setEmpty();
+        return true;
     }
 
     virtual bool onIRect(const SkIRect& rect) {
-        bool captureLast = false;
-        if ((rect.fLeft == mStart.fLeft && rect.fRight == mStart.fRight &&
-                top() == mStart.fTop && bottom() == mStart.fBottom) ||
-                (rect.fLeft == mEnd.fLeft && rect.fRight == mEnd.fRight &&
-                top() == mEnd.fTop && bottom() == mEnd.fBottom)) {
-            captureLast = mCapture;
-            mCapture ^= true;
-        }
-        if (mCapture || captureLast) {
-            SkIRect full;
-            full.set(rect.fLeft, top(), rect.fRight, bottom());
-            if ((mLast.fTop < base() && mLast.fBottom >= base())
-                    || (mLastBase <= full.fBottom && mLastBase > full.fTop)) {
-                if (full.fLeft > mLast.fRight)
-                    full.fLeft = mLast.fRight;
-                else if (full.fRight < mLast.fLeft)
-                    full.fRight = mLast.fLeft;
+        SkIRect full;
+        full.set(rect.fLeft, top(), rect.fRight, bottom());
+        int fullBase = base();
+        if (mFlipped) {
+            if (fullBase < mStart.fTop || fullBase > mEnd.fBottom
+                || (baseLinesAgree(mStart, mStartBase, full, fullBase)
+                && full.fLeft < mStart.fLeft)
+                || (baseLinesAgree(mEnd, mEndBase, full, fullBase)
+                && full.fRight > mEnd.fRight)) {
+                return false;
             }
-            mSelectRegion->op(full, SkRegion::kUnion_Op);
-            if (VERBOSE_LOGGING) DBG_NAV_LOGD("MultilineBuilder full=(%d,%d,r=%d,b=%d)",
-                full.fLeft, full.fTop, full.fRight, full.fBottom);
+            if (baseLinesAgree(mLast, mLastBase, full, fullBase)
+                && (full.fLeft - mLast.fRight < minSpaceWidth() * 3
+                || (SkIRect::Intersects(full, mSelectRect)
+                && SkIRect::Intersects(mLast, mSelectRect)))) {
+                mLast.join(full);
+                return false;
+            }
+            finish();
             mLast = full;
-            mLastBase = base();
-            if (mStart == mEnd)
-                mCapture = false;
+            mLastBase = fullBase;
+            return false;
         }
+        if (full == mStart)
+            mCapture = true;
+        if (mCapture) {
+            if (baseLinesAgree(mLast, mLastBase, full, fullBase))
+                mLast.join(full);
+            else {
+                finish();
+                mLast = full;
+                mLastBase = fullBase;
+            }
+        }
+        if (full == mEnd)
+            mCapture = false;
         return false;
     }
-protected:    
-    SkIRect mStart;
+
+protected:
+    bool mCapture;
     SkIRect mEnd;
+    int mEndBase;
+    bool mFlipped;
     SkIRect mLast;
     int mLastBase;
+    SkIRect mSelectRect;
     SkRegion* mSelectRegion;
-    bool mCapture;
+    SkIRect mStart;
+    int mStartBase;
 private:
     typedef CommonCheck INHERITED;
 };
 
+static inline bool compareBounds(const SkIRect* first, const SkIRect* second)
+{
+    return first->fTop < second->fTop;
+}
+
 class TextExtractor : public CommonCheck {
 public:
-    TextExtractor(const SkIRect& start, const SkIRect& end, const SkIRect& area)
+    TextExtractor(const SkIRect& start, int startBase, const SkIRect& end,
+        int endBase, const SkIRect& area, bool flipped)
         : INHERITED(area.width(), area.height())
+        , mEnd(end)
+        , mEndBase(endBase)
+        , mFlipped(flipped)
         , mRecord(false)
-        , mSelectEnd(end)
-        , mSelectStart(start)
+        , mSelectRect(start)
         , mSkipFirstSpace(true) // don't start with a space
+        , mStart(start)
+        , mStartBase(startBase)
     {
+        mEmpty.setEmpty();
+        mEnd.offset(-area.fLeft, -area.fTop);
+        mEndBase -= area.fTop;
+        mLast.setEmpty();
+        mLastBase = INT_MAX;
+        mSelectRect.join(end);
+        mSelectRect.offset(-area.fLeft, -area.fTop);
+        mStart.offset(-area.fLeft, -area.fTop);
+        mStartBase -= area.fTop;
+    }
+
+    void addCharacter(const SkBounder::GlyphRec& rec)
+    {
+        if (!mSkipFirstSpace) {
+            if (addNewLine(rec)) {
+                DBG_NAV_LOG("write new line");
+                *mSelectText.append() = '\n';
+                *mSelectText.append() = '\n';
+            } else if (addSpace(rec)) {
+                DBG_NAV_LOG("write space");
+                *mSelectText.append() = ' ';
+            }
+        } else
+            mSkipFirstSpace = false;
+        recordGlyph(rec);
+        finishGlyph();
+        if (VERBOSE_LOGGING) DBG_NAV_LOGD("glyphID=%d uni=%d '%c'", rec.fGlyphID,
+            mLastUni, mLastUni && mLastUni < 0x7f ? mLastUni : '?');
+        if (mLastUni) {
+            uint16_t chars[2];
+            size_t count = SkUTF16_FromUnichar(mLastUni, chars);
+            *mSelectText.append() = chars[0];
+            if (count == 2)
+                *mSelectText.append() = chars[1];
+        }
+    }
+
+    void finish()
+    {
+        Vector<SkIRect*> sortedBounds;
+        SkTDArray<uint16_t> temp;
+        int index;
+        DBG_NAV_LOGD("mSelectBounds.count=%d text=%d", mSelectBounds.count(),
+            mSelectText.count());
+        for (index = 0; index < mSelectBounds.count(); index++)
+            sortedBounds.append(&mSelectBounds[index]);
+        std::sort(sortedBounds.begin(), sortedBounds.end(), compareBounds);
+        int lastEnd = -1;
+        for (index = 0; index < mSelectBounds.count(); index++) {
+            if (sortedBounds[index]->isEmpty())
+                continue;
+            int order = sortedBounds[index] - &mSelectBounds[0];
+            int start = order > 0  ? mSelectCount[order - 1] : 0;
+            int end = mSelectCount[order];
+            DBG_NAV_LOGD("order=%d start=%d end=%d top=%d", order, start, end,
+                mSelectBounds[order].fTop);
+            int count = temp.count();
+            if (count > 0 && temp[count - 1] != '\n' && start != lastEnd) {
+                // always separate paragraphs when original text is out of order
+                DBG_NAV_LOG("write new line");
+                *temp.append() = '\n';
+                *temp.append() = '\n';
+            }
+            temp.append(end - start, &mSelectText[start]);
+            lastEnd = end;
+        }
+        mSelectText.swap(temp);
     }
 
     virtual bool onIRectGlyph(const SkIRect& rect,
@@ -643,44 +779,54 @@ public:
     {
         SkIRect full;
         full.set(rect.fLeft, top(), rect.fRight, bottom());
-        if (full == mSelectStart)
-            mRecord = true;
-        if (mRecord) {
-            if (!mSkipFirstSpace) {
-                if (addNewLine(rec)) {
-                    DBG_NAV_LOG("write new line");
-                    *mSelectText.append() = '\n';
-                    *mSelectText.append() = '\n';
-                } else if (addSpace(rec)) {
-                    DBG_NAV_LOG("write space");
-                    *mSelectText.append() = ' ';
-                }
-            } else
-                mSkipFirstSpace = false;
-            recordGlyph(rec);
-            finish();
-            DBG_NAV_LOGD("TextExtractor glyphID=%d uni=%d '%c'"
-                " append full=(%d,%d,r=%d,b=%d)", rec.fGlyphID,
-                mLastUni, mLastUni && mLastUni < 0x7f ? mLastUni : '?',
-                full.fLeft, full.fTop, full.fRight, full.fBottom);
-            if (mLastUni) {
-                uint16_t chars[2];
-                size_t count = SkUTF16_FromUnichar(mLastUni, chars);
-                *mSelectText.append() = chars[0];
-                if (count == 2)
-                    *mSelectText.append() = chars[1];
+        int fullBase = base();
+        if (mFlipped) {
+            if (fullBase < mStart.fTop || fullBase > mEnd.fBottom
+                || (baseLinesAgree(mStart, mStartBase, full, fullBase)
+                && full.fLeft < mStart.fLeft)
+                || (baseLinesAgree(mEnd, mEndBase, full, fullBase)
+                && full.fRight > mEnd.fRight)) {
+                mSkipFirstSpace = true;
+                return false;
             }
-        } else {
-            mSkipFirstSpace = true;
-            DBG_NAV_LOGD("TextExtractor [%02x] skip full=(%d,%d,r=%d,b=%d)",
-                rec.fGlyphID, full.fLeft, full.fTop, full.fRight, full.fBottom);
+            if (baseLinesAgree(mLast, mLastBase, full, fullBase)
+                && (full.fLeft - mLast.fRight < minSpaceWidth() * 3
+                || (SkIRect::Intersects(full, mSelectRect)
+                && SkIRect::Intersects(mLast, mSelectRect)))) {
+                mLast.join(full);
+                addCharacter(rec);
+                return false;
+            }
+            if (VERBOSE_LOGGING) DBG_NAV_LOGD("baseLinesAgree=%s"
+                " mLast=(%d,%d,r=%d,b=%d) mLastBase=%d"
+                " full=(%d,%d,r=%d,b=%d) fullBase=%d"
+                " mSelectRect=(%d,%d,r=%d,b=%d)",
+                baseLinesAgree(mLast, mLastBase, full, fullBase) ? "true" : "false",
+                mLast.fLeft, mLast.fTop, mLast.fRight, mLast.fBottom, mLastBase,
+                full.fLeft, full.fTop, full.fRight, full.fBottom, fullBase,
+                mSelectRect.fLeft, mSelectRect.fTop, mSelectRect.fRight, mSelectRect.fBottom);
+            *mSelectBounds.append() = SkIRect::Intersects(mLast, mSelectRect)
+                ? mLast : mEmpty;
+            *mSelectCount.append() = mSelectText.count();
+            addCharacter(rec);
+            mLast = full;
+            mLastBase = fullBase;
+            return false;
         }
-        if (full == mSelectEnd)
+        if (full == mStart)
+            mRecord = true;
+        if (mRecord)
+            addCharacter(rec);
+        else
+            mSkipFirstSpace = true;
+        if (full == mEnd)
             mRecord = false;
         return false;
     }
 
     WebCore::String text() {
+        if (mFlipped)
+            finish();
         // the text has been copied in visual order. Reverse as needed if
         // result contains right-to-left characters.
         const uint16_t* start = mSelectText.begin();
@@ -698,11 +844,20 @@ public:
     }
 
 protected:
+    SkIRect mEmpty;
+    SkIRect mEnd;
+    int mEndBase;
+    bool mFlipped;
+    SkIRect mLast;
+    int mLastBase;
     bool mRecord;
-    const SkIRect& mSelectEnd;
-    const SkIRect& mSelectStart;
+    SkTDArray<SkIRect> mSelectBounds;
+    SkTDArray<int> mSelectCount;
+    SkIRect mSelectRect;
     SkTDArray<uint16_t> mSelectText;
     bool mSkipFirstSpace;
+    SkIRect mStart;
+    int mStartBase;
 private:
     typedef CommonCheck INHERITED;
 };
@@ -768,39 +923,48 @@ public:
     CommonCheck& mBounder;
 };
 
-static void buildSelection(const SkPicture& picture, const SkIRect& area,
-        const SkIRect& selStart, const SkIRect& selEnd, SkRegion* region)
+static bool buildSelection(const SkPicture& picture, const SkIRect& area,
+        const SkIRect& selStart, int startBase,
+        const SkIRect& selEnd, int endBase, SkRegion* region)
 {
     DBG_NAV_LOGD("area=(%d, %d, %d, %d) selStart=(%d, %d, %d, %d)"
         " selEnd=(%d, %d, %d, %d)",
         area.fLeft, area.fTop, area.fRight, area.fBottom,
         selStart.fLeft, selStart.fTop, selStart.fRight, selStart.fBottom,
         selEnd.fLeft, selEnd.fTop, selEnd.fRight, selEnd.fBottom);
-    MultilineBuilder builder(selStart, selEnd, area, region);
+    MultilineBuilder builder(selStart, startBase, selEnd, endBase, area, region);
     TextCanvas checker(&builder, area);
     checker.drawPicture(const_cast<SkPicture&>(picture));
+    bool flipped = builder.flipped();
+    if (flipped) {
+        TextCanvas checker(&builder, area);
+        checker.drawPicture(const_cast<SkPicture&>(picture));
+    }
+    builder.finish();
     region->translate(area.fLeft, area.fTop);
+    return flipped;
 }
 
 static SkIRect findClosest(FirstCheck& _check, const SkPicture& picture,
-        const SkIRect& area)
+        const SkIRect& area, int* base)
 {
     DBG_NAV_LOGD("area=(%d, %d, %d, %d)", area.fLeft, area.fTop,
         area.fRight, area.fBottom);
     TextCanvas checker(&_check, area);
     checker.drawPicture(const_cast<SkPicture&>(picture));
-    _check.finish();
-    return _check.adjustedBounds(area);
+    _check.finishGlyph();
+    return _check.adjustedBounds(area, base);
 }
 
 static SkIRect findEdge(const SkPicture& picture, const SkIRect& area,
-        int x, int y, bool left)
+        int x, int y, bool left, int* base)
 {
     SkIRect result;
     result.setEmpty();
     FirstCheck center(x, y, area);
     center.setRecordGlyph();
-    SkIRect closest = findClosest(center, picture, area);
+    int closestBase;
+    SkIRect closest = findClosest(center, picture, area, &closestBase);
     closest.inset(-TOUCH_SLOP, -TOUCH_SLOP);
     if (!closest.contains(x, y)) {
         DBG_NAV_LOGD("closest=(%d, %d, %d, %d) area=(%d, %d, %d, %d) x/y=%d,%d",
@@ -814,12 +978,13 @@ static SkIRect findEdge(const SkPicture& picture, const SkIRect& area,
             &edge, &picture, area.fLeft, area.fTop, area.fRight, area.fBottom);
         TextCanvas checker(&edge, area);
         checker.drawPicture(const_cast<SkPicture&>(picture));
-        edge.finish();
+        edge.finishGlyph();
         if (!edge.adjacent()) {
             DBG_NAV_LOG("adjacent break");
             break;
         }
-        const SkIRect& next = edge.bestBounds();
+        int nextBase;
+        const SkIRect& next = edge.bestBounds(&nextBase);
         if (next.isEmpty()) {
             DBG_NAV_LOG("empty");
             break;
@@ -828,50 +993,54 @@ static SkIRect findEdge(const SkPicture& picture, const SkIRect& area,
             DBG_NAV_LOG("result == next");
             break;
         }
+        *base = nextBase;
         result = next;
         edge.shiftStart(result);
     } while (true);
-    if (!result.isEmpty())
+    if (!result.isEmpty()) {
+        *base += area.fTop;
         result.offset(area.fLeft, area.fTop);
+    }
     return result;
 }
 
-static SkIRect findFirst(const SkPicture& picture)
+static SkIRect findFirst(const SkPicture& picture, int* base)
 {
     FindFirst finder(picture.width(), picture.height());
     SkIRect area;
     area.set(0, 0, picture.width(), picture.height());
     TextCanvas checker(&finder, area);
     checker.drawPicture(const_cast<SkPicture&>(picture));
-    return finder.bestBounds();
+    return finder.bestBounds(base);
 }
 
-static SkIRect findLast(const SkPicture& picture)
+static SkIRect findLast(const SkPicture& picture, int* base)
 {
     FindLast finder(picture.width(), picture.height());
     SkIRect area;
     area.set(0, 0, picture.width(), picture.height());
     TextCanvas checker(&finder, area);
     checker.drawPicture(const_cast<SkPicture&>(picture));
-    return finder.bestBounds();
+    return finder.bestBounds(base);
 }
 
 static SkIRect findLeft(const SkPicture& picture, const SkIRect& area,
-        int x, int y)
+        int x, int y, int* base)
 {
-    return findEdge(picture, area, x, y, true);
+    return findEdge(picture, area, x, y, true, base);
 }
 
 static SkIRect findRight(const SkPicture& picture, const SkIRect& area,
-        int x, int y)
+        int x, int y, int* base)
 {
-    return findEdge(picture, area, x, y, false);
+    return findEdge(picture, area, x, y, false, base);
 }
 
 static WebCore::String text(const SkPicture& picture, const SkIRect& area,
-        const SkIRect& start, const SkIRect& end)
+        const SkIRect& start, int startBase, const SkIRect& end,
+        int endBase, bool flipped)
 {
-    TextExtractor extractor(start, end, area);
+    TextExtractor extractor(start, startBase, end, endBase, area, flipped);
     TextCanvas checker(&extractor, area);
     checker.drawPicture(const_cast<SkPicture&>(picture));
     return extractor.text();
@@ -995,7 +1164,8 @@ void SelectText::drawSelectionRegion(SkCanvas* canvas)
     DBG_NAV_LOGD("m_selStart=(%d, %d, %d, %d) m_selEnd=(%d, %d, %d, %d)",
         m_selStart.fLeft, m_selStart.fTop, m_selStart.fRight, m_selStart.fBottom,
         m_selEnd.fLeft, m_selEnd.fTop, m_selEnd.fRight, m_selEnd.fBottom);
-    buildSelection(*m_picture, ivisBounds, m_selStart, m_selEnd, &m_selRegion);
+    m_flipped = buildSelection(*m_picture, ivisBounds, m_selStart, m_startBase,
+        m_selEnd, m_endBase, &m_selRegion);
     SkPath path;
     m_selRegion.getBoundaryPath(&path);
     path.setFillType(SkPath::kEvenOdd_FillType);
@@ -1018,6 +1188,7 @@ void SelectText::drawSelectionRegion(SkCanvas* canvas)
 void SelectText::extendSelection(const SkPicture* picture, int x, int y)
 {
     SkIRect clipRect = m_visibleRect;
+    int base;
     if (m_startSelection) {
         if (!clipRect.contains(x, y)
                 || !clipRect.contains(m_original.fX, m_original.fY)) {
@@ -1029,7 +1200,8 @@ void SelectText::extendSelection(const SkPicture* picture, int x, int y)
             clipRect.fTop, clipRect.fRight, clipRect.fBottom);
         m_picture = picture;
         FirstCheck center(m_original.fX, m_original.fY, clipRect);
-        m_selStart = m_selEnd = findClosest(center, *picture, clipRect);
+        m_selStart = m_selEnd = findClosest(center, *picture, clipRect, &base);
+        m_startBase = m_endBase = base;
         m_startSelection = false;
         m_extendSelection = true;
         m_original.fX = m_original.fY = 0;
@@ -1045,17 +1217,20 @@ void SelectText::extendSelection(const SkPicture* picture, int x, int y)
     DBG_NAV_LOGD("extend clip=(%d,%d,%d,%d)", clipRect.fLeft,
         clipRect.fTop, clipRect.fRight, clipRect.fBottom);
     FirstCheck extension(x, y, clipRect);
-    SkIRect found = findClosest(extension, *picture, clipRect);
+    SkIRect found = findClosest(extension, *picture, clipRect, &base);
     DBG_NAV_LOGD("pic=%p x=%d y=%d m_startSelection=%s %s=(%d, %d, %d, %d)"
         " m_extendSelection=%s",
         picture, x, y, m_startSelection ? "true" : "false",
         m_hitTopLeft ? "m_selStart" : "m_selEnd",
         found.fLeft, found.fTop, found.fRight, found.fBottom,
         m_extendSelection ? "true" : "false");
-    if (m_hitTopLeft)
+    if (m_hitTopLeft) {
+        m_startBase = base;
         m_selStart = found;
-    else
+    } else {
+        m_endBase = base;
         m_selEnd = found;
+    }
     swapAsNeeded();
 }
 
@@ -1063,7 +1238,8 @@ const String SelectText::getSelection()
 {
     SkIRect clipRect;
     clipRect.set(0, 0, m_picture->width(), m_picture->height());
-    String result = text(*m_picture, clipRect, m_selStart, m_selEnd);
+    String result = text(*m_picture, clipRect, m_selStart, m_startBase,
+        m_selEnd, m_endBase, m_flipped);
     DBG_NAV_LOGD("clip=(%d,%d,%d,%d)"
         " m_selStart=(%d, %d, %d, %d) m_selEnd=(%d, %d, %d, %d)",
         clipRect.fLeft, clipRect.fTop, clipRect.fRight, clipRect.fBottom,
@@ -1125,11 +1301,16 @@ void SelectText::moveSelection(const SkPicture* picture, int x, int y)
     if (!m_extendSelection)
         m_picture = picture;
     FirstCheck center(x, y, clipRect);
-    SkIRect found = findClosest(center, *picture, clipRect);
-    if (m_hitTopLeft || !m_extendSelection)
+    int base;
+    SkIRect found = findClosest(center, *picture, clipRect, &base);
+    if (m_hitTopLeft || !m_extendSelection) {
+        m_startBase = base;
         m_selStart = found;
-    if (!m_hitTopLeft || !m_extendSelection)
+    }
+    if (!m_hitTopLeft || !m_extendSelection) {
+        m_endBase = base;
         m_selEnd = found;
+    }
     swapAsNeeded();
     DBG_NAV_LOGD("x=%d y=%d extendSelection=%s m_selStart=(%d, %d, %d, %d)"
         " m_selEnd=(%d, %d, %d, %d)", x, y, m_extendSelection ? "true" : "false",
@@ -1148,8 +1329,8 @@ void SelectText::reset()
 
 void SelectText::selectAll(const SkPicture* picture)
 {
-    m_selStart = findFirst(*picture);
-    m_selEnd = findLast(*picture);
+    m_selStart = findFirst(*picture, &m_startBase);
+    m_selEnd = findLast(*picture, &m_endBase);
     m_extendSelection = true;
 }
 
@@ -1205,16 +1386,21 @@ bool SelectText::wordSelection(const SkPicture* picture)
     int y = (m_selStart.fTop + m_selStart.fBottom) >> 1;
     SkIRect clipRect = m_visibleRect;
     clipRect.fLeft -= m_visibleRect.width() >> 1;
-    SkIRect left = findLeft(*picture, clipRect, x, y);
-    if (!left.isEmpty())
+    int base;
+    SkIRect left = findLeft(*picture, clipRect, x, y, &base);
+    if (!left.isEmpty()) {
+        m_startBase = base;
         m_selStart = left;
+    }
     x = m_selEnd.fRight;
     y = (m_selEnd.fTop + m_selEnd.fBottom) >> 1;
     clipRect = m_visibleRect;
     clipRect.fRight += m_visibleRect.width() >> 1;
-    SkIRect right = findRight(*picture, clipRect, x, y);
-    if (!right.isEmpty())
+    SkIRect right = findRight(*picture, clipRect, x, y, &base);
+    if (!right.isEmpty()) {
+        m_endBase = base;
         m_selEnd = right;
+    }
     DBG_NAV_LOGD("m_selStart=(%d, %d, %d, %d) m_selEnd=(%d, %d, %d, %d)",
         m_selStart.fLeft, m_selStart.fTop, m_selStart.fRight, m_selStart.fBottom,
         m_selEnd.fLeft, m_selEnd.fTop, m_selEnd.fRight, m_selEnd.fBottom);
@@ -1231,6 +1417,7 @@ void SelectText::swapAsNeeded()
         || (m_selStart.fBottom > m_selEnd.fTop
         && m_selStart.fRight > m_selEnd.fLeft))
     {
+        SkTSwap(m_startBase, m_endBase);
         SkTSwap(m_selStart, m_selEnd);
         m_hitTopLeft ^= true;
         DBG_NAV_LOGD("m_hitTopLeft=%s", m_hitTopLeft ? "true" : "false");
