@@ -216,20 +216,13 @@ void RenderTextControlSingleLine::layout()
     int oldHeight = height();
     calcHeight();
 
-#ifdef ANDROID_LAYOUT
-    int oldVisibleWidth = m_visibleWidth;
-#endif
-
     int oldWidth = width();
     calcWidth();
 
     bool relayoutChildren = oldHeight != height() || oldWidth != width();
 
 #ifdef ANDROID_LAYOUT
-    if (oldVisibleWidth != m_visibleWidth
-            && document()->settings()->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen) {
-        relayoutChildren = true;
-    }
+    checkAndSetRelayoutChildren(&relayoutChildren);
 #endif
 
     RenderBox* innerTextRenderer = innerTextElement()->renderBox();

@@ -75,6 +75,7 @@ RenderBox::RenderBox(Node* node)
     : RenderBoxModelObject(node)
 #ifdef ANDROID_LAYOUT
     , m_visibleWidth(0)
+    , m_isVisibleWidthChangedBeforeLayout(false)
 #endif
     , m_marginLeft(0)
     , m_marginRight(0)
@@ -1286,16 +1287,32 @@ void RenderBox::repaintDuringLayoutIfMoved(const IntRect& rect)
     }
 }
 
+#ifdef ANDROID_LAYOUT
+void RenderBox::setVisibleWidth(int newWidth) {
+    const Settings* settings = document()->settings();
+    ASSERT(settings);
+    if (settings->layoutAlgorithm() != Settings::kLayoutFitColumnToScreen
+        || m_visibleWidth == newWidth)
+        return;
+    m_isVisibleWidthChangedBeforeLayout = true;
+    m_visibleWidth = newWidth;
+}
+
+bool RenderBox::checkAndSetRelayoutChildren(bool* relayoutChildren) {
+    if (m_isVisibleWidthChangedBeforeLayout) {
+        m_isVisibleWidthChangedBeforeLayout = false;
+        *relayoutChildren = true;
+        return true;
+    }
+    return false;
+}
+#endif
+
 void RenderBox::calcWidth()
 {
 #ifdef ANDROID_LAYOUT
-    if (view()->frameView()) {
-        const Settings* settings = document()->settings();
-        ASSERT(settings);
-        if (settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen) {
-            m_visibleWidth = view()->frameView()->textWrapWidth();
-        }
-    }
+    if (view()->frameView())
+        setVisibleWidth(view()->frameView()->textWrapWidth());
 #endif
 
     if (isPositioned()) {

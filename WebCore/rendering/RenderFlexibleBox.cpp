@@ -219,10 +219,6 @@ void RenderFlexibleBox::layoutBlock(bool relayoutChildren)
     int previousWidth = width();
     int previousHeight = height();
     
-    #ifdef ANDROID_LAYOUT
-    int previousVisibleWidth = m_visibleWidth;
-#endif
-
     calcWidth();
     calcHeight();
     
@@ -234,11 +230,7 @@ void RenderFlexibleBox::layoutBlock(bool relayoutChildren)
         relayoutChildren = true;
 
 #ifdef ANDROID_LAYOUT
-    const Settings* settings = document()->settings();
-    ASSERT(settings);
-    if (previousVisibleWidth != m_visibleWidth
-            && settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen)
-        relayoutChildren = true;
+    checkAndSetRelayoutChildren(&relayoutChildren);
 #endif
     setHeight(0);
 

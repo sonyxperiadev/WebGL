@@ -203,13 +203,8 @@ void RenderTable::removeChild(RenderObject* oldChild)
 void RenderTable::calcWidth()
 {
 #ifdef ANDROID_LAYOUT
-    if (view()->frameView()) {
-        const Settings* settings = document()->settings();
-        ASSERT(settings);
-        if (settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen) {
-            m_visibleWidth = view()->frameView()->textWrapWidth();
-        }
-    }
+    if (view()->frameView())
+        setVisibleWidth(view()->frameView()->textWrapWidth());
 #endif
 
     if (isPositioned())
@@ -274,17 +269,14 @@ void RenderTable::layout()
     
 #ifdef ANDROID_LAYOUT
     bool relayoutChildren = false;
-    int oldVisibleWidth = m_visibleWidth;
 #endif
 
     int oldWidth = width();
     calcWidth();
 
 #ifdef ANDROID_LAYOUT
-    if (oldVisibleWidth != m_visibleWidth
-        && document()->settings()->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen)
-        relayoutChildren = true;
-    else if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
+    if (!checkAndSetRelayoutChildren(&relayoutChildren)
+        && document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
         // if the width of a table is wider than its container width, or it has a nested table,
         // we will render it with single column.
         int cw = containingBlockWidthForContent();

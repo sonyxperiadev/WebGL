@@ -297,6 +297,10 @@ public:
     bool shrinkToAvoidFloats() const;
     virtual bool avoidsFloats() const;
 
+#ifdef ANDROID_LAYOUT
+    int getVisibleWidth() const { return m_visibleWidth; }
+#endif
+
 protected:
     virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
@@ -355,7 +359,8 @@ private:
 protected:
 
 #ifdef ANDROID_LAYOUT
-    int m_visibleWidth;
+    void setVisibleWidth(int newWidth);
+    bool checkAndSetRelayoutChildren(bool* relayoutChildren);
 #endif
 
     int m_marginLeft;
@@ -378,6 +383,11 @@ protected:
 private:
     // Used to store state between styleWillChange and styleDidChange
     static bool s_hadOverflowClip;
+
+#ifdef ANDROID_LAYOUT
+    int m_visibleWidth;
+    bool m_isVisibleWidthChangedBeforeLayout;
+#endif
 };
 
 inline RenderBox* toRenderBox(RenderObject* object)

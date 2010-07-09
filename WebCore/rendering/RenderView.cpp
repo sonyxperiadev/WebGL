@@ -90,10 +90,9 @@ void RenderView::calcWidth()
     if (!printing() && m_frameView)
         setWidth(viewWidth());
 #ifdef ANDROID_LAYOUT
+    setVisibleWidth(m_frameView->textWrapWidth());
     const Settings * settings = document()->settings();
     ASSERT(settings);
-    if (settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen)
-        m_visibleWidth = m_frameView->textWrapWidth();
     if (settings->useWideViewport() && settings->viewportWidth() == -1 && width() < minPrefWidth())
         setWidth(m_minPrefWidth);
 #endif

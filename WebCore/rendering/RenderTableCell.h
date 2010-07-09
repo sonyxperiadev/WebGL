@@ -55,13 +55,6 @@ public:
 
     virtual void calcPrefWidths();
 
-#if PLATFORM(ANDROID)
-#ifdef ANDROID_LAYOUT
-    // RenderTableSection needs to access this in setCellWidths()
-    int getVisibleWidth() { return m_visibleWidth; }
-#endif
-#endif
-
     void updateWidth(int);
 
     int borderLeft() const;

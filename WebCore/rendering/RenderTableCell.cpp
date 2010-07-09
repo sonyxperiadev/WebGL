@@ -152,13 +152,8 @@ void RenderTableCell::calcPrefWidths()
 void RenderTableCell::calcWidth()
 {
 #ifdef ANDROID_LAYOUT
-    if (view()->frameView()) {
-        const Settings* settings = document()->settings();
-        ASSERT(settings);
-        if (settings->layoutAlgorithm() == Settings::kLayoutFitColumnToScreen) {
-            m_visibleWidth = view()->frameView()->textWrapWidth();
-        }
-    }
+    if (view()->frameView())
+        setVisibleWidth(view()->frameView()->textWrapWidth());
 #endif
 }
 
