@@ -27,12 +27,16 @@
 #include "CachedResourceClient.h"
 #include "CachedResourceHandle.h"
 #include "HTMLElement.h"
+#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
 #include "Timer.h"
+#endif
 
 namespace WebCore {
 
 class CachedCSSStyleSheet;
+#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
 class CachedLinkPrefetch;
+#endif
 class KURL;
 
 class HTMLLinkElement : public HTMLElement, public CachedResourceClient {
@@ -46,7 +50,7 @@ public:
         bool m_isTouchIcon;
         bool m_isPrecomposedTouchIcon;
 #endif
-#if ENABLE(LINK_PREFETCH)
+#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
         bool m_isLinkPrefetch;
 #endif
 
@@ -54,7 +58,7 @@ public:
 #ifdef ANDROID_APPLE_TOUCH_ICON
                 , m_isTouchIcon(false), m_isPrecomposedTouchIcon(false)
 #endif
-#if ENABLE(LINK_PREFETCH)
+#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
             , m_isLinkPrefetch(false)
 #endif
             { };
@@ -115,7 +119,9 @@ private:
 
     // from CachedResourceClient
     virtual void setCSSStyleSheet(const String& href, const KURL& baseURL, const String& charset, const CachedCSSStyleSheet* sheet);
+#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
     virtual void notifyFinished(CachedResource*);
+#endif
 
     virtual bool sheetLoaded();
 
@@ -142,7 +148,9 @@ private:
 #endif
 
 private:
+#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
     void timerFired(Timer<HTMLLinkElement>*);
+#endif
     HTMLLinkElement(const QualifiedName&, Document*, bool createdByParser);
 
     enum DisabledState {
@@ -153,7 +161,7 @@ private:
 
     CachedResourceHandle<CachedCSSStyleSheet> m_cachedSheet;
     RefPtr<CSSStyleSheet> m_sheet;
-#if ENABLE(LINK_PREFETCH)
+#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
     CachedResourceHandle<CachedLinkPrefetch> m_cachedLinkPrefetch;
 #endif
     KURL m_url;
