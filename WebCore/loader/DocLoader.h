@@ -45,9 +45,6 @@ class Document;
 class Frame;
 class ImageLoader;
 class KURL;
-#if ENABLE(LINK_PREFETCH)
-class CachedLinkPrefetch;
-#endif
 
 // The DocLoader manages the loading of scripts/images/stylesheets for a single document.
 class DocLoader : public Noncopyable {
@@ -71,7 +68,7 @@ public:
     CachedXBLDocument* requestXBLDocument(const String &url);
 #endif
 #if ENABLE(LINK_PREFETCH)
-    CachedLinkPrefetch* requestLinkPrefetch(const String &url);
+    CachedResource* requestLinkPrefetch(const String &url);
 #endif
 
     // Logs an access denied message to the console for the specified URL.

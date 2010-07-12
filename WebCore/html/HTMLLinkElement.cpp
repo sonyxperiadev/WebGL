@@ -41,9 +41,6 @@
 #include "ScriptEventListener.h"
 #include "Settings.h"
 #include <wtf/StdLibExtras.h>
-#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
-#include "CachedLinkPrefetch.h"
-#endif
 
 namespace WebCore {
 
@@ -55,9 +52,6 @@ inline HTMLLinkElement::HTMLLinkElement(const QualifiedName& tagName, Document* 
     , m_loading(false)
     , m_createdByParser(createdByParser)
     , m_shouldProcessAfterAttach(false)
-#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
-    , m_timer(this, &HTMLLinkElement::timerFired)
-#endif
 {
     ASSERT(hasTagName(linkTag));
 }
@@ -137,10 +131,6 @@ void HTMLLinkElement::parseMappedAttribute(Attribute* attr)
         setDisabledState(!attr->isNull());
     else if (attr->name() == onbeforeloadAttr)
         setAttributeEventListener(eventNames().beforeloadEvent, createAttributeEventListener(this, attr));
-#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
-    else if (attr->name() == onloadAttr)
-        setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
-#endif
     else {
         if (attr->name() == titleAttr && m_sheet)
             m_sheet->setTitle(attr->value());
@@ -154,7 +144,7 @@ void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, RelAttribute
     relAttribute.m_isIcon = false;
     relAttribute.m_isAlternate = false;
     relAttribute.m_isDNSPrefetch = false;
-#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
+#if ENABLE(LINK_PREFETCH)
     relAttribute.m_isLinkPrefetch = false;
 #endif
 #ifdef ANDROID_APPLE_TOUCH_ICON
@@ -173,7 +163,7 @@ void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, RelAttribute
 #endif
     else if (equalIgnoringCase(rel, "dns-prefetch"))
         relAttribute.m_isDNSPrefetch = true;
-#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
+#if ENABLE(LINK_PREFETCH)
     else if (equalIgnoringCase(rel, "prefetch"))
         relAttribute.m_isLinkPrefetch = true;
 #endif
@@ -221,14 +211,9 @@ void HTMLLinkElement::process()
     if (m_relAttribute.m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())
         ResourceHandle::prepareForURL(m_url);
 
-#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
-    if (m_relAttribute.m_isLinkPrefetch && m_url.isValid()) {
-        m_cachedLinkPrefetch = document()->docLoader()->requestLinkPrefetch(m_url);
-        m_loading = true;
-
-        if (m_cachedLinkPrefetch)
-            m_cachedLinkPrefetch->addClient(this);
-    }
+#if ENABLE(LINK_PREFETCH)
+    if (m_relAttribute.m_isLinkPrefetch && m_url.isValid())
+        document()->docLoader()->requestLinkPrefetch(m_url);
 #endif
 
     bool acceptIfTypeContainsTextCSS = document()->page() && document()->page()->settings() && document()->page()->settings()->treatsAnyTextCSSLinkAsStylesheet();
@@ -392,19 +377,6 @@ bool HTMLLinkElement::isLoading() const
         return false;
     return static_cast<CSSStyleSheet *>(m_sheet.get())->isLoading();
 }
-
-#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
-void HTMLLinkElement::notifyFinished(CachedResource*)
-{
-    if (!m_timer.isActive())
-        m_timer.startOneShot(0);
-}
-
-void HTMLLinkElement::timerFired(Timer<HTMLLinkElement>*)
-{
-    dispatchEvent(Event::create(eventNames().loadEvent, false, false));
-}
-#endif
 
 bool HTMLLinkElement::sheetLoaded()
 {
