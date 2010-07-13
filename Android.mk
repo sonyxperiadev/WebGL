@@ -107,6 +107,7 @@ LOCAL_C_INCLUDES := \
 	external/icu4c/i18n \
 	external/libxml2/include \
 	external/libxslt \
+	external/hyphenation \
 	external/skia/emoji \
 	external/skia/include/core \
 	external/skia/include/effects \
@@ -316,7 +317,7 @@ LOCAL_CFLAGS += -DSUPPORT_COMPLEX_SCRIPTS=1
 endif
 
 # Build the list of static libraries
-LOCAL_STATIC_LIBRARIES := libxml2 libxslt
+LOCAL_STATIC_LIBRARIES := libxml2 libxslt libhyphenation
 ifeq ($(JAVASCRIPT_ENGINE),v8)
 LOCAL_STATIC_LIBRARIES += libv8
 endif

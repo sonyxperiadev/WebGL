@@ -590,7 +590,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	platform/text/Base64.cpp \
 	platform/text/BidiContext.cpp \
-	platform/text/Hyphenation.cpp \
 	platform/text/RegularExpression.cpp \
 	platform/text/SegmentedString.cpp \
 	platform/text/String.cpp \
@@ -608,6 +607,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/text/TextStream.cpp \
 	platform/text/UnicodeRange.cpp \
 	\
+	platform/text/android/HyphenationAndroid.cpp \
 	platform/text/android/TextBreakIteratorInternalICU.cpp \
 	\
 	platform/text/transcoder/FontTranscoder.cpp \
