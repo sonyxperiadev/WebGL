@@ -91,7 +91,7 @@ static ResourceRequest::TargetType cachedResourceTypeToTargetType(CachedResource
         return ResourceRequest::TargetIsImage;
 #if ENABLE(LINK_PREFETCH)
     case CachedResource::LinkPrefetch:
-        return ResourceRequest::TargetIsSubresource;
+        return ResourceRequest::TargetIsPrefetch;
 #endif
     }
     ASSERT_NOT_REACHED();
@@ -369,12 +369,6 @@ void Loader::Host::servePendingRequests(RequestQueue& requestsPending, bool& ser
                     resourceRequest.setHTTPHeaderField("If-None-Match", eTag);
             }
         }
-
-#if ENABLE(LINK_PREFETCH)
-        if (request->cachedResource()->type() == CachedResource::LinkPrefetch) {
-            resourceRequest.setHTTPHeaderField("X-Moz", "prefetch");
-        }
-#endif
 
         RefPtr<SubresourceLoader> loader = SubresourceLoader::create(docLoader->doc()->frame(),
             this, resourceRequest, request->shouldDoSecurityCheck(), request->sendResourceLoadCallbacks());

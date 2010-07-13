@@ -45,10 +45,6 @@
 #include "Settings.h"
 #include <wtf/text/CString.h>
 
-#if ENABLE(LINK_PREFETCH)
-#include "CachedLinkPrefetch.h"
-#endif
-
 #define PRELOAD_DEBUG 0
 
 namespace WebCore {
@@ -181,9 +177,9 @@ CachedXBLDocument* DocLoader::requestXBLDocument(const String& url)
 #endif
 
 #if ENABLE(LINK_PREFETCH)
-CachedLinkPrefetch* DocLoader::requestLinkPrefetch(const String& url)
+CachedResource* DocLoader::requestLinkPrefetch(const String& url)
 {
-    return static_cast<CachedLinkPrefetch*>(requestResource(CachedResource::LinkPrefetch, url, String()));
+    return requestResource(CachedResource::LinkPrefetch, url, String());
 }
 #endif
 
@@ -242,9 +238,6 @@ bool DocLoader::canRequest(CachedResource::Type type, const KURL& url)
         break;
     case CachedResource::ImageResource:
     case CachedResource::CSSStyleSheet:
-#if ENABLE(LINK_PREFETCH)
-    case CachedResource::LinkPrefetch:
-#endif
     case CachedResource::FontResource: {
         // These resources can corrupt only the frame's pixels.
         if (Frame* f = frame()) {
@@ -253,6 +246,11 @@ bool DocLoader::canRequest(CachedResource::Type type, const KURL& url)
         }
         break;
     }
+#if ENABLE(LINK_PREFETCH)
+    case CachedResource::LinkPrefetch:
+        // Prefetch cannot affect the current document.
+        break;
+#endif
     default:
         ASSERT_NOT_REACHED();
         break;

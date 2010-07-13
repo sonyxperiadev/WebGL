@@ -27,16 +27,11 @@
 #include "CachedResourceClient.h"
 #include "CachedResourceHandle.h"
 #include "HTMLElement.h"
-#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
-#include "Timer.h"
-#endif
 
 namespace WebCore {
 
 class CachedCSSStyleSheet;
-#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
 class CachedLinkPrefetch;
-#endif
 class KURL;
 
 class HTMLLinkElement : public HTMLElement, public CachedResourceClient {
@@ -50,15 +45,16 @@ public:
         bool m_isTouchIcon;
         bool m_isPrecomposedTouchIcon;
 #endif
-#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
+#if ENABLE(LINK_PREFETCH)
         bool m_isLinkPrefetch;
 #endif
 
-        RelAttribute() : m_isStyleSheet(false), m_isIcon(false), m_isAlternate(false), m_isDNSPrefetch(false)
-#ifdef ANDROID_APPLE_TOUCH_ICON
-                , m_isTouchIcon(false), m_isPrecomposedTouchIcon(false)
-#endif
-#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
+        RelAttribute()
+            : m_isStyleSheet(false)
+            , m_isIcon(false)
+            , m_isAlternate(false)
+            , m_isDNSPrefetch(false)
+#if ENABLE(LINK_PREFETCH)
             , m_isLinkPrefetch(false)
 #endif
             { };
@@ -99,10 +95,6 @@ private:
 
     // from CachedResourceClient
     virtual void setCSSStyleSheet(const String& href, const KURL& baseURL, const String& charset, const CachedCSSStyleSheet* sheet);
-#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
-    virtual void notifyFinished(CachedResource*);
-#endif
-
     virtual bool sheetLoaded();
 
     bool isAlternate() const { return m_disabledState == Unset && m_relAttribute.m_isAlternate; }
@@ -128,9 +120,6 @@ private:
 #endif
 
 private:
-#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
-    void timerFired(Timer<HTMLLinkElement>*);
-#endif
     HTMLLinkElement(const QualifiedName&, Document*, bool createdByParser);
 
     enum DisabledState {
@@ -141,9 +130,6 @@ private:
 
     CachedResourceHandle<CachedCSSStyleSheet> m_cachedSheet;
     RefPtr<CSSStyleSheet> m_sheet;
-#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
-    CachedResourceHandle<CachedLinkPrefetch> m_cachedLinkPrefetch;
-#endif
     KURL m_url;
     String m_type;
     String m_media;
@@ -152,9 +138,6 @@ private:
     bool m_loading;
     bool m_createdByParser;
     bool m_shouldProcessAfterAttach;
-#if PLATFORM(ANDROID) && ENABLE(LINK_PREFETCH)
-    Timer<HTMLLinkElement> m_timer;
-#endif
 };
 
 } //namespace
