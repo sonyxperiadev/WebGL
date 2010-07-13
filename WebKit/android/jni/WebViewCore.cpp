@@ -1688,8 +1688,8 @@ void WebViewCore::deleteSelection(int start, int end, int textGeneration)
     EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
             m_mainFrame->editor()->client());
     client->setUiGeneratedSelectionChange(true);
-    PlatformKeyboardEvent down(kKeyCodeDel, 0, 0, true, false, false, false);
-    PlatformKeyboardEvent up(kKeyCodeDel, 0, 0, false, false, false, false);
+    PlatformKeyboardEvent down(AKEYCODE_DEL, 0, 0, true, false, false, false);
+    PlatformKeyboardEvent up(AKEYCODE_DEL, 0, 0, false, false, false, false);
     key(down);
     key(up);
     client->setUiGeneratedSelectionChange(false);

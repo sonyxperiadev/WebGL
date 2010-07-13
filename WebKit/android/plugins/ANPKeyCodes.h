@@ -29,8 +29,7 @@
 /*  List the key codes that are set to a plugin in the ANPKeyEvent.
  
     These exactly match the values in android/view/KeyEvent.java and the
-    corresponding .h file include/ui/KeycodeLabels.h, which contains more than
-    I want to publish to plugin authors.
+    corresponding .h file android/keycodes.h.
 */
 enum ANPKeyCodes {
     kUnknown_ANPKeyCode = 0,
@@ -118,7 +117,36 @@ enum ANPKeyCodes {
     kPlus_ANPKeyCode = 81,
     kMenu_ANPKeyCode = 82,
     kNotification_ANPKeyCode = 83,
-    kSearch_ANPKeyCode = 84
+    kSearch_ANPKeyCode = 84,
+    kMediaPlayPause_ANPKeyCode = 85,
+    kMediaStop_ANPKeyCode = 86,
+    kMediaNext_ANPKeyCode = 87,
+    kMediaPrevious_ANPKeyCode = 88,
+    kMediaRewind_ANPKeyCode = 89,
+    kMediaFastForward_ANPKeyCode = 90,
+    kMute_ANPKeyCode = 91,
+    kPageUp_ANPKeyCode = 92,
+    kPageDown_ANPKeyCode = 93,
+    kPictsymbols_ANPKeyCode = 94,
+    kSwitchCharset_ANPKeyCode = 95,
+    kButtonA_ANPKeyCode = 96,
+    kButtonB_ANPKeyCode = 97,
+    kButtonC_ANPKeyCode = 98,
+    kButtonX_ANPKeyCode = 99,
+    kButtonY_ANPKeyCode = 100,
+    kButtonZ_ANPKeyCode = 101,
+    kButtonL1_ANPKeyCode = 102,
+    kButtonR1_ANPKeyCode = 103,
+    kButtonL2_ANPKeyCode = 104,
+    kButtonR2_ANPKeyCode = 105,
+    kButtonThumbL_ANPKeyCode = 106,
+    kButtonThumbR_ANPKeyCode = 107,
+    kButtonStart_ANPKeyCode = 108,
+    kButtonSelect_ANPKeyCode = 109,
+    kButtonMode_ANPKeyCode = 110,
+
+    // NOTE: If you add a new keycode here you must also add it to several other files.
+    //       Refer to frameworks/base/core/java/android/view/KeyEvent.java for the full list.
 };
 
 #endif
