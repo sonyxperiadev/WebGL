@@ -42,9 +42,6 @@ private:
 
     // Caching this query from java
     static std::string* s_dataDirectory;
-
-    // Not deleted on deletion of URLRequest
-    static net::HttpCache* s_cache;
 };
 
 } // namespace android

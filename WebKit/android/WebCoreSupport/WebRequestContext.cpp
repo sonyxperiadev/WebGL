@@ -28,6 +28,7 @@
 #include "WebRequestContext.h"
 
 #include "JNIUtility.h"
+#include "app/sqlite_persistent_cookie_store.h"
 #include "jni.h"
 #include "net/base/cookie_monster.h"
 #include "net/base/ssl_config_service.h"
@@ -41,8 +42,7 @@ namespace {
 
 namespace android {
 
-std::string* WebRequestContext::s_dataDirectory = 0;
-net::HttpCache* WebRequestContext::s_cache = 0;
+std::string* WebRequestContext::s_dataDirectory(0);
 
 WebRequestContext::WebRequestContext()
 {
@@ -75,18 +75,24 @@ const std::string* WebRequestContext::GetDataDirectory()
     return s_dataDirectory;
 }
 
-// Some of the members of the RequestContext will be deleted when the URLRequest
-// is deleted as they are scoped pointers. Documented in WebRequestContext.h
 WebRequestContext* WebRequestContext::GetAndroidContext()
 {
-    WebRequestContext* androidContext = new WebRequestContext();
-    androidContext->host_resolver_ = net::CreateSystemHostResolver(0);
-    androidContext->cookie_store_ = new net::CookieMonster(0);
+    static scoped_refptr<WebRequestContext> androidContext(0);
+    if (!androidContext) {
+        std::string cookieString(*GetDataDirectory());
+        cookieString.append("/chromecookies.db");
+        FilePath cookiePath(cookieString.c_str());
+        std::string cacheString(*GetDataDirectory());
+        cacheString.append("/chromecache");
+        FilePath cachePath(cacheString.c_str());
 
-    // In memory cache
-    if (!s_cache)
-        s_cache = new net::HttpCache(0, androidContext->host_resolver(), 0, net::SSLConfigService::CreateSystemSSLConfigService(), 0);
-    androidContext->http_transaction_factory_ = s_cache;
+        androidContext = new WebRequestContext();
+        androidContext->host_resolver_ = net::CreateSystemHostResolver(0);
+        androidContext->http_transaction_factory_ = new net::HttpCache(0, androidContext->host_resolver(), 0, net::SSLConfigService::CreateSystemSSLConfigService(), cachePath, 0);
+
+        scoped_refptr<SQLitePersistentCookieStore> cookieDb = new SQLitePersistentCookieStore(cookiePath);
+        androidContext->cookie_store_ = new net::CookieMonster(cookieDb.get());
+    }
 
     return androidContext;
 }

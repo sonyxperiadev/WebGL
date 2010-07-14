@@ -242,7 +242,8 @@ WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
 ifeq ($(HTTP_STACK),chrome)
 LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebKit/chromium/public \
-	external/chromium
+	external/chromium \
+	external/chromium/android
 endif # HTTP_STACK == chrome
 
 # Redefine LOCAL_PATH here so the build system is not confused
