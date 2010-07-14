@@ -42,124 +42,124 @@ static int windowsKeyCodeForKeyEvent(unsigned int keyCode)
 {
     // Does not provide all key codes, and does not handle all keys.
     switch (keyCode) {
-    case kKeyCodeDel:
+    case AKEYCODE_DEL:
         return VK_BACK;
-    case kKeyCodeTab:
+    case AKEYCODE_TAB:
         return VK_TAB;
-    case kKeyCodeClear:
+    case AKEYCODE_CLEAR:
         return VK_CLEAR;
-    case kKeyCodeDpadCenter:
-    case kKeyCodeNewline:
+    case AKEYCODE_DPAD_CENTER:
+    case AKEYCODE_ENTER:
         return VK_RETURN;
-    case kKeyCodeShiftLeft:
-    case kKeyCodeShiftRight:
+    case AKEYCODE_SHIFT_LEFT:
+    case AKEYCODE_SHIFT_RIGHT:
         return VK_SHIFT;
     // back will serve as escape, although we probably do not have access to it
-    case kKeyCodeBack:
+    case AKEYCODE_BACK:
         return VK_ESCAPE;
-    case kKeyCodeSpace:
+    case AKEYCODE_SPACE:
         return VK_SPACE;
-    case kKeyCodeHome:
+    case AKEYCODE_HOME:
         return VK_HOME;
-    case kKeyCodeDpadLeft:
+    case AKEYCODE_DPAD_LEFT:
         return VK_LEFT;
-    case kKeyCodeDpadUp:
+    case AKEYCODE_DPAD_UP:
         return VK_UP;
-    case kKeyCodeDpadRight:
+    case AKEYCODE_DPAD_RIGHT:
         return VK_RIGHT;
-    case kKeyCodeDpadDown:
+    case AKEYCODE_DPAD_DOWN:
         return VK_DOWN;
-    case kKeyCode0:
+    case AKEYCODE_0:
         return VK_0;
-    case kKeyCode1:
+    case AKEYCODE_1:
         return VK_1;
-    case kKeyCode2:
+    case AKEYCODE_2:
         return VK_2;
-    case kKeyCode3:
+    case AKEYCODE_3:
         return VK_3;
-    case kKeyCode4:
+    case AKEYCODE_4:
         return VK_4;
-    case kKeyCode5:
+    case AKEYCODE_5:
         return VK_5;
-    case kKeyCode6:
+    case AKEYCODE_6:
         return VK_6;
-    case kKeyCode7:
+    case AKEYCODE_7:
         return VK_7;
-    case kKeyCode8:
+    case AKEYCODE_8:
         return VK_8;
-    case kKeyCode9:
+    case AKEYCODE_9:
         return VK_9;
-    case kKeyCodeA:
+    case AKEYCODE_A:
         return VK_A;
-    case kKeyCodeB:
+    case AKEYCODE_B:
         return VK_B;
-    case kKeyCodeC:
+    case AKEYCODE_C:
         return VK_C;
-    case kKeyCodeD:
+    case AKEYCODE_D:
         return VK_D;
-    case kKeyCodeE:
+    case AKEYCODE_E:
         return VK_E;
-    case kKeyCodeF:
+    case AKEYCODE_F:
         return VK_F;
-    case kKeyCodeG:
+    case AKEYCODE_G:
         return VK_G;
-    case kKeyCodeH:
+    case AKEYCODE_H:
         return VK_H;
-    case kKeyCodeI:
+    case AKEYCODE_I:
         return VK_I;
-    case kKeyCodeJ:
+    case AKEYCODE_J:
         return VK_J;
-    case kKeyCodeK:
+    case AKEYCODE_K:
         return VK_K;
-    case kKeyCodeL:
+    case AKEYCODE_L:
         return VK_L;
-    case kKeyCodeM:
+    case AKEYCODE_M:
         return VK_M;
-    case kKeyCodeN:
+    case AKEYCODE_N:
         return VK_N;
-    case kKeyCodeO:
+    case AKEYCODE_O:
         return VK_O;
-    case kKeyCodeP:
+    case AKEYCODE_P:
         return VK_P;
-    case kKeyCodeQ:
+    case AKEYCODE_Q:
         return VK_Q;
-    case kKeyCodeR:
+    case AKEYCODE_R:
         return VK_R;
-    case kKeyCodeS:
+    case AKEYCODE_S:
         return VK_S;
-    case kKeyCodeT:
+    case AKEYCODE_T:
         return VK_T;
-    case kKeyCodeU:
+    case AKEYCODE_U:
         return VK_U;
-    case kKeyCodeV:
+    case AKEYCODE_V:
         return VK_V;
-    case kKeyCodeW:
+    case AKEYCODE_W:
         return VK_W;
-    case kKeyCodeX:
+    case AKEYCODE_X:
         return VK_X;
-    case kKeyCodeY:
+    case AKEYCODE_Y:
         return VK_Y;
-    case kKeyCodeZ:
+    case AKEYCODE_Z:
         return VK_Z;
     // colon
-    case kKeyCodeSemicolon:
+    case AKEYCODE_SEMICOLON:
         return VK_OEM_1;
-    case kKeyCodeComma:
+    case AKEYCODE_COMMA:
         return VK_OEM_COMMA;
-    case kKeyCodeMinus:
+    case AKEYCODE_MINUS:
         return VK_OEM_MINUS;
-    case kKeyCodeEquals:
+    case AKEYCODE_EQUALS:
         return VK_OEM_PLUS;
-    case kKeyCodePeriod:
+    case AKEYCODE_PERIOD:
         return VK_OEM_PERIOD;
-    case kKeyCodeSlash:
+    case AKEYCODE_SLASH:
         return VK_OEM_2;
     // maybe not the right choice
-    case kKeyCodeLeftBracket:
+    case AKEYCODE_LEFT_BRACKET:
         return VK_OEM_4;
-    case kKeyCodeBackslash:
+    case AKEYCODE_BACKSLASH:
         return VK_OEM_5;
-    case kKeyCodeRightBracket:
+    case AKEYCODE_RIGHT_BRACKET:
         return VK_OEM_6;
     default:
         return 0;
@@ -171,23 +171,23 @@ static String keyIdentifierForAndroidKeyCode(int keyCode)
     // Does not return all of the same key identifiers, and
     // does not handle all the keys.
     switch (keyCode) {
-    case kKeyCodeClear:
+    case AKEYCODE_CLEAR:
         return "Clear";
-    case kKeyCodeNewline:
-    case kKeyCodeDpadCenter:
+    case AKEYCODE_ENTER:
+    case AKEYCODE_DPAD_CENTER:
         return "Enter";
-    case kKeyCodeHome:
+    case AKEYCODE_HOME:
         return "Home";
-    case kKeyCodeDpadDown:
+    case AKEYCODE_DPAD_DOWN:
         return "Down";
-    case kKeyCodeDpadLeft:
+    case AKEYCODE_DPAD_LEFT:
         return "Left";
-    case kKeyCodeDpadRight:
+    case AKEYCODE_DPAD_RIGHT:
         return "Right";
-    case kKeyCodeDpadUp:
+    case AKEYCODE_DPAD_UP:
         return "Up";
     // Standard says that DEL becomes U+00007F.
-    case kKeyCodeDel:
+    case AKEYCODE_DEL:
         return "U+00007F";
     default:
         char upper[16];

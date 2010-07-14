@@ -657,19 +657,19 @@ void getVisibleRect(WebCore::IntRect* rect)
     checkException(env);
 }
 
-static CachedFrame::Direction KeyToDirection(KeyCode keyCode)
+static CachedFrame::Direction KeyToDirection(int32_t keyCode)
 {
     switch (keyCode) {
-        case kKeyCodeDpadRight:
+        case AKEYCODE_DPAD_RIGHT:
             DBG_NAV_LOGD("keyCode=%s", "right");
             return CachedFrame::RIGHT;
-        case kKeyCodeDpadLeft:
+        case AKEYCODE_DPAD_LEFT:
             DBG_NAV_LOGD("keyCode=%s", "left");
             return CachedFrame::LEFT;
-        case kKeyCodeDpadDown:
+        case AKEYCODE_DPAD_DOWN:
             DBG_NAV_LOGD("keyCode=%s", "down");
             return CachedFrame::DOWN;
-        case kKeyCodeDpadUp:
+        case AKEYCODE_DPAD_UP:
             DBG_NAV_LOGD("keyCode=%s", "up");
             return CachedFrame::UP;
         default:
@@ -706,7 +706,7 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
     }
 
     m_viewImpl->m_moveGeneration++;
-    CachedFrame::Direction direction = KeyToDirection((KeyCode) keyCode);
+    CachedFrame::Direction direction = KeyToDirection(keyCode);
     const CachedFrame* cachedFrame, * oldFrame = 0;
     const CachedNode* cursor = root->currentCursor(&oldFrame);
     WebCore::IntPoint cursorLocation = root->cursorLocation();
