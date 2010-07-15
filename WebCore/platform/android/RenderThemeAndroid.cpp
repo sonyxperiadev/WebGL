@@ -47,11 +47,6 @@
 
 namespace WebCore {
 
-// Add a constant amount of padding to the textsize to get the final height
-// of buttons, so that our button images are large enough to properly fit
-// the text.
-const int buttonPadding = 18;
-
 // Add padding to the fontSize of ListBoxes to get their maximum sizes.
 // Listboxes often have a specified size.  Since we change them into
 // dropdowns, we want a much smaller height, which encompasses the text.
@@ -201,12 +196,14 @@ bool RenderThemeAndroid::supportsFocus(ControlPart appearance)
 
 void RenderThemeAndroid::adjustButtonStyle(CSSStyleSelector*, RenderStyle* style, WebCore::Element*) const
 {
-    // Padding code is taken from RenderThemeSafari.cpp
+    // Code is taken from RenderThemeSafari.cpp
     // It makes sure we have enough space for the button text.
     const int padding = 8;
     style->setPaddingLeft(Length(padding, Fixed));
     style->setPaddingRight(Length(padding, Fixed));
-    style->setMinHeight(Length(style->fontSize() + buttonPadding, Fixed));
+
+    // Set a min-height so that we can't get smaller than the mini button.
+    style->setMinHeight(Length(15, Fixed));
 }
 
 bool RenderThemeAndroid::paintCheckbox(RenderObject* obj, const PaintInfo& info, const IntRect& rect)
