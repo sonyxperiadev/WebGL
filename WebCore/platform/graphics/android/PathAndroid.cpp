@@ -353,7 +353,7 @@ static GraphicsContext* scratchContext()
     static ImageBuffer* scratch = 0;
     // TODO(benm): Confirm with reed that it's correct to use the (default) DeviceRGB ColorSpace parameter in the call to create below.
     if (!scratch)
-        scratch = ImageBuffer::create(IntSize(1, 1)).release();
+        scratch = ImageBuffer::create(IntSize(1, 1)).leakPtr();
     // We don't bother checking for failure creating the ImageBuffer, since our
     // ImageBuffer initializer won't fail.
     return scratch->context();
