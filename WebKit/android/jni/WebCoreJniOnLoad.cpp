@@ -195,7 +195,8 @@ EXPORT void benchmark(const char* url, int reloadCount, int width, int height) {
                           new InspectorClientAndroid,
                           0, // PluginHalterClient
                           0, // GeolocationControllerClient
-                          0); // DeviceOrientationClient
+                          0, // DeviceOrientationClient
+                          0); // BackForwardClient
     editor->setPage(page);
 
     // Create MyWebFrame that intercepts network requests
