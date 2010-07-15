@@ -482,11 +482,7 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
     jstring jPasswordString = loaderInternal->m_pass.isEmpty() ?
             NULL : env->NewString(loaderInternal->m_pass.characters(), loaderInternal->m_pass.length());
 
-#ifdef ANDROID_USER_GESTURE_CHECK
     bool isUserGesture = UserGestureIndicator::processingUserGesture();
-#else
-    bool isUserGesture = true;
-#endif
     jobject jLoadListener =
         env->CallObjectMethod(obj.get(), mJavaFrame->mStartLoadingResource,
                 (int)loader, jUrlStr, jMethodStr, jHeaderMap,
@@ -756,11 +752,7 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
     if (equalIgnoringCase(request.httpMethod(), "POST"))
         return true;
     WebCore::KURL requestUrl = request.url();
-#ifdef ANDROID_USER_GESTURE_CHECK
     bool isUserGesture = UserGestureIndicator::processingUserGesture();
-#else
-    bool isUserGesture = true;
-#endif
     if (!mUserInitiatedClick && !isUserGesture && 
             (requestUrl.protocolIs("http") || requestUrl.protocolIs("https") ||
             requestUrl.protocolIs("file") || requestUrl.protocolIs("about") ||
