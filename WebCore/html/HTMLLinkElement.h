@@ -41,13 +41,10 @@ public:
         bool m_isIcon;
         bool m_isAlternate;
         bool m_isDNSPrefetch;
-<<<<<<< HEAD
 #ifdef ANDROID_APPLE_TOUCH_ICON
         bool m_isTouchIcon;
         bool m_isPrecomposedTouchIcon;
 #endif
-=======
->>>>>>> webkit.org at r63173
 #if ENABLE(LINK_PREFETCH)
         bool m_isLinkPrefetch;
 #endif
@@ -60,12 +57,8 @@ public:
 #if ENABLE(LINK_PREFETCH)
             , m_isLinkPrefetch(false)
 #endif
-<<<<<<< HEAD
-            { };
-=======
             { 
             }
->>>>>>> webkit.org at r63173
     };
 
     static PassRefPtr<HTMLLinkElement> create(const QualifiedName&, Document*, bool createdByParser);

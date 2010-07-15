@@ -33,16 +33,11 @@ namespace WebCore {
     class Frame;
     class Geolocation;
     class PluginData;
-<<<<<<< HEAD
-    class PluginArray;
+    class String;
 #if PLATFORM(ANDROID)
     class ApplicationInstalledCallback;
     class Connection;
 #endif
-
-=======
-    class String;
->>>>>>> webkit.org at r63173
 
     class Navigator : public NavigatorBase, public RefCounted<Navigator> {
     public:

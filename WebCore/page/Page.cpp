@@ -85,13 +85,12 @@
 #include "GeolocationController.h"
 #endif
 
-<<<<<<< HEAD
-#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
-#include "PackageNotifier.h"
-=======
 #if ENABLE(INSPECTOR) && ENABLE(OFFLINE_WEB_APPLICATIONS)
 #include "InspectorApplicationCacheAgent.h"
->>>>>>> webkit.org at r63173
+#endif
+
+#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
+#include "PackageNotifier.h"
 #endif
 
 namespace WebCore {
@@ -126,7 +125,6 @@ static void networkStateChanged()
         frames[i]->document()->dispatchWindowEvent(Event::create(eventName, false, false));
 }
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
 static void onPackageResultAvailable()
 {
@@ -138,10 +136,7 @@ static void onPackageResultAvailable()
 }
 #endif
 
-Page::Page(ChromeClient* chromeClient, ContextMenuClient* contextMenuClient, EditorClient* editorClient, DragClient* dragClient, InspectorClient* inspectorClient, PluginHalterClient* pluginHalterClient, GeolocationControllerClient* geolocationControllerClient, DeviceOrientationClient* deviceOrientationClient)
-=======
 Page::Page(ChromeClient* chromeClient, ContextMenuClient* contextMenuClient, EditorClient* editorClient, DragClient* dragClient, InspectorClient* inspectorClient, PluginHalterClient* pluginHalterClient, GeolocationControllerClient* geolocationControllerClient, DeviceOrientationClient* deviceOrientationClient, BackForwardControllerClient* backForwardControllerClient)
->>>>>>> webkit.org at r63173
     : m_chrome(new Chrome(this, chromeClient))
     , m_dragCaretController(new SelectionController(0, true))
 #if ENABLE(DRAG_SUPPORT)

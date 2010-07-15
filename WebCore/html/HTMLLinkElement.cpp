@@ -147,13 +147,10 @@ void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, RelAttribute
 #if ENABLE(LINK_PREFETCH)
     relAttribute.m_isLinkPrefetch = false;
 #endif
-<<<<<<< HEAD
 #ifdef ANDROID_APPLE_TOUCH_ICON
     relAttribute.m_isTouchIcon = false;
     relAttribute.m_isPrecomposedTouchIcon = false;
 #endif
-=======
->>>>>>> webkit.org at r63173
     if (equalIgnoringCase(rel, "stylesheet"))
         relAttribute.m_isStyleSheet = true;
     else if (equalIgnoringCase(rel, "icon") || equalIgnoringCase(rel, "shortcut icon"))

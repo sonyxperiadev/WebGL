@@ -49,12 +49,9 @@ LOCAL_SRC_FILES += \
 	bindings/v8/DateExtension.cpp \
 	bindings/v8/DOMData.cpp \
 	bindings/v8/DOMDataStore.cpp \
-<<<<<<< HEAD
 	bindings/v8/DOMWrapperWorld.cpp \
-	bindings/v8/IsolatedWorld.cpp \
-=======
 	bindings/v8/IDBBindingUtilities.cpp \
->>>>>>> webkit.org at r63173
+	bindings/v8/IsolatedWorld.cpp \
 	bindings/v8/MainThreadDOMData.cpp \
 	bindings/v8/NPV8Object.cpp \
 	bindings/v8/ScheduledAction.cpp \
@@ -129,12 +126,9 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8EventSourceConstructor.cpp \
 	bindings/v8/custom/V8Float32ArrayCustom.cpp \
 	bindings/v8/custom/V8GeolocationCustom.cpp \
-<<<<<<< HEAD
 	bindings/v8/custom/V8HistoryCustom.cpp \
-=======
 	bindings/v8/custom/V8IDBAny.cpp \
 	bindings/v8/custom/V8IDBKey.cpp \
->>>>>>> webkit.org at r63173
 	bindings/v8/custom/V8HTMLAllCollectionCustom.cpp \
 	bindings/v8/custom/V8HTMLAudioElementConstructor.cpp \
 	bindings/v8/custom/V8HTMLCanvasElementCustom.cpp \
