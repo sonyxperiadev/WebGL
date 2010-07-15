@@ -116,6 +116,7 @@ struct FieldIds {
         mSupportMultipleWindows = env->GetFieldID(clazz, "mSupportMultipleWindows", "Z");
         mShrinksStandaloneImagesToFit = env->GetFieldID(clazz, "mShrinksStandaloneImagesToFit", "Z");
         mMaximumDecodedImageSize = env->GetFieldID(clazz, "mMaximumDecodedImageSize", "J");
+        mPrivateBrowsingEnabled = env->GetFieldID(clazz, "mPrivateBrowsingEnabled", "Z");
         mUseDoubleTree = env->GetFieldID(clazz, "mUseDoubleTree", "Z");
         mPageCacheCapacity = env->GetFieldID(clazz, "mPageCacheCapacity", "I");
 
@@ -199,6 +200,7 @@ struct FieldIds {
     jfieldID mSupportMultipleWindows;
     jfieldID mShrinksStandaloneImagesToFit;
     jfieldID mMaximumDecodedImageSize;
+    jfieldID mPrivateBrowsingEnabled;
     jfieldID mUseDoubleTree;
     jfieldID mPageCacheCapacity;
     // Ordinal() method and value field for enums
@@ -363,6 +365,10 @@ public:
         if (maxImage == 0)
             maxImage = computeMaxBitmapSizeForCache();
         s->setMaximumDecodedImageSize(maxImage);
+
+        flag = env->GetBooleanField(obj, gFieldIds->mPrivateBrowsingEnabled);
+        s->setPrivateBrowsingEnabled(flag);
+
 #if ENABLE(DATABASE)
         flag = env->GetBooleanField(obj, gFieldIds->mDatabaseEnabled);
         WebCore::Database::setIsAvailable(flag);
