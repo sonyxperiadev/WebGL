@@ -218,9 +218,6 @@ const char* QWebPagePrivate::editorCommandForWebActions(QWebPage::WebAction acti
     return 0;
 }
 
-// If you change this make sure to also adjust the docs for QWebPage::userAgentForUrl
-#define WEBKIT_VERSION "527+"
-
 static inline DragOperation dropActionToDragOp(Qt::DropActions actions)
 {
     unsigned result = 0;
@@ -275,7 +272,7 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
     contextMenuClient = new ContextMenuClientQt();
     editorClient = new EditorClientQt(q);
     page = new Page(chromeClient, contextMenuClient, editorClient,
-                    new DragClientQt(q), new InspectorClientQt(q), 0, 0, 0);
+                    new DragClientQt(q), new InspectorClientQt(q), 0, 0, 0, 0);
 
     settings = new QWebSettings(page->settings());
 
@@ -3590,7 +3587,7 @@ QString QWebPage::userAgentForUrl(const QUrl&) const
         firstPartTemp += QString::fromLatin1("Sun Solaris");
 #elif defined Q_OS_ULTRIX
         firstPartTemp += QString::fromLatin1("DEC Ultrix");
-#elif defined Q_WS_S60
+#elif defined Q_OS_SYMBIAN
         firstPartTemp += QLatin1Char(' ');
         QSysInfo::S60Version s60Version = QSysInfo::s60Version();
         switch (s60Version) {

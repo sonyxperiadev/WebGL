@@ -462,6 +462,7 @@ void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy, DatabasePolic
                         m_frame->domWindow()->dispatchEvent(PageTransitionEvent::create(eventNames().pagehideEvent, m_frame->document()->inPageCache()), m_frame->document());
                     if (!m_frame->document()->inPageCache())
                         m_frame->domWindow()->dispatchEvent(Event::create(eventNames().unloadEvent, false, false), m_frame->domWindow()->document());
+                    m_frameLoadTimeline.unloadEventEnd = currentTime();
                 }
                 m_pageDismissalEventBeingDispatched = false;
                 if (m_frame->document())
@@ -826,7 +827,7 @@ void FrameLoader::startIconLoader()
 
     // This is either a reload or the icon database said "yes, load the icon", so kick off the load!
     if (!m_iconLoader)
-        m_iconLoader.set(IconLoader::create(m_frame).release());
+        m_iconLoader = IconLoader::create(m_frame);
         
     m_iconLoader->startLoading();
 }
@@ -1529,6 +1530,9 @@ void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType t
 
     if (m_pageDismissalEventBeingDispatched)
         return;
+
+    m_frameLoadTimeline = FrameLoadTimeline();
+    m_frameLoadTimeline.navigationStart = currentTime();
 
     policyChecker()->setLoadType(type);
     RefPtr<FormState> formState = prpFormState;
@@ -2644,6 +2648,9 @@ String FrameLoader::userAgent(const KURL& url) const
 void FrameLoader::handledOnloadEvents()
 {
     m_client->dispatchDidHandleOnloadEvents();
+
+    m_loadType = FrameLoadTypeStandard;
+
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     if (documentLoader())
         documentLoader()->applicationCacheHost()->stopDeferringEvents();
@@ -2716,6 +2723,13 @@ void FrameLoader::addExtraFieldsToRequest(ResourceRequest& request, FrameLoadTyp
 
     applyUserAgent(request);
     
+    // If we inherit cache policy from a main resource, we use the DocumentLoader's 
+    // original request cache policy for two reasons:
+    // 1. For POST requests, we mutate the cache policy for the main resource,
+    //    but we do not want this to apply to subresources
+    // 2. Delegates that modify the cache policy using willSendRequest: should
+    //    not affect any other resources. Such changes need to be done
+    //    per request.
     if (loadType == FrameLoadTypeReload) {
         request.setCachePolicy(ReloadIgnoringCacheData);
         request.setHTTPHeaderField("Cache-Control", "max-age=0");
@@ -2723,8 +2737,12 @@ void FrameLoader::addExtraFieldsToRequest(ResourceRequest& request, FrameLoadTyp
         request.setCachePolicy(ReloadIgnoringCacheData);
         request.setHTTPHeaderField("Cache-Control", "no-cache");
         request.setHTTPHeaderField("Pragma", "no-cache");
-    } else if (isBackForwardLoadType(loadType) && !request.url().protocolIs("https"))
+    } else if (request.isConditional())
+        request.setCachePolicy(ReloadIgnoringCacheData);
+    else if (isBackForwardLoadType(loadType) && !request.url().protocolIs("https"))
         request.setCachePolicy(ReturnCacheDataElseLoad);
+    else if (!mainResource && documentLoader()->isLoadingInAPISense())
+        request.setCachePolicy(documentLoader()->originalRequest().cachePolicy());
     
     if (mainResource)
         request.setHTTPAccept(defaultAcceptHeader);
@@ -2823,17 +2841,6 @@ unsigned long FrameLoader::loadResourceSynchronously(const ResourceRequest& requ
     ResourceRequest initialRequest = request;
     initialRequest.setTimeoutInterval(10);
     
-    // Use the original request's cache policy for two reasons:
-    // 1. For POST requests, we mutate the cache policy for the main resource,
-    //    but we do not want this to apply to subresources
-    // 2. Delegates that modify the cache policy using willSendRequest: should
-    //    not affect any other resources. Such changes need to be done
-    //    per request.
-    if (initialRequest.isConditional())
-        initialRequest.setCachePolicy(ReloadIgnoringCacheData);
-    else
-        initialRequest.setCachePolicy(originalRequest().cachePolicy());
-    
     if (!referrer.isEmpty())
         initialRequest.setHTTPReferrer(referrer);
     addHTTPOriginIfNeeded(initialRequest, outgoingOrigin());
@@ -2841,6 +2848,8 @@ unsigned long FrameLoader::loadResourceSynchronously(const ResourceRequest& requ
     if (Page* page = m_frame->page())
         initialRequest.setFirstPartyForCookies(page->mainFrame()->loader()->documentLoader()->request().url());
     initialRequest.setHTTPUserAgent(client()->userAgent(request.url()));
+    
+    addExtraFieldsToSubresourceRequest(initialRequest);
 
     unsigned long identifier = 0;    
     ResourceRequest newRequest(initialRequest);

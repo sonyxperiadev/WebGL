@@ -520,10 +520,10 @@ void WebDevToolsAgentImpl::identifierForInitialRequest(
     }
 }
 
-void WebDevToolsAgentImpl::willSendRequest(unsigned long resourceId, const WebURLRequest& request)
+void WebDevToolsAgentImpl::willSendRequest(unsigned long resourceId, WebURLRequest& request)
 {
     if (InspectorController* ic = inspectorController())
-        ic->willSendRequest(resourceId, request.toResourceRequest(), ResourceResponse());
+        ic->willSendRequest(resourceId, request.toMutableResourceRequest(), ResourceResponse());
 }
 
 void WebDevToolsAgentImpl::didReceiveData(unsigned long resourceId, int length)
@@ -597,6 +597,11 @@ bool WebDevToolsAgentImpl::sendMessageToFrontend(const WebCore::String& message)
     WebDevToolsAgentImpl* devToolsAgent = static_cast<WebDevToolsAgentImpl*>(m_webViewImpl->devToolsAgent());
     if (!devToolsAgent)
         return false;
+
+    if (devToolsAgent->m_apuAgentEnabled && devToolsAgent->m_apuAgentDelegateStub) {
+        devToolsAgent->m_apuAgentDelegateStub->dispatchToApu(message);
+        return true;
+    }
 
     WebVector<WebString> arguments(size_t(1));
     arguments[0] = message;

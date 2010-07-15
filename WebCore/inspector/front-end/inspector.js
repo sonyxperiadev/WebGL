@@ -53,6 +53,7 @@ var WebInspector = {
     resources: {},
     resourceURLMap: {},
     cookieDomains: {},
+    applicationCacheDomains: {},
     missingLocalizedStrings: {},
     pendingDispatches: 0,
 
@@ -566,6 +567,11 @@ WebInspector.dispatch = function() {
     // This is important to LayoutTests.
     function delayDispatch()
     {
+        if (!(methodName in WebInspector)) {
+            console.error("Attempted to dispatch unimplemented WebInspector method: %s", methodName);
+            return;
+        }
+
         WebInspector[methodName].apply(WebInspector, parameters);
         WebInspector.pendingDispatches--;
     }
@@ -575,8 +581,7 @@ WebInspector.dispatch = function() {
 
 WebInspector.dispatchMessageFromBackend = function(arguments)
 {
-    var methodName = arguments.shift();
-    WebInspector[methodName].apply(this, arguments);
+    WebInspector.dispatch.apply(this, arguments);
 }
 
 
@@ -716,11 +721,12 @@ WebInspector._registerShortcuts = function()
 
 WebInspector.documentKeyDown = function(event)
 {
+    var isInputElement = event.target.nodeName === "INPUT";
     var isInEditMode = event.target.enclosingNodeOrSelfWithClass("text-prompt") || WebInspector.isEditingAnyField();
     const helpKey = WebInspector.isMac() ? "U+003F" : "U+00BF"; // "?" for both platforms
 
     if (event.keyIdentifier === "F1" ||
-        (event.keyIdentifier === helpKey && event.shiftKey && (!isInEditMode || event.metaKey))) {
+        (event.keyIdentifier === helpKey && event.shiftKey && (!isInEditMode && !isInputElement || event.metaKey))) {
         WebInspector.shortcutsHelp.show();
         event.stopPropagation();
         event.preventDefault();
@@ -1163,6 +1169,7 @@ WebInspector.updateResource = function(identifier, payload)
         if (match) {
             var protocol = match[1].toLowerCase();
             this._addCookieDomain(match[2]);
+            this._addAppCacheDomain(match[2]);
         }
     }
 
@@ -1174,6 +1181,8 @@ WebInspector.updateResource = function(identifier, payload)
         resource.statusText = payload.statusText;
         resource.suggestedFilename = payload.suggestedFilename;
         resource.responseHeaders = payload.responseHeaders;
+        resource.connectionID = payload.connectionID;
+        resource.timing = payload.timing;
     }
 
     if (payload.didTypeChange) {
@@ -1258,6 +1267,18 @@ WebInspector._addCookieDomain = function(domain)
     this.panels.storage.addCookieDomain(domain);
 }
 
+WebInspector._addAppCacheDomain = function(domain)
+{
+    // Eliminate duplicate domains from the list.
+    if (domain in this.applicationCacheDomains)
+        return;
+    this.applicationCacheDomains[domain] = true;
+
+    if (!this.panels.storage)
+        return;
+    this.panels.storage.addApplicationCache(domain);
+}
+
 WebInspector.addDOMStorage = function(payload)
 {
     if (!this.panels.storage)
@@ -1271,9 +1292,17 @@ WebInspector.addDOMStorage = function(payload)
 
 WebInspector.updateDOMStorage = function(storageId)
 {
-    if (!this.panels.storage)
-        return;
     this.panels.storage.updateDOMStorage(storageId);
+}
+
+WebInspector.updateApplicationCacheStatus = function(status)
+{
+    this.panels.storage.updateApplicationCacheStatus(status);
+}
+
+WebInspector.updateNetworkState = function(isNowOnline)
+{
+    this.panels.storage.updateNetworkState(isNowOnline);
 }
 
 WebInspector.resourceTrackingWasEnabled = function()
@@ -1285,7 +1314,6 @@ WebInspector.resourceTrackingWasDisabled = function()
 {
     this.panels.resources.resourceTrackingWasDisabled();
 }
-
 
 WebInspector.searchingForNodeWasEnabled = function()
 {
@@ -1388,6 +1416,7 @@ WebInspector.reset = function()
     this.resources = {};
     this.resourceURLMap = {};
     this.cookieDomains = {};
+    this.applicationCacheDomains = {};
     this.hoveredDOMNode = null;
 
     delete this.mainResource;

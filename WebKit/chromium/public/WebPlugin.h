@@ -50,6 +50,9 @@ struct WebRect;
 struct WebURLError;
 template <typename T> class WebVector;
 
+// FIXME: remove once the chromium is updated.
+#define WEBPLUGIN_FIND_HAS_RETURN_TYPE
+
 class WebPlugin {
 public:
     virtual bool initialize(WebPluginContainer*) = 0;
@@ -94,7 +97,23 @@ public:
     // Ends the print operation.
     virtual void printEnd() { }
 
-    virtual WebString selectedText() { return WebString(); }
+    virtual bool hasSelection() const { return false; }
+    virtual WebString selectionAsText() const { return WebString(); }
+    virtual WebString selectionAsMarkup() const { return WebString(); }
+
+    // Used for zooming of full page plugins.
+    virtual void setZoomFactor(float scale, bool textOnly) { }
+
+    // Find interface.
+    // Start a new search.  The plugin should search for a little bit at a time so that it
+    // doesn't block the thread in case of a large document.  The results, along with the
+    // find's identifier, should be sent asynchronously to WebFrameClient's reportFindInPage* methods.
+    // Returns true if the search started, or false if the plugin doesn't support search.
+    virtual bool startFind(const WebString& searchText, bool caseSensitive, int identifier) { return false; }
+    // Tells the plugin to jump forward or backward in the list of find results.
+    virtual void selectFindResult(bool forward) { }
+    // Tells the plugin that the user has stopped the find operation.
+    virtual void stopFind() { }
 
 protected:
     ~WebPlugin() { }

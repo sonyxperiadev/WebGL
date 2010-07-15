@@ -27,6 +27,7 @@
 #define UserScript_h
 
 #include "KURL.h"
+#include "UserContentTypes.h"
 #include "UserScriptTypes.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
@@ -38,12 +39,13 @@ class UserScript : public Noncopyable {
 public:
     UserScript(const String& source, const KURL& url,
                PassOwnPtr<Vector<String> > whitelist, PassOwnPtr<Vector<String> > blacklist,
-               UserScriptInjectionTime injectionTime)
+               UserScriptInjectionTime injectionTime, UserContentInjectedFrames injectedFrames)
         : m_source(source)
         , m_url(url)
         , m_whitelist(whitelist)
         , m_blacklist(blacklist)
         , m_injectionTime(injectionTime)
+        , m_injectedFrames(injectedFrames)
     {
     }
 
@@ -52,15 +54,17 @@ public:
     const Vector<String>* whitelist() const { return m_whitelist.get(); }
     const Vector<String>* blacklist() const { return m_blacklist.get(); }
     UserScriptInjectionTime injectionTime() const { return m_injectionTime; }
-    
+    UserContentInjectedFrames injectedFrames() const { return m_injectedFrames; }
+
 private:
     String m_source;
     KURL m_url;
     OwnPtr<Vector<String> > m_whitelist;
     OwnPtr<Vector<String> > m_blacklist;
     UserScriptInjectionTime m_injectionTime;
+    UserContentInjectedFrames m_injectedFrames;
 };
 
 } // namespace WebCore
- 
+
 #endif // UserScript_h

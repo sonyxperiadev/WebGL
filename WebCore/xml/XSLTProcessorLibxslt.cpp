@@ -297,7 +297,7 @@ bool XSLTProcessor::transformToString(Node* sourceNode, String& mimeType, String
         xsltTransformContextPtr transformContext = xsltNewTransformContext(sheet, sourceDoc);
         registerXSLTExtensions(transformContext);
 
-        // <http://bugs.webkit.org/show_bug.cgi?id=16077>: XSLT processor <xsl:sort> algorithm only compares by code point
+        // <http://bugs.webkit.org/show_bug.cgi?id=16077>: XSLT processor <xsl:sort> algorithm only compares by code point.
         xsltSetCtxtSortFunc(transformContext, xsltUnicodeSortFunction);
 
         // This is a workaround for a bug in libxslt.

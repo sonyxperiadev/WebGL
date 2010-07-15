@@ -1,3 +1,100 @@
+2010-07-09  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Implementation of the QScriptValue::propertyFlags function.
+
+        The function returns the flags of a property with the given name,
+        using a given mode to resolve the property. This is a simple
+        implementation that is sufficient to test the QScriptValueIterator.
+
+        [Qt] QScriptValue API should have a property flag accessor.
+        https://bugs.webkit.org/show_bug.cgi?id=41769
+
+        * api/qscriptvalue.cpp:
+        (QScriptValue::propertyFlags):
+        * api/qscriptvalue.h:
+        * api/qscriptvalue_p.h:
+        (QScriptValuePrivate::propertyFlags):
+        * tests/qscriptvalue/tst_qscriptvalue.cpp:
+        (tst_QScriptValue::propertyFlag_data):
+        (tst_QScriptValue::propertyFlag):
+        * tests/qscriptvalue/tst_qscriptvalue.h:
+
+2010-07-07  Caio Marcelo de Oliveira Filho  <caio.oliveira@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Implementation of QScriptValue::isArray()
+        https://bugs.webkit.org/show_bug.cgi?id=41713
+
+        Since we don't have access to the [[Class]] internal property of
+        builtins (including Array), the solution was to keep the original 'Array'
+        (constructor) and 'Array.prototype' objects and use them to identify
+        if a given object is an Array.
+
+        Also uncomment some tests and add some tests of newArray() that
+        depended on isArray(). 
+
+        * api/qscriptengine_p.cpp:
+        (QScriptEnginePrivate::QScriptEnginePrivate):
+        (QScriptEnginePrivate::~QScriptEnginePrivate):
+        * api/qscriptengine_p.h:
+        (QScriptEnginePrivate::isArray):
+        * api/qscriptvalue.cpp:
+        (QScriptValue::isArray):
+        * api/qscriptvalue.h:
+        * api/qscriptvalue_p.h:
+        (QScriptValuePrivate::isArray):
+        * tests/qscriptengine/tst_qscriptengine.cpp:
+        (tst_QScriptEngine::newArray):
+
+2010-07-06  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Implementation of QScriptValue properties accessors.
+
+        The patch contains implementation of the QScriptValue::property() and
+        the QScriptValue::setProperty(). It is not full functionality, as these
+        method are too complex for one patch, but it is enough to cover about
+        95% of use cases.
+
+        Missing functionality:
+         - Few of the PropertyFlags are ignored.
+         - Only a public part of the ResolveFlags can be used (ResolveLocal,
+         ResolvePrototype).
+
+        A lot of new test cases were added.
+
+        [Qt] QScriptValue should have API for accessing object properties
+        https://bugs.webkit.org/show_bug.cgi?id=40903
+
+        * api/qscriptconverter_p.h:
+        (QScriptConverter::toPropertyFlags):
+        * api/qscriptstring_p.h:
+        (QScriptStringPrivate::operator JSStringRef):
+        * api/qscriptvalue.cpp:
+        (QScriptValue::property):
+        (QScriptValue::setProperty):
+        * api/qscriptvalue.h:
+        (QScriptValue::):
+        * api/qscriptvalue_p.h:
+        (QScriptValuePrivate::assignEngine):
+        (QScriptValuePrivate::property):
+        (QScriptValuePrivate::hasOwnProperty):
+        (QScriptValuePrivate::setProperty):
+        (QScriptValuePrivate::deleteProperty):
+        * tests/qscriptvalue/tst_qscriptvalue.cpp:
+        (tst_QScriptValue::getPropertySimple_data):
+        (tst_QScriptValue::getPropertySimple):
+        (tst_QScriptValue::setPropertySimple):
+        (tst_QScriptValue::getPropertyResolveFlag):
+        (tst_QScriptValue::getSetProperty):
+        (tst_QScriptValue::setProperty_data):
+        (tst_QScriptValue::setProperty):
+        * tests/qscriptvalue/tst_qscriptvalue.h:
+
 2010-07-02  Jedrzej Nowacki  <jedrzej.nowacki@nokia.com>
 
         Reviewed by Simon Hausmann.

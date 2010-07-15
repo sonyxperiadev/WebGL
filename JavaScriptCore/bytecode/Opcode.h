@@ -120,10 +120,10 @@ namespace JSC {
         macro(op_get_by_id_generic, 8) \
         macro(op_get_array_length, 8) \
         macro(op_get_string_length, 8) \
-        macro(op_put_by_id, 8) \
-        macro(op_put_by_id_transition, 8) \
-        macro(op_put_by_id_replace, 8) \
-        macro(op_put_by_id_generic, 8) \
+        macro(op_put_by_id, 9) \
+        macro(op_put_by_id_transition, 9) \
+        macro(op_put_by_id_replace, 9) \
+        macro(op_put_by_id_generic, 9) \
         macro(op_del_by_id, 4) \
         macro(op_get_by_val, 4) \
         macro(op_get_by_pname, 7) \
@@ -210,7 +210,7 @@ namespace JSC {
         FOR_EACH_OPCODE_ID(VERIFY_OPCODE_ID);
     #undef VERIFY_OPCODE_ID
 
-#if HAVE(COMPUTED_GOTO)
+#if ENABLE(COMPUTED_GOTO_INTERPRETER)
 #if COMPILER(RVCT) || COMPILER(INTEL)
     typedef void* Opcode;
 #else

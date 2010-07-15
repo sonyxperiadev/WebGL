@@ -23,6 +23,7 @@
 #ifndef Lexer_h
 #define Lexer_h
 
+#include "JSParser.h"
 #include "Lookup.h"
 #include "ParserArena.h"
 #include "SourceCode.h"
@@ -49,7 +50,7 @@ namespace JSC {
         void setIsReparsing() { m_isReparsing = true; }
 
         // Functions for the parser itself.
-        int lex(void* lvalp, void* llocp);
+        JSTokenType lex(JSTokenData* lvalp, JSTokenInfo* llocp);
         int lineNumber() const { return m_lineNumber; }
         void setLastLineNumber(int lastLineNumber) { m_lastLineNumber = lastLineNumber; }
         int lastLineNumber() const { return m_lastLineNumber; }
@@ -61,6 +62,12 @@ namespace JSC {
         // Functions for use after parsing.
         bool sawError() const { return m_error; }
         void clear();
+        int currentOffset() { return m_code - m_codeStart; }
+        void setOffset(int offset)
+        {
+            m_code = m_codeStart + offset;
+            m_current = *m_code;
+        }
 
     private:
         friend class JSGlobalData;
@@ -86,8 +93,10 @@ namespace JSC {
 
         ALWAYS_INLINE bool lastTokenWasRestrKeyword() const;
 
+        ALWAYS_INLINE bool parseString(JSTokenData* lvalp);
+
         static const size_t initialReadBufferCapacity = 32;
-        
+
         int m_lineNumber;
         int m_lastLineNumber;
 
@@ -113,8 +122,6 @@ namespace JSC {
         JSGlobalData* m_globalData;
 
         const HashTable m_keywordTable;
-
-        Vector<UChar> m_codeWithoutBOMs;
     };
 
     inline bool Lexer::isWhiteSpace(int ch)
@@ -135,12 +142,6 @@ namespace JSC {
     inline UChar Lexer::convertUnicode(int c1, int c2, int c3, int c4)
     {
         return (convertHex(c1, c2) << 8) | convertHex(c3, c4);
-    }
-
-    // A bridge for yacc from the C world to the C++ world.
-    inline int jscyylex(void* lvalp, void* llocp, void* globalData)
-    {
-        return static_cast<JSGlobalData*>(globalData)->lexer->lex(lvalp, llocp);
     }
 
 } // namespace JSC

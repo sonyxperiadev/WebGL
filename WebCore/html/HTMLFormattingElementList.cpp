@@ -31,49 +31,6 @@
 
 namespace WebCore {
 
-HTMLFormattingElementList::Entry::Entry(Element* element)
-    : m_element(element)
-{
-    ASSERT(element);
-}
-
-HTMLFormattingElementList::Entry::Entry(MarkerEntryType)
-{
-}
-
-HTMLFormattingElementList::Entry::~Entry()
-{
-}
-
-bool HTMLFormattingElementList::Entry::isMarker() const
-{
-    return !m_element;
-}
-
-Element* HTMLFormattingElementList::Entry::element() const
-{
-    // The fact that !m_element == isMarker() is an implementation detail
-    // callers should check isMarker() before calling element().
-    ASSERT(m_element);
-    return m_element.get();
-}
-
-void HTMLFormattingElementList::Entry::replaceElement(PassRefPtr<Element> element)
-{
-    ASSERT(m_element); // Once a marker, always a marker.
-    m_element = element;
-}
-
-bool HTMLFormattingElementList::Entry::operator==(const Entry& other) const
-{
-    return element() == other.element();
-}
-
-bool HTMLFormattingElementList::Entry::operator!=(const Entry& other) const
-{
-    return element() != other.element();
-}
-
 HTMLFormattingElementList::HTMLFormattingElementList()
 {
 }
@@ -101,12 +58,48 @@ bool HTMLFormattingElementList::contains(Element* element)
 
 HTMLFormattingElementList::Entry* HTMLFormattingElementList::find(Element* element)
 {
-    size_t index = m_entries.find(element);
+    size_t index = m_entries.reverseFind(element);
     if (index != notFound) {
         // This is somewhat of a hack, and is why this method can't be const.
         return &m_entries[index];
     }
     return 0;
+}
+
+HTMLFormattingElementList::Bookmark HTMLFormattingElementList::bookmarkFor(Element* element)
+{
+    size_t index = m_entries.reverseFind(element);
+    ASSERT(index != notFound);
+    Element* elementBefore = (index > 1) ? m_entries[index - 1].element() : 0;
+    Element* elementAfter = (index < m_entries.size() - 1) ? m_entries[index + 1].element() : 0;
+    return Bookmark(elementBefore, elementAfter);
+}
+
+void HTMLFormattingElementList::insertAt(Element* element, const Bookmark& bookmark)
+{
+    size_t beforeIndex = notFound;
+    if (bookmark.elementBefore()) {
+        beforeIndex = m_entries.reverseFind(bookmark.elementBefore());
+        ASSERT(beforeIndex != notFound);
+    }
+    size_t afterIndex = notFound;
+    if (bookmark.elementAfter()) {
+        afterIndex = m_entries.reverseFind(bookmark.elementAfter());
+        ASSERT(afterIndex != notFound);
+    }
+
+    if (!bookmark.elementBefore()) {
+        if (bookmark.elementAfter())
+            ASSERT(!afterIndex);
+        m_entries.prepend(element);
+    } else {
+        if (bookmark.elementAfter()) {
+            // Bookmarks are not general purpose.  They're only for the Adoption
+            // Agency. Assume the bookmarked element was already removed.
+            ASSERT(beforeIndex + 1 == afterIndex);
+        }
+        m_entries.insert(beforeIndex + 1, element);
+    }
 }
 
 void HTMLFormattingElementList::append(Element* element)
@@ -116,7 +109,7 @@ void HTMLFormattingElementList::append(Element* element)
 
 void HTMLFormattingElementList::remove(Element* element)
 {
-    size_t index = m_entries.find(element);
+    size_t index = m_entries.reverseFind(element);
     if (index != notFound)
         m_entries.remove(index);
 }
@@ -131,5 +124,20 @@ void HTMLFormattingElementList::clearToLastMarker()
     while (m_entries.size() && !m_entries.last().isMarker())
         m_entries.removeLast();
 }
+
+#ifndef NDEBUG
+
+void HTMLFormattingElementList::show()
+{
+    for (unsigned i = 1; i <= m_entries.size(); ++i) {
+        const Entry& entry = m_entries[m_entries.size() - i];
+        if (entry.isMarker())
+            fprintf(stderr, "marker\n");
+        else
+            entry.element()->showNode();
+    }
+}
+
+#endif
 
 }

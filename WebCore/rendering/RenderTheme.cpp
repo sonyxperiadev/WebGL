@@ -1,7 +1,7 @@
 /**
  * This file is part of the theme implementation for form controls in WebCore.
  *
- * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Computer, Inc.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -341,6 +341,8 @@ bool RenderTheme::paint(RenderObject* o, const PaintInfo& paintInfo, const IntRe
             if (o->parent()->isSlider())
                 return paintMediaSliderThumb(o, paintInfo, r);
             break;
+        case MediaVolumeSliderMuteButtonPart:
+            return paintMediaMuteButton(o, paintInfo, r);
         case MediaVolumeSliderContainerPart:
             return paintMediaVolumeSliderContainer(o, paintInfo, r);
         case MediaVolumeSliderPart:
@@ -536,6 +538,15 @@ String RenderTheme::formatMediaControlsCurrentTime(float currentTime, float /*du
 String RenderTheme::formatMediaControlsRemainingTime(float currentTime, float duration) const
 {
     return formatMediaControlsTime(currentTime - duration);
+}
+
+IntPoint RenderTheme::volumeSliderOffsetFromMuteButton(Node* muteButton, const IntSize& size) const
+{
+    int y = -size.height();
+    FloatPoint absPoint = muteButton->renderer()->localToAbsolute(FloatPoint(muteButton->renderBox()->offsetLeft(), y), true, true);
+    if (absPoint.y() < 0)
+        y = muteButton->renderBox()->height();
+    return IntPoint(0, y);
 }
 
 #endif

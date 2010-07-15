@@ -29,6 +29,7 @@
 #include "Lookup.h"
 #include "RegExpConstructor.h"
 #include "RegExpPrototype.h"
+#include <wtf/PassOwnPtr.h>
 
 namespace JSC {
 
@@ -61,7 +62,7 @@ const ClassInfo RegExpObject::info = { "RegExp", 0, 0, ExecState::regExpTable };
 
 RegExpObject::RegExpObject(JSGlobalObject* globalObject, NonNullPassRefPtr<Structure> structure, NonNullPassRefPtr<RegExp> regExp)
     : JSObjectWithGlobalObject(globalObject, structure)
-    , d(new RegExpObjectData(regExp, 0))
+    , d(adoptPtr(new RegExpObjectData(regExp, 0)))
 {
 }
 

@@ -100,6 +100,7 @@ RenderLayerCompositor::RenderLayerCompositor(RenderView* renderView)
     , m_showDebugBorders(false)
     , m_showRepaintCounter(false)
     , m_compositingConsultsOverlap(true)
+    , m_compositingDependsOnGeometry(false)
     , m_compositing(false)
     , m_compositingLayersNeedRebuild(false)
     , m_rootLayerAttachment(RootLayerUnattached)
@@ -174,7 +175,10 @@ void RenderLayerCompositor::scheduleSync()
 
 void RenderLayerCompositor::updateCompositingLayers(CompositingUpdateType updateType, RenderLayer* updateRoot)
 {
-    bool checkForHierarchyUpdate = false;
+    if (!m_compositingDependsOnGeometry && !m_compositing)
+        return;
+
+    bool checkForHierarchyUpdate = m_compositingDependsOnGeometry;
     bool needGeometryUpdate = false;
     
     switch (updateType) {
@@ -192,8 +196,6 @@ void RenderLayerCompositor::updateCompositingLayers(CompositingUpdateType update
 
     if (!checkForHierarchyUpdate && !needGeometryUpdate)
         return;
-
-    ASSERT(inCompositingMode());
 
     bool needHierarchyUpdate = m_compositingLayersNeedRebuild;
     if (!updateRoot) {
@@ -640,7 +642,11 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
             }
         }
     }
-
+    
+    // If we just entered compositing mode, the root will have become composited.
+    if (layer->isRootLayer() && inCompositingMode())
+        willBeComposited = true;
+    
     ASSERT(willBeComposited == needsToBeComposited(layer));
 
     // If we have a software transform, and we have layers under us, we need to also
@@ -675,7 +681,7 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
     // If we're back at the root, and no other layers need to be composited, and the root layer itself doesn't need
     // to be composited, then we can drop out of compositing mode altogether.
     if (layer->isRootLayer() && !childState.m_subtreeIsCompositing && !requiresCompositingLayer(layer)) {
-        m_compositing = false;
+        enableCompositingMode(false);
         willBeComposited = false;
     }
     
@@ -1065,7 +1071,7 @@ bool RenderLayerCompositor::shouldPropagateCompositingToEnclosingIFrame() const
     // Parent document content needs to be able to render on top of a composited iframe, so correct behavior
     // is to have the parent document become composited too. However, this can cause problems on platforms that
     // use native views for frames (like Mac), so disable that behavior on those platforms for now.
-    Element* ownerElement = enclosingIFrameElement();
+    HTMLFrameOwnerElement* ownerElement = enclosingIFrameElement();
     RenderObject* renderer = ownerElement ? ownerElement->renderer() : 0;
     if (!renderer || !renderer->isRenderIFrame())
         return false;
@@ -1093,9 +1099,9 @@ bool RenderLayerCompositor::shouldPropagateCompositingToEnclosingIFrame() const
 #endif
 }
 
-Element* RenderLayerCompositor::enclosingIFrameElement() const
+HTMLFrameOwnerElement* RenderLayerCompositor::enclosingIFrameElement() const
 {
-    if (Element* ownerElement = m_renderView->document()->ownerElement())
+    if (HTMLFrameOwnerElement* ownerElement = m_renderView->document()->ownerElement())
         return ownerElement->hasTagName(iframeTag) ? ownerElement : 0;
 
     return 0;
@@ -1269,7 +1275,22 @@ bool RenderLayerCompositor::requiresCompositingForCanvas(RenderObject* renderer)
 
 bool RenderLayerCompositor::requiresCompositingForPlugin(RenderObject* renderer) const
 {
-    return renderer->isEmbeddedObject() && toRenderEmbeddedObject(renderer)->allowsAcceleratedCompositing();
+    if (!renderer->isEmbeddedObject())
+        return false;
+    
+    RenderEmbeddedObject* embedRenderer = toRenderEmbeddedObject(renderer);
+    if (!embedRenderer->allowsAcceleratedCompositing())
+        return false;
+
+    m_compositingDependsOnGeometry = true;
+
+    // If we can't reliably know the size of the plugin yet, don't change compositing state.
+    if (renderer->needsLayout())
+        return embedRenderer->hasLayer() && embedRenderer->layer()->isComposited();
+
+    // Don't go into compositing mode if height or width are zero, or size is 1x1.
+    IntRect contentBox = embedRenderer->contentBoxRect();
+    return contentBox.height() * contentBox.width() > 1;
 }
 
 bool RenderLayerCompositor::requiresCompositingForIFrame(RenderObject* renderer) const
@@ -1277,13 +1298,24 @@ bool RenderLayerCompositor::requiresCompositingForIFrame(RenderObject* renderer)
     if (!renderer->isRenderIFrame())
         return false;
     
-    RenderIFrame* iframe = toRenderIFrame(renderer);
+    RenderIFrame* iframeRenderer = toRenderIFrame(renderer);
 
-    if (!iframe->requiresAcceleratedCompositing())
+    if (!iframeRenderer->requiresAcceleratedCompositing())
         return false;
-        
-    RenderLayerCompositor* innerCompositor = iframeContentsCompositor(iframe);
-    return innerCompositor->shouldPropagateCompositingToEnclosingIFrame();
+
+    m_compositingDependsOnGeometry = true;
+
+    RenderLayerCompositor* innerCompositor = iframeContentsCompositor(iframeRenderer);
+    if (!innerCompositor->shouldPropagateCompositingToEnclosingIFrame())
+        return false;
+
+    // If we can't reliably know the size of the iframe yet, don't change compositing state.
+    if (renderer->needsLayout())
+        return iframeRenderer->hasLayer() && iframeRenderer->layer()->isComposited();
+    
+    // Don't go into compositing mode if height or width are zero.
+    IntRect contentBox = iframeRenderer->contentBoxRect();
+    return contentBox.height() * contentBox.width() > 0;
 }
 
 bool RenderLayerCompositor::requiresCompositingForAnimation(RenderObject* renderer) const
@@ -1403,7 +1435,7 @@ void RenderLayerCompositor::attachRootPlatformLayer(RootLayerAttachment attachme
         case RootLayerAttachedViaEnclosingIframe: {
             // The layer will get hooked up via RenderLayerBacking::updateGraphicsLayerConfiguration()
             // for the iframe's renderer in the parent document.
-            m_renderView->document()->ownerElement()->setNeedsStyleRecalc(SyntheticStyleChange);
+            scheduleNeedsStyleRecalc(m_renderView->document()->ownerElement());
             break;
         }
     }
@@ -1427,7 +1459,7 @@ void RenderLayerCompositor::detachRootPlatformLayer()
                 m_rootPlatformLayer->removeFromParent();
 
             if (Element* ownerElement = m_renderView->document()->ownerElement())
-                ownerElement->setNeedsStyleRecalc(SyntheticStyleChange);
+                scheduleNeedsStyleRecalc(ownerElement);
             break;
         }
         case RootLayerAttachedViaChromeClient: {
@@ -1461,6 +1493,19 @@ void RenderLayerCompositor::rootLayerAttachmentChanged()
         backing->updateDrawsContent();
 }
 
+static void needsStyleRecalcCallback(Node* node)
+{
+    node->setNeedsStyleRecalc(SyntheticStyleChange);
+}
+
+void RenderLayerCompositor::scheduleNeedsStyleRecalc(Element* element)
+{
+    if (ContainerNode::postAttachCallbacksAreSuspended())
+        ContainerNode::queuePostAttachCallback(needsStyleRecalcCallback, element);
+    else
+        element->setNeedsStyleRecalc(SyntheticStyleChange);
+}
+
 // IFrames are special, because we hook compositing layers together across iframe boundaries
 // when both parent and iframe content are composited. So when this frame becomes composited, we have
 // to use a synthetic style change to get the iframes into RenderLayers in order to allow them to composite.
@@ -1472,7 +1517,7 @@ void RenderLayerCompositor::notifyIFramesOfCompositingChange()
 
     for (Frame* child = frame->tree()->firstChild(); child; child = child->tree()->nextSibling()) {
         if (child->document() && child->document()->ownerElement())
-            child->document()->ownerElement()->setNeedsStyleRecalc(SyntheticStyleChange);
+            scheduleNeedsStyleRecalc(child->document()->ownerElement());
     }
 }
 

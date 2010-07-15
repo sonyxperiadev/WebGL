@@ -156,6 +156,7 @@ void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request,
         Frame* frame) 
 {
     SyncLoader s(error, response, data);
+<<<<<<< HEAD
     ResourceHandle h(request, &s, false, false);
     // This blocks until the load is finished.
     // Use the request owned by the ResourceHandle. This has had the username
@@ -163,6 +164,11 @@ void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request,
     // ResourceHandleInternal::ResourceHandleInternal(). This matches the
     // behaviour in the asynchronous case.
     ResourceLoaderAndroid::start(&h, h.getInternal()->m_request, frame->loader()->client(), false, true);
+=======
+    RefPtr<ResourceHandle> h = adoptRef(new ResourceHandle(request, &s, false, false, false));
+    // This blocks until the load is finished.
+    ResourceLoaderAndroid::start(h.get(), request, frame->loader()->client(), false, true);
+>>>>>>> webkit.org at r63173
 }
 
 } // namespace WebCore

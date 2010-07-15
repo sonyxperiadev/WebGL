@@ -60,6 +60,21 @@ namespace WebCore {
         FrameLoadTypeBackWMLDeckNotAccessible
     };
 
+    struct FrameLoadTimeline {
+        FrameLoadTimeline()
+            : navigationStart(0)
+            , unloadEventEnd(0)
+            , loadEventStart(0)
+            , loadEventEnd(0)
+        {
+        }
+
+        double navigationStart;
+        double unloadEventEnd;
+        double loadEventStart;
+        double loadEventEnd;
+    };
+
     enum NavigationType {
         NavigationTypeLinkClicked,
         NavigationTypeFormSubmitted,

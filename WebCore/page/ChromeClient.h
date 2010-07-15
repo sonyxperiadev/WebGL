@@ -125,9 +125,6 @@ namespace WebCore {
         virtual bool shouldInterruptJavaScript() = 0;
         virtual bool tabsToLinks() const = 0;
 
-        virtual void registerProtocolHandler(const String&, const String&, const String&, const String&) { }
-        virtual void registerContentHandler(const String&, const String&, const String&, const String&) { }
-
         virtual IntRect windowResizerRect() const = 0;
 
         // Methods used by HostWindow.
@@ -143,6 +140,7 @@ namespace WebCore {
         // End methods used by HostWindow.
 
         virtual void scrollbarsModeDidChange() const = 0;
+        virtual bool shouldMissingPluginMessageBeButton() const { return false; }
         virtual void missingPluginButtonClicked(Element*) const { }
         virtual void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags) = 0;
 

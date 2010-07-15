@@ -197,6 +197,8 @@ public:
     void didChangeIcons(DocumentLoader*);
 
     FrameLoadType loadType() const;
+    FrameLoadTimeline* frameLoadTimeline() { return &m_frameLoadTimeline; }
+
     CachePolicy subresourceCachePolicy() const;
 
     void didFirstLayout();
@@ -448,6 +450,7 @@ private:
 
     FrameState m_state;
     FrameLoadType m_loadType;
+    FrameLoadTimeline m_frameLoadTimeline;
 
     // Document loaders for the three phases of frame loading. Note that while 
     // a new request is being loaded, the old document loader may still be referenced.

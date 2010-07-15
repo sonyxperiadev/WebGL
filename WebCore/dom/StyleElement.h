@@ -24,6 +24,7 @@
 
 namespace WebCore {
 
+class Document;
 class Element;
 
 class StyleElement {
@@ -41,9 +42,9 @@ protected:
 
     void insertedIntoDocument(Document*, Element*);
     void removedFromDocument(Document*);
-    void process(Element*);
+    void process(Element*, int startLineNumber);
 
-    void createSheet(Element* e, const String& text = String());
+    void createSheet(Element* e, int startLineNumber, const String& text = String());
 
 protected:
     RefPtr<CSSStyleSheet> m_sheet;

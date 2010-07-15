@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Cameron Zwarich <cwzwarich@uwaterloo.ca>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -39,6 +39,7 @@
 #include "RegExp.h"
 #include "UString.h"
 #include <wtf/FastAllocBase.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
@@ -357,7 +358,8 @@ namespace JSC {
         }
         
         bool functionRegisterForBytecodeOffset(unsigned bytecodeOffset, int& functionRegisterIndex);
-#else
+#endif
+#if ENABLE(INTERPRETER)
         unsigned bytecodeOffset(CallFrame*, Instruction* returnAddress)
         {
             return static_cast<Instruction*>(returnAddress) - instructions().begin();
@@ -415,11 +417,12 @@ namespace JSC {
         unsigned jumpTarget(int index) const { return m_jumpTargets[index]; }
         unsigned lastJumpTarget() const { return m_jumpTargets.last(); }
 
-#if !ENABLE(JIT)
+#if ENABLE(INTERPRETER)
         void addPropertyAccessInstruction(unsigned propertyAccessInstruction) { m_propertyAccessInstructions.append(propertyAccessInstruction); }
         void addGlobalResolveInstruction(unsigned globalResolveInstruction) { m_globalResolveInstructions.append(globalResolveInstruction); }
         bool hasGlobalResolveInstructionAtBytecodeOffset(unsigned bytecodeOffset);
-#else
+#endif
+#if ENABLE(JIT)
         size_t numberOfStructureStubInfos() const { return m_structureStubInfos.size(); }
         void addStructureStubInfo(const StructureStubInfo& stubInfo) { m_structureStubInfos.append(stubInfo); }
         StructureStubInfo& structureStubInfo(int index) { return m_structureStubInfos[index]; }
@@ -446,7 +449,7 @@ namespace JSC {
 
         bool hasExceptionInfo() const { return m_exceptionInfo; }
         void clearExceptionInfo() { m_exceptionInfo.clear(); }
-        ExceptionInfo* extractExceptionInfo() { ASSERT(m_exceptionInfo); return m_exceptionInfo.release(); }
+        PassOwnPtr<ExceptionInfo> extractExceptionInfo();
 
         void addExpressionInfo(const ExpressionRangeInfo& expressionInfo) { ASSERT(m_exceptionInfo); m_exceptionInfo->m_expressionInfo.append(expressionInfo); }
         void addGetByIdExceptionInfo(const GetByIdExceptionInfo& info) { ASSERT(m_exceptionInfo); m_exceptionInfo->m_getByIdExceptionInfo.append(info); }
@@ -527,7 +530,7 @@ namespace JSC {
         void createRareDataIfNecessary()
         {
             if (!m_rareData)
-                m_rareData.set(new RareData);
+                m_rareData = adoptPtr(new RareData);
         }
 
         ScriptExecutable* m_ownerExecutable;
@@ -550,10 +553,11 @@ namespace JSC {
         RefPtr<SourceProvider> m_source;
         unsigned m_sourceOffset;
 
-#if !ENABLE(JIT)
+#if ENABLE(INTERPRETER)
         Vector<unsigned> m_propertyAccessInstructions;
         Vector<unsigned> m_globalResolveInstructions;
-#else
+#endif
+#if ENABLE(JIT)
         Vector<StructureStubInfo> m_structureStubInfos;
         Vector<GlobalResolveInfo> m_globalResolveInfos;
         Vector<CallLinkInfo> m_callLinkInfos;
@@ -664,6 +668,12 @@ namespace JSC {
             sharedSymbolTable()->deref();
         }
     };
+
+    inline PassOwnPtr<ExceptionInfo> CodeBlock::extractExceptionInfo()
+    {
+        ASSERT(m_exceptionInfo);
+        return m_exceptionInfo.release();
+    }
 
     inline Register& ExecState::r(int index)
     {

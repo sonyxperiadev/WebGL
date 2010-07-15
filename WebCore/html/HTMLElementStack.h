@@ -35,6 +35,7 @@ namespace WebCore {
 
 class AtomicString;
 class Element;
+class QualifiedName;
 
 // NOTE: The HTML5 spec uses a backwards (grows downward) stack.  We're using
 // more standard (grows upwards) stack terminology here.
@@ -67,6 +68,7 @@ public:
     };
     
     Element* top() const;
+    Element* oneBelowTop() const;
     ElementRecord* topRecord() const;
     Element* bottom() const;
     ElementRecord* find(Element*) const;
@@ -81,9 +83,13 @@ public:
 
     void pop();
     void popUntil(const AtomicString& tagName);
+    void popUntilElementWithNamespace(const AtomicString& namespaceURI);
     void popUntil(Element*);
+    void popUntilPopped(const AtomicString& tagName);
+    void popUntilPopped(Element*);
     void popUntilTableScopeMarker(); // "clear the stack back to a table context" in the spec.
     void popUntilTableBodyScopeMarker(); // "clear the stack back to a table body context" in the spec.
+    void popUntilTableRowScopeMarker(); // "clear the stack back to a table row context" in the spec.
     void popHTMLHeadElement();
     void popHTMLBodyElement();
 
@@ -94,12 +100,21 @@ public:
 
     bool inScope(Element*) const;
     bool inScope(const AtomicString& tagName) const;
+    bool inScope(const QualifiedName&) const;
     bool inListItemScope(const AtomicString& tagName) const;
+    bool inListItemScope(const QualifiedName&) const;
     bool inTableScope(const AtomicString& tagName) const;
+    bool inTableScope(const QualifiedName&) const;
+
+    bool hasOnlyHTMLElementsInScope() const;
 
     Element* htmlElement() const;
     Element* headElement() const;
     Element* bodyElement() const;
+
+#ifndef NDEBUG
+    void show();
+#endif
 
 private:
     void pushCommon(PassRefPtr<Element>);

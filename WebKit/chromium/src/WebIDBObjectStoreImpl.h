@@ -41,15 +41,19 @@ class WebIDBIndex;
 class WebIDBObjectStoreImpl : public WebIDBObjectStore {
 public:
     WebIDBObjectStoreImpl(WTF::PassRefPtr<WebCore::IDBObjectStore> objectStore);
-    virtual ~WebIDBObjectStoreImpl();
+    ~WebIDBObjectStoreImpl();
 
-    virtual WebString name() const;
-    virtual WebString keyPath() const;
-    virtual WebDOMStringList indexNames() const;
+    WebString name() const;
+    WebString keyPath() const;
+    WebDOMStringList indexNames() const;
 
-    virtual void createIndex(const WebString& name, const WebString& keyPath, bool unique, WebIDBCallbacks* callbacks);
-    virtual WebIDBIndex* index(const WebString& name);
-    virtual void removeIndex(const WebString& name, WebIDBCallbacks* callbacks);
+    void get(const WebIDBKey& key, WebIDBCallbacks*);
+    void put(const WebSerializedScriptValue& value, const WebIDBKey& key, bool addOnly, WebIDBCallbacks*);
+    void remove(const WebIDBKey& key, WebIDBCallbacks*);
+
+    void createIndex(const WebString& name, const WebString& keyPath, bool unique, WebIDBCallbacks* callbacks);
+    WebIDBIndex* index(const WebString& name);
+    void removeIndex(const WebString& name, WebIDBCallbacks* callbacks);
 
  private:
     WTF::RefPtr<WebCore::IDBObjectStore> m_objectStore;

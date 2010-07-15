@@ -61,7 +61,10 @@ public:
     WEBKIT_API void assign(const WebNode&);
 
     WEBKIT_API bool equals(const WebNode&) const;
-
+    // Required for using WebNodes in std maps.  Note the order used is
+    // arbitrary and should not be expected to have any specific meaning.
+    WEBKIT_API bool lessThan(const WebNode&) const;
+    
     bool isNull() const { return m_private.isNull(); }
 
     enum NodeType {
@@ -124,7 +127,6 @@ public:
     operator WTF::PassRefPtr<WebCore::Node>() const;
 #endif
 
-protected:
 #if WEBKIT_IMPLEMENTATION
     template<typename T> T* unwrap()
     {
@@ -137,6 +139,7 @@ protected:
     }
 #endif
 
+protected:
     WebPrivatePtr<WebCore::Node> m_private;
 };
 
@@ -148,6 +151,11 @@ inline bool operator==(const WebNode& a, const WebNode& b)
 inline bool operator!=(const WebNode& a, const WebNode& b)
 {
     return !(a == b);
+}
+
+inline bool operator<(const WebNode& a, const WebNode& b)
+{
+    return a.lessThan(b);
 }
 
 } // namespace WebKit

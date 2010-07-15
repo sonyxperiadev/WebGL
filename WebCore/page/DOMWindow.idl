@@ -305,6 +305,7 @@ module window {
         attribute [Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchend;
         attribute [Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchcancel;
 
+        attribute [Conditional=DEVICE_ORIENTATION] DeviceOrientationEventConstructor DeviceOrientationEvent;
         attribute [Conditional=DEVICE_ORIENTATION] EventListener ondeviceorientation;
 
         // EventTarget interface
@@ -552,11 +553,11 @@ module window {
         attribute [JSCCustomGetter,EnabledAtRuntime] WebSocketConstructor WebSocket; // Usable with the new operator
 #endif
 
-        attribute PluginConstructor Plugin;
-        attribute PluginArrayConstructor PluginArray;
+        attribute DOMPluginConstructor Plugin;
+        attribute DOMPluginArrayConstructor PluginArray;
 
-        attribute MimeTypeConstructor MimeType;
-        attribute MimeTypeArrayConstructor MimeTypeArray;
+        attribute DOMMimeTypeConstructor MimeType;
+        attribute DOMMimeTypeArrayConstructor MimeTypeArray;
 
         attribute ClientRectConstructor ClientRect;
         attribute ClientRectListConstructor ClientRectList;
@@ -571,6 +572,7 @@ module window {
         attribute [Conditional=VIDEO, EnabledAtRuntime] HTMLMediaElementConstructor HTMLMediaElement;
         attribute [Conditional=VIDEO, EnabledAtRuntime] HTMLVideoElementConstructor HTMLVideoElement;
         attribute [Conditional=VIDEO, EnabledAtRuntime] MediaErrorConstructor MediaError;
+        attribute [Conditional=VIDEO, EnabledAtRuntime] TimeRangesConstructor TimeRanges;
 
 #if defined(ENABLE_XPATH) && ENABLE_XPATH
         attribute XPathEvaluatorConstructor XPathEvaluator;

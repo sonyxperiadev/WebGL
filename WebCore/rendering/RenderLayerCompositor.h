@@ -34,6 +34,7 @@ namespace WebCore {
 #define PROFILE_LAYER_REBUILD 0
 
 class GraphicsLayer;
+class RenderEmbeddedObject;
 class RenderIFrame;
 #if ENABLE(VIDEO)
 class RenderVideo;
@@ -150,7 +151,7 @@ public:
     // their parent document.
     bool shouldPropagateCompositingToEnclosingIFrame() const;
 
-    Element* enclosingIFrameElement() const;
+    HTMLFrameOwnerElement* enclosingIFrameElement() const;
 
     static RenderLayerCompositor* iframeContentsCompositor(RenderIFrame*);
     // Return true if the layers changed.
@@ -201,6 +202,7 @@ private:
     
     void rootLayerAttachmentChanged();
     
+    void scheduleNeedsStyleRecalc(Element*);
     void notifyIFramesOfCompositingChange();
 
     // Whether a running transition or animation enforces the need for a compositing layer.
@@ -224,9 +226,15 @@ private:
     bool m_showDebugBorders;
     bool m_showRepaintCounter;
     bool m_compositingConsultsOverlap;
+
+    // When true, we have to wait until layout has happened before we can decide whether to enter compositing mode,
+    // because only then do we know the final size of plugins and iframes.
+    // FIXME: once set, this is never cleared.
+    mutable bool m_compositingDependsOnGeometry;
+
     bool m_compositing;
     bool m_compositingLayersNeedRebuild;
-    
+
     RootLayerAttachment m_rootLayerAttachment;
 
     // Enclosing clipping layer for iframe content

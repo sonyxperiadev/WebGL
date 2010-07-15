@@ -327,12 +327,12 @@ void LayoutTestController::overridePreference(JSStringRef /* key */, JSStringRef
     // FIXME: implement
 }
 
-void LayoutTestController::addUserScript(JSStringRef source, bool runAtStart)
+void LayoutTestController::addUserScript(JSStringRef source, bool runAtStart, bool allFrames)
 {
     printf("LayoutTestController::addUserScript not implemented.\n");
 }
 
-void LayoutTestController::addUserStyleSheet(JSStringRef source)
+void LayoutTestController::addUserStyleSheet(JSStringRef source, bool allFrames)
 {
     printf("LayoutTestController::addUserStyleSheet not implemented.\n");
 }
@@ -458,7 +458,8 @@ void LayoutTestController::abortModal()
 
 JSRetainPtr<JSStringRef> LayoutTestController::pageProperty(const char* propertyName, int pageNumber) const
 {
-
+    // FIXME: Implement
+    return 0;
 }
 
 bool LayoutTestController::isPageBoxVisible(int pageNumber) const

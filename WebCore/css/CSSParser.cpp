@@ -155,8 +155,8 @@ CSSParser::CSSParser(bool strictParsing)
     , m_ruleRanges(0)
     , m_data(0)
     , yy_start(1)
-    , m_line(0)
-    , m_lastSelectorLine(0)
+    , m_lineNumber(0)
+    , m_lastSelectorLineNumber(0)
     , m_allowImportRules(true)
     , m_allowVariablesRules(true)
     , m_allowNamespaceDeclarations(true)
@@ -235,7 +235,7 @@ void CSSParser::setupParser(const char* prefix, const String& string, const char
     resetRuleBodyMarks();
 }
 
-void CSSParser::parseSheet(CSSStyleSheet* sheet, const String& string, StyleRuleRanges* ruleRangeMap)
+void CSSParser::parseSheet(CSSStyleSheet* sheet, const String& string, int startLineNumber, StyleRuleRanges* ruleRangeMap)
 {
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
@@ -244,6 +244,7 @@ void CSSParser::parseSheet(CSSStyleSheet* sheet, const String& string, StyleRule
     m_defaultNamespace = starAtom; // Reset the default namespace.
     m_ruleRanges = ruleRangeMap;
 
+    m_lineNumber = startLineNumber;
     setupParser("", string, "");
     cssyyparse(this);
     m_ruleRanges = 0;
@@ -318,21 +319,21 @@ bool CSSParser::parseValue(CSSMutableStyleDeclaration* declaration, int id, cons
 // possible to set up a default color.
 bool CSSParser::parseColor(RGBA32& color, const String& string, bool strict)
 {
+    // First try creating a color specified by name, rgb() or "#" syntax.
+    if (parseColor(string, color, strict))
+        return true;
+
     CSSParser parser(true);
+    RefPtr<CSSMutableStyleDeclaration> dummyStyleDeclaration = CSSMutableStyleDeclaration::create();
 
-    // First try creating a color specified by name or the "#" syntax.
-    if (!parser.parseColor(string, color, strict)) {
-        RefPtr<CSSMutableStyleDeclaration> dummyStyleDeclaration = CSSMutableStyleDeclaration::create();
+    // Now try to create a color from rgba() syntax.
+    if (!parser.parseColor(dummyStyleDeclaration.get(), string))
+        return false;
 
-        // Now try to create a color from the rgb() or rgba() syntax.
-        if (parser.parseColor(dummyStyleDeclaration.get(), string)) {
-            CSSValue* value = parser.m_parsedProperties[0]->value();
-            if (value->cssValueType() == CSSValue::CSS_PRIMITIVE_VALUE) {
-                CSSPrimitiveValue* primitiveValue = static_cast<CSSPrimitiveValue*>(value);
-                color = primitiveValue->getRGBA32Value();
-            }
-        } else
-            return false;
+    CSSValue* value = parser.m_parsedProperties[0]->value();
+    if (value->cssValueType() == CSSValue::CSS_PRIMITIVE_VALUE) {
+        CSSPrimitiveValue* primitiveValue = static_cast<CSSPrimitiveValue*>(value);
+        color = primitiveValue->getRGBA32Value();
     }
 
     return true;
@@ -439,9 +440,9 @@ void CSSParser::addProperty(int propId, PassRefPtr<CSSValue> value, bool importa
         if (m_maxParsedProperties > UINT_MAX / sizeof(CSSProperty*))
             return;
         m_parsedProperties = static_cast<CSSProperty**>(fastRealloc(m_parsedProperties,
-                                                       m_maxParsedProperties * sizeof(CSSProperty*)));
+            m_maxParsedProperties * sizeof(CSSProperty*)));
     }
-    m_parsedProperties[m_numParsedProperties++] = prop.release();
+    m_parsedProperties[m_numParsedProperties++] = prop.leakPtr();
 }
 
 void CSSParser::rollbackLastProperties(int num)
@@ -1038,6 +1039,7 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSSPropertyPaddingBottom:       //   <length> | <percentage>
     case CSSPropertyPaddingLeft:         ////
     case CSSPropertyWebkitPaddingStart:
+    case CSSPropertyWebkitPaddingEnd:
         validPrimitive = (!id && validUnit(value, FLength | FPercent | FNonNeg, m_strict));
         break;
 
@@ -1098,6 +1100,7 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSSPropertyMarginBottom:        //   <length> | <percentage> | auto | inherit
     case CSSPropertyMarginLeft:          ////
     case CSSPropertyWebkitMarginStart:
+    case CSSPropertyWebkitMarginEnd:
         if (id == CSSValueAuto)
             validPrimitive = true;
         else
@@ -3644,7 +3647,14 @@ bool CSSParser::parseFontFaceUnicodeRange()
 {
     RefPtr<CSSValueList> values = CSSValueList::createCommaSeparated();
     bool failed = false;
-    while (m_valueList->current()) {
+    bool operatorExpected = false;
+    for (; m_valueList->current(); m_valueList->next(), operatorExpected = !operatorExpected) {
+        if (operatorExpected) {
+            if (m_valueList->current()->unit == CSSParserValue::Operator && m_valueList->current()->iValue == ',')
+                continue;
+            failed = true;
+            break;
+        }
         if (m_valueList->current()->unit != CSSPrimitiveValue::CSS_UNICODE_RANGE) {
             failed = true;
             break;
@@ -3719,7 +3729,6 @@ bool CSSParser::parseFontFaceUnicodeRange()
         }
         if (from <= to)
             values->append(CSSUnicodeRangeValue::create(from, to));
-        m_valueList->next();
     }
     if (failed || !values->length())
         return false;
@@ -3768,13 +3777,23 @@ static inline bool parseColorInt(const UChar*& string, const UChar* end, UChar t
 
 bool CSSParser::parseColor(const String &name, RGBA32& rgb, bool strict)
 {
-    if (!strict && Color::parseHexColor(name, rgb))
-        return true;
+    const UChar* characters = name.characters();
+    unsigned length = name.length();
+
+    if (!strict && length >= 3) {
+        if (name[0] == '#') {
+            if (Color::parseHexColor(characters + 1, length - 1, rgb))
+                return true;
+        } else {
+            if (Color::parseHexColor(characters, length, rgb))
+                return true;
+        }
+    }
 
     // Try rgb() syntax.
     if (name.startsWith("rgb(")) {
-        const UChar* current = name.characters() + 4;
-        const UChar* end = name.characters() + name.length();
+        const UChar* current = characters + 4;
+        const UChar* end = characters + length;
         int red;
         int green;
         int blue;
@@ -5167,7 +5186,7 @@ void CSSParser::countLines()
 {
     for (UChar* current = yytext; current < yytext + yyleng; ++current) {
         if (*current == '\n')
-            ++m_line;
+            ++m_lineNumber;
     }
 }
 
@@ -5341,7 +5360,7 @@ CSSRule* CSSParser::createStyleRule(Vector<CSSSelector*>* selectors)
     CSSStyleRule* result = 0;
     markRuleBodyEnd();
     if (selectors) {
-        RefPtr<CSSStyleRule> rule = CSSStyleRule::create(m_styleSheet, m_lastSelectorLine);
+        RefPtr<CSSStyleRule> rule = CSSStyleRule::create(m_styleSheet, m_lastSelectorLineNumber);
         rule->adoptSelectorVector(*selectors);
         if (m_hasFontFaceOnlyValues)
             deleteFontFaceOnlyValues();
@@ -5447,7 +5466,7 @@ CSSRule* CSSParser::createPageRule(CSSSelector* pageSelector)
     m_allowImportRules = m_allowNamespaceDeclarations = m_allowVariablesRules = false;
     CSSPageRule* pageRule = 0;
     if (pageSelector) {
-        RefPtr<CSSPageRule> rule = CSSPageRule::create(m_styleSheet, pageSelector, m_lastSelectorLine);
+        RefPtr<CSSPageRule> rule = CSSPageRule::create(m_styleSheet, pageSelector, m_lastSelectorLineNumber);
         rule->setDeclaration(CSSMutableStyleDeclaration::create(rule.get(), m_parsedProperties, m_numParsedProperties));
         pageRule = rule.get();
         m_parsedStyleObjects.append(rule.release());
@@ -5601,7 +5620,7 @@ void CSSParser::invalidBlockHit()
 
 void CSSParser::updateLastSelectorLineAndPosition()
 {
-    m_lastSelectorLine = m_line;
+    m_lastSelectorLineNumber = m_lineNumber;
     markRuleBodyStart();
 }
 

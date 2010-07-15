@@ -62,6 +62,7 @@ inline bool isListItemScopeMarker(Element* element)
         || element->hasTagName(olTag)
         || element->hasTagName(ulTag);
 }
+
 inline bool isTableScopeMarker(Element* element)
 {
     return element->hasTagName(tableTag)
@@ -73,6 +74,12 @@ inline bool isTableBodyScopeMarker(Element* element)
     return element->hasTagName(tbodyTag)
         || element->hasTagName(tfootTag)
         || element->hasTagName(theadTag)
+        || element->hasTagName(htmlTag);
+}
+
+inline bool isTableRowScopeMarker(Element* element)
+{
+    return element->hasTagName(trTag)
         || element->hasTagName(htmlTag);
 }
 
@@ -136,6 +143,12 @@ void HTMLElementStack::pop()
     popCommon();
 }
 
+void HTMLElementStack::popUntilElementWithNamespace(const AtomicString& namespaceURI)
+{
+    while (top()->namespaceURI() != namespaceURI)
+        pop();
+}
+
 void HTMLElementStack::popUntil(const AtomicString& tagName)
 {
     while (!top()->hasLocalName(tagName)) {
@@ -145,10 +158,22 @@ void HTMLElementStack::popUntil(const AtomicString& tagName)
     }
 }
 
+void HTMLElementStack::popUntilPopped(const AtomicString& tagName)
+{
+    popUntil(tagName);
+    pop();
+}
+
 void HTMLElementStack::popUntil(Element* element)
 {
     while (top() != element)
         pop();
+}
+
+void HTMLElementStack::popUntilPopped(Element* element)
+{
+    popUntil(element);
+    pop();
 }
 
 void HTMLElementStack::popUntilTableScopeMarker()
@@ -162,6 +187,13 @@ void HTMLElementStack::popUntilTableBodyScopeMarker()
 {
     // http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html#clear-the-stack-back-to-a-table-body-context
     while (!isTableBodyScopeMarker(top()))
+        pop();
+}
+
+void HTMLElementStack::popUntilTableRowScopeMarker()
+{
+    // http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html#clear-the-stack-back-to-a-table-row-context
+    while (!isTableRowScopeMarker(top()))
         pop();
 }
 
@@ -226,12 +258,22 @@ void HTMLElementStack::insertAbove(PassRefPtr<Element> element, ElementRecord* r
 
 HTMLElementStack::ElementRecord* HTMLElementStack::topRecord() const
 {
+    ASSERT(m_top);
     return m_top.get();
 }
 
 Element* HTMLElementStack::top() const
 {
+    ASSERT(m_top->element());
     return m_top->element();
+}
+
+Element* HTMLElementStack::oneBelowTop() const
+{
+    // We should never be calling this if it could be 0.
+    ASSERT(m_top);
+    ASSERT(m_top->next());
+    return m_top->next()->element();
 }
 
 Element* HTMLElementStack::bottom() const
@@ -297,6 +339,19 @@ bool inScopeCommon(HTMLElementStack::ElementRecord* top, const AtomicString& tar
     return false;
 }
 
+bool HTMLElementStack::hasOnlyHTMLElementsInScope() const
+{
+    for (ElementRecord* record = m_top.get(); record; record = record->next()) {
+        Element* element = record->element();
+        if (element->namespaceURI() != xhtmlNamespaceURI)
+            return false;
+        if (isScopeMarker(element))
+            return true;
+    }
+    ASSERT_NOT_REACHED(); // <html> is always on the stack and is a scope marker.
+    return true;
+}
+
 bool HTMLElementStack::inScope(Element* targetElement) const
 {
     for (ElementRecord* pos = m_top.get(); pos; pos = pos->next()) {
@@ -315,14 +370,32 @@ bool HTMLElementStack::inScope(const AtomicString& targetTag) const
     return inScopeCommon<isScopeMarker>(m_top.get(), targetTag);
 }
 
+bool HTMLElementStack::inScope(const QualifiedName& tagName) const
+{
+    // FIXME: Is localName() right for non-html elements?
+    return inScope(tagName.localName());
+}
+
 bool HTMLElementStack::inListItemScope(const AtomicString& targetTag) const
 {
     return inScopeCommon<isListItemScopeMarker>(m_top.get(), targetTag);
 }
 
+bool HTMLElementStack::inListItemScope(const QualifiedName& tagName) const
+{
+    // FIXME: Is localName() right for non-html elements?
+    return inListItemScope(tagName.localName());
+}
+
 bool HTMLElementStack::inTableScope(const AtomicString& targetTag) const
 {
     return inScopeCommon<isTableScopeMarker>(m_top.get(), targetTag);
+}
+
+bool HTMLElementStack::inTableScope(const QualifiedName& tagName) const
+{
+    // FIXME: Is localName() right for non-html elements?
+    return inTableScope(tagName.localName());
 }
 
 Element* HTMLElementStack::htmlElement() const
@@ -375,5 +448,15 @@ void HTMLElementStack::removeNonTopCommon(Element* element)
     }
     ASSERT_NOT_REACHED();
 }
+
+#ifndef NDEBUG
+
+void HTMLElementStack::show()
+{
+    for (ElementRecord* record = m_top.get(); record; record = record->next())
+        record->element()->showNode();
+}
+
+#endif
 
 }

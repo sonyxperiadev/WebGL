@@ -1,3 +1,659 @@
+2010-07-12  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r63171.
+        http://trac.webkit.org/changeset/63171
+        https://bugs.webkit.org/show_bug.cgi?id=42144
+
+        Broke Chromium canary (Requested by tkent on #webkit).
+
+        * WebKit.gyp:
+
+2010-07-12  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by David Levin.
+
+        [Chromium] Upstreaming inspector_resources target
+        https://bugs.webkit.org/show_bug.cgi?id=41669
+
+        'inspector_resource' is currently in src/webkit/webkit.gyp of
+        Chromium tree. We move it to WebKit tree because:
+        - DumpRenderTree in WebKit tree needs it, and
+        - It's hard to refer to WebKit.gypi and WebCore.gypi from
+          webkit_support in both cases of Chromium-tree build and
+          WebKit-tree build.
+
+        * WebKit.gyp:
+
+2010-07-12  Viet-Trung Luu  <viettrungluu@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Pass key down events on to plugins.
+        https://bugs.webkit.org/show_bug.cgi?id=42113
+
+        * src/WebPluginContainerImpl.cpp:
+        (WebKit::WebPluginContainerImpl::handleKeyboardEvent):
+
+2010-07-12  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Joseph Pecoraro.
+
+        Web Inspector: provide starts and ends for network phases instead of duration.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42091
+
+        * public/WebURLLoadTiming.h:
+        * public/WebURLResponse.h:
+        * src/WebURLLoadTiming.cpp:
+        (WebKit::WebURLLoadTiming::proxyStart):
+        (WebKit::WebURLLoadTiming::setProxyStart):
+        (WebKit::WebURLLoadTiming::proxyEnd):
+        (WebKit::WebURLLoadTiming::setProxyEnd):
+        (WebKit::WebURLLoadTiming::dnsStart):
+        (WebKit::WebURLLoadTiming::setDNSStart):
+        (WebKit::WebURLLoadTiming::dnsEnd):
+        (WebKit::WebURLLoadTiming::setDNSEnd):
+        (WebKit::WebURLLoadTiming::connectStart):
+        (WebKit::WebURLLoadTiming::setConnectStart):
+        (WebKit::WebURLLoadTiming::connectEnd):
+        (WebKit::WebURLLoadTiming::setConnectEnd):
+        (WebKit::WebURLLoadTiming::sendStart):
+        (WebKit::WebURLLoadTiming::setSendStart):
+        (WebKit::WebURLLoadTiming::sendEnd):
+        (WebKit::WebURLLoadTiming::setSendEnd):
+        (WebKit::WebURLLoadTiming::receiveHeadersStart):
+        (WebKit::WebURLLoadTiming::setReceiveHeadersStart):
+        (WebKit::WebURLLoadTiming::receiveHeadersEnd):
+        (WebKit::WebURLLoadTiming::setReceiveHeadersEnd):
+        (WebKit::WebURLLoadTiming::sslStart):
+        (WebKit::WebURLLoadTiming::setSSLStart):
+        (WebKit::WebURLLoadTiming::sslEnd):
+        (WebKit::WebURLLoadTiming::setSSLEnd):
+        * src/WebURLResponse.cpp:
+        (WebKit::WebURLResponse::wasCached):
+        (WebKit::WebURLResponse::setWasCached):
+
+2010-07-12  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r63156.
+        http://trac.webkit.org/changeset/63156
+        https://bugs.webkit.org/show_bug.cgi?id=42129
+
+        broke chromium compile (Requested by jamesr on #webkit).
+
+        * WebKit.gyp:
+        * public/WebAccessibilityObject.h:
+        * public/WebAttribute.h: Removed.
+        * public/WebDocumentType.h: Removed.
+        * public/WebElement.h:
+        * public/WebNamedNodeMap.h: Removed.
+        * public/WebNode.h:
+        * public/WebRenderStyle.h: Removed.
+        * src/WebAccessibilityObject.cpp:
+        * src/WebAttribute.cpp: Removed.
+        * src/WebDocumentType.cpp: Removed.
+        * src/WebElement.cpp:
+        * src/WebNamedNodeMap.cpp: Removed.
+        * src/WebNode.cpp:
+        * src/WebRenderStyle.cpp: Removed.
+
+2010-07-12  Dominic Mazzoni  <dmazzoni@google.com>
+
+        Reviewed by Darin Fisher.
+
+        Add methods to WebAccessibilityObject to access the Node and
+        Document, and then add methods to access some document, node,
+        and element properties needed for Windows accessibility.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41569
+
+        * WebKit.gyp:
+        * public/WebAccessibilityObject.h:
+        * public/WebAttribute.h: Added.
+        (WebKit::WebAttribute::~WebAttribute):
+        (WebKit::WebAttribute::WebAttribute):
+        (WebKit::WebAttribute::operator=):
+        * public/WebDocumentType.h: Added.
+        (WebKit::WebDocumentType::WebDocumentType):
+        (WebKit::WebDocumentType::operator=):
+        (WebKit::WebDocumentType::assign):
+        * public/WebElement.h:
+        * public/WebNamedNodeMap.h: Added.
+        (WebKit::WebNamedNodeMap::~WebNamedNodeMap):
+        (WebKit::WebNamedNodeMap::WebNamedNodeMap):
+        (WebKit::WebNamedNodeMap::operator=):
+        * public/WebNode.h:
+        * public/WebRenderStyle.h: Added.
+        (WebKit::WebRenderStyle::~WebRenderStyle):
+        (WebKit::WebRenderStyle::WebRenderStyle):
+        (WebKit::WebRenderStyle::operator=):
+        * src/WebAccessibilityObject.cpp:
+        (WebKit::WebAccessibilityObject::node):
+        (WebKit::WebAccessibilityObject::document):
+        * src/WebAttribute.cpp: Added.
+        (WebKit::WebAttribute::reset):
+        (WebKit::WebAttribute::assign):
+        (WebKit::WebAttribute::WebAttribute):
+        (WebKit::WebAttribute::localName):
+        (WebKit::WebAttribute::value):
+        * src/WebDocumentType.cpp: Added.
+        (WebKit::WebDocumentType::name):
+        (WebKit::WebDocumentType::WebDocumentType):
+        (WebKit::WebDocumentType::operator=):
+        (WebKit::WebDocumentType::operator PassRefPtr<DocumentType>):
+        * src/WebElement.cpp:
+        (WebKit::WebElement::attributes):
+        * src/WebNamedNodeMap.cpp: Added.
+        (WebKit::WebNamedNodeMap::reset):
+        (WebKit::WebNamedNodeMap::assign):
+        (WebKit::WebNamedNodeMap::WebNamedNodeMap):
+        (WebKit::WebNamedNodeMap::length):
+        (WebKit::WebNamedNodeMap::attributeItem):
+        * src/WebNode.cpp:
+        (WebKit::WebNode::element):
+        (WebKit::WebNode::hasComputedStyle):
+        (WebKit::WebNode::computedStyle):
+        * src/WebRenderStyle.cpp: Added.
+        (WebKit::WebRenderStyle::reset):
+        (WebKit::WebRenderStyle::assign):
+        (WebKit::WebRenderStyle::WebRenderStyle):
+        (WebKit::WebRenderStyle::display):
+
+2010-07-12  Alexander Pavlov  <apavlov@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        [Chromium] Crash when stepping on a breakpoint while debugging Web Inspector
+        https://bugs.webkit.org/show_bug.cgi?id=41958
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebView::willEnterModalLoop):
+        (WebKit::WebView::didExitModalLoop):
+
+2010-07-12  Jeremy Orlow  <jorlow@chromium.org>
+
+        Speculative fix for visual studio retardedness.
+
+        * public/WebCommon.h:
+
+2010-07-12  Jeremy Orlow  <jorlow@chromium.org>
+
+        Build fix.  Add an include.
+
+        * public/WebCommon.h:
+
+2010-06-27  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Dumitru Daniliuc.
+
+        Implement IDBObjectStore.get/set/remove
+        https://bugs.webkit.org/show_bug.cgi?id=41250
+
+        Plumbing for new features, IDBKey, and added support
+        for both invalid (i.e. not serializable) and null
+        (i.e. the RefPtr was 0) to SerializedScriptValue.
+
+        * WebKit.gyp:
+        * public/WebIDBCallbacks.h:
+        (WebKit::WebIDBCallbacks::onSuccess):
+        * public/WebIDBKey.h: Added.
+        (WebKit::WebIDBKey::WebIDBKey):
+        (WebKit::WebIDBKey::operator=):
+        (WebKit::WebIDBKey::):
+        * public/WebIDBObjectStore.h:
+        (WebKit::WebIDBObjectStore::get):
+        (WebKit::WebIDBObjectStore::set):
+        (WebKit::WebIDBObjectStore::remove):
+        (WebKit::WebIDBObjectStore::createIndex):
+        (WebKit::WebIDBObjectStore::index):
+        (WebKit::WebIDBObjectStore::removeIndex):
+        * public/WebSerializedScriptValue.h:
+        * src/IDBCallbacksProxy.cpp:
+        (WebCore::IDBCallbacksProxy::onSuccess):
+        * src/IDBCallbacksProxy.h:
+        * src/IDBObjectStoreProxy.cpp:
+        (WebCore::IDBObjectStoreProxy::get):
+        (WebCore::IDBObjectStoreProxy::set):
+        (WebCore::IDBObjectStoreProxy::remove):
+        * src/IDBObjectStoreProxy.h:
+        * src/WebIDBCallbacksImpl.cpp:
+        (WebCore::WebIDBCallbacksImpl::onSuccess):
+        * src/WebIDBCallbacksImpl.h:
+        * src/WebIDBKey.cpp: Added.
+        (WebKit::WebIDBKey::~WebIDBKey):
+        (WebKit::WebIDBKey::createNull):
+        (WebKit::WebIDBKey::createInvalid):
+        (WebKit::WebIDBKey::assign):
+        (WebKit::WebIDBKey::assignNull):
+        (WebKit::WebIDBKey::assignInvalid):
+        (WebKit::WebIDBKey::type):
+        (WebKit::WebIDBKey::string):
+        (WebKit::WebIDBKey::number):
+        (WebKit::WebIDBKey::WebIDBKey):
+        (WebKit::WebIDBKey::operator=):
+        (WebKit::WebIDBKey::operator PassRefPtr<IDBKey>):
+        * src/WebIDBObjectStoreImpl.cpp:
+        (WebKit::WebIDBObjectStoreImpl::get):
+        (WebKit::WebIDBObjectStoreImpl::set):
+        (WebKit::WebIDBObjectStoreImpl::remove):
+        * src/WebIDBObjectStoreImpl.h:
+        * src/WebSerializedScriptValue.cpp:
+        (WebKit::WebSerializedScriptValue::createInvalid):
+
+2010-07-09  John Abd-El-Malek  <jam@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Take out WebPlugin::supportsFind since we can accomplish the same thing by having a return value on startFind
+        https://bugs.webkit.org/show_bug.cgi?id=42011
+
+        * public/WebPlugin.h:
+        (WebKit::WebPlugin::startFind):
+
+2010-07-09  Leon Clarke  <leonclarke@google.com>
+
+        Reviewed by Adam Barth.
+
+        add support for link prefetching
+        https://bugs.webkit.org/show_bug.cgi?id=3652
+
+        * public/WebURLRequest.h:
+        (WebKit::WebURLRequest::):
+
+2010-07-09  Michael Nordman  <michaeln@google.com>
+
+        Reviewed by Dumitru Daniliuc.
+
+        Use class ProgressEvent when raising appcache related progress events and
+        set the 'total', 'loaded', and 'lengthComputable' attributes.
+        Also raise the final progress event with the 'total' and 'loaded' attribute
+        values are equal to one another to keep pace with the spec for this feature.
+        https://bugs.webkit.org/show_bug.cgi?id=37602
+
+        * src/ApplicationCacheHost.cpp:
+        (WebCore::ApplicationCacheHost::notifyDOMApplicationCache):
+        (WebCore::ApplicationCacheHost::stopDeferringEvents):
+        (WebCore::ApplicationCacheHost::dispatchDOMEvent):
+        * src/ApplicationCacheHostInternal.h:
+        (WebCore::ApplicationCacheHostInternal::notifyEventListener):
+        (WebCore::ApplicationCacheHostInternal::notifyProgressEventListener):
+
+2010-07-09  David Holloway  <dhollowa@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Roll Chromium DEPS forward to r51736.
+        https://bugs.webkit.org/show_bug.cgi?id=41867
+
+        * DEPS:
+
+2010-07-09  Pavel Feldman  <pfeldman@chromium.org>
+
+        Not reviewed: chromium build fix.
+
+        * public/WebGLES2Context.h:
+
+2010-07-09  Yael Aharon  <yael.aharon@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        NotificationPresenter needs a cancelRequestPermission API
+        https://bugs.webkit.org/show_bug.cgi?id=41783
+
+        Updated the NotificationPresenter API.
+
+        * src/NotificationPresenterImpl.cpp:
+        (WebKit::NotificationPresenterImpl::checkPermission):
+        (WebKit::NotificationPresenterImpl::requestPermission):
+        * src/NotificationPresenterImpl.h:
+        (WebKit::NotificationPresenterImpl::cancelRequestsForPermission):
+
+2010-07-08  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: Provide detailed network info in the resources panel.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40227
+
+        * WebKit.gyp:
+        * public/WebDevToolsAgent.h:
+        * public/WebURLLoadTiming.h: Added.
+        (WebKit::WebURLLoadTiming::~WebURLLoadTiming):
+        (WebKit::WebURLLoadTiming::WebURLLoadTiming):
+        (WebKit::WebURLLoadTiming::operator=):
+        (WebKit::WebURLLoadTiming::isNull):
+        * public/WebURLRequest.h:
+        * public/WebURLResponse.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::willSendRequest):
+        * src/WebDevToolsAgentImpl.h:
+        * src/WebURLLoadTiming.cpp: Added.
+        (WebKit::WebURLLoadTiming::initialize):
+        (WebKit::WebURLLoadTiming::reset):
+        (WebKit::WebURLLoadTiming::assign):
+        (WebKit::WebURLLoadTiming::setDomainLookupTimes):
+        (WebKit::WebURLLoadTiming::setConnectStartTime):
+        (WebKit::WebURLLoadTiming::setRequestTimes):
+        (WebKit::WebURLLoadTiming::setHeadersAvailableTime):
+        (WebKit::WebURLLoadTiming::WebURLLoadTiming):
+        (WebKit::WebURLLoadTiming::operator=):
+        (WebKit::WebURLLoadTiming::operator PassRefPtr<ResourceLoadTiming>):
+        * src/WebURLRequest.cpp:
+        (WebKit::WebURLRequest::reportLoadTiming):
+        (WebKit::WebURLRequest::setReportLoadTiming):
+        * src/WebURLResponse.cpp:
+        (WebKit::WebURLResponse::setConnectionID):
+        (WebKit::WebURLResponse::setLoadTiming):
+
+2010-07-08  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Exposing the EditorClient text field related methods
+        to the WebViewClient. Also adding some more accessors methods
+        to the WebNode and WebInputElement.
+        This is needed to move the password autocomplete out of the
+        Chromium WebKit API to the Chromium code.
+        https://bugs.webkit.org/show_bug.cgi?id=41286
+
+        * public/WebInputElement.h:
+        * public/WebNode.h:
+        (WebKit::operator!=):
+        (WebKit::operator<):
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::textFieldDidBeginEditing):
+        (WebKit::WebViewClient::textFieldDidEndEditing):
+        (WebKit::WebViewClient::textDidChangeInTextField):
+        (WebKit::WebViewClient::textFieldHandlingKeyDown):
+        (WebKit::WebViewClient::didAcceptAutocompleteSuggestion):
+        * src/EditorClientImpl.cpp:
+        (WebKit::EditorClientImpl::textFieldDidBeginEditing):
+        (WebKit::EditorClientImpl::textFieldDidEndEditing):
+        (WebKit::EditorClientImpl::textDidChangeInTextField):
+        (WebKit::EditorClientImpl::onAutocompleteSuggestionAccepted):
+        (WebKit::EditorClientImpl::doTextFieldCommandFromEvent):
+        * src/WebInputElement.cpp:
+        (WebKit::WebInputElement::readOnly):
+        (WebKit::WebInputElement::setSelectionRange):
+        (WebKit::WebInputElement::selectionStart):
+        (WebKit::WebInputElement::selectionEnd):
+        * src/WebNode.cpp:
+        (WebKit::WebNode::lessThan):
+
+2010-07-08  Aaron Boodman  <aa@chromium.org>
+
+        Reviewed by Timothy Hatcher.
+
+        Add the ability for user scripts and user styles to affect just the top frame.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41529
+
+        * public/WebView.h:
+        (WebKit::WebView::):
+        (WebKit::WebView::addUserScript):
+        (WebKit::WebView::addUserStyleSheet):
+        * src/AssertMatchingEnums.cpp:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebView::addUserScript):
+        (WebKit::WebView::addUserStyleSheet):
+
+2010-07-08  James Robinson  <jamesr@google.com>
+
+        Reviewed by Darin Fisher.
+
+        Allow resizing and getting the texture ID from an offscreen GLES2Context
+        https://bugs.webkit.org/show_bug.cgi?id=41828
+
+        When using an offscreen GLES2Context the caller needs to be able to resize the backing store
+        managed by the embedder and get access to a texture id to pass to the compositor.  WebGL
+        does these actions in an indirect way, it will be refactored to use this path.
+
+        * public/WebGLES2Context.h:
+        * src/GLES2Context.cpp:
+        (WebCore::GLES2Context::resizeOffscreenContent):
+        (WebCore::GLES2Context::getOffscreenContentParentTextureId):
+
+2010-07-08  Vitaly Repeshko  <vitalyr@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [chromium] Fix deletion has begun assert in TestWebPopupMenuImpl.
+        https://bugs.webkit.org/show_bug.cgi?id=41899
+
+        * tests/PopupMenuTest.cpp:
+        (WebKit::TestWebPopupMenuImpl::create):
+        (WebKit::TestWebViewClient::TestWebViewClient):
+        (WebKit::TestWebViewClient::createPopupMenu):
+
+2010-07-08  Vitaly Repeshko  <vitalyr@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [chromium] Fix deletion has begun assertion in TestImage destructor.
+        https://bugs.webkit.org/show_bug.cgi?id=41883
+
+        * tests/DragImageTest.cpp:
+        (WebCore::TestImage::create):
+        (WebCore::TEST):
+
+2010-07-08  Vitaly Repeshko  <vitalyr@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Fix adoptRef usage violations (mostly in chromium)
+        https://bugs.webkit.org/show_bug.cgi?id=41863
+
+        * src/IDBCallbacksProxy.cpp:
+        (WebCore::IDBCallbacksProxy::create):
+        * src/WebPopupMenuImpl.cpp:
+        (WebKit::WebPopupMenu::create):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebView::create):
+
+2010-07-07  Alexander Pavlov  <apavlov@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Crash when re-entering message loop
+
+        Allow re-entrancy of the message loop by tracking all suspended pages
+        through a PageGroupLoadDeferrer stack.
+        https://bugs.webkit.org/show_bug.cgi?id=41697
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebView::willEnterModalLoop):
+        (WebKit::WebView::didExitModalLoop):
+        * src/js/Tests.js:
+        (.TestSuite.prototype.evaluateInConsole_):
+        (.TestSuite.prototype.testCompletionOnPause):
+        (.TestSuite.prototype.testMessageLoopReentrant.this):
+
+2010-07-08  David Holloway  <dhollowa@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Exposes WebNode::unwrap() and WebNode::constUnwrap() for 
+        use by other code in WebKit/chromium/src.
+
+        Specific use of these methods is made in WebFrameImpl.cpp.  This is
+        preferred to the cast operator call that was happening prior to this
+        change.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41477
+
+        * public/WebNode.h:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::registerPasswordListener):
+        (WebKit::WebFrameImpl::notifiyPasswordListenerOfAutocomplete):
+        (WebKit::WebFrameImpl::getPasswordListener):
+        * src/WebFrameImpl.h:
+
+2010-07-07  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: convert script offset to webkit format
+        https://bugs.webkit.org/show_bug.cgi?id=41755
+
+        * src/js/DebuggerScript.js:
+        ():
+
+2010-07-07  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        [DRT/Chromium] DumpRenderTree should depend on ImageDiff
+        https://bugs.webkit.org/show_bug.cgi?id=41749
+
+        We usually use DumpRenderTree with ImageDiff.  So ImageDiff should
+        be built with DumpRenderTree. Without this change, ImageDiff is not
+        built in a case of Chromium tree build.
+        test_shell in Chromium tree also depends on image_diff.
+
+        * WebKit.gyp:
+
+2010-07-07  John Abd-El-Malek  <jam@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Add a few more methods to WebPlugin so that Pepper v2 plugins can support copy/zoom/find
+        https://bugs.webkit.org/show_bug.cgi?id=41649
+
+        * public/WebPlugin.h:
+        (WebKit::WebPlugin::hasSelection):
+        (WebKit::WebPlugin::selectionAsText):
+        (WebKit::WebPlugin::selectionAsMarkup):
+        (WebKit::WebPlugin::setZoomFactor):
+        (WebKit::WebPlugin::supportsFind):
+        (WebKit::WebPlugin::startFind):
+        (WebKit::WebPlugin::selectFindResult):
+        (WebKit::WebPlugin::stopFind):
+        * src/ContextMenuClientImpl.cpp:
+        (WebKit::ContextMenuClientImpl::getCustomMenuFromDefaultItems):
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::pluginContainerFromFrame):
+        (WebKit::ChromePluginPrintContext::end):
+        (WebKit::ChromePluginPrintContext::computePageRects):
+        (WebKit::ChromePluginPrintContext::spoolPage):
+        (WebKit::WebFrameImpl::executeCommand):
+        * src/WebFrameImpl.h:
+        * src/WebPluginContainerImpl.cpp:
+        (WebKit::WebPluginContainerImpl::copy):
+        (WebKit::WebPluginContainerImpl::handleKeyboardEvent):
+        * src/WebPluginContainerImpl.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setZoomLevel):
+
+2010-07-07  James Hawkins  <jhawkins@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [Chromium] Add setSuggestedValue to WebInputElement
+        https://bugs.webkit.org/show_bug.cgi?id=41785
+
+        * public/WebInputElement.h:
+        * src/WebInputElement.cpp:
+        (WebKit::WebInputElement::setSuggestedValue):
+        (WebKit::WebInputElement::suggestedValue):
+
+2010-07-07  James Robinson  <jamesr@chromium.org> and Vincent Scheib <schieb@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        WebCore::GLES2Context should allow creating onscreen and offscreen contexts
+        https://bugs.webkit.org/show_bug.cgi?id=41492
+
+        You should be able to create a GLES2Context for rendering both on screen
+        and off screen (to a texture).  Currently WebGL does the latter by side
+        stepping the WebCore::GLES2Context API completely.  Longer term it should
+        move over to using this.
+
+        * src/GLES2Context.cpp:
+        (WebCore::GLES2ContextInternal::initializeOnscreen):
+        (WebCore::GLES2ContextInternal::initializeOffscreen):
+        (WebCore::GLES2Context::createOnscreen):
+        (WebCore::GLES2Context::createOffscreen):
+
+2010-07-07  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=41772
+        Add basic piping for BackForwardControllerClient.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+
+2010-07-07  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r62645.
+        http://trac.webkit.org/changeset/62645
+        https://bugs.webkit.org/show_bug.cgi?id=41757
+
+        "Broken inspector tests on several platforms" (Requested by
+        eseidel on #webkit).
+
+        * src/js/DebuggerScript.js:
+        ():
+
+2010-07-07  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: if breakpoints were deactivated, add new breakpoints as disabled.
+        https://bugs.webkit.org/show_bug.cgi?id=41461
+
+        * src/js/DebuggerScript.js:
+        ():
+
+2010-07-06  Darin Adler  <darin@apple.com>
+
+        Try to fix build.
+
+        Why do the Chromium bots stop after the first error they encounter?
+
+        * src/WebWorkerImpl.cpp:
+        (WebKit::WebWorkerImpl::postMessageToWorkerContextTask): Removed
+        unneeded release called on a PassOwnPtr to pass it as an argument of
+        type PassOwnPtr.
+
+2010-07-06  Darin Adler  <darin@apple.com>
+
+        Try to fix build.
+
+        * src/WebWorkerBase.cpp:
+        (WebKit::WebWorkerBase::dispatchTaskToMainThread): Use leakPtr instead
+        of release.
+        * src/WebWorkerClientImpl.cpp:
+        (WebKit::WebWorkerClientImpl::postMessageToWorkerObjectTask): Removed
+        unneeded release called on a PassOwnPtr to pass it as an argument of
+        type PassOwnPtr.
+
+2010-07-06  Darin Adler  <darin@apple.com>
+
+        Try to fix build.
+
+        * src/WebSharedWorkerImpl.cpp:
+        (WebKit::WebSharedWorkerImpl::connectTask): Removed unneeded release
+        called on a PassOwnPtr to pass it as an argument of type PassOwnPtr.
+
+2010-07-06  Darin Adler  <darin@apple.com>
+
+        Try to fix build.
+
+        * src/WebDataSourceImpl.cpp:
+        (WebKit::WebDataSourceImpl::setNextPluginLoadObserver): Call leakPtr
+        here instead of release. Comment makes it really unclear why it's OK!
+
+2010-07-06  Darin Adler  <darin@apple.com>
+
+        Try to fix build.
+
+        * src/SharedWorkerRepository.cpp:
+        (WebCore::SharedWorkerRepository::connect): Removed unneeded release
+        called on a PassOwnPtr to pass it as an argument of type PassOwnPtr.
+
 2010-07-05  Yury Semikhatsky  <yurys@chromium.org>
 
         Reviewed by Pavel Feldman.

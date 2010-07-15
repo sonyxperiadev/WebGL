@@ -97,6 +97,12 @@ public:
     double expires() const;
     double lastModified() const;
 
+    unsigned connectionID() const;
+    void setConnectionID(unsigned);
+
+    bool wasCached() const;
+    void setWasCached(bool);
+
     ResourceLoadTiming* resourceLoadTiming() const;
     void setResourceLoadTiming(PassRefPtr<ResourceLoadTiming>);
 
@@ -130,6 +136,8 @@ protected:
     String m_httpStatusText;
     HTTPHeaderMap m_httpHeaderFields;
     time_t m_lastModifiedDate;
+    bool m_wasCached;
+    unsigned m_connectionID;
     RefPtr<ResourceLoadTiming> m_resourceLoadTiming;
 
     bool m_isNull : 1;

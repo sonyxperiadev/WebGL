@@ -68,6 +68,7 @@
 #include "Page.h"
 #include "ProgressTracker.h"
 #include "Range.h"
+#include "RemoteInspectorFrontend2.h"
 #include "RenderInline.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
@@ -93,6 +94,10 @@
 
 #if ENABLE(DATABASE)
 #include "Database.h"
+#endif
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+#include "InspectorApplicationCacheAgent.h"
 #endif
 
 #if ENABLE(DOM_STORAGE)
@@ -216,7 +221,7 @@ InspectorController::~InspectorController()
     ASSERT(s_inspectorControllerCount);
     --s_inspectorControllerCount;
 
-    releaseDOMAgent();
+    releaseFrontendLifetimeAgents();
 
     m_inspectorBackend->disconnectController();
     m_injectedScriptHost->disconnectController();
@@ -479,11 +484,12 @@ void InspectorController::setMonitoringXHR(bool enabled)
 void InspectorController::connectFrontend(const ScriptObject& webInspector)
 {
     m_openingFrontend = false;
+    releaseFrontendLifetimeAgents();
     m_frontend = new InspectorFrontend(webInspector, m_client);
-    releaseDOMAgent();
-    m_domAgent = InspectorDOMAgent::create(m_cssStore.get(), m_frontend.get());
+    m_frontend2 = new InspectorFrontend2(m_client);
+    m_domAgent = InspectorDOMAgent::create(m_cssStore.get(), m_frontend2.get());
     if (m_timelineAgent)
-        m_timelineAgent->resetFrontendProxyObject(m_frontend.get());
+        m_timelineAgent->resetFrontendProxyObject(m_frontend2.get());
 
     // Initialize Web Inspector title.
     m_frontend->inspectedURLChanged(m_inspectedPage->mainFrame()->loader()->url().string());
@@ -513,6 +519,10 @@ void InspectorController::connectFrontend(const ScriptObject& webInspector)
     if (m_nodeToFocus)
         focusNode();
     showPanel(m_showAfterVisible);
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    m_applicationCacheAgent = new InspectorApplicationCacheAgent(this, m_frontend.get());
+#endif
 }
 
 void InspectorController::show()
@@ -582,17 +592,21 @@ void InspectorController::disconnectFrontend()
     stopUserInitiatedProfiling();
 #endif
 
-    releaseDOMAgent();
+    releaseFrontendLifetimeAgents();
     m_timelineAgent.clear();
 }
 
-void InspectorController::releaseDOMAgent()
+void InspectorController::releaseFrontendLifetimeAgents()
 {
     // m_domAgent is RefPtr. Remove DOM listeners first to ensure that there are
     // no references to the DOM agent from the DOM tree.
     if (m_domAgent)
         m_domAgent->reset();
     m_domAgent.clear();
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    m_applicationCacheAgent.clear();
+#endif
 }
 
 void InspectorController::populateScriptObjects()
@@ -933,7 +947,7 @@ bool InspectorController::isMainResourceLoader(DocumentLoader* loader, const KUR
     return loader->frame() == m_inspectedPage->mainFrame() && requestUrl == loader->requestURL();
 }
 
-void InspectorController::willSendRequest(unsigned long identifier, const ResourceRequest& request, const ResourceResponse& redirectResponse)
+void InspectorController::willSendRequest(unsigned long identifier, ResourceRequest& request, const ResourceResponse& redirectResponse)
 {
     if (!enabled())
         return;
@@ -946,11 +960,12 @@ void InspectorController::willSendRequest(unsigned long identifier, const Resour
     if (!resource)
         return;
 
+    request.setReportLoadTiming(true);
+
     if (!redirectResponse.isNull()) {
         // Redirect may have empty URL and we'd like to not crash with invalid HashMap entry.
         // See http/tests/misc/will-send-request-returns-null-on-redirect.html
         if (!request.url().isEmpty()) {
-            resource->markResponseReceivedTime();
             resource->endTiming();
             resource->updateResponse(redirectResponse);
 
@@ -981,7 +996,6 @@ void InspectorController::didReceiveResponse(unsigned long identifier, const Res
 
     if (RefPtr<InspectorResource> resource = getTrackedResource(identifier)) {
         resource->updateResponse(response);
-        resource->markResponseReceivedTime();
 
         if (resource != m_mainResource && m_frontend)
             resource->updateScriptObject(m_frontend.get());
@@ -1149,7 +1163,7 @@ void InspectorController::startTimelineProfiler()
     if (m_timelineAgent)
         return;
 
-    m_timelineAgent = new InspectorTimelineAgent(m_frontend.get());
+    m_timelineAgent = new InspectorTimelineAgent(m_frontend2.get());
     if (m_frontend)
         m_frontend->timelineProfilerWasStarted();
     m_client->timelineProfilerWasStarted();
@@ -1340,6 +1354,16 @@ ScriptObject InspectorController::buildObjectForCookie(const Cookie& cookie)
     value.set("secure", cookie.secure);
     value.set("session", cookie.session);
     return value;
+}
+
+void InspectorController::deleteCookie(const String& cookieName, const String& domain)
+{
+    ResourcesMap::iterator resourcesEnd = m_resources.end();
+    for (ResourcesMap::iterator it = m_resources.begin(); it != resourcesEnd; ++it) {
+        Document* document = it->second->frame()->document();
+        if (document->url().host() == domain)
+            WebCore::deleteCookie(document, it->second->requestURL(), cookieName);
+    }
 }
 
 #if ENABLE(DOM_STORAGE)
@@ -2102,16 +2126,6 @@ InspectorController::SpecialPanels InspectorController::specialPanelForJSName(co
     if (panelName == "console")
         return ConsolePanel;
     return ElementsPanel;
-}
-
-void InspectorController::deleteCookie(const String& cookieName, const String& domain)
-{
-    ResourcesMap::iterator resourcesEnd = m_resources.end();
-    for (ResourcesMap::iterator it = m_resources.begin(); it != resourcesEnd; ++it) {
-        Document* document = it->second->frame()->document();
-        if (document->url().host() == domain)
-            WebCore::deleteCookie(document, it->second->requestURL(), cookieName);
-    }
 }
 
 InjectedScript InspectorController::injectedScriptForNodeId(long id)

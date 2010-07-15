@@ -210,6 +210,11 @@ sub GetVisibleClassName
 
     return "DOMException" if $className eq "DOMCoreException";
     return "FormData" if $className eq "DOMFormData";
+    return "MimeType" if $className eq "DOMMimeType";
+    return "MimeTypeArray" if $className eq "DOMMimeTypeArray";
+    return "Plugin" if $className eq "DOMPlugin";
+    return "PluginArray" if $className eq "DOMPluginArray";
+    
     return $className;
 }
 
@@ -2317,7 +2322,7 @@ sub JSValueToNative
     return "static_cast<SVGPaint::SVGPaintType>($value.toInt32(exec))" if $type eq "SVGPaintType";
 
     if ($type eq "DOMString") {
-        return "valueToStringWithNullCheck(exec, $value)" if $signature->extendedAttributes->{"ConvertNullToNullString"} || $signature->extendedAttributes->{"Reflect"} || $signature->extendedAttributes->{"ReflectURL"};
+        return "valueToStringWithNullCheck(exec, $value)" if $signature->extendedAttributes->{"ConvertNullToNullString"} || $signature->extendedAttributes->{"Reflect"};
         return "valueToStringWithUndefinedOrNullCheck(exec, $value)" if $signature->extendedAttributes->{"ConvertUndefinedOrNullToNullString"};
         return "ustringToString($value.toString(exec))";
     }

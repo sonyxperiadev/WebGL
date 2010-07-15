@@ -222,9 +222,23 @@ void HTMLDocumentParser::insert(const SegmentedString& source)
     if (m_parserStopped)
         return;
 
+<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::ParsingTimeCounter);
 #endif
+=======
+    if (m_scriptRunner && !m_scriptRunner->inScriptExecution() && m_input.haveSeenEndOfFile()) {
+        // document.write was called without a current insertion point.
+        // According to the spec, we're supposed to implicitly open the
+        // document.  Unfortunately, that behavior isn't sufficiently compatible
+        // with the web.  The working group is mulling over what exactly to
+        // do.  In the meantime, we're going to try one of the potential
+        // solutions, which is to ignore the write.
+        // http://www.w3.org/Bugs/Public/show_bug.cgi?id=9767
+        return;
+    }
+
+>>>>>>> webkit.org at r63173
     {
         NestingLevelIncrementer nestingLevelIncrementer(m_writeNestingLevel);
 
@@ -354,6 +368,7 @@ void HTMLDocumentParser::resumeParsingAfterScriptExecution()
     ASSERT(!inScriptExecution());
     ASSERT(!m_treeBuilder->isPaused());
 
+    m_preloadScanner.clear();
     pumpTokenizerIfPossible(AllowYield);
     endIfDelayed();
 }

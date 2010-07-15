@@ -56,7 +56,14 @@ enum CharacterTypes {
 
     CharacterLineTerminator,
     CharacterExclamationMark,
-    CharacterSimple,
+    CharacterOpenParen,
+    CharacterCloseParen,
+    CharacterOpenBracket,
+    CharacterCloseBracket,
+    CharacterComma,
+    CharacterColon,
+    CharacterQuestion,
+    CharacterTilde,
     CharacterQuote,
     CharacterDot,
     CharacterSlash,
@@ -81,7 +88,7 @@ enum CharacterTypes {
 };
 
 // 128 ascii codes
-static unsigned char AsciiCharacters[128] = {
+static unsigned short AsciiCharacters[128] = {
 /*   0 - Null               */ CharacterInvalid,
 /*   1 - Start of Heading   */ CharacterInvalid,
 /*   2 - Start of Text      */ CharacterInvalid,
@@ -122,11 +129,11 @@ static unsigned char AsciiCharacters[128] = {
 /*  37 - %                  */ CharacterModulo,
 /*  38 - &                  */ CharacterAnd,
 /*  39 - '                  */ CharacterQuote,
-/*  40 - (                  */ CharacterSimple,
-/*  41 - )                  */ CharacterSimple,
+/*  40 - (                  */ CharacterOpenParen,
+/*  41 - )                  */ CharacterCloseParen,
 /*  42 - *                  */ CharacterMultiply,
 /*  43 - +                  */ CharacterAdd,
-/*  44 - ,                  */ CharacterSimple,
+/*  44 - ,                  */ CharacterComma,
 /*  45 - -                  */ CharacterSub,
 /*  46 - .                  */ CharacterDot,
 /*  47 - /                  */ CharacterSlash,
@@ -140,12 +147,12 @@ static unsigned char AsciiCharacters[128] = {
 /*  55 - 7                  */ CharacterNumber,
 /*  56 - 8                  */ CharacterNumber,
 /*  57 - 9                  */ CharacterNumber,
-/*  58 - :                  */ CharacterSimple,
+/*  58 - :                  */ CharacterColon,
 /*  59 - ;                  */ CharacterSemicolon,
 /*  60 - <                  */ CharacterLess,
 /*  61 - =                  */ CharacterEqual,
 /*  62 - >                  */ CharacterGreater,
-/*  63 - ?                  */ CharacterSimple,
+/*  63 - ?                  */ CharacterQuestion,
 /*  64 - @                  */ CharacterInvalid,
 /*  65 - A                  */ CharacterAlpha,
 /*  66 - B                  */ CharacterAlpha,
@@ -173,9 +180,9 @@ static unsigned char AsciiCharacters[128] = {
 /*  88 - X                  */ CharacterAlpha,
 /*  89 - Y                  */ CharacterAlpha,
 /*  90 - Z                  */ CharacterAlpha,
-/*  91 - [                  */ CharacterSimple,
+/*  91 - [                  */ CharacterOpenBracket,
 /*  92 - \                  */ CharacterBackSlash,
-/*  93 - ]                  */ CharacterSimple,
+/*  93 - ]                  */ CharacterCloseBracket,
 /*  94 - ^                  */ CharacterXor,
 /*  95 - _                  */ CharacterAlpha,
 /*  96 - `                  */ CharacterInvalid,
@@ -208,7 +215,7 @@ static unsigned char AsciiCharacters[128] = {
 /* 123 - {                  */ CharacterOpenBrace,
 /* 124 - |                  */ CharacterOr,
 /* 125 - }                  */ CharacterCloseBrace,
-/* 126 - ~                  */ CharacterSimple,
+/* 126 - ~                  */ CharacterTilde,
 /* 127 - Delete             */ CharacterInvalid,
 };
 
@@ -357,8 +364,14 @@ static inline int singleEscape(int c)
             return 0x0C;
         case 'r':
             return 0x0D;
+        case '\\':
+            return '\\';
+        case '\'':
+            return '\'';
+        case '"':
+            return '"';
         default:
-            return c;
+            return 0;
     }
 }
 
@@ -381,15 +394,92 @@ inline void Lexer::record16(int c)
     record16(UChar(static_cast<unsigned short>(c)));
 }
 
-int Lexer::lex(void* p1, void* p2)
+ALWAYS_INLINE bool Lexer::parseString(JSTokenData* lvalp)
+{
+    int stringQuoteCharacter = m_current;
+    shift();
+
+    const UChar* stringStart = currentCharacter();
+
+    while (m_current != stringQuoteCharacter) {
+        if (UNLIKELY(m_current == '\\')) {
+            if (stringStart != currentCharacter())
+                m_buffer16.append(stringStart, currentCharacter() - stringStart);
+            shift();
+
+            int escape = singleEscape(m_current);
+
+            // Most common escape sequences first
+            if (escape) {
+                record16(escape);
+                shift();
+            } else if (UNLIKELY(isLineTerminator(m_current)))
+                shiftLineTerminator();
+            else if (m_current == 'x') {
+                shift();
+                if (isASCIIHexDigit(m_current) && isASCIIHexDigit(peek(1))) {
+                    int prev = m_current;
+                    shift();
+                    record16(convertHex(prev, m_current));
+                    shift();
+                } else
+                    record16('x');
+            } else if (m_current == 'u') {
+                shift();
+                int character = getUnicodeCharacter();
+                if (character != -1)
+                    record16(character);
+                else if (m_current == stringQuoteCharacter)
+                    record16('u');
+                else // Only stringQuoteCharacter allowed after \u
+                    return false;
+            } else if (isASCIIOctalDigit(m_current)) {
+                // Octal character sequences
+                int character1 = m_current;
+                shift();
+                if (isASCIIOctalDigit(m_current)) {
+                    // Two octal characters
+                    int character2 = m_current;
+                    shift();
+                    if (character1 >= '0' && character1 <= '3' && isASCIIOctalDigit(m_current)) {
+                        record16((character1 - '0') * 64 + (character2 - '0') * 8 + m_current - '0');
+                        shift();
+                    } else
+                        record16((character1 - '0') * 8 + character2 - '0');
+                } else
+                    record16(character1 - '0');
+            } else if (m_current != -1) {
+                record16(m_current);
+                shift();
+            } else
+                return false;
+
+            stringStart = currentCharacter();
+            continue;
+        } else if (UNLIKELY(((static_cast<unsigned>(m_current) - 0xE) & 0x2000))) {
+            // New-line or end of input is not allowed
+            if (UNLIKELY(isLineTerminator(m_current)) || UNLIKELY(m_current == -1))
+                return false;
+            // Anything else is just a normal character
+        }
+        shift();
+    }
+
+    if (currentCharacter() != stringStart)
+        m_buffer16.append(stringStart, currentCharacter() - stringStart);
+    lvalp->ident = makeIdentifier(m_buffer16.data(), m_buffer16.size());
+    m_buffer16.resize(0);
+    return true;
+}
+
+JSTokenType Lexer::lex(JSTokenData* lvalp, JSTokenInfo* llocp)
 {
     ASSERT(!m_error);
     ASSERT(m_buffer8.isEmpty());
     ASSERT(m_buffer16.isEmpty());
 
-    YYSTYPE* lvalp = static_cast<YYSTYPE*>(p1);
-    YYLTYPE* llocp = static_cast<YYLTYPE*>(p2);
-    int token = 0;
+    JSTokenType token = ERRORTOK;
+    int identChar = 0;
     m_terminator = false;
 
 start:
@@ -398,20 +488,13 @@ start:
 
     int startOffset = currentOffset();
 
-    if (UNLIKELY(m_current == -1)) {
-        if (!m_terminator && !m_delimited && !m_isReparsing) {
-            // automatic semicolon insertion if program incomplete
-            token = ';';
-            goto doneSemicolon;
-        }
-        return 0;
-    }
+    if (UNLIKELY(m_current == -1))
+        return EOFTOK;
 
     m_delimited = false;
-    ASSERT(m_current >= 0);
 
-    if (m_current < 128) {
-        ASSERT(isASCII(m_current));
+    if (isASCII(m_current)) {
+        ASSERT(m_current >= 0 && m_current < 128);
 
         switch (AsciiCharacters[m_current]) {
         case CharacterGreater:
@@ -441,7 +524,7 @@ start:
                 token = GE;
                 break;
             }
-            token = '>';
+            token = GT;
             break;
         case CharacterEqual:
             shift();
@@ -455,7 +538,7 @@ start:
                 token = EQEQ;
                 break;
             }
-            token = '=';
+            token = EQUAL;
             break;
         case CharacterLess:
             shift();
@@ -478,7 +561,7 @@ start:
                 token = LE;
                 break;
             }
-            token = '<';
+            token = LT;
             break;
         case CharacterExclamationMark:
             shift();
@@ -492,7 +575,7 @@ start:
                 token = NE;
                 break;
             }
-            token = '!';
+            token = EXCLAMATION;
             break;
         case CharacterAdd:
             shift();
@@ -506,7 +589,7 @@ start:
                 token = PLUSEQUAL;
                 break;
             }
-            token = '+';
+            token = PLUS;
             break;
         case CharacterSub:
             shift();
@@ -524,7 +607,7 @@ start:
                 token = MINUSEQUAL;
                 break;
             }
-            token = '-';
+            token = MINUS;
             break;
         case CharacterMultiply:
             shift();
@@ -533,7 +616,7 @@ start:
                 token = MULTEQUAL;
                 break;
             }
-            token = '*';
+            token = TIMES;
             break;
         case CharacterSlash:
             shift();
@@ -550,7 +633,7 @@ start:
                 token = DIVEQUAL;
                 break;
             }
-            token = '/';
+            token = DIVIDE;
             break;
         case CharacterAnd:
             shift();
@@ -564,7 +647,7 @@ start:
                 token = ANDEQUAL;
                 break;
             }
-            token = '&';
+            token = BITAND;
             break;
         case CharacterXor:
             shift();
@@ -573,7 +656,7 @@ start:
                 token = XOREQUAL;
                 break;
             }
-            token = '^';
+            token = BITXOR;
             break;
         case CharacterModulo:
             shift();
@@ -582,7 +665,7 @@ start:
                 token = MODEQUAL;
                 break;
             }
-            token = '%';
+            token = MOD;
             break;
         case CharacterOr:
             shift();
@@ -596,7 +679,7 @@ start:
                 token = OR;
                 break;
             }
-            token = '|';
+            token = BITOR;
             break;
         case CharacterDot:
             shift();
@@ -604,16 +687,44 @@ start:
                 record8('.');
                 goto inNumberAfterDecimalPoint;
             }
-            token = '.';
+            token = DOT;
             break;
-        case CharacterSimple:
-            token = m_current;
+        case CharacterOpenParen:
+            token = OPENPAREN;
+            shift();
+            break;
+        case CharacterCloseParen:
+            token = CLOSEPAREN;
+            shift();
+            break;
+        case CharacterOpenBracket:
+            token = OPENBRACKET;
+            shift();
+            break;
+        case CharacterCloseBracket:
+            token = CLOSEBRACKET;
+            shift();
+            break;
+        case CharacterComma:
+            token = COMMA;
+            shift();
+            break;
+        case CharacterColon:
+            token = COLON;
+            shift();
+            break;
+        case CharacterQuestion:
+            token = QUESTION;
+            shift();
+            break;
+        case CharacterTilde:
+            token = TILDE;
             shift();
             break;
         case CharacterSemicolon:
             m_delimited = true;
             shift();
-            token = ';';
+            token = SEMICOLON;
             break;
         case CharacterOpenBrace:
             lvalp->intValue = currentOffset();
@@ -633,7 +744,12 @@ start:
         case CharacterNumber:
             goto startNumber;
         case CharacterQuote:
-            goto startString;
+            if (UNLIKELY(!parseString(lvalp)))
+                goto returnError;
+            shift();
+            m_delimited = false;
+            token = STRING;
+            break;
         case CharacterAlpha:
             ASSERT(isIdentStart(m_current));
             goto startIdentifierOrKeyword;
@@ -643,7 +759,7 @@ start:
             m_atLineStart = true;
             m_terminator = true;
             if (lastTokenWasRestrKeyword()) {
-                token = ';';
+                token = SEMICOLON;
                 goto doneSemicolon;
             }
             goto start;
@@ -655,7 +771,6 @@ start:
         }
     } else {
         // Rare characters
-        ASSERT(!isASCII(m_current));
 
         if (isNonASCIIIdentStart(m_current))
             goto startIdentifierOrKeyword;
@@ -663,10 +778,8 @@ start:
             shiftLineTerminator();
             m_atLineStart = true;
             m_terminator = true;
-            if (lastTokenWasRestrKeyword()) {
-                token = ';';
+            if (lastTokenWasRestrKeyword())
                 goto doneSemicolon;
-            }
             goto start;
         }
         goto returnError;
@@ -675,109 +788,16 @@ start:
     m_atLineStart = false;
     goto returnToken;
 
-startString: {
-    int stringQuoteCharacter = m_current;
-    shift();
-
-    const UChar* stringStart = currentCharacter();
-    while (m_current != stringQuoteCharacter) {
-        // Fast check for characters that require special handling.
-        // Catches -1, \n, \r, \, 0x2028, and 0x2029 as efficiently
-        // as possible, and lets through all common ASCII characters.
-        if (UNLIKELY(m_current == '\\') || UNLIKELY(((static_cast<unsigned>(m_current) - 0xE) & 0x2000))) {
-            m_buffer16.append(stringStart, currentCharacter() - stringStart);
-            goto inString;
-        }
-        shift();
-    }
-    lvalp->ident = makeIdentifier(stringStart, currentCharacter() - stringStart);
-    shift();
-    m_atLineStart = false;
-    m_delimited = false;
-    token = STRING;
-    goto returnToken;
-
-inString:
-    while (m_current != stringQuoteCharacter) {
-        if (m_current == '\\')
-            goto inStringEscapeSequence;
-        if (UNLIKELY(isLineTerminator(m_current)))
-            goto returnError;
-        if (UNLIKELY(m_current == -1))
-            goto returnError;
-        record16(m_current);
-        shift();
-    }
-    goto doneString;
-
-inStringEscapeSequence:
-    shift();
-    if (m_current == 'x') {
-        shift();
-        if (isASCIIHexDigit(m_current) && isASCIIHexDigit(peek(1))) {
-            int prev = m_current;
-            shift();
-            record16(convertHex(prev, m_current));
-            shift();
-            goto inString;
-        }
-        record16('x');
-        if (m_current == stringQuoteCharacter)
-            goto doneString;
-        goto inString;
-    }
-    if (m_current == 'u') {
-        shift();
-        token = getUnicodeCharacter();
-        if (token != -1) {
-            record16(token);
-            goto inString;
-        }
-        if (m_current == stringQuoteCharacter) {
-            record16('u');
-            goto doneString;
-        }
-        goto returnError;
-    }
-    if (isASCIIOctalDigit(m_current)) {
-        int char1 = m_current;
-        shift();
-        if (char1 >= '0' && char1 <= '3' && isASCIIOctalDigit(m_current) && isASCIIOctalDigit(peek(1))) {
-            int char2 = m_current;
-            shift();
-            record16((char1 - '0') * 64 + (char2 - '0') * 8 + m_current - '0');
-            shift();
-            goto inString;
-        }
-        if (isASCIIOctalDigit(m_current)) {
-            record16((char1 - '0') * 8 + m_current - '0');
-            shift();
-            goto inString;
-        }
-        record16(char1 - '0');
-        goto inString;
-    }
-    if (isLineTerminator(m_current)) {
-        shiftLineTerminator();
-        goto inString;
-    }
-    if (m_current == -1)
-        goto returnError;
-    record16(singleEscape(m_current));
-    shift();
-    goto inString;
-}
-
 startIdentifierWithBackslash: {
     shift();
     if (UNLIKELY(m_current != 'u'))
         goto returnError;
     shift();
 
-    token = getUnicodeCharacter();
-    if (UNLIKELY(token == -1))
+    identChar = getUnicodeCharacter();
+    if (UNLIKELY(identChar == -1))
         goto returnError;
-    if (UNLIKELY(!isIdentStart(token)))
+    if (UNLIKELY(!isIdentStart(identChar)))
         goto returnError;
     goto inIdentifierAfterCharacterCheck;
 }
@@ -800,13 +820,13 @@ startIdentifierOrKeyword: {
         if (UNLIKELY(m_current != 'u'))
             goto returnError;
         shift();
-        token = getUnicodeCharacter();
-        if (UNLIKELY(token == -1))
+        identChar = getUnicodeCharacter();
+        if (UNLIKELY(identChar == -1))
             goto returnError;
-        if (UNLIKELY(!isIdentPart(token)))
+        if (UNLIKELY(!isIdentPart(identChar)))
             goto returnError;
 inIdentifierAfterCharacterCheck:
-        record16(token);
+        record16(identChar);
 
         while (isIdentPart(m_current)) {
             record16(m_current);
@@ -818,7 +838,7 @@ inIdentifierAfterCharacterCheck:
 inSingleLineComment:
     while (!isLineTerminator(m_current)) {
         if (UNLIKELY(m_current == -1))
-            return 0;
+            return EOFTOK;
         shift();
     }
     shiftLineTerminator();
@@ -985,7 +1005,7 @@ doneNumeric:
     goto returnToken;
 
 doneSemicolon:
-    token = ';';
+    token = SEMICOLON;
     m_delimited = true;
     goto returnToken;
 
@@ -1002,34 +1022,23 @@ doneIdentifierOrKeyword: {
     m_delimited = false;
     m_buffer16.resize(0);
     const HashEntry* entry = m_keywordTable.entry(m_globalData, *lvalp->ident);
-    token = entry ? entry->lexerValue() : static_cast<int>(IDENT);
-    goto returnToken;
-}
-
-doneString:
-    // Atomize constant strings in case they're later used in property lookup.
-    shift();
-    m_atLineStart = false;
-    m_delimited = false;
-    lvalp->ident = makeIdentifier(m_buffer16.data(), m_buffer16.size());
-    m_buffer16.resize(0);
-    token = STRING;
+    token = entry ? static_cast<JSTokenType>(entry->lexerValue()) : IDENT;
 
     // Fall through into returnToken.
+}
 
 returnToken: {
     int lineNumber = m_lineNumber;
-    llocp->first_line = lineNumber;
-    llocp->last_line = lineNumber;
-    llocp->first_column = startOffset;
-    llocp->last_column = currentOffset();
+    llocp->line = lineNumber;
+    llocp->startOffset = startOffset;
+    llocp->endOffset = currentOffset();
     m_lastToken = token;
     return token;
 }
 
 returnError:
     m_error = true;
-    return -1;
+    return ERRORTOK;
 }
 
 bool Lexer::scanRegExp(const Identifier*& pattern, const Identifier*& flags, UChar patternPrefix)
@@ -1136,7 +1145,6 @@ bool Lexer::skipRegExp()
 void Lexer::clear()
 {
     m_arena = 0;
-    m_codeWithoutBOMs.clear();
 
     Vector<char> newBuffer8;
     m_buffer8.swap(newBuffer8);

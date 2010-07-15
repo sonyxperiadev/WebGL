@@ -80,9 +80,17 @@
 
 #include <stddef.h> // For size_t
 
+#if defined(WIN32)
+// Visual Studio doesn't have stdint.h.
+typedef short int16_t;
+typedef unsigned short uint16_t;
+typedef int int32_t;
+typedef unsigned int uint32_t;
+#endif
+
 namespace WebKit {
 
-    // UTF-16 character type
+// UTF-16 character type
 #if defined(WIN32)
 typedef wchar_t WebUChar;
 #else

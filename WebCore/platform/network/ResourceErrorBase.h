@@ -32,6 +32,8 @@ namespace WebCore {
 
 class ResourceError;
 
+extern const char* const errorDomainWebKitInternal; // Used for errors that won't be exposed to clients.
+
 class ResourceErrorBase {
 public:
     // Makes a deep copy. Useful for when you need to use a ResourceError on another thread.

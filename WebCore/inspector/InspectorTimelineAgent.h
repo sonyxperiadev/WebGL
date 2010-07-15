@@ -34,16 +34,15 @@
 #if ENABLE(INSPECTOR)
 
 #include "Document.h"
+#include "InspectorValues.h"
 #include "ScriptExecutionContext.h"
 #include "ScriptGCEvent.h"
 #include "ScriptGCEventListener.h"
-#include "ScriptObject.h"
-#include "ScriptArray.h"
 #include <wtf/Vector.h>
 
 namespace WebCore {
 class Event;
-class InspectorFrontend;
+class InspectorFrontend2;
 class IntRect;
 class ResourceRequest;
 class ResourceResponse;
@@ -75,11 +74,11 @@ enum TimelineRecordType {
 
 class InspectorTimelineAgent : ScriptGCEventListener, public Noncopyable {
 public:
-    InspectorTimelineAgent(InspectorFrontend* frontend);
+    InspectorTimelineAgent(InspectorFrontend2* frontend);
     ~InspectorTimelineAgent();
 
     void reset();
-    void resetFrontendProxyObject(InspectorFrontend*);
+    void resetFrontendProxyObject(InspectorFrontend2*);
 
     // Methods called from WebCore.
     void willCallFunction(const String& scriptName, int scriptLine);
@@ -134,26 +133,26 @@ public:
 
 private:
     struct TimelineRecordEntry {
-        TimelineRecordEntry(ScriptObject record, ScriptObject data, ScriptArray children, TimelineRecordType type)
+        TimelineRecordEntry(PassRefPtr<InspectorObject> record, PassRefPtr<InspectorObject> data, PassRefPtr<InspectorArray> children, TimelineRecordType type)
             : record(record), data(data), children(children), type(type)
         {
         }
-        ScriptObject record;
-        ScriptObject data;
-        ScriptArray children;
+        RefPtr<InspectorObject> record;
+        RefPtr<InspectorObject> data;
+        RefPtr<InspectorArray> children;
         TimelineRecordType type;
     };
         
-    void pushCurrentRecord(ScriptObject, TimelineRecordType);
-    void setHeapSizeStatistic(ScriptObject record);
+    void pushCurrentRecord(PassRefPtr<InspectorObject>, TimelineRecordType);
+    void setHeapSizeStatistic(InspectorObject* record);
         
     void didCompleteCurrentRecord(TimelineRecordType);
 
-    void addRecordToTimeline(ScriptObject, TimelineRecordType);
+    void addRecordToTimeline(PassRefPtr<InspectorObject>, TimelineRecordType);
 
     void pushGCEventRecords();
 
-    InspectorFrontend* m_frontend;
+    InspectorFrontend2* m_frontend;
 
     Vector<TimelineRecordEntry> m_recordStack;
     static int s_instanceCount;

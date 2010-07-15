@@ -69,7 +69,8 @@ public:
         TargetIsObject = 7,
         TargetIsMedia = 8,
         TargetIsWorker = 9,
-        TargetIsSharedWorker = 10
+        TargetIsSharedWorker = 10,
+        TargetIsPrefetch = 11,
     };
 
     ~WebURLRequest() { reset(); }
@@ -128,6 +129,10 @@ public:
     // has a body.
     WEBKIT_API bool reportUploadProgress() const;
     WEBKIT_API void setReportUploadProgress(bool);
+
+    // Controls whether load timing info is collected for the request.
+    WEBKIT_API bool reportLoadTiming() const;
+    WEBKIT_API void setReportLoadTiming(bool);
 
     WEBKIT_API TargetType targetType() const;
     WEBKIT_API void setTargetType(TargetType);

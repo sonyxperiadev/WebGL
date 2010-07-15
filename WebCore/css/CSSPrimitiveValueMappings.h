@@ -36,7 +36,6 @@
 #include "FontSmoothingMode.h"
 #include "GraphicsTypes.h"
 #include "Path.h"
-#include "RenderStyleConstants.h"
 #include "SVGRenderStyleDefs.h"
 #include "TextDirection.h"
 #include "TextRenderingMode.h"
@@ -252,6 +251,9 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ControlPart e)
             break;
         case MediaVolumeSliderPart:
             m_value.ident = CSSValueMediaVolumeSlider;
+            break;
+        case MediaVolumeSliderMuteButtonPart:
+            m_value.ident = CSSValueMediaVolumeSliderMuteButton;
             break;
         case MediaVolumeSliderThumbPart:
             m_value.ident = CSSValueMediaVolumeSliderthumb;

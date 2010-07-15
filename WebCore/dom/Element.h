@@ -198,15 +198,13 @@ public:
     // use a static AtomicString value instead to avoid the conversion overhead.
     void setCStringAttribute(const QualifiedName&, const char* cStringValue);
 
-    virtual NamedNodeMap* attributes() const;
-    NamedNodeMap* attributes(bool readonly) const;
+    NamedNodeMap* attributes(bool readonly = false) const;
 
     // This method is called whenever an attribute is added, changed or removed.
     virtual void attributeChanged(Attribute*, bool preserveDecls = false);
 
-    // not part of the DOM
     void setAttributeMap(PassRefPtr<NamedNodeMap>, FragmentScriptingPermission = FragmentScriptingAllowed);
-    NamedNodeMap* attributeMap() const { return namedAttrMap.get(); }
+    NamedNodeMap* attributeMap() const { return m_attributeMap.get(); }
 
     virtual void copyNonAttributeProperties(const Element* /*source*/) { }
 
@@ -223,7 +221,10 @@ public:
     virtual void accessKeyAction(bool /*sendToAnyEvent*/) { }
 
     virtual bool isURLAttribute(Attribute*) const;
+
     KURL getURLAttribute(const QualifiedName&) const;
+    KURL getNonEmptyURLAttribute(const QualifiedName&) const;
+
     virtual const QualifiedName& imageSourceAttributeName() const;
     virtual String target() const { return String(); }
 
@@ -348,8 +349,8 @@ private:
     ElementRareData* rareData() const;
     ElementRareData* ensureRareData();
     
-protected:
-    mutable RefPtr<NamedNodeMap> namedAttrMap;
+private:
+    mutable RefPtr<NamedNodeMap> m_attributeMap;
 };
     
 inline bool Node::hasTagName(const QualifiedName& name) const
@@ -383,9 +384,9 @@ inline NamedNodeMap* Element::attributes(bool readonly) const
         updateAnimatedSVGAttribute(anyQName());
 #endif
 
-    if (!readonly && !namedAttrMap)
+    if (!readonly && !m_attributeMap)
         createAttributeMap();
-    return namedAttrMap.get();
+    return m_attributeMap.get();
 }
 
 inline void Element::updateId(const AtomicString& oldId, const AtomicString& newId)
@@ -405,13 +406,13 @@ inline void Element::updateId(const AtomicString& oldId, const AtomicString& new
 
 inline bool Element::fastHasAttribute(const QualifiedName& name) const
 {
-    return namedAttrMap && namedAttrMap->getAttributeItem(name);
+    return m_attributeMap && m_attributeMap->getAttributeItem(name);
 }
 
 inline const AtomicString& Element::fastGetAttribute(const QualifiedName& name) const
 {
-    if (namedAttrMap) {
-        if (Attribute* attribute = namedAttrMap->getAttributeItem(name))
+    if (m_attributeMap) {
+        if (Attribute* attribute = m_attributeMap->getAttributeItem(name))
             return attribute->value();
     }
     return nullAtom;
@@ -420,7 +421,7 @@ inline const AtomicString& Element::fastGetAttribute(const QualifiedName& name) 
 inline const AtomicString& Element::idForStyleResolution() const
 {
     ASSERT(hasID());
-    return namedAttrMap->idForStyleResolution();
+    return m_attributeMap->idForStyleResolution();
 }
 
 inline bool Element::isIdAttributeName(const QualifiedName& attributeName) const

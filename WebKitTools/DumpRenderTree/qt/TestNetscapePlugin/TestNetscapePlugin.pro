@@ -1,7 +1,7 @@
 TEMPLATE = lib
 TARGET = TestNetscapePlugIn
 
-VPATH = ../../unix/TestNetscapePlugin ../../TestNetscapePlugIn.subproj
+VPATH = ../../unix/TestNetscapePlugin ../../TestNetscapePlugIn
 isEmpty(OUTPUT_DIR): OUTPUT_DIR = ../../../..
 include(../../../../WebKit.pri)
 
@@ -10,7 +10,7 @@ DESTDIR = $$OUTPUT_DIR/lib/plugins
 mac {
     CONFIG += plugin
     CONFIG += plugin_bundle
-    QMAKE_INFO_PLIST = ../../TestNetscapePlugIn.subproj/Info.plist
+    QMAKE_INFO_PLIST = ../../TestNetscapePlugIn/mac/Info.plist
     QMAKE_PLUGIN_BUNDLE_NAME = $$TARGET
     QMAKE_BUNDLE_LOCATION += "Contents/MacOS"
 
@@ -23,14 +23,15 @@ INCLUDEPATH += ../../../../JavaScriptCore \
                ../../unix/TestNetscapePlugin/ForwardingHeaders/WebKit \
                ../../../../WebCore \
                ../../../../WebCore/bridge \
-               ../../TestNetscapePlugIn.subproj
+               ../../TestNetscapePlugIn
 
 SOURCES = PluginObject.cpp \
           TestObject.cpp
 
 mac {
-    SOURCES += ../../TestNetscapePlugIn.subproj/main.cpp
-    LIBS += -framework Carbon
+    SOURCES += ../../TestNetscapePlugIn/main.cpp
+    OBJECTIVE_SOURCES += PluginObjectMac.mm
+    LIBS += -framework Carbon -framework Cocoa -framework QuartzCore
 } else {
     SOURCES += ../../unix/TestNetscapePlugin/TestNetscapePlugin.cpp
 }

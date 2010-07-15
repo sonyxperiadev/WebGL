@@ -29,6 +29,8 @@
 
 namespace WebCore {
 
+const char* const errorDomainWebKitInternal = "WebKitInternal";
+
 ResourceError ResourceErrorBase::copy() const
 {
     lazyInit();

@@ -27,4 +27,12 @@
 #include <Cocoa/Cocoa.h>
 #endif
 
+#include <wtf/Platform.h>
+#if PLATFORM(WIN)
+// If we don't define these, they get defined in windef.h. 
+// We want to use std::min and std::max
+#define max max
+#define min min
+#endif
+
 #include <WebKit2/WebKit2.h>

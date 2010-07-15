@@ -126,9 +126,8 @@ RGBA32 makeRGBAFromCMYKA(float c, float m, float y, float k, float a)
 }
 
 // originally moved here from the CSS parser
-bool Color::parseHexColor(const String& name, RGBA32& rgb)
+bool Color::parseHexColor(const UChar* name, unsigned length, RGBA32& rgb)
 {
-    unsigned length = name.length();
     if (length != 3 && length != 6)
         return false;
     unsigned value = 0;
@@ -150,6 +149,11 @@ bool Color::parseHexColor(const String& name, RGBA32& rgb)
     return true;
 }
 
+bool Color::parseHexColor(const String& name, RGBA32& rgb)
+{
+    return parseHexColor(name.characters(), name.length(), rgb);
+}
+
 int differenceSquared(const Color& c1, const Color& c2)
 {
     int dR = c1.red() - c2.red();
@@ -160,8 +164,8 @@ int differenceSquared(const Color& c1, const Color& c2)
 
 Color::Color(const String& name)
 {
-    if (name.startsWith("#"))
-        m_valid = parseHexColor(name.substring(1), m_color);
+    if (name[0] == '#')
+        m_valid = parseHexColor(name.characters() + 1, name.length() - 1, m_color);
     else
         setNamedColor(name);
 }

@@ -39,10 +39,9 @@
 #include "CSSStyleSheet.h"
 #include "HTMLHeadElement.h"
 #include "InspectorController.h"
-#include "InspectorFrontend.h"
 #include "InspectorResource.h"
 #include "PlatformString.h"
-#include "ScriptObject.h"
+#include "RemoteInspectorFrontend2.h"
 #include "StyleSheetList.h"
 
 namespace WebCore {
@@ -96,13 +95,13 @@ CSSStyleSheet* InspectorCSSStore::inspectorStyleSheet(Document* ownerDocument, b
     if (!ec)
         ownerDocument->head()->appendChild(styleElement, ec);
     if (ec) {
-        m_inspectorController->inspectorFrontend()->didAddRule(callId, ScriptValue::undefined(), false);
+        m_inspectorController->inspectorFrontend2()->didAddRule(callId, InspectorValue::null(), false);
         return 0;
     }
     StyleSheetList* styleSheets = ownerDocument->styleSheets();
     StyleSheet* styleSheet = styleSheets->item(styleSheets->length() - 1);
     if (!styleSheet->isCSSStyleSheet()) {
-        m_inspectorController->inspectorFrontend()->didAddRule(callId, ScriptValue::undefined(), false);
+        m_inspectorController->inspectorFrontend2()->didAddRule(callId, InspectorValue::null(), false);
         return 0;
     }
     CSSStyleSheet* inspectorStyleSheet = static_cast<CSSStyleSheet*>(styleSheet);
@@ -125,7 +124,7 @@ HashMap<long, SourceRange> InspectorCSSStore::getRuleRangesForStyleSheet(CSSStyl
             RefPtr<CSSStyleSheet> newStyleSheet = CSSStyleSheet::create(styleSheet->ownerNode());
             CSSParser p;
             CSSParser::StyleRuleRanges ruleRangeMap;
-            p.parseSheet(newStyleSheet.get(), resource->sourceString(), &ruleRangeMap);
+            p.parseSheet(newStyleSheet.get(), resource->sourceString(), 0, &ruleRangeMap);
             for (unsigned i = 0, length = newStyleSheet->length(); i < length; ++i) {
                 CSSStyleRule* rule = asCSSStyleRule(newStyleSheet->item(i));
                 if (!rule)

@@ -80,6 +80,7 @@ namespace WebKit {
         };
 
         WEBKIT_API bool autoComplete() const;
+        WEBKIT_API bool isReadOnly() const;
         WEBKIT_API bool isEnabledFormControl() const;
         WEBKIT_API InputType inputType() const;
         WEBKIT_API int maxLength() const;
@@ -88,12 +89,16 @@ namespace WebKit {
         WEBKIT_API int size() const;
         WEBKIT_API void setValue(const WebString&);
         WEBKIT_API WebString value() const;
+        WEBKIT_API void setSuggestedValue(const WebString&);
+        WEBKIT_API WebString suggestedValue() const;
         WEBKIT_API void setPlaceholder(const WebString&);
         WEBKIT_API WebString placeholder() const;
         WEBKIT_API bool isAutofilled() const;
         WEBKIT_API void setAutofilled(bool);
         WEBKIT_API void dispatchFormControlChangeEvent();
         WEBKIT_API void setSelectionRange(int, int);
+        WEBKIT_API int selectionStart();
+        WEBKIT_API int selectionEnd();
 
 #if WEBKIT_IMPLEMENTATION
         WebInputElement(const WTF::PassRefPtr<WebCore::HTMLInputElement>&);

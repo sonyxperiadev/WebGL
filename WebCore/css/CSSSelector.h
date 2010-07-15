@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999-2003 Lars Knoll (knoll@kde.org)
  *               1999 Waldo Bastian (bastian@kde.org)
- * Copyright (C) 2004, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,6 +26,7 @@
 #include "QualifiedName.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
@@ -176,6 +177,7 @@ namespace WebCore {
             PseudoMediaControlsPlayButton,
             PseudoMediaControlsTimelineContainer,
             PseudoMediaControlsVolumeSliderContainer,
+            PseudoMediaControlsVolumeSliderMuteButton,
             PseudoMediaControlsCurrentTimeDisplay,
             PseudoMediaControlsTimeRemainingDisplay,
             PseudoMediaControlsToggleClosedCaptions,
@@ -283,11 +285,10 @@ namespace WebCore {
         void extractPseudoType() const;
 
         struct RareData : Noncopyable {
-            RareData(CSSSelector* tagHistory)
+            RareData(PassOwnPtr<CSSSelector> tagHistory)
                 : m_a(0)
                 , m_b(0)
                 , m_tagHistory(tagHistory)
-                , m_simpleSelector(0)
                 , m_attribute(anyQName())
                 , m_argument(nullAtom)
             {
@@ -308,7 +309,7 @@ namespace WebCore {
         {
             if (m_hasRareData) 
                 return;
-            m_data.m_rareData = new RareData(m_data.m_tagHistory); 
+            m_data.m_rareData = new RareData(adoptPtr(m_data.m_tagHistory));
             m_hasRareData = true;
         }
         

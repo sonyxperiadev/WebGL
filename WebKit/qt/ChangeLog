@@ -1,3 +1,205 @@
+2010-07-09  Yael Aharon  <yael.aharon@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        NotificationPresenter needs a cancelRequestPermission API
+        https://bugs.webkit.org/show_bug.cgi?id=41783
+
+        Updated NotificationPresenter API to use ScriptExecutionContext instead of origin
+        and added a new NotificationPresenter::cancelRequestsForPermission API.
+        The new API will be implemented in a followup patch.
+
+        * WebCoreSupport/NotificationPresenterClientQt.cpp:
+        (WebCore::NotificationPresenterClientQt::requestPermission):
+        (WebCore::NotificationPresenterClientQt::checkPermission):
+        (WebCore::NotificationPresenterClientQt::cancelRequestsForPermission):
+        * WebCoreSupport/NotificationPresenterClientQt.h:
+
+2010-07-09  Kent Hansen  <kent.hansen@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Skip test that never terminates on maemo5
+
+        Due to https://bugs.webkit.org/show_bug.cgi?id=38538
+        the tst_QWebPage::infiniteLoopJS() autotest never terminates.
+        Skip the test so that the test case may run to completion.
+
+        Patch by Dominik Holland <dominik.holland@nokia.com>
+
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::infiniteLoopJS):
+
+2010-07-09  Simon Hausmann <simon.hausmann@nokia.com>
+
+        Unreviewed trivial Symbian build fix.
+
+        [Qt] Fix the Symbian build when compiling without S60
+
+        Use Q_OS_SYMBIAN instead of Q_WS_S60 for the user agent
+        determination.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::userAgentForUrl):
+
+2010-07-09  Kristian Amlie  <kristian.amlie@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Fixed Qt symbian/linux-armcc mkspec when configured with -qtlibinfix.
+
+        * declarative/declarative.pro: Use QT_LIBINFIX.
+
+2010-07-09  Anders Bakken  <agbakken@gmail.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Remove superfluous function calls
+        https://bugs.webkit.org/show_bug.cgi?id=40353
+
+        QWebFrame::setUrl() calls ensureAbsoluteUrl() twice. It's better to
+        store a local variable and reuse this one.
+
+        QWebFrame::load(QUrl) calls QWebFrame::load(QNetworkRequest) which in
+        turn will get the QUrl from the request and make sure it's absolute by
+        calling ensureAbsoluteUrl() on it.
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::setUrl):
+        (QWebFrame::load):
+
+2010-07-08  Sam Magnuson  <smagnuson@netflix.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] instance objects created for QObjects are somtimes GC'd
+        https://bugs.webkit.org/show_bug.cgi?id=40352
+
+        Improved the test to check for jsObjects that that are garbage collected.
+
+        * tests/qwebframe/tst_qwebframe.cpp:
+        (tst_QWebFrame::):
+
+2010-07-08  Aaron Boodman  <aa@chromium.org>
+
+        Unreviewed change to fix qt build after c62876.
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::addUserStyleSheet):
+
+2010-07-07  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Add DRT support for pageProperty etc.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41584
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::isPageBoxVisible):
+        (DumpRenderTreeSupportQt::pageSizeAndMarginsInPixels):
+        (DumpRenderTreeSupportQt::pageProperty):
+        (DumpRenderTreeSupportQt::addUserStyleSheet):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
+2010-07-08  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=41826
+        Convert BackForwardList to an abstract base class and add BackForwardListImpl
+        as the concrete implementation of it.
+
+        * Api/qwebhistory.cpp:
+        (QWebHistory::clear):
+        (QWebHistory::back):
+        (QWebHistory::forward):
+        (QWebHistory::goToItem):
+        (operator>>):
+        (QWebHistoryPrivate::page):
+
+2010-07-08  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Remove unused WEBKIT_VERSION define from qwebpage.cpp
+
+        We now use qWebKitVersion()
+
+        * Api/qwebpage.cpp:
+
+2010-07-07  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=41772
+        Add basic piping for BackForwardControllerClient.
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::QWebPagePrivate):
+
+2010-07-07  Marc Mutz  <marc.mutz@kdab.com>
+
+        Reviewed by Adam Barth.
+
+        [Qt] QWebSettings: Don't leak native pixmaps
+
+        When Q_GLOBAL_STATIC gets around to deleting the QHash with the
+        pixmaps in, the QApplication destructor has already been
+        completed. This makes it impossible for ~QPixmap to return the
+        native pixmap to the OS, thus leaking them.
+
+        This patch adds a post routine (executed as part of ~QApplication)
+        that clears the hash so Q_GLOBAL_STATIC's destruction doesn't have
+        to execute ~QPixmap's anymore.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41657
+
+        * Api/qwebsettings.cpp:
+        (earlyClearGraphics): New. Clears the pixmap hash.
+        (graphics): add earlyClearGraphics as a qAddPostRoutine()
+
+2010-07-06  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Rubber-stamped by Kenneth Rohde Christiansen.
+
+        Client errors should set "WebKitErrorDomain" domain instead of "WebKit" to match Mac.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::blockedError):
+        (WebCore::FrameLoaderClientQt::cannotShowURLError):
+        (WebCore::FrameLoaderClientQt::interruptForPolicyChangeError):
+        (WebCore::FrameLoaderClientQt::cannotShowMIMETypeError):
+
+2010-07-06  Darin Adler  <darin@apple.com>
+
+        Fix crash caused by my fix to the Qt build.
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorFrontendClientQt::closeWindow): Release pointer into
+        a local OwnPtr instead of calling clear. Another fix, probably better,
+        would be to change OwnPtr::clear to zero out the pointer before deleting,
+        but that affects many more call sites, so I will do that separately.
+
+2010-07-06  Darin Adler  <darin@apple.com>
+
+        Fix Qt build.
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorFrontendClientQt::closeWindow): Call clear instead of
+        calling delete on the result of leakPtr.
+
+2010-06-19  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        WebInspector: js function name was fixed.
+        dispatchMessageToFrontend -> dispatchMessageFromBackend.
+        https://bugs.webkit.org/show_bug.cgi?id=40675
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorClientQt::sendMessageToFrontend):
+
 2010-07-03  Robert Hogan  <robert@webkit.org>
 
         Reviewed by Kenneth Rohde Christiansen.

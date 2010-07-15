@@ -43,6 +43,7 @@ class WebCString;
 class WebHTTPHeaderVisitor;
 class WebString;
 class WebURL;
+class WebURLLoadTiming;
 class WebURLResponsePrivate;
 
 class WebURLResponse {
@@ -71,6 +72,12 @@ public:
 
     WEBKIT_API WebURL url() const;
     WEBKIT_API void setURL(const WebURL&);
+
+    WEBKIT_API unsigned connectionID() const;
+    WEBKIT_API void setConnectionID(unsigned);
+
+    WEBKIT_API WebURLLoadTiming loadTiming();
+    WEBKIT_API void setLoadTiming(const WebURLLoadTiming&);
 
     WEBKIT_API double responseTime() const;
     WEBKIT_API void setResponseTime(double);
@@ -120,6 +127,10 @@ public:
     WebCore::ResourceResponse& toMutableResourceResponse();
     const WebCore::ResourceResponse& toResourceResponse() const;
 #endif
+
+    // Flag whether this request was served from the disk cache entry.
+    WEBKIT_API bool wasCached() const;
+    WEBKIT_API void setWasCached(bool);
 
     // Flag whether this request was loaded via the SPDY protocol or not.
     // SPDY is an experimental web protocol, see http://dev.chromium.org/spdy

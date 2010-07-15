@@ -1,3 +1,145 @@
+2010-07-09  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=13075
+        XMLHttpRequest with failed authentication should set status to 401
+
+        https://bugs.webkit.org/show_bug.cgi?id=6871
+        <rdar://problem/3363403> 401 error page is never shown
+
+        * Panels/WebPanelAuthenticationHandler.m:
+        (-[WebPanelAuthenticationHandler startAuthentication:window:]): Updated a comment - this
+        code cancels loading, not authentication (canceling authentication means telling to
+        continue without credentials).
+        (-[WebPanelAuthenticationHandler _authenticationDoneWithChallenge:result:]): If there were
+        no credentials provided, tell to continue without any. There may be alternative content
+        returned with 401.
+
+2010-07-09  Leon Clarke  <leonclarke@google.com>
+
+        Reviewed by Adam Barth.
+
+        add support for link prefetching
+        https://bugs.webkit.org/show_bug.cgi?id=3652
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-07-08  Aaron Boodman  <aa@chromium.org>
+
+        Reviewed by Timothy Hatcher.
+
+        Add the ability for user scripts and user styles to affect just the top frame.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41529
+
+        * WebView/WebView.mm:
+        (+[WebView _addUserScriptToGroup:world:source:url:whitelist:blacklist:injectionTime:]):
+        (+[WebView _addUserScriptToGroup:world:source:url:whitelist:blacklist:injectionTime:injectedFrames:]):
+        (+[WebView _addUserStyleSheetToGroup:world:source:url:whitelist:blacklist:]):
+        (+[WebView _addUserStyleSheetToGroup:world:source:url:whitelist:blacklist:injectedFrames:]):
+        * WebView/WebViewPrivate.h:
+
+2010-07-08  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Jon Honeycutt, Adam Roben, and Darin Adler.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=41721
+        <rdar://problem/8158561> Missing plug-in indicator should have a pressed state
+
+        Implement shouldMissingPluginMessageBeButton.
+
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::shouldMissingPluginMessageBeButton):
+
+2010-07-08  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Tim Hatcher.
+
+        <rdar://problem/8136327> - Crash in Entourage calling WebCache method from background thread
+
+        * Misc/WebCache.mm:
+        (+[WebCache setDisabled:]): Forward the call to the main thread if called from a background thread.
+
+        * Misc/WebNSObjectExtras.h:
+        * Misc/WebNSObjectExtras.mm:
+        (+[NSObject _webkit_invokeOnMainThread]): Add a class version of the main thread invoker.
+
+2010-07-08  Mike Thole  <mthole@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=41896
+        Crash under allScriptsInPDFDocument() in WebPDFDocumentExtras.mm for certain PDFs
+
+        * WebView/WebPDFDocumentExtras.mm:
+        (allScriptsInPDFDocument): Null-check 'data', as CGPDFStreamCopyData() may have returned 0.
+
+2010-07-08  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=41826
+        Convert BackForwardList to an abstract base class and add BackForwardListImpl
+        as the concrete implementation of it.
+
+        * History/WebBackForwardList.mm:
+        (-[WebBackForwardList init]):
+        (-[WebBackForwardList setPageCacheSize:]):
+        (-[WebBackForwardList pageCacheSize]):
+
+2010-07-07  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=41772
+        Add basic piping for BackForwardControllerClient.
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:usesDocumentViews:]):
+
+2010-07-07  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Change requestURL to a KURL.
+        https://bugs.webkit.org/show_bug.cgi?id=41775
+
+        * Plugins/WebNetscapePluginStream.h:
+        (WebNetscapePluginStream::setRequestURL):
+        * Plugins/WebNetscapePluginStream.mm:
+        (WebNetscapePluginStream::pluginCancelledConnectionError):
+        (WebNetscapePluginStream::errorForReason):
+        (WebNetscapePluginStream::startStream):
+        (WebNetscapePluginStream::didReceiveResponse):
+        (WebNetscapePluginStream::destroyStream):
+
+2010-07-07  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Rename the WebBaseNetscapePluginStream.cpp and .h files to WebNetscapePluginStream.cpp and .h to match the class name.
+
+        * Plugins/WebNetscapePluginStream.h: Renamed from WebKit/mac/Plugins/WebBaseNetscapePluginStream.h.
+        * Plugins/WebNetscapePluginStream.mm: Renamed from WebKit/mac/Plugins/WebBaseNetscapePluginStream.mm.
+
+2010-07-06  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Expose URL matching from WebUserContentURLPattern
+        https://bugs.webkit.org/show_bug.cgi?id=41726
+        <rdar://problem/7910144>
+
+        We previously had a way to construct WebUserContentURLPattern
+        instances via WebKit, but no way for callers to perform matching.
+        This patch adds the matchesURL functionality to allow for this.
+
+        * Misc/WebUserContentURLPattern.h: Added matchesURL.
+        * Misc/WebUserContentURLPattern.mm:
+        (-[WebUserContentURLPattern matchesURL:]): Added. Calls through to WebCore::UserContentURLPattern::matches.
+
 2010-06-23  Philippe Normand  <pnormand@igalia.com>
 
         Reviewed by Eric Carlson.

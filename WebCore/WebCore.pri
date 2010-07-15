@@ -62,7 +62,6 @@ contains(DEFINES, ENABLE_SINGLE_THREADED=1) {
 !contains(DEFINES, ENABLE_WORKERS=.): DEFINES += ENABLE_WORKERS=1
 !contains(DEFINES, ENABLE_XHTMLMP=.): DEFINES += ENABLE_XHTMLMP=0
 !contains(DEFINES, ENABLE_DATAGRID=.): DEFINES += ENABLE_DATAGRID=0
-!contains(DEFINES, ENABLE_VIDEO=.): DEFINES += ENABLE_VIDEO=1
 !contains(DEFINES, ENABLE_RUBY=.): DEFINES += ENABLE_RUBY=1
 !contains(DEFINES, ENABLE_SANDBOX=.): DEFINES += ENABLE_SANDBOX=1
 !contains(DEFINES, ENABLE_METER_TAG=.): DEFINES += ENABLE_METER_TAG=1
@@ -87,9 +86,6 @@ greaterThan(QT_MINOR_VERSION, 5) {
 } else {
     DEFINES += ENABLE_SVG_FONTS=0 ENABLE_SVG_FOREIGN_OBJECT=0 ENABLE_SVG_ANIMATION=0 ENABLE_SVG_AS_IMAGE=0 ENABLE_SVG_USE=0
 }
-
-# HTML5 media support
-!contains(DEFINES, ENABLE_VIDEO=.): DEFINES += ENABLE_VIDEO=1
 
 # HTML5 datalist support
 !contains(DEFINES, ENABLE_DATALIST=.): DEFINES += ENABLE_DATALIST=1
@@ -141,6 +137,21 @@ greaterThan(QT_MINOR_VERSION, 5) {
 
 # Enable touch event support with Qt 4.6
 !lessThan(QT_MINOR_VERSION, 6): DEFINES += ENABLE_TOUCH_EVENTS=1
+
+# HTML5 Media Support
+# We require QtMultimedia or Phonon
+!contains(DEFINES, ENABLE_VIDEO=.) {
+    DEFINES -= ENABLE_VIDEO=1
+    DEFINES += ENABLE_VIDEO=0
+
+    !lessThan(QT_MINOR_VERSION, 6):contains(MOBILITY_CONFIG, multimedia) {
+        DEFINES -= ENABLE_VIDEO=0
+        DEFINES += ENABLE_VIDEO=1
+    } else:contains(QT_CONFIG, phonon) {
+        DEFINES -= ENABLE_VIDEO=0
+        DEFINES += ENABLE_VIDEO=1
+    }
+}
 
 # Used to compute defaults for the build-webkit script
 CONFIG(compute_defaults) {
@@ -464,10 +475,10 @@ IDL_BINDINGS += \
     page/Timing.idl \
     page/WebKitPoint.idl \
     page/WorkerNavigator.idl \
-    plugins/Plugin.idl \
-    plugins/MimeType.idl \
-    plugins/PluginArray.idl \
-    plugins/MimeTypeArray.idl \
+    plugins/DOMPlugin.idl \
+    plugins/DOMMimeType.idl \
+    plugins/DOMPluginArray.idl \
+    plugins/DOMMimeTypeArray.idl \
     storage/Database.idl \
     storage/DatabaseCallback.idl \
     storage/DatabaseSync.idl \
@@ -478,6 +489,7 @@ IDL_BINDINGS += \
     storage/IDBErrorEvent.idl \
     storage/IDBEvent.idl \
     storage/IDBIndexRequest.idl \
+    storage/IDBKey.idl \
     storage/IDBKeyRange.idl \
     storage/IDBObjectStoreRequest.idl \
     storage/IDBRequest.idl \
@@ -652,14 +664,14 @@ IDL_BINDINGS += \
     xml/XPathEvaluator.idl \
     xml/XSLTProcessor.idl
 
-contains(DEFINES, ENABLE_MATHML=1) {
-    mathmlnames.output = $${WC_GENERATED_SOURCES_DIR}/MathMLNames.cpp
-    mathmlnames.input = MATHML_NAMES
-    mathmlnames.wkScript = $$PWD/dom/make_names.pl
-    mathmlnames.commands = perl -I$$PWD/bindings/scripts $$mathmlnames.wkScript --tags $$PWD/mathml/mathtags.in --attrs $$PWD/mathml/mathattrs.in --extraDefines \"$${DEFINES}\" --preprocessor \"$${QMAKE_MOC} -E\" --factory --wrapperFactory --outputDir $$WC_GENERATED_SOURCES_DIR
-    mathmlnames.wkExtraSources = $${WC_GENERATED_SOURCES_DIR}/MathMLElementFactory.cpp 
-    addExtraCompiler(mathmlnames)
-}
+INSPECTOR_INTERFACES = inspector/InspectorFrontend2.idl
+
+mathmlnames.output = $${WC_GENERATED_SOURCES_DIR}/MathMLNames.cpp
+mathmlnames.input = MATHML_NAMES
+mathmlnames.wkScript = $$PWD/dom/make_names.pl
+mathmlnames.commands = perl -I$$PWD/bindings/scripts $$mathmlnames.wkScript --tags $$PWD/mathml/mathtags.in --attrs $$PWD/mathml/mathattrs.in --extraDefines \"$${DEFINES}\" --preprocessor \"$${QMAKE_MOC} -E\" --factory --wrapperFactory --outputDir $$WC_GENERATED_SOURCES_DIR
+mathmlnames.wkExtraSources = $${WC_GENERATED_SOURCES_DIR}/MathMLElementFactory.cpp 
+addExtraCompiler(mathmlnames)
 
 contains(DEFINES, ENABLE_WML=1) {
     wmlnames.output = $${WC_GENERATED_SOURCES_DIR}/WMLNames.cpp
@@ -670,16 +682,14 @@ contains(DEFINES, ENABLE_WML=1) {
     addExtraCompiler(wmlnames)
 }
 
-contains(DEFINES, ENABLE_SVG=1) {
-    # GENERATOR 5-C:
-    svgnames.output = $${WC_GENERATED_SOURCES_DIR}/SVGNames.cpp
-    svgnames.input = SVG_NAMES
-    svgnames.depends = $$PWD/svg/svgattrs.in
-    svgnames.wkScript = $$PWD/dom/make_names.pl
-    svgnames.commands = perl -I$$PWD/bindings/scripts $$svgnames.wkScript --tags $$PWD/svg/svgtags.in --attrs $$PWD/svg/svgattrs.in --extraDefines \"$${DEFINES}\" --preprocessor \"$${QMAKE_MOC} -E\" --factory --wrapperFactory --outputDir $$WC_GENERATED_SOURCES_DIR
-    svgnames.wkExtraSources = $${WC_GENERATED_SOURCES_DIR}/SVGElementFactory.cpp $${WC_GENERATED_SOURCES_DIR}/JSSVGElementWrapperFactory.cpp
-    addExtraCompiler(svgnames)
-}
+# GENERATOR 5-C:
+svgnames.output = $${WC_GENERATED_SOURCES_DIR}/SVGNames.cpp
+svgnames.input = SVG_NAMES
+svgnames.depends = $$PWD/svg/svgattrs.in
+svgnames.wkScript = $$PWD/dom/make_names.pl
+svgnames.commands = perl -I$$PWD/bindings/scripts $$svgnames.wkScript --tags $$PWD/svg/svgtags.in --attrs $$PWD/svg/svgattrs.in --extraDefines \"$${DEFINES}\" --preprocessor \"$${QMAKE_MOC} -E\" --factory --wrapperFactory --outputDir $$WC_GENERATED_SOURCES_DIR
+svgnames.wkExtraSources = $${WC_GENERATED_SOURCES_DIR}/SVGElementFactory.cpp $${WC_GENERATED_SOURCES_DIR}/JSSVGElementWrapperFactory.cpp
+addExtraCompiler(svgnames)
 
 # GENERATOR 5-D:
 xlinknames.output = $${WC_GENERATED_SOURCES_DIR}/XLinkNames.cpp
@@ -716,6 +726,18 @@ idl.depends = $$PWD/bindings/scripts/CodeGenerator.pm \
               $$PWD/bindings/scripts/IDLStructure.pm \
               $$PWD/bindings/scripts/InFilesParser.pm
 addExtraCompiler(idl)
+
+# GENERATOR 2: inspector idl compiler
+inspectorIDL.output = $${WC_GENERATED_SOURCES_DIR}/Remote${QMAKE_FILE_BASE}.cpp
+inspectorIDL.input = INSPECTOR_INTERFACES
+inspectorIDL.wkScript = $$PWD/bindings/scripts/generate-bindings.pl
+inspectorIDL.commands = perl -I$$PWD/bindings/scripts -I$$PWD/inspector $$inspectorIDL.wkScript --defines \"$${FEATURE_DEFINES_JAVASCRIPT}\" --generator Inspector --outputDir $$WC_GENERATED_SOURCES_DIR --preprocessor \"$${QMAKE_MOC} -E\" ${QMAKE_FILE_NAME}
+inspectorIDL.depends = $$PWD/bindings/scripts/CodeGenerator.pm \
+              $$PWD/inspector/CodeGeneratorInspector.pm \
+              $$PWD/bindings/scripts/IDLParser.pm \
+              $$PWD/bindings/scripts/IDLStructure.pm \
+              $$PWD/bindings/scripts/InFilesParser.pm
+addExtraCompiler(inspectorIDL)
 
 # GENERATOR 3: tokenizer (flex)
 tokenizer.output = $${WC_GENERATED_SOURCES_DIR}/${QMAKE_FILE_BASE}.cpp

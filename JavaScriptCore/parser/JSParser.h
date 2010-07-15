@@ -30,71 +30,108 @@ namespace JSC {
 
 class Identifier;
 class JSGlobalData;
+class SourceCode;
+
+enum {
+    UnaryOpTokenFlag = 64,
+    BinaryOpTokenPrecedenceShift = 7,
+    BinaryOpTokenAllowsInPrecedenceAdditionalShift = 4,
+    BinaryOpTokenPrecedenceMask = 15 << BinaryOpTokenPrecedenceShift
+};
+
+#define BINARY_OP_PRECEDENCE(prec) (((prec) << BinaryOpTokenPrecedenceShift) | ((prec) << (BinaryOpTokenPrecedenceShift + BinaryOpTokenAllowsInPrecedenceAdditionalShift)))
+#define IN_OP_PRECEDENCE(prec) ((prec) << (BinaryOpTokenPrecedenceShift + BinaryOpTokenAllowsInPrecedenceAdditionalShift))
 
 enum JSTokenType {
-    NULLTOKEN = 258,
-    TRUETOKEN = 259,
-    FALSETOKEN = 260,
-    BREAK = 261,
-    CASE = 262,
-    DEFAULT = 263,
-    FOR = 264,
-    NEW = 265,
-    VAR = 266,
-    CONSTTOKEN = 267,
-    CONTINUE = 268,
-    FUNCTION = 269,
-    RETURN = 270,
-    VOIDTOKEN = 271,
-    DELETETOKEN = 272,
-    IF = 273,
-    THISTOKEN = 274,
-    DO = 275,
-    WHILE = 276,
-    INTOKEN = 277,
-    INSTANCEOF = 278,
-    TYPEOF = 279,
-    SWITCH = 280,
-    WITH = 281,
-    RESERVED = 282,
-    THROW = 283,
-    TRY = 284,
-    CATCH = 285,
-    FINALLY = 286,
-    DEBUGGER = 287,
-    IF_WITHOUT_ELSE = 288,
-    ELSE = 289,
-    EQEQ = 290,
-    NE = 291,
-    STREQ = 292,
-    STRNEQ = 293,
-    LE = 294,
-    GE = 295,
-    OR = 296,
-    AND = 297,
-    PLUSPLUS = 298,
-    MINUSMINUS = 299,
-    LSHIFT = 300,
-    RSHIFT = 301,
-    URSHIFT = 302,
-    PLUSEQUAL = 303,
-    MINUSEQUAL = 304,
-    MULTEQUAL = 305,
-    DIVEQUAL = 306,
-    LSHIFTEQUAL = 307,
-    RSHIFTEQUAL = 308,
-    URSHIFTEQUAL = 309,
-    ANDEQUAL = 310,
-    MODEQUAL = 311,
-    XOREQUAL = 312,
-    OREQUAL = 313,
-    OPENBRACE = 314,
-    CLOSEBRACE = 315,
-    NUMBER = 316,
-    IDENT = 317,
-    STRING = 318,
-    AUTOPLUSPLUS = 319,
-    AUTOMINUSMINUS = 320
+    NULLTOKEN,
+    TRUETOKEN,
+    FALSETOKEN,
+    BREAK,
+    CASE,
+    DEFAULT,
+    FOR,
+    NEW,
+    VAR,
+    CONSTTOKEN,
+    CONTINUE,
+    FUNCTION,
+    RETURN,
+    IF,
+    THISTOKEN,
+    DO,
+    WHILE,
+    SWITCH,
+    WITH,
+    RESERVED,
+    THROW,
+    TRY,
+    CATCH,
+    FINALLY,
+    DEBUGGER,
+    ELSE,
+    OPENBRACE,
+    CLOSEBRACE,
+    OPENPAREN,
+    CLOSEPAREN,
+    OPENBRACKET,
+    CLOSEBRACKET,
+    COMMA,
+    QUESTION,
+    NUMBER,
+    IDENT,
+    STRING,
+    SEMICOLON,
+    COLON,
+    DOT,
+    ERRORTOK,
+    EOFTOK,
+    EQUAL,
+    PLUSEQUAL,
+    MINUSEQUAL,
+    MULTEQUAL,
+    DIVEQUAL,
+    LSHIFTEQUAL,
+    RSHIFTEQUAL,
+    URSHIFTEQUAL,
+    ANDEQUAL,
+    MODEQUAL,
+    XOREQUAL,
+    OREQUAL,
+    LastUntaggedToken,
+
+    // Begin tagged tokens
+    PLUSPLUS = 0 | UnaryOpTokenFlag,
+    MINUSMINUS = 1 | UnaryOpTokenFlag,
+    EXCLAMATION = 2 | UnaryOpTokenFlag,
+    TILDE = 3 | UnaryOpTokenFlag,
+    AUTOPLUSPLUS = 4 | UnaryOpTokenFlag,
+    AUTOMINUSMINUS = 5 | UnaryOpTokenFlag,
+    TYPEOF = 6 | UnaryOpTokenFlag,
+    VOIDTOKEN = 7 | UnaryOpTokenFlag,
+    DELETETOKEN = 8 | UnaryOpTokenFlag,
+    OR = 0 | BINARY_OP_PRECEDENCE(1),
+    AND = 1 | BINARY_OP_PRECEDENCE(2),
+    BITOR = 2 | BINARY_OP_PRECEDENCE(3),
+    BITXOR = 3 | BINARY_OP_PRECEDENCE(4),
+    BITAND = 4 | BINARY_OP_PRECEDENCE(5),
+    EQEQ = 5 | BINARY_OP_PRECEDENCE(6),
+    NE = 6 | BINARY_OP_PRECEDENCE(6),
+    STREQ = 7 | BINARY_OP_PRECEDENCE(6),
+    STRNEQ = 8 | BINARY_OP_PRECEDENCE(6),
+    LT = 9 | BINARY_OP_PRECEDENCE(7),
+    GT = 10 | BINARY_OP_PRECEDENCE(7),
+    LE = 11 | BINARY_OP_PRECEDENCE(7),
+    GE = 12 | BINARY_OP_PRECEDENCE(7),
+    INSTANCEOF = 13 | BINARY_OP_PRECEDENCE(7),
+    INTOKEN = 14 | IN_OP_PRECEDENCE(7),
+    LSHIFT = 15 | BINARY_OP_PRECEDENCE(8),
+    RSHIFT = 16 | BINARY_OP_PRECEDENCE(8),
+    URSHIFT = 17 | BINARY_OP_PRECEDENCE(8),
+    PLUS = 18 | BINARY_OP_PRECEDENCE(9) | UnaryOpTokenFlag,
+    MINUS = 19 | BINARY_OP_PRECEDENCE(9) | UnaryOpTokenFlag,
+    TIMES = 20 | BINARY_OP_PRECEDENCE(10),
+    DIVIDE = 21 | BINARY_OP_PRECEDENCE(10),
+    MOD = 22 | BINARY_OP_PRECEDENCE(10)
 };
 
 union JSTokenData {
@@ -102,22 +139,20 @@ union JSTokenData {
     double doubleValue;
     const Identifier* ident;
 };
-typedef JSTokenData YYSTYPE;
 
 struct JSTokenInfo {
-    JSTokenInfo() : last_line(0) {}
-    int first_line;
-    int last_line;
-    int first_column;
-    int last_column;
+    JSTokenInfo() : line(0) {}
+    int line;
+    int startOffset;
+    int endOffset;
 };
-typedef JSTokenInfo YYLTYPE;
+
 struct JSToken {
-    int m_type;
+    JSTokenType m_type;
     JSTokenData m_data;
     JSTokenInfo m_info;
 };
 
-int jsParse(JSGlobalData*);
+int jsParse(JSGlobalData*, const SourceCode*);
 }
 #endif // JSParser_h

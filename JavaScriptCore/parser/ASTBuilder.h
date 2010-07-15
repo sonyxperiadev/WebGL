@@ -249,16 +249,9 @@ public:
         return FunctionBodyNode::create(m_globalData);
     }
     
-    PropertyNode* createGetterOrSetterProperty(const Identifier* getOrSet, const Identifier* name, ParameterNode* params, FunctionBodyNode* body, int openBracePos, int closeBracePos, int bodyStartLine, int bodyEndLine)
+    template <bool> PropertyNode* createGetterOrSetterProperty(PropertyNode::Type type, const Identifier* name, ParameterNode* params, FunctionBodyNode* body, int openBracePos, int closeBracePos, int bodyStartLine, int bodyEndLine)
     {
         ASSERT(name);
-        PropertyNode::Type type;
-        if (*getOrSet == "get")
-            type = PropertyNode::Getter;
-        else if (*getOrSet == "set")
-            type = PropertyNode::Setter;
-        else
-            return 0;
         body->setLoc(bodyStartLine, bodyEndLine);
         return new (m_globalData) PropertyNode(m_globalData, *name, new (m_globalData) FuncExprNode(m_globalData, m_globalData->propertyNames->nullIdentifier, body, m_lexer->sourceCode(openBracePos, closeBracePos, bodyStartLine), params), type);
     }
@@ -269,8 +262,8 @@ public:
     ArgumentListNode* createArgumentsList(ExpressionNode* arg) { return new (m_globalData) ArgumentListNode(m_globalData, arg); }
     ArgumentListNode* createArgumentsList(ArgumentListNode* args, ExpressionNode* arg) { return new (m_globalData) ArgumentListNode(m_globalData, args, arg); }
 
-    PropertyNode* createProperty(const Identifier* propertyName, ExpressionNode* node, PropertyNode::Type type) { return new (m_globalData) PropertyNode(m_globalData, *propertyName, node, type); }
-    PropertyNode* createProperty(double propertyName, ExpressionNode* node, PropertyNode::Type type) { return new (m_globalData) PropertyNode(m_globalData, propertyName, node, type); }
+    template <bool> PropertyNode* createProperty(const Identifier* propertyName, ExpressionNode* node, PropertyNode::Type type) { return new (m_globalData) PropertyNode(m_globalData, *propertyName, node, type); }
+    template <bool> PropertyNode* createProperty(JSGlobalData*, double propertyName, ExpressionNode* node, PropertyNode::Type type) { return new (m_globalData) PropertyNode(m_globalData, propertyName, node, type); }
     PropertyListNode* createPropertyList(PropertyNode* property) { return new (m_globalData) PropertyListNode(m_globalData, property); }
     PropertyListNode* createPropertyList(PropertyNode* property, PropertyListNode* tail) { return new (m_globalData) PropertyListNode(m_globalData, property, tail); }
 
@@ -576,7 +569,9 @@ public:
         assignmentStackDepth--;
         return result;
     }
-
+    
+    const Identifier& getName(Property property) { return property->name(); }
+    PropertyNode::Type getType(Property property) { return property->type(); }
 private:
     struct Scope {
         Scope(JSGlobalData* globalData)
@@ -767,13 +762,13 @@ ExpressionNode* ASTBuilder::makeBinaryNode(int token, pair<ExpressionNode*, Bina
     case AND:
         return new (m_globalData) LogicalOpNode(m_globalData, lhs.first, rhs.first, OpLogicalAnd);
 
-    case '|':
+    case BITOR:
         return new (m_globalData) BitOrNode(m_globalData, lhs.first, rhs.first, rhs.second.hasAssignment);
 
-    case '^':
+    case BITXOR:
         return new (m_globalData) BitXOrNode(m_globalData, lhs.first, rhs.first, rhs.second.hasAssignment);
 
-    case '&':
+    case BITAND:
         return new (m_globalData) BitAndNode(m_globalData, lhs.first, rhs.first, rhs.second.hasAssignment);
 
     case EQEQ:
@@ -788,10 +783,10 @@ ExpressionNode* ASTBuilder::makeBinaryNode(int token, pair<ExpressionNode*, Bina
     case STRNEQ:
         return new (m_globalData) NotStrictEqualNode(m_globalData, lhs.first, rhs.first, rhs.second.hasAssignment);
 
-    case '<':
+    case LT:
         return new (m_globalData) LessNode(m_globalData, lhs.first, rhs.first, rhs.second.hasAssignment);
 
-    case '>':
+    case GT:
         return new (m_globalData) GreaterNode(m_globalData, lhs.first, rhs.first, rhs.second.hasAssignment);
 
     case LE:
@@ -821,19 +816,19 @@ ExpressionNode* ASTBuilder::makeBinaryNode(int token, pair<ExpressionNode*, Bina
     case URSHIFT:
         return new (m_globalData) UnsignedRightShiftNode(m_globalData, lhs.first, rhs.first, rhs.second.hasAssignment);
 
-    case '+':
+    case PLUS:
         return makeAddNode(lhs.first, rhs.first, rhs.second.hasAssignment);
 
-    case '-':
+    case MINUS:
         return makeSubNode(lhs.first, rhs.first, rhs.second.hasAssignment);
 
-    case '*':
+    case TIMES:
         return makeMultNode(lhs.first, rhs.first, rhs.second.hasAssignment);
 
-    case '/':
+    case DIVIDE:
         return makeDivNode(lhs.first, rhs.first, rhs.second.hasAssignment);
 
-    case '%':
+    case MOD:
         return new (m_globalData) ModNode(m_globalData, lhs.first, rhs.first, rhs.second.hasAssignment);
     }
     CRASH();

@@ -143,19 +143,6 @@ contains(DEFINES, WTF_USE_QT_MOBILE_THEME=1) {
 include($$PWD/../JavaScriptCore/JavaScriptCore.pri)
 addJavaScriptCoreLib(../JavaScriptCore)
 
-
-# HTML5 Media Support
-# We require phonon. QtMultimedia support is disabled currently.
-!contains(DEFINES, ENABLE_VIDEO=.) {
-    DEFINES -= ENABLE_VIDEO=1
-    DEFINES += ENABLE_VIDEO=0
-
-    contains(QT_CONFIG, phonon) {
-        DEFINES -= ENABLE_VIDEO=0
-        DEFINES += ENABLE_VIDEO=1
-    }
-}
-
 # Extract sources to build from the generator definitions
 defineTest(addExtraCompiler) {
     isEqual($${1}.wkAddOutputToSources, false): return(true)
@@ -180,6 +167,7 @@ include(WebCore.pri)
 INCLUDEPATH = \
     $$PWD \
     $$PWD/accessibility \
+    $$PWD/bindings \
     $$PWD/bindings/js \
     $$PWD/bridge \
     $$PWD/bridge/c \
@@ -350,13 +338,13 @@ SOURCES += \
     bindings/js/JSWebKitPointCustom.cpp \
     bindings/js/JSXMLHttpRequestCustom.cpp \
     bindings/js/JSXMLHttpRequestUploadCustom.cpp \
-    bindings/js/JSPluginCustom.cpp \
-    bindings/js/JSPluginArrayCustom.cpp \
+    bindings/js/JSDOMPluginCustom.cpp \
+    bindings/js/JSDOMPluginArrayCustom.cpp \
     bindings/js/JSMessageChannelCustom.cpp \
     bindings/js/JSMessageEventCustom.cpp \
     bindings/js/JSMessagePortCustom.cpp \
     bindings/js/JSMessagePortCustom.h \
-    bindings/js/JSMimeTypeArrayCustom.cpp \
+    bindings/js/JSDOMMimeTypeArrayCustom.cpp \
     bindings/js/JSDOMBinding.cpp \
     bindings/js/JSEventListener.cpp \
     bindings/js/JSLazyEventListener.cpp \
@@ -460,7 +448,6 @@ SOURCES += \
     dom/BeforeTextInsertedEvent.cpp \
     dom/BeforeUnloadEvent.cpp \
     dom/CDATASection.cpp \
-    dom/CanvasSurface.cpp \
     dom/CharacterData.cpp \
     dom/CheckedRadioButtons.cpp \
     dom/ChildNodeList.cpp \
@@ -475,7 +462,7 @@ SOURCES += \
     dom/CSSMappedAttributeDeclaration.cpp \
     dom/CustomEvent.cpp \
     dom/DecodedDataDocumentParser.cpp \
-    dom/DeviceOrientation.cpp \
+    dom/DeviceOrientationController.cpp \
     dom/DeviceOrientationEvent.cpp \
     dom/Document.cpp \
     dom/DocumentFragment.cpp \
@@ -599,7 +586,8 @@ SOURCES += \
     editing/VisibleSelection.cpp \
     editing/visible_units.cpp \
     editing/WrapContentsInDummySpanCommand.cpp \
-    history/BackForwardList.cpp \
+    history/BackForwardController.cpp \
+    history/BackForwardListImpl.cpp \
     history/CachedFrame.cpp \
     history/CachedPage.cpp \
     history/HistoryItem.cpp \
@@ -646,6 +634,7 @@ SOURCES += \
     html/HTMLButtonElement.cpp \
     html/HTMLCanvasElement.cpp \
     html/HTMLCollection.cpp \
+    html/HTMLConstructionSite.cpp \
     html/HTMLDataGridElement.cpp \
     html/HTMLDataGridCellElement.cpp \
     html/HTMLDataGridColElement.cpp \
@@ -729,6 +718,7 @@ SOURCES += \
     inspector/ConsoleMessage.cpp \
     inspector/InjectedScript.cpp \
     inspector/InjectedScriptHost.cpp \
+    inspector/InspectorApplicationCacheAgent.cpp \
     inspector/InspectorBackend.cpp \
     inspector/InspectorCSSStore.cpp \
     inspector/InspectorController.cpp \
@@ -839,11 +829,11 @@ SOURCES += \
     page/WindowFeatures.cpp \
     page/XSSAuditor.cpp \
     plugins/PluginData.cpp \
-    plugins/PluginArray.cpp \
-    plugins/Plugin.cpp \
+    plugins/DOMPluginArray.cpp \
+    plugins/DOMPlugin.cpp \
     plugins/PluginMainThreadScheduler.cpp \
-    plugins/MimeType.cpp \
-    plugins/MimeTypeArray.cpp \
+    plugins/DOMMimeType.cpp \
+    plugins/DOMMimeTypeArray.cpp \
     platform/animation/Animation.cpp \
     platform/animation/AnimationList.cpp \
     platform/Arena.cpp \
@@ -1069,6 +1059,7 @@ HEADERS += \
     accessibility/AccessibilityTableHeaderContainer.h \
     accessibility/AccessibilityTableRow.h \
     accessibility/AXObjectCache.h \
+    bindings/ScriptControllerBase.h \
     bindings/js/CachedScriptSourceProvider.h \
     bindings/js/GCController.h \
     bindings/js/DOMObjectHashTableMap.h \
@@ -1228,8 +1219,8 @@ HEADERS += \
     dom/CSSMappedAttributeDeclaration.h \
     dom/CustomEvent.h \
     dom/default/PlatformMessagePortChannel.h \
-    dom/DeviceOrientation.h \
     dom/DeviceOrientationClient.h \
+    dom/DeviceOrientationController.h \
     dom/DeviceOrientationEvent.h \
     dom/DocumentFragment.h \
     dom/Document.h \
@@ -1349,6 +1340,9 @@ HEADERS += \
     editing/VisibleSelection.h \
     editing/visible_units.h \
     editing/WrapContentsInDummySpanCommand.h \
+    history/BackForwardController.h \
+    history/BackForwardControllerClient.h \
+    history/BackForwardListImpl.h \
     history/BackForwardList.h \
     history/CachedFrame.h \
     history/CachedPage.h \
@@ -1476,6 +1470,7 @@ HEADERS += \
     inspector/ConsoleMessage.h \
     inspector/InjectedScript.h \
     inspector/InjectedScriptHost.h \
+    inspector/InspectorApplicationCacheAgent.h \
     inspector/InspectorBackend.h \
     inspector/InspectorController.h \
     inspector/InspectorDatabaseResource.h \
@@ -1723,13 +1718,13 @@ HEADERS += \
     platform/ThreadTimers.h \
     platform/Timer.h \
     platform/Widget.h \
-    plugins/MimeTypeArray.h \
-    plugins/MimeType.h \
-    plugins/PluginArray.h \
+    plugins/DOMMimeTypeArray.h \
+    plugins/DOMMimeType.h \
+    plugins/DOMPluginArray.h \
     plugins/PluginDatabase.h \
     plugins/PluginData.h \
     plugins/PluginDebug.h \
-    plugins/Plugin.h \
+    plugins/DOMPlugin.h \
     plugins/PluginMainThreadScheduler.h \
     plugins/PluginPackage.h \
     plugins/PluginStream.h \
@@ -2387,6 +2382,7 @@ contains(DEFINES, ENABLE_DATABASE=1) {
 
 contains(DEFINES, ENABLE_INDEXED_DATABASE=1) {
     HEADERS += \
+        bindings/js/IDBBindingUtilities.h \
         storage/IDBAny.h \
         storage/IDBCallbacks.h \
         storage/IDBDatabase.h \
@@ -2399,6 +2395,7 @@ contains(DEFINES, ENABLE_INDEXED_DATABASE=1) {
         storage/IDBIndex.h \
         storage/IDBIndexImpl.h \
         storage/IDBIndexRequest.h \
+        storage/IDBKey.h \
         storage/IDBKeyRange.h \
         storage/IDBObjectStore.h \
         storage/IDBObjectStoreImpl.h \
@@ -2410,7 +2407,9 @@ contains(DEFINES, ENABLE_INDEXED_DATABASE=1) {
         storage/IndexedDatabaseRequest.h
 
     SOURCES += \
+        bindings/js/IDBBindingUtilities.cpp \
         bindings/js/JSIDBAnyCustom.cpp \
+        bindings/js/JSIDBKeyCustom.cpp \
         storage/IDBAny.cpp \
         storage/IDBDatabaseImpl.cpp \
         storage/IDBDatabaseRequest.cpp \
@@ -2418,6 +2417,7 @@ contains(DEFINES, ENABLE_INDEXED_DATABASE=1) {
         storage/IDBEvent.cpp \
         storage/IDBIndexImpl.cpp \
         storage/IDBIndexRequest.cpp \
+        storage/IDBKey.cpp \
         storage/IDBKeyRange.cpp \
         storage/IDBObjectStoreImpl.cpp \
         storage/IDBObjectStoreRequest.cpp \
@@ -2535,13 +2535,14 @@ contains(DEFINES, ENABLE_VIDEO=1) {
         rendering/RenderMedia.cpp \
         bindings/js/JSAudioConstructor.cpp
 
-        # QtMultimedia disabled currently
-        false:greaterThan(QT_MINOR_VERSION, 6) {
+        !lessThan(QT_MINOR_VERSION, 6):contains(MOBILITY_CONFIG, multimedia) {
             HEADERS += platform/graphics/qt/MediaPlayerPrivateQt.h
             SOURCES += platform/graphics/qt/MediaPlayerPrivateQt.cpp
 
-            tobe|!tobe: QT += mediaservices
-        } else {
+            CONFIG *= mobility
+            MOBILITY += multimedia
+            DEFINES += WTF_USE_QT_MULTIMEDIA
+         } else:contains(QT_CONFIG, phonon) {
             HEADERS += \
                 platform/graphics/qt/MediaPlayerPrivatePhonon.h
 
@@ -2559,7 +2560,6 @@ contains(DEFINES, ENABLE_VIDEO=1) {
                 INCLUDEPATH += $$QMAKE_LIBDIR_QT/phonon.framework/Headers
             }
         }
-
 }
 
 contains(DEFINES, ENABLE_XPATH=1) {

@@ -2570,13 +2570,12 @@ HRESULT STDMETHODCALLTYPE WebView::initWithFrame(
 #else
     WebGeolocationControllerClient* geolocationControllerClient = 0;
 #endif
-    DeviceOrientationClient* deviceOrientationClient = 0;
 
     BOOL useHighResolutionTimer;
     if (SUCCEEDED(m_preferences->shouldUseHighResolutionTimers(&useHighResolutionTimer)))
         Settings::setShouldUseHighResolutionTimers(useHighResolutionTimer);
 
-    m_page = new Page(new WebChromeClient(this), new WebContextMenuClient(this), new WebEditorClient(this), new WebDragClient(this), new WebInspectorClient(this), new WebPluginHalterClient(this), geolocationControllerClient, deviceOrientationClient);
+    m_page = new Page(new WebChromeClient(this), new WebContextMenuClient(this), new WebEditorClient(this), new WebDragClient(this), new WebInspectorClient(this), new WebPluginHalterClient(this), geolocationControllerClient, 0, 0);
 
     BSTR localStoragePath;
     if (SUCCEEDED(m_preferences->localStorageDatabasePath(&localStoragePath))) {
@@ -5971,7 +5970,8 @@ HRESULT WebView::addUserScriptToGroup(BSTR groupName, IWebScriptWorld* iWorld, B
 
     pageGroup->addUserScriptToWorld(world->world(), toString(source), toKURL(url),
                                     toStringVector(whitelistCount, whitelist), toStringVector(blacklistCount, blacklist),
-                                    injectionTime == WebInjectAtDocumentStart ? InjectAtDocumentStart : InjectAtDocumentEnd);
+                                    injectionTime == WebInjectAtDocumentStart ? InjectAtDocumentStart : InjectAtDocumentEnd,
+                                    InjectInAllFrames);
 
     return S_OK;
 }
@@ -5994,7 +5994,8 @@ HRESULT WebView::addUserStyleSheetToGroup(BSTR groupName, IWebScriptWorld* iWorl
         return E_FAIL;
 
     pageGroup->addUserStyleSheetToWorld(world->world(), toString(source), toKURL(url),
-                                        toStringVector(whitelistCount, whitelist), toStringVector(blacklistCount, blacklist));
+                                        toStringVector(whitelistCount, whitelist), toStringVector(blacklistCount, blacklist),
+                                        InjectInAllFrames);
 
     return S_OK;
 }

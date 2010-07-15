@@ -266,7 +266,7 @@ void EventHandler::selectClosestWordFromMouseEvent(const MouseEventWithHitTestRe
         }
         
         if (m_frame->shouldChangeSelection(newSelection))
-            m_frame->selection()->setSelection(newSelection, granularity);
+            m_frame->selection()->setSelection(newSelection, granularity, MakeNonDirectionalSelection);
     }
 }
 
@@ -291,7 +291,7 @@ void EventHandler::selectClosestWordOrLinkFromMouseEvent(const MouseEventWithHit
         }
 
         if (m_frame->shouldChangeSelection(newSelection))
-            m_frame->selection()->setSelection(newSelection, granularity);
+            m_frame->selection()->setSelection(newSelection, granularity, MakeNonDirectionalSelection);
     }
 }
 
@@ -336,7 +336,7 @@ bool EventHandler::handleMousePressEventTripleClick(const MouseEventWithHitTestR
     }
     
     if (m_frame->shouldChangeSelection(newSelection))
-        m_frame->selection()->setSelection(newSelection, granularity);
+        m_frame->selection()->setSelection(newSelection, granularity, MakeNonDirectionalSelection);
 
     return true;
 }
@@ -403,7 +403,7 @@ bool EventHandler::handleMousePressEventSingleClick(const MouseEventWithHitTestR
         newSelection = VisibleSelection(visiblePos);
     
     if (m_frame->shouldChangeSelection(newSelection))
-        m_frame->selection()->setSelection(newSelection, granularity);
+        m_frame->selection()->setSelection(newSelection, granularity, MakeNonDirectionalSelection);
 
     return true;
 }
@@ -640,7 +640,7 @@ void EventHandler::updateSelectionForMouseDrag(Node* targetNode, const IntPoint&
 
     if (m_frame->shouldChangeSelection(newSelection)) {
         m_frame->selection()->setIsDirectional(false);
-        m_frame->selection()->setSelection(newSelection, m_frame->selectionGranularity());
+        m_frame->selection()->setSelection(newSelection, m_frame->selectionGranularity(), MakeNonDirectionalSelection);
     }
 }
 #endif // ENABLE(DRAG_SUPPORT)
@@ -2052,7 +2052,7 @@ bool EventHandler::sendContextMenuEventForKey()
 
     static const int kContextMenuMargin = 1;
 
-#if OS(WINDOWS)
+#if OS(WINDOWS) && !OS(WINCE)
     int rightAligned = ::GetSystemMetrics(SM_MENUDROPALIGNMENT);
 #else
     int rightAligned = 0;
@@ -2800,7 +2800,7 @@ void EventHandler::sendResizeEvent()
 void EventHandler::sendScrollEvent()
 {
     setFrameWasScrolledByUser();
-    if (m_frame->view())
+    if (m_frame->view() && m_frame->document())
         m_frame->document()->dispatchEvent(Event::create(eventNames().scrollEvent, true, false));
 }
 

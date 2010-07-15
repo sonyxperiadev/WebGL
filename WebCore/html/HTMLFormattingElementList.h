@@ -46,22 +46,58 @@ public:
     // access to Entry::isMarker() and Entry::replaceElement() to do so.
     class Entry {
     public:
-        Entry(Element*);
+        // Inline because they're hot and Vector<T> uses them.
+        explicit Entry(Element* element)
+            : m_element(element)
+        {
+            ASSERT(element);
+        }
         enum MarkerEntryType { MarkerEntry };
-        Entry(MarkerEntryType);
-        ~Entry();
+        Entry(MarkerEntryType)
+            : m_element(0)
+        {
+        }
+        ~Entry() {}
 
-        bool isMarker() const;
+        bool isMarker() const { return !m_element; }
 
-        Element* element() const;
-        void replaceElement(PassRefPtr<Element>);
+        Element* element() const
+        {
+            // The fact that !m_element == isMarker() is an implementation detail
+            // callers should check isMarker() before calling element().
+            ASSERT(m_element);
+            return m_element.get();
+        }
+        void replaceElement(PassRefPtr<Element> element) { m_element = element; }
 
-        // Needed for use with Vector.
-        bool operator==(const Entry&) const;
-        bool operator!=(const Entry&) const;
+        // Needed for use with Vector.  These are super-hot and must be inline.
+        bool operator==(Element* element) const { return m_element == element; }
+        bool operator!=(Element* element) const { return m_element != element; }
 
     private:
         RefPtr<Element> m_element;
+    };
+
+    class Bookmark {
+    public:
+        Bookmark(Element* before, Element* after)
+            : m_before(before)
+            , m_after(after)
+        {
+        }
+
+        void moveToAfter(Element* before)
+        {
+            m_before = before;
+            m_after = 0;
+        }
+
+        Element* elementBefore() const { return m_before; }
+        Element* elementAfter() const { return m_after; }
+
+    private:
+        Element* m_before;
+        Element* m_after;
     };
 
     bool isEmpty() const { return !size(); }
@@ -74,11 +110,18 @@ public:
     void append(Element*);
     void remove(Element*);
 
+    Bookmark bookmarkFor(Element*);
+    void insertAt(Element*, const Bookmark&);
+
     void appendMarker();
     void clearToLastMarker();
 
-    const Entry& operator[](size_t i) const { return m_entries[i]; }
-    Entry& operator[](size_t i) { return m_entries[i]; }
+    const Entry& at(size_t i) const { return m_entries[i]; }
+    Entry& at(size_t i) { return m_entries[i]; }
+
+#ifndef NDEBUG
+    void show();
+#endif
 
 private:
     Vector<Entry> m_entries;

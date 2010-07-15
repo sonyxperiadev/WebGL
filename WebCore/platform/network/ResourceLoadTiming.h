@@ -34,7 +34,7 @@ namespace WebCore {
 
 class ResourceLoadTiming : public RefCounted<ResourceLoadTiming> {
 public:
-    PassRefPtr<ResourceLoadTiming> create()
+    static PassRefPtr<ResourceLoadTiming> create()
     {
         return adoptRef(new ResourceLoadTiming);
     }
@@ -42,33 +42,35 @@ public:
     PassRefPtr<ResourceLoadTiming> deepCopy()
     {
         RefPtr<ResourceLoadTiming> timing = create();
-        timing->redirectStart = redirectStart;
-        timing->redirectEnd = redirectEnd;
-        timing->redirectCount = redirectCount;
-        timing->domainLookupStart = domainLookupStart;
-        timing->domainLookupEnd = domainLookupEnd;
+        timing->requestTime = requestTime;
+        timing->proxyStart = proxyStart;
+        timing->proxyEnd = proxyEnd;
+        timing->dnsStart = dnsStart;
+        timing->dnsEnd = dnsEnd;
         timing->connectStart = connectStart;
         timing->connectEnd = connectEnd;
-        timing->requestStart = requestStart;
-        timing->requestEnd = requestEnd;
-        timing->responseStart = responseStart;
-        timing->responseEnd = responseEnd;
+        timing->sendStart = sendStart;
+        timing->sendEnd = sendEnd;
+        timing->receiveHeadersEnd = receiveHeadersEnd;
+        timing->sslStart = sslStart;
+        timing->sslEnd = sslEnd;
         return timing.release();
     }
 
     bool operator==(const ResourceLoadTiming& other) const
     {
-        return redirectStart == other.redirectStart
-            && redirectEnd == other.redirectEnd
-            && redirectCount == other.redirectCount
-            && domainLookupStart == other.domainLookupStart
-            && domainLookupEnd == other.domainLookupEnd
+        return requestTime == other.requestTime
+            && proxyStart == other.proxyStart
+            && proxyEnd == other.proxyEnd
+            && dnsStart == other.dnsStart
+            && dnsEnd == other.dnsEnd
             && connectStart == other.connectStart
             && connectEnd == other.connectEnd
-            && requestStart == other.requestStart
-            && requestEnd == other.requestEnd
-            && responseStart == other.responseStart
-            && responseEnd == other.responseEnd;
+            && sendStart == other.sendStart
+            && sendEnd == other.sendEnd
+            && receiveHeadersEnd == other.receiveHeadersEnd
+            && sslStart == other.sslStart
+            && sslEnd == other.sslEnd;
     }
 
     bool operator!=(const ResourceLoadTiming& other) const
@@ -76,31 +78,33 @@ public:
         return !(*this == other);
     }
 
-    double redirectStart;
-    double redirectEnd;
-    unsigned short redirectCount;
-    double domainLookupStart;
-    double domainLookupEnd;
-    double connectStart;
-    double connectEnd;
-    double requestStart;
-    double requestEnd;
-    double responseStart;
-    double responseEnd;
+    double requestTime;
+    int proxyStart;
+    int proxyEnd;
+    int dnsStart;
+    int dnsEnd;
+    int connectStart;
+    int connectEnd;
+    int sendStart;
+    int sendEnd;
+    int receiveHeadersEnd;
+    int sslStart;
+    int sslEnd;
 
 private:
     ResourceLoadTiming()
-        : redirectStart(0.0)
-        , redirectEnd(0.0)
-        , redirectCount(0)
-        , domainLookupStart(0.0)
-        , domainLookupEnd(0.0)
-        , connectStart(0.0)
-        , connectEnd(0.0)
-        , requestStart(0.0)
-        , requestEnd(0.0)
-        , responseStart(0.0)
-        , responseEnd(0.0)
+        : requestTime(0)
+        , proxyStart(-1)
+        , proxyEnd(-1)
+        , dnsStart(-1)
+        , dnsEnd(-1)
+        , connectStart(-1)
+        , connectEnd(-1)
+        , sendStart(0)
+        , sendEnd(0)
+        , receiveHeadersEnd(0)
+        , sslStart(-1)
+        , sslEnd(-1)
     {
     }
 };

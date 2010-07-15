@@ -27,6 +27,7 @@
 #define Color_h
 
 #include <wtf/FastAllocBase.h>
+#include <wtf/unicode/Unicode.h>
 
 #if PLATFORM(CG)
 typedef struct CGColor* CGColorRef;
@@ -53,8 +54,8 @@ struct rgb_color;
 
 namespace WebCore {
 
-class String;
 class Color;
+class String;
 
 typedef unsigned RGBA32;        // RGBA quadruplet
 
@@ -135,6 +136,7 @@ public:
 #endif
 
     static bool parseHexColor(const String& name, RGBA32& rgb);
+    static bool parseHexColor(const UChar* name, unsigned length, RGBA32& rgb);
 
     static const RGBA32 black = 0xFF000000;
     static const RGBA32 white = 0xFFFFFFFF;

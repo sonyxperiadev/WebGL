@@ -61,7 +61,7 @@ public:
     
     // The buffer must be in non-purgeable state before adopted to a SharedBuffer. 
     // It will stay that way until released.
-    static PassRefPtr<SharedBuffer> adoptPurgeableBuffer(PurgeableBuffer* buffer);
+    static PassRefPtr<SharedBuffer> adoptPurgeableBuffer(PassOwnPtr<PurgeableBuffer>);
     
 #if PLATFORM(ANDROID)
     virtual
@@ -106,7 +106,7 @@ public:
     bool hasPurgeableBuffer() const { return m_purgeableBuffer.get(); }
 
     // Ensure this buffer has no other clients before calling this.
-    PurgeableBuffer* releasePurgeableBuffer();
+    PassOwnPtr<PurgeableBuffer> releasePurgeableBuffer();
 
     // Return the number of consecutive bytes after "position". "data"
     // points to the first byte.

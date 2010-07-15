@@ -658,9 +658,12 @@ bool ResourceHandle::willLoadFromCache(ResourceRequest&, Frame*)
 void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request, StoredCredentials /*storedCredentials*/, ResourceError& error, ResourceResponse& response, Vector<char>& data, Frame* frame)
 {
     WebCoreSynchronousLoader syncLoader(error, response, data);
-    ResourceHandle handle(request, &syncLoader, true, false);
+    // FIXME: we should use the ResourceHandle::create method here,
+    // but it makes us timeout in a couple of tests. See
+    // https://bugs.webkit.org/show_bug.cgi?id=41823
+    RefPtr<ResourceHandle> handle = adoptRef(new ResourceHandle(request, &syncLoader, true, false));
+    handle->start(frame);
 
-    handle.start(frame);
     syncLoader.run();
 }
 
@@ -929,4 +932,3 @@ SoupSession* ResourceHandle::defaultSession()
 }
 
 }
-

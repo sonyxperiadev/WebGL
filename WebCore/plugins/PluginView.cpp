@@ -304,7 +304,10 @@ PluginView::~PluginView()
 
     ASSERT(!m_lifeSupportTimer.isActive());
 
-    instanceMap().remove(m_instance);
+    // If we failed to find the plug-in, we'll return early in our constructor, and
+    // m_instance will be 0.
+    if (m_instance)
+        instanceMap().remove(m_instance);
 
     if (m_isWaitingToStart)
         m_parentFrame->document()->removeMediaCanStartListener(this);
@@ -881,6 +884,7 @@ PluginView::PluginView(Frame* parentFrame, const IntSize& size, PluginPackage* p
     , m_paramNames(0)
     , m_paramValues(0)
     , m_mimeType(mimeType)
+    , m_instance(0)
 #if defined(XP_MACOSX)
     , m_isWindowed(false)
 #else

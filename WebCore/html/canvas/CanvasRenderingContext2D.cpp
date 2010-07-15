@@ -614,6 +614,10 @@ void CanvasRenderingContext2D::arc(float x, float y, float r, float sa, float ea
         ec = INDEX_SIZE_ERR;
         return;
     }
+
+    if (sa == ea)
+        return;
+
     if (!state().m_invertibleCTM)
         return;
     m_path.addArc(FloatPoint(x, y), r, sa, ea, anticlockwise);
@@ -763,9 +767,7 @@ void CanvasRenderingContext2D::fillRect(float x, float y, float width, float hei
     FloatRect rect(x, y, width, height);
     willDraw(rect);
 
-    c->save();
     c->fillRect(rect);
-    c->restore();
 }
 
 void CanvasRenderingContext2D::strokeRect(float x, float y, float width, float height)

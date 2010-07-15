@@ -35,6 +35,7 @@
 #include "WebIDBDatabaseImpl.h"
 #include "WebIDBDatabaseError.h"
 #include "WebIDBIndexImpl.h"
+#include "WebIDBKey.h"
 #include "WebIDBObjectStoreImpl.h"
 #include "WebSerializedScriptValue.h"
 
@@ -44,7 +45,7 @@ namespace WebCore {
 
 PassRefPtr<IDBCallbacksProxy> IDBCallbacksProxy::create(PassOwnPtr<WebKit::WebIDBCallbacks> callbacks)
 {
-    return new IDBCallbacksProxy(callbacks);
+    return adoptRef(new IDBCallbacksProxy(callbacks));
 }
 
 IDBCallbacksProxy::IDBCallbacksProxy(PassOwnPtr<WebKit::WebIDBCallbacks> callbacks)
@@ -82,7 +83,8 @@ void IDBCallbacksProxy::onSuccess(PassRefPtr<IDBIndex> idbIndex)
 
 void IDBCallbacksProxy::onSuccess(PassRefPtr<IDBKey> idbKey)
 {
-    ASSERT_NOT_REACHED();
+    m_callbacks->onSuccess(WebKit::WebIDBKey(idbKey));
+    m_callbacks.clear();
 }
 
 void IDBCallbacksProxy::onSuccess(PassRefPtr<IDBObjectStore> idbObjectStore)
@@ -100,4 +102,3 @@ void IDBCallbacksProxy::onSuccess(PassRefPtr<SerializedScriptValue> serializedSc
 } // namespace WebCore
 
 #endif // ENABLE(INDEXED_DATABASE)
-

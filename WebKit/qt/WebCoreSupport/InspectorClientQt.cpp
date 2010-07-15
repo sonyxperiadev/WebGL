@@ -184,7 +184,7 @@ bool InspectorClientQt::sendMessageToFrontend(const String& message)
     if (!scriptController)
         return false;
 
-    String dispatchToFrontend("WebInspector.dispatchMessageToFrontend(");
+    String dispatchToFrontend("WebInspector.dispatchMessageFromBackend(");
     dispatchToFrontend += message;
     dispatchToFrontend += ");";
     scriptController->executeScript(dispatchToFrontend);
@@ -260,7 +260,7 @@ void InspectorFrontendClientQt::closeWindow()
     m_inspectorClient->releaseFrontendPage();
 
     // Clear pointer before deleting WebView to avoid recursive calls to its destructor.
-    delete m_inspectorView.release();
+    OwnPtr<QWebView> inspectorView = m_inspectorView.release();
 }
 
 void InspectorFrontendClientQt::attachWindow()

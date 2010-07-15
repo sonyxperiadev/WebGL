@@ -2128,16 +2128,6 @@ void RenderBlock::paintChildren(PaintInfo& paintInfo, int tx, int ty)
             return;
         }
 
-        // Check for page-break-inside: avoid, and it it's set, break and bail.
-        bool checkInsideAvoid = !childrenInline() && ((checkPageBreaks && child->style()->pageBreakInside() == PBAVOID) || (checkColumnBreaks && child->style()->columnBreakInside() == PBAVOID));
-        if (checkInsideAvoid
-            && ty + child->y() > paintInfo.rect.y()
-            && ty + child->y() < paintInfo.rect.bottom()
-            && ty + child->y() + child->height() > paintInfo.rect.bottom()) {
-            view()->setBestTruncatedAt(ty + child->y(), this, true);
-            return;
-        }
-
         if (!child->hasSelfPaintingLayer() && !child->isFloating())
             child->paint(info, tx, ty);
 
@@ -2232,8 +2222,18 @@ void RenderBlock::paintObject(PaintInfo& paintInfo, int tx, int ty)
         RenderInline* inlineCont = inlineElementContinuation();
         if (inlineCont && inlineCont->hasOutline() && inlineCont->style()->visibility() == VISIBLE) {
             RenderInline* inlineRenderer = toRenderInline(inlineCont->node()->renderer());
-            if (!inlineRenderer->hasSelfPaintingLayer())
-                containingBlock()->addContinuationWithOutline(inlineRenderer);
+            RenderBlock* cb = containingBlock();
+
+            bool inlineEnclosedInSelfPaintingLayer = false;
+            for (RenderBoxModelObject* box = inlineRenderer; box != cb; box = box->parent()->enclosingBoxModelObject()) {
+                if (box->hasSelfPaintingLayer()) {
+                    inlineEnclosedInSelfPaintingLayer = true;
+                    break;
+                }
+            }
+
+            if (!inlineEnclosedInSelfPaintingLayer)
+                cb->addContinuationWithOutline(inlineRenderer);
             else if (!inlineRenderer->firstLineBox())
                 inlineRenderer->paintOutline(paintInfo.context, tx - x() + inlineRenderer->containingBlock()->x(),
                                              ty - y() + inlineRenderer->containingBlock()->y());

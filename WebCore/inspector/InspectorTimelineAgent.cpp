@@ -34,8 +34,8 @@
 #if ENABLE(INSPECTOR)
 
 #include "Event.h"
-#include "InspectorFrontend.h"
 #include "IntRect.h"
+#include "RemoteInspectorFrontend2.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
 #include "TimelineRecordFactory.h"
@@ -46,7 +46,7 @@ namespace WebCore {
 
 int InspectorTimelineAgent::s_instanceCount = 0;
 
-InspectorTimelineAgent::InspectorTimelineAgent(InspectorFrontend* frontend)
+InspectorTimelineAgent::InspectorTimelineAgent(InspectorFrontend2* frontend)
     : m_frontend(frontend)
 {
     ++s_instanceCount;
@@ -62,10 +62,10 @@ void InspectorTimelineAgent::pushGCEventRecords()
     GCEvents events = m_gcEvents;
     m_gcEvents.clear();
     for (GCEvents::iterator i = events.begin(); i != events.end(); ++i) {
-        ScriptObject record = TimelineRecordFactory::createGenericRecord(m_frontend, i->startTime);
-        record.set("data", TimelineRecordFactory::createGCEventData(m_frontend, i->collectedBytes));
-        record.set("endTime", i->endTime);
-        addRecordToTimeline(record, GCEventTimelineRecordType);
+        RefPtr<InspectorObject> record = TimelineRecordFactory::createGenericRecord(i->startTime);
+        record->set("data", TimelineRecordFactory::createGCEventData(i->collectedBytes));
+        record->setNumber("endTime", i->endTime);
+        addRecordToTimeline(record.release(), GCEventTimelineRecordType);
     }
 }
 
@@ -83,7 +83,7 @@ InspectorTimelineAgent::~InspectorTimelineAgent()
 
 void InspectorTimelineAgent::willCallFunction(const String& scriptName, int scriptLine)
 {
-    pushCurrentRecord(TimelineRecordFactory::createFunctionCallData(m_frontend, scriptName, scriptLine), FunctionCallTimelineRecordType);
+    pushCurrentRecord(TimelineRecordFactory::createFunctionCallData(scriptName, scriptLine), FunctionCallTimelineRecordType);
 }
 
 void InspectorTimelineAgent::didCallFunction()
@@ -93,7 +93,7 @@ void InspectorTimelineAgent::didCallFunction()
 
 void InspectorTimelineAgent::willDispatchEvent(const Event& event)
 {
-    pushCurrentRecord(TimelineRecordFactory::createEventDispatchData(m_frontend, event),
+    pushCurrentRecord(TimelineRecordFactory::createEventDispatchData(event),
         EventDispatchTimelineRecordType);
 }
 
@@ -104,7 +104,7 @@ void InspectorTimelineAgent::didDispatchEvent()
 
 void InspectorTimelineAgent::willLayout()
 {
-    pushCurrentRecord(m_frontend->newScriptObject(), LayoutTimelineRecordType);
+    pushCurrentRecord(InspectorObject::create(), LayoutTimelineRecordType);
 }
 
 void InspectorTimelineAgent::didLayout()
@@ -114,7 +114,7 @@ void InspectorTimelineAgent::didLayout()
 
 void InspectorTimelineAgent::willRecalculateStyle()
 {
-    pushCurrentRecord(m_frontend->newScriptObject(), RecalculateStylesTimelineRecordType);
+    pushCurrentRecord(InspectorObject::create(), RecalculateStylesTimelineRecordType);
 }
 
 void InspectorTimelineAgent::didRecalculateStyle()
@@ -124,7 +124,7 @@ void InspectorTimelineAgent::didRecalculateStyle()
 
 void InspectorTimelineAgent::willPaint(const IntRect& rect)
 {
-    pushCurrentRecord(TimelineRecordFactory::createPaintData(m_frontend, rect), PaintTimelineRecordType);
+    pushCurrentRecord(TimelineRecordFactory::createPaintData(rect), PaintTimelineRecordType);
 }
 
 void InspectorTimelineAgent::didPaint()
@@ -134,14 +134,14 @@ void InspectorTimelineAgent::didPaint()
 
 void InspectorTimelineAgent::willWriteHTML(unsigned int length, unsigned int startLine)
 {
-    pushCurrentRecord(TimelineRecordFactory::createParseHTMLData(m_frontend, length, startLine), ParseHTMLTimelineRecordType);
+    pushCurrentRecord(TimelineRecordFactory::createParseHTMLData(length, startLine), ParseHTMLTimelineRecordType);
 }
 
 void InspectorTimelineAgent::didWriteHTML(unsigned int endLine)
 {
     if (!m_recordStack.isEmpty()) {
         TimelineRecordEntry entry = m_recordStack.last();
-        entry.data.set("endLine", endLine);
+        entry.data->setNumber("endLine", endLine);
         didCompleteCurrentRecord(ParseHTMLTimelineRecordType);
     }
 }
@@ -149,22 +149,22 @@ void InspectorTimelineAgent::didWriteHTML(unsigned int endLine)
 void InspectorTimelineAgent::didInstallTimer(int timerId, int timeout, bool singleShot)
 {
     pushGCEventRecords();
-    ScriptObject record = TimelineRecordFactory::createGenericRecord(m_frontend, WTF::currentTimeMS());
-    record.set("data", TimelineRecordFactory::createTimerInstallData(m_frontend, timerId, timeout, singleShot));
-    addRecordToTimeline(record, TimerInstallTimelineRecordType);
+    RefPtr<InspectorObject> record = TimelineRecordFactory::createGenericRecord(WTF::currentTimeMS());
+    record->set("data", TimelineRecordFactory::createTimerInstallData(timerId, timeout, singleShot));
+    addRecordToTimeline(record.release(), TimerInstallTimelineRecordType);
 }
 
 void InspectorTimelineAgent::didRemoveTimer(int timerId)
 {
     pushGCEventRecords();
-    ScriptObject record = TimelineRecordFactory::createGenericRecord(m_frontend, WTF::currentTimeMS());
-    record.set("data", TimelineRecordFactory::createGenericTimerData(m_frontend, timerId));
-    addRecordToTimeline(record, TimerRemoveTimelineRecordType);
+    RefPtr<InspectorObject> record = TimelineRecordFactory::createGenericRecord(WTF::currentTimeMS());
+    record->set("data", TimelineRecordFactory::createGenericTimerData(timerId));
+    addRecordToTimeline(record.release(), TimerRemoveTimelineRecordType);
 }
 
 void InspectorTimelineAgent::willFireTimer(int timerId)
 {
-    pushCurrentRecord(TimelineRecordFactory::createGenericTimerData(m_frontend, timerId), TimerFireTimelineRecordType); 
+    pushCurrentRecord(TimelineRecordFactory::createGenericTimerData(timerId), TimerFireTimelineRecordType);
 }
 
 void InspectorTimelineAgent::didFireTimer()
@@ -174,7 +174,7 @@ void InspectorTimelineAgent::didFireTimer()
 
 void InspectorTimelineAgent::willChangeXHRReadyState(const String& url, int readyState)
 {
-    pushCurrentRecord(TimelineRecordFactory::createXHRReadyStateChangeData(m_frontend, url, readyState), XHRReadyStateChangeRecordType);
+    pushCurrentRecord(TimelineRecordFactory::createXHRReadyStateChangeData(url, readyState), XHRReadyStateChangeRecordType);
 }
 
 void InspectorTimelineAgent::didChangeXHRReadyState()
@@ -184,7 +184,7 @@ void InspectorTimelineAgent::didChangeXHRReadyState()
 
 void InspectorTimelineAgent::willLoadXHR(const String& url) 
 {
-    pushCurrentRecord(TimelineRecordFactory::createXHRLoadData(m_frontend, url), XHRLoadRecordType);
+    pushCurrentRecord(TimelineRecordFactory::createXHRLoadData(url), XHRLoadRecordType);
 }
 
 void InspectorTimelineAgent::didLoadXHR()
@@ -194,7 +194,7 @@ void InspectorTimelineAgent::didLoadXHR()
 
 void InspectorTimelineAgent::willEvaluateScript(const String& url, int lineNumber)
 {
-    pushCurrentRecord(TimelineRecordFactory::createEvaluateScriptData(m_frontend, url, lineNumber), EvaluateScriptTimelineRecordType);
+    pushCurrentRecord(TimelineRecordFactory::createEvaluateScriptData(url, lineNumber), EvaluateScriptTimelineRecordType);
 }
     
 void InspectorTimelineAgent::didEvaluateScript()
@@ -205,26 +205,26 @@ void InspectorTimelineAgent::didEvaluateScript()
 void InspectorTimelineAgent::didScheduleResourceRequest(const String& url)
 {
     pushGCEventRecords();
-    ScriptObject record = TimelineRecordFactory::createGenericRecord(m_frontend, WTF::currentTimeMS());
-    record.set("data", TimelineRecordFactory::createScheduleResourceRequestData(m_frontend, url));
-    record.set("type", ScheduleResourceRequestTimelineRecordType);
-    addRecordToTimeline(record, ScheduleResourceRequestTimelineRecordType);
+    RefPtr<InspectorObject> record = TimelineRecordFactory::createGenericRecord(WTF::currentTimeMS());
+    record->set("data", TimelineRecordFactory::createScheduleResourceRequestData(url));
+    record->setNumber("type", ScheduleResourceRequestTimelineRecordType);
+    addRecordToTimeline(record.release(), ScheduleResourceRequestTimelineRecordType);
 }
 
 void InspectorTimelineAgent::willSendResourceRequest(unsigned long identifier, bool isMainResource,
     const ResourceRequest& request)
 {
     pushGCEventRecords();
-    ScriptObject record = TimelineRecordFactory::createGenericRecord(m_frontend, WTF::currentTimeMS());
-    record.set("data", TimelineRecordFactory::createResourceSendRequestData(m_frontend, identifier, isMainResource, request));
-    record.set("type", ResourceSendRequestTimelineRecordType);
-    setHeapSizeStatistic(record);
-    m_frontend->addRecordToTimeline(record);
+    RefPtr<InspectorObject> record = TimelineRecordFactory::createGenericRecord(WTF::currentTimeMS());
+    record->set("data", TimelineRecordFactory::createResourceSendRequestData(identifier, isMainResource, request));
+    record->setNumber("type", ResourceSendRequestTimelineRecordType);
+    setHeapSizeStatistic(record.get());
+    m_frontend->addRecordToTimeline(record.release());
 }
 
 void InspectorTimelineAgent::willReceiveResourceData(unsigned long identifier)
 {
-    pushCurrentRecord(TimelineRecordFactory::createReceiveResourceData(m_frontend, identifier), ReceiveResourceDataTimelineRecordType);
+    pushCurrentRecord(TimelineRecordFactory::createReceiveResourceData(identifier), ReceiveResourceDataTimelineRecordType);
 }
 
 void InspectorTimelineAgent::didReceiveResourceData()
@@ -234,7 +234,7 @@ void InspectorTimelineAgent::didReceiveResourceData()
     
 void InspectorTimelineAgent::willReceiveResourceResponse(unsigned long identifier, const ResourceResponse& response)
 {
-    pushCurrentRecord(TimelineRecordFactory::createResourceReceiveResponseData(m_frontend, identifier, response), ResourceReceiveResponseTimelineRecordType);
+    pushCurrentRecord(TimelineRecordFactory::createResourceReceiveResponseData(identifier, response), ResourceReceiveResponseTimelineRecordType);
 }
 
 void InspectorTimelineAgent::didReceiveResourceResponse()
@@ -245,33 +245,33 @@ void InspectorTimelineAgent::didReceiveResourceResponse()
 void InspectorTimelineAgent::didFinishLoadingResource(unsigned long identifier, bool didFail)
 {
     pushGCEventRecords();
-    ScriptObject record = TimelineRecordFactory::createGenericRecord(m_frontend, WTF::currentTimeMS());
-    record.set("data", TimelineRecordFactory::createResourceFinishData(m_frontend, identifier, didFail));
-    record.set("type", ResourceFinishTimelineRecordType);
-    setHeapSizeStatistic(record);
-    m_frontend->addRecordToTimeline(record);
+    RefPtr<InspectorObject> record = TimelineRecordFactory::createGenericRecord(WTF::currentTimeMS());
+    record->set("data", TimelineRecordFactory::createResourceFinishData(identifier, didFail));
+    record->setNumber("type", ResourceFinishTimelineRecordType);
+    setHeapSizeStatistic(record.get());
+    m_frontend->addRecordToTimeline(record.release());
 }
 
 void InspectorTimelineAgent::didMarkTimeline(const String& message)
 {
     pushGCEventRecords();
-    ScriptObject record = TimelineRecordFactory::createGenericRecord(m_frontend, WTF::currentTimeMS());
-    record.set("data", TimelineRecordFactory::createMarkTimelineData(m_frontend, message));
-    addRecordToTimeline(record, MarkTimelineRecordType);
+    RefPtr<InspectorObject> record = TimelineRecordFactory::createGenericRecord(WTF::currentTimeMS());
+    record->set("data", TimelineRecordFactory::createMarkTimelineData(message));
+    addRecordToTimeline(record.release(), MarkTimelineRecordType);
 }
 
 void InspectorTimelineAgent::didMarkDOMContentEvent()
 {
     pushGCEventRecords();
-    ScriptObject record = TimelineRecordFactory::createGenericRecord(m_frontend, WTF::currentTimeMS());
-    addRecordToTimeline(record, MarkDOMContentEventType);
+    RefPtr<InspectorObject> record = TimelineRecordFactory::createGenericRecord(WTF::currentTimeMS());
+    addRecordToTimeline(record.release(), MarkDOMContentEventType);
 }
 
 void InspectorTimelineAgent::didMarkLoadEvent()
 {
     pushGCEventRecords();
-    ScriptObject record = TimelineRecordFactory::createGenericRecord(m_frontend, WTF::currentTimeMS());
-    addRecordToTimeline(record, MarkLoadEventType);
+    RefPtr<InspectorObject> record = TimelineRecordFactory::createGenericRecord(WTF::currentTimeMS());
+    addRecordToTimeline(record.release(), MarkLoadEventType);
 }
 
 void InspectorTimelineAgent::reset()
@@ -279,32 +279,33 @@ void InspectorTimelineAgent::reset()
     m_recordStack.clear();
 }
 
-void InspectorTimelineAgent::resetFrontendProxyObject(InspectorFrontend* frontend)
+void InspectorTimelineAgent::resetFrontendProxyObject(InspectorFrontend2* frontend)
 {
     ASSERT(frontend);
     reset();
     m_frontend = frontend;
 }
 
-void InspectorTimelineAgent::addRecordToTimeline(ScriptObject record, TimelineRecordType type)
+void InspectorTimelineAgent::addRecordToTimeline(PassRefPtr<InspectorObject> prpRecord, TimelineRecordType type)
 {
-    record.set("type", type);
-    setHeapSizeStatistic(record);
+    RefPtr<InspectorObject> record(prpRecord);
+    record->setNumber("type", type);
+    setHeapSizeStatistic(record.get());
     if (m_recordStack.isEmpty())
-        m_frontend->addRecordToTimeline(record);
+        m_frontend->addRecordToTimeline(record.release());
     else {
         TimelineRecordEntry parent = m_recordStack.last();
-        parent.children.set(parent.children.length(), record);
+        parent.children->push(record.release());
     }
 }
 
-void InspectorTimelineAgent::setHeapSizeStatistic(ScriptObject record)
+void InspectorTimelineAgent::setHeapSizeStatistic(InspectorObject* record)
 {
     size_t usedHeapSize = 0;
     size_t totalHeapSize = 0;
     ScriptGCEvent::getHeapSize(usedHeapSize, totalHeapSize);
-    record.set("usedHeapSize", usedHeapSize);
-    record.set("totalHeapSize", totalHeapSize);
+    record->setNumber("usedHeapSize", usedHeapSize);
+    record->setNumber("totalHeapSize", totalHeapSize);
 }
 
 void InspectorTimelineAgent::didCompleteCurrentRecord(TimelineRecordType type)
@@ -316,18 +317,18 @@ void InspectorTimelineAgent::didCompleteCurrentRecord(TimelineRecordType type)
         TimelineRecordEntry entry = m_recordStack.last();
         m_recordStack.removeLast();
         ASSERT(entry.type == type);
-        entry.record.set("data", entry.data);
-        entry.record.set("children", entry.children);
-        entry.record.set("endTime", WTF::currentTimeMS());
+        entry.record->set("data", entry.data);
+        entry.record->set("children", entry.children);
+        entry.record->setNumber("endTime", WTF::currentTimeMS());
         addRecordToTimeline(entry.record, type);
     }
 }
 
-void InspectorTimelineAgent::pushCurrentRecord(ScriptObject data, TimelineRecordType type)
+void InspectorTimelineAgent::pushCurrentRecord(PassRefPtr<InspectorObject> data, TimelineRecordType type)
 {
     pushGCEventRecords();
-    ScriptObject record = TimelineRecordFactory::createGenericRecord(m_frontend, WTF::currentTimeMS());
-    m_recordStack.append(TimelineRecordEntry(record, data, m_frontend->newScriptArray(), type));
+    RefPtr<InspectorObject> record = TimelineRecordFactory::createGenericRecord(WTF::currentTimeMS());
+    m_recordStack.append(TimelineRecordEntry(record.release(), data, InspectorArray::create(), type));
 }
 } // namespace WebCore
 

@@ -32,11 +32,14 @@
 #include "JavaClassV8.h"
 
 #include <assert.h>
+<<<<<<< HEAD
 
 // ANDROID
 #define LOG_TAG "v8binding"
 #include <utils/Log.h>
 // END ANDROID
+=======
+>>>>>>> webkit.org at r63173
 
 using namespace JSC::Bindings;
 

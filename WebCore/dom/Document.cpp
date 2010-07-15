@@ -44,6 +44,7 @@
 #include "CustomEvent.h"
 #include "DOMImplementation.h"
 #include "DOMWindow.h"
+#include "DeviceOrientationEvent.h"
 #include "DocLoader.h"
 #include "DocumentFragment.h"
 #include "DocumentLoader.h"
@@ -2061,7 +2062,7 @@ void Document::write(const SegmentedString& text, Document* ownerDocument)
         printf("Beginning a document.write at %d\n", elapsedTime());
 #endif
 
-    if (!m_parser || m_parser->finishWasCalled())
+    if (!m_parser)
         open(ownerDocument);
 
     ASSERT(m_parser);
@@ -2199,6 +2200,8 @@ const Vector<RefPtr<CSSStyleSheet> >* Document::pageGroupUserSheets() const
         const UserStyleSheetVector* sheets = it->second;
         for (unsigned i = 0; i < sheets->size(); ++i) {
             const UserStyleSheet* sheet = sheets->at(i).get();
+            if (sheet->injectedFrames() == InjectInTopFrameOnly && ownerElement())
+                continue;
             if (!UserContentURLPattern::matchesPatterns(url(), sheet->whitelist(), sheet->blacklist()))
                 continue;
             RefPtr<CSSStyleSheet> parsedSheet = CSSStyleSheet::createInline(const_cast<Document*>(this), sheet->url());
@@ -3321,6 +3324,10 @@ PassRefPtr<Event> Document::createEvent(const String& eventType, ExceptionCode& 
 #endif
         event = TouchEvent::create();
 #endif
+#if ENABLE(DEVICE_ORIENTATION)
+    else if (eventType == "DeviceOrientationEvent")
+        event = DeviceOrientationEvent::create();
+#endif
     if (event)
         return event.release();
 
@@ -3375,7 +3382,7 @@ CSSStyleDeclaration* Document::getOverrideStyle(Element*, const String&)
     return 0;
 }
 
-Element* Document::ownerElement() const
+HTMLFrameOwnerElement* Document::ownerElement() const
 {
     if (!frame())
         return 0;

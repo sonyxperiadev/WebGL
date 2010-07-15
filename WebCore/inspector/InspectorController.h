@@ -41,7 +41,6 @@
 #include "ScriptValue.h"
 #include "StringHash.h"
 #include "Timer.h"
-
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/ListHashSet.h>
@@ -55,6 +54,7 @@
 namespace WebCore {
 
 class CachedResource;
+class ConsoleMessage;
 class Database;
 class Document;
 class DocumentLoader;
@@ -66,10 +66,15 @@ class InjectedScriptHost;
 class InspectorBackend;
 class InspectorClient;
 class InspectorCSSStore;
+class InspectorDOMStorageResource;
+class InspectorDatabaseResource;
 class InspectorFrontend;
+class InspectorFrontend2;
 class InspectorFrontendClient;
+class InspectorResource;
 class InspectorTimelineAgent;
 class InspectorValue;
+class InspectorWorkerResource;
 class KURL;
 class Node;
 class Page;
@@ -82,11 +87,9 @@ class SharedBuffer;
 class Storage;
 class StorageArea;
 
-class ConsoleMessage;
-class InspectorDatabaseResource;
-class InspectorDOMStorageResource;
-class InspectorResource;
-class InspectorWorkerResource;
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+class InspectorApplicationCacheAgent;
+#endif
 
 class InspectorController
 #if ENABLE(JAVASCRIPT_DEBUGGER)
@@ -161,11 +164,10 @@ public:
 
     void didCommitLoad(DocumentLoader*);
     void frameDetachedFromParent(Frame*);
-
     void didLoadResourceFromMemoryCache(DocumentLoader*, const CachedResource*);
 
     void identifierForInitialRequest(unsigned long identifier, DocumentLoader*, const ResourceRequest&);
-    void willSendRequest(unsigned long identifier, const ResourceRequest&, const ResourceResponse& redirectResponse);
+    void willSendRequest(unsigned long identifier, ResourceRequest&, const ResourceResponse& redirectResponse);
     void didReceiveResponse(unsigned long identifier, const ResourceResponse&);
     void didReceiveContentLength(unsigned long identifier, int lengthReceived);
     void didFinishLoading(unsigned long identifier);
@@ -183,6 +185,13 @@ public:
     void stopTimelineProfiler();
     InspectorTimelineAgent* timelineAgent() { return m_timelineAgent.get(); }
 
+    void getCookies(long callId);
+    void deleteCookie(const String& cookieName, const String& domain);
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    InspectorApplicationCacheAgent* applicationCacheAgent() { return m_applicationCacheAgent.get(); }
+#endif
+
     void mainResourceFiredLoadEvent(DocumentLoader*, const KURL&);
     void mainResourceFiredDOMContentEvent(DocumentLoader*, const KURL&);
 
@@ -196,7 +205,6 @@ public:
     void didCreateWorker(intptr_t, const String& url, bool isSharedWorker);
     void didDestroyWorker(intptr_t);
 #endif
-    void getCookies(long callId);
 
 #if ENABLE(DATABASE)
     void didOpenDatabase(Database*, const String& domain, const String& name, const String& version);
@@ -212,6 +220,7 @@ public:
     const ResourcesMap& resources() const { return m_resources; }
     InspectorResource* resourceForURL(const String& url);
     InspectorFrontend* inspectorFrontend() { return m_frontend.get(); }
+    InspectorFrontend2* inspectorFrontend2() { return m_frontend2.get(); }
 
     void drawNodeHighlight(GraphicsContext&) const;
 
@@ -243,9 +252,7 @@ public:
     bool profilerEnabled() const { return enabled() && m_profilerEnabled; }
 
     void takeHeapSnapshot();
-#endif
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
     void enableDebugger();
     void disableDebugger(bool always = false);
     bool debuggerEnabled() const { return m_debuggerEnabled; }
@@ -284,9 +291,7 @@ private:
     void setMonitoringXHR(bool enabled);
     void storeLastActivePanel(const String& panelName);
     InspectorDOMAgent* domAgent() { return m_domAgent.get(); }
-    void releaseDOMAgent();
-
-    void deleteCookie(const String& cookieName, const String& domain);
+    void releaseFrontendLifetimeAgents();
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     void setBreakpoint(long callId, const String& sourceID, unsigned lineNumber, bool enabled, const String& condition);
@@ -340,9 +345,15 @@ private:
     OwnPtr<InspectorFrontendClient> m_inspectorFrontendClient;
     bool m_openingFrontend;
     OwnPtr<InspectorFrontend> m_frontend;
+    OwnPtr<InspectorFrontend2> m_frontend2;
     RefPtr<InspectorDOMAgent> m_domAgent;
     OwnPtr<InspectorCSSStore> m_cssStore;
     OwnPtr<InspectorTimelineAgent> m_timelineAgent;
+
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    OwnPtr<InspectorApplicationCacheAgent> m_applicationCacheAgent;
+#endif
+
     RefPtr<Node> m_nodeToFocus;
     RefPtr<InspectorResource> m_mainResource;
     ResourcesMap m_resources;

@@ -36,8 +36,12 @@ public:
     ~InjectedBundlePage();
 
     WKBundlePageRef page() const { return m_page; }
+    void dump();
+
+    bool isLoading() { return m_isLoading; }
 
 private:
+    // Loader Client
     static void _didStartProvisionalLoadForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo);
     static void _didReceiveServerRedirectForProvisionalLoadForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo);
     static void _didFailProvisionalLoadWithErrorForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo);
@@ -46,7 +50,6 @@ private:
     static void _didFailLoadWithErrorForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo);
     static void _didReceiveTitleForFrame(WKBundlePageRef page, WKStringRef title, WKBundleFrameRef frame, const void *clientInfo);
     static void _didClearWindowForFrame(WKBundlePageRef page, WKBundleFrameRef frame, JSContextRef ctx, JSObjectRef window, const void *clientInfo);
-
     void didStartProvisionalLoadForFrame(WKBundleFrameRef frame);
     void didReceiveServerRedirectForProvisionalLoadForFrame(WKBundleFrameRef frame);
     void didFailProvisionalLoadWithErrorForFrame(WKBundleFrameRef frame);
@@ -56,7 +59,12 @@ private:
     void didReceiveTitleForFrame(WKStringRef title, WKBundleFrameRef frame);
     void didClearWindowForFrame(WKBundleFrameRef frame, JSContextRef ctx, JSObjectRef window);
 
+    // UI Client
+    static void _addMessageToConsole(WKBundlePageRef page, WKStringRef message, uint32_t lineNumber, const void *clientInfo);
+    void addMessageToConsole(WKStringRef message, uint32_t lineNumber);
+
     WKBundlePageRef m_page;
+    bool m_isLoading;
 };
 
 } // namespace WTR

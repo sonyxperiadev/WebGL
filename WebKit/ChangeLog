@@ -1,3 +1,178 @@
+2010-07-12  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Unreviewed build fix after r60050.
+
+        * CMakeLists.txt: Add WebCore/bindings to the include path.
+
+2010-07-11  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Adam Barth.
+
+        [EFL] Fix style errors in ewk_private.h.
+        https://bugs.webkit.org/show_bug.cgi?id=41742
+
+        * efl/ewk/ewk_private.h:
+
+2010-07-09  Darin Adler  <darin@apple.com>
+
+        * StringsNotToBeLocalized.txt: Updated for recent changes.
+
+2010-07-08  Joone Hur  <joone@kldp.org>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] fix cmake build for EWebLauncher
+        https://bugs.webkit.org/show_bug.cgi?id=41830
+
+        * CMakeListsEfl.txt: add ${LIBSOUP24_LDFLAGS} for link flags
+
+2010-07-08  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Implement several notification hooks in FrameLoaderClient.
+        We just notify browser, making the appropriate type conversions about
+        the events occurring in WebCore.
+        https://bugs.webkit.org/show_bug.cgi?id=41005
+
+        * efl/WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::dispatchWillSendRequest): alloc 2 new
+        wrapper structures in stack in order to give client the opportunity to
+        change parameters. Then, call the function it defines.
+        (WebCore::FrameLoaderClientEfl::assignIdentifierToInitialRequest):
+        (WebCore::FrameLoaderClientEfl::didPerformFirstNavigation): notify
+        client.
+        (WebCore::FrameLoaderClientEfl::saveViewStateToItem): notify client.
+        (WebCore::FrameLoaderClientEfl::restoreViewState): notify client.
+        (WebCore::FrameLoaderClientEfl::dispatchDidChangeLocationWithinPage):
+        notify browser that the url changed.
+        (WebCore::FrameLoaderClientEfl::dispatchDidReceiveIcon): notify
+        browser.
+        (WebCore::FrameLoaderClientEfl::dispatchDidStartProvisionalLoad):
+        notify browser.
+        (WebCore::FrameLoaderClientEfl::dispatchDidFinishDocumentLoad): notify
+        browser.
+        (WebCore::FrameLoaderClientEfl::dispatchDidFirstLayout): norify
+        browser.
+        (WebCore::FrameLoaderClientEfl::dispatchDidFirstVisuallyNonEmptyLayout):
+        notify browser.
+        (WebCore::FrameLoaderClientEfl::dispatchShow): notify browser.
+        * efl/ewk/ewk_frame.cpp:
+        (ewk_frame_request_will_send): emit signal notifying browser.
+        (ewk_frame_request_assign_identifier): emit signal notifying browser.
+        (ewk_frame_did_perform_first_navigation): emit signal notifying browser.
+        (ewk_frame_view_state_save): emit signal notifying browser.
+        (ewk_frame_load_provisional): emit signal notifying browser.
+        (ewk_frame_load_firstlayout_finished): emit signal notifying browser.
+        (ewk_frame_load_firstlayout_nonempty_finished): emit signal notifying browser.
+        (ewk_frame_load_document_finished): emit signal notifying browser.
+        * efl/ewk/ewk_frame.h: update documentation about signals being sent
+        and implement wrapper struct for ResourceRequest.
+        * efl/ewk/ewk_private.h: export private functions.
+
+2010-07-08  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Flush backing store when going to new page.
+        Call client method to flush backing store when going to a new page. This
+        is the notification that data related to current page should be dropped,
+        since a new page is being loaded.
+        https://bugs.webkit.org/show_bug.cgi?id=41008
+
+        * efl/WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::transitionToCommittedForNewPage):
+
+2010-07-07  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Unreviewed build fix after r62676.
+
+        [EFL] Fix build after Page constructor has changed. By now, the
+        introduced BackForwardControllerClient is not used.
+        https://bugs.webkit.org/show_bug.cgi?id=41825
+
+        * efl/ewk/ewk_view.cpp:
+        (_ewk_view_priv_new): Add missing parameter to WebCore::Page
+        constructor.
+
+2010-07-07  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Rename the WebBaseNetscapePluginStream.cpp and .h files to WebNetscapePluginStream.cpp and .h to match the class name.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2010-07-07  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] EFLWebKit doesn't support viewport meta tag.
+        Support viewport meta tag on EFL Port.
+        https://bugs.webkit.org/show_bug.cgi?id=40278
+
+        * efl/EWebLauncher/main.c: Process 'viewport,changed' signal.
+        (viewport_set):
+        (on_viewport_changed): Add a callback function for the 'viewport,changed' signal.
+        (browserCreate): Register the callback function for the 'viewport,changed' signal.
+        * efl/WebCoreSupport/ChromeClientEfl.cpp: Implement method to process viewport tag.
+        (WebCore::ChromeClientEfl::didReceiveViewportArguments):
+        * efl/WebCoreSupport/ChromeClientEfl.h: Define method to process viewport tag.
+        * efl/WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::FrameLoaderClientEfl): Implement a function to set layout
+        when website doesn't contain viewport tag.
+        (WebCore::FrameLoaderClientEfl::dispatchDidCommitLoad):
+        (WebCore::FrameLoaderClientEfl::dispatchDidFirstLayout):
+        * efl/WebCoreSupport/FrameLoaderClientEfl.h:
+        (WebCore::FrameLoaderClientEfl::setInitLayoutCompleted):
+        (WebCore::FrameLoaderClientEfl::getInitLayoutCompleted):
+        * efl/ewk/ewk_private.h: Added internal APIs to process viewport tag.
+        * efl/ewk/ewk_view.cpp: Added APIs to process and to handle viewport tag.
+        (_ewk_view_priv_new):
+        (ewk_view_fixed_layout_size_set):
+        (ewk_view_zoom_set):
+        (ewk_view_zoom_weak_set):
+        (ewk_view_zoom_animated_set):
+        (ewk_view_viewport_set): Reports that viewport has changed.
+        (ewk_view_viewport_get): Reports that viewport has changed.
+        (ewk_view_zoom_range_set): Sets the zoom range.
+        (ewk_view_zoom_range_min_get): Gets minimum value of zoom range.
+        (ewk_view_zoom_range_max_get): Gets maximum value of zoom range.
+        (ewk_view_user_scalable_set): Sets if zoom is enabled.
+        (ewk_view_user_scalable_get): Gets if zoom is enabled.
+        * efl/ewk/ewk_view.h:
+
+2010-07-07  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        Reviewed by Adam Barth.
+
+        [EFL] Fix cmake build and libsoup detection
+        Some changes should be done to cmake build system to fix the detection of libsoup and correct some link paths:
+        - LINK_FLAGS should be set using quotes, otherwise some wrong
+        substitution takes place;
+        - we should use LIBSOUP24_* instead of LIBSOUP_* since this is the
+        version we are using;
+        - need to set HAVE_LIBSOUP_2_29_90 if we find a version equal or newer
+        than that.
+        https://bugs.webkit.org/show_bug.cgi?id=41717
+
+        * CMakeLists.txt:
+        * CMakeListsEfl.txt:
+
+2010-07-05  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Implement downloadURL in ContextMenuClientEfl
+        When user selects a download menu from context menu, send the download 
+        request to application.
+        https://bugs.webkit.org/show_bug.cgi?id=41149
+
+        * efl/WebCoreSupport/ContextMenuClientEfl.cpp:
+        (WebCore::ContextMenuClientEfl::downloadURL): Get url for downloading 
+        file and Send it to application.
+        * efl/WebCoreSupport/ContextMenuClientEfl.h:
+
 2010-06-30  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
 
         Reviewed by Kenneth Rohde Christiansen.

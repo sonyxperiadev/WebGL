@@ -37,13 +37,15 @@ namespace JSC {
 
 namespace WebCore {
 
+    class BackForwardController;
+    class BackForwardControllerClient;
     class BackForwardList;
     class Chrome;
     class ChromeClient;
     class ContextMenuClient;
     class ContextMenuController;
-    class DeviceOrientation;
     class DeviceOrientationClient;
+    class DeviceOrientationController;
     class Document;
     class DragClient;
     class DragController;
@@ -87,7 +89,7 @@ namespace WebCore {
     public:
         static void setNeedsReapplyStyles();
 
-        Page(ChromeClient*, ContextMenuClient*, EditorClient*, DragClient*, InspectorClient*, PluginHalterClient*, GeolocationControllerClient*, DeviceOrientationClient*);
+        Page(ChromeClient*, ContextMenuClient*, EditorClient*, DragClient*, InspectorClient*, PluginHalterClient*, GeolocationControllerClient*, DeviceOrientationClient*, BackForwardControllerClient*);
         ~Page();
 
         RenderTheme* theme() const { return m_theme.get(); };
@@ -106,7 +108,7 @@ namespace WebCore {
         bool openedByDOM() const;
         void setOpenedByDOM();
 
-        BackForwardList* backForwardList();
+        BackForwardList* backForwardList() const;
 
         // FIXME: The following three methods don't fall under the responsibilities of the Page object
         // They seem to fit a hypothetical Page-controller object that would be akin to the 
@@ -148,7 +150,7 @@ namespace WebCore {
         GeolocationController* geolocationController() const { return m_geolocationController.get(); }
 #endif
 #if ENABLE(DEVICE_ORIENTATION)
-        DeviceOrientation* deviceOrientation() const { return m_deviceOrientation.get(); }
+        DeviceOrientationController* deviceOrientationController() const { return m_deviceOrientationController.get(); }
 #endif
         Settings* settings() const { return m_settings.get(); }
         ProgressTracker* progress() const { return m_progress.get(); }
@@ -265,12 +267,12 @@ namespace WebCore {
         OwnPtr<GeolocationController> m_geolocationController;
 #endif
 #if ENABLE(DEVICE_ORIENTATION)
-        OwnPtr<DeviceOrientation> m_deviceOrientation;
+        OwnPtr<DeviceOrientationController> m_deviceOrientationController;
 #endif
         OwnPtr<Settings> m_settings;
         OwnPtr<ProgressTracker> m_progress;
         
-        RefPtr<BackForwardList> m_backForwardList;
+        OwnPtr<BackForwardController> m_backForwardController;
         RefPtr<Frame> m_mainFrame;
 
         RefPtr<HistoryItem> m_globalHistoryItem;

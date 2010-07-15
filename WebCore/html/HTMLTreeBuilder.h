@@ -28,6 +28,7 @@
 
 #include "Element.h"
 #include "FragmentScriptingPermission.h"
+#include "HTMLConstructionSite.h"
 #include "HTMLElementStack.h"
 #include "HTMLFormattingElementList.h"
 #include "HTMLTokenizer.h"
@@ -74,6 +75,7 @@ public:
     LegacyHTMLTreeBuilder* legacyTreeBuilder() const { return m_legacyTreeBuilder.get(); }
 
 private:
+    class FakeInsertionMode;
     // Represents HTML5 "insertion mode"
     // http://www.whatwg.org/specs/web-apps/current-work/multipage/parsing.html#insertion-mode
     enum InsertionMode {
@@ -104,8 +106,8 @@ private:
 
     void passTokenToLegacyParser(HTMLToken&);
 
-    // Specialized functions for processing the different types of tokens.
     void processToken(AtomicHTMLToken&);
+
     void processDoctypeToken(AtomicHTMLToken&);
     void processStartTag(AtomicHTMLToken&);
     void processEndTag(AtomicHTMLToken&);
@@ -113,72 +115,57 @@ private:
     void processCharacter(AtomicHTMLToken&);
     void processEndOfFile(AtomicHTMLToken&);
 
+    bool processStartTagForInHead(AtomicHTMLToken&);
+    void processStartTagForInBody(AtomicHTMLToken&);
+    void processStartTagForInTable(AtomicHTMLToken&);
+    void processEndTagForInBody(AtomicHTMLToken&);
+    void processEndTagForInTable(AtomicHTMLToken&);
+    void processEndTagForInTableBody(AtomicHTMLToken&);
+    void processEndTagForInRow(AtomicHTMLToken&);
+    void processEndTagForInCell(AtomicHTMLToken&);
+
+    void processIsindexStartTagForInBody(AtomicHTMLToken&);
+    bool processBodyEndTagForInBody(AtomicHTMLToken&);
+    bool processTableEndTagForInTable();
+    bool processCaptionEndTagForInCaption();
+    bool processColgroupEndTagForInColumnGroup();
+    bool processTrEndTagForInRow();
+    // FIXME: This function should be inlined into its one call site or it
+    // needs to assert which tokens it can be called with.
+    void processAnyOtherEndTagForInBody(AtomicHTMLToken&);
+
+    void processFakeStartTag(const QualifiedName&, PassRefPtr<NamedNodeMap> attributes = 0);
+    void processFakeEndTag(const QualifiedName&);
+    void processFakeCharacters(const String&);
+    void processFakePEndTagIfPInScope();
+
+    void processGenericRCDATAStartTag(AtomicHTMLToken&);
+    void processGenericRawTextStartTag(AtomicHTMLToken&);
+    void processScriptStartTag(AtomicHTMLToken&);
+
     // Default processing for the different insertion modes.
+    // FIXME: These functions need to be renamed to remove "process" from their names.
     void processDefaultForInitialMode(AtomicHTMLToken&);
     void processDefaultForBeforeHTMLMode(AtomicHTMLToken&);
     void processDefaultForBeforeHeadMode(AtomicHTMLToken&);
     void processDefaultForInHeadMode(AtomicHTMLToken&);
     void processDefaultForInHeadNoscriptMode(AtomicHTMLToken&);
     void processDefaultForAfterHeadMode(AtomicHTMLToken&);
+    void processDefaultForInTableTextMode(AtomicHTMLToken&);
 
-    bool processStartTagForInHead(AtomicHTMLToken&);
-    bool processBodyEndTagForInBody(AtomicHTMLToken&);
-    void processFakePEndTagIfPInScope();
+    void processUsingSecondaryInsertionModeAndAdjustInsertionMode(AtomicHTMLToken&);
+
+    PassRefPtr<NamedNodeMap> attributesForIsindexInput(AtomicHTMLToken&);
 
     HTMLElementStack::ElementRecord* furthestBlockForFormattingElement(Element*);
-    void findFosterParentFor(Element*);
     void reparentChildren(Element* oldParent, Element* newParent);
     void callTheAdoptionAgency(AtomicHTMLToken&);
 
-    template<typename ChildType>
-    PassRefPtr<ChildType> attach(Node* parent, PassRefPtr<ChildType> prpChild)
-    {
-        RefPtr<ChildType> child = prpChild;
-        parent->parserAddChild(child);
-        // It's slightly unfortunate that we need to hold a reference to child
-        // here to call attach().  We should investigate whether we can rely on
-        // |parent| to hold a ref at this point.  In the common case (at least
-        // for elements), however, we'll get to use this ref in the stack of
-        // open elements.
-        child->attach();
-        return child.release();
-    }
+    void closeTheCell();
 
-    void insertDoctype(AtomicHTMLToken&);
-    void insertComment(AtomicHTMLToken&);
-    void insertCommentOnDocument(AtomicHTMLToken&);
-    void insertCommentOnHTMLHtmlElement(AtomicHTMLToken&);
-    void insertHTMLHtmlElement(AtomicHTMLToken&);
-    void insertHTMLHeadElement(AtomicHTMLToken&);
-    void insertHTMLBodyElement(AtomicHTMLToken&);
-    void insertElement(AtomicHTMLToken&);
-    void insertSelfClosingElement(AtomicHTMLToken&);
-    void insertFormattingElement(AtomicHTMLToken&);
-    void insertGenericRCDATAElement(AtomicHTMLToken&);
-    void insertGenericRawTextElement(AtomicHTMLToken&);
-    void insertScriptElement(AtomicHTMLToken&);
-    void insertTextNode(AtomicHTMLToken&);
+    template <bool shouldClose(const Element*)>
+    void processCloseWhenNestedTag(AtomicHTMLToken&);
 
-    void insertHTMLStartTagBeforeHTML(AtomicHTMLToken&);
-    void insertHTMLStartTagInBody(AtomicHTMLToken&);
-
-    PassRefPtr<Element> createElement(AtomicHTMLToken&);
-    PassRefPtr<Element> createElementAndAttachToCurrent(AtomicHTMLToken&);
-
-    void mergeAttributesFromTokenIntoElement(AtomicHTMLToken&, Element*);
-
-    bool indexOfFirstUnopenFormattingElement(unsigned& firstUnopenElementIndex) const;
-    void reconstructTheActiveFormattingElements();
-
-    void generateImpliedEndTags();
-    void generateImpliedEndTagsWithExclusion(const AtomicString& tagName);
-
-    Element* currentElement() { return m_openElements.top(); }
-
-    RefPtr<Element> m_headElement;
-    RefPtr<Element> m_formElement;
-    HTMLElementStack m_openElements;
-    HTMLFormattingElementList m_activeFormattingElements;
     bool m_framesetOk;
 
     // FIXME: Implement error reporting.
@@ -187,17 +174,43 @@ private:
     void handleScriptStartTag();
     void handleScriptEndTag(Element*, int scriptStartLine);
 
-    void setInsertionMode(InsertionMode value) { m_insertionMode = value; }
     InsertionMode insertionMode() const { return m_insertionMode; }
+    void setInsertionMode(InsertionMode mode)
+    {
+        m_insertionMode = mode;
+        m_isFakeInsertionMode = false;
+    }
+
+    bool isFakeInsertionMode() { return m_isFakeInsertionMode; }
+    void setFakeInsertionMode(InsertionMode mode)
+    {
+        m_insertionMode = mode;
+        m_isFakeInsertionMode = true;
+    }
+
+    void setSecondaryInsertionMode(InsertionMode);
+
+    void setInsertionModeAndEnd(InsertionMode, bool foreign); // Helper for resetInsertionModeAppropriately
+    void resetInsertionModeAppropriately();
 
     static bool isScriptingFlagEnabled(Frame* frame);
 
-    Document* m_document; // This is only used by the m_legacyParser for now.
+    Document* m_document;
+    HTMLConstructionSite m_tree;
+
     bool m_reportErrors;
     bool m_isPaused;
+    bool m_isFakeInsertionMode;
 
+    // FIXME: InsertionModes should be a separate object to prevent direct
+    // manipulation of these variables.  For now, be careful to always use
+    // setInsertionMode and never set m_insertionMode directly.
     InsertionMode m_insertionMode;
     InsertionMode m_originalInsertionMode;
+    InsertionMode m_secondaryInsertionMode;
+
+    // http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html#pending-table-character-tokens
+    Vector<UChar> m_pendingTableCharacters;
 
     // HTML5 spec requires that we be able to change the state of the tokenizer
     // from within parser actions.

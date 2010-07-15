@@ -84,6 +84,7 @@
 #include "Settings.h"
 #include "Timer.h"
 #include "TypingCommand.h"
+#include "Vector.h"
 #include "WebAccessibilityObject.h"
 #include "WebDevToolsAgentPrivate.h"
 #include "WebDevToolsAgentImpl.h"
@@ -96,6 +97,8 @@
 #include "WebKitClient.h"
 #include "WebMediaPlayerAction.h"
 #include "WebNode.h"
+#include "WebPlugin.h"
+#include "WebPluginContainerImpl.h"
 #include "WebPoint.h"
 #include "WebPopupMenuImpl.h"
 #include "WebRect.h"
@@ -137,8 +140,8 @@ static const double maxTextSizeMultiplier = 3.0;
 const char* pageGroupName = "default";
 
 // Used to defer all page activity in cases where the embedder wishes to run
-// a nested event loop.
-static PageGroupLoadDeferrer* pageGroupLoadDeferrer;
+// a nested event loop. Using a stack enables nesting of message loop invocations.
+static Vector<PageGroupLoadDeferrer*> pageGroupLoadDeferrerStack;
 
 // Ensure that the WebDragOperation enum values stay in sync with the original
 // DragOperation constants.
@@ -168,7 +171,8 @@ static const PopupContainerSettings autoFillPopupSettings = {
 
 WebView* WebView::create(WebViewClient* client, WebDevToolsAgentClient* devToolsClient)
 {
-    return new WebViewImpl(client, devToolsClient);
+    // Pass the WebViewImpl's self-reference to the caller.
+    return adoptRef(new WebViewImpl(client, devToolsClient)).leakRef();
 }
 
 void WebView::updateVisitedLinkState(unsigned long long linkHash)
@@ -183,23 +187,23 @@ void WebView::resetVisitedLinkState()
 
 void WebView::willEnterModalLoop()
 {
-    // It is not valid to nest more than once.
-    ASSERT(!pageGroupLoadDeferrer);
-
     PageGroup* pageGroup = PageGroup::pageGroup(pageGroupName);
     ASSERT(pageGroup);
 
     if (pageGroup->pages().isEmpty())
-        return;
-
-    // Pick any page in the page group since we are deferring all pages.
-    pageGroupLoadDeferrer = new PageGroupLoadDeferrer(*pageGroup->pages().begin(), true);
+        pageGroupLoadDeferrerStack.append(static_cast<PageGroupLoadDeferrer*>(0));
+    else {
+        // Pick any page in the page group since we are deferring all pages.
+        pageGroupLoadDeferrerStack.append(new PageGroupLoadDeferrer(*pageGroup->pages().begin(), true));
+    }
 }
 
 void WebView::didExitModalLoop()
 {
-    delete pageGroupLoadDeferrer;
-    pageGroupLoadDeferrer = 0;
+    ASSERT(pageGroupLoadDeferrerStack.size());
+
+    delete pageGroupLoadDeferrerStack.last();
+    pageGroupLoadDeferrerStack.removeLast();
 }
 
 void WebViewImpl::initializeMainFrame(WebFrameClient* frameClient)
@@ -263,7 +267,7 @@ WebViewImpl::WebViewImpl(WebViewClient* client, WebDevToolsAgentClient* devTools
     if (devToolsClient)
         m_devToolsAgent = new WebDevToolsAgentImpl(this, devToolsClient);
 
-    m_page.set(new Page(&m_chromeClientImpl, &m_contextMenuClientImpl, &m_editorClientImpl, &m_dragClientImpl, &m_inspectorClientImpl, 0, 0, 0));
+    m_page.set(new Page(&m_chromeClientImpl, &m_contextMenuClientImpl, &m_editorClientImpl, &m_dragClientImpl, &m_inspectorClientImpl, 0, 0, 0, 0));
 
     // the page will take ownership of the various clients
 
@@ -1434,8 +1438,11 @@ int WebViewImpl::setZoomLevel(bool textOnly, int zoomLevel)
     if (!view)
         return m_zoomLevel;
     if (zoomFactor != view->zoomFactor()) {
-        m_zoomLevel = zoomLevel;
         view->setZoomFactor(zoomFactor, textOnly ? ZoomTextOnly : ZoomPage);
+        WebPluginContainerImpl* pluginContainer = WebFrameImpl::pluginContainerFromFrame(frame);
+        if (pluginContainer)
+            pluginContainer->plugin()->setZoomFactor(zoomFactor, textOnly);
+        m_zoomLevel = zoomLevel;
     }
     return m_zoomLevel;
 }
@@ -1864,7 +1871,10 @@ void WebViewImpl::setSelectionColors(unsigned activeBackgroundColor,
 #endif
 }
 
-void WebView::addUserScript(const WebString& sourceCode, const WebVector<WebString>& patternsIn, bool runAtStart)
+void WebView::addUserScript(const WebString& sourceCode,
+                            const WebVector<WebString>& patternsIn,
+                            WebView::UserScriptInjectAt injectAt,
+                            WebView::UserContentInjectIn injectIn)
 {
     OwnPtr<Vector<String> > patterns(new Vector<String>);
     for (size_t i = 0; i < patternsIn.size(); ++i)
@@ -1873,10 +1883,13 @@ void WebView::addUserScript(const WebString& sourceCode, const WebVector<WebStri
     PageGroup* pageGroup = PageGroup::pageGroup(pageGroupName);
     RefPtr<DOMWrapperWorld> world(DOMWrapperWorld::create());
     pageGroup->addUserScriptToWorld(world.get(), sourceCode, WebURL(), patterns.release(), 0,
-                                    runAtStart ? InjectAtDocumentStart : InjectAtDocumentEnd);
+                                    static_cast<UserScriptInjectionTime>(injectAt),
+                                    static_cast<UserContentInjectedFrames>(injectIn));
 }
 
-void WebView::addUserStyleSheet(const WebString& sourceCode, const WebVector<WebString>& patternsIn)
+void WebView::addUserStyleSheet(const WebString& sourceCode,
+                                const WebVector<WebString>& patternsIn,
+                                WebView::UserContentInjectIn injectIn)
 {
     OwnPtr<Vector<String> > patterns(new Vector<String>);
     for (size_t i = 0; i < patternsIn.size(); ++i)
@@ -1884,7 +1897,8 @@ void WebView::addUserStyleSheet(const WebString& sourceCode, const WebVector<Web
 
     PageGroup* pageGroup = PageGroup::pageGroup(pageGroupName);
     RefPtr<DOMWrapperWorld> world(DOMWrapperWorld::create());
-    pageGroup->addUserStyleSheetToWorld(world.get(), sourceCode, WebURL(), patterns.release(), 0);
+    pageGroup->addUserStyleSheetToWorld(world.get(), sourceCode, WebURL(), patterns.release(), 0,
+                                        static_cast<UserContentInjectedFrames>(injectIn));
 }
 
 void WebView::removeAllUserContent()

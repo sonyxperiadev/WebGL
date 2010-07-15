@@ -5,6 +5,7 @@ math {
     display: inline-block;
     padding: 0px;
     margin: 0px;
+    text-align: left;
     vertical-align: baseline;
     line-height: 1.0;
     padding-left: 1px;
@@ -15,10 +16,6 @@ math[display="block"] {
     display: block;
     page-break-inside: avoid;
     margin-bottom: 1em;
-}
-
-math * {
-   text-align: left;
 }
 
 math > * {
@@ -32,7 +29,7 @@ mrow, mfenced {
     padding-right: 1px;
 }
 
-mi, mtext {
+mi{
     font-style: italic;
     padding-right: 0.1em;
 }
@@ -97,15 +94,15 @@ math > mo, mrow > mo, mfenced > mo {
     padding-right: 0.05em;
 }
 
-mo[mathsize="small"], mn[mathsize="small"], mi[mathsize="small"] {
+math[mathsize="small"], mstyle[mathsize="small"], mo[mathsize="small"], mn[mathsize="small"], mi[mathsize="small"], mtext[mathsize="small"], mspace[mathsize="small"], ms[mathsize="small"]{
     font-size: 0.75em;
 }
 
-mo[mathsize="normal"],mn[mathsize="normal"],mi[mathsize="normal"] {
+math[mathsize="normal"], mstyle[mathsize="normal"], mo[mathsize="normal"], mn[mathsize="normal"], mi[mathsize="normal"], mtext[mathsize="normal"], mspace[mathsize="normal"], ms[mathsize="normal"]{
     font-size: 1em;
 }
 
-mo[mathsize="big"], mn[mathsize="big"], mi[mathsize="big"] {
+math[mathsize="big"], mstyle[mathsize="big"], mo[mathsize="big"], mn[mathsize="big"], mi[mathsize="big"], mtext[mathsize="big"], mspace[mathsize="big"], ms[mathsize="big"]{
     font-size: 1.5em;
 }
  

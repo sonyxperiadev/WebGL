@@ -1,3 +1,827 @@
+2010-07-09  Darin Adler  <darin@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        String to number coercion is not spec compliant
+        https://bugs.webkit.org/show_bug.cgi?id=31349
+
+        ToNumber should ignore NBSP (\u00a0)
+        https://bugs.webkit.org/show_bug.cgi?id=25490
+
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::parseIntOverflow): Added a version that works on UChar.
+        * runtime/JSGlobalObjectFunctions.h: Ditto.
+
+        * runtime/UString.cpp:
+        (JSC::isInfinity): Added helper functions.
+        (JSC::UString::toDouble): Use isStrWhiteSpace instead of
+        isSASCIISpace to define what we should skip. Got rid of the
+        code that used CString and UTF8String, instead processing the
+        UChar of the string directly, except for when we call strtod.
+        For strtod, use our own home-grown conversion function that
+        does not try to do any UTF-16 processing. Tidied up the logic
+        a bit as well.
+
+2010-07-12  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] make dist is broken because of missing headers and other miscellaneous reasons
+        https://bugs.webkit.org/show_bug.cgi?id=42107
+
+        * GNUmakefile.am: Add missing header to the sources list.
+
+2010-07-12  Adam Roben  <aroben@apple.com>
+
+        Stop generating stripped symbols for Release builds
+
+        It turns out we can strip the symbols after-the-fact using PDBCopy.
+
+        Fixes <http://webkit.org/b/42085>.
+
+        Reviewed by Steve Falkenburg.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreCommon.vsprops:
+        Removed the pre-link event, which just created the public\sym
+        directory.
+
+2010-07-12  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Add WARN_UNUSED_RETURN to the smart pointer "leak" member functions
+        https://bugs.webkit.org/show_bug.cgi?id=42086
+
+        * wtf/OwnPtr.h:
+        * wtf/PassOwnPtr.h:
+        * wtf/PassRefPtr.h:
+        (WTF::PassRefPtr::releaseRef):
+        (WTF::NonNullPassRefPtr::leakRef):
+        (WTF::NonNullPassRefPtr::releaseRef):
+        * wtf/RetainPtr.h:
+        (WTF::RetainPtr::releaseRef):
+
+2010-07-10  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        HAVE_COMPUTED_GOTO is dependent on the interpreter being enabled
+        https://bugs.webkit.org/show_bug.cgi?id=42039
+
+        Separate the existence of computed goto support in the compiler
+        from whether or not we are using the interpreter.  All the current
+        HAVE(COMPUTED_GOTO) guards are for the interpreter, but I'd like
+        the option of using it elsewhere.  The interpreter now uses
+        ENABLE(COMPUTED_GOTO_INTERPRETER) 
+
+        * bytecode/Instruction.h:
+        (JSC::Instruction::Instruction):
+        * bytecode/Opcode.h:
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::Interpreter):
+        (JSC::Interpreter::isOpcode):
+        (JSC::Interpreter::privateExecute):
+        * interpreter/Interpreter.h:
+        (JSC::Interpreter::getOpcode):
+        (JSC::Interpreter::getOpcodeID):
+        * wtf/Platform.h:
+
+2010-07-10  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Remove switches from inner expression loops in the parser
+        https://bugs.webkit.org/show_bug.cgi?id=42035
+
+        Use bitmasks and flags on the token types to identify unary and
+        binary operators, rather than switching on the token type to
+        identify them.
+
+        * parser/JSParser.cpp:
+        (JSC::isUnaryOp):
+        (JSC::JSParser::isBinaryOperator):
+        * parser/JSParser.h:
+        (JSC::):
+
+2010-07-09  Leon Clarke  <leonclarke@google.com>
+
+        Reviewed by Adam Barth.
+
+        add support for link prefetching
+        https://bugs.webkit.org/show_bug.cgi?id=3652
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-07-09  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Tidy up lexer token ids
+        https://bugs.webkit.org/show_bug.cgi?id=42014
+
+        Stop using character literals to identify single character tokens
+        and instead use symbolic names for all tokens.
+
+        * parser/ASTBuilder.h:
+        (JSC::ASTBuilder::makeBinaryNode):
+        * parser/JSParser.cpp:
+        (JSC::JSParser::consume):
+        (JSC::JSParser::match):
+        (JSC::JSParser::autoSemiColon):
+        (JSC::JSParser::JSParser):
+        (JSC::JSParser::parseProgram):
+        (JSC::JSParser::allowAutomaticSemicolon):
+        (JSC::JSParser::parseDoWhileStatement):
+        (JSC::JSParser::parseWhileStatement):
+        (JSC::JSParser::parseVarDeclarationList):
+        (JSC::JSParser::parseConstDeclarationList):
+        (JSC::JSParser::parseForStatement):
+        (JSC::JSParser::parseReturnStatement):
+        (JSC::JSParser::parseWithStatement):
+        (JSC::JSParser::parseSwitchStatement):
+        (JSC::JSParser::parseSwitchClauses):
+        (JSC::JSParser::parseSwitchDefaultClause):
+        (JSC::JSParser::parseTryStatement):
+        (JSC::JSParser::parseDebuggerStatement):
+        (JSC::JSParser::parseStatement):
+        (JSC::JSParser::parseFormalParameters):
+        (JSC::JSParser::parseFunctionInfo):
+        (JSC::JSParser::parseExpressionOrLabelStatement):
+        (JSC::JSParser::parseIfStatement):
+        (JSC::JSParser::parseExpression):
+        (JSC::JSParser::parseAssignmentExpression):
+        (JSC::JSParser::parseConditionalExpression):
+        (JSC::isUnaryOp):
+        (JSC::JSParser::isBinaryOperator):
+        (JSC::JSParser::parseBinaryExpression):
+        (JSC::JSParser::parseProperty):
+        (JSC::JSParser::parseObjectLiteral):
+        (JSC::JSParser::parseStrictObjectLiteral):
+        (JSC::JSParser::parseArrayLiteral):
+        (JSC::JSParser::parsePrimaryExpression):
+        (JSC::JSParser::parseArguments):
+        (JSC::JSParser::parseMemberExpression):
+        (JSC::JSParser::parseUnaryExpression):
+        * parser/JSParser.h:
+        (JSC::):
+        * parser/Lexer.cpp:
+        (JSC::):
+        (JSC::Lexer::lex):
+        * parser/Lexer.h:
+
+2010-07-09  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 42015 - Enable JSValue32_64 on ARMv7
+
+        * Configurations/JavaScriptCore.xcconfig:
+        * jit/JIT.h:
+        * jit/JITStubs.cpp:
+        * wtf/Platform.h:
+
+2010-07-09  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Assertion failure in String::utf8() for certain invalid UTF16 inputs
+        https://bugs.webkit.org/show_bug.cgi?id=41983
+
+        * wtf/text/WTFString.cpp:
+        (WebCore::String::utf8):
+         - Fixed assertion when sourceExhausted is returned from convertUTF16ToUTF8.
+
+2010-07-09  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Remove a couple of excess writes from the lexer
+        https://bugs.webkit.org/show_bug.cgi?id=41981
+
+        Remove a couple of fields from JSTokenInfo, and rename the remaining ones
+        to something more accurate
+
+        * parser/JSParser.cpp:
+        (JSC::JSParser::next):
+        (JSC::JSParser::tokenStart):
+        (JSC::JSParser::tokenLine):
+        (JSC::JSParser::tokenEnd):
+        * parser/JSParser.h:
+        (JSC::JSTokenInfo::JSTokenInfo):
+        * parser/Lexer.cpp:
+        (JSC::Lexer::lex):
+
+2010-07-08  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Property declarations in an object literal should not consider the prototype chain when being added to the new object
+        https://bugs.webkit.org/show_bug.cgi?id=41929
+
+        To fix this all we need to do is ensure that all new properties are
+        added with putDirect rather than a fully generic call to put.  This
+        is safe as an object literal is by definition going to produce a
+        completely normal object.
+
+        Rather than duplicating all the put_by_id logic we add an additional
+        flag to op_put_by_id to indicate it should be using putDirect.  In
+        the interpreter this adds a runtime branch, but in the jit this is
+        essentially free as the branch is taken at compile time.  This does
+        actually improve object literal creation time even in the interpreter
+        as we no longer need to walk the prototype chain to verify that the
+        cached put is safe.
+
+        We still emit normal put_by_id code when emitting __proto__ as we want
+        to get the correct handling for changing the prototype.
+
+        Sunspider claims this is a 0.7% speedup which is conceivably real due
+        to the performance improvement in object literals, but I suspect its
+        really just the result of code motion.
+
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitPutById):
+        (JSC::BytecodeGenerator::emitDirectPutById):
+        * bytecompiler/BytecodeGenerator.h:
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::PropertyListNode::emitBytecode):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.h:
+        (JSC::JIT::compilePutByIdTransition):
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::emit_op_put_by_id):
+        (JSC::JIT::emitSlow_op_put_by_id):
+        (JSC::JIT::privateCompilePutByIdTransition):
+        (JSC::JIT::patchPutByIdReplace):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::emitSlow_op_put_by_id):
+        (JSC::JIT::privateCompilePutByIdTransition):
+        (JSC::JIT::patchPutByIdReplace):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::tryCachePutByID):
+        (JSC::DEFINE_STUB_FUNCTION):
+        * jit/JITStubs.h:
+        (JSC::):
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        * runtime/JSObject.h:
+        (JSC::JSObject::putDirect):
+        (JSC::JSValue::putDirect):
+        * runtime/JSValue.h:
+
+2010-07-08  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        String.prototype methods should CheckObjectCoercible (test this is not null or undefined).
+
+        * runtime/StringPrototype.cpp:
+        (JSC::stringProtoFuncCharAt):
+        (JSC::stringProtoFuncCharCodeAt):
+        (JSC::stringProtoFuncConcat):
+        (JSC::stringProtoFuncIndexOf):
+        (JSC::stringProtoFuncLastIndexOf):
+        (JSC::stringProtoFuncMatch):
+        (JSC::stringProtoFuncSearch):
+        (JSC::stringProtoFuncSlice):
+        (JSC::stringProtoFuncSplit):
+        (JSC::stringProtoFuncSubstr):
+        (JSC::stringProtoFuncSubstring):
+        (JSC::stringProtoFuncToLowerCase):
+        (JSC::stringProtoFuncToUpperCase):
+        (JSC::stringProtoFuncLocaleCompare):
+        (JSC::trimString):
+
+2010-07-08  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Date.prototype.toJSON takes one argument, report this correctly.
+
+        * runtime/DatePrototype.cpp:
+
+2010-07-08  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        RegExp's prototype should be an object of type RegExp.
+
+        * runtime/RegExpPrototype.cpp:
+        (JSC::RegExpPrototype::RegExpPrototype):
+        * runtime/RegExpPrototype.h:
+
+2010-07-08  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        JavaScript parser violates ECMA automatic semicolon insertion rule
+        https://bugs.webkit.org/show_bug.cgi?id=41844
+
+        Remove (very) old and bogus logic that automatically inserted a semicolon
+        at the end of a script's source.
+
+        * parser/Lexer.cpp:
+        (JSC::Lexer::lex):
+
+2010-07-08  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Anders Carlson.
+
+        Tidy up the lexer
+
+        Remove some of the old yacc/lex-isms still present in the lexer
+
+        * parser/JSParser.h:
+        (JSC::):
+        * parser/Lexer.cpp:
+        (JSC::Lexer::parseString):
+        (JSC::Lexer::lex):
+        * parser/Lexer.h:
+
+2010-07-08  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Make object-literal parsing conformant with the spec.
+        https://bugs.webkit.org/show_bug.cgi?id=41892
+
+        Bring our parsing of object literals into conformance with the ES5 spec.
+        Basically disallow conflicting accessor vs. normal property definitions
+        The bulk of this patch is just fiddling to maintain performance.
+
+        * parser/ASTBuilder.h:
+        (JSC::ASTBuilder::createGetterOrSetterProperty):
+        (JSC::ASTBuilder::createProperty):
+        (JSC::ASTBuilder::getName):
+        (JSC::ASTBuilder::getType):
+        * parser/JSParser.cpp:
+        (JSC::jsParse):
+        (JSC::JSParser::JSParser):
+        (JSC::JSParser::parseProperty):
+        (JSC::JSParser::parseObjectLiteral):
+        (JSC::JSParser::parseStrictObjectLiteral):
+        * parser/JSParser.h:
+        * parser/Lexer.cpp:
+        (JSC::Lexer::clear):
+        * parser/Lexer.h:
+        (JSC::Lexer::currentOffset):
+        (JSC::Lexer::setOffset):
+          Add logic to allow us to roll the lexer back in the input stream.
+        * parser/Nodes.h:
+        (JSC::PropertyNode::):
+        (JSC::PropertyNode::type):
+        * parser/Parser.cpp:
+        (JSC::Parser::parse):
+        * parser/SourceProvider.h:
+        (JSC::SourceProvider::SourceProvider):
+        (JSC::SourceProvider::isValid):
+        (JSC::SourceProvider::setValid):
+          SourceProvider now records whether the input text
+          has already been validated.
+        * parser/SyntaxChecker.h:
+        (JSC::SyntaxChecker::SyntaxChecker):
+        (JSC::SyntaxChecker::Property::Property):
+        (JSC::SyntaxChecker::Property::operator!):
+        (JSC::SyntaxChecker::createProperty):
+        (JSC::SyntaxChecker::createPropertyList):
+        (JSC::SyntaxChecker::createGetterOrSetterProperty):
+          The SyntaxChecker mode now needs to maintain a bit more information
+          to ensure that we can validate object literals correctly.
+
+2010-07-08  Darin Adler  <darin@apple.com>
+
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::sharedInstance): Fix typo.
+
+2010-07-08  Darin Adler  <darin@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Fix assertion seen on the Leopard buildbot.
+        The single shared instance of JSGlobalData was not being
+        adopted after creation.
+
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::sharedInstance): Do adoptRef and then leakRef.
+
+2010-07-08  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        BOMs are whitespace.
+
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::isStrWhiteSpace):
+
+2010-07-08  Martin Robinson  <mrobinson@igalia.com>
+
+        Unreviewed.
+
+        Try fix the GTK+ build by touching this file.
+
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+
+2010-07-08  Gavin Barraclough  <barraclough@apple.com>
+
+        GTK build fix take two.
+
+        * GNUmakefile.am:
+
+2010-07-08  Gavin Barraclough  <barraclough@apple.com>
+
+        GTK build fix.
+
+        * GNUmakefile.am:
+
+2010-07-08  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41641
+
+        Update compile flags to allow use of ExecutableAllocatorFixedVMPool on platforms
+        other than x86-64 (this may be useful on 32-bit platforms, too).
+
+        Simplify ifdefs by dividing into thwo broad allocation strategies
+        (ENABLE_EXECUTABLE_ALLOCATOR_FIXED & ENABLE_EXECUTABLE_ALLOCATOR_DEMAND).
+
+        Rename constant used in the code to have names descriptive of their purpose,
+        rather than their specific value on a given platform.
+
+        * jit/ExecutableAllocator.cpp:
+        (JSC::ExecutableAllocator::reprotectRegion):
+        (JSC::ExecutableAllocator::cacheFlush):
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::FixedVMPoolAllocator::FixedVMPoolAllocator):
+        (JSC::FixedVMPoolAllocator::free):
+        (JSC::ExecutablePool::systemAlloc):
+        * jit/ExecutableAllocatorPosix.cpp:
+        * jit/ExecutableAllocatorSymbian.cpp:
+        * jit/ExecutableAllocatorWin.cpp:
+        * wtf/Platform.h:
+
+2010-07-08  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Silence a few noisy build rules.
+
+        * GNUmakefile.am:
+
+2010-07-08  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r62765.
+        http://trac.webkit.org/changeset/62765
+        https://bugs.webkit.org/show_bug.cgi?id=41840
+
+        All jscore and layout tests crash on Qt bot (Requested by Ossy
+        on #webkit).
+
+        * wtf/FastMalloc.cpp:
+        (WTF::TCMalloc_PageHeap::initializeScavenger):
+        (WTF::TCMalloc_PageHeap::signalScavenger):
+        (WTF::TCMalloc_PageHeap::scavengerThread):
+
+2010-07-08  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Oliver Hunt.
+
+        Interpreter: Crash in op_load_varargs on 64-bit
+        https://bugs.webkit.org/show_bug.cgi?id=41795
+
+        Added missing cast of argCount to int32_t in op_load_varargs.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+
+2010-07-08  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Make FastMalloc more portable.
+        https://bugs.webkit.org/show_bug.cgi?id=41790
+
+        Use WTF::Mutex instead of pthread_mutex_t and
+        replace pthread_cond_t with WTF::ThreadCondition.
+
+        * wtf/FastMalloc.cpp:
+        (WTF::TCMalloc_PageHeap::initializeScavenger):
+        (WTF::TCMalloc_PageHeap::signalScavenger):
+        (WTF::TCMalloc_PageHeap::scavengerThread):
+
+2010-07-08  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Darin Adler.
+
+        Remove needless #include <fcntl.h> from TCSystemAlloc.cpp.
+        https://bugs.webkit.org/show_bug.cgi?id=41777
+
+        * wtf/TCSystemAlloc.cpp:
+
+2010-07-07  Darin Adler  <darin@apple.com>
+
+        Fixed build in configurations like PowerPC.
+
+        * runtime/RegExpConstructor.cpp: Added include of PassOwnPtr.h.
+        * runtime/RegExpObject.cpp: Ditto.
+        * wtf/SizeLimits.cpp: Changed compile time assertion to work
+        even on platforms where two bool members do not end up taking
+        the same size as one int member!
+
+2010-07-07  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Lazy mode of parser allows invalid syntax in object literals.
+        https://bugs.webkit.org/show_bug.cgi?id=41809
+
+        Make the parser itself validate getter and setter syntax rather
+        than offloading it to the AST builder.
+
+        * parser/ASTBuilder.h:
+        (JSC::ASTBuilder::createGetterOrSetterProperty):
+        * parser/JSParser.cpp:
+        (JSC::JSParser::parseProperty):
+
+2010-07-07  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Reviewed by Adam Roben.
+
+        Revert r62689.
+        https://bugs.webkit.org/show_bug.cgi?id=41804
+
+        * runtime/Collector.cpp:
+        (JSC::Heap::freeBlocks):
+
+2010-07-07  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Sam Weinig.
+
+        Add reverseFind to Vector and deploy in HTML5 parser
+        https://bugs.webkit.org/show_bug.cgi?id=41778
+
+        This method seems generally useful.  I'm slightly surprised we don't
+        have it already.
+
+        * wtf/Vector.h:
+        (WTF::::reverseFind):
+
+2010-07-07  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Turn on adoptRef assertion for RefCounted
+        https://bugs.webkit.org/show_bug.cgi?id=41547
+
+        * wtf/CrossThreadRefCounted.h: Fixed include style. Includes of other
+        WTF headers should use "" includes; consistent in most WTF headers.
+        Added a call to relaxAdoptionRequirement.
+
+        * wtf/RefCounted.h: Fixed include style. Removed LOOSE_REF_COUNTED.
+        Added relaxAdoptionRequirement.
+
+2010-07-07  Anders Carlsson  <andersca@apple.com>
+
+        Try to fix the Windows build.
+
+        * runtime/Collector.cpp:
+        (JSC::Heap::freeBlocks):
+
+2010-07-07  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        More OwnPtr work
+        https://bugs.webkit.org/show_bug.cgi?id=41727
+
+        * API/JSCallbackObject.h:
+        (JSC::JSCallbackObjectData::setPrivateProperty): Use adoptPtr.
+        * API/JSCallbackObjectFunctions.h:
+        (JSC::JSCallbackObject::JSCallbackObject): Ditto.
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::CodeBlock): Ditto.
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::createRareDataIfNecessary): Ditto.
+        * parser/Nodes.cpp:
+        (JSC::ScopeNode::ScopeNode): Ditto.
+        * parser/ParserArena.cpp:
+        (JSC::ParserArena::ParserArena): Ditto.
+        * runtime/Arguments.h:
+        (JSC::Arguments::Arguments): Ditto.
+        * runtime/Executable.cpp:
+        (JSC::EvalExecutable::compile): Ditto.
+        (JSC::ProgramExecutable::compile): Ditto.
+        (JSC::FunctionExecutable::compileForCall): Ditto.
+        (JSC::FunctionExecutable::compileForConstruct): Ditto.
+        (JSC::FunctionExecutable::reparseExceptionInfo): Ditto.
+        (JSC::EvalExecutable::reparseExceptionInfo): Ditto.
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::sort): Ditto.
+        * runtime/RegExpConstructor.cpp:
+        (JSC::RegExpConstructor::RegExpConstructor): Ditto.
+        * runtime/RegExpObject.cpp:
+        (JSC::RegExpObject::RegExpObject): Ditto.
+        * runtime/SmallStrings.cpp:
+        (JSC::SmallStrings::createSingleCharacterString): Ditto.
+        (JSC::SmallStrings::singleCharacterStringRep): Ditto.
+
+        * wtf/unicode/icu/CollatorICU.cpp:
+        (WTF::Collator::userDefault): Use adoptPtr.
+        * yarr/RegexInterpreter.cpp:
+        (JSC::Yarr::ByteCompiler::ByteCompiler): Ditto.
+        (JSC::Yarr::ByteCompiler::compile): Ditto.
+        (JSC::Yarr::ByteCompiler::regexBegin): Ditto.
+        (JSC::Yarr::byteCompileRegex): Ditto.
+        * yarr/RegexInterpreter.h:
+        (JSC::Yarr::BytecodePattern::BytecodePattern): Ditto.
+
+2010-07-07  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Make clear set the pointer to 0 before deletion
+        https://bugs.webkit.org/show_bug.cgi?id=41727
+
+        * wtf/OwnArrayPtr.h: Changed code so we always set the pointer to its new
+        value before deleting the old one, including in the set function and the
+        clear function. This required changing safeDelete.
+        * wtf/OwnPtr.h: Ditto. Also removed some extra null checks.
+        * wtf/PassOwnPtr.h: Ditto.
+
+        * wtf/PassRefPtr.h: Changed code so we always set the pointer to its new
+        value before deref'ing the old one in the clear function. Also added a
+        leakRef function for NonNullPassRefPtr.
+        * wtf/RefPtr.h: Ditto.
+
+        * wtf/gobject/GOwnPtr.h: More of the same.
+        * wtf/gobject/GRefPtr.h: Ditto.
+
+2010-07-07  Zoltan Herczeg  <zherczeg@webkit.org>
+
+        Reviewed by Oliver Hunt.
+
+        Refactored string parsing inside the lexer
+        https://bugs.webkit.org/show_bug.cgi?id=41606
+
+        Does not use goto. Although the last sunspider
+        parse-only tests yields 1.044x speedup, I think the
+        patch can have a slight improvement at most.
+
+        * parser/Lexer.cpp:
+        (JSC::singleEscape):
+        (JSC::Lexer::parseString):
+        (JSC::Lexer::lex):
+        * parser/Lexer.h:
+
+2010-07-06  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Make it possible to have both the JIT and Interpreter available in a single build
+        https://bugs.webkit.org/show_bug.cgi?id=41722
+
+        Separate the concept of !ENABLE(JIT) and ENABLE(INTERPRETER) and make it possible
+        to have both JIT and INTERPRETER enabled at the same time.  This doesn't add
+        support for mix mode execution, but it does allow a single build to contain all
+        the code needed to use either the interpreter or the jit.
+
+        If both ENABLE(INTERPRETER) and ENABLE(JIT) are true then setting the environment
+        variable JSC_FORCE_INTERPRETER will force JSC to use the interpreter.
+
+        This patch basically consists of replacing !ENABLE(JIT) with ENABLE(INTERPRETER),
+        or converting #if ENABLE(JIT) ... #else ... into #if ENABLE(JIT) ... #endif
+        #if ENABLE(INTERPRETER), etc.  There are also a few functions that need to be
+        renamed to resolve return type ambiguity.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::~CodeBlock):
+        (JSC::CodeBlock::shrinkToFit):
+        * bytecode/CodeBlock.h:
+        * interpreter/CallFrame.h:
+        (JSC::ExecState::returnVPC):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::unwindCallFrame):
+        (JSC::Interpreter::throwException):
+        (JSC::Interpreter::execute):
+        (JSC::Interpreter::executeCall):
+        (JSC::Interpreter::executeConstruct):
+        (JSC::Interpreter::prepareForRepeatCall):
+        (JSC::Interpreter::privateExecute):
+        (JSC::Interpreter::retrieveLastCaller):
+        * interpreter/Interpreter.h:
+        * runtime/ArrayPrototype.cpp:
+        (JSC::isNumericCompareFunction):
+        * runtime/Executable.cpp:
+        (JSC::EvalExecutable::generateJITCode):
+        (JSC::ProgramExecutable::generateJITCode):
+        (JSC::FunctionExecutable::generateJITCodeForCall):
+        (JSC::FunctionExecutable::generateJITCodeForConstruct):
+        (JSC::FunctionExecutable::reparseExceptionInfo):
+        (JSC::EvalExecutable::reparseExceptionInfo):
+        * runtime/JSFunction.cpp:
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        * runtime/JSGlobalData.h:
+        (JSC::JSGlobalData::canUseJIT):
+        * wtf/Platform.h:
+
+2010-07-06  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Add adoptPtr and leakPtr functions for OwnPtr and PassOwnPtr
+        https://bugs.webkit.org/show_bug.cgi?id=41320
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::reparseForExceptionInfoIfNecessary): Use assignment
+        instead of set since the result of reparseExceptionInfo is now a
+        PassOwnPtr.
+
+        * bytecode/CodeBlock.h: Change extractExceptionInfo to return a
+        PassOwnPtr instead of a raw pointer.
+
+        * runtime/Executable.cpp:
+        (JSC::FunctionExecutable::reparseExceptionInfo): Return a PassOwnPtr.
+        (JSC::EvalExecutable::reparseExceptionInfo): Ditto.
+        (JSC::ProgramExecutable::reparseExceptionInfo): Added. This was
+        in the header before, but it's better to not have it there to reduce
+        header dependencies. Return a PassOwnPtr.
+
+        * runtime/Executable.h: Made reparseExceptionInfo return a PassOwnPtr,
+        and put it in the private sections of classes other than the base class.
+
+        * wtf/MessageQueue.h:
+        (WTF::MessageQueue::append): Use leakPtr instead of release.
+        (WTF::MessageQueue::appendAndCheckEmpty): Ditto.
+        (WTF::MessageQueue::prepend): Ditto.
+
+        * wtf/OwnPtr.h: Tweaked formatting. Changed the release function to return
+        a PassOwnPtr rather than a raw pointer. Added a leakPtr function that
+        returns a raw pointer. Put the constructor that takes a raw pointer and
+        the set function into a section guarded by LOOSE_OWN_PTR. Adapted to the
+        new adoptPtr function from PassOwnPtr.h.
+
+        * wtf/PassOwnPtr.h: Tweaked formatting. Renamed the release function
+        to leakPtr. Added an adoptPtr function that creates a new PassOwnPtr.
+        Put the constructor and assignment operators that take a raw pointer
+        into a section guarded by LOOSE_PASS_OWN_PTR.
+
+2010-07-06  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler
+
+        Update comment in StringExtras.h to be more accurate.
+
+        * wtf/StringExtras.h:
+
+2010-07-06  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r62511.
+        http://trac.webkit.org/changeset/62511
+        https://bugs.webkit.org/show_bug.cgi?id=41686
+
+        Breaks Linux/64bit compilation (Requested by xan_ on #webkit).
+
+        * jit/ExecutableAllocator.cpp:
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::FixedVMPoolAllocator::FixedVMPoolAllocator):
+        (JSC::FixedVMPoolAllocator::free):
+        (JSC::ExecutablePool::systemAlloc):
+        * jit/ExecutableAllocatorPosix.cpp:
+        (JSC::ExecutableAllocator::reprotectRegion):
+        (JSC::ExecutableAllocator::cacheFlush):
+        * jit/ExecutableAllocatorSymbian.cpp:
+        * jit/ExecutableAllocatorWin.cpp:
+        * wtf/Platform.h:
+
+2010-07-05  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41641
+
+        Update compile flags to allow use of ExecutableAllocatorFixedVMPool on platforms
+        other than x86-64 (this may be useful on 32-bit platforms, too).
+
+        Simplify ifdefs by dividing into thwo broad allocation strategies
+        (ENABLE_EXECUTABLE_ALLOCATOR_FIXED & ENABLE_EXECUTABLE_ALLOCATOR_DEMAND).
+
+        Rename constant used in the code to have names descriptive of their purpose,
+        rather than their specific value on a given platform.
+
+        * jit/ExecutableAllocator.cpp:
+        (JSC::ExecutableAllocator::reprotectRegion):
+        (JSC::ExecutableAllocator::cacheFlush):
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::FixedVMPoolAllocator::FixedVMPoolAllocator):
+        (JSC::FixedVMPoolAllocator::free):
+        (JSC::ExecutablePool::systemAlloc):
+        * jit/ExecutableAllocatorPosix.cpp:
+        * jit/ExecutableAllocatorSymbian.cpp:
+        * jit/ExecutableAllocatorWin.cpp:
+        * wtf/Platform.h:
+
 2010-07-05  Steve Block  <steveblock@google.com>
 
         Reviewed by Darin Adler.

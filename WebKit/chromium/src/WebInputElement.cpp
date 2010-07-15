@@ -45,6 +45,11 @@ bool WebInputElement::autoComplete() const
     return constUnwrap<HTMLInputElement>()->autoComplete();
 }
 
+bool WebInputElement::isReadOnly() const
+{
+    return constUnwrap<HTMLInputElement>()->readOnly();
+}
+
 bool WebInputElement::isEnabledFormControl() const
 {
     return constUnwrap<HTMLInputElement>()->isEnabledFormControl();
@@ -85,6 +90,16 @@ WebString WebInputElement::value() const
     return constUnwrap<HTMLInputElement>()->value();
 }
 
+void WebInputElement::setSuggestedValue(const WebString& value)
+{
+    unwrap<HTMLInputElement>()->setSuggestedValue(value);
+}
+
+WebString WebInputElement::suggestedValue() const
+{
+    return constUnwrap<HTMLInputElement>()->suggestedValue();
+}
+
 void WebInputElement::setPlaceholder(const WebString& value)
 {
     unwrap<HTMLInputElement>()->setPlaceholder(value);
@@ -113,6 +128,16 @@ void WebInputElement::dispatchFormControlChangeEvent()
 void WebInputElement::setSelectionRange(int start, int end)
 {
     unwrap<HTMLInputElement>()->setSelectionRange(start, end);
+}
+
+int WebInputElement::selectionStart()
+{
+    return unwrap<HTMLInputElement>()->selectionStart();
+}
+
+int WebInputElement::selectionEnd()
+{
+    return unwrap<HTMLInputElement>()->selectionEnd();
 }
 
 WebInputElement::WebInputElement(const PassRefPtr<HTMLInputElement>& elem)

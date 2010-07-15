@@ -555,6 +555,19 @@ RenderBox* RenderObject::enclosingBox() const
     return 0;
 }
 
+RenderBoxModelObject* RenderObject::enclosingBoxModelObject() const
+{
+    RenderObject* curr = const_cast<RenderObject*>(this);
+    while (curr) {
+        if (curr->isBoxModelObject())
+            return toRenderBoxModelObject(curr);
+        curr = curr->parent();
+    }
+
+    ASSERT_NOT_REACHED();
+    return 0;
+}
+
 RenderBlock* RenderObject::firstLineBlock() const
 {
     return 0;
@@ -1684,6 +1697,14 @@ StyleDifference RenderObject::adjustStyleDifference(StyleDifference diff, unsign
             diff = StyleDifferenceRepaintLayer;
         else if (diff < StyleDifferenceRecompositeLayer)
             diff = StyleDifferenceRecompositeLayer;
+    }
+    
+    // The answer to requiresLayer() for plugins and iframes can change outside of the style system,
+    // since it depends on whether we decide to composite these elements. When the layer status of
+    // one of these elements changes, we need to force a layout.
+    if (diff == StyleDifferenceEqual && style() && isBoxModelObject()) {
+        if (hasLayer() != toRenderBoxModelObject(this)->requiresLayer())
+            diff = StyleDifferenceLayout;
     }
 #else
     UNUSED_PARAM(contextSensitiveProperties);

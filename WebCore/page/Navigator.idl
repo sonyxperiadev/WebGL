@@ -29,8 +29,8 @@ module window {
         readonly attribute DOMString language;
         readonly attribute DOMString userAgent;
         readonly attribute DOMString platform;
-        readonly attribute PluginArray plugins;
-        readonly attribute MimeTypeArray mimeTypes;
+        readonly attribute DOMPluginArray plugins;
+        readonly attribute DOMMimeTypeArray mimeTypes;
         readonly attribute DOMString product;
         readonly attribute DOMString productSub;
         readonly attribute DOMString vendor;
@@ -57,11 +57,6 @@ module window {
 #if defined(ENABLE_DOM_STORAGE) && ENABLE_DOM_STORAGE
         void getStorageUpdates();
 #endif
-
-        void registerProtocolHandler(in DOMString scheme, in DOMString url, in DOMString title)
-            raises(DomException);
-        void registerContentHandler(in DOMString mimeType, in DOMString url, in DOMString title)
-            raises(DomException);
     };
 
 }

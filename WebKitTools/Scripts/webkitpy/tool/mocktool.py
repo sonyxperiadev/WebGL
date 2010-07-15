@@ -397,7 +397,7 @@ class MockSCM(Mock):
         # will actually be the root.  Since getcwd() is wrong, use a globally fake root for now.
         self.checkout_root = self.fake_checkout_root
 
-    def create_patch(self, git_commit, squash):
+    def create_patch(self, git_commit):
         return "Patch1"
 
     def commit_ids_from_commitish_arguments(self, args):
@@ -437,12 +437,12 @@ class MockCheckout(object):
     def bug_id_for_revision(self, svn_revision):
         return 12345
 
-    def modified_changelogs(self, git_commit, squash):
+    def modified_changelogs(self, git_commit):
         # Ideally we'd return something more interesting here.  The problem is
         # that LandDiff will try to actually read the patch from disk!
         return []
 
-    def commit_message_for_this_commit(self, git_commit, squash):
+    def commit_message_for_this_commit(self, git_commit):
         commit_message = Mock()
         commit_message.message = lambda:"This is a fake commit message that is at least 50 characters."
         return commit_message
@@ -515,6 +515,7 @@ class MockStatusServer(object):
     def results_url_for_status(self, status_id):
         return "http://dummy_url"
 
+
 class MockExecute(Mock):
     def __init__(self, should_log):
         self._should_log = should_log
@@ -535,6 +536,11 @@ class MockExecute(Mock):
         if self._should_log:
             log("MOCK run_command: %s" % args)
         return "MOCK output of child process"
+
+
+class MockOptions(Mock):
+    no_squash = False
+    squash = False
 
 
 class MockRietveld():

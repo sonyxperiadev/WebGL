@@ -1,6 +1,7 @@
 SET(WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}"
     "${WEBCORE_DIR}/accessibility"
+    "${WEBCORE_DIR}/bindings"
     "${WEBCORE_DIR}/bindings/js"
     "${WEBCORE_DIR}/bridge"
     "${WEBCORE_DIR}/bridge/c"
@@ -266,6 +267,7 @@ SET(WebCore_IDL_FILES
     html/ImageData.idl
     html/MediaError.idl
     html/TextMetrics.idl
+    html/TimeRanges.idl
     html/ValidityState.idl
     html/VoidCallback.idl
 
@@ -319,10 +321,10 @@ SET(WebCore_IDL_FILES
     page/WebKitPoint.idl
     page/WorkerNavigator.idl
 
-    plugins/MimeType.idl
-    plugins/MimeTypeArray.idl
-    plugins/Plugin.idl
-    plugins/PluginArray.idl
+    plugins/DOMMimeType.idl
+    plugins/DOMMimeTypeArray.idl
+    plugins/DOMPlugin.idl
+    plugins/DOMPluginArray.idl
 
     storage/Database.idl
     storage/DatabaseCallback.idl
@@ -334,6 +336,7 @@ SET(WebCore_IDL_FILES
     storage/IDBErrorEvent.idl
     storage/IDBEvent.idl
     storage/IDBIndexRequest.idl
+    storage/IDBKey.idl
     storage/IDBKeyRange.idl
     storage/IDBObjectStoreRequest.idl
     storage/IDBRequest.idl
@@ -555,6 +558,7 @@ SET(WebCore_SOURCES
     bindings/js/DOMObjectHashTableMap.cpp
     bindings/js/DOMWrapperWorld.cpp
     bindings/js/GCController.cpp
+    bindings/js/IDBBindingUtilities.cpp
     bindings/js/JavaScriptCallFrame.cpp
     bindings/js/JSAttrCustom.cpp
     bindings/js/JSCallbackData.cpp
@@ -598,6 +602,8 @@ SET(WebCore_SOURCES
     bindings/js/JSExceptionBase.cpp
     bindings/js/JSGeolocationCustom.cpp
     bindings/js/JSHistoryCustom.cpp
+    bindings/js/JSIDBAnyCustom.cpp
+    bindings/js/JSIDBKeyCustom.cpp
     bindings/js/JSHTMLAllCollectionCustom.cpp
     bindings/js/JSHTMLAppletElementCustom.cpp
     bindings/js/JSHTMLCanvasElementCustom.cpp
@@ -624,7 +630,7 @@ SET(WebCore_SOURCES
     bindings/js/JSMessageChannelCustom.cpp
     bindings/js/JSMessageEventCustom.cpp
     bindings/js/JSMessagePortCustom.cpp
-    bindings/js/JSMimeTypeArrayCustom.cpp
+    bindings/js/JSDOMMimeTypeArrayCustom.cpp
     bindings/js/JSNamedNodeMapCustom.cpp
     bindings/js/JSNavigatorCustom.cpp
     bindings/js/JSNodeCustom.cpp
@@ -633,8 +639,8 @@ SET(WebCore_SOURCES
     bindings/js/JSNodeIteratorCustom.cpp
     bindings/js/JSNodeListCustom.cpp
     bindings/js/JSOptionConstructor.cpp
-    bindings/js/JSPluginArrayCustom.cpp
-    bindings/js/JSPluginCustom.cpp
+    bindings/js/JSDOMPluginArrayCustom.cpp
+    bindings/js/JSDOMPluginCustom.cpp
     bindings/js/JSPluginElementFunctions.cpp
     bindings/js/JSPopStateEventCustom.cpp
     bindings/js/JSScriptProfileNodeCustom.cpp
@@ -662,7 +668,6 @@ SET(WebCore_SOURCES
     bindings/js/ScriptCallFrame.cpp
     bindings/js/ScriptCallStack.cpp
     bindings/js/ScriptController.cpp
-    bindings/js/ScriptControllerEfl.cpp
     bindings/js/ScriptDebugServer.cpp
     bindings/js/ScriptEventListener.cpp
     bindings/js/ScriptFunctionCall.cpp
@@ -757,7 +762,6 @@ SET(WebCore_SOURCES
     dom/Attribute.cpp
     dom/BeforeTextInsertedEvent.cpp
     dom/BeforeUnloadEvent.cpp
-    dom/CanvasSurface.cpp
     dom/CDATASection.cpp
     dom/CharacterData.cpp
     dom/CheckedRadioButtons.cpp
@@ -774,7 +778,7 @@ SET(WebCore_SOURCES
     dom/CustomEvent.cpp
     dom/DatasetDOMStringMap.cpp
     dom/DecodedDataDocumentParser.cpp
-    dom/DeviceOrientation.cpp
+    dom/DeviceOrientationController.cpp
     dom/DeviceOrientationEvent.cpp
     dom/Document.cpp
     dom/DocumentFragment.cpp
@@ -898,7 +902,8 @@ SET(WebCore_SOURCES
     editing/markup.cpp
     editing/visible_units.cpp
 
-    history/BackForwardList.cpp
+    history/BackForwardController.cpp
+    history/BackForwardListImpl.cpp
     history/CachedFrame.cpp
     history/CachedPage.cpp
     history/HistoryItem.cpp
@@ -935,6 +940,7 @@ SET(WebCore_SOURCES
     html/HTMLButtonElement.cpp
     html/HTMLCanvasElement.cpp
     html/HTMLCollection.cpp
+    html/HTMLConstructionSite.cpp
     html/HTMLDListElement.cpp
     html/HTMLDataGridCellElement.cpp
     html/HTMLDataGridColElement.cpp
@@ -1025,6 +1031,7 @@ SET(WebCore_SOURCES
     inspector/ConsoleMessage.cpp
     inspector/InjectedScript.cpp
     inspector/InjectedScriptHost.cpp
+    inspector/InspectorApplicationCacheAgent.cpp
     inspector/InspectorBackend.cpp
     inspector/InspectorCSSStore.cpp
     inspector/InspectorController.cpp
@@ -1283,10 +1290,10 @@ SET(WebCore_SOURCES
 
     platform/text/transcoder/FontTranscoder.cpp
 
-    plugins/MimeTypeArray.cpp
-    plugins/MimeType.cpp
-    plugins/PluginArray.cpp
-    plugins/Plugin.cpp
+    plugins/DOMMimeTypeArray.cpp
+    plugins/DOMMimeType.cpp
+    plugins/DOMPluginArray.cpp
+    plugins/DOMPlugin.cpp
     plugins/PluginData.cpp
     plugins/PluginDataNone.cpp
     plugins/PluginMainThreadScheduler.cpp
@@ -1403,6 +1410,7 @@ SET(WebCore_SOURCES
     storage/IDBDatabaseRequest.cpp
     storage/IDBErrorEvent.cpp
     storage/IDBEvent.cpp
+    storage/IDBKey.cpp
     storage/IDBKeyRange.cpp
     storage/IDBRequest.cpp
     storage/IDBObjectStoreImpl.cpp
@@ -1707,7 +1715,9 @@ FOREACH (_file ${WebCore_IDL_PURE_FILES})
     GENERATE_JS_FROM_IDL_PURE(${_file})
 ENDFOREACH ()
 
-LIST(APPEND WebCore_SOURCES ${JS_IDL_FILES})
+GENERATE_INSPECTOR_FROM_IDL(inspector/InspectorFrontend2.idl)
+
+LIST(APPEND WebCore_SOURCES ${JS_IDL_FILES} ${Inspector_IDL_FILES})
 
 GENERATE_GPERF(${WEBCORE_DIR}/html/HTMLEntityNames.gperf)
 GENERATE_GPERF(${WEBCORE_DIR}/platform/ColorData.gperf)

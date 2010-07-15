@@ -40,6 +40,8 @@ public:
     const RenderObjectChildList* children() const { return &m_children; }
     RenderObjectChildList* children() { return &m_children; }
 
+    bool isLayoutSizeChanged() const { return m_isLayoutSizeChanged; }
+
 private:
     virtual RenderObjectChildList* virtualChildren() { return children(); }
     virtual const RenderObjectChildList* virtualChildren() const { return children(); }
@@ -68,6 +70,7 @@ private:
 
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
 
+    virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);
     virtual void computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect& repaintRect, bool fixed);
 
     virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool useTransforms, bool fixed, TransformState&) const;
@@ -84,6 +87,7 @@ private:
     RenderObjectChildList m_children;
     FloatSize m_viewportSize;
     mutable AffineTransform m_localToParentTransform;
+    bool m_isLayoutSizeChanged : 1;
 };
 
 inline RenderSVGRoot* toRenderSVGRoot(RenderObject* object)

@@ -1,3 +1,116 @@
+2010-07-12  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Alice Liu.
+
+        <rdar://problem/8113038> WebKit1 and WebKit2 should build as a single DLL
+        https://bugs.webkit.org/show_bug.cgi?id=40921
+
+        Pre-WebKit2 WebKit now builds into a static library named WebKitLib.lib.
+        WebKit.dll now links in WebCore.lib, WebKitLib.lib and WebKit2 code.
+        
+        This is a first step. We'll likely want to migrate the remainder of
+        the non-deprecated WebKit code (strings, DLLMain, resources) into WebKit2.
+
+        * WebKit.vcproj/WebKit.def: Removed.
+        * WebKit.vcproj/WebKit.make: Don't fail if WebKit doesn't produce a DLL.
+        * WebKit.vcproj/WebKit.vcproj: Build WebKit as a static lib.
+        Renamed project name to WebKitLib to avoid confusion and naming conflicts.
+        Generate intermediate pdb file for debuggability of static lib.
+        Removed DLL-related options.        
+        * WebKit.vcproj/deleteButton.png: Removed.
+        * WebKit.vcproj/deleteButtonPressed.png: Removed.
+        * WebKit.vcproj/fsVideoAudioVolumeHigh.png: Removed.
+        * WebKit.vcproj/fsVideoAudioVolumeLow.png: Removed.
+        * WebKit.vcproj/fsVideoExitFullscreen.png: Removed.
+        * WebKit.vcproj/fsVideoPause.png: Removed.
+        * WebKit.vcproj/fsVideoPlay.png: Removed.
+        * WebKit.vcproj/missingImage.png: Removed.
+        * WebKit.vcproj/nullplugin.png: Removed.
+        * WebKit.vcproj/panEastCursor.png: Removed.
+        * WebKit.vcproj/panIcon.png: Removed.
+        * WebKit.vcproj/panNorthCursor.png: Removed.
+        * WebKit.vcproj/panNorthEastCursor.png: Removed.
+        * WebKit.vcproj/panNorthWestCursor.png: Removed.
+        * WebKit.vcproj/panSouthCursor.png: Removed.
+        * WebKit.vcproj/panSouthEastCursor.png: Removed.
+        * WebKit.vcproj/panSouthWestCursor.png: Removed.
+        * WebKit.vcproj/panWestCursor.png: Removed.
+        * WebKit.vcproj/searchCancel.png: Removed.
+        * WebKit.vcproj/searchCancelPressed.png: Removed.
+        * WebKit.vcproj/searchMagnifier.png: Removed.
+        * WebKit.vcproj/searchMagnifierResults.png: Removed.
+        * WebKit.vcproj/textAreaResizeCorner.png: Removed.
+        * WebKit.vcproj/verticalTextCursor.png: Removed.
+        * WebKit.vcproj/zoomInCursor.png: Removed.
+        * WebKit.vcproj/zoomOutCursor.png: Removed.
+
+2010-07-08  Aaron Boodman  <aa@chromium.org>
+
+        Reviewed by Timothy Hatcher.
+
+        Add the ability for user scripts and user styles to affect just the top frame.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41529
+
+        * WebView.cpp:
+        (WebView::addUserScriptToGroup):
+        (WebView::addUserStyleSheetToGroup):
+
+2010-07-08  Adele Peterson  <adele@apple.com>
+
+        Reviewed by Jon Honeycutt, Adam Roben, and Darin Adler.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=41721
+        <rdar://problem/8158561> Missing plug-in indicator should have a pressed state
+
+        Implement shouldMissingPluginMessageBeButton.
+
+        * WebCoreSupport/WebChromeClient.cpp: (WebChromeClient::shouldMissingPluginMessageBeButton):
+        * WebCoreSupport/WebChromeClient.h:
+
+2010-07-07  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Rename TestNetscapePlugin.subproj and move platform specific files to subdirectories
+        https://bugs.webkit.org/show_bug.cgi?id=41781
+
+        * WebKit.vcproj/WebKit.sln:
+
+2010-07-07  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=41772
+        Add basic piping for BackForwardControllerClient.
+
+        * WebView.cpp:
+        (WebView::initWithFrame):
+
+2010-07-07  Adam Roben  <aroben@apple.com>
+
+        Windows build fix
+
+        * Interfaces/WebKit.idl: Touched to force a build.
+
+2010-07-06  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Expose URL matching from WebUserContentURLPattern
+        https://bugs.webkit.org/show_bug.cgi?id=41726
+        <rdar://problem/7910144>
+        
+        We previously had a way to construct WebUserContentURLPattern
+        instances via WebKit, but no way for callers to perform matching.
+        This patch adds the matchesURL functionality to allow for this.
+
+        * Interfaces/IWebUserContentURLPattern.idl: Added matchesURL.
+        * Interfaces/IWebView.idl: Touch to force a build.
+        * WebUserContentURLPattern.cpp:
+        (WebUserContentURLPattern::matchesURL): Added. Calls through to WebCore::UserContentURLPattern::matches.
+        * WebUserContentURLPattern.h: Added matchesURL.
+
 2010-07-03  Jon Honeycutt  <jhoneycutt@apple.com>
 
         The missing plug-in indicator should be clickable

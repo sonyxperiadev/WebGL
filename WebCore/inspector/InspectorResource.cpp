@@ -39,6 +39,7 @@
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "InspectorFrontend.h"
+#include "ResourceLoadTiming.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
 #include "TextEncoding.h"
@@ -62,6 +63,7 @@ InspectorResource::InspectorResource(unsigned long identifier, DocumentLoader* l
     , m_endTime(-1.0)
     , m_loadEventTime(-1.0)
     , m_domContentEventTime(-1.0)
+    , m_connectionID(0)
     , m_isMainResource(false)
 {
 }
@@ -128,6 +130,16 @@ void InspectorResource::updateResponse(const ResourceResponse& response)
     m_responseStatusText = response.httpStatusText();
     m_suggestedFilename = response.suggestedFilename();
 
+    m_connectionID = response.connectionID();
+    m_loadTiming = response.resourceLoadTiming();
+    m_cached = response.wasCached();
+
+    if (!m_cached && m_loadTiming && m_loadTiming->requestTime)
+        m_responseReceivedTime = m_loadTiming->requestTime + m_loadTiming->receiveHeadersEnd / 1000.0;
+    else
+        m_responseReceivedTime = currentTime();
+
+    m_changes.set(TimingChange);
     m_changes.set(ResponseChange);
     m_changes.set(TypeChange);
 }
@@ -139,7 +151,6 @@ static void populateHeadersObject(ScriptObject* object, const HTTPHeaderMap& hea
         object->set(it->first.string(), it->second);
     }
 }
-
 
 void InspectorResource::updateScriptObject(InspectorFrontend* frontend)
 {
@@ -160,7 +171,6 @@ void InspectorResource::updateScriptObject(InspectorFrontend* frontend)
         jsonObject.set("requestMethod", m_requestMethod);
         jsonObject.set("requestFormData", m_requestFormData);
         jsonObject.set("didRequestChange", true);
-        jsonObject.set("cached", m_cached);
     }
 
     if (m_changes.hasChange(ResponseChange)) {
@@ -172,6 +182,10 @@ void InspectorResource::updateScriptObject(InspectorFrontend* frontend)
         ScriptObject responseHeaders = frontend->newScriptObject();
         populateHeadersObject(&responseHeaders, m_responseHeaderFields);
         jsonObject.set("responseHeaders", responseHeaders);
+        jsonObject.set("connectionID", m_connectionID);
+        jsonObject.set("cached", m_cached);
+        if (m_loadTiming && !m_cached)
+            jsonObject.set("timing", buildObjectForTiming(frontend, m_loadTiming.get()));
         jsonObject.set("didResponseChange", true);
     }
 
@@ -335,12 +349,6 @@ void InspectorResource::startTiming()
     m_changes.set(TimingChange);
 }
 
-void InspectorResource::markResponseReceivedTime()
-{
-    m_responseReceivedTime = currentTime();
-    m_changes.set(TimingChange);
-}
-
 void InspectorResource::endTiming()
 {
     m_endTime = currentTime();
@@ -377,6 +385,19 @@ void InspectorResource::addLength(int lengthReceived)
     // until its loading is completed.
     m_endTime = currentTime();
     m_changes.set(TimingChange);
+}
+
+ScriptObject InspectorResource::buildObjectForTiming(InspectorFrontend* frontend, ResourceLoadTiming* timing)
+{
+    ScriptObject jsonObject = frontend->newScriptObject();
+    jsonObject.set("requestTime", timing->requestTime);
+    jsonObject.set("proxyDuration", timing->proxyStart == -1 ? -1 : (timing->proxyEnd - timing->proxyStart) / 1000.0);
+    jsonObject.set("dnsDuration", timing->dnsStart == -1 ? -1 : (timing->dnsEnd - timing->dnsStart) / 1000.0);
+    jsonObject.set("connectDuration", timing->connectStart == -1 ? -1 : (timing->connectEnd - timing->connectStart) / 1000.0);
+    jsonObject.set("sendDuration", (timing->sendEnd - timing->sendStart) / 1000.0);
+    jsonObject.set("waitDuration", (timing->receiveHeadersEnd - timing->sendEnd)  / 1000.0);
+    jsonObject.set("sslDuration", (timing->sslEnd - timing->sslStart) / 1000.0);
+    return jsonObject;
 }
 
 } // namespace WebCore

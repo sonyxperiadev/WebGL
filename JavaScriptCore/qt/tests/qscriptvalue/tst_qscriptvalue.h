@@ -51,7 +51,15 @@ private slots:
     void call();
     void ctor();
     void toObjectSimple();
-    void propertySimple();
+    void getPropertySimple_data();
+    void getPropertySimple();
+    void setPropertySimple();
+    void setProperty_data();
+    void setProperty();
+    void getSetProperty();
+    void getPropertyResolveFlag();
+    void propertyFlag_data();
+    void propertyFlag();
 
     // Generated test functions.
     void isBool_data();

@@ -1038,7 +1038,7 @@ bool CSSStyleSelector::canShareStyleWithElement(Node* n)
             if (classesMatch) {
                 bool mappedAttrsMatch = true;
                 if (s->hasMappedAttributes())
-                    mappedAttrsMatch = s->mappedAttributes()->mappedMapsEquivalent(m_styledElement->mappedAttributes());
+                    mappedAttrsMatch = s->attributeMap()->mappedMapsEquivalent(m_styledElement->attributeMap());
                 if (mappedAttrsMatch) {
                     if (s->isLink()) {
                         if (m_elementLinkState != style->insideLink())
@@ -1258,7 +1258,7 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
             // Ask if the HTML element has mapped attributes.
             if (m_styledElement->hasMappedAttributes()) {
                 // Walk our attribute list and add in each decl.
-                const NamedNodeMap* map = m_styledElement->mappedAttributes();
+                const NamedNodeMap* map = m_styledElement->attributeMap();
                 for (unsigned i = 0; i < map->length(); i++) {
                     Attribute* attr = map->attributeItem(i);
                     if (attr->isMappedAttribute() && attr->decl()) {
@@ -2920,7 +2920,7 @@ void CSSStyleSelector::applyDeclarations(bool isImportant, int startIndex, int e
 
                 if (applyFirst) {
                     COMPILE_ASSERT(firstCSSProperty == CSSPropertyColor, CSS_color_is_first_property);
-                    COMPILE_ASSERT(CSSPropertyZoom == CSSPropertyColor + 10, CSS_zoom_is_end_of_first_prop_range);
+                    COMPILE_ASSERT(CSSPropertyZoom == CSSPropertyColor + 11, CSS_zoom_is_end_of_first_prop_range);
                     COMPILE_ASSERT(CSSPropertyLineHeight == CSSPropertyZoom + 1, CSS_line_height_is_after_zoom);
 
                     // give special priority to font-xxx, color properties, etc
@@ -3108,11 +3108,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     bool isInherit = m_parentNode && valueType == CSSValue::CSS_INHERIT;
     bool isInitial = valueType == CSSValue::CSS_INITIAL || (!m_parentNode && valueType == CSSValue::CSS_INHERIT);
     
-    // These properties are used to set the correct margins/padding on RTL lists.
-    if (id == CSSPropertyWebkitMarginStart)
-        id = m_style->direction() == LTR ? CSSPropertyMarginLeft : CSSPropertyMarginRight;
-    else if (id == CSSPropertyWebkitPaddingStart)
-        id = m_style->direction() == LTR ? CSSPropertyPaddingLeft : CSSPropertyPaddingRight;
+    id = CSSProperty::resolveDirectionAwareProperty(id, m_style->direction());
 
     if (m_checker.m_matchVisitedPseudoClass && !isValidVisitedLinkProperty(id)) {
         // Limit the properties that can be applied to only the ones honored by :visited.
@@ -5502,7 +5498,9 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     case CSSPropertyTextUnderlineStyle:
     case CSSPropertyTextUnderlineWidth:
     case CSSPropertyWebkitFontSizeDelta:
+    case CSSPropertyWebkitMarginEnd:
     case CSSPropertyWebkitMarginStart:
+    case CSSPropertyWebkitPaddingEnd:
     case CSSPropertyWebkitPaddingStart:
     case CSSPropertyWebkitTextDecorationsInEffect:
     case CSSPropertyWebkitTextStroke:

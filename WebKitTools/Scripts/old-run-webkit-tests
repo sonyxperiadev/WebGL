@@ -120,6 +120,7 @@ sub writeToFile($$);
 my $addPlatformExceptions = 0;
 my $complexText = 0;
 my $exitAfterNFailures = 0;
+my $exitAfterNCrashesOrTimeouts = 0;
 my $generateNewResults = isAppleMacWebKit() ? 1 : 0;
 my $guardMalloc = '';
 # FIXME: Dynamic HTTP-port configuration in this file is wrong.  The various
@@ -156,7 +157,7 @@ my $tmpDir = "/tmp";
 my $testResultsDirectory = File::Spec->catfile($tmpDir, "layout-test-results");
 my $testsPerDumpTool = 1000;
 my $threaded = 0;
-my $html5parser = 0;
+my $html5treebuilder = 0;
 # DumpRenderTree has an internal timeout of 30 seconds, so this must be > 30.
 my $timeoutSeconds = 35;
 my $tolerance = 0;
@@ -183,7 +184,10 @@ my $prettyDiffTag = "pretty-diff";
 my $diffsTag = "diffs";
 my $errorTag = "stderr";
 
+my $realPlatform;
+
 my @macPlatforms = ("mac-tiger", "mac-leopard", "mac-snowleopard", "mac");
+my @winPlatforms = ("win-xp", "win-vista", "win-7", "win");
 
 if (isAppleMacWebKit()) {
     if (isTiger()) {
@@ -219,7 +223,15 @@ if (isAppleMacWebKit()) {
 } elsif (isWx()) {
     $platform = "wx";
 } elsif (isCygwin()) {
-    $platform = "win";
+    if (isWindowsXP()) {
+        $platform = "win-xp";
+    } elsif (isWindowsVista()) {
+        $platform = "win-vista";
+    } elsif (isWindows7()) {
+        $platform = "win-7";
+    } else {
+        $platform = "win";
+    }
 }
 
 if (!defined($platform)) {
@@ -243,7 +255,9 @@ Usage: $programName [options] [testdir|testpath ...]
   --complex-text                  Use the complex text code path for all text (Mac OS X and Windows only)
   -c|--configuration config       Set DumpRenderTree build configuration
   -g|--guard-malloc               Enable malloc guard
-  --exit-after-n-failures N       Exit after the first N failures instead of running all tests
+  --exit-after-n-failures N       Exit after the first N failures (includes crashes) instead of running all tests
+  --exit-after-n-crashes-or-timeouts N
+                                  Exit after the first N crashes instead of running all tests
   -h|--help                       Show this help message
   --[no-]http                     Run (or do not run) http tests (default: $httpDefault)
   --[no-]wait-for-httpd           Wait for httpd if some other test session is using it already (same as WEBKIT_WAIT_FOR_HTTPD=1). (default: $shouldWaitForHTTPD) 
@@ -274,7 +288,7 @@ Usage: $programName [options] [testdir|testpath ...]
   --ignore-metrics                Ignore metrics in tests
   --[no-]strip-editing-callbacks  Remove editing callbacks from expected results
   -t|--threaded                   Run a concurrent JavaScript thead with each test
-  --html5-parser                  Run the tests using the HTML5 parser
+  --html5-treebuilder             Run the tests using the HTML5 tree builder
   --timeout t                     Sets the number of seconds before a test times out (default: $timeoutSeconds)
   --valgrind                      Run DumpRenderTree inside valgrind (Qt/Linux only)
   -v|--verbose                    More verbose output (overrides --quiet)
@@ -289,6 +303,7 @@ my $getOptionsResult = GetOptions(
     'add-platform-exceptions' => \$addPlatformExceptions,
     'complex-text' => \$complexText,
     'exit-after-n-failures=i' => \$exitAfterNFailures,
+    'exit-after-n-crashes-or-timeouts=i' => \$exitAfterNCrashesOrTimeouts,
     'guard-malloc|g' => \$guardMalloc,
     'help|h' => \$showHelp,
     'http!' => \$testHTTP,
@@ -317,7 +332,7 @@ my $getOptionsResult = GetOptions(
     'slowest' => \$report10Slowest,
     'strip-editing-callbacks!' => \$stripEditingCallbacks,
     'threaded|t' => \$threaded,
-    'html5-parser' => \$html5parser,
+    'html5-treebuilder' => \$html5treebuilder,
     'timeout=i' => \$timeoutSeconds,
     'tolerance=f' => \$tolerance,
     'use-remote-links-to-tests' => \$useRemoteLinksToTests,
@@ -330,6 +345,14 @@ if (!$getOptionsResult || $showHelp) {
     print STDERR $usage;
     exit 1;
 }
+
+if ($useWebKitTestRunner) {
+    if (isAppleMacWebKit()) {
+        $realPlatform = $platform;
+        $platform = "mac-wk2";
+    }
+}
+
 
 my $ignoreSkipped = $treatSkipped eq "ignore";
 my $skippedOnly = $treatSkipped eq "only";
@@ -556,7 +579,7 @@ my $totalLeaks = 0;
 my @toolArgs = ();
 push @toolArgs, "--pixel-tests" if $pixelTests;
 push @toolArgs, "--threaded" if $threaded;
-push @toolArgs, "--html5-parser" if $html5parser;
+push @toolArgs, "--html5-treebuilder" if $html5treebuilder;
 push @toolArgs, "--complex-text" if $complexText;
 push @toolArgs, "-";
 
@@ -1370,7 +1393,11 @@ sub openDumpTool()
         setPathForRunningWebKitApp(\%CLEAN_ENV);
     }
 
-    # Port spesifics
+    # Port specifics
+    if (isGtk()) {
+        $CLEAN_ENV{GTK_MODULES} = "gail";
+    }
+
     if (isQt()) {
         $CLEAN_ENV{QTWEBKIT_PLUGIN_PATH} = productDir() . "/lib/plugins";
         $CLEAN_ENV{QT_DRT_WEBVIEW_MODE} = $ENV{"QT_DRT_WEBVIEW_MODE"};
@@ -1852,13 +1879,23 @@ sub buildPlatformResultHierarchy()
     mkpath($platformTestDirectory) if ($platform eq "undefined" && !-d "$platformTestDirectory");
 
     my @platforms;
-    if ($platform =~ /^mac-/) {
-        my $i;
-        for ($i = 0; $i < @macPlatforms; $i++) {
-            last if $macPlatforms[$i] eq $platform;
+    
+    my $isMac = $platform =~ /^mac/;
+    my $isWin = $platform =~ /^win/;
+    if ($isMac || $isWin) {
+        my $effectivePlatform = $platform;
+        if ($platform eq "mac-wk2") {
+            push @platforms, "mac-wk2";
+            $effectivePlatform = $realPlatform;
         }
-        for (; $i < @macPlatforms; $i++) {
-            push @platforms, $macPlatforms[$i];
+
+        my @platformList = $isMac ? @macPlatforms : @winPlatforms;
+        my $i;
+        for ($i = 0; $i < @platformList; $i++) {
+            last if $platformList[$i] eq $effectivePlatform;
+        }
+        for (; $i < @platformList; $i++) {
+            push @platforms, $platformList[$i];
         }
     } elsif ($platform =~ /^qt-/) {
         push @platforms, $platform;
@@ -1872,7 +1909,7 @@ sub buildPlatformResultHierarchy()
         my $scoped = catdir($platformBaseDirectory, $platforms[$i]);
         push(@hierarchy, $scoped) if (-d $scoped);
     }
-
+    
     return @hierarchy;
 }
 
@@ -1880,7 +1917,9 @@ sub buildPlatformTestHierarchy(@)
 {
     my (@platformHierarchy) = @_;
     return @platformHierarchy if (@platformHierarchy < 2);
-
+    if ($platformHierarchy[0] =~ /mac-wk2/) {
+        return ($platformHierarchy[0], $platformHierarchy[1], $platformHierarchy[$#platformHierarchy]);
+    }
     return ($platformHierarchy[0], $platformHierarchy[$#platformHierarchy]);
 }
 
@@ -2264,14 +2303,24 @@ sub printResults
 sub stopRunningTestsEarlyIfNeeded()
 {
     # --reset-results does not check pass vs. fail, so exitAfterNFailures makes no sense with --reset-results.
-    return 0 if !$exitAfterNFailures || $resetResults;
+    return 0 if $resetResults;
 
     my $passCount = $counts{match} || 0; # $counts{match} will be undefined if we've not yet passed a test (e.g. the first test fails).
     my $newCount = $counts{new} || 0;
     my $failureCount = $count - $passCount - $newCount; # "Failure" here includes timeouts, crashes, etc.
-    return 0 if $failureCount < $exitAfterNFailures;
+    if ($exitAfterNFailures && $failureCount >= $exitAfterNFailures) {
+        print "\nExiting early after $failureCount failures. $count tests run.";
+        closeDumpTool();
+        return 1;
+    }
 
-    print "\nExiting early after $failureCount failures. $count tests run.";
-    closeDumpTool();
-    return 1;
+    my $crashCount = $counts{crash} || 0;
+    my $timeoutCount = $counts{timedout} || 0;
+    if ($exitAfterNCrashesOrTimeouts && $crashCount + $timeoutCount >= $exitAfterNCrashesOrTimeouts) {
+        print "\nExiting early after $crashCount crashes and $timeoutCount timeouts. $count tests run.";
+        closeDumpTool();
+        return 1;
+    }
+
+    return 0;
 }

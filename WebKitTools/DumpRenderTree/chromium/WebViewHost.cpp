@@ -57,6 +57,7 @@
 #include "skia/ext/platform_canvas.h"
 #include "webkit/support/webkit_support.h"
 #include <wtf/Assertions.h>
+#include <wtf/PassOwnPtr.h>
 
 using namespace WebCore;
 using namespace WebKit;
@@ -747,7 +748,7 @@ void WebViewHost::didCancelClientRedirect(WebFrame* frame)
 
 void WebViewHost::didCreateDataSource(WebFrame*, WebDataSource* ds)
 {
-    ds->setExtraData(m_pendingExtraData.release());
+    ds->setExtraData(m_pendingExtraData.leakPtr());
 }
 
 void WebViewHost::didStartProvisionalLoad(WebFrame* frame)
@@ -862,7 +863,7 @@ void WebViewHost::didFinishLoad(WebFrame* frame)
 
 void WebViewHost::didNavigateWithinPage(WebFrame* frame, bool isNewNavigation)
 {
-    frame->dataSource()->setExtraData(m_pendingExtraData.release());
+    frame->dataSource()->setExtraData(m_pendingExtraData.leakPtr());
 
     updateForCommittedLoad(frame, isNewNavigation);
 }
@@ -1193,7 +1194,7 @@ void WebViewHost::updateURL(WebFrame* frame)
     if (!historyItem.isNull())
         entry->setContentState(historyItem);
 
-    navigationController()->didNavigateToEntry(entry.release());
+    navigationController()->didNavigateToEntry(entry.leakPtr());
     updateAddressBar(frame->view());
     m_lastPageIdUpdated = max(m_lastPageIdUpdated, m_pageId);
 }
@@ -1293,12 +1294,12 @@ void WebViewHost::paintInvalidatedRegion()
     WebSize widgetSize = webWidget()->size();
     WebRect clientRect(0, 0, widgetSize.width, widgetSize.height);
 
-    // Paint the canvas if necessary.  Allow painting to generate extra rects the
-    // first time we call it.  This is necessary because some WebCore rendering
+    // Paint the canvas if necessary.  Allow painting to generate extra rects
+    // for the first two calls. This is necessary because some WebCore rendering
     // objects update their layout only when painted.
     // Store the total area painted in total_paint. Then tell the gdk window
     // to update that area after we're done painting it.
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < 3; ++i) {
         // m_paintRect = intersect(m_paintRect , clientRect)
         int left = max(m_paintRect.x, clientRect.x);
         int top = max(m_paintRect.y, clientRect.y);
@@ -1314,7 +1315,7 @@ void WebViewHost::paintInvalidatedRegion()
         WebRect rect(m_paintRect);
         m_paintRect = WebRect();
         paintRect(rect);
-        if (i == 1)
+        if (i >= 1)
             LOG_ERROR("painting caused additional invalidations");
     }
     ASSERT(m_paintRect.isEmpty());

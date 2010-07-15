@@ -24,8 +24,14 @@
  */
 
 #include "LayoutTestController.h"
+#include "InjectedBundle.h"
+#include "InjectedBundlePage.h"
 
 #include <JavaScriptCore/JSRetainPtr.h>
+#include <WebKit2/WKBundleFrame.h>
+#include <WebKit2/WKRetainPtr.h>
+#include <WebKit2/WKStringCF.h>
+#include <WebKit2/WebKit2.h>
 
 namespace WTR {
 
@@ -36,6 +42,7 @@ PassRefPtr<LayoutTestController> LayoutTestController::create(const std::string&
 
 LayoutTestController::LayoutTestController(const std::string& testPathOrURL)
     : m_dumpAsText(false)
+    , m_waitToDump(false)
     , m_testPathOrURL(testPathOrURL)
 {
 }
@@ -44,11 +51,108 @@ LayoutTestController::~LayoutTestController()
 {
 }
 
+static const CFTimeInterval waitToDumpWatchdogInterval = 30.0;
+
+
+void LayoutTestController::invalidateWaitToDumpWatchdog()
+{
+    if (m_waitToDumpWatchdog) {
+        CFRunLoopTimerInvalidate(m_waitToDumpWatchdog.get());
+        m_waitToDumpWatchdog = 0;
+    }
+}
+
+static void waitUntilDoneWatchdogFired(CFRunLoopTimerRef timer, void* info)
+{
+    InjectedBundle::shared().layoutTestController()->waitToDumpWatchdogTimerFired();
+}
+
+void LayoutTestController::setWaitToDump()
+{
+    m_waitToDump = true;
+    if (!m_waitToDumpWatchdog) {
+        m_waitToDumpWatchdog.adoptCF(CFRunLoopTimerCreate(kCFAllocatorDefault, CFAbsoluteTimeGetCurrent() + waitToDumpWatchdogInterval, 
+                                                      0, 0, 0, waitUntilDoneWatchdogFired, NULL));
+        CFRunLoopAddTimer(CFRunLoopGetCurrent(), m_waitToDumpWatchdog.get(), kCFRunLoopCommonModes);
+    }
+}
+
+void LayoutTestController::waitToDumpWatchdogTimerFired()
+{
+    invalidateWaitToDumpWatchdog();
+    const char* message = "FAIL: Timed out waiting for notifyDone to be called\n";
+    InjectedBundle::shared().os() << message << "\n";
+    InjectedBundle::shared().done();
+}
+
+void LayoutTestController::notifyDone()
+{
+    if (m_waitToDump && !InjectedBundle::shared().page()->isLoading())
+        InjectedBundle::shared().page()->dump();
+    m_waitToDump = false;
+}
+
+unsigned LayoutTestController::numberOfActiveAnimations() const
+{
+    WKBundleFrameRef mainFrame = WKBundlePageGetMainFrame(InjectedBundle::shared().page()->page());
+    return WKBundleFrameGetNumberOfActiveAnimations(mainFrame);
+}
+
+bool LayoutTestController::pauseAnimationAtTimeOnElementWithId(JSStringRef animationName, double time, JSStringRef elementId)
+{
+    RetainPtr<CFStringRef> idCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, elementId));
+    WKRetainPtr<WKStringRef> idWK(AdoptWK, WKStringCreateWithCFString(idCF.get()));
+    RetainPtr<CFStringRef> nameCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, animationName));
+    WKRetainPtr<WKStringRef> nameWK(AdoptWK, WKStringCreateWithCFString(nameCF.get()));
+
+    WKBundleFrameRef mainFrame = WKBundlePageGetMainFrame(InjectedBundle::shared().page()->page());
+    return WKBundleFramePauseAnimationOnElementWithId(mainFrame, nameWK.get(), idWK.get(), time);
+}
+
 static JSValueRef dumpAsTextCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
     LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
     controller->setDumpAsText(true);
     return JSValueMakeUndefined(context);
+}
+
+static JSValueRef waitUntilDoneCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    controller->setWaitToDump();
+    return JSValueMakeUndefined(context);
+}
+
+static JSValueRef notifyDoneCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    controller->notifyDone();
+    return JSValueMakeUndefined(context);
+}
+
+static JSValueRef numberOfActiveAnimationsCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    if (argumentCount)
+        return JSValueMakeUndefined(context);
+
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    return JSValueMakeNumber(context, controller->numberOfActiveAnimations());
+}
+
+static JSValueRef pauseAnimationAtTimeOnElementWithIdCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    if (argumentCount != 3)
+        return JSValueMakeUndefined(context);
+
+    JSRetainPtr<JSStringRef> animationName(Adopt, JSValueToStringCopy(context, arguments[0], exception));
+    ASSERT(!*exception);
+    double time = JSValueToNumber(context, arguments[1], exception);
+    ASSERT(!*exception);
+    JSRetainPtr<JSStringRef> elementId(Adopt, JSValueToStringCopy(context, arguments[2], exception));
+    ASSERT(!*exception);
+
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    return JSValueMakeBoolean(context, controller->pauseAnimationAtTimeOnElementWithId(animationName.get(), time, elementId.get()));
 }
 
 // Object Finalization
@@ -88,6 +192,10 @@ JSStaticFunction* LayoutTestController::staticFunctions()
 {
     static JSStaticFunction staticFunctions[] = {
         { "dumpAsText", dumpAsTextCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "notifyDone", notifyDoneCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "numberOfActiveAnimations", numberOfActiveAnimationsCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "pauseAnimationAtTimeOnElementWithId", pauseAnimationAtTimeOnElementWithIdCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "waitUntilDone", waitUntilDoneCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { 0, 0, 0 }
     };
 

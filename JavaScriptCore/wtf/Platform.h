@@ -921,7 +921,7 @@
     || CPU(ALPHA) \
     || CPU(SPARC64)
 #define WTF_USE_JSVALUE64 1
-#elif CPU(ARM) || CPU(PPC64) || CPU(MIPS)
+#elif CPU(ARM_TRADITIONAL) || CPU(PPC64) || CPU(MIPS)
 #define WTF_USE_JSVALUE32 1
 #elif OS(WINDOWS) && COMPILER(MINGW)
 /* Using JSVALUE32_64 causes padding/alignement issues for JITStubArg
@@ -984,6 +984,14 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 
 #endif /* !defined(ENABLE_JIT) */
 
+#if !ENABLE(JIT)
+#define ENABLE_INTERPRETER 1
+#endif
+
+#if !(ENABLE(JIT) || ENABLE(INTERPRETER))
+#error You have to have at least one execution model enabled to build JSC
+#endif
+
 /* CPU architecture specific optimizations */
 #if CPU(ARM_TRADITIONAL)
 #if ENABLE(JIT) && !defined(ENABLE_JIT_OPTIMIZE_MOD) && WTF_ARM_ARCH_AT_LEAST(5)
@@ -1024,8 +1032,12 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #define JSC_HOST_CALL
 #endif
 
-#if COMPILER(GCC) && !ENABLE(JIT)
+#if COMPILER(GCC)
 #define HAVE_COMPUTED_GOTO 1
+#endif
+
+#if HAVE(COMPUTED_GOTO) && ENABLE(INTERPRETER)
+#define ENABLE_COMPUTED_GOTO_INTERPRETER 1
 #endif
 
 /* Yet Another Regex Runtime. */
@@ -1053,6 +1065,16 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #define ENABLE_ASSEMBLER_WX_EXCLUSIVE 1
 #else
 #define ENABLE_ASSEMBLER_WX_EXCLUSIVE 0
+#endif
+
+/* Pick which allocator to use; we only need an executable allocator if the assembler is compiled in.
+   On x86-64 we use a single fixed mmap, on other platforms we mmap on demand. */
+#if ENABLE(ASSEMBLER)
+#if CPU(X86_64)
+#define ENABLE_EXECUTABLE_ALLOCATOR_FIXED 1
+#else
+#define ENABLE_EXECUTABLE_ALLOCATOR_DEMAND 1
+#endif
 #endif
 
 #if !defined(ENABLE_PAN_SCROLLING) && OS(WINDOWS)

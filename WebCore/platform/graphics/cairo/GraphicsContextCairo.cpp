@@ -563,8 +563,10 @@ void GraphicsContext::fillRect(const FloatRect& rect)
         return;
 
     cairo_t* cr = m_data->cr;
+    cairo_save(cr);
     cairo_rectangle(cr, rect.x(), rect.y(), rect.width(), rect.height());
     fillPath();
+    cairo_restore(cr);
 }
 
 static void drawBorderlessRectShadow(GraphicsContext* context, const FloatRect& rect, const Color& rectColor)
@@ -899,7 +901,7 @@ void GraphicsContext::createPlatformShadow(PassOwnPtr<ImageBuffer> buffer, const
 
     // create filter
     RefPtr<Filter> filter = ImageBufferFilter::create();
-    filter->setSourceImage(buffer.release());
+    filter->setSourceImage(buffer);
     RefPtr<FilterEffect> source = SourceGraphic::create();
     source->setScaledSubRegion(FloatRect(FloatPoint(), shadowRect.size()));
     source->setIsAlphaImage(true);

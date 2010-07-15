@@ -31,8 +31,9 @@
 #include <WebKit2/WKRetainPtr.h>
 #include <WebKit2/WKStringCF.h>
 #include <WebKit2/WKURLCF.h>
-#include <wtf/Vector.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/Vector.h>
 
 using namespace WebKit;
 
@@ -49,21 +50,22 @@ static WKURLRef createWKURL(const char* pathOrURL)
     return WKURLCreateWithCFURL(cfURL.get());
 }
 
-static std::auto_ptr<Vector<char> > WKStringToUTF8(WKStringRef wkStringRef)
+static PassOwnPtr<Vector<char> > WKStringToUTF8(WKStringRef wkStringRef)
 {
     RetainPtr<CFStringRef> cfString(AdoptCF, WKStringCopyCFString(0, wkStringRef));
     CFIndex bufferLength = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfString.get()), kCFStringEncodingUTF8) + 1;
-    std::auto_ptr<Vector<char> > buffer(new Vector<char>(bufferLength));
+    OwnPtr<Vector<char> > buffer(new Vector<char>(bufferLength));
     if (!CFStringGetCString(cfString.get(), buffer->data(), bufferLength, kCFStringEncodingUTF8)) {
         buffer->shrink(1);
         (*buffer)[0] = 0;
     } else
         buffer->shrink(strlen(buffer->data()) + 1);
-    return buffer;
+    return buffer.release();
 }
 
 TestInvocation::TestInvocation(const char* pathOrURL)
     : m_url(AdoptWK, createWKURL(pathOrURL))
+    , m_pathOrURL(fastStrDup(pathOrURL))
     , m_gotInitialResponse(false)
     , m_gotFinalMessage(false)
     , m_error(false)
@@ -72,10 +74,27 @@ TestInvocation::TestInvocation(const char* pathOrURL)
 
 TestInvocation::~TestInvocation()
 {
+    fastFree(m_pathOrURL);
+}
+
+static const unsigned w3cSVGWidth = 480;
+static const unsigned w3cSVGHeight = 360;
+static const unsigned normalWidth = 800;
+static const unsigned normalHeight = 600;
+
+static void sizeWebViewForCurrentTest(char* pathOrURL)
+{
+    bool isSVGW3CTest = strstr(pathOrURL, "svg/W3C-SVG-1.1");
+
+    if (isSVGW3CTest)
+        TestController::shared().mainWebView()->resizeTo(w3cSVGWidth, w3cSVGHeight);
+    else
+        TestController::shared().mainWebView()->resizeTo(normalWidth, normalHeight);
 }
 
 void TestInvocation::invoke()
 {
+    sizeWebViewForCurrentTest(m_pathOrURL);
     WKRetainPtr<WKStringRef> message(AdoptWK, WKStringCreateWithCFString(CFSTR("BeginTest")));
     WKContextPostMessageToInjectedBundle(TestController::shared().context(), message.get());
 
@@ -124,7 +143,7 @@ void TestInvocation::didRecieveMessageFromInjectedBundle(WKStringRef message)
         return;
     }
 
-    std::auto_ptr<Vector<char> > utf8Message = WKStringToUTF8(message);
+    OwnPtr<Vector<char> > utf8Message = WKStringToUTF8(message);
 
     dump(utf8Message->data());
     m_gotFinalMessage = true;
