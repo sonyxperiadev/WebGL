@@ -321,10 +321,10 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
 
 GEN := \
-    $(intermediates)/bindings/V8MimeType.h \
-    $(intermediates)/bindings/V8MimeTypeArray.h \
-    $(intermediates)/bindings/V8Plugin.h \
-    $(intermediates)/bindings/V8PluginArray.h
+    $(intermediates)/bindings/V8DOMMimeType.h \
+    $(intermediates)/bindings/V8DOMMimeTypeArray.h \
+    $(intermediates)/bindings/V8DOMPlugin.h \
+    $(intermediates)/bindings/V8DOMPluginArray.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<
@@ -666,12 +666,32 @@ $(GEN): $(LOCAL_PATH)/dom/make_names.pl $(LOCAL_PATH)/html/HTMLTagNames.in $(LOC
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 # SVG tag and attribute names
+
+# Note that if SVG is not used, we still need the headers and SVGNames.cpp as
+# the HTML5 parser still requires these. The factory .cpp files are also
+# generated in this case, but since these are not needed, they are excluded
+# from GEN so that they don't get compiled.
 ifeq ($(ENABLE_SVG), true)
 GEN:= $(intermediates)/SVGNames.cpp $(intermediates)/SVGNames.h $(intermediates)/SVGElementFactory.cpp $(intermediates)/SVGElementFactory.h $(intermediates)/V8SVGElementWrapperFactory.cpp $(intermediates)/V8SVGElementWrapperFactory.h
+else
+GEN:= $(intermediates)/SVGNames.cpp $(intermediates)/SVGNames.h $(intermediates)/SVGElementFactory.h $(intermediates)/V8SVGElementWrapperFactory.h
+endif
 SVG_FLAGS:=ENABLE_SVG_ANIMATION=1 ENABLE_SVG_AS_IMAGE=1 ENABLE_SVG_FILTERS=1 ENABLE_SVG_FONTS=1 ENABLE_SVG_FOREIGN_OBJECT=1 ENABLE_SVG_USE=1
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(PRIVATE_PATH)/svg/svgtags.in --attrs $(PRIVATE_PATH)/svg/svgattrs.in --extraDefines "$(SVG_FLAGS)" --factory --wrapperFactoryV8 --output $(dir $@)
 $(GEN): $(LOCAL_PATH)/dom/make_names.pl $(LOCAL_PATH)/svg/svgtags.in $(LOCAL_PATH)/svg/svgattrs.in
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
-endif
+
+# MathML tag and attribute names
+
+# Note that MathML is never used but we still need the headers and
+# MathMLames.cpp as the HTML5 parser still requires these. The factory
+# .cpp files are also generated in this case, but since these are not
+# needed, they are excluded from GEN so that they don't get compiled.
+GEN:= $(intermediates)/MathMLNames.h $(intermediates)/MathMLNames.cpp $(intermediates)/MathMLElementFactory.h $(intermediates)/V8MathMLElementWrapperFactory.h
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(PRIVATE_PATH)/mathml/mathtags.in --attrs $(PRIVATE_PATH)/mathml/mathattrs.in --factory --wrapperFactoryV8 --output $(dir $@)
+$(GEN): $(LOCAL_PATH)/dom/make_names.pl $(LOCAL_PATH)/mathml/mathtags.in $(LOCAL_PATH)/mathml/mathattrs.in
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN)

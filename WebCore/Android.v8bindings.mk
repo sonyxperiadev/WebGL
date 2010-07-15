@@ -127,8 +127,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8Float32ArrayCustom.cpp \
 	bindings/v8/custom/V8GeolocationCustom.cpp \
 	bindings/v8/custom/V8HistoryCustom.cpp \
-	bindings/v8/custom/V8IDBAny.cpp \
-	bindings/v8/custom/V8IDBKey.cpp \
 	bindings/v8/custom/V8HTMLAllCollectionCustom.cpp \
 	bindings/v8/custom/V8HTMLAudioElementConstructor.cpp \
 	bindings/v8/custom/V8HTMLCanvasElementCustom.cpp \

@@ -86,6 +86,9 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSDOMBinding.cpp \
 	bindings/js/JSDOMFormDataCustom.cpp \
 	bindings/js/JSDOMGlobalObject.cpp \
+	bindings/js/JSDOMMimeTypeArrayCustom.cpp \
+	bindings/js/JSDOMPluginArrayCustom.cpp \
+	bindings/js/JSDOMPluginCustom.cpp \
 	bindings/js/JSDOMStringMapCustom.cpp \
 	bindings/js/JSDOMWindowBase.cpp \
 	bindings/js/JSDOMWindowCustom.cpp \
@@ -130,7 +133,6 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSMessageChannelCustom.cpp \
 	bindings/js/JSMessageEventCustom.cpp \
 	bindings/js/JSMessagePortCustom.cpp \
-	bindings/js/JSMimeTypeArrayCustom.cpp \
 	bindings/js/JSNamedNodeMapCustom.cpp \
 	bindings/js/JSNavigatorCustom.cpp \
 	bindings/js/JSNodeCustom.cpp \
@@ -139,8 +141,6 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSNodeIteratorCustom.cpp \
 	bindings/js/JSNodeListCustom.cpp \
 	bindings/js/JSOptionConstructor.cpp \
-	bindings/js/JSPluginArrayCustom.cpp \
-	bindings/js/JSPluginCustom.cpp \
 	bindings/js/JSPluginElementFunctions.cpp \
 	bindings/js/JSPopStateEventCustom.cpp \
 	bindings/js/JSSQLResultSetRowListCustom.cpp \
