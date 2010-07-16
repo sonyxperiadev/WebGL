@@ -12,6 +12,7 @@
 #include "SkPicture.h"
 #include <wtf/CurrentTime.h>
 
+
 #define LAYER_DEBUG // Add diagonals for debugging
 #undef LAYER_DEBUG
 
@@ -51,6 +52,7 @@ LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_doRotation(false),
     m_isFixed(false),
     m_recordingPicture(0),
+    m_foregroundPicture(0),
     m_contentsImage(0),
     m_extra(0),
     m_uniqueId(++gUniqueId)
@@ -59,6 +61,8 @@ LayerAndroid::LayerAndroid(bool isRootLayer) : SkLayer(),
     m_translation.set(0, 0);
     m_scale.set(1, 1);
     m_backgroundColor = 0;
+    m_foregroundClip.setEmpty();
+    m_foregroundLocation.set(0, 0);
 
     gDebugLayerAndroidInstances++;
 }
@@ -90,7 +94,12 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     m_fixedRect = layer.m_fixedRect;
 
     m_recordingPicture = layer.m_recordingPicture;
+    m_foregroundPicture = layer.m_foregroundPicture;
     SkSafeRef(m_recordingPicture);
+    SkSafeRef(m_foregroundPicture);
+
+    m_foregroundClip = layer.m_foregroundClip;
+    m_foregroundLocation = layer.m_foregroundLocation;
 
     for (int i = 0; i < layer.countChildren(); i++)
         addChild(new LayerAndroid(*layer.getChild(i)))->unref();
@@ -102,29 +111,12 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     gDebugLayerAndroidInstances++;
 }
 
-LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
-    m_isRootLayer(true),
-    m_haveClip(false),
-    m_doRotation(false),
-    m_isFixed(false),
-    m_recordingPicture(picture),
-    m_contentsImage(0),
-    m_extra(0),
-    m_uniqueId(-1)
-{
-    m_angleTransform = 0;
-    m_translation.set(0, 0);
-    m_scale.set(1, 1);
-    m_backgroundColor = 0;
-    SkSafeRef(m_recordingPicture);
-    gDebugLayerAndroidInstances++;
-}
-
 LayerAndroid::~LayerAndroid()
 {
     removeChildren();
     m_contentsImage->safeUnref();
     m_recordingPicture->safeUnref();
+    m_foregroundPicture->safeUnref();
     m_animations.clear();
     gDebugLayerAndroidInstances--;
 }
@@ -339,6 +331,14 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity) {
       canvas->drawBitmapRect(m_contentsImage->bitmap(), 0, dest);
     } else {
       canvas->drawPicture(*m_recordingPicture);
+      if (m_foregroundPicture) {
+          canvas->save();
+          canvas->clipRect(m_foregroundClip);
+          canvas->translate(-m_foregroundLocation.fX,
+                            -m_foregroundLocation.fY);
+          canvas->drawPicture(*m_foregroundPicture);
+          canvas->restore();
+      }
     }
     if (m_extra)
         m_extra->draw(canvas, this);
@@ -369,6 +369,36 @@ SkPicture* LayerAndroid::recordContext()
     if (prepareContext(true))
         return m_recordingPicture;
     return 0;
+}
+
+SkPicture* LayerAndroid::foregroundContext()
+{
+    // Always create a new picture since this method is called only when
+    // recording the foreground picture.
+    m_foregroundPicture = new SkPicture();
+    return m_foregroundPicture;
+}
+
+bool LayerAndroid::contentIsScrollable() const {
+    return m_foregroundPicture != 0 &&
+            (getWidth() < SkIntToScalar(m_foregroundPicture->width()) ||
+             getHeight() < SkIntToScalar(m_foregroundPicture->height()));
+}
+
+bool LayerAndroid::scrollBy(int dx, int dy) {
+    if (m_foregroundPicture == 0)
+        return false;
+    SkScalar maxScrollX = SkIntToScalar(m_foregroundPicture->width()) - getWidth();
+    SkScalar maxScrollY = SkIntToScalar(m_foregroundPicture->height()) - getHeight();
+    SkScalar x = m_foregroundLocation.fX + dx;
+    SkScalar y = m_foregroundLocation.fY + dy;
+    x = SkScalarClampMax(x, maxScrollX);
+    y = SkScalarClampMax(y, maxScrollY);
+    if (x != m_foregroundLocation.fX || y != m_foregroundLocation.fY) {
+        m_foregroundLocation.set(x, y);
+        return true;
+    }
+    return false;
 }
 
 bool LayerAndroid::prepareContext(bool force)

@@ -920,6 +920,19 @@ bool motionUp(int x, int y, int slop)
     return pageScrolled;
 }
 
+const LayerAndroid* scrollableLayer(int x, int y)
+{
+#if ENABLE(ANDROID_OVERFLOW_SCROLL) && USE(ACCELERATED_COMPOSITING)
+    const LayerAndroid* root = compositeRoot();
+    if (!root)
+        return 0;
+    const LayerAndroid* result = root->find(x, y);
+    if (result != 0 && result->contentIsScrollable())
+        return result;
+#endif
+    return 0;
+}
+
 int getBlockLeftEdge(int x, int y, float scale)
 {
     CachedRoot* root = getFrameCache(AllowNewer);
@@ -1200,8 +1213,27 @@ LayerAndroid* compositeRoot() const
         return 0;
 }
 
+static void copyScrollPositionRecursive(const LayerAndroid* from,
+                                        LayerAndroid* root)
+{
+    if (!from || !root)
+        return;
+    for (int i = 0; i < from->countChildren(); i++) {
+        const LayerAndroid* l = from->getChild(i);
+        if (l->contentIsScrollable()) {
+            LayerAndroid* match =
+                    const_cast<LayerAndroid*>(root->findById(l->uniqueId()));
+            if (match != 0)
+                match->setScrollPosition(l->scrollPosition());
+        }
+        copyScrollPositionRecursive(l, root);
+    }
+}
+
 void setBaseLayer(BaseLayerAndroid* layer)
 {
+    copyScrollPositionRecursive(compositeRoot(),
+            static_cast<LayerAndroid*>(layer->getChild(0)));
     delete m_baseLayer;
     m_baseLayer = layer;
     CachedRoot* root = getFrameCache(DontAllowNewer);
@@ -2064,6 +2096,40 @@ static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
 #endif
 }
 
+static int nativeScrollableLayer(JNIEnv* env, jobject jwebview, jint x, jint y)
+{
+    WebView* view = GET_NATIVE_VIEW(env, jwebview);
+    LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
+    return (int) view->scrollableLayer(x, y);
+}
+
+static bool validLayer(const LayerAndroid* root, const LayerAndroid* layer) {
+    if (root == layer)
+        return true;
+    for (int i = 0; i < root->countChildren(); i++) {
+        const LayerAndroid* l = root->getChild(i);
+        if (validLayer(l, layer))
+            return true;
+    }
+    return false;
+}
+
+static bool nativeScrollLayer(JNIEnv* env, jobject obj, jint pLayer, jint dx,
+        jint dy)
+{
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    WebView* view = GET_NATIVE_VIEW(env, obj);
+    const LayerAndroid* root = view->compositeRoot();
+    LayerAndroid* layer = (LayerAndroid*) pLayer;
+    if (!validLayer(root, layer)) {
+        return false;
+    }
+    LOG_ASSERT(layer, "layer not set in %s", __FUNCTION__);
+    return layer->scrollBy(dx, dy);
+#endif
+    return false;
+}
+
 /*
  * JNI registration
  */
@@ -2220,6 +2286,10 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeWordSelection },
     { "nativeGetBlockLeftEdge", "(IIF)I",
         (void*) nativeGetBlockLeftEdge },
+    { "nativeScrollableLayer", "(II)I",
+        (void*) nativeScrollableLayer },
+    { "nativeScrollLayer", "(III)Z",
+        (void*) nativeScrollLayer },
 };
 
 int register_webview(JNIEnv* env)

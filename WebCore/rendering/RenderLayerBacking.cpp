@@ -55,6 +55,10 @@
 
 #include "RenderLayerBacking.h"
 
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+#include "GraphicsLayerAndroid.h"
+#endif
+
 using namespace std;
 
 namespace WebCore {
@@ -397,6 +401,18 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
     }
 
     m_graphicsLayer->setContentsRect(contentsBox());
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    if (m_owningLayer->hasOverflowControls()) {
+        RenderBoxModelObject* box = renderer();
+        IntRect clip = compositedBounds();
+        IntPoint location = clip.location();
+        location.move(box->borderLeft(), box->borderTop());
+        clip.setLocation(location);
+        clip.setWidth(clip.width() - box->borderLeft() - box->borderRight());
+        clip.setHeight(clip.height() - box->borderTop() - box->borderBottom());
+        static_cast<GraphicsLayerAndroid*>(m_graphicsLayer.get())->setContentsClip(clip);
+    }
+#endif
     updateDrawsContent();
     updateAfterWidgetResize();
 }
@@ -819,6 +835,24 @@ IntRect RenderLayerBacking::contentsBox() const
     } else
 #endif
         contentsRect = toRenderBox(renderer())->contentBoxRect();
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    if (m_owningLayer->hasOverflowControls()) {
+        // Update the contents rect to have the width and height of the entire
+        // contents.  This rect is only used by the platform GraphicsLayer and
+        // the position of the rectangle is ignored.  Use the layer's scroll
+        // width/height (which contain the padding).
+        RenderBox* box = toRenderBox(renderer());
+        contentsRect.setWidth(box->borderLeft() + box->borderRight() +
+                              m_owningLayer->scrollWidth());
+        contentsRect.setHeight(box->borderTop() + box->borderBottom() +
+                               m_owningLayer->scrollHeight());
+        // Move the contents rect by the padding since
+        // RenderBox::contentBoxRect includes the padding.  The end result is
+        // to have a box representing the entires contents plus border and
+        // padding.  This will be the size of the underlying picture.
+        contentsRect.setLocation(IntPoint(0, 0));
+    }
+#endif
 
     IntSize contentOffset = contentOffsetInCompostingLayer();
     contentsRect.move(contentOffset);
@@ -1053,6 +1087,12 @@ void RenderLayerBacking::paintContents(const GraphicsLayer*, GraphicsContext& co
     // We have to use the same root as for hit testing, because both methods
     // can compute and cache clipRects.
     IntRect enclosingBBox = compositedBounds();
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    if (m_owningLayer->hasOverflowControls()) {
+        enclosingBBox.setSize(contentsBox().size());
+        enclosingBBox.setLocation(m_compositedBounds.location());
+    }
+#endif
 
     IntRect clipRect(clip);
     

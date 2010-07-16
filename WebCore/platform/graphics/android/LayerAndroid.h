@@ -77,7 +77,6 @@ class LayerAndroid : public SkLayer {
 public:
     LayerAndroid(bool isRootLayer);
     LayerAndroid(const LayerAndroid& layer);
-    LayerAndroid(SkPicture* );
     virtual ~LayerAndroid();
 
     static int instancesCount();
@@ -126,6 +125,21 @@ public:
     bool isRootLayer() const { return m_isRootLayer; }
 
     SkPicture* recordContext();
+
+    // The foreground context is used to draw overflow scroll content.
+    SkPicture* foregroundContext();
+
+    // The foreground clip is set when there is content within the node that
+    // can be scrolled (i.e. a div with overflow:scroll).
+    void setForegroundClip(const SkRect& clip) {
+        m_foregroundClip = clip;
+    }
+    bool contentIsScrollable() const;
+
+    // Returns true if the content position has changed.
+    bool scrollBy(int dx, int dy);
+    const SkPoint& scrollPosition() const { return m_foregroundLocation; }
+    void setScrollPosition(const SkPoint& pos) { m_foregroundLocation = pos; }
 
     void addAnimation(PassRefPtr<AndroidAnimation> anim);
     void removeAnimation(const String& name);
@@ -215,6 +229,16 @@ private:
     // We do this as if the layer only contains an image, directly compositing
     // it is a much faster method than using m_recordingPicture.
     SkPicture* m_recordingPicture;
+
+    // m_foregroundPicture is set only when compositing a scrollable div.  It
+    // contains the contents minus the background and border which is drawn
+    // first by the rendering tree.  When we draw the layer, we draw
+    // m_recordingPicture (containing the background + border) first and then
+    // clip to m_foregroundClip and draw m_foregroundPicture.
+    SkPicture* m_foregroundPicture;
+    SkRect m_foregroundClip;
+    SkPoint m_foregroundLocation;
+
     SkBitmapRef* m_contentsImage;
 
     typedef HashMap<String, RefPtr<AndroidAnimation> > KeyframesMap;

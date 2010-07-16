@@ -293,6 +293,9 @@ void GraphicsLayerAndroid::setSize(const FloatSize& size)
         MLOG("(%x) setSize (%.2f,%.2f)", this, size.width(), size.height());
         GraphicsLayer::setSize(size);
         m_contentLayer->setSize(size.width(), size.height());
+        m_contentLayer->setForegroundClip(
+                SkRect::MakeWH(SkFloatToScalar(size.width()),
+                               SkFloatToScalar(size.height())));
         updateFixedPosition();
         askForSync();
     }
@@ -407,24 +410,58 @@ void GraphicsLayerAndroid::setNeedsDisplay()
     setNeedsDisplayInRect(rect);
 }
 
+// Helper to set and clear the painting phase as well as auto restore the
+// original phase.
+class PaintingPhase {
+public:
+    PaintingPhase(GraphicsLayer* layer)
+        : m_layer(layer)
+        , m_originalPhase(layer->paintingPhase()) {}
+
+    ~PaintingPhase() {
+        m_layer->setPaintingPhase(m_originalPhase);
+    }
+
+    void set(GraphicsLayerPaintingPhase phase) {
+        m_layer->setPaintingPhase(phase);
+    }
+
+    void clear(GraphicsLayerPaintingPhase phase) {
+        m_layer->setPaintingPhase(
+                (GraphicsLayerPaintingPhase) (m_originalPhase & ~phase));
+    }
+private:
+    GraphicsLayer*             m_layer;
+    GraphicsLayerPaintingPhase m_originalPhase;
+};
+
 bool GraphicsLayerAndroid::repaint()
 {
     LOG("(%x) repaint(), gPaused(%d) m_needsRepaint(%d) m_haveContents(%d) ",
         this, gPaused, m_needsRepaint, m_haveContents);
 
     if (!gPaused && m_haveContents && m_needsRepaint && !m_haveImage) {
-        SkAutoPictureRecord arp(m_contentLayer->recordContext(), m_size.width(), m_size.height());
-        SkCanvas* recordingCanvas = arp.getRecordingCanvas();
-
-        if (!recordingCanvas)
-            return false;
-
-        PlatformGraphicsContext pgc(recordingCanvas, 0);
-        GraphicsContext gc(&pgc);
-
         // with SkPicture, we request the entire layer's content.
-        IntRect r(0, 0, m_contentLayer->getWidth(), m_contentLayer->getHeight());
-        paintGraphicsLayerContents(gc, r);
+        IntRect layerBounds(0, 0, m_size.width(), m_size.height());
+
+        if (m_contentsRect.width() > m_size.width() ||
+                m_contentsRect.height() > m_size.height()) {
+            PaintingPhase phase(this);
+            // Paint the background into a separate context.
+            phase.set(GraphicsLayerPaintBackground);
+            if (!paintContext(m_contentLayer->recordContext(), layerBounds))
+                return false;
+            // Paint everything else into the main recording canvas.
+            phase.clear(GraphicsLayerPaintBackground);
+            if (!paintContext(m_contentLayer->foregroundContext(),
+                              m_contentsRect))
+                return false;
+        } else {
+            // If there is no contents clip, we can draw everything into one
+            // picture.
+            if (!paintContext(m_contentLayer->recordContext(), layerBounds))
+                return false;
+        }
 
         TLOG("(%x) repaint() on (%.2f,%.2f) contentlayer(%.2f,%.2f,%.2f,%.2f)paintGraphicsLayer called!",
             this, m_size.width(), m_size.height(),
@@ -439,6 +476,22 @@ bool GraphicsLayerAndroid::repaint()
         return true;
     }
     return false;
+}
+
+bool GraphicsLayerAndroid::paintContext(SkPicture* context,
+                                        const IntRect& rect)
+{
+    SkAutoPictureRecord arp(context, rect.width(), rect.height());
+    SkCanvas* canvas = arp.getRecordingCanvas();
+
+    if (canvas == 0)
+        return false;
+
+    PlatformGraphicsContext platformContext(canvas, 0);
+    GraphicsContext graphicsContext(&platformContext);
+
+    paintGraphicsLayerContents(graphicsContext, rect);
+    return true;
 }
 
 void GraphicsLayerAndroid::setNeedsDisplayInRect(const FloatRect& rect)
@@ -872,6 +925,11 @@ void GraphicsLayerAndroid::notifyClientAnimationStarted()
             client()->notifyAnimationStarted(this, WTF::currentTime());
         m_needsNotifyClient = false;
     }
+}
+
+void GraphicsLayerAndroid::setContentsClip(const IntRect& clip)
+{
+    m_contentLayer->setForegroundClip(clip);
 }
 
 } // namespace WebCore

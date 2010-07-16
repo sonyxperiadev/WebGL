@@ -115,6 +115,8 @@ public:
 
     static int instancesCount();
 
+    void setContentsClip(const IntRect& clip);
+
 private:
 
     void askForSync();
@@ -128,6 +130,8 @@ private:
     // with SkPicture, we always repaint the entire layer's content.
     bool repaint();
     void needsNotifyClient();
+
+    bool paintContext(SkPicture* context, const IntRect& rect);
 
     bool m_needsSyncChildren;
     bool m_needsSyncMask;

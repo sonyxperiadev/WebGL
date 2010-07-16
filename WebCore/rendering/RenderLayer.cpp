@@ -3237,8 +3237,17 @@ void RenderLayer::calculateRects(const RenderLayer* rootLayer, const IntRect& pa
     // Update the clip rects that will be passed to child layers.
     if (renderer()->hasOverflowClip() || renderer()->hasClip()) {
         // This layer establishes a clip of some kind.
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+        if (renderer()->hasOverflowClip()) {
+            RenderBox* box = toRenderBox(renderer());
+            layerBounds = backgroundRect = foregroundRect = outlineRect =
+                    IntRect(x, y, box->borderLeft() + box->borderRight() + m_scrollWidth,
+                            box->borderTop() + box->borderBottom() + m_scrollHeight);
+        }
+#else
         if (renderer()->hasOverflowClip())
             foregroundRect.intersect(toRenderBox(renderer())->overflowClipRect(x, y));
+#endif
         if (renderer()->hasClip()) {
             // Clip applies to *us* as well, so go ahead and update the damageRect.
             IntRect newPosClip = toRenderBox(renderer())->clipRect(x, y);
@@ -3748,8 +3757,25 @@ bool RenderLayer::shouldBeNormalFlowOnly() const
             && !isTransparent();
 }
 
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+static bool hasOverflowScroll(const RenderLayer* l)
+{
+    RenderLayer* layer = const_cast<RenderLayer*>(l);
+    RenderBox* box = layer->renderBox();
+    EOverflow x = box->style()->overflowX();
+    EOverflow y = box->style()->overflowY();
+    return (x == OAUTO || x == OSCROLL || y == OAUTO || y == OSCROLL) &&
+            (layer->scrollWidth() > box->clientWidth() ||
+             layer->scrollHeight() > box->clientHeight());
+}
+#endif
+
 bool RenderLayer::isSelfPaintingLayer() const
 {
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    if (hasOverflowScroll(this))
+        return true;
+#endif
     return !isNormalFlowOnly() || renderer()->hasReflection() || renderer()->hasMask() || renderer()->isTableRow() || renderer()->isVideo() || renderer()->isEmbeddedObject() || renderer()->isRenderIFrame();
 }
 

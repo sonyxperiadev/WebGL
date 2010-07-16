@@ -200,6 +200,9 @@
 // Enable hit test with point plus a size
 #define ANDROID_HITTEST_WITHSIZE
 
+// Enable scrollable divs in separate layers.  This might be upstreamed to
+// webkit.org but for now, it is just an Android feature.
+#define ENABLE_ANDROID_OVERFLOW_SCROLL 1
 
 #endif /* PLATFORM(ANDROID) */
 
