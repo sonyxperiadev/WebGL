@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WEBARCHIVEANDROID_H
-#define WEBARCHIVEANDROID_H
+#ifndef WebArchiveAndroid_h
+#define WebArchiveAndroid_h
 
 #include "Archive.h"
 #include "DocumentLoader.h"

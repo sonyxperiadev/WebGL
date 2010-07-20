@@ -53,11 +53,9 @@ PassRefPtr<WebArchiveAndroid> WebArchiveAndroid::create(PassRefPtr<ArchiveResour
         Vector<PassRefPtr<ArchiveResource> >& subresources,
         Vector<PassRefPtr<Archive> >& subframeArchives)
 {
-    if (mainResource) {
+    if (mainResource)
         return adoptRef(new WebArchiveAndroid(mainResource, subresources, subframeArchives));
-    } else {
-        return NULL;
-    }
+    return 0;
 }
 
 PassRefPtr<WebArchiveAndroid> WebArchiveAndroid::create(Frame* frame)
@@ -69,9 +67,8 @@ PassRefPtr<WebArchiveAndroid> WebArchiveAndroid::create(Frame* frame)
 
     frame->loader()->documentLoader()->getSubresources(subresources);
 
-    for (int child = 0; child < children; child++) {
+    for (int child = 0; child < children; child++)
         subframes.append(create(frame->tree()->child(child)));
-    }
 
     return create(mainResource, subresources, subframes);
 }
@@ -102,10 +99,10 @@ static bool loadArchiveResourceField(xmlNodePtr resourceNode, const xmlChar* fie
 
     outputData->clear();
 
-    const char* base64Data = NULL;
+    const char* base64Data = 0;
 
     for (xmlNodePtr fieldNode = resourceNode->xmlChildrenNode;
-         fieldNode != NULL;
+         fieldNode;
          fieldNode = fieldNode->next) {
         if (xmlStrEqual(fieldNode->name, fieldName)) {
             base64Data = (const char*)xmlNodeGetContent(fieldNode->xmlChildrenNode);
@@ -140,7 +137,7 @@ static PassRefPtr<SharedBuffer> loadArchiveResourceFieldBuffer(xmlNodePtr resour
     if (loadArchiveResourceField(resourceNode, fieldName, &fieldData))
         return SharedBuffer::create(fieldData.data(), fieldData.size());
 
-    return NULL;
+    return 0;
 }
 
 static String loadArchiveResourceFieldString(xmlNodePtr resourceNode, const xmlChar* fieldName)
@@ -167,37 +164,37 @@ static PassRefPtr<ArchiveResource> loadArchiveResource(xmlNodePtr resourceNode)
 {
     if (!xmlStrEqual(resourceNode->name, archiveResourceTag)) {
         LOGD("loadWebArchive: Malformed resource.");
-        return NULL;
+        return 0;
     }
 
     KURL url = loadArchiveResourceFieldURL(resourceNode, urlFieldTag);
     if (url.isNull()) {
         LOGD("loadWebArchive: Failed to load resource.");
-        return NULL;
+        return 0;
     }
 
     String mimeType = loadArchiveResourceFieldString(resourceNode, mimeFieldTag);
     if (mimeType.isNull()) {
         LOGD("loadWebArchive: Failed to load resource.");
-        return NULL;
+        return 0;
     }
 
     String textEncoding = loadArchiveResourceFieldString(resourceNode, encodingFieldTag);
     if (textEncoding.isNull()) {
         LOGD("loadWebArchive: Failed to load resource.");
-        return NULL;
+        return 0;
     }
 
     String frameName = loadArchiveResourceFieldString(resourceNode, frameFieldTag);
     if (frameName.isNull()) {
         LOGD("loadWebArchive: Failed to load resource.");
-        return NULL;
+        return 0;
     }
 
     PassRefPtr<SharedBuffer> data = loadArchiveResourceFieldBuffer(resourceNode, dataFieldTag);
     if (!data) {
         LOGD("loadWebArchive: Failed to load resource.");
-        return NULL;
+        return 0;
     }
 
     return ArchiveResource::create(data, url, mimeType, textEncoding, frameName);
@@ -205,7 +202,7 @@ static PassRefPtr<ArchiveResource> loadArchiveResource(xmlNodePtr resourceNode)
 
 static PassRefPtr<WebArchiveAndroid> loadArchive(xmlNodePtr archiveNode)
 {
-    xmlNodePtr resourceNode = NULL;
+    xmlNodePtr resourceNode = 0;
 
     PassRefPtr<ArchiveResource> mainResource;
     Vector<PassRefPtr<ArchiveResource> > subresources;
@@ -213,32 +210,31 @@ static PassRefPtr<WebArchiveAndroid> loadArchive(xmlNodePtr archiveNode)
 
     if (!xmlStrEqual(archiveNode->name, archiveTag)) {
         LOGD("loadWebArchive: Malformed archive.");
-        return NULL;
+        return 0;
     }
 
     for (resourceNode = archiveNode->xmlChildrenNode;
-         resourceNode != NULL;
+         resourceNode;
          resourceNode = resourceNode->next) {
         if (xmlStrEqual(resourceNode->name, mainResourceTag)) {
             resourceNode = resourceNode->xmlChildrenNode;
-            if (!resourceNode) {
+            if (!resourceNode)
                 break;
-            }
             mainResource = loadArchiveResource(resourceNode);
             break;
         }
     }
     if (!mainResource) {
         LOGD("saveWebArchive: Failed to load main resource.");
-        return NULL;
+        return 0;
     }
 
     for (resourceNode = archiveNode->xmlChildrenNode;
-         resourceNode != NULL;
+         resourceNode;
          resourceNode = resourceNode->next) {
         if (xmlStrEqual(resourceNode->name, subresourcesTag)) {
             for (resourceNode = resourceNode->xmlChildrenNode;
-                 resourceNode != NULL;
+                 resourceNode;
                  resourceNode = resourceNode->next) {
                 PassRefPtr<ArchiveResource> subresource = loadArchiveResource(resourceNode);
                 if (!subresource) {
@@ -252,11 +248,11 @@ static PassRefPtr<WebArchiveAndroid> loadArchive(xmlNodePtr archiveNode)
     }
 
     for (resourceNode = archiveNode->xmlChildrenNode;
-         resourceNode != NULL;
+         resourceNode;
          resourceNode = resourceNode->next) {
         if (xmlStrEqual(resourceNode->name, subframesTag)) {
             for (resourceNode = resourceNode->xmlChildrenNode;
-                 resourceNode != NULL;
+                 resourceNode;
                  resourceNode = resourceNode->next) {
                 PassRefPtr<WebArchiveAndroid> subframe = loadArchive(resourceNode);
                 if (!subframe) {
@@ -272,7 +268,8 @@ static PassRefPtr<WebArchiveAndroid> loadArchive(xmlNodePtr archiveNode)
     return WebArchiveAndroid::create(mainResource, subresources, subframes);
 }
 
-static PassRefPtr<WebArchiveAndroid> createArchiveForError() {
+static PassRefPtr<WebArchiveAndroid> createArchiveForError()
+{
     /* When an archive cannot be loaded, we return an empty archive instead. */
     PassRefPtr<ArchiveResource> mainResource = ArchiveResource::create(
         SharedBuffer::create(), KURL(ParsedURLString, String::fromUTF8("file:///dummy")),
@@ -286,17 +283,17 @@ static PassRefPtr<WebArchiveAndroid> createArchiveForError() {
 PassRefPtr<WebArchiveAndroid> WebArchiveAndroid::create(SharedBuffer* buffer)
 {
     const char* const noBaseUrl = "";
-    const char* const defaultEncoding = NULL;
+    const char* const defaultEncoding = 0;
     const int noParserOptions = 0;
 
     xmlDocPtr doc = xmlReadMemory(buffer->data(), buffer->size(), noBaseUrl, defaultEncoding, noParserOptions);
-    if (doc == NULL) {
+    if (!doc) {
         LOGD("loadWebArchive: Failed to parse document.");
         return createArchiveForError();
     }
 
     xmlNodePtr root = xmlDocGetRootElement(doc);
-    if (root == NULL) {
+    if (!root) {
         LOGD("loadWebArchive: Empty document.");
         xmlFreeDoc(doc);
         return createArchiveForError();
@@ -381,7 +378,8 @@ static bool saveArchiveResource(xmlTextWriterPtr writer, PassRefPtr<ArchiveResou
     return true;
 }
 
-static bool saveArchive(xmlTextWriterPtr writer, PassRefPtr<Archive> archive) {
+static bool saveArchive(xmlTextWriterPtr writer, PassRefPtr<Archive> archive)
+{
     int result = xmlTextWriterStartElement(writer, archiveTag);
     if (result < 0) {
         LOGD("saveWebArchive: Failed to start element.");
@@ -431,7 +429,7 @@ static bool saveArchive(xmlTextWriterPtr writer, PassRefPtr<Archive> archive) {
     for (Vector<const RefPtr<Archive> >::iterator subframe = archive->subframeArchives().begin();
             subframe != archive->subframeArchives().end();
             subframe++) {
-        if(!saveArchive(writer, *subframe))
+        if (!saveArchive(writer, *subframe))
             return false;
     }
 
@@ -444,10 +442,11 @@ static bool saveArchive(xmlTextWriterPtr writer, PassRefPtr<Archive> archive) {
     return true;
 }
 
-bool WebArchiveAndroid::saveWebArchive(xmlTextWriterPtr writer) {
-    const char* const defaultXmlVersion = NULL;
-    const char* const defaultEncoding = NULL;
-    const char* const defaultStandalone = NULL;
+bool WebArchiveAndroid::saveWebArchive(xmlTextWriterPtr writer)
+{
+    const char* const defaultXmlVersion = 0;
+    const char* const defaultEncoding = 0;
+    const char* const defaultStandalone = 0;
 
     int result = xmlTextWriterStartDocument(writer, defaultXmlVersion, defaultEncoding, defaultStandalone);
     if (result < 0) {
