@@ -126,7 +126,7 @@ public:
 
     virtual bool isImage() const { return false; }
 #if ENABLE(LINK_PREFETCH)
-    virtual bool isPrefetch() const { return type() != LinkPrefetch; }
+    virtual bool isPrefetch() const { return type() == LinkPrefetch; }
 #else
     virtual bool isPrefetch() const { return false; }
 #endif
