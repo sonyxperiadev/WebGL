@@ -127,11 +127,8 @@ float ChromeClientAndroid::scaleFactor()
 void ChromeClientAndroid::focus()
 {
     ASSERT(m_webFrame);
-#ifdef ANDROID_USER_GESTURE_CHECK
     bool isUserGesture = UserGestureIndicator::processingUserGesture();
-#else
-    bool isUserGesture = true;
-#endif
+
     // Ask the application to focus this WebView if the action is intiated by the user
     if (isUserGesture)
         m_webFrame->requestFocus();
