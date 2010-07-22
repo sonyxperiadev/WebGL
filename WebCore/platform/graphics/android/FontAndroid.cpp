@@ -564,27 +564,44 @@ private:
     void createGlyphArrays(int size)
     {
         m_item.glyphs = new HB_Glyph[size];
-        memset(m_item.glyphs, 0, size * sizeof(HB_Glyph));
         m_item.attributes = new HB_GlyphAttributes[size];
-        memset(m_item.attributes, 0, size * sizeof(HB_GlyphAttributes));
         m_item.advances = new HB_Fixed[size];
-        memset(m_item.advances, 0, size * sizeof(HB_Fixed));
         m_item.offsets = new HB_FixedPoint[size];
-        memset(m_item.offsets, 0, size * sizeof(HB_FixedPoint));
 
         m_glyphs16 = new uint16_t[size];
         m_xPositions = new SkScalar[size];
 
         m_item.num_glyphs = size;
+        m_glyphsArraySize = size;  // Save the GlyphArrays size.
+    }
+
+    void resetGlyphArrays()
+    {
+        int size = m_glyphsArraySize;
+
+        // All the types here don't have pointers. It is safe to reset to
+        // zero unless Harfbuzz breaks the compatibility in the future.
+        memset(m_item.glyphs, 0, size * sizeof(m_item.glyphs[0]));
+        memset(m_item.attributes, 0, size * sizeof(m_item.attributes[0]));
+        memset(m_item.advances, 0, size * sizeof(m_item.advances[0]));
+        memset(m_item.offsets, 0, size * sizeof(m_item.offsets[0]));
+        memset(m_glyphs16, 0, size * sizeof(m_glyphs16[0]));
+        memset(m_xPositions, 0, size * sizeof(m_xPositions[0]));
+
+        // Reset the array limit becuase HB_ShapeItem() overrides the
+        // m_item.num_glyphs.
+        m_item.num_glyphs = size;
     }
 
     void shapeGlyphs()
     {
+        resetGlyphArrays();
         while (!HB_ShapeItem(&m_item)) {
             // We overflowed our arrays. Resize and retry.
             // HB_ShapeItem fills in m_item.num_glyphs with the needed size.
             deleteGlyphArrays();
-            createGlyphArrays(m_item.num_glyphs);
+            createGlyphArrays(m_item.num_glyphs << 1);
+            resetGlyphArrays();
         }
     }
 
@@ -616,6 +633,7 @@ private:
     unsigned m_offsetX; // Offset in pixels to the start of the next script run.
     unsigned m_pixelWidth; // Width (in px) of the current script run.
     unsigned m_numCodePoints; // Code points in current script run.
+    unsigned m_glyphsArraySize; // Current size of all the Harfbuzz arrays.
 
     OwnPtr<TextRun> m_normalizedRun;
     OwnArrayPtr<UChar> m_normalizedBuffer; // A buffer for normalized run.
