@@ -594,6 +594,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	platform/text/Base64.cpp \
 	platform/text/BidiContext.cpp \
+	platform/text/LineEnding.cpp \
 	platform/text/RegularExpression.cpp \
 	platform/text/SegmentedString.cpp \
 	platform/text/String.cpp \
@@ -823,6 +824,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/SQLResultSet.cpp \
 	storage/SQLResultSetRowList.cpp \
 	storage/SQLStatement.cpp \
+	storage/SQLStatementSync.cpp \
 	storage/SQLTransaction.cpp \
 	storage/SQLTransactionClient.cpp \
 	storage/SQLTransactionCoordinator.cpp \

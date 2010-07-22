@@ -93,7 +93,6 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSDOMWindowCustom.cpp \
 	bindings/js/JSDOMWindowShell.cpp \
 	bindings/js/JSDOMWrapper.cpp \
-	bindings/js/JSDatabaseCallback.cpp \
 	bindings/js/JSDataGridColumnListCustom.cpp \
 	bindings/js/JSDataGridDataSource.cpp \
 	bindings/js/JSDatabaseCustom.cpp \

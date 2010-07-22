@@ -605,7 +605,9 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/xml/%.cpp : $(intermediates)/xml/
 # Inspector
 # These headers are required even when Inspector is disabled
 GEN := \
+    $(intermediates)/inspector/JSInspector.h \
     $(intermediates)/inspector/JSScriptProfile.h
+
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --outputdir $(dir $@) $<
 $(GEN): $(intermediates)/inspector/JS%.h : $(LOCAL_PATH)/inspector/%.idl $(js_binding_scripts)
