@@ -219,12 +219,16 @@ namespace JSC {
 
         static void compileCTIMachineTrampolines(JSGlobalData* globalData, RefPtr<ExecutablePool>* executablePool, TrampolineStructure *trampolines)
         {
+            if (!globalData->canUseJIT())
+                return;
             JIT jit(globalData);
             jit.privateCompileCTIMachineTrampolines(executablePool, globalData, trampolines);
         }
 
         static CodePtr compileCTINativeCall(JSGlobalData* globalData, PassRefPtr<ExecutablePool> executablePool, NativeFunction func)
         {
+            if (!globalData->canUseJIT())
+                return CodePtr();
             JIT jit(globalData);
             return jit.privateCompileCTINativeCall(executablePool, globalData, func);
         }
@@ -352,12 +356,8 @@ namespace JSC {
         static const int patchOffsetGetByIdPropertyMapOffset1 = 22;
         static const int patchOffsetGetByIdPropertyMapOffset2 = 28;
         static const int patchOffsetGetByIdPutResult = 28;
-#if ENABLE(OPCODE_SAMPLING) && USE(JIT_STUB_ARGUMENT_VA_LIST)
-        static const int patchOffsetGetByIdSlowCaseCall = 35;
-#elif ENABLE(OPCODE_SAMPLING)
+#if ENABLE(OPCODE_SAMPLING)
         static const int patchOffsetGetByIdSlowCaseCall = 37;
-#elif USE(JIT_STUB_ARGUMENT_VA_LIST)
-        static const int patchOffsetGetByIdSlowCaseCall = 25;
 #else
         static const int patchOffsetGetByIdSlowCaseCall = 27;
 #endif
@@ -549,12 +549,8 @@ namespace JSC {
         static const int patchLengthGetByIdExternalLoad = 3;
         static const int patchOffsetGetByIdPropertyMapOffset = 22;
         static const int patchOffsetGetByIdPutResult = 22;
-#if ENABLE(OPCODE_SAMPLING) && USE(JIT_STUB_ARGUMENT_VA_LIST)
-        static const int patchOffsetGetByIdSlowCaseCall = 31;
-#elif ENABLE(OPCODE_SAMPLING)
+#if ENABLE(OPCODE_SAMPLING)
         static const int patchOffsetGetByIdSlowCaseCall = 33;
-#elif USE(JIT_STUB_ARGUMENT_VA_LIST)
-        static const int patchOffsetGetByIdSlowCaseCall = 21;
 #else
         static const int patchOffsetGetByIdSlowCaseCall = 23;
 #endif

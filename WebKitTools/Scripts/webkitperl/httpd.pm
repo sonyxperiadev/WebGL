@@ -154,19 +154,12 @@ sub openHTTPD(@)
         close PIDFILE;
         if (0 != kill 0, $oldPid) {
             print "\nhttpd is already running: pid $oldPid, killing...\n";
-            kill 15, $oldPid;
-
-            my $retryCount = 20;
-            while ((kill(0, $oldPid) != 0) && $retryCount) {
-                sleep 1;
-                --$retryCount;
-            }
-
-            if (!$retryCount) {
+            if (!killHTTPD($oldPid)) {
                 cleanUp();
                 die "Timed out waiting for httpd to quit";
             }
         }
+        unlink $httpdPidFile;
     }
 
     $httpdPath = "/usr/sbin/httpd" unless ($httpdPath);
@@ -196,20 +189,29 @@ sub openHTTPD(@)
 sub closeHTTPD
 {
     close HTTPDIN;
-    my $retryCount = 20;
-    if ($httpdPid) {
-        kill 15, $httpdPid;
-        while (-f $httpdPidFile && $retryCount) {
-            sleep 1;
-            --$retryCount;
-        }
-    }
+    my $succeeded = killHTTPD($httpdPid);
     cleanUp();
-    if (!$retryCount) {
-        print STDERR "Timed out waiting for httpd to terminate!\n";
+    unless ($succeeded) {
+        print STDERR "Timed out waiting for httpd to terminate!\n" unless $succeeded;
         return 0;
     }
     return 1;
+}
+
+sub killHTTPD
+{
+    my ($pid) = @_;
+
+    return 1 unless $pid;
+
+    kill 15, $pid;
+
+    my $retryCount = 20;
+    while (kill(0, $pid) && $retryCount) {
+        sleep 1;
+        --$retryCount;
+    }
+    return $retryCount != 0;
 }
 
 sub setShouldWaitForUserInterrupt
@@ -219,7 +221,16 @@ sub setShouldWaitForUserInterrupt
 
 sub handleInterrupt
 {
-    closeHTTPD();
+    # On Cygwin, when we receive a signal Apache is still running, so we need
+    # to kill it. On other platforms (at least Mac OS X), Apache will have
+    # already been killed, and trying to kill it again will cause us to hang.
+    # All we need to do in this case is clean up our own files.
+    if (isCygwin()) {
+        closeHTTPD();
+    } else {
+        cleanUp();
+    }
+
     print "\n";
     exit(1);
 }

@@ -358,7 +358,7 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
 
     StrokeStyle style = strokeStyle();
     Color color = strokeColor();
-    if (style == NoStroke || !color.alpha())
+    if (style == NoStroke)
         return;
 
     float width = strokeThickness();
@@ -467,7 +467,7 @@ void GraphicsContext::drawEllipse(const IntRect& rect)
 
 void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSpan)
 {
-    if (paintingDisabled() || strokeStyle() == NoStroke || strokeThickness() <= 0.0f || !strokeColor().alpha())
+    if (paintingDisabled() || strokeStyle() == NoStroke || strokeThickness() <= 0.0f)
         return;
 
     QPainter* p = m_data->p();
@@ -567,23 +567,20 @@ void GraphicsContext::fillPath()
         return;
 
     QPainter* p = m_data->p();
-    QPainterPath path = m_data->currentPath;
+    QPainterPath& path = m_data->currentPath; // Avoid detaching the QPainterPath
     path.setFillRule(toQtFillRule(fillRule()));
 
-    if (m_common->state.fillPattern || m_common->state.fillGradient || fillColor().alpha()) {
-        drawFilledShadowPath(this, p, path);
-        if (m_common->state.fillPattern) {
-            AffineTransform affine;
-            p->fillPath(path, QBrush(m_common->state.fillPattern->createPlatformPattern(affine)));
-        } else if (m_common->state.fillGradient) {
-            QBrush brush(*m_common->state.fillGradient->platformGradient());
-            brush.setTransform(m_common->state.fillGradient->gradientSpaceTransform());
-            p->fillPath(path, brush);
-        } else {
-            if (fillColor().alpha())
-                p->fillPath(path, p->brush());
-        }
-    }
+    drawFilledShadowPath(this, p, path);
+    if (m_common->state.fillPattern) {
+        AffineTransform affine;
+        p->fillPath(path, QBrush(m_common->state.fillPattern->createPlatformPattern(affine)));
+    } else if (m_common->state.fillGradient) {
+        QBrush brush(*m_common->state.fillGradient->platformGradient());
+        brush.setTransform(m_common->state.fillGradient->gradientSpaceTransform());
+        p->fillPath(path, brush);
+    } else
+        p->fillPath(path, p->brush());
+
     m_data->currentPath = QPainterPath();
 }
 
@@ -594,37 +591,33 @@ void GraphicsContext::strokePath()
 
     QPainter* p = m_data->p();
     QPen pen(p->pen());
-    QPainterPath path = m_data->currentPath;
+    QPainterPath& path = m_data->currentPath; // Avoid detaching the QPainterPath
     path.setFillRule(toQtFillRule(fillRule()));
 
-    if (m_common->state.strokePattern || m_common->state.strokeGradient || strokeColor().alpha()) {
-        FloatSize shadowSize;
-        float shadowBlur;
-        Color shadowColor;
-        if (getShadow(shadowSize, shadowBlur, shadowColor)) {
-            QTransform t(p->worldTransform());
-            p->translate(shadowSize.width(), shadowSize.height());
-            QPen shadowPen(pen);
-            shadowPen.setColor(shadowColor);
-            p->strokePath(path, shadowPen);
-            p->setWorldTransform(t);
-        }
-        if (m_common->state.strokePattern) {
-            AffineTransform affine;
-            pen.setBrush(QBrush(m_common->state.strokePattern->createPlatformPattern(affine)));
-            p->setPen(pen);
-            p->strokePath(path, pen);
-        } else if (m_common->state.strokeGradient) {
-            QBrush brush(*m_common->state.strokeGradient->platformGradient());
-            brush.setTransform(m_common->state.strokeGradient->gradientSpaceTransform());
-            pen.setBrush(brush);
-            p->setPen(pen);
-            p->strokePath(path, pen);
-        } else {
-            if (strokeColor().alpha())
-                p->strokePath(path, pen);
-        }
+    FloatSize shadowSize;
+    float shadowBlur;
+    Color shadowColor;
+    if (getShadow(shadowSize, shadowBlur, shadowColor)) {
+        QTransform t(p->worldTransform());
+        p->translate(shadowSize.width(), shadowSize.height());
+        QPen shadowPen(pen);
+        shadowPen.setColor(shadowColor);
+        p->strokePath(path, shadowPen);
+        p->setWorldTransform(t);
     }
+    if (m_common->state.strokePattern) {
+        AffineTransform affine;
+        pen.setBrush(QBrush(m_common->state.strokePattern->createPlatformPattern(affine)));
+        p->setPen(pen);
+        p->strokePath(path, pen);
+    } else if (m_common->state.strokeGradient) {
+        QBrush brush(*m_common->state.strokeGradient->platformGradient());
+        brush.setTransform(m_common->state.strokeGradient->gradientSpaceTransform());
+        pen.setBrush(brush);
+        p->setPen(pen);
+        p->strokePath(path, pen);
+    } else
+        p->strokePath(path, pen);
     m_data->currentPath = QPainterPath();
 }
 
@@ -713,27 +706,62 @@ void GraphicsContext::fillRect(const FloatRect& rect)
         return;
 
     QPainter* p = m_data->p();
+    FloatRect normalizedRect = rect.normalized();
 
-    if (m_common->state.fillPattern || m_common->state.fillGradient || fillColor().alpha()) {
-        if (m_common->state.shadowColor.isValid())
-            drawBorderlessRectShadow(this, p, rect);
-        if (m_common->state.fillPattern) {
-            AffineTransform affine;
-            FloatRect rectM(rect);
-            QBrush brush(m_common->state.fillPattern->createPlatformPattern(affine));
-            QPixmap* image = m_common->state.fillPattern->tileImage()->nativeImageForCurrentFrame();
+    FloatSize shadowSize;
+    float shadowBlur;
+    Color shadowColor;
+    bool hasShadow = getShadow(shadowSize, shadowBlur, shadowColor);
+    FloatRect shadowDestRect;
+    QImage* shadowImage = 0;
+    QPainter* pShadow = 0;
 
-            drawRepeatPattern(p, image, rect, m_common->state.fillPattern->repeatX(), m_common->state.fillPattern->repeatY());
-        } else if (m_common->state.fillGradient) {
-            QBrush brush(*m_common->state.fillGradient->platformGradient());
-            brush.setTransform(m_common->state.fillGradient->gradientSpaceTransform());
-            p->fillRect(rect, brush);
-        } else {
-            if (fillColor().alpha())
-                p->fillRect(rect, p->brush());
-        }
+    if (hasShadow) {
+        shadowImage = new QImage(roundedIntSize(normalizedRect.size()), QImage::Format_ARGB32_Premultiplied);
+        pShadow = new QPainter(shadowImage);
+        shadowDestRect = normalizedRect;
+        shadowDestRect.move(shadowSize.width(), shadowSize.height());
+
+        pShadow->setCompositionMode(QPainter::CompositionMode_Source);
+        pShadow->fillRect(shadowImage->rect(), shadowColor);
+        pShadow->setCompositionMode(QPainter::CompositionMode_DestinationIn);
     }
+
+    if (m_common->state.fillPattern) {
+        AffineTransform affine;
+        FloatRect rectM(rect);
+        QBrush brush(m_common->state.fillPattern->createPlatformPattern(affine));
+        QPixmap* image = m_common->state.fillPattern->tileImage()->nativeImageForCurrentFrame();
+
+        if (hasShadow) {
+            drawRepeatPattern(pShadow, image, FloatRect(static_cast<QRectF>(shadowImage->rect())), m_common->state.fillPattern->repeatX(), m_common->state.fillPattern->repeatY());
+            pShadow->end();
+            p->drawImage(shadowDestRect, *shadowImage, shadowImage->rect());
+        }
+        drawRepeatPattern(p, image, normalizedRect, m_common->state.fillPattern->repeatX(), m_common->state.fillPattern->repeatY());
+    } else if (m_common->state.fillGradient) {
+        QBrush brush(*m_common->state.fillGradient->platformGradient());
+        brush.setTransform(m_common->state.fillGradient->gradientSpaceTransform());
+
+        if (hasShadow) {
+            pShadow->fillRect(shadowImage->rect(), brush);
+            pShadow->end();
+            p->drawImage(shadowDestRect, *shadowImage, shadowImage->rect());
+        }
+        p->fillRect(normalizedRect, brush);
+    } else {
+        if (hasShadow) {
+            pShadow->fillRect(shadowImage->rect(), p->brush());
+            pShadow->end();
+            p->drawImage(shadowDestRect, *shadowImage, shadowImage->rect());
+        }
+        p->fillRect(normalizedRect, p->brush());
+    }
+
+    delete shadowImage;
+    delete pShadow;
 }
+
 
 void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorSpace colorSpace)
 {
@@ -749,7 +777,7 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorS
 
 void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight, const Color& color, ColorSpace colorSpace)
 {
-    if (paintingDisabled() || !color.isValid() || !color.alpha())
+    if (paintingDisabled() || !color.isValid())
         return;
 
     Path path = Path::createRoundedRectangle(rect, topLeft, topRight, bottomLeft, bottomRight);
@@ -1015,7 +1043,8 @@ void GraphicsContext::setLineDash(const DashArray& dashes, float dashOffset)
 
         pen.setDashPattern(pattern);
         pen.setDashOffset(dashOffset);
-    }
+    } else
+        pen.setStyle(Qt::SolidLine);
     p->setPen(pen);
 }
 

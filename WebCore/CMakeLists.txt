@@ -2,6 +2,7 @@ SET(WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}"
     "${WEBCORE_DIR}/accessibility"
     "${WEBCORE_DIR}/bindings"
+    "${WEBCORE_DIR}/bindings/generic"
     "${WEBCORE_DIR}/bindings/js"
     "${WEBCORE_DIR}/bridge"
     "${WEBCORE_DIR}/bridge/c"
@@ -19,6 +20,7 @@ SET(WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/loader/appcache"
     "${WEBCORE_DIR}/loader/archive"
     "${WEBCORE_DIR}/loader/icon"
+    "${WEBCORE_DIR}/mathml"
     "${WEBCORE_DIR}/notifications"
     "${WEBCORE_DIR}/page"
     "${WEBCORE_DIR}/page/animation"
@@ -46,6 +48,7 @@ SET(WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/svg/animation"
     "${WEBCORE_DIR}/svg/graphics"
     "${WEBCORE_DIR}/svg/graphics/filters"
+    "${WEBCORE_DIR}/websockets"
     "${WEBCORE_DIR}/workers"
     "${WEBCORE_DIR}/xml"
     "${JAVASCRIPTCORE_DIR}"
@@ -526,6 +529,8 @@ SET(WebCore_SOURCES
     ${DERIVED_SOURCES_DIR}/HTMLEntityNames.cpp
     ${DERIVED_SOURCES_DIR}/HTMLNames.cpp
     ${DERIVED_SOURCES_DIR}/JSHTMLElementWrapperFactory.cpp
+    ${DERIVED_SOURCES_DIR}/MathMLElementFactory.cpp
+    ${DERIVED_SOURCES_DIR}/MathMLNames.cpp
     ${DERIVED_SOURCES_DIR}/UserAgentStyleSheetsData.cpp
     ${DERIVED_SOURCES_DIR}/XMLNames.cpp
     ${DERIVED_SOURCES_DIR}/XMLNSNames.cpp
@@ -554,6 +559,8 @@ SET(WebCore_SOURCES
     accessibility/AccessibilityTableRow.cpp
 
     bindings/ScriptControllerBase.cpp
+
+    bindings/generic/RuntimeEnabledFeatures.cpp
 
     bindings/js/DOMObjectHashTableMap.cpp
     bindings/js/DOMWrapperWorld.cpp
@@ -584,6 +591,7 @@ SET(WebCore_SOURCES
     bindings/js/JSDataGridDataSource.cpp
     bindings/js/JSDebugWrapperSet.cpp
     bindings/js/JSDedicatedWorkerContextCustom.cpp
+    bindings/js/JSDeviceOrientationEventCustom.cpp
     bindings/js/JSDocumentCustom.cpp
     bindings/js/JSDOMApplicationCacheCustom.cpp
     bindings/js/JSDOMBinding.cpp
@@ -778,6 +786,7 @@ SET(WebCore_SOURCES
     dom/CustomEvent.cpp
     dom/DatasetDOMStringMap.cpp
     dom/DecodedDataDocumentParser.cpp
+    dom/DeviceOrientation.cpp
     dom/DeviceOrientationController.cpp
     dom/DeviceOrientationEvent.cpp
     dom/Document.cpp
@@ -1110,6 +1119,20 @@ SET(WebCore_SOURCES
     loader/icon/PageURLRecord.cpp
     loader/loader.cpp
 
+    mathml/MathMLElement.cpp
+    mathml/MathMLInlineContainerElement.cpp
+    mathml/MathMLMathElement.cpp
+    mathml/MathMLTextElement.cpp
+    mathml/RenderMathMLBlock.cpp
+    mathml/RenderMathMLFraction.cpp
+    mathml/RenderMathMLMath.cpp
+    mathml/RenderMathMLOperator.cpp
+    mathml/RenderMathMLRoot.cpp
+    mathml/RenderMathMLRow.cpp
+    mathml/RenderMathMLSquareRoot.cpp
+    mathml/RenderMathMLSubSup.cpp
+    mathml/RenderMathMLUnderOver.cpp
+
     page/BarInfo.cpp
     page/Chrome.cpp
     page/Console.cpp
@@ -1273,6 +1296,7 @@ SET(WebCore_SOURCES
 
     platform/text/Base64.cpp
     platform/text/BidiContext.cpp
+    platform/text/LineEnding.cpp
     platform/text/Hyphenation.cpp
     platform/text/RegularExpression.cpp
     platform/text/SegmentedString.cpp
@@ -1426,6 +1450,7 @@ SET(WebCore_SOURCES
     storage/SQLResultSet.cpp
     storage/SQLResultSetRowList.cpp
     storage/SQLStatement.cpp
+    storage/SQLStatementSync.cpp
     storage/SQLTransaction.cpp
     storage/SQLTransactionClient.cpp
     storage/SQLTransactionCoordinator.cpp
@@ -1629,7 +1654,9 @@ IF (ENABLE_SVG)
         svg/SVGNumberList.cpp
         svg/SVGPaint.cpp
         svg/SVGParserUtilities.cpp
+        svg/SVGPathBuilder.cpp
         svg/SVGPathElement.cpp
+        svg/SVGPathParser.cpp
         svg/SVGPathSegArc.cpp
         svg/SVGPathSegClosePath.cpp
         svg/SVGPathSegCurvetoCubic.cpp
@@ -1640,6 +1667,7 @@ IF (ENABLE_SVG)
         svg/SVGPathSegLinetoHorizontal.cpp
         svg/SVGPathSegLinetoVertical.cpp
         svg/SVGPathSegList.cpp
+        svg/SVGPathSegListBuilder.cpp
         svg/SVGPathSegMoveto.cpp
         svg/SVGPatternElement.cpp
         svg/SVGPointList.cpp
@@ -1715,7 +1743,7 @@ FOREACH (_file ${WebCore_IDL_PURE_FILES})
     GENERATE_JS_FROM_IDL_PURE(${_file})
 ENDFOREACH ()
 
-GENERATE_INSPECTOR_FROM_IDL(inspector/InspectorFrontend2.idl)
+GENERATE_INSPECTOR_FROM_IDL(inspector/Inspector.idl)
 
 LIST(APPEND WebCore_SOURCES ${JS_IDL_FILES} ${Inspector_IDL_FILES})
 
@@ -1740,9 +1768,11 @@ ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/platform/graphics/Color.cpp Color
 ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSParser.cpp tokenizer.cpp)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/LegacyPreloadScanner.cpp HTMLEntityNames.cpp)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/HTMLEntityParser.cpp HTMLEntityNames.cpp)
+ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/HTMLTreeBuilder.cpp MathMLNames.cpp)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSStyleSelector.cpp UserAgentStyleSheetsData.cpp UserAgentStyleSheets.h)
 
 GENERATE_DOM_NAMES_FACTORY(HTML ${WEBCORE_DIR}/html/HTMLTagNames.in ${WEBCORE_DIR}/html/HTMLAttributeNames.in "${HTML_FEATURES}")
+GENERATE_DOM_NAMES_FACTORY(MathML ${WEBCORE_DIR}/mathml/mathtags.in ${WEBCORE_DIR}/mathml/mathattrs.in "${MATHML_FEATURES}")
 GENERATE_DOM_NAMES_FACTORY(SVG ${WEBCORE_DIR}/svg/svgtags.in ${WEBCORE_DIR}/svg/svgattrs.in "${SVG_FEATURES}")
 GENERATE_DOM_NAMES_ONLY(XLink ${WEBCORE_DIR}/svg/xlinkattrs.in)
 GENERATE_DOM_NAMES_ONLY(XMLNS ${WEBCORE_DIR}/xml/xmlnsattrs.in)

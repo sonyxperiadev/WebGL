@@ -944,7 +944,6 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 /* The JIT is tested & working on x86 Mac */
 #elif CPU(X86) && PLATFORM(MAC)
     #define ENABLE_JIT 1
-    #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
 #elif CPU(ARM_THUMB2) && PLATFORM(IPHONE)
     #define ENABLE_JIT 1
 /* The JIT is tested & working on Android */
@@ -960,16 +959,12 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
     #define ENABLE_JIT 1
 #elif CPU(X86) && OS(DARWIN)
     #define ENABLE_JIT 1
-    #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
 #elif CPU(X86) && OS(WINDOWS) && COMPILER(MINGW) && GCC_VERSION >= 40100
     #define ENABLE_JIT 1
-    #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
 #elif CPU(X86) && OS(WINDOWS) && COMPILER(MSVC)
     #define ENABLE_JIT 1
-    #define WTF_USE_JIT_STUB_ARGUMENT_REGISTER 1
 #elif CPU(X86) && OS(LINUX) && GCC_VERSION >= 40100
     #define ENABLE_JIT 1
-    #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 1
 #elif CPU(X86_64) && OS(LINUX) && GCC_VERSION >= 40100
     #define ENABLE_JIT 1
 #elif CPU(ARM_TRADITIONAL) && OS(LINUX)
@@ -978,7 +973,6 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
     #define ENABLE_JIT 1
 #elif CPU(MIPS) && OS(LINUX)
     #define ENABLE_JIT 1
-    #define WTF_USE_JIT_STUB_ARGUMENT_VA_LIST 0
 #endif
 #endif /* PLATFORM(QT) */
 
@@ -1136,6 +1130,13 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 /* FIXME: Eventually we should enable this for all platforms and get rid of the define. */
 #if PLATFORM(MAC)
 #define WTF_USE_PLATFORM_STRATEGIES 1
+#endif
+
+/* Geolocation request policy. pre-emptive policy is to acquire user permission before acquiring location.
+   Client based implementations will have option to choose between pre-emptive and nonpre-emptive permission policy.
+   pre-emptive permission policy is enabled by default for all client-based implementations. */
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+#define WTF_USE_PREEMPT_GEOLOCATION_PERMISSION 1
 #endif
 
 #endif /* WTF_Platform_h */

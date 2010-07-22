@@ -33,6 +33,7 @@
 #include "CanvasGradient.h"
 #include "CanvasPattern.h"
 #include "GraphicsContext.h"
+#include <wtf/Assertions.h>
 #include <wtf/PassRefPtr.h>
 
 #if PLATFORM(CG)
@@ -118,6 +119,29 @@ PassRefPtr<CanvasStyle> CanvasStyle::create(PassRefPtr<CanvasPattern> pattern)
     if (!pattern)
         return 0;
     return adoptRef(new CanvasStyle(pattern));
+}
+
+bool CanvasStyle::isEquivalentColor(const CanvasStyle& other) const
+{
+    if (m_type != other.m_type)
+        return false;
+
+    switch (m_type) {
+    case CanvasStyle::RGBA:
+        return m_rgba == other.m_rgba;
+    case CanvasStyle::CMYKA:
+        return m_cmyka.c == other.m_cmyka.c
+            && m_cmyka.m == other.m_cmyka.m
+            && m_cmyka.y == other.m_cmyka.y
+            && m_cmyka.k == other.m_cmyka.k
+            && m_cmyka.a == other.m_cmyka.a;
+    case CanvasStyle::Gradient:
+    case CanvasStyle::ImagePattern:
+        return false;
+    }
+
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
 void CanvasStyle::applyStrokeColor(GraphicsContext* context)

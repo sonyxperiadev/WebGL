@@ -126,7 +126,7 @@ public:
     virtual void cancelGeolocationPermissionRequestForFrame(WebCore::Frame*, WebCore::Geolocation*);
     virtual void runOpenPanel(WebCore::Frame*, PassRefPtr<WebCore::FileChooser>);
     virtual void chooseIconForFiles(const Vector<WebCore::String>&, WebCore::FileChooser*);
-    virtual bool setCursor(WebCore::PlatformCursorHandle) { return false; }
+    virtual void setCursor(const WebCore::Cursor&) { }
     virtual void formStateDidChange(const WebCore::Node*);
     virtual PassOwnPtr<WebCore::HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
 #if ENABLE(TOUCH_EVENTS)
@@ -145,7 +145,11 @@ public:
     // Sets a flag to specify that the view needs to be updated, so we need
     // to do an eager layout before the drawing.
     virtual void scheduleCompositingLayerSync();
+
+    virtual PassOwnPtr<WebCore::GLES2Context> getOnscreenGLES2Context();
+    virtual PassOwnPtr<WebCore::GLES2Context> getOffscreenGLES2Context();
 #endif
+
     virtual bool supportsFullscreenForNode(const WebCore::Node*);
     virtual void enterFullscreenForNode(WebCore::Node*);
     virtual void exitFullscreenForNode(WebCore::Node*);

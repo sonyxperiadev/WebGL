@@ -34,14 +34,18 @@
 #include "ImageBuffer.h"
 #include "NotImplemented.h"
 #include "WebGLActiveInfo.h"
+#include "ArrayBuffer.h"
 #include "ArrayBufferView.h"
 #include "WebGLBuffer.h"
 #include "Float32Array.h"
 #include "WebGLFramebuffer.h"
+#include "GraphicsContext.h"
+#include "HTMLCanvasElement.h"
 #include "Int32Array.h"
 #include "WebGLLayer.h"
 #include "WebGLProgram.h"
 #include "WebGLRenderbuffer.h"
+#include "WebGLRenderingContext.h"
 #include "WebGLShader.h"
 #include "WebGLTexture.h"
 #include "Uint8Array.h"
@@ -234,6 +238,54 @@ void GraphicsContext3D::validateAttributes()
 void GraphicsContext3D::makeContextCurrent()
 {
     CGLSetCurrentContext(m_contextObj);
+}
+
+void GraphicsContext3D::paintRenderingResultsToCanvas(WebGLRenderingContext* context)
+{
+    HTMLCanvasElement* canvas = context->canvas();
+    ImageBuffer* imageBuffer = canvas->buffer();
+
+    int rowBytes = m_currentWidth * 4;
+    int totalBytes = rowBytes * m_currentHeight;
+
+    OwnArrayPtr<unsigned char> pixels(new unsigned char[totalBytes]);
+    if (!pixels)
+        return;
+
+    CGLSetCurrentContext(m_contextObj);
+
+    bool mustRestoreFBO = false;
+    if (m_attrs.antialias) {
+        ::glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, m_multisampleFBO);
+        ::glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, m_fbo);
+        ::glBlitFramebufferEXT(0, 0, m_currentWidth, m_currentHeight, 0, 0, m_currentWidth, m_currentHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        ::glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
+        mustRestoreFBO = true;
+    } else {
+        if (m_boundFBO != m_fbo) {
+            mustRestoreFBO = true;
+            ::glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
+        }
+    }
+
+    GLint packAlignment = 4;
+    bool mustRestorePackAlignment = false;
+    ::glGetIntegerv(GL_PACK_ALIGNMENT, &packAlignment);
+    if (packAlignment > 4) {
+        ::glPixelStorei(GL_PACK_ALIGNMENT, 4);
+        mustRestorePackAlignment = true;
+    }
+
+    ::glReadPixels(0, 0, m_currentWidth, m_currentHeight, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, pixels.get());
+
+    if (mustRestorePackAlignment)
+        ::glPixelStorei(GL_PACK_ALIGNMENT, packAlignment);
+
+    if (mustRestoreFBO)
+        ::glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_boundFBO);
+
+    paintToCanvas(pixels.get(), m_currentWidth, m_currentHeight,
+                  canvas->width(), canvas->height(), imageBuffer->context()->platformContext());
 }
 
 void GraphicsContext3D::beginPaint(WebGLRenderingContext* context)
@@ -494,6 +546,16 @@ void GraphicsContext3D::bufferData(unsigned long target, int size, unsigned long
     ensureContext(m_contextObj);
     ::glBufferData(target, size, 0, usage);
 }
+
+void GraphicsContext3D::bufferData(unsigned long target, ArrayBuffer* array, unsigned long usage)
+{
+    if (!array || !array->byteLength())
+        return;
+    
+    ensureContext(m_contextObj);
+    ::glBufferData(target, array->byteLength(), array->data(), usage);
+}
+
 void GraphicsContext3D::bufferData(unsigned long target, ArrayBufferView* array, unsigned long usage)
 {
     if (!array || !array->length())
@@ -501,6 +563,15 @@ void GraphicsContext3D::bufferData(unsigned long target, ArrayBufferView* array,
     
     ensureContext(m_contextObj);
     ::glBufferData(target, array->byteLength(), array->baseAddress(), usage);
+}
+
+void GraphicsContext3D::bufferSubData(unsigned long target, long offset, ArrayBuffer* array)
+{
+    if (!array || !array->byteLength())
+        return;
+    
+    ensureContext(m_contextObj);
+    ::glBufferSubData(target, offset, array->byteLength(), array->data());
 }
 
 void GraphicsContext3D::bufferSubData(unsigned long target, long offset, ArrayBufferView* array)
@@ -1216,6 +1287,10 @@ void GraphicsContext3D::getIntegerv(unsigned long pname, int* value)
     // Need to emulate IMPLEMENTATION_COLOR_READ_FORMAT/TYPE for GL.  Any valid
     // combination should work, but GL_RGB/GL_UNSIGNED_BYTE might be the most
     // useful for desktop WebGL users.
+    // Need to emulate MAX_FRAGMENT/VERTEX_UNIFORM_VECTORS and MAX_VARYING_VECTORS
+    // because desktop GL's corresponding queries return the number of components
+    // whereas GLES2 return the number of vectors (each vector has 4 components).
+    // Therefore, the value returned by desktop GL needs to be divided by 4.
     ensureContext(m_contextObj);
     switch (pname) {
     case IMPLEMENTATION_COLOR_READ_FORMAT:
@@ -1223,6 +1298,18 @@ void GraphicsContext3D::getIntegerv(unsigned long pname, int* value)
         break;
     case IMPLEMENTATION_COLOR_READ_TYPE:
         *value = GL_UNSIGNED_BYTE;
+        break;
+    case MAX_FRAGMENT_UNIFORM_VECTORS:
+        ::glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_COMPONENTS, value);
+        *value /= 4;
+        break;
+    case MAX_VERTEX_UNIFORM_VECTORS:
+        ::glGetIntegerv(GL_MAX_VERTEX_UNIFORM_COMPONENTS, value);
+        *value /= 4;
+        break;
+    case MAX_VARYING_VECTORS:
+        ::glGetIntegerv(GL_MAX_VARYING_FLOATS, value);
+        *value /= 4;
         break;
     default:
         ::glGetIntegerv(pname, value);

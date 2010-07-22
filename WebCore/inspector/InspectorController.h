@@ -69,7 +69,6 @@ class InspectorCSSStore;
 class InspectorDOMStorageResource;
 class InspectorDatabaseResource;
 class InspectorFrontend;
-class InspectorFrontend2;
 class InspectorFrontendClient;
 class InspectorResource;
 class InspectorTimelineAgent;
@@ -78,6 +77,7 @@ class InspectorWorkerResource;
 class KURL;
 class Node;
 class Page;
+class RemoteInspectorFrontend;
 class ResourceRequest;
 class ResourceResponse;
 class ResourceError;
@@ -127,14 +127,19 @@ public:
     bool enabled() const;
 
     Page* inspectedPage() const { return m_inspectedPage; }
+    void reloadPage();
 
     String setting(const String& key) const;
     void setSetting(const String& key, const String& value);
-    void setSessionSettings(const String&);
+    void saveApplicationSettings(const String& settings);
+    void saveSessionSettings(const String&);
+
 
     void inspect(Node*);
     void highlight(Node*);
     void hideHighlight();
+    void highlightDOMNode(long nodeId);
+    void hideDOMNodeHighlight() { hideHighlight(); }
 
     void show();
     void showPanel(SpecialPanels);
@@ -146,10 +151,10 @@ public:
     void connectFrontend(const ScriptObject& webInspector);
     void disconnectFrontend();
 
-    void addMessageToConsole(MessageSource, MessageType, MessageLevel, ScriptCallStack*);
+    void addMessageToConsole(MessageSource, MessageType, MessageLevel, ScriptCallStack*, const String& message = String());
     void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID);
     void clearConsoleMessages();
-    const Vector<ConsoleMessage*>& consoleMessages() const { return m_consoleMessages; }
+    const Vector<OwnPtr<ConsoleMessage> >& consoleMessages() const { return m_consoleMessages; }
 
     bool searchingForNodeInPage() const { return m_searchingForNode; }
     void mouseDidMoveOverElement(const HitTestResult&, unsigned modifierFlags);
@@ -220,7 +225,7 @@ public:
     const ResourcesMap& resources() const { return m_resources; }
     InspectorResource* resourceForURL(const String& url);
     InspectorFrontend* inspectorFrontend() { return m_frontend.get(); }
-    InspectorFrontend2* inspectorFrontend2() { return m_frontend2.get(); }
+    RemoteInspectorFrontend* remoteInspectorFrontend() { return m_remoteFrontend.get(); }
 
     void drawNodeHighlight(GraphicsContext&) const;
 
@@ -246,6 +251,8 @@ public:
     String getCurrentUserInitiatedProfileName(bool incrementProfileNumber);
     void startUserInitiatedProfiling(Timer<InspectorController>* = 0);
     void stopUserInitiatedProfiling();
+    void startProfiling() { startUserInitiatedProfiling(); }
+    void stopProfiling() { stopUserInitiatedProfiling(); }
 
     void enableProfiler(bool always = false, bool skipRecompile = false);
     void disableProfiler(bool always = false);
@@ -260,7 +267,8 @@ public:
     void editScriptSource(long callId, const String& sourceID, const String& newContent);
     void getScriptSource(long callId, const String& sourceID);
 
-    void resumeDebugger();
+    void resume();
+    void setPauseOnExceptionsState(long pauseState);
     PassRefPtr<SerializedScriptValue> currentCallFrames();
 
     virtual void didParseSource(const String& sourceID, const String& url, const String& data, int firstLine, ScriptWorldType);
@@ -288,7 +296,12 @@ private:
 
     // Following are used from InspectorBackend and internally.
     void setSearchingForNode(bool enabled);
+    void enableSearchingForNode() { setSearchingForNode(true); }
+    void disableSearchingForNode() { setSearchingForNode(false); }
+
     void setMonitoringXHR(bool enabled);
+    void enableMonitoringXHR() { setMonitoringXHR(true); }
+    void disableMonitoringXHR() { setMonitoringXHR(false); }
     void storeLastActivePanel(const String& panelName);
     InspectorDOMAgent* domAgent() { return m_domAgent.get(); }
     void releaseFrontendLifetimeAgents();
@@ -319,11 +332,12 @@ private:
 
     void focusNode();
 
-    void addConsoleMessage(ScriptState*, ConsoleMessage*);
+    void addConsoleMessage(ScriptState*, PassOwnPtr<ConsoleMessage>);
 
     void addResource(InspectorResource*);
     void removeResource(InspectorResource*);
     InspectorResource* getTrackedResource(unsigned long identifier);
+    void getResourceContent(long callId, unsigned long identifier);
 
     void pruneResources(ResourcesMap*, DocumentLoader* loaderToKeep = 0);
     void removeAllResources(ResourcesMap* map) { pruneResources(map); }
@@ -345,7 +359,7 @@ private:
     OwnPtr<InspectorFrontendClient> m_inspectorFrontendClient;
     bool m_openingFrontend;
     OwnPtr<InspectorFrontend> m_frontend;
-    OwnPtr<InspectorFrontend2> m_frontend2;
+    OwnPtr<RemoteInspectorFrontend> m_remoteFrontend;
     RefPtr<InspectorDOMAgent> m_domAgent;
     OwnPtr<InspectorCSSStore> m_cssStore;
     OwnPtr<InspectorTimelineAgent> m_timelineAgent;
@@ -359,7 +373,7 @@ private:
     ResourcesMap m_resources;
     HashSet<String> m_knownResources;
     FrameResourcesMap m_frameResources;
-    Vector<ConsoleMessage*> m_consoleMessages;
+    Vector<OwnPtr<ConsoleMessage> > m_consoleMessages;
     unsigned m_expiredConsoleMessageCount;
     HashMap<String, double> m_times;
     HashMap<String, unsigned> m_counts;

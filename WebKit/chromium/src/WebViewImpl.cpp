@@ -54,10 +54,12 @@
 #include "FrameLoader.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#include "GLES2Context.h"
+#include "GLES2ContextInternal.h"
 #include "GraphicsContext.h"
-#include "HitTestResult.h"
 #include "HTMLInputElement.h"
 #include "HTMLMediaElement.h"
+#include "HitTestResult.h"
 #include "HTMLNames.h"
 #include "Image.h"
 #include "InspectorController.h"
@@ -73,6 +75,7 @@
 #include "PlatformContextSkia.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformMouseEvent.h"
+#include "PlatformThemeChromiumGtk.h"
 #include "PlatformWheelEvent.h"
 #include "PopupMenuChromium.h"
 #include "PopupMenuClient.h"
@@ -91,6 +94,7 @@
 #include "WebDragData.h"
 #include "WebFrameImpl.h"
 #include "WebImage.h"
+#include "WebInputElement.h"
 #include "WebInputEvent.h"
 #include "WebInputEventConversion.h"
 #include "WebKit.h"
@@ -157,10 +161,11 @@ COMPILE_ASSERT_MATCHING_ENUM(DragOperationDelete);
 COMPILE_ASSERT_MATCHING_ENUM(DragOperationEvery);
 
 static const PopupContainerSettings autoFillPopupSettings = {
-    false,  // setTextOnIndexChange
-    false,  // acceptOnAbandon
-    true,   // loopSelectionNavigation
-    true,   // restrictWidthOfListBox. Same as other browser (Fx, IE, and safari)
+    false, // setTextOnIndexChange
+    false, // acceptOnAbandon
+    true,  // loopSelectionNavigation
+    false, // restrictWidthOfListBox (For security reasons show the entire entry
+           // so the user doesn't enter information it did not intend to.)
     // For suggestions, we use the direction of the input field as the direction
     // of the popup items. The main reason is to keep the display of items in
     // drop-down the same as the items in the input field.
@@ -588,8 +593,11 @@ bool WebViewImpl::autocompleteHandleKeyEvent(const WebKeyboardEvent& event)
         }
 
         int selectedIndex = m_autoFillPopup->selectedIndex();
-        HTMLInputElement* inputElement = static_cast<HTMLInputElement*>(element);
-        WebString name = inputElement->name();
+
+        if (!m_autoFillPopupClient->canRemoveSuggestionAtIndex(selectedIndex))
+            return false;
+
+        WebString name = WebInputElement(static_cast<HTMLInputElement*>(element)).nameForAutofill();
         WebString value = m_autoFillPopupClient->itemText(selectedIndex);
         m_client->removeAutofillSuggestions(name, value);
         // Update the entries in the currently showing popup to reflect the
@@ -1237,6 +1245,9 @@ WebRect WebViewImpl::caretOrSelectionBounds()
     if (controller->isCaret())
         rect = view->contentsToWindow(controller->absoluteCaretBounds());
     else if (controller->isRange()) {
+        node = controller->end().node();
+        if (!node || !node->renderer())
+            return rect;
         RefPtr<Range> range = controller->toNormalizedRange();
         rect = view->contentsToWindow(focused->firstRectForRange(range.get()));
     }
@@ -1722,7 +1733,19 @@ void WebViewImpl::applyAutoFillSuggestions(
     const WebVector<WebString>& labels,
     int separatorIndex)
 {
+    WebVector<int> uniqueIDs(names.size());
+    applyAutoFillSuggestions(node, names, labels, uniqueIDs, separatorIndex);
+}
+
+void WebViewImpl::applyAutoFillSuggestions(
+    const WebNode& node,
+    const WebVector<WebString>& names,
+    const WebVector<WebString>& labels,
+    const WebVector<int>& uniqueIDs,
+    int separatorIndex)
+{
     ASSERT(names.size() == labels.size());
+    ASSERT(names.size() == uniqueIDs.size());
     ASSERT(separatorIndex < static_cast<int>(names.size()));
 
     if (names.isEmpty()) {
@@ -1747,7 +1770,8 @@ void WebViewImpl::applyAutoFillSuggestions(
     if (!m_autoFillPopupClient.get())
         m_autoFillPopupClient.set(new AutoFillPopupMenuClient);
 
-    m_autoFillPopupClient->initialize(inputElem, names, labels, separatorIndex);
+    m_autoFillPopupClient->initialize(
+        inputElem, names, labels, uniqueIDs, separatorIndex);
 
     if (!m_autoFillPopup.get()) {
         m_autoFillPopup = PopupContainer::create(m_autoFillPopupClient.get(),
@@ -1756,7 +1780,8 @@ void WebViewImpl::applyAutoFillSuggestions(
     }
 
     if (m_autoFillPopupShowing) {
-        m_autoFillPopupClient->setSuggestions(names, labels, separatorIndex);
+        m_autoFillPopupClient->setSuggestions(
+            names, labels, uniqueIDs, separatorIndex);
         refreshAutoFillPopup();
     } else {
         m_autoFillPopup->show(focusedNode->getRect(),
@@ -1778,13 +1803,12 @@ void WebViewImpl::applyAutocompleteSuggestions(
 {
     WebVector<WebString> names(suggestions.size());
     WebVector<WebString> labels(suggestions.size());
+    WebVector<int> uniqueIDs(suggestions.size());
 
-    for (size_t i = 0; i < suggestions.size(); ++i) {
+    for (size_t i = 0; i < suggestions.size(); ++i)
         names[i] = suggestions[i];
-        labels[i] = WebString();
-    }
 
-    applyAutoFillSuggestions(node, names, labels, -1);
+    applyAutoFillSuggestions(node, names, labels, uniqueIDs, -1);
     if (m_autoFillPopupClient)
         m_autoFillPopupClient->setAutocompleteMode(true);
 }
@@ -1852,7 +1876,7 @@ void WebViewImpl::setScrollbarColors(unsigned inactiveColor,
                                      unsigned activeColor,
                                      unsigned trackColor) {
 #if OS(LINUX)
-    RenderThemeChromiumLinux::setScrollbarColors(inactiveColor,
+    PlatformThemeChromiumGtk::setScrollbarColors(inactiveColor,
                                                  activeColor,
                                                  trackColor);
 #endif
@@ -2058,7 +2082,7 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
         return;
 
     if (active) {
-        m_layerRenderer = LayerRendererChromium::create(page());
+        m_layerRenderer = LayerRendererChromium::create(getOnscreenGLES2Context());
         if (m_layerRenderer->hardwareCompositing())
             m_isAcceleratedCompositingActive = true;
         else {
@@ -2131,6 +2155,21 @@ void WebViewImpl::setRootLayerNeedsDisplay()
         m_layerRenderer->setNeedsDisplay();
 }
 #endif // USE(ACCELERATED_COMPOSITING)
+
+PassOwnPtr<GLES2Context> WebViewImpl::getOnscreenGLES2Context()
+{
+    return GLES2Context::create(GLES2ContextInternal::create(gles2Context(), false));
+}
+
+PassOwnPtr<GLES2Context> WebViewImpl::getOffscreenGLES2Context()
+{
+    WebGLES2Context* context = webKitClient()->createGLES2Context();
+    if (!context)
+        return 0;
+    if (!context->initialize(0, gles2Context()))
+        return 0;
+    return GLES2Context::create(GLES2ContextInternal::create(context, true));
+}
 
 // Returns the GLES2 context associated with this View. If one doesn't exist
 // it will get created first.

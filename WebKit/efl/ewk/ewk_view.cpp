@@ -595,6 +595,7 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
     // this functionality will be modified by the scale zoom patch.
     priv->settings.zoom_range.min_scale = ZOOM_MIN;
     priv->settings.zoom_range.max_scale = ZOOM_MAX;
+    priv->settings.zoom_range.user_scalable = EINA_TRUE;
 
     priv->main_frame = _ewk_view_core_frame_new(sd, priv, 0).get();
     if (!priv->main_frame) {
@@ -3737,6 +3738,7 @@ void ewk_view_popup_selected_set(Evas_Object* o, int index)
     INF("o=%p", o);
     EWK_VIEW_SD_GET_OR_RETURN(o, sd);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv);
+    EINA_SAFETY_ON_NULL_RETURN(priv->popup.menu_client);
 
     priv->popup.menu_client->valueChanged(index);
 }

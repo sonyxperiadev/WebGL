@@ -31,6 +31,7 @@ use File::Find;
 my $useDocument = "";
 my $useGenerator = "";
 my $useOutputDir = "";
+my $useOutputHeadersDir = "";
 my $useDirectories = "";
 my $useLayerOnTop = 0;
 my $preprocessor;
@@ -80,6 +81,7 @@ sub new
     $useDirectories = shift;
     $useGenerator = shift;
     $useOutputDir = shift;
+    $useOutputHeadersDir = shift;
     $useLayerOnTop = shift;
     $preprocessor = shift;
     $writeDependencies = shift;
@@ -107,7 +109,7 @@ sub ProcessDocument
     require $ifaceName . ".pm";
 
     # Dynamically load external code generation perl module
-    $codeGenerator = $ifaceName->new($object, $useOutputDir, $useLayerOnTop, $preprocessor, $writeDependencies, $verbose);
+    $codeGenerator = $ifaceName->new($object, $useOutputDir, $useOutputHeadersDir, $useLayerOnTop, $preprocessor, $writeDependencies, $verbose);
     unless (defined($codeGenerator)) {
         my $classes = $useDocument->classes;
         foreach my $class (@$classes) {
@@ -465,6 +467,30 @@ sub SetterExpressionPrefix
     }
 
     return "$functionName($contentAttributeName, "
+}
+
+sub ShouldCheckEnums
+{
+    my $dataNode = shift;
+    return not $dataNode->extendedAttributes->{"DontCheckEnums"};
+}
+
+sub GenerateCompileTimeCheckForEnumsIfNeeded
+{
+    my ($object, $dataNode) = @_;
+    my $interfaceName = $dataNode->name;
+    my @checks = ();
+    # If necessary, check that all constants are available as enums with the same value.
+    if (ShouldCheckEnums($dataNode) && @{$dataNode->constants}) {
+        push(@checks, "\n");
+        foreach my $constant (@{$dataNode->constants}) {
+            my $name = $constant->name;
+            my $value = $constant->value;
+            push(@checks, "COMPILE_ASSERT($value == ${interfaceName}::$name, ${interfaceName}Enum${name}IsWrongUseDontCheckEnums);\n");
+        }
+        push(@checks, "\n");
+    }
+    return @checks;
 }
 
 1;

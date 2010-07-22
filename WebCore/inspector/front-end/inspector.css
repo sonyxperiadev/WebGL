@@ -711,6 +711,11 @@ body.platform-linux .monospace, body.platform-linux .source-code {
     content: url(Images/treeDownTriangleBlack.png);
 }
 
+.console-message.repeated-message > ol.stack-trace {
+    margin-top: -14px;
+    margin-left: 18px;
+}
+
 .console-group-messages .section .header .title {
     color: black;
     font-weight: normal;
@@ -1164,6 +1169,7 @@ body.platform-linux .monospace, body.platform-linux .source-code {
     margin-left: -12px;
 }
 
+.stack-trace li.parent::before,
 .outline-disclosure li.parent::before {
     content: url(Images/treeRightTriangleBlack.png);
     float: left;
@@ -1173,26 +1179,32 @@ body.platform-linux .monospace, body.platform-linux .source-code {
     padding-right: 2px;
 }
 
+.stack-trace li.parent::before,
 .outline-disclosure li.parent::before {
     content: url(Images/treeRightTriangleBlack.png);
 }
 
+.stack-trace ol:focus li.parent.selected::before,
 .outline-disclosure ol:focus li.parent.selected::before {
     content: url(Images/treeRightTriangleWhite.png);
 }
 
+.stack-trace li.parent.expanded::before,
 .outline-disclosure li.parent.expanded::before {
     content: url(Images/treeDownTriangleBlack.png);
 }
 
+.stack-trace ol:focus li.parent.expanded.selected::before,
 .outline-disclosure ol:focus li.parent.expanded.selected::before {
     content: url(Images/treeDownTriangleWhite.png);
 }
 
+.stack-trace ol.children,
 .outline-disclosure ol.children {
     display: none;
 }
 
+.stack-trace ol.children.expanded,
 .outline-disclosure ol.children.expanded {
     display: block;
 }
@@ -1372,14 +1384,18 @@ body.inactive .placard.selected {
     margin-left: 1px;
 }
 
-.section .properties ol, .event-properties ol {
+.section .properties ol, .event-properties ol, .stack-trace ol, ol.stack-trace {
     display: none;
     margin: 0;
     -webkit-padding-start: 12px;
     list-style: none;
 }
 
-.section .properties ol.expanded, .event-properties ol.expanded {
+ol.stack-trace {
+    -webkit-padding-start: 0px;
+}
+
+.section .properties ol.expanded, .event-properties ol.expanded, .stack-trace ol, ol.stack-trace {
     display: block;
 }
 
@@ -1474,7 +1490,7 @@ body.inactive .placard.selected {
     outline: 1px solid rgb(66%, 66%, 66%) !important;
     background-color: white;
     -webkit-user-modify: read-write-plaintext-only;
-    text-overflow: clip;
+    text-overflow: clip !important;
     padding-left: 2px;
     margin-left: -2px;
     padding-right: 2px;
@@ -3677,6 +3693,15 @@ body.inactive .sidebar-tree-item.selected .bubble.search-matches {
 
 .timeline-details {
     -webkit-user-select: text;
+    vertical-align: top;
+}
+
+.timeline-function-name {
+    text-align: right;
+}
+
+.timeline-stacktrace-title {
+    padding-top: 4px;
 }
 
 .timeline-details-row-title {

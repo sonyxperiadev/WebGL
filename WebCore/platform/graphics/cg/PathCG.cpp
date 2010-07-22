@@ -213,8 +213,7 @@ void Path::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radius)
 
 void Path::closeSubpath()
 {
-    if (!CGPathIsEmpty(m_path)) // to silence a warning when trying to close an empty path
-        CGPathCloseSubpath(m_path);
+    CGPathCloseSubpath(m_path);
 }
 
 void Path::addArc(const FloatPoint& p, float r, float sa, float ea, bool clockwise)
@@ -248,6 +247,11 @@ bool Path::isEmpty() const
 bool Path::hasCurrentPoint() const
 {
     return !isEmpty();
+}
+    
+FloatPoint Path::currentPoint() const 
+{
+    return CGPathGetCurrentPoint(m_path);
 }
 
 static void CGPathToCFStringApplierFunction(void* info, const CGPathElement *element)

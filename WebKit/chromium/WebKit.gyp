@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2009 Google Inc. All rights reserved.
+# Copyright (C) 2010 Google Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -30,8 +30,10 @@
 
 {
     'includes': [
-        'features.gypi',
+        '../../WebCore/WebCore.gypi',
         '../../WebKitTools/DumpRenderTree/DumpRenderTree.gypi',
+        'WebKit.gypi',
+        'features.gypi',
     ],
     'variables': {
         'webkit_target_type': 'static_library',
@@ -42,12 +44,42 @@
                 # Webkit is being built outside of the full chromium project.
                 # e.g. via build-webkit --chromium
                 'chromium_src_dir': '../../WebKit/chromium',
+
+                # List of DevTools source files, ordered by dependencies. It is used both
+                # for copying them to resource dir, and for generating 'devtools.html' file.
+                'devtools_files': [
+                    '<@(devtools_css_files)',
+                    '../../WebKit/chromium/v8/tools/codemap.js',
+                    '../../WebKit/chromium/v8/tools/consarray.js',
+                    '../../WebKit/chromium/v8/tools/csvparser.js',
+                    '../../WebKit/chromium/v8/tools/logreader.js',
+                    '../../WebKit/chromium/v8/tools/profile.js',
+                    '../../WebKit/chromium/v8/tools/profile_view.js',
+                    '../../WebKit/chromium/v8/tools/splaytree.js',
+                    '<@(devtools_js_files)',
+                ],
             },{
                 # WebKit is checked out in src/chromium/third_party/WebKit
                 'chromium_src_dir': '../../../..',
+
+                'devtools_files': [
+                    '<@(devtools_css_files)',
+                    '../../../../v8/tools/codemap.js',
+                    '../../../../v8/tools/consarray.js',
+                    '../../../../v8/tools/csvparser.js',
+                    '../../../../v8/tools/logreader.js',
+                    '../../../../v8/tools/profile.js',
+                    '../../../../v8/tools/profile_view.js',
+                    '../../../../v8/tools/splaytree.js',
+                    '<@(devtools_js_files)',
+                ],
             }],
         ],
         'ahem_path': '../../WebKitTools/DumpRenderTree/qt/fonts/AHEM____.TTF',
+
+        # If debug_devtools is set to 1, JavaScript files for DevTools are
+        # stored as is. Otherwise, a concatenated file is stored.
+        'debug_devtools%': 0,
     },
     'targets': [
         {
@@ -67,7 +99,7 @@
                 'src',
             ],
             'defines': [
-                'WEBKIT_IMPLEMENTATION',
+                'WEBKIT_IMPLEMENTATION=1',
             ],
             'sources': [
                 'public/gtk/WebInputEventFactory.h',
@@ -150,6 +182,7 @@
                 'public/WebKitClient.h',
                 'public/WebLabelElement.h',
                 'public/WebLocalizedString.h',
+                'public/WebMediaElement.h',
                 'public/WebMediaPlayer.h',
                 'public/WebMediaPlayerAction.h',
                 'public/WebMediaPlayerClient.h',
@@ -166,6 +199,7 @@
                 'public/WebNotification.h',
                 'public/WebNotificationPresenter.h',
                 'public/WebNotificationPermissionCallback.h',
+                'public/WebOptionElement.h',
                 'public/WebPageSerializer.h',
                 'public/WebPageSerializerClient.h',
                 'public/WebPasswordAutocompleteListener.h',
@@ -268,6 +302,8 @@
                 'src/FrameLoaderClientImpl.cpp',
                 'src/FrameLoaderClientImpl.h',
                 'src/GLES2Context.cpp',
+                'src/GLES2ContextInternal.cpp',
+                'src/GLES2ContextInternal.h',
                 'src/gtk/WebFontInfo.cpp',
                 'src/gtk/WebFontInfo.h',
                 'src/gtk/WebInputEventFactory.cpp',
@@ -380,6 +416,7 @@
                 'src/WebInputEventConversion.h',
                 'src/WebKit.cpp',
                 'src/WebLabelElement.cpp',
+                'src/WebMediaElement.cpp',
                 'src/WebMediaPlayerClientImpl.cpp',
                 'src/WebMediaPlayerClientImpl.h',
                 'src/WebMutationEvent.cpp',
@@ -387,6 +424,7 @@
                 'src/WebNodeCollection.cpp',
                 'src/WebNodeList.cpp',
                 'src/WebNotification.cpp',
+                'src/WebOptionElement.cpp',
                 'src/WebPageSerializer.cpp',
                 'src/WebPageSerializerImpl.cpp',
                 'src/WebPageSerializerImpl.h',
@@ -452,10 +490,10 @@
                         ['component=="shared_library"', {
                             'defines': [
                                 'WEBKIT_DLL',
-                                'USING_V8_SHARED',
                             ],
                             'dependencies': [
                                 '../../WebCore/WebCore.gyp/WebCore.gyp:webcore_bindings',
+                                '<(chromium_src_dir)/build/temp_gyp/googleurl.gyp:googleurl',
                                 '<(chromium_src_dir)/gpu/gpu.gyp:gles2_c_lib',
                                 '<(chromium_src_dir)/third_party/icu/icu.gyp:*',
                                 '<(chromium_src_dir)/third_party/libjpeg/libjpeg.gyp:libjpeg',
@@ -466,6 +504,15 @@
                                 '<(chromium_src_dir)/third_party/nss/nss.gyp:*',
                                 '<(chromium_src_dir)/third_party/ots/ots.gyp:ots',
                                 '<(chromium_src_dir)/third_party/zlib/zlib.gyp:zlib',
+                                '<(chromium_src_dir)/v8/tools/gyp/v8.gyp:v8',
+                            ],
+                            'direct_dependent_settings': {
+                                'defines': [
+                                    'WEBKIT_DLL',
+                                ],
+                            },
+                            'export_dependent_settings': [
+                                '<(chromium_src_dir)/build/temp_gyp/googleurl.gyp:googleurl',
                                 '<(chromium_src_dir)/v8/tools/gyp/v8.gyp:v8',
                             ],
                         }],
@@ -541,6 +588,79 @@
                 }],
             ],
         },
+
+        {
+            'target_name': 'inspector_resources',
+            'type': 'none',
+            'dependencies': ['devtools_html'],
+            'conditions': [
+                ['debug_devtools==0', {
+                    'dependencies': ['concatenated_devtools_js'],
+                }],
+            ],
+            'copies': [
+                {
+                    'destination': '<(PRODUCT_DIR)/resources/inspector',
+                    'files': [
+                        '<@(devtools_files)',
+                        '<@(webinspector_files)',
+                    ],
+                    'conditions': [
+                        ['debug_devtools==0', {
+                            'files/': [['exclude', '\\.js$']],
+                        }],
+                    ],
+                },
+                {
+                    'destination': '<(PRODUCT_DIR)/resources/inspector/Images',
+                    'files': [
+                        '<@(webinspector_image_files)',
+                        '<@(devtools_image_files)',
+                    ],
+               },
+            ],
+        },
+        {
+            'target_name': 'devtools_html',
+            'type': 'none',
+            'sources': ['<(PRODUCT_DIR)/resources/inspector/devtools.html'],
+            'actions': [{
+                'action_name': 'devtools_html',
+                'inputs': [
+                    '<(chromium_src_dir)/webkit/build/generate_devtools_html.py',
+                    # See issue 29695: WebKit.gypi is a source file for devtools.html.
+                    'WebKit.gypi',
+                    '../../WebCore/inspector/front-end/inspector.html',
+                ],
+                'outputs': ['<(PRODUCT_DIR)/resources/inspector/devtools.html'],
+                'action': ['python', '<@(_inputs)', '<@(_outputs)', '<@(devtools_files)'],
+            }],
+        },
+        {
+            'target_name': 'concatenated_devtools_js',
+            'type': 'none',
+            'dependencies': ['devtools_html'],
+            'sources': ['<(PRODUCT_DIR)/resources/inspector/DevTools.js'],
+            'actions': [{
+                'action_name': 'concatenate_devtools_js',
+                'script_name': '<(chromium_src_dir)/webkit/build/concatenate_js_files.py',
+                'input_page': '<(PRODUCT_DIR)/resources/inspector/devtools.html',
+                'inputs': [
+                    '<@(_script_name)',
+                    '<@(_input_page)',
+                    '<@(webinspector_files)',
+                    '<@(devtools_files)',
+                ],
+                'search_path': [
+                    '../../WebCore/inspector/front-end',
+                    'src/js',
+                    '<(chromium_src_dir)/v8/tools',
+                ],
+                'outputs': ['<(PRODUCT_DIR)/resources/inspector/DevTools.js'],
+                'action': ['python', '<@(_script_name)', '<@(_input_page)', '<@(_search_path)', '<@(_outputs)'],
+            }],
+        },
+
         {
             'target_name': 'webkit_unit_tests',
             'conditions': [
@@ -609,10 +729,11 @@
             'mac_bundle': 1,
             'dependencies': [
                 'ImageDiff',
+                'inspector_resources',
                 'webkit',
                 '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:wtf_config',
                 '<(chromium_src_dir)/third_party/icu/icu.gyp:icuuc',
-                '<(chromium_src_dir)/webkit/support/webkit_support.gyp:npapi_layout_test_plugin',
+                '<(chromium_src_dir)/webkit/support/webkit_support.gyp:copy_npapi_layout_test_plugin',
                 '<(chromium_src_dir)/webkit/support/webkit_support.gyp:webkit_support',
                 '<(chromium_src_dir)/gpu/gpu.gyp:gles2_c_lib'
             ],
@@ -658,16 +779,6 @@
                     'copies': [{
                         'destination': '<(PRODUCT_DIR)',
                         'files': ['<(ahem_path)'],
-                    }, {
-                        # This should really be done in the 'npapi_layout_test_plugin'
-                        # target, but the current VS generator handles 'copies'
-                        # settings as AdditionalDependencies, which means that
-                        # when it's over there, it tries to do the copy *before*
-                        # the file is built, instead of after.  We work around this
-                        # by attaching the copy here, since it depends on that
-                        # target.
-                        'destination': '<(PRODUCT_DIR)/plugins',
-                        'files': ['<(PRODUCT_DIR)/npapi_layout_test_plugin.dll'],
                     }],
                 },{ # OS!="win"
                     'sources/': [
@@ -712,10 +823,6 @@
                         '../../WebKitTools/DumpRenderTree/fonts/WebKitWeightWatcher900.ttf',
                         '<(SHARED_INTERMEDIATE_DIR)/webkit/textAreaResizeCorner.png',
                     ],
-                    'copies': [{
-                        'destination': '<(PRODUCT_DIR)/DumpRenderTree.app/Contents/PlugIns/',
-                        'files': ['<(PRODUCT_DIR)/TestNetscapePlugIn.plugin/'],
-                    }],
                 },{ # OS!="mac"
                     'sources/': [
                         # .mm is already excluded by common.gypi
@@ -730,9 +837,6 @@
                             '../../WebKitTools/DumpRenderTree/chromium/fonts.conf',
                             '<(INTERMEDIATE_DIR)/repack/DumpRenderTree.pak',
                         ]
-                    }, {
-                        'destination': '<(PRODUCT_DIR)/plugins',
-                        'files': ['<(PRODUCT_DIR)/libnpapi_layout_test_plugin.so'],
                     }],
                 },{ # OS!="linux" and OS!="freebsd" and OS!="openbsd" and OS!="solaris"
                     'sources/': [

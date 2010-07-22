@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="windows-1251"?>
+<?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="8.00"
@@ -364,7 +364,7 @@
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
 						DisableSpecificWarnings="4065;4273;4565;4701;4702"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -374,7 +374,7 @@
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
 						DisableSpecificWarnings="4065;4273;4565;4701;4702"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -384,7 +384,7 @@
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
 						DisableSpecificWarnings="4065;4273;4565;4701;4702"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -394,7 +394,7 @@
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
 						DisableSpecificWarnings="4065;4273;4565;4701;4702"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -404,7 +404,7 @@
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
 						DisableSpecificWarnings="4065;4273;4565;4701;4702"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -414,7 +414,7 @@
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
 						DisableSpecificWarnings="4065;4273;4565;4701;4702"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 			</File>
@@ -3345,6 +3345,118 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMMimeType.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMMimeType.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMMimeTypeArray.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMMimeTypeArray.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMParser.cpp"
 				>
 				<FileConfiguration
@@ -3398,6 +3510,118 @@
 			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMParser.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMPlugin.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMPlugin.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMPluginArray.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMPluginArray.h"
 				>
 			</File>
 			<File
@@ -9173,118 +9397,6 @@
 				>
 			</File>
 			<File
-				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMMimeType.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Internal|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMMimeType.h"
-				>
-			</File>
-			<File
-				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMMimeTypeArray.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Internal|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMMimeTypeArray.h"
-				>
-			</File>
-			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSMouseEvent.cpp"
 				>
 				<FileConfiguration
@@ -10122,118 +10234,6 @@
 			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSPerformance.h"
-				>
-			</File>
-			<File
-				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMPlugin.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Internal|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMPlugin.h"
-				>
-			</File>
-			<File
-				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMPluginArray.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Internal|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_Cairo|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release_Cairo|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug_All|Win32"
-					ExcludedFromBuild="true"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-					/>
-				</FileConfiguration>
-			</File>
-			<File
-				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMPluginArray.h"
 				>
 			</File>
 			<File
@@ -20741,6 +20741,14 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\RemoteInspectorFrontend.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\RemoteInspectorFrontend.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\SVGElementFactory.cpp"
 				>
 			</File>
@@ -20758,14 +20766,6 @@
 			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\UserAgentStyleSheets.h"
-				>
-			</File>
-			<File
-				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\RemoteInspectorFrontend2.cpp"
-				>
-			</File>
-			<File
-				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\RemoteInspectorFrontend2.h"
 				>
 			</File>
 			<File
@@ -20910,7 +20910,7 @@
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
 						DisableSpecificWarnings="4065;4273;4565;4701;4702"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -20920,7 +20920,7 @@
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
 						DisableSpecificWarnings="4065;4273;4565;4701;4702"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -20930,7 +20930,7 @@
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
 						DisableSpecificWarnings="4065;4273;4565;4701;4702"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -20940,7 +20940,7 @@
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
 						DisableSpecificWarnings="4065;4273;4565;4701;4702"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -20950,7 +20950,7 @@
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
 						DisableSpecificWarnings="4065;4273;4565;4701;4702"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -20960,7 +20960,7 @@
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
 						DisableSpecificWarnings="4065;4273;4565;4701;4702"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 			</File>
@@ -22417,19 +22417,19 @@
 				>
 			</File>
 			<File
-				RelativePath="..\page\Performance.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\page\Performance.h"
-				>
-			</File>
-			<File
 				RelativePath="..\page\PageGroupLoadDeferrer.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\page\PageGroupLoadDeferrer.h"
+				>
+			</File>
+			<File
+				RelativePath="..\page\Performance.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\page\Performance.h"
 				>
 			</File>
 			<File
@@ -22498,6 +22498,26 @@
 			</File>
 			<File
 				RelativePath="..\page\SpatialNavigation.h"
+				>
+			</File>
+			<File
+				RelativePath="..\page\SpeechInput.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\page\SpeechInput.h"
+				>
+			</File>
+			<File
+				RelativePath="..\page\SpeechInputClient.h"
+				>
+			</File>
+			<File
+				RelativePath="..\page\SpeechInputClientListener.h"
+				>
+			</File>
+			<File
+				RelativePath="..\page\SpeechInputListener.h"
 				>
 			</File>
 			<File
@@ -23824,7 +23844,7 @@
 						<Tool
 							Name="VCCLCompilerTool"
 							UsePrecompiledHeader="0"
-							ForcedIncludeFiles="$(NOINHERIT)"
+							ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 						/>
 					</FileConfiguration>
 					<FileConfiguration
@@ -23833,7 +23853,7 @@
 						<Tool
 							Name="VCCLCompilerTool"
 							UsePrecompiledHeader="0"
-							ForcedIncludeFiles="$(NOINHERIT)"
+							ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 						/>
 					</FileConfiguration>
 					<FileConfiguration
@@ -23842,7 +23862,7 @@
 						<Tool
 							Name="VCCLCompilerTool"
 							UsePrecompiledHeader="0"
-							ForcedIncludeFiles="$(NOINHERIT)"
+							ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 						/>
 					</FileConfiguration>
 					<FileConfiguration
@@ -23851,7 +23871,7 @@
 						<Tool
 							Name="VCCLCompilerTool"
 							UsePrecompiledHeader="0"
-							ForcedIncludeFiles="$(NOINHERIT)"
+							ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 						/>
 					</FileConfiguration>
 					<FileConfiguration
@@ -23860,7 +23880,7 @@
 						<Tool
 							Name="VCCLCompilerTool"
 							UsePrecompiledHeader="0"
-							ForcedIncludeFiles="$(NOINHERIT)"
+							ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 						/>
 					</FileConfiguration>
 					<FileConfiguration
@@ -23869,7 +23889,7 @@
 						<Tool
 							Name="VCCLCompilerTool"
 							UsePrecompiledHeader="0"
-							ForcedIncludeFiles="$(NOINHERIT)"
+							ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 						/>
 					</FileConfiguration>
 				</File>
@@ -27141,6 +27161,14 @@
 				</File>
 				<File
 					RelativePath="..\platform\text\Hyphenation.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\LineEnding.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\text\LineEnding.h"
 					>
 				</File>
 				<File
@@ -32059,7 +32087,7 @@
 					<Tool
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -32068,7 +32096,7 @@
 					<Tool
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -32077,7 +32105,7 @@
 					<Tool
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -32086,7 +32114,7 @@
 					<Tool
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -32095,7 +32123,7 @@
 					<Tool
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 				<FileConfiguration
@@ -32104,7 +32132,7 @@
 					<Tool
 						Name="VCCLCompilerTool"
 						UsePrecompiledHeader="0"
-						ForcedIncludeFiles="$(NOINHERIT)"
+						ForcedIncludeFiles="$(NOINHERIT);ICUVersion.h"
 					/>
 				</FileConfiguration>
 			</File>
@@ -32393,11 +32421,27 @@
 				>
 			</File>
 			<File
+				RelativePath="..\dom\DatasetDOMStringMap.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\DatasetDOMStringMap.h"
+				>
+			</File>
+			<File
 				RelativePath="..\dom\DecodedDataDocumentParser.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\dom\DecodedDataDocumentParser.h"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\DeviceOrientation.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\DeviceOrientation.h"
 				>
 			</File>
 			<File
@@ -32418,14 +32462,6 @@
 			</File>
 			<File
 				RelativePath="..\dom\DeviceOrientationEvent.h"
-				>
-			</File>
-			<File
-				RelativePath="..\dom\DatasetDOMStringMap.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\dom\DatasetDOMStringMap.h"
 				>
 			</File>
 			<File
@@ -36713,6 +36749,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\html\HTMLConstructionSite.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\HTMLConstructionSite.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\HTMLDataGridCellElement.cpp"
 				>
 				<FileConfiguration
@@ -37233,15 +37277,15 @@
 				>
 			</File>
 			<File
+				RelativePath="..\html\HTMLElementsAllInOne.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\html\HTMLElementStack.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\html\HTMLElementStack.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLElementsAllInOne.cpp"
 				>
 			</File>
 			<File
@@ -40385,14 +40429,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\html\HTMLConstructionSite.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLConstructionSite.h"
-				>
-			</File>
-			<File
 				RelativePath="..\html\HTMLUListElement.cpp"
 				>
 				<FileConfiguration
@@ -40605,6 +40641,18 @@
 				>
 			</File>
 			<Filter
+				Name="generic"
+				>
+				<File
+					RelativePath="..\bindings\generic\RuntimeEnabledFeatures.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\generic\RuntimeEnabledFeatures.h"
+					>
+				</File>
+			</Filter>
+			<Filter
 				Name="js"
 				>
 				<File
@@ -40781,6 +40829,62 @@
 				</File>
 				<File
 					RelativePath="..\bindings\js\GCController.h"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\IDBBindingUtilities.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Internal|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_All|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
+					RelativePath="..\bindings\js\IDBBindingUtilities.h"
 					>
 				</File>
 				<File
@@ -42108,6 +42212,58 @@
 					</FileConfiguration>
 				</File>
 				<File
+					RelativePath="..\bindings\js\JSDeviceOrientationEventCustom.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Internal|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_All|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
 					RelativePath="..\bindings\js\JSDocumentCustom.cpp"
 					>
 					<FileConfiguration
@@ -42374,6 +42530,162 @@
 				<File
 					RelativePath="..\bindings\js\JSDOMGlobalObject.h"
 					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSDOMMimeTypeArrayCustom.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Internal|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_All|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSDOMPluginArrayCustom.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Internal|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_All|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSDOMPluginCustom.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Internal|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_All|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
 				</File>
 				<File
 					RelativePath="..\bindings\js\JSDOMStringMapCustom.cpp"
@@ -43980,170 +44292,6 @@
 					</FileConfiguration>
 				</File>
 				<File
-						RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBKey.cpp"
-						>
-						<FileConfiguration
-							Name="Debug|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Release|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Debug_Internal|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Debug_Cairo|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Release_Cairo|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Debug_All|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-					</File>
-					<File
-						RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBKey.h"
-						>
-					</File>
-					<File
-						RelativePath="..\bindings\js\JSIDBKeyCustom.cpp"
-						>
-						<FileConfiguration
-							Name="Debug|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Release|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Debug_Internal|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Debug_Cairo|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Release_Cairo|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Debug_All|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-					</File>
-					<File
-						RelativePath="..\bindings\js\IDBBindingUtilities.cpp"
-						>
-						<FileConfiguration
-							Name="Debug|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Release|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Debug_Internal|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Debug_Cairo|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Release_Cairo|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-						<FileConfiguration
-							Name="Debug_All|Win32"
-							ExcludedFromBuild="true"
-							>
-							<Tool
-								Name="VCCLCompilerTool"
-							/>
-						</FileConfiguration>
-					</File>
-					<File
-						RelativePath="..\bindings\js\IDBBindingUtilities.h"
-						>
-					</File>
-					<File
 					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBDatabase.cpp"
 					>
 					<FileConfiguration
@@ -44482,6 +44630,114 @@
 				<File
 					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBIndexRequest.h"
 					>
+				</File>
+				<File
+					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBKey.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Internal|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_All|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
+					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBKey.h"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSIDBKeyCustom.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Internal|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_All|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
 				</File>
 				<File
 					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBKeyRange.cpp"
@@ -45404,58 +45660,6 @@
 					>
 				</File>
 				<File
-					RelativePath="..\bindings\js\JSDOMMimeTypeArrayCustom.cpp"
-					>
-					<FileConfiguration
-						Name="Debug|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Internal|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_All|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-				</File>
-				<File
 					RelativePath="..\bindings\js\JSNamedNodeMapCustom.cpp"
 					>
 					<FileConfiguration
@@ -45882,110 +46086,6 @@
 				<File
 					RelativePath="..\bindings\js\JSOptionConstructor.h"
 					>
-				</File>
-				<File
-					RelativePath="..\bindings\js\JSDOMPluginArrayCustom.cpp"
-					>
-					<FileConfiguration
-						Name="Debug|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Internal|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_All|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-				</File>
-				<File
-					RelativePath="..\bindings\js\JSDOMPluginCustom.cpp"
-					>
-					<FileConfiguration
-						Name="Debug|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Internal|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_All|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
 				</File>
 				<File
 					RelativePath="..\bindings\js\JSPluginElementFunctions.cpp"
@@ -48153,14 +48253,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\plugins\npapi.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\plugins\npfunctions.h"
-				>
-			</File>
-			<File
 				RelativePath="..\plugins\DOMPlugin.cpp"
 				>
 			</File>
@@ -48174,6 +48266,14 @@
 			</File>
 			<File
 				RelativePath="..\plugins\DOMPluginArray.h"
+				>
+			</File>
+			<File
+				RelativePath="..\plugins\npapi.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\plugins\npfunctions.h"
 				>
 			</File>
 			<File
@@ -48841,7 +48941,19 @@
 				>
 			</File>
 			<File
+				RelativePath="..\svg\SVGPathBuilder.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathConsumer.h"
+				>
+			</File>
+			<File
 				RelativePath="..\svg\SVGPathElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathParser.h"
 				>
 			</File>
 			<File
@@ -48886,6 +48998,10 @@
 			</File>
 			<File
 				RelativePath="..\svg\SVGPathSegList.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSegListBuilder.h"
 				>
 			</File>
 			<File
@@ -50018,6 +50134,14 @@
 			</File>
 			<File
 				RelativePath="..\storage\SQLStatementErrorCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\SQLStatementSync.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\SQLStatementSync.h"
 				>
 			</File>
 			<File

@@ -179,12 +179,23 @@ PassRefPtr<Widget> FrameLoader::loadMediaPlayerProxyPlugin(Node* node, const KUR
 
     if (widget && renderer) {
         renderer->setWidget(widget);
-        m_containsPlugIns = true;
         renderer->node()->setNeedsStyleRecalc(SyntheticStyleChange);
     }
+    m_containsPlugIns = true;
 
     return widget ? widget.release() : 0;
 }
+
+void FrameLoader::hideMediaPlayerProxyPlugin(Widget* widget)
+{
+    m_client->hideMediaPlayerProxyPlugin(widget);
+}
+
+void FrameLoader::showMediaPlayerProxyPlugin(Widget* widget)
+{
+    m_client->showMediaPlayerProxyPlugin(widget);
+}
+
 #endif // ENABLE(PLUGIN_PROXY_FOR_VIDEO)
 
 PassRefPtr<Widget> SubframeLoader::createJavaAppletWidget(const IntSize& size, HTMLAppletElement* element, const HashMap<String, String>& args)
@@ -272,7 +283,7 @@ Frame* SubframeLoader::loadSubframe(HTMLFrameOwnerElement* ownerElement, const K
     // FIXME: In this case the Frame will have finished loading before 
     // it's being added to the child list. It would be a good idea to
     // create the child first, then invoke the loader separately.
-    if (frame->loader()->state() == FrameStateComplete)
+    if (frame->loader()->state() == FrameStateComplete && !frame->loader()->policyDocumentLoader())
         frame->loader()->checkCompleted();
 
     return frame.get();

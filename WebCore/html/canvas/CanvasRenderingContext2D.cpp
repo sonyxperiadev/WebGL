@@ -172,6 +172,9 @@ void CanvasRenderingContext2D::setStrokeStyle(PassRefPtr<CanvasStyle> style)
     if (!style)
         return;
 
+    if (state().m_strokeStyle && state().m_strokeStyle->isEquivalentColor(*style))
+        return;
+
     if (canvas()->originClean()) {
         if (CanvasPattern* pattern = style->canvasPattern()) {
             if (!pattern->originClean())
@@ -184,6 +187,7 @@ void CanvasRenderingContext2D::setStrokeStyle(PassRefPtr<CanvasStyle> style)
     if (!c)
         return;
     state().m_strokeStyle->applyStrokeColor(c);
+    state().m_unparsedStrokeColor = String();
 }
 
 CanvasStyle* CanvasRenderingContext2D::fillStyle() const
@@ -194,6 +198,9 @@ CanvasStyle* CanvasRenderingContext2D::fillStyle() const
 void CanvasRenderingContext2D::setFillStyle(PassRefPtr<CanvasStyle> style)
 {
     if (!style)
+        return;
+
+    if (state().m_fillStyle && state().m_fillStyle->isEquivalentColor(*style))
         return;
  
     if (canvas()->originClean()) {
@@ -208,6 +215,7 @@ void CanvasRenderingContext2D::setFillStyle(PassRefPtr<CanvasStyle> style)
     if (!c)
         return;
     state().m_fillStyle->applyFillColor(c);
+    state().m_unparsedFillColor = String();
 }
 
 float CanvasRenderingContext2D::lineWidth() const
@@ -478,7 +486,10 @@ void CanvasRenderingContext2D::setTransform(float m11, float m12, float m21, flo
 
 void CanvasRenderingContext2D::setStrokeColor(const String& color)
 {
+    if (color == state().m_unparsedStrokeColor)
+        return;
     setStrokeStyle(CanvasStyle::create(color));
+    state().m_unparsedStrokeColor = color;
 }
 
 void CanvasRenderingContext2D::setStrokeColor(float grayLevel)
@@ -508,7 +519,10 @@ void CanvasRenderingContext2D::setStrokeColor(float c, float m, float y, float k
 
 void CanvasRenderingContext2D::setFillColor(const String& color)
 {
+    if (color == state().m_unparsedFillColor)
+        return;
     setFillStyle(CanvasStyle::create(color));
+    state().m_unparsedFillColor = color;
 }
 
 void CanvasRenderingContext2D::setFillColor(float grayLevel)
@@ -543,7 +557,12 @@ void CanvasRenderingContext2D::beginPath()
 
 void CanvasRenderingContext2D::closePath()
 {
-    m_path.closeSubpath();
+    if (m_path.isEmpty())
+        return;
+
+    FloatRect boundRect = m_path.boundingRect();
+    if (boundRect.width() || boundRect.height())
+        m_path.closeSubpath();
 }
 
 void CanvasRenderingContext2D::moveTo(float x, float y)
@@ -561,9 +580,11 @@ void CanvasRenderingContext2D::lineTo(float x, float y)
         return;
     if (!state().m_invertibleCTM)
         return;
+
+    FloatPoint p1 = FloatPoint(x, y);
     if (!m_path.hasCurrentPoint())
-        m_path.moveTo(FloatPoint(x, y));
-    else
+        m_path.moveTo(p1);
+    else if (p1 != m_path.currentPoint())
         m_path.addLineTo(FloatPoint(x, y));
 }
 
@@ -575,7 +596,10 @@ void CanvasRenderingContext2D::quadraticCurveTo(float cpx, float cpy, float x, f
         return;
     if (!m_path.hasCurrentPoint())
         m_path.moveTo(FloatPoint(cpx, cpy));
-    m_path.addQuadCurveTo(FloatPoint(cpx, cpy), FloatPoint(x, y));
+
+    FloatPoint p1 = FloatPoint(x, y);
+    if (p1 != m_path.currentPoint())
+        m_path.addQuadCurveTo(FloatPoint(cpx, cpy), p1);
 }
 
 void CanvasRenderingContext2D::bezierCurveTo(float cp1x, float cp1y, float cp2x, float cp2y, float x, float y)
@@ -586,22 +610,35 @@ void CanvasRenderingContext2D::bezierCurveTo(float cp1x, float cp1y, float cp2x,
         return;
     if (!m_path.hasCurrentPoint())
         m_path.moveTo(FloatPoint(cp1x, cp1y));
-    m_path.addBezierCurveTo(FloatPoint(cp1x, cp1y), FloatPoint(cp2x, cp2y), FloatPoint(x, y));
+
+    FloatPoint p1 = FloatPoint(x, y);
+    if (p1 != m_path.currentPoint())
+        m_path.addBezierCurveTo(FloatPoint(cp1x, cp1y), FloatPoint(cp2x, cp2y), p1);
 }
 
-void CanvasRenderingContext2D::arcTo(float x0, float y0, float x1, float y1, float r, ExceptionCode& ec)
+void CanvasRenderingContext2D::arcTo(float x1, float y1, float x2, float y2, float r, ExceptionCode& ec)
 {
     ec = 0;
-    if (!isfinite(x0) | !isfinite(y0) | !isfinite(x1) | !isfinite(y1) | !isfinite(r))
+    if (!isfinite(x1) | !isfinite(y1) | !isfinite(x2) | !isfinite(y2) | !isfinite(r))
         return;
     
     if (r < 0) {
         ec = INDEX_SIZE_ERR;
         return;
     }
+    
     if (!state().m_invertibleCTM)
         return;
-    m_path.addArcTo(FloatPoint(x0, y0), FloatPoint(x1, y1), r);
+    
+    FloatPoint p1 = FloatPoint(x1, y1);
+    FloatPoint p2 = FloatPoint(x2, y2);
+
+    if (!m_path.hasCurrentPoint())
+        m_path.moveTo(p1);
+    else if (p1 == m_path.currentPoint() || p1 == p2 || !r)
+        lineTo(x1, y1);
+    else
+        m_path.addArcTo(p1, p2, r);
 }
 
 void CanvasRenderingContext2D::arc(float x, float y, float r, float sa, float ea, bool anticlockwise, ExceptionCode& ec)
@@ -646,10 +683,27 @@ static bool validateRectForCanvas(float& x, float& y, float& width, float& heigh
 
 void CanvasRenderingContext2D::rect(float x, float y, float width, float height)
 {
-    if (!validateRectForCanvas(x, y, width, height))
-        return;
     if (!state().m_invertibleCTM)
         return;
+
+    if (!isfinite(x) || !isfinite(y) || !isfinite(width) || !isfinite(height))
+        return;
+
+    if (!width && !height) {
+        m_path.moveTo(FloatPoint(x, y));
+        return;
+    }
+
+    if (width < 0) {
+        width = -width;
+        x -= width;
+    }
+
+    if (height < 0) {
+        height = -height;
+        y -= height;
+    }
+
     m_path.addRect(FloatRect(x, y, width, height));
 }
 
@@ -1126,6 +1180,8 @@ void CanvasRenderingContext2D::drawImage(HTMLCanvasElement* sourceCanvas, const 
     if (!sourceCanvas->originClean())
         canvas()->setOriginTainted();
 
+    sourceCanvas->makeRenderingResultsAvailable();
+
     c->drawImage(buffer->image(), DeviceColorSpace, destRect, sourceRect, state().m_globalComposite);
     willDraw(destRect); // This call comes after drawImage, since the buffer we draw into may be our own, and we need to make sure it is dirty.
                         // FIXME: Arguably willDraw should become didDraw and occur after drawing calls and not before them to avoid problems like this.
@@ -1344,7 +1400,7 @@ void CanvasRenderingContext2D::willDraw(const FloatRect& r, unsigned options)
         dirtyRect = ctm.mapRect(r);
     }
     
-    if (options & CanvasWillDrawApplyShadow) {
+    if (options & CanvasWillDrawApplyShadow && alphaChannel(state().m_shadowColor)) {
         // The shadow gets applied after transformation
         FloatRect shadowRect(dirtyRect);
         shadowRect.move(state().m_shadowOffset);

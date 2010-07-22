@@ -42,7 +42,13 @@
 
 void dumpWebViewAsPixelsAndCompareWithExpected(const std::string& expectedHash)
 {
-    RefPtr<BitmapContext> context = createBitmapContextFromWebView(gLayoutTestController->testOnscreen(), gLayoutTestController->testRepaint(), gLayoutTestController->testRepaintSweepHorizontally(), gLayoutTestController->dumpSelectionRect());
+    RefPtr<BitmapContext> context;
+#if PLATFORM(MAC)
+    if (gLayoutTestController->isPrinting())
+        context = createPagedBitmapContext();
+    else
+#endif
+        context = createBitmapContextFromWebView(gLayoutTestController->testOnscreen(), gLayoutTestController->testRepaint(), gLayoutTestController->testRepaintSweepHorizontally(), gLayoutTestController->dumpSelectionRect());
     ASSERT(context);
     
     // Compute the hash of the bitmap context pixels

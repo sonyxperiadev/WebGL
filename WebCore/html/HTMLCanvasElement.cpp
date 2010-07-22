@@ -66,6 +66,9 @@ static const int DefaultHeight = 150;
 // in exchange for a smaller maximum canvas size.
 static const float MaxCanvasArea = 32768 * 8192; // Maximum canvas area in CSS pixels
 
+//In Skia, we will also limit width/height to 32767.
+static const float MaxSkiaDim = 32767.0F; // Maximum width/height in CSS pixels.
+
 HTMLCanvasElement::HTMLCanvasElement(const QualifiedName& tagName, Document* document)
     : HTMLElement(tagName, document)
     , m_observer(0)
@@ -275,7 +278,7 @@ void HTMLCanvasElement::paint(GraphicsContext* context, const IntRect& r)
     if (hasCreatedImageBuffer()) {
         ImageBuffer* imageBuffer = buffer();
         if (imageBuffer) {
-            Image* image = imageBuffer->image();
+            Image* image = imageBuffer->imageForRendering();
             if (image)
                 context->drawImage(image, DeviceColorSpace, r);
         }
@@ -293,6 +296,16 @@ bool HTMLCanvasElement::is3D() const
     return m_context && m_context->is3d();
 }
 #endif
+
+void HTMLCanvasElement::makeRenderingResultsAvailable()
+{
+#if ENABLE(3D_CANVAS)
+    if (is3D()) {
+        WebGLRenderingContext* context3d = reinterpret_cast<WebGLRenderingContext*>(renderingContext());
+        context3d->paintRenderingResultsToCanvas();
+    }
+#endif
+}
 
 void HTMLCanvasElement::recalcStyle(StyleChange change)
 {
@@ -324,6 +337,8 @@ String HTMLCanvasElement::toDataURL(const String& mimeType, const double* qualit
 
     String lowercaseMimeType = mimeType.lower();
 
+    makeRenderingResultsAvailable();
+
     // FIXME: Make isSupportedImageMIMETypeForEncoding threadsafe (to allow this method to be used on a worker thread).
     if (mimeType.isNull() || !MIMETypeRegistry::isSupportedImageMIMETypeForEncoding(lowercaseMimeType))
         return buffer()->toDataURL("image/png");
@@ -343,6 +358,11 @@ IntSize HTMLCanvasElement::convertLogicalToDevice(const FloatSize& logicalSize) 
 
     if (!(wf >= 1 && hf >= 1 && wf * hf <= MaxCanvasArea))
         return IntSize();
+
+#if PLATFORM(SKIA)
+    if (wf > MaxSkiaDim || hf > MaxSkiaDim)
+        return IntSize();
+#endif
 
     return IntSize(static_cast<unsigned>(wf), static_cast<unsigned>(hf));
 }

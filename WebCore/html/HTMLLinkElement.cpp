@@ -200,6 +200,7 @@ void HTMLLinkElement::process()
     if (m_relAttribute.m_isIcon && m_url.isValid() && !m_url.isEmpty())
         document()->setIconURL(m_url.string(), type);
 
+<<<<<<< HEAD:WebCore/html/HTMLLinkElement.cpp
 #ifdef ANDROID_APPLE_TOUCH_ICON
     if ((m_relAttribute.m_isTouchIcon || m_relAttribute.m_isPrecomposedTouchIcon) && m_url.isValid()
         && !m_url.isEmpty() && document()->frame())
@@ -209,6 +210,9 @@ void HTMLLinkElement::process()
 #endif
 
     if (m_relAttribute.m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())
+=======
+    if (m_relAttribute.m_isDNSPrefetch && document()->isDNSPrefetchEnabled() && m_url.isValid() && !m_url.isEmpty())
+>>>>>>> webkit.org at r63859:WebCore/html/HTMLLinkElement.cpp
         ResourceHandle::prepareForURL(m_url);
 
 #if ENABLE(LINK_PREFETCH)

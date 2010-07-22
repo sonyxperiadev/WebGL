@@ -29,6 +29,7 @@
 
 #include "AXObjectCache.h"
 #include "Attribute.h"
+#include "BeforeTextInsertedEvent.h"
 #include "CSSPropertyNames.h"
 #include "ChromeClient.h"
 #include "DateComponents.h"
@@ -40,6 +41,7 @@
 #include "ExceptionCode.h"
 #include "File.h"
 #include "FileList.h"
+#include "FileSystem.h"
 #include "FocusController.h"
 #include "FormDataList.h"
 #include "Frame.h"
@@ -107,6 +109,12 @@ static const double weekDefaultStepBase = -259200000.0; // The first day of 1970
 
 static const double msecPerMinute = 60 * 1000;
 static const double msecPerSecond = 1000;
+
+static bool isNumberCharacter(UChar ch)
+{
+    return ch == '+' || ch == '-' || ch == '.' || ch == 'e' || ch == 'E'
+        || ch >= '0' && ch <= '9';
+}
 
 HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
     : HTMLTextFormControlElement(tagName, document, form)
@@ -1187,6 +1195,13 @@ void HTMLInputElement::parseMappedAttribute(Attribute* attr)
         m_hasNonEmptyList = !attr->isEmpty();
         // FIXME: we need to tell this change to a renderer if the attribute affects the appearance.
 #endif
+#if ENABLE(INPUT_SPEECH)
+    else if (attr->name() == speechAttr) {
+      if (renderer())
+          renderer()->updateFromElement();
+      setNeedsStyleRecalc();
+    }
+#endif
     else
         HTMLTextFormControlElement::parseMappedAttribute(attr);
 }
@@ -1978,8 +1993,30 @@ void HTMLInputElement::setFileListFromRenderer(const Vector<String>& paths)
 {
     m_fileList->clear();
     int size = paths.size();
+
+#if ENABLE(DIRECTORY_UPLOAD)
+    // If a directory is being selected, the UI allows a directory to be chosen
+    // and the paths provided here share a root directory somewhere up the tree;
+    // we want to store only the relative paths from that point.
+    if (webkitdirectory() && size > 0) {
+        String rootPath = directoryName(paths[0]);
+        // Find the common root path.
+        for (int i = 1; i < size; i++) {
+            while (!paths[i].startsWith(rootPath))
+                rootPath = directoryName(rootPath);
+        }
+        rootPath = directoryName(rootPath);
+        ASSERT(rootPath.length());
+        for (int i = 0; i < size; i++)
+            m_fileList->append(File::create(paths[i].substring(1 + rootPath.length()), paths[i]));
+    } else {
+        for (int i = 0; i < size; i++)
+            m_fileList->append(File::create(paths[i]));
+    }
+#else
     for (int i = 0; i < size; i++)
         m_fileList->append(File::create(paths[i]));
+#endif
 
     setFormControlValueMatchesRenderer(true);
     InputElement::notifyFormStateChanged(this);
@@ -2126,7 +2163,21 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
         }
     }
 
-    if (isTextField()
+    if (hasSpinButton() && evt->type() == eventNames().keydownEvent && evt->isKeyboardEvent()) {
+        String key = static_cast<KeyboardEvent*>(evt)->keyIdentifier();
+        int step = 0;
+        if (key == "Up")
+            step = 1;
+        else if (key == "Down")
+            step = -1;
+        if (step) {
+            stepUpFromRenderer(step);
+            evt->setDefaultHandled();
+            return;
+        }
+    }
+ 
+   if (isTextField()
             && evt->type() == eventNames().keydownEvent
             && evt->isKeyboardEvent()
             && focused()
@@ -2382,7 +2433,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
     }
 
     if (evt->isBeforeTextInsertedEvent())
-        InputElement::handleBeforeTextInsertedEvent(m_data, this, this, evt);
+        handleBeforeTextInsertedEvent(evt);
 
     if (isTextField() && renderer() && (evt->isMouseEvent() || evt->isDragEvent() || evt->isWheelEvent() || evt->type() == eventNames().blurEvent || evt->type() == eventNames().focusEvent))
         toRenderTextControlSingleLine(renderer())->forwardEvent(evt);
@@ -2392,6 +2443,33 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
 
     if (!callBaseClassEarly && !evt->defaultHandled())
         HTMLFormControlElementWithState::defaultEventHandler(evt);
+}
+
+void HTMLInputElement::handleBeforeTextInsertedEvent(Event* event)
+{
+    if (inputType() == NUMBER) {
+        BeforeTextInsertedEvent* textEvent = static_cast<BeforeTextInsertedEvent*>(event);
+        unsigned length = textEvent->text().length();
+        bool hasInvalidChar = false;
+        for (unsigned i = 0; i < length; ++i) {
+            if (!isNumberCharacter(textEvent->text()[i])) {
+                hasInvalidChar = true;
+                break;
+            }
+        }
+        if (hasInvalidChar) {
+            Vector<UChar> stripped;
+            stripped.reserveCapacity(length);
+            for (unsigned i = 0; i < length; ++i) {
+                UChar ch = textEvent->text()[i];
+                if (!isNumberCharacter(ch))
+                    continue;
+                stripped.append(ch);
+            }
+            textEvent->setText(String::adopt(stripped));
+        }
+    }
+    InputElement::handleBeforeTextInsertedEvent(m_data, this, this, event);
 }
 
 PassRefPtr<HTMLFormElement> HTMLInputElement::createTemporaryFormForIsIndex()
@@ -2459,6 +2537,13 @@ bool HTMLInputElement::multiple() const
 {
     return !getAttribute(multipleAttr).isNull();
 }
+
+#if ENABLE(DIRECTORY_UPLOAD)
+bool HTMLInputElement::webkitdirectory() const
+{
+    return !getAttribute(webkitdirectoryAttr).isNull();
+}
+#endif
 
 void HTMLInputElement::setSize(unsigned size)
 {

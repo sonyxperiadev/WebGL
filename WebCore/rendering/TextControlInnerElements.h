@@ -28,9 +28,11 @@
 #define TextControlInnerElements_h
 
 #include "HTMLDivElement.h"
+#include "SpeechInputListener.h"
 
 namespace WebCore {
 
+class SpeechInput;
 class String;
 
 class TextControlInnerElement : public HTMLDivElement {
@@ -88,33 +90,50 @@ private:
 
 class SpinButtonElement : public TextControlInnerElement {
 public:
-    static PassRefPtr<SpinButtonElement> create(Node*);
+    enum UpDownState {
+        Indeterminate, // Hovered, but the event is not handled.
+        Down,
+        Up,
+    };
 
-    // FIXME: "Spin button on up button" is not a phrase with a single clear meaning.
-    // Need a name for this that makes it clearer.
-    bool onUpButton() const { return m_onUpButton; }
+    static PassRefPtr<SpinButtonElement> create(Node*);
+    UpDownState upDownState() const { return m_upDownState; }
 
 private:
     SpinButtonElement(Node*);
 
     virtual bool isSpinButtonElement() const { return true; }
-    virtual bool isEnabledFormControl() { return static_cast<Element*>(shadowAncestorNode())->isEnabledFormControl(); }
+    // FIXME: shadowAncestorNode() should be const.
+    virtual bool isEnabledFormControl() const { return static_cast<Element*>(const_cast<SpinButtonElement*>(this)->shadowAncestorNode())->isEnabledFormControl(); }
+    virtual bool isReadOnlyFormControl() const { return static_cast<Element*>(const_cast<SpinButtonElement*>(this)->shadowAncestorNode())->isReadOnlyFormControl(); }
     virtual void defaultEventHandler(Event*);
+    virtual void setHovered(bool = true);
 
     bool m_capturing;
-    bool m_onUpButton;
+    UpDownState m_upDownState;
 };
 
 #if ENABLE(INPUT_SPEECH)
 
-class InputFieldSpeechButtonElement : public TextControlInnerElement {
+class InputFieldSpeechButtonElement
+    : public TextControlInnerElement,
+      public SpeechInputListener {
 public:
     static PassRefPtr<InputFieldSpeechButtonElement> create(Document*);
 
     virtual void defaultEventHandler(Event*);
 
+    // SpeechInputListener methods.
+    void recordingComplete();
+    void setRecognitionResult(const String& result);
+
 private:
     InputFieldSpeechButtonElement(Document*);
+    virtual void detach();
+    SpeechInput* speechInput();
+
+    bool m_capturing;
+    OwnPtr<SpeechInput> m_speechInput;
 };
 
 #endif // ENABLE(INPUT_SPEECH)

@@ -42,7 +42,7 @@ class Element;
 
 class HTMLConstructionSite : public Noncopyable {
 public:
-    HTMLConstructionSite(Document*, FragmentScriptingPermission);
+    HTMLConstructionSite(Document*, FragmentScriptingPermission, bool isParsingFragment);
     ~HTMLConstructionSite();
 
     void insertDoctype(AtomicHTMLToken&);
@@ -55,6 +55,7 @@ public:
     void insertHTMLHtmlElement(AtomicHTMLToken&);
     void insertHTMLHeadElement(AtomicHTMLToken&);
     void insertHTMLBodyElement(AtomicHTMLToken&);
+    void insertHTMLFormElement(AtomicHTMLToken&);
     void insertScriptElement(AtomicHTMLToken&);
     void insertTextNode(const String&);
     void insertForeignElement(AtomicHTMLToken&, const AtomicString& namespaceURI);
@@ -64,7 +65,9 @@ public:
     void insertHTMLBodyStartTagInBody(AtomicHTMLToken&);
 
     PassRefPtr<Element> createHTMLElement(AtomicHTMLToken&);
+    PassRefPtr<Element> createHTMLElementFromElementRecord(HTMLElementStack::ElementRecord*);
 
+    bool shouldFosterParent() const;
     void fosterParent(Node*);
 
     bool indexOfFirstUnopenFormattingElement(unsigned& firstUnopenElementIndex) const;
@@ -81,18 +84,16 @@ public:
 
     Element* head() const { return m_head.get(); }
 
-    Element* form() const { return m_form.get(); }
-    PassRefPtr<Element> takeForm() { return m_form.release(); }
-
-    void setForm(PassRefPtr<Element> form) { m_form = form; }
+    HTMLFormElement* form() const { return m_form.get(); }
+    PassRefPtr<HTMLFormElement> takeForm();
 
     class RedirectToFosterParentGuard : public Noncopyable {
     public:
-        RedirectToFosterParentGuard(HTMLConstructionSite& tree, bool shouldRedirect)
+        RedirectToFosterParentGuard(HTMLConstructionSite& tree)
             : m_tree(tree)
             , m_wasRedirectingBefore(tree.m_redirectAttachToFosterParent)
         {
-            m_tree.m_redirectAttachToFosterParent = shouldRedirect;
+            m_tree.m_redirectAttachToFosterParent = true;
         }
 
         ~RedirectToFosterParentGuard()
@@ -113,21 +114,25 @@ private:
 
     template<typename ChildType>
     PassRefPtr<ChildType> attach(Node* parent, PassRefPtr<ChildType> child);
+    PassRefPtr<Element> attachToCurrent(PassRefPtr<Element>);
 
     void attachAtSite(const AttachmentSite&, PassRefPtr<Node> child);
     void findFosterSite(AttachmentSite&);
 
+    PassRefPtr<Element> createHTMLElementFromSavedElement(Element*);
     PassRefPtr<Element> createElement(AtomicHTMLToken&, const AtomicString& namespaceURI);
 
-    PassRefPtr<Element> createHTMLElementAndAttachToCurrent(AtomicHTMLToken&);
     void mergeAttributesFromTokenIntoElement(AtomicHTMLToken&, Element*);
+    void dispatchDocumentElementAvailableIfNeeded();
 
     Document* m_document;
     RefPtr<Element> m_head;
-    RefPtr<Element> m_form;
+    RefPtr<HTMLFormElement> m_form;
     mutable HTMLElementStack m_openElements;
     mutable HTMLFormattingElementList m_activeFormattingElements;
+
     FragmentScriptingPermission m_fragmentScriptingPermission;
+    bool m_isParsingFragment;
 
     // http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html#parsing-main-intable
     // In the "in table" insertion mode, we sometimes get into a state where

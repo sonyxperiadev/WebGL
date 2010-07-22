@@ -95,6 +95,7 @@
 #include <WebCore/HitTestRequest.h>
 #include <WebCore/HitTestResult.h>
 #include <WebCore/IntRect.h>
+#include <WebCore/JSElement.h>
 #include <WebCore/KeyboardEvent.h>
 #include <WebCore/Language.h>
 #include <WebCore/Logging.h>
@@ -112,6 +113,7 @@
 #include <WebCore/ProgressTracker.h>
 #include <WebCore/RenderLayer.h>
 #include <WebCore/RenderTheme.h>
+#include <WebCore/RenderTreeAsText.h>
 #include <WebCore/RenderView.h>
 #include <WebCore/RenderWidget.h>
 #include <WebCore/ResourceHandle.h>
@@ -344,6 +346,7 @@ WebView::WebView()
     , m_isAcceleratedCompositing(false)
 #endif
     , m_nextDisplayIsSynchronous(false)
+    , m_lastSetCursor(0)
 {
     JSC::initializeThreading();
     WTF::initializeMainThread();
@@ -1972,10 +1975,6 @@ bool WebView::registerWebViewWindowClass()
     return !!RegisterClassEx(&wcex);
 }
 
-namespace WebCore {
-    extern HCURSOR lastSetCursor;
-}
-
 static HWND findTopLevelParent(HWND window)
 {
     if (!window)
@@ -2250,10 +2249,8 @@ LRESULT CALLBACK WebView::WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam,
             }
             break;
         case WM_SETCURSOR:
-            if (handled = webView->page()->chrome()->setCursor(lastSetCursor))
-                break;
-
-            __fallthrough;
+            handled = ::SetCursor(webView->m_lastSetCursor);
+            break;
         case WM_VSCROLL:
             handled = webView->verticalScroll(wParam, lParam);
             break;
@@ -4750,6 +4747,11 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
         return hr;
     settings->setDNSPrefetchingEnabled(enabled);
 
+    hr = prefsPrivate->memoryInfoEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    settings->setMemoryInfoEnabled(enabled);
+
     if (!m_closeWindowTimer)
         m_mainFrame->invalidate(); // FIXME
 
@@ -5664,6 +5666,31 @@ HRESULT STDMETHODCALLTYPE WebView::reportException(
         return E_FAIL;
 
     WebCore::reportException(execState, toJS(execState, exception));
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebView::elementFromJS(
+    /* [in] */ JSContextRef context,
+    /* [in] */ JSValueRef nodeObject,
+    /* [retval][out] */ IDOMElement **element)
+{
+    if (!element)
+        return E_POINTER;
+
+    *element = 0;
+
+    if (!context)
+        return E_FAIL;
+
+    if (!nodeObject)
+        return E_FAIL;
+
+    JSLock lock(JSC::SilenceAssertionsOnly);
+    Element* elt = toElement(toJS(toJS(context), nodeObject));
+    if (!elt)
+        return E_FAIL;
+
+    *element = DOMElement::createInstance(elt);
     return S_OK;
 }
 

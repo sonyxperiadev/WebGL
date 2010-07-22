@@ -35,35 +35,34 @@
 #include "AtomicString.h"
 #include "Blob.h"
 #include "ExceptionCode.h"
+#include "LineEnding.h"
 #include "TextEncoding.h"
 
 namespace WebCore {
 
-static bool getLineEndingTypeFromString(const AtomicString& typeString, LineEnding& endingType)
+static CString convertToCString(const String& text, const String& endingType, ExceptionCode& ec)
 {
     DEFINE_STATIC_LOCAL(AtomicString, transparent, ("transparent"));
     DEFINE_STATIC_LOCAL(AtomicString, native, ("native"));
 
-    if (typeString.isEmpty() || typeString == transparent) {
-        endingType = EndingTransparent;
-        return true;
-    }
-    if (typeString == native) {
-        endingType = EndingNative;
-        return true;
-    }
-    return false;
+    ec = 0;
+
+    if (endingType.isEmpty() || endingType == transparent)
+        return UTF8Encoding().encode(text.characters(), text.length(), EntitiesForUnencodables);
+    if (endingType == native)
+        return normalizeLineEndingsToNative(UTF8Encoding().encode(text.characters(), text.length(), EntitiesForUnencodables));
+
+    ec = SYNTAX_ERR;
+    return CString();
 }
 
-bool BlobBuilder::append(const String& text, const String& type, ExceptionCode& ec)
+bool BlobBuilder::append(const String& text, const String& endingType, ExceptionCode& ec)
 {
-    ec = 0;
-    LineEnding endingType;
-    if (!getLineEndingTypeFromString(type, endingType)) {
-        ec = SYNTAX_ERR;
+    CString cstr = convertToCString(text, endingType, ec);
+    if (ec)
         return false;
-    }
-    m_items.append(StringBlobItem::create(text, endingType, UTF8Encoding()));
+
+    m_items.append(StringBlobItem::create(cstr));
     return true;
 }
 

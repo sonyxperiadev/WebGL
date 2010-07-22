@@ -112,7 +112,7 @@ void RenderSVGRoot::layout()
     view()->disableLayoutState();
 
     bool needsLayout = selfNeedsLayout();
-    LayoutRepainter repainter(*this, checkForRepaintDuringLayout() && needsLayout);
+    LayoutRepainter repainter(*this, needsLayout && m_everHadLayout && checkForRepaintDuringLayout());
 
     IntSize oldSize(width(), height());
     calcWidth();

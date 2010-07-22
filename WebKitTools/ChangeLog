@@ -1,3 +1,1180 @@
+2010-07-21  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix, adding the WebCore/bindings/generic dir to the list of build dirs.
+
+        * wx/build/settings.py:
+
+2010-07-21  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=42539
+        WebKitTestRunner needs to support printing ALERT, PROMPT and CONFIRM messages
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::InjectedBundlePage::InjectedBundlePage):
+        (WTR::InjectedBundlePage::_willAddMessageToConsole):
+        (WTR::InjectedBundlePage::_willSetStatusbarText):
+        (WTR::InjectedBundlePage::_willRunJavaScriptAlert):
+        (WTR::InjectedBundlePage::_willRunJavaScriptConfirm):
+        (WTR::InjectedBundlePage::_willRunJavaScriptPrompt):
+        (WTR::InjectedBundlePage::willAddMessageToConsole):
+        (WTR::InjectedBundlePage::willSetStatusbarText):
+        (WTR::InjectedBundlePage::willRunJavaScriptAlert):
+        (WTR::InjectedBundlePage::willRunJavaScriptConfirm):
+        (WTR::InjectedBundlePage::willRunJavaScriptPrompt):
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.h:
+
+2010-07-21  Adam Roben  <aroben@apple.com>
+
+        Give InjectedBundle our standard set of configurations (minus the
+        *_Cairo variants)
+
+        InjectedBundle's Debug_All configuration was the same as is Debug
+        configuration, and it was missing a Debug_Internal configuration.
+
+        Fixes <http://webkit.org/b/42749> InjectedBundle's build
+        configurations are screwy
+
+        Reviewed by Darin Adler.
+
+        * WebKitTestRunner/InjectedBundle/win/InjectedBundle.vcproj: Added
+        debug_internal.vsprops and debug_all.vsprops to the Debug_All
+        configuration. Added a Debug_Internal configuration.
+
+        * WebKitTestRunner/WebKitTestRunner.sln: Build the Debug_Internal
+        variant of InjectedBundle when we're using the Debug_Internal solution
+        configuration.
+
+2010-07-21  Adam Roben  <aroben@apple.com>
+
+        Move InjectedBundle's settings to a vsprops file
+
+        This will make it easier to change settings for all configurations,
+        and to add new configurations.
+
+        Fixes <http://webkit.org/b/42748> InjectedBundle should use vsprops
+        files
+
+        Reviewed by Darin Adler.
+
+        * WebKitTestRunner/Configurations/InjectedBundleCommon.vsprops: Added.
+        Moved settings here...
+        * WebKitTestRunner/InjectedBundle/win/InjectedBundle.vcproj: ...from
+        here.
+
+2010-07-21  Adam Roben  <aroben@apple.com>
+
+        Give MiniBrowser our standard set of configurations (minus the *_Cairo
+        variants)
+
+        MiniBrowser already had a configuration called "Release", but it was
+        using mostly the same settings as Debug. And its Debug configuration
+        was using the settings that Debug_Internal should be using.
+
+        Fixes <http://webkit.org/b/42746> MiniBrowser's build configurations
+        are screwy
+
+        Reviewed by Darin Adler.
+
+        * MiniBrowser/MiniBrowser.vcproj: Removed debug_internal.vsprops from
+        the Debug configuration. Remove debug.vsprops and
+        debug_internal.vsprops from the Release configuration and replace them
+        with release.vsprops. Added Debug_Internal and Debug_All
+        configurations.
+
+2010-07-21  Adam Roben  <aroben@apple.com>
+
+        Move MiniBrowser's settings to a vsprops file
+
+        This will make it easier to change settings for all configurations,
+        and to add new configurations.
+
+        MiniBrowser should use vsprops files
+        https://bugs.webkit.org/show_bug.cgi?id=42745
+
+        Reviewed by Darin Adler.
+
+        * MiniBrowser/Configurations/MiniBrowserCommon.vsprops: Added. Moved
+        settings here...
+        * MiniBrowser/MiniBrowser.vcproj: ...from here.
+
+2010-07-21  Adam Roben  <aroben@apple.com>
+
+        Fix compiler warnings when building MiniBrowser
+
+        Also cleaned up the .vcproj a bit.
+
+        Fixes <http://webkit.org/b/42743>.
+
+        Reviewed by Darin Adler.
+
+        * MiniBrowser/MiniBrowser.vcproj: Removed all settings that are
+        already defined in .vsprops files. This also fixes a warning about
+        /EDITANDCONTINUE being incompatible with /SAFESEH.
+
+        * MiniBrowser/win/MiniBrowser.rc: Replaced afxres.h with winresrc.h so
+        that we stop getting warnings about ID_FILE_OPEN and ID_FILE_CLOSE
+        being redefined. (I think this will also get us closer to building
+        with VC++ Express.)
+
+2010-07-20  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Jon Honeycutt.
+
+        Fix obvious typo.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::InjectedBundlePage::setStatusbarText): Need to call ->data() to actually get the string value.
+
+2010-07-20  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [chromium] by default, dumpAsText should disable pixel results
+        https://bugs.webkit.org/show_bug.cgi?id=42715
+
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::dumpAsText): disable pixel results, but allow JS to override
+
+2010-07-20  Adam Roben  <aroben@apple.com>
+
+        Windows build fix
+
+        * MiniBrowser/MiniBrowser.vcproj: Link against the new, shiny
+        WebKit.lib instead of the old, dusty WebKit2.lib.
+
+2010-07-20  Adam Roben  <aroben@apple.com>
+
+        Stop linking WebKitTestRunner against getopt
+
+        Use of getopt was removed in r63700.
+
+        Fixes <http://webkit.org/b/42714> WebKitTestRunner links against
+        getopt, but doesn't need to
+
+        Reviewed by Sam Weinig.
+
+        * WebKitTestRunner/win/WebKitTestRunner.vcproj: Removed getopt.lib
+        from all configurations.
+
+2010-07-20  Adam Roben  <aroben@apple.com>
+
+        Make run-webkit-tests --webkit-test-runner "work" on Windows
+
+        WebKitTestRunner crashes on launch, but at least the scripts build and
+        launch it!
+
+        Fixes <http://webkit.org/b/42709> run-webkit-tests
+        --webkit-test-runner bails with an error on Windows
+
+        Reviewed by Anders Carlsson.
+
+        * Scripts/build-webkittestrunner: Build WebKitTestRunner.sln on
+        Windows.
+        * WebKitTestRunner/WebKitTestRunner.sln: Added. Contains the following
+        projects (from first-built to last-built): FindSafari, ImageDiff,
+        InjectedBundleGenerated, InjectedBundle, WebKitTestRunner.
+
+2010-07-20  Adam Roben  <aroben@apple.com>
+
+        Change build-webkit back to building WebKit.sln on Windows
+
+        WebKit.sln builds all the same projects as WebKit2.sln, and the latter
+        is being removed.
+
+        Rubber-stamped in advance by Steve Falkenburg.
+
+        * Scripts/build-webkit:
+
+2010-07-20  Adam Roben  <aroben@apple.com>
+
+        Windows build fix
+
+        * MiniBrowser/win/BrowserWindow.cpp: Added missing #include.
+
+2010-07-20  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by Geoffrey Garen.
+
+        WebScriptObject Should Allow Safely Checking For Key Existence
+        https://bugs.webkit.org/show_bug.cgi?id=42613
+
+        Normal ObjCController workflow for a WebScriptObject test.
+
+        * DumpRenderTree/mac/ObjCController.m:
+        (+[ObjCController isSelectorExcludedFromWebScript:]):
+        (+[ObjCController webScriptNameForSelector:]):
+        (-[ObjCController testHasWebScriptKey:]):
+
+2010-07-20  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42118
+        Disable compositing/webgl tests if WebGL is not enabled
+
+        * Scripts/old-run-webkit-tests:
+
+2010-07-20  Anton Muhin  <antonm@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Print additional information about exception if failed to connect to apache (in verbose mode).
+        https://bugs.webkit.org/show_bug.cgi?id=42627
+
+        * Scripts/webkitpy/layout_tests/port/http_server_base.py:
+
+2010-07-20  Tony Chang  <tony@chromium.org>
+
+        Reviewed by David Levin.
+
+        [chromium] only pass --force to gclient sync if explicitly stated
+        https://bugs.webkit.org/show_bug.cgi?id=42581
+
+        * BuildSlaveSupport/build.webkit.org-config/master.cfg: bots should
+              always pass --force since it's hard to do manual cleanups
+        * Scripts/update-webkit-chromium: only pass --force if --force is
+              passed in
+
+2010-07-19  Anders Carlsson  <andersca@apple.com>
+
+        Fix build.
+
+        * WebKitTestRunner/WebKitTestRunner.xcodeproj/project.pbxproj:
+        Paths of generated files should be relative to the build product.
+
+2010-07-19  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Adam Roben.
+
+        [Win] Implement LayoutTestController::markerTextForListItem()
+        https://bugs.webkit.org/show_bug.cgi?id=37930
+
+        Implements DRT support for markerTextForListItem in the Windows port.
+
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::markerTextForListItem): Implemented.
+
+2010-07-19  Jessie Berlin  <jberlin@apple.com>
+
+        Windows build fix. Unreviewed.
+
+        * WebKitTestRunner/win/TestControllerWin.cpp:
+        (WTR::TestController::initializeTestPluginPath):
+
+2010-07-19  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Jon Honeycutt.
+
+        Remove dependency on getopt from WebKitTestRunner.
+
+        - Simplify options parsing and eliminate unused options.
+
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::TestController):
+        (WTR::TestController::initialize):
+        * WebKitTestRunner/TestController.h:
+        (WTR::TestController::testPluginPath):
+        * WebKitTestRunner/WebKitTestRunner.xcodeproj/project.pbxproj:
+        * WebKitTestRunner/mac/TestControllerMac.mm:
+        (WTR::TestController::platformInitialize):
+        (WTR::TestController::initializeTestPluginPath):
+        * WebKitTestRunner/win/TestControllerWin.cpp:
+        (WTR::TestController::platformInitialize):
+        (WTR::TestController::initializeTestPluginPath):
+
+2010-07-19  Diego Gonzalez  <diegohcg@webkit.org>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] MiniBrowser: Progress indication at address bar
+        https://bugs.webkit.org/show_bug.cgi?id=42565
+
+        Make possible to see load progress at address bar based on
+        QtTestBrowser solution
+
+        * MiniBrowser/qt/BrowserWindow.cpp:
+        (BrowserWindow::BrowserWindow):
+        (BrowserWindow::loadProgress):
+        * MiniBrowser/qt/BrowserWindow.h:
+
+2010-07-19  Diego Gonzalez  <diegohcg@webkit.org>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Add MiniBrowser features: urlChanged, titleChanged and from user input load
+        https://bugs.webkit.org/show_bug.cgi?id=42564
+
+        * MiniBrowser/qt/BrowserWindow.cpp:
+        (BrowserView::load):
+        (BrowserWindow::BrowserWindow):
+        (BrowserWindow::titleChanged):
+        (BrowserWindow::urlChanged):
+        * MiniBrowser/qt/BrowserWindow.h:
+
+2010-07-19  Sam Weinig  <weinig@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=42532
+        Auto-generate the JS bindings for WebKitTestRunner's script objects.
+
+        * WebKitTestRunner/Configurations/Base.xcconfig:
+        * WebKitTestRunner/Configurations/DebugRelease.xcconfig:
+        * WebKitTestRunner/DerivedSources.make: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/GetPtr.h: Added.
+        * WebKitTestRunner/InjectedBundle/Bindings: Added.
+        * WebKitTestRunner/InjectedBundle/Bindings/CodeGeneratorTestRunner.pm: Added.
+        * WebKitTestRunner/InjectedBundle/Bindings/JSWrappable.h: Added.
+        (WTR::JSWrappable::~JSWrappable):
+        * WebKitTestRunner/InjectedBundle/Bindings/JSWrapper.cpp: Added.
+        (WTR::JSWrapper::wrap):
+        (WTR::JSWrapper::unwrap):
+        (WTR::unwrapObject):
+        (WTR::JSWrapper::initialize):
+        (WTR::JSWrapper::finalize):
+        * WebKitTestRunner/InjectedBundle/Bindings/JSWrapper.h: Added.
+        (WTR::toJS):
+        * WebKitTestRunner/InjectedBundle/Bindings/LayoutTestController.idl: Added.
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::InjectedBundlePage::dump):
+        (WTR::InjectedBundlePage::setStatusbarText):
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        (WTR::LayoutTestController::wrapperClass):
+        (WTR::LayoutTestController::waitUntilDone):
+        (WTR::LayoutTestController::makeWindowObject):
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h:
+        (WTR::LayoutTestController::shouldDumpAsText):
+        (WTR::LayoutTestController::dumpAsText):
+        (WTR::LayoutTestController::shouldDumpStatusCallbacks):
+        (WTR::LayoutTestController::dumpStatusCallbacks):
+        (WTR::LayoutTestController::waitToDump):
+        (WTR::LayoutTestController::testRepaint):
+        (WTR::LayoutTestController::repaintSweepHorizontally):
+        * WebKitTestRunner/InjectedBundle/win/InjectedBundle.vcproj:
+        * WebKitTestRunner/WebKitTestRunner.xcodeproj/project.pbxproj:
+        * WebKitTestRunner/win/InjectedBundleGenerated.vcproj: Added.
+        * WebKitTestRunner/win/build-generated-files.sh: Added.
+
+2010-07-19  Mark Rowe  <mrowe@apple.com>
+
+        Clean up the buildbot configuration a little.
+
+        * BuildSlaveSupport/build.webkit.org-config/config.json:
+
+2010-07-19  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42118
+        Disable WebGL on Leopard for now. 
+
+        LayoutTests fail on some graphics hardware on Leopard because one of the features we use,
+        GL_ARB_framebuffer_object, is not universally available in Leopard like it is in
+        SnowLeopard. This will allow LayoutTests to pass on Leopard until we add logic to use a
+        software OpenGL driver on machines without this support.
+
+        * Scripts/build-webkit:
+
+2010-07-19  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Brady Eidson.
+
+        Fix MiniBrowser to update URL as you browse
+        https://bugs.webkit.org/show_bug.cgi?id=42591
+        
+        Hook up various loading notifications to update the URL bar in MiniBrowser.
+
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (_didStartProvisionalLoadForFrame):
+        (_didReceiveServerRedirectForProvisionalLoadForFrame):
+        (_didFailProvisionalLoadWithErrorForFrame):
+        (_didCommitLoadForFrame):
+        (_didFailLoadWithErrorForFrame):
+        (-[BrowserWindowController updateProvisionalURLForFrame:]):
+        (-[BrowserWindowController didStartProvisionalLoadForFrame:]):
+        (-[BrowserWindowController didReceiveServerRedirectForProvisionalLoadForFrame:]):
+        (-[BrowserWindowController didFailProvisionalLoadWithErrorForFrame:]):
+        (-[BrowserWindowController didFailLoadWithErrorForFrame:]):
+        (-[BrowserWindowController didCommitLoadForFrame:]):
+
+2010-07-19  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42586
+        Log all canceled authentication attempts in DumpRenderTree
+
+        * DumpRenderTree/mac/ResourceLoadDelegate.mm:
+        (-[ResourceLoadDelegate webView:resource:didReceiveAuthenticationChallenge:fromDataSource:]):
+        * DumpRenderTree/win/ResourceLoadDelegate.cpp:
+        (ResourceLoadDelegate::didReceiveAuthenticationChallenge):
+        It's important to know whether an auth sheet appeared. Added logging to "no preset credentials"
+        case.
+
+2010-07-19  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r63671.
+        http://trac.webkit.org/changeset/63671
+        https://bugs.webkit.org/show_bug.cgi?id=42575
+
+        broke windows (Requested by weinig on #webkit).
+
+        * WebKitTestRunner/Configurations/Base.xcconfig:
+        * WebKitTestRunner/Configurations/DebugRelease.xcconfig:
+        * WebKitTestRunner/DerivedSources.make: Removed.
+        * WebKitTestRunner/ForwardingHeaders/wtf/GetPtr.h: Removed.
+        * WebKitTestRunner/InjectedBundle/Bindings/CodeGeneratorTestRunner.pm: Removed.
+        * WebKitTestRunner/InjectedBundle/Bindings/JSWrappable.h: Removed.
+        * WebKitTestRunner/InjectedBundle/Bindings/JSWrapper.cpp: Removed.
+        * WebKitTestRunner/InjectedBundle/Bindings/JSWrapper.h: Removed.
+        * WebKitTestRunner/InjectedBundle/Bindings/LayoutTestController.idl: Removed.
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::InjectedBundlePage::dump):
+        (WTR::InjectedBundlePage::setStatusbarText):
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        (WTR::LayoutTestController::setWaitToDump):
+        (WTR::displayCallback):
+        (WTR::dumpAsTextCallback):
+        (WTR::dumpStatusCallbacksCallback):
+        (WTR::waitUntilDoneCallback):
+        (WTR::notifyDoneCallback):
+        (WTR::numberOfActiveAnimationsCallback):
+        (WTR::pauseAnimationAtTimeOnElementWithIdCallback):
+        (WTR::repaintSweepHorizontallyCallback):
+        (WTR::testRepaintCallback):
+        (WTR::layoutTestControllerObjectFinalize):
+        (WTR::LayoutTestController::makeWindowObject):
+        (WTR::LayoutTestController::getJSClass):
+        (WTR::LayoutTestController::staticFunctions):
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h:
+        (WTR::LayoutTestController::dumpAsText):
+        (WTR::LayoutTestController::setDumpAsText):
+        (WTR::LayoutTestController::dumpStatusCallbacks):
+        (WTR::LayoutTestController::setDumpStatusCallbacks):
+        (WTR::LayoutTestController::setTestRepaint):
+        (WTR::LayoutTestController::setTestRepaintSweepHorizontally):
+        * WebKitTestRunner/WebKitTestRunner.xcodeproj/project.pbxproj:
+
+2010-07-19  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=42532
+        Auto-generate the JS bindings for WebKitTestRunner's script objects.
+
+        * WebKitTestRunner/Configurations/Base.xcconfig:
+        * WebKitTestRunner/Configurations/DebugRelease.xcconfig:
+        * WebKitTestRunner/DerivedSources.make: Added.
+        * WebKitTestRunner/ForwardingHeaders/wtf/GetPtr.h: Added.
+        * WebKitTestRunner/InjectedBundle/Bindings: Added.
+        * WebKitTestRunner/InjectedBundle/Bindings/CodeGeneratorTestRunner.pm: Added.
+        * WebKitTestRunner/InjectedBundle/Bindings/JSWrappable.h: Added.
+        (WTR::JSWrappable::~JSWrappable):
+        * WebKitTestRunner/InjectedBundle/Bindings/JSWrapper.cpp: Added.
+        (WTR::JSWrapper::wrap):
+        (WTR::JSWrapper::unwrap):
+        (WTR::unwrapObject):
+        (WTR::JSWrapper::initialize):
+        (WTR::JSWrapper::finalize):
+        * WebKitTestRunner/InjectedBundle/Bindings/JSWrapper.h: Added.
+        (WTR::toJS):
+        * WebKitTestRunner/InjectedBundle/Bindings/LayoutTestController.idl: Added.
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::InjectedBundlePage::dump):
+        (WTR::InjectedBundlePage::setStatusbarText):
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        (WTR::LayoutTestController::wrapperClass):
+        (WTR::LayoutTestController::waitUntilDone):
+        (WTR::LayoutTestController::makeWindowObject):
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h:
+        (WTR::LayoutTestController::shouldDumpAsText):
+        (WTR::LayoutTestController::dumpAsText):
+        (WTR::LayoutTestController::shouldDumpStatusCallbacks):
+        (WTR::LayoutTestController::dumpStatusCallbacks):
+        (WTR::LayoutTestController::waitToDump):
+        (WTR::LayoutTestController::testRepaint):
+        (WTR::LayoutTestController::repaintSweepHorizontally):
+        * WebKitTestRunner/WebKitTestRunner.xcodeproj/project.pbxproj:
+
+2010-07-19  Tony Chang  <tony@chromium.org>
+
+        Reviewed by David Levin.
+
+        fix chromium linux compile on ubuntu maverick
+        https://bugs.webkit.org/show_bug.cgi?id=42528
+
+        * Scripts/webkitdirs.pm: add a chomp to eat a newline that breaks the make command line
+
+2010-07-19  Adam Roben  <aroben@apple.com>
+
+        When dumping a response's MIME type, print its URL's last path
+        component rather than its suitable-for-test-result form
+
+        This matches the Mac behavior.
+
+        Fixes <http://webkit.org/b/42276>
+        http/tests/loading/preload-slow-loading.php and
+        http/tests/mime/uppercase-mime-type.html fail on Windows
+
+        Reviewed by Anders Carlsson.
+
+        * DumpRenderTree/win/DumpRenderTree.cpp:
+        (urlSuitableForTestResult): Moved code to actually extract the last
+        path component from here...
+        (lastPathComponent): ...to here.
+
+        * DumpRenderTree/win/DumpRenderTreeWin.h: Added lastPathComponent.
+
+        * DumpRenderTree/win/ResourceLoadDelegate.cpp:
+        (ResourceLoadDelegate::didReceiveResponse): Use the URL's last path
+        component, rather than its suitable-for-test-result form, to match
+        Mac.
+
+2010-07-19  Anders carlsson  <andersca@apple.com>
+
+        Reviewed by Adam Roben.
+
+        WebKit2 does not have application cache
+        https://bugs.webkit.org/show_bug.cgi?id=42552
+
+        * WebKitTestRunner/TestInvocation.cpp:
+        (WTR::TestInvocation::resetPreferencesToConsistentValues):
+        Set up default preferences. Right now just enables the web application cache.
+
+        (WTR::TestInvocation::invoke):
+        Call resetPreferencesToConsistentValues.
+
+        * WebKitTestRunner/TestInvocation.h:
+
+2010-07-19  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Adam Roben.
+
+        Fix NewRunWebKitTests to work on Windows.
+        https://bugs.webkit.org/show_bug.cgi?id=41180
+
+        * BuildSlaveSupport/build.webkit.org-config/master.cfg:
+          Specifying python explicitly.
+
+2010-07-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Add dumping of statusbar text to WebKitTestRunner
+        https://bugs.webkit.org/show_bug.cgi?id=42516
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::InjectedBundlePage::InjectedBundlePage):
+        (WTR::InjectedBundlePage::_setStatusbarText):
+        (WTR::InjectedBundlePage::setStatusbarText):
+        Dump the statusbar text.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.h:
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        (WTR::LayoutTestController::LayoutTestController):
+        Initialize m_dumpStatusCallbacks to false.
+
+        (WTR::dumpStatusCallbacksCallback):
+        Implement JSC callback.
+
+        (WTR::LayoutTestController::staticFunctions):
+        Add dumpStatusCallbacks.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h:
+        (WTR::LayoutTestController::dumpStatusCallbacks):
+        (WTR::LayoutTestController::setDumpStatusCallbacks):
+        Add setter and getter for m_dumpStatusCallbacks.
+
+2010-07-17  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::initialize):
+        Get the test plug-in path and set it on the context.
+
+        * WebKitTestRunner/TestController.h:
+        * WebKitTestRunner/mac/TestControllerMac.mm:
+        (WTR::TestController::initializeInjectedBundlePath):
+        Simplify this code by using NSBundle.
+
+        (WTR::TestController::testPluginPath):
+        Return the test plug-in path.
+
+        * WebKitTestRunner/win/TestControllerWin.cpp:
+        (WTR::TestController::testPluginPath):
+        Ditto.
+
+2010-07-16  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Teach webkitpy about queues.webkit.org
+        https://bugs.webkit.org/show_bug.cgi?id=42492
+
+        * Scripts/webkitpy/common/net/statusserver.py:
+
+2010-07-16  Ada Chan  <adachan@apple.com>
+
+        Reviewed by Alice Liu.
+
+        Fix Windows build.
+
+        * WebKitTestRunner/InjectedBundle/win/InjectedBundle.vcproj:
+
+2010-07-16  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=42482
+        <rdar://problem/8197701>
+        Add notification of when the BackForwardList changes
+        to aid invalidation of Back/Forward related UI elements.
+
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (_didStartProvisionalLoadForFrame):
+        (_didCommitLoadForFrame):
+        (_didFailLoadWithErrorForFrame):
+        (_didChangeBackForwardList):
+        (-[BrowserWindowController awakeFromNib]):
+        * WebKitTestRunner/WebKitTestRunner.xcodeproj/project.pbxproj:
+
+2010-07-16  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] <input type=number> UI implementation for Windows
+        https://bugs.webkit.org/show_bug.cgi?id=42259
+
+        * DumpRenderTree/chromium/WebThemeEngineDRT.cpp:
+        (WebThemeEngineDRT::paintSpinButton):
+         Added. Check state consistency and use existing arrow painting code.
+        * DumpRenderTree/chromium/WebThemeEngineDRT.h:
+
+2010-07-16  Alice Liu  <alice.liu@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42430
+        Make WebKitTestRunner on Windows actually load and run a test
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundleMain.cpp: Export WKBundleInitialize.
+        (WKBundleInitialize):
+        * WebKitTestRunner/InjectedBundle/win/InjectedBundle.vcproj: Added.  Output is a dll.
+        * WebKitTestRunner/TestInvocation.cpp: Create a Windows-style path on Windows
+        (WTR::createWKURL):
+        * WebKitTestRunner/WebKitTestRunnerPrefix.h: Change check for Windows platform to match
+        other existing checks, and avoid including Platform.h
+        * WebKitTestRunner/win/PlatformWebViewWin.cpp:
+        (WTR::registerWindowClass): Added.
+        (WTR::PlatformWebView::PlatformWebView): Implemented.
+        (WTR::PlatformWebView::~PlatformWebView): Implemented.
+        (WTR::PlatformWebView::page): Implemented.
+        * WebKitTestRunner/win/TestControllerWin.cpp:
+        (WTR::TestController::initializeInjectedBundlePath): Implemented. Provide build 
+        configuration specific path to InjectedBundle.dll.
+        * WebKitTestRunner/win/TestInvocationWin.cpp:
+        (WTR::TestInvocation::runUntil): Implemented.
+        * WebKitTestRunner/win/WebKitTestRunner.sln: Added InjectedBundle project.
+        * WebKitTestRunner/win/WebKitTestRunner.vcproj: Cleaned up unnecessary dependencies.
+
+2010-07-16  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Make revalidation of back/forward work a little better with page loads
+        https://bugs.webkit.org/show_bug.cgi?id=42470
+
+        * MiniBrowser/mac/BrowserWindow.xib:
+        * MiniBrowser/mac/BrowserWindowController.h:
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (-[BrowserWindowController validateToolbar]):
+        (_didStartProvisionalLoadForFrame):
+        (_didCommitLoadForFrame):
+        (_didFailLoadWithErrorForFrame):
+
+2010-07-16  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Dirk Schulze.
+
+        Add possibility to dumpAsText and generate a pixel test result
+        https://bugs.webkit.org/show_bug.cgi?id=42374
+
+        Add optional parameter to setDumpAsText() to allow generating a pixel test result even if dumpAsText mode.
+        setDumpAsText(true) will also generate a pixel test result now, when running run-webkit-tests --pixel-tests.
+
+        This is needed for the svg/dynamic-updates tests, which don't want render tree dumps but text dumps + a pixel test result.
+        At some point DRT changed to not generate pixel test results when using dumpAsText - which makes sense, but breaks the svg/dynamic-updates test.
+
+        Implemented for all DRT platforms, except Qt, as it's not clear how arguments to functions like "setDumpAsText" are handled.
+        (Qt always dumps pixel tests when using --pixel-tests mode, so it does not break anything)
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (dumpAsTextAndPixelsCallback):
+        (LayoutTestController::staticFunctions):
+        * DumpRenderTree/LayoutTestController.h:
+        (LayoutTestController::dumpAsTextAndPixels):
+        (LayoutTestController::setDumpAsTextAndPixels):
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (LayoutTestController::dumpAsTextAndPixels):
+        (LayoutTestController::reset):
+        * DumpRenderTree/chromium/LayoutTestController.h:
+        (LayoutTestController::shouldDumpAsTextAndPixels):
+        * DumpRenderTree/chromium/TestShell.cpp:
+        (TestShell::dump):
+        * DumpRenderTree/gtk/DumpRenderTree.cpp:
+        (dump):
+        * DumpRenderTree/mac/DumpRenderTree.mm:
+        (dump):
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::DumpRenderTree::dump):
+        * DumpRenderTree/win/DumpRenderTree.cpp:
+        (dump):
+        * DumpRenderTree/wx/DumpRenderTreeWx.cpp:
+        (dump):
+
+2010-07-16  Kent Hansen  <kent.hansen@nokia.com>
+
+        Unreviewed. Adding myself as committer.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-07-16  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Another uneviewed attempt to fix build.
+
+        Printing test results differ between machines, we should use ImageDiff instead
+        https://bugs.webkit.org/show_bug.cgi?id=20011
+
+        * DumpRenderTree/mac/PixelDumpSupportMac.mm:
+        (createPagedBitmapContext):
+
+2010-07-16  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Unreviewed tiger build fix.
+
+        Printing test results differ between machines, we should use ImageDiff instead
+        https://bugs.webkit.org/show_bug.cgi?id=20011
+
+        * DumpRenderTree/mac/PixelDumpSupportMac.mm:
+        (createBitmapContext):
+        (createBitmapContextFromWebView):
+
+2010-07-15  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Unreviewed build fix.
+
+        Printing test results differ between machines, we should use ImageDiff instead
+        https://bugs.webkit.org/show_bug.cgi?id=20011
+
+        * DumpRenderTree/PixelDumpSupport.cpp:
+        (dumpWebViewAsPixelsAndCompareWithExpected):
+
+2010-07-15  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Printing test results differ between machines, we should use ImageDiff instead
+        https://bugs.webkit.org/show_bug.cgi?id=20011
+
+        * DumpRenderTree/PixelDumpSupport.cpp:
+        (dumpWebViewAsPixelsAndCompareWithExpected):
+        * DumpRenderTree/PixelDumpSupport.h:
+        * DumpRenderTree/mac/PixelDumpSupportMac.mm:
+        (createBitmapContext): This function was added to share bitmap context creation code.
+        (createBitmapContextFromWebView):
+        (createPagedBitmapContext):
+
+2010-07-15  Yuta Kitamura  <yutak@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        Pull in pywebsocket-0.5.1
+        https://bugs.webkit.org/show_bug.cgi?id=42353
+
+        pywebsocket-0.5.1 contains a small bug fix (*) that should fix a worker test
+        in Chromium. There is no other functional change.
+
+        (*) http://code.google.com/p/pywebsocket/source/detail?r=265
+
+        * Scripts/webkitpy/thirdparty/__init__.py: Bump pywebsocket version to 0.5.1.
+
+2010-07-15  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Add toolbar and toolbar item validation for MiniBrowser
+        https://bugs.webkit.org/show_bug.cgi?id=42422
+
+        * MiniBrowser/MBToolbarItem.h: Added.
+        * MiniBrowser/MBToolbarItem.m: Added.
+        (-[MBToolbarItem validate]):
+
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (-[BrowserWindowController validateUserInterfaceItem:]):
+
+        * MiniBrowser/MiniBrowser.xcodeproj/project.pbxproj:
+        * MiniBrowser/mac/BrowserWindow.xib:
+
+2010-07-15  Victor Wang  <victorw@chromium.org>
+
+        Unreviewed, add victorw irc nickname to committer list.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-07-15  Adam Roben  <aroben@apple.com>
+
+        Make killing Apache more reliable (on both Mac and Windows)
+
+        We previously had two ways of determining whether we had succeeded in
+        killing Apache:
+          1) checking the return value of kill(0, $apachePID)
+          2) checking whether Apache's PID file still exists
+
+        On Cygwin, Apache doesn't always delete its PID file when it exits,
+        making (2) unreliable. We unfortunately misdiagnosed this as an
+        impotency of Perl's kill function, which led to r63177 and r63355.
+
+        Now that we know that the real problem is that Apache doesn't always
+        delete its PID file on Windows, we can make a much better fix: always
+        use method (1) to determine whether we've killed Apache.
+
+        Fixes <http://webkit.org/b/42415> Killing Apache is unreliable,
+        leading to regression test failures (and general annoyance).
+
+        Reviewed by Anders Carlsson.
+
+        * Scripts/webkitperl/httpd.pm:
+        (openHTTPD): Moved killing code from here to killHTTPD. Added a call
+        to delete the PID file in case Apache doesn't do this itself when
+        killed. Our later logic relies on the PID file being deleted after
+        this point.
+        (closeHTTPD): Removed killing logic and changed to just call killHTTPD
+        instead. killHTTPD's logic is a bit different from the logic we had
+        here, for the reasons stated above.
+        (killHTTPD): Added. Code came from openHTTPD.
+        (handleInterrupt): Bonus fix for Mac: don't hang when pressing Ctrl-C!
+        On Mac, don't try to kill Apache when we receive a signal, as Apache
+        will already have been killed by this point (though for some reason
+        this isn't detected by our killing logic in killHTTPD). On Cygwin, we
+        still need to kill Apache manually.
+
+2010-07-15  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=42399
+        Update MiniBrowser for WKFrameNavigationType 
+
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (_decidePolicyForNavigationAction):
+        (_decidePolicyForNewWindowAction):
+
+2010-07-15  Stephanie Lewis  <slewis@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        http://bugs.webkit.org/show_bug.cgi?id=42406
+        Make SunSpider work better with roots.
+
+        * Scripts/sunspider-compare-results: fix argument bug
+        * Scripts/webkitdirs.pm: look inside JavaScriptCore if jsc isn't top-level.
+
+2010-07-15  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Hook up back/forward in MiniBrowser
+        https://bugs.webkit.org/show_bug.cgi?id=42397
+
+        * MiniBrowser/mac/BrowserWindow.xib:
+        * MiniBrowser/mac/BrowserWindowController.h:
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (-[BrowserWindowController goBack:]):
+        (-[BrowserWindowController goForward:]):
+
+2010-07-15  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Darin Adler.
+
+        [Mac] Implement LayoutTestController::markerTextForListItem()
+        https://bugs.webkit.org/show_bug.cgi?id=37929
+
+        Implements DRT support for markerTextForListItem in the Mac port.
+
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::markerTextForListItem): Implemented.
+
+2010-07-15  Adam Barth  <abarth@webkit.org>
+
+        Unreviewed.
+
+        Update the port names to be more specific.  Before this patch,
+        port-specific results for Mac would end up in the wrong place.
+
+        * Scripts/webkitpy/tool/commands/rebaseline.py:
+        * Scripts/webkitpy/tool/commands/rebaseline_unittest.py:
+
+2010-07-14  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        WebKit needs a rebaselining tool (finally)
+        https://bugs.webkit.org/show_bug.cgi?id=42339
+
+        This is a very basic rebaselining tool.  It's not
+        quite as fancy as chromium's as it will only handle
+        updating failing results.  It cannot yet handle adding new
+        results, or updating results where the results should not
+        replace existing results.
+
+        * Scripts/webkitpy/layout_tests/port/base.py:
+        * Scripts/webkitpy/tool/commands/__init__.py:
+        * Scripts/webkitpy/tool/commands/queries.py:
+        * Scripts/webkitpy/tool/commands/rebaseline.py: Added.
+        * Scripts/webkitpy/tool/commands/rebaseline_unittest.py: Added.
+
+2010-07-14  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r63352.
+        http://trac.webkit.org/changeset/63352
+        https://bugs.webkit.org/show_bug.cgi?id=42341
+
+        Broke plugin-initiate-popup-window.html and plugin-javascript-
+        access.html on snow leopard (Requested by abarth on #webkit).
+
+        * DumpRenderTree/TestNetscapePlugIn/PluginObject.cpp:
+        (pluginAllocate):
+        * DumpRenderTree/TestNetscapePlugIn/PluginObject.h:
+        * DumpRenderTree/TestNetscapePlugIn/main.cpp:
+        (NPP_New):
+        (handleEventCarbon):
+        (handleEventCocoa):
+
+2010-07-14  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Lower WebKitTestRunner notifyDone timeout to 6.0 for now, to make it easier to grind through the failures.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+
+2010-07-14  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r63346.
+        http://trac.webkit.org/changeset/63346
+        https://bugs.webkit.org/show_bug.cgi?id=42295
+
+        Broke lots of tests, some of which probably just need new
+        results (Requested by aroben on #webkit).
+
+        * DumpRenderTree/win/DumpRenderTree.cpp:
+        (urlSuitableForTestResult):
+
+2010-07-14  Adam Roben  <aroben@apple.com>
+
+        Speed up killing of Apache on Windows
+
+        Fixes <http://webkit.org/b/42289> Killing Apache (and thus quitting
+        run-webkit-tests) takes a long time on Windows
+
+        Reviewed by Darin Adler and Jon Honeycutt.
+
+        * Scripts/webkitperl/httpd.pm:
+        (closeHTTPD): Use taskkill to kill Apache and its child processes.
+        Perl's kill seems ineffectual. We were already using taskkill, but
+        only after trying kill 20 times. Since kill never works, let's just
+        skip it entirely.
+
+2010-07-14  Johnny Ding  <jnd@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41292
+        Add a new parameter to the test plugin to allow to specify a script and a
+        mouse/keyboard event. The specified script will be evaluated in the browser
+        when the specified event is received by the plugin.
+
+        * DumpRenderTree/TestNetscapePlugIn/PluginObject.cpp:
+        (pluginAllocate):
+        * DumpRenderTree/TestNetscapePlugIn/PluginObject.h:
+        * DumpRenderTree/TestNetscapePlugIn/main.cpp:
+        (NPP_New):
+        (handleEventCarbon):
+        (handleEventCocoa):
+
+2010-07-14  Adam Roben  <aroben@apple.com>
+
+        Make urlSuitableForTestResult work for http: URLs, too
+
+        Fixes <http://webkit.org/b/42276>
+        http/tests/loading/preload-slow-loading.php and
+        http/tests/mime/uppercase-mime-type.html fail on Windows.
+
+        Reviewed by Darin Adler.
+
+        * DumpRenderTree/win/DumpRenderTree.cpp:
+        (urlSuitableForTestResult): Don't bail if the URL starts with http://.
+        We want this function to work for those URLs, too!
+
+2010-07-13  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Add placebo versions of some repaint test functions to WebKitTestRunner - good enough for non-pixel tests
+        https://bugs.webkit.org/show_bug.cgi?id=42227
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        (WTR::LayoutTestController::LayoutTestController): Initialize new bool
+        members.
+        (WTR::LayoutTestController::display): Dummy method.
+        (WTR::displayCallback): Call the dummy.
+        (WTR::repaintSweepHorizontallyCallback): ditto
+        (WTR::testRepaintCallback): ditto
+        (WTR::LayoutTestController::staticFunctions): Expose new methods.
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h:
+        (WTR::LayoutTestController::setTestRepaint): Set the flag (which currently does
+        nothing).
+        (WTR::LayoutTestController::setTestRepaintSweepHorizontally): ditto
+
+2010-07-13  Andreas Kling  <andreas.kling@nokia.com>
+
+        Unreviewed. Adding myself as committer.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-07-07  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        Reviewed by Darin Adler.
+
+        Prevent assertion/duplicate loads for non-deferred subtitute-data loads
+
+        https://bugs.webkit.org/show_bug.cgi?id=30879
+
+        MainResourceLoader uses the member m_initialRequest to store requests for future
+        deferred loads. When doing the actual load in handleDataLoadNow(), we therefore
+        have to clear this request so that subsequent entries into the loader will not
+        start yet another load.
+
+        This can happen as a result of a PageGroupLoadDeferrer going out of scope when
+        returning from Chrome::runJavaScriptAlert(), which calls setDeferredLoading(false),
+        but only in the case of using both substitute-data and non-deferred main resource
+        load together. That's why two new DRT functions were added:
+
+         * queueLoadHTMLString()
+         * setDeferMainResourceLoad()
+
+        The change adds DRT hooks for Mac, Win and Qt for these two functions. For Mac
+        and Win the hook uses new SPI in WebDataSource. For Qt a new static member was
+        added to the FrameLoaderClientQt and accessed though DumpRenderTreeSupportQt.
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (queueLoadHTMLStringCallback):
+        (setDeferMainResourceDataLoadCallback):
+        (LayoutTestController::staticFunctions):
+        (LayoutTestController::queueLoadHTMLString):
+        * DumpRenderTree/LayoutTestController.h:
+        (LayoutTestController::deferMainResourceDataLoad):
+        (LayoutTestController::setDeferMainResourceDataLoad):
+        * DumpRenderTree/WorkQueueItem.h:
+        (LoadHTMLStringItem::LoadHTMLStringItem):
+        * DumpRenderTree/gtk/WorkQueueItemGtk.cpp:
+        (LoadHTMLStringItem::invoke):
+        * DumpRenderTree/mac/ResourceLoadDelegate.mm:
+        (-[ResourceLoadDelegate webView:resource:willSendRequest:redirectResponse:fromDataSource:]):
+        * DumpRenderTree/mac/WorkQueueItemMac.mm:
+        (LoadHTMLStringItem::invoke):
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::reset):
+        (LayoutTestController::setDeferMainResourceDataLoad):
+        (LayoutTestController::queueLoadHTMLString):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        * DumpRenderTree/qt/WorkQueueItemQt.cpp:
+        (LoadHTMLStringItem::invoke):
+        * DumpRenderTree/qt/WorkQueueItemQt.h:
+        (LoadHTMLStringItem::LoadHTMLStringItem):
+        * DumpRenderTree/win/ResourceLoadDelegate.cpp:
+        (ResourceLoadDelegate::willSendRequest):
+        * DumpRenderTree/win/WorkQueueItemWin.cpp:
+        (LoadHTMLStringItem::invoke):
+        * DumpRenderTree/wx/WorkQueueItemWx.cpp:
+        (LoadHTMLStringItem::invoke):
+
+2010-07-13  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Nikolas Zimmermann.
+
+        Activate test fonts for layout tests in WebKitTestRunner (on Mac)
+        https://bugs.webkit.org/show_bug.cgi?id=42153
+
+        * WebKitTestRunner/InjectedBundle/ActivateFonts.h: Added.
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.cpp:
+        (WTR::InjectedBundle::initialize): Activate fonts on startup.
+        * WebKitTestRunner/InjectedBundle/mac: Added.
+        * WebKitTestRunner/InjectedBundle/mac/ActivateFonts.mm: Added.
+        (WTR::activateFonts): Activate our fonts.
+        * WebKitTestRunner/InjectedBundle/win: Added.
+        * WebKitTestRunner/InjectedBundle/win/ActivateFonts.cpp: Added.
+        (WTR::activateFonts): Dummy version.
+        * WebKitTestRunner/WebKitTestRunner.xcodeproj/project.pbxproj: Copy fonts to bundle;
+        add more files.
+        * WebKitTestRunner/fonts: Added.
+        * WebKitTestRunner/fonts/AHEM____.TTF: Added.
+        * WebKitTestRunner/fonts/ColorBits-A.png: Added.
+        * WebKitTestRunner/fonts/ColorBits.ttf: Added.
+        * WebKitTestRunner/fonts/WebKit Layout Tests 2.ttf: Added.
+        * WebKitTestRunner/fonts/WebKit Layout Tests.ttf: Added.
+        * WebKitTestRunner/fonts/WebKitWeightWatcher100.ttf: Added.
+        * WebKitTestRunner/fonts/WebKitWeightWatcher200.ttf: Added.
+        * WebKitTestRunner/fonts/WebKitWeightWatcher300.ttf: Added.
+        * WebKitTestRunner/fonts/WebKitWeightWatcher400.ttf: Added.
+        * WebKitTestRunner/fonts/WebKitWeightWatcher500.ttf: Added.
+        * WebKitTestRunner/fonts/WebKitWeightWatcher600.ttf: Added.
+        * WebKitTestRunner/fonts/WebKitWeightWatcher700.ttf: Added.
+        * WebKitTestRunner/fonts/WebKitWeightWatcher800.ttf: Added.
+        * WebKitTestRunner/fonts/WebKitWeightWatcher900.ttf: Added.
+
+2010-07-13  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Remove check-header-includes, as it didn't turn out to be very useful.
+        https://bugs.webkit.org/show_bug.cgi?id=41970
+
+        * Scripts/check-header-includes: Removed.
+
+2010-07-12  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Make WebKit2 be built by build-webkit (so it will be built by build.webkit.org bots)
+        https://bugs.webkit.org/show_bug.cgi?id=40922
+        
+        Always build WebKit2 on Windows. Necessary since our WebKit build on
+        Windows is packaged into a DLL with WebKit2.
+
+        * Scripts/build-webkit: Always build WebKit2 on Windows.
+
+2010-07-12  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Steve Falkenburg.
+
+        One http test timing out on Windows can cause all future tests to time out
+        https://bugs.webkit.org/show_bug.cgi?id=42146
+        
+        There have been multiple times on the Windows bots where one http test timing out causes all future
+        http tests to time out. This is because the httpd process becomes unresponsive. When an http test
+        times out, we should restart httpd on Cygwin to prevent this.
+
+        * Scripts/old-run-webkit-tests: If an http test timed out on Cygwin, close httpd and restart it.
+        * Scripts/webkitperl/httpd.pm: Add additional logic to closeHTTPD to teach it about taskkill if
+            using kill fails.
+
 2010-07-12  Maciej Stachowiak  <mjs@apple.com>
 
         Reviewed by Dan Bernstein.

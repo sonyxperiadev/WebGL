@@ -376,6 +376,9 @@ namespace WebCore {
         void setPaginateDuringLayoutEnabled(bool flag) { m_paginateDuringLayoutEnabled = flag; }
         bool paginateDuringLayoutEnabled() const { return m_paginateDuringLayoutEnabled; }
 
+        void setMemoryInfoEnabled(bool flag) { m_memoryInfoEnabled = flag; }
+        bool memoryInfoEnabled() const { return m_memoryInfoEnabled; }
+
     private:
         Page* m_page;
         
@@ -496,9 +499,13 @@ namespace WebCore {
         bool m_html5TreeBuilderEnabled: 1; // Will be deleted soon, do not use.
         bool m_paginateDuringLayoutEnabled : 1;
         bool m_dnsPrefetchingEnabled : 1;
+<<<<<<< HEAD:WebCore/page/Settings.h
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif
+=======
+        bool m_memoryInfoEnabled: 1;
+>>>>>>> webkit.org at r63859:WebCore/page/Settings.h
     
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;

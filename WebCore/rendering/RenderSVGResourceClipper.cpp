@@ -49,6 +49,7 @@ RenderSVGResourceType RenderSVGResourceClipper::s_resourceType = ClipperResource
 
 RenderSVGResourceClipper::RenderSVGResourceClipper(SVGClipPathElement* node)
     : RenderSVGResourceContainer(node)
+    , m_invalidationBlocked(false)
 {
 }
 
@@ -60,12 +61,13 @@ RenderSVGResourceClipper::~RenderSVGResourceClipper()
 
 void RenderSVGResourceClipper::invalidateClients()
 {
+    if (m_invalidationBlocked)
+        return;
+
     HashMap<RenderObject*, ClipperData*>::const_iterator end = m_clipper.end();
-    for (HashMap<RenderObject*, ClipperData*>::const_iterator it = m_clipper.begin(); it != end; ++it) {
-        RenderObject* renderer = it->first;
-        renderer->setNeedsBoundariesUpdate();
-        renderer->setNeedsLayout(true);
-    }
+    for (HashMap<RenderObject*, ClipperData*>::const_iterator it = m_clipper.begin(); it != end; ++it)
+        markForLayoutAndResourceInvalidation(it->first);
+
     deleteAllValues(m_clipper);
     m_clipper.clear();
     m_clipBoundaries = FloatRect();
@@ -73,12 +75,10 @@ void RenderSVGResourceClipper::invalidateClients()
 
 void RenderSVGResourceClipper::invalidateClient(RenderObject* object)
 {
-    ASSERT(object);
+    if (m_invalidationBlocked)
+        return;
 
-    // FIXME: The HashSet should always contain the object on calling invalidateClient. A race condition
-    // during the parsing can causes a call of invalidateClient right before the call of applyResource.
-    // We return earlier for the moment. This bug should be fixed in:
-    // https://bugs.webkit.org/show_bug.cgi?id=35181
+    ASSERT(object);
     if (!m_clipper.contains(object))
         return;
 
@@ -95,6 +95,11 @@ bool RenderSVGResourceClipper::applyResource(RenderObject* object, RenderStyle*,
 #else
     UNUSED_PARAM(resourceMode);
 #endif
+
+    // Early exit, if this resource contains a child which references ourselves.
+    if (containsCyclicReference(node()))
+        return false;
+
     applyClippingToContext(object, object->objectBoundingBox(), object->repaintRectInLocalCoordinates(), context);
     return true;
 }
@@ -237,6 +242,10 @@ bool RenderSVGResourceClipper::createClipData(ClipperData* clipperData, const Fl
         svgStyle->setStrokeOpacity(1.0f);
         svgStyle->setFilterResource(String());
         svgStyle->setMaskerResource(String());
+
+        // The setStyle() call results in a styleDidChange() call, which in turn invalidations the resources.
+        // As we're mutating the resource on purpose, block updates until we've resetted the style again.
+        m_invalidationBlocked = true;
         renderer->setStyle(newRenderStyle.release());
 
         // In the case of a <use> element, we obtained its renderere above, to retrieve its clipRule.
@@ -245,6 +254,7 @@ bool RenderSVGResourceClipper::createClipData(ClipperData* clipperData, const Fl
         SVGRenderSupport::renderSubtreeToImage(clipperData->clipMaskImage.get(), isUseElement ? childNode->renderer() : renderer);
 
         renderer->setStyle(oldRenderStyle.release());
+        m_invalidationBlocked = false;
     }
 
     maskContext->restore();
@@ -270,6 +280,12 @@ void RenderSVGResourceClipper::calculateClipContentRepaintRect()
 
 bool RenderSVGResourceClipper::hitTestClipContent(const FloatRect& objectBoundingBox, const FloatPoint& nodeAtPoint)
 {
+    // FIXME: We should be able to check whether m_clipper.contains(object) - this doesn't work at the moment
+    // as resourceBoundingBox() has already created ClipperData, even if applyResource() returned false.
+    // Early exit, if this resource contains a child which references ourselves.
+    if (containsCyclicReference(node()))
+        return false;
+
     FloatPoint point = nodeAtPoint;
     if (!SVGRenderSupport::pointInClippingArea(this, point))
         return false;
@@ -296,12 +312,16 @@ bool RenderSVGResourceClipper::hitTestClipContent(const FloatRect& objectBoundin
     return false;
 }
 
+bool RenderSVGResourceClipper::childElementReferencesResource(const SVGRenderStyle* style, const String& referenceId) const
+{
+    if (!style->hasClipper())
+        return false;
+
+    return style->clipperResource() == referenceId;
+}
+
 FloatRect RenderSVGResourceClipper::resourceBoundingBox(RenderObject* object)
 {
-    // Save the reference to the calling object for relayouting it on changing resource properties.
-    if (!m_clipper.contains(object))
-        m_clipper.set(object, new ClipperData);
-
     // Resource was not layouted yet. Give back the boundingBox of the object.
     if (selfNeedsLayout())
         return object->objectBoundingBox();

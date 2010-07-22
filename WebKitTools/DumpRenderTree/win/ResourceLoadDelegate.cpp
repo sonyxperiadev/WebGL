@@ -250,6 +250,13 @@ HRESULT STDMETHODCALLTYPE ResourceLoadDelegate::willSendRequest(
             descriptionSuitableForTestResult(redirectResponse).c_str());
     }
 
+    if (!done && !gLayoutTestController->deferMainResourceDataLoad()) {
+        COMPtr<IWebDataSourcePrivate> dataSourcePrivate(Query, dataSource);
+        if (!dataSourcePrivate)
+            return E_FAIL;
+        dataSourcePrivate->setDeferMainResourceDataLoad(FALSE);
+    }
+
     if (!done && gLayoutTestController->willSendRequestReturnsNull()) {
         *newRequest = 0;
         return S_OK;
@@ -285,6 +292,7 @@ HRESULT STDMETHODCALLTYPE ResourceLoadDelegate::didReceiveAuthenticationChalleng
         return E_FAIL;
 
     if (!gLayoutTestController->handlesAuthenticationChallenges()) {
+        printf("%S - didReceiveAuthenticationChallenge - Simulating cancelled authentication sheet\n", descriptionSuitableForTestResult(identifier).c_str());
         sender->continueWithoutCredentialForAuthenticationChallenge(challenge);
         return S_OK;
     }
@@ -326,10 +334,10 @@ HRESULT STDMETHODCALLTYPE ResourceLoadDelegate::didReceiveResponse(
         if (FAILED(response->URL(&urlBSTR)))
             E_FAIL;
     
-        wstring url = urlSuitableForTestResult(wstringFromBSTR(urlBSTR));
+        wstring url = wstringFromBSTR(urlBSTR);
         ::SysFreeString(urlBSTR);
 
-        printf("%S has MIME type %S\n", url.c_str(), mimeType.c_str());
+        printf("%S has MIME type %S\n", lastPathComponent(url).c_str(), mimeType.c_str());
     }
 
     return S_OK;

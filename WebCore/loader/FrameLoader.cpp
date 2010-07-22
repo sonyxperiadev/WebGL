@@ -66,6 +66,9 @@
 #endif // PLATFORM(ANDROID)
 #include "HTMLAnchorElement.h"
 #include "HTMLFormElement.h"
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+#include "HTMLMediaElement.h"
+#endif
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
 #include "HTTPParsers.h"
@@ -103,11 +106,6 @@
 #include <wtf/CurrentTime.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
-
-#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-#include "HTMLMediaElement.h"
-#include "RenderVideo.h"
-#endif
 
 #if ENABLE(SHARED_WORKERS)
 #include "SharedWorkerRepository.h"
@@ -460,9 +458,18 @@ void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy, DatabasePolic
                 if (m_frame->domWindow()) {
                     if (unloadEventPolicy == UnloadEventPolicyUnloadAndPageHide)
                         m_frame->domWindow()->dispatchEvent(PageTransitionEvent::create(eventNames().pagehideEvent, m_frame->document()->inPageCache()), m_frame->document());
-                    if (!m_frame->document()->inPageCache())
+                    if (!m_frame->document()->inPageCache()) {
                         m_frame->domWindow()->dispatchEvent(Event::create(eventNames().unloadEvent, false, false), m_frame->domWindow()->document());
-                    m_frameLoadTimeline.unloadEventEnd = currentTime();
+
+                        if (m_provisionalDocumentLoader) {
+                            DocumentLoadTiming* timing = m_provisionalDocumentLoader->timing();
+                            ASSERT(timing->navigationStart);
+                            // FIXME: This fails in Safari (https://bugs.webkit.org/show_bug.cgi?id=42772). Understand why.
+                            // ASSERT(!timing->unloadEventEnd);
+                            timing->unloadEventEnd = currentTime();
+                            ASSERT(timing->unloadEventEnd >= timing->navigationStart);
+                        }
+                    }
                 }
                 m_pageDismissalEventBeingDispatched = false;
                 if (m_frame->document())
@@ -1531,9 +1538,6 @@ void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType t
     if (m_pageDismissalEventBeingDispatched)
         return;
 
-    m_frameLoadTimeline = FrameLoadTimeline();
-    m_frameLoadTimeline.navigationStart = currentTime();
-
     policyChecker()->setLoadType(type);
     RefPtr<FormState> formState = prpFormState;
     bool isFormSubmission = formState;
@@ -2249,6 +2253,8 @@ void FrameLoader::finishedLoading()
     RefPtr<Frame> protect(m_frame);
 
     RefPtr<DocumentLoader> dl = activeDocumentLoader();
+    ASSERT(!dl->timing()->responseEnd);
+    dl->timing()->responseEnd = currentTime();
     dl->finishedLoading();
     if (!dl->mainDocumentError().isNull() || !dl->frameLoader())
         return;
@@ -2366,6 +2372,9 @@ bool FrameLoader::subframeIsLoading() const
             return true;
         documentLoader = childLoader->provisionalDocumentLoader();
         if (documentLoader && documentLoader->isLoadingInAPISense())
+            return true;
+        documentLoader = childLoader->policyDocumentLoader();
+        if (documentLoader)
             return true;
     }
     return false;
@@ -2546,6 +2555,9 @@ void FrameLoader::continueLoadAfterWillSubmitForm()
         notifier()->assignIdentifierToInitialRequest(identifier, m_provisionalDocumentLoader.get(), m_provisionalDocumentLoader->originalRequest());
     }
 
+    ASSERT(!m_provisionalDocumentLoader->timing()->navigationStart);
+    m_provisionalDocumentLoader->timing()->navigationStart = currentTime();
+
     if (!m_provisionalDocumentLoader->startLoadingMainResource(identifier))
         m_provisionalDocumentLoader->updateLoading();
 }
@@ -2649,8 +2661,6 @@ void FrameLoader::handledOnloadEvents()
 {
     m_client->dispatchDidHandleOnloadEvents();
 
-    m_loadType = FrameLoadTypeStandard;
-
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     if (documentLoader())
         documentLoader()->applicationCacheHost()->stopDeferringEvents();
@@ -2730,7 +2740,14 @@ void FrameLoader::addExtraFieldsToRequest(ResourceRequest& request, FrameLoadTyp
     // 2. Delegates that modify the cache policy using willSendRequest: should
     //    not affect any other resources. Such changes need to be done
     //    per request.
-    if (loadType == FrameLoadTypeReload) {
+    if (!mainResource) {
+        if (request.isConditional())
+            request.setCachePolicy(ReloadIgnoringCacheData);
+        else if (documentLoader()->isLoadingInAPISense())
+            request.setCachePolicy(documentLoader()->originalRequest().cachePolicy());
+        else
+            request.setCachePolicy(UseProtocolCachePolicy);
+    } else if (loadType == FrameLoadTypeReload) {
         request.setCachePolicy(ReloadIgnoringCacheData);
         request.setHTTPHeaderField("Cache-Control", "max-age=0");
     } else if (loadType == FrameLoadTypeReloadFromOrigin) {
@@ -2739,10 +2756,8 @@ void FrameLoader::addExtraFieldsToRequest(ResourceRequest& request, FrameLoadTyp
         request.setHTTPHeaderField("Pragma", "no-cache");
     } else if (request.isConditional())
         request.setCachePolicy(ReloadIgnoringCacheData);
-    else if (isBackForwardLoadType(loadType) && !request.url().protocolIs("https"))
+    else if (isBackForwardLoadType(loadType) && m_stateMachine.committedFirstRealDocumentLoad() && !request.url().protocolIs("https"))
         request.setCachePolicy(ReturnCacheDataElseLoad);
-    else if (!mainResource && documentLoader()->isLoadingInAPISense())
-        request.setCachePolicy(documentLoader()->originalRequest().cachePolicy());
     
     if (mainResource)
         request.setHTTPAccept(defaultAcceptHeader);
@@ -3038,7 +3053,7 @@ void FrameLoader::continueLoadAfterNavigationPolicy(const ResourceRequest&, Pass
 #if ENABLE(JAVASCRIPT_DEBUGGER) && ENABLE(INSPECTOR) && USE(JSC)
     if (Page* page = m_frame->page()) {
         if (page->mainFrame() == m_frame)
-            page->inspectorController()->resumeDebugger();
+            page->inspectorController()->resume();
     }
 #endif
 
@@ -3114,14 +3129,13 @@ void FrameLoader::loadedResourceFromMemoryCache(const CachedResource* resource)
     if (!page)
         return;
 
-#if ENABLE(INSPECTOR)
-    page->inspectorController()->didLoadResourceFromMemoryCache(m_documentLoader.get(), resource);
-#endif
-
     if (!resource->sendResourceLoadCallbacks() || m_documentLoader->haveToldClientAboutLoad(resource->url()))
         return;
 
     if (!page->areMemoryCacheClientCallsEnabled()) {
+#if ENABLE(INSPECTOR)
+        page->inspectorController()->didLoadResourceFromMemoryCache(m_documentLoader.get(), resource);
+#endif
         m_documentLoader->recordMemoryCacheLoadForFutureClientNotification(resource->url());
         m_documentLoader->didTellClientAboutLoad(resource->url());
         return;
@@ -3129,6 +3143,9 @@ void FrameLoader::loadedResourceFromMemoryCache(const CachedResource* resource)
 
     ResourceRequest request(resource->url());
     if (m_client->dispatchDidLoadResourceFromMemoryCache(m_documentLoader.get(), request, resource->response(), resource->encodedSize())) {
+#if ENABLE(INSPECTOR)
+        page->inspectorController()->didLoadResourceFromMemoryCache(m_documentLoader.get(), resource);
+#endif
         m_documentLoader->didTellClientAboutLoad(resource->url());
         return;
     }
@@ -3289,7 +3306,9 @@ void FrameLoader::navigateToDifferentDocument(HistoryItem* item, FrameLoadType l
             case FrameLoadTypeBackWMLDeckNotAccessible:
             case FrameLoadTypeForward:
             case FrameLoadTypeIndexedBackForward:
-                if (!itemURL.protocolIs("https"))
+                // If the first load within a frame is a navigation within a back/forward list that was attached 
+                // without any of the items being loaded then we should use the default caching policy (<rdar://problem/8131355>).
+                if (m_stateMachine.committedFirstRealDocumentLoad() && !itemURL.protocolIs("https"))
                     request.setCachePolicy(ReturnCacheDataElseLoad);
                 break;
             case FrameLoadTypeStandard:

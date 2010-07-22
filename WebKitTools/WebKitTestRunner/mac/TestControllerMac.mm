@@ -30,22 +30,19 @@
 
 namespace WTR {
 
+void TestController::platformInitialize()
+{
+}
+
 void TestController::initializeInjectedBundlePath()
 {
-    uint32_t pathLength = 0;
-    _NSGetExecutablePath(0, &pathLength);
-    char* path = (char*)malloc(pathLength);
-    _NSGetExecutablePath(path, &pathLength);
-    char* theRealPath = (char*)malloc(pathLength);
-    realpath(path, theRealPath);
-
-    NSString *pwd = [[NSString stringWithUTF8String:theRealPath] stringByDeletingLastPathComponent];
-    NSString *nsBundlePath = [pwd stringByAppendingPathComponent:@"InjectedBundle.bundle"];
-
-    free(path);
-    free(theRealPath);
-    
+    NSString *nsBundlePath = [[[NSBundle mainBundle] bundlePath] stringByAppendingPathComponent:@"InjectedBundle.bundle"];
     m_injectedBundlePath.adopt(WKStringCreateWithCFString((CFStringRef)nsBundlePath));
+}
+
+void TestController::initializeTestPluginPath()
+{
+    m_testPluginPath.adopt(WKStringCreateWithCFString((CFStringRef)[[NSBundle mainBundle] bundlePath]));
 }
 
 } // namespace WTR

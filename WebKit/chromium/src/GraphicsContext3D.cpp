@@ -112,6 +112,7 @@ public:
 
     void reshape(int width, int height);
 
+    void paintRenderingResultsToCanvas(WebGLRenderingContext* context);
     void beginPaint(WebGLRenderingContext* context);
     void endPaint();
 
@@ -139,7 +140,9 @@ public:
     void blendFuncSeparate(unsigned long srcRGB, unsigned long dstRGB, unsigned long srcAlpha, unsigned long dstAlpha);
 
     void bufferData(unsigned long target, int size, unsigned long usage);
+    void bufferData(unsigned long target, ArrayBuffer* data, unsigned long usage);
     void bufferData(unsigned long target, ArrayBufferView* data, unsigned long usage);
+    void bufferSubData(unsigned long target, long offset, ArrayBuffer* data);
     void bufferSubData(unsigned long target, long offset, ArrayBufferView* data);
 
     unsigned long checkFramebufferStatus(unsigned long target);
@@ -397,7 +400,7 @@ WebGLLayerChromium* GraphicsContext3DInternal::platformLayer() const
 }
 #endif
 
-void GraphicsContext3DInternal::beginPaint(WebGLRenderingContext* context)
+void GraphicsContext3DInternal::paintRenderingResultsToCanvas(WebGLRenderingContext* context)
 {
     HTMLCanvasElement* canvas = context->canvas();
     ImageBuffer* imageBuffer = canvas->buffer();
@@ -447,42 +450,18 @@ void GraphicsContext3DInternal::beginPaint(WebGLRenderingContext* context)
         canvas.drawBitmapRect(m_resizingBitmap, 0, dst);
     }
 #elif PLATFORM(CG)
-    if (m_renderOutput) {
-        int rowBytes = m_impl->width() * 4;
-        CGDataProviderRef dataProvider = CGDataProviderCreateWithData(0, m_renderOutput, rowBytes * m_impl->height(), 0);
-        CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
-        CGImageRef cgImage = CGImageCreate(m_impl->width(),
-                                           m_impl->height(),
-                                           8,
-                                           32,
-                                           rowBytes,
-                                           colorSpace,
-                                           kCGImageAlphaPremultipliedFirst | kCGBitmapByteOrder32Host,
-                                           dataProvider,
-                                           0,
-                                           false,
-                                           kCGRenderingIntentDefault);
-        // CSS styling may cause the canvas's content to be resized on
-        // the page. Go back to the Canvas to figure out the correct
-        // width and height to draw.
-        CGRect rect = CGRectMake(0, 0,
-                                 context->canvas()->width(),
-                                 context->canvas()->height());
-        // We want to completely overwrite the previous frame's
-        // rendering results.
-        CGContextSetBlendMode(imageBuffer->context()->platformContext(),
-                              kCGBlendModeCopy);
-        CGContextSetInterpolationQuality(imageBuffer->context()->platformContext(),
-                                         kCGInterpolationNone);
-        CGContextDrawImage(imageBuffer->context()->platformContext(),
-                           rect, cgImage);
-        CGImageRelease(cgImage);
-        CGColorSpaceRelease(colorSpace);
-        CGDataProviderRelease(dataProvider);
-    }
+    if (m_renderOutput)
+        context->graphicsContext3D()->paintToCanvas(m_renderOutput, m_impl->width(), m_impl->height(),
+                                                    canvas->width(), canvas->height(),
+                                                    imageBuffer->context()->platformContext());
 #else
 #error Must port to your platform
 #endif
+}
+
+void GraphicsContext3DInternal::beginPaint(WebGLRenderingContext* context)
+{
+    paintRenderingResultsToCanvas(context);
 }
 
 void GraphicsContext3DInternal::endPaint()
@@ -718,9 +697,19 @@ void GraphicsContext3DInternal::bufferData(unsigned long target, int size, unsig
     m_impl->bufferData(target, size, 0, usage);
 }
 
+void GraphicsContext3DInternal::bufferData(unsigned long target, ArrayBuffer* array, unsigned long usage)
+{
+    m_impl->bufferData(target, array->byteLength(), array->data(), usage);
+}
+
 void GraphicsContext3DInternal::bufferData(unsigned long target, ArrayBufferView* array, unsigned long usage)
 {
     m_impl->bufferData(target, array->byteLength(), array->baseAddress(), usage);
+}
+
+void GraphicsContext3DInternal::bufferSubData(unsigned long target, long offset, ArrayBuffer* array)
+{
+    m_impl->bufferSubData(target, offset, array->byteLength(), array->data());
 }
 
 void GraphicsContext3DInternal::bufferSubData(unsigned long target, long offset, ArrayBufferView* array)
@@ -1165,7 +1154,9 @@ DELEGATE_TO_INTERNAL_2(blendFunc, unsigned long, unsigned long)
 DELEGATE_TO_INTERNAL_4(blendFuncSeparate, unsigned long, unsigned long, unsigned long, unsigned long)
 
 DELEGATE_TO_INTERNAL_3(bufferData, unsigned long, int, unsigned long)
+DELEGATE_TO_INTERNAL_3(bufferData, unsigned long, ArrayBuffer*, unsigned long)
 DELEGATE_TO_INTERNAL_3(bufferData, unsigned long, ArrayBufferView*, unsigned long)
+DELEGATE_TO_INTERNAL_3(bufferSubData, unsigned long, long, ArrayBuffer*)
 DELEGATE_TO_INTERNAL_3(bufferSubData, unsigned long, long, ArrayBufferView*)
 
 DELEGATE_TO_INTERNAL_1R(checkFramebufferStatus, unsigned long, unsigned long)
@@ -1311,6 +1302,7 @@ DELEGATE_TO_INTERNAL_6(vertexAttribPointer, unsigned long, int, int, bool, unsig
 
 DELEGATE_TO_INTERNAL_4(viewport, long, long, unsigned long, unsigned long)
 
+DELEGATE_TO_INTERNAL_1(paintRenderingResultsToCanvas, WebGLRenderingContext*)
 DELEGATE_TO_INTERNAL_1(beginPaint, WebGLRenderingContext*)
 DELEGATE_TO_INTERNAL(endPaint)
 

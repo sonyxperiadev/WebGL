@@ -57,7 +57,11 @@ namespace WebCore {
     class Element;
     class Event;
     class InspectorDOMAgent;
+<<<<<<< HEAD:WebCore/inspector/InspectorDOMAgent.h
     class InspectorFrontend2;
+=======
+    class RemoteInspectorFrontend;
+>>>>>>> webkit.org at r63859:WebCore/inspector/InspectorDOMAgent.h
     class MatchJob;
     class NameNodeMap;
     class Node;
@@ -80,7 +84,7 @@ namespace WebCore {
 
     class InspectorDOMAgent : public EventListener {
     public:
-        static PassRefPtr<InspectorDOMAgent> create(InspectorCSSStore* cssStore, InspectorFrontend2* frontend)
+        static PassRefPtr<InspectorDOMAgent> create(InspectorCSSStore* cssStore, RemoteInspectorFrontend* frontend)
         {
             return adoptRef(new InspectorDOMAgent(cssStore, frontend));
         }
@@ -92,7 +96,7 @@ namespace WebCore {
                 : 0;
         }
 
-        InspectorDOMAgent(InspectorCSSStore* cssStore, InspectorFrontend2* frontend);
+        InspectorDOMAgent(InspectorCSSStore* cssStore, RemoteInspectorFrontend* frontend);
         ~InspectorDOMAgent();
 
         void reset();
@@ -138,8 +142,9 @@ namespace WebCore {
         Node* nodeForId(long nodeId);
         long pushNodePathToFrontend(Node* node);
         void pushChildNodesToFrontend(long nodeId);
-        long pushNodeByPathToFrontend(const String& path);
+        void pushNodeByPathToFrontend(long callId, const String& path);
         long inspectedNode(unsigned long num);
+        void copyNode(long nodeId);
 
     private:
         static CSSStyleSheet* getParentStyleSheet(CSSStyleDeclaration*);
@@ -195,7 +200,7 @@ namespace WebCore {
         void discardBindings();
 
         InspectorCSSStore* m_cssStore;
-        InspectorFrontend2* m_frontend;
+        RemoteInspectorFrontend* m_frontend;
         NodeToIdMap m_documentNodeToIdMap;
         // Owns node mappings for dangling nodes.
         Vector<NodeToIdMap*> m_danglingNodeToIdMaps;

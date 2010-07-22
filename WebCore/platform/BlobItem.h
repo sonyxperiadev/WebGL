@@ -32,7 +32,6 @@
 #define BlobItem_h
 
 #include "PlatformString.h"
-#include "TextEncoding.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -40,15 +39,6 @@
 #include <wtf/text/CString.h>
 
 namespace WebCore {
-
-// String ending types.
-enum LineEnding {
-    EndingTransparent = 0,
-    EndingNative,
-    EndingLF,
-    EndingCR,
-    EndingCRLF,
-};
 
 class ByteArrayBlobItem;
 class DataBlobItem;
@@ -108,8 +98,14 @@ public:
 class FileBlobItem : public BlobItem {
 public:
     static PassRefPtr<BlobItem> create(const String& path);
+#if ENABLE(DIRECTORY_UPLOAD)
+    static PassRefPtr<BlobItem> create(const String& path, const String& relativePath);
+#endif
     virtual const String& name() const { return m_fileName; }
     virtual const String& path() const { return m_path; }
+#if ENABLE(DIRECTORY_UPLOAD)
+    const String& relativePath() const { return m_relativePath; }
+#endif
 
     // BlobItem methods.
     virtual unsigned long long size() const;
@@ -120,13 +116,18 @@ public:
 
 protected:
     FileBlobItem(const String& path);
+#if ENABLE(DIRECTORY_UPLOAD)
+    FileBlobItem(const String& path, const String& relativePath);
+#endif
     String m_path;
     String m_fileName;
+#if ENABLE(DIRECTORY_UPLOAD)
+    String m_relativePath;
+#endif
 };
 
 class StringBlobItem : public DataBlobItem {
 public:
-    static PassRefPtr<BlobItem> create(const String&, LineEnding, TextEncoding);
     static PassRefPtr<BlobItem> create(const CString&);
     const CString& cstr() const { return m_data; }
 
@@ -138,9 +139,7 @@ public:
     virtual const char* data() const { return m_data.data(); }
 
 private:
-    StringBlobItem(const String&, LineEnding, TextEncoding);
     StringBlobItem(const CString&);
-    static CString convertToCString(const String&, LineEnding, TextEncoding);
     CString m_data;
 };
 

@@ -28,10 +28,10 @@ module core {
     interface [
         Conditional=DEVICE_ORIENTATION
     ] DeviceOrientationEvent : Event {
-        readonly attribute double alpha;
-        readonly attribute double beta;
-        readonly attribute double gamma;
-        void initDeviceOrientationEvent(in DOMString typeArg, in boolean canBubbleArg, in boolean cancelableArg, in double alpha, in double beta, in double gamma);
+        readonly attribute [Custom] double alpha;
+        readonly attribute [Custom] double beta;
+        readonly attribute [Custom] double gamma;
+        [Custom] void initDeviceOrientationEvent(in DOMString type, in boolean bubbles, in boolean cancelable, in double alpha, in double beta, in double gamma);
     };
 
 }

@@ -51,7 +51,7 @@ void RenderSVGResourceGradient::invalidateClients()
 {
     const HashMap<RenderObject*, GradientData*>::const_iterator end = m_gradient.end();
     for (HashMap<RenderObject*, GradientData*>::const_iterator it = m_gradient.begin(); it != end; ++it)
-        markForLayoutAndResourceInvalidation(it->first);
+        markForLayoutAndResourceInvalidation(it->first, false);
 
     deleteAllValues(m_gradient);
     m_gradient.clear();
@@ -60,16 +60,11 @@ void RenderSVGResourceGradient::invalidateClients()
 void RenderSVGResourceGradient::invalidateClient(RenderObject* object)
 {
     ASSERT(object);
-
-    // FIXME: The HashMap should always contain the object on calling invalidateClient. A race condition
-    // during the parsing can causes a call of invalidateClient right before the call of applyResource.
-    // We return earlier for the moment. This bug should be fixed in:
-    // https://bugs.webkit.org/show_bug.cgi?id=35181
     if (!m_gradient.contains(object))
         return;
 
     delete m_gradient.take(object);
-    markForLayoutAndResourceInvalidation(object);
+    markForLayoutAndResourceInvalidation(object, false);
 }
 
 #if PLATFORM(CG)
@@ -133,7 +128,7 @@ static inline AffineTransform clipToTextMask(GraphicsContext* context,
         matrix.translate(maskBoundingBox.x(), maskBoundingBox.y());
         matrix.scaleNonUniform(maskBoundingBox.width(), maskBoundingBox.height());
     }
-    matrix.multiply(gradientData->transform);
+    matrix.multLeft(gradientData->transform);
     return matrix;
 }
 #endif
@@ -179,7 +174,7 @@ bool RenderSVGResourceGradient::applyResource(RenderObject* object, RenderStyle*
             gradientData->userspaceTransform.scaleNonUniform(objectBoundingBox.width(), objectBoundingBox.height());
         }
 
-        gradientData->userspaceTransform.multiply(gradientData->transform);
+        gradientData->userspaceTransform.multLeft(gradientData->transform);
         gradientData->gradient->setGradientSpaceTransform(gradientData->userspaceTransform);
     }
 

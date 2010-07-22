@@ -944,10 +944,10 @@ void RenderObject::drawBoxSideFromPath(GraphicsContext* graphicsContext, IntRect
             whiteSpaceWidth += (patWidth  / numberOfWhitespaceDashes);
         }
 
-        DashArray* lineDash = new DashArray();
-        lineDash->append(patWidth);
-        lineDash->append(whiteSpaceWidth);
-        graphicsContext->setLineDash(*lineDash, patWidth);
+        DashArray lineDash;
+        lineDash.append(patWidth);
+        lineDash.append(whiteSpaceWidth);
+        graphicsContext->setLineDash(lineDash, patWidth);
         graphicsContext->addPath(borderPath);
         graphicsContext->strokePath();
         return;
@@ -1357,7 +1357,8 @@ bool RenderObject::repaintAfterLayoutIfNeeded(RenderBoxModelObject* repaintConta
     if (v->printing())
         return false; // Don't repaint if we're printing.
 
-    ASSERT(!newBoundsPtr || *newBoundsPtr == clippedOverflowRectForRepaint(repaintContainer));
+    // This ASSERT fails due to animations.  See https://bugs.webkit.org/show_bug.cgi?id=37048
+    // ASSERT(!newBoundsPtr || *newBoundsPtr == clippedOverflowRectForRepaint(repaintContainer));
     IntRect newBounds = newBoundsPtr ? *newBoundsPtr : clippedOverflowRectForRepaint(repaintContainer);
     IntRect newOutlineBox;
 
@@ -1366,7 +1367,8 @@ bool RenderObject::repaintAfterLayoutIfNeeded(RenderBoxModelObject* repaintConta
     if (!fullRepaint && style()->borderFit() == BorderFitLines)
         fullRepaint = true;
     if (!fullRepaint) {
-        ASSERT(!newOutlineBoxRectPtr || *newOutlineBoxRectPtr == outlineBoundsForRepaint(repaintContainer));
+        // This ASSERT fails due to animations.  See https://bugs.webkit.org/show_bug.cgi?id=37048
+        // ASSERT(!newOutlineBoxRectPtr || *newOutlineBoxRectPtr == outlineBoundsForRepaint(repaintContainer));
         newOutlineBox = newOutlineBoxRectPtr ? *newOutlineBoxRectPtr : outlineBoundsForRepaint(repaintContainer);
         if (newOutlineBox.location() != oldOutlineBox.location() || (mustRepaintBackgroundOrBorder() && (newBounds != oldBounds || newOutlineBox != oldOutlineBox)))
             fullRepaint = true;

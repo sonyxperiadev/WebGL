@@ -73,26 +73,13 @@ static inline bool isNumericCompareFunction(ExecState* exec, CallType callType, 
     if (callType != CallTypeJS)
         return false;
 
-#if ENABLE(JIT)
-    // If the JIT is enabled then we need to preserve the invariant that every
-    // function with a CodeBlock also has JIT code.
-    CodeBlock* codeBlock = 0;
-#if ENABLE(INTERPRETER)
-    if (!exec->globalData().canUseJIT())
-        codeBlock = callData.js.functionExecutable->bytecodeForCall(exec, callData.js.scopeChain);
-    else
-#endif
-    {
-        callData.js.functionExecutable->jitCodeForCall(exec, callData.js.scopeChain);
-        codeBlock = &callData.js.functionExecutable->generatedBytecodeForCall();
-    }
-#else
-    CodeBlock* codeBlock = callData.js.functionExecutable->bytecodeForCall(exec, callData.js.scopeChain);
-#endif
-    if (!codeBlock)
+    FunctionExecutable* executable = callData.js.functionExecutable;
+
+    JSObject* error = executable->compileForCall(exec, callData.js.scopeChain);
+    if (error)
         return false;
 
-    return codeBlock->isNumericCompareFunction();
+    return executable->generatedBytecodeForCall().isNumericCompareFunction();
 }
 
 // ------------------------------ ArrayPrototype ----------------------------
@@ -560,8 +547,6 @@ EncodedJSValue JSC_HOST_CALL arrayProtoFuncSplice(ExecState* exec)
     JSObject* thisObj = thisValue.toThisObject(exec);
 
     // 15.4.4.12
-    JSArray* resObj = constructEmptyArray(exec);
-    JSValue result = resObj;
 
     // FIXME: Firefox returns an empty array.
     if (!exec->argumentCount())
@@ -582,10 +567,12 @@ EncodedJSValue JSC_HOST_CALL arrayProtoFuncSplice(ExecState* exec)
     else
         deleteCount = length - begin;
 
-    for (unsigned k = 0; k < deleteCount; k++) {
-        if (JSValue v = getProperty(exec, thisObj, k + begin))
-            resObj->put(exec, k, v);
-    }
+    JSArray* resObj = new (exec) JSArray(exec->lexicalGlobalObject()->arrayStructure(), deleteCount, CreateCompact);
+    JSValue result = resObj;
+
+    for (unsigned k = 0; k < deleteCount; k++)
+        resObj->uncheckedSetIndex(k, getProperty(exec, thisObj, k + begin));
+
     resObj->setLength(deleteCount);
 
     unsigned additionalArgs = std::max<int>(exec->argumentCount() - 2, 0);

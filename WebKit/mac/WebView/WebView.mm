@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2006 David Smith (catfish.man@gmail.com)
+ * Copyright (C) 2010 Igalia S.L
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -1432,6 +1433,7 @@ static bool fastDocumentTeardownEnabled()
     settings->setHTML5ParserEnabled([preferences html5ParserEnabled]);
     settings->setHTML5TreeBuilderEnabled_DO_NOT_USE([preferences html5TreeBuilderEnabled]);
     settings->setPaginateDuringLayoutEnabled([preferences paginateDuringLayoutEnabled]);
+    settings->setMemoryInfoEnabled([preferences memoryInfoEnabled]);
 }
 
 static inline IMP getMethod(id o, SEL s)
@@ -2219,7 +2221,7 @@ static inline IMP getMethod(id o, SEL s)
 
 + (NSCursor *)_pointingHandCursor
 {
-    return handCursor().impl();
+    return handCursor().platformCursor();
 }
 
 - (BOOL)_postsAcceleratedCompositingNotifications
@@ -2618,6 +2620,20 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
     
     return nil;
 }
+
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+- (WebBasePluginPackage *)_videoProxyPluginForMIMEType:(NSString *)MIMEType
+{
+    WebBasePluginPackage *pluginPackage = [[WebPluginDatabase sharedDatabase] pluginForMIMEType:MIMEType];
+    if (pluginPackage)
+        return pluginPackage;
+
+    if (_private->pluginDatabase)
+        return [_private->pluginDatabase pluginForMIMEType:MIMEType];
+
+    return nil;
+}
+#endif
 
 - (WebBasePluginPackage *)_pluginForExtension:(NSString *)extension
 {
@@ -3084,7 +3100,7 @@ static bool needsWebViewInitThreadWorkaround()
     _private->UIDelegateForwarder = nil;
 }
 
-- UIDelegate
+- (id)UIDelegate
 {
     return _private->UIDelegate;
 }
@@ -3095,7 +3111,7 @@ static bool needsWebViewInitThreadWorkaround()
     [self _cacheResourceLoadDelegateImplementations];
 }
 
-- resourceLoadDelegate
+- (id)resourceLoadDelegate
 {
     return _private->resourceProgressDelegate;
 }
@@ -3106,7 +3122,7 @@ static bool needsWebViewInitThreadWorkaround()
 }
 
 
-- downloadDelegate
+- (id)downloadDelegate
 {
     return _private->downloadDelegate;
 }
@@ -3118,7 +3134,7 @@ static bool needsWebViewInitThreadWorkaround()
     _private->policyDelegateForwarder = nil;
 }
 
-- policyDelegate
+- (id)policyDelegate
 {
     return _private->policyDelegate;
 }
@@ -3144,7 +3160,7 @@ static bool needsWebViewInitThreadWorkaround()
 #endif
 }
 
-- frameLoadDelegate
+- (id)frameLoadDelegate
 {
     return _private->frameLoadDelegate;
 }

@@ -28,6 +28,7 @@
 
 #include "DragActions.h"
 #include "FocusDirection.h"
+#include "HitTestRequest.h"
 #include "PlatformMouseEvent.h"
 #include "ScrollTypes.h"
 #include "Timer.h"
@@ -105,11 +106,15 @@ public:
 
     void dispatchFakeMouseMoveEventSoonInQuad(const FloatQuad&);
 
+<<<<<<< HEAD:WebCore/page/EventHandler.h
 #ifdef ANDROID_HITTEST_WITHSIZE
     HitTestResult hitTestResultAtPoint(const IntPoint&, bool allowShadowContent, bool ignoreClipping = false, HitTestScrollbars scrollbars = DontHitTestScrollbars, const IntSize& pointPadding = IntSize());
 #else
     HitTestResult hitTestResultAtPoint(const IntPoint&, bool allowShadowContent, bool ignoreClipping = false, HitTestScrollbars scrollbars = DontHitTestScrollbars);
 #endif
+=======
+    HitTestResult hitTestResultAtPoint(const IntPoint&, bool allowShadowContent, bool ignoreClipping = false, HitTestScrollbars scrollbars = DontHitTestScrollbars, int hitType = HitTestRequest::ReadOnly | HitTestRequest::Active);
+>>>>>>> webkit.org at r63859:WebCore/page/EventHandler.h
 
     bool mousePressed() const { return m_mousePressed; }
     void setMousePressed(bool pressed) { m_mousePressed = pressed; }
@@ -435,6 +440,7 @@ private:
 #if ENABLE(TOUCH_EVENTS)
     typedef HashMap<int, RefPtr<EventTarget> > TouchTargetMap;
     TouchTargetMap m_originatingTouchPointTargets;
+    bool m_touchPressed;
 #endif
 };
 

@@ -1,3 +1,856 @@
+2010-07-21  Bo Liu  <boliu@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Add chromium WebMediaPlayer to PlatformMedia
+        https://bugs.webkit.org/show_bug.cgi?id=41295
+
+        * WebKit.gyp:
+        * public/WebMediaElement.h: Added.
+        * src/WebMediaElement.cpp: Added.
+        (WebKit::WebMediaElement::player):
+        (WebKit::WebMediaElement::WebMediaElement):
+        (WebKit::WebMediaElement::operator=):
+        (WebKit::WebMediaElement::operator PassRefPtr<HTMLMediaElement>):
+        * src/WebMediaPlayerClientImpl.cpp:
+        (WebKit::WebMediaPlayerClientImpl::fromMediaElement):
+        (WebKit::WebMediaPlayerClientImpl::mediaPlayer):
+        (WebKit::WebMediaPlayerClientImpl::platformLayer):
+        (WebKit::WebMediaPlayerClientImpl::platformMedia):
+        * src/WebMediaPlayerClientImpl.h:
+
+2010-07-21  Finnur Thorarinsson  <finnur.webkit@gmail.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Avoid crashing during find-in-page when |view| is NULL.
+        https://bugs.webkit.org/show_bug.cgi?id=42760
+        
+        There are no layout tests because we don't have a repro case
+        to work with, so this is a speculative fix based on crash dump
+        diagnosis. See bug for details.
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::shouldScopeMatches):
+
+2010-07-21  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Runtime feature switch for device orientation
+        https://bugs.webkit.org/show_bug.cgi?id=42265
+
+        Add a runtime feature switch that decides whether device orientation
+        events are available or not. Defaults to true.
+
+        * public/WebRuntimeFeatures.h:
+        * src/WebRuntimeFeatures.cpp:
+        (WebKit::WebRuntimeFeatures::enableDeviceOrientation):
+        (WebKit::WebRuntimeFeatures::isDeviceOrientationEnabled):
+
+2010-07-21  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: should be possible to debug inspector
+        https://bugs.webkit.org/show_bug.cgi?id=42730
+
+        * src/WebDevToolsFrontendImpl.cpp:
+        (WebKit::WebDevToolsFrontendImpl::WebDevToolsFrontendImpl):
+
+2010-07-16  James Hawkins  <jhawkins@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Implement WebFormElement::wasUserSubmitted(). This is used to
+        verify that the user submitted the form instead of JS when saving form
+        data in AutoFill.
+        https://bugs.webkit.org/show_bug.cgi?id=42479
+
+        * public/WebFormElement.h:
+        * src/WebFormElement.cpp:
+        (WebKit::WebFormElement::wasUserSubmitted):
+
+2010-07-20  Daniel Erat  <derat@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        Subpixel rendering always disabled for Chromium Linux
+        https://bugs.webkit.org/show_bug.cgi?id=42220
+
+        Honor Fontconfig subpixel rendering setting on Chromium Linux.
+
+        * src/gtk/WebFontInfo.cpp:
+        (WebKit::WebFontInfo::renderStyleForStrike):
+
+2010-07-20  Darin Fisher  <darin@chromium.org>
+
+        Fix Chromium build bustage.
+
+        * src/ResourceHandle.cpp:
+        (WebCore::ResourceHandle::hasAuthenticationChallenge): Add
+        implementation of this method that always returns false.
+
+2010-07-20  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by Jian Li.
+
+        [Chromium] Add interface for downloading to a file.  This can be used
+        in the future to support XMLHttpRequest.responseBlob, but it also
+        serves a use case in Chromium.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42657
+
+        * public/WebURLLoaderClient.h:
+        (WebKit::WebURLLoaderClient::willSendRequest):
+        (WebKit::WebURLLoaderClient::didSendData):
+        (WebKit::WebURLLoaderClient::didReceiveResponse):
+        (WebKit::WebURLLoaderClient::didDownloadData):
+        (WebKit::WebURLLoaderClient::didReceiveData):
+        (WebKit::WebURLLoaderClient::didFinishLoading):
+        (WebKit::WebURLLoaderClient::didFail):
+        * public/WebURLRequest.h:
+        * public/WebURLResponse.h:
+        * src/WebURLRequest.cpp:
+        (WebKit::WebURLRequest::downloadToFile):
+        (WebKit::WebURLRequest::setDownloadToFile):
+        * src/WebURLRequestPrivate.h:
+        (WebKit::WebURLRequestPrivate::WebURLRequestPrivate):
+        * src/WebURLResponse.cpp:
+        (WebKit::WebURLResponse::downloadFilePath):
+        (WebKit::WebURLResponse::setDownloadFilePath):
+        * src/WebURLResponsePrivate.h:
+
+2010-07-20  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r63750.
+        http://trac.webkit.org/changeset/63750
+        https://bugs.webkit.org/show_bug.cgi?id=42648
+
+        This revision breaks the windows builds (Requested by
+        hwennborg on #webkit).
+
+        * public/WebRuntimeFeatures.h:
+        * src/WebRuntimeFeatures.cpp:
+
+2010-07-19  Victor Wang  <victorw@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Add webkit api reset to WebIDBDatabaseError and WebIDBKey
+        and refactor their destructors for chromium multi dll build.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42574
+
+        * public/WebIDBDatabaseError.h:
+        (WebKit::WebIDBDatabaseError::~WebIDBDatabaseError):
+        * public/WebIDBKey.h:
+        (WebKit::WebIDBKey::~WebIDBKey):
+        * src/WebIDBDatabaseError.cpp:
+        (WebKit::WebIDBDatabaseError::reset):
+        * src/WebIDBKey.cpp:
+        (WebKit::WebIDBKey::reset):
+
+2010-07-20  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Runtime feature switch for device orientation
+        https://bugs.webkit.org/show_bug.cgi?id=42265
+
+        Add a runtime feature switch that decides whether device orientation
+        events are available or not. Defaults to true.
+
+        * public/WebRuntimeFeatures.h:
+        * src/WebRuntimeFeatures.cpp:
+        (WebKit::WebRuntimeFeatures::enableDeviceOrientation):
+        (WebKit::WebRuntimeFeatures::isDeviceOrientationEnabled):
+
+2010-07-19  Victoria Kirst  <vrk@google.com>
+
+        Reviewed by David Levin.
+
+        Updated WebMediaPlayer to support accelerated rendering and to
+        create and return a VideoChromiumLayer as its platform layer.
+        https://bugs.webkit.org/show_bug.cgi?id=42234
+
+        * src/WebMediaPlayerClientImpl.cpp:
+        (WebKit::WebMediaPlayerClientImpl::platformLayer):
+        (WebKit::WebMediaPlayerClientImpl::create):
+        * src/WebMediaPlayerClientImpl.h:
+        (WebKit::WebMediaPlayerClientImpl::supportsAcceleratedRendering):
+
+2010-07-19  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Nate Chapin.
+
+        WebGL rendering results must be made available to Canvas.toDataURL and 2D drawImage
+        https://bugs.webkit.org/show_bug.cgi?id=34719
+
+        Fixed compiler warning introduced by original patch.
+
+        * src/WebGraphicsContext3DDefaultImpl.cpp:
+        (WebKit::WebGraphicsContext3DDefaultImpl::readBackFramebuffer):
+
+2010-07-19  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [chromium] refactor npapi plugin copy step
+        https://bugs.webkit.org/show_bug.cgi?id=42493
+
+        This is to avoid duplicate copy rules in the Linux make build.
+
+        * WebKit.gyp:
+        * DEPS: 52483:52869
+
+2010-07-19  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: Live edit is not working in chromium.
+        https://bugs.webkit.org/show_bug.cgi?id=42572
+
+        * src/js/DebuggerScript.js:
+
+2010-07-16  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [V8] Web Inspector: get actual breakpoint location from v8 and pass it
+        to ScripDebugServer.
+        https://bugs.webkit.org/show_bug.cgi?id=42452
+
+        * src/js/DebuggerScript.js:
+
+2010-07-17  John Gregg  <johnnyg@google.com>
+
+        Reviewed by Kent Tamura.
+
+        [chromium] directory upload: pass the attribute up to the chrome client        
+        https://bugs.webkit.org/show_bug.cgi?id=42475
+
+        This allows chromium to display the native system directory picker when
+        the directory attribute is present on the input element.
+
+        * public/WebFileChooserParams.h:
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::runOpenPanel):
+
+2010-07-16  Zhe Su  <suzhe@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION(r61484): Broke focus behaviour on Qt and probably other platforms
+        https://bugs.webkit.org/show_bug.cgi?id=42253
+
+        Implement EditorClient::willSetInputMethodState which replaces
+        setInputMethodState method.
+
+        * src/EditorClientImpl.cpp:
+        (WebKit::EditorClientImpl::willSetInputMethodState):
+        (WebKit::EditorClientImpl::setInputMethodState):
+        * src/EditorClientImpl.h:
+
+2010-07-16  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] <input type=number> UI implementation for Windows
+        https://bugs.webkit.org/show_bug.cgi?id=42259
+
+        * public/WebThemeEngine.h:
+        (WebKit::WebThemeEngine::paintSpinButton): Added.
+        * src/ChromiumBridge.cpp:
+        (WebCore::ChromiumBridge::paintSpinButton):
+          Added. It calls WebThemeEngine::paintSpinButton().
+
+2010-07-16  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Avoid crashing if offscreen GLES2 context creation fails
+        https://bugs.webkit.org/show_bug.cgi?id=42469
+
+        If creating or initializing an offscreen GLES2Context fails we should return null
+        rather than crashing or returning an invalid context.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::getOffscreenGLES2Context):
+
+2010-07-15  Tony Gentilcore  <tonyg@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Enable window.webkitPerformance (Web Timing) for chromium
+        https://bugs.webkit.org/show_bug.cgi?id=42313
+
+        * features.gypi:
+
+2010-07-16  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r63551.
+        http://trac.webkit.org/changeset/63551
+        https://bugs.webkit.org/show_bug.cgi?id=42460
+
+        "Problems with gyp" (Requested by yurys on #webkit).
+
+        * DEPS:
+
+2010-07-16  Yury Semikhatsky  <yurys@chromium.org>
+
+        Unreviewed. Bump up Chromium revision.
+
+        * DEPS:
+
+2010-07-16  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: disable AppCache in chromium.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41858
+
+        * src/js/DevTools.js:
+        (WebInspector.loaded):
+
+2010-07-16  Alexander Pavlov  <apavlov@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: [Chromium] A non-existent resource is referenced from devTools.css
+
+        The erroneous rule has been removed.
+        https://bugs.webkit.org/show_bug.cgi?id=42454
+
+        * src/js/devTools.css:
+
+2010-07-16  Andrey Kosyakov  <caseq@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Check that end node of a range has a valid renderer in WebViewImpl::caretOrSelectionBounds()
+        to avoid crash in Position::getInlineBoxAndOffset() when start node has renderer but end one doesn't.
+        https://bugs.webkit.org/show_bug.cgi?id=42449
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::caretOrSelectionBounds):
+
+2010-07-16  Mikhail Naganov  <mnaganov@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Make JS memory stats available via 'Performance' object (Web Timing).
+        This statistics is populated only if 'WebKitMemoryInfoEnabled'
+        preference is set.
+
+        'console.memory' is kept until Web Timing object becomes visible by
+        default (currently it is hidden under compile-time flag).  These stats
+        are guarded with the same preference.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41617
+
+        * public/WebSettings.h:
+        * src/WebSettingsImpl.cpp:
+        (WebKit::WebSettingsImpl::setMemoryInfoEnabled):
+        * src/WebSettingsImpl.h:
+
+2010-07-15  Victor Wang  <victorw@chromium.org>
+
+        Reviewed by David Levin.
+
+       [Chromium] Chromium webkit dll updates:
+        -. Fix WEBKIT_IMPLEMENTATION in WebCommon so
+           dllimport works as expected.
+        -. Update webkit.gyp so targets that depend on webkit
+           has correct macros defined.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42177
+
+        * WebKit.gyp:
+        * public/WebCommon.h:
+
+2010-07-13  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Nate Chapin.
+
+        WebGL rendering results must be made available to Canvas.toDataURL and 2D drawImage
+        https://bugs.webkit.org/show_bug.cgi?id=34719
+
+        * src/GraphicsContext3D.cpp:
+        (WebCore::GraphicsContext3DInternal::paintRenderingResultsToCanvas): Implement paintRenderingResultsToCanvas().
+        (WebCore::GraphicsContext3DInternal::beginPaint): Just use paintRenderingResultsToCanvas().
+
+2010-07-15  Victor Wang  <victorw@chromium.org>
+
+        Reviewed by David Levin.
+
+        Roll Chromium DEPS forward to r52483.
+        https://bugs.webkit.org/show_bug.cgi?id=42386
+
+        * DEPS:
+
+2010-07-15  Scott Violet  <sky@chromium.org>
+
+        Reviewed by David Levin.
+
+        [chromium] WebViewClient::removeAutofillSuggestions is not passed the correct name
+        https://bugs.webkit.org/show_bug.cgi?id=42385
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::autocompleteHandleKeyEvent): Use WebInputElement::nameForAutofill() instead of name.
+
+2010-07-15  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r63446.
+        http://trac.webkit.org/changeset/63446
+        https://bugs.webkit.org/show_bug.cgi?id=42412
+
+        It broke the Chromium Windows bot due to missing dependencies
+        there. (Requested by dave_levin on #webkit).
+
+        * DEPS:
+
+2010-07-15  Victor Wang  <victorw@chromium.org>
+
+        Reviewed by David Levin.
+
+        Roll Chromium DEPS forward to r52483.
+        https://bugs.webkit.org/show_bug.cgi?id=42386
+
+        * DEPS:
+
+2010-07-15  Michael Nordman  <michaeln@google.com>
+
+        Reviewed by Darin Fisher.
+
+        WebKitAPI additions to support inspecting application caches.
+        https://bugs.webkit.org/show_bug.cgi?id=41993
+
+        * public/WebApplicationCacheHost.h:
+        (WebKit::WebApplicationCacheHost::CacheInfo::CacheInfo):
+        (WebKit::WebApplicationCacheHost::ResourceInfo::ResourceInfo):
+        (WebKit::WebApplicationCacheHost::getAssociatedCacheInfo):
+        (WebKit::WebApplicationCacheHost::getResourceList):
+        (WebKit::WebApplicationCacheHost::deleteAssociatedCacheGroup):
+        * public/WebApplicationCacheHostClient.h:
+        (WebKit::WebApplicationCacheHostClient::didChangeCacheAssociation):
+        * src/ApplicationCacheHostInternal.h:
+        (WebCore::ApplicationCacheHostInternal::didChangeCacheAssociation):
+
+2010-07-15  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: differentiate between blocking and connecting timers.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42372
+
+        * public/WebURLResponse.h:
+        * src/WebURLResponse.cpp:
+        (WebKit::WebURLResponse::connectionReused):
+        (WebKit::WebURLResponse::setConnectionReused):
+
+2010-07-15  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Fix mac compilation failure
+        https://bugs.webkit.org/show_bug.cgi?id=42344
+
+        * src/AutoFillPopupMenuClient.cpp:
+        (WebKit::AutoFillPopupMenuClient::removeSuggestionAtIndex):
+        (WebKit::AutoFillPopupMenuClient::canRemoveSuggestionAtIndex):
+
+2010-07-14  George Yakovlev  <georgey@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Allow Chromium access to Select control choices
+        https://bugs.webkit.org/show_bug.cgi?id=41384
+
+        * WebKit.gyp:
+        * public/WebOptionElement.h: Added.
+        (WebKit::WebOptionElement::WebOptionElement):
+        (WebKit::WebOptionElement::operator=):
+        (WebKit::WebOptionElement::assign):
+        * public/WebSelectElement.h:
+        * src/WebOptionElement.cpp: Added.
+        (WebKit::WebOptionElement::setValue):
+        (WebKit::WebOptionElement::value):
+        (WebKit::WebOptionElement::index):
+        (WebKit::WebOptionElement::text):
+        (WebKit::WebOptionElement::defaultSelected):
+        (WebKit::WebOptionElement::setDefaultSelected):
+        (WebKit::WebOptionElement::label):
+        (WebKit::WebOptionElement::disabled):
+        (WebKit::WebOptionElement::WebOptionElement):
+        (WebKit::WebOptionElement::operator=):
+        (WebKit::WebOptionElement::operator PassRefPtr<HTMLOptionElement>):
+        * src/WebSelectElement.cpp:
+        (WebKit::WebSelectElement::listItems):
+
+2010-07-14  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r63389.
+        http://trac.webkit.org/changeset/63389
+        https://bugs.webkit.org/show_bug.cgi?id=42311
+
+        It broke the Chromium Linux build. (Requested by dave_levin on
+        #webkit).
+
+        * DEPS:
+        * WebKit.gyp:
+        * public/WebCommon.h:
+
+2010-07-14  Scott Violet  <sky@chromium.org>
+
+        Reviewed by David Levin.
+
+        [chromium] Autofill menu shows seperator at the wrong place when an entry is deleted
+        https://bugs.webkit.org/show_bug.cgi?id=42210
+
+        * src/AutoFillPopupMenuClient.cpp:
+        (WebKit::AutoFillPopupMenuClient::removeSuggestionAtIndex): Updates internal data appropriately.
+        (WebKit::AutoFillPopupMenuClient::canRemoveSuggestionAtIndex): Now called before removal to see if can remove.
+        * src/AutoFillPopupMenuClient.h: Fixed whitespace and added method.
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::autocompleteHandleKeyEvent): Added call to canRemoveSuggestionAtIndex.
+
+2010-07-14  James Robinson  <jamesr@chromium.org>
+
+        Unreviewed. Compile fix, initialization/declaration order mismatch.
+
+        * src/GLES2ContextInternal.h:
+
+2010-07-14  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by David Levin.
+
+        [chromium] don't restrict the width of the autofill popup.
+        https://bugs.webkit.org/show_bug.cgi?id=42206
+
+        * src/WebViewImpl.cpp:
+
+2010-07-14  Victor Wang  <victorw@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Chromium webkit dll updates:
+        -. Fix WEBKIT_IMPLEMENTATION in WebCommon so
+           dllimport works as expected.
+        -. Update webkit.gyp so targets that depend on webkit
+           has correct macros defined.
+        -. Roll forward chromium deps to r52273.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42177
+
+        * DEPS:
+        * WebKit.gyp:
+        * public/WebCommon.h:
+
+2010-07-14  James Hawkins  <jhawkins@chromium.org>
+
+        UNREVIEWED Build Fix.
+
+        Fix a typo.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::applyAutoFillSuggestions):
+
+2010-07-14  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Breaks all dependencies on Page from platform/ and cleans up GLES2Context lifetime
+        https://bugs.webkit.org/show_bug.cgi?id=42203
+
+        Rather than constructing a GLES2Context from a Page, pass the LayerRendererChromium
+        a GLES2Context in from the constructor.  This way the platform/ directory can remain
+        ignorant of Page and friends.  Also adds functions on ChromeClientChromium to request
+        onscreen and offscreen GLES2Contexts for callers in WebCore that need them. 
+
+        * WebKit.gyp:
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::getOnscreenGLES2Context):
+        (WebKit::ChromeClientImpl::getOffscreenGLES2Context):
+        * src/ChromeClientImpl.h:
+        * src/GLES2Context.cpp:
+        (WebCore::GLES2ContextInternal::create):
+        (WebCore::GLES2Context::create):
+        (WebCore::GLES2Context::GLES2Context):
+        * src/GLES2ContextInternal.cpp: Added.
+        (WebCore::GLES2ContextInternal::~GLES2ContextInternal):
+        * src/GLES2ContextInternal.h: Added.
+        (WebCore::GLES2ContextInternal::getWebGLES2Context):
+        (WebCore::GLES2ContextInternal::GLES2ContextInternal):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setIsAcceleratedCompositingActive):
+        (WebKit::WebViewImpl::getOnscreenGLES2Context):
+        (WebKit::WebViewImpl::getOffscreenGLES2Context):
+        * src/WebViewImpl.h:
+
+2010-07-14  James Hawkins  <jhawkins@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Use the unique ID instead of the profile label to identify
+        the accepted AutoFill suggestion.
+        https://bugs.webkit.org/show_bug.cgi?id=42301
+
+        * public/WebView.h:
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::didAcceptAutoFillSuggestion):
+        (WebKit::WebViewClient::didSelectAutoFillSuggestion):
+        * src/AutoFillPopupMenuClient.cpp:
+        (WebKit::AutoFillPopupMenuClient::valueChanged):
+        (WebKit::AutoFillPopupMenuClient::selectionChanged):
+        (WebKit::AutoFillPopupMenuClient::initialize):
+        (WebKit::AutoFillPopupMenuClient::setSuggestions):
+        (WebKit::AutoFillPopupMenuClient::textFieldStyle):
+        * src/AutoFillPopupMenuClient.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::applyAutoFillSuggestions):
+        (WebKit::WebViewImpl::applyAutocompleteSuggestions):
+        * src/WebViewImpl.h:
+
+2010-07-14  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by David Levin.
+
+        Don't notify the WebView that the popup has been closed when the
+        selection is cleared, as the popup is not gone and would linger
+        as a ghost popup.
+        https://bugs.webkit.org/show_bug.cgi?id=42180
+
+        * src/AutoFillPopupMenuClient.cpp:
+        (WebKit::AutoFillPopupMenuClient::selectionCleared):
+
+2010-07-14  Sam Weinig  <sam@webkit.org>
+
+        Fix the chromium mac build.
+
+        * src/WebPopupMenuImpl.cpp:
+        (WebKit::WebPopupMenuImpl::setCursor):
+
+2010-07-14  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=42232
+        Make changing Cursors work in WebKit2.
+
+        * src/ChromeClientImpl.h:
+        (WebKit::ChromeClientImpl::setCursor):
+        Change prototype to match new one.
+
+        * src/WebPopupMenuImpl.cpp:
+        (WebKit::WebPopupMenuImpl::setCursor):
+        * src/WebPopupMenuImpl.h:
+        Add empty setCursor function to satisfy the HostWindow interface.
+
+2010-07-13  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42201
+        Use ResourceHandle object for synchronous loading
+
+        * src/ResourceHandle.cpp:
+        (WebCore::ResourceHandle::request):
+        This method is no longer const in cross-platform code, and is called firstRequest.
+
+2010-07-14  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r63305.
+        http://trac.webkit.org/changeset/63305
+        https://bugs.webkit.org/show_bug.cgi?id=42256
+
+        "debugger-breakpoints-not-activated-on-reload.html fails on
+        GTK" (Requested by yurys on #webkit).
+
+        * src/js/DebuggerScript.js:
+        ():
+
+2010-07-14  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: remove v8 debugger code that doesn't use ScriptDebugServer
+        https://bugs.webkit.org/show_bug.cgi?id=42164
+
+        * WebKit.gypi:
+        * src/DebuggerAgentManager.cpp:
+        (WebKit::DebuggerAgentManager::debugAttach):
+        (WebKit::DebuggerAgentManager::debugDetach):
+        * src/InspectorFrontendClientImpl.cpp:
+        (WebKit::InspectorFrontendClientImpl::windowObjectCleared):
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::~WebDevToolsAgentImpl):
+        (WebKit::WebDevToolsAgentImpl::attach):
+        (WebKit::WebDevToolsAgentImpl::didNavigate):
+        (WebKit::WebDevToolsAgentImpl::createInspectorFrontendProxy):
+        * src/js/DebuggerAgent.js: Removed.
+        * src/js/DevTools.js:
+        (devtools.ToolsAgent):
+        (WebInspector.loaded):
+        * src/js/DevToolsHostStub.js:
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+        * src/js/Tests.js:
+        (.TestSuite.prototype.testAutoContinueOnSyntaxError):
+        (.TestSuite.prototype.testExpandScope.examineScopes):
+        (.TestSuite.prototype.testExpandScope):
+        (.TestSuite.prototype.testDebugIntrinsicProperties):
+
+2010-07-14  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        WebInspector: Clean-up InspectorBackend code. In the next changes
+        InspectorBackend content will be generated by scripts. As far as
+        generator is very simple thing all nontrivial function should be
+        moved to InspectorController and DOMAgent.
+        https://bugs.webkit.org/show_bug.cgi?id=42171
+
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+        (.devtools.InspectorBackendImpl.prototype.pause):
+        (.devtools.InspectorBackendImpl.prototype.resume):
+        (.devtools.InspectorBackendImpl.prototype.stepIntoStatement):
+        (.devtools.InspectorBackendImpl.prototype.stepOutOfFunction):
+        (.devtools.InspectorBackendImpl.prototype.stepOverStatement):
+        (else.devtools.InspectorBackendImpl.prototype.pause):
+
+2010-07-14  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: if breakpoints were deactivated, add new breakpoints as disabled.
+        https://bugs.webkit.org/show_bug.cgi?id=41461
+
+        * src/js/DebuggerScript.js:
+        ():
+
+2010-07-14  Kent Tamura  <tkent@chromium.org>
+
+        Unreviewed, 2nd attempt to fix build on 'Webkit.org Reliability Builder'.
+
+        * WebKit.gyp:
+
+2010-07-14  Kent Tamura  <tkent@chromium.org>
+
+        Unreviewed, attempt to fix build on 'Webkit.org Reliability Builder'.
+
+        * WebKit.gyp:
+
+2010-07-14  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by David Levin.
+
+        [Chromium] Upstreaming inspector_resources target
+        https://bugs.webkit.org/show_bug.cgi?id=41669
+
+        'inspector_resource' is currently in src/webkit/webkit.gyp of
+        Chromium tree. We move it to WebKit tree because:
+        - DumpRenderTree in WebKit tree needs it, and
+        - It's hard to refer to WebKit.gypi and WebCore.gypi from
+          webkit_support in both cases of Chromium-tree build and
+          WebKit-tree build.
+
+        * WebKit.gyp:
+
+2010-07-13  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Linux implementation of <input type=number> UI
+        https://bugs.webkit.org/show_bug.cgi?id=41925
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setScrollbarColors):
+         Call PlatformThemeChromiumGtk::setScrollbarColors() instead of
+         RenderThemeChromiumLinux::setScrollbarColors().
+
+2010-07-13  Chris Guillory  <chris.guillory@google.com>
+
+        Reviewed by David Levin.
+
+        Fix adoptRef usage violation in WebAccessibilityCacheImpl.cpp.
+        https://bugs.webkit.org/show_bug.cgi?id=42092
+
+        * src/WebAccessibilityCacheImpl.cpp:
+        (WebKit::WebAccessibilityCacheImpl::WeakHandle::create):
+        (WebKit::WebAccessibilityCacheImpl::WeakHandle::WeakHandle):
+
+2010-07-13  Albert J. Wong  <ajwong@chromium.org>
+
+        Unreviewed, build fix.
+
+        [chromium] The comparision between signed/unsigned breaks the chromium
+        mac build.
+
+        * src/AutoFillPopupMenuClient.cpp:
+        (WebKit::AutoFillPopupMenuClient::getSuggestion):
+        (WebKit::AutoFillPopupMenuClient::getLabel):
+
+2010-07-10  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Darin Fisher.
+
+        Implement bufferData and bufferSubData with ArrayBuffer as input
+        https://bugs.webkit.org/show_bug.cgi?id=41884
+
+        * src/GraphicsContext3D.cpp: Implement bufferData and bufferSubData with ArrayBuffer as input.
+        (WebCore::GraphicsContext3DInternal::bufferData):
+        (WebCore::GraphicsContext3DInternal::bufferSubData):
+
+2010-07-10  Zhenyao Mo  <zmo@google.com>
+
+        Reviewed by Darin Fisher.
+
+        Need to emulate MAX_VARYING_VECTORS/MAX_FRAGMENT_UNIFORM_VECTORs/MAX_VERTEX_UNIFORM_VECTORS for glGet
+        https://bugs.webkit.org/show_bug.cgi?id=42032
+
+        * src/WebGraphicsContext3DDefaultImpl.cpp:
+        (WebKit::WebGraphicsContext3DDefaultImpl::getIntegerv): Emulate the enums.
+
+2010-07-13  Andrey Kosyakov  <caseq@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: catch and log JS exceptions resulting from executing a 
+        script on inspector front-end to prevent renderer from crashing.
+        https://bugs.webkit.org/show_bug.cgi?id=42157
+
+        * src/WebDevToolsFrontendImpl.cpp:
+        (WebKit::WebDevToolsFrontendImpl::executeScript):
+
+2010-07-13  Kent Tamura  <tkent@chromium.org>
+
+        Unreviewed, build fix.
+
+        Fix a build error by r63179 for Chromium.
+
+        * tests/PopupMenuTest.cpp:
+        (WebKit::TestPopupMenuClient::itemLabel): Added.
+
+2010-07-12  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        Making the autofill popup use labels to show the label
+        associated with an item.
+        https://bugs.webkit.org/show_bug.cgi?id=41964
+
+        * src/AutoFillPopupMenuClient.cpp:
+        (WebKit::AutoFillPopupMenuClient::getSuggestion):
+        (WebKit::AutoFillPopupMenuClient::getLabel):
+        (WebKit::AutoFillPopupMenuClient::itemLabel):
+        (WebKit::AutoFillPopupMenuClient::setSuggestions):
+        (WebKit::AutoFillPopupMenuClient::convertListIndexToInternalIndex):
+        * src/AutoFillPopupMenuClient.h:
+
 2010-07-12  Sheriff Bot  <webkit.review.bot@gmail.com>
 
         Unreviewed, rolling out r63171.

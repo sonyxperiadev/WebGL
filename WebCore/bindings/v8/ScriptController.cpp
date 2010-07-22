@@ -34,6 +34,7 @@
 
 #include "PlatformBridge.h"
 #include "Document.h"
+#include "ScriptCallStack.h"
 #include "ScriptableDocumentParser.h"
 #include "DOMWindow.h"
 #include "Event.h"
@@ -464,6 +465,13 @@ void ScriptController::clearWindowShell(bool)
     m_proxy->clearForNavigation();
 }
 
+#if ENABLE(INSPECTOR)
+void ScriptController::setCaptureCallStackForUncaughtExceptions(bool)
+{
+    v8::V8::SetCaptureStackTraceForUncaughtExceptions(true, ScriptCallStack::maxCallStackSizeToCapture);
+}
+#endif
+
 void ScriptController::attachDebugger(void*)
 {
     notImplemented();
@@ -476,12 +484,10 @@ void ScriptController::updateDocument()
 
 void ScriptController::namedItemAdded(HTMLDocument* doc, const AtomicString& name)
 {
-    m_proxy->windowShell()->namedItemAdded(doc, name);
 }
 
 void ScriptController::namedItemRemoved(HTMLDocument* doc, const AtomicString& name)
 {
-    m_proxy->windowShell()->namedItemRemoved(doc, name);
 }
 
 } // namespace WebCore

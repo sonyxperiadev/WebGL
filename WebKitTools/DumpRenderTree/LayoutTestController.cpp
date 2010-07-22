@@ -60,6 +60,7 @@ LayoutTestController::LayoutTestController(const std::string& testPathOrURL, con
     , m_dumpIconChanges(false)
     , m_dumpVisitedLinksCallback(false)
     , m_dumpWillCacheResponse(false)
+    , m_generatePixelResults(true)
     , m_callCloseOnWebViews(true)
     , m_canOpenWindows(false)
     , m_closeRemainingWindowsWhenComplete(true)
@@ -78,6 +79,7 @@ LayoutTestController::LayoutTestController(const std::string& testPathOrURL, con
     , m_geolocationPermission(false)
     , m_handlesAuthenticationChallenges(false)
     , m_isPrinting(false)
+    , m_deferMainResourceDataLoad(true)
     , m_testPathOrURL(testPathOrURL)
     , m_expectedPixelHash(expectedPixelHash)
 {
@@ -101,6 +103,10 @@ static JSValueRef dumpAsTextCallback(JSContextRef context, JSObjectRef function,
 {
     LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
     controller->setDumpAsText(true);
+
+    // Optional paramater, describing whether it's allowed to dump pixel results in dumpAsText mode.
+    controller->setGeneratePixelResults(argumentCount > 0 ? JSValueToBoolean(context, arguments[0]) : false);
+
     return JSValueMakeUndefined(context);
 }
 
@@ -734,6 +740,28 @@ static JSValueRef queueLoadCallback(JSContextRef context, JSObjectRef function, 
     return JSValueMakeUndefined(context);
 }
 
+static JSValueRef queueLoadHTMLStringCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    // Has Mac & Windows implementation
+    if (argumentCount < 1)
+        return JSValueMakeUndefined(context);
+
+    JSRetainPtr<JSStringRef> content(Adopt, JSValueToStringCopy(context, arguments[0], exception));
+    ASSERT(!*exception);
+
+    JSRetainPtr<JSStringRef> baseURL;
+    if (argumentCount >= 2) {
+        baseURL.adopt(JSValueToStringCopy(context, arguments[1], exception));
+        ASSERT(!*exception);
+    } else
+        baseURL.adopt(JSStringCreateWithUTF8CString(""));
+
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    controller->queueLoadHTMLString(content.get(), baseURL.get());
+
+    return JSValueMakeUndefined(context);
+}
+
 static JSValueRef queueReloadCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
     // Has mac & windows implementation
@@ -912,6 +940,18 @@ static JSValueRef setDatabaseQuotaCallback(JSContextRef context, JSObjectRef fun
     if (!isnan(quota))
         controller->setDatabaseQuota(static_cast<unsigned long long>(quota));
         
+    return JSValueMakeUndefined(context);
+}
+
+static JSValueRef setDeferMainResourceDataLoadCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    // Has Mac and Windows implementation
+    if (argumentCount < 1)
+        return JSValueMakeUndefined(context);
+
+    LayoutTestController* controller = static_cast<LayoutTestController*>(JSObjectGetPrivate(thisObject));
+    controller->setDeferMainResourceDataLoad(JSValueToBoolean(context, arguments[0]));
+
     return JSValueMakeUndefined(context);
 }
 
@@ -1754,6 +1794,7 @@ JSStaticFunction* LayoutTestController::staticFunctions()
         { "queueBackNavigation", queueBackNavigationCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "queueForwardNavigation", queueForwardNavigationCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "queueLoad", queueLoadCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+        { "queueLoadHTMLString", queueLoadHTMLStringCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "queueLoadingScript", queueLoadingScriptCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "queueNonLoadingScript", queueNonLoadingScriptCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "queueReload", queueReloadCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
@@ -1774,6 +1815,7 @@ JSStaticFunction* LayoutTestController::staticFunctions()
         { "setCloseRemainingWindowsWhenComplete", setCloseRemainingWindowsWhenCompleteCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setCustomPolicyDelegate", setCustomPolicyDelegateCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setDatabaseQuota", setDatabaseQuotaCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete }, 
+        { "setDeferMainResourceDataLoad", setDeferMainResourceDataLoadCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setDomainRelaxationForbiddenForURLScheme", setDomainRelaxationForbiddenForURLSchemeCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setEditingBehavior", setEditingBehaviorCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
         { "setFrameFlatteningEnabled", setFrameFlatteningEnabledCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
@@ -1820,6 +1862,11 @@ JSStaticFunction* LayoutTestController::staticFunctions()
     };
 
     return staticFunctions;
+}
+
+void LayoutTestController::queueLoadHTMLString(JSStringRef content, JSStringRef baseURL)
+{
+    WorkQueue::shared()->queue(new LoadHTMLStringItem(content, baseURL));
 }
 
 void LayoutTestController::queueBackNavigation(int howFarBack)

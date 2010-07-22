@@ -29,8 +29,8 @@
 #ifndef Console_h
 #define Console_h
 
+#include "MemoryInfo.h"
 #include "PlatformString.h"
-
 #include "ScriptProfile.h"
 
 #include <wtf/PassRefPtr.h>
@@ -43,7 +43,6 @@ typedef Vector<RefPtr<ScriptProfile> > ProfilesArray;
 #endif
 
 class Frame;
-class MemoryInfo;
 class Page;
 class String;
 class ScriptCallStack;
@@ -65,7 +64,8 @@ enum MessageType {
     StartGroupMessageType,
     StartGroupCollapsedMessageType,
     EndGroupMessageType,
-    AssertMessageType
+    AssertMessageType,
+    UncaughtExceptionMessageType
 };
 
 enum MessageLevel {
@@ -83,7 +83,7 @@ public:
     Frame* frame() const;
     void disconnectFrame();
 
-    void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL);
+    void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL, ScriptCallStack* callStack = 0);
 
     void debug(ScriptCallStack*);
     void error(ScriptCallStack*);
@@ -116,6 +116,8 @@ public:
     const ProfilesArray& profiles() const { return m_profiles; }
 #endif
 
+    MemoryInfo* memory() const;
+
 private:
     inline Page* page() const;
     void addMessage(MessageType, MessageLevel, ScriptCallStack*, bool acceptNoArguments = false);
@@ -126,6 +128,7 @@ private:
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     ProfilesArray m_profiles;
 #endif
+    mutable RefPtr<MemoryInfo> m_memory;
 };
 
 } // namespace WebCore

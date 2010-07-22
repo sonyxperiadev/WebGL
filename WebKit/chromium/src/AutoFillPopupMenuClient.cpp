@@ -66,28 +66,47 @@ unsigned AutoFillPopupMenuClient::getSuggestionsCount() const
 
 WebString AutoFillPopupMenuClient::getSuggestion(unsigned listIndex) const
 {
-    if (listIndex == static_cast<unsigned>(m_separatorIndex))
+    int index = convertListIndexToInternalIndex(listIndex);
+    if (index == -1)
         return WebString();
 
-    if (m_separatorIndex != -1 && listIndex > static_cast<unsigned>(m_separatorIndex))
-        --listIndex;
+    ASSERT(index >= 0 && static_cast<size_t>(index) < m_names.size());
+    return m_names[index];
+}
 
-    // FIXME: Modify the PopupMenu to add the label in gray right-justified.
-    ASSERT(listIndex < m_names.size());
+WebString AutoFillPopupMenuClient::getLabel(unsigned listIndex) const
+{
+    int index = convertListIndexToInternalIndex(listIndex);
+    if (index == -1)
+        return WebString();
 
-    WebString suggestion = m_names[listIndex];
-    if (m_labels[listIndex].isEmpty())
-        return suggestion;
-
-    return suggestion + String(" (") + m_labels[listIndex] + String(")");
+    ASSERT(index >= 0 && static_cast<size_t>(index) < m_labels.size());
+    return m_labels[index];
 }
 
 void AutoFillPopupMenuClient::removeSuggestionAtIndex(unsigned listIndex)
 {
-    // FIXME: Do we want to remove AutoFill suggestions?
-    ASSERT(listIndex < m_names.size());
-    m_names.remove(listIndex);
-    m_labels.remove(listIndex);
+    if (!canRemoveSuggestionAtIndex(listIndex))
+        return;
+
+    int index = convertListIndexToInternalIndex(listIndex);
+
+    ASSERT(static_cast<unsigned>(index) < m_names.size());
+
+    m_names.remove(index);
+    m_labels.remove(index);
+
+    // Shift the separator index if necessary.
+    if (m_separatorIndex != -1)
+        m_separatorIndex--;
+}
+
+bool AutoFillPopupMenuClient::canRemoveSuggestionAtIndex(unsigned listIndex)
+{
+    // Only allow deletion of items before the separator and those that don't
+    // have a label (autocomplete).
+    int index = convertListIndexToInternalIndex(listIndex);
+    return m_labels[index].isEmpty() && (m_separatorIndex == -1 || listIndex < static_cast<unsigned>(m_separatorIndex));
 }
 
 void AutoFillPopupMenuClient::valueChanged(unsigned listIndex, bool fireEvents)
@@ -119,6 +138,7 @@ void AutoFillPopupMenuClient::valueChanged(unsigned listIndex, bool fireEvents)
       webView->client()->didAcceptAutoFillSuggestion(WebNode(getTextField()),
                                                      m_names[listIndex],
                                                      m_labels[listIndex],
+                                                     m_uniqueIDs[listIndex],
                                                      listIndex);
     }
 }
@@ -136,18 +156,25 @@ void AutoFillPopupMenuClient::selectionChanged(unsigned listIndex, bool fireEven
 
     webView->client()->didSelectAutoFillSuggestion(WebNode(getTextField()),
                                                    m_names[listIndex],
-                                                   m_labels[listIndex]);
+                                                   m_labels[listIndex],
+                                                   m_uniqueIDs[listIndex]);
 }
 
 void AutoFillPopupMenuClient::selectionCleared()
 {
-    // Same effect desired as popupDidHide, so call through.
-    popupDidHide();
+    WebViewImpl* webView = getWebView();
+    if (webView)
+        webView->client()->didClearAutoFillSelection(WebNode(getTextField()));
 }
 
 String AutoFillPopupMenuClient::itemText(unsigned listIndex) const
 {
     return getSuggestion(listIndex);
+}
+
+String AutoFillPopupMenuClient::itemLabel(unsigned listIndex) const
+{
+    return getLabel(listIndex);
 }
 
 PopupMenuStyle AutoFillPopupMenuClient::itemStyle(unsigned listIndex) const
@@ -222,9 +249,11 @@ void AutoFillPopupMenuClient::initialize(
     HTMLInputElement* textField,
     const WebVector<WebString>& names,
     const WebVector<WebString>& labels,
+    const WebVector<int>& uniqueIDs,
     int separatorIndex)
 {
     ASSERT(names.size() == labels.size());
+    ASSERT(names.size() == uniqueIDs.size());
     ASSERT(separatorIndex < static_cast<int>(names.size()));
 
     m_selectedIndex = -1;
@@ -232,7 +261,7 @@ void AutoFillPopupMenuClient::initialize(
 
     // The suggestions must be set before initializing the
     // AutoFillPopupMenuClient.
-    setSuggestions(names, labels, separatorIndex);
+    setSuggestions(names, labels, uniqueIDs, separatorIndex);
 
     FontDescription fontDescription;
     RenderTheme::defaultTheme()->systemFont(CSSValueWebkitControl,
@@ -251,16 +280,20 @@ void AutoFillPopupMenuClient::initialize(
 
 void AutoFillPopupMenuClient::setSuggestions(const WebVector<WebString>& names,
                                              const WebVector<WebString>& labels,
+                                             const WebVector<int>& uniqueIDs,
                                              int separatorIndex)
 {
     ASSERT(names.size() == labels.size());
+    ASSERT(names.size() == uniqueIDs.size());
     ASSERT(separatorIndex < static_cast<int>(names.size()));
 
     m_names.clear();
     m_labels.clear();
+    m_uniqueIDs.clear();
     for (size_t i = 0; i < names.size(); ++i) {
         m_names.append(names[i]);
         m_labels.append(labels[i]);
+        m_uniqueIDs.append(uniqueIDs[i]);
     }
 
     m_separatorIndex = separatorIndex;
@@ -268,6 +301,16 @@ void AutoFillPopupMenuClient::setSuggestions(const WebVector<WebString>& names,
     // Try to preserve selection if possible.
     if (getSelectedIndex() >= static_cast<int>(names.size()))
         setSelectedIndex(-1);
+}
+
+int AutoFillPopupMenuClient::convertListIndexToInternalIndex(unsigned listIndex) const
+{
+    if (listIndex == static_cast<unsigned>(m_separatorIndex))
+        return -1;
+
+    if (m_separatorIndex == -1 || listIndex < static_cast<unsigned>(m_separatorIndex))
+        return listIndex;
+    return listIndex - 1;
 }
 
 WebViewImpl* AutoFillPopupMenuClient::getWebView() const
@@ -288,7 +331,7 @@ RenderStyle* AutoFillPopupMenuClient::textFieldStyle() const
     RenderStyle* style = m_textField->computedStyle();
     if (!style) {
         // It seems we can only have a 0 style in a TextField if the
-        // node is detached, in which case we the popup shoud not be
+        // node is detached, in which case we the popup should not be
         // showing.  Please report this in http://crbug.com/7708 and
         // include the page you were visiting.
         ASSERT_NOT_REACHED();

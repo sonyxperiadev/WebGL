@@ -76,7 +76,7 @@ public:
     Font();
     Font(const FontDescription&, short letterSpacing, short wordSpacing);
     // This constructor is only used if the platform wants to start with a native font.
-    Font(const FontPlatformData&, bool isPrinting);
+    Font(const FontPlatformData&, bool isPrinting, FontSmoothingMode = AutoSmoothing);
     ~Font();
 
     Font(const Font&);
@@ -135,7 +135,7 @@ public:
     float xHeight() const { return primaryFont()->xHeight(); }
     unsigned unitsPerEm() const { return primaryFont()->unitsPerEm(); }
     int spaceWidth() const { return (int)ceilf(primaryFont()->adjustedSpaceWidth() + m_letterSpacing); }
-    int tabWidth() const { return 8 * spaceWidth(); }
+    float tabWidth(const SimpleFontData& fontData) const { return 8 * ceilf(fontData.adjustedSpaceWidth() + letterSpacing()); }
 
     const SimpleFontData* primaryFont() const;
     const FontData* fontDataAt(unsigned) const;

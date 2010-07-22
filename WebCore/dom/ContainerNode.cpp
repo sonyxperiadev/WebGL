@@ -215,7 +215,6 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
     bool isFragment = newChild->nodeType() == DOCUMENT_FRAGMENT_NODE;
 
     // Add the new child(ren)
-    int childCountDelta = 0;
     RefPtr<Node> child = isFragment ? newChild->firstChild() : newChild;
     while (child) {
         // If the new child is already in the right place, we're done.
@@ -239,8 +238,6 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
             break;
         if (child->parentNode())
             break;
-
-        childCountDelta++;
 
         ASSERT(!child->nextSibling());
         ASSERT(!child->previousSibling());
@@ -269,6 +266,7 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
         child->setNextSibling(next);
         allowEventDispatch();
 
+        childrenChanged(false, prev.get(), next, 1);
         notifyChildInserted(child.get());
                 
         // Add child to the rendering tree
@@ -287,8 +285,6 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
         child = nextChild.release();
     }
 
-    if (childCountDelta)
-        childrenChanged(false, prev.get(), next.get(), childCountDelta);
     dispatchSubtreeModifiedEvent();
     return true;
 }
@@ -531,6 +527,7 @@ bool ContainerNode::appendChild(PassRefPtr<Node> newChild, ExceptionCode& ec, bo
         // Now that the child is attached to the render tree, dispatch
         // the relevant mutation events.
         dispatchChildInsertionEvents(child);
+        prev = child;
     }
 
     dispatchSubtreeModifiedEvent();
@@ -706,7 +703,6 @@ void ContainerNode::cloneChildNodes(ContainerNode *clone)
         document()->frame()->editor()->deleteButtonController()->enable();
 }
 
-// FIXME: This doesn't work correctly with transforms.
 bool ContainerNode::getUpperLeftCorner(FloatPoint& point) const
 {
     if (!renderer())
@@ -716,7 +712,7 @@ bool ContainerNode::getUpperLeftCorner(FloatPoint& point) const
     RenderObject *p = o;
 
     if (!o->isInline() || o->isReplaced()) {
-        point = o->localToAbsolute();
+        point = o->localToAbsolute(FloatPoint(), false, true);
         return true;
     }
 
@@ -741,14 +737,14 @@ bool ContainerNode::getUpperLeftCorner(FloatPoint& point) const
         ASSERT(o);
 
         if (!o->isInline() || o->isReplaced()) {
-            point = o->localToAbsolute();
+            point = o->localToAbsolute(FloatPoint(), false, true);
             return true;
         }
 
         if (p->node() && p->node() == this && o->isText() && !o->isBR() && !toRenderText(o)->firstTextBox()) {
                 // do nothing - skip unrendered whitespace that is a child or next sibling of the anchor
         } else if ((o->isText() && !o->isBR()) || o->isReplaced()) {
-            point = o->container()->localToAbsolute();
+            point = FloatPoint();
             if (o->isText() && toRenderText(o)->firstTextBox()) {
                 point.move(toRenderText(o)->linesBoundingBox().x(),
                            toRenderText(o)->firstTextBox()->root()->lineTop());
@@ -756,6 +752,7 @@ bool ContainerNode::getUpperLeftCorner(FloatPoint& point) const
                 RenderBox* box = toRenderBox(o);
                 point.move(box->x(), box->y());
             }
+            point = o->container()->localToAbsolute(point, false, true);
             return true;
         }
     }
@@ -778,7 +775,7 @@ bool ContainerNode::getLowerRightCorner(FloatPoint& point) const
     RenderObject* o = renderer();
     if (!o->isInline() || o->isReplaced()) {
         RenderBox* box = toRenderBox(o);
-        point = o->localToAbsolute();
+        point = o->localToAbsolute(FloatPoint(), false, true);
         point.move(box->width(), box->height());
         return true;
     }
@@ -801,7 +798,7 @@ bool ContainerNode::getLowerRightCorner(FloatPoint& point) const
         }
         ASSERT(o);
         if (o->isText() || o->isReplaced()) {
-            point = o->container()->localToAbsolute();
+            point = FloatPoint();
             if (o->isText()) {
                 RenderText* text = toRenderText(o);
                 IntRect linesBox = text->linesBoundingBox();
@@ -810,6 +807,7 @@ bool ContainerNode::getLowerRightCorner(FloatPoint& point) const
                 RenderBox* box = toRenderBox(o);
                 point.move(box->x() + box->width(), box->y() + box->height());
             }
+            point = o->container()->localToAbsolute(point, false, true);
             return true;
         }
     }

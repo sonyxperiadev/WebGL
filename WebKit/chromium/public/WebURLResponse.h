@@ -76,6 +76,9 @@ public:
     WEBKIT_API unsigned connectionID() const;
     WEBKIT_API void setConnectionID(unsigned);
 
+    WEBKIT_API bool connectionReused() const;
+    WEBKIT_API void setConnectionReused(bool);
+
     WEBKIT_API WebURLLoadTiming loadTiming();
     WEBKIT_API void setLoadTiming(const WebURLLoadTiming&);
 
@@ -154,6 +157,12 @@ public:
     // Flag whether this request is part of a multipart response.
     WEBKIT_API bool isMultipartPayload() const;
     WEBKIT_API void setIsMultipartPayload(bool);
+
+    // This indicates the location of a downloaded response if the
+    // WebURLRequest had the downloadToFile flag set to true.  This file path
+    // remains valid for the lifetime of the WebURLLoader used to create it.
+    WEBKIT_API WebString downloadFilePath() const;
+    WEBKIT_API void setDownloadFilePath(const WebString&);
 
 protected:
     void assign(WebURLResponsePrivate*);

@@ -58,11 +58,8 @@ RenderSVGResourceMasker::~RenderSVGResourceMasker()
 void RenderSVGResourceMasker::invalidateClients()
 {
     HashMap<RenderObject*, MaskerData*>::const_iterator end = m_masker.end();
-    for (HashMap<RenderObject*, MaskerData*>::const_iterator it = m_masker.begin(); it != end; ++it) {
-        RenderObject* renderer = it->first;
-        renderer->setNeedsBoundariesUpdate();
-        renderer->setNeedsLayout(true);
-    }
+    for (HashMap<RenderObject*, MaskerData*>::const_iterator it = m_masker.begin(); it != end; ++it)
+        markForLayoutAndResourceInvalidation(it->first);
 
     deleteAllValues(m_masker);
     m_masker.clear();
@@ -72,16 +69,19 @@ void RenderSVGResourceMasker::invalidateClients()
 void RenderSVGResourceMasker::invalidateClient(RenderObject* object)
 {
     ASSERT(object);
-
-    // FIXME: The HashMap should always contain the object on calling invalidateClient. A race condition
-    // during the parsing can causes a call of invalidateClient right before the call of applyResource.
-    // We return earlier for the moment. This bug should be fixed in:
-    // https://bugs.webkit.org/show_bug.cgi?id=35181
     if (!m_masker.contains(object))
         return;
 
     delete m_masker.take(object);
     markForLayoutAndResourceInvalidation(object);
+}
+
+bool RenderSVGResourceMasker::childElementReferencesResource(const SVGRenderStyle* style, const String& referenceId) const
+{
+    if (!style->hasMasker())
+        return false;
+
+    return style->maskerResource() == referenceId;
 }
 
 bool RenderSVGResourceMasker::applyResource(RenderObject* object, RenderStyle*, GraphicsContext*& context, unsigned short resourceMode)
@@ -101,6 +101,10 @@ bool RenderSVGResourceMasker::applyResource(RenderObject* object, RenderStyle*, 
     if (!maskerData->maskImage && !maskerData->emptyMask) {
         SVGMaskElement* maskElement = static_cast<SVGMaskElement*>(node());
         if (!maskElement)
+            return false;
+
+        // Early exit, if this resource contains a child which references ourselves.
+        if (containsCyclicReference(node()))
             return false;
 
         createMaskImage(maskerData, maskElement, object);
@@ -178,6 +182,10 @@ void RenderSVGResourceMasker::createMaskImage(MaskerData* maskerData, const SVGM
 
     maskImageContext->restore();
 
+#if !PLATFORM(CG)
+    maskerData->maskImage->transformColorSpace(DeviceRGB, LinearRGB);
+#endif
+
     // create the luminance mask
     RefPtr<ImageData> imageData(maskerData->maskImage->getUnmultipliedImageData(maskImageRect));
     CanvasPixelArray* srcPixelArray(imageData->data());
@@ -212,10 +220,6 @@ void RenderSVGResourceMasker::calculateMaskContentRepaintRect()
 
 FloatRect RenderSVGResourceMasker::resourceBoundingBox(RenderObject* object)
 {
-    // Save the reference to the calling object for relayouting it on changing resource properties.
-    if (!m_masker.contains(object))
-        m_masker.set(object, new MaskerData);
-
     // Resource was not layouted yet. Give back clipping rect of the mask.
     SVGMaskElement* maskElement = static_cast<SVGMaskElement*>(node());
     FloatRect objectBoundingBox = object->objectBoundingBox();

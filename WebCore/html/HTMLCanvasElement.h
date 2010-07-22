@@ -32,10 +32,6 @@
 #include "HTMLElement.h"
 #include "IntSize.h"
 
-#if ENABLE(3D_CANVAS)    
-#include "GraphicsContext3D.h"
-#endif
-
 namespace WebCore {
 
 class CanvasContextAttributes;
@@ -114,6 +110,7 @@ public:
     bool is3D() const;
 #endif
 
+<<<<<<< HEAD:WebCore/html/HTMLCanvasElement.h
 #ifdef ANDROID_INSTRUMENT
     void* operator new(size_t size) {
         return HTMLElement::operator new(size);
@@ -129,6 +126,9 @@ public:
         HTMLElement::operator delete[](p, size);
     }
 #endif
+=======
+    void makeRenderingResultsAvailable();
+>>>>>>> webkit.org at r63859:WebCore/html/HTMLCanvasElement.h
 
 private:
     HTMLCanvasElement(const QualifiedName&, Document*);

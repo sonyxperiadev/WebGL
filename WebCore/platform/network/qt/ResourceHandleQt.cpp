@@ -43,7 +43,6 @@
 
 // FIXME: WebCore including these headers from WebKit is a massive layering violation.
 #include "qwebframe_p.h"
-#include "qwebpage_p.h"
 
 #include <QAbstractNetworkCache>
 #include <QCoreApplication>
@@ -130,10 +129,10 @@ bool ResourceHandle::start(Frame* frame)
     if (!(d->m_user.isEmpty() || d->m_pass.isEmpty())) {
         // If credentials were specified for this request, add them to the url,
         // so that they will be passed to QNetworkRequest.
-        KURL urlWithCredentials(d->m_request.url());
+        KURL urlWithCredentials(firstRequest().url());
         urlWithCredentials.setUser(d->m_user);
         urlWithCredentials.setPass(d->m_pass);
-        d->m_request.setURL(urlWithCredentials);
+        d->m_firstRequest.setURL(urlWithCredentials);
     }
 
     getInternal()->m_frame = static_cast<FrameLoaderClientQt*>(frame->loader()->client())->webFrame();
@@ -195,10 +194,10 @@ void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request, S
     if (!(d->m_user.isEmpty() || d->m_pass.isEmpty())) {
         // If credentials were specified for this request, add them to the url,
         // so that they will be passed to QNetworkRequest.
-        KURL urlWithCredentials(d->m_request.url());
+        KURL urlWithCredentials(d->m_firstRequest.url());
         urlWithCredentials.setUser(d->m_user);
         urlWithCredentials.setPass(d->m_pass);
-        d->m_request.setURL(urlWithCredentials);
+        d->m_firstRequest.setURL(urlWithCredentials);
     }
     d->m_frame = static_cast<FrameLoaderClientQt*>(frame->loader()->client())->webFrame();
     d->m_job = new QNetworkReplyHandler(handle.get(), QNetworkReplyHandler::LoadNormal);

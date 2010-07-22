@@ -121,15 +121,18 @@ bool Path::contains(const FloatPoint& point, WindRule rule) const
     return contains;
 }
 
+static GraphicsContext* scratchContext()
+{
+    static ImageBuffer* scratch = ImageBuffer::create(IntSize(1, 1)).leakPtr();
+    return scratch->context();
+}
+
 bool Path::strokeContains(StrokeStyleApplier* applier, const FloatPoint& point) const
 {
     ASSERT(applier);
 
-    // FIXME: We should try to use a 'shared Context' instead of creating a new ImageBuffer
-    // on each call.
-    OwnPtr<ImageBuffer> scratchImage = ImageBuffer::create(IntSize(1, 1));
-    GraphicsContext* gc = scratchImage->context();
     QPainterPathStroker stroke;
+    GraphicsContext* gc = scratchContext();
     applier->strokeStyle(gc);
 
     QPen pen = gc->pen();
@@ -157,10 +160,7 @@ FloatRect Path::boundingRect() const
 
 FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier)
 {
-    // FIXME: We should try to use a 'shared Context' instead of creating a new ImageBuffer
-    // on each call.
-    OwnPtr<ImageBuffer> scratchImage = ImageBuffer::create(IntSize(1, 1));
-    GraphicsContext* gc = scratchImage->context();
+    GraphicsContext* gc = scratchContext();
     QPainterPathStroker stroke;
     if (applier) {
         applier->strokeStyle(gc);
@@ -198,21 +198,7 @@ void Path::addBezierCurveTo(const FloatPoint& cp1, const FloatPoint& cp2, const 
 
 void Path::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radius)
 {
-    // Make sure there is a subpath for p1, the behavior depend on the last element of the subpath.
-    // When the user agent is to ensure there is a subpath  for a coordinate (x, y), the user agent must 
-    // check to see if the context has any subpaths, and if it does not, then the user agent must create 
-    // a new subpath with the point (x, y) as its first (and only) point, as if the moveTo()  method had been called.
-    if (!m_path.elementCount()) {
-        m_path.moveTo(p1);
-        return;
-    }
-
     FloatPoint p0(m_path.currentPosition());
-
-    if ((p1.x() == p0.x() && p1.y() == p0.y()) || (p1.x() == p2.x() && p1.y() == p2.y()) || radius == 0.f) {
-        m_path.lineTo(p1);
-        return;
-    }
 
     FloatPoint p1p0((p0.x() - p1.x()), (p0.y() - p1.y()));
     FloatPoint p1p2((p2.x() - p1.x()), (p2.y() - p1.y()));
@@ -360,6 +346,11 @@ bool Path::isEmpty() const
 bool Path::hasCurrentPoint() const
 {
     return !isEmpty();
+}
+
+FloatPoint Path::currentPoint() const 
+{
+    return m_path.currentPosition();
 }
 
 String Path::debugString() const

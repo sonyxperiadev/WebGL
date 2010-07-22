@@ -35,11 +35,13 @@
 #include "CSSStyleSelector.h"
 #include "Chrome.h"
 #include "Console.h"
-#include "Database.h"
-#include "DatabaseCallback.h"
+#include "DocumentLoader.h"
 #include "DOMApplicationCache.h"
 #include "DOMSelection.h"
 #include "DOMTimer.h"
+#include "Database.h"
+#include "DatabaseCallback.h"
+#include "DeviceOrientationController.h"
 #include "PageTransitionEvent.h"
 #include "Document.h"
 #include "Element.h"
@@ -670,6 +672,17 @@ NotificationCenter* DOMWindow::webkitNotifications() const
     return m_notifications.get();
 }
 #endif
+
+void DOMWindow::pageDestroyed()
+{
+#if ENABLE(NOTIFICATIONS)
+    // Clearing Notifications requests involves accessing the client so it must be done
+    // before the frame is detached.
+    if (m_notifications)
+        m_notifications->disconnectFrame();
+    m_notifications = 0;
+#endif
+}
 
 #if ENABLE(INDEXED_DATABASE)
 IndexedDatabaseRequest* DOMWindow::indexedDB() const
@@ -1426,6 +1439,10 @@ bool DOMWindow::addEventListener(const AtomicString& eventType, PassRefPtr<Event
         addUnloadEventListener(this);
     else if (eventType == eventNames().beforeunloadEvent && allowsBeforeUnloadListeners(this))
         addBeforeUnloadEventListener(this);
+#if ENABLE(DEVICE_ORIENTATION)
+    else if (eventType == eventNames().deviceorientationEvent && frame() && frame()->page() && frame()->page()->deviceOrientationController())
+        frame()->page()->deviceOrientationController()->addListener(this);
+#endif
 
     return true;
 }
@@ -1439,17 +1456,21 @@ bool DOMWindow::removeEventListener(const AtomicString& eventType, EventListener
         removeUnloadEventListener(this);
     else if (eventType == eventNames().beforeunloadEvent && allowsBeforeUnloadListeners(this))
         removeBeforeUnloadEventListener(this);
+#if ENABLE(DEVICE_ORIENTATION)
+    else if (eventType == eventNames().deviceorientationEvent && frame() && frame()->page() && frame()->page()->deviceOrientationController())
+        frame()->page()->deviceOrientationController()->removeListener(this);
+#endif
 
     return true;
 }
 
 void DOMWindow::dispatchLoadEvent()
 {
-    if (m_frame)
-        m_frame->loader()->frameLoadTimeline()->loadEventStart = currentTime();
+    if (DocumentLoader* documentLoader = m_frame ? m_frame->loader()->documentLoader() : 0)
+        documentLoader->timing()->loadEventStart = currentTime();
     dispatchEvent(Event::create(eventNames().loadEvent, false, false), document());
-    if (m_frame)
-        m_frame->loader()->frameLoadTimeline()->loadEventEnd = currentTime();
+    if (DocumentLoader* documentLoader = m_frame ? m_frame->loader()->documentLoader() : 0)
+        documentLoader->timing()->loadEventEnd = currentTime();
 
     // For load events, send a separate load event to the enclosing frame only.
     // This is a DOM extension and is independent of bubbling/capturing rules of
@@ -1512,6 +1533,11 @@ bool DOMWindow::dispatchEvent(PassRefPtr<Event> prpEvent, PassRefPtr<EventTarget
 void DOMWindow::removeAllEventListeners()
 {
     EventTarget::removeAllEventListeners();
+
+#if ENABLE(DEVICE_ORIENTATION)
+    if (frame() && frame()->page() && frame()->page()->deviceOrientationController())
+        frame()->page()->deviceOrientationController()->removeAllListeners(this);
+#endif
 
     removeAllUnloadEventListeners(this);
     removeAllBeforeUnloadEventListeners(this);

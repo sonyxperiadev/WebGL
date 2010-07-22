@@ -1,3 +1,28 @@
+2010-07-16  Zhe Su  <suzhe@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION(r61484): Broke focus behaviour on Qt and probably other platforms
+        https://bugs.webkit.org/show_bug.cgi?id=42253
+
+        Dummy implementation of EditorClient::willSetInputMethodState.
+
+        * WebKitSupport/EditorClientWx.cpp:
+        (WebCore::EditorClientWx::willSetInputMethodState):
+        * WebKitSupport/EditorClientWx.h:
+
+2010-07-14  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=42232
+        Make changing Cursors work in WebKit2.
+
+        * WebKitSupport/ChromeClientWx.cpp:
+        (WebCore::ChromeClientWx::setCursor):
+        * WebKitSupport/ChromeClientWx.h:
+        Change prototype to match new one.
+
 2010-07-07  Kevin Ollivier  <kevino@theolliviers.com>
 
         [wx] Build fix after change in Page constructor.

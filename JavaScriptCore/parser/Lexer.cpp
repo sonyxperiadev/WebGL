@@ -46,14 +46,16 @@ using namespace Unicode;
 namespace JSC {
 
 
-enum CharacterTypes {
+enum CharacterType {
     // Types for the main switch
-    CharacterInvalid,
 
-    CharacterAlpha,
+    // The first three types are fixed, and also used for identifying
+    // ASCII alpha and alphanumeric characters (see isIdentStart and isIdentPart).
+    CharacterIdentifierStart,
     CharacterZero,
     CharacterNumber,
 
+    CharacterInvalid,
     CharacterLineTerminator,
     CharacterExclamationMark,
     CharacterOpenParen,
@@ -87,8 +89,8 @@ enum CharacterTypes {
     CharacterWhiteSpace,
 };
 
-// 128 ascii codes
-static unsigned short AsciiCharacters[128] = {
+// 128 ASCII codes
+static const unsigned short typesOfASCIICharacters[128] = {
 /*   0 - Null               */ CharacterInvalid,
 /*   1 - Start of Heading   */ CharacterInvalid,
 /*   2 - Start of Text      */ CharacterInvalid,
@@ -125,7 +127,7 @@ static unsigned short AsciiCharacters[128] = {
 /*  33 - !                  */ CharacterExclamationMark,
 /*  34 - "                  */ CharacterQuote,
 /*  35 - #                  */ CharacterInvalid,
-/*  36 - $                  */ CharacterAlpha,
+/*  36 - $                  */ CharacterIdentifierStart,
 /*  37 - %                  */ CharacterModulo,
 /*  38 - &                  */ CharacterAnd,
 /*  39 - '                  */ CharacterQuote,
@@ -154,64 +156,64 @@ static unsigned short AsciiCharacters[128] = {
 /*  62 - >                  */ CharacterGreater,
 /*  63 - ?                  */ CharacterQuestion,
 /*  64 - @                  */ CharacterInvalid,
-/*  65 - A                  */ CharacterAlpha,
-/*  66 - B                  */ CharacterAlpha,
-/*  67 - C                  */ CharacterAlpha,
-/*  68 - D                  */ CharacterAlpha,
-/*  69 - E                  */ CharacterAlpha,
-/*  70 - F                  */ CharacterAlpha,
-/*  71 - G                  */ CharacterAlpha,
-/*  72 - H                  */ CharacterAlpha,
-/*  73 - I                  */ CharacterAlpha,
-/*  74 - J                  */ CharacterAlpha,
-/*  75 - K                  */ CharacterAlpha,
-/*  76 - L                  */ CharacterAlpha,
-/*  77 - M                  */ CharacterAlpha,
-/*  78 - N                  */ CharacterAlpha,
-/*  79 - O                  */ CharacterAlpha,
-/*  80 - P                  */ CharacterAlpha,
-/*  81 - Q                  */ CharacterAlpha,
-/*  82 - R                  */ CharacterAlpha,
-/*  83 - S                  */ CharacterAlpha,
-/*  84 - T                  */ CharacterAlpha,
-/*  85 - U                  */ CharacterAlpha,
-/*  86 - V                  */ CharacterAlpha,
-/*  87 - W                  */ CharacterAlpha,
-/*  88 - X                  */ CharacterAlpha,
-/*  89 - Y                  */ CharacterAlpha,
-/*  90 - Z                  */ CharacterAlpha,
+/*  65 - A                  */ CharacterIdentifierStart,
+/*  66 - B                  */ CharacterIdentifierStart,
+/*  67 - C                  */ CharacterIdentifierStart,
+/*  68 - D                  */ CharacterIdentifierStart,
+/*  69 - E                  */ CharacterIdentifierStart,
+/*  70 - F                  */ CharacterIdentifierStart,
+/*  71 - G                  */ CharacterIdentifierStart,
+/*  72 - H                  */ CharacterIdentifierStart,
+/*  73 - I                  */ CharacterIdentifierStart,
+/*  74 - J                  */ CharacterIdentifierStart,
+/*  75 - K                  */ CharacterIdentifierStart,
+/*  76 - L                  */ CharacterIdentifierStart,
+/*  77 - M                  */ CharacterIdentifierStart,
+/*  78 - N                  */ CharacterIdentifierStart,
+/*  79 - O                  */ CharacterIdentifierStart,
+/*  80 - P                  */ CharacterIdentifierStart,
+/*  81 - Q                  */ CharacterIdentifierStart,
+/*  82 - R                  */ CharacterIdentifierStart,
+/*  83 - S                  */ CharacterIdentifierStart,
+/*  84 - T                  */ CharacterIdentifierStart,
+/*  85 - U                  */ CharacterIdentifierStart,
+/*  86 - V                  */ CharacterIdentifierStart,
+/*  87 - W                  */ CharacterIdentifierStart,
+/*  88 - X                  */ CharacterIdentifierStart,
+/*  89 - Y                  */ CharacterIdentifierStart,
+/*  90 - Z                  */ CharacterIdentifierStart,
 /*  91 - [                  */ CharacterOpenBracket,
 /*  92 - \                  */ CharacterBackSlash,
 /*  93 - ]                  */ CharacterCloseBracket,
 /*  94 - ^                  */ CharacterXor,
-/*  95 - _                  */ CharacterAlpha,
+/*  95 - _                  */ CharacterIdentifierStart,
 /*  96 - `                  */ CharacterInvalid,
-/*  97 - a                  */ CharacterAlpha,
-/*  98 - b                  */ CharacterAlpha,
-/*  99 - c                  */ CharacterAlpha,
-/* 100 - d                  */ CharacterAlpha,
-/* 101 - e                  */ CharacterAlpha,
-/* 102 - f                  */ CharacterAlpha,
-/* 103 - g                  */ CharacterAlpha,
-/* 104 - h                  */ CharacterAlpha,
-/* 105 - i                  */ CharacterAlpha,
-/* 106 - j                  */ CharacterAlpha,
-/* 107 - k                  */ CharacterAlpha,
-/* 108 - l                  */ CharacterAlpha,
-/* 109 - m                  */ CharacterAlpha,
-/* 110 - n                  */ CharacterAlpha,
-/* 111 - o                  */ CharacterAlpha,
-/* 112 - p                  */ CharacterAlpha,
-/* 113 - q                  */ CharacterAlpha,
-/* 114 - r                  */ CharacterAlpha,
-/* 115 - s                  */ CharacterAlpha,
-/* 116 - t                  */ CharacterAlpha,
-/* 117 - u                  */ CharacterAlpha,
-/* 118 - v                  */ CharacterAlpha,
-/* 119 - w                  */ CharacterAlpha,
-/* 120 - x                  */ CharacterAlpha,
-/* 121 - y                  */ CharacterAlpha,
-/* 122 - z                  */ CharacterAlpha,
+/*  97 - a                  */ CharacterIdentifierStart,
+/*  98 - b                  */ CharacterIdentifierStart,
+/*  99 - c                  */ CharacterIdentifierStart,
+/* 100 - d                  */ CharacterIdentifierStart,
+/* 101 - e                  */ CharacterIdentifierStart,
+/* 102 - f                  */ CharacterIdentifierStart,
+/* 103 - g                  */ CharacterIdentifierStart,
+/* 104 - h                  */ CharacterIdentifierStart,
+/* 105 - i                  */ CharacterIdentifierStart,
+/* 106 - j                  */ CharacterIdentifierStart,
+/* 107 - k                  */ CharacterIdentifierStart,
+/* 108 - l                  */ CharacterIdentifierStart,
+/* 109 - m                  */ CharacterIdentifierStart,
+/* 110 - n                  */ CharacterIdentifierStart,
+/* 111 - o                  */ CharacterIdentifierStart,
+/* 112 - p                  */ CharacterIdentifierStart,
+/* 113 - q                  */ CharacterIdentifierStart,
+/* 114 - r                  */ CharacterIdentifierStart,
+/* 115 - s                  */ CharacterIdentifierStart,
+/* 116 - t                  */ CharacterIdentifierStart,
+/* 117 - u                  */ CharacterIdentifierStart,
+/* 118 - v                  */ CharacterIdentifierStart,
+/* 119 - w                  */ CharacterIdentifierStart,
+/* 120 - x                  */ CharacterIdentifierStart,
+/* 121 - y                  */ CharacterIdentifierStart,
+/* 122 - z                  */ CharacterIdentifierStart,
 /* 123 - {                  */ CharacterOpenBrace,
 /* 124 - |                  */ CharacterOr,
 /* 125 - }                  */ CharacterCloseBrace,
@@ -335,7 +337,7 @@ static NEVER_INLINE bool isNonASCIIIdentStart(int c)
 
 static inline bool isIdentStart(int c)
 {
-    return isASCII(c) ? isASCIIAlpha(c) || c == '$' || c == '_' : isNonASCIIIdentStart(c);
+    return isASCII(c) ? typesOfASCIICharacters[c] == CharacterIdentifierStart : isNonASCIIIdentStart(c);
 }
 
 static NEVER_INLINE bool isNonASCIIIdentPart(int c)
@@ -346,32 +348,35 @@ static NEVER_INLINE bool isNonASCIIIdentPart(int c)
 
 static inline bool isIdentPart(int c)
 {
-    return isASCII(c) ? isASCIIAlphanumeric(c) || c == '$' || c == '_' : isNonASCIIIdentPart(c);
+    // Character types are divided into two groups depending on whether they can be part of an
+    // identifier or not. Those whose type value is less or equal than CharacterNumber can be
+    // part of an identifier. (See the CharacterType definition for more details.)
+    return isASCII(c) ? typesOfASCIICharacters[c] <= CharacterNumber : isNonASCIIIdentPart(c);
 }
 
 static inline int singleEscape(int c)
 {
     switch (c) {
-        case 'b':
-            return 0x08;
-        case 't':
-            return 0x09;
-        case 'n':
-            return 0x0A;
-        case 'v':
-            return 0x0B;
-        case 'f':
-            return 0x0C;
-        case 'r':
-            return 0x0D;
-        case '\\':
-            return '\\';
-        case '\'':
-            return '\'';
-        case '"':
-            return '"';
-        default:
-            return 0;
+    case 'b':
+        return 0x08;
+    case 't':
+        return 0x09;
+    case 'n':
+        return 0x0A;
+    case 'v':
+        return 0x0B;
+    case 'f':
+        return 0x0C;
+    case 'r':
+        return 0x0D;
+    case '\\':
+        return '\\';
+    case '\'':
+        return '\'';
+    case '"':
+        return '"';
+    default:
+        return 0;
     }
 }
 
@@ -456,7 +461,11 @@ ALWAYS_INLINE bool Lexer::parseString(JSTokenData* lvalp)
 
             stringStart = currentCharacter();
             continue;
-        } else if (UNLIKELY(((static_cast<unsigned>(m_current) - 0xE) & 0x2000))) {
+        }
+        // Fast check for characters that require special handling.
+        // Catches -1, \n, \r, 0x2028, and 0x2029 as efficiently
+        // as possible, and lets through all common ASCII characters.
+        if (UNLIKELY(((static_cast<unsigned>(m_current) - 0xE) & 0x2000))) {
             // New-line or end of input is not allowed
             if (UNLIKELY(isLineTerminator(m_current)) || UNLIKELY(m_current == -1))
                 return false;
@@ -472,7 +481,7 @@ ALWAYS_INLINE bool Lexer::parseString(JSTokenData* lvalp)
     return true;
 }
 
-JSTokenType Lexer::lex(JSTokenData* lvalp, JSTokenInfo* llocp)
+JSTokenType Lexer::lex(JSTokenData* lvalp, JSTokenInfo* llocp, LexType lexType)
 {
     ASSERT(!m_error);
     ASSERT(m_buffer8.isEmpty());
@@ -493,295 +502,287 @@ start:
 
     m_delimited = false;
 
-    if (isASCII(m_current)) {
-        ASSERT(m_current >= 0 && m_current < 128);
+    CharacterType type;
+    if (LIKELY(isASCII(m_current)))
+        type = static_cast<CharacterType>(typesOfASCIICharacters[m_current]);
+    else if (isNonASCIIIdentStart(m_current))
+        type = CharacterIdentifierStart;
+    else if (isLineTerminator(m_current))
+        type = CharacterLineTerminator;
+    else
+        type = CharacterInvalid;
 
-        switch (AsciiCharacters[m_current]) {
-        case CharacterGreater:
+    switch (type) {
+    case CharacterGreater:
+        shift();
+        if (m_current == '>') {
             shift();
             if (m_current == '>') {
                 shift();
-                if (m_current == '>') {
-                    shift();
-                    if (m_current == '=') {
-                        shift();
-                        token = URSHIFTEQUAL;
-                        break;
-                    }
-                    token = URSHIFT;
-                    break;
-                }
                 if (m_current == '=') {
                     shift();
-                    token = RSHIFTEQUAL;
+                    token = URSHIFTEQUAL;
                     break;
                 }
-                token = RSHIFT;
+                token = URSHIFT;
                 break;
             }
             if (m_current == '=') {
                 shift();
-                token = GE;
+                token = RSHIFTEQUAL;
                 break;
             }
-            token = GT;
+            token = RSHIFT;
             break;
-        case CharacterEqual:
+        }
+        if (m_current == '=') {
+            shift();
+            token = GE;
+            break;
+        }
+        token = GT;
+        break;
+    case CharacterEqual:
+        shift();
+        if (m_current == '=') {
             shift();
             if (m_current == '=') {
                 shift();
-                if (m_current == '=') {
-                    shift();
-                    token = STREQ;
-                    break;
-                }
-                token = EQEQ;
+                token = STREQ;
                 break;
             }
-            token = EQUAL;
+            token = EQEQ;
             break;
-        case CharacterLess:
-            shift();
-            if (m_current == '!' && peek(1) == '-' && peek(2) == '-') {
-                // <!-- marks the beginning of a line comment (for www usage)
-                goto inSingleLineComment;
-            }
-            if (m_current == '<') {
-                shift();
-                if (m_current == '=') {
-                    shift();
-                    token = LSHIFTEQUAL;
-                    break;
-                }
-                token = LSHIFT;
-                break;
-            }
-            if (m_current == '=') {
-                shift();
-                token = LE;
-                break;
-            }
-            token = LT;
-            break;
-        case CharacterExclamationMark:
+        }
+        token = EQUAL;
+        break;
+    case CharacterLess:
+        shift();
+        if (m_current == '!' && peek(1) == '-' && peek(2) == '-') {
+            // <!-- marks the beginning of a line comment (for www usage)
+            goto inSingleLineComment;
+        }
+        if (m_current == '<') {
             shift();
             if (m_current == '=') {
                 shift();
-                if (m_current == '=') {
-                    shift();
-                    token = STRNEQ;
-                    break;
-                }
-                token = NE;
+                token = LSHIFTEQUAL;
                 break;
             }
-            token = EXCLAMATION;
+            token = LSHIFT;
             break;
-        case CharacterAdd:
+        }
+        if (m_current == '=') {
             shift();
-            if (m_current == '+') {
-                shift();
-                token = (!m_terminator) ? PLUSPLUS : AUTOPLUSPLUS;
-                break;
-            }
-            if (m_current == '=') {
-                shift();
-                token = PLUSEQUAL;
-                break;
-            }
-            token = PLUS;
+            token = LE;
             break;
-        case CharacterSub:
-            shift();
-            if (m_current == '-') {
-                shift();
-                if (m_atLineStart && m_current == '>') {
-                    shift();
-                    goto inSingleLineComment;
-                }
-                token = (!m_terminator) ? MINUSMINUS : AUTOMINUSMINUS;
-                break;
-            }
-            if (m_current == '=') {
-                shift();
-                token = MINUSEQUAL;
-                break;
-            }
-            token = MINUS;
-            break;
-        case CharacterMultiply:
+        }
+        token = LT;
+        break;
+    case CharacterExclamationMark:
+        shift();
+        if (m_current == '=') {
             shift();
             if (m_current == '=') {
                 shift();
-                token = MULTEQUAL;
+                token = STRNEQ;
                 break;
             }
-            token = TIMES;
+            token = NE;
             break;
-        case CharacterSlash:
+        }
+        token = EXCLAMATION;
+        break;
+    case CharacterAdd:
+        shift();
+        if (m_current == '+') {
             shift();
-            if (m_current == '/') {
+            token = (!m_terminator) ? PLUSPLUS : AUTOPLUSPLUS;
+            break;
+        }
+        if (m_current == '=') {
+            shift();
+            token = PLUSEQUAL;
+            break;
+        }
+        token = PLUS;
+        break;
+    case CharacterSub:
+        shift();
+        if (m_current == '-') {
+            shift();
+            if (m_atLineStart && m_current == '>') {
                 shift();
                 goto inSingleLineComment;
             }
-            if (m_current == '*') {
-                shift();
-                goto inMultiLineComment;
-            }
-            if (m_current == '=') {
-                shift();
-                token = DIVEQUAL;
-                break;
-            }
-            token = DIVIDE;
+            token = (!m_terminator) ? MINUSMINUS : AUTOMINUSMINUS;
             break;
-        case CharacterAnd:
+        }
+        if (m_current == '=') {
             shift();
-            if (m_current == '&') {
-                shift();
-                token = AND;
-                break;
-            }
-            if (m_current == '=') {
-                shift();
-                token = ANDEQUAL;
-                break;
-            }
-            token = BITAND;
+            token = MINUSEQUAL;
             break;
-        case CharacterXor:
+        }
+        token = MINUS;
+        break;
+    case CharacterMultiply:
+        shift();
+        if (m_current == '=') {
             shift();
-            if (m_current == '=') {
-                shift();
-                token = XOREQUAL;
-                break;
-            }
-            token = BITXOR;
+            token = MULTEQUAL;
             break;
-        case CharacterModulo:
+        }
+        token = TIMES;
+        break;
+    case CharacterSlash:
+        shift();
+        if (m_current == '/') {
             shift();
-            if (m_current == '=') {
-                shift();
-                token = MODEQUAL;
-                break;
-            }
-            token = MOD;
+            goto inSingleLineComment;
+        }
+        if (m_current == '*') {
+            shift();
+            goto inMultiLineComment;
+        }
+        if (m_current == '=') {
+            shift();
+            token = DIVEQUAL;
             break;
-        case CharacterOr:
+        }
+        token = DIVIDE;
+        break;
+    case CharacterAnd:
+        shift();
+        if (m_current == '&') {
             shift();
-            if (m_current == '=') {
-                shift();
-                token = OREQUAL;
-                break;
-            }
-            if (m_current == '|') {
-                shift();
-                token = OR;
-                break;
-            }
-            token = BITOR;
+            token = AND;
             break;
-        case CharacterDot:
+        }
+        if (m_current == '=') {
             shift();
-            if (isASCIIDigit(m_current)) {
-                record8('.');
-                goto inNumberAfterDecimalPoint;
-            }
-            token = DOT;
+            token = ANDEQUAL;
             break;
-        case CharacterOpenParen:
-            token = OPENPAREN;
+        }
+        token = BITAND;
+        break;
+    case CharacterXor:
+        shift();
+        if (m_current == '=') {
             shift();
+            token = XOREQUAL;
             break;
-        case CharacterCloseParen:
-            token = CLOSEPAREN;
+        }
+        token = BITXOR;
+        break;
+    case CharacterModulo:
+        shift();
+        if (m_current == '=') {
             shift();
+            token = MODEQUAL;
             break;
-        case CharacterOpenBracket:
-            token = OPENBRACKET;
+        }
+        token = MOD;
+        break;
+    case CharacterOr:
+        shift();
+        if (m_current == '=') {
             shift();
+            token = OREQUAL;
             break;
-        case CharacterCloseBracket:
-            token = CLOSEBRACKET;
+        }
+        if (m_current == '|') {
             shift();
+            token = OR;
             break;
-        case CharacterComma:
-            token = COMMA;
-            shift();
-            break;
-        case CharacterColon:
-            token = COLON;
-            shift();
-            break;
-        case CharacterQuestion:
-            token = QUESTION;
-            shift();
-            break;
-        case CharacterTilde:
-            token = TILDE;
-            shift();
-            break;
-        case CharacterSemicolon:
-            m_delimited = true;
-            shift();
+        }
+        token = BITOR;
+        break;
+    case CharacterDot:
+        shift();
+        if (isASCIIDigit(m_current)) {
+            record8('.');
+            goto inNumberAfterDecimalPoint;
+        }
+        token = DOT;
+        break;
+    case CharacterOpenParen:
+        token = OPENPAREN;
+        shift();
+        break;
+    case CharacterCloseParen:
+        token = CLOSEPAREN;
+        shift();
+        break;
+    case CharacterOpenBracket:
+        token = OPENBRACKET;
+        shift();
+        break;
+    case CharacterCloseBracket:
+        token = CLOSEBRACKET;
+        shift();
+        break;
+    case CharacterComma:
+        token = COMMA;
+        shift();
+        break;
+    case CharacterColon:
+        token = COLON;
+        shift();
+        break;
+    case CharacterQuestion:
+        token = QUESTION;
+        shift();
+        break;
+    case CharacterTilde:
+        token = TILDE;
+        shift();
+        break;
+    case CharacterSemicolon:
+        m_delimited = true;
+        shift();
+        token = SEMICOLON;
+        break;
+    case CharacterOpenBrace:
+        lvalp->intValue = currentOffset();
+        shift();
+        token = OPENBRACE;
+        break;
+    case CharacterCloseBrace:
+        lvalp->intValue = currentOffset();
+        m_delimited = true;
+        shift();
+        token = CLOSEBRACE;
+        break;
+    case CharacterBackSlash:
+        goto startIdentifierWithBackslash;
+    case CharacterZero:
+        goto startNumberWithZeroDigit;
+    case CharacterNumber:
+        goto startNumber;
+    case CharacterQuote:
+        if (UNLIKELY(!parseString(lvalp)))
+            goto returnError;
+        shift();
+        m_delimited = false;
+        token = STRING;
+        break;
+    case CharacterIdentifierStart:
+        ASSERT(isIdentStart(m_current));
+        goto startIdentifierOrKeyword;
+    case CharacterLineTerminator:
+        ASSERT(isLineTerminator(m_current));
+        shiftLineTerminator();
+        m_atLineStart = true;
+        m_terminator = true;
+        if (lastTokenWasRestrKeyword()) {
             token = SEMICOLON;
-            break;
-        case CharacterOpenBrace:
-            lvalp->intValue = currentOffset();
-            shift();
-            token = OPENBRACE;
-            break;
-        case CharacterCloseBrace:
-            lvalp->intValue = currentOffset();
-            m_delimited = true;
-            shift();
-            token = CLOSEBRACE;
-            break;
-        case CharacterBackSlash:
-            goto startIdentifierWithBackslash;
-        case CharacterZero:
-            goto startNumberWithZeroDigit;
-        case CharacterNumber:
-            goto startNumber;
-        case CharacterQuote:
-            if (UNLIKELY(!parseString(lvalp)))
-                goto returnError;
-            shift();
-            m_delimited = false;
-            token = STRING;
-            break;
-        case CharacterAlpha:
-            ASSERT(isIdentStart(m_current));
-            goto startIdentifierOrKeyword;
-        case CharacterLineTerminator:
-            ASSERT(isLineTerminator(m_current));
-            shiftLineTerminator();
-            m_atLineStart = true;
-            m_terminator = true;
-            if (lastTokenWasRestrKeyword()) {
-                token = SEMICOLON;
-                goto doneSemicolon;
-            }
-            goto start;
-        case CharacterInvalid:
-            goto returnError;
-        default:
-            ASSERT_NOT_REACHED();
-            goto returnError;
+            goto doneSemicolon;
         }
-    } else {
-        // Rare characters
-
-        if (isNonASCIIIdentStart(m_current))
-            goto startIdentifierOrKeyword;
-        if (isLineTerminator(m_current)) {
-            shiftLineTerminator();
-            m_atLineStart = true;
-            m_terminator = true;
-            if (lastTokenWasRestrKeyword())
-                goto doneSemicolon;
-            goto start;
-        }
+        goto start;
+    case CharacterInvalid:
+        goto returnError;
+    default:
+        ASSERT_NOT_REACHED();
         goto returnError;
     }
 
@@ -1021,9 +1022,11 @@ doneIdentifierOrKeyword: {
     m_atLineStart = false;
     m_delimited = false;
     m_buffer16.resize(0);
-    const HashEntry* entry = m_keywordTable.entry(m_globalData, *lvalp->ident);
-    token = entry ? static_cast<JSTokenType>(entry->lexerValue()) : IDENT;
-
+    if (lexType == IdentifyReservedWords) {
+        const HashEntry* entry = m_keywordTable.entry(m_globalData, *lvalp->ident);
+        token = entry ? static_cast<JSTokenType>(entry->lexerValue()) : IDENT;
+    } else
+        token = IDENT;
     // Fall through into returnToken.
 }
 
@@ -1157,6 +1160,8 @@ void Lexer::clear()
 
 SourceCode Lexer::sourceCode(int openBrace, int closeBrace, int firstLine)
 {
+    ASSERT(m_source->provider()->data()[openBrace] == '{');
+    ASSERT(m_source->provider()->data()[closeBrace] == '}');
     return SourceCode(m_source->provider(), openBrace, closeBrace + 1, firstLine);
 }
 

@@ -130,6 +130,7 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document* doc)
 #endif
     , m_dispatchingCanPlayEvent(false)
     , m_loadInitiatedByUserGesture(false)
+    , m_completelyLoaded(false)
 {
     document()->registerForDocumentActivationCallbacks(this);
     document()->registerForMediaVolumeCallbacks(this);
@@ -177,16 +178,19 @@ void HTMLMediaElement::attributeChanged(Attribute* attr, bool preserveDecls)
         if (!getAttribute(srcAttr).isEmpty())
             scheduleLoad();
     }
-#if !ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     else if (attrName == controlsAttr) {
+#if !ENABLE(PLUGIN_PROXY_FOR_VIDEO)
         if (!isVideo() && attached() && (controls() != (renderer() != 0))) {
             detach();
             attach();
         }
         if (renderer())
             renderer()->updateFromElement();
-    }
+#else
+        if (m_player)
+            m_player->setControls(controls());
 #endif
+    }
 }
 
 void HTMLMediaElement::parseMappedAttribute(Attribute* attr)
@@ -226,8 +230,6 @@ void HTMLMediaElement::parseMappedAttribute(Attribute* attr)
         setAttributeEventListener(eventNames().endedEvent, createAttributeEventListener(this, attr));
     else if (attrName == onerrorAttr)
         setAttributeEventListener(eventNames().errorEvent, createAttributeEventListener(this, attr));
-    else if (attrName == onloadAttr)
-        setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
     else if (attrName == onloadeddataAttr)
         setAttributeEventListener(eventNames().loadeddataEvent, createAttributeEventListener(this, attr));
     else if (attrName == onloadedmetadataAttr)
@@ -285,8 +287,14 @@ RenderObject* HTMLMediaElement::createRenderer(RenderArena* arena, RenderStyle*)
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     // Setup the renderer if we already have a proxy widget.
     RenderEmbeddedObject* mediaRenderer = new (arena) RenderEmbeddedObject(this);
-    if (m_proxyWidget)
+    if (m_proxyWidget) {
         mediaRenderer->setWidget(m_proxyWidget);
+
+        Frame* frame = document()->frame();
+        FrameLoader* loader = frame ? frame->loader() : 0;
+        if (loader)
+            loader->showMediaPlayerProxyPlugin(m_proxyWidget.get());
+    }
     return mediaRenderer;
 #else
     return new (arena) RenderMedia(this);
@@ -321,6 +329,14 @@ void HTMLMediaElement::attach()
 
     if (renderer())
         renderer()->updateFromElement();
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+    else if (m_proxyWidget) {
+        Frame* frame = document()->frame();
+        FrameLoader* loader = frame ? frame->loader() : 0;
+        if (loader)
+            loader->hideMediaPlayerProxyPlugin(m_proxyWidget.get());
+    }
+#endif
 }
 
 void HTMLMediaElement::recalcStyle(StyleChange change)
@@ -482,6 +498,7 @@ void HTMLMediaElement::prepareForLoad()
     m_loadTimer.stop();
     m_sentStalledEvent = false;
     m_haveFiredLoadedData = false;
+    m_completelyLoaded = false;
 
     // 1 - Abort any already-running instance of the resource selection algorithm for this element.
     m_currentSourceNode = 0;
@@ -842,25 +859,15 @@ void HTMLMediaElement::setNetworkState(MediaPlayer::NetworkState state)
     }
 
     if (state == MediaPlayer::Loaded) {
-        NetworkState oldState = m_networkState;
-
-        m_networkState = NETWORK_LOADED;
-        if (oldState < NETWORK_LOADED || oldState == NETWORK_NO_SOURCE) {
+        if (m_networkState != NETWORK_IDLE) {
             m_progressEventTimer.stop();
 
             // Schedule one last progress event so we guarantee that at least one is fired
             // for files that load very quickly.
             scheduleEvent(eventNames().progressEvent);
-
-            // Check to see if readyState changes need to be dealt with before sending the 
-            // 'load' event so we report 'canplaythrough' first. This is necessary because a
-            //  media engine reports readyState and networkState changes separately
-            MediaPlayer::ReadyState currentState = m_player->readyState();
-            if (static_cast<ReadyState>(currentState) != m_readyState)
-                setReadyState(currentState);
-
-            scheduleEvent(eventNames().loadEvent);
         }
+        m_networkState = NETWORK_IDLE;
+        m_completelyLoaded = true;
     }
 }
 
@@ -973,7 +980,7 @@ void HTMLMediaElement::setReadyState(MediaPlayer::ReadyState state)
 void HTMLMediaElement::progressEventTimerFired(Timer<HTMLMediaElement>*)
 {
     ASSERT(m_player);
-    if (m_networkState == NETWORK_EMPTY || m_networkState >= NETWORK_LOADED)
+    if (m_networkState != NETWORK_LOADING)
         return;
 
     unsigned progress = m_player->bytesLoaded();
@@ -1021,49 +1028,55 @@ bool HTMLMediaElement::supportsSave() const
     
 void HTMLMediaElement::seek(float time, ExceptionCode& ec)
 {
-    // 4.8.10.10. Seeking
-    // 1
+    // 4.8.9.9 Seeking
+
+    // 1 - If the media element's readyState is HAVE_NOTHING, then raise an INVALID_STATE_ERR exception.
     if (m_readyState == HAVE_NOTHING || !m_player) {
         ec = INVALID_STATE_ERR;
         return;
     }
 
-    // 2
+    // Get the current time before setting m_seeking, m_lastSeekTime is returned once it is set.
+    float now = currentTime();
+
+    // 3 - Set the seeking IDL attribute to true.
+    // The flag will be cleared when the engine tells is the time has actually changed
+    m_seeking = true;
+
+    // 4 - Queue a task to fire a simple event named timeupdate at the element.
+    scheduleTimeupdateEvent(false);
+
+    // 6 - If the new playback position is later than the end of the media resource, then let it be the end 
+    // of the media resource instead.
     time = min(time, duration());
 
-    // 3
-    time = max(time, 0.0f);
+    // 7 - If the new playback position is less than the earliest possible position, let it be that position instead.
+    float earliestTime = m_player->startTime();
+    time = max(time, earliestTime);
 
-    // 4
+    // 8 - If the (possibly now changed) new playback position is not in one of the ranges given in the 
+    // seekable attribute, then let it be the position in one of the ranges given in the seekable attribute 
+    // that is the nearest to the new playback position. ... If there are no ranges given in the seekable
+    // attribute then set the seeking IDL attribute to false and abort these steps.
     RefPtr<TimeRanges> seekableRanges = seekable();
-    if (!seekableRanges->contain(time)) {
-        ec = INDEX_SIZE_ERR;
+    if (!seekableRanges->length() || time == now) {
+        m_seeking = false;
         return;
     }
-    
-    // avoid generating events when the time won't actually change
-    float now = currentTime();
-    if (time == now)
-        return;
+    time = seekableRanges->nearest(time);
 
-    // 5
     if (m_playing) {
         if (m_lastSeekTime < now)
             addPlayedRange(m_lastSeekTime, now);
     }
     m_lastSeekTime = time;
-
-    // 6 - set the seeking flag, it will be cleared when the engine tells is the time has actually changed
-    m_seeking = true;
-
-    // 7
-    scheduleTimeupdateEvent(false);
-
-    // 8 - this is covered, if necessary, when the engine signals a readystate change
-
-    // 10
-    m_player->seek(time);
     m_sentEndEvent = false;
+
+    // 9 - Set the current playback position to the given new playback position
+    m_player->seek(time);
+
+    // 10-15 are handled, if necessary, when the engine signals a readystate change.
+
 }
 
 void HTMLMediaElement::finishSeek()
@@ -1809,7 +1822,7 @@ void HTMLMediaElement::stopPeriodicTimers()
 
 void HTMLMediaElement::userCancelledLoad()
 {
-    if (m_networkState == NETWORK_EMPTY || m_networkState >= NETWORK_LOADED)
+    if (m_networkState == NETWORK_EMPTY || m_completelyLoaded)
         return;
 
     // If the media data fetching process is aborted by the user:
@@ -1992,9 +2005,7 @@ void HTMLMediaElement::createMediaPlayerProxy()
 {
     ensureMediaPlayer();
 
-    if (!inDocument() && m_proxyWidget)
-        return;
-    if (inDocument() && !m_needWidgetUpdate)
+    if (m_proxyWidget || (inDocument() && !m_needWidgetUpdate))
         return;
 
     Frame* frame = document()->frame();

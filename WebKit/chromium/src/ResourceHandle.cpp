@@ -226,7 +226,7 @@ PassRefPtr<ResourceHandle> ResourceHandle::create(const ResourceRequest& request
     return 0;
 }
 
-const ResourceRequest& ResourceHandle::request() const
+ResourceRequest& ResourceHandle::firstRequest()
 {
     return d->m_request;
 }
@@ -250,6 +250,11 @@ bool ResourceHandle::start(Frame* deprecated)
 {
     d->start();
     return true;
+}
+
+bool ResourceHandle::hasAuthenticationChallenge() const
+{
+    return false;
 }
 
 void ResourceHandle::clearAuthentication()

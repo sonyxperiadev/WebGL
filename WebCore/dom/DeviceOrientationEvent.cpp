@@ -26,35 +26,34 @@
 #include "config.h"
 #include "DeviceOrientationEvent.h"
 
+#include "DeviceOrientation.h"
+
 #if ENABLE(DEVICE_ORIENTATION)
 
 namespace WebCore {
 
+DeviceOrientationEvent::~DeviceOrientationEvent()
+{
+}
+
 DeviceOrientationEvent::DeviceOrientationEvent()
-    : m_alpha(0)
-    , m_beta(0)
-    , m_gamma(0)
+    : m_orientation(DeviceOrientation::create())
 {
 }
 
-DeviceOrientationEvent::DeviceOrientationEvent(const AtomicString& eventType, double alpha, double beta, double gamma)
+DeviceOrientationEvent::DeviceOrientationEvent(const AtomicString& eventType, DeviceOrientation* orientation)
     : Event(eventType, false, false) // Can't bubble, not cancelable
-    , m_alpha(alpha)
-    , m_beta(beta)
-    , m_gamma(gamma)
+    , m_orientation(orientation)
 {
 }
 
-void DeviceOrientationEvent::initDeviceOrientationEvent(const AtomicString& eventType, bool canBubble, bool cancelable, double alpha, double beta, double gamma)
+void DeviceOrientationEvent::initDeviceOrientationEvent(const AtomicString& type, bool bubbles, bool cancelable, DeviceOrientation* orientation)
 {
     if (dispatched())
         return;
 
-    initEvent(eventType, canBubble, cancelable);
-
-    m_alpha = alpha;
-    m_beta = beta;
-    m_gamma = gamma;
+    initEvent(type, bubbles, cancelable);
+    m_orientation = orientation;
 }
 
 } // namespace WebCore

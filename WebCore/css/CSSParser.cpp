@@ -812,6 +812,8 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSSPropertyBorderRightStyle:   //   Defined as:    none | hidden | dotted | dashed |
     case CSSPropertyBorderBottomStyle:  //   solid | double | groove | ridge | inset | outset
     case CSSPropertyBorderLeftStyle:
+    case CSSPropertyWebkitBorderStartStyle:
+    case CSSPropertyWebkitBorderEndStyle:
     case CSSPropertyWebkitColumnRuleStyle:
         if (id >= CSSValueNone && id <= CSSValueDouble)
             validPrimitive = true;
@@ -851,12 +853,14 @@ bool CSSParser::parseValue(int propId, bool important)
             break;
         }
         /* nobreak */
-    case CSSPropertyBackgroundColor:     // <color> | inherit
-    case CSSPropertyBorderTopColor:     // <color> | inherit
-    case CSSPropertyBorderRightColor:   // <color> | inherit
-    case CSSPropertyBorderBottomColor:  // <color> | inherit
-    case CSSPropertyBorderLeftColor:    // <color> | inherit
-    case CSSPropertyColor:                // <color> | inherit
+    case CSSPropertyBackgroundColor: // <color> | inherit
+    case CSSPropertyBorderTopColor: // <color> | inherit
+    case CSSPropertyBorderRightColor:
+    case CSSPropertyBorderBottomColor:
+    case CSSPropertyBorderLeftColor:
+    case CSSPropertyWebkitBorderStartColor:
+    case CSSPropertyWebkitBorderEndColor:
+    case CSSPropertyColor: // <color> | inherit
     case CSSPropertyTextLineThroughColor: // CSS3 text decoration colors
     case CSSPropertyTextUnderlineColor:
     case CSSPropertyTextOverlineColor:
@@ -1005,6 +1009,8 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSSPropertyBorderRightWidth:   //   Which is defined as
     case CSSPropertyBorderBottomWidth:  //   thin | medium | thick | <length>
     case CSSPropertyBorderLeftWidth:
+    case CSSPropertyWebkitBorderStartWidth:
+    case CSSPropertyWebkitBorderEndWidth:
     case CSSPropertyWebkitColumnRuleWidth:
         if (id == CSSValueThin || id == CSSValueMedium || id == CSSValueThick)
             validPrimitive = true;
@@ -1696,6 +1702,20 @@ bool CSSParser::parseValue(int propId, bool important)
     {
         const int properties[3] = { CSSPropertyBorderLeftWidth, CSSPropertyBorderLeftStyle,
                                     CSSPropertyBorderLeftColor };
+        return parseShorthand(propId, properties, 3, important);
+    }
+    case CSSPropertyWebkitBorderStart:
+        // [ '-webkit-border-start-width' || 'border-style' || <color> ] | inherit
+    {
+        const int properties[3] = { CSSPropertyWebkitBorderStartWidth, CSSPropertyWebkitBorderStartStyle,
+            CSSPropertyWebkitBorderStartColor };
+        return parseShorthand(propId, properties, 3, important);
+    }
+    case CSSPropertyWebkitBorderEnd:
+        // [ '-webkit-border-end-width' || 'border-style' || <color> ] | inherit
+    {
+        const int properties[3] = { CSSPropertyWebkitBorderEndWidth, CSSPropertyWebkitBorderEndStyle,
+            CSSPropertyWebkitBorderEndColor };
         return parseShorthand(propId, properties, 3, important);
     }
     case CSSPropertyOutline:
@@ -5657,31 +5677,27 @@ static int cssPropertyID(const UChar* propertyName, unsigned length)
 
     const char* name = buffer;
     if (buffer[0] == '-') {
-        // If the prefix is -apple- or -khtml-, change it to -webkit-.
-        // This makes the string one character longer.
-        if (hasPrefix(buffer, length, "-apple-") || hasPrefix(buffer, length, "-khtml-")) {
+        if (!strcmp(buffer, "-apple-dashboard-region") || !strcmp(buffer, "-apple-line-clamp")) {
+            // Support two Apple-specific CSS properties previously used for
+            // the Dashboard and Safari RSS line clamping.
             memmove(buffer + 7, buffer + 6, length + 1 - 6);
             memcpy(buffer, "-webkit", 7);
             ++length;
-        }
-
-        if (hasPrefix(buffer, length, "-webkit")) {
-            if (strcmp(buffer, "-webkit-opacity") == 0) {
-                // Honor -webkit-opacity as a synonym for opacity.
-                // This was the only syntax that worked in Safari 1.1, and may be in use on some websites and widgets.
-                const char* const opacity = "opacity";
-                name = opacity;
-                length = strlen(opacity);
-            } else if (hasPrefix(buffer + 7, length - 7, "-border-")) {
-                // -webkit-border-*-*-radius worked in Safari 4 and earlier. -webkit-border-radius syntax
-                // differs from border-radius, so it is remains as a distinct property.
-                if (!strcmp(buffer + 15, "top-left-radius")
-                        || !strcmp(buffer + 15, "top-right-radius")
-                        || !strcmp(buffer + 15, "bottom-right-radius")
-                        || !strcmp(buffer + 15, "bottom-left-radius")) {
-                    name = buffer + 8;
-                    length -= 8;
-                }
+        } else if (!strcmp(buffer, "-webkit-opacity")) {
+            // Honor -webkit-opacity as a synonym for opacity. This was the only
+            // syntax that worked in Safari 1.1, and may be in use on some websites and widgets.
+            const char* const opacity = "opacity";
+            name = opacity;
+            length = 7;
+        } else if (hasPrefix(buffer, length, "-webkit-border-")) {
+            // -webkit-border-*-*-radius worked in Safari 4 and earlier. -webkit-border-radius syntax
+            // differs from border-radius, so it remains as a distinct property.
+            if (!strcmp(buffer + 15, "top-left-radius")
+                    || !strcmp(buffer + 15, "top-right-radius")
+                    || !strcmp(buffer + 15, "bottom-right-radius")
+                    || !strcmp(buffer + 15, "bottom-left-radius")) {
+                name = buffer + 8;
+                length -= 8;
             }
         }
     }

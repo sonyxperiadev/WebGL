@@ -53,6 +53,7 @@
 namespace WebCore {
 class ChromiumDataObject;
 class Frame;
+class GLES2Context;
 class HistoryItem;
 class HitTestResult;
 class KeyboardEvent;
@@ -164,10 +165,17 @@ public:
                                      const WebString& value);
     virtual WebDevToolsAgent* devToolsAgent();
     virtual WebAccessibilityObject accessibilityObject();
+    // DEPRECATED.
     virtual void applyAutoFillSuggestions(
         const WebNode&,
         const WebVector<WebString>& names,
         const WebVector<WebString>& labels,
+        int separatorIndex);
+    virtual void applyAutoFillSuggestions(
+        const WebNode&,
+        const WebVector<WebString>& names,
+        const WebVector<WebString>& labels,
+        const WebVector<int>& uniqueIDs,
         int separatorIndex);
     // DEPRECATED: replacing with applyAutoFillSuggestions.
     virtual void applyAutocompleteSuggestions(
@@ -183,7 +191,6 @@ public:
                                     unsigned inactiveBackgroundColor,
                                     unsigned inactiveForegroundColor);
     virtual void performCustomContextMenuAction(unsigned action);
-    virtual WebGLES2Context* gles2Context();
 
     // WebViewImpl
 
@@ -314,6 +321,14 @@ public:
     void setRootLayerNeedsDisplay();
     void setRootGraphicsLayer(WebCore::PlatformLayer*);
 #endif
+    // Onscreen contexts display to the screen associated with this view.
+    // Offscreen contexts render offscreen but can share resources with the
+    // onscreen context and thus can be composited.
+    PassOwnPtr<WebCore::GLES2Context> getOnscreenGLES2Context();
+    PassOwnPtr<WebCore::GLES2Context> getOffscreenGLES2Context();
+
+    // Returns an onscreen context
+    virtual WebGLES2Context* gles2Context();
 
     WebCore::PopupContainer* selectPopup() const { return m_selectPopup.get(); }
 

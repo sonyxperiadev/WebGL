@@ -68,7 +68,7 @@
 #include "Page.h"
 #include "ProgressTracker.h"
 #include "Range.h"
-#include "RemoteInspectorFrontend2.h"
+#include "RemoteInspectorFrontend.h"
 #include "RenderInline.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
@@ -128,6 +128,8 @@ static const char* const profilerEnabledSettingName = "profilerEnabled";
 static const char* const inspectorAttachedHeightName = "inspectorAttachedHeight";
 static const char* const lastActivePanelSettingName = "lastActivePanel";
 static const char* const monitoringXHRSettingName = "xhrMonitor";
+
+int connectedFrontendCount = 0;
 
 const String& InspectorController::frontendSettingsSettingName()
 {
@@ -216,7 +218,6 @@ InspectorController::~InspectorController()
     ASSERT(!m_highlightedNode);
 
     deleteAllValues(m_frameResources);
-    deleteAllValues(m_consoleMessages);
 
     ASSERT(s_inspectorControllerCount);
     --s_inspectorControllerCount;
@@ -266,7 +267,12 @@ void InspectorController::setSetting(const String& key, const String& value)
     m_client->storeSetting(key, value);
 }
 
-void InspectorController::setSessionSettings(const String& settingsJSON)
+void InspectorController::saveApplicationSettings(const String& settings)
+{
+    setSetting(InspectorController::frontendSettingsSettingName(), settings);
+}
+
+void InspectorController::saveSessionSettings(const String& settingsJSON)
 {
     m_sessionSettings = InspectorValue::parseJSON(settingsJSON);
 }
@@ -312,6 +318,13 @@ void InspectorController::highlight(Node* node)
     m_client->highlight(node);
 }
 
+void InspectorController::highlightDOMNode(long nodeId)
+{
+    Node* node = 0;
+    if (m_domAgent && (node = m_domAgent->nodeForId(nodeId)))
+        highlight(node);
+}
+
 void InspectorController::hideHighlight()
 {
     if (!enabled())
@@ -325,12 +338,13 @@ bool InspectorController::windowVisible()
     return m_frontend;
 }
 
-void InspectorController::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, ScriptCallStack* callStack)
+void InspectorController::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, ScriptCallStack* callStack, const String& message)
 {
     if (!enabled())
         return;
 
-    addConsoleMessage(callStack->state(), new ConsoleMessage(source, type, level, callStack, m_groupLevel, type == TraceMessageType));
+    bool storeStackTrace = type == TraceMessageType || type == UncaughtExceptionMessageType || type == AssertMessageType;
+    addConsoleMessage(callStack->state(), new ConsoleMessage(source, type, level, message, callStack, m_groupLevel, storeStackTrace));
 }
 
 void InspectorController::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceID)
@@ -341,18 +355,17 @@ void InspectorController::addMessageToConsole(MessageSource source, MessageType 
     addConsoleMessage(0, new ConsoleMessage(source, type, level, message, lineNumber, sourceID, m_groupLevel));
 }
 
-void InspectorController::addConsoleMessage(ScriptState* scriptState, ConsoleMessage* consoleMessage)
+void InspectorController::addConsoleMessage(ScriptState* scriptState, PassOwnPtr<ConsoleMessage> consoleMessage)
 {
     ASSERT(enabled());
     ASSERT_ARG(consoleMessage, consoleMessage);
 
-    if (m_previousMessage && m_previousMessage->isEqual(scriptState, consoleMessage)) {
+    if (m_previousMessage && m_previousMessage->isEqual(scriptState, consoleMessage.get())) {
         m_previousMessage->incrementCount();
-        delete consoleMessage;
         if (m_frontend)
             m_previousMessage->updateRepeatCountInConsole(m_frontend.get());
     } else {
-        m_previousMessage = consoleMessage;
+        m_previousMessage = consoleMessage.get();
         m_consoleMessages.append(consoleMessage);
         if (m_frontend)
             m_previousMessage->addToFrontend(m_frontend.get(), m_injectedScriptHost.get());
@@ -360,15 +373,12 @@ void InspectorController::addConsoleMessage(ScriptState* scriptState, ConsoleMes
 
     if (!m_frontend && m_consoleMessages.size() >= maximumConsoleMessages) {
         m_expiredConsoleMessageCount += expireConsoleMessagesStep;
-        for (size_t i = 0; i < expireConsoleMessagesStep; ++i)
-            delete m_consoleMessages[i];
         m_consoleMessages.remove(0, expireConsoleMessagesStep);
     }
 }
 
 void InspectorController::clearConsoleMessages()
 {
-    deleteAllValues(m_consoleMessages);
     m_consoleMessages.clear();
     m_expiredConsoleMessageCount = 0;
     m_previousMessage = 0;
@@ -384,7 +394,7 @@ void InspectorController::startGroup(MessageSource source, ScriptCallStack* call
 {
     ++m_groupLevel;
 
-    addConsoleMessage(callStack->state(), new ConsoleMessage(source, collapsed ? StartGroupCollapsedMessageType : StartGroupMessageType, LogMessageLevel, callStack, m_groupLevel));
+    addConsoleMessage(callStack->state(), new ConsoleMessage(source, collapsed ? StartGroupCollapsedMessageType : StartGroupMessageType, LogMessageLevel, String(), callStack, m_groupLevel));
 }
 
 void InspectorController::endGroup(MessageSource source, unsigned lineNumber, const String& sourceURL)
@@ -486,10 +496,10 @@ void InspectorController::connectFrontend(const ScriptObject& webInspector)
     m_openingFrontend = false;
     releaseFrontendLifetimeAgents();
     m_frontend = new InspectorFrontend(webInspector, m_client);
-    m_frontend2 = new InspectorFrontend2(m_client);
-    m_domAgent = InspectorDOMAgent::create(m_cssStore.get(), m_frontend2.get());
+    m_remoteFrontend = new RemoteInspectorFrontend(m_client);
+    m_domAgent = InspectorDOMAgent::create(m_cssStore.get(), m_remoteFrontend.get());
     if (m_timelineAgent)
-        m_timelineAgent->resetFrontendProxyObject(m_frontend2.get());
+        m_timelineAgent->resetFrontendProxyObject(m_remoteFrontend.get());
 
     // Initialize Web Inspector title.
     m_frontend->inspectedURLChanged(m_inspectedPage->mainFrame()->loader()->url().string());
@@ -523,6 +533,10 @@ void InspectorController::connectFrontend(const ScriptObject& webInspector)
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     m_applicationCacheAgent = new InspectorApplicationCacheAgent(this, m_frontend.get());
 #endif
+
+    if (!connectedFrontendCount)
+        ScriptController::setCaptureCallStackForUncaughtExceptions(true);
+    connectedFrontendCount++;
 }
 
 void InspectorController::show()
@@ -571,6 +585,10 @@ void InspectorController::disconnectFrontend()
     if (!m_frontend)
         return;
     m_frontend.clear();
+
+    connectedFrontendCount--;
+    if (!connectedFrontendCount)
+        ScriptController::setCaptureCallStackForUncaughtExceptions(false);
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     // If the window is being closed with the debugger enabled,
@@ -1163,7 +1181,7 @@ void InspectorController::startTimelineProfiler()
     if (m_timelineAgent)
         return;
 
-    m_timelineAgent = new InspectorTimelineAgent(m_frontend2.get());
+    m_timelineAgent = new InspectorTimelineAgent(m_remoteFrontend.get());
     if (m_frontend)
         m_frontend->timelineProfilerWasStarted();
     m_client->timelineProfilerWasStarted();
@@ -1746,11 +1764,18 @@ void InspectorController::getScriptSource(long callId, const String& sourceID)
     m_frontend->didGetScriptSource(callId, scriptSource);
 }
 
-void InspectorController::resumeDebugger()
+void InspectorController::resume()
 {
     if (!m_debuggerEnabled)
         return;
     ScriptDebugServer::shared().continueProgram();
+}
+
+void InspectorController::setPauseOnExceptionsState(long pauseState)
+{
+    ScriptDebugServer::shared().setPauseOnExceptionsState(static_cast<ScriptDebugServer::PauseOnExceptionsState>(pauseState));
+    if (m_frontend)
+        m_frontend->updatePauseOnExceptionsState(ScriptDebugServer::shared().pauseOnExceptionsState());
 }
 
 PassRefPtr<SerializedScriptValue> InspectorController::currentCallFrames()
@@ -2157,6 +2182,23 @@ void InspectorController::addScriptToEvaluateOnLoad(const String& source)
 void InspectorController::removeAllScriptsToEvaluateOnLoad()
 {
     m_scriptsToEvaluateOnLoad.clear();
+}
+
+void InspectorController::getResourceContent(long callId, unsigned long identifier)
+{
+    if (!m_frontend)
+        return;
+
+    RefPtr<InspectorResource> resource = m_resources.get(identifier);
+    if (resource)
+        m_frontend->didGetResourceContent(callId, resource->sourceString());
+    else
+        m_frontend->didGetResourceContent(callId, "");
+}
+
+void InspectorController::reloadPage()
+{
+    m_inspectedPage->mainFrame()->redirectScheduler()->scheduleRefresh(true);
 }
 
 } // namespace WebCore

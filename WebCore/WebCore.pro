@@ -2,6 +2,10 @@
 CONFIG += building-libs
 CONFIG += depend_includepath
 
+meegotouch {
+    DEFINES += WTF_USE_MEEGOTOUCH=1
+}
+
 symbian: {
     TARGET.EPOCALLOWDLLDATA=1
     TARGET.CAPABILITY = All -Tcb
@@ -116,8 +120,16 @@ win32-g++* {
     QMAKE_LIBDIR_POST += $$split(TMPPATH,";")
 }
 
-# Assume that symbian OS always comes with sqlite
-symbian:!CONFIG(QTDIR_build): CONFIG += system-sqlite
+symbian {
+    !CONFIG(QTDIR_build) {
+        # Test if symbian OS comes with sqlite
+        exists($${EPOCROOT}epoc32/release/armv5/lib/sqlite3.dso):CONFIG *= system-sqlite
+    } else:!symbian-abld:!symbian-sbsv2 {
+        # When bundled with Qt, all Symbian build systems extract their own sqlite files if
+        # necessary, but on non-mmp based ones we need to specify this ourselves.
+        include($$QT_SOURCE_TREE/src/plugins/sqldrivers/sqlite_symbian/sqlite_symbian.pri)
+    }
+}
 
 
 
@@ -168,6 +180,7 @@ INCLUDEPATH = \
     $$PWD \
     $$PWD/accessibility \
     $$PWD/bindings \
+    $$PWD/bindings/generic \
     $$PWD/bindings/js \
     $$PWD/bridge \
     $$PWD/bridge/c \
@@ -263,6 +276,7 @@ SOURCES += \
     accessibility/AccessibilityTableHeaderContainer.cpp \    
     accessibility/AccessibilityTableRow.cpp \    
     accessibility/AXObjectCache.cpp \
+    bindings/generic/RuntimeEnabledFeatures.cpp \
     bindings/js/GCController.cpp \
     bindings/js/DOMObjectHashTableMap.cpp \
     bindings/js/DOMWrapperWorld.cpp \
@@ -286,6 +300,7 @@ SOURCES += \
     bindings/js/JSDataGridDataSource.cpp \
     bindings/js/JSDebugWrapperSet.cpp \
     bindings/js/JSDesktopNotificationsCustom.cpp \
+    bindings/js/JSDeviceOrientationEventCustom.cpp \
     bindings/js/JSDocumentCustom.cpp \
     bindings/js/JSDOMFormDataCustom.cpp \
     bindings/js/JSDOMGlobalObject.cpp \
@@ -462,6 +477,7 @@ SOURCES += \
     dom/CSSMappedAttributeDeclaration.cpp \
     dom/CustomEvent.cpp \
     dom/DecodedDataDocumentParser.cpp \
+    dom/DeviceOrientation.cpp \
     dom/DeviceOrientationController.cpp \
     dom/DeviceOrientationEvent.cpp \
     dom/Document.cpp \
@@ -891,6 +907,7 @@ SOURCES += \
     platform/KillRingNone.cpp \
     platform/KURL.cpp \
     platform/Length.cpp \
+    platform/text/LineEnding.cpp \
     platform/LinkHash.cpp \
     platform/Logging.cpp \
     platform/MIMETypeRegistry.cpp \
@@ -1219,6 +1236,7 @@ HEADERS += \
     dom/CSSMappedAttributeDeclaration.h \
     dom/CustomEvent.h \
     dom/default/PlatformMessagePortChannel.h \
+    dom/DeviceOrientation.h \
     dom/DeviceOrientationClient.h \
     dom/DeviceOrientationController.h \
     dom/DeviceOrientationEvent.h \
@@ -1590,6 +1608,10 @@ HEADERS += \
     page/SecurityOrigin.h \
     page/Settings.h \
     page/SpatialNavigation.h \
+    page/SpeechInput.h \
+    page/SpeechInputClient.h \
+    page/SpeechInputClientListener.h \
+    page/SpeechInputListener.h \
     page/WindowFeatures.h \
     page/WorkerNavigator.h \
     page/XSSAuditor.h \
@@ -1661,6 +1683,7 @@ HEADERS += \
     platform/KillRing.h \
     platform/KURL.h \
     platform/Length.h \
+    platform/text/LineEnding.h \
     platform/LinkHash.h \
     platform/Logging.h \
     platform/MIMETypeRegistry.h \
@@ -1982,7 +2005,10 @@ HEADERS += \
     svg/SVGNumberList.h \
     svg/SVGPaint.h \
     svg/SVGParserUtilities.h \
+    svg/SVGPathBuilder.h \
+    svg/SVGPathConsumer.h \
     svg/SVGPathElement.h \
+    svg/SVGPathParser.h \
     svg/SVGPathSegArc.h \
     svg/SVGPathSegClosePath.h \
     svg/SVGPathSegCurvetoCubic.h \
@@ -1993,6 +2019,7 @@ HEADERS += \
     svg/SVGPathSegLinetoHorizontal.h \
     svg/SVGPathSegLinetoVertical.h \
     svg/SVGPathSegList.h \
+    svg/SVGPathSegListBuilder.h \
     svg/SVGPathSegMoveto.h \
     svg/SVGPatternElement.h \
     svg/SVGPointList.h \
@@ -2243,12 +2270,12 @@ maemo5 {
 
     win32-* {
         LIBS += -lgdi32
-        LIBS += -lOle32
+        LIBS += -lole32
         LIBS += -luser32
     }
     wince* {
         LIBS += -lmmtimer
-        LIBS += -lOle32
+        LIBS += -lole32
     }
 
 contains(DEFINES, ENABLE_NETSCAPE_PLUGIN_API=1) {
@@ -2368,6 +2395,7 @@ contains(DEFINES, ENABLE_DATABASE=1) {
         storage/SQLResultSet.cpp \
         storage/SQLResultSetRowList.cpp \
         storage/SQLStatement.cpp \
+        storage/SQLStatementSync.cpp \
         storage/SQLTransaction.cpp \
         storage/SQLTransactionClient.cpp \
         storage/SQLTransactionCoordinator.cpp \
@@ -2446,6 +2474,7 @@ contains(DEFINES, ENABLE_DOM_STORAGE=1) {
         storage/SQLResultSet.h \
         storage/SQLResultSetRowList.h \
         storage/SQLStatement.h \
+        storage/SQLStatementSync.h \
         storage/SQLTransaction.h \
         storage/SQLTransactionClient.h \
         storage/SQLTransactionCoordinator.h \
@@ -2519,6 +2548,7 @@ contains(DEFINES, ENABLE_SHARED_WORKERS=1) {
 
 contains(DEFINES, ENABLE_INPUT_SPEECH=1) {
     SOURCES += \
+        page/SpeechInput.cpp \
         rendering/RenderInputSpeech.cpp
 }
 
@@ -2791,7 +2821,9 @@ contains(DEFINES, ENABLE_SVG=1) {
         svg/SVGNumberList.cpp \
         svg/SVGPaint.cpp \
         svg/SVGParserUtilities.cpp \
+        svg/SVGPathBuilder.cpp \
         svg/SVGPathElement.cpp \
+        svg/SVGPathParser.cpp \
         svg/SVGPathSegArc.cpp \
         svg/SVGPathSegClosePath.cpp \
         svg/SVGPathSegCurvetoCubic.cpp \
@@ -2802,6 +2834,7 @@ contains(DEFINES, ENABLE_SVG=1) {
         svg/SVGPathSegLinetoHorizontal.cpp \
         svg/SVGPathSegLinetoVertical.cpp \
         svg/SVGPathSegList.cpp \
+        svg/SVGPathSegListBuilder.cpp \
         svg/SVGPathSegMoveto.cpp \
         svg/SVGPatternElement.cpp \
         svg/SVGPointList.cpp \
@@ -3026,6 +3059,7 @@ contains(DEFINES, ENABLE_SYMBIAN_DIALOG_PROVIDERS) {
 }
 
 include($$PWD/../WebKit/qt/Api/headers.pri)
+
 HEADERS += $$WEBKIT_API_HEADERS
 
 !CONFIG(QTDIR_build) {
@@ -3144,6 +3178,192 @@ SOURCES += \
     platform/graphics/qt/GraphicsLayerQt.cpp \
     rendering/RenderLayerBacking.cpp \
     rendering/RenderLayerCompositor.cpp
+}
+
+webkit2 {
+
+CONFIG += precompile_header
+PRECOMPILED_HEADER = $$PWD/../WebKit2/WebKit2Prefix.h
+
+INCLUDEPATH = \
+    $$PWD/../WebKit2/Platform \
+    $$PWD/../WebKit2/Platform/CoreIPC \
+    $$PWD/../WebKit2/Shared \
+    $$PWD/../WebKit2/Shared/CoreIPCSupport \
+    $$PWD/../WebKit2/Shared/qt \
+    $$PWD/../WebKit2/UIProcess \
+    $$PWD/../WebKit2/UIProcess/API/C \
+    $$PWD/../WebKit2/UIProcess/API/cpp \
+    $$PWD/../WebKit2/UIProcess/API/cpp/qt \
+    $$PWD/../WebKit2/UIProcess/API/qt \
+    $$PWD/../WebKit2/UIProcess/Launcher \
+    $$PWD/../WebKit2/UIProcess/Plugins \
+    $$PWD/../WebKit2/UIProcess/qt \
+    $$PWD/../WebKit2/WebProcess \
+    $$PWD/../WebKit2/WebProcess/InjectedBundle \
+    $$PWD/../WebKit2/WebProcess/InjectedBundle/API/c \
+    $$PWD/../WebKit2/WebProcess/WebCoreSupport \
+    $$PWD/../WebKit2/WebProcess/WebPage \
+    $$INCLUDEPATH \
+    $$OUTPUT_DIR/include \
+
+HEADERS += \
+    ../WebKit2/Platform/CoreIPC/ArgumentDecoder.h \
+    ../WebKit2/Platform/CoreIPC/ArgumentEncoder.h \
+    ../WebKit2/Platform/CoreIPC/Arguments.h \
+    ../WebKit2/Platform/CoreIPC/Attachment.h \
+    ../WebKit2/Platform/CoreIPC/Connection.h \
+    ../WebKit2/Platform/CoreIPC/CoreIPCMessageKinds.h \
+    ../WebKit2/Platform/CoreIPC/MessageID.h \
+    ../WebKit2/Platform/PlatformProcessIdentifier.h \
+    ../WebKit2/Platform/RunLoop.h \
+    ../WebKit2/Platform/WorkItem.h \
+    ../WebKit2/Platform/WorkQueue.h \
+    ../WebKit2/Shared/CoreIPCSupport/DrawingAreaMessageKinds.h \
+    ../WebKit2/Shared/CoreIPCSupport/DrawingAreaProxyMessageKinds.h \
+    ../WebKit2/Shared/CoreIPCSupport/WebPageMessageKinds.h \
+    ../WebKit2/Shared/CoreIPCSupport/WebPageProxyMessageKinds.h \
+    ../WebKit2/Shared/CoreIPCSupport/WebProcessMessageKinds.h \
+    ../WebKit2/Shared/NotImplemented.h \
+    ../WebKit2/Shared/qt/WebEventFactoryQt.h \
+    ../WebKit2/Shared/WebEventConversion.h \
+    ../WebKit2/Shared/WebEvent.h \
+    ../WebKit2/Shared/WebNavigationDataStore.h \
+    ../WebKit2/Shared/WebPreferencesStore.h \
+    ../WebKit2/UIProcess/API/cpp/WKRetainPtr.h \
+    ../WebKit2/UIProcess/API/cpp/qt/WKStringQt.h \
+    ../WebKit2/UIProcess/API/cpp/qt/WKURLQt.h \
+    ../WebKit2/UIProcess/API/C/WebKit2.h \
+    ../WebKit2/UIProcess/API/C/WKAPICast.h \
+    ../WebKit2/UIProcess/API/C/WKBase.h \
+    ../WebKit2/UIProcess/API/C/WKContext.h \
+    ../WebKit2/UIProcess/API/C/WKContextPrivate.h \
+    ../WebKit2/UIProcess/API/C/WKFrame.h \
+    ../WebKit2/UIProcess/API/C/WKFramePolicyListener.h \
+    ../WebKit2/UIProcess/API/C/WKNavigationData.h \
+    ../WebKit2/UIProcess/API/C/WKPage.h \
+    ../WebKit2/UIProcess/API/C/WKPageNamespace.h \
+    ../WebKit2/UIProcess/API/C/WKPagePrivate.h \
+    ../WebKit2/UIProcess/API/C/WKPreferences.h \
+    ../WebKit2/UIProcess/API/C/WKString.h \
+    ../WebKit2/UIProcess/API/C/WKURL.h \
+    ../WebKit2/UIProcess/API/qt/qgraphicswkview.h \
+    ../WebKit2/UIProcess/API/qt/qwkpage.h \
+    ../WebKit2/UIProcess/API/qt/qwkpage_p.h \
+    ../WebKit2/UIProcess/ChunkedUpdateDrawingAreaProxy.h \
+    ../WebKit2/UIProcess/DrawingAreaProxy.h \
+    ../WebKit2/UIProcess/GenericCallback.h \
+    ../WebKit2/UIProcess/Launcher/ProcessLauncher.h \
+    ../WebKit2/UIProcess/Plugins/PluginInfoStore.h \
+    ../WebKit2/UIProcess/PageClient.h \
+    ../WebKit2/UIProcess/ProcessModel.h \
+    ../WebKit2/UIProcess/API/qt/ClientImpl.h \
+    ../WebKit2/UIProcess/ResponsivenessTimer.h \
+    ../WebKit2/UIProcess/WebContext.h \
+    ../WebKit2/UIProcess/WebContextInjectedBundleClient.h \
+    ../WebKit2/UIProcess/WebFramePolicyListenerProxy.h \
+    ../WebKit2/UIProcess/WebFrameProxy.h \
+    ../WebKit2/UIProcess/WebHistoryClient.h \
+    ../WebKit2/UIProcess/WebLoaderClient.h \
+    ../WebKit2/UIProcess/WebNavigationData.h \
+    ../WebKit2/UIProcess/WebPageNamespace.h \
+    ../WebKit2/UIProcess/WebPageProxy.h \
+    ../WebKit2/UIProcess/WebPolicyClient.h \
+    ../WebKit2/UIProcess/WebPreferences.h \
+    ../WebKit2/UIProcess/WebProcessManager.h \
+    ../WebKit2/UIProcess/WebProcessProxy.h \
+    ../WebKit2/UIProcess/WebUIClient.h \
+    ../WebKit2/WebProcess/InjectedBundle/API/c/WKBundleBase.h \
+    ../WebKit2/WebProcess/InjectedBundle/API/c/WKBundlePage.h \
+    ../WebKit2/WebProcess/InjectedBundle/InjectedBundle.h \
+    ../WebKit2/WebProcess/InjectedBundle/InjectedBundlePageUIClient.h \
+    ../WebKit2/WebProcess/WebCoreSupport/WebChromeClient.h \
+    ../WebKit2/WebProcess/WebCoreSupport/WebContextMenuClient.h \
+    ../WebKit2/WebProcess/WebCoreSupport/WebDragClient.h \
+    ../WebKit2/WebProcess/WebCoreSupport/WebEditorClient.h \
+    ../WebKit2/WebProcess/WebCoreSupport/WebErrors.h \
+    ../WebKit2/WebProcess/WebCoreSupport/WebFrameLoaderClient.h \
+    ../WebKit2/WebProcess/WebCoreSupport/WebInspectorClient.h \
+    ../WebKit2/WebProcess/WebPage/ChunkedUpdateDrawingArea.h \
+    ../WebKit2/WebProcess/WebPage/DrawingArea.h \
+    ../WebKit2/WebProcess/WebPage/WebFrame.h \
+    ../WebKit2/WebProcess/WebPage/WebPage.h \
+    ../WebKit2/WebProcess/WebProcess.h \
+
+SOURCES += \
+    ../WebKit2/Platform/CoreIPC/ArgumentDecoder.cpp \
+    ../WebKit2/Platform/CoreIPC/ArgumentEncoder.cpp \
+    ../WebKit2/Platform/CoreIPC/Attachment.cpp \
+    ../WebKit2/Platform/CoreIPC/Connection.cpp \
+    ../WebKit2/Platform/CoreIPC/qt/ConnectionQt.cpp \
+    ../WebKit2/Platform/RunLoop.cpp \
+    ../WebKit2/Platform/WorkQueue.cpp \
+    ../WebKit2/Platform/qt/RunLoopQt.cpp \
+    ../WebKit2/Platform/qt/WorkQueueQt.cpp \
+    ../WebKit2/Shared/ImmutableArray.cpp \
+    ../WebKit2/Shared/WebEventConversion.cpp \
+    ../WebKit2/Shared/WebPreferencesStore.cpp \
+    ../WebKit2/Shared/qt/UpdateChunk.cpp \
+    ../WebKit2/Shared/qt/WebEventFactoryQt.cpp \
+    ../WebKit2/UIProcess/API/C/WKContext.cpp \
+    ../WebKit2/UIProcess/API/C/WKFrame.cpp \
+    ../WebKit2/UIProcess/API/C/WKFramePolicyListener.cpp \
+    ../WebKit2/UIProcess/API/C/WKNavigationData.cpp \
+    ../WebKit2/UIProcess/API/C/WKPage.cpp \
+    ../WebKit2/UIProcess/API/C/WKPageNamespace.cpp \
+    ../WebKit2/UIProcess/API/C/WKPreferences.cpp \
+    ../WebKit2/UIProcess/API/C/WKString.cpp \
+    ../WebKit2/UIProcess/API/C/WKURL.cpp \
+    ../WebKit2/UIProcess/API/qt/qgraphicswkview.cpp \
+    ../WebKit2/UIProcess/API/qt/qwkpage.cpp \
+    ../WebKit2/UIProcess/API/cpp/qt/WKStringQt.cpp \
+    ../WebKit2/UIProcess/API/cpp/qt/WKURLQt.cpp \
+    ../WebKit2/UIProcess/ChunkedUpdateDrawingAreaProxy.cpp \
+    ../WebKit2/UIProcess/DrawingAreaProxy.cpp \
+    ../WebKit2/UIProcess/Plugins/PluginInfoStore.cpp \
+    ../WebKit2/UIProcess/Plugins/qt/PluginInfoStoreQt.cpp \
+    ../WebKit2/UIProcess/Launcher/ProcessLauncher.cpp \
+    ../WebKit2/UIProcess/Launcher/qt/ProcessLauncherQt.cpp \
+    ../WebKit2/UIProcess/ResponsivenessTimer.cpp \
+    ../WebKit2/UIProcess/WebBackForwardList.cpp \
+    ../WebKit2/UIProcess/WebBackForwardListItem.cpp \
+    ../WebKit2/UIProcess/WebContext.cpp \
+    ../WebKit2/UIProcess/WebContextInjectedBundleClient.cpp \
+    ../WebKit2/UIProcess/WebFramePolicyListenerProxy.cpp \
+    ../WebKit2/UIProcess/WebFrameProxy.cpp \
+    ../WebKit2/UIProcess/WebHistoryClient.cpp \
+    ../WebKit2/UIProcess/WebLoaderClient.cpp \
+    ../WebKit2/UIProcess/WebNavigationData.cpp \
+    ../WebKit2/UIProcess/WebPageNamespace.cpp \
+    ../WebKit2/UIProcess/WebPageProxy.cpp \
+    ../WebKit2/UIProcess/WebPolicyClient.cpp \
+    ../WebKit2/UIProcess/WebPreferences.cpp \
+    ../WebKit2/UIProcess/WebProcessManager.cpp \
+    ../WebKit2/UIProcess/WebProcessProxy.cpp \
+    ../WebKit2/UIProcess/WebUIClient.cpp \
+    ../WebKit2/WebProcess/InjectedBundle/InjectedBundle.cpp \
+    ../WebKit2/WebProcess/InjectedBundle/InjectedBundlePageUIClient.cpp \
+    ../WebKit2/WebProcess/InjectedBundle/InjectedBundlePageLoaderClient.cpp \
+    ../WebKit2/WebProcess/InjectedBundle/qt/InjectedBundleQt.cpp \
+    ../WebKit2/UIProcess/API/qt/ClientImpl.cpp \
+    ../WebKit2/UIProcess/qt/ChunkedUpdateDrawingAreaProxyQt.cpp \
+    ../WebKit2/WebProcess/WebCoreSupport/WebChromeClient.cpp \
+    ../WebKit2/WebProcess/WebCoreSupport/WebContextMenuClient.cpp \
+    ../WebKit2/WebProcess/WebCoreSupport/WebDragClient.cpp \
+    ../WebKit2/WebProcess/WebCoreSupport/WebEditorClient.cpp \
+    ../WebKit2/WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp \
+    ../WebKit2/WebProcess/WebCoreSupport/WebInspectorClient.cpp \
+    ../WebKit2/WebProcess/WebCoreSupport/WebBackForwardControllerClient.cpp \
+    ../WebKit2/WebProcess/WebCoreSupport/qt/WebErrorsQt.cpp \
+    ../WebKit2/WebProcess/WebPage/ChunkedUpdateDrawingArea.cpp \
+    ../WebKit2/WebProcess/WebPage/DrawingArea.cpp \
+    ../WebKit2/WebProcess/WebPage/WebFrame.cpp \
+    ../WebKit2/WebProcess/WebPage/WebPage.cpp \
+    ../WebKit2/WebProcess/WebPage/WebBackForwardListProxy.cpp \
+    ../WebKit2/WebProcess/WebPage/qt/ChunkedUpdateDrawingAreaQt.cpp \
+    ../WebKit2/WebProcess/WebPage/qt/WebPageQt.cpp \
+    ../WebKit2/WebProcess/WebProcess.cpp \
+
 }
 
 symbian {

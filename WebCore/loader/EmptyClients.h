@@ -157,7 +157,7 @@ public:
 
     virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
 
-    virtual bool setCursor(PlatformCursorHandle) { return false; }
+    virtual void setCursor(const Cursor&) { }
 
     virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {}
 
@@ -170,6 +170,9 @@ public:
     virtual void scheduleCompositingLayerSync() {};
 #endif
 
+#if PLATFORM(WIN)
+    virtual void setLastSetCursorToCurrentCursor() { }
+#endif
 #if ENABLE(TOUCH_EVENTS)
     virtual void needTouchEvents(bool) { }
 #endif
@@ -309,6 +312,8 @@ public:
     virtual PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL&, const Vector<String>&, const Vector<String>&) { return 0; }
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     virtual PassRefPtr<Widget> createMediaPlayerProxyPlugin(const IntSize&, HTMLMediaElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&) { return 0; }
+    virtual void hideMediaPlayerProxyPlugin(Widget*) { }
+    virtual void showMediaPlayerProxyPlugin(Widget*) { }
 #endif
 
     virtual ObjectContentType objectContentType(const KURL&, const String&) { return ObjectContentType(); }
@@ -439,6 +444,7 @@ public:
     virtual void showSpellingUI(bool) { }
     virtual bool spellingUIIsShowing() { return false; }
     virtual void getGuessesForWord(const String&, Vector<String>&) { }
+    virtual void willSetInputMethodState() { }
     virtual void setInputMethodState(bool) { }
 
 

@@ -706,6 +706,11 @@ public:
         /* [in] */ JSContextRef context,
         /* [in] */ JSValueRef exception);
 
+    virtual HRESULT STDMETHODCALLTYPE elementFromJS(
+        /* [in] */ JSContextRef context,
+        /* [in] */ JSValueRef nodeObject,
+        /* [retval][out] */ IDOMElement **element);
+
     virtual HRESULT STDMETHODCALLTYPE setCustomHTMLTokenizerTimeDelay(
         /* [in] */ double timeDelay);
 
@@ -903,6 +908,8 @@ public:
     void enterFullscreenForNode(WebCore::Node*);
     void exitFullscreen();
 
+    void setLastCursor(HCURSOR cursor) { m_lastSetCursor = cursor; }
+
 private:
     void setZoomMultiplier(float multiplier, bool isTextOnly);
     float zoomMultiplier(bool isTextOnly);
@@ -1042,6 +1049,8 @@ protected:
 #endif
 
     bool m_nextDisplayIsSynchronous;
+
+    HCURSOR m_lastSetCursor;
 };
 
 #endif

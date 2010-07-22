@@ -1,3 +1,653 @@
+2010-07-20  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        WebKit on Windows should build optionally with an unversioned ICU DLL
+        https://bugs.webkit.org/show_bug.cgi?id=42722
+        <rdar://problem/8211743> JavaScriptCore needs to link against unversioned ICU
+        
+        Dynamically create a new header, ICUVersion.h, as part of build-generated-files.sh.
+        Header contains a preprocessor define (U_DISABLE_RENAMING) indicating to ICU whether the ICU API
+        should be namespaced with the current ICU version number. Proper value is determined
+        by checking for the presence of libicuuc.lib, the unversioned copy of ICU.
+        
+        To get the proper value for U_DISABLE_RENAMING into all source files, we force
+        the include of ICUVersion.h (our generated header) via the compiler options.
+        
+        Since the versioned and unversioned ICU have different filenames (libicuuc.lib vs icuuc.lib)
+        we copy the ICU lib to an intermediate location under obj with a common name. This
+        allows us to link properly with either without adding a new build configuration.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreCommon.vsprops:
+        Copy ICU libs into a common location with a common name.
+        Add additional library search path to pick up icu lib.
+        Change ICU library filename specified to linker.
+        Add forced include of ICUVersion.h.
+        * JavaScriptCore.vcproj/JavaScriptCore/build-generated-files.sh: Generate ICUVersion.h
+        * JavaScriptCore.vcproj/WTF/WTFCommon.vsprops: Add forced include of ICUVersion.h.
+        * JavaScriptCore.vcproj/jsc/jscCommon.vsprops:
+        Copy ICU libs into a common location with a common name.
+        Add additional library search path to pick up icu lib.
+        Change ICU library filename specified to linker.
+        Add forced include of ICUVersion.h.
+        * JavaScriptCore.vcproj/testapi/testapiCommon.vsprops:
+        Copy ICU libs into a common location with a common name.
+        Add additional library search path to pick up icu lib.
+        Change ICU library filename specified to linker.
+        Add forced include of ICUVersion.h.
+
+2010-07-20  Steve Falkenburg  <sfalken@apple.com>
+
+        Re-save vsprops files after no-op edits in Visual Studio
+        to fix manual edit issues.
+
+2010-07-20  Mahesh Kulkarni  <mahesh.kulkarni@nokia.com>
+
+        Reviewed by Steve Block.
+
+        Need to be able to configure Geolocation policy regarding user permissions
+        https://bugs.webkit.org/show_bug.cgi?id=42068
+
+        If CLIENT_BASED_GEOLOCATION is enabled, enable preemtive permission policy
+        by default 
+
+        * wtf/Platform.h:
+        
+2010-07-20  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r63742.
+        http://trac.webkit.org/changeset/63742
+        https://bugs.webkit.org/show_bug.cgi?id=42641
+
+        Broke Leopard Intel build. (Requested by bbandix on #webkit).
+
+        * wtf/Platform.h:
+
+2010-07-20  Mahesh Kulkarni  <mahesh.kulkarni@nokia.com>
+
+        Reviewed by Steve Block.
+
+        Need to be able to configure Geolocation policy regarding user permissions
+        https://bugs.webkit.org/show_bug.cgi?id=42068
+
+        If CLIENT_BASED_GEOLOCATION is enabled, enable preemtive permission policy
+        by default 
+
+        * wtf/Platform.h:
+        
+2010-07-19  Dirk Schulze  <krit@webkit.org>
+
+        Reviewed by Nikolas Zimmermann.
+
+        SVG CleanUp of SVGPathData parsing
+        https://bugs.webkit.org/show_bug.cgi?id=41410
+
+        Added piOverTwo to MathExtras.
+
+        * wtf/MathExtras.h:
+
+2010-07-19  Mike Moretti  <mike.moretti@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Symbian] Build fix after r63404.
+
+        Implement isValid() function for the Symbian executable allocator.
+
+        * jit/ExecutableAllocatorSymbian.cpp:
+        (JSC::ExecutableAllocator::isValid):
+
+2010-07-19  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42118
+        Disable WebGL on Leopard for now. 
+
+        LayoutTests fail on some graphics hardware on Leopard because one of the features we use,
+        GL_ARB_framebuffer_object, is not universally available in Leopard like it is in
+        SnowLeopard. This will allow LayoutTests to pass on Leopard until we add logic to use a
+        software OpenGL driver on machines without this support.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-07-16  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Use OwnPtr for CodeBlock objects
+        https://bugs.webkit.org/show_bug.cgi?id=42490
+
+        * runtime/Executable.cpp:
+        (JSC::EvalExecutable::EvalExecutable): Moved this here and made it non-inline.
+        Eliminated the code that used to initialize the raw pointer since it's now
+        an OwnPtr.
+        (JSC::EvalExecutable::~EvalExecutable): Removed the explicit delete here.
+        (JSC::ProgramExecutable::ProgramExecutable): Ditto.
+        (JSC::ProgramExecutable::~ProgramExecutable): Ditto.
+        (JSC::FunctionExecutable::FunctionExecutable): Ditto.
+        (JSC::FunctionExecutable::~FunctionExecutable): Ditto.
+        (JSC::EvalExecutable::compileInternal): Added use of adoptPtr and get.
+        (JSC::ProgramExecutable::compileInternal): Ditto.
+        (JSC::FunctionExecutable::compileForCallInternal): Ditto.
+        (JSC::FunctionExecutable::compileForConstructInternal): Ditto.
+        (JSC::FunctionExecutable::recompile): Use clear instead of delete followed
+        by assignment of 0.
+
+        * runtime/Executable.h: Moved constructors to the cpp file and changed
+        raw pointers to OwnPtr.
+
+2010-07-19  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Fix build on 64-bit systems. According to
+        JavaScriptCore/wtf/Platform.h, x86_64 uses fixed allocator, which
+        needs jit/ExecutableAllocatorFixedVMPool.cpp to be included in build
+        system.
+        https://bugs.webkit.org/show_bug.cgi?id=42559
+
+        * CMakeListsEfl.txt: add missing file for x86_64.
+
+2010-07-16  Leandro Pereira  <leandro@profusion.mobi>
+
+        [EFL] Unreviewed build system cleanup.
+
+        Move ExecutableAllocator{FixedVMPool,Posix,Symbian,Win}.cpp from
+        root CMakeLists.txt to the platform CMakeLists.txt.
+
+        * CMakeLists.txt:
+        * CMakeListsEfl.txt: Add ExecutableAllocatorPosix.cpp.
+
+2010-07-16  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        ES5 allows use of reserved words as IdentifierName
+        https://bugs.webkit.org/show_bug.cgi?id=42471
+
+        Modify the lexer to allow us to avoid identifying reserved
+        words in those contexts where they are valid identifiers, and
+        we know it's safe.  Additionally tag the reserved word tokens
+        so we can easily identify them in those cases where we can't
+        guarantee that we've skipped reserved word identification.
+
+        * parser/JSParser.cpp:
+        (JSC::JSParser::next):
+        (JSC::JSParser::parseProperty):
+        (JSC::JSParser::parseMemberExpression):
+        * parser/JSParser.h:
+        (JSC::):
+        * parser/Lexer.cpp:
+        (JSC::Lexer::lex):
+        * parser/Lexer.h:
+        (JSC::Lexer::):
+
+2010-07-16  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        clang++ build fixes for JavaScriptCore and WebCore
+        https://bugs.webkit.org/show_bug.cgi?id=42478
+
+        * runtime/RegExpKey.h:
+        (JSC::operator==):
+        Move the RegExpKey equals operator into the JSC namespace so it can be found by ADL.
+
+2010-07-16  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by David Levin.
+
+        Really add WARN_UNUSED_RESULT to leakRef
+        https://bugs.webkit.org/show_bug.cgi?id=42464
+
+        * wtf/PassRefPtr.h:
+        (WTF::PassRefPtr::):
+        (WTF::NonNullPassRefPtr::):
+        Put the WARN_UNUSED_RESULT attribute at the right place.
+
+        * wtf/RetainPtr.h:
+        (WTF::RetainPtr::releaseRef):
+        Remove WARN_UNUSED_RESULT here for now, it leads to two warnings that need
+        to be fixed first.
+
+2010-07-15  Victor Wang  <victorw@chromium.org>
+
+        Reviewed by David Levin.
+
+        [Chromium] Disable c4291 for chromium windows multi dll build.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42177
+
+        * JavaScriptCore.gyp/JavaScriptCore.gyp:
+
+2010-07-15  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        Crash entering mail.yahoo.com
+        https://bugs.webkit.org/show_bug.cgi?id=42394
+    
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::argumentNumberFor): Added a NULL check. If the
+        identifier we're resolving is not a local variable, registerFor returns
+        NULL.
+
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::FunctionBodyNode::emitBytecode): Unrelated to the crash, but I
+        noticed this while working on it: No need to NULL-check returnNode,
+        since an early return has already done so.
+
+2010-07-15  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Oliver Hunt.
+
+        [GTK] Simplify the distribution step
+        https://bugs.webkit.org/show_bug.cgi?id=42414
+
+        * GNUmakefile.am: Add extra dist files directly to EXTRA_DIST instead
+        of adding them by proxy via javascriptcore_dist. Sort the EXTRA_DIST list.
+        Refer to create_hash_table and create_regexp_tables directly, as is the
+        behavior with other code generation scripts.
+
+2010-07-15  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Fix dumping of op_put_by_id.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::printPutByIdOp):
+
+2010-07-15  Zoltan Herczeg  <zherczeg@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Refactoring some parts of the lexer
+        https://bugs.webkit.org/show_bug.cgi?id=41845
+
+        This patch is a precursor of refactoring the identifier
+        parsing, which currently slows down the lexer, and not
+        ready for landing. This patch contains those sources,
+        which does not slow down the lexer (mainly style changes).
+
+        SunSpider: no change (529.4ms to 528.7ms)
+        --parse-only: no change (31.0ms to 31.2ms)
+
+        * parser/Lexer.cpp:
+        (JSC::isIdentStart): using typesOfASCIICharacters to determine
+             whether the current character is in identifier start
+        (JSC::isIdentPart): using typesOfASCIICharacters to determine
+             whether the current character is in identifier part
+        (JSC::Lexer::parseString): style fix
+        (JSC::Lexer::lex): removing the else after the main which
+             which reduces code duplication
+
+2010-07-15  Mark Rowe  <mrowe@apple.com>
+
+        Update the sorting in the Xcode project files.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2010-07-14  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Make sure that mixed interpreter/jit builds don't try to use the jit if the allocator fails
+        https://bugs.webkit.org/show_bug.cgi?id=42310
+
+        Add some null checks to deal with the Fixed VM allocator failing
+        to get the requested executable region, delay the creation of the
+        JITStubs in JSGlobalData until after we know whether we're using
+        the JIT.
+
+        * jit/ExecutableAllocator.h:
+        (JSC::ExecutableAllocator::ExecutableAllocator):
+        (JSC::ExecutableAllocator::poolForSize):
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::FixedVMPoolAllocator::FixedVMPoolAllocator):
+        (JSC::FixedVMPoolAllocator::alloc):
+        (JSC::FixedVMPoolAllocator::free):
+        (JSC::FixedVMPoolAllocator::isValid):
+        (JSC::ExecutableAllocator::isValid):
+        (JSC::ExecutablePool::systemAlloc):
+        (JSC::ExecutablePool::systemRelease):
+        * jit/ExecutableAllocatorPosix.cpp:
+        (JSC::ExecutableAllocator::isValid):
+        * jit/ExecutableAllocatorWin.cpp:
+        (JSC::ExecutableAllocator::isValid):
+        * jit/JIT.cpp:
+        (JSC::JIT::linkCall):
+        (JSC::JIT::linkConstruct):
+        * jit/JIT.h:
+        (JSC::JIT::compileCTIMachineTrampolines):
+        (JSC::JIT::compileCTINativeCall):
+        * jit/JITArithmetic.cpp:
+        (JSC::JIT::emit_op_mod):
+        * jit/JITArithmetic32_64.cpp:
+        (JSC::JIT::emit_op_mod):
+        * jit/JITCall.cpp:
+        (JSC::JIT::compileOpCallVarargs):
+        (JSC::JIT::compileOpCall):
+        (JSC::JIT::compileOpCallSlowCase):
+        * jit/JITCall32_64.cpp:
+        (JSC::JIT::compileOpCallVarargs):
+        (JSC::JIT::compileOpCall):
+        (JSC::JIT::compileOpCallSlowCase):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::privateCompileCTINativeCall):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::JITThunks):
+        (JSC::JITThunks::tryCacheGetByID):
+        (JSC::JITThunks::hostFunctionStub):
+        * jit/ThunkGenerators.cpp:
+        (JSC::charCodeAtThunkGenerator):
+        (JSC::charAtThunkGenerator):
+        (JSC::fromCharCodeThunkGenerator):
+        (JSC::sqrtThunkGenerator):
+        (JSC::powThunkGenerator):
+        * runtime/Executable.h:
+        (JSC::NativeExecutable::create):
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        (JSC::JSGlobalData::getHostFunction):
+        * runtime/JSGlobalData.h:
+        (JSC::JSGlobalData::getCTIStub):
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::jitCompileRegex):
+
+2010-07-14  Gavin Barraclough  <barraclough@apple.com>
+
+        Speculative Qt/Windows build fix.
+
+        * jit/JITStubs.h:
+
+2010-07-14  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42280
+        JIT_STUB_ARGUMENT_VA_LIST is only slowing us down! Remove it!
+
+        * jit/JIT.h:
+        * jit/JITInlineMethods.h:
+        (JSC::JIT::restoreArgumentReferenceForTrampoline):
+        * jit/JITStubs.cpp:
+        * jit/JITStubs.h:
+        * wtf/Platform.h:
+
+2010-07-14  Oliver Hunt  <oliver@apple.com>
+
+        RS=Geoff Garen.
+
+        Guard the CF path of interpreter vs. jit selection with PLATFORM(CF)
+
+        This allows the code to work on windows as well.  Also unifies the
+        environment variable with the preference name.
+
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+
+2010-07-14  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Don Melton.
+
+        Crash when trying to enable JIT and Interpreter in a single build.
+
+        CFPreferences code added at the last minute failed to account for
+        the preference not being present and then attempted to CFRelease
+        a null value.
+
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+
+2010-07-14  Zoltan Herczeg  <zherczeg@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Change indentations in the lexer
+        https://bugs.webkit.org/show_bug.cgi?id=41845
+
+        This patch fixes an old, indentation error comes from kjs,
+        as webkit has a different style rule for switches, and change
+        the indentation of the main switch, which is a temporary
+        style error. This change makes easier to see the behavioural
+        changes in the follow-up patch.
+
+        No behavioural changes.
+
+        * parser/Lexer.cpp:
+        (JSC::singleEscape):
+        (JSC::Lexer::lex):
+
+2010-07-13  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r63262.
+        http://trac.webkit.org/changeset/63262
+        https://bugs.webkit.org/show_bug.cgi?id=42229
+
+        broke Windows compile (Requested by bweinstein on #webkit).
+
+        * API/tests/testapi.c:
+        (assertEqualsAsCharactersPtr):
+        (main):
+        * testapi.pro: Removed.
+
+2010-07-13  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        ES5 requires BOMs to be treated as whitespace
+        https://bugs.webkit.org/show_bug.cgi?id=42218
+
+        Add BOM character to the Lexer's definition of whitespace,
+        and remove the logic that dealt with stripping BOMs and
+        caching the cleaned string.
+
+        * parser/Lexer.h:
+        (JSC::Lexer::isWhiteSpace):
+        * parser/SourceProvider.h:
+        (JSC::UStringSourceProvider::create):
+        (JSC::UStringSourceProvider::UStringSourceProvider):
+        * wtf/text/StringImpl.h:
+
+2010-07-13  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Darin Adler.
+
+        Avoid slow-path for put() in Array.splice()
+        https://bugs.webkit.org/show_bug.cgi?id=41920
+
+        Defer creation of the returned array until its final size is known
+        to avoid growing it while adding elements.
+
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::JSArray): Add two modes of creation, CreateInitialized (old)
+        and CreateCompact (which should only be used when constructing arrays whose
+        size and contents are known at the time of creation.)
+        (JSC::JSArray::setLength): Skip first consistency check if in CreateCompact
+        initialization mode. (Only applies to non-empty arrays.)
+        (JSC::JSArray::checkConsistency): Build fix (JSValue::type() is gone)
+        * runtime/JSArray.h:
+        (JSC::JSArray::uncheckedSetIndex): Added for fast initialization of compact
+        arrays. Does no bounds or other sanity checking.
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncSplice): Optimized creation of the returned JSArray.
+        * runtime/ArrayConstructor.cpp:
+        (JSC::constructArrayWithSizeQuirk): Pass CreateInitialized to ctor.
+        * runtime/JSGlobalObject.h:
+        (JSC::constructEmptyArray): Pass CreateInitialized to ctor.
+        * runtime/RegExpConstructor.cpp:
+        (JSC::RegExpMatchesArray::RegExpMatchesArray): Pass CreateInitialized to ctor.
+
+2010-07-13  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 42207 - Clean up interface to compile executables, always check for exceptions
+
+        Presently interface to compile executable is inconsistent between eval/program and
+        function code, and is error prone in allowing a caller to byte compile without JIT
+        compiling an executable (we rely on all executables with codeblocks having JIT code).
+        Unify on an interface where all compilation is performed by a single compile (with
+        ForCall|ForConstruct variants) method, and make all clients check for errors.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::unwindCallFrame):
+        (JSC::Interpreter::execute):
+        (JSC::Interpreter::executeCall):
+        (JSC::Interpreter::executeConstruct):
+        (JSC::Interpreter::prepareForRepeatCall):
+        (JSC::Interpreter::privateExecute):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * parser/Parser.h:
+        (JSC::Parser::isFunctionBodyNode):
+        (JSC::Parser::parse):
+        * runtime/ArrayPrototype.cpp:
+        (JSC::isNumericCompareFunction):
+        * runtime/ExceptionHelpers.cpp:
+        (JSC::createStackOverflowError):
+        * runtime/ExceptionHelpers.h:
+        * runtime/Executable.cpp:
+        (JSC::EvalExecutable::compileInternal):
+        (JSC::ProgramExecutable::checkSyntax):
+        (JSC::ProgramExecutable::compileInternal):
+        (JSC::FunctionExecutable::compileForCallInternal):
+        (JSC::FunctionExecutable::compileForConstructInternal):
+        (JSC::FunctionExecutable::reparseExceptionInfo):
+        (JSC::EvalExecutable::reparseExceptionInfo):
+        (JSC::FunctionExecutable::fromGlobalCode):
+        * runtime/Executable.h:
+        (JSC::EvalExecutable::compile):
+        (JSC::EvalExecutable::generatedBytecode):
+        (JSC::EvalExecutable::generatedJITCode):
+        (JSC::ProgramExecutable::compile):
+        (JSC::ProgramExecutable::generatedBytecode):
+        (JSC::ProgramExecutable::generatedJITCode):
+        (JSC::FunctionExecutable::generatedBytecode):
+        (JSC::FunctionExecutable::compileForCall):
+        (JSC::FunctionExecutable::compileForConstruct):
+        (JSC::FunctionExecutable::generatedJITCodeForConstructWithArityCheck):
+        * runtime/FunctionConstructor.cpp:
+        (JSC::constructFunction):
+        * runtime/JSActivation.cpp:
+        (JSC::JSActivation::argumentsGetter):
+        * runtime/JSGlobalData.h:
+        (JSC::JSGlobalData::canUseJIT):
+
+2010-07-13  Caio Marcelo de Oliveira Filho  <caio.oliveira@openbossa.org>
+
+        Reviewed by Oliver Hunt.
+
+        testapi.c depends on the Core Foundation.
+        https://bugs.webkit.org/show_bug.cgi?id=40058
+
+        Separate CoreFoundation specific tests in JSC's testapi.c. Enabling it
+        to compile in Qt environments.
+
+        All tests should work except for the JSStringCreateWithCharacters() function,
+        because its tests depend on Core Foundation specific functions.
+
+        * API/tests/testapi.c:
+        (testJSStringRefCF): moved CoreFoundation specific tests to this function.
+        (main): The moves plus some minor tweaks.
+        * testapi.pro: Added.
+
+2010-07-13  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 42182 - Change how numeric compare functions are detected
+
+        There are three problems with the current mechanism:
+          * It requires that a function executable be bytecode compiled without
+            being JIT generated (in order to copy the bytecode from the numeric
+            compare function).  This is a problem since we have an invariant when
+            running with the JIT that functions are never bytecode compiled without
+            also being JIT generated (after checking the codeblock we assume the
+            function has JIT code).  To help maintain this invariant 
+          * This implementation will prevent us from experimenting with alternate
+            compilation paths which do not compile via bytecode.
+          * It doesn't work.  Functions passing more than two arguments will match
+            if they are comparing their last two arguments, not the first two.
+            Generally the mapping back from bytecode to semantics may be more
+            complex then initially expected.
+
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::generate):
+        (JSC::BytecodeGenerator::setIsNumericCompareFunction):
+        (JSC::BytecodeGenerator::argumentNumberFor):
+        * bytecompiler/BytecodeGenerator.h:
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::BlockNode::singleStatement):
+        (JSC::FunctionBodyNode::emitBytecode):
+        * parser/Nodes.h:
+        (JSC::ExpressionNode::isSubtract):
+        (JSC::BinaryOpNode::lhs):
+        (JSC::BinaryOpNode::rhs):
+        (JSC::SubNode::isSubtract):
+        (JSC::ReturnNode::value):
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        * runtime/JSGlobalData.h:
+
+2010-07-12  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        REGRESSION: Crash at JSC::JIT::privateCompile(JSC::MacroAssemblerCodePtr*)
+        https://bugs.webkit.org/show_bug.cgi?id=41763
+
+        There are two parts to this patch, the first is to fix the actual
+        problem.  When calling copyStringWithoutBOMs on a string we know
+        to contain BOMs we return a value indicating that there are no
+        BOMs.
+
+        The second part of this fix is simply to harden the path that
+        led to a crash when parsing failed.
+
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::privateCompileCTIMachineTrampolines):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::privateCompileCTIMachineTrampolines):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+           Harden compilation stubs against parser failure.
+        * parser/Lexer.cpp:
+        (JSC::Lexer::sourceCode):
+           Add assertions to ensure that subranges into a source provider
+           are always actually braces.  Hopefully this should catch similar
+           failures in future.  These assertions fire on existing tests
+           without this fix.
+        * runtime/Executable.h:
+        (JSC::FunctionExecutable::tryJitCodeForCall):
+        (JSC::FunctionExecutable::tryJitCodeForConstruct):
+        * wtf/text/StringImpl.h:
+        (WebCore::StringImpl::copyStringWithoutBOMs):
+           Make copyStringWithBOMs do the right thing.
+
+2010-07-13  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        Fix the constant encoding in data transfer instructions on ARM
+        https://bugs.webkit.org/show_bug.cgi?id=42166
+
+        The getImm function is designed to produce modified immediate constant
+        for data processing instructions. It should not be used to encode
+        any constant for data transfer. In the current situation there is no
+        way to use any immediate constant for data transfer. So, the moveImm
+        function is the desired method to pass the offset value to the data
+        transfer instructions.
+
+        Reported by Jacob Bramley.
+
+        * assembler/ARMAssembler.cpp:
+        (JSC::ARMAssembler::dataTransfer32):
+        * assembler/MacroAssemblerARM.h:
+        (JSC::MacroAssemblerARM::call32):
+
 2010-07-09  Darin Adler  <darin@apple.com>
 
         Reviewed by Geoffrey Garen.

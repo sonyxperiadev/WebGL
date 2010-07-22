@@ -1,3 +1,100 @@
+2010-07-20  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Fix zoom in/out on EFL after r62666. The patch for adding viewport
+        missed the initialization of zoom_range.user_scalable. In case browser
+        doesn't care about the viewport and does not listen to the signal,
+        user_scalable will be always false, thus inhibiting zoom in/out.
+        https://bugs.webkit.org/show_bug.cgi?id=42656
+
+        * efl/EWebLauncher/main.c:
+        (on_viewport_changed): when listening to signal about viewport meta tag,
+        it's not sufficient to receive the parameters. One needs also to enforce
+        these parameters in WebKit.
+        * efl/ewk/ewk_view.cpp:
+        (_ewk_view_priv_new): initialize user_scalable parameter to allow
+        browser zooming in and out.
+
+2010-07-16  Zhe Su  <suzhe@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION(r61484): Broke focus behaviour on Qt and probably other platforms
+        https://bugs.webkit.org/show_bug.cgi?id=42253
+
+        Dummy implementation of EditorClient::willSetInputMethodState.
+
+        * efl/WebCoreSupport/EditorClientEfl.cpp:
+        (WebCore::EditorClientEfl::willSetInputMethodState):
+        * efl/WebCoreSupport/EditorClientEfl.h:
+
+2010-07-15  Mark Rowe  <mrowe@apple.com>
+
+        Update the sorting in the Xcode project files.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2010-07-14  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=42232
+        Make changing Cursors work in WebKit2.
+
+        * efl/WebCoreSupport/ChromeClientEfl.cpp:
+        (WebCore::ChromeClientEfl::setCursor):
+        * efl/WebCoreSupport/ChromeClientEfl.h:
+        Change prototype to match new one.
+
+2010-07-14  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Add eina_safety to popup menu deletion.
+        https://bugs.webkit.org/show_bug.cgi?id=41873
+
+        Since this is a public call, it's better to have an eina_safety on
+        public calls. It would crash if browser calls this function to select
+        an item of a nonexistent popup.
+
+        * efl/ewk/ewk_view.cpp: add eina_safety to return if popup menu client does
+        not exist.
+
+2010-07-13  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        <rdar://problem/8186963> Expose RenderLayer hierarchy via Obj-C for debugging.
+        
+        Add WebRenderLayer files.
+
+        * WebKit.xcodeproj/project.pbxproj:
+
+2010-07-13  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        Reviewed by Antonio Gomes.
+
+        This commit implements an API for configuring a path to the cookie
+        file in the Mozilla "cookies.txt" format, and functions to deal with it
+        in a more EFL like API.
+
+        [EFL] Add API for dealing with cookies in EFL port.
+        https://bugs.webkit.org/show_bug.cgi?id=41770
+
+        * CMakeListsEfl.txt:
+        * efl/ewk/EWebKit.h:
+        * efl/ewk/ewk_cookies.cpp: Added.
+        (ewk_cookies_file_set): Set a path to the file storing cookies.
+        (ewk_cookies_clear): Clear all the cookies from the current cookie jar.
+        (ewk_cookies_get_all): Get all the cookies from the current cookie jar.
+        (ewk_cookies_cookie_del): Delete a specific cookie from the cookie jar.
+        (ewk_cookies_cookie_free): Free memory used by a cookie.
+        (ewk_cookies_policy_set): Set which acceptance policy will be used.
+        (ewk_cookies_policy_get): Get current acceptance policy being used.
+        * efl/ewk/ewk_cookies.h: Added.
+        (_Ewk_Cookie::):
+
 2010-07-12  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
 
         Unreviewed build fix after r60050.

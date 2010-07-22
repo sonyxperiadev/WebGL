@@ -234,9 +234,9 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
     ts << " " << r;
 
     if (!(o.isText() && !o.isBR())) {
-        if (o.isFileUploadControl()) {
+        if (o.isFileUploadControl())
             ts << " " << quoteAndEscapeNonPrintables(toRenderFileUploadControl(&o)->fileTextValue());
-        }
+
         if (o.parent() && (o.parent()->style()->color() != o.style()->color()))
             ts << " [color=" << o.style()->color().name() << "]";
 
@@ -353,6 +353,24 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
                 }
             }
             ts << ": " << text;
+        }
+    }
+    
+    if (behavior & RenderAsTextShowIDAndClass) {
+        if (Node* node = o.node()) {
+            if (node->hasID())
+                ts << " id=\"" + static_cast<Element*>(node)->getIdAttribute() + "\"";
+
+            if (node->hasClass()) {
+                StyledElement* styledElement = static_cast<StyledElement*>(node);
+                String classes;
+                for (size_t i = 0; i < styledElement->classNames().size(); ++i) {
+                    if (i > 0)
+                        classes += " ";
+                    classes += styledElement->classNames()[i];
+                }
+                ts << " class=\"" + classes + "\"";
+            }
         }
     }
 
@@ -580,6 +598,7 @@ static String nodePosition(Node* node)
 {
     String result;
 
+    Element* body = node->document()->body();
     Node* parent;
     for (Node* n = node; n; n = parent) {
         parent = n->parentNode();
@@ -587,9 +606,14 @@ static String nodePosition(Node* node)
             parent = n->shadowParentNode();
         if (n != node)
             result += " of ";
-        if (parent)
+        if (parent) {
+            if (body && n == body) {
+                // We don't care what offset body may be in the document.
+                result += "body";
+                break;
+            }
             result += "child " + String::number(n->nodeIndex()) + " {" + getTagName(n) + "}";
-        else
+        } else
             result += "document";
     }
 

@@ -43,7 +43,7 @@
 #include "HTMLNames.h"
 #include "InspectorTimelineAgent.h"
 #include "KeyframeList.h"
-#include "PluginWidget.h"
+#include "PluginViewBase.h"
 #include "RenderBox.h"
 #include "RenderIFrame.h"
 #include "RenderImage.h"
@@ -68,6 +68,7 @@ using namespace HTMLNames;
 static bool hasBorderOutlineOrShadow(const RenderStyle*);
 static bool hasBoxDecorationsOrBackground(const RenderObject*);
 static bool hasBoxDecorationsOrBackgroundImage(const RenderStyle*);
+static IntRect clipBox(RenderBox* renderer);
 
 static inline bool is3DCanvas(RenderObject* renderer)
 {
@@ -143,10 +144,60 @@ static bool hasNonZeroTransformOrigin(const RenderObject* renderer)
         || (style->transformOriginY().type() == Fixed && style->transformOriginY().value());
 }
 
+static RenderLayer* enclosingOverflowClipAncestor(RenderLayer* layer, bool& crossesTransform)
+{
+    crossesTransform = false;
+
+    for (RenderLayer* curr = layer->parent(); curr; curr = curr->parent()) {
+        if (curr->renderer()->hasOverflowClip())
+            return curr;
+
+        if (curr->hasTransform())
+            crossesTransform = true;
+    }
+    
+    return 0;
+}
+
 void RenderLayerBacking::updateCompositedBounds()
 {
     IntRect layerBounds = compositor()->calculateCompositedBounds(m_owningLayer, m_owningLayer);
 
+    // Clip to the size of the document or enclosing overflow-scroll layer.
+    if (compositor()->compositingConsultsOverlap() && !m_owningLayer->hasTransform()) {
+        bool crossesTransform;
+        RenderLayer* overflowAncestor = enclosingOverflowClipAncestor(m_owningLayer, crossesTransform);
+        // If an ancestor is transformed, we can't currently compute the correct rect to intersect with.
+        // We'd need RenderObject::convertContainerToLocalQuad(), which doesn't yet exist.
+        if (!crossesTransform) {
+            IntRect clippingBounds;
+            RenderLayer* boundsRelativeLayer;
+
+            if (overflowAncestor) {
+                RenderBox* overflowBox = toRenderBox(overflowAncestor->renderer());
+                // If scrollbars are visible, then constrain the layer to the scrollable area, so we can avoid redraws
+                // on scrolling. Otherwise just clip to the visible area (it can still be scrolled via JS, but we'll come
+                // back through this code when the scroll offset changes).
+                if (overflowBox->scrollsOverflow())
+                    clippingBounds = IntRect(-overflowAncestor->scrollXOffset(), -overflowAncestor->scrollYOffset(), overflowBox->scrollWidth(), overflowBox->scrollHeight());
+                else
+                    clippingBounds = clipBox(overflowBox);
+
+                boundsRelativeLayer = overflowAncestor;
+            } else {
+                RenderView* view = m_owningLayer->renderer()->view();
+                clippingBounds = view->layoutOverflowRect();
+                boundsRelativeLayer = view->layer();
+            }
+            
+            int deltaX = 0;
+            int deltaY = 0;
+            m_owningLayer->convertToLayerCoords(boundsRelativeLayer, deltaX, deltaY);
+            clippingBounds.move(-deltaX, -deltaY);
+            layerBounds.intersect(clippingBounds);
+        }
+    }
+    
     // If the element has a transform-origin that has fixed lengths, and the renderer has zero size,
     // then we need to ensure that the compositing layer has non-zero size so that we can apply
     // the transform-origin via the GraphicsLayer anchorPoint (which is expressed as a fractional value).
@@ -215,8 +266,8 @@ bool RenderLayerBacking::updateGraphicsLayerConfiguration()
         updateImageContents();
 
     if (renderer()->isEmbeddedObject() && toRenderEmbeddedObject(renderer())->allowsAcceleratedCompositing()) {
-        PluginWidget* pluginWidget = static_cast<PluginWidget*>(toRenderEmbeddedObject(renderer())->widget());
-        m_graphicsLayer->setContentsToMedia(pluginWidget->platformLayer());
+        PluginViewBase* pluginViewBase = static_cast<PluginViewBase*>(toRenderEmbeddedObject(renderer())->widget());
+        m_graphicsLayer->setContentsToMedia(pluginViewBase->platformLayer());
     }
 #if ENABLE(VIDEO)
     else if (renderer()->isVideo()) {
@@ -259,11 +310,11 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
 
     // Set transform property, if it is not animating. We have to do this here because the transform
     // is affected by the layer dimensions.
-    if (!renderer()->animation()->isAnimatingPropertyOnRenderer(renderer(), CSSPropertyWebkitTransform))
+    if (!renderer()->animation()->isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyWebkitTransform))
         updateLayerTransform(renderer()->style());
 
     // Set opacity, if it is not animating.
-    if (!renderer()->animation()->isAnimatingPropertyOnRenderer(renderer(), CSSPropertyOpacity))
+    if (!renderer()->animation()->isRunningAcceleratedAnimationOnRenderer(renderer(), CSSPropertyOpacity))
         updateLayerOpacity(renderer()->style());
     
     RenderStyle* style = renderer()->style();
@@ -312,7 +363,12 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
     }
 
     m_graphicsLayer->setPosition(FloatPoint() + (relativeCompositingBounds.location() - graphicsLayerParentLocation));
+    
+    IntSize oldOffsetFromRenderer = m_graphicsLayer->offsetFromRenderer();
     m_graphicsLayer->setOffsetFromRenderer(localCompositingBounds.location() - IntPoint());
+    // If the compositing layer offset changes, we need to repaint.
+    if (oldOffsetFromRenderer != m_graphicsLayer->offsetFromRenderer())
+        m_graphicsLayer->setNeedsDisplay();
     
     FloatSize oldSize = m_graphicsLayer->size();
     FloatSize newSize = relativeCompositingBounds.size();
@@ -961,38 +1017,11 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
     bool shouldPaint = (m_owningLayer->hasVisibleContent() || m_owningLayer->hasVisibleDescendant()) && m_owningLayer->isSelfPaintingLayer();
 
     if (shouldPaint && (paintingPhase & GraphicsLayerPaintBackground)) {
-        // If this is the root then we need to send in a bigger bounding box
-        // because we'll be painting the background as well (see RenderBox::paintRootBoxDecorations()).
-        IntRect paintBox = clipRectToApply;
-        
-        // FIXME: do we need this code?
-        if (renderer()->node() && renderer()->node()->isDocumentNode() && renderer()->document()->isHTMLDocument()) {
-            RenderBox* box = toRenderBox(renderer());
-            int w = box->width();
-            int h = box->height();
-            
-            int rw;
-            int rh;
-            if (FrameView* frameView = box->view()->frameView()) {
-                rw = frameView->contentsWidth();
-                rh = frameView->contentsHeight();
-            } else {
-                rw = box->view()->width();
-                rh = box->view()->height();
-            }
-            
-            int bx = tx - box->marginLeft();
-            int by = ty - box->marginTop();
-            int bw = max(w + box->marginLeft() + box->marginRight() + box->borderLeft() + box->borderRight(), rw);
-            int bh = max(h + box->marginTop() + box->marginBottom() + box->borderTop() + box->borderBottom(), rh);
-            paintBox = IntRect(bx, by, bw, bh);
-        }
-
         // Paint our background first, before painting any child layers.
         // Establish the clip used to paint our background.
         setClip(context, paintDirtyRect, damageRect);
         
-        PaintInfo info(context, paintBox, PaintPhaseBlockBackground, false, paintingRootForRenderer, 0);
+        PaintInfo info(context, damageRect, PaintPhaseBlockBackground, false, paintingRootForRenderer, 0);
         renderer()->paint(info, tx, ty);
 
         // Our scrollbar widgets paint exactly when we tell them to, so that they work properly with
@@ -1306,6 +1335,17 @@ String RenderLayerBacking::nameForLayer() const
     return name;
 }
 #endif
+
+CompositingLayerType RenderLayerBacking::compositingLayerType() const
+{
+    if (m_graphicsLayer->hasContentsLayer())
+        return MediaCompositingLayer;
+
+    if (m_graphicsLayer->drawsContent())
+        return m_graphicsLayer->usingTiledLayer() ? TiledCompositingLayer : NormalCompositingLayer;
+    
+    return ContainerCompositingLayer;
+}
 
 } // namespace WebCore
 

@@ -44,6 +44,7 @@
 #include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "Settings.h"
+#include <wtf/CurrentTime.h>
 
 // FIXME: More that is in common with SubresourceLoader should move up into ResourceLoader.
 
@@ -157,7 +158,17 @@ void MainResourceLoader::willSendRequest(ResourceRequest& newRequest, const Reso
     // The additional processing can do anything including possibly removing the last
     // reference to this object; one example of this is 3266216.
     RefPtr<MainResourceLoader> protect(this);
-    
+
+    ASSERT(documentLoader()->timing()->fetchStart);
+    if (!redirectResponse.isNull()) {
+        DocumentLoadTiming* documentLoadTiming = documentLoader()->timing();
+        documentLoadTiming->redirectCount++;
+        if (!documentLoadTiming->redirectStart)
+            documentLoadTiming->redirectStart = documentLoadTiming->fetchStart;
+        documentLoadTiming->redirectEnd = currentTime();
+        documentLoadTiming->fetchStart = documentLoadTiming->redirectEnd;
+    }
+
     // Update cookie policy base URL as URL changes, except for subframes, which use the
     // URL of the main frame which doesn't change when we redirect.
     if (frameLoader()->isLoadingMainFrame())
@@ -223,7 +234,7 @@ void MainResourceLoader::continueAfterContentPolicy(PolicyAction contentPolicy, 
             receivedError(cannotShowURLError());
             return;
         }
-        frameLoader()->client()->download(m_handle.get(), request(), m_handle.get()->request(), r);
+        frameLoader()->client()->download(m_handle.get(), request(), m_handle.get()->firstRequest(), r);
         // It might have gone missing
         if (frameLoader())
             receivedError(interruptionForPolicyChangeError());
@@ -464,6 +475,10 @@ void MainResourceLoader::handleDataLoadNow(MainResourceLoaderTimer*)
     KURL url = m_substituteData.responseURL();
     if (url.isEmpty())
         url = m_initialRequest.url();
+
+    // Clear the initial request here so that subsequent entries into the
+    // loader will not think there's still a deferred load left to do.
+    m_initialRequest = ResourceRequest();
         
     ResourceResponse response(url, m_substituteData.mimeType(), m_substituteData.content()->size(), m_substituteData.textEncoding(), "");
     didReceiveResponse(response);
@@ -528,6 +543,9 @@ bool MainResourceLoader::load(const ResourceRequest& r, const SubstituteData& su
 
     m_substituteData = substituteData;
 
+    ASSERT(documentLoader()->timing()->navigationStart);
+    ASSERT(!documentLoader()->timing()->fetchStart);
+    documentLoader()->timing()->fetchStart = currentTime();
     ResourceRequest request(r);
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)

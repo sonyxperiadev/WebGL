@@ -683,9 +683,8 @@ RenderBoxModelObject* Node::renderBoxModelObject() const
 
 IntRect Node::getRect() const
 {
-    // FIXME: broken with transforms
     if (renderer())
-        return renderer()->absoluteBoundingBoxRect();
+        return renderer()->absoluteBoundingBoxRect(true);
     return IntRect();
 }
     

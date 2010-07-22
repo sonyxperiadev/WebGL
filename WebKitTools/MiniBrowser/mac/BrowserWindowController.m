@@ -33,6 +33,11 @@
 - (void)didStartProgress;
 - (void)didChangeProgress:(double)value;
 - (void)didFinishProgress;
+- (void)didStartProvisionalLoadForFrame:(WKFrameRef)frame;
+- (void)didCommitLoadForFrame:(WKFrameRef)frame;
+- (void)didReceiveServerRedirectForProvisionalLoadForFrame:(WKFrameRef)frame;
+- (void)didFailProvisionalLoadWithErrorForFrame:(WKFrameRef)frame;
+- (void)didFailLoadWithErrorForFrame:(WKFrameRef)frame;
 @end
 
 @implementation BrowserWindowController
@@ -98,6 +103,34 @@
     [_webView setNeedsDisplay:YES];
 }
 
+- (IBAction)goBack:(id)sender
+{
+    WKPageGoBack(_webView.pageRef);
+}
+
+- (IBAction)goForward:(id)sender
+{
+    WKPageGoForward(_webView.pageRef);
+}
+
+- (BOOL)validateUserInterfaceItem:(id <NSValidatedUserInterfaceItem>)item
+{
+    SEL action = [item action];
+    
+    if (action == @selector(goBack:))
+        return _webView && WKPageCanGoBack(_webView.pageRef);
+    
+    if (action == @selector(goForward:))
+        return _webView && WKPageCanGoForward(_webView.pageRef);
+    
+    return YES;
+}
+
+- (void)validateToolbar
+{
+    [toolbar validateVisibleItems];
+}
+
 - (BOOL)windowShouldClose:(id)sender
 {
     LOG(@"windowShouldClose");
@@ -121,22 +154,22 @@
 
 static void _didStartProvisionalLoadForFrame(WKPageRef page, WKFrameRef frame, const void *clientInfo)
 {
-    LOG(@"didStartProvisionalLoadForFrame");
+    [(BrowserWindowController *)clientInfo didStartProvisionalLoadForFrame:frame];
 }
 
 static void _didReceiveServerRedirectForProvisionalLoadForFrame(WKPageRef page, WKFrameRef frame, const void *clientInfo)
 {
-    LOG(@"didReceiveServerRedirectForProvisionalLoadForFrame");
+    [(BrowserWindowController *)clientInfo didReceiveServerRedirectForProvisionalLoadForFrame:frame];
 }
 
 static void _didFailProvisionalLoadWithErrorForFrame(WKPageRef page, WKFrameRef frame, const void *clientInfo)
 {
-    LOG(@"didFailProvisionalLoadWithErrorForFrame");
+    [(BrowserWindowController *)clientInfo didFailProvisionalLoadWithErrorForFrame:frame];
 }
 
 static void _didCommitLoadForFrame(WKPageRef page, WKFrameRef frame, const void *clientInfo)
 {
-    LOG(@"didCommitLoadForFrame");
+    [(BrowserWindowController *)clientInfo didCommitLoadForFrame:frame];
 }
 
 static void _didFinishLoadForFrame(WKPageRef page, WKFrameRef frame, const void *clientInfo)
@@ -146,7 +179,7 @@ static void _didFinishLoadForFrame(WKPageRef page, WKFrameRef frame, const void 
 
 static void _didFailLoadWithErrorForFrame(WKPageRef page, WKFrameRef frame, const void *clientInfo)
 {
-    LOG(@"didFailLoadWithErrorForFrame");
+    [(BrowserWindowController *)clientInfo didFailLoadWithErrorForFrame:frame];
 }
 
 static void _didReceiveTitleForFrame(WKPageRef page, WKStringRef title, WKFrameRef frame, const void *clientInfo)
@@ -191,15 +224,20 @@ static void _didBecomeResponsive(WKPageRef page, const void *clientInfo)
     LOG(@"didBecomeResponsive");
 }
 
+static void _didChangeBackForwardList(WKPageRef page, const void *clientInfo)
+{
+    [(BrowserWindowController *)clientInfo validateToolbar];
+}
+
 #pragma mark Policy Client Callbacks
 
-static void _decidePolicyForNavigationAction(WKPageRef page, uint32_t navigationType, WKURLRef url, WKFrameRef frame, WKFramePolicyListenerRef listener, const void *clientInfo)
+static void _decidePolicyForNavigationAction(WKPageRef page, WKFrameNavigationType navigationType, WKURLRef url, WKFrameRef frame, WKFramePolicyListenerRef listener, const void *clientInfo)
 {
     LOG(@"decidePolicyForNavigationAction");
     WKFramePolicyListenerUse(listener);
 }
 
-static void _decidePolicyForNewWindowAction(WKPageRef page, uint32_t navigationType, WKURLRef url, WKFrameRef frame, WKFramePolicyListenerRef listener, const void *clientInfo)
+static void _decidePolicyForNewWindowAction(WKPageRef page, WKFrameNavigationType navigationType, WKURLRef url, WKFrameRef frame, WKFramePolicyListenerRef listener, const void *clientInfo)
 {
     LOG(@"decidePolicyForNewWindowAction");
     WKFramePolicyListenerUse(listener);
@@ -317,7 +355,8 @@ static void _didUpdateHistoryTitle(WKPageRef page, WKStringRef title, WKURLRef U
         _didChangeProgress,
         _didFinishProgress,
         _didBecomeUnresponsive,
-        _didBecomeResponsive
+        _didBecomeResponsive,
+        _didChangeBackForwardList
     };
     WKPageSetPageLoaderClient(_webView.pageRef, &loadClient);
     
@@ -367,6 +406,53 @@ static void _didUpdateHistoryTitle(WKPageRef page, WKStringRef title, WKURLRef U
 {
     [progressIndicator setHidden:YES];
     [progressIndicator setDoubleValue:1.0];
+}
+
+- (void)updateProvisionalURLForFrame:(WKFrameRef)frame
+{
+    WKURLRef url = WKFrameGetProvisionalURL(frame);
+    if (!url)
+        return;
+
+    CFURLRef cfSourceURL = WKURLCopyCFURL(0, url);
+    [urlText setStringValue:(NSString*)CFURLGetString(cfSourceURL)];
+    CFRelease(cfSourceURL);
+}
+
+- (void)didStartProvisionalLoadForFrame:(WKFrameRef)frame
+{
+    if (!WKFrameIsMainFrame(frame))
+        return;
+
+    [self updateProvisionalURLForFrame:frame];
+}
+
+- (void)didReceiveServerRedirectForProvisionalLoadForFrame:(WKFrameRef)frame
+{
+    if (!WKFrameIsMainFrame(frame))
+        return;
+
+    [self updateProvisionalURLForFrame:frame];
+}
+
+- (void)didFailProvisionalLoadWithErrorForFrame:(WKFrameRef)frame
+{
+    if (!WKFrameIsMainFrame(frame))
+        return;
+
+    [self updateProvisionalURLForFrame:frame];
+}
+
+- (void)didFailLoadWithErrorForFrame:(WKFrameRef)frame
+{
+    if (!WKFrameIsMainFrame(frame))
+        return;
+
+    [self updateProvisionalURLForFrame:frame];
+}
+
+- (void)didCommitLoadForFrame:(WKFrameRef)frame
+{
 }
 
 - (void)loadURLString:(NSString *)urlString

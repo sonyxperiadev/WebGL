@@ -180,6 +180,10 @@ public:
 
     bool multiple() const;
 
+#if ENABLE(DIRECTORY_UPLOAD)
+    bool webkitdirectory() const;
+#endif
+
     virtual bool isAutofilled() const { return m_autofilled; }
     void setAutofilled(bool value = true);
 
@@ -299,6 +303,7 @@ private:
 
     void updateCheckedRadioButtons();
     
+    void handleBeforeTextInsertedEvent(Event*);
     PassRefPtr<HTMLFormElement> createTemporaryFormForIsIndex();
     // Helper for getAllowedValueStep();
     bool getStepParameters(double* defaultStep, double* stepScaleFactor) const;

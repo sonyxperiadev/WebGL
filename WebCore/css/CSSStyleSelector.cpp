@@ -2600,11 +2600,11 @@ bool CSSStyleSelector::SelectorChecker::checkOneSelector(CSSSelector* sel, Eleme
                 AtomicString value;
                 // The language property is inherited, so we iterate over the parents
                 // to find the first language.
-                while (n && value.isEmpty()) {
+                while (n && value.isNull()) {
                     if (n->isElementNode()) {
                         // Spec: xml:lang takes precedence -- http://www.w3.org/TR/xhtml1/#C_7
                         value = static_cast<Element*>(n)->fastGetAttribute(XMLNames::langAttr);
-                        if (value.isEmpty())
+                        if (value.isNull())
                             value = static_cast<Element*>(n)->fastGetAttribute(langAttr);
                     } else if (n->isDocumentNode())
                         // checking the MIME content-language
@@ -2613,7 +2613,7 @@ bool CSSStyleSelector::SelectorChecker::checkOneSelector(CSSSelector* sel, Eleme
                     n = n->parent();
                 }
                 const AtomicString& argument = sel->argument();
-                if (value.isEmpty() || !value.startsWith(argument, false))
+                if (value.isNull() || !value.startsWith(argument, false))
                     break;
                 if (value.length() != argument.length() && value[argument.length()] != '-')
                     break;
@@ -5479,6 +5479,23 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
     case CSSPropertyInvalid:
         return;
+
+    // Directional properties are resolved by resolveDirectionAwareProperty() before the switch.
+    case CSSPropertyWebkitBorderEnd:
+    case CSSPropertyWebkitBorderEndColor:
+    case CSSPropertyWebkitBorderEndStyle:
+    case CSSPropertyWebkitBorderEndWidth:
+    case CSSPropertyWebkitBorderStart:
+    case CSSPropertyWebkitBorderStartColor:
+    case CSSPropertyWebkitBorderStartStyle:
+    case CSSPropertyWebkitBorderStartWidth:
+    case CSSPropertyWebkitMarginEnd:
+    case CSSPropertyWebkitMarginStart:
+    case CSSPropertyWebkitPaddingEnd:
+    case CSSPropertyWebkitPaddingStart:
+        ASSERT_NOT_REACHED();
+        break;
+
     case CSSPropertyFontStretch:
     case CSSPropertyPage:
     case CSSPropertyQuotes:
@@ -5498,10 +5515,6 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     case CSSPropertyTextUnderlineStyle:
     case CSSPropertyTextUnderlineWidth:
     case CSSPropertyWebkitFontSizeDelta:
-    case CSSPropertyWebkitMarginEnd:
-    case CSSPropertyWebkitMarginStart:
-    case CSSPropertyWebkitPaddingEnd:
-    case CSSPropertyWebkitPaddingStart:
     case CSSPropertyWebkitTextDecorationsInEffect:
     case CSSPropertyWebkitTextStroke:
     case CSSPropertyWebkitVariableDeclarationBlock:

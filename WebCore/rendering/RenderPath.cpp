@@ -97,7 +97,7 @@ bool RenderPath::strokeContains(const FloatPoint& point, bool requiresStroke) co
 
 void RenderPath::layout()
 {
-    LayoutRepainter repainter(*this, checkForRepaintDuringLayout() && selfNeedsLayout());
+    LayoutRepainter repainter(*this, m_everHadLayout && checkForRepaintDuringLayout());
     SVGStyledTransformableElement* element = static_cast<SVGStyledTransformableElement*>(node());
 
     bool needsPathUpdate = m_needsPathUpdate;
@@ -110,6 +110,10 @@ void RenderPath::layout()
         m_localTransform = element->animatedLocalTransform();
         m_needsTransformUpdate = false;
     }
+
+    // Invalidate all resources of this client, if we changed something.
+    if (m_everHadLayout && selfNeedsLayout())
+        RenderSVGResource::invalidateAllResourcesOfRenderer(this);
 
     // At this point LayoutRepainter already grabbed the old bounds,
     // recalculate them now so repaintAfterLayout() uses the new bounds

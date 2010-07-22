@@ -136,11 +136,7 @@ JSGlobalData::JSGlobalData(GlobalDataType globalDataType, ThreadStackType thread
     , lexer(new Lexer(this))
     , parser(new Parser)
     , interpreter(new Interpreter)
-#if ENABLE(JIT)
-    , jitStubs(this)
-#endif
     , heap(this)
-    , initializingLazyNumericCompareFunction(false)
     , head(0)
     , dynamicGlobalObject(0)
     , functionCodeBlockBeingReparsed(0)
@@ -158,17 +154,27 @@ JSGlobalData::JSGlobalData(GlobalDataType globalDataType, ThreadStackType thread
     startProfilerServerIfNeeded();
 #endif
 #if ENABLE(JIT) && ENABLE(INTERPRETER)
-#if PLATFORM(MAC)
+#if PLATFORM(CF)
     CFStringRef canUseJITKey = CFStringCreateWithCString(0 , "JavaScriptCoreUseJIT", kCFStringEncodingMacRoman);
     CFBooleanRef canUseJIT = (CFBooleanRef)CFPreferencesCopyAppValue(canUseJITKey, kCFPreferencesCurrentApplication);
-    m_canUseJIT = kCFBooleanTrue == canUseJIT;
-    CFRelease(canUseJIT);
+    if (canUseJIT) {
+        m_canUseJIT = kCFBooleanTrue == canUseJIT;
+        CFRelease(canUseJIT);
+    } else
+        m_canUseJIT = !getenv("JavaScriptCoreUseJIT");
     CFRelease(canUseJITKey);
 #elif OS(UNIX)
-    m_canUseJIT = !getenv("JSC_FORCE_INTERPRETER");
+    m_canUseJIT = !getenv("JavaScriptCoreUseJIT");
 #else
     m_canUseJIT = true;
 #endif
+#endif
+#if ENABLE(JIT)
+#if ENABLE(INTERPRETER)
+    if (m_canUseJIT)
+        m_canUseJIT = executableAllocator.isValid();
+#endif
+    jitStubs = new JITThunks(this);
 #endif
 }
 
@@ -257,27 +263,14 @@ JSGlobalData*& JSGlobalData::sharedInstanceInternal()
     return sharedInstance;
 }
 
-// FIXME: We can also detect forms like v1 < v2 ? -1 : 0, reverse comparison, etc.
-const Vector<Instruction>& JSGlobalData::numericCompareFunction(ExecState* exec)
-{
-    if (!lazyNumericCompareFunction.size() && !initializingLazyNumericCompareFunction) {
-        initializingLazyNumericCompareFunction = true;
-        RefPtr<FunctionExecutable> function = FunctionExecutable::fromGlobalCode(Identifier(exec, "numericCompare"), exec, 0, makeSource(UString("(function (v1, v2) { return v1 - v2; })")), 0, 0);
-        lazyNumericCompareFunction = function->bytecodeForCall(exec, exec->scopeChain())->instructions();
-        initializingLazyNumericCompareFunction = false;
-    }
-
-    return lazyNumericCompareFunction;
-}
-
 #if ENABLE(JIT)
 PassRefPtr<NativeExecutable> JSGlobalData::getHostFunction(NativeFunction function)
 {
-    return jitStubs.hostFunctionStub(this, function);
+    return jitStubs->hostFunctionStub(this, function);
 }
 PassRefPtr<NativeExecutable> JSGlobalData::getHostFunction(NativeFunction function, ThunkGenerator generator)
 {
-    return jitStubs.hostFunctionStub(this, function, generator);
+    return jitStubs->hostFunctionStub(this, function, generator);
 }
 #endif
 

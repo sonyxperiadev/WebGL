@@ -167,21 +167,21 @@ namespace JSC {
         ExecutableAllocator executableAllocator;
 #endif
 
-#if ENABLE(JIT)
-#if ENABLE(INTERPRETER)
-        bool canUseJIT() { return m_canUseJIT; }
-#endif
+#if !ENABLE(JIT)
+        bool canUseJIT() { return false; } // interpreter only
+#elif !ENABLE(INTERPRETER)
+        bool canUseJIT() { return true; } // jit only
 #else
-        bool canUseJIT() { return false; }
+        bool canUseJIT() { return m_canUseJIT; }
 #endif
         Lexer* lexer;
         Parser* parser;
         Interpreter* interpreter;
 #if ENABLE(JIT)
-        JITThunks jitStubs;
+        OwnPtr<JITThunks> jitStubs;
         MacroAssemblerCodePtr getCTIStub(ThunkGenerator generator)
         {
-            return jitStubs.ctiStub(this, generator);
+            return jitStubs->ctiStub(this, generator);
         }
         PassRefPtr<NativeExecutable> getHostFunction(NativeFunction function);
         PassRefPtr<NativeExecutable> getHostFunction(NativeFunction function, ThunkGenerator generator);
@@ -194,10 +194,6 @@ namespace JSC {
 #if ENABLE(JIT)
         ReturnAddressPtr exceptionLocation;
 #endif
-
-        const Vector<Instruction>& numericCompareFunction(ExecState*);
-        Vector<Instruction> lazyNumericCompareFunction;
-        bool initializingLazyNumericCompareFunction;
 
         HashMap<OpaqueJSClass*, OpaqueJSClassContextData*> opaqueJSClassData;
 

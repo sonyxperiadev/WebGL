@@ -30,6 +30,7 @@ use Digest::MD5;
 
 my $module = "";
 my $outputDir = "";
+my $outputHeadersDir = "";
 
 my @headerContent = ();
 my @implContentHeader = ();
@@ -71,6 +72,7 @@ sub new
 
     $codeGenerator = shift;
     $outputDir = shift;
+    $outputHeadersDir = shift;
 
     bless($reference, $object);
     return $reference;
@@ -110,7 +112,7 @@ sub GenerateInterface
     my $name = $dataNode->name;
 
     # Open files for writing
-    my $headerFileName = "$outputDir/V8$name.h";
+    my $headerFileName = "$outputHeadersDir/V8$name.h";
     my $implFileName = "$outputDir/V8$name.cpp";
 
     open($IMPL, ">$implFileName") || die "Couldn't open file $implFileName";
@@ -273,13 +275,6 @@ END
 END
     }
 
-    if ($implClassName eq "HTMLDocument") {
-      push(@headerContent, <<END);
-  static v8::Local<v8::Object> WrapInShadowObject(v8::Local<v8::Object> wrapper, Node* impl);
-  static v8::Handle<v8::Value> GetNamedProperty(HTMLDocument* htmlDocument, const AtomicString& key);
-END
-    }
-
     my @enabledAtRuntime;
     foreach my $function (@{$dataNode->functions}) {
         my $name = $function->signature->name;
@@ -367,6 +362,9 @@ sub GetInternalFields
 
     if (IsSubType($dataNode, "Document")) {
         push(@customInternalFields, "implementationIndex");
+        if ($name eq "HTMLDocument") {
+            push(@customInternalFields, ("markerIndex", "shadowIndex"));
+        }
     } elsif ($name eq "DOMWindow") {
         push(@customInternalFields, "enteredIsolatedWorldIndex");
     }
@@ -403,6 +401,7 @@ END
 my %indexerSpecialCases = (
     "Storage" => 1,
     "HTMLAppletElement" => 1,
+    "HTMLDocument" => 1,
     "HTMLEmbedElement" => 1,
     "HTMLObjectElement" => 1
 );
@@ -428,10 +427,6 @@ sub GenerateHeaderNamedAndIndexedPropertyAccessors
     }
     if ($interfaceName eq "HTMLSelectElement" || $interfaceName eq "HTMLAppletElement" || $interfaceName eq "HTMLEmbedElement" || $interfaceName eq "HTMLObjectElement") {
         $hasCustomNamedGetter = 1;
-    }
-    if ($interfaceName eq "HTMLDocument") {
-        $hasCustomNamedGetter = 0;
-        $hasCustomIndexedGetter = 0;
     }
     my $isIndexerSpecialCase = exists $indexerSpecialCases{$interfaceName};
 
@@ -461,7 +456,7 @@ END
     static v8::Handle<v8::Value> namedPropertySetter(v8::Local<v8::String>, v8::Local<v8::Value>, const v8::AccessorInfo&);
 END
     }
-    if ($hasCustomDeleters) {
+    if ($hasCustomDeleters || $interfaceName eq "HTMLDocument") {
         push(@headerContent, <<END);
     static v8::Handle<v8::Boolean> namedPropertyDeleter(v8::Local<v8::String>, const v8::AccessorInfo&);
 END
@@ -1478,10 +1473,6 @@ sub GenerateImplementationNamedPropertyGetter
         $hasCustomGetter = 1;
     }
 
-    if ($interfaceName eq "HTMLDocument") {
-        $hasCustomGetter = 0;
-    }
-
     my $hasGetter = $dataNode->extendedAttributes->{"HasNameGetter"} || $hasCustomGetter || $namedPropertyGetter;
     if (!$hasGetter) {
         return;
@@ -1497,7 +1488,8 @@ END
     }
 
     my $hasSetter = $dataNode->extendedAttributes->{"DelegatingPutFunction"};
-    my $hasDeleter = $dataNode->extendedAttributes->{"CustomDeleteProperty"};
+    # FIXME: Try to remove hard-coded HTMLDocument reference by aligning handling of document.all with JSC bindings.
+    my $hasDeleter = $dataNode->extendedAttributes->{"CustomDeleteProperty"} || $interfaceName eq "HTMLDocument";
     my $hasEnumerator = $dataNode->extendedAttributes->{"CustomGetPropertyNames"};
     my $setOn = "Instance";
 
@@ -1753,6 +1745,7 @@ END
     }
     if ($has_constants) {
         push(@implContent, "};\n");
+        push(@implContent, $codeGenerator->GenerateCompileTimeCheckForEnumsIfNeeded($dataNode));
     }
 
     push(@implContentDecls, "} // namespace ${interfaceName}Internal\n\n");
@@ -1979,11 +1972,6 @@ END
     // When a context is detached from a frame, turn on the access check.
     // Turning on checks also invalidates inline caches of the object.
     instance->SetAccessCheckCallbacks(V8DOMWindow::namedSecurityCheck, V8DOMWindow::indexedSecurityCheck, v8::External::Wrap(&V8DOMWindow::info), false);
-END
-    }
-    if ($interfaceName eq "HTMLDocument") {
-        push(@implContent, <<END);
-    desc->SetHiddenPrototype(true);
 END
     }
     if ($interfaceName eq "Location") {

@@ -50,7 +50,8 @@ namespace JSC {
         void setIsReparsing() { m_isReparsing = true; }
 
         // Functions for the parser itself.
-        JSTokenType lex(JSTokenData* lvalp, JSTokenInfo* llocp);
+        enum LexType { IdentifyReservedWords, IgnoreReservedWords };
+        JSTokenType lex(JSTokenData* lvalp, JSTokenInfo* llocp, LexType);
         int lineNumber() const { return m_lineNumber; }
         void setLastLineNumber(int lastLineNumber) { m_lastLineNumber = lastLineNumber; }
         int lastLineNumber() const { return m_lastLineNumber; }
@@ -126,7 +127,7 @@ namespace JSC {
 
     inline bool Lexer::isWhiteSpace(int ch)
     {
-        return isASCII(ch) ? (ch == ' ' || ch == '\t' || ch == 0xB || ch == 0xC) : WTF::Unicode::isSeparatorSpace(ch);
+        return isASCII(ch) ? (ch == ' ' || ch == '\t' || ch == 0xB || ch == 0xC) : (WTF::Unicode::isSeparatorSpace(ch) || ch == 0xFEFF);
     }
 
     inline bool Lexer::isLineTerminator(int ch)

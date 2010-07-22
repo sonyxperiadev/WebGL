@@ -158,6 +158,8 @@ WebInspector.ScriptsPanel = function()
 
     this.enableToggleButton = new WebInspector.StatusBarButton("", "enable-toggle-status-bar-item");
     this.enableToggleButton.addEventListener("click", this._toggleDebugging.bind(this), false);
+    if (Preferences.debuggerAlwaysEnabled)
+        this.enableToggleButton.element.addStyleClass("hidden");
 
     this._pauseOnExceptionButton = new WebInspector.StatusBarButton("", "scripts-pause-on-exceptions-status-bar-item", 3);
     this._pauseOnExceptionButton.addEventListener("click", this._togglePauseOnExceptions.bind(this), false);
@@ -931,11 +933,11 @@ WebInspector.ScriptsPanel.prototype = {
         if (this._paused) {
             this._paused = false;
             this._waitingToPause = false;
-            InspectorBackend.resumeDebugger();
+            InspectorBackend.resume();
         } else {
             this._stepping = false;
             this._waitingToPause = true;
-            InspectorBackend.pauseInDebugger();
+            InspectorBackend.pause();
         }
 
         this._clearInterface();
@@ -948,7 +950,7 @@ WebInspector.ScriptsPanel.prototype = {
 
         this._clearInterface();
 
-        InspectorBackend.stepOverStatementInDebugger();
+        InspectorBackend.stepOverStatement();
     },
 
     _stepIntoClicked: function()
@@ -958,7 +960,7 @@ WebInspector.ScriptsPanel.prototype = {
 
         this._clearInterface();
 
-        InspectorBackend.stepIntoStatementInDebugger();
+        InspectorBackend.stepIntoStatement();
     },
 
     _stepOutClicked: function()
@@ -968,7 +970,7 @@ WebInspector.ScriptsPanel.prototype = {
 
         this._clearInterface();
 
-        InspectorBackend.stepOutOfFunctionInDebugger();
+        InspectorBackend.stepOutOfFunction();
     },
 
     _toggleBreakpointsClicked: function()

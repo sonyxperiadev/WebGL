@@ -139,9 +139,7 @@ asm (
 ".globl " SYMBOL_STRING(ctiVMThrowTrampoline) "\n"
 HIDE_SYMBOL(ctiVMThrowTrampoline) "\n"
 SYMBOL_STRING(ctiVMThrowTrampoline) ":" "\n"
-#if !USE(JIT_STUB_ARGUMENT_VA_LIST)
     "movl %esp, %ecx" "\n"
-#endif
     "call " SYMBOL_STRING_RELOCATION(cti_vm_throw) "\n"
     "addl $0x3c, %esp" "\n"
     "popl %ebx" "\n"
@@ -164,10 +162,6 @@ SYMBOL_STRING(ctiOpThrowNotCaught) ":" "\n"
 );
     
 #elif COMPILER(GCC) && CPU(X86_64)
-
-#if USE(JIT_STUB_ARGUMENT_VA_LIST)
-#error "JIT_STUB_ARGUMENT_VA_LIST not supported on x86-64."
-#endif
 
 // These ASSERTs remind you that, if you change the layout of JITStackFrame, you
 // need to change the assembly trampolines below to match.
@@ -235,10 +229,6 @@ SYMBOL_STRING(ctiOpThrowNotCaught) ":" "\n"
 
 #elif COMPILER(GCC) && CPU(ARM_THUMB2)
 
-#if USE(JIT_STUB_ARGUMENT_VA_LIST)
-#error "JIT_STUB_ARGUMENT_VA_LIST not supported on ARMv7."
-#endif
-
 #define THUNK_RETURN_ADDRESS_OFFSET      0x3C
 #define PRESERVED_RETURN_ADDRESS_OFFSET  0x40
 #define PRESERVED_R4_OFFSET              0x44
@@ -255,10 +245,6 @@ SYMBOL_STRING(ctiOpThrowNotCaught) ":" "\n"
 #define PRESERVEDR4_OFFSET          68
 
 #elif COMPILER(MSVC) && CPU(X86)
-
-#if USE(JIT_STUB_ARGUMENT_VA_LIST)
-#error "JIT_STUB_ARGUMENT_VA_LIST configuration not supported on MSVC."
-#endif
 
 // These ASSERTs remind you that, if you change the layout of JITStackFrame, you
 // need to change the assembly trampolines below to match.
@@ -358,9 +344,7 @@ asm (
 ".globl " SYMBOL_STRING(ctiVMThrowTrampoline) "\n"
 HIDE_SYMBOL(ctiVMThrowTrampoline) "\n"
 SYMBOL_STRING(ctiVMThrowTrampoline) ":" "\n"
-#if !USE(JIT_STUB_ARGUMENT_VA_LIST)
     "movl %esp, %ecx" "\n"
-#endif
     "call " SYMBOL_STRING_RELOCATION(cti_vm_throw) "\n"
     "addl $0x1c, %esp" "\n"
     "popl %ebx" "\n"
@@ -383,10 +367,6 @@ SYMBOL_STRING(ctiOpThrowNotCaught) ":" "\n"
 );
     
 #elif COMPILER(GCC) && CPU(X86_64)
-
-#if USE(JIT_STUB_ARGUMENT_VA_LIST)
-#error "JIT_STUB_ARGUMENT_VA_LIST not supported on x86-64."
-#endif
 
 // These ASSERTs remind you that, if you change the layout of JITStackFrame, you
 // need to change the assembly trampolines below to match.
@@ -461,10 +441,6 @@ SYMBOL_STRING(ctiOpThrowNotCaught) ":" "\n"
 
 #elif COMPILER(GCC) && CPU(ARM_THUMB2)
 
-#if USE(JIT_STUB_ARGUMENT_VA_LIST)
-#error "JIT_STUB_ARGUMENT_VA_LIST not supported on ARMv7."
-#endif
-
 #define THUNK_RETURN_ADDRESS_OFFSET      0x1C
 #define PRESERVED_RETURN_ADDRESS_OFFSET  0x20
 #define PRESERVED_R4_OFFSET              0x24
@@ -481,10 +457,6 @@ SYMBOL_STRING(ctiOpThrowNotCaught) ":" "\n"
 #define PRESERVEDR4_OFFSET          36
 
 #elif CPU(MIPS)
-
-#if USE(JIT_STUB_ARGUMENT_VA_LIST)
-#error "JIT_STUB_ARGUMENT_VA_LIST not supported on MIPS."
-#endif
 
 asm volatile(
 ".text" "\n"
@@ -619,10 +591,6 @@ __asm void ctiOpThrowNotCaught()
 }
 
 #elif COMPILER(MSVC) && CPU(X86)
-
-#if USE(JIT_STUB_ARGUMENT_VA_LIST)
-#error "JIT_STUB_ARGUMENT_VA_LIST configuration not supported on MSVC."
-#endif
 
 // These ASSERTs remind you that, if you change the layout of JITStackFrame, you
 // need to change the assembly trampolines below to match.
@@ -797,8 +765,11 @@ SYMBOL_STRING(ctiOpThrowNotCaught) ":" "\n"
 
 JITThunks::JITThunks(JSGlobalData* globalData)
 {
-    JIT::compileCTIMachineTrampolines(globalData, &m_executablePool, &m_trampolineStructure);
+    if (!globalData->executableAllocator.isValid())
+        return;
 
+    JIT::compileCTIMachineTrampolines(globalData, &m_executablePool, &m_trampolineStructure);
+    ASSERT(m_executablePool);
 #if CPU(ARM_THUMB2)
     // Unfortunate the arm compiler does not like the use of offsetof on JITStackFrame (since it contains non POD types),
     // and the OBJECT_OFFSETOF macro does not appear constantish enough for it to be happy with its use in COMPILE_ASSERT
@@ -915,7 +886,7 @@ NEVER_INLINE void JITThunks::tryCacheGetByID(CallFrame* callFrame, CodeBlock* co
     if (isJSString(globalData, baseValue) && propertyName == callFrame->propertyNames().length) {
         // The tradeoff of compiling an patched inline string length access routine does not seem
         // to pay off, so we currently only do this for arrays.
-        ctiPatchCallByReturnAddress(codeBlock, returnAddress, globalData->jitStubs.ctiStringLengthTrampoline());
+        ctiPatchCallByReturnAddress(codeBlock, returnAddress, globalData->jitStubs->ctiStringLengthTrampoline());
         return;
     }
 
@@ -985,12 +956,6 @@ NEVER_INLINE void JITThunks::tryCacheGetByID(CallFrame* callFrame, CodeBlock* co
 
 #endif // ENABLE(JIT_OPTIMIZE_PROPERTY_ACCESS)
 
-#if USE(JIT_STUB_ARGUMENT_VA_LIST)
-#define SETUP_VA_LISTL_ARGS va_list vl_args; va_start(vl_args, args)
-#else
-#define SETUP_VA_LISTL_ARGS
-#endif
-
 #ifndef NDEBUG
 
 extern "C" {
@@ -1021,13 +986,13 @@ struct StackHack {
     ReturnAddressPtr savedReturnAddress;
 };
 
-#define STUB_INIT_STACK_FRAME(stackFrame) SETUP_VA_LISTL_ARGS; JITStackFrame& stackFrame = *reinterpret_cast<JITStackFrame*>(STUB_ARGS); StackHack stackHack(stackFrame)
+#define STUB_INIT_STACK_FRAME(stackFrame) JITStackFrame& stackFrame = *reinterpret_cast<JITStackFrame*>(STUB_ARGS); StackHack stackHack(stackFrame)
 #define STUB_SET_RETURN_ADDRESS(returnAddress) stackHack.savedReturnAddress = ReturnAddressPtr(returnAddress)
 #define STUB_RETURN_ADDRESS stackHack.savedReturnAddress
 
 #else
 
-#define STUB_INIT_STACK_FRAME(stackFrame) SETUP_VA_LISTL_ARGS; JITStackFrame& stackFrame = *reinterpret_cast<JITStackFrame*>(STUB_ARGS)
+#define STUB_INIT_STACK_FRAME(stackFrame) JITStackFrame& stackFrame = *reinterpret_cast<JITStackFrame*>(STUB_ARGS)
 #define STUB_SET_RETURN_ADDRESS(returnAddress) *stackFrame.returnAddressSlot() = ReturnAddressPtr(returnAddress)
 #define STUB_RETURN_ADDRESS *stackFrame.returnAddressSlot()
 
@@ -1858,8 +1823,11 @@ DEFINE_STUB_FUNCTION(void*, op_call_jitCompile)
     ASSERT(!function->isHostFunction());
     FunctionExecutable* executable = function->jsExecutable();
     ScopeChainNode* callDataScopeChain = function->scope().node();
-    executable->jitCodeForCall(stackFrame.callFrame, callDataScopeChain);
-
+    JSObject* error = executable->compileForCall(stackFrame.callFrame, callDataScopeChain);
+    if (error) {
+        stackFrame.callFrame->globalData().exception = error;
+        return 0;
+    }
     return function;
 }
 
@@ -1876,8 +1844,11 @@ DEFINE_STUB_FUNCTION(void*, op_construct_jitCompile)
     ASSERT(!function->isHostFunction());
     FunctionExecutable* executable = function->jsExecutable();
     ScopeChainNode* callDataScopeChain = function->scope().node();
-    executable->jitCodeForConstruct(stackFrame.callFrame, callDataScopeChain);
-
+    JSObject* error = executable->compileForConstruct(stackFrame.callFrame, callDataScopeChain);
+    if (error) {
+        stackFrame.callFrame->globalData().exception = error;
+        return 0;
+    }
     return function;
 }
 
@@ -2013,12 +1984,12 @@ DEFINE_STUB_FUNCTION(void*, vm_lazyLinkCall)
         codePtr = executable->generatedJITCodeForCall().addressForCall();
     else {
         FunctionExecutable* functionExecutable = static_cast<FunctionExecutable*>(executable);
-        codeBlock = functionExecutable->bytecodeForCall(stackFrame.callFrame, callee->scope().node());
-        if (!codeBlock) {
-            stackFrame.callFrame->globalData().exception = createStackOverflowError(callFrame);
+        JSObject* error = functionExecutable->compileForCall(callFrame, callee->scope().node());
+        if (error) {
+            callFrame->globalData().exception = createStackOverflowError(callFrame);
             return 0;
         }
-        functionExecutable->jitCodeForCall(callFrame, callee->scope().node());
+        codeBlock = &functionExecutable->generatedBytecodeForCall();
         if (callFrame->argumentCountIncludingThis() == static_cast<size_t>(codeBlock->m_numParameters))
             codePtr = functionExecutable->generatedJITCodeForCall().addressForCall();
         else
@@ -2047,12 +2018,12 @@ DEFINE_STUB_FUNCTION(void*, vm_lazyLinkConstruct)
         codePtr = executable->generatedJITCodeForConstruct().addressForCall();
     else {
         FunctionExecutable* functionExecutable = static_cast<FunctionExecutable*>(executable);
-        codeBlock = functionExecutable->bytecodeForConstruct(stackFrame.callFrame, callee->scope().node());
-        if (!codeBlock) {
+        JSObject* error = functionExecutable->compileForConstruct(callFrame, callee->scope().node());
+        if (error) {
             throwStackOverflowError(callFrame, stackFrame.globalData, ReturnAddressPtr(callFrame->returnPC()), STUB_RETURN_ADDRESS);
-            VM_THROW_EXCEPTION();
+            return 0;
         }
-        functionExecutable->jitCodeForConstruct(callFrame, callee->scope().node());
+        codeBlock = &functionExecutable->generatedBytecodeForConstruct();
         if (callFrame->argumentCountIncludingThis() == static_cast<size_t>(codeBlock->m_numParameters))
             codePtr = functionExecutable->generatedJITCodeForConstruct().addressForCall();
         else
@@ -3536,8 +3507,10 @@ PassRefPtr<NativeExecutable> JITThunks::hostFunctionStub(JSGlobalData* globalDat
 PassRefPtr<NativeExecutable> JITThunks::hostFunctionStub(JSGlobalData* globalData, NativeFunction function, ThunkGenerator generator)
 {
     std::pair<HostFunctionStubMap::iterator, bool> entry = m_hostFunctionStubMap.add(function, 0);
-    if (entry.second)
-        entry.first->second = NativeExecutable::create(generator(globalData, m_executablePool.get()), function, ctiNativeConstruct(), callHostFunctionAsConstructor);
+    if (entry.second) {
+        MacroAssemblerCodePtr code = globalData->canUseJIT() ? generator(globalData, m_executablePool.get()) : MacroAssemblerCodePtr();
+        entry.first->second = NativeExecutable::create(code, function, ctiNativeConstruct(), callHostFunctionAsConstructor);
+    }
     return entry.first->second;
 }
 

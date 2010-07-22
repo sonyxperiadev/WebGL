@@ -55,6 +55,8 @@ namespace WebCore {
         void applyFillColor(GraphicsContext*);
         void applyStrokeColor(GraphicsContext*);
 
+        bool isEquivalentColor(const CanvasStyle&) const;
+
     private:
         CanvasStyle(RGBA32 rgba);
         CanvasStyle(float grayLevel);

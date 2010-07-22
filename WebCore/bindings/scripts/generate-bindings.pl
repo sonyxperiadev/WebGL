@@ -39,8 +39,10 @@ use CodeGenerator;
 
 my @idlDirectories;
 my $outputDirectory;
+my $outputHeadersDirectory;
 my $generator;
 my $defines;
+my $filename;
 my $prefix;
 my $preprocessor;
 my $writeDependencies;
@@ -48,8 +50,10 @@ my $verbose;
 
 GetOptions('include=s@' => \@idlDirectories,
            'outputDir=s' => \$outputDirectory,
+           'outputHeadersDir=s' => \$outputHeadersDirectory,
            'generator=s' => \$generator,
            'defines=s' => \$defines,
+           'filename=s' => \$filename,
            'prefix=s' => \$prefix,
            'preprocessor=s' => \$preprocessor,
            'verbose' => \$verbose,
@@ -62,6 +66,9 @@ die('Must specify generator') unless defined($generator);
 die('Must specify output directory.') unless defined($outputDirectory);
 die('Must specify defines') unless defined($defines);
 
+if (!$outputHeadersDirectory) {
+    $outputHeadersDirectory = $outputDirectory;
+}
 if ($verbose) {
     print "$generator: $idlFile\n";
 }
@@ -72,5 +79,5 @@ my $parser = IDLParser->new(!$verbose);
 my $document = $parser->Parse($idlFile, $defines, $preprocessor);
 
 # Generate desired output for given IDL file.
-my $codeGen = CodeGenerator->new(\@idlDirectories, $generator, $outputDirectory, 0, $preprocessor, $writeDependencies, $verbose);
+my $codeGen = CodeGenerator->new(\@idlDirectories, $generator, $outputDirectory, $outputHeadersDirectory, 0, $preprocessor, $writeDependencies, $verbose);
 $codeGen->ProcessDocument($document, $defines);

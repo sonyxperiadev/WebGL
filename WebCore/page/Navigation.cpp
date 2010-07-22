@@ -57,20 +57,20 @@ void Navigation::disconnectFrame()
 unsigned short Navigation::type() const
 {
     if (!m_frame)
-        return Navigate;
+        return NAVIGATE;
 
     DocumentLoader* documentLoader = m_frame->loader()->documentLoader();
     if (!documentLoader)
-        return Navigate;
+        return NAVIGATE;
 
     WebCore::NavigationType navigationType = documentLoader->triggeringAction().type();
     switch (navigationType) {
     case NavigationTypeReload:
-        return Reload;
+        return RELOAD;
     case NavigationTypeBackForward:
-        return BackForward;
+        return BACK_FORWARD;
     default:
-        return Navigate;
+        return NAVIGATE;
     }
 }
 
@@ -79,7 +79,11 @@ unsigned short Navigation::redirectCount() const
     if (!m_frame)
         return 0;
 
-    return 0; // FIXME
+    DocumentLoader* loader = m_frame->loader()->documentLoader();
+    if (!loader)
+        return 0;
+
+    return loader->timing()->redirectCount;
 }
 
 } // namespace WebCore

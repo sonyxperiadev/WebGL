@@ -33,10 +33,9 @@
 #include "V8Console.h"
 
 #include "Console.h"
-#include "MemoryInfo.h"
+#include "ScriptCallStack.h"
 #include "ScriptProfile.h"
 #include "V8Binding.h"
-#include "V8MemoryInfo.h"
 #include "V8Proxy.h"
 #include "V8ScriptProfile.h"
 
@@ -59,10 +58,26 @@ v8::Handle<v8::Value> V8Console::profilesAccessorGetter(v8::Local<v8::String> na
 }
 #endif
 
-v8::Handle<v8::Value> V8Console::memoryAccessorGetter(v8::Local<v8::String>, const v8::AccessorInfo&)
+v8::Handle<v8::Value> V8Console::traceCallback(const v8::Arguments& args)
 {
-    INC_STATS("DOM.Console.memoryAccessorGetter");
-    return toV8(MemoryInfo::create());
+    INC_STATS("DOM.Console.traceCallback");
+    Console* imp = V8Console::toNative(args.Holder());
+    v8::HandleScope handleScope;
+    ScriptState* scriptState = ScriptState::current();
+    v8::Local<v8::StackTrace> stackTrace = v8::StackTrace::CurrentStackTrace(ScriptCallStack::maxCallStackSizeToCapture);
+    OwnPtr<ScriptCallStack> callStack(ScriptCallStack::create(scriptState, stackTrace));
+    imp->trace(callStack.get());
+    return v8::Handle<v8::Value>();
+}
+
+v8::Handle<v8::Value> V8Console::assertCallback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.Console.assertCallback");
+    Console* imp = V8Console::toNative(args.Holder());
+    OwnPtr<ScriptCallStack> callStack(ScriptCallStack::create(args, 1, ScriptCallStack::maxCallStackSizeToCapture));
+    bool condition = args[0]->BooleanValue();
+    imp->assertCondition(condition, callStack.get());
+    return v8::Handle<v8::Value>();
 }
 
 } // namespace WebCore

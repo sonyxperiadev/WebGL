@@ -33,9 +33,39 @@
 
 #if ENABLE(WEB_TIMING)
 
+#include "DocumentLoader.h"
 #include "Frame.h"
+#include "ResourceLoadTiming.h"
+#include "ResourceResponse.h"
 
 namespace WebCore {
+
+static unsigned long long toIntegerMilliseconds(double seconds)
+{
+    ASSERT(seconds >= 0);
+    return static_cast<unsigned long long>(seconds * 1000.0);
+}
+
+static double getPossiblySkewedTimeInKnownRange(double skewedTime, double lowerBound, double upperBound)
+{
+#if PLATFORM(CHROMIUM)
+    // The chromium port's currentTime() implementation only syncs with the
+    // system clock every 60 seconds. So it is possible for timing marks
+    // collected in different threads or processes to have a small skew.
+    // FIXME: It may be possible to add a currentTimeFromSystemTime() method
+    // that eliminates the skew.
+    if (skewedTime <= lowerBound)
+        return lowerBound;
+
+    if (skewedTime >= upperBound)
+        return upperBound;
+#else
+    ASSERT_UNUSED(lowerBound, skewedTime >= lowerBound);
+    ASSERT_UNUSED(upperBound, skewedTime <= upperBound);
+#endif
+
+    return skewedTime;
+}
 
 Timing::Timing(Frame* frame)
     : m_frame(frame)
@@ -54,34 +84,214 @@ void Timing::disconnectFrame()
 
 unsigned long long Timing::navigationStart() const
 {
-    if (!m_frame)
+    DocumentLoadTiming* timing = documentLoadTiming();
+    if (!timing)
         return 0;
 
-    return static_cast<unsigned long long>(m_frame->loader()->frameLoadTimeline()->navigationStart * 1000);
+    return toIntegerMilliseconds(timing->navigationStart);
 }
 
 unsigned long long Timing::unloadEventEnd() const
 {
-    if (!m_frame)
+    DocumentLoadTiming* timing = documentLoadTiming();
+    if (!timing)
         return 0;
 
-    return static_cast<unsigned long long>(m_frame->loader()->frameLoadTimeline()->unloadEventEnd * 1000);
+    return toIntegerMilliseconds(timing->unloadEventEnd);
+}
+    
+unsigned long long Timing::redirectStart() const
+{
+    DocumentLoadTiming* timing = documentLoadTiming();
+    if (!timing)
+        return 0;
+
+    return toIntegerMilliseconds(timing->redirectStart);
+}
+    
+unsigned long long Timing::redirectEnd() const
+{
+    DocumentLoadTiming* timing = documentLoadTiming();
+    if (!timing)
+        return 0;
+
+    return toIntegerMilliseconds(timing->redirectEnd);
+}
+
+unsigned long long Timing::fetchStart() const
+{
+    DocumentLoadTiming* timing = documentLoadTiming();
+    if (!timing)
+        return 0;
+
+    return toIntegerMilliseconds(timing->fetchStart);
+}
+
+unsigned long long Timing::domainLookupStart() const
+{
+    ResourceLoadTiming* timing = resourceLoadTiming();
+    if (!timing)
+        return 0;
+
+    // This will be -1 when a DNS request is not performed.
+    // Rather than exposing a special value that indicates no DNS, we "backfill" with fetchStart.
+    int dnsStart = timing->dnsStart;
+    if (dnsStart < 0)
+        return fetchStart();
+
+    return resourceLoadTimeRelativeToAbsolute(dnsStart);
+}
+
+unsigned long long Timing::domainLookupEnd() const
+{
+    ResourceLoadTiming* timing = resourceLoadTiming();
+    if (!timing)
+        return 0;
+
+    // This will be -1 when a DNS request is not performed.
+    // Rather than exposing a special value that indicates no DNS, we "backfill" with domainLookupStart.
+    int dnsEnd = timing->dnsEnd;
+    if (dnsEnd < 0)
+        return domainLookupStart();
+
+    return resourceLoadTimeRelativeToAbsolute(dnsEnd);
+}
+
+unsigned long long Timing::connectStart() const
+{
+    ResourceLoadTiming* timing = resourceLoadTiming();
+    if (!timing)
+        return 0;
+
+    // This will be -1 when a new connection is not established.
+    // Rather than exposing a special value that indicates no new connection, we "backfill" with domainLookupEnd.
+    int connectStart = timing->connectStart;
+    if (connectStart < 0)
+        return domainLookupEnd();
+
+    return resourceLoadTimeRelativeToAbsolute(connectStart);
+}
+
+unsigned long long Timing::connectEnd() const
+{
+    ResourceLoadTiming* timing = resourceLoadTiming();
+    if (!timing)
+        return 0;
+
+    // This will be -1 when a new connection is not established.
+    // Rather than exposing a special value that indicates no new connection, we "backfill" with connectStart.
+    int connectEnd = timing->connectEnd;
+    if (connectEnd < 0)
+        return connectStart();
+
+    return resourceLoadTimeRelativeToAbsolute(connectEnd);
+}
+
+unsigned long long Timing::requestStart() const
+{
+    ResourceLoadTiming* timing = resourceLoadTiming();
+    if (!timing)
+        return 0;
+
+    ASSERT(timing->sendStart >= 0);
+    return resourceLoadTimeRelativeToAbsolute(timing->sendStart);
+}
+
+unsigned long long Timing::requestEnd() const
+{
+    ResourceLoadTiming* timing = resourceLoadTiming();
+    if (!timing)
+        return 0;
+
+    ASSERT(timing->sendEnd >= 0);
+    return resourceLoadTimeRelativeToAbsolute(timing->sendEnd);
+}
+
+unsigned long long Timing::responseStart() const
+{
+    ResourceLoadTiming* timing = resourceLoadTiming();
+    if (!timing)
+        return 0;
+
+    // FIXME: Response start needs to be the time of the first received byte.
+    // However, the ResourceLoadTiming API currently only supports the time
+    // the last header byte was received. For many responses with reasonable
+    // sized cookies, the HTTP headers fit into a single packet so this time
+    // is basically equivalent. But for some responses, particularly those with
+    // headers larger than a single packet, this time will be too late.
+    ASSERT(timing->receiveHeadersEnd >= 0);
+    return resourceLoadTimeRelativeToAbsolute(timing->receiveHeadersEnd);
+}
+
+unsigned long long Timing::responseEnd() const
+{
+    DocumentLoadTiming* timing = documentLoadTiming();
+    if (!timing)
+        return 0;
+
+    return toIntegerMilliseconds(timing->responseEnd);
 }
 
 unsigned long long Timing::loadEventStart() const
 {
-    if (!m_frame)
+    DocumentLoadTiming* timing = documentLoadTiming();
+    if (!timing)
         return 0;
 
-    return static_cast<unsigned long long>(m_frame->loader()->frameLoadTimeline()->loadEventStart * 1000);
+    return toIntegerMilliseconds(timing->loadEventStart);
 }
 
 unsigned long long Timing::loadEventEnd() const
 {
+    DocumentLoadTiming* timing = documentLoadTiming();
+    if (!timing)
+        return 0;
+
+    return toIntegerMilliseconds(timing->loadEventEnd);
+}
+
+DocumentLoader* Timing::documentLoader() const
+{
     if (!m_frame)
         return 0;
 
-    return static_cast<unsigned long long>(m_frame->loader()->frameLoadTimeline()->loadEventEnd * 1000);
+    return m_frame->loader()->documentLoader();
+}
+
+DocumentLoadTiming* Timing::documentLoadTiming() const
+{
+    DocumentLoader* loader = documentLoader();
+    if (!loader)
+        return 0;
+
+    return loader->timing();
+}
+
+ResourceLoadTiming* Timing::resourceLoadTiming() const
+{
+    DocumentLoader* loader = documentLoader();
+    if (!loader)
+        return 0;
+
+    return loader->response().resourceLoadTiming();
+}
+
+unsigned long long Timing::resourceLoadTimeRelativeToAbsolute(int relativeSeconds) const
+{
+    ASSERT(relativeSeconds >= 0);
+    ResourceLoadTiming* resourceTiming = resourceLoadTiming();
+    ASSERT(resourceTiming);
+    DocumentLoadTiming* documentTiming = documentLoadTiming();
+    ASSERT(documentTiming);
+
+    // The ResourceLoadTiming API's requestTime is the base time to which all
+    // other marks are relative. So to get an absolute time, we must add it to
+    // the relative marks.
+    //
+    // Since ResourceLoadTimings came from the network platform layer, we must
+    // check them for skew because they may be from another thread/process.
+    double baseTime = getPossiblySkewedTimeInKnownRange(resourceTiming->requestTime, documentTiming->fetchStart, documentTiming->responseEnd);
+    return toIntegerMilliseconds(baseTime) + relativeSeconds;
 }
 
 } // namespace WebCore

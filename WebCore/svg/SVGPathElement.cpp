@@ -25,8 +25,8 @@
 
 #include "Attribute.h"
 #include "RenderPath.h"
+#include "RenderSVGResource.h"
 #include "SVGNames.h"
-#include "SVGParserUtilities.h"
 #include "SVGPathSegArc.h"
 #include "SVGPathSegClosePath.h"
 #include "SVGPathSegCurvetoCubic.h"
@@ -37,6 +37,7 @@
 #include "SVGPathSegLinetoHorizontal.h"
 #include "SVGPathSegLinetoVertical.h"
 #include "SVGPathSegList.h"
+#include "SVGPathSegListBuilder.h"
 #include "SVGPathSegMoveto.h"
 #include "SVGSVGElement.h"
 
@@ -172,7 +173,8 @@ void SVGPathElement::parseMappedAttribute(Attribute* attr)
     if (attr->name() == SVGNames::dAttr) {
         ExceptionCode ec;
         pathSegList()->clear(ec);
-        if (!pathSegListFromSVGData(pathSegList(), attr->value(), true))
+        SVGPathSegListBuilder parser(pathSegList());
+        if (!parser.build(attr->value(), NormalizedParsing))
             document()->accessSVGExtensions()->reportError("Problem parsing d=\"" + attr->value() + "\"");
     } else if (attr->name() == SVGNames::pathLengthAttr) {
         setPathLengthBaseValue(attr->value().toFloat());
@@ -199,13 +201,13 @@ void SVGPathElement::svgAttributeChanged(const QualifiedName& attrName)
 
     if (attrName == SVGNames::dAttr) {
         renderer->setNeedsPathUpdate();
-        renderer->setNeedsLayout(true);
+        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
         return;
     }
 
     if (SVGStyledTransformableElement::isKnownAttribute(attrName)) {
         renderer->setNeedsTransformUpdate();
-        renderer->setNeedsLayout(true);
+        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
         return;
     }
 
@@ -213,7 +215,7 @@ void SVGPathElement::svgAttributeChanged(const QualifiedName& attrName)
         || SVGTests::isKnownAttribute(attrName)
         || SVGLangSpace::isKnownAttribute(attrName)
         || SVGExternalResourcesRequired::isKnownAttribute(attrName))
-        renderer->setNeedsLayout(true);
+        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
 }
 
 void SVGPathElement::synchronizeProperty(const QualifiedName& attrName)

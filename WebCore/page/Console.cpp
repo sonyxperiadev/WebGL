@@ -36,6 +36,7 @@
 #include "FrameLoader.h"
 #include "FrameTree.h"
 #include "InspectorController.h"
+#include "MemoryInfo.h"
 #include "Page.h"
 #include "PageGroup.h"
 #include "PlatformString.h"
@@ -61,6 +62,8 @@ Frame* Console::frame() const
 
 void Console::disconnectFrame()
 {
+    if (m_memory)
+        m_memory = 0;
     m_frame = 0;
 }
 
@@ -141,7 +144,7 @@ static void printMessageSourceAndLevelPrefix(MessageSource source, MessageLevel 
     printf("%s %s:", sourceString, levelString);
 }
 
-void Console::addMessage(MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceURL)
+void Console::addMessage(MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceURL, ScriptCallStack* callStack)
 {
     Page* page = this->page();
     if (!page)
@@ -151,7 +154,10 @@ void Console::addMessage(MessageSource source, MessageType type, MessageLevel le
         page->chrome()->client()->addMessageToConsole(source, type, level, message, lineNumber, sourceURL);
 
 #if ENABLE(INSPECTOR)
-    page->inspectorController()->addMessageToConsole(source, type, level, message, lineNumber, sourceURL);
+    if (callStack)
+        page->inspectorController()->addMessageToConsole(source, type, level, callStack, message);
+    else
+        page->inspectorController()->addMessageToConsole(source, type, level, message, lineNumber, sourceURL);
 #endif
 
     if (!Console::shouldPrintExceptions())
@@ -294,15 +300,15 @@ String Console::lastWMLErrorMessage() const
     if (!page)
         return String();
 
-    const Vector<ConsoleMessage*>& consoleMessages = page->inspectorController()->consoleMessages();
+    const Vector<OwnPtr<ConsoleMessage> >& consoleMessages = page->inspectorController()->consoleMessages();
     if (consoleMessages.isEmpty())
         return String();
 
-    Vector<ConsoleMessage*>::const_iterator it = consoleMessages.begin();
-    const Vector<ConsoleMessage*>::const_iterator end = consoleMessages.end();
+    Vector<OwnPtr<ConsoleMessage> >::const_iterator it = consoleMessages.begin();
+    const Vector<OwnPtr<ConsoleMessage> >::const_iterator end = consoleMessages.end();
 
     for (; it != end; ++it) {
-        ConsoleMessage* message = *it;
+        ConsoleMessage* message = it->get();
         if (message->source() != WMLMessageSource)
             continue;
 
@@ -454,6 +460,12 @@ void Console::groupEnd()
 void Console::warn(ScriptCallStack* callStack)
 {
     addMessage(LogMessageType, WarningMessageLevel, callStack);
+}
+
+MemoryInfo* Console::memory() const
+{
+    m_memory = MemoryInfo::create(m_frame);
+    return m_memory.get();
 }
 
 static bool printExceptions = false;

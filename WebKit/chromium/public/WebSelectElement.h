@@ -32,6 +32,8 @@
 #define WebSelectElement_h
 
 #include "WebFormControlElement.h"
+#include "WebOptionElement.h"
+#include "WebVector.h"
 
 #if WEBKIT_IMPLEMENTATION
 namespace WebCore { class HTMLSelectElement; }
@@ -45,11 +47,16 @@ public:
     WebSelectElement() : WebFormControlElement() { }
     WebSelectElement(const WebSelectElement& e) : WebFormControlElement(e) { }
 
-    WebSelectElement& operator=(const WebSelectElement& e) { WebFormControlElement::assign(e); return *this; }
+    WebSelectElement& operator=(const WebSelectElement& e)
+    { 
+        WebFormControlElement::assign(e); 
+        return *this; 
+    }
     WEBKIT_API void assign(const WebSelectElement& e) { WebFormControlElement::assign(e); }
 
     WEBKIT_API void setValue(const WebString&);
     WEBKIT_API WebString value();
+    WEBKIT_API WebVector<WebElement> listItems();
 
 #if WEBKIT_IMPLEMENTATION
     WebSelectElement(const WTF::PassRefPtr<WebCore::HTMLSelectElement>&);

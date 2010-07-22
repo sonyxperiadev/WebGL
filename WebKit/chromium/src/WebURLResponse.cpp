@@ -107,6 +107,16 @@ void WebURLResponse::setConnectionID(unsigned connectionID)
     m_private->m_resourceResponse->setConnectionID(connectionID);
 }
 
+bool WebURLResponse::connectionReused() const
+{
+    return m_private->m_resourceResponse->connectionReused();
+}
+
+void WebURLResponse::setConnectionReused(bool connectionReused)
+{
+    m_private->m_resourceResponse->setConnectionReused(connectionReused);
+}
+
 WebURLLoadTiming WebURLResponse::loadTiming()
 {
     return WebURLLoadTiming(m_private->m_resourceResponse->resourceLoadTiming());
@@ -350,6 +360,16 @@ bool WebURLResponse::isMultipartPayload() const
 void WebURLResponse::setIsMultipartPayload(bool value)
 {
     m_private->m_resourceResponse->setIsMultipartPayload(value);
+}
+
+WebString WebURLResponse::downloadFilePath() const
+{
+    return m_private->m_downloadFilePath;
+}
+
+void WebURLResponse::setDownloadFilePath(const WebString& downloadFilePath)
+{
+    m_private->m_downloadFilePath = downloadFilePath;
 }
 
 void WebURLResponse::assign(WebURLResponsePrivate* p)

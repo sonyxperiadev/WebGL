@@ -57,14 +57,21 @@ public:
     // Returns the suggestion at |listIndex|.
     virtual WebString getSuggestion(unsigned listIndex) const;
 
+    // Returns the label at |listIndex|.
+    virtual WebString getLabel(unsigned listIndex) const;
+
     // Removes the suggestion at |listIndex| from the list of suggestions.
     virtual void removeSuggestionAtIndex(unsigned listIndex);
+
+    // Returns true if the suggestion at |listIndex| can be removed.
+    bool canRemoveSuggestionAtIndex(unsigned listIndex);
 
     // WebCore::PopupMenuClient methods:
     virtual void valueChanged(unsigned listIndex, bool fireEvents = true);
     virtual void selectionChanged(unsigned, bool);
     virtual void selectionCleared();
     virtual WebCore::String itemText(unsigned listIndex) const;
+    virtual WebCore::String itemLabel(unsigned listIndex) const;
     virtual WebCore::String itemToolTip(unsigned lastIndex) const { return WebCore::String(); }
     virtual WebCore::String itemAccessibilityText(unsigned lastIndex) const { return WebCore::String(); }
     virtual bool itemIsEnabled(unsigned listIndex) const { return true; }
@@ -93,10 +100,12 @@ public:
     void initialize(WebCore::HTMLInputElement*,
                     const WebVector<WebString>& names,
                     const WebVector<WebString>& labels,
+                    const WebVector<int>& uniqueIDs,
                     int separatorIndex);
 
     void setSuggestions(const WebVector<WebString>& names,
                         const WebVector<WebString>& labels,
+                        const WebVector<int>& uniqueIDs,
                         int separatorIndex);
 
     // DEPRECATED: Will be removed once Autocomplete and AutoFill merge is
@@ -104,6 +113,10 @@ public:
     void setAutocompleteMode(bool enabled) { m_AutocompleteModeEnabled = enabled; }
 
 private:
+    // Convert the specified index from an index into the visible list (which might
+    // include a separator entry) to an index to |m_names| and |m_labels|.
+    // Returns -1 if the given index points to the separator.
+    int convertListIndexToInternalIndex(unsigned) const;
     WebViewImpl* getWebView() const;
     WebCore::HTMLInputElement* getTextField() const { return m_textField.get(); }
     WebCore::RenderStyle* textFieldStyle() const;
@@ -114,6 +127,7 @@ private:
     // The names and labels that make up the text of the menu items.
     Vector<WebCore::String> m_names;
     Vector<WebCore::String> m_labels;
+    Vector<int> m_uniqueIDs;
 
     // The index of the separator.  -1 if there is no separator.
     int m_separatorIndex;

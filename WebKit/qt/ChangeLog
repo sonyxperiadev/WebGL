@@ -1,3 +1,119 @@
+2010-07-20  Kenneth Rohde Christiansen  <kenneth.christiansen@openbossa.org>
+
+        [Qt] Add API to define device-width and height for use with the viewport meta tag
+        https://bugs.webkit.org/show_bug.cgi?id=42597
+
+        Reviewed by Antonio Gomes.
+
+        Add a new API for setting the deviceSize for use in conjunction with
+        out viewport meta tag API.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebView::setDeviceSize):
+        (QGraphicsWebView::deviceSize):
+        * Api/qgraphicswebview.h:
+        * WebCoreSupport/PageClientQt.cpp:
+        (WebCore::PageClientQGraphicsWidget::windowRect):
+        * WebCoreSupport/PageClientQt.h:
+        (WebCore::PageClientQGraphicsWidget::PageClientQGraphicsWidget):
+
+2010-07-20  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] DRT sideeffect revealed by r63657
+        https://bugs.webkit.org/show_bug.cgi?id=42578
+
+        Don't set an automatic timeout for notifications when running in DRT.
+        This fixes an issue with cancel() notifications in unrelated tests.
+
+        * WebCoreSupport/NotificationPresenterClientQt.cpp:
+        (WebCore::NotificationPresenterClientQt::displayNotification):
+
+2010-07-18  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] tst_QWebPage fails cursorMovements and textSelection
+        https://bugs.webkit.org/show_bug.cgi?id=42531
+
+        Correct the HTML used by these tests.
+
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::cursorMovements):
+        (tst_QWebPage::textSelection):
+        (tst_QWebPage::textEditing):
+
+2010-07-18  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] tst_QWebElement fails firstChildNextSibling and lastChildPreviousSibling
+        https://bugs.webkit.org/show_bug.cgi?id=42527
+
+        Correct the HTML used by these tests.
+
+        * tests/qwebelement/tst_qwebelement.cpp:
+        (tst_QWebElement::firstChildNextSibling):
+        (tst_QWebElement::lastChildPreviousSibling):
+
+2010-07-16  Zhe Su  <suzhe@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION(r61484): Broke focus behaviour on Qt and probably other platforms
+        https://bugs.webkit.org/show_bug.cgi?id=42253
+
+        Dummy implementation of EditorClient::willSetInputMethodState.
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::willSetInputMethodState):
+        * WebCoreSupport/EditorClientQt.h:
+
+2010-07-14  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=42232
+        Make changing Cursors work in WebKit2.
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::setCursor):
+        * WebCoreSupport/ChromeClientQt.h:
+        Change prototype to match new one.
+
+2010-07-07  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        Reviewed by Darin Adler.
+
+        Prevent assertion/duplicate loads for non-deferred subtitute-data loads
+
+        https://bugs.webkit.org/show_bug.cgi?id=30879
+
+        MainResourceLoader uses the member m_initialRequest to store requests for future
+        deferred loads. When doing the actual load in handleDataLoadNow(), we therefore
+        have to clear this request so that subsequent entries into the loader will not
+        start yet another load.
+
+        This can happen as a result of a PageGroupLoadDeferrer going out of scope when
+        returning from Chrome::runJavaScriptAlert(), which calls setDeferredLoading(false),
+        but only in the case of using both substitute-data and non-deferred main resource
+        load together. That's why two new DRT functions were added:
+
+         * queueLoadHTMLString()
+         * setDeferMainResourceLoad()
+
+        The change adds DRT hooks for Mac, Win and Qt for these two functions. For Mac
+        and Win the hook uses new SPI in WebDataSource. For Qt a new static member was
+        added to the FrameLoaderClientQt and accessed though DumpRenderTreeSupportQt.
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::setDeferMainResourceDataLoad):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::createDocumentLoader):
+        * WebCoreSupport/FrameLoaderClientQt.h:
+
 2010-07-09  Yael Aharon  <yael.aharon@nokia.com>
 
         Reviewed by Laszlo Gombos.

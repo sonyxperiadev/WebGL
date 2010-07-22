@@ -102,7 +102,6 @@ devtools.InspectorBackendImpl = function()
     this.installInspectorControllerDelegate_("setRuleSelector");
     this.installInspectorControllerDelegate_("addRule");
 
-    if (window.v8ScriptDebugServerEnabled) {
     this.installInspectorControllerDelegate_("disableDebugger");
     this.installInspectorControllerDelegate_("editScriptSource");
     this.installInspectorControllerDelegate_("getScriptSource");
@@ -111,128 +110,19 @@ devtools.InspectorBackendImpl = function()
     this.installInspectorControllerDelegate_("removeBreakpoint");
     this.installInspectorControllerDelegate_("activateBreakpoints");
     this.installInspectorControllerDelegate_("deactivateBreakpoints");
-    this.installInspectorControllerDelegate_("resumeDebugger");
-    this.installInspectorControllerDelegate_("stepIntoStatementInDebugger");
-    this.installInspectorControllerDelegate_("stepOutOfFunctionInDebugger");
-    this.installInspectorControllerDelegate_("stepOverStatementInDebugger");
+    this.installInspectorControllerDelegate_("resume");
+    this.installInspectorControllerDelegate_("stepIntoStatement");
+    this.installInspectorControllerDelegate_("stepOutOfFunction");
+    this.installInspectorControllerDelegate_("stepOverStatement");
     this.installInspectorControllerDelegate_("setPauseOnExceptionsState");
-    }
 };
 devtools.InspectorBackendImpl.prototype.__proto__ = WebInspector.InspectorBackendStub.prototype;
 
 
-if (!window.v8ScriptDebugServerEnabled) {
-
-devtools.InspectorBackendImpl.prototype.setBreakpoint = function(sourceID, line, enabled, condition)
-{
-    this.removeBreakpoint(sourceID, line);
-    devtools.tools.getDebuggerAgent().addBreakpoint(sourceID, line, enabled, condition);
-};
-
-
-devtools.InspectorBackendImpl.prototype.removeBreakpoint = function(sourceID, line)
-{
-    devtools.tools.getDebuggerAgent().removeBreakpoint(sourceID, line);
-};
-
-
-devtools.InspectorBackendImpl.prototype.editScriptSource = function(callID, sourceID, newContent)
-{
-    devtools.tools.getDebuggerAgent().editScriptSource(sourceID, newContent, function(success, newBodyOrErrorMessage, callFrames) {
-        WebInspector.didEditScriptSource(callID, success, newBodyOrErrorMessage, callFrames);
-    });
-};
-
-
-devtools.InspectorBackendImpl.prototype.getScriptSource = function(callID, sourceID)
-{
-    devtools.tools.getDebuggerAgent().resolveScriptSource(
-        sourceID,
-        function(source) {
-             WebInspector.didGetScriptSource(callID, source);
-        });
-};
-
-
-devtools.InspectorBackendImpl.prototype.activateBreakpoints = function()
-{
-    devtools.tools.getDebuggerAgent().setBreakpointsActivated(true);
-};
-
-
-devtools.InspectorBackendImpl.prototype.deactivateBreakpoints = function()
-{
-    devtools.tools.getDebuggerAgent().setBreakpointsActivated(false);
-};
-
-
-devtools.InspectorBackendImpl.prototype.pauseInDebugger = function()
-{
-    devtools.tools.getDebuggerAgent().pauseExecution();
-};
-
-
-devtools.InspectorBackendImpl.prototype.resumeDebugger = function()
-{
-    devtools.tools.getDebuggerAgent().resumeExecution();
-};
-
-
-devtools.InspectorBackendImpl.prototype.stepIntoStatementInDebugger = function()
-{
-    devtools.tools.getDebuggerAgent().stepIntoStatement();
-};
-
-
-devtools.InspectorBackendImpl.prototype.stepOutOfFunctionInDebugger = function()
-{
-    devtools.tools.getDebuggerAgent().stepOutOfFunction();
-};
-
-
-devtools.InspectorBackendImpl.prototype.stepOverStatementInDebugger = function()
-{
-    devtools.tools.getDebuggerAgent().stepOverStatement();
-};
-
-/**
- * @override
- */
-devtools.InspectorBackendImpl.prototype.setPauseOnExceptionsState = function(state)
-{
-    this._setPauseOnExceptionsState = state;
-    // TODO(yurys): support all three states. See http://crbug.com/32877
-    var enabled = (state !== WebInspector.ScriptsPanel.PauseOnExceptionsState.DontPauseOnExceptions);
-    WebInspector.updatePauseOnExceptionsState(enabled ? WebInspector.ScriptsPanel.PauseOnExceptionsState.PauseOnUncaughtExceptions : WebInspector.ScriptsPanel.PauseOnExceptionsState.DontPauseOnExceptions);
-    devtools.tools.getDebuggerAgent().setPauseOnExceptions(enabled);
-};
-
-
-/**
- * @override
- */
-devtools.InspectorBackendImpl.prototype.pauseOnExceptions = function()
-{
-    return devtools.tools.getDebuggerAgent().pauseOnExceptions();
-};
-
-
-/**
- * @override
- */
-devtools.InspectorBackendImpl.prototype.setPauseOnExceptions = function(value)
-{
-    return devtools.tools.getDebuggerAgent().setPauseOnExceptions(value);
-};
-
-} else {
-
-devtools.InspectorBackendImpl.prototype.pauseInDebugger = function()
+devtools.InspectorBackendImpl.prototype.pause = function()
 {
     RemoteDebuggerCommandExecutor.DebuggerPauseScript();
 };
-
-}
 
 
 /**

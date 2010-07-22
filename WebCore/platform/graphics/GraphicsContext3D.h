@@ -68,8 +68,13 @@ typedef int Platform3DObject;
 const Platform3DObject NullPlatform3DObject = 0;
 #endif
 
+#if PLATFORM(CG)
+#include <CoreGraphics/CGContext.h>
+#endif
+
 namespace WebCore {
     class WebGLActiveInfo;
+    class ArrayBuffer;
     class ArrayBufferView;
     class WebGLBuffer;
     class Uint8Array;
@@ -551,7 +556,9 @@ namespace WebCore {
         void blendFuncSeparate(unsigned long srcRGB, unsigned long dstRGB, unsigned long srcAlpha, unsigned long dstAlpha);
 
         void bufferData(unsigned long target, int size, unsigned long usage);
+        void bufferData(unsigned long target, ArrayBuffer* data, unsigned long usage);
         void bufferData(unsigned long target, ArrayBufferView* data, unsigned long usage);
+        void bufferSubData(unsigned long target, long offset, ArrayBuffer* data);
         void bufferSubData(unsigned long target, long offset, ArrayBufferView* data);
 
         unsigned long checkFramebufferStatus(unsigned long target);
@@ -707,7 +714,14 @@ namespace WebCore {
         void viewport(long x, long y, unsigned long width, unsigned long height);
 
         void reshape(int width, int height);
-        
+
+#if PLATFORM(CG)
+        void paintToCanvas(const unsigned char* imagePixels, int imageWidth, int imageHeight,
+                           int canvasWidth, int canvasHeight, CGContextRef context);
+#endif
+
+        void paintRenderingResultsToCanvas(WebGLRenderingContext* context);
+
         // Helpers for notification about paint events
         void beginPaint(WebGLRenderingContext* context);
         void endPaint();

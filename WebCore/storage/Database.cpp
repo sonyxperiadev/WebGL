@@ -36,7 +36,6 @@
 #include "DatabaseThread.h"
 #include "DatabaseTracker.h"
 #include "Document.h"
-#include "ExceptionCode.h"
 #include "InspectorController.h"
 #include "Logging.h"
 #include "NotImplemented.h"
@@ -141,25 +140,37 @@ Database::Database(ScriptExecutionContext* context, const String& name, const St
 
 class DerefContextTask : public ScriptExecutionContext::Task {
 public:
-    static PassOwnPtr<DerefContextTask> create()
+    static PassOwnPtr<DerefContextTask> create(PassRefPtr<ScriptExecutionContext> context)
     {
-        return new DerefContextTask();
+        return new DerefContextTask(context);
     }
 
     virtual void performTask(ScriptExecutionContext* context)
     {
-        context->deref();
+        ASSERT_UNUSED(context, context == m_context);
+        m_context.clear();
     }
 
     virtual bool isCleanupTask() const { return true; }
+
+private:
+    DerefContextTask(PassRefPtr<ScriptExecutionContext> context)
+        : m_context(context)
+    {
+    }
+    
+    RefPtr<ScriptExecutionContext> m_context;
 };
 
 Database::~Database()
 {
     // The reference to the ScriptExecutionContext needs to be cleared on the JavaScript thread.  If we're on that thread already, we can just let the RefPtr's destruction do the dereffing.
     if (!m_scriptExecutionContext->isContextThread()) {
-        m_scriptExecutionContext->postTask(DerefContextTask::create());
-        m_scriptExecutionContext.release().releaseRef();
+        // Grab a pointer to the script execution here because we're releasing it when we pass it to
+        // DerefContextTask::create.
+        ScriptExecutionContext* scriptExecutionContext = m_scriptExecutionContext.get();
+        
+        scriptExecutionContext->postTask(DerefContextTask::create(m_scriptExecutionContext.release()));
     }
 }
 
@@ -336,7 +347,7 @@ Vector<String> Database::performGetTableNames()
 {
     disableAuthorizer();
 
-    SQLiteStatement statement(m_sqliteDatabase, "SELECT name FROM sqlite_master WHERE type='table';");
+    SQLiteStatement statement(sqliteDatabase(), "SELECT name FROM sqlite_master WHERE type='table';");
     if (statement.prepare() != SQLResultOk) {
         LOG_ERROR("Unable to retrieve list of tables for database %s", databaseDebugName().ascii().data());
         enableAuthorizer();
@@ -395,14 +406,6 @@ SecurityOrigin* Database::securityOrigin() const
     if (currentThread() == m_scriptExecutionContext->databaseThread()->getThreadID())
         return m_databaseThreadSecurityOrigin.get();
     return 0;
-}
-
-void Database::incrementalVacuumIfNeeded()
-{
-    int64_t freeSpaceSize = m_sqliteDatabase.freeSpaceSize();
-    int64_t totalSize = m_sqliteDatabase.totalSize();
-    if (totalSize <= 10 * freeSpaceSize)
-        m_sqliteDatabase.runIncrementalVacuumCommand();
 }
 
 } // namespace WebCore

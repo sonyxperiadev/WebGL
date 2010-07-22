@@ -32,67 +32,121 @@
 #include "ScriptCallStack.h"
 
 #include "InspectorValues.h"
-#include "ScriptScope.h"
 #include "ScriptController.h"
 #include "ScriptDebugServer.h"
+#include "ScriptScope.h"
 #include "V8Binding.h"
 
 #include <v8-debug.h>
 
 namespace WebCore {
 
-ScriptCallStack* ScriptCallStack::create(const v8::Arguments& arguments, unsigned skipArgumentCount) {
-    String sourceName;
-    int sourceLineNumber;
-    String funcName;
-    if (!callLocation(&sourceName, &sourceLineNumber, &funcName))
-      return 0;
-    return new ScriptCallStack(arguments, skipArgumentCount, sourceName, sourceLineNumber, funcName);
-}
-
-bool ScriptCallStack::callLocation(String* sourceName, int* sourceLineNumber, String* functionName)
+static void getFrameLocation(v8::Handle<v8::StackFrame> frame, String* sourceName, int* sourceLineNumber, String* functionName)
 {
-    v8::HandleScope scope;
-    v8::Context::Scope contextScope(v8::Context::GetCurrent());
-    v8::Handle<v8::StackTrace> stackTrace(v8::StackTrace::CurrentStackTrace(1));
-    if (stackTrace.IsEmpty())
-        return false;
-    if (stackTrace->GetFrameCount() <= 0) {
-        // Successfully grabbed stack trace, but there are no frames.
-        // Fallback to setting lineNumber to 0, and source and function name to "undefined".
-        *sourceName = toWebCoreString(v8::Undefined());
-        *sourceLineNumber = 0;
-        *functionName = toWebCoreString(v8::Undefined());
-        return true;
-    }
-    v8::Handle<v8::StackFrame> frame = stackTrace->GetFrame(0);
-    // There must be at least one valid frame.
     ASSERT(!frame.IsEmpty());
     v8::Local<v8::String> sourceNameValue(frame->GetScriptName());
     v8::Local<v8::String> functionNameValue(frame->GetFunctionName());
     *sourceName = sourceNameValue.IsEmpty() ? "" : toWebCoreString(sourceNameValue);
     *functionName = functionNameValue.IsEmpty() ? "" : toWebCoreString(functionNameValue);
     *sourceLineNumber = frame->GetLineNumber();
-    return true;
 }
 
-ScriptCallStack::ScriptCallStack(const v8::Arguments& arguments, unsigned skipArgumentCount, String sourceName, int sourceLineNumber, String functionName)
-    : m_lastCaller(functionName, sourceName, sourceLineNumber, arguments, skipArgumentCount)
-    , m_scriptState(ScriptState::current())
+static void getTopFrameLocation(v8::Handle<v8::StackTrace> stackTrace, String* sourceName, int* sourceLineNumber, String* functionName)
 {
+    if (stackTrace->GetFrameCount() <= 0) {
+        // Successfully grabbed stack trace, but there are no frames. It may happen in case of a syntax error for example.
+        // Fallback to setting lineNumber to 0, and source and function name to "undefined".
+        *sourceName = "undefined";
+        *sourceLineNumber = 0;
+        *functionName = "undefined";
+    } else {
+        v8::Handle<v8::StackFrame> frame = stackTrace->GetFrame(0);
+        getFrameLocation(frame, sourceName, sourceLineNumber, functionName);
+    }
+}
+
+static PassOwnPtr<ScriptCallFrame> toScriptCallFrame(v8::Handle<v8::StackFrame> frame)
+{
+    String sourceName;
+    int sourceLineNumber;
+    String functionName;
+    getFrameLocation(frame, &sourceName, &sourceLineNumber, &functionName);
+    return new ScriptCallFrame(functionName, sourceName, sourceLineNumber);
+}
+
+static void toScriptCallFramesVector(v8::Local<v8::Context> context, v8::Handle<v8::StackTrace> stackTrace, Vector<OwnPtr<ScriptCallFrame> >& scriptCallFrames)
+{
+    v8::Context::Scope contextScope(context);
+    int frameCount = stackTrace->GetFrameCount();
+    for (int i = 0; i < frameCount; i++) {
+        v8::Local<v8::StackFrame> stackFrame = stackTrace->GetFrame(i);
+        scriptCallFrames.append(toScriptCallFrame(stackFrame));
+    }
+}
+
+const int ScriptCallStack::maxCallStackSizeToCapture = 200;
+
+PassOwnPtr<ScriptCallStack> ScriptCallStack::create(const v8::Arguments& arguments, unsigned skipArgumentCount, int framCountLimit)
+{
+    v8::HandleScope scope;
+    v8::Local<v8::Context> context = v8::Context::GetCurrent();
+    v8::Context::Scope contextScope(context);
+    v8::Handle<v8::StackTrace> stackTrace(v8::StackTrace::CurrentStackTrace(framCountLimit));
+
+    if (stackTrace.IsEmpty())
+        return 0;
+
+    String sourceName;
+    int sourceLineNumber;
+    String functionName;
+    getTopFrameLocation(stackTrace, &sourceName, &sourceLineNumber, &functionName);
+
+    Vector<OwnPtr<ScriptCallFrame> > scriptCallFrames;
+    if (framCountLimit > 1)
+        toScriptCallFramesVector(context, stackTrace, scriptCallFrames);
+
+    return new ScriptCallStack(ScriptState::forContext(context), new ScriptCallFrame(functionName, sourceName, sourceLineNumber, arguments, skipArgumentCount), scriptCallFrames);
+}
+
+PassOwnPtr<ScriptCallStack> ScriptCallStack::create(ScriptState* state, v8::Handle<v8::StackTrace> stackTrace)
+{
+    v8::HandleScope scope;
+    Vector<OwnPtr<ScriptCallFrame> > scriptCallFrames;
+    toScriptCallFramesVector(state->context(), stackTrace, scriptCallFrames);
+
+    String sourceName;
+    int sourceLineNumber;
+    String functionName;
+    getTopFrameLocation(stackTrace, &sourceName, &sourceLineNumber, &functionName);
+
+    return new ScriptCallStack(state, new ScriptCallFrame(functionName, sourceName, sourceLineNumber), scriptCallFrames);
+}
+
+ScriptCallStack::ScriptCallStack(ScriptState* scriptState, PassOwnPtr<ScriptCallFrame> topFrame, Vector<OwnPtr<ScriptCallFrame> >& scriptCallFrames)
+    : m_topFrame(topFrame)
+    , m_scriptState(scriptState)
+{
+    m_scriptCallFrames.swap(scriptCallFrames);
 }
 
 ScriptCallStack::~ScriptCallStack()
 {
 }
 
-const ScriptCallFrame& ScriptCallStack::at(unsigned index) const
+const ScriptCallFrame& ScriptCallStack::at(unsigned index)
 {
-    // Currently, only one ScriptCallFrame is supported. When we can get
-    // a full stack trace from V8, we can do this right.
-    ASSERT(index == 0);
-    return m_lastCaller;
+    if (!index && m_topFrame)
+        return *m_topFrame;
+    return *m_scriptCallFrames.at(index);
 }
+
+unsigned ScriptCallStack::size()
+{
+    if (m_scriptCallFrames.isEmpty())
+        return 1;
+    return m_scriptCallFrames.size();
+}
+
 
 bool ScriptCallStack::stackTrace(int frameLimit, const RefPtr<InspectorArray>& stackTrace)
 {

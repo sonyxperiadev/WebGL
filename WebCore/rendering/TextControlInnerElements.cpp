@@ -36,8 +36,10 @@
 #include "HTMLNames.h"
 #include "HTMLTextAreaElement.h"
 #include "MouseEvent.h"
+#include "Page.h"
 #include "RenderLayer.h"
 #include "RenderTextControlSingleLine.h"
+#include "SpeechInput.h"
 
 namespace WebCore {
 
@@ -246,7 +248,7 @@ void SearchFieldCancelButtonElement::defaultEventHandler(Event* event)
 inline SpinButtonElement::SpinButtonElement(Node* shadowParent)
     : TextControlInnerElement(shadowParent->document(), shadowParent)
     , m_capturing(false)
-    , m_onUpButton(false)
+    , m_upDownState(Indeterminate)
 {
 }
 
@@ -278,12 +280,19 @@ void SpinButtonElement::defaultEventHandler(Event* event)
     }
     
     HTMLInputElement* input = static_cast<HTMLInputElement*>(shadowAncestorNode());
+    if (input->disabled() || input->isReadOnlyFormControl()) {
+        if (!event->defaultHandled())
+            HTMLDivElement::defaultEventHandler(event);
+        return;
+    }
+
     IntPoint local = roundedIntPoint(box->absoluteToLocal(mouseEvent->absoluteLocation(), false, true));
     if (event->type() == eventNames().clickEvent) {
         if (box->borderBoxRect().contains(local)) {
+            RefPtr<Node> protector(input);
             input->focus();
             input->select();
-            if (local.y() < box->y() + box->height() / 2)
+            if (local.y() < box->height() / 2)
                 input->stepUpFromRenderer(1);
             else
                 input->stepUpFromRenderer(-1);
@@ -297,9 +306,9 @@ void SpinButtonElement::defaultEventHandler(Event* event)
                     m_capturing = true;
                 }
             }
-            bool oldOnUpButton = m_onUpButton;
-            m_onUpButton = local.y() < box->y() + box->height() / 2;
-            if (m_onUpButton != oldOnUpButton)
+            UpDownState oldUpDownState = m_upDownState;
+            m_upDownState = local.y() < box->height() / 2 ? Up : Down;
+            if (m_upDownState != oldUpDownState)
                 renderer()->repaint();
         } else {
             if (m_capturing) {
@@ -315,12 +324,21 @@ void SpinButtonElement::defaultEventHandler(Event* event)
         HTMLDivElement::defaultEventHandler(event);
 }
 
+void SpinButtonElement::setHovered(bool flag)
+{
+    if (!hovered() && flag)
+        m_upDownState = Indeterminate;
+    TextControlInnerElement::setHovered(flag);
+}
+
+
 // ----------------------------
 
 #if ENABLE(INPUT_SPEECH)
 
 inline InputFieldSpeechButtonElement::InputFieldSpeechButtonElement(Document* document)
     : TextControlInnerElement(document)
+    , m_capturing(false)
 {
 }
 
@@ -331,8 +349,73 @@ PassRefPtr<InputFieldSpeechButtonElement> InputFieldSpeechButtonElement::create(
 
 void InputFieldSpeechButtonElement::defaultEventHandler(Event* event)
 {
-    // FIXME: Start speech recognition here.
-    HTMLDivElement::defaultEventHandler(event);
+    // On mouse down, select the text and set focus.
+    HTMLInputElement* input = static_cast<HTMLInputElement*>(shadowAncestorNode());
+    if (event->type() == eventNames().mousedownEvent && event->isMouseEvent() && static_cast<MouseEvent*>(event)->button() == LeftButton) {
+        if (renderer() && renderer()->visibleToHitTesting()) {
+            if (Frame* frame = document()->frame()) {
+                frame->eventHandler()->setCapturingMouseEventsNode(this);
+                m_capturing = true;
+            }
+        }
+        // The call to focus() below dispatches a focus event, and an event handler in the page might
+        // remove the input element from DOM. To make sure it remains valid until we finish our work
+        // here, we take a temporary reference.
+        RefPtr<HTMLInputElement> holdRef(input);
+        input->focus();
+        input->select();
+        event->setDefaultHandled();
+    }
+    // On mouse up, start speech recognition.
+    if (event->type() == eventNames().mouseupEvent && event->isMouseEvent() && static_cast<MouseEvent*>(event)->button() == LeftButton) {
+        if (m_capturing && renderer() && renderer()->visibleToHitTesting()) {
+            if (Frame* frame = document()->frame()) {
+                frame->eventHandler()->setCapturingMouseEventsNode(0);
+                m_capturing = false;
+            }
+            if (hovered()) {
+                speechInput()->startRecognition();
+                event->setDefaultHandled();
+            }
+        }
+    }
+
+    if (!event->defaultHandled())
+        HTMLDivElement::defaultEventHandler(event);
+}
+
+SpeechInput* InputFieldSpeechButtonElement::speechInput()
+{
+    if (!m_speechInput)
+        m_speechInput.set(new SpeechInput(document()->page()->speechInputClient(), this));
+    return m_speechInput.get();
+}
+
+void InputFieldSpeechButtonElement::recordingComplete()
+{
+    // FIXME: Add UI feedback here to indicate that audio recording stopped and recognition is
+    // in progress.
+}
+
+void InputFieldSpeechButtonElement::setRecognitionResult(const String& result)
+{
+    HTMLInputElement* input = static_cast<HTMLInputElement*>(shadowAncestorNode());
+    // The call to setValue() below dispatches an event, and an event handler in the page might
+    // remove the input element from DOM. To make sure it remains valid until we finish our work
+    // here, we take a temporary reference.
+    RefPtr<HTMLInputElement> holdRef(input);
+    input->setValue(result);
+    input->dispatchFormControlChangeEvent();
+    renderer()->repaint();
+}
+
+void InputFieldSpeechButtonElement::detach()
+{
+    if (m_capturing) {
+        if (Frame* frame = document()->frame())
+            frame->eventHandler()->setCapturingMouseEventsNode(0);      
+    }
+    TextControlInnerElement::detach();
 }
 
 #endif // ENABLE(INPUT_SPEECH)

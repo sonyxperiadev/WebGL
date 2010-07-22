@@ -25,13 +25,36 @@
 
 #include "TestController.h"
 
+#include <fcntl.h>
+#include <io.h>
 #include <WebKit2/WKStringCF.h>
 
 namespace WTR {
 
+void TestController::platformInitialize()
+{
+    _setmode(1, _O_BINARY);
+    _setmode(2, _O_BINARY);
+}
+
 void TestController::initializeInjectedBundlePath()
 {
-    // Implement
+    CFStringRef exeContainerPath = CFURLCopyFileSystemPath(CFURLCreateCopyDeletingLastPathComponent(0, CFBundleCopyExecutableURL(CFBundleGetMainBundle())), kCFURLWindowsPathStyle);
+    CFMutableStringRef bundlePath = CFStringCreateMutableCopy(0, 0, exeContainerPath);
+#ifndef NDEBUG
+    CFStringAppendCString(bundlePath, "\\InjectedBundle_debug.dll", kCFStringEncodingWindowsLatin1);
+#else
+    CFStringAppendCString(bundlePath, "\\InjectedBundle.dll", kCFStringEncodingWindowsLatin1);
+#endif
+    
+    m_injectedBundlePath.adopt(WKStringCreateWithCFString(bundlePath));
+}
+
+void TestController::initializeTestPluginPath()
+{
+    CFStringRef exeContainerPath = CFURLCopyFileSystemPath(CFURLCreateCopyDeletingLastPathComponent(0, CFBundleCopyExecutableURL(CFBundleGetMainBundle())), kCFURLWindowsPathStyle);
+    CFMutableStringRef bundlePath = CFStringCreateMutableCopy(0, 0, exeContainerPath);
+    m_testPluginPath.adopt(WKStringCreateWithCFString(bundlePath));
 }
 
 } // namespace WTR

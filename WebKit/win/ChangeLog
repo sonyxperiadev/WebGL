@@ -1,3 +1,194 @@
+2010-07-20  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        WebKit on Windows should build optionally with an unversioned ICU DLL
+        https://bugs.webkit.org/show_bug.cgi?id=42722
+        <rdar://problem/8211767> WebKit needs to link against unversioned ICU
+
+        To get the proper value for U_DISABLE_RENAMING into all source files, we force
+        the include of ICUVersion.h (our generated header) via the compiler options.
+
+        * WebKit.vcproj/WebKit.vcproj: Add forced include of ICUVersion.h.        
+
+2010-07-21  Adam Roben  <aroben@apple.com>
+
+        Update WebKit.sln for InjectedBundle's Debug_Internal configuration
+
+        Fixes <http://webkit.org/b/42749> InjectedBundle's build
+        configurations are screwy
+
+        Reviewed by Darin Adler.
+
+        * WebKit.vcproj/WebKit.sln: Build the Debug_Internal variant of
+        InjectedBundle when we're using the Debug_Internal solution
+        configuration.
+
+2010-07-21  Adam Roben  <aroben@apple.com>
+
+        Add MiniBrowser to WebKit.sln
+
+        It is the last project to build.
+
+        Fixes <http://webkit.org/b/42747> build-webkit should build
+        MiniBrowser
+
+        Reviewed by Darin Adler.
+
+        * WebKit.vcproj/WebKit.sln: Added MiniBrowser, and made it depend on
+        WebKitTestRunner.
+
+2010-07-20  Adam Roben  <aroben@apple.com>
+
+        Add WebKitTestRunner and friends to WebKit.sln
+
+        We added these projects to WebKit2.sln in r63585, but removed them
+        again in r63600 because WebKitTestRunner required getopt, which
+        doesn't exist in WebKitAuxiliaryLibrary. r63700 and r63788 removed the
+        use of getopt in WebKitTestRunner, so we can now add it to WebKit.sln
+        (which has replaced WebKit2.sln).
+
+        Fixes <http://webkit.org/b/42711> WebKit.sln should build
+        WebKitTestRunner
+
+        Reviewed by Steve Falkenburg.
+
+        * WebKit.vcproj/WebKit.sln: Added the following projects to the end of
+        the build order (in first-built to last-built order):
+        InjectedBundleGenerated, InjectedBundle, WebKitTestRunner. Also
+        removed an unnecessary dependency from testapi on WebKit2WebProcess.
+
+2010-07-19  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Adam Roben.
+
+        [Win] Implement LayoutTestController::markerTextForListItem()
+        https://bugs.webkit.org/show_bug.cgi?id=37930
+
+        Implements support for markerTextForListItem in the Windows port.
+
+        * DOMCoreClasses.cpp:
+        (DOMElement::markerTextForListItem): Added.
+        * DOMCoreClasses.h:
+        * Interfaces/DOMPrivate.idl: Added declaration for markerTextForListItem().
+        * Interfaces/IWebViewPrivate.idl: Added declaration for elementFromJS().
+        * Interfaces/WebKit.idl: Touch it to force a rebuild (and for good luck :-)).
+        * WebView.cpp:
+        (WebView::elementFromJS): Added.
+        * WebView.h:
+
+2010-07-16  Zhe Su  <suzhe@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION(r61484): Broke focus behaviour on Qt and probably other platforms
+        https://bugs.webkit.org/show_bug.cgi?id=42253
+
+        Dummy implementation of EditorClient::willSetInputMethodState.
+
+        * WebCoreSupport/WebEditorClient.cpp:
+        (WebEditorClient::willSetInputMethodState):
+        * WebCoreSupport/WebEditorClient.h:
+
+2010-07-16  Mikhail Naganov  <mnaganov@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Make JS memory stats available via 'Performance' object (Web Timing).
+        This statistics is populated only if 'WebKitMemoryInfoEnabled'
+        preference is set.
+
+        'console.memory' is kept until Web Timing object becomes visible by
+        default (currently it is hidden under compile-time flag).  These stats
+        are guarded with the same preference.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41617
+
+        * Interfaces/IWebPreferencesPrivate.idl:
+        * WebPreferenceKeysPrivate.h:
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+        (WebPreferences::memoryInfoEnabled):
+        (WebPreferences::setMemoryInfoEnabled):
+        * WebPreferences.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2010-07-14  Brent Fulgham  <bfulgham@webkit.org>
+
+        Reviewed by Steve Falkenburg.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=42299
+        Correct WinCairo build for new WebKit2 project structure.
+
+        * WebKit.vcproj/WebKit.sln:
+
+2010-07-14  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=42232
+        Make changing Cursors work in WebKit2.
+
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::setCursor):
+        We now need to grab the native cursor out of the WebCore cursor.
+
+        (WebChromeClient::setLastSetCursorToCurrentCursor):
+        Sets the WebView's "last set cursor" to be the current cursor so that
+        the cursor is set correctly for plugins.
+        * WebCoreSupport/WebChromeClient.h:
+        * WebView.cpp:
+        (WebView::WebView):
+        (WebView::WebViewWndProc):
+        * WebView.h:
+        (WebView::setLastCursor):
+        Change the "last set cursor" to be stored as a member instead of a global.
+
+2010-07-13  Steve Falkenburg  <sfalken@apple.com>
+
+        Windows build fix.
+        Make WebKit.sln build WebKit.dll as it used to in the past.
+        (sln is updated to include necessary projects)
+
+        * WebKit.vcproj/WebKit.sln:
+
+2010-07-13  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        Windows build fix
+
+        * Interfaces/WebKit.idl: Touched to force a build
+
+2010-07-07  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        Reviewed by Darin Adler.
+
+        Prevent assertion/duplicate loads for non-deferred subtitute-data loads
+
+        https://bugs.webkit.org/show_bug.cgi?id=30879
+
+        MainResourceLoader uses the member m_initialRequest to store requests for future
+        deferred loads. When doing the actual load in handleDataLoadNow(), we therefore
+        have to clear this request so that subsequent entries into the loader will not
+        start yet another load.
+
+        This can happen as a result of a PageGroupLoadDeferrer going out of scope when
+        returning from Chrome::runJavaScriptAlert(), which calls setDeferredLoading(false),
+        but only in the case of using both substitute-data and non-deferred main resource
+        load together. That's why two new DRT functions were added:
+
+         * queueLoadHTMLString()
+         * setDeferMainResourceLoad()
+
+        The change adds DRT hooks for Mac, Win and Qt for these two functions. For Mac
+        and Win the hook uses new SPI in WebDataSource. For Qt a new static member was
+        added to the FrameLoaderClientQt and accessed though DumpRenderTreeSupportQt.
+
+        * Interfaces/IWebDataSource.idl:
+        * WebDataSource.cpp:
+        (WebDataSource::setDeferMainResourceDataLoad):
+        * WebDataSource.h:
+
 2010-07-12  Steve Falkenburg  <sfalken@apple.com>
 
         Reviewed by Alice Liu.

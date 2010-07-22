@@ -31,8 +31,8 @@
 #include "config.h"
 #include "ChromeClientImpl.h"
 
-#include "AccessibilityObject.h"
 #include "AXObjectCache.h"
+#include "AccessibilityObject.h"
 #include "CharacterNames.h"
 #include "Console.h"
 #include "Cursor.h"
@@ -43,9 +43,9 @@
 #include "FloatRect.h"
 #include "FrameLoadRequest.h"
 #include "FrameView.h"
+#include "GLES2Context.h"
 #include "Geolocation.h"
 #include "GeolocationService.h"
-#include "WebGeolocationService.h"
 #include "GeolocationServiceChromium.h"
 #include "GraphicsLayer.h"
 #include "HTMLNames.h"
@@ -56,6 +56,7 @@
 #include "Page.h"
 #include "PopupMenuChromium.h"
 #include "ScriptController.h"
+#include "WebGeolocationService.h"
 #if USE(V8)
 #include "V8Proxy.h"
 #endif
@@ -588,6 +589,11 @@ void ChromeClientImpl::runOpenPanel(Frame* frame, PassRefPtr<FileChooser> fileCh
 
     WebFileChooserParams params;
     params.multiSelect = fileChooser->allowsMultipleFiles();
+#if ENABLE(DIRECTORY_UPLOAD)
+    params.directory = fileChooser->allowsDirectoryUpload();
+#else
+    params.directory = false;
+#endif
     params.acceptTypes = fileChooser->acceptTypes();
     params.selectedFiles = fileChooser->filenames();
     if (params.selectedFiles.size() > 0)
@@ -727,6 +733,16 @@ void ChromeClientImpl::attachRootGraphicsLayer(Frame* frame, GraphicsLayer* grap
 void ChromeClientImpl::scheduleCompositingLayerSync()
 {
     m_webView->setRootLayerNeedsDisplay();
+}
+
+PassOwnPtr<GLES2Context> ChromeClientImpl::getOnscreenGLES2Context()
+{
+    return m_webView->getOnscreenGLES2Context();
+}
+
+PassOwnPtr<GLES2Context> ChromeClientImpl::getOffscreenGLES2Context()
+{
+    return m_webView->getOffscreenGLES2Context();
 }
 #endif
 

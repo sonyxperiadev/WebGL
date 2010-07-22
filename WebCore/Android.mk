@@ -24,7 +24,11 @@
 ##
 
 LOCAL_SRC_FILES := \
+<<<<<<< HEAD:WebCore/Android.mk
 	bindings/generic/BindingSecurityBase.cpp \
+=======
+	bindings/generic/RuntimeEnabledFeatures.cpp \
+>>>>>>> webkit.org at r63859:WebCore/Android.mk
 	\
 	css/CSSBorderImageValue.cpp \
 	css/CSSCanvasValue.cpp \
@@ -154,6 +158,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/Notation.cpp \
 	dom/OptionElement.cpp \
 	dom/OptionGroupElement.cpp \
+	dom/DeviceOrientation.cpp \
 	dom/DeviceOrientationController.cpp \
 	dom/DeviceOrientationEvent.cpp \
 	dom/OverflowEvent.cpp \
@@ -400,6 +405,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/SecurityOrigin.cpp \
 	page/Settings.cpp \
 	page/SpatialNavigation.cpp \
+	page/SpeechInput.cpp \
 	page/SuspendableTimer.cpp \
 	page/Timing.cpp \
 	page/UserContentURLPattern.cpp \
@@ -918,7 +924,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/SVGNumberList.cpp \
 	svg/SVGPaint.cpp \
 	svg/SVGParserUtilities.cpp \
+	svg/SVGPathBuilder.cpp \
 	svg/SVGPathElement.cpp \
+	svg/SVGPathParser.cpp \
 	svg/SVGPathSegArc.cpp \
 	svg/SVGPathSegClosePath.cpp \
 	svg/SVGPathSegCurvetoCubic.cpp \
@@ -929,6 +937,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/SVGPathSegLinetoHorizontal.cpp \
 	svg/SVGPathSegLinetoVertical.cpp \
 	svg/SVGPathSegList.cpp \
+	svg/SVGPathSegListBuilder.cpp \
 	svg/SVGPathSegMoveto.cpp \
 	svg/SVGPatternElement.cpp \
 	svg/SVGPointList.cpp \

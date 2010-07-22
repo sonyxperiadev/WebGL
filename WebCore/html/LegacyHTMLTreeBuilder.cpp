@@ -277,7 +277,30 @@ PassRefPtr<Node> LegacyHTMLTreeBuilder::parseToken(Token* t)
         if (m_inBody && !skipMode() && m_current->localName() != styleTag &&
             m_current->localName() != titleTag && !t->text->containsOnlyWhitespace())
             m_haveContent = true;
-        
+
+        // HTML5 requires text node coalescing.
+        // http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html#insert-a-character
+        Node* previousChild = m_current->lastChild();
+        if (previousChild && previousChild->isTextNode()) {
+            // Only coalesce text nodes if the text node wouldn't be foster parented.
+            if (!m_current->hasTagName(htmlTag)
+                && !m_current->hasTagName(tableTag)
+                && !m_current->hasTagName(trTag)
+                && !m_current->hasTagName(theadTag)
+                && !m_current->hasTagName(tbodyTag)
+                && !m_current->hasTagName(tfootTag)
+                && !m_current->hasTagName(titleTag)) {
+                // Technically we're only supposed to merge into the previous
+                // text node if it was the last node inserted by the parser.
+                // (This was a spec modification made to make it easier for
+                // mozilla to run their parser in a thread.)
+                // In practice it does not seem to matter.
+                CharacterData* textNode = static_cast<CharacterData*>(previousChild);
+                textNode->parserAppendData(t->text);
+                return textNode;
+            }
+        }
+
         RefPtr<Node> n;
         String text = t->text.get();
         unsigned charsLeft = text.length();
@@ -566,8 +589,17 @@ bool LegacyHTMLTreeBuilder::handleError(Node* n, bool flat, const AtomicString& 
             } else {
                 if (n->isTextNode()) {
                     Text* t = static_cast<Text*>(n);
-                    if (t->containsOnlyWhitespace())
+                    if (t->containsOnlyWhitespace()) {
+                        if (m_head && !m_inBody) {
+                            // We're between </head> and <body>.  According to
+                            // the HTML5 parsing algorithm, we're supposed to
+                            // insert whitespace text nodes into the HTML element.
+                            ExceptionCode ec;
+                            m_current->appendChild(n, ec);
+                            return true;
+                        }
                         return false;
+                    }
                 }
                 if (!m_haveFrameSet) {
                     // Ensure that head exists.
@@ -862,6 +894,15 @@ bool LegacyHTMLTreeBuilder::nestedStyleCreateErrorCheck(Token* t, RefPtr<Node>&)
     return allowNestedRedundantTag(t->tagName);
 }
 
+bool LegacyHTMLTreeBuilder::colCreateErrorCheck(Token*, RefPtr<Node>&)
+{
+    if (!m_current->hasTagName(tableTag))
+        return true;
+    RefPtr<Element> implicitColgroup = HTMLElementFactory::createHTMLElement(colgroupTag, m_document, 0, true);
+    insertNode(implicitColgroup.get());
+    return true;
+}
+
 bool LegacyHTMLTreeBuilder::tableCellCreateErrorCheck(Token*, RefPtr<Node>&)
 {
     popBlock(tdTag);
@@ -955,6 +996,7 @@ PassRefPtr<Node> LegacyHTMLTreeBuilder::getNode(Token* t)
         mapTagsToFunc(gFunctionMap, pCloserCreateErrorTags, &LegacyHTMLTreeBuilder::pCloserCreateErrorCheck);
 
         mapTagToFunc(gFunctionMap, bodyTag, &LegacyHTMLTreeBuilder::bodyCreateErrorCheck);
+        mapTagToFunc(gFunctionMap, colTag, &LegacyHTMLTreeBuilder::colCreateErrorCheck);
         mapTagToFunc(gFunctionMap, ddTag, &LegacyHTMLTreeBuilder::ddCreateErrorCheck);
         mapTagToFunc(gFunctionMap, dtTag, &LegacyHTMLTreeBuilder::dtCreateErrorCheck);
         mapTagToFunc(gFunctionMap, formTag, &LegacyHTMLTreeBuilder::formCreateErrorCheck);

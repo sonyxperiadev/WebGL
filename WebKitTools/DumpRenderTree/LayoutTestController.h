@@ -70,6 +70,7 @@ public:
     void queueBackNavigation(int howFarBackward);
     void queueForwardNavigation(int howFarForward);
     void queueLoad(JSStringRef url, JSStringRef target);
+    void queueLoadHTMLString(JSStringRef content, JSStringRef baseURL);
     void queueLoadingScript(JSStringRef script);
     void queueNonLoadingScript(JSStringRef script);
     void queueReload();
@@ -120,7 +121,10 @@ public:
 
     bool dumpAsText() const { return m_dumpAsText; }
     void setDumpAsText(bool dumpAsText) { m_dumpAsText = dumpAsText; }
-    
+
+    bool generatePixelResults() const { return m_generatePixelResults; }
+    void setGeneratePixelResults(bool generatePixelResults) { m_generatePixelResults = generatePixelResults; }
+
     bool dumpBackForwardList() const { return m_dumpBackForwardList; }
     void setDumpBackForwardList(bool dumpBackForwardList) { m_dumpBackForwardList = dumpBackForwardList; }
 
@@ -230,6 +234,9 @@ public:
     bool globalFlag() const { return m_globalFlag; }
     void setGlobalFlag(bool globalFlag) { m_globalFlag = globalFlag; }
     
+    bool deferMainResourceDataLoad() const { return m_deferMainResourceDataLoad; }
+    void setDeferMainResourceDataLoad(bool flag) { m_deferMainResourceDataLoad = flag; }
+
     const std::string& testPathOrURL() const { return m_testPathOrURL; }
     const std::string& expectedPixelHash() const { return m_expectedPixelHash; }
     
@@ -298,6 +305,7 @@ private:
     bool m_dumpIconChanges;
     bool m_dumpVisitedLinksCallback;
     bool m_dumpWillCacheResponse;
+    bool m_generatePixelResults;
     bool m_callCloseOnWebViews;
     bool m_canOpenWindows;
     bool m_closeRemainingWindowsWhenComplete;
@@ -316,6 +324,7 @@ private:
     bool m_geolocationPermission;
     bool m_handlesAuthenticationChallenges;
     bool m_isPrinting;
+    bool m_deferMainResourceDataLoad;
 
     std::string m_authenticationUsername;
     std::string m_authenticationPassword; 

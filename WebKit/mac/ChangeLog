@@ -1,3 +1,313 @@
+2010-07-21  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Composited layers don't scroll in WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=42771
+
+        Prep work: FrameView::scrollPositionChanged() sounds like a generic "did scroll" bottleneck,
+        but this is deceiving. It's only every called on one platform (Mac) when the NSScrollView gets
+        scrolled, so rename it to FrameView::scrollPositionChangedViaPlatformWidget().
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _frameOrBoundsChanged]):
+
+2010-07-21  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Update plug-in proxy backed <video> and <audio> elements.
+        https://bugs.webkit.org/show_bug.cgi?id=42770
+        <rdar://problem/7963467>
+
+        * Plugins/WebPluginController.h:
+        * Plugins/WebPluginController.mm:
+        (-[WebPluginController dealloc]): Release _viewsNotInDocument.
+        (-[WebPluginController stopAllPlugins]): Stop plug-ins not in the document.
+        (-[WebPluginController pluginViewCreated:]): New, add a View (plug-in) to _viewsNotInDocument.
+        (+[WebPluginController pluginViewHidden:]): New, remove the view (plug-in) from pluginViews.
+        (-[WebPluginController addPlugin:]): Remove the new plug-in from _viewsNotInDocument.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::createPlugin): Remove PLUGIN_PROXY_FOR_VIDEO code, the media
+        player proxy plug-in should never be allocated by this method.
+        (WebFrameLoaderClient::createMediaPlayerProxyPlugin): New, allocate a media player proxy.
+
+        * WebView/WebView.mm:
+        (-[WebView _videoProxyPluginForMIMEType:]): New. Identical to _pluginForMIMEType except it doesn't
+        consider the arePlugInsEnabled preference.
+        * WebView/WebViewInternal.h:
+
+
+2010-07-19  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42118
+        Disable WebGL on Leopard for now. 
+
+        LayoutTests fail on some graphics hardware on Leopard because one of the features we use,
+        GL_ARB_framebuffer_object, is not universally available in Leopard like it is in
+        SnowLeopard. This will allow LayoutTests to pass on Leopard until we add logic to use a
+        software OpenGL driver on machines without this support.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-07-18  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Move PluginWidget to WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=42530
+
+        * Plugins/WebBaseNetscapePluginView.h:
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (-[WebBaseNetscapePluginView pluginLayer]):
+        Add default pluginLayer implementation.
+
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (PluginWidget::PluginWidget):
+        (PluginWidget::invalidateRect):
+        Move the guts of PluginWidget here from WebCore.
+        
+        (NetscapePluginWidget::platformLayer):
+        Get the layer from the plug-in view.
+
+2010-07-18  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/42522> Add missing (id) return type to Obj-C methods
+
+        Reviewed by Dan Bernstein.
+
+        * Carbon/CarbonWindowAdapter.mm:
+        (-[NSWindow(HIWebFrameView) _initContent:styleMask:backing:defer:contentView:]):
+        (-[CarbonWindowAdapter _destroyRealWindow:]):
+        (-[CarbonWindowAdapter _clearModalWindowLevel]):
+        * Misc/WebIconDatabase.mm:
+        (-[WebIconDatabase init]):
+        * Misc/WebNSPasteboardExtras.mm:
+        (-[NSFilePromiseDragSource initWithSource:]):
+        * WebView/WebHTMLRepresentation.mm:
+        (-[WebHTMLRepresentation init]):
+        * WebView/WebPreferences.mm:
+        (-[WebPreferences init]):
+        * WebView/WebView.mm:
+        (-[WebView UIDelegate]):
+        (-[WebView resourceLoadDelegate]):
+        (-[WebView downloadDelegate]):
+        (-[WebView policyDelegate]):
+        (-[WebView frameLoadDelegate]):
+
+2010-07-16  Zhe Su  <suzhe@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION(r61484): Broke focus behaviour on Qt and probably other platforms
+        https://bugs.webkit.org/show_bug.cgi?id=42253
+
+        Dummy implementation of EditorClient::willSetInputMethodState.
+
+        * WebCoreSupport/WebEditorClient.h:
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::willSetInputMethodState):
+
+2010-07-16  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Part of <rdar://problem/7233974> Deprecate +[WebView _setShouldUseFontSmoothing:]
+        https://bugs.webkit.org/show_bug.cgi?id=29355
+
+        * Misc/WebKitNSStringExtras.h:
+        * Misc/WebKitNSStringExtras.mm:
+        (-[NSString _web_drawAtPoint:font:textColor:]): Now calls through to
+        -_web_drawAtPoint:font:textColor:allowingFontSmoothing: passing YES for the last
+        parameter.
+        (-[NSString _web_drawAtPoint:font:textColor:allowingFontSmoothing:]): Added
+        allowingFontSmoothing:. If font smoothing is not allowed, sets the font smoothing
+        mode to antialiased. Otherwise, sets it to auto.
+        (-[NSString _web_drawDoubledAtPoint:withTopColor:bottomColor:font:]): Instead of
+        changing the font smoothing setting in the graphics context, call
+        -_web_drawAtPoint:font:textColor:allowingFontSmoothing: passing NO for the last
+        parameter.
+
+2010-07-16  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Remove semicolons from Objective-C method declarations.
+
+        * WebView/WebRenderLayer.mm:
+        (+[WebRenderLayer nameForLayer:]):
+        (+[WebRenderLayer compositingInfoForLayer:]):
+
+2010-07-16  Mikhail Naganov  <mnaganov@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Make JS memory stats available via 'Performance' object (Web Timing).
+        This statistics is populated only if 'WebKitMemoryInfoEnabled'
+        preference is set.
+
+        'console.memory' is kept until Web Timing object becomes visible by
+        default (currently it is hidden under compile-time flag).  These stats
+        are guarded with the same preference.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41617
+
+        * WebKit.order:
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences memoryInfoEnabled]):
+        (-[WebPreferences setMemoryInfoEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+
+2010-07-15  Shinichiro Hamaji  <hamaji@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Printing test results differ between machines, we should use ImageDiff instead
+        https://bugs.webkit.org/show_bug.cgi?id=20011
+
+        * Misc/WebCoreStatistics.h:
+        * Misc/WebCoreStatistics.mm:
+        (-[WebFrame printToCGContext:cgContext:pageWidthInPixels:]):
+
+2010-07-15  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Darin Adler.
+
+        [Mac] Implement LayoutTestController::markerTextForListItem()
+        https://bugs.webkit.org/show_bug.cgi?id=37929
+
+        Implements support for markerTextForListItem in the Mac port.
+
+        * DOM/WebDOMOperations.mm:
+        (+[DOMElement _DOMElementFromJSContext]): Added.
+        (-[DOMElement _markerTextForListItem]): Added.
+        * DOM/WebDOMOperationsPrivate.h:
+
+2010-07-14  Simon Fraser  <simon.fraser@apple.com>
+
+        Fix non-ACCELERATED_COMPOSITING build.
+
+        * WebView/WebRenderLayer.mm:
+        (+[WebRenderLayer compositingInfoForLayer:]):
+
+2010-07-14  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by John Sullivan.
+
+        <rdar://problem/8186963> Expose information about compositing layers.
+
+        Use RenderLayerBacking::compositingLayerType() to add more information about compositing to
+        WebRenderLayer, via a compositingInfo property. Also show element classnames.
+        
+        Also add separator items between the various z-order lists.
+        
+        * WebView/WebRenderLayer.h:
+        * WebView/WebRenderLayer.mm:
+        (+[WebRenderLayer nameForLayer:]):
+        (+[WebRenderLayer compositingInfoForLayer:]):
+        (-[WebRenderLayer initWithRenderLayer:]):
+        (-[WebRenderLayer initWithName:]):
+        (-[WebRenderLayer initWithWebFrame:]):
+        (-[WebRenderLayer dealloc]):
+        (-[WebRenderLayer buildDescendantLayers:]):
+        (-[WebRenderLayer compositingInfo]):
+        (-[WebRenderLayer isComposited]):
+        (-[WebRenderLayer isSeparator]):
+
+2010-07-14  Darin Adler  <darin@apple.com>
+
+        Another try at fixing the Tiger build.
+
+        Avoid non-ASCII in source files to keep Tiger compiler happy.
+
+        * WebView/WebRenderLayer.mm:
+        (+[WebRenderLayer nameForLayer:]): Use %C for the non-ASCII characters.
+
+2010-07-14  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=42232
+        Make changing Cursors work in WebKit2.
+
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::setCursor):
+        * WebView/WebView.mm:
+        Implement cursor changing at the WebKit level for the sake of WebKit2.
+        This functionality is being moved from WidgetMac.mm.
+        (+[WebView _pointingHandCursor]):
+        Update to use platformCursor() instead of impl().
+
+2010-07-13  Simon Fraser  <simon.fraser@apple.com>
+
+        Fix Tiger build.
+
+        Avoid non-ASCII in souce files to keep Tiger compiler happy.
+
+        * WebView/WebRenderLayer.mm:
+        (+[WebRenderLayer nameForLayer:]):
+
+2010-07-13  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        <rdar://problem/8186963> Expose RenderLayer hierarchy via Obj-C for debugging.
+
+        Add a WebRenderLayer class that reflects the RenderLayer tree into a hierarchy
+        of Objective-C objects suitable for display in an outline view.
+        
+        * WebKit.exp: Export the WebRenderLayer Objective-C class.
+        * WebView/WebRenderLayer.h: Added.
+        * WebView/WebRenderLayer.mm: Added.
+
+2010-07-07  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        Reviewed by Darin Adler.
+
+        Prevent assertion/duplicate loads for non-deferred subtitute-data loads
+
+        https://bugs.webkit.org/show_bug.cgi?id=30879
+
+        MainResourceLoader uses the member m_initialRequest to store requests for future
+        deferred loads. When doing the actual load in handleDataLoadNow(), we therefore
+        have to clear this request so that subsequent entries into the loader will not
+        start yet another load.
+
+        This can happen as a result of a PageGroupLoadDeferrer going out of scope when
+        returning from Chrome::runJavaScriptAlert(), which calls setDeferredLoading(false),
+        but only in the case of using both substitute-data and non-deferred main resource
+        load together. That's why two new DRT functions were added:
+
+         * queueLoadHTMLString()
+         * setDeferMainResourceLoad()
+
+        The change adds DRT hooks for Mac, Win and Qt for these two functions. For Mac
+        and Win the hook uses new SPI in WebDataSource. For Qt a new static member was
+        added to the FrameLoaderClientQt and accessed though DumpRenderTreeSupportQt.
+
+        * WebView/WebDataSource.mm:
+        (-[WebDataSource _setDeferMainResourceDataLoad:]):
+        * WebView/WebDataSourcePrivate.h:
+
+2010-07-13  Philippe Normand  <pnormand@igalia.com>
+
+        Rubber-stamped by Xan Lopez.
+
+        Updated the copyright headers of the files modified in r62476.
+
+        * WebView/WebView.mm:
+        * WebView/WebViewData.h:
+        * WebView/WebViewInternal.h:
+
 2010-07-09  Alexey Proskuryakov  <ap@apple.com>
 
         Reviewed by Darin Adler.

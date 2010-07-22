@@ -77,7 +77,9 @@ class WebKitCSSMatrix;
         void blendFuncSeparate(unsigned long srcRGB, unsigned long dstRGB, unsigned long srcAlpha, unsigned long dstAlpha);
 
         void bufferData(unsigned long target, int size, unsigned long usage, ExceptionCode&);
+        void bufferData(unsigned long target, ArrayBuffer* data, unsigned long usage, ExceptionCode&);
         void bufferData(unsigned long target, ArrayBufferView* data, unsigned long usage, ExceptionCode&);
+        void bufferSubData(unsigned long target, long offset, ArrayBuffer* data, ExceptionCode&);
         void bufferSubData(unsigned long target, long offset, ArrayBufferView* data, ExceptionCode&);
 
         unsigned long checkFramebufferStatus(unsigned long target);
@@ -304,6 +306,10 @@ class WebKitCSSMatrix;
     
         void reshape(int width, int height);
 
+        // Return value true indicates canvas is updated during the call,
+        // false indicates no updates.
+        bool paintRenderingResultsToCanvas();
+
         // Helpers for notification about paint events.
         void beginPaint();
         void endPaint();
@@ -410,8 +416,10 @@ class WebKitCSSMatrix;
         RefPtr<WebGLTexture> m_blackTexture2D;
         RefPtr<WebGLTexture> m_blackTextureCubeMap;
 
-        long m_maxTextureSize;
-        long m_maxCubeMapTextureSize;
+        int m_maxTextureSize;
+        int m_maxCubeMapTextureSize;
+        int m_maxTextureLevel;
+        int m_maxCubeMapTextureLevel;
 
         int m_packAlignment;
         int m_unpackAlignment;
@@ -501,8 +509,9 @@ class WebKitCSSMatrix;
         bool validateUniformMatrixParameters(const WebGLUniformLocation* location, bool transpose, Float32Array* v, int mod);
         bool validateUniformMatrixParameters(const WebGLUniformLocation* location, bool transpose, void* v, int size, int mod);
 
-        // Helper function to validate usage for bufferData.
-        bool validateBufferDataUsage(unsigned long);
+        // Helper function to validate parameters for bufferData.
+        // Return the current bound buffer to target, or 0 if parameters are invalid.
+        WebGLBuffer* validateBufferDataParameters(unsigned long target, unsigned long usage);
 
         // Helper functions for vertexAttribNf{v}.
         void vertexAttribfImpl(unsigned long index, int expectedSize, float v0, float v1, float v2, float v3);

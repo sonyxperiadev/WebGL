@@ -59,6 +59,8 @@ public:
     void removeBreakpoint(const String& sourceID, unsigned lineNumber);
     void clearBreakpoints();
     void setBreakpointsActivated(bool activated);
+    void activateBreakpoints() { setBreakpointsActivated(true); }
+    void deactivateBreakpoints() { setBreakpointsActivated(false); }
 
     enum PauseOnExceptionsState {
         DontPauseOnExceptions,
@@ -68,7 +70,7 @@ public:
     PauseOnExceptionsState pauseOnExceptionsState();
     void setPauseOnExceptionsState(PauseOnExceptionsState pauseOnExceptionsState);
 
-    void pauseProgram() { }
+    void pause() { }
     void continueProgram();
     void stepIntoStatement();
     void stepOverStatement();
@@ -101,10 +103,8 @@ private:
     ScriptDebugServer();
     ~ScriptDebugServer() { }
 
-#if ENABLE(V8_SCRIPT_DEBUG_SERVER)
     static void v8DebugEventCallback(const v8::Debug::EventDetails& eventDetails);
     void handleV8DebugEvent(const v8::Debug::EventDetails& eventDetails);
-#endif
 
     void dispatchDidParseSource(ScriptDebugListener* listener, v8::Handle<v8::Object> sourceObject);
 

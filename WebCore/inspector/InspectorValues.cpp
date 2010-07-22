@@ -550,6 +550,7 @@ void InspectorBasicValue::writeJSON(Vector<UChar>* output) const
             output->append(falseString, 5);
     } else if (type() == TypeDouble) {
         String value = String::format("%f", m_doubleValue);
+        value.replace(',', '.');
         output->append(value.characters(), value.length());
     }
 }
@@ -648,6 +649,12 @@ void InspectorArray::writeJSON(Vector<UChar>* output) const
         (*it)->writeJSON(output);
     }
     output->append(']');
+}
+
+PassRefPtr<InspectorValue> InspectorArray::get(size_t index)
+{
+    ASSERT(index < m_data.size());
+    return m_data[index];
 }
 
 } // namespace WebCore

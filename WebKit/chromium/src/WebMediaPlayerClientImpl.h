@@ -39,6 +39,7 @@
 
 namespace WebKit {
 
+class WebMediaElement;
 class WebMediaPlayer;
 
 // This class serves as a bridge between WebCore::MediaPlayer and
@@ -49,6 +50,11 @@ public:
     static bool isEnabled();
     static void setIsEnabled(bool);
     static void registerSelf(WebCore::MediaEngineRegistrar);
+
+    static WebMediaPlayerClientImpl* fromMediaElement(const WebMediaElement* element);
+
+    // Returns the encapsulated WebKit::WebMediaPlayer.
+    WebMediaPlayer* mediaPlayer() const;
 
     // WebMediaPlayerClient methods:
     virtual void networkStateChanged();
@@ -66,6 +72,10 @@ public:
     // MediaPlayerPrivateInterface methods:
     virtual void load(const WebCore::String& url);
     virtual void cancelLoad();
+#if USE(ACCELERATED_COMPOSITING)
+    virtual WebCore::PlatformLayer* platformLayer() const;
+#endif
+    virtual WebCore::PlatformMedia platformMedia() const;
     virtual void play();
     virtual void pause();
     virtual bool supportsFullscreen() const;
@@ -94,6 +104,10 @@ public:
     virtual void setSize(const WebCore::IntSize&);
     virtual void paint(WebCore::GraphicsContext*, const WebCore::IntRect&);
     virtual bool hasSingleSecurityOrigin() const;
+#if USE(ACCELERATED_COMPOSITING)
+    virtual bool supportsAcceleratedRendering() const;
+#endif
+
     virtual WebCore::MediaPlayer::MovieLoadType movieLoadType() const;
 
 private:
@@ -106,6 +120,10 @@ private:
 
     WebCore::MediaPlayer* m_mediaPlayer;
     OwnPtr<WebMediaPlayer> m_webMediaPlayer;
+#if USE(ACCELERATED_COMPOSITING)
+    RefPtr<WebCore::PlatformLayer> m_videoLayer;
+    bool m_supportsAcceleratedCompositing;
+#endif
     static bool m_isEnabled;
 };
 
