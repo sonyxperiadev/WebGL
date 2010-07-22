@@ -488,10 +488,9 @@ void ChromeClientAndroid::chooseIconForFiles(const Vector<WebCore::String>&, Fil
     notImplemented();
 }
 
-bool ChromeClientAndroid::setCursor(PlatformCursorHandle)
+void ChromeClientAndroid::setCursor(const Cursor&)
 {
     notImplemented(); 
-    return false;
 }
 
 void ChromeClientAndroid::wakeUpMainThreadWithNewQuota(long newQuota) {

@@ -147,7 +147,7 @@ namespace android {
         void onMainFrameLoadStarted();
 
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
-        virtual bool setCursor(PlatformCursorHandle);
+        virtual void setCursor(const Cursor&);
         virtual void chooseIconForFiles(const WTF::Vector<WebCore::String>&, FileChooser*);
 
         // Notification that the given form element has changed. This function
