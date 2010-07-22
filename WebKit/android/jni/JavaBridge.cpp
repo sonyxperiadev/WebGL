@@ -380,14 +380,14 @@ void JavaBridge::SetNetworkType(JNIEnv* env, jobject obj, jstring javatype, jstr
 
     String type = to_string(env, javatype);
     String subtype = to_string(env, javasubtype);
-    Connection::ConnectionType connectionType = Connection::Unknown;
+    Connection::ConnectionType connectionType = Connection::UNKNOWN;
     if (type == wifi)
-        connectionType = Connection::WiFi;
+        connectionType = Connection::WIFI;
     else if (type == mobile || type == mobileSupl) {
         if (subtype == edge || subtype == gprs)
-            connectionType = Connection::Cell_2G;
+            connectionType = Connection::CELL_2G;
         else if (subtype == umts)
-            connectionType = Connection::Cell_3G;
+            connectionType = Connection::CELL_3G;
     }
     WebCore::networkStateNotifier().networkTypeChange(connectionType);
 }

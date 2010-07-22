@@ -34,11 +34,11 @@ namespace WebCore {
 class Connection : public RefCounted<Connection> {
 public:
     enum ConnectionType {
-        Unknown = 0,
-        Ethernet = 1,
-        WiFi = 2,
-        Cell_2G = 3,
-        Cell_3G = 4,
+        UNKNOWN = 0,
+        ETHERNET = 1,
+        WIFI = 2,
+        CELL_2G = 3,
+        CELL_3G = 4,
     };
 
     static PassRefPtr<Connection> create() { return adoptRef(new Connection()); }

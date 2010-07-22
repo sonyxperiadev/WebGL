@@ -129,7 +129,7 @@ inline NetworkStateNotifier::NetworkStateNotifier()
     : m_isOnLine(true)
 #if PLATFORM(ANDROID)
     // TODO: Upstream to webkit.org
-    , m_type(Connection::Unknown)
+    , m_type(Connection::UNKNOWN)
 #endif
     , m_networkStateChangedFunction(0)
 {    
