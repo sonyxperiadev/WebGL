@@ -257,7 +257,7 @@ LOCAL_CFLAGS += -include "WebCorePrefix.h"
 LOCAL_CFLAGS += -fvisibility=hidden
 ifeq ($(HTTP_STACK),chrome)
 LOCAL_CFLAGS += -DGOOGLEURL
-LOCAL_CFLAGS += -DCHROME_HTTP_STACK
+LOCAL_CFLAGS += -DWTF_USE_CHROME_NETWORK_STACK
 LOCAL_CFLAGS += -include "assert.h"
 endif # HTTP_STACK == chrome
 
