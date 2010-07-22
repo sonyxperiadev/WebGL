@@ -1393,7 +1393,7 @@ Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop)
     m_mousePos = IntPoint(x - m_scrollOffsetX, y - m_scrollOffsetY);
 #ifdef ANDROID_HITTEST_WITHSIZE
     HitTestResult hitTestResult = m_mainFrame->eventHandler()->hitTestResultAtPoint(IntPoint(x, y),
-            false, false, DontHitTestScrollbars, IntSize(slop, slop));
+            false, false, DontHitTestScrollbars, HitTestRequest::Active | HitTestRequest::ReadOnly, IntSize(slop, slop));
     if (!hitTestResult.innerNode() || !hitTestResult.innerNode()->inDocument()) {
         LOGE("Should not happen: no in document Node found");
         return rects;
