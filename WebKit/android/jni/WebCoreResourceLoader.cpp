@@ -250,7 +250,7 @@ jstring WebCoreResourceLoader::RedirectedToUrl(JNIEnv* env, jobject obj,
         return NULL;
 
     LOG_ASSERT(handle->client(), "Why do we not have a client?");
-    WebCore::ResourceRequest r = handle->request();
+    WebCore::ResourceRequest r = handle->firstRequest();
     WebCore::KURL url(WebCore::KURL(WebCore::ParsedURLString, to_string(env, baseUrl)),
             to_string(env, redirectTo));
     WebCore::ResourceResponse* response = (WebCore::ResourceResponse*)nativeResponse;

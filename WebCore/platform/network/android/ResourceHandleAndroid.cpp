@@ -55,7 +55,7 @@ bool ResourceHandle::start(Frame* frame)
     bool isMainResource =
             static_cast<void*>(mainLoader) == static_cast<void*>(client());
 
-    PassRefPtr<ResourceLoaderAndroid> loader = ResourceLoaderAndroid::start(this, d->m_request, frame->loader()->client(), isMainResource, false);
+    PassRefPtr<ResourceLoaderAndroid> loader = ResourceLoaderAndroid::start(this, d->m_firstRequest, frame->loader()->client(), isMainResource, false);
 
     if (loader) {
         d->m_loader = loader;
