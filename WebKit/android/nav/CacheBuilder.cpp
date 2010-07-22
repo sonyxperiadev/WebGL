@@ -905,7 +905,7 @@ static Node* OneAfter(Node* node)
 static bool checkForPluginViewThatWantsFocus(RenderObject* renderer) {
     if (renderer->isWidget()) {
         Widget* widget = static_cast<RenderWidget*>(renderer)->widget();
-        if (widget && (widget->isPluginView() || widget->isPluginWidget())) {
+        if (widget && (widget->isPluginView() || widget->isPluginViewBase())) {
             // check if this plugin really wants key events (TODO)
             return true;
         }

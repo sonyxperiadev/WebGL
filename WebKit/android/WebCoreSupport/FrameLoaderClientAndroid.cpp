@@ -54,7 +54,7 @@
 #include "PlatformString.h"
 #include "PluginDatabase.h"
 #include "PluginView.h"
-#include "PluginWidget.h"
+#include "PluginViewBase.h"
 #include "ProgressTracker.h"
 #include "RenderPart.h"
 #include "RenderView.h"
@@ -1014,15 +1014,18 @@ static bool isYouTubeInstalled() {
     return WebCore::packageNotifier().isPackageInstalled("com.google.android.youtube");
 }
 
-// Use PluginWidget as it is not used by Android for real plugins.
-class PluginToggleWidget : public PluginWidget {
+// Use PluginViewBase rather than an Android specific sub class as we do not require any
+// Android specific functionality; this just renders a placeholder which will later
+// activate the real plugin.
+class PluginToggleWidget : public PluginViewBase {
 public:
     PluginToggleWidget(Frame* parent, const IntSize& size,
             HTMLPlugInElement* elem, const KURL& url,
             const WTF::Vector<String>& paramNames,
             const WTF::Vector<String>& paramValues, const String& mimeType,
             bool loadManually)
-        : m_parent(parent)
+        : PluginViewBase(0)
+        , m_parent(parent)
         , m_size(size)
         , m_element(elem)
         , m_url(url)
@@ -1093,7 +1096,7 @@ public:
             for (; it != end; ++it) {
                 Widget* widget = (*it)->widget();
                 // PluginWidget is used only with PluginToggleWidget
-                if (widget->isPluginWidget()) {
+                if (widget->isPluginViewBase()) {
                     PluginToggleWidget* ptw =
                             static_cast<PluginToggleWidget*>(widget);
                     ptw->swapPlugin(*it);
@@ -1122,6 +1125,8 @@ public:
     }
 
 private:
+    void invalidateRect(const IntRect& rect) { }
+
     RefPtr<Frame>       m_parent;
     IntSize             m_size;
     HTMLPlugInElement*  m_element;
