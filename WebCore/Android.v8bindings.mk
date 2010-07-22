@@ -43,8 +43,6 @@ BINDING_C_INCLUDES := \
 LOCAL_SRC_FILES += \
 	bindings/ScriptControllerBase.cpp \
 	\
-	bindings/generic/RuntimeEnabledFeatures.cpp \
-	\
 	bindings/v8/ChildThreadDOMData.cpp \
 	bindings/v8/DateExtension.cpp \
 	bindings/v8/DOMData.cpp \

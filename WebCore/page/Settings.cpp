@@ -148,13 +148,10 @@ Settings::Settings(Page* page)
     , m_html5TreeBuilderEnabled(false) // Will be deleted soon, do not use.
     , m_paginateDuringLayoutEnabled(false)
     , m_dnsPrefetchingEnabled(true)
-<<<<<<< HEAD:WebCore/page/Settings.cpp
+    , m_memoryInfoEnabled(false)
 #ifdef ANDROID_PLUGINS
     , m_pluginsOnDemand(false)
 #endif
-=======
-    , m_memoryInfoEnabled(false)
->>>>>>> webkit.org at r63859:WebCore/page/Settings.cpp
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.

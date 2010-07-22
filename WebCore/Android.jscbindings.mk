@@ -81,10 +81,6 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSCustomPositionErrorCallback.cpp \
 	bindings/js/JSCustomSQLStatementErrorCallback.cpp \
 	bindings/js/JSCustomVoidCallback.cpp \
-<<<<<<< HEAD:WebCore/Android.jscbindings.mk
-	bindings/js/JSDesktopNotificationsCustom.cpp \
-=======
->>>>>>> webkit.org at r63859:WebCore/Android.jscbindings.mk
 	bindings/js/JSDOMApplicationCacheCustom.cpp \
 	bindings/js/JSDOMBinding.cpp \
 	bindings/js/JSDOMFormDataCustom.cpp \
@@ -96,11 +92,8 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSDOMWindowBase.cpp \
 	bindings/js/JSDOMWindowCustom.cpp \
 	bindings/js/JSDOMWindowShell.cpp \
-<<<<<<< HEAD:WebCore/Android.jscbindings.mk
 	bindings/js/JSDOMWrapper.cpp \
-=======
 	bindings/js/JSDatabaseCallback.cpp \
->>>>>>> webkit.org at r63859:WebCore/Android.jscbindings.mk
 	bindings/js/JSDataGridColumnListCustom.cpp \
 	bindings/js/JSDataGridDataSource.cpp \
 	bindings/js/JSDatabaseCustom.cpp \

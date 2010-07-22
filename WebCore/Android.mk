@@ -24,11 +24,8 @@
 ##
 
 LOCAL_SRC_FILES := \
-<<<<<<< HEAD:WebCore/Android.mk
 	bindings/generic/BindingSecurityBase.cpp \
-=======
 	bindings/generic/RuntimeEnabledFeatures.cpp \
->>>>>>> webkit.org at r63859:WebCore/Android.mk
 	\
 	css/CSSBorderImageValue.cpp \
 	css/CSSCanvasValue.cpp \

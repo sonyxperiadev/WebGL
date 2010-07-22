@@ -57,11 +57,7 @@ namespace WebCore {
     class Element;
     class Event;
     class InspectorDOMAgent;
-<<<<<<< HEAD:WebCore/inspector/InspectorDOMAgent.h
-    class InspectorFrontend2;
-=======
     class RemoteInspectorFrontend;
->>>>>>> webkit.org at r63859:WebCore/inspector/InspectorDOMAgent.h
     class MatchJob;
     class NameNodeMap;
     class Node;

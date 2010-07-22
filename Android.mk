@@ -127,10 +127,7 @@ LOCAL_C_INCLUDES := \
 LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebCore \
 	$(LOCAL_PATH)/WebCore/accessibility \
-<<<<<<< HEAD:Android.mk
 	$(LOCAL_PATH)/WebCore/bindings/ \
-=======
->>>>>>> webkit.org at r63859:Android.mk
 	$(LOCAL_PATH)/WebCore/bindings/generic \
 	$(LOCAL_PATH)/WebCore/css \
 	$(LOCAL_PATH)/WebCore/dom \

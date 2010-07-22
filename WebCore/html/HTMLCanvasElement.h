@@ -110,7 +110,8 @@ public:
     bool is3D() const;
 #endif
 
-<<<<<<< HEAD:WebCore/html/HTMLCanvasElement.h
+    void makeRenderingResultsAvailable();
+
 #ifdef ANDROID_INSTRUMENT
     void* operator new(size_t size) {
         return HTMLElement::operator new(size);
@@ -126,9 +127,6 @@ public:
         HTMLElement::operator delete[](p, size);
     }
 #endif
-=======
-    void makeRenderingResultsAvailable();
->>>>>>> webkit.org at r63859:WebCore/html/HTMLCanvasElement.h
 
 private:
     HTMLCanvasElement(const QualifiedName&, Document*);

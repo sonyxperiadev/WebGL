@@ -197,17 +197,12 @@ public:
     void setClient(ResourceHandleClient*);
 
     void setDefersLoading(bool);
-<<<<<<< HEAD:WebCore/platform/network/ResourceHandle.h
 #if PLATFORM(ANDROID)
 // TODO: this needs upstreaming.
     void pauseLoad(bool);
 #endif
-
-    const ResourceRequest& request() const;
-=======
       
     ResourceRequest& firstRequest();
->>>>>>> webkit.org at r63859:WebCore/platform/network/ResourceHandle.h
     const String& lastHTTPMethod() const;
 
     void fireFailure(Timer<ResourceHandle>*);
