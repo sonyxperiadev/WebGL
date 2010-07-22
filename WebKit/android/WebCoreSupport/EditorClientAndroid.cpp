@@ -257,4 +257,8 @@ void EditorClientAndroid::setInputMethodState(bool) {}
 // functions new to Feb-19 tip of tree merge:
 void EditorClientAndroid::handleInputMethodKeydown(KeyboardEvent*) {}
 
+void EditorClientAndroid::willSetInputMethodState()
+{
+    notImplemented();
+}
 }
