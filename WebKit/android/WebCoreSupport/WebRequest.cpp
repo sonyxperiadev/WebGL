@@ -146,7 +146,7 @@ void WebRequest::handleDataURL(GURL url)
         callOnMainThread(WebUrlLoaderClient::didReceiveResponse, loaderResponse);
 
         if (!data->empty()) {
-            LoaderData* loaderData = new LoaderData(m_urlLoader, data.release());
+            LoaderData* loaderData = new LoaderData(m_urlLoader, data.leakPtr());
             callOnMainThread(WebUrlLoaderClient::didReceiveDataUrl, loaderData);
         }
     } else {
