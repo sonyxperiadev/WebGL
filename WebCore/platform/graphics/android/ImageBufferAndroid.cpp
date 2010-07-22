@@ -29,8 +29,8 @@
 #include "Base64.h"
 #include "BitmapImage.h"
 #include "ImageData.h"
-#include "android_graphics.h"
 #include "GraphicsContext.h"
+#include "NotImplemented.h"
 #include "PlatformGraphicsContext.h"
 #include "SkBitmapRef.h"
 #include "SkCanvas.h"
@@ -39,6 +39,7 @@
 #include "SkImageEncoder.h"
 #include "SkStream.h"
 #include "SkUnPreMultiply.h"
+#include "android_graphics.h"
 
 using namespace std;
 
@@ -226,6 +227,11 @@ String ImageBuffer::toDataURL(const String&, const double*) const
 
     // And the resulting string.
     return String::format("data:image/png;base64,%s", base64EncodedData.data());
+}
+
+void ImageBuffer::platformTransformColorSpace(const Vector<int>& lookupTable)
+{
+    notImplemented();
 }
 
 }
