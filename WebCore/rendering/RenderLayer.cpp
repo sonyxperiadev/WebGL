@@ -3758,15 +3758,16 @@ bool RenderLayer::shouldBeNormalFlowOnly() const
 }
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-static bool hasOverflowScroll(const RenderLayer* l)
+static bool hasOverflowScroll(const RenderLayer* layer)
 {
-    RenderLayer* layer = const_cast<RenderLayer*>(l);
     RenderBox* box = layer->renderBox();
+    if (!box || !box->node()->hasTagName(HTMLNames::divTag))
+        return false;
     EOverflow x = box->style()->overflowX();
     EOverflow y = box->style()->overflowY();
     return (x == OAUTO || x == OSCROLL || y == OAUTO || y == OSCROLL) &&
-            (layer->scrollWidth() > box->clientWidth() ||
-             layer->scrollHeight() > box->clientHeight());
+            (box->scrollWidth() > box->clientWidth() ||
+             box->scrollHeight() > box->clientHeight());
 }
 #endif
 

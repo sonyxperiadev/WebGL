@@ -1154,14 +1154,15 @@ bool RenderLayerCompositor::requiresCompositingForMobileSites(const RenderLayer*
 #endif
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-static bool requiresCompositingForOverflowScroll(const RenderLayer* l) {
-    RenderLayer* layer = const_cast<RenderLayer*>(l);
+static bool requiresCompositingForOverflowScroll(const RenderLayer* layer) {
     RenderBox* box = layer->renderBox();
+    if (!box || !box->node()->hasTagName(HTMLNames::divTag))
+        return false;
     EOverflow x = box->style()->overflowX();
     EOverflow y = box->style()->overflowY();
     return (x == OAUTO || x == OSCROLL || y == OAUTO || y == OSCROLL) &&
-            (layer->scrollWidth() > box->contentWidth() ||
-             layer->scrollHeight() > box->contentHeight());
+            (box->scrollWidth() > box->clientWidth() ||
+             box->scrollHeight() > box->clientHeight());
 }
 #endif
 
