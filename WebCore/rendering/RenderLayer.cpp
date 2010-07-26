@@ -3761,7 +3761,7 @@ bool RenderLayer::shouldBeNormalFlowOnly() const
 static bool hasOverflowScroll(const RenderLayer* layer)
 {
     RenderBox* box = layer->renderBox();
-    if (!box || !box->node()->hasTagName(HTMLNames::divTag))
+    if (!box || !box->node() || !box->node()->hasTagName(HTMLNames::divTag))
         return false;
     EOverflow x = box->style()->overflowX();
     EOverflow y = box->style()->overflowY();
