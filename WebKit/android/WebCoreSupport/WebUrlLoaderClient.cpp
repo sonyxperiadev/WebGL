@@ -133,8 +133,6 @@ void WebUrlLoaderClient::cancel()
     base::Thread* thread = ioThread();
     if (thread)
         thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::cancel));
-
-    finish();
 }
 
 void WebUrlLoaderClient::finish()
