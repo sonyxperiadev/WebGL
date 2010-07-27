@@ -23,17 +23,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define LOG_TAG "hyphenation_android"
-
 #include "config.h"
 #include "Hyphenation.h"
-#include "NotImplemented.h"
-#include <utils/AssetManager.h>
-#include "wtf/text/CString.h"
-#include "wtf/text/WTFString.h"
 
 // For external hyphenation library.
 #include "hyphen.h"
+#include <utils/AssetManager.h>
+#include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
 
 extern android::AssetManager* globalAssetManager();
 
@@ -41,41 +38,37 @@ using namespace WTF;
 
 namespace WebCore {
 
-static HyphenDict* getHyphenDict() {
-    static HyphenDict *dict = 0;
-    static bool isDictInitialized = false;
-    if (!isDictInitialized && !dict) {
-        isDictInitialized = true;
-        android::AssetManager* am = globalAssetManager();
-        // Only support English for now.
-        android::Asset* a = am->open("webkit/hyph_en_US.dic",
-            android::Asset::ACCESS_BUFFER);
-        if (!a) {
-            LOGW("asset webkit/hyph_en_US.dic not found!");
-            return 0;
-        }
-        LOGD("dictionary length is %d", a->getLength());
-        const CString dictContents = String(static_cast<const char*>(a->getBuffer(false)),
-            a->getLength()).utf8();
-        dict = hnj_hyphen_load_from_buffer(dictContents.data(),
-            dictContents.length());
-        delete a;
+static HyphenDict* loadHyphenationDictionary()
+{
+    android::AssetManager* am = globalAssetManager();
+    // Only support English for now.
+    android::Asset* a = am->open("webkit/hyph_en_US.dic",
+        android::Asset::ACCESS_BUFFER);
+    if (!a) {
+        // Asset webkit/hyph_en_US.dic not found!
+        return 0;
     }
+    const CString dictContents = String(static_cast<const char*>(a->getBuffer(false)),
+        a->getLength()).utf8();
+    HyphenDict* dict = hnj_hyphen_load_from_buffer(dictContents.data(),
+        dictContents.length());
+    delete a;
+
     return dict;
 }
 
 size_t lastHyphenLocation(const UChar* characters, size_t length, size_t beforeIndex)
 {
-    static const size_t MIN_WORD_LEN = 5;
-    static const size_t MAX_WORD_LEN = 100;
-    if (beforeIndex <= 0 || length < MIN_WORD_LEN || length > MAX_WORD_LEN)
+    static const size_t minWordLen = 5;
+    static const size_t maxWordLen = 100;
+    if (beforeIndex <= 0 || length < minWordLen || length > maxWordLen)
         return 0;
 
-    HyphenDict *dict = getHyphenDict();
+    static HyphenDict* dict = loadHyphenationDictionary();
     if (!dict)
         return 0;
 
-    char word[MAX_WORD_LEN];
+    char word[maxWordLen];
     for (size_t i = 0; i < length; ++i) {
         const UChar ch = characters[i];
         // Only English for now.
@@ -88,13 +81,14 @@ size_t lastHyphenLocation(const UChar* characters, size_t length, size_t beforeI
         word[i] = ch;
     }
 
-    static const int EXTRA_BUFFER = 5;
-    char hyphens[MAX_WORD_LEN + EXTRA_BUFFER];
-    if (hnj_hyphen_hyphenate(dict, word, length, hyphens) == 0)
+    static const int extraBuffer = 5;
+    char hyphens[maxWordLen + extraBuffer];
+    if (!hnj_hyphen_hyphenate(dict, word, length, hyphens)) {
         for (size_t i = beforeIndex - 1; i > 0; --i) {
             if (hyphens[i] & 1)
                 return i + 1;
         }
+    }
 
     return 0;
 }
