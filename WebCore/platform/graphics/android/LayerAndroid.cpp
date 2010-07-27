@@ -111,6 +111,27 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : SkLayer(layer),
     gDebugLayerAndroidInstances++;
 }
 
+LayerAndroid::LayerAndroid(SkPicture* picture) : SkLayer(),
+    m_isRootLayer(true),
+    m_haveClip(false),
+    m_doRotation(false),
+    m_isFixed(false),
+    m_recordingPicture(picture),
+    m_foregroundPicture(0),
+    m_contentsImage(0),
+    m_extra(0),
+    m_uniqueId(-1)
+{
+    m_angleTransform = 0;
+    m_translation.set(0, 0);
+    m_scale.set(1, 1);
+    m_backgroundColor = 0;
+    m_foregroundClip.setEmpty();
+    m_foregroundLocation.set(0, 0);
+    SkSafeRef(m_recordingPicture);
+    gDebugLayerAndroidInstances++;
+}
+
 LayerAndroid::~LayerAndroid()
 {
     removeChildren();

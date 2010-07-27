@@ -77,6 +77,7 @@ class LayerAndroid : public SkLayer {
 public:
     LayerAndroid(bool isRootLayer);
     LayerAndroid(const LayerAndroid& layer);
+    LayerAndroid(SkPicture*);
     virtual ~LayerAndroid();
 
     static int instancesCount();
