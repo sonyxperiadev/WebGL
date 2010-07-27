@@ -44,8 +44,6 @@ LoaderData::~LoaderData()
         m_buffer->Release();
 }
 
-std::vector<WebUrlLoaderClient*>* WebUrlLoaderClient::activeLoaders = new std::vector<WebUrlLoaderClient*>();
-
 base::Thread* WebUrlLoaderClient::ioThread()
 {
     static base::Thread* networkThread = 0;
@@ -74,33 +72,13 @@ WebUrlLoaderClient::~WebUrlLoaderClient()
     if (thread)
         thread->message_loop()->ReleaseSoon(FROM_HERE, m_request);
 
-    std::vector<WebUrlLoaderClient*>::iterator iter;
-    for (iter = activeLoaders->begin(); iter != activeLoaders->end(); ++iter) {
-        if (*iter == this) {
-            activeLoaders->erase(iter);
-            break;
-        }
-    }
 }
 
-bool WebUrlLoaderClient::isActive(const WebUrlLoaderClient* loader)
+bool WebUrlLoaderClient::isActive() const
 {
-    if (!loader)
+    if (m_cancelling)
         return false;
-
-    bool exists = false;
-    std::vector<WebUrlLoaderClient*>::const_iterator iter;
-    for (iter = activeLoaders->begin(); iter != activeLoaders->end(); ++iter)
-        if (*iter == loader)
-            exists = true;
-
-    if (!exists)
-        return false;
-    if (loader->m_cancelling)
-        return false;
-    if (!loader->m_resourceHandle)
-        return false;
-    if (!loader->m_resourceHandle->client())
+    if (!m_resourceHandle->client())
         return false;
 
     return true;
@@ -111,8 +89,6 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebCore::ResourceHandle* resourceHandle, 
 {
     m_request = new WebRequest(this, m_resourceRequest);
     m_request->AddRef(); // Matched by ReleaseSoon in destructor
-
-    activeLoaders->push_back(this);
 }
 
 bool WebUrlLoaderClient::start(bool /*sync*/)
@@ -137,6 +113,8 @@ void WebUrlLoaderClient::cancel()
 
 void WebUrlLoaderClient::finish()
 {
+    // This will probably cause this to be deleted as we are the only one holding a reference to
+    // m_resourceHandle, and it is holding the only reference to this.
     m_resourceHandle = 0;
 }
 
@@ -148,7 +126,7 @@ void WebUrlLoaderClient::didReceiveResponse(void* data)
     const WebUrlLoaderClient* loader = loaderData->m_loader;
     ResourceResponse* resourceResponse = loaderData->m_resourceResponse.get();
 
-    if (!isActive(loader))
+    if (!loader->isActive())
         return;
 
     loader->m_resourceHandle->client()->didReceiveResponse(loader->m_resourceHandle.get(), *resourceResponse);
@@ -161,7 +139,7 @@ void WebUrlLoaderClient::didReceiveData(void* data)
     const WebUrlLoaderClient* loader = loaderData->m_loader;
     net::IOBuffer* buf = loaderData->m_buffer;
 
-    if (!isActive(loader))
+    if (!loader->isActive())
         return;
 
     if (loader->m_resourceHandle && loader->m_resourceHandle->client())
@@ -175,7 +153,7 @@ void WebUrlLoaderClient::didReceiveDataUrl(void* data)
     OwnPtr<LoaderData> ld(static_cast<LoaderData*>(data));
     const WebUrlLoaderClient* loader = ld->m_loader;
 
-    if (!isActive(loader))
+    if (!loader->isActive())
         return;
 
     std::string* str = ld->m_string.get();
@@ -193,7 +171,7 @@ void WebUrlLoaderClient::willSendRequest(void* data)
     OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
     const WebUrlLoaderClient* loader = loaderData->m_loader;
 
-    if (!isActive(loader))
+    if (!loader->isActive())
         return;
 
     WebCore::ResourceResponse* resourceResponse = loaderData->m_resourceResponse.get();
@@ -207,10 +185,10 @@ void WebUrlLoaderClient::didFinishLoading(void* data)
     OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
     WebUrlLoaderClient* loader = loaderData->m_loader;
 
-    if (!isActive(loader))
-        return;
+    if (loader->isActive())
+        loader->m_resourceHandle->client()->didFinishLoading(loader->m_resourceHandle.get());
 
-    loader->m_resourceHandle->client()->didFinishLoading(loader->m_resourceHandle.get());
+    // Always finish a request, if not it will leak
     loader->finish();
 }
 
