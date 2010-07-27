@@ -47,6 +47,7 @@
 #include <unicode/uchar.h>
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/unicode/Unicode.h>
 #endif
 
 using namespace android;
@@ -323,9 +324,19 @@ public:
         m_item.face = 0;
         m_item.font = allocHarfbuzzFont();
 
-        m_item.string = m_run.characters();
-        m_item.stringLength = m_run.length();
         m_item.item.bidiLevel = m_run.rtl();
+
+        int length = m_run.length();
+        m_item.stringLength = length;
+
+        if (!m_item.item.bidiLevel)
+            m_item.string = m_run.characters();
+        else {
+            // Assume mirrored character is in the same Unicode multilingual plane as the original one.
+            UChar* string = new UChar[length];
+            mirrorCharacters(string, m_run.characters(), length);
+            m_item.string = string;
+        }
 
         reset();
     }
@@ -335,6 +346,8 @@ public:
         fastFree(m_item.font);
         deleteGlyphArrays();
         delete[] m_item.log_clusters;
+        if (m_item.item.bidiLevel)
+            delete[] m_item.string;
     }
 
     void reset()
@@ -622,6 +635,22 @@ private:
         }
         m_pixelWidth = position;
         m_offsetX += m_pixelWidth;
+    }
+
+    void mirrorCharacters(UChar* destination, const UChar* source, int length) const
+    {
+        int position = 0;
+        bool error = false;
+        // Iterate characters in source and mirror character if needed.
+        while (position < length) {
+            UChar32 character;
+            int nextPosition = position;
+            U16_NEXT(source, nextPosition, length, character);
+            character = u_charMirror(character);
+            U16_APPEND(destination, position, length, character, error);
+            ASSERT(!error);
+            position = nextPosition;
+        }
     }
 
     const Font* const m_font;
