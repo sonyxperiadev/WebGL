@@ -24,18 +24,19 @@
  */
 
 #include "config.h"
-
 #include "WebRequest.h"
 
 #include "MainThread.h"
 #include "ResourceRequest.h"
 #include "WebRequestContext.h"
-
-#include "net/base/data_url.h"
-#include "net/base/io_buffer.h"
-#include "net/url_request/url_request.h"
 #include "text/CString.h"
 
+#include <base/string_util.h>
+#include <net/base/data_url.h>
+#include <net/base/io_buffer.h>
+#include <net/http/http_request_headers.h>
+#include <net/http/http_response_headers.h>
+#include <net/url_request/url_request.h>
 #include <string>
 
 // TODO:
@@ -44,8 +45,6 @@
 // - Handle fails better
 // - Check the string conversion work for more than the general case
 // - Add network throttle needed by Android plugins
-
-using namespace WebCore;
 
 namespace android {
 
@@ -84,6 +83,36 @@ void WebRequest::start()
     if (m_resourceRequest.httpBody())
         setUploadData(m_request.get());
 
+    // Set the request headers
+    net::HttpRequestHeaders requestHeaders;
+    const HTTPHeaderMap& map = m_resourceRequest.httpHeaderFields();
+    for (HTTPHeaderMap::const_iterator it = map.begin(); it != map.end(); ++it) {
+        const std::string& nameUtf8 = it->first.string().utf8().data();
+
+        // Skip over referrer headers found in the header map because we already
+        // pulled it out as a separate parameter.  We likewise prune the UA since
+        // that will be added back by the network layer.
+        if (LowerCaseEqualsASCII(nameUtf8, "referer") || LowerCaseEqualsASCII(nameUtf8, "user-agent"))
+            continue;
+
+        // The next comment does not match what is happening in code since the load flags are not implemented
+        // (http://b/issue?id=2889880)
+        // TODO: Check this is correct when load flags are implemented and working.
+
+        // Skip over "Cache-Control: max-age=0" header if the corresponding
+        // load flag is already specified. FrameLoader sets both the flag and
+        // the extra header -- the extra header is redundant since our network
+        // implementation will add the necessary headers based on load flags.
+        // See http://code.google.com/p/chromium/issues/detail?id=3434.
+        const std::string& valueUtf8 = it->second.utf8().data();
+        if (LowerCaseEqualsASCII(nameUtf8, "cache-control") && LowerCaseEqualsASCII(valueUtf8, "max-age=0"))
+            continue;
+
+        requestHeaders.SetHeader(nameUtf8, valueUtf8);
+    }
+    m_request->SetExtraRequestHeaders(requestHeaders);
+
+    m_request->set_referrer(m_resourceRequest.httpReferrer().utf8().data());
     m_request->set_method(m_resourceRequest.httpMethod().utf8().data());
     m_request->set_context(WebRequestContext::GetAndroidContext());
 
@@ -139,10 +168,8 @@ void WebRequest::handleDataURL(GURL url)
     if (net::DataURL::Parse(url, &mimeType, &charset, data.get())) {
         // PopulateURLResponse from chrome implementation
         // weburlloader_impl.cc
-        WebCore::ResourceResponse* resourceResponse = new WebCore::ResourceResponse(m_resourceRequest.url(), mimeType.c_str(), data->size(), charset.c_str(), "");
-        resourceResponse->setHTTPStatusCode(200); // Do they always succeed?
-
-        LoaderData* loaderResponse = new LoaderData(m_urlLoader, resourceResponse);
+        WebResponse webResponse(url.spec(), mimeType, data->size(), charset, 200);
+        LoaderData* loaderResponse = new LoaderData(m_urlLoader, webResponse);
         callOnMainThread(WebUrlLoaderClient::didReceiveResponse, loaderResponse);
 
         if (!data->empty()) {
@@ -176,16 +203,9 @@ void WebRequest::handleDataURL(GURL url)
 void WebRequest::OnReceivedRedirect(URLRequest* newRequest, const GURL& newUrl, bool* deferRedirect)
 {
     if (newRequest && newRequest->status().is_success()) {
-        KURL kurl(WebCore::ParsedURLString, newUrl.spec().c_str());
-        std::string mime;
-        std::string encoding;
-        newRequest->GetMimeType(&mime);
-        newRequest->GetCharset(&encoding);
-        long long length = newRequest->GetExpectedContentSize();
-        WebCore::ResourceResponse* resourceResponse = new WebCore::ResourceResponse(kurl, mime.c_str(), length, encoding.c_str(), "");
-
-        resourceResponse->setHTTPStatusCode(newRequest->GetResponseCode());
-        LoaderData* ld = new LoaderData(m_urlLoader, resourceResponse);
+        WebResponse webResponse(newRequest);
+        webResponse.setUrl(newUrl.spec());
+        LoaderData* ld = new LoaderData(m_urlLoader, webResponse);
         callOnMainThread(WebUrlLoaderClient::willSendRequest, ld);
     } else {
         // why would this happen? And what to do?
@@ -218,17 +238,8 @@ void WebRequest::OnAuthRequired(URLRequest* request, net::AuthChallengeInfo* aut
 void WebRequest::OnResponseStarted(URLRequest* request)
 {
     if (request && request->status().is_success()) {
-        KURL kurl(WebCore::ParsedURLString, request->url().spec().c_str());
-        std::string mime;
-        std::string encoding;
-        request->GetMimeType(&mime);
-        request->GetCharset(&encoding);
-        long long int length = request->GetExpectedContentSize();
-        WebCore::ResourceResponse* resourceResponse = new WebCore::ResourceResponse(kurl, mime.c_str(), length, encoding.c_str(), "");
-
-        resourceResponse->setHTTPStatusCode(request->GetResponseCode());
-        LoaderData* loaderData = new LoaderData(m_urlLoader, resourceResponse);
-
+        WebResponse webResponse(request);
+        LoaderData* loaderData = new LoaderData(m_urlLoader, webResponse);
         callOnMainThread(WebUrlLoaderClient::didReceiveResponse, loaderData);
 
         // Start reading the response
