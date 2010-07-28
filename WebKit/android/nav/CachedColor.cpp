@@ -1,5 +1,5 @@
 /*
- * Copyright 2007, The Android Open Source Project
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,60 +23,36 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef android_graphics_DEFINED
-#define android_graphics_DEFINED
-
-#include "DrawExtra.h"
-#include "IntRect.h"
-#include "SkTypes.h"
-#include "wtf/Vector.h"
-
-namespace WebCore {
-    class GraphicsContext;
-}
-
-SkCanvas* android_gc2canvas(GraphicsContext* gc);
+#include "CachedPrefix.h"
+#include "CachedColor.h"
 
 namespace android {
 
-class CachedFrame;
-class CachedNode;
-class CachedRoot;
-class WebViewCore;
+#if DUMP_NAV_CACHE
 
-// Data and methods for cursor rings
+#define DEBUG_PRINT_COLOR(field) \
+    DUMP_NAV_LOGD("// SkColor " #field "=0x%08x;\n", b->field)
 
-// used to inflate node cache entry
-#define CURSOR_RING_HIT_TEST_RADIUS 5
+CachedColor* CachedColor::Debug::base() const {
+    CachedColor* nav = (CachedColor*) ((char*) this - OFFSETOF(CachedColor, mDebug));
+    return nav;
+}
 
-class CursorRing : public DrawExtra {
-public:
-    enum Flavor {
-        NORMAL_FLAVOR,
-        FAKE_FLAVOR,
-        NORMAL_ANIMATING,
-        FAKE_ANIMATING,
-        ANIMATING_COUNT = 2
-    };
-
-    CursorRing(WebViewCore* core) : m_viewImpl(core) {}
-    virtual ~CursorRing() {}
-    virtual void draw(SkCanvas* , LayerAndroid* );
-    bool setup();
-private:
-    friend class WebView;
-    WebViewCore* m_viewImpl; // copy for convenience
-    WTF::Vector<IntRect> m_rings;
-    IntRect m_bounds;
-    IntRect m_absBounds;
-    const CachedRoot* m_root;
-    const CachedFrame* m_frame;
-    const CachedNode* m_node;
-    Flavor m_flavor;
-    bool m_followedLink;
-    bool m_isButton;
-};
-
+void CachedColor::Debug::print() const
+{
+    CachedColor* b = base();
+    DEBUG_PRINT_COLOR(mFillColor);
+    DUMP_NAV_LOGD("// int mInnerWidth=%d;\n", b->mInnerWidth);
+    DUMP_NAV_LOGD("// int mOuterWidth=%d;\n", b->mOuterWidth);
+    DUMP_NAV_LOGD("// int mOutset=%d;\n", b->mOutset);
+    DEBUG_PRINT_COLOR(mPressedInnerColor);
+    DEBUG_PRINT_COLOR(mPressedOuterColor);
+    DUMP_NAV_LOGD("// int mRadius=%d;\n", b->mRadius);
+    DEBUG_PRINT_COLOR(mSelectedInnerColor);
+    DEBUG_PRINT_COLOR(mSelectedOuterColor);
 }
 
 #endif
+
+}
+

@@ -26,6 +26,7 @@
 #ifndef CachedFrame_H
 #define CachedFrame_H
 
+#include "CachedColor.h"
 #include "CachedInput.h"
 #include "CachedLayer.h"
 #include "CachedNode.h"
@@ -70,6 +71,7 @@ public:
         CURSOR_SET = 0
     };
     CachedFrame() {}
+    void add(CachedColor& color) { mCachedColors.append(color); }
     void add(CachedInput& input) { mCachedTextInputs.append(input); }
 #if USE(ACCELERATED_COMPOSITING)
     void add(CachedLayer& layer) { mCachedLayers.append(layer); }
@@ -86,6 +88,9 @@ public:
     bool checkVisited(const CachedNode* , CachedFrame::Direction ) const;
     size_t childCount() { return mCachedFrames.size(); }
     void clearCursor();
+    const CachedColor& color(const CachedNode* node) const {
+        return mCachedColors[node->colorIndex()];
+    }
     const CachedNode* currentCursor() const { return currentCursor(NULL); }
     const CachedNode* currentCursor(const CachedFrame** ) const;
     const CachedNode* currentFocus() const { return currentFocus(NULL); }
@@ -226,6 +231,7 @@ private: // since computing these is complicated, protect them so that the
     WebCore::IntRect mContents;
     WebCore::IntRect mLocalViewBounds;
     WebCore::IntRect mViewBounds;
+    WTF::Vector<CachedColor> mCachedColors;
     WTF::Vector<CachedNode> mCachedNodes;
     WTF::Vector<CachedFrame> mCachedFrames;
     WTF::Vector<CachedInput> mCachedTextInputs;

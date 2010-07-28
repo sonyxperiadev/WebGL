@@ -716,6 +716,19 @@ public:
     bool textSizeAdjust() const { return rareInheritedData->textSizeAdjust; }
     ETextSecurity textSecurity() const { return static_cast<ETextSecurity>(rareInheritedData->textSecurity); }
 
+#ifdef ANDROID_CSS_RING
+    // called when building nav cache to determine if the ring data is unchanged
+    const void* ringData() const { return reinterpret_cast<const void*>(rareInheritedData.get()); }
+    Color ringFillColor() const { return rareInheritedData->ringFillColor; }
+    Length ringInnerWidth() const { return rareInheritedData->ringInnerWidth; }
+    Length ringOuterWidth() const { return rareInheritedData->ringOuterWidth; }
+    Length ringOutset() const { return rareInheritedData->ringOutset; }
+    Color ringPressedInnerColor() const { return rareInheritedData->ringPressedInnerColor; }
+    Color ringPressedOuterColor() const { return rareInheritedData->ringPressedOuterColor; }
+    Length ringRadius() const { return rareInheritedData->ringRadius; }
+    Color ringSelectedInnerColor() const { return rareInheritedData->ringSelectedInnerColor; }
+    Color ringSelectedOuterColor() const { return rareInheritedData->ringSelectedOuterColor; }
+#endif
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     Color tapHighlightColor() const { return rareInheritedData->tapHighlightColor; }
 #endif
@@ -1053,6 +1066,21 @@ public:
     void setTextSizeAdjust(bool b) { SET_VAR(rareInheritedData, textSizeAdjust, b); }
     void setTextSecurity(ETextSecurity aTextSecurity) { SET_VAR(rareInheritedData, textSecurity, aTextSecurity); }
 
+#ifdef ANDROID_CSS_RING
+    void setRingFillColor(const Color& v) { SET_VAR(rareInheritedData, ringFillColor, v); }
+    void setRingInnerWidth(Length v) { SET_VAR(rareInheritedData, ringInnerWidth, v); }
+    void setRingOuterWidth(Length v) { SET_VAR(rareInheritedData, ringOuterWidth, v); }
+    void setRingOutset(Length v) { SET_VAR(rareInheritedData, ringOutset, v); }
+    void setRingPressedInnerColor(const Color& v) {
+        SET_VAR(rareInheritedData, ringPressedInnerColor, v); }
+    void setRingPressedOuterColor(const Color& v) {
+        SET_VAR(rareInheritedData, ringPressedOuterColor, v); }
+    void setRingRadius(Length v) { SET_VAR(rareInheritedData, ringRadius, v); }
+    void setRingSelectedInnerColor(const Color& v) {
+        SET_VAR(rareInheritedData, ringSelectedInnerColor, v); }
+    void setRingSelectedOuterColor(const Color& v) {
+        SET_VAR(rareInheritedData, ringSelectedOuterColor, v); }
+#endif
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     void setTapHighlightColor(const Color& v) { SET_VAR(rareInheritedData, tapHighlightColor, v); }
 #endif
@@ -1237,6 +1265,17 @@ public:
     static const Vector<StyleDashboardRegion>& noneDashboardRegions();
 #endif
 
+#ifdef ANDROID_CSS_RING
+    static Color initialRingFillColor() { return Color::ringFill; }
+    static Length initialRingInnerWidth() { return Length(24, Fixed); } // 1.5
+    static Length initialRingOuterWidth() { return Length(52, Fixed); } // 3.25
+    static Length initialRingOutset() { return Length(2, Fixed); }
+    static Color initialRingSelectedInnerColor() { return Color::ringSelectedInner; }
+    static Color initialRingSelectedOuterColor() { return Color::ringSelectedOuter; }
+    static Color initialRingPressedInnerColor() { return Color::ringPressedInner; }
+    static Color initialRingPressedOuterColor() { return Color::ringPressedOuter; }
+    static Length initialRingRadius() { return Length(5, Fixed); }
+#endif
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     static Color initialTapHighlightColor() { return Color::tap; }
 #endif

@@ -5556,6 +5556,138 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         return;
 #endif 
 
+#ifdef ANDROID_CSS_RING
+    case CSSPropertyWebkitRing:
+        if (valueType != CSSValue::CSS_INHERIT || !m_parentNode) return;
+        m_style->setRingFillColor(m_parentStyle->ringFillColor());
+        m_style->setRingInnerWidth(m_parentStyle->ringInnerWidth());
+        m_style->setRingOuterWidth(m_parentStyle->ringOuterWidth());
+        m_style->setRingOutset(m_parentStyle->ringOutset());
+        m_style->setRingPressedInnerColor(m_parentStyle->ringPressedInnerColor());
+        m_style->setRingPressedOuterColor(m_parentStyle->ringPressedOuterColor());
+        m_style->setRingRadius(m_parentStyle->ringRadius());
+        m_style->setRingSelectedInnerColor(m_parentStyle->ringSelectedInnerColor());
+        m_style->setRingSelectedOuterColor(m_parentStyle->ringSelectedOuterColor());
+        return;
+    case CSSPropertyWebkitRingFillColor: {
+        HANDLE_INHERIT_AND_INITIAL(ringFillColor, RingFillColor);
+        if (!primitiveValue)
+            break;
+        Color col = getColorFromPrimitiveValue(primitiveValue).blendWithWhite();
+        m_style->setRingFillColor(col);
+        return;
+    }
+    case CSSPropertyWebkitRingInnerWidth: {
+        HANDLE_INHERIT_AND_INITIAL(ringInnerWidth, RingInnerWidth)
+        if (!primitiveValue)
+            break;
+        Length l;
+        int type = primitiveValue->primitiveType();
+        if (CSSPrimitiveValue::isUnitTypeLength(type)) {
+            // width can be specified with fractional px
+            // scale by 16 here (and unscale in android_graphics) to keep
+            // 4 bits of fraction
+            RefPtr<CSSPrimitiveValue> scaledValue = CSSPrimitiveValue::create(
+                primitiveValue->getFloatValue() * 16,
+                (CSSPrimitiveValue::UnitTypes) type);
+            l = Length(scaledValue->computeLengthIntForLength(style(),
+                m_rootElementStyle, zoomFactor), Fixed);
+            scaledValue.release();
+        } else if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
+            l = Length(primitiveValue->getDoubleValue(), Percent);
+        else
+            return;
+        m_style->setRingInnerWidth(l);
+        return;
+    }
+    case CSSPropertyWebkitRingOuterWidth: {
+        HANDLE_INHERIT_AND_INITIAL(ringOuterWidth, RingOuterWidth)
+        if (!primitiveValue)
+            break;
+        Length l;
+        int type = primitiveValue->primitiveType();
+        if (CSSPrimitiveValue::isUnitTypeLength(type)) {
+            // width can be specified with fractional px
+            // scale by 16 here (and unscale in android_graphics) to keep
+            // 4 bits of fraction
+            RefPtr<CSSPrimitiveValue> scaledValue = CSSPrimitiveValue::create(
+                primitiveValue->getFloatValue() * 16,
+                (CSSPrimitiveValue::UnitTypes) type);
+            l = Length(scaledValue->computeLengthIntForLength(style(),
+                m_rootElementStyle, zoomFactor), Fixed);
+            scaledValue.release();
+        } else if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
+            l = Length(primitiveValue->getDoubleValue(), Percent);
+        else
+            return;
+        m_style->setRingOuterWidth(l);
+        return;
+    }
+    case CSSPropertyWebkitRingOutset: {
+        HANDLE_INHERIT_AND_INITIAL(ringOutset, RingOutset)
+        if (!primitiveValue)
+            break;
+        Length l;
+        int type = primitiveValue->primitiveType();
+        if (CSSPrimitiveValue::isUnitTypeLength(type))
+            l = Length(primitiveValue->computeLengthIntForLength(style(),
+                m_rootElementStyle, zoomFactor), Fixed);
+        else if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
+            l = Length(primitiveValue->getDoubleValue(), Percent);
+        else
+            return;
+        m_style->setRingOutset(l);
+        return;
+    }
+    case CSSPropertyWebkitRingPressedInnerColor: {
+        HANDLE_INHERIT_AND_INITIAL(ringPressedInnerColor, RingPressedInnerColor);
+        if (!primitiveValue)
+            break;
+        Color col = getColorFromPrimitiveValue(primitiveValue).blendWithWhite();
+        m_style->setRingPressedInnerColor(col);
+        return;
+    }
+    case CSSPropertyWebkitRingPressedOuterColor: {
+        HANDLE_INHERIT_AND_INITIAL(ringPressedOuterColor, RingPressedOuterColor);
+        if (!primitiveValue)
+            break;
+        Color col = getColorFromPrimitiveValue(primitiveValue).blendWithWhite();
+        m_style->setRingPressedOuterColor(col);
+        return;
+    }
+    case CSSPropertyWebkitRingRadius: {
+        HANDLE_INHERIT_AND_INITIAL(ringRadius, RingRadius)
+        if (!primitiveValue)
+            break;
+        Length l;
+        int type = primitiveValue->primitiveType();
+        if (CSSPrimitiveValue::isUnitTypeLength(type))
+            l = Length(primitiveValue->computeLengthIntForLength(style(),
+                m_rootElementStyle, zoomFactor), Fixed);
+        else if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
+            l = Length(primitiveValue->getDoubleValue(), Percent);
+        else
+            return;
+        m_style->setRingRadius(l);
+        return;
+    }
+    case CSSPropertyWebkitRingSelectedInnerColor: {
+        HANDLE_INHERIT_AND_INITIAL(ringSelectedInnerColor, RingSelectedInnerColor);
+        if (!primitiveValue)
+            break;
+        Color col = getColorFromPrimitiveValue(primitiveValue).blendWithWhite();
+        m_style->setRingSelectedInnerColor(col);
+        return;
+    }
+    case CSSPropertyWebkitRingSelectedOuterColor: {
+        HANDLE_INHERIT_AND_INITIAL(ringSelectedOuterColor, RingSelectedOuterColor);
+        if (!primitiveValue)
+            break;
+        Color col = getColorFromPrimitiveValue(primitiveValue).blendWithWhite();
+        m_style->setRingSelectedOuterColor(col);
+        return;
+    }
+#endif
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     case CSSPropertyWebkitTapHighlightColor: {
         HANDLE_INHERIT_AND_INITIAL(tapHighlightColor, TapHighlightColor);

@@ -29,6 +29,17 @@ namespace WebCore {
 
 StyleRareInheritedData::StyleRareInheritedData()
     : textStrokeWidth(RenderStyle::initialTextStrokeWidth())
+#ifdef ANDROID_CSS_RING
+    , ringFillColor(RenderStyle::initialRingFillColor())
+    , ringInnerWidth(RenderStyle::initialRingInnerWidth())
+    , ringOuterWidth(RenderStyle::initialRingOuterWidth())
+    , ringOutset(RenderStyle::initialRingOutset())
+    , ringPressedInnerColor(RenderStyle::initialRingPressedInnerColor())
+    , ringPressedOuterColor(RenderStyle::initialRingPressedOuterColor())
+    , ringRadius(RenderStyle::initialRingRadius())
+    , ringSelectedInnerColor(RenderStyle::initialRingSelectedInnerColor())
+    , ringSelectedOuterColor(RenderStyle::initialRingSelectedOuterColor())
+#endif
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     , tapHighlightColor(RenderStyle::initialTapHighlightColor())
 #endif
@@ -56,6 +67,17 @@ StyleRareInheritedData::StyleRareInheritedData(const StyleRareInheritedData& o)
     , textStrokeColor(o.textStrokeColor)
     , textStrokeWidth(o.textStrokeWidth)
     , textFillColor(o.textFillColor)
+#ifdef ANDROID_CSS_RING
+    , ringFillColor(o.ringFillColor)
+    , ringInnerWidth(o.ringInnerWidth)
+    , ringOuterWidth(o.ringOuterWidth)
+    , ringOutset(o.ringOutset)
+    , ringPressedInnerColor(o.ringPressedInnerColor)
+    , ringPressedOuterColor(o.ringPressedOuterColor)
+    , ringRadius(o.ringRadius)
+    , ringSelectedInnerColor(o.ringSelectedInnerColor)
+    , ringSelectedOuterColor(o.ringSelectedOuterColor)
+#endif
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     , tapHighlightColor(o.tapHighlightColor)
 #endif
@@ -115,6 +137,17 @@ bool StyleRareInheritedData::operator==(const StyleRareInheritedData& o) const
         && nbspMode == o.nbspMode
         && khtmlLineBreak == o.khtmlLineBreak
         && textSizeAdjust == o.textSizeAdjust
+#ifdef ANDROID_CSS_RING
+        && ringFillColor == o.ringFillColor
+        && ringInnerWidth == o.ringInnerWidth
+        && ringOuterWidth == o.ringOuterWidth
+        && ringOutset == o.ringOutset
+        && ringPressedInnerColor == o.ringPressedInnerColor
+        && ringPressedOuterColor == o.ringPressedOuterColor
+        && ringRadius == o.ringRadius
+        && ringSelectedInnerColor == o.ringSelectedInnerColor
+        && ringSelectedOuterColor == o.ringSelectedOuterColor
+#endif
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
         && tapHighlightColor == o.tapHighlightColor
 #endif
