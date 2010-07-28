@@ -27,13 +27,15 @@
 
 GEN := $(intermediates)/css/CSSPropertyNames.h
 $(GEN): SCRIPT := $(LOCAL_PATH)/css/makeprop.pl
-$(GEN): $(intermediates)/%.h : $(LOCAL_PATH)/%.in $(LOCAL_PATH)/css/SVGCSSPropertyNames.in
+ifeq ($(ENABLE_SVG),true)
+$(GEN): $(intermediates)/%.h : $(LOCAL_PATH)/%.in $(LOCAL_PATH)/css/SVGCSSPropertyNames.in $(LOCAL_PATH)/css/AndroidCSSPropertyNames.in
+else
+$(GEN): $(intermediates)/%.h : $(LOCAL_PATH)/%.in $(LOCAL_PATH)/css/AndroidCSSPropertyNames.in
+endif
 	@echo "Generating CSSPropertyNames.h <= CSSPropertyNames.in"
 	@mkdir -p $(dir $@)
 	@cat $< > $(dir $@)/$(notdir $<)
-ifeq ($(ENABLE_SVG),true)
 	@cat $^ > $(@:%.h=%.in)
-endif
 	@cp -f $(SCRIPT) $(dir $@)
 	@cd $(dir $@) ; perl ./$(notdir $(SCRIPT))
 LOCAL_GENERATED_SOURCES += $(GEN)

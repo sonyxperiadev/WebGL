@@ -404,6 +404,7 @@ void CachedNode::Debug::print() const
     DUMP_NAV_LOGD("// int mNavableRects=%d;\n", b->mNavableRects);
     DUMP_NAV_LOGD("// int mParentIndex=%d;\n", b->mParentIndex);
     DUMP_NAV_LOGD("// int mTabIndex=%d;\n", b->mTabIndex);
+    DUMP_NAV_LOGD("// int mColorIndex=%d;\n", b->mColorIndex);
     DUMP_NAV_LOGD("// Condition mCondition=%s;\n", condition(b->mCondition));
     DUMP_NAV_LOGD("// Type mType=%s;\n", type(b->mType));
     DEBUG_PRINT_BOOL(mClippedOut);

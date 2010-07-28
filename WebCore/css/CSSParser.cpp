@@ -1811,6 +1811,36 @@ bool CSSParser::parseValue(int propId, bool important)
         break;
 #endif
 
+#ifdef ANDROID_CSS_RING
+    case CSSPropertyWebkitRing:
+    {
+        const int properties[9] = { CSSPropertyWebkitRingFillColor,
+                                    CSSPropertyWebkitRingInnerWidth,
+                                    CSSPropertyWebkitRingOuterWidth,
+                                    CSSPropertyWebkitRingOutset,
+                                    CSSPropertyWebkitRingPressedInnerColor,
+                                    CSSPropertyWebkitRingPressedOuterColor,
+                                    CSSPropertyWebkitRingRadius,
+                                    CSSPropertyWebkitRingSelectedInnerColor,
+                                    CSSPropertyWebkitRingSelectedOuterColor };
+        return parseShorthand(propId, properties, 9, important);
+    }
+    case CSSPropertyWebkitRingFillColor:
+    case CSSPropertyWebkitRingPressedInnerColor:
+    case CSSPropertyWebkitRingPressedOuterColor:
+    case CSSPropertyWebkitRingSelectedInnerColor:
+    case CSSPropertyWebkitRingSelectedOuterColor:
+        parsedValue = parseColor();
+        if (parsedValue)
+            m_valueList->next();
+        break;
+    case CSSPropertyWebkitRingInnerWidth:
+    case CSSPropertyWebkitRingOuterWidth:
+    case CSSPropertyWebkitRingOutset:
+    case CSSPropertyWebkitRingRadius:
+        validPrimitive = validUnit(value, FLength | FNonNeg, m_strict);
+        break;
+#endif
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     case CSSPropertyWebkitTapHighlightColor:
         parsedValue = parseColor();

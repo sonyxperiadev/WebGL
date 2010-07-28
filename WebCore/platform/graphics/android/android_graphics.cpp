@@ -25,6 +25,7 @@
 
 #include "CachedPrefix.h"
 #include "android_graphics.h"
+#include "CachedColor.h"
 #include "CachedRoot.h"
 #include "IntRect.h"
 #include "LayerAndroid.h"
@@ -36,30 +37,8 @@
 
 namespace android {
 
-///////////////////////////////////////////////////////////////////////////////
-
-const static SkColor cursorOuterColors[] = {
-    SkColorSetARGB(0xff, 0xB3, 0x3F, 0x08), // normal ring select
-    SkColorSetARGB(0xff, 0x46, 0xb0, 0x00), // fake ring select, for phone, email, text
-    SkColorSetARGB(0xff, 0xAD, 0x5C, 0x0A), // normal ring pressed
-    SkColorSetARGB(0xff, 0x36, 0xc0, 0x00)  // fake ring pressed
-};
-
-const static SkColor cursorInnerColors[] = {
-    SkColorSetARGB(0xff, 0xFE, 0x92, 0x30), // normal ring select
-    SkColorSetARGB(0xff, 0x8c, 0xd9, 0x00), // fake ring select, for phone, email, text
-    SkColorSetARGB(0xff, 0xFE, 0xBD, 0x3A), // normal ring pressed
-    SkColorSetARGB(0xff, 0x7c, 0xe9, 0x00)  // fake ring pressed
-};
-
-const static SkColor cursorPressedColors[] = {
-    SkColorSetARGB(0x80, 0xFF, 0xC6, 0x4B), // normal ring pressed
-    SkColorSetARGB(0x80, 0x7c, 0xe9, 0x00)  // fake ring pressed
-};
-
-#define CURSOR_RING_ROUNDEDNESS SkIntToScalar(5) // used to draw corners
-#define CURSOR_RING_INNER_DIAMETER SkFixedToScalar(SkIntToFixed(3)>>1) // 3/2 == 1.5
-#define CURSOR_RING_OUTER_OUTSET 2 // used to inflate rects added to region
+// The CSS values for the inner and outer widths may be specified as fractions
+#define WIDTH_SCALE 0.0625f // 1/16, to offset the scale in CSSStyleSelector
 
 void CursorRing::draw(SkCanvas* canvas, LayerAndroid* layer)
 {
@@ -75,6 +54,7 @@ void CursorRing::draw(SkCanvas* canvas, LayerAndroid* layer)
         m_followedLink = false;
         return;
     }
+    const CachedColor& colors = m_frame->color(m_node);
     unsigned rectCount = m_rings.size();
     SkRegion rgn;
     SkPath path;
@@ -84,24 +64,36 @@ void CursorRing::draw(SkCanvas* canvas, LayerAndroid* layer)
         SkIRect ir;
 
         r.round(&ir);
-        ir.inset(-CURSOR_RING_OUTER_OUTSET, -CURSOR_RING_OUTER_OUTSET);
+        ir.inset(-colors.outset(), -colors.outset());
         rgn.op(ir, SkRegion::kUnion_Op);
     }
     rgn.getBoundaryPath(&path);
 
     SkPaint paint;
     paint.setAntiAlias(true);
-    paint.setPathEffect(new SkCornerPathEffect(CURSOR_RING_ROUNDEDNESS))->unref();
+    paint.setPathEffect(new SkCornerPathEffect(
+        SkIntToScalar(colors.radius())))->unref();
+    SkColor outer;
+    SkColor inner;
     if (m_flavor >= NORMAL_ANIMATING) { // pressed
-        paint.setColor(cursorPressedColors[m_flavor - NORMAL_ANIMATING]);
+        SkColor pressed;
+        pressed = colors.fillColor();
+        paint.setColor(pressed);
         canvas->drawPath(path, paint);
     }
+    if (m_flavor >= NORMAL_ANIMATING) {
+        outer = colors.pressedOuterColor();
+        inner = colors.pressedInnerColor();
+    } else {
+        outer = colors.selectedOuterColor();
+        inner = colors.selectedInnerColor();
+    }
     paint.setStyle(SkPaint::kStroke_Style);
-    paint.setStrokeWidth(CURSOR_RING_OUTER_DIAMETER);
-    paint.setColor(cursorOuterColors[m_flavor]);
+    paint.setStrokeWidth(colors.outerWidth() * WIDTH_SCALE);
+    paint.setColor(outer);
     canvas->drawPath(path, paint);
-    paint.setStrokeWidth(CURSOR_RING_INNER_DIAMETER);
-    paint.setColor(cursorInnerColors[m_flavor]);
+    paint.setStrokeWidth(colors.innerWidth() * WIDTH_SCALE);
+    paint.setColor(inner);
     canvas->drawPath(path, paint);
 }
 
@@ -140,7 +132,8 @@ bool CursorRing::setup()
         m_rings.clear();
         m_rings.append(m_bounds);
     }
-    m_bounds.inflate(SkScalarCeil(CURSOR_RING_OUTER_DIAMETER));
+    const CachedColor& colors = m_frame->color(m_node);
+    m_bounds.inflate(SkScalarCeil(colors.outerWidth()));
     if (!m_node->hasCursorRing() || (m_node->isPlugin() && m_node->isFocus()))
         return false;
     m_flavor = NORMAL_FLAVOR;
@@ -159,6 +152,12 @@ bool CursorRing::setup()
             m_flavor == FAKE_ANIMATING ? "FAKE_ANIMATING" : "NORMAL_FLAVOR",
             m_rings.size(), ring.x(), ring.y(), ring.width(), ring.height(),
             m_node->isPlugin() ? "true" : "false");
+        DBG_NAV_LOGD("[%d] inner=%d outer=%d outset=%d radius=%d"
+            " fill=0x%08x pin=0x%0x08x pout=0x%0x08x sin=0x%08x sout=0x%08x",
+            m_node->colorIndex(), colors.innerWidth(), colors.outerWidth(),
+            colors.outset(), colors.radius(), colors.fillColor(),
+            colors.pressedInnerColor(), colors.pressedOuterColor(),
+            colors.selectedInnerColor(), colors.selectedInnerColor());
 #endif
     }
     return true;
