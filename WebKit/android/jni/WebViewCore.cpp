@@ -2815,6 +2815,15 @@ static jstring RequestLabel(JNIEnv *env, jobject obj, int framePointer,
             (WebCore::Frame*) framePointer, (WebCore::Node*) nodePointer));
 }
 
+static void ClearContent(JNIEnv *env, jobject obj)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
+#endif
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    viewImpl->clearContent();
+}
+
 static void UpdateFrameCacheIfLoading(JNIEnv *env, jobject obj)
 {
     GET_NATIVE_VIEW(env, obj)->updateFrameCacheIfLoading();
@@ -3428,6 +3437,8 @@ static jobject GetTouchHighlightRects(JNIEnv* env, jobject obj, jint x, jint y, 
  * JNI registration.
  */
 static JNINativeMethod gJavaWebViewCoreMethods[] = {
+    { "nativeClearContent", "()V",
+            (void*) ClearContent },
     { "nativeFocusBoundsChanged", "()Z",
         (void*) FocusBoundsChanged } ,
     { "nativeKey", "(IIIZZZZ)Z",
