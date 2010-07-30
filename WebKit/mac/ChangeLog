@@ -1,3 +1,76 @@
+2010-07-26  Steve Block  <steveblock@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Page clients should be passed to Page constructor via structure of pointers
+        https://bugs.webkit.org/show_bug.cgi?id=42834
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:usesDocumentViews:]):
+
+2010-07-27  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        Add FILE_SYSTEM build flag for FileSystem API
+        https://bugs.webkit.org/show_bug.cgi?id=42915
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-07-27  Steve Block  <steveblock@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Client-based Geolocation does not pass enableHighAccuracy option to controller and client
+        https://bugs.webkit.org/show_bug.cgi?id=40374
+
+        Stub out setEnableHighAccuracy method for the Mac port.
+
+        * WebCoreSupport/WebGeolocationControllerClient.h:
+        (WebGeolocationControllerClient::setEnableHighAccuracy):
+
+2010-07-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Fix for <rdar://problem/8222626>
+        Send textDidChangeInTextField delegate callback only in response to typing or other forms of user text input.
+
+        The function name no longer perfectly matches the behavior, but I didn't want to break any existing clients. Maybe we
+        should migrate to a new function name eventually
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::textDidChangeInTextField):
+
+2010-07-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=42836
+        Add localized strings stubs for WebKit2.
+
+        - Convert WebKit (mac) to use a LocalizationStrategy rather than the WebCoreViewFactory
+          for localized strings.
+
+        Gets us below 200 tests failing in WebKitTestRunner.
+
+        * WebCoreSupport/WebContextMenuClient.mm:
+        (fixMenusReceivedFromOldClients): Use LocalizedStrings rather than the factory.
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        * WebCoreSupport/WebViewFactory.mm:
+
+2010-07-21  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Break out "scheme registration" functionality from SecurityOrigin to a SchemeRegistry
+        https://bugs.webkit.org/show_bug.cgi?id=42783
+
+        * WebView/WebView.mm:
+        (+[WebView _registerURLSchemeAsSecure:]):
+        (+[WebView registerURLSchemeAsLocal:]):
+
 2010-07-21  Simon Fraser  <simon.fraser@apple.com>
 
         Reviewed by Anders Carlsson.

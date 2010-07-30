@@ -293,7 +293,6 @@ SET(WebCore_IDL_FILES
     html/canvas/Uint8Array.idl
 
     inspector/InjectedScriptHost.idl
-    inspector/InspectorBackend.idl
     inspector/InspectorFrontendHost.idl
     inspector/JavaScriptCallFrame.idl
     inspector/ScriptProfile.idl
@@ -535,6 +534,7 @@ SET(WebCore_SOURCES
     ${DERIVED_SOURCES_DIR}/XMLNames.cpp
     ${DERIVED_SOURCES_DIR}/XMLNSNames.cpp
     ${DERIVED_SOURCES_DIR}/XPathGrammar.cpp
+    ${DERIVED_SOURCES_DIR}/InspectorBackendDispatcher.cpp
 
     accessibility/AXObjectCache.cpp
     accessibility/AccessibilityARIAGrid.cpp
@@ -854,6 +854,7 @@ SET(WebCore_SOURCES
     dom/UIEvent.cpp
     dom/UIEventWithKeyState.cpp
     dom/UserGestureIndicator.cpp
+    dom/UserTypingGestureIndicator.cpp
     dom/ViewportArguments.cpp
     dom/WebKitAnimationEvent.cpp
     dom/WebKitTransitionEvent.cpp
@@ -1201,6 +1202,7 @@ SET(WebCore_SOURCES
     platform/ScrollbarThemeComposite.cpp
     platform/ScrollView.cpp
     platform/SharedBuffer.cpp
+    platform/SchemeRegistry.cpp
     platform/ThreadGlobalData.cpp
     platform/ThreadTimers.cpp
     platform/Timer.cpp
@@ -1543,6 +1545,7 @@ IF (ENABLE_SVG)
         rendering/RenderSVGModelObject.cpp
         rendering/RenderSVGResource.cpp
         rendering/RenderSVGResourceClipper.cpp
+        rendering/RenderSVGResourceContainer.cpp
         rendering/RenderSVGResourceFilter.cpp
         rendering/RenderSVGResourceGradient.cpp
         rendering/RenderSVGResourceLinearGradient.cpp
@@ -1565,6 +1568,9 @@ IF (ENABLE_SVG)
         rendering/SVGMarkerLayoutInfo.cpp
         rendering/SVGRenderSupport.cpp
         rendering/SVGRenderTreeAsText.cpp
+        rendering/SVGResources.cpp
+        rendering/SVGResourcesCache.cpp
+        rendering/SVGResourcesCycleSolver.cpp
         rendering/SVGRootInlineBox.cpp
         rendering/SVGShadowTreeElements.cpp
         rendering/SVGTextChunkLayoutInfo.cpp

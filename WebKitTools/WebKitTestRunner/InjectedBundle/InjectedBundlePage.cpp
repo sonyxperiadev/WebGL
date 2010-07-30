@@ -26,28 +26,96 @@
 #include "InjectedBundlePage.h"
 
 #include "InjectedBundle.h"
+#include <JavaScriptCore/JSRetainPtr.h>
+#include <WebKit2/WKArray.h>
 #include <WebKit2/WKBundleFrame.h>
+#include <WebKit2/WKBundleNode.h>
 #include <WebKit2/WKBundlePagePrivate.h>
 #include <WebKit2/WKRetainPtr.h>
+#include <WebKit2/WKBundleRange.h>
 #include <WebKit2/WKString.h>
 #include <WebKit2/WKStringCF.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
 
+using namespace std;
+
 namespace WTR {
 
-static PassOwnPtr<Vector<char> > WKStringToUTF8(WKStringRef wkStringRef)
+static ostream& operator<<(ostream& out, CFStringRef stringRef)
 {
-    RetainPtr<CFStringRef> cfString(AdoptCF, WKStringCopyCFString(0, wkStringRef));
-    CFIndex bufferLength = CFStringGetMaximumSizeForEncoding(CFStringGetLength(cfString.get()), kCFStringEncodingUTF8) + 1;
-    OwnPtr<Vector<char> > buffer(new Vector<char>(bufferLength));
-    if (!CFStringGetCString(cfString.get(), buffer->data(), bufferLength, kCFStringEncodingUTF8)) {
-        buffer->shrink(1);
-        (*buffer)[0] = 0;
-    } else
-        buffer->shrink(strlen(buffer->data()) + 1);
-    return buffer.release();
+    if (!stringRef)
+        return out;
+    CFIndex bufferLength = CFStringGetMaximumSizeForEncoding(CFStringGetLength(stringRef), kCFStringEncodingUTF8) + 1;
+    Vector<char> buffer(bufferLength);
+    if (!CFStringGetCString(stringRef, buffer.data(), bufferLength, kCFStringEncodingUTF8))
+        return out;
+    return out << buffer.data();
+}
+
+static ostream& operator<<(ostream& out, const RetainPtr<CFStringRef>& stringRef)
+{
+    return out << stringRef.get();
+}
+
+static ostream& operator<<(ostream& out, WKStringRef stringRef)
+{
+    if (!stringRef)
+        return out;
+    RetainPtr<CFStringRef> cfString(AdoptCF, WKStringCopyCFString(0, stringRef));
+    return out << cfString;
+}
+
+static ostream& operator<<(ostream& out, const WKRetainPtr<WKStringRef>& stringRef)
+{
+    return out << stringRef.get();
+}
+
+static ostream& operator<<(ostream& out, JSStringRef stringRef)
+{
+    if (!stringRef)
+        return out;
+    CFIndex bufferLength = JSStringGetMaximumUTF8CStringSize(stringRef) + 1;
+    Vector<char> buffer(bufferLength);
+    JSStringGetUTF8CString(stringRef, buffer.data(), bufferLength);
+    return out << buffer.data();
+}
+
+static ostream& operator<<(ostream& out, const JSRetainPtr<JSStringRef>& stringRef)
+{
+    return out << stringRef.get();
+}
+
+static string dumpPath(WKBundleNodeRef node)
+{
+    if (!node)
+        return "(null)";
+    WKRetainPtr<WKStringRef> nodeName(AdoptWK, WKBundleNodeCopyNodeName(node));
+    ostringstream out;
+    out << nodeName;
+    if (WKBundleNodeRef parent = WKBundleNodeGetParent(node))
+        out << " > " << dumpPath(parent);
+    return out.str();
+}
+
+static ostream& operator<<(ostream& out, WKBundleRangeRef rangeRef)
+{
+    if (rangeRef)
+        out << "range from " << WKBundleRangeGetStartOffset(rangeRef) << " of " << dumpPath(WKBundleRangeGetStartContainer(rangeRef)) << " to " << WKBundleRangeGetEndOffset(rangeRef) << " of " << dumpPath(WKBundleRangeGetEndContainer(rangeRef));
+    else
+        out << "(null)";
+
+    return out;
+}
+
+static ostream& operator<<(ostream& out, WKBundleCSSStyleDeclarationRef style)
+{
+    // DumpRenderTree calls -[DOMCSSStyleDeclaration description], which just dumps class name and object address.
+    // No existing tests actually hit this code path at the time of this writing, because WebCore doesn't call
+    // the editing client if the styling operation source is CommandFromDOM or CommandFromDOMWithUserInterface.
+    out << "<DOMCSSStyleDeclaration ADDRESS>";
+    return out;
 }
 
 InjectedBundlePage::InjectedBundlePage(WKBundlePageRef page)
@@ -78,6 +146,23 @@ InjectedBundlePage::InjectedBundlePage(WKBundlePageRef page)
         _willRunJavaScriptPrompt
     };
     WKBundlePageSetUIClient(m_page, &uiClient);
+
+    WKBundlePageEditorClient editorClient = {
+        0,
+        this,
+        _shouldBeginEditing,
+        _shouldEndEditing,
+        _shouldInsertNode,
+        _shouldInsertText,
+        _shouldDeleteRange,
+        _shouldChangeSelectedRange,
+        _shouldApplyStyle,
+        _didBeginEditing,
+        _didEndEditing,
+        _didChange,
+        _didChangeSelection
+    };
+    WKBundlePageSetEditorClient(m_page, &editorClient);
 }
 
 InjectedBundlePage::~InjectedBundlePage()
@@ -121,9 +206,9 @@ void InjectedBundlePage::_didReceiveTitleForFrame(WKBundlePageRef page, WKString
     static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->didReceiveTitleForFrame(title, frame);
 }
 
-void InjectedBundlePage::_didClearWindowForFrame(WKBundlePageRef page, WKBundleFrameRef frame, JSContextRef ctx, JSObjectRef window, const void *clientInfo)
+void InjectedBundlePage::_didClearWindowForFrame(WKBundlePageRef page, WKBundleFrameRef frame, JSGlobalContextRef context, JSObjectRef window, const void *clientInfo)
 {
-    static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->didClearWindowForFrame(frame, ctx, window);
+    static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->didClearWindowForFrame(frame, context, window);
 }
 
 void InjectedBundlePage::didStartProvisionalLoadForFrame(WKBundleFrameRef frame)
@@ -144,20 +229,128 @@ void InjectedBundlePage::didCommitLoadForFrame(WKBundleFrameRef frame)
 {
 }
 
+static JSValueRef propertyValue(JSContextRef context, JSObjectRef object, const char* propertyName)
+{
+    if (!object)
+        return 0;
+    JSRetainPtr<JSStringRef> propertyNameString(Adopt, JSStringCreateWithUTF8CString(propertyName));
+    JSValueRef exception;
+    return JSObjectGetProperty(context, object, propertyNameString.get(), &exception);
+}
+
+static JSObjectRef propertyObject(JSContextRef context, JSObjectRef object, const char* propertyName)
+{
+    JSValueRef value = propertyValue(context, object, propertyName);
+    if (!value || !JSValueIsObject(context, value))
+        return 0;
+    return const_cast<JSObjectRef>(value);
+}
+
+static JSRetainPtr<JSStringRef> propertyString(JSContextRef context, JSObjectRef object, const char* propertyName)
+{
+    JSValueRef value = propertyValue(context, object, propertyName);
+    if (!value)
+        return 0;
+    JSValueRef exception;
+    return JSRetainPtr<JSStringRef>(Adopt, JSValueToStringCopy(context, value, &exception));
+}
+
+static double numericWindowPropertyValue(WKBundleFrameRef frame, const char* propertyName)
+{
+    JSGlobalContextRef context = WKBundleFrameGetJavaScriptContext(frame);
+    JSValueRef value = propertyValue(context, JSContextGetGlobalObject(context), propertyName);
+    if (!value)
+        return 0;
+    JSValueRef exception;
+    return JSValueToNumber(context, value, &exception);
+}
+
+enum FrameNamePolicy { ShouldNotIncludeFrameName, ShouldIncludeFrameName };
+
+static void dumpFrameScrollPosition(WKBundleFrameRef frame, FrameNamePolicy shouldIncludeFrameName = ShouldNotIncludeFrameName)
+{
+    double x = numericWindowPropertyValue(frame, "pageXOffset");
+    double y = numericWindowPropertyValue(frame, "pageYOffset");
+    if (fabs(x) > 0.00000001 || fabs(y) > 0.00000001) {
+        if (shouldIncludeFrameName) {
+            WKRetainPtr<WKStringRef> name(AdoptWK, WKBundleFrameCopyName(frame));
+            InjectedBundle::shared().os() << "frame '" << name << "' ";
+        }
+        InjectedBundle::shared().os() << "scrolled to " << x << "," << y << "\n";
+    }
+}
+
+static void dumpDescendantFrameScrollPositions(WKBundleFrameRef frame)
+{
+    WKRetainPtr<WKArrayRef> childFrames(AdoptWK, WKBundleFrameCopyChildFrames(frame));
+    size_t size = WKArrayGetSize(childFrames.get());
+    for (size_t i = 0; i < size; ++i) {
+        // FIXME: I don't like that we have to const_cast here. Can we change WKArray?
+        WKBundleFrameRef subframe = static_cast<WKBundleFrameRef>(const_cast<void*>(WKArrayGetItemAtIndex(childFrames.get(), i)));
+        dumpFrameScrollPosition(subframe, ShouldIncludeFrameName);
+        dumpDescendantFrameScrollPositions(subframe);
+    }
+}
+
+void InjectedBundlePage::dumpAllFrameScrollPositions()
+{
+    WKBundleFrameRef frame = WKBundlePageGetMainFrame(m_page);
+    dumpFrameScrollPosition(frame);
+    dumpDescendantFrameScrollPositions(frame);
+}
+
+static void dumpFrameText(WKBundleFrameRef frame)
+{
+    JSGlobalContextRef context = WKBundleFrameGetJavaScriptContext(frame);
+    JSObjectRef document = propertyObject(context, JSContextGetGlobalObject(context), "document");
+    JSObjectRef documentElement = propertyObject(context, document, "documentElement");
+    InjectedBundle::shared().os() << propertyString(context, documentElement, "innerText") << "\n";
+}
+
+static void dumpDescendantFramesText(WKBundleFrameRef frame)
+{
+    WKRetainPtr<WKArrayRef> childFrames(AdoptWK, WKBundleFrameCopyChildFrames(frame));
+    size_t size = WKArrayGetSize(childFrames.get());
+    for (size_t i = 0; i < size; ++i) {
+        // FIXME: I don't like that we have to const_cast here. Can we change WKArray?
+        WKBundleFrameRef subframe = static_cast<WKBundleFrameRef>(const_cast<void*>(WKArrayGetItemAtIndex(childFrames.get(), i)));
+        WKRetainPtr<WKStringRef> subframeName(AdoptWK, WKBundleFrameCopyName(subframe));
+        InjectedBundle::shared().os() << "\n--------\nFrame: '" << subframeName << "'\n--------\n";
+        dumpFrameText(subframe);
+        dumpDescendantFramesText(subframe);
+    }
+}
+
+void InjectedBundlePage::dumpAllFramesText()
+{
+    WKBundleFrameRef frame = WKBundlePageGetMainFrame(m_page);
+    dumpFrameText(frame);
+    dumpDescendantFramesText(frame);
+}
+
 void InjectedBundlePage::dump()
 {
     InjectedBundle::shared().layoutTestController()->invalidateWaitToDumpWatchdog();
 
-    if (InjectedBundle::shared().layoutTestController()->shouldDumpAsText()) {
-        // FIXME: Support dumping subframes when layoutTestController()->dumpChildFramesAsText() is true.
-        WKRetainPtr<WKStringRef> innerText(AdoptWK, WKBundleFrameCopyInnerText(WKBundlePageGetMainFrame(m_page)));
-        OwnPtr<Vector<char> > utf8InnerText = WKStringToUTF8(innerText.get());
-        InjectedBundle::shared().os() << utf8InnerText->data() << "\n";
-    } else {
-        WKRetainPtr<WKStringRef> externalRepresentation(AdoptWK, WKBundlePageCopyRenderTreeExternalRepresentation(m_page));
-        OwnPtr<Vector<char> > utf8externalRepresentation = WKStringToUTF8(externalRepresentation.get());
-        InjectedBundle::shared().os() << utf8externalRepresentation->data();
+    switch (InjectedBundle::shared().layoutTestController()->whatToDump()) {
+    case LayoutTestController::RenderTree: {
+        WKRetainPtr<WKStringRef> text(AdoptWK, WKBundlePageCopyRenderTreeExternalRepresentation(m_page));
+        InjectedBundle::shared().os() << text;
+        break;
     }
+    case LayoutTestController::MainFrameText:
+        dumpFrameText(WKBundlePageGetMainFrame(m_page));
+        break;
+    case LayoutTestController::AllFramesText:
+        dumpAllFramesText();
+        break;
+    }
+
+    if (InjectedBundle::shared().layoutTestController()->shouldDumpAllFrameScrollPositions())
+        dumpAllFrameScrollPositions();
+    else if (InjectedBundle::shared().layoutTestController()->shouldDumpMainFrameScrollPosition())
+        dumpFrameScrollPosition(WKBundlePageGetMainFrame(m_page));
+
     InjectedBundle::shared().done();
 }
 
@@ -188,10 +381,10 @@ void InjectedBundlePage::didReceiveTitleForFrame(WKStringRef title, WKBundleFram
 {
 }
 
-void InjectedBundlePage::didClearWindowForFrame(WKBundleFrameRef frame, JSContextRef ctx, JSObjectRef window)
+void InjectedBundlePage::didClearWindowForFrame(WKBundleFrameRef frame, JSGlobalContextRef context, JSObjectRef window)
 {
     JSValueRef exception = 0;
-    InjectedBundle::shared().layoutTestController()->makeWindowObject(ctx, window, &exception);
+    InjectedBundle::shared().layoutTestController()->makeWindowObject(context, window, &exception);
 }
 
 // UI Client Callbacks
@@ -224,8 +417,7 @@ void InjectedBundlePage::_willRunJavaScriptPrompt(WKBundlePageRef page, WKString
 void InjectedBundlePage::willAddMessageToConsole(WKStringRef message, uint32_t lineNumber)
 {
     // FIXME: Strip file: urls.
-    OwnPtr<Vector<char> > utf8Message = WKStringToUTF8(message);
-    InjectedBundle::shared().os() << "CONSOLE MESSAGE: line " << lineNumber << ": " << utf8Message->data() << "\n";
+    InjectedBundle::shared().os() << "CONSOLE MESSAGE: line " << lineNumber << ": " << message << "\n";
 }
 
 void InjectedBundlePage::willSetStatusbarText(WKStringRef statusbarText)
@@ -233,27 +425,174 @@ void InjectedBundlePage::willSetStatusbarText(WKStringRef statusbarText)
     if (!InjectedBundle::shared().layoutTestController()->shouldDumpStatusCallbacks())
         return;
 
-    OwnPtr<Vector<char> > utf8StatusbarText = WKStringToUTF8(statusbarText);
-    InjectedBundle::shared().os() << "UI DELEGATE STATUS CALLBACK: setStatusText:" << utf8StatusbarText->data() << "\n";
+    InjectedBundle::shared().os() << "UI DELEGATE STATUS CALLBACK: setStatusText:" << statusbarText << "\n";
 }
 
 void InjectedBundlePage::willRunJavaScriptAlert(WKStringRef message, WKBundleFrameRef)
 {
-    OwnPtr<Vector<char> > utf8Message = WKStringToUTF8(message);
-    InjectedBundle::shared().os() << "ALERT: " << utf8Message->data() << "\n";
+    InjectedBundle::shared().os() << "ALERT: " << message << "\n";
 }
 
 void InjectedBundlePage::willRunJavaScriptConfirm(WKStringRef message, WKBundleFrameRef)
 {
-    OwnPtr<Vector<char> > utf8Message = WKStringToUTF8(message);
-    InjectedBundle::shared().os() << "CONFIRM: " << utf8Message->data() << "\n";
+    InjectedBundle::shared().os() << "CONFIRM: " << message << "\n";
 }
 
 void InjectedBundlePage::willRunJavaScriptPrompt(WKStringRef message, WKStringRef defaultValue, WKBundleFrameRef)
 {
-    OwnPtr<Vector<char> > utf8Message = WKStringToUTF8(message);
-    OwnPtr<Vector<char> > utf8DefaultValue = WKStringToUTF8(defaultValue);
-    InjectedBundle::shared().os() << "PROMPT: " << utf8Message->data() << ", default text: " << utf8DefaultValue->data() <<  "\n";
+    InjectedBundle::shared().os() << "PROMPT: " << message << ", default text: " << defaultValue <<  "\n";
 }
+
+// Editor Client Callbacks
+
+bool InjectedBundlePage::_shouldBeginEditing(WKBundlePageRef page, WKBundleRangeRef range, const void* clientInfo)
+{
+    return static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->shouldBeginEditing(range);
+}
+
+bool InjectedBundlePage::_shouldEndEditing(WKBundlePageRef page, WKBundleRangeRef range, const void* clientInfo)
+{
+    return static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->shouldEndEditing(range);
+}
+
+bool InjectedBundlePage::_shouldInsertNode(WKBundlePageRef page, WKBundleNodeRef node, WKBundleRangeRef rangeToReplace, WKInsertActionType action, const void* clientInfo)
+{
+    return static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->shouldInsertNode(node, rangeToReplace, action);
+}
+
+bool InjectedBundlePage::_shouldInsertText(WKBundlePageRef page, WKStringRef text, WKBundleRangeRef rangeToReplace, WKInsertActionType action, const void* clientInfo)
+{
+    return static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->shouldInsertText(text, rangeToReplace, action);
+}
+
+bool InjectedBundlePage::_shouldDeleteRange(WKBundlePageRef page, WKBundleRangeRef range, const void* clientInfo)
+{
+    return static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->shouldDeleteRange(range);
+}
+
+bool InjectedBundlePage::_shouldChangeSelectedRange(WKBundlePageRef page, WKBundleRangeRef fromRange, WKBundleRangeRef toRange, WKAffinityType affinity, bool stillSelecting, const void* clientInfo)
+{
+    return static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->shouldChangeSelectedRange(fromRange, toRange, affinity, stillSelecting);
+}
+
+bool InjectedBundlePage::_shouldApplyStyle(WKBundlePageRef page, WKBundleCSSStyleDeclarationRef style, WKBundleRangeRef range, const void* clientInfo)
+{
+    return static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->shouldApplyStyle(style, range);
+}
+
+void InjectedBundlePage::_didBeginEditing(WKBundlePageRef page, WKStringRef notificationName, const void* clientInfo)
+{
+    static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->didBeginEditing(notificationName);
+}
+
+void InjectedBundlePage::_didEndEditing(WKBundlePageRef page, WKStringRef notificationName, const void* clientInfo)
+{
+    static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->didEndEditing(notificationName);
+}
+
+void InjectedBundlePage::_didChange(WKBundlePageRef page, WKStringRef notificationName, const void* clientInfo)
+{
+    static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->didChange(notificationName);
+}
+
+void InjectedBundlePage::_didChangeSelection(WKBundlePageRef page, WKStringRef notificationName, const void* clientInfo)
+{
+    static_cast<InjectedBundlePage*>(const_cast<void*>(clientInfo))->didChangeSelection(notificationName);
+}
+
+bool InjectedBundlePage::shouldBeginEditing(WKBundleRangeRef range)
+{
+    if (InjectedBundle::shared().layoutTestController()->shouldDumpEditingCallbacks())
+        InjectedBundle::shared().os() << "EDITING DELEGATE: shouldBeginEditingInDOMRange:" << range << "\n";
+    return InjectedBundle::shared().layoutTestController()->shouldAllowEditing();
+}
+
+bool InjectedBundlePage::shouldEndEditing(WKBundleRangeRef range)
+{
+    if (InjectedBundle::shared().layoutTestController()->shouldDumpEditingCallbacks())
+        InjectedBundle::shared().os() << "EDITING DELEGATE: shouldEndEditingInDOMRange:" << range << "\n";
+    return InjectedBundle::shared().layoutTestController()->shouldAllowEditing();
+}
+
+bool InjectedBundlePage::shouldInsertNode(WKBundleNodeRef node, WKBundleRangeRef rangeToReplace, WKInsertActionType action)
+{
+    static const char *insertactionstring[] = {
+        "WebViewInsertActionTyped",
+        "WebViewInsertActionPasted",
+        "WebViewInsertActionDropped",
+    };
+
+    if (InjectedBundle::shared().layoutTestController()->shouldDumpEditingCallbacks())
+        InjectedBundle::shared().os() << "EDITING DELEGATE: shouldInsertNode:" << dumpPath(node) << " replacingDOMRange:" << rangeToReplace << " givenAction:" << insertactionstring[action] << "\n";
+    return InjectedBundle::shared().layoutTestController()->shouldAllowEditing();
+}
+
+bool InjectedBundlePage::shouldInsertText(WKStringRef text, WKBundleRangeRef rangeToReplace, WKInsertActionType action)
+{
+    static const char *insertactionstring[] = {
+        "WebViewInsertActionTyped",
+        "WebViewInsertActionPasted",
+        "WebViewInsertActionDropped",
+    };
+
+    if (InjectedBundle::shared().layoutTestController()->shouldDumpEditingCallbacks())
+        InjectedBundle::shared().os() << "EDITING DELEGATE: shouldInsertText:" << text << " replacingDOMRange:" << rangeToReplace << " givenAction:" << insertactionstring[action] << "\n";
+    return InjectedBundle::shared().layoutTestController()->shouldAllowEditing();
+}
+
+bool InjectedBundlePage::shouldDeleteRange(WKBundleRangeRef range)
+{
+    if (InjectedBundle::shared().layoutTestController()->shouldDumpEditingCallbacks())
+        InjectedBundle::shared().os() << "EDITING DELEGATE: shouldDeleteDOMRange:" << range << "\n";
+    return InjectedBundle::shared().layoutTestController()->shouldAllowEditing();
+}
+
+bool InjectedBundlePage::shouldChangeSelectedRange(WKBundleRangeRef fromRange, WKBundleRangeRef toRange, WKAffinityType affinity, bool stillSelecting)
+{
+    static const char *affinitystring[] = {
+        "NSSelectionAffinityUpstream",
+        "NSSelectionAffinityDownstream"
+    };
+    static const char *boolstring[] = {
+        "FALSE",
+        "TRUE"
+    };
+
+    if (InjectedBundle::shared().layoutTestController()->shouldDumpEditingCallbacks())
+        InjectedBundle::shared().os() << "EDITING DELEGATE: shouldChangeSelectedDOMRange:" << fromRange << " toDOMRange:" << toRange << " affinity:" << affinitystring[affinity] << " stillSelecting:" << boolstring[stillSelecting] << "\n";
+    return InjectedBundle::shared().layoutTestController()->shouldAllowEditing();
+}
+
+bool InjectedBundlePage::shouldApplyStyle(WKBundleCSSStyleDeclarationRef style, WKBundleRangeRef range)
+{
+    if (InjectedBundle::shared().layoutTestController()->shouldDumpEditingCallbacks())
+        InjectedBundle::shared().os() << "EDITING DELEGATE: shouldApplyStyle:" << style << " toElementsInDOMRange:" << range << "\n";
+    return InjectedBundle::shared().layoutTestController()->shouldAllowEditing();
+}
+
+void InjectedBundlePage::didBeginEditing(WKStringRef notificationName)
+{
+    if (InjectedBundle::shared().layoutTestController()->shouldDumpEditingCallbacks())
+        InjectedBundle::shared().os() << "EDITING DELEGATE: webViewDidBeginEditing:" << notificationName << "\n";
+}
+
+void InjectedBundlePage::didEndEditing(WKStringRef notificationName)
+{
+    if (InjectedBundle::shared().layoutTestController()->shouldDumpEditingCallbacks())
+        InjectedBundle::shared().os() << "EDITING DELEGATE: webViewDidEndEditing:" << notificationName << "\n";
+}
+
+void InjectedBundlePage::didChange(WKStringRef notificationName)
+{
+    if (InjectedBundle::shared().layoutTestController()->shouldDumpEditingCallbacks())
+        InjectedBundle::shared().os() << "EDITING DELEGATE: webViewDidChange:" << notificationName << "\n";
+}
+
+void InjectedBundlePage::didChangeSelection(WKStringRef notificationName)
+{
+    if (InjectedBundle::shared().layoutTestController()->shouldDumpEditingCallbacks())
+        InjectedBundle::shared().os() << "EDITING DELEGATE: webViewDidChangeSelection:" << notificationName << "\n";
+}
+
 
 } // namespace WTR

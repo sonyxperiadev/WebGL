@@ -47,6 +47,7 @@
 #include "InspectorClientImpl.h"
 #include "LayerRendererChromium.h"
 #include "NotificationPresenterImpl.h"
+#include "SpeechInputClientImpl.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/RefCounted.h>
 
@@ -170,11 +171,13 @@ public:
         const WebNode&,
         const WebVector<WebString>& names,
         const WebVector<WebString>& labels,
+        const WebVector<int>& uniqueIDs,
         int separatorIndex);
     virtual void applyAutoFillSuggestions(
         const WebNode&,
         const WebVector<WebString>& names,
         const WebVector<WebString>& labels,
+        const WebVector<WebString>& icons,
         const WebVector<int>& uniqueIDs,
         int separatorIndex);
     // DEPRECATED: replacing with applyAutoFillSuggestions.
@@ -239,7 +242,7 @@ public:
     void mouseUp(const WebMouseEvent&);
     void mouseContextMenu(const WebMouseEvent&);
     void mouseDoubleClick(const WebMouseEvent&);
-    void mouseWheel(const WebMouseWheelEvent&);
+    bool mouseWheel(const WebMouseWheelEvent&);
     bool keyEvent(const WebKeyboardEvent&);
     bool charEvent(const WebKeyboardEvent&);
     bool touchEvent(const WebTouchEvent&);
@@ -510,6 +513,10 @@ private:
     bool m_isAcceleratedCompositingActive;
 #endif
     static const WebInputEvent* m_currentInputEvent;
+
+#if ENABLE(INPUT_SPEECH)
+    SpeechInputClientImpl m_speechInputClient;
+#endif
 
     OwnPtr<WebGLES2Context> m_gles2Context;
 };

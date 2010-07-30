@@ -42,34 +42,61 @@ public:
 
 private:
     // Loader Client
-    static void _didStartProvisionalLoadForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo);
-    static void _didReceiveServerRedirectForProvisionalLoadForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo);
-    static void _didFailProvisionalLoadWithErrorForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo);
-    static void _didCommitLoadForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo);
-    static void _didFinishLoadForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo);
-    static void _didFailLoadWithErrorForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo);
-    static void _didReceiveTitleForFrame(WKBundlePageRef page, WKStringRef title, WKBundleFrameRef frame, const void *clientInfo);
-    static void _didClearWindowForFrame(WKBundlePageRef page, WKBundleFrameRef frame, JSContextRef ctx, JSObjectRef window, const void *clientInfo);
-    void didStartProvisionalLoadForFrame(WKBundleFrameRef frame);
-    void didReceiveServerRedirectForProvisionalLoadForFrame(WKBundleFrameRef frame);
-    void didFailProvisionalLoadWithErrorForFrame(WKBundleFrameRef frame);
-    void didCommitLoadForFrame(WKBundleFrameRef frame);
-    void didFinishLoadForFrame(WKBundleFrameRef frame);
-    void didFailLoadWithErrorForFrame(WKBundleFrameRef frame);
-    void didReceiveTitleForFrame(WKStringRef title, WKBundleFrameRef frame);
-    void didClearWindowForFrame(WKBundleFrameRef frame, JSContextRef ctx, JSObjectRef window);
+    static void _didStartProvisionalLoadForFrame(WKBundlePageRef, WKBundleFrameRef, const void* clientInfo);
+    static void _didReceiveServerRedirectForProvisionalLoadForFrame(WKBundlePageRef, WKBundleFrameRef, const void* clientInfo);
+    static void _didFailProvisionalLoadWithErrorForFrame(WKBundlePageRef, WKBundleFrameRef, const void* clientInfo);
+    static void _didCommitLoadForFrame(WKBundlePageRef, WKBundleFrameRef, const void* clientInfo);
+    static void _didFinishLoadForFrame(WKBundlePageRef, WKBundleFrameRef, const void* clientInfo);
+    static void _didFailLoadWithErrorForFrame(WKBundlePageRef, WKBundleFrameRef, const void* clientInfo);
+    static void _didReceiveTitleForFrame(WKBundlePageRef, WKStringRef title, WKBundleFrameRef, const void* clientInfo);
+    static void _didClearWindowForFrame(WKBundlePageRef, WKBundleFrameRef, JSGlobalContextRef, JSObjectRef window, const void* clientInfo);
+    void didStartProvisionalLoadForFrame(WKBundleFrameRef);
+    void didReceiveServerRedirectForProvisionalLoadForFrame(WKBundleFrameRef);
+    void didFailProvisionalLoadWithErrorForFrame(WKBundleFrameRef);
+    void didCommitLoadForFrame(WKBundleFrameRef);
+    void didFinishLoadForFrame(WKBundleFrameRef);
+    void didFailLoadWithErrorForFrame(WKBundleFrameRef);
+    void didReceiveTitleForFrame(WKStringRef title, WKBundleFrameRef);
+    void didClearWindowForFrame(WKBundleFrameRef, JSGlobalContextRef, JSObjectRef window);
 
     // UI Client
-    static void _willAddMessageToConsole(WKBundlePageRef page, WKStringRef message, uint32_t lineNumber, const void* clientInfo);
-    static void _willSetStatusbarText(WKBundlePageRef page, WKStringRef statusbarText, const void* clientInfo);
-    static void _willRunJavaScriptAlert(WKBundlePageRef page, WKStringRef message, WKBundleFrameRef frame, const void* clientInfo);
-    static void _willRunJavaScriptConfirm(WKBundlePageRef page, WKStringRef message, WKBundleFrameRef frame, const void* clientInfo);
-    static void _willRunJavaScriptPrompt(WKBundlePageRef page, WKStringRef message, WKStringRef defaultValue, WKBundleFrameRef frame, const void* clientInfo);
+    static void _willAddMessageToConsole(WKBundlePageRef, WKStringRef message, uint32_t lineNumber, const void* clientInfo);
+    static void _willSetStatusbarText(WKBundlePageRef, WKStringRef statusbarText, const void* clientInfo);
+    static void _willRunJavaScriptAlert(WKBundlePageRef, WKStringRef message, WKBundleFrameRef frame, const void* clientInfo);
+    static void _willRunJavaScriptConfirm(WKBundlePageRef, WKStringRef message, WKBundleFrameRef frame, const void* clientInfo);
+    static void _willRunJavaScriptPrompt(WKBundlePageRef, WKStringRef message, WKStringRef defaultValue, WKBundleFrameRef frame, const void* clientInfo);
     void willAddMessageToConsole(WKStringRef message, uint32_t lineNumber);
     void willSetStatusbarText(WKStringRef statusbarText);
     void willRunJavaScriptAlert(WKStringRef message, WKBundleFrameRef);
     void willRunJavaScriptConfirm(WKStringRef message, WKBundleFrameRef);
     void willRunJavaScriptPrompt(WKStringRef message, WKStringRef defaultValue, WKBundleFrameRef);
+
+    // Editor client
+    static bool _shouldBeginEditing(WKBundlePageRef, WKBundleRangeRef, const void* clientInfo);
+    static bool _shouldEndEditing(WKBundlePageRef, WKBundleRangeRef, const void* clientInfo);
+    static bool _shouldInsertNode(WKBundlePageRef, WKBundleNodeRef, WKBundleRangeRef rangeToReplace, WKInsertActionType, const void* clientInfo);
+    static bool _shouldInsertText(WKBundlePageRef, WKStringRef, WKBundleRangeRef rangeToReplace, WKInsertActionType, const void* clientInfo);
+    static bool _shouldDeleteRange(WKBundlePageRef, WKBundleRangeRef, const void* clientInfo);
+    static bool _shouldChangeSelectedRange(WKBundlePageRef, WKBundleRangeRef fromRange, WKBundleRangeRef toRange, WKAffinityType, bool stillSelecting, const void* clientInfo);
+    static bool _shouldApplyStyle(WKBundlePageRef, WKBundleCSSStyleDeclarationRef style, WKBundleRangeRef range, const void* clientInfo);
+    static void _didBeginEditing(WKBundlePageRef, WKStringRef notificationName, const void* clientInfo);
+    static void _didEndEditing(WKBundlePageRef, WKStringRef notificationName, const void* clientInfo);
+    static void _didChange(WKBundlePageRef, WKStringRef notificationName, const void* clientInfo);
+    static void _didChangeSelection(WKBundlePageRef, WKStringRef notificationName, const void* clientInfo);
+    bool shouldBeginEditing(WKBundleRangeRef);
+    bool shouldEndEditing(WKBundleRangeRef);
+    bool shouldInsertNode(WKBundleNodeRef, WKBundleRangeRef rangeToReplace, WKInsertActionType);
+    bool shouldInsertText(WKStringRef, WKBundleRangeRef rangeToReplace, WKInsertActionType);
+    bool shouldDeleteRange(WKBundleRangeRef);
+    bool shouldChangeSelectedRange(WKBundleRangeRef fromRange, WKBundleRangeRef toRange, WKAffinityType, bool stillSelecting);
+    bool shouldApplyStyle(WKBundleCSSStyleDeclarationRef style, WKBundleRangeRef range);
+    void didBeginEditing(WKStringRef notificationName);
+    void didEndEditing(WKStringRef notificationName);
+    void didChange(WKStringRef notificationName);
+    void didChangeSelection(WKStringRef notificationName);
+
+    void dumpAllFramesText();
+    void dumpAllFrameScrollPositions();
 
     WKBundlePageRef m_page;
     bool m_isLoading;

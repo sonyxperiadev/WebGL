@@ -72,6 +72,7 @@
 #include "TextEvent.h"
 #include "TextIterator.h"
 #include "UserGestureIndicator.h"
+#include "UserTypingGestureIndicator.h"
 #include "WheelEvent.h"
 #include "htmlediting.h" // for comparePositions()
 #include <wtf/CurrentTime.h>
@@ -869,11 +870,15 @@ void EventHandler::allowDHTMLDrag(bool& flagDHTML, bool& flagUA) const
 }
 #endif // ENABLE(DRAG_SUPPORT)
     
+<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
 HitTestResult EventHandler::hitTestResultAtPoint(const IntPoint& point, bool allowShadowContent, bool ignoreClipping, HitTestScrollbars testScrollbars, int hitType, const IntSize& pointPadding)
 #else
 HitTestResult EventHandler::hitTestResultAtPoint(const IntPoint& point, bool allowShadowContent, bool ignoreClipping, HitTestScrollbars testScrollbars, int hitType)
 #endif
+=======
+HitTestResult EventHandler::hitTestResultAtPoint(const IntPoint& point, bool allowShadowContent, bool ignoreClipping, HitTestScrollbars testScrollbars, HitTestRequest::HitTestRequestType hitType)
+>>>>>>> webkit.org at r64264
 {
 #ifdef ANDROID_HITTEST_WITHSIZE
     HitTestResult result(point, pointPadding);
@@ -1464,7 +1469,7 @@ bool EventHandler::handleMouseMoveEvent(const PlatformMouseEvent& mouseEvent, Hi
     // if we are allowed to select.
     // This means that :hover and :active freeze in the state they were in when the mouse
     // was pressed, rather than updating for nodes the mouse moves over as you hold the mouse down.
-    int hitType = HitTestRequest::MouseMove;
+    HitTestRequest::HitTestRequestType hitType = HitTestRequest::MouseMove;
     if (m_mousePressed && m_mouseDownMayStartSelect)
         hitType |= HitTestRequest::ReadOnly;
     if (m_mousePressed)
@@ -2305,6 +2310,7 @@ bool EventHandler::keyEvent(const PlatformKeyboardEvent& initialKeyEvent)
         return false;
 
     UserGestureIndicator gestureIndicator(DefinitelyProcessingUserGesture);
+    UserTypingGestureIndicator typingGestureIndicator(m_frame);
 
     if (FrameView* view = m_frame->view())
         view->resetDeferredRepaintDelay();
@@ -2886,7 +2892,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         const PlatformTouchPoint& point = points[i];
         IntPoint pagePoint = documentPointForWindowPoint(m_frame, point.pos());
 
-        int hitType = HitTestRequest::Active | HitTestRequest::ReadOnly;
+        HitTestRequest::HitTestRequestType hitType = HitTestRequest::Active | HitTestRequest::ReadOnly;
         // The HitTestRequest types used for mouse events map quite adequately
         // to touch events. Note that in addition to meaning that the hit test
         // should affect the active state of the current node if necessary,

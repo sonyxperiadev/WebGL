@@ -1,3 +1,561 @@
+2010-07-28  Dominic Mazzoni  <dmazzoni@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Add access to the computed style display to WebAccessibilityObject.
+        https://bugs.webkit.org/show_bug.cgi?id=43044
+
+        * public/WebAccessibilityObject.h:
+        * src/WebAccessibilityObject.cpp:
+        (WebKit::WebAccessibilityObject::hasComputedStyle):
+        (WebKit::WebAccessibilityObject::computedStyleDisplay):
+
+2010-07-28  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Set ENABLE_DEVICE_ORIENTATION=1 in features.gypi for chromium
+        https://bugs.webkit.org/show_bug.cgi?id=43122
+
+        Enable the compile-time switch for device orientation.
+        The switch was already enabled in features_override.gypi in the Chromium
+        repository (in revision 53317), and should be set here as well.
+
+        The feature is being implemented behind a run-time flag which
+        defaults to off in Chromium.
+
+        * features.gypi: Set ENABLE_DEVICE_ORIENTATION=1.
+
+2010-07-28  Gene Gutnik  <gene@google.com>
+
+        Reviewed by Darin Fisher.
+
+        Fix mouse coordinate conversion. WindowX,Y is an absolute
+        mouse coordinates within browser window, x,y - are coordinates
+        relative to the plugin.
+        https://bugs.webkit.org/show_bug.cgi?id=42987
+
+        * src/WebInputEventConversion.cpp:
+        (WebKit::WebMouseEventBuilder::WebMouseEventBuilder):
+        (WebKit::WebMouseWheelEventBuilder::WebMouseWheelEventBuilder):
+        * src/WebInputEventConversion.h:
+        * src/WebPluginContainerImpl.cpp:
+        (WebKit::WebPluginContainerImpl::handleMouseEvent):
+        (WebKit::WebPluginContainerImpl::handleWheelEvent):
+
+2010-07-28  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Add a bool to Settings to control accelerated 2d canvas
+        https://bugs.webkit.org/show_bug.cgi?id=43094
+
+        * public/WebSettings.h:
+        * src/WebSettingsImpl.cpp:
+        (WebKit::WebSettingsImpl::setAccelerated2dCanvasEnabled):
+        * src/WebSettingsImpl.h:
+
+2010-07-28  Brett Wilson  <brettw@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Fix forward declares to be struct instead of class.
+        https://bugs.webkit.org/show_bug.cgi?id=43127
+
+        * public/WebFont.h:
+
+2010-07-28  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Chromium DevTools: [REGRESSION] sourceURL is not respected.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43124
+
+        * src/js/DebuggerScript.js:
+
+2010-07-28  Andrei Popescu  <andreip@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        [IndexedDB] WebDOMStringList default ctor does not initialize its m_private member
+        variable so any attempt to append strings to a WebDOMStringList instance results in a crash.
+        https://bugs.webkit.org/show_bug.cgi?id=43120
+
+        Makes the default WebKit::WebDOMStringList ctor actually create its wrapped
+        WebCore::DOMStringList instance.
+
+        * public/WebDOMStringList.h:
+        * src/WebDOMStringList.cpp:
+        (WebKit::WebDOMStringList::WebDOMStringList):
+
+2010-07-26  Steve Block  <steveblock@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Page clients should be passed to Page constructor via structure of pointers
+        https://bugs.webkit.org/show_bug.cgi?id=42834
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+
+2010-07-28  Pavel Feldman  <pfeldman@chromium.org>
+
+        Not reviewed: chromium tests fix.
+        Chromium Dev Tools: [REGRESSION] Pause is not working.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43118
+
+        * src/js/DevTools.js:
+        (InspectorBackend.pause):
+
+2010-07-27  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        Add FILE_SYSTEM build flag for FileSystem API
+        https://bugs.webkit.org/show_bug.cgi?id=42915
+
+        * features.gypi:
+
+2010-07-27  James Hawkins  <jhawkins@chromium.org>
+
+        Unreviewed Build Fix. 
+
+        Add a missing itemIcon() method to TestPopupMenuClient.
+
+        * tests/PopupMenuTest.cpp:
+        (WebKit::TestPopupMenuClient::itemIcon):
+
+2010-07-27  James Hawkins  <jhawkins@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [Chromium] Add the ability to show right-aligned icons in the AutoFill popup.
+        https://bugs.webkit.org/show_bug.cgi?id=43076
+
+        * public/WebView.h:
+        * src/AutoFillPopupMenuClient.cpp:
+        (WebKit::AutoFillPopupMenuClient::getIcon):
+        (WebKit::AutoFillPopupMenuClient::removeSuggestionAtIndex):
+        (WebKit::AutoFillPopupMenuClient::itemIcon):
+        (WebKit::AutoFillPopupMenuClient::initialize):
+        (WebKit::AutoFillPopupMenuClient::setSuggestions):
+        * src/AutoFillPopupMenuClient.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::applyAutoFillSuggestions):
+        (WebKit::WebViewImpl::applyAutocompleteSuggestions):
+        * src/WebViewImpl.h:
+
+2010-07-27  Brett Wilson  <brettw@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Add the ability to select fonts and do basic text drawing to the
+        Chromium WebKit API.
+        https://bugs.webkit.org/show_bug.cgi?id=42999
+
+        * WebKit.gyp:
+        * public/WebFloatPoint.h: Added.
+        (WebKit::WebFloatPoint::WebFloatPoint):
+        (WebKit::WebFloatPoint::operator=):
+        (WebKit::WebFloatPoint::operator WebCore::FloatPoint):
+        (WebKit::operator==):
+        (WebKit::operator!=):
+        * public/WebFloatRect.h: Added.
+        (WebKit::WebFloatRect::isEmpty):
+        (WebKit::WebFloatRect::WebFloatRect):
+        (WebKit::WebFloatRect::operator=):
+        (WebKit::WebFloatRect::operator WebCore::FloatRect):
+        (WebKit::operator==):
+        (WebKit::operator!=):
+        * public/WebFont.h: Added.
+        * public/WebFontDescription.h: Added.
+        (WebKit::WebFontDescription::):
+        (WebKit::WebFontDescription::WebFontDescription):
+        * public/WebTextRun.h: Added.
+        (WebKit::WebTextRun::WebTextRun):
+        * src/AssertMatchingEnums.cpp:
+        * src/WebFontDescription.cpp: Added.
+        (WebKit::WebFontDescription::WebFontDescription):
+        (WebKit::WebFontDescription::operator WebCore::FontDescription):
+        * src/WebFontImpl.cpp: Added.
+        (WebKit::WebFont::Create):
+        (WebKit::WebFontImpl::WebFontImpl):
+        (WebKit::WebFontImpl::fontDescription):
+        (WebKit::WebFontImpl::ascent):
+        (WebKit::WebFontImpl::descent):
+        (WebKit::WebFontImpl::height):
+        (WebKit::WebFontImpl::lineSpacing):
+        (WebKit::WebFontImpl::xHeight):
+        (WebKit::WebFontImpl::drawText):
+        (WebKit::WebFontImpl::width):
+        (WebKit::WebFontImpl::offsetForPosition):
+        (WebKit::WebFontImpl::selectionRectForText):
+        * src/WebFontImpl.h: Added.
+        * src/WebTextRun.cpp: Added.
+        (WebKit::WebTextRun::operator WebCore::TextRun):
+
+2010-07-27  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Reviewed by David Levin.
+
+        Move all WebSQLDatabases-specific code behind #if ENABLE(DATABASE).
+        https://bugs.webkit.org/show_bug.cgi?id=43035
+
+        Make Chromium compile with ENABLE_DATABASE=0.
+
+        * src/ChromiumBridge.cpp:
+        (WebCore::ChromiumBridge::databaseGetFileSize):
+        * src/DatabaseObserver.cpp:
+        * src/WebDatabase.cpp:
+        (WebCore::AbstractDatabase::stringIdentifier):
+        (WebCore::AbstractDatabase::displayName):
+        (WebCore::AbstractDatabase::estimatedSize):
+        (WebCore::AbstractDatabase::securityOrigin):
+        (WebKit::WebDatabase::updateDatabaseSize):
+        (WebKit::WebDatabase::closeDatabaseImmediately):
+
+2010-07-27  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: if breakpoints were deactivated, add new breakpoints as disabled.
+        https://bugs.webkit.org/show_bug.cgi?id=41461
+
+        * src/js/DebuggerScript.js:
+        ():
+
+2010-07-27  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        WebInspector: Current implementation of message based inspector
+        transport generated by CodeGeneratorInspector should be upstreamed
+        from WebKit/chromium to WebCore.
+        https://bugs.webkit.org/show_bug.cgi?id=42983
+
+        * WebKit.gypi:
+        * src/InspectorFrontendClientImpl.cpp:
+        (WebKit::InspectorFrontendClientImpl::sendMessageToBackend):
+        * src/InspectorFrontendClientImpl.h:
+        * src/ToolsAgent.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::dispatchOnInspectorController):
+        (WebKit::WebDevToolsAgentImpl::initDevToolsAgentHost):
+        * src/WebDevToolsAgentImpl.h:
+        * src/js/InspectorControllerImpl.js: Removed.
+
+2010-07-27  Dominic Mazzoni  <dmazzoni@google.com>
+
+        Reviewed by Chris Fleizach.
+
+        Add accessors for node and document to WebAccessibilityObject,
+        needed to support some Windows screenreader functionality.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43001
+        
+        * public/WebAccessibilityObject.h:
+        * src/WebAccessibilityObject.cpp:
+        (WebKit::WebAccessibilityObject::node):
+        (WebKit::WebAccessibilityObject::document):
+
+2010-07-27  Dominic Mazzoni  <dmazzoni@google.com>
+
+        Reviewed by Chris Fleizach.
+
+        For Windows accessibility, have WebElement provide access
+        to its attributes.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43004
+
+        * WebKit.gyp:
+        * public/WebAttribute.h: Added.
+        (WebKit::WebAttribute::~WebAttribute):
+        (WebKit::WebAttribute::WebAttribute):
+        (WebKit::WebAttribute::operator=):
+        * public/WebElement.h:
+        * public/WebNamedNodeMap.h: Added.
+        (WebKit::WebNamedNodeMap::~WebNamedNodeMap):
+        (WebKit::WebNamedNodeMap::WebNamedNodeMap):
+        (WebKit::WebNamedNodeMap::operator=):
+        * src/WebAttribute.cpp: Added.
+        (WebKit::WebAttribute::reset):
+        (WebKit::WebAttribute::assign):
+        (WebKit::WebAttribute::WebAttribute):
+        (WebKit::WebAttribute::localName):
+        (WebKit::WebAttribute::value):
+        * src/WebElement.cpp:
+        (WebKit::WebElement::attributes):
+        * src/WebNamedNodeMap.cpp: Added.
+        (WebKit::WebNamedNodeMap::reset):
+        (WebKit::WebNamedNodeMap::assign):
+        (WebKit::WebNamedNodeMap::WebNamedNodeMap):
+        (WebKit::WebNamedNodeMap::length):
+        (WebKit::WebNamedNodeMap::attributeItem):
+
+2010-07-27  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        Simplify speech input plumbing in webcore and webkit
+        https://bugs.webkit.org/show_bug.cgi?id=43008
+
+        * src/SpeechInputClientImpl.cpp: Move functionality to WebCore::SpeechInput and make this a dummy proxy.
+        (WebKit::SpeechInputClientImpl::startRecognition):
+        (WebKit::SpeechInputClientImpl::cancelRecognition):
+        (WebKit::SpeechInputClientImpl::didCompleteRecording):
+        (WebKit::SpeechInputClientImpl::didCompleteRecognition):
+        (WebKit::SpeechInputClientImpl::setRecognitionResult):
+        * src/SpeechInputClientImpl.h:
+
+2010-07-26  Dominic Mazzoni  <dmazzoni@google.com>
+
+        Reviewed by Chris Fleizach.
+
+        Add accessor to get the doctype of a WebDocument, needed to
+        implement Windows accessibility.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43003
+        
+        * WebKit.gyp:
+        * public/WebDocument.h:
+        * public/WebDocumentType.h: Added.
+        (WebKit::WebDocumentType::WebDocumentType):
+        (WebKit::WebDocumentType::operator=):
+        (WebKit::WebDocumentType::assign):
+        * src/WebDocument.cpp:
+        (WebKit::WebDocument::doctype):
+        * src/WebDocumentType.cpp: Added.
+        (WebKit::WebDocumentType::name):
+        (WebKit::WebDocumentType::WebDocumentType):
+        (WebKit::WebDocumentType::operator=):
+        (WebKit::WebDocumentType::operator PassRefPtr<DocumentType>):
+
+2010-07-26  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Add WebKit plumbing to connect speech requests and callbacks between WebCore and the embedder.
+        https://bugs.webkit.org/show_bug.cgi?id=42367
+
+        No new tests, the relevant LayoutTestController bindings and tests will be added in the next patch.
+
+        * public/WebSpeechInputController.h: Added new interface, implemented by embedder and called by WebKit
+        (WebKit::WebSpeechInputController::~WebSpeechInputController):
+        * public/WebSpeechInputListener.h: Added new interface, implemented by WebKit and called by embedder.
+        (WebKit::WebSpeechInputListener::~WebSpeechInputListener):
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::createSpeechInputClient): New method to get the embedder's speech input client interface.
+        * src/SpeechInputClientImpl.cpp: Added new class, implementation of a two way connector between WebCore
+        and the embedder for requests and responses.
+        (WebKit::SpeechInputClientImpl::SpeechInputClientImpl):
+        (WebKit::SpeechInputClientImpl::~SpeechInputClientImpl):
+        (WebKit::SpeechInputClientImpl::startRecognition):
+        (WebKit::SpeechInputClientImpl::stopRecording):
+        (WebKit::SpeechInputClientImpl::didCompleteRecording):
+        (WebKit::SpeechInputClientImpl::setRecognitionResult):
+        (WebKit::SpeechInputClientImpl::didCompleteRecognition):
+        * src/SpeechInputClientImpl.h: Added.
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl): Pass on the above mentioned speech input connector to WebCore.
+        * src/WebViewImpl.h:
+
+2010-07-26  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Chromium DevTools: refactor query params, add basic
+        support for WebSocket-based backend.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42893
+
+        * src/js/DevTools.js:
+        (devtools.ToolsAgent.prototype.dispatchOnClient_):
+        (WebInspector.loaded):
+        (WebInspector.doLoadedDone):
+        (devtools.domContentLoaded):
+        * src/js/InspectorControllerImpl.js:
+
+2010-07-24  Pavel Feldman  <pfeldman@chromium.org>
+
+        Not reviewed: chromium build fix.
+
+        * src/ApplicationCacheHost.cpp:
+        (WebCore::ApplicationCacheHost::fillResourceList):
+
+2010-07-23  Kavita Kanetkar  <kkanetkar@chromium.org>
+
+        Reviewed by Joseph Pecoraro.
+
+        Implement remaining Inspector support for chrome's appcache
+        https://bugs.webkit.org/show_bug.cgi?id=42426
+
+        * src/ApplicationCacheHost.cpp: Plugging in chrome's appcache info.
+        (WebCore::ApplicationCacheHost::applicationCacheInfo):
+        (WebCore::ApplicationCacheHost::fillResourceList):
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+
+2010-07-23  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Reviewed by Yury Semikhatsky.
+
+        Chromium DevTools: migrate from utility context-based injected
+        script dispatch to upstream schema.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42883
+
+        * src/ToolsAgent.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        * src/WebDevToolsAgentImpl.h:
+        * src/js/DevToolsHostStub.js:
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+
+2010-07-23  Pavel Feldman  <pfeldman@chromium.org>
+
+        Not reviewed: rolling out r63963.
+
+        * src/ToolsAgent.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::dispatchOnInjectedScript):
+        * src/WebDevToolsAgentImpl.h:
+        * src/js/DevToolsHostStub.js:
+        (.window.dispatchOnInjectedScript):
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+        (devtools.InspectorBackendImpl.prototype.dispatchOnInjectedScript):
+
+2010-07-23  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Reviewed by Yury Semikhatsky.
+
+        Chromium DevTools: migrate from utility context-based injected
+        script dispatch to upstream schema.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42883
+
+        * src/ToolsAgent.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        * src/WebDevToolsAgentImpl.h:
+        * src/js/DevToolsHostStub.js:
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+
+2010-07-23  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Roll Chromium revision
+        https://bugs.webkit.org/show_bug.cgi?id=42876
+
+        * DEPS: Roll Chromium revision to r53434 in order to have the
+        logger initialization change (r53303)
+
+2010-07-22  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        WebInspector: CodeGeneratorInspector was extended and now it can
+        generate InspectorBackedDispatcher's code. This dispatcher will
+        validate and dispatch incoming inspector commands only by native
+        code without using javaScript. That is necessary step for
+        RemoteDebugging support.
+        https://bugs.webkit.org/show_bug.cgi?id=42588
+
+        * src/ToolsAgent.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::dispatchOnInspectorController):
+        * src/WebDevToolsAgentImpl.h:
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl.prototype.callInspectorController_):
+
+2010-07-22  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by David Levin.
+
+        [Chromium] Propagate return value of EventHandler::handleMouseWheelEvent
+        to caller of WebViewImpl::handleInputEvent.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42835
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::mouseWheel):
+        (WebKit::WebViewImpl::handleInputEvent):
+        * src/WebViewImpl.h:
+
+2010-07-22  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42808
+        Pass context menu events through WebInputEvent to WebPlugin::handleInputEvent.
+
+        The DOM treats a context menu event as a type of mouse event.  We therefore
+        do the same here, and reuse the WebMouseEvent subclass.  This makes sense
+        since a context menu event has (x,y)-coordinates.
+
+        * public/WebInputEvent.h:
+        (WebKit::WebInputEvent::):
+        (WebKit::WebInputEvent::isMouseEventType):
+        * src/WebInputEventConversion.cpp:
+        (WebKit::WebMouseEventBuilder::WebMouseEventBuilder):
+
+2010-07-22  Andrey Kosyakov  <caseq@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: Stop granting universal access to inspector front-end page.
+        https://bugs.webkit.org/show_bug.cgi?id=42817
+
+        * src/WebDevToolsFrontendImpl.cpp:
+        (WebKit::WebDevToolsFrontendImpl::frontendLoaded):
+
+2010-07-22  Alexander Pavlov  <apavlov@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: Rename method for CSS rule source range retrieval and fix return object format
+        https://bugs.webkit.org/show_bug.cgi?id=42379
+
+        * src/js/InspectorControllerImpl.js:
+        (devtools.InspectorBackendImpl):
+
+2010-07-21  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Chromium Dev Tools: Separators are missing in the context menu.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42761
+
+        * src/ContextMenuClientImpl.cpp:
+        (WebKit::ContextMenuClientImpl::populateCustomMenuItems):
+
+2010-07-21  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Copy the test plugin into DumpRenderTree.app/
+        https://bugs.webkit.org/show_bug.cgi?id=42733
+
+        This was dropped in plugin copy refactoring.
+
+        * WebKit.gyp:
+
+2010-07-21  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Break out "scheme registration" functionality from SecurityOrigin to a SchemeRegistry
+        https://bugs.webkit.org/show_bug.cgi?id=42783
+
+        * src/WebSecurityPolicy.cpp:
+        (WebKit::WebSecurityPolicy::registerURLSchemeAsLocal):
+        (WebKit::WebSecurityPolicy::registerURLSchemeAsNoAccess):
+        (WebKit::WebSecurityPolicy::registerURLSchemeAsSecure):
+
 2010-07-21  Bo Liu  <boliu@chromium.org>
 
         Reviewed by Darin Fisher.

@@ -529,7 +529,7 @@ void GraphicsContext::drawConvexPolygon(size_t npoints, const FloatPoint* points
     p->restore();
 }
 
-void GraphicsContext::clipConvexPolygon(size_t numPoints, const FloatPoint* points)
+void GraphicsContext::clipConvexPolygon(size_t numPoints, const FloatPoint* points, bool antialiased)
 {
     if (paintingDisabled())
         return;
@@ -793,9 +793,11 @@ void GraphicsContext::beginPath()
 
 void GraphicsContext::addPath(const Path& path)
 {
-    QPainterPath newPath = m_data->currentPath;
-    newPath.addPath(path.platformPath());
-    m_data->currentPath = newPath;
+    if (!m_data->currentPath.elementCount()) {
+        m_data->currentPath = path.platformPath();
+        return;
+    }
+    m_data->currentPath.addPath(path.platformPath());
 }
 
 bool GraphicsContext::inTransparencyLayer() const

@@ -47,6 +47,7 @@
 #include "DOMWindow.h"
 #include "DocLoader.h"
 #include "Document.h"
+#include "DocumentLoadTiming.h"
 #include "DocumentLoader.h"
 #include "Editor.h"
 #include "EditorClient.h"
@@ -93,6 +94,7 @@
 #include "ProgressTracker.h"
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
+#include "SchemeRegistry.h"
 #include "ScriptController.h"
 #include "ScriptSourceCode.h"
 #include "ScriptString.h"
@@ -1085,7 +1087,7 @@ bool FrameLoader::isMixedContent(SecurityOrigin* context, const KURL& url)
     if (context->protocol() != "https")
         return false;  // We only care about HTTPS security origins.
 
-    if (!url.isValid() || SecurityOrigin::shouldTreatURLSchemeAsSecure(url.protocol()))
+    if (!url.isValid() || SchemeRegistry::shouldTreatURLSchemeAsSecure(url.protocol()))
         return false;  // Loading these protocols is secure.
 
     return true;
@@ -1351,7 +1353,7 @@ void FrameLoader::loadFrameRequest(const FrameLoadRequest& request, bool lockHis
         referrer = m_outgoingReferrer;
 
     ASSERT(frame()->document());
-    if (SecurityOrigin::shouldTreatURLAsLocal(url.string()) && !isFeedWithNestedProtocolInHTTPFamily(url)) {
+    if (SchemeRegistry::shouldTreatURLAsLocal(url.string()) && !isFeedWithNestedProtocolInHTTPFamily(url)) {
         if (!SecurityOrigin::canLoad(url, String(), frame()->document()) && !SecurityOrigin::canLoad(url, referrer, 0)) {
             FrameLoader::reportLocalLoadFailed(m_frame, url.string());
             return;
@@ -2253,8 +2255,6 @@ void FrameLoader::finishedLoading()
     RefPtr<Frame> protect(m_frame);
 
     RefPtr<DocumentLoader> dl = activeDocumentLoader();
-    ASSERT(!dl->timing()->responseEnd);
-    dl->timing()->responseEnd = currentTime();
     dl->finishedLoading();
     if (!dl->mainDocumentError().isNull() || !dl->frameLoader())
         return;

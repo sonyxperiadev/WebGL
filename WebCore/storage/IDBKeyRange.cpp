@@ -26,18 +26,40 @@
 #include "config.h"
 #include "IDBKeyRange.h"
 
-#include "IDBAny.h"
-#include "SerializedScriptValue.h"
+#include "IDBKey.h"
 
 #if ENABLE(INDEXED_DATABASE)
 
 namespace WebCore {
 
-IDBKeyRange::IDBKeyRange(PassRefPtr<SerializedScriptValue> left, PassRefPtr<SerializedScriptValue> right, unsigned short flags)
+IDBKeyRange::IDBKeyRange(PassRefPtr<IDBKey> left, PassRefPtr<IDBKey> right, unsigned short flags)
     : m_left(left)
     , m_right(right)
     , m_flags(flags)
 {
+}
+
+PassRefPtr<IDBKeyRange> IDBKeyRange::only(PassRefPtr<IDBKey> prpValue)
+{
+    RefPtr<IDBKey> value = prpValue;
+    return IDBKeyRange::create(value, value, IDBKeyRange::SINGLE);
+}
+
+PassRefPtr<IDBKeyRange> IDBKeyRange::leftBound(PassRefPtr<IDBKey> bound, bool open)
+{
+    return IDBKeyRange::create(bound, IDBKey::create(), open ? IDBKeyRange::LEFT_OPEN : IDBKeyRange::LEFT_BOUND);
+}
+
+PassRefPtr<IDBKeyRange> IDBKeyRange::rightBound(PassRefPtr<IDBKey> bound, bool open)
+{
+    return IDBKeyRange::create(IDBKey::create(), bound, open ? IDBKeyRange::RIGHT_OPEN : IDBKeyRange::RIGHT_BOUND);
+}
+
+PassRefPtr<IDBKeyRange> IDBKeyRange::bound(PassRefPtr<IDBKey> left, PassRefPtr<IDBKey> right, bool openLeft, bool openRight)
+{
+    unsigned short flags = openLeft ? IDBKeyRange::LEFT_OPEN : IDBKeyRange::LEFT_BOUND;
+    flags |= openRight ? IDBKeyRange::RIGHT_OPEN : IDBKeyRange::RIGHT_BOUND;
+    return IDBKeyRange::create(left, right, flags);
 }
 
 } // namespace WebCore

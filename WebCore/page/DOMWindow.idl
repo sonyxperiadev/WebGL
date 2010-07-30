@@ -174,6 +174,7 @@ module window {
 #endif
 #if defined(ENABLE_INDEXED_DATABASE) && ENABLE_INDEXED_DATABASE
         readonly attribute [EnabledAtRuntime] IndexedDatabaseRequest indexedDB;
+        readonly attribute [EnabledAtRuntime] IDBKeyRange IDBKeyRange;
 #endif
 
 #if defined(ENABLE_ORIENTATION_EVENTS) && ENABLE_ORIENTATION_EVENTS
@@ -741,9 +742,7 @@ module window {
 #endif
 #endif
 
-#if defined(ENABLE_DATABASE)
-        attribute SQLExceptionConstructor SQLException;
-#endif
+        attribute [Conditional=DATABASE] SQLExceptionConstructor SQLException;
 
         attribute [Conditional=TOUCH_EVENTS] TouchEventConstructor TouchEvent;
 

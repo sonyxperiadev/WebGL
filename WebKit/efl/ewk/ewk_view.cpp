@@ -34,6 +34,9 @@
 #include "FrameLoaderClientEfl.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
+#include "HTMLElement.h"
+#include "HTMLInputElement.h"
+#include "HTMLNames.h"
 #include "InspectorClientEfl.h"
 #include "PlatformMouseEvent.h"
 #include "PopupMenuClient.h"
@@ -79,6 +82,7 @@ struct _Ewk_View_Private_Data {
         size_t count;
         size_t allocated;
     } scrolls;
+    unsigned int imh; /**< input method hints */
     struct {
         const char* user_agent;
         const char* user_stylesheet;
@@ -525,16 +529,14 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
         CRITICAL("could not allocate Ewk_View_Private_Data");
         return 0;
     }
-    priv->page = new WebCore::Page(
-        static_cast<WebCore::ChromeClient*>(new WebCore::ChromeClientEfl(sd->self)),
-        static_cast<WebCore::ContextMenuClient*>(new WebCore::ContextMenuClientEfl(sd->self)),
-        static_cast<WebCore::EditorClient*>(new WebCore::EditorClientEfl(sd->self)),
-        static_cast<WebCore::DragClient*>(new WebCore::DragClientEfl),
-        static_cast<WebCore::InspectorClient*>(new WebCore::InspectorClientEfl),
-        0,
-        0,
-        0,
-        0);
+
+    WebCore::Page::PageClients pageClients;
+    pageClients.chromeClient = static_cast<WebCore::ChromeClient*>(new WebCore::ChromeClientEfl(sd->self));
+    pageClients.contextMenuClient = static_cast<WebCore::ContextMenuClient*>(new WebCore::ContextMenuClientEfl(sd->self));
+    pageClients.editorClient = static_cast<WebCore::EditorClient*>(new WebCore::EditorClientEfl(sd->self));
+    pageClients.dragClient = static_cast<WebCore::DragClient*>(new WebCore::DragClientEfl);
+    pageClients.inspectorClient = static_cast<WebCore::InspectorClient*>(new WebCore::InspectorClientEfl);
+    priv->page = new WebCore::Page(pageClients);
     if (!priv->page) {
         CRITICAL("Could not create WebKit Page");
         goto error_page;
@@ -2150,6 +2152,20 @@ Eina_Bool ewk_view_pre_render_region(Evas_Object* o, Evas_Coord x, Evas_Coord y,
 }
 
 /**
+ * Get input method hints
+ *
+ * @param o View.
+ *
+ * @return input method hints
+ */
+unsigned int ewk_view_imh_get(Evas_Object *o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, 0);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, 0);
+    return priv->imh;
+}
+
+/**
  * Cancel (clear) previous pre-render requests.
  *
  * @param o view to clear pre-render requests.
@@ -3026,6 +3042,46 @@ void ewk_view_ready(Evas_Object* o)
 
 /**
  * @internal
+ * Reports the state of input method changed. This is triggered, for example
+ * when a input field received/lost focus
+ *
+ * Emits signal: "inputmethod,changed" with a boolean indicating whether it's
+ * enabled or not.
+ */
+void ewk_view_input_method_state_set(Evas_Object* o, Eina_Bool active)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd);
+    EWK_VIEW_PRIV_GET(sd, priv);
+    WebCore::Frame* focusedFrame = priv->page->focusController()->focusedOrMainFrame();
+
+    if (focusedFrame
+        && focusedFrame->document()
+        && focusedFrame->document()->focusedNode()
+        && focusedFrame->document()->focusedNode()->hasTagName(WebCore::HTMLNames::inputTag)) {
+        WebCore::HTMLInputElement* inputElement;
+
+        inputElement = static_cast<WebCore::HTMLInputElement*>(focusedFrame->document()->focusedNode());
+        if (inputElement) {
+            priv->imh = 0;
+            // for password fields, active == false
+            if (!active) {
+                active = inputElement->isPasswordField();
+                priv->imh = inputElement->isPasswordField() * EWK_IMH_PASSWORD;
+            } else {
+                // Set input method hints for "number", "tel", "email", and "url" input elements.
+                priv->imh |= inputElement->isTelephoneField() * EWK_IMH_TELEPHONE;
+                priv->imh |= inputElement->isNumberField() * EWK_IMH_NUMBER;
+                priv->imh |= inputElement->isEmailField() * EWK_IMH_EMAIL;
+                priv->imh |= inputElement->isUrlField() * EWK_IMH_URL;
+            }
+        }
+    }
+
+    evas_object_smart_callback_call(o, "inputmethod,changed", (void*)active);
+}
+
+/**
+ * @internal
  * The view title was changed by the frame loader.
  *
  * Emits signal: "title,changed" with pointer to new title string.
@@ -3230,6 +3286,27 @@ Evas_Object* ewk_view_window_create(Evas_Object* o, Eina_Bool javascript, const 
     ewk_window_features_unref(window_features);
 
     return view;
+}
+
+/**
+ * @internal
+ * Reports a window should be closed. It's client responsibility to decide if
+ * the window should in fact be closed. So, if only windows created by javascript
+ * are allowed to be closed by this call, browser needs to save the javascript
+ * flag when the window is created. Since a window can close itself (for example
+ * with a 'self.close()' in Javascript) browser must postpone the deletion to an
+ * idler.
+ *
+ * @param o View to be closed.
+ */
+void ewk_view_window_close(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd);
+
+    ewk_view_stop(o);
+    if (!sd->api->window_close)
+        return;
+    sd->api->window_close(sd);
 }
 
 /**

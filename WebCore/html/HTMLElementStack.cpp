@@ -40,10 +40,19 @@ using namespace HTMLNames;
 
 namespace {
 
+inline bool isNumberedHeaderElement(Element* element)
+{
+    return element->hasTagName(h1Tag)
+        || element->hasTagName(h2Tag)
+        || element->hasTagName(h3Tag)
+        || element->hasTagName(h4Tag)
+        || element->hasTagName(h5Tag)
+        || element->hasTagName(h6Tag);
+}
+
 inline bool isScopeMarker(Element* element)
 {
     return element->hasTagName(appletTag)
-        || element->hasTagName(buttonTag)
         || element->hasTagName(captionTag)
 #if ENABLE(SVG_FOREIGN_OBJECT)
         || element->hasTagName(SVGNames::foreignObjectTag)
@@ -81,6 +90,12 @@ inline bool isTableRowScopeMarker(Element* element)
 {
     return element->hasTagName(trTag)
         || element->hasTagName(htmlTag);
+}
+
+inline bool isButtonScopeMarker(Element* element)
+{
+    return isScopeMarker(element)
+        || element->hasTagName(buttonTag);
 }
 
 }
@@ -172,6 +187,13 @@ void HTMLElementStack::popUntil(const AtomicString& tagName)
 void HTMLElementStack::popUntilPopped(const AtomicString& tagName)
 {
     popUntil(tagName);
+    pop();
+}
+
+void HTMLElementStack::popUntilNumberedHeaderElementPopped()
+{
+    while (!isNumberedHeaderElement(top()))
+        pop();
     pop();
 }
 
@@ -273,12 +295,6 @@ HTMLElementStack::ElementRecord* HTMLElementStack::topRecord() const
     return m_top.get();
 }
 
-Element* HTMLElementStack::top() const
-{
-    ASSERT(m_top->element());
-    return m_top->element();
-}
-
 Element* HTMLElementStack::oneBelowTop() const
 {
     // We should never be calling this if it could be 0.
@@ -368,6 +384,19 @@ bool HTMLElementStack::hasOnlyHTMLElementsInScope() const
     return true;
 }
 
+bool HTMLElementStack::hasNumberedHeaderElementInScope() const
+{
+    for (ElementRecord* record = m_top.get(); record; record = record->next()) {
+        Element* element = record->element();
+        if (isNumberedHeaderElement(element))
+            return true;
+        if (isScopeMarker(element))
+            return false;
+    }
+    ASSERT_NOT_REACHED(); // <html> is always on the stack and is a scope marker.
+    return false;
+}
+
 bool HTMLElementStack::inScope(Element* targetElement) const
 {
     for (ElementRecord* pos = m_top.get(); pos; pos = pos->next()) {
@@ -412,6 +441,17 @@ bool HTMLElementStack::inTableScope(const QualifiedName& tagName) const
 {
     // FIXME: Is localName() right for non-html elements?
     return inTableScope(tagName.localName());
+}
+
+bool HTMLElementStack::inButtonScope(const AtomicString& targetTag) const
+{
+    return inScopeCommon<isButtonScopeMarker>(m_top.get(), targetTag);
+}
+
+bool HTMLElementStack::inButtonScope(const QualifiedName& tagName) const
+{
+    // FIXME: Is localName() right for non-html elements?
+    return inButtonScope(tagName.localName());
 }
 
 Element* HTMLElementStack::htmlElement() const

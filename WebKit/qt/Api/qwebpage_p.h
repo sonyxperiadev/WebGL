@@ -132,7 +132,8 @@ public:
     bool handleScrolling(QKeyEvent*, WebCore::Frame*);
 
 #if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
-    void touchEvent(QTouchEvent*);
+    // Returns whether the default action was cancelled in the JS event handler
+    bool touchEvent(QTouchEvent*);
 #endif
 
     void setInspector(QWebInspector*);

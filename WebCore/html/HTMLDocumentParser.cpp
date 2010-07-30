@@ -217,11 +217,17 @@ void HTMLDocumentParser::didPumpLexer()
 #endif
 }
 
+bool HTMLDocumentParser::hasInsertionPoint()
+{
+    return m_input.hasInsertionPoint();
+}
+
 void HTMLDocumentParser::insert(const SegmentedString& source)
 {
     if (m_parserStopped)
         return;
 
+<<<<<<< HEAD
     if (m_scriptRunner && !m_scriptRunner->inScriptExecution() && m_input.haveSeenEndOfFile()) {
         // document.write was called without a current insertion point.
         // According to the spec, we're supposed to implicitly open the
@@ -236,6 +242,8 @@ void HTMLDocumentParser::insert(const SegmentedString& source)
     android::TimeCounter::start(android::TimeCounter::ParsingTimeCounter);
 #endif
 
+=======
+>>>>>>> webkit.org at r64264
     {
         NestingLevelIncrementer nestingLevelIncrementer(m_writeNestingLevel);
 
@@ -337,7 +345,7 @@ bool HTMLDocumentParser::inScriptExecution() const
 {
     if (!m_scriptRunner)
         return false;
-    return m_scriptRunner->inScriptExecution();
+    return m_scriptRunner->isExecutingScript();
 }
 
 int HTMLDocumentParser::lineNumber() const
@@ -415,7 +423,7 @@ void HTMLDocumentParser::executeScriptsWaitingForStylesheets()
     // is a re-entrant call from encountering a </ style> tag.
     if (!m_scriptRunner->hasScriptsWaitingForStylesheets())
         return;
-    ASSERT(!m_scriptRunner->inScriptExecution());
+    ASSERT(!m_scriptRunner->isExecutingScript());
     ASSERT(m_treeBuilder->isPaused());
     // Note: We only ever wait on one script at a time, so we always know this
     // is the one we were waiting on and can un-pause the tree builder.

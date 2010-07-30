@@ -42,4 +42,7 @@
 #define WXDLLIMPEXP_WEBKIT
 #endif // SWIG
 
+// enums
+enum EditState { EditStateTrue, EditStateFalse, EditStateMixed };
+
 #endif // WebKitDefines_h

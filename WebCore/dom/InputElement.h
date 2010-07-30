@@ -43,6 +43,7 @@ public:
     virtual bool isPasswordField() const = 0;
     virtual bool isSearchField() const = 0;
     virtual bool isTextField() const = 0;
+    virtual bool supportsMaxLength() const = 0;
     virtual bool hasSpinButton() const { return false; }
 #if ENABLE(INPUT_SPEECH)
     virtual bool isSpeechEnabled() const = 0;
@@ -78,9 +79,11 @@ protected:
     static void setValueFromRenderer(InputElementData&, InputElement*, Element*, const String&);
     // Replaces CRs and LFs, shrinks the value for s_maximumLength.
     // This should be applied to values from the HTML value attribute and the DOM value property.
-    static String sanitizeValue(const InputElement*, const String&);
+    // This function should be called only by sanitizeValue() implementations.
+    static String sanitizeValueForTextField(const InputElement*, const String&);
     // Replaces CRs and LFs, shrinks the value for the specified maximum length.
     // This should be applied to values specified by users.
+    // The input string may be a fragment of the whole value.
     static String sanitizeUserInputValue(const InputElement*, const String&, int);
     static void handleBeforeTextInsertedEvent(InputElementData&, InputElement*, Element*, Event*);
     static void parseSizeAttribute(InputElementData&, Element*, Attribute*);

@@ -118,6 +118,7 @@
 #include <WebCore/RenderWidget.h>
 #include <WebCore/ResourceHandle.h>
 #include <WebCore/ResourceHandleClient.h>
+#include <WebCore/SchemeRegistry.h>
 #include <WebCore/ScriptValue.h>
 #include <WebCore/Scrollbar.h>
 #include <WebCore/ScrollbarTheme.h>
@@ -2562,17 +2563,21 @@ HRESULT STDMETHODCALLTYPE WebView::initWithFrame(
         Settings::setShouldPaintNativeControls(shouldPaintNativeControls);
 #endif
 
-#if ENABLE(CLIENT_BASED_GEOLOCATION)
-    WebGeolocationControllerClient* geolocationControllerClient = new WebGeolocationControllerClient(this);
-#else
-    WebGeolocationControllerClient* geolocationControllerClient = 0;
-#endif
-
     BOOL useHighResolutionTimer;
     if (SUCCEEDED(m_preferences->shouldUseHighResolutionTimers(&useHighResolutionTimer)))
         Settings::setShouldUseHighResolutionTimers(useHighResolutionTimer);
 
-    m_page = new Page(new WebChromeClient(this), new WebContextMenuClient(this), new WebEditorClient(this), new WebDragClient(this), new WebInspectorClient(this), new WebPluginHalterClient(this), geolocationControllerClient, 0, 0);
+    Page::PageClients pageClients;
+    pageClients.chromeClient = new WebChromeClient(this);
+    pageClients.contextMenuClient = new WebContextMenuClient(this);
+    pageClients.editorClient = new WebEditorClient(this);
+    pageClients.dragClient = new WebDragClient(this);
+    pageClients.inspectorClient = new WebInspectorClient(this);
+    pageClients.pluginHalterClient = new WebPluginHalterClient(this);
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+    pageClients.geolocationControllerClient = new WebGeolocationControllerClient(this);
+#endif
+    m_page = new Page(pageClients);
 
     BSTR localStoragePath;
     if (SUCCEEDED(m_preferences->localStorageDatabasePath(&localStoragePath))) {
@@ -3652,7 +3657,7 @@ HRESULT STDMETHODCALLTYPE WebView::registerURLSchemeAsLocal(
     if (!scheme)
         return E_POINTER;
 
-    SecurityOrigin::registerURLSchemeAsLocal(String(scheme, ::SysStringLen(scheme)));
+    SchemeRegistry::registerURLSchemeAsLocal(String(scheme, ::SysStringLen(scheme)));
 
     return S_OK;
 }
@@ -6412,7 +6417,7 @@ HRESULT WebView::setDomainRelaxationForbiddenForURLScheme(BOOL forbidden, BSTR s
 
 HRESULT WebView::registerURLSchemeAsSecure(BSTR scheme)
 {
-    SecurityOrigin::registerURLSchemeAsSecure(toString(scheme));
+    SchemeRegistry::registerURLSchemeAsSecure(toString(scheme));
     return S_OK;
 }
 

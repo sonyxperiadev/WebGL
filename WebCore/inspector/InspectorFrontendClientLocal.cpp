@@ -37,6 +37,7 @@
 #include "FloatRect.h"
 #include "Frame.h"
 #include "FrameView.h"
+#include "InspectorBackendDispatcher.h"
 #include "InspectorController.h"
 #include "InspectorFrontend.h"
 #include "InspectorFrontendHost.h"
@@ -70,11 +71,8 @@ InspectorFrontendClientLocal::~InspectorFrontendClientLocal()
     
 void InspectorFrontendClientLocal::windowObjectCleared()
 {
-    // Grant the inspector the ability to script the inspected page.
-    m_frontendPage->mainFrame()->document()->securityOrigin()->grantUniversalAccess();
     // FIXME: don't keep reference to the script state
     m_frontendScriptState = scriptStateFromPage(debuggerWorld(), m_frontendPage);
-    ScriptGlobalObject::set(m_frontendScriptState, "InspectorBackend", m_inspectorController->inspectorBackend());
     m_frontendHost = InspectorFrontendHost::create(this, m_frontendPage);
     ScriptGlobalObject::set(m_frontendScriptState, "InspectorFrontendHost", m_frontendHost.get());
 }
@@ -161,7 +159,12 @@ unsigned InspectorFrontendClientLocal::constrainedAttachedWindowHeight(unsigned 
     using namespace std;
     return roundf(max(minimumAttachedHeight, min<float>(preferredHeight, totalWindowHeight * maximumAttachedHeightRatio)));
 }
-    
+
+void InspectorFrontendClientLocal::sendMessageToBackend(const String& message)
+{
+    m_inspectorController->inspectorBackendDispatcher()->dispatch(message);
+}
+
 } // namespace WebCore
 
 #endif

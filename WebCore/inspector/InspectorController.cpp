@@ -55,6 +55,7 @@
 #include "InjectedScript.h"
 #include "InjectedScriptHost.h"
 #include "InspectorBackend.h"
+#include "InspectorBackendDispatcher.h"
 #include "InspectorCSSStore.h"
 #include "InspectorClient.h"
 #include "InspectorFrontendClient.h"
@@ -112,6 +113,7 @@
 #include <runtime/UString.h>
 #include "JSScriptProfile.h"
 #else
+#include "ScriptScope.h"
 #include "V8ScriptProfile.h"
 #endif
 #endif
@@ -192,6 +194,7 @@ InspectorController::InspectorController(Page* page, InspectorClient* client)
     , m_resourceTrackingEnabled(false)
     , m_settingsLoaded(false)
     , m_inspectorBackend(InspectorBackend::create(this))
+    , m_inspectorBackendDispatcher(new InspectorBackendDispatcher(m_inspectorBackend.get()))
     , m_injectedScriptHost(InjectedScriptHost::create(this))
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     , m_debuggerEnabled(false)
@@ -363,12 +366,12 @@ void InspectorController::addConsoleMessage(ScriptState* scriptState, PassOwnPtr
     if (m_previousMessage && m_previousMessage->isEqual(scriptState, consoleMessage.get())) {
         m_previousMessage->incrementCount();
         if (m_frontend)
-            m_previousMessage->updateRepeatCountInConsole(m_frontend.get());
+            m_previousMessage->updateRepeatCountInConsole(m_remoteFrontend.get());
     } else {
         m_previousMessage = consoleMessage.get();
         m_consoleMessages.append(consoleMessage);
         if (m_frontend)
-            m_previousMessage->addToFrontend(m_frontend.get(), m_injectedScriptHost.get());
+            m_previousMessage->addToFrontend(m_remoteFrontend.get(), m_injectedScriptHost.get());
     }
 
     if (!m_frontend && m_consoleMessages.size() >= maximumConsoleMessages) {
@@ -386,8 +389,6 @@ void InspectorController::clearConsoleMessages()
     m_injectedScriptHost->releaseWrapperObjectGroup(0 /* release the group in all scripts */, "console");
     if (m_domAgent)
         m_domAgent->releaseDanglingNodes();
-    if (m_frontend)
-        m_frontend->clearConsoleMessages();
 }
 
 void InspectorController::startGroup(MessageSource source, ScriptCallStack* callStack, bool collapsed)
@@ -656,10 +657,10 @@ void InspectorController::populateScriptObjects()
     m_domAgent->setDocument(m_inspectedPage->mainFrame()->document());
 
     if (m_expiredConsoleMessageCount)
-        m_frontend->updateConsoleMessageExpiredCount(m_expiredConsoleMessageCount);
+        m_remoteFrontend->updateConsoleMessageExpiredCount(m_expiredConsoleMessageCount);
     unsigned messageCount = m_consoleMessages.size();
     for (unsigned i = 0; i < messageCount; ++i)
-        m_consoleMessages[i]->addToFrontend(m_frontend.get(), m_injectedScriptHost.get());
+        m_consoleMessages[i]->addToFrontend(m_remoteFrontend.get(), m_injectedScriptHost.get());
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     if (m_debuggerEnabled)
@@ -1560,12 +1561,14 @@ void InspectorController::getProfile(long callId, unsigned uid)
     if (!m_frontend)
         return;
     ProfilesMap::iterator it = m_profiles.find(uid);
-    if (it != m_profiles.end())
+    if (it != m_profiles.end()) {
 #if USE(JSC)
         m_frontend->didGetProfile(callId, toJS(m_frontend->scriptState(), it->second.get()));
 #else
+        ScriptScope scope(m_frontend->scriptState());
         m_frontend->didGetProfile(callId, toV8(it->second.get()));
 #endif
+    }
 }
 
 ScriptObject InspectorController::createProfileHeader(const ScriptProfile& profile)

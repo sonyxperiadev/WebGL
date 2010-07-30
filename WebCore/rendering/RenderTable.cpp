@@ -618,7 +618,7 @@ void RenderTable::splitColumn(int pos, int firstSpan)
     // change width of all rows.
     for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
         if (child->isTableSection())
-            toRenderTableSection(child)->splitColumn(pos, oldSize + 1);
+            toRenderTableSection(child)->splitColumn(pos, firstSpan);
     }
 
     m_columnPos.grow(numEffCols() + 1);
@@ -812,12 +812,12 @@ int RenderTable::calcBorderLeft() const
 
             const RenderTableSection::CellStruct& cs = firstNonEmptySection->cellAt(0, leftmostColumn);
             
-            if (cs.cell) {
-                const BorderValue& cb = cs.cell->style()->borderLeft();
+            if (cs.hasCells()) {
+                const BorderValue& cb = cs.primaryCell()->style()->borderLeft();
                 if (cb.style() == BHIDDEN)
                     return 0;
 
-                const BorderValue& rb = cs.cell->parent()->style()->borderLeft();
+                const BorderValue& rb = cs.primaryCell()->parent()->style()->borderLeft();
                 if (rb.style() == BHIDDEN)
                     return 0;
 
@@ -871,12 +871,12 @@ int RenderTable::calcBorderRight() const
 
             const RenderTableSection::CellStruct& cs = firstNonEmptySection->cellAt(0, rightmostColumn);
             
-            if (cs.cell) {
-                const BorderValue& cb = cs.cell->style()->borderRight();
+            if (cs.hasCells()) {
+                const BorderValue& cb = cs.primaryCell()->style()->borderRight();
                 if (cb.style() == BHIDDEN)
                     return 0;
 
-                const BorderValue& rb = cs.cell->parent()->style()->borderRight();
+                const BorderValue& rb = cs.primaryCell()->parent()->style()->borderRight();
                 if (rb.style() == BHIDDEN)
                     return 0;
 
@@ -1081,13 +1081,8 @@ RenderTableCell* RenderTable::cellAbove(const RenderTableCell* cell) const
     // Look up the cell in the section's grid, which requires effective col index
     if (section) {
         int effCol = colToEffCol(cell->col());
-        RenderTableSection::CellStruct aboveCell;
-        // If we hit a span back up to a real cell.
-        do {
-            aboveCell = section->cellAt(rAbove, effCol);
-            effCol--;
-        } while (!aboveCell.cell && aboveCell.inColSpan && effCol >= 0);
-        return aboveCell.cell;
+        RenderTableSection::CellStruct& aboveCell = section->cellAt(rAbove, effCol);
+        return aboveCell.primaryCell();
     } else
         return 0;
 }
@@ -1113,13 +1108,8 @@ RenderTableCell* RenderTable::cellBelow(const RenderTableCell* cell) const
     // Look up the cell in the section's grid, which requires effective col index
     if (section) {
         int effCol = colToEffCol(cell->col());
-        RenderTableSection::CellStruct belowCell;
-        // If we hit a colspan back up to a real cell.
-        do {
-            belowCell = section->cellAt(rBelow, effCol);
-            effCol--;
-        } while (!belowCell.cell && belowCell.inColSpan && effCol >= 0);
-        return belowCell.cell;
+        RenderTableSection::CellStruct& belowCell = section->cellAt(rBelow, effCol);
+        return belowCell.primaryCell();
     } else
         return 0;
 }
@@ -1134,12 +1124,8 @@ RenderTableCell* RenderTable::cellBefore(const RenderTableCell* cell) const
         return 0;
     
     // If we hit a colspan back up to a real cell.
-    RenderTableSection::CellStruct prevCell;
-    do {
-        prevCell = section->cellAt(cell->row(), effCol - 1);
-        effCol--;
-    } while (!prevCell.cell && prevCell.inColSpan && effCol >= 0);
-    return prevCell.cell;
+    RenderTableSection::CellStruct& prevCell = section->cellAt(cell->row(), effCol - 1);
+    return prevCell.primaryCell();
 }
 
 RenderTableCell* RenderTable::cellAfter(const RenderTableCell* cell) const
@@ -1149,7 +1135,7 @@ RenderTableCell* RenderTable::cellAfter(const RenderTableCell* cell) const
     int effCol = colToEffCol(cell->col() + cell->colSpan());
     if (effCol >= numEffCols())
         return 0;
-    return cell->section()->cellAt(cell->row(), effCol).cell;
+    return cell->section()->primaryCellAt(cell->row(), effCol);
 }
 
 RenderBlock* RenderTable::firstLineBlock() const

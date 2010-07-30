@@ -94,9 +94,6 @@ SOURCES += \
     interpreter/Interpreter.cpp \
     interpreter/RegisterFile.cpp \
     jit/ExecutableAllocatorFixedVMPool.cpp \
-    jit/ExecutableAllocatorPosix.cpp \
-    jit/ExecutableAllocatorSymbian.cpp \
-    jit/ExecutableAllocatorWin.cpp \
     jit/ExecutableAllocator.cpp \
     jit/JITArithmetic.cpp \
     jit/JITArithmetic32_64.cpp \
@@ -215,6 +212,7 @@ SOURCES += \
     wtf/qt/MainThreadQt.cpp \
     wtf/qt/StringQt.cpp \
     wtf/qt/ThreadingQt.cpp \
+    wtf/PageAllocation.cpp \
     wtf/RandomNumber.cpp \
     wtf/RefCountedLeakCounter.cpp \
     wtf/symbian/BlockAllocatorSymbian.cpp \

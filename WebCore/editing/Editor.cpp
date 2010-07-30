@@ -68,6 +68,7 @@
 #include "Text.h"
 #include "TextIterator.h"
 #include "TypingCommand.h"
+#include "UserTypingGestureIndicator.h"
 #include "htmlediting.h"
 #include "markup.h"
 #include "visible_units.h"
@@ -712,7 +713,7 @@ bool Editor::dispatchCPPEvent(const AtomicString &eventType, ClipboardAccessPoli
         return true;
     target = target->shadowAncestorNode();
     
-    RefPtr<Clipboard> clipboard = newGeneralClipboard(policy);
+    RefPtr<Clipboard> clipboard = newGeneralClipboard(policy, m_frame);
 
     ExceptionCode ec = 0;
     RefPtr<Event> evt = ClipboardEvent::create(eventType, true, true, clipboard);
@@ -1370,6 +1371,8 @@ void Editor::confirmComposition(const String& text)
 
 void Editor::confirmComposition(const String& text, bool preserveSelection)
 {
+    UserTypingGestureIndicator typingGestureIndicator(m_frame);
+
     setIgnoreCompositionSelectionChange(true);
 
     VisibleSelection oldSelection = m_frame->selection()->selection();
@@ -1412,6 +1415,8 @@ void Editor::confirmComposition(const String& text, bool preserveSelection)
 
 void Editor::setComposition(const String& text, const Vector<CompositionUnderline>& underlines, unsigned selectionStart, unsigned selectionEnd)
 {
+    UserTypingGestureIndicator typingGestureIndicator(m_frame);
+
     setIgnoreCompositionSelectionChange(true);
 
     selectComposition();

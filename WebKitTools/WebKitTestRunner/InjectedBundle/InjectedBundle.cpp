@@ -27,11 +27,12 @@
 
 #include "ActivateFonts.h"
 #include "InjectedBundlePage.h"
+#include <WebKit2/WebKit2.h>
 #include <WebKit2/WKBundle.h>
 #include <WebKit2/WKBundlePage.h>
+#include <WebKit2/WKBundlePrivate.h>
 #include <WebKit2/WKRetainPtr.h>
 #include <WebKit2/WKStringCF.h>
-#include <WebKit2/WebKit2.h>
 #include <wtf/RetainPtr.h>
 
 namespace WTR {
@@ -57,9 +58,9 @@ void InjectedBundle::_willDestroyPage(WKBundleRef bundle, WKBundlePageRef page, 
     static_cast<InjectedBundle*>(const_cast<void*>(clientInfo))->willDestroyPage(page);
 }
 
-void InjectedBundle::_didRecieveMessage(WKBundleRef bundle, WKStringRef message, const void *clientInfo)
+void InjectedBundle::_didReceiveMessage(WKBundleRef bundle, WKStringRef message, const void *clientInfo)
 {
-    static_cast<InjectedBundle*>(const_cast<void*>(clientInfo))->didRecieveMessage(message);
+    static_cast<InjectedBundle*>(const_cast<void*>(clientInfo))->didReceiveMessage(message);
 }
 
 void InjectedBundle::initialize(WKBundleRef bundle)
@@ -71,7 +72,7 @@ void InjectedBundle::initialize(WKBundleRef bundle)
         this,
         _didCreatePage,
         _willDestroyPage,
-        _didRecieveMessage
+        _didReceiveMessage
     };
     WKBundleSetClient(m_bundle, &client);
 
@@ -98,7 +99,7 @@ void InjectedBundle::willDestroyPage(WKBundlePageRef page)
     delete m_pages.take(page);
 }
 
-void InjectedBundle::didRecieveMessage(WKStringRef message)
+void InjectedBundle::didReceiveMessage(WKStringRef message)
 {
     CFStringRef cfMessage = WKStringCopyCFString(0, message);
     if (CFEqual(cfMessage, CFSTR("BeginTest"))) {
@@ -116,7 +117,14 @@ void InjectedBundle::didRecieveMessage(WKStringRef message)
 void InjectedBundle::reset()
 {
     m_outputStream.str("");
-    m_layoutTestController = LayoutTestController::create(std::string(""));
+    m_layoutTestController = LayoutTestController::create();
+    WKBundleSetShouldTrackVisitedLinks(m_bundle, false);
+    WKBundleRemoveAllVisitedLinks(m_bundle);
+}
+
+void InjectedBundle::setShouldTrackVisitedLinks()
+{
+    WKBundleSetShouldTrackVisitedLinks(m_bundle, true);
 }
 
 } // namespace WTR

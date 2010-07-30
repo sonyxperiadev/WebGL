@@ -70,7 +70,7 @@ static const char szShellDotUrlTemplate[] = "[InternetShortcut]\r\nURL=%s\r\n";
 // We provide the IE clipboard types (URL and Text), and the clipboard types specified in the WHATWG Web Applications 1.0 draft
 // see http://www.whatwg.org/specs/web-apps/current-work/ Section 6.3.5.3
 
-enum ClipboardDataType { ClipboardDataTypeNone, ClipboardDataTypeURL, ClipboardDataTypeText };
+enum ClipboardDataType { ClipboardDataTypeNone, ClipboardDataTypeURL, ClipboardDataTypeText, ClipboardDataTypeTextHTML };
 
 static ClipboardDataType clipboardTypeFromMIMEType(const String& type)
 {
@@ -81,6 +81,8 @@ static ClipboardDataType clipboardTypeFromMIMEType(const String& type)
         return ClipboardDataTypeText;
     if (qType == "url" || qType == "text/uri-list")
         return ClipboardDataTypeURL;
+    if (qType == "text/html")
+        return ClipboardDataTypeTextHTML;
 
     return ClipboardDataTypeNone;
 }
@@ -393,17 +395,24 @@ exit:
     return hr;
 }
 
-ClipboardWin::ClipboardWin(bool isForDragging, IDataObject* dataObject, ClipboardAccessPolicy policy)
+PassRefPtr<Clipboard> Clipboard::create(ClipboardAccessPolicy policy, DragData* dragData, Frame* frame)
+{
+    return ClipboardWin::create(true, dragData->platformData(), policy, frame);
+}
+
+ClipboardWin::ClipboardWin(bool isForDragging, IDataObject* dataObject, ClipboardAccessPolicy policy, Frame* frame)
     : Clipboard(policy, isForDragging)
     , m_dataObject(dataObject)
     , m_writableDataObject(0)
+    , m_frame(frame)
 {
 }
 
-ClipboardWin::ClipboardWin(bool isForDragging, WCDataObject* dataObject, ClipboardAccessPolicy policy)
+ClipboardWin::ClipboardWin(bool isForDragging, WCDataObject* dataObject, ClipboardAccessPolicy policy, Frame* frame)
     : Clipboard(policy, isForDragging)
     , m_dataObject(dataObject)
     , m_writableDataObject(dataObject)
+    , m_frame(frame)
 {
 }
 
@@ -498,6 +507,12 @@ String ClipboardWin::getData(const String& type, bool& success) const
         return getPlainText(m_dataObject.get(), success);
     if (dataType == ClipboardDataTypeURL)
         return getURL(m_dataObject.get(), DragData::DoNotConvertFilenames, success);
+    else if (dataType == ClipboardDataTypeTextHTML) {
+        String data = getTextHTML(m_dataObject.get(), success);
+        if (success)
+            return data;
+        return getCFHTML(m_dataObject.get(), success);
+    }
     
     return "";
 }
@@ -589,12 +604,13 @@ PassRefPtr<FileList> ClipboardWin::files() const
     if (!hdrop)
         return files.release();
 
+    ScriptExecutionContext* scriptExecutionContext = m_frame->document()->scriptExecutionContext();
     WCHAR filename[MAX_PATH];
     UINT fileCount = DragQueryFileW(hdrop, 0xFFFFFFFF, 0, 0);
     for (UINT i = 0; i < fileCount; i++) {
         if (!DragQueryFileW(hdrop, i, filename, ARRAYSIZE(filename)))
             continue;
-        files->append(File::create(reinterpret_cast<UChar*>(filename)));
+        files->append(File::create(scriptExecutionContext, reinterpret_cast<UChar*>(filename)));
     }
 
     GlobalUnlock(medium.hGlobal);

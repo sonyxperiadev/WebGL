@@ -82,30 +82,30 @@ WebInspector.ResourcesPanel.prototype = {
 
     populateSidebar: function()
     {
-        var timeGraphItem = new WebInspector.SidebarTreeElement("resources-time-graph-sidebar-item", WebInspector.UIString("Time"));
-        timeGraphItem.onselect = this._graphSelected.bind(this);
+        this.timeGraphItem = new WebInspector.SidebarTreeElement("resources-time-graph-sidebar-item", WebInspector.UIString("Time"));
+        this.timeGraphItem.onselect = this._graphSelected.bind(this);
 
         var transferTimeCalculator = new WebInspector.ResourceTransferTimeCalculator();
         var transferDurationCalculator = new WebInspector.ResourceTransferDurationCalculator();
 
-        timeGraphItem.sortingOptions = [
-            { name: WebInspector.UIString("Sort by Start Time"), sortingFunction: WebInspector.ResourceSidebarTreeElement.CompareByAscendingStartTime, calculator: transferTimeCalculator },
-            { name: WebInspector.UIString("Sort by Response Time"), sortingFunction: WebInspector.ResourceSidebarTreeElement.CompareByAscendingResponseReceivedTime, calculator: transferTimeCalculator },
-            { name: WebInspector.UIString("Sort by End Time"), sortingFunction: WebInspector.ResourceSidebarTreeElement.CompareByAscendingEndTime, calculator: transferTimeCalculator },
-            { name: WebInspector.UIString("Sort by Duration"), sortingFunction: WebInspector.ResourceSidebarTreeElement.CompareByDescendingDuration, calculator: transferDurationCalculator },
-            { name: WebInspector.UIString("Sort by Latency"), sortingFunction: WebInspector.ResourceSidebarTreeElement.CompareByDescendingLatency, calculator: transferDurationCalculator },
+        this.timeGraphItem.sortingOptions = [
+            { name: WebInspector.UIString("Sort by Start Time"), sortingFunction: WebInspector.ResourceSidebarTreeElement.CompareByAscendingStartTime, calculator: transferTimeCalculator, optionName: "startTime" },
+            { name: WebInspector.UIString("Sort by Response Time"), sortingFunction: WebInspector.ResourceSidebarTreeElement.CompareByAscendingResponseReceivedTime, calculator: transferTimeCalculator, optionName: "responseTime" },
+            { name: WebInspector.UIString("Sort by End Time"), sortingFunction: WebInspector.ResourceSidebarTreeElement.CompareByAscendingEndTime, calculator: transferTimeCalculator, optionName: "endTime" },
+            { name: WebInspector.UIString("Sort by Duration"), sortingFunction: WebInspector.ResourceSidebarTreeElement.CompareByDescendingDuration, calculator: transferDurationCalculator, optionName: "duration" },
+            { name: WebInspector.UIString("Sort by Latency"), sortingFunction: WebInspector.ResourceSidebarTreeElement.CompareByDescendingLatency, calculator: transferDurationCalculator, optionName: "latency" },
         ];
 
-        timeGraphItem.isBarOpaqueAtLeft = false;
-        timeGraphItem.selectedSortingOptionIndex = 1;
+        this.timeGraphItem.isBarOpaqueAtLeft = false;
+        this.timeGraphItem.selectedSortingOptionIndex = 1;
 
         this.sizeGraphItem = new WebInspector.SidebarTreeElement("resources-size-graph-sidebar-item", WebInspector.UIString("Size"));
         this.sizeGraphItem.onselect = this._graphSelected.bind(this);
 
         var transferSizeCalculator = new WebInspector.ResourceTransferSizeCalculator();
         this.sizeGraphItem.sortingOptions = [
-            { name: WebInspector.UIString("Sort by Transfer Size"), sortingFunction: WebInspector.ResourceSidebarTreeElement.CompareByDescendingTransferSize, calculator: transferSizeCalculator },
-            { name: WebInspector.UIString("Sort by Size"), sortingFunction: WebInspector.ResourceSidebarTreeElement.CompareByDescendingSize, calculator: transferSizeCalculator },
+            { name: WebInspector.UIString("Sort by Transfer Size"), sortingFunction: WebInspector.ResourceSidebarTreeElement.CompareByDescendingTransferSize, calculator: transferSizeCalculator, optionName: "transferSize" },
+            { name: WebInspector.UIString("Sort by Size"), sortingFunction: WebInspector.ResourceSidebarTreeElement.CompareByDescendingSize, calculator: transferSizeCalculator, optionName: "size" },
         ];
 
         this.sizeGraphItem.isBarOpaqueAtLeft = true;
@@ -114,7 +114,7 @@ WebInspector.ResourcesPanel.prototype = {
         this.graphsTreeElement = new WebInspector.SidebarSectionTreeElement(WebInspector.UIString("GRAPHS"), {}, true);
         this.sidebarTree.appendChild(this.graphsTreeElement);
 
-        this.graphsTreeElement.appendChild(timeGraphItem);
+        this.graphsTreeElement.appendChild(this.timeGraphItem);
         this.graphsTreeElement.appendChild(this.sizeGraphItem);
         this.graphsTreeElement.expand();
 
@@ -160,6 +160,32 @@ WebInspector.ResourcesPanel.prototype = {
         this.largerResourcesButton.toggled = WebInspector.applicationSettings.resourcesLargeRows;
         if (!WebInspector.applicationSettings.resourcesLargeRows)
             this._setLargerResources(WebInspector.applicationSettings.resourcesLargeRows);
+        this._loadSortOptions();
+    },
+
+    _loadSortOptions: function()
+    {
+        var newOptions = WebInspector.applicationSettings.resourcesSortOptions;
+        if (!newOptions)
+            return;
+
+        this._loadSortOptionForGraph(this.timeGraphItem, newOptions.timeOption || "responseTime");
+        this._loadSortOptionForGraph(this.sizeGraphItem, newOptions.sizeOption || "transferSize");
+    },
+
+    _loadSortOptionForGraph: function(graphItem, newOptionName)
+    {
+        var sortingOptions = graphItem.sortingOptions;
+        for (var i = 0; i < sortingOptions.length; ++i) {
+            if (sortingOptions[i].optionName === newOptionName) {
+                graphItem.selectedSortingOptionIndex = i;
+                // Propagate the option change down to the currently selected option.
+                if (this._lastSelectedGraphTreeElement === graphItem) {
+                    this._lastSelectedGraphTreeElement = null;
+                    this._graphSelected(graphItem);
+                }
+            }
+        }
     },
 
     get mainResourceLoadTime()
@@ -618,11 +644,12 @@ WebInspector.ResourcesPanel.prototype = {
             option.label = sortingOption.name;
             option.sortingFunction = sortingOption.sortingFunction;
             option.calculator = sortingOption.calculator;
+            option.optionName = sortingOption.optionName;
             this.sortingSelectElement.appendChild(option);
         }
 
         this.sortingSelectElement.selectedIndex = treeElement.selectedSortingOptionIndex;
-        this._changeSortingFunction();
+        this._doChangeSortingFunction();
 
         this.closeVisibleResource();
         this.containerElement.scrollTop = 0;
@@ -658,7 +685,21 @@ WebInspector.ResourcesPanel.prototype = {
 
     _changeSortingFunction: function()
     {
-        var selectedOption = this.sortingSelectElement[this.sortingSelectElement.selectedIndex];
+        this._doChangeSortingFunction();
+        WebInspector.applicationSettings.resourcesSortOptions = {timeOption: this._selectedOptionNameForGraph(this.timeGraphItem), sizeOption: this._selectedOptionNameForGraph(this.sizeGraphItem)};
+    },
+
+    _selectedOptionNameForGraph: function(graphItem)
+    {
+        return graphItem.sortingOptions[graphItem.selectedSortingOptionIndex].optionName;
+    },
+
+    _doChangeSortingFunction: function()
+    {
+        var selectedIndex = this.sortingSelectElement.selectedIndex;
+        if (this._lastSelectedGraphTreeElement)
+            this._lastSelectedGraphTreeElement.selectedSortingOptionIndex = selectedIndex;
+        var selectedOption = this.sortingSelectElement[selectedIndex];
         this.sortingFunction = selectedOption.sortingFunction;
         this.calculator = this.summaryBar.calculator = selectedOption.calculator;
     },
@@ -751,61 +792,83 @@ WebInspector.ResourcesPanel.prototype = {
     {
         var tableElement = document.createElement("table");
         var resource = anchor.parentElement.resource;
-        var data = [];
+        var rows = [];
 
-        if (resource.timing.proxyDuration !== -1) {
-            data.push(WebInspector.UIString("Proxy"));
-            data.push(Number.secondsToString(resource.timing.proxyDuration));
+        function addRow(title, start, end, color)
+        {
+            var row = {};
+            row.title = title;
+            row.start = start;
+            row.end = end;
+            rows.push(row);
         }
 
-        if (resource.timing.dnsDuration !== -1) {
-            data.push(WebInspector.UIString("DNS Lookup"));
-            data.push(Number.secondsToString(resource.timing.dnsDuration));
+        if (resource.timing.proxyStart !== -1)
+            addRow(WebInspector.UIString("Proxy"), resource.timing.proxyStart, resource.timing.proxyEnd);
+
+        if (resource.timing.dnsStart !== -1) {
+            addRow(WebInspector.UIString("DNS Lookup"), resource.timing.dnsStart, resource.timing.dnsEnd);
         }
 
-        if (resource.timing.connectDuration !== -1) {
-            if (resource.connectionReused) {
-                data.push(WebInspector.UIString("Blocking"));
-                data.push(Number.secondsToString(resource.timing.connectDuration));
-            } else {
-                data.push(WebInspector.UIString("Connecting"));
+        if (resource.timing.connectStart !== -1) {
+            if (resource.connectionReused)
+                addRow(WebInspector.UIString("Blocking"), resource.timing.connectStart, resource.timing.connectEnd);
+            else {
+                var connectStart = resource.timing.connectStart;
                 // Connection includes DNS, subtract it here.
-                var connectDuration = resource.timing.connectDuration;
-                if (resource.timing.dnsDuration !== -1)
-                    connectDuration -= resource.timing.dnsDuration;
-                data.push(Number.secondsToString(connectDuration));
+                if (resource.timing.dnsStart !== -1)
+                    connectStart += resource.timing.dnsEnd - resource.timing.dnsStart;
+                addRow(WebInspector.UIString("Connecting"), connectStart, resource.timing.connectEnd);
             }
         }
 
-        if (resource.timing.sslDuration !== -1) {
-            data.push(WebInspector.UIString("SSL"));
-            data.push(Number.secondsToString(resource.timing.sslDuration));
-        }
+        if (resource.timing.sslStart !== -1)
+            addRow(WebInspector.UIString("SSL"), resource.timing.sslStart, resource.timing.sslEnd);
 
-        data.push(WebInspector.UIString("Sending"));
-        data.push(Number.secondsToString(resource.timing.sendDuration));
+        var sendStart = resource.timing.sendStart;
+        if (resource.timing.sslStart !== -1)
+            sendStart += resource.timing.sslEnd - resource.timing.sslStart;
+        
+        addRow(WebInspector.UIString("Sending"), resource.timing.sendStart, resource.timing.sendEnd);
+        addRow(WebInspector.UIString("Waiting"), resource.timing.sendEnd, resource.timing.receiveHeadersEnd);
+        addRow(WebInspector.UIString("Receiving"), (resource.responseReceivedTime - resource.timing.requestTime) * 1000, (resource.endTime - resource.timing.requestTime) * 1000);
 
-        data.push(WebInspector.UIString("Waiting"));
-        // Waiting includes SSL, subtract it here.
-        var waitDuration = resource.timing.waitDuration;
-        if (resource.timing.sslDuration !== -1)
-            waitDuration -= resource.timing.sslDuration;
-        data.push(Number.secondsToString(waitDuration));
+        const chartWidth = 200;
+        var total = (resource.endTime - resource.timing.requestTime) * 1000;
+        var scale = chartWidth / total;
 
-        data.push(WebInspector.UIString("Receiving"));
-        data.push(Number.secondsToString(resource.endTime - resource.responseReceivedTime));
-
-        for (var i = 0; i < data.length; i += 2) {
+        for (var i = 0; i < rows.length; ++i) {
             var tr = document.createElement("tr");
             tableElement.appendChild(tr);
 
             var td = document.createElement("td");
-            td.textContent = data[i];
+            td.textContent = rows[i].title;
             tr.appendChild(td);
 
             td = document.createElement("td");
-            td.align = "right";
-            td.textContent = data[i + 1];
+            td.width = chartWidth + "px";
+
+            var row = document.createElement("div");
+            row.className = "resource-timing-row";
+            td.appendChild(row);
+
+            var bar = document.createElement("span");
+            bar.className = "resource-timing-bar";
+            bar.style.left = scale * rows[i].start + "px";
+            bar.style.right = scale * (total - rows[i].end) + "px";
+            bar.style.backgroundColor = rows[i].color;
+            bar.textContent = "\u200B"; // Important for 0-time items to have 0 width.
+            row.appendChild(bar);
+
+            var title = document.createElement("span");
+            title.className = "resource-timing-bar-title";
+            if (i >= rows.length - 2)
+                title.style.right = (scale * (total - rows[i].end) + 3) + "px";
+            else
+                title.style.left = (scale * rows[i].start + 3) + "px";
+            title.textContent = Number.millisToString(rows[i].end - rows[i].start);
+            row.appendChild(title);
+
             tr.appendChild(td);
         }
 

@@ -66,8 +66,15 @@ public:
         RefPtr<Element> m_element;
         OwnPtr<ElementRecord> m_next;
     };
-    
-    Element* top() const;
+
+    // Inlining this function is a (small) performance win on the parsing
+    // benchmark.
+    Element* top() const
+    {
+        ASSERT(m_top->element());
+        return m_top->element();
+    }
+
     Element* oneBelowTop() const;
     ElementRecord* topRecord() const;
     Element* bottom() const;
@@ -87,6 +94,7 @@ public:
     void popUntil(Element*);
     void popUntilPopped(const AtomicString& tagName);
     void popUntilPopped(Element*);
+    void popUntilNumberedHeaderElementPopped();
     void popUntilTableScopeMarker(); // "clear the stack back to a table context" in the spec.
     void popUntilTableBodyScopeMarker(); // "clear the stack back to a table body context" in the spec.
     void popUntilTableRowScopeMarker(); // "clear the stack back to a table row context" in the spec.
@@ -107,8 +115,11 @@ public:
     bool inListItemScope(const QualifiedName&) const;
     bool inTableScope(const AtomicString& tagName) const;
     bool inTableScope(const QualifiedName&) const;
+    bool inButtonScope(const AtomicString& tagName) const;
+    bool inButtonScope(const QualifiedName&) const;
 
     bool hasOnlyHTMLElementsInScope() const;
+    bool hasNumberedHeaderElementInScope() const;
 
     Element* htmlElement() const;
     Element* headElement() const;

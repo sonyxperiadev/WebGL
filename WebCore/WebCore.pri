@@ -42,6 +42,7 @@ contains(DEFINES, ENABLE_SINGLE_THREADED=1) {
 !contains(DEFINES, ENABLE_CHANNEL_MESSAGING=.): DEFINES += ENABLE_CHANNEL_MESSAGING=1
 !contains(DEFINES, ENABLE_ORIENTATION_EVENTS=.): DEFINES += ENABLE_ORIENTATION_EVENTS=0
 !contains(DEFINES, ENABLE_DIRECTORY_UPLOAD=.): DEFINES += ENABLE_DIRECTORY_UPLOAD=0
+!contains(DEFINES, ENABLE_FILE_SYSTEM=.): DEFINES += ENABLE_FILE_SYSTEM=0
 
 # turn on SQLITE support if any of the dependent features are turned on
 !contains(DEFINES, ENABLE_SQLITE=.) {
@@ -448,7 +449,6 @@ IDL_BINDINGS += \
     html/ValidityState.idl \
     html/VoidCallback.idl \
     inspector/InjectedScriptHost.idl \
-    inspector/InspectorBackend.idl \
     inspector/InspectorFrontendHost.idl \
     inspector/JavaScriptCallFrame.idl \
     inspector/ScriptProfile.idl \
@@ -681,6 +681,7 @@ WEBCORE_HEADERS_FOR_WEBKIT2 += \
     html/HTMLFormElement.h \
     html/HTMLFrameOwnerElement.h \
     inspector/InspectorClient.h \
+    loader/appcache/ApplicationCacheStorage.h \
     loader/DocumentLoader.h \
     loader/FormState.h \
     loader/FrameLoader.h \
@@ -702,11 +703,17 @@ WEBCORE_HEADERS_FOR_WEBKIT2 += \
     page/Page.h \
     page/Settings.h \
     page/WindowFeatures.h \
+    platform/Cursor.h \
     platform/PlatformKeyboardEvent.h \
     platform/PlatformMouseEvent.h \
     platform/PlatformWheelEvent.h \
     platform/Widget.h \
     platform/KURL.h \
+    platform/graphics/Color.h \
+    platform/graphics/ColorSpace.h \
+    platform/graphics/GraphicsTypes.h \
+    platform/graphics/Image.h \
+    platform/graphics/ImageSource.h \
     platform/graphics/FloatRect.h \
     platform/graphics/GraphicsContext.h \
     platform/graphics/GraphicsLayerClient.h \
@@ -716,6 +723,7 @@ WEBCORE_HEADERS_FOR_WEBKIT2 += \
     platform/graphics/Tile.h \
     platform/graphics/TiledBackingStore.h \
     platform/graphics/TiledBackingStoreClient.h \
+    platform/sql/SQLiteDatabase.h \
     platform/text/PlatformString.h \
     platform/text/StringImpl.h \
     platform/MIMETypeRegistry.h \
@@ -808,7 +816,7 @@ idl.depends = $$PWD/bindings/scripts/CodeGenerator.pm \
 addExtraCompiler(idl)
 
 # GENERATOR 2: inspector idl compiler
-inspectorIDL.output = $${WC_GENERATED_SOURCES_DIR}/Remote${QMAKE_FILE_BASE}Frontend.cpp
+inspectorIDL.output = $${WC_GENERATED_SOURCES_DIR}/Remote${QMAKE_FILE_BASE}Frontend.cpp $${WC_GENERATED_SOURCES_DIR}/${QMAKE_FILE_BASE}BackendDispatcher.cpp
 inspectorIDL.input = INSPECTOR_INTERFACES
 inspectorIDL.wkScript = $$PWD/bindings/scripts/generate-bindings.pl
 inspectorIDL.commands = perl -I$$PWD/bindings/scripts -I$$PWD/inspector $$inspectorIDL.wkScript --defines \"$${FEATURE_DEFINES_JAVASCRIPT}\" --generator Inspector --outputDir $$WC_GENERATED_SOURCES_DIR --preprocessor \"$${QMAKE_MOC} -E\" ${QMAKE_FILE_NAME}

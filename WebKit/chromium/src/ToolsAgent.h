@@ -39,13 +39,7 @@ namespace WebKit {
 // API for auxiliary UI functions such as dom elements highlighting.
 #define TOOLS_AGENT_STRUCT(METHOD0, METHOD1, METHOD2, METHOD3, METHOD4, METHOD5) \
     /* Dispatches given function on the InspectorController object */ \
-    METHOD3(dispatchOnInspectorController, int /* call_id */, \
-        String /* function_name */, String /* json_args */) \
-    \
-    /* Dispatches given function on the InjectedScript object */ \
-    METHOD5(dispatchOnInjectedScript, int /* call_id */, \
-        int /* injected_script_id */, String /* function_name */, \
-        String /* json_args */, bool /* async */)
+    METHOD1(dispatchOnInspectorController, String /* message */) \
 
 DEFINE_RPC_CLASS(ToolsAgent, TOOLS_AGENT_STRUCT)
 

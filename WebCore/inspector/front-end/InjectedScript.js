@@ -388,7 +388,7 @@ InjectedScript.createProxyObject = function(object, objectId, abbreviate)
 
     var type = typeof object;
     
-    result.hasChildren = (type === "object" && object !== null && (Object.getOwnPropertyNames(object).length || object.__proto__)) || type === "function";
+    result.hasChildren = (type === "object" && object !== null && (Object.getOwnPropertyNames(object).length || !!object.__proto__)) || type === "function";
     try {
         result.description = InjectedScript._describe(object, abbreviate);
     } catch (e) {
@@ -411,6 +411,7 @@ InjectedScript.CallFrameProxy = function(id, callFrame)
     this.sourceID = callFrame.sourceID;
     this.line = callFrame.line;
     this.scopeChain = this._wrapScopeChain(callFrame);
+    this.injectedScriptId = injectedScriptId;
 }
 
 InjectedScript.CallFrameProxy.prototype = {
@@ -544,7 +545,7 @@ InjectedScript._type = function(obj)
         return "array";
     if (obj instanceof inspectedWindow.HTMLCollection)
         return "array";
-    if (inspectedWindow.jQuery && obj instanceof inspectedWindow.jQuery)
+    if (typeof inspectedWindow.jQuery === "function" && obj instanceof inspectedWindow.jQuery)
         return "array";
     if (obj instanceof inspectedWindow.Error)
         return "error";

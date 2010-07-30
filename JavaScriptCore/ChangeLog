@@ -1,3 +1,570 @@
+2010-07-28  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Bug 43162 - Add support for MADV_FREE to PageAllocation.
+
+        * wtf/PageAllocation.cpp:
+        (WTF::PageAllocation::commit):
+        (WTF::PageAllocation::decommit):
+
+2010-07-27  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        Add FILE_SYSTEM build flag for FileSystem API
+        https://bugs.webkit.org/show_bug.cgi?id=42915
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-07-27  Gavin Barraclough  <barraclough@apple.com>
+
+        Temporarily rolling out http://trac.webkit.org/changeset/64177,
+        this seems to give QT ARM/Win a headache (specifically, looks
+        like structure layour differs, objects get too large - 
+        "..\..\..\JavaScriptCore\runtime\ArrayPrototype.cpp:41:"
+        "error: size of array 'dummyclass_fits_in_cell' is negative").
+
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::emit_op_get_by_val):
+        (JSC::JIT::emit_op_put_by_val):
+        (JSC::JIT::privateCompilePatchGetArrayLength):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::emit_op_get_by_val):
+        (JSC::JIT::emit_op_put_by_val):
+        (JSC::JIT::privateCompilePatchGetArrayLength):
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncShift):
+        (JSC::arrayProtoFuncSplice):
+        (JSC::arrayProtoFuncUnShift):
+        * runtime/JSArray.cpp:
+        (JSC::increasedVectorLength):
+        (JSC::JSArray::JSArray):
+        (JSC::JSArray::~JSArray):
+        (JSC::JSArray::getOwnPropertySlot):
+        (JSC::JSArray::getOwnPropertyDescriptor):
+        (JSC::JSArray::put):
+        (JSC::JSArray::putSlowCase):
+        (JSC::JSArray::deleteProperty):
+        (JSC::JSArray::getOwnPropertyNames):
+        (JSC::JSArray::increaseVectorLength):
+        (JSC::JSArray::setLength):
+        (JSC::JSArray::pop):
+        (JSC::JSArray::push):
+        (JSC::JSArray::sortNumeric):
+        (JSC::JSArray::sort):
+        (JSC::JSArray::fillArgList):
+        (JSC::JSArray::copyToRegisters):
+        (JSC::JSArray::compactForSorting):
+        (JSC::JSArray::subclassData):
+        (JSC::JSArray::setSubclassData):
+        (JSC::JSArray::checkConsistency):
+        * runtime/JSArray.h:
+        (JSC::JSArray::length):
+        (JSC::JSArray::canGetIndex):
+        (JSC::JSArray::getIndex):
+        (JSC::JSArray::setIndex):
+        (JSC::JSArray::uncheckedSetIndex):
+        (JSC::JSArray::markChildrenDirect):
+
+2010-07-27  Gavin Barraclough  <barraclough@apple.com>
+
+        Speculative build fix for Chromium/Win
+
+        * wtf/Platform.h:
+
+2010-07-27  Gavin Barraclough  <barraclough@apple.com>
+
+        Oh! that makes more sense!  Maybe C++-style comments are bringing teh bad mojo.
+
+        * wtf/Platform.h:
+
+2010-07-27  Gavin Barraclough  <barraclough@apple.com>
+
+        Speculative build fix for GTK/64 ... seems to be barfing on a comment o_O
+
+        * wtf/Platform.h:
+
+2010-07-27  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Changed the handling for removing and adding elements at the front
+        of an array.  The code now keeps a bias that indicates the amount of
+        JSValue sized holes are prior to the ArrayStorage block.  This means
+        that shift operations are now memmove's of the header part of
+        the ArrayStorage and unshift operations are similar, but may require a
+        realloc first to create the space.  Similar operations are performed
+        for special cases of splice and slice.
+        Also optimized the new Array(size) case so that we don't allocate and
+        initialize array elements until the JS code starts using elements.
+        The array growth code is slightly more aggressive for initial growth
+        based on size growth of any previous array.
+
+        * Configurations/JavaScriptCore.xcconfig:
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::emit_op_get_by_val):
+        (JSC::JIT::emit_op_put_by_val):
+        (JSC::JIT::privateCompilePatchGetArrayLength):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::emit_op_get_by_val):
+        (JSC::JIT::emit_op_put_by_val):
+        (JSC::JIT::privateCompilePatchGetArrayLength):
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncShift):
+        (JSC::arrayProtoFuncSplice):
+        (JSC::arrayProtoFuncUnShift):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::JSArray):
+        (JSC::JSArray::~JSArray):
+        (JSC::JSArray::getOwnPropertySlot):
+        (JSC::JSArray::getOwnPropertyDescriptor):
+        (JSC::JSArray::put):
+        (JSC::JSArray::putSlowCase):
+        (JSC::JSArray::deleteProperty):
+        (JSC::JSArray::getOwnPropertyNames):
+        (JSC::JSArray::getNewVectorLength):
+        (JSC::JSArray::increaseVectorLength):
+        (JSC::JSArray::increaseVectorPrefixLength):
+        (JSC::JSArray::setLength):
+        (JSC::JSArray::pop):
+        (JSC::JSArray::push):
+        (JSC::JSArray::shiftCount):
+        (JSC::JSArray::unshiftCount):
+        (JSC::JSArray::sortNumeric):
+        (JSC::JSArray::sort):
+        (JSC::JSArray::fillArgList):
+        (JSC::JSArray::copyToRegisters):
+        (JSC::JSArray::compactForSorting):
+        (JSC::JSArray::subclassData):
+        (JSC::JSArray::setSubclassData):
+        (JSC::JSArray::checkConsistency):
+        * runtime/JSArray.h:
+        (JSC::JSArray::length):
+        (JSC::JSArray::canGetIndex):
+        (JSC::JSArray::getIndex):
+        (JSC::JSArray::setIndex):
+        (JSC::JSArray::uncheckedSetIndex):
+        (JSC::JSArray::arrayStorage):
+        (JSC::JSArray::setArrayStorage):
+        (JSC::JSArray::markChildrenDirect):
+
+2010-07-27  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 43089 - Cleanup JIT related switched in Platform.h
+
+        The code the enable to JIT checks every permutation of platform & OS individually, but
+        now the JIT is enabled on the majority much all x86/x86-64/ARM/MIPS systems.  It should
+        be cleaner to just enable by default on these platforms, and explicitly disable on configs
+        that don't aren't supported.
+
+        Also, rename ENABLE_JIT_OPTIMIZE_MOD to ENABLE_JIT_USE_SOFT_MODULO.  I always find this
+        confusing since enabling this "optimization" would be possible, but would be a regression
+        on x86/x86-64 systems!  I think it's clearer to reserve "JIT_OPTIMIZE" for compiler
+        technologies applicable to all platforms, and make a more optional behaviour like this a
+        "USE".
+
+        * jit/ExecutableAllocator.h:
+        (JSC::ExecutableAllocator::cacheFlush):
+        * jit/JIT.h:
+        * jit/JITArithmetic.cpp:
+        (JSC::JIT::emit_op_mod):
+        (JSC::JIT::emitSlow_op_mod):
+        * jit/JITArithmetic32_64.cpp:
+        (JSC::JIT::emit_op_mod):
+        (JSC::JIT::emitSlow_op_mod):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::privateCompileCTIMachineTrampolines):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::privateCompileCTIMachineTrampolines):
+        * wtf/Platform.h:
+
+2010-07-27  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Make PLATFORM(CHROMIUM) and not OS(MAC) turn USE(GLES2_RENDERING) on
+        https://bugs.webkit.org/show_bug.cgi?id=43084
+
+        This turns USE(GLES2_RENDERING) on for chromium on windows/linux.  This causes no
+        change in behavior, that's all controlled by ENABLE() macros that are currently off.
+
+        * wtf/Platform.h:
+
+2010-07-23  Helder Correia  <heldercorreia@codeaurora.org>
+
+        Reviewed by Darin Adler.
+
+        Canvas tests 2d.imageData.object.round and 2d.imageData.object.wrap are
+        failing. For canvas image data manipulation, the values passed should
+        be truncated and wrapped. Also fix the canvas-ImageData-behaviour test
+        to expect wrapping rather than clamping, and add some new checkings.
+        https://bugs.webkit.org/show_bug.cgi?id=40272
+
+        * runtime/JSByteArray.h:
+        (JSC::JSByteArray::setIndex):
+        (JSC::JSByteArray::JSByteArray):
+
+2010-07-27  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 42621 - Add a bump allocator for the YARR interpreter
+
+        The regex engine requires lifo allocation, however currently uses the general purpose
+        malloc/free memory allocation.  A simple bump pointer allocator should provide a lower
+        overhead allocation solution.
+
+        When using YARR interpreter, 15% progression on v8-regex.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/JSGlobalData.h:
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::compile):
+        * wtf/BumpPointerAllocator.h: Added.
+        (WTF::BumpPointerPool::ensureCapacity):
+        (WTF::BumpPointerPool::alloc):
+        (WTF::BumpPointerPool::dealloc):
+        (WTF::BumpPointerPool::operator new):
+        (WTF::BumpPointerPool::BumpPointerPool):
+        (WTF::BumpPointerPool::create):
+        (WTF::BumpPointerPool::shrink):
+        (WTF::BumpPointerPool::destroy):
+        (WTF::BumpPointerPool::ensureCapacityCrossPool):
+        (WTF::BumpPointerPool::deallocCrossPool):
+        (WTF::BumpPointerAllocator::BumpPointerAllocator):
+        (WTF::BumpPointerAllocator::~BumpPointerAllocator):
+        (WTF::BumpPointerAllocator::startAllocator):
+        (WTF::BumpPointerAllocator::stopAllocator):
+        * yarr/RegexInterpreter.cpp:
+        (JSC::Yarr::Interpreter::allocDisjunctionContext):
+        (JSC::Yarr::Interpreter::freeDisjunctionContext):
+        (JSC::Yarr::Interpreter::allocParenthesesDisjunctionContext):
+        (JSC::Yarr::Interpreter::freeParenthesesDisjunctionContext):
+        (JSC::Yarr::Interpreter::interpret):
+        (JSC::Yarr::Interpreter::Interpreter):
+        (JSC::Yarr::ByteCompiler::compile):
+        (JSC::Yarr::byteCompileRegex):
+        * yarr/RegexInterpreter.h:
+        (JSC::Yarr::BytecodePattern::BytecodePattern):
+
+2010-07-26  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix from Chromium/GTK build fix!
+
+        * wtf/PageAllocation.cpp:
+
+2010-07-26  Gavin Barraclough  <barraclough@apple.com>
+
+        Chromium/GTK build fix
+
+        * wtf/PageAllocation.cpp:
+
+2010-07-26  Gavin Barraclough  <barraclough@apple.com>
+
+        Build fix for !Mac platforms.
+
+        * Android.mk:
+        * CMakeLists.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+
+2010-07-26  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 43009 - Abstract out page allocation from executable allocators
+
+        It would be great to have a single platform abstraction for block allocation, rather than copy/paste code.
+
+        In this initial implementation I've made Symbian fall back to use malloc/free for non-executable memory.
+        I think this will match current behaviour for the next client we will want to port across (RegisterFile &
+        Collector).
+
+        * CMakeListsEfl.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * jit/ExecutableAllocator.cpp:
+        (JSC::ExecutableAllocator::intializePageSize):
+        (JSC::ExecutablePool::systemAlloc):
+        (JSC::ExecutablePool::systemRelease):
+        (JSC::ExecutableAllocator::isValid):
+        * jit/ExecutableAllocator.h:
+        (JSC::ExecutablePool::ExecutablePool):
+        (JSC::ExecutablePool::poolAllocate):
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::FixedVMPoolAllocator::release):
+        (JSC::FixedVMPoolAllocator::reuse):
+        (JSC::FixedVMPoolAllocator::FixedVMPoolAllocator):
+        (JSC::FixedVMPoolAllocator::alloc):
+        (JSC::FixedVMPoolAllocator::free):
+        (JSC::FixedVMPoolAllocator::isValid):
+        (JSC::FixedVMPoolAllocator::isWithinVMPool):
+        (JSC::ExecutablePool::systemAlloc):
+        (JSC::ExecutablePool::systemRelease):
+        * jit/ExecutableAllocatorPosix.cpp: Removed.
+        * jit/ExecutableAllocatorSymbian.cpp: Removed.
+        * jit/ExecutableAllocatorWin.cpp: Removed.
+        * wscript:
+        * wtf/PageAllocator.cpp: Added.
+        (WTF::protection):
+        (WTF::PageAllocation::commit):
+        (WTF::PageAllocation::decommit):
+        (WTF::PageAllocator::allocate):
+        (WTF::PageAllocator::reserve):
+        (WTF::PageAllocator::deallocate):
+        (WTF::PageAllocator::pagesize):
+        * wtf/PageAllocator.h: Added.
+        (WTF::PageAllocation::PageAllocation):
+        (WTF::PageAllocation::base):
+        (WTF::PageAllocation::size):
+        (WTF::PageAllocation::chunk):
+        (WTF::PageAllocation::operator!):
+        (WTF::PageAllocator::):
+
+2010-07-26  Gavin Barraclough  <barraclough@apple.com>
+
+        Rolling out r64097:64100, oops, more b0rked than I relized by my last changes, sorry!
+
+        * CMakeListsEfl.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * jit/ExecutableAllocator.cpp:
+        (JSC::ExecutableAllocator::reprotectRegion):
+        (JSC::ExecutableAllocator::cacheFlush):
+        * jit/ExecutableAllocator.h:
+        (JSC::ExecutablePool::ExecutablePool):
+        (JSC::ExecutablePool::poolAllocate):
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::FixedVMPoolAllocator::release):
+        (JSC::FixedVMPoolAllocator::reuse):
+        (JSC::FixedVMPoolAllocator::FixedVMPoolAllocator):
+        (JSC::FixedVMPoolAllocator::alloc):
+        (JSC::FixedVMPoolAllocator::free):
+        (JSC::FixedVMPoolAllocator::isValid):
+        (JSC::FixedVMPoolAllocator::isWithinVMPool):
+        (JSC::ExecutablePool::systemAlloc):
+        (JSC::ExecutablePool::systemRelease):
+        * jit/ExecutableAllocatorPosix.cpp: Added.
+        (JSC::ExecutableAllocator::intializePageSize):
+        (JSC::ExecutablePool::systemAlloc):
+        (JSC::ExecutablePool::systemRelease):
+        (JSC::ExecutableAllocator::isValid):
+        * jit/ExecutableAllocatorSymbian.cpp: Added.
+        (JSC::ExecutableAllocator::intializePageSize):
+        (JSC::ExecutablePool::systemAlloc):
+        (JSC::ExecutablePool::systemRelease):
+        (JSC::ExecutableAllocator::isValid):
+        * jit/ExecutableAllocatorWin.cpp: Added.
+        (JSC::ExecutableAllocator::intializePageSize):
+        (JSC::ExecutablePool::systemAlloc):
+        (JSC::ExecutablePool::systemRelease):
+        (JSC::ExecutableAllocator::isValid):
+        * wscript:
+        * wtf/PageAllocation.cpp: Removed.
+        * wtf/PageAllocation.h: Removed.
+
+2010-07-26  Gavin Barraclough  <barraclough@apple.com>
+
+        Speculative !debug build fix II.
+
+        * wtf/PageAllocation.h:
+        (WTF::PageAllocation::PageAllocation):
+
+2010-07-26  Gavin Barraclough  <barraclough@apple.com>
+
+        Speculative !debug build fix.
+
+        * wtf/PageAllocation.h:
+        (WTF::PageAllocation::PageAllocation):
+
+2010-07-26  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 43009 - Abstract out page allocation from executable allocators
+
+        It would be great to have a single platform abstraction for block allocation, rather than copy/paste code.
+
+        In this initial implementation I've made Symbian fall back to use malloc/free for non-executable memory.
+        I think this will match current behaviour for the next client we will want to port across (RegisterFile &
+        Collector).
+
+        * CMakeListsEfl.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * jit/ExecutableAllocator.cpp:
+        (JSC::ExecutableAllocator::intializePageSize):
+        (JSC::ExecutablePool::systemAlloc):
+        (JSC::ExecutablePool::systemRelease):
+        (JSC::ExecutableAllocator::isValid):
+        * jit/ExecutableAllocator.h:
+        (JSC::ExecutablePool::ExecutablePool):
+        (JSC::ExecutablePool::poolAllocate):
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::FixedVMPoolAllocator::release):
+        (JSC::FixedVMPoolAllocator::reuse):
+        (JSC::FixedVMPoolAllocator::FixedVMPoolAllocator):
+        (JSC::FixedVMPoolAllocator::alloc):
+        (JSC::FixedVMPoolAllocator::free):
+        (JSC::FixedVMPoolAllocator::isValid):
+        (JSC::FixedVMPoolAllocator::isWithinVMPool):
+        (JSC::ExecutablePool::systemAlloc):
+        (JSC::ExecutablePool::systemRelease):
+        * jit/ExecutableAllocatorPosix.cpp: Removed.
+        * jit/ExecutableAllocatorSymbian.cpp: Removed.
+        * jit/ExecutableAllocatorWin.cpp: Removed.
+        * wscript:
+        * wtf/PageAllocator.cpp: Added.
+        (WTF::protection):
+        (WTF::PageAllocation::commit):
+        (WTF::PageAllocation::decommit):
+        (WTF::PageAllocator::allocate):
+        (WTF::PageAllocator::reserve):
+        (WTF::PageAllocator::deallocate):
+        (WTF::PageAllocator::pagesize):
+        * wtf/PageAllocator.h: Added.
+        (WTF::PageAllocation::PageAllocation):
+        (WTF::PageAllocation::base):
+        (WTF::PageAllocation::size):
+        (WTF::PageAllocation::chunk):
+        (WTF::PageAllocation::operator!):
+        (WTF::PageAllocator::):
+
+2009-10-30  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Use the default timeout interval for JS as the HTML tokenizer delay for setHtml()
+
+        This ensures that long-running JavaScript (for example due to a modal alert() dialog),
+        will not trigger a deferred load after only 500ms (the default tokenizer delay) while
+        still giving a reasonable timeout (10 seconds) to prevent deadlock.
+
+        https://bugs.webkit.org/show_bug.cgi?id=29381
+
+        * runtime/TimeoutChecker.h: Add getter for the timeout interval
+
+2010-07-25  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Kent Tamura.
+
+        [WINCE] Buildfix for JSC in release mode
+        https://bugs.webkit.org/show_bug.cgi?id=42934
+
+        * jsc.cpp: Don't use __try on WinCE.
+
+2010-07-24  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Darin Adler.
+
+        [MSVC] Ensure 4 byte alignment on ARM
+        https://bugs.webkit.org/show_bug.cgi?id=42935
+
+        * jit/JITStubs.h: Added #pragma pack(4) around JITStackFrame.
+
+2010-07-24  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Darin Adler.
+
+        [WINCE] Cleanup defines in Platform.h
+        https://bugs.webkit.org/show_bug.cgi?id=42933
+
+        * wtf/Platform.h:
+
+2010-07-23  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Cleanup glib support (make it optional)
+        https://bugs.webkit.org/show_bug.cgi?id=42480
+
+        Remove gobject/GRefPtr.cpp if not using soup/glib.
+
+        * wtf/CMakeListsEfl.txt:
+
+2010-07-23  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Adam Roben.
+
+        [WINCE] Implement TCSpinLock.
+        https://bugs.webkit.org/show_bug.cgi?id=41792
+
+        Implement the SpinLock with InterlockedExchange from the Windows API.
+
+        * wtf/TCSpinLock.h:
+        (TCMalloc_SpinLock::Lock):
+        (TCMalloc_SpinLock::Unlock):
+        (TCMalloc_SpinLock::IsHeld):
+        (TCMalloc_SpinLock::Init):
+        (TCMalloc_SlowLock):
+
+2010-07-22  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Unreviewed rolling out r63947 and r63948, because they broke Qt Windows build.
+
+        * jit/JITStubs.cpp:
+        * jit/JITStubs.h:
+
+2010-07-22  Gavin Barraclough  <barraclough@apple.com>
+
+        Eeeep! r63947 hosed all non-x86 builds!
+
+        * jit/JITStubs.h:
+
+2010-07-22  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 42818 - [Qt] REGRESSION(63348): jsc is broken
+        Speculative fix, need fastcall conventions on Qt/Win.
+
+        * jit/JITStubs.cpp:
+        * jit/JITStubs.h:
+
+2010-07-22  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Do more constant folding
+        https://bugs.webkit.org/show_bug.cgi?id=42867
+
+        Constant fold a few more operations.  SunSpider says this is
+        a win but I suspect that's just code motion at play.
+
+        * parser/ASTBuilder.h:
+        (JSC::ASTBuilder::makeModNode):
+        (JSC::ASTBuilder::makeURightShiftNode):
+        (JSC::ASTBuilder::makeBitOrNode):
+        (JSC::ASTBuilder::makeBitAndNode):
+        (JSC::ASTBuilder::makeBitXOrNode):
+        (JSC::ASTBuilder::makeBinaryNode):
+
+2010-07-22  Kent Hansen  <kent.hansen@nokia.com>
+
+        Reviewed by Kent Tamura.
+
+        Error properties of the Global Object are missing the DontEnum attribute
+        https://bugs.webkit.org/show_bug.cgi?id=28771
+
+        Add the attributes to become spec compliant.
+
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::reset):
+
 2010-07-20  Steve Falkenburg  <sfalken@apple.com>
 
         Reviewed by Adam Roben.

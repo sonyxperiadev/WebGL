@@ -28,6 +28,7 @@
 
 #include "JSWrappable.h"
 #include <JavaScriptCore/JavaScriptCore.h>
+#include <JavaScriptCore/JSRetainPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RetainPtr.h>
 #include <string>
@@ -36,44 +37,73 @@ namespace WTR {
 
 class LayoutTestController : public JSWrappable {
 public:
-    static PassRefPtr<LayoutTestController> create(const std::string& testPathOrURL);
-    ~LayoutTestController();
+    static PassRefPtr<LayoutTestController> create();
+    virtual ~LayoutTestController();
 
     // JSWrappable
-    JSClassRef wrapperClass();
+    virtual JSClassRef wrapperClass();
 
-    void makeWindowObject(JSContextRef context, JSObjectRef windowObject, JSValueRef* exception);
+    void makeWindowObject(JSContextRef, JSObjectRef windowObject, JSValueRef* exception);
 
-    bool shouldDumpAsText() const { return m_dumpAsText; }
-    void dumpAsText() { m_dumpAsText = true; }
-
-    bool shouldDumpStatusCallbacks() const { return m_dumpStatusCallbacks; }
-    void dumpStatusCallbacks() { m_dumpStatusCallbacks = true; }
-
-    bool waitToDump() const { return m_waitToDump; }
-    void waitToDumpWatchdogTimerFired();
-    void invalidateWaitToDumpWatchdog();
+    // The basics.
+    void dumpAsText() { m_whatToDump = MainFrameText; }
+    void dumpChildFramesAsText() { m_whatToDump = AllFramesText; }
     void waitUntilDone();
     void notifyDone();
 
+    // Other dumping.
+    void dumpChildFrameScrollPositions() { m_shouldDumpAllFrameScrollPositions = true; }
+    void dumpEditingCallbacks() { m_dumpEditingCallbacks = true; }
+    void dumpSelectionRect() { } // Will need to do something when we support pixel tests.
+    void dumpStatusCallbacks() { m_dumpStatusCallbacks = true; }
+
+    // Special options.
+    void keepWebHistory();
+    void setAcceptsEditing(bool value) { m_shouldAllowEditing = value; }
+
+    // Special DOM functions.
+    JSValueRef computedStyleIncludingVisitedInfo(JSValueRef element);
+    JSRetainPtr<JSStringRef> counterValueForElementById(JSStringRef elementId);
+    JSRetainPtr<JSStringRef> markerTextForListItem(JSValueRef element);
+    void execCommand(JSStringRef name, JSStringRef argument);
+    bool isCommandEnabled(JSStringRef name);
+
+    // Repaint testing.
     void testRepaint() { m_testRepaint = true; }
     void repaintSweepHorizontally() { m_testRepaintSweepHorizontally = true; }
     void display();
 
+    // Animation testing.
     unsigned numberOfActiveAnimations() const;
     bool pauseAnimationAtTimeOnElementWithId(JSStringRef animationName, double time, JSStringRef elementId);
 
-private:
-    LayoutTestController(const std::string& testPathOrURL);
+    enum WhatToDump { RenderTree, MainFrameText, AllFramesText };
+    WhatToDump whatToDump() const { return m_whatToDump; }
 
-    bool m_dumpAsText;
+    bool shouldDumpAllFrameScrollPositions() const { return m_shouldDumpAllFrameScrollPositions; }
+    bool shouldDumpEditingCallbacks() const { return m_dumpEditingCallbacks; }
+    bool shouldDumpMainFrameScrollPosition() const { return m_whatToDump == RenderTree; }
+
+    bool shouldDumpStatusCallbacks() const { return m_dumpStatusCallbacks; }
+
+    bool waitToDump() const { return m_waitToDump; }
+    void waitToDumpWatchdogTimerFired();
+    void invalidateWaitToDumpWatchdog();
+
+    bool shouldAllowEditing() const { return m_shouldAllowEditing; }
+
+private:
+    LayoutTestController();
+
+    WhatToDump m_whatToDump;
+    bool m_shouldDumpAllFrameScrollPositions;
+    bool m_shouldAllowEditing;
+    bool m_dumpEditingCallbacks;
     bool m_dumpStatusCallbacks;
     bool m_waitToDump; // True if waitUntilDone() has been called, but notifyDone() has not yet been called.
     bool m_testRepaint;
     bool m_testRepaintSweepHorizontally;
 
-    std::string m_testPathOrURL;
-    
     RetainPtr<CFRunLoopTimerRef> m_waitToDumpWatchdog;
 };
 

@@ -1,3 +1,49 @@
+2010-07-26  Steve Block  <steveblock@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Page clients should be passed to Page constructor via structure of pointers
+        https://bugs.webkit.org/show_bug.cgi?id=42834
+
+        * WebView.cpp:
+        (WebView::initWithFrame):
+
+2010-07-27  Steve Block  <steveblock@google.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Client-based Geolocation does not pass enableHighAccuracy option to controller and client
+        https://bugs.webkit.org/show_bug.cgi?id=40374
+
+        Stub out setEnableHighAccuracy method for the Win port.
+
+        * WebCoreSupport/WebGeolocationControllerClient.h:
+        (WebGeolocationControllerClient::setEnableHighAccuracy):
+
+2010-07-22  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Fix for <rdar://problem/8222626>
+        Send textDidChangeInTextField delegate callback only in response to typing or other forms of user text input.
+
+        The function name no longer perfectly matches the behavior, but I didn't want to break any existing clients. Maybe we
+        should migrate to a new function name eventually
+
+        * WebCoreSupport/WebEditorClient.cpp:
+        (WebEditorClient::textDidChangeInTextField):
+
+2010-07-21  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Break out "scheme registration" functionality from SecurityOrigin to a SchemeRegistry
+        https://bugs.webkit.org/show_bug.cgi?id=42783
+
+        * WebView.cpp:
+        (WebView::registerURLSchemeAsLocal):
+        (WebView::registerURLSchemeAsSecure):
+
 2010-07-20  Steve Falkenburg  <sfalken@apple.com>
 
         Reviewed by Adam Roben.

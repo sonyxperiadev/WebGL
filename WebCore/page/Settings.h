@@ -357,6 +357,9 @@ namespace WebCore {
         void setWebGLEnabled(bool);
         bool webGLEnabled() const { return m_webGLEnabled; }
 
+        void setAccelerated2dCanvasEnabled(bool);
+        bool accelerated2dCanvasEnabled() const { return m_acceleratedCanvas2dEnabled; }
+
         void setLoadDeferringEnabled(bool);
         bool loadDeferringEnabled() const { return m_loadDeferringEnabled; }
         
@@ -378,6 +381,13 @@ namespace WebCore {
 
         void setMemoryInfoEnabled(bool flag) { m_memoryInfoEnabled = flag; }
         bool memoryInfoEnabled() const { return m_memoryInfoEnabled; }
+
+        // This setting will be removed when an HTML5 compatibility issue is
+        // resolved and WebKit implementation of interactive validation is
+        // completed. See http://webkit.org/b/40520, http://webkit.org/b/40747,
+        // and http://webkit.org/b/40908
+        void setInteractiveFormValidationEnabled(bool flag) { m_interactiveFormValidation = flag; }
+        bool interactiveFormValidationEnabled() const { return m_interactiveFormValidation; }
 
     private:
         Page* m_page;
@@ -493,6 +503,7 @@ namespace WebCore {
         bool m_showRepaintCounter : 1;
         bool m_experimentalNotificationsEnabled : 1;
         bool m_webGLEnabled : 1;
+        bool m_acceleratedCanvas2dEnabled : 1;
         bool m_loadDeferringEnabled : 1;
         bool m_tiledBackingStoreEnabled : 1;
         bool m_html5ParserEnabled: 1;
@@ -500,9 +511,13 @@ namespace WebCore {
         bool m_paginateDuringLayoutEnabled : 1;
         bool m_dnsPrefetchingEnabled : 1;
         bool m_memoryInfoEnabled: 1;
+<<<<<<< HEAD
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif
+=======
+        bool m_interactiveFormValidation: 1;
+>>>>>>> webkit.org at r64264
     
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;

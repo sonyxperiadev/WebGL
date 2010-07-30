@@ -260,7 +260,7 @@ EOF
 
                 push(@contents, "    " . $self->_platformTypeVariableDeclaration($parameter, $parameter->name, "arguments[$i]", "argumentCount > $i") . "\n");
                 
-                push(@parameters, $self->_paramterExpression($parameter));
+                push(@parameters, $self->_parameterExpression($parameter));
             }
 
             my $isVoidReturn = $function->signature->type eq "void";
@@ -343,7 +343,10 @@ sub _includeHeaders
     my ($self, $headers, $idlType, $signature) = @_;
 
     return unless defined $idlType;
-    return if $idlType eq "boolean" or $$self{codeGenerator}->IsNonPointerType($idlType);
+    return if $idlType eq "boolean";
+    return if $idlType eq "object";
+    return if $$self{codeGenerator}->IsNonPointerType($idlType);
+    return if $$self{codeGenerator}->IsStringType($idlType);
 
     $$headers{_className($idlType) . ".h"} = 1;
     $$headers{_implementationClassName($idlType) . ".h"} = 1;
@@ -385,6 +388,7 @@ sub _platformType
     return undef unless defined $idlType;
 
     return "bool" if $idlType eq "boolean";
+    return "JSValueRef" if $idlType eq "object";
     return "JSRetainPtr<JSStringRef>" if $$self{codeGenerator}->IsStringType($idlType);
     return "double" if $$self{codeGenerator}->IsNonPointerType($idlType);
     return _implementationClassName($idlType);
@@ -396,8 +400,9 @@ sub _platformTypeConstructor
 
     my $idlType = $signature->type;
 
-    return "JSRetainPtr<JSStringRef>(Adopt, JSValueToStringCopy(context, $argumentName, 0))" if $$self{codeGenerator}->IsStringType($idlType);
     return "JSValueToBoolean(context, $argumentName)" if $idlType eq "boolean";
+    return "$argumentName" if $idlType eq "object";
+    return "JSRetainPtr<JSStringRef>(Adopt, JSValueToStringCopy(context, $argumentName, 0))" if $$self{codeGenerator}->IsStringType($idlType);
     return "JSValueToNumber(context, $argumentName, 0)" if $$self{codeGenerator}->IsNonPointerType($idlType);
     return "to" . _implementationClassName($idlType) . "(context, $argumentName)";
 }
@@ -413,6 +418,7 @@ sub _platformTypeVariableDeclaration
         "bool" => 1,
         "double" => 1,
         "JSRetainPtr<JSStringRef>" => 1,
+        "JSValueRef" => 1,
     );
 
     my $nullValue = "0";
@@ -429,19 +435,17 @@ sub _returnExpression
 {
     my ($self, $signature, $expression) = @_;
 
-    my $convertNullStringAttribute = $signature->extendedAttributes->{"ConvertNullStringTo"};
-    my $nullOrEmptyString = "NullStringAsEmptyString";
-    $nullOrEmptyString = "NullStringAsNull" if defined $convertNullStringAttribute && $convertNullStringAttribute eq "Null";
-
     my $returnIDLType = $signature->type;
 
     return "JSValueMakeUndefined(context)" if $returnIDLType eq "void";
     return "JSValueMakeBoolean(context, ${expression})" if $returnIDLType eq "boolean";
+    return "${expression}" if $returnIDLType eq "object";
     return "JSValueMakeNumber(context, ${expression})" if $$self{codeGenerator}->IsNonPointerType($returnIDLType);
+    return "JSValueMakeStringOrNull(context, ${expression}.get())" if $$self{codeGenerator}->IsStringType($returnIDLType);
     return "toJS(context, WTF::getPtr(${expression}))";
 }
 
-sub _paramterExpression
+sub _parameterExpression
 {
     my ($self, $parameter) = @_;
 

@@ -113,7 +113,7 @@ static const double msecPerSecond = 1000;
 static bool isNumberCharacter(UChar ch)
 {
     return ch == '+' || ch == '-' || ch == '.' || ch == 'e' || ch == 'E'
-        || ch >= '0' && ch <= '9';
+        || (ch >= '0' && ch <= '9');
 }
 
 HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
@@ -250,87 +250,34 @@ bool HTMLInputElement::valueMissing() const
 
 bool HTMLInputElement::patternMismatch() const
 {
-    switch (inputType()) {
-    case BUTTON:
-    case CHECKBOX:
-    case COLOR:
-    case DATE:
-    case DATETIME:
-    case DATETIMELOCAL:
-    case FILE:
-    case HIDDEN:
-    case IMAGE:
-    case ISINDEX:
-    case MONTH:
-    case NUMBER:
-    case RADIO:
-    case RANGE:
-    case RESET:
-    case SUBMIT:
-    case TIME:
-    case WEEK:
+    if (!isTextType())
         return false;
-    case EMAIL:
-    case PASSWORD:
-    case SEARCH:
-    case TELEPHONE:
-    case TEXT:
-    case URL:
-        const AtomicString& pattern = getAttribute(patternAttr);
-        String value = this->value();
-         // Empty values can't be mismatched
-        if (pattern.isEmpty() || value.isEmpty())
-            return false;
-        RegularExpression patternRegExp(pattern, TextCaseSensitive);
-        int matchLength = 0;
-        int valueLength = value.length();
-        int matchOffset = patternRegExp.match(value, 0, &matchLength);
-        return matchOffset || matchLength != valueLength;
-    }
-    ASSERT_NOT_REACHED();
-    return false;
+    const AtomicString& pattern = getAttribute(patternAttr);
+    String value = this->value();
+    // Empty values can't be mismatched
+    if (pattern.isEmpty() || value.isEmpty())
+        return false;
+    RegularExpression patternRegExp(pattern, TextCaseSensitive);
+    int matchLength = 0;
+    int valueLength = value.length();
+    int matchOffset = patternRegExp.match(value, 0, &matchLength);
+    return matchOffset || matchLength != valueLength;
 }
 
 bool HTMLInputElement::tooLong() const
 {
-    switch (inputType()) {
-    case EMAIL:
-    case PASSWORD:
-    case SEARCH:
-    case TELEPHONE:
-    case TEXT:
-    case URL: {
-        int max = maxLength();
-        if (max < 0)
-            return false;
-        // Return false for the default value even if it is longer than maxLength.
-        bool userEdited = !m_data.value().isNull();
-        if (!userEdited)
-            return false;
-        return numGraphemeClusters(value()) > static_cast<unsigned>(max);
-    }
-    case BUTTON:
-    case CHECKBOX:
-    case COLOR:
-    case DATE:
-    case DATETIME:
-    case DATETIMELOCAL:
-    case FILE:
-    case HIDDEN:
-    case IMAGE:
-    case ISINDEX:
-    case MONTH:
-    case NUMBER:
-    case RADIO:
-    case RANGE:
-    case RESET:
-    case SUBMIT:
-    case TIME:
-    case WEEK:
+    // We use isTextType() instead of supportsMaxLength() because of the
+    // 'virtual' overhead.
+    if (!isTextType())
         return false;
-    }
-    ASSERT_NOT_REACHED();
-    return false;
+    int max = maxLength();
+    if (max < 0)
+        return false;
+    // Return false for the default value even if it is longer than maxLength.
+    bool userEdited = !m_data.value().isNull();
+    if (!userEdited)
+        return false;
+    return numGraphemeClusters(value()) > static_cast<unsigned>(max);
 }
 
 bool HTMLInputElement::rangeUnderflow() const
@@ -1402,7 +1349,7 @@ bool HTMLInputElement::appendFormData(FormDataList& encoding, bool multipart)
         // If no filename at all is entered, return successful but empty.
         // Null would be more logical, but Netscape posts an empty file. Argh.
         if (!numFiles) {
-            encoding.appendBlob(name(), File::create(""));
+            encoding.appendBlob(name(), File::create(document()->scriptExecutionContext(), ""));
             return true;
         }
 
@@ -1451,6 +1398,40 @@ bool HTMLInputElement::isTextField() const
     case RANGE:
     case RESET:
     case SUBMIT:
+        return false;
+    }
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+bool HTMLInputElement::isTextType() const
+{
+    switch (inputType()) {
+    case EMAIL:
+    case PASSWORD:
+    case SEARCH:
+    case TELEPHONE:
+    case TEXT:
+    case URL:
+        return true;
+    case BUTTON:
+    case CHECKBOX:
+    case COLOR:
+    case DATE:
+    case DATETIME:
+    case DATETIMELOCAL:
+    case FILE:
+    case HIDDEN:
+    case IMAGE:
+    case ISINDEX:
+    case MONTH:
+    case NUMBER:
+    case RADIO:
+    case RANGE:
+    case RESET:
+    case SUBMIT:
+    case TIME:
+    case WEEK:
         return false;
     }
     ASSERT_NOT_REACHED();
@@ -2007,15 +1988,18 @@ void HTMLInputElement::setFileListFromRenderer(const Vector<String>& paths)
         }
         rootPath = directoryName(rootPath);
         ASSERT(rootPath.length());
-        for (int i = 0; i < size; i++)
-            m_fileList->append(File::create(paths[i].substring(1 + rootPath.length()), paths[i]));
+        for (int i = 0; i < size; i++) {
+            // Normalize backslashes to slashes before exposing the relative path to script.
+            String relativePath = paths[i].substring(1 + rootPath.length()).replace('\\','/');
+            m_fileList->append(File::create(document()->scriptExecutionContext(), relativePath, paths[i]));
+        }
     } else {
         for (int i = 0; i < size; i++)
-            m_fileList->append(File::create(paths[i]));
+            m_fileList->append(File::create(document()->scriptExecutionContext(), paths[i]));
     }
 #else
     for (int i = 0; i < size; i++)
-        m_fileList->append(File::create(paths[i]));
+        m_fileList->append(File::create(document()->scriptExecutionContext(), paths[i]));
 #endif
 
     setFormControlValueMatchesRenderer(true);
@@ -2574,7 +2558,7 @@ FileList* HTMLInputElement::files()
 String HTMLInputElement::sanitizeValue(const String& proposedValue) const
 {
     if (isTextField())
-        return InputElement::sanitizeValue(this, proposedValue);
+        return InputElement::sanitizeValueForTextField(this, proposedValue);
 
     // If the proposedValue is null than this is a reset scenario and we
     // want the range input's value attribute to take priority over the
@@ -2843,13 +2827,20 @@ void HTMLInputElement::stepUpFromRenderer(int n)
         return;
 
     const double nan = numeric_limits<double>::quiet_NaN();
-    double current = parseToDouble(value(), nan);
-    if (!isfinite(current)) {
+    String currentStringValue = value();
+    double current = parseToDouble(currentStringValue, nan);
+    if (!isfinite(current))
         setValue(serialize(n > 0 ? minimum() : maximum()));
-        return;
+    else {
+        ExceptionCode ec;
+        stepUp(n, ec);
     }
-    ExceptionCode ec;
-    stepUp(n, ec);
+
+    if (currentStringValue != value()) {
+        if (renderer() && renderer()->isTextField())
+            toRenderTextControl(renderer())->setChangedSinceLastChangeEvent(true);
+        dispatchEvent(Event::create(eventNames().inputEvent, true, false));
+    }
 }
 
 #if ENABLE(WCSS)

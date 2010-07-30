@@ -21,7 +21,6 @@ SET(WebKit_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/graphics/cairo"
     "${WEBCORE_DIR}/platform/graphics/transforms"
     "${WEBCORE_DIR}/platform/network"
-    "${WEBCORE_DIR}/platform/network/soup"
     "${WEBCORE_DIR}/platform/sql"
     "${WEBCORE_DIR}/platform/text"
     "${WEBCORE_DIR}/plugins"
@@ -47,12 +46,21 @@ SET(WebKit_INCLUDE_DIRECTORIES
     "${CMAKE_BINARY_DIR}"
 )
 
+IF (WTF_USE_SOUP)
+  LIST(APPEND WebKit_INCLUDE_DIRECTORIES "${WEBCORE_DIR}/platform/network/soup")
+ENDIF ()
+
+IF (WTF_USE_CURL)
+  LIST(APPEND WebKit_INCLUDE_DIRECTORIES "${WEBCORE_DIR}/platform/network/curl")
+ENDIF ()
+
 SET(WebKit_LIBRARIES
     ${JavaScriptCore_LIBRARY_NAME}
     ${WebCore_LIBRARY_NAME}
 )
 
-INCLUDE_IF_EXISTS(${WEBKIT_DIR}/CMakeLists${PORT}.txt)
+STRING(TOLOWER ${PORT} WEBKIT_PORT_DIR)
+INCLUDE_IF_EXISTS(${WEBKIT_DIR}/${WEBKIT_PORT_DIR}/CMakeLists${PORT}.txt)
 
 ADD_DEFINITIONS(-DBUILDING_WebKit)
 INCLUDE_DIRECTORIES(${WebKit_INCLUDE_DIRECTORIES})

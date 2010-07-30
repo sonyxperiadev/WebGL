@@ -140,7 +140,7 @@ private:
     void processFakeStartTag(const QualifiedName&, PassRefPtr<NamedNodeMap> attributes = 0);
     void processFakeEndTag(const QualifiedName&);
     void processFakeCharacters(const String&);
-    void processFakePEndTagIfPInScope();
+    void processFakePEndTagIfPInButtonScope();
 
     void processGenericRCDATAStartTag(AtomicHTMLToken&);
     void processGenericRawTextStartTag(AtomicHTMLToken&);
@@ -172,9 +172,6 @@ private:
 
     // FIXME: Implement error reporting.
     void parseError(AtomicHTMLToken&) { }
-
-    void handleScriptStartTag();
-    void handleScriptEndTag(Element*, int scriptStartLine);
 
     InsertionMode insertionMode() const { return m_insertionMode; }
     void setInsertionMode(InsertionMode mode)

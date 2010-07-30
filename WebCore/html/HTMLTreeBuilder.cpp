@@ -119,7 +119,7 @@ bool isSpecialTag(const AtomicString& tagName)
         || tagName == asideTag
         || tagName == baseTag
         || tagName == basefontTag
-        || tagName == "bgsound"
+        || tagName == bgsoundTag
         || tagName == blockquoteTag
         || tagName == bodyTag
         || tagName == brTag
@@ -127,16 +127,16 @@ bool isSpecialTag(const AtomicString& tagName)
         || tagName == centerTag
         || tagName == colTag
         || tagName == colgroupTag
-        || tagName == "command"
+        || tagName == commandTag
         || tagName == ddTag
-        || tagName == "details"
+        || tagName == detailsTag
         || tagName == dirTag
         || tagName == divTag
         || tagName == dlTag
         || tagName == dtTag
         || tagName == embedTag
         || tagName == fieldsetTag
-        || tagName == "figure"
+        || tagName == figureTag
         || tagName == footerTag
         || tagName == formTag
         || tagName == frameTag
@@ -183,7 +183,6 @@ bool isSpecialTag(const AtomicString& tagName)
 bool isScopingTag(const AtomicString& tagName)
 {
     return tagName == appletTag
-        || tagName == buttonTag
         || tagName == captionTag
         || tagName == SVGNames::foreignObjectTag
         || tagName == htmlTag
@@ -393,27 +392,6 @@ static void convertToOldStyle(AtomicHTMLToken& token, Token& oldStyleToken)
     }
 }
 
-void HTMLTreeBuilder::handleScriptStartTag()
-{
-    notImplemented(); // The HTML frgment case?
-    m_tokenizer->setState(HTMLTokenizer::ScriptDataState);
-    notImplemented(); // Save insertion mode.
-}
-
-void HTMLTreeBuilder::handleScriptEndTag(Element* scriptElement, int scriptStartLine)
-{
-    ASSERT(!m_scriptToProcess); // Caller never called takeScriptToProcess!
-    ASSERT(m_scriptToProcessStartLine == uninitializedLineNumberValue); // Caller never called takeScriptToProcess!
-    notImplemented(); // Save insertion mode and insertion point?
-
-    // Pause ourselves so that parsing stops until the script can be processed by the caller.
-    m_isPaused = true;
-    m_scriptToProcess = scriptElement;
-    // Lexer line numbers are 0-based, ScriptSourceCode expects 1-based lines,
-    // so we convert here before passing the line number off to HTMLScriptRunner.
-    m_scriptToProcessStartLine = scriptStartLine + 1;
-}
-
 PassRefPtr<Element> HTMLTreeBuilder::takeScriptToProcess(int& scriptStartLine)
 {
     // Unpause ourselves, callers may pause us again when processing the script.
@@ -471,7 +449,7 @@ void HTMLTreeBuilder::passTokenToLegacyParser(HTMLToken& token)
         // This work is supposed to be done by the parser, but
         // when using the old parser for we have to do this manually.
         if (oldStyleToken.tagName == scriptTag) {
-            handleScriptStartTag();
+            m_tokenizer->setState(HTMLTokenizer::ScriptDataState);
             m_lastScriptElement = static_pointer_cast<Element>(result);
             m_lastScriptElementStartLine = m_tokenizer->lineNumber();
         } else if (oldStyleToken.tagName == preTag || oldStyleToken.tagName == listingTag)
@@ -488,8 +466,16 @@ void HTMLTreeBuilder::passTokenToLegacyParser(HTMLToken& token)
                     // a DocumentFragment for pasting so that javascript content
                     // does not show up in pasted HTML.
                     m_lastScriptElement->removeChildren();
-                } else if (insertionMode() != AfterFramesetMode)
-                    handleScriptEndTag(m_lastScriptElement.get(), m_lastScriptElementStartLine);
+                } else if (insertionMode() != AfterFramesetMode) {
+                    ASSERT(!m_scriptToProcess); // Caller never called takeScriptToProcess!
+                    ASSERT(m_scriptToProcessStartLine == uninitializedLineNumberValue); // Caller never called takeScriptToProcess!
+                    // Pause ourselves so that parsing stops until the script can be processed by the caller.
+                    m_isPaused = true;
+                    m_scriptToProcess = m_lastScriptElement.get();
+                    // Lexer line numbers are 0-based, ScriptSourceCode expects 1-based lines,
+                    // so we convert here before passing the line number off to HTMLScriptRunner.
+                    m_scriptToProcessStartLine = m_lastScriptElementStartLine + 1;
+                }
                 m_lastScriptElement = 0;
                 m_lastScriptElementStartLine = uninitializedLineNumberValue;
             }
@@ -572,9 +558,9 @@ void HTMLTreeBuilder::processFakeCharacters(const String& characters)
     processCharacterBuffer(buffer);
 }
 
-void HTMLTreeBuilder::processFakePEndTagIfPInScope()
+void HTMLTreeBuilder::processFakePEndTagIfPInButtonScope()
 {
-    if (!m_tree.openElements()->inScope(pTag.localName()))
+    if (!m_tree.openElements()->inButtonScope(pTag.localName()))
         return;
     AtomicHTMLToken endP(HTMLToken::EndTag, pTag.localName());
     processEndTag(endP);
@@ -654,7 +640,7 @@ void HTMLTreeBuilder::processCloseWhenNestedTag(AtomicHTMLToken& token)
             break;
         nodeRecord = nodeRecord->next();
     }
-    processFakePEndTagIfPInScope();
+    processFakePEndTagIfPInButtonScope();
     m_tree.insertHTMLElement(token);
 }
 
@@ -694,14 +680,15 @@ void adjustSVGTagNameCase(AtomicHTMLToken& token)
     token.setName(casedName.localName());
 }
 
-void adjustSVGAttributes(AtomicHTMLToken& token)
+template<QualifiedName** getAttrs(size_t* length)>
+void adjustAttributes(AtomicHTMLToken& token)
 {
     static PrefixedNameToQualifiedNameMap* caseMap = 0;
     if (!caseMap) {
         caseMap = new PrefixedNameToQualifiedNameMap;
         size_t length = 0;
-        QualifiedName** svgAttrs = SVGNames::getSVGAttrs(&length);
-        mapLoweredLocalNameToName(caseMap, svgAttrs, length);
+        QualifiedName** attrs = getAttrs(&length);
+        mapLoweredLocalNameToName(caseMap, attrs, length);
     }
 
     NamedNodeMap* attributes = token.attributes();
@@ -716,9 +703,14 @@ void adjustSVGAttributes(AtomicHTMLToken& token)
     }
 }
 
-void adjustMathMLAttributes(AtomicHTMLToken&)
+void adjustSVGAttributes(AtomicHTMLToken& token)
 {
-    notImplemented();
+    adjustAttributes<SVGNames::getSVGAttrs>(token);
+}
+
+void adjustMathMLAttributes(AtomicHTMLToken& token)
+{
+    adjustAttributes<MathMLNames::getMathMLAttrs>(token);
 }
 
 void addNamesWithPrefix(PrefixedNameToQualifiedNameMap* map, const AtomicString& prefix, QualifiedName** names, size_t length)
@@ -770,7 +762,9 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomicHTMLToken& token)
         return;
     }
     if (token.name() == baseTag
-        || token.name() == "command"
+        || token.name() == basefontTag
+        || token.name() == bgsoundTag
+        || token.name() == commandTag
         || token.name() == linkTag
         || token.name() == metaTag
         || token.name() == noframesTag
@@ -805,12 +799,13 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomicHTMLToken& token)
         || token.name() == asideTag
         || token.name() == blockquoteTag
         || token.name() == centerTag
-        || token.name() == "details"
+        || token.name() == detailsTag
         || token.name() == dirTag
         || token.name() == divTag
         || token.name() == dlTag
         || token.name() == fieldsetTag
-        || token.name() == "figure"
+        || token.name() == figcaptionTag
+        || token.name() == figureTag
         || token.name() == footerTag
         || token.name() == headerTag
         || token.name() == hgroupTag
@@ -819,13 +814,14 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomicHTMLToken& token)
         || token.name() == olTag
         || token.name() == pTag
         || token.name() == sectionTag
+        || token.name() == summaryTag
         || token.name() == ulTag) {
-        processFakePEndTagIfPInScope();
+        processFakePEndTagIfPInButtonScope();
         m_tree.insertHTMLElement(token);
         return;
     }
     if (isNumberedHeaderTag(token.name())) {
-        processFakePEndTagIfPInScope();
+        processFakePEndTagIfPInButtonScope();
         if (isNumberedHeaderTag(m_tree.currentElement()->localName())) {
             parseError(token);
             m_tree.openElements()->pop();
@@ -834,7 +830,7 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomicHTMLToken& token)
         return;
     }
     if (token.name() == preTag || token.name() == listingTag) {
-        processFakePEndTagIfPInScope();
+        processFakePEndTagIfPInButtonScope();
         m_tree.insertHTMLElement(token);
         m_tokenizer->skipLeadingNewLineForListing();
         m_framesetOk = false;
@@ -845,7 +841,7 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomicHTMLToken& token)
             parseError(token);
             return;
         }
-        processFakePEndTagIfPInScope();
+        processFakePEndTagIfPInButtonScope();
         m_tree.insertHTMLFormElement(token);
         return;
     }
@@ -858,7 +854,7 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomicHTMLToken& token)
         return;
     }
     if (token.name() == plaintextTag) {
-        processFakePEndTagIfPInScope();
+        processFakePEndTagIfPInButtonScope();
         m_tree.insertHTMLElement(token);
         m_tokenizer->setState(HTMLTokenizer::PLAINTEXTState);
         return;
@@ -927,8 +923,6 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomicHTMLToken& token)
         // Note the fall through to the imgTag handling below!
     }
     if (token.name() == areaTag
-        || token.name() == basefontTag
-        || token.name() == "bgsound"
         || token.name() == brTag
         || token.name() == embedTag
         || token.name() == imgTag
@@ -942,12 +936,12 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomicHTMLToken& token)
     }
     if (token.name() == paramTag
         || token.name() == sourceTag
-        || token.name() == "track") {
+        || token.name() == trackTag) {
         m_tree.insertSelfClosingHTMLElement(token);
         return;
     }
     if (token.name() == hrTag) {
-        processFakePEndTagIfPInScope();
+        processFakePEndTagIfPInButtonScope();
         m_tree.insertSelfClosingHTMLElement(token);
         m_framesetOk = false;
         return;
@@ -966,7 +960,7 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomicHTMLToken& token)
         return;
     }
     if (token.name() == xmpTag) {
-        processFakePEndTagIfPInScope();
+        processFakePEndTagIfPInButtonScope();
         m_tree.reconstructTheActiveFormattingElements();
         m_framesetOk = false;
         processGenericRawTextStartTag(token);
@@ -1231,6 +1225,8 @@ void HTMLTreeBuilder::processStartTag(AtomicHTMLToken& token)
             return;
         }
         if (token.name() == baseTag
+            || token.name() == basefontTag
+            || token.name() == bgsoundTag
             || token.name() == linkTag
             || token.name() == metaTag
             || token.name() == noframesTag
@@ -1376,7 +1372,9 @@ void HTMLTreeBuilder::processStartTag(AtomicHTMLToken& token)
             m_tree.insertHTMLHtmlStartTagInBody(token);
             return;
         }
-        if (token.name() == linkTag
+        if (token.name() == basefontTag
+            || token.name() == bgsoundTag
+            || token.name() == linkTag
             || token.name() == metaTag
             || token.name() == noframesTag
             || token.name() == styleTag) {
@@ -1935,12 +1933,12 @@ void HTMLTreeBuilder::processEndTagForInBody(AtomicHTMLToken& token)
         || token.name() == blockquoteTag
         || token.name() == buttonTag
         || token.name() == centerTag
-        || token.name() == "details"
+        || token.name() == detailsTag
         || token.name() == dirTag
         || token.name() == divTag
         || token.name() == dlTag
         || token.name() == fieldsetTag
-        || token.name() == "figure"
+        || token.name() == figureTag
         || token.name() == footerTag
         || token.name() == headerTag
         || token.name() == hgroupTag
@@ -1973,7 +1971,7 @@ void HTMLTreeBuilder::processEndTagForInBody(AtomicHTMLToken& token)
         m_tree.openElements()->remove(node.get());
     }
     if (token.name() == pTag) {
-        if (!m_tree.openElements()->inScope(token.name())) {
+        if (!m_tree.openElements()->inButtonScope(token.name())) {
             parseError(token);
             processFakeStartTag(pTag);
             ASSERT(m_tree.openElements()->inScope(token.name()));
@@ -2010,14 +2008,14 @@ void HTMLTreeBuilder::processEndTagForInBody(AtomicHTMLToken& token)
         return;
     }
     if (isNumberedHeaderTag(token.name())) {
-        if (!m_tree.openElements()->inScope(token.name())) {
+        if (!m_tree.openElements()->hasNumberedHeaderElementInScope()) {
             parseError(token);
             return;
         }
         m_tree.generateImpliedEndTags();
         if (!m_tree.currentElement()->hasLocalName(token.name()))
             parseError(token);
-        m_tree.openElements()->popUntilPopped(token.name());
+        m_tree.openElements()->popUntilNumberedHeaderElementPopped();
         return;
     }
     if (token.name() == "sarcasm") {
@@ -2434,10 +2432,6 @@ void HTMLTreeBuilder::processComment(AtomicHTMLToken& token)
 void HTMLTreeBuilder::processCharacter(AtomicHTMLToken& token)
 {
     ASSERT(token.type() == HTMLToken::Character);
-    // FIXME: Currently this design has an extra memcpy because we copy the
-    // characters out of the HTMLTokenizer's buffer into the AtomicHTMLToken
-    // and then into the text node.  What we'd really like is to copy directly
-    // from the HTMLTokenizer's buffer into the text node.
     ExternalCharacterTokenBuffer buffer(token);
     processCharacterBuffer(buffer);
 }
@@ -2735,9 +2729,10 @@ bool HTMLTreeBuilder::processStartTagForInHead(AtomicHTMLToken& token)
         m_tree.insertHTMLHtmlStartTagInBody(token);
         return true;
     }
-    // FIXME: Atomize "command".
     if (token.name() == baseTag
-        || token.name() == "command"
+        || token.name() == basefontTag
+        || token.name() == bgsoundTag
+        || token.name() == commandTag
         || token.name() == linkTag
         || token.name() == metaTag) {
         m_tree.insertSelfClosingHTMLElement(token);

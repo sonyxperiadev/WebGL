@@ -117,7 +117,7 @@ public:
     virtual bool accessibilityIsIgnored() const;
     
     virtual int headingLevel() const;
-    virtual int intValue() const;
+    virtual AccessibilityButtonState checkboxOrRadioValue() const;
     virtual String valueDescription() const;
     virtual float valueForRange() const;
     virtual float maxValueForRange() const;
@@ -283,12 +283,14 @@ private:
     AccessibilityRole determineAriaRoleAttribute() const;
 
     bool isTabItemSelected() const;
+    bool isNativeCheckboxOrRadio() const;
     IntRect checkboxOrRadioRect() const;
     void addRadioButtonGroupMembers(AccessibilityChildrenVector& linkedUIElements) const;
     AccessibilityObject* internalLinkElement() const;
     AccessibilityObject* accessibilityImageMapHitTest(HTMLAreaElement*, const IntPoint&) const;
     AccessibilityObject* accessibilityParentForImageMap(HTMLMapElement* map) const;
     bool renderObjectIsObservable(RenderObject*) const;
+    RenderObject* renderParentObject() const;
     
     void ariaSelectedRows(AccessibilityChildrenVector&);
     

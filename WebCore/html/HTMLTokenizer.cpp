@@ -58,7 +58,7 @@ inline UChar toLowerCase(UChar cc)
 
 inline bool isTokenizerWhitespace(UChar cc)
 {
-    return cc == '\x09' || cc == '\x0A' || cc == '\x0C' || cc == ' ';
+    return cc == ' ' || cc == '\x0A' || cc == '\x09' || cc == '\x0C';
 }
 
 inline void advanceStringAndASSERTIgnoringCase(SegmentedString& source, const char* expectedCharacters)
@@ -1608,10 +1608,7 @@ inline bool HTMLTokenizer::isAppropriateEndTag()
 inline void HTMLTokenizer::bufferCharacter(UChar character)
 {
     ASSERT(character != InputStreamPreprocessor::endOfFileMarker);
-    if (m_token->type() != HTMLToken::Character) {
-        m_token->beginCharacter(character);
-        return;
-    }
+    m_token->ensureIsCharacterToken();
     m_token->appendToCharacter(character);
 }
 

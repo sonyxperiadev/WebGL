@@ -63,6 +63,7 @@ public:
     virtual HostWindow* hostWindow() const;
     
     virtual void invalidateRect(const IntRect&);
+    virtual void setFrameRect(const IntRect&);
 
     Frame* frame() const { return m_frame.get(); }
     void clearFrame();
@@ -279,6 +280,7 @@ private:
 
     bool updateWidgets();
     void scrollToAnchor();
+    void scrollPositionChanged();
 
 #if ENABLE(INSPECTOR)
     InspectorTimelineAgent* inspectorTimelineAgent() const;

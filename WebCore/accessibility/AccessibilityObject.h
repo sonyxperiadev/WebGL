@@ -209,6 +209,12 @@ enum AccessibilityObjectInclusion {
     IgnoreObject,
     DefaultBehavior,
 };
+    
+enum AccessibilityButtonState {
+    ButtonStateOff = 0,
+    ButtonStateOn, 
+    ButtonStateMixed,
+};
 
 struct VisiblePositionRange {
 
@@ -327,9 +333,6 @@ public:
     virtual bool canSetSelectedChildrenAttribute() const { return false; }
     virtual bool canSetExpandedAttribute() const { return false; }
     
-    bool hasIntValue() const;
-    virtual int intValue() const;
-    
     // A programmatic way to set a name on an AccessibleObject.
     virtual void setAccessibleName(String&) { }
     
@@ -338,6 +341,7 @@ public:
     virtual bool accessibilityIsIgnored() const  { return true; }
 
     virtual int headingLevel() const { return 0; }
+    virtual AccessibilityButtonState checkboxOrRadioValue() const;
     virtual String valueDescription() const { return String(); }
     virtual float valueForRange() const { return 0.0f; }
     virtual float maxValueForRange() const { return 0.0f; }

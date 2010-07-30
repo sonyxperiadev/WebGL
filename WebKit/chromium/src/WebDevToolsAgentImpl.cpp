@@ -38,6 +38,7 @@
 #include "EventListener.h"
 #include "InjectedScriptHost.h"
 #include "InspectorBackend.h"
+#include "InspectorBackendDispatcher.h"
 #include "InspectorController.h"
 #include "InspectorFrontend.h"
 #include "InspectorResource.h"
@@ -54,7 +55,6 @@
 #include "ScriptState.h"
 #include "ScriptValue.h"
 #include "V8Binding.h"
-#include "V8InspectorBackend.h"
 #include "V8Proxy.h"
 #include "V8Utilities.h"
 #include "WebDataSource.h"
@@ -92,7 +92,6 @@ using WebCore::ScriptState;
 using WebCore::ScriptValue;
 using WebCore::String;
 using WebCore::V8DOMWrapper;
-using WebCore::V8InspectorBackend;
 using WebCore::V8Proxy;
 
 namespace WebKit {
@@ -308,23 +307,9 @@ void WebDevToolsAgentImpl::forceRepaint()
     m_client->forceRepaint();
 }
 
-void WebDevToolsAgentImpl::dispatchOnInspectorController(int callId, const String& functionName, const String& jsonArgs)
+void WebDevToolsAgentImpl::dispatchOnInspectorController(const String& message)
 {
-    String result;
-    String exception;
-    result = m_debuggerAgentImpl->executeUtilityFunction(m_utilityContext, callId,
-        "InspectorControllerDispatcher", functionName, jsonArgs, false /* is sync */, &exception);
-    m_toolsAgentDelegateStub->didDispatchOn(callId, result, exception);
-}
-
-void WebDevToolsAgentImpl::dispatchOnInjectedScript(int callId, int injectedScriptId, const String& functionName, const String& jsonArgs, bool async)
-{
-    inspectorController()->inspectorBackend()->dispatchOnInjectedScript(
-        callId,
-        injectedScriptId,
-        functionName,
-        jsonArgs,
-        async);
+    inspectorController()->inspectorBackendDispatcher()->dispatch(message);
 }
 
 void WebDevToolsAgentImpl::dispatchMessageFromFrontend(const WebDevToolsMessageData& data)
@@ -386,38 +371,6 @@ void WebDevToolsAgentImpl::initDevToolsAgentHost()
         "dispatch",
         WebDevToolsAgentImpl::jsDispatchOnClient);
     devtoolsAgentHost.build();
-
-    v8::HandleScope scope;
-    v8::Context::Scope utilityScope(m_utilityContext);
-    // Call custom code to create inspector backend wrapper in the utility context
-    // instead of calling V8DOMWrapper::convertToV8Object that would create the
-    // wrapper in the Page main frame context.
-    v8::Handle<v8::Object> backendWrapper = createInspectorBackendV8Wrapper();
-    if (backendWrapper.IsEmpty())
-        return;
-    m_utilityContext->Global()->Set(v8::String::New("InspectorBackend"), backendWrapper);
-}
-
-v8::Local<v8::Object> WebDevToolsAgentImpl::createInspectorBackendV8Wrapper()
-{
-    v8::Handle<v8::Function> function = V8InspectorBackend::GetTemplate()->GetFunction();
-    if (function.IsEmpty()) {
-        // Return if allocation failed.
-        return v8::Local<v8::Object>();
-    }
-    v8::Local<v8::Object> instance = SafeAllocation::newInstance(function);
-    if (instance.IsEmpty()) {
-        // Avoid setting the wrapper if allocation failed.
-        return v8::Local<v8::Object>();
-    }
-    InspectorBackend* backend = m_webViewImpl->page()->inspectorController()->inspectorBackend();
-    V8DOMWrapper::setDOMWrapper(instance, &V8InspectorBackend::info, backend);
-    // Create a weak reference to the v8 wrapper of InspectorBackend to deref
-    // InspectorBackend when the wrapper is garbage collected.
-    backend->ref();
-    v8::Persistent<v8::Object> weakHandle = v8::Persistent<v8::Object>::New(instance);
-    weakHandle.MakeWeak(backend, &InspectorBackendWeakReferenceCallback);
-    return instance;
 }
 
 void WebDevToolsAgentImpl::createInspectorFrontendProxy()

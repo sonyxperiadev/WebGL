@@ -49,6 +49,7 @@
 #include "InspectorResource.h"
 #include "Page.h"
 #include "Pasteboard.h"
+#include "RemoteInspectorFrontend.h"
 #include "ScriptArray.h"
 #include "ScriptBreakpoint.h"
 #include "SerializedScriptValue.h"
@@ -412,10 +413,13 @@ void InspectorBackend::pushNodeByPathToFrontend(long callId, const String& path)
         domAgent->pushNodeByPathToFrontend(callId, path);
 }
 
-void InspectorBackend::clearConsoleMessages()
+void InspectorBackend::clearConsoleMessages(long callId)
 {
-    if (m_inspectorController)
+    if (m_inspectorController) {
         m_inspectorController->clearConsoleMessages();
+        if (RemoteInspectorFrontend* frontend = remoteFrontend())
+            frontend->didClearConsoleMessages(callId);
+    }
 }
 
 void InspectorBackend::getStyles(long callId, long nodeId, bool authorOnly)
@@ -448,10 +452,10 @@ void InspectorBackend::getStyleSheet(long callId, long styleSheetId)
         domAgent->getStyleSheet(callId, styleSheetId);
 }
 
-void InspectorBackend::getRuleRangesForStyleSheetId(long callId, long styleSheetId)
+void InspectorBackend::getRuleRanges(long callId, long styleSheetId)
 {
     if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->getRuleRangesForStyleSheetId(callId, styleSheetId);
+        domAgent->getRuleRanges(callId, styleSheetId);
 }
 
 void InspectorBackend::applyStyleText(long callId, long styleId, const String& styleText, const String& propertyName)
@@ -595,6 +599,13 @@ InspectorFrontend* InspectorBackend::inspectorFrontend()
     if (!m_inspectorController)
         return 0;
     return m_inspectorController->m_frontend.get();
+}
+
+RemoteInspectorFrontend* InspectorBackend::remoteFrontend()
+{
+    if (!m_inspectorController)
+        return 0;
+    return m_inspectorController->m_remoteFrontend.get();
 }
 
 void InspectorBackend::addScriptToEvaluateOnLoad(const String& source)

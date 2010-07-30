@@ -42,6 +42,8 @@ namespace WTF { template <typename T> class PassRefPtr; }
 namespace WebKit {
 
 class WebAccessibilityObjectPrivate;
+class WebNode;
+class WebDocument;
 class WebString;
 struct WebPoint;
 struct WebRect;
@@ -102,6 +104,11 @@ public:
     WEBKIT_API void setFocused(bool) const;
     WEBKIT_API WebString stringValue() const;
     WEBKIT_API WebString title() const;
+
+    WEBKIT_API WebNode node() const;
+    WEBKIT_API WebDocument document() const;
+    WEBKIT_API bool hasComputedStyle() const;
+    WEBKIT_API WebString computedStyleDisplay() const;
 
 #if WEBKIT_IMPLEMENTATION
     WebAccessibilityObject(const WTF::PassRefPtr<WebCore::AccessibilityObject>&);

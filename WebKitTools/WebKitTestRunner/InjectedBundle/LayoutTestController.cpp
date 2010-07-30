@@ -30,24 +30,97 @@
 #include "JSLayoutTestController.h"
 #include <JavaScriptCore/JSRetainPtr.h>
 #include <WebKit2/WKBundleFrame.h>
+#include <WebKit2/WKBundleFramePrivate.h>
+#include <WebKit2/WKBundlePagePrivate.h>
 #include <WebKit2/WKRetainPtr.h>
 #include <WebKit2/WKStringCF.h>
 #include <WebKit2/WebKit2.h>
 
 namespace WTR {
 
-PassRefPtr<LayoutTestController> LayoutTestController::create(const std::string& testPathOrURL)
+// This is lower than DumpRenderTree's timeout, to make it easier to work through the failures
+// Eventually it should be changed to match.
+static const CFTimeInterval waitToDumpWatchdogInterval = 6.0;
+
+static RetainPtr<CFStringRef> toCF(JSStringRef string)
 {
-    return adoptRef(new LayoutTestController(testPathOrURL));
+    return RetainPtr<CFStringRef>(AdoptCF, JSStringCopyCFString(0, string));
 }
 
-LayoutTestController::LayoutTestController(const std::string& testPathOrURL)
-    : m_dumpAsText(false)
+static RetainPtr<CFStringRef> toCF(WKStringRef string)
+{
+    return RetainPtr<CFStringRef>(AdoptCF, WKStringCopyCFString(0, string));
+}
+
+static WKRetainPtr<WKStringRef> toWK(JSStringRef string)
+{
+    return WKRetainPtr<WKStringRef>(AdoptWK, WKStringCreateWithCFString(toCF(string).get()));
+}
+
+static JSRetainPtr<JSStringRef> toJS(WKStringRef string)
+{
+    return JSRetainPtr<JSStringRef>(Adopt, JSStringCreateWithCFString(toCF(string).get()));
+}
+
+static JSRetainPtr<JSStringRef> toJS(const WKRetainPtr<WKStringRef>& string)
+{
+    return toJS(string.get());
+}
+
+static void setProperty(JSContextRef context, JSObjectRef object, const char* propertyName, JSWrappable* value, JSPropertyAttributes attributes, JSValueRef* exception)
+{
+    JSRetainPtr<JSStringRef> propertyNameString(Adopt, JSStringCreateWithUTF8CString(propertyName));
+    JSObjectSetProperty(context, object, propertyNameString.get(), JSWrapper::wrap(context, value), attributes, exception);
+}
+
+static JSValueRef propertyValue(JSContextRef context, JSObjectRef object, const char* propertyName)
+{
+    if (!object)
+        return 0;
+    JSRetainPtr<JSStringRef> propertyNameString(Adopt, JSStringCreateWithUTF8CString(propertyName));
+    JSValueRef exception;
+    return JSObjectGetProperty(context, object, propertyNameString.get(), &exception);
+}
+
+static JSObjectRef propertyObject(JSContextRef context, JSObjectRef object, const char* propertyName)
+{
+    JSValueRef value = propertyValue(context, object, propertyName);
+    if (!value || !JSValueIsObject(context, value))
+        return 0;
+    return const_cast<JSObjectRef>(value);
+}
+
+static JSObjectRef getElementById(WKBundleFrameRef frame, JSStringRef elementId)
+{
+    JSContextRef context = WKBundleFrameGetJavaScriptContext(frame);
+    JSObjectRef document = propertyObject(context, JSContextGetGlobalObject(context), "document");
+    if (!document)
+        return 0;
+    JSValueRef getElementById = propertyObject(context, document, "getElementById");
+    if (!getElementById || !JSValueIsObject(context, getElementById))
+        return 0;
+    JSValueRef elementIdValue = JSValueMakeString(context, elementId);
+    JSValueRef exception;
+    JSValueRef element = JSObjectCallAsFunction(context, const_cast<JSObjectRef>(getElementById), document, 1, &elementIdValue, &exception);
+    if (!element || !JSValueIsObject(context, element))
+        return 0;
+    return const_cast<JSObjectRef>(element);
+}
+
+PassRefPtr<LayoutTestController> LayoutTestController::create()
+{
+    return adoptRef(new LayoutTestController);
+}
+
+LayoutTestController::LayoutTestController()
+    : m_whatToDump(RenderTree)
+    , m_shouldDumpAllFrameScrollPositions(false)
+    , m_shouldAllowEditing(true)
+    , m_dumpEditingCallbacks(false)
     , m_dumpStatusCallbacks(false)
     , m_waitToDump(false)
     , m_testRepaint(false)
     , m_testRepaintSweepHorizontally(false)
-    , m_testPathOrURL(testPathOrURL)
 {
 }
 
@@ -59,10 +132,6 @@ JSClassRef LayoutTestController::wrapperClass()
 {
     return JSLayoutTestController::layoutTestControllerClass();
 }
-
-// This is lower than DumpRenderTree's timeout, to make it easier to work through the failures
-// Eventually it should be changed to match.
-static const CFTimeInterval waitToDumpWatchdogInterval = 6.0;
 
 void LayoutTestController::display()
 {
@@ -109,27 +178,75 @@ void LayoutTestController::notifyDone()
 
 unsigned LayoutTestController::numberOfActiveAnimations() const
 {
+    // FIXME: Is it OK this works only for the main frame?
+    // FIXME: If this is needed only for the main frame, then why is the function on WKBundleFrame instead of WKBundlePage?
     WKBundleFrameRef mainFrame = WKBundlePageGetMainFrame(InjectedBundle::shared().page()->page());
     return WKBundleFrameGetNumberOfActiveAnimations(mainFrame);
 }
 
 bool LayoutTestController::pauseAnimationAtTimeOnElementWithId(JSStringRef animationName, double time, JSStringRef elementId)
 {
-    RetainPtr<CFStringRef> idCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, elementId));
-    WKRetainPtr<WKStringRef> idWK(AdoptWK, WKStringCreateWithCFString(idCF.get()));
-    RetainPtr<CFStringRef> nameCF(AdoptCF, JSStringCopyCFString(kCFAllocatorDefault, animationName));
-    WKRetainPtr<WKStringRef> nameWK(AdoptWK, WKStringCreateWithCFString(nameCF.get()));
-
+    // FIXME: Is it OK this works only for the main frame?
+    // FIXME: If this is needed only for the main frame, then why is the function on WKBundleFrame instead of WKBundlePage?
     WKBundleFrameRef mainFrame = WKBundlePageGetMainFrame(InjectedBundle::shared().page()->page());
-    return WKBundleFramePauseAnimationOnElementWithId(mainFrame, nameWK.get(), idWK.get(), time);
+    return WKBundleFramePauseAnimationOnElementWithId(mainFrame, toWK(animationName).get(), toWK(elementId).get(), time);
+}
+
+void LayoutTestController::keepWebHistory()
+{
+    InjectedBundle::shared().setShouldTrackVisitedLinks();
+}
+
+JSValueRef LayoutTestController::computedStyleIncludingVisitedInfo(JSValueRef element)
+{
+    // FIXME: Is it OK this works only for the main frame?
+    WKBundleFrameRef mainFrame = WKBundlePageGetMainFrame(InjectedBundle::shared().page()->page());
+    JSContextRef context = WKBundleFrameGetJavaScriptContext(mainFrame);
+    if (!JSValueIsObject(context, element))
+        return JSValueMakeUndefined(context);
+    JSValueRef value = WKBundleFrameGetComputedStyleIncludingVisitedInfo(mainFrame, const_cast<JSObjectRef>(element));
+    if (!value)
+        return JSValueMakeUndefined(context);
+    return value;
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::counterValueForElementById(JSStringRef elementId)
+{
+    WKBundleFrameRef mainFrame = WKBundlePageGetMainFrame(InjectedBundle::shared().page()->page());
+    JSObjectRef element = getElementById(mainFrame, elementId);
+    if (!element)
+        return 0;
+    WKRetainPtr<WKStringRef> value(AdoptWK, WKBundleFrameCopyCounterValue(mainFrame, const_cast<JSObjectRef>(element)));
+    return toJS(value);
+}
+
+JSRetainPtr<JSStringRef> LayoutTestController::markerTextForListItem(JSValueRef element)
+{
+    WKBundleFrameRef mainFrame = WKBundlePageGetMainFrame(InjectedBundle::shared().page()->page());
+    JSContextRef context = WKBundleFrameGetJavaScriptContext(mainFrame);
+    if (!element || !JSValueIsObject(context, element))
+        return 0;
+    WKRetainPtr<WKStringRef> text(AdoptWK, WKBundleFrameCopyMarkerText(mainFrame, const_cast<JSObjectRef>(element)));
+    if (WKStringIsEmpty(text.get()))
+        return 0;
+    return toJS(text);
+}
+
+void LayoutTestController::execCommand(JSStringRef name, JSStringRef argument)
+{
+    WKBundlePageExecuteEditingCommand(InjectedBundle::shared().page()->page(), toWK(name).get(), toWK(argument).get());
+}
+
+bool LayoutTestController::isCommandEnabled(JSStringRef name)
+{
+    return WKBundlePageIsEditingCommandEnabled(InjectedBundle::shared().page()->page(), toWK(name).get());
 }
 
 // Object Creation
 
 void LayoutTestController::makeWindowObject(JSContextRef context, JSObjectRef windowObject, JSValueRef* exception)
 {
-    JSRetainPtr<JSStringRef> layoutTestContollerStr(Adopt, JSStringCreateWithUTF8CString("layoutTestController"));
-    JSObjectSetProperty(context, windowObject, layoutTestContollerStr.get(), JSWrapper::wrap(context, this), kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete, exception);
+    setProperty(context, windowObject, "layoutTestController", this, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete, exception);
 }
 
 } // namespace WTR

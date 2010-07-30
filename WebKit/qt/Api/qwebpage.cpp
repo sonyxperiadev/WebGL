@@ -49,6 +49,7 @@
 #include "DragController.h"
 #include "DragData.h"
 #include "EditorClientQt.h"
+#include "SchemeRegistry.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
 #include "Page.h"
@@ -268,11 +269,13 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
     WebCore::Font::setCodePath(WebCore::Font::Complex);
 #endif
 
-    chromeClient = new ChromeClientQt(q);
-    contextMenuClient = new ContextMenuClientQt();
-    editorClient = new EditorClientQt(q);
-    page = new Page(chromeClient, contextMenuClient, editorClient,
-                    new DragClientQt(q), new InspectorClientQt(q), 0, 0, 0, 0);
+    Page::PageClients pageClients;
+    pageClients.chromeClient = new ChromeClientQt(q);
+    pageClients.contextMenuClient = new ContextMenuClientQt();
+    pageClients.editorClient = new EditorClientQt(q);
+    pageClients.dragClient = new DragClientQt(q);
+    pageClients.inspectorClient = new InspectorClientQt(q);
+    page = new Page(pageClients);
 
     settings = new QWebSettings(page->settings());
 
@@ -1390,14 +1393,17 @@ bool QWebPagePrivate::handleScrolling(QKeyEvent *ev, Frame *frame)
 }
 
 #if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
-void QWebPagePrivate::touchEvent(QTouchEvent* event)
+bool QWebPagePrivate::touchEvent(QTouchEvent* event)
 {
     WebCore::Frame* frame = QWebFramePrivate::core(mainFrame);
     if (!frame->view())
-        return;
+        return false;
 
-    bool accepted = frame->eventHandler()->handleTouchEvent(PlatformTouchEvent(event));
-    event->setAccepted(accepted);
+    // Always accept the QTouchEvent so that we'll receive also TouchUpdate and TouchEnd events
+    event->setAccepted(true);
+
+    // Return whether the default action was cancelled in the JS event handler
+    return frame->eventHandler()->handleTouchEvent(PlatformTouchEvent(event));
 }
 #endif
 
@@ -2107,6 +2113,20 @@ bool QWebPage::allowGeolocationRequest(QWebFrame *frame)
 #endif
 }
 
+void QWebPage::setUserPermission(QWebFrame* frame, PermissionDomain domain, PermissionPolicy policy)
+{
+    switch (domain) {
+    case NotificationsPermissionDomain:
+#if ENABLE(NOTIFICATIONS)
+        if (policy == PermissionGranted)
+            NotificationPresenterClientQt::notificationPresenter()->allowNotificationForFrame(frame);
+#endif
+        break;
+    default:
+        break;
+    }
+}
+
 /*!
     This function is called whenever WebKit wants to create a new window of the given \a type, for
     example when a JavaScript program requests to open a document in a new window.
@@ -2393,7 +2413,7 @@ bool QWebPage::acceptNavigationRequest(QWebFrame *frame, const QNetworkRequest &
                 return true;
 
             case DelegateExternalLinks:
-                if (WebCore::SecurityOrigin::shouldTreatURLSchemeAsLocal(request.url().scheme()))
+                if (WebCore::SchemeRegistry::shouldTreatURLSchemeAsLocal(request.url().scheme()))
                     return true;
                 emit linkClicked(request.url());
                 return false;
@@ -2827,8 +2847,8 @@ bool QWebPage::event(QEvent *ev)
     case QEvent::TouchBegin:
     case QEvent::TouchUpdate:
     case QEvent::TouchEnd:
-        d->touchEvent(static_cast<QTouchEvent*>(ev));
-        break;
+        // Return whether the default action was cancelled in the JS event handler
+        return d->touchEvent(static_cast<QTouchEvent*>(ev));
 #endif
 #ifndef QT_NO_PROPERTIES
     case QEvent::DynamicPropertyChange:

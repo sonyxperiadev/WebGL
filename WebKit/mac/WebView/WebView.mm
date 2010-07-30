@@ -141,6 +141,7 @@
 #import <WebCore/RenderWidget.h>
 #import <WebCore/ResourceHandle.h>
 #import <WebCore/RuntimeApplicationChecks.h>
+#import <WebCore/SchemeRegistry.h>
 #import <WebCore/ScriptController.h>
 #import <WebCore/ScriptValue.h>
 #import <WebCore/SecurityOrigin.h>
@@ -671,12 +672,17 @@ static bool shouldEnableLoadDeferring()
         didOneTimeInitialization = true;
     }
 
+    Page::PageClients pageClients;
+    pageClients.chromeClient = new WebChromeClient(self);
+    pageClients.contextMenuClient = new WebContextMenuClient(self);
+    pageClients.editorClient = new WebEditorClient(self);
+    pageClients.dragClient = new WebDragClient(self);
+    pageClients.inspectorClient = new WebInspectorClient(self);
+    pageClients.pluginHalterClient = new WebPluginHalterClient(self);
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
-    WebGeolocationControllerClient* geolocationControllerClient = new WebGeolocationControllerClient(self);
-#else
-    WebGeolocationControllerClient* geolocationControllerClient = 0;
+    pageClients.geolocationControllerClient = new WebGeolocationControllerClient(self);
 #endif
-    _private->page = new Page(new WebChromeClient(self), new WebContextMenuClient(self), new WebEditorClient(self), new WebDragClient(self), new WebInspectorClient(self), new WebPluginHalterClient(self), geolocationControllerClient, 0, 0);
+    _private->page = new Page(pageClients);
 
     _private->page->setCanStartMedia([self window]);
     _private->page->settings()->setLocalStorageDatabasePath([[self preferences] _localStorageDatabasePath]);
@@ -2500,7 +2506,7 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
 
 + (void)_registerURLSchemeAsSecure:(NSString *)scheme
 {
-    SecurityOrigin::registerURLSchemeAsSecure(scheme);
+    SchemeRegistry::registerURLSchemeAsSecure(scheme);
 }
 
 @end
@@ -2734,7 +2740,7 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
 
 + (void)registerURLSchemeAsLocal:(NSString *)protocol
 {
-    SecurityOrigin::registerURLSchemeAsLocal(protocol);
+    SchemeRegistry::registerURLSchemeAsLocal(protocol);
 }
 
 - (id)_initWithArguments:(NSDictionary *) arguments

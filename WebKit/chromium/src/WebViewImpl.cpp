@@ -258,6 +258,9 @@ WebViewImpl::WebViewImpl(WebViewClient* client, WebDevToolsAgentClient* devTools
     , m_layerRenderer(0)
     , m_isAcceleratedCompositingActive(false)
 #endif
+#if ENABLE(INPUT_SPEECH)
+    , m_speechInputClient(client)
+#endif
     , m_gles2Context(0)
 {
     // WebKit/win/WebView.cpp does the same thing, except they call the
@@ -272,7 +275,16 @@ WebViewImpl::WebViewImpl(WebViewClient* client, WebDevToolsAgentClient* devTools
     if (devToolsClient)
         m_devToolsAgent = new WebDevToolsAgentImpl(this, devToolsClient);
 
-    m_page.set(new Page(&m_chromeClientImpl, &m_contextMenuClientImpl, &m_editorClientImpl, &m_dragClientImpl, &m_inspectorClientImpl, 0, 0, 0, 0));
+    Page::PageClients pageClients;
+    pageClients.chromeClient = &m_chromeClientImpl;
+    pageClients.contextMenuClient = &m_contextMenuClientImpl;
+    pageClients.editorClient = &m_editorClientImpl;
+    pageClients.dragClient = &m_dragClientImpl;
+    pageClients.inspectorClient = &m_inspectorClientImpl;
+#if ENABLE(INPUT_SPEECH)
+    pageClients.speechInputClient = &m_speechInputClient;
+#endif
+    m_page.set(new Page(pageClients));
 
     // the page will take ownership of the various clients
 
@@ -489,10 +501,10 @@ void WebViewImpl::mouseUp(const WebMouseEvent& event)
 #endif
 }
 
-void WebViewImpl::mouseWheel(const WebMouseWheelEvent& event)
+bool WebViewImpl::mouseWheel(const WebMouseWheelEvent& event)
 {
     PlatformWheelEventBuilder platformEvent(mainFrameImpl()->frameView(), event);
-    mainFrameImpl()->frame()->eventHandler()->handleWheelEvent(platformEvent);
+    return mainFrameImpl()->frame()->eventHandler()->handleWheelEvent(platformEvent);
 }
 
 bool WebViewImpl::keyEvent(const WebKeyboardEvent& event)
@@ -1018,7 +1030,7 @@ bool WebViewImpl::handleInputEvent(const WebInputEvent& inputEvent)
         break;
 
     case WebInputEvent::MouseWheel:
-        mouseWheel(*static_cast<const WebMouseWheelEvent*>(&inputEvent));
+        handled = mouseWheel(*static_cast<const WebMouseWheelEvent*>(&inputEvent));
         break;
 
     case WebInputEvent::MouseDown:
@@ -1731,16 +1743,18 @@ void WebViewImpl::applyAutoFillSuggestions(
     const WebNode& node,
     const WebVector<WebString>& names,
     const WebVector<WebString>& labels,
+    const WebVector<int>& uniqueIDs,
     int separatorIndex)
 {
-    WebVector<int> uniqueIDs(names.size());
-    applyAutoFillSuggestions(node, names, labels, uniqueIDs, separatorIndex);
+    WebVector<WebString> icons(names.size());
+    applyAutoFillSuggestions(node, names, labels, icons, uniqueIDs, separatorIndex);
 }
 
 void WebViewImpl::applyAutoFillSuggestions(
     const WebNode& node,
     const WebVector<WebString>& names,
     const WebVector<WebString>& labels,
+    const WebVector<WebString>& icons,
     const WebVector<int>& uniqueIDs,
     int separatorIndex)
 {
@@ -1771,7 +1785,7 @@ void WebViewImpl::applyAutoFillSuggestions(
         m_autoFillPopupClient.set(new AutoFillPopupMenuClient);
 
     m_autoFillPopupClient->initialize(
-        inputElem, names, labels, uniqueIDs, separatorIndex);
+        inputElem, names, labels, icons, uniqueIDs, separatorIndex);
 
     if (!m_autoFillPopup.get()) {
         m_autoFillPopup = PopupContainer::create(m_autoFillPopupClient.get(),
@@ -1781,7 +1795,7 @@ void WebViewImpl::applyAutoFillSuggestions(
 
     if (m_autoFillPopupShowing) {
         m_autoFillPopupClient->setSuggestions(
-            names, labels, uniqueIDs, separatorIndex);
+            names, labels, icons, uniqueIDs, separatorIndex);
         refreshAutoFillPopup();
     } else {
         m_autoFillPopup->show(focusedNode->getRect(),
@@ -1803,12 +1817,13 @@ void WebViewImpl::applyAutocompleteSuggestions(
 {
     WebVector<WebString> names(suggestions.size());
     WebVector<WebString> labels(suggestions.size());
+    WebVector<WebString> icons(suggestions.size());
     WebVector<int> uniqueIDs(suggestions.size());
 
     for (size_t i = 0; i < suggestions.size(); ++i)
         names[i] = suggestions[i];
 
-    applyAutoFillSuggestions(node, names, labels, uniqueIDs, -1);
+    applyAutoFillSuggestions(node, names, labels, icons, uniqueIDs, -1);
     if (m_autoFillPopupClient)
         m_autoFillPopupClient->setAutocompleteMode(true);
 }

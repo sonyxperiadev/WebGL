@@ -34,6 +34,7 @@ from __future__ import with_statement
 import codecs
 import logging
 import os
+import re
 import shutil
 import signal
 import subprocess
@@ -212,6 +213,16 @@ class ChromiumPort(base.Port):
             return file.read()
 
     def test_expectations_overrides(self):
+        # FIXME: This drt_overrides handling should be removed when we switch
+        # from tes_shell to DRT.
+        drt_overrides = ''
+        if self._options.use_drt:
+            drt_overrides_path = self.path_from_webkit_base('LayoutTests',
+                'platform', 'chromium', 'drt_expectations.txt')
+            if os.path.exists(drt_overrides_path):
+                with codecs.open(drt_overrides_path, "r", "utf-8") as file:
+                    drt_overrides = file.read()
+
         try:
             overrides_path = self.path_from_chromium_base('webkit', 'tools',
                 'layout_tests', 'test_expectations.txt')
@@ -220,7 +231,7 @@ class ChromiumPort(base.Port):
         if not os.path.exists(overrides_path):
             return None
         with codecs.open(overrides_path, "r", "utf-8") as file:
-            return file.read()
+            return file.read() + drt_overrides
 
     def test_platform_names(self):
         return self.test_base_platform_names() + ('win-xp',
@@ -382,9 +393,12 @@ class ChromiumDriver(base.Driver):
             if line.startswith("#URL:"):
                 actual_uri = line.rstrip()[5:]
                 if uri != actual_uri:
-                    _log.fatal("Test got out of sync:\n|%s|\n|%s|" %
-                               (uri, actual_uri))
-                    raise AssertionError("test out of sync")
+                    # GURL capitalizes the drive letter of a file URL.
+                    if (not re.search("^file:///[a-z]:", uri) or
+                        uri.lower() != actual_uri.lower()):
+                        _log.fatal("Test got out of sync:\n|%s|\n|%s|" %
+                                   (uri, actual_uri))
+                        raise AssertionError("test out of sync")
             elif line.startswith("#MD5:"):
                 actual_checksum = line.rstrip()[5:]
             elif line.startswith("#TEST_TIMED_OUT"):

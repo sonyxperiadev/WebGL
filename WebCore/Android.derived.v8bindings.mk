@@ -612,10 +612,14 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 # These headers are required by the V8 bindings even when Inspector is disabled
 GEN := \
     $(intermediates)/bindings/V8InjectedScriptHost.h \
+<<<<<<< HEAD
     $(intermediates)/bindings/V8Inspector.h \
     $(intermediates)/bindings/V8InspectorBackend.h \
     $(intermediates)/bindings/V8InspectorFrontendHost.h \
     $(intermediates)/bindings/V8ScriptProfile.h
+=======
+    $(intermediates)/bindings/V8InspectorFrontendHost.h
+>>>>>>> webkit.org at r64264
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --outputdir $(dir $@) $<

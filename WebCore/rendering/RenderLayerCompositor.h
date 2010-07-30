@@ -158,8 +158,8 @@ public:
     static bool parentIFrameContentLayers(RenderIFrame*);
 
     // Update the geometry of the layers used for clipping and scrolling in frames.
-    void updateContentLayerOffset(const IntPoint& contentsOffset);
-    void updateContentLayerScrollPosition(const IntPoint&);
+    void frameViewDidChangeSize(const IntPoint& contentsOffset = IntPoint());
+    void frameViewDidScroll(const IntPoint& = IntPoint());
 
 private:
     // Whether the given RL needs a compositing layer.
@@ -214,11 +214,16 @@ private:
     bool requiresCompositingForIFrame(RenderObject*) const;
     bool requiresCompositingWhenDescendantsAreCompositing(RenderObject*) const;
 
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     // Whether we are on a mobile site
     bool requiresCompositingForMobileSites(const RenderLayer* layer) const;
 #endif
 
+=======
+    bool requiresScrollLayer(RootLayerAttachment) const;
+    
+>>>>>>> webkit.org at r64264
 private:
     RenderView* m_renderView;
     OwnPtr<GraphicsLayer> m_rootPlatformLayer;

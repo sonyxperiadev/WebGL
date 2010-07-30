@@ -1010,6 +1010,9 @@ public:
 
     const QualifiedName& idAttributeName() const { return m_idAttributeName; }
 
+    bool writeDisabled() const { return m_writeDisabled; }
+    void setWriteDisabled(bool flag) { m_writeDisabled = flag; }
+
 protected:
     Document(Frame*, const KURL&, bool isXHTML, bool isHTML);
 
@@ -1163,6 +1166,9 @@ private:
     bool m_frameElementsShouldIgnoreScrolling;
     bool m_containsValidityStyleRules;
     bool m_updateFocusAppearanceRestoresSelection;
+
+    // http://www.whatwg.org/specs/web-apps/current-work/#write-neutralised
+    bool m_writeDisabled;
 
     String m_title;
     String m_rawTitle;

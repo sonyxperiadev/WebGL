@@ -337,6 +337,22 @@ void FrameView::invalidateRect(const IntRect& rect)
     renderer->repaintRectangle(repaintRect);
 }
 
+void FrameView::setFrameRect(const IntRect& newRect)
+{
+    IntRect oldRect = frameRect();
+    if (newRect == oldRect)
+        return;
+
+    ScrollView::setFrameRect(newRect);
+
+#if USE(ACCELERATED_COMPOSITING)
+    if (RenderView* root = m_frame->contentRenderer()) {
+        if (root->usesCompositing())
+            root->compositor()->frameViewDidChangeSize();
+    }
+#endif
+}
+
 void FrameView::setMarginWidth(int w)
 {
     // make it update the rendering area when set
@@ -534,10 +550,10 @@ bool FrameView::syncCompositingStateRecursive()
     if (!contentRenderer)
         return true;    // We don't want to keep trying to update layers if we have no renderer.
 
-    if (m_layoutTimer.isActive()) {
-        // Don't sync layers if there's a layout pending.
+    // If we sync compositing layers when a layout is pending, we may cause painting of compositing
+    // layer content to occur before layout has happened, which will cause paintContents() to bail.
+    if (needsLayout())
         return false;
-    }
     
     if (GraphicsLayer* rootLayer = contentRenderer->compositor()->rootPlatformLayer())
         rootLayer->syncCompositingState();
@@ -1131,8 +1147,20 @@ void FrameView::setScrollPosition(const IntPoint& scrollPoint)
 
 void FrameView::scrollPositionChangedViaPlatformWidget()
 {
+    scrollPositionChanged();
+}
+
+void FrameView::scrollPositionChanged()
+{
     frame()->eventHandler()->sendScrollEvent();
     repaintFixedElementsAfterScrolling();
+
+#if USE(ACCELERATED_COMPOSITING)
+    if (RenderView* root = m_frame->contentRenderer()) {
+        if (root->usesCompositing())
+            root->compositor()->frameViewDidScroll(scrollPosition());
+    }
+#endif
 }
 
 void FrameView::repaintFixedElementsAfterScrolling()
@@ -1148,13 +1176,6 @@ void FrameView::repaintFixedElementsAfterScrolling()
 #endif
         }
     }
-
-#if USE(ACCELERATED_COMPOSITING)
-    if (RenderView* root = m_frame->contentRenderer()) {
-        if (root->usesCompositing())
-            root->compositor()->updateContentLayerScrollPosition(scrollPosition());
-    }
-#endif
 }
 
 HostWindow* FrameView::hostWindow() const
@@ -1745,7 +1766,7 @@ void FrameView::valueChanged(Scrollbar* bar)
     IntSize offset = scrollOffset();
     ScrollView::valueChanged(bar);
     if (offset != scrollOffset())
-        frame()->eventHandler()->sendScrollEvent();
+        scrollPositionChanged();
     frame()->loader()->client()->didChangeScrollOffset();
 }
 

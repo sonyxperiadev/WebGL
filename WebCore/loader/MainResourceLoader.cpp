@@ -31,6 +31,7 @@
 #include "MainResourceLoader.h"
 
 #include "ApplicationCacheHost.h"
+#include "DocumentLoadTiming.h"
 #include "DocumentLoader.h"
 #include "FormState.h"
 #include "Frame.h"
@@ -43,6 +44,7 @@
 #endif
 #include "ResourceError.h"
 #include "ResourceHandle.h"
+#include "SchemeRegistry.h"
 #include "Settings.h"
 #include <wtf/CurrentTime.h>
 
@@ -205,7 +207,7 @@ static bool shouldLoadAsEmptyDocument(const KURL& url)
 #if PLATFORM(TORCHMOBILE)
     return url.isEmpty() || (url.protocolIs("about") && equalIgnoringRef(url, blankURL()));
 #else 
-    return url.isEmpty() || url.protocolIs("about");
+    return url.isEmpty() || SchemeRegistry::shouldLoadURLSchemeAsEmptyDocument(url.protocol());
 #endif
 }
 
@@ -413,6 +415,8 @@ void MainResourceLoader::didReceiveData(const char* data, int length, long long 
     // reference to this object; one example of this is 3266216.
     RefPtr<MainResourceLoader> protect(this);
 
+    m_timeOfLastDataReceived = currentTime();
+
     ResourceLoader::didReceiveData(data, length, lengthReceived, allAtOnce);
 }
 
@@ -432,6 +436,8 @@ void MainResourceLoader::didFinishLoading()
     RefPtr<DocumentLoader> dl = documentLoader();
 #endif
 
+    ASSERT(!documentLoader()->timing()->responseEnd);
+    documentLoader()->timing()->responseEnd = m_timeOfLastDataReceived;
     frameLoader()->finishedLoading();
     ResourceLoader::didFinishLoading();
     

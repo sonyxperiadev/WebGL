@@ -68,29 +68,6 @@ PassRefPtr<IDBRequest> IndexedDatabaseRequest::open(ScriptExecutionContext* cont
     return request;
 }
 
-PassRefPtr<IDBKeyRange> IndexedDatabaseRequest::makeSingleKeyRange(PassRefPtr<SerializedScriptValue> prpValue)
-{
-    RefPtr<SerializedScriptValue> value = prpValue;
-    return IDBKeyRange::create(value, value, IDBKeyRange::SINGLE);
-}
-
-PassRefPtr<IDBKeyRange> IndexedDatabaseRequest::makeLeftBoundKeyRange(PassRefPtr<SerializedScriptValue> bound, bool open)
-{
-    return IDBKeyRange::create(bound, SerializedScriptValue::create(), open ? IDBKeyRange::LEFT_OPEN : IDBKeyRange::LEFT_BOUND);
-}
-
-PassRefPtr<IDBKeyRange> IndexedDatabaseRequest::makeRightBoundKeyRange(PassRefPtr<SerializedScriptValue> bound, bool open)
-{
-    return IDBKeyRange::create(SerializedScriptValue::create(), bound, open ? IDBKeyRange::RIGHT_OPEN : IDBKeyRange::RIGHT_BOUND);
-}
-
-PassRefPtr<IDBKeyRange> IndexedDatabaseRequest::makeBoundKeyRange(PassRefPtr<SerializedScriptValue> left, PassRefPtr<SerializedScriptValue> right, bool openLeft, bool openRight)
-{
-    unsigned short flags = openLeft ? IDBKeyRange::LEFT_OPEN : IDBKeyRange::LEFT_BOUND;
-    flags |= openRight ? IDBKeyRange::RIGHT_OPEN : IDBKeyRange::RIGHT_BOUND;
-    return IDBKeyRange::create(left, right, flags);
-}
-
 } // namespace WebCore
 
 #endif // ENABLE(INDEXED_DATABASE)

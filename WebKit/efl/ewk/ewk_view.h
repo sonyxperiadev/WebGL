@@ -86,6 +86,7 @@ extern "C" {
  *    and as arguments gives its details.
  *  - "icon,received", void: main frame received an icon.
  *  - "viewport,changed", void: Report that viewport has changed.
+ *  - "inputmethods,changed" with a boolean indicating whether it's enabled or not.
  */
 
 typedef struct _Ewk_View_Smart_Data Ewk_View_Smart_Data;
@@ -99,6 +100,7 @@ struct _Ewk_View_Smart_Class {
     unsigned long version;
 
     Evas_Object *(*window_create)(Ewk_View_Smart_Data *sd, Eina_Bool javascript, const Ewk_Window_Features *window_features); /**< creates a new window, requested by webkit */
+    void (*window_close)(Ewk_View_Smart_Data *sd); /**< creates a new window, requested by webkit */
     // hooks to allow different backing stores
     Evas_Object *(*backing_store_add)(Ewk_View_Smart_Data *sd); /**< must be defined */
     Eina_Bool (*scrolls_process)(Ewk_View_Smart_Data *sd); /**< must be defined */
@@ -145,7 +147,7 @@ struct _Ewk_View_Smart_Class {
  * @see EWK_VIEW_SMART_CLASS_INIT_VERSION
  * @see EWK_VIEW_SMART_CLASS_INIT_NAME_VERSION
  */
-#define EWK_VIEW_SMART_CLASS_INIT(smart_class_init) {smart_class_init, EWK_VIEW_SMART_CLASS_VERSION, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define EWK_VIEW_SMART_CLASS_INIT(smart_class_init) {smart_class_init, EWK_VIEW_SMART_CLASS_VERSION, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 /**
  * Initializer to zero a whole Ewk_View_Smart_Class structure.
@@ -185,6 +187,15 @@ struct _Ewk_View_Smart_Class {
  * @see EWK_VIEW_SMART_CLASS_INIT
  */
 #define EWK_VIEW_SMART_CLASS_INIT_NAME_VERSION(name) EWK_VIEW_SMART_CLASS_INIT(EVAS_SMART_CLASS_INIT_NAME_VERSION(name))
+
+enum _Ewk_Imh {
+    EWK_IMH_TELEPHONE = (1 << 0),
+    EWK_IMH_NUMBER = (1 << 1),
+    EWK_IMH_EMAIL = (1 << 2),
+    EWK_IMH_URL = (1 << 3),
+    EWK_IMH_PASSWORD = (1 << 4)
+};
+typedef enum _Ewk_Imh Ewk_Imh;
 
 /**
  * @internal
@@ -356,6 +367,8 @@ EAPI Eina_Bool    ewk_view_zoom_text_only_set(Evas_Object *o, Eina_Bool setting)
 
 EAPI Eina_Bool    ewk_view_pre_render_region(Evas_Object *o, Evas_Coord x, Evas_Coord y, Evas_Coord w, Evas_Coord h, float zoom);
 EAPI void         ewk_view_pre_render_cancel(Evas_Object *o);
+
+EAPI unsigned int ewk_view_imh_get(Evas_Object *o);
 
 /* settings */
 EAPI const char  *ewk_view_setting_user_agent_get(const Evas_Object *o);

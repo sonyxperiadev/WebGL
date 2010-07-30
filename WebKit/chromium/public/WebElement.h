@@ -38,6 +38,8 @@ namespace WebCore { class Element; }
 #endif
 
 namespace WebKit {
+class WebNamedNodeMap;
+
     // Provides access to some properties of a DOM element node.
     class WebElement : public WebNode {
     public:
@@ -53,6 +55,7 @@ namespace WebKit {
         WEBKIT_API bool hasAttribute(const WebString&) const;
         WEBKIT_API WebString getAttribute(const WebString&) const;
         WEBKIT_API bool setAttribute(const WebString& name, const WebString& value);
+        WEBKIT_API WebNamedNodeMap attributes() const;
         WEBKIT_API WebString innerText() const;
 
 #if WEBKIT_IMPLEMENTATION

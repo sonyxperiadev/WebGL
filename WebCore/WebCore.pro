@@ -549,6 +549,7 @@ SOURCES += \
     dom/UIEvent.cpp \
     dom/UIEventWithKeyState.cpp \
     dom/UserGestureIndicator.cpp \
+    dom/UserTypingGestureIndicator.cpp \
     dom/ViewportArguments.cpp \
     dom/WebKitAnimationEvent.cpp \
     dom/WebKitTransitionEvent.cpp \
@@ -925,6 +926,7 @@ SOURCES += \
     platform/network/ResourceRequestBase.cpp \
     platform/network/ResourceResponseBase.cpp \
     platform/text/RegularExpression.cpp \
+    platform/SchemeRegistry.cpp \
     platform/Scrollbar.cpp \
     platform/ScrollbarThemeComposite.cpp \
     platform/ScrollView.cpp \
@@ -1610,7 +1612,6 @@ HEADERS += \
     page/SpatialNavigation.h \
     page/SpeechInput.h \
     page/SpeechInputClient.h \
-    page/SpeechInputClientListener.h \
     page/SpeechInputListener.h \
     page/WindowFeatures.h \
     page/WorkerNavigator.h \
@@ -1825,6 +1826,7 @@ HEADERS += \
     rendering/RenderSVGModelObject.h \
     rendering/RenderSVGResource.h \
     rendering/RenderSVGResourceClipper.h \
+    rendering/RenderSVGResourceContainer.h \
     rendering/RenderSVGResourceFilter.h \ 
     rendering/RenderSVGResourceGradient.h \
     rendering/RenderSVGResourceLinearGradient.h \
@@ -1893,6 +1895,9 @@ HEADERS += \
     rendering/SVGMarkerLayoutInfo.h \
     rendering/SVGRenderSupport.h \
     rendering/SVGRenderTreeAsText.h \
+    rendering/SVGResources.h \
+    rendering/SVGResourcesCache.h \
+    rendering/SVGResourcesCycleSolver.h \
     rendering/SVGRootInlineBox.h \
     rendering/SVGShadowTreeElements.h \
     rendering/SVGTextChunkLayoutInfo.h \
@@ -2905,6 +2910,7 @@ contains(DEFINES, ENABLE_SVG=1) {
         rendering/RenderSVGModelObject.cpp \
         rendering/RenderSVGResource.cpp \
         rendering/RenderSVGResourceClipper.cpp \
+        rendering/RenderSVGResourceContainer.cpp \
         rendering/RenderSVGResourceFilter.cpp \
         rendering/RenderSVGResourceGradient.cpp \
         rendering/RenderSVGResourceLinearGradient.cpp \
@@ -2926,6 +2932,9 @@ contains(DEFINES, ENABLE_SVG=1) {
         rendering/SVGInlineTextBox.cpp \
         rendering/SVGMarkerLayoutInfo.cpp \
         rendering/SVGRenderSupport.cpp \
+        rendering/SVGResources.cpp \
+        rendering/SVGResourcesCache.cpp \
+        rendering/SVGResourcesCycleSolver.cpp \
         rendering/SVGRootInlineBox.cpp \
         rendering/SVGShadowTreeElements.cpp \
         rendering/SVGTextChunkLayoutInfo.cpp \
@@ -3342,11 +3351,13 @@ SOURCES += \
     ../WebKit2/UIProcess/WebProcessProxy.cpp \
     ../WebKit2/UIProcess/WebUIClient.cpp \
     ../WebKit2/WebProcess/InjectedBundle/InjectedBundle.cpp \
+    ../WebKit2/WebProcess/InjectedBundle/InjectedBundlePageEditorClient.cpp \
     ../WebKit2/WebProcess/InjectedBundle/InjectedBundlePageUIClient.cpp \
     ../WebKit2/WebProcess/InjectedBundle/InjectedBundlePageLoaderClient.cpp \
     ../WebKit2/WebProcess/InjectedBundle/qt/InjectedBundleQt.cpp \
     ../WebKit2/UIProcess/API/qt/ClientImpl.cpp \
     ../WebKit2/UIProcess/qt/ChunkedUpdateDrawingAreaProxyQt.cpp \
+    ../WebKit2/UIProcess/qt/WebContextQt.cpp \
     ../WebKit2/WebProcess/WebCoreSupport/WebChromeClient.cpp \
     ../WebKit2/WebProcess/WebCoreSupport/WebContextMenuClient.cpp \
     ../WebKit2/WebProcess/WebCoreSupport/WebDragClient.cpp \
@@ -3363,6 +3374,7 @@ SOURCES += \
     ../WebKit2/WebProcess/WebPage/qt/ChunkedUpdateDrawingAreaQt.cpp \
     ../WebKit2/WebProcess/WebPage/qt/WebPageQt.cpp \
     ../WebKit2/WebProcess/WebProcess.cpp \
+    ../WebKit2/WebProcess/qt/WebProcessMainQt.cpp
 
 }
 

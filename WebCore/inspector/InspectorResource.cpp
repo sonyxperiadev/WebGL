@@ -283,7 +283,7 @@ InspectorResource::Type InspectorResource::type() const
     if (!m_overrideContent.isNull())
         return m_overrideContentType;
 
-    if (m_requestURL == m_loader->requestURL()) {
+    if (equalIgnoringFragmentIdentifier(m_requestURL, m_loader->requestURL())) {
         InspectorResource::Type resourceType = cachedResourceType();
         if (resourceType == Other)
             return Doc;
@@ -291,7 +291,7 @@ InspectorResource::Type InspectorResource::type() const
         return resourceType;
     }
 
-    if (m_loader->frameLoader() && m_requestURL == m_loader->frameLoader()->iconURL())
+    if (m_loader->frameLoader() && equalIgnoringFragmentIdentifier(m_requestURL, m_loader->frameLoader()->iconURL()))
         return Image;
 
     return cachedResourceType();
@@ -322,7 +322,7 @@ String InspectorResource::sourceString() const
 
 PassRefPtr<SharedBuffer> InspectorResource::resourceData(String* textEncodingName) const
 {
-    if (m_requestURL == m_loader->requestURL()) {
+    if (equalIgnoringFragmentIdentifier(m_requestURL, m_loader->requestURL())) {
         *textEncodingName = m_frame->document()->inputEncoding();
         return m_loader->mainResourceData();
     }
@@ -394,12 +394,17 @@ ScriptObject InspectorResource::buildObjectForTiming(InspectorFrontend* frontend
 {
     ScriptObject jsonObject = frontend->newScriptObject();
     jsonObject.set("requestTime", timing->requestTime);
-    jsonObject.set("proxyDuration", timing->proxyStart == -1 ? -1 : (timing->proxyEnd - timing->proxyStart) / 1000.0);
-    jsonObject.set("dnsDuration", timing->dnsStart == -1 ? -1 : (timing->dnsEnd - timing->dnsStart) / 1000.0);
-    jsonObject.set("connectDuration", timing->connectStart == -1 ? -1 : (timing->connectEnd - timing->connectStart) / 1000.0);
-    jsonObject.set("sslDuration", timing->sslStart == -1 ? -1 : (timing->sslEnd - timing->sslStart) / 1000.0);
-    jsonObject.set("sendDuration", (timing->sendEnd - timing->sendStart) / 1000.0);
-    jsonObject.set("waitDuration", (timing->receiveHeadersEnd - timing->sendEnd)  / 1000.0);
+    jsonObject.set("proxyStart", timing->proxyStart);
+    jsonObject.set("proxyEnd", timing->proxyEnd);
+    jsonObject.set("dnsStart", timing->dnsStart);
+    jsonObject.set("dnsEnd", timing->dnsEnd);
+    jsonObject.set("connectStart", timing->connectStart);
+    jsonObject.set("connectEnd", timing->connectEnd);
+    jsonObject.set("sslStart", timing->sslStart);
+    jsonObject.set("sslEnd", timing->sslEnd);
+    jsonObject.set("sendStart", timing->sendStart);
+    jsonObject.set("sendEnd", timing->sendEnd);
+    jsonObject.set("receiveHeadersEnd", timing->receiveHeadersEnd);
     return jsonObject;
 }
 

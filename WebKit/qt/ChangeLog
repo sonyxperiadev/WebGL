@@ -1,3 +1,188 @@
+2010-07-28  Kim Grönholm  <kim.1.gronholm@nokia.com>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Decouple QTouchEvent's accepted flag from JS prevent default
+        https://bugs.webkit.org/show_bug.cgi?id=42892
+
+        Added comments to the touch event handling code.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebView::sceneEvent):
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::touchEvent):
+        (QWebPage::event):
+        * Api/qwebpage_p.h:
+        * Api/qwebview.cpp:
+        (QWebView::event):
+
+2010-07-26  Steve Block  <steveblock@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Page clients should be passed to Page constructor via structure of pointers
+        https://bugs.webkit.org/show_bug.cgi?id=42834
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::QWebPagePrivate):
+
+2010-07-27  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        [Qt] Incorrect input method hints
+        https://bugs.webkit.org/show_bug.cgi?id=43037
+
+        Properly set or reset all input method hints when
+        activating input fields.
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::setInputMethodState):
+        * tests/qwebview/tst_qwebview.cpp:
+        (tst_QWebView::focusInputTypes): Extended unit test to verify that we
+        reset hints.
+
+2010-07-27  Kim Grönholm  <kim.1.gronholm@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Decouple QTouchEvent's accepted flag from JS prevent default
+        https://bugs.webkit.org/show_bug.cgi?id=42892
+
+        We need to always accept the QTouchEvents in order to get TouchUpdate and
+        TouchEnd events. QWebPage::event() return value is used to indicate
+        whether the default action was prevented for the touch events.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebView::sceneEvent):
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::touchEvent):
+        (QWebPage::event):
+        * Api/qwebpage_p.h:
+        * Api/qwebview.cpp:
+        (QWebView::event):
+
+2010-07-26  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Change default font from sans-serif to serif
+
+        This matches what other ports and browser engines do.
+
+        We now also use QFont's defaultFontFamily() to resolve the
+        correct fonts for each platform. For Qt >= 4.7 we can take
+        advantage of the new enums for generic font families.
+
+        * Api/qwebsettings.cpp:
+
+2009-10-30  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Use the default timeout interval for JS as the HTML tokenizer delay for setHtml()
+
+        This ensures that long-running JavaScript (for example due to a modal alert() dialog),
+        will not trigger a deferred load after only 500ms (the default tokenizer delay) while
+        still giving a reasonable timeout (10 seconds) to prevent deadlock.
+
+        https://bugs.webkit.org/show_bug.cgi?id=29381
+
+        * Api/qwebframe.cpp: Document the behaviour
+        * WebCoreSupport/FrameLoaderClientQt.cpp: set the custom tokenizer delay for substitute loads
+        * tests/qwebframe/tst_qwebframe.cpp: Add test
+
+2010-07-23  David Boddie  <dboddie@trolltech.com>
+
+        Reviewed by Simon Hausmann.
+
+        Doc: Fixed incorrect QML property type.
+
+        * declarative/qdeclarativewebview.cpp:
+
+2010-07-23  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        [Qt] Build fix for Qt apps
+
+        Add webkit to QT_CONFIG. qconfig.pri will read qt_webkit_version.pri and
+        that's how it will pick up webkit in QT_CONFIG.
+
+        * qt_webkit_version.pri:
+
+2010-07-22  Yael Aharon  <yael.aharon@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] QtWebKit needs public API for Notifications.
+        https://bugs.webkit.org/show_bug.cgi?id=41413
+
+        Remove DumpRenderTree private API and introduce new API.
+        Also add support for informing the UI when a notification request is cancelled.
+
+        * Api/qwebpage.cpp:
+        (QWebPage::setUserPermission):
+        * Api/qwebpage.h:
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+        * WebCoreSupport/NotificationPresenterClientQt.cpp:
+        (WebCore::NotificationPresenterClientQt::requestPermission):
+        (WebCore::NotificationPresenterClientQt::checkPermission):
+        (WebCore::NotificationPresenterClientQt::cancelRequestsForPermission):
+        (WebCore::NotificationPresenterClientQt::allowNotificationForFrame):
+        (WebCore::NotificationPresenterClientQt::toPage):
+        (WebCore::NotificationPresenterClientQt::toFrame):
+        * WebCoreSupport/NotificationPresenterClientQt.h:
+
+2010-07-22  Jamey Hicks  <jamey.hicks@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Enable binding of QObjects to JavaScript environment for inspector frontend
+
+        This patch enables QObjects to be bound to global variables in the
+        javascript environment of the inspector frontend. This is useful
+        for writing alternate inspector frontends in javascript which need
+        additional native functionality. It's a lighter-weight alternative
+        than using an NPAPI plugin.
+ 
+        The code which instantiates QWebInspector uses this by setting the
+        dynamic property "q_inspectorJavaScriptWindowObjects" on the
+        QWebInspector. The value of this property should be a
+        QMap<QString,QVariant> mapping global variable name to QObject.
+
+        I have used this to add support for eclipse/chrome remote
+        debugging in QtTestBrowser.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41995
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorClientWebPage::InspectorClientWebPage):
+        (WebCore::InspectorClientWebPage::javaScriptWindowObjectCleared):
+        (WebCore::InspectorClientQt::openInspectorFrontend):
+
+2010-07-22  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        [Qt] Library versioning.
+
+        2.1 is branched, trunk will become 2.2.
+
+        * Api/qwebkitglobal.h:
+        * qt_webkit_version.pri:
+
+2010-07-21  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Break out "scheme registration" functionality from SecurityOrigin to a SchemeRegistry
+        https://bugs.webkit.org/show_bug.cgi?id=42783
+
+        * Api/qwebpage.cpp:
+        (QWebPage::acceptNavigationRequest):
+        * Api/qwebsecurityorigin.cpp:
+        (QWebSecurityOrigin::addLocalScheme):
+        (QWebSecurityOrigin::removeLocalScheme):
+        (QWebSecurityOrigin::localSchemes):
+
 2010-07-20  Kenneth Rohde Christiansen  <kenneth.christiansen@openbossa.org>
 
         [Qt] Add API to define device-width and height for use with the viewport meta tag

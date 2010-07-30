@@ -149,9 +149,20 @@ private:
         // Returns whether we succeeded in peeking at the next character.
         // The only way we can fail to peek is if there are no more
         // characters in |source| (after collapsing \r\n, etc).
-        bool peek(SegmentedString& source, int& lineNumber)
+        ALWAYS_INLINE bool peek(SegmentedString& source, int& lineNumber)
         {
             m_nextInputCharacter = *source;
+
+            // Every branch in this function is expensive, so we have a
+            // fast-reject branch for characters that don't require special
+            // handling.  Please run the parser benchmark whenever you touch
+            // this function.  It's very hot.
+            static const UChar specialCharacterMask = '\n' | '\r' | '\0';
+            if (m_nextInputCharacter & ~specialCharacterMask) {
+                m_skipNextNewLine = false;
+                return true;
+            }
+
             if (m_nextInputCharacter == '\n' && m_skipNextNewLine) {
                 m_skipNextNewLine = false;
                 source.advancePastNewline(lineNumber);

@@ -40,6 +40,7 @@
 
 namespace WebCore {
 
+class InspectorValue;
 class SerializedScriptValue;
 
 class ScriptValue {
@@ -60,6 +61,10 @@ public:
     static ScriptValue deserialize(ScriptState*, SerializedScriptValue*);
 
     static ScriptValue undefined() { return ScriptValue(JSC::jsUndefined()); }
+
+#if ENABLE(INSPECTOR)
+    PassRefPtr<InspectorValue> toInspectorValue(ScriptState*) const;
+#endif
 
 private:
     JSC::ProtectedJSValue m_value;

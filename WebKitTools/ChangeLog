@@ -1,3 +1,705 @@
+2010-07-28  Kenichi Ishibashi  <bashi@google.com>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Fixed <https://bugs.webkit.org/show_bug.cgi?id=33814>
+        check-webkit-style gives false positives in single-line functions.
+
+        * Scripts/webkitpy/style/checkers/cpp.py:
+        * Scripts/webkitpy/style/checkers/cpp_unittest.py:
+
+2010-07-28  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        WebKitTestRunner needs to support layoutTestController.execCommand
+        <https://bugs.webkit.org/show_bug.cgi?id=42538>
+
+        WebKitTestRunner needs layoutTestController.isCommandEnabled
+        <https://bugs.webkit.org/show_bug.cgi?id=42671>
+
+        * WebKitTestRunner/InjectedBundle/Bindings/LayoutTestController.idl:
+        Added execCommand and isCommandEnabled.
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        (WTR::LayoutTestController::execCommand): Added.
+        (WTR::LayoutTestController::isCommandEnabled): Added.
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h: Ditto.
+
+2010-07-28  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Introduce drt_expectations.txt for NRWT
+        https://bugs.webkit.org/show_bug.cgi?id=43123
+
+        Introduce LayoutTests/platform/chromium/drt_expectations.txt,
+        which overrides test expectations only for DumpRenderTree, in
+        order to manage what problems are investigated.
+        This change will be reverted when we switch to DRT completely.
+
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+         Add drt_expectations.txt content to the result of
+         test_expectations_overrides() if --use-drt is specified.
+
+2010-07-28  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Darin Adler.
+
+        First pass at visited link support for WK2
+        https://bugs.webkit.org/show_bug.cgi?id=43157
+
+        * MiniBrowser/mac/AppDelegate.m:
+        (didNavigateWithNavigationData):
+        (didPerformClientRedirect):
+        (didPerformServerRedirect):
+        (didUpdateHistoryTitle):
+        (populateVisitedLinks): Added for the new version of the HistoryClient.
+        (-[BrowserAppDelegate init]): Set the HistoryClient right after creating the context(s)
+        
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (-[BrowserWindowController awakeFromNib]):
+
+2010-07-28  Robin Dunn  <robin@alldunn.com>
+
+        Reviewed by Kevin Ollivier.
+
+        Add DOM bindings support for wx port.
+
+        * DumpRenderTree/wscript:
+        * wx/browser/wscript:
+        * wx/build/settings.py:
+
+2010-07-28  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [chromium] cleanup temp files left by Linux DRT
+        https://bugs.webkit.org/show_bug.cgi?id=43062
+
+        * BuildSlaveSupport/build.webkit.org-config/config.json: Rename the chromium bots to include the OS
+        * BuildSlaveSupport/build.webkit.org-config/master.cfg: add a step on chromium-linux to delete temp files left
+            by crashed DRTs
+
+2010-07-28  Antonio Gomes  <tonikitoo@webkit.org>
+
+        Rubber-stamped by Kenneth Christiansen.
+
+        More Developer menu items reordering.
+
+        Grouping related menu items together, visually and logically (in the code).
+
+        No behavior change.
+
+        * QtTestBrowser/main.cpp:
+        (LauncherWindow::createChrome):
+
+2010-07-27  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        Add FILE_SYSTEM build flag for FileSystem API
+        https://bugs.webkit.org/show_bug.cgi?id=42915
+
+        * Scripts/build-webkit:
+
+2010-07-27  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by David Levin.
+
+        Stylebot should not complain about NULL usage in calls to gdk_pixbuf_save_to
+        https://bugs.webkit.org/show_bug.cgi?id=43090
+
+        * Scripts/webkitpy/style/checkers/cpp.py: Add exemption for some GdkPixbuf methods.
+        * Scripts/webkitpy/style/checkers/cpp_unittest.py: Added some tests for this behavior.
+
+2010-07-27  Kent Tamura  <tkent@chromium.org>
+
+        Unreviewed, trivial typo fix.
+
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+          Fix a wrong method name committed by r64109.
+
+2010-07-27  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=43087
+        Clean up handling of strings at the WebKit2 API layer.
+
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (runJavaScriptAlert):
+        (runJavaScriptConfirm):
+        (runJavaScriptPrompt):
+        (didNavigateWithNavigationData):
+        (-[BrowserWindowController updateProvisionalURLForFrame:]):
+        * MiniBrowser/mac/WebBundle/WebBundleMain.m:
+        (_didClearWindowForFrame):
+
+2010-07-27  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        webkit-patch post-commits is broken: AttributeError: Values instance has no attribute 'no_squash'
+        https://bugs.webkit.org/show_bug.cgi?id=42984
+
+        squash and no_squash have been intentionally erroring for a couple weeks now.
+        But post-commits was just broken. Just remove squash/no_squash.
+
+        * Scripts/webkitpy/tool/steps/abstractstep.py:
+        * Scripts/webkitpy/tool/steps/options.py:
+
+2010-07-27  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix after introduction of EXECUTABLE_ALLOCATOR_DEMAND.
+
+        * wx/build/settings.py:
+
+2010-07-27  Adam Roben  <aroben@apple.com>
+
+        Mac build fix
+
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (processDidExit):
+        (-[BrowserWindowController awakeFromNib]):
+        Added processDidExit support.
+
+2010-07-26  Antonio Gomes  <tonikitoo@webkit.org>
+
+        Rubber-stamped by Simon Hausmann.
+
+        [Qt] Reorder some items in Developers' menu so QGraphicsView one is easier accessible.
+
+        Move some less useful menu items on Developers menu from the top to the bottom, so
+        QGraphicsView menu goes to the top, and becomes more quickly accessible.
+
+        * QtTestBrowser/main.cpp:
+        (LauncherWindow::createChrome):
+
+2010-07-26  Adam Roben  <aroben@apple.com>
+
+        Fix the path to InjectedBundle.dll in Debug_Internal builds
+
+        Fixes <http://webkit.org/b/42994> WebKitTestRunner fails to load
+        InjectedBundle.dll in the Debug_Internal configuration
+
+        Reviewed by Anders Carlsson.
+
+        * WebKitTestRunner/win/TestControllerWin.cpp:
+        (WTR::TestController::initializeInjectedBundlePath): Add the _debug
+        suffix only in Debug_All builds.
+
+2010-07-25  Mahesh Kulkarni  <mahesh.kulkarni@nokia.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42947
+        Check for WEBKIT_TESTFONTS for qt, gtk and windows port and throw 
+        error. Without which dumpRenderTree crashes.
+
+        * Scripts/old-run-webkit-tests:
+
+2010-07-27  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42956
+        [DRT/Chromium] Fix "out of sync" assertion error
+
+        Fix an assertion error on Windows like the following:
+        100721 20:16:46 chromium.py:386  CRITICAL Test got out of sync:
+        |file:///c:/WebKitBuildSlave2/chromium-win-release-tests/build/LayoutTests/http/tests/local/blob/send-data-blob.html|
+        |file:///C:/WebKitBuildSlave2/chromium-win-release-tests/build/LayoutTests/http/tests/local/blob/send-data-blob.html|
+
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+        If the url matches with "file:///[a-z]:", does case-ignore comparison.
+        GURL capitalize the driver letter of a file: URL.
+
+2010-07-26  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        WebKitTestRunner needs to support layoutTestController.counterValueForElementById
+        https://bugs.webkit.org/show_bug.cgi?id=42537
+
+        WebKitTestRunner needs layoutTestController.markerTextForListItem
+        https://bugs.webkit.org/show_bug.cgi?id=42549
+
+        * WebKitTestRunner/InjectedBundle/Bindings/CodeGeneratorTestRunner.pm:
+        Fixed _paramterExpression typo. Improved support for string type as a
+        return value, so we don't try to include DOMString.h and we can convert
+        the string to a JSValue by calling JSValueMakeStringOrNull.
+
+        * WebKitTestRunner/InjectedBundle/Bindings/JSWrappable.h:
+        Added JSValueMakeStringOrNull, used by the code generator.
+
+        * WebKitTestRunner/InjectedBundle/Bindings/LayoutTestController.idl:
+        Added counterValueForElementById and markerTextForListItem.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        Moved constant to the top of the file.
+        (WTR::toCF): Added. Converts strings to CFStringRef.
+        (WTR::toWK): Added. Converts strings to WKStringRef.
+        (WTR::toJS): Added. Converts strings to JSStringRef.
+        (WTR::setProperty): Moved this function to the top of the file
+        rather than having it down where it's used inside the class. Also
+        renamed it so it's a separate function rather than an overload of
+        JSObjectSetProperty.
+        (WTR::propertyValue): Copied this here from InjectedBundlePage.cpp.
+        Should move it somewhere we can share it.
+        (WTR::propertyObject): Ditto.
+        (WTR::getElementById): Added. Calls getElementById through the magic
+        of JavaScript.
+        (WTR::LayoutTestController::pauseAnimationAtTimeOnElementWithId):
+        Chagned to use toWK instead of four local variables.
+        (WTR::LayoutTestController::counterValueForElementById): Added.
+        Calls WKBundleFrameCopyCounterValue.
+        (WTR::LayoutTestController::markerTextForListItem): Added.
+        Calls WKBundleFrameCopyMarkerText.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h:
+        Added counterValueForElementById and markerTextForListItem.
+
+2010-07-26  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] The EventSender should support simulating drop events
+        https://bugs.webkit.org/show_bug.cgi?id=39844
+
+        Add initial dropping support to the GTK+ EventSender.
+
+        * DumpRenderTree/gtk/DumpRenderTree.cpp:
+        (createWebView): Listen for some new drag-and-drop signals.
+        * DumpRenderTree/gtk/EventSender.cpp: Add currentDragSourceContext.
+        (dispatchEvent):
+        Detect situations where a drag is either starting or ending and massage
+        GTK+ into sending the appropriate signals to the WebView.
+        (replaySavedEvents): Remove comment.
+        (makeEventSender): Clear the currentDragSourceContext when creating a new EventSender.
+        (dragBeginCallback): Capture the new currentDragSourceContext when a drag begins.
+        (dragEndCallback): Clear the currentDragSourceContext when a drag ends.
+        (dragFailedCallback): Disable the GTK+ drag failed animation.
+        * DumpRenderTree/gtk/EventSender.h: Add declarations for new signal callbacks.
+
+2010-07-26  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Darin Adler.
+
+        svn-unapply warns of uninitialized variable when unapplying
+        a patch that describes an svn move operation
+        https://bugs.webkit.org/show_bug.cgi?id=42036
+
+        Fixes Perl uninitialized variable warnings when un-applying
+        a patch that moves a file.
+
+        * Scripts/svn-unapply:
+          - Modified patch() so that it initializes $patch to the empty
+            string when we don't have svnConvertedText (such as when
+            reversing a diff that represents a svn copy/move operation).
+
+2010-07-26  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Move some non-APIish functions into private headers.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.cpp:
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+
+2010-07-26  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=42986
+        Add prompt and confirm client functions to WebKit2
+
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (-[BrowserWindowController awakeFromNib]):
+
+2010-07-26  Adam Roben  <aroben@apple.com>
+
+        Windows build fix
+
+        * MiniBrowser/MiniBrowser.vcproj:
+        * WebKitTestRunner/InjectedBundle/win/InjectedBundle.vcproj:
+        Removed empty attributes so the values will be picked up from the
+        vsprops files. (Also removed a couple of attributes that accidentally
+        duplicated values from the vsprops files.)
+
+2010-07-26  Brian Weinstein  <bweinstein@apple.com>
+
+        Rubber-stamped by Adam Roben.
+        
+        Touch MiniBrowser's stdafx to fix the build.
+
+        * MiniBrowser/win/stdafx.h:
+
+2010-07-26  Hayato Ito  <hayato@chromium.org>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Add pretty printer of WTF::Vector for GDB 7.
+
+        https://bugs.webkit.org/show_bug.cgi?id=40909
+
+        * gdb/wtf.py: Added.
+
+2010-07-26  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Fix feature detection regexp
+
+        We were missing the last feature
+
+        * Scripts/webkitdirs.pm:
+
+2010-07-25  Darin Adler  <darin@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        WebKitTestRunner needs to support layoutTestController.dumpSelectionRect
+        https://bugs.webkit.org/show_bug.cgi?id=42326
+
+        * WebKitTestRunner/InjectedBundle/Bindings/LayoutTestController.idl:
+        Added dumpSelectionRect.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h:
+        (WTR::LayoutTestController::dumpSelectionRect): Added. For now, this
+        does nothing because its purpose is to change pixel test output and
+        we do not have pixel tests implemented yet.
+
+2010-07-25  Darin Adler  <darin@apple.com>
+
+        Reviewed by Maciej Stachowiak.
+
+        WebKitTestRunner needs to support layoutTestController.keepWebHistory
+        https://bugs.webkit.org/show_bug.cgi?id=42323
+
+        Added keepWebHistory and computedStyleIncludingVisitedInfo.
+
+        Also fixed misspellings of the word "receive".
+
+        Also tweaked the names of some of the LayoutTestController members.
+
+        * WebKitTestRunner/InjectedBundle/Bindings/CodeGeneratorTestRunner.pm:
+        Added support for a type named "object" that is passed and returns as
+        a JSValueRef.
+
+        * WebKitTestRunner/InjectedBundle/Bindings/LayoutTestController.idl:
+        Added keepWebHistory and computedStyleIncludingVisitedInfo. Also
+        put setAcceptsEditing up nearer the top.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.cpp:
+        (WTR::InjectedBundle::_didReceiveMessage): Fixed mispellings of receive.
+        (WTR::InjectedBundle::initialize): Ditto.
+        (WTR::InjectedBundle::didReceiveMessage): Ditto.
+        (WTR::InjectedBundle::reset): Reset the state of visited links between
+        tests. Also eliminated the unused argument to the LayoutTestController
+        create function.
+        (WTR::InjectedBundle::setShouldTrackVisitedLinks): Added.
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.h: Ditto.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::InjectedBundlePage::shouldBeginEditing): Call shouldAllowEditing
+        instead of acceptsEditing.
+        (WTR::InjectedBundlePage::shouldEndEditing): Ditto.
+        (WTR::InjectedBundlePage::shouldInsertNode): Ditto.
+        (WTR::InjectedBundlePage::shouldInsertText): Ditto.
+        (WTR::InjectedBundlePage::shouldDeleteRange): Ditto.
+        (WTR::InjectedBundlePage::shouldChangeSelectedRange): Ditto.
+        (WTR::InjectedBundlePage::shouldApplyStyle): Ditto.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        (WTR::LayoutTestController::create): Removed uneeded argument.
+        (WTR::LayoutTestController::LayoutTestController): Removed unneeded
+        argument. Updated for rename of m_acceptsEditing to m_shouldAllowEditing.
+        (WTR::LayoutTestController::numberOfActiveAnimations): Added some FIXMEs
+        about the fact that this works on the main frame.
+        (WTR::LayoutTestController::pauseAnimationAtTimeOnElementWithId): Ditto.
+        (WTR::LayoutTestController::keepWebHistory): Added.
+        (WTR::LayoutTestController::computedStyleIncludingVisitedInfo): Added.
+        (WTR::JSObjectSetProperty): Added. Helper to make the function below
+        cleaner.
+        (WTR::LayoutTestController::makeWindowObject): Changed to use the
+        overload of JSObjectSetProperty above.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h: Changes to
+        match above.
+
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::initialize): Fixed mispellings of receive.
+        (WTR::TestController::_didReceiveMessageFromInjectedBundle): Ditto.
+        (WTR::TestController::didReceiveMessageFromInjectedBundle): Ditto.
+        * WebKitTestRunner/TestController.h: Ditto.
+        * WebKitTestRunner/TestInvocation.cpp:
+        (WTR::TestInvocation::didReceiveMessageFromInjectedBundle): Ditto.
+        * WebKitTestRunner/TestInvocation.h: Ditto.
+
+2010-07-25  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42193
+        Support layoutTestController.dumpEditingDelegates in WebKitTestRunner
+
+        Step 2 - add the rest of editing delegates.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::operator<<): Fixed to not crash when range is null.
+        (WTR::InjectedBundlePage::InjectedBundlePage):
+        (WTR::InjectedBundlePage::_shouldEndEditing):
+        (WTR::InjectedBundlePage::_shouldInsertNode):
+        (WTR::InjectedBundlePage::_shouldInsertText):
+        (WTR::InjectedBundlePage::_shouldDeleteRange):
+        (WTR::InjectedBundlePage::_shouldChangeSelectedRange):
+        (WTR::InjectedBundlePage::_shouldApplyStyle):
+        (WTR::InjectedBundlePage::_didBeginEditing):
+        (WTR::InjectedBundlePage::_didEndEditing):
+        (WTR::InjectedBundlePage::_didChange):
+        (WTR::InjectedBundlePage::_didChangeSelection):
+        (WTR::InjectedBundlePage::shouldEndEditing):
+        (WTR::InjectedBundlePage::shouldInsertNode):
+        (WTR::InjectedBundlePage::shouldInsertText):
+        (WTR::InjectedBundlePage::shouldDeleteRange):
+        (WTR::InjectedBundlePage::shouldChangeSelectedRange):
+        (WTR::InjectedBundlePage::shouldApplyStyle):
+        (WTR::InjectedBundlePage::didBeginEditing):
+        (WTR::InjectedBundlePage::didEndEditing):
+        (WTR::InjectedBundlePage::didChange):
+        (WTR::InjectedBundlePage::didChangeSelection):
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.h:
+
+2010-07-24  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by David Kilzer.
+
+        AX: need a layout test testing misspelled words in attributed strings
+        https://bugs.webkit.org/show_bug.cgi?id=42899
+
+        * DumpRenderTree/AccessibilityUIElement.cpp:
+        (attributedStringForRangeCallback):
+        (attributedStringRangeIsMisspelledCallback):
+        (AccessibilityUIElement::getJSClass):
+        * DumpRenderTree/AccessibilityUIElement.h:
+        * DumpRenderTree/gtk/AccessibilityUIElementGtk.cpp:
+        (AccessibilityUIElement::attributedStringForRange):
+        (AccessibilityUIElement::attributedStringRangeIsMisspelled):
+        * DumpRenderTree/mac/AccessibilityUIElementMac.mm:
+        (AccessibilityUIElement::attributedStringForRange):
+        (AccessibilityUIElement::attributedStringRangeIsMisspelled):
+        * DumpRenderTree/win/AccessibilityUIElementWin.cpp:
+        (AccessibilityUIElement::attributedStringForRange):
+        (AccessibilityUIElement::attributedStringRangeIsMisspelled):
+
+2010-07-23  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/42911> Update ruby tools to work with shallow framework bundles
+
+        Reviewed by Mark Rowe.
+
+        * Scripts/check-for-inappropriate-files-in-framework: Added
+        check for the SHALLOW_BUNDLE environment variable so that the
+        script will work with iOS WebKit builds.
+        * Scripts/check-for-webkit-framework-include-consistency: Ditto.
+
+2010-07-22  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Eliminate unneeded WKBundleFrameCopyInnerText function from WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=42847
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::operator<<): Replaced the WKStringToUTF8 function with
+        a set of overloaded stream operators.
+        (WTR::dumpPath): Changed to use ostringstream and return a string.
+        (WTR::propertyValue): Added.
+        (WTR::propertyObject): Added.
+        (WTR::propertyString): Added.
+        (WTR::numericWindowPropertyValue): Changed to call propertyValue.
+        (WTR::dumpFrameScrollPosition): Removed now unneeded WKStringToUTF8 sequence
+        since we now have suitable streaming functions.
+        (WTR::dumpFrameText): Use propertyObject and propertyString instead of
+        WKBundleFrameCopyInnerText.
+        (WTR::dumpDescendantFramesText): Removed now unneeded WKStringToUTF8 sequence
+        since we now have suitable streaming functions.
+        (WTR::InjectedBundlePage::dump): Ditto.
+        (WTR::InjectedBundlePage::willAddMessageToConsole): Ditto.
+        (WTR::InjectedBundlePage::willSetStatusbarText): Ditto.
+        (WTR::InjectedBundlePage::willRunJavaScriptAlert): Ditto.
+        (WTR::InjectedBundlePage::willRunJavaScriptConfirm): Ditto.
+        (WTR::InjectedBundlePage::willRunJavaScriptPrompt): Ditto.
+
+2010-07-22  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Sam Weinig and Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42193
+        Support layoutTestController.dumpEditingDelegates in WebKitTestRunner
+
+        Step 1: Add the method, and implement one actual delegate call as proof of concept. No tests
+        fixed, but this makes difference one line smaller on many editing tests.
+
+        * WebKitTestRunner/InjectedBundle/Bindings/LayoutTestController.idl:
+        Added dumpEditingCallbacks() and setAcceptsEditing().
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::dumpPath): Dump path to a node in a format that's compatible with DumpRenderTree.
+        (WTR::operator<<): Print a range.
+        (WTR::InjectedBundlePage::InjectedBundlePage): Set editor client in addition to existing
+        clients.
+        (WTR::InjectedBundlePage::_shouldBeginEditing): The only client method implemented so far.
+        (WTR::InjectedBundlePage::shouldBeginEditing): Ditto.
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.h: Added a section for editor client
+        calls.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        (WTR::LayoutTestController::LayoutTestController):
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h:
+        (WTR::LayoutTestController::dumpEditingCallbacks):
+        (WTR::LayoutTestController::setAcceptsEditing):
+        (WTR::LayoutTestController::acceptsEditing):
+        (WTR::LayoutTestController::shouldDumpEditingCallbacks):
+        Store m_acceptsEditing and m_dumpEditingCallbacks.
+
+2010-07-22  Yael Aharon  <yael.aharon@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] QtWebKit needs public API for Notifications.
+        https://bugs.webkit.org/show_bug.cgi?id=41413
+
+        Update DumpRenderTree and QtTestBrowser to use the new API.
+        Add new DRT API to flag that notifications permission requests should be ignored.
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::WebPage::WebPage):
+        (WebCore::WebPage::requestPermission):
+        (WebCore::WebPage::checkPermission):
+        (WebCore::WebPage::cancelRequestsForPermission):
+        * DumpRenderTree/qt/DumpRenderTreeQt.h:
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::reset):
+        (LayoutTestController::ignoreDesktopNotificationPermissionRequests):
+        (LayoutTestController::checkDesktopNotificationPermission):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        (LayoutTestController::ignoreReqestForPermission):
+        * QtTestBrowser/main.cpp:
+        (LauncherWindow::LauncherWindow):
+        * QtTestBrowser/webpage.cpp:
+        (WebPage::WebPage):
+        (WebPage::requestPermission):
+        (WebPage::checkPermission):
+        (WebPage::cancelRequestsForPermission):
+        * QtTestBrowser/webpage.h:
+
+2010-07-22  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        WebKitTestRunner needs to support layoutTestController.dumpChildFramesAsText
+        https://bugs.webkit.org/show_bug.cgi?id=42325
+
+        * WebKitTestRunner/InjectedBundle/Bindings/LayoutTestController.idl:
+        Added dumpChildFramesAsText.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::dumpFrameText): Added.
+        (WTR::dumpDescendantFramesText): Added.
+        (WTR::InjectedBundlePage::dumpAllFramesText): Added.
+        (WTR::InjectedBundlePage::dump): Changed to use the new whatToDump function
+        instead of the shouldDumpAsText function, and added a case for AllFramesText.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.h: Added dumpAllFramesText.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        (WTR::LayoutTestController::LayoutTestController): Replaced m_dumpAsText with
+        m_whatToDump.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h: Added
+        dumpChildFramesAsText. Removed shouldDumpAsText, shouldDumpDOMAsWebArchive,
+        and shouldDumpSourceAsWebArchive. Added whatToDump.
+
+2010-07-22  Adam Roben  <aroben@apple.com>
+
+        Windows build fix
+
+        Inspired by r63881.
+
+        * MiniBrowser/MiniBrowser.vcproj:
+        * WebKitTestRunner/InjectedBundle/win/InjectedBundle.vcproj:
+        Removed pre- and post-build events so they will be inherited from the
+        vsprops files.
+
+2010-07-21  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        WebKitTestRunner needs layoutTestController.dumpChildFrameScrollPositions
+        https://bugs.webkit.org/show_bug.cgi?id=42548
+
+        * WebKitTestRunner/InjectedBundle/Bindings/LayoutTestController.idl:
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::numericWindowPropertyValue): Renamed this and moved it up higher in the file.
+        (WTR::dumpFrameScrollPosition): Added argument telling whether to dump the frame name.
+        Changed to a file-internal function instead of a member function.
+        (WTR::dumpDescendantFrameScrollPositions): Added.
+        (WTR::InjectedBundlePage::dumpAllFrameScrollPositions): Added.
+        (WTR::InjectedBundlePage::dump): Changed to call dumpAllFrameScrollPositions when
+        appropriate. Also streamlined all the WKStringToUTF8 call sites.
+        (WTR::InjectedBundlePage::willAddMessageToConsole): Streamlined use of WKStringToUTF8.
+        (WTR::InjectedBundlePage::willSetStatusbarText): Ditto.
+        (WTR::InjectedBundlePage::willRunJavaScriptAlert): Ditto.
+        (WTR::InjectedBundlePage::willRunJavaScriptConfirm): Ditto.
+        (WTR::InjectedBundlePage::willRunJavaScriptPrompt): Ditto.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.h: Updated for above changes.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        (WTR::LayoutTestController::LayoutTestController): Initialize
+        m_shouldDumpAllFrameScrollPositions.
+        (WTR::LayoutTestController::shouldDumpMainFrameScrollPosition): Renamed from
+        shouldDumpFrameScrollPositions.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h: Reorganized the file a
+        bit, added dumpChildFrameScrollPositions and shouldDumpAllFrameScrollPositions,
+        and renamed shouldDumpFrameScrollPositions to shouldDumpMainFrameScrollPosition.
+
+2010-07-21  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        WebKitTestRunner needs to support dumping of scroll position
+        https://bugs.webkit.org/show_bug.cgi?id=42514
+
+        * MiniBrowser/mac/WebBundle/WebBundleMain.m:
+        (_didClearWindowForFrame): Use JSGlobalContextRef instead of JSContextRef.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::InjectedBundlePage::_didClearWindowForFrame): Use JSGlobalContextRef
+        instead of JSContextRef.
+        (WTR::InjectedBundlePage::dump): Call dumpFrameScrollPosition when appropriate.
+        (WTR::numericWindowProperty): Added. Helper for dumpFrameScrollPosition.
+        (WTR::InjectedBundlePage::dumpFrameScrollPosition): Added.
+        (WTR::InjectedBundlePage::didClearWindowForFrame): Use JSGlobalContextRef
+        instead of JSContextRef.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.h: Removed names from
+        arguments that simply repeat the argument type. Added dumpFrameScrollPosition.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        (WTR::LayoutTestController::shouldDumpDOMAsWebArchive): Added. Currently
+        returns false.
+        (WTR::LayoutTestController::shouldDumpSourceAsWebArchive): Added. Currently
+        returns false.
+        (WTR::LayoutTestController::shouldDumpFrameScrollPositions): Added. Matches
+        the logic in DumpRenderTree.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h: Updated for above changes.
+
+        * WebKitTestRunner/WebKitTestRunner.xcodeproj: Added property svn:ignore.
+
 2010-07-21  Kevin Ollivier  <kevino@theolliviers.com>
 
         [wx] Build fix, adding the WebCore/bindings/generic dir to the list of build dirs.

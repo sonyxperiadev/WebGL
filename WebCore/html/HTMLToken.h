@@ -59,6 +59,7 @@ public:
     void clear()
     {
         m_type = Uninitialized;
+        m_data.clear();
     }
 
     void makeEndOfFile()
@@ -72,7 +73,6 @@ public:
         ASSERT(character);
         ASSERT(m_type == Uninitialized);
         m_type = StartTag;
-        m_data.clear();
         m_selfClosing = false;
         m_currentAttribute = 0;
         m_attributes.clear();
@@ -85,7 +85,6 @@ public:
     {
         ASSERT(m_type == Uninitialized);
         m_type = EndTag;
-        m_data.clear();
         m_selfClosing = false;
         m_currentAttribute = 0;
         m_attributes.clear();
@@ -93,27 +92,24 @@ public:
         m_data.append(characters);
     }
 
-    void beginCharacter(UChar character)
+    // Starting a character token works slightly differently than starting
+    // other types of tokens because we want to save a per-character branch.
+    void ensureIsCharacterToken()
     {
-        ASSERT(character);
-        ASSERT(m_type == Uninitialized);
+        ASSERT(m_type == Uninitialized || m_type == Character);
         m_type = Character;
-        m_data.clear();
-        m_data.append(character);
     }
 
     void beginComment()
     {
         ASSERT(m_type == Uninitialized);
         m_type = Comment;
-        m_data.clear();
     }
 
     void beginDOCTYPE()
     {
         ASSERT(m_type == Uninitialized);
         m_type = DOCTYPE;
-        m_data.clear();
         m_doctypeData.set(new DoctypeData());
     }
 
@@ -294,7 +290,7 @@ private:
 
     // For StartTag and EndTag
     bool m_selfClosing;
-    AttributeList m_attributes; // Old tokenizer reserves 10.
+    AttributeList m_attributes;
 
     // A pointer into m_attributes used during lexing.
     Attribute* m_currentAttribute;
@@ -328,8 +324,13 @@ public:
                     String name(iter->m_name.data(), iter->m_name.size());
                     String value(iter->m_value.data(), iter->m_value.size());
                     RefPtr<Attribute> mappedAttribute = Attribute::createMapped(name, value);
-                    if (!m_attributes)
+                    if (!m_attributes) {
                         m_attributes = NamedNodeMap::create();
+                        // Reserving capacity here improves the parser
+                        // benchmark.  It might be worth experimenting with
+                        // the constant to see where the optimal point is.
+                        m_attributes->reserveInitialCapacity(10);
+                    }
                     m_attributes->insertAttribute(mappedAttribute.release(), false);
                 }
             }
