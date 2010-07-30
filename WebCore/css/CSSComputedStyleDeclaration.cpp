@@ -271,18 +271,6 @@ static const int computedProperties[] = {
     CSSPropertyWebkitSvgShadow,
     CSSPropertyVectorEffect
 #endif
-#ifdef ANDROID_CSS_RING
-    ,
-    CSSPropertyWebkitRingFillColor,
-    CSSPropertyWebkitRingInnerWidth,
-    CSSPropertyWebkitRingOuterWidth,
-    CSSPropertyWebkitRingOutset,
-    CSSPropertyWebkitRingPressedInnerColor,
-    CSSPropertyWebkitRingPressedOuterColor,
-    CSSPropertyWebkitRingRadius,
-    CSSPropertyWebkitRingSelectedInnerColor,
-    CSSPropertyWebkitRingSelectedOuterColor
-#endif
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     ,
     CSSPropertyWebkitTapHighlightColor
@@ -1548,29 +1536,6 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
         case CSSPropertyWebkitTransition:
         case CSSPropertyWebkitVariableDeclarationBlock:
             break;
-#ifdef ANDROID_CSS_RING
-        case CSSPropertyWebkitRing:
-            // shorthand property currently not supported see bug 13658
-            break;
-        case CSSPropertyWebkitRingFillColor:
-            return CSSPrimitiveValue::createColor(style->ringFillColor().rgb());
-        case CSSPropertyWebkitRingInnerWidth:
-            return CSSPrimitiveValue::create(style->ringInnerWidth());
-        case CSSPropertyWebkitRingOuterWidth:
-            return CSSPrimitiveValue::create(style->ringOuterWidth());
-        case CSSPropertyWebkitRingOutset:
-            return CSSPrimitiveValue::create(style->ringOutset());
-        case CSSPropertyWebkitRingPressedInnerColor:
-            return CSSPrimitiveValue::createColor(style->ringPressedInnerColor().rgb());
-        case CSSPropertyWebkitRingPressedOuterColor:
-            return CSSPrimitiveValue::createColor(style->ringPressedOuterColor().rgb());
-        case CSSPropertyWebkitRingRadius:
-            return CSSPrimitiveValue::create(style->ringRadius());
-        case CSSPropertyWebkitRingSelectedInnerColor:
-            return CSSPrimitiveValue::createColor(style->ringSelectedInnerColor().rgb());
-        case CSSPropertyWebkitRingSelectedOuterColor:
-            return CSSPrimitiveValue::createColor(style->ringSelectedOuterColor().rgb());
-#endif
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
         case CSSPropertyWebkitTapHighlightColor:
             return CSSPrimitiveValue::createColor(style->tapHighlightColor().rgb());

@@ -49,6 +49,9 @@ class WebViewCore;
 // used to inflate node cache entry
 #define CURSOR_RING_HIT_TEST_RADIUS 5
 
+// used to inval rectangle enclosing pressed state of ring
+#define CURSOR_RING_OUTER_DIAMETER SkFixedToScalar(SkIntToFixed(13)>>2) // 13/4 == 3.25
+
 class CursorRing : public DrawExtra {
 public:
     enum Flavor {

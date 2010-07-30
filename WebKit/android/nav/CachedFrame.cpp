@@ -1401,12 +1401,6 @@ void CachedFrame::Debug::print() const
     }
     DUMP_NAV_LOGD("// }; // end of layers\n");
 #endif // USE(ACCELERATED_COMPOSITING)
-    DUMP_NAV_LOGD("// CachedColor mCachedColors={ // count=%d\n", b->mCachedColors.size());
-    for (CachedColor* color = b->mCachedColors.begin();
-            color != b->mCachedColors.end(); color++) {
-        color->mDebug.print();
-    }
-    DUMP_NAV_LOGD("// }; // end of colors\n");
     DUMP_NAV_LOGD("// CachedFrame mCachedFrames={ // count=%d\n", b->mCachedFrames.size());
     for (CachedFrame* child = b->mCachedFrames.begin();
             child != b->mCachedFrames.end(); child++)
