@@ -47,7 +47,6 @@ LOCAL_SRC_FILES := \
 	\
 	jit/ExecutableAllocator.cpp\
 	jit/ExecutableAllocatorFixedVMPool.cpp \
-	jit/ExecutableAllocatorPosix.cpp \
 	jit/JIT.cpp \
 	jit/JITArithmetic.cpp \
 	jit/JITArithmetic32_64.cpp \
@@ -167,7 +166,7 @@ LOCAL_SRC_FILES := \
 	wtf/HashTable.cpp \
 	wtf/MD5.cpp \
 	wtf/MainThread.cpp \
-	jit/PageAllocation.cpp\
+	wtf/PageAllocation.cpp \
 	wtf/RandomNumber.cpp \
 	wtf/RefCountedLeakCounter.cpp \
 	wtf/TCSystemAlloc.cpp \

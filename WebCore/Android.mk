@@ -189,6 +189,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/UIEvent.cpp \
 	dom/UIEventWithKeyState.cpp \
 	dom/UserGestureIndicator.cpp \
+	dom/UserTypingGestureIndicator.cpp \
 	dom/ViewportArguments.cpp \
 	dom/WebKitAnimationEvent.cpp \
 	dom/WebKitTransitionEvent.cpp \
@@ -437,6 +438,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/LinkHash.cpp \
 	platform/Logging.cpp \
 	platform/MIMETypeRegistry.cpp \
+	platform/SchemeRegistry.cpp \
 	platform/ScrollView.cpp \
 	platform/Scrollbar.cpp \
 	platform/ScrollbarThemeComposite.cpp \
