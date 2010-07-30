@@ -214,16 +214,13 @@ private:
     bool requiresCompositingForIFrame(RenderObject*) const;
     bool requiresCompositingWhenDescendantsAreCompositing(RenderObject*) const;
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     // Whether we are on a mobile site
     bool requiresCompositingForMobileSites(const RenderLayer* layer) const;
 #endif
 
-=======
     bool requiresScrollLayer(RootLayerAttachment) const;
     
->>>>>>> webkit.org at r64264
 private:
     RenderView* m_renderView;
     OwnPtr<GraphicsLayer> m_rootPlatformLayer;

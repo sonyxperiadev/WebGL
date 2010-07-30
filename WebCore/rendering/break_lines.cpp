@@ -125,17 +125,10 @@ static inline bool shouldBreakAfter(UChar ch, UChar nextCh)
         // FIXME: cases for ideographicComma and ideographicFullStop are a workaround for an issue in Unicode 5.0
         // which is likely to be resolved in Unicode 5.1 <http://bugs.webkit.org/show_bug.cgi?id=17411>.
         // We may want to remove or conditionalize this workaround at some point.
-<<<<<<< HEAD
-        case ideographicComma:
-        case ideographicFullStop:
 #ifdef ANDROID_LAYOUT
         // as '/' is used in uri which is always long, we would like to break it
-        case '/':
+    case '/':
 #endif
-            return true;
-        default:
-            return false;
-=======
         return true;
     default:
         // If both ch and nextCh are ASCII characters, use a lookup table for enhanced speed and for compatibility
@@ -148,7 +141,6 @@ static inline bool shouldBreakAfter(UChar ch, UChar nextCh)
         }
         // Otherwise defer to the Unicode algorithm by returning false.
         return false;
->>>>>>> webkit.org at r64264
     }
 }
 

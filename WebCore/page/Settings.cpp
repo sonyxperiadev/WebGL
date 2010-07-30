@@ -150,13 +150,10 @@ Settings::Settings(Page* page)
     , m_paginateDuringLayoutEnabled(false)
     , m_dnsPrefetchingEnabled(true)
     , m_memoryInfoEnabled(false)
-<<<<<<< HEAD
+    , m_interactiveFormValidation(false)
 #ifdef ANDROID_PLUGINS
     , m_pluginsOnDemand(false)
 #endif
-=======
-    , m_interactiveFormValidation(false)
->>>>>>> webkit.org at r64264
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.

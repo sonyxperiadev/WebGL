@@ -106,15 +106,11 @@ public:
 
     void dispatchFakeMouseMoveEventSoonInQuad(const FloatQuad&);
 
-<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
-    HitTestResult hitTestResultAtPoint(const IntPoint&, bool allowShadowContent, bool ignoreClipping = false, HitTestScrollbars scrollbars = DontHitTestScrollbars, int hitType = HitTestRequest::ReadOnly | HitTestRequest::Active, const IntSize& pointPadding = IntSize());
+    HitTestResult hitTestResultAtPoint(const IntPoint&, bool allowShadowContent, bool ignoreClipping = false, HitTestScrollbars scrollbars = DontHitTestScrollbars, HitTestRequest::HitTestRequestType hitType = HitTestRequest::ReadOnly | HitTestRequest::Active, const IntSize& pointPadding = IntSize());
 #else
-    HitTestResult hitTestResultAtPoint(const IntPoint&, bool allowShadowContent, bool ignoreClipping = false, HitTestScrollbars scrollbars = DontHitTestScrollbars, int hitType = HitTestRequest::ReadOnly | HitTestRequest::Active);
-#endif
-=======
     HitTestResult hitTestResultAtPoint(const IntPoint&, bool allowShadowContent, bool ignoreClipping = false, HitTestScrollbars scrollbars = DontHitTestScrollbars, HitTestRequest::HitTestRequestType hitType = HitTestRequest::ReadOnly | HitTestRequest::Active);
->>>>>>> webkit.org at r64264
+#endif
 
     bool mousePressed() const { return m_mousePressed; }
     void setMousePressed(bool pressed) { m_mousePressed = pressed; }

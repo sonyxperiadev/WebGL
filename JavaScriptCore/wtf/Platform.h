@@ -645,13 +645,10 @@
    This prevents unnecessary invals. */
 #define ENABLE_TEXT_CARET 1
 #define ENABLE_JAVASCRIPT_DEBUGGER 0
-<<<<<<< HEAD
 #define ENABLE_ORIENTATION_EVENTS 1
-=======
 #if !defined(ENABLE_JIT) && !ENABLE(ANDROID_JSC_JIT)
 #define ENABLE_JIT 0
 #endif
->>>>>>> webkit.org at r64264
 #endif
 
 #if PLATFORM(WIN)

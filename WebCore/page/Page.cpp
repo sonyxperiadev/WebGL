@@ -128,7 +128,6 @@ static void networkStateChanged()
         frames[i]->document()->dispatchWindowEvent(Event::create(eventName, false, false));
 }
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
 static void onPackageResultAvailable()
 {
@@ -140,12 +139,8 @@ static void onPackageResultAvailable()
 }
 #endif
 
-Page::Page(ChromeClient* chromeClient, ContextMenuClient* contextMenuClient, EditorClient* editorClient, DragClient* dragClient, InspectorClient* inspectorClient, PluginHalterClient* pluginHalterClient, GeolocationControllerClient* geolocationControllerClient, DeviceOrientationClient* deviceOrientationClient, BackForwardControllerClient* backForwardControllerClient)
-    : m_chrome(new Chrome(this, chromeClient))
-=======
 Page::Page(const PageClients& pageClients)
     : m_chrome(new Chrome(this, pageClients.chromeClient))
->>>>>>> webkit.org at r64264
     , m_dragCaretController(new SelectionController(0, true))
 #if ENABLE(DRAG_SUPPORT)
     , m_dragController(new DragController(this, pageClients.dragClient))

@@ -870,15 +870,11 @@ void EventHandler::allowDHTMLDrag(bool& flagDHTML, bool& flagUA) const
 }
 #endif // ENABLE(DRAG_SUPPORT)
     
-<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
-HitTestResult EventHandler::hitTestResultAtPoint(const IntPoint& point, bool allowShadowContent, bool ignoreClipping, HitTestScrollbars testScrollbars, int hitType, const IntSize& pointPadding)
+HitTestResult EventHandler::hitTestResultAtPoint(const IntPoint& point, bool allowShadowContent, bool ignoreClipping, HitTestScrollbars testScrollbars, HitTestRequest::HitTestRequestType hitType, const IntSize& pointPadding)
 #else
-HitTestResult EventHandler::hitTestResultAtPoint(const IntPoint& point, bool allowShadowContent, bool ignoreClipping, HitTestScrollbars testScrollbars, int hitType)
-#endif
-=======
 HitTestResult EventHandler::hitTestResultAtPoint(const IntPoint& point, bool allowShadowContent, bool ignoreClipping, HitTestScrollbars testScrollbars, HitTestRequest::HitTestRequestType hitType)
->>>>>>> webkit.org at r64264
+#endif
 {
 #ifdef ANDROID_HITTEST_WITHSIZE
     HitTestResult result(point, pointPadding);

@@ -1151,13 +1151,11 @@ void RenderTableSection::paintObject(PaintInfo& paintInfo, int tx, int ty)
         if (!endcol && tx + table()->columnPositions()[0] - table()->outerBorderLeft() <= y + w + os)
             endcol++;
     }
-<<<<<<< HEAD
+
 #ifdef ANDROID_LAYOUT
     }
 #endif
 
-=======
->>>>>>> webkit.org at r64264
     if (startcol < endcol) {
         if (!m_hasMultipleCellLevels) {
             // Draw the dirty cells in the order that they appear.
