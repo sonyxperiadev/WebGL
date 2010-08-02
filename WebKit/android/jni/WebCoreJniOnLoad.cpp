@@ -188,15 +188,13 @@ EXPORT void benchmark(const char* url, int reloadCount, int width, int height) {
     // Create the page with all the various clients
     ChromeClientAndroid* chrome = new ChromeClientAndroid;
     EditorClientAndroid* editor = new EditorClientAndroid;
-    Page* page = new Page(chrome,
-                          new ContextMenuClientAndroid,
-                          editor,
-                          new DragClientAndroid,
-                          new InspectorClientAndroid,
-                          0, // PluginHalterClient
-                          0, // GeolocationControllerClient
-                          0, // DeviceOrientationClient
-                          0); // BackForwardClient
+    WebCore::Page::PageClients pageClients;
+    pageClients.chromeClient = chrome;
+    pageClients.contextMenuClient = new ContextMenuClientAndroid;
+    pageClients.editorClient = editor;
+    pageClients.dragClient = new DragClientAndroid;
+    pageClients.inspectorClient = new InspectorClientAndroid;
+    WebCore::Page* page = new WebCore::Page(pageClients);
     editor->setPage(page);
 
     // Create MyWebFrame that intercepts network requests

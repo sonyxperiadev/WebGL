@@ -875,21 +875,16 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
 #endif
     TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
+    // Create a new page
     ChromeClientAndroid*      chromeC = new ChromeClientAndroid;
     EditorClientAndroid*      editorC = new EditorClientAndroid;
-    WebCore::ContextMenuClient* contextMenuC = new ContextMenuClientAndroid;
-    WebCore::DragClient*        dragC = new DragClientAndroid;
-    InspectorClientAndroid* inspectorC = new InspectorClientAndroid;
-    // Create a new page
-    WebCore::Page* page = new WebCore::Page(chromeC,
-                                            contextMenuC,
-                                            editorC,
-                                            dragC,
-                                            inspectorC,
-                                            0, // PluginHalterClient
-                                            0, // GeolocationControllerClient
-                                            0, // DeviceOrientationClient
-                                            0); // BackForwardClient
+    WebCore::Page::PageClients pageClients;
+    pageClients.chromeClient = chromeC;
+    pageClients.contextMenuClient = new ContextMenuClientAndroid;
+    pageClients.editorClient = editorC;
+    pageClients.dragClient = new DragClientAndroid;
+    pageClients.inspectorClient = new InspectorClientAndroid;
+    WebCore::Page* page = new WebCore::Page(pageClients);
     // css files without explicit MIMETYPE is treated as generic text files in
     // the Java side. So we can't enforce CSS MIMETYPE.
     page->settings()->setEnforceCSSMIMETypeInStrictMode(false);
@@ -898,7 +893,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
 
     // Create a WebFrame to access the Java BrowserFrame associated with this page
     WebFrame* webFrame = new WebFrame(env, obj, historyList, page);
-    // Attach webFrame to chromeC and release our ownership
+    // Attach webFrame to pageClients.chromeClient and release our ownership
     chromeC->setWebFrame(webFrame);
     Release(webFrame);
 
