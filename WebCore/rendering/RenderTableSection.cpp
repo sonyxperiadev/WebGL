@@ -464,11 +464,11 @@ int RenderTableSection::layoutRows(int toAdd)
         for (int r = 0; r < totalRows; r++) {
             for (int c = 0; c < nEffCols; c++) {
                 CellStruct current = cellAt(r, c);
-                RenderTableCell* cell = current.cell;
+                RenderTableCell* cell = current.primaryCell();
 
                 if (!cell || current.inColSpan)
                     continue;
-                if (r > 0 && (cellAt(r-1, c).cell == cell))
+                if (r > 0 && (primaryCellAt(r-1, c) == cell))
                     continue;
 
 //                cell->setCellTopExtra(0);
