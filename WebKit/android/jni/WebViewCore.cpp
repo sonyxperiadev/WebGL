@@ -91,6 +91,7 @@
 #include "RenderThemeAndroid.h"
 #include "RenderView.h"
 #include "ResourceRequest.h"
+#include "SchemeRegistry.h"
 #include "SelectionController.h"
 #include "Settings.h"
 #include "SkANP.h"
@@ -3351,7 +3352,7 @@ static void RegisterURLSchemeAsLocal(JNIEnv* env, jobject obj, jstring scheme) {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    WebCore::SecurityOrigin::registerURLSchemeAsLocal(to_string(env, scheme));
+    WebCore::SchemeRegistry::registerURLSchemeAsLocal(to_string(env, scheme));
 }
 
 static bool FocusBoundsChanged(JNIEnv* env, jobject obj)
