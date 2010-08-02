@@ -1155,19 +1155,6 @@ bool RenderLayerCompositor::requiresCompositingForMobileSites(const RenderLayer*
 }
 #endif
 
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-static bool requiresCompositingForOverflowScroll(const RenderLayer* layer) {
-    RenderBox* box = layer->renderBox();
-    if (!box || !box->node()->hasTagName(HTMLNames::divTag))
-        return false;
-    EOverflow x = box->style()->overflowX();
-    EOverflow y = box->style()->overflowY();
-    return (x == OAUTO || x == OSCROLL || y == OAUTO || y == OSCROLL) &&
-            (box->scrollWidth() > box->clientWidth() ||
-             box->scrollHeight() > box->clientHeight());
-}
-#endif
-
 // Note: this specifies whether the RL needs a compositing layer for intrinsic reasons.
 // Use needsToBeComposited() to determine if a RL actually needs a compositing layer.
 // static
@@ -1183,7 +1170,7 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) c
 #if PLATFORM(ANDROID)
              || requiresCompositingForMobileSites(layer)
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-             || requiresCompositingForOverflowScroll(layer)
+             || renderer->hasOverflowClip()
 #endif
 #endif
              || requiresCompositingForVideo(renderer)

@@ -73,10 +73,6 @@ bool RenderBox::s_hadOverflowClip = false;
 
 RenderBox::RenderBox(Node* node)
     : RenderBoxModelObject(node)
-#ifdef ANDROID_LAYOUT
-    , m_visibleWidth(0)
-    , m_isVisibleWidthChangedBeforeLayout(false)
-#endif
     , m_marginLeft(0)
     , m_marginRight(0)
     , m_marginTop(0)
@@ -84,6 +80,10 @@ RenderBox::RenderBox(Node* node)
     , m_minPrefWidth(-1)
     , m_maxPrefWidth(-1)
     , m_inlineBoxWrapper(0)
+#ifdef ANDROID_LAYOUT
+    , m_visibleWidth(0)
+    , m_isVisibleWidthChangedBeforeLayout(false)
+#endif
 {
     setIsBox();
 }

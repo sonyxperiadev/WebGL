@@ -47,10 +47,13 @@ public:
     }
     // FIXME: adjustBounds should be renamed globalBounds or toGlobal
     IntRect adjustBounds(const LayerAndroid* root, const IntRect& bounds) const;
+    // Moves the bounds by the layer's scroll position.  Assumes the incoming
+    // bounds have been adjusted by adjustBounds.
+    IntRect unadjustBounds(const LayerAndroid* root,
+                           const IntRect& bounds) const;
     int cachedNodeIndex() const { return mCachedNodeIndex; }
-    const IntPoint& getOffset() const { return mOffset; }
     const LayerAndroid* layer(const LayerAndroid* root) const;
-    IntRect localBounds(const IntRect& bounds) const;
+    IntRect localBounds(const LayerAndroid* root, const IntRect& bounds) const;
     SkPicture* picture(const LayerAndroid* root) const;
     void reset() { mLayer = 0; }
     void setCachedNodeIndex(int index) { mCachedNodeIndex = index; }

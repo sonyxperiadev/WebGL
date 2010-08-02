@@ -1257,7 +1257,14 @@ bool EventHandler::handleMousePressEvent(const PlatformMouseEvent& mouseEvent)
     }
     m_mouseDownWasInSubframe = false;
 
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    // Add IgnoreClipping because fixed position elements are moved only on the
+    // UI thread.  Nodes in fixed position elements are clipped out by the view
+    // without IgnoreClipping.
+    HitTestRequest request(HitTestRequest::Active | HitTestRequest::IgnoreClipping);
+#else
     HitTestRequest request(HitTestRequest::Active);
+#endif
     // Save the document point we generate in case the window coordinate is invalidated by what happens 
     // when we dispatch the event.
     IntPoint documentPoint = documentPointForWindowPoint(m_frame, mouseEvent.pos());
@@ -1575,7 +1582,14 @@ bool EventHandler::handleMouseReleaseEvent(const PlatformMouseEvent& mouseEvent)
         return m_lastScrollbarUnderMouse->mouseUp();
     }
 
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    // Add IgnoreClipping because fixed position elements are moved only on the
+    // UI thread.  Nodes in fixed position elements are clipped out by the view
+    // without IgnoreClipping.
+    HitTestRequest request(HitTestRequest::MouseUp | HitTestRequest::IgnoreClipping);
+#else
     HitTestRequest request(HitTestRequest::MouseUp);
+#endif
     MouseEventWithHitTestResults mev = prepareMouseEvent(request, mouseEvent);
     Frame* subframe = m_capturingMouseEventsNode.get() ? subframeForTargetNode(m_capturingMouseEventsNode.get()) : subframeForHitTestResult(mev);
     if (m_eventHandlerWillResetCapturingMouseEventsNode)

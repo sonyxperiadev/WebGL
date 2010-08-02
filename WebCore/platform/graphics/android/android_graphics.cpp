@@ -140,7 +140,9 @@ bool CursorRing::setup()
         m_rings.clear();
         m_rings.append(m_bounds);
     }
+    m_absBounds = m_node->bounds(m_frame);
     m_bounds.inflate(SkScalarCeil(CURSOR_RING_OUTER_DIAMETER));
+    m_absBounds.inflate(SkScalarCeil(CURSOR_RING_OUTER_DIAMETER));
     if (!m_node->hasCursorRing() || (m_node->isPlugin() && m_node->isFocus()))
         return false;
     m_flavor = NORMAL_FLAVOR;

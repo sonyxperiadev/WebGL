@@ -135,6 +135,10 @@ public:
     void setForegroundClip(const SkRect& clip) {
         m_foregroundClip = clip;
     }
+
+    // Return the foreground clip offset by the position of the layer.
+    SkRect foregroundClip() const { return m_foregroundClip; }
+
     bool contentIsScrollable() const;
 
     // Returns true if the content position has changed.

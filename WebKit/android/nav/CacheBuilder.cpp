@@ -979,7 +979,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         cachedRoot->setFocusBounds(focused->getRect());
     int globalOffsetX, globalOffsetY;
     GetGlobalOffset(frame, &globalOffsetX, &globalOffsetY);
-    IntPoint bodyPos = IntPoint(0, 0);
     while (walk.mMore || (node = node->traverseNextNode()) != NULL) {
 #if DUMP_NAV_CACHE
         nodeIndex++;
@@ -1062,7 +1061,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
 #if USE(ACCELERATED_COMPOSITING)
             if (nodeRenderer->hasLayer()) {
                 TrackLayer(layerTracker, nodeRenderer, lastChild,
-                    globalOffsetX - bodyPos.x(), globalOffsetY - bodyPos.y());
+                    globalOffsetX, globalOffsetY);
                 size_t size = tracker.size();
                 const LayerAndroid* layer = layerTracker.last().mLayer;
                 if (layer) {
@@ -1129,10 +1128,15 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         originalAbsBounds = absBounds;
         absBounds.move(globalOffsetX, globalOffsetY);
         hasClip = nodeRenderer->hasOverflowClip();
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+        if (nodeRenderer->hasLayer()) {
+            const LayerAndroid* layer = layerTracker.last().mLayer;
+            if (layer && layer->contentIsScrollable())
+                hasClip = false;
+        }
+#endif
 
-        if (node->hasTagName(HTMLNames::bodyTag))
-            bodyPos = originalAbsBounds.location();
-        else if (node->hasTagName(HTMLNames::canvasTag))
+        if (node->hasTagName(HTMLNames::canvasTag))
             mPictureSetDisabled = true;
         if (checkForPluginViewThatWantsFocus(nodeRenderer)) {
             bounds = absBounds;
@@ -1323,7 +1327,8 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         LayerAndroid* layer = layerTracker.last().mLayer;
         if (layer) {
             const IntRect& layerClip = layerTracker.last().mBounds;
-            if (!layerClip.isEmpty() && !cachedNode.clip(layerClip)) {
+            if (!layer->contentIsScrollable() && !layerClip.isEmpty() &&
+                    !cachedNode.clip(layerClip)) {
                 DBG_NAV_LOGD("skipped on layer clip %d", cacheIndex);
                 continue; // skip this node if outside of the clip
             }

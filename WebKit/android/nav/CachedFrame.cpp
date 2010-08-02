@@ -48,6 +48,19 @@ WebCore::IntRect CachedFrame::adjustBounds(const CachedNode* node,
 #endif
 }
 
+// This is for nodes inside a layer.  It takes an IntRect that has been
+// adjusted by the layer's position and removes the adjustment made by the
+// layer.
+WebCore::IntRect CachedFrame::unadjustBounds(const CachedNode* node,
+    const WebCore::IntRect& rect) const
+{
+#if USE(ACCELERATED_COMPOSITING)
+    if (node->isInLayer())
+        return layer(node)->unadjustBounds(mRoot->rootLayer(), rect);
+#endif
+    return rect;
+}
+
 bool CachedFrame::CheckBetween(Direction direction, const WebCore::IntRect& bestRect,
         const WebCore::IntRect& prior, WebCore::IntRect* result)
 {
@@ -394,8 +407,10 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
                     if (*directHit == NULL) {
                         *directHit = test;
                         *directHitFramePtr = this;
-                        *x = center.x();
-                        *y = center.y();
+                        IntRect r(center, IntSize(0, 0));
+                        r = unadjustBounds(test, r);
+                        *x = r.x();
+                        *y = r.y();
                     } else {
                         // We have hit another one before
                         const CachedNode* d = *directHit;
@@ -436,6 +451,7 @@ const CachedNode* CachedFrame::findBestAt(const WebCore::IntRect& rect,
                     *inside = testInside;
                     result = test;
                     *framePtr = this;
+                    both = unadjustBounds(test, both);
                     *x = both.x() + (both.width() >> 1);
                     *y = both.y() + (both.height() >> 1);
                 }
@@ -500,6 +516,7 @@ const CachedNode* CachedFrame::findBestHitAt(const WebCore::IntRect& rect,
             if (cursorRect.intersects(rect)) {
                 WebCore::IntRect intersection(cursorRect);
                 intersection.intersect(rect);
+                intersection = unadjustBounds(test, intersection);
                 *x = intersection.x() + (intersection.width() >> 1);
                 *y = intersection.y() + (intersection.height() >> 1);
                 *framePtr = this;
@@ -696,12 +713,17 @@ int CachedFrame::frameNodeCommon(BestData& testData, const CachedNode* test,
         testData.mNode->setCondition(CachedNode::DISABLED);
         return REJECT_TEST;
     }
-    if (mRoot->scrolledBounds().intersects(test->bounds(this)) == false) {
+    WebCore::IntRect bounds = test->bounds(this);
+    if (bounds.isEmpty()) {
+        testData.mNode->setCondition(CachedNode::NAVABLE);
+        return REJECT_TEST;
+    }
+    if (mRoot->scrolledBounds().intersects(bounds) == false) {
         testData.mNode->setCondition(CachedNode::NAVABLE);
         return REJECT_TEST;
     }
     if (mRoot->rootLayer() && !test->isInLayer()
-            && !mRoot->baseUncovered().intersects(test->bounds(this))) {
+            && !mRoot->baseUncovered().intersects(bounds)) {
         testData.mNode->setCondition(CachedNode::UNDER_LAYER);
         return REJECT_TEST;
     }
@@ -901,7 +923,7 @@ WebCore::IntRect CachedFrame::localBounds(const CachedNode* node,
     DBG_NAV_LOGD("node=%p [%d] rect=(%d,%d,w=%d,h=%d)",
         node, node->index(), rect.x(), rect.y(), rect.width(), rect.height());
 #if USE(ACCELERATED_COMPOSITING)
-    return layer(node)->localBounds(rect);
+    return layer(node)->localBounds(mRoot->rootLayer(), rect);
 #else
     return rect;
 #endif

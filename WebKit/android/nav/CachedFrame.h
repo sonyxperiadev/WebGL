@@ -78,6 +78,8 @@ public:
     void addFrame(CachedFrame& child) { mCachedFrames.append(child); }
     WebCore::IntRect adjustBounds(const CachedNode* ,
         const WebCore::IntRect& ) const;
+    WebCore::IntRect unadjustBounds(const CachedNode*,
+        const WebCore::IntRect& ) const;
     bool checkRings(const CachedNode* node,
         const WTF::Vector<WebCore::IntRect>& rings,
         const WebCore::IntRect& bounds) const;

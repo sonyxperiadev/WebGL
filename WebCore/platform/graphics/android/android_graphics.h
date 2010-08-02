@@ -71,6 +71,7 @@ private:
     WebViewCore* m_viewImpl; // copy for convenience
     WTF::Vector<IntRect> m_rings;
     IntRect m_bounds;
+    IntRect m_absBounds;
     const CachedRoot* m_root;
     const CachedFrame* m_frame;
     const CachedNode* m_node;

@@ -3238,16 +3238,18 @@ void RenderLayer::calculateRects(const RenderLayer* rootLayer, const IntRect& pa
     if (renderer()->hasOverflowClip() || renderer()->hasClip()) {
         // This layer establishes a clip of some kind.
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-        if (renderer()->hasOverflowClip()) {
+        if (renderer()->hasOverflowClip() &&
+                !m_scrollDimensionsDirty &&
+                (m_scrollWidth > renderBox()->clientWidth() ||
+                 m_scrollHeight > renderBox()->clientHeight())) {
             RenderBox* box = toRenderBox(renderer());
             layerBounds = backgroundRect = foregroundRect = outlineRect =
                     IntRect(x, y, box->borderLeft() + box->borderRight() + m_scrollWidth,
                             box->borderTop() + box->borderBottom() + m_scrollHeight);
-        }
-#else
+        } else
+#endif
         if (renderer()->hasOverflowClip())
             foregroundRect.intersect(toRenderBox(renderer())->overflowClipRect(x, y));
-#endif
         if (renderer()->hasClip()) {
             // Clip applies to *us* as well, so go ahead and update the damageRect.
             IntRect newPosClip = toRenderBox(renderer())->clipRect(x, y);
@@ -3757,24 +3759,10 @@ bool RenderLayer::shouldBeNormalFlowOnly() const
             && !isTransparent();
 }
 
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-static bool hasOverflowScroll(const RenderLayer* layer)
-{
-    RenderBox* box = layer->renderBox();
-    if (!box || !box->node() || !box->node()->hasTagName(HTMLNames::divTag))
-        return false;
-    EOverflow x = box->style()->overflowX();
-    EOverflow y = box->style()->overflowY();
-    return (x == OAUTO || x == OSCROLL || y == OAUTO || y == OSCROLL) &&
-            (box->scrollWidth() > box->clientWidth() ||
-             box->scrollHeight() > box->clientHeight());
-}
-#endif
-
 bool RenderLayer::isSelfPaintingLayer() const
 {
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    if (hasOverflowScroll(this))
+    if (renderer()->hasOverflowClip())
         return true;
 #endif
     return !isNormalFlowOnly() || renderer()->hasReflection() || renderer()->hasMask() || renderer()->isTableRow() || renderer()->isVideo() || renderer()->isEmbeddedObject() || renderer()->isRenderIFrame();
