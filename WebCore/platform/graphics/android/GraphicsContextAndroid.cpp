@@ -1173,7 +1173,7 @@ void GraphicsContext::setImageInterpolationQuality(InterpolationQuality mode)
      */
 }
 
-void GraphicsContext::clipConvexPolygon(size_t numPoints, const FloatPoint*)
+void GraphicsContext::clipConvexPolygon(size_t numPoints, const FloatPoint*, bool antialias)
 {
     if (paintingDisabled())
         return;
