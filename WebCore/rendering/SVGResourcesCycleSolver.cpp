@@ -101,8 +101,13 @@ static inline String targetReferenceFromResource(SVGElement* element, bool& isVa
         target = static_cast<SVGPatternElement*>(element)->href();
     else if (element->hasTagName(SVGNames::linearGradientTag) || element->hasTagName(SVGNames::radialGradientTag))
         target = static_cast<SVGGradientElement*>(element)->href();
+// ANDROID
+// This is deleted upstream so we cannot upstream the guard
+// http://trac.webkit.org/changeset/64440/trunk/WebCore/rendering/SVGResourcesCycleSolver.cpp
+#if ENABLE(FILTERS)
     else if (element->hasTagName(SVGNames::filterTag))
         target = static_cast<SVGFilterElement*>(element)->href();
+#endif
     else {
         isValid = false;
         return target;
@@ -279,7 +284,9 @@ void SVGResourcesCycleSolver::breakCycle(RenderSVGResourceContainer* resourceLea
         break;
     case FilterResourceType:
         ASSERT(resourceLeadingToCycle == m_resources->filter());
+#if ENABLE(FILTERS)
         m_resources->resetFilter();
+#endif
         break;
     case ClipperResourceType:
         ASSERT(resourceLeadingToCycle == m_resources->clipper());
