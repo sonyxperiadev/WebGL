@@ -1,5 +1,5 @@
 /*
- * Copyright 2006, The Android Open Source Project
+ * Copyright 2010, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -13,7 +13,7 @@
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -23,30 +23,24 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "SearchPopupMenu.h"
+#ifndef PopupMenuAndroid_h
+#define PopupMenuAndroid_h
+
+#include "IntRect.h"
+#include "PopupMenu.h"
 
 namespace WebCore {
 
-// Save the past searches stored in 'searchItems' to a database associated with 'name'
-void SearchPopupMenu::saveRecentSearches(const AtomicString& name, const Vector<String>& searchItems) 
-{ 
+class FrameView;
+
+class PopupMenuAndroid : public PopupMenu {
+public:
+    virtual void show(const IntRect&, FrameView*, int) { }
+    virtual void hide() { }
+    virtual void updateFromElement() { }
+    virtual void disconnectClient() { }
+};
+
 }
 
-// Load past searches associated with 'name' from the database to 'searchItems'
-void SearchPopupMenu::loadRecentSearches(const AtomicString& name, Vector<String>& searchItems) 
-{ 
-}
-
-// Create a search popup menu - not sure what else we have to do here
-SearchPopupMenu::SearchPopupMenu(PopupMenuClient* client)
-    : PopupMenu(client) 
-{ 
-}
-        
-bool SearchPopupMenu::enabled()
-{
-    return false;
-}
-
-}  // namespace WebCore
+#endif // PopupMenuAndroid_h

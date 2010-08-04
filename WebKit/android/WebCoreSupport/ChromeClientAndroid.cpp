@@ -40,7 +40,9 @@
 #include "GraphicsLayerAndroid.h"
 #include "Icon.h"
 #include "Page.h"
+#include "PopupMenuAndroid.h"
 #include "ScriptController.h"
+#include "SearchPopupMenuAndroid.h"
 #include "WebCoreFrameBridge.h"
 #include "WebCoreViewBridge.h"
 #include "WebViewCore.h"
@@ -508,6 +510,21 @@ void ChromeClientAndroid::needTouchEvents(bool needTouchEvents)
         core->needTouchEvents(needTouchEvents);
 }
 #endif
+
+bool ChromeClientAndroid::selectItemWritingDirectionIsNatural()
+{
+    return false;
+}
+
+PassRefPtr<PopupMenu> ChromeClientAndroid::createPopupMenu(PopupMenuClient*) const
+{
+    return adoptRef(new PopupMenuAndroid);
+}
+
+PassRefPtr<SearchPopupMenu> ChromeClientAndroid::createSearchPopupMenu(PopupMenuClient*) const
+{
+    return adoptRef(new SearchPopupMenuAndroid);
+}
 
 #if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
 void ChromeClientAndroid::webAppCanBeInstalled()

@@ -29,11 +29,15 @@
 #include "ChromeClient.h"
 
 #include "GeolocationPermissions.h"
+#include "PopupMenu.h"
+#include "SearchPopupMenu.h"
 #include "Timer.h"
+#include <wtf/PassRefPtr.h>
 #include <wtf/Threading.h>
 
 namespace WebCore {
-    class Geolocation;
+class PopupMenuClient;
+class Geolocation;
 }
 
 using namespace WebCore;
@@ -167,6 +171,10 @@ namespace android {
         virtual void scheduleCompositingLayerSync();
         WebCore::GraphicsLayer* layersSync();
 #endif
+
+        virtual bool selectItemWritingDirectionIsNatural();
+        virtual PassRefPtr<WebCore::PopupMenu> createPopupMenu(WebCore::PopupMenuClient*) const;
+        virtual PassRefPtr<WebCore::SearchPopupMenu> createSearchPopupMenu(WebCore::PopupMenuClient*) const;
 
 #if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
         virtual void webAppCanBeInstalled();
