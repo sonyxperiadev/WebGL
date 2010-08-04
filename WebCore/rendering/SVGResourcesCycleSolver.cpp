@@ -283,8 +283,8 @@ void SVGResourcesCycleSolver::breakCycle(RenderSVGResourceContainer* resourceLea
             m_resources->resetStroke();
         break;
     case FilterResourceType:
-        ASSERT(resourceLeadingToCycle == m_resources->filter());
 #if ENABLE(FILTERS)
+        ASSERT(resourceLeadingToCycle == m_resources->filter());
         m_resources->resetFilter();
 #endif
         break;
