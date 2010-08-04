@@ -31,7 +31,6 @@
 
 #include "base/ref_counted.h"
 #include <string>
-#include <vector>
 
 namespace base {
 class Thread;
@@ -84,10 +83,8 @@ private:
     // Handle to the chrome IO thread
     static base::Thread* ioThread();
 
-    // Vector containing all active loader clients
-    static std::vector<WebUrlLoaderClient*>* activeLoaders;
-
-    static bool isActive(const WebUrlLoaderClient*);
+    // Check if a request is active
+    bool isActive() const;
 };
 
 // A struct to send more than one thing in a void*, needed for callOnMainThread
