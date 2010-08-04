@@ -113,6 +113,7 @@ bool EllipsisBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
         }
     }
 
+<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
     IntRect boundsRect = IntRect(tx, ty, m_width, m_height);
     if (visibleToHitTesting() && result.intersects(x, y, boundsRect)) {
@@ -129,6 +130,13 @@ bool EllipsisBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
         }
 #endif
         return true;
+=======
+    IntRect boundsRect = IntRect(tx, ty, m_width, m_height);
+    if (visibleToHitTesting() && boundsRect.intersects(result.rectFromPoint(x, y))) {
+        renderer()->updateHitTestResult(result, IntPoint(x - tx, y - ty));
+        if (!result.addNodeToRectBasedTestResult(renderer()->node(), x, y, boundsRect))
+            return true;
+>>>>>>> webkit.org at r64523
     }
 
     return false;

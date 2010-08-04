@@ -56,8 +56,10 @@ WebInspector.ElementsPanel = function()
         this.panel.updateProperties();
         this.panel.updateEventListeners();
 
-        if (this._focusedDOMNode)
+        if (this._focusedDOMNode) {
             InspectorBackend.addInspectedNode(this._focusedDOMNode.id);
+            WebInspector.extensionServer.notifyObjectSelected(this.name, "DOMNode");
+        }
     };
 
     this.contentElement.appendChild(this.treeOutline.element);
@@ -161,7 +163,7 @@ WebInspector.ElementsPanel.prototype = {
         if (this.focusedDOMNode) {
             this._selectedPathOnReset = [];
             var node = this.focusedDOMNode;
-            while ("index" in node) {
+            while ("index" in node && node.nodeName && node.nodeName.length) {
                 this._selectedPathOnReset.push(node.nodeName);
                 this._selectedPathOnReset.push(node.index);
                 node = node.parentNode;

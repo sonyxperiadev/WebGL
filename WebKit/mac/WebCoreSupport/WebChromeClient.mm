@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
- * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (C) 2008, 2010 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,8 @@
 #import "WebChromeClient.h"
 
 #import "DOMNodeInternal.h"
+#import "WebApplicationCacheSecurityOrigin.h"
+#import "WebDatabaseSecurityOrigin.h"
 #import "WebDefaultUIDelegate.h"
 #import "WebDelegateImplementationCaching.h"
 #import "WebElementDictionary.h"
@@ -62,11 +64,15 @@
 #import <WebCore/Page.h>
 #import <WebCore/PlatformScreen.h>
 #import <WebCore/PlatformString.h>
+#import <WebCore/PopupMenuMac.h>
 #import <WebCore/ResourceRequest.h>
+#import <WebCore/SearchPopupMenuMac.h>
 #import <WebCore/Widget.h>
 #import <WebCore/WindowFeatures.h>
 #import <wtf/PassRefPtr.h>
 #import <wtf/Vector.h>
+
+
 
 #if USE(ACCELERATED_COMPOSITING)
 #import <WebCore/GraphicsLayer.h>
@@ -553,7 +559,7 @@ void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& database
 {
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
 
-    WebSecurityOrigin *webOrigin = [[WebSecurityOrigin alloc] _initWithWebCoreSecurityOrigin:frame->document()->securityOrigin()];
+    WebDatabaseSecurityOrigin *webOrigin = [[WebDatabaseSecurityOrigin alloc] _initWithWebCoreSecurityOrigin:frame->document()->securityOrigin()];
     // FIXME: remove this workaround once shipping Safari has the necessary delegate implemented.
     if (WKAppVersionCheckLessThan(@"com.apple.Safari", -1, 3.1)) {
         const unsigned long long defaultQuota = 5 * 1024 * 1024; // 5 megabytes should hopefully be enough to test storage support.
@@ -570,6 +576,17 @@ void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& database
 void WebChromeClient::reachedMaxAppCacheSize(int64_t spaceNeeded)
 {
     // FIXME: Free some space.
+}
+
+void WebChromeClient::reachedApplicationCacheOriginQuota(SecurityOrigin* origin)
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+
+    WebApplicationCacheSecurityOrigin *webOrigin = [[WebApplicationCacheSecurityOrigin alloc] _initWithWebCoreSecurityOrigin:origin];
+    CallUIDelegate(m_webView, @selector(webView:exceededApplicationCacheOriginQuotaForSecurityOrigin:), webOrigin);
+    [webOrigin release];
+
+    END_BLOCK_OBJC_EXCEPTIONS;
 }
 #endif
     
@@ -722,6 +739,21 @@ void WebChromeClient::formDidFocus(const WebCore::Node* node)
 void WebChromeClient::formDidBlur(const WebCore::Node* node)
 {
     CallUIDelegate(m_webView, @selector(webView:formDidBlurNode:), kit(const_cast<WebCore::Node*>(node)));
+}
+
+bool WebChromeClient::selectItemWritingDirectionIsNatural()
+{
+    return true;
+}
+
+PassRefPtr<WebCore::PopupMenu> WebChromeClient::createPopupMenu(WebCore::PopupMenuClient* client) const
+{
+    return adoptRef(new PopupMenuMac(client));
+}
+
+PassRefPtr<WebCore::SearchPopupMenu> WebChromeClient::createSearchPopupMenu(WebCore::PopupMenuClient* client) const
+{
+    return adoptRef(new SearchPopupMenuMac(client));
 }
 
 #if USE(ACCELERATED_COMPOSITING)

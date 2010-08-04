@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * All rights reserved.
  *
@@ -131,6 +132,7 @@ namespace WebCore {
 #endif
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
+        virtual void reachedApplicationCacheOriginQuota(SecurityOrigin*);
 #endif
 
 #if ENABLE(NOTIFICATIONS)
@@ -168,13 +170,9 @@ namespace WebCore {
         virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
         virtual void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*) { }
 
-#if ENABLE(WIDGETS_10_SUPPORT)
-        virtual bool isWindowed();
-        virtual bool isFloating();
-        virtual bool isFullscreen();
-        virtual bool isMaximized();
-        virtual bool isMinimized();
-#endif
+        virtual bool selectItemWritingDirectionIsNatural();
+        virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const;
+        virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const;
 
         QtAbstractWebPopup* createSelectPopup();
 

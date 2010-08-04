@@ -666,6 +666,9 @@ bool RenderLayerBacking::isSimpleContainerCompositingLayer() const
     if (hasBoxDecorationsOrBackground(renderObject))
         return false;
 
+    if (m_owningLayer->hasOverflowControls())
+        return false;
+
     // If we have got this far and the renderer has no children, then we're ok.
     if (!renderObject->firstChild())
         return true;
@@ -694,26 +697,23 @@ bool RenderLayerBacking::isSimpleContainerCompositingLayer() const
         if (hasBoxDecorationsOrBackgroundImage(style))
             return false;
 
-        // Ceck to see if all the body's children are compositing layers.
-        if (hasNonCompositingContent())
+        // Check to see if all the body's children are compositing layers.
+        if (hasNonCompositingDescendants())
             return false;
         
         return true;
     }
 
     // Check to see if all the renderer's children are compositing layers.
-    if (hasNonCompositingContent())
+    if (hasNonCompositingDescendants())
         return false;
     
     return true;
 }
 
 // Conservative test for having no rendered children.
-bool RenderLayerBacking::hasNonCompositingContent() const
+bool RenderLayerBacking::hasNonCompositingDescendants() const
 {
-    if (m_owningLayer->hasOverflowControls())
-        return true;
-    
     // Some HTML can cause whitespace text nodes to have renderers, like:
     // <div>
     // <img src=...>
@@ -911,7 +911,7 @@ FloatPoint RenderLayerBacking::contentsToGraphicsLayerCoordinates(const Graphics
 bool RenderLayerBacking::paintingGoesToWindow() const
 {
     if (m_owningLayer->isRootLayer())
-        return compositor()->rootLayerAttachment() == RenderLayerCompositor::RootLayerAttachedViaChromeClient;
+        return compositor()->rootLayerAttachment() != RenderLayerCompositor::RootLayerAttachedViaEnclosingIframe;
     
     return false;
 }

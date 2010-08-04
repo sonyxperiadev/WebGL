@@ -26,7 +26,12 @@ INCLUDEPATH += ../../../../JavaScriptCore \
                ../../TestNetscapePlugIn
 
 SOURCES = PluginObject.cpp \
-          TestObject.cpp
+          PluginTest.cpp \
+          TestObject.cpp \
+          Tests/DocumentOpenInDestroyStream.cpp \
+          Tests/NPRuntimeObjectFromDestroyedPlugin.cpp \
+          Tests/NPRuntimeRemoveProperty.cpp \
+          Tests/PluginScriptableNPObjectInvokeDefault.cpp
 
 mac {
     SOURCES += ../../TestNetscapePlugIn/main.cpp

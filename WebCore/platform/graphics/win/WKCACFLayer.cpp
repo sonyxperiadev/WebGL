@@ -29,7 +29,6 @@
 
 #include "WKCACFLayer.h"
 
-#include "WKCACFContextFlusher.h"
 #include "WKCACFLayerRenderer.h"
 #include <wtf/text/CString.h>
 
@@ -123,7 +122,6 @@ static CFStringRef toCACFFilterType(WKCACFLayer::FilterType type)
     case WKCACFLayer::Linear: return kCACFFilterLinear;
     case WKCACFLayer::Nearest: return kCACFFilterNearest;
     case WKCACFLayer::Trilinear: return kCACFFilterTrilinear;
-    case WKCACFLayer::Lanczos: return kCACFFilterLanczos;
     default: return 0;
     }
 }
@@ -135,9 +133,6 @@ static WKCACFLayer::FilterType fromCACFFilterType(CFStringRef string)
 
     if (CFEqual(string, kCACFFilterTrilinear))
         return WKCACFLayer::Trilinear;
-
-    if (CFEqual(string, kCACFFilterLanczos))
-        return WKCACFLayer::Lanczos;
 
     return WKCACFLayer::Linear;
 }
@@ -179,15 +174,6 @@ void WKCACFLayer::becomeRootLayerForContext(CACFContextRef context)
 void WKCACFLayer::setNeedsCommit()
 {
     WKCACFLayer* root = rootLayer();
-
-    CACFContextRef context = CACFLayerGetContext(root->layer());
-
-    // The context might now be set yet. This happens if a property gets set
-    // before placing the layer in the tree. In this case we don't need to 
-    // worry about remembering the context because we will when the layer is
-    // added to the tree.
-    if (context)
-        WKCACFContextFlusher::shared().addContext(context);
 
     // Call setNeedsRender on the root layer, which will cause a render to 
     // happen in WKCACFLayerRenderer

@@ -176,6 +176,38 @@ void WebDOMTestObj::setTestObjAttr(const WebDOMTestObj& newTestObjAttr)
     impl()->setTestObjAttr(toWebCore(newTestObjAttr));
 }
 
+WebDOMTestObj WebDOMTestObj::XMLObjAttr() const
+{
+    if (!impl())
+        return WebDOMTestObj();
+
+    return toWebKit(WTF::getPtr(impl()->xmlObjAttr()));
+}
+
+void WebDOMTestObj::setXMLObjAttr(const WebDOMTestObj& newXMLObjAttr)
+{
+    if (!impl())
+        return;
+
+    impl()->setXMLObjAttr(toWebCore(newXMLObjAttr));
+}
+
+bool WebDOMTestObj::CREATE() const
+{
+    if (!impl())
+        return false;
+
+    return impl()->isCreate();
+}
+
+void WebDOMTestObj::setCREATE(bool newCREATE)
+{
+    if (!impl())
+        return;
+
+    impl()->setCreate(newCREATE);
+}
+
 WebDOMString WebDOMTestObj::reflectedStringAttr() const
 {
     if (!impl())

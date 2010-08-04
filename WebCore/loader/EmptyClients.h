@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006 Eric Seidel (eric@webkit.org)
  * Copyright (C) 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,8 +29,8 @@
 #define EmptyClients_h
 
 #include "ChromeClient.h"
-#include "ContextMenuClient.h"
 #include "Console.h"
+#include "ContextMenuClient.h"
 #include "DocumentLoader.h"
 #include "DragClient.h"
 #include "EditCommand.h"
@@ -39,7 +40,13 @@
 #include "FrameLoaderClient.h"
 #include "InspectorClient.h"
 #include "PluginHalterClient.h"
+#include "PopupMenu.h"
 #include "ResourceError.h"
+#include "SearchPopupMenu.h"
+
+#if USE(GLES2_RENDERING)
+#include "GLES2Context.h"
+#endif
 
 /*
  This file holds empty Client stubs for use by WebCore.
@@ -55,6 +62,25 @@
 */
 
 namespace WebCore {
+
+class EmptyPopupMenu : public PopupMenu {
+public:
+    virtual void show(const IntRect&, FrameView*, int) {}
+    virtual void hide() {}
+    virtual void updateFromElement() {}
+    virtual void disconnectClient() {}
+};
+
+class EmptySearchPopupMenu : public SearchPopupMenu {
+public:
+    virtual PopupMenu* popupMenu() { return m_popup.get(); }
+    virtual void saveRecentSearches(const AtomicString&, const Vector<String>&) {}
+    virtual void loadRecentSearches(const AtomicString&, Vector<String>&) {}
+    virtual bool enabled() { return false; }
+
+private:
+    RefPtr<EmptyPopupMenu> m_popup;
+};
 
 class EmptyChromeClient : public ChromeClient {
 public:
@@ -112,6 +138,10 @@ public:
     virtual bool runJavaScriptPrompt(Frame*, const String&, const String&, String&) { return false; }
     virtual bool shouldInterruptJavaScript() { return false; }
 
+    virtual bool selectItemWritingDirectionIsNatural() { return false; }
+    virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const { return adoptRef(new EmptyPopupMenu()); }
+    virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const { return adoptRef(new EmptySearchPopupMenu()); }
+
     virtual void setStatusbarText(const String&) { }
 
     virtual bool tabsToLinks() const { return false; }
@@ -141,6 +171,7 @@ public:
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     virtual void reachedMaxAppCacheSize(int64_t) { }
+    virtual void reachedApplicationCacheOriginQuota(SecurityOrigin*) { }
 #endif
 
 #if ENABLE(NOTIFICATIONS)
@@ -168,6 +199,11 @@ public:
     virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*) {};
     virtual void setNeedsOneShotDrawingSynchronization() {};
     virtual void scheduleCompositingLayerSync() {};
+#endif
+
+#if USE(GLES2_RENDERING)
+    virtual PassOwnPtr<GLES2Context> getOnscreenGLES2Context() { return 0; }
+    virtual PassOwnPtr<GLES2Context> getOffscreenGLES2Context() { return 0; }
 #endif
 
 #if PLATFORM(WIN)

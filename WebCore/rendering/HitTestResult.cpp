@@ -49,9 +49,11 @@ using namespace HTMLNames;
 HitTestResult::HitTestResult(const IntPoint& point)
     : m_point(point)
     , m_isOverWidget(false)
+    , m_isRectBased(false)
 {
 }
 
+<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
 HitTestResult::HitTestResult(const IntPoint& point, const IntSize& padding)
     : m_point(point)
@@ -60,6 +62,17 @@ HitTestResult::HitTestResult(const IntPoint& point, const IntSize& padding)
 {
 }
 #endif
+=======
+HitTestResult::HitTestResult(const IntPoint& centerPoint, const IntSize& padding)
+    : m_point(centerPoint)
+    , m_isOverWidget(false)
+{
+    // If a zero padding is passed in or either width or height is negative, then it
+    // is not a valid padding and hence not a rect based hit test.
+    m_isRectBased = !(padding.isZero() || (padding.width() < 0 || padding.height() < 0));
+    m_padding = m_isRectBased ? padding : IntSize();
+}
+>>>>>>> webkit.org at r64523
 
 HitTestResult::HitTestResult(const HitTestResult& other)
     : m_innerNode(other.innerNode())
@@ -74,6 +87,12 @@ HitTestResult::HitTestResult(const HitTestResult& other)
     , m_rawNodeList(other.rawNodeList())
 #endif
 {
+    // Only copy the padding and ListHashSet in case of rect hit test.
+    // Copying the later is rather expensive.
+    if ((m_isRectBased = other.isRectBasedTest())) {
+        m_padding = other.padding();
+        m_rectBasedTestResult = other.rectBasedTestResult();
+    }
 }
 
 HitTestResult::~HitTestResult()
@@ -89,10 +108,19 @@ HitTestResult& HitTestResult::operator=(const HitTestResult& other)
     m_innerURLElement = other.URLElement();
     m_scrollbar = other.scrollbar();
     m_isOverWidget = other.isOverWidget();
+<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
     m_pointPadding = other.pointPadding();
     m_rawNodeList = other.rawNodeList();
 #endif
+=======
+    // Only copy the padding and ListHashSet in case of rect hit test.
+    // Copying the later is rather expensive.
+    if ((m_isRectBased = other.isRectBasedTest())) {
+        m_padding = other.padding();
+        m_rectBasedTestResult = other.rectBasedTestResult();
+    }
+>>>>>>> webkit.org at r64523
     return *this;
 }
 
@@ -379,6 +407,7 @@ bool HitTestResult::isContentEditable() const
     return m_innerNonSharedNode->isContentEditable();
 }
 
+<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
 
 bool HitTestResult::intersects(int x, int y, const IntRect& other) const
@@ -395,6 +424,29 @@ bool HitTestResult::containedBy(int x, int y, const IntRect& other) const
 
 void HitTestResult::merge(const HitTestResult& other)
 {
+=======
+bool HitTestResult::addNodeToRectBasedTestResult(Node* node, int x, int y, const IntRect& rect)
+{
+    // If it is not a rect-based hit test, this method has to be no-op.
+    // Return false, so the hit test stops.
+    if (!isRectBasedTest())
+        return false;
+
+    // If node is null, return true so the hit test can continue.
+    if (!node)
+        return true;
+
+    node = node->shadowAncestorNode();
+    m_rectBasedTestResult.add(node);
+
+    return !rect.contains(rectFromPoint(x, y));
+}
+
+void HitTestResult::append(const HitTestResult& other)
+{
+    ASSERT(isRectBasedTest() && other.isRectBasedTest());
+
+>>>>>>> webkit.org at r64523
     if (!m_innerNode && other.innerNode()) {
         m_innerNode = other.innerNode();
         m_innerNonSharedNode = other.innerNonSharedNode();
@@ -404,6 +456,7 @@ void HitTestResult::merge(const HitTestResult& other)
         m_isOverWidget = other.isOverWidget();
     }
 
+<<<<<<< HEAD
     const Vector<RefPtr<Node> >& list = other.rawNodeList();
     Vector<RefPtr<Node> >::const_iterator last = list.end();
     for (Vector<RefPtr<Node> >::const_iterator it = list.begin(); it != last; ++it)
@@ -425,4 +478,12 @@ void HitTestResult::addRawNode(Node* node)
 
 #endif // ANDROID_HITTEST_WITHSIZE
 
+=======
+    const ListHashSet<RefPtr<Node> >& list = other.rectBasedTestResult();
+    ListHashSet<RefPtr<Node> >::const_iterator last = list.end();
+    for (ListHashSet<RefPtr<Node> >::const_iterator it = list.begin(); it != last; ++it)
+        m_rectBasedTestResult.add(it->get());
+}
+
+>>>>>>> webkit.org at r64523
 } // namespace WebCore

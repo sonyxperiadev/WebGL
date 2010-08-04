@@ -36,15 +36,28 @@ static NSString *defaultURL = @"http://www.webkit.org/";
 
 @implementation BrowserAppDelegate
 
-void _didRecieveMessageFromInjectedBundle(WKContextRef context, WKStringRef message, const void *clientInfo)
+void didRecieveMessageFromInjectedBundle(WKContextRef context, WKStringRef messageName, WKTypeRef messageBody, const void *clientInfo)
 {
-    CFStringRef cfMessage = WKStringCopyCFString(0, message);
-    LOG(@"ContextInjectedBundleClient - didRecieveMessage - message: %@", cfMessage);
-    CFRelease(cfMessage);
+    CFStringRef cfMessageName = WKStringCopyCFString(0, messageName);
 
-    WKStringRef newMessage = WKStringCreateWithCFString(CFSTR("Roger that!"));
-    WKContextPostMessageToInjectedBundle(context, newMessage);
-    WKStringRelease(newMessage);
+    WKTypeID typeID = WKGetTypeID(messageBody);
+    if (typeID == WKStringGetTypeID()) {
+        CFStringRef cfMessageBody = WKStringCopyCFString(0, (WKStringRef)messageBody);
+        LOG(@"ContextInjectedBundleClient - didRecieveMessage - MessageName: %@ MessageBody %@", cfMessageName, cfMessageBody);
+        CFRelease(cfMessageBody);
+    } else {
+        LOG(@"ContextInjectedBundleClient - didRecieveMessage - MessageName: %@ (MessageBody Unhandeled)\n", cfMessageName);
+    }
+    
+    CFRelease(cfMessageName);
+
+    WKStringRef newMessageName = WKStringCreateWithCFString(CFSTR("Response"));
+    WKStringRef newMessageBody = WKStringCreateWithCFString(CFSTR("Roger that!"));
+
+    WKContextPostMessageToInjectedBundle(context, newMessageName, newMessageBody);
+    
+    WKStringRelease(newMessageName);
+    WKStringRelease(newMessageBody);
 }
 
 #pragma mark History Client Callbacks
@@ -128,7 +141,7 @@ static void populateVisitedLinks(WKContextRef context, const void *clientInfo)
         WKContextInjectedBundleClient bundleClient = {
             0,      /* version */
             0,      /* clientInfo */
-            _didRecieveMessageFromInjectedBundle
+            didRecieveMessageFromInjectedBundle
         };
         WKContextSetInjectedBundleClient(processContext, &bundleClient);
         WKContextSetHistoryClient(processContext, &historyClient);

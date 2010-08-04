@@ -47,6 +47,7 @@ namespace WebCore {
         virtual ~SVGPatternElement();
         
         virtual bool isValid() const { return SVGTests::isValid(); }
+        virtual bool needsPendingResourceHandling() const { return false; }
 
         virtual void parseMappedAttribute(Attribute*);
         virtual void svgAttributeChanged(const QualifiedName&);

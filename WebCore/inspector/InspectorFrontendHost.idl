@@ -41,6 +41,7 @@ module core {
         void requestDetachWindow();
         void setAttachedWindowHeight(in unsigned long height);
         void moveWindowBy(in float x, in float y);
+        void setExtensionAPI(in DOMString script);
 
         DOMString localizedStringsURL();
         DOMString hiddenPanels();

@@ -163,6 +163,18 @@ webkit_dom_test_obj_get_test_obj_attr(WebKitDOMTestObj* self);
 WEBKIT_API void
 webkit_dom_test_obj_set_test_obj_attr(WebKitDOMTestObj* self, WebKitDOMTestObj*  value);
 
+WEBKIT_API WebKitDOMTestObj* 
+webkit_dom_test_obj_get_xml_obj_attr(WebKitDOMTestObj* self);
+
+WEBKIT_API void
+webkit_dom_test_obj_set_xml_obj_attr(WebKitDOMTestObj* self, WebKitDOMTestObj*  value);
+
+WEBKIT_API gboolean
+webkit_dom_test_obj_get_create(WebKitDOMTestObj* self);
+
+WEBKIT_API void
+webkit_dom_test_obj_set_create(WebKitDOMTestObj* self, gboolean value);
+
 WEBKIT_API gchar* 
 webkit_dom_test_obj_get_reflected_string_attr(WebKitDOMTestObj* self);
 

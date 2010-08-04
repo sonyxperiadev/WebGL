@@ -1,3 +1,41 @@
+2010-07-31  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/43307> Make sure all private headers are copied to PrivateHeaders directory
+
+        Reviewed by Dan Bernstein.
+
+        This also fixes compilation of DumpRenderTree after changes for
+        Bug 40627.
+
+        * WebKit.xcodeproj/project.pbxproj: Set the PRIVATE attribute on
+        the following headers:
+        - WebFormDelegatePrivate.h
+        - WebKitStatisticsPrivate.h
+        - WebSecurityOriginPrivate.h
+
+2010-07-30  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Limit ApplicationCache Total and Per-Origin Storage Capacity (Quotas)
+        https://bugs.webkit.org/show_bug.cgi?id=40627
+
+        * WebKit.xcodeproj/project.pbxproj:
+        * efl/WebCoreSupport/ChromeClientEfl.cpp:
+        (WebCore::ChromeClientEfl::reachedApplicationCacheOriginQuota):
+        * efl/WebCoreSupport/ChromeClientEfl.h:
+
+2010-07-30  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Add library version and soname to EFL generated libraries and binary.
+        https://bugs.webkit.org/show_bug.cgi?id=43212
+
+        Add version and soname to libewebkit.so.
+
+        * CMakeLists.txt:
+
 2010-07-26  Rafael Antognolli  <antognolli@profusion.mobi>
 
         Reviewed by Antonio Gomes.

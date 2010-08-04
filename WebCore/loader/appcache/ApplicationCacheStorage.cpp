@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009, 2010 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,13 +29,14 @@
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 
 #include "ApplicationCache.h"
-#include "ApplicationCacheHost.h"
 #include "ApplicationCacheGroup.h"
+#include "ApplicationCacheHost.h"
 #include "ApplicationCacheResource.h"
 #include "FileSystem.h"
 #include "KURL.h"
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
+#include "SecurityOrigin.h"
 #include <wtf/text/CString.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/StringExtras.h>
@@ -414,6 +415,126 @@ int64_t ApplicationCacheStorage::spaceNeeded(int64_t cacheToSave)
     return spaceNeeded;
 }
 
+void ApplicationCacheStorage::setDefaultOriginQuota(int64_t quota)
+{
+    m_defaultOriginQuota = quota;
+}
+
+bool ApplicationCacheStorage::quotaForOrigin(const SecurityOrigin* origin, int64_t& quota)
+{
+    // If an Origin record doesn't exist, then the COUNT will be 0 and quota will be 0.
+    // Using the count to determine if a record existed or not is a safe way to determine
+    // if a quota of 0 is real, from the record, or from null.
+    SQLiteStatement statement(m_database, "SELECT COUNT(quota), quota FROM Origins WHERE origin=?");
+    if (statement.prepare() != SQLResultOk)
+        return false;
+
+    statement.bindText(1, origin->databaseIdentifier());
+    int result = statement.step();
+
+    // Return the quota, or if it was null the default.
+    if (result == SQLResultRow) {
+        bool wasNoRecord = statement.getColumnInt64(0) == 0;
+        quota = wasNoRecord ? m_defaultOriginQuota : statement.getColumnInt64(1);
+        return true;
+    }
+
+    LOG_ERROR("Could not get the quota of an origin, error \"%s\"", m_database.lastErrorMsg());
+    return false;
+}
+
+bool ApplicationCacheStorage::usageForOrigin(const SecurityOrigin* origin, int64_t& usage)
+{
+    // If an Origins record doesn't exist, then the SUM will be null,
+    // which will become 0, as expected, when converting to a number.
+    SQLiteStatement statement(m_database, "SELECT SUM(Caches.size)"
+                                          "  FROM CacheGroups"
+                                          " INNER JOIN Origins ON CacheGroups.origin = Origins.origin"
+                                          " INNER JOIN Caches ON CacheGroups.id = Caches.cacheGroup"
+                                          " WHERE Origins.origin=?");
+    if (statement.prepare() != SQLResultOk)
+        return false;
+
+    statement.bindText(1, origin->databaseIdentifier());
+    int result = statement.step();
+
+    if (result == SQLResultRow) {
+        usage = statement.getColumnInt64(0);
+        return true;
+    }
+
+    LOG_ERROR("Could not get the quota of an origin, error \"%s\"", m_database.lastErrorMsg());
+    return false;
+}
+
+bool ApplicationCacheStorage::remainingSizeForOriginExcludingCache(const SecurityOrigin* origin, ApplicationCache* cache, int64_t& remainingSize)
+{
+    openDatabase(false);
+    if (!m_database.isOpen())
+        return false;
+
+    // Remaining size = total origin quota - size of all caches with origin excluding the provided cache.
+    // Keep track of the number of caches so we can tell if the result was a calculation or not.
+    const char* query;
+    int64_t excludingCacheIdentifier = cache ? cache->storageID() : 0;
+    if (excludingCacheIdentifier != 0) {
+        query = "SELECT COUNT(Caches.size), Origins.quota - SUM(Caches.size)"
+                "  FROM CacheGroups"
+                " INNER JOIN Origins ON CacheGroups.origin = Origins.origin"
+                " INNER JOIN Caches ON CacheGroups.id = Caches.cacheGroup"
+                " WHERE Origins.origin=?"
+                "   AND Caches.id!=?";
+    } else {
+        query = "SELECT COUNT(Caches.size), Origins.quota - SUM(Caches.size)"
+                "  FROM CacheGroups"
+                " INNER JOIN Origins ON CacheGroups.origin = Origins.origin"
+                " INNER JOIN Caches ON CacheGroups.id = Caches.cacheGroup"
+                " WHERE Origins.origin=?";
+    }
+
+    SQLiteStatement statement(m_database, query);
+    if (statement.prepare() != SQLResultOk)
+        return false;
+
+    statement.bindText(1, origin->databaseIdentifier());
+    if (excludingCacheIdentifier != 0)
+        statement.bindInt64(2, excludingCacheIdentifier);
+    int result = statement.step();
+
+    // If the count was 0 that then we have to query the origin table directly
+    // for its quota. Otherwise we can use the calculated value.
+    if (result == SQLResultRow) {
+        int64_t numberOfCaches = statement.getColumnInt64(0);
+        if (numberOfCaches == 0)
+            quotaForOrigin(origin, remainingSize);
+        else
+            remainingSize = statement.getColumnInt64(1);
+        return true;
+    }
+
+    LOG_ERROR("Could not get the remaining size of an origin's quota, error \"%s\"", m_database.lastErrorMsg());
+    return false;
+}
+
+bool ApplicationCacheStorage::storeUpdatedQuotaForOrigin(const SecurityOrigin* origin, int64_t quota)
+{
+    openDatabase(false);
+    if (!m_database.isOpen())
+        return false;
+
+    if (!ensureOriginRecord(origin))
+        return false;
+
+    SQLiteStatement updateStatement(m_database, "UPDATE Origins SET quota=? WHERE origin=?");
+    if (updateStatement.prepare() != SQLResultOk)
+        return false;
+
+    updateStatement.bindInt64(1, quota);
+    updateStatement.bindText(2, origin->databaseIdentifier());
+
+    return executeStatement(updateStatement);
+}
+
 bool ApplicationCacheStorage::executeSQLCommand(const String& sql)
 {
     ASSERT(m_database.isOpen());
@@ -426,7 +547,10 @@ bool ApplicationCacheStorage::executeSQLCommand(const String& sql)
     return result;
 }
 
-static const int schemaVersion = 5;
+// Update the schemaVersion when the schema of any the Application Cache
+// SQLite tables changes. This allows the database to be rebuilt when
+// a new, incompatible change has been introduced to the database schema.
+static const int schemaVersion = 6;
     
 void ApplicationCacheStorage::verifySchemaVersion()
 {
@@ -475,7 +599,7 @@ void ApplicationCacheStorage::openDatabase(bool createIfDoesNotExist)
     
     // Create tables
     executeSQLCommand("CREATE TABLE IF NOT EXISTS CacheGroups (id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                      "manifestHostHash INTEGER NOT NULL ON CONFLICT FAIL, manifestURL TEXT UNIQUE ON CONFLICT FAIL, newestCache INTEGER)");
+                      "manifestHostHash INTEGER NOT NULL ON CONFLICT FAIL, manifestURL TEXT UNIQUE ON CONFLICT FAIL, newestCache INTEGER, origin TEXT)");
     executeSQLCommand("CREATE TABLE IF NOT EXISTS Caches (id INTEGER PRIMARY KEY AUTOINCREMENT, cacheGroup INTEGER, size INTEGER)");
     executeSQLCommand("CREATE TABLE IF NOT EXISTS CacheWhitelistURLs (url TEXT NOT NULL ON CONFLICT FAIL, cache INTEGER NOT NULL ON CONFLICT FAIL)");
     executeSQLCommand("CREATE TABLE IF NOT EXISTS CacheAllowsAllNetworkRequests (wildcard INTEGER NOT NULL ON CONFLICT FAIL, cache INTEGER NOT NULL ON CONFLICT FAIL)");
@@ -485,6 +609,7 @@ void ApplicationCacheStorage::openDatabase(bool createIfDoesNotExist)
     executeSQLCommand("CREATE TABLE IF NOT EXISTS CacheResources (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT NOT NULL ON CONFLICT FAIL, "
                       "statusCode INTEGER NOT NULL, responseURL TEXT NOT NULL, mimeType TEXT, textEncodingName TEXT, headers TEXT, data INTEGER NOT NULL ON CONFLICT FAIL)");
     executeSQLCommand("CREATE TABLE IF NOT EXISTS CacheResourceData (id INTEGER PRIMARY KEY AUTOINCREMENT, data BLOB)");
+    executeSQLCommand("CREATE TABLE IF NOT EXISTS Origins (origin TEXT UNIQUE ON CONFLICT IGNORE, quota INTEGER NOT NULL ON CONFLICT FAIL)");
 
     // When a cache is deleted, all its entries and its whitelist should be deleted.
     executeSQLCommand("CREATE TRIGGER IF NOT EXISTS CacheDeleted AFTER DELETE ON Caches"
@@ -523,14 +648,18 @@ bool ApplicationCacheStorage::store(ApplicationCacheGroup* group, GroupStorageID
     ASSERT(group->storageID() == 0);
     ASSERT(journal);
 
-    SQLiteStatement statement(m_database, "INSERT INTO CacheGroups (manifestHostHash, manifestURL) VALUES (?, ?)");
+    SQLiteStatement statement(m_database, "INSERT INTO CacheGroups (manifestHostHash, manifestURL, origin) VALUES (?, ?, ?)");
     if (statement.prepare() != SQLResultOk)
         return false;
 
     statement.bindInt64(1, urlHostHash(group->manifestURL()));
     statement.bindText(2, group->manifestURL());
+    statement.bindText(3, group->origin()->databaseIdentifier());
 
     if (!executeStatement(statement))
+        return false;
+
+    if (!ensureOriginRecord(group->origin()))
         return false;
 
     group->setStorageID(static_cast<unsigned>(m_database.lastInsertRowID()));
@@ -745,7 +874,21 @@ bool ApplicationCacheStorage::store(ApplicationCacheResource* resource, Applicat
     return true;
 }
 
-bool ApplicationCacheStorage::storeNewestCache(ApplicationCacheGroup* group)
+bool ApplicationCacheStorage::ensureOriginRecord(const SecurityOrigin* origin)
+{
+    SQLiteStatement insertOriginStatement(m_database, "INSERT INTO Origins (origin, quota) VALUES (?, ?)");
+    if (insertOriginStatement.prepare() != SQLResultOk)
+        return false;
+
+    insertOriginStatement.bindText(1, origin->databaseIdentifier());
+    insertOriginStatement.bindInt64(2, m_defaultOriginQuota);
+    if (!executeStatement(insertOriginStatement))
+        return false;
+
+    return true;
+}
+
+bool ApplicationCacheStorage::storeNewestCache(ApplicationCacheGroup* group, ApplicationCache* oldCache, FailureReason& failureReason)
 {
     openDatabase(true);
 
@@ -759,11 +902,21 @@ bool ApplicationCacheStorage::storeNewestCache(ApplicationCacheGroup* group)
     
     storeCacheTransaction.begin();
 
+    // Check if this would reach the per-origin quota.
+    int64_t remainingSpaceInOrigin;
+    if (remainingSizeForOriginExcludingCache(group->origin(), oldCache, remainingSpaceInOrigin)) {
+        if (remainingSpaceInOrigin < group->newestCache()->estimatedSizeInStorage()) {
+            failureReason = OriginQuotaReached;
+            return false;
+        }
+    }
+
     GroupStorageIDJournal groupStorageIDJournal;
     if (!group->storageID()) {
         // Store the group
         if (!store(group, &groupStorageIDJournal)) {
             checkForMaxSizeReached();
+            failureReason = isMaximumSizeReached() ? TotalQuotaReached : DiskOrOperationFailure;
             return false;
         }
     }
@@ -780,25 +933,37 @@ bool ApplicationCacheStorage::storeNewestCache(ApplicationCacheGroup* group)
     // Store the newest cache
     if (!store(group->newestCache(), &resourceStorageIDJournal)) {
         checkForMaxSizeReached();
+        failureReason = isMaximumSizeReached() ? TotalQuotaReached : DiskOrOperationFailure;
         return false;
     }
     
     // Update the newest cache in the group.
     
     SQLiteStatement statement(m_database, "UPDATE CacheGroups SET newestCache=? WHERE id=?");
-    if (statement.prepare() != SQLResultOk)
+    if (statement.prepare() != SQLResultOk) {
+        failureReason = DiskOrOperationFailure;
         return false;
+    }
     
     statement.bindInt64(1, group->newestCache()->storageID());
     statement.bindInt64(2, group->storageID());
     
-    if (!executeStatement(statement))
+    if (!executeStatement(statement)) {
+        failureReason = DiskOrOperationFailure;
         return false;
+    }
     
     groupStorageIDJournal.commit();
     resourceStorageIDJournal.commit();
     storeCacheTransaction.commit();
     return true;
+}
+
+bool ApplicationCacheStorage::storeNewestCache(ApplicationCacheGroup* group)
+{
+    // Ignore the reason for failing, just attempt the store.
+    FailureReason ignoredFailureReason;
+    return storeNewestCache(group, 0, ignoredFailureReason);
 }
 
 static inline void parseHeader(const UChar* header, size_t headerLength, ResourceResponse& response)
@@ -964,9 +1129,10 @@ void ApplicationCacheStorage::empty()
     if (!m_database.isOpen())
         return;
     
-    // Clear cache groups, caches and cache resources.
+    // Clear cache groups, caches, cache resources, and origins.
     executeSQLCommand("DELETE FROM CacheGroups");
     executeSQLCommand("DELETE FROM Caches");
+    executeSQLCommand("DELETE FROM Origins");
     
     // Clear the storage IDs for the caches in memory.
     // The caches will still work, but cached resources will not be saved to disk 
@@ -1120,8 +1286,9 @@ void ApplicationCacheStorage::checkForMaxSizeReached()
 }
 
 ApplicationCacheStorage::ApplicationCacheStorage() 
-    : m_maximumSize(INT_MAX)
+    : m_maximumSize(ApplicationCacheStorage::noQuota())
     , m_isMaximumSizeReached(false)
+    , m_defaultOriginQuota(ApplicationCacheStorage::noQuota())
 {
 }
 

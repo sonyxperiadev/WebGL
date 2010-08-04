@@ -42,10 +42,9 @@
 namespace WebKit {
 
 SpeechInputClientImpl::SpeechInputClientImpl(WebViewClient* web_view_client)
-    : m_controller(web_view_client->speechInputController(this))
+    : m_controller(web_view_client ? web_view_client->speechInputController(this) : 0)
     , m_listener(0)
 {
-    ASSERT(m_controller);
 }
 
 SpeechInputClientImpl::~SpeechInputClientImpl()

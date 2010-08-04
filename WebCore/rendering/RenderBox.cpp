@@ -31,6 +31,7 @@
 #include "Document.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
+#include "HitTestResult.h"
 #include "htmlediting.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
@@ -568,6 +569,7 @@ bool RenderBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result
 #else
     // Check our bounds next. For this purpose always assume that we can only be hit in the
     // foreground phase (which is true for replaced elements like images).
+<<<<<<< HEAD
     if (visibleToHitTesting() && action == HitTestForeground && IntRect(tx, ty, width(), height()).contains(xPos, yPos)) {
 #endif
         updateHitTestResult(result, IntPoint(xPos - tx, yPos - ty));
@@ -580,6 +582,13 @@ bool RenderBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result
         }
 #endif
         return true;
+=======
+    IntRect boundsRect = IntRect(tx, ty, width(), height());
+    if (visibleToHitTesting() && action == HitTestForeground && boundsRect.intersects(result.rectFromPoint(xPos, yPos))) {
+        updateHitTestResult(result, IntPoint(xPos - tx, yPos - ty));
+        if (!result.addNodeToRectBasedTestResult(node(), xPos, yPos, boundsRect))
+            return true;
+>>>>>>> webkit.org at r64523
     }
 
     return false;
@@ -1595,7 +1604,7 @@ void RenderBox::calcHeight()
         && (isRoot() || (isBody() && document()->documentElement()->renderer()->style()->height().isPercent()));
     if (stretchesToViewHeight() || printingNeedsBaseHeight) {
         int margins = collapsedMarginTop() + collapsedMarginBottom();
-        int visHeight = document()->printing() ? view()->frameView()->visibleHeight() : view()->viewHeight();
+        int visHeight = document()->printing() ? view()->frameView()->pageHeight() : view()->viewHeight();
         if (isRoot())
             setHeight(max(height(), visHeight - margins));
         else {

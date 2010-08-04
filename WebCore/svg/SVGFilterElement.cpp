@@ -66,7 +66,9 @@ void SVGFilterElement::setFilterRes(unsigned long filterResX, unsigned long filt
 {
     setFilterResXBaseValue(filterResX);
     setFilterResYBaseValue(filterResY);
-    invalidateResourceClients();
+
+    if (RenderObject* object = renderer())
+        object->setNeedsLayout(true);
 }
 
 void SVGFilterElement::parseMappedAttribute(Attribute* attr)
@@ -121,6 +123,10 @@ void SVGFilterElement::svgAttributeChanged(const QualifiedName& attrName)
         updateRelativeLengthsInformation();
     }
 
+    RenderObject* object = renderer();
+    if (!object)
+        return;
+
     if (invalidateClients
         || attrName == SVGNames::filterUnitsAttr
         || attrName == SVGNames::primitiveUnitsAttr
@@ -129,7 +135,7 @@ void SVGFilterElement::svgAttributeChanged(const QualifiedName& attrName)
         || SVGURIReference::isKnownAttribute(attrName)
         || SVGLangSpace::isKnownAttribute(attrName)
         || SVGExternalResourcesRequired::isKnownAttribute(attrName))
-        invalidateResourceClients();
+        object->setNeedsLayout(true);
 }
 
 void SVGFilterElement::synchronizeProperty(const QualifiedName& attrName)
@@ -175,8 +181,11 @@ void SVGFilterElement::childrenChanged(bool changedByParser, Node* beforeChange,
 {
     SVGStyledElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 
-    if (!changedByParser)
-        invalidateResourceClients();
+    if (changedByParser)
+        return;
+
+    if (RenderObject* object = renderer())
+        object->setNeedsLayout(true);
 }
 
 FloatRect SVGFilterElement::filterBoundingBox(const FloatRect& objectBoundingBox) const

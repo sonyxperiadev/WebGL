@@ -154,6 +154,32 @@
     IMPL->setTestObjAttr(core(newTestObjAttr));
 }
 
+- (DOMTestObj *)XMLObjAttr
+{
+    WebCore::JSMainThreadNullState state;
+    return kit(WTF::getPtr(IMPL->xmlObjAttr()));
+}
+
+- (void)setXMLObjAttr:(DOMTestObj *)newXMLObjAttr
+{
+    WebCore::JSMainThreadNullState state;
+    ASSERT(newXMLObjAttr);
+
+    IMPL->setXMLObjAttr(core(newXMLObjAttr));
+}
+
+- (BOOL)CREATE
+{
+    WebCore::JSMainThreadNullState state;
+    return IMPL->isCreate();
+}
+
+- (void)setCREATE:(BOOL)newCREATE
+{
+    WebCore::JSMainThreadNullState state;
+    IMPL->setCreate(newCREATE);
+}
+
 - (NSString *)reflectedStringAttr
 {
     WebCore::JSMainThreadNullState state;

@@ -1897,8 +1897,12 @@ webcore_sources += \
 	WebCore/platform/Logging.h \
 	WebCore/platform/MIMETypeRegistry.cpp \
 	WebCore/platform/MIMETypeRegistry.h \
+	WebCore/platform/mock/DeviceOrientationClientMock.cpp \
+	WebCore/platform/mock/DeviceOrientationClientMock.h \
 	WebCore/platform/mock/GeolocationServiceMock.cpp \
 	WebCore/platform/mock/GeolocationServiceMock.h \
+	WebCore/platform/mock/SpeechInputClientMock.cpp \
+	WebCore/platform/mock/SpeechInputClientMock.h \
 	WebCore/platform/NotImplemented.h \
 	WebCore/platform/Pasteboard.h \
 	WebCore/platform/PlatformKeyboardEvent.h \
@@ -2420,8 +2424,11 @@ webcoregtk_sources += \
 	WebCore/platform/graphics/cairo/PatternCairo.cpp \
 	WebCore/platform/graphics/cairo/TransformationMatrixCairo.cpp \
 	WebCore/platform/graphics/gtk/ColorGtk.cpp \
+	WebCore/platform/graphics/gtk/CairoUtilities.cpp \
+	WebCore/platform/graphics/gtk/CairoUtilities.h \
 	WebCore/platform/graphics/gtk/FontGtk.cpp \
 	WebCore/platform/graphics/gtk/IconGtk.cpp \
+	WebCore/platform/graphics/gtk/ImageBufferGtk.cpp \
 	WebCore/platform/graphics/gtk/ImageGtk.cpp \
 	WebCore/platform/graphics/gtk/IntPointGtk.cpp \
 	WebCore/platform/graphics/gtk/IntRectGtk.cpp \
@@ -2461,6 +2468,7 @@ webcoregtk_sources += \
 	WebCore/platform/gtk/PasteboardHelper.h \
 	WebCore/platform/gtk/PlatformScreenGtk.cpp \
 	WebCore/platform/gtk/PopupMenuGtk.cpp \
+	WebCore/platform/gtk/PopupMenuGtk.h \
 	WebCore/platform/gtk/RenderThemeGtk.cpp \
 	WebCore/platform/gtk/RenderThemeGtk.h \
 	WebCore/platform/gtk/ScrollbarGtk.cpp \
@@ -2469,6 +2477,7 @@ webcoregtk_sources += \
 	WebCore/platform/gtk/ScrollbarThemeGtk.h \
 	WebCore/platform/gtk/ScrollViewGtk.cpp \
 	WebCore/platform/gtk/SearchPopupMenuGtk.cpp \
+	WebCore/platform/gtk/SearchPopupMenuGtk.h \
 	WebCore/platform/gtk/SharedBufferGtk.cpp \
 	WebCore/platform/gtk/SharedTimerGtk.cpp \
 	WebCore/platform/gtk/SoundGtk.cpp \
@@ -2832,8 +2841,10 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSIDBErrorEvent.h \
 	DerivedSources/WebCore/JSIDBEvent.cpp \
 	DerivedSources/WebCore/JSIDBEvent.h \
-	DerivedSources/WebCore/JSIDBIndexRequest.cpp \
-	DerivedSources/WebCore/JSIDBIndexRequest.h \
+	DerivedSources/WebCore/JSIDBFactory.cpp \
+	DerivedSources/WebCore/JSIDBFactory.h \
+	DerivedSources/WebCore/JSIDBIndex.cpp \
+	DerivedSources/WebCore/JSIDBIndex.h \
 	DerivedSources/WebCore/JSIDBKeyRange.cpp \
 	DerivedSources/WebCore/JSIDBKeyRange.h \
 	DerivedSources/WebCore/JSIDBObjectStoreRequest.cpp \
@@ -2841,9 +2852,7 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSIDBRequest.cpp \
 	DerivedSources/WebCore/JSIDBRequest.h \
 	DerivedSources/WebCore/JSIDBSuccessEvent.cpp \
-	DerivedSources/WebCore/JSIDBSuccessEvent.h \
-	DerivedSources/WebCore/JSIndexedDatabaseRequest.cpp \
-	DerivedSources/WebCore/JSIndexedDatabaseRequest.h
+	DerivedSources/WebCore/JSIDBSuccessEvent.h
 
 webcore_sources += \
 	WebCore/storage/IDBAny.cpp \
@@ -2860,11 +2869,11 @@ webcore_sources += \
 	WebCore/storage/IDBErrorEvent.h \
 	WebCore/storage/IDBEvent.cpp \
 	WebCore/storage/IDBEvent.h \
+	WebCore/storage/IDBIndex.cpp \
 	WebCore/storage/IDBIndex.h \
-	WebCore/storage/IDBIndexImpl.cpp \
-	WebCore/storage/IDBIndexImpl.h \
-	WebCore/storage/IDBIndexRequest.cpp \
-	WebCore/storage/IDBIndexRequest.h \
+	WebCore/storage/IDBIndexBackendInterface.h \
+	WebCore/storage/IDBIndexBackendImpl.cpp \
+	WebCore/storage/IDBIndexBackendImpl.h \
 	WebCore/storage/IDBKeyRange.cpp \
 	WebCore/storage/IDBKeyRange.h \
 	WebCore/storage/IDBObjectStore.h \
@@ -2876,12 +2885,12 @@ webcore_sources += \
 	WebCore/storage/IDBRequest.h \
 	WebCore/storage/IDBSuccessEvent.cpp \
 	WebCore/storage/IDBSuccessEvent.h \
-	WebCore/storage/IndexedDatabase.cpp \
-	WebCore/storage/IndexedDatabase.h \
-	WebCore/storage/IndexedDatabaseImpl.cpp \
-	WebCore/storage/IndexedDatabaseImpl.h \
-	WebCore/storage/IndexedDatabaseRequest.cpp \
-	WebCore/storage/IndexedDatabaseRequest.h
+	WebCore/storage/IDBFactory.cpp \
+	WebCore/storage/IDBFactory.h \
+	WebCore/storage/IDBFactoryBackendInterface.cpp \
+	WebCore/storage/IDBFactoryBackendInterface.h \
+	WebCore/storage/IDBFactoryBackendImpl.cpp \
+	WebCore/storage/IDBFactoryBackendImpl.h
 endif # END ENABLE_INDEXED_DATABASE
 
 # ----

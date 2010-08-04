@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * All rights reserved.
  *
@@ -45,6 +46,7 @@
 #include "NotImplemented.h"
 #include "NotificationPresenterClientQt.h"
 #include "PageClientQt.h"
+#include "PopupMenuQt.h"
 #if defined(Q_WS_MAEMO_5)
 #include "QtMaemoWebPopup.h"
 #else
@@ -52,6 +54,7 @@
 #endif
 #include "QWebPageClient.h"
 #include "ScrollbarTheme.h"
+#include "SearchPopupMenuQt.h"
 #include "SecurityOrigin.h"
 #include "ViewportArguments.h"
 #include "WindowFeatures.h"
@@ -483,6 +486,11 @@ void ChromeClientQt::reachedMaxAppCacheSize(int64_t)
     // FIXME: Free some space.
     notImplemented();
 }
+
+void ChromeClientQt::reachedApplicationCacheOriginQuota(SecurityOrigin*)
+{
+    notImplemented();
+}
 #endif
 
 #if ENABLE(NOTIFICATIONS)
@@ -598,33 +606,6 @@ QtAbstractWebPopup* ChromeClientQt::createSelectPopup()
 #endif
 }
 
-#if ENABLE(WIDGETS_10_SUPPORT)
-bool ChromeClientQt::isWindowed()
-{
-    return m_webPage->d->viewMode == "windowed";
-}
-
-bool ChromeClientQt::isFloating()
-{
-    return m_webPage->d->viewMode == "floating";
-}
-
-bool ChromeClientQt::isFullscreen()
-{
-    return m_webPage->d->viewMode == "fullscreen";
-}
-
-bool ChromeClientQt::isMaximized()
-{
-    return m_webPage->d->viewMode == "maximized";
-}
-
-bool ChromeClientQt::isMinimized()
-{
-    return m_webPage->d->viewMode == "minimized";
-}
-#endif
-
 void ChromeClientQt::didReceiveViewportArguments(Frame* frame, const ViewportArguments& arguments) const
 {
     if (m_webPage->mainFrame()->d->initialLayoutComplete)
@@ -642,6 +623,21 @@ void ChromeClientQt::didReceiveViewportArguments(Frame* frame, const ViewportArg
     hints.m_isUserScalable = isUserScalable;
 
     emit m_webPage->viewportChangeRequested(hints);
+}
+
+bool ChromeClientQt::selectItemWritingDirectionIsNatural()
+{
+    return false;
+}
+
+PassRefPtr<PopupMenu> ChromeClientQt::createPopupMenu(PopupMenuClient* client) const
+{
+    return adoptRef(new PopupMenuQt(client));
+}
+
+PassRefPtr<SearchPopupMenu> ChromeClientQt::createSearchPopupMenu(PopupMenuClient* client) const
+{
+    return adoptRef(new SearchPopupMenuQt(client));
 }
 
 } // namespace WebCore

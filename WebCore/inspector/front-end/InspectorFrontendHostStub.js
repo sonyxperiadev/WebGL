@@ -84,6 +84,10 @@ WebInspector.InspectorFrontendHostStub.prototype = {
     {
     },
 
+    setExtensionAPI: function(script)
+    {
+    },
+
     loaded: function()
     {
     },
@@ -109,6 +113,10 @@ WebInspector.InspectorFrontendHostStub.prototype = {
     canAttachWindow: function()
     {
         return false;
+    },
+
+    sendMessageToBackend: function(message)
+    {
     }
 }
 

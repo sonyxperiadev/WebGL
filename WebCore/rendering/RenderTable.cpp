@@ -31,9 +31,13 @@
 #include "Document.h"
 #include "FixedTableLayout.h"
 #include "FrameView.h"
+<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
 #include "HitTestResult.h"
 #endif
+=======
+#include "HitTestResult.h"
+>>>>>>> webkit.org at r64523
 #include "HTMLNames.h"
 #include "RenderLayer.h"
 #include "RenderTableCell.h"
@@ -1183,11 +1187,15 @@ bool RenderTable::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
     ty += y();
 
     // Check kids first.
+<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
     if (!hasOverflowClip() || result.intersects(xPos, yPos, overflowClipRect(tx, ty))) {
 #else
     if (!hasOverflowClip() || overflowClipRect(tx, ty).contains(xPos, yPos)) {
 #endif
+=======
+    if (!hasOverflowClip() || overflowClipRect(tx, ty).intersects(result.rectFromPoint(xPos, yPos))) {
+>>>>>>> webkit.org at r64523
         for (RenderObject* child = lastChild(); child; child = child->previousSibling()) {
             if (child->isBox() && !toRenderBox(child)->hasSelfPaintingLayer() && (child->isTableSection() || child == m_caption) &&
                 child->nodeAtPoint(request, result, xPos, yPos, tx, ty, action)) {
@@ -1198,6 +1206,7 @@ bool RenderTable::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
     }
 
     // Check our bounds next.
+<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
     IntRect boundsRect = IntRect(tx, ty, width(), height());
     if (visibleToHitTesting() && (action == HitTestBlockBackground || action == HitTestChildBlockBackground) && result.intersects(xPos, yPos, boundsRect)) {
@@ -1214,6 +1223,13 @@ bool RenderTable::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
         }
 #endif
         return true;
+=======
+    IntRect boundsRect = IntRect(tx, ty, width(), height());
+    if (visibleToHitTesting() && (action == HitTestBlockBackground || action == HitTestChildBlockBackground) && boundsRect.intersects(result.rectFromPoint(xPos, yPos))) {
+        updateHitTestResult(result, IntPoint(xPos - tx, yPos - ty));
+        if (!result.addNodeToRectBasedTestResult(node(), xPos, yPos, boundsRect))
+            return true;
+>>>>>>> webkit.org at r64523
     }
 
     return false;

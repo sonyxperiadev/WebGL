@@ -1,3 +1,842 @@
+2010-08-02  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Add alias for run-webkit-tests --webkit-test-runner (run-webkit-tests -2).
+
+        * Scripts/old-run-webkit-tests:
+
+2010-08-02  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Restore the WebKitTestRunner.sln that was removed, and remove the
+        correct one.
+
+        Rubber-stamped by Sam Weinig.
+
+        * WebKitTestRunner/WebKitTestRunner.sln: Added.
+        * WebKitTestRunner/win/WebKitTestRunner.sln: Removed.
+
+2010-08-02  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Move InjectedBundle.vcproj to where the other WebKitTestRunner vcprojs live.
+
+        Remove the unused WebKitTestRunner.sln.
+
+        Reviewed by Sam Weinig.
+
+        * WebKitTestRunner/Configurations/InjectedBundleCommon.vsprops:
+        * WebKitTestRunner/InjectedBundle/win/InjectedBundle.vcproj: Removed.
+        * WebKitTestRunner/WebKitTestRunner.sln: Removed.
+        * WebKitTestRunner/win/InjectedBundle.vcproj: Added.
+        * WebKitTestRunner/win/WebKitTestRunner.sln:
+
+2010-08-02  Sam Weinig  <sam@webkit.org>
+
+        Fix the windows build.
+
+        * WebKitTestRunner/win/main.cpp:
+
+2010-07-29  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Add a Skipped list on Windows, and have run-webkit-tests respect it.
+
+        Part of <rdar://problem/8233237> Fill WebKit2 Windows skipped list so
+        there are zero tests failing
+        https://bugs.webkit.org/show_bug.cgi?id=43374
+
+        Reviewed by Adam Roben.
+
+        * Scripts/old-run-webkit-tests:
+        If using WebKitTestRunner and Apple Windows WebKit, set the platform to
+        win-wk2. When building the result hierarchy, if the platform is win-wk2,
+        add it first to the list of platforms.
+
+2010-08-02  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        WebKitTestRunner needs layoutTestController.setCanOpenWindows
+        https://bugs.webkit.org/show_bug.cgi?id=42321
+
+        WebKitTestRunner needs layoutTestController.setCloseRemainingWindowsWhenComplete
+        https://bugs.webkit.org/show_bug.cgi?id=42779
+
+        * WebKitTestRunner/InjectedBundle/Bindings/LayoutTestController.idl: Added
+        setCanOpenWindows, setCloseRemainingWindowsWhenComplete, and windowCount
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.cpp:
+        (WTR::InjectedBundle::InjectedBundle): Initialize m_mainPage to 0 instead of
+        waiting for the first call to didCreatePage.
+        (WTR::InjectedBundle::didCreatePage): Set m_mainPage only when the first page
+        is created. Put other pages into a map.
+        (WTR::InjectedBundle::willDestroyPage): Added code to handle the destruction
+        of the main page.
+        (WTR::InjectedBundle::closeOtherPages): Added. Closes all the pages other than
+        the main page.
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.h: Added pageCount and
+        closeOtherPages functions.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::InjectedBundlePage::didFinishLoadForFrame): Don't let pages other than
+        the main page affect dumping.
+        (WTR::InjectedBundlePage::didFailLoadWithErrorForFrame): Ditto.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        (WTR::LayoutTestController::LayoutTestController): Initialize the new
+        m_shouldCloseExtraWindows member.
+        (WTR::LayoutTestController::setCanOpenWindows): Added. Empty for now.
+        (WTR::LayoutTestController::windowCount): Added.
+
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h:
+        Added setCanOpenWindows, setCloseRemainingWindowsWhenComplete,
+        windowCount, shouldCloseExtraWindowsAfterRunningTest, and
+        m_shouldCloseExtraWindows.
+
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::shared): Return a pointer to the shared copy, but
+        don't allocate and leak it. This seemed cleaner than adding an explicit
+        finalize call to go along with the explicit initialize call.
+        (WTR::TestController::TestController): Added calls to the initialize and
+        run function, which are now done automatically.
+        (WTR::TestController::~TestController): Added, since it's called now.
+        (WTR::closeOtherPage): Added. Used to close pages other than the main page.
+        (WTR::createOtherPage): Added. Used to create pages other than the main page.
+        (WTR::TestController::initialize): Added code to set up createOtherPage.
+        (WTR::TestController::run): Removed unused return value.
+        * WebKitTestRunner/TestController.h: Made constructor and destructor public,
+        and initialize and run private. Changed m_mainWebView to be an OwnPtr.
+
+        * WebKitTestRunner/mac/PlatformWebViewMac.mm:
+        (WTR::PlatformWebView::PlatformWebView): Added a call to setReleasedWhenClosed
+        to avoid releasing the window twice. Another way to handle it would be to
+        remove the release, but this approach is slightly more robust because it works
+        even if some other code calls the close method an extra time.
+
+        * WebKitTestRunner/mac/main.mm:
+        (main): Use a stack-allocated TestController object instead of calling
+        initalize and run on a globally allocated one.
+
+2010-08-02  Tony Chang  <tony@chromium.org>
+
+        Reviewed by David Levin.
+
+        add myself to the reviewers list
+        https://bugs.webkit.org/show_bug.cgi?id=43366
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-08-02  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Cache JSNPObjects and fix bugs in the object map
+        https://bugs.webkit.org/show_bug.cgi?id=43368
+
+        Test that we correctly throw exceptions when trying to do things to a JSObject that used to
+        wrap an NPObject that came from a plug-in that is now destroyed.
+
+        * DumpRenderTree/DumpRenderTree.xcodeproj/project.pbxproj:
+        * DumpRenderTree/TestNetscapePlugIn/PluginTest.h:
+        (PluginTest::Object::getProperty):
+        (PluginTest::Object::NP_GetProperty):
+        (PluginTest::Object::npClass):
+        * DumpRenderTree/TestNetscapePlugIn/Tests/NPRuntimeObjectFromDestroyedPlugin.cpp: Added.
+        (NPRuntimeObjectFromDestroyedPlugin::NPRuntimeObjectFromDestroyedPlugin):
+        (NPRuntimeObjectFromDestroyedPlugin::ScriptableObject::hasProperty):
+        (NPRuntimeObjectFromDestroyedPlugin::ScriptableObject::getProperty):
+        (NPRuntimeObjectFromDestroyedPlugin::NPP_GetValue):
+        * DumpRenderTree/TestNetscapePlugIn/win/TestNetscapePlugin.vcproj:
+        * DumpRenderTree/qt/TestNetscapePlugin/TestNetscapePlugin.pro:
+        * GNUmakefile.am:
+
+2010-08-02  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [Gtk] DOM listeners get wrong keycodes for some keys
+        https://bugs.webkit.org/show_bug.cgi?id=35170
+
+        Add support to all event senders for simulating keypad insert
+        and print screen keys.
+
+        * DumpRenderTree/chromium/EventSender.cpp:
+        (EventSender::keyDown): Add support for generating keypad insert and print screen.
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (keyDownCallback): Ditto.
+        * DumpRenderTree/mac/EventSendingController.mm:
+        (-[EventSendingController keyDown:withModifiers:withLocation:]): Ditto.
+        * DumpRenderTree/qt/EventSenderQt.cpp:
+        (EventSender::keyDown): Ditto.
+        * DumpRenderTree/win/EventSender.cpp:
+        (keyDownCallback): Ditto.
+
+2010-08-02  Martin Robinson  <mrobinson@igalia.com>
+
+        Build fix for building against development versions of GTK+. GTK 2.22
+        has not yet been released, so these function definitions must be conditionalized
+        on the development version.
+
+        * DumpRenderTree/gtk/EventSender.cpp: Fix GTK+ 2.21 build.
+
+2010-08-02  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [chromium] use ChromiumDriver on Linux when running webkit tests
+        https://bugs.webkit.org/show_bug.cgi?id=43273
+
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+
+2010-08-02  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Always initialize GTK
+        https://bugs.webkit.org/show_bug.cgi?id=43327
+
+        Call gtk_init() in order to fix plugin test crash.
+
+        * DumpRenderTree/chromium/DumpRenderTree.cpp:
+        (main): Pass argc/argv to platformInit().
+        * DumpRenderTree/chromium/TestShell.h:
+        * DumpRenderTree/chromium/TestShellGtk.cpp:
+        (platformInit): Update parameters, call gtk_init().
+        * DumpRenderTree/chromium/TestShellMac.mm:
+        (platformInit): Update parameters.
+        * DumpRenderTree/chromium/TestShellWin.cpp:
+        (platformInit): Update parameters.
+
+2010-08-02  Balazs Kelemen  <kb@inf.u-szeged.hu>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Generate forwarding headers for WebKit2
+
+        https://bugs.webkit.org/show_bug.cgi?id=43336
+
+        * Scripts/webkitdirs.pm: Call make on WebKit2/Makefile.DerivedSources.
+
+2010-08-02  Fumitoshi Ukai  <ukai@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        WebSocket server should start with SO_REUSEADDR
+        https://bugs.webkit.org/show_bug.cgi?id=43329
+
+        Pulls in pywebsocket-0.5.2.
+        pywebsocket-0.5.2 includes a small fix to start server with SO_REUSE_ADDR.
+        http://code.google.com/p/pywebsocket/source/detail?r=273
+
+        * Scripts/webkitpy/thirdparty/__init__.py: Bump pywebsocket version
+
+2010-08-01  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Remove string_util.h dependency
+        https://bugs.webkit.org/show_bug.cgi?id=43312
+
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::pathToLocalResource):
+         Use string::find() instead of StartsWithASCII().
+        (LayoutTestController::cppVariantToInt32):
+         Use strtol() instead of StringToNumber().
+
+2010-08-01  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Add ability to reset frame names for WebKitTestRunner
+        https://bugs.webkit.org/show_bug.cgi?id=43316
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.cpp:
+        (WTR::InjectedBundle::reset):
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::InjectedBundlePage::reset):
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.h:
+
+2010-08-01  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Implement NPN_RemoveProperty
+        https://bugs.webkit.org/show_bug.cgi?id=43315
+
+        * DumpRenderTree/DumpRenderTree.xcodeproj/project.pbxproj:
+        Add NPRuntimeRemoveProperty.cpp
+        
+        * DumpRenderTree/TestNetscapePlugIn/PluginTest.cpp:
+        (PluginTest::NPN_GetStringIdentifier):
+        (PluginTest::NPN_GetIntIdentifier):
+        (PluginTest::NPN_RemoveProperty):
+        Add NPN_ helpers.
+
+        * DumpRenderTree/TestNetscapePlugIn/PluginTest.h:
+        Support more NPClass functions.
+
+        * DumpRenderTree/TestNetscapePlugIn/Tests/NPRuntimeRemoveProperty.cpp: Added.
+        (NPRuntimeRemoveProperty::NPRuntimeRemoveProperty):
+        Test for NPN_RemoveProperty.
+
+        (NPRuntimeRemoveProperty::TestObject::hasMethod):        
+        (NPRuntimeRemoveProperty::TestObject::invoke):
+        Add a testRemoveProperty method.
+
+        (NPRuntimeRemoveProperty::NPP_GetValue):
+        Return the test object.
+
+        * DumpRenderTree/TestNetscapePlugIn/win/TestNetscapePlugin.vcproj:
+        * DumpRenderTree/qt/TestNetscapePlugin/TestNetscapePlugin.pro:
+        * GNUmakefile.am:
+        Add NPRuntimeRemoveProperty.cpp
+
+2010-07-30  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Add an NPObject class template helper to TestNetscapePlugin
+        https://bugs.webkit.org/show_bug.cgi?id=43288
+
+        * DumpRenderTree/TestNetscapePlugIn/PluginTest.h:
+        Add some template magic to be able to figure out if a class has a member function of a given type.
+
+        (PluginTest::Object::create):
+        Create an object.
+
+        (PluginTest::Object::invokeDefault):
+        Add dummy function, this should never be called.
+
+        (PluginTest::Object::Object):
+        Initialize m_pluginTest to 0.
+
+        (PluginTest::Object::~Object):
+        Add virtual destructor.
+
+        (PluginTest::Object::NP_Allocate):
+        Create a new object.
+
+        (PluginTest::Object::NP_Deallocate):
+        Delete the object.
+
+        (PluginTest::Object::NP_InvokeDefault):
+        Call invokeDefault.
+
+        (PluginTest::Object::npClass):
+        Initialize the NPClass struct.
+
+        * DumpRenderTree/TestNetscapePlugIn/Tests/DocumentOpenInDestroyStream.cpp:
+        (DocumentOpenInDestroyStream::NPP_DestroyStream):
+        Move this inline.
+
+        * DumpRenderTree/TestNetscapePlugIn/Tests/PluginScriptableNPObjectInvokeDefault.cpp:
+        (PluginScriptableNPObjectInvokeDefault::NPObjectWithInvokeDefault::invokeDefault):
+        (PluginScriptableNPObjectInvokeDefault::NPP_GetValue):
+        Use the PluginTest::Object class template.
+
+2010-07-31  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Dan Bernstein.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=43305
+        Add back WKBundleFrameCopyInnerText to fix ~50 test failures
+        due to SVGElements not having the innerText function.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::dumpFrameText):
+
+2010-07-30  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Maciej Stachowiak.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=43290
+        Add structured message passing from the injected bundle to UIProcess
+
+        * MiniBrowser/mac/AppDelegate.m:
+        (didRecieveMessageFromInjectedBundle):
+        * MiniBrowser/mac/WebBundle/WebBundleMain.m:
+        (didClearWindowForFrame):
+        (didRecieveMessage):
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.cpp:
+        (WTR::InjectedBundle::done):
+        (WTR::InjectedBundle::didReceiveMessage):
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::initialize):
+        (WTR::TestController::didReceiveMessageFromInjectedBundle):
+        * WebKitTestRunner/TestController.h:
+        * WebKitTestRunner/TestInvocation.cpp:
+        (WTR::TestInvocation::didReceiveMessageFromInjectedBundle):
+        * WebKitTestRunner/TestInvocation.h:
+        * WebKitTestRunner/WebKitTestRunner.xcodeproj/project.pbxproj:
+
+2010-07-30  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=43275
+        Make WKArrayRef more usable.
+
+        Remove now unnecessary const_casts.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::dumpDescendantFrameScrollPositions):
+        (WTR::dumpDescendantFramesText):
+
+2010-07-30  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Anders Carlsson.
+
+        Patch for https://bugs.webkit.org/show_bug.cgi?id=43274
+        Add first pass of structured message passing.
+
+        Update Minibrowser and WebKitTestRunner to work with the new post message
+        function.
+
+        * MiniBrowser/mac/AppDelegate.m:
+        (didRecieveMessageFromInjectedBundle):
+        (-[BrowserAppDelegate init]):
+        * MiniBrowser/mac/MiniBrowser_Prefix.pch:
+        * MiniBrowser/mac/WebBundle/WebBundleMain.m:
+        (didStartProvisionalLoadForFrame):
+        (didReceiveServerRedirectForProvisionalLoadForFrame):
+        (didFailProvisionalLoadWithErrorForFrame):
+        (didCommitLoadForFrame):
+        (didFinishLoadForFrame):
+        (didFailLoadWithErrorForFrame):
+        (didReceiveTitleForFrame):
+        (didClearWindowForFrame):
+        (didCreatePage):
+        (willDestroyPage):
+        (didRecieveMessage):
+        (WKBundleInitialize):
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.cpp:
+        (WTR::InjectedBundle::_didReceiveMessage):
+        (WTR::InjectedBundle::didReceiveMessage):
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.h:
+        * WebKitTestRunner/TestInvocation.cpp:
+        (WTR::TestInvocation::invoke):
+        * WebKitTestRunner/WebKitTestRunner.xcodeproj/project.pbxproj:
+
+2010-07-30  Anders Carlsson  <andersca@apple.com>
+
+        Try to fix the layout test failures.
+
+        * DumpRenderTree/unix/TestNetscapePlugin/TestNetscapePlugin.cpp:
+        (webkit_test_plugin_get_value):
+
+2010-07-29  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Replace plugins/npruntime/bindings-test.html with a more sophisticated test
+        https://bugs.webkit.org/show_bug.cgi?id=43232
+
+        * DumpRenderTree/DumpRenderTree.xcodeproj/project.pbxproj:
+        Add PluginScriptableNPObjectInvokeDefault.cpp.
+
+        * DumpRenderTree/TestNetscapePlugIn/PluginObject.cpp:
+        Remove invokeDefault callback function.
+
+        * DumpRenderTree/TestNetscapePlugIn/PluginTest.cpp:
+        (PluginTest::create):
+        Move this to the top of the file.
+
+        (PluginTest::NPP_GetValue):
+        Add default implementation.
+
+        (PluginTest::NPN_CreateObject):
+        Add NPN_ wrapper.
+
+        * DumpRenderTree/TestNetscapePlugIn/PluginTest.h:
+        (PluginTest::identifier):
+        Add identifier getter.
+
+        * DumpRenderTree/TestNetscapePlugIn/Tests/DocumentOpenInDestroyStream.cpp:
+        (DocumentOpenInDestroyStream::DocumentOpenInDestroyStream):
+        Add "using namespace std".
+
+        * DumpRenderTree/TestNetscapePlugIn/main.cpp:
+        (NPP_GetValue):
+        Give PluginTest a chance to return a value.
+
+        * DumpRenderTree/TestNetscapePlugIn/win/TestNetscapePlugin.vcproj:
+        * DumpRenderTree/qt/TestNetscapePlugin/TestNetscapePlugin.pro:
+        * GNUmakefile.am:
+        Add PluginScriptableNPObjectInvokeDefault.cpp.
+        
+        * DumpRenderTree/unix/TestNetscapePlugin/TestNetscapePlugin.cpp:
+        (webkit_test_plugin_get_value):
+        Give PluginTest a chance to return a value.
+
+2010-07-30  Steve Block  <steveblock@google.com>
+
+        Reviewed by Steve Block.
+
+        Add LayoutTestController methods to test DeviceOrientation
+        https://bugs.webkit.org/show_bug.cgi?id=39589
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (setMockDeviceOrientationCallback):
+        (LayoutTestController::staticFunctions):
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (LayoutTestController::setMockDeviceOrientation):
+        * DumpRenderTree/chromium/LayoutTestController.h:
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        (LayoutTestController::setMockDeviceOrientation):
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::setMockDeviceOrientation):
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::setMockDeviceOrientation):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::setMockDeviceOrientation):
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::setMockDeviceOrientation):
+        * Scripts/build-webkit:
+
+2010-07-29  Antonio Gomes  <tonikitoo@webkit.org>
+
+        Reviewed by Kenneth Christiansen.
+
+        [Qt] QtTestBrowser: -resizes-to-contents command line parameter is broken
+        https://bugs.webkit.org/show_bug.cgi?id=43209
+
+        When -resizes-to-content was being passed as a command line parameter it was simply
+        not being set (although the corresponding menu item was marked as ON).
+        User had to toggle the menu OFF and then ON again for it to take place.
+
+        Reason: LauncherWindow::applyPrefs method sets many user options passed in from
+        the command line, but not resizesToContents. Patch addresses that.
+
+        * QtTestBrowser/launcherwindow.cpp:
+        (LauncherWindow::createChrome):
+        (LauncherWindow::applyPrefs):
+        (LauncherWindow::toggleResizesToContents):
+        * QtTestBrowser/webview.h:
+        (WebViewGraphicsBased::resizesToContents):
+
+2010-07-29  Antonio Gomes  <tonikitoo@webkit.org>
+
+        Rubber-stamped by Simon Fraser.
+
+        [Qt] QtTestBrowser: more method grouping and clean ups.
+
+        Moving blocks of code around. Basically grouping related methods close to each.
+
+        * QtTestBrowser/launcherwindow.cpp:
+        (LauncherWindow::initializeView):
+        (LauncherWindow::createChrome):
+        (LauncherWindow::changeViewportUpdateMode):
+        (LauncherWindow::showFPS):
+        (LauncherWindow::newWindow):
+        (LauncherWindow::cloneWindow):
+        * QtTestBrowser/launcherwindow.h:
+
+2010-07-30  Mahesh Kulkarni  <mahesh.kulkarni@nokia.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        [QT][Symbian] QtTestBrowser missing location capabilities
+        https://bugs.webkit.org/show_bug.cgi?id=43235
+
+        QtTestBrowser missing capabilities to use QtMobility::QLocation. 
+
+        * QtTestBrowser/QtTestBrowser.pro:
+
+2010-07-29  Anders Carlsson  <andersca@apple.com>
+
+        Add PluginTest.cpp
+
+        * DumpRenderTree/qt/TestNetscapePlugin/TestNetscapePlugin.pro:
+
+2010-07-29  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Update download URLs for python irclib package; the old URLs 
+        pointed at a specific mirror host and not the general sourceforge
+        URLs.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43228
+
+        * Scripts/webkitpy/thirdparty/__init__.py:
+
+2010-07-29  Anders Carlsson  <andersca@apple.com>
+
+        Fix typo.
+
+        * DumpRenderTree/qt/TestNetscapePlugin/TestNetscapePlugin.pro:
+
+2010-07-29  Anders Carlsson  <andersca@apple.com>
+
+        Another attempt at fixing the Qt and GTK+ build.
+
+        * DumpRenderTree/unix/TestNetscapePlugin/TestNetscapePlugin.cpp:
+        (webkit_test_plugin_new_instance):
+        (webkit_test_plugin_destroy_stream):
+
+2010-07-29  Anders Carlsson  <andersca@apple.com>
+
+        Another build fix attempt.
+
+        * DumpRenderTree/TestNetscapePlugIn/PluginTest.cpp:
+        * DumpRenderTree/qt/TestNetscapePlugin/TestNetscapePlugin.pro:
+        * DumpRenderTree/unix/TestNetscapePlugin/TestNetscapePlugin.cpp:
+        (webkit_test_plugin_new_instance):
+        * GNUmakefile.am:
+
+2010-07-29  Anders Carlsson  <andersca@apple.com>
+
+        Try to fix Windows and Unix builds.
+
+        * DumpRenderTree/TestNetscapePlugIn/win/TestNetscapePlugin.vcproj:
+        * DumpRenderTree/unix/TestNetscapePlugin/TestNetscapePlugin.cpp:
+        (webkit_test_plugin_new_instance):
+        (webkit_test_plugin_destroy_stream):
+
+2010-07-29  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Refactor TestNetscapePlugin so tests can be split in separate files
+        https://bugs.webkit.org/show_bug.cgi?id=43220
+
+        * DumpRenderTree/DumpRenderTree.xcodeproj/project.pbxproj:
+        Add PluginTest.cpp, PluginTest.h and Tests/DocumentOpenInDestroyStream.cpp.
+
+        * DumpRenderTree/TestNetscapePlugIn/PluginObject.cpp:
+        (pluginAllocate):
+        Initialize pluginTest to 0. Remove testDocumentOpenInDestroyStream.
+
+        * DumpRenderTree/TestNetscapePlugIn/PluginObject.h:
+        * DumpRenderTree/TestNetscapePlugIn/PluginTest.cpp: Added.
+        (PluginTest::PluginTest):
+        Initialize m_npp and the test identifier.
+        
+        (PluginTest::createTestFunctions):
+        Return the map from identifiers to createTest functions.
+
+        (PluginTest::registerCreateTestFunction):
+        Insert the identifier and create function pair in the map.
+
+        (PluginTest::create):
+        Look for a createTest function. If one is found, call it. Otherwise create a vanilla PluginTest object.
+
+        * DumpRenderTree/TestNetscapePlugIn/PluginTest.h: Added.
+        (PluginTest::Register::Register):
+        Helper class template for registering plug-in tests.
+        
+        (PluginTest::Register::create):
+        Create a new test of the given type.
+
+        * DumpRenderTree/TestNetscapePlugIn/Tests/DocumentOpenInDestroyStream.cpp: Added.
+        (DocumentOpenInDestroyStream::DocumentOpenInDestroyStream):
+        Add a test that calls testDocumentOpen from its NPP_DestroyStream callback.
+
+        * DumpRenderTree/TestNetscapePlugIn/main.cpp:
+        (NPP_New):
+        Create a PluginTest given the identifier. Remove the check for "testdocumentopenindestroystream".
+
+        (NPP_DestroyStream):
+        Call the plug-in test NPP_DestroyStream member function.
+
+        * DumpRenderTree/TestNetscapePlugIn/win/TestNetscapePlugin.vcproj:
+        Add PluginTest.cpp, PluginTest.h and Tests/DocumentOpenInDestroyStream.cpp.
+
+2010-07-29  Martin Robinson  <mrobinson@igalia.com>
+
+        Unreviewed build fix.
+
+        Add missing second argument to assert_lint in new style checker tests.
+
+        * Scripts/webkitpy/style/checkers/cpp_unittest.py:
+
+2010-07-29  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adam Roben.
+
+        check-webkit-style shouldn't complain about NPAPI functions
+        https://bugs.webkit.org/show_bug.cgi?id=43211
+
+        Allow underscores in functions that start with NPN_, NPP_ or NP_.
+
+        * Scripts/webkitpy/style/checkers/cpp.py:
+        * Scripts/webkitpy/style/checkers/cpp_unittest.py:
+
+2010-07-29  Victor Wang  <victorw@chromium.org>
+
+        Unreviewed, rolling out r64270.
+        http://trac.webkit.org/changeset/64270
+        https://bugs.webkit.org/show_bug.cgi?id=39589
+
+        The patch breaks chromium webkit unittest
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (LayoutTestController::staticFunctions):
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        * DumpRenderTree/chromium/LayoutTestController.h:
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        * Scripts/build-webkit:
+
+2010-07-29  Antonio Gomes  <tonikitoo@webkit.org>
+
+        Reviewed by Kenneth Christiansen.
+
+        [Qt] QtTestBrowser: Move WebPage class methods definitions from main.cpp to webpage.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=43199
+
+        There is no sense in keeping WebPage method definitions in main.cpp once
+        webpage.cpp already exists.
+
+        No behavior change.
+
+        * QtTestBrowser/main.cpp:
+        * QtTestBrowser/webpage.cpp:
+        (WebPage::createWindow):
+        (WebPage::createPlugin):
+
+2010-07-29  Antonio Gomes  <tonikitoo@webkit.org>
+
+        Reviewed by Kenneth Christiansen.
+
+        [Qt] Factor out LauncherWindow class out of main.cpp (QtTestBrowser)
+        https://bugs.webkit.org/show_bug.cgi?id=43170
+
+        Moving LauncherWindow class out of main.cpp to its own .cpp and .h files:
+        launcherwindow.{cpp|h}
+
+        No behavior change.
+
+        Also changed all global static variables (named "gXXX") from main.cpp to
+        static public variables of the LauncherWindow class.
+
+        * QtTestBrowser/QtTestBrowser.pro:
+        * QtTestBrowser/launcherwindow.cpp: Added.
+        * QtTestBrowser/launcherwindow.h: Added.
+        * QtTestBrowser/main.cpp:
+        (LauncherApplication::handleUserOptions):
+        (main):
+
+2010-07-29  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        Build fix for building against GTK+ 3.x. GSEAL requires that we
+        access internals of the GdkDragContext via methods. For older versions
+        of GTK+, define those methods.
+
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (gdk_drag_context_get_selected_action): Added.
+        (gdk_drag_context_get_actions): Added.
+        (dispatchEvent): Use the two new accessor methods.
+
+2010-07-29  Adam Roben  <aroben@apple.com>
+
+        Always say "plugins directory" when referring to a directory
+        containing one or more plugins
+
+        Fixes <http://webkit.org/b/43197> WebKit2 often says "plugin
+        directory" when it means "plugins directory"
+
+        Reviewed by John Sullivan.
+
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::initialize): Updated for rename.
+
+2010-07-29  Adam Roben  <aroben@apple.com>
+
+        Always say "directory" when referring to a plugin directory
+
+        Fixes <http://webkit.org/b/43195> WebKit2 often says "plugin path"
+        when it means "plugin directory"
+
+        Reviewed by John Sullivan.
+
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::initialize): Updated for renames.
+
+        * WebKitTestRunner/TestController.h: Renamed m_testPluginPath to
+        m_testPluginDirectory.
+        (WTR::TestController::testPluginDirectory): Renamed from
+        testPluginPath.
+
+        * WebKitTestRunner/mac/TestControllerMac.mm:
+        (WTR::TestController::initializeTestPluginDirectory):
+        * WebKitTestRunner/win/TestControllerWin.cpp:
+        (WTR::TestController::initializeTestPluginDirectory):
+        Renamed from initializeTestPluginPath and updated for rename.
+
+2010-07-29  Csaba Osztrogonác  <ossy@webkit.org>
+
+         Reviewed by Antonio Gomes.
+
+         Initialize all members of NPClass struct.
+         https://bugs.webkit.org/show_bug.cgi?id=43193
+
+         * DumpRenderTree/TestNetscapePlugIn/PluginObject.cpp:
+
+2010-07-29  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Antonio Gomes.
+
+        Warning fix on platforms where XP_MACOSX is undefined.
+        https://bugs.webkit.org/show_bug.cgi?id=43192
+
+        * DumpRenderTree/TestNetscapePlugIn/PluginObject.h:
+        Use #if defined(XP_MACOSX) instead of #if XP_MACOSX .
+
+2010-07-29  Adam Roben  <aroben@apple.com>
+
+        Give find-included-framework-headers our standard license
+
+        * Scripts/find-included-framework-headers: Used the license from
+        WebCore/LICENSE-APPLE.
+
+2010-07-29  Adam Roben  <aroben@apple.com>
+
+        Speed up find-included-framework-headers
+
+        We only do one invocation of find now, no longer pipe to grep, and
+        replace uniq with sort -u.
+
+        Also added a license header.
+
+        * Scripts/find-included-framework-headers:
+
+2010-07-29  Steve Block  <steveblock@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Add LayoutTestController methods to test DeviceOrientation
+        https://bugs.webkit.org/show_bug.cgi?id=39589
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (setMockDeviceOrientationCallback):
+        (LayoutTestController::staticFunctions):
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        * DumpRenderTree/chromium/LayoutTestController.h:
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        (LayoutTestController::setMockDeviceOrientation):
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::setMockDeviceOrientation):
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::setMockDeviceOrientation):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::setMockDeviceOrientation):
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::setMockDeviceOrientation):
+        * Scripts/build-webkit:
+
 2010-07-28  Kenichi Ishibashi  <bashi@google.com>
 
         Reviewed by Shinichiro Hamaji.

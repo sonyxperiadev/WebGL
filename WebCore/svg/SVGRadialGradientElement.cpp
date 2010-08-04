@@ -83,7 +83,12 @@ void SVGRadialGradientElement::svgAttributeChanged(const QualifiedName& attrName
         || attrName == SVGNames::fyAttr
         || attrName == SVGNames::rAttr) {
         updateRelativeLengthsInformation();
-        invalidateResourceClients();
+        
+        RenderObject* object = renderer();
+        if (!object)
+            return;
+
+        object->setNeedsLayout(true);
     }
 }
 
@@ -168,8 +173,10 @@ RadialGradientAttributes SVGRadialGradientElement::collectGradientProperties()
             current = static_cast<SVGGradientElement*>(refNode);
 
             // Cycle detection
-            if (processedGradients.contains(current))
-                return RadialGradientAttributes();
+            if (processedGradients.contains(current)) {
+                current = 0;
+                break;
+            }
 
             isRadial = current->hasTagName(SVGNames::radialGradientTag);
         } else

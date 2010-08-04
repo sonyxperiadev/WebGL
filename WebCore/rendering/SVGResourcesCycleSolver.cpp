@@ -94,6 +94,7 @@ bool SVGResourcesCycleSolver::resourceContainsCycles(RenderObject* renderer) con
     return false;
 }
 
+<<<<<<< HEAD
 static inline String targetReferenceFromResource(SVGElement* element, bool& isValid)
 {
     String target;
@@ -177,6 +178,8 @@ bool SVGResourcesCycleSolver::chainableResourceContainsCycles(RenderSVGResourceC
     return false;
 }
 
+=======
+>>>>>>> webkit.org at r64523
 void SVGResourcesCycleSolver::resolveCycles()
 {
     ASSERT(m_allResources.isEmpty());
@@ -221,6 +224,10 @@ void SVGResourcesCycleSolver::resolveCycles()
     for (HashSet<RenderSVGResourceContainer*>::iterator it = parentResources.begin(); it != end; ++it)
         m_allResources.add(*it);
 
+    // If we're a resource, add ourselves to the HashSet.
+    if (m_renderer->isSVGResourceContainer())
+        m_allResources.add(m_renderer->toRenderSVGResourceContainer());
+
     ASSERT(!m_allResources.isEmpty());
 
     // The job of this function is to determine wheter any of the 'resources' associated with the given 'renderer'
@@ -228,22 +235,6 @@ void SVGResourcesCycleSolver::resolveCycles()
     end = localResources.end();
     for (HashSet<RenderSVGResourceContainer*>::iterator it = localResources.begin(); it != end; ++it) {
         RenderSVGResourceContainer* resource = *it;
-
-        // Special handling for resources that can be chained using xlink:href - need to detect cycles as well!
-        switch (resource->resourceType()) {
-        case PatternResourceType:
-        case LinearGradientResourceType:
-        case RadialGradientResourceType:
-        case FilterResourceType:
-            if (chainableResourceContainsCycles(resource)) {
-                breakCycle(resource);
-                continue;
-            }
-            break;
-        default:
-            break;
-        }
-
         if (parentResources.contains(resource) || resourceContainsCycles(resource))
             breakCycle(resource);
     }
@@ -259,6 +250,11 @@ void SVGResourcesCycleSolver::resolveCycles()
 void SVGResourcesCycleSolver::breakCycle(RenderSVGResourceContainer* resourceLeadingToCycle)
 {
     ASSERT(resourceLeadingToCycle);
+    if (resourceLeadingToCycle == m_resources->linkedResource()) {
+        m_resources->resetLinkedResource();
+        return;
+    }
+
     switch (resourceLeadingToCycle->resourceType()) {
     case MaskerResourceType:
         ASSERT(resourceLeadingToCycle == m_resources->masker());

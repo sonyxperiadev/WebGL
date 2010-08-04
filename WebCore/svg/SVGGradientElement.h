@@ -37,6 +37,8 @@ namespace WebCore {
         SVGGradientElement(const QualifiedName&, Document*);
         virtual ~SVGGradientElement();
 
+        virtual bool needsPendingResourceHandling() const { return false; }
+
         virtual void parseMappedAttribute(Attribute*);
         virtual void svgAttributeChanged(const QualifiedName&);
         virtual void synchronizeProperty(const QualifiedName&);

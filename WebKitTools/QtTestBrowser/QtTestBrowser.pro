@@ -2,6 +2,7 @@ TEMPLATE = app
 
 SOURCES += \
     locationedit.cpp \
+    launcherwindow.cpp \
     main.cpp \
     mainwindow.cpp \
     urlloader.cpp \
@@ -12,6 +13,7 @@ SOURCES += \
 
 HEADERS += \
     locationedit.h \
+    launcherwindow.h \
     mainwindow.h \
     urlloader.h \
     utils.h \
@@ -46,7 +48,7 @@ linux-* {
 
 symbian {
     TARGET.UID3 = 0xA000E543
-    TARGET.CAPABILITY = ReadUserData WriteUserData NetworkServices
+    TARGET.CAPABILITY = ReadUserData WriteUserData NetworkServices Location
 }
 
 contains(QT_CONFIG, opengl) {

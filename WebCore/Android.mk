@@ -565,7 +565,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/image-decoders/gif/GIFImageDecoder.cpp \
 	platform/image-decoders/gif/GIFImageReader.cpp \
 	\
+	platform/mock/DeviceOrientationClientMock.cpp \
 	platform/mock/GeolocationServiceMock.cpp \
+	platform/mock/SpeechInputClientMock.cpp \
 	\
 	platform/network/AuthenticationChallengeBase.cpp \
 	platform/network/Credential.cpp \
@@ -813,17 +815,23 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/IDBDatabaseRequest.cpp \
 	storage/IDBErrorEvent.cpp \
 	storage/IDBEvent.cpp \
-	storage/IDBIndexImpl.cpp \
-	storage/IDBIndexRequest.cpp \
+	storage/IDBIndex.cpp \
+	storage/IDBIndexBackendImpl.cpp \
 	storage/IDBKey.cpp \
 	storage/IDBKeyRange.cpp \
 	storage/IDBObjectStoreImpl.cpp \
 	storage/IDBObjectStoreRequest.cpp \
 	storage/IDBRequest.cpp \
 	storage/IDBSuccessEvent.cpp \
+<<<<<<< HEAD
 	storage/IndexedDatabase.cpp \
 	storage/IndexedDatabaseImpl.cpp \
 	storage/IndexedDatabaseRequest.cpp \
+=======
+	storage/IDBFactory.cpp \
+	storage/IDBFactoryBackendInterface.cpp \
+	storage/IDBFactoryBackendImpl.cpp \
+>>>>>>> webkit.org at r64523
 	storage/LocalStorageTask.cpp \
 	storage/LocalStorageThread.cpp \
 	storage/OriginQuotaManager.cpp \

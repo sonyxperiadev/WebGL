@@ -29,6 +29,7 @@
 #include <JavaScriptCore/JSRetainPtr.h>
 #include <WebKit2/WKArray.h>
 #include <WebKit2/WKBundleFrame.h>
+#include <WebKit2/WKBundleFramePrivate.h>
 #include <WebKit2/WKBundleNode.h>
 #include <WebKit2/WKBundlePagePrivate.h>
 #include <WebKit2/WKRetainPtr.h>
@@ -68,21 +69,6 @@ static ostream& operator<<(ostream& out, WKStringRef stringRef)
 }
 
 static ostream& operator<<(ostream& out, const WKRetainPtr<WKStringRef>& stringRef)
-{
-    return out << stringRef.get();
-}
-
-static ostream& operator<<(ostream& out, JSStringRef stringRef)
-{
-    if (!stringRef)
-        return out;
-    CFIndex bufferLength = JSStringGetMaximumUTF8CStringSize(stringRef) + 1;
-    Vector<char> buffer(bufferLength);
-    JSStringGetUTF8CString(stringRef, buffer.data(), bufferLength);
-    return out << buffer.data();
-}
-
-static ostream& operator<<(ostream& out, const JSRetainPtr<JSStringRef>& stringRef)
 {
     return out << stringRef.get();
 }
@@ -169,6 +155,11 @@ InjectedBundlePage::~InjectedBundlePage()
 {
 }
 
+void InjectedBundlePage::reset()
+{
+    WKBundlePageClearMainFrameName(m_page);
+}
+
 // Loader Client Callbacks
 
 void InjectedBundlePage::_didStartProvisionalLoadForFrame(WKBundlePageRef page, WKBundleFrameRef frame, const void *clientInfo)
@@ -238,23 +229,6 @@ static JSValueRef propertyValue(JSContextRef context, JSObjectRef object, const 
     return JSObjectGetProperty(context, object, propertyNameString.get(), &exception);
 }
 
-static JSObjectRef propertyObject(JSContextRef context, JSObjectRef object, const char* propertyName)
-{
-    JSValueRef value = propertyValue(context, object, propertyName);
-    if (!value || !JSValueIsObject(context, value))
-        return 0;
-    return const_cast<JSObjectRef>(value);
-}
-
-static JSRetainPtr<JSStringRef> propertyString(JSContextRef context, JSObjectRef object, const char* propertyName)
-{
-    JSValueRef value = propertyValue(context, object, propertyName);
-    if (!value)
-        return 0;
-    JSValueRef exception;
-    return JSRetainPtr<JSStringRef>(Adopt, JSValueToStringCopy(context, value, &exception));
-}
-
 static double numericWindowPropertyValue(WKBundleFrameRef frame, const char* propertyName)
 {
     JSGlobalContextRef context = WKBundleFrameGetJavaScriptContext(frame);
@@ -285,8 +259,7 @@ static void dumpDescendantFrameScrollPositions(WKBundleFrameRef frame)
     WKRetainPtr<WKArrayRef> childFrames(AdoptWK, WKBundleFrameCopyChildFrames(frame));
     size_t size = WKArrayGetSize(childFrames.get());
     for (size_t i = 0; i < size; ++i) {
-        // FIXME: I don't like that we have to const_cast here. Can we change WKArray?
-        WKBundleFrameRef subframe = static_cast<WKBundleFrameRef>(const_cast<void*>(WKArrayGetItemAtIndex(childFrames.get(), i)));
+        WKBundleFrameRef subframe = static_cast<WKBundleFrameRef>(WKArrayGetItemAtIndex(childFrames.get(), i));
         dumpFrameScrollPosition(subframe, ShouldIncludeFrameName);
         dumpDescendantFrameScrollPositions(subframe);
     }
@@ -301,10 +274,8 @@ void InjectedBundlePage::dumpAllFrameScrollPositions()
 
 static void dumpFrameText(WKBundleFrameRef frame)
 {
-    JSGlobalContextRef context = WKBundleFrameGetJavaScriptContext(frame);
-    JSObjectRef document = propertyObject(context, JSContextGetGlobalObject(context), "document");
-    JSObjectRef documentElement = propertyObject(context, document, "documentElement");
-    InjectedBundle::shared().os() << propertyString(context, documentElement, "innerText") << "\n";
+    WKRetainPtr<WKStringRef> text(AdoptWK, WKBundleFrameCopyInnerText(frame));
+    InjectedBundle::shared().os() << text << "\n";
 }
 
 static void dumpDescendantFramesText(WKBundleFrameRef frame)
@@ -312,8 +283,7 @@ static void dumpDescendantFramesText(WKBundleFrameRef frame)
     WKRetainPtr<WKArrayRef> childFrames(AdoptWK, WKBundleFrameCopyChildFrames(frame));
     size_t size = WKArrayGetSize(childFrames.get());
     for (size_t i = 0; i < size; ++i) {
-        // FIXME: I don't like that we have to const_cast here. Can we change WKArray?
-        WKBundleFrameRef subframe = static_cast<WKBundleFrameRef>(const_cast<void*>(WKArrayGetItemAtIndex(childFrames.get(), i)));
+        WKBundleFrameRef subframe = static_cast<WKBundleFrameRef>(WKArrayGetItemAtIndex(childFrames.get(), i));
         WKRetainPtr<WKStringRef> subframeName(AdoptWK, WKBundleFrameCopyName(subframe));
         InjectedBundle::shared().os() << "\n--------\nFrame: '" << subframeName << "'\n--------\n";
         dumpFrameText(subframe);
@@ -361,6 +331,9 @@ void InjectedBundlePage::didFinishLoadForFrame(WKBundleFrameRef frame)
 
     m_isLoading = false;
 
+    if (this != InjectedBundle::shared().page())
+        return;
+
     if (InjectedBundle::shared().layoutTestController()->waitToDump())
         return;
 
@@ -373,6 +346,9 @@ void InjectedBundlePage::didFailLoadWithErrorForFrame(WKBundleFrameRef frame)
         return;
 
     m_isLoading = false;
+
+    if (this != InjectedBundle::shared().page())
+        return;
 
     InjectedBundle::shared().done();
 }

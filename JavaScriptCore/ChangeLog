@@ -1,3 +1,284 @@
+2010-08-02  Mahesh Kulkarni  <mahesh.kulkarni@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [QT] build fix for symbian
+        https://bugs.webkit.org/show_bug.cgi?id=43234
+
+        1) wrong order of passing param's
+        2) static_cast complains on symbian so using reinterpret_cast
+
+        No new tests added. Just a build fix for qt symbian
+
+        * wtf/PageAllocation.cpp:
+        (WTF::PageAllocation::commit):
+        (WTF::PageAllocation::decommit):
+        (WTF::PageAllocation::reserve):
+
+2010-07-30  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Simon Fraser.
+
+        Enabling view modes to all platforms
+        https://bugs.webkit.org/show_bug.cgi?id=37505
+
+        Removing ENABLE_WIDGETS_10_SUPPORT flag.
+
+        As view mode media feature is not part of widget 1.0 specification
+        any more the ENABLE_WIDGETS_10_SUPPORT flag may be removed. The only use
+        of this flag was related to view mode media feature implementation in Qt. 
+
+        * wtf/Platform.h:
+
+2010-07-30  Andy Estes  <aestes@apple.com>
+
+        Reviewed by David Kilzer.
+
+        Add Xcode support for compiling WebKit against iOS SDKs.
+        https://bugs.webkit.org/show_bug.cgi?id=42796
+
+        * Configurations/Base.xcconfig:
+        * Configurations/DebugRelease.xcconfig:
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-07-30  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Reviewed by Davin Levin.
+
+        Added a yield() function.
+        https://bugs.webkit.org/show_bug.cgi?id=42843
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * wtf/Threading.h:
+        * wtf/ThreadingPthreads.cpp:
+        (WTF::yield):
+        * wtf/ThreadingWin.cpp:
+        (WTF::yield):
+        * wtf/gtk/ThreadingGtk.cpp:
+        (WTF::yield):
+        * wtf/qt/ThreadingQt.cpp:
+        (WTF::yield):
+
+2010-07-30  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Add library version and soname to EFL generated libraries and binary.
+        https://bugs.webkit.org/show_bug.cgi?id=43212
+
+        Add version and soname to libjavascriptcore.so and libwtf.so in case of
+        linking as shared libraries, and version to jsc executable.
+
+        * CMakeLists.txt:
+        * jsc/CMakeLists.txt:
+        * wtf/CMakeLists.txt:
+
+2010-07-30  Mahesh Kulkarni  <mahesh.kulkarni@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [QT] build fix for symbian
+        https://bugs.webkit.org/show_bug.cgi?id=43234
+
+        * wtf/PageAllocation.h:
+        (WTF::PageAllocation::PageAllocation):
+
+2010-07-29  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r64313.
+        http://trac.webkit.org/changeset/64313
+        https://bugs.webkit.org/show_bug.cgi?id=43233
+
+        Some Chromium bots are not happy with it for some unknown
+        reason. (Requested by dumi on #webkit).
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * wtf/Threading.h:
+        * wtf/ThreadingPthreads.cpp:
+        * wtf/ThreadingWin.cpp:
+        * wtf/gtk/ThreadingGtk.cpp:
+        * wtf/qt/ThreadingQt.cpp:
+
+2010-07-29  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r64302.
+        http://trac.webkit.org/changeset/64302
+        https://bugs.webkit.org/show_bug.cgi?id=43223
+
+        Assertion is bogus (Requested by olliej on #webkit).
+
+        * assembler/ARMAssembler.cpp:
+        (JSC::ARMAssembler::executableCopy):
+        * assembler/AssemblerBuffer.h:
+        (JSC::AssemblerBuffer::putShortUnchecked):
+        (JSC::AssemblerBuffer::putIntUnchecked):
+        (JSC::AssemblerBuffer::putInt64Unchecked):
+        * jit/JITStubs.cpp:
+        * pcre/pcre_compile.cpp:
+        (jsRegExpCompile):
+        * wtf/FastMalloc.cpp:
+        (WTF::PageHeapAllocator::New):
+        (WTF::TCMalloc_Central_FreeList::Populate):
+        * wtf/MD5.cpp:
+        (WTF::reverseBytes):
+        (WTF::MD5::addBytes):
+        (WTF::MD5::checksum):
+        * wtf/StdLibExtras.h:
+        * wtf/Vector.h:
+        (WTF::VectorBuffer::inlineBuffer):
+        * wtf/qt/StringQt.cpp:
+        (WebCore::String::String):
+
+2010-07-29  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Changed the handling for removing and adding elements at the front
+        of an array.  The code now keeps a bias that indicates the amount of
+        JSValue sized holes are prior to the ArrayStorage block.  This means
+        that shift operations are now memmove's of the header part of
+        the ArrayStorage and unshift operations are similar, but may require a
+        realloc first to create the space.  Similar operations are performed
+        for special cases of splice and slice.
+        Also optimized the new Array(size) case so that we don't allocate and
+        initialize array elements until the JS code starts using elements.
+        The array growth code is slightly more aggressive for initial growth
+        based on size growth of any previous array.
+
+        * Configurations/JavaScriptCore.xcconfig:
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::emit_op_get_by_val):
+        (JSC::JIT::emit_op_put_by_val):
+        (JSC::JIT::privateCompilePatchGetArrayLength):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::emit_op_get_by_val):
+        (JSC::JIT::emit_op_put_by_val):
+        (JSC::JIT::privateCompilePatchGetArrayLength):
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncShift):
+        (JSC::arrayProtoFuncSplice):
+        (JSC::arrayProtoFuncUnShift):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::JSArray):
+        (JSC::JSArray::~JSArray):
+        (JSC::JSArray::getOwnPropertySlot):
+        (JSC::JSArray::getOwnPropertyDescriptor):
+        (JSC::JSArray::put):
+        (JSC::JSArray::putSlowCase):
+        (JSC::JSArray::deleteProperty):
+        (JSC::JSArray::getOwnPropertyNames):
+        (JSC::JSArray::getNewVectorLength):
+        (JSC::JSArray::increaseVectorLength):
+        (JSC::JSArray::increaseVectorPrefixLength):
+        (JSC::JSArray::setLength):
+        (JSC::JSArray::pop):
+        (JSC::JSArray::push):
+        (JSC::JSArray::shiftCount):
+        (JSC::JSArray::unshiftCount):
+        (JSC::JSArray::sortNumeric):
+        (JSC::JSArray::sort):
+        (JSC::JSArray::fillArgList):
+        (JSC::JSArray::copyToRegisters):
+        (JSC::JSArray::compactForSorting):
+        (JSC::JSArray::subclassData):
+        (JSC::JSArray::setSubclassData):
+        (JSC::JSArray::checkConsistency):
+        * runtime/JSArray.h:
+        (JSC::JSArray::length):
+        (JSC::JSArray::canGetIndex):
+        (JSC::JSArray::getIndex):
+        (JSC::JSArray::setIndex):
+        (JSC::JSArray::uncheckedSetIndex):
+        (JSC::JSArray::arrayStorage):
+        (JSC::JSArray::setArrayStorage):
+        (JSC::JSArray::markChildrenDirect):
+
+2010-07-29  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Changed MINIMUM_CELL_SIZE to be fixed at 64 bytes.
+
+        * runtime/Collector.h:
+
+2010-07-28  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Reviewed by David Levin.
+
+        Added a yield() function.
+        https://bugs.webkit.org/show_bug.cgi?id=42843
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * wtf/Threading.h:
+        * wtf/ThreadingPthreads.cpp:
+        (WTF::yield):
+        * wtf/ThreadingWin.cpp:
+        (WTF::yield):
+        * wtf/gtk/ThreadingGtk.cpp:
+        (WTF::yield):
+        * wtf/qt/ThreadingQt.cpp:
+        (WTF::yield):
+
+2010-07-29  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Fixed issue where RegExp greedy jit code loops when no input is
+        consumed.  Changed the code to only loop if some input was consumed,
+        but fall through if we successfully match an alternative that 
+        doesn't consume any input.
+        https://bugs.webkit.org/show_bug.cgi?id=42664
+
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::generateParenthesesGreedyNoBacktrack):
+
+2010-07-29  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        Avoid increasing required alignment of target type warning on ARM
+        https://bugs.webkit.org/show_bug.cgi?id=38045
+
+        The reinterpret_cast<Type1*>([pointer to Type2]) expressions - where
+        sizeof(Type1) > sizeof(Type2) - cause the following warning on ARM:
+        increases required alignment of target type warnings.
+        Casting the type of [pointer to Type2] object to void* bypasses the
+        warning.
+
+        * assembler/ARMAssembler.cpp:
+        (JSC::ARMAssembler::executableCopy):
+        * assembler/AssemblerBuffer.h:
+        (JSC::AssemblerBuffer::putShortUnchecked):
+        (JSC::AssemblerBuffer::putIntUnchecked):
+        (JSC::AssemblerBuffer::putInt64Unchecked):
+        * jit/JITStubs.cpp:
+        * pcre/pcre_compile.cpp:
+        (jsRegExpCompile):
+        * wtf/FastMalloc.cpp:
+        (WTF::PageHeapAllocator::New):
+        (WTF::TCMalloc_Central_FreeList::Populate):
+        * wtf/MD5.cpp:
+        (WTF::reverseBytes):
+        (WTF::MD5::addBytes):
+        (WTF::MD5::checksum):
+        * wtf/StdLibExtras.h:
+        (reinterpret_cast_ptr):
+        * wtf/Vector.h:
+        (WTF::VectorBuffer::inlineBuffer):
+        * wtf/qt/StringQt.cpp:
+        (WebCore::String::String):
+
+2010-07-29  Martin Robinson  <mrobinson@igalia.com>
+
+        Unreviewed build fix.
+
+        Include a missing header in the source list to fix 'make dist.'
+
+        * GNUmakefile.am: Include missing header.
+
 2010-07-28  Gavin Barraclough  <barraclough@apple.com>
 
         Reviewed by Darin Adler.

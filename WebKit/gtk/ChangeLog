@@ -1,3 +1,126 @@
+2010-07-27  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Darin Fisher.
+
+        PopupMenu refactoring in preparation to WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=42592
+
+        As ChromeClient was made responsible for providing PopupMenu and SearchPopupMenu
+        instances, concrete classes that inherit from ChromeClient needed to be changed to
+        implement the new methods.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::selectItemWritingDirectionIsNatural):
+        (WebKit::ChromeClient::createPopupMenu):
+        (WebKit::ChromeClient::createSearchPopupMenu):
+        * WebCoreSupport/ChromeClientGtk.h:
+
+2010-08-02  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Create a frame-created signal
+        https://bugs.webkit.org/show_bug.cgi?id=43284
+
+        Add a frame-created signal, which will allow developers to track
+        the beginning of a frame lifecycle and attach signal handlers to
+        all new frames.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::createFrame): Emit the frame-created signal.
+        * tests/testwebframe.c: Add a test which verifies that the correct number of
+        frame-created signals is fired when a page with iframes loads.
+        (createFrameSignalTestFrameCreatedCallback): Added.
+        (createFrameSignalTestTimeout): Added.
+        (test_webkit_web_frame_created_signal): Added.
+        (main): Add a reference to the new test.
+        * webkit/webkitprivate.h: De-normalize webkit_web_frame_init_with_web_view into
+        the one place that it is used, so that the frame-created signal may be fired there.
+        * webkit/webkitwebframe.cpp: Remove webkit_web_frame_init_with_web_view.
+        * webkit/webkitwebview.cpp: 
+        (webkit_web_view_class_init): Add the frame-created signal declaration.
+
+2010-08-02  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Chris Fleizach.
+
+        [GTK] Implement support for get_character_extents and get_range_extents
+        https://bugs.webkit.org/show_bug.cgi?id=25677
+
+        Added new unit tests to check get_character_extents and
+        get_range_extents functions for the ATK_TEXT interface
+
+        Based on a previous patch by Joanmarie Diggs.
+
+        * tests/testatk.c:
+        (test_webkit_atk_get_extents):
+        (main):
+
+2010-08-02  Jeremy Orlow  <jorlow@chromium.org>
+
+        Speculative revert of 64425 due to Chromium instability
+        https://bugs.webkit.org/show_bug.cgi?id=43347
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        * WebCoreSupport/ChromeClientGtk.h:
+
+2010-07-27  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Darin Fisher.
+
+        PopupMenu refactoring in preparation to WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=42592
+
+        As ChromeClient was made responsible for providing PopupMenu and SearchPopupMenu
+        instances, concrete classes that inherit from ChromeClient needed to be changed to
+        implement the new methods.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::selectItemWritingDirectionIsNatural):
+        (WebKit::ChromeClient::createPopupMenu):
+        (WebKit::ChromeClient::createSearchPopupMenu):
+        * WebCoreSupport/ChromeClientGtk.h:
+
+2010-07-31  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r64422.
+        http://trac.webkit.org/changeset/64422
+        https://bugs.webkit.org/show_bug.cgi?id=43304
+
+        Build fixes are needed for Snow Leopard and Windows.
+        (Requested by lca on #webkit).
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        * WebCoreSupport/ChromeClientGtk.h:
+
+2010-07-27  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Darin Fisher.
+
+        PopupMenu refactoring in preparation to WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=42592
+
+        As ChromeClient was made responsible for providing PopupMenu and SearchPopupMenu
+        instances, concrete classes that inherit from ChromeClient needed to be changed to
+        implement the new methods.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::selectItemWritingDirectionIsNatural):
+        (WebKit::ChromeClient::createPopupMenu):
+        (WebKit::ChromeClient::createSearchPopupMenu):
+        * WebCoreSupport/ChromeClientGtk.h:
+
+2010-07-30  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Limit ApplicationCache Total and Per-Origin Storage Capacity (Quotas)
+        https://bugs.webkit.org/show_bug.cgi?id=40627
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::reachedApplicationCacheOriginQuota):
+        * WebCoreSupport/ChromeClientGtk.h:
+
 2010-07-26  Steve Block  <steveblock@google.com>
 
         Reviewed by Jeremy Orlow.

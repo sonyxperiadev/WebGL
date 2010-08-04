@@ -30,6 +30,7 @@
 #include <WebKit2/WKBase.h>
 #include <WebKit2/WKBundleBase.h>
 #include <wtf/HashMap.h>
+#include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
 
 #include <sstream>
@@ -48,7 +49,9 @@ public:
     void done();
 
     LayoutTestController* layoutTestController() { return m_layoutTestController.get(); }
-    InjectedBundlePage* page() { return m_mainPage; }
+    InjectedBundlePage* page() { return m_mainPage.get(); }
+    size_t pageCount() { return !!m_mainPage + m_otherPages.size(); }
+    void closeOtherPages();
 
     std::ostringstream& os() { return m_outputStream; }
 
@@ -60,17 +63,17 @@ private:
 
     static void _didCreatePage(WKBundleRef bundle, WKBundlePageRef page, const void* clientInfo);
     static void _willDestroyPage(WKBundleRef bundle, WKBundlePageRef page, const void* clientInfo);
-    static void _didReceiveMessage(WKBundleRef bundle, WKStringRef message, const void *clientInfo);
+    static void _didReceiveMessage(WKBundleRef bundle, WKStringRef messageName, WKTypeRef messageBody, const void *clientInfo);
 
     void didCreatePage(WKBundlePageRef page);
     void willDestroyPage(WKBundlePageRef page);
-    void didReceiveMessage(WKStringRef message);
+    void didReceiveMessage(WKStringRef messageName, WKTypeRef messageBody);
 
     void reset();
 
     WKBundleRef m_bundle;
-    HashMap<WKBundlePageRef, InjectedBundlePage*> m_pages;
-    InjectedBundlePage* m_mainPage;
+    HashMap<WKBundlePageRef, InjectedBundlePage*> m_otherPages;
+    OwnPtr<InjectedBundlePage> m_mainPage;
 
     RefPtr<LayoutTestController> m_layoutTestController;
 

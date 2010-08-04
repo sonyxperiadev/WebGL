@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007 Kevin Ollivier <kevino@theolliviers.com>
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * All rights reserved.
  *
@@ -125,6 +126,7 @@ public:
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
+    virtual void reachedApplicationCacheOriginQuota(SecurityOrigin*);
 #endif
 
     virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
@@ -140,6 +142,10 @@ public:
 
     virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
     virtual void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*) { }
+
+    virtual bool selectItemWritingDirectionIsNatural();
+    virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const;
+    virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const;
 
 private:
     wxWebView* m_webView;

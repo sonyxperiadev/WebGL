@@ -3767,16 +3767,21 @@ bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
         // Check if we need to do anything at all.
         IntRect overflowBox = visibleOverflowRect();
         overflowBox.move(tx, ty);
+<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
         if (!result.intersects(_x, _y, overflowBox))
 #else
         if (!overflowBox.contains(_x, _y))
 #endif
+=======
+        if (!overflowBox.intersects(result.rectFromPoint(_x, _y)))
+>>>>>>> webkit.org at r64523
             return false;
     }
 
     if ((hitTestAction == HitTestBlockBackground || hitTestAction == HitTestChildBlockBackground) && isPointInOverflowControl(result, _x, _y, tx, ty)) {
         updateHitTestResult(result, IntPoint(_x - tx, _y - ty));
+<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
         // TODO: isPointInOverflowControl() doesn't handle region test yet.
         if (result.isRegionTest()) {
@@ -3785,16 +3790,26 @@ bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
         } else
 #endif
         return true;
+=======
+        // FIXME: isPointInOverflowControl() doesn't handle rect-based tests yet.
+        if (!result.addNodeToRectBasedTestResult(node(), _x, _y))
+           return true;
+>>>>>>> webkit.org at r64523
     }
 
     // If we have clipping, then we can't have any spillout.
     bool useOverflowClip = hasOverflowClip() && !hasSelfPaintingLayer();
     bool useClip = (hasControlClip() || useOverflowClip);
+<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
     bool checkChildren = !useClip || (hasControlClip() ? result.intersects(_x, _y, controlClipRect(tx, ty)) : result.intersects(_x, _y, overflowClipRect(tx, ty)));
 #else
     bool checkChildren = !useClip || (hasControlClip() ? controlClipRect(tx, ty).contains(_x, _y) : overflowClipRect(tx, ty).contains(_x, _y));
 #endif
+=======
+    IntRect hitTestArea(result.rectFromPoint(_x, _y));
+    bool checkChildren = !useClip || (hasControlClip() ? controlClipRect(tx, ty).intersects(hitTestArea) : overflowClipRect(tx, ty).intersects(hitTestArea));
+>>>>>>> webkit.org at r64523
     if (checkChildren) {
         // Hit test descendants first.
         int scrolledX = tx;
@@ -3842,6 +3857,7 @@ bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
     // Now hit test our background
     if (hitTestAction == HitTestBlockBackground || hitTestAction == HitTestChildBlockBackground) {
         IntRect boundsRect(tx, ty, width(), height());
+<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
         if (visibleToHitTesting() && result.intersects(_x, _y, boundsRect)) {
 #else
@@ -3857,6 +3873,12 @@ bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
             }
 #endif
             return true;
+=======
+        if (visibleToHitTesting() && boundsRect.intersects(result.rectFromPoint(_x, _y))) {
+            updateHitTestResult(result, IntPoint(_x - tx, _y - ty));
+            if (!result.addNodeToRectBasedTestResult(node(), _x, _y, boundsRect))
+                return true;
+>>>>>>> webkit.org at r64523
         }
     }
 
@@ -3881,22 +3903,33 @@ bool RenderBlock::hitTestColumns(const HitTestRequest& request, HitTestResult& r
         currYOffset += colRect.height();
         colRect.move(tx, ty);
         
+<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
         if (result.intersects(x, y, colRect)) {
 #else
         if (colRect.contains(x, y)) {
 #endif
+=======
+        if (colRect.intersects(result.rectFromPoint(x, y))) {
+>>>>>>> webkit.org at r64523
             // The point is inside this column.
             // Adjust tx and ty to change where we hit test.
         
             int finalX = tx + currXOffset;
             int finalY = ty + currYOffset;
+<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
             if (result.isRegionTest() && !result.containedBy(x, y, colRect))
                 hitTestContents(request, result, x, y, finalX, finalY, hitTestAction);
             else
 #endif
             return hitTestContents(request, result, x, y, finalX, finalY, hitTestAction);
+=======
+            if (result.isRectBasedTest() && !colRect.contains(result.rectFromPoint(x, y)))
+                hitTestContents(request, result, x, y, finalX, finalY, hitTestAction);
+            else
+                return hitTestContents(request, result, x, y, finalX, finalY, hitTestAction);
+>>>>>>> webkit.org at r64523
         }
     }
 

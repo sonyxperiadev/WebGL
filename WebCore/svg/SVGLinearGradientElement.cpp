@@ -76,7 +76,12 @@ void SVGLinearGradientElement::svgAttributeChanged(const QualifiedName& attrName
         || attrName == SVGNames::x2Attr
         || attrName == SVGNames::y2Attr) {
         updateRelativeLengthsInformation();
-        invalidateResourceClients();
+
+        RenderObject* object = renderer();
+        if (!object)
+            return;
+
+        object->setNeedsLayout(true);
     }
 }
 
@@ -155,8 +160,10 @@ LinearGradientAttributes SVGLinearGradientElement::collectGradientProperties()
             current = static_cast<SVGGradientElement*>(refNode);
 
             // Cycle detection
-            if (processedGradients.contains(current))
-                return LinearGradientAttributes();
+            if (processedGradients.contains(current)) {
+                current = 0;
+                break;
+            }
 
             isLinear = current->hasTagName(SVGNames::linearGradientTag);
         } else

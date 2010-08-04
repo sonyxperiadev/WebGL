@@ -33,6 +33,7 @@
 #include "V8DOMWrapper.h"
 #include "V8IsolatedContext.h"
 #include "V8Proxy.h"
+#include "V8TestCallback.h"
 #include "V8log.h"
 #include <wtf/GetPtr.h>
 #include <wtf/RefCounted.h>
@@ -151,6 +152,38 @@ static void testObjAttrAttrSetter(v8::Local<v8::String> name, v8::Local<v8::Valu
     TestObj* imp = V8TestObj::toNative(info.Holder());
     TestObj* v = V8TestObj::HasInstance(value) ? V8TestObj::toNative(v8::Handle<v8::Object>::Cast(value)) : 0;
     imp->setTestObjAttr(WTF::getPtr(v));
+    return;
+}
+
+static v8::Handle<v8::Value> XMLObjAttrAttrGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.TestObj.XMLObjAttr._get");
+    TestObj* imp = V8TestObj::toNative(info.Holder());
+    return toV8(imp->xmlObjAttr());
+}
+
+static void XMLObjAttrAttrSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.TestObj.XMLObjAttr._set");
+    TestObj* imp = V8TestObj::toNative(info.Holder());
+    TestObj* v = V8TestObj::HasInstance(value) ? V8TestObj::toNative(v8::Handle<v8::Object>::Cast(value)) : 0;
+    imp->setXMLObjAttr(WTF::getPtr(v));
+    return;
+}
+
+static v8::Handle<v8::Value> CREATEAttrGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.TestObj.CREATE._get");
+    TestObj* imp = V8TestObj::toNative(info.Holder());
+    return v8Boolean(imp->isCreate());
+}
+
+static void CREATEAttrSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info)
+{
+    INC_STATS("DOM.TestObj.CREATE._set");
+    TestObj* imp = V8TestObj::toNative(info.Holder());
+    bool v = value->BooleanValue();
+    imp->setCreate(v);
     return;
 }
 
@@ -862,6 +895,44 @@ static v8::Handle<v8::Value> methodWithNonOptionalArgAndTwoOptionalArgsCallback(
     return v8::Handle<v8::Value>();
 }
 
+static v8::Handle<v8::Value> methodWithCallbackArgCallback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.TestObj.methodWithCallbackArg");
+    TestObj* imp = V8TestObj::toNative(args.Holder());
+    if (args.Length() <= 0 || !args[0]->IsObject())
+        return throwError(TYPE_MISMATCH_ERR);
+    RefPtr<TestCallback> callback = V8TestCallback::create(args[0]);
+    imp->methodWithCallbackArg(callback);
+    return v8::Handle<v8::Value>();
+}
+
+static v8::Handle<v8::Value> methodWithNonCallbackArgAndCallbackArgCallback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.TestObj.methodWithNonCallbackArgAndCallbackArg");
+    TestObj* imp = V8TestObj::toNative(args.Holder());
+    int nonCallback = toInt32(args[0]);
+    if (args.Length() <= 1 || !args[1]->IsObject())
+        return throwError(TYPE_MISMATCH_ERR);
+    RefPtr<TestCallback> callback = V8TestCallback::create(args[1]);
+    imp->methodWithNonCallbackArgAndCallbackArg(nonCallback, callback);
+    return v8::Handle<v8::Value>();
+}
+
+static v8::Handle<v8::Value> methodWithCallbackAndOptionalArgCallback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.TestObj.methodWithCallbackAndOptionalArg");
+    TestObj* imp = V8TestObj::toNative(args.Holder());
+    if (args.Length() <= 0) {
+        imp->methodWithCallbackAndOptionalArg();
+        return v8::Handle<v8::Value>();
+    }
+    if (args.Length() <= 0 || !args[0]->IsObject())
+        return throwError(TYPE_MISMATCH_ERR);
+    RefPtr<TestCallback> callback = V8TestCallback::create(args[0]);
+    imp->methodWithCallbackAndOptionalArg(callback);
+    return v8::Handle<v8::Value>();
+}
+
 static v8::Handle<v8::Value> overloadedMethod1Callback(const v8::Arguments& args)
 {
     INC_STATS("DOM.TestObj.overloadedMethod1");
@@ -938,6 +1009,10 @@ static const BatchedAttribute TestObjAttrs[] = {
     {"stringAttr", TestObjInternal::stringAttrAttrGetter, TestObjInternal::stringAttrAttrSetter, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
     // Attribute 'testObjAttr' (Type: 'attribute' ExtAttr: '')
     {"testObjAttr", TestObjInternal::testObjAttrAttrGetter, TestObjInternal::testObjAttrAttrSetter, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
+    // Attribute 'XMLObjAttr' (Type: 'attribute' ExtAttr: '')
+    {"XMLObjAttr", TestObjInternal::XMLObjAttrAttrGetter, TestObjInternal::XMLObjAttrAttrSetter, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
+    // Attribute 'CREATE' (Type: 'attribute' ExtAttr: '')
+    {"CREATE", TestObjInternal::CREATEAttrGetter, TestObjInternal::CREATEAttrSetter, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
     // Attribute 'reflectedStringAttr' (Type: 'attribute' ExtAttr: 'Reflect')
     {"reflectedStringAttr", TestObjInternal::reflectedStringAttrAttrGetter, TestObjInternal::reflectedStringAttrAttrSetter, 0 /* no data */, static_cast<v8::AccessControl>(v8::DEFAULT), static_cast<v8::PropertyAttribute>(v8::None), 0 /* on instance */},
     // Attribute 'reflectedIntegralAttr' (Type: 'attribute' ExtAttr: 'Reflect')
@@ -1013,6 +1088,7 @@ static const BatchedCallback TestObjCallbacks[] = {
     {"methodWithOptionalArg", TestObjInternal::methodWithOptionalArgCallback},
     {"methodWithNonOptionalArgAndOptionalArg", TestObjInternal::methodWithNonOptionalArgAndOptionalArgCallback},
     {"methodWithNonOptionalArgAndTwoOptionalArgs", TestObjInternal::methodWithNonOptionalArgAndTwoOptionalArgsCallback},
+    {"methodWithCallbackAndOptionalArg", TestObjInternal::methodWithCallbackAndOptionalArgCallback},
     {"overloadedMethod", TestObjInternal::overloadedMethodCallback},
 };
 static const BatchedConstant TestObjConsts[] = {
@@ -1085,6 +1161,18 @@ static v8::Persistent<v8::FunctionTemplate> ConfigureV8TestObjTemplate(v8::Persi
     v8::Handle<v8::FunctionTemplate> customArgsAndExceptionArgv[customArgsAndExceptionArgc] = { V8log::GetRawTemplate() };
     v8::Handle<v8::Signature> customArgsAndExceptionSignature = v8::Signature::New(desc, customArgsAndExceptionArgc, customArgsAndExceptionArgv);
     proto->Set(v8::String::New("customArgsAndException"), v8::FunctionTemplate::New(TestObjInternal::customArgsAndExceptionCallback, v8::Handle<v8::Value>(), customArgsAndExceptionSignature));
+
+    // Custom Signature 'methodWithCallbackArg'
+    const int methodWithCallbackArgArgc = 1;
+    v8::Handle<v8::FunctionTemplate> methodWithCallbackArgArgv[methodWithCallbackArgArgc] = { V8TestCallback::GetRawTemplate() };
+    v8::Handle<v8::Signature> methodWithCallbackArgSignature = v8::Signature::New(desc, methodWithCallbackArgArgc, methodWithCallbackArgArgv);
+    proto->Set(v8::String::New("methodWithCallbackArg"), v8::FunctionTemplate::New(TestObjInternal::methodWithCallbackArgCallback, v8::Handle<v8::Value>(), methodWithCallbackArgSignature));
+
+    // Custom Signature 'methodWithNonCallbackArgAndCallbackArg'
+    const int methodWithNonCallbackArgAndCallbackArgArgc = 2;
+    v8::Handle<v8::FunctionTemplate> methodWithNonCallbackArgAndCallbackArgArgv[methodWithNonCallbackArgAndCallbackArgArgc] = { v8::Handle<v8::FunctionTemplate>(), V8TestCallback::GetRawTemplate() };
+    v8::Handle<v8::Signature> methodWithNonCallbackArgAndCallbackArgSignature = v8::Signature::New(desc, methodWithNonCallbackArgAndCallbackArgArgc, methodWithNonCallbackArgAndCallbackArgArgv);
+    proto->Set(v8::String::New("methodWithNonCallbackArgAndCallbackArg"), v8::FunctionTemplate::New(TestObjInternal::methodWithNonCallbackArgAndCallbackArgCallback, v8::Handle<v8::Value>(), methodWithNonCallbackArgAndCallbackArgSignature));
     batchConfigureConstants(desc, proto, TestObjConsts, sizeof(TestObjConsts) / sizeof(*TestObjConsts));
 
     // Custom toString template

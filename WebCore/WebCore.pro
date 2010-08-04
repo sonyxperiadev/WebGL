@@ -912,7 +912,9 @@ SOURCES += \
     platform/LinkHash.cpp \
     platform/Logging.cpp \
     platform/MIMETypeRegistry.cpp \
+    platform/mock/DeviceOrientationClientMock.cpp \
     platform/mock/GeolocationServiceMock.cpp \
+    platform/mock/SpeechInputClientMock.cpp \
     platform/network/AuthenticationChallengeBase.cpp \
     platform/network/Credential.cpp \
     platform/network/FormData.cpp \
@@ -1630,7 +1632,9 @@ HEADERS += \
     platform/FileChooser.h \
     platform/GeolocationService.h \
     platform/image-decoders/ImageDecoder.h \
+    platform/mock/DeviceOrientationClientMock.h \
     platform/mock/GeolocationServiceMock.h \
+    platform/mock/SpeechInputClientMock.h \
     platform/graphics/BitmapImage.h \
     platform/graphics/Color.h \
     platform/graphics/filters/FEBlend.h \
@@ -1705,6 +1709,7 @@ HEADERS += \
     platform/network/ResourceResponseBase.h \
     platform/PlatformTouchEvent.h \
     platform/PlatformTouchPoint.h \
+    platform/PopupMenu.h \
     platform/qt/ClipboardQt.h \
     platform/qt/QWebPageClient.h \
     platform/qt/QtAbstractWebPopup.h \
@@ -1714,6 +1719,7 @@ HEADERS += \
     platform/Scrollbar.h \
     platform/ScrollbarThemeComposite.h \
     platform/ScrollView.h \
+    platform/SearchPopupMenu.h \
     platform/SharedBuffer.h \
     platform/sql/SQLiteDatabase.h \
     platform/sql/SQLiteFileSystem.h \
@@ -2268,8 +2274,7 @@ maemo5 {
     mac {
         SOURCES += \
             platform/text/cf/StringCF.cpp \
-            platform/text/cf/StringImplCF.cpp \
-            platform/cf/SharedBufferCF.cpp
+            platform/text/cf/StringImplCF.cpp
         LIBS_PRIVATE += -framework Carbon -framework AppKit
     }
 
@@ -2425,19 +2430,19 @@ contains(DEFINES, ENABLE_INDEXED_DATABASE=1) {
         storage/IDBDatabaseRequest.h \
         storage/IDBErrorEvent.h \
         storage/IDBEvent.h \
+        storage/IDBFactory.h \
+        storage/IDBFactoryBackendInterface.h \
+        storage/IDBFactoryBackendImpl.h \
         storage/IDBIndex.h \
-        storage/IDBIndexImpl.h \
-        storage/IDBIndexRequest.h \
+        storage/IDBIndexBackendInterface.h \
+        storage/IDBIndexBackendImpl.h \
         storage/IDBKey.h \
         storage/IDBKeyRange.h \
         storage/IDBObjectStore.h \
         storage/IDBObjectStoreImpl.h \
         storage/IDBObjectStoreRequest.h \
         storage/IDBRequest.h \
-        storage/IDBSuccessEvent.h \
-        storage/IndexedDatabase.h \
-        storage/IndexedDatabaseImpl.h \
-        storage/IndexedDatabaseRequest.h
+        storage/IDBSuccessEvent.h
 
     SOURCES += \
         bindings/js/IDBBindingUtilities.cpp \
@@ -2448,17 +2453,17 @@ contains(DEFINES, ENABLE_INDEXED_DATABASE=1) {
         storage/IDBDatabaseRequest.cpp \
         storage/IDBErrorEvent.cpp \
         storage/IDBEvent.cpp \
-        storage/IDBIndexImpl.cpp \
-        storage/IDBIndexRequest.cpp \
+        storage/IDBFactory.cpp \
+        storage/IDBFactoryBackendInterface.cpp \
+        storage/IDBFactoryBackendImpl.cpp \
+        storage/IDBIndex.cpp \
+        storage/IDBIndexBackendImpl.cpp \
         storage/IDBKey.cpp \
         storage/IDBKeyRange.cpp \
         storage/IDBObjectStoreImpl.cpp \
         storage/IDBObjectStoreRequest.cpp \
         storage/IDBRequest.cpp \
-        storage/IDBSuccessEvent.cpp \
-        storage/IndexedDatabase.cpp \
-        storage/IndexedDatabaseImpl.cpp \
-        storage/IndexedDatabaseRequest.cpp
+        storage/IDBSuccessEvent.cpp
 }
 
 contains(DEFINES, ENABLE_DOM_STORAGE=1) {
@@ -3293,6 +3298,8 @@ HEADERS += \
     ../WebKit2/WebProcess/WebCoreSupport/WebErrors.h \
     ../WebKit2/WebProcess/WebCoreSupport/WebFrameLoaderClient.h \
     ../WebKit2/WebProcess/WebCoreSupport/WebInspectorClient.h \
+    ../WebKit2/WebProcess/WebCoreSupport/WebPopupMenu.h \
+    ../WebKit2/WebProcess/WebCoreSupport/WebSearchPopupMenu.h \
     ../WebKit2/WebProcess/WebPage/ChunkedUpdateDrawingArea.h \
     ../WebKit2/WebProcess/WebPage/DrawingArea.h \
     ../WebKit2/WebProcess/WebPage/WebFrame.h \
@@ -3365,6 +3372,8 @@ SOURCES += \
     ../WebKit2/WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp \
     ../WebKit2/WebProcess/WebCoreSupport/WebInspectorClient.cpp \
     ../WebKit2/WebProcess/WebCoreSupport/WebBackForwardControllerClient.cpp \
+    ../WebKit2/WebProcess/WebCoreSupport/WebPopupMenu.cpp \
+    ../WebKit2/WebProcess/WebCoreSupport/WebSearchPopupMenu.cpp \
     ../WebKit2/WebProcess/WebCoreSupport/qt/WebErrorsQt.cpp \
     ../WebKit2/WebProcess/WebPage/ChunkedUpdateDrawingArea.cpp \
     ../WebKit2/WebProcess/WebPage/DrawingArea.cpp \
@@ -3375,6 +3384,11 @@ SOURCES += \
     ../WebKit2/WebProcess/WebPage/qt/WebPageQt.cpp \
     ../WebKit2/WebProcess/WebProcess.cpp \
     ../WebKit2/WebProcess/qt/WebProcessMainQt.cpp
+
+INCLUDEPATH = \
+    $$OUTPUT_DIR/WebCore/generated \
+    $$INCLUDEPATH \
+    $$OUPUT_DIR/include
 
 }
 

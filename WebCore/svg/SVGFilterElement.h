@@ -43,6 +43,8 @@ public:
     SVGFilterElement(const QualifiedName&, Document*);
     virtual ~SVGFilterElement();
 
+    virtual bool needsPendingResourceHandling() const { return false; }
+
     void setFilterRes(unsigned long filterResX, unsigned long filterResY);
     FloatRect filterBoundingBox(const FloatRect&) const;
 

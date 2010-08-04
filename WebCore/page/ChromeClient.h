@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008, 2009 Apple, Inc. All rights reserved.
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,7 +27,10 @@
 #include "GraphicsContext.h"
 #include "HTMLParserQuirks.h"
 #include "HostWindow.h"
+#include "PopupMenu.h"
+#include "PopupMenuClient.h"
 #include "ScrollTypes.h"
+#include "SearchPopupMenu.h"
 #include <wtf/Forward.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
@@ -53,6 +57,8 @@ namespace WebCore {
     class IntRect;
     class Node;
     class Page;
+    class SecurityOrigin;
+    class PopupMenuClient;
     class String;
     class Widget;
 
@@ -62,6 +68,10 @@ namespace WebCore {
 
 #if USE(ACCELERATED_COMPOSITING)
     class GraphicsLayer;
+#endif
+
+#if USE(GLES2_RENDERING)
+    class GLES2Context;
 #endif
 
 #if ENABLE(NOTIFICATIONS)
@@ -163,6 +173,13 @@ namespace WebCore {
         // The chrome client would need to take some action such as evicting some
         // old caches.
         virtual void reachedMaxAppCacheSize(int64_t spaceNeeded) = 0;
+
+        // Callback invoked when the application cache origin quota is reached. This
+        // means that the resources attempting to be cached via the manifest are
+        // more than allowed on this origin. This callback allows the chrome client
+        // to take action, such as prompting the user to ask to increase the quota
+        // for this origin.
+        virtual void reachedApplicationCacheOriginQuota(SecurityOrigin* origin) = 0;
 #endif
 
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -219,6 +236,12 @@ namespace WebCore {
         virtual bool allowsAcceleratedCompositing() const { return true; }
 #endif
 
+#if USE(GLES2_RENDERING)
+        // Request a GL ES 2 context to use for compositing this page's content.
+        virtual PassOwnPtr<GLES2Context> getOnscreenGLES2Context() = 0;
+        virtual PassOwnPtr<GLES2Context> getOffscreenGLES2Context() = 0;
+#endif
+
         virtual bool supportsFullscreenForNode(const Node*) { return false; }
         virtual void enterFullscreenForNode(Node*) { }
         virtual void exitFullscreenForNode(Node*) { }
@@ -244,13 +267,9 @@ namespace WebCore {
         virtual void needTouchEvents(bool) = 0;
 #endif
 
-#if ENABLE(WIDGETS_10_SUPPORT)
-        virtual bool isWindowed() { return false; }
-        virtual bool isFloating() { return false; }
-        virtual bool isFullscreen() { return false; }
-        virtual bool isMaximized() { return false; }
-        virtual bool isMinimized() { return false; }
-#endif
+        virtual bool selectItemWritingDirectionIsNatural() = 0;
+        virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const = 0;
+        virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const = 0;
 
 #if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
         virtual void webAppCanBeInstalled() = 0;

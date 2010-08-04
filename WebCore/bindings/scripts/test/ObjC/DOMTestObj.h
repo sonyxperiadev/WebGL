@@ -62,6 +62,10 @@ enum {
 - (void)setStringAttr:(NSString *)newStringAttr;
 - (DOMTestObj *)testObjAttr;
 - (void)setTestObjAttr:(DOMTestObj *)newTestObjAttr;
+- (DOMTestObj *)XMLObjAttr;
+- (void)setXMLObjAttr:(DOMTestObj *)newXMLObjAttr;
+- (BOOL)CREATE;
+- (void)setCREATE:(BOOL)newCREATE;
 - (NSString *)reflectedStringAttr;
 - (void)setReflectedStringAttr:(NSString *)newReflectedStringAttr;
 - (int)reflectedIntegralAttr;

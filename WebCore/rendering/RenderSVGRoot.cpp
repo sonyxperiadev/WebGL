@@ -26,14 +26,19 @@
 #include "RenderSVGRoot.h"
 
 #include "GraphicsContext.h"
+<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
 #include "HitTestResult.h"
 #endif
+=======
+#include "HitTestResult.h"
+>>>>>>> webkit.org at r64523
 #include "RenderSVGContainer.h"
 #include "RenderSVGResource.h"
 #include "RenderView.h"
 #include "SVGLength.h"
 #include "SVGRenderSupport.h"
+#include "SVGResources.h"
 #include "SVGSVGElement.h"
 #include "SVGStyledElement.h"
 #include "TransformState.h"
@@ -131,15 +136,14 @@ void RenderSVGRoot::layout()
     setNeedsLayout(false);
 }
 
-bool RenderSVGRoot::selfWillPaint() const
+bool RenderSVGRoot::selfWillPaint()
 {
 #if ENABLE(FILTERS)
-    const SVGRenderStyle* svgStyle = style()->svgStyle();
-    RenderSVGResourceFilter* filter = getRenderSVGResourceById<RenderSVGResourceFilter>(document(), svgStyle->filterResource());
-    if (filter)
-        return true;
-#endif
+    SVGResources* resources = SVGResourcesCache::cachedResourcesForRenderObject(this);
+    return resources && resources->filter();
+#else
     return false;
+#endif
 }
 
 void RenderSVGRoot::paint(PaintInfo& paintInfo, int parentX, int parentY)
@@ -194,8 +198,20 @@ void RenderSVGRoot::paint(PaintInfo& paintInfo, int parentX, int parentY)
 
 void RenderSVGRoot::destroy()
 {
-    RenderSVGResource::invalidateAllResourcesOfRenderer(this);
+    SVGResourcesCache::clientDestroyed(this);
     RenderBox::destroy();
+}
+
+void RenderSVGRoot::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
+{
+    RenderBox::styleDidChange(diff, oldStyle);
+    SVGResourcesCache::clientStyleChanged(this, diff, style());
+}
+
+void RenderSVGRoot::updateFromElement()
+{
+    RenderBox::updateFromElement();
+    SVGResourcesCache::clientUpdatedFromElement(this, style());
 }
 
 void RenderSVGRoot::calcViewport()
@@ -322,6 +338,7 @@ bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
         if (child->nodeAtFloatPoint(request, result, localPoint, hitTestAction)) {
             // FIXME: CSS/HTML assumes the local point is relative to the border box, right?
             updateHitTestResult(result, pointInBorderBox);
+<<<<<<< HEAD
 #ifdef ANDROID_HITTEST_WITHSIZE
             // TODO: nodeAtFloatPoint() doesn't handle region test yet.
             if (result.isRegionTest()) {
@@ -329,6 +346,10 @@ bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
                 result.addRawNode(node());
             } else
 #endif
+=======
+            // FIXME: nodeAtFloatPoint() doesn't handle rect-based hit tests yet.
+            result.addNodeToRectBasedTestResult(child->node(), _x, _y);
+>>>>>>> webkit.org at r64523
             return true;
         }
     }

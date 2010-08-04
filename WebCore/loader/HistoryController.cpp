@@ -48,7 +48,21 @@
 #include "Settings.h"
 #include <wtf/text/CString.h>
 
+#if USE(PLATFORM_STRATEGIES)
+#include "PlatformStrategies.h"
+#include "VisitedLinkStrategy.h"
+#endif
+
 namespace WebCore {
+
+static inline void addVisitedLink(Page* page, const KURL& url)
+{
+#if USE(PLATFORM_STRATEGIES)
+    platformStrategies()->visitedLinkStrategy()->addVisitedLink(page, visitedLinkHash(url.string().characters(), url.string().length()));
+#else
+    page->group().addVisitedLink(url);
+#endif
+}
 
 HistoryController::HistoryController(Frame* frame)
     : m_frame(frame)
@@ -290,7 +304,7 @@ void HistoryController::updateForStandardLoad(HistoryUpdateType updateType)
 
     if (!historyURL.isEmpty() && !needPrivacy) {
         if (Page* page = m_frame->page())
-            page->group().addVisitedLink(historyURL);
+            addVisitedLink(page, historyURL);
 
         if (!frameLoader->documentLoader()->didCreateGlobalHistoryEntry() && frameLoader->documentLoader()->unreachableURL().isEmpty() && !frameLoader->url().isEmpty())
             frameLoader->client()->updateGlobalHistoryRedirectLinks();
@@ -334,7 +348,7 @@ void HistoryController::updateForRedirectWithLockedBackForwardList()
 
     if (!historyURL.isEmpty() && !needPrivacy) {
         if (Page* page = m_frame->page())
-            page->group().addVisitedLink(historyURL);
+            addVisitedLink(page, historyURL);
 
         if (!m_frame->loader()->documentLoader()->didCreateGlobalHistoryEntry() && m_frame->loader()->documentLoader()->unreachableURL().isEmpty() && !m_frame->loader()->url().isEmpty())
             m_frame->loader()->client()->updateGlobalHistoryRedirectLinks();
@@ -361,7 +375,7 @@ void HistoryController::updateForClientRedirect()
 
     if (!historyURL.isEmpty() && !needPrivacy) {
         if (Page* page = m_frame->page())
-            page->group().addVisitedLink(historyURL);
+            addVisitedLink(page, historyURL);
     }
 }
 
@@ -399,7 +413,7 @@ void HistoryController::updateForSameDocumentNavigation()
     if (!page)
         return;
 
-    page->group().addVisitedLink(m_frame->loader()->url());
+    addVisitedLink(page, m_frame->loader()->url());
 }
 
 void HistoryController::updateForFrameLoadCompleted()
@@ -619,9 +633,9 @@ void HistoryController::updateBackForwardListClippedAtTarget(bool doClip)
 
     frameLoader->checkDidPerformFirstNavigation();
 
-    RefPtr<HistoryItem> item = frameLoader->history()->createItemTree(m_frame, doClip);
-    LOG(BackForward, "WebCoreBackForward - Adding backforward item %p for frame %s", item.get(), m_frame->loader()->documentLoader()->url().string().ascii().data());
-    page->backForwardList()->addItem(item);
+    RefPtr<HistoryItem> topItem = frameLoader->history()->createItemTree(m_frame, doClip);
+    LOG(BackForward, "WebCoreBackForward - Adding backforward item %p for frame %s", topItem.get(), m_frame->loader()->documentLoader()->url().string().ascii().data());
+    page->backForwardList()->addItem(topItem.release());
 }
 
 void HistoryController::pushState(PassRefPtr<SerializedScriptValue> stateObject, const String& title, const String& urlString)
@@ -633,15 +647,21 @@ void HistoryController::pushState(PassRefPtr<SerializedScriptValue> stateObject,
     ASSERT(page);
 
     // Get a HistoryItem tree for the current frame tree.
-    RefPtr<HistoryItem> item = createItemTree(m_frame, false);
-    ASSERT(item->isTargetItem());
+    RefPtr<HistoryItem> topItem = page->mainFrame()->loader()->history()->createItemTree(m_frame, false);
     
-    // Override data in the target item to reflect the pushState() arguments.
-    item->setTitle(title);
-    item->setStateObject(stateObject);
-    item->setURLString(urlString);
+    // Override data in the current item (created by createItemTree) to reflect
+    // the pushState() arguments.
+    m_currentItem->setTitle(title);
+    m_currentItem->setStateObject(stateObject);
+    m_currentItem->setURLString(urlString);
 
-    page->backForwardList()->pushStateItem(item.release());
+    // Create a null state object for the previous HistoryItem so that we will
+    // generate a popstate event when navigating back to it.
+    // FIXME: http://webkit.org/b/41372 implies that we shouldn't need this.
+    if (!m_previousItem->stateObject())
+        m_previousItem->setStateObject(SerializedScriptValue::create());
+
+    page->backForwardList()->addItem(topItem.release());
 }
 
 void HistoryController::replaceState(PassRefPtr<SerializedScriptValue> stateObject, const String& title, const String& urlString)

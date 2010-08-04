@@ -21,10 +21,12 @@
 #include "config.h"
 #include "JSTestObj.h"
 
+#include "ExceptionCode.h"
 #include "HTMLNames.h"
 #include "IDBBindingUtilities.h"
 #include "IDBKey.h"
 #include "JSEventListener.h"
+#include "JSTestCallback.h"
 #include "JSTestObj.h"
 #include "JSlog.h"
 #include "KURL.h"
@@ -49,7 +51,7 @@ ASSERT_CLASS_FITS_IN_CELL(JSTestObj);
 #define THUNK_GENERATOR(generator)
 #endif
 
-static const HashTableValue JSTestObjTableValues[32] =
+static const HashTableValue JSTestObjTableValues[34] =
 {
     { "readOnlyIntAttr", DontDelete | ReadOnly, (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestObjReadOnlyIntAttr), (intptr_t)0 THUNK_GENERATOR(0) },
     { "readOnlyStringAttr", DontDelete | ReadOnly, (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestObjReadOnlyStringAttr), (intptr_t)0 THUNK_GENERATOR(0) },
@@ -59,6 +61,8 @@ static const HashTableValue JSTestObjTableValues[32] =
     { "unsignedLongLongAttr", DontDelete, (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestObjUnsignedLongLongAttr), (intptr_t)setJSTestObjUnsignedLongLongAttr THUNK_GENERATOR(0) },
     { "stringAttr", DontDelete, (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestObjStringAttr), (intptr_t)setJSTestObjStringAttr THUNK_GENERATOR(0) },
     { "testObjAttr", DontDelete, (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestObjTestObjAttr), (intptr_t)setJSTestObjTestObjAttr THUNK_GENERATOR(0) },
+    { "XMLObjAttr", DontDelete, (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestObjXMLObjAttr), (intptr_t)setJSTestObjXMLObjAttr THUNK_GENERATOR(0) },
+    { "CREATE", DontDelete, (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestObjCreate), (intptr_t)setJSTestObjCreate THUNK_GENERATOR(0) },
     { "reflectedStringAttr", DontDelete, (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestObjReflectedStringAttr), (intptr_t)setJSTestObjReflectedStringAttr THUNK_GENERATOR(0) },
     { "reflectedIntegralAttr", DontDelete, (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestObjReflectedIntegralAttr), (intptr_t)setJSTestObjReflectedIntegralAttr THUNK_GENERATOR(0) },
     { "reflectedBooleanAttr", DontDelete, (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestObjReflectedBooleanAttr), (intptr_t)setJSTestObjReflectedBooleanAttr THUNK_GENERATOR(0) },
@@ -92,7 +96,7 @@ static const HashTableValue JSTestObjTableValues[32] =
 };
 
 #undef THUNK_GENERATOR
-static JSC_CONST_HASHTABLE HashTable JSTestObjTable = { 68, 63, JSTestObjTableValues, 0 };
+static JSC_CONST_HASHTABLE HashTable JSTestObjTable = { 132, 127, JSTestObjTableValues, 0 };
 /* Hash table for constructor */
 #if ENABLE(JIT)
 #define THUNK_GENERATOR(generator) , generator
@@ -172,7 +176,7 @@ bool JSTestObjConstructor::getOwnPropertyDescriptor(ExecState* exec, const Ident
 #define THUNK_GENERATOR(generator)
 #endif
 
-static const HashTableValue JSTestObjPrototypeTableValues[42] =
+static const HashTableValue JSTestObjPrototypeTableValues[45] =
 {
     { "CONST_VALUE_0", DontDelete | ReadOnly, (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestObjCONST_VALUE_0), (intptr_t)0 THUNK_GENERATOR(0) },
     { "CONST_VALUE_1", DontDelete | ReadOnly, (intptr_t)static_cast<PropertySlot::GetValueFunc>(jsTestObjCONST_VALUE_1), (intptr_t)0 THUNK_GENERATOR(0) },
@@ -214,12 +218,15 @@ static const HashTableValue JSTestObjPrototypeTableValues[42] =
     { "methodWithOptionalArg", DontDelete | Function, (intptr_t)static_cast<NativeFunction>(jsTestObjPrototypeFunctionMethodWithOptionalArg), (intptr_t)1 THUNK_GENERATOR(0) },
     { "methodWithNonOptionalArgAndOptionalArg", DontDelete | Function, (intptr_t)static_cast<NativeFunction>(jsTestObjPrototypeFunctionMethodWithNonOptionalArgAndOptionalArg), (intptr_t)2 THUNK_GENERATOR(0) },
     { "methodWithNonOptionalArgAndTwoOptionalArgs", DontDelete | Function, (intptr_t)static_cast<NativeFunction>(jsTestObjPrototypeFunctionMethodWithNonOptionalArgAndTwoOptionalArgs), (intptr_t)3 THUNK_GENERATOR(0) },
+    { "methodWithCallbackArg", DontDelete | Function, (intptr_t)static_cast<NativeFunction>(jsTestObjPrototypeFunctionMethodWithCallbackArg), (intptr_t)1 THUNK_GENERATOR(0) },
+    { "methodWithNonCallbackArgAndCallbackArg", DontDelete | Function, (intptr_t)static_cast<NativeFunction>(jsTestObjPrototypeFunctionMethodWithNonCallbackArgAndCallbackArg), (intptr_t)2 THUNK_GENERATOR(0) },
+    { "methodWithCallbackAndOptionalArg", DontDelete | Function, (intptr_t)static_cast<NativeFunction>(jsTestObjPrototypeFunctionMethodWithCallbackAndOptionalArg), (intptr_t)1 THUNK_GENERATOR(0) },
     { "overloadedMethod", DontDelete | Function, (intptr_t)static_cast<NativeFunction>(jsTestObjPrototypeFunctionOverloadedMethod), (intptr_t)2 THUNK_GENERATOR(0) },
     { 0, 0, 0, 0 THUNK_GENERATOR(0) }
 };
 
 #undef THUNK_GENERATOR
-static JSC_CONST_HASHTABLE HashTable JSTestObjPrototypeTable = { 134, 127, JSTestObjPrototypeTableValues, 0 };
+static JSC_CONST_HASHTABLE HashTable JSTestObjPrototypeTable = { 135, 127, JSTestObjPrototypeTableValues, 0 };
 const ClassInfo JSTestObjPrototype::s_info = { "TestObjPrototype", 0, &JSTestObjPrototypeTable, 0 };
 
 JSObject* JSTestObjPrototype::self(ExecState* exec, JSGlobalObject* globalObject)
@@ -334,6 +341,24 @@ JSValue jsTestObjTestObjAttr(ExecState* exec, JSValue slotBase, const Identifier
     UNUSED_PARAM(exec);
     TestObj* imp = static_cast<TestObj*>(castedThis->impl());
     JSValue result = toJS(exec, castedThis->globalObject(), WTF::getPtr(imp->testObjAttr()));
+    return result;
+}
+
+JSValue jsTestObjXMLObjAttr(ExecState* exec, JSValue slotBase, const Identifier&)
+{
+    JSTestObj* castedThis = static_cast<JSTestObj*>(asObject(slotBase));
+    UNUSED_PARAM(exec);
+    TestObj* imp = static_cast<TestObj*>(castedThis->impl());
+    JSValue result = toJS(exec, castedThis->globalObject(), WTF::getPtr(imp->xmlObjAttr()));
+    return result;
+}
+
+JSValue jsTestObjCreate(ExecState* exec, JSValue slotBase, const Identifier&)
+{
+    JSTestObj* castedThis = static_cast<JSTestObj*>(asObject(slotBase));
+    UNUSED_PARAM(exec);
+    TestObj* imp = static_cast<TestObj*>(castedThis->impl());
+    JSValue result = jsBoolean(imp->isCreate());
     return result;
 }
 
@@ -583,6 +608,20 @@ void setJSTestObjTestObjAttr(ExecState* exec, JSObject* thisObject, JSValue valu
     JSTestObj* castedThis = static_cast<JSTestObj*>(thisObject);
     TestObj* imp = static_cast<TestObj*>(castedThis->impl());
     imp->setTestObjAttr(toTestObj(value));
+}
+
+void setJSTestObjXMLObjAttr(ExecState* exec, JSObject* thisObject, JSValue value)
+{
+    JSTestObj* castedThis = static_cast<JSTestObj*>(thisObject);
+    TestObj* imp = static_cast<TestObj*>(castedThis->impl());
+    imp->setXMLObjAttr(toTestObj(value));
+}
+
+void setJSTestObjCreate(ExecState* exec, JSObject* thisObject, JSValue value)
+{
+    JSTestObj* castedThis = static_cast<JSTestObj*>(thisObject);
+    TestObj* imp = static_cast<TestObj*>(castedThis->impl());
+    imp->setCreate(value.toBoolean(exec));
 }
 
 void setJSTestObjReflectedStringAttr(ExecState* exec, JSObject* thisObject, JSValue value)
@@ -1186,6 +1225,65 @@ EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionMethodWithNonOptionalArgA
     int opt2 = exec->argument(2).toInt32(exec);
 
     imp->methodWithNonOptionalArgAndTwoOptionalArgs(nonOpt, opt1, opt2);
+    return JSValue::encode(jsUndefined());
+}
+
+EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionMethodWithCallbackArg(ExecState* exec)
+{
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&JSTestObj::s_info))
+        return throwVMTypeError(exec);
+    JSTestObj* castedThis = static_cast<JSTestObj*>(asObject(thisValue));
+    TestObj* imp = static_cast<TestObj*>(castedThis->impl());
+    if (exec->argumentCount() <= 0 || !exec->argument(0).isObject()) {
+        setDOMException(exec, TYPE_MISMATCH_ERR);
+        return jsUndefined();
+    }
+    RefPtr<TestCallback> callback = JSTestCallback::create(asObject(exec->argument(0)), castedThis->globalObject());
+
+    imp->methodWithCallbackArg(callback);
+    return JSValue::encode(jsUndefined());
+}
+
+EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionMethodWithNonCallbackArgAndCallbackArg(ExecState* exec)
+{
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&JSTestObj::s_info))
+        return throwVMTypeError(exec);
+    JSTestObj* castedThis = static_cast<JSTestObj*>(asObject(thisValue));
+    TestObj* imp = static_cast<TestObj*>(castedThis->impl());
+    int nonCallback = exec->argument(0).toInt32(exec);
+    if (exec->argumentCount() <= 1 || !exec->argument(1).isObject()) {
+        setDOMException(exec, TYPE_MISMATCH_ERR);
+        return jsUndefined();
+    }
+    RefPtr<TestCallback> callback = JSTestCallback::create(asObject(exec->argument(1)), castedThis->globalObject());
+
+    imp->methodWithNonCallbackArgAndCallbackArg(nonCallback, callback);
+    return JSValue::encode(jsUndefined());
+}
+
+EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionMethodWithCallbackAndOptionalArg(ExecState* exec)
+{
+    JSValue thisValue = exec->hostThisValue();
+    if (!thisValue.inherits(&JSTestObj::s_info))
+        return throwVMTypeError(exec);
+    JSTestObj* castedThis = static_cast<JSTestObj*>(asObject(thisValue));
+    TestObj* imp = static_cast<TestObj*>(castedThis->impl());
+
+    int argsCount = exec->argumentCount();
+    if (argsCount < 1) {
+        imp->methodWithCallbackAndOptionalArg();
+        return JSValue::encode(jsUndefined());
+    }
+
+    if (exec->argumentCount() <= 0 || !exec->argument(0).isObject()) {
+        setDOMException(exec, TYPE_MISMATCH_ERR);
+        return jsUndefined();
+    }
+    RefPtr<TestCallback> callback = JSTestCallback::create(asObject(exec->argument(0)), castedThis->globalObject());
+
+    imp->methodWithCallbackAndOptionalArg(callback);
     return JSValue::encode(jsUndefined());
 }
 

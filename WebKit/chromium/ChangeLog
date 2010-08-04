@@ -1,3 +1,252 @@
+2010-07-27  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Darin Fisher.
+
+        PopupMenu refactoring in preparation to WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=42592
+
+        As ChromeClient was made responsible for providing PopupMenu and SearchPopupMenu
+        instances, concrete classes that inherit from ChromeClient needed to be changed to
+        implement the new methods.
+
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::selectItemWritingDirectionIsNatural):
+        (WebKit::ChromeClientImpl::createPopupMenu):
+        (WebKit::ChromeClientImpl::createSearchPopupMenu):
+        * src/ChromeClientImpl.h:
+
+2010-08-02  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Always initialize GTK
+        https://bugs.webkit.org/show_bug.cgi?id=43327
+
+        * WebKit.gyp: Add GTK dependency for DRT.
+
+2010-08-02  Jeremy Orlow  <jorlow@chromium.org>
+
+        Speculative revert of 64425 due to Chromium instability
+        https://bugs.webkit.org/show_bug.cgi?id=43347
+
+        * src/ChromeClientImpl.cpp:
+        * src/ChromeClientImpl.h:
+        * tests/PopupMenuTest.cpp:
+        (WebKit::SelectPopupMenuTest::SetUp):
+
+2010-07-27  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Darin Fisher.
+
+        PopupMenu refactoring in preparation to WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=42592
+
+        As ChromeClient was made responsible for providing PopupMenu and SearchPopupMenu
+        instances, concrete classes that inherit from ChromeClient needed to be changed to
+        implement the new methods.
+
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::selectItemWritingDirectionIsNatural):
+        (WebKit::ChromeClientImpl::createPopupMenu):
+        (WebKit::ChromeClientImpl::createSearchPopupMenu):
+        * src/ChromeClientImpl.h:
+
+2010-07-31  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r64422.
+        http://trac.webkit.org/changeset/64422
+        https://bugs.webkit.org/show_bug.cgi?id=43304
+
+        Build fixes are needed for Snow Leopard and Windows.
+        (Requested by lca on #webkit).
+
+        * src/ChromeClientImpl.cpp:
+        * src/ChromeClientImpl.h:
+
+2010-07-27  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Darin Fisher.
+
+        PopupMenu refactoring in preparation to WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=42592
+
+        As ChromeClient was made responsible for providing PopupMenu and SearchPopupMenu
+        instances, concrete classes that inherit from ChromeClient needed to be changed to
+        implement the new methods.
+
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::selectItemWritingDirectionIsNatural):
+        (WebKit::ChromeClientImpl::createPopupMenu):
+        (WebKit::ChromeClientImpl::createSearchPopupMenu):
+        * src/ChromeClientImpl.h:
+
+2010-07-30  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Limit ApplicationCache Total and Per-Origin Storage Capacity (Quotas)
+        https://bugs.webkit.org/show_bug.cgi?id=40627
+
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::reachedApplicationCacheOriginQuota):
+        * src/ChromeClientImpl.h:
+
+2010-07-30  James Robinson  <jamesr@chromium.org>
+
+        Compile fix. Put GLES2 functions behind USE(GLES2_RENDERING) instead of
+        USE(ACCELERATED_COMPOSITING) to match WebCore.  Fixes the compile when
+        USE(GLES2_RENDERING) is true and USE(ACCELERATED_COMPOSITING) is false.
+
+        * src/ChromeClientImpl.cpp:
+        * src/ChromeClientImpl.h:
+
+2010-07-27  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by Brady Eidson.
+
+        History.pushState() + navigation operates on top frame when called from
+        nested context
+        https://bugs.webkit.org/show_bug.cgi?id=43080
+
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::pluginLoadObserver): The WebDataSource
+        can be null if the Frame has already been detached from the Page.  This
+        happens if a popstate event handler removes the frame.
+
+2010-07-29  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Rename all the IDBIndex classses to match the latest conventions
+        https://bugs.webkit.org/show_bug.cgi?id=43190
+
+        Fix up stuff in WebKit layer to handle the renamings in WebCore.
+
+        * WebKit.gyp:
+        * src/IDBCallbacksProxy.cpp:
+        (WebCore::IDBCallbacksProxy::onSuccess):
+        * src/IDBCallbacksProxy.h:
+        * src/IDBIndexBackendProxy.cpp: Added.
+        (WebCore::IDBIndexBackendProxy::create):
+        (WebCore::IDBIndexBackendProxy::IDBIndexBackendProxy):
+        (WebCore::IDBIndexBackendProxy::~IDBIndexBackendProxy):
+        (WebCore::IDBIndexBackendProxy::name):
+        (WebCore::IDBIndexBackendProxy::keyPath):
+        (WebCore::IDBIndexBackendProxy::unique):
+        * src/IDBIndexBackendProxy.h: Added.
+        * src/IDBIndexProxy.cpp: Removed.
+        * src/IDBIndexProxy.h: Removed.
+        * src/IDBObjectStoreProxy.cpp:
+        (WebCore::IDBObjectStoreProxy::index):
+        * src/IDBObjectStoreProxy.h:
+        * src/WebIDBCallbacksImpl.cpp:
+        (WebCore::WebIDBCallbacksImpl::onSuccess):
+        * src/WebIDBIndexImpl.cpp:
+        (WebKit::WebIDBIndexImpl::WebIDBIndexImpl):
+        (WebKit::WebIDBIndexImpl::name):
+        (WebKit::WebIDBIndexImpl::keyPath):
+        (WebKit::WebIDBIndexImpl::unique):
+        * src/WebIDBIndexImpl.h:
+        * src/WebIDBObjectStoreImpl.cpp:
+        (WebKit::WebIDBObjectStoreImpl::index):
+
+2010-07-30  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Add a check for WebViewClient being null.
+        https://bugs.webkit.org/show_bug.cgi?id=43240
+
+        * src/SpeechInputClientImpl.cpp:
+        (WebKit::SpeechInputClientImpl::SpeechInputClientImpl):
+
+2010-07-30  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Disable runtime switch for device orientation in chromium
+        https://bugs.webkit.org/show_bug.cgi?id=43237
+
+        Explicitly set the runtime switch for device orientation
+        in WebView::create until we implement the feature.
+        If the flag is accidentally on while no DeviceOrientationClient
+        is provided, the program will crash.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebView::create):
+
+2010-07-26  Andrei Popescu  <andreip@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        [IndexedDB] IndexedDatabase should be called IDBFactory.
+        https://bugs.webkit.org/show_bug.cgi?id=42967
+
+        * WebKit.gyp:
+        * public/WebIDBFactory.h: Added.
+        (WebKit::WebIDBFactory::~WebIDBFactory):
+        (WebKit::WebIDBFactory::databases):
+        (WebKit::WebIDBFactory::open):
+        * public/WebIndexedDatabase.h: Removed.
+        * public/WebKitClient.h:
+        (WebKit::WebKitClient::idbFactory):
+        * src/ChromiumBridge.cpp:
+        (WebCore::ChromiumBridge::idbFactory):
+        * src/IDBFactoryBackendProxy.cpp: Added.
+        (WebCore::IDBFactoryBackendProxy::create):
+        (WebCore::IDBFactoryBackendProxy::IDBFactoryBackendProxy):
+        (WebCore::IDBFactoryBackendProxy::~IDBFactoryBackendProxy):
+        (WebCore::IDBFactoryBackendProxy::open):
+        * src/IDBFactoryBackendProxy.h: Added.
+        * src/IndexedDatabaseProxy.cpp: Removed.
+        * src/IndexedDatabaseProxy.h: Removed.
+        * src/WebIDBFactoryImpl.cpp: Added.
+        (WebKit::WebIDBFactory::create):
+        (WebKit::WebIDBFactoryImpl::WebIDBFactoryImpl):
+        (WebKit::WebIDBFactoryImpl::~WebIDBFactoryImpl):
+        (WebKit::WebIDBFactoryImpl::open):
+        * src/WebIDBFactoryImpl.h: Added.
+        * src/WebIndexedDatabaseImpl.cpp: Removed.
+        * src/WebIndexedDatabaseImpl.h: Removed.
+
+2010-07-29  Andrei Popescu  <andreip@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        [IndexedDB] WebDOMStringList ctor is not exported and causes link errors for the multi-dll chromium build
+        https://bugs.webkit.org/show_bug.cgi?id=43186
+
+        Add WEBKIT_API to WebDOMStringList default ctor.
+
+        * public/WebDOMStringList.h:
+
+2010-07-29  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Runtime feature switch for speech input
+        https://bugs.webkit.org/show_bug.cgi?id=43146
+
+        Add a runtime feature switch that decides whether speech input attributes are available or not.
+        Defaults to true.
+
+        * public/WebRuntimeFeatures.h:
+        * src/SpeechInputClientImpl.cpp:
+        (WebKit::SpeechInputClientImpl::SpeechInputClientImpl):
+        * src/WebRuntimeFeatures.cpp:
+        (WebKit::WebRuntimeFeatures::enableSpeechInput):
+        (WebKit::WebRuntimeFeatures::isSpeechInputEnabled):
+
+2010-07-28  Kavita Kanetkar  <kkanetkar@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: Enable UI for chromium's appcache inspection.
+        https://bugs.webkit.org/show_bug.cgi?id=43098
+
+        * src/js/DevTools.js:
+        (WebInspector.loaded):
+
 2010-07-28  Dominic Mazzoni  <dmazzoni@google.com>
 
         Reviewed by Dimitri Glazkov.

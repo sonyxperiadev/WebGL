@@ -85,13 +85,17 @@ void SVGGradientElement::svgAttributeChanged(const QualifiedName& attrName)
 {
     SVGStyledElement::svgAttributeChanged(attrName);
 
+    RenderObject* object = renderer();
+    if (!object)
+        return;
+
     if (attrName == SVGNames::gradientUnitsAttr
         || attrName == SVGNames::gradientTransformAttr
         || attrName == SVGNames::spreadMethodAttr
         || SVGURIReference::isKnownAttribute(attrName)
         || SVGExternalResourcesRequired::isKnownAttribute(attrName)
         || SVGStyledElement::isKnownAttribute(attrName))
-        invalidateResourceClients();
+        object->setNeedsLayout(true);
 }
 
 void SVGGradientElement::synchronizeProperty(const QualifiedName& attrName)
@@ -123,8 +127,11 @@ void SVGGradientElement::childrenChanged(bool changedByParser, Node* beforeChang
 {
     SVGStyledElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 
-    if (!changedByParser)
-        invalidateResourceClients();
+    if (changedByParser)
+        return;
+
+    if (RenderObject* object = renderer())
+        object->setNeedsLayout(true);
 }
 
 Vector<Gradient::ColorStop> SVGGradientElement::buildStops()

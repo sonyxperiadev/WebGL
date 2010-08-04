@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2010 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,15 +37,22 @@
 namespace WebCore {
 
 class ApplicationCache;
-class ApplicationCacheHost;
 class ApplicationCacheGroup;
+class ApplicationCacheHost;
 class ApplicationCacheResource;
 class KURL;
 template <class T>
 class StorageIDJournal;
+class SecurityOrigin;
 
 class ApplicationCacheStorage : public Noncopyable {
 public:
+    enum FailureReason {
+        OriginQuotaReached,
+        TotalQuotaReached,
+        DiskOrOperationFailure
+    };
+
     void setCacheDirectory(const String&);
     const String& cacheDirectory() const;
     
@@ -54,6 +61,13 @@ public:
     bool isMaximumSizeReached() const;
     int64_t spaceNeeded(int64_t cacheToSave);
 
+    int64_t defaultOriginQuota() const { return m_defaultOriginQuota; }
+    void setDefaultOriginQuota(int64_t quota);
+    bool usageForOrigin(const SecurityOrigin*, int64_t& usage);
+    bool quotaForOrigin(const SecurityOrigin*, int64_t& quota);
+    bool remainingSizeForOriginExcludingCache(const SecurityOrigin*, ApplicationCache*, int64_t& remainingSize);
+    bool storeUpdatedQuotaForOrigin(const SecurityOrigin*, int64_t quota);
+
     ApplicationCacheGroup* cacheGroupForURL(const KURL&); // Cache to load a main resource from.
     ApplicationCacheGroup* fallbackCacheGroupForURL(const KURL&); // Cache that has a fallback entry to load a main resource from if normal loading fails.
 
@@ -61,6 +75,7 @@ public:
     void cacheGroupDestroyed(ApplicationCacheGroup*);
     void cacheGroupMadeObsolete(ApplicationCacheGroup*);
         
+    bool storeNewestCache(ApplicationCacheGroup*, ApplicationCache* oldCache, FailureReason& failureReason);
     bool storeNewestCache(ApplicationCacheGroup*); // Updates the cache group, but doesn't remove old cache.
     bool store(ApplicationCacheResource*, ApplicationCache*);
     bool storeUpdatedType(ApplicationCacheResource*, ApplicationCache*);
@@ -76,6 +91,9 @@ public:
     bool cacheGroupSize(const String& manifestURL, int64_t* size);
     bool deleteCacheGroup(const String& manifestURL);
     void vacuumDatabaseFile();
+
+    static int64_t unknownQuota() { return -1; }
+    static int64_t noQuota() { return std::numeric_limits<int64_t>::max(); }
 private:
     ApplicationCacheStorage();
     PassRefPtr<ApplicationCache> loadCache(unsigned storageID);
@@ -87,6 +105,8 @@ private:
     bool store(ApplicationCacheGroup*, GroupStorageIDJournal*);
     bool store(ApplicationCache*, ResourceStorageIDJournal*);
     bool store(ApplicationCacheResource*, unsigned cacheStorageID);
+
+    bool ensureOriginRecord(const SecurityOrigin*);
 
     void loadManifestHostHashes();
     
@@ -104,6 +124,8 @@ private:
 
     int64_t m_maximumSize;
     bool m_isMaximumSizeReached;
+
+    int64_t m_defaultOriginQuota;
 
     SQLiteDatabase m_database;
 

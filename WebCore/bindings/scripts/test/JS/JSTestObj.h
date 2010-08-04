@@ -115,6 +115,9 @@ JSC::EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionWithScriptExecutionC
 JSC::EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionMethodWithOptionalArg(JSC::ExecState*);
 JSC::EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionMethodWithNonOptionalArgAndOptionalArg(JSC::ExecState*);
 JSC::EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionMethodWithNonOptionalArgAndTwoOptionalArgs(JSC::ExecState*);
+JSC::EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionMethodWithCallbackArg(JSC::ExecState*);
+JSC::EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionMethodWithNonCallbackArgAndCallbackArg(JSC::ExecState*);
+JSC::EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionMethodWithCallbackAndOptionalArg(JSC::ExecState*);
 JSC::EncodedJSValue JSC_HOST_CALL jsTestObjPrototypeFunctionOverloadedMethod(JSC::ExecState*);
 // Attributes
 
@@ -131,6 +134,10 @@ JSC::JSValue jsTestObjStringAttr(JSC::ExecState*, JSC::JSValue, const JSC::Ident
 void setJSTestObjStringAttr(JSC::ExecState*, JSC::JSObject*, JSC::JSValue);
 JSC::JSValue jsTestObjTestObjAttr(JSC::ExecState*, JSC::JSValue, const JSC::Identifier&);
 void setJSTestObjTestObjAttr(JSC::ExecState*, JSC::JSObject*, JSC::JSValue);
+JSC::JSValue jsTestObjXMLObjAttr(JSC::ExecState*, JSC::JSValue, const JSC::Identifier&);
+void setJSTestObjXMLObjAttr(JSC::ExecState*, JSC::JSObject*, JSC::JSValue);
+JSC::JSValue jsTestObjCreate(JSC::ExecState*, JSC::JSValue, const JSC::Identifier&);
+void setJSTestObjCreate(JSC::ExecState*, JSC::JSObject*, JSC::JSValue);
 JSC::JSValue jsTestObjReflectedStringAttr(JSC::ExecState*, JSC::JSValue, const JSC::Identifier&);
 void setJSTestObjReflectedStringAttr(JSC::ExecState*, JSC::JSObject*, JSC::JSValue);
 JSC::JSValue jsTestObjReflectedIntegralAttr(JSC::ExecState*, JSC::JSValue, const JSC::Identifier&);

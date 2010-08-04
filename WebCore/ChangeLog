@@ -1,3 +1,4040 @@
+2010-08-02  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Add VisitedLinkStrategy for each platform to implement
+        https://bugs.webkit.org/show_bug.cgi?id=43393
+
+        No new tests. (No change in behavior)
+
+        * WebCore.exp.in:
+        * WebCore.xcodeproj/project.pbxproj:
+        
+        * css/CSSStyleSelector.cpp:
+        (WebCore::CSSStyleSelector::SelectorChecker::determineLinkStateSlowCase): Use VisitedLinkStrategy if it's enabled.
+        
+        * loader/HistoryController.cpp:
+        (WebCore::addVisitedLink): Choose VisitedLinkStrategy if it's enabled, else fallback to PageGroup.
+        (WebCore::HistoryController::updateForStandardLoad): Use addVisitedLink helper.
+        (WebCore::HistoryController::updateForRedirectWithLockedBackForwardList): Ditto.
+        (WebCore::HistoryController::updateForClientRedirect): Ditto.
+        (WebCore::HistoryController::updateForSameDocumentNavigation): Ditto.
+        
+        * platform/PlatformStrategies.h:
+        (WebCore::PlatformStrategies::visitedLinkStrategy):
+        (WebCore::PlatformStrategies::PlatformStrategies):
+
+2010-08-02  Chris Fleizach  <cfleizach@apple.com>
+
+        Unreviewed, rolling out r64471.
+        http://trac.webkit.org/changeset/64471
+        https://bugs.webkit.org/show_bug.cgi?id=43005
+
+        Rolling out https://bugs.webkit.org/show_bug.cgi?id=43005
+        until further discussion
+
+        * Android.derived.v8bindings.mk:
+        * Android.jscbindings.mk:
+        * DerivedSources.cpp:
+        * DerivedSources.make:
+        * GNUmakefile.am:
+        * WebCore.gypi:
+        * WebCore.pri:
+        * WebCore.pro:
+        * WebCore.vcproj/WebCore.vcproj:
+        * WebCore.xcodeproj/project.pbxproj:
+        * accessibility/AXObjectCache.h:
+        (WebCore::AXObjectCache::):
+        * accessibility/Accessibility.cpp: Removed.
+        * accessibility/Accessibility.h: Removed.
+        * accessibility/Accessibility.idl: Removed.
+        * accessibility/AccessibilityObject.h:
+        * accessibility/ScreenReader.cpp: Removed.
+        * accessibility/ScreenReader.h: Removed.
+        * accessibility/ScreenReader.idl: Removed.
+        * accessibility/mac/AXObjectCacheMac.mm:
+        (WebCore::AXObjectCache::postPlatformNotification):
+        * accessibility/mac/AccessibilityObjectMac.mm:
+        * page/Navigator.cpp:
+        (WebCore::Navigator::disconnectFrame):
+        (WebCore::Navigator::mimeTypes):
+        * page/Navigator.h:
+        * page/Navigator.idl:
+
+2010-08-02  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Range::create should not be calling deprecatedEditingOffset and node on start and end
+        https://bugs.webkit.org/show_bug.cgi?id=43385
+
+        Replaced node() and deprecatedEditingOffset() by containerNode() and computeOffsetInContainerNode().
+
+        No new tests added since this does not change the behavior.
+
+        * dom/Range.cpp:
+        (WebCore::Range::create):
+
+2010-08-02  Chris Fleizach  <cfleizach@apple.com>
+
+        Unreviewed, rolling out r64472.
+        http://trac.webkit.org/changeset/64472
+        https://bugs.webkit.org/show_bug.cgi?id=43005
+
+        Rolling out https://bugs.webkit.org/show_bug.cgi?id=43005
+        until further discussion
+
+        * WebCore.vcproj/WebCore.vcproj:
+
+2010-08-02  Chris Fleizach  <cfleizach@apple.com>
+
+        Unreviewed, rolling out r64476.
+        http://trac.webkit.org/changeset/64476
+
+        Rolling out https://bugs.webkit.org/show_bug.cgi?id=43005
+        until further discussion
+
+        * WebCore.vcproj/WebCore.vcproj:
+
+2010-07-27  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Darin Fisher.
+
+        PopupMenu refactoring in preparation to WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=42592
+
+        Classes PopupMenu and SearchPopupMenu have been made pure virtual.
+
+        * platform/PopupMenu.h:
+        (WebCore::PopupMenu::~PopupMenu):
+        * platform/SearchPopupMenu.h:
+        (WebCore::SearchPopupMenu::~SearchPopupMenu):
+
+        Classes RenderMenuList and RenderTexyControlSingleLine have been changed to use
+        the new pure virtual PopupMenu and SearchPopupMenu.
+
+        * rendering/RenderMenuList.cpp:
+        (WebCore::RenderMenuList::adjustInnerStyle):
+        (WebCore::RenderMenuList::showPopup):
+        * rendering/RenderMenuList.h:
+        * rendering/RenderTextControlSingleLine.cpp:
+        (WebCore::RenderTextControlSingleLine::~RenderTextControlSingleLine):
+        (WebCore::RenderTextControlSingleLine::addSearchResult):
+        (WebCore::RenderTextControlSingleLine::showPopup):
+        (WebCore::RenderTextControlSingleLine::hidePopup):
+        (WebCore::RenderTextControlSingleLine::updateFromElement):
+        (WebCore::RenderTextControlSingleLine::valueChanged):
+        * rendering/RenderTextControlSingleLine.h:
+
+        Chrome and ChromeClient were made responsible for providing instances of classes
+        PopupMenu and SearchPopupMenu to its users.
+
+        * loader/EmptyClients.h:
+        (WebCore::EmptyPopupMenu::show):
+        (WebCore::EmptyPopupMenu::hide):
+        (WebCore::EmptyPopupMenu::updateFromElement):
+        (WebCore::EmptyPopupMenu::disconnectClient):
+        (WebCore::EmptySearchPopupMenu::popupMenu):
+        (WebCore::EmptySearchPopupMenu::saveRecentSearches):
+        (WebCore::EmptySearchPopupMenu::loadRecentSearches):
+        (WebCore::EmptySearchPopupMenu::enabled):
+        (WebCore::EmptyChromeClient::selectItemWritingDirectionIsNatural):
+        (WebCore::EmptyChromeClient::createPopupMenu):
+        (WebCore::EmptyChromeClient::createSearchPopupMenu):
+        * page/Chrome.cpp:
+        (WebCore::Chrome::selectItemWritingDirectionIsNatural):
+        (WebCore::Chrome::createPopupMenu):
+        (WebCore::Chrome::createSearchPopupMenu):
+        * page/Chrome.h:
+        * page/ChromeClient.h:
+
+        Original contents of files PopupMenu.h and SearchPopupMenu.h have been splited
+        in several files, two for each platform (PopupMenuXXX.h and SearchPopupMenuXXX.h).
+        Each of new the files contain the concrete classes that inherit form PopupMenu or
+        SearchPopupMenu and are specific for the corresponding platform.
+
+        brew:
+
+        * platform/brew/PopupMenuBrew.cpp:
+        (WebCore::PopupMenuBrew::PopupMenuBrew):
+        (WebCore::PopupMenuBrew::~PopupMenuBrew):
+        (WebCore::PopupMenuBrew::disconnectClient):
+        (WebCore::PopupMenuBrew::show):
+        (WebCore::PopupMenuBrew::hide):
+        (WebCore::PopupMenuBrew::updateFromElement):
+        * platform/brew/PopupMenuBrew.h: Added.
+        (WebCore::PopupMenuBrew::client):
+        * platform/brew/SearchPopupMenuBrew.cpp:
+        (WebCore::SearchPopupMenuBrew::saveRecentSearches):
+        (WebCore::SearchPopupMenuBrew::loadRecentSearches):
+        (WebCore::SearchPopupMenuBrew::SearchPopupMenuBrew):
+        (WebCore::SearchPopupMenuBrew::enabled):
+        (WebCore::SearchPopupMenuBrew::popupMenu):
+        * platform/brew/SearchPopupMenuBrew.h: Added.
+
+        chromium:
+
+        * WebCore.gypi:
+        * platform/chromium/PopupMenuChromium.cpp:
+        (WebCore::PopupMenuChromium::PopupMenuChromium):
+        (WebCore::PopupMenuChromium::~PopupMenuChromium):
+        (WebCore::PopupMenuChromium::show):
+        (WebCore::PopupMenuChromium::hide):
+        (WebCore::PopupMenuChromium::updateFromElement):
+        (WebCore::PopupMenuChromium::disconnectClient):
+        * platform/chromium/PopupMenuChromium.h:
+        (WebCore::PopupMenuChromium::client):
+        * platform/chromium/SearchPopupMenuChromium.cpp:
+        (WebCore::SearchPopupMenuChromium::SearchPopupMenuChromium):
+        (WebCore::SearchPopupMenuChromium::popupMenu):
+        (WebCore::SearchPopupMenuChromium::enabled):
+        (WebCore::SearchPopupMenuChromium::saveRecentSearches):
+        (WebCore::SearchPopupMenuChromium::loadRecentSearches):
+        * platform/chromium/SearchPopupMenuChromium.h: Added.
+
+        efl:
+
+        * platform/efl/PopupMenuEfl.cpp:
+        (WebCore::PopupMenuEfl::PopupMenuEfl):
+        (WebCore::PopupMenuEfl::~PopupMenuEfl):
+        (WebCore::PopupMenuEfl::show):
+        (WebCore::PopupMenuEfl::hide):
+        (WebCore::PopupMenuEfl::updateFromElement):
+        (WebCore::PopupMenuEfl::disconnectClient):
+        * platform/efl/PopupMenuEfl.h: Added.
+        (WebCore::PopupMenuEfl::client):
+        * platform/efl/SearchPopupMenuEfl.cpp:
+        (WebCore::SearchPopupMenuEfl::SearchPopupMenuEfl):
+        (WebCore::SearchPopupMenuEfl::popupMenu):
+        (WebCore::SearchPopupMenuEfl::saveRecentSearches):
+        (WebCore::SearchPopupMenuEfl::loadRecentSearches):
+        (WebCore::SearchPopupMenuEfl::enabled):
+        * platform/efl/SearchPopupMenuEfl.h: Added.
+
+        gtk:
+
+        * GNUmakefile.am:
+        * platform/gtk/PopupMenuGtk.cpp:
+        (WebCore::PopupMenuGtk::PopupMenuGtk):
+        (WebCore::PopupMenuGtk::~PopupMenuGtk):
+        (WebCore::PopupMenuGtk::show):
+        (WebCore::PopupMenuGtk::hide):
+        (WebCore::PopupMenuGtk::updateFromElement):
+        (WebCore::PopupMenuGtk::disconnectClient):
+        (WebCore::PopupMenuGtk::menuItemActivated):
+        (WebCore::PopupMenuGtk::menuUnmapped):
+        (WebCore::PopupMenuGtk::menuPositionFunction):
+        (WebCore::PopupMenuGtk::menuRemoveItem):
+        * platform/gtk/PopupMenuGtk.h: Added.
+        (WebCore::PopupMenuGtk::client):
+        * platform/gtk/SearchPopupMenuGtk.cpp:
+        (WebCore::SearchPopupMenuGtk::SearchPopupMenuGtk):
+        (WebCore::SearchPopupMenuGtk::popupMenu):
+        (WebCore::SearchPopupMenuGtk::saveRecentSearches):
+        (WebCore::SearchPopupMenuGtk::loadRecentSearches):
+        (WebCore::SearchPopupMenuGtk::enabled):
+        * platform/gtk/SearchPopupMenuGtk.h: Added.
+
+        haiku:
+
+        * platform/haiku/PopupMenuHaiku.cpp:
+        (WebCore::HaikuPopup::HaikuPopup):
+        (WebCore::HaikuPopup::~HaikuPopup):
+        (WebCore::PopupMenuHaiku::PopupMenuHaiku):
+        (WebCore::PopupMenuHaiku::~PopupMenuHaiku):
+        (WebCore::PopupMenuHaiku::disconnectClient):
+        (WebCore::PopupMenuHaiku::show):
+        (WebCore::PopupMenuHaiku::hide):
+        (WebCore::PopupMenuHaiku::updateFromElement):
+        * platform/haiku/PopupMenuHaiku.h: Added.
+        (WebCore::PopupMenuHaiku::disconnectClient):
+        (WebCore::PopupMenuHaiku::client):
+        * platform/haiku/SearchPopupMenuHaiku.cpp:
+        (WebCore::SearchPopupMenuHaiku::SearchPopupMenuHaiku):
+        (WebCore::SearchPopupMenuHaiku::saveRecentSearches):
+        (WebCore::SearchPopupMenuHaiku::loadRecentSearches):
+        (WebCore::SearchPopupMenuHaiku::enabled):
+        (WebCore::SearchPopupMenuHaiku::popupMenu):
+        * platform/haiku/SearchPopupMenuHaiku.h: Added.
+
+        mac:
+
+        * WebCore.exp.in:
+        * WebCore.xcodeproj/project.pbxproj:
+        * platform/mac/PopupMenuMac.h: Added.
+        (WebCore::PopupMenuMac::disconnectClient):
+        (WebCore::PopupMenuMac::client):
+        * platform/mac/PopupMenuMac.mm:
+        (WebCore::PopupMenuMac::PopupMenuMac):
+        (WebCore::PopupMenuMac::~PopupMenuMac):
+        (WebCore::PopupMenuMac::clear):
+        (WebCore::PopupMenuMac::populate):
+        (WebCore::PopupMenuMac::show):
+        (WebCore::PopupMenuMac::hide):
+        (WebCore::PopupMenuMac::updateFromElement):
+        (WebCore::PopupMenuMac::itemWritingDirectionIsNatural):
+        * platform/mac/SearchPopupMenuMac.h: Added.
+        * platform/mac/SearchPopupMenuMac.mm:
+        (WebCore::SearchPopupMenuMac::SearchPopupMenuMac):
+        (WebCore::SearchPopupMenuMac::popupMenu):
+        (WebCore::SearchPopupMenuMac::enabled):
+        (WebCore::SearchPopupMenuMac::saveRecentSearches):
+        (WebCore::SearchPopupMenuMac::loadRecentSearches):
+
+        qt:
+
+        * WebCore.pro:
+        * platform/qt/PopupMenuQt.cpp:
+        (WebCore::PopupMenuQt::PopupMenuQt):
+        (WebCore::PopupMenuQt::~PopupMenuQt):
+        (WebCore::PopupMenuQt::disconnectClient):
+        (WebCore::PopupMenuQt::show):
+        (WebCore::PopupMenuQt::hide):
+        (WebCore::PopupMenuQt::updateFromElement):
+        * platform/qt/PopupMenuQt.h: Added.
+        * platform/qt/QtAbstractWebPopup.h:
+        * platform/qt/SearchPopupMenuQt.cpp:
+        (WebCore::SearchPopupMenuQt::SearchPopupMenuQt):
+        (WebCore::SearchPopupMenuQt::popupMenu):
+        (WebCore::SearchPopupMenuQt::saveRecentSearches):
+        (WebCore::SearchPopupMenuQt::loadRecentSearches):
+        (WebCore::SearchPopupMenuQt::enabled):
+        * platform/qt/SearchPopupMenuQt.h: Added.
+
+        win:
+
+        * WebCore.vcproj/WebCore.vcproj:
+        * platform/win/PopupMenuWin.cpp:
+        (WebCore::PopupMenuWin::PopupMenuWin):
+        (WebCore::PopupMenuWin::~PopupMenuWin):
+        (WebCore::PopupMenuWin::disconnectClient):
+        (WebCore::PopupMenuWin::popupClassName):
+        (WebCore::PopupMenuWin::show):
+        (WebCore::PopupMenuWin::hide):
+        (WebCore::PopupMenuWin::calculatePositionAndSize):
+        (WebCore::PopupMenuWin::setFocusedIndex):
+        (WebCore::PopupMenuWin::visibleItems):
+        (WebCore::PopupMenuWin::listIndexAtPoint):
+        (WebCore::PopupMenuWin::focusedIndex):
+        (WebCore::PopupMenuWin::focusFirst):
+        (WebCore::PopupMenuWin::focusLast):
+        (WebCore::PopupMenuWin::down):
+        (WebCore::PopupMenuWin::up):
+        (WebCore::PopupMenuWin::invalidateItem):
+        (WebCore::PopupMenuWin::clientRect):
+        (WebCore::PopupMenuWin::incrementWheelDelta):
+        (WebCore::PopupMenuWin::reduceWheelDelta):
+        (WebCore::PopupMenuWin::scrollToRevealSelection):
+        (WebCore::PopupMenuWin::updateFromElement):
+        (WebCore::PopupMenuWin::paint):
+        (WebCore::PopupMenuWin::valueChanged):
+        (WebCore::PopupMenuWin::invalidateScrollbarRect):
+        (WebCore::PopupMenuWin::registerClass):
+        (WebCore::PopupMenuWin::PopupMenuWndProc):
+        (WebCore::PopupMenuWin::wndProc):
+        * platform/win/PopupMenuWin.h: Added.
+        (WebCore::PopupMenuWin::client):
+        (WebCore::PopupMenuWin::scrollbar):
+        (WebCore::PopupMenuWin::itemHeight):
+        (WebCore::PopupMenuWin::windowRect):
+        (WebCore::PopupMenuWin::popupHandle):
+        (WebCore::PopupMenuWin::setWasClicked):
+        (WebCore::PopupMenuWin::wasClicked):
+        (WebCore::PopupMenuWin::setScrollOffset):
+        (WebCore::PopupMenuWin::scrollOffset):
+        (WebCore::PopupMenuWin::wheelDelta):
+        (WebCore::PopupMenuWin::scrollbarCapturingMouse):
+        (WebCore::PopupMenuWin::setScrollbarCapturingMouse):
+        * platform/win/SearchPopupMenuWin.cpp:
+        (WebCore::SearchPopupMenuWin::SearchPopupMenuWin):
+        (WebCore::SearchPopupMenuWin::popupMenu):
+        (WebCore::SearchPopupMenuWin::enabled):
+        (WebCore::SearchPopupMenuWin::saveRecentSearches):
+        (WebCore::SearchPopupMenuWin::loadRecentSearches):
+        * platform/win/SearchPopupMenuWin.h: Added.
+
+        wx:
+
+        * platform/wx/PopupMenuWx.cpp:
+        (WebCore::PopupMenuWx::PopupMenuWx):
+        (WebCore::PopupMenuWx::~PopupMenuWx):
+        (WebCore::PopupMenuWx::disconnectClient):
+        (WebCore::PopupMenuWx::show):
+        (WebCore::PopupMenuWx::OnMenuItemSelected):
+        (WebCore::PopupMenuWx::hide):
+        (WebCore::PopupMenuWx::updateFromElement):
+        * platform/wx/PopupMenuWx.h: Added.
+        (WebCore::PopupMenuWx::client):
+        * platform/wx/SearchPopupMenuWx.cpp:
+        (WebCore::SearchPopupMenuWx::SearchPopupMenuWx):
+        (WebCore::SearchPopupMenuWx::saveRecentSearches):
+        (WebCore::SearchPopupMenuWx::loadRecentSearches):
+        (WebCore::SearchPopupMenuWx::enabled):
+        (WebCore::SearchPopupMenuWx::popupMenu):
+        * platform/wx/SearchPopupMenuWx.h: Added.
+
+
+
+2010-08-02  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Use GdkPixbuf for ImageBuffer::toDataURL
+        https://bugs.webkit.org/show_bug.cgi?id=43088
+
+        Implement ImageBuffer::toDataURL with GdkPixbuf instead of Cairo. This
+        allows the method to support a larger variety of image types.
+
+        * GNUmakefile.am: Add new files to the source list.
+        * platform/MIMETypeRegistry.cpp: 
+        (WebCore::initializeSupportedImageMIMETypesForEncoding):
+        Add the list of image types supported by GTK.
+        * platform/graphics/cairo/ImageBufferCairo.cpp:
+        * platform/graphics/gtk/CairoUtilities.cpp: Added.
+        (getCairoSurfacePixel): Move this method from ImageGtk.cpp.
+        (getGdkPixbufPixel): Move this method from ImageGtk.cpp.
+        (cairoImageSurfaceToGdkPixbuf): Move this method from ImageGtk.cpp.
+        * platform/graphics/gtk/CairoUtilities.h: Added.
+        * platform/graphics/gtk/ImageBufferGtk.cpp: Added.
+        (WebCore::ImageBuffer::toDataURL): Use GdkPixbuf to do the conversion to a data url.
+        * platform/graphics/gtk/ImageGtk.cpp:
+        (WebCore::BitmapImage::getGdkPixbuf): Use the new helper method in CairoUtilities.h.
+
+2010-08-02  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Add support for the Audio element in the DOM bindings
+        https://bugs.webkit.org/show_bug.cgi?id=43313
+
+        The IDL definition of some HTMLMediaElement methods does not match
+        the C++ implementation API, take this fact into account when
+        generating the bindings.
+
+        * bindings/gobject/WebKitHTMLElementWrapperFactory.cpp:
+        (WebKit::createAudioWrapper):
+        (WebKit::createHTMLElementWrapper):
+        * bindings/scripts/CodeGeneratorGObject.pm:
+
+2010-08-02  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Fix plug-in test failures and remove tests from the Skipped list
+        https://bugs.webkit.org/show_bug.cgi?id=43389
+
+        * WebCore.exp.in:
+        Export FrameLoader::cancelledError.
+
+2010-08-02  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Basic WK2 visited link coloring
+        https://bugs.webkit.org/show_bug.cgi?id=43377
+
+        No new tests. (No change in behavior)
+
+        * WebCore.exp.in:
+        
+        * page/PageGroup.cpp:
+        (WebCore::PageGroup::addVisitedLinkHash):
+        * page/PageGroup.h:
+
+2010-08-02  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Style cleanup for CairoPath.h
+        https://bugs.webkit.org/show_bug.cgi?id=43133
+
+        Turn CairoPath into a class, as it has a constructor and destructor.
+        Change raw member access to use the new accessor.
+
+        No new tests as functionality has not changed.
+
+        * platform/graphics/cairo/CairoPath.h: Cleanup and indentation fix.
+        (WebCore::CairoPath::CairoPath):
+        (WebCore::CairoPath::~CairoPath):
+        (WebCore::CairoPath::context):
+        * platform/graphics/cairo/GraphicsContextCairo.cpp:
+        (WebCore::GraphicsContext::addPath): Convert raw member access to accessor access.
+        (WebCore::GraphicsContext::clip): Ditto.
+        * platform/graphics/cairo/PathCairo.cpp:
+        (WebCore::Path::Path): Ditto.
+        (WebCore::Path::operator=): Ditto.
+        (WebCore::Path::clear): Ditto.
+        (WebCore::Path::isEmpty): Ditto.
+        (WebCore::Path::currentPoint): Ditto.
+        (WebCore::Path::translate): Ditto.
+        (WebCore::Path::moveTo): Ditto.
+        (WebCore::Path::addLineTo): Ditto.
+        (WebCore::Path::addRect): Ditto.
+        (WebCore::Path::addQuadCurveTo): Ditto.
+        (WebCore::Path::addBezierCurveTo): Ditto.
+        (WebCore::Path::addArc): Ditto.
+        (WebCore::Path::addArcTo): Ditto.
+        (WebCore::Path::addEllipse): Ditto.
+        (WebCore::Path::closeSubpath): Ditto.
+        (WebCore::Path::boundingRect): Ditto.
+        (WebCore::Path::strokeBoundingRect): Ditto.
+        (WebCore::Path::contains): Ditto.
+        (WebCore::Path::strokeContains): Ditto.
+        (WebCore::Path::apply): Ditto.
+        (WebCore::Path::transform): Ditto.
+        (WebCore::Path::debugString): Ditto.
+
+2010-07-20  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        focusing the body of a contentEditable iframe resets the selection
+        https://bugs.webkit.org/show_bug.cgi?id=42645
+        
+        The selection shouldn't be reset to the beginning of the rootEditableElement
+        if it is already inside the rootEditableElement.
+
+        Test: editing/selection/focus-contenteditable-iframe.html
+
+        * dom/Element.cpp:
+        (WebCore::Element::updateFocusAppearance):
+
+2010-07-20  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        focusing an unfocused contentEditable element should place the cursor at the beginning
+        https://bugs.webkit.org/show_bug.cgi?id=42646
+
+        r14666 made this change for the body and html elements, but not for all contentEditable 
+        elements. Doing this for all contentEditable elements matches all other browsers.
+
+        * dom/Element.cpp:
+        (WebCore::Element::updateFocusAppearance):
+
+2010-08-02  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Kent Tamura.
+
+        Group functions used in createMarkup (range version) into a class so they are easier to understand
+        https://bugs.webkit.org/show_bug.cgi?id=43227
+
+        Added MarkupAccumulatorWrapper to group getStartMarkup, getEndMarkup, joinMarkups, and addStyleMarkup.
+        MarkupAccumulatorWrapper is intended to be merged with MarkupAccumulator in the future.
+
+        No new tests added since this is a clean up.
+
+        * editing/markup.cpp:
+        (WebCore::MarkupAccumulatorWrapper::MarkupAccumulatorWrapper): Added.
+        (WebCore::MarkupAccumulatorWrapper::insertString): Added.
+        (WebCore::MarkupAccumulatorWrapper::insertOpenTag): Added.
+        (WebCore::MarkupAccumulatorWrapper::insertEndTag): Added.
+        (WebCore::MarkupAccumulatorWrapper::wrapWithNode): Added.
+        (WebCore::MarkupAccumulatorWrapper::wrapWithStyleNode): Added.
+        (WebCore::MarkupAccumulatorWrapper::takeResults): Added.
+        (WebCore::createMarkup): Uses MarkupAccumulatorWrapper.
+
+2010-08-02  Brian Weinstein  <bweinstein@apple.com>
+
+        Add a missing </File> tag to WebCore.vcproj.
+
+        * WebCore.vcproj/WebCore.vcproj:
+
+2010-08-02  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Chris Fleizach.
+
+        [GTK] Implement support for get_character_extents and get_range_extents
+        https://bugs.webkit.org/show_bug.cgi?id=25677
+
+        Implement get_range_extents() and modify get_character_extents()
+        to properly work after "The Great Flattening" occurred in the ATK
+        objects hierarchy, some months ago.
+
+        In the case of the GTK port, not just the text controls should be
+        considered when it comes to these functions but also those
+        composite objects that would also allow to work with text ranges,
+        such as headings and links. To take care of this, a new function
+        AccessibilityObject::allowsTextRanges() was defined with a default
+        implementation in the header file and an specific one for GTK in
+        AccessibilityObjectAtk.cpp.
+
+        Based on a previous patch by Joanmarie Diggs.
+
+        * accessibility/AccessibilityObject.cpp:
+        (WebCore::AccessibilityObject::visiblePositionRangeForRange):
+        * accessibility/AccessibilityObject.h:
+        (WebCore::AccessibilityObject::allowsTextRanges): New
+        * accessibility/AccessibilityRenderObject.cpp:
+        (WebCore::AccessibilityRenderObject::visiblePositionForIndex):
+        (WebCore::AccessibilityRenderObject::doAXBoundsForRange):
+        * accessibility/gtk/AccessibilityObjectAtk.cpp:
+        (WebCore::AccessibilityObject::allowsTextRanges): New
+        * accessibility/gtk/AccessibilityObjectWrapperAtk.cpp:
+        (textExtents):
+        (webkit_accessible_text_get_character_extents):
+        (webkit_accessible_text_get_range_extents):
+        (atk_text_interface_init):
+
+2010-08-02  Chris Fleizach  <cfleizach@apple.com>
+
+        AX: Support methods for web apps to interact with the native accessibility APIs
+        https://bugs.webkit.org/show_bug.cgi?id=43005
+
+        Fix for windows build. No review.
+
+        * WebCore.vcproj/WebCore.vcproj:
+
+2010-08-02  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by David Kilzer.
+
+        AX: Support methods for web apps to interact with the native accessibility APIs
+        https://bugs.webkit.org/show_bug.cgi?id=43005
+
+        Adds a new "accessibility" object that hangs off of "window.navigator".
+        This accessibility object will allow web apps to interact with native accessibility APIs
+        to provide a richer experience (for screen reader users primarily).
+
+        Test: platform/mac/accessibility/js-accessibility.html
+
+        * Android.derived.v8bindings.mk:
+        * Android.jscbindings.mk:
+        * DerivedSources.cpp:
+        * DerivedSources.make:
+        * GNUmakefile.am:
+        * WebCore.gypi:
+        * WebCore.pri:
+        * WebCore.pro:
+        * WebCore.vcproj/WebCore.vcproj:
+        * WebCore.xcodeproj/project.pbxproj:
+        * accessibility/AXObjectCache.h:
+        (WebCore::AXObjectCache::):
+        * accessibility/Accessibility.cpp: Added.
+        (WebCore::Accessibility::Accessibility):
+        (WebCore::Accessibility::~Accessibility):
+        (WebCore::Accessibility::disconnectFrame):
+        (WebCore::Accessibility::screenChanged):
+        (WebCore::Accessibility::elementsChanged):
+        (WebCore::Accessibility::screenReader):
+        * accessibility/Accessibility.h: Added.
+        (WebCore::Accessibility::create):
+        * accessibility/Accessibility.idl: Added.
+        * accessibility/AccessibilityObject.h:
+        (WebCore::AccessibilityObject::isScreenReaderRunning):
+        (WebCore::AccessibilityObject::screenReaderFocusedElement):
+        (WebCore::AccessibilityObject::screenReaderVersion):
+        * accessibility/ScreenReader.cpp: Added.
+        (WebCore::ScreenReader::ScreenReader):
+        (WebCore::ScreenReader::~ScreenReader):
+        (WebCore::ScreenReader::disconnectFrame):
+        (WebCore::ScreenReader::active):
+        (WebCore::ScreenReader::activeElement):
+        (WebCore::ScreenReader::version):
+        * accessibility/ScreenReader.h: Added.
+        (WebCore::ScreenReader::create):
+        * accessibility/ScreenReader.idl: Added.
+        * accessibility/mac/AXObjectCacheMac.mm:
+        (WebCore::AXObjectCache::postPlatformNotification):
+        * accessibility/mac/AccessibilityObjectMac.mm:
+        (WebCore::AccessibilityObject::isScreenReaderRunning):
+        (WebCore::AccessibilityObject::screenReaderFocusedElement):
+        (WebCore::AccessibilityObject::screenReaderVersion):
+        * page/Navigator.cpp:
+        (WebCore::Navigator::disconnectFrame):
+        (WebCore::Navigator::accessibility):
+        * page/Navigator.h:
+        * page/Navigator.idl:
+
+2010-08-02  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [Gtk] DOM listeners get wrong keycodes for some keys
+        https://bugs.webkit.org/show_bug.cgi?id=35170
+
+        Emit the proper DOM keyCode for the print screen, keypad insert,
+        and keypad delete keys.
+
+        * platform/gtk/KeyEventGtk.cpp:
+        (WebCore::windowsKeyCodeForKeyEvent): Fix mapping between GDK key codes
+        and Windows key codes.
+
+2010-08-02  Dirk Schulze  <krit@webkit.org>
+
+        Unreviewed sort of XCode project file.
+
+        * WebCore.xcodeproj/project.pbxproj:
+
+2010-08-02  Kristian Monsen  <kristianm@google.com>
+
+        Reviewed by Steve Block.
+
+        Compile fix for Android, adding guards around filter specific code.
+        https://bugs.webkit.org/show_bug.cgi?id=43338
+        This CL introduced the code:
+        http://trac.webkit.org/changeset/64196
+
+        Compile fix only, no new tests.
+
+        * rendering/SVGResourcesCycleSolver.cpp:
+        (WebCore::SVGResourcesCycleSolver::breakCycle):
+
+2010-08-02  Kristian Monsen  <kristianm@google.com>
+
+        Reviewed by Steve Block.
+
+        Compile fix for Android, guard inspector code with ENABLE(INSPECTOR).
+        https://bugs.webkit.org/show_bug.cgi?id=43345
+        Code introduced in this CL:
+        http://trac.webkit.org/changeset/63891
+
+        No new tests, just a compile fix.
+
+        * bindings/v8/ScriptValue.cpp:
+
+2010-08-02  Jeremy Orlow  <jorlow@chromium.org>
+
+        Speculative revert of 64425 due to Chromium instability
+        https://bugs.webkit.org/show_bug.cgi?id=43347
+
+        * GNUmakefile.am:
+        * WebCore.exp.in:
+        * WebCore.gypi:
+        * WebCore.pro:
+        * WebCore.vcproj/WebCore.vcproj:
+        * WebCore.xcodeproj/project.pbxproj:
+        * loader/EmptyClients.h:
+        * page/Chrome.cpp:
+        * page/Chrome.h:
+        * page/ChromeClient.h:
+        * platform/PopupMenu.h:
+        (WebCore::PopupMenu::create):
+        (WebCore::PopupMenu::disconnectClient):
+        (WebCore::PopupMenu::client):
+        (WebCore::PopupMenu::scrollbar):
+        (WebCore::PopupMenu::itemHeight):
+        (WebCore::PopupMenu::windowRect):
+        (WebCore::PopupMenu::popupHandle):
+        (WebCore::PopupMenu::setWasClicked):
+        (WebCore::PopupMenu::wasClicked):
+        (WebCore::PopupMenu::setScrollOffset):
+        (WebCore::PopupMenu::scrollOffset):
+        (WebCore::PopupMenu::wheelDelta):
+        (WebCore::PopupMenu::scrollbarCapturingMouse):
+        (WebCore::PopupMenu::setScrollbarCapturingMouse):
+        (WebCore::PopupMenu::isActive):
+        (WebCore::PopupMenu::scrollbarCornerPresent):
+        * platform/SearchPopupMenu.h:
+        (WebCore::SearchPopupMenu::create):
+        * platform/brew/PopupMenuBrew.cpp:
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        * platform/brew/PopupMenuBrew.h: Removed.
+        * platform/brew/SearchPopupMenuBrew.cpp:
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::enabled):
+        * platform/brew/SearchPopupMenuBrew.h: Removed.
+        * platform/chromium/PopupMenuChromium.cpp:
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        * platform/chromium/PopupMenuChromium.h:
+        * platform/chromium/SearchPopupMenuChromium.cpp:
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::enabled):
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        * platform/chromium/SearchPopupMenuChromium.h: Removed.
+        * platform/efl/PopupMenuEfl.cpp:
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        * platform/efl/PopupMenuEfl.h: Removed.
+        * platform/efl/SearchPopupMenuEfl.cpp:
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        (WebCore::SearchPopupMenu::enabled):
+        * platform/efl/SearchPopupMenuEfl.h: Removed.
+        * platform/gtk/PopupMenuGtk.cpp:
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        (WebCore::PopupMenu::menuItemActivated):
+        (WebCore::PopupMenu::menuUnmapped):
+        (WebCore::PopupMenu::menuPositionFunction):
+        (WebCore::PopupMenu::menuRemoveItem):
+        * platform/gtk/PopupMenuGtk.h: Removed.
+        * platform/gtk/SearchPopupMenuGtk.cpp:
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        (WebCore::SearchPopupMenu::enabled):
+        * platform/gtk/SearchPopupMenuGtk.h: Removed.
+        * platform/haiku/PopupMenuHaiku.cpp:
+        (WebCore::PopupMenuHaiku::PopupMenuHaiku):
+        (WebCore::PopupMenuHaiku::~PopupMenuHaiku):
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        * platform/haiku/PopupMenuHaiku.h: Removed.
+        * platform/haiku/SearchPopupMenuHaiku.cpp:
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        (WebCore::SearchPopupMenu::enabled):
+        * platform/haiku/SearchPopupMenuHaiku.h: Removed.
+        * platform/mac/PopupMenuMac.h: Removed.
+        * platform/mac/PopupMenuMac.mm:
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::clear):
+        (WebCore::PopupMenu::populate):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        * platform/mac/SearchPopupMenuMac.h: Removed.
+        * platform/mac/SearchPopupMenuMac.mm:
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::enabled):
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        * platform/qt/PopupMenuQt.cpp:
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        * platform/qt/PopupMenuQt.h: Removed.
+        * platform/qt/QtAbstractWebPopup.h:
+        * platform/qt/SearchPopupMenuQt.cpp:
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        (WebCore::SearchPopupMenu::enabled):
+        * platform/qt/SearchPopupMenuQt.h: Removed.
+        * platform/win/PopupMenuWin.cpp:
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::popupClassName):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::calculatePositionAndSize):
+        (WebCore::PopupMenu::setFocusedIndex):
+        (WebCore::PopupMenu::visibleItems):
+        (WebCore::PopupMenu::listIndexAtPoint):
+        (WebCore::PopupMenu::focusedIndex):
+        (WebCore::PopupMenu::focusFirst):
+        (WebCore::PopupMenu::focusLast):
+        (WebCore::PopupMenu::down):
+        (WebCore::PopupMenu::up):
+        (WebCore::PopupMenu::invalidateItem):
+        (WebCore::PopupMenu::clientRect):
+        (WebCore::PopupMenu::incrementWheelDelta):
+        (WebCore::PopupMenu::reduceWheelDelta):
+        (WebCore::PopupMenu::scrollToRevealSelection):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        (WebCore::PopupMenu::paint):
+        (WebCore::PopupMenu::valueChanged):
+        (WebCore::PopupMenu::invalidateScrollbarRect):
+        (WebCore::PopupMenu::registerClass):
+        (WebCore::PopupMenu::PopupMenuWndProc):
+        (WebCore::PopupMenu::wndProc):
+        * platform/win/PopupMenuWin.h: Removed.
+        * platform/win/SearchPopupMenuWin.cpp:
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::enabled):
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        * platform/win/SearchPopupMenuWin.h: Removed.
+        * platform/wx/PopupMenuWx.cpp:
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::OnMenuItemSelected):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        * platform/wx/PopupMenuWx.h: Removed.
+        * platform/wx/SearchPopupMenuWx.cpp:
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        (WebCore::SearchPopupMenu::enabled):
+        * platform/wx/SearchPopupMenuWx.h: Removed.
+        * rendering/RenderMenuList.cpp:
+        (WebCore::RenderMenuList::adjustInnerStyle):
+        (WebCore::RenderMenuList::showPopup):
+        * rendering/RenderMenuList.h:
+        * rendering/RenderTextControlSingleLine.cpp:
+        (WebCore::RenderTextControlSingleLine::~RenderTextControlSingleLine):
+        (WebCore::RenderTextControlSingleLine::addSearchResult):
+        (WebCore::RenderTextControlSingleLine::showPopup):
+        (WebCore::RenderTextControlSingleLine::hidePopup):
+        (WebCore::RenderTextControlSingleLine::updateFromElement):
+        (WebCore::RenderTextControlSingleLine::valueChanged):
+        * rendering/RenderTextControlSingleLine.h:
+
+2010-08-02  Markus Goetz  <Markus.Goetz@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Do not link to SharedBufferCF.cpp
+        The Qt port does not need this file.
+        We plan to implement the platformData()
+        for SharedBuffer at some point soon.
+        https://bugs.webkit.org/show_bug.cgi?id=43242
+
+        * WebCore.pro:
+        * platform/SharedBuffer.cpp:
+
+2010-08-02  Balazs Kelemen  <kb@inf.u-szeged.hu>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Generate forwarding headers for WebKit2
+
+        https://bugs.webkit.org/show_bug.cgi?id=43336
+
+        * WebCore.pri: Removed header copying logic.
+        * WebCore.pro: Add include paths for WebKit2.
+
+2010-08-02  Andrey Kosyakov  <caseq@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: adding experimental support for WebInspector extensions API.
+        https://bugs.webkit.org/show_bug.cgi?id=40425
+
+        Tests: inspector/extensions-api.html
+               inspector/extensions.html
+
+        * WebCore.gypi:
+        * WebCore.vcproj/WebCore.vcproj:
+        * inspector/InspectorController.cpp:
+        (WebCore::InspectorController::inspectedWindowScriptObjectCleared):
+        (WebCore::InspectorController::didCommitLoad):
+        * inspector/InspectorFrontendHost.cpp:
+        (WebCore::InspectorFrontendHost::setExtensionAPI):
+        * inspector/InspectorFrontendHost.h:
+        * inspector/InspectorFrontendHost.idl:
+        * inspector/front-end/ElementsPanel.js:
+        (WebInspector.ElementsPanel.this.treeOutline.focusedNodeChanged):
+        (WebInspector.ElementsPanel):
+        * inspector/front-end/ExtensionAPI.js: Added. An API implementation that gets injected into the extension context.
+        (injectedExtensionAPI):
+        (injectedExtensionAPI.EventSinkImpl.prototype.addListener):
+        (injectedExtensionAPI.EventSinkImpl.prototype.removeListener):
+        (injectedExtensionAPI.EventSinkImpl.prototype._fire):
+        (injectedExtensionAPI.EventSink):
+        (injectedExtensionAPI.InspectorExtensionAPI):
+        (injectedExtensionAPI.InspectorExtensionAPI.prototype.log):
+        (injectedExtensionAPI.Resources.prototype.getAll):
+        (injectedExtensionAPI.Resources.prototype.get return):
+        (injectedExtensionAPI.Resources.prototype):
+        (injectedExtensionAPI.Panels):
+        (injectedExtensionAPI.Panels.prototype.create.callbackWrapper):
+        (injectedExtensionAPI.Panels.prototype.create):
+        (injectedExtensionAPI.PanelImpl):
+        (injectedExtensionAPI.PanelImpl.prototype.createSidebarPane.callbackWrapper):
+        (injectedExtensionAPI.PanelImpl.prototype.createSidebarPane):
+        (injectedExtensionAPI.ExtensionPanel):
+        (injectedExtensionAPI.ExtensionSidebarPaneImpl):
+        (injectedExtensionAPI.ExtensionSidebarPaneImpl.prototype.setHeight):
+        (injectedExtensionAPI.ExtensionSidebarPaneImpl.prototype.setExpanded):
+        (injectedExtensionAPI.InspectedWindow):
+        (injectedExtensionAPI.InspectedWindow.prototype.reload):
+        (injectedExtensionAPI.InspectedWindow.prototype.evaluate):
+        (injectedExtensionAPI.ExtensionServerClient.prototype.sendRequest):
+        (injectedExtensionAPI.ExtensionServerClient.prototype.registerHandler):
+        (injectedExtensionAPI.ExtensionServerClient.prototype.nextObjectId):
+        (injectedExtensionAPI.ExtensionServerClient.prototype._registerCallback):
+        (injectedExtensionAPI.ExtensionServerClient.prototype._onCallback):
+        (injectedExtensionAPI.ExtensionServerClient.prototype._onMessage):
+        (injectedExtensionAPI.expandURL):
+        (injectedExtensionAPI.):
+        * inspector/front-end/ExtensionPanel.js: Added. A class that provides WebInspector's Panel interface to the inspector, hosts extension panel within an IFrame and proxies Panel callbacks to the extension.
+        (WebInspector.ExtensionPanel):
+        (WebInspector.ExtensionPanel.prototype.get defaultFocusedElement):
+        (WebInspector.ExtensionPanel.prototype.updateMainViewWidth):
+        (WebInspector.ExtensionPanel.prototype.searchCanceled):
+        (WebInspector.ExtensionPanel.prototype.performSearch):
+        (WebInspector.ExtensionPanel.prototype.jumpToNextSearchResult):
+        (WebInspector.ExtensionPanel.prototype.jumpToPreviousSearchResult):
+        (WebInspector.ExtensionPanel.prototype._addStyleRule):
+        * inspector/front-end/ExtensionRegistryStub.js: Added. A stub for ExtensionRegistry class that is meant to provide a list of extensions. Actual implementations may be browser-specfic.
+        (.WebInspector.InspectorExtensionRegistryStub):
+        (.WebInspector.InspectorExtensionRegistryStub.prototype.getExtensionsAsync):
+        * inspector/front-end/ExtensionServer.js: Added. Communicates with ExtensionAPI via DOM messaging and proxies requests to WebInspector classes.
+        (WebInspector.ExtensionServer):
+        (WebInspector.ExtensionServer.prototype.notifyPanelShown):
+        (WebInspector.ExtensionServer.prototype.notifyObjectSelected):
+        (WebInspector.ExtensionServer.prototype.notifyResourceFinished):
+        (WebInspector.ExtensionServer.prototype.notifySearchAction):
+        (WebInspector.ExtensionServer.prototype.notifyInspectedPageLoaded):
+        (WebInspector.ExtensionServer.prototype.notifyInspectedURLChanged):
+        (WebInspector.ExtensionServer.prototype.notifyInspectorReset):
+        (WebInspector.ExtensionServer.prototype._convertResource):
+        (WebInspector.ExtensionServer.prototype._postNotification):
+        (WebInspector.ExtensionServer.prototype._onSubscribe):
+        (WebInspector.ExtensionServer.prototype._onUnsubscribe):
+        (WebInspector.ExtensionServer.prototype._onCreatePanel):
+        (WebInspector.ExtensionServer.prototype._onCreateSidebar):
+        (WebInspector.ExtensionServer.prototype._createClientIframe):
+        (WebInspector.ExtensionServer.prototype._onSetSidebarHeight):
+        (WebInspector.ExtensionServer.prototype._onSetSidebarExpansion):
+        (WebInspector.ExtensionServer.prototype._onLog):
+        (WebInspector.ExtensionServer.prototype._onEvaluateOnInspectedPage):
+        (WebInspector.ExtensionServer.prototype._onRevealAndSelect):
+        (WebInspector.ExtensionServer.prototype._onRevealAndSelectResource):
+        (WebInspector.ExtensionServer.prototype._dispatchCallback):
+        (WebInspector.ExtensionServer.prototype._onGetResources):
+        (WebInspector.ExtensionServer.prototype.initExtensions):
+        (WebInspector.ExtensionServer.prototype._addExtensions):
+        (WebInspector.ExtensionServer.prototype._onWindowMessage):
+        (WebInspector.ExtensionServer.prototype._onmessage):
+        (WebInspector.ExtensionServer.prototype._registerHandler):
+        (WebInspector.ExtensionStatus):
+        (WebInspector.addExtensions):
+        * inspector/front-end/InjectedScript.js:
+        (injectedScriptConstructor):
+        * inspector/front-end/InjectedScriptAccess.js:
+        * inspector/front-end/InspectorFrontendHostStub.js:
+        (.WebInspector.InspectorFrontendHostStub.prototype.setExtensionAPI):
+        (.WebInspector.InspectorFrontendHostStub.prototype.canAttachWindow):
+        * inspector/front-end/WebKit.qrc:
+        * inspector/front-end/inspector.html:
+        * inspector/front-end/inspector.js:
+        (WebInspector.loaded):
+        (WebInspector.updateResource):
+        (WebInspector.reset):
+        (WebInspector.inspectedURLChanged):
+        (WebInspector.didCommitLoad):
+
+2010-08-02  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        WebInspector: Inspector is not working when it is loaded as html page.
+        https://bugs.webkit.org/show_bug.cgi?id=43334
+
+        * inspector/front-end/InspectorFrontendHostStub.js:
+        (.WebInspector.InspectorFrontendHostStub.prototype.canAttachWindow):
+        (.WebInspector.InspectorFrontendHostStub.prototype.sendMessageToBackend):
+
+2010-08-01  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Dirk Schulze.
+
+        SVG gradients do not update when scripted via xlink
+        https://bugs.webkit.org/show_bug.cgi?id=42953
+
+        Unify cycle detection logic for chainable (through xlink:href) and ordinary resources.
+        All operate on the render tree now, instead of falling back to the DOM tree for xlink:href queries.
+
+        When linking resources, register as regular client, so the regular update mechanisms work as expected.
+        <linearGradient id="foo"><stop../> </linearGradient>
+        <linearGradient id="bar" xlink:href="#foo"/>
+        <rect fill="url(#bar)"/>
+
+        Without that the rect won't receive invalidation notifications, as foo <-> bar had no connection.
+        Fixes the last outstanding class of invalidations. Also speeds up the cycle detetion, when using chained resources,
+        as no SVG DOM queries have to be executed anymore.
+
+        Test: svg/custom/js-update-stop-linked-gradient.svg
+
+        * rendering/RenderSVGResourceContainer.cpp:
+        (WebCore::RenderSVGResourceContainer::markAllClientsForInvalidation):
+        (WebCore::linkedResourceForContainer):
+        * rendering/SVGResources.cpp:
+        (WebCore::SVGResources::SVGResources):
+        (WebCore::chainableResourceTags):
+        (WebCore::targetReferenceFromResource):
+        (WebCore::registerPendingResource):
+        (WebCore::SVGResources::buildCachedResources):
+        (WebCore::SVGResources::invalidateClient):
+        (WebCore::SVGResources::resourceDestroyed):
+        (WebCore::SVGResources::buildSetOfResources):
+        (WebCore::SVGResources::setLinkedResource):
+        (WebCore::SVGResources::resetLinkedResource):
+        (WebCore::SVGResources::dump):
+        * rendering/SVGResources.h:
+        (WebCore::SVGResources::linkedResource):
+        * rendering/SVGResourcesCycleSolver.cpp:
+        (WebCore::SVGResourcesCycleSolver::resolveCycles):
+        (WebCore::SVGResourcesCycleSolver::breakCycle):
+        * rendering/SVGResourcesCycleSolver.h:
+        * svg/SVGFilterElement.cpp:
+        (WebCore::SVGFilterElement::SVGFilterElement):
+        * svg/SVGFilterElement.h:
+        * svg/SVGGradientElement.cpp:
+        (WebCore::SVGGradientElement::SVGGradientElement):
+        * svg/SVGGradientElement.h:
+        * svg/SVGLinearGradientElement.cpp:
+        (WebCore::SVGLinearGradientElement::collectGradientProperties):
+        * svg/SVGPatternElement.cpp:
+        (WebCore::SVGPatternElement::SVGPatternElement):
+        (WebCore::SVGPatternElement::collectPatternProperties):
+        * svg/SVGPatternElement.h:
+        * svg/SVGRadialGradientElement.cpp:
+        (WebCore::SVGRadialGradientElement::collectGradientProperties):
+
+2010-07-31  Dan Bernstein  <mitz@apple.com>
+
+        Try to fix the Windows build when zlib is not available.
+
+        * platform/graphics/WOFFFileFormat.cpp:
+
+2010-07-31  Dan Bernstein  <mitz@apple.com>
+
+        Try to fix the Windows build when zlib is not available.
+
+        * platform/graphics/WOFFFileFormat.cpp:
+
+2010-07-31  Dan Bernstein  <mitz@apple.com>
+
+        Try to fix the Windows build when zlib is not available.
+
+        * platform/graphics/WOFFFileFormat.cpp:
+
+2010-07-31  Dan Bernstein  <mitz@apple.com>
+
+        Fix typo in attempted build fix.
+
+        * platform/graphics/WOFFFileFormat.cpp:
+
+2010-07-31  Dan Bernstein  <mitz@apple.com>
+
+        Try to fix the Windows build when zlib is not available.
+
+        * platform/graphics/WOFFFileFormat.cpp:
+
+2010-07-31  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/8234766> Add WOFF support for @font-face
+        https://bugs.webkit.org/show_bug.cgi?id=31302
+
+        * WebCore.vcproj/WebCore.vcproj: Added WOFFFileFormat.{cpp,h}.
+        * WebCore.vcproj/WebCoreCommon.vsprops: Added $(WebKitLibraries)\include\zlib to the header search path.
+        * WebCore.xcodeproj/project.pbxproj: Added WOFFFileFormat.{cpp,h} and linking against libz.
+        * css/CSSFontFaceSrcValue.cpp:
+        (WebCore::CSSFontFaceSrcValue::isSupportedFormat): Replaced hard-coded list of supported formats with
+        call to FontCustomPlatformData::supportsFormat().
+        * platform/graphics/WOFFFileFormat.cpp: Added.
+        (WebCore::isWOFF): Checks if the buffer has the WOFF signature.
+        (WebCore::convertWOFFToSfnt): Extracts the sfnt payload of a WOFF package.
+        * platform/graphics/WOFFFileFormat.h: Added.
+        * platform/graphics/cairo/FontCustomPlatformData.cpp:
+        (WebCore::FontCustomPlatformData::supportsFormat): Added. Returns true for truetype and opentype.
+        * platform/graphics/cairo/FontCustomPlatformData.h:
+        * platform/graphics/chromium/FontCustomPlatformData.cpp:
+        (WebCore::FontCustomPlatformData::supportsFormat): Added. Returns true for truetype and opentype,
+        and also for woff if the OpenType sanitizer is enabled.
+        * platform/graphics/chromium/FontCustomPlatformData.h:
+        * platform/graphics/gtk/FontCustomPlatformDataPango.cpp:
+        (WebCore::FontCustomPlatformData::supportsFormat): Added. Returns false.
+        * platform/graphics/haiku/FontCustomPlatformData.cpp:
+        (WebCore::FontCustomPlatformData::supportsFormat): Ditto.
+        * platform/graphics/haiku/FontCustomPlatformData.h:
+        * platform/graphics/mac/FontCustomPlatformData.cpp:
+        (WebCore::freeSfntData):
+        (WebCore::createFontCustomPlatformData): If the OpenType font sanitizer is not enabled, use convertWOFFToSfnt().
+        (WebCore::FontCustomPlatformData::supportsFormat): Added. Returns true for truetype, opentype and woff.
+        * platform/graphics/mac/FontCustomPlatformData.h:
+        * platform/graphics/qt/FontCustomPlatformData.h:
+        * platform/graphics/qt/FontCustomPlatformDataQt.cpp:
+        (WebCore::FontCustomPlatformData::supportsFormat): Added. Returns true for truetype and opentype.
+        * platform/graphics/win/FontCustomPlatformData.cpp:
+        (WebCore::createFontCustomPlatformData): If the OpenType font sanitizer is not enabled, use convertWOFFToSfnt().
+        (WebCore::FontCustomPlatformData::supportsFormat): Added. Returns true for truetype, opentype and woff.
+        * platform/graphics/win/FontCustomPlatformData.h:
+        * platform/graphics/win/FontCustomPlatformDataCairo.cpp:
+        (WebCore::FontCustomPlatformData::supportsFormat): Added. Returns true for truetype and opentype.
+        * platform/graphics/win/FontCustomPlatformDataCairo.h:
+        * platform/graphics/wince/FontCustomPlatformData.cpp:
+        (WebCore::FontCustomPlatformData::supportsFormat): Ditto.
+        * platform/graphics/wince/FontCustomPlatformData.h:
+
+2010-07-31  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Ojan Vafai.
+
+        SplitElementCommand shouldn't be duplicating id attribute
+        https://bugs.webkit.org/show_bug.cgi?id=27156
+
+        Modified SplitElementCommand to delete the id attribute from the second element when splitting an element.
+        Since this causes WebKit not to merge split elements, added shouldSplitElement to ApplyStyleCommand which
+        determines the necessity of splitting the element.
+
+        To share code between shouldSplitElement and removeInlineStyleFromElement (extracted from applyInlineStyle)
+        dontRemove was added as the 3rd argument to removeHTMLFontStyle, removeHTMLBidiEmbeddingStyle, and removeCSSStyle.
+
+        Test: editing/style/split-element-id-duplication.html
+
+        * editing/ApplyStyleCommand.cpp:
+        (WebCore::ApplyStyleCommand::applyBlockStyle): Added 3rd argument for removeCSSStyle.
+        (WebCore::ApplyStyleCommand::applyInlineStyle): Calls shouldSplitElement.
+        (WebCore::ApplyStyleCommand::removeInlineStyleFromElement): Extracted from removeInlineStyle.
+        (WebCore::ApplyStyleCommand::shouldRemoveInlineStyleFromElement): Inline helper for removeInlineStyleFromElement.
+        (WebCore::ApplyStyleCommand::removeHTMLFontStyle): Added dontRemove.
+        (WebCore::ApplyStyleCommand::removeHTMLBidiEmbeddingStyle): Added dontRemove.
+        (WebCore::ApplyStyleCommand::removeCSSStyle): Added dontRemove.
+        (WebCore::ApplyStyleCommand::removeInlineStyle): Calls removeInlineStyleFromElement.
+        (WebCore::ApplyStyleCommand::splitTextElementAtStart): Removed the call to splitTextAtStart.
+        Branching is now done in applyInlineStyle.
+        (WebCore::ApplyStyleCommand::splitTextElementAtEnd): Ditto for splitTextAtEnd.
+        (WebCore::ApplyStyleCommand::shouldSplitElement): Added.
+        * editing/ApplyStyleCommand.h:
+        * editing/SplitElementCommand.cpp:
+        (WebCore::SplitElementCommand::executeApply): Deletes the id attribute from the second element.
+        (WebCore::SplitElementCommand::doUnapply): Recovers the id attribute of the second element.
+
+2010-07-31  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Build fix: Windows.
+
+        * platform/win/PopupMenuWin.h:
+
+2010-07-31  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Windows build fix.
+
+        * platform/win/PopupMenuWin.cpp:
+        (WebCore::PopupMenuWin::PopupMenuWndProc):
+
+2010-07-27  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Darin Fisher.
+
+        PopupMenu refactoring in preparation to WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=42592
+
+        Classes PopupMenu and SearchPopupMenu have been made pure virtual.
+
+        * platform/PopupMenu.h:
+        (WebCore::PopupMenu::~PopupMenu):
+        * platform/SearchPopupMenu.h:
+        (WebCore::SearchPopupMenu::~SearchPopupMenu):
+
+        Classes RenderMenuList and RenderTexyControlSingleLine have been changed to use
+        the new pure virtual PopupMenu and SearchPopupMenu.
+
+        * rendering/RenderMenuList.cpp:
+        (WebCore::RenderMenuList::adjustInnerStyle):
+        (WebCore::RenderMenuList::showPopup):
+        * rendering/RenderMenuList.h:
+        * rendering/RenderTextControlSingleLine.cpp:
+        (WebCore::RenderTextControlSingleLine::~RenderTextControlSingleLine):
+        (WebCore::RenderTextControlSingleLine::addSearchResult):
+        (WebCore::RenderTextControlSingleLine::showPopup):
+        (WebCore::RenderTextControlSingleLine::hidePopup):
+        (WebCore::RenderTextControlSingleLine::updateFromElement):
+        (WebCore::RenderTextControlSingleLine::valueChanged):
+        * rendering/RenderTextControlSingleLine.h:
+
+        Chrome and ChromeClient were made responsible for providing instances of classes
+        PopupMenu and SearchPopupMenu to its users.
+
+        * loader/EmptyClients.h:
+        (WebCore::EmptyPopupMenu::show):
+        (WebCore::EmptyPopupMenu::hide):
+        (WebCore::EmptyPopupMenu::updateFromElement):
+        (WebCore::EmptyPopupMenu::disconnectClient):
+        (WebCore::EmptySearchPopupMenu::popupMenu):
+        (WebCore::EmptySearchPopupMenu::saveRecentSearches):
+        (WebCore::EmptySearchPopupMenu::loadRecentSearches):
+        (WebCore::EmptySearchPopupMenu::enabled):
+        (WebCore::EmptyChromeClient::selectItemWritingDirectionIsNatural):
+        (WebCore::EmptyChromeClient::createPopupMenu):
+        (WebCore::EmptyChromeClient::createSearchPopupMenu):
+        * page/Chrome.cpp:
+        (WebCore::Chrome::selectItemWritingDirectionIsNatural):
+        (WebCore::Chrome::createPopupMenu):
+        (WebCore::Chrome::createSearchPopupMenu):
+        * page/Chrome.h:
+        * page/ChromeClient.h:
+
+        Original contents of files PopupMenu.h and SearchPopupMenu.h have been splited
+        in several files, two for each platform (PopupMenuXXX.h and SearchPopupMenuXXX.h).
+        Each of new the files contain the concrete classes that inherit form PopupMenu or
+        SearchPopupMenu and are specific for the corresponding platform.
+
+        brew:
+
+        * platform/brew/PopupMenuBrew.cpp:
+        (WebCore::PopupMenuBrew::PopupMenuBrew):
+        (WebCore::PopupMenuBrew::~PopupMenuBrew):
+        (WebCore::PopupMenuBrew::disconnectClient):
+        (WebCore::PopupMenuBrew::show):
+        (WebCore::PopupMenuBrew::hide):
+        (WebCore::PopupMenuBrew::updateFromElement):
+        * platform/brew/PopupMenuBrew.h: Added.
+        (WebCore::PopupMenuBrew::client):
+        * platform/brew/SearchPopupMenuBrew.cpp:
+        (WebCore::SearchPopupMenuBrew::saveRecentSearches):
+        (WebCore::SearchPopupMenuBrew::loadRecentSearches):
+        (WebCore::SearchPopupMenuBrew::SearchPopupMenuBrew):
+        (WebCore::SearchPopupMenuBrew::enabled):
+        (WebCore::SearchPopupMenuBrew::popupMenu):
+        * platform/brew/SearchPopupMenuBrew.h: Added.
+
+        chromium:
+
+        * WebCore.gypi:
+        * platform/chromium/PopupMenuChromium.cpp:
+        (WebCore::PopupMenuChromium::PopupMenuChromium):
+        (WebCore::PopupMenuChromium::~PopupMenuChromium):
+        (WebCore::PopupMenuChromium::show):
+        (WebCore::PopupMenuChromium::hide):
+        (WebCore::PopupMenuChromium::updateFromElement):
+        (WebCore::PopupMenuChromium::disconnectClient):
+        * platform/chromium/PopupMenuChromium.h:
+        (WebCore::PopupMenuChromium::client):
+        * platform/chromium/SearchPopupMenuChromium.cpp:
+        (WebCore::SearchPopupMenuChromium::SearchPopupMenuChromium):
+        (WebCore::SearchPopupMenuChromium::popupMenu):
+        (WebCore::SearchPopupMenuChromium::enabled):
+        (WebCore::SearchPopupMenuChromium::saveRecentSearches):
+        (WebCore::SearchPopupMenuChromium::loadRecentSearches):
+        * platform/chromium/SearchPopupMenuChromium.h: Added.
+
+        efl:
+
+        * platform/efl/PopupMenuEfl.cpp:
+        (WebCore::PopupMenuEfl::PopupMenuEfl):
+        (WebCore::PopupMenuEfl::~PopupMenuEfl):
+        (WebCore::PopupMenuEfl::show):
+        (WebCore::PopupMenuEfl::hide):
+        (WebCore::PopupMenuEfl::updateFromElement):
+        (WebCore::PopupMenuEfl::disconnectClient):
+        * platform/efl/PopupMenuEfl.h: Added.
+        (WebCore::PopupMenuEfl::client):
+        * platform/efl/SearchPopupMenuEfl.cpp:
+        (WebCore::SearchPopupMenuEfl::SearchPopupMenuEfl):
+        (WebCore::SearchPopupMenuEfl::popupMenu):
+        (WebCore::SearchPopupMenuEfl::saveRecentSearches):
+        (WebCore::SearchPopupMenuEfl::loadRecentSearches):
+        (WebCore::SearchPopupMenuEfl::enabled):
+        * platform/efl/SearchPopupMenuEfl.h: Added.
+
+        gtk:
+
+        * GNUmakefile.am:
+        * platform/gtk/PopupMenuGtk.cpp:
+        (WebCore::PopupMenuGtk::PopupMenuGtk):
+        (WebCore::PopupMenuGtk::~PopupMenuGtk):
+        (WebCore::PopupMenuGtk::show):
+        (WebCore::PopupMenuGtk::hide):
+        (WebCore::PopupMenuGtk::updateFromElement):
+        (WebCore::PopupMenuGtk::disconnectClient):
+        (WebCore::PopupMenuGtk::menuItemActivated):
+        (WebCore::PopupMenuGtk::menuUnmapped):
+        (WebCore::PopupMenuGtk::menuPositionFunction):
+        (WebCore::PopupMenuGtk::menuRemoveItem):
+        * platform/gtk/PopupMenuGtk.h: Added.
+        (WebCore::PopupMenuGtk::client):
+        * platform/gtk/SearchPopupMenuGtk.cpp:
+        (WebCore::SearchPopupMenuGtk::SearchPopupMenuGtk):
+        (WebCore::SearchPopupMenuGtk::popupMenu):
+        (WebCore::SearchPopupMenuGtk::saveRecentSearches):
+        (WebCore::SearchPopupMenuGtk::loadRecentSearches):
+        (WebCore::SearchPopupMenuGtk::enabled):
+        * platform/gtk/SearchPopupMenuGtk.h: Added.
+
+        haiku:
+
+        * platform/haiku/PopupMenuHaiku.cpp:
+        (WebCore::HaikuPopup::HaikuPopup):
+        (WebCore::HaikuPopup::~HaikuPopup):
+        (WebCore::PopupMenuHaiku::PopupMenuHaiku):
+        (WebCore::PopupMenuHaiku::~PopupMenuHaiku):
+        (WebCore::PopupMenuHaiku::disconnectClient):
+        (WebCore::PopupMenuHaiku::show):
+        (WebCore::PopupMenuHaiku::hide):
+        (WebCore::PopupMenuHaiku::updateFromElement):
+        * platform/haiku/PopupMenuHaiku.h: Added.
+        (WebCore::PopupMenuHaiku::disconnectClient):
+        (WebCore::PopupMenuHaiku::client):
+        * platform/haiku/SearchPopupMenuHaiku.cpp:
+        (WebCore::SearchPopupMenuHaiku::SearchPopupMenuHaiku):
+        (WebCore::SearchPopupMenuHaiku::saveRecentSearches):
+        (WebCore::SearchPopupMenuHaiku::loadRecentSearches):
+        (WebCore::SearchPopupMenuHaiku::enabled):
+        (WebCore::SearchPopupMenuHaiku::popupMenu):
+        * platform/haiku/SearchPopupMenuHaiku.h: Added.
+
+        mac:
+
+        * WebCore.exp.in:
+        * WebCore.xcodeproj/project.pbxproj:
+        * platform/mac/PopupMenuMac.h: Added.
+        (WebCore::PopupMenuMac::disconnectClient):
+        (WebCore::PopupMenuMac::client):
+        * platform/mac/PopupMenuMac.mm:
+        (WebCore::PopupMenuMac::PopupMenuMac):
+        (WebCore::PopupMenuMac::~PopupMenuMac):
+        (WebCore::PopupMenuMac::clear):
+        (WebCore::PopupMenuMac::populate):
+        (WebCore::PopupMenuMac::show):
+        (WebCore::PopupMenuMac::hide):
+        (WebCore::PopupMenuMac::updateFromElement):
+        (WebCore::PopupMenuMac::itemWritingDirectionIsNatural):
+        * platform/mac/SearchPopupMenuMac.h: Added.
+        * platform/mac/SearchPopupMenuMac.mm:
+        (WebCore::SearchPopupMenuMac::SearchPopupMenuMac):
+        (WebCore::SearchPopupMenuMac::popupMenu):
+        (WebCore::SearchPopupMenuMac::enabled):
+        (WebCore::SearchPopupMenuMac::saveRecentSearches):
+        (WebCore::SearchPopupMenuMac::loadRecentSearches):
+
+        qt:
+
+        * WebCore.pro:
+        * platform/qt/PopupMenuQt.cpp:
+        (WebCore::PopupMenuQt::PopupMenuQt):
+        (WebCore::PopupMenuQt::~PopupMenuQt):
+        (WebCore::PopupMenuQt::disconnectClient):
+        (WebCore::PopupMenuQt::show):
+        (WebCore::PopupMenuQt::hide):
+        (WebCore::PopupMenuQt::updateFromElement):
+        * platform/qt/PopupMenuQt.h: Added.
+        * platform/qt/QtAbstractWebPopup.h:
+        * platform/qt/SearchPopupMenuQt.cpp:
+        (WebCore::SearchPopupMenuQt::SearchPopupMenuQt):
+        (WebCore::SearchPopupMenuQt::popupMenu):
+        (WebCore::SearchPopupMenuQt::saveRecentSearches):
+        (WebCore::SearchPopupMenuQt::loadRecentSearches):
+        (WebCore::SearchPopupMenuQt::enabled):
+        * platform/qt/SearchPopupMenuQt.h: Added.
+
+        win:
+
+        * WebCore.vcproj/WebCore.vcproj:
+        * platform/win/PopupMenuWin.cpp:
+        (WebCore::PopupMenuWin::PopupMenuWin):
+        (WebCore::PopupMenuWin::~PopupMenuWin):
+        (WebCore::PopupMenuWin::disconnectClient):
+        (WebCore::PopupMenuWin::popupClassName):
+        (WebCore::PopupMenuWin::show):
+        (WebCore::PopupMenuWin::hide):
+        (WebCore::PopupMenuWin::calculatePositionAndSize):
+        (WebCore::PopupMenuWin::setFocusedIndex):
+        (WebCore::PopupMenuWin::visibleItems):
+        (WebCore::PopupMenuWin::listIndexAtPoint):
+        (WebCore::PopupMenuWin::focusedIndex):
+        (WebCore::PopupMenuWin::focusFirst):
+        (WebCore::PopupMenuWin::focusLast):
+        (WebCore::PopupMenuWin::down):
+        (WebCore::PopupMenuWin::up):
+        (WebCore::PopupMenuWin::invalidateItem):
+        (WebCore::PopupMenuWin::clientRect):
+        (WebCore::PopupMenuWin::incrementWheelDelta):
+        (WebCore::PopupMenuWin::reduceWheelDelta):
+        (WebCore::PopupMenuWin::scrollToRevealSelection):
+        (WebCore::PopupMenuWin::updateFromElement):
+        (WebCore::PopupMenuWin::paint):
+        (WebCore::PopupMenuWin::valueChanged):
+        (WebCore::PopupMenuWin::invalidateScrollbarRect):
+        (WebCore::PopupMenuWin::registerClass):
+        (WebCore::PopupMenuWin::PopupMenuWndProc):
+        (WebCore::PopupMenuWin::wndProc):
+        * platform/win/PopupMenuWin.h: Added.
+        (WebCore::PopupMenuWin::client):
+        (WebCore::PopupMenuWin::scrollbar):
+        (WebCore::PopupMenuWin::itemHeight):
+        (WebCore::PopupMenuWin::windowRect):
+        (WebCore::PopupMenuWin::popupHandle):
+        (WebCore::PopupMenuWin::setWasClicked):
+        (WebCore::PopupMenuWin::wasClicked):
+        (WebCore::PopupMenuWin::setScrollOffset):
+        (WebCore::PopupMenuWin::scrollOffset):
+        (WebCore::PopupMenuWin::wheelDelta):
+        (WebCore::PopupMenuWin::scrollbarCapturingMouse):
+        (WebCore::PopupMenuWin::setScrollbarCapturingMouse):
+        * platform/win/SearchPopupMenuWin.cpp:
+        (WebCore::SearchPopupMenuWin::SearchPopupMenuWin):
+        (WebCore::SearchPopupMenuWin::popupMenu):
+        (WebCore::SearchPopupMenuWin::enabled):
+        (WebCore::SearchPopupMenuWin::saveRecentSearches):
+        (WebCore::SearchPopupMenuWin::loadRecentSearches):
+        * platform/win/SearchPopupMenuWin.h: Added.
+
+        wx:
+
+        * platform/wx/PopupMenuWx.cpp:
+        (WebCore::PopupMenuWx::PopupMenuWx):
+        (WebCore::PopupMenuWx::~PopupMenuWx):
+        (WebCore::PopupMenuWx::disconnectClient):
+        (WebCore::PopupMenuWx::show):
+        (WebCore::PopupMenuWx::OnMenuItemSelected):
+        (WebCore::PopupMenuWx::hide):
+        (WebCore::PopupMenuWx::updateFromElement):
+        * platform/wx/PopupMenuWx.h: Added.
+        (WebCore::PopupMenuWx::client):
+        * platform/wx/SearchPopupMenuWx.cpp:
+        (WebCore::SearchPopupMenuWx::SearchPopupMenuWx):
+        (WebCore::SearchPopupMenuWx::saveRecentSearches):
+        (WebCore::SearchPopupMenuWx::loadRecentSearches):
+        (WebCore::SearchPopupMenuWx::enabled):
+        (WebCore::SearchPopupMenuWx::popupMenu):
+        * platform/wx/SearchPopupMenuWx.h: Added.
+
+
+
+2010-07-31  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r64422.
+        http://trac.webkit.org/changeset/64422
+        https://bugs.webkit.org/show_bug.cgi?id=43304
+
+        Build fixes are needed for Snow Leopard and Windows.
+        (Requested by lca on #webkit).
+
+        * GNUmakefile.am:
+        * WebCore.exp.in:
+        * WebCore.gypi:
+        * WebCore.pro:
+        * WebCore.vcproj/WebCore.vcproj:
+        * WebCore.xcodeproj/project.pbxproj:
+        * loader/EmptyClients.h:
+        * page/Chrome.cpp:
+        * page/Chrome.h:
+        * page/ChromeClient.h:
+        * platform/PopupMenu.h:
+        (WebCore::PopupMenu::create):
+        (WebCore::PopupMenu::disconnectClient):
+        (WebCore::PopupMenu::client):
+        (WebCore::PopupMenu::scrollbar):
+        (WebCore::PopupMenu::itemHeight):
+        (WebCore::PopupMenu::windowRect):
+        (WebCore::PopupMenu::popupHandle):
+        (WebCore::PopupMenu::setWasClicked):
+        (WebCore::PopupMenu::wasClicked):
+        (WebCore::PopupMenu::setScrollOffset):
+        (WebCore::PopupMenu::scrollOffset):
+        (WebCore::PopupMenu::wheelDelta):
+        (WebCore::PopupMenu::scrollbarCapturingMouse):
+        (WebCore::PopupMenu::setScrollbarCapturingMouse):
+        (WebCore::PopupMenu::isActive):
+        (WebCore::PopupMenu::scrollbarCornerPresent):
+        * platform/SearchPopupMenu.h:
+        (WebCore::SearchPopupMenu::create):
+        * platform/brew/PopupMenuBrew.cpp:
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        * platform/brew/PopupMenuBrew.h: Removed.
+        * platform/brew/SearchPopupMenuBrew.cpp:
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::enabled):
+        * platform/brew/SearchPopupMenuBrew.h: Removed.
+        * platform/chromium/PopupMenuChromium.cpp:
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        * platform/chromium/PopupMenuChromium.h:
+        * platform/chromium/SearchPopupMenuChromium.cpp:
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::enabled):
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        * platform/chromium/SearchPopupMenuChromium.h: Removed.
+        * platform/efl/PopupMenuEfl.cpp:
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        * platform/efl/PopupMenuEfl.h: Removed.
+        * platform/efl/SearchPopupMenuEfl.cpp:
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        (WebCore::SearchPopupMenu::enabled):
+        * platform/efl/SearchPopupMenuEfl.h: Removed.
+        * platform/gtk/PopupMenuGtk.cpp:
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        (WebCore::PopupMenu::menuItemActivated):
+        (WebCore::PopupMenu::menuUnmapped):
+        (WebCore::PopupMenu::menuPositionFunction):
+        (WebCore::PopupMenu::menuRemoveItem):
+        * platform/gtk/PopupMenuGtk.h: Removed.
+        * platform/gtk/SearchPopupMenuGtk.cpp:
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        (WebCore::SearchPopupMenu::enabled):
+        * platform/gtk/SearchPopupMenuGtk.h: Removed.
+        * platform/haiku/PopupMenuHaiku.cpp:
+        (WebCore::PopupMenuHaiku::PopupMenuHaiku):
+        (WebCore::PopupMenuHaiku::~PopupMenuHaiku):
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        * platform/haiku/PopupMenuHaiku.h: Removed.
+        * platform/haiku/SearchPopupMenuHaiku.cpp:
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        (WebCore::SearchPopupMenu::enabled):
+        * platform/haiku/SearchPopupMenuHaiku.h: Removed.
+        * platform/mac/PopupMenuMac.h: Removed.
+        * platform/mac/PopupMenuMac.mm:
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::clear):
+        (WebCore::PopupMenu::populate):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        * platform/mac/SearchPopupMenuMac.h: Removed.
+        * platform/mac/SearchPopupMenuMac.mm:
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::enabled):
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        * platform/qt/PopupMenuQt.cpp:
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        * platform/qt/PopupMenuQt.h: Removed.
+        * platform/qt/QtAbstractWebPopup.h:
+        * platform/qt/SearchPopupMenuQt.cpp:
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        (WebCore::SearchPopupMenu::enabled):
+        * platform/qt/SearchPopupMenuQt.h: Removed.
+        * platform/win/PopupMenuWin.cpp:
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::popupClassName):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::calculatePositionAndSize):
+        (WebCore::PopupMenu::setFocusedIndex):
+        (WebCore::PopupMenu::visibleItems):
+        (WebCore::PopupMenu::listIndexAtPoint):
+        (WebCore::PopupMenu::focusedIndex):
+        (WebCore::PopupMenu::focusFirst):
+        (WebCore::PopupMenu::focusLast):
+        (WebCore::PopupMenu::down):
+        (WebCore::PopupMenu::up):
+        (WebCore::PopupMenu::invalidateItem):
+        (WebCore::PopupMenu::clientRect):
+        (WebCore::PopupMenu::incrementWheelDelta):
+        (WebCore::PopupMenu::reduceWheelDelta):
+        (WebCore::PopupMenu::scrollToRevealSelection):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        (WebCore::PopupMenu::paint):
+        (WebCore::PopupMenu::valueChanged):
+        (WebCore::PopupMenu::invalidateScrollbarRect):
+        (WebCore::PopupMenu::registerClass):
+        (WebCore::PopupMenu::PopupMenuWndProc):
+        (WebCore::PopupMenu::wndProc):
+        * platform/win/PopupMenuWin.h: Removed.
+        * platform/win/SearchPopupMenuWin.cpp:
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::enabled):
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        * platform/win/SearchPopupMenuWin.h: Removed.
+        * platform/wx/PopupMenuWx.cpp:
+        (WebCore::PopupMenu::PopupMenu):
+        (WebCore::PopupMenu::~PopupMenu):
+        (WebCore::PopupMenu::show):
+        (WebCore::PopupMenu::OnMenuItemSelected):
+        (WebCore::PopupMenu::hide):
+        (WebCore::PopupMenu::updateFromElement):
+        (WebCore::PopupMenu::itemWritingDirectionIsNatural):
+        * platform/wx/PopupMenuWx.h: Removed.
+        * platform/wx/SearchPopupMenuWx.cpp:
+        (WebCore::SearchPopupMenu::SearchPopupMenu):
+        (WebCore::SearchPopupMenu::saveRecentSearches):
+        (WebCore::SearchPopupMenu::loadRecentSearches):
+        (WebCore::SearchPopupMenu::enabled):
+        * platform/wx/SearchPopupMenuWx.h: Removed.
+        * rendering/RenderMenuList.cpp:
+        (WebCore::RenderMenuList::adjustInnerStyle):
+        (WebCore::RenderMenuList::showPopup):
+        * rendering/RenderMenuList.h:
+        * rendering/RenderTextControlSingleLine.cpp:
+        (WebCore::RenderTextControlSingleLine::~RenderTextControlSingleLine):
+        (WebCore::RenderTextControlSingleLine::addSearchResult):
+        (WebCore::RenderTextControlSingleLine::showPopup):
+        (WebCore::RenderTextControlSingleLine::hidePopup):
+        (WebCore::RenderTextControlSingleLine::updateFromElement):
+        (WebCore::RenderTextControlSingleLine::valueChanged):
+        * rendering/RenderTextControlSingleLine.h:
+
+2010-07-27  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Darin Fisher.
+
+        PopupMenu refactoring in preparation to WebKit2
+        https://bugs.webkit.org/show_bug.cgi?id=42592
+
+        Classes PopupMenu and SearchPopupMenu have been made pure virtual.
+
+        * platform/PopupMenu.h:
+        (WebCore::PopupMenu::~PopupMenu):
+        * platform/SearchPopupMenu.h:
+        (WebCore::SearchPopupMenu::~SearchPopupMenu):
+
+        Classes RenderMenuList and RenderTexyControlSingleLine have been changed to use
+        the new pure virtual PopupMenu and SearchPopupMenu.
+
+        * rendering/RenderMenuList.cpp:
+        (WebCore::RenderMenuList::adjustInnerStyle):
+        (WebCore::RenderMenuList::showPopup):
+        * rendering/RenderMenuList.h:
+        * rendering/RenderTextControlSingleLine.cpp:
+        (WebCore::RenderTextControlSingleLine::~RenderTextControlSingleLine):
+        (WebCore::RenderTextControlSingleLine::addSearchResult):
+        (WebCore::RenderTextControlSingleLine::showPopup):
+        (WebCore::RenderTextControlSingleLine::hidePopup):
+        (WebCore::RenderTextControlSingleLine::updateFromElement):
+        (WebCore::RenderTextControlSingleLine::valueChanged):
+        * rendering/RenderTextControlSingleLine.h:
+
+        Chrome and ChromeClient were made responsible for providing instances of classes
+        PopupMenu and SearchPopupMenu to its users.
+
+        * loader/EmptyClients.h:
+        (WebCore::EmptyPopupMenu::show):
+        (WebCore::EmptyPopupMenu::hide):
+        (WebCore::EmptyPopupMenu::updateFromElement):
+        (WebCore::EmptyPopupMenu::disconnectClient):
+        (WebCore::EmptySearchPopupMenu::popupMenu):
+        (WebCore::EmptySearchPopupMenu::saveRecentSearches):
+        (WebCore::EmptySearchPopupMenu::loadRecentSearches):
+        (WebCore::EmptySearchPopupMenu::enabled):
+        (WebCore::EmptyChromeClient::selectItemWritingDirectionIsNatural):
+        (WebCore::EmptyChromeClient::createPopupMenu):
+        (WebCore::EmptyChromeClient::createSearchPopupMenu):
+        * page/Chrome.cpp:
+        (WebCore::Chrome::selectItemWritingDirectionIsNatural):
+        (WebCore::Chrome::createPopupMenu):
+        (WebCore::Chrome::createSearchPopupMenu):
+        * page/Chrome.h:
+        * page/ChromeClient.h:
+
+        Original contents of files PopupMenu.h and SearchPopupMenu.h have been splited
+        in several files, two for each platform (PopupMenuXXX.h and SearchPopupMenuXXX.h).
+        Each of new the files contain the concrete classes that inherit form PopupMenu or
+        SearchPopupMenu and are specific for the corresponding platform.
+
+        brew:
+
+        * platform/brew/PopupMenuBrew.cpp:
+        (WebCore::PopupMenuBrew::PopupMenuBrew):
+        (WebCore::PopupMenuBrew::~PopupMenuBrew):
+        (WebCore::PopupMenuBrew::disconnectClient):
+        (WebCore::PopupMenuBrew::show):
+        (WebCore::PopupMenuBrew::hide):
+        (WebCore::PopupMenuBrew::updateFromElement):
+        * platform/brew/PopupMenuBrew.h: Added.
+        (WebCore::PopupMenuBrew::client):
+        * platform/brew/SearchPopupMenuBrew.cpp:
+        (WebCore::SearchPopupMenuBrew::saveRecentSearches):
+        (WebCore::SearchPopupMenuBrew::loadRecentSearches):
+        (WebCore::SearchPopupMenuBrew::SearchPopupMenuBrew):
+        (WebCore::SearchPopupMenuBrew::enabled):
+        (WebCore::SearchPopupMenuBrew::popupMenu):
+        * platform/brew/SearchPopupMenuBrew.h: Added.
+
+        chromium:
+
+        * WebCore.gypi:
+        * platform/chromium/PopupMenuChromium.cpp:
+        (WebCore::PopupMenuChromium::PopupMenuChromium):
+        (WebCore::PopupMenuChromium::~PopupMenuChromium):
+        (WebCore::PopupMenuChromium::show):
+        (WebCore::PopupMenuChromium::hide):
+        (WebCore::PopupMenuChromium::updateFromElement):
+        (WebCore::PopupMenuChromium::disconnectClient):
+        * platform/chromium/PopupMenuChromium.h:
+        (WebCore::PopupMenuChromium::client):
+        * platform/chromium/SearchPopupMenuChromium.cpp:
+        (WebCore::SearchPopupMenuChromium::SearchPopupMenuChromium):
+        (WebCore::SearchPopupMenuChromium::popupMenu):
+        (WebCore::SearchPopupMenuChromium::enabled):
+        (WebCore::SearchPopupMenuChromium::saveRecentSearches):
+        (WebCore::SearchPopupMenuChromium::loadRecentSearches):
+        * platform/chromium/SearchPopupMenuChromium.h: Added.
+
+        efl:
+
+        * platform/efl/PopupMenuEfl.cpp:
+        (WebCore::PopupMenuEfl::PopupMenuEfl):
+        (WebCore::PopupMenuEfl::~PopupMenuEfl):
+        (WebCore::PopupMenuEfl::show):
+        (WebCore::PopupMenuEfl::hide):
+        (WebCore::PopupMenuEfl::updateFromElement):
+        (WebCore::PopupMenuEfl::disconnectClient):
+        * platform/efl/PopupMenuEfl.h: Added.
+        (WebCore::PopupMenuEfl::client):
+        * platform/efl/SearchPopupMenuEfl.cpp:
+        (WebCore::SearchPopupMenuEfl::SearchPopupMenuEfl):
+        (WebCore::SearchPopupMenuEfl::popupMenu):
+        (WebCore::SearchPopupMenuEfl::saveRecentSearches):
+        (WebCore::SearchPopupMenuEfl::loadRecentSearches):
+        (WebCore::SearchPopupMenuEfl::enabled):
+        * platform/efl/SearchPopupMenuEfl.h: Added.
+
+        gtk:
+
+        * GNUmakefile.am:
+        * platform/gtk/PopupMenuGtk.cpp:
+        (WebCore::PopupMenuGtk::PopupMenuGtk):
+        (WebCore::PopupMenuGtk::~PopupMenuGtk):
+        (WebCore::PopupMenuGtk::show):
+        (WebCore::PopupMenuGtk::hide):
+        (WebCore::PopupMenuGtk::updateFromElement):
+        (WebCore::PopupMenuGtk::disconnectClient):
+        (WebCore::PopupMenuGtk::menuItemActivated):
+        (WebCore::PopupMenuGtk::menuUnmapped):
+        (WebCore::PopupMenuGtk::menuPositionFunction):
+        (WebCore::PopupMenuGtk::menuRemoveItem):
+        * platform/gtk/PopupMenuGtk.h: Added.
+        (WebCore::PopupMenuGtk::client):
+        * platform/gtk/SearchPopupMenuGtk.cpp:
+        (WebCore::SearchPopupMenuGtk::SearchPopupMenuGtk):
+        (WebCore::SearchPopupMenuGtk::popupMenu):
+        (WebCore::SearchPopupMenuGtk::saveRecentSearches):
+        (WebCore::SearchPopupMenuGtk::loadRecentSearches):
+        (WebCore::SearchPopupMenuGtk::enabled):
+        * platform/gtk/SearchPopupMenuGtk.h: Added.
+
+        haiku:
+
+        * platform/haiku/PopupMenuHaiku.cpp:
+        (WebCore::HaikuPopup::HaikuPopup):
+        (WebCore::HaikuPopup::~HaikuPopup):
+        (WebCore::PopupMenuHaiku::PopupMenuHaiku):
+        (WebCore::PopupMenuHaiku::~PopupMenuHaiku):
+        (WebCore::PopupMenuHaiku::disconnectClient):
+        (WebCore::PopupMenuHaiku::show):
+        (WebCore::PopupMenuHaiku::hide):
+        (WebCore::PopupMenuHaiku::updateFromElement):
+        * platform/haiku/PopupMenuHaiku.h: Added.
+        (WebCore::PopupMenuHaiku::disconnectClient):
+        (WebCore::PopupMenuHaiku::client):
+        * platform/haiku/SearchPopupMenuHaiku.cpp:
+        (WebCore::SearchPopupMenuHaiku::SearchPopupMenuHaiku):
+        (WebCore::SearchPopupMenuHaiku::saveRecentSearches):
+        (WebCore::SearchPopupMenuHaiku::loadRecentSearches):
+        (WebCore::SearchPopupMenuHaiku::enabled):
+        (WebCore::SearchPopupMenuHaiku::popupMenu):
+        * platform/haiku/SearchPopupMenuHaiku.h: Added.
+
+        mac:
+
+        * WebCore.exp.in:
+        * WebCore.xcodeproj/project.pbxproj:
+        * platform/mac/PopupMenuMac.h: Added.
+        (WebCore::PopupMenuMac::disconnectClient):
+        (WebCore::PopupMenuMac::client):
+        * platform/mac/PopupMenuMac.mm:
+        (WebCore::PopupMenuMac::PopupMenuMac):
+        (WebCore::PopupMenuMac::~PopupMenuMac):
+        (WebCore::PopupMenuMac::clear):
+        (WebCore::PopupMenuMac::populate):
+        (WebCore::PopupMenuMac::show):
+        (WebCore::PopupMenuMac::hide):
+        (WebCore::PopupMenuMac::updateFromElement):
+        (WebCore::PopupMenuMac::itemWritingDirectionIsNatural):
+        * platform/mac/SearchPopupMenuMac.h: Added.
+        * platform/mac/SearchPopupMenuMac.mm:
+        (WebCore::SearchPopupMenuMac::SearchPopupMenuMac):
+        (WebCore::SearchPopupMenuMac::popupMenu):
+        (WebCore::SearchPopupMenuMac::enabled):
+        (WebCore::SearchPopupMenuMac::saveRecentSearches):
+        (WebCore::SearchPopupMenuMac::loadRecentSearches):
+
+        qt:
+
+        * WebCore.pro:
+        * platform/qt/PopupMenuQt.cpp:
+        (WebCore::PopupMenuQt::PopupMenuQt):
+        (WebCore::PopupMenuQt::~PopupMenuQt):
+        (WebCore::PopupMenuQt::disconnectClient):
+        (WebCore::PopupMenuQt::show):
+        (WebCore::PopupMenuQt::hide):
+        (WebCore::PopupMenuQt::updateFromElement):
+        * platform/qt/PopupMenuQt.h: Added.
+        * platform/qt/QtAbstractWebPopup.h:
+        * platform/qt/SearchPopupMenuQt.cpp:
+        (WebCore::SearchPopupMenuQt::SearchPopupMenuQt):
+        (WebCore::SearchPopupMenuQt::popupMenu):
+        (WebCore::SearchPopupMenuQt::saveRecentSearches):
+        (WebCore::SearchPopupMenuQt::loadRecentSearches):
+        (WebCore::SearchPopupMenuQt::enabled):
+        * platform/qt/SearchPopupMenuQt.h: Added.
+
+        win:
+
+        * WebCore.vcproj/WebCore.vcproj:
+        * platform/win/PopupMenuWin.cpp:
+        (WebCore::PopupMenuWin::PopupMenuWin):
+        (WebCore::PopupMenuWin::~PopupMenuWin):
+        (WebCore::PopupMenuWin::disconnectClient):
+        (WebCore::PopupMenuWin::popupClassName):
+        (WebCore::PopupMenuWin::show):
+        (WebCore::PopupMenuWin::hide):
+        (WebCore::PopupMenuWin::calculatePositionAndSize):
+        (WebCore::PopupMenuWin::setFocusedIndex):
+        (WebCore::PopupMenuWin::visibleItems):
+        (WebCore::PopupMenuWin::listIndexAtPoint):
+        (WebCore::PopupMenuWin::focusedIndex):
+        (WebCore::PopupMenuWin::focusFirst):
+        (WebCore::PopupMenuWin::focusLast):
+        (WebCore::PopupMenuWin::down):
+        (WebCore::PopupMenuWin::up):
+        (WebCore::PopupMenuWin::invalidateItem):
+        (WebCore::PopupMenuWin::clientRect):
+        (WebCore::PopupMenuWin::incrementWheelDelta):
+        (WebCore::PopupMenuWin::reduceWheelDelta):
+        (WebCore::PopupMenuWin::scrollToRevealSelection):
+        (WebCore::PopupMenuWin::updateFromElement):
+        (WebCore::PopupMenuWin::paint):
+        (WebCore::PopupMenuWin::valueChanged):
+        (WebCore::PopupMenuWin::invalidateScrollbarRect):
+        (WebCore::PopupMenuWin::registerClass):
+        (WebCore::PopupMenuWin::PopupMenuWndProc):
+        (WebCore::PopupMenuWin::wndProc):
+        * platform/win/PopupMenuWin.h: Added.
+        (WebCore::PopupMenuWin::client):
+        (WebCore::PopupMenuWin::scrollbar):
+        (WebCore::PopupMenuWin::itemHeight):
+        (WebCore::PopupMenuWin::windowRect):
+        (WebCore::PopupMenuWin::popupHandle):
+        (WebCore::PopupMenuWin::setWasClicked):
+        (WebCore::PopupMenuWin::wasClicked):
+        (WebCore::PopupMenuWin::setScrollOffset):
+        (WebCore::PopupMenuWin::scrollOffset):
+        (WebCore::PopupMenuWin::wheelDelta):
+        (WebCore::PopupMenuWin::scrollbarCapturingMouse):
+        (WebCore::PopupMenuWin::setScrollbarCapturingMouse):
+        * platform/win/SearchPopupMenuWin.cpp:
+        (WebCore::SearchPopupMenuWin::SearchPopupMenuWin):
+        (WebCore::SearchPopupMenuWin::popupMenu):
+        (WebCore::SearchPopupMenuWin::enabled):
+        (WebCore::SearchPopupMenuWin::saveRecentSearches):
+        (WebCore::SearchPopupMenuWin::loadRecentSearches):
+        * platform/win/SearchPopupMenuWin.h: Added.
+
+        wx:
+
+        * platform/wx/PopupMenuWx.cpp:
+        (WebCore::PopupMenuWx::PopupMenuWx):
+        (WebCore::PopupMenuWx::~PopupMenuWx):
+        (WebCore::PopupMenuWx::disconnectClient):
+        (WebCore::PopupMenuWx::show):
+        (WebCore::PopupMenuWx::OnMenuItemSelected):
+        (WebCore::PopupMenuWx::hide):
+        (WebCore::PopupMenuWx::updateFromElement):
+        * platform/wx/PopupMenuWx.h: Added.
+        (WebCore::PopupMenuWx::client):
+        * platform/wx/SearchPopupMenuWx.cpp:
+        (WebCore::SearchPopupMenuWx::SearchPopupMenuWx):
+        (WebCore::SearchPopupMenuWx::saveRecentSearches):
+        (WebCore::SearchPopupMenuWx::loadRecentSearches):
+        (WebCore::SearchPopupMenuWx::enabled):
+        (WebCore::SearchPopupMenuWx::popupMenu):
+        * platform/wx/SearchPopupMenuWx.h: Added.
+
+
+
+2010-07-31  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/43300> Simplify variables in *.xcconfig files after adding iOS support
+
+        Reviewed by Darin Adler.
+
+        * Configurations/WebCore.xcconfig: Extracted
+        PRODUCTION_FRAMEWORKS_DIR variable.
+
+2010-07-31  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Dirk Schulze.
+
+        HTMLStyleElement/SVGStyleElement need to share more code
+        https://bugs.webkit.org/show_bug.cgi?id=43293
+
+        Simplify HTMLStyleElement/SVGStyleElement. They look identically now, as all code is shared in StyleElement.
+        Doesn't affect any tests.
+
+        * dom/StyleElement.cpp:
+        (WebCore::StyleElement::StyleElement): Take createdByParser & Document arguments, to share the line number extraction logic. Store it in m_lineNumber.
+        (WebCore::StyleElement::insertedIntoDocument): Moved addStyleSheetCandidateNode here, to share code between HTML/SVGStyleElement.
+        (WebCore::StyleElement::removedFromDocument): Same for removeStyleSheetCandidateNode.
+        (WebCore::StyleElement::childrenChanged): Introduced new helper function.
+        (WebCore::StyleElement::finishParsingChildren): Ditto.
+        (WebCore::StyleElement::process): Use stored m_lineNumber, avoids a parameter.
+        (WebCore::StyleElement::createSheet): No need to call the virtual setLoading() function, just store m_loading in StyleElement, and set it from here.
+        (WebCore::StyleElement::isLoading): Introduced new helper function.
+        (WebCore::StyleElement::sheetLoaded): Ditto.
+        * dom/StyleElement.h:
+        * html/HTMLStyleElement.cpp:
+        (WebCore::HTMLStyleElement::HTMLStyleElement): Pass Document & createdByParser arguments to StyleElement.
+        (WebCore::HTMLStyleElement::finishParsingChildren): Delegate work to StyleElement.
+        (WebCore::HTMLStyleElement::insertedIntoDocument): Ditto.
+        (WebCore::HTMLStyleElement::removedFromDocument): Ditto.
+        (WebCore::HTMLStyleElement::childrenChanged): Ditto.
+        * html/HTMLStyleElement.h:
+        (WebCore::HTMLStyleElement::isLoading): Ditto.
+        (WebCore::HTMLStyleElement::sheetLoaded): Ditto.
+        * svg/SVGStyleElement.cpp:
+        (WebCore::SVGStyleElement::SVGStyleElement): Pass Document & createdByParser arguments to StyleElement.
+        (WebCore::SVGStyleElement::finishParsingChildren): Delegate work to StyleElement.
+        (WebCore::SVGStyleElement::insertedIntoDocument): Ditto.
+        (WebCore::SVGStyleElement::removedFromDocument): Ditto.
+        (WebCore::SVGStyleElement::childrenChanged): Ditto.
+        * svg/SVGStyleElement.h:
+        (WebCore::SVGStyleElement::isLoading): Ditto.
+        (WebCore::SVGStyleElement::sheetLoaded): Ditto.
+
+2010-07-31  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Unreviewed.  Attempt to fix release build failure.
+
+        Having 'fail:' label without goto statement generates a compiler
+        warning that causes a build failure in release build.
+
+        * bindings/scripts/CodeGeneratorV8.pm:
+
+2010-07-31  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by Nikolas Zimmermann.
+
+        Fix 'bool' in bindings/scripts/test/TestObj.
+
+        * bindings/scripts/test/CPP/WebDOMTestObj.cpp:
+        (WebDOMTestObj::CREATE):
+        (WebDOMTestObj::setCREATE):
+        * bindings/scripts/test/CPP/WebDOMTestObj.h:
+        * bindings/scripts/test/GObject/WebKitDOMTestObj.cpp:
+        (webkit_dom_test_obj_get_create):
+        (webkit_dom_test_obj_set_create):
+        (webkit_dom_test_obj_set_property):
+        (webkit_dom_test_obj_get_property):
+        (webkit_dom_test_obj_class_init):
+        * bindings/scripts/test/GObject/WebKitDOMTestObj.h:
+        * bindings/scripts/test/JS/JSTestObj.cpp:
+        (WebCore::jsTestObjCreate):
+        (WebCore::setJSTestObjCreate):
+        * bindings/scripts/test/ObjC/DOMTestObj.h:
+        * bindings/scripts/test/ObjC/DOMTestObj.mm:
+        (-[DOMTestObj CREATE]):
+        (-[DOMTestObj setCREATE:]):
+        * bindings/scripts/test/TestObj.idl:
+        * bindings/scripts/test/V8/V8TestObj.cpp:
+        (WebCore::TestObjInternal::CREATEAttrGetter):
+        (WebCore::TestObjInternal::CREATEAttrSetter):
+
+2010-07-30  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by Dumitru Daniliuc.
+
+        Add idl and mock implementation for HTML5 FileSystem API
+        https://bugs.webkit.org/show_bug.cgi?id=43134
+
+        Add idl for: FileSystem (as DOMFileSystem), Entry, Flags, Metadata,
+        FileSystemCallback, EntryCallback and ErrorCallback.
+        http://dev.w3.org/2009/dap/file-system/file-dir-sys.html
+
+        They are added only for Mac and chromium.
+
+        Tests will be added when we expose the entry point and add implementation.
+
+        * DerivedSources.make:
+        * WebCore.gypi:
+        * WebCore.xcodeproj/project.pbxproj:
+
+        * storage/DOMFileSystem.cpp: Added.
+        * storage/DOMFileSystem.h: Added.
+        * storage/DOMFileSystem.idl: Added.
+        * storage/Entry.cpp: Added.
+        * storage/Entry.h: Added.
+        * storage/Entry.idl: Added.
+        * storage/EntryCallback.h: Added.
+        * storage/EntryCallback.idl: Added.
+        * storage/ErrorCallback.h: Added.
+        * storage/ErrorCallback.idl: Added.
+        * storage/FileSystemCallback.h: Added.
+        * storage/FileSystemCallback.idl: Added.
+        * storage/Flags.h: Added.
+        * storage/Flags.idl: Added.
+        * storage/Metadata.h: Added.
+        * storage/Metadata.idl: Added.
+        * storage/MetadataCallback.h: Added.
+        * storage/MetadataCallback.idl: Added.
+
+        * bindings/scripts/CodeGenerator.pm: Added special case handlings for generating setter/getter names for CREATE/EXCLUSIVE attributes in Flags.idl.
+
+        * bindings/scripts/test/TestObj.idl: Updated.
+        * bindings/scripts/test/CPP/WebDOMTestObj.cpp: Updated.
+        * bindings/scripts/test/CPP/WebDOMTestObj.cpp: Updated.
+        * bindings/scripts/test/CPP/WebDOMTestObj.h: Updated.
+        * bindings/scripts/test/GObject/WebKitDOMTestObj.cpp: Updated.
+        * bindings/scripts/test/GObject/WebKitDOMTestObj.h: Updated.
+        * bindings/scripts/test/JS/JSTestObj.cpp: Updated.
+        * bindings/scripts/test/JS/JSTestObj.h: Updated.
+        * bindings/scripts/test/ObjC/DOMTestObj.h: Updated.
+        * bindings/scripts/test/ObjC/DOMTestObj.mm: Updated.
+
+2010-07-30  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r64408.
+        http://trac.webkit.org/changeset/64408
+        https://bugs.webkit.org/show_bug.cgi?id=43292
+
+        Causing failed tests on Chromium canaries due to wrong history
+        item counts (Requested by atwilson on #webkit).
+
+        * loader/RedirectScheduler.cpp:
+        (WebCore::RedirectScheduler::scheduleRedirect):
+        (WebCore::RedirectScheduler::mustLockBackForwardList):
+        (WebCore::RedirectScheduler::scheduleLocationChange):
+        (WebCore::RedirectScheduler::scheduleFormSubmission):
+        * loader/RedirectScheduler.h:
+
+2010-07-30  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/8257783> Short documents may print a second blank page
+        https://bugs.webkit.org/show_bug.cgi?id=43271
+
+        Test: printing/stretch-to-view-height.html
+
+        * WebCore.exp.in: Export Frame::forceLayoutForPagination(), replacing forceLayoutWithPageWidthRange().
+        * page/Frame.cpp:
+        (WebCore::Frame::setPrinting): Now takes a page width and height and a maximum shrink factor and passes
+        them down to forceLayoutForPagination().
+        * page/Frame.h:
+        (WebCore::Frame::):
+        * page/FrameView.cpp:
+        (WebCore::FrameView::reset): Initialize m_pageHeight.
+        (WebCore::FrameView::forceLayoutForPagination): Renamed forceLayoutWithPageWidthRange() to this and
+        changed it to take a page width and height and a maximum shrink factor. Sets m_pageHeight, which is
+        queried by RenderBox::calcHeight() during layout. If the given pageHeight is 0, m_pageHeight is set
+        to the visible height, retaining the behavior before this change.
+        * page/FrameView.h:
+        (WebCore::FrameView::pageHeight): Added this accessor.
+        * page/PrintContext.cpp:
+        (WebCore::PrintContext::begin): Added a height parameter, used when calling setPrinting().
+        (WebCore::PrintContext::end): Updated for setPrinting() changes.
+        (WebCore::PrintContext::pageNumberForElement): Account for shrink-to-fit.
+        (WebCore::PrintContext::pageProperty): Pass 0 for the height, retaining current behavior.
+        (WebCore::PrintContext::numberOfPages): Account for shrink-to-fit.
+        (WebCore::PrintContext::spoolAllPagesWithBoundaries): Pass the page width to begin().
+        * page/PrintContext.h:
+        * rendering/RenderBox.cpp:
+        (WebCore::RenderBox::calcHeight): When printing, use FrameView::pageHeight() as the basis for
+        viewport-relative heights.
+
+2010-07-30  Mihai Parparita  <mihaip@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Session history should skip over JS redirects
+        https://bugs.webkit.org/show_bug.cgi?id=42861
+        
+        Lock the back/forward list for location changes that happen before the 
+        onload event fires that are not the result of user gestures.
+
+        Test: fast/history/gesture-before-onload.html and updated expectations 
+        for http/tests/history tests that used to fail.
+
+        * loader/RedirectScheduler.cpp:
+        (WebCore::RedirectScheduler::scheduleRedirect):
+        (WebCore::RedirectScheduler::mustLockBackForwardList):
+        (WebCore::RedirectScheduler::scheduleLocationChange):
+        (WebCore::RedirectScheduler::scheduleFormSubmission):
+        * loader/RedirectScheduler.h:
+
+2010-07-30  Matthew Delaney  <mdelaney@apple.com>
+
+        Reviewed by Darin Adler.
+
+        ctx.clearRect improperly clears shadow
+        https://bugs.webkit.org/show_bug.cgi?id=43213
+
+        Tests: canvas/philip/tests/2d.clearRect+fillRect.alpha0.5.html
+               canvas/philip/tests/2d.clearRect+fillRect.alpha0.html
+               canvas/philip/tests/2d.clearRect+fillRect.basic.html
+
+        * html/canvas/CanvasRenderingContext2D.cpp:
+        (WebCore::CanvasRenderingContext2D::setAllAttributesToDefault):
+        Added a new method to wipe out all context attributes to their defaults.
+        (WebCore::CanvasRenderingContext2D::clearRect):
+        Updated clearRect to ignore shadow, alpha, and global composite attributes
+        when clearing the input rect to match the canvas spec.
+        * html/canvas/CanvasRenderingContext2D.h:
+
+2010-07-30  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by Jian Li.
+
+        Decouple FileThread from FileStream to support generic file-related async tasks
+        https://bugs.webkit.org/show_bug.cgi?id=43135
+
+        No new tests as this doesn't change any functionality.
+
+        * html/FileThread.cpp:
+        (WebCore::FileThread::stop):
+        (WebCore::SameInstancePredicate::SameFilePredicate):
+        (WebCore::SameInstancePredicate::operator()):
+        (WebCore::FileThread::unscheduleTasksInternal):
+        * html/FileThread.h:
+        (WebCore::FileThread::create):
+        (WebCore::FileThread::Task::instance):
+        (WebCore::FileThread::Task::Task):
+        * html/FileThreadTask.h: Changed all templates to take any type as a callee instance.
+        (WebCore::createFileThreadTask):
+
+2010-07-30  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Eliminate BackForwardList::pushStateItem
+        https://bugs.webkit.org/show_bug.cgi?id=43282
+
+        The layout test was previously disabled because of the assertion being
+        hit in BackForwardList::pushStateItem.  That assertion revealed the need
+        for this patch.
+
+        Test: fast/loader/stateobjects/pushstate-in-iframe.html
+
+        * history/BackForwardList.h:
+        * history/BackForwardListChromium.cpp:
+        * history/BackForwardListImpl.cpp:
+        * history/BackForwardListImpl.h:
+
+        * loader/HistoryController.cpp: Move the logic, of adding a null state
+        object to the HistoryItem that was previously the current HistoryItem, to
+        HistoryController::pushState from BackForwardList::pushStateItem.  The
+        BackForwardList was the wrong place for that logic since it lacked convenient
+        access to the target HistoryItem.  It is just given the top-most HistoryItem
+        corresponding to the new navigation.
+
+        (WebCore::HistoryController::updateBackForwardListClippedAtTarget):
+        (WebCore::HistoryController::pushState):
+
+2010-07-30  Luiz Agostini  <luiz.agostini@openbossa.org>
+
+        Reviewed by Simon Fraser.
+
+        Enabling view modes to all platforms
+        https://bugs.webkit.org/show_bug.cgi?id=37505
+
+        View mode media feature implementation as specified in http://www.w3.org/TR/view-mode.
+
+        The view mode media feature layout tests are stil skipped for all platforms except Qt
+        because of the lack of support of LayoutTestController in those platforms.
+
+        Test: fast/media/view-mode-media-feature.html
+
+        * css/MediaFeatureNames.h:
+        * css/MediaQueryEvaluator.cpp:
+        (WebCore::view_modeMediaFeatureEval):
+        * page/ChromeClient.h:
+        * page/Page.cpp:
+        (WebCore::Page::Page):
+        (WebCore::createViewModesSet):
+        (WebCore::Page::setViewMode):
+        * page/Page.h:
+        (WebCore::Page::viewMode):
+
+2010-07-30  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Limit ApplicationCache Total and Per-Origin Storage Capacity (Quotas)
+        https://bugs.webkit.org/show_bug.cgi?id=40627
+
+        Part 4 - Client Notification when the Quota is Reached
+
+        Notify the WebKit client when the per-origin quota is reached
+        via a delegate method reachedApplicationCacheOriginQuota.
+
+          Call the delegate method when the quota is reached.
+
+        * loader/appcache/ApplicationCacheGroup.cpp:
+        (WebCore::ApplicationCacheGroup::ApplicationCacheGroup):
+        (WebCore::ApplicationCacheGroup::didFinishLoading):
+        (WebCore::ApplicationCacheGroup::didReachOriginQuota):
+        (WebCore::ApplicationCacheGroup::cacheUpdateFailedDueToOriginQuota):
+        (WebCore::ApplicationCacheGroup::checkIfLoadIsComplete):
+        (WebCore::ApplicationCacheGroup::scheduleReachedOriginQuotaCallback):
+        * loader/appcache/ApplicationCacheGroup.h:
+
+          Some minor refactoring to access more quota information
+          without repeating code. Such as origin usage, and creating
+          an origin record.
+
+        * loader/appcache/ApplicationCacheStorage.cpp:
+        (WebCore::ApplicationCacheStorage::usageForOrigin):
+        (WebCore::ApplicationCacheStorage::storeUpdatedQuotaForOrigin):
+        (WebCore::ApplicationCacheStorage::store):
+        (WebCore::ApplicationCacheStorage::ensureOriginRecord):
+        * loader/appcache/ApplicationCacheStorage.h:
+
+          Boilerplate. Exports and definition of the delegate method.
+
+        * WebCore.OfflineWebApplications.exp:
+        * loader/EmptyClients.h:
+        (WebCore::EmptyChromeClient::reachedApplicationCacheOriginQuota):
+        * page/ChromeClient.h:
+
+2010-07-30  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Limit ApplicationCache Total and Per-Origin Storage Capacity (Quotas)
+        https://bugs.webkit.org/show_bug.cgi?id=40627
+
+        Part 3 - Refactor storeNewestCache to allow Failure Reason Output
+
+        Storing can result in an error in a number of reasons. Previously
+        the reasons were global and binary and could be determined by
+        checking ApplicationCacheStorage state. Now, with per-origin quotas
+        a per-origin quota can cause a failure that is not in global state.
+        Current failure reasons are:
+
+          OriginQuotaReached = per-origin quota reached, no storage is allowed.
+          TotalQuotaReached  = database quota reached, no storage is allowed.
+          DiskOrOperationFailure = SQL error such as failed prepare or query. Not expected to happen.
+
+        This part provides an implementation of storeNewestCache for those
+        that care about the failure reason, and not just if it succeeded
+        or not. This moves the final origin quota check into the transaction.
+
+        * loader/appcache/ApplicationCache.h: style fix for forwarding headers.
+        * loader/appcache/ApplicationCacheGroup.cpp:
+        (WebCore::ApplicationCacheGroup::checkIfLoadIsComplete): move origin quota check into storeNewestCache's SQL transaction.
+        * loader/appcache/ApplicationCacheStorage.cpp:
+        (WebCore::ApplicationCacheStorage::storeNewestCache): old implementation calls the new implementation ignoring failure reason.
+        (WebCore::ApplicationCacheStorage::storeNewestCache): new implementation provides a failure reason in case of failure.
+        * loader/appcache/ApplicationCacheStorage.h:
+        (WebCore::ApplicationCacheStorage::): added FailureReason enum and storeNewestCache allowing it.
+
+2010-07-30  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Limit ApplicationCache Total and Per-Origin Storage Capacity (Quotas)
+        https://bugs.webkit.org/show_bug.cgi?id=40627
+
+        Part 2 - Update Schema and enforce Per-Origin Quotas
+
+        Added an "Origins" table to the application cache databases.
+        This, like the Database's Origins table, is a list of origin
+        and quota pairs. Origins records are added as soon as they are
+        needed, and deleted only when the ApplicationCacheStorage is
+        emptied. This means Origins records persist even after all
+        caches for that origin may be deleted. The "CacheGroups" table
+        now has a foreign key column "origin" which relates to the
+        "Origins" table.
+
+        To enforce the quotas, remaining quota space is checked at
+        the start of update as an estimate and at the end before
+        inserting. Currently, reaching the quota limit will simply
+        cause an update error. A later part will provide a
+        notification to the client to allow an action, and refactor
+        the final quota limit check into a transaction.
+
+          Respect the quota during the update process. And cause
+          the update process to fail when the quota is reached.
+
+        * loader/appcache/ApplicationCacheGroup.cpp: added loading counter, counts bytes as they load
+        (WebCore::ApplicationCacheGroup::ApplicationCacheGroup):
+        (WebCore::ApplicationCacheGroup::didReceiveData):
+        (WebCore::ApplicationCacheGroup::didFinishLoading):
+        (WebCore::ApplicationCacheGroup::checkIfLoadIsComplete):
+        * loader/appcache/ApplicationCacheGroup.h: added security origin, based on the manifest URL
+        (WebCore::ApplicationCacheGroup::origin): accessor
+
+          Updates the schema of the database tables as described
+          above. Handle other SQL operations such as checking the
+          remaining space and inserting and deleting Origins records.
+
+        * loader/appcache/ApplicationCacheStorage.cpp:
+        (WebCore::ApplicationCacheStorage::quotaForOrigin): query for the quota of an origin, may return the default origin quota if it didn't exist.
+        (WebCore::ApplicationCacheStorage::remainingSizeForOriginExcludingCache): calculate the remaining size in a quota for an origin, possibly excluding a cache.
+        (WebCore::ApplicationCacheStorage::storeUpdatedQuotaForOrigin): persistent update.
+        (WebCore::ApplicationCacheStorage::openDatabase): updated schema for CachesGroups, added new table Origins.
+        (WebCore::ApplicationCacheStorage::empty): wipe Origins table as well.
+        (WebCore::ApplicationCacheStorage::unknownQuota): constant to mean unknown quota
+
+2010-07-30  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Limit ApplicationCache Total and Per-Origin Storage Capacity (Quotas)
+        https://bugs.webkit.org/show_bug.cgi?id=40627
+
+        Part 1 - Add Total and Per-Origin Quota Preferences.
+
+        Allow the application cache total size to be a preference, and
+        add a new preference for the default per-origin quota.
+
+          Handle the per-origin quota in the global cacheStorage() object.
+          The per-origin quota will be used in a later part, this just
+          handles interaction with it from a client.
+
+        * loader/appcache/ApplicationCacheStorage.cpp:
+        (WebCore::ApplicationCacheStorage::setDefaultOriginQuota): setter
+        (WebCore::ApplicationCacheStorage::ApplicationCacheStorage): default to "noQuota" on construction
+        * loader/appcache/ApplicationCacheStorage.h: 
+        (WebCore::ApplicationCacheStorage::noQuota): constant to mean unlimited storage
+        (WebCore::ApplicationCacheStorage::defaultOriginQuota): accessor
+
+          Move around some exports around for Offline Web Applications.
+
+        * WebCore.exp.in: Added OFFLINE_WEB_APPLICATIONS exports.
+
+2010-07-30  Andy Estes  <aestes@apple.com>
+
+        Reviewed by David Kilzer.
+
+        Add Xcode support for compiling WebKit against iOS SDKs.
+        https://bugs.webkit.org/show_bug.cgi?id=42796
+        
+        * Configurations/Base.xcconfig:
+        * Configurations/DebugRelease.xcconfig:
+        * Configurations/FeatureDefines.xcconfig:
+        * Configurations/Version.xcconfig:
+        * Configurations/WebCore.xcconfig:
+
+2010-07-30  James Robinson  <jamesr@chromium.org>
+
+        Compile fix: fix a typo in forward declaration, add EmptyClients impl.
+
+        * loader/EmptyClients.h:
+        (WebCore::EmptyChromeClient::getOnscreenGLES2Context):
+        (WebCore::EmptyChromeClient::getOffscreenGLES2Context):
+        * page/ChromeClient.h:
+
+2010-07-30  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Move GLES2 context manipulation to ChromeClient.h and put it behind the right #if guard
+        https://bugs.webkit.org/show_bug.cgi?id=43281
+
+        These calls were initially put in ChromeClientChromium, but they aren't chromium specific.
+        In theory any port that could create the proper OpenGL ES 2 contexts could implement
+        these functions.  Also moves the calls to be behind the correct #if guard.
+
+        * page/ChromeClient.h:
+        * page/chromium/ChromeClientChromium.h:
+
+2010-07-30  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Reviewed by David Levin.
+
+        Interrupt all DB operations when the worker is terminating.
+        https://bugs.webkit.org/show_bug.cgi?id=42843
+
+        Tests: fast/workers/storage/interrupt-database-sync.html
+               fast/workers/storage/interrupt-database.html
+
+        * bindings/js/JSCustomVoidCallback.cpp:
+        (WebCore::JSCustomVoidCallback::~JSCustomVoidCallback): If the
+        destructor is called on the context thread, delete m_data directly
+        instead of posting a task to do that. We need to do that to make
+        sure that all JS objects are destroyed before
+        WorkerThreadShutdownFinishTask (in WorkerThread.cpp) calls
+        WorkerContext::clearScript().
+
+        * bindings/scripts/CodeGeneratorJS.pm: Same change as above, for
+        all auto-generated callbacks.
+
+        * bindings/scripts/test/JS/JSTestCallback.cpp:
+        (WebCore::JSTestCallback::~JSTestCallback): Updated the
+        expectations for run-bindings-tests.
+
+        * platform/sql/SQLiteDatabase.cpp: Added the ability to interrupt
+        all DB operations in progress, unless the database was closed or
+        is being closed. Unlike sqlite3_interrupt(),
+        SQLiteDatabase::interrupt() is sticky: once it's called, trying to
+        run any statement on that database will fail with a
+        SQLITE_INTERRUPT error code.
+        (WebCore::SQLiteDatabase::SQLiteDatabase):
+        (WebCore::SQLiteDatabase::close):
+        (WebCore::SQLiteDatabase::interrupt):
+        (WebCore::SQLiteDatabase::isInterrupted):
+
+        * platform/sql/SQLiteDatabase.h: Added a mutex that can used by
+        SQLiteStatement to check if the database was interrupted.
+        (WebCore::SQLiteDatabase::databaseMutex):
+
+        * platform/sql/SQLiteStatement.cpp: Changed prepare() and step()
+        to check if the database was interrupted, before trying to prepare
+        or run the statement. The other methods don't need to hold on to
+        the DB lock while running, because they're fast, so we don't need
+        to interrupt them.
+        (WebCore::SQLiteStatement::prepare):
+        (WebCore::SQLiteStatement::step):
+
+        * storage/AbstractDatabase.cpp: Made SQLiteDatabase::interrupt()
+        and isInterrupted() visible to WebSQLDatabases classes.
+        (WebCore::AbstractDatabase::interrupt):
+        (WebCore::AbstractDatabase::isInterrupted):
+        * storage/AbstractDatabase.h:
+
+        * storage/DatabaseTracker.cpp: Added a method to interrupt all
+        databases in a given context.
+        (WebCore::DatabaseTracker::interruptAllDatabasesForContext):
+        * storage/DatabaseTracker.h:
+
+        * storage/SQLStatement.cpp: Changed the exception/error reported
+        when a statement is interrupted.
+        (WebCore::SQLStatement::execute):
+        * storage/SQLStatementSync.cpp:
+        (WebCore::SQLStatementSync::execute):
+
+        * storage/SQLTransaction.cpp: Changed the code to release the
+        callback objects as soon as they're not needed.
+        (WebCore::SQLTransaction::checkAndHandleClosedOrInterruptedDatabase):
+        Changed this method to not schedule the next transaction step when
+        the database is interrupted.
+        (WebCore::SQLTransaction::performNextStep):
+        (WebCore::SQLTransaction::performPendingCallback):
+        (WebCore::SQLTransaction::deliverTransactionCallback):
+        (WebCore::SQLTransaction::postflightAndCommit):
+        (WebCore::SQLTransaction::deliverTransactionErrorCallback):
+        (WebCore::SQLTransaction::cleanupAfterTransactionErrorCallback):
+        * storage/SQLTransaction.h:
+
+        * storage/chromium/DatabaseTrackerChromium.cpp: Added a method to
+        interrupt all databases in a given context.
+        (WebCore::DatabaseTracker::interruptAllDatabasesForContext):
+
+        * workers/WorkerThread.cpp:
+        (WebCore::WorkerThread::stop): Added a call to
+        DatabaseTracker::interruptAllDatabasesForContext().
+
+2010-07-30  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Darin Adler.
+
+        connect-compositing-iframe2.html test sometimes shows blank iframe content
+        https://bugs.webkit.org/show_bug.cgi?id=42046
+
+        Hooking up compositing iframes requires setNeedsStyleRecalc(SyntheticStyleChange) to
+        always result in a call to RenderLayer::styleChanged(). However, the semantics of 
+        setNeedsStyleRecalc() was that each call would overwrite the existing styleChangeType,
+        allowing a "lesser" style change to override a "greater" one. In the test content,
+        SyntheticStyleChange was being replaced by FullStyleChange when the classname changed.
+        This resulted in RenderLayer::styleChanged() not being called.
+        
+        Fix by changing the behavior of setNeedsStyleRecalc() to only touch the style change
+        type if a "lesser" change is being replaced with a "greater" one. This required adding
+        a new clearNeedsStyleRecalc() method to reset the style change type to NoStyleChange.
+        
+        In addition, in Node::setNeedsStyleRecalc(), only propagate the childNeedsStyleRecalc
+        up the parent change if the node was not already needing recalc. In order to fix issues
+        with attaching, this required new call to clearNeedsStyleRecalc() at the end of attach().
+
+        * manual-tests/compositing/missing-iframe-contents.html: Added.
+        * manual-tests/compositing/resources/composited-subframe.html: Copied from LayoutTests/compositing/iframes/resources/composited-subframe.html.
+
+        * dom/Document.cpp:
+        (WebCore::Document::recalcStyle): Call clearNeedsStyleRecalc().
+        * dom/Element.cpp:
+        (WebCore::Element::recalcStyle): Call clearNeedsStyleRecalc().
+
+        * dom/Node.h:
+        (WebCore::Node::clearNeedsStyleRecalc): New method.
+        * dom/Node.cpp:
+        (WebCore::Node::setNeedsStyleRecalc): Only call setStyleChange() if the change type
+        is greater than the current change type.
+        (WebCore::Node::attach): After attaching, we can call clearNeedsStyleRecalc().
+
+        * dom/Text.cpp:
+        (WebCore::Text::recalcStyle): Call clearNeedsStyleRecalc().
+        * html/HTMLFrameSetElement.cpp:
+        (WebCore::HTMLFrameSetElement::recalcStyle): Call clearNeedsStyleRecalc().
+
+2010-07-30  W. James MacLean  <wjmaclean@google.com>
+
+        Reviewed by Nikolas Zimmermann.
+
+        SVG - numeric overflow for very large elements
+        https://bugs.webkit.org/show_bug.cgi?id=25645
+
+        Two of the expected test outputs were incorrect now that parsing of large values
+        is handled correctly.
+        - Revised FloatRect to remove bad float-to-int conversions in enclosingIntRect()
+        - Revised _parseNumber to do right-to-left float-based parsing of input value
+
+        Test: svg/custom/massive-coordinates.svg
+
+        * platform/graphics/FloatRect.cpp:
+        (WebCore::safeFloatToInt):
+        (WebCore::enclosingIntRect):
+        * svg/SVGParserUtilities.cpp:
+        (WebCore::_parseNumber):
+
+2010-07-30  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Make the GLES2 texture map generic and teach ImageSkia and ImageBufferSkia about GLES2
+        https://bugs.webkit.org/show_bug.cgi?id=43218
+
+        This makes the GLES2Canvas' TextureHashMap key on void* instead of NativeImagePtr
+        to make it easier to use with other backends.  It also teaches ImageSkia how
+        to draw to a GLES2Canvas instead of a skia buffer.
+
+        No change in functionality (yet), no new tests.
+
+        * platform/graphics/chromium/GLES2Canvas.cpp:
+        (WebCore::GLES2Canvas::GLES2Canvas):
+        (WebCore::GLES2Canvas::createTexture):
+        (WebCore::GLES2Canvas::getTexture):
+        * platform/graphics/chromium/GLES2Canvas.h:
+        * platform/graphics/skia/ImageBufferSkia.cpp:
+        (WebCore::ImageBuffer::getUnmultipliedImageData):
+        (WebCore::ImageBuffer::getPremultipliedImageData):
+        * platform/graphics/skia/ImageSkia.cpp:
+        (WebCore::drawBitmapGLES2):
+        (WebCore::BitmapImage::draw):
+        (WebCore::BitmapImageSingleFrameSkia::draw):
+
+2010-07-30  Yong Li  <yoli@rim.com>
+
+        Reviewed by Darin Adler.
+
+        Implement SVGScriptElement::shouldExecuteAsJavaScript() otherwise
+        SVGScriptElement cannot run when XHTMLMP is enabled.
+        https://bugs.webkit.org/show_bug.cgi?id=43267
+
+        No test needed, because it fails all SVG <script> tests when XHTMLMP is on.
+
+        * svg/SVGScriptElement.cpp:
+        (WebCore::SVGScriptElement::shouldExecuteAsJavaScript):
+        * svg/SVGScriptElement.h:
+
+2010-07-30  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Style errors in Navigator.h
+        https://bugs.webkit.org/show_bug.cgi?id=43262
+
+        Fixing style changes. No new tests.
+
+        * page/Navigator.h:
+        (WebCore::Navigator::create):
+        (WebCore::Navigator::frame):
+        (WebCore::Navigator::optionalGeolocation):
+
+2010-07-27  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by Brady Eidson.
+
+        History.pushState() + navigation operates on top frame when called from
+        nested context
+        https://bugs.webkit.org/show_bug.cgi?id=43080
+
+        Test: fast/loader/stateobjects/pushstate-in-iframe.html
+
+        * loader/HistoryController.cpp:
+        (WebCore::HistoryController::pushState): createTreeItem should be
+        called on the top-most HistoryController so that we properly clone
+        the HistoryItem tree starting at the root node.
+
+2010-07-30  fsamuel@chromium.org  <fsamuel@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Expand SVG Attribute Macros
+        https://bugs.webkit.org/show_bug.cgi?id=43254
+
+        Expanded SVG Attribute Macros to reduce debugging headache.
+
+        No change in behavior, so no new tests.
+
+        * rendering/style/SVGRenderStyle.h: Expanded and removed references to SVG_RS_DEFINE_ATTRIBUTE* macros.
+        * rendering/style/SVGRenderStyleDefs.h: Removed definitons for expanded macros.
+
+2010-07-30  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by Dumitru Daniliuc.
+
+        Add callback arguments support to binding code generator scripts
+        https://bugs.webkit.org/show_bug.cgi?id=43130
+
+        Tests: bindings/scripts/test/TestObj.idl
+
+        * bindings/scripts/CodeGeneratorJS.pm:
+        * bindings/scripts/CodeGeneratorV8.pm:
+
+        * bindings/scripts/test/JS/JSTestObj.cpp:
+        (WebCore::jsTestObjPrototypeFunctionMethodWithCallbackArg):
+        (WebCore::jsTestObjPrototypeFunctionMethodWithNonCallbackArgAndCallbackArg):
+        (WebCore::jsTestObjPrototypeFunctionMethodWithCallbackAndOptionalArg):
+        * bindings/scripts/test/JS/JSTestObj.h:
+        * bindings/scripts/test/TestObj.idl:
+        * bindings/scripts/test/V8/V8TestObj.cpp:
+        (WebCore::TestObjInternal::methodWithCallbackArgCallback):
+        (WebCore::TestObjInternal::methodWithNonCallbackArgAndCallbackArgCallback):
+        (WebCore::TestObjInternal::methodWithCallbackAndOptionalArgCallback):
+        (WebCore::ConfigureV8TestObjTemplate):
+
+2010-07-30  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Implement NPN_InvokeDefault
+        https://bugs.webkit.org/show_bug.cgi?id=43266
+
+        * bindings/js/JSPluginElementFunctions.cpp:
+        (WebCore::isPluginElement):
+        Add convenience function.
+
+        (WebCore::pluginInstance):
+        Call isPluginElement.
+
+        (WebCore::pluginScriptObjectFromPluginViewBase):
+        Given an JSHTMLElement, ask the PluginViewBase for the scriptable object.
+
+        (WebCore::pluginScriptObject):
+        Call isPluginElement. Call pluginScriptObjectFromPluginViewBase.
+
+        (WebCore::callPlugin):
+        Get the script object, assemble the arguments and call "call" directly.
+
+        (WebCore::runtimeObjectGetCallData):
+        Try to get the script object from the PluginViewBase first.
+
+        * plugins/PluginViewBase.h:
+        (WebCore::PluginViewBase::scriptObject):
+        Remove ExecState parameter.
+
+2010-07-30  Adam Roben  <aroben@apple.com>
+
+        Roll our r64361 and r64363
+
+        We can't make these changes until QuartzCore.lib is included in
+        WebKitSupportLibrary.
+
+2010-07-30  Adam Roben  <aroben@apple.com>
+
+        Remove uses of CACFContextRef and CARender* from WebCore
+
+        These types are now wrapped in a WKCACFContext type exported by
+        WebKitSystemInterface.
+
+        Fixes <http://webkit.org/b/43244>.
+
+        Reviewed by Sam Weinig.
+
+        * platform/graphics/win/WKCACFContextFlusher.cpp:
+        (WebCore::WKCACFContextFlusher::addContext):
+        (WebCore::WKCACFContextFlusher::removeContext):
+        (WebCore::WKCACFContextFlusher::flushAllContexts):
+        * platform/graphics/win/WKCACFContextFlusher.h:
+        Changed to use WKCACFContext. We don't retain/release the context when
+        putting it into/taking it out of the set. WKCACFContext is not a
+        ref-counted type, so we can't retain/release it, but the
+        retain/release was also unnecessary as WKCACFLayerRenderer calls
+        removeContext before the context is destroyed.
+
+        * platform/graphics/win/WKCACFLayer.cpp:
+        (WebCore::WKCACFLayer::becomeRootLayerForContext):
+        * platform/graphics/win/WKCACFLayer.h:
+        Changed to use WKCACFContext.
+
+        * platform/graphics/win/WKCACFLayerRenderer.cpp:
+        (WebCore::WKCACFLayerRenderer::didFlushContext):
+        (WebCore::WKCACFLayerRenderer::WKCACFLayerRenderer):
+        (WebCore::WKCACFLayerRenderer::~WKCACFLayerRenderer):
+        (WebCore::WKCACFLayerRenderer::layerTreeDidChange):
+        (WebCore::WKCACFLayerRenderer::createRenderer):
+        (WebCore::WKCACFLayerRenderer::destroyRenderer):
+        (WebCore::WKCACFLayerRenderer::render): Also replaced uses of
+        CGSRegion with WebKitSystemInterface functions/types.
+        (WebCore::WKCACFLayerRenderer::resetDevice):
+        * platform/graphics/win/WKCACFLayerRenderer.h:
+        Replaced our CACFContextRef, CARenderContext, and CARenderOGLContext
+        with a single WKCACFContext, which wraps all three. We hold a bare
+        pointer to it and destroy it in our destructor.
+
+2010-07-30  Adam Roben  <aroben@apple.com>
+
+        Remove knowledge of WKCACFContextFlusher from WKCACFLayer
+
+        Fixes <http://webkit.org/b/43248> WKCACFLayer shouldn't know about
+        WKCACFContextFlusher
+
+        Reviewed by Sam Weinig.
+
+        * platform/graphics/win/WKCACFLayer.cpp:
+        (WebCore::WKCACFLayer::setNeedsCommit): Don't bother calling to
+        WKCACFContextFlusher. Our root layer will do this for us.
+
+        * platform/graphics/win/WKCACFLayerRenderer.cpp:
+        (WebCore::WKCACFRootLayer::setNeedsRender): Changed to call the new
+        layerTreeDidChange function.
+        (WebCore::WKCACFLayerRenderer::layerTreeDidChange): Added. Tells
+        WKCACFContextFlusher that the context has changed, and schedules a
+        render.
+
+        * platform/graphics/win/WKCACFLayerRenderer.h: Added
+        layerTreeDidChange.
+
+2010-07-29  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Rename all the IDBIndex classses to match the latest conventions
+        https://bugs.webkit.org/show_bug.cgi?id=43190
+
+        No functionality has changed.
+
+        IDBIndexRequest -> IDBIndex in the spec.  So that's the first change.
+        IDBIndex was the name of our interface class though, so we need to rename
+        it to get it out of the way.  While we're at it, we might as well clean
+        up the naming in general to make things more clear.  In the future, we're
+        going to need another layer (yes, yuck) which will be shared by the async
+        and sync classes which will do caching and other optimizations.  That will
+        then connect to the backend.  We also added "Interface" to make it more
+        clear that's what the file/class is.
+
+        Existing layout tests are enough since nothing should change as far as JavaScript can see.
+
+        * Android.derived.jscbindings.mk:
+        * Android.derived.v8bindings.mk:
+        * Android.mk:
+        * CMakeLists.txt:
+        * DerivedSources.cpp:
+        * DerivedSources.make:
+        * GNUmakefile.am:
+        * WebCore.gypi:
+        * WebCore.pri:
+        * WebCore.pro:
+        * WebCore.xcodeproj/project.pbxproj:
+        * bindings/js/JSIDBAnyCustom.cpp:
+        (WebCore::toJS):
+        * bindings/v8/custom/V8IDBAnyCustom.cpp:
+        (WebCore::toV8):
+        * storage/IDBAny.cpp:
+        (WebCore::IDBAny::idbIndex):
+        (WebCore::IDBAny::set):
+        * storage/IDBAny.h:
+        (WebCore::IDBAny::):
+        * storage/IDBCallbacks.h:
+        * storage/IDBIndex.cpp: Added.
+        (WebCore::IDBIndex::IDBIndex):
+        (WebCore::IDBIndex::~IDBIndex):
+        * storage/IDBIndex.h:
+        (WebCore::IDBIndex::create):
+        (WebCore::IDBIndex::name):
+        (WebCore::IDBIndex::keyPath):
+        (WebCore::IDBIndex::unique):
+        * storage/IDBIndex.idl: Added.
+        * storage/IDBIndexBackendImpl.cpp: Added.
+        (WebCore::IDBIndexBackendImpl::IDBIndexBackendImpl):
+        (WebCore::IDBIndexBackendImpl::~IDBIndexBackendImpl):
+        * storage/IDBIndexBackendImpl.h: Added.
+        (WebCore::IDBIndexBackendImpl::create):
+        (WebCore::IDBIndexBackendImpl::name):
+        (WebCore::IDBIndexBackendImpl::keyPath):
+        (WebCore::IDBIndexBackendImpl::unique):
+        * storage/IDBIndexBackendInterface.h: Added.
+        (WebCore::IDBIndexBackendInterface::~IDBIndexBackendInterface):
+        * storage/IDBIndexImpl.cpp: Removed.
+        * storage/IDBIndexImpl.h: Removed.
+        * storage/IDBIndexRequest.cpp: Removed.
+        * storage/IDBIndexRequest.h: Removed.
+        * storage/IDBIndexRequest.idl: Removed.
+        * storage/IDBObjectStore.h:
+        * storage/IDBObjectStoreImpl.cpp:
+        (WebCore::IDBObjectStoreImpl::createIndex):
+        (WebCore::IDBObjectStoreImpl::index):
+        * storage/IDBObjectStoreImpl.h:
+        * storage/IDBObjectStoreRequest.cpp:
+        (WebCore::IDBObjectStoreRequest::index):
+        * storage/IDBObjectStoreRequest.h:
+        * storage/IDBObjectStoreRequest.idl:
+        * storage/IDBRequest.cpp:
+        (WebCore::IDBRequest::onSuccess):
+        * storage/IDBRequest.h:
+
+2010-07-30  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Add library version and soname to EFL generated libraries and binary.
+        https://bugs.webkit.org/show_bug.cgi?id=43212
+
+        Add version and soname to libwebcore.so in case of linking as shared
+        library.
+
+        No new feature, so no new tests.
+
+        * CMakeLists.txt:
+
+2010-07-30  Steve Block  <steveblock@google.com>
+
+        Reviewed by Steve Block.
+
+        Add LayoutTestController methods to test DeviceOrientation
+        https://bugs.webkit.org/show_bug.cgi?id=39589
+
+        This patch does not hook up the new LayoutTestController method to WebKit
+        for any platform. This will be done in later patches.
+        https://bugs.webkit.org/show_bug.cgi?id=43181 tracks this for Mac.
+
+        Test: fast/dom/DeviceOrientation/basic-operation.html
+
+        * Android.mk:
+        * CMakeLists.txt:
+        * GNUmakefile.am:
+        * WebCore.exp.in:
+        * WebCore.gypi:
+        * WebCore.pro:
+        * WebCore.vcproj/WebCore.vcproj:
+        * WebCore.xcodeproj/project.pbxproj:
+        * dom/DeviceOrientationClient.h:
+        (WebCore::DeviceOrientationClient::~DeviceOrientationClient):
+        * dom/DeviceOrientationController.cpp:
+        (WebCore::DeviceOrientationController::DeviceOrientationController):
+        * dom/DeviceOrientationEvent.cpp:
+        * platform/mock/DeviceOrientationClientMock.cpp: Added.
+        (WebCore::DeviceOrientationClientMock::DeviceOrientationClientMock):
+        (WebCore::DeviceOrientationClientMock::setController):
+        (WebCore::DeviceOrientationClientMock::startUpdating):
+        (WebCore::DeviceOrientationClientMock::stopUpdating):
+        (WebCore::DeviceOrientationClientMock::setOrientation):
+        (WebCore::DeviceOrientationClientMock::timerFired):
+        * platform/mock/DeviceOrientationClientMock.h: Added.
+        (WebCore::DeviceOrientationClientMock::lastOrientation):
+
+2010-07-30  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Add a mock in WebCore for testing speech input
+        https://bugs.webkit.org/show_bug.cgi?id=42603
+
+        Layout tests will be added in a subsequent patch using this mock.
+
+        * Android.mk:
+        * GNUmakefile.am:
+        * WebCore.gypi:
+        * WebCore.pro:
+        * WebCore.vcproj/WebCore.vcproj:
+        * WebCore.xcodeproj/project.pbxproj:
+        * platform/mock/SpeechInputClientMock.cpp: Added.
+        (WebCore::SpeechInputClientMock::SpeechInputClientMock):
+        (WebCore::SpeechInputClientMock::startRecognition):
+        (WebCore::SpeechInputClientMock::stopRecording):
+        (WebCore::SpeechInputClientMock::cancelRecognition):
+        (WebCore::SpeechInputClientMock::setRecognitionResult):
+        (WebCore::SpeechInputClientMock::timerFired):
+        * platform/mock/SpeechInputClientMock.h: Added.
+
+2010-07-30  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Dirk Schulze.
+
+        Optimize SVGResources memory usage
+        https://bugs.webkit.org/show_bug.cgi?id=43236
+
+        Instead of storing pointers to all possible resources that could be applied to an element, group them in three categories:
+        clipper/filter/masker, marker-start/marker-mid/marker-end, and fill/stroke.
+
+        Only build the cached resources data for elements where the properties can be applied to. Maintain a static list of tagnames
+        for each of the three categories, to avoid doing unncessary work.
+
+        Doesn't affect any tests.
+
+        * rendering/SVGResources.cpp:
+        (WebCore::SVGResources::SVGResources):
+        (WebCore::clipperFilterMaskerTags):
+        (WebCore::markerTags):
+        (WebCore::fillAndStrokeTags):
+        (WebCore::SVGResources::buildCachedResources):
+        (WebCore::SVGResources::invalidateClient):
+        (WebCore::SVGResources::resourceDestroyed):
+        (WebCore::SVGResources::buildSetOfResources):
+        (WebCore::SVGResources::setClipper):
+        (WebCore::SVGResources::resetClipper):
+        (WebCore::SVGResources::setFilter):
+        (WebCore::SVGResources::resetFilter):
+        (WebCore::SVGResources::setMarkerStart):
+        (WebCore::SVGResources::resetMarkerStart):
+        (WebCore::SVGResources::setMarkerMid):
+        (WebCore::SVGResources::resetMarkerMid):
+        (WebCore::SVGResources::setMarkerEnd):
+        (WebCore::SVGResources::resetMarkerEnd):
+        (WebCore::SVGResources::setMasker):
+        (WebCore::SVGResources::resetMasker):
+        (WebCore::SVGResources::setFill):
+        (WebCore::SVGResources::resetFill):
+        (WebCore::SVGResources::setStroke):
+        (WebCore::SVGResources::resetStroke):
+        (WebCore::SVGResources::dump):
+        * rendering/SVGResources.h:
+        (WebCore::SVGResources::clipper):
+        (WebCore::SVGResources::filter):
+        (WebCore::SVGResources::markerStart):
+        (WebCore::SVGResources::markerMid):
+        (WebCore::SVGResources::markerEnd):
+        (WebCore::SVGResources::masker):
+        (WebCore::SVGResources::fill):
+        (WebCore::SVGResources::stroke):
+        (WebCore::SVGResources::ClipperFilterMaskerData::ClipperFilterMaskerData):
+        (WebCore::SVGResources::ClipperFilterMaskerData::create):
+        (WebCore::SVGResources::MarkerData::MarkerData):
+        (WebCore::SVGResources::MarkerData::create):
+        (WebCore::SVGResources::FillStrokeData::FillStrokeData):
+        (WebCore::SVGResources::FillStrokeData::create):
+
+2010-07-26  Andrei Popescu  <andreip@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        [IndexedDB] IndexedDatabase should be called IDBFactory.
+        https://bugs.webkit.org/show_bug.cgi?id=42967
+
+        Rename IndexedDatabase to IDBFactory to match the specification.
+
+        Also implement the following new naming convention:
+        IDBFoo IDL interfaces are implemented using IDBFoo C++ classes.
+        IDBFoo objects have pointers to IDBFooBackendInterface objects.
+        IDBFooBackendInterface is implemented by IDBFooBackendImpl and
+        IDBFooBackendProxy (for Chromium).
+
+        No new tests needed, just renaming.
+
+        * Android.derived.jscbindings.mk:
+        * Android.derived.v8bindings.mk:
+        * Android.mk:
+        * CMakeLists.txt:
+        * DerivedSources.cpp:
+        * DerivedSources.make:
+        * GNUmakefile.am:
+        * WebCore.gyp/WebCore.gyp:
+        * WebCore.gypi:
+        * WebCore.pri:
+        * WebCore.pro:
+        * WebCore.xcodeproj/project.pbxproj:
+        * bindings/js/JSIDBAnyCustom.cpp:
+        (WebCore::toJS):
+        * bindings/v8/custom/V8IDBAnyCustom.cpp:
+        (WebCore::toV8):
+        * page/DOMWindow.cpp:
+        (WebCore::DOMWindow::clear):
+        (WebCore::DOMWindow::indexedDB):
+        * page/DOMWindow.h:
+        * page/DOMWindow.idl:
+        * page/PageGroup.cpp:
+        (WebCore::PageGroup::idbFactory):
+        * page/PageGroup.h:
+        * platform/chromium/ChromiumBridge.h:
+        * storage/IDBAny.cpp:
+        (WebCore::IDBAny::idbFactory):
+        (WebCore::IDBAny::set):
+        * storage/IDBAny.h:
+        (WebCore::IDBAny::):
+        * storage/IDBDatabaseRequest.cpp:
+        * storage/IDBFactory.cpp: Added.
+        (WebCore::IDBFactory::IDBFactory):
+        (WebCore::IDBFactory::~IDBFactory):
+        (WebCore::IDBFactory::open):
+        * storage/IDBFactory.h: Added.
+        (WebCore::IDBFactory::create):
+        * storage/IDBFactory.idl: Added.
+        * storage/IDBFactoryBackendInterface.cpp: Added.
+        (WebCore::IDBFactoryBackendInterface::create):
+        * storage/IDBFactoryBackendInterface.h: Added.
+        (WebCore::IDBFactoryBackendInterface::~IDBFactoryBackendInterface):
+        * storage/IDBFactoryBackendImpl.cpp: Added.
+        (WebCore::IDBFactoryBackendImpl::create):
+        (WebCore::IDBFactoryBackendImpl::IDBFactoryBackendImpl):
+        (WebCore::IDBFactoryBackendImpl::~IDBFactoryBackendImpl):
+        (WebCore::IDBFactoryBackendImpl::open):
+        * storage/IDBFactoryBackendImpl.h: Added.
+        * storage/IDBKeyRange.cpp:
+        (WebCore::IDBKeyRange::only):
+        (WebCore::IDBKeyRange::leftBound):
+        (WebCore::IDBKeyRange::rightBound):
+        (WebCore::IDBKeyRange::bound):
+        * storage/IDBKeyRange.h:
+        * storage/IDBKeyRange.idl:
+        * storage/IndexedDatabase.cpp: Removed.
+        * storage/IndexedDatabase.h: Removed.
+        * storage/IndexedDatabaseImpl.cpp: Removed.
+        * storage/IndexedDatabaseImpl.h: Removed.
+        * storage/IndexedDatabaseRequest.cpp: Removed.
+        * storage/IndexedDatabaseRequest.h: Removed.
+        * storage/IndexedDatabaseRequest.idl: Removed.
+        * storage/chromium/IDBFactoryBackendInterface.cpp: Added.
+        (WebCore::IDBFactoryBackendInterface::create):
+        * storage/chromium/IndexedDatabase.cpp: Removed.
+
+2010-07-29  Alexander Pavlov  <apavlov@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: Crash on refresh with a comment selected in the Elements panel
+        https://bugs.webkit.org/show_bug.cgi?id=43183
+
+        * inspector/InspectorDOMAgent.cpp:
+        (WebCore::InspectorDOMAgent::nodeForPath):
+        * inspector/front-end/ElementsPanel.js:
+        (WebInspector.ElementsPanel.prototype.reset):
+
+2010-07-30  Renata Hodovan  <reni@inf.u-szeged.hu>
+
+        Reviewed by Nikolas Zimmermann.
+
+        feTurbulence is not implemented.
+        https://bugs.webkit.org/show_bug.cgi?id=5864
+
+        This code is based on the previous implementation of
+        Dirk Schulze, extended with some modification and optimization.
+
+        LayoutTests: Updating expected values for turbulence filter.
+        svg/W3C-SVG-1.1/filters-turb-01-f.svg
+
+        * svg/SVGFETurbulenceElement.cpp:
+        (WebCore::SVGFETurbulenceElement::build):
+        * svg/graphics/filters/SVGFETurbulence.cpp:
+        (WebCore::FETurbulence::FETurbulence):
+        (WebCore::FETurbulence::create):
+        (WebCore::FETurbulence::PaintingData::PaintingData):
+        (WebCore::FETurbulence::PaintingData::random):
+        (WebCore::smoothCurve):
+        (WebCore::linearInterpolation):
+        (WebCore::FETurbulence::initPaint):
+        (WebCore::checkNoise):
+        (WebCore::FETurbulence::noise2D):
+        (WebCore::Noise::if):
+        (WebCore::FETurbulence::calculateTurbulenceValueForPoint):
+        (WebCore::FETurbulence::apply):
+        * svg/graphics/filters/SVGFETurbulence.h:
+        (WebCore::):
+
+2010-07-29  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Dirk Schulze.
+
+        Cairo: Need to implement GraphicsContext::clipConvexPolygon()
+        https://bugs.webkit.org/show_bug.cgi?id=41308
+
+        Implement clipConvexPolygon for Cairo ports and enable new path based
+        borders for that port as well.
+
+        * platform/graphics/cairo/GraphicsContextCairo.cpp:
+        (WebCore::addConvexPolygonToContext): Add this helper method.
+        (WebCore::GraphicsContext::drawConvexPolygon): Use the new addConvexPolygonToContext helper.
+        (WebCore::GraphicsContext::clipConvexPolygon): Implement this method.
+        * rendering/RenderObject.h: Enable path based borders for Cairo.
+
+2010-07-29  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        InsertOrderedList does not switch the list type properly when it has an inner list.
+        https://bugs.webkit.org/show_bug.cgi?id=43166
+
+        The bug was caused by forcedCreateList was not set to true when the start and the end
+        of the selection lies in the same list. Added selectionHasListOfType to fix this problem.
+
+        WebKit used not to convert the outer lists even when the list is fully selected.
+        Corrected this behavior by converting the entire list at once when the list is fully selected.
+        To decide whether or not a list is fully selected, added currentSelection argument to doApplyForSingleParagraph.
+
+        Tests: editing/execCommand/switch-list-type-with-inner-list.html
+               editing/execCommand/switch-list-type-with-orphaned-li.html
+
+        * editing/InsertListCommand.cpp:
+        (WebCore::InsertListCommand::mergeWithNeighboringLists): Extracted the code to merge lists.
+        (WebCore::InsertListCommand::selectionHasListOfType): attachment.cgi
+        (WebCore::InsertListCommand::doApply): Calls selectionHasListOfType.
+        (WebCore::InsertListCommand::doApplyForSingleParagraph): See above.
+        (WebCore::InsertListCommand::listifyParagraph): Calls mergeWithNeighboringLists.
+        * editing/InsertListCommand.h:
+        * editing/htmlediting.cpp:
+        (WebCore::canMergeLists): Ensures lists being merged are instances of HTMLElement.
+        (WebCore::isNodeVisiblyContainedWithin): Works properly when one end is inside the range.
+
+2010-07-29  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Dirk Schulze.
+
+        [Cairo] Bring behavior of paths on the Cairo GraphicsContext into line with the CoreGraphics port
+        https://bugs.webkit.org/show_bug.cgi?id=41732
+
+        Do not apply paths added to the Cairo GraphicsContext, until they are used.
+        This prevents drawing routines such as fillRect from interacting with any
+        path which callers are constructing on the GraphicsContext.
+
+         This behavior is necessary to close bug https://bugs.webkit.org/show_bug.cgi?id=41308
+         so tests for that issue will test this fix.
+
+        * platform/graphics/cairo/GraphicsContextCairo.cpp:
+        (WebCore::appendPathToCairoContext): Added. A helper method which adds a path
+        to a native Cairo context.
+        (WebCore::setPathOnCairoContext): Added. Like appendPathToCairoContext, but clears the
+        existing path first.
+        (WebCore::appendWebCorePathToCairoContext): Added. Like appendPathToCairoContext, but
+        operates on a WebCore path.
+        (WebCore::fillCurrentCairoPath): Added. Helper which fills the current cairo context path.
+        (WebCore::strokeCurrentCairoPath): Added. Helper which strokes the current cairo context path.
+        (WebCore::GraphicsContext::drawEllipse): Only clear the Cairo path if cairo_stroke
+        was not called, because cairo_stroke implicitly clears the path.
+        (WebCore::GraphicsContext::drawConvexPolygon): Ditto.
+        (WebCore::GraphicsContext::fillPath): Copy the path from m_pendingPath to the context
+        and clear m_pendingPath, instead of relying on the pre-existing context path. Do the
+        actual fill via the new helper.
+        (WebCore::GraphicsContext::strokePath): Ditto.
+        (WebCore::GraphicsContext::drawPath): Ditto.
+        (WebCore::GraphicsContext::fillRect): Use the new fillCurrentCairoPath helper.
+        (WebCore::GraphicsContext::drawFocusRing): Use the new appendWebCorePathToCairoContext helper instead
+        of addPath (which will blow away any path callers are building).
+        (WebCore::GraphicsContext::addInnerRoundedRectClip): Use the new appendWebCorePathToCairoContext helper instead
+        of addPath (which will blow away any path callers are building).
+        (WebCore::GraphicsContext::strokeRect): Use the new strokeCurrentCairoPath helper.
+        (WebCore::GraphicsContext::beginPath): Clear out m_pendingPath here instead of the main native context.
+        (WebCore::GraphicsContext::addPath): Add the path to m_pendingPath instead of the main native context.
+        Also ensure that the transformation matrix of the m_pendingPath is equal to that of the main
+        cairo context.
+        (WebCore::GraphicsContext::clipOut): Use the appendWebCorePathToCairoContext helper here.
+        (WebCore::GraphicsContext::fillRoundedRect): Ditto and remove an unnecessary beginPath call.
+        * platform/graphics/cairo/GraphicsContextPlatformPrivateCairo.h: Add a new m_pendingPath member.
+
+2010-07-29  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r64313.
+        http://trac.webkit.org/changeset/64313
+        https://bugs.webkit.org/show_bug.cgi?id=43233
+
+        Some Chromium bots are not happy with it for some unknown
+        reason. (Requested by dumi on #webkit).
+
+        * bindings/js/JSCustomVoidCallback.cpp:
+        (WebCore::JSCustomVoidCallback::~JSCustomVoidCallback):
+        * bindings/scripts/CodeGeneratorJS.pm:
+        * bindings/scripts/test/JS/JSTestCallback.cpp:
+        (WebCore::JSTestCallback::~JSTestCallback):
+        * platform/sql/SQLiteDatabase.cpp:
+        (WebCore::SQLiteDatabase::SQLiteDatabase):
+        (WebCore::SQLiteDatabase::close):
+        (WebCore::SQLiteDatabase::lock):
+        (WebCore::SQLiteDatabase::unlock):
+        * platform/sql/SQLiteDatabase.h:
+        * platform/sql/SQLiteStatement.cpp:
+        (WebCore::SQLiteStatement::prepare):
+        (WebCore::SQLiteStatement::step):
+        * storage/AbstractDatabase.cpp:
+        * storage/AbstractDatabase.h:
+        * storage/DatabaseTracker.cpp:
+        * storage/DatabaseTracker.h:
+        * storage/SQLStatement.cpp:
+        (WebCore::SQLStatement::execute):
+        * storage/SQLStatementSync.cpp:
+        (WebCore::SQLStatementSync::execute):
+        * storage/SQLTransaction.cpp:
+        (WebCore::SQLTransaction::checkAndHandleClosedDatabase):
+        (WebCore::SQLTransaction::performNextStep):
+        (WebCore::SQLTransaction::performPendingCallback):
+        (WebCore::SQLTransaction::deliverTransactionCallback):
+        (WebCore::SQLTransaction::postflightAndCommit):
+        (WebCore::SQLTransaction::deliverTransactionErrorCallback):
+        (WebCore::SQLTransaction::cleanupAfterTransactionErrorCallback):
+        * storage/SQLTransaction.h:
+        * storage/chromium/DatabaseTrackerChromium.cpp:
+        * workers/WorkerThread.cpp:
+        (WebCore::WorkerThread::stop):
+
+2010-07-29  Martin Robinson  <mrobinson@igalia.com>
+
+        Unreviewed, rolling out r64318.
+        http://trac.webkit.org/changeset/64318
+        https://bugs.webkit.org/show_bug.cgi?id=41732
+
+        This change broke many tests.
+
+        * platform/graphics/cairo/GraphicsContextCairo.cpp:
+        (WebCore::GraphicsContext::drawEllipse):
+        (WebCore::GraphicsContext::drawConvexPolygon):
+        (WebCore::GraphicsContext::fillPath):
+        (WebCore::GraphicsContext::strokePath):
+        (WebCore::GraphicsContext::drawPath):
+        (WebCore::GraphicsContext::drawFocusRing):
+        (WebCore::GraphicsContext::addInnerRoundedRectClip):
+        (WebCore::GraphicsContext::beginPath):
+        (WebCore::GraphicsContext::addPath):
+        (WebCore::GraphicsContext::clipOut):
+        (WebCore::GraphicsContext::fillRoundedRect):
+        * platform/graphics/cairo/GraphicsContextPlatformPrivateCairo.h:
+
+2010-07-29  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Dirk Schulze.
+
+        [Cairo] Bring behavior of paths on the Cairo GraphicsContext into line with the CoreGraphics port
+        https://bugs.webkit.org/show_bug.cgi?id=41732
+
+        Do not apply paths added to the Cairo GraphicsContext, until they are used.
+        This prevents drawing routines such as fillRect from interacting with any
+        path which callers are constructing on the GraphicsContext.
+
+         This behavior is necessary to close bug https://bugs.webkit.org/show_bug.cgi?id=41308
+         so tests for that issue will test this fix.
+
+        * platform/graphics/cairo/GraphicsContextCairo.cpp:
+        (WebCore::appendPathToCairoContext): Added. A helper method which adds a path
+        to a native Cairo context.
+        (WebCore::setPathOnCairoContext): Added. Like appendPathToCairoContext, but clears the
+        existing path first.
+        (WebCore::appendWebCorePathToCairoContext): Added. Like appendPathToCairoContext, but
+        operates on a WebCore path.
+        (WebCore::GraphicsContext::drawEllipse): Only clear the Cairo path if cairo_stroke
+        was not called, because cairo_stroke implicitly clears the path.
+        (WebCore::GraphicsContext::drawConvexPolygon): Ditto.
+        (WebCore::GraphicsContext::fillPath): Copy the path from m_pendingPath to the context
+        and clear m_pendingPath, instead of relying on the pre-existing context path.
+        (WebCore::GraphicsContext::strokePath): Ditto.
+        (WebCore::GraphicsContext::drawPath): Ditto.
+        (WebCore::GraphicsContext::drawFocusRing): Use the new appendWebCorePathToCairoContext helper instead
+        of addPath (which will blow away any path callers are building).
+        (WebCore::GraphicsContext::addInnerRoundedRectClip): Use the new appendWebCorePathToCairoContext helper instead
+        of addPath (which will blow away any path callers are building).
+        (WebCore::GraphicsContext::beginPath): Clear out m_pendingPath here instead of the main native context.
+        (WebCore::GraphicsContext::addPath): Add the path to m_pendingPath instead of the main native context.
+        Also ensure that the transformation matrix of the m_pendingPath is equal to that of the main
+        cairo context.
+        (WebCore::GraphicsContext::clipOut): Use the appendWebCorePathToCairoContext helper here.
+        (WebCore::GraphicsContext::fillRoundedRect): Ditto and remove an unnecessary beginPath call.
+        * platform/graphics/cairo/GraphicsContextPlatformPrivateCairo.h: Add a new m_pendingPath member.
+
+2010-07-29  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Dirk Schulze.
+
+        [Cairo] Remove setStrokeStyle workaround for InlineTextBoxes
+        https://bugs.webkit.org/show_bug.cgi?id=43136
+
+        Remove workaround added in https://bugs.webkit.org/show_bug.cgi?id=15659
+        to fix stroke style for InlineTextBox underlines.
+
+        No new tests as this should not change functionality.
+
+        * platform/graphics/cairo/GraphicsContextCairo.cpp:
+        (WebCore::GraphicsContext::drawLineForText): Remove old workaround.
+
+2010-07-28  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Reviewed by David Levin.
+
+        Interrupt all DB operations when the worker is terminating.
+        https://bugs.webkit.org/show_bug.cgi?id=42843
+
+        Tests: fast/workers/storage/interrupt-database-sync.html
+               fast/workers/storage/interrupt-database.html
+
+        * bindings/js/JSCustomVoidCallback.cpp:
+        (WebCore::JSCustomVoidCallback::~JSCustomVoidCallback): If the
+        destructor is called on the context thread, delete m_data directly
+        instead of posting a task to do that. We need to do that to make
+        sure that all JS objects are destroyed before
+        WorkerThreadShutdownFinishTask (in WorkerThread.cpp) calls
+        WorkerContext::clearScript().
+
+        * bindings/scripts/CodeGeneratorJS.pm: Same change as above, for
+        all auto-generated callbacks.
+
+        * bindings/scripts/test/JS/JSTestCallback.cpp:
+        (WebCore::JSTestCallback::~JSTestCallback): Updated the
+        expectations for run-bindings-tests.
+
+        * platform/sql/SQLiteDatabase.cpp: Added the ability to interrupt
+        all DB operations in progress, unless the database was closed or
+        is being closed. Unlike sqlite3_interrupt(),
+        SQLiteDatabase::interrupt() is sticky: once it's called, trying to
+        run any statement on that database will fail with a
+        SQLITE_INTERRUPT error code.
+        (WebCore::SQLiteDatabase::SQLiteDatabase):
+        (WebCore::SQLiteDatabase::close):
+        (WebCore::SQLiteDatabase::interrupt):
+        (WebCore::SQLiteDatabase::isInterrupted):
+
+        * platform/sql/SQLiteDatabase.h: Added a mutex that can used by
+        SQLiteStatement to check if the database was interrupted.
+        (WebCore::SQLiteDatabase::databaseMutex):
+
+        * platform/sql/SQLiteStatement.cpp: Changed prepare() and step()
+        to check if the database was interrupted, before trying to prepare
+        or run the statement. The other methods don't need to hold on to
+        the DB lock while running, because they're fast, so we don't need
+        to interrupt them.
+        (WebCore::SQLiteStatement::prepare):
+        (WebCore::SQLiteStatement::step):
+
+        * storage/AbstractDatabase.cpp: Made SQLiteDatabase::interrupt()
+        and isInterrupted() visible to WebSQLDatabases classes.
+        (WebCore::AbstractDatabase::interrupt):
+        (WebCore::AbstractDatabase::isInterrupted):
+        * storage/AbstractDatabase.h:
+
+        * storage/DatabaseTracker.cpp: Added a method to interrupt all
+        databases in a given context.
+        (WebCore::DatabaseTracker::interruptAllDatabasesForContext):
+        * storage/DatabaseTracker.h:
+
+        * storage/SQLStatement.cpp: Changed the exception/error reported
+        when a statement is interrupted.
+        (WebCore::SQLStatement::execute):
+        * storage/SQLStatementSync.cpp:
+        (WebCore::SQLStatementSync::execute):
+
+        * storage/SQLTransaction.cpp: Changed the code to release the
+        callback objects as soon as they're not needed.
+        (WebCore::SQLTransaction::checkAndHandleClosedOrInterruptedDatabase):
+        Changed this method to not schedule the next transaction step when
+        the database is interrupted.
+        (WebCore::SQLTransaction::performNextStep):
+        (WebCore::SQLTransaction::performPendingCallback):
+        (WebCore::SQLTransaction::deliverTransactionCallback):
+        (WebCore::SQLTransaction::postflightAndCommit):
+        (WebCore::SQLTransaction::deliverTransactionErrorCallback):
+        (WebCore::SQLTransaction::cleanupAfterTransactionErrorCallback):
+        * storage/SQLTransaction.h:
+
+        * storage/chromium/DatabaseTrackerChromium.cpp: Added a method to
+        interrupt all databases in a given context.
+        (WebCore::DatabaseTracker::interruptAllDatabasesForContext):
+
+        * workers/WorkerThread.cpp:
+        (WebCore::WorkerThread::stop): Added a call to
+        DatabaseTracker::interruptAllDatabasesForContext().
+
+2010-07-29  Bernhard Bauer  <bauerb@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Check if plugins are allowed before creating a Java applet.
+        https://bugs.webkit.org/show_bug.cgi?id=43196
+
+        * loader/SubframeLoader.cpp:
+        (WebCore::SubframeLoader::createJavaAppletWidget):
+
+2010-07-29  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Simon Fraser.
+
+        Ask a canvas' rendering context if it is accelerated instead tying it directly to webgl
+        https://bugs.webkit.org/show_bug.cgi?id=43206
+
+        This unifies the logic for whether a canvas is accelerated or not into one place
+        and makes it easier to expand the logic in the future to, for example, cover some
+        2d canvases.
+
+        Just a refactoring, no change in behavior so no new tests.
+
+        * html/canvas/CanvasRenderingContext.h:
+        (WebCore::CanvasRenderingContext::isAccelerated):
+        * html/canvas/WebGLRenderingContext.h:
+        (WebCore::WebGLRenderingContext::isAccelerated):
+        * rendering/RenderHTMLCanvas.cpp:
+        (WebCore::RenderHTMLCanvas::requiresLayer):
+        * rendering/RenderLayerCompositor.cpp:
+        (WebCore::RenderLayerCompositor::requiresCompositingForCanvas):
+
+2010-07-29  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Implement NPN_Status
+        https://bugs.webkit.org/show_bug.cgi?id=43205
+
+        * WebCore.exp.in:
+        Export Chrome::setStatusText.
+
+2010-07-29  Victor Wang  <victorw@chromium.org>
+
+        Unreviewed, rolling out r64270.
+        http://trac.webkit.org/changeset/64270
+        https://bugs.webkit.org/show_bug.cgi?id=39589
+
+        The patch breaks chromium webkit unittest
+
+        * WebCore.exp.in:
+        * WebCore.xcodeproj/project.pbxproj:
+        * dom/DeviceOrientationClient.h:
+        (WebCore::DeviceOrientationClient::~DeviceOrientationClient):
+        * dom/DeviceOrientationController.cpp:
+        (WebCore::DeviceOrientationController::DeviceOrientationController):
+        * dom/DeviceOrientationEvent.cpp:
+        * platform/mock/DeviceOrientationClientMock.cpp: Removed.
+        * platform/mock/DeviceOrientationClientMock.h: Removed.
+
+2010-07-29  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Resizer control does not paint in otherwise empty compositing layer
+        https://bugs.webkit.org/show_bug.cgi?id=42306
+        
+        Ensure that we create backing store for an empty element with resize: both,
+        in order to render the resizer control.
+
+        Test: compositing/overflow/resize-painting.html
+
+        * rendering/RenderLayerBacking.h:
+        * rendering/RenderLayerBacking.cpp:
+        (WebCore::RenderLayerBacking::isSimpleContainerCompositingLayer): Check for hasOverflowControls()
+        earlier, before any child checks.
+        (WebCore::RenderLayerBacking::hasNonCompositingDescendants): Renamed from hasNonCompositingContent()
+        to clarify its purpose.
+
+2010-07-29  Adam Roben  <aroben@apple.com>
+
+        Remove WKCACFLayer::Lanczos
+
+        This member is also unused.
+
+        Rubber-stamped in advance by John Sullivan.
+
+        * platform/graphics/win/WKCACFLayer.cpp:
+        (WebCore::toCACFFilterType):
+        (WebCore::fromCACFFilterType):
+        * platform/graphics/win/WKCACFLayer.h:
+        (WebCore::WKCACFLayer::):
+
+2010-07-29  Adam Roben  <aroben@apple.com>
+
+        Remove some unused WKCACFLayer members
+
+        Fixes <http://webkit.org/b/43200> WKCACFLayer has some unused members
+
+        Reviewed by John Sullivan.
+
+        * platform/graphics/win/WKCACFLayer.h: Removed [set]ClearsContext,
+        [set]Filters, and [set]SortsSublayers.
+
+2010-07-28  Justin Schuh  <jschuh@chromium.org>
+
+        Reviewed by Nate Chapin.
+
+        Clear PluginData's page pointer on Page destruction
+        https://bugs.webkit.org/show_bug.cgi?id=43147
+
+        Test: plugins/access-after-page-destroyed.html
+
+        * page/Page.cpp:
+        (WebCore::Page::~Page):
+
+2010-07-29  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Darin Adler.
+
+        SHOULD NEVER BE REACHED assertion when switching tabs with composited content
+        https://bugs.webkit.org/show_bug.cgi?id=43167
+
+        When the root layer becomes unattached (e.g. when switching tabs), don't return
+        'false' from paintingGoesToWindow() because that will cause a -setNeedsDispay, which
+        both allocates wasteful backing store, and causes an assertion when we try to
+        paint the layer.
+        
+        Test: manual-tests/compositing/assert-on-tab-switch.html: Added.
+        
+        * rendering/RenderLayerBacking.cpp:
+        (WebCore::RenderLayerBacking::paintingGoesToWindow):
+
+2010-07-29  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Pavel Feldman.
+
+        Crash when computing pseudo-style of a vanished scrollbar in inspector
+        https://bugs.webkit.org/show_bug.cgi?id=42561
+        
+        When a styled overflow:scroll scrollbar gets destroyed, we need to clear out the m_owner pointer,
+        otherwise the event handling code (which keeps the Scrollbar alive) later causes the scrollbar
+        to try to use m_owner to get pseudo style.
+
+        Test: scrollbars/overflow-custom-scrollbar-crash.html
+
+        * rendering/RenderLayer.cpp:
+        (WebCore::RenderLayer::destroyScrollbar): If this is a custom scrollbar, clear the owning renderer.
+        * rendering/RenderScrollbar.cpp:
+        (WebCore::RenderScrollbar::getScrollbarPseudoStyle): Bail if m_owner is 0.
+        * rendering/RenderScrollbar.h:
+        (WebCore::RenderScrollbar::clearOwningRenderer): New method.
+
+2010-07-29  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Not reviewed. Fix release builds, by removing unused variables, that only served for ASSERTs that are no longer needed.
+
+        * rendering/SVGRenderSupport.cpp:
+        (WebCore::SVGRenderSupport::prepareToRenderSVGContent):
+        (WebCore::SVGRenderSupport::pointInClippingArea):
+
+2010-07-29  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Not reviewed. Fix build warning about unreachable code, seen on the windows slave.
+
+        * rendering/RenderSVGContainer.cpp:
+        (WebCore::RenderSVGContainer::selfWillPaint):
+        * rendering/RenderSVGRoot.cpp:
+        (WebCore::RenderSVGRoot::selfWillPaint):
+
+2010-07-29  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Dirk Schulze.
+
+        WebKit shouldn't ignore resource cycles, but break them as Opera does
+        https://bugs.webkit.org/show_bug.cgi?id=43031
+
+        mask images are not updated when render objects' bounds change
+        https://bugs.webkit.org/show_bug.cgi?id=15124
+
+        SVG Gradients do not resize correctly
+        https://bugs.webkit.org/show_bug.cgi?id=41902
+
+        svg/dynamic-updates: SVGMarkerElement markerHeight/Width tests are broken
+        https://bugs.webkit.org/show_bug.cgi?id=42616
+
+        svg/dynamic-updates: SVGMaskElement tests are all broken
+        https://bugs.webkit.org/show_bug.cgi?id=42617
+
+        Don't ignore resources containing cyclic references, but break them, as discussed on SVG WG mailing lists - to be compatible with Opera which already does that.
+
+        We used to lookup RenderSVGResourceContainers objects, by extracting the URI reference from the SVGRenderStyle, then utilizing getElementById() to lookup the
+        node, and access its renderer. Opera ignores such references, if they point to resources that contain cyclic references. Ignoring them would mean we have
+        to mutate the render style to empty the resource strings. That obviously doesn't work, as it would break expectations (getComputedStyle, etc.).
+
+        Introduce a SVGResources class that stores pointers to all resources, that can be applied to a RenderObject (clipper/filter/markers/masker).
+        Add a SVGResourcesCache class, which is basically a HashMap<RenderObject*, SVGResources*>. Whenever a RenderObject receives style, we extract the URI references
+        from the SVGRenderStyle, look up the RenderSVGResourceContainer* objects, and store them in a SVGResources* class. Then we execute a cycle detection logic,
+        which detects cyclic references and breaks them. Breaking them means just nulling the pointer to the resource in the SVGResources object. Those SVGResources
+        objects are cached, and used throughout the render tree to access resources. This way it's guaranteed that all cyclic references are resolved until layout/paint
+        phase begins.
+
+        Add destroy/styleDidChange/updateFromElement methods to all SVG renderers, in order to keep track of resource/client changes in the SVGResourcesCache.
+        As side-effect the SVGResourcesCache now knows which RenderObject references which resource, and thus can handle client registration for a RenderSVGResourceContainer.
+        The RenderSVGResourceContainer now holds a HashSet of RenderObjects, that's always up2date, and not related to the fact wheter a resources has already been used
+        for painting. The old logic missed to register clients for a resource, when the resource was in an invalid state. Fixing that fixes the svg/dynamic-updates/SVGMaskElement* tests.
+
+        Rewrite all svg/custom/recursive-(filter|gradient|mask|pattern).svg tests to contain a reference image how it should be renderered. All 1:1 compatible with Opera now.
+
+        * rendering/RenderForeignObject.cpp:
+        (WebCore::RenderForeignObject::layout): Grab selfNeedsLayout() before calling RenderBlock::layout(), otherwhise it's always false.
+        * rendering/RenderPath.cpp: Don't look up resources manually, use SVGResourcesCache.
+        (WebCore::RenderPath::fillContains): Remove constness, to avoid the need to pass around const RenderObjects* to the SVGResourcesCache.
+        (WebCore::RenderPath::strokeContains): Ditto.
+        (WebCore::RenderPath::layout): s/RenderSVGResource::invalidateAllResourcesOfRenderer/SVGResourcesCache::clientLayoutChanged/.
+        (WebCore::RenderPath::calculateMarkerBoundsIfNeeded): Remove special client handling for markers, it's all unified now.
+        (WebCore::RenderPath::styleWillChange): Only call setNeedsBoundariesUpdate when handling StyleDifferenceRepaint/Layout.
+        * rendering/RenderPath.h:
+        * rendering/RenderSVGBlock.cpp:
+        (WebCore::RenderSVGBlock::destroy): Forward to SVGResourcesCache::clientDestroyed.
+        (WebCore::RenderSVGBlock::styleDidChange): Forward to SVGResourcesCache::clientStyleChanged.
+        (WebCore::RenderSVGBlock::updateFromElement): Forward to SVGResourcesCache::clientUpdatedFromElement.
+        * rendering/RenderSVGBlock.h:
+        * rendering/RenderSVGContainer.cpp:
+        (WebCore::RenderSVGContainer::layout): s/RenderSVGResource::invalidateAllResourcesOfRenderer/SVGResourcesCache::clientLayoutChanged/.
+        (WebCore::RenderSVGContainer::selfWillPaint): Don't look up resources manually, use SVGResourcesCache.
+        * rendering/RenderSVGContainer.h:
+        * rendering/RenderSVGGradientStop.cpp:
+        (WebCore::RenderSVGGradientStop::styleDidChange): Rewrite, as invalidateResourceClients() is gone.
+        * rendering/RenderSVGHiddenContainer.h: Make layout() protected, as RenderSVGResourceContainer overrides it.
+        * rendering/RenderSVGImage.cpp:
+        (WebCore::RenderSVGImage::layout): s/RenderSVGResource::invalidateAllResourcesOfRenderer/SVGResourcesCache::clientLayoutChanged/.
+        (WebCore::RenderSVGImage::destroy): Forward to SVGResourcesCache::clientDestroyed.
+        (WebCore::RenderSVGImage::styleDidChange): Forward to SVGResourcesCache::clientStyleChanged.
+        (WebCore::RenderSVGImage::updateFromElement): Forward to SVGResourcesCache::clientUpdatedFromElement.
+        (WebCore::RenderSVGImage::imageChanged): Don't look up resources manually, use SVGResourcesCache.
+        * rendering/RenderSVGImage.h:
+        * rendering/RenderSVGInline.cpp:
+        (WebCore::RenderSVGInline::destroy): Forward to SVGResourcesCache::clientDestroyed.
+        (WebCore::RenderSVGInline::styleDidChange): Forward to SVGResourcesCache::clientStyleChanged.
+        (WebCore::RenderSVGInline::updateFromElement): Forward to SVGResourcesCache::clientUpdatedFromElement.
+        * rendering/RenderSVGInline.h:
+        * rendering/RenderSVGModelObject.cpp:
+        (WebCore::RenderSVGModelObject::destroy): Forward to SVGResourcesCache::clientDestroyed.
+        (WebCore::RenderSVGModelObject::styleDidChange): Forward to SVGResourcesCache::clientStyleChanged.
+        (WebCore::RenderSVGModelObject::updateFromElement): Forward to SVGResourcesCache::clientUpdatedFromElement.
+        * rendering/RenderSVGModelObject.h:
+        * rendering/RenderSVGResource.cpp:
+        (WebCore::RenderSVGResource::fillPaintingResource): Remove const from RenderObject parameter.
+        (WebCore::RenderSVGResource::strokePaintingResource): Ditto.
+        (WebCore::RenderSVGResource::markForLayoutAndParentResourceInvalidation): Early exit if we found the first parent resource.
+        * rendering/RenderSVGResource.h:
+        * rendering/RenderSVGResourceClipper.cpp:
+        (WebCore::RenderSVGResourceClipper::~RenderSVGResourceClipper): Early exit if m_clipper is empty.
+        (WebCore::RenderSVGResourceClipper::invalidateClients): Use new helper functions to invalidate clients, shared between all resources in RenderSVGResourceContainer.
+        (WebCore::RenderSVGResourceClipper::invalidateClient): Ditto.
+        (WebCore::RenderSVGResourceClipper::applyResource): Remove containsCyclicReference() check, SVGResourcesCycleSolver breaks cyclic references, resources do not need to take care anymore.
+        (WebCore::RenderSVGResourceClipper::createClipData): Don't look up resources manually, use SVGResourcesCache.
+        (WebCore::RenderSVGResourceClipper::hitTestClipContent): Remove containsCyclicReference() check, SVGResourcesCycleSolver breaks cyclic references, resources do not need to take care anymore.
+        * rendering/RenderSVGResourceClipper.h:
+        * rendering/RenderSVGResourceContainer.cpp:
+        (WebCore::svgExtensionsFromNode):
+        (WebCore::RenderSVGResourceContainer::RenderSVGResourceContainer): Stop registering resource from the constructor, delegate to styleDidChange.
+        (WebCore::RenderSVGResourceContainer::~RenderSVGResourceContainer): Only deregister resource if it was ever registered.
+        (WebCore::RenderSVGResourceContainer::layout): invalidateClients() here, to avoid the need for invalidateResourceClients() in the SVG DOM. Just call setNeedsLayout() from the SVG DOM.
+        (WebCore::RenderSVGResourceContainer::destroy): Forward to SVGResourcesCache::resourceDestroyed.
+        (WebCore::RenderSVGResourceContainer::styleDidChange): Register resource not in the constructor but when it first receives style.
+        (WebCore::RenderSVGResourceContainer::idChanged): Don't duplicate code, use existing methods from SVGResourcesCache.
+        (WebCore::RenderSVGResourceContainer::markAllClientsForInvalidation): Add new helper function, to share code between all resources.
+        (WebCore::RenderSVGResourceContainer::markClientForInvalidation): Ditto.
+        (WebCore::RenderSVGResourceContainer::addClient): SVGResourcesCache now manages the list of clients. It calls addClient() for each RenderObject that uses this resource.
+        (WebCore::RenderSVGResourceContainer::removeClient): SVGResourcesCache now manages the list of clients.
+        (WebCore::RenderSVGResourceContainer::registerResource): New helper function sharing code between idChanged / styleDidChange.
+        (WebCore::RenderSVGResourceContainer::transformOnNonScalingStroke): Add FIXME that the function is misplaced.
+        * rendering/RenderSVGResourceContainer.h: Move most functions to the new RenderSVGResourceContainer.cpp file.
+        * rendering/RenderSVGResourceFilter.cpp:
+        (WebCore::RenderSVGResourceFilter::~RenderSVGResourceFilter): Early exit if m_filter is empty.
+        (WebCore::RenderSVGResourceFilter::invalidateClients): Use new helper functions to invalidate clients, shared between all resources in RenderSVGResourceContainer.
+        (WebCore::RenderSVGResourceFilter::invalidateClient): Ditto.
+        * rendering/RenderSVGResourceGradient.cpp:
+        (WebCore::RenderSVGResourceGradient::~RenderSVGResourceGradient): Early exit if m_gradient is empty.
+        (WebCore::RenderSVGResourceGradient::invalidateClients): Use new helper functions to invalidate clients, shared between all resources in RenderSVGResourceContainer.
+        (WebCore::RenderSVGResourceGradient::invalidateClient): Ditto.
+        * rendering/RenderSVGResourceMarker.cpp:
+        (WebCore::RenderSVGResourceMarker::~RenderSVGResourceMarker): Now a no-op, markers are unified within the new client handling concept, no more special code needed.
+        (WebCore::RenderSVGResourceMarker::layout): As RenderSVGResourceMarker skips the RenderSVGResourceContainer::layout() method, we also need to call invalidateClients() here.
+        (WebCore::RenderSVGResourceMarker::invalidateClients): Use new helper functions to invalidate clients, shared between all resources in RenderSVGResourceContainer.
+        (WebCore::RenderSVGResourceMarker::invalidateClient): Ditto.
+        (WebCore::RenderSVGResourceMarker::draw): Remove marker specific logic to catch circular references.
+        * rendering/RenderSVGResourceMarker.h:
+        * rendering/RenderSVGResourceMasker.cpp:
+        (WebCore::RenderSVGResourceMasker::~RenderSVGResourceMasker): Early exit if m_masker is empty.
+        (WebCore::RenderSVGResourceMasker::invalidateClients): Use new helper functions to invalidate clients, shared between all resources in RenderSVGResourceContainer.
+        (WebCore::RenderSVGResourceMasker::invalidateClient): Ditto.
+        (WebCore::RenderSVGResourceMasker::applyResource): Remove containsCyclicReference() check, SVGResourcesCycleSolver breaks cyclic references, resources do not need to take care anymore.
+        * rendering/RenderSVGResourceMasker.h:
+        * rendering/RenderSVGResourcePattern.cpp:
+        (WebCore::RenderSVGResourcePattern::~RenderSVGResourcePattern): Early exit if m_pattern is empty.
+        (WebCore::RenderSVGResourcePattern::invalidateClients): Use new helper functions to invalidate clients, shared between all resources in RenderSVGResourceContainer.
+        (WebCore::RenderSVGResourcePattern::invalidateClient): Ditto.
+        (WebCore::RenderSVGResourcePattern::createTileImage): Remove containsCyclicReference() check, SVGResourcesCycleSolver breaks cyclic references, resources do not need to take care anymore.
+        * rendering/RenderSVGResourcePattern.h:
+        * rendering/RenderSVGRoot.cpp:
+        (WebCore::RenderSVGRoot::selfWillPaint): Don't look up resources manually, use SVGResourcesCache.
+        (WebCore::RenderSVGRoot::destroy): Forward to SVGResourcesCache::clientDestroyed.
+        (WebCore::RenderSVGRoot::styleDidChange): Forward to SVGResourcesCache::clientStyleChanged.
+        (WebCore::RenderSVGRoot::updateFromElement): Forward to SVGResourcesCache::clientUpdatedFromElement.
+        * rendering/RenderSVGRoot.h:
+        * rendering/RenderSVGText.cpp:
+        (WebCore::RenderSVGText::layout): s/RenderSVGResource::invalidateAllResourcesOfRenderer/SVGResourcesCache::clientLayoutChanged/.
+        * rendering/RenderSVGText.h:
+        * rendering/SVGInlineTextBox.cpp:
+        (WebCore::SVGInlineTextBox::acquirePaintingResource): Add RenderObject* parameter, don't assume the style comes from the InlineTextBox parent renderer.
+        (WebCore::SVGInlineTextBox::prepareGraphicsContextForTextPainting): Pass the parent()->renderer() to acquirePaintingResource.
+        (WebCore::SVGInlineTextBox::paintDecoration): Pass the decoration renderer to acquirePaintingResource.
+        (WebCore::SVGInlineTextBox::paintDecorationWithStyle): Ditto.
+        (WebCore::SVGInlineTextBox::paintText): When a selection pseudo style is used to paint the selection, swap styles in the SVGResourcesCache, to take the right resources when painting.
+        * rendering/SVGInlineTextBox.h:
+        * rendering/SVGRenderSupport.cpp:
+        (WebCore::SVGRenderSupport::prepareToRenderSVGContent): Don't look up resources manually, use SVGResourcesCache.
+        (WebCore::SVGRenderSupport::finishRenderSVGContent): Ditto.
+        (WebCore::SVGRenderSupport::intersectRepaintRectWithResources): Ditto.
+        (WebCore::SVGRenderSupport::pointInClippingArea): Remove const from RenderObject parameter. 
+        * rendering/SVGRenderSupport.h:
+        * rendering/SVGRenderTreeAsText.cpp:
+        (WebCore::writeStyle): Add two const_cast now that fill/strokePaintingResource take RenderObject* parameters. This was the less intrusive approach, otherwhise more const_casts would be needed.
+        (WebCore::writeResources): Add FIXME that we should dump the resources present in the SVGResourcesCache instead of manually looking them up from the SVGRenderStyle, to avoid dumping cycles.
+        * rendering/SVGResourcesCache.cpp:
+        (WebCore::SVGResourcesCache::clientStyleChanged): Use markForLayoutAndParentResourceInvalidation() instead of duplicating code.
+        * rendering/SVGResourcesCycleSolver.cpp:
+        (WebCore::setFollowLinkForChainableResource): Implemented stub method.
+        * rendering/style/SVGRenderStyle.cpp:
+        (WebCore::SVGRenderStyle::diff): Return StyleDifferenceLayout, not Repaint for stroke paint changes, otherwhise the cached boundaries are not correctly updated.
+        * svg/SVGClipPathElement.cpp:
+        (WebCore::SVGClipPathElement::svgAttributeChanged): Don't use invalidateResourceClients(), it's not needed anymore, only call setNeedsLayout() on the renderer.
+        (WebCore::SVGClipPathElement::childrenChanged): Ditto.
+        * svg/SVGClipPathElement.h:
+        (WebCore::SVGClipPathElement::needsPendingResourceHandling): Return false, buildPendingResource() logic not needed anymore for resources, handled by RenderSVGResourceContainer.
+        * svg/SVGElement.cpp:
+        (WebCore::SVGElement::insertedIntoDocument): Only execute buildPendingResource() logic, if needsPendingResourceHandling() returns true. Cleaned up code a bit, to deploy early returns.
+        * svg/SVGElement.h:
+        (WebCore::SVGElement::needsPendingResourceHandling): Return true (default). Only needed by SVGTextPathElement/SVGUseElement, and should be removed in future.
+        * svg/SVGFilterElement.cpp:
+        (WebCore::SVGFilterElement::SVGFilterElement): Initialize m_followLink=true.
+        (WebCore::SVGFilterElement::setFilterRes): Don't use invalidateResourceClients(), it's not needed anymore, only call setNeedsLayout() on the renderer.
+        (WebCore::SVGFilterElement::svgAttributeChanged): Ditto.
+        (WebCore::SVGFilterElement::childrenChanged): Ditto.
+        * svg/SVGFilterElement.h:
+        (WebCore::SVGFilterElement::needsPendingResourceHandling): Return false, buildPendingResource() logic not needed anymore for resources, handled by RenderSVGResourceContainer.
+        (WebCore::SVGFilterElement::setFollowLink): Used by SVGResourcesCycleSolver, to stop following xlink:href links, if that leads to cyclic references.
+        * svg/SVGFilterPrimitiveStandardAttributes.cpp:
+        (WebCore::SVGFilterPrimitiveStandardAttributes::childrenChanged): Don't use invalidateResourceClients(), it's a no-op as effects don't have a renderer -> use invalidateFilter().
+        * svg/SVGFilterPrimitiveStandardAttributes.h:
+        (WebCore::SVGFilterPrimitiveStandardAttributes::invalidateFilter): Don't use invalidateResourceClients(), it's not needed anymore, only call setNeedsLayout() on the renderer.
+        * svg/SVGGradientElement.cpp:
+        (WebCore::SVGGradientElement::SVGGradientElement): Initialize m_followLink=true.
+        (WebCore::SVGGradientElement::svgAttributeChanged): Don't use invalidateResourceClients(), it's not needed anymore, only call setNeedsLayout() on the renderer.
+        (WebCore::SVGGradientElement::childrenChanged): Ditto.
+        * svg/SVGGradientElement.h:
+        (WebCore::SVGGradientElement::needsPendingResourceHandling): Return false, buildPendingResource() logic not needed anymore for resources, handled by RenderSVGResourceContainer.
+        (WebCore::SVGGradientElement::setFollowLink): Used by SVGResourcesCycleSolver, to stop following xlink:href links, if that leads to cyclic references.
+        * svg/SVGLinearGradientElement.cpp:
+        (WebCore::SVGLinearGradientElement::svgAttributeChanged): Don't use invalidateResourceClients(), it's not needed anymore, only call setNeedsLayout() on the renderer.
+        (WebCore::SVGLinearGradientElement::collectGradientProperties): Only follow xlink:href links if m_followLinks == true.
+        * svg/SVGMarkerElement.cpp:
+        (WebCore::SVGMarkerElement::svgAttributeChanged): Don't use invalidateResourceClients(), it's not needed anymore, only call setNeedsLayout() on the renderer.
+        (WebCore::SVGMarkerElement::childrenChanged): Ditto.
+        (WebCore::SVGMarkerElement::setOrientToAuto): Ditto.
+        (WebCore::SVGMarkerElement::setOrientToAngle): Ditto.
+        * svg/SVGMarkerElement.h:
+        (WebCore::SVGMarkerElement::needsPendingResourceHandling): Return false, buildPendingResource() logic not needed anymore for resources, handled by RenderSVGResourceContainer.
+        * svg/SVGMaskElement.cpp:
+        (WebCore::SVGMaskElement::svgAttributeChanged): Don't use invalidateResourceClients(), it's not needed anymore, only call setNeedsLayout() on the renderer.
+        (WebCore::SVGMaskElement::childrenChanged): Ditto.
+        * svg/SVGMaskElement.h:
+        (WebCore::SVGMaskElement::needsPendingResourceHandling): Return false, buildPendingResource() logic not needed anymore for resources, handled by RenderSVGResourceContainer.
+        * svg/SVGPatternElement.cpp:
+        (WebCore::SVGPatternElement::SVGPatternElement): Initialize m_followLink=true.
+        (WebCore::SVGPatternElement::svgAttributeChanged): Don't use invalidateResourceClients(), it's not needed anymore, only call setNeedsLayout() on the renderer.
+        (WebCore::SVGPatternElement::childrenChanged): Ditto.
+        (WebCore::SVGPatternElement::collectPatternProperties): Only follow xlink:href links if m_followLinks == true.
+        * svg/SVGPatternElement.h:
+        (WebCore::SVGPatternElement::needsPendingResourceHandling): Return false, buildPendingResource() logic not needed anymore for resources, handled by RenderSVGResourceContainer.
+        (WebCore::SVGPatternElement::setFollowLink): Used by SVGResourcesCycleSolver, to stop following xlink:href links, if that leads to cyclic references.
+        * svg/SVGRadialGradientElement.cpp:
+        (WebCore::SVGRadialGradientElement::svgAttributeChanged): Don't use invalidateResourceClients(), it's not needed anymore, only call setNeedsLayout() on the renderer.
+        (WebCore::SVGRadialGradientElement::collectGradientProperties): Only follow xlink:href links if m_followLinks == true.
+        * svg/SVGStyledElement.cpp:
+        (WebCore::SVGStyledElement::attach): Call updateFromElement upon attach(), needed by all resource renderers. Defaults to a no-op in RenderObject.h
+        * svg/SVGStyledElement.h: Remove invalidateResourceClients(), it's not needed anymore.
+
+2010-07-29  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Support to enable WML in WebKit EFL
+        https://bugs.webkit.org/show_bug.cgi?id=43178
+
+        WebKit EFL cannot enable WML. WML files are added to CMakeLists.txt
+        to enable WML in WebKit EFL.
+
+        * CMakeLists.txt: Support to enable WML.
+
+2010-07-21 Grace Kloba  <klobag@gmail.com> , Antonio Gomes  <tonikitoo@webkit.org>
+
+        Reviewed by David Hyatt.
+
+        Enhance the hit testing to take a rectangle instead of a point
+        https://bugs.webkit.org/show_bug.cgi?id=40197
+
+        The primary goal of this change is to provide mechanisms for more precise tap
+        actions by the users on mobile devices.
+
+        Patch extends the hit testing system to work considering a rectangular area
+        as input instead of a point, when applicable. For that, the HitTestResult class
+        was modified to take a padding (IntSize). The padding specifies a fuzzy range for
+        accepting input events in pixels coordinates for both vertical and horizontal
+        orientations. In other words, it tells how much to expand the search rect
+        around a supposed touch point.
+
+        If it is non-positive padding (e.g. (-1, -1), (5, -1), (0, 0)), hit testing will behavior
+        as the current point based hit testing: methods are no-op'ed to not regress it performance-wise
+        since it is the common behavior. When positive padding is provided, the HitTestResult class will
+        keep record of all nodes that intersect the built up test area. The logic will continue searching
+        when it finds a candidate until the hit test area is fully enclosed by the boundaries of a candidate.
+        The result will be a list of nodes in the z-order they are hit-tested. Caller will decide how
+        to process them.
+
+        In order to expose the functionality, the patch:
+
+        - Adds a nodesFromRect method to the Document class, exposing the funcionality
+        to the DOM. Method returns a NodeList with all nodes that intersect the given
+        hit-tested area.
+        - Extends hitTestResultAtPoint method of the EventHandler with an extra 'padding'
+        parameter, defaulting to IntSize(-1, -1). The rect-based hit test is performed when a
+        non-negative padding is passed in.
+
+        Test: fast/dom/nodesFromRect-basic.html
+
+        * WebCore.base.exp:
+        * dom/Document.cpp:
+        (WebCore::Document::nodesFromRect): This method exposes the rect based funcionality to
+        the DOM. It works similarly to elementFromPoint, however receiving a rectangular area
+        as input instead of a point, and returning a z-index ordered list of nodes (not elements)
+        whose area intersect the hit test rect.
+        * dom/Document.h: Ditto.
+        * dom/Document.idl: Ditto.
+        * page/EventHandler.cpp:
+        (WebCore::EventHandler::hitTestResultAtPoint): The funcionality is also exposed through this
+        method. Patch adds a additional IntSize parameter to work as the padding area, building up
+        the hit test rect.
+        * page/EventHandler.h: Ditto.
+        * rendering/HitTestResult.cpp:
+        (WebCore::HitTestResult::HitTestResult): Rect based hit test constructor. Receives a
+        padding IntSize as parameter. It can be (0,0).
+        (WebCore::HitTestResult::operator=): Modified to assign the m_rectBasedTestResult as well.
+        (WebCore::HitTestResult::append): Merge to HitTestResult objects in a way that the
+        list node's of both objects get amended.
+        (WebCore::HitTestResult::addNodeToRectBasedTestResult): Adds a given Node to the list of
+        hit nodes.
+        * rendering/HitTestResult.h:
+        (WebCore::HitTestResult::padding): Returns the padding as an IntSize.
+        (WebCore::HitTestResult::isRectBasedTest): Returns if the HitTestResult is rect based or not.
+        (WebCore::HitTestResult::.rectBasedTestResult): Returns the list nodes hit.
+        (WebCore::HitTestResult::rectFromPoint): Returns the hit test rect given the hit test point
+        and padding.
+        * rendering/RenderLayer.cpp:
+        (WebCore::RenderLayer::hitTestLayer):
+        (WebCore::RenderLayer::hitTestList):
+        (WebCore::RenderLayer::hitTestChildLayerColumns):
+        * rendering/EllipsisBox.cpp:
+        (WebCore::EllipsisBox::nodeAtPoint): Method is modified to support rect based hit test extension.
+        Now it not just checks if the boundary of the node being hit-tested contains a hit test point, but
+        instead it checks if the boundary of the node intersects a hit test rect. It is implemented so
+        that the common case (point based hit test) works as previously.
+        * rendering/InlineFlowBox.cpp:
+        (WebCore::InlineFlowBox::nodeAtPoint): Ditto.
+        * rendering/InlineTextBox.cpp:
+        (WebCore::InlineTextBox::nodeAtPoint): Ditto.
+        * rendering/RenderBlock.cpp:
+        (WebCore::RenderBlock::nodeAtPoint): Ditto.
+        (WebCore::RenderBlock::hitTestColumns): Ditto.
+        * rendering/RenderBox.cpp:
+        (WebCore::RenderBox::nodeAtPoint): Ditto.
+        * rendering/RenderImage.cpp:
+        (WebCore::RenderImage::nodeAtPoint): Ditto.
+        * rendering/RenderLineBoxList.cpp:
+        (WebCore::RenderLineBoxList::hitTest):
+        * rendering/RenderSVGRoot.cpp:
+        (WebCore::RenderSVGRoot::nodeAtPoint): Ditto.
+        * rendering/RenderTable.cpp:
+        (WebCore::RenderTable::nodeAtPoint): Ditto.
+        * rendering/RenderTableSection.cpp:
+        (WebCore::RenderTableSection::nodeAtPoint): Ditto.
+        * rendering/RenderWidget.cpp:
+        (WebCore::RenderWidget::nodeAtPoint): Ditto.
+
+2010-07-29  Steve Block  <steveblock@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Add LayoutTestController methods to test DeviceOrientation
+        https://bugs.webkit.org/show_bug.cgi?id=39589
+
+        This patch does not hook up the new LayoutTestController method to WebKit
+        for any platform. This will be done in later patches.
+        https://bugs.webkit.org/show_bug.cgi?id=43181 tracks this for Mac.
+
+        Test: fast/dom/DeviceOrientation/basic-operation.html
+
+        * WebCore/WebCore.exp.in:
+        * WebCore.xcodeproj/project.pbxproj:
+        * dom/DeviceOrientationClient.h:
+        (WebCore::DeviceOrientationClient::~DeviceOrientationClient):
+        * dom/DeviceOrientationController.cpp:
+        (WebCore::DeviceOrientationController::DeviceOrientationController):
+        * dom/DeviceOrientationEvent.cpp:
+        * platform/mock/DeviceOrientationClientMock.cpp: Added.
+        (WebCore::DeviceOrientationClientMock::DeviceOrientationClientMock):
+        (WebCore::DeviceOrientationClientMock::setController):
+        (WebCore::DeviceOrientationClientMock::startUpdating):
+        (WebCore::DeviceOrientationClientMock::stopUpdating):
+        (WebCore::DeviceOrientationClientMock::setOrientation):
+        (WebCore::DeviceOrientationClientMock::timerFired):
+        * platform/mock/DeviceOrientationClientMock.h: Added.
+        (WebCore::DeviceOrientationClientMock::lastOrientation):
+
+2010-07-29  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Runtime feature switch for speech input.
+        https://bugs.webkit.org/show_bug.cgi?id=43146
+
+        Add a runtime feature switch that decides whether speech input attributes are available or not.
+        Defaults to true.
+
+        * bindings/generic/RuntimeEnabledFeatures.cpp:
+        * bindings/generic/RuntimeEnabledFeatures.h:
+        (WebCore::RuntimeEnabledFeatures::setSpeechInputEnabled):
+        (WebCore::RuntimeEnabledFeatures::speechInputEnabled):
+        (WebCore::RuntimeEnabledFeatures::speechEnabled):
+        * html/HTMLInputElement.idl:
+
+2010-07-27  Alexander Pavlov  <apavlov@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Inspector should display CDATA section data
+        https://bugs.webkit.org/show_bug.cgi?id=16259
+
+        * inspector/InspectorDOMAgent.cpp:
+        (WebCore::InspectorDOMAgent::buildObjectForNode):
+        * inspector/front-end/ElementsTreeOutline.js:
+        ():
+
+2010-07-28  Kavita Kanetkar  <kkanetkar@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: Enable UI for chromium's appcache inspection.
+        https://bugs.webkit.org/show_bug.cgi?id=43098
+
+        * inspector/front-end/Settings.js: Removed appCacheEnabled.
+        * inspector/front-end/StoragePanel.js: Removed appCacheEnabled condition.
+        (WebInspector.StoragePanel):
+        (WebInspector.StoragePanel.prototype.reset):
+        (WebInspector.StoragePanel.prototype.addApplicationCache):
+
 2010-07-28  Bryan Gislason  <bgislason@rim.com>
 
         Reviewed by Nate Chapin.

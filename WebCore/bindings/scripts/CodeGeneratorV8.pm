@@ -1139,7 +1139,7 @@ END
     my $raisesExceptions = @{$function->raisesExceptions};
     if (!$raisesExceptions) {
         foreach my $parameter (@{$function->parameters}) {
-            if (TypeCanFailConversion($parameter) or $parameter->extendedAttributes->{"IsIndex"}) {
+            if ((!$parameter->extendedAttributes->{"Callback"} and TypeCanFailConversion($parameter)) or $parameter->extendedAttributes->{"IsIndex"}) {
                 $raisesExceptions = 1;
             }
         }
@@ -1181,6 +1181,21 @@ END
             my $functionCall = GenerateFunctionCallString($function, $paramIndex, "    " x 2, $implClassName);
             push(@implContentDecls, $functionCall);
             push(@implContentDecls, "    }\n");
+        }
+
+        if ($parameter->extendedAttributes->{"Callback"}) {
+            my $className = GetCallbackClassName($parameter->type);
+            $implIncludes{"$className.h"} = 1;
+            $implIncludes{"ExceptionCode.h"} = 1;
+            push(@implContentDecls, "    if (args.Length() <= $paramIndex || !args[$paramIndex]->IsObject())\n");
+            push(@implContentDecls, "        return throwError(TYPE_MISMATCH_ERR);\n");
+            if ($parameter->type eq "VoidCallback") {
+                push(@implContentDecls, "    RefPtr<" . $parameter->type . "> $parameterName = " . $className . "::create(args[$paramIndex], getScriptExecutionContext());\n");
+            } else {
+                push(@implContentDecls, "    RefPtr<" . $parameter->type . "> $parameterName = " . $className . "::create(args[$paramIndex]);\n");
+            }
+            $paramIndex++;
+            next;
         }
 
         if ($parameter->type eq "SerializedScriptValue") {
@@ -3233,6 +3248,14 @@ sub GetVisibleInterfaceName
     return "DOMException" if $interfaceName eq "DOMCoreException";
     return "FormData" if $interfaceName eq "DOMFormData";
     return $interfaceName;
+}
+
+sub GetCallbackClassName
+{
+    my $interfaceName = shift;
+
+    return "V8CustomVoidCallback" if $interfaceName eq "VoidCallback";
+    return "V8$interfaceName";
 }
 
 sub DebugPrint
