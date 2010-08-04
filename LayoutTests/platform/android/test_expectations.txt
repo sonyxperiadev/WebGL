@@ -17,7 +17,6 @@
 // SLOW - marks the test as being slow to run
 
 editing/selection/move-left-right.html SKIP // Causes DumpRenderTree to hang
-fast/dom/DeviceOrientation/basic-operation.html SKIP // Will cause crash until mock DeviceOrientationClient is hooked up.
 fast/js/excessive-comma-usage.html SKIP // Tests huge initializer list, causes OOM.
 fast/js/regexp-charclass-crash.html SKIP // RegExp is too large, causing OOM
 fast/regex/test1.html SKIP // Causes DumpRenderTree to hang with V8

@@ -23,57 +23,36 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "DeviceOrientationClientAndroid.h"
+#ifndef DeviceOrientationManager_h
+#define DeviceOrientationManager_h
 
-#include "WebViewCore.h"
+#include <DeviceOrientationClient.h>
+#include <PassRefPtr.h>
+#include <OwnPtr.h>
 
-using namespace WebCore;
+namespace WebCore {
+class DeviceOrientation;
+}
 
 namespace android {
 
-DeviceOrientationClientAndroid::DeviceOrientationClientAndroid()
-    : m_client(0)
-{
-}
+// This class handles providing a client for DeviceOrientation. This is
+// non-trivial because of the need to be able to use and configure a mock
+// client. This class is owned by WebViewCore and exists to keep cruft out of
+// that class.
+class DeviceOrientationManager {
+public:
+    DeviceOrientationManager();
 
-void DeviceOrientationClientAndroid::setWebViewCore(WebViewCore* webViewCore)
-{
-    m_webViewCore = webViewCore;
-    ASSERT(m_webViewCore);
-}
+    void useMock();
+    void setMockOrientation(PassRefPtr<WebCore::DeviceOrientation>);
+    WebCore::DeviceOrientationClient* client();
 
-void DeviceOrientationClientAndroid::setController(DeviceOrientationController* controller)
-{
-    // This will be called by the Page constructor before the WebViewCore
-    // has been configured regarding the mock. We cache the controller for
-    // later use.
-    m_controller = controller;
-    ASSERT(m_controller);
-}
-
-void DeviceOrientationClientAndroid::startUpdating()
-{
-    client()->startUpdating();
-}
-
-void DeviceOrientationClientAndroid::stopUpdating()
-{
-    client()->stopUpdating();
-}
-
-DeviceOrientation* DeviceOrientationClientAndroid::lastOrientation() const
-{
-    return client()->lastOrientation();
-}
-
-DeviceOrientationClient* DeviceOrientationClientAndroid::client() const
-{
-    if (!m_client) {
-        m_client = m_webViewCore->deviceOrientationManager()->client();
-        m_client->setController(m_controller);
-    }
-    return m_client;
-}
+private:
+    bool m_useMock;
+    OwnPtr<WebCore::DeviceOrientationClient> m_client;
+};
 
 } // namespace android
+
+#endif // DeviceOrientationManager_h

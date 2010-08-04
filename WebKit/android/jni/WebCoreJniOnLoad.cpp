@@ -85,6 +85,7 @@ extern int register_mock_geolocation(JNIEnv*);
 extern int register_mediaplayer_audio(JNIEnv*);
 extern int register_mediaplayer_video(JNIEnv*);
 #endif
+extern int register_device_orientation_manager(JNIEnv*);
 
 }
 
@@ -111,6 +112,7 @@ static RegistrationMethod gWebCoreRegMethods[] = {
     { "HTML5Audio", android::register_mediaplayer_audio },
     { "HTML5VideoViewProxy", android::register_mediaplayer_video },
 #endif
+    { "DeviceOrientationManager", android::register_device_orientation_manager },
 };
 
 EXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved)

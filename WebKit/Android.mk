@@ -54,6 +54,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	android/icu/unicode/ucnv.cpp \
 	\
+	android/jni/DeviceOrientationManager.cpp \
 	android/jni/GeolocationPermissionsBridge.cpp \
 	android/jni/JavaBridge.cpp \
 	android/jni/JavaSharedClient.cpp \

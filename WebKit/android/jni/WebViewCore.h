@@ -30,6 +30,7 @@
 #include "FileChooser.h"
 #include "CacheBuilder.h"
 #include "CachedHistory.h"
+#include "DeviceOrientationManager.h"
 #include "PictureSet.h"
 #include "PlatformGraphicsContext.h"
 #include "SkColor.h"
@@ -467,6 +468,8 @@ namespace android {
 
         void notifyWebAppCanBeInstalled();
 
+        DeviceOrientationManager* deviceOrientationManager() { return &m_deviceOrientationManager; }
+
         // these members are shared with webview.cpp
         static Mutex gFrameCacheMutex;
         CachedRoot* m_frameCacheKit; // nav data being built by webcore
@@ -567,6 +570,8 @@ namespace android {
 #if DEBUG_NAV_UI
         uint32_t m_now;
 #endif
+
+        DeviceOrientationManager m_deviceOrientationManager;
 
     private:
         // called from constructor, to add this to a global list
