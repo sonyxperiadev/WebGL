@@ -28,8 +28,9 @@
 #include "WebRequestContext.h"
 
 #include "JNIUtility.h"
-#include "app/sqlite_persistent_cookie_store.h"
 #include "jni.h"
+#include "base/message_loop_proxy.h"
+#include "chrome/browser/net/sqlite_persistent_cookie_store.h"
 #include "net/base/cookie_monster.h"
 #include "net/base/ssl_config_service.h"
 #include "net/http/http_cache.h"
@@ -88,10 +89,13 @@ WebRequestContext* WebRequestContext::GetAndroidContext()
 
         androidContext = new WebRequestContext();
         androidContext->host_resolver_ = net::CreateSystemHostResolver(0);
-        androidContext->http_transaction_factory_ = new net::HttpCache(0, androidContext->host_resolver(), 0, net::SSLConfigService::CreateSystemSSLConfigService(), cachePath, 0);
+        scoped_refptr<base::MessageLoopProxy> cacheMessageLoopProxy = base::MessageLoopProxy::CreateForCurrentThread();
+        // Todo: check if the context takes ownership of the cache
+        net::HttpCache::DefaultBackend* defaultBackend = new net::HttpCache::DefaultBackend(net::DISK_CACHE, cachePath, 20 * 1024 * 1024, cacheMessageLoopProxy);
+        androidContext->http_transaction_factory_ = new net::HttpCache(androidContext->host_resolver(), 0, net::SSLConfigService::CreateSystemSSLConfigService(), 0, 0, 0, defaultBackend);
 
         scoped_refptr<SQLitePersistentCookieStore> cookieDb = new SQLitePersistentCookieStore(cookiePath);
-        androidContext->cookie_store_ = new net::CookieMonster(cookieDb.get());
+        androidContext->cookie_store_ = new net::CookieMonster(cookieDb.get(), 0);
     }
 
     return androidContext;
