@@ -526,6 +526,11 @@ PassRefPtr<SearchPopupMenu> ChromeClientAndroid::createSearchPopupMenu(PopupMenu
     return adoptRef(new SearchPopupMenuAndroid);
 }
 
+void ChromeClientAndroid::reachedApplicationCacheOriginQuota(SecurityOrigin*)
+{
+    notImplemented();
+}
+
 #if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
 void ChromeClientAndroid::webAppCanBeInstalled()
 {
