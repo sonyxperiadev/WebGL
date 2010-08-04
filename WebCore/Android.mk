@@ -823,15 +823,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/IDBObjectStoreRequest.cpp \
 	storage/IDBRequest.cpp \
 	storage/IDBSuccessEvent.cpp \
-<<<<<<< HEAD
-	storage/IndexedDatabase.cpp \
-	storage/IndexedDatabaseImpl.cpp \
-	storage/IndexedDatabaseRequest.cpp \
-=======
 	storage/IDBFactory.cpp \
 	storage/IDBFactoryBackendInterface.cpp \
 	storage/IDBFactoryBackendImpl.cpp \
->>>>>>> webkit.org at r64523
 	storage/LocalStorageTask.cpp \
 	storage/LocalStorageThread.cpp \
 	storage/OriginQuotaManager.cpp \

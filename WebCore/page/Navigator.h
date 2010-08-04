@@ -28,45 +28,16 @@
 
 namespace WebCore {
 
-<<<<<<< HEAD
-    class DOMMimeTypeArray;
-    class DOMPluginArray;
-    class Frame;
-    class Geolocation;
-    class PluginData;
-    class String;
-#if PLATFORM(ANDROID)
-    class ApplicationInstalledCallback;
-    class Connection;
-#endif
-
-    class Navigator : public NavigatorBase, public RefCounted<Navigator> {
-    public:
-        static PassRefPtr<Navigator> create(Frame* frame) { return adoptRef(new Navigator(frame)); }
-        ~Navigator();
-
-        void disconnectFrame();
-        Frame* frame() const { return m_frame; }
-
-        String appVersion() const;
-        String language() const;
-        DOMPluginArray* plugins() const;
-        DOMMimeTypeArray* mimeTypes() const;
-        bool cookieEnabled() const;
-        bool javaEnabled() const;
-
-        virtual String userAgent() const;
-
-        Geolocation* geolocation() const;
-        // This is used for GC marking.
-        Geolocation* optionalGeolocation() const { return m_geolocation.get(); }
-=======
 class DOMMimeTypeArray;
 class DOMPluginArray;
 class Frame;
 class Geolocation;
 class PluginData;
 class String;
+#if PLATFORM(ANDROID)
+class ApplicationInstalledCallback;
+class Connection;
+#endif
 
 class Navigator : public NavigatorBase, public RefCounted<Navigator> {
 public:
@@ -88,15 +59,14 @@ public:
     Geolocation* geolocation() const;
     // This is used for GC marking.
     Geolocation* optionalGeolocation() const { return m_geolocation.get(); }
->>>>>>> webkit.org at r64523
 
 #if PLATFORM(ANDROID)
-        Connection* connection() const;
+    Connection* connection() const;
 #endif
 
 #if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
-        bool isApplicationInstalled(const String& name, PassRefPtr<ApplicationInstalledCallback> callback);
-        void onPackageResult();
+    bool isApplicationInstalled(const String& name, PassRefPtr<ApplicationInstalledCallback> callback);
+    void onPackageResult();
 #endif
 
 #if ENABLE(DOM_STORAGE)
@@ -104,31 +74,21 @@ public:
     void getStorageUpdates();
 #endif
 
-<<<<<<< HEAD
-    private:
-        Navigator(Frame*);
-        Frame* m_frame;
-        mutable RefPtr<DOMPluginArray> m_plugins;
-        mutable RefPtr<DOMMimeTypeArray> m_mimeTypes;
-        mutable RefPtr<Geolocation> m_geolocation;
-#if PLATFORM(ANDROID)
-        mutable RefPtr<Connection> m_connection;
-#endif
-
-#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
-        RefPtr<ApplicationInstalledCallback> m_applicationInstalledCallback;
-        String m_applicationNameQuery;
-#endif
-    };
-=======
 private:
     Navigator(Frame*);
     Frame* m_frame;
     mutable RefPtr<DOMPluginArray> m_plugins;
     mutable RefPtr<DOMMimeTypeArray> m_mimeTypes;
     mutable RefPtr<Geolocation> m_geolocation;
+#if PLATFORM(ANDROID)
+    mutable RefPtr<Connection> m_connection;
+#endif
+
+#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
+    RefPtr<ApplicationInstalledCallback> m_applicationInstalledCallback;
+    String m_applicationNameQuery;
+#endif
 };
->>>>>>> webkit.org at r64523
 
 }
 

@@ -208,14 +208,10 @@ void HTMLFrameSetElement::recalcStyle(StyleChange ch)
 {
     if (needsStyleRecalc() && renderer()) {
         renderer()->setNeedsLayout(true);
-<<<<<<< HEAD
 #ifdef ANDROID_FLATTEN_FRAMESET
         static_cast<RenderFrameSet*>(renderer())->setGridNeedsLayout();
 #endif
-        setNeedsStyleRecalc(NoStyleChange);
-=======
         clearNeedsStyleRecalc();
->>>>>>> webkit.org at r64523
     }
     HTMLElement::recalcStyle(ch);
 }
