@@ -35,6 +35,7 @@
 #include "Chrome.h"
 #include "ChromeClientAndroid.h"
 #include "ContextMenuClientAndroid.h"
+#include "DeviceOrientationClientAndroid.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "DragClientAndroid.h"
@@ -876,15 +877,19 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     // Create a new page
-    ChromeClientAndroid*      chromeC = new ChromeClientAndroid;
-    EditorClientAndroid*      editorC = new EditorClientAndroid;
+    ChromeClientAndroid* chromeC = new ChromeClientAndroid;
+    EditorClientAndroid* editorC = new EditorClientAndroid;
+    DeviceOrientationClientAndroid* deviceOrientationC = new DeviceOrientationClientAndroid;
+
     WebCore::Page::PageClients pageClients;
     pageClients.chromeClient = chromeC;
     pageClients.contextMenuClient = new ContextMenuClientAndroid;
     pageClients.editorClient = editorC;
     pageClients.dragClient = new DragClientAndroid;
     pageClients.inspectorClient = new InspectorClientAndroid;
+    pageClients.deviceOrientationClient = deviceOrientationC;
     WebCore::Page* page = new WebCore::Page(pageClients);
+
     // css files without explicit MIMETYPE is treated as generic text files in
     // the Java side. So we can't enforce CSS MIMETYPE.
     page->settings()->setEnforceCSSMIMETypeInStrictMode(false);
@@ -921,6 +926,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     // Set the frame to active to turn on keyboard focus.
     frame->init();
     frame->selection()->setFocused(true);
+    deviceOrientationC->setWebViewCore(webViewCore);
 
     // Allow local access to file:/// and substitute data
     WebCore::SecurityOrigin::setLocalLoadPolicy(
