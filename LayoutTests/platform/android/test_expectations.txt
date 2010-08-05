@@ -16,11 +16,15 @@
 // IGNORE_RESULT - runs the test and compares the result, but doesn't care if it passes
 // SLOW - marks the test as being slow to run
 
-editing/selection/move-left-right.html SKIP
-fast/js/excessive-comma-usage.html SKIP
-fast/js/regexp-charclass-crash.html SKIP
-fast/regex/test1.html SKIP
-fast/regex/slow.html SKIP
+editing/selection/move-left-right.html SKIP // Causes DumpRenderTree to hang
+fast/dom/DeviceOrientation/basic-operation.html SKIP // Will cause crash until mock DeviceOrientationClient is hooked up.
+fast/js/excessive-comma-usage.html SKIP // Tests huge initializer list, causes OOM.
+fast/js/regexp-charclass-crash.html SKIP // RegExp is too large, causing OOM
+fast/regex/test1.html SKIP // Causes DumpRenderTree to hang with V8
+fast/regex/slow.html SKIP // Causes DumpRenderTree to hang with V8
+ietestcenter/Javascript/15.4.4.15-3-14.html SKIP // hangs the layout tests http://b/issue?id=2889595
+ietestcenter/Javascript/15.4.4.15-3-29.html SKIP // hangs the layout tests http://b/issue?id=2889596
+ietestcenter/Javascript/15.4.4.15-3-8.html SKIP // hangs the layout tests http://b/issue?id=2889598
 
 // This first block of tests are for features for which Android
 // should pass all tests. They are skipped only temporarily.
