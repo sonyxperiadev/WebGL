@@ -1,4 +1,4 @@
 We use a WebKit revision that has been used for a Chromium release.
 
-http://src.chromium.org/svn/releases/6.0.479.0/DEPS
-http://svn.webkit.org/repository/webkit/trunk@64264
+http://src.chromium.org/svn/releases/6.0.484.0/DEPS
+http://svn.webkit.org/repository/webkit/trunk@64523
