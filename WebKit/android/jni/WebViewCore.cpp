@@ -1399,15 +1399,15 @@ Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop)
         LOGE("Should not happen: no in document Node found");
         return rects;
     }
-    const Vector<RefPtr<Node> >& list = hitTestResult.rawNodeList();
+    const ListHashSet<RefPtr<Node> >& list = hitTestResult.rectBasedTestResult();
     if (list.isEmpty()) {
-        LOGE("Should not happen: no raw node found");
+        LOGE("Should not happen: no rect-based-test nodes found");
         return rects;
     }
     Frame* frame = hitTestResult.innerNode()->document()->frame();
     Vector<TouchNodeData> nodeDataList;
-    Vector<RefPtr<Node> >::const_iterator last = list.end();
-    for (Vector<RefPtr<Node> >::const_iterator it = list.begin(); it != last; ++it) {
+    ListHashSet<RefPtr<Node> >::const_iterator last = list.end();
+    for (ListHashSet<RefPtr<Node> >::const_iterator it = list.begin(); it != last; ++it) {
         // TODO: it seems reasonable to not search across the frame. Isn't it?
         // if the node is not in the same frame as the innerNode, skip it
         if (it->get()->document()->frame() != frame)

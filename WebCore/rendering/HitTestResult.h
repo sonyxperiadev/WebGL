@@ -24,14 +24,7 @@
 #include "IntRect.h"
 #include "IntSize.h"
 #include "TextDirection.h"
-<<<<<<< HEAD
-#ifdef ANDROID_HITTEST_WITHSIZE
-#include <IntSize.h>
-#include <wtf/Vector.h>
-#endif
-=======
 #include <wtf/ListHashSet.h>
->>>>>>> webkit.org at r64523
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
@@ -88,20 +81,6 @@ public:
     bool isLiveLink() const;
     bool isContentEditable() const;
 
-<<<<<<< HEAD
-#ifdef ANDROID_HITTEST_WITHSIZE
-    HitTestResult(const IntPoint&, const IntSize&);
-
-    IntSize pointPadding() const { return m_pointPadding; }
-    bool isRegionTest() const { return !m_pointPadding.isEmpty(); }
-    bool intersects(int, int, const IntRect&) const;
-    bool containedBy(int, int, const IntRect&) const;
-
-    void merge(const HitTestResult&);
-    void addRawNode(Node*);
-    const Vector<RefPtr<Node> >& rawNodeList() const { return m_rawNodeList; }
-#endif
-=======
     // Rect-based hit test related methods.
     bool isRectBasedTest() const { return m_isRectBased; }
     IntRect rectFromPoint(int x, int y) const;
@@ -114,7 +93,6 @@ public:
     bool addNodeToRectBasedTestResult(Node*, int x, int y, const IntRect& rect = IntRect());
     const ListHashSet<RefPtr<Node> >& rectBasedTestResult() const { return m_rectBasedTestResult; }
     void append(const HitTestResult&);
->>>>>>> webkit.org at r64523
 
 private:
 
@@ -126,17 +104,9 @@ private:
     RefPtr<Element> m_innerURLElement;
     RefPtr<Scrollbar> m_scrollbar;
     bool m_isOverWidget; // Returns true if we are over a widget (and not in the border/padding area of a RenderWidget for example).
-<<<<<<< HEAD
-
-#ifdef ANDROID_HITTEST_WITHSIZE
-    IntSize m_pointPadding;
-    Vector<RefPtr<Node> > m_rawNodeList;
-#endif
-=======
     bool m_isRectBased;
     IntSize m_padding;
     ListHashSet<RefPtr<Node> > m_rectBasedTestResult;
->>>>>>> webkit.org at r64523
 };
 
 inline IntRect HitTestResult::rectFromPoint(int x, int y) const

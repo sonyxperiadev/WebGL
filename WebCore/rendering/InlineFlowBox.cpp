@@ -611,15 +611,7 @@ bool InlineFlowBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
 {
     IntRect overflowRect(visibleOverflowRect());
     overflowRect.move(tx, ty);
-<<<<<<< HEAD
-#ifdef ANDROID_HITTEST_WITHSIZE
-    if (!result.intersects(x, y, overflowRect))
-#else
-    if (!overflowRect.contains(x, y))
-#endif
-=======
     if (!overflowRect.intersects(result.rectFromPoint(x, y)))
->>>>>>> webkit.org at r64523
         return false;
 
     // Check children first.
@@ -632,28 +624,10 @@ bool InlineFlowBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
 
     // Now check ourselves.
     IntRect rect(tx + m_x, ty + m_y, m_width, height());
-<<<<<<< HEAD
-#ifdef ANDROID_HITTEST_WITHSIZE
-    if (visibleToHitTesting() && result.intersects(x, y, rect)) {
-#else
-    if (visibleToHitTesting() && rect.contains(x, y)) {
-#endif
-        renderer()->updateHitTestResult(result, IntPoint(x - tx, y - ty)); // Don't add in m_x or m_y here, we want coords in the containing block's space.
-#ifdef ANDROID_HITTEST_WITHSIZE
-        if (result.isRegionTest()) {
-            ASSERT(renderer()->node() || renderer()->isAnonymous());
-            result.addRawNode(renderer()->node());
-            if (!result.containedBy(x, y, rect))
-                return false;
-        }
-#endif
-        return true;
-=======
     if (visibleToHitTesting() && rect.intersects(result.rectFromPoint(x, y))) {
         renderer()->updateHitTestResult(result, IntPoint(x - tx, y - ty)); // Don't add in m_x or m_y here, we want coords in the containing block's space.
         if (!result.addNodeToRectBasedTestResult(renderer()->node(), x, y, rect))
             return true;
->>>>>>> webkit.org at r64523
     }
     
     return false;

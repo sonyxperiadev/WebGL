@@ -563,32 +563,11 @@ bool RenderBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result
         }
     }
 
-#ifdef ANDROID_HITTEST_WITHSIZE
-    IntRect boundsRect = IntRect(tx, ty, width(), height());
-    if (visibleToHitTesting() && action == HitTestForeground && result.intersects(xPos, yPos, boundsRect)) {
-#else
-    // Check our bounds next. For this purpose always assume that we can only be hit in the
-    // foreground phase (which is true for replaced elements like images).
-<<<<<<< HEAD
-    if (visibleToHitTesting() && action == HitTestForeground && IntRect(tx, ty, width(), height()).contains(xPos, yPos)) {
-#endif
-        updateHitTestResult(result, IntPoint(xPos - tx, yPos - ty));
-#ifdef ANDROID_HITTEST_WITHSIZE
-        if (result.isRegionTest()) {
-            ASSERT(node() || isAnonymous());
-            result.addRawNode(node());
-            if (!result.containedBy(xPos, yPos, boundsRect))
-                return false;
-        }
-#endif
-        return true;
-=======
     IntRect boundsRect = IntRect(tx, ty, width(), height());
     if (visibleToHitTesting() && action == HitTestForeground && boundsRect.intersects(result.rectFromPoint(xPos, yPos))) {
         updateHitTestResult(result, IntPoint(xPos - tx, yPos - ty));
         if (!result.addNodeToRectBasedTestResult(node(), xPos, yPos, boundsRect))
             return true;
->>>>>>> webkit.org at r64523
     }
 
     return false;

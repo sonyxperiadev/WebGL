@@ -28,13 +28,7 @@
 
 #include "CachedImage.h"
 #include "Document.h"
-<<<<<<< HEAD
-#ifdef ANDROID_HITTEST_WITHSIZE
 #include "HitTestResult.h"
-#endif
-=======
-#include "HitTestResult.h"
->>>>>>> webkit.org at r64523
 #include "HTMLNames.h"
 #include "RenderTableCell.h"
 #include "RenderTableCol.h"
@@ -1293,15 +1287,7 @@ bool RenderTableSection::nodeAtPoint(const HitTestRequest& request, HitTestResul
     tx += x();
     ty += y();
 
-<<<<<<< HEAD
-#ifdef ANDROID_HITTEST_WITHSIZE
-    if (hasOverflowClip() && !result.intersects(xPos, yPos, overflowClipRect(tx, ty)))
-#else
-    if (hasOverflowClip() && !overflowClipRect(tx, ty).contains(xPos, yPos))
-#endif
-=======
     if (hasOverflowClip() && !overflowClipRect(tx, ty).intersects(result.rectFromPoint(xPos, yPos)))
->>>>>>> webkit.org at r64523
         return false;
 
     for (RenderObject* child = lastChild(); child; child = child->previousSibling()) {

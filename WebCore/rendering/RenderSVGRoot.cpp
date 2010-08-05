@@ -26,13 +26,7 @@
 #include "RenderSVGRoot.h"
 
 #include "GraphicsContext.h"
-<<<<<<< HEAD
-#ifdef ANDROID_HITTEST_WITHSIZE
 #include "HitTestResult.h"
-#endif
-=======
-#include "HitTestResult.h"
->>>>>>> webkit.org at r64523
 #include "RenderSVGContainer.h"
 #include "RenderSVGResource.h"
 #include "RenderView.h"
@@ -338,19 +332,16 @@ bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
         if (child->nodeAtFloatPoint(request, result, localPoint, hitTestAction)) {
             // FIXME: CSS/HTML assumes the local point is relative to the border box, right?
             updateHitTestResult(result, pointInBorderBox);
-<<<<<<< HEAD
-#ifdef ANDROID_HITTEST_WITHSIZE
-            // TODO: nodeAtFloatPoint() doesn't handle region test yet.
-            if (result.isRegionTest()) {
-                ASSERT(node() || isAnonymous());
-                result.addRawNode(node());
-            } else
-#endif
-=======
             // FIXME: nodeAtFloatPoint() doesn't handle rect-based hit tests yet.
             result.addNodeToRectBasedTestResult(child->node(), _x, _y);
->>>>>>> webkit.org at r64523
+#ifdef ANDROID_HITTEST_WITHSIZE
+            if (result.isRectBasedTest())
+                ASSERT(node() || isAnonymous());
+            else
+                return true;
+#else
             return true;
+#endif
         }
     }
 

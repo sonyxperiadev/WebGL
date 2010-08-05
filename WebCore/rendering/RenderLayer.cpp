@@ -2761,15 +2761,7 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
         if (parent()) {
             IntRect clipRect = backgroundClipRect(rootLayer, useTemporaryClipRects);
             // Go ahead and test the enclosing clip now.
-<<<<<<< HEAD
-#ifdef ANDROID_HITTEST_WITHSIZE
-            if (!result.intersects(hitTestPoint.x(), hitTestPoint.y(), clipRect))
-#else
-            if (!clipRect.contains(hitTestPoint))
-#endif
-=======
             if (!clipRect.intersects(hitTestArea))
->>>>>>> webkit.org at r64523
                 return 0;
         }
 
@@ -2882,27 +2874,6 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
     }
 
     // Next we want to see if the mouse pos is inside the child RenderObjects of the layer.
-<<<<<<< HEAD
-#ifdef ANDROID_HITTEST_WITHSIZE
-    if (result.intersects(hitTestPoint.x(), hitTestPoint.y(), fgRect) && isSelfPaintingLayer()) {
-#else
-    if (fgRect.contains(hitTestPoint) && isSelfPaintingLayer()) {
-#endif
-        // Hit test with a temporary HitTestResult, because we only want to commit to 'result' if we know we're frontmost.
-#ifdef ANDROID_HITTEST_WITHSIZE
-        HitTestResult tempResult(result.point(), result.pointPadding());
-#else
-        HitTestResult tempResult(result.point());
-#endif
-        if (hitTestContents(request, tempResult, layerBounds, hitTestPoint, HitTestDescendants) &&
-            isHitCandidate(this, false, zOffsetForContentsPtr, unflattenedTransformState.get())) {
-#ifdef ANDROID_HITTEST_WITHSIZE
-            if (result.isRegionTest())
-                result.merge(tempResult);
-            else
-#endif
-            result = tempResult;
-=======
     if (fgRect.intersects(hitTestArea) && isSelfPaintingLayer()) {
         // Hit test with a temporary HitTestResult, because we only want to commit to 'result' if we know we're frontmost.
         HitTestResult tempResult(result.point(), result.padding());
@@ -2912,21 +2883,12 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
                 result.append(tempResult);
             else
                 result = tempResult;
->>>>>>> webkit.org at r64523
             if (!depthSortDescendants)
                 return this;
             // Foreground can depth-sort with descendant layers, so keep this as a candidate.
             candidateLayer = this;
-<<<<<<< HEAD
-        }
-#ifdef ANDROID_HITTEST_WITHSIZE
-        else if (result.isRegionTest())
-            result.merge(tempResult);
-#endif
-=======
         } else if (result.isRectBasedTest())
             result.append(tempResult);
->>>>>>> webkit.org at r64523
     }
 
     // Now check our negative z-index children.
@@ -2942,29 +2904,6 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
     if (candidateLayer)
         return candidateLayer;
 
-<<<<<<< HEAD
-#ifdef ANDROID_HITTEST_WITHSIZE
-    if (result.intersects(hitTestPoint.x(), hitTestPoint.y(), bgRect) && isSelfPaintingLayer()) {
-        HitTestResult tempResult(result.point(), result.pointPadding());
-#else
-    if (bgRect.contains(hitTestPoint) && isSelfPaintingLayer()) {
-        HitTestResult tempResult(result.point());
-#endif
-        if (hitTestContents(request, tempResult, layerBounds, hitTestPoint, HitTestSelf) &&
-            isHitCandidate(this, false, zOffsetForContentsPtr, unflattenedTransformState.get())) {
-#ifdef ANDROID_HITTEST_WITHSIZE
-            if (result.isRegionTest())
-                result.merge(tempResult);
-            else
-#endif
-            result = tempResult;
-            return this;
-        }
-#ifdef ANDROID_HITTEST_WITHSIZE
-        else if (result.isRegionTest())
-            result.merge(tempResult);
-#endif
-=======
     if (bgRect.intersects(hitTestArea) && isSelfPaintingLayer()) {
         HitTestResult tempResult(result.point(), result.padding());
         if (hitTestContents(request, tempResult, layerBounds, hitTestPoint, HitTestSelf) &&
@@ -2976,7 +2915,6 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
             return this;
         } else if (result.isRectBasedTest())
             result.append(tempResult);
->>>>>>> webkit.org at r64523
     }
     
     return 0;
@@ -3024,39 +2962,27 @@ RenderLayer* RenderLayer::hitTestList(Vector<RenderLayer*>* list, RenderLayer* r
     for (int i = list->size() - 1; i >= 0; --i) {
         RenderLayer* childLayer = list->at(i);
         RenderLayer* hitLayer = 0;
-<<<<<<< HEAD
-#ifdef ANDROID_HITTEST_WITHSIZE
-        HitTestResult tempResult(result.point(), result.pointPadding());
-#else
-        HitTestResult tempResult(result.point());
-#endif
-=======
         HitTestResult tempResult(result.point(), result.padding());
->>>>>>> webkit.org at r64523
         if (childLayer->isPaginated())
             hitLayer = hitTestPaginatedChildLayer(childLayer, rootLayer, request, tempResult, hitTestRect, hitTestPoint, transformState, zOffsetForDescendants);
         else
             hitLayer = childLayer->hitTestLayer(rootLayer, this, request, tempResult, hitTestRect, hitTestPoint, false, transformState, zOffsetForDescendants);
-<<<<<<< HEAD
-#ifdef ANDROID_HITTEST_WITHSIZE
-        if (result.isRegionTest())
-            result.merge(tempResult);
-#endif
-=======
 
         // If it a rect-based test, we can safely append the temporary result since it might had hit
         // nodes but not necesserily had hitLayer set.
         if (result.isRectBasedTest())
             result.append(tempResult);
 
->>>>>>> webkit.org at r64523
         if (isHitCandidate(hitLayer, depthSortDescendants, zOffset, unflattenedTransformState)) {
 #ifdef ANDROID_HITTEST_WITHSIZE
-            if (!result.isRegionTest())
-#endif
+            if (!result.isRectBasedTest())
+                resultLayer = hitLayer;
+            result = tempResult;
+#else
             resultLayer = hitLayer;
             if (!result.isRectBasedTest())
                 result = tempResult;
+#endif
             if (!depthSortDescendants)
                 break;
         }

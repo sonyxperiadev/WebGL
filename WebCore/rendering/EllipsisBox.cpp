@@ -113,30 +113,11 @@ bool EllipsisBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
         }
     }
 
-<<<<<<< HEAD
-#ifdef ANDROID_HITTEST_WITHSIZE
-    IntRect boundsRect = IntRect(tx, ty, m_width, m_height);
-    if (visibleToHitTesting() && result.intersects(x, y, boundsRect)) {
-#else
-    if (visibleToHitTesting() && IntRect(tx, ty, m_width, m_height).contains(x, y)) {
-#endif
-        renderer()->updateHitTestResult(result, IntPoint(x - tx, y - ty));
-#ifdef ANDROID_HITTEST_WITHSIZE
-        if (result.isRegionTest()) {
-            ASSERT(renderer()->node() || renderer()->isAnonymous());
-            result.addRawNode(renderer()->node());
-            if (!result.containedBy(x, y, boundsRect))
-                return false;
-        }
-#endif
-        return true;
-=======
     IntRect boundsRect = IntRect(tx, ty, m_width, m_height);
     if (visibleToHitTesting() && boundsRect.intersects(result.rectFromPoint(x, y))) {
         renderer()->updateHitTestResult(result, IntPoint(x - tx, y - ty));
         if (!result.addNodeToRectBasedTestResult(renderer()->node(), x, y, boundsRect))
             return true;
->>>>>>> webkit.org at r64523
     }
 
     return false;
