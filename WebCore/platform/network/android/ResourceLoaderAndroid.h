@@ -37,7 +37,7 @@ class ResourceHandle;
 
 class ResourceLoaderAndroid : public RefCounted<ResourceLoaderAndroid> {
 public:
-    static PassRefPtr<ResourceLoaderAndroid> start(ResourceHandle*, const ResourceRequest&, FrameLoaderClient*, bool isMainResource, bool isSync);
+    static PassRefPtr<ResourceLoaderAndroid> start(ResourceHandle*, const ResourceRequest&, FrameLoaderClient*, bool isMainResource, bool isSync, bool isPrivateBrowsing);
     virtual ~ResourceLoaderAndroid() { }
 
     virtual void cancel() = 0;

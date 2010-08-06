@@ -36,6 +36,7 @@
 #include "ResourceHandleClient.h"
 #include "ResourceHandleInternal.h"
 #include "ResourceLoaderAndroid.h"
+#include "Settings.h"
 #include <wtf/text/CString.h>
 
 namespace WebCore {
@@ -54,8 +55,11 @@ bool ResourceHandle::start(Frame* frame)
     MainResourceLoader* mainLoader = docLoader->mainResourceLoader();
     bool isMainResource =
             static_cast<void*>(mainLoader) == static_cast<void*>(client());
+    bool isPrivateBrowsing = false;
+    if (frame->settings())
+        isPrivateBrowsing = frame->settings()->privateBrowsingEnabled();
 
-    PassRefPtr<ResourceLoaderAndroid> loader = ResourceLoaderAndroid::start(this, d->m_firstRequest, frame->loader()->client(), isMainResource, false);
+    PassRefPtr<ResourceLoaderAndroid> loader = ResourceLoaderAndroid::start(this, d->m_firstRequest, frame->loader()->client(), isMainResource, false, isPrivateBrowsing);
 
     if (loader) {
         d->m_loader = loader;
@@ -157,12 +161,15 @@ void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request,
 {
     SyncLoader s(error, response, data);
     RefPtr<ResourceHandle> h = adoptRef(new ResourceHandle(request, &s, false, false));
+    bool isPrivateBrowsing = false;
+    if (frame->settings())
+        isPrivateBrowsing = frame->settings()->privateBrowsingEnabled();
     // This blocks until the load is finished.
     // Use the request owned by the ResourceHandle. This has had the username
     // and password (if present) stripped from the URL in
     // ResourceHandleInternal::ResourceHandleInternal(). This matches the
     // behaviour in the asynchronous case.
-    ResourceLoaderAndroid::start(h.get(), request, frame->loader()->client(), false, true);
+    ResourceLoaderAndroid::start(h.get(), request, frame->loader()->client(), false, true, isPrivateBrowsing);
 }
 
 } // namespace WebCore

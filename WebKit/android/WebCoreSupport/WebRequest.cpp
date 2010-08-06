@@ -84,13 +84,17 @@ void WebRequest::AppendBytesToUpload(const char* bytes, int bytesLen)
     m_request->AppendBytesToUpload(bytes, bytesLen);
 }
 
-void WebRequest::start()
+void WebRequest::start(bool isPrivateBrowsing)
 {
     // Handle data urls before we send it off to the http stack
     if (m_request->url().SchemeIs("data"))
         return handleDataURL(m_request->url());
 
-    m_request->set_context(WebRequestContext::GetAndroidContext());
+    if (!isPrivateBrowsing)
+        m_request->set_context(WebRequestContext::GetAndroidContext());
+    else
+        m_request->set_context(WebRequestContext::GetAndroidPrivateBrowsingContext());
+
     m_request->Start();
 }
 

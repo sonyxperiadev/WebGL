@@ -40,8 +40,10 @@ class WebRequestContext : public URLRequestContext {
 public:
     virtual const std::string& GetUserAgent(const GURL& url) const;
     static WebRequestContext* GetAndroidContext();
+    static WebRequestContext* GetAndroidPrivateBrowsingContext();
 private:
     static const std::string* GetDataDirectory();
+    static WebRequestContext* GetAndroidContextForPath(const char* cookiePath, const char* cachePath);
     WebRequestContext();
     ~WebRequestContext();
 

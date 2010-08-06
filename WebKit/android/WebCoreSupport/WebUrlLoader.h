@@ -36,7 +36,7 @@ class WebUrlLoaderClient;
 class WebUrlLoader : public ResourceLoaderAndroid {
 public:
     virtual ~WebUrlLoader();
-    static PassRefPtr<WebUrlLoader> start(WebCore::ResourceHandle*, const WebCore::ResourceRequest&, bool sync);
+    static PassRefPtr<WebUrlLoader> start(WebCore::ResourceHandle*, const WebCore::ResourceRequest&, bool sync, bool isPrivateBrowsing);
 
     virtual void cancel();
     virtual void downloadFile() {} // Not implemented yet

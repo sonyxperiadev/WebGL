@@ -77,28 +77,44 @@ const std::string* WebRequestContext::GetDataDirectory()
     return s_dataDirectory;
 }
 
+WebRequestContext* WebRequestContext::GetAndroidContextForPath(const char* cookieFilename, const char* cacheFilename)
+{
+    std::string cookieString(*GetDataDirectory());
+    cookieString.append(cookieFilename);
+    FilePath cookiePath(cookieString.c_str());
+    std::string cacheString(*GetDataDirectory());
+    cacheString.append(cacheFilename);
+    FilePath cachePath(cacheString.c_str());
+
+    scoped_refptr<WebRequestContext> androidContext = new WebRequestContext();
+    androidContext->host_resolver_ = net::CreateSystemHostResolver(0);
+    scoped_refptr<base::MessageLoopProxy> cacheMessageLoopProxy = base::MessageLoopProxy::CreateForCurrentThread();
+    // Todo: check if the context takes ownership of the cache
+    net::HttpCache::DefaultBackend* defaultBackend = new net::HttpCache::DefaultBackend(net::DISK_CACHE, cachePath, 20 * 1024 * 1024, cacheMessageLoopProxy);
+    androidContext->http_transaction_factory_ = new net::HttpCache(androidContext->host_resolver(), net::ProxyService::CreateNull(), net::SSLConfigService::CreateSystemSSLConfigService(), 0, 0, 0, defaultBackend);
+
+    scoped_refptr<SQLitePersistentCookieStore> cookieDb = new SQLitePersistentCookieStore(cookiePath);
+    androidContext->cookie_store_ = new net::CookieMonster(cookieDb.get(), 0);
+
+    return androidContext.release();
+}
+
 WebRequestContext* WebRequestContext::GetAndroidContext()
 {
     static scoped_refptr<WebRequestContext> androidContext(0);
+    if (!androidContext)
+        androidContext = GetAndroidContextForPath("/chromecookies.db", "/chromecache");
+    return androidContext;
+}
+
+WebRequestContext* WebRequestContext::GetAndroidPrivateBrowsingContext()
+{
+    static scoped_refptr<WebRequestContext> androidContext(0);
     if (!androidContext) {
-        std::string cookieString(*GetDataDirectory());
-        cookieString.append("/chromecookies.db");
-        FilePath cookiePath(cookieString.c_str());
-        std::string cacheString(*GetDataDirectory());
-        cacheString.append("/chromecache");
-        FilePath cachePath(cacheString.c_str());
-
-        androidContext = new WebRequestContext();
-        androidContext->host_resolver_ = net::CreateSystemHostResolver(0);
-        scoped_refptr<base::MessageLoopProxy> cacheMessageLoopProxy = base::MessageLoopProxy::CreateForCurrentThread();
-        // Todo: check if the context takes ownership of the cache
-        net::HttpCache::DefaultBackend* defaultBackend = new net::HttpCache::DefaultBackend(net::DISK_CACHE, cachePath, 20 * 1024 * 1024, cacheMessageLoopProxy);
-        androidContext->http_transaction_factory_ = new net::HttpCache(androidContext->host_resolver(), net::ProxyService::CreateNull(), net::SSLConfigService::CreateSystemSSLConfigService(), 0, 0, 0, defaultBackend);
-
-        scoped_refptr<SQLitePersistentCookieStore> cookieDb = new SQLitePersistentCookieStore(cookiePath);
-        androidContext->cookie_store_ = new net::CookieMonster(cookieDb.get(), 0);
+        // TODO: Where is the right place to put the temporary db? Should it be
+        // kept in memory?
+        androidContext = GetAndroidContextForPath("/chromecookies_private.db", "/chromecache_private");
     }
-
     return androidContext;
 }
 

@@ -42,10 +42,10 @@ WebUrlLoader::~WebUrlLoader()
 {
 }
 
-PassRefPtr<WebUrlLoader> WebUrlLoader::start(WebCore::ResourceHandle* resourceHandle, const WebCore::ResourceRequest& resourceRequest, bool isSync)
+PassRefPtr<WebUrlLoader> WebUrlLoader::start(WebCore::ResourceHandle* resourceHandle, const WebCore::ResourceRequest& resourceRequest, bool isSync, bool isPrivateBrowsing)
 {
     RefPtr<WebUrlLoader> loader = WebUrlLoader::create(resourceHandle, resourceRequest);
-    loader->m_loaderClient->start(isSync);
+    loader->m_loaderClient->start(isSync, isPrivateBrowsing);
 
     return loader.release();
 }
@@ -69,9 +69,9 @@ namespace WebCore {
 // static
 // TODO: Implement sync requests
 PassRefPtr<ResourceLoaderAndroid> ResourceLoaderAndroid::start(WebCore::ResourceHandle* resourceHandle, const WebCore::ResourceRequest& resourceRequest,
-        FrameLoaderClient* /*client*/, bool /*isMainResource*/, bool isSync)
+        FrameLoaderClient* /*client*/, bool /*isMainResource*/, bool isSync, bool isPrivateBrowsing)
 {
-    return android::WebUrlLoader::start(resourceHandle, resourceRequest, isSync);
+    return android::WebUrlLoader::start(resourceHandle, resourceRequest, isSync, isPrivateBrowsing);
 }
 
 // static

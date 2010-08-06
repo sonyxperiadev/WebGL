@@ -45,7 +45,7 @@ public:
     // Optional, but if used has to be called before start
     void AppendBytesToUpload(const char* bytes, int bytesLen);
 
-    void start();
+    void start(bool isPrivateBrowsing);
     void cancel();
 
     // From URLRequest::Delegate

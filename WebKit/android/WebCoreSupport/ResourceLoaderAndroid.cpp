@@ -36,7 +36,7 @@ using namespace android;
 namespace WebCore {
 
 PassRefPtr<ResourceLoaderAndroid> ResourceLoaderAndroid::start(
-        ResourceHandle* handle, const ResourceRequest& request, FrameLoaderClient* client, bool isMainResource, bool isSync)
+        ResourceHandle* handle, const ResourceRequest& request, FrameLoaderClient* client, bool isMainResource, bool isSync, bool /*isPrivateBrowsing*/)
 {
     FrameLoaderClientAndroid* clientAndroid = static_cast<FrameLoaderClientAndroid*> (client);
     return clientAndroid->webFrame()->startLoadingResource(handle, request, isMainResource, isSync);

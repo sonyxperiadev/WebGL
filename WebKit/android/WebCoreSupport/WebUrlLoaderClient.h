@@ -63,7 +63,7 @@ public:
     ~WebUrlLoaderClient();
 
     // Called from WebCore, will be forwarded to the IO thread
-    bool start(bool sync);
+    bool start(bool sync, bool isPrivateBrowsing);
     void cancel();
     void downloadFile();
     void pauseLoad(bool pause) {} // Android method, does nothing for now
