@@ -23,51 +23,42 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebRequest_h
-#define WebRequest_h
+#ifndef WebResponse_h
+#define WebResponse_h
 
-#include "WebUrlLoaderClient.h"
+#include "KURL.h"
 
-#include <net/base/io_buffer.h>
+#include <map>
 #include <net/url_request/url_request.h>
-
-class MessageLoop;
+#include <string>
 
 namespace WebCore {
-class ResourceRequest;
+class ResourceResponse;
 }
 
 namespace android {
 
-// All methods in this class must be called on the io thread
-class WebRequest : public URLRequest::Delegate, public base::RefCountedThreadSafe<WebRequest> {
-public:
-    WebRequest(WebUrlLoaderClient*, WebCore::ResourceRequest&);
-    void start();
-    void cancel();
+class WebResponse {
 
-    // From URLRequest::Delegate
-    virtual void OnReceivedRedirect(URLRequest*, const GURL&, bool* deferRedirect);
-    virtual void OnResponseStarted(URLRequest*);
-    virtual void OnReadCompleted(URLRequest*, int bytesRead);
-    virtual void OnAuthRequired(URLRequest*, net::AuthChallengeInfo*);
+public:
+    WebResponse() {}
+    WebResponse(URLRequest*);
+    WebResponse(const std::string &url, const std::string &mimeType, const long long length, const std::string &encoding, const int httpStatusCode);
+    WebCore::KURL url();
+    void setUrl(std::string);
+
+    // Only use on the WebCore thread!
+    WebCore::ResourceResponse createResourceResponse();
 
 private:
-    void startReading();
-    bool read(int* bytesRead);
+    std::string m_encoding;
+    int m_httpStatusCode;
+    std::string m_httpStatusText;
+    long long m_length;
+    std::string m_mime;
+    std::string m_url;
 
-    friend class base::RefCountedThreadSafe<WebRequest>;
-    virtual ~WebRequest();
-    void handleDataURL(GURL);
-    void setUploadData(URLRequest*);
-    void finish(bool success);
-
-    // Not owned
-    WebUrlLoaderClient* m_urlLoader;
-
-    WebCore::ResourceRequest m_resourceRequest;
-    OwnPtr<URLRequest> m_request;
-    scoped_refptr<net::IOBuffer> m_networkBuffer;
+    std::map<std::string, std::string> m_headerFields;
 };
 
 } // namespace android

@@ -27,9 +27,10 @@
 #define WebUrlLoaderClient_h
 
 #include "RefCounted.h"
+#include "WebResponse.h"
 #include "WebUrlLoader.h"
 
-#include "base/ref_counted.h"
+#include <base/ref_counted.h>
 #include <string>
 
 namespace base {
@@ -47,7 +48,6 @@ class WebRequest;
 // This class handles communication between the IO thread where loading happens
 // and the webkit main thread.
 // TODO:
-// - Corner case where this gets deleted before UrlRequestAndroid
 // - Implement didFail
 // - Implement sync requests
 // - Implement downloadFile
@@ -89,25 +89,25 @@ private:
 
 // A struct to send more than one thing in a void*, needed for callOnMainThread
 struct LoaderData {
-    net::IOBuffer* m_buffer;
-    WebUrlLoaderClient* m_loader;
-    OwnPtr<WebCore::ResourceResponse*> m_resourceResponse;
-    const int m_size;
-    OwnPtr<std::string*> m_string;
+    net::IOBuffer* buffer;
+    WebUrlLoaderClient* loader;
+    WebResponse webResponse;
+    const int size;
+    OwnPtr<std::string*> string;
 
-    LoaderData(WebUrlLoaderClient* l) : m_buffer(0), m_loader(l), m_resourceResponse(0), m_size(0), m_string(0)
+    LoaderData(WebUrlLoaderClient* l) : buffer(0), loader(l), size(0)
     {
     }
 
-    LoaderData(WebUrlLoaderClient* l, std::string* s) : m_buffer(0), m_loader(l), m_resourceResponse(0), m_size(0), m_string(s)
+    LoaderData(WebUrlLoaderClient* l, std::string* s) : buffer(0), loader(l), size(0), string(s)
     {
     }
 
-    LoaderData(WebUrlLoaderClient* l, WebCore::ResourceResponse* r) : m_buffer(0), m_loader(l), m_resourceResponse(r), m_size(0), m_string(0)
+    LoaderData(WebUrlLoaderClient* l, WebResponse r) : buffer(0), loader(l), webResponse(r), size(0)
     {
     }
 
-    LoaderData(WebUrlLoaderClient* l, net::IOBuffer* b, const int s) : m_buffer(b), m_loader(l), m_resourceResponse(0), m_size(s), m_string(0)
+    LoaderData(WebUrlLoaderClient* l, net::IOBuffer* b, const int s) : buffer(b), loader(l), size(s)
     {
     }
 

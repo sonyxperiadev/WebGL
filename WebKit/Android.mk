@@ -33,7 +33,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	android/WebCoreSupport/WebUrlLoader.cpp \
 	android/WebCoreSupport/WebUrlLoaderClient.cpp \
 	android/WebCoreSupport/WebRequest.cpp \
-	android/WebCoreSupport/WebRequestContext.cpp
+	android/WebCoreSupport/WebRequestContext.cpp \
+	android/WebCoreSupport/WebResponse.cpp
 else
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	android/WebCoreSupport/ResourceLoaderAndroid.cpp

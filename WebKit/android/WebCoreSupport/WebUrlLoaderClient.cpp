@@ -24,7 +24,6 @@
  */
 
 #include "config.h"
-
 #include "WebUrlLoaderClient.h"
 
 #include "OwnPtr.h"
@@ -33,15 +32,15 @@
 #include "ResourceResponse.h"
 #include "WebRequest.h"
 
-#include "base/thread.h"
-#include "net/base/io_buffer.h"
+#include <base/thread.h>
+#include <net/base/io_buffer.h>
 
 namespace android {
 
 LoaderData::~LoaderData()
 {
-    if (m_buffer)
-        m_buffer->Release();
+    if (buffer)
+        buffer->Release();
 }
 
 base::Thread* WebUrlLoaderClient::ioThread()
@@ -123,27 +122,28 @@ void WebUrlLoaderClient::finish()
 void WebUrlLoaderClient::didReceiveResponse(void* data)
 {
     OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
-    const WebUrlLoaderClient* loader = loaderData->m_loader;
-    ResourceResponse* resourceResponse = loaderData->m_resourceResponse.get();
+    const WebUrlLoaderClient* loader = loaderData->loader;
+    WebResponse webResponse = loaderData->webResponse;
 
     if (!loader->isActive())
         return;
 
-    loader->m_resourceHandle->client()->didReceiveResponse(loader->m_resourceHandle.get(), *resourceResponse);
+    loader->m_resourceHandle->client()->didReceiveResponse(loader->m_resourceHandle.get(), webResponse.createResourceResponse());
 }
 
 // static - on main thread
 void WebUrlLoaderClient::didReceiveData(void* data)
 {
     OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
-    const WebUrlLoaderClient* loader = loaderData->m_loader;
-    net::IOBuffer* buf = loaderData->m_buffer;
+    const WebUrlLoaderClient* loader = loaderData->loader;
+    net::IOBuffer* buf = loaderData->buffer;
 
     if (!loader->isActive())
         return;
 
+    // didReceiveData will take a copy of the data
     if (loader->m_resourceHandle && loader->m_resourceHandle->client())
-        loader->m_resourceHandle->client()->didReceiveData(loader->m_resourceHandle.get(), buf->data(), loaderData->m_size, loaderData->m_size);
+        loader->m_resourceHandle->client()->didReceiveData(loader->m_resourceHandle.get(), buf->data(), loaderData->size, loaderData->size);
 }
 
 // static - on main thread
@@ -151,12 +151,13 @@ void WebUrlLoaderClient::didReceiveData(void* data)
 void WebUrlLoaderClient::didReceiveDataUrl(void* data)
 {
     OwnPtr<LoaderData> ld(static_cast<LoaderData*>(data));
-    const WebUrlLoaderClient* loader = ld->m_loader;
+    const WebUrlLoaderClient* loader = ld->loader;
 
     if (!loader->isActive())
         return;
 
-    std::string* str = ld->m_string.get();
+    std::string* str = ld->string.get();
+    // didReceiveData will take a copy of the data
     loader->m_resourceHandle->client()->didReceiveData(loader->m_resourceHandle.get(), str->data(), str->size(), str->size());
 }
 
@@ -169,21 +170,21 @@ void WebUrlLoaderClient::didFail(void* data)
 void WebUrlLoaderClient::willSendRequest(void* data)
 {
     OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
-    const WebUrlLoaderClient* loader = loaderData->m_loader;
+    const WebUrlLoaderClient* loader = loaderData->loader;
 
     if (!loader->isActive())
         return;
 
-    WebCore::ResourceResponse* resourceResponse = loaderData->m_resourceResponse.get();
-    OwnPtr<WebCore::ResourceRequest> resourceRequest(new WebCore::ResourceRequest(resourceResponse->url()));
-    loader->m_resourceHandle->client()->willSendRequest(loader->m_resourceHandle.get(), *resourceRequest, *resourceResponse);
+    WebResponse webResponse = loaderData->webResponse;
+    OwnPtr<WebCore::ResourceRequest> resourceRequest(new WebCore::ResourceRequest(webResponse.url()));
+    loader->m_resourceHandle->client()->willSendRequest(loader->m_resourceHandle.get(), *resourceRequest, webResponse.createResourceResponse());
 }
 
 // static - on main thread
 void WebUrlLoaderClient::didFinishLoading(void* data)
 {
     OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
-    WebUrlLoaderClient* loader = loaderData->m_loader;
+    WebUrlLoaderClient* loader = loaderData->loader;
 
     if (loader->isActive())
         loader->m_resourceHandle->client()->didFinishLoading(loader->m_resourceHandle.get());
