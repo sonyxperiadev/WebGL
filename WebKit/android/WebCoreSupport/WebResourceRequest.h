@@ -23,53 +23,51 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef WebRequest_h
-#define WebRequest_h
+#ifndef WebResourceRequest_h
+#define WebResourceRequest_h
 
-#include "WebUrlLoaderClient.h"
+#include <net/http/http_request_headers.h>
+#include <string>
 
-#include <net/base/io_buffer.h>
-#include <net/url_request/url_request.h>
-
-class MessageLoop;
+namespace WebCore {
+class ResourceRequest;
+}
 
 namespace android {
 
-class WebResourceRequest;
+class WebResourceRequest {
 
-// All methods in this class must be called on the io thread
-class WebRequest : public URLRequest::Delegate, public base::RefCountedThreadSafe<WebRequest> {
 public:
-    WebRequest(WebUrlLoaderClient*, WebResourceRequest);
+    WebResourceRequest(WebCore::ResourceRequest&);
 
-    // Optional, but if used has to be called before start
-    void AppendBytesToUpload(const char* bytes, int bytesLen);
+    const std::string& method()
+    {
+        return m_method;
+    }
 
-    void start();
-    void cancel();
+    const std::string& referrer()
+    {
+        return m_referrer;
+    }
 
-    // From URLRequest::Delegate
-    virtual void OnReceivedRedirect(URLRequest*, const GURL&, bool* deferRedirect);
-    virtual void OnResponseStarted(URLRequest*);
-    virtual void OnReadCompleted(URLRequest*, int bytesRead);
-    virtual void OnAuthRequired(URLRequest*, net::AuthChallengeInfo*);
+    const net::HttpRequestHeaders& requestHeaders()
+    {
+        return m_requestHeaders;
+    }
+
+    const std::string& url()
+    {
+        return m_url;
+    }
 
 private:
-    void startReading();
-    bool read(int* bytesRead);
-
-    friend class base::RefCountedThreadSafe<WebRequest>;
-    virtual ~WebRequest();
-    void handleDataURL(GURL);
-    void finish(bool success);
-
-    // Not owned
-    WebUrlLoaderClient* m_urlLoader;
-
-    OwnPtr<URLRequest> m_request;
-    scoped_refptr<net::IOBuffer> m_networkBuffer;
+    std::string m_method;
+    std::string m_referrer;
+    net::HttpRequestHeaders m_requestHeaders;
+    std::string m_url;
 };
 
 } // namespace android
+
 
 #endif

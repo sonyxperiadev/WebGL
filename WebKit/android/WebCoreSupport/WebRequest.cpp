@@ -27,14 +27,11 @@
 #include "WebRequest.h"
 
 #include "MainThread.h"
-#include "ResourceRequest.h"
 #include "WebRequestContext.h"
-#include "text/CString.h"
+#include "WebResourceRequest.h"
 
-#include <base/string_util.h>
 #include <net/base/data_url.h>
 #include <net/base/io_buffer.h>
-#include <net/http/http_request_headers.h>
 #include <net/http/http_response_headers.h>
 #include <net/url_request/url_request.h>
 #include <string>
@@ -52,9 +49,14 @@ namespace {
     const int kInitialReadBufSize = 32768;
 }
 
-WebRequest::WebRequest(WebUrlLoaderClient* loader, WebCore::ResourceRequest& resourceRequest)
-        : m_urlLoader(loader), m_resourceRequest(resourceRequest), m_request(0)
+WebRequest::WebRequest(WebUrlLoaderClient* loader, WebResourceRequest webResourceRequest) : m_urlLoader(loader), m_request(0)
 {
+    GURL gurl(webResourceRequest.url());
+    m_request = new URLRequest(gurl, this);
+
+    m_request->SetExtraRequestHeaders(webResourceRequest.requestHeaders());
+    m_request->set_referrer(webResourceRequest.referrer());
+    m_request->set_method(webResourceRequest.method());
 }
 
 WebRequest::~WebRequest()
@@ -69,87 +71,19 @@ void WebRequest::finish(bool /*success*/)
     m_request = 0;
 }
 
-void WebRequest::start()
+void WebRequest::AppendBytesToUpload(const char* bytes, int bytesLen)
 {
-    GURL gurl(m_resourceRequest.url().string().utf8().data());
-
-    // Handle data urls before we send it off to the http stack
-    if (gurl.SchemeIs("data"))
-        return handleDataURL(gurl);
-
-    m_request = new URLRequest(gurl, this);
-
-    // Have to set uploads before start is called on the request
-    if (m_resourceRequest.httpBody())
-        setUploadData(m_request.get());
-
-    // Set the request headers
-    net::HttpRequestHeaders requestHeaders;
-    const HTTPHeaderMap& map = m_resourceRequest.httpHeaderFields();
-    for (HTTPHeaderMap::const_iterator it = map.begin(); it != map.end(); ++it) {
-        const std::string& nameUtf8 = it->first.string().utf8().data();
-
-        // Skip over referrer headers found in the header map because we already
-        // pulled it out as a separate parameter.  We likewise prune the UA since
-        // that will be added back by the network layer.
-        if (LowerCaseEqualsASCII(nameUtf8, "referer") || LowerCaseEqualsASCII(nameUtf8, "user-agent"))
-            continue;
-
-        // The next comment does not match what is happening in code since the load flags are not implemented
-        // (http://b/issue?id=2889880)
-        // TODO: Check this is correct when load flags are implemented and working.
-
-        // Skip over "Cache-Control: max-age=0" header if the corresponding
-        // load flag is already specified. FrameLoader sets both the flag and
-        // the extra header -- the extra header is redundant since our network
-        // implementation will add the necessary headers based on load flags.
-        // See http://code.google.com/p/chromium/issues/detail?id=3434.
-        const std::string& valueUtf8 = it->second.utf8().data();
-        if (LowerCaseEqualsASCII(nameUtf8, "cache-control") && LowerCaseEqualsASCII(valueUtf8, "max-age=0"))
-            continue;
-
-        requestHeaders.SetHeader(nameUtf8, valueUtf8);
-    }
-    m_request->SetExtraRequestHeaders(requestHeaders);
-
-    m_request->set_referrer(m_resourceRequest.httpReferrer().utf8().data());
-    m_request->set_method(m_resourceRequest.httpMethod().utf8().data());
-    m_request->set_context(WebRequestContext::GetAndroidContext());
-
-    m_request->Start();
+    m_request->AppendBytesToUpload(bytes, bytesLen);
 }
 
-void WebRequest::setUploadData(URLRequest* request)
+void WebRequest::start()
 {
-    const std::string& method = m_resourceRequest.httpMethod().utf8().data();
-    if (method == "GET" || method == "HEAD")
-        return;
+    // Handle data urls before we send it off to the http stack
+    if (m_request->url().SchemeIs("data"))
+        return handleDataURL(m_request->url());
 
-    Vector<FormDataElement>::iterator iter;
-    Vector<FormDataElement> elements = m_resourceRequest.httpBody()->elements();
-    for (iter = elements.begin(); iter != elements.end(); iter++) {
-        FormDataElement element = *iter;
-        switch (element.m_type) {
-        case FormDataElement::data:
-            if (!element.m_data.isEmpty()) {
-                // WebKit sometimes gives up empty data to append. These aren't
-                // necessary so we just optimize those out here.
-                int size  = static_cast<int>(element.m_data.size());
-                request->AppendBytesToUpload(element.m_data.data(), size);
-            }
-            break;
-        case FormDataElement::encodedFile:
-            if (element.m_fileLength == -1)
-                continue; // TODO: Not supporting directories yet
-            else {
-                // TODO: Add fileuploads after Google log-in is fixed.
-                // Chrome code is here: webkit/glue/weburlloader_impl.cc:391
-            }
-            break;
-        // default:
-        // TODO: should add the default back in with a warning
-        }
-    }
+    m_request->set_context(WebRequestContext::GetAndroidContext());
+    m_request->Start();
 }
 
 void WebRequest::cancel()

@@ -31,6 +31,7 @@
 #include "ResourceHandleClient.h"
 #include "ResourceResponse.h"
 #include "WebRequest.h"
+#include "WebResourceRequest.h"
 
 #include <base/thread.h>
 #include <net/base/io_buffer.h>
@@ -86,8 +87,44 @@ bool WebUrlLoaderClient::isActive() const
 WebUrlLoaderClient::WebUrlLoaderClient(WebCore::ResourceHandle* resourceHandle, const WebCore::ResourceRequest& resourceRequest)
         : m_resourceHandle(resourceHandle), m_resourceRequest(resourceRequest), m_cancelling(false)
 {
-    m_request = new WebRequest(this, m_resourceRequest);
+    WebResourceRequest webResourceRequest(m_resourceRequest);
+
+    m_request = new WebRequest(this, webResourceRequest);
     m_request->AddRef(); // Matched by ReleaseSoon in destructor
+    base::Thread* thread = ioThread();
+
+    // Set uploads before start is called on the request
+    if (m_resourceRequest.httpBody() && !(webResourceRequest.method() == "GET" || webResourceRequest.method() == "HEAD")) {
+        Vector<FormDataElement>::iterator iter;
+        Vector<FormDataElement> elements = m_resourceRequest.httpBody()->elements();
+        for (iter = elements.begin(); iter != elements.end(); iter++) {
+            FormDataElement element = *iter;
+            switch (element.m_type) {
+            case FormDataElement::data:
+                if (!element.m_data.isEmpty()) {
+                    // WebKit sometimes gives up empty data to append. These aren't
+                    // necessary so we just optimize those out here.
+                    int size  = static_cast<int>(element.m_data.size());
+                    // TODO: do we have to make a copy of this data?
+                    base::Thread* thread = ioThread();
+                    if (thread)
+                        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::AppendBytesToUpload, element.m_data.data(), size));
+                }
+                break;
+            case FormDataElement::encodedFile:
+                if (element.m_fileLength == -1)
+                    continue; // TODO: Not supporting directories yet
+                else {
+                    // TODO: Add fileuploads after Google log-in is fixed.
+                    // Chrome code is here: webkit/glue/weburlloader_impl.cc:391
+                }
+                break;
+            default:
+                // TODO: Add a warning/DCHECK/assert here, should never happen
+                break;
+            }
+        }
+    }
 }
 
 bool WebUrlLoaderClient::start(bool /*sync*/)
