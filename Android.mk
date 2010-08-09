@@ -315,13 +315,6 @@ LOCAL_SHARED_LIBRARIES := \
 	libmedia \
 	libsurfaceflinger_client
 
-ifeq ($(HTTP_STACK),chrome)
-LOCAL_SHARED_LIBRARIES := $(LOCAL_SHARED_LIBRARIES) \
-	libssl \
-	libcrypto \
-	libchromium_net
-endif # HTTP_STACK == chrome
-
 ifeq ($(WEBCORE_INSTRUMENTATION),true)
 LOCAL_SHARED_LIBRARIES += libhardware_legacy
 endif
@@ -346,6 +339,11 @@ LOCAL_STATIC_LIBRARIES := libxml2 libxslt libhyphenation
 ifeq ($(JAVASCRIPT_ENGINE),v8)
 LOCAL_STATIC_LIBRARIES += libv8
 endif
+
+ifeq ($(HTTP_STACK),chrome)
+LOCAL_STATIC_LIBRARIES += libchromium_net
+LOCAL_SHARED_LIBRARIES += libcrypto libssl libz
+endif # HTTP_STACK == chrome
 
 # Redefine LOCAL_SRC_FILES to be all the WebKit source files
 LOCAL_SRC_FILES := $(WEBKIT_SRC_FILES)
@@ -393,6 +391,10 @@ endif  # JAVASCRIPT_ENGINE == jsc
 # will strip out any unused code from the entry point.
 include $(CLEAR_VARS)
 # if you need to make webcore huge (for debugging), enable this line
+ifeq ($(HTTP_STACK),chrome)
+# Too large for the space with chromium linked in
+LOCAL_PRELINK_MODULE := false
+endif
 #LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE := libwebcore
 LOCAL_LDLIBS := $(WEBKIT_LDLIBS)
