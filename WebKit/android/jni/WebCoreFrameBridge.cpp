@@ -35,6 +35,7 @@
 #include "Chrome.h"
 #include "ChromeClientAndroid.h"
 #include "ContextMenuClientAndroid.h"
+#include "DeviceMotionClientAndroid.h"
 #include "DeviceOrientationClientAndroid.h"
 #include "Document.h"
 #include "DocumentLoader.h"
@@ -879,6 +880,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     // Create a new page
     ChromeClientAndroid* chromeC = new ChromeClientAndroid;
     EditorClientAndroid* editorC = new EditorClientAndroid;
+    DeviceMotionClientAndroid* deviceMotionC = new DeviceMotionClientAndroid;
     DeviceOrientationClientAndroid* deviceOrientationC = new DeviceOrientationClientAndroid;
 
     WebCore::Page::PageClients pageClients;
@@ -887,6 +889,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     pageClients.editorClient = editorC;
     pageClients.dragClient = new DragClientAndroid;
     pageClients.inspectorClient = new InspectorClientAndroid;
+    pageClients.deviceMotionClient = deviceMotionC;
     pageClients.deviceOrientationClient = deviceOrientationC;
     WebCore::Page* page = new WebCore::Page(pageClients);
 
@@ -926,6 +929,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     // Set the frame to active to turn on keyboard focus.
     frame->init();
     frame->selection()->setFocused(true);
+    deviceMotionC->setWebViewCore(webViewCore);
     deviceOrientationC->setWebViewCore(webViewCore);
 
     // Allow local access to file:/// and substitute data
