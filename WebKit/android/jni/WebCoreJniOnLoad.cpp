@@ -31,6 +31,7 @@
 #include "ChromeClientAndroid.h"
 #include "ContextMenuClientAndroid.h"
 #include "CookieClient.h"
+#include "DeviceOrientationClientAndroid.h"
 #include "DragClientAndroid.h"
 #include "EditorClientAndroid.h"
 #include "Frame.h"
@@ -190,12 +191,14 @@ EXPORT void benchmark(const char* url, int reloadCount, int width, int height) {
     // Create the page with all the various clients
     ChromeClientAndroid* chrome = new ChromeClientAndroid;
     EditorClientAndroid* editor = new EditorClientAndroid;
+    DeviceOrientationClientAndroid* deviceOrientation = new DeviceOrientationClientAndroid;
     WebCore::Page::PageClients pageClients;
     pageClients.chromeClient = chrome;
     pageClients.contextMenuClient = new ContextMenuClientAndroid;
     pageClients.editorClient = editor;
     pageClients.dragClient = new DragClientAndroid;
     pageClients.inspectorClient = new InspectorClientAndroid;
+    pageClients.deviceOrientationClient = deviceOrientation;
     WebCore::Page* page = new WebCore::Page(pageClients);
     editor->setPage(page);
 
@@ -227,6 +230,8 @@ EXPORT void benchmark(const char* url, int reloadCount, int width, int height) {
     // assertion in the Cache code)
     frame->init();
     frame->selection()->setFocused(true);
+
+    deviceOrientation->setWebViewCore(webViewCore);
 
     // Set all the default settings the Browser normally uses.
     Settings* s = frame->settings();
