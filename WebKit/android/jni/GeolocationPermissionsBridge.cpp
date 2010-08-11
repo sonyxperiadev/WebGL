@@ -59,19 +59,19 @@ static jobject getOrigins(JNIEnv* env, jobject obj)
 
 static bool getAllowed(JNIEnv* env, jobject obj, jstring origin)
 {
-    WebCore::String originString = to_string(env, origin);
+    WTF::String originString = to_string(env, origin);
     return GeolocationPermissions::getAllowed(originString);
 }
 
 static void clear(JNIEnv* env, jobject obj, jstring origin)
 {
-    WebCore::String originString = to_string(env, origin);
+    WTF::String originString = to_string(env, origin);
     GeolocationPermissions::clear(originString);
 }
 
 static void allow(JNIEnv* env, jobject obj, jstring origin)
 {
-    WebCore::String originString = to_string(env, origin);
+    WTF::String originString = to_string(env, origin);
     GeolocationPermissions::allow(originString);
 }
 

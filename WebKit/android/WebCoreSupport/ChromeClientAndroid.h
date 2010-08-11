@@ -153,7 +153,7 @@ namespace android {
 
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
         virtual void setCursor(const Cursor&);
-        virtual void chooseIconForFiles(const WTF::Vector<WebCore::String>&, FileChooser*);
+        virtual void chooseIconForFiles(const WTF::Vector<WTF::String>&, FileChooser*);
 
         // Notification that the given form element has changed. This function
         // will be called frequently, so handling should be very fast.

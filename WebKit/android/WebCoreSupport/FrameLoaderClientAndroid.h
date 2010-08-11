@@ -30,6 +30,7 @@
 #include "FrameLoaderClient.h"
 #include "ResourceResponse.h"
 #include "WebIconDatabase.h"
+#include <wtf/Forward.h>
 
 namespace WebCore {
 class PluginManualLoader;

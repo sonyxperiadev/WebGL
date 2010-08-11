@@ -1070,7 +1070,7 @@ bool CachedRoot::innerUp(const CachedNode* test, BestData* bestData) const
     return true;
 }
 
-WebCore::String CachedRoot::imageURI(int x, int y) const
+WTF::String CachedRoot::imageURI(int x, int y) const
 {
     ImageCheck imageCheck;
     ImageCanvas checker(&imageCheck);
@@ -1079,7 +1079,7 @@ WebCore::String CachedRoot::imageURI(int x, int y) const
     checker.setBitmapDevice(bitmap);
     checker.translate(SkIntToScalar(-x), SkIntToScalar(-y));
     checker.drawPicture(*pictureAt(x, y));
-    return WebCore::String(checker.mURI);
+    return WTF::String(checker.mURI);
 }
 
 bool CachedRoot::maskIfHidden(BestData* best) const

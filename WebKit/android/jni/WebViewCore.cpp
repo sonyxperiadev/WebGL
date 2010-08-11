@@ -1238,19 +1238,19 @@ WebCore::HTMLAnchorElement* WebViewCore::retrieveAnchorElement(WebCore::Frame* f
     return static_cast<WebCore::HTMLAnchorElement*>(node);
 }
 
-WebCore::String WebViewCore::retrieveHref(WebCore::Frame* frame, WebCore::Node* node)
+WTF::String WebViewCore::retrieveHref(WebCore::Frame* frame, WebCore::Node* node)
 {
     WebCore::HTMLAnchorElement* anchor = retrieveAnchorElement(frame, node);
-    return anchor ? anchor->href() : WebCore::String();
+    return anchor ? anchor->href() : WTF::String();
 }
 
-WebCore::String WebViewCore::retrieveAnchorText(WebCore::Frame* frame, WebCore::Node* node)
+WTF::String WebViewCore::retrieveAnchorText(WebCore::Frame* frame, WebCore::Node* node)
 {
     WebCore::HTMLAnchorElement* anchor = retrieveAnchorElement(frame, node);
-    return anchor ? anchor->text() : WebCore::String();
+    return anchor ? anchor->text() : WTF::String();
 }
 
-WebCore::String WebViewCore::requestLabel(WebCore::Frame* frame,
+WTF::String WebViewCore::requestLabel(WebCore::Frame* frame,
         WebCore::Node* node)
 {
     if (node && CacheBuilder::validNode(m_mainFrame, frame, node)) {
@@ -1272,7 +1272,7 @@ WebCore::String WebViewCore::requestLabel(WebCore::Frame* frame,
             }
         }
     }
-    return WebCore::String();
+    return WTF::String();
 }
 
 void WebViewCore::updateCacheOnNodeChange()
@@ -1916,7 +1916,7 @@ void WebViewCore::deleteSelection(int start, int end, int textGeneration)
 }
 
 void WebViewCore::replaceTextfieldText(int oldStart,
-        int oldEnd, const WebCore::String& replace, int start, int end,
+        int oldEnd, const WTF::String& replace, int start, int end,
         int textGeneration)
 {
     WebCore::Node* focus = currentFocus();
@@ -1935,7 +1935,7 @@ void WebViewCore::replaceTextfieldText(int oldStart,
     m_textGeneration = textGeneration;
 }
 
-void WebViewCore::passToJs(int generation, const WebCore::String& current,
+void WebViewCore::passToJs(int generation, const WTF::String& current,
     const PlatformKeyboardEvent& event)
 {
     WebCore::Node* focus = currentFocus();
@@ -1964,7 +1964,7 @@ void WebViewCore::passToJs(int generation, const WebCore::String& current,
     setFocusControllerActive(focus->document()->frame(), true);
     WebCore::RenderTextControl* renderText =
         static_cast<WebCore::RenderTextControl*>(renderer);
-    WebCore::String test = renderText->text();
+    WTF::String test = renderText->text();
     if (test == current) {
         DBG_NAV_LOG("test == current");
         return;
@@ -2025,9 +2025,9 @@ void WebViewCore::saveDocumentState(WebCore::Frame* frame)
     }
 }
 
-// Convert a WebCore::String into an array of characters where the first
+// Convert a WTF::String into an array of characters where the first
 // character represents the length, for easy conversion to java.
-static uint16_t* stringConverter(const WebCore::String& text)
+static uint16_t* stringConverter(const WTF::String& text)
 {
     size_t length = text.length();
     uint16_t* itemName = new uint16_t[length+1];
@@ -2138,7 +2138,7 @@ void WebViewCore::openFileChooser(PassRefPtr<WebCore::FileChooser> chooser) {
         return;
     JNIEnv* env = JSC::Bindings::getJNIEnv();
 
-    WebCore::String acceptType = chooser->acceptTypes();
+    WTF::String acceptType = chooser->acceptTypes();
     jstring jAcceptType = env->NewString(const_cast<unsigned short*>(acceptType.characters()), acceptType.length());
     jstring jName = (jstring) env->CallObjectMethod(
             m_javaGlue->object(env).get(), m_javaGlue->m_openFileChooser, jAcceptType);
@@ -2150,7 +2150,7 @@ void WebViewCore::openFileChooser(PassRefPtr<WebCore::FileChooser> chooser) {
     if (!string)
         return;
 
-    WebCore::String webcoreString = to_string(env, jName);
+    WTF::String webcoreString = to_string(env, jName);
     env->ReleaseStringChars(jName, string);
 
     if (webcoreString.length())
@@ -2531,7 +2531,7 @@ void WebViewCore::popupReply(const int* array, int count)
     }
 }
 
-void WebViewCore::addMessageToConsole(const WebCore::String& message, unsigned int lineNumber, const WebCore::String& sourceID, int msgLevel) {
+void WebViewCore::addMessageToConsole(const WTF::String& message, unsigned int lineNumber, const WTF::String& sourceID, int msgLevel) {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring jMessageStr = env->NewString((unsigned short *)message.characters(), message.length());
     jstring jSourceIDStr = env->NewString((unsigned short *)sourceID.characters(), sourceID.length());
@@ -2543,7 +2543,7 @@ void WebViewCore::addMessageToConsole(const WebCore::String& message, unsigned i
     checkException(env);
 }
 
-void WebViewCore::jsAlert(const WebCore::String& url, const WebCore::String& text)
+void WebViewCore::jsAlert(const WTF::String& url, const WTF::String& text)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring jInputStr = env->NewString((unsigned short *)text.characters(), text.length());
@@ -2554,7 +2554,7 @@ void WebViewCore::jsAlert(const WebCore::String& url, const WebCore::String& tex
     checkException(env);
 }
 
-void WebViewCore::exceededDatabaseQuota(const WebCore::String& url, const WebCore::String& databaseIdentifier, const unsigned long long currentQuota, unsigned long long estimatedSize)
+void WebViewCore::exceededDatabaseQuota(const WTF::String& url, const WTF::String& databaseIdentifier, const unsigned long long currentQuota, unsigned long long estimatedSize)
 {
 #if ENABLE(DATABASE)
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -2587,7 +2587,7 @@ void WebViewCore::populateVisitedLinks(WebCore::PageGroup* group)
     checkException(env);
 }
 
-void WebViewCore::geolocationPermissionsShowPrompt(const WebCore::String& origin)
+void WebViewCore::geolocationPermissionsShowPrompt(const WTF::String& origin)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring originString = env->NewString((unsigned short *)origin.characters(), origin.length());
@@ -2606,7 +2606,7 @@ void WebViewCore::geolocationPermissionsHidePrompt()
     checkException(env);
 }
 
-bool WebViewCore::jsConfirm(const WebCore::String& url, const WebCore::String& text)
+bool WebViewCore::jsConfirm(const WTF::String& url, const WTF::String& text)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring jInputStr = env->NewString((unsigned short *)text.characters(), text.length());
@@ -2618,7 +2618,7 @@ bool WebViewCore::jsConfirm(const WebCore::String& url, const WebCore::String& t
     return result;
 }
 
-bool WebViewCore::jsPrompt(const WebCore::String& url, const WebCore::String& text, const WebCore::String& defaultValue, WebCore::String& result)
+bool WebViewCore::jsPrompt(const WTF::String& url, const WTF::String& text, const WTF::String& defaultValue, WTF::String& result)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring jInputStr = env->NewString((unsigned short *)text.characters(), text.length());
@@ -2637,7 +2637,7 @@ bool WebViewCore::jsPrompt(const WebCore::String& url, const WebCore::String& te
     return true;
 }
 
-bool WebViewCore::jsUnload(const WebCore::String& url, const WebCore::String& message)
+bool WebViewCore::jsUnload(const WTF::String& url, const WTF::String& message)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring jInputStr = env->NewString((unsigned short *)message.characters(), message.length());
@@ -2686,7 +2686,7 @@ void WebViewCore::updateTextSelection() {
 }
 
 void WebViewCore::updateTextfield(WebCore::Node* ptr, bool changeToPassword,
-        const WebCore::String& text)
+        const WTF::String& text)
 {
     if (m_blockTextfieldUpdates)
         return;
@@ -2728,7 +2728,7 @@ void WebViewCore::setBackgroundColor(SkColor c)
         view->setTransparent(true);
 }
 
-jclass WebViewCore::getPluginClass(const WebCore::String& libName, const char* className)
+jclass WebViewCore::getPluginClass(const WTF::String& libName, const char* className)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
 
@@ -2857,7 +2857,7 @@ void WebViewCore::notifyWebAppCanBeInstalled()
 //----------------------------------------------------------------------
 // Native JNI methods
 //----------------------------------------------------------------------
-static jstring WebCoreStringToJString(JNIEnv *env, WebCore::String string)
+static jstring WebCoreStringToJString(JNIEnv *env, WTF::String string)
 {
     int length = string.length();
     if (!length)
@@ -2992,7 +2992,7 @@ static void ReplaceTextfieldText(JNIEnv *env, jobject obj,
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    WebCore::String webcoreString = to_string(env, replace);
+    WTF::String webcoreString = to_string(env, replace);
     viewImpl->replaceTextfieldText(oldStart,
             oldEnd, webcoreString, start, end, textGeneration);
 }
@@ -3004,7 +3004,7 @@ static void PassToJs(JNIEnv *env, jobject obj,
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    WebCore::String current = to_string(env, currentText);
+    WTF::String current = to_string(env, currentText);
     GET_NATIVE_VIEW(env, obj)->passToJs(generation, current,
         PlatformKeyboardEvent(keyCode, keyValue, 0, down, cap, fn, sym));
 }
@@ -3160,7 +3160,7 @@ static jstring RetrieveHref(JNIEnv *env, jobject obj, jint frame,
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-    WebCore::String result = viewImpl->retrieveHref((WebCore::Frame*) frame,
+    WTF::String result = viewImpl->retrieveHref((WebCore::Frame*) frame,
             (WebCore::Node*) node);
     if (!result.isEmpty())
         return WebCoreStringToJString(env, result);
@@ -3175,7 +3175,7 @@ static jstring RetrieveAnchorText(JNIEnv *env, jobject obj, jint frame,
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-    WebCore::String result = viewImpl->retrieveAnchorText((WebCore::Frame*) frame,
+    WTF::String result = viewImpl->retrieveAnchorText((WebCore::Frame*) frame,
             (WebCore::Node*) node);
     if (!result.isEmpty())
         return WebCoreStringToJString(env, result);
@@ -3317,7 +3317,7 @@ static void DumpV8Counters(JNIEnv*, jobject)
 static void SetJsFlags(JNIEnv *env, jobject obj, jstring flags)
 {
 #if USE(V8)
-    WebCore::String flagsString = to_string(env, flags);
+    WTF::String flagsString = to_string(env, flags);
     WTF::CString utf8String = flagsString.utf8();
     WebCore::ScriptController::setFlags(utf8String.data(), utf8String.length());
 #endif

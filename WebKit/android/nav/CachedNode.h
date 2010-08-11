@@ -100,7 +100,7 @@ public:
     bool disabled() const { return mDisabled; }
     const CachedNode* document() const { return &this[-mIndex]; }
     void fixUpCursorRects(const CachedFrame* frame);
-    const WebCore::String& getExport() const { return mExport; }
+    const WTF::String& getExport() const { return mExport; }
     bool hasCursorRing() const { return mHasCursorRing; }
     bool hasMouseOver() const { return mHasMouseOver; }
     void hideCursor(CachedFrame* );
@@ -150,7 +150,7 @@ public:
     void setCondition(Condition condition) const { mCondition = condition; }
     void setDataIndex(int index) { mDataIndex = index; }
     void setDisabled(bool disabled) { mDisabled = disabled; }
-    void setExport(const WebCore::String& exported) { mExport = exported; }
+    void setExport(const WTF::String& exported) { mExport = exported; }
     void setHasCursorRing(bool hasRing) { mHasCursorRing = hasRing; }
     void setHasMouseOver(bool hasMouseOver) { mHasMouseOver = hasMouseOver; }
     void setHitBounds(const WebCore::IntRect& bounds) { mHitBounds = bounds; }
@@ -178,7 +178,7 @@ public:
     bool wantsKeyEvents() const { return isTextInput() || isPlugin() || isContentEditable(); }
 private:
     friend class CacheBuilder;
-    WebCore::String mExport;
+    WTF::String mExport;
     WebCore::IntRect mBounds;
     WebCore::IntRect mHitBounds;
     WebCore::IntRect mOriginalAbsoluteBounds;

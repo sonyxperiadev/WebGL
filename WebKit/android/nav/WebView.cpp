@@ -678,10 +678,10 @@ static CachedFrame::Direction KeyToDirection(int32_t keyCode)
     }
 }
 
-WebCore::String imageURI(int x, int y)
+WTF::String imageURI(int x, int y)
 {
     const CachedRoot* root = getFrameCache(DontAllowNewer);
-    return root ? root->imageURI(x, y) : WebCore::String();
+    return root ? root->imageURI(x, y) : WTF::String();
 }
 
 bool cursorWantsKeyEvents()
@@ -944,7 +944,7 @@ int getBlockLeftEdge(int x, int y, float scale)
     return -1;
 }
 
-void overrideUrlLoading(const WebCore::String& url)
+void overrideUrlLoading(const WTF::String& url)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jstring jName = env->NewString((jchar*) url.characters(), url.length());
@@ -1290,7 +1290,7 @@ private: // local state for WebView
 /*
  * Native JNI methods
  */
-static jstring WebCoreStringToJString(JNIEnv *env, WebCore::String string)
+static jstring WebCoreStringToJString(JNIEnv *env, WTF::String string)
 {
     int length = string.length();
     if (!length)
@@ -1501,7 +1501,7 @@ static jobject nativeCursorText(JNIEnv *env, jobject obj)
     const CachedNode* node = getCursorNode(env, obj);
     if (!node)
         return 0;
-    WebCore::String value = node->getExport();
+    WTF::String value = node->getExport();
     return !value.isEmpty() ? env->NewString((jchar *)value.characters(),
         value.length()) : 0;
 }
@@ -1558,7 +1558,7 @@ static jobject nativeImageURI(JNIEnv *env, jobject obj, jint x, jint y)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    WebCore::String uri = view->imageURI(x, y);
+    WTF::String uri = view->imageURI(x, y);
     jstring ret = 0;
     unsigned len = uri.length();
     if (len) {
@@ -1610,7 +1610,7 @@ static jobject nativeFocusCandidateName(JNIEnv *env, jobject obj)
     const CachedInput* input = getInputCandidate(env, obj);
     if (!input)
         return 0;
-    const WebCore::String& name = input->name();
+    const WTF::String& name = input->name();
     return env->NewString((jchar*)name.characters(), name.length());
 }
 
@@ -1638,7 +1638,7 @@ static jobject nativeFocusCandidateText(JNIEnv *env, jobject obj)
     const CachedNode* node = getFocusCandidate(env, obj, 0);
     if (!node)
         return 0;
-    WebCore::String value = node->getExport();
+    WTF::String value = node->getExport();
     return !value.isEmpty() ? env->NewString((jchar *)value.characters(),
         value.length()) : 0;
 }
@@ -1928,7 +1928,7 @@ static void nativeUpdateCachedTextfield(JNIEnv *env, jobject obj, jstring update
     const CachedNode* cachedFocusNode = root->currentFocus();
     if (!cachedFocusNode || !cachedFocusNode->isTextInput())
         return;
-    WebCore::String webcoreString = to_string(env, updatedText);
+    WTF::String webcoreString = to_string(env, updatedText);
     (const_cast<CachedNode*>(cachedFocusNode))->setExport(webcoreString);
     root->setTextGeneration(generation);
     checkException(env);

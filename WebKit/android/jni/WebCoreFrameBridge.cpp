@@ -282,7 +282,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     LOG_ASSERT(mJavaFrame->mGetFileSize, "Could not find method getFileSize");
     LOG_ASSERT(mJavaFrame->mGetFile, "Could not find method getFile");
 
-    mUserAgent = WebCore::String();
+    mUserAgent = WTF::String();
     mUserInitiatedClick = false;
 }
 
@@ -341,7 +341,7 @@ static jobject createJavaMapFromHTTPHeaders(JNIEnv* env, const WebCore::HTTPHead
 // buffer.
 class FileInfo {
 public:
-    FileInfo(JNIEnv* env, const WebCore::String& name) {
+    FileInfo(JNIEnv* env, const WTF::String& name) {
         m_uri = env->NewString(name.characters(), name.length());
         checkException(env);
         m_size = 0;
@@ -373,11 +373,11 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
     LOGV("::WebCore:: startLoadingResource(%p, %s)",
             loader, request.url().string().latin1().data());
 
-    WebCore::String method = request.httpMethod();
+    WTF::String method = request.httpMethod();
     WebCore::HTTPHeaderMap headers = request.httpHeaderFields();
 
     JNIEnv* env = getJNIEnv();
-    WebCore::String urlStr = request.url().string();
+    WTF::String urlStr = request.url().string();
     int colon = urlStr.find(':');
     bool allLower = true;
     for (int index = 0; index < colon; index++) {
@@ -508,8 +508,8 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
 }
 
 void
-WebFrame::reportError(int errorCode, const WebCore::String& description,
-        const WebCore::String& failingUrl)
+WebFrame::reportError(int errorCode, const WTF::String& description,
+        const WTF::String& failingUrl)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
@@ -546,7 +546,7 @@ WebFrame::loadStarted(WebCore::Frame* frame)
         return;
 
     JNIEnv* env = getJNIEnv();
-    WebCore::String urlString(url.string());
+    WTF::String urlString(url.string());
     // If this is the main frame and we already have a favicon in the database,
     // send it along with the page started notification.
     jobject favicon = NULL;
@@ -605,7 +605,7 @@ WebFrame::didFinishLoad(WebCore::Frame* frame)
 
     bool isMainFrame = (!frame->tree() || !frame->tree()->parent());
     WebCore::FrameLoadType loadType = loader->loadType();
-    WebCore::String urlString(url.string());
+    WTF::String urlString(url.string());
     jstring urlStr = env->NewString((unsigned short*)urlString.characters(), urlString.length());
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mLoadFinished, urlStr,
             (int)loadType, isMainFrame);
@@ -647,7 +647,7 @@ WebFrame::updateHistoryIndex(int newIndex)
 }
 
 void
-WebFrame::setTitle(const WebCore::String& title)
+WebFrame::setTitle(const WTF::String& title)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
@@ -689,7 +689,7 @@ WebFrame::setProgress(float newProgress)
     checkException(env);
 }
 
-const WebCore::String
+const WTF::String
 WebFrame::userAgentForURL(const WebCore::KURL* url)
 {
     return mUserAgent;
@@ -713,7 +713,7 @@ WebFrame::didReceiveIcon(WebCore::Image* icon)
 }
 
 void
-WebFrame::didReceiveTouchIconURL(const WebCore::String& url, bool precomposed)
+WebFrame::didReceiveTouchIconURL(const WTF::String& url, bool precomposed)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
@@ -734,7 +734,7 @@ WebFrame::updateVisitedHistory(const WebCore::KURL& url, bool reload)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    WebCore::String urlStr(url.string());
+    WTF::String urlStr(url.string());
     JNIEnv* env = getJNIEnv();
     jstring jUrlStr = env->NewString((unsigned short*)urlStr.characters(), urlStr.length());
 
@@ -759,7 +759,7 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
             requestUrl.protocolIs("file") || requestUrl.protocolIs("about") ||
             WebCore::protocolIsJavaScript(requestUrl.string())))
         return true;
-    WebCore::String url(request.url().string());
+    WTF::String url(request.url().string());
     // Empty urls should not be sent to java
     if (url.isEmpty())
         return true;
@@ -829,7 +829,7 @@ WebFrame::decidePolicyForFormResubmission(WebCore::FramePolicyFunction func)
     env->CallVoidMethod(mJavaFrame->frame(env).get(), mJavaFrame->mDecidePolicyForFormResubmission, p);
 }
 
-WebCore::String
+WTF::String
 WebFrame::getRawResourceFilename(WebCore::PlatformBridge::rawResId id) const
 {
     JNIEnv* env = getJNIEnv();
@@ -988,7 +988,7 @@ static void LoadUrl(JNIEnv *env, jobject obj, jstring url, jobject headers)
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeLoadUrl must take a valid frame pointer!");
 
-    WebCore::String webcoreUrl = to_string(env, url);
+    WTF::String webcoreUrl = to_string(env, url);
     WebCore::KURL kurl(WebCore::KURL(), webcoreUrl);
     WebCore::ResourceRequest request(kurl);
     if (headers) {
@@ -1198,15 +1198,15 @@ static jstring ExternalRepresentation(JNIEnv *env, jobject obj)
     LOG_ASSERT(pFrame, "android_webcore_nativeExternalRepresentation must take a valid frame pointer!");
 
     // Request external representation of the render tree
-    WebCore::String renderDump = WebCore::externalRepresentation(pFrame);
+    WTF::String renderDump = WebCore::externalRepresentation(pFrame);
     unsigned len = renderDump.length();
     if (!len)
         return NULL;
     return env->NewString(renderDump.characters(), len);
 }
 
-static WebCore::StringBuilder FrameAsText(WebCore::Frame *pFrame, jboolean dumpChildFrames) {
-    WebCore::StringBuilder renderDump;
+static StringBuilder FrameAsText(WebCore::Frame *pFrame, jboolean dumpChildFrames) {
+    StringBuilder renderDump;
     if (!pFrame)
         return renderDump;
     WebCore::Element *documentElement = pFrame->document()->documentElement();
@@ -1235,7 +1235,7 @@ static jstring DocumentAsText(JNIEnv *env, jobject obj)
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "android_webcore_nativeDocumentAsText must take a valid frame pointer!");
 
-    WebCore::String renderDump = FrameAsText(pFrame, false /* dumpChildFrames */).toString();
+    WTF::String renderDump = FrameAsText(pFrame, false /* dumpChildFrames */).toString();
     unsigned len = renderDump.length();
     if (!len)
         return NULL;
@@ -1250,11 +1250,11 @@ static jstring ChildFramesAsText(JNIEnv *env, jobject obj)
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "android_webcore_nativeDocumentAsText must take a valid frame pointer!");
 
-    WebCore::StringBuilder renderDumpBuilder;
+    StringBuilder renderDumpBuilder;
     for (unsigned i = 0; i < pFrame->tree()->childCount(); ++i) {
         renderDumpBuilder.append(FrameAsText(pFrame->tree()->child(i), true /* dumpChildFrames */).toString());
     }
-    WebCore::String renderDump = renderDumpBuilder.toString();
+    WTF::String renderDump = renderDumpBuilder.toString();
     unsigned len = renderDump.length();
     if (!len)
         return NULL;
@@ -1307,7 +1307,7 @@ static jobject StringByEvaluatingJavaScriptFromString(JNIEnv *env, jobject obj, 
 
     WebCore::ScriptValue value =
             pFrame->script()->executeScript(to_string(env, script), true);
-    WebCore::String result = WebCore::String();
+    WTF::String result = WTF::String();
     ScriptState* scriptState = mainWorldScriptState(pFrame);
     if (!value.getString(scriptState, result))
         return NULL;
@@ -1568,7 +1568,7 @@ static jobjectArray GetUsernamePassword(JNIEnv *env, jobject obj)
     LOG_ASSERT(pFrame, "GetUsernamePassword must take a valid frame pointer!");
     jobjectArray strArray = NULL;
 
-    WebCore::String username, password;
+    WTF::String username, password;
     bool found = false;
     WTF::PassRefPtr<WebCore::HTMLCollection> form = pFrame->document()->forms();
     WebCore::Node* node = form->firstItem();
@@ -1681,10 +1681,10 @@ static jobject GetFormTextData(JNIEnv *env, jobject obj)
                         input = static_cast<WebCore::HTMLInputElement*>(e);
                         if (input->isTextField() && !input->isPasswordField()
                                 && input->autoComplete()) {
-                            WebCore::String value = input->value();
+                            WTF::String value = input->value();
                             int len = value.length();
                             if (len) {
-                                const WebCore::AtomicString& name = input->name();
+                                const WTF::AtomicString& name = input->name();
                                 jstring key = env->NewString((jchar *)name.characters(), name.length());
                                 jstring val = env->NewString((jchar *)value.characters(), len);
                                 LOG_ASSERT(key && val, "name or value not set");

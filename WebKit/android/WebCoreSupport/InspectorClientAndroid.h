@@ -28,6 +28,8 @@
 
 #include "InspectorClient.h"
 
+#include <wtf/Forward.h>
+
 namespace android {
 
 class InspectorClientAndroid : public InspectorClient {
@@ -44,7 +46,7 @@ public:
     virtual void populateSetting(const String& key, String* value) {}
     virtual void storeSetting(const String& key, const String& value) {}
 
-    virtual bool sendMessageToFrontend(const WebCore::String&) { return false; }
+    virtual bool sendMessageToFrontend(const WTF::String&) { return false; }
 };
 
 }

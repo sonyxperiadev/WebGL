@@ -58,14 +58,14 @@ bool checkException(JNIEnv* env)
 }
 
 // This method is safe to call from the ui thread and the WebCore thread.
-WebCore::String to_string(JNIEnv* env, jstring str)
+WTF::String to_string(JNIEnv* env, jstring str)
 {
     if (!str || !env)
-        return WebCore::String();
+        return WTF::String();
     const jchar* s = env->GetStringChars(str, NULL);
     if (!s)
-        return WebCore::String();
-    WebCore::String ret(s, env->GetStringLength(str));
+        return WTF::String();
+    WTF::String ret(s, env->GetStringLength(str));
     env->ReleaseStringChars(str, s);
     checkException(env);
     return ret;

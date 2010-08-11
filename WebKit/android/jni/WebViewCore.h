@@ -44,7 +44,6 @@
 #include <ui/PixelFormat.h>
 
 namespace WebCore {
-    class AtomicString;
     class Color;
     class FrameView;
     class HTMLAnchorElement;
@@ -185,7 +184,7 @@ namespace android {
          *              should go into the textfield.
          */
         void updateTextfield(WebCore::Node* pointer,
-                bool changeToPassword, const WebCore::String& text);
+                bool changeToPassword, const WTF::String& text);
 
         /**
          * Tell the java side to update the current selection in the focused
@@ -197,11 +196,11 @@ namespace android {
 
         void clearTextEntry();
         // JavaScript support
-        void jsAlert(const WebCore::String& url, const WebCore::String& text);
-        bool jsConfirm(const WebCore::String& url, const WebCore::String& text);
-        bool jsPrompt(const WebCore::String& url, const WebCore::String& message,
-                const WebCore::String& defaultValue, WebCore::String& result);
-        bool jsUnload(const WebCore::String& url, const WebCore::String& message);
+        void jsAlert(const WTF::String& url, const WTF::String& text);
+        bool jsConfirm(const WTF::String& url, const WTF::String& text);
+        bool jsPrompt(const WTF::String& url, const WTF::String& message,
+                const WTF::String& defaultValue, WTF::String& result);
+        bool jsUnload(const WTF::String& url, const WTF::String& message);
         bool jsInterrupt();
 
         /**
@@ -212,8 +211,8 @@ namespace android {
          * @param currentQuota The current quota for the origin
          * @param estimatedSize The estimated size of the database
          */
-        void exceededDatabaseQuota(const WebCore::String& url,
-                                   const WebCore::String& databaseIdentifier,
+        void exceededDatabaseQuota(const WTF::String& url,
+                                   const WTF::String& databaseIdentifier,
                                    const unsigned long long currentQuota,
                                    const unsigned long long estimatedSize);
 
@@ -237,7 +236,7 @@ namespace android {
          * @param origin The origin of the frame requesting Geolocation
          *     permissions.
          */
-        void geolocationPermissionsShowPrompt(const WebCore::String& origin);
+        void geolocationPermissionsShowPrompt(const WTF::String& origin);
         /**
          * Instruct the browser to hide the Geolocation permission prompt.
          */
@@ -255,9 +254,9 @@ namespace android {
         //
 
 
-        WebCore::String retrieveHref(WebCore::Frame* frame, WebCore::Node* node);
-        WebCore::String retrieveAnchorText(WebCore::Frame* frame, WebCore::Node* node);
-        WebCore::String requestLabel(WebCore::Frame* , WebCore::Node* );
+        WTF::String retrieveHref(WebCore::Frame* frame, WebCore::Node* node);
+        WTF::String retrieveAnchorText(WebCore::Frame* frame, WebCore::Node* node);
+        WTF::String requestLabel(WebCore::Frame* , WebCore::Node* );
 
         // Create a single picture to represent the drawn DOM (used by navcache)
         void recordPicture(SkPicture* picture);
@@ -339,10 +338,10 @@ namespace android {
          *  and set the selection to (start, end).
          */
         void replaceTextfieldText(int oldStart,
-            int oldEnd, const WebCore::String& replace, int start, int end,
+            int oldEnd, const WTF::String& replace, int start, int end,
             int textGeneration);
         void passToJs(int generation,
-            const WebCore::String& , const WebCore::PlatformKeyboardEvent& );
+            const WTF::String& , const WebCore::PlatformKeyboardEvent& );
         /**
          * Scroll the focused textfield to (x, y) in document space
          */
@@ -406,7 +405,7 @@ namespace android {
         void requestKeyboard(bool showKeyboard);
 
         // Generates a class loader that contains classes from the plugin's apk
-        jclass getPluginClass(const WebCore::String& libName, const char* className);
+        jclass getPluginClass(const WTF::String& libName, const char* className);
 
         // Creates a full screen surface for a plugin
         void showFullScreenPlugin(jobject webkitPlugin, NPP npp);

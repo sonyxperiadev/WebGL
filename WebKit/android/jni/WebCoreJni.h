@@ -69,8 +69,8 @@ AutoJObject getRealObject(JNIEnv*, jobject);
 // occurred and logs the exception.
 bool checkException(JNIEnv* env);
 
-// Create a WebCore::String object from a jstring object.
-WebCore::String to_string(JNIEnv* env, jstring str);
+// Create a WTF::String object from a jstring object.
+WTF::String to_string(JNIEnv* env, jstring str);
 
 }
 

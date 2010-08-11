@@ -46,7 +46,7 @@ static const char* anp_getApplicationDataDirectory() {
         if (!client)
             return NULL;
 
-        WebCore::String path = client->getPluginSharedDataDirectory();
+        WTF::String path = client->getPluginSharedDataDirectory();
         int length = path.length();
         if (length == 0)
             return NULL;

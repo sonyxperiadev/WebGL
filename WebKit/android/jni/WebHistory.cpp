@@ -268,18 +268,18 @@ void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
     if (!realItem.get())
         return;
 
-    const WebCore::String& urlString = item->urlString();
+    const WTF::String& urlString = item->urlString();
     jstring urlStr = NULL;
     if (!urlString.isNull())
         urlStr = env->NewString((unsigned short*)urlString.characters(), urlString.length());
-    const WebCore::String& originalUrlString = item->originalURLString();
+    const WTF::String& originalUrlString = item->originalURLString();
     jstring originalUrlStr = NULL;
     if (!originalUrlString.isNull()) {
-    	originalUrlStr = env->NewString(
+        originalUrlStr = env->NewString(
                 (unsigned short*) originalUrlString.characters(), 
                 originalUrlString.length());
     }
-    const WebCore::String& titleString = item->title();
+    const WTF::String& titleString = item->title();
     jstring titleStr = NULL;
     if (!titleString.isNull())
         titleStr = env->NewString((unsigned short*)titleString.characters(), titleString.length());
@@ -288,7 +288,7 @@ void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
     // Prix, there are history items with anchors. If the icon fails for the
     // item, try to get the icon using the url without the ref.
     jobject favicon = NULL;
-    WebCore::String url = item->urlString();
+    WTF::String url = item->urlString();
     if (item->url().hasFragmentIdentifier()) {
         int refIndex = url.reverseFind('#');
         url = url.substring(0, refIndex);
@@ -358,7 +358,7 @@ void WebHistory::UpdateHistoryIndex(const AutoJObject& list, int newIndex)
         list.env()->CallVoidMethod(list.get(), gWebBackForwardList.mSetCurrentIndex, newIndex);
 }
 
-static void write_string(WTF::Vector<char>& v, const WebCore::String& str)
+static void write_string(WTF::Vector<char>& v, const WTF::String& str)
 {
     unsigned strLen = str.length();
     // Only do work if the string has data.
@@ -408,7 +408,7 @@ static void write_item(WTF::Vector<char>& v, WebCore::HistoryItem* item)
         int64_t id = formData->identifier();
         v.append((char*)&id, sizeof(int64_t));
     } else
-        write_string(v, WebCore::String()); // Empty constructor does not allocate a buffer.
+        write_string(v, WTF::String()); // Empty constructor does not allocate a buffer.
 
     // Target
     write_string(v, item->target());
@@ -424,12 +424,12 @@ static void write_item(WTF::Vector<char>& v, WebCore::HistoryItem* item)
     v.append((char*)&textWrapScale, sizeof(int));
 
     // Document state
-    const WTF::Vector<WebCore::String>& docState = item->documentState();
-    WTF::Vector<WebCore::String>::const_iterator end = docState.end();
+    const WTF::Vector<WTF::String>& docState = item->documentState();
+    WTF::Vector<WTF::String>::const_iterator end = docState.end();
     unsigned stateSize = docState.size();
     LOGV("Writing docState     %d", stateSize);
     v.append((char*)&stateSize, sizeof(unsigned));
-    for (WTF::Vector<WebCore::String>::const_iterator i = docState.begin(); i != end; ++i) {
+    for (WTF::Vector<WTF::String>::const_iterator i = docState.begin(); i != end; ++i) {
         write_string(v, *i);
     }
 
@@ -532,7 +532,7 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
         return false;
 
     // Generate a new ResourceRequest object for populating form information.
-    WebCore::String formContentType;
+    WTF::String formContentType;
     WTF::PassRefPtr<WebCore::FormData> formData = NULL;
 
     // Read the form content type
@@ -620,7 +620,7 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
         if (data + l * sizeofUnsigned >= end)
             return false;
         // Create a new vector and reserve enough space for the document state.
-        WTF::Vector<WebCore::String> docState;
+        WTF::Vector<WTF::String> docState;
         docState.reserveCapacity(l);
         while (l--) {
             // Check each time if we have enough to parse the length of the next

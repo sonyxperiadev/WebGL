@@ -338,7 +338,7 @@ public:
         s->setOfflineWebApplicationCacheEnabled(flag);
         str = (jstring)env->GetObjectField(obj, gFieldIds->mAppCachePath);
         if (str) {
-            WebCore::String path = to_string(env, str);
+            WTF::String path = to_string(env, str);
             if (path.length() && WebCore::cacheStorage().cacheDirectory().isNull()) {
                 WebCore::cacheStorage().setCacheDirectory(path);
             }
@@ -386,7 +386,7 @@ public:
         s->setLocalStorageEnabled(flag);
         str = (jstring)env->GetObjectField(obj, gFieldIds->mDatabasePath);
         if (str) {
-            WebCore::String localStorageDatabasePath = to_string(env,str);
+            WTF::String localStorageDatabasePath = to_string(env,str);
             if (localStorageDatabasePath.length()) {
                 s->setLocalStorageDatabasePath(localStorageDatabasePath);
             }

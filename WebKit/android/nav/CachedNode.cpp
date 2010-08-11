@@ -237,7 +237,7 @@ WebCore::IntRect CachedNode::hitBounds(const CachedFrame* frame) const
 void CachedNode::init(WebCore::Node* node)
 {
     bzero(this, sizeof(CachedNode));
-    mExport = WebCore::String();
+    mExport = WTF::String();
     mNode = node;
     mParentIndex = mDataIndex = -1;
     mType = android::NORMAL_CACHEDNODETYPE;
