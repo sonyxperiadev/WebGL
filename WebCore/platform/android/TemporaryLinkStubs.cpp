@@ -311,17 +311,7 @@ void* WebCore::Frame::dragImageForSelection()
     return 0;
 }
 
-<<<<<<< HEAD
-void WebCore::Pasteboard::writeImage(WebCore::Node*, WebCore::KURL const&, WebCore::String const&) {}
-=======
-
-WTF::String WebCore::MIMETypeRegistry::getMIMETypeForExtension(WTF::String const&)
-{
-    return WTF::String();
-}
-
 void WebCore::Pasteboard::writeImage(WebCore::Node*, WebCore::KURL const&, WTF::String const&) {}
->>>>>>> webkit.org at r65072
 
 namespace WebCore {
 

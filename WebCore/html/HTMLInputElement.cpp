@@ -67,13 +67,10 @@
 #include "StepRange.h"
 #include "StringHash.h"
 #include "TextEvent.h"
-<<<<<<< HEAD
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
 #include "WebViewCore.h"
 #endif
-=======
 #include "WheelEvent.h"
->>>>>>> webkit.org at r65072
 #include <wtf/HashMap.h>
 #include <wtf/MathExtras.h>
 #include <wtf/StdLibExtras.h>

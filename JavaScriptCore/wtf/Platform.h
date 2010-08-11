@@ -1060,15 +1060,11 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #endif
 #endif
 
-<<<<<<< HEAD
 #if PLATFORM(ANDROID) && !defined WTF_USE_ACCELERATED_COMPOSITING
 #define WTF_USE_ACCELERATED_COMPOSITING 1
 #endif
 
-#if PLATFORM(IPHONE)
-=======
 #if PLATFORM(IOS)
->>>>>>> webkit.org at r65072
 #define WTF_USE_ACCELERATED_COMPOSITING 1
 #endif
 

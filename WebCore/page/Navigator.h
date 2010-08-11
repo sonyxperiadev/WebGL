@@ -21,14 +21,14 @@
 #define Navigator_h
 
 #include "NavigatorBase.h"
-<<<<<<< HEAD
-#include "PlatformString.h"
-=======
 #include <wtf/Forward.h>
->>>>>>> webkit.org at r65072
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+
+#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
+#include "PlatformString.h"
+#endif
 
 namespace WebCore {
 
@@ -37,14 +37,10 @@ class DOMPluginArray;
 class Frame;
 class Geolocation;
 class PluginData;
-<<<<<<< HEAD
-class String;
 #if PLATFORM(ANDROID)
 class ApplicationInstalledCallback;
 class Connection;
 #endif
-=======
->>>>>>> webkit.org at r65072
 
 class Navigator : public NavigatorBase, public RefCounted<Navigator> {
 public:

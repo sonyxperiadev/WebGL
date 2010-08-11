@@ -47,19 +47,15 @@ QT_END_NAMESPACE
 struct _cairo_surface;
 typedef struct _cairo_surface cairo_surface_t;
 #elif PLATFORM(SKIA)
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 #include "SkString.h"
 class SkBitmapRef;
 class PrivateAndroidImageSourceRec;
 #else
-class NativeImageSkia;
-#endif
-=======
 namespace WebCore {
 class NativeImageSkia;
 }
->>>>>>> webkit.org at r65072
+#endif
 #elif PLATFORM(HAIKU)
 class BBitmap;
 #elif OS(WINCE)
@@ -84,9 +80,7 @@ typedef TiledImageOpenVG* NativeImagePtr;
 class ImageDecoderQt;
 typedef ImageDecoderQt* NativeImageSourcePtr;
 typedef QPixmap* NativeImagePtr;
-#elif PLATFORM(SKIA)
-#if PLATFORM(ANDROID)
-class String;
+#elif PLATFORM(SKIA) && PLATFORM(ANDROID)
 #ifdef ANDROID_ANIMATED_GIF
 class ImageDecoder;
 #endif
@@ -102,11 +96,6 @@ typedef SkBitmapRef* NativeImagePtr;
 #else
 class ImageDecoder;
 typedef ImageDecoder* NativeImageSourcePtr;
-typedef NativeImageSkia* NativeImagePtr;
-#endif
-#else
-class ImageDecoder;
-typedef ImageDecoder* NativeImageSourcePtr;
 #if PLATFORM(WX)
 #if USE(WXGC)
 typedef wxGraphicsBitmap* NativeImagePtr;
@@ -115,11 +104,8 @@ typedef wxBitmap* NativeImagePtr;
 #endif
 #elif PLATFORM(CAIRO)
 typedef cairo_surface_t* NativeImagePtr;
-<<<<<<< HEAD
-=======
 #elif PLATFORM(SKIA)
 typedef WebCore::NativeImageSkia* NativeImagePtr;
->>>>>>> webkit.org at r65072
 #elif PLATFORM(HAIKU)
 typedef BBitmap* NativeImagePtr;
 #elif OS(WINCE)

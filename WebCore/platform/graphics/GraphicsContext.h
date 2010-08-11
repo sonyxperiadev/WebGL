@@ -69,7 +69,6 @@ class wxWindowDC;
     typedef wxWindowDC PlatformGraphicsContext;
 #endif
 #elif PLATFORM(SKIA)
-<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 namespace WebCore {
 class PlatformGraphicsContext;
@@ -77,14 +76,11 @@ class PlatformGraphicsContext;
 class SkPaint;
 struct SkPoint;
 #else
-typedef class PlatformContextSkia PlatformGraphicsContext;
-#endif
-=======
 namespace WebCore {
 class PlatformContextSkia;
 }
 typedef WebCore::PlatformContextSkia PlatformGraphicsContext;
->>>>>>> webkit.org at r65072
+#endif
 #elif PLATFORM(HAIKU)
 class BView;
 typedef BView PlatformGraphicsContext;
