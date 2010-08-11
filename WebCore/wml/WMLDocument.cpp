@@ -26,7 +26,7 @@
 #include "BackForwardList.h"
 #include "Frame.h"
 #include "Page.h"
-#include "DocumentParser.h"
+#include "ScriptableDocumentParser.h"
 #include "WMLCardElement.h"
 #include "WMLErrorHandling.h"
 #include "WMLPageState.h"
@@ -34,8 +34,8 @@
 
 namespace WebCore {
 
-WMLDocument::WMLDocument(Frame* frame)
-    : Document(frame, false, false) 
+WMLDocument::WMLDocument(Frame* frame, const KURL& url)
+    : Document(frame, url, false, false) 
     , m_activeCard(0)
 {
     clearXMLVersion();
@@ -47,7 +47,7 @@ WMLDocument::~WMLDocument()
 
 void WMLDocument::finishedParsing()
 {
-    if (DocumentParser* parser = this->parser()) {
+    if (ScriptableDocumentParser* parser = this->scriptableDocumentParser()) {
         if (!parser->wellFormed()) {
             Document::finishedParsing();
             return;

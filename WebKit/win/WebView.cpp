@@ -54,6 +54,7 @@
 #include "WebKitSystemBits.h"
 #include "WebMutableURLRequest.h"
 #include "WebNotificationCenter.h"
+#include "WebPlatformStrategies.h"
 #include "WebPluginHalterClient.h"
 #include "WebPreferences.h"
 #include "WebScriptWorld.h"
@@ -2111,10 +2112,8 @@ LRESULT CALLBACK WebView::WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam,
                 // child of ours (for example a plugin).
                 if (!IsChild(hWnd, reinterpret_cast<HWND>(wParam)))
                     focusController->setFocused(true);
-            } else {
+            } else
                 focusController->setFocused(true);
-                focusController->setFocusedFrame(webView->page()->mainFrame());
-            }
             break;
         }
         case WM_KILLFOCUS: {
@@ -2557,6 +2556,7 @@ HRESULT STDMETHODCALLTYPE WebView::initWithFrame(
     WebKitInitializeWebDatabasesIfNecessary();
 #endif
     WebKitSetApplicationCachePathIfNecessary();
+    WebPlatformStrategies::initialize();
     
 #if USE(SAFARI_THEME)
     BOOL shouldPaintNativeControls;
@@ -3089,7 +3089,7 @@ HRESULT STDMETHODCALLTYPE WebView::stringByEvaluatingJavaScriptFromString(
     if (!coreFrame)
         return E_FAIL;
 
-    JSC::JSValue scriptExecutionResult = coreFrame->script()->executeScript(WebCore::String(script), true).jsValue();
+    JSC::JSValue scriptExecutionResult = coreFrame->script()->executeScript(WTF::String(script), true).jsValue();
     if (!scriptExecutionResult)
         return E_FAIL;
     else if (scriptExecutionResult.isString()) {
@@ -5725,6 +5725,8 @@ HRESULT STDMETHODCALLTYPE WebView::backingStore(
 {
     if (!hBitmap)
         return E_POINTER;
+    if (!m_backingStoreBitmap)
+        return E_FAIL;
     *hBitmap = reinterpret_cast<OLE_HANDLE>(m_backingStoreBitmap->handle());
     return S_OK;
 }
@@ -5856,7 +5858,7 @@ HRESULT STDMETHODCALLTYPE WebView::registerEmbeddedViewMIMEType(BSTR mimeType)
     return S_OK;
 }
 
-bool WebView::shouldUseEmbeddedView(const WebCore::String& mimeType) const
+bool WebView::shouldUseEmbeddedView(const WTF::String& mimeType) const
 {
     if (!m_embeddedViewMIMETypes)
         return false;

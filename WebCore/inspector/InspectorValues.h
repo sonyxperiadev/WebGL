@@ -36,6 +36,7 @@
 #include "PlatformString.h"
 #include "StringHash.h"
 
+#include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
@@ -44,7 +45,6 @@ namespace WebCore {
 
 class InspectorArray;
 class InspectorObject;
-class String;
 
 class InspectorValue : public RefCounted<InspectorValue> {
 public:
@@ -71,6 +71,7 @@ public:
     virtual bool asNumber(double* output) const;
     virtual bool asNumber(long* output) const;
     virtual bool asNumber(unsigned long* output) const;
+    virtual bool asNumber(unsigned int* output) const;
     virtual bool asString(String* output) const;
     virtual PassRefPtr<InspectorObject> asObject();
     virtual PassRefPtr<InspectorArray> asArray();
@@ -109,6 +110,7 @@ public:
     virtual bool asNumber(double* output) const;
     virtual bool asNumber(long* output) const;
     virtual bool asNumber(unsigned long* output) const;
+    virtual bool asNumber(unsigned int* output) const;
 
     virtual void writeJSON(Vector<UChar>* output) const;
 

@@ -31,7 +31,7 @@
 #ifndef FileReader_h
 #define FileReader_h
 
-#if ENABLE(FILE_READER)
+#if ENABLE(BLOB)
 
 #include "ActiveDOMObject.h"
 #include "EventTarget.h"
@@ -138,7 +138,7 @@ private:
     ReadType m_readType;
     TextEncoding m_encoding;
 
-    // Like XMLHttpRequest.m_responseText, we keep this as a ScriptString, not a WebCore::String.
+    // Like XMLHttpRequest.m_responseText, we keep this as a ScriptString, not a WTF::String.
     // That's because these strings can easily get huge (they are filled from the file) and
     // because JS can easily observe many intermediate states, so it's very useful to be
     // able to share the buffer with JavaScript versions of the whole or partial string.
@@ -166,6 +166,6 @@ private:
 
 } // namespace WebCore
 
-#endif
+#endif // ENABLE(BLOB)
 
 #endif // FileReader_h

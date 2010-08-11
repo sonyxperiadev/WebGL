@@ -68,7 +68,7 @@ PassRefPtr<DatabaseSync> DatabaseSync::openDatabaseSync(ScriptExecutionContext* 
     if (database->isNew() && creationCallback.get()) {
         database->m_expectedVersion = "";
         LOG(StorageAPI, "Invoking the creation callback for database %p\n", database.get());
-        creationCallback->handleEvent(context, database.get());
+        creationCallback->handleEvent(database.get());
     }
 
     return database;
@@ -128,7 +128,17 @@ void DatabaseSync::changeVersion(const String& oldVersion, const String& newVers
     setExpectedVersion(newVersion);
 }
 
-void DatabaseSync::transaction(PassRefPtr<SQLTransactionSyncCallback> callback, bool readOnly, ExceptionCode& ec)
+void DatabaseSync::transaction(PassRefPtr<SQLTransactionSyncCallback> callback, ExceptionCode& ec)
+{
+    runTransaction(callback, false, ec);
+}
+
+void DatabaseSync::readTransaction(PassRefPtr<SQLTransactionSyncCallback> callback, ExceptionCode& ec)
+{
+    runTransaction(callback, true, ec);
+}
+
+void DatabaseSync::runTransaction(PassRefPtr<SQLTransactionSyncCallback> callback, bool readOnly, ExceptionCode& ec)
 {
     ASSERT(m_scriptExecutionContext->isContextThread());
 

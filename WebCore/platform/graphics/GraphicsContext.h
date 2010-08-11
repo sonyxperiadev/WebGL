@@ -69,6 +69,7 @@ class wxWindowDC;
     typedef wxWindowDC PlatformGraphicsContext;
 #endif
 #elif PLATFORM(SKIA)
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 namespace WebCore {
 class PlatformGraphicsContext;
@@ -78,6 +79,12 @@ struct SkPoint;
 #else
 typedef class PlatformContextSkia PlatformGraphicsContext;
 #endif
+=======
+namespace WebCore {
+class PlatformContextSkia;
+}
+typedef WebCore::PlatformContextSkia PlatformGraphicsContext;
+>>>>>>> webkit.org at r65072
 #elif PLATFORM(HAIKU)
 class BView;
 typedef BView PlatformGraphicsContext;
@@ -121,6 +128,7 @@ namespace WebCore {
     class Font;
     class Generator;
     class Gradient;
+    class GraphicsContext3D;
     class GraphicsContextPlatformPrivate;
     class GraphicsContextPrivate;
     class ImageBuffer;
@@ -423,6 +431,11 @@ namespace WebCore {
 
 #if PLATFORM(HAIKU)
         pattern getHaikuStrokeStyle();
+#endif
+
+#if PLATFORM(SKIA)
+        void setGraphicsContext3D(GraphicsContext3D*, const IntSize&);
+        void syncSoftwareCanvas();
 #endif
 
     private:

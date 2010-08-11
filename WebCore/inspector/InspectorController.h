@@ -33,12 +33,8 @@
 #include "Cookie.h"
 #include "InspectorDOMAgent.h"
 #include "PlatformString.h"
-#include "ScriptArray.h"
-#include "ScriptBreakpoint.h"
-#include "ScriptObject.h"
 #include "ScriptProfile.h"
 #include "ScriptState.h"
-#include "ScriptValue.h"
 #include "StringHash.h"
 #include "Timer.h"
 #include <wtf/HashMap.h>
@@ -46,10 +42,6 @@
 #include <wtf/ListHashSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
-
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-#include "ScriptDebugListener.h"
-#endif
 
 namespace WebCore {
 
@@ -63,15 +55,17 @@ class GraphicsContext;
 class HitTestResult;
 class InjectedScript;
 class InjectedScriptHost;
+class InspectorArray;
 class InspectorBackend;
 class InspectorBackendDispatcher;
 class InspectorClient;
 class InspectorCSSStore;
 class InspectorDOMStorageResource;
 class InspectorDatabaseResource;
-class InspectorFrontend;
+class InspectorDebuggerAgent;
 class InspectorFrontendClient;
 class InspectorResource;
+class InspectorStorageAgent;
 class InspectorTimelineAgent;
 class InspectorValue;
 class InspectorWorkerResource;
@@ -92,36 +86,24 @@ class StorageArea;
 class InspectorApplicationCacheAgent;
 #endif
 
-class InspectorController
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-                          : ScriptDebugListener, public Noncopyable
-#else
-                          : public Noncopyable
-#endif
-                                                    {
+class InspectorController : public Noncopyable {
 public:
     typedef HashMap<unsigned long, RefPtr<InspectorResource> > ResourcesMap;
     typedef HashMap<RefPtr<Frame>, ResourcesMap*> FrameResourcesMap;
     typedef HashMap<int, RefPtr<InspectorDatabaseResource> > DatabaseResourcesMap;
     typedef HashMap<int, RefPtr<InspectorDOMStorageResource> > DOMStorageResourcesMap;
 
-    typedef enum {
-        AuditsPanel,
-        CurrentPanel,
-        ConsolePanel,
-        ElementsPanel,
-        ResourcesPanel,
-        ScriptsPanel,
-        TimelinePanel,
-        ProfilesPanel,
-        StoragePanel
-    } SpecialPanels;
+    static const char* const ConsolePanel;
+    static const char* const ElementsPanel;
+    static const char* const ProfilesPanel;
+    static const char* const ScriptsPanel;
 
     InspectorController(Page*, InspectorClient*);
     ~InspectorController();
 
     InspectorBackend* inspectorBackend() { return m_inspectorBackend.get(); }
     InspectorBackendDispatcher* inspectorBackendDispatcher() { return m_inspectorBackendDispatcher.get(); }
+    InspectorClient* inspectorClient() { return m_client; }
     InjectedScriptHost* injectedScriptHost() { return m_injectedScriptHost.get(); }
 
     void inspectedPageDestroyed();
@@ -144,13 +126,13 @@ public:
     void hideDOMNodeHighlight() { hideHighlight(); }
 
     void show();
-    void showPanel(SpecialPanels);
+    void showPanel(const String&);
     void close();
 
     // We are in transition from JS transport via webInspector to native
     // transport via InspectorClient. After migration, webInspector parameter should
     // be removed.
-    void connectFrontend(const ScriptObject& webInspector);
+    void connectFrontend();
     void disconnectFrontend();
 
     void addMessageToConsole(MessageSource, MessageType, MessageLevel, ScriptCallStack*, const String& message = String());
@@ -192,7 +174,7 @@ public:
     void stopTimelineProfiler();
     InspectorTimelineAgent* timelineAgent() { return m_timelineAgent.get(); }
 
-    void getCookies(long callId);
+    void getCookies(RefPtr<InspectorArray>* cookies, WTF::String* cookiesString);
     void deleteCookie(const String& cookieName, const String& domain);
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
@@ -214,20 +196,19 @@ public:
 #endif
 
 #if ENABLE(DATABASE)
-    void didOpenDatabase(Database*, const String& domain, const String& name, const String& version);
+    void didOpenDatabase(PassRefPtr<Database>, const String& domain, const String& name, const String& version);
 #endif
 #if ENABLE(DOM_STORAGE)
     void didUseDOMStorage(StorageArea* storageArea, bool isLocalStorage, Frame* frame);
     void selectDOMStorage(Storage* storage);
-    void getDOMStorageEntries(long callId, long storageId);
-    void setDOMStorageItem(long callId, long storageId, const String& key, const String& value);
-    void removeDOMStorageItem(long callId, long storageId, const String& key);
+    void getDOMStorageEntries(long storageId, RefPtr<InspectorArray>* entries);
+    void setDOMStorageItem(long storageId, const String& key, const String& value, bool* success);
+    void removeDOMStorageItem(long storageId, const String& key, bool* success);
 #endif
 
     const ResourcesMap& resources() const { return m_resources; }
     InspectorResource* resourceForURL(const String& url);
-    InspectorFrontend* inspectorFrontend() { return m_frontend.get(); }
-    RemoteInspectorFrontend* remoteInspectorFrontend() { return m_remoteFrontend.get(); }
+    bool hasFrontend() const { return m_remoteFrontend; }
 
     void drawNodeHighlight(GraphicsContext&) const;
 
@@ -260,30 +241,19 @@ public:
     void disableProfiler(bool always = false);
     bool profilerEnabled() const { return enabled() && m_profilerEnabled; }
 
-    void takeHeapSnapshot();
-
     void enableDebugger();
     void disableDebugger(bool always = false);
-    bool debuggerEnabled() const { return m_debuggerEnabled; }
-
-    void editScriptSource(long callId, const String& sourceID, const String& newContent);
-    void getScriptSource(long callId, const String& sourceID);
-
+    bool debuggerEnabled() const { return m_debuggerAgent; }
+    InspectorDebuggerAgent* debuggerAgent() const { return m_debuggerAgent.get(); }
     void resume();
-    void setPauseOnExceptionsState(long pauseState);
-    PassRefPtr<SerializedScriptValue> currentCallFrames();
-
-    virtual void didParseSource(const String& sourceID, const String& url, const String& data, int firstLine, ScriptWorldType);
-    virtual void failedToParseSource(const String& url, const String& data, int firstLine, int errorLine, const String& errorMessage);
-    virtual void didPause(ScriptState*);
-    virtual void didContinue();
 #endif
 
-    void evaluateForTestInFrontend(long callId, const String& script);
+    void evaluateForTestInFrontend(long testCallId, const String& script);
 
     InjectedScript injectedScriptForNodeId(long id);
     void addScriptToEvaluateOnLoad(const String& source);
     void removeAllScriptsToEvaluateOnLoad();
+    void setInspectorExtensionAPI(const String& source);
 
     static const String& inspectorStartsAttachedSettingName();
 
@@ -291,6 +261,7 @@ private:
     static const String& frontendSettingsSettingName();
 
     friend class InspectorBackend;
+    friend class InspectorBackendDispatcher;
     friend class InjectedScriptHost;
 
     void populateScriptObjects();
@@ -309,17 +280,14 @@ private:
     void releaseFrontendLifetimeAgents();
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    void setBreakpoint(long callId, const String& sourceID, unsigned lineNumber, bool enabled, const String& condition);
-    void removeBreakpoint(const String& sourceID, unsigned lineNumber);
-
     typedef HashMap<unsigned int, RefPtr<ScriptProfile> > ProfilesMap;
 
     void startUserInitiatedProfilingSoon();
     void toggleRecordButton(bool);
     void enableDebuggerFromFrontend(bool always);
-    void getProfileHeaders(long callId);
-    void getProfile(long callId, unsigned uid);
-    ScriptObject createProfileHeader(const ScriptProfile& profile);
+    void getProfileHeaders(RefPtr<InspectorArray>* headers);
+    void getProfile(unsigned uid, RefPtr<InspectorObject>* profileObject);
+    PassRefPtr<InspectorObject> createProfileHeader(const ScriptProfile& profile);
 #endif
 #if ENABLE(DATABASE)
     void selectDatabase(Database* database);
@@ -329,8 +297,8 @@ private:
     InspectorDOMStorageResource* getDOMStorageResourceForId(long storageId);
 #endif
 
-    ScriptObject buildObjectForCookie(const Cookie&);
-    ScriptArray buildArrayForCookies(ListHashSet<Cookie>&);
+    PassRefPtr<InspectorObject> buildObjectForCookie(const Cookie&);
+    PassRefPtr<InspectorArray> buildArrayForCookies(ListHashSet<Cookie>&);
 
     void focusNode();
 
@@ -339,30 +307,29 @@ private:
     void addResource(InspectorResource*);
     void removeResource(InspectorResource*);
     InspectorResource* getTrackedResource(unsigned long identifier);
-    void getResourceContent(long callId, unsigned long identifier);
+    void getResourceContent(unsigned long identifier, String* content);
 
     void pruneResources(ResourcesMap*, DocumentLoader* loaderToKeep = 0);
     void removeAllResources(ResourcesMap* map) { pruneResources(map); }
 
     bool isMainResourceLoader(DocumentLoader* loader, const KURL& requestUrl);
 
-    SpecialPanels specialPanelForJSName(const String& panelName);
-
     void didEvaluateForTestInFrontend(long callId, const String& jsonResult);
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
+    friend class InspectorDebuggerAgent;
     String breakpointsSettingKey();
-    void loadBreakpoints();
-    void saveBreakpoints();
+    PassRefPtr<InspectorValue> loadBreakpoints();
+    void saveBreakpoints(PassRefPtr<InspectorObject> breakpoints);
 #endif
 
     Page* m_inspectedPage;
     InspectorClient* m_client;
     OwnPtr<InspectorFrontendClient> m_inspectorFrontendClient;
     bool m_openingFrontend;
-    OwnPtr<InspectorFrontend> m_frontend;
     OwnPtr<RemoteInspectorFrontend> m_remoteFrontend;
     RefPtr<InspectorDOMAgent> m_domAgent;
+    RefPtr<InspectorStorageAgent> m_storageAgent;
     OwnPtr<InspectorCSSStore> m_cssStore;
     OwnPtr<InspectorTimelineAgent> m_timelineAgent;
 
@@ -385,7 +352,7 @@ private:
 #if ENABLE(DOM_STORAGE)
     DOMStorageResourcesMap m_domStorageResources;
 #endif
-    SpecialPanels m_showAfterVisible;
+    String m_showAfterVisible;
     RefPtr<Node> m_highlightedNode;
 #if ENABLE(INSPECTOR)
     RefPtr<InspectorValue> m_sessionSettings;
@@ -405,15 +372,10 @@ private:
 
     Vector<pair<long, String> > m_pendingEvaluateTestCommands;
     Vector<String> m_scriptsToEvaluateOnLoad;
+    String m_inspectorExtensionAPI;
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    bool m_debuggerEnabled;
     bool m_attachDebuggerWhenShown;
-    ScriptState* m_pausedScriptState;
-    HashMap<String, String> m_sourceIDToURL;
-    HashMap<String, String> m_scriptIDToContent;
-    HashMap<String, SourceBreakpoints> m_stickyBreakpoints;
-    HashMap<String, unsigned> m_breakpointsMapping;
-    bool m_breakpointsLoaded;
+    OwnPtr<InspectorDebuggerAgent> m_debuggerAgent;
 
     bool m_profilerEnabled;
     bool m_recordingUserInitiatedProfile;

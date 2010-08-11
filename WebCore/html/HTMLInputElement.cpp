@@ -67,9 +67,13 @@
 #include "StepRange.h"
 #include "StringHash.h"
 #include "TextEvent.h"
+<<<<<<< HEAD
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
 #include "WebViewCore.h"
 #endif
+=======
+#include "WheelEvent.h"
+>>>>>>> webkit.org at r65072
 #include <wtf/HashMap.h>
 #include <wtf/MathExtras.h>
 #include <wtf/StdLibExtras.h>
@@ -2040,7 +2044,7 @@ bool HTMLInputElement::storesValueSeparateFromAttribute() const
     return false;
 }
 
-struct EventHandlingState {
+struct EventHandlingState : FastAllocBase {
     RefPtr<HTMLInputElement> m_currRadio;
     bool m_indeterminate;
     bool m_checked;
@@ -2419,6 +2423,20 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
     if (evt->isBeforeTextInsertedEvent())
         handleBeforeTextInsertedEvent(evt);
 
+    if (hasSpinButton() && evt->isWheelEvent()) {
+        WheelEvent* wheel = static_cast<WheelEvent*>(evt);
+        int step = 0;
+        if (wheel->wheelDeltaY() > 0) {
+            step = 1;
+        } else if (wheel->wheelDeltaY() < 0) {
+            step = -1;
+        }
+        if (step) {
+            stepUpFromRenderer(step);
+            evt->setDefaultHandled();
+            return;
+        }
+    }
     if (isTextField() && renderer() && (evt->isMouseEvent() || evt->isDragEvent() || evt->isWheelEvent() || evt->type() == eventNames().blurEvent || evt->type() == eventNames().focusEvent))
         toRenderTextControlSingleLine(renderer())->forwardEvent(evt);
 
@@ -2814,10 +2832,16 @@ HTMLOptionElement* HTMLInputElement::selectedOption() const
 
 void HTMLInputElement::stepUpFromRenderer(int n)
 {
-    // The difference from stepUp()/stepDown() is:
-    // If the current value is invalid, the value will be
-    //  - the minimum value if n > 0
-    //  - the maximum value if n < 0
+    // The differences from stepUp()/stepDown():
+    // If the current value is not a number, the value will be
+    //  - The value should be the minimum value if n > 0
+    //  - The value should be the maximum value if n < 0
+    // If the current value is smaller than the minimum value:
+    //  - The value should be the minimum value if n > 0
+    //  - Nothing should happen if n < 0
+    // If the current value is larger than the maximum value:
+    //  - The value should be the maximum value if n < 0
+    //  - Nothing should happen if n > 0
 
     ASSERT(hasSpinButton());
     if (!hasSpinButton())
@@ -2829,7 +2853,7 @@ void HTMLInputElement::stepUpFromRenderer(int n)
     const double nan = numeric_limits<double>::quiet_NaN();
     String currentStringValue = value();
     double current = parseToDouble(currentStringValue, nan);
-    if (!isfinite(current))
+    if (!isfinite(current) || (n > 0 && current < minimum()) || (n < 0 && current > maximum()))
         setValue(serialize(n > 0 ? minimum() : maximum()));
     else {
         ExceptionCode ec;

@@ -33,14 +33,13 @@
 
 #include "InjectedScriptHost.h"
 #include "ScriptObject.h"
+#include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
 class InspectorValue;
-class SerializedScriptValue;
-class String;
 
 class InjectedScript {
 public:
@@ -49,9 +48,9 @@ public:
 
     bool hasNoValue() const { return m_injectedScriptObject.hasNoValue(); }
 
-    void dispatch(long callId, const String& methodName, const String& arguments, bool async, RefPtr<SerializedScriptValue>* result, bool* hadException);
+    void dispatch(const String& methodName, const String& arguments, RefPtr<InspectorValue>* result, bool* hadException);
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    PassRefPtr<SerializedScriptValue> callFrames();
+    PassRefPtr<InspectorValue> callFrames();
 #endif
     PassRefPtr<InspectorValue> wrapForConsole(ScriptValue);
     void releaseWrapperObjectGroup(const String&);

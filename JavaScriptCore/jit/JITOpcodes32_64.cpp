@@ -159,7 +159,14 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
 #endif
 
     // All trampolines constructed! copy the code, link up calls, and set the pointers on the Machine object.
-    LinkBuffer patchBuffer(this, m_globalData->executableAllocator.poolForSize(m_assembler.size()));
+    *executablePool = m_globalData->executableAllocator.poolForSize(m_assembler.size());
+    // We can't run without the JIT trampolines!
+    if (!*executablePool)
+        CRASH();
+    LinkBuffer patchBuffer(this, *executablePool, 0);
+    // We can't run without the JIT trampolines!
+    if (!patchBuffer.allocationSuccessful())
+        CRASH();
 
 #if ENABLE(JIT_OPTIMIZE_PROPERTY_ACCESS)
     patchBuffer.link(string_failureCases1Call, FunctionPtr(cti_op_get_by_id_string_fail));
@@ -174,21 +181,20 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
     patchBuffer.link(callCompileCconstruct, FunctionPtr(cti_op_construct_jitCompile));
 
     CodeRef finalCode = patchBuffer.finalizeCode();
-    *executablePool = finalCode.m_executablePool;
 
-    trampolines->ctiVirtualCall = trampolineAt(finalCode, virtualCallBegin);
-    trampolines->ctiVirtualConstruct = trampolineAt(finalCode, virtualConstructBegin);
-    trampolines->ctiNativeCall = trampolineAt(finalCode, nativeCallThunk);
-    trampolines->ctiNativeConstruct = trampolineAt(finalCode, nativeConstructThunk);
+    trampolines->ctiVirtualCall = patchBuffer.trampolineAt(virtualCallBegin);
+    trampolines->ctiVirtualConstruct = patchBuffer.trampolineAt(virtualConstructBegin);
+    trampolines->ctiNativeCall = patchBuffer.trampolineAt(nativeCallThunk);
+    trampolines->ctiNativeConstruct = patchBuffer.trampolineAt(nativeConstructThunk);
 #if ENABLE(JIT_OPTIMIZE_PROPERTY_ACCESS)
-    trampolines->ctiStringLengthTrampoline = trampolineAt(finalCode, stringLengthBegin);
+    trampolines->ctiStringLengthTrampoline = patchBuffer.trampolineAt(stringLengthBegin);
 #endif
 #if ENABLE(JIT_OPTIMIZE_CALL)
-    trampolines->ctiVirtualCallLink = trampolineAt(finalCode, virtualCallLinkBegin);
-    trampolines->ctiVirtualConstructLink = trampolineAt(finalCode, virtualConstructLinkBegin);
+    trampolines->ctiVirtualCallLink = patchBuffer.trampolineAt(virtualCallLinkBegin);
+    trampolines->ctiVirtualConstructLink = patchBuffer.trampolineAt(virtualConstructLinkBegin);
 #endif
 #if ENABLE(JIT_USE_SOFT_MODULO)
-    trampolines->ctiSoftModulo = trampolineAt(finalCode, softModBegin);
+    trampolines->ctiSoftModulo = patchBuffer.trampolineAt(softModBegin);
 #endif
 }
 
@@ -356,12 +362,15 @@ JIT::CodePtr JIT::privateCompileCTINativeCall(PassRefPtr<ExecutablePool> executa
     ret();
 
     // All trampolines constructed! copy the code, link up calls, and set the pointers on the Machine object.
-    LinkBuffer patchBuffer(this, executablePool);
+    LinkBuffer patchBuffer(this, executablePool, 0);
+    // We can't continue if we can't call a function!
+    if (!patchBuffer.allocationSuccessful())
+        CRASH();
 
     patchBuffer.link(nativeCall, FunctionPtr(func));
+    patchBuffer.finalizeCode();
 
-    CodeRef finalCode = patchBuffer.finalizeCode();
-    return trampolineAt(finalCode, nativeCallThunk);
+    return patchBuffer.trampolineAt(nativeCallThunk);
 }
 
 void JIT::emit_op_mov(Instruction* currentInstruction)
@@ -516,9 +525,9 @@ void JIT::emit_op_new_func(Instruction* currentInstruction)
 void JIT::emit_op_get_global_var(Instruction* currentInstruction)
 {
     int dst = currentInstruction[1].u.operand;
-    JSGlobalObject* globalObject = static_cast<JSGlobalObject*>(currentInstruction[2].u.jsCell);
+    JSGlobalObject* globalObject = m_codeBlock->globalObject();
     ASSERT(globalObject->isGlobalObject());
-    int index = currentInstruction[3].u.operand;
+    int index = currentInstruction[2].u.operand;
 
     loadPtr(&globalObject->d()->registers, regT2);
 
@@ -529,10 +538,10 @@ void JIT::emit_op_get_global_var(Instruction* currentInstruction)
 
 void JIT::emit_op_put_global_var(Instruction* currentInstruction)
 {
-    JSGlobalObject* globalObject = static_cast<JSGlobalObject*>(currentInstruction[1].u.jsCell);
+    JSGlobalObject* globalObject = m_codeBlock->globalObject();
     ASSERT(globalObject->isGlobalObject());
-    int index = currentInstruction[2].u.operand;
-    int value = currentInstruction[3].u.operand;
+    int index = currentInstruction[1].u.operand;
+    int value = currentInstruction[2].u.operand;
 
     emitLoad(value, regT1, regT0);
 
@@ -669,7 +678,7 @@ void JIT::emit_op_resolve_global(Instruction* currentInstruction, bool dynamic)
     // FIXME: Optimize to use patching instead of so many memory accesses.
 
     unsigned dst = currentInstruction[1].u.operand;
-    void* globalObject = currentInstruction[2].u.jsCell;
+    void* globalObject = m_codeBlock->globalObject();
 
     unsigned currentIndex = m_globalResolveInfoIndex++;
     void* structureAddress = &(m_codeBlock->globalResolveInfo(currentIndex).structure);
@@ -692,14 +701,12 @@ void JIT::emit_op_resolve_global(Instruction* currentInstruction, bool dynamic)
 void JIT::emitSlow_op_resolve_global(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
     unsigned dst = currentInstruction[1].u.operand;
-    void* globalObject = currentInstruction[2].u.jsCell;
-    Identifier* ident = &m_codeBlock->identifier(currentInstruction[3].u.operand);
+    Identifier* ident = &m_codeBlock->identifier(currentInstruction[2].u.operand);
 
     unsigned currentIndex = m_globalResolveInfoIndex++;
 
     linkSlowCase(iter);
     JITStubCall stubCall(this, cti_op_resolve_global);
-    stubCall.addArgument(ImmPtr(globalObject));
     stubCall.addArgument(ImmPtr(ident));
     stubCall.addArgument(Imm32(currentIndex));
     stubCall.call(dst);

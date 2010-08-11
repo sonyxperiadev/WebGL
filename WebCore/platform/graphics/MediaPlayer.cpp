@@ -297,6 +297,11 @@ bool MediaPlayer::hasAvailableVideoFrame() const
     return m_private->hasAvailableVideoFrame();
 }
     
+void MediaPlayer::prepareForRendering()
+{
+    return m_private->prepareForRendering();
+}
+    
 bool MediaPlayer::canLoadPoster() const
 {
     return m_private->canLoadPoster();

@@ -155,6 +155,11 @@ contains(DEFINES, WTF_USE_QT_MOBILE_THEME=1) {
 include($$PWD/../JavaScriptCore/JavaScriptCore.pri)
 addJavaScriptCoreLib(../JavaScriptCore)
 
+webkit2 {
+    include($$PWD/../WebKit2/WebKit2.pri)
+    addWebKit2Lib(../WebKit2)
+}
+
 # Extract sources to build from the generator definitions
 defineTest(addExtraCompiler) {
     isEqual($${1}.wkAddOutputToSources, false): return(true)
@@ -276,6 +281,7 @@ SOURCES += \
     accessibility/AccessibilityTableHeaderContainer.cpp \    
     accessibility/AccessibilityTableRow.cpp \    
     accessibility/AXObjectCache.cpp \
+    bindings/generic/ActiveDOMCallback.cpp \
     bindings/generic/RuntimeEnabledFeatures.cpp \
     bindings/js/GCController.cpp \
     bindings/js/DOMObjectHashTableMap.cpp \
@@ -300,6 +306,7 @@ SOURCES += \
     bindings/js/JSDataGridDataSource.cpp \
     bindings/js/JSDebugWrapperSet.cpp \
     bindings/js/JSDesktopNotificationsCustom.cpp \
+    bindings/js/JSDeviceMotionEventCustom.cpp \
     bindings/js/JSDeviceOrientationEventCustom.cpp \
     bindings/js/JSDocumentCustom.cpp \
     bindings/js/JSDOMFormDataCustom.cpp \
@@ -367,7 +374,6 @@ SOURCES += \
     bindings/js/JSPluginElementFunctions.cpp \
     bindings/js/JSPopStateEventCustom.cpp \
     bindings/js/JSWorkerContextErrorHandler.cpp \
-    bindings/js/ScriptArray.cpp \
     bindings/js/ScriptCachedFrameData.cpp \
     bindings/js/ScriptCallFrame.cpp \
     bindings/js/ScriptCallStack.cpp \
@@ -377,6 +383,7 @@ SOURCES += \
     bindings/js/ScriptFunctionCall.cpp \
     bindings/js/ScriptGCEvent.cpp \
     bindings/js/ScriptObject.cpp \
+    bindings/js/ScriptProfile.cpp \
     bindings/js/ScriptState.cpp \
     bindings/js/ScriptValue.cpp \
     bindings/js/ScheduledAction.cpp \
@@ -457,6 +464,7 @@ SOURCES += \
     css/WebKitCSSMatrix.cpp \
     css/WebKitCSSTransformValue.cpp \
     dom/ActiveDOMObject.cpp \
+    dom/AsyncScriptRunner.cpp \
     dom/Attr.cpp \
     dom/Attribute.cpp \
     dom/BeforeProcessEvent.cpp \
@@ -477,6 +485,9 @@ SOURCES += \
     dom/CSSMappedAttributeDeclaration.cpp \
     dom/CustomEvent.cpp \
     dom/DecodedDataDocumentParser.cpp \
+    dom/DeviceMotionController.cpp \
+    dom/DeviceMotionData.cpp \
+    dom/DeviceMotionEvent.cpp \
     dom/DeviceOrientation.cpp \
     dom/DeviceOrientationController.cpp \
     dom/DeviceOrientationEvent.cpp \
@@ -520,6 +531,7 @@ SOURCES += \
     dom/StaticHashSetNodeList.cpp \
     dom/OverflowEvent.cpp \
     dom/PageTransitionEvent.cpp \
+    dom/PendingScript.cpp \
     dom/PopStateEvent.cpp \
     dom/Position.cpp \
     dom/PositionIterator.cpp \
@@ -740,12 +752,13 @@ SOURCES += \
     inspector/InspectorCSSStore.cpp \
     inspector/InspectorController.cpp \
     inspector/InspectorDatabaseResource.cpp \
+    inspector/InspectorDebuggerAgent.cpp \
     inspector/InspectorDOMAgent.cpp \
     inspector/InspectorDOMStorageResource.cpp \
-    inspector/InspectorFrontend.cpp \
     inspector/InspectorFrontendClientLocal.cpp \
     inspector/InspectorFrontendHost.cpp \
     inspector/InspectorResource.cpp \
+    inspector/InspectorStorageAgent.cpp \
     inspector/InspectorTimelineAgent.cpp \
     inspector/InspectorValues.cpp \
     inspector/ScriptBreakpoint.cpp \
@@ -1081,6 +1094,7 @@ HEADERS += \
     accessibility/AccessibilityTableRow.h \
     accessibility/AXObjectCache.h \
     bindings/ScriptControllerBase.h \
+    bindings/generic/ActiveDOMCallback.h \
     bindings/js/CachedScriptSourceProvider.h \
     bindings/js/GCController.h \
     bindings/js/DOMObjectHashTableMap.h \
@@ -1121,7 +1135,6 @@ HEADERS += \
     bindings/js/JSWorkerContextErrorHandler.h \
     bindings/js/JavaScriptCallFrame.h \
     bindings/js/ScheduledAction.h \
-    bindings/js/ScriptArray.h \
     bindings/js/ScriptCachedFrameData.h \
     bindings/js/ScriptCallFrame.h \
     bindings/js/ScriptCallStack.h \
@@ -1240,6 +1253,10 @@ HEADERS += \
     dom/CSSMappedAttributeDeclaration.h \
     dom/CustomEvent.h \
     dom/default/PlatformMessagePortChannel.h \
+    dom/DeviceMotionClient.h \
+    dom/DeviceMotionData.h \
+    dom/DeviceMotionController.h \
+    dom/DeviceMotionEvent.h \
     dom/DeviceOrientation.h \
     dom/DeviceOrientationClient.h \
     dom/DeviceOrientationController.h \
@@ -1496,12 +1513,13 @@ HEADERS += \
     inspector/InspectorBackend.h \
     inspector/InspectorController.h \
     inspector/InspectorDatabaseResource.h \
+    inspector/InspectorDebuggerAgent.h \
     inspector/InspectorDOMStorageResource.h \
-    inspector/InspectorFrontend.h \
     inspector/InspectorFrontendClient.h \
     inspector/InspectorFrontendClientLocal.h \
     inspector/InspectorFrontendHost.h \
     inspector/InspectorResource.h \
+    inspector/InspectorStorageAgent.h \
     inspector/InspectorTimelineAgent.h \
     inspector/ScriptGCEventListener.h \
     inspector/TimelineRecordFactory.h \
@@ -1560,6 +1578,7 @@ HEADERS += \
     mathml/MathMLMathElement.h \
     mathml/MathMLTextElement.h \
     mathml/RenderMathMLBlock.h \
+    mathml/RenderMathMLFenced.h \
     mathml/RenderMathMLFraction.h \
     mathml/RenderMathMLMath.h \
     mathml/RenderMathMLOperator.h \
@@ -1712,7 +1731,6 @@ HEADERS += \
     platform/PopupMenu.h \
     platform/qt/ClipboardQt.h \
     platform/qt/QWebPageClient.h \
-    platform/qt/QtAbstractWebPopup.h \
     platform/qt/QtStyleOptionWebComboBox.h \
     platform/qt/RenderThemeQt.h \
     platform/qt/ScrollbarThemeQt.h \
@@ -2149,6 +2167,8 @@ HEADERS += \
     $$PWD/../WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/PageClientQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/QtPlatformPlugin.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/PopupMenuQt.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/SearchPopupMenuQt.h \
     $$PWD/platform/network/qt/DnsPrefetchHelper.h
 
 SOURCES += \
@@ -2211,13 +2231,10 @@ SOURCES += \
     platform/qt/PlatformScreenQt.cpp \
     platform/qt/PlatformTouchEventQt.cpp \
     platform/qt/PlatformTouchPointQt.cpp \
-    platform/qt/PopupMenuQt.cpp \
-    platform/qt/QtAbstractWebPopup.cpp \
     platform/qt/RenderThemeQt.cpp \
     platform/qt/ScrollbarQt.cpp \
     platform/qt/ScrollbarThemeQt.cpp \
     platform/qt/ScrollViewQt.cpp \
-    platform/qt/SearchPopupMenuQt.cpp \
     platform/qt/SharedTimerQt.cpp \
     platform/qt/SoundQt.cpp \
     platform/qt/LoggingQt.cpp \
@@ -2239,7 +2256,9 @@ SOURCES += \
     ../WebKit/qt/WebCoreSupport/InspectorClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/PageClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/PopupMenuQt.cpp \
     ../WebKit/qt/WebCoreSupport/QtPlatformPlugin.cpp \
+    ../WebKit/qt/WebCoreSupport/SearchPopupMenuQt.cpp \
     ../WebKit/qt/Api/qwebframe.cpp \
     ../WebKit/qt/Api/qgraphicswebview.cpp \
     ../WebKit/qt/Api/qwebpage.cpp \
@@ -2411,8 +2430,6 @@ contains(DEFINES, ENABLE_DATABASE=1) {
         storage/SQLTransactionCoordinator.cpp \
         storage/SQLTransactionSync.cpp \
         bindings/js/JSCustomSQLStatementErrorCallback.cpp \
-        bindings/js/JSDatabaseCustom.cpp \
-        bindings/js/JSDatabaseSyncCustom.cpp \
         bindings/js/JSSQLResultSetRowListCustom.cpp \
         bindings/js/JSSQLTransactionCustom.cpp \
         bindings/js/JSSQLTransactionSyncCustom.cpp
@@ -2423,11 +2440,14 @@ contains(DEFINES, ENABLE_INDEXED_DATABASE=1) {
         bindings/js/IDBBindingUtilities.h \
         storage/IDBAny.h \
         storage/IDBCallbacks.h \
+        storage/IDBCursor.h \
+        storage/IDBCursorBackendImpl.h \
+        storage/IDBCursorBackendInterface.h \
         storage/IDBDatabase.h \
-        storage/IDBDatabaseImpl.h \
+        storage/IDBDatabaseBackendImpl.h \
+        storage/IDBDatabaseBackendInterface.h \
         storage/IDBDatabaseError.h \
         storage/IDBDatabaseException.h \
-        storage/IDBDatabaseRequest.h \
         storage/IDBErrorEvent.h \
         storage/IDBEvent.h \
         storage/IDBFactory.h \
@@ -2439,18 +2459,22 @@ contains(DEFINES, ENABLE_INDEXED_DATABASE=1) {
         storage/IDBKey.h \
         storage/IDBKeyRange.h \
         storage/IDBObjectStore.h \
-        storage/IDBObjectStoreImpl.h \
-        storage/IDBObjectStoreRequest.h \
+        storage/IDBObjectStoreBackendImpl.h \
+        storage/IDBObjectStoreBackendInterface.h \
         storage/IDBRequest.h \
-        storage/IDBSuccessEvent.h
+        storage/IDBSuccessEvent.h \
+        storage/IDBTransaction.h \
+        storage/IDBTransactionBackendInterface.h
 
     SOURCES += \
         bindings/js/IDBBindingUtilities.cpp \
         bindings/js/JSIDBAnyCustom.cpp \
         bindings/js/JSIDBKeyCustom.cpp \
         storage/IDBAny.cpp \
-        storage/IDBDatabaseImpl.cpp \
-        storage/IDBDatabaseRequest.cpp \
+        storage/IDBCursor.cpp \
+        storage/IDBCursorBackendImpl.cpp \
+        storage/IDBDatabase.cpp \
+        storage/IDBDatabaseBackendImpl.cpp \
         storage/IDBErrorEvent.cpp \
         storage/IDBEvent.cpp \
         storage/IDBFactory.cpp \
@@ -2460,10 +2484,11 @@ contains(DEFINES, ENABLE_INDEXED_DATABASE=1) {
         storage/IDBIndexBackendImpl.cpp \
         storage/IDBKey.cpp \
         storage/IDBKeyRange.cpp \
-        storage/IDBObjectStoreImpl.cpp \
-        storage/IDBObjectStoreRequest.cpp \
+        storage/IDBObjectStore.cpp \
+        storage/IDBObjectStoreBackendImpl.cpp \
         storage/IDBRequest.cpp \
-        storage/IDBSuccessEvent.cpp
+        storage/IDBSuccessEvent.cpp \
+        storage/IDBTransaction.cpp
 }
 
 contains(DEFINES, ENABLE_DOM_STORAGE=1) {
@@ -2654,6 +2679,7 @@ contains(DEFINES, ENABLE_MATHML=1) {
         mathml/MathMLMathElement.cpp \
         mathml/MathMLTextElement.cpp \
         mathml/RenderMathMLBlock.cpp \
+        mathml/RenderMathMLFenced.cpp \
         mathml/RenderMathMLFraction.cpp \
         mathml/RenderMathMLMath.cpp \
         mathml/RenderMathMLOperator.cpp \
@@ -2832,8 +2858,12 @@ contains(DEFINES, ENABLE_SVG=1) {
         svg/SVGPaint.cpp \
         svg/SVGParserUtilities.cpp \
         svg/SVGPathBuilder.cpp \
+        svg/SVGPathByteStreamBuilder.cpp \
+        svg/SVGPathByteStreamSource.cpp \
         svg/SVGPathElement.cpp \
         svg/SVGPathParser.cpp \
+        svg/SVGPathParserFactory.cpp \
+        svg/SVGPathSeg.cpp \
         svg/SVGPathSegArc.cpp \
         svg/SVGPathSegClosePath.cpp \
         svg/SVGPathSegCurvetoCubic.cpp \
@@ -2845,7 +2875,10 @@ contains(DEFINES, ENABLE_SVG=1) {
         svg/SVGPathSegLinetoVertical.cpp \
         svg/SVGPathSegList.cpp \
         svg/SVGPathSegListBuilder.cpp \
+        svg/SVGPathSegListSource.cpp \
         svg/SVGPathSegMoveto.cpp \
+        svg/SVGPathStringBuilder.cpp \
+        svg/SVGPathStringSource.cpp \
         svg/SVGPatternElement.cpp \
         svg/SVGPointList.cpp \
         svg/SVGPolyElement.cpp \
@@ -3004,7 +3037,7 @@ tobe|!tobe: QT += opengl
 HEADERS += \
         bindings/js/JSArrayBufferViewHelper.h \
         html/canvas/CanvasContextAttributes.h \
-        html/canvas/CanvasObject.h \
+        html/canvas/WebGLObject.h \
         html/canvas/WebGLActiveInfo.h \
         html/canvas/ArrayBuffer.h \
         html/canvas/ArrayBufferView.h \
@@ -3039,7 +3072,7 @@ SOURCES += \
         bindings/js/JSUint32ArrayCustom.cpp \
         bindings/js/JSUint16ArrayCustom.cpp \
         html/canvas/CanvasContextAttributes.cpp \
-        html/canvas/CanvasObject.cpp \
+        html/canvas/WebGLObject.cpp \
         html/canvas/ArrayBuffer.cpp \
         html/canvas/ArrayBufferView.cpp \
         html/canvas/WebGLBuffer.cpp \
@@ -3192,204 +3225,6 @@ SOURCES += \
     platform/graphics/qt/GraphicsLayerQt.cpp \
     rendering/RenderLayerBacking.cpp \
     rendering/RenderLayerCompositor.cpp
-}
-
-webkit2 {
-
-CONFIG += precompile_header
-PRECOMPILED_HEADER = $$PWD/../WebKit2/WebKit2Prefix.h
-
-INCLUDEPATH = \
-    $$PWD/../WebKit2/Platform \
-    $$PWD/../WebKit2/Platform/CoreIPC \
-    $$PWD/../WebKit2/Shared \
-    $$PWD/../WebKit2/Shared/CoreIPCSupport \
-    $$PWD/../WebKit2/Shared/qt \
-    $$PWD/../WebKit2/UIProcess \
-    $$PWD/../WebKit2/UIProcess/API/C \
-    $$PWD/../WebKit2/UIProcess/API/cpp \
-    $$PWD/../WebKit2/UIProcess/API/cpp/qt \
-    $$PWD/../WebKit2/UIProcess/API/qt \
-    $$PWD/../WebKit2/UIProcess/Launcher \
-    $$PWD/../WebKit2/UIProcess/Plugins \
-    $$PWD/../WebKit2/UIProcess/qt \
-    $$PWD/../WebKit2/WebProcess \
-    $$PWD/../WebKit2/WebProcess/InjectedBundle \
-    $$PWD/../WebKit2/WebProcess/InjectedBundle/API/c \
-    $$PWD/../WebKit2/WebProcess/WebCoreSupport \
-    $$PWD/../WebKit2/WebProcess/WebPage \
-    $$INCLUDEPATH \
-    $$OUTPUT_DIR/include \
-
-HEADERS += \
-    ../WebKit2/Platform/CoreIPC/ArgumentDecoder.h \
-    ../WebKit2/Platform/CoreIPC/ArgumentEncoder.h \
-    ../WebKit2/Platform/CoreIPC/Arguments.h \
-    ../WebKit2/Platform/CoreIPC/Attachment.h \
-    ../WebKit2/Platform/CoreIPC/Connection.h \
-    ../WebKit2/Platform/CoreIPC/CoreIPCMessageKinds.h \
-    ../WebKit2/Platform/CoreIPC/MessageID.h \
-    ../WebKit2/Platform/PlatformProcessIdentifier.h \
-    ../WebKit2/Platform/RunLoop.h \
-    ../WebKit2/Platform/WorkItem.h \
-    ../WebKit2/Platform/WorkQueue.h \
-    ../WebKit2/Shared/CoreIPCSupport/DrawingAreaMessageKinds.h \
-    ../WebKit2/Shared/CoreIPCSupport/DrawingAreaProxyMessageKinds.h \
-    ../WebKit2/Shared/CoreIPCSupport/WebPageMessageKinds.h \
-    ../WebKit2/Shared/CoreIPCSupport/WebPageProxyMessageKinds.h \
-    ../WebKit2/Shared/CoreIPCSupport/WebProcessMessageKinds.h \
-    ../WebKit2/Shared/NotImplemented.h \
-    ../WebKit2/Shared/qt/WebEventFactoryQt.h \
-    ../WebKit2/Shared/WebEventConversion.h \
-    ../WebKit2/Shared/WebEvent.h \
-    ../WebKit2/Shared/WebNavigationDataStore.h \
-    ../WebKit2/Shared/WebPreferencesStore.h \
-    ../WebKit2/UIProcess/API/cpp/WKRetainPtr.h \
-    ../WebKit2/UIProcess/API/cpp/qt/WKStringQt.h \
-    ../WebKit2/UIProcess/API/cpp/qt/WKURLQt.h \
-    ../WebKit2/UIProcess/API/C/WebKit2.h \
-    ../WebKit2/UIProcess/API/C/WKAPICast.h \
-    ../WebKit2/UIProcess/API/C/WKBase.h \
-    ../WebKit2/UIProcess/API/C/WKContext.h \
-    ../WebKit2/UIProcess/API/C/WKContextPrivate.h \
-    ../WebKit2/UIProcess/API/C/WKFrame.h \
-    ../WebKit2/UIProcess/API/C/WKFramePolicyListener.h \
-    ../WebKit2/UIProcess/API/C/WKNavigationData.h \
-    ../WebKit2/UIProcess/API/C/WKPage.h \
-    ../WebKit2/UIProcess/API/C/WKPageNamespace.h \
-    ../WebKit2/UIProcess/API/C/WKPagePrivate.h \
-    ../WebKit2/UIProcess/API/C/WKPreferences.h \
-    ../WebKit2/UIProcess/API/C/WKString.h \
-    ../WebKit2/UIProcess/API/C/WKURL.h \
-    ../WebKit2/UIProcess/API/qt/qgraphicswkview.h \
-    ../WebKit2/UIProcess/API/qt/qwkpage.h \
-    ../WebKit2/UIProcess/API/qt/qwkpage_p.h \
-    ../WebKit2/UIProcess/ChunkedUpdateDrawingAreaProxy.h \
-    ../WebKit2/UIProcess/DrawingAreaProxy.h \
-    ../WebKit2/UIProcess/GenericCallback.h \
-    ../WebKit2/UIProcess/Launcher/ProcessLauncher.h \
-    ../WebKit2/UIProcess/Plugins/PluginInfoStore.h \
-    ../WebKit2/UIProcess/PageClient.h \
-    ../WebKit2/UIProcess/ProcessModel.h \
-    ../WebKit2/UIProcess/API/qt/ClientImpl.h \
-    ../WebKit2/UIProcess/ResponsivenessTimer.h \
-    ../WebKit2/UIProcess/WebContext.h \
-    ../WebKit2/UIProcess/WebContextInjectedBundleClient.h \
-    ../WebKit2/UIProcess/WebFramePolicyListenerProxy.h \
-    ../WebKit2/UIProcess/WebFrameProxy.h \
-    ../WebKit2/UIProcess/WebHistoryClient.h \
-    ../WebKit2/UIProcess/WebLoaderClient.h \
-    ../WebKit2/UIProcess/WebNavigationData.h \
-    ../WebKit2/UIProcess/WebPageNamespace.h \
-    ../WebKit2/UIProcess/WebPageProxy.h \
-    ../WebKit2/UIProcess/WebPolicyClient.h \
-    ../WebKit2/UIProcess/WebPreferences.h \
-    ../WebKit2/UIProcess/WebProcessManager.h \
-    ../WebKit2/UIProcess/WebProcessProxy.h \
-    ../WebKit2/UIProcess/WebUIClient.h \
-    ../WebKit2/WebProcess/InjectedBundle/API/c/WKBundleBase.h \
-    ../WebKit2/WebProcess/InjectedBundle/API/c/WKBundlePage.h \
-    ../WebKit2/WebProcess/InjectedBundle/InjectedBundle.h \
-    ../WebKit2/WebProcess/InjectedBundle/InjectedBundlePageUIClient.h \
-    ../WebKit2/WebProcess/WebCoreSupport/WebChromeClient.h \
-    ../WebKit2/WebProcess/WebCoreSupport/WebContextMenuClient.h \
-    ../WebKit2/WebProcess/WebCoreSupport/WebDragClient.h \
-    ../WebKit2/WebProcess/WebCoreSupport/WebEditorClient.h \
-    ../WebKit2/WebProcess/WebCoreSupport/WebErrors.h \
-    ../WebKit2/WebProcess/WebCoreSupport/WebFrameLoaderClient.h \
-    ../WebKit2/WebProcess/WebCoreSupport/WebInspectorClient.h \
-    ../WebKit2/WebProcess/WebCoreSupport/WebPopupMenu.h \
-    ../WebKit2/WebProcess/WebCoreSupport/WebSearchPopupMenu.h \
-    ../WebKit2/WebProcess/WebPage/ChunkedUpdateDrawingArea.h \
-    ../WebKit2/WebProcess/WebPage/DrawingArea.h \
-    ../WebKit2/WebProcess/WebPage/WebFrame.h \
-    ../WebKit2/WebProcess/WebPage/WebPage.h \
-    ../WebKit2/WebProcess/WebProcess.h \
-
-SOURCES += \
-    ../WebKit2/Platform/CoreIPC/ArgumentDecoder.cpp \
-    ../WebKit2/Platform/CoreIPC/ArgumentEncoder.cpp \
-    ../WebKit2/Platform/CoreIPC/Attachment.cpp \
-    ../WebKit2/Platform/CoreIPC/Connection.cpp \
-    ../WebKit2/Platform/CoreIPC/qt/ConnectionQt.cpp \
-    ../WebKit2/Platform/RunLoop.cpp \
-    ../WebKit2/Platform/WorkQueue.cpp \
-    ../WebKit2/Platform/qt/RunLoopQt.cpp \
-    ../WebKit2/Platform/qt/WorkQueueQt.cpp \
-    ../WebKit2/Shared/ImmutableArray.cpp \
-    ../WebKit2/Shared/WebEventConversion.cpp \
-    ../WebKit2/Shared/WebPreferencesStore.cpp \
-    ../WebKit2/Shared/qt/UpdateChunk.cpp \
-    ../WebKit2/Shared/qt/WebEventFactoryQt.cpp \
-    ../WebKit2/UIProcess/API/C/WKContext.cpp \
-    ../WebKit2/UIProcess/API/C/WKFrame.cpp \
-    ../WebKit2/UIProcess/API/C/WKFramePolicyListener.cpp \
-    ../WebKit2/UIProcess/API/C/WKNavigationData.cpp \
-    ../WebKit2/UIProcess/API/C/WKPage.cpp \
-    ../WebKit2/UIProcess/API/C/WKPageNamespace.cpp \
-    ../WebKit2/UIProcess/API/C/WKPreferences.cpp \
-    ../WebKit2/UIProcess/API/C/WKString.cpp \
-    ../WebKit2/UIProcess/API/C/WKURL.cpp \
-    ../WebKit2/UIProcess/API/qt/qgraphicswkview.cpp \
-    ../WebKit2/UIProcess/API/qt/qwkpage.cpp \
-    ../WebKit2/UIProcess/API/cpp/qt/WKStringQt.cpp \
-    ../WebKit2/UIProcess/API/cpp/qt/WKURLQt.cpp \
-    ../WebKit2/UIProcess/ChunkedUpdateDrawingAreaProxy.cpp \
-    ../WebKit2/UIProcess/DrawingAreaProxy.cpp \
-    ../WebKit2/UIProcess/Plugins/PluginInfoStore.cpp \
-    ../WebKit2/UIProcess/Plugins/qt/PluginInfoStoreQt.cpp \
-    ../WebKit2/UIProcess/Launcher/ProcessLauncher.cpp \
-    ../WebKit2/UIProcess/Launcher/qt/ProcessLauncherQt.cpp \
-    ../WebKit2/UIProcess/ResponsivenessTimer.cpp \
-    ../WebKit2/UIProcess/WebBackForwardList.cpp \
-    ../WebKit2/UIProcess/WebBackForwardListItem.cpp \
-    ../WebKit2/UIProcess/WebContext.cpp \
-    ../WebKit2/UIProcess/WebContextInjectedBundleClient.cpp \
-    ../WebKit2/UIProcess/WebFramePolicyListenerProxy.cpp \
-    ../WebKit2/UIProcess/WebFrameProxy.cpp \
-    ../WebKit2/UIProcess/WebHistoryClient.cpp \
-    ../WebKit2/UIProcess/WebLoaderClient.cpp \
-    ../WebKit2/UIProcess/WebNavigationData.cpp \
-    ../WebKit2/UIProcess/WebPageNamespace.cpp \
-    ../WebKit2/UIProcess/WebPageProxy.cpp \
-    ../WebKit2/UIProcess/WebPolicyClient.cpp \
-    ../WebKit2/UIProcess/WebPreferences.cpp \
-    ../WebKit2/UIProcess/WebProcessManager.cpp \
-    ../WebKit2/UIProcess/WebProcessProxy.cpp \
-    ../WebKit2/UIProcess/WebUIClient.cpp \
-    ../WebKit2/WebProcess/InjectedBundle/InjectedBundle.cpp \
-    ../WebKit2/WebProcess/InjectedBundle/InjectedBundlePageEditorClient.cpp \
-    ../WebKit2/WebProcess/InjectedBundle/InjectedBundlePageUIClient.cpp \
-    ../WebKit2/WebProcess/InjectedBundle/InjectedBundlePageLoaderClient.cpp \
-    ../WebKit2/WebProcess/InjectedBundle/qt/InjectedBundleQt.cpp \
-    ../WebKit2/UIProcess/API/qt/ClientImpl.cpp \
-    ../WebKit2/UIProcess/qt/ChunkedUpdateDrawingAreaProxyQt.cpp \
-    ../WebKit2/UIProcess/qt/WebContextQt.cpp \
-    ../WebKit2/WebProcess/WebCoreSupport/WebChromeClient.cpp \
-    ../WebKit2/WebProcess/WebCoreSupport/WebContextMenuClient.cpp \
-    ../WebKit2/WebProcess/WebCoreSupport/WebDragClient.cpp \
-    ../WebKit2/WebProcess/WebCoreSupport/WebEditorClient.cpp \
-    ../WebKit2/WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp \
-    ../WebKit2/WebProcess/WebCoreSupport/WebInspectorClient.cpp \
-    ../WebKit2/WebProcess/WebCoreSupport/WebBackForwardControllerClient.cpp \
-    ../WebKit2/WebProcess/WebCoreSupport/WebPopupMenu.cpp \
-    ../WebKit2/WebProcess/WebCoreSupport/WebSearchPopupMenu.cpp \
-    ../WebKit2/WebProcess/WebCoreSupport/qt/WebErrorsQt.cpp \
-    ../WebKit2/WebProcess/WebPage/ChunkedUpdateDrawingArea.cpp \
-    ../WebKit2/WebProcess/WebPage/DrawingArea.cpp \
-    ../WebKit2/WebProcess/WebPage/WebFrame.cpp \
-    ../WebKit2/WebProcess/WebPage/WebPage.cpp \
-    ../WebKit2/WebProcess/WebPage/WebBackForwardListProxy.cpp \
-    ../WebKit2/WebProcess/WebPage/qt/ChunkedUpdateDrawingAreaQt.cpp \
-    ../WebKit2/WebProcess/WebPage/qt/WebPageQt.cpp \
-    ../WebKit2/WebProcess/WebProcess.cpp \
-    ../WebKit2/WebProcess/qt/WebProcessMainQt.cpp
-
-INCLUDEPATH = \
-    $$OUTPUT_DIR/WebCore/generated \
-    $$INCLUDEPATH \
-    $$OUPUT_DIR/include
-
 }
 
 symbian {

@@ -30,7 +30,7 @@
 #include "IDBFactoryBackendImpl.h"
 
 #include "DOMStringList.h"
-#include "IDBDatabaseImpl.h"
+#include "IDBDatabaseBackendImpl.h"
 #include "SecurityOrigin.h"
 #include <wtf/Threading.h>
 #include <wtf/UnusedParam.h>
@@ -54,16 +54,16 @@ IDBFactoryBackendImpl::~IDBFactoryBackendImpl()
 
 void IDBFactoryBackendImpl::open(const String& name, const String& description, PassRefPtr<IDBCallbacks> callbacks, PassRefPtr<SecurityOrigin>, Frame*)
 {
-    RefPtr<IDBDatabase> database;
-    IDBDatabaseMap::iterator it = m_databaseMap.find(name);
-    if (it == m_databaseMap.end()) {
+    RefPtr<IDBDatabaseBackendInterface> databaseBackend;
+    IDBDatabaseBackendMap::iterator it = m_databaseBackendMap.find(name);
+    if (it == m_databaseBackendMap.end()) {
         // FIXME: What should the version be?  The spec doesn't define it yet.
-        database = IDBDatabaseImpl::create(name, description, "");
-        m_databaseMap.set(name, database);
+        databaseBackend = IDBDatabaseBackendImpl::create(name, description, "");
+        m_databaseBackendMap.set(name, databaseBackend);
     } else
-        database = it->second;
+        databaseBackend = it->second;
 
-    callbacks->onSuccess(database.release());
+    callbacks->onSuccess(databaseBackend.release());
 }
 
 } // namespace WebCore

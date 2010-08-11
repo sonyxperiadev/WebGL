@@ -15,7 +15,6 @@
  * along with this library; see the file COPYING.LIB.  If not, write to
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
- *
  */
 
 #include "config.h"
@@ -34,6 +33,7 @@ SVGFontData::SVGFontData(SVGFontFaceElement* fontFaceElement)
     , m_verticalOriginY(fontFaceElement->verticalOriginY())
     , m_verticalAdvanceY(fontFaceElement->verticalAdvanceY())
 {
+    ASSERT_ARG(fontFaceElement, fontFaceElement);
 }
 
 SVGFontData::~SVGFontData()

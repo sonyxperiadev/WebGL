@@ -295,7 +295,10 @@ JIT::CodePtr JIT::stringGetByValStubGenerator(JSGlobalData* globalData, Executab
     jit.move(Imm32(0), regT0);
     jit.ret();
     
-    LinkBuffer patchBuffer(&jit, pool);
+    LinkBuffer patchBuffer(&jit, pool, 0);
+    // We can't run without the JIT trampolines!
+    if (!patchBuffer.allocationSuccessful())
+        CRASH();
     return patchBuffer.finalizeCode().m_code;
 }
 
@@ -311,11 +314,11 @@ void JIT::emit_op_get_by_val(Instruction* currentInstruction)
     emitJumpSlowCaseIfNotJSCell(base, regT1);
     addSlowCase(branchPtr(NotEqual, Address(regT0), ImmPtr(m_globalData->jsArrayVPtr)));
     
-    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSArray, m_vector)), regT3);
+    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSArray, m_storage)), regT3);
     addSlowCase(branch32(AboveOrEqual, regT2, Address(regT0, OBJECT_OFFSETOF(JSArray, m_vectorLength))));
     
-    load32(BaseIndex(regT3, regT2, TimesEight, OBJECT_OFFSETOF(JSValue, u.asBits.tag)), regT1); // tag
-    load32(BaseIndex(regT3, regT2, TimesEight, OBJECT_OFFSETOF(JSValue, u.asBits.payload)), regT0); // payload
+    load32(BaseIndex(regT3, regT2, TimesEight, OBJECT_OFFSETOF(ArrayStorage, m_vector[0]) + OBJECT_OFFSETOF(JSValue, u.asBits.tag)), regT1); // tag
+    load32(BaseIndex(regT3, regT2, TimesEight, OBJECT_OFFSETOF(ArrayStorage, m_vector[0]) + OBJECT_OFFSETOF(JSValue, u.asBits.payload)), regT0); // payload
     addSlowCase(branch32(Equal, regT1, Imm32(JSValue::EmptyValueTag)));
     
     emitStore(dst, regT1, regT0);
@@ -364,22 +367,22 @@ void JIT::emit_op_put_by_val(Instruction* currentInstruction)
     addSlowCase(branchPtr(NotEqual, Address(regT0), ImmPtr(m_globalData->jsArrayVPtr)));
     addSlowCase(branch32(AboveOrEqual, regT2, Address(regT0, OBJECT_OFFSETOF(JSArray, m_vectorLength))));
     
-    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSArray, m_vector)), regT3);
+    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSArray, m_storage)), regT3);
     
-    Jump empty = branch32(Equal, BaseIndex(regT3, regT2, TimesEight, OBJECT_OFFSETOF(JSValue, u.asBits.tag)), Imm32(JSValue::EmptyValueTag));
+    Jump empty = branch32(Equal, BaseIndex(regT3, regT2, TimesEight, OBJECT_OFFSETOF(ArrayStorage, m_vector[0]) + OBJECT_OFFSETOF(JSValue, u.asBits.tag)), Imm32(JSValue::EmptyValueTag));
     
     Label storeResult(this);
     emitLoad(value, regT1, regT0);
-    store32(regT0, BaseIndex(regT3, regT2, TimesEight, OBJECT_OFFSETOF(JSValue, u.asBits.payload))); // payload
-    store32(regT1, BaseIndex(regT3, regT2, TimesEight, OBJECT_OFFSETOF(JSValue, u.asBits.tag))); // tag
+    store32(regT0, BaseIndex(regT3, regT2, TimesEight, OBJECT_OFFSETOF(ArrayStorage, m_vector[0]) + OBJECT_OFFSETOF(JSValue, u.asBits.payload))); // payload
+    store32(regT1, BaseIndex(regT3, regT2, TimesEight, OBJECT_OFFSETOF(ArrayStorage, m_vector[0]) + OBJECT_OFFSETOF(JSValue, u.asBits.tag))); // tag
     Jump end = jump();
     
     empty.link(this);
-    add32(Imm32(1), Address(regT3, OBJECT_OFFSETOF(ArrayStorage, m_numValuesInVector)-OBJECT_OFFSETOF(ArrayStorage, m_vector)));
-    branch32(Below, regT2, Address(regT3, OBJECT_OFFSETOF(ArrayStorage, m_length)-OBJECT_OFFSETOF(ArrayStorage, m_vector))).linkTo(storeResult, this);
+    add32(Imm32(1), Address(regT3, OBJECT_OFFSETOF(ArrayStorage, m_numValuesInVector)));
+    branch32(Below, regT2, Address(regT3, OBJECT_OFFSETOF(ArrayStorage, m_length))).linkTo(storeResult, this);
     
     add32(Imm32(1), regT2, regT0);
-    store32(regT0, Address(regT3, OBJECT_OFFSETOF(ArrayStorage, m_length)-OBJECT_OFFSETOF(ArrayStorage, m_vector)));
+    store32(regT0, Address(regT3, OBJECT_OFFSETOF(ArrayStorage, m_length)));
     jump().linkTo(storeResult, this);
     
     end.link(this);
@@ -585,27 +588,36 @@ void JIT::compileGetDirectOffset(JSObject* base, RegisterID temp, RegisterID res
     load32(Address(temp, offset + OBJECT_OFFSETOF(JSValue, u.asBits.tag)), resultTag);
 }
 
-void JIT::testPrototype(Structure* structure, JumpList& failureCases)
+void JIT::testPrototype(JSValue prototype, JumpList& failureCases)
 {
-    if (structure->m_prototype.isNull())
+    if (prototype.isNull())
         return;
     
-    failureCases.append(branchPtr(NotEqual, AbsoluteAddress(&asCell(structure->m_prototype)->m_structure), ImmPtr(asCell(structure->m_prototype)->m_structure)));
+    // We have a special case for X86_64 here because X86 instructions that take immediate values
+    // only take 32 bit immediate values, wheras the pointer constants we are using here are 64 bit
+    // values.  In the non X86_64 case, the generated code is slightly more efficient because it uses
+    // two less instructions and doesn't require any scratch registers.
+#if CPU(X86_64)
+    move(ImmPtr(asCell(prototype)->structure()), regT3);
+    failureCases.append(branchPtr(NotEqual, AbsoluteAddress(&asCell(prototype)->m_structure), regT3));
+#else
+    failureCases.append(branchPtr(NotEqual, AbsoluteAddress(&asCell(prototype)->m_structure), ImmPtr(asCell(prototype)->structure())));
+#endif
 }
 
-void JIT::privateCompilePutByIdTransition(StructureStubInfo* stubInfo, Structure* oldStructure, Structure* newStructure, size_t cachedOffset, StructureChain* chain, ReturnAddressPtr returnAddress, bool direct)
+bool JIT::privateCompilePutByIdTransition(StructureStubInfo* stubInfo, Structure* oldStructure, Structure* newStructure, size_t cachedOffset, StructureChain* chain, ReturnAddressPtr returnAddress, bool direct)
 {
     // It is assumed that regT0 contains the basePayload and regT1 contains the baseTag.  The value can be found on the stack.
     
     JumpList failureCases;
     failureCases.append(branch32(NotEqual, regT1, Imm32(JSValue::CellTag)));
     failureCases.append(branchPtr(NotEqual, Address(regT0, OBJECT_OFFSETOF(JSCell, m_structure)), ImmPtr(oldStructure)));
-    testPrototype(oldStructure, failureCases);
+    testPrototype(oldStructure->storedPrototype(), failureCases);
     
     if (!direct) {
         // Verify that nothing in the prototype chain has a setter for this property. 
         for (RefPtr<Structure>* it = chain->head(); *it; ++it)
-            testPrototype(it->get(), failureCases);
+            testPrototype((*it)->storedPrototype(), failureCases);
     }
 
     // Reallocate property storage if needed.
@@ -644,8 +656,10 @@ void JIT::privateCompilePutByIdTransition(StructureStubInfo* stubInfo, Structure
     restoreArgumentReferenceForTrampoline();
     Call failureCall = tailRecursiveCall();
     
-    LinkBuffer patchBuffer(this, m_codeBlock->executablePool());
-    
+    LinkBuffer patchBuffer(this, m_codeBlock->executablePool(), 0);
+    if (!patchBuffer.allocationSuccessful())
+        return false;
+
     patchBuffer.link(failureCall, FunctionPtr(direct ? cti_op_put_by_id_direct_fail : cti_op_put_by_id_fail));
     
     if (willNeedStorageRealloc) {
@@ -654,9 +668,10 @@ void JIT::privateCompilePutByIdTransition(StructureStubInfo* stubInfo, Structure
     }
     
     CodeLocationLabel entryLabel = patchBuffer.finalizeCodeAddendum();
-    stubInfo->stubRoutine = entryLabel;
     RepatchBuffer repatchBuffer(m_codeBlock);
     repatchBuffer.relinkCallerToTrampoline(returnAddress, entryLabel);
+    stubInfo->initPutByIdTransition(oldStructure, newStructure, chain, entryLabel);
+    return true;
 }
 
 void JIT::patchGetByIdSelf(CodeBlock* codeBlock, StructureStubInfo* stubInfo, Structure* structure, size_t cachedOffset, ReturnAddressPtr returnAddress)
@@ -721,26 +736,26 @@ void JIT::patchPutByIdReplace(CodeBlock* codeBlock, StructureStubInfo* stubInfo,
     repatchBuffer.repatch(stubInfo->hotPathBegin.dataLabel32AtOffset(patchOffsetPutByIdPropertyMapOffset2), offset + OBJECT_OFFSETOF(JSValue, u.asBits.tag)); // tag
 }
 
-void JIT::privateCompilePatchGetArrayLength(ReturnAddressPtr returnAddress)
+bool JIT::privateCompilePatchGetArrayLength(StructureStubInfo* stubInfo, ReturnAddressPtr returnAddress)
 {
-    StructureStubInfo* stubInfo = &m_codeBlock->getStubInfo(returnAddress);
-    
     // regT0 holds a JSCell*
     
     // Check for array
     Jump failureCases1 = branchPtr(NotEqual, Address(regT0), ImmPtr(m_globalData->jsArrayVPtr));
     
     // Checks out okay! - get the length from the storage
-    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSArray, m_vector)), regT2);
-    load32(Address(regT2, OBJECT_OFFSETOF(ArrayStorage, m_length)-OBJECT_OFFSETOF(ArrayStorage, m_vector)), regT2);
+    loadPtr(Address(regT0, OBJECT_OFFSETOF(JSArray, m_storage)), regT2);
+    load32(Address(regT2, OBJECT_OFFSETOF(ArrayStorage, m_length)), regT2);
     
     Jump failureCases2 = branch32(Above, regT2, Imm32(INT_MAX));
     move(regT2, regT0);
     move(Imm32(JSValue::Int32Tag), regT1);
     Jump success = jump();
     
-    LinkBuffer patchBuffer(this, m_codeBlock->executablePool());
-    
+    LinkBuffer patchBuffer(this, m_codeBlock->executablePool(), 0);
+    if (!patchBuffer.allocationSuccessful())
+        return false;
+
     // Use the patch information to link the failure cases back to the original slow case routine.
     CodeLocationLabel slowCaseBegin = stubInfo->callReturnLocation.labelAtOffset(-patchOffsetGetByIdSlowCaseCall);
     patchBuffer.link(failureCases1, slowCaseBegin);
@@ -751,8 +766,7 @@ void JIT::privateCompilePatchGetArrayLength(ReturnAddressPtr returnAddress)
     
     // Track the stub we have created so that it will be deleted later.
     CodeLocationLabel entryLabel = patchBuffer.finalizeCodeAddendum();
-    stubInfo->stubRoutine = entryLabel;
-    
+
     // Finally patch the jump to slow case back in the hot path to jump here instead.
     CodeLocationJump jumpLocation = stubInfo->hotPathBegin.jumpAtOffset(patchOffsetGetByIdBranchToSlowCase);
     RepatchBuffer repatchBuffer(m_codeBlock);
@@ -760,9 +774,11 @@ void JIT::privateCompilePatchGetArrayLength(ReturnAddressPtr returnAddress)
     
     // We don't want to patch more than once - in future go to cti_op_put_by_id_generic.
     repatchBuffer.relinkCallerToFunction(returnAddress, FunctionPtr(cti_op_get_by_id_array_fail));
+    stubInfo->stubRoutine = entryLabel;
+    return true;
 }
 
-void JIT::privateCompileGetByIdProto(StructureStubInfo* stubInfo, Structure* structure, Structure* prototypeStructure, const Identifier& ident, const PropertySlot& slot, size_t cachedOffset, ReturnAddressPtr returnAddress, CallFrame* callFrame)
+bool JIT::privateCompileGetByIdProto(StructureStubInfo* stubInfo, Structure* structure, Structure* prototypeStructure, const Identifier& ident, const PropertySlot& slot, size_t cachedOffset, ReturnAddressPtr returnAddress, CallFrame* callFrame)
 {
     // regT0 holds a JSCell*
     
@@ -803,8 +819,10 @@ void JIT::privateCompileGetByIdProto(StructureStubInfo* stubInfo, Structure* str
     
     Jump success = jump();
     
-    LinkBuffer patchBuffer(this, m_codeBlock->executablePool());
-    
+    LinkBuffer patchBuffer(this, m_codeBlock->executablePool(), 0);
+    if (!patchBuffer.allocationSuccessful())
+        return false;
+
     // Use the patch information to link the failure cases back to the original slow case routine.
     CodeLocationLabel slowCaseBegin = stubInfo->callReturnLocation.labelAtOffset(-patchOffsetGetByIdSlowCaseCall);
     patchBuffer.link(failureCases1, slowCaseBegin);
@@ -822,7 +840,6 @@ void JIT::privateCompileGetByIdProto(StructureStubInfo* stubInfo, Structure* str
 
     // Track the stub we have created so that it will be deleted later.
     CodeLocationLabel entryLabel = patchBuffer.finalizeCodeAddendum();
-    stubInfo->stubRoutine = entryLabel;
     
     // Finally patch the jump to slow case back in the hot path to jump here instead.
     CodeLocationJump jumpLocation = stubInfo->hotPathBegin.jumpAtOffset(patchOffsetGetByIdBranchToSlowCase);
@@ -831,11 +848,16 @@ void JIT::privateCompileGetByIdProto(StructureStubInfo* stubInfo, Structure* str
     
     // We don't want to patch more than once - in future go to cti_op_put_by_id_generic.
     repatchBuffer.relinkCallerToFunction(returnAddress, FunctionPtr(cti_op_get_by_id_proto_list));
+    stubInfo->initGetByIdProto(structure, prototypeStructure, entryLabel);
+    return true;
 }
 
 
-void JIT::privateCompileGetByIdSelfList(StructureStubInfo* stubInfo, PolymorphicAccessStructureList* polymorphicStructures, int currentIndex, Structure* structure, const Identifier& ident, const PropertySlot& slot, size_t cachedOffset)
+bool JIT::privateCompileGetByIdSelfList(StructureStubInfo* stubInfo, Structure* structure, const Identifier& ident, const PropertySlot& slot, size_t cachedOffset)
 {
+    PolymorphicAccessStructureList* polymorphicStructures = stubInfo->u.getByIdSelfList.structureList;
+    int currentIndex = stubInfo->u.getByIdSelfList.listSize;
+
     // regT0 holds a JSCell*
     Jump failureCase = checkStructure(regT0, structure);
     bool needsStubLink = false;
@@ -864,7 +886,10 @@ void JIT::privateCompileGetByIdSelfList(StructureStubInfo* stubInfo, Polymorphic
 
     Jump success = jump();
     
-    LinkBuffer patchBuffer(this, m_codeBlock->executablePool());
+    LinkBuffer patchBuffer(this, m_codeBlock->executablePool(), 0);
+    if (!patchBuffer.allocationSuccessful())
+        return false;
+
     if (needsStubLink) {
         for (Vector<CallRecord>::iterator iter = m_calls.begin(); iter != m_calls.end(); ++iter) {
             if (iter->to)
@@ -890,10 +915,15 @@ void JIT::privateCompileGetByIdSelfList(StructureStubInfo* stubInfo, Polymorphic
     CodeLocationJump jumpLocation = stubInfo->hotPathBegin.jumpAtOffset(patchOffsetGetByIdBranchToSlowCase);
     RepatchBuffer repatchBuffer(m_codeBlock);
     repatchBuffer.relink(jumpLocation, entryLabel);
+    stubInfo->u.getByIdSelfList.listSize++;
+    return true;
 }
 
-void JIT::privateCompileGetByIdProtoList(StructureStubInfo* stubInfo, PolymorphicAccessStructureList* prototypeStructures, int currentIndex, Structure* structure, Structure* prototypeStructure, const Identifier& ident, const PropertySlot& slot, size_t cachedOffset, CallFrame* callFrame)
+bool JIT::privateCompileGetByIdProtoList(StructureStubInfo* stubInfo, Structure* structure, Structure* prototypeStructure, const Identifier& ident, const PropertySlot& slot, size_t cachedOffset, CallFrame* callFrame)
 {
+    PolymorphicAccessStructureList* prototypeStructures = stubInfo->u.getByIdProtoList.structureList;
+    int currentIndex = stubInfo->u.getByIdProtoList.listSize;
+
     // regT0 holds a JSCell*
     
     // The prototype object definitely exists (if this stub exists the CodeBlock is referencing a Structure that is
@@ -934,7 +964,10 @@ void JIT::privateCompileGetByIdProtoList(StructureStubInfo* stubInfo, Polymorphi
     
     Jump success = jump();
     
-    LinkBuffer patchBuffer(this, m_codeBlock->executablePool());
+    LinkBuffer patchBuffer(this, m_codeBlock->executablePool(), 0);
+    if (!patchBuffer.allocationSuccessful())
+        return false;
+
     if (needsStubLink) {
         for (Vector<CallRecord>::iterator iter = m_calls.begin(); iter != m_calls.end(); ++iter) {
             if (iter->to)
@@ -959,10 +992,15 @@ void JIT::privateCompileGetByIdProtoList(StructureStubInfo* stubInfo, Polymorphi
     CodeLocationJump jumpLocation = stubInfo->hotPathBegin.jumpAtOffset(patchOffsetGetByIdBranchToSlowCase);
     RepatchBuffer repatchBuffer(m_codeBlock);
     repatchBuffer.relink(jumpLocation, entryLabel);
+    stubInfo->u.getByIdProtoList.listSize++;
+    return true;
 }
 
-void JIT::privateCompileGetByIdChainList(StructureStubInfo* stubInfo, PolymorphicAccessStructureList* prototypeStructures, int currentIndex, Structure* structure, StructureChain* chain, size_t count, const Identifier& ident, const PropertySlot& slot, size_t cachedOffset, CallFrame* callFrame)
+bool JIT::privateCompileGetByIdChainList(StructureStubInfo* stubInfo, Structure* structure, StructureChain* chain, size_t count, const Identifier& ident, const PropertySlot& slot, size_t cachedOffset, CallFrame* callFrame)
 {
+    PolymorphicAccessStructureList* prototypeStructures = stubInfo->u.getByIdProtoList.structureList;
+    int currentIndex = stubInfo->u.getByIdProtoList.listSize;
+
     // regT0 holds a JSCell*
     ASSERT(count);
     
@@ -972,20 +1010,12 @@ void JIT::privateCompileGetByIdChainList(StructureStubInfo* stubInfo, Polymorphi
     bucketsOfFail.append(checkStructure(regT0, structure));
     
     Structure* currStructure = structure;
-    RefPtr<Structure>* chainEntries = chain->head();
+    RefPtr<Structure>* it = chain->head();
     JSObject* protoObject = 0;
-    for (unsigned i = 0; i < count; ++i) {
+    for (unsigned i = 0; i < count; ++i, ++it) {
         protoObject = asObject(currStructure->prototypeForLookup(callFrame));
-        currStructure = chainEntries[i].get();
-        
-        // Check the prototype object's Structure had not changed.
-        Structure** prototypeStructureAddress = &(protoObject->m_structure);
-#if CPU(X86_64)
-        move(ImmPtr(currStructure), regT3);
-        bucketsOfFail.append(branchPtr(NotEqual, AbsoluteAddress(prototypeStructureAddress), regT3));
-#else
-        bucketsOfFail.append(branchPtr(NotEqual, AbsoluteAddress(prototypeStructureAddress), ImmPtr(currStructure)));
-#endif
+        currStructure = it->get();
+        testPrototype(protoObject, bucketsOfFail);
     }
     ASSERT(protoObject);
     
@@ -1011,7 +1041,10 @@ void JIT::privateCompileGetByIdChainList(StructureStubInfo* stubInfo, Polymorphi
 
     Jump success = jump();
     
-    LinkBuffer patchBuffer(this, m_codeBlock->executablePool());
+    LinkBuffer patchBuffer(this, m_codeBlock->executablePool(), 0);
+    if (!patchBuffer.allocationSuccessful())
+        return false;
+
     if (needsStubLink) {
         for (Vector<CallRecord>::iterator iter = m_calls.begin(); iter != m_calls.end(); ++iter) {
             if (iter->to)
@@ -1037,9 +1070,11 @@ void JIT::privateCompileGetByIdChainList(StructureStubInfo* stubInfo, Polymorphi
     CodeLocationJump jumpLocation = stubInfo->hotPathBegin.jumpAtOffset(patchOffsetGetByIdBranchToSlowCase);
     RepatchBuffer repatchBuffer(m_codeBlock);
     repatchBuffer.relink(jumpLocation, entryLabel);
+    stubInfo->u.getByIdProtoList.listSize++;
+    return true;
 }
 
-void JIT::privateCompileGetByIdChain(StructureStubInfo* stubInfo, Structure* structure, StructureChain* chain, size_t count, const Identifier& ident, const PropertySlot& slot, size_t cachedOffset, ReturnAddressPtr returnAddress, CallFrame* callFrame)
+bool JIT::privateCompileGetByIdChain(StructureStubInfo* stubInfo, Structure* structure, StructureChain* chain, size_t count, const Identifier& ident, const PropertySlot& slot, size_t cachedOffset, ReturnAddressPtr returnAddress, CallFrame* callFrame)
 {
     // regT0 holds a JSCell*
     ASSERT(count);
@@ -1050,20 +1085,12 @@ void JIT::privateCompileGetByIdChain(StructureStubInfo* stubInfo, Structure* str
     bucketsOfFail.append(checkStructure(regT0, structure));
     
     Structure* currStructure = structure;
-    RefPtr<Structure>* chainEntries = chain->head();
+    RefPtr<Structure>* it = chain->head();
     JSObject* protoObject = 0;
-    for (unsigned i = 0; i < count; ++i) {
+    for (unsigned i = 0; i < count; ++i, ++it) {
         protoObject = asObject(currStructure->prototypeForLookup(callFrame));
-        currStructure = chainEntries[i].get();
-        
-        // Check the prototype object's Structure had not changed.
-        Structure** prototypeStructureAddress = &(protoObject->m_structure);
-#if CPU(X86_64)
-        move(ImmPtr(currStructure), regT3);
-        bucketsOfFail.append(branchPtr(NotEqual, AbsoluteAddress(prototypeStructureAddress), regT3));
-#else
-        bucketsOfFail.append(branchPtr(NotEqual, AbsoluteAddress(prototypeStructureAddress), ImmPtr(currStructure)));
-#endif
+        currStructure = it->get();
+        testPrototype(protoObject, bucketsOfFail);
     }
     ASSERT(protoObject);
     
@@ -1088,7 +1115,10 @@ void JIT::privateCompileGetByIdChain(StructureStubInfo* stubInfo, Structure* str
         compileGetDirectOffset(protoObject, regT2, regT1, regT0, cachedOffset);
     Jump success = jump();
     
-    LinkBuffer patchBuffer(this, m_codeBlock->executablePool());
+    LinkBuffer patchBuffer(this, m_codeBlock->executablePool(), 0);
+    if (!patchBuffer.allocationSuccessful())
+        return false;
+
     if (needsStubLink) {
         for (Vector<CallRecord>::iterator iter = m_calls.begin(); iter != m_calls.end(); ++iter) {
             if (iter->to)
@@ -1103,8 +1133,7 @@ void JIT::privateCompileGetByIdChain(StructureStubInfo* stubInfo, Structure* str
     
     // Track the stub we have created so that it will be deleted later.
     CodeLocationLabel entryLabel = patchBuffer.finalizeCodeAddendum();
-    stubInfo->stubRoutine = entryLabel;
-    
+
     // Finally patch the jump to slow case back in the hot path to jump here instead.
     CodeLocationJump jumpLocation = stubInfo->hotPathBegin.jumpAtOffset(patchOffsetGetByIdBranchToSlowCase);
     RepatchBuffer repatchBuffer(m_codeBlock);
@@ -1112,6 +1141,8 @@ void JIT::privateCompileGetByIdChain(StructureStubInfo* stubInfo, Structure* str
     
     // We don't want to patch more than once - in future go to cti_op_put_by_id_generic.
     repatchBuffer.relinkCallerToFunction(returnAddress, FunctionPtr(cti_op_get_by_id_proto_list));
+    stubInfo->initGetByIdChain(structure, chain, entryLabel);
+    return true;
 }
 
 /* ------------------------------ END: !ENABLE / ENABLE(JIT_OPTIMIZE_PROPERTY_ACCESS) ------------------------------ */

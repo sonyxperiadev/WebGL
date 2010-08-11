@@ -174,21 +174,21 @@ namespace WebCore {
         virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const;
         virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const;
 
-        QtAbstractWebPopup* createSelectPopup();
+        QWebSelectMethod* createSelectPopup() const;
 
         virtual void didReceiveViewportArguments(Frame*, const ViewportArguments&) const;
 
         QWebPage* m_webPage;
         WebCore::KURL lastHoverURL;
-        WebCore::String lastHoverTitle;
-        WebCore::String lastHoverContent;
+        WTF::String lastHoverTitle;
+        WTF::String lastHoverContent;
 
         bool toolBarsVisible;
         bool statusBarVisible;
         bool menuBarVisible;
         QEventLoop* m_eventLoop;
 
-        QtPlatformPlugin m_platformPlugin;
+        mutable QtPlatformPlugin m_platformPlugin;
     };
 }
 

@@ -89,7 +89,11 @@ GEN := \
     $(intermediates)/bindings/V8DOMCoreException.h \
     $(intermediates)/bindings/V8DOMImplementation.h \
     $(intermediates)/bindings/V8DOMStringList.h \
+<<<<<<< HEAD
     $(intermediates)/bindings/V8DOMStringMap.h \
+=======
+    $(intermediates)/bindings/V8DeviceMotionEvent.h \
+>>>>>>> webkit.org at r65072
     $(intermediates)/bindings/V8DeviceOrientationEvent.h \
     $(intermediates)/bindings/V8Document.h \
     $(intermediates)/bindings/V8DocumentFragment.h \
@@ -381,17 +385,20 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 # Indexed Database
 GEN := \
     $(intermediates)/bindings/V8IDBAny.h \
+    $(intermediates)/bindings/V8IDBCursor.h \
     $(intermediates)/bindings/V8IDBDatabaseError.h \
     $(intermediates)/bindings/V8IDBDatabaseException.h \
-    $(intermediates)/bindings/V8IDBDatabaseRequest.h \
+    $(intermediates)/bindings/V8IDBDatabase.h \
     $(intermediates)/bindings/V8IDBErrorEvent.h \
     $(intermediates)/bindings/V8IDBEvent.h \
     $(intermediates)/bindings/V8IDBFactory.h \
     $(intermediates)/bindings/V8IDBIndex.h \
     $(intermediates)/bindings/V8IDBKey.h \
     $(intermediates)/bindings/V8IDBKeyRange.h \
+    $(intermediates)/bindings/V8IDBObjectStore.h \
     $(intermediates)/bindings/V8IDBRequest.h \
-    $(intermediates)/bindings/V8IDBSuccessEvent.h
+    $(intermediates)/bindings/V8IDBSuccessEvent.h \
+    $(intermediates)/bindings/V8IDBTransaction.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include storage --outputdir $(dir $@) $<

@@ -28,10 +28,10 @@
 
 #include "CachedResourceHandle.h"
 #include "CheckedRadioButtons.h"
-#include "ContainerNode.h"
 #include "CollectionCache.h"
 #include "CollectionType.h"
 #include "Color.h"
+#include "ContainerNode.h"
 #include "Document.h"
 #include "DocumentMarker.h"
 #include "QualifiedName.h"
@@ -48,99 +48,100 @@
 
 namespace WebCore {
 
-    class Attr;
-    class AXObjectCache;
-    class CDATASection;
-    class CachedCSSStyleSheet;
-    class CachedScript;
-    class CanvasRenderingContext;
-    class CharacterData;
-    class CSSStyleDeclaration;
-    class CSSStyleSelector;
-    class CSSStyleSheet;
-    class Comment;
-    class Database;
-    class DOMImplementation;
-    class DOMSelection;
-    class DOMWindow;
-    class DatabaseThread;
-    class DocLoader;
-    class DocumentFragment;
-    class DocumentType;
-    class DocumentWeakReference;
-    class EditingText;
-    class Element;
-    class EntityReference;
-    class Event;
-    class EventListener;
-    class Frame;
-    class FrameView;
-    class HTMLCanvasElement;
-    class HTMLCollection;
-    class HTMLAllCollection;
-    class HTMLDocument;
-    class HTMLElement;
-    class HTMLFormElement;
-    class HTMLFrameOwnerElement;
-    class HTMLHeadElement;
-    class HTMLInputElement;
-    class HTMLMapElement;
-    class HistoryItem;
-    class HitTestRequest;
-    class HitTestResult;
-    class InspectorTimelineAgent;
-    class IntPoint;
-    class DOMWrapperWorld;
-    class JSNode;
-    class MediaCanStartListener;
-    class MouseEventWithHitTestResults;
-    class NodeFilter;
-    class NodeIterator;
-    class Page;
-    class PlatformMouseEvent;
-    class ProcessingInstruction;
-    class Range;
-    class RegisteredEventListener;
-    class RenderArena;
-    class RenderView;
-    class ScriptableDocumentParser;
-    class ScriptElementData;
-    class SecurityOrigin;
-    class SerializedScriptValue;
-    class SegmentedString;
-    class Settings;
-    class StyleSheet;
-    class StyleSheetList;
-    class Text;
-    class TextResourceDecoder;
-    class DocumentParser;
-    class TreeWalker;
-    class XMLHttpRequest;
+class AsyncScriptRunner;
+class Attr;
+class AXObjectCache;
+class CDATASection;
+class CachedCSSStyleSheet;
+class CachedScript;
+class CanvasRenderingContext;
+class CharacterData;
+class CSSStyleDeclaration;
+class CSSStyleSelector;
+class CSSStyleSheet;
+class Comment;
+class Database;
+class DOMImplementation;
+class DOMSelection;
+class DOMWindow;
+class DatabaseThread;
+class DocLoader;
+class DocumentFragment;
+class DocumentType;
+class DocumentWeakReference;
+class EditingText;
+class Element;
+class EntityReference;
+class Event;
+class EventListener;
+class Frame;
+class FrameView;
+class HTMLCanvasElement;
+class HTMLCollection;
+class HTMLAllCollection;
+class HTMLDocument;
+class HTMLElement;
+class HTMLFormElement;
+class HTMLFrameOwnerElement;
+class HTMLHeadElement;
+class HTMLInputElement;
+class HTMLMapElement;
+class HistoryItem;
+class HitTestRequest;
+class HitTestResult;
+class InspectorTimelineAgent;
+class IntPoint;
+class DOMWrapperWorld;
+class JSNode;
+class MediaCanStartListener;
+class MouseEventWithHitTestResults;
+class NodeFilter;
+class NodeIterator;
+class Page;
+class PlatformMouseEvent;
+class ProcessingInstruction;
+class Range;
+class RegisteredEventListener;
+class RenderArena;
+class RenderView;
+class ScriptableDocumentParser;
+class ScriptElementData;
+class SecurityOrigin;
+class SerializedScriptValue;
+class SegmentedString;
+class Settings;
+class StyleSheet;
+class StyleSheetList;
+class Text;
+class TextResourceDecoder;
+class DocumentParser;
+class TreeWalker;
+class XMLHttpRequest;
 
 #if ENABLE(SVG)
-    class SVGDocumentExtensions;
+class SVGDocumentExtensions;
 #endif
-    
+
 #if ENABLE(XSLT)
-    class TransformSource;
+class TransformSource;
 #endif
 
 #if ENABLE(XBL)
-    class XBLBindingManager;
+class XBLBindingManager;
 #endif
 
 #if ENABLE(XPATH)
-    class XPathEvaluator;
-    class XPathExpression;
-    class XPathNSResolver;
-    class XPathResult;
+class XPathEvaluator;
+class XPathExpression;
+class XPathNSResolver;
+class XPathResult;
 #endif
 
 #if ENABLE(DASHBOARD_SUPPORT)
-    struct DashboardRegionValue;
+struct DashboardRegionValue;
 #endif
 
-    typedef int ExceptionCode;
+typedef int ExceptionCode;
 
 class FormElementKey {
 public:
@@ -849,11 +850,8 @@ public:
     Document* topDocument() const;
 
     int docID() const { return m_docID; }
-
-    void executeScriptSoon(ScriptElementData*, CachedResourceHandle<CachedScript>);
-
-    void suspendExecuteScriptSoonTimer();
-    void resumeExecuteScriptSoonTimer();
+    
+    AsyncScriptRunner* asyncScriptRunner() { return m_asyncScriptRunner.get(); }
 
 #if ENABLE(XSLT)
     void applyXSLTransform(ProcessingInstruction* pi);
@@ -869,8 +867,8 @@ public:
     XBLBindingManager* bindingManager() const { return m_bindingManager.get(); }
 #endif
 
-    void incDOMTreeVersion() { ++m_domtree_version; }
-    unsigned domTreeVersion() const { return m_domtree_version; }
+    void incDOMTreeVersion() { ++m_domTreeVersion; }
+    unsigned domTreeVersion() const { return m_domTreeVersion; }
 
     void setDocType(PassRefPtr<DocumentType>);
 
@@ -1059,8 +1057,6 @@ private:
 
     String encoding() const;
 
-    void executeScriptSoonTimerFired(Timer<Document>*);
-
     void updateTitle();
     void updateFocusAppearanceTimerFired(Timer<Document>*);
     void updateBaseURL();
@@ -1083,10 +1079,10 @@ private:
     bool m_wellFormed;
 
     // Document URLs.
-    KURL m_url;  // Document.URL: The URL from which this document was retrieved.
-    KURL m_baseURL;  // Node.baseURI: The URL to use when resolving relative URLs.
-    KURL m_baseElementURL;  // The URL set by the <base> element.
-    KURL m_cookieURL;  // The URL to use for cookie access.
+    KURL m_url; // Document.URL: The URL from which this document was retrieved.
+    KURL m_baseURL; // Node.baseURI: The URL to use when resolving relative URLs.
+    KURL m_baseElementURL; // The URL set by the <base> element.
+    KURL m_cookieURL; // The URL to use for cookie access.
     KURL m_firstPartyForCookies; // The policy URL for third-party cookie blocking.
 
     // Document.documentURI:
@@ -1137,7 +1133,7 @@ private:
     RefPtr<Node> m_activeNode;
     mutable RefPtr<Element> m_documentElement;
 
-    unsigned m_domtree_version;
+    unsigned m_domTreeVersion;
     
     HashSet<NodeIterator*> m_nodeIterators;
     HashSet<Range*> m_ranges;
@@ -1212,10 +1208,9 @@ private:
     // using setExtraLayoutDelay to modify the minimum delay used at different
     // points during the lifetime of the Document.
     int m_extraLayoutDelay;
-
-    Vector<std::pair<ScriptElementData*, CachedResourceHandle<CachedScript> > > m_scriptsToExecuteSoon;
-    Timer<Document> m_executeScriptSoonTimer;
     
+    OwnPtr<AsyncScriptRunner> m_asyncScriptRunner;
+
 #if ENABLE(XSLT)
     OwnPtr<TransformSource> m_transformSource;
     RefPtr<Document> m_transformSourceDocument;

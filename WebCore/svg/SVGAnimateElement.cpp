@@ -1,23 +1,23 @@
 /*
-    Copyright (C) 2004, 2005 Nikolas Zimmermann <wildfox@kde.org>
-                  2004, 2005, 2006 Rob Buis <buis@kde.org>
-    Copyright (C) 2008 Apple Inc. All rights reserved.
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006 Rob Buis <buis@kde.org>
+ * Copyright (C) 2008 Apple Inc. All rights reserved.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 #if ENABLE(SVG) && ENABLE(SVG_ANIMATION)
@@ -27,8 +27,8 @@
 #include "FloatConversion.h"
 #include "SVGColor.h"
 #include "SVGParserUtilities.h"
+#include "SVGPathParserFactory.h"
 #include "SVGPathSegList.h"
-#include "SVGPathSegListBuilder.h"
 #include "SVGPointList.h"
 #include <math.h>
 
@@ -190,11 +190,10 @@ bool SVGAnimateElement::calculateFromAndToValues(const String& fromString, const
         }
     } else if (m_propertyType == PathProperty) {
         m_fromPath = SVGPathSegList::create(SVGNames::dAttr);
-        SVGPathSegListBuilder fromParser(m_fromPath.get());
-        if (fromParser.build(fromString, UnalteredParsing)) {
+        SVGPathParserFactory* factory = SVGPathParserFactory::self();
+        if (factory->buildSVGPathSegListFromString(fromString, m_fromPath.get(), UnalteredParsing)) {
             m_toPath = SVGPathSegList::create(SVGNames::dAttr);
-            SVGPathSegListBuilder toParser(m_toPath.get());
-            if (toParser.build(toString, UnalteredParsing))
+            if (factory->buildSVGPathSegListFromString(toString, m_toPath.get(), UnalteredParsing))
                 return true;
         }
         m_fromPath.clear();
@@ -280,12 +279,8 @@ void SVGAnimateElement::applyResultsToTarget()
             // "processed" paths where complex shapes are replaced with simpler ones. Path 
             // morphing needs to be done with unprocessed paths.
             // FIXME: This could be optimized if paths were not processed at parse time.
-            unsigned itemCount = m_animatedPath->numberOfItems();
-            ExceptionCode ec;
-            for (unsigned n = 0; n < itemCount; ++n) {
-                RefPtr<SVGPathSeg> segment = m_animatedPath->getItem(n, ec);
-                valueToApply.append(segment->toString() + " ");
-            }
+            SVGPathParserFactory* factory = SVGPathParserFactory::self();
+            factory->buildStringFromSVGPathSegList(m_animatedPath.get(), valueToApply, UnalteredParsing);
         }
     } else if (m_propertyType == PointsProperty) {
         if (!m_animatedPoints || !m_animatedPoints->numberOfItems())

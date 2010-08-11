@@ -61,20 +61,37 @@ static const int uninitializedLineNumberValue = -1;
 
 namespace {
 
-inline bool isTreeBuilderWhitepace(UChar cc)
+inline bool isTreeBuilderWhitepace(UChar c)
 {
-    return cc == '\t' || cc == '\x0A' || cc == '\x0C' || cc == '\x0D' || cc == ' ';
+    // FIXME: Consider branch permutations.
+    return c == '\t' || c == '\x0A' || c == '\x0C' || c == '\x0D' || c == ' ';
 }
 
-inline bool hasNonWhitespace(const String& string)
+inline bool isTreeBuilderWhitepaceOrReplacementCharacter(UChar c)
+{
+    return isTreeBuilderWhitepace(c) || c == 0xFFFD;
+}
+
+template<bool isSpecialCharacter(UChar c)>
+inline bool isAllSpecialCharacters(const String& string)
 {
     const UChar* characters = string.characters();
     const unsigned length = string.length();
     for (unsigned i = 0; i < length; ++i) {
-        if (!isTreeBuilderWhitepace(characters[i]))
-            return true;
+        if (!isSpecialCharacter(characters[i]))
+            return false;
     }
-    return false;
+    return true;
+}
+
+inline bool isAllWhitespace(const String& string)
+{
+    return isAllSpecialCharacters<isTreeBuilderWhitepace>(string);
+}
+
+inline bool isAllWhitespaceOrReplacementCharacters(const String& string)
+{
+    return isAllSpecialCharacters<isTreeBuilderWhitepaceOrReplacementCharacter>(string);
 }
 
 bool shouldUseLegacyTreeBuilder(Document* document)
@@ -236,6 +253,29 @@ bool isNotFormattingAndNotPhrasing(const Element* element)
     return isScopingTag(tagName) || isSpecialTag(tagName);
 }
 
+HTMLFormElement* closestFormAncestor(Element* element)
+{
+    while (element) {
+        if (element->hasTagName(formTag))
+            return static_cast<HTMLFormElement*>(element);
+        Node* parent = element->parent();
+        if (!parent || !parent->isElementNode())
+            return 0;
+        element = static_cast<Element*>(parent);
+    }
+    return 0;
+}
+
+// FIXME: This belongs on ContainerNode, where it could avoid the double ref
+// by directly releasing into the Vector.  Such an implementation would need to
+// be careful not to send mutation events.
+void takeChildrenFromNode(ContainerNode* container, Vector<RefPtr<Node> >& children)
+{
+    for (Node* child = container->firstChild(); child; child = child->nextSibling())
+        children.append(child);
+    container->removeAllChildren();
+}
+
 } // namespace
 
 class HTMLTreeBuilder::ExternalCharacterTokenBuffer : public Noncopyable {
@@ -327,35 +367,86 @@ HTMLTreeBuilder::HTMLTreeBuilder(HTMLTokenizer* tokenizer, HTMLDocument* documen
     , m_originalInsertionMode(InitialMode)
     , m_secondaryInsertionMode(InitialMode)
     , m_tokenizer(tokenizer)
-    , m_legacyTreeBuilder(shouldUseLegacyTreeBuilder(document) ? new LegacyHTMLTreeBuilder(document, reportErrors) : 0)
     , m_lastScriptElementStartLine(uninitializedLineNumberValue)
     , m_scriptToProcessStartLine(uninitializedLineNumberValue)
-    , m_fragmentScriptingPermission(FragmentScriptingAllowed)
-    , m_isParsingFragment(false)
 {
 }
 
 // FIXME: Member variables should be grouped into self-initializing structs to
 // minimize code duplication between these constructors.
-HTMLTreeBuilder::HTMLTreeBuilder(HTMLTokenizer* tokenizer, DocumentFragment* fragment, FragmentScriptingPermission scriptingPermission)
+HTMLTreeBuilder::HTMLTreeBuilder(HTMLTokenizer* tokenizer, DocumentFragment* fragment, Element* contextElement, FragmentScriptingPermission scriptingPermission)
     : m_framesetOk(true)
-    , m_document(fragment->document())
-    , m_tree(fragment->document(), scriptingPermission, true)
+    , m_fragmentContext(fragment, contextElement, scriptingPermission, shouldUseLegacyTreeBuilder(fragment->document()))
+    , m_document(m_fragmentContext.document())
+    , m_tree(m_document, scriptingPermission, true)
     , m_reportErrors(false) // FIXME: Why not report errors in fragments?
     , m_isPaused(false)
     , m_insertionMode(InitialMode)
     , m_originalInsertionMode(InitialMode)
     , m_secondaryInsertionMode(InitialMode)
     , m_tokenizer(tokenizer)
-    , m_legacyTreeBuilder(new LegacyHTMLTreeBuilder(fragment, scriptingPermission))
+    , m_legacyTreeBuilder(shouldUseLegacyTreeBuilder(fragment->document()) ? new LegacyHTMLTreeBuilder(fragment, scriptingPermission) : 0)
     , m_lastScriptElementStartLine(uninitializedLineNumberValue)
     , m_scriptToProcessStartLine(uninitializedLineNumberValue)
-    , m_fragmentScriptingPermission(scriptingPermission)
-    , m_isParsingFragment(true)
 {
+    if (shouldUseLegacyTreeBuilder(fragment->document()))
+        return;
+    // This is steps 2-6 of the HTML5 Fragment Case parsing algorithm:
+    // http://www.whatwg.org/specs/web-apps/current-work/multipage/the-end.html#fragment-case
+    if (contextElement)
+        m_document->setParseMode(contextElement->document()->parseMode());
+    processFakeStartTag(htmlTag);
+    resetInsertionModeAppropriately();
+    m_tree.setForm(closestFormAncestor(contextElement));
 }
 
 HTMLTreeBuilder::~HTMLTreeBuilder()
+{
+}
+
+HTMLTreeBuilder::FragmentParsingContext::FragmentParsingContext()
+    : m_fragment(0)
+    , m_contextElement(0)
+    , m_usingLegacyTreeBuilder(false)
+    , m_scriptingPermission(FragmentScriptingAllowed)
+{
+}
+
+HTMLTreeBuilder::FragmentParsingContext::FragmentParsingContext(DocumentFragment* fragment, Element* contextElement, FragmentScriptingPermission scriptingPermission, bool legacyMode)
+    : m_dummyDocumentForFragmentParsing(legacyMode ? 0 : HTMLDocument::create(0, KURL()))
+    , m_fragment(fragment)
+    , m_contextElement(contextElement)
+    , m_usingLegacyTreeBuilder(legacyMode)
+    , m_scriptingPermission(scriptingPermission)
+{
+}
+
+Document* HTMLTreeBuilder::FragmentParsingContext::document() const
+{
+    ASSERT(m_fragment);
+    if (m_usingLegacyTreeBuilder)
+        return m_fragment->document();
+    return m_dummyDocumentForFragmentParsing.get();
+}
+
+void HTMLTreeBuilder::FragmentParsingContext::finished()
+{
+    // Populate the DocumentFragment with the parsed content now that we're done.
+    ContainerNode* root = m_dummyDocumentForFragmentParsing.get();
+    if (m_contextElement)
+        root = m_dummyDocumentForFragmentParsing->documentElement();
+    Vector<RefPtr<Node> > children;
+    takeChildrenFromNode(root, children);
+    for (unsigned i = 0; i < children.size(); ++i) {
+        ExceptionCode ec = 0;
+        // FIXME: We need a parser-safe (no events) version of adoptNode.
+        RefPtr<Node> child = m_fragment->document()->adoptNode(children[i].release(), ec);
+        ASSERT(!ec);
+        m_fragment->parserAddChild(child.release());
+    }
+}
+
+HTMLTreeBuilder::FragmentParsingContext::~FragmentParsingContext()
 {
 }
 
@@ -412,9 +503,9 @@ HTMLTokenizer::State HTMLTreeBuilder::adjustedLexerState(HTMLTokenizer::State st
     if (tagName == styleTag
         || tagName == iframeTag
         || tagName == xmpTag
-        || tagName == noembedTag
+        || (tagName == noembedTag && pluginsEnabled(frame))
         || tagName == noframesTag
-        || (tagName == noscriptTag && isScriptingFlagEnabled(frame)))
+        || (tagName == noscriptTag && scriptEnabled(frame)))
         return HTMLTokenizer::RAWTEXTState;
 
     if (tagName == plaintextTag)
@@ -453,14 +544,14 @@ void HTMLTreeBuilder::passTokenToLegacyParser(HTMLToken& token)
             m_lastScriptElement = static_pointer_cast<Element>(result);
             m_lastScriptElementStartLine = m_tokenizer->lineNumber();
         } else if (oldStyleToken.tagName == preTag || oldStyleToken.tagName == listingTag)
-            m_tokenizer->skipLeadingNewLineForListing();
+            m_tokenizer->setSkipLeadingNewLineForListing(true);
         else
             m_tokenizer->setState(adjustedLexerState(m_tokenizer->state(), oldStyleToken.tagName, m_document->frame()));
     } else if (token.type() == HTMLToken::EndTag) {
         if (oldStyleToken.tagName == scriptTag) {
             if (m_lastScriptElement) {
                 ASSERT(m_lastScriptElementStartLine != uninitializedLineNumberValue);
-                if (m_fragmentScriptingPermission == FragmentScriptingNotAllowed) {
+                if (m_fragmentContext.scriptingPermission() == FragmentScriptingNotAllowed) {
                     // FIXME: This is a horrible hack for platform/Pasteboard.
                     // Clear the <script> tag when using the Parser to create
                     // a DocumentFragment for pasting so that javascript content
@@ -493,6 +584,11 @@ void HTMLTreeBuilder::constructTreeFromToken(HTMLToken& rawToken)
 
     AtomicHTMLToken token(rawToken);
     processToken(token);
+
+    // Swallowing U+0000 characters isn't in the HTML5 spec, but turning all
+    // the U+0000 characters into replacement characters has compatibility
+    // problems.
+    m_tokenizer->setForceNullCharacterReplacement(m_insertionMode == TextMode || m_insertionMode == InForeignContentMode);
 }
 
 void HTMLTreeBuilder::processToken(AtomicHTMLToken& token)
@@ -776,12 +872,19 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomicHTMLToken& token)
         return;
     }
     if (token.name() == bodyTag) {
+        if (!m_tree.openElements()->secondElementIsHTMLBodyElement() || m_tree.openElements()->hasOnlyOneElement()) {
+            ASSERT(isParsingFragment());
+            return;
+        }
         m_tree.insertHTMLBodyStartTagInBody(token);
         return;
     }
     if (token.name() == framesetTag) {
         parseError(token);
-        notImplemented(); // fragment case
+        if (!m_tree.openElements()->secondElementIsHTMLBodyElement() || m_tree.openElements()->hasOnlyOneElement()) {
+            ASSERT(isParsingFragment());
+            return;
+        }
         if (!m_framesetOk)
             return;
         ExceptionCode ec = 0;
@@ -832,7 +935,7 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomicHTMLToken& token)
     if (token.name() == preTag || token.name() == listingTag) {
         processFakePEndTagIfPInButtonScope();
         m_tree.insertHTMLElement(token);
-        m_tokenizer->skipLeadingNewLineForListing();
+        m_tokenizer->setSkipLeadingNewLineForListing(true);
         m_framesetOk = false;
         return;
     }
@@ -952,7 +1055,7 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomicHTMLToken& token)
     }
     if (token.name() == textareaTag) {
         m_tree.insertHTMLElement(token);
-        m_tokenizer->skipLeadingNewLineForListing();
+        m_tokenizer->setSkipLeadingNewLineForListing(true);
         m_tokenizer->setState(HTMLTokenizer::RCDATAState);
         m_originalInsertionMode = m_insertionMode;
         m_framesetOk = false;
@@ -971,11 +1074,11 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomicHTMLToken& token)
         processGenericRawTextStartTag(token);
         return;
     }
-    if (token.name() == noembedTag) {
+    if (token.name() == noembedTag && pluginsEnabled(m_document->frame())) {
         processGenericRawTextStartTag(token);
         return;
     }
-    if (token.name() == noscriptTag && isScriptingFlagEnabled(m_document->frame())) {
+    if (token.name() == noscriptTag && scriptEnabled(m_document->frame())) {
         processGenericRawTextStartTag(token);
         return;
     }
@@ -1052,7 +1155,7 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomicHTMLToken& token)
 bool HTMLTreeBuilder::processColgroupEndTagForInColumnGroup()
 {
     if (m_tree.currentElement() == m_tree.openElements()->htmlElement()) {
-        ASSERT(m_isParsingFragment);
+        ASSERT(isParsingFragment());
         // FIXME: parse error
         return false;
     }
@@ -1113,7 +1216,7 @@ void HTMLTreeBuilder::processStartTagForInTable(AtomicHTMLToken& token)
     if (token.name() == tableTag) {
         parseError(token);
         if (!processTableEndTagForInTable()) {
-            ASSERT(m_isParsingFragment);
+            ASSERT(isParsingFragment());
             return;
         }
         processStartTag(token);
@@ -1262,7 +1365,7 @@ void HTMLTreeBuilder::processStartTag(AtomicHTMLToken& token)
             || token.name() == trTag) {
             parseError(token);
             if (!processCaptionEndTagForInCaption()) {
-                ASSERT(m_isParsingFragment);
+                ASSERT(isParsingFragment());
                 return;
             }
             processStartTag(token);
@@ -1281,7 +1384,7 @@ void HTMLTreeBuilder::processStartTag(AtomicHTMLToken& token)
             return;
         }
         if (!processColgroupEndTagForInColumnGroup()) {
-            ASSERT(m_isParsingFragment);
+            ASSERT(isParsingFragment());
             return;
         }
         processStartTag(token);
@@ -1304,7 +1407,7 @@ void HTMLTreeBuilder::processStartTag(AtomicHTMLToken& token)
         if (isCaptionColOrColgroupTag(token.name()) || isTableBodyContextTag(token.name())) {
             // FIXME: This is slow.
             if (!m_tree.openElements()->inTableScope(tbodyTag.localName()) && !m_tree.openElements()->inTableScope(theadTag.localName()) && !m_tree.openElements()->inTableScope(tfootTag.localName())) {
-                ASSERT(m_isParsingFragment);
+                ASSERT(isParsingFragment());
                 parseError(token);
                 return;
             }
@@ -1329,7 +1432,7 @@ void HTMLTreeBuilder::processStartTag(AtomicHTMLToken& token)
             || isCaptionColOrColgroupTag(token.name())
             || isTableBodyContextTag(token.name())) {
             if (!processTrEndTagForInRow()) {
-                ASSERT(m_isParsingFragment);
+                ASSERT(isParsingFragment());
                 return;
             }
             ASSERT(insertionMode() == InTableBodyMode);
@@ -1346,7 +1449,7 @@ void HTMLTreeBuilder::processStartTag(AtomicHTMLToken& token)
             || isTableBodyContextTag(token.name())) {
             // FIXME: This could be more efficient.
             if (!m_tree.openElements()->inTableScope(tdTag) && !m_tree.openElements()->inTableScope(thTag)) {
-                ASSERT(m_isParsingFragment);
+                ASSERT(isParsingFragment());
                 parseError(token);
                 return;
             }
@@ -1630,7 +1733,12 @@ void HTMLTreeBuilder::reparentChildren(Element* oldParent, Element* newParent)
 // http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html#parsing-main-inbody
 void HTMLTreeBuilder::callTheAdoptionAgency(AtomicHTMLToken& token)
 {
-    while (1) {
+    // The adoption agency algorithm is N^2.  We limit the number of iterations
+    // to stop from hanging the whole browser.  This limit is copied from the
+    // legacy tree builder and might need to be tweaked in the future.
+    static const int adoptionAgencyIterationLimit = 10;
+
+    for (int i = 0; i < adoptionAgencyIterationLimit; ++i) {
         // 1.
         Element* formattingElement = m_tree.activeFormattingElements()->closestElementInScopeWithName(token.name());
         if (!formattingElement || ((m_tree.openElements()->contains(formattingElement)) && !m_tree.openElements()->inScope(formattingElement))) {
@@ -1663,7 +1771,7 @@ void HTMLTreeBuilder::callTheAdoptionAgency(AtomicHTMLToken& token)
         HTMLElementStack::ElementRecord* node = furthestBlock;
         HTMLElementStack::ElementRecord* nextNode = node->next();
         HTMLElementStack::ElementRecord* lastNode = furthestBlock;
-        while (1) {
+        for (int i = 0; i < adoptionAgencyIterationLimit; ++i) {
             // 6.1
             node = nextNode;
             ASSERT(node);
@@ -1690,7 +1798,7 @@ void HTMLTreeBuilder::callTheAdoptionAgency(AtomicHTMLToken& token)
             // 6.6
             // Use appendChild instead of parserAddChild to handle possible reparenting.
             ExceptionCode ec;
-            node->element()->appendChild(lastNode->element(), ec);
+            node->element()->appendChild(lastNode->element(), ec, true);
             ASSERT(!ec);
             // 6.7
             lastNode = node;
@@ -1705,7 +1813,7 @@ void HTMLTreeBuilder::callTheAdoptionAgency(AtomicHTMLToken& token)
             m_tree.fosterParent(lastNode->element());
         else {
             ExceptionCode ec;
-            commonAncestor->appendChild(lastNode->element(), ec);
+            commonAncestor->appendChild(lastNode->element(), ec, true);
             ASSERT(!ec);
         }
         // 8
@@ -1718,8 +1826,9 @@ void HTMLTreeBuilder::callTheAdoptionAgency(AtomicHTMLToken& token)
         //        be in HTMLConstructionSite.  My guess is that steps 8--12
         //        should all be in some HTMLConstructionSite function.
         furthestBlockElement->parserAddChild(newElement);
-        if (furthestBlockElement->attached()) {
-            ASSERT(!newElement->attached());
+        if (furthestBlockElement->attached() && !newElement->attached()) {
+            // Notice that newElement might already be attached if, for example, one of the reparented
+            // children is a style element, which attaches itself automatically.
             newElement->attach();
         }
         // 11
@@ -1754,12 +1863,12 @@ void HTMLTreeBuilder::resetInsertionModeAppropriately()
     while (1) {
         Element* node = nodeRecord->element();
         if (node == m_tree.openElements()->bottom()) {
-            ASSERT(m_isParsingFragment);
+            ASSERT(isParsingFragment());
             last = true;
-            notImplemented(); // node = m_contextElement;
+            node = m_fragmentContext.contextElement();
         }
         if (node->hasTagName(selectTag)) {
-            ASSERT(m_isParsingFragment);
+            ASSERT(isParsingFragment());
             return setInsertionModeAndEnd(InSelectMode, foreign);
         }
         if (node->hasTagName(tdTag) || node->hasTagName(thTag))
@@ -1771,30 +1880,30 @@ void HTMLTreeBuilder::resetInsertionModeAppropriately()
         if (node->hasTagName(captionTag))
             return setInsertionModeAndEnd(InCaptionMode, foreign);
         if (node->hasTagName(colgroupTag)) {
-            ASSERT(m_isParsingFragment);
+            ASSERT(isParsingFragment());
             return setInsertionModeAndEnd(InColumnGroupMode, foreign);
         }
         if (node->hasTagName(tableTag))
             return setInsertionModeAndEnd(InTableMode, foreign);
         if (node->hasTagName(headTag)) {
-            ASSERT(m_isParsingFragment);
+            ASSERT(isParsingFragment());
             return setInsertionModeAndEnd(InBodyMode, foreign);
         }
         if (node->hasTagName(bodyTag))
             return setInsertionModeAndEnd(InBodyMode, foreign);
         if (node->hasTagName(framesetTag)) {
-            ASSERT(m_isParsingFragment);
+            ASSERT(isParsingFragment());
             return setInsertionModeAndEnd(InFramesetMode, foreign);
         }
         if (node->hasTagName(htmlTag)) {
-            ASSERT(m_isParsingFragment);
+            ASSERT(isParsingFragment());
             return setInsertionModeAndEnd(BeforeHeadMode, foreign);
         }
         if (node->namespaceURI() == SVGNames::svgNamespaceURI
             || node->namespaceURI() == MathMLNames::mathmlNamespaceURI)
             foreign = true;
         if (last) {
-            ASSERT(m_isParsingFragment);
+            ASSERT(isParsingFragment());
             return setInsertionModeAndEnd(InBodyMode, foreign);
         }
         nodeRecord = nodeRecord->next();
@@ -1817,7 +1926,7 @@ void HTMLTreeBuilder::processEndTagForInTableBody(AtomicHTMLToken& token)
     if (token.name() == tableTag) {
         // FIXME: This is slow.
         if (!m_tree.openElements()->inTableScope(tbodyTag.localName()) && !m_tree.openElements()->inTableScope(theadTag.localName()) && !m_tree.openElements()->inTableScope(tfootTag.localName())) {
-            ASSERT(m_isParsingFragment);
+            ASSERT(isParsingFragment());
             parseError(token);
             return;
         }
@@ -1847,7 +1956,7 @@ void HTMLTreeBuilder::processEndTagForInRow(AtomicHTMLToken& token)
     }
     if (token.name() == tableTag) {
         if (!processTrEndTagForInRow()) {
-            ASSERT(m_isParsingFragment);
+            ASSERT(isParsingFragment());
             return;
         }
         ASSERT(insertionMode() == InTableBodyMode);
@@ -1901,7 +2010,7 @@ void HTMLTreeBuilder::processEndTagForInCell(AtomicHTMLToken& token)
         || token.name() == trTag
         || isTableBodyContextTag(token.name())) {
         if (!m_tree.openElements()->inTableScope(token.name())) {
-            ASSERT(m_isParsingFragment);
+            ASSERT(isParsingFragment());
             // FIXME: It is unclear what the exact ASSERT should be.
             // http://www.w3.org/Bugs/Public/show_bug.cgi?id=10098
             parseError(token);
@@ -1938,6 +2047,7 @@ void HTMLTreeBuilder::processEndTagForInBody(AtomicHTMLToken& token)
         || token.name() == divTag
         || token.name() == dlTag
         || token.name() == fieldsetTag
+        || token.name() == figcaptionTag
         || token.name() == figureTag
         || token.name() == footerTag
         || token.name() == headerTag
@@ -1948,6 +2058,7 @@ void HTMLTreeBuilder::processEndTagForInBody(AtomicHTMLToken& token)
         || token.name() == olTag
         || token.name() == preTag
         || token.name() == sectionTag
+        || token.name() == summaryTag
         || token.name() == ulTag) {
         if (!m_tree.openElements()->inScope(token.name())) {
             parseError(token);
@@ -2051,7 +2162,7 @@ void HTMLTreeBuilder::processEndTagForInBody(AtomicHTMLToken& token)
 bool HTMLTreeBuilder::processCaptionEndTagForInCaption()
 {
     if (!m_tree.openElements()->inTableScope(captionTag.localName())) {
-        ASSERT(m_isParsingFragment);
+        ASSERT(isParsingFragment());
         // FIXME: parse error
         return false;
     }
@@ -2066,7 +2177,7 @@ bool HTMLTreeBuilder::processCaptionEndTagForInCaption()
 bool HTMLTreeBuilder::processTrEndTagForInRow()
 {
     if (!m_tree.openElements()->inTableScope(trTag.localName())) {
-        ASSERT(m_isParsingFragment);
+        ASSERT(isParsingFragment());
         // FIXME: parse error
         return false;
     }
@@ -2080,7 +2191,7 @@ bool HTMLTreeBuilder::processTrEndTagForInRow()
 bool HTMLTreeBuilder::processTableEndTagForInTable()
 {
     if (!m_tree.openElements()->inTableScope(tableTag)) {
-        ASSERT(m_isParsingFragment);
+        ASSERT(isParsingFragment());
         // FIXME: parse error.
         return false;
     }
@@ -2172,7 +2283,7 @@ void HTMLTreeBuilder::processEndTag(AtomicHTMLToken& token)
         if (token.name() == tableTag) {
             parseError(token);
             if (!processCaptionEndTagForInCaption()) {
-                ASSERT(m_isParsingFragment);
+                ASSERT(isParsingFragment());
                 return;
             }
             processEndTag(token);
@@ -2201,7 +2312,7 @@ void HTMLTreeBuilder::processEndTag(AtomicHTMLToken& token)
             return;
         }
         if (!processColgroupEndTagForInColumnGroup()) {
-            ASSERT(m_isParsingFragment);
+            ASSERT(isParsingFragment());
             return;
         }
         processEndTag(token);
@@ -2221,7 +2332,7 @@ void HTMLTreeBuilder::processEndTag(AtomicHTMLToken& token)
     case AfterBodyMode:
         ASSERT(insertionMode() == AfterBodyMode);
         if (token.name() == htmlTag) {
-            if (m_isParsingFragment) {
+            if (isParsingFragment()) {
                 parseError(token);
                 return;
             }
@@ -2273,7 +2384,7 @@ void HTMLTreeBuilder::processEndTag(AtomicHTMLToken& token)
                 return;
             }
             m_tree.openElements()->pop();
-            if (!m_isParsingFragment && !m_tree.currentElement()->hasTagName(framesetTag))
+            if (!isParsingFragment() && !m_tree.currentElement()->hasTagName(framesetTag))
                 setInsertionMode(AfterFramesetMode);
             return;
         }
@@ -2491,7 +2602,7 @@ ReprocessBuffer:
         m_tree.reconstructTheActiveFormattingElements();
         String characters = buffer.takeRemaining();
         m_tree.insertTextNode(characters);
-        if (m_framesetOk && hasNonWhitespace(characters))
+        if (m_framesetOk && !isAllWhitespaceOrReplacementCharacters(characters))
             m_framesetOk = false;
         break;
     }
@@ -2516,7 +2627,7 @@ ReprocessBuffer:
         if (buffer.isEmpty())
             return;
         if (!processColgroupEndTagForInColumnGroup()) {
-            ASSERT(m_isParsingFragment);
+            ASSERT(isParsingFragment());
             return;
         }
         goto ReprocessBuffer;
@@ -2565,7 +2676,7 @@ ReprocessBuffer:
         ASSERT(insertionMode() == InForeignContentMode);
         String characters = buffer.takeRemaining();
         m_tree.insertTextNode(characters);
-        if (m_framesetOk && hasNonWhitespace(characters))
+        if (m_framesetOk && !isAllWhitespace(characters))
             m_framesetOk = false;
         break;
     }
@@ -2636,11 +2747,11 @@ void HTMLTreeBuilder::processEndOfFile(AtomicHTMLToken& token)
         break;
     case InColumnGroupMode:
         if (m_tree.currentElement() == m_tree.openElements()->htmlElement()) {
-            ASSERT(m_isParsingFragment);
+            ASSERT(isParsingFragment());
             return;
         }
         if (!processColgroupEndTagForInColumnGroup()) {
-            ASSERT(m_isParsingFragment);
+            ASSERT(isParsingFragment());
             return;
         }
         processEndOfFile(token);
@@ -2709,7 +2820,7 @@ void HTMLTreeBuilder::defaultForAfterHead()
 void HTMLTreeBuilder::defaultForInTableText()
 {
     String characters = String::adopt(m_pendingTableCharacters);
-    if (hasNonWhitespace(characters)) {
+    if (!isAllWhitespace(characters)) {
         // FIXME: parse error
         HTMLConstructionSite::RedirectToFosterParentGuard redirecter(m_tree);
         m_tree.reconstructTheActiveFormattingElements();
@@ -2744,7 +2855,7 @@ bool HTMLTreeBuilder::processStartTagForInHead(AtomicHTMLToken& token)
         return true;
     }
     if (token.name() == noscriptTag) {
-        if (isScriptingFlagEnabled(m_document->frame())) {
+        if (scriptEnabled(m_document->frame())) {
             processGenericRawTextStartTag(token);
             return true;
         }
@@ -2804,18 +2915,29 @@ void HTMLTreeBuilder::finished()
         return;
     }
 
+    if (isParsingFragment()) {
+        m_fragmentContext.finished();
+        return;
+    }
+
     // Warning, this may delete the parser, so don't try to do anything else after this.
-    if (!m_isParsingFragment)
-        m_document->finishedParsing();
+    m_document->finishedParsing();
 }
 
-bool HTMLTreeBuilder::isScriptingFlagEnabled(Frame* frame)
+bool HTMLTreeBuilder::scriptEnabled(Frame* frame)
 {
     if (!frame)
         return false;
     if (ScriptController* scriptController = frame->script())
         return scriptController->canExecuteScripts(NotAboutToExecuteScript);
     return false;
+}
+
+bool HTMLTreeBuilder::pluginsEnabled(Frame* frame)
+{
+    if (!frame)
+        return false;
+    return frame->loader()->subframeLoader()->allowPlugins(NotAboutToInstantiatePlugin);
 }
 
 }

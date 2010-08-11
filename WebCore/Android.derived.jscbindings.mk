@@ -1,3 +1,4 @@
+
 ##
 ## Copyright 2009, The Android Open Source Project
 ##
@@ -105,7 +106,11 @@ GEN := \
     $(intermediates)/dom/JSDOMCoreException.h \
     $(intermediates)/dom/JSDOMImplementation.h \
     $(intermediates)/dom/JSDOMStringList.h \
+<<<<<<< HEAD
     $(intermediates)/dom/JSDOMStringMap.h \
+=======
+    $(intermediates)/dom/JSDeviceMotionEvent.h \
+>>>>>>> webkit.org at r65072
     $(intermediates)/dom/JSDeviceOrientationEvent.h \
     $(intermediates)/dom/JSDocument.h \
     $(intermediates)/dom/JSDocumentFragment.h \
@@ -387,17 +392,20 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/storage/%.cpp : $(intermediates)/
 # Indexed Database
 GEN := \
     $(intermediates)/storage/JSIDBAny.h \
+    $(intermediates)/storage/JSIDBCursor.h \
     $(intermediates)/storage/JSIDBDatabaseError.h \
     $(intermediates)/storage/JSIDBDatabaseException.h \
-    $(intermediates)/storage/JSIDBDatabaseRequest.h \
+    $(intermediates)/storage/JSIDBDatabase.h \
     $(intermediates)/storage/JSIDBErrorEvent.h \
     $(intermediates)/storage/JSIDBEvent.h \
     $(intermediates)/storage/JSIDBFactory.h \
     $(intermediates)/storage/JSIDBIndex.h \
     $(intermediates)/storage/JSIDBKey.h \
     $(intermediates)/storage/JSIDBKeyRange.h \
+    $(intermediates)/storage/JSIDBObjectStore.h \
     $(intermediates)/storage/JSIDBRequest.h \
-    $(intermediates)/storage/JSIDBSuccessEvent.h
+    $(intermediates)/storage/JSIDBSuccessEvent.h \
+    $(intermediates)/storage/JSIDBTransaction.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --include storage --outputdir $(dir $@) $<

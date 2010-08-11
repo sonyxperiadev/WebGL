@@ -42,9 +42,9 @@
 #include "InspectorClient.h"
 #include "InspectorController.h"
 #include "InspectorDOMAgent.h"
-#include "InspectorFrontend.h"
 #include "InspectorResource.h"
 #include "Pasteboard.h"
+#include "RemoteInspectorFrontend.h"
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 #include "ScriptDebugServer.h"
@@ -98,7 +98,7 @@ Node* InjectedScriptHost::nodeForId(long nodeId)
 
 long InjectedScriptHost::pushNodePathToFrontend(Node* node, bool withChildren, bool selectInUI)
 {
-    InspectorFrontend* frontend = inspectorFrontend();
+    RemoteInspectorFrontend* frontend = remoteFrontend();
     InspectorDOMAgent* domAgent = inspectorDOMAgent();
     if (!domAgent || !frontend)
         return 0;
@@ -142,12 +142,6 @@ void InjectedScriptHost::selectDOMStorage(Storage* storage)
 }
 #endif
 
-void InjectedScriptHost::reportDidDispatchOnInjectedScript(long callId, SerializedScriptValue* result, bool isException)
-{
-    if (InspectorFrontend* frontend = inspectorFrontend())
-        frontend->didDispatchOnInjectedScript(callId, result, isException);
-}
-
 InjectedScript InjectedScriptHost::injectedScriptForId(long id)
 {
     return m_idToInjectedScript.get(id);
@@ -178,11 +172,11 @@ InspectorDOMAgent* InjectedScriptHost::inspectorDOMAgent()
     return m_inspectorController->domAgent();
 }
 
-InspectorFrontend* InjectedScriptHost::inspectorFrontend()
+RemoteInspectorFrontend* InjectedScriptHost::remoteFrontend()
 {
     if (!m_inspectorController)
         return 0;
-    return m_inspectorController->m_frontend.get();
+    return m_inspectorController->m_remoteFrontend.get();
 }
 
 pair<long, ScriptObject> InjectedScriptHost::injectScript(const String& source, ScriptState* scriptState)

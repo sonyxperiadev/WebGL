@@ -61,11 +61,12 @@
 #include "InspectorFrontendClient.h"
 #include "InspectorDOMStorageResource.h"
 #include "InspectorDatabaseResource.h"
-#include "InspectorFrontend.h"
+#include "InspectorDebuggerAgent.h"
 #include "InspectorResource.h"
+#include "InspectorStorageAgent.h"
+#include "InspectorTimelineAgent.h"
 #include "InspectorValues.h"
 #include "InspectorWorkerResource.h"
-#include "InspectorTimelineAgent.h"
 #include "Page.h"
 #include "ProgressTracker.h"
 #include "Range.h"
@@ -73,7 +74,6 @@
 #include "RenderInline.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
-#include "ScriptBreakpoint.h"
 #include "ScriptCallStack.h"
 #include "ScriptFunctionCall.h"
 #include "ScriptObject.h"
@@ -89,7 +89,6 @@
 #include <wtf/text/CString.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/ListHashSet.h>
-#include <wtf/MD5.h>
 #include <wtf/RefCounted.h>
 #include <wtf/StdLibExtras.h>
 
@@ -108,14 +107,6 @@
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 #include "ScriptDebugServer.h"
-#if USE(JSC)
-#include <runtime/JSLock.h>
-#include <runtime/UString.h>
-#include "JSScriptProfile.h"
-#else
-#include "ScriptScope.h"
-#include "V8ScriptProfile.h"
-#endif
 #endif
 
 using namespace std;
@@ -128,10 +119,15 @@ static const char* const resourceTrackingEnabledSettingName = "resourceTrackingE
 static const char* const debuggerEnabledSettingName = "debuggerEnabled";
 static const char* const profilerEnabledSettingName = "profilerEnabled";
 static const char* const inspectorAttachedHeightName = "inspectorAttachedHeight";
-static const char* const lastActivePanelSettingName = "lastActivePanel";
+static const char* const lastActivePanel = "lastActivePanel";
+const char* const InspectorController::ElementsPanel = "elements";
+const char* const InspectorController::ConsolePanel = "console";
+const char* const InspectorController::ScriptsPanel = "scripts";
+const char* const InspectorController::ProfilesPanel = "profiles";
+
 static const char* const monitoringXHRSettingName = "xhrMonitor";
 
-int connectedFrontendCount = 0;
+static int connectedFrontendCount = 0;
 
 const String& InspectorController::frontendSettingsSettingName()
 {
@@ -153,39 +149,13 @@ static const unsigned expireConsoleMessagesStep = 100;
 
 static unsigned s_inspectorControllerCount;
 
-namespace {
-
-String md5Base16(const String& string)
-{
-    static const char digits[] = "0123456789abcdef";
-
-    MD5 md5;
-    md5.addBytes(reinterpret_cast<const uint8_t*>(string.characters()), string.length() * 2);
-    Vector<uint8_t, 16> digest;
-    md5.checksum(digest);
-
-    Vector<char, 32> result;
-    for (int i = 0; i < 16; ++i) {
-        result.append(digits[(digest[i] >> 4) & 0xf]);
-        result.append(digits[digest[i] & 0xf]);
-    }
-    return String(result.data(), result.size());
-}
-
-String formatBreakpointId(const String& sourceID, unsigned lineNumber)
-{
-    return String::format("%s:%d", sourceID.utf8().data(), lineNumber);
-}
-
-}
-
 InspectorController::InspectorController(Page* page, InspectorClient* client)
     : m_inspectedPage(page)
     , m_client(client)
     , m_openingFrontend(false)
     , m_cssStore(new InspectorCSSStore(this))
     , m_expiredConsoleMessageCount(0)
-    , m_showAfterVisible(CurrentPanel)
+    , m_showAfterVisible(lastActivePanel)
     , m_sessionSettings(InspectorObject::create())
     , m_groupLevel(0)
     , m_searchingForNode(false)
@@ -194,13 +164,10 @@ InspectorController::InspectorController(Page* page, InspectorClient* client)
     , m_resourceTrackingEnabled(false)
     , m_settingsLoaded(false)
     , m_inspectorBackend(InspectorBackend::create(this))
-    , m_inspectorBackendDispatcher(new InspectorBackendDispatcher(m_inspectorBackend.get()))
+    , m_inspectorBackendDispatcher(new InspectorBackendDispatcher(this))
     , m_injectedScriptHost(InjectedScriptHost::create(this))
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    , m_debuggerEnabled(false)
     , m_attachDebuggerWhenShown(false)
-    , m_pausedScriptState(0)
-    , m_breakpointsLoaded(false)
     , m_profilerEnabled(!WTF_USE_JSC)
     , m_recordingUserInitiatedProfile(false)
     , m_currentUserInitiatedProfileNumber(-1)
@@ -233,11 +200,14 @@ InspectorController::~InspectorController()
 
 void InspectorController::inspectedPageDestroyed()
 {
-    if (m_frontend)
-        m_frontend->inspectedPageDestroyed();
+    if (m_remoteFrontend)
+        m_remoteFrontend->inspectedPageDestroyed();
 
     hideHighlight();
 
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    m_debuggerAgent.clear();
+#endif
     ASSERT(m_inspectedPage);
     m_inspectedPage = 0;
 
@@ -291,7 +261,7 @@ void InspectorController::inspect(Node* node)
         node = node->parentNode();
     m_nodeToFocus = node;
 
-    if (!m_frontend) {
+    if (!m_remoteFrontend) {
         m_showAfterVisible = ElementsPanel;
         return;
     }
@@ -304,11 +274,11 @@ void InspectorController::focusNode()
     if (!enabled())
         return;
 
-    ASSERT(m_frontend);
+    ASSERT(m_remoteFrontend);
     ASSERT(m_nodeToFocus);
 
     long id = m_domAgent->pushNodePathToFrontend(m_nodeToFocus.get());
-    m_frontend->updateFocusedNode(id);
+    m_remoteFrontend->updateFocusedNode(id);
     m_nodeToFocus = 0;
 }
 
@@ -338,7 +308,7 @@ void InspectorController::hideHighlight()
 
 bool InspectorController::windowVisible()
 {
-    return m_frontend;
+    return m_remoteFrontend;
 }
 
 void InspectorController::addMessageToConsole(MessageSource source, MessageType type, MessageLevel level, ScriptCallStack* callStack, const String& message)
@@ -365,16 +335,16 @@ void InspectorController::addConsoleMessage(ScriptState* scriptState, PassOwnPtr
 
     if (m_previousMessage && m_previousMessage->isEqual(scriptState, consoleMessage.get())) {
         m_previousMessage->incrementCount();
-        if (m_frontend)
+        if (m_remoteFrontend)
             m_previousMessage->updateRepeatCountInConsole(m_remoteFrontend.get());
     } else {
         m_previousMessage = consoleMessage.get();
         m_consoleMessages.append(consoleMessage);
-        if (m_frontend)
+        if (m_remoteFrontend)
             m_previousMessage->addToFrontend(m_remoteFrontend.get(), m_injectedScriptHost.get());
     }
 
-    if (!m_frontend && m_consoleMessages.size() >= maximumConsoleMessages) {
+    if (!m_remoteFrontend && m_consoleMessages.size() >= maximumConsoleMessages) {
         m_expiredConsoleMessageCount += expireConsoleMessagesStep;
         m_consoleMessages.remove(0, expireConsoleMessagesStep);
     }
@@ -416,7 +386,7 @@ void InspectorController::markTimeline(const String& message)
 
 void InspectorController::storeLastActivePanel(const String& panelName)
 {
-    setSetting(lastActivePanelSettingName, panelName);
+    setSetting(lastActivePanel, panelName);
 }
 
 void InspectorController::mouseDidMoveOverElement(const HitTestResult& result, unsigned)
@@ -458,18 +428,19 @@ void InspectorController::inspectedWindowScriptObjectCleared(Frame* frame)
     if (m_inspectorFrontendClient && frame == m_inspectedPage->mainFrame())
         m_inspectorFrontendClient->windowObjectCleared();
 
-    if (!enabled())
-        return;
-
-    if (m_frontend && frame != m_inspectedPage->mainFrame())
-        m_injectedScriptHost->discardInjectedScripts();
-    if (m_scriptsToEvaluateOnLoad.size()) {
-        ScriptState* scriptState = mainWorldScriptState(frame);
-        for (Vector<String>::iterator it = m_scriptsToEvaluateOnLoad.begin();
-             it != m_scriptsToEvaluateOnLoad.end(); ++it) {
-            m_injectedScriptHost->injectScript(*it, scriptState);
+    if (enabled()) {
+        if (m_remoteFrontend && frame == m_inspectedPage->mainFrame())
+            m_injectedScriptHost->discardInjectedScripts();
+        if (m_scriptsToEvaluateOnLoad.size()) {
+            ScriptState* scriptState = mainWorldScriptState(frame);
+            for (Vector<String>::iterator it = m_scriptsToEvaluateOnLoad.begin();
+                 it != m_scriptsToEvaluateOnLoad.end(); ++it) {
+                m_injectedScriptHost->injectScript(*it, scriptState);
+            }
         }
     }
+    if (!m_inspectorExtensionAPI.isEmpty())
+        m_injectedScriptHost->injectScript(m_inspectorExtensionAPI, mainWorldScriptState(frame));
 }
 
 void InspectorController::setSearchingForNode(bool enabled)
@@ -479,11 +450,11 @@ void InspectorController::setSearchingForNode(bool enabled)
     m_searchingForNode = enabled;
     if (!m_searchingForNode)
         hideHighlight();
-    if (m_frontend) {
+    if (m_remoteFrontend) {
         if (enabled)
-            m_frontend->searchingForNodeWasEnabled();
+            m_remoteFrontend->searchingForNodeWasEnabled();
         else
-            m_frontend->searchingForNodeWasDisabled();
+            m_remoteFrontend->searchingForNodeWasDisabled();
     }
 }
 
@@ -493,31 +464,35 @@ void InspectorController::setMonitoringXHR(bool enabled)
         return;
     m_monitoringXHR = enabled;
     setSetting(monitoringXHRSettingName, enabled ? "true" : "false");
-    if (m_frontend) {
+    if (m_remoteFrontend) {
         if (enabled)
-            m_frontend->monitoringXHRWasEnabled();
+            m_remoteFrontend->monitoringXHRWasEnabled();
         else
-            m_frontend->monitoringXHRWasDisabled();
+            m_remoteFrontend->monitoringXHRWasDisabled();
     }
 }
 
-void InspectorController::connectFrontend(const ScriptObject& webInspector)
+void InspectorController::connectFrontend()
 {
     m_openingFrontend = false;
     releaseFrontendLifetimeAgents();
-    m_frontend = new InspectorFrontend(webInspector, m_client);
     m_remoteFrontend = new RemoteInspectorFrontend(m_client);
     m_domAgent = InspectorDOMAgent::create(m_cssStore.get(), m_remoteFrontend.get());
+
+#if ENABLE(DATABASE)
+    m_storageAgent = InspectorStorageAgent::create(m_remoteFrontend.get());
+#endif
+
     if (m_timelineAgent)
         m_timelineAgent->resetFrontendProxyObject(m_remoteFrontend.get());
 
     // Initialize Web Inspector title.
-    m_frontend->inspectedURLChanged(m_inspectedPage->mainFrame()->loader()->url().string());
+    m_remoteFrontend->inspectedURLChanged(m_inspectedPage->mainFrame()->loader()->url().string());
 
     populateScriptObjects();
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    if (ScriptDebugServer::shared().isDebuggerAlwaysEnabled()) {
+    if (InspectorDebuggerAgent::isDebuggerAlwaysEnabled()) {
         // FIXME (40364): This will force pushing script sources to frontend even if script
         // panel is inactive.
         enableDebuggerFromFrontend(false);
@@ -531,17 +506,15 @@ void InspectorController::connectFrontend(const ScriptObject& webInspector)
     }
 #endif
 
-    if (m_showAfterVisible == CurrentPanel) {
-        String lastActivePanelSetting = setting(lastActivePanelSettingName);
-        m_showAfterVisible = specialPanelForJSName(lastActivePanelSetting);
-    }
+    if (m_showAfterVisible == lastActivePanel)
+        m_showAfterVisible = setting(lastActivePanel);
 
     if (m_nodeToFocus)
         focusNode();
     showPanel(m_showAfterVisible);
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
-    m_applicationCacheAgent = new InspectorApplicationCacheAgent(this, m_frontend.get());
+    m_applicationCacheAgent = new InspectorApplicationCacheAgent(this, m_remoteFrontend.get());
 #endif
 
     if (!connectedFrontendCount)
@@ -557,44 +530,44 @@ void InspectorController::show()
     if (m_openingFrontend)
         return;
 
-    if (m_frontend)
-        m_frontend->bringToFront();
+    if (m_remoteFrontend)
+        m_remoteFrontend->bringToFront();
     else {
         m_openingFrontend = true;
         m_client->openInspectorFrontend(this);
     }
 }
 
-void InspectorController::showPanel(SpecialPanels panel)
+void InspectorController::showPanel(const String& panel)
 {
     if (!enabled())
         return;
 
     show();
 
-    if (!m_frontend) {
+    if (!m_remoteFrontend) {
         m_showAfterVisible = panel;
         return;
     }
 
-    if (panel == CurrentPanel)
+    if (panel == lastActivePanel)
         return;
 
-    m_frontend->showPanel(panel);
+    m_remoteFrontend->showPanel(panel);
 }
 
 void InspectorController::close()
 {
-    if (!m_frontend)
+    if (!m_remoteFrontend)
         return;
-    m_frontend->close();
+    m_remoteFrontend->close();
 }
 
 void InspectorController::disconnectFrontend()
 {
-    if (!m_frontend)
+    if (!m_remoteFrontend)
         return;
-    m_frontend.clear();
+    m_remoteFrontend.clear();
 
     connectedFrontendCount--;
     if (!connectedFrontendCount)
@@ -604,7 +577,7 @@ void InspectorController::disconnectFrontend()
     // If the window is being closed with the debugger enabled,
     // remember this state to re-enable debugger on the next window
     // opening.
-    bool debuggerWasEnabled = m_debuggerEnabled;
+    bool debuggerWasEnabled = debuggerEnabled();
     disableDebugger();
     m_attachDebuggerWhenShown = debuggerWasEnabled;
 #endif
@@ -612,7 +585,7 @@ void InspectorController::disconnectFrontend()
     unbindAllResources();
     stopTimelineProfiler();
 
-    m_showAfterVisible = CurrentPanel;
+    m_showAfterVisible = lastActivePanel;
 
     hideHighlight();
 
@@ -631,6 +604,9 @@ void InspectorController::releaseFrontendLifetimeAgents()
     if (m_domAgent)
         m_domAgent->reset();
     m_domAgent.clear();
+    if (m_storageAgent)
+        m_storageAgent->clearFrontend();
+    m_storageAgent.clear();
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     m_applicationCacheAgent.clear();
@@ -639,29 +615,29 @@ void InspectorController::releaseFrontendLifetimeAgents()
 
 void InspectorController::populateScriptObjects()
 {
-    ASSERT(m_frontend);
-    if (!m_frontend)
+    ASSERT(m_remoteFrontend);
+    if (!m_remoteFrontend)
         return;
 
-    m_frontend->populateApplicationSettings(setting(frontendSettingsSettingName()));
+    m_remoteFrontend->populateApplicationSettings(setting(frontendSettingsSettingName()));
 
     if (m_resourceTrackingEnabled)
-        m_frontend->resourceTrackingWasEnabled();
+        m_remoteFrontend->resourceTrackingWasEnabled();
 
     if (m_searchingForNode)
-        m_frontend->searchingForNodeWasEnabled();
+        m_remoteFrontend->searchingForNodeWasEnabled();
 
     if (m_monitoringXHR)
-        m_frontend->monitoringXHRWasEnabled();
+        m_remoteFrontend->monitoringXHRWasEnabled();
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     if (m_profilerEnabled)
-        m_frontend->profilerWasEnabled();
+        m_remoteFrontend->profilerWasEnabled();
 #endif
 
     ResourcesMap::iterator resourcesEnd = m_resources.end();
     for (ResourcesMap::iterator it = m_resources.begin(); it != resourcesEnd; ++it)
-        it->second->updateScriptObject(m_frontend.get());
+        it->second->updateScriptObject(m_remoteFrontend.get());
 
     m_domAgent->setDocument(m_inspectedPage->mainFrame()->document());
 
@@ -672,31 +648,33 @@ void InspectorController::populateScriptObjects()
         m_consoleMessages[i]->addToFrontend(m_remoteFrontend.get(), m_injectedScriptHost.get());
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    if (m_debuggerEnabled)
-        m_frontend->updatePauseOnExceptionsState(ScriptDebugServer::shared().pauseOnExceptionsState());
+    if (debuggerEnabled())
+        m_remoteFrontend->updatePauseOnExceptionsState(ScriptDebugServer::shared().pauseOnExceptionsState());
 #endif
 #if ENABLE(DATABASE)
     DatabaseResourcesMap::iterator databasesEnd = m_databaseResources.end();
     for (DatabaseResourcesMap::iterator it = m_databaseResources.begin(); it != databasesEnd; ++it)
-        it->second->bind(m_frontend.get());
+        it->second->bind(m_remoteFrontend.get());
 #endif
 #if ENABLE(DOM_STORAGE)
     DOMStorageResourcesMap::iterator domStorageEnd = m_domStorageResources.end();
     for (DOMStorageResourcesMap::iterator it = m_domStorageResources.begin(); it != domStorageEnd; ++it)
-        it->second->bind(m_frontend.get());
+        it->second->bind(m_remoteFrontend.get());
 #endif
 #if ENABLE(WORKERS)
     WorkersMap::iterator workersEnd = m_workers.end();
-    for (WorkersMap::iterator it = m_workers.begin(); it != workersEnd; ++it)
-        m_frontend->didCreateWorker(*it->second);
+    for (WorkersMap::iterator it = m_workers.begin(); it != workersEnd; ++it) {
+        InspectorWorkerResource* worker = it->second.get();
+        m_remoteFrontend->didCreateWorker(worker->id(), worker->url(), worker->isSharedWorker());
+    }
 #endif
 
-    m_frontend->populateSessionSettings(m_sessionSettings->toJSONString());
-    m_frontend->populateInterface();
+    m_remoteFrontend->populateSessionSettings(m_sessionSettings->toJSONString());
+    m_remoteFrontend->populateInterface();
 
     // Dispatch pending frontend commands
     for (Vector<pair<long, String> >::iterator it = m_pendingEvaluateTestCommands.begin(); it != m_pendingEvaluateTestCommands.end(); ++it)
-        m_frontend->evaluateForTestInFrontend((*it).first, (*it).second);
+        m_remoteFrontend->evaluateForTestInFrontend((*it).first, (*it).second);
     m_pendingEvaluateTestCommands.clear();
 }
 
@@ -733,8 +711,8 @@ void InspectorController::pruneResources(ResourcesMap* resourceMap, DocumentLoad
 
         if (!loaderToKeep || !resource->isSameLoader(loaderToKeep)) {
             removeResource(resource);
-            if (m_frontend)
-                resource->releaseScriptObject(m_frontend.get());
+            if (m_remoteFrontend)
+                resource->releaseScriptObject(m_remoteFrontend.get());
         }
     }
 }
@@ -747,8 +725,8 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
     ASSERT(m_inspectedPage);
 
     if (loader->frame() == m_inspectedPage->mainFrame()) {
-        if (m_frontend)
-            m_frontend->inspectedURLChanged(loader->url().string());
+        if (m_remoteFrontend)
+            m_remoteFrontend->inspectedURLChanged(loader->url().string());
 
         m_injectedScriptHost->discardInjectedScripts();
         clearConsoleMessages();
@@ -756,18 +734,15 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
         m_times.clear();
         m_counts.clear();
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-        m_sourceIDToURL.clear();
-        m_scriptIDToContent.clear();
-        m_stickyBreakpoints.clear();
-        m_breakpointsMapping.clear();
-        m_breakpointsLoaded = false;
+        if (m_debuggerAgent)
+            m_debuggerAgent->clearForPageNavigation();
 #endif
 #if ENABLE(JAVASCRIPT_DEBUGGER) && USE(JSC)
         m_profiles.clear();
         m_currentUserInitiatedProfileNumber = 1;
         m_nextUserInitiatedProfileNumber = 1;
-        if (m_frontend)
-            m_frontend->resetProfilesPanel();
+        if (m_remoteFrontend)
+            m_remoteFrontend->resetProfilesPanel();
 #endif
         // unbindAllResources should be called before database and DOM storage
         // resources are cleared so that it has a chance to unbind them.
@@ -775,8 +750,8 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
 
         m_cssStore->reset();
         m_sessionSettings = InspectorObject::create();
-        if (m_frontend) {
-            m_frontend->reset();
+        if (m_remoteFrontend) {
+            m_remoteFrontend->reset();
             m_domAgent->reset();
         }
 #if ENABLE(WORKERS)
@@ -789,13 +764,13 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
         m_domStorageResources.clear();
 #endif
 
-        if (m_frontend) {
+        if (m_remoteFrontend) {
             if (!loader->frameLoader()->isLoadingFromCachedPage()) {
                 ASSERT(m_mainResource && m_mainResource->isSameLoader(loader));
                 // We don't add the main resource until its load is committed. This is
                 // needed to keep the load for a user-entered URL from showing up in the
                 // list of resources for the page they are navigating away from.
-                m_mainResource->updateScriptObject(m_frontend.get());
+                m_mainResource->updateScriptObject(m_remoteFrontend.get());
             } else {
                 // Pages loaded from the page cache are committed before
                 // m_mainResource is the right resource for this load, so we
@@ -803,7 +778,7 @@ void InspectorController::didCommitLoad(DocumentLoader* loader)
                 // identifierForInitialRequest.
                 m_mainResource = 0;
             }
-            m_frontend->didCommitLoad();
+            m_remoteFrontend->didCommitLoad();
             m_domAgent->setDocument(m_inspectedPage->mainFrame()->document());
         }
     }
@@ -906,8 +881,8 @@ void InspectorController::didLoadResourceFromMemoryCache(DocumentLoader* loader,
 
     addResource(resource.get());
 
-    if (m_frontend)
-        resource->updateScriptObject(m_frontend.get());
+    if (m_remoteFrontend)
+        resource->updateScriptObject(m_remoteFrontend.get());
 }
 
 void InspectorController::identifierForInitialRequest(unsigned long identifier, DocumentLoader* loader, const ResourceRequest& request)
@@ -930,8 +905,8 @@ void InspectorController::identifierForInitialRequest(unsigned long identifier, 
 
     addResource(resource.get());
 
-    if (m_frontend && loader->frameLoader()->isLoadingFromCachedPage() && resource == m_mainResource)
-        resource->updateScriptObject(m_frontend.get());
+    if (m_remoteFrontend && loader->frameLoader()->isLoadingFromCachedPage() && resource == m_mainResource)
+        resource->updateScriptObject(m_remoteFrontend.get());
 }
 
 void InspectorController::mainResourceFiredDOMContentEvent(DocumentLoader* loader, const KURL& url)
@@ -943,8 +918,8 @@ void InspectorController::mainResourceFiredDOMContentEvent(DocumentLoader* loade
         m_mainResource->markDOMContentEventTime();
         if (m_timelineAgent)
             m_timelineAgent->didMarkDOMContentEvent();
-        if (m_frontend)
-            m_mainResource->updateScriptObject(m_frontend.get());
+        if (m_remoteFrontend)
+            m_mainResource->updateScriptObject(m_remoteFrontend.get());
     }
 }
 
@@ -957,8 +932,8 @@ void InspectorController::mainResourceFiredLoadEvent(DocumentLoader* loader, con
         m_mainResource->markLoadEventTime();
         if (m_timelineAgent)
             m_timelineAgent->didMarkLoadEvent();
-        if (m_frontend)
-            m_mainResource->updateScriptObject(m_frontend.get());
+        if (m_remoteFrontend)
+            m_mainResource->updateScriptObject(m_remoteFrontend.get());
     }
 }
 
@@ -1005,8 +980,8 @@ void InspectorController::willSendRequest(unsigned long identifier, ResourceRequ
     resource->startTiming();
     resource->updateRequest(request);
 
-    if (resource != m_mainResource && m_frontend)
-        resource->updateScriptObject(m_frontend.get());
+    if (resource != m_mainResource && m_remoteFrontend)
+        resource->updateScriptObject(m_remoteFrontend.get());
 }
 
 void InspectorController::didReceiveResponse(unsigned long identifier, const ResourceResponse& response)
@@ -1017,8 +992,8 @@ void InspectorController::didReceiveResponse(unsigned long identifier, const Res
     if (RefPtr<InspectorResource> resource = getTrackedResource(identifier)) {
         resource->updateResponse(response);
 
-        if (resource != m_mainResource && m_frontend)
-            resource->updateScriptObject(m_frontend.get());
+        if (resource != m_mainResource && m_remoteFrontend)
+            resource->updateScriptObject(m_remoteFrontend.get());
     }
     if (response.httpStatusCode() >= 400) {
         // The ugly code below is due to that String::format() is not utf8-safe at the moment.
@@ -1039,8 +1014,8 @@ void InspectorController::didReceiveContentLength(unsigned long identifier, int 
 
     resource->addLength(lengthReceived);
 
-    if (resource != m_mainResource && m_frontend)
-        resource->updateScriptObject(m_frontend.get());
+    if (resource != m_mainResource && m_remoteFrontend)
+        resource->updateScriptObject(m_remoteFrontend.get());
 }
 
 void InspectorController::didFinishLoading(unsigned long identifier)
@@ -1058,8 +1033,8 @@ void InspectorController::didFinishLoading(unsigned long identifier)
     resource->endTiming();
 
     // No need to mute this event for main resource since it happens after did commit load.
-    if (m_frontend)
-        resource->updateScriptObject(m_frontend.get());
+    if (m_remoteFrontend)
+        resource->updateScriptObject(m_remoteFrontend.get());
 }
 
 void InspectorController::didFailLoading(unsigned long identifier, const ResourceError& error)
@@ -1083,8 +1058,8 @@ void InspectorController::didFailLoading(unsigned long identifier, const Resourc
     resource->endTiming();
 
     // No need to mute this event for main resource since it happens after did commit load.
-    if (m_frontend)
-        resource->updateScriptObject(m_frontend.get());
+    if (m_remoteFrontend)
+        resource->updateScriptObject(m_remoteFrontend.get());
 }
 
 void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString, const String& url, const String& sendURL, unsigned sendLineNumber)
@@ -1104,8 +1079,8 @@ void InspectorController::resourceRetrievedByXMLHttpRequest(unsigned long identi
 
     resource->setOverrideContent(sourceString, InspectorResource::XHR);
 
-    if (m_frontend)
-        resource->updateScriptObject(m_frontend.get());
+    if (m_remoteFrontend)
+        resource->updateScriptObject(m_remoteFrontend.get());
 }
 
 void InspectorController::scriptImported(unsigned long identifier, const String& sourceString)
@@ -1119,8 +1094,8 @@ void InspectorController::scriptImported(unsigned long identifier, const String&
 
     resource->setOverrideContent(ScriptString(sourceString), InspectorResource::Script);
 
-    if (m_frontend)
-        resource->updateScriptObject(m_frontend.get());
+    if (m_remoteFrontend)
+        resource->updateScriptObject(m_remoteFrontend.get());
 }
 
 void InspectorController::enableResourceTracking(bool always, bool reload)
@@ -1136,8 +1111,8 @@ void InspectorController::enableResourceTracking(bool always, bool reload)
 
     ASSERT(m_inspectedPage);
     m_resourceTrackingEnabled = true;
-    if (m_frontend)
-        m_frontend->resourceTrackingWasEnabled();
+    if (m_remoteFrontend)
+        m_remoteFrontend->resourceTrackingWasEnabled();
     m_client->resourceTrackingWasEnabled();
 
     if (reload)
@@ -1154,8 +1129,8 @@ void InspectorController::disableResourceTracking(bool always)
 
     ASSERT(m_inspectedPage);
     m_resourceTrackingEnabled = false;
-    if (m_frontend)
-        m_frontend->resourceTrackingWasDisabled();
+    if (m_remoteFrontend)
+        m_remoteFrontend->resourceTrackingWasDisabled();
     m_client->resourceTrackingWasDisabled();
 }
 
@@ -1184,8 +1159,8 @@ void InspectorController::startTimelineProfiler()
         return;
 
     m_timelineAgent = new InspectorTimelineAgent(m_remoteFrontend.get());
-    if (m_frontend)
-        m_frontend->timelineProfilerWasStarted();
+    if (m_remoteFrontend)
+        m_remoteFrontend->timelineProfilerWasStarted();
     m_client->timelineProfilerWasStarted();
 }
 
@@ -1198,8 +1173,8 @@ void InspectorController::stopTimelineProfiler()
         return;
 
     m_timelineAgent = 0;
-    if (m_frontend)
-        m_frontend->timelineProfilerWasStopped();
+    if (m_remoteFrontend)
+        m_remoteFrontend->timelineProfilerWasStopped();
     m_client->timelineProfilerWasStopped();
 }
 
@@ -1231,14 +1206,14 @@ private:
 
 void InspectorController::postWorkerNotificationToFrontend(const InspectorWorkerResource& worker, InspectorController::WorkerAction action)
 {
-    if (!m_frontend)
+    if (!m_remoteFrontend)
         return;
     switch (action) {
     case InspectorController::WorkerCreated:
-        m_frontend->didCreateWorker(worker);
+        m_remoteFrontend->didCreateWorker(worker.id(), worker.url(), worker.isSharedWorker());
         break;
     case InspectorController::WorkerDestroyed:
-        m_frontend->didDestroyWorker(worker);
+        m_remoteFrontend->didDestroyWorker(worker.id());
         break;
     }
 }
@@ -1250,7 +1225,7 @@ void InspectorController::didCreateWorker(intptr_t id, const String& url, bool i
 
     RefPtr<InspectorWorkerResource> workerResource(InspectorWorkerResource::create(id, url, isSharedWorker));
     m_workers.set(id, workerResource);
-    if (m_inspectedPage && m_frontend)
+    if (m_inspectedPage && m_remoteFrontend)
         m_inspectedPage->mainFrame()->document()->postTask(PostWorkerNotificationToFrontendTask::create(workerResource, InspectorController::WorkerCreated));
 }
 
@@ -1262,7 +1237,7 @@ void InspectorController::didDestroyWorker(intptr_t id)
     WorkersMap::iterator workerResource = m_workers.find(id);
     if (workerResource == m_workers.end())
         return;
-    if (m_inspectedPage && m_frontend)
+    if (m_inspectedPage && m_remoteFrontend)
         m_inspectedPage->mainFrame()->document()->postTask(PostWorkerNotificationToFrontendTask::create(workerResource->second, InspectorController::WorkerDestroyed));
     m_workers.remove(workerResource);
 }
@@ -1271,12 +1246,12 @@ void InspectorController::didDestroyWorker(intptr_t id)
 #if ENABLE(DATABASE)
 void InspectorController::selectDatabase(Database* database)
 {
-    if (!m_frontend)
+    if (!m_remoteFrontend)
         return;
 
     for (DatabaseResourcesMap::iterator it = m_databaseResources.begin(); it != m_databaseResources.end(); ++it) {
         if (it->second->database() == database) {
-            m_frontend->selectDatabase(it->first);
+            m_remoteFrontend->selectDatabase(it->first);
             break;
         }
     }
@@ -1290,7 +1265,7 @@ Database* InspectorController::databaseForId(long databaseId)
     return it->second->database();
 }
 
-void InspectorController::didOpenDatabase(Database* database, const String& domain, const String& name, const String& version)
+void InspectorController::didOpenDatabase(PassRefPtr<Database> database, const String& domain, const String& name, const String& version)
 {
     if (!enabled())
         return;
@@ -1300,16 +1275,13 @@ void InspectorController::didOpenDatabase(Database* database, const String& doma
     m_databaseResources.set(resource->id(), resource);
 
     // Resources are only bound while visible.
-    if (m_frontend)
-        resource->bind(m_frontend.get());
+    if (m_remoteFrontend)
+        resource->bind(m_remoteFrontend.get());
 }
 #endif
 
-void InspectorController::getCookies(long callId)
+void InspectorController::getCookies(RefPtr<InspectorArray>* cookies, WTF::String* cookiesString)
 {
-    if (!m_frontend)
-        return;
-
     // If we can get raw cookies.
     ListHashSet<Cookie> rawCookiesList;
 
@@ -1343,36 +1315,37 @@ void InspectorController::getCookies(long callId)
         }
     }
 
-    if (!rawCookiesImplemented)
-        m_frontend->didGetCookies(callId, m_frontend->newScriptArray(), stringCookiesList);
-    else
-        m_frontend->didGetCookies(callId, buildArrayForCookies(rawCookiesList), String());
+    if (rawCookiesImplemented)
+        *cookies = buildArrayForCookies(rawCookiesList);
+    else {
+        *cookiesString = stringCookiesList;
+    }
 }
 
-ScriptArray InspectorController::buildArrayForCookies(ListHashSet<Cookie>& cookiesList)
+PassRefPtr<InspectorArray> InspectorController::buildArrayForCookies(ListHashSet<Cookie>& cookiesList)
 {
-    ScriptArray cookies = m_frontend->newScriptArray();
+    RefPtr<InspectorArray> cookies = InspectorArray::create();
 
     ListHashSet<Cookie>::iterator end = cookiesList.end();
     ListHashSet<Cookie>::iterator it = cookiesList.begin();
     for (int i = 0; it != end; ++it, i++)
-        cookies.set(i, buildObjectForCookie(*it));
+        cookies->push(buildObjectForCookie(*it));
 
     return cookies;
 }
 
-ScriptObject InspectorController::buildObjectForCookie(const Cookie& cookie)
+PassRefPtr<InspectorObject> InspectorController::buildObjectForCookie(const Cookie& cookie)
 {
-    ScriptObject value = m_frontend->newScriptObject();
-    value.set("name", cookie.name);
-    value.set("value", cookie.value);
-    value.set("domain", cookie.domain);
-    value.set("path", cookie.path);
-    value.set("expires", cookie.expires);
-    value.set("size", (cookie.name.length() + cookie.value.length()));
-    value.set("httpOnly", cookie.httpOnly);
-    value.set("secure", cookie.secure);
-    value.set("session", cookie.session);
+    RefPtr<InspectorObject> value = InspectorObject::create();
+    value->setString("name", cookie.name);
+    value->setString("value", cookie.value);
+    value->setString("domain", cookie.domain);
+    value->setString("path", cookie.path);
+    value->setNumber("expires", cookie.expires);
+    value->setNumber("size", (cookie.name.length() + cookie.value.length()));
+    value->setBool("httpOnly", cookie.httpOnly);
+    value->setBool("secure", cookie.secure);
+    value->setBool("session", cookie.session);
     return value;
 }
 
@@ -1403,14 +1376,14 @@ void InspectorController::didUseDOMStorage(StorageArea* storageArea, bool isLoca
     m_domStorageResources.set(resource->id(), resource);
 
     // Resources are only bound while visible.
-    if (m_frontend)
-        resource->bind(m_frontend.get());
+    if (m_remoteFrontend)
+        resource->bind(m_remoteFrontend.get());
 }
 
 void InspectorController::selectDOMStorage(Storage* storage)
 {
     ASSERT(storage);
-    if (!m_frontend)
+    if (!m_remoteFrontend)
         return;
 
     Frame* frame = storage->frame();
@@ -1425,15 +1398,11 @@ void InspectorController::selectDOMStorage(Storage* storage)
         }
     }
     if (storageResourceId)
-        m_frontend->selectDOMStorage(storageResourceId);
+        m_remoteFrontend->selectDOMStorage(storageResourceId);
 }
 
-void InspectorController::getDOMStorageEntries(long callId, long storageId)
+void InspectorController::getDOMStorageEntries(long storageId, RefPtr<InspectorArray>* entries)
 {
-    if (!m_frontend)
-        return;
-
-    ScriptArray jsonArray = m_frontend->newScriptArray();
     InspectorDOMStorageResource* storageResource = getDOMStorageResourceForId(storageId);
     if (storageResource) {
         storageResource->startReportingChangesToFrontend();
@@ -1441,42 +1410,31 @@ void InspectorController::getDOMStorageEntries(long callId, long storageId)
         for (unsigned i = 0; i < domStorage->length(); ++i) {
             String name(domStorage->key(i));
             String value(domStorage->getItem(name));
-            ScriptArray entry = m_frontend->newScriptArray();
-            entry.set(0, name);
-            entry.set(1, value);
-            jsonArray.set(i, entry);
+            RefPtr<InspectorArray> entry = InspectorArray::create();
+            entry->pushString(name);
+            entry->pushString(value);
+            (*entries)->push(entry);
         }
     }
-    m_frontend->didGetDOMStorageEntries(callId, jsonArray);
 }
 
-void InspectorController::setDOMStorageItem(long callId, long storageId, const String& key, const String& value)
+void InspectorController::setDOMStorageItem(long storageId, const String& key, const String& value, bool* success)
 {
-    if (!m_frontend)
-        return;
-
-    bool success = false;
     InspectorDOMStorageResource* storageResource = getDOMStorageResourceForId(storageId);
     if (storageResource) {
         ExceptionCode exception = 0;
         storageResource->domStorage()->setItem(key, value, exception);
-        success = !exception;
+        *success = !exception;
     }
-    m_frontend->didSetDOMStorageItem(callId, success);
 }
 
-void InspectorController::removeDOMStorageItem(long callId, long storageId, const String& key)
+void InspectorController::removeDOMStorageItem(long storageId, const String& key, bool* success)
 {
-    if (!m_frontend)
-        return;
-
-    bool success = false;
     InspectorDOMStorageResource* storageResource = getDOMStorageResourceForId(storageId);
     if (storageResource) {
         storageResource->domStorage()->removeItem(key);
-        success = true;
+        *success = true;
     }
-    m_frontend->didRemoveDOMStorageItem(callId, success);
 }
 
 InspectorDOMStorageResource* InspectorController::getDOMStorageResourceForId(long storageId)
@@ -1497,11 +1455,8 @@ void InspectorController::addProfile(PassRefPtr<ScriptProfile> prpProfile, unsig
     RefPtr<ScriptProfile> profile = prpProfile;
     m_profiles.add(profile->uid(), profile);
 
-    if (m_frontend) {
-#if USE(JSC)
-        JSC::JSLock lock(JSC::SilenceAssertionsOnly);
-#endif
-        m_frontend->addProfileHeader(createProfileHeader(*profile));
+    if (m_remoteFrontend) {
+        m_remoteFrontend->addProfileHeader(createProfileHeader(*profile));
     }
 
     addProfileFinishedMessageToConsole(profile, lineNumber, sourceURL);
@@ -1511,11 +1466,7 @@ void InspectorController::addProfileFinishedMessageToConsole(PassRefPtr<ScriptPr
 {
     RefPtr<ScriptProfile> profile = prpProfile;
 
-#if USE(JSC)
-    String title = ustringToString(profile->title());
-#else
     String title = profile->title();
-#endif
     String message = String::format("Profile \"webkit-profile://%s/%s#%d\" finished.", CPUProfileType, encodeWithURLEscapeSequences(title).utf8().data(), profile->uid());
     addMessageToConsole(JSMessageSource, LogMessageType, LogMessageLevel, message, lineNumber, sourceURL);
 }
@@ -1545,45 +1496,28 @@ void InspectorController::clearProfiles()
     m_nextUserInitiatedProfileNumber = 1;
 }
 
-void InspectorController::getProfileHeaders(long callId)
+void InspectorController::getProfileHeaders(RefPtr<InspectorArray>* headers)
 {
-    if (!m_frontend)
-        return;
-    ScriptArray result = m_frontend->newScriptArray();
     ProfilesMap::iterator profilesEnd = m_profiles.end();
-    int i = 0;
     for (ProfilesMap::iterator it = m_profiles.begin(); it != profilesEnd; ++it)
-        result.set(i++, createProfileHeader(*it->second));
-    m_frontend->didGetProfileHeaders(callId, result);
+        (*headers)->push(createProfileHeader(*it->second));
 }
 
-void InspectorController::getProfile(long callId, unsigned uid)
+void InspectorController::getProfile(unsigned uid, RefPtr<InspectorObject>* profileObject)
 {
-    if (!m_frontend)
-        return;
     ProfilesMap::iterator it = m_profiles.find(uid);
     if (it != m_profiles.end()) {
-#if USE(JSC)
-        m_frontend->didGetProfile(callId, toJS(m_frontend->scriptState(), it->second.get()));
-#else
-        ScriptScope scope(m_frontend->scriptState());
-        m_frontend->didGetProfile(callId, toV8(it->second.get()));
-#endif
+        *profileObject = createProfileHeader(*it->second);
+        (*profileObject)->set("head", it->second->buildInspectorObjectForHead());
     }
 }
 
-ScriptObject InspectorController::createProfileHeader(const ScriptProfile& profile)
+PassRefPtr<InspectorObject> InspectorController::createProfileHeader(const ScriptProfile& profile)
 {
-#if USE(JSC)
-    String title = ustringToString(profile.title());
-#else
-    String title = profile.title();
-#endif
-
-    ScriptObject header = m_frontend->newScriptObject();
-    header.set("title", title);
-    header.set("uid", profile.uid());
-    header.set("typeId", String(CPUProfileType));
+    RefPtr<InspectorObject> header = InspectorObject::create();
+    header->setString("title", profile.title());
+    header->setNumber("uid", profile.uid());
+    header->setString("typeId", String(CPUProfileType));
     return header;
 }
 
@@ -1651,9 +1585,9 @@ void InspectorController::stopUserInitiatedProfiling()
 
 void InspectorController::toggleRecordButton(bool isProfiling)
 {
-    if (!m_frontend)
+    if (!m_remoteFrontend)
         return;
-    m_frontend->setRecordingProfile(isProfiling);
+    m_remoteFrontend->setRecordingProfile(isProfiling);
 }
 
 void InspectorController::enableProfiler(bool always, bool skipRecompile)
@@ -1669,8 +1603,8 @@ void InspectorController::enableProfiler(bool always, bool skipRecompile)
     if (!skipRecompile)
         ScriptDebugServer::shared().recompileAllJSFunctionsSoon();
 
-    if (m_frontend)
-        m_frontend->profilerWasEnabled();
+    if (m_remoteFrontend)
+        m_remoteFrontend->profilerWasEnabled();
 }
 
 void InspectorController::disableProfiler(bool always)
@@ -1685,33 +1619,23 @@ void InspectorController::disableProfiler(bool always)
 
     ScriptDebugServer::shared().recompileAllJSFunctionsSoon();
 
-    if (m_frontend)
-        m_frontend->profilerWasDisabled();
-}
-
-void InspectorController::takeHeapSnapshot()
-{
-    if (!enabled())
-        return;
-
-    ScriptProfiler::takeHeapSnapshot();
+    if (m_remoteFrontend)
+        m_remoteFrontend->profilerWasDisabled();
 }
 #endif
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 void InspectorController::enableDebuggerFromFrontend(bool always)
 {
-    ASSERT(!m_debuggerEnabled);
+    ASSERT(!debuggerEnabled());
     if (always)
         setSetting(debuggerEnabledSettingName, "true");
 
     ASSERT(m_inspectedPage);
 
-    ScriptDebugServer::shared().clearBreakpoints();
-    ScriptDebugServer::shared().addListener(this, m_inspectedPage);
+    m_debuggerAgent = InspectorDebuggerAgent::create(this, m_remoteFrontend.get());
 
-    m_debuggerEnabled = true;
-    m_frontend->debuggerWasEnabled();
+    m_remoteFrontend->debuggerWasEnabled();
 }
 
 void InspectorController::enableDebugger()
@@ -1719,13 +1643,13 @@ void InspectorController::enableDebugger()
     if (!enabled())
         return;
 
-    if (m_debuggerEnabled)
+    if (debuggerEnabled())
         return;
 
-    if (!m_frontend)
+    if (!m_remoteFrontend)
         m_attachDebuggerWhenShown = true;
     else {
-        m_frontend->attachDebuggerWhenShown();
+        m_remoteFrontend->attachDebuggerWhenShown();
         m_attachDebuggerWhenShown = false;
     }
 }
@@ -1740,163 +1664,27 @@ void InspectorController::disableDebugger(bool always)
 
     ASSERT(m_inspectedPage);
 
-    ScriptDebugServer::shared().removeListener(this, m_inspectedPage);
+    m_debuggerAgent.clear();
 
-    m_debuggerEnabled = false;
     m_attachDebuggerWhenShown = false;
-    m_pausedScriptState = 0;
 
-    if (m_frontend)
-        m_frontend->debuggerWasDisabled();
-}
-
-void InspectorController::editScriptSource(long callId, const String& sourceID, const String& newContent)
-{
-    String result;
-    bool success = ScriptDebugServer::shared().editScriptSource(sourceID, newContent, result);
-    RefPtr<SerializedScriptValue> callFrames;
-    if (success)
-        callFrames = currentCallFrames();
-    m_frontend->didEditScriptSource(callId, success, result, callFrames.get());
-}
-
-void InspectorController::getScriptSource(long callId, const String& sourceID)
-{
-    if (!m_frontend)
-        return;
-    String scriptSource = m_scriptIDToContent.get(sourceID);
-    m_frontend->didGetScriptSource(callId, scriptSource);
+    if (m_remoteFrontend)
+        m_remoteFrontend->debuggerWasDisabled();
 }
 
 void InspectorController::resume()
 {
-    if (!m_debuggerEnabled)
-        return;
-    ScriptDebugServer::shared().continueProgram();
+    if (m_debuggerAgent)
+        m_debuggerAgent->resume();
 }
-
-void InspectorController::setPauseOnExceptionsState(long pauseState)
-{
-    ScriptDebugServer::shared().setPauseOnExceptionsState(static_cast<ScriptDebugServer::PauseOnExceptionsState>(pauseState));
-    if (m_frontend)
-        m_frontend->updatePauseOnExceptionsState(ScriptDebugServer::shared().pauseOnExceptionsState());
-}
-
-PassRefPtr<SerializedScriptValue> InspectorController::currentCallFrames()
-{
-    if (!m_pausedScriptState)
-        return 0;
-    InjectedScript injectedScript = m_injectedScriptHost->injectedScriptFor(m_pausedScriptState);
-    if (injectedScript.hasNoValue()) {
-        ASSERT_NOT_REACHED();
-        return 0;
-    }
-    return injectedScript.callFrames();
-}
-
-void InspectorController::setBreakpoint(long callId, const String& sourceID, unsigned lineNumber, bool enabled, const String& condition)
-{
-    ScriptBreakpoint breakpoint(enabled, condition);
-    unsigned actualLineNumber = 0;
-    bool success = ScriptDebugServer::shared().setBreakpoint(sourceID, breakpoint, lineNumber, &actualLineNumber);
-    m_frontend->didSetBreakpoint(callId, success, actualLineNumber);
-    if (!success)
-        return;
-
-    String url = m_sourceIDToURL.get(sourceID);
-    if (url.isEmpty())
-        return;
-
-    String breakpointId = formatBreakpointId(sourceID, actualLineNumber);
-    m_breakpointsMapping.set(breakpointId, actualLineNumber);
-
-    String key = md5Base16(url);
-    HashMap<String, SourceBreakpoints>::iterator it = m_stickyBreakpoints.find(key);
-    if (it == m_stickyBreakpoints.end())
-        it = m_stickyBreakpoints.set(key, SourceBreakpoints()).first;
-    it->second.set(actualLineNumber, breakpoint);
-    saveBreakpoints();
-}
-
-void InspectorController::removeBreakpoint(const String& sourceID, unsigned lineNumber)
-{
-    ScriptDebugServer::shared().removeBreakpoint(sourceID, lineNumber);
-
-    String url = m_sourceIDToURL.get(sourceID);
-    if (url.isEmpty())
-        return;
-
-    String breakpointId = formatBreakpointId(sourceID, lineNumber);
-    HashMap<String, unsigned>::iterator mappingIt = m_breakpointsMapping.find(breakpointId);
-    if (mappingIt == m_breakpointsMapping.end())
-        return;
-    unsigned stickyLine = mappingIt->second;
-    m_breakpointsMapping.remove(mappingIt);
-
-    HashMap<String, SourceBreakpoints>::iterator it = m_stickyBreakpoints.find(md5Base16(url));
-    if (it == m_stickyBreakpoints.end())
-        return;
-
-    it->second.remove(stickyLine);
-    saveBreakpoints();
-}
-
 // JavaScriptDebugListener functions
-
-void InspectorController::didParseSource(const String& sourceID, const String& url, const String& data, int firstLine, ScriptWorldType worldType)
-{
-    // Don't send script content to the front end until it's really needed.
-    m_frontend->parsedScriptSource(sourceID, url, "", firstLine, worldType);
-
-    m_scriptIDToContent.set(sourceID, data);
-
-    if (url.isEmpty())
-        return;
-
-    loadBreakpoints();
-    HashMap<String, SourceBreakpoints>::iterator it = m_stickyBreakpoints.find(md5Base16(url));
-    if (it != m_stickyBreakpoints.end()) {
-        for (SourceBreakpoints::iterator breakpointIt = it->second.begin(); breakpointIt != it->second.end(); ++breakpointIt) {
-            int lineNumber = breakpointIt->first;
-            if (firstLine > lineNumber)
-                continue;
-            unsigned actualLineNumber = 0;
-            bool success = ScriptDebugServer::shared().setBreakpoint(sourceID, breakpointIt->second, lineNumber, &actualLineNumber);
-            if (!success)
-                continue;
-            m_frontend->restoredBreakpoint(sourceID, url, actualLineNumber, breakpointIt->second.enabled, breakpointIt->second.condition);
-            String breakpointId = formatBreakpointId(sourceID, actualLineNumber);
-            m_breakpointsMapping.set(breakpointId, lineNumber);
-        }
-    }
-    m_sourceIDToURL.set(sourceID, url);
-}
-
-void InspectorController::failedToParseSource(const String& url, const String& data, int firstLine, int errorLine, const String& errorMessage)
-{
-    m_frontend->failedToParseScriptSource(url, data, firstLine, errorLine, errorMessage);
-}
-
-void InspectorController::didPause(ScriptState* scriptState)
-{
-    ASSERT(scriptState && !m_pausedScriptState);
-    m_pausedScriptState = scriptState;
-    RefPtr<SerializedScriptValue> callFrames = currentCallFrames();
-    m_frontend->pausedScript(callFrames.get());
-}
-
-void InspectorController::didContinue()
-{
-    m_pausedScriptState = 0;
-    m_frontend->resumedScript();
-}
 
 #endif
 
 void InspectorController::evaluateForTestInFrontend(long callId, const String& script)
 {
-    if (m_frontend)
-        m_frontend->evaluateForTestInFrontend(callId, script);
+    if (m_remoteFrontend)
+        m_remoteFrontend->evaluateForTestInFrontend(callId, script);
     else
         m_pendingEvaluateTestCommands.append(pair<long, String>(callId, script));
 }
@@ -1916,39 +1704,16 @@ void InspectorController::didEvaluateForTestInFrontend(long callId, const String
 String InspectorController::breakpointsSettingKey()
 {
     DEFINE_STATIC_LOCAL(String, keyPrefix, ("breakpoints:"));
-    return keyPrefix + md5Base16(m_mainResource->requestURL());
+    return keyPrefix + InspectorDebuggerAgent::md5Base16(m_mainResource->requestURL());
 }
 
-void InspectorController::loadBreakpoints()
+PassRefPtr<InspectorValue> InspectorController::loadBreakpoints()
 {
-    if (m_breakpointsLoaded)
-        return;
-    m_breakpointsLoaded = true;
-
-    RefPtr<InspectorValue> parsedSetting = InspectorValue::parseJSON(setting(breakpointsSettingKey()));
-    if (!parsedSetting)
-        return;
-    RefPtr<InspectorObject> breakpoints = parsedSetting->asObject();
-    if (!breakpoints)
-        return;
-    for (InspectorObject::iterator it = breakpoints->begin(); it != breakpoints->end(); ++it) {
-        RefPtr<InspectorObject> breakpointsForURL = it->second->asObject();
-        if (!breakpointsForURL)
-            continue;
-        HashMap<String, SourceBreakpoints>::iterator sourceBreakpointsIt = m_stickyBreakpoints.set(it->first, SourceBreakpoints()).first;
-        ScriptBreakpoint::sourceBreakpointsFromInspectorObject(breakpointsForURL, &sourceBreakpointsIt->second);
-    }
+    return InspectorValue::parseJSON(setting(breakpointsSettingKey()));
 }
 
-void InspectorController::saveBreakpoints()
+void InspectorController::saveBreakpoints(PassRefPtr<InspectorObject> breakpoints)
 {
-    RefPtr<InspectorObject> breakpoints = InspectorObject::create();
-    for (HashMap<String, SourceBreakpoints>::iterator it(m_stickyBreakpoints.begin()); it != m_stickyBreakpoints.end(); ++it) {
-        if (it->second.isEmpty())
-            continue;
-        RefPtr<InspectorObject> breakpointsForURL = ScriptBreakpoint::inspectorObjectFromSourceBreakpoints(it->second);
-        breakpoints->set(it->first, breakpointsForURL);
-    }
     setSetting(breakpointsSettingKey(), breakpoints->toJSONString());
 }
 #endif
@@ -2136,27 +1901,6 @@ bool InspectorController::stopTiming(const String& title, double& elapsed)
     return true;
 }
 
-InspectorController::SpecialPanels InspectorController::specialPanelForJSName(const String& panelName)
-{
-    if (panelName == "elements")
-        return ElementsPanel;
-    if (panelName == "resources")
-        return ResourcesPanel;
-    if (panelName == "scripts")
-        return ScriptsPanel;
-    if (panelName == "timeline")
-        return TimelinePanel;
-    if (panelName == "profiles")
-        return ProfilesPanel;
-    if (panelName == "storage" || panelName == "databases")
-        return StoragePanel;
-    if (panelName == "audits")
-        return AuditsPanel;
-    if (panelName == "console")
-        return ConsolePanel;
-    return ElementsPanel;
-}
-
 InjectedScript InspectorController::injectedScriptForNodeId(long id)
 {
 
@@ -2188,16 +1932,15 @@ void InspectorController::removeAllScriptsToEvaluateOnLoad()
     m_scriptsToEvaluateOnLoad.clear();
 }
 
-void InspectorController::getResourceContent(long callId, unsigned long identifier)
+void InspectorController::setInspectorExtensionAPI(const String& source)
 {
-    if (!m_frontend)
-        return;
+    m_inspectorExtensionAPI = source;
+}
 
+void InspectorController::getResourceContent(unsigned long identifier, String* content)
+{
     RefPtr<InspectorResource> resource = m_resources.get(identifier);
-    if (resource)
-        m_frontend->didGetResourceContent(callId, resource->sourceString());
-    else
-        m_frontend->didGetResourceContent(callId, "");
+    *content = resource ? resource->sourceString() : String();
 }
 
 void InspectorController::reloadPage()

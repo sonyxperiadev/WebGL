@@ -45,6 +45,7 @@ public:
     void makeWindowObject(JSContextRef context, JSObjectRef windowObject, JSValueRef* exception);
 
     void addDisallowedURL(JSStringRef url);
+    void clearAllApplicationCaches();
     void clearAllDatabases();
     void clearBackForwardList();
     void clearPersistentUserStyleSheet();
@@ -79,6 +80,7 @@ public:
     void setAllowUniversalAccessFromFileURLs(bool);
     void setAllowFileAccessFromFileURLs(bool);
     void setAppCacheMaximumSize(unsigned long long quota);
+    void setApplicationCacheOriginQuota(unsigned long long quota);
     void setAuthorAndUserStylesEnabled(bool);
     void setCacheModel(int);
     void setCustomPolicyDelegate(bool setDelegate, bool permissive);
@@ -91,6 +93,7 @@ public:
     void setMockDeviceOrientation(bool canProvideAlpha, double alpha, bool canProvideBeta, double beta, bool canProvideGamma, double gamma);
     void setMockGeolocationError(int code, JSStringRef message);
     void setMockGeolocationPosition(double latitude, double longitude, double accuracy);
+    void setMockSpeechInputResult(JSStringRef result);
     void setPersistentUserStyleSheetLocation(JSStringRef path);
     void setPluginsEnabled(bool flag);
     void setPopupBlockingEnabled(bool flag);
@@ -125,6 +128,9 @@ public:
 
     bool generatePixelResults() const { return m_generatePixelResults; }
     void setGeneratePixelResults(bool generatePixelResults) { m_generatePixelResults = generatePixelResults; }
+
+    bool dumpApplicationCacheDelegateCallbacks() const { return m_dumpApplicationCacheDelegateCallbacks; }
+    void setDumpApplicationCacheDelegateCallbacks(bool dumpCallbacks) { m_dumpApplicationCacheDelegateCallbacks = dumpCallbacks; }
 
     bool dumpBackForwardList() const { return m_dumpBackForwardList; }
     void setDumpBackForwardList(bool dumpBackForwardList) { m_dumpBackForwardList = dumpBackForwardList; }
@@ -287,6 +293,9 @@ public:
 private:
     LayoutTestController(const std::string& testPathOrURL, const std::string& expectedPixelHash);
 
+    void setGeolocationPermissionCommon(bool allow);
+
+    bool m_dumpApplicationCacheDelegateCallbacks;
     bool m_dumpAsPDF;
     bool m_dumpAsText;
     bool m_dumpBackForwardList;

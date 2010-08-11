@@ -103,11 +103,11 @@ WebInspector.ScriptsPanel = function()
     this.stepOutButton.appendChild(document.createElement("img"));
     this.sidebarButtonsElement.appendChild(this.stepOutButton);
 
-    this.toggleBreakpointsButton = new WebInspector.StatusBarButton("", "toggle-breakpoints");
+    this.toggleBreakpointsButton = new WebInspector.StatusBarButton(WebInspector.UIString("Deactivate all breakpoints."), "toggle-breakpoints");
+    // Breakpoints should be activated by default, so emulate a click to toggle on.
+    this.toggleBreakpointsButton.toggled = true;
     this.toggleBreakpointsButton.addEventListener("click", this.toggleBreakpointsClicked.bind(this), false);
     this.sidebarButtonsElement.appendChild(this.toggleBreakpointsButton.element);
-    // Breakpoints should be activated by default, so emulate a click to toggle on.
-    this.toggleBreakpointsClicked();
 
     this.debuggerStatusElement = document.createElement("div");
     this.debuggerStatusElement.id = "scripts-debugger-status";
@@ -1034,4 +1034,3 @@ WebInspector.ScriptsPanel.prototype = {
 
 WebInspector.ScriptsPanel.prototype.__proto__ = WebInspector.Panel.prototype;
 
-WebInspector.didEditScriptSource = WebInspector.Callback.processCallback;

@@ -35,7 +35,6 @@
 #include "TestNavigationController.h"
 #include "TestShell.h"
 #include "TestWebWorker.h"
-#include "net/base/net_errors.h" // FIXME: can we remove this?
 #include "public/WebCString.h"
 #include "public/WebConsoleMessage.h"
 #include "public/WebContextMenuData.h"
@@ -164,35 +163,6 @@ static void printResponseDescription(const WebURLResponse& response)
     printf("<NSURLResponse %s, http status code %d>",
            descriptionSuitableForTestResult(url).c_str(),
            response.httpStatusCode());
-}
-
-static void printErrorDescription(const WebURLError& error)
-{
-    string domain = error.domain.utf8();
-    int code = error.reason;
-
-    if (domain == net::kErrorDomain) {
-        domain = "NSURLErrorDomain";
-        switch (error.reason) {
-        case net::ERR_ABORTED:
-            code = -999;
-            break;
-        case net::ERR_UNSAFE_PORT:
-            // Our unsafe port checking happens at the network stack level, but we
-            // make this translation here to match the behavior of stock WebKit.
-            domain = "WebKitErrorDomain";
-            code = 103;
-            break;
-        case net::ERR_ADDRESS_INVALID:
-        case net::ERR_ADDRESS_UNREACHABLE:
-            code = -1004;
-            break;
-        }
-    } else
-        LOG_ERROR("Unknown error domain");
-
-    printf("<NSError domain %s, code %d, failing URL \"%s\">",
-           domain.c_str(), code, error.unreachableURL.spec().data());
 }
 
 static void printNodeDescription(const WebNode& node, int exception)
@@ -531,6 +501,11 @@ WebKit::WebGeolocationService* WebViewHost::geolocationService()
     return m_geolocationServiceMock.get();
 }
 
+WebSpeechInputController* WebViewHost::speechInputController(WebKit::WebSpeechInputListener* listener)
+{
+    return m_shell->layoutTestController()->speechInputController(listener);
+}
+
 // WebWidgetClient -----------------------------------------------------------
 
 void WebViewHost::didInvalidateRect(const WebRect& rect)
@@ -715,11 +690,7 @@ WebURLError WebViewHost::cannotHandleRequestError(WebFrame*, const WebURLRequest
 
 WebURLError WebViewHost::cancelledError(WebFrame*, const WebURLRequest& request)
 {
-    WebURLError error;
-    error.domain = WebString::fromUTF8(net::kErrorDomain);
-    error.reason = net::ERR_ABORTED;
-    error.unreachableURL = request.url();
-    return error;
+    return webkit_support::CreateCancelledError(request);
 }
 
 void WebViewHost::unableToImplementPolicyWithError(WebFrame* frame, const WebURLError& error)
@@ -960,7 +931,7 @@ void WebViewHost::didFailResourceLoad(WebFrame*, unsigned identifier, const WebU
     if (m_shell->shouldDumpResourceLoadCallbacks()) {
         printResourceDescription(identifier);
         fputs(" - didFailLoadingWithError: ", stdout);
-        printErrorDescription(error);
+        fputs(webkit_support::MakeURLErrorDescription(error).c_str(), stdout);
         fputs("\n", stdout);
     }
     m_resourceIdentifierMap.remove(identifier);
@@ -1081,7 +1052,7 @@ void WebViewHost::loadURLForFrame(const WebURL& url, const WebString& frameName)
     if (!url.isValid())
         return;
     TestShell::resizeWindowForTest(this, url);
-    navigationController()->loadEntry(new TestNavigationEntry(-1, url, WebString(), frameName));
+    navigationController()->loadEntry(TestNavigationEntry::create(-1, url, WebString(), frameName).get());
 }
 
 bool WebViewHost::navigate(const TestNavigationEntry& entry, bool reload)
@@ -1180,7 +1151,7 @@ void WebViewHost::updateURL(WebFrame* frame)
     WebDataSource* ds = frame->dataSource();
     ASSERT(ds);
     const WebURLRequest& request = ds->request();
-    OwnPtr<TestNavigationEntry> entry(new TestNavigationEntry);
+    RefPtr<TestNavigationEntry> entry(TestNavigationEntry::create());
 
     // The referrer will be empty on https->http transitions. It
     // would be nice if we could get the real referrer from somewhere.
@@ -1194,7 +1165,7 @@ void WebViewHost::updateURL(WebFrame* frame)
     if (!historyItem.isNull())
         entry->setContentState(historyItem);
 
-    navigationController()->didNavigateToEntry(entry.leakPtr());
+    navigationController()->didNavigateToEntry(entry.get());
     updateAddressBar(frame->view());
     m_lastPageIdUpdated = max(m_lastPageIdUpdated, m_pageId);
 }
@@ -1207,7 +1178,7 @@ void WebViewHost::updateSessionHistory(WebFrame* frame)
     if (m_pageId == -1)
         return;
 
-    TestNavigationEntry* entry = static_cast<TestNavigationEntry*>(navigationController()->entryWithPageID(m_pageId));
+    TestNavigationEntry* entry = navigationController()->entryWithPageID(m_pageId);
     if (!entry)
         return;
 

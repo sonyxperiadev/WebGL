@@ -73,6 +73,7 @@
 #include "ThemeTypes.h"
 #include "TimingFunction.h"
 #include "TransformOperations.h"
+#include <wtf/Forward.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/StdLibExtras.h>
@@ -108,7 +109,6 @@ class CSSStyleSelector;
 class CSSValueList;
 class CachedImage;
 class Pair;
-class StringImpl;
 class StyleImage;
 
 typedef Vector<RefPtr<RenderStyle>, 4> PseudoStyleCache;
@@ -648,7 +648,8 @@ public:
     EMatchNearestMailBlockquoteColor matchNearestMailBlockquoteColor() const { return static_cast<EMatchNearestMailBlockquoteColor>(rareNonInheritedData->matchNearestMailBlockquoteColor); }
     const AtomicString& highlight() const { return rareInheritedData->highlight; }
     Hyphens hyphens() const { return static_cast<Hyphens>(rareInheritedData->hyphens); }
-    const AtomicString& hyphenateCharacter() const { return rareInheritedData->hyphenateCharacter; }
+    const AtomicString& hyphenationString() const { return rareInheritedData->hyphenationString; }
+    const AtomicString& hyphenationLocale() const { return rareInheritedData->hyphenationLocale; }
     EBorderFit borderFit() const { return static_cast<EBorderFit>(rareNonInheritedData->m_borderFit); }
     EResize resize() const { return static_cast<EResize>(rareInheritedData->resize); }
     float columnWidth() const { return rareNonInheritedData->m_multiCol->m_width; }
@@ -876,8 +877,8 @@ public:
     void adjustBackgroundLayers()
     {
         if (backgroundLayers()->next()) {
-            accessBackgroundLayers()->fillUnsetProperties();
             accessBackgroundLayers()->cullEmptyLayers();
+            accessBackgroundLayers()->fillUnsetProperties();
         }
     }
 
@@ -887,8 +888,8 @@ public:
     void adjustMaskLayers()
     {
         if (maskLayers()->next()) {
-            accessMaskLayers()->fillUnsetProperties();
             accessMaskLayers()->cullEmptyLayers();
+            accessMaskLayers()->fillUnsetProperties();
         }
     }
 
@@ -992,7 +993,8 @@ public:
     void setMatchNearestMailBlockquoteColor(EMatchNearestMailBlockquoteColor c) { SET_VAR(rareNonInheritedData, matchNearestMailBlockquoteColor, c); }
     void setHighlight(const AtomicString& h) { SET_VAR(rareInheritedData, highlight, h); }
     void setHyphens(Hyphens h) { SET_VAR(rareInheritedData, hyphens, h); }
-    void setHyphenateCharacter(const AtomicString& h) { SET_VAR(rareInheritedData, hyphenateCharacter, h); }
+    void setHyphenationString(const AtomicString& h) { SET_VAR(rareInheritedData, hyphenationString, h); }
+    void setHyphenationLocale(const AtomicString& h) { SET_VAR(rareInheritedData, hyphenationLocale, h); }
     void setBorderFit(EBorderFit b) { SET_VAR(rareNonInheritedData, m_borderFit, b); }
     void setResize(EResize r) { SET_VAR(rareInheritedData, resize, r); }
     void setColumnWidth(float f) { SET_VAR(rareNonInheritedData.access()->m_multiCol, m_autoWidth, false); SET_VAR(rareNonInheritedData.access()->m_multiCol, m_width, f); }
@@ -1205,7 +1207,8 @@ public:
     static EMatchNearestMailBlockquoteColor initialMatchNearestMailBlockquoteColor() { return BCNORMAL; }
     static const AtomicString& initialHighlight() { return nullAtom; }
     static Hyphens initialHyphens() { return HyphensManual; }
-    static const AtomicString& initialHyphenateCharacter() { return nullAtom; }
+    static const AtomicString& initialHyphenationString() { return nullAtom; }
+    static const AtomicString& initialHyphenationLocale() { return nullAtom; }
     static EBorderFit initialBorderFit() { return BorderFitBorder; }
     static EResize initialResize() { return RESIZE_NONE; }
     static ControlPart initialAppearance() { return NoControlPart; }

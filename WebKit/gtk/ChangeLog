@@ -1,3 +1,123 @@
+2010-08-06  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig
+
+        Bug 43594 - Add string forwards to Forward.h
+        This allows us to remove forward declarations for these classes from
+        WebCore/WebKit (a step in moving these class from WebCore:: to WTF::).
+
+        * WebCoreSupport/InspectorClientGtk.h:
+
+2010-08-09  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [gtk] gtk_im_context_focus_in() should only be called when an input-able element has focus
+        https://bugs.webkit.org/show_bug.cgi?id=43602
+
+        Only call gtk_im_context_focus_in() when we focus a frame which is currently in
+        an editable node. 
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_focus_in_event): Conditionalize call to gtk_im_context_focus_in().
+
+2010-08-06  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Xan Lopez.
+
+        Use the new paths, and also fix the path for localizedStrings.
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::openInspectorFrontend):
+        (WebKit::InspectorFrontendClient::localizedStringsURL):
+
+2010-08-06  Jessie Berlin  <jberlin@apple.com>
+
+        Roll out http://trac.webkit.org/changeset/64801, which broke the Safari Windows Build.
+        Unreviewed.
+
+        * WebCoreSupport/InspectorClientGtk.h:
+
+2010-08-05  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Use correct path for Inspector data files in GTK+3.x builds
+        https://bugs.webkit.org/show_bug.cgi?id=43445
+
+        Use the right data path for inspector files when building with
+        GTK+ 3.x.
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::openInspectorFrontend):
+
+2010-08-03  Daniel Bates  <dbates@rim.com>
+
+        Fix misspelled word 'teh' in the description of the XSS Auditor setting.
+
+        * webkit/webkitwebsettings.cpp:
+        (webkit_web_settings_class_init):
+
+2010-08-03  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        [GTK] Fix DOM event dispatch
+        https://bugs.webkit.org/show_bug.cgi?id=40847
+
+        Test DOM event dispatch.
+
+        * tests/testdomdomwindow.c:
+        (load_event_callback):
+        (test_dom_domview_signals):
+        (clicked_cb):
+        (load_status_callback):
+        (test_dom_domview_dispatch_event):
+        (main):
+
+2010-08-03  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Does not paint the node highlight used by the inspector
+        https://bugs.webkit.org/show_bug.cgi?id=43429
+
+        Implement highlighting the nodes when using the inspector.
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::highlight):
+        (WebKit::InspectorClient::hideHighlight):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_expose_event):
+
+2010-08-03  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Update unit tests now that string parameters are 'const char*'.
+
+        * tests/testdomdocument.c:
+        (test_dom_document_title):
+        (test_dom_document_get_elements_by_tag_name):
+        (test_dom_document_get_elements_by_class_name):
+        (test_dom_document_get_element_by_id):
+        * tests/testdomnode.c:
+        (test_dom_node_insertion):
+
+2010-08-02  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] DRT implement execCommand()
+        https://bugs.webkit.org/show_bug.cgi?id=35351
+
+        * webkit/webkitprivate.h: Add some private methods for the DRT which enable
+        LayoutTestController.execCommand and LayoutTestController.isCommandEnabled:
+        webkit_web_view_execute_core_command_by_name and webkit_web_view_is_command_enabled.
+        * webkit/webkitwebview.cpp: 
+        (webkit_web_view_execute_core_command_by_name): added.
+        (webkit_web_view_is_command_enabled): Added.
+
 2010-07-27  Luiz Agostini  <luiz.agostini@openbossa.org>
 
         Reviewed by Darin Fisher.
@@ -120,7 +240,6 @@
         * WebCoreSupport/ChromeClientGtk.cpp:
         (WebKit::ChromeClient::reachedApplicationCacheOriginQuota):
         * WebCoreSupport/ChromeClientGtk.h:
-
 2010-07-26  Steve Block  <steveblock@google.com>
 
         Reviewed by Jeremy Orlow.

@@ -26,7 +26,7 @@
 #ifndef IDBDatabaseProxy_h
 #define IDBDatabaseProxy_h
 
-#include "IDBDatabase.h"
+#include "IDBDatabaseBackendInterface.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
@@ -37,9 +37,9 @@ namespace WebKit { class WebIDBDatabase; }
 
 namespace WebCore {
 
-class IDBDatabaseProxy : public IDBDatabase {
+class IDBDatabaseProxy : public IDBDatabaseBackendInterface {
 public:
-    static PassRefPtr<IDBDatabase> create(PassOwnPtr<WebKit::WebIDBDatabase>);
+    static PassRefPtr<IDBDatabaseBackendInterface> create(PassOwnPtr<WebKit::WebIDBDatabase>);
     virtual ~IDBDatabaseProxy();
 
     virtual String name() const;
@@ -50,8 +50,9 @@ public:
     // FIXME: Add transaction and setVersion.
 
     virtual void createObjectStore(const String& name, const String& keyPath, bool autoIncrement, PassRefPtr<IDBCallbacks>);
-    virtual PassRefPtr<IDBObjectStore> objectStore(const String& name, unsigned short mode);
+    virtual PassRefPtr<IDBObjectStoreBackendInterface> objectStore(const String& name, unsigned short mode);
     virtual void removeObjectStore(const String& name, PassRefPtr<IDBCallbacks>);
+    virtual PassRefPtr<IDBTransactionBackendInterface> transaction(DOMStringList* storeNames, unsigned short mode, unsigned long timeout);
 
 private:
     IDBDatabaseProxy(PassOwnPtr<WebKit::WebIDBDatabase>);

@@ -212,6 +212,7 @@ javascriptcore_sources += \
 	JavaScriptCore/profiler/ProfileNode.h \
 	JavaScriptCore/profiler/Profiler.cpp \
 	JavaScriptCore/profiler/Profiler.h \
+	JavaScriptCore/runtime/AlignedMemoryAllocator.h \
 	JavaScriptCore/runtime/ArgList.cpp \
 	JavaScriptCore/runtime/ArgList.h \
 	JavaScriptCore/runtime/Arguments.cpp \
@@ -265,6 +266,10 @@ javascriptcore_sources += \
 	JavaScriptCore/runtime/FunctionConstructor.h \
 	JavaScriptCore/runtime/FunctionPrototype.cpp \
 	JavaScriptCore/runtime/FunctionPrototype.h \
+	JavaScriptCore/runtime/GCActivityCallback.cpp \
+	JavaScriptCore/runtime/GCActivityCallback.h \
+	JavaScriptCore/runtime/GCHandle.cpp \
+	JavaScriptCore/runtime/GCHandle.h \
 	JavaScriptCore/runtime/GetterSetter.cpp \
 	JavaScriptCore/runtime/GetterSetter.h \
 	JavaScriptCore/runtime/GlobalEvalFunction.cpp \
@@ -409,6 +414,7 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/Assertions.h \
 	JavaScriptCore/wtf/Atomics.h \
 	JavaScriptCore/wtf/AVLTree.h \
+	JavaScriptCore/wtf/Bitmap.h \
 	JavaScriptCore/wtf/BumpPointerAllocator.h \
 	JavaScriptCore/wtf/ByteArray.cpp \
 	JavaScriptCore/wtf/ByteArray.h \
@@ -459,6 +465,7 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/OwnPtr.h \
 	JavaScriptCore/wtf/PageAllocation.cpp \
 	JavaScriptCore/wtf/PageAllocation.h \
+	JavaScriptCore/wtf/PageReservation.h \
 	JavaScriptCore/wtf/PassOwnPtr.h \
 	JavaScriptCore/wtf/PassRefPtr.h \
 	JavaScriptCore/wtf/Platform.h \

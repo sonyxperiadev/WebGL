@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 2002, 2003 The Karbon Developers
- *               2006       Alexander Kellett <lypanov@kde.org>
- *               2006, 2007 Rob Buis <buis@kde.org>
- * Copyrigth (C) 2007, 2009 Apple, Inc.  All rights reserved.
+ * Copyright (C) 2006 Alexander Kellett <lypanov@kde.org>
+ * Copyright (C) 2006, 2007 Rob Buis <buis@kde.org>
+ * Copyright (C) 2007, 2009 Apple Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -19,7 +19,6 @@
  * along with this library; see the file COPYING.LIB.  If not, write to
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
- *
  */
 
 #include "config.h"
@@ -27,49 +26,45 @@
 #if ENABLE(SVG)
 #include "SVGPathBuilder.h"
 
-#include "SVGPathParser.h"
-
 namespace WebCore {
 
-SVGPathBuilder::SVGPathBuilder(Path& path)
-    : m_path(path)
+SVGPathBuilder::SVGPathBuilder()
+    : m_path(0)
 {
 }
 
-bool SVGPathBuilder::build(const String& d)
+void SVGPathBuilder::moveTo(const FloatPoint& targetPoint, bool closed, PathCoordinateMode mode)
 {
-    SVGPathParser parser(this);
-    return parser.parsePathDataString(d, true);
-}
-
-void SVGPathBuilder::moveTo(const FloatPoint& point, bool closed, PathCoordinateMode mode)
-{
-    m_current = mode == AbsoluteCoordinates ? point : m_current + point;
+    ASSERT(m_path);
+    m_current = mode == AbsoluteCoordinates ? targetPoint : m_current + targetPoint;
     if (closed)
-        m_path.closeSubpath();
-    m_path.moveTo(m_current);
+        m_path->closeSubpath();
+    m_path->moveTo(m_current);
 }
 
-void SVGPathBuilder::lineTo(const FloatPoint& point, PathCoordinateMode mode)
+void SVGPathBuilder::lineTo(const FloatPoint& targetPoint, PathCoordinateMode mode)
 {
-    m_current = mode == AbsoluteCoordinates ? point : m_current + point;
-    m_path.addLineTo(m_current);
+    ASSERT(m_path);
+    m_current = mode == AbsoluteCoordinates ? targetPoint : m_current + targetPoint;
+    m_path->addLineTo(m_current);
 }
 
-void SVGPathBuilder::curveToCubic(const FloatPoint& point1, const FloatPoint& point2, const FloatPoint& point, PathCoordinateMode mode)
+void SVGPathBuilder::curveToCubic(const FloatPoint& point1, const FloatPoint& point2, const FloatPoint& targetPoint, PathCoordinateMode mode)
 {
+    ASSERT(m_path);
     if (mode == RelativeCoordinates) {
-        m_path.addBezierCurveTo(m_current + point1, m_current + point2, m_current + point);
-        m_current += point;
+        m_path->addBezierCurveTo(m_current + point1, m_current + point2, m_current + targetPoint);
+        m_current += targetPoint;
     } else {
-        m_current = point;
-        m_path.addBezierCurveTo(point1, point2, m_current);
+        m_current = targetPoint;
+        m_path->addBezierCurveTo(point1, point2, m_current);
     }    
 }
 
 void SVGPathBuilder::closePath()
 {
-    m_path.closeSubpath();
+    ASSERT(m_path);
+    m_path->closeSubpath();
 }
 
 }

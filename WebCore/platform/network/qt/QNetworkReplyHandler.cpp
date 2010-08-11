@@ -160,11 +160,11 @@ QNetworkReplyHandler::QNetworkReplyHandler(ResourceHandle* handle, LoadMode load
         m_method = QNetworkAccessManager::PostOperation;
     else if (r.httpMethod() == "PUT")
         m_method = QNetworkAccessManager::PutOperation;
-#if QT_VERSION >= 0x040600
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
     else if (r.httpMethod() == "DELETE")
         m_method = QNetworkAccessManager::DeleteOperation;
 #endif
-#if QT_VERSION >= 0x040700
+#if QT_VERSION >= QT_VERSION_CHECK(4, 7, 0)
     else if (r.httpMethod() == "OPTIONS")
         m_method = QNetworkAccessManager::CustomOperation;
 #endif
@@ -294,9 +294,9 @@ void QNetworkReplyHandler::sendResponseIfNeeded()
     if (!client)
         return;
 
-    WebCore::String contentType = m_reply->header(QNetworkRequest::ContentTypeHeader).toString();
-    WebCore::String encoding = extractCharsetFromMediaType(contentType);
-    WebCore::String mimeType = extractMIMETypeFromMediaType(contentType);
+    WTF::String contentType = m_reply->header(QNetworkRequest::ContentTypeHeader).toString();
+    WTF::String encoding = extractCharsetFromMediaType(contentType);
+    WTF::String mimeType = extractMIMETypeFromMediaType(contentType);
 
     if (mimeType.isEmpty()) {
         // let's try to guess from the extension
@@ -456,13 +456,13 @@ void QNetworkReplyHandler::start()
             putDevice->setParent(m_reply);
             break;
         }
-#if QT_VERSION >= 0x040600
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
         case QNetworkAccessManager::DeleteOperation: {
             m_reply = manager->deleteResource(m_request);
             break;
         }
 #endif
-#if QT_VERSION >= 0x040700
+#if QT_VERSION >= QT_VERSION_CHECK(4, 7, 0)
         case QNetworkAccessManager::CustomOperation:
             m_reply = manager->sendCustomRequest(m_request, m_resourceHandle->firstRequest().httpMethod().latin1().data());
             break;

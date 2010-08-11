@@ -46,6 +46,8 @@ class TestShell;
 namespace WebKit {
 class WebFrame;
 class WebGeolocationServiceMock;
+class WebSpeechInputController;
+class WebSpeechInputListener;
 class WebURL;
 struct WebRect;
 struct WebURLError;
@@ -83,8 +85,8 @@ class WebViewHost : public WebKit::WebViewClient, public WebKit::WebFrameClient,
     void loadURLForFrame(const WebKit::WebURL&, const WebKit::WebString& frameName);
     TestNavigationController* navigationController() { return m_navigationController.get(); }
 
-    void addClearHeader(const WebCore::String& header) { m_clearHeaders.add(header); }
-    const HashSet<WebCore::String>& clearHeaders() const { return m_clearHeaders; }
+    void addClearHeader(const WTF::String& header) { m_clearHeaders.add(header); }
+    const HashSet<WTF::String>& clearHeaders() const { return m_clearHeaders; }
 
     // NavigationHost
     virtual bool navigate(const TestNavigationEntry&, bool reload);
@@ -126,6 +128,7 @@ class WebViewHost : public WebKit::WebViewClient, public WebKit::WebFrameClient,
     virtual void focusAccessibilityObject(const WebKit::WebAccessibilityObject&);
     virtual WebKit::WebNotificationPresenter* notificationPresenter();
     virtual WebKit::WebGeolocationService* geolocationService();
+    virtual WebKit::WebSpeechInputController* speechInputController(WebKit::WebSpeechInputListener*);
 
     // WebKit::WebWidgetClient
     virtual void didInvalidateRect(const WebKit::WebRect&);
@@ -259,7 +262,7 @@ private:
     bool m_selectTrailingWhitespaceEnabled;
 
     // Set of headers to clear in willSendRequest.
-    HashSet<WebCore::String> m_clearHeaders;
+    HashSet<WTF::String> m_clearHeaders;
 
     // true if we should block any redirects
     bool m_blocksRedirects;

@@ -35,10 +35,8 @@
 #include "DRTDevToolsClient.h"
 #include "LayoutTestController.h"
 #include "WebViewHost.h"
-#include "base/md5.h" // FIXME: Wrap by webkit_support.
 #include "base/string16.h"
 #include "gfx/codec/png_codec.h" // FIXME: Remove dependecy. WebCore/platform/image-encoder is better?
-#include "net/base/escape.h" // FIXME: Remove dependency.
 #include "public/WebDataSource.h"
 #include "public/WebDocument.h"
 #include "public/WebElement.h"
@@ -48,6 +46,7 @@
 #include "public/WebScriptController.h"
 #include "public/WebSettings.h"
 #include "public/WebSize.h"
+#include "public/WebSpeechInputControllerMock.h"
 #include "public/WebString.h"
 #include "public/WebURLRequest.h"
 #include "public/WebURLResponse.h"
@@ -58,6 +57,7 @@
 #include <algorithm>
 #include <cctype>
 #include <vector>
+#include <wtf/MD5.h>
 
 using namespace WebKit;
 using namespace std;
@@ -278,6 +278,9 @@ void TestShell::resetTestController()
     m_eventSender->reset();
     m_webViewHost->reset();
     m_notificationPresenter->reset();
+    m_drtDevToolsAgent->reset();
+    if (m_drtDevToolsClient)
+        m_drtDevToolsClient->reset();
 }
 
 void TestShell::loadURL(const WebURL& url)
@@ -422,7 +425,7 @@ static string dumpHistoryItem(const WebHistoryItem& item, int indent, bool isCur
         url.replace(0, pos + layoutTestsPatternSize, fileTestPrefix);
     } else if (!url.find(dataUrlPattern)) {
         // URL-escape data URLs to match results upstream.
-        string path = EscapePath(url.substr(dataUrlPatternSize));
+        string path = webkit_support::EscapePath(url.substr(dataUrlPatternSize));
         url.replace(dataUrlPatternSize, url.length(), path);
     }
 
@@ -585,13 +588,18 @@ void TestShell::dumpImage(skia::PlatformCanvas* canvas) const
     // some images that are the pixel identical on windows and other platforms
     // but have different MD5 sums.  At this point, rebaselining all the windows
     // tests is too much of a pain, so we just check in different baselines.
-    MD5Context ctx;
-    MD5Init(&ctx);
-    MD5Update(&ctx, sourceBitmap.getPixels(), sourceBitmap.getSize());
-
-    MD5Digest digest;
-    MD5Final(&digest, &ctx);
-    string md5hash = MD5DigestToBase16(digest);
+    MD5 digester;
+    Vector<uint8_t, 16> digestValue;
+    digester.addBytes(reinterpret_cast<const uint8_t*>(sourceBitmap.getPixels()), sourceBitmap.getSize());
+    digester.checksum(digestValue);
+    string md5hash;
+    md5hash.reserve(16 * 2);
+    for (unsigned i = 0; i < 16; ++i) {
+        char hex[3];
+        // Use "x", not "X". The string must be lowercased.
+        sprintf(hex, "%02x", digestValue[i]);
+        md5hash.append(hex);
+    }
 
     // Only encode and dump the png if the hashes don't match. Encoding the image
     // is really expensive.

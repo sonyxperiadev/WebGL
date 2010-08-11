@@ -36,40 +36,15 @@
 #include "Database.h"
 #endif
 
-#include "Element.h"
-#include "Frame.h"
-#include "FrameLoader.h"
-#include "HTMLFrameOwnerElement.h"
 #include "InjectedScript.h"
 #include "InjectedScriptHost.h"
-#include "InspectorClient.h"
 #include "InspectorController.h"
 #include "InspectorDOMAgent.h"
-#include "InspectorFrontend.h"
-#include "InspectorResource.h"
-#include "Page.h"
-#include "Pasteboard.h"
+#include "InspectorStorageAgent.h"
 #include "RemoteInspectorFrontend.h"
-#include "ScriptArray.h"
 #include "ScriptBreakpoint.h"
+#include "ScriptProfiler.h"
 #include "SerializedScriptValue.h"
-
-#if ENABLE(DOM_STORAGE)
-#include "Storage.h"
-#endif
-
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-#include "ScriptDebugServer.h"
-#endif
-
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-#include "InspectorApplicationCacheAgent.h"
-#endif
-
-#include "markup.h"
-
-#include <wtf/RefPtr.h>
-#include <wtf/StdLibExtras.h>
 
 using namespace std;
 
@@ -84,83 +59,6 @@ InspectorBackend::~InspectorBackend()
 {
 }
 
-void InspectorBackend::saveApplicationSettings(const String& settings)
-{
-    if (m_inspectorController)
-        m_inspectorController->saveApplicationSettings(settings);
-}
-
-void InspectorBackend::saveSessionSettings(const String& settings)
-{
-    if (m_inspectorController)
-        m_inspectorController->saveSessionSettings(settings);
-}
-
-void InspectorBackend::storeLastActivePanel(const String& panelName)
-{
-    if (m_inspectorController)
-        m_inspectorController->storeLastActivePanel(panelName);
-}
-
-void InspectorBackend::enableSearchingForNode()
-{
-    if (m_inspectorController)
-        m_inspectorController->enableSearchingForNode();
-}
-
-void InspectorBackend::disableSearchingForNode()
-{
-    if (m_inspectorController)
-        m_inspectorController->disableSearchingForNode();
-}
-
-void InspectorBackend::enableMonitoringXHR()
-{
-    if (m_inspectorController)
-        m_inspectorController->enableMonitoringXHR();
-}
-
-void InspectorBackend::disableMonitoringXHR()
-{
-    if (m_inspectorController)
-        m_inspectorController->disableMonitoringXHR();
-}
-
-void InspectorBackend::enableResourceTracking(bool always)
-{
-    if (m_inspectorController)
-        m_inspectorController->enableResourceTracking(always);
-}
-
-void InspectorBackend::disableResourceTracking(bool always)
-{
-    if (m_inspectorController)
-        m_inspectorController->disableResourceTracking(always);
-}
-
-void InspectorBackend::getResourceContent(long callId, unsigned long identifier)
-{
-    if (m_inspectorController)
-        m_inspectorController->getResourceContent(callId, identifier);
-}
-
-void InspectorBackend::reloadPage()
-{
-    if (m_inspectorController)
-        m_inspectorController->reloadPage();
-}
-
-void InspectorBackend::startTimelineProfiler()
-{
-    if (m_inspectorController)
-        m_inspectorController->startTimelineProfiler();
-}
-
-void InspectorBackend::stopTimelineProfiler()
-{
-    if (m_inspectorController)
-        m_inspectorController->stopTimelineProfiler();
-}
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 
@@ -170,143 +68,27 @@ void InspectorBackend::enableDebugger(bool always)
         m_inspectorController->enableDebuggerFromFrontend(always);
 }
 
-void InspectorBackend::disableDebugger(bool always)
-{
-    if (m_inspectorController)
-        m_inspectorController->disableDebugger(always);
-}
-
-void InspectorBackend::setBreakpoint(long callId, const String& sourceID, unsigned lineNumber, bool enabled, const String& condition)
-{
-    if (m_inspectorController)
-        m_inspectorController->setBreakpoint(callId, sourceID, lineNumber, enabled, condition);
-}
-
-void InspectorBackend::removeBreakpoint(const String& sourceID, unsigned lineNumber)
-{
-    if (m_inspectorController)
-        m_inspectorController->removeBreakpoint(sourceID, lineNumber);
-}
-
-void InspectorBackend::activateBreakpoints()
-{
-    ScriptDebugServer::shared().activateBreakpoints();
-}
-
-void InspectorBackend::deactivateBreakpoints()
-{
-    ScriptDebugServer::shared().deactivateBreakpoints();
-}
-
-void InspectorBackend::pause()
-{
-    ScriptDebugServer::shared().pause();
-}
-
-void InspectorBackend::resume()
-{
-    if (m_inspectorController)
-        m_inspectorController->resume();
-}
-
-void InspectorBackend::stepOverStatement()
-{
-    ScriptDebugServer::shared().stepOverStatement();
-}
-
-void InspectorBackend::stepIntoStatement()
-{
-    ScriptDebugServer::shared().stepIntoStatement();
-}
-
-void InspectorBackend::stepOutOfFunction()
-{
-    ScriptDebugServer::shared().stepOutOfFunction();
-}
-
-void InspectorBackend::setPauseOnExceptionsState(long pauseState)
-{
-    if (m_inspectorController)
-        m_inspectorController->setPauseOnExceptionsState(pauseState);
-}
-
-void InspectorBackend::editScriptSource(long callId, const String& sourceID, const String& newContent)
-{
-    if (m_inspectorController)
-        m_inspectorController->editScriptSource(callId, sourceID, newContent);
-}
-
-void InspectorBackend::getScriptSource(long callId, const String& sourceID)
-{
-    if (m_inspectorController)
-        m_inspectorController->getScriptSource(callId, sourceID);
-}
-
-void InspectorBackend::enableProfiler(bool always)
-{
-    if (m_inspectorController)
-        m_inspectorController->enableProfiler(always);
-}
-
-void InspectorBackend::disableProfiler(bool always)
-{
-    if (m_inspectorController)
-        m_inspectorController->disableProfiler(always);
-}
-
-void InspectorBackend::startProfiling()
-{
-    if (m_inspectorController)
-        m_inspectorController->startUserInitiatedProfiling();
-}
-
-void InspectorBackend::stopProfiling()
-{
-    if (m_inspectorController)
-        m_inspectorController->stopUserInitiatedProfiling();
-}
-
-void InspectorBackend::getProfileHeaders(long callId)
-{
-    if (m_inspectorController)
-        m_inspectorController->getProfileHeaders(callId);
-}
-
-void InspectorBackend::getProfile(long callId, unsigned uid)
-{
-    if (m_inspectorController)
-        m_inspectorController->getProfile(callId, uid);
-}
-
-void InspectorBackend::removeProfile(unsigned uid)
-{
-    if (m_inspectorController)
-        m_inspectorController->removeProfile(uid);
-}
-
-void InspectorBackend::clearProfiles()
-{
-    if (m_inspectorController)
-        m_inspectorController->clearProfiles();
-}
-
 void InspectorBackend::takeHeapSnapshot()
 {
-    if (m_inspectorController)
-        m_inspectorController->takeHeapSnapshot();
+    ScriptProfiler::takeHeapSnapshot();
+}
+
+void InspectorBackend::getProfilerLogLines(long position, long* outPosition, String* data)
+{
+    // FIXME: we should make inspector dispatcher pluggable, so that embedders could contribute APIs instead of polluting the core one
+    // https://bugs.webkit.org/show_bug.cgi?id=43357
+    *outPosition = ScriptProfiler::getProfilerLogLines(position, data);
 }
 #endif
 
 void InspectorBackend::setInjectedScriptSource(const String& source)
 {
-    if (m_inspectorController)
-        m_inspectorController->injectedScriptHost()->setInjectedScriptSource(source);
+     m_inspectorController->injectedScriptHost()->setInjectedScriptSource(source);
 }
 
-void InspectorBackend::dispatchOnInjectedScript(long callId, long injectedScriptId, const String& methodName, const String& arguments, bool async)
+void InspectorBackend::dispatchOnInjectedScript(long injectedScriptId, const String& methodName, const String& arguments, RefPtr<InspectorValue>* result, bool* hadException)
 {
-    InspectorFrontend* frontend = inspectorFrontend();
-    if (!frontend)
+    if (!remoteFrontend())
         return;
 
     // FIXME: explicitly pass injectedScriptId along with node id to the frontend.
@@ -321,303 +103,48 @@ void InspectorBackend::dispatchOnInjectedScript(long callId, long injectedScript
     if (injectedScript.hasNoValue())
         return;
 
-    RefPtr<SerializedScriptValue> result;
-    bool hadException = false;
-    injectedScript.dispatch(callId, methodName, arguments, async, &result, &hadException);
-    if (async)
-        return;  // InjectedScript will return result asynchronously by means of ::reportDidDispatchOnInjectedScript.
-    frontend->didDispatchOnInjectedScript(callId, result.get(), hadException);
+    injectedScript.dispatch(methodName, arguments, result, hadException);
 }
 
-void InspectorBackend::getChildNodes(long callId, long nodeId)
+void InspectorBackend::clearConsoleMessages()
 {
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->getChildNodes(callId, nodeId);
-}
-
-void InspectorBackend::setAttribute(long callId, long elementId, const String& name, const String& value)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->setAttribute(callId, elementId, name, value);
-}
-
-void InspectorBackend::removeAttribute(long callId, long elementId, const String& name)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->removeAttribute(callId, elementId, name);
-}
-
-void InspectorBackend::setTextNodeValue(long callId, long nodeId, const String& value)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->setTextNodeValue(callId, nodeId, value);
-}
-
-void InspectorBackend::getEventListenersForNode(long callId, long nodeId)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->getEventListenersForNode(callId, nodeId);
-}
-
-void InspectorBackend::copyNode(long nodeId)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->copyNode(nodeId);
-}
-
-void InspectorBackend::removeNode(long callId, long nodeId)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->removeNode(callId, nodeId);
-}
-
-void InspectorBackend::changeTagName(long callId, long nodeId, const String& tagName)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->changeTagName(callId, nodeId, tagName);
-}
-
-void InspectorBackend::getOuterHTML(long callId, long nodeId)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->getOuterHTML(callId, nodeId);
-}
-
-void InspectorBackend::setOuterHTML(long callId, long nodeId, const String& outerHTML)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->setOuterHTML(callId, nodeId, outerHTML);
-}
-
-void InspectorBackend::addInspectedNode(long nodeId)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->addInspectedNode(nodeId);
-}
-
-void InspectorBackend::performSearch(const String& query, bool runSynchronously)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->performSearch(query, runSynchronously);
-}
-
-void InspectorBackend::searchCanceled()
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->searchCanceled();
-}
-
-void InspectorBackend::pushNodeByPathToFrontend(long callId, const String& path)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->pushNodeByPathToFrontend(callId, path);
-}
-
-void InspectorBackend::clearConsoleMessages(long callId)
-{
-    if (m_inspectorController) {
-        m_inspectorController->clearConsoleMessages();
-        if (RemoteInspectorFrontend* frontend = remoteFrontend())
-            frontend->didClearConsoleMessages(callId);
-    }
-}
-
-void InspectorBackend::getStyles(long callId, long nodeId, bool authorOnly)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->getStyles(callId, nodeId, authorOnly);
-}
-
-void InspectorBackend::getAllStyles(long callId)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->getAllStyles(callId);
-}
-
-void InspectorBackend::getInlineStyle(long callId, long nodeId)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->getInlineStyle(callId, nodeId);
-}
-
-void InspectorBackend::getComputedStyle(long callId, long nodeId)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->getComputedStyle(callId, nodeId);
-}
-
-void InspectorBackend::getStyleSheet(long callId, long styleSheetId)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->getStyleSheet(callId, styleSheetId);
-}
-
-void InspectorBackend::getRuleRanges(long callId, long styleSheetId)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->getRuleRanges(callId, styleSheetId);
-}
-
-void InspectorBackend::applyStyleText(long callId, long styleId, const String& styleText, const String& propertyName)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->applyStyleText(callId, styleId, styleText, propertyName);
-}
-
-void InspectorBackend::setStyleText(long callId, long styleId, const String& cssText)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->setStyleText(callId, styleId, cssText);
-}
-
-void InspectorBackend::setStyleProperty(long callId, long styleId, const String& name, const String& value)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->setStyleProperty(callId, styleId, name, value);
-}
-
-void InspectorBackend::toggleStyleEnabled(long callId, long styleId, const String& propertyName, bool disabled)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->toggleStyleEnabled(callId, styleId, propertyName, disabled);
-}
-
-void InspectorBackend::setRuleSelector(long callId, long ruleId, const String& selector, long selectedNodeId)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->setRuleSelector(callId, ruleId, selector, selectedNodeId);
-}
-
-void InspectorBackend::addRule(long callId, const String& selector, long selectedNodeId)
-{
-    if (InspectorDOMAgent* domAgent = inspectorDOMAgent())
-        domAgent->addRule(callId, selector, selectedNodeId);
-}
-
-void InspectorBackend::highlightDOMNode(long nodeId)
-{
-    if (m_inspectorController)
-        m_inspectorController->highlightDOMNode(nodeId);
-}
-
-void InspectorBackend::hideDOMNodeHighlight()
-{
-    if (m_inspectorController)
-        m_inspectorController->hideDOMNodeHighlight();
-}
-
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-void InspectorBackend::getApplicationCaches(long callId)
-{
-    if (InspectorApplicationCacheAgent* agent = inspectorApplicationCacheAgent())
-        agent->getApplicationCaches(callId);
-}
-#endif
-
-void InspectorBackend::getCookies(long callId)
-{
-    if (!m_inspectorController)
-        return;
-    m_inspectorController->getCookies(callId);
-}
-
-void InspectorBackend::deleteCookie(const String& cookieName, const String& domain)
-{
-    if (!m_inspectorController)
-        return;
-    m_inspectorController->deleteCookie(cookieName, domain);
+    m_inspectorController->clearConsoleMessages();
 }
 
 void InspectorBackend::releaseWrapperObjectGroup(long injectedScriptId, const String& objectGroup)
 {
-    if (!m_inspectorController)
-        return;
     m_inspectorController->injectedScriptHost()->releaseWrapperObjectGroup(injectedScriptId, objectGroup);
 }
 
-void InspectorBackend::didEvaluateForTestInFrontend(long callId, const String& jsonResult)
-{
-    if (m_inspectorController)
-        m_inspectorController->didEvaluateForTestInFrontend(callId, jsonResult);
-}
-
 #if ENABLE(DATABASE)
-void InspectorBackend::getDatabaseTableNames(long callId, long databaseId)
+void InspectorBackend::getDatabaseTableNames(long databaseId, RefPtr<InspectorArray>* names)
 {
-    if (InspectorFrontend* frontend = inspectorFrontend()) {
-        ScriptArray result = frontend->newScriptArray();
-        Database* database = m_inspectorController->databaseForId(databaseId);
-        if (database) {
-            Vector<String> tableNames = database->tableNames();
-            unsigned length = tableNames.size();
-            for (unsigned i = 0; i < length; ++i)
-                result.set(i, tableNames[i]);
-        }
-        frontend->didGetDatabaseTableNames(callId, result);
+    Database* database = m_inspectorController->databaseForId(databaseId);
+    if (database) {
+        Vector<String> tableNames = database->tableNames();
+        unsigned length = tableNames.size();
+        for (unsigned i = 0; i < length; ++i)
+            (*names)->pushString(tableNames[i]);
     }
 }
+
+void InspectorBackend::executeSQL(long databaseId, const String& query, bool* success, long* transactionId)
+{
+    Database* database = m_inspectorController->databaseForId(databaseId);
+    if (!m_inspectorController->m_storageAgent || !database) {
+        *success = false;
+        return;
+    }
+
+    *transactionId = m_inspectorController->m_storageAgent->executeSQL(database, query);
+    *success = true;
+}
+
 #endif
-
-#if ENABLE(DOM_STORAGE)
-void InspectorBackend::getDOMStorageEntries(long callId, long storageId)
-{
-    if (m_inspectorController)
-        m_inspectorController->getDOMStorageEntries(callId, storageId);
-}
-
-void InspectorBackend::setDOMStorageItem(long callId, long storageId, const String& key, const String& value)
-{
-    if (m_inspectorController)
-        m_inspectorController->setDOMStorageItem(callId, storageId, key, value);
-}
-
-void InspectorBackend::removeDOMStorageItem(long callId, long storageId, const String& key)
-{
-    if (m_inspectorController)
-        m_inspectorController->removeDOMStorageItem(callId, storageId, key);
-}
-#endif
-
-InspectorDOMAgent* InspectorBackend::inspectorDOMAgent()
-{
-    if (!m_inspectorController)
-        return 0;
-    return m_inspectorController->domAgent();
-}
-
-#if ENABLE(OFFLINE_WEB_APPLICATIONS)
-InspectorApplicationCacheAgent* InspectorBackend::inspectorApplicationCacheAgent()
-{
-    if (!m_inspectorController)
-        return 0;
-    return m_inspectorController->applicationCacheAgent();
-}
-#endif
-
-InspectorFrontend* InspectorBackend::inspectorFrontend()
-{
-    if (!m_inspectorController)
-        return 0;
-    return m_inspectorController->m_frontend.get();
-}
 
 RemoteInspectorFrontend* InspectorBackend::remoteFrontend()
 {
-    if (!m_inspectorController)
-        return 0;
     return m_inspectorController->m_remoteFrontend.get();
-}
-
-void InspectorBackend::addScriptToEvaluateOnLoad(const String& source)
-{
-    if (m_inspectorController)
-        m_inspectorController->addScriptToEvaluateOnLoad(source);
-}
-
-void InspectorBackend::removeAllScriptsToEvaluateOnLoad()
-{
-    if (m_inspectorController)
-        m_inspectorController->removeAllScriptsToEvaluateOnLoad();
 }
 
 } // namespace WebCore

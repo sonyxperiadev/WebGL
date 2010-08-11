@@ -55,7 +55,7 @@ v8::Handle<v8::Value> V8SQLTransaction::executeSqlCallback(const v8::Arguments& 
     if (args.Length() == 0)
         return throwError(SYNTAX_ERR);
 
-    TO_WEBCORE_STRING_EXCEPTION_BLOCK(statement, args[0]);
+    STRING_TO_V8PARAMETER_EXCEPTION_BLOCK(V8Parameter<>, statement, args[0]);
 
     Vector<SQLValue> sqlValues;
 
@@ -82,7 +82,7 @@ v8::Handle<v8::Value> V8SQLTransaction::executeSqlCallback(const v8::Arguments& 
                 EXCEPTION_BLOCK(double, sqlValue, value->NumberValue());
                 sqlValues.append(SQLValue(sqlValue));
             } else {
-                TO_WEBCORE_STRING_EXCEPTION_BLOCK(sqlValue, value);
+                STRING_TO_V8PARAMETER_EXCEPTION_BLOCK(V8Parameter<>, sqlValue, value);
                 sqlValues.append(SQLValue(sqlValue));
             }
         }
@@ -90,22 +90,22 @@ v8::Handle<v8::Value> V8SQLTransaction::executeSqlCallback(const v8::Arguments& 
 
     SQLTransaction* transaction = V8SQLTransaction::toNative(args.Holder());
 
-    ScriptExecutionContext* executionContext = getScriptExecutionContext();
-    if (!executionContext)
+    ScriptExecutionContext* scriptExecutionContext = getScriptExecutionContext();
+    if (!scriptExecutionContext)
         return v8::Undefined();
 
     RefPtr<SQLStatementCallback> callback;
     if (args.Length() > 2 && !isUndefinedOrNull(args[2])) {
         if (!args[2]->IsObject())
             return throwError(TYPE_MISMATCH_ERR);
-        callback = V8SQLStatementCallback::create(args[2]);
+        callback = V8SQLStatementCallback::create(args[2], scriptExecutionContext);
     }
 
     RefPtr<SQLStatementErrorCallback> errorCallback;
     if (args.Length() > 3 && !isUndefinedOrNull(args[3])) {
         if (!args[3]->IsObject())
             return throwError(TYPE_MISMATCH_ERR);
-        errorCallback = V8SQLStatementErrorCallback::create(args[3]);
+        errorCallback = V8SQLStatementErrorCallback::create(args[3], scriptExecutionContext);
     }
 
     ExceptionCode ec = 0;

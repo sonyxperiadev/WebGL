@@ -32,6 +32,7 @@
 #include "IDBDatabaseError.h"
 #include "IDBDatabaseProxy.h"
 #include "WebIDBCallbacks.h"
+#include "WebIDBCursorImpl.h"
 #include "WebIDBDatabaseImpl.h"
 #include "WebIDBDatabaseError.h"
 #include "WebIDBIndexImpl.h"
@@ -69,9 +70,15 @@ void IDBCallbacksProxy::onSuccess()
     m_callbacks.clear();
 }
 
-void IDBCallbacksProxy::onSuccess(PassRefPtr<IDBDatabase> idbDatabase)
+void IDBCallbacksProxy::onSuccess(PassRefPtr<IDBCursorBackendInterface> idbCursorBackend)
 {
-    m_callbacks->onSuccess(new WebKit::WebIDBDatabaseImpl(idbDatabase));
+    m_callbacks->onSuccess(new WebKit::WebIDBCursorImpl(idbCursorBackend));
+    m_callbacks.clear();
+}
+
+void IDBCallbacksProxy::onSuccess(PassRefPtr<IDBDatabaseBackendInterface> backend)
+{
+    m_callbacks->onSuccess(new WebKit::WebIDBDatabaseImpl(backend));
     m_callbacks.clear();
 }
 
@@ -87,9 +94,9 @@ void IDBCallbacksProxy::onSuccess(PassRefPtr<IDBKey> idbKey)
     m_callbacks.clear();
 }
 
-void IDBCallbacksProxy::onSuccess(PassRefPtr<IDBObjectStore> idbObjectStore)
+void IDBCallbacksProxy::onSuccess(PassRefPtr<IDBObjectStoreBackendInterface> backend)
 {
-    m_callbacks->onSuccess(new WebKit::WebIDBObjectStoreImpl(idbObjectStore));
+    m_callbacks->onSuccess(new WebKit::WebIDBObjectStoreImpl(backend));
     m_callbacks.clear();
 }
 

@@ -27,6 +27,7 @@
 #ifndef ImageSource_h
 #define ImageSource_h
 
+#include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
 
@@ -46,6 +47,7 @@ QT_END_NAMESPACE
 struct _cairo_surface;
 typedef struct _cairo_surface cairo_surface_t;
 #elif PLATFORM(SKIA)
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
 #include "SkString.h"
 class SkBitmapRef;
@@ -53,6 +55,11 @@ class PrivateAndroidImageSourceRec;
 #else
 class NativeImageSkia;
 #endif
+=======
+namespace WebCore {
+class NativeImageSkia;
+}
+>>>>>>> webkit.org at r65072
 #elif PLATFORM(HAIKU)
 class BBitmap;
 #elif OS(WINCE)
@@ -64,7 +71,6 @@ namespace WebCore {
 class IntPoint;
 class IntSize;
 class SharedBuffer;
-class String;
 
 #if PLATFORM(CG)
 typedef CGImageSourceRef NativeImageSourcePtr;
@@ -109,6 +115,11 @@ typedef wxBitmap* NativeImagePtr;
 #endif
 #elif PLATFORM(CAIRO)
 typedef cairo_surface_t* NativeImagePtr;
+<<<<<<< HEAD
+=======
+#elif PLATFORM(SKIA)
+typedef WebCore::NativeImageSkia* NativeImagePtr;
+>>>>>>> webkit.org at r65072
 #elif PLATFORM(HAIKU)
 typedef BBitmap* NativeImagePtr;
 #elif OS(WINCE)

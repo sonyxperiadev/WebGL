@@ -26,6 +26,7 @@
 #ifndef HTMLElementStack_h
 #define HTMLElementStack_h
 
+#include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
@@ -33,7 +34,6 @@
 
 namespace WebCore {
 
-class AtomicString;
 class Element;
 class QualifiedName;
 
@@ -120,6 +120,9 @@ public:
 
     bool hasOnlyHTMLElementsInScope() const;
     bool hasNumberedHeaderElementInScope() const;
+
+    bool hasOnlyOneElement() const;
+    bool secondElementIsHTMLBodyElement() const;
 
     Element* htmlElement() const;
     Element* headElement() const;

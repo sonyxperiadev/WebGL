@@ -1,7 +1,7 @@
 @namespace "http://www.w3.org/1998/Math/MathML";
 
 math {
-    font-family: Symbol, "Times New Roman";
+    font-family: STIXGeneral, Symbol, "Times New Roman", sans-serif;
     display: inline-block;
     padding: 0px;
     margin: 0px;
@@ -29,7 +29,7 @@ mrow, mfenced {
     padding-right: 1px;
 }
 
-mi{
+mi {
     font-style: italic;
     padding-right: 0.1em;
 }
@@ -94,15 +94,35 @@ math > mo, mrow > mo, mfenced > mo {
     padding-right: 0.05em;
 }
 
-math[mathsize="small"], mstyle[mathsize="small"], mo[mathsize="small"], mn[mathsize="small"], mi[mathsize="small"], mtext[mathsize="small"], mspace[mathsize="small"], ms[mathsize="small"]{
+math[mathvariant="normal"], mstyle[mathvariant="normal"], mo[mathvariant="normal"], mn[mathvariant="normal"], mi[mathvariant="normal"], mtext[mathvariant="normal"], mspace[mathvariant="normal"], ms[mathvariant="normal"] {
+    font-style: normal;
+    font-weight: normal;
+}
+
+math[mathvariant="bold"], mstyle[mathvariant="bold"], mo[mathvariant="bold"], mn[mathvariant="bold"], mi[mathvariant="bold"], mtext[mathvariant="bold"], mspace[mathvariant="bold"], ms[mathvariant="bold"] {
+    font-style: normal;
+    font-weight: bold;
+}
+
+math[mathvariant="italic"], mstyle[mathvariant="italic"], mo[mathvariant="italic"], mn[mathvariant="italic"], mi[mathvariant="italic"], mtext[mathvariant="italic"], mspace[mathvariant="italic"], ms[mathvariant="italic"] {
+    font-style: italic;
+    font-weight: normal;
+}
+
+math[mathvariant="bold-italic"], mstyle[mathvariant="bold-italic"], mo[mathvariant="bold-italic"], mn[mathvariant="bold-italic"], mi[mathvariant="bold-italic"], mtext[mathvariant="bold-italic"], mspace[mathvariant="bold-italic"], ms[mathvariant="bold-italic"] {
+    font-weight: bold;
+    font-style: italic;
+}
+
+math[mathsize="small"], mstyle[mathsize="small"], mo[mathsize="small"], mn[mathsize="small"], mi[mathsize="small"], mtext[mathsize="small"], mspace[mathsize="small"], ms[mathsize="small"] {
     font-size: 0.75em;
 }
 
-math[mathsize="normal"], mstyle[mathsize="normal"], mo[mathsize="normal"], mn[mathsize="normal"], mi[mathsize="normal"], mtext[mathsize="normal"], mspace[mathsize="normal"], ms[mathsize="normal"]{
+math[mathsize="normal"], mstyle[mathsize="normal"], mo[mathsize="normal"], mn[mathsize="normal"], mi[mathsize="normal"], mtext[mathsize="normal"], mspace[mathsize="normal"], ms[mathsize="normal"] {
     font-size: 1em;
 }
 
-math[mathsize="big"], mstyle[mathsize="big"], mo[mathsize="big"], mn[mathsize="big"], mi[mathsize="big"], mtext[mathsize="big"], mspace[mathsize="big"], ms[mathsize="big"]{
+math[mathsize="big"], mstyle[mathsize="big"], mo[mathsize="big"], mn[mathsize="big"], mi[mathsize="big"], mtext[mathsize="big"], mspace[mathsize="big"], ms[mathsize="big"] {
     font-size: 1.5em;
 }
  
@@ -113,8 +133,12 @@ annotation, annotation-xml {
 mphantom {
     visibility: hidden;
 }
+
 merror {
     outline: solid thin red;
+    font-weight: bold;
+    font-family: sans-serif;
+    background-color: lightYellow;
 }
 
 msqrt {
@@ -149,9 +173,11 @@ mtable {
     text-align: center;
     vertical-align: -40%;
 }
+
 mtr {
     display: table-row;
 }
+
 mtd {
     display: table-cell;
     padding: 0 0.5ex;
@@ -164,33 +190,43 @@ mtable[columnalign="left"], mtr[columnalign="left"], mtd[columnalign="left"] {
 mtable[columnalign="right"], mtr[columnalign="right"], mtd[columnalign="right"] {
     text-align: right;
 }
+
 mtable[rowalign="top"] mtd, mtable mtr[rowalign="top"] mtd, mtable mtr mtd[rowalign="top"] {
     vertical-align: top;
 }
+
 mtable[rowalign="bottom"] mtd, mtable mtr[rowalign="bottom"] mtd, mtable mtr mtd[rowalign="bottom"] {
     vertical-align: bottom;
 }
+
 mtable[rowalign="center"] mtd, mtable mtr[rowalign="center"] mtd, mtable mtr mtd[rowalign="center"] {
     vertical-align: middle;
 }
+
 mtable[frame="solid"] {
     border: solid thin;
 }
+
 mtable[frame="dashed"] {
     border: dashed thin;
 }
+
 mtable[rowlines="solid"], mtable[rowlines="dashed"], mtable[columnlines="solid"], mtable[columnlines="dashed"] {
     border-collapse: collapse;
 }
+
 mtable[rowlines="solid"] > mtr + mtr {
     border-top: solid thin;
 }
+
 mtable[rowlines="dashed"] > mtr + mtr {
     border-top: dashed thin;
 }
+
 mtable[columnlines="solid"] > mtr > mtd + mtd {
     border-left: solid thin;
 }
+
 mtable[columnlines="dashed"] > mtr > mtd + mtd {
     border-left: dashed thin;
 }

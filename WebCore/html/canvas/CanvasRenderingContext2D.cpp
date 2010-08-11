@@ -58,7 +58,13 @@
 #include "StrokeStyleApplier.h"
 #include "TextMetrics.h"
 
-#include <stdio.h>
+#if ENABLE(ACCELERATED_2D_CANVAS)
+#include "FrameView.h"
+#include "GraphicsContext3D.h"
+#if USE(ACCELERATED_COMPOSITING)
+#include "RenderLayer.h"
+#endif
+#endif
 
 #include <wtf/ByteArray.h>
 #include <wtf/MathExtras.h>
@@ -100,6 +106,9 @@ CanvasRenderingContext2D::CanvasRenderingContext2D(HTMLCanvasElement* canvas, bo
 #if ENABLE(DASHBOARD_SUPPORT)
     , m_usesDashboardCompatibilityMode(usesDashboardCompatibilityMode)
 #endif
+#if ENABLE(ACCELERATED_2D_CANVAS)
+    , m_context3D(0)
+#endif
 {
 #if !ENABLE(DASHBOARD_SUPPORT)
     ASSERT_UNUSED(usesDashboardCompatibilityMode, !usesDashboardCompatibilityMode);
@@ -108,10 +117,40 @@ CanvasRenderingContext2D::CanvasRenderingContext2D(HTMLCanvasElement* canvas, bo
     // Make sure that even if the drawingContext() has a different default
     // thickness, it is in sync with the canvas thickness.
     setLineWidth(lineWidth());
+
+#if ENABLE(ACCELERATED_2D_CANVAS)
+    Page* p = canvas->document()->page();
+    if (!p)
+        return;
+    if (!p->settings()->accelerated2dCanvasEnabled())
+        return;
+    if (FrameView* view = canvas->document()->view()) {
+        if (ScrollView* rootView = view->root()) {
+            if (HostWindow* hostWindow = view->root()->hostWindow()) {
+                // Set up our context
+                GraphicsContext3D::Attributes attr;
+                attr.stencil = true;
+                m_context3D = GraphicsContext3D::create(attr, hostWindow);
+                if (m_context3D)
+                    if (GraphicsContext* c = drawingContext())
+                        c->setGraphicsContext3D(m_context3D.get(), IntSize(canvas->width(), canvas->height()));
+            }
+        }
+    }
+#endif
 }
 
 CanvasRenderingContext2D::~CanvasRenderingContext2D()
 {
+}
+
+bool CanvasRenderingContext2D::isAccelerated() const
+{
+#if ENABLE(ACCELERATED_2D_CANVAS)
+    return m_context3D;
+#else
+    return false;
+#endif
 }
 
 void CanvasRenderingContext2D::reset()
@@ -119,6 +158,12 @@ void CanvasRenderingContext2D::reset()
     m_stateStack.resize(1);
     m_stateStack.first() = State();
     m_path.clear();
+#if ENABLE(ACCELERATED_2D_CANVAS)
+    if (m_context3D) {
+        if (GraphicsContext* c = drawingContext())
+            c->setGraphicsContext3D(m_context3D.get(), IntSize(canvas()->width(), canvas()->height()));
+    }
+#endif
 }
 
 CanvasRenderingContext2D::State::State()
@@ -511,6 +556,8 @@ void CanvasRenderingContext2D::setStrokeColor(const String& color)
 
 void CanvasRenderingContext2D::setStrokeColor(float grayLevel)
 {
+    if (state().m_strokeStyle && state().m_strokeStyle->isEquivalentColor(grayLevel, grayLevel, grayLevel, 1.0f))
+        return;
     setStrokeStyle(CanvasStyle::create(grayLevel, 1));
 }
 
@@ -521,16 +568,22 @@ void CanvasRenderingContext2D::setStrokeColor(const String& color, float alpha)
 
 void CanvasRenderingContext2D::setStrokeColor(float grayLevel, float alpha)
 {
+    if (state().m_strokeStyle && state().m_strokeStyle->isEquivalentColor(grayLevel, grayLevel, grayLevel, alpha))
+        return;
     setStrokeStyle(CanvasStyle::create(grayLevel, alpha));
 }
 
 void CanvasRenderingContext2D::setStrokeColor(float r, float g, float b, float a)
 {
+    if (state().m_strokeStyle && state().m_strokeStyle->isEquivalentColor(r, g, b, a))
+        return;
     setStrokeStyle(CanvasStyle::create(r, g, b, a));
 }
 
 void CanvasRenderingContext2D::setStrokeColor(float c, float m, float y, float k, float a)
 {
+    if (state().m_strokeStyle && state().m_strokeStyle->isEquivalentColor(c, m, y, k, a))
+        return;
     setStrokeStyle(CanvasStyle::create(c, m, y, k, a));
 }
 
@@ -544,6 +597,8 @@ void CanvasRenderingContext2D::setFillColor(const String& color)
 
 void CanvasRenderingContext2D::setFillColor(float grayLevel)
 {
+    if (state().m_fillStyle && state().m_fillStyle->isEquivalentColor(grayLevel, grayLevel, grayLevel, 1.0f))
+        return;
     setFillStyle(CanvasStyle::create(grayLevel, 1));
 }
 
@@ -554,16 +609,22 @@ void CanvasRenderingContext2D::setFillColor(const String& color, float alpha)
 
 void CanvasRenderingContext2D::setFillColor(float grayLevel, float alpha)
 {
+    if (state().m_fillStyle && state().m_fillStyle->isEquivalentColor(grayLevel, grayLevel, grayLevel, alpha))
+        return;
     setFillStyle(CanvasStyle::create(grayLevel, alpha));
 }
 
 void CanvasRenderingContext2D::setFillColor(float r, float g, float b, float a)
 {
+    if (state().m_fillStyle && state().m_fillStyle->isEquivalentColor(r, g, b, a))
+        return;
     setFillStyle(CanvasStyle::create(r, g, b, a));
 }
 
 void CanvasRenderingContext2D::setFillColor(float c, float m, float y, float k, float a)
 {
+    if (state().m_fillStyle && state().m_fillStyle->isEquivalentColor(c, m, y, k, a))
+        return;
     setFillStyle(CanvasStyle::create(c, m, y, k, a));
 }
 
@@ -1434,7 +1495,14 @@ void CanvasRenderingContext2D::willDraw(const FloatRect& r, unsigned options)
         // we'd have to keep the clip path around.
     }
 
-    canvas()->willDraw(dirtyRect);
+#if ENABLE(ACCELERATED_2D_CANVAS) && USE(ACCELERATED_COMPOSITING)
+    // If we are drawing to hardware and we have a composited layer, just call rendererContentChanged().
+    RenderBox* renderBox = canvas()->renderBox();
+    if (m_context3D && renderBox && renderBox->hasLayer() && renderBox->layer()->hasAcceleratedCompositing())
+        renderBox->layer()->rendererContentChanged();
+    else
+#endif
+        canvas()->willDraw(dirtyRect);
 }
 
 GraphicsContext* CanvasRenderingContext2D::drawingContext() const
@@ -1770,6 +1838,13 @@ const Font& CanvasRenderingContext2D::accessFont()
     if (!state().m_realizedFont)
         setFont(state().m_unparsedFont);
     return state().m_font;
+}
+
+void CanvasRenderingContext2D::paintRenderingResultsToCanvas()
+{
+#if ENABLE(ACCELERATED_2D_CANVAS)
+    drawingContext()->syncSoftwareCanvas();
+#endif
 }
 
 } // namespace WebCore

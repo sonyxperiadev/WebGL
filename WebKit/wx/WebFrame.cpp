@@ -164,7 +164,7 @@ void wxWebFrame::SetPageSource(const wxString& source, const wxString& baseUrl)
         const char* contents = charBuffer;
 
         WTF::PassRefPtr<WebCore::SharedBuffer> sharedBuffer = WebCore::SharedBuffer::create(contents, strlen(contents));
-        WebCore::SubstituteData substituteData(sharedBuffer, WebCore::String("text/html"), WebCore::String("UTF-8"), WebCore::blankURL(), url);
+        WebCore::SubstituteData substituteData(sharedBuffer, WTF::String("text/html"), WTF::String("UTF-8"), WebCore::blankURL(), url);
 
         m_impl->frame->loader()->stop();
         m_impl->frame->loader()->load(WebCore::ResourceRequest(url), substituteData, false);
@@ -458,7 +458,6 @@ wxWebViewDOMElementInfo wxWebFrame::HitTest(const wxPoint& pos) const
     if (m_impl->frame->view()) {
         WebCore::HitTestResult result = m_impl->frame->eventHandler()->hitTestResultAtPoint(m_impl->frame->view()->windowToContents(pos), false);
         if (result.innerNode()) {
-            domInfo.SetInnerNode(new WebDOMNode(result.innerNode()));
             domInfo.SetLink(result.absoluteLinkURL().string());
             domInfo.SetText(result.textContent());
             domInfo.SetImageSrc(result.absoluteImageURL().string());

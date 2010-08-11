@@ -1,23 +1,23 @@
 /*
-    Copyright (C) 2004, 2005, 2006 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
-                  2007 Apple Inc.  All rights reserved.
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005, 2006 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
+ * Copyright (C) 2007 Apple Inc. All rights reserved.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
@@ -116,6 +116,23 @@ SVGLength::SVGLength(SVGLengthMode mode, const String& valueAsString)
     , m_unit(storeUnit(mode, LengthTypeNumber))
 {
     setValueAsString(valueAsString);
+}
+
+SVGLength::SVGLength(const SVGLength& other)
+    : m_valueInSpecifiedUnits(other.m_valueInSpecifiedUnits)
+    , m_unit(other.m_unit)
+{
+}
+
+bool SVGLength::operator==(const SVGLength& other) const
+{
+    return m_unit == other.m_unit
+        && m_valueInSpecifiedUnits == other.m_valueInSpecifiedUnits;
+}
+
+bool SVGLength::operator!=(const SVGLength& other) const
+{
+    return !operator==(other);
 }
 
 SVGLengthType SVGLength::unitType() const
@@ -258,7 +275,8 @@ String SVGLength::valueAsString() const
 
 void SVGLength::newValueSpecifiedUnits(unsigned short type, float value)
 {
-    ASSERT(type <= LengthTypePC);
+    if (type == LengthTypeUnknown || type > LengthTypePC)
+        return;
 
     m_unit = storeUnit(extractMode(m_unit), (SVGLengthType) type);
     m_valueInSpecifiedUnits = value;
@@ -266,7 +284,8 @@ void SVGLength::newValueSpecifiedUnits(unsigned short type, float value)
 
 void SVGLength::convertToSpecifiedUnits(unsigned short type, const SVGElement* context)
 {
-    ASSERT(type <= LengthTypePC);
+    if (type == LengthTypeUnknown || type > LengthTypePC)
+        return;
 
     float valueInUserUnits = value(context);
     m_unit = storeUnit(extractMode(m_unit), (SVGLengthType) type);
@@ -317,6 +336,99 @@ float SVGLength::PercentageOfViewport(float value, const SVGElement* context, SV
         return value * sqrtf(powf(width, 2) + powf(height, 2)) / sqrtf(2.0f);
 
     return 0.0f;
+}
+
+SVGLength SVGLength::fromCSSPrimitiveValue(CSSPrimitiveValue* value)
+{
+    ASSERT(value);
+
+    SVGLengthType svgType;
+    switch (value->primitiveType()) {
+    case CSSPrimitiveValue::CSS_NUMBER:
+        svgType = LengthTypeNumber;
+        break;
+    case CSSPrimitiveValue::CSS_PERCENTAGE:
+        svgType = LengthTypePercentage;
+        break;
+    case CSSPrimitiveValue::CSS_EMS:
+        svgType = LengthTypeEMS;
+        break;
+    case CSSPrimitiveValue::CSS_EXS:
+        svgType = LengthTypeEXS;
+        break;
+    case CSSPrimitiveValue::CSS_PX:
+        svgType = LengthTypePX;
+        break;
+    case CSSPrimitiveValue::CSS_CM:
+        svgType = LengthTypeCM;
+        break;
+    case CSSPrimitiveValue::CSS_MM:
+        svgType = LengthTypeMM;
+        break;
+    case CSSPrimitiveValue::CSS_IN:
+        svgType = LengthTypeIN;
+        break;
+    case CSSPrimitiveValue::CSS_PT:
+        svgType = LengthTypePT;
+        break;
+    case CSSPrimitiveValue::CSS_PC:
+        svgType = LengthTypePC;
+        break;
+    case CSSPrimitiveValue::CSS_UNKNOWN:
+    default:
+        svgType = LengthTypeUnknown;
+        break;
+    };
+
+    if (svgType == LengthTypeUnknown)
+        return SVGLength();
+
+    SVGLength length;
+    length.newValueSpecifiedUnits(svgType, value->getFloatValue());
+    return length;
+}
+
+PassRefPtr<CSSPrimitiveValue> SVGLength::toCSSPrimitiveValue(const SVGLength& length)
+{
+    CSSPrimitiveValue::UnitTypes cssType = CSSPrimitiveValue::CSS_UNKNOWN;
+    switch (length.unitType()) {
+    case LengthTypeUnknown:
+        break;
+    case LengthTypeNumber:
+        cssType = CSSPrimitiveValue::CSS_NUMBER;
+        break;
+    case LengthTypePercentage:
+        cssType = CSSPrimitiveValue::CSS_PERCENTAGE;
+        break;
+    case LengthTypeEMS:
+        cssType = CSSPrimitiveValue::CSS_EMS;
+        break;
+    case LengthTypeEXS:
+        cssType = CSSPrimitiveValue::CSS_EXS;
+        break;
+    case LengthTypePX:
+        cssType = CSSPrimitiveValue::CSS_PX;
+        break;
+    case LengthTypeCM:
+        cssType = CSSPrimitiveValue::CSS_CM;
+        break;
+    case LengthTypeMM:
+        cssType = CSSPrimitiveValue::CSS_MM;
+        break;
+    case LengthTypeIN:
+        cssType = CSSPrimitiveValue::CSS_IN;
+        break;
+    case LengthTypePT:
+        cssType = CSSPrimitiveValue::CSS_PT;
+        break;
+    case LengthTypePC:
+        cssType = CSSPrimitiveValue::CSS_PC;
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+    };
+
+    return CSSPrimitiveValue::create(length.valueInSpecifiedUnits(), cssType);
 }
 
 }

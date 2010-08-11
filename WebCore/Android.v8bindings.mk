@@ -114,9 +114,14 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8DOMFormDataCustom.cpp \
 	bindings/v8/custom/V8DOMWindowCustom.cpp \
 	bindings/v8/custom/V8DataGridColumnListCustom.cpp \
+<<<<<<< HEAD
 	bindings/v8/custom/V8DatabaseCustom.cpp \
 	bindings/v8/custom/V8DatabaseSyncCustom.cpp \
+=======
+	bindings/v8/custom/V8DatabaseCallback.cpp \
+>>>>>>> webkit.org at r65072
 	bindings/v8/custom/V8DedicatedWorkerContextCustom.cpp \
+	bindings/v8/custom/V8DeviceMotionEventCustom.cpp \
 	bindings/v8/custom/V8DeviceOrientationEventCustom.cpp \
 	bindings/v8/custom/V8DocumentCustom.cpp \
 	bindings/v8/custom/V8DocumentLocationCustom.cpp \

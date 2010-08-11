@@ -68,9 +68,9 @@ public:
         return new DatabaseCreationCallbackTask(database, creationCallback);
     }
 
-    virtual void performTask(ScriptExecutionContext* context)
+    virtual void performTask(ScriptExecutionContext*)
     {
-        m_creationCallback->handleEvent(context, m_database.get());
+        m_creationCallback->handleEvent(m_database.get());
     }
 
 private:
@@ -109,7 +109,7 @@ PassRefPtr<Database> Database::openDatabase(ScriptExecutionContext* context, con
     if (context->isDocument()) {
         Document* document = static_cast<Document*>(context);
         if (Page* page = document->page())
-            page->inspectorController()->didOpenDatabase(database.get(), context->securityOrigin()->host(), name, expectedVersion);
+            page->inspectorController()->didOpenDatabase(database, context->securityOrigin()->host(), name, expectedVersion);
     }
 #endif
 
@@ -270,8 +270,18 @@ void Database::changeVersion(const String& oldVersion, const String& newVersion,
         scheduleTransaction();
 }
 
-void Database::transaction(PassRefPtr<SQLTransactionCallback> callback, PassRefPtr<SQLTransactionErrorCallback> errorCallback,
-                           PassRefPtr<VoidCallback> successCallback, bool readOnly)
+void Database::transaction(PassRefPtr<SQLTransactionCallback> callback, PassRefPtr<SQLTransactionErrorCallback> errorCallback, PassRefPtr<VoidCallback> successCallback)
+{
+    runTransaction(callback, errorCallback, successCallback, false);
+}
+
+void Database::readTransaction(PassRefPtr<SQLTransactionCallback> callback, PassRefPtr<SQLTransactionErrorCallback> errorCallback, PassRefPtr<VoidCallback> successCallback)
+{
+    runTransaction(callback, errorCallback, successCallback, true);
+}
+
+void Database::runTransaction(PassRefPtr<SQLTransactionCallback> callback, PassRefPtr<SQLTransactionErrorCallback> errorCallback,
+                              PassRefPtr<VoidCallback> successCallback, bool readOnly)
 {
     m_transactionQueue.append(SQLTransaction::create(this, callback, errorCallback, successCallback, 0, readOnly));
     MutexLocker locker(m_transactionInProgressMutex);

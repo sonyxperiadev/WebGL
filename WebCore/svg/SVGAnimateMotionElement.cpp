@@ -1,25 +1,23 @@
 /*
-    Copyright (C) 2007 Eric Seidel <eric@webkit.org>
-              (C) 2007 Rob Buis <buis@kde.org>
-    Copyright (C) 2008 Apple Inc. All Rights Reserved.
-
-    This file is part of the WebKit project
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2007 Eric Seidel <eric@webkit.org>
+ * Copyright (C) 2007 Rob Buis <buis@kde.org>
+ * Copyright (C) 2008 Apple Inc. All rights reserved.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
@@ -32,7 +30,7 @@
 #include "SVGElementInstance.h"
 #include "SVGMPathElement.h"
 #include "SVGParserUtilities.h"
-#include "SVGPathBuilder.h"
+#include "SVGPathParserFactory.h"
 #include "SVGPathElement.h"
 #include "SVGTransformList.h"
 #include <math.h>
@@ -89,9 +87,8 @@ void SVGAnimateMotionElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == SVGNames::pathAttr) {
         m_path = Path();
-        SVGPathBuilder builder(m_path);
-        // FIXME: We should analyse the returned value.
-        builder.build(attr->value());
+        SVGPathParserFactory* factory = SVGPathParserFactory::self();
+        factory->buildPathFromString(attr->value(), m_path);
     } else
         SVGAnimationElement::parseMappedAttribute(attr);
 }

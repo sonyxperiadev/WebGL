@@ -71,6 +71,7 @@ namespace WebKit {
 class AutocompletePopupMenuClient;
 class AutoFillPopupMenuClient;
 class ContextMenuClientImpl;
+class DeviceOrientationClientProxy;
 class DragScrollTimer;
 class WebAccessibilityObject;
 class WebDevToolsAgentClient;
@@ -496,7 +497,7 @@ private:
     // Inspector settings.
     WebString m_inspectorSettings;
 
-    typedef HashMap<WebCore::String, WebCore::String> SettingsMap;
+    typedef HashMap<WTF::String, WTF::String> SettingsMap;
     OwnPtr<SettingsMap> m_inspectorSettingsMap;
     OwnPtr<DragScrollTimer> m_dragScrollTimer;
 
@@ -519,6 +520,8 @@ private:
 #endif
 
     OwnPtr<WebGLES2Context> m_gles2Context;
+
+    OwnPtr<DeviceOrientationClientProxy> m_deviceOrientationClientProxy;
 };
 
 } // namespace WebKit

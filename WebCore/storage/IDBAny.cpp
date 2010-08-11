@@ -28,10 +28,11 @@
 
 #if ENABLE(INDEXED_DATABASE)
 
-#include "IDBDatabaseRequest.h"
+#include "IDBCursor.h"
+#include "IDBDatabase.h"
 #include "IDBFactory.h"
 #include "IDBIndex.h"
-#include "IDBObjectStoreRequest.h"
+#include "IDBObjectStore.h"
 #include "SerializedScriptValue.h"
 
 namespace WebCore {
@@ -50,10 +51,16 @@ IDBAny::~IDBAny()
 {
 }
 
-PassRefPtr<IDBDatabaseRequest> IDBAny::idbDatabaseRequest()
+PassRefPtr<IDBCursor> IDBAny::idbCursor()
 {
-    ASSERT(m_type == IDBDatabaseRequestType);
-    return m_idbDatabaseRequest;
+    ASSERT(m_type == IDBCursorType);
+    return m_idbCursor;
+}
+
+PassRefPtr<IDBDatabase> IDBAny::idbDatabase()
+{
+    ASSERT(m_type == IDBDatabaseType);
+    return m_idbDatabase;
 }
 
 PassRefPtr<IDBIndex> IDBAny::idbIndex()
@@ -68,10 +75,10 @@ PassRefPtr<IDBKey> IDBAny::idbKey()
     return m_idbKey;
 }
 
-PassRefPtr<IDBObjectStoreRequest> IDBAny::idbObjectStoreRequest()
+PassRefPtr<IDBObjectStore> IDBAny::idbObjectStore()
 {
-    ASSERT(m_type == IDBObjectStoreRequestType);
-    return m_idbObjectStoreRequest;
+    ASSERT(m_type == IDBObjectStoreType);
+    return m_idbObjectStore;
 }
 
 PassRefPtr<IDBFactory> IDBAny::idbFactory()
@@ -92,17 +99,24 @@ void IDBAny::set()
     m_type = NullType;
 }
 
-void IDBAny::set(PassRefPtr<IDBDatabaseRequest> value)
+void IDBAny::set(PassRefPtr<IDBCursor> value)
 {
     ASSERT(m_type == UndefinedType);
-    m_type = IDBDatabaseRequestType;
-    m_idbDatabaseRequest = value;
+    m_type = IDBCursorType;
+    m_idbCursor = value;
+}
+
+void IDBAny::set(PassRefPtr<IDBDatabase> value)
+{
+    ASSERT(m_type == UndefinedType);
+    m_type = IDBDatabaseType;
+    m_idbDatabase = value;
 }
 
 void IDBAny::set(PassRefPtr<IDBIndex> value)
 {
     ASSERT(m_type == UndefinedType);
-    m_type = IDBDatabaseRequestType;
+    m_type = IDBDatabaseType;
     m_idbIndex = value;
 }
 
@@ -113,11 +127,11 @@ void IDBAny::set(PassRefPtr<IDBKey> value)
     m_idbKey = value;
 }
 
-void IDBAny::set(PassRefPtr<IDBObjectStoreRequest> value)
+void IDBAny::set(PassRefPtr<IDBObjectStore> value)
 {
     ASSERT(m_type == UndefinedType);
-    m_type = IDBObjectStoreRequestType;
-    m_idbObjectStoreRequest = value;
+    m_type = IDBObjectStoreType;
+    m_idbObjectStore = value;
 }
 
 void IDBAny::set(PassRefPtr<IDBFactory> value)

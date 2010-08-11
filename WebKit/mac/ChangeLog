@@ -1,3 +1,172 @@
+2010-08-06  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig
+
+        Bug 43594 - Add string forwards to Forward.h
+        This allows us to remove forward declarations for these classes from
+        WebCore/WebKit (a step in moving these class from WebCore:: to WTF::).
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h:
+        * Plugins/WebBaseNetscapePluginView.h:
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebIconDatabaseClient.h:
+        * WebCoreSupport/WebPluginHalterClient.h:
+        * WebView/WebViewInternal.h:
+
+2010-08-04  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Tony Chang.
+
+        Pasting should fire textInput event.
+        https://bugs.webkit.org/show_bug.cgi?id=42958
+
+        On paste, invoke Editor instead of direct command invocation,
+        which allows dispatching events before actual paste.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _pasteWithPasteboard:allowPlainText:]):
+
+2010-08-06  Yongjun Zhang  <yongjun_zhang@apple.com>
+
+        Reviewed by Eric Seidel.
+
+        add "const" to WebChromeClient::webView().
+        https://bugs.webkit.org/show_bug.cgi?id=43631
+
+        Change WebChromeClient::webView() to be const because ChromeClient::didReceiveViewportArguments
+        is const method now, and calling webView() inside port-specific didReceiveViewportArguments
+        implementation fails compiling if webView() is not const.
+
+        * WebCoreSupport/WebChromeClient.h:
+        (WebChromeClient::webView):
+
+2010-08-06  Jessie Berlin  <jberlin@apple.com>
+
+        Roll out http://trac.webkit.org/changeset/64801, which broke the Safari Windows Build.
+        Unreviewed.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h:
+        * Plugins/WebBaseNetscapePluginView.h:
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebIconDatabaseClient.h:
+        * WebCoreSupport/WebPluginHalterClient.h:
+        * WebView/WebViewInternal.h:
+
+2010-08-05  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Remove Invalid Asserts for Application Cache Quotas
+        https://bugs.webkit.org/show_bug.cgi?id=43585
+
+        Removed Invalid ASSERTs that would always happen for quotas
+        that were not noQuota().
+
+        * WebView/WebPreferences.mm:
+        (-[WebPreferences applicationCacheTotalQuota]):
+        (-[WebPreferences applicationCacheDefaultOriginQuota]):
+
+2010-08-05  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig
+
+        Bug 43594 - Add string forwards to Forward.h
+        This allows us to remove forward declarations for these classes from
+        WebCore/WebKit (a step in moving these class from WebCore:: to WTF::).
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h:
+        * Plugins/WebBaseNetscapePluginView.h:
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebIconDatabaseClient.h:
+        * WebCoreSupport/WebPluginHalterClient.h:
+        * WebView/WebViewInternal.h:
+
+2010-08-05  Jian Li  <jianli@chromium.org>
+
+        Reviewed by David Levin.
+
+        Unify blob related feature defines to ENABLE(BLOB).
+        https://bugs.webkit.org/show_bug.cgi?id=43081
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-08-03  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Limit ApplicationCache Total and Per-Origin Storage Capacity (Quotas)
+        https://bugs.webkit.org/show_bug.cgi?id=40627
+
+        Part 6 - LayoutTest and Cleanup
+
+        * WebCoreSupport/WebApplicationCache.h:
+        * WebCoreSupport/WebApplicationCache.mm:
+        (+[WebApplicationCache setMaximumSize:]): refactor out deleting the application caches.
+        (+[WebApplicationCache deleteAllApplicationCaches]): delete application caches.
+
+2010-08-03  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by David Kilzer.
+
+        Limit ApplicationCache Total and Per-Origin Storage Capacity (Quotas)
+        https://bugs.webkit.org/show_bug.cgi?id=40627
+
+        Part 5 - Refactor Quota Management in WebSecurityOrigin into Managers
+
+        Per-Origin quotas exist for Databases and Application Caches. Clients
+        given a WebSecurityOrigin have the ability to set the quota for any
+        per-origin quota type. This puts quota management into an interface
+        and WebSecurityOrigin allows access to quota managers for the
+        different types of quotas.
+
+        This also deprecates the old methods on WebSecurityOrigin. They are
+        left in for now to prevent breaking older clients.
+
+          The WebQuotaManager interface allows querying and modifying a
+          per-origin quota. This is implemented for both Databases and
+          Application Caches.
+
+        * Misc/WebQuotaManager.h: Added. Interface for quota management (usage, quota, setQuota).
+        * Storage/WebDatabaseQuotaManager.h: Added.
+        * Storage/WebDatabaseQuotaManager.mm: Added.
+        (-[WebDatabaseQuotaManager origin]):
+        (-[WebDatabaseQuotaManager usage]):
+        (-[WebDatabaseQuotaManager quota]):
+        (-[WebDatabaseQuotaManager setQuota:]):
+        * Storage/WebDatabaseSecurityOrigin.h: Removed.
+        * Storage/WebDatabaseSecurityOrigin.mm: Removed.
+        * WebCoreSupport/WebApplicationCacheQuotaManager.h: Added.
+        * WebCoreSupport/WebApplicationCacheQuotaManager.mm: Added.
+        (-[WebApplicationCacheQuotaManager origin]):
+        (-[WebApplicationCacheQuotaManager usage]):
+        (-[WebApplicationCacheQuotaManager quota]):
+        (-[WebApplicationCacheQuotaManager setQuota:]):
+        * WebCoreSupport/WebSecurityOriginPrivate.h: Added a category to access managers. Deprecated old methods.
+
+          Remove the WebSecurityOrigin sub-classes. Managers are better.
+
+        * WebCoreSupport/WebApplicationCacheSecurityOrigin.h: Removed.
+        * WebCoreSupport/WebApplicationCacheSecurityOrigin.mm: Removed.
+
+          Create the managers lazily. Change old style calls to make use
+          of the managers.
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::exceededDatabaseQuota):
+        (WebChromeClient::reachedApplicationCacheOriginQuota):
+        * WebCoreSupport/WebSecurityOrigin.mm:
+        (-[WebSecurityOrigin applicationCacheQuotaManager]):
+        (-[WebSecurityOrigin databaseQuotaManager]):
+        (-[WebSecurityOrigin dealloc]): release the managers if they exist.
+
+2010-08-03  Alex Milowski  <alex@milowski.com>
+
+        Reviewed by Beth Dakin.
+
+        Changed the ENABLE_MATHML value to enable MathML by default.
+
+        * Configurations/FeatureDefines.xcconfig:
+
 2010-08-02  Brady Eidson  <beidson@apple.com>
 
         Reviewed by Anders Carlsson.

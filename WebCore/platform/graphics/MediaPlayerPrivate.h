@@ -29,12 +29,12 @@
 #if ENABLE(VIDEO)
 
 #include "MediaPlayer.h"
+#include <wtf/Forward.h>
 
 namespace WebCore {
 
 class IntRect;
 class IntSize;
-class String;
 
 class MediaPlayerPrivateInterface : public Noncopyable {
 public:
@@ -122,6 +122,8 @@ public:
     virtual bool hasSingleSecurityOrigin() const { return false; }
 
     virtual MediaPlayer::MovieLoadType movieLoadType() const { return MediaPlayer::Unknown; }
+
+    virtual void prepareForRendering() { }
 
 };
 

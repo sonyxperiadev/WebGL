@@ -41,6 +41,24 @@ queues = [
 ]
 
 
+# FIXME: We need some sort of Queue object.
+def _title_case(string):
+    words = string.split(" ")
+    words = map(lambda word: word.capitalize(), words)
+    return " ".join(words)
+
+
+def display_name_for_queue(queue_name):
+    # HACK: chromium-ews is incorrectly named.
+    display_name = queue_name.replace("chromium-ews", "cr-linux-ews")
+
+    display_name = display_name.replace("-", " ")
+    display_name = display_name.replace("cr", "chromium")
+    display_name = _title_case(display_name)
+    display_name = display_name.replace("Ews", "EWS")
+    return display_name
+
+
 def name_with_underscores(dashed_name):
     regexp = re.compile("-")
     return regexp.sub("_", dashed_name)

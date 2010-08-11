@@ -29,6 +29,7 @@
 #include "AccessibilityObject.h"
 #include "Timer.h"
 #include <limits.h>
+#include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/RefPtr.h>
@@ -45,7 +46,6 @@ class HTMLAreaElement;
 class Node;
 class Page;
 class RenderObject;
-class String;
 class VisiblePosition;
 
 struct TextMarkerData {
@@ -124,8 +124,6 @@ public:
     void postNotification(RenderObject*, AXNotification, bool postToElement, PostType = PostAsynchronously);
     void postNotification(AccessibilityObject*, Document*, AXNotification, bool postToElement, PostType = PostAsynchronously);
 
-    bool nodeHasRole(Node*, const AtomicString& role);
-
 protected:
     void postPlatformNotification(AccessibilityObject*, AXNotification);
 
@@ -145,6 +143,8 @@ private:
     
     AXID getAXID(AccessibilityObject*);
 };
+
+bool nodeHasRole(Node*, const String& role);
 
 #if !HAVE(ACCESSIBILITY)
 inline void AXObjectCache::handleActiveDescendantChanged(RenderObject*) { }

@@ -41,6 +41,7 @@
 #include "CSSStyleSelector.h"
 #include "CSSValueKeywords.h"
 #include "Cursor.h"
+#include "DeviceOrientationClientProxy.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "DOMUtilitiesPrivate.h"
@@ -177,8 +178,8 @@ static const PopupContainerSettings autoFillPopupSettings = {
 
 WebView* WebView::create(WebViewClient* client, WebDevToolsAgentClient* devToolsClient)
 {
-    // Keep runtime flag for device orientation turned off until it's implemented.
-    WebRuntimeFeatures::enableDeviceOrientation(false);
+    // Keep runtime flag for device motion turned off until it's implemented.
+    WebRuntimeFeatures::enableDeviceMotion(false);
 
     // Pass the WebViewImpl's self-reference to the caller.
     return adoptRef(new WebViewImpl(client, devToolsClient)).leakRef();
@@ -266,6 +267,7 @@ WebViewImpl::WebViewImpl(WebViewClient* client, WebDevToolsAgentClient* devTools
     , m_speechInputClient(client)
 #endif
     , m_gles2Context(0)
+    , m_deviceOrientationClientProxy(new DeviceOrientationClientProxy(client ? client->deviceOrientationClient() : 0))
 {
     // WebKit/win/WebView.cpp does the same thing, except they call the
     // KJS specific wrapper around this method. We need to have threading
@@ -288,9 +290,9 @@ WebViewImpl::WebViewImpl(WebViewClient* client, WebDevToolsAgentClient* devTools
 #if ENABLE(INPUT_SPEECH)
     pageClients.speechInputClient = &m_speechInputClient;
 #endif
-    m_page.set(new Page(pageClients));
+    pageClients.deviceOrientationClient = m_deviceOrientationClientProxy.get();
 
-    // the page will take ownership of the various clients
+    m_page.set(new Page(pageClients));
 
     m_page->backForwardList()->setClient(&m_backForwardListClientImpl);
     m_page->setGroupName(pageGroupName);
@@ -911,6 +913,13 @@ void WebViewImpl::resize(const WebSize& newSize)
         WebRect damagedRect(0, 0, m_size.width, m_size.height);
         m_client->didInvalidateRect(damagedRect);
     }
+
+#if OS(DARWIN)
+    if (m_gles2Context) {
+        m_gles2Context->resizeOnscreenContent(WebSize(std::max(1, m_size.width),
+                                                      std::max(1, m_size.height)));
+    }
+#endif
 }
 
 void WebViewImpl::layout()
@@ -2154,6 +2163,22 @@ void WebViewImpl::updateRootLayerContents(const WebRect& rect)
         rootLayerContext->restore();
 
         platformCanvas->restore();
+#elif PLATFORM(CG)
+        CGContextRef cgContext = rootLayerContext->platformContext();
+
+        CGContextSaveGState(cgContext);
+
+        // Bring the CoreGraphics context into the coordinate system of the paint rect.
+        CGContextTranslateCTM(cgContext, -rect.x, -rect.y);
+
+        rootLayerContext->save();
+
+        webframe->paintWithContext(*rootLayerContext, rect);
+        rootLayerContext->restore();
+
+        CGContextRestoreGState(cgContext);
+#else
+#error Must port to your platform
 #endif
     }
 }
@@ -2203,6 +2228,11 @@ WebGLES2Context* WebViewImpl::gles2Context()
             m_gles2Context.clear();
             return 0;
         }
+
+#if OS(DARWIN)
+        m_gles2Context->resizeOnscreenContent(WebSize(std::max(1, m_size.width),
+                                                      std::max(1, m_size.height)));
+#endif
     }
     return m_gles2Context.get();
 }

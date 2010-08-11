@@ -228,6 +228,16 @@ void LayoutTestController::clearPersistentUserStyleSheet()
     // FIXME: implement
 }
 
+void LayoutTestController::clearAllApplicationCaches()
+{
+    // FIXME: implement to support Application Cache quotas.
+}
+
+void LayoutTestController::setApplicationCacheOriginQuota(unsigned long long quota)
+{
+    // FIXME: implement to support Application Cache quotas.
+}
+
 void LayoutTestController::clearAllDatabases()
 {
     // FIXME: implement
@@ -287,6 +297,18 @@ void LayoutTestController::setMockGeolocationError(int code, JSStringRef message
 {
     // FIXME: Implement for Geolocation layout tests.
     // See https://bugs.webkit.org/show_bug.cgi?id=28264.
+}
+
+void LayoutTestController::setGeolocationPermission(bool allow)
+{
+    // FIXME: Implement for Geolocation layout tests.
+    setGeolocationPermissionCommon(allow);
+}
+
+void LayoutTestController::setMockSpeechInputResult(JSStringRef result)
+{
+    // FIXME: Implement for speech input layout tests.
+    // See https://bugs.webkit.org/show_bug.cgi?id=39485.
 }
 
 void LayoutTestController::setIconDatabaseEnabled(bool iconDatabaseEnabled)

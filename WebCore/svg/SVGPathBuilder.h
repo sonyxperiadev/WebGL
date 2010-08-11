@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 2002, 2003 The Karbon Developers
- *               2006       Alexander Kellett <lypanov@kde.org>
- *               2006, 2007 Rob Buis <buis@kde.org>
- * Copyrigth (C) 2007, 2009 Apple, Inc.  All rights reserved.
+ * Copyright (C) 2006 Alexander Kellett <lypanov@kde.org>
+ * Copyright (C) 2006, 2007 Rob Buis <buis@kde.org>
+ * Copyright (C) 2007, 2009 Apple Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -19,7 +19,6 @@
  * along with this library; see the file COPYING.LIB.  If not, write to
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
- *
  */
 
 #ifndef SVGPathBuilder_h
@@ -32,10 +31,12 @@
 
 namespace WebCore {
 
-class SVGPathBuilder : private SVGPathConsumer {
+class SVGPathBuilder : public SVGPathConsumer {
 public:
-    SVGPathBuilder(Path&);
-    bool build(const String&);
+    SVGPathBuilder();
+
+    void setCurrentPath(Path* path) { m_path = path; }
+    virtual void cleanup() { m_path = 0; }
 
 private:
     // Used in UnalteredParisng/NormalizedParsing modes.
@@ -51,9 +52,9 @@ private:
     virtual void curveToCubicSmooth(const FloatPoint&, const FloatPoint&, PathCoordinateMode) { ASSERT_NOT_REACHED(); }
     virtual void curveToQuadratic(const FloatPoint&, const FloatPoint&, PathCoordinateMode) { ASSERT_NOT_REACHED(); }
     virtual void curveToQuadraticSmooth(const FloatPoint&, PathCoordinateMode) { ASSERT_NOT_REACHED(); }
-    virtual void arcTo(const FloatPoint&, float, float, float, bool, bool, PathCoordinateMode) { ASSERT_NOT_REACHED(); }
+    virtual void arcTo(float, float, float, bool, bool, const FloatPoint&, PathCoordinateMode) { ASSERT_NOT_REACHED(); }
 
-    Path& m_path;
+    Path* m_path;
     FloatPoint m_current;
 };
 

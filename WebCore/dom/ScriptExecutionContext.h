@@ -29,6 +29,7 @@
 
 #include "Console.h"
 #include "KURL.h"
+#include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/PassOwnPtr.h>
@@ -45,13 +46,12 @@ namespace WebCore {
     class DatabaseThread;
 #endif
     class DOMTimer;
-#if ENABLE(FILE_READER) || ENABLE(FILE_WRITER)
+#if ENABLE(BLOB) || ENABLE(FILE_WRITER)
     class FileThread;
 #endif
     class MessagePort;
     class SecurityOrigin;
     class ScriptString;
-    class String;
 #if ENABLE(INSPECTOR)
     class InspectorController;
 #endif
@@ -129,7 +129,7 @@ namespace WebCore {
         JSC::JSGlobalData* globalData();
 #endif
 
-#if ENABLE(FILE_READER) || ENABLE(FILE_WRITER)
+#if ENABLE(BLOB) || ENABLE(FILE_WRITER)
         FileThread* fileThread();
         void stopFileThread();
 #endif
@@ -160,7 +160,7 @@ namespace WebCore {
         bool m_hasOpenDatabases; // This never changes back to false, even after the database thread is closed.
 #endif
 
-#if ENABLE(FILE_READER) || ENABLE(FILE_WRITER)
+#if ENABLE(BLOB) || ENABLE(FILE_WRITER)
         RefPtr<FileThread> m_fileThread;
 #endif
     };
