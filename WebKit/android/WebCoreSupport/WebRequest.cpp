@@ -63,10 +63,16 @@ WebRequest::~WebRequest()
 {
 }
 
-void WebRequest::finish(bool /*success*/)
+void WebRequest::finish(bool success)
 {
-    LoaderData* loaderData = new LoaderData(m_urlLoader);
-    callOnMainThread(WebUrlLoaderClient::didFinishLoading, loaderData);
+    if (success) {
+        LoaderData* loaderData = new LoaderData(m_urlLoader);
+        callOnMainThread(WebUrlLoaderClient::didFinishLoading, loaderData);
+    } else {
+        WebResponse webResponse(m_request.get());
+        LoaderData* loaderData = new LoaderData(m_urlLoader, webResponse);
+        callOnMainThread(WebUrlLoaderClient::didFail, loaderData);
+    }
     m_networkBuffer = 0;
     m_request = 0;
 }

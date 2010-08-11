@@ -74,7 +74,6 @@ public:
 private:
     void finish();
     RefPtr<WebCore::ResourceHandle> m_resourceHandle;
-    WebCore::ResourceRequest m_resourceRequest;
     bool m_cancelling;
 
     // Not an OwnPtr since it should be deleted on another thread

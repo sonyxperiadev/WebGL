@@ -38,7 +38,7 @@ namespace android {
 class WebResourceRequest {
 
 public:
-    WebResourceRequest(WebCore::ResourceRequest&);
+    WebResourceRequest(const WebCore::ResourceRequest&);
 
     const std::string& method()
     {

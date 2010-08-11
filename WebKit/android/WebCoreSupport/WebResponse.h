@@ -34,6 +34,7 @@
 
 namespace WebCore {
 class ResourceResponse;
+class ResourceError;
 }
 
 namespace android {
@@ -49,10 +50,13 @@ public:
 
     // Only use on the WebCore thread!
     WebCore::ResourceResponse createResourceResponse();
+    // Only use on the WebCore thread!
+    WebCore::ResourceError createResourceError();
 
 private:
     std::string m_encoding;
     int m_httpStatusCode;
+    std::string m_host;
     std::string m_httpStatusText;
     long long m_length;
     std::string m_mime;

@@ -85,18 +85,18 @@ bool WebUrlLoaderClient::isActive() const
 }
 
 WebUrlLoaderClient::WebUrlLoaderClient(WebCore::ResourceHandle* resourceHandle, const WebCore::ResourceRequest& resourceRequest)
-        : m_resourceHandle(resourceHandle), m_resourceRequest(resourceRequest), m_cancelling(false)
+        : m_resourceHandle(resourceHandle), m_cancelling(false)
 {
-    WebResourceRequest webResourceRequest(m_resourceRequest);
+    WebResourceRequest webResourceRequest(resourceRequest);
 
     m_request = new WebRequest(this, webResourceRequest);
     m_request->AddRef(); // Matched by ReleaseSoon in destructor
     base::Thread* thread = ioThread();
 
     // Set uploads before start is called on the request
-    if (m_resourceRequest.httpBody() && !(webResourceRequest.method() == "GET" || webResourceRequest.method() == "HEAD")) {
+    if (resourceRequest.httpBody() && !(webResourceRequest.method() == "GET" || webResourceRequest.method() == "HEAD")) {
         Vector<FormDataElement>::iterator iter;
-        Vector<FormDataElement> elements = m_resourceRequest.httpBody()->elements();
+        Vector<FormDataElement> elements = resourceRequest.httpBody()->elements();
         for (iter = elements.begin(); iter != elements.end(); iter++) {
             FormDataElement element = *iter;
             switch (element.m_type) {
@@ -201,6 +201,14 @@ void WebUrlLoaderClient::didReceiveDataUrl(void* data)
 // static - on main thread
 void WebUrlLoaderClient::didFail(void* data)
 {
+    OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
+    WebUrlLoaderClient* loader = loaderData->loader;
+
+    if (loader->isActive())
+        loader->m_resourceHandle->client()->didFail(loader->m_resourceHandle.get(), loaderData->webResponse.createResourceError());
+
+    // Always finish a request, if not it will leak
+    loader->finish();
 }
 
 // static - on main thread
