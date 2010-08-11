@@ -26,7 +26,12 @@
 #include "config.h"
 #include "DeviceOrientationManager.h"
 
+#include "DeviceOrientationClientImpl.h"
+#include "DeviceOrientationController.h"
 #include "WebViewCore.h"
+#include "Frame.h"
+#include "Page.h"
+
 #include <DeviceOrientationClientMock.h>
 #include <JNIHelp.h>
 
@@ -34,8 +39,9 @@ using namespace WebCore;
 
 namespace android {
 
-DeviceOrientationManager::DeviceOrientationManager()
+DeviceOrientationManager::DeviceOrientationManager(WebViewCore* webViewCore)
     : m_useMock(false)
+    , m_webViewCore(webViewCore)
 {
 }
 
@@ -51,16 +57,34 @@ void DeviceOrientationManager::setMockOrientation(PassRefPtr<DeviceOrientation> 
     static_cast<DeviceOrientationClientMock*>(client())->setOrientation(orientation);
 };
 
+void DeviceOrientationManager::onOrientationChange(PassRefPtr<DeviceOrientation> orientation)
+{
+    ASSERT(!m_useMock);
+    static_cast<DeviceOrientationClientImpl*>(m_client.get())->onOrientationChange(orientation);
+}
+
+void DeviceOrientationManager::maybeSuspendClient()
+{
+    if (!m_useMock && m_client)
+        static_cast<DeviceOrientationClientImpl*>(m_client.get())->suspend();
+}
+
+void DeviceOrientationManager::maybeResumeClient()
+{
+    if (!m_useMock && m_client)
+        static_cast<DeviceOrientationClientImpl*>(m_client.get())->resume();
+}
+
 DeviceOrientationClient* DeviceOrientationManager::client()
 {
-    // FIXME: Implement real client.
     if (!m_client)
-        m_client.set(m_useMock ? new DeviceOrientationClientMock() : 0);
+        m_client.set(m_useMock ? new DeviceOrientationClientMock
+                : static_cast<DeviceOrientationClient*>(new DeviceOrientationClientImpl(m_webViewCore)));
     ASSERT(m_client);
     return m_client.get();
 }
 
-// JNI for android.webkit.MockDeviceOrientation
+// JNI for android.webkit.DeviceOrientationManager
 static const char* javaDeviceOrientationManagerClass = "android/webkit/DeviceOrientationManager";
 
 static WebViewCore* getWebViewCore(JNIEnv* env, jobject webViewCoreObject)
@@ -81,9 +105,16 @@ static void setMockOrientation(JNIEnv* env, jobject, jobject webViewCoreObject, 
     getWebViewCore(env, webViewCoreObject)->deviceOrientationManager()->setMockOrientation(orientation.release());
 }
 
+static void onOrientationChange(JNIEnv* env, jobject, jobject webViewCoreObject, bool canProvideAlpha, double alpha, bool canProvideBeta, double beta, bool canProvideGamma, double gamma)
+{
+    RefPtr<DeviceOrientation> orientation = DeviceOrientation::create(canProvideAlpha, alpha, canProvideBeta, beta, canProvideGamma, gamma);
+    getWebViewCore(env, webViewCoreObject)->deviceOrientationManager()->onOrientationChange(orientation.release());
+}
+
 static JNINativeMethod gDeviceOrientationManagerMethods[] = {
     { "nativeUseMock", "(Landroid/webkit/WebViewCore;)V", (void*) useMock },
-    { "nativeSetMockOrientation", "(Landroid/webkit/WebViewCore;ZDZDZD)V", (void*) setMockOrientation }
+    { "nativeSetMockOrientation", "(Landroid/webkit/WebViewCore;ZDZDZD)V", (void*) setMockOrientation },
+    { "nativeOnOrientationChange", "(Landroid/webkit/WebViewCore;ZDZDZD)V", (void*) onOrientationChange }
 };
 
 int register_device_orientation_manager(JNIEnv* env)
