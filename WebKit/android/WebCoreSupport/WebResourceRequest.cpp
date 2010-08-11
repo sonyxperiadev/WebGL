@@ -36,7 +36,6 @@ namespace android {
 WebResourceRequest::WebResourceRequest(const WebCore::ResourceRequest& resourceRequest)
 {
     // Set the request headers
-    net::HttpRequestHeaders requestHeaders;
     const WebCore::HTTPHeaderMap& map = resourceRequest.httpHeaderFields();
     for (WebCore::HTTPHeaderMap::const_iterator it = map.begin(); it != map.end(); ++it) {
         const std::string& nameUtf8 = it->first.string().utf8().data();
@@ -60,7 +59,7 @@ WebResourceRequest::WebResourceRequest(const WebCore::ResourceRequest& resourceR
         if (LowerCaseEqualsASCII(nameUtf8, "cache-control") && LowerCaseEqualsASCII(valueUtf8, "max-age=0"))
             continue;
 
-        requestHeaders.SetHeader(nameUtf8, valueUtf8);
+        m_requestHeaders.SetHeader(nameUtf8, valueUtf8);
     }
 
     m_method = resourceRequest.httpMethod().utf8().data();
