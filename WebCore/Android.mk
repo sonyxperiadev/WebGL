@@ -24,6 +24,7 @@
 ##
 
 LOCAL_SRC_FILES := \
+	bindings/generic/ActiveDOMCallback.cpp \
 	bindings/generic/BindingSecurityBase.cpp \
 	bindings/generic/RuntimeEnabledFeatures.cpp \
 	\
@@ -164,11 +165,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/DeviceOrientationEvent.cpp \
 	dom/OverflowEvent.cpp \
 	dom/PageTransitionEvent.cpp \
-<<<<<<< HEAD
-	dom/PopStateEvent.cpp \
-=======
 	dom/PendingScript.cpp \
->>>>>>> webkit.org at r65072
+	dom/PopStateEvent.cpp \
 	dom/Position.cpp \
 	dom/PositionIterator.cpp \
 	dom/ProcessingInstruction.cpp \
@@ -444,6 +442,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/KillRingNone.cpp \
 	platform/Length.cpp \
 	platform/LinkHash.cpp \
+	platform/LocalizedStrings.cpp \
 	platform/Logging.cpp \
 	platform/MIMETypeRegistry.cpp \
 	platform/SchemeRegistry.cpp \

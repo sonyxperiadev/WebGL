@@ -28,6 +28,8 @@ LOCAL_SRC_FILES := \
 	API/JSCallbackObject.cpp \
 	API/OpaqueJSString.cpp \
 	\
+	assembler/ARMv7Assembler.cpp \
+	\
 	bytecode/CodeBlock.cpp \
 	bytecode/JumpTable.cpp \
 	bytecode/Opcode.cpp \
@@ -98,6 +100,7 @@ LOCAL_SRC_FILES := \
 	runtime/Executable.cpp \
 	runtime/FunctionConstructor.cpp \
 	runtime/FunctionPrototype.cpp \
+	runtime/GCActivityCallback.cpp \
 	runtime/GCHandle.cpp \
 	runtime/GetterSetter.cpp \
 	runtime/GlobalEvalFunction.cpp \

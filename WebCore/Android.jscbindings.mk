@@ -95,11 +95,6 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSDOMWrapper.cpp \
 	bindings/js/JSDataGridColumnListCustom.cpp \
 	bindings/js/JSDataGridDataSource.cpp \
-<<<<<<< HEAD
-	bindings/js/JSDatabaseCustom.cpp \
-	bindings/js/JSDatabaseSyncCustom.cpp \
-=======
->>>>>>> webkit.org at r65072
 	bindings/js/JSDedicatedWorkerContextCustom.cpp \
 	bindings/js/JSDesktopNotificationsCustom.cpp \
 	bindings/js/JSDeviceMotionEventCustom.cpp \
@@ -172,7 +167,6 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSXMLHttpRequestUploadCustom.cpp \
 	bindings/js/JSXSLTProcessorCustom.cpp \
 	bindings/js/ScheduledAction.cpp \
-	bindings/js/ScriptArray.cpp \
 	bindings/js/ScriptCachedFrameData.cpp \
 	bindings/js/ScriptCallFrame.cpp \
 	bindings/js/ScriptCallStack.cpp \

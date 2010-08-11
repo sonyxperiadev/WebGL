@@ -106,11 +106,8 @@ GEN := \
     $(intermediates)/dom/JSDOMCoreException.h \
     $(intermediates)/dom/JSDOMImplementation.h \
     $(intermediates)/dom/JSDOMStringList.h \
-<<<<<<< HEAD
     $(intermediates)/dom/JSDOMStringMap.h \
-=======
     $(intermediates)/dom/JSDeviceMotionEvent.h \
->>>>>>> webkit.org at r65072
     $(intermediates)/dom/JSDeviceOrientationEvent.h \
     $(intermediates)/dom/JSDocument.h \
     $(intermediates)/dom/JSDocumentFragment.h \

@@ -54,7 +54,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/NPV8Object.cpp \
 	bindings/v8/ScheduledAction.cpp \
 	bindings/v8/ScopedDOMDataStore.cpp \
-	bindings/v8/ScriptArray.cpp \
 	bindings/v8/ScriptCachedFrameData.cpp \
 	bindings/v8/ScriptCallFrame.cpp \
 	bindings/v8/ScriptCallStack.cpp \
@@ -114,12 +113,6 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8DOMFormDataCustom.cpp \
 	bindings/v8/custom/V8DOMWindowCustom.cpp \
 	bindings/v8/custom/V8DataGridColumnListCustom.cpp \
-<<<<<<< HEAD
-	bindings/v8/custom/V8DatabaseCustom.cpp \
-	bindings/v8/custom/V8DatabaseSyncCustom.cpp \
-=======
-	bindings/v8/custom/V8DatabaseCallback.cpp \
->>>>>>> webkit.org at r65072
 	bindings/v8/custom/V8DedicatedWorkerContextCustom.cpp \
 	bindings/v8/custom/V8DeviceMotionEventCustom.cpp \
 	bindings/v8/custom/V8DeviceOrientationEventCustom.cpp \
