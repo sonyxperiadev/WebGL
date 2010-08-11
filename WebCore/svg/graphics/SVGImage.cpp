@@ -254,6 +254,8 @@ bool SVGImage::dataChanged(bool allDataReceived)
         static InspectorClient* dummyInspectorClient = new EmptyInspectorClient;
         pageClients.inspectorClient = dummyInspectorClient;
 #if ENABLE(DEVICE_ORIENTATION)
+        static DeviceMotionClient* dummyDeviceMotionClient = new EmptyDeviceMotionClient;
+        pageClients.deviceMotionClient = dummyDeviceMotionClient;
         static DeviceOrientationClient* dummyDeviceOrientationClient = new EmptyDeviceOrientationClient;
         pageClients.deviceOrientationClient = dummyDeviceOrientationClient;
 #endif
