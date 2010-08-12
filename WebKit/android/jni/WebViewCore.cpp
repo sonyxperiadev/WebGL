@@ -2498,10 +2498,23 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             } else {
                 requestKeyboard(false);
             }
-        } else if (focusNode->isContentEditable()) {
-            setFocusControllerActive(framePtr, true);
-            requestKeyboard(true);
+        } else {
+            // If the focusNode is contentEditable, show the keyboard and enable
+            // the focus controller so the user can type.  Otherwise hide the
+            // keyboard and disable the focus controller because no text input
+            // is needed.
+            bool keyboard = focusNode->isContentEditable();
+            setFocusControllerActive(framePtr, keyboard);
+            if (keyboard) {
+                requestKeyboard(true);
+            } else {
+                clearTextEntry();
+            }
         }
+    } else {
+        // There is no focusNode, so the keyboard is not needed.
+        setFocusControllerActive(framePtr, false);
+        clearTextEntry();
     }
     return handled;
 }

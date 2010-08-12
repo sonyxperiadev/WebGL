@@ -105,7 +105,6 @@ enum DrawExtras { // keep this in sync with WebView.java
 struct JavaGlue {
     jweak       m_obj;
     jmethodID   m_calcOurContentVisibleRectF;
-    jmethodID   m_clearTextEntry;
     jmethodID   m_overrideLoading;
     jmethodID   m_scrollBy;
     jmethodID   m_sendMoveFocus;
@@ -141,7 +140,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     m_javaGlue.m_obj = env->NewWeakGlobalRef(javaWebView);
     m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(IIZ)Z");
     m_javaGlue.m_calcOurContentVisibleRectF = GetJMethod(env, clazz, "calcOurContentVisibleRectF", "(Landroid/graphics/RectF;)V");
-    m_javaGlue.m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "(Z)V");
     m_javaGlue.m_overrideLoading = GetJMethod(env, clazz, "overrideLoading", "(Ljava/lang/String;)V");
     m_javaGlue.m_sendMoveFocus = GetJMethod(env, clazz, "sendMoveFocus", "(II)V");
     m_javaGlue.m_sendMoveMouse = GetJMethod(env, clazz, "sendMoveMouse", "(IIII)V");
@@ -220,15 +218,6 @@ void hideCursor()
     m_viewImpl->m_hasCursorBounds = false;
     root->hideCursor();
     viewInvalidate();
-}
-
-void clearTextEntry()
-{
-    DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue.object(env).get(),
-        m_javaGlue.m_clearTextEntry, true);
-    checkException(env);
 }
 
 #if DUMP_NAV_CACHE
@@ -893,7 +882,6 @@ bool motionUp(int x, int y, int slop)
         sendMotionUp(frame ? (WebCore::Frame*) frame->framePointer() : 0,
             0, x, y);
         viewInvalidate();
-        clearTextEntry();
         return pageScrolled;
     }
     DBG_NAV_LOGD("CachedNode:%p (%d) x=%d y=%d rx=%d ry=%d", result,
@@ -914,7 +902,6 @@ bool motionUp(int x, int y, int slop)
     }
     viewInvalidate();
     if (!result->isTextInput()) {
-        clearTextEntry();
         if (!result->isSelect() && !result->isContentEditable())
             setFollowedLink(true);
         if (syntheticLink)
