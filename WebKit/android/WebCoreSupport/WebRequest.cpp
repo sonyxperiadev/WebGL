@@ -49,7 +49,9 @@ namespace {
     const int kInitialReadBufSize = 32768;
 }
 
-WebRequest::WebRequest(WebUrlLoaderClient* loader, WebResourceRequest webResourceRequest) : m_urlLoader(loader), m_request(0)
+WebRequest::WebRequest(WebUrlLoaderClient* loader, WebResourceRequest webResourceRequest)
+    : m_urlLoader(loader)
+    , m_request(0)
 {
     GURL gurl(webResourceRequest.url());
     m_request = new URLRequest(gurl, this);
@@ -67,11 +69,11 @@ void WebRequest::finish(bool success)
 {
     if (success) {
         LoaderData* loaderData = new LoaderData(m_urlLoader);
-        callOnMainThread(WebUrlLoaderClient::didFinishLoading, loaderData);
+        m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didFinishLoading, loaderData);
     } else {
         WebResponse webResponse(m_request.get());
         LoaderData* loaderData = new LoaderData(m_urlLoader, webResponse);
-        callOnMainThread(WebUrlLoaderClient::didFail, loaderData);
+        m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didFail, loaderData);
     }
     m_networkBuffer = 0;
     m_request = 0;
@@ -110,11 +112,11 @@ void WebRequest::handleDataURL(GURL url)
         // weburlloader_impl.cc
         WebResponse webResponse(url.spec(), mimeType, data->size(), charset, 200);
         LoaderData* loaderResponse = new LoaderData(m_urlLoader, webResponse);
-        callOnMainThread(WebUrlLoaderClient::didReceiveResponse, loaderResponse);
+        m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveResponse, loaderResponse);
 
         if (!data->empty()) {
             LoaderData* loaderData = new LoaderData(m_urlLoader, data.leakPtr());
-            callOnMainThread(WebUrlLoaderClient::didReceiveDataUrl, loaderData);
+            m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveDataUrl, loaderData);
         }
     } else {
         // handle the failed case
@@ -122,7 +124,6 @@ void WebRequest::handleDataURL(GURL url)
 
     finish(true);
 }
-
 
 // Called upon a server-initiated redirect.  The delegate may call the
 // request's Cancel method to prevent the redirect from being followed.
@@ -146,7 +147,7 @@ void WebRequest::OnReceivedRedirect(URLRequest* newRequest, const GURL& newUrl, 
         WebResponse webResponse(newRequest);
         webResponse.setUrl(newUrl.spec());
         LoaderData* ld = new LoaderData(m_urlLoader, webResponse);
-        callOnMainThread(WebUrlLoaderClient::willSendRequest, ld);
+        m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::willSendRequest, ld);
     } else {
         // why would this happen? And what to do?
     }
@@ -180,7 +181,7 @@ void WebRequest::OnResponseStarted(URLRequest* request)
     if (request && request->status().is_success()) {
         WebResponse webResponse(request);
         LoaderData* loaderData = new LoaderData(m_urlLoader, webResponse);
-        callOnMainThread(WebUrlLoaderClient::didReceiveResponse, loaderData);
+        m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveResponse, loaderData);
 
         // Start reading the response
         startReading();
@@ -205,7 +206,7 @@ void WebRequest::startReading()
             // Read ok, forward buffer to webcore
             m_networkBuffer->AddRef();
             LoaderData* loaderData = new LoaderData(m_urlLoader, m_networkBuffer.get(), bytesRead);
-            callOnMainThread(WebUrlLoaderClient::didReceiveData, loaderData);
+            m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveData, loaderData);
             // m_networkBuffer->Release() on main thread
             m_networkBuffer = 0;
         } else if (m_request && m_request->status().is_io_pending()) {
@@ -241,7 +242,7 @@ void WebRequest::OnReadCompleted(URLRequest* request, int bytesRead)
         m_networkBuffer->AddRef();
         LoaderData* loaderData = new LoaderData(m_urlLoader, m_networkBuffer.get(), bytesRead);
         // m_networkBuffer->Release() on main thread
-        callOnMainThread(WebUrlLoaderClient::didReceiveData, loaderData);
+        m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveData, loaderData);
         m_networkBuffer = 0;
 
         // Get the rest of the data

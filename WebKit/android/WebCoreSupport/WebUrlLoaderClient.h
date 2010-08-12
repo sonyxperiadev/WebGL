@@ -31,7 +31,12 @@
 #include "WebUrlLoader.h"
 
 #include <base/ref_counted.h>
+#include <base/tuple.h>
 #include <string>
+#include <deque>
+
+class Lock;
+class ConditionVariable;
 
 namespace base {
 class Thread;
@@ -63,7 +68,13 @@ public:
     void downloadFile();
     void pauseLoad(bool pause) {} // Android method, does nothing for now
 
-    // Called by WebRequest, should be forwarded to WebCore
+    typedef void CallbackFunction(void*);
+
+    // This is called from the IO thread, and dispatches the callback to the main thread.
+    // (For asynchronous calls, we just delegate to WebKit's callOnMainThread.)
+    void maybeCallOnMainThread(CallbackFunction*, void* context);
+
+    // Called by WebRequest (using maybeCallOnMainThread), should be forwarded to WebCore.
     static void didReceiveResponse(void*);
     static void didReceiveData(void*);
     static void didReceiveDataUrl(void*);
@@ -75,6 +86,8 @@ private:
     void finish();
     RefPtr<WebCore::ResourceHandle> m_resourceHandle;
     bool m_cancelling;
+    bool m_sync;
+    volatile bool m_finished;
 
     // Not an OwnPtr since it should be deleted on another thread
     WebRequest* m_request;
@@ -84,9 +97,20 @@ private:
 
     // Check if a request is active
     bool isActive() const;
+
+    // Mutex and condition variable used for synchronous requests.
+    // Note that these are static. This works because there's only one main thread.
+    static Lock* syncLock();
+    static ConditionVariable* syncCondition();
+
+    typedef Tuple2<CallbackFunction*, void*> Callback;
+    typedef std::deque<Callback> CallbackQueue;
+
+    // Queue of callbacks to be executed by the main thread. Must only be accessed inside mutex.
+    CallbackQueue m_queue;
 };
 
-// A struct to send more than one thing in a void*, needed for callOnMainThread
+// A struct to send more than one thing in a void*, needed for maybeCallOnMainThread
 struct LoaderData {
     net::IOBuffer* buffer;
     WebUrlLoaderClient* loader;

@@ -33,6 +33,8 @@
 #include "WebRequest.h"
 #include "WebResourceRequest.h"
 
+#include <base/condition_variable.h>
+#include <base/lock.h>
 #include <base/thread.h>
 #include <net/base/io_buffer.h>
 
@@ -66,12 +68,21 @@ base::Thread* WebUrlLoaderClient::ioThread()
     return networkThread;
 }
 
+Lock* WebUrlLoaderClient::syncLock() {
+    static Lock s_syncLock;
+    return &s_syncLock;
+}
+
+ConditionVariable* WebUrlLoaderClient::syncCondition() {
+    static ConditionVariable s_syncCondition(syncLock());
+    return &s_syncCondition;
+}
+
 WebUrlLoaderClient::~WebUrlLoaderClient()
 {
     base::Thread* thread = ioThread();
     if (thread)
         thread->message_loop()->ReleaseSoon(FROM_HERE, m_request);
-
 }
 
 bool WebUrlLoaderClient::isActive() const
@@ -85,7 +96,10 @@ bool WebUrlLoaderClient::isActive() const
 }
 
 WebUrlLoaderClient::WebUrlLoaderClient(WebCore::ResourceHandle* resourceHandle, const WebCore::ResourceRequest& resourceRequest)
-        : m_resourceHandle(resourceHandle), m_cancelling(false)
+    : m_resourceHandle(resourceHandle)
+    , m_cancelling(false)
+    , m_sync(false)
+    , m_finished(false)
 {
     WebResourceRequest webResourceRequest(resourceRequest);
 
@@ -129,15 +143,40 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebCore::ResourceHandle* resourceHandle, 
     }
 }
 
-bool WebUrlLoaderClient::start(bool /*sync*/)
+bool WebUrlLoaderClient::start(bool sync)
 {
     base::Thread* thread = ioThread();
-    if (thread) {
-        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::start));
-        return true;
+    if (!thread) {
+        return false;
     }
 
-    return false;
+    m_sync = sync;
+    if (m_sync) {
+        AutoLock autoLock(*syncLock());
+        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::start));
+
+        // Run callbacks until the queue is exhausted and m_finished is true.
+        while(!m_finished) {
+            while (!m_queue.empty()) {
+                Callback& callback = m_queue.front();
+                CallbackFunction* function = callback.a;
+                void* context = callback.b;
+                (*function)(context);
+                m_queue.pop_front();
+            }
+            if (m_queue.empty() && !m_finished) {
+                syncCondition()->Wait();
+            }
+        }
+
+        // This may be the last reference to us, so we may be deleted now.
+        // Don't access any more member variables after releasing this reference.
+        m_resourceHandle = 0;
+    } else {
+        // Asynchronous start.
+        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::start));
+    }
+    return true;
 }
 
 void WebUrlLoaderClient::cancel()
@@ -151,9 +190,26 @@ void WebUrlLoaderClient::cancel()
 
 void WebUrlLoaderClient::finish()
 {
-    // This will probably cause this to be deleted as we are the only one holding a reference to
-    // m_resourceHandle, and it is holding the only reference to this.
-    m_resourceHandle = 0;
+    m_finished = true;
+    if (!m_sync) {
+        // This is the last reference to us, so we will be deleted now.
+        // We only release the reference here if start() was called asynchronously!
+        m_resourceHandle = 0;
+    }
+}
+
+// This is called from the IO thread, and dispatches the callback to the main thread.
+void WebUrlLoaderClient::maybeCallOnMainThread(CallbackFunction* function, void* context) {
+    if (m_sync) {
+        AutoLock autoLock(*syncLock());
+        if (m_queue.empty()) {
+            syncCondition()->Broadcast();
+        }
+        m_queue.push_back(Callback(function, context));
+    } else {
+        // Let WebKit handle it.
+        callOnMainThread(function, context);
+    }
 }
 
 // Response methods
