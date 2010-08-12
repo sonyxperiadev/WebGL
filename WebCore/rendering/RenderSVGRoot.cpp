@@ -334,14 +334,7 @@ bool RenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& re
             updateHitTestResult(result, pointInBorderBox);
             // FIXME: nodeAtFloatPoint() doesn't handle rect-based hit tests yet.
             result.addNodeToRectBasedTestResult(child->node(), _x, _y);
-#ifdef ANDROID_HITTEST_WITHSIZE
-            if (result.isRectBasedTest())
-                ASSERT(node() || isAnonymous());
-            else
-                return true;
-#else
             return true;
-#endif
         }
     }
 

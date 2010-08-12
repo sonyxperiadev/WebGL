@@ -200,9 +200,6 @@
 // Enable prefetching when specified via the rel element of <link> elements.
 #define ENABLE_LINK_PREFETCH 1
 
-// Enable hit test with point plus a size
-#define ANDROID_HITTEST_WITHSIZE
-
 // Enable scrollable divs in separate layers.  This might be upstreamed to
 // webkit.org but for now, it is just an Android feature.
 #define ENABLE_ANDROID_OVERFLOW_SCROLL 1
@@ -318,4 +315,3 @@ typedef float CGFloat;
 #if PLATFORM(WIN) && PLATFORM(CG)
 #define WTF_USE_SAFARI_THEME 1
 #endif
-
