@@ -28,6 +28,8 @@ ietestcenter/Javascript/15.4.4.15-3-8.html SKIP // hangs the layout tests http:/
 // This first block of tests are for features for which Android
 // should pass all tests. They are skipped only temporarily.
 // TODO: Fix these failing tests and remove them from this list.
+fast/dom/Geolocation/delayed-permission-allowed.html IGNORE_RESULT // Requires layoutTestController.permissionSet b/2914450
+fast/dom/Geolocation/delayed-permission-denied.html IGNORE_RESULT // Requires layoutTestController.permissionSet b/2914450
 fast/events/touch/basic-multi-touch-events.html IGNORE_RESULT // Requires multi-touch
 fast/events/touch/touch-target.html IGNORE_RESULT // Requires multi-touch
 http/tests/appcache/empty-manifest.html IGNORE_RESULT // flaky
