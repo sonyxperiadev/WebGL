@@ -206,6 +206,10 @@
 // webkit.org but for now, it is just an Android feature.
 #define ENABLE_ANDROID_OVERFLOW_SCROLL 1
 
+#if !defined(WTF_USE_CHROME_NETWORK_STACK)
+#define WTF_USE_CHROME_NETWORK_STACK 0
+#endif /* !defined(WTF_USE_CHROME_NETWORK_STACK) */
+
 #endif /* PLATFORM(ANDROID) */
 
 #ifdef __cplusplus

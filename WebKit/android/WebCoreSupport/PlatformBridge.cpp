@@ -33,6 +33,7 @@
 #include "KeyGeneratorClient.h"
 #include "PluginView.h"
 #include "WebCoreFrameBridge.h"
+#include "WebRequestContext.h"
 #include "WebViewCore.h"
 #include "npruntime.h"
 #include <wtf/android/AndroidThreading.h>
@@ -62,20 +63,33 @@ String PlatformBridge::getSignedPublicKeyAndChallengeString(unsigned index, cons
 
 void PlatformBridge::setCookies(const KURL& url, const String& value)
 {
+#if USE(CHROME_NETWORK_STACK)
+    std::string cookieValue(value.utf8().data());
+    GURL cookieGurl(url.string().utf8().data());
+    WebRequestContext::GetAndroidContext()->cookie_store()->SetCookie(cookieGurl ,cookieValue);
+#else
     CookieClient* client = JavaSharedClient::GetCookieClient();
     if (!client)
         return;
 
     client->setCookies(url, value);
+#endif
 }
 
 String PlatformBridge::cookies(const KURL& url)
 {
+#if USE(CHROME_NETWORK_STACK)
+    GURL cookieGurl(url.string().utf8().data());
+    std::string cookies = WebRequestContext::GetAndroidContext()->cookie_store()->GetCookies(cookieGurl);
+    String cookieString(cookies.c_str());
+    return cookieString;
+#else
     CookieClient* client = JavaSharedClient::GetCookieClient();
     if (!client)
         return String();
 
     return client->cookies(url);
+#endif
 }
 
 bool PlatformBridge::cookiesEnabled()
