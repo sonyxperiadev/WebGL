@@ -81,8 +81,8 @@ endif
 # Read the HTTP_STACK environment variable, default is android
 ifeq ($(TARGET_SIMULATOR),false)
 HTTP_STACK = $(HTTP)
-ifneq ($(HTTP_STACK),chrome)
-  HTTP_STACK = android
+ifneq ($(HTTP_STACK),android)
+  HTTP_STACK = chrome
 endif
 endif
 
