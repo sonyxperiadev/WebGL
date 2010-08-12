@@ -26,6 +26,11 @@
 #ifndef WebRequestContext_h
 #define WebRequestContext_h
 
+// libchromium_net is not available on the simulator for now
+// Cannot forward declare the chrome classes since this is
+// a subclass of a chrome class.
+#if USE(CHROME_NETWORK_STACK)
+
 #include "net/http/http_cache.h"
 #include "net/url_request/url_request_context.h"
 
@@ -45,5 +50,7 @@ private:
 };
 
 } // namespace android
+
+#endif // USE(CHROME_NETWORK_STACK)
 
 #endif
