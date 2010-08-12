@@ -27,6 +27,7 @@
 #include "WebResponse.h"
 
 #include "ResourceResponse.h"
+#include "ResourceError.h"
 
 namespace android {
 
@@ -34,6 +35,7 @@ WebResponse::WebResponse(URLRequest* request)
     : m_httpStatusCode(0)
 {
     m_url = request->url().spec();
+    m_host = request->url().HostNoBrackets();
     request->GetMimeType(&m_mime);
     request->GetCharset(&m_encoding);
     m_length = request->GetExpectedContentSize();
@@ -73,6 +75,14 @@ WebCore::ResourceResponse WebResponse::createResourceResponse()
 
     return resourceResponse;
 }
+
+WebCore::ResourceError WebResponse::createResourceError()
+{
+    // TODO: Last parameter is a localized string, get the correct one from android
+    WebCore::ResourceError error(m_host.c_str(), m_httpStatusCode, m_url.c_str(), m_httpStatusText.c_str());
+    return error;
+}
+
 
 WebCore::KURL WebResponse::url()
 {

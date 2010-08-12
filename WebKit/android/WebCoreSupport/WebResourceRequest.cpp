@@ -33,7 +33,7 @@
 
 namespace android {
 
-WebResourceRequest::WebResourceRequest(WebCore::ResourceRequest& resourceRequest)
+WebResourceRequest::WebResourceRequest(const WebCore::ResourceRequest& resourceRequest)
 {
     // Set the request headers
     net::HttpRequestHeaders requestHeaders;
