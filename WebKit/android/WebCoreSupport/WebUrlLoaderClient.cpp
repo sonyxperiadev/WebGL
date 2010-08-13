@@ -111,6 +111,7 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebCore::ResourceHandle* resourceHandle, 
                         thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::AppendBytesToUpload, element.m_data.data(), size));
                 }
                 break;
+#if ENABLE(BLOB)
             case FormDataElement::encodedFile:
                 if (element.m_fileLength == -1)
                     continue; // TODO: Not supporting directories yet
@@ -119,6 +120,7 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebCore::ResourceHandle* resourceHandle, 
                     // Chrome code is here: webkit/glue/weburlloader_impl.cc:391
                 }
                 break;
+#endif
             default:
                 // TODO: Add a warning/DCHECK/assert here, should never happen
                 break;
