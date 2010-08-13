@@ -1135,6 +1135,10 @@ bool RenderLayerCompositor::needsToBeComposited(const RenderLayer* layer) const
 #if PLATFORM(ANDROID)
 bool RenderLayerCompositor::requiresCompositingForMobileSites(const RenderLayer* layer) const
 {
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    if (layer->hasOverflowScroll())
+        return true;
+#endif
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
     // First, check if we are in an iframe, and if so bail out
     if (m_renderView->document()->frame()->tree()->parent())
@@ -1174,9 +1178,6 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer* layer) c
     return requiresCompositingForTransform(renderer)
 #if PLATFORM(ANDROID)
              || requiresCompositingForMobileSites(layer)
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-             || renderer->hasOverflowClip()
-#endif
 #endif
              || requiresCompositingForVideo(renderer)
              || requiresCompositingForCanvas(renderer)

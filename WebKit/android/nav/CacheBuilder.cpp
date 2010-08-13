@@ -915,7 +915,7 @@ static bool checkForPluginViewThatWantsFocus(RenderObject* renderer) {
 
 #if USE(ACCELERATED_COMPOSITING)
 static void AddLayer(CachedFrame* frame, size_t index, const IntPoint& location,
-    int id)
+        const IntPoint& scroll, int id)
 {
     DBG_NAV_LOGD("frame=%p index=%d loc=(%d,%d) id=%d", frame, index,
         location.x(), location.y(), id);
@@ -923,6 +923,7 @@ static void AddLayer(CachedFrame* frame, size_t index, const IntPoint& location,
     cachedLayer.reset();
     cachedLayer.setCachedNodeIndex(index);
     cachedLayer.setOffset(location);
+    cachedLayer.setScrollOffset(scroll);
     cachedLayer.setUniqueId(id);
     frame->add(cachedLayer);
 }
@@ -1063,12 +1064,16 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 TrackLayer(layerTracker, nodeRenderer, lastChild,
                     globalOffsetX, globalOffsetY);
                 size_t size = tracker.size();
-                const LayerAndroid* layer = layerTracker.last().mLayer;
+                LayerAndroid* layer = layerTracker.last().mLayer;
                 if (layer) {
                     int id = layer->uniqueId();
-                    IntPoint loc = nodeRenderer->
-                        absoluteBoundingBoxRect().location();
+                    const RenderLayer* renderLayer =
+                            layerTracker.last().mRenderLayer;
+                    IntPoint loc(SkScalarRound(layer->getPosition().fX),
+                                 SkScalarRound(layer->getPosition().fY));
                     loc.move(globalOffsetX, globalOffsetY);
+                    IntPoint scroll(renderLayer->scrollXOffset(),
+                                    renderLayer->scrollYOffset());
                     // if this is a child of a CachedNode, add a layer
                     size_t limit = cachedFrame->layerCount() == 0 ? 0 :
                         cachedFrame->lastLayer()->cachedNodeIndex();
@@ -1084,7 +1089,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                         CachedNode* trackedNode = cachedFrame->getIndex(index);
                         trackedNode->setIsInLayer(true);
                         trackedNode->setIsUnclipped(true);
-                        AddLayer(cachedFrame, index, loc, id);
+                        AddLayer(cachedFrame, index, loc, scroll, id);
                     }
                 }
             }
@@ -1327,6 +1332,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         LayerAndroid* layer = layerTracker.last().mLayer;
         if (layer) {
             const IntRect& layerClip = layerTracker.last().mBounds;
+            const RenderLayer* renderLayer = layerTracker.last().mRenderLayer;
             if (!layer->contentIsScrollable() && !layerClip.isEmpty() &&
                     !cachedNode.clip(layerClip)) {
                 DBG_NAV_LOGD("skipped on layer clip %d", cacheIndex);
@@ -1334,8 +1340,10 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             }
             isInLayer = true;
             isUnclipped = true; // assume that layers do not have occluded nodes
+            IntPoint scroll(renderLayer->scrollXOffset(),
+                            renderLayer->scrollYOffset());
             AddLayer(cachedFrame, cachedFrame->size(), layerClip.location(),
-                layer->uniqueId());
+                     scroll, layer->uniqueId());
         }
 #endif
         cachedNode.setNavableRects();
@@ -2838,7 +2846,8 @@ void CacheBuilder::TrackLayer(WTF::Vector<LayerTracker>& layerTracker,
     layerTracker.grow(layerTracker.size() + 1);
     LayerTracker& indexTracker = layerTracker.last();
     indexTracker.mLayer = aLayer;
-    indexTracker.mBounds = nodeRenderer->absoluteBoundingBoxRect();
+    indexTracker.mRenderLayer = layer;
+    indexTracker.mBounds = IntRect(FloatRect(aLayer->bounds()));
     indexTracker.mBounds.move(offsetX, offsetY);
     indexTracker.mLastChild = lastChild ? OneAfter(lastChild) : 0;
     DBG_NAV_LOGD("layer=%p [%d] bounds=(%d,%d,w=%d,h=%d)", aLayer,

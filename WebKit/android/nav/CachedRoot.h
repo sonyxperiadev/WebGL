@@ -96,7 +96,10 @@ public:
     void setTextGeneration(int textGeneration) { mTextGeneration = textGeneration; }
     void setMaxScroll(int x, int y) { mMaxXScroll = x; mMaxYScroll = y; }
     void setPicture(SkPicture* picture) { mPicture = picture; }
-    void setRootLayer(WebCore::LayerAndroid* layer) { mRootLayer = layer; }
+    void setRootLayer(WebCore::LayerAndroid* layer) {
+        mRootLayer = layer;
+        resetLayers();
+    }
     void setScrollOnly(bool state) { mScrollOnly = state; }
     void setSelection(int start, int end) { mSelectionStart = start; mSelectionEnd = end; }
     void setupScrolledBounds() const { mScrolledBounds = mViewBounds; }

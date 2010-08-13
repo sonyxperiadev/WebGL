@@ -265,6 +265,9 @@ public:
     int horizontalScrollbarHeight() const;
 
     bool hasOverflowControls() const;
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    bool hasOverflowScroll() const;
+#endif
     void positionOverflowControls(int tx, int ty);
     bool isPointInResizeControl(const IntPoint& absolutePoint) const;
     bool hitTestOverflowControls(HitTestResult&, const IntPoint& localPoint);

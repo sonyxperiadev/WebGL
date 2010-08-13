@@ -1881,6 +1881,22 @@ bool RenderLayer::hasOverflowControls() const
 {
     return m_hBar || m_vBar || m_scrollCorner || renderer()->style()->resize() != RESIZE_NONE;
 }
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+bool RenderLayer::hasOverflowScroll() const
+{
+    if (!enclosingElement()->hasTagName(HTMLNames::divTag))
+        return false;
+    if (m_scrollDimensionsDirty)
+        return false;
+    EOverflow x = renderer()->style()->overflowX();
+    if ((x == OSCROLL || x == OAUTO) && m_scrollWidth > renderBox()->clientWidth())
+        return true;
+    EOverflow y = renderer()->style()->overflowY();
+    if ((y == OSCROLL || y == OAUTO) && m_scrollHeight > renderBox()->clientHeight())
+        return true;
+    return false;
+}
+#endif
 
 void RenderLayer::positionOverflowControls(int tx, int ty)
 {
@@ -1954,6 +1970,13 @@ void RenderLayer::computeScrollDimensions(bool* needHBar, bool* needVBar)
         *needHBar = rightPos > clientWidth;
     if (needVBar)
         *needVBar = bottomPos > clientHeight;
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    if (hasOverflowScroll()) {
+        compositor()->setCompositingLayersNeedRebuild(true);
+        compositor()->enableCompositingMode(true);
+        compositor()->updateCompositingLayers(CompositingUpdateAfterLayoutOrStyleChange, this);
+    }
+#endif
 }
 
 void RenderLayer::updateOverflowStatus(bool horizontalOverflow, bool verticalOverflow)
@@ -3219,13 +3242,11 @@ void RenderLayer::calculateRects(const RenderLayer* rootLayer, const IntRect& pa
     if (renderer()->hasOverflowClip() || renderer()->hasClip()) {
         // This layer establishes a clip of some kind.
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-        if (renderer()->hasOverflowClip() &&
-                !m_scrollDimensionsDirty &&
-                (m_scrollWidth > renderBox()->clientWidth() ||
-                 m_scrollHeight > renderBox()->clientHeight())) {
+        if (hasOverflowScroll()) {
             RenderBox* box = toRenderBox(renderer());
-            layerBounds = backgroundRect = foregroundRect = outlineRect =
-                    IntRect(x, y, box->borderLeft() + box->borderRight() + m_scrollWidth,
+            foregroundRect =
+                    IntRect(x, y,
+                            box->borderLeft() + box->borderRight() + m_scrollWidth,
                             box->borderTop() + box->borderBottom() + m_scrollHeight);
         } else
 #endif
@@ -3743,7 +3764,7 @@ bool RenderLayer::shouldBeNormalFlowOnly() const
 bool RenderLayer::isSelfPaintingLayer() const
 {
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    if (renderer()->hasOverflowClip())
+    if (hasOverflowScroll())
         return true;
 #endif
     return !isNormalFlowOnly() || renderer()->hasReflection() || renderer()->hasMask() || renderer()->isTableRow() || renderer()->isVideo() || renderer()->isEmbeddedObject() || renderer()->isRenderIFrame();
