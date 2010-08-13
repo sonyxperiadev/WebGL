@@ -35,6 +35,7 @@
 #include "DeviceOrientationClientAndroid.h"
 #include "DragClientAndroid.h"
 #include "EditorClientAndroid.h"
+#include "FocusController.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientAndroid.h"
@@ -233,6 +234,7 @@ EXPORT void benchmark(const char* url, int reloadCount, int width, int height) {
     // assertion in the Cache code)
     frame->init();
     frame->selection()->setFocused(true);
+    frame->page()->focusController()->setFocused(true);
 
     deviceMotion->setWebViewCore(webViewCore);
     deviceOrientation->setWebViewCore(webViewCore);

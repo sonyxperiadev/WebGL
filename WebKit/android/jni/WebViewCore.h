@@ -350,7 +350,7 @@ namespace android {
          * Set the FocusController's active and focused states, so that
          * the caret will draw (true) or not.
          */
-        void setFocusControllerActive(WebCore::Frame*, bool active);
+        void setFocusControllerActive(bool active);
 
         void saveDocumentState(WebCore::Frame* frame);
 

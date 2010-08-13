@@ -1846,7 +1846,6 @@ void WebViewCore::setSelection(int start, int end)
     client->setUiGeneratedSelectionChange(false);
     WebCore::Frame* focusedFrame = focus->document()->frame();
     focusedFrame->revealSelection();
-    setFocusControllerActive(focusedFrame, true);
 }
 
 String WebViewCore::modifySelection(const String& alter, const String& direction, const String& granularity)
@@ -1961,7 +1960,6 @@ void WebViewCore::passToJs(int generation, const WTF::String& current,
     client->setUiGeneratedSelectionChange(false);
     m_blockTextfieldUpdates = false;
     m_textGeneration = generation;
-    setFocusControllerActive(focus->document()->frame(), true);
     WebCore::RenderTextControl* renderText =
         static_cast<WebCore::RenderTextControl*>(renderer);
     WTF::String test = renderText->text();
@@ -1997,18 +1995,9 @@ void WebViewCore::scrollFocusedTextInput(float xPercent, int y)
     renderText->setScrollTop(y);
 }
 
-void WebViewCore::setFocusControllerActive(WebCore::Frame* frame, bool active)
+void WebViewCore::setFocusControllerActive(bool active)
 {
-    if (!frame) {
-        WebCore::Node* focus = currentFocus();
-        if (focus)
-            frame = focus->document()->frame();
-        else
-            frame = m_mainFrame;
-    }
-    WebCore::FocusController* controller = frame->page()->focusController();
-    controller->setActive(active);
-    controller->setFocused(active);
+    m_mainFrame->page()->focusController()->setActive(active);
 }
 
 void WebViewCore::saveDocumentState(WebCore::Frame* frame)
@@ -2489,7 +2478,6 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
         if (renderer && (renderer->isTextField() || renderer->isTextArea())) {
             bool ime = !(static_cast<WebCore::HTMLInputElement*>(focusNode))
                     ->readOnly();
-            setFocusControllerActive(framePtr, ime);
             if (ime) {
                 RenderTextControl* rtc
                         = static_cast<RenderTextControl*> (renderer);
@@ -2504,7 +2492,6 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             // keyboard and disable the focus controller because no text input
             // is needed.
             bool keyboard = focusNode->isContentEditable();
-            setFocusControllerActive(framePtr, keyboard);
             if (keyboard) {
                 requestKeyboard(true);
             } else {
@@ -2513,7 +2500,6 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
         }
     } else {
         // There is no focusNode, so the keyboard is not needed.
-        setFocusControllerActive(framePtr, false);
         clearTextEntry();
     }
     return handled;
@@ -3033,7 +3019,7 @@ static void SetFocusControllerActive(JNIEnv *env, jobject obj, jboolean active)
     LOGV("webviewcore::nativeSetFocusControllerActive()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetFocusControllerActive");
-    viewImpl->setFocusControllerActive(0, active);
+    viewImpl->setFocusControllerActive(active);
 }
 
 static void SaveDocumentState(JNIEnv *env, jobject obj, jint frame)

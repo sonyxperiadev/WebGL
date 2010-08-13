@@ -42,6 +42,7 @@
 #include "DragClientAndroid.h"
 #include "EditorClientAndroid.h"
 #include "Element.h"
+#include "FocusController.h"
 #include "Font.h"
 #include "FormState.h"
 #include "Frame.h"
@@ -940,6 +941,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     // Set the frame to active to turn on keyboard focus.
     frame->init();
     frame->selection()->setFocused(true);
+    frame->page()->focusController()->setFocused(true);
     deviceMotionC->setWebViewCore(webViewCore);
     deviceOrientationC->setWebViewCore(webViewCore);
 
