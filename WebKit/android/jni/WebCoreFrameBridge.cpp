@@ -529,7 +529,12 @@ WebFrame::loadStarted(WebCore::Frame* frame)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    const WebCore::KURL& url = frame->loader()->activeDocumentLoader()->url();
+    // activeDocumentLoader() can return null.
+    DocumentLoader* documentLoader = frame->loader()->activeDocumentLoader();
+    if (documentLoader == NULL)
+        return;
+
+    const WebCore::KURL& url = documentLoader->url();
     if (url.isEmpty())
         return;
     LOGV("::WebCore:: loadStarted %s", url.string().ascii().data());
@@ -595,8 +600,14 @@ WebFrame::didFinishLoad(WebCore::Frame* frame)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
     JNIEnv* env = getJNIEnv();
+
+    // activeDocumentLoader() can return null.
     WebCore::FrameLoader* loader = frame->loader();
-    const WebCore::KURL& url = loader->activeDocumentLoader()->url();
+    DocumentLoader* documentLoader = loader->activeDocumentLoader();
+    if (documentLoader == NULL)
+      return;
+
+    const WebCore::KURL& url = documentLoader->url();
     if (url.isEmpty())
         return;
     LOGV("::WebCore:: didFinishLoad %s", url.string().ascii().data());
