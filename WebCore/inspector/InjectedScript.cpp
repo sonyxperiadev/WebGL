@@ -35,7 +35,6 @@
 
 #include "InspectorValues.h"
 #include "PlatformString.h"
-#include "SerializedScriptValue.h"
 #include "ScriptFunctionCall.h"
 
 namespace WebCore {
@@ -45,7 +44,7 @@ InjectedScript::InjectedScript(ScriptObject injectedScriptObject)
 {
 }
 
-void InjectedScript::dispatch(long callId, const String& methodName, const String& arguments, bool async, RefPtr<SerializedScriptValue>* result, bool* hadException) 
+void InjectedScript::dispatch(const String& methodName, const String& arguments, RefPtr<InspectorValue>* result, bool* hadException) 
 {
     ASSERT(!hasNoValue());
     if (!canAccessInspectedWindow()) {
@@ -56,21 +55,19 @@ void InjectedScript::dispatch(long callId, const String& methodName, const Strin
     ScriptFunctionCall function(m_injectedScriptObject, "dispatch");
     function.appendArgument(methodName);
     function.appendArgument(arguments);
-    if (async)
-        function.appendArgument(callId);
     *hadException = false;
     ScriptValue resultValue = function.call(*hadException);
     if (!*hadException)
-        *result = resultValue.serialize(m_injectedScriptObject.scriptState());
+        *result = resultValue.toInspectorValue(m_injectedScriptObject.scriptState());
 }
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-PassRefPtr<SerializedScriptValue> InjectedScript::callFrames()
+PassRefPtr<InspectorValue> InjectedScript::callFrames()
 {
     ASSERT(!hasNoValue());
     ScriptFunctionCall function(m_injectedScriptObject, "callFrames");
     ScriptValue callFramesValue = function.call();
-    return callFramesValue.serialize(m_injectedScriptObject.scriptState());
+    return callFramesValue.toInspectorValue(m_injectedScriptObject.scriptState());
 }
 #endif
 

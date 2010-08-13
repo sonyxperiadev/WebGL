@@ -181,6 +181,8 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSDataGridColumnList.h \
 	DerivedSources/WebCore/JSDedicatedWorkerContext.cpp \
 	DerivedSources/WebCore/JSDedicatedWorkerContext.h \
+	DerivedSources/WebCore/JSDeviceMotionEvent.cpp \
+	DerivedSources/WebCore/JSDeviceMotionEvent.h \
 	DerivedSources/WebCore/JSDeviceOrientationEvent.cpp \
 	DerivedSources/WebCore/JSDeviceOrientationEvent.h \
 	DerivedSources/WebCore/JSDocument.cpp \
@@ -564,6 +566,7 @@ webcoregtk_dom_sources = \
 	WebCore/bindings/gobject/WebKitDOMBinding.h \
 	WebCore/bindings/gobject/WebKitDOMEventTarget.cpp \
 	WebCore/bindings/gobject/WebKitDOMEventTarget.h \
+	WebCore/bindings/gobject/WebKitDOMEventTargetPrivate.h \
 	WebCore/bindings/gobject/WebKitHTMLElementWrapperFactory.cpp \
 	WebCore/bindings/gobject/WebKitHTMLElementWrapperFactory.h \
 	WebCore/bindings/gobject/WebKitDOMObject.cpp \
@@ -617,6 +620,8 @@ webcore_sources += \
 	WebCore/accessibility/AccessibilityTableHeaderContainer.h \
 	WebCore/accessibility/AccessibilityTableRow.cpp \
 	WebCore/accessibility/AccessibilityTableRow.h \
+	WebCore/bindings/generic/ActiveDOMCallback.cpp \
+	WebCore/bindings/generic/ActiveDOMCallback.h \
 	WebCore/bindings/generic/RuntimeEnabledFeatures.cpp \
 	WebCore/bindings/generic/RuntimeEnabledFeatures.h \
 	WebCore/bindings/js/CachedScriptSourceProvider.h \
@@ -668,6 +673,7 @@ webcore_sources += \
 	WebCore/bindings/js/JSDOMWindowShell.h \
 	WebCore/bindings/js/JSDOMWrapper.cpp \
 	WebCore/bindings/js/JSDOMWrapper.h \
+	WebCore/bindings/js/JSDeviceMotionEventCustom.cpp \
 	WebCore/bindings/js/JSDeviceOrientationEventCustom.cpp \
 	WebCore/bindings/js/JSDocumentCustom.cpp \
 	WebCore/bindings/js/JSElementCustom.cpp \
@@ -752,8 +758,6 @@ webcore_sources += \
 	WebCore/bindings/js/JavaScriptCallFrame.h \
 	WebCore/bindings/js/ScheduledAction.cpp \
 	WebCore/bindings/js/ScheduledAction.h \
-	WebCore/bindings/js/ScriptArray.cpp \
-	WebCore/bindings/js/ScriptArray.h \
 	WebCore/bindings/js/ScriptCachedFrameData.cpp \
 	WebCore/bindings/js/ScriptCachedFrameData.h \
 	WebCore/bindings/js/ScriptCallFrame.cpp \
@@ -773,6 +777,7 @@ webcore_sources += \
 	WebCore/bindings/js/ScriptInstance.h \
 	WebCore/bindings/js/ScriptObject.cpp \
 	WebCore/bindings/js/ScriptObject.h \
+	WebCore/bindings/js/ScriptProfile.cpp \
 	WebCore/bindings/js/ScriptProfile.h \
 	WebCore/bindings/js/ScriptProfileNode.h \
 	WebCore/bindings/js/ScriptProfiler.cpp \
@@ -964,6 +969,8 @@ webcore_sources += \
 	WebCore/css/WebKitCSSTransformValue.h \
 	WebCore/dom/ActiveDOMObject.cpp \
 	WebCore/dom/ActiveDOMObject.h \
+	WebCore/dom/AsyncScriptRunner.cpp \
+	WebCore/dom/AsyncScriptRunner.h \
 	WebCore/dom/Attr.cpp \
 	WebCore/dom/Attr.h \
 	WebCore/dom/Attribute.cpp \
@@ -1017,6 +1024,13 @@ webcore_sources += \
 	WebCore/dom/DatasetDOMStringMap.h \
 	WebCore/dom/DecodedDataDocumentParser.cpp \
 	WebCore/dom/DecodedDataDocumentParser.h \
+	WebCore/dom/DeviceMotionClient.h \
+	WebCore/dom/DeviceMotionController.cpp \
+	WebCore/dom/DeviceMotionController.h \
+	WebCore/dom/DeviceMotionData.cpp \
+	WebCore/dom/DeviceMotionData.h \
+	WebCore/dom/DeviceMotionEvent.cpp \
+	WebCore/dom/DeviceMotionEvent.h \
 	WebCore/dom/DeviceOrientation.cpp \
 	WebCore/dom/DeviceOrientation.h \
 	WebCore/dom/DeviceOrientationClient.h \
@@ -1103,6 +1117,8 @@ webcore_sources += \
 	WebCore/dom/OverflowEvent.h \
 	WebCore/dom/PageTransitionEvent.cpp \
 	WebCore/dom/PageTransitionEvent.h \
+	WebCore/dom/PendingScript.cpp \
+	WebCore/dom/PendingScript.h \
 	WebCore/dom/Position.cpp \
 	WebCore/dom/Position.h \
 	WebCore/dom/PopStateEvent.cpp \
@@ -1590,6 +1606,8 @@ webcore_sources += \
 	WebCore/inspector/InspectorCSSStore.h \
 	WebCore/inspector/InspectorDatabaseResource.cpp \
 	WebCore/inspector/InspectorDatabaseResource.h \
+	WebCore/inspector/InspectorDebuggerAgent.cpp \
+	WebCore/inspector/InspectorDebuggerAgent.h \
 	WebCore/inspector/InspectorDOMAgent.cpp \
 	WebCore/inspector/InspectorDOMAgent.h \
 	WebCore/inspector/InspectorDOMStorageResource.cpp \
@@ -1597,8 +1615,6 @@ webcore_sources += \
 	WebCore/inspector/InspectorClient.h \
 	WebCore/inspector/InspectorController.cpp \
 	WebCore/inspector/InspectorController.h \
-	WebCore/inspector/InspectorFrontend.cpp \
-	WebCore/inspector/InspectorFrontend.h \
 	WebCore/inspector/InspectorFrontendClient.h \
 	WebCore/inspector/InspectorFrontendClientLocal.cpp \
 	WebCore/inspector/InspectorFrontendClientLocal.h \
@@ -1606,6 +1622,8 @@ webcore_sources += \
 	WebCore/inspector/InspectorFrontendHost.h \
 	WebCore/inspector/InspectorResource.cpp \
 	WebCore/inspector/InspectorResource.h \
+	WebCore/inspector/InspectorStorageAgent.cpp \
+	WebCore/inspector/InspectorStorageAgent.h \
 	WebCore/inspector/InspectorTimelineAgent.cpp \
 	WebCore/inspector/InspectorTimelineAgent.h \
 	WebCore/inspector/InspectorValues.cpp \
@@ -2725,8 +2743,6 @@ webcore_built_sources += \
 
 webcore_sources += \
 	WebCore/bindings/js/JSCustomSQLStatementErrorCallback.cpp \
-	WebCore/bindings/js/JSDatabaseCustom.cpp \
-	WebCore/bindings/js/JSDatabaseSyncCustom.cpp \
 	WebCore/bindings/js/JSSQLResultSetRowListCustom.cpp \
 	WebCore/bindings/js/JSSQLTransactionCustom.cpp \
 	WebCore/bindings/js/JSSQLTransactionSyncCustom.cpp \
@@ -2835,8 +2851,8 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSIDBDatabaseError.h \
 	DerivedSources/WebCore/JSIDBDatabaseException.cpp \
 	DerivedSources/WebCore/JSIDBDatabaseException.h \
-	DerivedSources/WebCore/JSIDBDatabaseRequest.cpp \
-	DerivedSources/WebCore/JSIDBDatabaseRequest.h \
+	DerivedSources/WebCore/JSIDBDatabase.cpp \
+	DerivedSources/WebCore/JSIDBDatabase.h \
 	DerivedSources/WebCore/JSIDBErrorEvent.cpp \
 	DerivedSources/WebCore/JSIDBErrorEvent.h \
 	DerivedSources/WebCore/JSIDBEvent.cpp \
@@ -2847,28 +2863,41 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSIDBIndex.h \
 	DerivedSources/WebCore/JSIDBKeyRange.cpp \
 	DerivedSources/WebCore/JSIDBKeyRange.h \
-	DerivedSources/WebCore/JSIDBObjectStoreRequest.cpp \
-	DerivedSources/WebCore/JSIDBObjectStoreRequest.h \
+	DerivedSources/WebCore/JSIDBObjectStore.cpp \
+	DerivedSources/WebCore/JSIDBObjectStore.h \
 	DerivedSources/WebCore/JSIDBRequest.cpp \
 	DerivedSources/WebCore/JSIDBRequest.h \
 	DerivedSources/WebCore/JSIDBSuccessEvent.cpp \
-	DerivedSources/WebCore/JSIDBSuccessEvent.h
+	DerivedSources/WebCore/JSIDBSuccessEvent.h \
+	DerivedSources/WebCore/JSIDBTransaction.cpp \
+	DerivedSources/WebCore/JSIDBTransaction.h
 
 webcore_sources += \
 	WebCore/storage/IDBAny.cpp \
 	WebCore/storage/IDBAny.h \
 	WebCore/storage/IDBCallbacks.h \
+	WebCore/storage/IDBDatabase.cpp \
+	WebCore/storage/IDBCursor.h \
+	WebCore/storage/IDBCursor.cpp \
+	WebCore/storage/IDBCursorBackendImpl.cpp \
+	WebCore/storage/IDBCursorBackendImpl.h \
+	WebCore/storage/IDBCursorBackendInterface.h \
 	WebCore/storage/IDBDatabase.h \
-	WebCore/storage/IDBDatabaseImpl.cpp \
-	WebCore/storage/IDBDatabaseImpl.h \
+	WebCore/storage/IDBDatabaseBackendImpl.cpp \
+	WebCore/storage/IDBDatabaseBackendImpl.h \
+	WebCore/storage/IDBDatabaseBackendInterface.h \
 	WebCore/storage/IDBDatabaseError.h \
 	WebCore/storage/IDBDatabaseException.h \
-	WebCore/storage/IDBDatabaseRequest.cpp \
-	WebCore/storage/IDBDatabaseRequest.h \
 	WebCore/storage/IDBErrorEvent.cpp \
 	WebCore/storage/IDBErrorEvent.h \
 	WebCore/storage/IDBEvent.cpp \
 	WebCore/storage/IDBEvent.h \
+	WebCore/storage/IDBFactory.cpp \
+	WebCore/storage/IDBFactory.h \
+	WebCore/storage/IDBFactoryBackendInterface.cpp \
+	WebCore/storage/IDBFactoryBackendInterface.h \
+	WebCore/storage/IDBFactoryBackendImpl.cpp \
+	WebCore/storage/IDBFactoryBackendImpl.h
 	WebCore/storage/IDBIndex.cpp \
 	WebCore/storage/IDBIndex.h \
 	WebCore/storage/IDBIndexBackendInterface.h \
@@ -2876,21 +2905,18 @@ webcore_sources += \
 	WebCore/storage/IDBIndexBackendImpl.h \
 	WebCore/storage/IDBKeyRange.cpp \
 	WebCore/storage/IDBKeyRange.h \
+	WebCore/storage/IDBObjectStore.cpp \
 	WebCore/storage/IDBObjectStore.h \
-	WebCore/storage/IDBObjectStoreImpl.cpp \
-	WebCore/storage/IDBObjectStoreImpl.h \
-	WebCore/storage/IDBObjectStoreRequest.cpp \
-	WebCore/storage/IDBObjectStoreRequest.h \
+	WebCore/storage/IDBObjectStoreBackendImpl.cpp \
+	WebCore/storage/IDBObjectStoreBackendImpl.h \
+	WebCore/storage/IDBObjectStoreBackendInterface.h \
 	WebCore/storage/IDBRequest.cpp \
 	WebCore/storage/IDBRequest.h \
 	WebCore/storage/IDBSuccessEvent.cpp \
 	WebCore/storage/IDBSuccessEvent.h \
-	WebCore/storage/IDBFactory.cpp \
-	WebCore/storage/IDBFactory.h \
-	WebCore/storage/IDBFactoryBackendInterface.cpp \
-	WebCore/storage/IDBFactoryBackendInterface.h \
-	WebCore/storage/IDBFactoryBackendImpl.cpp \
-	WebCore/storage/IDBFactoryBackendImpl.h
+	WebCore/storage/IDBTransaction.cpp \
+	WebCore/storage/IDBTransaction.h \
+	WebCore/storage/IDBTransactionBackendInterface.h
 endif # END ENABLE_INDEXED_DATABASE
 
 # ----
@@ -3411,6 +3437,8 @@ webcore_sources += \
 	WebCore/mathml/MathMLTextElement.h \
 	WebCore/mathml/RenderMathMLBlock.cpp \
 	WebCore/mathml/RenderMathMLBlock.h \
+	WebCore/mathml/RenderMathMLFenced.cpp \
+	WebCore/mathml/RenderMathMLFenced.h \
 	WebCore/mathml/RenderMathMLFraction.cpp \
 	WebCore/mathml/RenderMathMLFraction.h \
 	WebCore/mathml/RenderMathMLMath.cpp \
@@ -4046,11 +4074,19 @@ webcore_sources += \
 	WebCore/svg/SVGParserUtilities.h \
 	WebCore/svg/SVGPathBuilder.cpp \
 	WebCore/svg/SVGPathBuilder.h \
+	WebCore/svg/SVGPathByteStream.h \
+	WebCore/svg/SVGPathByteStreamBuilder.cpp \
+	WebCore/svg/SVGPathByteStreamBuilder.h \
+	WebCore/svg/SVGPathByteStreamSource.cpp \
+	WebCore/svg/SVGPathByteStreamSource.h \
 	WebCore/svg/SVGPathConsumer.h \
 	WebCore/svg/SVGPathElement.cpp \
 	WebCore/svg/SVGPathElement.h \
 	WebCore/svg/SVGPathParser.cpp \
 	WebCore/svg/SVGPathParser.h \
+	WebCore/svg/SVGPathParserFactory.cpp \
+	WebCore/svg/SVGPathParserFactory.h \
+	WebCore/svg/SVGPathSeg.cpp \
 	WebCore/svg/SVGPathSeg.h \
 	WebCore/svg/SVGPathSegArc.cpp \
 	WebCore/svg/SVGPathSegArc.h \
@@ -4074,8 +4110,15 @@ webcore_sources += \
 	WebCore/svg/SVGPathSegList.h \
 	WebCore/svg/SVGPathSegListBuilder.cpp \
 	WebCore/svg/SVGPathSegListBuilder.h \
+	WebCore/svg/SVGPathSegListSource.cpp \
+	WebCore/svg/SVGPathSegListSource.h \
 	WebCore/svg/SVGPathSegMoveto.cpp \
 	WebCore/svg/SVGPathSegMoveto.h \
+	WebCore/svg/SVGPathSource.h \
+	WebCore/svg/SVGPathStringBuilder.cpp \
+	WebCore/svg/SVGPathStringBuilder.h \
+	WebCore/svg/SVGPathStringSource.cpp \
+	WebCore/svg/SVGPathStringSource.h \
 	WebCore/svg/SVGPatternElement.cpp \
 	WebCore/svg/SVGPatternElement.h \
 	WebCore/svg/SVGPointList.cpp \
@@ -4308,20 +4351,12 @@ webcore_cppflags += -DENABLE_WEB_SOCKETS=0
 endif  # END ENABLE_WEB_SOCKETS
 
 # ---
-# Blob.slice support
+# Blob support
 # ---
-if ENABLE_BLOB_SLICE
-FEATURE_DEFINES += ENABLE_BLOB_SLICE=1
-webcore_cppflags += -DENABLE_BLOB_SLICE=1
-endif  # END ENABLE_BLOB_SLICE
-
-# ---
-# FileReader support
-# ---
-if ENABLE_FILE_READER
-FEATURE_DEFINES += ENABLE_FILE_READER=1
-webcore_cppflags += -DENABLE_FILE_READER=1
-endif  # END ENABLE_FILE_READER
+if ENABLE_BLOB
+FEATURE_DEFINES += ENABLE_BLOB=1
+webcore_cppflags += -DENABLE_BLOB=1
+endif  # END ENABLE_BLOB
 
 # ---
 # FileWriter support
@@ -4511,14 +4546,14 @@ EXTRA_DIST += \
 	WebCore/xml/XPathGrammar.y
 
 # Installing web inspector files
-webinspectordir = ${datadir}/webkit-@WEBKITGTK_API_VERSION@/webinspector
+webinspectordir = ${datadir}/webkitgtk-@WEBKITGTK_API_VERSION@/webinspector
 dist_webinspector_DATA = \
 	$(WebCore)/English.lproj/localizedStrings.js \
 	$(shell ls $(WebCore)/inspector/front-end/*.js) \
 	$(shell ls $(WebCore)/inspector/front-end/*.html) \
 	$(shell ls $(WebCore)/inspector/front-end/*.css)
 
-webinspectorimagesdir = ${datadir}/webkit-@WEBKITGTK_API_VERSION@/webinspector/Images
+webinspectorimagesdir = ${datadir}/webkitgtk-@WEBKITGTK_API_VERSION@/webinspector/Images
 dist_webinspectorimages_DATA = \
 	$(shell ls $(WebCore)/inspector/front-end/Images/*.gif) \
 	$(shell ls $(WebCore)/inspector/front-end/Images/*.png)

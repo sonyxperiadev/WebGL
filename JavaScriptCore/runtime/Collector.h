@@ -22,13 +22,18 @@
 #ifndef Collector_h
 #define Collector_h
 
+#include "AlignedMemoryAllocator.h"
+#include "GCHandle.h"
 #include <stddef.h>
 #include <string.h>
+#include <wtf/Bitmap.h>
 #include <wtf/FixedArray.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/PageAllocation.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/Threading.h>
 
@@ -36,15 +41,12 @@
 #include <pthread.h>
 #endif
 
-#if OS(SYMBIAN)
-#include <wtf/symbian/BlockAllocatorSymbian.h>
-#endif
-
 #define ASSERT_CLASS_FITS_IN_CELL(class) COMPILE_ASSERT(sizeof(class) <= CELL_SIZE, class_fits_in_cell)
 
 namespace JSC {
 
     class CollectorBlock;
+    class GCActivityCallback;
     class JSCell;
     class JSGlobalData;
     class JSValue;
@@ -55,10 +57,19 @@ namespace JSC {
 
     class LiveObjectIterator;
 
+#if OS(WINCE) || OS(SYMBIAN)
+    const size_t BLOCK_SIZE = 64 * 1024; // 64k
+#else
+    const size_t BLOCK_SIZE = 256 * 1024; // 256k
+#endif
+
+    typedef AlignedMemoryAllocator<BLOCK_SIZE> CollectorBlockAllocator;
+    typedef AlignedMemory<BLOCK_SIZE> AlignedCollectorBlock;
+
     struct CollectorHeap {
         size_t nextBlock;
         size_t nextCell;
-        CollectorBlock** blocks;
+        AlignedCollectorBlock* blocks;
         
         void* nextNumber;
 
@@ -69,6 +80,11 @@ namespace JSC {
         bool didShrink;
 
         OperationInProgress operationInProgress;
+
+        CollectorBlock* collectorBlock(size_t index) const
+        {
+            return static_cast<CollectorBlock*>(blocks[index].base());
+        }
     };
 
     class Heap : public Noncopyable {
@@ -82,6 +98,7 @@ namespace JSC {
 
         bool isBusy(); // true if an allocation or collection is in progress
         void collectAllGarbage();
+        void setActivityCallback(PassOwnPtr<GCActivityCallback>);
 
         static const size_t minExtraCost = 256;
         static const size_t maxExtraCost = 1024 * 1024;
@@ -115,6 +132,8 @@ namespace JSC {
         static bool isCellMarked(const JSCell*);
         static void markCell(JSCell*);
 
+        WeakGCHandle* addWeakGCHandle(JSCell*);
+
         void markConservatively(MarkStack&, void* start, void* end);
 
         HashSet<MarkedArgumentBuffer*>& markListSet() { if (!m_markListSet) m_markListSet = new HashSet<MarkedArgumentBuffer*>; return *m_markListSet; }
@@ -137,7 +156,6 @@ namespace JSC {
 
         NEVER_INLINE CollectorBlock* allocateBlock();
         NEVER_INLINE void freeBlock(size_t);
-        NEVER_INLINE void freeBlockPtr(CollectorBlock*);
         void freeBlocks();
         void resizeBlocks();
         void growBlocks(size_t neededBlocks);
@@ -157,13 +175,19 @@ namespace JSC {
         void markOtherThreadConservatively(MarkStack&, Thread*);
         void markStackObjectsConservatively(MarkStack&);
 
+        void updateWeakGCHandles();
+        WeakGCHandlePool* weakGCHandlePool(size_t index);
+
         typedef HashCountedSet<JSCell*> ProtectCountSet;
 
         CollectorHeap m_heap;
 
         ProtectCountSet m_protectedValues;
+        WTF::Vector<AlignedMemory<WeakGCHandlePool::poolSize> > m_weakGCHandlePools;
 
         HashSet<MarkedArgumentBuffer*>* m_markListSet;
+
+        OwnPtr<GCActivityCallback> m_activityCallback;
 
 #if ENABLE(JSC_MULTIPLE_THREADS)
         void makeUsableFromMultipleThreads();
@@ -176,21 +200,14 @@ namespace JSC {
         pthread_key_t m_currentThreadRegistrar;
 #endif
 
-#if OS(SYMBIAN)
         // Allocates collector blocks with correct alignment
-        WTF::AlignedBlockAllocator m_blockallocator; 
-#endif
+        CollectorBlockAllocator m_blockallocator; 
+        WeakGCHandlePool::Allocator m_weakGCHandlePoolAllocator; 
         
         JSGlobalData* m_globalData;
     };
 
     // tunable parameters
-#if OS(WINCE) || OS(SYMBIAN)
-    const size_t BLOCK_SIZE = 64 * 1024; // 64k
-#else
-    const size_t BLOCK_SIZE = 64 * 4096; // 256k
-#endif
-
     // derived constants
     const size_t BLOCK_OFFSET_MASK = BLOCK_SIZE - 1;
     const size_t BLOCK_MASK = ~BLOCK_OFFSET_MASK;
@@ -294,6 +311,11 @@ namespace JSC {
         return result;
     }
 
+
+    inline WeakGCHandlePool* Heap::weakGCHandlePool(size_t index)
+    {
+        return static_cast<WeakGCHandlePool*>(m_weakGCHandlePools[index].base());
+    }
 } // namespace JSC
 
 #endif /* Collector_h */

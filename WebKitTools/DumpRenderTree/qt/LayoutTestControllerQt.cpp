@@ -494,6 +494,16 @@ void LayoutTestController::dispatchPendingLoadRequests()
     // FIXME: Implement for testing fix for 6727495
 }
 
+void LayoutTestController::clearAllApplicationCaches()
+{
+    // FIXME: implement to support Application Cache quotas.
+}
+
+void LayoutTestController::setApplicationCacheOriginQuota(unsigned long long quota)
+{
+    // FIXME: implement to support Application Cache quotas.
+}
+
 void LayoutTestController::setDatabaseQuota(int size)
 {
     if (!m_topLoadingFrame)
@@ -703,6 +713,12 @@ void LayoutTestController::setMockGeolocationError(int code, const QString& mess
 void LayoutTestController::setMockGeolocationPosition(double latitude, double longitude, double accuracy)
 {
     DumpRenderTreeSupportQt::setMockGeolocationPosition(latitude, longitude, accuracy);
+}
+
+void LayoutTestController::setMockSpeechInputResult(const QString& result)
+{
+    // FIXME: Implement for speech input layout tests.
+    // See https://bugs.webkit.org/show_bug.cgi?id=39485.
 }
 
 void LayoutTestController::evaluateScriptInIsolatedWorld(int worldID, const QString& script)

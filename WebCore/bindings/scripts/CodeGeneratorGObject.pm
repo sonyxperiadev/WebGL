@@ -126,6 +126,7 @@ sub ClassNameToGObjectType {
     $CLASS_NAME =~ s/DOMCDATA/DOM_CDATA/;
     $CLASS_NAME =~ s/DOMX_PATH/DOM_XPATH/;
     $CLASS_NAME =~ s/DOM_WEB_KIT/DOM_WEBKIT/;
+    $CLASS_NAME =~ s/DOMUI/DOM_UI/;
     return $CLASS_NAME;
 }
 
@@ -207,6 +208,14 @@ sub SkipFunction {
         return 1;
     }
 
+    # Skip functions that have ["Callback"] parameters, because this
+    # code generator doesn't know how to auto-generate callbacks.
+    foreach my $param (@{$function->parameters}) {
+        if ($param->extendedAttributes->{"Callback"}) {
+            return 1;
+        }
+    }
+
     return 0;
 }
 
@@ -239,7 +248,7 @@ sub GetGlibTypeName {
     my $type = shift;
     my $name = GetClassName($type);
 
-    my %types = ("DOMString", "gchar* ",
+    my %types = ("DOMString", "gchar*",
                  "DOMTimeStamp", "guint32",
                  "CompareHow", "gushort",
                  "float", "gfloat",
@@ -258,7 +267,7 @@ sub GetGlibTypeName {
                  "unsigned short", "gushort",
                  "void", "void");
 
-    return $types{$type} ? $types{$type} : "$name* ";
+    return $types{$type} ? $types{$type} : "$name*";
 }
 
 sub IsGDOMClassType {
@@ -360,7 +369,7 @@ sub GenerateProperty {
 
     my $convertFunction = "";
     if ($gtype eq "string") {
-        $convertFunction = "WebCore::String::fromUTF8";
+        $convertFunction = "WTF::String::fromUTF8";
     }
 
     my $getterExpressionPrefix = $codeGenerator->GetterExpressionPrefix(\%implIncludes, $interfaceName, $attribute);
@@ -802,9 +811,10 @@ sub GenerateFunction {
         }
         addIncludeInBody($paramIDLType);
         my $paramType = GetGlibTypeName($paramIDLType);
+        my $const = $paramType eq "gchar*" ? "const " : "";
         my $paramName = decamelize($param->name);
 
-        $functionSig .= ", $paramType $paramName";
+        $functionSig .= ", ${const}$paramType $paramName";
 
         my $paramIsGDOMType = IsGDOMClassType($paramIDLType);
         if ($paramIsGDOMType) {
@@ -892,7 +902,7 @@ sub GenerateFunction {
 
         my $paramIsGDOMType = IsGDOMClassType($paramIDLType);
         if ($paramIDLType eq "DOMString") {
-            push(@cBody, "    WebCore::String converted_${paramName} = WebCore::String::fromUTF8($paramName);\n");
+            push(@cBody, "    WTF::String converted_${paramName} = WTF::String::fromUTF8($paramName);\n");
         } elsif ($paramIDLType eq "CompareHow") {
             push(@cBody, "    WebCore::Range::CompareHow converted_${paramName} = static_cast<WebCore::Range::CompareHow>($paramName);\n");
         } elsif ($paramIsGDOMType) {
@@ -1222,7 +1232,7 @@ EOF
 sub UsesManualKitImplementation {
     my $type = shift;
 
-    return 1 if $type eq "Node" or $type eq "Element";
+    return 1 if $type eq "Node" or $type eq "Element" or $type eq "Event";
     return 0;
 }
 

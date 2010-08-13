@@ -34,12 +34,10 @@
 #if ENABLE(INSPECTOR)
 
 #include "Event.h"
-#include "InspectorFrontend.h"
 #include "InspectorValues.h"
 #include "IntRect.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
-#include "ScriptArray.h"
 #include "ScriptCallStack.h"
 
 namespace WebCore {

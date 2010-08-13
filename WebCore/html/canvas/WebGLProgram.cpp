@@ -28,6 +28,7 @@
 #if ENABLE(3D_CANVAS)
 
 #include "WebGLProgram.h"
+
 #include "WebGLRenderingContext.h"
 
 namespace WebCore {
@@ -38,13 +39,13 @@ PassRefPtr<WebGLProgram> WebGLProgram::create(WebGLRenderingContext* ctx)
 }
 
 WebGLProgram::WebGLProgram(WebGLRenderingContext* ctx)
-    : CanvasObject(ctx)
+    : WebGLObject(ctx)
     , m_linkFailure(false)
 {
     setObject(context()->graphicsContext3D()->createProgram());
 }
 
-void WebGLProgram::_deleteObject(Platform3DObject object)
+void WebGLProgram::deleteObjectImpl(Platform3DObject object)
 {
     context()->graphicsContext3D()->deleteProgram(object);
 }
@@ -56,17 +57,17 @@ bool WebGLProgram::cacheActiveAttribLocations()
         return false;
     GraphicsContext3D* context3d = context()->graphicsContext3D();
     int linkStatus;
-    context3d->getProgramiv(this, GraphicsContext3D::LINK_STATUS, &linkStatus);
+    context3d->getProgramiv(object(), GraphicsContext3D::LINK_STATUS, &linkStatus);
     if (!linkStatus)
         return false;
 
     int numAttribs = 0;
-    context3d->getProgramiv(this, GraphicsContext3D::ACTIVE_ATTRIBUTES, &numAttribs);
+    context3d->getProgramiv(object(), GraphicsContext3D::ACTIVE_ATTRIBUTES, &numAttribs);
     m_activeAttribLocations.resize(static_cast<size_t>(numAttribs));
     for (int i = 0; i < numAttribs; ++i) {
         ActiveInfo info;
-        context3d->getActiveAttrib(this, i, info);
-        m_activeAttribLocations[i] = context3d->getAttribLocation(this, info.name.charactersWithNullTermination());
+        context3d->getActiveAttrib(object(), i, info);
+        m_activeAttribLocations[i] = context3d->getAttribLocation(object(), info.name.charactersWithNullTermination());
     }
 
     return true;

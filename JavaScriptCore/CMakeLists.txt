@@ -103,6 +103,8 @@ SET(JavaScriptCore_SOURCES
     runtime/Executable.cpp
     runtime/FunctionConstructor.cpp
     runtime/FunctionPrototype.cpp
+    runtime/GCActivityCallback.cpp
+    runtime/GCHandle.cpp
     runtime/GetterSetter.cpp
     runtime/GlobalEvalFunction.cpp
     runtime/Identifier.cpp

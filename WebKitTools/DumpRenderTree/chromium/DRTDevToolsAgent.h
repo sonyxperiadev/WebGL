@@ -52,11 +52,12 @@ class DRTDevToolsAgent : public WebKit::WebDevToolsAgentClient
 public:
     DRTDevToolsAgent();
     virtual ~DRTDevToolsAgent() {}
+    void reset();
 
     void setWebView(WebKit::WebView*);
 
     // WebDevToolsAgentClient implementation.
-    virtual void sendMessageToFrontend(const WebKit::WebDevToolsMessageData&);
+    virtual void sendMessageToInspectorFrontend(const WebKit::WebString&);
     virtual int hostIdentifier() { return m_routingID; }
     virtual void forceRepaint();
     virtual void runtimeFeatureStateChanged(const WebKit::WebString& feature, bool enabled);
@@ -67,7 +68,8 @@ public:
     void asyncCall(const DRTDevToolsCallArgs&);
 
     void attach(DRTDevToolsClient*);
-    void detach(DRTDevToolsClient*);
+    void detach();
+    void frontendLoaded();
 
     bool evaluateInWebInspector(long callID, const std::string& script);
     bool setTimelineProfilingEnabled(bool enable);

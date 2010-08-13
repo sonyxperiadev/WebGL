@@ -33,6 +33,7 @@
 #import "EditingDelegate.h"
 #import "MockGeolocationProvider.h"
 #import "PolicyDelegate.h"
+#import "UIDelegate.h"
 #import "WorkQueue.h"
 #import "WorkQueueItem.h"
 #import <Foundation/Foundation.h>
@@ -60,6 +61,7 @@
 #import <WebKit/WebKitErrors.h>
 #import <WebKit/WebPreferences.h>
 #import <WebKit/WebPreferencesPrivate.h>
+#import <WebKit/WebQuotaManager.h>
 #import <WebKit/WebScriptWorld.h>
 #import <WebKit/WebSecurityOriginPrivate.h>
 #import <WebKit/WebTypesInternal.h>
@@ -121,6 +123,11 @@ void LayoutTestController::addDisallowedURL(JSStringRef url)
 bool LayoutTestController::callShouldCloseOnWebView()
 {
     return [[mainFrame webView] shouldClose];
+}
+
+void LayoutTestController::clearAllApplicationCaches()
+{
+    [WebApplicationCache deleteAllApplicationCaches];
 }
 
 void LayoutTestController::clearAllDatabases()
@@ -293,6 +300,13 @@ void LayoutTestController::setAppCacheMaximumSize(unsigned long long size)
     [WebApplicationCache setMaximumSize:size];
 }
 
+void LayoutTestController::setApplicationCacheOriginQuota(unsigned long long quota)
+{
+    WebSecurityOrigin *origin = [[WebSecurityOrigin alloc] initWithURL:[NSURL URLWithString:@"http://127.0.0.1:8000"]];
+    [[origin applicationCacheQuotaManager] setQuota:quota];
+    [origin release];
+}
+
 void LayoutTestController::setAuthorAndUserStylesEnabled(bool flag)
 {
     [[[mainFrame webView] preferences] setAuthorAndUserStylesEnabled:flag];
@@ -310,7 +324,7 @@ void LayoutTestController::setCustomPolicyDelegate(bool setDelegate, bool permis
 void LayoutTestController::setDatabaseQuota(unsigned long long quota)
 {    
     WebSecurityOrigin *origin = [[WebSecurityOrigin alloc] initWithURL:[NSURL URLWithString:@"file:///"]];
-    [origin setQuota:quota];
+    [[origin databaseQuotaManager] setQuota:quota];
     [origin release];
 }
 
@@ -340,6 +354,18 @@ void LayoutTestController::setMockGeolocationError(int code, JSStringRef message
     NSString *messageNS = (NSString *)messageCF.get();
     NSError *error = [NSError errorWithDomain:WebKitErrorDomain code:code userInfo:[NSDictionary dictionaryWithObject:messageNS forKey:NSLocalizedDescriptionKey]];
     [[MockGeolocationProvider shared] setError:error];
+}
+
+void LayoutTestController::setGeolocationPermission(bool allow)
+{
+    setGeolocationPermissionCommon(allow);
+    [[[mainFrame webView] UIDelegate] didSetMockGeolocationPermission];
+}
+
+void LayoutTestController::setMockSpeechInputResult(JSStringRef result)
+{
+    // FIXME: Implement for speech input layout tests.
+    // See https://bugs.webkit.org/show_bug.cgi?id=39485.
 }
 
 void LayoutTestController::setIconDatabaseEnabled(bool iconDatabaseEnabled)

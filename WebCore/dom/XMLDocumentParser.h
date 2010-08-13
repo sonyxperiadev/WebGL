@@ -201,6 +201,11 @@ namespace WebCore {
 
     static bool parseDocumentFragment(const String&, DocumentFragment*, Element* parent = 0, FragmentScriptingPermission = FragmentScriptingAllowed);
 
+        // WMLErrorHandling uses these functions.
+        virtual bool wellFormed() const { return !m_sawError; }
+        virtual int lineNumber() const;
+        virtual int columnNumber() const;
+
     private:
         // From DocumentParser
         virtual void insert(const SegmentedString&);
@@ -209,9 +214,6 @@ namespace WebCore {
         virtual bool finishWasCalled();
         virtual bool isWaitingForScripts() const;
         virtual void stopParsing();
-        virtual bool wellFormed() const { return !m_sawError; }
-        virtual int lineNumber() const;
-        virtual int columnNumber() const;
 
         // from CachedResourceClient
         virtual void notifyFinished(CachedResource*);

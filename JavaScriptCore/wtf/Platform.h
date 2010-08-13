@@ -142,6 +142,8 @@
 #define WTF_MIPS_ARCH_REV __mips_isa_rev
 #define WTF_MIPS_ISA_REV(v) (defined WTF_MIPS_ARCH_REV && WTF_MIPS_ARCH_REV == v)
 #define WTF_MIPS_DOUBLE_FLOAT (defined __mips_hard_float && !defined __mips_single_float)
+/* MIPS requires allocators to use aligned memory */
+#define WTF_USE_ARENA_ALLOC_ALIGNMENT_INTEGER 1
 #endif /* MIPS */
 
 /* CPU(PPC) - PowerPC 32-bit */
@@ -368,12 +370,12 @@
 
 #endif
 
-/* OS(IPHONE_OS) - iPhone OS */
-/* OS(MAC_OS_X) - Mac OS X (not including iPhone OS) */
+/* OS(IOS) - iOS */
+/* OS(MAC_OS_X) - Mac OS X (not including iOS) */
 #if OS(DARWIN) && ((defined(TARGET_OS_EMBEDDED) && TARGET_OS_EMBEDDED)  \
     || (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE)                   \
     || (defined(TARGET_IPHONE_SIMULATOR) && TARGET_IPHONE_SIMULATOR))
-#define WTF_OS_IPHONE_OS 1
+#define WTF_OS_IOS 1
 #elif OS(DARWIN) && defined(TARGET_OS_MAC) && TARGET_OS_MAC
 #define WTF_OS_MAC_OS_X 1
 #endif
@@ -481,22 +483,22 @@
 #define WTF_PLATFORM_WIN 1
 #endif
 
-/* PLATFORM(IPHONE) */
+/* PLATFORM(IOS) */
 /* FIXME: this is sometimes used as an OS switch and sometimes for higher-level things */
 #if (defined(TARGET_OS_EMBEDDED) && TARGET_OS_EMBEDDED) || (defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE)
-#define WTF_PLATFORM_IPHONE 1
+#define WTF_PLATFORM_IOS 1
 #endif
 
-/* PLATFORM(IPHONE_SIMULATOR) */
+/* PLATFORM(IOS_SIMULATOR) */
 #if defined(TARGET_IPHONE_SIMULATOR) && TARGET_IPHONE_SIMULATOR
-#define WTF_PLATFORM_IPHONE 1
-#define WTF_PLATFORM_IPHONE_SIMULATOR 1
+#define WTF_PLATFORM_IOS 1
+#define WTF_PLATFORM_IOS_SIMULATOR 1
 #else
-#define WTF_PLATFORM_IPHONE_SIMULATOR 0
+#define WTF_PLATFORM_IOS_SIMULATOR 0
 #endif
 
-#if !defined(WTF_PLATFORM_IPHONE)
-#define WTF_PLATFORM_IPHONE 0
+#if !defined(WTF_PLATFORM_IOS)
+#define WTF_PLATFORM_IOS 0
 #endif
 
 /* PLATFORM(ANDROID) */
@@ -509,10 +511,10 @@
 /* Graphics engines */
 
 /* PLATFORM(CG) and PLATFORM(CI) */
-#if PLATFORM(MAC) || PLATFORM(IPHONE)
+#if PLATFORM(MAC) || PLATFORM(IOS)
 #define WTF_PLATFORM_CG 1
 #endif
-#if PLATFORM(MAC) && !PLATFORM(IPHONE)
+#if PLATFORM(MAC) && !PLATFORM(IOS)
 #define WTF_PLATFORM_CI 1
 #endif
 
@@ -543,7 +545,7 @@
 #include <ce_time.h>
 #endif
 
-#if (PLATFORM(IPHONE) || PLATFORM(MAC) || PLATFORM(WIN) || (PLATFORM(QT) && OS(DARWIN) && !ENABLE(SINGLE_THREADED))) && !defined(ENABLE_JSC_MULTIPLE_THREADS)
+#if (PLATFORM(IOS) || PLATFORM(MAC) || PLATFORM(WIN) || (PLATFORM(QT) && OS(DARWIN) && !ENABLE(SINGLE_THREADED))) && !defined(ENABLE_JSC_MULTIPLE_THREADS)
 #define ENABLE_JSC_MULTIPLE_THREADS 1
 #endif
 
@@ -579,7 +581,7 @@
 #define WTF_USE_ICU_UNICODE 1
 #endif
 
-#if PLATFORM(MAC) && !PLATFORM(IPHONE)
+#if PLATFORM(MAC) && !PLATFORM(IOS)
 #define WTF_PLATFORM_CF 1
 #define WTF_USE_PTHREADS 1
 #define HAVE_PTHREAD_RWLOCK 1
@@ -594,7 +596,7 @@
 #endif
 #define HAVE_READLINE 1
 #define HAVE_RUNLOOP_TIMER 1
-#endif /* PLATFORM(MAC) && !PLATFORM(IPHONE) */
+#endif /* PLATFORM(MAC) && !PLATFORM(IOS) */
 
 #if PLATFORM(MAC)
 #define WTF_USE_CARBON_SECURE_INPUT_MODE 1
@@ -615,7 +617,7 @@
 #define WTF_PLATFORM_CF 1
 #endif
 
-#if PLATFORM(IPHONE)
+#if PLATFORM(IOS)
 #define ENABLE_CONTEXT_MENUS 0
 #define ENABLE_DRAG_SUPPORT 0
 #define ENABLE_FTPDIR 1
@@ -649,7 +651,8 @@
 #endif
 
 #if PLATFORM(WIN)
-#define WTF_USE_WININET 1
+#define WTF_PLATFORM_CF 1
+#define WTF_USE_PTHREADS 0
 #endif
 
 #if PLATFORM(WX)
@@ -686,7 +689,7 @@
 #endif
 
 #if !defined(HAVE_ACCESSIBILITY)
-#if PLATFORM(IPHONE) || PLATFORM(MAC) || PLATFORM(WIN) || PLATFORM(GTK) || PLATFORM(CHROMIUM)
+#if PLATFORM(IOS) || PLATFORM(MAC) || PLATFORM(WIN) || PLATFORM(GTK) || PLATFORM(CHROMIUM)
 #define HAVE_ACCESSIBILITY 1
 #endif
 #endif /* !defined(HAVE_ACCESSIBILITY) */
@@ -720,7 +723,7 @@
 #define HAVE_DISPATCH_H 1
 #define HAVE_HOSTED_CORE_ANIMATION 1
 
-#if !PLATFORM(IPHONE)
+#if !PLATFORM(IOS)
 #define HAVE_MADV_FREE_REUSE 1
 #define HAVE_MADV_FREE 1
 #define HAVE_PTHREAD_SETNAME_NP 1
@@ -728,7 +731,7 @@
 
 #endif
 
-#if PLATFORM(IPHONE)
+#if PLATFORM(IOS)
 #define HAVE_MADV_FREE 1
 #endif
 
@@ -738,6 +741,7 @@
 #define HAVE_ERRNO_H 0
 #else
 #define HAVE_SYS_TIMEB_H 1
+#define HAVE_ALIGNED_MALLOC 1
 #endif
 #define HAVE_VIRTUALALLOC 1
 
@@ -792,6 +796,13 @@
 #define HAVE_SYS_PARAM_H 1
 #define HAVE_SYS_TIME_H 1
 
+#endif
+
+#if HAVE(MMAP) || (HAVE(VIRTUALALLOC) && HAVE(ALIGNED_MALLOC))
+#define HAVE_PAGE_ALLOCATE_ALIGNED 1
+#endif
+#if HAVE(MMAP)
+#define HAVE_PAGE_ALLOCATE_AT 1
 #endif
 
 /* ENABLE macro defaults */
@@ -883,7 +894,7 @@
 #define ENABLE_NOTIFICATIONS 0
 #endif
 
-#if PLATFORM(IPHONE)
+#if PLATFORM(IOS)
 #define ENABLE_TEXT_CARET 0
 #endif
 
@@ -910,9 +921,10 @@
 #if (CPU(X86_64) && (OS(UNIX) || OS(WINDOWS))) \
     || (CPU(IA64) && !CPU(IA64_32)) \
     || CPU(ALPHA) \
-    || CPU(SPARC64)
+    || CPU(SPARC64) \
+    || CPU(PPC64)
 #define WTF_USE_JSVALUE64 1
-#elif CPU(ARM_TRADITIONAL) || CPU(PPC64) || CPU(MIPS)
+#elif CPU(MIPS) || (CPU(ARM_TRADITIONAL) && COMPILER(MSVC))
 #define WTF_USE_JSVALUE32 1
 #elif OS(WINDOWS) && COMPILER(MINGW)
 /* Using JSVALUE32_64 causes padding/alignement issues for JITStubArg
@@ -1005,7 +1017,7 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #endif
 /* Setting this flag prevents the assembler from using RWX memory; this may improve
    security but currectly comes at a significant performance cost. */
-#if PLATFORM(IPHONE)
+#if PLATFORM(IOS)
 #define ENABLE_ASSEMBLER_WX_EXCLUSIVE 1
 #else
 #define ENABLE_ASSEMBLER_WX_EXCLUSIVE 0
@@ -1032,8 +1044,17 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #define WTF_USE_QXMLQUERY 1
 #endif
 
-/* Accelerated compositing */
 #if PLATFORM(MAC)
+/* Complex text framework */
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#define WTF_USE_ATSUI 0
+#define WTF_USE_CORE_TEXT 1
+#else
+#define WTF_USE_ATSUI 1
+#define WTF_USE_CORE_TEXT 0
+#endif
+
+/* Accelerated compositing */
 #if !defined(BUILDING_ON_TIGER)
 #define WTF_USE_ACCELERATED_COMPOSITING 1
 #endif
@@ -1043,7 +1064,7 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #define WTF_USE_ACCELERATED_COMPOSITING 1
 #endif
 
-#if PLATFORM(IPHONE)
+#if PLATFORM(IOS)
 #define WTF_USE_ACCELERATED_COMPOSITING 1
 #endif
 
@@ -1058,7 +1079,7 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #endif
 #endif
 
-#if (PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)) || PLATFORM(IPHONE)
+#if (PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)) || PLATFORM(IOS)
 #define WTF_USE_PROTECTION_SPACE_AUTH_CALLBACK 1
 #endif
 
@@ -1078,7 +1099,7 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #define ENABLE_JSC_ZOMBIES 0
 
 /* FIXME: Eventually we should enable this for all platforms and get rid of the define. */
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(WIN)
 #define WTF_USE_PLATFORM_STRATEGIES 1
 #endif
 
@@ -1087,6 +1108,10 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
    pre-emptive permission policy is enabled by default for all client-based implementations. */
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
 #define WTF_USE_PREEMPT_GEOLOCATION_PERMISSION 1
+#endif
+
+#if CPU(ARM_THUMB2)
+#define ENABLE_BRANCH_COMPACTION 1
 #endif
 
 #endif /* WTF_Platform_h */

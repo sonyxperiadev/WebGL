@@ -98,9 +98,9 @@
 #include "ScriptController.h"
 #include "ScriptSourceCode.h"
 #include "ScriptString.h"
-#include "ScriptValue.h"
 #include "SecurityOrigin.h"
 #include "SegmentedString.h"
+#include "SerializedScriptValue.h"
 #include "Settings.h"
 #include "TextResourceDecoder.h"
 #include "WindowFeatures.h"
@@ -466,8 +466,7 @@ void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy, DatabasePolic
                         if (m_provisionalDocumentLoader) {
                             DocumentLoadTiming* timing = m_provisionalDocumentLoader->timing();
                             ASSERT(timing->navigationStart);
-                            // FIXME: This fails in Safari (https://bugs.webkit.org/show_bug.cgi?id=42772). Understand why.
-                            // ASSERT(!timing->unloadEventEnd);
+                            ASSERT(!timing->unloadEventEnd);
                             timing->unloadEventEnd = currentTime();
                             ASSERT(timing->unloadEventEnd >= timing->navigationStart);
                         }
@@ -3189,6 +3188,11 @@ void FrameLoader::loadProvisionalItemFromCachedPage()
     provisionalLoader->prepareForLoadStart();
 
     m_loadingFromCachedPage = true;
+    
+    // Should have timing data from previous time(s) the page was shown.
+    ASSERT(provisionalLoader->timing()->navigationStart);
+    provisionalLoader->resetTiming();
+    provisionalLoader->timing()->navigationStart = currentTime();    
 
     provisionalLoader->setCommitted(true);
     commitProvisionalLoad();

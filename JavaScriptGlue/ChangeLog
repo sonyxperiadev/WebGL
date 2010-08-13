@@ -1,3 +1,44 @@
+2010-08-04  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 43515 - Fix small design issues with PageAllocation, split out PageReservation.
+        (add forwarding headers)
+
+        * ForwardingHeaders/wtf/Bitmap.h: Added.
+        * ForwardingHeaders/wtf/PageReservation.h: Added.
+
+2010-08-04  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r64655.
+        http://trac.webkit.org/changeset/64655
+        https://bugs.webkit.org/show_bug.cgi?id=43496
+
+        JavaScriptCore references patch seems to have caused
+        regressions in QT and GTK builds (Requested by nlawrence on
+        #webkit).
+
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectMark):
+
+2010-08-04  Nathan Lawrence  <nlawrence@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Removed unneeded marking.  We need to remove this marking in order to have
+        MarkStack::append take references for updating movable objects.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41177
+
+        * JSValueWrapper.cpp:
+        (JSValueWrapper::JSObjectMark):
+
+2010-08-03  Gavin Barraclough  <barraclough@apple.com>
+
+        Build fix following r64624.
+
+        * ForwardingHeaders/wtf/BitMap.h: Added.
+
 2010-07-27  Gavin Barraclough  <barraclough@apple.com>
 
         Reviewed by Oliver Hunt.

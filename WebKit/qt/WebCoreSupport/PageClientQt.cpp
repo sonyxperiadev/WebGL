@@ -48,13 +48,10 @@ bool PageClientQWidget::inputMethodEnabled() const
     return view->testAttribute(Qt::WA_InputMethodEnabled);
 }
 
-#if QT_VERSION >= 0x040600
-void PageClientQWidget::setInputMethodHint(Qt::InputMethodHint hint, bool enable)
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+void PageClientQWidget::setInputMethodHints(Qt::InputMethodHints hints)
 {
-    if (enable)
-        view->setInputMethodHints(view->inputMethodHints() | hint);
-    else
-        view->setInputMethodHints(view->inputMethodHints() & ~hint);
+    view->setInputMethodHints(hints);
 }
 #endif
 
@@ -232,13 +229,10 @@ bool PageClientQGraphicsWidget::inputMethodEnabled() const
 #endif
 }
 
-#if QT_VERSION >= 0x040600
-void PageClientQGraphicsWidget::setInputMethodHint(Qt::InputMethodHint hint, bool enable)
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+void PageClientQGraphicsWidget::setInputMethodHints(Qt::InputMethodHints hints)
 {
-    if (enable)
-        view->setInputMethodHints(view->inputMethodHints() | hint);
-    else
-        view->setInputMethodHints(view->inputMethodHints() & ~hint);
+    view->setInputMethodHints(hints);
 }
 #endif
 

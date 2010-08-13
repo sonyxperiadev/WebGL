@@ -35,10 +35,11 @@
 #include "EventException.h"
 #include "EventListener.h"
 #include "EventNames.h"
-#include "IDBDatabaseRequest.h"
+#include "IDBCursor.h"
+#include "IDBDatabase.h"
 #include "IDBIndex.h"
 #include "IDBErrorEvent.h"
-#include "IDBObjectStoreRequest.h"
+#include "IDBObjectStore.h"
 #include "IDBSuccessEvent.h"
 #include "ScriptExecutionContext.h"
 
@@ -49,7 +50,6 @@ IDBRequest::IDBRequest(ScriptExecutionContext* context, PassRefPtr<IDBAny> sourc
     , m_source(source)
     , m_result(IDBAny::create())
     , m_timer(this, &IDBRequest::timerFired)
-    , m_stopped(false)
     , m_aborted(false)
     , m_readyState(INITIAL)
 {
@@ -73,10 +73,16 @@ void IDBRequest::onSuccess()
     m_result->set();
 }
 
-void IDBRequest::onSuccess(PassRefPtr<IDBDatabase> idbDatabase)
+void IDBRequest::onSuccess(PassRefPtr<IDBCursorBackendInterface> backend)
 {
     onEventCommon();
-    m_result->set(IDBDatabaseRequest::create(idbDatabase));
+    m_result->set(IDBCursor::create(backend));
+}
+
+void IDBRequest::onSuccess(PassRefPtr<IDBDatabaseBackendInterface> backend)
+{
+    onEventCommon();
+    m_result->set(IDBDatabase::create(backend));
 }
 
 void IDBRequest::onSuccess(PassRefPtr<IDBIndexBackendInterface> backend)
@@ -91,10 +97,10 @@ void IDBRequest::onSuccess(PassRefPtr<IDBKey> idbKey)
     m_result->set(idbKey);
 }
 
-void IDBRequest::onSuccess(PassRefPtr<IDBObjectStore> idbObjectStore)
+void IDBRequest::onSuccess(PassRefPtr<IDBObjectStoreBackendInterface> backend)
 {
     onEventCommon();
-    m_result->set(IDBObjectStoreRequest::create(idbObjectStore));
+    m_result->set(IDBObjectStore::create(backend));
 }
 
 void IDBRequest::onSuccess(PassRefPtr<SerializedScriptValue> serializedScriptValue)
@@ -115,24 +121,11 @@ ScriptExecutionContext* IDBRequest::scriptExecutionContext() const
     return ActiveDOMObject::scriptExecutionContext();
 }
 
-void IDBRequest::stop()
+bool IDBRequest::canSuspend() const
 {
-    abort();
-    m_selfRef = 0; // Could trigger a delete.
-}
-
-void IDBRequest::suspend()
-{
-    m_timer.stop();
-    m_stopped = true;
-}
-
-void IDBRequest::resume()
-{
-    m_stopped = false;
-    // We only hold our self ref when we're waiting to dispatch an event.
-    if (m_selfRef && !m_aborted)
-        m_timer.startOneShot(0);
+    // IDBTransactions cannot be suspended at the moment. We therefore
+    // disallow the back/forward cache for pages that use IndexedDatabase.
+    return false;
 }
 
 EventTargetData* IDBRequest::eventTargetData()
@@ -149,7 +142,6 @@ void IDBRequest::timerFired(Timer<IDBRequest>*)
 {
     ASSERT(m_readyState == DONE);
     ASSERT(m_selfRef);
-    ASSERT(!m_stopped);
     ASSERT(!m_aborted);
 
     // We need to keep self-referencing ourself, otherwise it's possible we'll be deleted.
@@ -162,7 +154,7 @@ void IDBRequest::timerFired(Timer<IDBRequest>*)
         dispatchEvent(IDBErrorEvent::create(m_source, *m_error));
     } else {
         ASSERT(m_result->type() != IDBAny::UndefinedType);
-        dispatchEvent(IDBSuccessEvent::create(m_source, m_result));        
+        dispatchEvent(IDBSuccessEvent::create(m_source, m_result));
     }
 }
 
@@ -179,8 +171,7 @@ void IDBRequest::onEventCommon()
 
     m_readyState = DONE;
     m_selfRef = this;
-    if (!m_stopped)
-        m_timer.startOneShot(0);
+    m_timer.startOneShot(0);
 }
 
 } // namespace WebCore

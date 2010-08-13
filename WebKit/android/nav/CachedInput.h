@@ -44,18 +44,18 @@ public:
     bool isRtlText() const { return mIsRtlText; }
     bool isTextField() const { return mIsTextField; }
     int maxLength() const { return mMaxLength; };
-    const WebCore::String& name() const { return mName; }
+    const WTF::String& name() const { return mName; }
     void setFormPointer(void* form) { mForm = form; }
     void setInputType(WebCore::HTMLInputElement::InputType type) { mInputType = type; }
     void setIsRtlText(bool isRtlText) { mIsRtlText = isRtlText; }
     void setIsTextField(bool isTextField) { mIsTextField = isTextField; }
     void setMaxLength(int maxLength) { mMaxLength = maxLength; }
-    void setName(const WebCore::String& name) { mName = name; }
+    void setName(const WTF::String& name) { mName = name; }
     void setTextSize(int textSize) { mTextSize = textSize; }
     int textSize() const { return mTextSize; }
 private:
     void* mForm;
-    WebCore::String mName;
+    WTF::String mName;
     int mMaxLength;
     int mTextSize;
     WebCore::HTMLInputElement::InputType mInputType;

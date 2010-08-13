@@ -116,6 +116,10 @@ JSObject* EvalExecutable::compileInternal(ExecState* exec, ScopeChainNode* scope
 #if ENABLE(JIT)
     if (exec->globalData().canUseJIT()) {
         m_jitCodeForCall = JIT::compile(scopeChainNode->globalData, m_evalCodeBlock.get());
+         if (UNLIKELY(!m_jitCodeForCall)) {
+             m_evalCodeBlock.clear();
+             return createOutOfMemoryError(globalObject);
+         }
 #if !ENABLE(OPCODE_SAMPLING)
         if (!BytecodeGenerator::dumpsGeneratedCode())
             m_evalCodeBlock->discardBytecode();
@@ -164,6 +168,10 @@ JSObject* ProgramExecutable::compileInternal(ExecState* exec, ScopeChainNode* sc
 #if ENABLE(JIT)
     if (exec->globalData().canUseJIT()) {
         m_jitCodeForCall = JIT::compile(scopeChainNode->globalData, m_programCodeBlock.get());
+         if (UNLIKELY(!m_jitCodeForCall)) {
+             m_programCodeBlock.clear();
+             return createOutOfMemoryError(globalObject);
+         }
 #if !ENABLE(OPCODE_SAMPLING)
         if (!BytecodeGenerator::dumpsGeneratedCode())
             m_programCodeBlock->discardBytecode();
@@ -192,7 +200,7 @@ JSObject* FunctionExecutable::compileForCallInternal(ExecState* exec, ScopeChain
     JSGlobalObject* globalObject = scopeChain.globalObject();
 
     ASSERT(!m_codeBlockForCall);
-    m_codeBlockForCall = adoptPtr(new FunctionCodeBlock(this, FunctionCode, source().provider(), source().startOffset(), false));
+    m_codeBlockForCall = adoptPtr(new FunctionCodeBlock(this, FunctionCode, globalObject, source().provider(), source().startOffset(), false));
     OwnPtr<BytecodeGenerator> generator(adoptPtr(new BytecodeGenerator(body.get(), globalObject->debugger(), scopeChain, m_codeBlockForCall->symbolTable(), m_codeBlockForCall.get())));
     generator->generate();
     m_numParametersForCall = m_codeBlockForCall->m_numParameters;
@@ -205,6 +213,10 @@ JSObject* FunctionExecutable::compileForCallInternal(ExecState* exec, ScopeChain
 #if ENABLE(JIT)
     if (exec->globalData().canUseJIT()) {
         m_jitCodeForCall = JIT::compile(scopeChainNode->globalData, m_codeBlockForCall.get(), &m_jitCodeForCallWithArityCheck);
+         if (UNLIKELY(!m_jitCodeForCall)) {
+             m_codeBlockForCall.clear();
+             return createOutOfMemoryError(globalObject);
+         }
 #if !ENABLE(OPCODE_SAMPLING)
         if (!BytecodeGenerator::dumpsGeneratedCode())
             m_codeBlockForCall->discardBytecode();
@@ -233,7 +245,7 @@ JSObject* FunctionExecutable::compileForConstructInternal(ExecState* exec, Scope
     JSGlobalObject* globalObject = scopeChain.globalObject();
 
     ASSERT(!m_codeBlockForConstruct);
-    m_codeBlockForConstruct = adoptPtr(new FunctionCodeBlock(this, FunctionCode, source().provider(), source().startOffset(), true));
+    m_codeBlockForConstruct = adoptPtr(new FunctionCodeBlock(this, FunctionCode, globalObject, source().provider(), source().startOffset(), true));
     OwnPtr<BytecodeGenerator> generator(adoptPtr(new BytecodeGenerator(body.get(), globalObject->debugger(), scopeChain, m_codeBlockForConstruct->symbolTable(), m_codeBlockForConstruct.get())));
     generator->generate();
     m_numParametersForConstruct = m_codeBlockForConstruct->m_numParameters;
@@ -246,6 +258,10 @@ JSObject* FunctionExecutable::compileForConstructInternal(ExecState* exec, Scope
 #if ENABLE(JIT)
     if (exec->globalData().canUseJIT()) {
         m_jitCodeForConstruct = JIT::compile(scopeChainNode->globalData, m_codeBlockForConstruct.get(), &m_jitCodeForConstructWithArityCheck);
+         if (UNLIKELY(!m_jitCodeForConstruct)) {
+             m_codeBlockForConstruct.clear();
+             return createOutOfMemoryError(globalObject);
+         }
 #if !ENABLE(OPCODE_SAMPLING)
         if (!BytecodeGenerator::dumpsGeneratedCode())
             m_codeBlockForConstruct->discardBytecode();
@@ -277,7 +293,7 @@ PassOwnPtr<ExceptionInfo> FunctionExecutable::reparseExceptionInfo(JSGlobalData*
     ScopeChain scopeChain(scopeChainNode);
     JSGlobalObject* globalObject = scopeChain.globalObject();
 
-    OwnPtr<CodeBlock> newCodeBlock(adoptPtr(new FunctionCodeBlock(this, FunctionCode, source().provider(), source().startOffset(), codeBlock->m_isConstructor)));
+    OwnPtr<CodeBlock> newCodeBlock(adoptPtr(new FunctionCodeBlock(this, FunctionCode, globalObject, source().provider(), source().startOffset(), codeBlock->m_isConstructor)));
     globalData->functionCodeBlockBeingReparsed = newCodeBlock.get();
 
     OwnPtr<BytecodeGenerator> generator(adoptPtr(new BytecodeGenerator(newFunctionBody.get(), globalObject->debugger(), scopeChain, newCodeBlock->symbolTable(), newCodeBlock.get())));
@@ -288,13 +304,16 @@ PassOwnPtr<ExceptionInfo> FunctionExecutable::reparseExceptionInfo(JSGlobalData*
 
 #if ENABLE(JIT)
     if (globalData->canUseJIT()) {
-        JITCode newJITCode = JIT::compile(globalData, newCodeBlock.get());
+        JITCode newJITCode = JIT::compile(globalData, newCodeBlock.get(), 0, codeBlock->m_isConstructor ? generatedJITCodeForConstruct().start() : generatedJITCodeForCall().start());
+        if (!newJITCode) {
+            globalData->functionCodeBlockBeingReparsed = 0;
+            return PassOwnPtr<ExceptionInfo>();
+        }
         ASSERT(codeBlock->m_isConstructor ? newJITCode.size() == generatedJITCodeForConstruct().size() : newJITCode.size() == generatedJITCodeForCall().size());
     }
 #endif
 
     globalData->functionCodeBlockBeingReparsed = 0;
-
     return newCodeBlock->extractExceptionInfo();
 }
 
@@ -318,7 +337,11 @@ PassOwnPtr<ExceptionInfo> EvalExecutable::reparseExceptionInfo(JSGlobalData* glo
 
 #if ENABLE(JIT)
     if (globalData->canUseJIT()) {
-        JITCode newJITCode = JIT::compile(globalData, newCodeBlock.get());
+        JITCode newJITCode = JIT::compile(globalData, newCodeBlock.get(), 0, generatedJITCodeForCall().start());
+        if (!newJITCode) {
+            globalData->functionCodeBlockBeingReparsed = 0;
+            return PassOwnPtr<ExceptionInfo>();
+        }
         ASSERT(newJITCode.size() == generatedJITCodeForCall().size());
     }
 #endif

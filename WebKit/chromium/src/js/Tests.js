@@ -261,10 +261,10 @@ TestSuite.prototype.testEnableResourcesTab = function()
 
     var test = this;
     this.addSniffer(WebInspector, "updateResource",
-        function(identifier, payload) {
+        function(payload) {
             test.assertEquals("simple_page.html", payload.lastPathComponent);
             WebInspector.panels.resources.refresh();
-            WebInspector.panels.resources.revealAndSelectItem(WebInspector.resources[identifier]);
+            WebInspector.panels.resources.revealAndSelectItem(WebInspector.resources[payload.id]);
 
             test.releaseControl();
         });
@@ -289,10 +289,10 @@ TestSuite.prototype.testResourceContentLength = function()
     var png = false;
     var html = false;
     this.addSniffer(WebInspector, "updateResource",
-        function(identifier, payload) {
+        function(payload) {
             if (!payload.didLengthChange)
                 return;
-            var resource = WebInspector.resources[identifier];
+            var resource = WebInspector.resources[payload.id];
             if (!resource || !resource.url)
                 return;
             if (resource.url.search("image.html") !== -1) {
@@ -346,8 +346,8 @@ TestSuite.prototype.testResourceHeaders = function()
     var timingOk = false;
 
     this.addSniffer(WebInspector, "updateResource",
-        function(identifier, payload) {
-            var resource = this.resources[identifier];
+        function(payload) {
+            var resource = this.resources[payload.id];
             if (!resource || resource.mainResource) {
                 // We are only interested in secondary resources in this test.
                 return;
@@ -393,8 +393,8 @@ TestSuite.prototype.testCachedResourceMimeType = function()
     var hasReloaded = false;
 
     this.addSniffer(WebInspector, "updateResource",
-        function(identifier, payload) {
-            var resource = this.resources[identifier];
+        function(payload) {
+            var resource = this.resources[payload.id];
             if (!resource || resource.mainResource) {
                 // We are only interested in secondary resources in this test.
                 return;
@@ -1845,8 +1845,37 @@ uiTests.runAllTests = function()
  */
 uiTests.runTest = function(name)
 {
-    new TestSuite().runTest(name);
+    if (uiTests._populatedInterface)
+        new TestSuite().runTest(name);
+    else
+        uiTests._pendingTestName = name;
 };
 
+(function() {
+
+function runTests()
+{
+    uiTests._populatedInterface = true;
+    var name = uiTests._pendingTestName;
+    delete uiTests._pendingTestName;
+    if (name)
+        new TestSuite().runTest(name);
+}
+
+var oldShowElementsPanel = WebInspector.showElementsPanel;
+WebInspector.showElementsPanel = function()
+{
+    oldShowElementsPanel.call(this);
+    runTests();
+}
+
+var oldShowPanel = WebInspector.showPanel;
+WebInspector.showPanel = function(name)
+{
+    oldShowPanel.call(this, name);
+    runTests();
+}
+
+})();
 
 }

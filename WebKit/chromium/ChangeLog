@@ -1,3 +1,700 @@
+2010-08-10  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: get rid of utility context
+        https://bugs.webkit.org/show_bug.cgi?id=43787
+
+        * public/WebDevToolsAgentClient.h:
+        * src/DebuggerAgentImpl.cpp:
+        * src/DebuggerAgentImpl.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::):
+        (WebKit::WebDevToolsAgentImpl::~WebDevToolsAgentImpl):
+        (WebKit::WebDevToolsAgentImpl::attach):
+        (WebKit::WebDevToolsAgentImpl::detach):
+        (WebKit::WebDevToolsAgentImpl::frontendLoaded):
+        (WebKit::WebDevToolsAgentImpl::setRuntimeFeatureEnabled):
+        (WebKit::WebDevToolsAgentImpl::setApuAgentEnabled):
+        * src/WebDevToolsAgentImpl.h:
+
+2010-08-10  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector, Chromium: reloading of inspected page hits assert in InspectorController::enableDebuggerFromFrontend()
+        https://bugs.webkit.org/show_bug.cgi?id=43780
+
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::setRuntimeFeatureEnabled):
+
+2010-08-10  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Implement chromium WebDeviceOrientationClient wrapper and have WebViewImpl get it from WebViewClient.
+        https://bugs.webkit.org/show_bug.cgi?id=43258
+
+        Provide a DeviceOrientationClient to Page by means of a
+        DeviceOrientationClientProxy that proxies calls to
+        a WebDeviceOrientationClient, an interface that can be implemented
+        in the WebKit or Chromium layer. An implementation to be used for
+        layout tests, wrapping DeviceOrientationClientMock, is provided.
+
+
+        * WebKit.gyp:
+        * public/WebDeviceOrientation.h: Added.
+        (WebKit::WebDeviceOrientation::WebDeviceOrientation):
+        * public/WebDeviceOrientationClient.h: Added.
+        (WebKit::WebDeviceOrientationClient::~WebDeviceOrientationClient):
+        * public/WebDeviceOrientationClientMock.h: Added.
+        (WebKit::WebDeviceOrientationClientMock::WebDeviceOrientationClientMock):
+        (WebKit::WebDeviceOrientationClientMock::~WebDeviceOrientationClientMock):
+        * public/WebDeviceOrientationController.h: Added.
+        (WebKit::WebDeviceOrientationController::WebDeviceOrientationController):
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::deviceOrientationClient):
+        * src/DeviceOrientationClientProxy.cpp: Added.
+        (WebKit::DeviceOrientationClientProxy::setController):
+        (WebKit::DeviceOrientationClientProxy::startUpdating):
+        (WebKit::DeviceOrientationClientProxy::stopUpdating):
+        (WebKit::DeviceOrientationClientProxy::lastOrientation):
+        * src/DeviceOrientationClientProxy.h: Added.
+        (WebKit::DeviceOrientationClientProxy::DeviceOrientationClientProxy):
+        * src/WebDeviceOrientation.cpp: Added.
+        (WebKit::WebDeviceOrientation::WebDeviceOrientation):
+        (WebKit::WebDeviceOrientation::operator=):
+        (WebKit::WebDeviceOrientation::operator PassRefPtr<WebCore::DeviceOrientation>):
+        * src/WebDeviceOrientationClientMock.cpp: Added.
+        (WebKit::WebDeviceOrientationClientMock::setController):
+        (WebKit::WebDeviceOrientationClientMock::startUpdating):
+        (WebKit::WebDeviceOrientationClientMock::stopUpdating):
+        (WebKit::WebDeviceOrientationClientMock::lastOrientation):
+        (WebKit::WebDeviceOrientationClientMock::setOrientation):
+        (WebKit::WebDeviceOrientationClientMock::initialize):
+        (WebKit::WebDeviceOrientationClientMock::reset):
+        * src/WebDeviceOrientationController.cpp: Added.
+        (WebKit::WebDeviceOrientationController::didChangeDeviceOrientation):
+        (WebKit::WebDeviceOrientationController::controller):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebView::create):
+        (WebKit::WebViewImpl::WebViewImpl):
+        * src/WebViewImpl.h:
+
+2010-08-10  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r64988.
+        http://trac.webkit.org/changeset/64988
+        https://bugs.webkit.org/show_bug.cgi?id=43775
+
+        "It seems to break chromium's ui_tests" (Requested by hamaji
+        on #webkit).
+
+        * public/WebFrameClient.h:
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::detachedFromParent3):
+
+2010-08-10  Yury Semikhatsky  <yurys@chromium.org>
+
+        Unreviewed. Remove references to deleted header InspectorFrontend.h
+
+        * src/WebDevToolsAgentImpl.cpp:
+
+2010-08-10  Yury Semikhatsky  <yurys@chromium.org>
+
+        Unreviewed. Fix Chromium compilation.
+
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::frontendLoaded):
+
+2010-08-09  Gavin Barraclough  <barraclough@apple.com>
+
+        Speculative chromium build fix V.
+
+        * tests/KURLTest.cpp:
+        (ComponentCase::TEST):
+
+2010-08-09  Gavin Barraclough  <barraclough@apple.com>
+
+        Speculative chromium build fix IV.
+
+        * src/WebPageSerializerImpl.h:
+
+2010-08-09  Gavin Barraclough  <barraclough@apple.com>
+
+        Speculative chromium build fix II.
+
+        * src/AssertMatchingEnums.cpp:
+
+2010-08-09  Gavin Barraclough  <barraclough@apple.com>
+
+        Speculative chromium build fix.
+
+        * public/WebCString.h:
+
+2010-08-06  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig
+
+        Bug 43594 - Add string forwards to Forward.h
+        This allows us to remove forward declarations for these classes from
+        WebCore/WebKit (a step in moving these class from WebCore:: to WTF::).
+
+        * public/WebCString.h:
+        * public/WebString.h:
+        * src/DOMUtilitiesPrivate.h:
+        * src/DebuggerAgentImpl.h:
+        * src/DebuggerAgentManager.h:
+        * src/WebDevToolsAgentImpl.h:
+        * src/WebDevToolsFrontendImpl.h:
+        * src/WebPageSerializerImpl.h:
+
+2010-08-09  Vangelis Kokkevis  <vangelis@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        Skip the slow software rendering path of GraphicsContext3D if accelerated
+        compositing is active. This fixes an issue with WebGL and the compositor
+        in which the software rendering of WebGL would cause the current GL context
+        to change while the compositor was processing layers. Tested by running
+        several WebGL samples both with the compositor enabled and disabled.
+        https://bugs.webkit.org/show_bug.cgi?id=43644
+
+        * src/GraphicsContext3D.cpp:
+        (WebCore::GraphicsContext3DInternal::GraphicsContext3DInternal):
+        (WebCore::GraphicsContext3DInternal::initialize):
+        (WebCore::GraphicsContext3DInternal::beginPaint):
+
+2010-08-06  James Hawkins  <jhawkins@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [Chromium] Notify the WebFrameClient when the frame is detached from
+        the view. This is used to clear the cached frame in the FormManager.
+        Eventually this will be removed once handling forms is moved into
+        WebCore.
+        https://bugs.webkit.org/show_bug.cgi?id=43648
+
+        * public/WebFrameClient.h:
+        (WebKit::WebFrameClient::frameDetached):
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::detachedFromParent3):
+
+2010-08-09  Pavel Feldman  <pfeldman@chromium.org>
+
+        Not reviewed: Chromium tests fix.
+
+        Chromium: provisional interactive ui tests fix.
+
+        * src/js/Tests.js:
+        (.TestSuite.prototype.testShowStoragePanel.this):
+        (.TestSuite.prototype.testShowStoragePanel):
+
+2010-08-09  Pavel Feldman  <pfeldman@chromium.org>
+
+        Not reviewed. Chromium tests fix.
+
+        Disable runtime switch for device motion in chromium.
+        https://bugs.webkit.org/show_bug.cgi?id=43717
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebView::create):
+
+2010-08-09  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Chromium: Remove temporary device motion fix.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43713
+
+        * src/WebRuntimeFeatures.cpp:
+        (WebKit::WebRuntimeFeatures::enableDeviceOrientation):
+
+2010-08-07  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        Removed unecessary focus code.
+        https://bugs.webkit.org/show_bug.cgi?id=43542
+
+        * src/ChromiumBridge.cpp:
+
+2010-08-06  Victor Wang  <victorw@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [Chromium] Add dllimport/dllexport to WebSpeechInputControllerMock::create
+        so it works for windows dll build.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43627
+
+        * public/WebSpeechInputControllerMock.h:
+
+2010-08-06  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Simon Fraser.
+
+        Composited canvas should be treated the same by the compositor and not be WebGL specific
+        https://bugs.webkit.org/show_bug.cgi?id=43589
+
+        Initializes the platformLayer as a CanvasLayerChromium, not a WebGLLayerChromium.
+        The layer itself isn't WebGL-specific.
+
+        * src/GraphicsContext3D.cpp:
+        (WebCore::GraphicsContext3DInternal::initialize):
+        (WebCore::GraphicsContext3DInternal::platformLayer):
+        (WebCore::GraphicsContext3D::platformLayer):
+
+2010-08-06  Jessie Berlin  <jberlin@apple.com>
+
+        Roll out http://trac.webkit.org/changeset/64801, which broke the Safari Windows Build.
+        Unreviewed.
+
+        * public/WebCString.h:
+        * public/WebString.h:
+        * src/DOMUtilitiesPrivate.h:
+        * src/DebuggerAgentImpl.h:
+        * src/DebuggerAgentManager.h:
+        * src/WebDevToolsAgentImpl.h:
+        * src/WebDevToolsFrontendImpl.h:
+        * src/WebPageSerializerImpl.h:
+
+2010-08-06  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Chromium: disable device motion by default.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43623
+
+        * public/WebRuntimeFeatures.h:
+        * src/WebRuntimeFeatures.cpp:
+        (WebKit::WebRuntimeFeatures::enableDeviceMotion):
+        (WebKit::WebRuntimeFeatures::isDeviceMotionEnabled):
+        (WebKit::WebRuntimeFeatures::enableDeviceOrientation):
+
+2010-08-06  Kavita Kanetkar  <kkanetkar@chromium.org>
+
+        Reviewed by Joseph Pecoraro.
+
+        Web Inspector: Remove "Online/Offline" icon for Chrome's appcache devtools UI.
+        https://bugs.webkit.org/show_bug.cgi?id=43450
+
+        * src/js/DevTools.js:
+        (WebInspector.loaded):
+
+2010-08-05  Marcus Bulach  <bulach@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Initial bindings and plumbing for IDBCursor.
+        https://bugs.webkit.org/show_bug.cgi?id=41888
+
+        Test: storage/indexeddb/idb-opencursor.html
+
+        * WebKit.gyp:
+        * public/WebIDBCallbacks.h:
+        (WebKit::WebIDBCallbacks::onSuccess):
+        * public/WebIDBCursor.h: Added.
+        (WebKit::WebIDBCursor::~WebIDBCursor):
+        (WebKit::WebIDBCursor::direction):
+        (WebKit::WebIDBCursor::key):
+        (WebKit::WebIDBCursor::value):
+        (WebKit::WebIDBCursor::update):
+        (WebKit::WebIDBCursor::continueFunction):
+        (WebKit::WebIDBCursor::remove):
+        * public/WebIDBKeyRange.h: Added.
+        (WebKit::WebIDBKeyRange::~WebIDBKeyRange):
+        (WebKit::WebIDBKeyRange::WebIDBKeyRange):
+        * public/WebIDBObjectStore.h:
+        (WebKit::WebIDBObjectStore::openCursor):
+        * src/IDBCallbacksProxy.cpp:
+        (WebCore::IDBCallbacksProxy::onSuccess):
+        * src/IDBCallbacksProxy.h:
+        * src/IDBCursorBackendProxy.cpp: Added.
+        (WebCore::IDBCursorBackendProxy::create):
+        (WebCore::IDBCursorBackendProxy::IDBCursorBackendProxy):
+        (WebCore::IDBCursorBackendProxy::~IDBCursorBackendProxy):
+        (WebCore::IDBCursorBackendProxy::direction):
+        (WebCore::IDBCursorBackendProxy::key):
+        (WebCore::IDBCursorBackendProxy::value):
+        (WebCore::IDBCursorBackendProxy::update):
+        (WebCore::IDBCursorBackendProxy::continueFunction):
+        (WebCore::IDBCursorBackendProxy::remove):
+        * src/IDBCursorBackendProxy.h: Added.
+        * src/IDBObjectStoreProxy.cpp:
+        (WebCore::IDBObjectStoreProxy::openCursor):
+        * src/IDBObjectStoreProxy.h:
+        * src/WebIDBCallbacksImpl.cpp:
+        (WebCore::WebIDBCallbacksImpl::onSuccess):
+        * src/WebIDBCallbacksImpl.h:
+        * src/WebIDBCursorImpl.cpp: Added.
+        (WebKit::WebIDBCursorImpl::WebIDBCursorImpl):
+        (WebKit::WebIDBCursorImpl::~WebIDBCursorImpl):
+        (WebKit::WebIDBCursorImpl::direction):
+        (WebKit::WebIDBCursorImpl::key):
+        (WebKit::WebIDBCursorImpl::value):
+        (WebKit::WebIDBCursorImpl::update):
+        (WebKit::WebIDBCursorImpl::continueFunction):
+        (WebKit::WebIDBCursorImpl::remove):
+        * src/WebIDBCursorImpl.h: Added.
+        * src/WebIDBKeyRange.cpp: Added.
+        (WebKit::WebIDBKeyRange::WebIDBKeyRange):
+        (WebKit::WebIDBKeyRange::assign):
+        (WebKit::WebIDBKeyRange::reset):
+        (WebKit::WebIDBKeyRange::left):
+        (WebKit::WebIDBKeyRange::right):
+        (WebKit::WebIDBKeyRange::flags):
+        * src/WebIDBObjectStoreImpl.cpp:
+        (WebKit::WebIDBObjectStoreImpl::openCursor):
+        * src/WebIDBObjectStoreImpl.h:
+
+2010-08-05  Andrei Popescu  <andreip@dhcp-172-16-14-12.lon.corp.google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        [IndexedDB] IndexedDB is missing the Transaction interface.
+        https://bugs.webkit.org/show_bug.cgi?id=42970
+
+        Add IDBTransaction boilerplate.
+
+        * src/IDBDatabaseProxy.cpp:
+        (WebCore::IDBDatabaseProxy::transaction):
+        * src/IDBDatabaseProxy.h:
+
+2010-08-05  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig
+
+        Bug 43594 - Add string forwards to Forward.h
+        This allows us to remove forward declarations for these classes from
+        WebCore/WebKit (a step in moving these class from WebCore:: to WTF::).
+
+        * public/WebCString.h:
+        * public/WebString.h:
+        * src/DOMUtilitiesPrivate.h:
+        * src/DebuggerAgentImpl.h:
+        * src/DebuggerAgentManager.h:
+        * src/WebDevToolsAgentImpl.h:
+        * src/WebDevToolsFrontendImpl.h:
+        * src/WebPageSerializerImpl.h:
+
+2010-08-05  Brett Wilson  <brettw@chromium.org>
+
+        Reviewed by Nate Chapin.
+
+        Make the webkit unit tests depend on test_support_base
+        https://bugs.webkit.org/show_bug.cgi?id=43584
+
+        * WebKit.gyp:
+
+2010-08-04  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Style cleanups in WebGL
+        https://bugs.webkit.org/show_bug.cgi?id=38761
+
+        Cleaned up all style violations in WebGL-related files reported by
+        check-webkit-style. No logic or other changes. Built WebKit and
+        Chromium and ran WebGL layout tests.
+
+        * src/GraphicsContext3D.cpp:
+        (WebCore::GraphicsContext3DInternal::paintRenderingResultsToCanvas):
+        * src/WebGraphicsContext3DDefaultImpl.cpp:
+        * src/WebGraphicsContext3DDefaultImpl.h:
+
+2010-08-05  Jian Li  <jianli@chromium.org>
+
+        Reviewed by David Levin.
+
+        Unify blob related feature defines to ENABLE(BLOB).
+        https://bugs.webkit.org/show_bug.cgi?id=43081
+
+        * features.gypi:
+        * src/WebHTTPBody.cpp:
+        (WebKit::WebHTTPBody::elementAt):
+        (WebKit::WebHTTPBody::appendFileRange):
+
+2010-08-05  Nico Weber  <thakis@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Remove useless const on return-by-value (fixes a clang warning)
+        https://bugs.webkit.org/show_bug.cgi?id=43491
+
+        * src/WebInputEventConversion.cpp:
+        (WebKit::toPlatformKeyboardEventType):
+
+2010-08-05  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Add speech input controller mock in WebKit and a layout test.
+        https://bugs.webkit.org/show_bug.cgi?id=43477
+
+        * WebKit.gyp:
+        * public/WebSpeechInputControllerMock.h: Added WebKit speech input controller mock interface.
+        * src/WebSpeechInputControllerMockImpl.cpp: Added implementation of the above mock.
+        (WebKit::WebSpeechInputControllerMockImpl::WebSpeechInputControllerMockImpl):
+        (WebKit::WebSpeechInputControllerMockImpl::setMockRecognitionResult):
+        (WebKit::WebSpeechInputControllerMockImpl::didCompleteRecording):
+        (WebKit::WebSpeechInputControllerMockImpl::didCompleteRecognition):
+        (WebKit::WebSpeechInputControllerMockImpl::setRecognitionResult):
+        (WebKit::WebSpeechInputControllerMockImpl::startRecognition):
+        (WebKit::WebSpeechInputControllerMockImpl::cancelRecognition):
+        (WebKit::WebSpeechInputControllerMockImpl::stopRecording):
+        (WebKit::WebSpeechInputControllerMock::create):
+
+2010-08-05  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Chromium DevTools: [REGRESSION] Frame navigation is not handled in devtools.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43556
+
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::):
+        (WebKit::WebDevToolsAgentImpl::detach):
+        (WebKit::WebDevToolsAgentImpl::frontendLoaded):
+        (WebKit::WebDevToolsAgentImpl::setRuntimeFeatureEnabled):
+
+2010-08-05  John Gregg  <johnnyg@google.com>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] WebFileChooserParams should have default constructor
+        https://bugs.webkit.org/show_bug.cgi?id=43435
+
+        * public/WebFileChooserParams.h:
+        (WebKit::WebFileChooserParams::WebFileChooserParams):
+
+2010-08-05  Victoria Kirst  <vrk@google.com>
+
+        Reviewed by David Levin.
+
+        Added a repaint request so that VideoLayerChromium does not have
+        a flickering problem when playing video.
+        https://bugs.webkit.org/show_bug.cgi?id=43101
+
+        * src/WebMediaPlayerClientImpl.cpp:
+        (WebKit::WebMediaPlayerClientImpl::repaint):
+
+2010-08-05  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        DevTools: get rid of delayed command dispatching on front-end side.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43479
+
+        * public/WebDevToolsFrontendClient.h:
+        (WebKit::WebDevToolsFrontendClient::sendFrontendLoaded):
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::attach):
+        (WebKit::WebDevToolsAgentImpl::frontendLoaded):
+        * src/WebDevToolsAgentImpl.h:
+        * src/WebDevToolsFrontendImpl.cpp:
+        (WebKit::WebDevToolsFrontendImpl::dispatchOnInspectorFrontend):
+        (WebKit::WebDevToolsFrontendImpl::frontendLoaded):
+        * src/WebDevToolsFrontendImpl.h:
+        * src/js/DevTools.js:
+        (WebInspector.doLoadedDone):
+        * src/js/Tests.js:
+        (.uiTests.runTest):
+        (.):
+
+2010-08-02  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Port Chromium's accelerated compositing to Mac OS X
+        https://bugs.webkit.org/show_bug.cgi?id=43398
+
+        * public/WebGLES2Context.h:
+         - Added resizeOnscreenContent, needed on Mac OS X to report
+           window size changes.
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::resize):
+         - Send resize notification to the WebGLES2Context.
+        (WebKit::WebViewImpl::updateRootLayerContents):
+         - Ported to Core Graphics.
+        (WebKit::WebViewImpl::gles2Context):
+         - Added initial size notification upon context creation.
+
+2010-08-04  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        DevTools: get rid of delayed command dispatching on front-end side.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43479
+
+        * public/WebDevToolsAgent.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::frontendLoaded):
+        * src/WebDevToolsAgentImpl.h:
+
+2010-08-03  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Move WebGL-specific code out of GraphicsContext3D so that G3D can be used as a generic accelerated drawing API
+        https://bugs.webkit.org/show_bug.cgi?id=43221
+
+        Implements functions in term of Platform3DObjects instead of WebGL types.
+
+        * src/GraphicsContext3D.cpp:
+        (WebCore::GraphicsContext3DInternal::paintRenderingResultsToCanvas):
+        (WebCore::GraphicsContext3DInternal::beginPaint):
+        (WebCore::GraphicsContext3DInternal::bindAttribLocation):
+        (WebCore::GraphicsContext3DInternal::getActiveAttrib):
+        (WebCore::GraphicsContext3DInternal::getActiveUniform):
+        (WebCore::GraphicsContext3DInternal::getAttribLocation):
+        (WebCore::GraphicsContext3DInternal::getProgramInfoLog):
+        (WebCore::GraphicsContext3DInternal::getShaderInfoLog):
+        (WebCore::GraphicsContext3DInternal::getShaderSource):
+        (WebCore::GraphicsContext3DInternal::getUniformLocation):
+        (WebCore::GraphicsContext3DInternal::shaderSource):
+
+2010-08-03  Dimitri Glazkov  <dglazkov@chromium.org>
+
+        Unreviewed, build fix.
+
+        Roll chromium to 54723 to unbreak the builds.
+
+        * DEPS:
+
+2010-08-03  Andrei Popescu  <andreip@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        [IndexedDB] IDBObjectStoreRequest should be called IDBObjectStore
+        https://bugs.webkit.org/show_bug.cgi?id=43420
+
+        * src/IDBCallbacksProxy.cpp:
+        (WebCore::IDBCallbacksProxy::onSuccess):
+        * src/IDBCallbacksProxy.h:
+        * src/IDBDatabaseProxy.cpp:
+        (WebCore::IDBDatabaseProxy::objectStore):
+        * src/IDBDatabaseProxy.h:
+        * src/IDBObjectStoreProxy.cpp:
+        (WebCore::IDBObjectStoreProxy::create):
+        * src/IDBObjectStoreProxy.h:
+        * src/WebIDBObjectStoreImpl.cpp:
+        (WebKit::WebIDBObjectStoreImpl::WebIDBObjectStoreImpl):
+        * src/WebIDBObjectStoreImpl.h:
+
+2010-08-03  Yury Semikhatsky  <yurys@chromium.org>
+
+        Unreviewed. Fix Chromium interactive UI tests.
+
+        * src/js/Tests.js:
+        (.TestSuite.prototype.testResourceHeaders):
+
+2010-07-30  Andrei Popescu  <andreip@dhcp-172-16-14-12.lon.corp.google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        Rename IDBDatabaseRequest to IDBDatabase
+        https://bugs.webkit.org/show_bug.cgi?id=43250
+
+        * src/IDBCallbacksProxy.cpp:
+        (WebCore::IDBCallbacksProxy::onSuccess):
+        * src/IDBCallbacksProxy.h:
+        * src/IDBDatabaseProxy.cpp:
+        (WebCore::IDBDatabaseProxy::create):
+        * src/IDBDatabaseProxy.h:
+        * src/WebIDBDatabaseImpl.cpp:
+        (WebKit::WebIDBDatabaseImpl::WebIDBDatabaseImpl):
+        (WebKit::WebIDBDatabaseImpl::name):
+        (WebKit::WebIDBDatabaseImpl::description):
+        (WebKit::WebIDBDatabaseImpl::version):
+        (WebKit::WebIDBDatabaseImpl::objectStores):
+        (WebKit::WebIDBDatabaseImpl::createObjectStore):
+        (WebKit::WebIDBDatabaseImpl::objectStore):
+        (WebKit::WebIDBDatabaseImpl::removeObjectStore):
+        * src/WebIDBDatabaseImpl.h:
+
+2010-08-02  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Chromium DevTools: Get rid of DevTools RPC.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43335
+
+        * WebKit.gyp:
+        * public/WebDevToolsAgent.h:
+        * public/WebDevToolsAgentClient.h:
+        (WebKit::WebDevToolsAgentClient::sendMessageToInspectorFrontend):
+        (WebKit::WebDevToolsAgentClient::sendDebuggerOutput):
+        (WebKit::WebDevToolsAgentClient::sendDispatchToAPU):
+        * public/WebDevToolsFrontend.h:
+        * public/WebDevToolsFrontendClient.h:
+        (WebKit::WebDevToolsFrontendClient::sendMessageToBackend):
+        * public/WebDevToolsMessageData.h: Removed.
+        * public/WebDevToolsMessageTransport.h: Removed.
+        * src/APUAgentDelegate.h: Removed.
+        * src/DebuggerAgent.h: Removed.
+        * src/DebuggerAgentImpl.cpp:
+        (WebKit::DebuggerAgentImpl::DebuggerAgentImpl):
+        (WebKit::DebuggerAgentImpl::debuggerOutput):
+        * src/DebuggerAgentImpl.h:
+        * src/DebuggerAgentManager.cpp:
+        (WebKit::DebuggerAgentManager::debugDetach):
+        (WebKit::DebuggerAgentManager::onV8DebugMessage):
+        (WebKit::DebuggerAgentManager::executeDebuggerCommand):
+        (WebKit::DebuggerAgentManager::sendCommandToV8):
+        (WebKit::DebuggerAgentManager::sendContinueCommandToV8):
+        * src/DevToolsRPC.h: Removed.
+        * src/DevToolsRPCJS.h: Removed.
+        * src/InspectorClientImpl.cpp:
+        * src/InspectorFrontendClientImpl.cpp:
+        (WebKit::InspectorFrontendClientImpl::sendMessageToBackend):
+        * src/ProfilerAgent.h: Removed.
+        * src/ProfilerAgentImpl.cpp: Removed.
+        * src/ProfilerAgentImpl.h: Removed.
+        * src/ToolsAgent.h: Removed.
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::):
+        (WebKit::WebDevToolsAgentImpl::WebDevToolsAgentImpl):
+        (WebKit::WebDevToolsAgentImpl::attach):
+        (WebKit::WebDevToolsAgentImpl::didClearWindowObject):
+        (WebKit::WebDevToolsAgentImpl::dispatchOnInspectorBackend):
+        (WebKit::WebDevToolsAgentImpl::jsDispatchOnClient):
+        (WebKit::WebDevToolsAgentImpl::sendMessageToFrontend):
+        * src/WebDevToolsAgentImpl.h:
+        * src/WebDevToolsFrontendImpl.cpp:
+        (WebKit::WebDevToolsFrontendImpl::WebDevToolsFrontendImpl):
+        (WebKit::WebDevToolsFrontendImpl::dispatchOnInspectorFrontend):
+        (WebKit::WebDevToolsFrontendImpl::frontendLoaded):
+        (WebKit::WebDevToolsFrontendImpl::executeScript):
+        * src/WebDevToolsFrontendImpl.h:
+        * src/js/DevTools.js:
+        (devtools.dispatch):
+        (devtools.ToolsAgent):
+        * src/js/DevToolsHostStub.js:
+        * src/js/ProfilerAgent.js:
+        (devtools.ProfilerAgent):
+        (devtools.ProfilerAgent.prototype._getNextLogLines.else.delayedRequest):
+        (devtools.ProfilerAgent.prototype._getNextLogLines):
+        (devtools.ProfilerAgent.prototype._didGetProfilerLogLines):
+        * src/js/ProfilerProcessor.js:
+        (devtools.profiler.Processor.prototype.printError):
+
+2010-08-02  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Remove dependencies to some Chromium headers
+        https://bugs.webkit.org/show_bug.cgi?id=43396
+
+        * DEPS: Update Chromium revision to 54649 in order to have a
+        webkit_support change (r54646)
+
 2010-07-27  Luiz Agostini  <luiz.agostini@openbossa.org>
 
         Reviewed by Darin Fisher.

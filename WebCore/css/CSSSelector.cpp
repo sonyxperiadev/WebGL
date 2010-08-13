@@ -34,7 +34,7 @@
 #include <wtf/Vector.h>
 
 namespace WebCore {
-    
+
 using namespace HTMLNames;
 
 class CSSSelectorBag : public Noncopyable {
@@ -713,8 +713,11 @@ String CSSSelector::selectorText() const
     if (m_match == CSSSelector::None || !prefix.isNull() || localName != starAtom) {
         if (prefix.isNull())
             str = localName;
-        else
-            str = prefix + "|" + localName;
+        else {
+            str = prefix.string();
+            str.append("|");
+            str.append(localName);
+        }
     }
 
     const CSSSelector* cs = this;
@@ -746,8 +749,10 @@ String CSSSelector::selectorText() const
         } else if (cs->hasAttribute()) {
             str += "[";
             const AtomicString& prefix = cs->attribute().prefix();
-            if (!prefix.isNull())
-                str += prefix + "|";
+            if (!prefix.isNull()) {
+                str.append(prefix);
+                str.append("|");
+            }
             str += cs->attribute().localName();
             switch (cs->m_match) {
                 case CSSSelector::Exact:

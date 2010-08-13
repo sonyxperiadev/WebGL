@@ -33,10 +33,9 @@
 
 #include "InjectedScript.h"
 #include "InjectedScriptHost.h"
-#include "InspectorFrontend.h"
 #include "InspectorValues.h"
 #include "ScriptCallStack.h"
-#include "ScriptObject.h"
+#include "ScriptValue.h"
 
 #if ENABLE(INSPECTOR)
 #include "RemoteInspectorFrontend.h"

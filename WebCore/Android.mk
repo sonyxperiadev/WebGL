@@ -24,6 +24,7 @@
 ##
 
 LOCAL_SRC_FILES := \
+	bindings/generic/ActiveDOMCallback.cpp \
 	bindings/generic/BindingSecurityBase.cpp \
 	bindings/generic/RuntimeEnabledFeatures.cpp \
 	\
@@ -99,6 +100,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	css/WebKitCSSTransformValue.cpp \
 	\
 	dom/ActiveDOMObject.cpp \
+	dom/AsyncScriptRunner.cpp \
 	dom/Attr.cpp \
 	dom/Attribute.cpp \
 	dom/BeforeTextInsertedEvent.cpp \
@@ -122,6 +124,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/DOMStringMap.cpp \
 	dom/DatasetDOMStringMap.cpp \
 	dom/DecodedDataDocumentParser.cpp \
+	dom/DeviceMotionController.cpp \
+	dom/DeviceMotionData.cpp \
+	dom/DeviceMotionEvent.cpp \
 	dom/Document.cpp \
 	dom/DocumentFragment.cpp \
 	dom/DocumentParser.cpp \
@@ -160,6 +165,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/DeviceOrientationEvent.cpp \
 	dom/OverflowEvent.cpp \
 	dom/PageTransitionEvent.cpp \
+	dom/PendingScript.cpp \
 	dom/PopStateEvent.cpp \
 	dom/Position.cpp \
 	dom/PositionIterator.cpp \
@@ -304,7 +310,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	html/canvas/CanvasGradient.cpp \
 	html/canvas/CanvasNumberArray.cpp \
-	html/canvas/CanvasObject.cpp \
+	html/canvas/WebGLObject.cpp \
 	html/canvas/CanvasPattern.cpp \
 	html/canvas/CanvasPixelArray.cpp \
 	html/canvas/CanvasRenderingContext.cpp \
@@ -436,6 +442,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/KillRingNone.cpp \
 	platform/Length.cpp \
 	platform/LinkHash.cpp \
+	platform/LocalizedStrings.cpp \
 	platform/Logging.cpp \
 	platform/MIMETypeRegistry.cpp \
 	platform/SchemeRegistry.cpp \
@@ -809,21 +816,24 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/DatabaseThread.cpp \
 	storage/DatabaseTracker.cpp \
 	storage/IDBAny.cpp \
-	storage/IDBDatabaseImpl.cpp \
-	storage/IDBDatabaseRequest.cpp \
+	storage/IDBCursor.cpp \
+	storage/IDBCursorBackendImpl.cpp \
+	storage/IDBDatabase.cpp \
+	storage/IDBDatabaseBackendImpl.cpp \
 	storage/IDBErrorEvent.cpp \
 	storage/IDBEvent.cpp \
+	storage/IDBFactory.cpp \
+	storage/IDBFactoryBackendInterface.cpp \
+	storage/IDBFactoryBackendImpl.cpp \
 	storage/IDBIndex.cpp \
 	storage/IDBIndexBackendImpl.cpp \
 	storage/IDBKey.cpp \
 	storage/IDBKeyRange.cpp \
-	storage/IDBObjectStoreImpl.cpp \
-	storage/IDBObjectStoreRequest.cpp \
+	storage/IDBObjectStore.cpp \
+	storage/IDBObjectStoreBackendImpl.cpp \
 	storage/IDBRequest.cpp \
 	storage/IDBSuccessEvent.cpp \
-	storage/IDBFactory.cpp \
-	storage/IDBFactoryBackendInterface.cpp \
-	storage/IDBFactoryBackendImpl.cpp \
+	storage/IDBTransaction.cpp \
 	storage/LocalStorageTask.cpp \
 	storage/LocalStorageThread.cpp \
 	storage/OriginQuotaManager.cpp \
@@ -931,8 +941,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/SVGPaint.cpp \
 	svg/SVGParserUtilities.cpp \
 	svg/SVGPathBuilder.cpp \
+	svg/SVGPathByteStreamBuilder.cpp \
+	svg/SVGPathByteStreamSource.cpp \
 	svg/SVGPathElement.cpp \
 	svg/SVGPathParser.cpp \
+	svg/SVGPathParserFactory.cpp \
+	svg/SVGPathSeg.cpp \
 	svg/SVGPathSegArc.cpp \
 	svg/SVGPathSegClosePath.cpp \
 	svg/SVGPathSegCurvetoCubic.cpp \
@@ -944,7 +958,10 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/SVGPathSegLinetoVertical.cpp \
 	svg/SVGPathSegList.cpp \
 	svg/SVGPathSegListBuilder.cpp \
+	svg/SVGPathSegListSource.cpp \
 	svg/SVGPathSegMoveto.cpp \
+	svg/SVGPathStringBuilder.cpp \
+	svg/SVGPathStringSource.cpp \
 	svg/SVGPatternElement.cpp \
 	svg/SVGPointList.cpp \
 	svg/SVGPolyElement.cpp \

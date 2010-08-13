@@ -39,7 +39,6 @@
 #include "FrameView.h"
 #include "InspectorBackendDispatcher.h"
 #include "InspectorController.h"
-#include "InspectorFrontend.h"
 #include "InspectorFrontendHost.h"
 #include "Page.h"
 #include "PlatformString.h"
@@ -80,14 +79,7 @@ void InspectorFrontendClientLocal::windowObjectCleared()
 void InspectorFrontendClientLocal::frontendLoaded()
 {
     bringToFront();
-    // Create InspectorFrontend and set it to InspectorController.
-    ASSERT(m_frontendScriptState);
-    ScriptObject webInspectorObj;
-    if (!ScriptGlobalObject::get(m_frontendScriptState, "WebInspector", webInspectorObj)) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-    m_inspectorController->connectFrontend(webInspectorObj);
+    m_inspectorController->connectFrontend();
 }
 
 void InspectorFrontendClientLocal::requestAttachWindow()

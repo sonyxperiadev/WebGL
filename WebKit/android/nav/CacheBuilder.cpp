@@ -2762,10 +2762,10 @@ tryNextCheckType:
                     exported->replace(index, 1, escapedComma);
                 } break;
             case EMAIL_CACHEDNODETYPE:
-                exported->insert(WebCore::String("mailto:"), 0);
+                exported->insert(WTF::String("mailto:"), 0);
                 break;
             case PHONE_CACHEDNODETYPE:
-                exported->insert(WebCore::String("tel:"), 0);
+                exported->insert(WTF::String("tel:"), 0);
                 break;
             default:
                 break;

@@ -30,7 +30,7 @@ namespace android {
 
 void CachedInput::init() {
     bzero(this, sizeof(CachedInput));
-    mName = WebCore::String();
+    mName = WTF::String();
 }
 
 #if DUMP_NAV_CACHE
@@ -44,7 +44,7 @@ CachedInput* CachedInput::Debug::base() const {
 }
 
 static void printWebCoreString(const char* label,
-        const WebCore::String& string) {
+        const WTF::String& string) {
     char scratch[256];
     size_t index = snprintf(scratch, sizeof(scratch), label);
     const UChar* ch = string.characters();

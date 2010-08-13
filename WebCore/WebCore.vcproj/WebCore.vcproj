@@ -545,6 +545,14 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\InspectorBackendDispatcher.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\InspectorBackendDispatcher.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\WebCore\DerivedSources\JSAbstractWorker.cpp"
 				>
 				<FileConfiguration
@@ -2894,6 +2902,62 @@
 			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\WebCore\DerivedSources\JSDedicatedWorkerContext.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\WebCore\DerivedSources\JSDeviceMotionEvent.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\WebCore\DerivedSources\JSDeviceMotionEvent.h"
 				>
 			</File>
 			<File
@@ -20685,14 +20749,6 @@
 				>
 			</File>
 			<File
-				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\InspectorBackendDispatcher.cpp"
-				>
-			</File>
-			<File
-				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\InspectorBackendDispatcher.h"
-				>
-			</File>
-			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\RemoteInspectorFrontend.cpp"
 				>
 			</File>
@@ -22725,15 +22781,15 @@
 				>
 			</File>
 			<File
-				RelativePath="..\loader\DocumentLoadTiming.h"
-				>
-			</File>
-			<File
 				RelativePath="..\loader\DocumentLoader.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\loader\DocumentLoader.h"
+				>
+			</File>
+			<File
+				RelativePath="..\loader\DocumentLoadTiming.h"
 				>
 			</File>
 			<File
@@ -23361,6 +23417,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\platform\LocalizationStrategy.h"
+				>
+			</File>
+			<File
+				RelativePath="..\platform\LocalizedStrings.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\platform\LocalizedStrings.h"
 				>
 			</File>
@@ -23406,6 +23470,14 @@
 			</File>
 			<File
 				RelativePath="..\platform\PlatformScreen.h"
+				>
+			</File>
+			<File
+				RelativePath="..\platform\PlatformStrategies.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\platform\PlatformStrategies.h"
 				>
 			</File>
 			<File
@@ -23554,6 +23626,10 @@
 			</File>
 			<File
 				RelativePath="..\platform\UUID.h"
+				>
+			</File>
+			<File
+				RelativePath="..\platform\VisitedLinkStrategy.h"
 				>
 			</File>
 			<File
@@ -24380,15 +24456,15 @@
 					>
 				</File>
 				<File
+					RelativePath="..\platform\graphics\UnitBezier.h"
+					>
+				</File>
+				<File
 					RelativePath="..\platform\graphics\WOFFFileFormat.cpp"
 					>
 				</File>
 				<File
 					RelativePath="..\platform\graphics\WOFFFileFormat.h"
-					>
-				</File>
-				<File
-					RelativePath="..\platform\graphics\UnitBezier.h"
 					>
 				</File>
 				<Filter
@@ -32473,6 +32549,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\dom\AsyncScriptRunner.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\AsyncScriptRunner.h"
+				>
+			</File>
+			<File
 				RelativePath="..\dom\Attr.cpp"
 				>
 			</File>
@@ -32650,6 +32734,34 @@
 			</File>
 			<File
 				RelativePath="..\dom\DecodedDataDocumentParser.h"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\DeviceMotionClient.h"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\DeviceMotionController.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\DeviceMotionController.h"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\DeviceMotionData.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\DeviceMotionData.h"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\DeviceMotionEvent.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\DeviceMotionEvent.h"
 				>
 			</File>
 			<File
@@ -32994,6 +33106,14 @@
 			</File>
 			<File
 				RelativePath="..\dom\OverflowEvent.h"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\PendingScript.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\PendingScript.h"
 				>
 			</File>
 			<File
@@ -40868,6 +40988,18 @@
 				Name="generic"
 				>
 				<File
+					RelativePath="..\bindings\generic\ActiveDOMCallback.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\generic\ActiveDOMCallback.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="generic"
+				>
+				<File
 					RelativePath="..\bindings\generic\RuntimeEnabledFeatures.cpp"
 					>
 				</File>
@@ -42068,110 +42200,6 @@
 					>
 				</File>
 				<File
-					RelativePath="..\bindings\js\JSDatabaseCustom.cpp"
-					>
-					<FileConfiguration
-						Name="Debug|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Internal|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_All|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-				</File>
-				<File
-					RelativePath="..\bindings\js\JSDatabaseSyncCustom.cpp"
-					>
-					<FileConfiguration
-						Name="Debug|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Internal|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_All|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-				</File>
-				<File
 					RelativePath="..\bindings\js\JSDataGridColumnListCustom.cpp"
 					>
 					<FileConfiguration
@@ -42385,6 +42413,58 @@
 				</File>
 				<File
 					RelativePath="..\bindings\js\JSDesktopNotificationsCustom.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Internal|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_All|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSDeviceMotionEventCustom.cpp"
 					>
 					<FileConfiguration
 						Name="Debug|Win32"
@@ -44300,6 +44380,110 @@
 					</FileConfiguration>
 				</File>
 				<File
+					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBCursor.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Internal|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_All|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
+					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBCursor.h"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Internal|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_All|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
 					RelativePath="..\bindings\js\JSHTMLOptionsCollectionCustom.cpp"
 					>
 					<FileConfiguration
@@ -44568,6 +44752,62 @@
 					</FileConfiguration>
 				</File>
 				<File
+					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBDatabase.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Internal|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_All|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
+					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBDatabase.h"
+					>
+				</File>
+				<File
 					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBDatabase.h"
 					>
 				</File>
@@ -44684,62 +44924,6 @@
 					>
 				</File>
 				<File
-					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBDatabaseRequest.cpp"
-					>
-					<FileConfiguration
-						Name="Debug|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Internal|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_All|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-				</File>
-				<File
-					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBDatabaseRequest.h"
-					>
-				</File>
-				<File
 					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBErrorEvent.cpp"
 					>
 					<FileConfiguration
@@ -44797,6 +44981,62 @@
 				</File>
 				<File
 					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBEvent.h"
+					>
+				</File>
+				<File
+					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBFactory.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Internal|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_All|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
+					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBFactory.h"
 					>
 				</File>
 				<File
@@ -45020,7 +45260,7 @@
 					>
 				</File>
 				<File
-					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBObjectStoreRequest.cpp"
+					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBObjectStore.cpp"
 					>
 					<FileConfiguration
 						Name="Debug|Win32"
@@ -45072,7 +45312,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBObjectStoreRequest.cpp"
+					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBObjectStore.cpp"
 					>
 					<FileConfiguration
 						Name="Debug|Win32"
@@ -45124,7 +45364,7 @@
 					</FileConfiguration>
 				</File>
 				<File
-					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBObjectStoreRequest.h"
+					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBObjectStore.h"
 					>
 				</File>
 				<File
@@ -45240,6 +45480,62 @@
 					>
 				</File>
 				<File
+					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBTransaction.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Internal|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_All|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
+					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBTransaction.h"
+					>
+				</File>
+				<File
 					RelativePath="..\bindings\js\JSImageConstructor.cpp"
 					>
 					<FileConfiguration
@@ -45346,62 +45642,6 @@
 							Name="VCCLCompilerTool"
 						/>
 					</FileConfiguration>
-				</File>
-				<File
-					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBFactory.cpp"
-					>
-					<FileConfiguration
-						Name="Debug|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Internal|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_All|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-				</File>
-				<File
-					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBFactory.h"
-					>
 				</File>
 				<File
 					RelativePath="..\bindings\js\JSInjectedScriptHostCustom.cpp"
@@ -47744,62 +47984,6 @@
 					>
 				</File>
 				<File
-					RelativePath="..\bindings\js\ScriptArray.cpp"
-					>
-					<FileConfiguration
-						Name="Debug|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Internal|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_All|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-				</File>
-				<File
-					RelativePath="..\bindings\js\ScriptArray.h"
-					>
-				</File>
-				<File
 					RelativePath="..\bindings\js\ScriptCachedFrameData.cpp"
 					>
 					<FileConfiguration
@@ -48256,6 +48440,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\bindings\js\ScriptProfile.cpp"
+					>
+				</File>
+				<File
 					RelativePath="..\bindings\js\ScriptSourceCode.h"
 					>
 				</File>
@@ -48545,6 +48733,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\plugins\PluginStrategy.h"
+				>
+			</File>
+			<File
 				RelativePath="..\plugins\PluginStream.cpp"
 				>
 			</File>
@@ -48565,10 +48757,6 @@
 				>
 				<File
 					RelativePath="..\plugins\win\PluginDatabaseWin.cpp"
-					>
-				</File>
-				<File
-					RelativePath="..\plugins\win\PluginDataWin.cpp"
 					>
 				</File>
 				<File
@@ -49169,6 +49357,18 @@
 				>
 			</File>
 			<File
+				RelativePath="..\svg\SVGPathByteStream.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathByteStreamBuilder.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathByteStreamSource.h"
+				>
+			</File>
+			<File
 				RelativePath="..\svg\SVGPathConsumer.h"
 				>
 			</File>
@@ -49178,6 +49378,10 @@
 			</File>
 			<File
 				RelativePath="..\svg\SVGPathParser.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathParserFactory.h"
 				>
 			</File>
 			<File
@@ -49229,7 +49433,23 @@
 				>
 			</File>
 			<File
+				RelativePath="..\svg\SVGPathSegListSource.h"
+				>
+			</File>
+			<File
 				RelativePath="..\svg\SVGPathSegMoveto.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathSource.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathStringBuilder.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathStringSource.h"
 				>
 			</File>
 			<File
@@ -50145,7 +50365,43 @@
 				>
 			</File>
 			<File
+				RelativePath="..\storage\IDBCursor.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\IDBCursor.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\IDBCursorBackendImpl.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\IDBCursorBackendImpl.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\IDBCursorBackendInterface.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\IDBDatabase.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\storage\IDBDatabase.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\IDBDatabaseBackendImpl.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\IDBDatabaseBackendImpl.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\IDBDatabaseBackendInterface.h"
 				>
 			</File>
 			<File
@@ -50154,22 +50410,6 @@
 			</File>
 			<File
 				RelativePath="..\storage\IDBDatabaseException.h"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\IDBDatabaseImpl.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\IDBDatabaseImpl.h"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\IDBDatabaseRequest.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\IDBDatabaseRequest.h"
 				>
 			</File>
 			<File
@@ -50189,6 +50429,30 @@
 				>
 			</File>
 			<File
+				RelativePath="..\storage\IDBFactory.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\IDBFactory.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\IDBFactoryBackendImpl.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\IDBFactoryBackendImpl.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\IDBFactoryBackendInterface.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\IDBFactoryBackendInterface.h"
+				>
+			</File>
+			<File
 				RelativePath="..\storage\IDBIndex.cpp"
 				>
 			</File>
@@ -50197,15 +50461,15 @@
 				>
 			</File>
 			<File
-				RelativePath="..\storage\IDBIndexBackendInterface.h"
-				>
-			</File>
-			<File
 				RelativePath="..\storage\IDBIndexBackendImpl.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\storage\IDBIndexBackendImpl.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\IDBIndexBackendInterface.h"
 				>
 			</File>
 			<File
@@ -50225,23 +50489,23 @@
 				>
 			</File>
 			<File
+				RelativePath="..\storage\IDBObjectStore.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\storage\IDBObjectStore.h"
 				>
 			</File>
 			<File
-				RelativePath="..\storage\IDBObjectStoreImpl.cpp"
+				RelativePath="..\storage\IDBObjectStoreBackendImpl.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\storage\IDBObjectStoreImpl.h"
+				RelativePath="..\storage\IDBObjectStoreBackendImpl.h"
 				>
 			</File>
 			<File
-				RelativePath="..\storage\IDBObjectStoreRequest.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\IDBObjectStoreRequest.h"
+				RelativePath="..\storage\IDBObjectStoreBackendInterface.h"
 				>
 			</File>
 			<File
@@ -50260,28 +50524,12 @@
 				RelativePath="..\storage\IDBSuccessEvent.h"
 				>
 			</File>
-            <File
-                RelativePath="..\storage\IDBFactory.cpp"
-                >
-            </File>
-            <File
-                RelativePath="..\storage\IDBFactory.h"
-                >
-            </File>
 			<File
-				RelativePath="..\storage\IDBFactoryBackendInterface.cpp"
+				RelativePath="..\storage\IDBTransaction.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\storage\IDBFactoryBackendInterface.h"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\IDBFactoryBackendImpl.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\IDBFactoryBackendImpl.h"
+				RelativePath="..\storage\IDBTransaction.h"
 				>
 			</File>
 			<File
@@ -50709,6 +50957,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\inspector\InspectorDebuggerAgent.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\inspector\InspectorDebuggerAgent.h"
+				>
+			</File>
+			<File
 				RelativePath="..\inspector\InspectorDOMAgent.cpp"
 				>
 			</File>
@@ -50722,14 +50978,6 @@
 			</File>
 			<File
 				RelativePath="..\inspector\InspectorDOMStorageResource.h"
-				>
-			</File>
-			<File
-				RelativePath="..\inspector\InspectorFrontend.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\inspector\InspectorFrontend.h"
 				>
 			</File>
 			<File
@@ -50758,6 +51006,14 @@
 			</File>
 			<File
 				RelativePath="..\inspector\InspectorResource.h"
+				>
+			</File>
+			<File
+				RelativePath="..\inspector\InspectorStorageAgent.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\inspector\InspectorStorageAgent.h"
 				>
 			</File>
 			<File
@@ -51622,6 +51878,122 @@
 			</File>
 			<File
 				RelativePath="..\websockets\WorkerThreadableWebSocketChannel.h"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="mathml"
+			>
+			<File
+				RelativePath="..\mathml\MathMLElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\MathMLElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\MathMLInlineContainerElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\MathMLInlineContainerElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\MathMLMathElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\MathMLMathElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\MathMLTextElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\MathMLTextElement.h"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLBlock.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLBlock.h"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLFenced.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLFenced.h"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLFraction.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLFraction.h"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLMath.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLMath.h"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLOperator.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLOperator.h"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLRoot.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLRoot.h"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLRow.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLRow.h"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLSquareRoot.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLSquareRoot.h"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLSubSup.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLSubSup.h"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLUnderOver.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\mathml\RenderMathMLUnderOver.h"
 				>
 			</File>
 		</Filter>

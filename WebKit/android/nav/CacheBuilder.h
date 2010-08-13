@@ -31,7 +31,8 @@
 #include "IntRect.h"
 #include "PlatformString.h"
 #include "TextDirection.h"
-#include "wtf/Vector.h"
+#include <wtf/Forward.h>
+#include <wtf/Vector.h>
 
 #define NAVIGATION_MAX_PHONE_LENGTH 14
 
@@ -39,7 +40,6 @@ using namespace WebCore;
 
 namespace WebCore {
 
-class AtomicString;
 class Document;
 class Frame;
 class HTMLAreaElement;

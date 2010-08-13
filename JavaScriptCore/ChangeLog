@@ -1,3 +1,1289 @@
+2010-08-09  Oliver Hunt  <oliver@apple.com>
+
+        Fix Qt/ARM again, this time including the other changed file.
+
+        * jit/JIT.h:
+
+2010-08-09  Oliver Hunt  <oliver@apple.com>
+
+        Fix Qt/ARM
+
+        C++ overload resolution I stab at thee
+
+        * jit/JITInlineMethods.h:
+        (JSC::JIT::beginUninterruptedSequence):
+        (JSC::JIT::endUninterruptedSequence):
+
+2010-08-09  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Allow an assembler/macroassembler to compact branches to more concise forms when linking
+        https://bugs.webkit.org/show_bug.cgi?id=43745
+
+        This patch makes it possible for an assembler to convert jumps into a different
+        (presumably more efficient) form at link time.  Currently implemented in the
+        ARMv7 JIT as that already had logic to delay linking of jumps until the end of
+        compilation already.  The ARMv7 JIT chooses between either a 4 byte short jump
+        or a full 32-bit offset (and rewrites ITTT instructions as appropriate), so does
+        not yet produce the most compact form possible.  The general design of the linker
+        should make it relatively simple to introduce new branch types with little effort,
+        as the linker has no knowledge of the exact form of any of the branches.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * assembler/ARMv7Assembler.cpp: Added.
+        (JSC::):
+          Record jump sizes
+
+        * assembler/ARMv7Assembler.h:
+        (JSC::ARMv7Assembler::LinkRecord::LinkRecord):
+        (JSC::ARMv7Assembler::LinkRecord::from):
+        (JSC::ARMv7Assembler::LinkRecord::setFrom):
+        (JSC::ARMv7Assembler::LinkRecord::to):
+        (JSC::ARMv7Assembler::LinkRecord::type):
+        (JSC::ARMv7Assembler::LinkRecord::linkType):
+        (JSC::ARMv7Assembler::LinkRecord::setLinkType):
+          Encapsulate LinkRecord fields so we can compress the values somewhat
+
+        (JSC::ARMv7Assembler::JmpSrc::JmpSrc):
+          Need to record the jump type now
+
+        (JSC::ARMv7Assembler::b):
+        (JSC::ARMv7Assembler::blx):
+        (JSC::ARMv7Assembler::bx):
+          Need to pass the jump types
+
+        (JSC::ARMv7Assembler::executableOffsetFor):
+        (JSC::ARMv7Assembler::jumpSizeDelta):
+        (JSC::ARMv7Assembler::linkRecordSourceComparator):
+        (JSC::ARMv7Assembler::computeJumpType):
+        (JSC::ARMv7Assembler::convertJumpTo):
+        (JSC::ARMv7Assembler::recordLinkOffsets):
+        (JSC::ARMv7Assembler::jumpsToLink):
+        (JSC::ARMv7Assembler::link):
+        (JSC::ARMv7Assembler::unlinkedCode):
+          Helper functions for the linker
+
+        (JSC::ARMv7Assembler::linkJump):
+        (JSC::ARMv7Assembler::canBeShortJump):
+        (JSC::ARMv7Assembler::linkLongJump):
+        (JSC::ARMv7Assembler::linkShortJump):
+        (JSC::ARMv7Assembler::linkJumpAbsolute):
+           Moving code around for the various jump linking functions
+
+        * assembler/AbstractMacroAssembler.h:
+        (JSC::AbstractMacroAssembler::beginUninterruptedSequence):
+        (JSC::AbstractMacroAssembler::endUninterruptedSequence):
+          We have to track uninterrupted sequences in any assembler that compacts
+          branches as that's not something we're allowed to do in such sequences.
+          AbstractMacroAssembler has a nop version of these functions as it makes the
+          code elsewhere nicer.
+
+        * assembler/LinkBuffer.h:
+        (JSC::LinkBuffer::LinkBuffer):
+        (JSC::LinkBuffer::link):
+        (JSC::LinkBuffer::patch):
+        (JSC::LinkBuffer::locationOf):
+        (JSC::LinkBuffer::locationOfNearCall):
+        (JSC::LinkBuffer::returnAddressOffset):
+        (JSC::LinkBuffer::trampolineAt):
+          Updated these functions to adjust for any changed offsets in the linked code
+
+        (JSC::LinkBuffer::applyOffset):
+          A helper function to deal with the now potentially moved labels
+
+        (JSC::LinkBuffer::linkCode):
+          The new and mighty linker function
+
+        * assembler/MacroAssemblerARMv7.h:
+        (JSC::MacroAssemblerARMv7::MacroAssemblerARMv7):
+        (JSC::MacroAssemblerARMv7::beginUninterruptedSequence):
+        (JSC::MacroAssemblerARMv7::endUninterruptedSequence):
+        (JSC::MacroAssemblerARMv7::jumpsToLink):
+        (JSC::MacroAssemblerARMv7::unlinkedCode):
+        (JSC::MacroAssemblerARMv7::computeJumpType):
+        (JSC::MacroAssemblerARMv7::convertJumpTo):
+        (JSC::MacroAssemblerARMv7::recordLinkOffsets):
+        (JSC::MacroAssemblerARMv7::jumpSizeDelta):
+        (JSC::MacroAssemblerARMv7::link):
+        (JSC::MacroAssemblerARMv7::jump):
+        (JSC::MacroAssemblerARMv7::branchMul32):
+        (JSC::MacroAssemblerARMv7::breakpoint):
+        (JSC::MacroAssemblerARMv7::nearCall):
+        (JSC::MacroAssemblerARMv7::call):
+        (JSC::MacroAssemblerARMv7::ret):
+        (JSC::MacroAssemblerARMv7::tailRecursiveCall):
+        (JSC::MacroAssemblerARMv7::executableOffsetFor):
+        (JSC::MacroAssemblerARMv7::inUninterruptedSequence):
+        (JSC::MacroAssemblerARMv7::makeJump):
+        (JSC::MacroAssemblerARMv7::makeBranch):
+           All branches need to pass on their type now
+
+        * jit/ExecutableAllocator.h:
+        (JSC::ExecutablePool::returnLastBytes):
+           We can't know ahead of time how much space will be necessary to
+           hold the linked code if we're compacting branches, this new
+           function allows us to return the unused bytes at the end of linking
+
+        * jit/JIT.cpp:
+        (JSC::JIT::JIT):
+        (JSC::JIT::privateCompile):
+        * jit/JIT.h:
+        (JSC::JIT::compile):
+           The JIT class now needs to take a linker offset so that recompilation
+           can generate the same jumps when using branch compaction.
+        * jit/JITArithmetic32_64.cpp:
+        (JSC::JIT::emitSlow_op_mod):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::privateCompileCTIMachineTrampolines):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::privateCompileCTIMachineTrampolines):
+        (JSC::JIT::privateCompileCTINativeCall):
+          Update for new trampolineAt changes
+
+        * wtf/FastMalloc.cpp:
+        (WTF::TCMallocStats::):
+        * wtf/Platform.h:
+
+2010-08-09  Gavin Barraclough  <barraclough@apple.com>
+
+        Qt build fix III.
+
+        * wtf/text/WTFString.h:
+
+2010-08-09  Gavin Barraclough  <barraclough@apple.com>
+
+        Qt build fix.
+
+        * wtf/qt/StringQt.cpp:
+
+2010-08-06  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig
+
+        Bug 43594 - Add string forwards to Forward.h
+        This allows us to remove forward declarations for these classes from
+        WebCore/WebKit (a step in moving these class from WebCore:: to WTF::).
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/Forward.h:
+
+2010-08-07  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r64938.
+        http://trac.webkit.org/changeset/64938
+        https://bugs.webkit.org/show_bug.cgi?id=43685
+
+        Did not compile on several ports (Requested by abarth on
+        #webkit).
+
+        * Android.mk:
+        * CMakeLists.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * assembler/AbstractMacroAssembler.h:
+        * assembler/MacroAssembler.h:
+        * assembler/MacroAssemblerX86.h:
+        (JSC::MacroAssemblerX86::load32):
+        (JSC::MacroAssemblerX86::store32):
+        * assembler/X86Assembler.h:
+        (JSC::X86Assembler::movl_rm):
+        (JSC::X86Assembler::movl_mr):
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::markAggregate):
+        * bytecode/Instruction.h:
+        (JSC::PolymorphicAccessStructureList::PolymorphicStubInfo::):
+        (JSC::PolymorphicAccessStructureList::PolymorphicStubInfo::set):
+        (JSC::PolymorphicAccessStructureList::PolymorphicAccessStructureList):
+        * bytecode/StructureStubInfo.cpp:
+        (JSC::StructureStubInfo::deref):
+        * bytecode/StructureStubInfo.h:
+        (JSC::StructureStubInfo::initGetByIdProto):
+        (JSC::StructureStubInfo::initGetByIdChain):
+        (JSC::StructureStubInfo::):
+        * jit/JIT.h:
+        * jit/JITMarkObjects.cpp: Removed.
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::compileGetDirectOffset):
+        (JSC::JIT::testPrototype):
+        (JSC::JIT::privateCompilePutByIdTransition):
+        (JSC::JIT::privateCompileGetByIdProto):
+        (JSC::JIT::privateCompileGetByIdProtoList):
+        (JSC::JIT::privateCompileGetByIdChainList):
+        (JSC::JIT::privateCompileGetByIdChain):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::compileGetDirectOffset):
+        (JSC::JIT::testPrototype):
+        (JSC::JIT::privateCompilePutByIdTransition):
+        (JSC::JIT::privateCompileGetByIdProto):
+        (JSC::JIT::privateCompileGetByIdProtoList):
+        (JSC::JIT::privateCompileGetByIdChainList):
+        (JSC::JIT::privateCompileGetByIdChain):
+        * jit/JITStubs.cpp:
+        (JSC::setupPolymorphicProtoList):
+        * wtf/Platform.h:
+
+2010-08-07  Nathan Lawrence  <nlawrence@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        The JIT code contains a number of direct references to GC'd objects.
+        When we have movable objects, these references will need to be
+        updated.
+
+        * Android.mk:
+        * CMakeLists.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * assembler/AbstractMacroAssembler.h:
+        (JSC::AbstractMacroAssembler::int32AtLocation):
+        (JSC::AbstractMacroAssembler::pointerAtLocation):
+        (JSC::AbstractMacroAssembler::jumpTarget):
+        * assembler/MacroAssembler.h:
+        (JSC::MacroAssembler::loadPtrWithPatch):
+            Normally, loadPtr will optimize when the register is eax.  Since
+            the slightly smaller instruction changes the offsets, it messes up
+            our ability to repatch the code.  We added this new instruction
+            that garuntees a constant size.
+        * assembler/MacroAssemblerX86.h:
+        (JSC::MacroAssemblerX86::load32WithPatch):
+            Changed load32 in the same way described above.
+        (JSC::MacroAssemblerX86::load32):
+            Moved the logic to optimize laod32 from movl_mr to load32
+        (JSC::MacroAssemblerX86::store32):
+            Moved the logic to optimize store32 from movl_rm to store32
+        * assembler/X86Assembler.h:
+        (JSC::X86Assembler::movl_rm):
+        (JSC::X86Assembler::movl_mr):
+        (JSC::X86Assembler::int32AtLocation):
+        (JSC::X86Assembler::pointerAtLocation):
+        (JSC::X86Assembler::jumpTarget):
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::markAggregate):
+        * bytecode/Instruction.h:
+            As described in StructureStubInfo.h, we needed to add additional
+            fields to both StructureStubInfo and
+            PolymorphicAccessStructureList so that we can determine the
+            structure of the JITed code at patch time.
+        (JSC::PolymorphicAccessStructureList::PolymorphicStubInfo::set):
+        (JSC::PolymorphicAccessStructureList::PolymorphicAccessStructureList):
+        * bytecode/StructureStubInfo.cpp:
+        (JSC::StructureStubInfo::markAggregate):
+            Added this function to mark the JITed code that correosponds to
+            this structure stub info.
+        * bytecode/StructureStubInfo.h:
+        (JSC::StructureStubInfo::initGetByIdProto):
+        (JSC::StructureStubInfo::initGetByIdChain):
+        (JSC::StructureStubInfo::):
+        * jit/JIT.h:
+        * jit/JITMarkObjects.cpp: Added.
+        (JSC::JIT::patchPrototypeStructureAddress):
+        (JSC::JIT::patchGetDirectOffset):
+        (JSC::JIT::markGetByIdProto):
+        (JSC::JIT::markGetByIdChain):
+        (JSC::JIT::markGetByIdProtoList):
+        (JSC::JIT::markPutByIdTransition):
+        (JSC::JIT::markGlobalObjectReference):
+        * jit/JITPropertyAccess.cpp:
+            Added asserts for the patch offsets.
+        (JSC::JIT::compileGetDirectOffset):
+        (JSC::JIT::testPrototype):
+        (JSC::JIT::privateCompilePutByIdTransition):
+        (JSC::JIT::privateCompileGetByIdProto):
+        (JSC::JIT::privateCompileGetByIdProtoList):
+        (JSC::JIT::privateCompileGetByIdChainList):
+        (JSC::JIT::privateCompileGetByIdChain):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::compileGetDirectOffset):
+        (JSC::JIT::testPrototype):
+        (JSC::JIT::privateCompilePutByIdTransition):
+        (JSC::JIT::privateCompileGetByIdProto):
+        (JSC::JIT::privateCompileGetByIdProtoList):
+        (JSC::JIT::privateCompileGetByIdChainList):
+        (JSC::JIT::privateCompileGetByIdChain):
+        * jit/JITStubs.cpp:
+        (JSC::setupPolymorphicProtoList):
+        * wtf/Platform.h:
+            Added ENABLE_MOVABLE_GC_OBJECTS flag
+
+2010-08-07  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Revert JSArray to point to the beginning of the contained ArrayStorage
+        struct.  This is described in
+        https://bugs.webkit.org/show_bug.cgi?id=43526.
+
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::emit_op_get_by_val):
+        (JSC::JIT::emit_op_put_by_val):
+        (JSC::JIT::privateCompilePatchGetArrayLength):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::emit_op_get_by_val):
+        (JSC::JIT::emit_op_put_by_val):
+        (JSC::JIT::privateCompilePatchGetArrayLength):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::JSArray):
+        (JSC::JSArray::~JSArray):
+        (JSC::JSArray::getOwnPropertySlot):
+        (JSC::JSArray::getOwnPropertyDescriptor):
+        (JSC::JSArray::put):
+        (JSC::JSArray::putSlowCase):
+        (JSC::JSArray::deleteProperty):
+        (JSC::JSArray::getOwnPropertyNames):
+        (JSC::JSArray::getNewVectorLength):
+        (JSC::JSArray::increaseVectorLength):
+        (JSC::JSArray::increaseVectorPrefixLength):
+        (JSC::JSArray::setLength):
+        (JSC::JSArray::pop):
+        (JSC::JSArray::push):
+        (JSC::JSArray::shiftCount):
+        (JSC::JSArray::unshiftCount):
+        (JSC::JSArray::sortNumeric):
+        (JSC::JSArray::sort):
+        (JSC::JSArray::fillArgList):
+        (JSC::JSArray::copyToRegisters):
+        (JSC::JSArray::compactForSorting):
+        (JSC::JSArray::subclassData):
+        (JSC::JSArray::setSubclassData):
+        (JSC::JSArray::checkConsistency):
+        * runtime/JSArray.h:
+        (JSC::JSArray::length):
+        (JSC::JSArray::canGetIndex):
+        (JSC::JSArray::getIndex):
+        (JSC::JSArray::setIndex):
+        (JSC::JSArray::uncheckedSetIndex):
+        (JSC::JSArray::markChildrenDirect):
+
+2010-08-07  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Eric Seidel.
+
+        Add ENABLE(YARR) guard around JSGlobalData::m_regexAllocator
+        https://bugs.webkit.org/show_bug.cgi?id=43399
+
+        m_regexAllocator is used only by RegExp::compile which is guarded with ENABLE(YARR).
+
+        * runtime/JSGlobalData.h:
+
+2010-08-07  Patrick Roland Gansterer  <paroga@paroga.com>
+
+        Reviewed by Eric Seidel.
+
+        [Qt] Enable JIT on WinCE
+        https://bugs.webkit.org/show_bug.cgi?id=43303
+
+        Add ExtraCompiler for generating GeneratedJITStubs_MSVC.asm.
+
+        * DerivedSources.pro:
+
+2010-08-07  Dan Bernstein  <mitz@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Created a separate SimpleFontData constructor exclusively for SVG fonts and moved the CTFontRef
+        from SimpleFontData to FontPlatformData.
+        https://bugs.webkit.org/show_bug.cgi?id=43674
+
+        * wtf/Platform.h: Moved definitions of WTF_USE_CORE_TEXT and WTF_USE_ATSUI here from WebCore/config.h.
+
+2010-08-07  Zoltan Herczeg  <zherczeg@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Bitmap.h has no default constructor
+        https://bugs.webkit.org/show_bug.cgi?id=43619
+
+        Without a constructor, the initial bits of the Bitmap class
+        are undefinied. If only a few, or zero bits are 0, the memory
+        area provided by AlignedMemoryAllocator can be easly exhausted.
+
+        Csaba Osztrogonác helped to find this bug.
+
+        * wtf/Bitmap.h:
+        (WTF::::Bitmap):
+
+2010-08-06  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        [EFL] Build fix.
+
+        * CMakeLists.txt: add runtime/CGHandle.cpp.
+
+2010-08-06  Jessie Berlin  <jberlin@apple.com>
+
+        Roll out http://trac.webkit.org/changeset/64801, which broke the Safari Windows Build.
+        Unreviewed.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/Forward.h:
+
+2010-08-06  Jessie Berlin  <jberlin@apple.com>
+
+        Windows Build Fix (continued). Unreviewed.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-08-06  Jessie Berlin  <jberlin@apple.com>
+
+        Windows Build Fix. Unreviewed.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        Add GCHandle.h and GCHandle.cpp.
+
+2010-08-06  Nathan Lawrence  <nlawrence@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43207
+
+        WeakGCPtr's should instead of directly pointing to the GC'd object
+        should be directed to an array of pointers that can be updated for
+        movable objects.
+
+        * Android.mk:
+        * GNUmakefile.am:
+        * JavaScriptCore.exp:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/Collector.cpp:
+        (JSC::Heap::destroy):
+        (JSC::Heap::allocateBlock):
+        (JSC::Heap::freeBlock):
+        (JSC::Heap::updateWeakGCHandles):
+        (JSC::WeakGCHandlePool::update):
+        (JSC::Heap::addWeakGCHandle):
+        (JSC::Heap::markRoots):
+        * runtime/Collector.h:
+        (JSC::Heap::weakGCHandlePool):
+        * runtime/GCHandle.cpp: Added.
+        (JSC::WeakGCHandle::pool):
+        (JSC::WeakGCHandlePool::WeakGCHandlePool):
+        (JSC::WeakGCHandlePool::allocate):
+        (JSC::WeakGCHandlePool::free):
+        (JSC::WeakGCHandlePool::operator new):
+        * runtime/GCHandle.h: Added.
+        (JSC::WeakGCHandle::isValidPtr):
+        (JSC::WeakGCHandle::isPtr):
+        (JSC::WeakGCHandle::isNext):
+        (JSC::WeakGCHandle::invalidate):
+        (JSC::WeakGCHandle::get):
+        (JSC::WeakGCHandle::set):
+        (JSC::WeakGCHandle::getNextInFreeList):
+        (JSC::WeakGCHandle::setNextInFreeList):
+        (JSC::WeakGCHandlePool::isFull):
+        * runtime/WeakGCPtr.h:
+        (JSC::WeakGCPtr::WeakGCPtr):
+        (JSC::WeakGCPtr::~WeakGCPtr):
+        (JSC::WeakGCPtr::get):
+        (JSC::WeakGCPtr::clear):
+        (JSC::WeakGCPtr::assign):
+        (JSC::get):
+
+2010-08-06  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Fix warnings about difference in symbol visiblity on Mac OS X
+
+        * jsc.pro:
+
+2010-08-06  Zoltan Herczeg  <zherczeg@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Refactor identifier parsing in lexer
+        https://bugs.webkit.org/show_bug.cgi?id=41845
+
+        The code is refactored to avoid gotos. The new code
+        has the same performance as the old one.
+
+        SunSpider --parse-only: no change (from 34.0ms to 33.6ms)
+        SunSpider: no change (from 523.2ms to 523.5ms)
+
+        * parser/Lexer.cpp:
+        (JSC::Lexer::parseIdent):
+        (JSC::Lexer::lex):
+        * parser/Lexer.h:
+
+2010-08-06  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        The ARM JIT does not support JSValue32_64 with RVCT
+        https://bugs.webkit.org/show_bug.cgi?id=43411
+
+        JSValue32_64 is enabled for RVCT by default.
+
+        * create_jit_stubs:
+        * jit/JITStubs.cpp:
+        (JSC::ctiTrampoline):
+        (JSC::ctiVMThrowTrampoline):
+        (JSC::ctiOpThrowNotCaught):
+        * wtf/Platform.h:
+
+2010-08-05  Chao-ying Fu  <fu@mips.com>
+
+        Reviewed by Darin Adler.
+
+        Define WTF_USE_ARENA_ALLOC_ALIGNMENT_INTEGER for MIPS
+        https://bugs.webkit.org/show_bug.cgi?id=43514
+
+        MIPS needs to define WTF_USE_ARENA_ALLOC_ALIGNMENT_INTEGER, so that
+        RenderArena::allocate() can return 8-byte aligned memory to avoid
+        exceptions on sdc1/ldc1.
+
+        * wtf/Platform.h:
+
+2010-08-05  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig
+
+        Bug 43594 - Add string forwards to Forward.h
+        This allows us to remove forward declarations for these classes from
+        WebCore/WebKit (a step in moving these class from WebCore:: to WTF::).
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/Forward.h:
+
+2010-08-05  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Fixed leak seen on buildbot.
+
+        * runtime/GCActivityCallbackCF.cpp:
+        (JSC::DefaultGCActivityCallback::DefaultGCActivityCallback):
+        (JSC::DefaultGCActivityCallback::~DefaultGCActivityCallback):
+        (JSC::DefaultGCActivityCallback::operator()): Make out timer a RetainPtr,
+        since anything less would be uncivilized.
+
+2010-08-05  Andy Estes  <aestes@apple.com>
+
+        Reviewed by David Kilzer.
+
+        Rename iOS-related OS and PLATFORM macros.
+        https://bugs.webkit.org/show_bug.cgi?id=43493
+        
+        Rename WTF_OS_IPHONE_OS to WTF_OS_IOS, WTF_PLATFORM_IPHONE to
+        WTF_PLATFORM_IOS, and WTF_PLATFORM_IPHONE_SIMULATOR to
+        WTF_PLATFORM_IOS_SIMULATOR.
+
+        * jit/ExecutableAllocator.h:
+        * jit/JITStubs.cpp:
+        * profiler/ProfilerServer.mm:
+        (-[ProfilerServer init]):
+        * wtf/FastMalloc.cpp:
+        (WTF::TCMallocStats::):
+        * wtf/Platform.h:
+        * wtf/unicode/icu/CollatorICU.cpp:
+        (WTF::Collator::userDefault):
+
+2010-08-05  Nathan Lawrence  <nlawrence@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43464
+
+        Currently, the global object is being embedded in the JavaScriptCore
+        bytecode, however since the global object is the same for all opcodes
+        in a code block, we can have the global object just be a member of the
+        associated code block.
+
+        Additionally, I added an assert inside of emitOpcode that verifies
+        that the last generated opcode was of the correct length.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::CodeBlock):
+        (JSC::CodeBlock::derefStructures):
+        (JSC::CodeBlock::markAggregate):
+        * bytecode/CodeBlock.h:
+        (JSC::CodeBlock::globalObject):
+        (JSC::GlobalCodeBlock::GlobalCodeBlock):
+        (JSC::ProgramCodeBlock::ProgramCodeBlock):
+        (JSC::EvalCodeBlock::EvalCodeBlock):
+        (JSC::FunctionCodeBlock::FunctionCodeBlock):
+        * bytecode/Opcode.h:
+        (JSC::opcodeLength):
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::emitOpcode):
+            Added an assert to check that the last generated opcode is the
+            correct length.
+        (JSC::BytecodeGenerator::rewindBinaryOp):
+            Changed the last opcode to op_end since the length will no longer
+            be correct.
+        (JSC::BytecodeGenerator::rewindUnaryOp):
+            Changed the last opcode to op_end since the length will no longer
+            be correct.
+        (JSC::BytecodeGenerator::emitResolve):
+        (JSC::BytecodeGenerator::emitGetScopedVar):
+        (JSC::BytecodeGenerator::emitPutScopedVar):
+        (JSC::BytecodeGenerator::emitResolveWithBase):
+        * bytecompiler/BytecodeGenerator.h:
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::resolveGlobal):
+        (JSC::Interpreter::resolveGlobalDynamic):
+        (JSC::Interpreter::privateExecute):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_get_global_var):
+        (JSC::JIT::emit_op_put_global_var):
+        (JSC::JIT::emit_op_resolve_global):
+        (JSC::JIT::emitSlow_op_resolve_global):
+        (JSC::JIT::emit_op_resolve_global_dynamic):
+        (JSC::JIT::emitSlow_op_resolve_global_dynamic):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_get_global_var):
+        (JSC::JIT::emit_op_put_global_var):
+        (JSC::JIT::emit_op_resolve_global):
+        (JSC::JIT::emitSlow_op_resolve_global):
+        * jit/JITStubs.cpp:
+        (JSC::cti_op_resolve_global):
+        * runtime/Executable.cpp:
+        (JSC::FunctionExecutable::compileForCallInternal):
+        (JSC::FunctionExecutable::compileForConstructInternal):
+        (JSC::FunctionExecutable::reparseExceptionInfo):
+
+2010-08-05  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 43185 - Switch RegisterFile over to use PageAllocation
+
+        Remove platform-specific memory allocation code.
+
+        * interpreter/RegisterFile.cpp:
+        (JSC::RegisterFile::~RegisterFile):
+        (JSC::RegisterFile::releaseExcessCapacity):
+        * interpreter/RegisterFile.h:
+        (JSC::RegisterFile::RegisterFile):
+        (JSC::RegisterFile::grow):
+        (JSC::RegisterFile::checkAllocatedOkay):
+        * wtf/PageAllocation.cpp:
+        (WTF::PageAllocation::lastError):
+        * wtf/PageAllocation.h:
+        (WTF::PageAllocation::allocate):
+        (WTF::PageAllocation::allocateAt):
+        (WTF::PageAllocation::allocateAligned):
+        (WTF::PageAllocation::pageSize):
+        (WTF::PageAllocation::isPageAligned):
+        (WTF::PageAllocation::isPowerOfTwo):
+        * wtf/PageReservation.h:
+        (WTF::PageReservation::commit):
+        (WTF::PageReservation::decommit):
+        (WTF::PageReservation::reserve):
+        (WTF::PageReservation::reserveAt):
+
+2010-08-05  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Fixed https://bugs.webkit.org/show_bug.cgi?id=43401 where array 
+        content aren't properly initialized as part of unshift.  
+
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::unshiftCount):
+
+2010-08-05  Jian Li  <jianli@chromium.org>
+
+        Reviewed by David Levin.
+
+        Unify blob related feature defines to ENABLE(BLOB).
+        https://bugs.webkit.org/show_bug.cgi?id=43081
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-08-05  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Rubber-stamped by Xan Lopez.
+
+        Remove GHashTable left-overs. GHashTable is ref-counted, and is
+        correctly supported by GRefPtr.
+
+        * wtf/gobject/GOwnPtr.h:
+
+2010-08-05  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Unreviewed.
+
+        Typo fix that makes distcheck happy.
+
+        * GNUmakefile.am:
+
+2010-08-03  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt and Beth Dakin.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43461
+        Invalid NaN parsing
+        
+        * wtf/dtoa.cpp: Turn off the dtoa feature that allows you to specify a
+        non-standard NaN representation, since our NaN encoding assumes that all
+        true NaNs have the standard bit pattern.
+
+        * API/JSValueRef.cpp:
+        (JSValueMakeNumber): Don't allow an API client to accidentally specify
+        a non-standard NaN either.
+
+2010-08-04  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix part II.
+
+        * wtf/PageReservation.h:
+        (WTF::PageReservation::systemReserve):
+
+2010-08-04  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix.
+
+        * wtf/PageReservation.h:
+        (WTF::PageReservation::systemReserve):
+
+2010-08-04  Gavin Barraclough  <barraclough@apple.com>
+
+        Build fix - add new header to !Mac projects.
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+
+2010-08-04  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 43515 - Fix small design issues with PageAllocation, split out PageReservation.
+
+        The PageAllocation class has a number of issues:
+        * Changes in bug #43269 accidentally switched SYMBIAN over to use malloc/free to allocate
+          blocks of memory for the GC heap, instead of allocating RChunks.  Revert this change in
+          behaviour.
+        * In order for PageAllocation to work correctly on WinCE we should be decommitting memory
+          before deallocating.  In order to simplify understanding the expected state at deallocate,
+          split behaviour out into PageAllocation and PageReservation classes.  Require that all
+          memory be decommitted before calling deallocate on a PageReservation, add asserts to
+          enforce this.
+        * add many missing asserts.
+        * inline more functions.
+        * remove ability to create sub-PageAllocations from an existing PageAllocations object -
+          this presented an interface that would allow sub regions to be deallocated, which would
+          not have provided expected behaviour.
+        * remove writable/executable arguments to commit, this value can be cached at the point
+          the memory is reserved.
+        * remove writable/executable arguments to allocateAligned, protection other than RW is not
+          supported.
+        * add missing checks for overflow & failed allocation to mmap path through allocateAligned.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * jit/ExecutableAllocator.cpp:
+        (JSC::ExecutableAllocator::intializePageSize):
+        * jit/ExecutableAllocator.h:
+        (JSC::ExecutablePool::Allocation::Allocation):
+        (JSC::ExecutablePool::Allocation::base):
+        (JSC::ExecutablePool::Allocation::size):
+        (JSC::ExecutablePool::Allocation::operator!):
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::FixedVMPoolAllocator::reuse):
+        (JSC::FixedVMPoolAllocator::coalesceFreeSpace):
+        (JSC::FixedVMPoolAllocator::FixedVMPoolAllocator):
+        (JSC::FixedVMPoolAllocator::alloc):
+        (JSC::FixedVMPoolAllocator::free):
+        (JSC::FixedVMPoolAllocator::allocInternal):
+        * runtime/AlignedMemoryAllocator.h:
+        (JSC::::allocate):
+        (JSC::::AlignedMemoryAllocator):
+        * runtime/Collector.cpp:
+        (JSC::Heap::allocateBlock):
+        * runtime/Collector.h:
+        * wtf/PageAllocation.cpp:
+        * wtf/PageAllocation.h:
+        (WTF::PageAllocation::operator!):
+        (WTF::PageAllocation::allocate):
+        (WTF::PageAllocation::allocateAt):
+        (WTF::PageAllocation::allocateAligned):
+        (WTF::PageAllocation::deallocate):
+        (WTF::PageAllocation::pageSize):
+        (WTF::PageAllocation::systemAllocate):
+        (WTF::PageAllocation::systemAllocateAt):
+        (WTF::PageAllocation::systemAllocateAligned):
+        (WTF::PageAllocation::systemDeallocate):
+        (WTF::PageAllocation::systemPageSize):
+        * wtf/PageReservation.h: Copied from JavaScriptCore/wtf/PageAllocation.h.
+        (WTF::PageReservation::PageReservation):
+        (WTF::PageReservation::commit):
+        (WTF::PageReservation::decommit):
+        (WTF::PageReservation::reserve):
+        (WTF::PageReservation::reserveAt):
+        (WTF::PageReservation::deallocate):
+        (WTF::PageReservation::systemCommit):
+        (WTF::PageReservation::systemDecommit):
+        (WTF::PageReservation::systemReserve):
+        (WTF::PageReservation::systemReserveAt):
+        * wtf/Platform.h:
+
+2010-08-04  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r64655.
+        http://trac.webkit.org/changeset/64655
+        https://bugs.webkit.org/show_bug.cgi?id=43496
+
+        JavaScriptCore references patch seems to have caused
+        regressions in QT and GTK builds (Requested by nlawrence on
+        #webkit).
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::markAggregate):
+        * runtime/Collector.cpp:
+        (JSC::Heap::markConservatively):
+        * runtime/JSCell.h:
+        (JSC::JSValue::asCell):
+        (JSC::MarkStack::append):
+        * runtime/JSGlobalObject.cpp:
+        (JSC::markIfNeeded):
+        * runtime/JSONObject.cpp:
+        (JSC::Stringifier::Holder::object):
+        * runtime/JSObject.h:
+        (JSC::JSObject::prototype):
+        * runtime/JSStaticScopeObject.cpp:
+        (JSC::JSStaticScopeObject::markChildren):
+        * runtime/JSValue.h:
+        (JSC::JSValue::):
+        (JSC::JSValue::JSValue):
+        (JSC::JSValue::asCell):
+        * runtime/MarkStack.h:
+        * runtime/NativeErrorConstructor.cpp:
+        * runtime/NativeErrorConstructor.h:
+        * runtime/Structure.h:
+        (JSC::Structure::storedPrototype):
+
+2010-08-04  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig.
+
+        Enable JSVALUE64 for CPU(PPC64).
+        Basic browsing seems to work.
+
+        * wtf/Platform.h:
+
+2010-08-04  Nathan Lawrence  <nlawrence@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Refactoring MarkStack::append to take a reference.  This is in
+        preparation for movable objects when we will need to update pointers.
+        http://bugs.webkit.org/show_bug.cgi?id=41177
+
+        Unless otherwise noted, all changes are to either return by reference
+        or pass a reference to MarkStack::append.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::markAggregate):
+        * runtime/Collector.cpp:
+        (JSC::Heap::markConservatively):
+            Added a temporary variable to prevent marking from changing an
+            unknown value on the stack
+        * runtime/JSCell.h:
+        (JSC::JSValue::asCell):
+        (JSC::MarkStack::append):
+        (JSC::MarkStack::appendInternal):
+        * runtime/JSGlobalObject.cpp:
+        (JSC::markIfNeeded):
+        * runtime/JSONObject.cpp:
+        (JSC::Stringifier::Holder::object):
+        * runtime/JSObject.h:
+        (JSC::JSObject::prototype):
+        * runtime/JSStaticScopeObject.cpp:
+        (JSC::JSStaticScopeObject::markChildren):
+        * runtime/JSValue.h:
+        (JSC::JSValue::JSValue):
+        (JSC::JSValue::asCell):
+        * runtime/MarkStack.h:
+        * runtime/NativeErrorConstructor.cpp:
+        (JSC::NativeErrorConstructor::createStructure):
+            Changed the structure flags to include a custom markChildren.
+        (JSC::NativeErrorConstructor::markChildren):
+            Update the prototype of the stored structure.
+        * runtime/NativeErrorConstructor.h:
+            Added structure flags.
+        * runtime/Structure.h:
+        (JSC::Structure::storedPrototype):
+
+2010-08-03  Nathan Lawrence  <nlawrence@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Tightened up some get_by_id_chain* code generation
+        https://bugs.webkit.org/show_bug.cgi?id=40935
+
+        This is in the style of
+        https://bugs.webkit.org/show_bug.cgi?id=30539, and changed code to
+        call accessor functions when it was not necessary to directly access
+        the private variables.
+
+        * jit/JIT.h:
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::compileGetDirectOffset):
+        (JSC::JIT::testPrototype):
+        (JSC::JIT::privateCompilePutByIdTransition):
+        (JSC::JIT::privateCompileGetByIdChainList):
+        (JSC::JIT::privateCompileGetByIdChain):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::testPrototype):
+        (JSC::JIT::privateCompilePutByIdTransition):
+        (JSC::JIT::privateCompileGetByIdChainList):
+        (JSC::JIT::privateCompileGetByIdChain):
+
+2010-08-03  Adam Roben  <aroben@apple.com>
+
+        Turn on PLATFORM_STRATEGIES on Windows
+
+        Fixes <http://webkit.org/b/43431>.
+
+        Reviewed by Anders Carlsson.
+
+        * wtf/Platform.h:
+
+2010-08-04  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Geoffrey Garen.
+
+        Enable JSValue32_64 for GCC on ARM by default
+        https://bugs.webkit.org/show_bug.cgi?id=43410
+
+        * wtf/Platform.h:
+
+2010-08-03  Gavin Barraclough  <barraclough@apple.com>
+
+        Speculative windows build fix.
+
+        * wtf/Bitmap.h:
+
+2010-08-03  Gavin Barraclough  <barraclough@apple.com>
+
+        Build fix following r64624.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/PageAllocation.h:
+
+2010-08-03  Nathan Lawrence  <nlawrence@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43269
+
+        Added new allocateAligned methods to PageAllocation.  In order to
+        prevent a regress in performance, the function needs to be inlined.
+
+        Additionally, I ported the symbian block allocator to use
+        PageAllocation and added a new WTF::Bitmap class to support this.
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/AlignedMemoryAllocator.h: Added.
+        (JSC::AlignedMemory::deallocate):
+        (JSC::AlignedMemory::base):
+        (JSC::AlignedMemory::AlignedMemory):
+        (JSC::AlignedMemoryAllocator::destroy):
+        (JSC::AlignedMemoryAllocator::allocate):
+        (JSC::AlignedMemoryAllocator::AlignedMemoryAllocator):
+        (JSC::AlignedMemoryAllocator::~AlignedMemoryAllocator):
+        (JSC::AlignedMemoryAllocator::free):
+        * runtime/Collector.cpp:
+        (JSC::Heap::Heap):
+        (JSC::Heap::destroy):
+        (JSC::Heap::allocateBlock):
+        (JSC::Heap::freeBlock):
+        (JSC::Heap::freeBlocks):
+        (JSC::Heap::allocate):
+        (JSC::Heap::shrinkBlocks):
+        (JSC::Heap::markConservatively):
+        (JSC::Heap::clearMarkBits):
+        (JSC::Heap::markedCells):
+        * runtime/Collector.h:
+        (JSC::CollectorHeap::collectorBlock):
+        * runtime/CollectorHeapIterator.h:
+        (JSC::CollectorHeapIterator::operator*):
+        (JSC::LiveObjectIterator::operator++):
+        (JSC::DeadObjectIterator::operator++):
+        * wtf/Bitmap.h: Added.
+        (WTF::Bitmap::get):
+        (WTF::Bitmap::set):
+        (WTF::Bitmap::clear):
+        (WTF::Bitmap::clearAll):
+        (WTF::Bitmap::advanceToNextFreeBit):
+        (WTF::Bitmap::count):
+        (WTF::Bitmap::isEmpty):
+        (WTF::Bitmap::isFull):
+        * wtf/PageAllocation.h:
+        (WTF::PageAllocation::operator UnspecifiedBoolType):
+        (WTF::PageAllocation::allocateAligned):
+        (WTF::PageAllocation::reserveAligned):
+        * wtf/Platform.h:
+        * wtf/symbian: Removed.
+        * wtf/symbian/BlockAllocatorSymbian.cpp: Removed.
+        * wtf/symbian/BlockAllocatorSymbian.h: Removed.
+
+2010-08-03  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Fix for https://bugs.webkit.org/show_bug.cgi?id=43314.  The prior code
+        was using the wrong "length" value to move array contents when adding
+        space to the beginning of an array for an unshift() or similar
+        operation.  Instead of using m_vectorLength, the length of the
+        allocated JSValue array, the code was using m_length, the declared
+        length of the array.  These two values do not need to match.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::increaseVectorPrefixLength):
+
+2010-08-03  Chao-ying Fu  <fu@mips.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Fix following https://bugs.webkit.org/show_bug.cgi?id=43089
+        (accidentally inverted a compiler version check).
+
+        * jit/ExecutableAllocator.h:
+        (JSC::ExecutableAllocator::cacheFlush):
+
+2010-08-03  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Implement DEFINE_STUB_FUNCTION for WinCE.
+        https://bugs.webkit.org/show_bug.cgi?id=34953
+
+        * jit/JITStubs.cpp:
+        (JSC::):
+        (JSC::DEFINE_STUB_FUNCTION):
+
+2010-08-02  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 43390 - Do not CRASH if we run out of room for jit code.
+
+        Change the ExecutableAllocator implementations not to crash, and to return 0 if memory cannot be allocated.
+        The assemblers should pass this through without trying to use it in executableCopy.
+        Change the LinkBuffer to handle this, and to provide an allocationSuccessful() method to test for this.
+
+        Change the JIT to throw an exception if allocation fails.
+        Make JIT optimizations fail gracefully if memory cannot be allocated (use non-optimized path).
+        Change YARR JIT to fallback to PCRE 
+
+        * assembler/ARMAssembler.cpp:
+        (JSC::ARMAssembler::executableCopy):
+        * assembler/ARMv7Assembler.h:
+        (JSC::ARMv7Assembler::executableCopy):
+        * assembler/LinkBuffer.h:
+        (JSC::LinkBuffer::allocationSuccessful):
+        * assembler/MIPSAssembler.h:
+        (JSC::MIPSAssembler::executableCopy):
+        * assembler/X86Assembler.h:
+        (JSC::X86Assembler::executableCopy):
+        * bytecode/StructureStubInfo.h:
+        (JSC::StructureStubInfo::initGetByIdProto):
+        (JSC::StructureStubInfo::initGetByIdChain):
+        (JSC::StructureStubInfo::initGetByIdSelfList):
+        (JSC::StructureStubInfo::initGetByIdProtoList):
+        (JSC::StructureStubInfo::initPutByIdTransition):
+        * jit/ExecutableAllocator.cpp:
+        (JSC::ExecutablePool::systemAlloc):
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::FixedVMPoolAllocator::allocInternal):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompile):
+        * jit/JIT.h:
+        (JSC::JIT::compileGetByIdProto):
+        (JSC::JIT::compileGetByIdSelfList):
+        (JSC::JIT::compileGetByIdProtoList):
+        (JSC::JIT::compileGetByIdChainList):
+        (JSC::JIT::compileGetByIdChain):
+        (JSC::JIT::compilePutByIdTransition):
+        (JSC::JIT::compilePatchGetArrayLength):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::privateCompileCTIMachineTrampolines):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::privateCompileCTIMachineTrampolines):
+        (JSC::JIT::privateCompileCTINativeCall):
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::stringGetByValStubGenerator):
+        (JSC::JIT::privateCompilePutByIdTransition):
+        (JSC::JIT::privateCompilePatchGetArrayLength):
+        (JSC::JIT::privateCompileGetByIdProto):
+        (JSC::JIT::privateCompileGetByIdSelfList):
+        (JSC::JIT::privateCompileGetByIdProtoList):
+        (JSC::JIT::privateCompileGetByIdChainList):
+        (JSC::JIT::privateCompileGetByIdChain):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::stringGetByValStubGenerator):
+        (JSC::JIT::privateCompilePutByIdTransition):
+        (JSC::JIT::privateCompilePatchGetArrayLength):
+        (JSC::JIT::privateCompileGetByIdProto):
+        (JSC::JIT::privateCompileGetByIdSelfList):
+        (JSC::JIT::privateCompileGetByIdProtoList):
+        (JSC::JIT::privateCompileGetByIdChainList):
+        (JSC::JIT::privateCompileGetByIdChain):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::tryCachePutByID):
+        (JSC::JITThunks::tryCacheGetByID):
+        (JSC::DEFINE_STUB_FUNCTION):
+        (JSC::setupPolymorphicProtoList):
+        * jit/JITStubs.h:
+        * jit/SpecializedThunkJIT.h:
+        (JSC::SpecializedThunkJIT::finalize):
+        * runtime/ExceptionHelpers.cpp:
+        (JSC::createOutOfMemoryError):
+        * runtime/ExceptionHelpers.h:
+        * runtime/Executable.cpp:
+        (JSC::EvalExecutable::compileInternal):
+        (JSC::ProgramExecutable::compileInternal):
+        (JSC::FunctionExecutable::compileForCallInternal):
+        (JSC::FunctionExecutable::compileForConstructInternal):
+        (JSC::FunctionExecutable::reparseExceptionInfo):
+        (JSC::EvalExecutable::reparseExceptionInfo):
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::compile):
+
+2010-08-03  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Fixed a crash seen on the GTK 64bit buildbot.
+        
+        When JSArray is allocated for the vptr stealing hack, it's not allocated
+        in the heap, so the JSArray constructor can't safely call Heap::heap().
+        
+        Since this was subtle enough to confuse smart people, I've changed JSArray
+        to have an explicit vptr stealing constructor.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::JSArray):
+        * runtime/JSArray.h:
+        (JSC::JSArray::):
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::storeVPtrs):
+
+2010-08-03  Alex Milowski  <alex@milowski.com>
+
+        Reviewed by Beth Dakin.
+
+        Changed the ENABLE_MATHML value to enable MathML by default.
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-08-03  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Change to keep returned pointer from malloc family functions to
+        quiet memory leak detect.  The pointer is saved in the new m_allocBase
+        member of the ArrayStorage structure.  This fixes the issue found in 
+        https://bugs.webkit.org/show_bug.cgi?id=43229.
+
+        As part of this change, we use m_allocBase when reallocating and
+        freeing the memory associated with ArrayStorage.
+
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::JSArray):
+        (JSC::JSArray::~JSArray):
+        (JSC::JSArray::putSlowCase):
+        (JSC::JSArray::increaseVectorLength):
+        (JSC::JSArray::increaseVectorPrefixLength):
+        * runtime/JSArray.h:
+
+2010-08-03  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43444
+        PLATFORM(CF) is false on Windows in JavaScriptCore
+
+        Moved some PLATFORM(WIN) #defines down into JavaScriptCore.
+
+        * wtf/Platform.h: Added WTF_PLATFORM_CF 1 and WTF_USE_PTHREADS 0, inherited
+        from WebCore/config.h. Removed WTF_USE_WININET 1 since WebCore/config.h
+        just #undefined that later.
+
+2010-08-03  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix Windows build: Don't use GCActivityCallbackCF on Windows, since
+        PLATFORM(CF) is not defined on Windows.
+        
+        We'll need to enable the GC activity callback some other way, but this
+        change should get the build back to normal.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+
+        * runtime/GCActivityCallbackCF.cpp: Make it easier to detect this error
+        in the future with an explicit error message.
+
+2010-08-03  Geoffrey Garen  <ggaren@apple.com>
+
+        Try to fix Windows build: update .def file.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-08-03  Nathan Lawrence  <nlawrence@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41318
+        GC should reclaim garbage even when new objects are not being allocated rapidly
+
+        Added a callback in JavaScriptCore that gets triggered after an
+        allocation causes the heap to reset.  This is useful for adding a
+        timer that will trigger garbage collection after the "last" allocation.
+
+        Also needed was to add lock and unlock methods to JSLock that needed
+        only a JSGlobalData object versus an ExecState object.
+
+        * CMakeLists.txt:
+        * GNUmakefile.am:
+        * JavaScriptCore.exp:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.pro:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::emit_op_put_by_val):
+        * runtime/Collector.cpp:
+        (JSC::Heap::Heap):
+        (JSC::Heap::reset):
+        (JSC::Heap::setActivityCallback):
+        * runtime/Collector.h:
+        * runtime/GCActivityCallback.cpp: Added.
+        (JSC::DefaultGCActivityCallback::DefaultGCActivityCallback):
+        (JSC::DefaultGCActivityCallback::~DefaultGCActivityCallback):
+        (JSC::DefaultGCActivityCallback::operator()):
+        * runtime/GCActivityCallback.h: Added.
+        (JSC::GCActivityCallback::~GCActivityCallback):
+        (JSC::GCActivityCallback::operator()):
+        (JSC::GCActivityCallback::GCActivityCallback):
+        (JSC::DefaultGCActivityCallback::create):
+        * runtime/GCActivityCallbackCF.cpp: Added.
+        (JSC::DefaultGCActivityCallbackPlatformData::trigger):
+        (JSC::DefaultGCActivityCallback::DefaultGCActivityCallback):
+        (JSC::DefaultGCActivityCallback::~DefaultGCActivityCallback):
+        (JSC::DefaultGCActivityCallback::operator()):
+        * runtime/JSLock.cpp:
+        (JSC::JSLock::JSLock):
+        * runtime/JSLock.h:
+
+2010-08-02  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix after removal of need to compile ExecutableAllocatorPosix.cpp
+
+        * wscript:
+
 2010-08-02  Mahesh Kulkarni  <mahesh.kulkarni@nokia.com>
 
         Reviewed by Simon Hausmann.

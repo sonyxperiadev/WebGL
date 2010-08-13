@@ -38,6 +38,7 @@
 #include "PasteboardPrivate.h"
 #include "PluginData.h"
 
+#include <wtf/Forward.h>
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
 
@@ -73,7 +74,6 @@ namespace WebCore {
     class IDBFactoryBackendInterface;
     class IntRect;
     class KURL;
-    class String;
     class Widget;
 
     struct Cookie;
@@ -260,7 +260,6 @@ namespace WebCore {
 
         // Widget -------------------------------------------------------------
         static void widgetSetCursor(Widget*, const Cursor&);
-        static void widgetSetFocus(Widget*);
     };
 
 } // namespace WebCore

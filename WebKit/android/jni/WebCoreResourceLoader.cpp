@@ -119,7 +119,7 @@ void WebCoreResourceLoader::pauseLoad(bool pause)
 bool WebCoreResourceLoader::willLoadFromCache(const WebCore::KURL& url, int64_t identifier)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    WebCore::String urlStr = url.string();
+    WTF::String urlStr = url.string();
     jstring jUrlStr = env->NewString(urlStr.characters(), urlStr.length());
     jclass resourceLoader = env->FindClass("android/webkit/LoadListener");
     bool val = env->CallStaticBooleanMethod(resourceLoader, 
@@ -142,7 +142,7 @@ void WebCoreResourceLoader::SetResponseHeader(JNIEnv* env, jobject obj, jint nat
 
     LOG_ASSERT(key, "How did a null value become a key?");
     if (val) {
-        WebCore::String valStr = to_string(env, val);
+        WTF::String valStr = to_string(env, val);
         if (!valStr.isEmpty())
             response->setHTTPHeaderField(to_string(env, key), valStr);
     }
@@ -157,8 +157,8 @@ jint WebCoreResourceLoader::CreateResponse(JNIEnv* env, jobject obj, jstring url
 #endif
     LOG_ASSERT(url, "Must have a url in the response!");
     WebCore::KURL kurl(WebCore::ParsedURLString, to_string(env, url));
-    WebCore::String encodingStr;
-    WebCore::String mimeTypeStr;
+    WTF::String encodingStr;
+    WTF::String mimeTypeStr;
     if (mimeType) {
         mimeTypeStr = to_string(env, mimeType);
         LOGV("Response setMIMEType: %s", mimeTypeStr.latin1().data());
@@ -169,10 +169,10 @@ jint WebCoreResourceLoader::CreateResponse(JNIEnv* env, jobject obj, jstring url
     }
     WebCore::ResourceResponse* response = new WebCore::ResourceResponse(
             kurl, mimeTypeStr, (long long)expectedLength,
-            encodingStr, WebCore::String());
+            encodingStr, WTF::String());
     response->setHTTPStatusCode(statusCode);
     if (statusText) {
-        WebCore::String status = to_string(env, statusText);
+        WTF::String status = to_string(env, statusText);
         response->setHTTPStatusText(status);
         LOGV("Response setStatusText: %s", status.latin1().data());
     }
@@ -272,7 +272,7 @@ jstring WebCoreResourceLoader::RedirectedToUrl(JNIEnv* env, jobject obj,
     }
     handle->client()->willSendRequest(handle, r, *response);
     delete response;
-    WebCore::String s = url.string();
+    WTF::String s = url.string();
     return env->NewString((unsigned short*)s.characters(), s.length());
 }
 

@@ -73,6 +73,7 @@ SET(WebCore_INCLUDE_DIRECTORIES
 )
 
 SET(WebCore_IDL_INCLUDES
+    bindings/generic
     bindings/js
     css
     dom
@@ -143,6 +144,7 @@ SET(WebCore_IDL_FILES
     dom/Comment.idl
     dom/CompositionEvent.idl
     dom/CustomEvent.idl
+    dom/DeviceMotionEvent.idl
     dom/DeviceOrientationEvent.idl
     dom/DocumentFragment.idl
     dom/Document.idl
@@ -333,18 +335,20 @@ SET(WebCore_IDL_FILES
     storage/DatabaseCallback.idl
     storage/DatabaseSync.idl
     storage/IDBAny.idl
+    storage/IDBCursor.idl
     storage/IDBDatabaseError.idl
     storage/IDBDatabaseException.idl
-    storage/IDBDatabaseRequest.idl
+    storage/IDBDatabase.idl
     storage/IDBErrorEvent.idl
     storage/IDBEvent.idl
     storage/IDBFactory.idl
     storage/IDBIndex.idl
     storage/IDBKey.idl
     storage/IDBKeyRange.idl
-    storage/IDBObjectStoreRequest.idl
+    storage/IDBObjectStore.idl
     storage/IDBRequest.idl
     storage/IDBSuccessEvent.idl
+    storage/IDBTransaction.idl
     storage/SQLError.idl
     storage/SQLException.idl
     storage/SQLResultSet.idl
@@ -561,6 +565,7 @@ SET(WebCore_SOURCES
 
     bindings/ScriptControllerBase.cpp
 
+    bindings/generic/ActiveDOMCallback.cpp
     bindings/generic/RuntimeEnabledFeatures.cpp
 
     bindings/js/DOMObjectHashTableMap.cpp
@@ -585,13 +590,11 @@ SET(WebCore_SOURCES
     bindings/js/JSCustomSQLStatementErrorCallback.cpp
     bindings/js/JSCustomVoidCallback.cpp
     bindings/js/JSCustomXPathNSResolver.cpp
-    bindings/js/JSDatabaseCustom.cpp
-    bindings/js/JSDatabaseCustom.cpp
-    bindings/js/JSDatabaseSyncCustom.cpp
     bindings/js/JSDataGridColumnListCustom.cpp
     bindings/js/JSDataGridDataSource.cpp
     bindings/js/JSDebugWrapperSet.cpp
     bindings/js/JSDedicatedWorkerContextCustom.cpp
+    bindings/js/JSDeviceMotionEventCustom.cpp
     bindings/js/JSDeviceOrientationEventCustom.cpp
     bindings/js/JSDocumentCustom.cpp
     bindings/js/JSDOMApplicationCacheCustom.cpp
@@ -672,7 +675,6 @@ SET(WebCore_SOURCES
     bindings/js/JSXMLHttpRequestUploadCustom.cpp
     bindings/js/JSXSLTProcessorCustom.cpp
     bindings/js/ScheduledAction.cpp
-    bindings/js/ScriptArray.cpp
     bindings/js/ScriptCachedFrameData.cpp
     bindings/js/ScriptCallFrame.cpp
     bindings/js/ScriptCallStack.cpp
@@ -682,6 +684,7 @@ SET(WebCore_SOURCES
     bindings/js/ScriptFunctionCall.cpp
     bindings/js/ScriptGCEvent.cpp
     bindings/js/ScriptObject.cpp
+    bindings/js/ScriptProfile.cpp
     bindings/js/ScriptProfiler.cpp
     bindings/js/ScriptState.cpp
     bindings/js/ScriptValue.cpp
@@ -767,6 +770,7 @@ SET(WebCore_SOURCES
     css/WebKitCSSTransformValue.cpp
 
     dom/ActiveDOMObject.cpp
+    dom/AsyncScriptRunner.cpp
     dom/Attr.cpp
     dom/Attribute.cpp
     dom/BeforeTextInsertedEvent.cpp
@@ -787,6 +791,9 @@ SET(WebCore_SOURCES
     dom/CustomEvent.cpp
     dom/DatasetDOMStringMap.cpp
     dom/DecodedDataDocumentParser.cpp
+    dom/DeviceMotionController.cpp
+    dom/DeviceMotionData.cpp
+    dom/DeviceMotionEvent.cpp
     dom/DeviceOrientation.cpp
     dom/DeviceOrientationController.cpp
     dom/DeviceOrientationEvent.cpp
@@ -828,6 +835,7 @@ SET(WebCore_SOURCES
     dom/OptionGroupElement.cpp
     dom/OverflowEvent.cpp
     dom/PageTransitionEvent.cpp
+    dom/PendingScript.cpp
     dom/PopStateEvent.cpp
     dom/Position.cpp
     dom/PositionIterator.cpp
@@ -1049,11 +1057,12 @@ SET(WebCore_SOURCES
     inspector/InspectorDOMAgent.cpp
     inspector/InspectorDOMStorageResource.cpp
     inspector/InspectorDatabaseResource.cpp
-    inspector/InspectorFrontend.cpp
+    inspector/InspectorDebuggerAgent.cpp
     inspector/InspectorFrontendClientLocal.cpp
     inspector/InspectorFrontendHost.cpp
     inspector/InspectorResource.cpp
     inspector/InspectorValues.cpp
+    inspector/InspectorStorageAgent.cpp
     inspector/InspectorTimelineAgent.cpp
     inspector/ScriptBreakpoint.cpp
     inspector/TimelineRecordFactory.cpp
@@ -1126,6 +1135,7 @@ SET(WebCore_SOURCES
     mathml/MathMLMathElement.cpp
     mathml/MathMLTextElement.cpp
     mathml/RenderMathMLBlock.cpp
+    mathml/RenderMathMLFenced.cpp
     mathml/RenderMathMLFraction.cpp
     mathml/RenderMathMLMath.cpp
     mathml/RenderMathMLOperator.cpp
@@ -1434,8 +1444,10 @@ SET(WebCore_SOURCES
     storage/DatabaseThread.cpp
     storage/DatabaseTracker.cpp
     storage/IDBAny.cpp
-    storage/IDBDatabaseImpl.cpp
-    storage/IDBDatabaseRequest.cpp
+    storage/IDBDatabase.cpp
+    storage/IDBDatabaseBackendImpl.cpp
+    storage/IDBCursor.cpp
+    storage/IDBCursorBackendImpl.cpp
     storage/IDBErrorEvent.cpp
     storage/IDBEvent.cpp
     storage/IDBIndex.cpp
@@ -1443,8 +1455,8 @@ SET(WebCore_SOURCES
     storage/IDBKey.cpp
     storage/IDBKeyRange.cpp
     storage/IDBRequest.cpp
-    storage/IDBObjectStoreImpl.cpp
-    storage/IDBObjectStoreRequest.cpp
+    storage/IDBObjectStore.cpp
+    storage/IDBObjectStoreBackendImpl.cpp
     storage/IDBSuccessEvent.cpp
     storage/IDBFactory.cpp
     storage/IDBFactoryBackendInterface.cpp
@@ -1665,8 +1677,12 @@ IF (ENABLE_SVG)
         svg/SVGPaint.cpp
         svg/SVGParserUtilities.cpp
         svg/SVGPathBuilder.cpp
+        svg/SVGPathByteStreamBuilder.cpp
+        svg/SVGPathByteStreamSource.cpp
         svg/SVGPathElement.cpp
         svg/SVGPathParser.cpp
+        svg/SVGPathParserFactory.cpp
+        svg/SVGPathSeg.cpp
         svg/SVGPathSegArc.cpp
         svg/SVGPathSegClosePath.cpp
         svg/SVGPathSegCurvetoCubic.cpp
@@ -1678,7 +1694,10 @@ IF (ENABLE_SVG)
         svg/SVGPathSegLinetoVertical.cpp
         svg/SVGPathSegList.cpp
         svg/SVGPathSegListBuilder.cpp
+        svg/SVGPathSegListSource.cpp
         svg/SVGPathSegMoveto.cpp
+        svg/SVGPathStringBuilder.cpp
+        svg/SVGPathStringSource.cpp
         svg/SVGPatternElement.cpp
         svg/SVGPointList.cpp
         svg/SVGPolyElement.cpp

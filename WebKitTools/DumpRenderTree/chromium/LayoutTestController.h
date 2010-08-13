@@ -46,6 +46,13 @@
 #include "public/WebString.h"
 #include "public/WebURL.h"
 #include <wtf/Deque.h>
+#include <wtf/OwnPtr.h>
+
+namespace WebKit {
+class WebSpeechInputController;
+class WebSpeechInputControllerMock;
+class WebSpeechInputListener;
+}
 
 class TestShell;
 
@@ -250,6 +257,11 @@ public:
     void addOriginAccessWhitelistEntry(const CppArgumentList&, CppVariant*);
     void removeOriginAccessWhitelistEntry(const CppArgumentList&, CppVariant*);
 
+    // Clears all Application Caches.
+    void clearAllApplicationCaches(const CppArgumentList&, CppVariant*);
+    // Sets the Application Quota for the localhost origin.
+    void setApplicationCacheOriginQuota(const CppArgumentList&, CppVariant*);
+
     // Clears all databases.
     void clearAllDatabases(const CppArgumentList&, CppVariant*);
     // Sets the default quota for all origins
@@ -293,10 +305,14 @@ public:
     // Empty stub method to keep parity with object model exposed by global LayoutTestController.
     void abortModal(const CppArgumentList&, CppVariant*);
 
+    // Speech input related functions.
+    void setMockSpeechInputResult(const CppArgumentList&, CppVariant*);
+
 public:
     // The following methods are not exposed to JavaScript.
     void setWorkQueueFrozen(bool frozen) { m_workQueue.setFrozen(frozen); }
 
+    WebKit::WebSpeechInputController* speechInputController(WebKit::WebSpeechInputListener*);
     bool shouldDumpAsText() { return m_dumpAsText; }
     bool shouldDumpEditingCallbacks() { return m_dumpEditingCallbacks; }
     bool shouldDumpFrameLoadCallbacks() { return m_dumpFrameLoadCallbacks; }
@@ -467,6 +483,8 @@ private:
     CppVariant m_webHistoryItemCount;
 
     WebKit::WebURL m_userStyleSheetLocation;
+
+    OwnPtr<WebKit::WebSpeechInputControllerMock> m_speechInputControllerMock;
 };
 
 #endif // LayoutTestController_h

@@ -72,7 +72,7 @@ public:
         WebCore::IntPoint* scroll, bool firstCall);
     bool innerRight(const CachedNode* , BestData* ) const;
     bool innerUp(const CachedNode* , BestData* ) const;
-    WebCore::String imageURI(int x, int y) const;
+    WTF::String imageURI(int x, int y) const;
     bool maskIfHidden(BestData* ) const;
     const CachedNode* moveCursor(Direction , const CachedFrame** , WebCore::IntPoint* scroll);
     /**

@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 2002, 2003 The Karbon Developers
- *               2006       Alexander Kellett <lypanov@kde.org>
- *               2006, 2007 Rob Buis <buis@kde.org>
- * Copyrigth (C) 2007, 2009 Apple, Inc.  All rights reserved.
+ * Copyright (C) 2006 Alexander Kellett <lypanov@kde.org>
+ * Copyright (C) 2006, 2007 Rob Buis <buis@kde.org>
+ * Copyright (C) 2007, 2009 Apple Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -19,7 +19,6 @@
  * along with this library; see the file COPYING.LIB.  If not, write to
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
- *
  */
 
 #ifndef SVGPathParser_h
@@ -28,15 +27,22 @@
 #if ENABLE(SVG)
 #include "PlatformString.h"
 #include "SVGPathConsumer.h"
+#include "SVGPathSeg.h"
+#include "SVGPathSource.h"
+#include <wtf/Noncopyable.h>
+#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
-class SVGPathParser {
+class SVGPathParser : public Noncopyable {
 public:
-    SVGPathParser(SVGPathConsumer*);
+    SVGPathParser();
     ~SVGPathParser();
 
-    bool parsePathDataString(const String&, bool normalized = false);
+    bool parsePathDataFromSource(PathParsingMode pathParsingMode);
+    void setCurrentConsumer(SVGPathConsumer* consumer) { m_consumer = consumer; }
+    void setCurrentSource(SVGPathSource* source) { m_source = source; }
+    void cleanup();
 
 private:
     bool decomposeArcToCubic(float, float, float, FloatPoint&, FloatPoint&, bool largeArcFlag, bool sweepFlag);
@@ -51,13 +57,12 @@ private:
     bool parseCurveToQuadraticSmoothSegment();
     bool parseArcToSegment();
 
+    SVGPathSource* m_source;
     SVGPathConsumer* m_consumer;
     PathCoordinateMode m_mode;
-    const UChar* m_ptr;
-    const UChar* m_end;
-    char m_lastCommand;
-    bool m_normalized;
-    bool m_pathClosed;
+    PathParsingMode m_pathParsingMode;
+    SVGPathSegType m_lastCommand;
+    bool m_closePath;
     FloatPoint m_controlPoint;
     FloatPoint m_currentPoint;
     FloatPoint m_subPathPoint;

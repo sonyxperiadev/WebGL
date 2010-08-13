@@ -526,7 +526,6 @@ WebInspector.loaded = function()
     document.getElementById("close-button-left").addEventListener("click", this.close, true);
     document.getElementById("close-button-right").addEventListener("click", this.close, true);
 
-    this.extensionServer = new WebInspector.ExtensionServer();
     this.extensionServer.initExtensions();
 
     InspectorFrontendHost.loaded();
@@ -587,6 +586,11 @@ WebInspector.dispatchMessageFromBackend = function(arguments)
     WebInspector.dispatch.apply(this, arguments);
 }
 
+WebInspector.reportProtocolError = function(callId, methodName, errorText)
+{
+    WebInspector.log("InspectorBackend." + methodName + " failed with error text: '" + errorText + "'");
+    WebInspector.removeResponseCallbackEntry(callId);
+}
 
 WebInspector.windowResize = function(event)
 {
@@ -687,7 +691,7 @@ WebInspector.documentClick = function(event)
             return;
         }
 
-        WebInspector.showResourcesPanel();
+        WebInspector.showPanel("resources");
     }
 
     if (WebInspector.followLinkTimeout)
@@ -1077,7 +1081,7 @@ WebInspector.elementDragEnd = function(event)
 WebInspector.toggleSearchingForNode = function()
 {
     if (this.panels.elements) {
-        this.showElementsPanel();
+        this.showPanel("elements");
         this.panels.elements.toggleSearchingForNode();
     }
 }
@@ -1092,60 +1096,28 @@ WebInspector.showChanges = function()
     this.drawer.showView(this.changes);
 }
 
-WebInspector.showElementsPanel = function()
+WebInspector.showPanel = function(panel)
 {
-    this.currentPanel = this.panels.elements;
-}
-
-WebInspector.showResourcesPanel = function()
-{
-    this.currentPanel = this.panels.resources;
-}
-
-WebInspector.showScriptsPanel = function()
-{
-    this.currentPanel = this.panels.scripts;
-}
-
-WebInspector.showTimelinePanel = function()
-{
-    this.currentPanel = this.panels.timeline;
-}
-
-WebInspector.showProfilesPanel = function()
-{
-    this.currentPanel = this.panels.profiles;
-}
-
-WebInspector.showStoragePanel = function()
-{
-    this.currentPanel = this.panels.storage;
-}
-
-WebInspector.showConsolePanel = function()
-{
-    this.currentPanel = this.panels.console;
-}
-
-WebInspector.showAuditsPanel = function()
-{
-    this.currentPanel = this.panels.audits;
+    if (!(panel in this.panels))
+        panel = "elements";
+    this.currentPanel = this.panels[panel];
 }
 
 WebInspector.selectDatabase = function(o)
 {
-    WebInspector.showStoragePanel();
+    WebInspector.showPanel("storage");
     WebInspector.panels.storage.selectDatabase(o);
 }
 
 WebInspector.selectDOMStorage = function(o)
 {
-    WebInspector.showStoragePanel();
+    WebInspector.showPanel("storage");
     WebInspector.panels.storage.selectDOMStorage(o);
 }
 
-WebInspector.updateResource = function(identifier, payload)
+WebInspector.updateResource = function(payload)
 {
+    var identifier = payload.id;
     var resource = this.resources[identifier];
     if (!resource) {
         resource = new WebInspector.Resource(identifier, payload.url);
@@ -1737,7 +1709,7 @@ WebInspector.linkifyStringAsFragment = function(string)
 
 WebInspector.showProfileForURL = function(url)
 {
-    WebInspector.showProfilesPanel();
+    WebInspector.showPanel("profiles");
     WebInspector.panels.profiles.showProfileForURL(url);
 }
 
@@ -1787,6 +1759,9 @@ WebInspector.completeURL = function(baseURL, href)
         if (path.charAt(0) !== "/") {
             var basePath = match[4] || "/";
             path = basePath.substring(0, basePath.lastIndexOf("/")) + "/" + path;
+        } else if (path.length > 1 && path.charAt(1) === "/") {
+            // href starts with "//" which is a full URL with the protocol dropped (use the baseURL protocol).
+            return match[1] + ":" + path;
         }
         return match[1] + "://" + match[2] + (match[3] ? (":" + match[3]) : "") + path;
     }

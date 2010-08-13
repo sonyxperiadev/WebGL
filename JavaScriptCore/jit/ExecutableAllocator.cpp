@@ -45,15 +45,13 @@ void ExecutableAllocator::intializePageSize()
     // for moving memory model limitation
     ExecutableAllocator::pageSize = 256 * 1024;
 #else
-    ExecutableAllocator::pageSize = PageAllocation::pagesize();
+    ExecutableAllocator::pageSize = PageAllocation::pageSize();
 #endif
 }
 
 ExecutablePool::Allocation ExecutablePool::systemAlloc(size_t size)
 {
     PageAllocation allocation = PageAllocation::allocate(size, PageAllocation::JSJITCodePages, EXECUTABLE_POOL_WRITABLE, true);
-    if (!allocation)
-        CRASH();
     return allocation;
 }
 

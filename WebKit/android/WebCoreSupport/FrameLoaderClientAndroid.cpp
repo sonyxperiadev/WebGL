@@ -249,7 +249,7 @@ void FrameLoaderClientAndroid::dispatchDidReceiveIcon() {
     ASSERT(m_frame);
     if (m_frame->tree() && m_frame->tree()->parent())
         return;
-    WebCore::String url(m_frame->loader()->url().string());
+    WTF::String url(m_frame->loader()->url().string());
     // Try to obtain the icon image.
     WebCore::Image* icon = WebCore::iconDatabase()->iconForPageURL(
             url, WebCore::IntSize(16, 16));

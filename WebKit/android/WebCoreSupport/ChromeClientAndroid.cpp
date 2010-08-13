@@ -485,7 +485,7 @@ void ChromeClientAndroid::runOpenPanel(Frame* frame,
     core->openFileChooser(chooser);
 }
 
-void ChromeClientAndroid::chooseIconForFiles(const Vector<WebCore::String>&, FileChooser*)
+void ChromeClientAndroid::chooseIconForFiles(const Vector<WTF::String>&, FileChooser*)
 {
     notImplemented();
 }

@@ -786,8 +786,6 @@ void GraphicsContext::fillRect(const FloatRect& rect)
     if (paintingDisabled())
         return;
 
-    platformContext()->save();
-
     SkRect r = rect;
     if (!isRectSkiaSafe(getCTM(), r)) {
         // See the other version of fillRect below.
@@ -801,6 +799,8 @@ void GraphicsContext::fillRect(const FloatRect& rect)
         return;
     }
 #endif
+
+    platformContext()->save();
 
     platformContext()->prepareForSoftwareDraw();
 
@@ -1274,6 +1274,23 @@ void GraphicsContext::translate(float w, float h)
 
     platformContext()->canvas()->translate(WebCoreFloatToSkScalar(w),
                                            WebCoreFloatToSkScalar(h));
+}
+
+void GraphicsContext::setGraphicsContext3D(GraphicsContext3D* context3D, const IntSize& size)
+{
+#if USE(GLES2_RENDERING)
+    platformContext()->setGraphicsContext3D(context3D, size);
+#else
+    UNUSED_PARAM(context3D);
+    UNUSED_PARAM(size);
+#endif
+}
+
+void GraphicsContext::syncSoftwareCanvas()
+{
+#if USE(GLES2_RENDERING)
+    platformContext()->syncSoftwareCanvas();
+#endif
 }
 
 }  // namespace WebCore

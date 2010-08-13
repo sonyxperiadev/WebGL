@@ -43,7 +43,7 @@ class ScriptExecutionContext;
 class EntryCallback : public RefCounted<EntryCallback> {
 public:
     virtual ~EntryCallback() { }
-    virtual bool handleEvent(ScriptExecutionContext*, Entry*) = 0;
+    virtual bool handleEvent(Entry*) = 0;
 };
 
 } // namespace

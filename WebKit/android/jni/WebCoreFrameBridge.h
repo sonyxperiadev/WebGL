@@ -30,6 +30,7 @@
 
 #include "FrameLoaderClient.h"
 #include "PlatformBridge.h"
+#include "PlatformString.h"
 #include "WebCoreRefObject.h"
 #include <jni.h>
 #include <wtf/RefCounted.h>
@@ -61,8 +62,8 @@ class WebFrame : public WebCoreRefObject {
             const WebCore::ResourceRequest& request, bool mainResource,
             bool synchronous);
 
-    void reportError(int errorCode, const WebCore::String& description,
-            const WebCore::String& failingUrl);
+    void reportError(int errorCode, const WTF::String& description,
+            const WTF::String& failingUrl);
 
     void loadStarted(WebCore::Frame* frame);
 
@@ -76,17 +77,17 @@ class WebFrame : public WebCoreRefObject {
 
     void updateHistoryIndex(int newIndex);
 
-    void setTitle(const WebCore::String& title);
+    void setTitle(const WTF::String& title);
 
     void windowObjectCleared(WebCore::Frame* frame);
 
-	void setProgress(float newProgress);
+    void setProgress(float newProgress);
 
-    const WebCore::String userAgentForURL(const WebCore::KURL* url);
+    const WTF::String userAgentForURL(const WebCore::KURL* url);
 
     void didReceiveIcon(WebCore::Image* icon);
 
-    void didReceiveTouchIconURL(const WebCore::String& url, bool precomposed);
+    void didReceiveTouchIconURL(const WTF::String& url, bool precomposed);
     
     void updateVisitedHistory(const WebCore::KURL& url, bool reload);
 
@@ -100,9 +101,9 @@ class WebFrame : public WebCoreRefObject {
 
     void decidePolicyForFormResubmission(WebCore::FramePolicyFunction func);
 
-    void setUserAgent(WebCore::String userAgent) { mUserAgent = userAgent; }
+    void setUserAgent(WTF::String userAgent) { mUserAgent = userAgent; }
 
-    WebCore::String getRawResourceFilename(WebCore::PlatformBridge::rawResId) const;
+    WTF::String getRawResourceFilename(WebCore::PlatformBridge::rawResId) const;
 
     float density() const;
 
@@ -124,7 +125,7 @@ private:
     struct JavaBrowserFrame;
     JavaBrowserFrame* mJavaFrame;
     WebCore::Page* mPage;
-    WebCore::String mUserAgent;
+    WTF::String mUserAgent;
     bool mUserInitiatedClick;
 };
 

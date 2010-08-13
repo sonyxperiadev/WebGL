@@ -29,6 +29,7 @@
 #include "DOMStringList.h"
 #include "IDBCallbacks.h"
 #include "IDBObjectStoreProxy.h"
+#include "IDBTransactionBackendInterface.h"
 #include "WebFrameImpl.h"
 #include "WebIDBCallbacksImpl.h"
 #include "WebIDBDatabase.h"
@@ -39,7 +40,7 @@
 
 namespace WebCore {
 
-PassRefPtr<IDBDatabase> IDBDatabaseProxy::create(PassOwnPtr<WebKit::WebIDBDatabase> database)
+PassRefPtr<IDBDatabaseBackendInterface> IDBDatabaseProxy::create(PassOwnPtr<WebKit::WebIDBDatabase> database)
 {
     return adoptRef(new IDBDatabaseProxy(database));
 }
@@ -78,7 +79,7 @@ void IDBDatabaseProxy::createObjectStore(const String& name, const String& keyPa
     m_webIDBDatabase->createObjectStore(name, keyPath, autoIncrement, new WebIDBCallbacksImpl(callbacks));
 }
 
-PassRefPtr<IDBObjectStore> IDBDatabaseProxy::objectStore(const String& name, unsigned short mode)
+PassRefPtr<IDBObjectStoreBackendInterface> IDBDatabaseProxy::objectStore(const String& name, unsigned short mode)
 {
     WebKit::WebIDBObjectStore* objectStore = m_webIDBDatabase->objectStore(name, mode);
     if (!objectStore)
@@ -89,6 +90,13 @@ PassRefPtr<IDBObjectStore> IDBDatabaseProxy::objectStore(const String& name, uns
 void IDBDatabaseProxy::removeObjectStore(const String& name, PassRefPtr<IDBCallbacks> callbacks)
 {
     m_webIDBDatabase->removeObjectStore(name, new WebIDBCallbacksImpl(callbacks));
+}
+
+PassRefPtr<IDBTransactionBackendInterface> IDBDatabaseProxy::transaction(DOMStringList* storeNames, unsigned short mode, unsigned long timeout)
+{
+    // FIXME: plumb to the browser process, etc etc.
+    ASSERT_NOT_REACHED();
+    return 0;
 }
 
 } // namespace WebCore

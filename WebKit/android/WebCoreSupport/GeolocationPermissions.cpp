@@ -251,7 +251,7 @@ void GeolocationPermissions::resetTemporaryPermissionStates()
     m_webViewCore->geolocationPermissionsHidePrompt();
 }
 
-const WebCore::String& GeolocationPermissions::nextOriginInQueue()
+const WTF::String& GeolocationPermissions::nextOriginInQueue()
 {
     static const String emptyString = "";
     return m_queuedOrigins.isEmpty() ? emptyString : m_queuedOrigins[0];

@@ -21,10 +21,14 @@
 #define Navigator_h
 
 #include "NavigatorBase.h"
-#include "PlatformString.h"
+#include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+
+#if PLATFORM(ANDROID) && ENABLE(APPLICATION_INSTALLED)
+#include "PlatformString.h"
+#endif
 
 namespace WebCore {
 
@@ -33,7 +37,6 @@ class DOMPluginArray;
 class Frame;
 class Geolocation;
 class PluginData;
-class String;
 #if PLATFORM(ANDROID)
 class ApplicationInstalledCallback;
 class Connection;

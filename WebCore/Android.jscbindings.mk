@@ -95,10 +95,9 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSDOMWrapper.cpp \
 	bindings/js/JSDataGridColumnListCustom.cpp \
 	bindings/js/JSDataGridDataSource.cpp \
-	bindings/js/JSDatabaseCustom.cpp \
-	bindings/js/JSDatabaseSyncCustom.cpp \
 	bindings/js/JSDedicatedWorkerContextCustom.cpp \
 	bindings/js/JSDesktopNotificationsCustom.cpp \
+	bindings/js/JSDeviceMotionEventCustom.cpp \
 	bindings/js/JSDeviceOrientationEventCustom.cpp \
 	bindings/js/JSDocumentCustom.cpp \
 	bindings/js/JSElementCustom.cpp \
@@ -168,7 +167,6 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSXMLHttpRequestUploadCustom.cpp \
 	bindings/js/JSXSLTProcessorCustom.cpp \
 	bindings/js/ScheduledAction.cpp \
-	bindings/js/ScriptArray.cpp \
 	bindings/js/ScriptCachedFrameData.cpp \
 	bindings/js/ScriptCallFrame.cpp \
 	bindings/js/ScriptCallStack.cpp \
@@ -177,6 +175,7 @@ LOCAL_SRC_FILES += \
 	bindings/js/ScriptEventListener.cpp \
 	bindings/js/ScriptFunctionCall.cpp \
 	bindings/js/ScriptObject.cpp \
+	bindings/js/ScriptProfile.cpp \
 	bindings/js/ScriptState.cpp \
 	bindings/js/ScriptValue.cpp \
 	bindings/js/SerializedScriptValue.cpp \

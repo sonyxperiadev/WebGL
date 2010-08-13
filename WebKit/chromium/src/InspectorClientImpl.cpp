@@ -36,7 +36,6 @@
 #include "NotImplemented.h"
 #include "Page.h"
 #include "WebDevToolsAgentImpl.h"
-#include "WebDevToolsMessageData.h"
 #include "WebRect.h"
 #include "WebURL.h"
 #include "WebURLRequest.h"
@@ -94,7 +93,7 @@ void InspectorClientImpl::storeSetting(const String& key, const String& value)
         agent->storeSetting(key, value);
 }
 
-bool InspectorClientImpl::sendMessageToFrontend(const WebCore::String& message)
+bool InspectorClientImpl::sendMessageToFrontend(const WTF::String& message)
 {
     if (WebDevToolsAgentImpl* agent = devToolsAgent())
         return agent->sendMessageToFrontend(message);

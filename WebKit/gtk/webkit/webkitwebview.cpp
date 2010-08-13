@@ -549,6 +549,11 @@ static gboolean webkit_web_view_expose_event(GtkWidget* widget, GdkEventExpose* 
                 ctx.restore();
             }
         }
+
+        ctx.save();
+        ctx.clip(static_cast<IntRect>(event->area));
+        frame->page()->inspectorController()->drawNodeHighlight(ctx);
+        ctx.restore();
     }
 
     return FALSE;
@@ -792,7 +797,8 @@ static gboolean webkit_web_view_focus_in_event(GtkWidget* widget, GdkEventFocus*
         else
             focusController->setFocusedFrame(core(webView)->mainFrame());
 
-        gtk_im_context_focus_in(webView->priv->imContext);
+        if (focusController->focusedFrame()->editor()->canEdit())
+            gtk_im_context_focus_in(webView->priv->imContext);
     }
     return GTK_WIDGET_CLASS(webkit_web_view_parent_class)->focus_in_event(widget, event);
 }
@@ -4657,4 +4663,21 @@ WebKitCacheModel webkit_get_cache_model()
 {
     webkit_init();
     return cacheModel;
+}
+
+void webkit_web_view_execute_core_command_by_name(WebKitWebView* webView, const gchar* name, const gchar* value)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+    g_return_if_fail(name);
+    g_return_if_fail(value);
+
+    core(webView)->focusController()->focusedOrMainFrame()->editor()->command(name).execute(value);
+}
+
+gboolean webkit_web_view_is_command_enabled(WebKitWebView* webView, const gchar* name)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), FALSE);
+    g_return_val_if_fail(name, FALSE);
+
+    return core(webView)->focusController()->focusedOrMainFrame()->editor()->command(name).isEnabled();
 }

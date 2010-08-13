@@ -960,7 +960,7 @@ public:
         return false;
     }
 
-    WebCore::String text() {
+    WTF::String text() {
         if (mFlipped)
             finish();
         // the text has been copied in visual order. Reverse as needed if
@@ -976,7 +976,7 @@ public:
                 break;
             }
         }
-        return WebCore::String(mSelectText.begin(), mSelectText.count());
+        return WTF::String(mSelectText.begin(), mSelectText.count());
     }
 
 protected:
@@ -1165,7 +1165,7 @@ static SkIRect findRight(const SkPicture& picture, const SkIRect& area,
     return findEdge(picture, area, x, y, false, base);
 }
 
-static WebCore::String text(const SkPicture& picture, const SkIRect& area,
+static WTF::String text(const SkPicture& picture, const SkIRect& area,
         const SkIRect& start, int startBase, const SkIRect& end,
         int endBase, bool flipped)
 {

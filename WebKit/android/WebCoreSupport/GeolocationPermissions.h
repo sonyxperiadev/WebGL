@@ -82,7 +82,7 @@ namespace android {
         // The new permission state is recorded and will trigger callbacks to
         // geolocation objects as described above. If any other permission
         // requests are queued, the next is started.
-        void providePermissionState(WebCore::String origin, bool allow, bool remember);
+        void providePermissionState(WTF::String origin, bool allow, bool remember);
 
         // Clears the temporary permission state and any pending requests. Used
         // when the main frame is refreshed or navigated to a new URL.
@@ -93,14 +93,14 @@ namespace android {
         // system settings are changed.
         // Gets the list of all origins for which permanent permissions are
         // recorded.
-        typedef HashSet<WebCore::String> OriginSet;
+        typedef HashSet<WTF::String> OriginSet;
         static OriginSet getOrigins();
         // Gets whether the specified origin is allowed.
-        static bool getAllowed(WebCore::String origin);
+        static bool getAllowed(WTF::String origin);
         // Clears the permission state for the specified origin.
-        static void clear(WebCore::String origin);
+        static void clear(WTF::String origin);
         // Sets the permission state for the specified origin to allowed.
-        static void allow(WebCore::String origin);
+        static void allow(WTF::String origin);
         // Clears the permission state for all origins.
         static void clearAll();
         // Sets whether the GeolocationPermissions object should always deny
@@ -108,7 +108,7 @@ namespace android {
         // states.
         static void setAlwaysDeny(bool deny);
 
-        static void setDatabasePath(WebCore::String path);
+        static void setDatabasePath(WTF::String path);
 
         // Saves the permanent permissions to the DB if required.
         static void maybeStorePermanentPermissions();
@@ -116,41 +116,41 @@ namespace android {
       private:
         // Records the permission state for the specified origin and whether
         // this should be remembered.
-        void recordPermissionState(WebCore::String origin, bool allow, bool remember);
+        void recordPermissionState(WTF::String origin, bool allow, bool remember);
 
         // Used to make an asynchronous callback to the Geolocation objects.
-        void makeAsynchronousCallbackToGeolocation(WebCore::String origin, bool allow);
+        void makeAsynchronousCallbackToGeolocation(WTF::String origin, bool allow);
         void timerFired(WebCore::Timer<GeolocationPermissions>* timer);
 
         // Calls back to the Geolocation objects in all frames from the
         // specified origin. There may be no such objects, as the frames using
         // Geolocation from the specified origin may no longer use Geolocation,
         // or may have been navigated to a different origin..
-        void maybeCallbackFrames(WebCore::String origin, bool allow);
+        void maybeCallbackFrames(WTF::String origin, bool allow);
 
         // Cancels pending permission requests for the specified origin in
         // other main frames (ie browser tabs). This is used when the user
         // specifies permission to be remembered.
-        static void cancelPendingRequestsInOtherTabs(WebCore::String origin);
-        void cancelPendingRequests(WebCore::String origin);
+        static void cancelPendingRequestsInOtherTabs(WTF::String origin);
+        void cancelPendingRequests(WTF::String origin);
 
         static void maybeLoadPermanentPermissions();
 
-        const WebCore::String& nextOriginInQueue();
+        const WTF::String& nextOriginInQueue();
 
         WebViewCore* m_webViewCore;
         WebCore::Frame* m_mainFrame;
         // A vector of the origins queued to make a permission request.
         // The first in the vector is the origin currently making the request.
-        typedef Vector<WebCore::String> OriginVector;
+        typedef Vector<WTF::String> OriginVector;
         OriginVector m_queuedOrigins;
         // A map from a queued origin to the set of frames that have requested
         // permission for that origin.
         typedef HashSet<WebCore::Frame*> FrameSet;
-        typedef HashMap<WebCore::String, FrameSet> OriginToFramesMap;
+        typedef HashMap<WTF::String, FrameSet> OriginToFramesMap;
         OriginToFramesMap m_queuedOriginsToFramesMap;
 
-        typedef WTF::HashMap<WebCore::String, bool> PermissionsMap;
+        typedef WTF::HashMap<WTF::String, bool> PermissionsMap;
         PermissionsMap m_temporaryPermissions;
         static PermissionsMap s_permanentPermissions;
 
@@ -160,7 +160,7 @@ namespace android {
         WebCore::Timer<GeolocationPermissions> m_timer;
 
         struct CallbackData {
-            WebCore::String origin;
+            WTF::String origin;
             bool allow;
         };
         CallbackData m_callbackData;
@@ -169,7 +169,7 @@ namespace android {
 
         static bool s_permanentPermissionsLoaded;
         static bool s_permanentPermissionsModified;
-        static WebCore::String s_databasePath;
+        static WTF::String s_databasePath;
     };
 
 }  // namespace android

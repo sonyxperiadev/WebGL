@@ -46,6 +46,7 @@ WebInspector.InspectorBackendStub = function()
     this._registerDelegate("enableResourceTracking");
     this._registerDelegate("enableSearchingForNode");
     this._registerDelegate("enableTimeline");
+    this._registerDelegate("getApplicationCaches");
     this._registerDelegate("getChildNodes");
     this._registerDelegate("getCookies");
     this._registerDelegate("getDatabaseTableNames");
@@ -81,6 +82,7 @@ WebInspector.InspectorBackendStub = function()
     this._registerDelegate("stopTimelineProfiler");
     this._registerDelegate("storeLastActivePanel");
     this._registerDelegate("takeHeapSnapshot");
+    this._registerDelegate("getProfilerLogLines");
 
     this._registerDelegate("getAllStyles");
     this._registerDelegate("getStyles");
@@ -103,6 +105,7 @@ WebInspector.InspectorBackendStub = function()
     this._registerDelegate("removeBreakpoint");
     this._registerDelegate("activateBreakpoints");
     this._registerDelegate("deactivateBreakpoints");
+    this._registerDelegate("pause");
     this._registerDelegate("resume");
     this._registerDelegate("stepIntoStatement");
     this._registerDelegate("stepOutOfFunction");
@@ -119,10 +122,7 @@ WebInspector.InspectorBackendStub.prototype = {
     sendMessageToBackend: function()
     {
         var message = JSON.stringify(Array.prototype.slice.call(arguments));
-        if (WebInspector._paramsObject && "page" in WebInspector._paramsObject)
-            WebInspector.socket.send(message);
-        else
-            InspectorFrontendHost.sendMessageToBackend(message);
+        InspectorFrontendHost.sendMessageToBackend(message);
     }
 }
 

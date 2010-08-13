@@ -48,6 +48,7 @@
 #include "InjectedScriptHost.h"
 #include "InspectorController.h"
 #include "InspectorResource.h"
+#include "InspectorValues.h"
 #include "JSDOMWindow.h"
 #include "JSDOMWindowCustom.h"
 #include "JSNode.h"
@@ -55,7 +56,6 @@
 #include "Node.h"
 #include "Page.h"
 #if ENABLE(DOM_STORAGE)
-#include "SerializedScriptValue.h"
 #include "Storage.h"
 #include "JSStorage.h"
 #endif
@@ -102,23 +102,6 @@ ScriptObject InjectedScriptHost::createInjectedScript(const String& source, Scri
         return ScriptObject(scriptState, result.getObject());
     return ScriptObject();
 }
-
-#if ENABLE(DATABASE)
-JSValue JSInjectedScriptHost::databaseForId(ExecState* exec)
-{
-    if (exec->argumentCount() < 1)
-        return jsUndefined();
-
-    InspectorController* ic = impl()->inspectorController();
-    if (!ic)
-        return jsUndefined();
-
-    Database* database = impl()->databaseForId(exec->argument(0).toInt32(exec));
-    if (!database)
-        return jsUndefined();
-    return toJS(exec, database);
-}
-#endif
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 JSValue JSInjectedScriptHost::currentCallFrame(ExecState* exec)
@@ -191,24 +174,6 @@ JSValue JSInjectedScriptHost::selectDOMStorage(ExecState* exec)
     return jsUndefined();
 }
 #endif
-
-JSValue JSInjectedScriptHost::reportDidDispatchOnInjectedScript(ExecState* exec)
-{
-    if (exec->argumentCount() < 3)
-        return jsUndefined();
-    
-    if (!exec->argument(0).isInt32())
-        return jsUndefined();
-    int callId = exec->argument(0).asInt32();
-    
-    RefPtr<SerializedScriptValue> result(SerializedScriptValue::create(exec, exec->argument(1)));
-    
-    bool isException;
-    if (!exec->argument(2).getBoolean(isException))
-        return jsUndefined();
-    impl()->reportDidDispatchOnInjectedScript(callId, result.get(), isException);
-    return jsUndefined();
-}
 
 InjectedScript InjectedScriptHost::injectedScriptFor(ScriptState* scriptState)
 {

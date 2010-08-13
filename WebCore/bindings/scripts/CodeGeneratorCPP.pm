@@ -261,7 +261,7 @@ sub GetCPPTypeGetter
 
     return $argName if $codeGenerator->IsPrimitiveType($type) or $codeGenerator->IsStringType($type);
     return "static_cast<WebCore::Range::CompareHow>($argName)" if $type eq "CompareHow";
-    return "WebCore::SerializedScriptValue::create(WebCore::String($argName))" if $type eq "SerializedScriptValue";
+    return "WebCore::SerializedScriptValue::create(WTF::String($argName))" if $type eq "SerializedScriptValue";
     return "toWebCore($argName)";
 }
 
@@ -421,10 +421,14 @@ sub GenerateHeader
         foreach my $attribute (@{$dataNode->attributes}) {
             next if ShouldSkipTypeInHeader($attribute);
 
+            my $attributeConditionalString = GenerateConditionalString($attribute->signature);
             my $attributeName = $attribute->signature->name;
             my $attributeType = GetCPPType($attribute->signature->type, 0);
             my $attributeIsReadonly = ($attribute->type =~ /^readonly/);
-            my $property = "    " . $attributeType . ($attributeType =~ /\*$/ ? "" : " ") . $attributeName . "() const";
+            my $property = "";
+            
+            $property .= "#if ${attributeConditionalString}\n" if $attributeConditionalString;
+            $property .= "    " . $attributeType . ($attributeType =~ /\*$/ ? "" : " ") . $attributeName . "() const";
 
             my $availabilityMacro = "";
             my $declarationSuffix = ";\n";
@@ -439,10 +443,11 @@ sub GenerateHeader
             if (!$attributeIsReadonly and !$attribute->signature->extendedAttributes->{"Replaceable"}) {
                 $property = "    void $setterName($attributeType)";
                 $property .= $declarationSuffix;
-                push(@headerAttributes, $property);
+                push(@headerAttributes, $property); 
             }
-        }
 
+            push(@headerAttributes, "#endif\n") if $attributeConditionalString;
+        }
         push(@headerContent, @headerAttributes) if @headerAttributes > 0;
     }
 
@@ -554,7 +559,7 @@ sub AddReturnStatement
 
     # Used to invoke KURLs "const String&" operator
     if ($codeGenerator->IsStringType($typeInfo->signature->type)) {
-        return "    return static_cast<const WebCore::String&>($returnValue);\n";
+        return "    return static_cast<const WTF::String&>($returnValue);\n";
     }
 
     return "    return $returnValue;\n";
@@ -677,7 +682,7 @@ sub GenerateImplementation
             # Special cases
             my @customGetterContent = (); 
             if ($attribute->signature->extendedAttributes->{"ConvertToString"}) {
-                $getterContentHead = "WebCore::String::number(" . $getterContentHead;
+                $getterContentHead = "WTF::String::number(" . $getterContentHead;
                 $getterContentTail .= ")";
             } elsif ($attribute->signature->type eq "SerializedScriptValue") {
                 $getterContentHead = "$getterContentHead";
@@ -731,7 +736,7 @@ sub GenerateImplementation
 
                 # The definition of ConvertToString is flipped for the setter
                 if ($attribute->signature->extendedAttributes->{"ConvertToString"}) {
-                    $arg = "WebCore::String($arg).toInt()";
+                    $arg = "WTF::String($arg).toInt()";
                 }
 
                 my $attributeType = GetCPPType($attribute->signature->type, 1);

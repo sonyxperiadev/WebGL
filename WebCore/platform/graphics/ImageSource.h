@@ -27,6 +27,7 @@
 #ifndef ImageSource_h
 #define ImageSource_h
 
+#include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
 
@@ -51,7 +52,9 @@ typedef struct _cairo_surface cairo_surface_t;
 class SkBitmapRef;
 class PrivateAndroidImageSourceRec;
 #else
+namespace WebCore {
 class NativeImageSkia;
+}
 #endif
 #elif PLATFORM(HAIKU)
 class BBitmap;
@@ -64,7 +67,6 @@ namespace WebCore {
 class IntPoint;
 class IntSize;
 class SharedBuffer;
-class String;
 
 #if PLATFORM(CG)
 typedef CGImageSourceRef NativeImageSourcePtr;
@@ -78,9 +80,7 @@ typedef TiledImageOpenVG* NativeImagePtr;
 class ImageDecoderQt;
 typedef ImageDecoderQt* NativeImageSourcePtr;
 typedef QPixmap* NativeImagePtr;
-#elif PLATFORM(SKIA)
-#if PLATFORM(ANDROID)
-class String;
+#elif PLATFORM(SKIA) && PLATFORM(ANDROID)
 #ifdef ANDROID_ANIMATED_GIF
 class ImageDecoder;
 #endif
@@ -96,11 +96,6 @@ typedef SkBitmapRef* NativeImagePtr;
 #else
 class ImageDecoder;
 typedef ImageDecoder* NativeImageSourcePtr;
-typedef NativeImageSkia* NativeImagePtr;
-#endif
-#else
-class ImageDecoder;
-typedef ImageDecoder* NativeImageSourcePtr;
 #if PLATFORM(WX)
 #if USE(WXGC)
 typedef wxGraphicsBitmap* NativeImagePtr;
@@ -109,6 +104,8 @@ typedef wxBitmap* NativeImagePtr;
 #endif
 #elif PLATFORM(CAIRO)
 typedef cairo_surface_t* NativeImagePtr;
+#elif PLATFORM(SKIA)
+typedef WebCore::NativeImageSkia* NativeImagePtr;
 #elif PLATFORM(HAIKU)
 typedef BBitmap* NativeImagePtr;
 #elif OS(WINCE)

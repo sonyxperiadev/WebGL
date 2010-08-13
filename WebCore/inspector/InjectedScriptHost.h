@@ -43,9 +43,9 @@ namespace WebCore {
 class Database;
 class InjectedScript;
 class InspectorDOMAgent;
-class InspectorFrontend;
 class Node;
-class SerializedScriptValue;
+class RemoteInspectorFrontend;
+class ScriptObject;
 class Storage;
 
 class InjectedScriptHost : public RefCounted<InjectedScriptHost>
@@ -82,7 +82,6 @@ public:
     void didCreateWorker(long id, const String& url, bool isSharedWorker);
     void didDestroyWorker(long id);
 #endif
-    void reportDidDispatchOnInjectedScript(long callId, SerializedScriptValue* result, bool isException);
 
     pair<long, ScriptObject> injectScript(const String& source, ScriptState*);
     InjectedScript injectedScriptFor(ScriptState*);
@@ -95,7 +94,7 @@ public:
 private:
     InjectedScriptHost(InspectorController* inspectorController);
     InspectorDOMAgent* inspectorDOMAgent();
-    InspectorFrontend* inspectorFrontend();
+    RemoteInspectorFrontend* remoteFrontend();
     ScriptObject createInjectedScript(const String& source, ScriptState* scriptState, long id);
 
     InspectorController* m_inspectorController;

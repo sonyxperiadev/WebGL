@@ -23,6 +23,7 @@
 #include "webkitwebview.h"
 #include "webkitwebinspector.h"
 #include "webkitprivate.h"
+#include "webkitversion.h"
 #include "InspectorController.h"
 #include "NotImplemented.h"
 #include "PlatformString.h"
@@ -84,8 +85,10 @@ void InspectorClient::openInspectorFrontend(InspectorController* controller)
         GOwnPtr<gchar> currentDirectory(g_get_current_dir());
         GOwnPtr<gchar> fullPath(g_strdup_printf("%s/WebCore/inspector/front-end/inspector.html", currentDirectory.get()));
         inspectorURI.set(g_filename_to_uri(fullPath.get(), NULL, NULL));
-    } else
-        inspectorURI.set(g_filename_to_uri(DATA_DIR"/webkit-1.0/webinspector/inspector.html", NULL, NULL));
+    } else {
+        GOwnPtr<gchar> dataPath(g_strdup_printf(DATA_DIR"/webkitgtk-%.1f/webinspector/inspector.html", WEBKITGTK_API_VERSION));
+        inspectorURI.set(g_filename_to_uri(dataPath.get(), NULL, NULL));
+    }
 
     webkit_web_view_load_uri(inspectorWebView, inspectorURI.get());
 
@@ -101,14 +104,18 @@ void InspectorClient::releaseFrontendPage()
     m_frontendPage = 0;
 }
 
-void InspectorClient::highlight(Node* node)
+void InspectorClient::highlight(Node*)
 {
-    notImplemented();
+    hideHighlight();
 }
 
 void InspectorClient::hideHighlight()
 {
-    notImplemented();
+    // FIXME: we should be able to only invalidate the actual rects of
+    // the new and old nodes. We need to track the nodes, and take the
+    // actual highlight size into account when calculating the damage
+    // rect.
+    gtk_widget_queue_draw(GTK_WIDGET(m_inspectedWebView));
 }
 
 void InspectorClient::populateSetting(const String& key, String* value)
@@ -198,8 +205,10 @@ String InspectorFrontendClient::localizedStringsURL()
         GOwnPtr<gchar> currentDirectory(g_get_current_dir());
         GOwnPtr<gchar> fullPath(g_strdup_printf("%s/WebCore/English.lproj/localizedStrings.js", currentDirectory.get()));
         URL.set(g_filename_to_uri(fullPath.get(), NULL, NULL));
-    } else
-        URL.set(g_filename_to_uri(DATA_DIR"/webkit-1.0/webinspector/localizedStrings.js", NULL, NULL));
+    } else {
+        GOwnPtr<gchar> localizedStringsPath(g_strdup_printf(DATA_DIR"/webkitgtk-%.1f/webinspector/localizedStrings.js", WEBKITGTK_API_VERSION));
+        URL.set(g_filename_to_uri(localizedStringsPath.get(), NULL, NULL));
+    }
 
     // FIXME: support l10n of localizedStrings.js
     return String::fromUTF8(URL.get());

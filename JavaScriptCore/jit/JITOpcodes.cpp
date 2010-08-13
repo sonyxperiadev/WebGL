@@ -161,7 +161,14 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
 #endif
 
     // All trampolines constructed! copy the code, link up calls, and set the pointers on the Machine object.
-    LinkBuffer patchBuffer(this, m_globalData->executableAllocator.poolForSize(m_assembler.size()));
+    *executablePool = m_globalData->executableAllocator.poolForSize(m_assembler.size());
+    // We can't run without the JIT trampolines!
+    if (!*executablePool)
+        CRASH();
+    LinkBuffer patchBuffer(this, *executablePool, 0);
+    // We can't run without the JIT trampolines!
+    if (!patchBuffer.allocationSuccessful())
+        CRASH();
 
 #if ENABLE(JIT_OPTIMIZE_PROPERTY_ACCESS)
     patchBuffer.link(string_failureCases1Call, FunctionPtr(cti_op_get_by_id_string_fail));
@@ -176,19 +183,18 @@ void JIT::privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executable
     patchBuffer.link(callCompileConstruct, FunctionPtr(cti_op_construct_jitCompile));
 
     CodeRef finalCode = patchBuffer.finalizeCode();
-    *executablePool = finalCode.m_executablePool;
 
-    trampolines->ctiVirtualCallLink = trampolineAt(finalCode, virtualCallLinkBegin);
-    trampolines->ctiVirtualConstructLink = trampolineAt(finalCode, virtualConstructLinkBegin);
-    trampolines->ctiVirtualCall = trampolineAt(finalCode, virtualCallBegin);
-    trampolines->ctiVirtualConstruct = trampolineAt(finalCode, virtualConstructBegin);
-    trampolines->ctiNativeCall = trampolineAt(finalCode, nativeCallThunk);
-    trampolines->ctiNativeConstruct = trampolineAt(finalCode, nativeConstructThunk);
+    trampolines->ctiVirtualCallLink = patchBuffer.trampolineAt(virtualCallLinkBegin);
+    trampolines->ctiVirtualConstructLink = patchBuffer.trampolineAt(virtualConstructLinkBegin);
+    trampolines->ctiVirtualCall = patchBuffer.trampolineAt(virtualCallBegin);
+    trampolines->ctiVirtualConstruct = patchBuffer.trampolineAt(virtualConstructBegin);
+    trampolines->ctiNativeCall = patchBuffer.trampolineAt(nativeCallThunk);
+    trampolines->ctiNativeConstruct = patchBuffer.trampolineAt(nativeConstructThunk);
 #if ENABLE(JIT_USE_SOFT_MODULO)
-    trampolines->ctiSoftModulo = trampolineAt(finalCode, softModBegin);
+    trampolines->ctiSoftModulo = patchBuffer.trampolineAt(softModBegin);
 #endif
 #if ENABLE(JIT_OPTIMIZE_PROPERTY_ACCESS)
-    trampolines->ctiStringLengthTrampoline = trampolineAt(finalCode, stringLengthBegin);
+    trampolines->ctiStringLengthTrampoline = patchBuffer.trampolineAt(stringLengthBegin);
 #endif
 }
 
@@ -462,18 +468,18 @@ void JIT::emit_op_construct(Instruction* currentInstruction)
 
 void JIT::emit_op_get_global_var(Instruction* currentInstruction)
 {
-    JSVariableObject* globalObject = static_cast<JSVariableObject*>(currentInstruction[2].u.jsCell);
+    JSVariableObject* globalObject = m_codeBlock->globalObject();
     move(ImmPtr(globalObject), regT0);
-    emitGetVariableObjectRegister(regT0, currentInstruction[3].u.operand, regT0);
+    emitGetVariableObjectRegister(regT0, currentInstruction[2].u.operand, regT0);
     emitPutVirtualRegister(currentInstruction[1].u.operand);
 }
 
 void JIT::emit_op_put_global_var(Instruction* currentInstruction)
 {
-    emitGetVirtualRegister(currentInstruction[3].u.operand, regT1);
-    JSVariableObject* globalObject = static_cast<JSVariableObject*>(currentInstruction[1].u.jsCell);
+    emitGetVirtualRegister(currentInstruction[2].u.operand, regT1);
+    JSVariableObject* globalObject = m_codeBlock->globalObject();
     move(ImmPtr(globalObject), regT0);
-    emitPutVariableObjectRegister(regT1, regT0, currentInstruction[2].u.operand);
+    emitPutVariableObjectRegister(regT1, regT0, currentInstruction[1].u.operand);
 }
 
 void JIT::emit_op_get_scoped_var(Instruction* currentInstruction)
@@ -644,7 +650,7 @@ void JIT::emit_op_resolve_skip(Instruction* currentInstruction)
 void JIT::emit_op_resolve_global(Instruction* currentInstruction, bool)
 {
     // Fast case
-    void* globalObject = currentInstruction[2].u.jsCell;
+    void* globalObject = m_codeBlock->globalObject();
     unsigned currentIndex = m_globalResolveInfoIndex++;
     void* structureAddress = &(m_codeBlock->globalResolveInfo(currentIndex).structure);
     void* offsetAddr = &(m_codeBlock->globalResolveInfo(currentIndex).offset);
@@ -665,16 +671,15 @@ void JIT::emit_op_resolve_global(Instruction* currentInstruction, bool)
 void JIT::emitSlow_op_resolve_global(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
     unsigned dst = currentInstruction[1].u.operand;
-    void* globalObject = currentInstruction[2].u.jsCell;
-    Identifier* ident = &m_codeBlock->identifier(currentInstruction[3].u.operand);
+    Identifier* ident = &m_codeBlock->identifier(currentInstruction[2].u.operand);
     
     unsigned currentIndex = m_globalResolveInfoIndex++;
     
     linkSlowCase(iter);
     JITStubCall stubCall(this, cti_op_resolve_global);
-    stubCall.addArgument(ImmPtr(globalObject));
     stubCall.addArgument(ImmPtr(ident));
     stubCall.addArgument(Imm32(currentIndex));
+    stubCall.addArgument(regT0);
     stubCall.call(dst);
 }
 
@@ -1489,7 +1494,7 @@ void JIT::emitSlow_op_to_jsnumber(Instruction* currentInstruction, Vector<SlowCa
 
 void JIT::emit_op_resolve_global_dynamic(Instruction* currentInstruction)
 {
-    int skip = currentInstruction[6].u.operand;
+    int skip = currentInstruction[5].u.operand;
     
     emitGetFromCallFrameHeaderPtr(RegisterFile::ScopeChain, regT0);
     while (skip--) {
@@ -1503,9 +1508,8 @@ void JIT::emit_op_resolve_global_dynamic(Instruction* currentInstruction)
 void JIT::emitSlow_op_resolve_global_dynamic(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
 {
     unsigned dst = currentInstruction[1].u.operand;
-    void* globalObject = currentInstruction[2].u.jsCell;
-    Identifier* ident = &m_codeBlock->identifier(currentInstruction[3].u.operand);
-    int skip = currentInstruction[6].u.operand;
+    Identifier* ident = &m_codeBlock->identifier(currentInstruction[2].u.operand);
+    int skip = currentInstruction[5].u.operand;
     while (skip--)
         linkSlowCase(iter);
     JITStubCall resolveStubCall(this, cti_op_resolve);
@@ -1517,9 +1521,9 @@ void JIT::emitSlow_op_resolve_global_dynamic(Instruction* currentInstruction, Ve
     
     linkSlowCase(iter); // We managed to skip all the nodes in the scope chain, but the cache missed.
     JITStubCall stubCall(this, cti_op_resolve_global);
-    stubCall.addArgument(ImmPtr(globalObject));
     stubCall.addArgument(ImmPtr(ident));
     stubCall.addArgument(Imm32(currentIndex));
+    stubCall.addArgument(regT0);
     stubCall.call(dst);
 }
 

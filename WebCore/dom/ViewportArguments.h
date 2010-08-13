@@ -26,16 +26,18 @@
 #ifndef ViewportArguments_h
 #define ViewportArguments_h
 
+#include <wtf/Forward.h>
+
 namespace WebCore {
 
 class Document;
-class String;
 
 enum ViewportErrorCode {
     DeviceWidthShouldBeUsedWarning,
     DeviceHeightShouldBeUsedWarning,
     UnrecognizedViewportArgumentError,
-    MaximumScaleTooLargeError
+    MaximumScaleTooLargeError,
+    TargetDensityDpiTooSmallOrLargeError
 };
 
 struct ViewportArguments {
@@ -48,6 +50,7 @@ struct ViewportArguments {
         , maximumScale(ValueUndefined)
         , width(ValueUndefined)
         , height(ValueUndefined)
+        , targetDensityDpi(ValueUndefined)
         , userScalable(ValueUndefined)
     {
     }
@@ -57,12 +60,13 @@ struct ViewportArguments {
     float maximumScale;
     float width;
     float height;
+    float targetDensityDpi;
 
     float userScalable;
 
     bool hasCustomArgument() const
     {
-        return initialScale != ValueUndefined || minimumScale != ValueUndefined || maximumScale != ValueUndefined || width != ValueUndefined || height != ValueUndefined || userScalable != ValueUndefined;
+        return initialScale != ValueUndefined || minimumScale != ValueUndefined || maximumScale != ValueUndefined || width != ValueUndefined || height != ValueUndefined || userScalable != ValueUndefined || targetDensityDpi != ValueUndefined;
     }
 };
 

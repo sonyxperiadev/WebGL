@@ -27,6 +27,7 @@
 #define FontCustomPlatformData_h
 
 #include "FontRenderingMode.h"
+#include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 
 class SkTypeface;
@@ -35,7 +36,6 @@ namespace WebCore {
 
 class FontPlatformData;
 class SharedBuffer;
-class String;
 
 class FontCustomPlatformData : public Noncopyable {
 public:

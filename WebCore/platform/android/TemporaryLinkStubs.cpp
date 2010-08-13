@@ -311,7 +311,7 @@ void* WebCore::Frame::dragImageForSelection()
     return 0;
 }
 
-void WebCore::Pasteboard::writeImage(WebCore::Node*, WebCore::KURL const&, WebCore::String const&) {}
+void WebCore::Pasteboard::writeImage(WebCore::Node*, WebCore::KURL const&, WTF::String const&) {}
 
 namespace WebCore {
 

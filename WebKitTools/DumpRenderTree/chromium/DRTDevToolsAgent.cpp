@@ -36,7 +36,6 @@
 
 #include "public/WebCString.h"
 #include "public/WebDevToolsAgent.h"
-#include "public/WebDevToolsMessageData.h"
 #include "public/WebString.h"
 #include "public/WebView.h"
 #include "webkit/support/webkit_support.h"
@@ -55,12 +54,17 @@ DRTDevToolsAgent::DRTDevToolsAgent()
         WebDevToolsAgent::setMessageLoopDispatchHandler(&DRTDevToolsAgent::dispatchMessageLoop);
 }
 
+void DRTDevToolsAgent::reset()
+{
+    m_callMethodFactory.RevokeAll();
+}
+
 void DRTDevToolsAgent::setWebView(WebView* webView)
 {
     m_webView = webView;
 }
 
-void DRTDevToolsAgent::sendMessageToFrontend(const WebDevToolsMessageData& data)
+void DRTDevToolsAgent::sendMessageToInspectorFrontend(const WebKit::WebString& data)
 {
     if (m_drtDevToolsClient)
          m_drtDevToolsClient->asyncCall(DRTDevToolsCallArgs(data));
@@ -100,7 +104,7 @@ void DRTDevToolsAgent::call(const DRTDevToolsCallArgs &args)
 {
     WebDevToolsAgent* agent = webDevToolsAgent();
     if (agent)
-        agent->dispatchMessageFromFrontend(args.m_data);
+        agent->dispatchOnInspectorBackend(args.m_data);
     if (DRTDevToolsCallArgs::callsCount() == 1 && m_drtDevToolsClient)
         m_drtDevToolsClient->allMessagesProcessed();
 }
@@ -121,13 +125,19 @@ void DRTDevToolsAgent::attach(DRTDevToolsClient* client)
         agent->attach();
 }
 
-void DRTDevToolsAgent::detach(DRTDevToolsClient* client)
+void DRTDevToolsAgent::detach()
 {
     ASSERT(m_drtDevToolsClient);
     WebDevToolsAgent* agent = webDevToolsAgent();
     if (agent)
         agent->detach();
     m_drtDevToolsClient = 0;
+}
+
+void DRTDevToolsAgent::frontendLoaded() {
+    WebDevToolsAgent* agent = webDevToolsAgent();
+    if (agent)
+        agent->frontendLoaded();
 }
 
 bool DRTDevToolsAgent::setTimelineProfilingEnabled(bool enabled)

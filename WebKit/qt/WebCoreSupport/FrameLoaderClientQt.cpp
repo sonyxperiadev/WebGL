@@ -1067,7 +1067,7 @@ WebCore::Frame* FrameLoaderClientQt::dispatchCreatePage()
     return newPage->mainFrame()->d->frame;
 }
 
-void FrameLoaderClientQt::dispatchDecidePolicyForMIMEType(FramePolicyFunction function, const WebCore::String& MIMEType, const WebCore::ResourceRequest&)
+void FrameLoaderClientQt::dispatchDecidePolicyForMIMEType(FramePolicyFunction function, const WTF::String& MIMEType, const WebCore::ResourceRequest&)
 {
     // we need to call directly here
     const ResourceResponse& response = m_frame->loader()->activeDocumentLoader()->response();
@@ -1079,7 +1079,7 @@ void FrameLoaderClientQt::dispatchDecidePolicyForMIMEType(FramePolicyFunction fu
         callPolicyFunction(function, PolicyDownload);
 }
 
-void FrameLoaderClientQt::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction function, const WebCore::NavigationAction& action, const WebCore::ResourceRequest& request, PassRefPtr<WebCore::FormState>, const WebCore::String&)
+void FrameLoaderClientQt::dispatchDecidePolicyForNewWindowAction(FramePolicyFunction function, const WebCore::NavigationAction& action, const WebCore::ResourceRequest& request, PassRefPtr<WebCore::FormState>, const WTF::String&)
 {
     Q_ASSERT(m_webFrame);
     QNetworkRequest r(request.toNetworkRequest(m_webFrame));
@@ -1321,7 +1321,7 @@ private:
     }
 };
 
-#if QT_VERSION >= 0x040600
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
 class QtPluginGraphicsWidget: public Widget
 {
 public:
@@ -1439,7 +1439,7 @@ PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, 
                 w->setFrameRect(IntRect(0, 0, 0, 0));
                 return w;
             }
-#if QT_VERSION >= 0x040600
+#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
             QGraphicsWidget* graphicsWidget = qobject_cast<QGraphicsWidget*>(object);
             if (graphicsWidget) {
                 QGraphicsObject* parentWidget = 0;

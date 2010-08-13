@@ -28,6 +28,7 @@
 #if ENABLE(3D_CANVAS)
 
 #include "WebGLFramebuffer.h"
+
 #include "WebGLRenderingContext.h"
 
 namespace WebCore {
@@ -38,7 +39,7 @@ PassRefPtr<WebGLFramebuffer> WebGLFramebuffer::create(WebGLRenderingContext* ctx
 }
 
 WebGLFramebuffer::WebGLFramebuffer(WebGLRenderingContext* ctx)
-    : CanvasObject(ctx)
+    : WebGLObject(ctx)
     , m_colorAttachment(0)
     , m_depthAttachment(0)
     , m_stencilAttachment(0)
@@ -47,7 +48,7 @@ WebGLFramebuffer::WebGLFramebuffer(WebGLRenderingContext* ctx)
     setObject(context()->graphicsContext3D()->createFramebuffer());
 }
 
-void WebGLFramebuffer::setAttachment(unsigned long attachment, CanvasObject* attachedObject)
+void WebGLFramebuffer::setAttachment(unsigned long attachment, WebGLObject* attachedObject)
 {
     if (!object())
         return;
@@ -77,10 +78,10 @@ void WebGLFramebuffer::onBind()
     initializeRenderbuffers();
 }
 
-void WebGLFramebuffer::onAttachedObjectChange(CanvasObject* object)
+void WebGLFramebuffer::onAttachedObjectChange(WebGLObject* object)
 {
     // Currently object == 0 is not considered, but this might change if the
-    // lifespan of CanvasObject changes.
+    // lifespan of WebGLObject changes.
     if (object
         && (object == m_colorAttachment || object == m_depthAttachment
             || object == m_stencilAttachment || object == m_depthStencilAttachment))
@@ -105,12 +106,12 @@ unsigned long WebGLFramebuffer::getColorBufferFormat()
     return 0;
 }
 
-void WebGLFramebuffer::_deleteObject(Platform3DObject object)
+void WebGLFramebuffer::deleteObjectImpl(Platform3DObject object)
 {
     context()->graphicsContext3D()->deleteFramebuffer(object);
 }
 
-bool WebGLFramebuffer::isUninitialized(CanvasObject* attachedObject)
+bool WebGLFramebuffer::isUninitialized(WebGLObject* attachedObject)
 {
     if (attachedObject && attachedObject->object() && attachedObject->isRenderbuffer()
         && !(reinterpret_cast<WebGLRenderbuffer*>(attachedObject))->isInitialized())
@@ -118,7 +119,7 @@ bool WebGLFramebuffer::isUninitialized(CanvasObject* attachedObject)
     return false;
 }
 
-void WebGLFramebuffer::setInitialized(CanvasObject* attachedObject)
+void WebGLFramebuffer::setInitialized(WebGLObject* attachedObject)
 {
     if (attachedObject && attachedObject->object() && attachedObject->isRenderbuffer())
         (reinterpret_cast<WebGLRenderbuffer*>(attachedObject))->setInitialized();

@@ -34,7 +34,7 @@
 #include <wtf/UnusedParam.h>
 #include <wtf/Vector.h>
 
-#if OS(IPHONE_OS)
+#if OS(IOS)
 #include <libkern/OSCacheControl.h>
 #include <sys/mman.h>
 #endif
@@ -85,15 +85,29 @@ inline size_t roundUpAllocationSize(size_t request, size_t granularity)
 namespace JSC {
 
 class ExecutablePool : public RefCounted<ExecutablePool> {
-private:
+public:
+#if ENABLE(EXECUTABLE_ALLOCATOR_DEMAND)
     typedef PageAllocation Allocation;
+#else
+    class Allocation {
+    public:
+        Allocation(void* base, size_t size)
+            : m_base(base)
+            , m_size(size)
+        {
+        }
+        void* base() { return m_base; }
+        size_t size() { return m_size; }
+        bool operator!() const { return !m_base; }
+
+    private:
+        void* m_base;
+        size_t m_size;
+    };
+#endif
     typedef Vector<Allocation, 2> AllocationList;
 
-public:
-    static PassRefPtr<ExecutablePool> create(size_t n)
-    {
-        return adoptRef(new ExecutablePool(n));
-    }
+    static PassRefPtr<ExecutablePool> create(size_t n);
 
     void* alloc(size_t n)
     {
@@ -114,6 +128,11 @@ public:
         return poolAllocate(n);
     }
     
+    void returnLastBytes(size_t count)
+    {
+        m_freePtr -= count;
+    }
+
     ~ExecutablePool()
     {
         AllocationList::iterator end = m_pools.end();
@@ -127,7 +146,7 @@ private:
     static Allocation systemAlloc(size_t n);
     static void systemRelease(Allocation& alloc);
 
-    ExecutablePool(size_t n);
+    ExecutablePool(Allocation&);
 
     void* poolAllocate(size_t n);
 
@@ -145,8 +164,11 @@ public:
     {
         if (!pageSize)
             intializePageSize();
-        if (isValid())
+        if (isValid()) {
             m_smallAllocationPool = ExecutablePool::create(JIT_ALLOCATOR_LARGE_ALLOC_SIZE);
+            if (!m_smallAllocationPool)
+                CRASH();
+        }
 #if !ENABLE(INTERPRETER)
         else
             CRASH();
@@ -163,7 +185,7 @@ public:
             return m_smallAllocationPool;
 
         // If the request is large, we just provide a unshared allocator
-        if (n > JIT_ALLOCATOR_LARGE_ALLOC_SIZE)
+        if (n > JIT_ALLOCATOR_LARGE_ALLOC_SIZE) 
             return ExecutablePool::create(n);
 
         // Create a new allocator
@@ -200,7 +222,7 @@ public:
     static void cacheFlush(void* code, size_t size)
     {
 #if COMPILER(GCC) && GCC_VERSION_AT_LEAST(4,3,0)
-#if WTF_MIPS_ISA_REV(2) && GCC_VERSION_AT_LEAST(4,4,3)
+#if WTF_MIPS_ISA_REV(2) && !GCC_VERSION_AT_LEAST(4,4,3)
         int lineSize;
         asm("rdhwr %0, $1" : "=r" (lineSize));
         //
@@ -222,7 +244,7 @@ public:
         _flush_cache(reinterpret_cast<char*>(code), size, BCACHE);
 #endif
     }
-#elif CPU(ARM_THUMB2) && OS(IPHONE_OS)
+#elif CPU(ARM_THUMB2) && OS(IOS)
     static void cacheFlush(void* code, size_t size)
     {
         sys_dcache_flush(code, size);
@@ -286,15 +308,20 @@ private:
     static void intializePageSize();
 };
 
-inline ExecutablePool::ExecutablePool(size_t n)
+inline PassRefPtr<ExecutablePool> ExecutablePool::create(size_t n)
+    {
+        Allocation mem = systemAlloc(roundUpAllocationSize(n, JIT_ALLOCATOR_PAGE_SIZE));
+        if (!mem)
+            return 0;
+        return adoptRef(new ExecutablePool(mem));
+    }
+
+inline ExecutablePool::ExecutablePool(Allocation& mem)
 {
-    size_t allocSize = roundUpAllocationSize(n, JIT_ALLOCATOR_PAGE_SIZE);
-    Allocation mem = systemAlloc(allocSize);
+    ASSERT(!!mem);
     m_pools.append(mem);
     m_freePtr = static_cast<char*>(mem.base());
-    if (!m_freePtr)
-        CRASH(); // Failed to allocate
-    m_end = m_freePtr + allocSize;
+    m_end = m_freePtr + mem.size();
 }
 
 inline void* ExecutablePool::poolAllocate(size_t n)
@@ -303,8 +330,8 @@ inline void* ExecutablePool::poolAllocate(size_t n)
     
     Allocation result = systemAlloc(allocSize);
     if (!result.base())
-        CRASH(); // Failed to allocate
-    
+        return 0; // Failed to allocate
+
     ASSERT(m_end >= m_freePtr);
     if ((allocSize - n) > static_cast<size_t>(m_end - m_freePtr)) {
         // Replace allocation pool

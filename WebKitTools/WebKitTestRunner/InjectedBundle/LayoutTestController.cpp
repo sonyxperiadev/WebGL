@@ -28,12 +28,12 @@
 #include "InjectedBundle.h"
 #include "InjectedBundlePage.h"
 #include "JSLayoutTestController.h"
-#include <JavaScriptCore/JSRetainPtr.h>
+#include "StringFunctions.h"
 #include <WebKit2/WKBundleFrame.h>
 #include <WebKit2/WKBundleFramePrivate.h>
 #include <WebKit2/WKBundlePagePrivate.h>
+#include <WebKit2/WKBundlePrivate.h>
 #include <WebKit2/WKRetainPtr.h>
-#include <WebKit2/WKStringCF.h>
 #include <WebKit2/WebKit2.h>
 
 namespace WTR {
@@ -41,37 +41,6 @@ namespace WTR {
 // This is lower than DumpRenderTree's timeout, to make it easier to work through the failures
 // Eventually it should be changed to match.
 static const CFTimeInterval waitToDumpWatchdogInterval = 6.0;
-
-static RetainPtr<CFStringRef> toCF(JSStringRef string)
-{
-    return RetainPtr<CFStringRef>(AdoptCF, JSStringCopyCFString(0, string));
-}
-
-static RetainPtr<CFStringRef> toCF(WKStringRef string)
-{
-    return RetainPtr<CFStringRef>(AdoptCF, WKStringCopyCFString(0, string));
-}
-
-static WKRetainPtr<WKStringRef> toWK(JSStringRef string)
-{
-    return WKRetainPtr<WKStringRef>(AdoptWK, WKStringCreateWithCFString(toCF(string).get()));
-}
-
-static JSRetainPtr<JSStringRef> toJS(WKStringRef string)
-{
-    return JSRetainPtr<JSStringRef>(Adopt, JSStringCreateWithCFString(toCF(string).get()));
-}
-
-static JSRetainPtr<JSStringRef> toJS(const WKRetainPtr<WKStringRef>& string)
-{
-    return toJS(string.get());
-}
-
-static void setProperty(JSContextRef context, JSObjectRef object, const char* propertyName, JSWrappable* value, JSPropertyAttributes attributes, JSValueRef* exception)
-{
-    JSRetainPtr<JSStringRef> propertyNameString(Adopt, JSStringCreateWithUTF8CString(propertyName));
-    JSObjectSetProperty(context, object, propertyNameString.get(), JSWrapper::wrap(context, value), attributes, exception);
-}
 
 static JSValueRef propertyValue(JSContextRef context, JSObjectRef object, const char* propertyName)
 {
@@ -119,6 +88,7 @@ LayoutTestController::LayoutTestController()
     , m_shouldCloseExtraWindows(false)
     , m_dumpEditingCallbacks(false)
     , m_dumpStatusCallbacks(false)
+    , m_dumpTitleChanges(false)
     , m_waitToDump(false)
     , m_testRepaint(false)
     , m_testRepaintSweepHorizontally(false)
@@ -195,7 +165,7 @@ bool LayoutTestController::pauseAnimationAtTimeOnElementWithId(JSStringRef anima
 
 void LayoutTestController::keepWebHistory()
 {
-    InjectedBundle::shared().setShouldTrackVisitedLinks();
+    WKBundleSetShouldTrackVisitedLinks(InjectedBundle::shared().bundle(), true);
 }
 
 JSValueRef LayoutTestController::computedStyleIncludingVisitedInfo(JSValueRef element)

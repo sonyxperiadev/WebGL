@@ -41,8 +41,6 @@
 
 namespace WebCore {
 
-class IDBDatabaseRequest;
-
 class IDBRequest : public IDBCallbacks, public EventTarget, public ActiveDOMObject {
 public:
     static PassRefPtr<IDBRequest> create(ScriptExecutionContext* context, PassRefPtr<IDBAny> source) { return adoptRef(new IDBRequest(context, source)); }
@@ -64,10 +62,11 @@ public:
     // IDBCallbacks
     virtual void onError(PassRefPtr<IDBDatabaseError>);
     virtual void onSuccess(); // For "null".
-    virtual void onSuccess(PassRefPtr<IDBDatabase>);
+    virtual void onSuccess(PassRefPtr<IDBDatabaseBackendInterface>);
+    virtual void onSuccess(PassRefPtr<IDBCursorBackendInterface>);
     virtual void onSuccess(PassRefPtr<IDBIndexBackendInterface>);
     virtual void onSuccess(PassRefPtr<IDBKey>);
-    virtual void onSuccess(PassRefPtr<IDBObjectStore>);
+    virtual void onSuccess(PassRefPtr<IDBObjectStoreBackendInterface>);
     virtual void onSuccess(PassRefPtr<SerializedScriptValue>);
 
     // EventTarget
@@ -75,9 +74,7 @@ public:
 
     // ActiveDOMObject
     virtual ScriptExecutionContext* scriptExecutionContext() const;
-    virtual void stop();
-    virtual void suspend();
-    virtual void resume();
+    virtual bool canSuspend() const;
 
     using RefCounted<IDBCallbacks>::ref;
     using RefCounted<IDBCallbacks>::deref;
@@ -103,7 +100,6 @@ private:
     Timer<IDBRequest> m_timer;
     RefPtr<IDBRequest> m_selfRef; // This is set to us iff there's an event pending.
 
-    bool m_stopped;
     bool m_aborted;
     ReadyState m_readyState;
     EventTargetData m_eventTargetData;

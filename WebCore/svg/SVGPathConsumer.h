@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 2002, 2003 The Karbon Developers
- *               2006       Alexander Kellett <lypanov@kde.org>
- *               2006, 2007 Rob Buis <buis@kde.org>
- * Copyrigth (C) 2007, 2009 Apple, Inc.  All rights reserved.
+ * Copyright (C) 2006 Alexander Kellett <lypanov@kde.org>
+ * Copyright (C) 2006, 2007 Rob Buis <buis@kde.org>
+ * Copyright (C) 2007, 2009 Apple Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -19,7 +19,6 @@
  * along with this library; see the file COPYING.LIB.  If not, write to
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
- *
  */
 
 #ifndef SVGPathConsumer_h
@@ -27,6 +26,7 @@
 
 #if ENABLE(SVG)
 #include "FloatPoint.h"
+#include <wtf/Noncopyable.h>
 
 namespace WebCore {
 
@@ -40,7 +40,10 @@ enum PathParsingMode {
     UnalteredParsing
 };
 
-class SVGPathConsumer {
+class SVGPathConsumer : public Noncopyable {
+public:
+    virtual void cleanup() = 0;
+
 public:
     // Used in UnalteredParisng/NormalizedParsing modes.
     virtual void moveTo(const FloatPoint&, bool closed, PathCoordinateMode) = 0;
@@ -55,7 +58,7 @@ public:
     virtual void curveToCubicSmooth(const FloatPoint&, const FloatPoint&, PathCoordinateMode) = 0;
     virtual void curveToQuadratic(const FloatPoint&, const FloatPoint&, PathCoordinateMode) = 0;
     virtual void curveToQuadraticSmooth(const FloatPoint&, PathCoordinateMode) = 0;
-    virtual void arcTo(const FloatPoint&, float, float, float, bool largeArcFlag, bool sweepFlag, PathCoordinateMode) = 0;
+    virtual void arcTo(float, float, float, bool largeArcFlag, bool sweepFlag, const FloatPoint&, PathCoordinateMode) = 0;
 
 protected:
     SVGPathConsumer() { }

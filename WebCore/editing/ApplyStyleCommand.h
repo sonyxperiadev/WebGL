@@ -82,11 +82,9 @@ private:
     bool nodeFullySelected(Node*, const Position& start, const Position& end) const;
     bool nodeFullyUnselected(Node*, const Position& start, const Position& end) const;
     PassRefPtr<CSSMutableStyleDeclaration> extractTextDecorationStyle(Node*);
-    PassRefPtr<CSSMutableStyleDeclaration> extractAndNegateTextDecorationStyle(Node*);
     void applyTextDecorationStyle(Node*, CSSMutableStyleDeclaration *style);
-    void pushDownTextDecorationStyleAroundNode(Node*, bool forceNegate);
-    void pushDownTextDecorationStyleAtBoundaries(const Position& start, const Position& end);
-    
+    void pushDownTextDecorationStyleAroundNode(Node*);
+
     // style-application helpers
     void applyBlockStyle(CSSMutableStyleDeclaration*);
     void applyRelativeFontStyleChange(CSSMutableStyleDeclaration*);
@@ -108,7 +106,7 @@ private:
     float computedFontSize(const Node*);
     void joinChildTextNodes(Node*, const Position& start, const Position& end);
 
-    HTMLElement* splitAncestorsWithUnicodeBidi(Node*, bool before, RefPtr<CSSPrimitiveValue> allowedDirection);
+    HTMLElement* splitAncestorsWithUnicodeBidi(Node*, bool before, int allowedDirection);
     void removeEmbeddingUpToEnclosingBlock(Node* node, Node* unsplitAncestor);
 
     void updateStartEnd(const Position& newStart, const Position& newEnd);

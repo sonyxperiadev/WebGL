@@ -61,10 +61,20 @@ DRTDevToolsClient::~DRTDevToolsClient()
     // m_drtDevToolsAgent and we should clean pending requests a bit earlier.
     m_callMethodFactory.RevokeAll();
     if (m_drtDevToolsAgent)
-        m_drtDevToolsAgent->detach(this);
+        m_drtDevToolsAgent->detach();
 }
 
-void DRTDevToolsClient::sendMessageToAgent(const WebDevToolsMessageData& data)
+void DRTDevToolsClient::reset()
+{
+    m_callMethodFactory.RevokeAll();
+}
+
+void DRTDevToolsClient::sendFrontendLoaded() {
+    if (m_drtDevToolsAgent)
+        m_drtDevToolsAgent->frontendLoaded();
+}
+
+void DRTDevToolsClient::sendMessageToBackend(const WebString& data)
 {
     if (m_drtDevToolsAgent)
         m_drtDevToolsAgent->asyncCall(DRTDevToolsCallArgs(data));
@@ -103,7 +113,7 @@ void DRTDevToolsClient::asyncCall(const DRTDevToolsCallArgs& args)
 
 void DRTDevToolsClient::call(const DRTDevToolsCallArgs& args)
 {
-    m_webDevToolsFrontend->dispatchMessageFromAgent(args.m_data);
+    m_webDevToolsFrontend->dispatchOnInspectorFrontend(args.m_data);
     if (DRTDevToolsCallArgs::callsCount() == 1)
         allMessagesProcessed();
 }

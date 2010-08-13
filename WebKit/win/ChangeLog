@@ -1,3 +1,184 @@
+2010-08-06  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig
+
+        Bug 43594 - Add string forwards to Forward.h
+        This allows us to remove forward declarations for these classes from
+        WebCore/WebKit (a step in moving these class from WebCore:: to WTF::).
+
+        * COMVariantSetter.h:
+        * MarshallingHelpers.h:
+        * WebCoreSupport/WebContextMenuClient.h:
+        * WebCoreSupport/WebPluginHalterClient.h:
+        * WebHistory.h:
+
+2010-08-06  Jessie Berlin  <jberlin@apple.com>
+
+        Roll out http://trac.webkit.org/changeset/64801, which broke the Safari Windows Build.
+        Unreviewed.
+
+        * COMVariantSetter.h:
+        * MarshallingHelpers.h:
+        * WebCoreSupport/WebContextMenuClient.h:
+        * WebCoreSupport/WebPluginHalterClient.h:
+        * WebHistory.h:
+
+2010-08-05  Jessie Berlin  <jberlin@apple.com>
+
+        Reviewed by Jon Honeycutt.
+
+        Bug 43593 - WebView::backingStore should check if m_backingStoreBitmap is NULL.
+        https://bugs.webkit.org/show_bug.cgi?id=43593
+
+        * WebView.cpp:
+        (WebView::backingStore):
+        If m_backingStoreBitmap is NULL, return E_FAIL.
+
+2010-08-05  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig
+
+        Bug 43594 - Add string forwards to Forward.h
+        This allows us to remove forward declarations for these classes from
+        WebCore/WebKit (a step in moving these class from WebCore:: to WTF::).
+
+        * COMVariantSetter.h:
+        * MarshallingHelpers.h:
+        * WebCoreSupport/WebContextMenuClient.h:
+        * WebCoreSupport/WebPluginHalterClient.h:
+        * WebHistory.h:
+
+2010-08-03  Adam Roben  <aroben@apple.com>
+
+        Turn on PLATFORM_STRATEGIES on Windows
+
+        Fixes <http://webkit.org/b/43431>.
+
+        Reviewed by Anders Carlsson.
+
+        * WebCoreLocalizedStrings.cpp: Removed.
+        * WebCoreSupport/WebPlatformStrategies.cpp: Added. Based on the Mac
+        equivalent.
+        (WebPlatformStrategies::initialize): Creates the singleton instance.
+        (WebPlatformStrategies::WebPlatformStrategies): Registers the
+        singleton instance as the PlatformStrategies instance for WebCore.
+
+        (WebPlatformStrategies::createPluginStrategy):
+        (WebPlatformStrategies::createLocalizationStrategy):
+        (WebPlatformStrategies::createVisitedLinkStrategy):
+        Return ourselves as the strategy.
+
+        (WebPlatformStrategies::refreshPlugins):
+        (WebPlatformStrategies::getPluginInfo):
+        Moved code here from WebCore's PluginDataWin.cpp file.
+
+        (WebPlatformStrategies::searchableIndexIntroduction):
+        (WebPlatformStrategies::submitButtonDefaultLabel):
+        (WebPlatformStrategies::inputElementAltText):
+        (WebPlatformStrategies::resetButtonDefaultLabel):
+        (WebPlatformStrategies::fileButtonChooseFileLabel):
+        (WebPlatformStrategies::fileButtonNoFileSelectedLabel):
+        (WebPlatformStrategies::contextMenuItemTagOpenLinkInNewWindow):
+        (WebPlatformStrategies::contextMenuItemTagDownloadLinkToDisk):
+        (WebPlatformStrategies::contextMenuItemTagCopyLinkToClipboard):
+        (WebPlatformStrategies::contextMenuItemTagOpenImageInNewWindow):
+        (WebPlatformStrategies::contextMenuItemTagDownloadImageToDisk):
+        (WebPlatformStrategies::contextMenuItemTagCopyImageToClipboard):
+        (WebPlatformStrategies::contextMenuItemTagOpenFrameInNewWindow):
+        (WebPlatformStrategies::contextMenuItemTagCopy):
+        (WebPlatformStrategies::contextMenuItemTagGoBack):
+        (WebPlatformStrategies::contextMenuItemTagGoForward):
+        (WebPlatformStrategies::contextMenuItemTagStop):
+        (WebPlatformStrategies::contextMenuItemTagReload):
+        (WebPlatformStrategies::contextMenuItemTagCut):
+        (WebPlatformStrategies::contextMenuItemTagPaste):
+        (WebPlatformStrategies::contextMenuItemTagNoGuessesFound):
+        (WebPlatformStrategies::contextMenuItemTagIgnoreSpelling):
+        (WebPlatformStrategies::contextMenuItemTagLearnSpelling):
+        (WebPlatformStrategies::contextMenuItemTagSearchWeb):
+        (WebPlatformStrategies::contextMenuItemTagLookUpInDictionary):
+        (WebPlatformStrategies::contextMenuItemTagOpenLink):
+        (WebPlatformStrategies::contextMenuItemTagIgnoreGrammar):
+        (WebPlatformStrategies::contextMenuItemTagSpellingMenu):
+        (WebPlatformStrategies::contextMenuItemTagCheckSpelling):
+        (WebPlatformStrategies::contextMenuItemTagCheckSpellingWhileTyping):
+        (WebPlatformStrategies::contextMenuItemTagCheckGrammarWithSpelling):
+        (WebPlatformStrategies::contextMenuItemTagFontMenu):
+        (WebPlatformStrategies::contextMenuItemTagBold):
+        (WebPlatformStrategies::contextMenuItemTagItalic):
+        (WebPlatformStrategies::contextMenuItemTagUnderline):
+        (WebPlatformStrategies::contextMenuItemTagOutline):
+        (WebPlatformStrategies::contextMenuItemTagWritingDirectionMenu):
+        (WebPlatformStrategies::contextMenuItemTagTextDirectionMenu):
+        (WebPlatformStrategies::contextMenuItemTagDefaultDirection):
+        (WebPlatformStrategies::contextMenuItemTagLeftToRight):
+        (WebPlatformStrategies::contextMenuItemTagRightToLeft):
+        (WebPlatformStrategies::contextMenuItemTagShowSpellingPanel):
+        (WebPlatformStrategies::contextMenuItemTagInspectElement):
+        (WebPlatformStrategies::searchMenuNoRecentSearchesText):
+        (WebPlatformStrategies::searchMenuRecentSearchesText):
+        (WebPlatformStrategies::searchMenuClearRecentSearchesText):
+        (WebPlatformStrategies::AXWebAreaText):
+        (WebPlatformStrategies::AXLinkText):
+        (WebPlatformStrategies::AXListMarkerText):
+        (WebPlatformStrategies::AXImageMapText):
+        (WebPlatformStrategies::AXHeadingText):
+        (WebPlatformStrategies::AXDefinitionListTermText):
+        (WebPlatformStrategies::AXDefinitionListDefinitionText):
+        (WebPlatformStrategies::AXButtonActionVerb):
+        (WebPlatformStrategies::AXRadioButtonActionVerb):
+        (WebPlatformStrategies::AXTextFieldActionVerb):
+        (WebPlatformStrategies::AXCheckedCheckBoxActionVerb):
+        (WebPlatformStrategies::AXUncheckedCheckBoxActionVerb):
+        (WebPlatformStrategies::AXLinkActionVerb):
+        (WebPlatformStrategies::AXMenuListActionVerb):
+        (WebPlatformStrategies::AXMenuListPopupActionVerb):
+        (WebPlatformStrategies::unknownFileSizeText):
+        (WebPlatformStrategies::uploadFileText):
+        (WebPlatformStrategies::allFilesText):
+        (WebPlatformStrategies::missingPluginText):
+        (WebPlatformStrategies::crashedPluginText):
+        (WebPlatformStrategies::imageTitle):
+        (WebPlatformStrategies::multipleFileUploadText):
+        (WebPlatformStrategies::mediaElementLoadingStateText):
+        (WebPlatformStrategies::mediaElementLiveBroadcastStateText):
+        (WebPlatformStrategies::localizedMediaControlElementString):
+        (WebPlatformStrategies::localizedMediaControlElementHelpText):
+        (WebPlatformStrategies::localizedMediaTimeDescription):
+        (WebPlatformStrategies::validationMessageValueMissingText):
+        (WebPlatformStrategies::validationMessageTypeMismatchText):
+        (WebPlatformStrategies::validationMessagePatternMismatchText):
+        (WebPlatformStrategies::validationMessageTooLongText):
+        (WebPlatformStrategies::validationMessageRangeUnderflowText):
+        (WebPlatformStrategies::validationMessageRangeOverflowText):
+        (WebPlatformStrategies::validationMessageStepMismatchText):
+        Moved code here from WebCoreLocalizedStrings.cpp (and slightly cleaned
+        it up).
+
+        (WebPlatformStrategies::isLinkVisited):
+        (WebPlatformStrategies::addVisitedLink):
+        Copied code from WebKit/mac/WebCoreSupport/WebPlatformStrategies.mm.
+
+        * WebCoreSupport/WebPlatformStrategies.h: Added.
+
+        * WebKit.vcproj/WebKit.vcproj: Removed WebCoreLocalizedStrings, added
+        WebPlatformStrategies.
+
+        * WebView.cpp:
+        (WebView::initWithFrame): Initialize WebPlatformStrategies.
+
+2010-08-03  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42939
+        WebEditorClient::didBeginEditing is never called in WebKit2
+
+        * WebView.cpp: (WebView::WebViewWndProc): Removed a call to setFocusedFrame. WebCore will
+        now set it to main frame, and besides, this call should have been before setFocused(), not
+        after it. My understanding is that we weren't getting all the same editing delegates on Windows,
+        so this change may make WebKit1 on Windows behave more like Mac - but I haven't tested it.
+
 2010-07-27  Luiz Agostini  <luiz.agostini@openbossa.org>
 
         Reviewed by Darin Fisher.

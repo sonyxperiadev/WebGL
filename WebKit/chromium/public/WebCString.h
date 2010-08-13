@@ -34,10 +34,14 @@
 #include "WebCommon.h"
 
 #if WEBKIT_IMPLEMENTATION
-namespace WTF { class CString; }
+#include <wtf/Forward.h>
 #else
 #include <string>
 #endif
+
+namespace WTF {
+class CString;
+}
 
 namespace WebKit {
 

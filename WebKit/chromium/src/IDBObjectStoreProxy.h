@@ -26,7 +26,7 @@
 #ifndef IDBObjectStoreProxy_h
 #define IDBObjectStoreProxy_h
 
-#include "IDBObjectStore.h"
+#include "IDBObjectStoreBackendInterface.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
@@ -37,9 +37,9 @@ namespace WebKit { class WebIDBObjectStore; }
 
 namespace WebCore {
 
-class IDBObjectStoreProxy : public IDBObjectStore {
+class IDBObjectStoreProxy : public IDBObjectStoreBackendInterface {
 public:
-    static PassRefPtr<IDBObjectStore> create(PassOwnPtr<WebKit::WebIDBObjectStore>);
+    static PassRefPtr<IDBObjectStoreBackendInterface> create(PassOwnPtr<WebKit::WebIDBObjectStore>);
     ~IDBObjectStoreProxy();
 
     String name() const;
@@ -53,6 +53,8 @@ public:
     void createIndex(const String& name, const String& keyPath, bool unique, PassRefPtr<IDBCallbacks>);
     PassRefPtr<IDBIndexBackendInterface> index(const String& name);
     void removeIndex(const String& name, PassRefPtr<IDBCallbacks>);
+
+    virtual void openCursor(PassRefPtr<IDBKeyRange> range, unsigned short direction, PassRefPtr<IDBCallbacks>);
 
 private:
     IDBObjectStoreProxy(PassOwnPtr<WebKit::WebIDBObjectStore>);

@@ -28,6 +28,7 @@
 #if ENABLE(3D_CANVAS)
 
 #include "WebGLTexture.h"
+
 #include "WebGLRenderingContext.h"
 
 namespace WebCore {
@@ -38,7 +39,7 @@ PassRefPtr<WebGLTexture> WebGLTexture::create(WebGLRenderingContext* ctx)
 }
 
 WebGLTexture::WebGLTexture(WebGLRenderingContext* ctx)
-    : CanvasObject(ctx)
+    : WebGLObject(ctx)
     , cubeMapRWrapModeInitialized(false)
     , m_target(0)
     , m_minFilter(GraphicsContext3D::NEAREST_MIPMAP_LINEAR)
@@ -197,7 +198,7 @@ bool WebGLTexture::needToUseBlackTexture() const
     return m_needToUseBlackTexture;
 }
 
-void WebGLTexture::_deleteObject(Platform3DObject object)
+void WebGLTexture::deleteObjectImpl(Platform3DObject object)
 {
     context()->graphicsContext3D()->deleteTexture(object);
 }

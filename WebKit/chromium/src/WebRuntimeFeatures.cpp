@@ -226,6 +226,16 @@ bool WebRuntimeFeatures::isTouchEnabled()
 #endif
 }
 
+void WebRuntimeFeatures::enableDeviceMotion(bool enable)
+{
+    RuntimeEnabledFeatures::setDeviceMotionEnabled(enable);
+}
+
+bool WebRuntimeFeatures::isDeviceMotionEnabled()
+{
+    return RuntimeEnabledFeatures::deviceMotionEnabled();
+}
+
 void WebRuntimeFeatures::enableDeviceOrientation(bool enable)
 {
     RuntimeEnabledFeatures::setDeviceOrientationEnabled(enable);
