@@ -31,16 +31,23 @@
 // a subclass of a chrome class.
 #if USE(CHROME_NETWORK_STACK)
 
-#include "net/http/http_cache.h"
-#include "net/url_request/url_request_context.h"
+#include "PlatformString.h"
+
+#include <net/http/http_cache.h>
+#include <net/url_request/url_request_context.h>
 
 namespace android {
 
 class WebRequestContext : public URLRequestContext {
 public:
     virtual const std::string& GetUserAgent(const GURL& url) const;
+    virtual const std::string& GetAcceptLanguage() const;
     static WebRequestContext* GetAndroidContext();
     static WebRequestContext* GetAndroidPrivateBrowsingContext();
+
+    static void SetUserAgent(WTF::String);
+    static void SetAcceptLanguage(WTF::String);
+
 private:
     static const std::string* GetDataDirectory();
     static WebRequestContext* GetAndroidContextForPath(const char* cookiePath, const char* cachePath);
@@ -49,6 +56,7 @@ private:
 
     // Caching this query from java
     static std::string* s_dataDirectory;
+    static std::string* s_userAgent;
 };
 
 } // namespace android

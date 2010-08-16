@@ -36,10 +36,14 @@
 #include <net/http/http_cache.h>
 #include <net/http/http_network_layer.h>
 #include <net/proxy/proxy_service.h>
+#include <wtf/text/CString.h>
 
 namespace {
-    // TODO: Get uastring from webcore
-    std::string userAgent("Mozilla/5.0 (Linux; U; Android 2.1; en-gb; Nexus One Build/ERE21) AppleWebKit/530.17 (KHTML, like Gecko) Version/4.0 Mobile Safari/530.17");
+std::string userAgent("Mozilla/5.0 (Linux; U; Android 2.1; en-gb; Nexus One Build/ERE21) AppleWebKit/530.17 (KHTML, like Gecko) Version/4.0 Mobile Safari/530.17");
+std::string acceptLanguage("");
+
+Lock userAgentLock;
+Lock acceptLanguageLock;
 }
 
 namespace android {
@@ -48,15 +52,37 @@ std::string* WebRequestContext::s_dataDirectory(0);
 
 WebRequestContext::WebRequestContext()
 {
+    // Also hardcoded in FrameLoader.java
+    accept_charset_ = "utf-8, iso-8859-1, utf-16, *;q=0.7";
 }
 
 WebRequestContext::~WebRequestContext()
 {
 }
 
+void WebRequestContext::SetUserAgent(WTF::String string)
+{
+    AutoLock aLock(userAgentLock);
+    userAgent = string.utf8().data();
+    userAgent.append(" alternate http");
+}
+
 const std::string& WebRequestContext::GetUserAgent(const GURL& url) const
 {
+    AutoLock aLock(userAgentLock);
     return userAgent;
+}
+
+void WebRequestContext::SetAcceptLanguage(WTF::String string)
+{
+    AutoLock aLock(acceptLanguageLock);
+    acceptLanguage = string.utf8().data();
+}
+
+const std::string& WebRequestContext::GetAcceptLanguage() const
+{
+    AutoLock aLock(acceptLanguageLock);
+    return acceptLanguage;
 }
 
 const std::string* WebRequestContext::GetDataDirectory()

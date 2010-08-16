@@ -48,6 +48,7 @@
 #if USE(V8)
 #include "WorkerContextExecutionProxy.h"
 #endif
+#include "WebRequestContext.h"
 
 #include <JNIHelp.h>
 #include <utils/misc.h>
@@ -76,6 +77,7 @@ struct FieldIds {
                 "Ljava/lang/String;");
         mUserAgent = env->GetFieldID(clazz, "mUserAgent",
                 "Ljava/lang/String;");
+        mAcceptLanguage = env->GetFieldID(clazz, "mAcceptLanguage", "Ljava/lang/String;");
         mMinimumFontSize = env->GetFieldID(clazz, "mMinimumFontSize", "I");
         mMinimumLogicalFontSize = env->GetFieldID(clazz, "mMinimumLogicalFontSize", "I");
         mDefaultFontSize = env->GetFieldID(clazz, "mDefaultFontSize", "I");
@@ -130,6 +132,7 @@ struct FieldIds {
         LOG_ASSERT(mFantasyFontFamily, "Could not find field mFantasyFontFamily");
         LOG_ASSERT(mDefaultTextEncoding, "Could not find field mDefaultTextEncoding");
         LOG_ASSERT(mUserAgent, "Could not find field mUserAgent");
+        LOG_ASSERT(mAcceptLanguage, "Could not find field mAcceptLanguage");
         LOG_ASSERT(mMinimumFontSize, "Could not find field mMinimumFontSize");
         LOG_ASSERT(mMinimumLogicalFontSize, "Could not find field mMinimumLogicalFontSize");
         LOG_ASSERT(mDefaultFontSize, "Could not find field mDefaultFontSize");
@@ -177,6 +180,7 @@ struct FieldIds {
     jfieldID mFantasyFontFamily;
     jfieldID mDefaultTextEncoding;
     jfieldID mUserAgent;
+    jfieldID mAcceptLanguage;
     jfieldID mMinimumFontSize;
     jfieldID mMinimumLogicalFontSize;
     jfieldID mDefaultFontSize;
@@ -295,6 +299,11 @@ public:
 
         str = (jstring)env->GetObjectField(obj, gFieldIds->mUserAgent);
         WebFrame::getWebFrame(pFrame)->setUserAgent(to_string(env, str));
+#if USE(CHROME_NETWORK_STACK)
+        WebRequestContext::SetUserAgent(to_string(env, str));
+        str = (jstring)env->GetObjectField(obj, gFieldIds->mAcceptLanguage);
+        WebRequestContext::SetAcceptLanguage(to_string(env, str));
+#endif
 
         jint size = env->GetIntField(obj, gFieldIds->mMinimumFontSize);
         s->setMinimumFontSize(size);
