@@ -106,6 +106,12 @@ SkLength convertLength(Length l) {
   return length;
 }
 
+static RenderLayer* renderLayerFromClient(GraphicsLayerClient* client) {
+    if (client)
+        return static_cast<RenderLayerBacking*>(client)->owningLayer();
+    return 0;
+}
+
 GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     GraphicsLayer(client),
     m_needsSyncChildren(false),
@@ -122,9 +128,8 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     m_currentPosition(0, 0)
 {
     m_contentLayer = new LayerAndroid(true);
-    if (m_client) {
-        RenderLayerBacking* backing = static_cast<RenderLayerBacking*>(m_client);
-        RenderLayer* renderLayer = backing->owningLayer();
+    RenderLayer* renderLayer = renderLayerFromClient(m_client);
+    if (renderLayer) {
         m_contentLayer->setIsRootLayer(renderLayer->isRootLayer() &&
                 !(renderLayer->renderer()->frame()->ownerElement()));
     }
@@ -224,8 +229,7 @@ void GraphicsLayerAndroid::updateFixedPosition()
     if (!m_client)
         return;
 
-    RenderLayerBacking* backing = static_cast<RenderLayerBacking*>(m_client);
-    RenderLayer* renderLayer = backing->owningLayer();
+    RenderLayer* renderLayer = renderLayerFromClient(m_client);
     RenderView* view = static_cast<RenderView*>(renderLayer->renderer());
 
     // If we are a fixed position layer, just set it
@@ -293,9 +297,6 @@ void GraphicsLayerAndroid::setSize(const FloatSize& size)
         MLOG("(%x) setSize (%.2f,%.2f)", this, size.width(), size.height());
         GraphicsLayer::setSize(size);
         m_contentLayer->setSize(size.width(), size.height());
-        m_contentLayer->setForegroundClip(
-                SkRect::MakeWH(SkFloatToScalar(size.width()),
-                               SkFloatToScalar(size.height())));
         updateFixedPosition();
         askForSync();
     }
@@ -472,6 +473,22 @@ bool GraphicsLayerAndroid::repaint()
 
         m_needsRepaint = false;
         m_invalidatedRects.clear();
+
+        RenderLayer* layer = renderLayerFromClient(m_client);
+        // Use the absolute bounds of the renderer instead of the layer's
+        // bounds because the layer will add in the outline.  What we want
+        // is the content bounds inside the outline.
+        FloatRect clip = layer->renderer()->absoluteBoundingBoxRect();
+        // Move the clip local to the layer position.
+        clip.move(-m_position.x(), -m_position.y());
+        if (layer->hasOverflowScroll()) {
+            // If this is a scrollable layer, inset the clip by the border.
+            RenderBox* box = layer->renderBox();
+            clip.move(box->borderLeft(), box->borderTop());
+            clip.setWidth(clip.width() - box->borderLeft() - box->borderRight());
+            clip.setHeight(clip.height() - box->borderTop() - box->borderBottom());
+        }
+        m_contentLayer->setForegroundClip(clip);
 
         return true;
     }
@@ -925,11 +942,6 @@ void GraphicsLayerAndroid::notifyClientAnimationStarted()
             client()->notifyAnimationStarted(this, WTF::currentTime());
         m_needsNotifyClient = false;
     }
-}
-
-void GraphicsLayerAndroid::setContentsClip(const IntRect& clip)
-{
-    m_contentLayer->setForegroundClip(clip);
 }
 
 } // namespace WebCore

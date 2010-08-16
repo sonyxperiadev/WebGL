@@ -441,18 +441,6 @@ void RenderLayerBacking::updateGraphicsLayerGeometry()
     }
 
     m_graphicsLayer->setContentsRect(contentsBox());
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    if (m_owningLayer->hasOverflowControls()) {
-        RenderBoxModelObject* box = renderer();
-        IntRect clip = compositedBounds();
-        IntPoint location = clip.location();
-        location.move(box->borderLeft(), box->borderTop());
-        clip.setLocation(location);
-        clip.setWidth(clip.width() - box->borderLeft() - box->borderRight());
-        clip.setHeight(clip.height() - box->borderTop() - box->borderBottom());
-        static_cast<GraphicsLayerAndroid*>(m_graphicsLayer.get())->setContentsClip(clip);
-    }
-#endif
     updateDrawsContent();
     updateAfterWidgetResize();
 }
@@ -882,21 +870,17 @@ IntRect RenderLayerBacking::contentsBox() const
 #endif
         contentsRect = toRenderBox(renderer())->contentBoxRect();
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    if (m_owningLayer->hasOverflowControls()) {
+    if (m_owningLayer->hasOverflowScroll()) {
         // Update the contents rect to have the width and height of the entire
         // contents.  This rect is only used by the platform GraphicsLayer and
         // the position of the rectangle is ignored.  Use the layer's scroll
         // width/height (which contain the padding).
         RenderBox* box = toRenderBox(renderer());
+        int outline = box->view()->maximalOutlineSize() << 1;
         contentsRect.setWidth(box->borderLeft() + box->borderRight() +
-                              m_owningLayer->scrollWidth());
+                              m_owningLayer->scrollWidth() + outline);
         contentsRect.setHeight(box->borderTop() + box->borderBottom() +
-                               m_owningLayer->scrollHeight());
-        // Move the contents rect by the padding since
-        // RenderBox::contentBoxRect includes the padding.  The end result is
-        // to have a box representing the entires contents plus border and
-        // padding.  This will be the size of the underlying picture.
-        contentsRect.setLocation(IntPoint(0, 0));
+                               m_owningLayer->scrollHeight() + outline);
     }
 #endif
 
@@ -1021,6 +1005,17 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
         
         // Restore the clip.
         restoreClip(context, paintDirtyRect, damageRect);
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+        // Paint the outline as part of the background phase in order for the
+        // outline to not be a part of the scrollable content.
+        if (!outlineRect.isEmpty()) {
+            // Paint our own outline
+            PaintInfo paintInfo(context, outlineRect, PaintPhaseSelfOutline, false, paintingRootForRenderer, 0);
+            setClip(context, paintDirtyRect, outlineRect);
+            renderer()->paint(paintInfo, tx, ty);
+            restoreClip(context, paintDirtyRect, outlineRect);
+        }
+#endif
 
         // Now walk the sorted list of children with negative z-indices. Only RenderLayers without compositing layers will paint.
         m_owningLayer->paintList(m_owningLayer->negZOrderList(), rootLayer, context, paintDirtyRect, paintBehavior, paintingRoot, 0, 0);
@@ -1030,6 +1025,13 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
     bool selectionOnly  = paintBehavior & PaintBehaviorSelectionOnly;
 
     if (shouldPaint && (paintingPhase & GraphicsLayerPaintForeground)) {
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+        // Scroll to 0,0 and paint the entire contents, then scroll back the
+        // the original offset.
+        int x = m_owningLayer->scrollXOffset();
+        int y = m_owningLayer->scrollYOffset();
+        m_owningLayer->scrollToOffset(0, 0, false, false);
+#endif
         // Set up the clip used when painting our children.
         setClip(context, paintDirtyRect, clipRectToApply);
         PaintInfo paintInfo(context, clipRectToApply, 
@@ -1051,6 +1053,9 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
         // Now restore our clip.
         restoreClip(context, paintDirtyRect, clipRectToApply);
 
+#if !ENABLE(ANDROID_OVERFLOW_SCROLL)
+        // Do not paint the outline as part of the foreground since it will
+        // appear inside the scrollable content.
         if (!outlineRect.isEmpty()) {
             // Paint our own outline
             PaintInfo paintInfo(context, outlineRect, PaintPhaseSelfOutline, false, paintingRootForRenderer, 0);
@@ -1058,12 +1063,16 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
             renderer()->paint(paintInfo, tx, ty);
             restoreClip(context, paintDirtyRect, outlineRect);
         }
+#endif
 
         // Paint any child layers that have overflow.
         m_owningLayer->paintList(m_owningLayer->normalFlowList(), rootLayer, context, paintDirtyRect, paintBehavior, paintingRoot, 0, 0);
 
         // Now walk the sorted list of children with positive z-indices.
         m_owningLayer->paintList(m_owningLayer->posZOrderList(), rootLayer, context, paintDirtyRect, paintBehavior, paintingRoot, 0, 0);
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+        m_owningLayer->scrollToOffset(x, y, false, false);
+#endif
     }
     
     if (shouldPaint && (paintingPhase & GraphicsLayerPaintMask)) {
@@ -1107,7 +1116,7 @@ void RenderLayerBacking::paintContents(const GraphicsLayer*, GraphicsContext& co
     // can compute and cache clipRects.
     IntRect enclosingBBox = compositedBounds();
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    if (m_owningLayer->hasOverflowControls()) {
+    if (m_owningLayer->hasOverflowScroll()) {
         enclosingBBox.setSize(contentsBox().size());
         enclosingBBox.setLocation(m_compositedBounds.location());
     }

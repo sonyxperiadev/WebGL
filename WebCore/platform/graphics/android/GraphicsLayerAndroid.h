@@ -115,8 +115,6 @@ public:
 
     static int instancesCount();
 
-    void setContentsClip(const IntRect& clip);
-
 private:
 
     void askForSync();

@@ -2360,7 +2360,8 @@ void WebViewCore::touchUp(int touchGeneration,
 
 // Return the RenderLayer for the given RenderObject only if the layer is
 // composited and it contains a scrollable content layer.
-static WebCore::RenderLayer* getLayerFromRenderer(WebCore::RenderObject* renderer)
+static WebCore::RenderLayer* getLayerFromRenderer(
+        WebCore::RenderObject* renderer, LayerAndroid** aLayer)
 {
     if (!renderer)
         return 0;
@@ -2371,9 +2372,10 @@ static WebCore::RenderLayer* getLayerFromRenderer(WebCore::RenderObject* rendere
             static_cast<GraphicsLayerAndroid*>(layer->backing()->graphicsLayer());
     if (!graphicsLayer)
         return 0;
-    LayerAndroid* aLayer = graphicsLayer->contentLayer();
-    if (!aLayer || !aLayer->contentIsScrollable())
+    LayerAndroid* layerAndroid = graphicsLayer->contentLayer();
+    if (!layerAndroid || !layerAndroid->contentIsScrollable())
         return 0;
+    *aLayer = layerAndroid;
     return layer;
 }
 
@@ -2381,34 +2383,27 @@ static WebCore::RenderLayer* getLayerFromRenderer(WebCore::RenderObject* rendere
 // done so that the node is visible when it is clicked.
 static void scrollLayer(WebCore::RenderObject* renderer, WebCore::IntPoint* pos)
 {
-    WebCore::RenderLayer* layer = getLayerFromRenderer(renderer);
+    LayerAndroid* aLayer;
+    WebCore::RenderLayer* layer = getLayerFromRenderer(renderer, &aLayer);
     if (!layer)
         return;
     WebCore::IntRect absBounds = renderer->absoluteBoundingBoxRect();
-    WebCore::IntRect layerBounds = layer->absoluteBoundingBox();
+    // Do not include the outline when moving the node's bounds.
+    WebCore::IntRect layerBounds = layer->renderer()->absoluteBoundingBoxRect();
 
     // Move the node's bounds into the layer's coordinates.
     absBounds.move(-layerBounds.x(), -layerBounds.y());
 
+    int diffX = layer->scrollXOffset();
+    int diffY = layer->scrollYOffset();
     // Scroll the layer to the node's position.  The false parameters tell the
     // layer not to invalidate.
-    layer->scrollToOffset(absBounds.x(), absBounds.y(), false, false);
+    layer->scrollToOffset(absBounds.x(), absBounds.y(), false, true);
+    diffX = layer->scrollXOffset() - diffX;
+    diffY = layer->scrollYOffset() - diffY;
 
     // Update the mouse position to the layer offset.
-    pos->move(-layer->scrollXOffset(), -layer->scrollYOffset());
-}
-
-static void restoreScrolledLayer(WebCore::RenderObject* renderer,
-        WebCore::IntPoint* pos)
-{
-    WebCore::RenderLayer* layer = getLayerFromRenderer(renderer);
-    if (!layer)
-        return;
-    // Move the mouse position back to it's original position.
-    pos->move(layer->scrollXOffset(), layer->scrollYOffset());
-
-    // Scroll the layer back to 0,0.
-    layer->scrollToOffset(0, 0, false, false);
+    pos->move(-diffX, -diffY);
 }
 
 // Common code for both clicking with the trackball and touchUp
@@ -2508,8 +2503,6 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             requestKeyboard(true);
         }
     }
-    if (nodePtr && valid)
-        restoreScrolledLayer(nodePtr->renderer(), &m_mousePos);
     return handled;
 }
 

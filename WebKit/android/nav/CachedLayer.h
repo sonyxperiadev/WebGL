@@ -58,12 +58,18 @@ public:
     void reset() { mLayer = 0; }
     void setCachedNodeIndex(int index) { mCachedNodeIndex = index; }
     void setOffset(const IntPoint& offset) { mOffset = offset; }
+    void setScrollOffset(const IntPoint& scrollOffset) {
+        mScrollOffset = scrollOffset;
+    }
     void setUniqueId(int uniqueId) { mUniqueId = uniqueId; }
     int uniqueId() const { return mUniqueId; }
 private:
     int mCachedNodeIndex;
     mutable const LayerAndroid* mLayer;
+    // mOffset and mScrollOffset are the position and scroll offset of the
+    // layer when recorded by the nav cache.
     IntPoint mOffset;
+    IntPoint mScrollOffset;
     int mUniqueId;
 
 #if DUMP_NAV_CACHE

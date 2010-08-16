@@ -198,6 +198,7 @@ private:
     };
     struct LayerTracker : Tracker {
         LayerAndroid* mLayer;
+        RenderLayer* mRenderLayer;
         IntRect mBounds;
     };
     struct TabIndexTracker : Tracker {

@@ -49,6 +49,10 @@ IntRect CachedLayer::adjustBounds(const LayerAndroid* root,
     // First, remove the original offset from the bounds.
     temp.move(-mOffset.x(), -mOffset.y());
 
+    // Now, add in the original scroll position.  This moves the node to the
+    // original location within the layer.
+    temp.move(mScrollOffset.x(), mScrollOffset.y());
+
     // Next, add in the new position of the layer (could be different due to a
     // fixed position layer).
     const FloatPoint& position = aLayer->getPosition();
@@ -72,12 +76,17 @@ IntRect CachedLayer::adjustBounds(const LayerAndroid* root,
 
     DBG_NAV_LOGD("root=%p aLayer=%p [%d]"
         " bounds=(%d,%d,w=%d,h=%d) trans=(%g,%g)"
+        " pos=(%f,%f)"
         " offset=(%d,%d) clip=(%d,%d,w=%d,h=%d)"
+        " scroll=(%d,%d) origScroll=(%d,%d)"
         " result=(%d,%d,w=%d,h=%d)",
         root, aLayer, aLayer->uniqueId(),
         bounds.x(), bounds.y(), bounds.width(), bounds.height(),
-        translation.x(), translation.y(), mOffset.x(), mOffset.y(),
+        translation.x(), translation.y(), position.x(), position.y(),
+        mOffset.x(), mOffset.y(),
         clip.x(), clip.y(), clip.width(), clip.height(),
+        SkScalarRound(scroll.fX), SkScalarRound(scroll.fY),
+        mScrollOffset.x(), mScrollOffset.y(),
         result.x(), result.y(), result.width(), result.height());
     return result;
 }
@@ -104,6 +113,9 @@ IntRect CachedLayer::unadjustBounds(const LayerAndroid* root,
 
     // Move it back to the original offset.
     temp.move(mOffset.x(), mOffset.y());
+
+    // Move the bounds by the original scroll.
+    temp.move(-mScrollOffset.x(), -mScrollOffset.y());
     return temp;
 }
 
@@ -122,6 +134,10 @@ IntRect CachedLayer::localBounds(const LayerAndroid* root,
     // Remove the original offset from the bounds.
     temp.move(-mOffset.x(), -mOffset.y());
 
+    // We add in the original scroll position in order to position the node
+    // relative to the current internal scroll position.
+    temp.move(mScrollOffset.x(), mScrollOffset.y());
+
     const LayerAndroid* aLayer = layer(root);
     if (aLayer) {
         // Move the bounds by the scroll position of the layer.
@@ -134,7 +150,12 @@ IntRect CachedLayer::localBounds(const LayerAndroid* root,
         temp.intersect(IntRect(aLayer->foregroundClip()));
     }
 
-    return enclosingIntRect(temp);
+    DBG_NAV_LOGD("bounds=(%d,%d,w=%d,h=%d) offset=(%d,%d)"
+            " result=(%d,%d,w=%d,h=%d)", bounds.x(), bounds.y(),
+            bounds.width(), bounds.height(), mOffset.x(), mOffset.y(),
+            temp.x(), temp.y(), temp.width(), temp.height());
+
+    return temp;
 }
 
 SkPicture* CachedLayer::picture(const LayerAndroid* root) const
