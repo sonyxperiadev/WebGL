@@ -163,7 +163,6 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 
 # XLink attribute names
 
-ifeq ($(ENABLE_SVG), true)
 GEN:= $(intermediates)/XLinkNames.cpp
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --attrs $(xlink_attrs) --output $(dir $@) 
@@ -171,4 +170,3 @@ $(GEN): xlink_attrs := $(LOCAL_PATH)/svg/xlinkattrs.in
 $(GEN): $(LOCAL_PATH)/dom/make_names.pl $(xlink_attrs)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
-endif
