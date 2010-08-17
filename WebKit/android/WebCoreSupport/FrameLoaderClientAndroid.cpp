@@ -775,7 +775,8 @@ bool FrameLoaderClientAndroid::canShowMIMEType(const String& mimeType) const {
                     && m_frame->settings()->arePluginsEnabled()
                     && PluginDatabase::installedPlugins()->isMIMETypeRegistered(
                             mimeType)) ||
-            DOMImplementation::isTextMIMEType(mimeType) ||
+            (DOMImplementation::isTextMIMEType(mimeType) &&
+             !mimeType.startsWith("text/vnd")) ||
             DOMImplementation::isXMLMIMEType(mimeType))
         return true;
     return false;
