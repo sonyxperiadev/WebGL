@@ -81,6 +81,7 @@ class NPObject;
 
 namespace WebCore {
 
+class Document;
 class FrameView;
 class Widget;
 
@@ -100,9 +101,9 @@ public:
     static WTF::Vector<String> getSupportedKeyStrengthList();
     static String getSignedPublicKeyAndChallengeString(unsigned index, const String& challenge, const KURL&);
     // Cookies
-    static void setCookies(const KURL&, const String& value);
-    static String cookies(const KURL&);
-    static bool cookiesEnabled();
+    static void setCookies(const Document*, const KURL&, const String& value);
+    static String cookies(const Document*, const KURL&);
+    static bool cookiesEnabled(const Document*);
     // Plugin
     static NPObject* pluginScriptableObject(Widget*);
     // Popups

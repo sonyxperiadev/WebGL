@@ -27,11 +27,13 @@
 #include <PlatformBridge.h>
 
 #include "CookieClient.h"
+#include "Document.h"
 #include "FileSystemClient.h"
 #include "FrameView.h"
 #include "JavaSharedClient.h"
 #include "KeyGeneratorClient.h"
 #include "PluginView.h"
+#include "Settings.h"
 #include "WebCoreFrameBridge.h"
 #include "WebRequestContext.h"
 #include "WebViewCore.h"
@@ -61,12 +63,17 @@ String PlatformBridge::getSignedPublicKeyAndChallengeString(unsigned index, cons
     return client->getSignedPublicKeyAndChallengeString(index, challenge, url);
 }
 
-void PlatformBridge::setCookies(const KURL& url, const String& value)
+void PlatformBridge::setCookies(const Document* document, const KURL& url, const String& value)
 {
 #if USE(CHROME_NETWORK_STACK)
     std::string cookieValue(value.utf8().data());
     GURL cookieGurl(url.string().utf8().data());
-    WebRequestContext::GetAndroidContext()->cookie_store()->SetCookie(cookieGurl ,cookieValue);
+    WebRequestContext* androidContext;
+    if (document->settings() && document->settings()->privateBrowsingEnabled())
+        androidContext = WebRequestContext::GetAndroidPrivateBrowsingContext();
+    else
+        androidContext = WebRequestContext::GetAndroidContext();
+    androidContext->cookie_store()->SetCookie(cookieGurl, cookieValue);
 #else
     CookieClient* client = JavaSharedClient::GetCookieClient();
     if (!client)
@@ -76,11 +83,16 @@ void PlatformBridge::setCookies(const KURL& url, const String& value)
 #endif
 }
 
-String PlatformBridge::cookies(const KURL& url)
+String PlatformBridge::cookies(const Document* document, const KURL& url)
 {
 #if USE(CHROME_NETWORK_STACK)
     GURL cookieGurl(url.string().utf8().data());
-    std::string cookies = WebRequestContext::GetAndroidContext()->cookie_store()->GetCookies(cookieGurl);
+    WebRequestContext* androidContext;
+    if (document->settings() && document->settings()->privateBrowsingEnabled())
+        androidContext = WebRequestContext::GetAndroidPrivateBrowsingContext();
+    else
+        androidContext = WebRequestContext::GetAndroidContext();
+    std::string cookies = androidContext->cookie_store()->GetCookies(cookieGurl);
     String cookieString(cookies.c_str());
     return cookieString;
 #else
@@ -92,7 +104,7 @@ String PlatformBridge::cookies(const KURL& url)
 #endif
 }
 
-bool PlatformBridge::cookiesEnabled()
+bool PlatformBridge::cookiesEnabled(const Document* document)
 {
     CookieClient* client = JavaSharedClient::GetCookieClient();
     if (!client)
