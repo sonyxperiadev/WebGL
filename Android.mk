@@ -54,17 +54,14 @@ endif
 # Read JS_ENGINE environment variable
 JAVASCRIPT_ENGINE = $(JS_ENGINE)
 
-# The default / alternative engine depends on the device class.
-# On devices with a lot of memory (e.g. Passion/Sholes), the
-# default is V8. On everything else, the only choice is JSC.
-# TODO: use ARCH_ARM_HAVE_ARMV7 once that variable is added to
-# the build system.
-ifeq ($(ARCH_ARM_HAVE_VFP),true)
-    DEFAULT_ENGINE = v8
-    ALT_ENGINE = jsc
+# We default to the V8 JS engine on everything except the simulator where
+# we stick with JSC.
+ifeq ($(TARGET_SIMULATOR),false)
+DEFAULT_ENGINE = v8
+ALT_ENGINE = jsc
 else
-    DEFAULT_ENGINE = jsc
-    ALT_ENGINE = jsc
+DEFAULT_ENGINE = jsc
+ALT_ENGINE = jsc
 endif
 
 ifneq ($(JAVASCRIPT_ENGINE),jsc)
