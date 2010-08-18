@@ -56,7 +56,7 @@ JAVASCRIPT_ENGINE = $(JS_ENGINE)
 
 # We default to the V8 JS engine on everything except the simulator where
 # we stick with JSC.
-ifeq ($(TARGET_SIMULATOR),false)
+ifneq ($(TARGET_SIMULATOR),true)
 DEFAULT_ENGINE = v8
 ALT_ENGINE = jsc
 else
@@ -76,7 +76,7 @@ ifneq ($(JAVASCRIPT_ENGINE),jsc)
 endif
 
 # Read the HTTP_STACK environment variable, default is android
-ifeq ($(TARGET_SIMULATOR),false)
+ifneq ($(TARGET_SIMULATOR),true)
 HTTP_STACK = $(HTTP)
 ifneq ($(HTTP_STACK),android)
   # Chrome net stack has dependencies on V8.
