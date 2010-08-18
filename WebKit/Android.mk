@@ -73,6 +73,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	android/jni/WebViewCore.cpp \
 	\
 	android/nav/CacheBuilder.cpp \
+	android/nav/CachedColor.cpp \
 	android/nav/CachedFrame.cpp \
 	android/nav/CachedHistory.cpp \
 	android/nav/CachedInput.cpp \

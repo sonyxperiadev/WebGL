@@ -95,6 +95,7 @@ public:
         WTF::Vector<WebCore::IntRect>* rings);
     bool clip(const WebCore::IntRect& );
     bool clippedOut() { return mClippedOut; }
+    int colorIndex() const { return mColorIndex; }
     WebCore::IntRect cursorRingBounds(const CachedFrame* ) const;
     void cursorRings(const CachedFrame* , WTF::Vector<WebCore::IntRect>* ) const;
     bool disabled() const { return mDisabled; }
@@ -147,6 +148,7 @@ public:
     WebCore::IntRect ring(const CachedFrame* , size_t part) const;
     void setBounds(const WebCore::IntRect& bounds) { mBounds = bounds; }
     void setClippedOut(bool clipped) { mClippedOut = clipped; }
+    void setColorIndex(int index) { mColorIndex = index; }
     void setCondition(Condition condition) const { mCondition = condition; }
     void setDataIndex(int index) { mDataIndex = index; }
     void setDisabled(bool disabled) { mDisabled = disabled; }
@@ -190,6 +192,7 @@ private:
     int mNavableRects; // FIXME: could be bitfield once I limit max number of rects
     int mParentIndex;
     int mTabIndex;
+    int mColorIndex; // index to ring color and other stylable properties
     mutable Condition mCondition : 5; // why the node was not chosen on the first pass
     CachedNodeType mType : 4;
     bool mClippedOut : 1;
