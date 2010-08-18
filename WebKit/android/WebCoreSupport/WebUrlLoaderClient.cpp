@@ -30,6 +30,7 @@
 #include "ResourceHandle.h"
 #include "ResourceHandleClient.h"
 #include "ResourceResponse.h"
+#include "WebCoreFrameBridge.h"
 #include "WebRequest.h"
 #include "WebResourceRequest.h"
 
@@ -95,17 +96,22 @@ bool WebUrlLoaderClient::isActive() const
     return true;
 }
 
-WebUrlLoaderClient::WebUrlLoaderClient(WebCore::ResourceHandle* resourceHandle, const WebCore::ResourceRequest& resourceRequest)
+WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHandle* resourceHandle, const WebCore::ResourceRequest& resourceRequest)
     : m_resourceHandle(resourceHandle)
     , m_cancelling(false)
     , m_sync(false)
     , m_finished(false)
 {
     WebResourceRequest webResourceRequest(resourceRequest);
+    if (webResourceRequest.isAndroidUrl()) {
+        int inputStream = webFrame->inputStreamForAndroidResource(webResourceRequest.url().c_str(), webResourceRequest.androidFileType());
+        m_request = new WebRequest(this, webResourceRequest, inputStream);
+        m_request->AddRef(); // Matched by ReleaseSoon in destructor
+        return;
+    }
 
     m_request = new WebRequest(this, webResourceRequest);
     m_request->AddRef(); // Matched by ReleaseSoon in destructor
-    base::Thread* thread = ioThread();
 
     // Set uploads before start is called on the request
     if (resourceRequest.httpBody() && !(webResourceRequest.method() == "GET" || webResourceRequest.method() == "HEAD")) {
@@ -245,15 +251,29 @@ void WebUrlLoaderClient::didReceiveData(void* data)
 // For data url's
 void WebUrlLoaderClient::didReceiveDataUrl(void* data)
 {
-    OwnPtr<LoaderData> ld(static_cast<LoaderData*>(data));
-    const WebUrlLoaderClient* loader = ld->loader;
+    OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
+    const WebUrlLoaderClient* loader = loaderData->loader;
 
     if (!loader->isActive())
         return;
 
-    std::string* str = ld->string.get();
+    std::string* str = loaderData->string.get();
     // didReceiveData will take a copy of the data
     loader->m_resourceHandle->client()->didReceiveData(loader->m_resourceHandle.get(), str->data(), str->size(), str->size());
+}
+
+// static - on main thread
+// For special android files
+void WebUrlLoaderClient::didReceiveAndroidFileData(void* data)
+{
+    OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
+    const WebUrlLoaderClient* loader = loaderData->loader;
+
+    if (!loader->isActive())
+        return;
+
+    // didReceiveData will take a copy of the data
+    loader->m_resourceHandle->client()->didReceiveData(loader->m_resourceHandle.get(), &(loaderData->vector->front()), loaderData->size, loaderData->size);
 }
 
 // static - on main thread

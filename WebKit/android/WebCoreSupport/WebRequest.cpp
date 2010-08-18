@@ -26,9 +26,11 @@
 #include "config.h"
 #include "WebRequest.h"
 
+#include "JNIUtility.h"
 #include "MainThread.h"
 #include "WebRequestContext.h"
 #include "WebResourceRequest.h"
+#include "jni.h"
 
 #include <net/base/data_url.h>
 #include <net/base/io_buffer.h>
@@ -40,10 +42,7 @@
 extern android::AssetManager* globalAssetManager();
 
 // TODO:
-// - Get gmail log in to work
 // - Finish the file upload. Testcase is mobile buzz
-// - Handle fails better
-// - Check the string conversion work for more than the general case
 // - Add network throttle needed by Android plugins
 
 namespace android {
@@ -54,8 +53,12 @@ namespace {
 
 WebRequest::WebRequest(WebUrlLoaderClient* loader, WebResourceRequest webResourceRequest)
     : m_urlLoader(loader)
+    , m_inputStream(0)
+    , m_androidUrl(false)
 {
+    m_url = webResourceRequest.url();
     GURL gurl(webResourceRequest.url());
+
     m_request = new URLRequest(gurl, this);
 
     m_request->SetExtraRequestHeaders(webResourceRequest.requestHeaders());
@@ -63,8 +66,23 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, WebResourceRequest webResourc
     m_request->set_method(webResourceRequest.method());
 }
 
+// This is a special URL for Android. Query the Java InputStream
+// for data and send to WebCore
+WebRequest::WebRequest(WebUrlLoaderClient* loader, WebResourceRequest webResourceRequest, int inputStream)
+    : m_urlLoader(loader)
+    , m_request(0)
+    , m_androidUrl(true)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    m_inputStream = (int)env->NewGlobalRef((_jobject*)inputStream);
+    m_url = webResourceRequest.url();
+}
+
 WebRequest::~WebRequest()
 {
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    if (m_inputStream)
+        env->DeleteGlobalRef((_jobject*)m_inputStream);
 }
 
 void WebRequest::finish(bool success)
@@ -89,6 +107,9 @@ void WebRequest::AppendBytesToUpload(const char* bytes, int bytesLen)
 
 void WebRequest::start(bool isPrivateBrowsing)
 {
+    if (m_androidUrl)
+        return handleAndroidURL();
+
     // Handle data urls before we send it off to the http stack
     if (m_request->url().SchemeIs("data"))
         return handleDataURL(m_request->url());
@@ -113,6 +134,47 @@ void WebRequest::cancel()
         return;
 
     m_request->Cancel();
+    finish(true);
+}
+
+void WebRequest::handleAndroidURL()
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    if (m_inputStream == 0) {
+        WebResponse webResponse(m_url, "", 0, "", 0);
+        LoaderData* loaderData = new LoaderData(m_urlLoader, webResponse);
+        m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didFail, loaderData);
+        return;
+    }
+
+    WebResponse webResponse(m_url, "", 0, "", 200);
+    LoaderData* loaderResponse = new LoaderData(m_urlLoader, webResponse);
+    m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveResponse, loaderResponse);
+
+    int size = 0;
+    jclass bridgeClass = env->FindClass("android/webkit/BrowserFrame");
+    jmethodID method = env->GetStaticMethodID(bridgeClass, "readFromStream", "(Ljava/io/InputStream;[B)I");
+
+    jbyteArray jb = env->NewByteArray(kInitialReadBufSize);
+    do {
+        size = (int)env->CallStaticIntMethod(bridgeClass, method, m_inputStream, jb);
+        if (size < 0) // -1 is EOF
+            break;
+
+        // data is deleted in WebUrlLoaderClient::didReceiveAndroidFileData
+        // data is sent to the webcore thread
+        std::vector<char>* data = new std::vector<char>();
+        data->reserve(size);
+        env->GetByteArrayRegion(jb, 0, size, (jbyte*)&data->front());
+
+        // Passes ownership of data
+        LoaderData* loaderData = new LoaderData(m_urlLoader, data, size);
+        m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveAndroidFileData, loaderData);
+    } while (true);
+
+    env->DeleteLocalRef(jb);
+    env->DeleteLocalRef(bridgeClass);
+
     finish(true);
 }
 
