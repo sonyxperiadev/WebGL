@@ -29,6 +29,7 @@
 #include "DrawExtra.h"
 #include "IntRect.h"
 #include "PlatformString.h"
+#include "SkPath.h"
 
 class SkPicture;
 struct SkIRect;
@@ -38,46 +39,56 @@ namespace android {
 
 class CachedRoot;
 
-class CopyPaste {
-public:
-    static void buildSelection(const SkPicture& , const SkIRect& area,
-        const SkIRect& selStart, const SkIRect& selEnd, SkRegion* region);
-    static SkIRect findClosest(const SkPicture& , const SkIRect& area,
-        int x, int y);
-    static String text(const SkPicture& ,  const SkIRect& area,
-        const SkRegion& );
-};
-
 class SelectText : public DrawExtra {
 public:
-    SelectText() {
-        m_selStart.setEmpty();
-        m_selEnd.setEmpty();
-    }
+    SelectText();
     virtual void draw(SkCanvas* , LayerAndroid* );
+    void extendSelection(const SkPicture* , int x, int y);
     const String getSelection();
-    void moveSelection(const SkPicture* , int x, int y, bool extendSelection);
+    bool hitSelection(int x, int y) const;
+    void moveSelection(const SkPicture* , int x, int y);
+    void reset();
+    void selectAll(const SkPicture* );
+    int selectionX() const;
+    int selectionY() const;
     void setDrawPointer(bool drawPointer) { m_drawPointer = drawPointer; }
-    void setDrawRegion(bool drawRegion) { m_drawRegion = drawRegion; }
+    void setExtendSelection(bool extend) { m_extendSelection = extend; }
     void setVisibleRect(const IntRect& rect) { m_visibleRect = rect; }
+    bool startSelection(int x, int y);
+    bool wordSelection(const SkPicture* picture);
+public:
+    float m_inverseScale; // inverse scale, x, y used for drawing select path
+    int m_selectX;
+    int m_selectY;
 private:
-    friend class WebView;
     void drawSelectionPointer(SkCanvas* );
     void drawSelectionRegion(SkCanvas* );
     static void getSelectionArrow(SkPath* );
     void getSelectionCaret(SkPath* );
+    bool hitCorner(int cx, int cy, int x, int y) const;
+    void swapAsNeeded();
+    SkIPoint m_original; // computed start of extend selection
     SkIRect m_selStart;
     SkIRect m_selEnd;
-    SkIRect m_visibleRect;
-    SkRegion m_selRegion;
+    int m_startBase;
+    int m_endBase;
+    SkIRect m_visibleRect; // constrains picture computations to visible area
+    SkRegion m_selRegion; // computed from sel start, end
+    SkPicture m_startControl;
+    SkPicture m_endControl;
     const SkPicture* m_picture;
-    float m_inverseScale;
-    int m_selectX;
-    int m_selectY;
-    bool m_drawRegion;
     bool m_drawPointer;
-    bool m_extendSelection;
+    bool m_extendSelection; // false when trackball is moving pointer
+    bool m_flipped;
+    bool m_hitTopLeft;
+    bool m_startSelection;
 };
+
+}
+
+namespace WebCore {
+
+void ReverseBidi(UChar* chars, int len);
 
 }
 
