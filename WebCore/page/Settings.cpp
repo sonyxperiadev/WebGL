@@ -76,8 +76,7 @@ Settings::Settings(Page* page)
     , m_blockNetworkImage(false)
 #endif
     , m_maximumDecodedImageSize(numeric_limits<size_t>::max())
-#if ENABLE(DOM_STORAGE)            
-    , m_localStorageQuota(5 * 1024 * 1024)  // Suggested by the HTML5 spec.
+#if ENABLE(DOM_STORAGE)
     , m_sessionStorageQuota(StorageMap::noQuota)
 #endif
     , m_pluginAllowedRunTime(numeric_limits<unsigned>::max())
@@ -315,12 +314,7 @@ void Settings::setLocalStorageEnabled(bool localStorageEnabled)
     m_localStorageEnabled = localStorageEnabled;
 }
 
-#if ENABLE(DOM_STORAGE)        
-void Settings::setLocalStorageQuota(unsigned localStorageQuota)
-{
-    m_localStorageQuota = localStorageQuota;
-}
-
+#if ENABLE(DOM_STORAGE)
 void Settings::setSessionStorageQuota(unsigned sessionStorageQuota)
 {
     m_sessionStorageQuota = sessionStorageQuota;

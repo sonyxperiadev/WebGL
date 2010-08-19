@@ -136,17 +136,13 @@ class ImageDiff(test_type_base.TestTypeBase):
         # If we're generating a new baseline, we pass.
         if test_args.new_baseline or test_args.reset_results:
             self._save_baseline_files(filename, test_args.png_path,
-                                    test_args.hash, test_args.new_baseline)
+                                      test_args.hash, test_args.new_baseline)
             return failures
 
         # Compare hashes.
         expected_hash_file = self._port.expected_filename(filename,
                                                           '.checksum')
         expected_png_file = self._port.expected_filename(filename, '.png')
-
-        if test_args.show_sources:
-            _log.debug('Using %s' % expected_hash_file)
-            _log.debug('Using %s' % expected_png_file)
 
         # FIXME: We repeat this pattern often, we should share code.
         try:

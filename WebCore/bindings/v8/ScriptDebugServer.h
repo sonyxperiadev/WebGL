@@ -36,12 +36,12 @@
 #include "JavaScriptCallFrame.h"
 #include "PlatformString.h"
 #include "ScriptBreakpoint.h"
-#include "StringHash.h"
 #include "Timer.h"
 #include <v8-debug.h>
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/PassOwnPtr.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
@@ -70,7 +70,7 @@ public:
     PauseOnExceptionsState pauseOnExceptionsState();
     void setPauseOnExceptionsState(PauseOnExceptionsState pauseOnExceptionsState);
 
-    void pause() { }
+    void pause();
     void continueProgram();
     void stepIntoStatement();
     void stepOverStatement();
@@ -98,6 +98,14 @@ public:
 
     void setEnabled(bool);
     bool isDebuggerAlwaysEnabled();
+
+    class Task {
+    public:
+        virtual ~Task() { }
+        virtual void run() = 0;
+    };
+    static void interruptAndRun(PassOwnPtr<Task>);
+    void runPendingTasks();
 
 private:
     ScriptDebugServer();

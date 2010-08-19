@@ -52,6 +52,8 @@ bool webkit_web_frame_pause_animation(WebKitWebFrame* frame, const gchar* name, 
 bool webkit_web_frame_pause_transition(WebKitWebFrame* frame, const gchar* name, double time, const gchar* element);
 bool webkit_web_frame_pause_svg_animation(WebKitWebFrame* frame, const gchar* name, double time, const gchar* element);
 unsigned int webkit_web_frame_number_of_active_animations(WebKitWebFrame* frame);
+void webkit_web_frame_suspend_animations(WebKitWebFrame* frame);
+void webkit_web_frame_resume_animations(WebKitWebFrame* frame);
 void webkit_application_cache_set_maximum_size(unsigned long long size);
 unsigned int webkit_worker_thread_count(void);
 void webkit_white_list_access_from_origin(const gchar* sourceOrigin, const gchar* destinationProtocol, const gchar* destinationHost, bool allowDestinationSubdomains);
@@ -249,6 +251,15 @@ void LayoutTestController::setAlwaysAcceptCookies(bool alwaysAcceptCookies)
 #ifdef HAVE_LIBSOUP_2_29_90
     SoupSession* session = webkit_get_default_session();
     SoupCookieJar* jar = reinterpret_cast<SoupCookieJar*>(soup_session_get_feature(session, SOUP_TYPE_COOKIE_JAR));
+
+    /* If the jar was not created - we create it on demand, i.e, just
+       in case we have HTTP requests - then we must create it here in
+       order to set the proper accept policy */
+    if (!jar) {
+        jar = soup_cookie_jar_new();
+        soup_session_add_feature(session, SOUP_SESSION_FEATURE(jar));
+        g_object_unref(jar);
+    }
 
     SoupCookieJarAcceptPolicy policy;
 
@@ -618,6 +629,16 @@ bool LayoutTestController::sampleSVGAnimationForElementAtTime(JSStringRef animat
 unsigned LayoutTestController::numberOfActiveAnimations() const
 {
     return webkit_web_frame_number_of_active_animations(mainFrame);
+}
+
+void LayoutTestController::suspendAnimations() const
+{
+    webkit_web_frame_suspend_animations(mainFrame);
+}
+
+void LayoutTestController::resumeAnimations() const
+{
+    webkit_web_frame_resume_animations(mainFrame);
 }
 
 void LayoutTestController::overridePreference(JSStringRef key, JSStringRef value)

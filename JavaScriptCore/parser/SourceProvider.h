@@ -67,10 +67,10 @@ namespace JSC {
 
         UString getRange(int start, int end) const
         {
-            return m_source.substr(start, end - start);
+            return m_source.substringSharingImpl(start, end - start);
         }
-        const UChar* data() const { return m_source.data(); }
-        int length() const { return m_source.size(); }
+        const UChar* data() const { return m_source.characters(); }
+        int length() const { return m_source.length(); }
 
     private:
         UStringSourceProvider(const UString& source, const UString& url)

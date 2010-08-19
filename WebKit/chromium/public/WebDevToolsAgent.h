@@ -60,6 +60,7 @@ public:
     virtual void inspectElementAt(const WebPoint&) = 0;
 
     virtual void setRuntimeFeatureEnabled(const WebString& feature, bool enabled) = 0;
+    virtual void setRuntimeProperty(const WebString& name, const WebString& value) = 0;
 
     // Exposed for LayoutTestController.
     virtual void evaluateInWebInspector(long callId, const WebString& script) = 0;
@@ -72,6 +73,17 @@ public:
 
     // Asynchronously request debugger to pause immediately.
     WEBKIT_API static void debuggerPauseScript();
+
+    class MessageDescriptor {
+    public:
+        virtual ~MessageDescriptor() { }
+        virtual WebDevToolsAgent* agent() = 0;
+        virtual WebString message() = 0;
+    };
+    // Asynchronously request debugger to pause immediately and run the command.
+    WEBKIT_API static void interruptAndDispatch(MessageDescriptor*);
+    WEBKIT_API static bool shouldInterruptForMessage(const WebString&);
+    WEBKIT_API static void processPendingMessages();
 
     typedef void (*MessageLoopDispatchHandler)();
 

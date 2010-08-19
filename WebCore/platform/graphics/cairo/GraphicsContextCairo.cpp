@@ -908,14 +908,6 @@ void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness
     cairo_set_fill_rule(cr, savedFillRule);
 }
 
-void GraphicsContext::clipToImageBuffer(const FloatRect& rect, const ImageBuffer* imageBuffer)
-{
-    if (paintingDisabled())
-        return;
-
-    notImplemented();
-}
-
 void GraphicsContext::setPlatformShadow(FloatSize const& size, float, Color const&, ColorSpace)
 {
     // Cairo doesn't support shadows natively, they are drawn manually in the draw*
@@ -936,7 +928,7 @@ void GraphicsContext::createPlatformShadow(PassOwnPtr<ImageBuffer> buffer, const
     // draw the shadow without blurring, if kernelSize is zero
     if (!kernelSize) {
         setColor(cr, shadowColor);
-        cairo_mask_surface(cr, buffer->image()->nativeImageForCurrentFrame(), shadowRect.x(), shadowRect.y());
+        cairo_mask_surface(cr, buffer->m_data.m_surface, shadowRect.x(), shadowRect.y());
         return;
     }
 
@@ -956,7 +948,7 @@ void GraphicsContext::createPlatformShadow(PassOwnPtr<ImageBuffer> buffer, const
     // Mask the filter with the shadow color and draw it to the context.
     // Masking makes it possible to just blur the alpha channel.
     setColor(cr, shadowColor);
-    cairo_mask_surface(cr, blur->resultImage()->image()->nativeImageForCurrentFrame(), shadowRect.x(), shadowRect.y());
+    cairo_mask_surface(cr, blur->resultImage()->m_data.m_surface, shadowRect.x(), shadowRect.y());
 #endif
 }
 

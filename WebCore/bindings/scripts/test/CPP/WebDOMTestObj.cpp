@@ -21,7 +21,6 @@
 #include "config.h"
 #include "WebDOMTestObj.h"
 
-#include "AtomicString.h"
 #include "HTMLNames.h"
 #include "IDBKey.h"
 #include "KURL.h"
@@ -31,6 +30,7 @@
 #include "WebDOMString.h"
 #include "WebExceptionHandler.h"
 #include "WebNativeEventListener.h"
+#include "wtf/text/AtomicString.h"
 #include <wtf/GetPtr.h>
 #include <wtf/RefPtr.h>
 
@@ -59,6 +59,13 @@ WebDOMTestObj::WebDOMTestObj(const WebDOMTestObj& copy)
     : WebDOMObject()
 {
     m_impl = copy.impl() ? new WebDOMTestObjPrivate(copy.impl()) : 0;
+}
+
+WebDOMTestObj& WebDOMTestObj::operator=(const WebDOMTestObj& copy)
+{
+    delete m_impl;
+    m_impl = copy.impl() ? new WebDOMTestObjPrivate(copy.impl()) : 0;
+    return *this;
 }
 
 WebCore::TestObj* WebDOMTestObj::impl() const

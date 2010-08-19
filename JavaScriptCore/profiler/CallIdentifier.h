@@ -29,6 +29,8 @@
 
 #include <runtime/UString.h>
 #include "FastAllocBase.h"
+#include <wtf/text/CString.h>
+#include <wtf/text/StringHash.h>
 
 namespace JSC {
 
@@ -56,11 +58,11 @@ namespace JSC {
             static unsigned hash(const CallIdentifier& key)
             {
                 unsigned hashCodes[3] = {
-                    key.m_name.rep()->hash(),
-                    key.m_url.rep()->hash(),
+                    key.m_name.impl()->hash(),
+                    key.m_url.impl()->hash(),
                     key.m_lineNumber
                 };
-                return UString::Rep::computeHash(reinterpret_cast<char*>(hashCodes), sizeof(hashCodes));
+                return StringImpl::computeHash(reinterpret_cast<char*>(hashCodes), sizeof(hashCodes));
             }
 
             static bool equal(const CallIdentifier& a, const CallIdentifier& b) { return a == b; }
@@ -71,7 +73,7 @@ namespace JSC {
 
 #ifndef NDEBUG
         operator const char*() const { return c_str(); }
-        const char* c_str() const { return m_name.UTF8String().data(); }
+        const char* c_str() const { return m_name.utf8().data(); }
 #endif
     };
 

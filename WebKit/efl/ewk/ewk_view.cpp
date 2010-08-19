@@ -106,6 +106,7 @@ struct _Ewk_View_Private_Data {
         Eina_Bool resizable_textareas:1;
         Eina_Bool private_browsing:1;
         Eina_Bool caret_browsing:1;
+        Eina_Bool spatial_navigation:1;
         struct {
             float w;
             float h;
@@ -557,6 +558,7 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
     priv->page_settings->setStandardFontFamily("sans");
     priv->page_settings->setJavaScriptEnabled(true);
     priv->page_settings->setPluginsEnabled(true);
+    priv->page_settings->setLocalStorageEnabled(true);
 
     url = priv->page_settings->userStyleSheetLocation();
     priv->settings.user_stylesheet = eina_stringshare_add(url.prettyURL().utf8().data());
@@ -1318,13 +1320,13 @@ Eina_Bool ewk_view_text_search(const Evas_Object* o, const char* string, Eina_Bo
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
     EINA_SAFETY_ON_NULL_RETURN_VAL(string, EINA_FALSE);
-    WebCore::TextCaseSensitivity sensitive;
+    WTF::TextCaseSensitivity sensitive;
     WebCore::FindDirection direction;
 
     if (case_sensitive)
-        sensitive = WebCore::TextCaseSensitive;
+        sensitive = WTF::TextCaseSensitive;
     else
-        sensitive = WebCore::TextCaseInsensitive;
+        sensitive = WTF::TextCaseInsensitive;
 
     if (forward)
         direction = WebCore::FindDirectionForward;
@@ -1350,12 +1352,12 @@ unsigned int ewk_view_text_matches_mark(Evas_Object* o, const char* string, Eina
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, 0);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, 0);
     EINA_SAFETY_ON_NULL_RETURN_VAL(string, 0);
-    WebCore::TextCaseSensitivity sensitive;
+    WTF::TextCaseSensitivity sensitive;
 
     if (case_sensitive)
-        sensitive = WebCore::TextCaseSensitive;
+        sensitive = WTF::TextCaseSensitive;
     else
-        sensitive = WebCore::TextCaseInsensitive;
+        sensitive = WTF::TextCaseInsensitive;
 
     return priv->page->markAllMatchesForText(WTF::String::fromUTF8(string), sensitive, highlight, limit);
 }
@@ -2528,7 +2530,7 @@ Eina_Bool ewk_view_setting_font_cursive_set(Evas_Object* o, const char* family)
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
     if (eina_stringshare_replace(&priv->settings.font_cursive, family)) {
-        WTF::AtomicStringWTF::AtomicString s = WTF::String::fromUTF8(family);
+        WTF::AtomicString s = WTF::String::fromUTF8(family);
         priv->page_settings->setCursiveFontFamily(s);
     }
     return EINA_TRUE;
@@ -2602,6 +2604,25 @@ Eina_Bool ewk_view_setting_font_sans_serif_set(Evas_Object* o, const char* famil
     if (eina_stringshare_replace(&priv->settings.font_sans_serif, family)) {
         WTF::AtomicString s = WTF::String::fromUTF8(family);
         priv->page_settings->setSansSerifFontFamily(s);
+    }
+    return EINA_TRUE;
+}
+
+Eina_Bool ewk_view_setting_spatial_navigation_get(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    return priv->settings.spatial_navigation;
+}
+
+Eina_Bool ewk_view_setting_spatial_navigation_set(Evas_Object* o, Eina_Bool enable)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    enable = !!enable;
+    if (priv->settings.spatial_navigation != enable) {
+        priv->page_settings->setSpatialNavigationEnabled(enable);
+        priv->settings.spatial_navigation = enable;
     }
     return EINA_TRUE;
 }
@@ -3979,4 +4000,24 @@ Eina_Bool ewk_view_user_scalable_get(Evas_Object* o)
     EWK_VIEW_PRIV_GET(sd, priv);
 
     return priv->settings.zoom_range.user_scalable;
+}
+
+/**
+ * @internal
+ * Reports a requeset will be loaded. It's client responsibility to decide if
+ * request would be used. If @return is true, loader will try to load. Else,
+ * Loader ignore action of request.
+ *
+ * @param o View to load
+ * @param request Request which contain url to navigate
+ */
+Eina_Bool ewk_view_navigation_policy_decision(Evas_Object* o, Ewk_Frame_Resource_Request* request)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_TRUE);
+    EINA_SAFETY_ON_NULL_RETURN_VAL(sd->api, EINA_TRUE);
+
+    if (!sd->api->navigation_policy_decision)
+        return EINA_TRUE;
+
+    return sd->api->navigation_policy_decision(sd, request);
 }

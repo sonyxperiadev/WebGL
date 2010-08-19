@@ -130,6 +130,11 @@ void Editor::handleInputMethodKeydown(KeyboardEvent* event)
 
 bool Editor::handleTextEvent(TextEvent* event)
 {
+    // Default event handling for Drag and Drop will be handled by DragController
+    // so we leave the event for it.
+    if (event->isDrop())
+        return false;
+
     if (event->isPaste()) {
         if (event->pastingFragment())
             replaceSelectionWithFragment(event->pastingFragment(), false, event->shouldSmartReplace(), event->shouldMatchStyle());
@@ -762,14 +767,20 @@ bool Editor::dispatchCPPEvent(const AtomicString &eventType, ClipboardAccessPoli
     return !noDefaultProcessing;
 }
 
-Node* Editor::findEventTargetFromSelection() const
+Node* Editor::findEventTargetFrom(const VisibleSelection& selection) const
 {
-    Node* target = m_frame->selection()->start().element();
+    Node* target = selection.start().element();
     if (!target)
         target = m_frame->document()->body();
     if (!target)
         return 0;
     return target->shadowAncestorNode();
+
+}
+
+Node* Editor::findEventTargetFromSelection() const
+{
+    return findEventTargetFrom(m_frame->selection()->selection());
 }
 
 void Editor::applyStyle(CSSStyleDeclaration* style, EditAction editingAction)
@@ -1514,10 +1525,13 @@ void Editor::setComposition(const String& text, const Vector<CompositionUnderlin
     if (!text.isEmpty()) {
         TypingCommand::insertText(m_frame->document(), text, true, true);
 
-        Node* baseNode = m_frame->selection()->base().node();
-        unsigned baseOffset = m_frame->selection()->base().deprecatedEditingOffset();
-        Node* extentNode = m_frame->selection()->extent().node();
-        unsigned extentOffset = m_frame->selection()->extent().deprecatedEditingOffset();
+        // Find out what node has the composition now.
+        Position base = m_frame->selection()->base().downstream();
+        Position extent = m_frame->selection()->extent();
+        Node* baseNode = base.node();
+        unsigned baseOffset = base.deprecatedEditingOffset();
+        Node* extentNode = extent.node();
+        unsigned extentOffset = extent.deprecatedEditingOffset();
 
         if (baseNode && baseNode == extentNode && baseNode->isTextNode() && baseOffset + text.length() == extentOffset) {
             m_compositionNode = static_cast<Text*>(baseNode);

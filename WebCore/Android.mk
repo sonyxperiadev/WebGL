@@ -264,7 +264,11 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	html/AsyncImageResizer.cpp \
 	html/Blob.cpp \
+<<<<<<< HEAD
 	html/BlobBuilder.cpp \
+=======
+	html/BlobURL.cpp \
+>>>>>>> WebKit at r65615
 	html/CollectionCache.cpp \
 	html/CSSPreloadScanner.cpp \
 	html/DOMFormData.cpp \
@@ -298,18 +302,22 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLParserScheduler.cpp \
 	html/HTMLTableRowsCollection.cpp \
 	html/HTMLViewSourceDocument.cpp \
+	html/HTMLViewSourceParser.cpp \
 	html/ImageData.cpp \
 	html/ImageResizerThread.cpp \
+<<<<<<< HEAD
 	html/LabelsNodeList.cpp \
 	html/LegacyHTMLTreeBuilder.cpp \
 	html/StepRange.cpp \
 	html/LegacyHTMLDocumentParser.cpp \
 	html/LegacyPreloadScanner.cpp \
+=======
+	html/ThreadableBlobRegistry.cpp \
+>>>>>>> WebKit at r65615
 	html/TimeRanges.cpp \
 	html/ValidityState.cpp \
 	\
 	html/canvas/CanvasGradient.cpp \
-	html/canvas/CanvasNumberArray.cpp \
 	html/canvas/WebGLObject.cpp \
 	html/canvas/CanvasPattern.cpp \
 	html/canvas/CanvasPixelArray.cpp \
@@ -391,6 +399,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/FrameView.cpp \
 	page/Geolocation.cpp \
 	page/GeolocationPositionCache.cpp \
+	page/GroupSettings.cpp \
 	page/History.cpp \
 	page/Location.cpp \
 	page/MemoryInfo.cpp \
@@ -436,6 +445,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/DragData.cpp \
 	platform/DragImage.cpp \
 	platform/FileChooser.cpp \
+	platform/FileSystem.cpp \
 	platform/GeolocationService.cpp \
 	platform/KURL.cpp \
 	platform/KURLGoogle.cpp \
@@ -575,6 +585,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/mock/SpeechInputClientMock.cpp \
 	\
 	platform/network/AuthenticationChallengeBase.cpp \
+	platform/network/BlobData.cpp \
+	platform/network/BlobRegistryImpl.cpp \
 	platform/network/Credential.cpp \
 	platform/network/CredentialStorage.cpp \
 	platform/network/FormData.cpp \
@@ -755,6 +767,7 @@ ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/SVGCharacterData.cpp \
 	rendering/SVGCharacterLayoutInfo.cpp \
+	rendering/SVGImageBufferTools.cpp \
 	rendering/SVGInlineFlowBox.cpp \
 	rendering/SVGInlineTextBox.cpp \
 	rendering/SVGMarkerLayoutInfo.cpp \
@@ -940,6 +953,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/SVGNumberList.cpp \
 	svg/SVGPaint.cpp \
 	svg/SVGParserUtilities.cpp \
+	svg/SVGPathBlender.cpp \
 	svg/SVGPathBuilder.cpp \
 	svg/SVGPathByteStreamBuilder.cpp \
 	svg/SVGPathByteStreamSource.cpp \
@@ -962,6 +976,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/SVGPathSegMoveto.cpp \
 	svg/SVGPathStringBuilder.cpp \
 	svg/SVGPathStringSource.cpp \
+	svg/SVGPathTraversalStateBuilder.cpp \
 	svg/SVGPatternElement.cpp \
 	svg/SVGPointList.cpp \
 	svg/SVGPolyElement.cpp \

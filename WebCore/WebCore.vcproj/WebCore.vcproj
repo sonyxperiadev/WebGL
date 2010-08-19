@@ -67,7 +67,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\parser&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\runtime&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\masm&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\profiler&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wrec&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\text&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\config.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\accessibility\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\accessibility\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\inspector\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\appcache\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\archive\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\archive\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\icon\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\html\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\notifications\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\css\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\cg\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\transforms\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\opentype\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\text\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\text\transcoder\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\sql\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cairo\cairo\src\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\js\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\jsc\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\style\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\editing\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\dom\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\xml\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\svg\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\svg\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\storage\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\websockets\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\workers\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\parser\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\parser&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\runtime\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\runtime&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\masm\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\masm&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\pcre\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\profiler\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\profiler&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wrec\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wrec&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\text\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\text&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\icu\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\inspector\front-end\*&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\English.lproj\localizedStrings.js&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
+				CommandLine="cmd /C copyForwardingHeaders.cmd cg cf&#x0D;&#x0A;cmd /C copyInspectorFiles.cmd&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
@@ -123,7 +123,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\parser&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\runtime&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\masm&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\profiler&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wrec&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\text&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\config.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\accessibility\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\accessibility\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\inspector\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\appcache\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\archive\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\archive\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\icon\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\html\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\notifications\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\css\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\cg\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\transforms\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\opentype\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\text\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\text\transcoder\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\sql\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cairo\cairo\src\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\js\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\jsc\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\style\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\editing\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\dom\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\xml\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\svg\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\svg\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\storage\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\websockets\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\workers\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\parser\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\parser&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\runtime\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\runtime&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\masm\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\masm&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\pcre\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\profiler\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\profiler&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wrec\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wrec&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\text\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\text&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\icu\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\inspector\front-end\*&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\English.lproj\localizedStrings.js&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
+				CommandLine="cmd /C copyForwardingHeaders.cmd cg cf&#x0D;&#x0A;cmd /C copyInspectorFiles.cmd&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
@@ -178,7 +178,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\parser&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\runtime&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\masm&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\profiler&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wrec&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\text&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\config.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\accessibility\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\accessibility\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\inspector\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\appcache\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\archive\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\archive\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\icon\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\html\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\notifications\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\css\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\cg\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\transforms\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\opentype\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\text\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\text\transcoder\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\sql\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cairo\cairo\src\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\js\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\jsc\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\style\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\editing\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\dom\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\xml\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\svg\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\svg\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\storage\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\websockets\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\workers\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\parser\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\parser&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\runtime\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\runtime&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\masm\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\masm&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\pcre\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\profiler\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\profiler&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wrec\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wrec&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\text\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\text&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\icu\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\inspector\front-end\*&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\English.lproj\localizedStrings.js&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
+				CommandLine="cmd /C copyForwardingHeaders.cmd cg cf&#x0D;&#x0A;cmd /C copyInspectorFiles.cmd&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
@@ -233,7 +233,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\parser&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\runtime&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\masm&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\profiler&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wrec&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\text&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\config.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\accessibility\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\accessibility\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\inspector\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\appcache\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\archive\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\archive\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\icon\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\html\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\notifications\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\css\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\cairo\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\transforms\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\opentype\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\text\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\text\transcoder\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\curl\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\sql\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cairo\cairo\src\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\js\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\jsc\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\style\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\editing\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\dom\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\xml\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\svg\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\svg\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\storage\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\websockets\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\workers\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\parser\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\parser&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\runtime\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\runtime&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\masm\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\masm&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\pcre\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\profiler\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\profiler&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wrec\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wrec&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\text\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\text&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\icu\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\inspector\front-end\*&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\English.lproj\localizedStrings.js&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
+				CommandLine="cmd /C copyForwardingHeaders.cmd cairo curl&#x0D;&#x0A;cmd /C copyInspectorFiles.cmd&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
@@ -289,7 +289,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\parser&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\runtime&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\masm&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\profiler&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wrec&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\text&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\config.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\accessibility\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\accessibility\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\inspector\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\appcache\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\archive\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\archive\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\icon\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\html\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\notifications\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\css\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\cairo\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\transforms\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\opentype\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\text\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\text\transcoder\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\curl\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\sql\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cairo\cairo\src\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\js\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\jsc\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\style\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\editing\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\dom\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\xml\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\svg\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\svg\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\storage\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\websockets\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\workers\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\parser\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\parser&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\runtime\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\runtime&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\masm\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\masm&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\pcre\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\profiler\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\profiler&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wrec\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wrec&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\text\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\text&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\icu\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\inspector\front-end\*&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\English.lproj\localizedStrings.js&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
+				CommandLine="cmd /C copyForwardingHeaders.cmd cairo curl&#x0D;&#x0A;cmd /C copyInspectorFiles.cmd&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
@@ -344,7 +344,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\parser&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\runtime&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\masm&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\profiler&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wrec&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\text&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\config.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(WebKitOutputDir)\obj\WebCore\DerivedSources\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\accessibility\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\accessibility\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\inspector\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\appcache\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\archive\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\archive\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\loader\icon\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\history\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\html\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\notifications\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\css\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\cg\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\transforms\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\graphics\opentype\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\text\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\text\transcoder\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\cf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\network\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\sql\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\platform\cairo\cairo\src\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bindings\js\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\page\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\bridge\jsc\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\plugins\win\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\rendering\style\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\editing\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\dom\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\xml\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\svg\animation\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\svg\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\storage\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\websockets\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)..\workers\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\bindings\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\bindings&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\parser\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\parser&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\runtime\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\runtime&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\masm\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\masm&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\pcre\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\pcre&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\profiler\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\profiler&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wrec\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wrec&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\text\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\text&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode&quot;&#x0D;&#x0A;xcopy /y /d &quot;$(ProjectDir)\..\ForwardingHeaders\wtf\unicode\icu\*.h&quot; &quot;$(WebKitOutputDir)\include\WebCore\ForwardingHeaders\wtf\unicode\icu&quot;&#x0D;&#x0A;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\inspector\front-end\*&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\inspector&quot;&#x0D;&#x0A;mkdir 2&gt;NUL &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;xcopy /y /d /s /exclude:xcopy.excludes &quot;$(ProjectDir)\..\English.lproj\localizedStrings.js&quot; &quot;$(WebKitOutputDir)\bin\WebKit.resources\en.lproj&quot;&#x0D;&#x0A;&#x0D;&#x0A;if exist &quot;$(WebKitOutputDir)\buildfailed&quot; del &quot;$(WebKitOutputDir)\buildfailed&quot;&#x0D;&#x0A;"
+				CommandLine="cmd /C copyForwardingHeaders.cmd cg cf&#x0D;&#x0A;cmd /C copyInspectorFiles.cmd&#x0D;&#x0A;"
 			/>
 		</Configuration>
 	</Configurations>
@@ -3017,6 +3017,118 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDirectoryEntry.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDirectoryEntry.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDirectoryReader.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDirectoryReader.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDocument.cpp"
 				>
 				<FileConfiguration
@@ -3294,6 +3406,62 @@
 			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMCoreException.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMFileSystem.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMFileSystem.h"
 				>
 			</File>
 			<File
@@ -4085,6 +4253,286 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSEntriesCallback.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSEntriesCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSEntry.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSEntry.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSEntryArray.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSEntryArray.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSEntryCallback.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSEntryCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSErrorCallback.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSErrorCallback.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSErrorEvent.cpp"
 				>
 				<FileConfiguration
@@ -4530,6 +4978,118 @@
 			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSFileReader.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSFileSystemCallback.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSFileSystemCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSFlags.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSFlags.h"
 				>
 			</File>
 			<File
@@ -9402,6 +9962,118 @@
 			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSMessagePort.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSMetadata.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSMetadata.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSMetadataCallback.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSMetadataCallback.h"
 				>
 			</File>
 			<File
@@ -22337,6 +23009,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\page\GroupSettings.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\page\GroupSettings.h"
+				>
+			</File>
+			<File
 				RelativePath="..\page\HaltablePlugin.h"
 				>
 			</File>
@@ -22853,6 +23533,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\loader\FrameNetworkingContext.h"
+				>
+			</File>
+			<File
 				RelativePath="..\loader\FTPDirectoryDocument.cpp"
 				>
 			</File>
@@ -23346,6 +24030,10 @@
 			</File>
 			<File
 				RelativePath="..\platform\FileChooser.h"
+				>
+			</File>
+			<File
+				RelativePath="..\platform\FileSystem.cpp"
 				>
 			</File>
 			<File
@@ -26112,6 +26800,30 @@
 					>
 				</File>
 				<File
+					RelativePath="..\platform\network\BlobData.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\network\BlobData.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\network\BlobRegistry.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\network\BlobRegistryImpl.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\network\BlobRegistryImpl.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\network\BlobStorageData.h"
+					>
+				</File>
+				<File
 					RelativePath="..\platform\network\Credential.cpp"
 					>
 				</File>
@@ -26165,6 +26877,10 @@
 				</File>
 				<File
 					RelativePath="..\platform\network\NetworkStateNotifier.h"
+					>
+				</File>
+				<File
+					RelativePath="..\platform\network\NetworkingContext.h"
 					>
 				</File>
 				<File
@@ -27171,14 +27887,6 @@
 			<Filter
 				Name="text"
 				>
-				<File
-					RelativePath="..\platform\text\AtomicString.h"
-					>
-				</File>
-				<File
-					RelativePath="..\platform\text\AtomicStringHash.h"
-					>
-				</File>
 				<File
 					RelativePath="..\platform\text\AtomicStringImpl.h"
 					>
@@ -36273,6 +36981,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\html\BlobURL.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\BlobURL.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\canvas\CanvasGradient.cpp"
 				>
 			</File>
@@ -37630,6 +38346,14 @@
 			</File>
 			<File
 				RelativePath="..\html\HTMLElementStack.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\HTMLEntitySearch.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\HTMLEntitySearch.h"
 				>
 			</File>
 			<File
@@ -40893,6 +41617,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\html\HTMLViewSourceParser.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\HTMLViewSourceParser.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\ImageData.cpp"
 				>
 			</File>
@@ -40917,27 +41649,11 @@
 				>
 			</File>
 			<File
-				RelativePath="..\html\LegacyHTMLDocumentParser.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\LegacyHTMLDocumentParser.h"
-				>
-			</File>
-			<File
 				RelativePath="..\html\LegacyHTMLTreeBuilder.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\html\LegacyHTMLTreeBuilder.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\LegacyPreloadScanner.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\LegacyPreloadScanner.h"
 				>
 			</File>
 			<File
@@ -40950,6 +41666,14 @@
 			</File>
 			<File
 				RelativePath="..\html\StepRange.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\ThreadableBlobRegistry.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\ThreadableBlobRegistry.h"
 				>
 			</File>
 			<File
@@ -49353,6 +50077,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\svg\SVGPathBlender.h"
+				>
+			</File>
+			<File
 				RelativePath="..\svg\SVGPathBuilder.h"
 				>
 			</File>
@@ -49450,6 +50178,10 @@
 			</File>
 			<File
 				RelativePath="..\svg\SVGPathStringSource.h"
+				>
+			</File>
+			<File
+				RelativePath="..\svg\SVGPathTraversalStateBuilder.h"
 				>
 			</File>
 			<File
@@ -50353,6 +51085,74 @@
 				>
 			</File>
 			<File
+				RelativePath="..\storage\DirectoryEntry.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\DirectoryEntry.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\DirectoryReader.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\DirectoryReader.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\DOMFileSystem.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\DOMFileSystem.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\EntriesCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\Entry.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\Entry.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\EntryArray.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\EntryArray.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\EntryCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\ErrorCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\FileEntry.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\FileEntry.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\FileSystemCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\Flags.h"
+				>
+			</File>
+			<File
 				RelativePath="..\storage\IDBAny.cpp"
 				>
 			</File>
@@ -50538,6 +51338,14 @@
 			</File>
 			<File
 				RelativePath="..\storage\LocalStorageTask.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\Metadata.h"
+				>
+			</File>
+			<File
+				RelativePath="..\storage\MetadataCallback.h"
 				>
 			</File>
 			<File
@@ -51264,10 +52072,6 @@
 					>
 				</File>
 				<File
-					RelativePath="..\inspector\front-end\ObjectProxy.js"
-					>
-				</File>
-				<File
 					RelativePath="..\inspector\front-end\Panel.js"
 					>
 				</File>
@@ -51305,6 +52109,10 @@
 				</File>
 				<File
 					RelativePath="..\inspector\front-end\PropertiesSidebarPane.js"
+					>
+				</File>
+				<File
+					RelativePath="..\inspector\front-end\RemoteObject.js"
 					>
 				</File>
 				<File

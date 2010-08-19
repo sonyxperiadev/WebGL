@@ -38,7 +38,7 @@ EXPORTS
     ??8JSC@@YA_NABVUString@0@0@Z
     ??8WTF@@YA_NABVCString@0@0@Z
     ?NaN@JSC@@3NB
-    ?UTF8String@UString@JSC@@QBE?AVCString@WTF@@_N@Z
+    ?utf8@UString@JSC@@QBE?AVCString@WTF@@_N@Z
     ?add@Identifier@JSC@@SA?AV?$PassRefPtr@VStringImpl@WTF@@@WTF@@PAVExecState@2@PBD@Z
     ?add@PropertyNameArray@JSC@@QAEXPAVStringImpl@WTF@@@Z
     ?addBytes@MD5@WTF@@QAEXPBEI@Z
@@ -50,7 +50,7 @@ EXPORTS
     ?allocate@Heap@JSC@@QAEPAXI@Z
     ?allocatePropertyStorage@JSObject@JSC@@QAEXII@Z
     ?allocateStack@MarkStack@JSC@@CAPAXI@Z
-    ?ascii@UString@JSC@@QBEPADXZ
+    ?ascii@UString@JSC@@QBE?AVCString@WTF@@XZ
     ?attach@Debugger@JSC@@QAEXPAVJSGlobalObject@2@@Z
     ?broadcast@ThreadCondition@WTF@@QAEXXZ
     ?calculatedFunctionName@DebuggerCallFrame@JSC@@QBE?AVUString@2@XZ
@@ -146,9 +146,9 @@ EXPORTS
     ?free@WeakGCHandlePool@JSC@@QAEXPAVWeakGCHandle@2@@Z
     ?from@Identifier@JSC@@SA?AV12@PAVExecState@2@H@Z
     ?from@Identifier@JSC@@SA?AV12@PAVExecState@2@I@Z
-    ?from@UString@JSC@@SA?AV12@H@Z
-    ?from@UString@JSC@@SA?AV12@I@Z
-    ?from@UString@JSC@@SA?AV12@N@Z
+    ?number@UString@JSC@@SA?AV12@H@Z
+    ?number@UString@JSC@@SA?AV12@I@Z
+    ?number@UString@JSC@@SA?AV12@N@Z
     ?functionGetter@PropertySlot@JSC@@ABE?AVJSValue@2@PAVExecState@2@@Z
     ?functionName@DebuggerCallFrame@JSC@@QBEPBVUString@2@XZ
     ?get@Structure@JSC@@QAEIPBVStringImpl@WTF@@AAIAAPAVJSCell@2@@Z
@@ -193,7 +193,6 @@ EXPORTS
     ?initializeMainThread@WTF@@YAXXZ
     ?initializeThreading@JSC@@YAXXZ
     ?initializeThreading@WTF@@YAXXZ
-    ?is8Bit@UString@JSC@@QBE_NXZ
     ?isAccessorDescriptor@PropertyDescriptor@JSC@@QBE_NXZ
     ?isBusy@Heap@JSC@@QAE_NXZ
     ?isDataDescriptor@PropertyDescriptor@JSC@@QBE_NXZ
@@ -286,7 +285,7 @@ EXPORTS
     ?stopProfiling@Profiler@JSC@@QAE?AV?$PassRefPtr@VProfile@JSC@@@WTF@@PAVExecState@2@ABVUString@2@@Z
     ?stopSampling@JSGlobalData@JSC@@QAEXXZ
     ?strtod@WTF@@YANPBDPAPAD@Z
-    ?substr@UString@JSC@@QBE?AV12@II@Z
+    ?substringSharingImpl@UString@JSC@@QBE?AV12@II@Z
     ?symbolTableGet@JSVariableObject@JSC@@IAE_NABVIdentifier@2@AAVPropertyDescriptor@2@@Z
     ?synthesizePrototype@JSValue@JSC@@ABEPAVJSObject@2@PAVExecState@2@@Z
     ?thisObject@DebuggerCallFrame@JSC@@QBEPAVJSObject@2@XZ
@@ -311,7 +310,6 @@ EXPORTS
     ?toObjectSlowCase@JSValue@JSC@@ABEPAVJSObject@2@PAVExecState@2@@Z
     ?toPrimitive@JSCell@JSC@@UBE?AVJSValue@2@PAVExecState@2@W4PreferredPrimitiveType@2@@Z
     ?toPrimitive@JSString@JSC@@EBE?AVJSValue@2@PAVExecState@2@W4PreferredPrimitiveType@2@@Z
-    ?toStrictUInt32@UString@JSC@@QBEIPA_N@Z
     ?toString@JSCell@JSC@@UBE?AVUString@2@PAVExecState@2@@Z
     ?toString@JSObject@JSC@@UBE?AVUString@2@PAVExecState@2@@Z
     ?toString@JSString@JSC@@EBE?AVUString@2@PAVExecState@2@@Z
@@ -319,8 +317,7 @@ EXPORTS
     ?toThisObject@JSObject@JSC@@UBEPAV12@PAVExecState@2@@Z
     ?toThisObject@JSString@JSC@@EBEPAVJSObject@2@PAVExecState@2@@Z
     ?toThisObjectSlowCase@JSValue@JSC@@ABEPAVJSObject@2@PAVExecState@2@@Z
-    ?toUInt32@UString@JSC@@QBEIPA_N@Z
-    ?toUInt32@UString@JSC@@QBEIPA_N_N@Z
+    ?toUInt32@Identifier@JSC@@SAIABVUString@2@AA_N@Z
     ?toUInt32SlowCase@JSC@@YAINAA_N@Z
     ?tryFastCalloc@WTF@@YA?AUTryMallocReturnValue@1@II@Z
     ?tryFastMalloc@WTF@@YA?AUTryMallocReturnValue@1@I@Z

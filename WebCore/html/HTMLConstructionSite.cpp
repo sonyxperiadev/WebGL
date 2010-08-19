@@ -39,7 +39,6 @@
 #include "HTMLScriptElement.h"
 #include "HTMLToken.h"
 #include "HTMLTokenizer.h"
-#include "LegacyHTMLDocumentParser.h"
 #include "LegacyHTMLTreeBuilder.h"
 #include "LocalizedStrings.h"
 #if ENABLE(MATHML)
@@ -93,11 +92,17 @@ PassRefPtr<ChildType> HTMLConstructionSite::attach(Node* parent, PassRefPtr<Chil
     // doesn't.  It feels like we're missing a concept somehow.
     if (shouldFosterParent()) {
         fosterParent(child.get());
-        ASSERT(child->attached());
+        ASSERT(child->attached() || !child->parent()->attached());
         return child.release();
     }
 
     parent->parserAddChild(child);
+
+    // An event handler (DOM Mutation, beforeload, et al.) could have removed
+    // the child, in which case we shouldn't try attaching it.
+    if (!child->parentNode())
+        return child.release();
+
     // It's slightly unfortunate that we need to hold a reference to child
     // here to call attach().  We should investigate whether we can rely on
     // |parent| to hold a ref at this point.  In the common case (at least

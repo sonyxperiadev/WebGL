@@ -29,17 +29,29 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-function InjectedScriptAccess(injectedScriptId) {
-    this._injectedScriptId = injectedScriptId;
+function InjectedScriptAccess(worldId) {
+    this._worldId = worldId;
 }
 
-InjectedScriptAccess.get = function(injectedScriptId)
+InjectedScriptAccess.get = function(worldId)
 {
-    if (typeof injectedScriptId === "number")
-        return new InjectedScriptAccess(injectedScriptId);
+    if (typeof worldId === "number")
+        return new InjectedScriptAccess(worldId);
 
-    console.error("Access to injected script with no id");
-    console.trace();
+    console.assert(false, "Access to injected script with no id");
+}
+
+InjectedScriptAccess.getForNode = function(node)
+{
+    // FIXME: do something.
+    return InjectedScriptAccess.get(-node.id);
+}
+
+InjectedScriptAccess.getForObjectId = function(objectId)
+{
+    // FIXME: move to native layer.
+    var tokens = objectId.split(":");
+    return InjectedScriptAccess.get(parseInt(tokens[0]));
 }
 
 InjectedScriptAccess.getDefault = function()
@@ -66,7 +78,7 @@ InjectedScriptAccess._installHandler = function(methodName, async)
         }
         var callId = WebInspector.Callback.wrap(myCallback);
 
-        InspectorBackend.dispatchOnInjectedScript(callId, this._injectedScriptId, methodName, argsString);
+        InspectorBackend.dispatchOnInjectedScript(callId, this._worldId, methodName, argsString);
     };
 }
 
@@ -75,12 +87,12 @@ InjectedScriptAccess._installHandler = function(methodName, async)
 // - Make sure last parameter of all the InjectedSriptAccess.* calls is a callback function.
 // We keep these sorted.
 InjectedScriptAccess._installHandler("evaluate");
-InjectedScriptAccess._installHandler("evaluateAndStringify");
 InjectedScriptAccess._installHandler("evaluateInCallFrame");
 InjectedScriptAccess._installHandler("evaluateOnSelf");
 InjectedScriptAccess._installHandler("getCompletions");
 InjectedScriptAccess._installHandler("getProperties");
 InjectedScriptAccess._installHandler("getPrototypes");
-InjectedScriptAccess._installHandler("openInInspectedWindow");
 InjectedScriptAccess._installHandler("pushNodeToFrontend");
+InjectedScriptAccess._installHandler("resolveNode");
+InjectedScriptAccess._installHandler("getNodeProperties");
 InjectedScriptAccess._installHandler("setPropertyValue");

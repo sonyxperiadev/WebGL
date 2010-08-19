@@ -41,11 +41,11 @@
 #include "ScriptExecutionContext.h"
 #include "SocketStreamError.h"
 #include "SocketStreamHandle.h"
-#include "StringHash.h"
 #include "WebSocketChannelClient.h"
 #include "WebSocketHandshake.h"
 
 #include <wtf/text/CString.h>
+#include <wtf/text/StringHash.h>
 #include <wtf/Deque.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/HashMap.h>
@@ -61,6 +61,7 @@ WebSocketChannel::WebSocketChannel(ScriptExecutionContext* context, WebSocketCha
     , m_resumeTimer(this, &WebSocketChannel::resumeTimerFired)
     , m_suspended(false)
     , m_closed(false)
+    , m_shouldDiscardReceivedData(false)
     , m_unhandledBufferedAmount(0)
 {
 }
@@ -171,10 +172,14 @@ void WebSocketChannel::didReceiveData(SocketStreamHandle* handle, const char* da
         return;
     }
     if (!m_client) {
+        m_shouldDiscardReceivedData = true;
         handle->close();
         return;
     }
+    if (m_shouldDiscardReceivedData)
+        return;
     if (!appendToBuffer(data, len)) {
+        m_shouldDiscardReceivedData = true;
         handle->close();
         return;
     }
@@ -187,6 +192,7 @@ void WebSocketChannel::didFail(SocketStreamHandle* handle, const SocketStreamErr
 {
     LOG(Network, "WebSocketChannel %p didFail", this);
     ASSERT(handle == m_handle || !m_handle);
+    m_shouldDiscardReceivedData = true;
     handle->close();
 }
 
@@ -198,23 +204,28 @@ void WebSocketChannel::didCancelAuthenticationChallenge(SocketStreamHandle*, con
 {
 }
 
-bool WebSocketChannel::appendToBuffer(const char* data, int len)
+bool WebSocketChannel::appendToBuffer(const char* data, size_t len)
 {
+    size_t newBufferSize = m_bufferSize + len;
+    if (newBufferSize < m_bufferSize) {
+        LOG(Network, "WebSocket buffer overflow (%lu+%lu)", static_cast<unsigned long>(m_bufferSize), static_cast<unsigned long>(len));
+        return false;
+    }
     char* newBuffer = 0;
-    if (tryFastMalloc(m_bufferSize + len).getValue(newBuffer)) {
+    if (tryFastMalloc(newBufferSize).getValue(newBuffer)) {
         if (m_buffer)
             memcpy(newBuffer, m_buffer, m_bufferSize);
         memcpy(newBuffer + m_bufferSize, data, len);
         fastFree(m_buffer);
         m_buffer = newBuffer;
-        m_bufferSize += len;
+        m_bufferSize = newBufferSize;
         return true;
     }
-    m_context->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, String::format("WebSocket frame (at %d bytes) is too long.", m_bufferSize + len), 0, m_handshake.clientOrigin());
+    m_context->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, String::format("WebSocket frame (at %lu bytes) is too long.", static_cast<unsigned long>(newBufferSize)), 0, m_handshake.clientOrigin());
     return false;
 }
 
-void WebSocketChannel::skipBuffer(int len)
+void WebSocketChannel::skipBuffer(size_t len)
 {
     ASSERT(len <= m_bufferSize);
     m_bufferSize -= len;
@@ -231,6 +242,8 @@ bool WebSocketChannel::processBuffer()
     ASSERT(!m_suspended);
     ASSERT(m_client);
     ASSERT(m_buffer);
+    if (m_shouldDiscardReceivedData)
+        return false;
 
     if (m_handshake.mode() == WebSocketHandshake::Incomplete) {
         int headerLength = m_handshake.readServerHandshake(m_buffer, m_bufferSize);
@@ -250,11 +263,12 @@ bool WebSocketChannel::processBuffer()
             LOG(Network, "WebSocketChannel %p connected", this);
             skipBuffer(headerLength);
             m_client->didConnect();
-            LOG(Network, "remaining in read buf %ul", m_bufferSize);
+            LOG(Network, "remaining in read buf %lu", static_cast<unsigned long>(m_bufferSize));
             return m_buffer;
         }
         LOG(Network, "WebSocketChannel %p connection failed", this);
         skipBuffer(headerLength);
+        m_shouldDiscardReceivedData = true;
         if (!m_closed)
             m_handle->close();
         return false;
@@ -268,27 +282,52 @@ bool WebSocketChannel::processBuffer()
 
     unsigned char frameByte = static_cast<unsigned char>(*p++);
     if ((frameByte & 0x80) == 0x80) {
-        int length = 0;
+        size_t length = 0;
+        bool errorFrame = false;
         while (p < end) {
-            if (length > std::numeric_limits<int>::max() / 128) {
-                LOG(Network, "frame length overflow %d", length);
-                skipBuffer(p + length - m_buffer);
-                m_client->didReceiveMessageError();
-                if (!m_client)
-                    return false;
-                if (!m_closed)
-                    m_handle->close();
-                return false;
+            if (length > std::numeric_limits<size_t>::max() / 128) {
+                LOG(Network, "frame length overflow %lu", static_cast<unsigned long>(length));
+                errorFrame = true;
+                break;
             }
-            char msgByte = *p;
-            length = length * 128 + (msgByte & 0x7f);
+            size_t newLength = length * 128;
+            unsigned char msgByte = static_cast<unsigned char>(*p);
+            unsigned int lengthMsgByte = msgByte & 0x7f;
+            if (newLength > std::numeric_limits<size_t>::max() - lengthMsgByte) {
+                LOG(Network, "frame length overflow %lu+%u", static_cast<unsigned long>(newLength), lengthMsgByte);
+                errorFrame = true;
+                break;
+            }
+            newLength += lengthMsgByte;
+            if (newLength < length) { // sanity check
+                LOG(Network, "frame length integer wrap %lu->%lu", static_cast<unsigned long>(length), static_cast<unsigned long>(newLength));
+                errorFrame = true;
+                break;
+            }
+            length = newLength;
             ++p;
             if (!(msgByte & 0x80))
                 break;
         }
+        if (p + length < p) {
+            LOG(Network, "frame buffer pointer wrap %p+%lu->%p", p, static_cast<unsigned long>(length), p + length);
+            errorFrame = true;
+        }
+        if (errorFrame) {
+            skipBuffer(m_bufferSize); // Save memory.
+            m_shouldDiscardReceivedData = true;
+            m_client->didReceiveMessageError();
+            if (!m_client)
+                return false;
+            if (!m_closed)
+                m_handle->close();
+            return false;
+        }
+        ASSERT(p + length >= p);
         if (p + length < end) {
             p += length;
             nextFrame = p;
+            ASSERT(nextFrame > m_buffer);
             skipBuffer(nextFrame - m_buffer);
             m_client->didReceiveMessageError();
             return m_buffer;

@@ -426,7 +426,7 @@ sub GenerateGetOwnPropertySlotBody
 
     if ($dataNode->extendedAttributes->{"HasIndexGetter"} || $dataNode->extendedAttributes->{"HasCustomIndexGetter"} || $dataNode->extendedAttributes->{"HasNumericIndexGetter"}) {
         push(@getOwnPropertySlotImpl, "    bool ok;\n");
-        push(@getOwnPropertySlotImpl, "    unsigned index = propertyName.toUInt32(&ok, false);\n");
+        push(@getOwnPropertySlotImpl, "    unsigned index = propertyName.toUInt32(ok);\n");
 
         # If the item function returns a string then we let the ConvertNullStringTo handle the cases
         # where the index is out of range.
@@ -450,9 +450,9 @@ sub GenerateGetOwnPropertySlotBody
         push(@getOwnPropertySlotImpl, "        return true;\n");
         push(@getOwnPropertySlotImpl, "    }\n");
         if ($inlined) {
-            $headerIncludes{"AtomicString.h"} = 1;
+            $headerIncludes{"wtf/text/AtomicString.h"} = 1;
         } else {
-            $implIncludes{"AtomicString.h"} = 1;
+            $implIncludes{"wtf/text/AtomicString.h"} = 1;
         }
     }
 
@@ -520,7 +520,7 @@ sub GenerateGetOwnPropertyDescriptorBody
     
     if ($dataNode->extendedAttributes->{"HasIndexGetter"} || $dataNode->extendedAttributes->{"HasCustomIndexGetter"} || $dataNode->extendedAttributes->{"HasNumericIndexGetter"}) {
         push(@getOwnPropertyDescriptorImpl, "    bool ok;\n");
-        push(@getOwnPropertyDescriptorImpl, "    unsigned index = propertyName.toUInt32(&ok, false);\n");
+        push(@getOwnPropertyDescriptorImpl, "    unsigned index = propertyName.toUInt32(ok);\n");
         push(@getOwnPropertyDescriptorImpl, "    if (ok && index < static_cast<$implClassName*>(impl())->length()) {\n");
         if ($dataNode->extendedAttributes->{"HasCustomIndexGetter"} || $dataNode->extendedAttributes->{"HasNumericIndexGetter"}) {
             # Assume that if there's a setter, the index will be writable
@@ -551,9 +551,9 @@ sub GenerateGetOwnPropertyDescriptorBody
         push(@getOwnPropertyDescriptorImpl, "        return true;\n");
         push(@getOwnPropertyDescriptorImpl, "    }\n");
         if ($inlined) {
-            $headerIncludes{"AtomicString.h"} = 1;
+            $headerIncludes{"wtf/text/AtomicString.h"} = 1;
         } else {
-            $implIncludes{"AtomicString.h"} = 1;
+            $implIncludes{"wtf/text/AtomicString.h"} = 1;
         }
     }
     
@@ -1135,7 +1135,7 @@ sub GenerateParametersCheckExpression
         # these are acceptable values for a DOMString argument (any Object can
         # be converted to a string via .toString).
         push(@andExpression, "(${value}.isNull() || ${value}.isUndefined() || ${value}.isString() || ${value}.isObject())") if $codeGenerator->IsStringType($type);
-        push(@andExpression, "(${value}.isNull() || ${value}.isObject() && asObject(${value})->inherits(&JS${type}::s_info))") unless IsNativeType($type);
+        push(@andExpression, "(${value}.isNull() || (${value}.isObject() && asObject(${value})->inherits(&JS${type}::s_info)))") unless IsNativeType($type);
 
         $parameterIndex++;
     }
@@ -1648,7 +1648,7 @@ sub GenerateImplementation
                 push(@implContent, "{\n");
                 if ($dataNode->extendedAttributes->{"HasCustomIndexSetter"}) {
                     push(@implContent, "    bool ok;\n");
-                    push(@implContent, "    unsigned index = propertyName.toUInt32(&ok, false);\n");
+                    push(@implContent, "    unsigned index = propertyName.toUInt32(ok);\n");
                     push(@implContent, "    if (ok) {\n");
                     push(@implContent, "        indexSetter(exec, index, value);\n");
                     push(@implContent, "        return;\n");
@@ -1993,7 +1993,7 @@ sub GenerateImplementation
 
                     if ($function->signature->extendedAttributes->{"NeedsUserGestureCheck"}) {
                         $functionString .= ", " if $paramIndex;
-                        $functionString .= "processingUserGesture(exec)";
+                        $functionString .= "processingUserGesture()";
                         $paramIndex++;
                     }
 

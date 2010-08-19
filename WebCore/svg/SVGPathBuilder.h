@@ -36,6 +36,8 @@ public:
     SVGPathBuilder();
 
     void setCurrentPath(Path* path) { m_path = path; }
+    virtual void incrementPathSegmentCount() { }
+    virtual bool continueConsuming() { return true; }
     virtual void cleanup() { m_path = 0; }
 
 private:

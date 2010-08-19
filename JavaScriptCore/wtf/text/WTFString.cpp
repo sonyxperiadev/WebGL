@@ -36,6 +36,13 @@ namespace WTF {
 
 using namespace Unicode;
 
+// Construct a string with UTF-16 data.
+String::String(const UChar* characters, unsigned length)
+    : m_impl(characters ? StringImpl::create(characters, length) : 0)
+{
+}
+
+// Construct a string with UTF-16 data, from a null-terminated source.
 String::String(const UChar* str)
 {
     if (!str)
@@ -46,6 +53,18 @@ String::String(const UChar* str)
         len++;
     
     m_impl = StringImpl::create(str, len);
+}
+
+// Construct a string with latin1 data.
+String::String(const char* characters, unsigned length)
+    : m_impl(characters ? StringImpl::create(characters, length) : 0)
+{
+}
+
+// Construct a string with latin1 data, from a null-terminated source.
+String::String(const char* characters)
+    : m_impl(characters ? StringImpl::create(characters) : 0)
+{
 }
 
 void String::append(const String& str)
@@ -224,6 +243,19 @@ String String::substring(unsigned pos, unsigned len) const
     if (!m_impl) 
         return String();
     return m_impl->substring(pos, len);
+}
+
+String String::substringSharingImpl(unsigned offset, unsigned length) const
+{
+    // FIXME: We used to check against a limit of Heap::minExtraCost / sizeof(UChar).
+
+    unsigned stringLength = this->length();
+    offset = min(offset, stringLength);
+    length = min(length, stringLength - offset);
+
+    if (!offset && length == stringLength)
+        return *this;
+    return String(StringImpl::create(m_impl, offset, length));
 }
 
 String String::lower() const
@@ -557,14 +589,14 @@ void String::split(const String& separator, bool allowEmptyEntries, Vector<Strin
 {
     result.clear();
 
-    int startPos = 0;
-    int endPos;
-    while ((endPos = find(separator, startPos)) != -1) {
+    unsigned startPos = 0;
+    size_t endPos;
+    while ((endPos = find(separator, startPos)) != notFound) {
         if (allowEmptyEntries || startPos != endPos)
             result.append(substring(startPos, endPos - startPos));
         startPos = endPos + separator.length();
     }
-    if (allowEmptyEntries || startPos != static_cast<int>(length()))
+    if (allowEmptyEntries || startPos != length())
         result.append(substring(startPos));
 }
 
@@ -577,14 +609,14 @@ void String::split(UChar separator, bool allowEmptyEntries, Vector<String>& resu
 {
     result.clear();
 
-    int startPos = 0;
-    int endPos;
-    while ((endPos = find(separator, startPos)) != -1) {
+    unsigned startPos = 0;
+    size_t endPos;
+    while ((endPos = find(separator, startPos)) != notFound) {
         if (allowEmptyEntries || startPos != endPos)
             result.append(substring(startPos, endPos - startPos));
         startPos = endPos + 1;
     }
-    if (allowEmptyEntries || startPos != static_cast<int>(length()))
+    if (allowEmptyEntries || startPos != length())
         result.append(substring(startPos));
 }
 
@@ -593,18 +625,23 @@ void String::split(UChar separator, Vector<String>& result) const
     return split(String(&separator, 1), false, result);
 }
 
-Vector<char> String::ascii() const
+CString String::ascii() const
 {
-    if (m_impl) 
-        return m_impl->ascii();
-    
-    const char* nullMsg = "(null impl)";
-    Vector<char, 2048> buffer;
-    for (int i = 0; nullMsg[i]; ++i)
-        buffer.append(nullMsg[i]);
-    
-    buffer.append('\0');
-    return buffer;
+    // Basic Latin1 (ISO) encoding - Unicode characters 0..255 are
+    // preserved, characters outside of this range are converted to '?'.
+
+    unsigned length = this->length();
+    const UChar* characters = this->characters();
+
+    char* characterBuffer;
+    CString result = CString::newUninitialized(length, characterBuffer);
+
+    for (unsigned i = 0; i < length; ++i) {
+        UChar ch = characters[i];
+        characterBuffer[i] = ch && (ch < 0x20 || ch > 0x7f) ? '?' : ch;
+    }
+
+    return result;
 }
 
 CString String::latin1() const
@@ -620,7 +657,7 @@ CString String::latin1() const
 
     for (unsigned i = 0; i < length; ++i) {
         UChar ch = characters[i];
-        characterBuffer[i] = ch > 255 ? '?' : ch;
+        characterBuffer[i] = ch > 0xff ? '?' : ch;
     }
 
     return result;
@@ -635,7 +672,7 @@ static inline void putUTF8Triple(char*& buffer, UChar ch)
     *buffer++ = static_cast<char>((ch & 0x3F) | 0x80);
 }
 
-CString String::utf8() const
+CString String::utf8(bool strict) const
 {
     unsigned length = this->length();
     const UChar* characters = this->characters();
@@ -653,15 +690,21 @@ CString String::utf8() const
     Vector<char, 1024> bufferVector(length * 3);
 
     char* buffer = bufferVector.data();
-    ConversionResult result = convertUTF16ToUTF8(&characters, characters + length, &buffer, buffer + bufferVector.size(), false);
-    ASSERT(result != sourceIllegal); // Only produced from strict conversion.
+    ConversionResult result = convertUTF16ToUTF8(&characters, characters + length, &buffer, buffer + bufferVector.size(), strict);
     ASSERT(result != targetExhausted); // (length * 3) should be sufficient for any conversion
 
-    // If a high surrogate is left unconverted, treat it the same was as an unpaired high surrogate
-    // would have been handled in the middle of a string with non-strict conversion - which is to say,
-    // simply encode it to UTF-8.
+    // Only produced from strict conversion.
+    if (result == sourceIllegal)
+        return CString();
+
+    // Check for an unconverted high surrogate.
     if (result == sourceExhausted) {
-        // This should be one unpaired high surrogate.
+        if (strict)
+            return CString();
+        // This should be one unpaired high surrogate. Treat it the same
+        // was as an unpaired high surrogate would have been handled in
+        // the middle of a string with non-strict conversion - which is
+        // to say, simply encode it to UTF-8.
         ASSERT((characters + 1) == (this->characters() + length));
         ASSERT((*characters >= 0xD800) && (*characters <= 0xDBFF));
         // There should be room left, since one UChar hasn't been converted.

@@ -45,8 +45,16 @@ public:
         EndOfFile,
     };
 
+    class Range {
+    public:
+        int m_start;
+        int m_end;
+    };
+
     class Attribute {
     public:
+        Range m_nameRange;
+        Range m_valueRange;
         WTF::Vector<UChar, 32> m_name;
         WTF::Vector<UChar, 32> m_value;
     };
@@ -56,10 +64,20 @@ public:
 
     HTMLToken() { clear(); }
 
-    void clear()
+    void clear(int startIndex = 0)
     {
         m_type = Uninitialized;
+        m_range.m_start = startIndex;
+        m_range.m_end = startIndex;
         m_data.clear();
+    }
+
+    int startIndex() const { return m_range.m_start; }
+    int endIndex() const { return m_range.m_end; }
+
+    void end(int endIndex)
+    {
+        m_range.m_end = endIndex;
     }
 
     void makeEndOfFile()
@@ -146,12 +164,44 @@ public:
         ASSERT(m_type == StartTag || m_type == EndTag);
         m_attributes.grow(m_attributes.size() + 1);
         m_currentAttribute = &m_attributes.last();
+#ifndef NDEBUG
+        m_currentAttribute->m_nameRange.m_start = 0;
+        m_currentAttribute->m_nameRange.m_end = 0;
+        m_currentAttribute->m_valueRange.m_start = 0;
+        m_currentAttribute->m_valueRange.m_end = 0;
+#endif
+    }
+
+    void beginAttributeName(int index)
+    {
+        m_currentAttribute->m_nameRange.m_start = index;
+    }
+
+    void endAttributeName(int index)
+    {
+        m_currentAttribute->m_nameRange.m_end = index;
+        m_currentAttribute->m_valueRange.m_start = index;
+        m_currentAttribute->m_valueRange.m_end = index;
+    }
+
+    void beginAttributeValue(int index)
+    {
+        m_currentAttribute->m_valueRange.m_start = index;
+#ifndef NDEBUG
+        m_currentAttribute->m_valueRange.m_end = 0;
+#endif
+    }
+
+    void endAttributeValue(int index)
+    {
+        m_currentAttribute->m_valueRange.m_end = index;
     }
 
     void appendToAttributeName(UChar character)
     {
         ASSERT(character);
         ASSERT(m_type == StartTag || m_type == EndTag);
+        ASSERT(m_currentAttribute->m_nameRange.m_start);
         m_currentAttribute->m_name.append(character);
     }
 
@@ -159,6 +209,7 @@ public:
     {
         ASSERT(character);
         ASSERT(m_type == StartTag || m_type == EndTag);
+        ASSERT(m_currentAttribute->m_valueRange.m_start);
         m_currentAttribute->m_value.append(character);
     }
 
@@ -280,6 +331,9 @@ private:
 
     Type m_type;
 
+    // Which characters from the input stream are represented by this token.
+    Range m_range;
+
     // "name" for DOCTYPE, StartTag, and EndTag
     // "characters" for Character
     // "data" for Comment
@@ -323,6 +377,10 @@ public:
                 if (!iter->m_name.isEmpty()) {
                     String name(iter->m_name.data(), iter->m_name.size());
                     String value(iter->m_value.data(), iter->m_value.size());
+                    ASSERT(iter->m_nameRange.m_start);
+                    ASSERT(iter->m_nameRange.m_end);
+                    ASSERT(iter->m_valueRange.m_start);
+                    ASSERT(iter->m_valueRange.m_end);
                     RefPtr<Attribute> mappedAttribute = Attribute::createMapped(name, value);
                     if (!m_attributes) {
                         m_attributes = NamedNodeMap::create();

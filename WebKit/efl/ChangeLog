@@ -1,3 +1,140 @@
+2010-08-15  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Enable localStorage of HTML5 for WebKit EFL
+        https://bugs.webkit.org/show_bug.cgi?id=44020
+
+        * ewk/ewk_view.cpp: 
+        (_ewk_view_priv_new):
+
+2010-08-11  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Adding new theme for widgets.
+        https://bugs.webkit.org/show_bug.cgi?id=43860
+
+        Original theme was there for a long time. This is a new
+        fresh one.
+
+        * DefaultTheme/default.edc:
+        * DefaultTheme/widget/button/button.edc:
+        * DefaultTheme/widget/button/img_button_focus.png:
+        * DefaultTheme/widget/button/img_button_hover.png:
+        * DefaultTheme/widget/button/img_button_normal.png:
+        * DefaultTheme/widget/button/img_button_press.png:
+        * DefaultTheme/widget/check/check.edc:
+        * DefaultTheme/widget/check/img_check_off.png:
+        * DefaultTheme/widget/check/img_check_off_focus.png:
+        * DefaultTheme/widget/check/img_check_off_hover.png:
+        * DefaultTheme/widget/check/img_check_on.png:
+        * DefaultTheme/widget/check/img_check_on_focus.png:
+        * DefaultTheme/widget/check/img_check_on_hover.png:
+        * DefaultTheme/widget/combo/combo.edc:
+        * DefaultTheme/widget/combo/combo_focus.png:
+        * DefaultTheme/widget/combo/combo_focus_button.png:
+        * DefaultTheme/widget/combo/combo_hover.png:
+        * DefaultTheme/widget/combo/combo_hover_button.png:
+        * DefaultTheme/widget/combo/combo_normal.png:
+        * DefaultTheme/widget/combo/combo_normal_button.png:
+        * DefaultTheme/widget/combo/combo_press.png:
+        * DefaultTheme/widget/combo/combo_press_button.png:
+        * DefaultTheme/widget/combo/icon.png:
+        * DefaultTheme/widget/entry/img_focused.png:
+        * DefaultTheme/widget/entry/img_hovered.png:
+        * DefaultTheme/widget/entry/img_normal.png:
+        * DefaultTheme/widget/file/file_focus.png:
+        * DefaultTheme/widget/file/file_hover.png:
+        * DefaultTheme/widget/file/file_normal.png:
+        * DefaultTheme/widget/file/file_press.png:
+        * DefaultTheme/widget/radio/img_radio_off.png:
+        * DefaultTheme/widget/radio/img_radio_off_focus.png:
+        * DefaultTheme/widget/radio/img_radio_off_hover.png:
+        * DefaultTheme/widget/radio/img_radio_on.png:
+        * DefaultTheme/widget/radio/img_radio_on_focus.png:
+        * DefaultTheme/widget/radio/img_radio_on_hover.png:
+        * DefaultTheme/widget/radio/radio.edc:
+        * DefaultTheme/widget/scrollbar/scrollbar.edc:
+        * DefaultTheme/widget/scrollbar/scrollbar_h.png:
+        * DefaultTheme/widget/scrollbar/scrollbar_hilight.png: Removed.
+        * DefaultTheme/widget/scrollbar/scrollbar_knob_h.png:
+        * DefaultTheme/widget/scrollbar/scrollbar_knob_v.png:
+        * DefaultTheme/widget/scrollbar/scrollbar_v.png:
+        * DefaultTheme/widget/search/cancel/cancel_normal_button2.png:
+        * DefaultTheme/widget/search/decoration/decoration_normal_button.png:
+        * DefaultTheme/widget/search/field/field_focused.png:
+        * DefaultTheme/widget/search/field/field_hovered.png:
+        * DefaultTheme/widget/search/field/field_normal.png:
+        * DefaultTheme/widget/slider/slider.edc:
+        * DefaultTheme/widget/slider/slider_fill_h.png: Added.
+        * DefaultTheme/widget/slider/slider_fill_v.png: Added.
+        * DefaultTheme/widget/slider/slider_h.png:
+        * DefaultTheme/widget/slider/slider_hilight.png: Removed.
+        * DefaultTheme/widget/slider/slider_knob_h.png:
+        * DefaultTheme/widget/slider/slider_knob_press_h.png: Added.
+        * DefaultTheme/widget/slider/slider_knob_press_v.png: Added.
+        * DefaultTheme/widget/slider/slider_knob_v.png:
+        * DefaultTheme/widget/slider/slider_v.png:
+
+2010-08-12  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Making CMake keep track of theme dependencies.
+        https://bugs.webkit.org/show_bug.cgi?id=43862
+
+        Adding theme source files and images as dependencies of the theme.
+
+        * CMakeListsEfl.txt:
+
+2010-08-11  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Add setting for enabling spatial navigation.
+        https://bugs.webkit.org/show_bug.cgi?id=43569
+
+        Adding api for enabling/disabling spatial navigation.
+
+        * ewk/ewk_view.cpp: Both functions below added.
+        (ewk_view_setting_spatial_navigation_get):
+        (ewk_view_setting_spatial_navigation_set):
+        * ewk/ewk_view.h: same as ewk_view.cpp.
+
+2010-08-11  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        Implementation dispatchDecidePolicyForNavigationAction
+        https://bugs.webkit.org/show_bug.cgi?id=43544
+
+        Add ewk_view_navigation_policy_decision to decide whether url which
+        user clicked will be loaded or not.
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::dispatchDecidePolicyForNavigationAction):
+        * ewk/ewk_private.h:
+        * ewk/ewk_view.cpp:
+        (ewk_view_navigation_policy_decision):
+        * ewk/ewk_view.h:
+
+2010-08-10  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Unreviewed build fix.
+
+        [EFL]REGRESSION(65021) need to fix build break
+        https://bugs.webkit.org/show_bug.cgi?id=43767
+
+        Remove AtomicStringWTF and change namespace TextCaseInsensitive.
+
+        * ewk/ewk_frame.cpp:
+        (ewk_frame_plugin_create):
+        * ewk/ewk_view.cpp:
+        (ewk_view_text_search):
+        (ewk_view_text_matches_mark):
+        (ewk_view_setting_font_cursive_set):
+
 2010-08-06  Gavin Barraclough  <barraclough@apple.com>
 
         Rubber stamped by Sam Weinig

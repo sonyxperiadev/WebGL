@@ -82,6 +82,7 @@
 #if ENABLE(JSC_MULTIPLE_THREADS)
 #include <pthread.h>
 #endif
+#include <wtf/StdLibExtras.h>
 
 #ifndef NO_TCMALLOC_SAMPLES
 #ifdef WTF_CHANGES
@@ -415,16 +416,18 @@ extern "C" const int jscore_fastmalloc_introspection = 0;
 #include "TCSpinLock.h"
 #include "TCSystemAlloc.h"
 #include <algorithm>
-#include <errno.h>
 #include <limits>
 #include <pthread.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdio.h>
+#if HAVE(ERRNO_H)
+#include <errno.h>
+#endif
 #if OS(UNIX)
 #include <unistd.h>
 #endif
-#if COMPILER(MSVC)
+#if OS(WINDOWS)
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -1015,7 +1018,7 @@ class PageHeapAllocator {
         if (!new_allocation)
           CRASH();
 
-        *(void**)new_allocation = allocated_regions_;
+        *reinterpret_cast_ptr<void**>(new_allocation) = allocated_regions_;
         allocated_regions_ = new_allocation;
         free_area_ = new_allocation + kAlignedSize;
         free_avail_ = kAllocIncrement - kAlignedSize;
@@ -2687,7 +2690,13 @@ ALWAYS_INLINE void TCMalloc_Central_FreeList::Populate() {
     if (span) pageheap->RegisterSizeClass(span, size_class_);
   }
   if (span == NULL) {
+#if HAVE(ERRNO_H)
     MESSAGE("allocation failed: %d\n", errno);
+#elif OS(WINDOWS)
+    MESSAGE("allocation failed: %d\n", ::GetLastError());
+#else
+    MESSAGE("allocation failed\n");
+#endif
     lock_.Lock();
     return;
   }
@@ -2710,7 +2719,7 @@ ALWAYS_INLINE void TCMalloc_Central_FreeList::Populate() {
   char* nptr;
   while ((nptr = ptr + size) <= limit) {
     *tail = ptr;
-    tail = reinterpret_cast<void**>(ptr);
+    tail = reinterpret_cast_ptr<void**>(ptr);
     ptr = nptr;
     num++;
   }
@@ -3054,7 +3063,7 @@ void TCMalloc_ThreadCache::BecomeIdle() {
   if (heap->in_setspecific_) return;    // Do not disturb the active caller
 
   heap->in_setspecific_ = true;
-  pthread_setspecific(heap_key, NULL);
+  setThreadHeap(NULL);
 #ifdef HAVE_TLS
   // Also update the copy in __thread
   threadlocal_heap = NULL;

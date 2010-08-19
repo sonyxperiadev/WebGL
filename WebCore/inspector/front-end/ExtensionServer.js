@@ -139,7 +139,8 @@ WebInspector.ExtensionServer.prototype = {
         var lastToolbarItem = WebInspector.panelOrder[WebInspector.panelOrder.length - 1].toolbarItem;
         WebInspector.addPanelToolbarIcon(toolbarElement, panel, lastToolbarItem);
         WebInspector.panels[id] = panel;
-        this._createClientIframe(panel.element, message.url);
+        var iframe = this._createClientIframe(panel.element, message.url);
+        iframe.style.height = "100%";
         return this._status.OK();
     },
 
@@ -165,6 +166,7 @@ WebInspector.ExtensionServer.prototype = {
         iframe.src = url;
         iframe.style.width = "100%";
         parent.appendChild(iframe);
+        return iframe;
     },
 
     _onSetSidebarHeight: function(message)
@@ -193,7 +195,17 @@ WebInspector.ExtensionServer.prototype = {
 
     _onEvaluateOnInspectedPage: function(message, port)
     {
-        InjectedScriptAccess.getDefault().evaluateAndStringify(message.expression, this._dispatchCallback.bind(this, message.requestId, port));
+        var escapedMessage = escape(message.expression);
+        function callback(resultPayload)
+        {
+            var resultObject = WebInspector.RemoteObject.fromPayload(resultPayload);
+            var result = {};
+            if (resultObject.isError())
+                result.isException = true;
+            result.value = resultObject.description;
+            this._dispatchCallback(message.requestId, port, result);
+        }
+        InjectedScriptAccess.getDefault().evaluate("(function() { var a = window.eval(unescape(\"" + escapedMessage + "\")); return JSON.stringify(a); })();", "", callback.bind(this));
     },
 
     _onRevealAndSelect: function(message)

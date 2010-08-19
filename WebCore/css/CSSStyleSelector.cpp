@@ -125,8 +125,6 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-// #define STYLE_SHARING_STATS 1
-
 #define HANDLE_INHERIT(prop, Prop) \
 if (isInherit) { \
     m_style->set##Prop(m_parentStyle->prop()); \
@@ -460,32 +458,37 @@ CSSStyleSelector::CSSStyleSelector(Document* doc, StyleSheetList* styleSheets, C
         m_medium = new MediaQueryEvaluator(view->mediaType(), view->frame(), m_rootDefaultStyle.get());
     }
 
+    m_authorStyle = new CSSRuleSet();
+
     // FIXME: This sucks! The user sheet is reparsed every time!
-    if (pageUserSheet || pageGroupUserSheets) {
-        m_userStyle = new CSSRuleSet();
-        if (pageUserSheet)
-            m_userStyle->addRulesFromSheet(pageUserSheet, *m_medium, this);
-        if (pageGroupUserSheets) {
-            unsigned length = pageGroupUserSheets->size();
-            for (unsigned i = 0; i < length; i++)
-                m_userStyle->addRulesFromSheet(pageGroupUserSheets->at(i).get(), *m_medium, this);
+    OwnPtr<CSSRuleSet> tempUserStyle(new CSSRuleSet);
+    if (pageUserSheet)
+        tempUserStyle->addRulesFromSheet(pageUserSheet, *m_medium, this);
+    if (pageGroupUserSheets) {
+        unsigned length = pageGroupUserSheets->size();
+        for (unsigned i = 0; i < length; i++) {
+            if (pageGroupUserSheets->at(i)->isUserStyleSheet())
+                tempUserStyle->addRulesFromSheet(pageGroupUserSheets->at(i).get(), *m_medium, this);
+            else
+                m_authorStyle->addRulesFromSheet(pageGroupUserSheets->at(i).get(), *m_medium, this);
         }
     }
 
-    // add stylesheets from document
-    m_authorStyle = new CSSRuleSet();
-    
+    if (tempUserStyle->m_ruleCount > 0 || tempUserStyle->m_pageRuleCount > 0)
+        m_userStyle = tempUserStyle.leakPtr();
+
     // Add rules from elements like SVG's <font-face>
     if (mappedElementSheet)
         m_authorStyle->addRulesFromSheet(mappedElementSheet, *m_medium, this);
 
+    // add stylesheets from document
     unsigned length = styleSheets->length();
     for (unsigned i = 0; i < length; i++) {
         StyleSheet* sheet = styleSheets->item(i);
         if (sheet->isCSSStyleSheet() && !sheet->disabled())
             m_authorStyle->addRulesFromSheet(static_cast<CSSStyleSheet*>(sheet), *m_medium, this);
     }
-    
+
     if (doc->renderer() && doc->renderer()->style())
         doc->renderer()->style()->font().update(fontSelector());
 }
@@ -947,11 +950,6 @@ bool CSSStyleSelector::SelectorChecker::checkSelector(CSSSelector* sel, Element*
     PseudoId dynamicPseudo = NOPSEUDO;
     return checkSelector(sel, element, 0, dynamicPseudo, false, false) == SelectorMatches;
 }
-
-#ifdef STYLE_SHARING_STATS
-static int fraction = 0;
-static int total = 0;
-#endif
 
 static const unsigned cStyleSearchThreshold = 10;
 
@@ -1737,23 +1735,17 @@ void CSSStyleSelector::adjustRenderStyle(RenderStyle* style, Element *e)
         style->hasTransformRelatedProperty() || style->hasMask() || style->boxReflect()))
         style->setZIndex(0);
     
-    // Button, legend, input, select and textarea all consider width values of 'auto' to be 'intrinsic'.
-    // This will be important when we use block flows for all form controls.
-    if (e && (e->hasTagName(legendTag) || e->hasTagName(buttonTag) || e->hasTagName(inputTag) ||
-              e->hasTagName(selectTag) || e->hasTagName(textareaTag) || e->hasTagName(datagridTag)
 #if ENABLE(WML)
-              || e->hasTagName(WMLNames::insertedLegendTag)
-              || e->hasTagName(WMLNames::inputTag)
+    if (e && (e->hasTagName(WMLNames::insertedLegendTag)
+              || e->hasTagName(WMLNames::inputTag))
+            && style->width().isAuto())
+        style->setWidth(Length(Intrinsic));
 #endif
-       )) {
-        if (style->width().isAuto())
-            style->setWidth(Length(Intrinsic));
 
-        // Textarea considers overflow visible as auto.
-        if (e && e->hasTagName(textareaTag)) {
-            style->setOverflowX(style->overflowX() == OVISIBLE ? OAUTO : style->overflowX());
-            style->setOverflowY(style->overflowY() == OVISIBLE ? OAUTO : style->overflowY());
-        }
+    // Textarea considers overflow visible as auto.
+    if (e && e->hasTagName(textareaTag)) {
+        style->setOverflowX(style->overflowX() == OVISIBLE ? OAUTO : style->overflowX());
+        style->setOverflowY(style->overflowY() == OVISIBLE ? OAUTO : style->overflowY());
     }
 
     // Finally update our text decorations in effect, but don't allow text-decoration to percolate through
@@ -2127,18 +2119,18 @@ bool CSSStyleSelector::SelectorChecker::checkOneSelector(CSSSelector* sel, Eleme
             if (sel->m_value.contains(' ') || sel->m_value.isEmpty())
                 return false;
 
-            int startSearchAt = 0;
+            unsigned startSearchAt = 0;
             while (true) {
-                int foundPos = value.find(sel->m_value, startSearchAt, caseSensitive);
-                if (foundPos == -1)
+                size_t foundPos = value.find(sel->m_value, startSearchAt, caseSensitive);
+                if (foundPos == notFound)
                     return false;
-                if (foundPos == 0 || value[foundPos-1] == ' ') {
+                if (foundPos == 0 || value[foundPos - 1] == ' ') {
                     unsigned endStr = foundPos + sel->m_value.length();
                     if (endStr == value.length() || value[endStr] == ' ')
                         break; // We found a match.
                 }
                 
-                // No match.  Keep looking.
+                // No match. Keep looking.
                 startSearchAt = foundPos + 1;
             }
             break;
@@ -2623,7 +2615,7 @@ bool CSSStyleSelector::SelectorChecker::checkOneSelector(CSSSelector* sel, Eleme
                     n = n->parent();
                 }
                 const AtomicString& argument = sel->argument();
-                if (value.isNull() || !value.startsWith(argument, false))
+                if (value.isEmpty() || !value.startsWith(argument, false))
                     break;
                 if (value.length() != argument.length() && value[argument.length()] != '-')
                     break;

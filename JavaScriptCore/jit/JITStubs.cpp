@@ -45,6 +45,7 @@
 #include "JSArray.h"
 #include "JSByteArray.h"
 #include "JSFunction.h"
+#include "JSGlobalObjectFunctions.h"
 #include "JSNotAnObject.h"
 #include "JSPropertyNameIterator.h"
 #include "JSStaticScopeObject.h"
@@ -229,15 +230,15 @@ SYMBOL_STRING(ctiOpThrowNotCaught) ":" "\n"
 
 #elif COMPILER(GCC) && CPU(ARM_THUMB2)
 
-#define THUNK_RETURN_ADDRESS_OFFSET      0x3C
-#define PRESERVED_RETURN_ADDRESS_OFFSET  0x40
-#define PRESERVED_R4_OFFSET              0x44
-#define PRESERVED_R5_OFFSET              0x48
-#define PRESERVED_R6_OFFSET              0x4C
-#define REGISTER_FILE_OFFSET             0x50
-#define CALLFRAME_OFFSET                 0x54
-#define EXCEPTION_OFFSET                 0x58
-#define ENABLE_PROFILER_REFERENCE_OFFSET 0x60
+#define THUNK_RETURN_ADDRESS_OFFSET      0x40
+#define PRESERVED_RETURN_ADDRESS_OFFSET  0x44
+#define PRESERVED_R4_OFFSET              0x48
+#define PRESERVED_R5_OFFSET              0x4C
+#define PRESERVED_R6_OFFSET              0x50
+#define REGISTER_FILE_OFFSET             0x54
+#define CALLFRAME_OFFSET                 0x58
+#define EXCEPTION_OFFSET                 0x5C
+#define ENABLE_PROFILER_REFERENCE_OFFSET 0x64
 
 #elif (COMPILER(GCC) || COMPILER(RVCT)) && CPU(ARM_TRADITIONAL)
 
@@ -967,13 +968,13 @@ struct StackHack {
     ReturnAddressPtr savedReturnAddress;
 };
 
-#define STUB_INIT_STACK_FRAME(stackFrame) JITStackFrame& stackFrame = *reinterpret_cast<JITStackFrame*>(STUB_ARGS); StackHack stackHack(stackFrame)
+#define STUB_INIT_STACK_FRAME(stackFrame) JITStackFrame& stackFrame = *reinterpret_cast_ptr<JITStackFrame*>(STUB_ARGS); StackHack stackHack(stackFrame)
 #define STUB_SET_RETURN_ADDRESS(returnAddress) stackHack.savedReturnAddress = ReturnAddressPtr(returnAddress)
 #define STUB_RETURN_ADDRESS stackHack.savedReturnAddress
 
 #else
 
-#define STUB_INIT_STACK_FRAME(stackFrame) JITStackFrame& stackFrame = *reinterpret_cast<JITStackFrame*>(STUB_ARGS)
+#define STUB_INIT_STACK_FRAME(stackFrame) JITStackFrame& stackFrame = *reinterpret_cast_ptr<JITStackFrame*>(STUB_ARGS)
 #define STUB_SET_RETURN_ADDRESS(returnAddress) *stackFrame.returnAddressSlot() = ReturnAddressPtr(returnAddress)
 #define STUB_RETURN_ADDRESS *stackFrame.returnAddressSlot()
 
@@ -2814,16 +2815,16 @@ DEFINE_STUB_FUNCTION(int, op_eq)
 
     if (cell1->isString()) {
         if (src2.isInt32())
-            return static_cast<JSString*>(cell1)->value(stackFrame.callFrame).toDouble() == src2.asInt32();
+            return jsToNumber(static_cast<JSString*>(cell1)->value(stackFrame.callFrame)) == src2.asInt32();
             
         if (src2.isDouble())
-            return static_cast<JSString*>(cell1)->value(stackFrame.callFrame).toDouble() == src2.asDouble();
+            return jsToNumber(static_cast<JSString*>(cell1)->value(stackFrame.callFrame)) == src2.asDouble();
 
         if (src2.isTrue())
-            return static_cast<JSString*>(cell1)->value(stackFrame.callFrame).toDouble() == 1.0;
+            return jsToNumber(static_cast<JSString*>(cell1)->value(stackFrame.callFrame)) == 1.0;
 
         if (src2.isFalse())
-            return static_cast<JSString*>(cell1)->value(stackFrame.callFrame).toDouble() == 0.0;
+            return jsToNumber(static_cast<JSString*>(cell1)->value(stackFrame.callFrame)) == 0.0;
 
         JSCell* cell2 = asCell(src2);
         if (cell2->isString())
@@ -3362,7 +3363,7 @@ DEFINE_STUB_FUNCTION(void*, op_switch_char)
     void* result = codeBlock->characterSwitchJumpTable(tableIndex).ctiDefault.executableAddress();
 
     if (scrutinee.isString()) {
-        UString::Rep* value = asString(scrutinee)->value(callFrame).rep();
+        StringImpl* value = asString(scrutinee)->value(callFrame).impl();
         if (value->length() == 1)
             result = codeBlock->characterSwitchJumpTable(tableIndex).ctiForValue(value->characters()[0]).executableAddress();
     }
@@ -3383,7 +3384,7 @@ DEFINE_STUB_FUNCTION(void*, op_switch_string)
     void* result = codeBlock->stringSwitchJumpTable(tableIndex).ctiDefault.executableAddress();
 
     if (scrutinee.isString()) {
-        UString::Rep* value = asString(scrutinee)->value(callFrame).rep();
+        StringImpl* value = asString(scrutinee)->value(callFrame).impl();
         result = codeBlock->stringSwitchJumpTable(tableIndex).ctiForValue(value).executableAddress();
     }
 

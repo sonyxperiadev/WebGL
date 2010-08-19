@@ -753,18 +753,6 @@ void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness
     CGContextEOClip(context);
 }
 
-void GraphicsContext::clipToImageBuffer(const FloatRect& rect, const ImageBuffer* imageBuffer)
-{
-    if (paintingDisabled())
-        return;
-
-    CGContextTranslateCTM(platformContext(), rect.x(), rect.y() + rect.height());
-    CGContextScaleCTM(platformContext(), 1, -1);
-    CGContextClipToMask(platformContext(), FloatRect(FloatPoint(), rect.size()), imageBuffer->image()->getCGImageRef());
-    CGContextScaleCTM(platformContext(), 1, -1);
-    CGContextTranslateCTM(platformContext(), -rect.x(), -rect.y() - rect.height());
-}
-
 void GraphicsContext::beginTransparencyLayer(float opacity)
 {
     if (paintingDisabled())
@@ -950,9 +938,17 @@ void GraphicsContext::clip(const Path& path)
     if (paintingDisabled())
         return;
     CGContextRef context = platformContext();
-    CGContextBeginPath(context);
-    CGContextAddPath(context, path.platformPath());
-    CGContextClip(context);
+
+    // CGContextClip does nothing if the path is empty, so in this case, we
+    // instead clip against a zero rect to reduce the clipping region to
+    // nothing - which is the intended behavior of clip() if the path is empty.    
+    if (path.isEmpty())
+        CGContextClipToRect(context, CGRectZero);
+    else {
+        CGContextBeginPath(context);
+        CGContextAddPath(context, path.platformPath());
+        CGContextClip(context);
+    }
     m_data->clip(path);
 }
 

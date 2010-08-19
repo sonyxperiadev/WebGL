@@ -322,6 +322,7 @@ void ScrollView::valueChanged(Scrollbar* scrollbar)
     if (scrollbarsSuppressed())
         return;
 
+    repaintFixedElementsAfterScrolling();
     scrollContents(scrollDelta);
 }
 

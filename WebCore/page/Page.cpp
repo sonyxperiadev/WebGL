@@ -65,12 +65,12 @@
 #include "SharedBuffer.h"
 #include "SpeechInput.h"
 #include "SpeechInputClient.h"
-#include "StringHash.h"
 #include "TextResourceDecoder.h"
 #include "Widget.h"
 #include <wtf/HashMap.h>
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/StringHash.h>
 
 #if ENABLE(DOM_STORAGE)
 #include "StorageArea.h"
@@ -359,6 +359,9 @@ void Page::goBackOrForward(int distance)
 
 void Page::goToItem(HistoryItem* item, FrameLoadType type)
 {
+    if (defersLoading())
+        return;
+    
     // Abort any current load unless we're navigating the current document to a new state object
     HistoryItem* currentItem = m_mainFrame->loader()->history()->currentItem();
     if (!item->stateObject() || !currentItem || item->documentSequenceNumber() != currentItem->documentSequenceNumber() || item == currentItem) {
@@ -445,7 +448,10 @@ void Page::refreshPlugins(bool reload)
         Page* page = *it;
         
         // Clear out the page's plug-in data.
-        page->m_pluginData = 0;
+        if (page->m_pluginData) {
+            page->m_pluginData->disconnectPage();
+            page->m_pluginData = 0;
+        }
 
         if (!reload)
             continue;

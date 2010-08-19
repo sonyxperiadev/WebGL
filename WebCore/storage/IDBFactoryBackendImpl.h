@@ -29,18 +29,22 @@
 #define IDBFactoryBackendImpl_h
 
 #include "IDBFactoryBackendInterface.h"
-#include "StringHash.h"
 #include <wtf/HashMap.h>
+#include <wtf/text/StringHash.h>
 
 #if ENABLE(INDEXED_DATABASE)
 
 namespace WebCore {
 
 class DOMStringList;
+class IDBDatabaseBackendImpl;
 
 class IDBFactoryBackendImpl : public IDBFactoryBackendInterface {
 public:
-    static PassRefPtr<IDBFactoryBackendImpl> create();
+    static PassRefPtr<IDBFactoryBackendImpl> create()
+    {
+        return adoptRef(new IDBFactoryBackendImpl());
+    }
     virtual ~IDBFactoryBackendImpl();
 
     virtual void open(const String& name, const String& description, PassRefPtr<IDBCallbacks>, PassRefPtr<SecurityOrigin>, Frame*);
@@ -48,7 +52,7 @@ public:
 private:
     IDBFactoryBackendImpl();
 
-    typedef HashMap<String, RefPtr<IDBDatabaseBackendInterface> > IDBDatabaseBackendMap;
+    typedef HashMap<String, RefPtr<IDBDatabaseBackendImpl> > IDBDatabaseBackendMap;
     IDBDatabaseBackendMap m_databaseBackendMap;
 
     // We only create one instance of this class at a time.
