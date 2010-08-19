@@ -78,7 +78,7 @@ endif
 # Read the HTTP_STACK environment variable, default is android
 ifneq ($(TARGET_SIMULATOR),true)
 HTTP_STACK = $(HTTP)
-ifneq ($(HTTP_STACK),android)
+ifeq ($(HTTP_STACK),chrome)
   # Chrome net stack has dependencies on V8.
   ifeq ($(JAVASCRIPT_ENGINE), v8)
     HTTP_STACK = chrome
