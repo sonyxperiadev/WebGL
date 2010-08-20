@@ -64,6 +64,8 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
     // make a copy of it.
     SkStream* stream = new SkMemoryStream(buffer->data(), buffer->size(), true);
     SkTypeface* face = SkTypeface::CreateFromStream(stream);
+    // Release the stream.
+    stream->unref();
     if (0 == face) {
         SkDebugf("--------- SkTypeface::CreateFromBuffer failed %d\n",
                  buffer->size());
