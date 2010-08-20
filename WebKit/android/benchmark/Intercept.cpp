@@ -33,11 +33,12 @@
 #include "ResourceHandleClient.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
-#include "StringHash.h"
 #include "TextEncoding.h"
+
 #include <utils/Log.h>
 #include <wtf/HashMap.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringHash.h>
 
 PassRefPtr<WebCore::ResourceLoaderAndroid> MyResourceLoader::create(
         ResourceHandle* handle, String url)

@@ -29,10 +29,11 @@
 #if ENABLE(APPLICATION_INSTALLED)
 
 #include "PlatformString.h"
-#include "StringHash.h"
 #include "Timer.h"
+
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 

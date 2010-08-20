@@ -26,12 +26,13 @@
 #ifndef CachedNode_H
 #define CachedNode_H
 
-#include "AtomicString.h"
 #include "CachedDebug.h"
 #include "CachedNodeType.h"
 #include "IntRect.h"
 #include "PlatformString.h"
-#include "wtf/Vector.h"
+
+#include <wtf/Vector.h>
+#include <wtf/text/AtomicString.h>
 
 class SkPicture;
 

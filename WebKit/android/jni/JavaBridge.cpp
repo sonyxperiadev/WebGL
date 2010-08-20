@@ -27,7 +27,6 @@
 
 #include "config.h"
 
-#include "AtomicString.h"
 #include "Cache.h"
 #include "Connection.h"
 #include "CookieClient.h"
@@ -54,6 +53,7 @@
 #include <utils/misc.h>
 #include <wtf/Platform.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/AtomicString.h>
 
 namespace android {
 
