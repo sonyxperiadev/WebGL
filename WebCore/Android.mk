@@ -278,6 +278,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/FileThread.cpp \
 	html/FormDataList.cpp \
 	html/HTMLEntityParser.cpp \
+	html/HTMLEntitySearch.cpp \
 	html/HTMLTokenizer.cpp \
 	html/HTMLPreloadScanner.cpp \
 	html/HTMLScriptRunner.cpp \
