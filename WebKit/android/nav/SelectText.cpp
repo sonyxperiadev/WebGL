@@ -1542,9 +1542,9 @@ bool SelectText::wordSelection(const SkPicture* picture)
 
 void SelectText::swapAsNeeded()
 {
-    if (m_selStart.fTop >= m_selEnd.fBottom
-        || (m_selStart.fBottom > m_selEnd.fTop
-        && m_selStart.fRight > m_selEnd.fLeft))
+    if (m_selStart.fTop >= (m_selEnd.fTop + m_selEnd.fBottom) >> 1
+            || (m_selEnd.fTop < (m_selStart.fTop + m_selStart.fBottom) >> 1
+            && m_selStart.fRight > m_selEnd.fLeft))
     {
         SkTSwap(m_startBase, m_endBase);
         SkTSwap(m_selStart, m_selEnd);
