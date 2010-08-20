@@ -61,6 +61,7 @@ private:
     friend class base::RefCountedThreadSafe<WebRequest>;
     virtual ~WebRequest();
     void handleDataURL(GURL);
+    void handleBrowserURL(GURL);
     void finish(bool success);
 
     // Not owned
