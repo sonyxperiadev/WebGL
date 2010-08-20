@@ -163,7 +163,7 @@ Page* ChromeClientAndroid::createWindow(Frame* frame, const FrameLoadRequest&,
     if (features.fullscreen)
         dialog = false;
     WebCore::Frame* newFrame = m_webFrame->createWindow(dialog,
-            frame->script()->processingUserGesture(mainThreadNormalWorld()));
+            ScriptController::processingUserGesture());
     if (newFrame) {
         WebCore::Page* page = newFrame->page();
         page->setGroupName(frame->page()->groupName());
