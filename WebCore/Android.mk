@@ -264,11 +264,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	html/AsyncImageResizer.cpp \
 	html/Blob.cpp \
-<<<<<<< HEAD
 	html/BlobBuilder.cpp \
-=======
 	html/BlobURL.cpp \
->>>>>>> WebKit at r65615
 	html/CollectionCache.cpp \
 	html/CSSPreloadScanner.cpp \
 	html/DOMFormData.cpp \
@@ -305,15 +302,10 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLViewSourceParser.cpp \
 	html/ImageData.cpp \
 	html/ImageResizerThread.cpp \
-<<<<<<< HEAD
 	html/LabelsNodeList.cpp \
 	html/LegacyHTMLTreeBuilder.cpp \
 	html/StepRange.cpp \
-	html/LegacyHTMLDocumentParser.cpp \
-	html/LegacyPreloadScanner.cpp \
-=======
 	html/ThreadableBlobRegistry.cpp \
->>>>>>> WebKit at r65615
 	html/TimeRanges.cpp \
 	html/ValidityState.cpp \
 	\

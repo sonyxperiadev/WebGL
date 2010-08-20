@@ -234,29 +234,12 @@ Geolocation::~Geolocation()
 {
 }
 
-#if PLATFORM(ANDROID)
-void Geolocation::stop()
-{
-    m_oneShots.clear();
-    m_watchers.clear();
-    stopUpdating();
-}
-#endif // PLATFORM(ANDROID)
-
 void Geolocation::disconnectFrame()
 {
     if (m_frame && m_frame->page() && m_allowGeolocation == InProgress)
         m_frame->page()->chrome()->cancelGeolocationPermissionRequestForFrame(m_frame, this);
-<<<<<<< HEAD
-#if PLATFORM(ANDROID)
-    // See Geolocation::stop()
-#else
-    stopTimers();
-=======
     cancelAllRequests();
->>>>>>> WebKit at r65615
     stopUpdating();
-#endif // PLATFORM(ANDROID)
     if (m_frame && m_frame->document())
         m_frame->document()->setUsingGeolocation(false);
     m_frame = 0;
