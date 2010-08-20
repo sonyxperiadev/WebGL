@@ -23,44 +23,48 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef DeviceOrientationManager_h
-#define DeviceOrientationManager_h
+#ifndef DeviceOrientationClientImpl_h
+#define DeviceOrientationClientImpl_h
 
 #include <DeviceOrientation.h>
 #include <DeviceOrientationClient.h>
-#include <OwnPtr.h>
+#include <JNIUtility.h>
 #include <PassRefPtr.h>
 #include <RefPtr.h>
 
-namespace WebCore {
-class DeviceOrientation;
-}
+using namespace WebCore;
 
 namespace android {
 
+class DeviceOrientationManager;
 class WebViewCore;
 
-// This class takes care of the fact that the client used for DeviceOrientation
-// may be either the real implementation or a mock. It also handles setting the
-// orientation on both the real and mock clients. This class is owned by
-// WebViewCore and exists to keep cruft out of that class.
-class DeviceOrientationManager {
+class DeviceOrientationClientImpl : public DeviceOrientationClient {
 public:
-    DeviceOrientationManager(WebViewCore*);
+    DeviceOrientationClientImpl(WebViewCore*);
 
-    void useMock();
-    void setMockOrientation(PassRefPtr<WebCore::DeviceOrientation>);
-    void onOrientationChange(PassRefPtr<WebCore::DeviceOrientation>);
-    void maybeSuspendClient();
-    void maybeResumeClient();
-    WebCore::DeviceOrientationClient* client();
+    void onOrientationChange(PassRefPtr<DeviceOrientation>);
+    void suspend();
+    void resume();
 
-private:
-    bool m_useMock;
+    // DeviceOrientationClient methods
+    virtual void startUpdating();
+    virtual void stopUpdating();
+    virtual DeviceOrientation* lastOrientation() const { return m_lastOrientation.get(); }
+    virtual void setController(DeviceOrientationController* controller) { m_controller = controller; }
+
+protected:
+    virtual ~DeviceOrientationClientImpl();
+
+    jobject getJavaInstance();
+    void releaseJavaInstance();
+
     WebViewCore* m_webViewCore;
-    OwnPtr<WebCore::DeviceOrientationClient> m_client;
+    jobject m_javaDeviceOrientationServiceObject;
+    DeviceOrientationController* m_controller;
+    RefPtr<DeviceOrientation> m_lastOrientation;
 };
 
 } // namespace android
 
-#endif // DeviceOrientationManager_h
+#endif // DeviceOrientationClientImpl_h

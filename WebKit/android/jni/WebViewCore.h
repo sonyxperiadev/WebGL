@@ -242,6 +242,8 @@ namespace android {
          */
         void geolocationPermissionsHidePrompt();
 
+        jobject getDeviceOrientationService();
+
         void addMessageToConsole(const String& message, unsigned int lineNumber, const String& sourceID, int msgLevel);
 
         /**

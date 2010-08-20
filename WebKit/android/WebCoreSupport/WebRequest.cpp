@@ -51,7 +51,6 @@ namespace {
 
 WebRequest::WebRequest(WebUrlLoaderClient* loader, WebResourceRequest webResourceRequest)
     : m_urlLoader(loader)
-    , m_request(0)
 {
     GURL gurl(webResourceRequest.url());
     m_request = new URLRequest(gurl, this);
@@ -81,6 +80,7 @@ void WebRequest::finish(bool success)
 
 void WebRequest::AppendBytesToUpload(const char* bytes, int bytesLen)
 {
+    // This should always be called after start and before finish.
     m_request->AppendBytesToUpload(bytes, bytesLen);
 }
 
@@ -100,8 +100,13 @@ void WebRequest::start(bool isPrivateBrowsing)
 
 void WebRequest::cancel()
 {
-    if (m_request)
-        m_request->Cancel();
+    // There is a possible race condition between the IO thread finishing the request and
+    // the WebCore thread cancelling it. If the request has already finished, do
+    // nothing to avoid sending duplicate finish messages to WebCore.
+    if (!m_request)
+        return;
+
+    m_request->Cancel();
     finish(true);
 }
 

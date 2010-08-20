@@ -244,6 +244,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_populateVisitedLinks;
     jmethodID   m_geolocationPermissionsShowPrompt;
     jmethodID   m_geolocationPermissionsHidePrompt;
+    jmethodID   m_getDeviceOrientationService;
     jmethodID   m_addMessageToConsole;
     jmethodID   m_getPluginClass;
     jmethodID   m_showFullScreenPlugin;
@@ -278,7 +279,8 @@ Mutex WebViewCore::gButtonMutex;
 Mutex WebViewCore::gCursorBoundsMutex;
 
 WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* mainframe)
-        : m_pluginInvalTimer(this, &WebViewCore::pluginInvalTimerFired)
+    : m_pluginInvalTimer(this, &WebViewCore::pluginInvalTimerFired)
+    , m_deviceOrientationManager(this)
 {
     m_mainFrame = mainframe;
 
@@ -332,6 +334,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_populateVisitedLinks = GetJMethod(env, clazz, "populateVisitedLinks", "()V");
     m_javaGlue->m_geolocationPermissionsShowPrompt = GetJMethod(env, clazz, "geolocationPermissionsShowPrompt", "(Ljava/lang/String;)V");
     m_javaGlue->m_geolocationPermissionsHidePrompt = GetJMethod(env, clazz, "geolocationPermissionsHidePrompt", "()V");
+    m_javaGlue->m_getDeviceOrientationService = GetJMethod(env, clazz, "getDeviceOrientationService", "()Landroid/webkit/DeviceOrientationService;");
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;I)V");
     m_javaGlue->m_getPluginClass = GetJMethod(env, clazz, "getPluginClass", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Class;");
     m_javaGlue->m_showFullScreenPlugin = GetJMethod(env, clazz, "showFullScreenPlugin", "(Landroid/webkit/ViewManager$ChildView;I)V");
@@ -2598,6 +2601,15 @@ void WebViewCore::geolocationPermissionsHidePrompt()
     checkException(env);
 }
 
+jobject WebViewCore::getDeviceOrientationService()
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jobject object = env->CallObjectMethod(m_javaGlue->object(env).get(),
+                                           m_javaGlue->m_getDeviceOrientationService);
+    checkException(env);
+    return object;
+}
+
 bool WebViewCore::jsConfirm(const WTF::String& url, const WTF::String& text)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -3370,6 +3382,8 @@ static void Pause(JNIEnv* env, jobject obj)
             geolocation->suspend();
     }
 
+    GET_NATIVE_VIEW(env, obj)->deviceOrientationManager()->maybeSuspendClient();
+
     ANPEvent event;
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
     event.data.lifecycle.action = kPause_ANPLifecycleAction;
@@ -3386,6 +3400,8 @@ static void Resume(JNIEnv* env, jobject obj)
         if (geolocation)
             geolocation->resume();
     }
+
+    GET_NATIVE_VIEW(env, obj)->deviceOrientationManager()->maybeResumeClient();
 
     ANPEvent event;
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
