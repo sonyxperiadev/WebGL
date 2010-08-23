@@ -32,6 +32,7 @@
 #include "WebResourceRequest.h"
 #include "jni.h"
 
+#include <cutils/log.h>
 #include <net/base/data_url.h>
 #include <net/base/io_buffer.h>
 #include <net/http/http_response_headers.h>
@@ -45,6 +46,16 @@ extern android::AssetManager* globalAssetManager();
 // - Finish the file upload. Testcase is mobile buzz
 // - Add network throttle needed by Android plugins
 
+// TODO: Turn off asserts crashing before release
+// http://b/issue?id=2951985
+#undef ASSERT
+#define ASSERT(assertion, ...) do \
+    if (!(assertion)) { \
+        android_printLog(ANDROID_LOG_ERROR, __FILE__, __VA_ARGS__); \
+        CRASH(); \
+    } \
+while (0)
+
 namespace android {
 
 namespace {
@@ -55,6 +66,7 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, WebResourceRequest webResourc
     : m_urlLoader(loader)
     , m_inputStream(0)
     , m_androidUrl(false)
+    , m_loadState(Created)
 {
     m_url = webResourceRequest.url();
     GURL gurl(webResourceRequest.url());
@@ -70,8 +82,8 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, WebResourceRequest webResourc
 // for data and send to WebCore
 WebRequest::WebRequest(WebUrlLoaderClient* loader, WebResourceRequest webResourceRequest, int inputStream)
     : m_urlLoader(loader)
-    , m_request(0)
     , m_androidUrl(true)
+    , m_loadState(Created)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     m_inputStream = (int)env->NewGlobalRef((_jobject*)inputStream);
@@ -80,6 +92,9 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, WebResourceRequest webResourc
 
 WebRequest::~WebRequest()
 {
+    ASSERT(m_loadState == Finished, "dtor called on a WebRequest in a different state than finished (%d)", m_loadState);
+
+    m_loadState = Deleted;
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     if (m_inputStream)
         env->DeleteGlobalRef((_jobject*)m_inputStream);
@@ -87,6 +102,9 @@ WebRequest::~WebRequest()
 
 void WebRequest::finish(bool success)
 {
+    ASSERT(m_loadState < Finished, "called finish on an already finished WebRequest (%d)", m_loadState);
+
+    m_loadState = Finished;
     if (success) {
         LoaderData* loaderData = new LoaderData(m_urlLoader);
         m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didFinishLoading, loaderData);
@@ -101,12 +119,17 @@ void WebRequest::finish(bool success)
 
 void WebRequest::AppendBytesToUpload(const char* bytes, int bytesLen)
 {
-    // This should always be called after start and before finish.
+    // AppendBytesToUpload is only valid before calling start
+    ASSERT(m_loadState == Created, "Start called on a WebRequest not in CREATED state: (%s)", m_url.c_str());
     m_request->AppendBytesToUpload(bytes, bytesLen);
 }
 
 void WebRequest::start(bool isPrivateBrowsing)
 {
+    ASSERT(m_loadState == Created, "Start called on a WebRequest not in CREATED state: (%s)", m_url.c_str());
+
+    m_loadState = Started;
+
     if (m_androidUrl)
         return handleAndroidURL();
 
@@ -127,11 +150,18 @@ void WebRequest::start(bool isPrivateBrowsing)
 
 void WebRequest::cancel()
 {
+    ASSERT(m_loadState >= Started, "Cancel called on a not started WebRequest: (%s)", m_url.c_str());
+    ASSERT(m_loadState != Cancelled, "Cancel called on an already cancelled WebRequest: (%s)", m_url.c_str());
+
     // There is a possible race condition between the IO thread finishing the request and
     // the WebCore thread cancelling it. If the request has already finished, do
     // nothing to avoid sending duplicate finish messages to WebCore.
-    if (!m_request)
+    if (m_loadState > Cancelled) {
         return;
+    }
+    ASSERT(m_request, "Request set to 0 before it is finished");
+
+    m_loadState = Cancelled;
 
     m_request->Cancel();
     finish(true);
@@ -141,12 +171,14 @@ void WebRequest::handleAndroidURL()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     if (m_inputStream == 0) {
+        m_loadState = Finished;
         WebResponse webResponse(m_url, "", 0, "", 0);
         LoaderData* loaderData = new LoaderData(m_urlLoader, webResponse);
         m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didFail, loaderData);
         return;
     }
 
+    m_loadState = Response;
     WebResponse webResponse(m_url, "", 0, "", 200);
     LoaderData* loaderResponse = new LoaderData(m_urlLoader, webResponse);
     m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveResponse, loaderResponse);
@@ -167,6 +199,7 @@ void WebRequest::handleAndroidURL()
         data->reserve(size);
         env->GetByteArrayRegion(jb, 0, size, (jbyte*)&data->front());
 
+        m_loadState = GotData;
         // Passes ownership of data
         LoaderData* loaderData = new LoaderData(m_urlLoader, data, size);
         m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveAndroidFileData, loaderData);
@@ -187,11 +220,13 @@ void WebRequest::handleDataURL(GURL url)
     if (net::DataURL::Parse(url, &mimeType, &charset, data.get())) {
         // PopulateURLResponse from chrome implementation
         // weburlloader_impl.cc
+        m_loadState = Response;
         WebResponse webResponse(url.spec(), mimeType, data->size(), charset, 200);
         LoaderData* loaderResponse = new LoaderData(m_urlLoader, webResponse);
         m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveResponse, loaderResponse);
 
         if (!data->empty()) {
+            m_loadState = GotData;
             LoaderData* loaderData = new LoaderData(m_urlLoader, data.leakPtr());
             m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveDataUrl, loaderData);
         }
@@ -235,6 +270,8 @@ void WebRequest::handleBrowserURL(GURL url)
 // deferring redirect.
 void WebRequest::OnReceivedRedirect(URLRequest* newRequest, const GURL& newUrl, bool* deferRedirect)
 {
+    ASSERT(m_loadState < Response, "Redirect after receiving response");
+
     if (newRequest && newRequest->status().is_success()) {
         WebResponse webResponse(newRequest);
         webResponse.setUrl(newUrl.spec());
@@ -270,6 +307,9 @@ void WebRequest::OnAuthRequired(URLRequest* request, net::AuthChallengeInfo* aut
 // response headers if this is a request for a HTTP resource.
 void WebRequest::OnResponseStarted(URLRequest* request)
 {
+    ASSERT(m_loadState == Started, "Got response after receiving response");
+
+    m_loadState = Response;
     if (request && request->status().is_success()) {
         WebResponse webResponse(request);
         LoaderData* loaderData = new LoaderData(m_urlLoader, webResponse);
@@ -284,6 +324,8 @@ void WebRequest::OnResponseStarted(URLRequest* request)
 
 void WebRequest::startReading()
 {
+    ASSERT(m_loadState == Response || m_loadState == GotData, "StartReading in state other than RESPONSE and GOTDATA");
+
     int bytesRead = 0;
 
     // chrome only does one read, and schedules the next on the same thread
@@ -295,6 +337,7 @@ void WebRequest::startReading()
                 break;
             }
 
+            m_loadState = GotData;
             // Read ok, forward buffer to webcore
             m_networkBuffer->AddRef();
             LoaderData* loaderData = new LoaderData(m_urlLoader, m_networkBuffer.get(), bytesRead);
@@ -314,6 +357,9 @@ void WebRequest::startReading()
 
 bool WebRequest::read(int* bytesRead)
 {
+    ASSERT(m_loadState == Response || m_loadState == GotData, "read in state other than RESPONSE and GOTDATA");
+    ASSERT(m_networkBuffer == 0, "Read called with a nonzero buffer");
+
     // TODO: when asserts work, check that the buffer is 0 here
     m_networkBuffer = new net::IOBuffer(kInitialReadBufSize);
     return m_request->Read(m_networkBuffer, kInitialReadBufSize, bytesRead);
@@ -330,7 +376,10 @@ bool WebRequest::read(int* bytesRead)
 // and bytes read will be -1.
 void WebRequest::OnReadCompleted(URLRequest* request, int bytesRead)
 {
+    ASSERT(m_loadState == Response || m_loadState == GotData, "OnReadCompleted in state other than RESPONSE and GOTDATA");
+
     if (request->status().is_success()) {
+        m_loadState = GotData;
         m_networkBuffer->AddRef();
         LoaderData* loaderData = new LoaderData(m_urlLoader, m_networkBuffer.get(), bytesRead);
         // m_networkBuffer->Release() on main thread
