@@ -120,6 +120,10 @@ WebRequestContext* WebRequestContext::GetAndroidContextForPath(const char* cooki
     androidContext->http_transaction_factory_ = new net::HttpCache(androidContext->host_resolver(), net::ProxyService::CreateNull(), net::SSLConfigService::CreateSystemSSLConfigService(), 0, 0, 0, defaultBackend);
 
     scoped_refptr<SQLitePersistentCookieStore> cookieDb = new SQLitePersistentCookieStore(cookiePath);
+
+    // This is needed for the page cycler
+    net::CookieMonster::EnableFileScheme();
+
     androidContext->cookie_store_ = new net::CookieMonster(cookieDb.get(), 0);
 
     return androidContext.release();
