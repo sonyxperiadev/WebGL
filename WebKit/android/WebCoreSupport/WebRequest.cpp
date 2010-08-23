@@ -295,9 +295,11 @@ void WebRequest::OnReceivedRedirect(URLRequest* newRequest, const GURL& newUrl, 
 // of On* callbacks.
 void WebRequest::OnAuthRequired(URLRequest* request, net::AuthChallengeInfo* authInfo)
 {
-    // TODO: This is the default action, have to implement getting the
-    // username and password from webkit
-    request->CancelAuth();
+    ASSERT(m_loadState == Started, "OnAuthRequired called on a WebRequest not in STARTED state (state=%d)", m_loadState);
+
+    LoaderData* ld = new LoaderData(m_urlLoader);
+    ld->authChallengeInfo = authInfo;
+    m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::authRequired, ld);
 }
 
 // After calling Start(), the delegate will receive an OnResponseStarted
@@ -321,6 +323,20 @@ void WebRequest::OnResponseStarted(URLRequest* request)
     } else {
         finish(false);
     }
+}
+
+void WebRequest::setAuth(const std::wstring& username, const std::wstring& password)
+{
+    ASSERT(m_loadState == Started, "setAuth called on a WebRequest not in STARTED state (state=%d)", m_loadState);
+
+    m_request->SetAuth(username, password);
+}
+
+void WebRequest::cancelAuth()
+{
+    ASSERT(m_loadState == Started, "cancelAuth called on a WebRequest not in STARTED state (state=%d)", m_loadState);
+
+    m_request->CancelAuth();
 }
 
 void WebRequest::startReading()

@@ -50,9 +50,11 @@
 #include <base/message_loop_proxy.h>
 #include <base/ref_counted.h>
 #include <base/string_util.h>
+#include <base/sys_string_conversions.h>
 #include <base/thread.h>
 #include <base/tuple.h>
 #include <chrome/browser/net/sqlite_persistent_cookie_store.h>
+#include <net/base/auth.h>
 #include <net/base/cookie_monster.h>
 #include <net/base/data_url.h>
 #include <net/base/io_buffer.h>

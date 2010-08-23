@@ -92,7 +92,8 @@ bool WebUrlLoaderClient::isActive() const
 }
 
 WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHandle* resourceHandle, const WebCore::ResourceRequest& resourceRequest)
-    : m_resourceHandle(resourceHandle)
+    : m_webFrame(webFrame)
+    , m_resourceHandle(resourceHandle)
     , m_cancelling(false)
     , m_sync(false)
     , m_finished(false)
@@ -189,6 +190,26 @@ void WebUrlLoaderClient::cancel()
         thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::cancel));
 }
 
+void WebUrlLoaderClient::setAuth(const std::string& username, const std::string& password)
+{
+    base::Thread* thread = ioThread();
+    if (!thread) {
+        return;
+    }
+    std::wstring wUsername = base::SysUTF8ToWide(username);
+    std::wstring wPassword = base::SysUTF8ToWide(password);
+    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::setAuth, wUsername, wPassword));
+}
+
+void WebUrlLoaderClient::cancelAuth()
+{
+    base::Thread* thread = ioThread();
+    if (!thread) {
+        return;
+    }
+    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::cancelAuth));
+}
+
 void WebUrlLoaderClient::finish()
 {
     m_finished = true;
@@ -200,7 +221,8 @@ void WebUrlLoaderClient::finish()
 }
 
 // This is called from the IO thread, and dispatches the callback to the main thread.
-void WebUrlLoaderClient::maybeCallOnMainThread(CallbackFunction* function, void* context) {
+void WebUrlLoaderClient::maybeCallOnMainThread(CallbackFunction* function, void* context)
+{
     if (m_sync) {
         AutoLock autoLock(*syncLock());
         if (m_queue.empty()) {
@@ -309,6 +331,28 @@ void WebUrlLoaderClient::didFinishLoading(void* data)
 
     // Always finish a request, if not it will leak
     loader->finish();
+}
+
+// static - on main thread
+void WebUrlLoaderClient::authRequired(void* data)
+{
+    OwnPtr<LoaderData> loaderData(static_cast<LoaderData*>(data));
+    WebUrlLoaderClient* loader = loaderData->loader;
+
+    if (!loader->isActive()) {
+        return;
+    }
+
+    std::string host = base::SysWideToUTF8(loaderData->authChallengeInfo->host_and_port);
+    std::string realm = base::SysWideToUTF8(loaderData->authChallengeInfo->realm);
+
+    // TODO: Not clear whose responsibility it is to cache credentials. There's nothing
+    // in AuthChallengeInfo that seems suitable, so for safety we'll tell the UI *not*
+    // to use cached credentials. We may need to track this ourselves (pass "true" on
+    // the first call, then "false" for a second call if the credentials are rejected).
+    bool useCachedCredentials = false;
+
+    loader->m_webFrame->didReceiveAuthenticationChallenge(loader, host, realm, useCachedCredentials);
 }
 
 } // namespace android

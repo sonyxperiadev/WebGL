@@ -33,6 +33,7 @@
 #include "PlatformString.h"
 #include "WebCoreRefObject.h"
 #include <jni.h>
+#include <string>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
@@ -48,6 +49,7 @@ namespace WebCore {
 namespace android {
 
 class WebViewCore;
+class WebUrlLoaderClient;
 
 // one instance of WebFrame per Page for calling into Java's BrowserFrame
 class WebFrame : public WebCoreRefObject {
@@ -108,6 +110,8 @@ class WebFrame : public WebCoreRefObject {
     WTF::String getRawResourceFilename(WebCore::PlatformBridge::rawResId) const;
 
     float density() const;
+
+    void didReceiveAuthenticationChallenge(WebUrlLoaderClient*, const std::string& host, const std::string& realm, bool useCachedCredentials);
 
     /**
      * When the user initiates an action (via trackball, key-press, or touch),
