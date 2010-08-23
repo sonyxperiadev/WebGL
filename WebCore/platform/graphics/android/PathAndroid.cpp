@@ -30,6 +30,8 @@
 #include "FloatRect.h"
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
+#include "PlatformGraphicsContext.h"
+#include "SkiaUtils.h"
 #include "SkPaint.h"
 #include "SkPath.h"
 #include "SkRegion.h"
@@ -77,7 +79,11 @@ bool Path::hasCurrentPoint() const
 
 FloatPoint Path::currentPoint() const
 {
-    // FIXME: Return current point of subpath. See b/2869593
+    if (hasCurrentPoint()) {
+        SkPoint lastPt;
+        m_path->getLastPt(&lastPt);
+        return lastPt;
+    }
     float quietNaN = std::numeric_limits<float>::quiet_NaN();
     return FloatPoint(quietNaN, quietNaN);
 }
@@ -354,17 +360,6 @@ static FloatRect boundingBoxForCurrentStroke(GraphicsContext* context)
     return FloatRect(SkScalarToFloat(r.fLeft), SkScalarToFloat(r.fTop),
                      SkScalarToFloat(r.width()), SkScalarToFloat(r.height()));
 }
-    
-static GraphicsContext* scratchContext()
-{
-    static ImageBuffer* scratch = 0;
-    // TODO(benm): Confirm with reed that it's correct to use the (default) DeviceRGB ColorSpace parameter in the call to create below.
-    if (!scratch)
-        scratch = ImageBuffer::create(IntSize(1, 1)).leakPtr();
-    // We don't bother checking for failure creating the ImageBuffer, since our
-    // ImageBuffer initializer won't fail.
-    return scratch->context();
-}    
 
 FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier)
 {   
@@ -384,15 +379,13 @@ FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier)
 #if ENABLE(SVG)
 bool Path::strokeContains(StrokeStyleApplier* applier, const FloatPoint& point) const
 {
-#if 0
-    ASSERT(applier);
     GraphicsContext* scratch = scratchContext();
     scratch->save();
 
     applier->strokeStyle(scratch);
 
     SkPaint paint;
-    scratch->platformContext()->setupPaintForStroking(&paint, 0, 0);
+    scratch->setupStrokePaint(&paint);
     SkPath strokePath;
     paint.getFillPath(*platformPath(), &strokePath);
     bool contains = SkPathContainsPoint(&strokePath, point,
@@ -400,10 +393,6 @@ bool Path::strokeContains(StrokeStyleApplier* applier, const FloatPoint& point) 
 
     scratch->restore();
     return contains;
-#else
-    // FIXME: 
-    return false;
-#endif
 }
 #endif
 
