@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
 
@@ -28,14 +28,15 @@
 #include "ScriptExecutionContext.h"
 
 #include "ActiveDOMObject.h"
+#include "Blob.h"
+#include "BlobURL.h"
 #include "Database.h"
 #include "DatabaseTask.h"
 #include "DatabaseThread.h"
-#if ENABLE(BLOB) || ENABLE(FILE_WRITER)
 #include "FileThread.h"
-#endif
 #include "MessagePort.h"
 #include "SecurityOrigin.h"
+#include "ThreadableBlobRegistry.h"
 #include "WorkerContext.h"
 #include "WorkerThread.h"
 #include <wtf/MainThread.h>
@@ -91,6 +92,15 @@ ScriptExecutionContext::~ScriptExecutionContext()
         m_fileThread->stop();
         m_fileThread = 0;
     }
+#endif
+
+    HashSet<Blob*>::iterator blobsEnd = m_blobs.end();
+    for (HashSet<Blob*>::iterator iter = m_blobs.begin(); iter != blobsEnd; ++iter)
+        (*iter)->contextDestroyed();
+#if ENABLE(BLOB)
+    HashSet<String>::iterator publicBlobURLsEnd = m_publicBlobURLs.end();
+    for (HashSet<String>::iterator iter = m_publicBlobURLs.begin(); iter != publicBlobURLsEnd; ++iter)
+        ThreadableBlobRegistry::unregisterBlobURL(this, KURL(ParsedURLString, *iter));
 #endif
 }
 
@@ -165,6 +175,18 @@ void ScriptExecutionContext::destroyedMessagePort(MessagePort* port)
     m_messagePorts.remove(port);
 }
 
+void ScriptExecutionContext::addBlob(Blob* blob)
+{
+    ASSERT(blob);
+    m_blobs.add(blob);
+}
+
+void ScriptExecutionContext::removeBlob(Blob* blob)
+{
+    ASSERT(blob);
+    m_blobs.remove(blob);
+}
+
 bool ScriptExecutionContext::canSuspendActiveDOMObjects()
 {
     // No protection against m_activeDOMObjects changing during iteration: canSuspend() shouldn't execute arbitrary JS.
@@ -205,6 +227,9 @@ void ScriptExecutionContext::stopActiveDOMObjects()
         ASSERT(iter->first->scriptExecutionContext() == this);
         iter->first->stop();
     }
+
+    // Also close MessagePorts. If they were ActiveDOMObjects (they could be) then they could be stopped instead.
+    closeMessagePorts();
 }
 
 void ScriptExecutionContext::createdActiveDOMObject(ActiveDOMObject* object, void* upcastPointer)
@@ -218,6 +243,14 @@ void ScriptExecutionContext::destroyedActiveDOMObject(ActiveDOMObject* object)
 {
     ASSERT(object);
     m_activeDOMObjects.remove(object);
+}
+
+void ScriptExecutionContext::closeMessagePorts() {
+    HashSet<MessagePort*>::iterator messagePortsEnd = m_messagePorts.end();
+    for (HashSet<MessagePort*>::iterator iter = m_messagePorts.begin(); iter != messagePortsEnd; ++iter) {
+        ASSERT((*iter)->scriptExecutionContext() == this);
+        (*iter)->close();
+    }
 }
 
 void ScriptExecutionContext::setSecurityOrigin(PassRefPtr<SecurityOrigin> securityOrigin)
@@ -240,6 +273,24 @@ DOMTimer* ScriptExecutionContext::findTimeout(int timeoutId)
 {
     return m_timeouts.get(timeoutId);
 }
+
+#if ENABLE(BLOB)
+KURL ScriptExecutionContext::createPublicBlobURL(Blob* blob)
+{
+    KURL publicURL = BlobURL::createURL(this);
+    ThreadableBlobRegistry::registerBlobURL(this, publicURL, blob->url());
+    m_publicBlobURLs.add(publicURL.string());
+    return publicURL;
+}
+
+void ScriptExecutionContext::revokePublicBlobURL(const KURL& url)
+{
+    if (m_publicBlobURLs.contains(url.string())) {
+        ThreadableBlobRegistry::unregisterBlobURL(this, url);
+        m_publicBlobURLs.remove(url.string());
+    }
+}
+#endif
 
 #if ENABLE(BLOB) || ENABLE(FILE_WRITER)
 FileThread* ScriptExecutionContext::fileThread()

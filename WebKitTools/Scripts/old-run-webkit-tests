@@ -105,12 +105,14 @@ sub readSkippedFiles($);
 sub recordActualResultsAndDiff($$);
 sub sampleDumpTool();
 sub setFileHandleNonBlocking(*$);
+sub setUpWindowsCrashLogSaving();
 sub slowestcmp($$);
 sub splitpath($);
 sub stopRunningTestsEarlyIfNeeded();
 sub stripExtension($);
 sub stripMetrics($$);
 sub testCrashedOrTimedOut($$$$$);
+sub toCygwinPath($);
 sub toURL($);
 sub toWindowsPath($);
 sub validateSkippedArg($$;$);
@@ -149,7 +151,7 @@ my $root;
 my $runSample = 1;
 my $shouldCheckLeaks = 0;
 my $showHelp = 0;
-my $stripEditingCallbacks = isCygwin();
+my $stripEditingCallbacks;
 my $testHTTP = 1;
 my $testWebSocket = 1;
 my $testMedia = 1;
@@ -183,6 +185,12 @@ my $actualTag = "actual";
 my $prettyDiffTag = "pretty-diff";
 my $diffsTag = "diffs";
 my $errorTag = "stderr";
+
+# These are defined here instead of closer to where they are used so that they
+# will always be accessible from the END block that uses them, even if the user
+# presses Ctrl-C before Perl has finished evaluating this whole file.
+my $windowsPostMortemDebuggerKey = "/HKLM/SOFTWARE/Microsoft/Windows NT/CurrentVersion/AeDebug";
+my %previousWindowsPostMortemDebuggerValues;
 
 my $realPlatform;
 
@@ -355,11 +363,13 @@ if ($useWebKitTestRunner) {
         $realPlatform = $platform;
         $platform = "mac-wk2";
     } elsif (isAppleWinWebKit()) {
+        $stripEditingCallbacks = 0 unless defined $stripEditingCallbacks;
         $realPlatform = $platform;
         $platform = "win-wk2";
     }
 }
 
+$stripEditingCallbacks = isCygwin() unless defined $stripEditingCallbacks;
 
 my $ignoreSkipped = $treatSkipped eq "ignore";
 my $skippedOnly = $treatSkipped eq "only";
@@ -379,6 +389,8 @@ $testMedia = 0 if $shouldCheckLeaks && isTiger();
 
 # Generating remote links causes a lot of unnecessary spew on GTK build bot
 $useRemoteLinksToTests = 0 if isGtk();
+
+setUpWindowsCrashLogSaving() if isCygwin();
 
 setConfigurationProductDir(Cwd::abs_path($root)) if (defined($root));
 my $productDir = productDir();
@@ -1397,6 +1409,7 @@ sub openDumpTool()
     } elsif (isCygwin()) {
         $CLEAN_ENV{HOMEDRIVE} = $ENV{'HOMEDRIVE'};
         $CLEAN_ENV{HOMEPATH} = $ENV{'HOMEPATH'};
+        $CLEAN_ENV{_NT_SYMBOL_PATH} = $ENV{_NT_SYMBOL_PATH};
 
         setPathForRunningWebKitApp(\%CLEAN_ENV);
     }
@@ -1717,6 +1730,14 @@ sub convertPathUsingCygpath($$)
 
     $convertedPath =~ s/\Q$spaceSubstitute\E/ /g;
     return $convertedPath;
+}
+
+sub toCygwinPath($)
+{
+    my ($path) = @_;
+    return unless isCygwin();
+
+    return convertPathUsingCygpath($path, "-u");
 }
 
 sub toWindowsPath($)
@@ -2069,6 +2090,10 @@ sub readFromDumpToolWithTimer(**)
             }
         }
         if (defined($lineError)) {
+            if ($lineError =~ /#CRASHED/) {
+                $status = "crashed";
+                last;
+            }
             if ($lineError =~ /#EOF/) {
                 $haveSeenEofError = 1;
             } else {
@@ -2344,4 +2369,48 @@ sub stopRunningTestsEarlyIfNeeded()
     }
 
     return 0;
+}
+
+sub setUpWindowsCrashLogSaving()
+{
+    return unless isCygwin();
+
+    unless (defined $ENV{_NT_SYMBOL_PATH}) {
+        print "The _NT_SYMBOL_PATH environment variable is not set. Crash logs will not be saved.\nSee <http://trac.webkit.org/wiki/BuildingOnWindows#GettingCrashLogs>.\n";
+        return;
+    }
+
+    my $ntsdPath = File::Spec->catfile(toCygwinPath($ENV{PROGRAMFILES}), "Debugging Tools for Windows (x86)", "ntsd.exe");
+    unless (-f $ntsdPath) {
+        $ntsdPath = File::Spec->catfile(toCygwinPath($ENV{SYSTEMROOT}), "system32", "ntsd.exe");
+        unless (-f $ntsdPath) {
+            print STDERR "Can't find ntsd.exe. Crash logs will not be saved.\nSee <http://trac.webkit.org/wiki/BuildingOnWindows#GettingCrashLogs>.\n";
+            return;
+        }
+    }
+
+    my %values = (
+        Debugger => '"' . toWindowsPath($ntsdPath) . '" -p %ld -e %ld -g -lines -c ".logopen /t \"' . toWindowsPath($testResultsDirectory) . '\CrashLog.txt\";!analyze -vv;~*kpn;q"',
+        Auto => 1
+    );
+
+    foreach my $value (keys %values) {
+        chomp($previousWindowsPostMortemDebuggerValues{$value} = `regtool get "$windowsPostMortemDebuggerKey/$value"`);
+        my $result = system "regtool", "set", "-s", "$windowsPostMortemDebuggerKey/$value", $values{$value};
+        next unless $result;
+
+        print "Failed to set \"$windowsPostMortemDebuggerKey/$value\". Crash logs will not be saved.\nSee <http://trac.webkit.org/wiki/BuildingOnWindows#GettingCrashLogs>.\n";
+        return;
+    }
+
+    print "Crash logs will be saved to $testResultsDirectory.\n";
+}
+
+END {
+    return unless isCygwin();
+
+    foreach my $value (keys %previousWindowsPostMortemDebuggerValues) {
+        my $result = system "regtool", "set", "-s", "$windowsPostMortemDebuggerKey/$value", $previousWindowsPostMortemDebuggerValues{$value};
+        !$result or print "Failed to restore \"$windowsPostMortemDebuggerKey/$value\" to its previous value \"$previousWindowsPostMortemDebuggerValues{$value}\"\n.";
+    }
 }

@@ -50,6 +50,9 @@ namespace WebCore {
 
 static const char permissionDeniedErrorMessage[] = "User denied Geolocation";
 static const char failedToStartServiceErrorMessage[] = "Failed to start Geolocation service";
+static const char framelessDocumentErrorMessage[] = "Geolocation cannot be used in frameless documents";
+
+static const int firstAvailableWatchId = 1;
 
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
 
@@ -97,9 +100,15 @@ Geolocation::GeoNotifier::GeoNotifier(Geolocation* geolocation, PassRefPtr<Posit
 
 void Geolocation::GeoNotifier::setFatalError(PassRefPtr<PositionError> error)
 {
-    // This method is called at most once on a given GeoNotifier object.
-    ASSERT(!m_fatalError);
+    // If a fatal error has already been set, stick with it. This makes sure that
+    // when permission is denied, this is the error reported, as required by the
+    // spec.
+    if (m_fatalError)
+        return;
+
     m_fatalError = error;
+    // An existing timer may not have a zero timeout.
+    m_timer.stop();
     m_timer.startOneShot(0);
 }
 
@@ -133,6 +142,8 @@ void Geolocation::GeoNotifier::timerFired(Timer<GeoNotifier>*)
     // could be deleted by a call to clearWatch in a callback.
     RefPtr<GeoNotifier> protect(this);
 
+    // Test for fatal error first. This is required for the case where the Frame is
+    // disconnected and requests are cancelled.
     if (m_fatalError) {
         if (m_errorCallback)
             m_errorCallback->handleEvent(m_fatalError.get());
@@ -158,6 +169,7 @@ void Geolocation::GeoNotifier::timerFired(Timer<GeoNotifier>*)
 
 void Geolocation::Watchers::set(int id, PassRefPtr<GeoNotifier> prpNotifier)
 {
+    ASSERT(id > 0);
     RefPtr<GeoNotifier> notifier = prpNotifier;
 
     m_idToNotifierMap.set(id, notifier.get());
@@ -166,6 +178,7 @@ void Geolocation::Watchers::set(int id, PassRefPtr<GeoNotifier> prpNotifier)
 
 void Geolocation::Watchers::remove(int id)
 {
+    ASSERT(id > 0);
     IdToNotifierMap::iterator iter = m_idToNotifierMap.find(id);
     if (iter == m_idToNotifierMap.end())
         return;
@@ -221,25 +234,12 @@ Geolocation::~Geolocation()
 {
 }
 
-#if PLATFORM(ANDROID)
-void Geolocation::stop()
-{
-    m_oneShots.clear();
-    m_watchers.clear();
-    stopUpdating();
-}
-#endif // PLATFORM(ANDROID)
-
 void Geolocation::disconnectFrame()
 {
     if (m_frame && m_frame->page() && m_allowGeolocation == InProgress)
         m_frame->page()->chrome()->cancelGeolocationPermissionRequestForFrame(m_frame, this);
-#if PLATFORM(ANDROID)
-    // See Geolocation::stop()
-#else
-    stopTimers();
+    cancelAllRequests();
     stopUpdating();
-#endif // PLATFORM(ANDROID)
     if (m_frame && m_frame->document())
         m_frame->document()->setUsingGeolocation(false);
     m_frame = 0;
@@ -265,6 +265,9 @@ Geoposition* Geolocation::lastPosition()
 
 void Geolocation::getCurrentPosition(PassRefPtr<PositionCallback> successCallback, PassRefPtr<PositionErrorCallback> errorCallback, PassRefPtr<PositionOptions> options)
 {
+    if (!m_frame)
+        return;
+
     RefPtr<GeoNotifier> notifier = startRequest(successCallback, errorCallback, options);
     ASSERT(notifier);
 
@@ -273,10 +276,13 @@ void Geolocation::getCurrentPosition(PassRefPtr<PositionCallback> successCallbac
 
 int Geolocation::watchPosition(PassRefPtr<PositionCallback> successCallback, PassRefPtr<PositionErrorCallback> errorCallback, PassRefPtr<PositionOptions> options)
 {
+    if (!m_frame)
+        return 0;
+
     RefPtr<GeoNotifier> notifier = startRequest(successCallback, errorCallback, options);
     ASSERT(notifier);
 
-    static int nextAvailableWatchId = 1;
+    static int nextAvailableWatchId = firstAvailableWatchId;
     // In case of overflow, make sure the ID remains positive, but reuse the ID values.
     if (nextAvailableWatchId < 1)
         nextAvailableWatchId = 1;
@@ -294,13 +300,18 @@ PassRefPtr<Geolocation::GeoNotifier> Geolocation::startRequest(PassRefPtr<Positi
         notifier->setFatalError(PositionError::create(PositionError::PERMISSION_DENIED, permissionDeniedErrorMessage));
     else if (haveSuitableCachedPosition(notifier->m_options.get()))
         notifier->setUseCachedPosition();
-    else if (notifier->hasZeroTimeout() || startUpdating(notifier.get())) {
+    else if (notifier->hasZeroTimeout())
+        notifier->startTimerIfNeeded();
 #if USE(PREEMPT_GEOLOCATION_PERMISSION)
-        // Only start timer if we're not waiting for user permission.
-        if (!m_startRequestPermissionNotifier)
-#endif            
-            notifier->startTimerIfNeeded();
-    } else
+    else if (!isAllowed()) {
+        // if we don't yet have permission, request for permission before calling startUpdating()
+        m_pendingForPermissionNotifiers.add(notifier);
+        requestPermission();
+    }
+#endif
+    else if (startUpdating(notifier.get()))
+        notifier->startTimerIfNeeded();
+    else
         notifier->setFatalError(PositionError::create(PositionError::POSITION_UNAVAILABLE, failedToStartServiceErrorMessage));
 
     return notifier.release();
@@ -388,6 +399,9 @@ bool Geolocation::haveSuitableCachedPosition(PositionOptions* options)
 
 void Geolocation::clearWatch(int watchId)
 {
+    if (watchId < firstAvailableWatchId)
+        return;
+
     m_watchers.remove(watchId);
     
     if (!hasListeners())
@@ -417,28 +431,10 @@ void Geolocation::setIsAllowed(bool allowed)
     m_allowGeolocation = allowed ? Yes : No;
     
 #if USE(PREEMPT_GEOLOCATION_PERMISSION)
-    if (m_startRequestPermissionNotifier) {
-        if (isAllowed()) {
-            // Permission request was made during the startUpdating process
-            m_startRequestPermissionNotifier->startTimerIfNeeded();
-            // The notifier is always ref'ed by m_oneShots or m_watchers.
-            GeoNotifier* notifier = m_startRequestPermissionNotifier.get();
-            m_startRequestPermissionNotifier = 0;
-#if ENABLE(CLIENT_BASED_GEOLOCATION)
-            if (!m_frame)
-                return;
-            Page* page = m_frame->page();
-            if (!page)
-                return;
-            page->geolocationController()->addObserver(this, notifier->m_options->enableHighAccuracy());
-#else
-            // TODO: Handle startUpdate() for non-client based implementations using pre-emptive policy
-#endif
-        } else {
-            m_startRequestPermissionNotifier->setFatalError(PositionError::create(PositionError::PERMISSION_DENIED, permissionDeniedErrorMessage));
-            m_oneShots.add(m_startRequestPermissionNotifier);
-            m_startRequestPermissionNotifier = 0;
-        }
+    // Permission request was made during the startRequest process
+    if (!m_pendingForPermissionNotifiers.isEmpty()) {
+        handlePendingPermissionNotifiers();
+        m_pendingForPermissionNotifiers.clear();
         return;
     }
 #endif
@@ -511,6 +507,22 @@ void Geolocation::stopTimers()
 {
     stopTimersForOneShots();
     stopTimersForWatchers();
+}
+
+void Geolocation::cancelRequests(Vector<RefPtr<GeoNotifier> >& notifiers)
+{
+    Vector<RefPtr<GeoNotifier> >::const_iterator end = notifiers.end();
+    for (Vector<RefPtr<GeoNotifier> >::const_iterator it = notifiers.begin(); it != end; ++it)
+        (*it)->setFatalError(PositionError::create(PositionError::POSITION_UNAVAILABLE, framelessDocumentErrorMessage));
+}
+
+void Geolocation::cancelAllRequests()
+{
+    Vector<RefPtr<GeoNotifier> > copy;
+    copyToVector(m_oneShots, copy);
+    cancelRequests(copy);
+    m_watchers.getNotifiersVector(copy);
+    cancelRequests(copy);
 }
 
 void Geolocation::handleError(PositionError* error)
@@ -634,14 +646,6 @@ void Geolocation::geolocationServiceErrorOccurred(GeolocationService* service)
 
 bool Geolocation::startUpdating(GeoNotifier* notifier)
 {
-#if USE(PREEMPT_GEOLOCATION_PERMISSION)
-    if (!isAllowed()) {
-        m_startRequestPermissionNotifier = notifier;
-        requestPermission();
-        return true;
-    }
-#endif
-
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
     if (!m_frame)
         return false;
@@ -685,6 +689,38 @@ void Geolocation::stopUpdating()
 #endif
 
 }
+
+#if USE(PREEMPT_GEOLOCATION_PERMISSION)
+void Geolocation::handlePendingPermissionNotifiers()
+{
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+    if (!m_frame)
+        return;
+    Page* page = m_frame->page();
+    if (!page)
+        return;
+#endif
+
+    // While we iterate through the list, we need not worry about list being modified as the permission 
+    // is already set to Yes/No and no new listeners will be added to the pending list
+    GeoNotifierSet::const_iterator end = m_pendingForPermissionNotifiers.end();
+    for (GeoNotifierSet::const_iterator iter = m_pendingForPermissionNotifiers.begin(); iter != end; ++iter) {
+        GeoNotifier* notifier = iter->get();
+
+        if (isAllowed()) {
+            // start all pending notification requests as permission granted.
+            // The notifier is always ref'ed by m_oneShots or m_watchers.
+#if ENABLE(CLIENT_BASED_GEOLOCATION)
+            notifier->startTimerIfNeeded();
+            page->geolocationController()->addObserver(this, notifier->m_options->enableHighAccuracy());
+#else
+            // TODO: Handle startUpdate() for non-client based implementations using pre-emptive policy
+#endif
+        } else
+            notifier->setFatalError(PositionError::create(PositionError::PERMISSION_DENIED, permissionDeniedErrorMessage));
+    }
+}
+#endif
 
 } // namespace WebCore
 

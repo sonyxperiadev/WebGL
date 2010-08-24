@@ -39,7 +39,6 @@
 #include "HTMLScriptElement.h"
 #include "HTMLToken.h"
 #include "HTMLTokenizer.h"
-#include "LegacyHTMLDocumentParser.h"
 #include "LegacyHTMLTreeBuilder.h"
 #include "LocalizedStrings.h"
 #include "MathMLNames.h"
@@ -65,6 +64,11 @@ inline bool isTreeBuilderWhitepace(UChar c)
 {
     // FIXME: Consider branch permutations.
     return c == '\t' || c == '\x0A' || c == '\x0C' || c == '\x0D' || c == ' ';
+}
+
+inline bool isNotTreeBuilderWhitepace(UChar c)
+{
+    return !isTreeBuilderWhitepace(c);
 }
 
 inline bool isTreeBuilderWhitepaceOrReplacementCharacter(UChar c)
@@ -303,21 +307,17 @@ public:
 
     void skipLeadingWhitespace()
     {
-        ASSERT(!isEmpty());
-        while (isTreeBuilderWhitepace(*m_current)) {
-            if (++m_current == m_end)
-                return;
-        }
+        skipLeading<isTreeBuilderWhitepace>();
     }
 
     String takeLeadingWhitespace()
     {
-        ASSERT(!isEmpty());
-        const UChar* start = m_current;
-        skipLeadingWhitespace();
-        if (start == m_current)
-            return String();
-        return String(start, m_current - start);
+        return takeLeading<isTreeBuilderWhitepace>();
+    }
+
+    String takeLeadingNonWhitespace()
+    {
+        return takeLeading<isNotTreeBuilderWhitepace>();
     }
 
     String takeRemaining()
@@ -352,6 +352,27 @@ public:
     }
 
 private:
+    template<bool characterPredicate(UChar)>
+    void skipLeading()
+    {
+        ASSERT(!isEmpty());
+        while (characterPredicate(*m_current)) {
+            if (++m_current == m_end)
+                return;
+        }
+    }
+
+    template<bool characterPredicate(UChar)>
+    String takeLeading()
+    {
+        ASSERT(!isEmpty());
+        const UChar* start = m_current;
+        skipLeading<characterPredicate>();
+        if (start == m_current)
+            return String();
+        return String(start, m_current - start);
+    }
+
     const UChar* m_current;
     const UChar* m_end;
 };
@@ -391,13 +412,14 @@ HTMLTreeBuilder::HTMLTreeBuilder(HTMLTokenizer* tokenizer, DocumentFragment* fra
 {
     if (shouldUseLegacyTreeBuilder(fragment->document()))
         return;
-    // This is steps 2-6 of the HTML5 Fragment Case parsing algorithm:
-    // http://www.whatwg.org/specs/web-apps/current-work/multipage/the-end.html#fragment-case
-    if (contextElement)
+    if (contextElement) {
+        // Steps 4.2-4.6 of the HTML5 Fragment Case parsing algorithm:
+        // http://www.whatwg.org/specs/web-apps/current-work/multipage/the-end.html#fragment-case
         m_document->setParseMode(contextElement->document()->parseMode());
-    processFakeStartTag(htmlTag);
-    resetInsertionModeAppropriately();
-    m_tree.setForm(closestFormAncestor(contextElement));
+        processFakeStartTag(htmlTag);
+        resetInsertionModeAppropriately();
+        m_tree.setForm(closestFormAncestor(contextElement));
+    }
 }
 
 HTMLTreeBuilder::~HTMLTreeBuilder()
@@ -1997,7 +2019,9 @@ void HTMLTreeBuilder::processEndTagForInCell(AtomicHTMLToken& token)
         m_tree.openElements()->popUntilPopped(token.name());
         m_tree.activeFormattingElements()->clearToLastMarker();
         setInsertionMode(InRowMode);
-        ASSERT(m_tree.currentElement()->hasTagName(trTag));
+        // FIXME: The fragment case of this ASSERT is a spec bug:
+        // http://www.w3.org/Bugs/Public/show_bug.cgi?id=10338
+        ASSERT(m_tree.currentElement()->hasTagName(trTag) || (isParsingFragment() && m_fragmentContext.contextElement()->hasTagName(trTag)));
         return;
     }
     if (token.name() == bodyTag
@@ -2628,7 +2652,10 @@ ReprocessBuffer:
             return;
         if (!processColgroupEndTagForInColumnGroup()) {
             ASSERT(isParsingFragment());
-            return;
+            // The spec tells us to drop these characters on the floor.
+            buffer.takeLeadingNonWhitespace();
+            if (buffer.isEmpty())
+                return;
         }
         goto ReprocessBuffer;
     }

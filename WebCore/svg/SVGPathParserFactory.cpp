@@ -22,7 +22,8 @@
 #if ENABLE(SVG)
 #include "SVGPathParserFactory.h"
 
-#include "StringBuilder.h"
+#include "PathTraversalState.h"
+#include "SVGPathBlender.h"
 #include "SVGPathBuilder.h"
 #include "SVGPathByteStreamBuilder.h"
 #include "SVGPathByteStreamSource.h"
@@ -31,6 +32,8 @@
 #include "SVGPathSegListSource.h"
 #include "SVGPathStringBuilder.h"
 #include "SVGPathStringSource.h"
+#include "SVGPathTraversalStateBuilder.h"
+#include "StringBuilder.h"
 
 namespace WebCore {
 
@@ -73,6 +76,17 @@ static SVGPathStringBuilder* globalSVGPathStringBuilder()
     return s_builder;
 }
 
+static SVGPathTraversalStateBuilder* globalSVGPathTraversalStateBuilder(PathTraversalState& traversalState, float length)
+{
+    static SVGPathTraversalStateBuilder* s_builder = 0;
+    if (!s_builder)
+        s_builder = new SVGPathTraversalStateBuilder;
+
+    s_builder->setCurrentTraversalState(&traversalState);
+    s_builder->setDesiredLength(length);
+    return s_builder;
+}
+
 static SVGPathParser* globalSVGPathParser(SVGPathSource* source, SVGPathConsumer* consumer)
 {
     static SVGPathParser* s_parser = 0;
@@ -82,6 +96,15 @@ static SVGPathParser* globalSVGPathParser(SVGPathSource* source, SVGPathConsumer
     s_parser->setCurrentSource(source);
     s_parser->setCurrentConsumer(consumer);
     return s_parser;
+}
+
+static SVGPathBlender* globalSVGPathBlender()
+{
+    static SVGPathBlender* s_blender = 0;
+    if (!s_blender)
+        s_blender = new SVGPathBlender;
+
+    return s_blender;
 }
 
 SVGPathParserFactory* SVGPathParserFactory::self()
@@ -220,6 +243,42 @@ bool SVGPathParserFactory::buildSVGPathByteStreamFromString(const String& d, Own
     SVGPathParser* parser = globalSVGPathParser(source.get(), builder);
     bool ok = parser->parsePathDataFromSource(parsingMode);
     result = stream.release();
+    parser->cleanup();
+    return ok;
+}
+
+bool SVGPathParserFactory::buildAnimatedSVGPathByteStream(SVGPathByteStream* fromStream, SVGPathByteStream* toStream, OwnPtr<SVGPathByteStream>& result, float progress)
+{
+    ASSERT(fromStream);
+    ASSERT(toStream);
+    if (fromStream->isEmpty() || toStream->isEmpty())
+        return false;
+
+    OwnPtr<SVGPathByteStream> stream = SVGPathByteStream::create();
+    SVGPathByteStreamBuilder* builder = globalSVGPathByteStreamBuilder(stream.get());
+
+    OwnPtr<SVGPathByteStreamSource> fromSource = SVGPathByteStreamSource::create(fromStream);
+    OwnPtr<SVGPathByteStreamSource> toSource = SVGPathByteStreamSource::create(toStream);
+    SVGPathBlender* blender = globalSVGPathBlender();
+    bool ok = blender->blendAnimatedPath(progress, fromSource.get(), toSource.get(), builder);
+    result = stream.release();
+    blender->cleanup();
+    return ok;
+}
+
+bool SVGPathParserFactory::getSVGPathSegAtLengthFromSVGPathSegList(SVGPathSegList* pathSegList, float length, unsigned long& pathSeg)
+{
+    ASSERT(pathSegList);
+    if (!pathSegList->numberOfItems())
+        return false; 
+
+    PathTraversalState traversalState(PathTraversalState::TraversalSegmentAtLength);
+    SVGPathTraversalStateBuilder* builder = globalSVGPathTraversalStateBuilder(traversalState, length);
+
+    OwnPtr<SVGPathSegListSource> source = SVGPathSegListSource::create(pathSegList);
+    SVGPathParser* parser = globalSVGPathParser(source.get(), builder);
+    bool ok = parser->parsePathDataFromSource(NormalizedParsing);
+    pathSeg = builder->pathSegmentIndex();
     parser->cleanup();
     return ok;
 }

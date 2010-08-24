@@ -82,7 +82,7 @@ public:
         , useCompositing(true)
         , useTiledBackingStore(false)
         , useWebGL(false)
-#if defined(Q_WS_MAEMO_5) || defined(Q_WS_S60)
+#if defined(Q_WS_MAEMO_5) || defined(Q_OS_SYMBIAN)
         , useFrameFlattening(true)
 #else
         , useFrameFlattening(false)
@@ -151,6 +151,7 @@ protected slots:
     void initializeView();
 
     void setTouchMocking(bool on);
+    void toggleWebView(bool graphicsBased);
     void toggleAcceleratedCompositing(bool toggle);
     void toggleTiledBackingStore(bool toggle);
     void toggleResizesToContents(bool toggle);
@@ -166,6 +167,8 @@ protected slots:
 #endif
 
     void changeViewportUpdateMode(int mode);
+    void animatedFlip();
+    void animatedYFlip();
     void selectElements();
     void showFPS(bool enable);
     void showUserAgentDialog();

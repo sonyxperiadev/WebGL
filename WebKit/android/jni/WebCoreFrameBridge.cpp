@@ -29,7 +29,6 @@
 #include "WebCoreFrameBridge.h"
 
 #include "Arena.h"
-#include "AtomicString.h"
 #include "BackForwardList.h"
 #include "Cache.h"
 #include "Chrome.h"
@@ -97,6 +96,7 @@
 #include <utils/AssetManager.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/Platform.h>
+#include <wtf/text/AtomicString.h>
 #include <wtf/text/CString.h>
 
 #if USE(JSC)

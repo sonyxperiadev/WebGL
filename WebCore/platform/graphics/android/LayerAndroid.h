@@ -22,8 +22,9 @@
 #include "RefPtr.h"
 #include "SkColor.h"
 #include "SkLayer.h"
-#include "StringHash.h"
+
 #include <wtf/HashMap.h>
+#include <wtf/text/StringHash.h>
 
 #ifndef BZERO_DEFINED
 #define BZERO_DEFINED

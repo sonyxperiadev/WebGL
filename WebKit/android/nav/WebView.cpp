@@ -29,7 +29,6 @@
 
 #include "AndroidAnimation.h"
 #include "AndroidLog.h"
-#include "AtomicString.h"
 #include "BaseLayerAndroid.h"
 #include "CachedFrame.h"
 #include "CachedNode.h"
@@ -68,6 +67,7 @@
 #include <JNIHelp.h>
 #include <jni.h>
 #include <ui/KeycodeLabels.h>
+#include <wtf/text/AtomicString.h>
 #include <wtf/text/CString.h>
 
 namespace android {

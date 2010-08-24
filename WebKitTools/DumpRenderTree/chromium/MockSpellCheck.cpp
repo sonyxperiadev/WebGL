@@ -31,11 +31,12 @@
 #include "config.h"
 #include "MockSpellCheck.h"
 
-#include "public/WebString.h"
 #include <wtf/ASCIICType.h>
 #include <wtf/Assertions.h>
+#include <wtf/text/WTFString.h>
 
-using namespace WebCore;
+#include "public/WebString.h"
+
 using namespace WebKit;
 
 MockSpellCheck::MockSpellCheck()
@@ -59,7 +60,7 @@ bool MockSpellCheck::spellCheckWord(const WebString& text, int* misspelledOffset
 
     // Convert to a String because we store String instances in
     // m_misspelledWords and WebString has no find().
-    const String stringText(text.data(), text.length());
+    const WTF::String stringText(text.data(), text.length());
 
     // Extract the first possible English word from the given string.
     // The given string may include non-ASCII characters or numbers. So, we
@@ -82,7 +83,7 @@ bool MockSpellCheck::spellCheckWord(const WebString& text, int* misspelledOffset
     // extracted word if this word is a known misspelled word.
     // (See the comment in MockSpellCheck::initializeIfNeeded() why we use a
     // misspelled-word table.)
-    String word = stringText.substring(wordOffset, wordLength);
+    WTF::String word = stringText.substring(wordOffset, wordLength);
     if (!m_misspelledWords.contains(word))
         return true;
 
@@ -137,7 +138,7 @@ bool MockSpellCheck::initializeIfNeeded()
 
     m_misspelledWords.clear();
     for (size_t i = 0; i < arraysize(misspelledWords); ++i)
-        m_misspelledWords.add(String::fromUTF8(misspelledWords[i]), false);
+        m_misspelledWords.add(WTF::String::fromUTF8(misspelledWords[i]), false);
 
     // Mark as initialized to prevent this object from being initialized twice
     // or more.

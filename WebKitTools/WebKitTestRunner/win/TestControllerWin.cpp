@@ -29,6 +29,7 @@
 #include <io.h>
 #include <shlwapi.h>
 #include <string>
+#include <WebKit2/WKContextPrivateWin.h>
 #include <WebKit2/WKStringCF.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
@@ -80,8 +81,17 @@ static void addQTDirToPATH()
     ::SetEnvironmentVariableW(pathEnvironmentVariable, newPath.data());
 }
 
+static LONG WINAPI exceptionFilter(EXCEPTION_POINTERS*)
+{
+    fputs("#CRASHED\n", stderr);
+    fflush(stderr);
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
 void TestController::platformInitialize()
 {
+    ::SetUnhandledExceptionFilter(exceptionFilter);
+
     _setmode(1, _O_BINARY);
     _setmode(2, _O_BINARY);
 
@@ -111,6 +121,24 @@ void TestController::initializeTestPluginDirectory()
     RetainPtr<CFURLRef> testPluginDirectoryURL(AdoptCF, CFURLCreateCopyAppendingPathComponent(0, bundleDirectoryURL.get(), testPluginDirectoryNameString.get(), true));
     RetainPtr<CFStringRef> testPluginDirectoryPath(AdoptCF, CFURLCopyFileSystemPath(testPluginDirectoryURL.get(), kCFURLWindowsPathStyle));
     m_testPluginDirectory.adopt(WKStringCreateWithCFString(testPluginDirectoryPath.get()));
+}
+
+void TestController::runUntil(bool& done)
+{
+    while (!done) {
+        MSG msg;
+        BOOL result = GetMessage(&msg, 0, 0, 0);
+        if (result == -1)
+            return;
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+}
+
+void TestController::platformInitializeContext()
+{
+    // FIXME: Make DRT pass with Windows native controls. <http://webkit.org/b/25592>
+    WKContextSetShouldPaintNativeControls(m_context.get(), false);
 }
 
 } // namespace WTR

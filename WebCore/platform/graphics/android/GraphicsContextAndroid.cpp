@@ -801,10 +801,6 @@ void GraphicsContext::clipOut(const Path& p)
     GC2Canvas(this)->clipPath(*p.platformPath(), SkRegion::kDifference_Op);
 }
 
-void GraphicsContext::clipToImageBuffer(const FloatRect&, const ImageBuffer*) {
-    SkDebugf("xxxxxxxxxxxxxxxxxx clipToImageBuffer not implemented\n");
-}
-
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 #if SVG_SUPPORT

@@ -129,6 +129,8 @@ DOM_CLASSES = \
     DatabaseSync \
     DeviceMotionEvent \
     DeviceOrientationEvent \
+    DirectoryEntry \
+    DirectoryReader \
     Document \
     DocumentFragment \
     DocumentType \
@@ -136,7 +138,9 @@ DOM_CLASSES = \
     ElementTimeControl \
     Entity \
     EntityReference \
+    EntriesCallback \
     Entry \
+    EntryArray \
     EntryCallback \
     ErrorCallback \
     ErrorEvent \
@@ -146,6 +150,7 @@ DOM_CLASSES = \
     EventSource \
     EventTarget \
     File \
+    FileEntry \
     FileError \
     FileList \
     FileReader \
@@ -490,7 +495,7 @@ JS_DOM_HEADERS=$(filter-out JSEventListener.h JSEventTarget.h,$(DOM_CLASSES:%=JS
 
 WEB_DOM_HEADERS :=
 ifeq ($(findstring BUILDING_WX,$(FEATURE_DEFINES)), BUILDING_WX)
-WEB_DOM_HEADERS := $(filter-out WebDOMXSLTProcessor.h,$(DOM_CLASSES:%=WebDOM%.h))
+WEB_DOM_HEADERS := $(filter-out WebDOMXSLTProcessor.h WebDOMEventTarget.h,$(DOM_CLASSES:%=WebDOM%.h))
 endif # BUILDING_WX
 
 all : \
@@ -505,7 +510,7 @@ all : \
     ColorData.cpp \
     DocTypeStrings.cpp \
     HTMLElementFactory.cpp \
-    HTMLEntityNames.cpp \
+    HTMLEntityTable.cpp \
     HTMLNames.cpp \
     WMLElementFactory.cpp \
     WMLNames.cpp \
@@ -600,8 +605,8 @@ DocTypeStrings.cpp : html/DocTypeStrings.gperf $(WebCore)/make-hash-tools.pl
 
 # HTML entity names
 
-HTMLEntityNames.cpp : html/HTMLEntityNames.gperf $(WebCore)/make-hash-tools.pl
-	perl $(WebCore)/make-hash-tools.pl . $(WebCore)/html/HTMLEntityNames.gperf
+HTMLEntityTable.cpp : html/HTMLEntityNames.json $(WebCore)/../WebKitTools/Scripts/create-html-entity-table
+	python $(WebCore)/../WebKitTools/Scripts/create-html-entity-table -o HTMLEntityTable.cpp $(WebCore)/html/HTMLEntityNames.json
 
 # --------
 

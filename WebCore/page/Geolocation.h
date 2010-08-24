@@ -139,6 +139,9 @@ private:
     void stopTimersForWatchers();
     void stopTimers();
 
+    void cancelRequests(Vector<RefPtr<GeoNotifier> >&);
+    void cancelAllRequests();
+
     void positionChangedInternal();
     void makeSuccessCallbacks();
     void handleError(PositionError*);
@@ -147,6 +150,10 @@ private:
 
     bool startUpdating(GeoNotifier*);
     void stopUpdating();
+
+#if USE(PREEMPT_GEOLOCATION_PERMISSION)
+    void handlePendingPermissionNotifiers();
+#endif
 
 #if !ENABLE(CLIENT_BASED_GEOLOCATION) && ENABLE(GEOLOCATION)
     // GeolocationServiceClient
@@ -171,7 +178,7 @@ private:
     OwnPtr<GeolocationService> m_service;
 #endif
 #if USE(PREEMPT_GEOLOCATION_PERMISSION)
-    RefPtr<GeoNotifier> m_startRequestPermissionNotifier;
+    GeoNotifierSet m_pendingForPermissionNotifiers;
 #endif
     RefPtr<Geoposition> m_lastPosition;
 

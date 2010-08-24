@@ -112,7 +112,6 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document* doc)
     , m_processingMediaPlayerCallback(0)
     , m_playing(false)
     , m_isWaitingUntilMediaCanStart(false)
-    , m_processingLoad(false)
     , m_delayingTheLoadEvent(false)
     , m_haveFiredLoadedData(false)
     , m_inActiveDocument(true)
@@ -512,7 +511,10 @@ void HTMLMediaElement::prepareForLoad()
 #if !ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     m_player = MediaPlayer::create(this);
 #else
-    createMediaPlayerProxy();
+    if (m_player)
+        m_player->cancelLoad();
+    else
+        createMediaPlayerProxy();
 #endif
 
     // 4 - If the media element's networkState is not set to NETWORK_EMPTY, then run these substeps
@@ -532,6 +534,16 @@ void HTMLMediaElement::prepareForLoad()
     m_error = 0;
     m_autoplaying = true;
 
+    // 7 - Invoke the media element's resource selection algorithm.
+
+    // 8 - Note: Playback of any previously playing media resource for this element stops.
+
+    // The resource selection algorithm
+    // 1 - Set the networkState to NETWORK_NO_SOURCE
+    m_networkState = NETWORK_NO_SOURCE;
+
+    // 2 - Asynchronously await a stable state.
+
     m_playedTimeRanges = TimeRanges::create();
     m_lastSeekTime = 0;
     m_closedCaptionsVisible = false;
@@ -549,22 +561,13 @@ void HTMLMediaElement::loadInternal()
         return;
     }
 
-    // Steps 1 - 6 were done in prepareForLoad
-
-    // 7 - Invoke the media element's resource selection algorithm.
     selectMediaResource();
-    m_processingLoad = false;
 }
 
 void HTMLMediaElement::selectMediaResource()
 {
     enum Mode { attribute, children };
     Mode mode = attribute;
-
-    // 1 - Set the networkState to NETWORK_NO_SOURCE
-    m_networkState = NETWORK_NO_SOURCE;
-
-    // 2 - Asynchronously await a stable state.
 
     // 3 - ... the media element has neither a src attribute ...
     if (!hasAttribute(srcAttr)) {

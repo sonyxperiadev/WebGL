@@ -28,7 +28,6 @@
 #include "config.h"
 #include "WebViewCore.h"
 
-#include "AtomicString.h"
 #include "BaseLayerAndroid.h"
 #include "CachedNode.h"
 #include "CachedRoot.h"
@@ -101,7 +100,6 @@
 #include "SkCanvas.h"
 #include "SkPicture.h"
 #include "SkUtils.h"
-#include "StringImpl.h"
 #include "Text.h"
 #include "TypingCommand.h"
 #include "WebCoreFrameBridge.h"
@@ -113,6 +111,8 @@
 #include <JNIUtility.h>
 #include <ui/KeycodeLabels.h>
 #include <wtf/CurrentTime.h>
+#include <wtf/text/AtomicString.h>
+#include <wtf/text/StringImpl.h>
 
 #if USE(V8)
 #include "ScriptController.h"

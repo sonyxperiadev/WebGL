@@ -27,10 +27,10 @@
 #ifndef HTMLTokenizer_h
 #define HTMLTokenizer_h
 
-#include "AtomicString.h"
 #include "SegmentedString.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
@@ -254,7 +254,7 @@ private:
     inline void saveEndTagNameIfNeeded();
     inline bool isAppropriateEndTag();
 
-    inline bool shouldEmitBufferedCharacterToken(const SegmentedString&);
+    inline bool haveBufferedCharacterToken();
 
     State m_state;
 

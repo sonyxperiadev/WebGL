@@ -40,46 +40,51 @@
 
 namespace WebCore {
 
-Entry::Entry(PassRefPtr<DOMFileSystem> fileSystem, const String& fullPath, bool isDirectory)
+Entry::Entry(PassRefPtr<DOMFileSystem> fileSystem, const String& fullPath)
     : m_fileSystem(fileSystem)
     , m_fullPath(fullPath)
-    , m_isDirectory(isDirectory)
 {
-    int index = fullPath.reverseFind("/");
-    if (index != -1)
+    size_t index = fullPath.reverseFind("/");
+    if (index != notFound)
         m_name = fullPath.substring(index);
     else
         m_name = fullPath;
 }
 
-void Entry::getMetadata(ScriptExecutionContext*, PassRefPtr<MetadataCallback>, PassRefPtr<ErrorCallback>)
+void Entry::getMetadata(PassRefPtr<MetadataCallback>, PassRefPtr<ErrorCallback>)
 {
     // FIXME: to be implemented.
+    ASSERT_NOT_REACHED();
 }
 
-void Entry::moveTo(ScriptExecutionContext*, PassRefPtr<Entry>, const String&, PassRefPtr<EntryCallback>, PassRefPtr<ErrorCallback>)
+void Entry::moveTo(PassRefPtr<Entry>, const String&, PassRefPtr<EntryCallback>, PassRefPtr<ErrorCallback>)
 {
     // FIXME: to be implemented.
+    ASSERT_NOT_REACHED();
 }
 
-void Entry::copyTo(ScriptExecutionContext*, PassRefPtr<Entry>, const String&, PassRefPtr<EntryCallback>, PassRefPtr<ErrorCallback>)
+void Entry::copyTo(PassRefPtr<Entry>, const String&, PassRefPtr<EntryCallback>, PassRefPtr<ErrorCallback>)
 {
     // FIXME: to be implemented.
+    ASSERT_NOT_REACHED();
 }
 
-void Entry::remove(ScriptExecutionContext*, PassRefPtr<VoidCallback>, PassRefPtr<ErrorCallback>)
+void Entry::remove(PassRefPtr<VoidCallback>, PassRefPtr<ErrorCallback>)
 {
     // FIXME: to be implemented.
+    ASSERT_NOT_REACHED();
 }
 
-void Entry::getParent(ScriptExecutionContext*, PassRefPtr<EntryCallback>, PassRefPtr<ErrorCallback>)
+void Entry::getParent(PassRefPtr<EntryCallback>, PassRefPtr<ErrorCallback>)
 {
     // FIXME: to be implemented.
+    ASSERT_NOT_REACHED();
 }
 
 String Entry::toURI(const String&)
 {
     // FIXME: to be implemented.
+    ASSERT_NOT_REACHED();
     return String();
 }
 

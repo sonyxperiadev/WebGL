@@ -31,27 +31,91 @@
 #include "config.h"
 #include "Blob.h"
 
+#include "BlobData.h"
 #include "BlobItem.h"
+#include "BlobURL.h"
 #include "FileSystem.h"
+#include "ScriptExecutionContext.h"
+#include "ThreadableBlobRegistry.h"
 
 namespace WebCore {
 
-Blob::Blob(ScriptExecutionContext*, const String& type, const BlobItemList& items)
-    : m_type(type)
+// FIXME: To be removed when we switch to using BlobData.
+Blob::Blob(ScriptExecutionContext* scriptExecutionContext, const String& type, const BlobItemList& items)
+    : m_scriptExecutionContext(scriptExecutionContext)
+    , m_type(type)
+    , m_size(0)
 {
+    m_scriptExecutionContext->addBlob(this);
     for (size_t i = 0; i < items.size(); ++i)
         m_items.append(items[i]);
 }
 
-Blob::Blob(ScriptExecutionContext*, const PassRefPtr<BlobItem>& item)
+// FIXME: To be removed when we switch to using BlobData.
+Blob::Blob(ScriptExecutionContext* scriptExecutionContext, const PassRefPtr<BlobItem>& item)
+    : m_scriptExecutionContext(scriptExecutionContext)
+    , m_size(0)
 {
+    m_scriptExecutionContext->addBlob(this);
     m_items.append(item);
 }
 
-Blob::Blob(ScriptExecutionContext*, const String& path)
+// FIXME: To be removed when we switch to using BlobData.
+Blob::Blob(ScriptExecutionContext* scriptExecutionContext, const String& path)
+    : m_scriptExecutionContext(scriptExecutionContext)
+    , m_size(0)
 {
+    m_scriptExecutionContext->addBlob(this);
     // Note: this doesn't initialize the type unlike File(path).
     m_items.append(FileBlobItem::create(path));
+}
+
+Blob::Blob(ScriptExecutionContext* scriptExecutionContext, PassOwnPtr<BlobData> blobData, long long size)
+    : m_scriptExecutionContext(scriptExecutionContext)
+    , m_type(blobData->contentType())
+    , m_size(size)
+{
+    ASSERT(blobData.get() && !blobData->items().isEmpty());
+
+    m_scriptExecutionContext->addBlob(this);
+
+    // Create a new internal URL and register it with the provided blob data.
+    m_url = BlobURL::createURL(scriptExecutionContext);
+    ThreadableBlobRegistry::registerBlobURL(scriptExecutionContext, m_url, blobData);
+}
+
+Blob::Blob(ScriptExecutionContext* scriptExecutionContext, const KURL& srcURL, const String& type, long long size)
+    : m_scriptExecutionContext(scriptExecutionContext)
+    , m_type(type)
+    , m_size(size)
+{
+    m_scriptExecutionContext->addBlob(this);
+
+    // FIXME: To be removed when we switch to using BlobData.
+    if (srcURL.isEmpty())
+        return;
+
+    // Create a new internal URL and register it with the same blob data as the source URL.
+    m_url = BlobURL::createURL(scriptExecutionContext);
+    ThreadableBlobRegistry::registerBlobURL(scriptExecutionContext, m_url, srcURL);
+}
+
+Blob::~Blob()
+{
+    // The internal URL is only used to refer to the Blob object. So we need to unregister the URL when the object is GC-ed.
+    if (m_scriptExecutionContext) {
+        m_scriptExecutionContext->removeBlob(this);
+        ThreadableBlobRegistry::unregisterBlobURL(m_scriptExecutionContext, m_url);
+    }
+}
+
+void Blob::contextDestroyed()
+{
+    ASSERT(m_scriptExecutionContext);
+
+    // Unregister the internal URL before the context is gone.
+    ThreadableBlobRegistry::unregisterBlobURL(m_scriptExecutionContext, m_url);
+    m_scriptExecutionContext = 0;
 }
 
 unsigned long long Blob::size() const
@@ -64,6 +128,7 @@ unsigned long long Blob::size() const
     return size;
 }
 
+// FIXME: To be removed when we switch to using BlobData.
 const String& Blob::path() const
 {
     ASSERT(m_items.size() == 1 && m_items[0]->toFileBlobItem());

@@ -29,13 +29,14 @@
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
 #include "LinkHash.h"
-#include "StringHash.h"
 #include "UserScript.h"
 #include "UserStyleSheet.h"
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
     class KURL;
+    class GroupSettings;
     class IDBFactoryBackendInterface;
     class Page;
     class StorageNamespace;
@@ -80,7 +81,8 @@ namespace WebCore {
                                   UserScriptInjectionTime, UserContentInjectedFrames);
         void addUserStyleSheetToWorld(DOMWrapperWorld*, const String& source, const KURL&,
                                       PassOwnPtr<Vector<String> > whitelist, PassOwnPtr<Vector<String> > blacklist,
-                                      UserContentInjectedFrames);
+                                      UserContentInjectedFrames,
+                                      UserStyleSheet::Level level = UserStyleSheet::UserLevel);
 
         void removeUserScriptFromWorld(DOMWrapperWorld*, const KURL&);
         void removeUserStyleSheetFromWorld(DOMWrapperWorld*, const KURL&);
@@ -92,6 +94,8 @@ namespace WebCore {
 
         const UserScriptMap* userScripts() const { return m_userScripts.get(); }
         const UserStyleSheetMap* userStyleSheets() const { return m_userStyleSheets.get(); }
+
+        GroupSettings* groupSettings() const { return m_groupSettings.get(); }
 
     private:
         void addVisitedLink(LinkHash stringHash);
@@ -114,6 +118,8 @@ namespace WebCore {
 
         OwnPtr<UserScriptMap> m_userScripts;
         OwnPtr<UserStyleSheetMap> m_userStyleSheets;
+
+        OwnPtr<GroupSettings> m_groupSettings;
     };
 
 } // namespace WebCore

@@ -149,6 +149,7 @@ sub GetClassName
     return "WebDOMObject" if $name eq "DOMObject";
     return "bool" if $name eq "boolean";
     return $name if $codeGenerator->IsPrimitiveType($name);
+    return "WebDOMCustomVoidCallback" if $name eq "VoidCallback";
 
     return "WebDOM$name";
 }
@@ -284,7 +285,7 @@ sub AddIncludesForType
     return if $type =~ /Constructor/;
 
     if ($codeGenerator->IsStringType($type)) {
-        $implIncludes{"AtomicString.h"} = 1;
+        $implIncludes{"wtf/text/AtomicString.h"} = 1;
         $implIncludes{"KURL.h"} = 1;
         $implIncludes{"WebDOMString.h"} = 1;
         return;
@@ -302,6 +303,11 @@ sub AddIncludesForType
 
     if ($type eq "SerializedScriptValue") {
         $implIncludes{"SerializedScriptValue.h"} = 1;
+        return;
+    }
+    
+    if ($type eq "VoidCallback") {
+        $implIncludes{"WebDOMCustomVoidCallback.h"} = 1;
         return;
     }
 
@@ -379,9 +385,10 @@ sub GenerateHeader
     push(@headerContent, "    $className();\n");
     push(@headerContent, "    explicit $className($implClassNameWithNamespace*);\n");
 
-    # Copy constructor on classes which have the d-ptr
+    # Copy constructor and assignment operator on classes which have the d-ptr
     if ($parentName eq "WebDOMObject") {
         push(@headerContent, "    $className(const $className&);\n");
+        push(@headerContent, "    ${className}& operator=(const $className&);\n");
     }
 
     # Destructor
@@ -634,6 +641,13 @@ sub GenerateImplementation
         push(@implContent, "    m_impl = copy.impl() ? new ${className}Private(copy.impl()) : 0;\n");
         push(@implContent, "}\n\n");
 
+        push(@implContent, "${className}& ${className}::operator\=(const ${className}& copy)\n");
+        push(@implContent, "{\n");
+        push(@implContent, "    delete m_impl;\n");
+        push(@implContent, "    m_impl = copy.impl() ? new ${className}Private(copy.impl()) : 0;\n");
+        push(@implContent, "    return *this;\n");
+        push(@implContent, "}\n\n");
+
         push(@implContent, "$implClassNameWithNamespace* ${className}::impl() const\n");
         push(@implContent, "{\n");
         push(@implContent, "    return m_impl ? m_impl->impl.get() : 0;\n");
@@ -773,9 +787,6 @@ sub GenerateImplementation
             my %needsCustom = ();
 
             my $parameterIndex = 0;
-
-            # FIXME: Handle Callback support, we're just passing 0 as ScriptExecutionContext for now.
-            push(@parameterNames, "0") if ($dataNode->extendedAttributes->{"Callback"});
 
             my $functionSig = "$returnType $className\:\:$functionName(";
             foreach my $param (@{$function->parameters}) {

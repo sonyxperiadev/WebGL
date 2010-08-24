@@ -93,7 +93,7 @@ static PassRefPtr<InspectorValue> v8ToInspectorValue(v8::Handle<v8::Value> value
                 ASSERT_NOT_REACHED();
                 element = InspectorValue::null();
             }
-            inspectorArray->push(element);
+            inspectorArray->pushValue(element);
         }
         return inspectorArray;
     }
@@ -105,14 +105,14 @@ static PassRefPtr<InspectorValue> v8ToInspectorValue(v8::Handle<v8::Value> value
         for (uint32_t i = 0; i < length; i++) {
             v8::Local<v8::Value> name = propertyNames->Get(v8::Int32::New(i));
             // FIXME(yurys): v8::Object should support GetOwnPropertyNames
-            if (!object->HasRealNamedProperty(v8::Handle<v8::String>::Cast(name)))
+            if (name->IsString() && !object->HasRealNamedProperty(v8::Handle<v8::String>::Cast(name)))
                 continue;
             RefPtr<InspectorValue> propertyValue = v8ToInspectorValue(object->Get(name));
             if (!propertyValue) {
                 ASSERT_NOT_REACHED();
                 continue;
             }
-            inspectorObject->set(toWebCoreStringWithNullCheck(name), propertyValue);
+            inspectorObject->setValue(toWebCoreStringWithNullCheck(name), propertyValue);
         }
         return inspectorObject;
     }

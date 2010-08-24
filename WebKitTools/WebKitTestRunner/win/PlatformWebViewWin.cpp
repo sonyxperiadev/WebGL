@@ -65,12 +65,17 @@ PlatformWebView::~PlatformWebView()
 
 void PlatformWebView::resizeTo(unsigned width, unsigned height)
 {
-    // Implement
+    ::SetWindowPos(WKViewGetWindow(m_view), 0, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOCOPYBITS);
 }
 
 WKPageRef PlatformWebView::page()
 {
     return WKViewGetPage(m_view);
+}
+
+void PlatformWebView::focus()
+{
+    ::SetFocus(::WKViewGetWindow(m_view));
 }
 
 } // namespace WTR

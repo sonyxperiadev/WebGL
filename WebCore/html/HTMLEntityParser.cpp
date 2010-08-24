@@ -28,20 +28,9 @@
 #include "config.h"
 #include "HTMLEntityParser.h"
 
+#include "HTMLEntitySearch.h"
+#include "HTMLEntityTable.h"
 #include <wtf/Vector.h>
-
-// Use __GNUC__ instead of PLATFORM(GCC) to stay consistent with the gperf generated c file
-#ifdef __GNUC__
-// The main parser includes this too so we are getting two copies of the data. However, this way the code gets inlined.
-#include "HTMLEntityNames.cpp"
-#else
-// Not inlined for non-GCC compilers
-struct Entity {
-    const char* name;
-    int code;
-};
-const struct Entity* findEntity(register const char* str, register unsigned int len);
-#endif
 
 using namespace WTF;
 
@@ -113,7 +102,6 @@ unsigned consumeHTMLEntity(SegmentedString& source, bool& notEnoughCharacters, U
     EntityState entityState = Initial;
     unsigned result = 0;
     Vector<UChar, 10> consumedCharacters;
-    Vector<char, 10> entityName;
 
     while (!source.isEmpty()) {
         UChar cc = *source;
@@ -177,7 +165,7 @@ unsigned consumeHTMLEntity(SegmentedString& source, bool& notEnoughCharacters, U
             else if (cc == ';') {
                 source.advancePastNonNewline();
                 return legalEntityFor(result);
-            } else 
+            } else
                 return legalEntityFor(result);
             break;
         }
@@ -192,48 +180,48 @@ unsigned consumeHTMLEntity(SegmentedString& source, bool& notEnoughCharacters, U
             break;
         }
         case Named: {
-            // FIXME: This code is wrong. We need to find the longest matching entity.
-            //        The examples from the spec are:
-            //            I'm &notit; I tell you
-            //            I'm &notin; I tell you
-            //        In the first case, "&not" is the entity.  In the second
-            //        case, "&notin;" is the entity.
-            // FIXME: Our list of HTML entities is incomplete.
-            // FIXME: The number 8 below is bogus.
-            while (!source.isEmpty() && entityName.size() <= 8) {
+            HTMLEntitySearch entitySearch;
+            while (!source.isEmpty()) {
                 cc = *source;
-                if (cc == ';') {
-                    const Entity* entity = findEntity(entityName.data(), entityName.size());
-                    if (entity) {
-                        source.advanceAndASSERT(';');
-                        return entity->code;
-                    }
+                entitySearch.advance(cc);
+                if (!entitySearch.isEntityPrefix())
                     break;
-                }
-                if (!isAlphaNumeric(cc)) {
-                    const Entity* entity = findEntity(entityName.data(), entityName.size());
-                    if (entity) {
-                        // HTML5 tells us to ignore this entity, for historical reasons,
-                        // if the lookhead character is '='.
-                        if (additionalAllowedCharacter && cc == '=')
-                            break;
-                        // Some entities require a terminating semicolon, whereas other
-                        // entities do not.  The HTML5 spec has a giant list:
-                        //
-                        // http://www.whatwg.org/specs/web-apps/current-work/multipage/named-character-references.html#named-character-references
-                        //
-                        // However, the list seems to boil down to this branch:
-                        if (entity->code > 255)
-                            break;
-                        return entity->code;
-                    }
-                    break;
-                }
-                entityName.append(cc);
                 consumedCharacters.append(cc);
                 source.advanceAndASSERT(cc);
             }
             notEnoughCharacters = source.isEmpty();
+            if (notEnoughCharacters) {
+                // We can't an entity because there might be a longer entity
+                // that we could match if we had more data.
+                unconsumeCharacters(source, consumedCharacters);
+                return 0;
+            }
+            if (!entitySearch.mostRecentMatch()) {
+                ASSERT(!entitySearch.currentValue());
+                unconsumeCharacters(source, consumedCharacters);
+                return 0;
+            }
+            if (entitySearch.mostRecentMatch()->length != entitySearch.currentLength()) {
+                // We've consumed too many characters.  We need to walk the
+                // source back to the point at which we had consumed an
+                // actual entity.
+                unconsumeCharacters(source, consumedCharacters);
+                consumedCharacters.clear();
+                const int length = entitySearch.mostRecentMatch()->length;
+                const UChar* reference = entitySearch.mostRecentMatch()->entity;
+                for (int i = 0; i < length; ++i) {
+                    cc = *source;
+                    ASSERT_UNUSED(reference, cc == *reference++);
+                    consumedCharacters.append(cc);
+                    source.advanceAndASSERT(cc);
+                    ASSERT(!source.isEmpty());
+                }
+                cc = *source;
+            }
+            if (entitySearch.mostRecentMatch()->lastCharacter() == ';')
+                return entitySearch.mostRecentMatch()->value;
+            if (!additionalAllowedCharacter || !(isAlphaNumeric(cc) || cc == '='))
+                return entitySearch.mostRecentMatch()->value;
             unconsumeCharacters(source, consumedCharacters);
             return 0;
         }
@@ -245,6 +233,25 @@ unsigned consumeHTMLEntity(SegmentedString& source, bool& notEnoughCharacters, U
     notEnoughCharacters = true;
     unconsumeCharacters(source, consumedCharacters);
     return 0;
+}
+
+UChar decodeNamedEntity(const char* name)
+{
+    HTMLEntitySearch search;
+    while (*name) {
+        search.advance(*name++);
+        if (!search.isEntityPrefix())
+            return 0;
+    }
+    search.advance(';');
+    UChar32 entityValue = search.currentValue();
+    if (U16_LENGTH(entityValue) != 1) {
+        // Callers need to move off this API if the entity table has values
+        // which do no fit in a 16 bit UChar!
+        ASSERT_NOT_REACHED();
+        return 0;
+    }
+    return static_cast<UChar>(entityValue);
 }
 
 } // namespace WebCore

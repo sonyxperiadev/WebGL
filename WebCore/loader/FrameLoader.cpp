@@ -62,9 +62,6 @@
 #include "FrameLoaderClient.h"
 #include "FrameTree.h"
 #include "FrameView.h"
-#if PLATFORM(ANDROID)
-#include "Geolocation.h"
-#endif // PLATFORM(ANDROID)
 #include "HTMLAnchorElement.h"
 #include "HTMLFormElement.h"
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
@@ -80,9 +77,6 @@
 #include "Logging.h"
 #include "MIMETypeRegistry.h"
 #include "MainResourceLoader.h"
-#if PLATFORM(ANDROID)
-#include "Navigator.h"
-#endif // PLATFORM(ANDROID)
 #include "Page.h"
 #include "PageCache.h"
 #include "PageGroup.h"
@@ -271,71 +265,6 @@ void FrameLoader::setDefersLoading(bool defers)
     }
 }
 
-Frame* FrameLoader::createWindow(FrameLoader* frameLoaderForFrameLookup, const FrameLoadRequest& request, const WindowFeatures& features, bool& created)
-{ 
-    ASSERT(!features.dialog || request.frameName().isEmpty());
-
-    if (!request.frameName().isEmpty() && request.frameName() != "_blank") {
-        Frame* frame = frameLoaderForFrameLookup->frame()->tree()->find(request.frameName());
-        if (frame && shouldAllowNavigation(frame)) {
-            if (!request.resourceRequest().url().isEmpty())
-                frame->loader()->loadFrameRequest(request, false, false, 0, 0, SendReferrer);
-            if (Page* page = frame->page())
-                page->chrome()->focus();
-            created = false;
-            return frame;
-        }
-    }
-
-    // Sandboxed frames cannot open new auxiliary browsing contexts.
-    if (isDocumentSandboxed(m_frame, SandboxNavigation))
-        return 0;
-
-    // FIXME: Setting the referrer should be the caller's responsibility.
-    FrameLoadRequest requestWithReferrer = request;
-    requestWithReferrer.resourceRequest().setHTTPReferrer(m_outgoingReferrer);
-    addHTTPOriginIfNeeded(requestWithReferrer.resourceRequest(), outgoingOrigin());
-
-    Page* oldPage = m_frame->page();
-    if (!oldPage)
-        return 0;
-        
-    Page* page = oldPage->chrome()->createWindow(m_frame, requestWithReferrer, features);
-    if (!page)
-        return 0;
-
-    Frame* frame = page->mainFrame();
-    if (request.frameName() != "_blank")
-        frame->tree()->setName(request.frameName());
-
-    page->chrome()->setToolbarsVisible(features.toolBarVisible || features.locationBarVisible);
-    page->chrome()->setStatusbarVisible(features.statusBarVisible);
-    page->chrome()->setScrollbarsVisible(features.scrollbarsVisible);
-    page->chrome()->setMenubarVisible(features.menuBarVisible);
-    page->chrome()->setResizable(features.resizable);
-
-    // 'x' and 'y' specify the location of the window, while 'width' and 'height' 
-    // specify the size of the page. We can only resize the window, so 
-    // adjust for the difference between the window size and the page size.
-
-    FloatRect windowRect = page->chrome()->windowRect();
-    FloatSize pageSize = page->chrome()->pageRect().size();
-    if (features.xSet)
-        windowRect.setX(features.x);
-    if (features.ySet)
-        windowRect.setY(features.y);
-    if (features.widthSet)
-        windowRect.setWidth(features.width + (windowRect.width() - pageSize.width()));
-    if (features.heightSet)
-        windowRect.setHeight(features.height + (windowRect.height() - pageSize.height()));
-    page->chrome()->setWindowRect(windowRect);
-
-    page->chrome()->show();
-
-    created = true;
-    return frame;
-}
-
 bool FrameLoader::canHandleRequest(const ResourceRequest& request)
 {
     return m_client->canHandleRequest(request);
@@ -512,13 +441,6 @@ void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy, DatabasePolic
     UNUSED_PARAM(databasePolicy);
 #endif
     }
-
-#if PLATFORM(ANDROID)
-     // Stop the Geolocation object, if present. This call is made after the unload
-     // event has fired, so no new Geolocation activity is possible.
-    if (m_frame->domWindow()->navigator()->optionalGeolocation())
-        m_frame->domWindow()->navigator()->optionalGeolocation()->stop();
-#endif // PLATFORM(ANDROID)
 
     // FIXME: This will cancel redirection timer, which really needs to be restarted when restoring the frame from b/f cache.
     m_frame->redirectScheduler()->cancel();
@@ -1160,7 +1082,7 @@ bool FrameLoader::isProcessingUserGesture()
     Frame* frame = m_frame->tree()->top();
     if (!frame->script()->canExecuteScripts(NotAboutToExecuteScript))
         return true; // If JavaScript is disabled, a user gesture must have initiated the navigation.
-    return frame->script()->processingUserGesture(mainThreadNormalWorld()); // FIXME: Use pageIsProcessingUserGesture.
+    return ScriptController::processingUserGesture(); // FIXME: Use pageIsProcessingUserGesture.
 }
 
 void FrameLoader::resetMultipleFormSubmissionProtection()
@@ -2660,10 +2582,12 @@ void FrameLoader::handledOnloadEvents()
 {
     m_client->dispatchDidHandleOnloadEvents();
 
+    if (documentLoader()) {
+        documentLoader()->handledOnloadEvents();
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
-    if (documentLoader())
         documentLoader()->applicationCacheHost()->stopDeferringEvents();
 #endif
+    }
 }
 
 void FrameLoader::frameDetached()
@@ -3551,6 +3475,71 @@ void FrameLoader::tellClientAboutPastMemoryCacheLoads()
 bool FrameLoaderClient::hasHTMLView() const
 {
     return true;
+}
+
+Frame* createWindow(Frame* openerFrame, Frame* lookupFrame, const FrameLoadRequest& request, const WindowFeatures& features, bool& created)
+{
+    ASSERT(!features.dialog || request.frameName().isEmpty());
+
+    if (!request.frameName().isEmpty() && request.frameName() != "_blank") {
+        Frame* frame = lookupFrame->tree()->find(request.frameName());
+        if (frame && openerFrame->loader()->shouldAllowNavigation(frame)) {
+            if (!request.resourceRequest().url().isEmpty())
+                frame->loader()->loadFrameRequest(request, false, false, 0, 0, SendReferrer);
+            if (Page* page = frame->page())
+                page->chrome()->focus();
+            created = false;
+            return frame;
+        }
+    }
+
+    // Sandboxed frames cannot open new auxiliary browsing contexts.
+    if (isDocumentSandboxed(openerFrame, SandboxNavigation))
+        return 0;
+
+    // FIXME: Setting the referrer should be the caller's responsibility.
+    FrameLoadRequest requestWithReferrer = request;
+    requestWithReferrer.resourceRequest().setHTTPReferrer(openerFrame->loader()->outgoingReferrer());
+    FrameLoader::addHTTPOriginIfNeeded(requestWithReferrer.resourceRequest(), openerFrame->loader()->outgoingOrigin());
+
+    Page* oldPage = openerFrame->page();
+    if (!oldPage)
+        return 0;
+
+    Page* page = oldPage->chrome()->createWindow(openerFrame, requestWithReferrer, features);
+    if (!page)
+        return 0;
+
+    Frame* frame = page->mainFrame();
+    if (request.frameName() != "_blank")
+        frame->tree()->setName(request.frameName());
+
+    page->chrome()->setToolbarsVisible(features.toolBarVisible || features.locationBarVisible);
+    page->chrome()->setStatusbarVisible(features.statusBarVisible);
+    page->chrome()->setScrollbarsVisible(features.scrollbarsVisible);
+    page->chrome()->setMenubarVisible(features.menuBarVisible);
+    page->chrome()->setResizable(features.resizable);
+
+    // 'x' and 'y' specify the location of the window, while 'width' and 'height'
+    // specify the size of the page. We can only resize the window, so
+    // adjust for the difference between the window size and the page size.
+
+    FloatRect windowRect = page->chrome()->windowRect();
+    FloatSize pageSize = page->chrome()->pageRect().size();
+    if (features.xSet)
+        windowRect.setX(features.x);
+    if (features.ySet)
+        windowRect.setY(features.y);
+    if (features.widthSet)
+        windowRect.setWidth(features.width + (windowRect.width() - pageSize.width()));
+    if (features.heightSet)
+        windowRect.setHeight(features.height + (windowRect.height() - pageSize.height()));
+    page->chrome()->setWindowRect(windowRect);
+
+    page->chrome()->show();
+
+    created = true;
+    return frame;
 }
 
 } // namespace WebCore

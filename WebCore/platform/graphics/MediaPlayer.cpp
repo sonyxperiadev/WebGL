@@ -173,7 +173,7 @@ static Vector<MediaPlayerFactory*>& installedMediaEngines()
 
 #if PLATFORM(WIN)
         MediaPlayerPrivateQuickTimeVisualContext::registerMediaEngine(addMediaEngine);
-#elif !PLATFORM(GTK)
+#elif !PLATFORM(GTK) && !PLATFORM(EFL)
         // FIXME: currently all the MediaEngines are named
         // MediaPlayerPrivate. This code will need an update when bug
         // 36663 is adressed.
@@ -257,8 +257,8 @@ void MediaPlayer::load(const String& url, const ContentType& contentType)
 
     // if we don't know the MIME type, see if the extension can help
     if (type.isEmpty() || type == "application/octet-stream" || type == "text/plain") {
-        int pos = url.reverseFind('.');
-        if (pos >= 0) {
+        size_t pos = url.reverseFind('.');
+        if (pos != notFound) {
             String extension = url.substring(pos + 1);
             String mediaType = MIMETypeRegistry::getMediaMIMETypeForExtension(extension);
             if (!mediaType.isEmpty())

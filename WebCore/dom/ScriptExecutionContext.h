@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
 
@@ -36,10 +36,16 @@
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Threading.h>
+#include <wtf/text/StringHash.h>
+
+#if USE(JSC)
+#include <runtime/JSGlobalData.h>
+#endif
 
 namespace WebCore {
 
     class ActiveDOMObject;
+    class Blob;
 #if ENABLE(DATABASE)
     class Database;
     class DatabaseTaskSynchronizer;
@@ -88,7 +94,7 @@ namespace WebCore {
 
         virtual void reportException(const String& errorMessage, int lineNumber, const String& sourceURL) = 0;
         virtual void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL) = 0;
-        
+
         // Active objects are not garbage collected even if inaccessible, e.g. because their activity may result in callbacks being invoked.
         bool canSuspendActiveDOMObjects();
         // Active objects can be asked to suspend even if canSuspendActiveDOMObjects() returns 'false' -
@@ -125,6 +131,13 @@ namespace WebCore {
         void removeTimeout(int timeoutId);
         DOMTimer* findTimeout(int timeoutId);
 
+        void addBlob(Blob*);
+        void removeBlob(Blob*);
+#if ENABLE(BLOB)
+        KURL createPublicBlobURL(Blob*);
+        void revokePublicBlobURL(const KURL&);
+#endif
+
 #if USE(JSC)
         JSC::JSGlobalData* globalData();
 #endif
@@ -144,6 +157,8 @@ namespace WebCore {
         virtual const KURL& virtualURL() const = 0;
         virtual KURL virtualCompleteURL(const String&) const = 0;
 
+        void closeMessagePorts();
+
         RefPtr<SecurityOrigin> m_securityOrigin;
 
         HashSet<MessagePort*> m_messagePorts;
@@ -151,6 +166,11 @@ namespace WebCore {
         HashMap<ActiveDOMObject*, void*> m_activeDOMObjects;
 
         HashMap<int, DOMTimer*> m_timeouts;
+
+        HashSet<Blob*> m_blobs;
+#if ENABLE(BLOB)
+        HashSet<String> m_publicBlobURLs;
+#endif
 
         virtual void refScriptExecutionContext() = 0;
         virtual void derefScriptExecutionContext() = 0;

@@ -1,3 +1,133 @@
+2010-08-17  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Reviewed by Ariya Hidayat.
+
+        [Qt] [Symbian] Consistently use Q_OS_SYMBIAN to guard all Symbian platform dependencies
+        https://bugs.webkit.org/show_bug.cgi?id=44124
+
+        Q_WS_S60 is not defined for Symbian^4 devices as Q_WS_S60 used to guard
+        Avkon UI framework dependencies. Use Q_OS_SYMBIAN everywhere to mark
+        Symbian dependencies.
+
+        * WebCoreSupport/QtFallbackWebPopup.cpp:
+        (WebCore::QtFallbackWebPopup::populate):
+
+2010-08-17  Jesus Sanchez-Palencia  <jesus.palencia@openbossa.org>
+
+        Reviewed by Darin Adler.
+
+        Add NetworkingContext to avoid layer violations
+        https://bugs.webkit.org/show_bug.cgi?id=42292
+
+        Preparation: Just add the files to the build system.
+
+        * WebCoreSupport/FrameNetworkingContextQt.cpp: Added.
+        Empty placeholder for now.
+        * WebCoreSupport/FrameNetworkingContextQt.h: Added.
+        Placeholder with tentative code that might be changed when landing
+        the rest of it.
+
+2010-08-17  Hui Huang  <hui.2.huang@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] Fix ARM5 compiling error in FrameLoaderClientQt.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=43927
+
+        In the Symbian build chain QT_USE_FAST_OPERATOR_PLUS is defined,
+        which means that the '+' will automatically be performed as the
+        QStringBuilder '%'. Create a QString explicitly to make sure that
+        toLocal8bit() member is available that the qPrintable Macro uses.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::dispatchDecidePolicyForNavigationAction):
+
+2010-08-16  Tor Arne Vestbø  <tor.arne.vestbo@nokia.com>
+
+        Reviewed by Kenneth Christiansen.
+
+        [Qt] Implement ChromeClient's windowToScreen() and screenToWindow()
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+
+2010-08-14  Adam Barth  <abarth@webkit.org>
+
+        Propagate name change to Qt.
+
+        * Api/qwebelement.cpp:
+        (QWebElement::appendInside):
+        (QWebElement::prependInside):
+        (QWebElement::prependOutside):
+        (QWebElement::appendOutside):
+        (QWebElement::encloseContentsWith):
+        (QWebElement::encloseWith):
+
+2010-08-12  Jeremy Orlow  <jorlow@chromium.org>
+
+        Revert for now
+        https://bugs.webkit.org/show_bug.cgi?id=43794 
+
+        * Api/qwebsettings.cpp:
+        (QWebSettingsPrivate::apply):
+
+2010-08-11  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Some settings are linked to the PageGroup not the Page.  Create a new class for those.
+        https://bugs.webkit.org/show_bug.cgi?id=43794
+
+        Change WebSettings to use the new GroupSettings class rather than Settings for the
+        settings that moved.  This is sub-optimal since the settings aren't really
+        per-view, but I don't see how we can change the API at this point.
+
+        * Api/qwebsettings.cpp:
+        (QWebSettingsPrivate::apply):
+
+2010-08-11  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        [Qt] Update the Symbian def files
+
+        Re-freeze with various QGraphicsWebView and DRT updates.
+        The uppper part of the diff is just whitespace, so 
+        diff -w will show the real diff.
+
+        * symbian/eabi/QtWebKitu.def:
+
+2010-08-10  Anders Bakken  <agbakken@gmail.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Don't connect to microFocusChanged() if _q_updateMicroFocus is a noop.
+        https://bugs.webkit.org/show_bug.cgi?id=40580
+
+        _q_updateMicroFocus() is a noop unless this ifdef evaluates to true:
+        #if !defined(QT_NO_IM) && (defined(Q_WS_X11) || defined(Q_WS_QWS) || defined(Q_OS_SYMBIAN))
+
+        In such cases there's no need to carry the overhead of the extra
+        signal/slot connection.
+
+        * Api/qgraphicswebview.cpp:
+        (QGraphicsWebViewPrivate::_q_updateMicroFocus):
+        (QGraphicsWebView::setPage):
+
+2010-08-10  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Add suspendAnimations/resumeAnimation API to DRT
+        https://bugs.webkit.org/show_bug.cgi?id=43733
+        
+        Qt specific API. Missing symbian symbol defines in:
+        
+            WebKit/qt/symbian/bwins/QtWebKitu.def
+            WebKit/qt/symbian/eabi/QtWebKitu.def
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::suspendAnimations):
+        (DumpRenderTreeSupportQt::resumeAnimations):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+
 2010-08-06  Gavin Barraclough  <barraclough@apple.com>
 
         Rubber stamped by Sam Weinig

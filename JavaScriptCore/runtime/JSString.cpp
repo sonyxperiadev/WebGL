@@ -24,6 +24,7 @@
 #include "JSString.h"
 
 #include "JSGlobalObject.h"
+#include "JSGlobalObjectFunctions.h"
 #include "JSObject.h"
 #include "Operations.h"
 #include "StringObject.h"
@@ -37,7 +38,7 @@ namespace JSC {
 // representing the rope is likely imbalanced with more nodes down the left side
 // (since appending to the string is likely more common) - and as such resolving
 // in this fashion should minimize work queue size.  (If we built the queue forwards
-// we would likely have to place all of the constituent UStringImpls into the
+// we would likely have to place all of the constituent StringImpls into the
 // Vector before performing any concatenation, but by working backwards we likely
 // only fill the queue with the number of substrings at any given level in a
 // rope-of-ropes.)
@@ -47,7 +48,7 @@ void JSString::resolveRope(ExecState* exec) const
 
     // Allocate the buffer to hold the final string, position initially points to the end.
     UChar* buffer;
-    if (PassRefPtr<UStringImpl> newImpl = UStringImpl::tryCreateUninitialized(m_length, buffer))
+    if (PassRefPtr<StringImpl> newImpl = StringImpl::tryCreateUninitialized(m_length, buffer))
         m_value = newImpl;
     else {
         for (unsigned i = 0; i < m_fiberCount; ++i) {
@@ -79,10 +80,10 @@ void JSString::resolveRope(ExecState* exec) const
                 workQueue.append(rope->fibers()[i]);
             currentFiber = rope->fibers()[fiberCountMinusOne];
         } else {
-            UStringImpl* string = static_cast<UStringImpl*>(currentFiber);
+            StringImpl* string = static_cast<StringImpl*>(currentFiber);
             unsigned length = string->length();
             position -= length;
-            UStringImpl::copyChars(position, string->characters(), length);
+            StringImpl::copyChars(position, string->characters(), length);
 
             // Was this the last item in the work queue?
             if (workQueue.isEmpty()) {
@@ -108,26 +109,26 @@ void JSString::resolveRope(ExecState* exec) const
 JSValue JSString::replaceCharacter(ExecState* exec, UChar character, const UString& replacement)
 {
     if (!isRope()) {
-        unsigned matchPosition = m_value.find(character);
-        if (matchPosition == UString::NotFound)
+        size_t matchPosition = m_value.find(character);
+        if (matchPosition == notFound)
             return JSValue(this);
-        return jsString(exec, m_value.substr(0, matchPosition), replacement, m_value.substr(matchPosition + 1));
+        return jsString(exec, m_value.substringSharingImpl(0, matchPosition), replacement, m_value.substringSharingImpl(matchPosition + 1));
     }
 
     RopeIterator end;
     
     // Count total fibers and find matching string.
     size_t fiberCount = 0;
-    UStringImpl* matchString = 0;
-    int matchPosition = -1;
+    StringImpl* matchString = 0;
+    size_t matchPosition = notFound;
     for (RopeIterator it(m_other.m_fibers.data(), m_fiberCount); it != end; ++it) {
         ++fiberCount;
         if (matchString)
             continue;
 
-        UStringImpl* string = *it;
+        StringImpl* string = *it;
         matchPosition = string->find(character);
-        if (matchPosition == -1)
+        if (matchPosition == notFound)
             continue;
         matchString = string;
     }
@@ -135,21 +136,21 @@ JSValue JSString::replaceCharacter(ExecState* exec, UChar character, const UStri
     if (!matchString)
         return this;
 
-    RopeBuilder builder(replacement.size() ? fiberCount + 2 : fiberCount + 1);
+    RopeBuilder builder(replacement.length() ? fiberCount + 2 : fiberCount + 1);
     if (UNLIKELY(builder.isOutOfMemory()))
         return throwOutOfMemoryError(exec);
 
     for (RopeIterator it(m_other.m_fibers.data(), m_fiberCount); it != end; ++it) {
-        UStringImpl* string = *it;
+        StringImpl* string = *it;
         if (string != matchString) {
             builder.append(UString(string));
             continue;
         }
 
-        builder.append(UString(string).substr(0, matchPosition));
-        if (replacement.size())
+        builder.append(UString(string).substringSharingImpl(0, matchPosition));
+        if (replacement.length())
             builder.append(replacement);
-        builder.append(UString(string).substr(matchPosition + 1));
+        builder.append(UString(string).substringSharingImpl(matchPosition + 1));
         matchString = 0;
     }
 
@@ -165,7 +166,7 @@ JSString* JSString::getIndexSlowCase(ExecState* exec, unsigned i)
     if (exec->exception())
         return jsString(exec, "");
     ASSERT(!isRope());
-    ASSERT(i < m_value.size());
+    ASSERT(i < m_value.length());
     return jsSingleCharacterSubstring(exec, m_value, i);
 }
 
@@ -177,7 +178,7 @@ JSValue JSString::toPrimitive(ExecState*, PreferredPrimitiveType) const
 bool JSString::getPrimitiveNumber(ExecState* exec, double& number, JSValue& result)
 {
     result = this;
-    number = value(exec).toDouble();
+    number = jsToNumber(value(exec));
     return false;
 }
 
@@ -188,7 +189,7 @@ bool JSString::toBoolean(ExecState*) const
 
 double JSString::toNumber(ExecState* exec) const
 {
-    return value(exec).toDouble();
+    return jsToNumber(value(exec));
 }
 
 UString JSString::toString(ExecState* exec) const
@@ -240,7 +241,7 @@ bool JSString::getStringPropertyDescriptor(ExecState* exec, const Identifier& pr
     }
     
     bool isStrictUInt32;
-    unsigned i = propertyName.toStrictUInt32(&isStrictUInt32);
+    unsigned i = propertyName.toUInt32(isStrictUInt32);
     if (isStrictUInt32 && i < m_length) {
         descriptor.setDescriptor(getIndex(exec, i), DontDelete | ReadOnly);
         return true;

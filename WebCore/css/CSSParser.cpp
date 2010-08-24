@@ -66,12 +66,12 @@
 #include "Pair.h"
 #include "Rect.h"
 #include "ShadowValue.h"
-#include "StringBuffer.h"
 #include "WebKitCSSKeyframeRule.h"
 #include "WebKitCSSKeyframesRule.h"
 #include "WebKitCSSTransformValue.h"
 #include <limits.h>
 #include <wtf/dtoa.h>
+#include <wtf/text/StringBuffer.h>
 
 #if ENABLE(DASHBOARD_SUPPORT)
 #include "DashboardRegion.h"
@@ -319,7 +319,7 @@ bool CSSParser::parseValue(CSSMutableStyleDeclaration* declaration, int id, cons
 // possible to set up a default color.
 bool CSSParser::parseColor(RGBA32& color, const String& string, bool strict)
 {
-    // First try creating a color specified by name, rgb() or "#" syntax.
+    // First try creating a color specified by name, rgba(), rgb() or "#" syntax.
     if (parseColor(string, color, strict))
         return true;
 
@@ -3830,6 +3830,63 @@ static inline bool parseColorInt(const UChar*& string, const UChar* end, UChar t
     return true;
 }
 
+static inline bool isTenthAlpha(const UChar* string, const int length)
+{
+    // "0.X"
+    if (length == 3 && string[0] == '0' && string[1] == '.' && isASCIIDigit(string[2]))
+        return true;
+
+    // ".X"
+    if (length == 2 && string[0] == '.' && isASCIIDigit(string[1]))
+        return true;
+
+    return false;
+}
+
+static inline bool parseAlphaValue(const UChar*& string, const UChar* end, UChar terminator, int& value)
+{
+    while (string != end && isCSSWhitespace(*string))
+        string++;
+
+    value = 0;
+
+    int length = end - string;
+    if (length < 2)
+        return false;
+
+    if (string[0] != '0' && string[0] != '1' && string[0] != '.')
+        return false;
+
+    if (string[length - 1] != terminator)
+        return false;
+
+    if (length == 2 && string[0] != '.') {
+        value = string[0] == '1' ? 255 : 0;
+        string = end;
+        return true;
+    }
+
+    if (isTenthAlpha(string, length - 1)) {
+        static const int tenthAlphaValues[] = { 0, 25, 51, 76, 102, 127, 153, 179, 204, 230 };
+        value = tenthAlphaValues[string[length - 2] - '0'];
+        string = end;
+        return true;
+    }
+
+    Vector<char, 8> bytes(length + 1);
+    for (int i = 0; i < length; ++i) {
+        if (!isASCIIDigit(string[i]) && string[i] != '.' && string[i] != terminator)
+            return false;
+        bytes[i] = string[i];
+    }
+    bytes[length] = '\0';
+    char* foundTerminator;
+    double d = WTF::strtod(bytes.data(), &foundTerminator);
+    value = static_cast<int>(d * nextafter(256.0, 0.0));
+    string += (foundTerminator - bytes.data()) + 1;
+    return *foundTerminator == terminator;
+}
+
 bool CSSParser::parseColor(const String &name, RGBA32& rgb, bool strict)
 {
     const UChar* characters = name.characters();
@@ -3843,6 +3900,28 @@ bool CSSParser::parseColor(const String &name, RGBA32& rgb, bool strict)
             if (Color::parseHexColor(characters, length, rgb))
                 return true;
         }
+    }
+
+    // Try rgba() syntax.
+    if (name.startsWith("rgba(")) {
+        const UChar* current = characters + 5;
+        const UChar* end = characters + length;
+        int red;
+        int green;
+        int blue;
+        int alpha;
+        if (!parseColorInt(current, end, ',', red))
+            return false;
+        if (!parseColorInt(current, end, ',', green))
+            return false;
+        if (!parseColorInt(current, end, ',', blue))
+            return false;
+        if (!parseAlphaValue(current, end, ')', alpha))
+            return false;
+        if (current != end)
+            return false;
+        rgb = makeRGBA(red, green, blue, alpha);
+        return true;
     }
 
     // Try rgb() syntax.
@@ -3863,6 +3942,7 @@ bool CSSParser::parseColor(const String &name, RGBA32& rgb, bool strict)
         rgb = makeRGB(red, green, blue);
         return true;
     }
+
     // Try named colors.
     Color tc;
     tc.setNamedColor(name);

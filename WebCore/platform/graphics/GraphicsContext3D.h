@@ -26,9 +26,13 @@
 #ifndef GraphicsContext3D_h
 #define GraphicsContext3D_h
 
+#if PLATFORM(MAC)
+#include "ANGLEWebKitBridge.h"
+#endif
 #include "GraphicsLayer.h"
 #include "PlatformString.h"
 
+#include <wtf/HashMap.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/PassOwnPtr.h>
@@ -403,7 +407,9 @@ public:
 
         // WebGL-specific enums
         UNPACK_FLIP_Y_WEBGL = 0x9240,
-        UNPACK_PREMULTIPLY_ALPHA_WEBGL = 0x9241
+        UNPACK_PREMULTIPLY_ALPHA_WEBGL = 0x9241,
+
+        BGRA_EXT = 0x80E1
     };
 
     // Context creation attributes.
@@ -716,11 +722,13 @@ public:
 
     void paintRenderingResultsToCanvas(CanvasRenderingContext* context);
 
-    // Helpers for notification about paint events
-    void beginPaint(CanvasRenderingContext* context);
-    void endPaint();
 #if PLATFORM(QT)
     void paint(QPainter* painter, const QRect& rect) const;
+    bool paintsIntoCanvasBuffer() const { return true; }
+#elif PLATFORM(CHROMIUM)
+    bool paintsIntoCanvasBuffer() const;
+#else
+    bool paintsIntoCanvasBuffer() const { return false; }
 #endif
 
     // Support for buffer creation and deletion
@@ -747,6 +755,8 @@ public:
     // instance of any given error, and returns them from calls to
     // getError in the order they were added.
     void synthesizeGLError(unsigned long error);
+
+    bool supportsBGRA();
 
   private:
     GraphicsContext3D(Attributes attrs, HostWindow* hostWindow);
@@ -807,7 +817,16 @@ public:
 
     int m_currentWidth, m_currentHeight;
 
+    typedef struct { 
+        String source; 
+        String log; 
+        bool isValid;
+    } ShaderSourceEntry;
+    HashMap<Platform3DObject, ShaderSourceEntry> m_shaderSourceMap;
+
 #if PLATFORM(MAC)
+    ANGLEWebKitBridge m_compiler;
+
     Attributes m_attrs;
     Vector<Vector<float> > m_vertexArray;
 

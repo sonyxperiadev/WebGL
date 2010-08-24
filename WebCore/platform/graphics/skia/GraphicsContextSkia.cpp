@@ -53,6 +53,7 @@
 #include <math.h>
 #include <wtf/Assertions.h>
 #include <wtf/MathExtras.h>
+#include <wtf/UnusedParam.h>
 
 #if USE(GLES2_RENDERING)
 #include "GLES2Canvas.h"
@@ -453,17 +454,6 @@ void GraphicsContext::clipPath(WindRule clipRule)
 
     path.setFillType(clipRule == RULE_EVENODD ? SkPath::kEvenOdd_FillType : SkPath::kWinding_FillType);
     platformContext()->clipPathAntiAliased(path);
-}
-
-void GraphicsContext::clipToImageBuffer(const FloatRect& rect,
-                                        const ImageBuffer* imageBuffer)
-{
-    if (paintingDisabled())
-        return;
-
-#if OS(LINUX) || OS(WINDOWS)
-    platformContext()->beginLayerClippedToImage(rect, imageBuffer);
-#endif
 }
 
 void GraphicsContext::concatCTM(const AffineTransform& affine)

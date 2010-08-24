@@ -191,7 +191,7 @@ static void navigateIfAllowed(ExecState* exec, Frame* frame, const KURL& url, bo
         return;
 
     if (!protocolIsJavaScript(url) || allowsAccessFromFrame(exec, frame))
-        frame->redirectScheduler()->scheduleLocationChange(url.string(), lexicalFrame->loader()->outgoingReferrer(), lockHistory, lockBackForwardList, processingUserGesture(exec));
+        frame->redirectScheduler()->scheduleLocationChange(url.string(), lexicalFrame->loader()->outgoingReferrer(), lockHistory, lockBackForwardList, processingUserGesture());
 }
 
 void JSLocation::setHref(ExecState* exec, JSValue value)
@@ -253,7 +253,7 @@ void JSLocation::setPort(ExecState* exec, JSValue value)
     KURL url = frame->loader()->url();
     // FIXME: Could make this a little less ugly if String provided a toUnsignedShort function.
     const UString& portString = value.toString(exec);
-    int port = charactersToInt(portString.data(), portString.size());
+    int port = charactersToInt(portString.characters(), portString.length());
     if (port < 0 || port > 0xFFFF)
         url.removePort();
     else
@@ -325,7 +325,7 @@ JSValue JSLocation::reload(ExecState* exec)
         return jsUndefined();
 
     if (!protocolIsJavaScript(frame->loader()->url()))
-        frame->redirectScheduler()->scheduleRefresh(processingUserGesture(exec));
+        frame->redirectScheduler()->scheduleRefresh(processingUserGesture());
     return jsUndefined();
 }
 

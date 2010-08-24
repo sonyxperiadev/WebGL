@@ -119,21 +119,32 @@ class InputFieldSpeechButtonElement
     : public TextControlInnerElement,
       public SpeechInputListener {
 public:
+    enum SpeechInputState {
+        Idle,
+        Recording,
+        Recognizing,
+    };
+
     static PassRefPtr<InputFieldSpeechButtonElement> create(Node*);
+    virtual ~InputFieldSpeechButtonElement();
 
     virtual void detach();
     virtual void defaultEventHandler(Event*);
+    SpeechInputState state() const { return m_state; }
 
     // SpeechInputListener methods.
-    void didCompleteRecording();
-    void didCompleteRecognition();
-    void setRecognitionResult(const String& result);
+    void didCompleteRecording(int);
+    void didCompleteRecognition(int);
+    void setRecognitionResult(int, const String& result);
 
 private:
     InputFieldSpeechButtonElement(Node*);
     SpeechInput* speechInput();
+    void setState(SpeechInputState state);
 
     bool m_capturing;
+    SpeechInputState m_state;
+    int m_listenerId;
 };
 
 #endif // ENABLE(INPUT_SPEECH)

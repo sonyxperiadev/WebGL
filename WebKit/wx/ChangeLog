@@ -1,3 +1,66 @@
+2010-08-16  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix, do not build WebCore as a convenience library as this leads to
+        errors in the Win build w/export symbols and causes problems with DOM bindings
+        debugging in gdb.
+        
+        * WebKitDefines.h:
+        * bindings/python/wscript:
+
+2010-08-16  Kevin Ollivier  <kevino@theolliviers.com>
+
+        wxMSW build fix. Don't build the Python DOM bindings until we get the export issues
+        sorted out.
+
+        * bindings/python/webview.i:
+
+2010-08-13  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig
+
+        Unify UString::UTF8String() & String::utf8() methods,
+        remove UString::cost() & make atArrayIndex a free function.
+
+        * WebFrame.cpp:
+        (wxWebFrame::RunScript):
+
+2010-08-12  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r65295.
+        http://trac.webkit.org/changeset/65295
+        https://bugs.webkit.org/show_bug.cgi?id=43950
+
+        It broke 4 sputnik tests (Requested by Ossy on #webkit).
+
+        * WebFrame.cpp:
+        (wxWebFrame::RunScript):
+
+2010-08-12  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig
+
+        Unify UString::UTF8String() & String::utf8() methods,
+        remove UString::cost() & make atArrayIndex a free function.
+
+        * WebFrame.cpp:
+        (wxWebFrame::RunScript):
+
+2010-08-11  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix. WebCore::String -> WTF::String fixes.
+
+        * WebEdit.cpp:
+        (wxWebEditCommand::SetNodeAttribute):
+
+2010-08-10  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig.
+
+        Bug 43786 - Move AtomicStringHash from WebCore to WTF
+        Also remove deprecated string headers from WebCore/platform/text.
+
+        * WebEdit.cpp:
+
 2010-08-06  Gavin Barraclough  <barraclough@apple.com>
 
         Rubber stamped by Sam Weinig

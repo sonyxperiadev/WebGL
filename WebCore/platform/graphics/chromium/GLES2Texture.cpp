@@ -35,45 +35,27 @@
 #include "GLES2Texture.h"
 
 #include "GraphicsContext3D.h"
-
+#include "IntRect.h"
 #include <wtf/OwnArrayPtr.h>
 
 namespace WebCore {
 
-GLES2Texture::GLES2Texture(GraphicsContext3D* context, unsigned textureId, Format format, int width, int height)
+
+GLES2Texture::GLES2Texture(GraphicsContext3D* context, PassOwnPtr<Vector<unsigned int> > tileTextureIds, Format format, int width, int height, int maxTextureSize)
     : m_context(context)
-    , m_textureId(textureId)
     , m_format(format)
-    , m_width(width)
-    , m_height(height)
+    , m_tiles(maxTextureSize, width, height, true)
+    , m_tileTextureIds(tileTextureIds)
 {
 }
 
 GLES2Texture::~GLES2Texture()
 {
-    m_context->deleteTexture(m_textureId);
+    for (unsigned int i = 0; i < m_tileTextureIds->size(); i++)
+        m_context->deleteTexture(m_tileTextureIds->at(i));
 }
 
-PassRefPtr<GLES2Texture> GLES2Texture::create(GraphicsContext3D* context, Format format, int width, int height)
-{
-    int max;
-    context->getIntegerv(GraphicsContext3D::MAX_TEXTURE_SIZE, &max);
-    if (width > max || height > max) {
-        ASSERT(!"texture too big");
-        return 0;
-    }
-
-    unsigned textureId = context->createTexture();
-    if (!textureId)
-        return 0;
-
-    context->bindTexture(GraphicsContext3D::TEXTURE_2D, textureId);
-    context->texImage2D(GraphicsContext3D::TEXTURE_2D, 0, GraphicsContext3D::RGBA, width, height, 0, GraphicsContext3D::RGBA, GraphicsContext3D::UNSIGNED_BYTE, 0);
-
-    return adoptRef(new GLES2Texture(context, textureId, format, width, height));
-}
-
-static void convertFormat(GLES2Texture::Format format, unsigned int* glFormat, unsigned int* glType, bool* swizzle)
+static void convertFormat(GraphicsContext3D* context, GLES2Texture::Format format, unsigned int* glFormat, unsigned int* glType, bool* swizzle)
 {
     *swizzle = false;
     switch (format) {
@@ -82,43 +64,113 @@ static void convertFormat(GLES2Texture::Format format, unsigned int* glFormat, u
         *glType = GraphicsContext3D::UNSIGNED_BYTE;
         break;
     case GLES2Texture::BGRA8:
-// FIXME:  Once we have support for extensions, we should check for EXT_texture_format_BGRA8888,
-// and use that if present.
-        *glFormat = GraphicsContext3D::RGBA;
-        *glType = GraphicsContext3D::UNSIGNED_BYTE;
-        *swizzle = true;
+        if (context->supportsBGRA()) {
+            *glFormat = GraphicsContext3D::BGRA_EXT;
+            *glType = GraphicsContext3D::UNSIGNED_BYTE;
+        } else {
+            *glFormat = GraphicsContext3D::RGBA;
+            *glType = GraphicsContext3D::UNSIGNED_BYTE;
+            *swizzle = true;
+        }
         break;
     default:
-        ASSERT(!"bad format");
+        ASSERT_NOT_REACHED();
         break;
     }
 }
 
-void GLES2Texture::load(void* pixels)
+PassRefPtr<GLES2Texture> GLES2Texture::create(GraphicsContext3D* context, Format format, int width, int height)
 {
+    int maxTextureSize = 0;
+    context->getIntegerv(GraphicsContext3D::MAX_TEXTURE_SIZE, &maxTextureSize);
+
+    TilingData tiling(maxTextureSize, width, height, true);
+    int numTiles = tiling.numTiles();
+
+    OwnPtr<Vector<unsigned int> > textureIds(new Vector<unsigned int>(numTiles));
+    textureIds->fill(0, numTiles);
+
+    for (int i = 0; i < numTiles; i++) {
+        int textureId = context->createTexture();
+        if (!textureId) {
+            for (int i = 0; i < numTiles; i++)
+                context->deleteTexture(textureIds->at(i));
+            return 0;
+        }
+        textureIds->at(i) = textureId;
+
+        IntRect tileBoundsWithBorder = tiling.tileBoundsWithBorder(i);
+
     unsigned int glFormat, glType;
     bool swizzle;
-    convertFormat(m_format, &glFormat, &glType, &swizzle);
-    m_context->bindTexture(GraphicsContext3D::TEXTURE_2D, m_textureId);
+    convertFormat(context, format, &glFormat, &glType, &swizzle);
+    context->bindTexture(GraphicsContext3D::TEXTURE_2D, textureId);
+    context->texImage2D(GraphicsContext3D::TEXTURE_2D, 0, glFormat,
+            tileBoundsWithBorder.width(),
+            tileBoundsWithBorder.height(),
+            0, glFormat, glType, 0);
+    }
+    return adoptRef(new GLES2Texture(context, textureIds.leakPtr(), format, width, height, maxTextureSize));
+}
+
+template <bool swizzle>
+static uint32_t* copySubRect(uint32_t* src, int srcX, int srcY, uint32_t* dst, int width, int height, int srcStride)
+{
+    uint32_t* srcOffset = src + srcX + srcY * srcStride;
+
+    if (!swizzle && width == srcStride)
+        return srcOffset;
+
+    uint32_t* dstPixel = dst;
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width ; x++) {
+            uint32_t pixel = srcOffset[x + y * srcStride];
+            if (swizzle)
+                *dstPixel = pixel & 0xFF00FF00 | ((pixel & 0x00FF0000) >> 16) | ((pixel & 0x000000FF) << 16);
+            else
+                *dstPixel = pixel;
+            dstPixel++;
+        }
+    }
+    return dst;
+}
+
+void GLES2Texture::load(void* pixels)
+{
+    uint32_t* pixels32 = static_cast<uint32_t*>(pixels);
+    unsigned int glFormat, glType;
+    bool swizzle;
+    convertFormat(m_context, m_format, &glFormat, &glType, &swizzle);
     if (swizzle) {
         ASSERT(glFormat == GraphicsContext3D::RGBA && glType == GraphicsContext3D::UNSIGNED_BYTE);
         // FIXME:  This could use PBO's to save doing an extra copy here.
-        int size = m_width * m_height;
-        unsigned* pixels32 = static_cast<unsigned*>(pixels);
-        OwnArrayPtr<unsigned> buf(new unsigned[size]);
-        unsigned* bufptr = buf.get();
-        for (int i = 0; i < size; ++i) {
-            unsigned pixel = pixels32[i];
-            bufptr[i] = pixel & 0xFF00FF00 | ((pixel & 0x00FF0000) >> 16) | ((pixel & 0x000000FF) << 16);
+    }
+    OwnArrayPtr<uint32_t> tempBuff(new uint32_t[m_tiles.maxTextureSize() * m_tiles.maxTextureSize()]);
+
+    for (int i = 0; i < m_tiles.numTiles(); i++) {
+        IntRect tileBoundsWithBorder = m_tiles.tileBoundsWithBorder(i);
+
+        uint32_t* uploadBuff = 0;
+        if (swizzle) {
+            uploadBuff = copySubRect<true>(
+            pixels32, tileBoundsWithBorder.x(), tileBoundsWithBorder.y(),
+            tempBuff.get(), tileBoundsWithBorder.width(), tileBoundsWithBorder.height(), m_tiles.totalSizeX());
+        } else {
+            uploadBuff = copySubRect<false>(
+            pixels32, tileBoundsWithBorder.x(), tileBoundsWithBorder.y(),
+            tempBuff.get(), tileBoundsWithBorder.width(), tileBoundsWithBorder.height(), m_tiles.totalSizeX());
         }
-        m_context->texSubImage2D(GraphicsContext3D::TEXTURE_2D, 0, 0, 0, m_width, m_height, glFormat, glType, buf.get());
-    } else
-        m_context->texSubImage2D(GraphicsContext3D::TEXTURE_2D, 0, 0, 0, m_width, m_height, glFormat, glType, pixels);
+
+        m_context->bindTexture(GraphicsContext3D::TEXTURE_2D, m_tileTextureIds->at(i));
+        m_context->texSubImage2D(GraphicsContext3D::TEXTURE_2D, 0, 0, 0,
+            tileBoundsWithBorder.width(),
+            tileBoundsWithBorder.height(), glFormat, glType, uploadBuff);
+    }
 }
 
-void GLES2Texture::bind()
+void GLES2Texture::bindTile(int tile)
 {
-    m_context->bindTexture(GraphicsContext3D::TEXTURE_2D, m_textureId);
+    m_context->bindTexture(GraphicsContext3D::TEXTURE_2D, m_tileTextureIds->at(tile));
     m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_MIN_FILTER, GraphicsContext3D::LINEAR);
     m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_MAG_FILTER, GraphicsContext3D::LINEAR);
     m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_S, GraphicsContext3D::CLAMP_TO_EDGE);

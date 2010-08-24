@@ -47,25 +47,24 @@ RenderSVGResourcePattern::~RenderSVGResourcePattern()
     m_pattern.clear();
 }
 
-void RenderSVGResourcePattern::invalidateClients()
+void RenderSVGResourcePattern::removeAllClientsFromCache(bool markForInvalidation)
 {
     if (!m_pattern.isEmpty()) {
         deleteAllValues(m_pattern);
         m_pattern.clear();
     }
 
-    markAllClientsForInvalidation(RepaintInvalidation);
+    markAllClientsForInvalidation(markForInvalidation ? RepaintInvalidation : ParentOnlyInvalidation);
 }
 
-void RenderSVGResourcePattern::invalidateClient(RenderObject* client)
+void RenderSVGResourcePattern::removeClientFromCache(RenderObject* client, bool markForInvalidation)
 {
     ASSERT(client);
-    ASSERT(client->selfNeedsLayout());
 
     if (m_pattern.contains(client))
         delete m_pattern.take(client);
 
-    markClientForInvalidation(client, RepaintInvalidation);
+    markClientForInvalidation(client, markForInvalidation ? RepaintInvalidation : ParentOnlyInvalidation);
 }
 
 bool RenderSVGResourcePattern::applyResource(RenderObject* object, RenderStyle* style, GraphicsContext*& context, unsigned short resourceMode)
@@ -77,7 +76,7 @@ bool RenderSVGResourcePattern::applyResource(RenderObject* object, RenderStyle* 
 
     // Be sure to synchronize all SVG properties on the patternElement _before_ processing any further.
     // Otherwhise the call to collectPatternAttributes() in createTileImage(), may cause the SVG DOM property
-    // synchronization to kick in, which causes invalidateClients() to be called, which in turn deletes our
+    // synchronization to kick in, which causes removeAllClientsFromCache() to be called, which in turn deletes our
     // PatternData object! Leaving out the line below will cause svg/dynamic-updates/SVGPatternElement-svgdom* to crash.
     SVGPatternElement* patternElement = static_cast<SVGPatternElement*>(node());
     if (!patternElement)
@@ -298,14 +297,15 @@ PassOwnPtr<ImageBuffer> RenderSVGResourcePattern::createTileImage(PatternData* p
 
 void RenderSVGResourcePattern::buildPattern(PatternData* patternData, PassOwnPtr<ImageBuffer> tileImage) const
 {
-    if (!tileImage->image()) {
+    RefPtr<Image> copiedImage = tileImage->copyImage();
+    if (!copiedImage) {
         patternData->pattern = 0;
         return;
     }
-
-    IntRect tileRect = tileImage->image()->rect();
+    
+    IntRect tileRect = copiedImage->rect();
     if (tileRect.width() <= patternData->boundaries.width() && tileRect.height() <= patternData->boundaries.height()) {
-        patternData->pattern = Pattern::create(tileImage->image(), true, true);
+        patternData->pattern = Pattern::create(copiedImage, true, true);
         return;
     }
 
@@ -331,13 +331,13 @@ void RenderSVGResourcePattern::buildPattern(PatternData* patternData, PassOwnPtr
         newTileImageContext->translate(0, patternData->boundaries.height());
         for (int j = numX; j > 0; --j) {
             newTileImageContext->translate(patternData->boundaries.width(), 0);
-            newTileImageContext->drawImage(tileImage->image(), style()->colorSpace(), tileRect, tileRect);
+            newTileImageContext->drawImage(copiedImage.get(), style()->colorSpace(), tileRect, tileRect);
         }
         newTileImageContext->translate(-patternData->boundaries.width() * numX, 0);
     }
     newTileImageContext->restore();
 
-    patternData->pattern = Pattern::create(newTileImage->image(), true, true);
+    patternData->pattern = Pattern::create(newTileImage->copyImage(), true, true);
 }
 
 }

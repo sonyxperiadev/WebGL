@@ -30,6 +30,7 @@
 #include "ChromeClient.h"
 #include "Document.h"
 #include "Frame.h"
+#include "GroupSettings.h"
 #include "IDBFactoryBackendInterface.h"
 #include "Page.h"
 #include "Settings.h"
@@ -55,12 +56,14 @@ PageGroup::PageGroup(const String& name)
     : m_name(name)
     , m_visitedLinksPopulated(false)
     , m_identifier(getUniqueIdentifier())
+    , m_groupSettings(GroupSettings::create())
 {
 }
 
 PageGroup::PageGroup(Page* page)
     : m_visitedLinksPopulated(false)
     , m_identifier(getUniqueIdentifier())
+    , m_groupSettings(GroupSettings::create())
 {
     ASSERT(page);
     addPage(page);
@@ -200,7 +203,7 @@ StorageNamespace* PageGroup::localStorage()
         // at this point we're stuck with it.
         Page* page = *m_pages.begin();
         const String& path = page->settings()->localStorageDatabasePath();
-        unsigned quota = page->settings()->localStorageQuota();
+        unsigned quota = m_groupSettings->localStorageQuotaBytes();
         m_localStorage = StorageNamespace::localStorageNamespace(path, quota);
     }
 
@@ -236,11 +239,12 @@ void PageGroup::addUserScriptToWorld(DOMWrapperWorld* world, const String& sourc
 
 void PageGroup::addUserStyleSheetToWorld(DOMWrapperWorld* world, const String& source, const KURL& url,
                                          PassOwnPtr<Vector<String> > whitelist, PassOwnPtr<Vector<String> > blacklist,
-                                         UserContentInjectedFrames injectedFrames)
+                                         UserContentInjectedFrames injectedFrames,
+                                         UserStyleSheet::Level level)
 {
     ASSERT_ARG(world, world);
 
-    OwnPtr<UserStyleSheet> userStyleSheet(new UserStyleSheet(source, url, whitelist, blacklist, injectedFrames));
+    OwnPtr<UserStyleSheet> userStyleSheet(new UserStyleSheet(source, url, whitelist, blacklist, injectedFrames, level));
     if (!m_userStyleSheets)
         m_userStyleSheets.set(new UserStyleSheetMap);
     UserStyleSheetVector*& styleSheetsInWorld = m_userStyleSheets->add(world, 0).first->second;

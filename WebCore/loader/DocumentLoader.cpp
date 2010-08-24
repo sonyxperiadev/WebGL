@@ -86,6 +86,7 @@ DocumentLoader::DocumentLoader(const ResourceRequest& req, const SubstituteData&
     , m_gotFirstByte(false)
     , m_primaryLoadComplete(false)
     , m_isClientRedirect(false)
+    , m_wasOnloadHandled(false)
     , m_stopRecordingResponses(false)
     , m_substituteResourceDeliveryTimer(this, &DocumentLoader::substituteResourceDeliveryTimerFired)
     , m_didCreateGlobalHistoryEntry(false)

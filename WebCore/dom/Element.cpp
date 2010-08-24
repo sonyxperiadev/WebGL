@@ -50,6 +50,7 @@
 #include "RenderLayer.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
+#include "Settings.h"
 #include "TextIterator.h"
 #include "XMLNames.h"
 #include <wtf/text/CString.h>
@@ -90,7 +91,7 @@ NodeRareData* Element::createRareData()
     return new ElementRareData;
 }
 
-PassRefPtr<DocumentFragment> Element::createContextualFragment(const String& markup, FragmentScriptingPermission scriptingPermission)
+PassRefPtr<DocumentFragment> Element::deprecatedCreateContextualFragment(const String& markup, FragmentScriptingPermission scriptingPermission)
 {
     RefPtr<DocumentFragment> fragment = document()->createDocumentFragment();
 
@@ -101,14 +102,14 @@ PassRefPtr<DocumentFragment> Element::createContextualFragment(const String& mar
             // FIXME: We should propagate a syntax error exception out here.
             return 0;
     }
-    
+
     // Exceptions are ignored because none ought to happen here.
     ExceptionCode ignoredExceptionCode;
-    
+
     // We need to pop <html> and <body> elements and remove <head> to
     // accommodate folks passing complete HTML documents to make the
     // child of an element.
-    
+
     RefPtr<Node> nextNode;
     for (RefPtr<Node> node = fragment->firstChild(); node; node = nextNode) {
         nextNode = node->nextSibling();
@@ -131,7 +132,6 @@ PassRefPtr<DocumentFragment> Element::createContextualFragment(const String& mar
             ASSERT(!ignoredExceptionCode);
         }
     }
-    
     return fragment.release();
 }
     

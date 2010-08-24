@@ -334,6 +334,17 @@ SET(WebCore_IDL_FILES
     storage/Database.idl
     storage/DatabaseCallback.idl
     storage/DatabaseSync.idl
+    storage/DirectoryEntry.idl
+    storage/DirectoryReader.idl
+    storage/DOMFileSystem.idl
+    storage/EntriesCallback.idl
+    storage/Entry.idl
+    storage/EntryArray.idl
+    storage/EntryCallback.idl
+    storage/ErrorCallback.idl
+    storage/FileEntry.idl
+    storage/FileSystemCallback.idl
+    storage/Flags.idl
     storage/IDBAny.idl
     storage/IDBCursor.idl
     storage/IDBDatabaseError.idl
@@ -349,6 +360,8 @@ SET(WebCore_IDL_FILES
     storage/IDBRequest.idl
     storage/IDBSuccessEvent.idl
     storage/IDBTransaction.idl
+    storage/Metadata.idl
+    storage/MetadataCallback.idl
     storage/SQLError.idl
     storage/SQLException.idl
     storage/SQLResultSet.idl
@@ -528,9 +541,8 @@ IF (ENABLE_SVG)
 ENDIF()
 
 SET(WebCore_SOURCES
-    ${DERIVED_SOURCES_DIR}/CSSGrammar.cpp
     ${DERIVED_SOURCES_DIR}/HTMLElementFactory.cpp
-    ${DERIVED_SOURCES_DIR}/HTMLEntityNames.cpp
+    ${DERIVED_SOURCES_DIR}/HTMLEntityTable.cpp
     ${DERIVED_SOURCES_DIR}/HTMLNames.cpp
     ${DERIVED_SOURCES_DIR}/JSHTMLElementWrapperFactory.cpp
     ${DERIVED_SOURCES_DIR}/MathMLElementFactory.cpp
@@ -538,7 +550,6 @@ SET(WebCore_SOURCES
     ${DERIVED_SOURCES_DIR}/UserAgentStyleSheetsData.cpp
     ${DERIVED_SOURCES_DIR}/XMLNames.cpp
     ${DERIVED_SOURCES_DIR}/XMLNSNames.cpp
-    ${DERIVED_SOURCES_DIR}/XPathGrammar.cpp
     ${DERIVED_SOURCES_DIR}/InspectorBackendDispatcher.cpp
 
     accessibility/AXObjectCache.cpp
@@ -931,6 +942,7 @@ SET(WebCore_SOURCES
     html/AsyncImageResizer.cpp
     html/Blob.cpp
     html/BlobBuilder.cpp
+    html/BlobURL.cpp
     html/CollectionCache.cpp
     html/CSSPreloadScanner.cpp
     html/DOMDataGridDataSource.cpp
@@ -971,6 +983,7 @@ SET(WebCore_SOURCES
     html/HTMLDocument.cpp
     html/HTMLElement.cpp
     html/HTMLElementStack.cpp
+    html/HTMLEntitySearch.cpp
     html/HTMLEmbedElement.cpp
     html/HTMLFieldSetElement.cpp
     html/HTMLFormattingElementList.cpp
@@ -1031,14 +1044,14 @@ SET(WebCore_SOURCES
     html/HTMLTableSectionElement.cpp
     html/HTMLTextAreaElement.cpp
     html/HTMLTitleElement.cpp
-    html/LegacyHTMLDocumentParser.cpp
     html/HTMLUListElement.cpp
     html/HTMLViewSourceDocument.cpp
+    html/HTMLViewSourceParser.cpp
     html/ImageData.cpp
     html/ImageResizerThread.cpp
     html/LabelsNodeList.cpp
-    html/LegacyPreloadScanner.cpp
     html/StepRange.cpp
+    html/ThreadableBlobRegistry.cpp
     html/ValidityState.cpp
     html/canvas/CanvasGradient.cpp
     html/canvas/CanvasPattern.cpp
@@ -1162,6 +1175,7 @@ SET(WebCore_SOURCES
     page/Geolocation.cpp
     page/GeolocationController.cpp
     page/GeolocationPositionCache.cpp
+    page/GroupSettings.cpp
     page/History.cpp
     page/Location.cpp
     page/MemoryInfo.cpp
@@ -1202,6 +1216,7 @@ SET(WebCore_SOURCES
     platform/DragData.cpp
     platform/DragImage.cpp
     platform/FileChooser.cpp
+    platform/FileSystem.cpp
     platform/GeolocationService.cpp
     platform/KURL.cpp
     platform/KillRingNone.cpp
@@ -1289,6 +1304,8 @@ SET(WebCore_SOURCES
     platform/mock/GeolocationServiceMock.cpp
 
     platform/network/AuthenticationChallengeBase.cpp
+    platform/network/BlobData.cpp
+    platform/network/BlobRegistryImpl.cpp
     platform/network/Credential.cpp
     platform/network/FormData.cpp
     platform/network/FormDataBuilder.cpp
@@ -1300,13 +1317,6 @@ SET(WebCore_SOURCES
     platform/network/ResourceHandle.cpp
     platform/network/ResourceRequestBase.cpp
     platform/network/ResourceResponseBase.cpp
-
-    platform/sql/SQLValue.cpp
-    platform/sql/SQLiteAuthorizer.cpp
-    platform/sql/SQLiteDatabase.cpp
-    platform/sql/SQLiteFileSystem.cpp
-    platform/sql/SQLiteStatement.cpp
-    platform/sql/SQLiteTransaction.cpp
 
     platform/text/Base64.cpp
     platform/text/BidiContext.cpp
@@ -1443,6 +1453,12 @@ SET(WebCore_SOURCES
     storage/DatabaseTask.cpp
     storage/DatabaseThread.cpp
     storage/DatabaseTracker.cpp
+    storage/DirectoryEntry.cpp
+    storage/DirectoryReader.cpp
+    storage/DOMFileSystem.cpp
+    storage/Entry.cpp
+    storage/EntryArray.cpp
+    storage/FileEntry.cpp
     storage/IDBAny.cpp
     storage/IDBDatabase.cpp
     storage/IDBDatabaseBackendImpl.cpp
@@ -1534,6 +1550,18 @@ SET(WebCore_SOURCES
     xml/XSLTUnicodeSort.cpp
 )
 
+
+IF (ENABLE_DATABASE)
+    LIST(APPEND WebCore_SOURCES
+        platform/sql/SQLValue.cpp
+        platform/sql/SQLiteAuthorizer.cpp
+        platform/sql/SQLiteDatabase.cpp
+        platform/sql/SQLiteFileSystem.cpp
+        platform/sql/SQLiteStatement.cpp
+        platform/sql/SQLiteTransaction.cpp
+    )
+ENDIF ()
+
 IF (ENABLE_SVG)
     LIST(APPEND WebCore_SOURCES
         ${DERIVED_SOURCES_DIR}/JSSVGElementWrapperFactory.cpp
@@ -1579,6 +1607,7 @@ IF (ENABLE_SVG)
         rendering/RenderSVGViewportContainer.cpp
         rendering/SVGCharacterData.cpp
         rendering/SVGCharacterLayoutInfo.cpp
+        rendering/SVGImageBufferTools.cpp
         rendering/SVGInlineFlowBox.cpp
         rendering/SVGInlineTextBox.cpp
         rendering/SVGMarkerLayoutInfo.cpp
@@ -1676,6 +1705,7 @@ IF (ENABLE_SVG)
         svg/SVGNumberList.cpp
         svg/SVGPaint.cpp
         svg/SVGParserUtilities.cpp
+        svg/SVGPathBlender.cpp
         svg/SVGPathBuilder.cpp
         svg/SVGPathByteStreamBuilder.cpp
         svg/SVGPathByteStreamSource.cpp
@@ -1698,6 +1728,7 @@ IF (ENABLE_SVG)
         svg/SVGPathSegMoveto.cpp
         svg/SVGPathStringBuilder.cpp
         svg/SVGPathStringSource.cpp
+        svg/SVGPathTraversalStateBuilder.cpp
         svg/SVGPatternElement.cpp
         svg/SVGPointList.cpp
         svg/SVGPolyElement.cpp
@@ -1756,6 +1787,22 @@ IF (ENABLE_SVG)
         svg/graphics/filters/SVGFilter.cpp
         svg/graphics/filters/SVGFilterBuilder.cpp
         svg/graphics/filters/SVGLightSource.cpp
+    )
+ENDIF()
+
+IF (ENABLE_VIDEO)
+    LIST(APPEND WebCore_SOURCES
+        ${DERIVED_SOURCES_DIR}/JSTimeRanges.cpp
+        bindings/js/JSAudioConstructor.cpp
+        html/HTMLAudioElement.cpp
+        html/HTMLMediaElement.cpp
+        html/HTMLSourceElement.cpp
+        html/HTMLVideoElement.cpp
+        html/TimeRanges.cpp
+        platform/graphics/MediaPlayer.cpp
+        rendering/MediaControlElements.cpp
+        rendering/RenderMedia.cpp
+        rendering/RenderVideo.cpp
     )
 ENDIF()
 
@@ -1819,27 +1866,38 @@ GENERATE_INSPECTOR_FROM_IDL(inspector/Inspector.idl)
 
 LIST(APPEND WebCore_SOURCES ${JS_IDL_FILES} ${Inspector_IDL_FILES})
 
-GENERATE_GPERF(${WEBCORE_DIR}/html/HTMLEntityNames.gperf)
-GENERATE_GPERF(${WEBCORE_DIR}/platform/ColorData.gperf)
-GENERATE_GPERF(${WEBCORE_DIR}/html/DocTypeStrings.gperf)
+
+GENERATE_JSON(${WEBCORE_DIR}/html/HTMLEntityNames.json ${DERIVED_SOURCES_DIR}/HTMLEntityTable.cpp ${WEBCORE_DIR}/../WebKitTools/Scripts/create-html-entity-table)
+
+
+GENERATE_GPERF(${WEBCORE_DIR}/platform/ColorData.gperf ${DERIVED_SOURCES_DIR}/ColorData.cpp findColor "")
+ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/platform/graphics/Color.cpp ColorData.cpp)
+
+
+GENERATE_GPERF(${WEBCORE_DIR}/html/DocTypeStrings.gperf ${DERIVED_SOURCES_DIR}/DocTypeStrings.cpp findDoctypeEntry "-F,PubIDInfo::eAlmostStandards,PubIDInfo::eAlmostStandards")
+ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/HTMLDocument.cpp DocTypeStrings.cpp)
+
 
 GENERATE_TOKENIZER()
 GENERATE_USER_AGENT_STYLES()
 
-GENERATE_GRAMMAR(cssyy ${WEBCORE_DIR}/css/CSSGrammar.y)
-GENERATE_GRAMMAR(xpathyy ${WEBCORE_DIR}/xml/XPathGrammar.y)
+
+GENERATE_GRAMMAR(cssyy ${WEBCORE_DIR}/css/CSSGrammar.y ${DERIVED_SOURCES_DIR}/CSSGrammar.h ${DERIVED_SOURCES_DIR}/CSSGrammar.cpp)
+LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/CSSGrammar.cpp)
+
+
+GENERATE_GRAMMAR(xpathyy ${WEBCORE_DIR}/xml/XPathGrammar.y ${DERIVED_SOURCES_DIR}/XPathGrammar.h ${DERIVED_SOURCES_DIR}/XPathGrammar.cpp)
+LIST(APPEND WebCore_SOURCES ${DERIVED_SOURCES_DIR}/XPathGrammar.cpp)
+
 
 GENERATE_CSS_PROPERTY_NAMES()
 GENERATE_CSS_VALUE_KEYWORDS()
 
+
 ADD_SOURCE_DERIVED_DEPENDENCIES(${DERIVED_SOURCES_DIR}/CSSGrammar.cpp CSSValueKeywords.h)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${DERIVED_SOURCES_DIR}/CSSGrammar.cpp CSSPropertyNames.h)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSPrimitiveValueMappings.h CSSValueKeywords.h)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/HTMLDocument.cpp DocTypeStrings.cpp)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/platform/graphics/Color.cpp ColorData.cpp)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSParser.cpp tokenizer.cpp)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/LegacyPreloadScanner.cpp HTMLEntityNames.cpp)
-ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/HTMLEntityParser.cpp HTMLEntityNames.cpp)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/HTMLTreeBuilder.cpp MathMLNames.cpp)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSStyleSelector.cpp UserAgentStyleSheetsData.cpp UserAgentStyleSheets.h)
 
@@ -1896,8 +1954,10 @@ ADD_DEFINITIONS(-DBUILDING_WebCore)
 INCLUDE_DIRECTORIES(${WebCore_INCLUDE_DIRECTORIES})
 ADD_LIBRARY(${WebCore_LIBRARY_NAME} ${WebCore_LIBRARY_TYPE} ${WebCore_SOURCES})
 TARGET_LINK_LIBRARIES(${WebCore_LIBRARY_NAME} ${WebCore_LIBRARIES})
-ADD_TARGET_PROPERTIES(${WebCore_LIBRARY_NAME} LINK_FLAGS ${WebCore_LINK_FLAGS})
 
+IF (WebCore_LINK_FLAGS)
+    ADD_TARGET_PROPERTIES(${WebCore_LIBRARY_NAME} LINK_FLAGS "${WebCore_LINK_FLAGS}")
+ENDIF ()
 
 IF (SHARED_CORE)
     SET_TARGET_PROPERTIES(${WebCore_LIBRARY_NAME} PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
