@@ -35,6 +35,9 @@
 #include <net/http/http_response_headers.h>
 #include <net/url_request/url_request.h>
 #include <string>
+#include <utils/AssetManager.h>
+
+extern android::AssetManager* globalAssetManager();
 
 // TODO:
 // - Get gmail log in to work
@@ -90,6 +93,9 @@ void WebRequest::start(bool isPrivateBrowsing)
     if (m_request->url().SchemeIs("data"))
         return handleDataURL(m_request->url());
 
+    if (m_request->url().SchemeIs("browser"))
+        return handleBrowserURL(m_request->url());
+
     if (!isPrivateBrowsing)
         m_request->set_context(WebRequestContext::GetAndroidContext());
     else
@@ -132,6 +138,21 @@ void WebRequest::handleDataURL(GURL url)
     }
 
     finish(true);
+}
+
+void WebRequest::handleBrowserURL(GURL url)
+{
+    std::string data("data:text/html;charset=utf-8,");
+    if (url.spec() == "browser:incognito") {
+        AssetManager* assetManager = globalAssetManager();
+        Asset* asset = assetManager->open("webkit/incognito_mode_start_page.html", Asset::ACCESS_BUFFER);
+        if (asset) {
+            data.append((const char*)asset->getBuffer(false), asset->getLength());
+            delete asset;
+        }
+    }
+    GURL dataURL(data.c_str());
+    handleDataURL(dataURL);
 }
 
 // Called upon a server-initiated redirect.  The delegate may call the
