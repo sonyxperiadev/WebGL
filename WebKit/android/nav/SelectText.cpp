@@ -1239,12 +1239,15 @@ SelectText::SelectText()
     paint.setColor(0xffaaaaaa);
     canvas->drawPath(endPath, paint);
     m_endControl.endRecording();
+    m_picture = 0;
 }
 
 void SelectText::draw(SkCanvas* canvas, LayerAndroid* layer)
 {
     // FIXME: layer may not own the original selected picture
     m_picture = layer->picture();
+    if (!m_picture)
+        return;
     DBG_NAV_LOGD("m_extendSelection=%d m_drawPointer=%d", m_extendSelection, m_drawPointer);
     if (m_extendSelection)
         drawSelectionRegion(canvas);
@@ -1316,6 +1319,8 @@ void SelectText::drawSelectionRegion(SkCanvas* canvas)
 
 void SelectText::extendSelection(const SkPicture* picture, int x, int y)
 {
+    if (!picture)
+        return;
     SkIRect clipRect = m_visibleRect;
     int base;
     if (m_startSelection) {
@@ -1365,6 +1370,8 @@ void SelectText::extendSelection(const SkPicture* picture, int x, int y)
 
 const String SelectText::getSelection()
 {
+    if (!m_picture)
+        return String();
     SkIRect clipRect;
     clipRect.set(0, 0, m_picture->width(), m_picture->height());
     String result = text(*m_picture, clipRect, m_selStart, m_startBase,
@@ -1424,6 +1431,8 @@ bool SelectText::hitSelection(int x, int y) const
 
 void SelectText::moveSelection(const SkPicture* picture, int x, int y)
 {
+    if (!picture)
+        return;
     SkIRect clipRect = m_visibleRect;
     clipRect.join(m_selStart);
     clipRect.join(m_selEnd);
