@@ -1088,13 +1088,13 @@ void ScrollView::platformOffscreenContentRectangle(const IntRect& )
 {
 }
 #endif
-#endif
 
 bool ScrollView::platformIsOffscreen() const
 {
     return false;
 }
 
+#endif
 #endif
 
 }
