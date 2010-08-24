@@ -54,6 +54,7 @@
 #include "TimeCounter.h"
 #endif
 #include "WebCoreJni.h"
+#include "WebRequestContext.h"
 #include "WebViewCore.h"
 #include "android_graphics.h"
 
@@ -1964,6 +1965,19 @@ static void nativeMoveSelection(JNIEnv *env, jobject obj, int x, int y)
     GET_NATIVE_VIEW(env, obj)->moveSelection(x, y);
 }
 
+static jboolean nativeCleanupPrivateBrowsingFiles(JNIEnv *env, jobject obj, jstring dataDirectory) {
+#if USE(CHROME_NETWORK_STACK)
+    jboolean isCopy;
+    const char* nativeString = env->GetStringUTFChars(dataDirectory, &isCopy);
+    std::string nativeDataDirectory(nativeString);
+    if (isCopy == JNI_TRUE)
+        env->ReleaseStringUTFChars(dataDirectory, nativeString);
+    return WebRequestContext::CleanupAndroidPrivateBrowsingFiles(nativeDataDirectory);
+#else
+    return JNI_FALSE;
+#endif
+}
+
 static void nativeResetSelection(JNIEnv *env, jobject obj)
 {
     return GET_NATIVE_VIEW(env, obj)->resetSelection();
@@ -2214,6 +2228,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeMoveGeneration },
     { "nativeMoveSelection", "(II)V",
         (void*) nativeMoveSelection },
+    { "nativeCleanupPrivateBrowsingFiles", "(Ljava/lang/String;)Z",
+        (void*) nativeCleanupPrivateBrowsingFiles },
     { "nativePointInNavCache", "(III)Z",
         (void*) nativePointInNavCache },
     { "nativeRecordButtons", "(ZZZ)V",
