@@ -141,4 +141,12 @@ void ScrollView::platformOffscreenContentRectangle(const IntRect& vis, const Int
 }
 #endif
 
+bool ScrollView::platformIsOffscreen() const
+{
+    /* other platforms override platformIsOffscreen when the browser
+       window is no longer on screen. We override it to prevent gif
+       animations from queuing up subsequent frames during dragging. */
+    return android::WebViewCore::getWebViewCore(this)->drawIsPaused();
+}
+
 } // namespace WebCore
