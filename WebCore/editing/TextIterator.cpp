@@ -442,11 +442,6 @@ void TextIterator::advance()
     }
 }
 
-static inline bool compareBoxStart(const InlineTextBox* first, const InlineTextBox* second)
-{
-    return first->start() < second->start();
-}
-
 bool TextIterator::handleTextNode()
 {
     if (m_fullyClippedStack.top())
@@ -507,7 +502,7 @@ bool TextIterator::handleTextNode()
         for (InlineTextBox* textBox = renderer->firstTextBox(); textBox; textBox = textBox->nextTextBox()) {
             m_sortedTextBoxes.append(textBox);
         }
-        std::sort(m_sortedTextBoxes.begin(), m_sortedTextBoxes.end(), compareBoxStart); 
+        std::sort(m_sortedTextBoxes.begin(), m_sortedTextBoxes.end(), InlineTextBox::compareByStart); 
         m_sortedTextBoxesPosition = 0;
     }
     
@@ -526,11 +521,11 @@ void TextIterator::handleTextBox()
         return;
     }
     String str = renderer->text();
-    int start = m_offset;
-    int end = (m_node == m_endContainer) ? m_endOffset : INT_MAX;
+    unsigned start = m_offset;
+    unsigned end = (m_node == m_endContainer) ? m_endOffset : UINT_MAX;
     while (m_textBox) {
-        int textBoxStart = m_textBox->start();
-        int runStart = max(textBoxStart, start);
+        unsigned textBoxStart = m_textBox->start();
+        unsigned runStart = max(textBoxStart, start);
 
         // Check for collapsed space at the start of this run.
         InlineTextBox* firstTextBox = renderer->containsReversedText() ? m_sortedTextBoxes[0] : renderer->firstTextBox();
@@ -546,8 +541,8 @@ void TextIterator::handleTextBox()
                 emitCharacter(' ', m_node, 0, runStart, runStart);
             return;
         }
-        int textBoxEnd = textBoxStart + m_textBox->len();
-        int runEnd = min(textBoxEnd, end);
+        unsigned textBoxEnd = textBoxStart + m_textBox->len();
+        unsigned runEnd = min(textBoxEnd, end);
         
         // Determine what the next text box will be, but don't advance yet
         InlineTextBox* nextTextBox = 0;
@@ -565,8 +560,8 @@ void TextIterator::handleTextBox()
                 emitCharacter(' ', m_node, 0, runStart, runStart + 1);
                 m_offset = runStart + 1;
             } else {
-                int subrunEnd = str.find('\n', runStart);
-                if (subrunEnd == -1 || subrunEnd > runEnd)
+                size_t subrunEnd = str.find('\n', runStart);
+                if (subrunEnd == notFound || subrunEnd > runEnd)
                     subrunEnd = runEnd;
     
                 m_offset = subrunEnd;
@@ -575,11 +570,11 @@ void TextIterator::handleTextBox()
 
             // If we are doing a subrun that doesn't go to the end of the text box,
             // come back again to finish handling this text box; don't advance to the next one.
-            if (m_positionEndOffset < textBoxEnd)
+            if (static_cast<unsigned>(m_positionEndOffset) < textBoxEnd)
                 return;
 
             // Advance and return
-            int nextRunStart = nextTextBox ? nextTextBox->start() : str.length();
+            unsigned nextRunStart = nextTextBox ? nextTextBox->start() : str.length();
             if (nextRunStart > runEnd)
                 m_lastTextNodeEndedWithCollapsedSpace = true; // collapsed space between runs or at the end
             m_textBox = nextTextBox;

@@ -1,3 +1,1369 @@
+2010-08-18  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        The JITStackFrame is wrong using Thumb-2 JIT with JSVALUE32_64
+        https://bugs.webkit.org/show_bug.cgi?id=43897
+
+        A 64 bits wide member in a structure is aligned to 8 bytes on ARM by
+        default, but this is not taken into account in the offset defines of
+        JITStackFrame.
+
+        * jit/JITStubs.cpp:
+        * jit/JITStubs.h:
+
+2010-08-18  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig.
+
+        Rename UString::substr to substringSharingImpl, add to WTF::String.
+        Now WTF::String can do everything that JSC::UString can do!
+
+        * JavaScriptCore.exp:
+        * bytecode/CodeBlock.cpp:
+        (JSC::escapeQuotes):
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::substitute):
+        * parser/SourceProvider.h:
+        (JSC::UStringSourceProvider::getRange):
+        * runtime/FunctionPrototype.cpp:
+        (JSC::insertSemicolonIfNeeded):
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::parseInt):
+        * runtime/JSONObject.cpp:
+        (JSC::gap):
+        (JSC::Stringifier::indent):
+        (JSC::Stringifier::unindent):
+        * runtime/JSString.cpp:
+        (JSC::JSString::replaceCharacter):
+        * runtime/NumberPrototype.cpp:
+        (JSC::numberProtoFuncToFixed):
+        (JSC::numberProtoFuncToPrecision):
+        * runtime/StringPrototype.cpp:
+        (JSC::stringProtoFuncReplace):
+        (JSC::trimString):
+        * runtime/UString.cpp:
+        (JSC::UString::substringSharingImpl):
+        * runtime/UString.h:
+        * wtf/text/WTFString.cpp:
+        (WTF::String::substringSharingImpl):
+        * wtf/text/WTFString.h:
+
+2010-08-18  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2010-08-18  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2010-08-17  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 44146 - Remove toDouble/toUInt32 methods from UString.
+
+        These methods all implement JavaScript language specific behaviour, and as such
+        are not suited to being on a generic string object.  They are also inefficient
+        and incorrectly used, refactor & cleanup.  Uses of these methods really divide
+        out into two cases.
+
+        ToNumber:
+        Uses of toDouble from JSString and from parseFloat are implementing ecma's
+        ToNumber conversion from strings (see ecma-262 9.3.1), so UString::toDouble
+        should largely just be moved out to a global jsToNumber function.  ToNumber is
+        capable of recognizing either decimal or hexadecimal numbers, but parseFloat
+        should only recognize decimal values.  This is currently handled by testing for
+        hexadecimal before calling toDouble, which should unnecessary - instead we can
+        just split out the two parts to the grammar into separate functions. Also,
+        strtod recognizes a set of literals (nan, inf, and infinity - all with any
+        capitalization) - which are not defined by any of the specs we are implementing.
+        To handle this we need to perform additional work in toDouble to convert the
+        unsupported cases of infinities back to NaNs.  Instead we should simply remove
+        support for this literals from strtod.  This should provide a more desirable
+        behaviour for all clients of strtod.
+
+        Indexed properties:
+        Uses of the toStrictUInt32 methods are were all converting property names to
+        indices, and all uses of toUInt32 were incorrect; in all cases we should have
+        been calling toUInt32.  This error results in some incorrect behaviour in the
+        DOM (accessing property "0 " of a NodeList should fail; it currently does not).
+        Move this method onto Identifier (our canonical property name), and make it
+        always perform a strict conversion. Add a layout test to check NodeList does
+        convert indexed property names correctly.
+
+        * JavaScriptCore.exp:
+        * runtime/Arguments.cpp:
+        (JSC::Arguments::getOwnPropertySlot):
+        (JSC::Arguments::getOwnPropertyDescriptor):
+        (JSC::Arguments::put):
+        (JSC::Arguments::deleteProperty):
+        * runtime/Identifier.cpp:
+        (JSC::Identifier::toUInt32):
+        * runtime/Identifier.h:
+        (JSC::Identifier::toUInt32):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::getOwnPropertySlot):
+        (JSC::JSArray::getOwnPropertyDescriptor):
+        (JSC::JSArray::put):
+        (JSC::JSArray::deleteProperty):
+        * runtime/JSArray.h:
+        (JSC::Identifier::toArrayIndex):
+        * runtime/JSByteArray.cpp:
+        (JSC::JSByteArray::getOwnPropertySlot):
+        (JSC::JSByteArray::getOwnPropertyDescriptor):
+        (JSC::JSByteArray::put):
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::isInfinity):
+        (JSC::jsHexIntegerLiteral):
+        (JSC::jsStrDecimalLiteral):
+        (JSC::jsToNumber):
+        (JSC::parseFloat):
+        * runtime/JSGlobalObjectFunctions.h:
+        * runtime/JSString.cpp:
+        (JSC::JSString::getPrimitiveNumber):
+        (JSC::JSString::toNumber):
+        (JSC::JSString::getStringPropertyDescriptor):
+        * runtime/JSString.h:
+        (JSC::JSString::getStringPropertySlot):
+        * runtime/ObjectPrototype.cpp:
+        (JSC::ObjectPrototype::put):
+        * runtime/StringObject.cpp:
+        (JSC::StringObject::deleteProperty):
+        * runtime/UString.cpp:
+        * runtime/UString.h:
+        * wtf/dtoa.cpp:
+        (WTF::strtod):
+
+2010-08-17  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 44099 - REGRESSION(r65468): Crashes in StringImpl::find
+
+        Bug 44080 introuduced a couple of cases in which array bounds could be overrun.
+        One of these was fixed in r65493, this patch fixes the other and address the
+        concerns voiced in comment #6 by restructuring the loops to remove the code
+        dupliction without introducing an additional if check.
+
+        * wtf/text/StringImpl.cpp:
+        (WTF::StringImpl::find):
+        (WTF::StringImpl::findIgnoringCase):
+        (WTF::StringImpl::reverseFind):
+        (WTF::StringImpl::reverseFindIgnoringCase):
+
+2010-08-17  No'am Rosenthal  <noam.rosenthal@nokia.com>
+
+        Reviewed by Ariya Hidayat.
+
+        [Qt] Move the accelerated compositing build flag to the right place
+        https://bugs.webkit.org/show_bug.cgi?id=43882
+
+        * wtf/Platform.h:
+
+2010-08-17  Yuta Kitamura  <yutak@chromium.org>
+
+        Reviewed by Shinichiro Hamaji.
+
+        Avoid uninitialized memory read in StringImpl::find().
+
+        REGRESSION(r65468): Crashes in StringImpl::find
+        https://bugs.webkit.org/show_bug.cgi?id=44099
+
+        * wtf/text/StringImpl.cpp:
+        (WTF::StringImpl::find):
+
+2010-08-16  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig
+
+        Add VectorTraits to String & DefaultHash traits to UString to unify behaviour.
+
+        * runtime/UString.h:
+        (JSC::UStringHash::hash):
+        (JSC::UStringHash::equal):
+        (WTF::):
+        * wtf/text/WTFString.h:
+        (WTF::):
+
+2010-08-16  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig
+
+        Remove unnecessary includes from UString.h, add new includes as necessary.
+
+        * profiler/CallIdentifier.h:
+        * profiler/ProfileNode.h:
+        * runtime/DateConversion.cpp:
+        * runtime/Identifier.h:
+        (JSC::IdentifierRepHash::hash):
+        * runtime/RegExpCache.h:
+        * runtime/RegExpKey.h:
+        * runtime/UString.cpp:
+        (JSC::UString::substr):
+        * runtime/UString.h:
+        * wtf/text/WTFString.h:
+
+2010-08-16  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig
+
+        Bug 44080 - String find/reverseFind methods need tidying up
+        These methods have a couple of problems with their interface, and implementation.
+
+        These methods take and int index, and return an int - however this is problematic
+        since on 64-bit string indices may have a full 32-bit range.  This spills out into
+        surrounding code, which unsafely casts string indices from unsigned to int. Code
+        checking the result of these methods check for a mix of "== -1", "< 0", and
+        "== notFound".  Clean this up by changing these methods to take an unsigned
+        starting index, and return a size_t. with a failed match indicated by notFound.
+        reverseFind also has a special meaning for the starting index argument, in that a
+        negative index is interpreted as an offset back from the end of the string. Remove
+        this functionality, in the (1!) case where it is used we should just calculate the
+        offset by subtracting from the string's length.
+
+        The implementation has a few problems too.  The code is not in webkit style, in
+        using assorted abbreviations in variable names, and implementations of similar
+        find methods with differing argument types were unnecessarily inconsistent. When
+        find is passed const char* data the string would be handled as latin1 (zero
+        extended to UTF-16) for all characters but the first; this is sign extended.
+        Case-insensitive find is broken for unicode strings; the hashing optimization is
+        not unicode safe, and could result in false negatives.
+
+        Unify UString find methods to match String.
+
+        * JavaScriptCore.exp:
+        * bytecode/CodeBlock.cpp:
+        (JSC::escapeQuotes):
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::substitute):
+        * runtime/JSString.cpp:
+        (JSC::JSString::replaceCharacter):
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::RegExp):
+        * runtime/RegExpKey.h:
+        (JSC::RegExpKey::getFlagsValue):
+        * runtime/StringPrototype.cpp:
+        (JSC::substituteBackreferencesSlow):
+        (JSC::substituteBackreferences):
+        (JSC::stringProtoFuncReplace):
+        (JSC::stringProtoFuncIndexOf):
+        (JSC::stringProtoFuncLastIndexOf):
+        (JSC::stringProtoFuncSplit):
+        * runtime/UString.cpp:
+        * runtime/UString.h:
+        (JSC::UString::find):
+        (JSC::UString::reverseFind):
+        * wtf/text/AtomicString.h:
+        (WTF::AtomicString::find):
+        * wtf/text/StringImpl.cpp:
+        (WTF::StringImpl::find):
+        (WTF::StringImpl::findCaseInsensitive):
+        (WTF::StringImpl::reverseFind):
+        (WTF::StringImpl::reverseFindCaseInsensitive):
+        (WTF::StringImpl::endsWith):
+        (WTF::StringImpl::replace):
+        * wtf/text/StringImpl.h:
+        (WTF::StringImpl::startsWith):
+        * wtf/text/WTFString.cpp:
+        (WTF::String::split):
+        * wtf/text/WTFString.h:
+        (WTF::String::find):
+        (WTF::String::reverseFind):
+        (WTF::String::findCaseInsensitive):
+        (WTF::String::reverseFindCaseInsensitive):
+        (WTF::String::contains):
+        (WTF::find):
+        (WTF::reverseFind):
+
+2010-08-16  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix, do not build WebCore as a convenience library as this leads to
+        errors in the Win build w/export symbols and causes problems with DOM bindings
+        debugging in gdb. 
+
+        * wscript:
+
+2010-08-16  Leandro Pereira  <leandro@profusion.mobi>
+
+        [EFL] Build fix after r65366.
+
+        * CMakeLists.txt: Use if (VAR) instead of if (${VAR}) to check if
+        they're empty.
+        * jsc/CMakeLists.txt: Ditto.
+        * wtf/CMakeLists.txt: Ditto.
+
+2010-08-15  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix, don't build intermediate source in DerivedSources dir.
+
+        * wscript:
+
+2010-08-14  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [CMake] Add preprocessor detection for generator scripts
+        https://bugs.webkit.org/show_bug.cgi?id=43984
+
+        * CMakeLists.txt:
+
+2010-08-14  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [CMake] Set target properties only if available
+        https://bugs.webkit.org/show_bug.cgi?id=43978
+
+        * CMakeLists.txt:
+        * jsc/CMakeLists.txt:
+        * wtf/CMakeLists.txt:
+
+2010-08-13  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix, add CString to the list of forwards.
+
+        * wtf/Forward.h:
+
+2010-08-13  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-08-13  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-08-13  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-08-13  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig.
+        Switch String::/UString::ascii() to return a CString.
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        * bytecode/SamplingTool.cpp:
+        (JSC::SamplingTool::dump):
+        * interpreter/CallFrame.cpp:
+        (JSC::CallFrame::dumpCaller):
+        * jsc.cpp:
+        (runWithScripts):
+        (runInteractive):
+        * runtime/Identifier.h:
+        (JSC::Identifier::ascii):
+        * runtime/ScopeChain.cpp:
+        (JSC::ScopeChainNode::print):
+        * runtime/UString.cpp:
+        (JSC::UString::ascii):
+        (JSC::UString::latin1):
+        * runtime/UString.h:
+        * wtf/text/StringImpl.cpp:
+        (WTF::StringImpl::asciiOLD):
+        * wtf/text/StringImpl.h:
+        * wtf/text/WTFString.cpp:
+        (WTF::String::ascii):
+        (WTF::String::latin1):
+        * wtf/text/WTFString.h:
+
+2010-08-13  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        Avoid increasing required alignment of target type warning on ARM
+        https://bugs.webkit.org/show_bug.cgi?id=38045
+
+        The reinterpret_cast<Type1*>([pointer to Type2]) expressions - where
+        sizeof(Type1) > sizeof(Type2) - cause the following warning on ARM:
+        increases required alignment of target type warnings.
+        Casting the type of [pointer to Type2] object to void* bypasses the
+        warning.
+
+        * assembler/ARMAssembler.cpp:
+        (JSC::ARMAssembler::executableCopy):
+        * assembler/AssemblerBuffer.h:
+        (JSC::AssemblerBuffer::putShortUnchecked):
+        (JSC::AssemblerBuffer::putIntUnchecked):
+        (JSC::AssemblerBuffer::putInt64Unchecked):
+        * interpreter/RegisterFile.h:
+        (JSC::RegisterFile::RegisterFile):
+        (JSC::RegisterFile::grow):
+        * jit/JITStubs.cpp:
+        * pcre/pcre_compile.cpp:
+        (jsRegExpCompile):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::putSlowCase):
+        (JSC::JSArray::increaseVectorLength):
+        (JSC::JSArray::increaseVectorPrefixLength):
+        (JSC::JSArray::shiftCount):
+        (JSC::JSArray::unshiftCount):
+        * wtf/FastMalloc.cpp:
+        (WTF::PageHeapAllocator::New):
+        (WTF::TCMalloc_Central_FreeList::Populate):
+        * wtf/MD5.cpp:
+        (WTF::reverseBytes):
+        (WTF::MD5::addBytes):
+        (WTF::MD5::checksum):
+        * wtf/StdLibExtras.h:
+        (isPointerTypeAlignmentOkay):
+        (reinterpret_cast_ptr):
+        * wtf/Vector.h:
+        (WTF::VectorBuffer::inlineBuffer):
+        * wtf/qt/StringQt.cpp:
+        (WTF::String::String):
+
+2010-08-13  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig
+
+        Unify UString::UTF8String() & String::utf8() methods,
+        remove UString::cost() & make atArrayIndex a free function.
+
+        * JavaScriptCore.exp:
+        * bytecode/CodeBlock.cpp:
+        (JSC::constantName):
+        (JSC::idName):
+        (JSC::CodeBlock::registerName):
+        (JSC::regexpName):
+        (JSC::printGlobalResolveInfo):
+        (JSC::printStructureStubInfo):
+        (JSC::CodeBlock::printStructure):
+        (JSC::CodeBlock::printStructures):
+        * jsc.cpp:
+        (functionPrint):
+        (functionDebug):
+        (runInteractive):
+        (fillBufferWithContentsOfFile):
+        * pcre/pcre_exec.cpp:
+        (Histogram::~Histogram):
+        * profiler/CallIdentifier.h:
+        (JSC::CallIdentifier::c_str):
+        * profiler/Profile.cpp:
+        (JSC::Profile::debugPrintDataSampleStyle):
+        * profiler/ProfileGenerator.cpp:
+        (JSC::ProfileGenerator::willExecute):
+        (JSC::ProfileGenerator::didExecute):
+        * profiler/ProfileNode.cpp:
+        (JSC::ProfileNode::debugPrintData):
+        (JSC::ProfileNode::debugPrintDataSampleStyle):
+        * runtime/Arguments.cpp:
+        (JSC::Arguments::getOwnPropertySlot):
+        (JSC::Arguments::getOwnPropertyDescriptor):
+        (JSC::Arguments::put):
+        (JSC::Arguments::deleteProperty):
+        * runtime/DateConversion.cpp:
+        (JSC::parseDate):
+        * runtime/Identifier.h:
+        (JSC::Identifier::toStrictUInt32):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::getOwnPropertySlot):
+        (JSC::JSArray::getOwnPropertyDescriptor):
+        (JSC::JSArray::put):
+        (JSC::JSArray::deleteProperty):
+        * runtime/JSArray.h:
+        (JSC::toArrayIndex):
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::encode):
+        (JSC::parseInt):
+        (JSC::globalFuncJSCPrint):
+        * runtime/JSString.h:
+        (JSC::RopeBuilder::JSString):
+        * runtime/UString.cpp:
+        (JSC::UString::toDouble):
+        (JSC::putUTF8Triple):
+        (JSC::UString::utf8):
+        * runtime/UString.h:
+        (JSC::UString::~UString):
+        (JSC::UString::isNull):
+        (JSC::UString::isEmpty):
+        (JSC::UString::impl):
+        * wtf/text/WTFString.cpp:
+        (WTF::String::utf8):
+        * wtf/text/WTFString.h:
+        (WTF::String::~String):
+        (WTF::String::swap):
+        (WTF::String::isNull):
+        (WTF::String::isEmpty):
+        (WTF::String::impl):
+        (WTF::String::length):
+        (WTF::String::String):
+        (WTF::String::isHashTableDeletedValue):
+
+2010-08-12  Zoltan Herczeg  <zherczeg@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        Refactoring the fpu code generator for the ARM port
+        https://bugs.webkit.org/show_bug.cgi?id=43842
+
+        Support up to 32 double precision registers, and the
+        recent VFP instruction formats. This patch is mainly
+        a style change which keeps the current functionality.
+
+        * assembler/ARMAssembler.h:
+        (JSC::ARMRegisters::):
+        (JSC::ARMAssembler::):
+        (JSC::ARMAssembler::emitInst):
+        (JSC::ARMAssembler::emitDoublePrecisionInst):
+        (JSC::ARMAssembler::emitSinglePrecisionInst):
+        (JSC::ARMAssembler::vadd_f64_r):
+        (JSC::ARMAssembler::vdiv_f64_r):
+        (JSC::ARMAssembler::vsub_f64_r):
+        (JSC::ARMAssembler::vmul_f64_r):
+        (JSC::ARMAssembler::vcmp_f64_r):
+        (JSC::ARMAssembler::vsqrt_f64_r):
+        (JSC::ARMAssembler::vmov_vfp_r):
+        (JSC::ARMAssembler::vmov_arm_r):
+        (JSC::ARMAssembler::vcvt_f64_s32_r):
+        (JSC::ARMAssembler::vcvt_s32_f64_r):
+        (JSC::ARMAssembler::vmrs_apsr):
+        * assembler/MacroAssemblerARM.h:
+        (JSC::MacroAssemblerARM::addDouble):
+        (JSC::MacroAssemblerARM::divDouble):
+        (JSC::MacroAssemblerARM::subDouble):
+        (JSC::MacroAssemblerARM::mulDouble):
+        (JSC::MacroAssemblerARM::sqrtDouble):
+        (JSC::MacroAssemblerARM::convertInt32ToDouble):
+        (JSC::MacroAssemblerARM::branchDouble):
+        (JSC::MacroAssemblerARM::branchConvertDoubleToInt32):
+
+2010-08-12  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r65295.
+        http://trac.webkit.org/changeset/65295
+        https://bugs.webkit.org/show_bug.cgi?id=43950
+
+        It broke 4 sputnik tests (Requested by Ossy on #webkit).
+
+        * JavaScriptCore.exp:
+        * bytecode/CodeBlock.cpp:
+        (JSC::constantName):
+        (JSC::idName):
+        (JSC::CodeBlock::registerName):
+        (JSC::regexpName):
+        (JSC::printGlobalResolveInfo):
+        (JSC::printStructureStubInfo):
+        (JSC::CodeBlock::printStructure):
+        (JSC::CodeBlock::printStructures):
+        * jsc.cpp:
+        (functionPrint):
+        (functionDebug):
+        (runInteractive):
+        (fillBufferWithContentsOfFile):
+        * pcre/pcre_exec.cpp:
+        (Histogram::~Histogram):
+        * profiler/CallIdentifier.h:
+        (JSC::CallIdentifier::c_str):
+        * profiler/Profile.cpp:
+        (JSC::Profile::debugPrintDataSampleStyle):
+        * profiler/ProfileGenerator.cpp:
+        (JSC::ProfileGenerator::willExecute):
+        (JSC::ProfileGenerator::didExecute):
+        * profiler/ProfileNode.cpp:
+        (JSC::ProfileNode::debugPrintData):
+        (JSC::ProfileNode::debugPrintDataSampleStyle):
+        * runtime/Arguments.cpp:
+        (JSC::Arguments::getOwnPropertySlot):
+        (JSC::Arguments::getOwnPropertyDescriptor):
+        (JSC::Arguments::put):
+        (JSC::Arguments::deleteProperty):
+        * runtime/DateConversion.cpp:
+        (JSC::parseDate):
+        * runtime/Identifier.h:
+        (JSC::Identifier::Identifier):
+        (JSC::Identifier::toArrayIndex):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::getOwnPropertySlot):
+        (JSC::JSArray::getOwnPropertyDescriptor):
+        (JSC::JSArray::put):
+        (JSC::JSArray::deleteProperty):
+        * runtime/JSArray.h:
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::encode):
+        (JSC::parseInt):
+        (JSC::globalFuncJSCPrint):
+        * runtime/JSString.h:
+        (JSC::RopeBuilder::JSString):
+        * runtime/UString.cpp:
+        (JSC::UString::toDouble):
+        (JSC::UString::UTF8String):
+        * runtime/UString.h:
+        (JSC::UString::isNull):
+        (JSC::UString::isEmpty):
+        (JSC::UString::impl):
+        (JSC::UString::cost):
+        (JSC::UString::~UString):
+        (JSC::UString::toArrayIndex):
+        * wtf/text/WTFString.cpp:
+        (WTF::String::utf8):
+        * wtf/text/WTFString.h:
+        (WTF::String::String):
+        (WTF::String::isHashTableDeletedValue):
+        (WTF::String::length):
+        (WTF::String::operator[]):
+        (WTF::String::isNull):
+        (WTF::String::isEmpty):
+        (WTF::String::impl):
+
+2010-08-12  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-08-12  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig
+
+        Unify UString::UTF8String() & String::utf8() methods,
+        remove UString::cost() & make atArrayIndex a free function.
+
+        * JavaScriptCore.exp:
+        * bytecode/CodeBlock.cpp:
+        (JSC::constantName):
+        (JSC::idName):
+        (JSC::CodeBlock::registerName):
+        (JSC::regexpName):
+        (JSC::printGlobalResolveInfo):
+        (JSC::printStructureStubInfo):
+        (JSC::CodeBlock::printStructure):
+        (JSC::CodeBlock::printStructures):
+        * jsc.cpp:
+        (functionPrint):
+        (functionDebug):
+        (runInteractive):
+        (fillBufferWithContentsOfFile):
+        * pcre/pcre_exec.cpp:
+        (Histogram::~Histogram):
+        * profiler/CallIdentifier.h:
+        (JSC::CallIdentifier::c_str):
+        * profiler/Profile.cpp:
+        (JSC::Profile::debugPrintDataSampleStyle):
+        * profiler/ProfileGenerator.cpp:
+        (JSC::ProfileGenerator::willExecute):
+        (JSC::ProfileGenerator::didExecute):
+        * profiler/ProfileNode.cpp:
+        (JSC::ProfileNode::debugPrintData):
+        (JSC::ProfileNode::debugPrintDataSampleStyle):
+        * runtime/Arguments.cpp:
+        (JSC::Arguments::getOwnPropertySlot):
+        (JSC::Arguments::getOwnPropertyDescriptor):
+        (JSC::Arguments::put):
+        (JSC::Arguments::deleteProperty):
+        * runtime/DateConversion.cpp:
+        (JSC::parseDate):
+        * runtime/Identifier.h:
+        (JSC::Identifier::toStrictUInt32):
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::getOwnPropertySlot):
+        (JSC::JSArray::getOwnPropertyDescriptor):
+        (JSC::JSArray::put):
+        (JSC::JSArray::deleteProperty):
+        * runtime/JSArray.h:
+        (JSC::toArrayIndex):
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::encode):
+        (JSC::parseInt):
+        (JSC::globalFuncJSCPrint):
+        * runtime/JSString.h:
+        (JSC::RopeBuilder::JSString):
+        * runtime/UString.cpp:
+        (JSC::UString::toDouble):
+        (JSC::putUTF8Triple):
+        (JSC::UString::utf8):
+        * runtime/UString.h:
+        (JSC::UString::~UString):
+        (JSC::UString::isNull):
+        (JSC::UString::isEmpty):
+        (JSC::UString::impl):
+        * wtf/text/WTFString.cpp:
+        (WTF::String::utf8):
+        * wtf/text/WTFString.h:
+        (WTF::String::~String):
+        (WTF::String::swap):
+        (WTF::String::isNull):
+        (WTF::String::isEmpty):
+        (WTF::String::impl):
+        (WTF::String::length):
+        (WTF::String::String):
+        (WTF::String::isHashTableDeletedValue):
+
+2010-08-12  Gavin Barraclough  <barraclough@apple.com>
+
+        Eeerk! - revert accidentally committed changes in UString!
+
+        * JavaScriptCore.exp:
+        * runtime/UString.cpp:
+        (JSC::UString::UString):
+        * runtime/UString.h:
+
+2010-08-12  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig
+
+        Change UString constructors to match those in WTF::String.
+        This changes behaviour of UString((char*)0) to create null
+        strings, akin to UString() rather than UString::empty().
+        (This matches String).  Remove unused constructors from
+        UString, and add null-terminated UTF-16 constructor, to
+        match String.  Move String's constructor into the .cpp to
+        match UString.
+
+        * JavaScriptCore.exp:
+        * debugger/DebuggerCallFrame.cpp:
+        (JSC::DebuggerCallFrame::calculatedFunctionName):
+        * runtime/RegExpKey.h:
+        (JSC::RegExpKey::RegExpKey):
+        * runtime/SmallStrings.cpp:
+        (JSC::SmallStrings::createSingleCharacterString):
+        * runtime/UString.cpp:
+        (JSC::UString::UString):
+        * runtime/UString.h:
+        (JSC::UString::UString):
+        (JSC::UString::swap):
+        (JSC::UString::adopt):
+        (JSC::UString::operator[]):
+        * wtf/text/WTFString.h:
+        (WTF::String::String):
+        (WTF::String::adopt):
+        (WTF::String::operator[]):
+
+2010-08-12  David Levin  <levin@chromium.org>
+
+        Reviewed by NOBODY (build fix).
+
+        * runtime/UString.h: Removed unneccessary #include.
+
+2010-08-12  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig
+
+        Revert changes to ALWAYS_INLINEness of a couple of functions in UString.
+        This appears to have degraded performance.
+
+        * runtime/UString.cpp:
+        (JSC::UString::ascii):
+        * runtime/UString.h:
+        (JSC::UString::length):
+        (JSC::UString::isEmpty):
+        (JSC::UString::~UString):
+
+2010-08-12  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Fix warnings: unknown conversion type character 'l' in format
+        https://bugs.webkit.org/show_bug.cgi?id=43359
+
+        Qt port doesn't call any printf in String::format(...), consequently
+        using __attribute__((format(printf,m,n))) is incorrect and causes
+        false positive warnings on Windows if you build with MinGW.
+
+        Qt port calls QString::vsprintf(...) , which is platform
+        independent, and handles %lli, %llu and %llx on all platforms.
+        (http://trac.webkit.org/changeset/35712)
+
+        * wtf/text/WTFString.h:
+
+2010-08-12  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Geoffrey Garen.
+
+        Fix the array subscript is above array bounds warning in ByteArray on ARM.
+        https://bugs.webkit.org/show_bug.cgi?id=43358
+
+        The warning is very similar to this one: http://gcc.gnu.org/bugzilla/show_bug.cgi?id=37861
+
+        * wtf/ByteArray.cpp:
+        (WTF::ByteArray::create):
+
+2010-08-12  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Use GSettings to save/restore Web Inspector settings
+        https://bugs.webkit.org/show_bug.cgi?id=43512
+
+        * wtf/gobject/GRefPtr.cpp: Added support for GVariant, used by our
+        GSettings support.
+        (WTF::refGPtr):
+        (WTF::derefGPtr):
+        * wtf/gobject/GRefPtr.h:
+
+2010-08-12  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Simon Hausmann.
+
+        The scratch register should be saved in YARR with ARM JIT
+        https://bugs.webkit.org/show_bug.cgi?id=43910
+
+        Reported by Jocelyn Turcotte.
+
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::generateEnter):
+        (JSC::Yarr::RegexGenerator::generateReturn):
+
+2010-08-11  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/Forward.h:
+
+2010-08-11  Leo Yang  <leo.yang@torchmobile.com.cn>
+
+        Reviewed by Geoffrey Garen.
+
+        Date("") should be an invalid date. For IE, Firefox and Chrome, Date("") is invalid date,
+        which means isNaN(new Date("")) should return true.
+        https://bugs.webkit.org/show_bug.cgi?id=43793
+        Tests: fast/js/date-constructor.html
+
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::resetDateCache):
+
+2010-08-11  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows & !JIT build fix.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::match):
+
+2010-08-11  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamp by sam weinig
+
+        Touch a file to stop the bot rolling a bit change out!
+
+        * runtime/UString.cpp:
+        (JSC::UString::ascii):
+
+2010-08-11  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix for wx and WebDOM bindings, add CString classes to the list of forwards.
+
+        * wtf/Forward.h:
+
+2010-08-11  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamps by Darin Adler & Sam Weinig.
+
+        Bug 43867 - Some UString cleanup
+
+        Change JSC::UString data(), size(), and from(), to characters(), length(), and number() to match WTF::String.
+        Move string concatenation methods to a new header to simplify down UString.h.  Remove is8Bit().
+
+        * API/JSClassRef.cpp:
+        (OpaqueJSClass::~OpaqueJSClass):
+        (OpaqueJSClass::className):
+        * API/OpaqueJSString.cpp:
+        (OpaqueJSString::create):
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * bytecode/CodeBlock.cpp:
+        (JSC::constantName):
+        (JSC::idName):
+        (JSC::CodeBlock::registerName):
+        (JSC::regexpName):
+        * bytecode/EvalCodeCache.h:
+        (JSC::EvalCodeCache::get):
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::ResolveNode::emitBytecode):
+        (JSC::FunctionCallResolveNode::emitBytecode):
+        (JSC::ReadModifyResolveNode::emitBytecode):
+        (JSC::processClauseList):
+        * parser/ASTBuilder.h:
+        (JSC::ASTBuilder::createRegex):
+        * parser/ParserArena.h:
+        (JSC::IdentifierArena::makeNumericIdentifier):
+        * parser/SourceProvider.h:
+        (JSC::UStringSourceProvider::data):
+        (JSC::UStringSourceProvider::length):
+        * profiler/Profiler.cpp:
+        * runtime/Arguments.cpp:
+        (JSC::Arguments::getOwnPropertySlot):
+        (JSC::Arguments::getOwnPropertyNames):
+        (JSC::Arguments::put):
+        (JSC::Arguments::deleteProperty):
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncToString):
+        * runtime/DatePrototype.cpp:
+        (JSC::formatLocaleDate):
+        * runtime/ExceptionHelpers.cpp:
+        * runtime/FunctionConstructor.cpp:
+        * runtime/FunctionPrototype.cpp:
+        (JSC::insertSemicolonIfNeeded):
+        * runtime/Identifier.h:
+        (JSC::Identifier::characters):
+        (JSC::Identifier::length):
+        * runtime/JSGlobalObjectFunctions.cpp:
+        (JSC::decode):
+        (JSC::parseInt):
+        (JSC::parseFloat):
+        (JSC::globalFuncEscape):
+        (JSC::globalFuncUnescape):
+        * runtime/JSNumberCell.cpp:
+        (JSC::JSNumberCell::toString):
+        * runtime/JSONObject.cpp:
+        (JSC::gap):
+        (JSC::Stringifier::appendQuotedString):
+        (JSC::Stringifier::appendStringifiedValue):
+        (JSC::Stringifier::indent):
+        (JSC::Stringifier::unindent):
+        (JSC::Walker::walk):
+        * runtime/JSString.cpp:
+        (JSC::JSString::replaceCharacter):
+        (JSC::JSString::getIndexSlowCase):
+        * runtime/JSString.h:
+        (JSC::RopeBuilder::JSString):
+        (JSC::RopeBuilder::appendValueInConstructAndIncrementLength):
+        (JSC::RopeBuilder::fiberCount):
+        (JSC::jsSingleCharacterSubstring):
+        (JSC::jsNontrivialString):
+        (JSC::JSString::getIndex):
+        (JSC::jsString):
+        (JSC::jsStringWithFinalizer):
+        (JSC::jsSubstring):
+        (JSC::jsOwnedString):
+        * runtime/JSStringBuilder.h:
+        (JSC::JSStringBuilder::append):
+        * runtime/LiteralParser.h:
+        (JSC::LiteralParser::Lexer::Lexer):
+        * runtime/NumberPrototype.cpp:
+        (JSC::numberProtoFuncToString):
+        (JSC::numberProtoFuncToFixed):
+        (JSC::numberProtoFuncToExponential):
+        (JSC::numberProtoFuncToPrecision):
+        * runtime/NumericStrings.h:
+        (JSC::NumericStrings::add):
+        (JSC::NumericStrings::lookupSmallString):
+        * runtime/Operations.h:
+        (JSC::jsString):
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::match):
+        * runtime/RegExpCache.cpp:
+        (JSC::RegExpCache::lookupOrCreate):
+        (JSC::RegExpCache::create):
+        * runtime/RegExpConstructor.cpp:
+        (JSC::RegExpConstructor::getRightContext):
+        * runtime/RegExpObject.cpp:
+        (JSC::RegExpObject::match):
+        * runtime/RegExpPrototype.cpp:
+        (JSC::regExpProtoFuncToString):
+        * runtime/StringBuilder.h:
+        (JSC::StringBuilder::append):
+        * runtime/StringConcatenate.h: Copied from JavaScriptCore/runtime/UString.h.
+        (JSC::):
+        (JSC::sumWithOverflow):
+        (JSC::tryMakeString):
+        (JSC::makeString):
+        * runtime/StringObject.cpp:
+        (JSC::StringObject::getOwnPropertyNames):
+        * runtime/StringPrototype.cpp:
+        (JSC::substituteBackreferencesSlow):
+        (JSC::localeCompare):
+        (JSC::jsSpliceSubstringsWithSeparators):
+        (JSC::stringProtoFuncReplace):
+        (JSC::stringProtoFuncCharAt):
+        (JSC::stringProtoFuncCharCodeAt):
+        (JSC::stringProtoFuncIndexOf):
+        (JSC::stringProtoFuncLastIndexOf):
+        (JSC::stringProtoFuncSlice):
+        (JSC::stringProtoFuncSplit):
+        (JSC::stringProtoFuncSubstr):
+        (JSC::stringProtoFuncSubstring):
+        (JSC::stringProtoFuncToLowerCase):
+        (JSC::stringProtoFuncToUpperCase):
+        (JSC::stringProtoFuncFontsize):
+        (JSC::stringProtoFuncLink):
+        (JSC::trimString):
+        * runtime/UString.cpp:
+        (JSC::UString::number):
+        (JSC::UString::ascii):
+        (JSC::UString::operator[]):
+        (JSC::UString::toDouble):
+        (JSC::UString::find):
+        (JSC::UString::rfind):
+        (JSC::UString::substr):
+        (JSC::operator==):
+        (JSC::operator<):
+        (JSC::operator>):
+        (JSC::UString::UTF8String):
+        * runtime/UString.h:
+        (JSC::UString::UString):
+        (JSC::UString::adopt):
+        (JSC::UString::length):
+        (JSC::UString::characters):
+        (JSC::UString::isNull):
+        (JSC::UString::isEmpty):
+        (JSC::UString::impl):
+        (JSC::UString::cost):
+        (JSC::operator==):
+        (JSC::operator!=):
+        (JSC::codePointCompare):
+        (JSC::UString::toArrayIndex):
+        (JSC::IdentifierRepHash::hash):
+        (WTF::):
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::jitCompileRegex):
+        * yarr/RegexParser.h:
+        (JSC::Yarr::Parser::Parser):
+
+2010-08-11  Gabor Loki  <loki@webkit.org>
+
+        Qt build fix (ARMv7).
+
+        Fix invalid conversion from int to Condition.
+        Add ARMv7Assembler.cpp to JavaScriptCore.pro.
+
+        * JavaScriptCore.pro:
+        * assembler/ARMv7Assembler.h:
+        (JSC::ARMv7Assembler::):
+        (JSC::ARMv7Assembler::JmpSrc::JmpSrc):
+
+2010-08-11  Nathan Lawrence  <nlawrence@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        At collection time, we frequently want to mark a cell, while checking
+        whether it was originally checked.  Previously, this was a get
+        operation follwed by a set operation.  Fusing the two saves
+        computation and gives a 0.5% sunspider speedup.
+
+        * runtime/Collector.h:
+        (JSC::CollectorBitmap::getset):
+        (JSC::Heap::checkMarkCell):
+        * runtime/JSArray.h:
+        (JSC::MarkStack::drain):
+        * runtime/JSCell.h:
+        (JSC::MarkStack::append):
+
+2010-08-11  Steve Falkenburg  <sfalken@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Improve vsprops copying for Windows build
+        https://bugs.webkit.org/show_bug.cgi?id=41982
+
+        When we detect a new SDK, always copy a new set of vsprops files.
+        Previously, if someone updated their SDK after updating their sources,
+        they could end up with out-of-date vsprops files.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.make:
+
+2010-08-10  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Add leakRef and clear to all RefPtr variants
+        https://bugs.webkit.org/show_bug.cgi?id=42389
+
+        * API/JSRetainPtr.h: Changed all uses of "template <...>" to instead do
+        "template<...>". We should probably put this in the style guide and do it
+        consitently. Fixed other minor style issues. Defined many of the inlined
+        functions outside the class definition, to avoid style checker warnings
+        about multiple statements on a single line and for slightly better clarity
+        of the class definition itself. Renamed releaseRef to leakRef. Added a
+        releaseRef that calls leakRef so we don't have to rename all callers oat
+        once. Added a clear function.
+
+        * wtf/PassRefPtr.h: Changed all uses of releaseRef to leakRef.
+
+        * wtf/RefPtr.h: Changed all uses of "template <...>" to instead do
+        "template<...>". Tidied up declarations and comments a bit.
+         Changed all uses of releaseRef to leakRef.
+
+        * wtf/RetainPtr.h: Changed all uses of "template <...>" to instead do
+        "template<...>". Defined many of the inlined functions outside the class
+        definition, to avoid style checker warnings about multiple statements on
+        a single line and for slightly better clarity of the class definition itself.
+        Renamed releaseRef to leakRef. Added a releaseRef that calls leakRef so we
+        don't have to rename all callers at once. Added a clear function.
+
+2010-08-10  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Unreviewed, reverting an unintentional change to a file submitted in r65108.
+
+        * bytecode/CodeBlock.h:
+        (JSC::binaryChop):
+
+2010-08-10  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig
+
+        Bug 43817 - Remove UString::Rep
+        UString::Rep has for a long time been replaced by UStringImpl (Rep
+        remaining as a typedef).  UStringImpl has since been removed too
+        (unified with StringImpl). Remove Rep, rename rep() to impl() and
+        m_rep to m_impl.  Also add impl() method to Identifier, and rename
+        its UString member from _ustring to m_string.
+
+        * API/JSCallbackObject.h:
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::getPrivateProperty):
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::setPrivateProperty):
+        (JSC::JSCallbackObjectData::JSPrivatePropertyMap::deletePrivateProperty):
+        * API/JSCallbackObjectFunctions.h:
+        (JSC::::getOwnPropertySlot):
+        (JSC::::put):
+        (JSC::::deleteProperty):
+        (JSC::::getOwnPropertyNames):
+        (JSC::::staticValueGetter):
+        (JSC::::staticFunctionGetter):
+        * API/JSClassRef.cpp:
+        (tryCreateStringFromUTF8):
+        (OpaqueJSClass::OpaqueJSClass):
+        (OpaqueJSClass::~OpaqueJSClass):
+        (OpaqueJSClassContextData::OpaqueJSClassContextData):
+        * API/JSClassRef.h:
+        * API/OpaqueJSString.cpp:
+        (OpaqueJSString::ustring):
+        * bytecode/EvalCodeCache.h:
+        (JSC::EvalCodeCache::get):
+        * bytecode/JumpTable.h:
+        (JSC::StringJumpTable::offsetForValue):
+        (JSC::StringJumpTable::ctiForValue):
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::addVar):
+        (JSC::BytecodeGenerator::addGlobalVar):
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::addParameter):
+        (JSC::BytecodeGenerator::registerFor):
+        (JSC::BytecodeGenerator::willResolveToArguments):
+        (JSC::BytecodeGenerator::uncheckedRegisterForArguments):
+        (JSC::BytecodeGenerator::constRegisterFor):
+        (JSC::BytecodeGenerator::isLocal):
+        (JSC::BytecodeGenerator::isLocalConstant):
+        (JSC::BytecodeGenerator::addConstant):
+        (JSC::BytecodeGenerator::emitLoad):
+        (JSC::BytecodeGenerator::findScopedProperty):
+        (JSC::keyForCharacterSwitch):
+        (JSC::prepareJumpTableForStringSwitch):
+        * bytecompiler/BytecodeGenerator.h:
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::processClauseList):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JITStubs.cpp:
+        (JSC::DEFINE_STUB_FUNCTION):
+        * parser/JSParser.cpp:
+        (JSC::JSParser::parseStrictObjectLiteral):
+        * pcre/pcre_exec.cpp:
+        (Histogram::add):
+        * profiler/CallIdentifier.h:
+        (JSC::CallIdentifier::Hash::hash):
+        * profiler/Profile.cpp:
+        * profiler/ProfileNode.cpp:
+        (JSC::ProfileNode::debugPrintDataSampleStyle):
+        * profiler/ProfileNode.h:
+        * runtime/ArrayPrototype.cpp:
+        (JSC::arrayProtoFuncToString):
+        * runtime/Identifier.cpp:
+        (JSC::Identifier::equal):
+        (JSC::IdentifierCStringTranslator::hash):
+        (JSC::IdentifierCStringTranslator::equal):
+        (JSC::IdentifierCStringTranslator::translate):
+        (JSC::Identifier::add):
+        (JSC::IdentifierUCharBufferTranslator::hash):
+        (JSC::IdentifierUCharBufferTranslator::equal):
+        (JSC::IdentifierUCharBufferTranslator::translate):
+        (JSC::Identifier::addSlowCase):
+        * runtime/Identifier.h:
+        (JSC::Identifier::Identifier):
+        (JSC::Identifier::ustring):
+        (JSC::Identifier::impl):
+        (JSC::Identifier::data):
+        (JSC::Identifier::size):
+        (JSC::Identifier::ascii):
+        (JSC::Identifier::isNull):
+        (JSC::Identifier::isEmpty):
+        (JSC::Identifier::toUInt32):
+        (JSC::Identifier::toStrictUInt32):
+        (JSC::Identifier::toArrayIndex):
+        (JSC::Identifier::toDouble):
+        (JSC::Identifier::equal):
+        (JSC::Identifier::add):
+        * runtime/InitializeThreading.cpp:
+        (JSC::initializeThreadingOnce):
+        * runtime/InternalFunction.cpp:
+        (JSC::InternalFunction::displayName):
+        * runtime/JSFunction.cpp:
+        (JSC::JSFunction::displayName):
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::addStaticGlobals):
+        * runtime/JSStaticScopeObject.h:
+        (JSC::JSStaticScopeObject::JSStaticScopeObject):
+        * runtime/JSString.h:
+        (JSC::):
+        (JSC::RopeBuilder::appendStringInConstruct):
+        (JSC::RopeBuilder::appendValueInConstructAndIncrementLength):
+        (JSC::jsSingleCharacterSubstring):
+        (JSC::jsSubstring):
+        * runtime/JSVariableObject.cpp:
+        (JSC::JSVariableObject::deleteProperty):
+        (JSC::JSVariableObject::symbolTableGet):
+        * runtime/JSVariableObject.h:
+        (JSC::JSVariableObject::symbolTableGet):
+        (JSC::JSVariableObject::symbolTablePut):
+        (JSC::JSVariableObject::symbolTablePutWithAttributes):
+        * runtime/Lookup.cpp:
+        (JSC::HashTable::createTable):
+        (JSC::HashTable::deleteTable):
+        * runtime/Lookup.h:
+        (JSC::HashEntry::initialize):
+        (JSC::HashEntry::setKey):
+        (JSC::HashEntry::key):
+        (JSC::HashTable::entry):
+        * runtime/PropertyMapHashTable.h:
+        (JSC::PropertyMapEntry::PropertyMapEntry):
+        * runtime/PropertyNameArray.cpp:
+        (JSC::PropertyNameArray::add):
+        * runtime/PropertyNameArray.h:
+        (JSC::PropertyNameArray::add):
+        (JSC::PropertyNameArray::addKnownUnique):
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::match):
+        * runtime/RegExpCache.cpp:
+        (JSC::RegExpCache::create):
+        * runtime/RegExpKey.h:
+        (JSC::RegExpKey::RegExpKey):
+        * runtime/SmallStrings.cpp:
+        (JSC::SmallStringsStorage::rep):
+        (JSC::SmallStrings::singleCharacterStringRep):
+        * runtime/SmallStrings.h:
+        * runtime/StringPrototype.cpp:
+        (JSC::jsSpliceSubstringsWithSeparators):
+        (JSC::stringProtoFuncMatch):
+        (JSC::stringProtoFuncSearch):
+        * runtime/Structure.cpp:
+        (JSC::Structure::~Structure):
+        (JSC::Structure::despecifyDictionaryFunction):
+        (JSC::Structure::addPropertyTransitionToExistingStructure):
+        (JSC::Structure::addPropertyTransition):
+        (JSC::Structure::copyPropertyTable):
+        (JSC::Structure::get):
+        (JSC::Structure::despecifyFunction):
+        (JSC::Structure::put):
+        (JSC::Structure::hasTransition):
+        (JSC::Structure::remove):
+        (JSC::Structure::checkConsistency):
+        * runtime/Structure.h:
+        (JSC::Structure::get):
+        (JSC::Structure::hasTransition):
+        * runtime/StructureTransitionTable.h:
+        * runtime/SymbolTable.h:
+        * runtime/UString.cpp:
+        (JSC::UString::UString):
+        (JSC::UString::toStrictUInt32):
+        (JSC::UString::substr):
+        * runtime/UString.h:
+        (JSC::UString::UString):
+        (JSC::UString::adopt):
+        (JSC::UString::data):
+        (JSC::UString::size):
+        (JSC::UString::isNull):
+        (JSC::UString::isEmpty):
+        (JSC::UString::impl):
+        (JSC::UString::cost):
+        (JSC::operator==):
+        (JSC::codePointCompare):
+        (JSC::IdentifierRepHash::hash):
+        (WTF::):
+
+2010-08-10  Gavin Barraclough  <barraclough@apple.com>
+
+        Bug 43816 - Remove UStringImpl
+        The class was actually removed a long time ago, replaced by StringImpl.
+        UStringImpl is just a typedef onto StringImpl.  Remove this.
+
+        * API/JSClassRef.cpp:
+        (OpaqueJSClass::OpaqueJSClass):
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/JSString.cpp:
+        (JSC::JSString::resolveRope):
+        (JSC::JSString::replaceCharacter):
+        * runtime/JSString.h:
+        (JSC::RopeBuilder::RopeIterator::operator*):
+        (JSC::RopeBuilder::JSString):
+        (JSC::RopeBuilder::appendStringInConstruct):
+        (JSC::RopeBuilder::appendValueInConstructAndIncrementLength):
+        (JSC::jsSingleCharacterSubstring):
+        (JSC::jsSubstring):
+        * runtime/JSStringBuilder.h:
+        (JSC::jsMakeNontrivialString):
+        * runtime/RopeImpl.cpp:
+        (JSC::RopeImpl::derefFibersNonRecursive):
+        * runtime/RopeImpl.h:
+        (JSC::RopeImpl::deref):
+        * runtime/SmallStrings.cpp:
+        (JSC::SmallStringsStorage::SmallStringsStorage):
+        * runtime/StringConstructor.cpp:
+        (JSC::stringFromCharCodeSlowCase):
+        * runtime/StringPrototype.cpp:
+        (JSC::jsSpliceSubstringsWithSeparators):
+        (JSC::stringProtoFuncFontsize):
+        (JSC::stringProtoFuncLink):
+        * runtime/UString.cpp:
+        (JSC::initializeUString):
+        * runtime/UString.h:
+        (JSC::UString::adopt):
+        (JSC::tryMakeString):
+        (JSC::makeString):
+        * runtime/UStringImpl.h: Removed.
+
+2010-08-10  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Eric Seidel.
+
+        Make FastMalloc more portable.
+        https://bugs.webkit.org/show_bug.cgi?id=41790
+
+        * wtf/FastMalloc.cpp:
+        (WTF::TCMalloc_Central_FreeList::Populate):
+        (WTF::TCMalloc_ThreadCache::CreateCacheIfNecessary):
+
+2010-08-10  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by David Levin.
+
+        [WINCE] Buildfix for CE 6.0
+        https://bugs.webkit.org/show_bug.cgi?id=43027
+
+        CE 6.0 doesn't define localtime in the system include files.
+
+        * wtf/Platform.h: Include ce_time.h on all OS(WINCE).
+
+2010-08-10  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig.
+
+        Bug 43786 - Move AtomicStringHash from WebCore to WTF
+        Also remove deprecated string headers from WebCore/platform/text.
+
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/text/AtomicString.h:
+        * wtf/text/AtomicStringHash.h: Copied from WebCore/platform/text/AtomicStringHash.h.
+
 2010-08-09  Oliver Hunt  <oliver@apple.com>
 
         Fix Qt/ARM again, this time including the other changed file.

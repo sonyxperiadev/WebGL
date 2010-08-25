@@ -47,8 +47,8 @@ namespace JSC {
         {
             RefPtr<EvalExecutable> evalExecutable;
 
-            if (evalSource.size() < maxCacheableSourceLength && (*scopeChain->begin())->isVariableObject())
-                evalExecutable = m_cacheMap.get(evalSource.rep());
+            if (evalSource.length() < maxCacheableSourceLength && (*scopeChain->begin())->isVariableObject())
+                evalExecutable = m_cacheMap.get(evalSource.impl());
 
             if (!evalExecutable) {
                 evalExecutable = EvalExecutable::create(exec, makeSource(evalSource));
@@ -56,8 +56,8 @@ namespace JSC {
                 if (exceptionValue)
                     return 0;
 
-                if (evalSource.size() < maxCacheableSourceLength && (*scopeChain->begin())->isVariableObject() && m_cacheMap.size() < maxCacheEntries)
-                    m_cacheMap.set(evalSource.rep(), evalExecutable);
+                if (evalSource.length() < maxCacheableSourceLength && (*scopeChain->begin())->isVariableObject() && m_cacheMap.size() < maxCacheEntries)
+                    m_cacheMap.set(evalSource.impl(), evalExecutable);
             }
 
             return evalExecutable.release();
@@ -69,7 +69,7 @@ namespace JSC {
         static const unsigned maxCacheableSourceLength = 256;
         static const int maxCacheEntries = 64;
 
-        typedef HashMap<RefPtr<UString::Rep>, RefPtr<EvalExecutable> > EvalCacheMap;
+        typedef HashMap<RefPtr<StringImpl>, RefPtr<EvalExecutable> > EvalCacheMap;
         EvalCacheMap m_cacheMap;
     };
 

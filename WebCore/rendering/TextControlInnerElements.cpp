@@ -345,7 +345,19 @@ void SpinButtonElement::setHovered(bool flag)
 inline InputFieldSpeechButtonElement::InputFieldSpeechButtonElement(Node* shadowParent)
     : TextControlInnerElement(shadowParent->document(), shadowParent)
     , m_capturing(false)
+    , m_state(Idle)
+    , m_listenerId(document()->page()->speechInput()->registerListener(this))
 {
+}
+
+InputFieldSpeechButtonElement::~InputFieldSpeechButtonElement()
+{
+    SpeechInput* speech = speechInput();
+    if (speech)  { // Could be null when page is unloading.
+        if (m_state != Idle)
+            speech->cancelRecognition(m_listenerId);
+        speech->unregisterListener(m_listenerId);
+    }
 }
 
 PassRefPtr<InputFieldSpeechButtonElement> InputFieldSpeechButtonElement::create(Node* shadowParent)
@@ -383,7 +395,18 @@ void InputFieldSpeechButtonElement::defaultEventHandler(Event* event)
     }
 
     if (event->type() == eventNames().clickEvent) {
-        speechInput()->startRecognition(this);
+        switch (m_state) {
+        case Idle:
+            if (speechInput()->startRecognition(m_listenerId))
+                setState(Recording);
+            break;
+        case Recording:
+            speechInput()->stopRecording(m_listenerId);
+            break;
+        case Recognizing:
+            // Nothing to do here, we will continue to wait for results.
+            break;
+        }
         event->setDefaultHandled();
     }
 
@@ -391,23 +414,30 @@ void InputFieldSpeechButtonElement::defaultEventHandler(Event* event)
         HTMLDivElement::defaultEventHandler(event);
 }
 
+void InputFieldSpeechButtonElement::setState(SpeechInputState state)
+{
+    if (m_state != state) {
+        m_state = state;
+        shadowAncestorNode()->renderer()->repaint();
+    }
+}
+
 SpeechInput* InputFieldSpeechButtonElement::speechInput()
 {
-    return document()->page()->speechInput();
+    return document()->page() ? document()->page()->speechInput() : 0;
 }
 
-void InputFieldSpeechButtonElement::didCompleteRecording()
+void InputFieldSpeechButtonElement::didCompleteRecording(int)
 {
-    // FIXME: Add UI feedback here to indicate that audio recording stopped and recognition is
-    // in progress.
+    setState(Recognizing);
 }
 
-void InputFieldSpeechButtonElement::didCompleteRecognition()
+void InputFieldSpeechButtonElement::didCompleteRecognition(int)
 {
-    // FIXME: Add UI feedback here to indicate that audio recognition has ended.
+    setState(Idle);
 }
 
-void InputFieldSpeechButtonElement::setRecognitionResult(const String& result)
+void InputFieldSpeechButtonElement::setRecognitionResult(int, const String& result)
 {
     HTMLInputElement* input = static_cast<HTMLInputElement*>(shadowAncestorNode());
     // The call to setValue() below dispatches an event, and an event handler in the page might

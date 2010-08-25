@@ -85,9 +85,6 @@ namespace WebCore {
 //----------------------------------------------------------------------
 // GraphicsContext3DInternal
 
-// Uncomment this to render to a separate window for debugging
-// #define RENDER_TO_DEBUGGING_WINDOW
-
 class GraphicsContext3DInternal {
 public:
     GraphicsContext3DInternal();
@@ -105,8 +102,7 @@ public:
     void reshape(int width, int height);
 
     void paintRenderingResultsToCanvas(CanvasRenderingContext* context);
-    void beginPaint(CanvasRenderingContext* context);
-    void endPaint();
+    bool paintsIntoCanvasBuffer() const;
 
     void prepareTexture();
 
@@ -300,6 +296,7 @@ public:
     void deleteTexture(unsigned);
 
     void synthesizeGLError(unsigned long error);
+    bool supportsBGRA();
 
 private:
     OwnPtr<WebKit::WebGraphicsContext3D> m_impl;
@@ -452,17 +449,10 @@ void GraphicsContext3DInternal::paintRenderingResultsToCanvas(CanvasRenderingCon
 #endif
 }
 
-void GraphicsContext3DInternal::beginPaint(CanvasRenderingContext* context)
+bool GraphicsContext3DInternal::paintsIntoCanvasBuffer() const
 {
     // If the gpu compositor is on then skip the readback and software rendering path.
-    if (m_webViewImpl->isAcceleratedCompositingActive())
-        return;
-
-    paintRenderingResultsToCanvas(context);
-}
-
-void GraphicsContext3DInternal::endPaint()
-{
+    return !m_webViewImpl->isAcceleratedCompositingActive();
 }
 
 void GraphicsContext3DInternal::reshape(int width, int height)
@@ -910,6 +900,7 @@ DELEGATE_TO_IMPL_1(deleteShader, unsigned)
 DELEGATE_TO_IMPL_1(deleteTexture, unsigned)
 
 DELEGATE_TO_IMPL_1(synthesizeGLError, unsigned long)
+DELEGATE_TO_IMPL_R(supportsBGRA, bool)
 
 //----------------------------------------------------------------------
 // GraphicsContext3D
@@ -1226,8 +1217,11 @@ DELEGATE_TO_INTERNAL_6(vertexAttribPointer, unsigned long, int, int, bool, unsig
 DELEGATE_TO_INTERNAL_4(viewport, long, long, unsigned long, unsigned long)
 
 DELEGATE_TO_INTERNAL_1(paintRenderingResultsToCanvas, CanvasRenderingContext*)
-DELEGATE_TO_INTERNAL_1(beginPaint, CanvasRenderingContext*)
-DELEGATE_TO_INTERNAL(endPaint)
+
+bool GraphicsContext3D::paintsIntoCanvasBuffer() const
+{
+    return m_internal->paintsIntoCanvasBuffer();
+}
 
 DELEGATE_TO_INTERNAL_R(createBuffer, unsigned)
 DELEGATE_TO_INTERNAL_R(createFramebuffer, unsigned)
@@ -1244,6 +1238,7 @@ DELEGATE_TO_INTERNAL_1(deleteShader, unsigned)
 DELEGATE_TO_INTERNAL_1(deleteTexture, unsigned)
 
 DELEGATE_TO_INTERNAL_1(synthesizeGLError, unsigned long)
+DELEGATE_TO_INTERNAL_R(supportsBGRA, bool)
 
 bool GraphicsContext3D::isGLES2Compliant() const
 {

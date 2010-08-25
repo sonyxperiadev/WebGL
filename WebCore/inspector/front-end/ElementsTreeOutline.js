@@ -413,8 +413,8 @@ WebInspector.ElementsTreeElement.prototype = {
             else
                 this.tooltip = WebInspector.UIString("%d × %d pixels (Natural: %d × %d pixels)", properties.offsetWidth, properties.offsetHeight, properties.naturalWidth, properties.naturalHeight);
         }
-        var objectProxy = new WebInspector.ObjectProxy(node.injectedScriptId, node.id);
-        WebInspector.ObjectProxy.getPropertiesAsync(objectProxy, ["naturalHeight", "naturalWidth", "offsetHeight", "offsetWidth"], setTooltip.bind(this));
+
+        InjectedScriptAccess.getForNode(node).getNodeProperties(node.id, ["naturalHeight", "naturalWidth", "offsetHeight", "offsetWidth"], setTooltip.bind(this));
     },
 
     updateSelection: function()

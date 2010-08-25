@@ -178,7 +178,7 @@ EncodedJSValue JSC_HOST_CALL functionPrint(ExecState* exec)
         if (i)
             putchar(' ');
 
-        printf("%s", exec->argument(i).toString(exec).UTF8String().data());
+        printf("%s", exec->argument(i).toString(exec).utf8().data());
     }
 
     putchar('\n');
@@ -188,7 +188,7 @@ EncodedJSValue JSC_HOST_CALL functionPrint(ExecState* exec)
 
 EncodedJSValue JSC_HOST_CALL functionDebug(ExecState* exec)
 {
-    fprintf(stderr, "--> %s\n", exec->argument(0).toString(exec).UTF8String().data());
+    fprintf(stderr, "--> %s\n", exec->argument(0).toString(exec).utf8().data());
     return JSValue::encode(jsUndefined());
 }
 
@@ -392,9 +392,9 @@ static bool runWithScripts(GlobalObject* globalObject, const Vector<Script>& scr
         success = success && completion.complType() != Throw;
         if (dump) {
             if (completion.complType() == Throw)
-                printf("Exception: %s\n", completion.value().toString(globalObject->globalExec()).ascii());
+                printf("Exception: %s\n", completion.value().toString(globalObject->globalExec()).utf8().data());
             else
-                printf("End: %s\n", completion.value().toString(globalObject->globalExec()).ascii());
+                printf("End: %s\n", completion.value().toString(globalObject->globalExec()).utf8().data());
         }
 
         globalData->stopSampling();
@@ -440,9 +440,9 @@ static void runInteractive(GlobalObject* globalObject)
         Completion completion = evaluate(globalObject->globalExec(), globalObject->globalScopeChain(), makeSource(line.data(), interpreterName));
 #endif
         if (completion.complType() == Throw)
-            printf("Exception: %s\n", completion.value().toString(globalObject->globalExec()).ascii());
+            printf("Exception: %s\n", completion.value().toString(globalObject->globalExec()).utf8().data());
         else
-            printf("%s\n", completion.value().toString(globalObject->globalExec()).UTF8String().data());
+            printf("%s\n", completion.value().toString(globalObject->globalExec()).utf8().data());
 
         globalObject->globalExec()->clearException();
     }
@@ -532,9 +532,9 @@ int jscmain(int argc, char** argv, JSGlobalData* globalData)
 
 static bool fillBufferWithContentsOfFile(const UString& fileName, Vector<char>& buffer)
 {
-    FILE* f = fopen(fileName.UTF8String().data(), "r");
+    FILE* f = fopen(fileName.utf8().data(), "r");
     if (!f) {
-        fprintf(stderr, "Could not open file: %s\n", fileName.UTF8String().data());
+        fprintf(stderr, "Could not open file: %s\n", fileName.utf8().data());
         return false;
     }
 

@@ -26,9 +26,9 @@
 #include "config.h"
 #include "BString.h"
 
-#include "AtomicString.h"
 #include "KURL.h"
 #include "PlatformString.h"
+#include <wtf/text/AtomicString.h>
 #include <tchar.h>
 #include <windows.h>
 
@@ -90,7 +90,7 @@ BString::BString(const UString& s)
     if (s.isNull())
         m_bstr = 0;
     else
-        m_bstr = SysAllocStringLen(s.data(), s.size());
+        m_bstr = SysAllocStringLen(s.characters(), s.length());
 }
 
 #if PLATFORM(CF)

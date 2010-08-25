@@ -69,6 +69,7 @@ webcore_cppflags += \
 	-DDATA_DIR=\"${datadir}\"
 
 webcoregtk_cppflags += \
+	-DWEBKITGTK_API_VERSION_STRING=\"@WEBKITGTK_API_VERSION@\" \
 	-DWTF_USE_SOUP=1 \
 	-DWTF_USE_GSTREAMER=1 \
 	-I$(srcdir)/WebCore/accessibility/gtk \
@@ -92,7 +93,7 @@ webcore_built_sources += \
 	DerivedSources/WebCore/CSSValueKeywords.h \
 	DerivedSources/WebCore/HTMLElementFactory.cpp \
 	DerivedSources/WebCore/HTMLElementFactory.h \
-	DerivedSources/WebCore/HTMLEntityNames.cpp \
+	DerivedSources/WebCore/HTMLEntityTable.cpp \
 	DerivedSources/WebCore/HTMLNames.cpp \
 	DerivedSources/WebCore/HTMLNames.h \
 	DerivedSources/WebCore/InspectorBackendDispatcher.cpp \
@@ -1314,6 +1315,8 @@ webcore_sources += \
 	WebCore/html/Blob.h \
 	WebCore/html/BlobBuilder.cpp \
 	WebCore/html/BlobBuilder.h \
+	WebCore/html/BlobURL.cpp \
+	WebCore/html/BlobURL.h \
 	WebCore/html/canvas/CanvasContextAttributes.h \
 	WebCore/html/canvas/CanvasGradient.cpp \
 	WebCore/html/canvas/CanvasGradient.h \
@@ -1422,6 +1425,8 @@ webcore_sources += \
 	WebCore/html/HTMLElement.h \
 	WebCore/html/HTMLElementStack.cpp \
 	WebCore/html/HTMLElementStack.h \
+	WebCore/html/HTMLEntitySearch.cpp \
+	WebCore/html/HTMLEntitySearch.h \
 	WebCore/html/HTMLEmbedElement.cpp \
 	WebCore/html/HTMLEmbedElement.h \
 	WebCore/html/HTMLFieldSetElement.cpp \
@@ -1544,12 +1549,12 @@ webcore_sources += \
 	WebCore/html/HTMLTextAreaElement.h \
 	WebCore/html/HTMLTitleElement.cpp \
 	WebCore/html/HTMLTitleElement.h \
-	WebCore/html/LegacyHTMLDocumentParser.cpp \
-	WebCore/html/LegacyHTMLDocumentParser.h \
 	WebCore/html/HTMLUListElement.cpp \
 	WebCore/html/HTMLUListElement.h \
 	WebCore/html/HTMLViewSourceDocument.cpp \
 	WebCore/html/HTMLViewSourceDocument.h \
+	WebCore/html/HTMLViewSourceParser.cpp \
+	WebCore/html/HTMLViewSourceParser.h \
 	WebCore/html/ImageData.cpp \
 	WebCore/html/ImageData.h \
 	WebCore/html/ImageResizerThread.cpp \
@@ -1557,11 +1562,11 @@ webcore_sources += \
 	WebCore/html/LabelsNodeList.cpp \
 	WebCore/html/LabelsNodeList.h \
 	WebCore/html/MediaError.h \
-	WebCore/html/LegacyPreloadScanner.cpp \
-	WebCore/html/LegacyPreloadScanner.h \
 	WebCore/html/StepRange.cpp \
 	WebCore/html/StepRange.h \
 	WebCore/html/TextMetrics.h \
+	WebCore/html/ThreadableBlobRegistry.cpp \
+	WebCore/html/ThreadableBlobRegistry.h \
 	WebCore/html/ValidityState.cpp \
 	WebCore/html/ValidityState.h \
 	WebCore/html/VoidCallback.h \
@@ -1685,6 +1690,7 @@ webcore_sources += \
 	WebCore/loader/FrameLoaderStateMachine.cpp \
 	WebCore/loader/FrameLoaderStateMachine.h \
 	WebCore/loader/FrameLoaderTypes.h \
+	WebCore/loader/FrameNetworkingContext.h \
 	WebCore/loader/HistoryController.cpp \
 	WebCore/loader/HistoryController.h \
 	WebCore/loader/ImageDocument.cpp \
@@ -1795,6 +1801,8 @@ webcore_sources += \
 	WebCore/page/GeolocationPositionCache.cpp \
 	WebCore/page/GeolocationPositionCache.h \
 	WebCore/page/Geoposition.h \
+	WebCore/page/GroupSettings.cpp \
+	WebCore/page/GroupSettings.h \
 	WebCore/page/HaltablePlugin.h \
 	WebCore/page/History.cpp \
 	WebCore/page/History.h \
@@ -1893,6 +1901,7 @@ webcore_sources += \
 	WebCore/platform/EventLoop.h \
 	WebCore/platform/FileChooser.cpp \
 	WebCore/platform/FileChooser.h \
+	WebCore/platform/FileSystem.cpp \
 	WebCore/platform/FileSystem.h \
 	WebCore/platform/FloatConversion.h \
 	WebCore/platform/GeolocationService.cpp \
@@ -2080,6 +2089,12 @@ webcore_sources += \
 	WebCore/platform/network/AuthenticationChallengeBase.cpp \
 	WebCore/platform/network/AuthenticationChallengeBase.h \
 	WebCore/platform/network/AuthenticationClient.h \
+	WebCore/platform/network/BlobData.cpp \
+	WebCore/platform/network/BlobData.h \
+	WebCore/platform/network/BlobRegistry.h \
+	WebCore/platform/network/BlobRegistryImpl.cpp \
+	WebCore/platform/network/BlobRegistryImpl.h \
+	WebCore/platform/network/BlobStorageData.h \
 	WebCore/platform/network/Credential.cpp \
 	WebCore/platform/network/Credential.h \
 	WebCore/platform/network/DNS.h \
@@ -2093,6 +2108,7 @@ webcore_sources += \
 	WebCore/platform/network/HTTPParsers.h \
 	WebCore/platform/network/NetworkStateNotifier.cpp \
 	WebCore/platform/network/NetworkStateNotifier.h \
+	WebCore/platform/network/NetworkingContext.h \
 	WebCore/platform/network/ProtectionSpace.cpp \
 	WebCore/platform/network/ProtectionSpace.h \
 	WebCore/platform/network/ResourceErrorBase.cpp \
@@ -2106,8 +2122,6 @@ webcore_sources += \
 	WebCore/platform/network/ResourceRequestBase.h \
 	WebCore/platform/network/ResourceResponseBase.cpp \
 	WebCore/platform/network/ResourceResponseBase.h \
-	WebCore/platform/text/AtomicString.h \
-	WebCore/platform/text/AtomicStringHash.h \
 	WebCore/platform/text/AtomicStringImpl.h \
 	WebCore/platform/text/Base64.cpp \
 	WebCore/platform/text/Base64.h \
@@ -2432,6 +2446,8 @@ webcoregtk_sources += \
 	WebCore/platform/graphics/cairo/FontPlatformData.h \
 	WebCore/platform/graphics/cairo/GOwnPtrCairo.cpp \
 	WebCore/platform/graphics/cairo/GOwnPtrCairo.h \
+	WebCore/platform/graphics/cairo/GRefPtrCairo.cpp \
+	WebCore/platform/graphics/cairo/GRefPtrCairo.h \
 	WebCore/platform/graphics/cairo/GradientCairo.cpp \
 	WebCore/platform/graphics/cairo/GraphicsContextCairo.cpp \
 	WebCore/platform/graphics/cairo/GraphicsContextPlatformPrivateCairo.h \
@@ -2473,6 +2489,7 @@ webcoregtk_sources += \
 	WebCore/platform/gtk/gtkdrawing.h \
 	WebCore/platform/gtk/GtkPluginWidget.cpp \
 	WebCore/platform/gtk/GtkPluginWidget.h \
+	WebCore/platform/gtk/GtkVersioning.cpp \
 	WebCore/platform/gtk/GtkVersioning.h \
 	WebCore/platform/gtk/KeyEventGtk.cpp \
 	WebCore/platform/gtk/KURLGtk.cpp \
@@ -2982,6 +2999,55 @@ FEATURE_DEFINES += ENABLE_FILE_SYSTEM=1
 webcore_cppflags += -DENABLE_FILE_SYSTEM=1
 endif # END ENABLE_FILE_SYSTEM
 
+webcore_built_sources += \
+       DerivedSources/WebCore/JSDirectoryEntry.cpp \
+       DerivedSources/WebCore/JSDirectoryEntry.h \
+       DerivedSources/WebCore/JSDirectoryReader.cpp \
+       DerivedSources/WebCore/JSDirectoryReader.h \
+       DerivedSources/WebCore/JSDOMFileSystem.cpp \
+       DerivedSources/WebCore/JSDOMFileSystem.h \
+       DerivedSources/WebCore/JSEntriesCallback.cpp \
+       DerivedSources/WebCore/JSEntriesCallback.h \
+       DerivedSources/WebCore/JSEntry.cpp \
+       DerivedSources/WebCore/JSEntry.h \
+       DerivedSources/WebCore/JSEntryArray.cpp \
+       DerivedSources/WebCore/JSEntryArray.h \
+       DerivedSources/WebCore/JSEntryCallback.cpp \
+       DerivedSources/WebCore/JSEntryCallback.h \
+       DerivedSources/WebCore/JSErrorCallback.cpp \
+       DerivedSources/WebCore/JSErrorCallback.h \
+       DerivedSources/WebCore/JSFileEntry.cpp \
+       DerivedSources/WebCore/JSFileEntry.h \
+       DerivedSources/WebCore/JSFileSystemCallback.cpp \
+       DerivedSources/WebCore/JSFileSystemCallback.h \
+       DerivedSources/WebCore/JSFlags.cpp \
+       DerivedSources/WebCore/JSFlags.h \
+       DerivedSources/WebCore/JSMetadata.cpp \
+       DerivedSources/WebCore/JSMetadata.h \
+       DerivedSources/WebCore/JSMetadataCallback.cpp \
+       DerivedSources/WebCore/JSMetadataCallback.h
+
+webcore_sources += \
+       WebCore/storage/DirectoryEntry.cpp \
+       WebCore/storage/DirectoryEntry.h \
+       WebCore/storage/DirectoryReader.cpp \
+       WebCore/storage/DirectoryReader.h \
+       WebCore/storage/DOMFileSystem.cpp \
+       WebCore/storage/DOMFileSystem.h \
+       WebCore/storage/EntriesCallback.h \
+       WebCore/storage/Entry.cpp \
+       WebCore/storage/Entry.h \
+       WebCore/storage/EntryArray.cpp \
+       WebCore/storage/EntryArray.h \
+       WebCore/storage/EntryCallback.h \
+       WebCore/storage/ErrorCallback.h \
+       WebCore/storage/FileEntry.cpp \
+       WebCore/storage/FileEntry.h \
+       WebCore/storage/FileSystemCallback.h \
+       WebCore/storage/Flags.h \
+       WebCore/storage/Metadata.h \
+       WebCore/storage/MetadataCallback.h
+
 # ----
 # Speech Input API support
 # ----
@@ -3472,7 +3538,6 @@ DerivedSources/WebCore/MathMLNames.h: DerivedSources/WebCore/MathMLNames.cpp
 DerivedSources/WebCore/MathMLElementFactory.cpp DerivedSources/WebCore/MathMLNames.cpp: $(WebCore)/dom/make_names.pl $(WebCore)/mathml/mathtags.in $(WebCore)/mathml/mathattrs.in
 	$(AM_V_GEN)$(PERL) -I$(WebCore)/bindings/scripts $< --tags $(WebCore)/mathml/mathtags.in --attrs $(WebCore)/mathml/mathattrs.in --factory --wrapperFactory --outputDir "$(GENSOURCES_WEBCORE)"
 
-
 # ----
 # Notifications support
 # ----
@@ -3866,6 +3931,8 @@ webcore_sources += \
 	WebCore/rendering/SVGCharacterLayoutInfo.h \
 	WebCore/rendering/SVGInlineFlowBox.cpp \
 	WebCore/rendering/SVGInlineFlowBox.h \
+	WebCore/rendering/SVGImageBufferTools.cpp \
+	WebCore/rendering/SVGImageBufferTools.h \
 	WebCore/rendering/SVGInlineTextBox.cpp \
 	WebCore/rendering/SVGInlineTextBox.h \
 	WebCore/rendering/SVGMarkerData.h \
@@ -4072,6 +4139,8 @@ webcore_sources += \
 	WebCore/svg/SVGPaint.h \
 	WebCore/svg/SVGParserUtilities.cpp \
 	WebCore/svg/SVGParserUtilities.h \
+	WebCore/svg/SVGPathBlender.cpp \
+	WebCore/svg/SVGPathBlender.h \
 	WebCore/svg/SVGPathBuilder.cpp \
 	WebCore/svg/SVGPathBuilder.h \
 	WebCore/svg/SVGPathByteStream.h \
@@ -4119,6 +4188,8 @@ webcore_sources += \
 	WebCore/svg/SVGPathStringBuilder.h \
 	WebCore/svg/SVGPathStringSource.cpp \
 	WebCore/svg/SVGPathStringSource.h \
+	WebCore/svg/SVGPathTraversalStateBuilder.cpp \
+	WebCore/svg/SVGPathTraversalStateBuilder.h \
 	WebCore/svg/SVGPatternElement.cpp \
 	WebCore/svg/SVGPatternElement.h \
 	WebCore/svg/SVGPointList.cpp \
@@ -4384,8 +4455,8 @@ DerivedSources/WebCore/DocTypeStrings.cpp : $(WebCore)/html/DocTypeStrings.gperf
 	$(PERL) $(WebCore)/make-hash-tools.pl $(GENSOURCES_WEBCORE) $(WebCore)/html/DocTypeStrings.gperf
 
 # HTML entity names
-DerivedSources/WebCore/HTMLEntityNames.cpp : $(WebCore)/html/HTMLEntityNames.gperf $(WebCore)/make-hash-tools.pl
-	$(PERL) $(WebCore)/make-hash-tools.pl $(GENSOURCES_WEBCORE) $(WebCore)/html/HTMLEntityNames.gperf
+DerivedSources/WebCore/HTMLEntityTable.cpp : $(WebCore)/html/HTMLEntityNames.json $(WebCore)/../WebKitTools/Scripts/create-html-entity-table
+	$(PYTHON) $(WebCore)/../WebKitTools/Scripts/create-html-entity-table -o $(GENSOURCES_WEBCORE)/HTMLEntityTable.cpp $(WebCore)/html/HTMLEntityNames.json
 
 # color names
 DerivedSources/WebCore/ColorData.cpp: $(WebCore)/platform/ColorData.gperf $(WebCore)/make-hash-tools.pl
@@ -4549,6 +4620,7 @@ EXTRA_DIST += \
 webinspectordir = ${datadir}/webkitgtk-@WEBKITGTK_API_VERSION@/webinspector
 dist_webinspector_DATA = \
 	$(WebCore)/English.lproj/localizedStrings.js \
+	DerivedSources/WebCore/InspectorBackendStub.js \
 	$(shell ls $(WebCore)/inspector/front-end/*.js) \
 	$(shell ls $(WebCore)/inspector/front-end/*.html) \
 	$(shell ls $(WebCore)/inspector/front-end/*.css)
@@ -4558,7 +4630,14 @@ dist_webinspectorimages_DATA = \
 	$(shell ls $(WebCore)/inspector/front-end/Images/*.gif) \
 	$(shell ls $(WebCore)/inspector/front-end/Images/*.png)
 
-webresourcesdir = ${datadir}/webkit-@WEBKITGTK_API_VERSION@/images
+noinst_webinspectordir = ${GENSOURCES_INSPECTOR}
+noinst_webinspector_SCRIPTS = ${GENSOURCES_INSPECTOR}/inspector.html
+${GENSOURCES_INSPECTOR}/inspector.html :
+	mkdir -p ${GENSOURCES_INSPECTOR}/images
+	cp ${dist_webinspector_DATA} ${GENSOURCES_INSPECTOR}
+	cp ${dist_webinspectorimages_DATA} ${GENSOURCES_INSPECTOR}/images
+
+webresourcesdir = ${datadir}/webkitgtk-@WEBKITGTK_API_VERSION@/images
 dist_webresources_DATA = \
 	$(WebCore)/Resources/textAreaResizeCorner.png \
 	$(WebCore)/Resources/nullPlugin.png \

@@ -127,6 +127,7 @@
       '../loader/appcache',
       '../loader/archive',
       '../loader/icon',
+      '../mathml',
       '../notifications',
       '../page',
       '../page/animation',
@@ -266,6 +267,51 @@
   },
   'targets': [
     {
+      'target_name': 'inspector_protocol_sources',
+      'type': 'none',
+      'actions': [
+        {
+          'action_name': 'generateInspectorProtocolSources',
+          # The second input item will be used as item name in vcproj.
+          # It is not possible to put Inspector.idl there because
+          # all idl files are marking as excluded by gyp generator.
+          'inputs': [
+            '../bindings/scripts/generate-bindings.pl',
+            '../inspector/CodeGeneratorInspector.pm',
+            '../bindings/scripts/CodeGenerator.pm',
+            '../bindings/scripts/IDLParser.pm',
+            '../bindings/scripts/IDLStructure.pm',
+            '../inspector/Inspector.idl',
+          ],
+          'outputs': [
+            '<(SHARED_INTERMEDIATE_DIR)/webcore/InspectorBackendDispatcher.cpp',
+            '<(SHARED_INTERMEDIATE_DIR)/webcore/InspectorBackendStub.js',
+            '<(SHARED_INTERMEDIATE_DIR)/webkit/InspectorBackendDispatcher.h',
+            '<(SHARED_INTERMEDIATE_DIR)/webcore/RemoteInspectorFrontend.cpp',
+            '<(SHARED_INTERMEDIATE_DIR)/webkit/RemoteInspectorFrontend.h',
+          ],
+          'variables': {
+            'generator_include_dirs': [
+            ],
+          },
+          'action': [
+            'python',
+            'scripts/rule_binding.py',
+            '../inspector/Inspector.idl',
+            '<(SHARED_INTERMEDIATE_DIR)/webcore',
+            '<(SHARED_INTERMEDIATE_DIR)/webkit',
+            '--',
+            '<@(_inputs)',
+            '--',
+            '--defines', '<(feature_defines) LANGUAGE_JAVASCRIPT',
+            '--generator', 'Inspector',
+            '<@(generator_include_dirs)'
+          ],
+          'message': 'Generating Inspector protocol sources from Inspector.idl',
+        },
+      ]
+    },
+    {
       'target_name': 'webcore_bindings_sources',
       'type': 'none',
       'hard_dependency': 1,
@@ -276,8 +322,10 @@
 
         # gperf rule
         '../html/DocTypeStrings.gperf',
-        '../html/HTMLEntityNames.gperf',
         '../platform/ColorData.gperf',
+
+        # json rule
+        '../html/HTMLEntityNames.json',
 
         # idl rules
         '<@(bindings_idl_files)',
@@ -397,6 +445,8 @@
           'outputs': [
             '<(SHARED_INTERMEDIATE_DIR)/webkit/MathMLNames.cpp',
             '<(SHARED_INTERMEDIATE_DIR)/webkit/MathMLNames.h',
+            '<(SHARED_INTERMEDIATE_DIR)/webkit/MathMLElementFactory.cpp',
+            '<(SHARED_INTERMEDIATE_DIR)/webkit/MathMLElementFactory.h',
           ],
           'action': [
             'python',
@@ -405,6 +455,7 @@
             '--',
             '<@(_inputs)',
             '--',
+            '--factory',
             '--extraDefines', '<(feature_defines)'
           ],
         },
@@ -419,6 +470,7 @@
             '../css/themeWin.css',
             '../css/themeWinQuirks.css',
             '../css/svg.css',
+            '../css/mathml.css',
             '../css/mediaControls.css',
             '../css/mediaControlsChromium.css',
           ],
@@ -473,44 +525,6 @@
             '--',
             '--extraDefines', '<(feature_defines)'
           ],
-        },
-        {
-          'action_name': 'RemoteInspectorFrontend',
-          # The second input item will be used as item name in vcproj.
-          # It is not possible to put Inspector.idl there because
-          # all idl files are marking as excluded by gyp generator.
-          'inputs': [
-            '../bindings/scripts/generate-bindings.pl',
-            '../inspector/CodeGeneratorInspector.pm',
-            '../bindings/scripts/CodeGenerator.pm',
-            '../bindings/scripts/IDLParser.pm',
-            '../bindings/scripts/IDLStructure.pm',
-            '../inspector/Inspector.idl',
-          ],
-          'outputs': [
-            '<(SHARED_INTERMEDIATE_DIR)/webcore/bindings/InspectorBackendDispatcher.cpp',
-            '<(SHARED_INTERMEDIATE_DIR)/webkit/bindings/InspectorBackendDispatcher.h',
-            '<(SHARED_INTERMEDIATE_DIR)/webcore/bindings/RemoteInspectorFrontend.cpp',
-            '<(SHARED_INTERMEDIATE_DIR)/webkit/bindings/RemoteInspectorFrontend.h',
-          ],
-          'variables': {
-            'generator_include_dirs': [
-            ],
-          },
-          'action': [
-            'python',
-            'scripts/rule_binding.py',
-            '../inspector/Inspector.idl',
-            '<(SHARED_INTERMEDIATE_DIR)/webcore/bindings',
-            '<(SHARED_INTERMEDIATE_DIR)/webkit/bindings',
-            '--',
-            '<@(_inputs)',
-            '--',
-            '--defines', '<(feature_defines) LANGUAGE_JAVASCRIPT',
-            '--generator', 'Inspector',
-            '<@(generator_include_dirs)'
-          ],
-          'message': 'Generating Inspector interface classes from Inspector.idl',
         },
         {
           'action_name': 'XMLNames',
@@ -598,7 +612,7 @@
           'outputs': [
             '<(SHARED_INTERMEDIATE_DIR)/webkit/<(RULE_INPUT_ROOT).cpp',
           ],
-          'dependencies': [
+          'inputs': [
             '../make-hash-tools.pl',
           ],
           'action': [
@@ -608,6 +622,26 @@
             '<(RULE_INPUT_PATH)',
           ],
           'process_outputs_as_sources': 0,
+        },
+        {
+          'rule_name': 'json',
+          'extension': 'json',
+          #
+          # json outputs are generated by WebKitTools/Scripts/create-html-entity-table
+          #
+          'outputs': [
+            '<(SHARED_INTERMEDIATE_DIR)/webkit/HTMLEntityTable.cpp',
+          ],
+          'inputs': [
+            '../../WebKitTools/Scripts/create-html-entity-table',
+          ],
+          'action': [
+            'python',
+            '../../WebKitTools/Scripts/create-html-entity-table',
+            '-o',
+            '<(SHARED_INTERMEDIATE_DIR)/webkit/HTMLEntityTable.cpp',
+            '<(RULE_INPUT_PATH)',
+          ],
         },
         # Rule to build generated JavaScript (V8) bindings from .idl source.
         {
@@ -670,6 +704,7 @@
       'hard_dependency': 1,
       'dependencies': [
         'webcore_bindings_sources',
+        'inspector_protocol_sources',
         '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:pcre',
         '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:wtf',
         '<(chromium_src_dir)/build/temp_gyp/googleurl.gyp:googleurl',
@@ -711,15 +746,19 @@
         '<(SHARED_INTERMEDIATE_DIR)/webkit/XMLNSNames.cpp',
         '<(SHARED_INTERMEDIATE_DIR)/webkit/XMLNames.cpp',
         '<(SHARED_INTERMEDIATE_DIR)/webkit/SVGNames.cpp',
+        '<(SHARED_INTERMEDIATE_DIR)/webkit/MathMLElementFactory.cpp',
         '<(SHARED_INTERMEDIATE_DIR)/webkit/MathMLNames.cpp',
+
+        # Generated from HTMLEntityNames.json
+        '<(SHARED_INTERMEDIATE_DIR)/webkit/HTMLEntityTable.cpp',
 
         # Additional .cpp files from the webcore_bindings_sources rules.
         '<(SHARED_INTERMEDIATE_DIR)/webkit/CSSGrammar.cpp',
         '<(SHARED_INTERMEDIATE_DIR)/webkit/XPathGrammar.cpp',
 
         # Additional .cpp files from the webcore_inspector_sources list.
-        '<(SHARED_INTERMEDIATE_DIR)/webcore/bindings/RemoteInspectorFrontend.cpp',
-        '<(SHARED_INTERMEDIATE_DIR)/webcore/bindings/InspectorBackendDispatcher.cpp',
+        '<(SHARED_INTERMEDIATE_DIR)/webcore/RemoteInspectorFrontend.cpp',
+        '<(SHARED_INTERMEDIATE_DIR)/webcore/InspectorBackendDispatcher.cpp',
       ],
       'conditions': [
         ['javascript_engine=="v8"', {

@@ -126,23 +126,25 @@ void ConsoleMessage::addToFrontend(RemoteInspectorFrontend* frontend, InjectedSc
     jsonObj->setNumber("repeatCount", static_cast<int>(m_repeatCount));
     jsonObj->setString("message", m_message);
     if (!m_arguments.isEmpty()) {
-        RefPtr<InspectorArray> jsonArgs = InspectorArray::create();
         InjectedScript injectedScript = injectedScriptHost->injectedScriptFor(m_scriptState.get());
-        for (unsigned i = 0; i < m_arguments.size(); ++i) {
-            RefPtr<InspectorValue> inspectorValue = injectedScript.wrapForConsole(m_arguments[i]);
-            if (!inspectorValue) {
-                ASSERT_NOT_REACHED();
-                return;
+        if (!injectedScript.hasNoValue()) {
+            RefPtr<InspectorArray> jsonArgs = InspectorArray::create();
+            for (unsigned i = 0; i < m_arguments.size(); ++i) {
+                RefPtr<InspectorValue> inspectorValue = injectedScript.wrapForConsole(m_arguments[i]);
+                if (!inspectorValue) {
+                    ASSERT_NOT_REACHED();
+                    return;
+                }
+                jsonArgs->pushValue(inspectorValue);
             }
-            jsonArgs->push(inspectorValue);
+            jsonObj->setArray("parameters", jsonArgs);
         }
-        jsonObj->set("parameters", jsonArgs);
     }
     if (!m_frames.isEmpty()) {
         RefPtr<InspectorArray> frames = InspectorArray::create();
         for (unsigned i = 0; i < m_frames.size(); i++)
-            frames->push(m_frames.at(i).buildInspectorObject());
-        jsonObj->set("stackTrace", frames);
+            frames->pushObject(m_frames.at(i).buildInspectorObject());
+        jsonObj->setArray("stackTrace", frames);
     }
     frontend->addConsoleMessage(jsonObj);
 }

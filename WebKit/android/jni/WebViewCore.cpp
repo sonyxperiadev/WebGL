@@ -28,7 +28,6 @@
 #include "config.h"
 #include "WebViewCore.h"
 
-#include "AtomicString.h"
 #include "BaseLayerAndroid.h"
 #include "CachedNode.h"
 #include "CachedRoot.h"
@@ -101,7 +100,6 @@
 #include "SkCanvas.h"
 #include "SkPicture.h"
 #include "SkUtils.h"
-#include "StringImpl.h"
 #include "Text.h"
 #include "TypingCommand.h"
 #include "WebCoreFrameBridge.h"
@@ -113,6 +111,8 @@
 #include <JNIUtility.h>
 #include <ui/KeycodeLabels.h>
 #include <wtf/CurrentTime.h>
+#include <wtf/text/AtomicString.h>
+#include <wtf/text/StringImpl.h>
 
 #if USE(V8)
 #include "ScriptController.h"
@@ -210,6 +210,7 @@ struct WebViewCoreFields {
     jfieldID    m_viewportUserScalable;
     jfieldID    m_viewportDensityDpi;
     jfieldID    m_webView;
+    jfieldID    m_drawIsPaused;
 } gWebViewCoreFields;
 
 // ----------------------------------------------------------------------------
@@ -916,6 +917,13 @@ void WebViewCore::contentInvalidate(const WebCore::IntRect &r)
         m_addInval.getBounds().fRight, m_addInval.getBounds().fBottom);
     if (!m_skipContentDraw)
         contentDraw();
+}
+
+void WebViewCore::contentInvalidateAll()
+{
+    WebCore::FrameView* view = m_mainFrame->view();
+    contentInvalidate(WebCore::IntRect(0, 0,
+        view->contentsWidth(), view->contentsHeight()));
 }
 
 void WebViewCore::offInvalidate(const WebCore::IntRect &r)
@@ -2858,6 +2866,13 @@ void WebViewCore::notifyWebAppCanBeInstalled()
     checkException(env);
 }
 
+bool WebViewCore::drawIsPaused() const
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    return env->GetBooleanField(m_javaGlue->object(env).get(),
+        gWebViewCoreFields.m_drawIsPaused);
+}
+
 //----------------------------------------------------------------------
 // Native JNI methods
 //----------------------------------------------------------------------
@@ -2950,6 +2965,11 @@ static void Click(JNIEnv *env, jobject obj, int framePtr, int nodePtr)
 
     viewImpl->click(reinterpret_cast<WebCore::Frame*>(framePtr),
         reinterpret_cast<WebCore::Node*>(nodePtr));
+}
+
+static void ContentInvalidateAll(JNIEnv *env, jobject obj)
+{
+    GET_NATIVE_VIEW(env, obj)->contentInvalidateAll();
 }
 
 static void DeleteSelection(JNIEnv *env, jobject obj, jint start, jint end,
@@ -3512,6 +3532,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) Key },
     { "nativeClick", "(II)V",
         (void*) Click },
+    { "nativeContentInvalidateAll", "()V",
+        (void*) ContentInvalidateAll },
     { "nativeSendListBoxChoices", "([ZI)V",
         (void*) SendListBoxChoices },
     { "nativeSendListBoxChoice", "(I)V",
@@ -3639,6 +3661,10 @@ int register_webviewcore(JNIEnv* env)
             "mWebView", "Landroid/webkit/WebView;");
     LOG_ASSERT(gWebViewCoreFields.m_webView,
             "Unable to find android/webkit/WebViewCore.mWebView");
+    gWebViewCoreFields.m_drawIsPaused = env->GetFieldID(widget,
+            "mDrawIsPaused", "Z");
+    LOG_ASSERT(gWebViewCoreFields.m_drawIsPaused,
+            "Unable to find android/webkit/WebViewCore.mDrawIsPaused");
 
     return jniRegisterNativeMethods(env, "android/webkit/WebViewCore",
             gJavaWebViewCoreMethods, NELEM(gJavaWebViewCoreMethods));

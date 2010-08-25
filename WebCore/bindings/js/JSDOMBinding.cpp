@@ -501,7 +501,7 @@ AtomicStringImpl* findAtomicString(const Identifier& identifier)
 {
     if (identifier.isNull())
         return 0;
-    UStringImpl* impl = identifier.ustring().rep();
+    StringImpl* impl = identifier.impl();
     ASSERT(impl->existingHash());
     return AtomicString::find(impl->characters(), impl->length(), impl->existingHash());
 }
@@ -679,10 +679,9 @@ Frame* toDynamicFrame(ExecState* exec)
     return asJSDOMWindow(exec->dynamicGlobalObject())->impl()->frame();
 }
 
-bool processingUserGesture(ExecState* exec)
+bool processingUserGesture()
 {
-    Frame* frame = toDynamicFrame(exec);
-    return frame && frame->script()->processingUserGesture(currentWorld(exec));
+    return ScriptController::processingUserGesture();
 }
 
 KURL completeURL(ExecState* exec, const String& relativeURL)

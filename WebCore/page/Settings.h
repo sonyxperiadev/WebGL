@@ -27,11 +27,11 @@
 #ifndef Settings_h
 #define Settings_h
 
-#include "AtomicString.h"
 #include "EditingBehaviorTypes.h"
 #include "FontRenderingMode.h"
 #include "KURL.h"
 #include "ZoomMode.h"
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
@@ -157,10 +157,7 @@ namespace WebCore {
         void setLocalStorageEnabled(bool);
         bool localStorageEnabled() const { return m_localStorageEnabled; }
 
-#if ENABLE(DOM_STORAGE)        
-        void setLocalStorageQuota(unsigned);
-        unsigned localStorageQuota() const { return m_localStorageQuota; }
-
+#if ENABLE(DOM_STORAGE)
         // Allow clients concerned with memory consumption to set a quota on session storage
         // since the memory used won't be released until the Page is destroyed.
         // Default is noQuota.
@@ -457,8 +454,7 @@ namespace WebCore {
         bool m_blockNetworkImage : 1;
 #endif
         size_t m_maximumDecodedImageSize;
-#if ENABLE(DOM_STORAGE)        
-        unsigned m_localStorageQuota;
+#if ENABLE(DOM_STORAGE)
         unsigned m_sessionStorageQuota;
 #endif
         unsigned m_pluginAllowedRunTime;

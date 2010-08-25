@@ -42,6 +42,13 @@ class WebRequest : public URLRequest::Delegate, public base::RefCountedThreadSaf
 public:
     WebRequest(WebUrlLoaderClient*, WebResourceRequest);
 
+    // If this is an android specific url we load it with a java input stream
+    // Used for:
+    // - file:///android_asset
+    // - file:///android_res
+    // - content://
+    WebRequest(WebUrlLoaderClient*, WebResourceRequest, int inputStream);
+
     // Optional, but if used has to be called before start
     void AppendBytesToUpload(const char* bytes, int bytesLen);
 
@@ -62,6 +69,7 @@ private:
     virtual ~WebRequest();
     void handleDataURL(GURL);
     void handleBrowserURL(GURL);
+    void handleAndroidURL();
     void finish(bool success);
 
     // Not owned
@@ -69,6 +77,9 @@ private:
 
     OwnPtr<URLRequest> m_request;
     scoped_refptr<net::IOBuffer> m_networkBuffer;
+    int m_inputStream;
+    bool m_androidUrl;
+    std::string m_url;
 };
 
 } // namespace android

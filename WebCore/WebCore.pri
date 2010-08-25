@@ -29,7 +29,7 @@ XML_NAMES = $$PWD/xml/xmlattrs.in
 
 XMLNS_NAMES = $$PWD/xml/xmlnsattrs.in
 
-ENTITIES_GPERF = $$PWD/html/HTMLEntityNames.gperf
+HTML_ENTITIES = $$PWD/html/HTMLEntityNames.json
 
 COLORDATA_GPERF = $$PWD/platform/ColorData.gperf
 
@@ -291,6 +291,17 @@ IDL_BINDINGS += \
     storage/Database.idl \
     storage/DatabaseCallback.idl \
     storage/DatabaseSync.idl \
+    storage/DirectoryEntry.idl \
+    storage/DirectoryReader.idl \
+    storage/DOMFileSystem.idl \
+    storage/EntriesCallback.idl \
+    storage/Entry.idl \
+    storage/EntryArray.idl \
+    storage/EntryCallback.idl \
+    storage/ErrorCallback.idl \
+    storage/FileEntry.idl \
+    storage/FileSystemCallback.idl \
+    storage/Flags.idl \
     storage/IDBAny.idl \
     storage/IDBCursor.idl \
     storage/IDBDatabaseError.idl \
@@ -306,6 +317,8 @@ IDL_BINDINGS += \
     storage/IDBRequest.idl \
     storage/IDBSuccessEvent.idl \
     storage/IDBTransaction.idl \
+    storage/Metadata.idl \
+    storage/MetadataCallback.idl \
     storage/Storage.idl \
     storage/StorageEvent.idl \
     storage/SQLError.idl \
@@ -477,6 +490,7 @@ IDL_BINDINGS += \
 
 
 INSPECTOR_INTERFACES = inspector/Inspector.idl
+INSPECTOR_BACKEND_STUB_QRC = inspector/front-end/InspectorBackendStub.qrc
 
 mathmlnames.output = $${WC_GENERATED_SOURCES_DIR}/MathMLNames.cpp
 mathmlnames.input = MATHML_NAMES
@@ -551,6 +565,13 @@ inspectorIDL.depends = $$PWD/bindings/scripts/CodeGenerator.pm \
               $$PWD/bindings/scripts/InFilesParser.pm
 addExtraCompiler(inspectorIDL)
 
+inspectorBackendStub.wkAddOutputToSources = false
+inspectorBackendStub.output = generated/InspectorBackendStub.qrc
+inspectorBackendStub.input = INSPECTOR_BACKEND_STUB_QRC
+inspectorBackendStub.tempNames = $$PWD/$$INSPECTOR_BACKEND_STUB_QRC $${WC_GENERATED_SOURCES_DIR}/InspectorBackendStub.qrc
+inspectorBackendStub.commands = $$QMAKE_COPY $$replace(inspectorBackendStub.tempNames, "/", $$QMAKE_DIR_SEP)
+addExtraCompiler(inspectorBackendStub)
+
 # GENERATOR 3: tokenizer (flex)
 tokenizer.output = $${WC_GENERATED_SOURCES_DIR}/${QMAKE_FILE_BASE}.cpp
 tokenizer.input = TOKENIZER
@@ -590,12 +611,12 @@ xmlnames.commands = perl -I$$PWD/bindings/scripts $$xmlnames.wkScript --attrs $$
 addExtraCompiler(xmlnames)
 
 # GENERATOR 8-A:
-entities.output = $${WC_GENERATED_SOURCES_DIR}/HTMLEntityNames.cpp
-entities.input = ENTITIES_GPERF
-entities.wkScript = $$PWD/make-hash-tools.pl
-entities.commands = perl $$entities.wkScript $${WC_GENERATED_SOURCES_DIR} $$ENTITIES_GPERF
+entities.output = $${WC_GENERATED_SOURCES_DIR}/HTMLEntityTable.cpp
+entities.input = HTML_ENTITIES
+entities.wkScript = $$PWD/../WebKitTools/Scripts/create-html-entity-table
+entities.commands = python $$entities.wkScript -o $${WC_GENERATED_SOURCES_DIR}/HTMLEntityTable.cpp $$HTML_ENTITIES
 entities.clean = ${QMAKE_FILE_OUT}
-entities.depends = $$PWD/make-hash-tools.pl
+entities.depends = $$PWD/../WebKitTools/Scripts/create-html-entity-table
 addExtraCompiler(entities)
 
 # GENERATOR 8-B:

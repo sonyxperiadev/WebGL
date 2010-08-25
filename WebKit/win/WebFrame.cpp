@@ -1297,6 +1297,34 @@ HRESULT WebFrame::numberOfActiveAnimations(UINT* number)
     return S_OK;
 }
 
+HRESULT WebFrame::suspendAnimations()
+{
+    Frame* frame = core(this);
+    if (!frame)
+        return E_FAIL;
+
+    AnimationController* controller = frame->animation();
+    if (!controller)
+        return E_FAIL;
+
+    controller->suspendAnimations(frame->document());
+    return S_OK;
+}
+
+HRESULT WebFrame::resumeAnimations()
+{
+    Frame* frame = core(this);
+    if (!frame)
+        return E_FAIL;
+
+    AnimationController* controller = frame->animation();
+    if (!controller)
+        return E_FAIL;
+
+    controller->resumeAnimations(frame->document());
+    return S_OK;
+}
+
 HRESULT WebFrame::isDisplayingStandaloneImage(BOOL* result)
 {
     if (!result)

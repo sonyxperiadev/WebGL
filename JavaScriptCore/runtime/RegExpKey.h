@@ -26,6 +26,7 @@
  */
 
 #include "UString.h"
+#include <wtf/text/StringHash.h>
 
 #ifndef RegExpKey_h
 #define RegExpKey_h
@@ -34,7 +35,7 @@ namespace JSC {
 
 struct RegExpKey {
     int flagsValue;
-    RefPtr<UString::Rep> pattern;
+    RefPtr<StringImpl> pattern;
 
     RegExpKey()
         : flagsValue(0)
@@ -48,18 +49,24 @@ struct RegExpKey {
 
     RegExpKey(int flags, const UString& pattern)
         : flagsValue(flags)
-        , pattern(pattern.rep())
+        , pattern(pattern.impl())
     {
     }
 
-    RegExpKey(int flags, const PassRefPtr<UString::Rep> pattern)
+    RegExpKey(int flags, const PassRefPtr<StringImpl> pattern)
+        : flagsValue(flags)
+        , pattern(pattern)
+    {
+    }
+
+    RegExpKey(int flags, const RefPtr<StringImpl>& pattern)
         : flagsValue(flags)
         , pattern(pattern)
     {
     }
 
     RegExpKey(const UString& flags, const UString& pattern)
-        : pattern(pattern.rep())
+        : pattern(pattern.impl())
     {
         flagsValue = getFlagsValue(flags);
     }
@@ -67,11 +74,11 @@ struct RegExpKey {
     int getFlagsValue(const UString flags) 
     {
         flagsValue = 0;
-        if (flags.find('g') != UString::NotFound)
+        if (flags.find('g') != notFound)
             flagsValue += 4;
-        if (flags.find('i') != UString::NotFound)
+        if (flags.find('i') != notFound)
             flagsValue += 2;
-        if (flags.find('m') != UString::NotFound)
+        if (flags.find('m') != notFound)
             flagsValue += 1;
         return flagsValue;
     }

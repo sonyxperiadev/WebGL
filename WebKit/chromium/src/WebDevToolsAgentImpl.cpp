@@ -36,6 +36,7 @@
 #include "InjectedScriptHost.h"
 #include "InspectorBackendDispatcher.h"
 #include "InspectorController.h"
+#include "InspectorValues.h"
 #include "Page.h"
 #include "PageGroup.h"
 #include "PlatformString.h"
@@ -63,7 +64,11 @@
 using WebCore::DocumentLoader;
 using WebCore::FrameLoader;
 using WebCore::InjectedScriptHost;
+using WebCore::InspectorArray;
+using WebCore::InspectorBackendDispatcher;
 using WebCore::InspectorController;
+using WebCore::InspectorObject;
+using WebCore::InspectorValue;
 using WebCore::Node;
 using WebCore::Page;
 using WebCore::ResourceError;
@@ -232,7 +237,7 @@ void WebDevToolsAgentImpl::detach()
 void WebDevToolsAgentImpl::frontendLoaded()
 {
     inspectorController()->connectFrontend();
-    m_client->runtimeFeatureStateChanged(kFrontendConnectedFeatureName, true);
+    m_client->runtimePropertyChanged(kFrontendConnectedFeatureName, "true");
 }
 
 void WebDevToolsAgentImpl::didNavigate()
@@ -263,17 +268,22 @@ void WebDevToolsAgentImpl::inspectElementAt(const WebPoint& point)
 
 void WebDevToolsAgentImpl::setRuntimeFeatureEnabled(const WebString& feature, bool enabled)
 {
-    if (feature == kApuAgentFeatureName)
-        setApuAgentEnabled(enabled);
-    else if (feature == kTimelineFeatureName)
-        setTimelineProfilingEnabled(enabled);
-    else if (feature == kResourceTrackingFeatureName) {
+    setRuntimeProperty(feature, enabled ? String("true") : String("false"));
+}
+
+void WebDevToolsAgentImpl::setRuntimeProperty(const WebString& name, const WebString& value)
+{
+    if (name == kApuAgentFeatureName)
+        setApuAgentEnabled(value == "true");
+    else if (name == kTimelineFeatureName)
+        setTimelineProfilingEnabled(value == "true");
+    else if (name == kResourceTrackingFeatureName) {
         InspectorController* ic = inspectorController();
-        if (enabled)
+        if (value == "true")
           ic->enableResourceTracking(false /* not sticky */, false /* no reload */);
         else
           ic->disableResourceTracking(false /* not sticky */);
-    } else if (feature == kFrontendConnectedFeatureName && enabled && !inspectorController()->hasFrontend())
+    } else if (name == kFrontendConnectedFeatureName && value == "true" && !inspectorController()->hasFrontend())
         frontendLoaded();
 }
 
@@ -282,6 +292,8 @@ void WebDevToolsAgentImpl::setApuAgentEnabled(bool enabled)
     m_apuAgentEnabled = enabled;
     InspectorController* ic = inspectorController();
     if (enabled) {
+        if (!ic->hasFrontend())
+            frontendLoaded();
         m_resourceTrackingWasEnabled = ic->resourceTrackingEnabled();
         ic->startTimelineProfiler();
         if (!m_resourceTrackingWasEnabled) {
@@ -296,9 +308,9 @@ void WebDevToolsAgentImpl::setApuAgentEnabled(bool enabled)
           ic->disableResourceTracking(false);
       m_resourceTrackingWasEnabled = false;
     }
-    m_client->runtimeFeatureStateChanged(
+    m_client->runtimePropertyChanged(
         kApuAgentFeatureName,
-        enabled);
+        enabled ? String("true") : String("false"));
 }
 
 WebCore::InspectorController* WebDevToolsAgentImpl::inspectorController()
@@ -412,22 +424,22 @@ bool WebDevToolsAgentImpl::sendMessageToFrontend(const WTF::String& message)
 
 void WebDevToolsAgentImpl::resourceTrackingWasEnabled()
 {
-    m_client->runtimeFeatureStateChanged(kResourceTrackingFeatureName, true);
+    m_client->runtimePropertyChanged(kResourceTrackingFeatureName, "true");
 }
 
 void WebDevToolsAgentImpl::resourceTrackingWasDisabled()
 {
-    m_client->runtimeFeatureStateChanged(kResourceTrackingFeatureName, false);
+    m_client->runtimePropertyChanged(kResourceTrackingFeatureName, "false");
 }
 
 void WebDevToolsAgentImpl::timelineProfilerWasStarted()
 {
-    m_client->runtimeFeatureStateChanged(kTimelineFeatureName, true);
+    m_client->runtimePropertyChanged(kTimelineFeatureName, "true");
 }
 
 void WebDevToolsAgentImpl::timelineProfilerWasStopped()
 {
-    m_client->runtimeFeatureStateChanged(kTimelineFeatureName, false);
+    m_client->runtimePropertyChanged(kTimelineFeatureName, "false");
 }
 
 void WebDevToolsAgentImpl::evaluateInWebInspector(long callId, const WebString& script)
@@ -453,6 +465,43 @@ void WebDevToolsAgent::executeDebuggerCommand(const WebString& command, int call
 void WebDevToolsAgent::debuggerPauseScript()
 {
     DebuggerAgentManager::pauseScript();
+}
+
+void WebDevToolsAgent::interruptAndDispatch(MessageDescriptor* d)
+{
+    class DebuggerTask : public WebCore::ScriptDebugServer::Task {
+    public:
+        DebuggerTask(WebDevToolsAgent::MessageDescriptor* descriptor) : m_descriptor(descriptor) { }
+        virtual ~DebuggerTask() { }
+        virtual void run()
+        {
+            if (WebDevToolsAgent* webagent = m_descriptor->agent())
+                webagent->dispatchOnInspectorBackend(m_descriptor->message());
+        }
+    private:
+        OwnPtr<WebDevToolsAgent::MessageDescriptor> m_descriptor;
+    };
+    WebCore::ScriptDebugServer::interruptAndRun(new DebuggerTask(d));
+}
+
+bool WebDevToolsAgent::shouldInterruptForMessage(const WebString& message)
+{
+    String commandName;
+    if (!InspectorBackendDispatcher::getCommandName(message, &commandName))
+        return false;
+    return commandName == InspectorBackendDispatcher::pauseCmd
+        || commandName == InspectorBackendDispatcher::setBreakpointCmd
+        || commandName == InspectorBackendDispatcher::removeBreakpointCmd
+        || commandName == InspectorBackendDispatcher::activateBreakpointsCmd
+        || commandName == InspectorBackendDispatcher::deactivateBreakpointsCmd
+        || commandName == InspectorBackendDispatcher::startProfilingCmd
+        || commandName == InspectorBackendDispatcher::stopProfilingCmd
+        || commandName == InspectorBackendDispatcher::getProfileCmd;
+}
+
+void WebDevToolsAgent::processPendingMessages()
+{
+    WebCore::ScriptDebugServer::shared().runPendingTasks();
 }
 
 void WebDevToolsAgent::setMessageLoopDispatchHandler(MessageLoopDispatchHandler handler)

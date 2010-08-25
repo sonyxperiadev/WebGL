@@ -1476,6 +1476,12 @@ bool RenderBox::sizesToIntrinsicWidth(WidthType widthType) const
             && (parent()->style()->boxOrient() == HORIZONTAL || parent()->style()->boxAlign() != BSTRETCH))
         return true;
 
+    // Button, input, select, textarea, legend and datagrid treat
+    // width value of 'auto' as 'intrinsic' unless it's in a
+    // stretching vertical flexbox.
+    if (width.type() == Auto && !(parent()->isFlexibleBox() && parent()->style()->boxOrient() == VERTICAL && parent()->style()->boxAlign() == BSTRETCH) && node() && (node()->hasTagName(inputTag) || node()->hasTagName(selectTag) || node()->hasTagName(buttonTag) || node()->hasTagName(textareaTag) || node()->hasTagName(legendTag) || node()->hasTagName(datagridTag)))
+        return true;
+
     return false;
 }
 
@@ -1579,9 +1585,9 @@ void RenderBox::calcHeight()
     // is specified. When we're printing, we also need this quirk if the body or root has a percentage 
     // height since we don't set a height in RenderView when we're printing. So without this quirk, the 
     // height has nothing to be a percentage of, and it ends up being 0. That is bad.
-    bool printingNeedsBaseHeight = document()->printing() && h.isPercent()
+    bool paginatedContentNeedsBaseHeight = document()->paginated() && h.isPercent()
         && (isRoot() || (isBody() && document()->documentElement()->renderer()->style()->height().isPercent()));
-    if (stretchesToViewHeight() || printingNeedsBaseHeight) {
+    if (stretchesToViewHeight() || paginatedContentNeedsBaseHeight) {
         int margins = collapsedMarginTop() + collapsedMarginBottom();
         int visHeight = document()->printing() ? view()->frameView()->pageHeight() : view()->viewHeight();
         if (isRoot())

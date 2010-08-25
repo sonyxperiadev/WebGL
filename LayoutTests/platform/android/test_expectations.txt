@@ -49,6 +49,7 @@ http/tests/appcache/empty-manifest.html IGNORE_RESULT // flaky
 http/tests/appcache/fallback.html IGNORE_RESULT // http://b/issue?id=2713004
 http/tests/appcache/foreign-iframe-main.html IGNORE_RESULT // flaky - skips states
 http/tests/appcache/manifest-with-empty-file.html IGNORE_RESULT // flaky
+http/tests/appcache/origin-quota.html IGNORE_RESULT // requires clearAllApplicationCaches(), see http://b/issue?id=2944196
 storage/database-lock-after-reload.html IGNORE_RESULT // Succeeds but DumpRenderTree does not read result correctly
 storage/hash-change-with-xhr.html IGNORE_RESULT // Succeeds but DumpRenderTree does not read result correctly
 storage/open-database-creation-callback-isolated-world.html IGNORE_RESULT // Requires layoutTestController.evaluateScriptInIsolatedWorld()

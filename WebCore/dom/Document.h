@@ -32,7 +32,6 @@
 #include "CollectionType.h"
 #include "Color.h"
 #include "ContainerNode.h"
-#include "Document.h"
 #include "DocumentMarker.h"
 #include "QualifiedName.h"
 #include "ScriptExecutionContext.h"
@@ -570,6 +569,11 @@ public:
     
     bool printing() const { return m_printing; }
     void setPrinting(bool p) { m_printing = p; }
+
+    bool paginatedForScreen() const { return m_paginatedForScreen; }
+    void setPaginatedForScreen(bool p) { m_paginatedForScreen = p; }
+    
+    bool paginated() const { return printing() || paginatedForScreen(); }
 
     enum ParseMode { Compat, AlmostStrict, Strict };
 
@@ -1121,7 +1125,8 @@ private:
     mutable bool m_pageGroupUserSheetCacheValid;
 
     bool m_printing;
-    
+    bool m_paginatedForScreen;
+
     bool m_ignoreAutofocus;
 
     ParseMode m_parseMode;

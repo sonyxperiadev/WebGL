@@ -1,3 +1,230 @@
+2010-08-18  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] WebBackForwardList's new_with_web_view should not be public
+        https://bugs.webkit.org/show_bug.cgi?id=43802
+
+        Deprecate the constructor. The introspection annotation has been
+        fixed in a previous commit.
+
+        * webkit/webkitwebbackforwardlist.cpp:
+
+2010-08-17  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: replace hand written InspectorBackendStub.js with generated one.
+        https://bugs.webkit.org/show_bug.cgi?id=43791
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::openInspectorFrontend):
+
+2010-08-18  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r65595.
+        http://trac.webkit.org/changeset/65595
+        https://bugs.webkit.org/show_bug.cgi?id=44161
+
+        qt build failed (Requested by loislo on #webkit).
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::openInspectorFrontend):
+
+2010-08-17  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: replace hand written InspectorBackendStub.js by generated one.
+        https://bugs.webkit.org/show_bug.cgi?id=43791
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::openInspectorFrontend):
+
+2010-08-17  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Fix the builds when HAVE_GSETTINGS is defined.
+
+        * webkit/webkitprivate.cpp:
+        (isSchemaAvailable):
+        (inspectorGSettings):
+
+2010-08-17  Jesus Sanchez-Palencia  <jesus.palencia@openbossa.org>
+
+        Reviewed by Darin Adler.
+
+        Add NetworkingContext to avoid layer violations
+        https://bugs.webkit.org/show_bug.cgi?id=42292
+
+        Preparation: Just add the files to the build system.
+
+        * WebCoreSupport/FrameNetworkingContextGtk.h: Added.
+        Placeholder with tentative code that might be changed when landing
+        the rest of it.
+
+2010-08-17  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Martin Robinson.
+
+        WebBackForwardList.get_{back|forward}_list_with_limit not introspectable
+        https://bugs.webkit.org/show_bug.cgi?id=43054
+
+        Annotate WebKitWebBackForwardList and the function that is used to fetch it from
+        the WebKitWebView. More will follow.
+
+        * webkit/webkitwebbackforwardlist.cpp: Annotations, and small
+        improvements to the docs.
+        * webkit/webkitwebbackforwardlist.h: Couple empty lines missing.
+        * webkit/webkitwebview.cpp:
+
+2010-08-17  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Clean up WebCore/platform/graphics/gtk/ImageGtk.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=44069
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::openInspectorFrontend): Switched to using the new WEBKITGTK_API_VERSION_STRING define.
+        * webkit/webkitprivate.cpp:
+        (inspectorGSettings): Ditto.
+
+2010-08-17  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r65500.
+        http://trac.webkit.org/changeset/65500
+        https://bugs.webkit.org/show_bug.cgi?id=44108
+
+        Qt bots failed to compile. (Requested by loislo on #webkit).
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::openInspectorFrontend):
+
+2010-08-17  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: replace hand written InspectorBackendStub.js by generated one.
+        https://bugs.webkit.org/show_bug.cgi?id=43791
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::openInspectorFrontend):
+
+2010-08-17  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] GSettings support adds annoying warnings on systems with older glib versions
+        https://bugs.webkit.org/show_bug.cgi?id=44056
+
+        Use #ifdef instead of #if for HAVE_GSETTINGS to avoid warnings
+        when it is not defined.
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        * webkit/webkitprivate.cpp:
+        (webkit_init):
+        * webkit/webkitprivate.h:
+
+2010-08-12  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Really add a missing file. I wish I would remember running git add
+        on them after applying a patch =(.
+
+        * org.webkitgtk.gschema.xml.in: Added.
+
+2010-08-12  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Use GSettings to save/restore Web Inspector settings
+        https://bugs.webkit.org/show_bug.cgi?id=43512
+
+        Use GSettings to save/restore settings used by the Web Inspector.
+        A few helper functions were added to have settings that use
+        boolean values be actual booleans, and also to conform with the
+        GSettings naming requirements for keys.
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::toGSettingName):
+        (WebKit::truthStringFromVariant):
+        (WebKit::variantFromTruthString):
+        (WebKit::InspectorClient::populateSetting):
+        (WebKit::InspectorClient::storeSetting):
+        * org.webkit.gtk.gschema.xml: Added.
+        * webkit/webkitprivate.cpp:
+        (inspectorGSettings):
+        (webkit_init):
+        * webkit/webkitprivate.h:
+
+2010-08-11  Joone Hur  <joone@kldp.org>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Last Hangul letter is typed again when a composition is finished with mouse press
+        https://bugs.webkit.org/show_bug.cgi?id=40518
+
+        When a mouse press fires during a IME composition, the current composition character   
+        can be entered twice at the previous editing position and a new editing position.
+        Because the IME commit signal is emitted after the mouse press event. 
+        This patch allows to prevent the commit signal during a composition when a mouse press fires.
+
+        * WebCoreSupport/EditorClientGtk.cpp: 
+        (WebKit::imContextCommitted):
+        (WebKit::EditorClient::handleInputMethodKeydown): Allow to accept the next composition commit.
+        (WebKit::EditorClient::handleInputMethodMousePress): Added for handling IME when a mouse press fires.
+        (WebKit::EditorClient::EditorClient):  Initialize m_preventNextCompositionCommit
+        * WebCoreSupport/EditorClientGtk.h:
+        (WebKit::EditorClient::preventNextCompositionCommit): Added for checking whether skipping a commit.
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_button_press_event): Call handleInputMethodMousePress() 
+
+2010-08-11  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Martin Robinson.
+
+        Small improvement to the documentation of the geolocation-policy-decision-requested
+        signal, stating more clearly what is expected from the handler.
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_class_init):
+
+2010-08-11  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Geolocation policy decision object leaking
+        https://bugs.webkit.org/show_bug.cgi?id=43884
+
+        Use GRefPtr on the policy decision object to fix the leak.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::requestGeolocationPermissionForFrame):
+
+2010-08-10  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Add suspendAnimations/resumeAnimation API to DRT
+        https://bugs.webkit.org/show_bug.cgi?id=43733
+        
+        Gtk specific API.
+
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebframe.cpp:
+        (webkit_web_frame_suspend_animations):
+        (webkit_web_frame_resume_animations):
+
+2010-08-10  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig.
+
+        Bug 43786 - Move AtomicStringHash from WebCore to WTF
+        Also remove deprecated string headers from WebCore/platform/text.
+
+        * gdom/ConvertToGCharPrivate.h:
+
 2010-08-06  Gavin Barraclough  <barraclough@apple.com>
 
         Rubber stamped by Sam Weinig

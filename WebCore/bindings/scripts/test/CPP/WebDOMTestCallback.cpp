@@ -24,7 +24,6 @@
 
 #include "WebDOMTestCallback.h"
 
-#include "AtomicString.h"
 #include "Class1.h"
 #include "Class2.h"
 #include "Class3.h"
@@ -35,6 +34,7 @@
 #include "WebDOMClass3.h"
 #include "WebDOMString.h"
 #include "WebExceptionHandler.h"
+#include "wtf/text/AtomicString.h"
 #include <wtf/GetPtr.h>
 #include <wtf/RefPtr.h>
 
@@ -65,6 +65,13 @@ WebDOMTestCallback::WebDOMTestCallback(const WebDOMTestCallback& copy)
     m_impl = copy.impl() ? new WebDOMTestCallbackPrivate(copy.impl()) : 0;
 }
 
+WebDOMTestCallback& WebDOMTestCallback::operator=(const WebDOMTestCallback& copy)
+{
+    delete m_impl;
+    m_impl = copy.impl() ? new WebDOMTestCallbackPrivate(copy.impl()) : 0;
+    return *this;
+}
+
 WebCore::TestCallback* WebDOMTestCallback::impl() const
 {
     return m_impl ? m_impl->impl.get() : 0;
@@ -81,7 +88,7 @@ bool WebDOMTestCallback::callbackWithClass1Param(const WebDOMClass1& class1Param
     if (!impl())
         return false;
 
-    return impl()->callbackWithClass1Param(0, toWebCore(class1Param));
+    return impl()->callbackWithClass1Param(toWebCore(class1Param));
 }
 
 bool WebDOMTestCallback::callbackWithClass2Param(const WebDOMClass2& class2Param, const WebDOMString& strArg)
@@ -89,7 +96,7 @@ bool WebDOMTestCallback::callbackWithClass2Param(const WebDOMClass2& class2Param
     if (!impl())
         return false;
 
-    return impl()->callbackWithClass2Param(0, toWebCore(class2Param), strArg);
+    return impl()->callbackWithClass2Param(toWebCore(class2Param), strArg);
 }
 
 int WebDOMTestCallback::callbackWithNonBoolReturnType(const WebDOMClass3& class3Param)
@@ -97,7 +104,7 @@ int WebDOMTestCallback::callbackWithNonBoolReturnType(const WebDOMClass3& class3
     if (!impl())
         return 0;
 
-    return impl()->callbackWithNonBoolReturnType(0, toWebCore(class3Param));
+    return impl()->callbackWithNonBoolReturnType(toWebCore(class3Param));
 }
 
 WebCore::TestCallback* toWebCore(const WebDOMTestCallback& wrapper)

@@ -45,4 +45,14 @@ void TestController::initializeTestPluginDirectory()
     m_testPluginDirectory.adopt(WKStringCreateWithCFString((CFStringRef)[[NSBundle mainBundle] bundlePath]));
 }
 
+void TestController::runUntil(bool& done)
+{
+    while (!done)
+        [[NSRunLoop currentRunLoop] runMode:NSDefaultRunLoopMode beforeDate:[NSDate distantFuture]];
+}
+
+void TestController::platformInitializeContext()
+{
+}
+
 } // namespace WTR

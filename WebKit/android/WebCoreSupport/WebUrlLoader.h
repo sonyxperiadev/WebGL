@@ -32,19 +32,20 @@ using namespace WebCore;
 
 namespace android {
 class WebUrlLoaderClient;
+class WebFrame;
 
 class WebUrlLoader : public ResourceLoaderAndroid {
 public:
     virtual ~WebUrlLoader();
-    static PassRefPtr<WebUrlLoader> start(WebCore::ResourceHandle*, const WebCore::ResourceRequest&, bool sync, bool isPrivateBrowsing);
+    static PassRefPtr<WebUrlLoader> start(FrameLoaderClient* client, WebCore::ResourceHandle*, const WebCore::ResourceRequest&, bool sync, bool isPrivateBrowsing);
 
     virtual void cancel();
     virtual void downloadFile() {} // Not implemented yet
     virtual void pauseLoad(bool pause) {} // Android method, does nothing for now
 
 private:
-    WebUrlLoader(WebCore::ResourceHandle*, const WebCore::ResourceRequest&);
-    static PassRefPtr<WebUrlLoader> create(WebCore::ResourceHandle*, const WebCore::ResourceRequest&);
+    WebUrlLoader(WebFrame*, WebCore::ResourceHandle*, const WebCore::ResourceRequest&);
+    static PassRefPtr<WebUrlLoader> create(WebFrame*, WebCore::ResourceHandle*, const WebCore::ResourceRequest&);
 
     OwnPtr<WebUrlLoaderClient> m_loaderClient;
 };

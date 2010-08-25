@@ -1,3 +1,191 @@
+2010-08-17  Jesus Sanchez-Palencia  <jesus.palencia@openbossa.org>
+
+        Reviewed by Darin Adler.
+
+        Add NetworkingContext to avoid layer violations
+        https://bugs.webkit.org/show_bug.cgi?id=42292
+
+        Preparation: Just add the files to the build system.
+
+        * WebCoreSupport/WebFrameNetworkingContext.h: Added.
+        Placeholder with tentative code that might be changed when landing
+        the rest of it.
+        * WebCoreSupport/WebFrameNetworkingContext.mm: Added.
+        Empty placeholder for now.
+
+2010-08-17  Brady Eidson  <beidson@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Navigating back/forward during a modal dialog causes a crash when the modal dialog is dismissed.
+        <rdar://problem/8313579> and https://bugs.webkit.org/show_bug.cgi?id=44131
+
+        * WebView/WebView.mm:
+        (-[WebView canGoBack]): Return false if loads are deferred.
+        (-[WebView canGoForward]): Ditto.
+
+2010-08-14  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: -[WebInspector attach] and detach should work
+        https://bugs.webkit.org/show_bug.cgi?id=43924
+
+        For actions that relate only to the Web Inspector's Frontend
+        window (actions on the InspectorFrontendClient) the new Obj-C
+        wrapper class WebInspectorFrontend can be used. For now, this
+        is just attach and detach.
+
+        * WebCoreSupport/WebInspectorClient.mm:
+        (WebInspectorClient::openInspectorFrontend): setup and attach the WebInspectorFrontend to the WebInspector.
+        * WebInspector/WebInspector.h:
+        * WebInspector/WebInspector.mm:
+        (-[WebInspector dealloc]):
+        (-[WebInspector attach:]): delegate to the frontend.
+        (-[WebInspector detach:]): delegate to the frontend.
+        (-[WebInspector setFrontend:]):
+        * WebInspector/WebInspectorFrontend.h: Added.
+        * WebInspector/WebInspectorFrontend.mm: Added.
+        (-[WebInspectorFrontend initWithFrontendClient:]):
+        (-[WebInspectorFrontend attach]):
+        (-[WebInspectorFrontend detach]):
+        * WebInspector/WebInspectorPrivate.h:
+
+2010-08-13  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig.
+        Switch String::/UString::ascii() to return a CString.
+
+        * Plugins/Hosted/ProxyInstance.mm:
+        (WebKit::ProxyInstance::methodsNamed):
+        (WebKit::ProxyInstance::fieldNamed):
+
+2010-08-13  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig
+
+        Unify UString::UTF8String() & String::utf8() methods,
+        remove UString::cost() & make atArrayIndex a free function.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::enumerate):
+
+2010-08-12  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r65295.
+        http://trac.webkit.org/changeset/65295
+        https://bugs.webkit.org/show_bug.cgi?id=43950
+
+        It broke 4 sputnik tests (Requested by Ossy on #webkit).
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::enumerate):
+
+2010-08-12  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Sam Weinig
+
+        Unify UString::UTF8String() & String::utf8() methods,
+        remove UString::cost() & make atArrayIndex a free function.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::enumerate):
+
+2010-08-12  Jeremy Orlow  <jorlow@chromium.org>
+
+        Revert for now
+        https://bugs.webkit.org/show_bug.cgi?id=43794 
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:usesDocumentViews:]):
+        (-[WebView _preferencesChangedNotification:]):
+
+2010-08-10  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Some settings are linked to the PageGroup not the Page.  Create a new class for those.
+        https://bugs.webkit.org/show_bug.cgi?id=43794
+
+        Change WebView to use the new GroupSettings class rather than Settings for the
+        settings that moved.  This is sub-optimal since the settings aren't really
+        per-view, but we can't really change the API at this point.
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:usesDocumentViews:]):
+        (-[WebView _preferencesChangedNotification:]):
+
+2010-08-11  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamps by Darin Adler & Sam Weinig.
+
+        Bug 43867 - Some UString cleanup
+
+        Change JSC::UString data(), size(), and from(), to characters(), length(), and number() to match WTF::String.
+        Move string concatenation methods to a new header to simplify down UString.h.  Remove is8Bit().
+
+        * WebView/WebScriptDebugger.mm:
+        (toNSString):
+
+2010-08-10  David Hyatt  <hyatt@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43806, add ability to paginate screen content.
+        
+        Add SPI for entering and exiting screen pagination mode.  This is similar to printing mode but it can be done for on-screen
+        content.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _web_setPrintingModeRecursive]):
+        (-[WebHTMLView _web_clearPrintingModeRecursive]):
+        (-[WebHTMLView _web_setPrintingModeRecursiveAndAdjustViewSize]):
+        (-[WebHTMLView _beginPrintModeWithPageWidth:height:shrinkToFit:]):
+        (-[WebHTMLView _endPrintMode]):
+        (-[WebHTMLView _isInScreenPaginationMode]):
+        (-[WebHTMLView _beginScreenPaginationModeWithPageSize:shrinkToFit:]):
+        (-[WebHTMLView _endScreenPaginationMode]):
+        (-[WebHTMLView reapplyStyles]):
+        (-[WebHTMLView _setPrinting:minimumPageWidth:height:maximumPageWidth:adjustViewSize:paginateScreenContent:]):
+        (-[WebHTMLView adjustPageHeightNew:top:bottom:limit:]):
+        (-[WebHTMLView setPageWidthForPrinting:]):
+        * WebView/WebHTMLViewPrivate.h:
+
+2010-08-10  Gavin Barraclough  <barraclough@apple.com>
+
+        Build fix (update more includes)
+
+        * Plugins/Hosted/NetscapePluginHostManager.h:
+
+2010-08-10  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Add suspendAnimations/resumeAnimation API to DRT
+        https://bugs.webkit.org/show_bug.cgi?id=43733
+        
+        Mac specific API. Plumbs suspendAnimations/resumeAnimations down to WebCore.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _suspendAnimations]):
+        (-[WebFrame _resumeAnimations]):
+        * WebView/WebFramePrivate.h:
+
+2010-08-10  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Sam Weinig
+
+        Bug 43817 - Remove UString::Rep
+        UString::Rep has for a long time been replaced by UStringImpl (Rep
+        remaining as a typedef).  UStringImpl has since been removed too
+        (unified with StringImpl). Remove Rep, rename rep() to impl() and
+        m_rep to m_impl.  Also add impl() method to Identifier, and rename
+        its UString member from _ustring to m_string.
+
+        * Plugins/Hosted/ProxyInstance.mm:
+        (WebKit::ProxyInstance::methodsNamed):
+        (WebKit::ProxyInstance::fieldNamed):
+
 2010-08-06  Gavin Barraclough  <barraclough@apple.com>
 
         Rubber stamped by Sam Weinig

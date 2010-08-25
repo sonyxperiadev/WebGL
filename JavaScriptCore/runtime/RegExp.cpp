@@ -56,11 +56,11 @@ inline RegExp::RegExp(JSGlobalData* globalData, const UString& pattern, const US
     // NOTE: The global flag is handled on a case-by-case basis by functions like
     // String::match and RegExpObject::match.
     if (!flags.isNull()) {
-        if (flags.find('g') != UString::NotFound)
+        if (flags.find('g') != notFound)
             m_flagBits |= Global;
-        if (flags.find('i') != UString::NotFound)
+        if (flags.find('i') != notFound)
             m_flagBits |= IgnoreCase;
-        if (flags.find('m') != UString::NotFound)
+        if (flags.find('m') != notFound)
             m_flagBits |= Multiline;
     }
     compile(globalData);
@@ -96,7 +96,7 @@ int RegExp::match(const UString& s, int startOffset, Vector<int, 32>* ovector)
     if (ovector)
         ovector->resize(0);
 
-    if (static_cast<unsigned>(startOffset) > s.size() || s.isNull()) {
+    if (static_cast<unsigned>(startOffset) > s.length() || s.isNull()) {
         m_lastMatchString = UString();
         m_lastMatchStart = -1;
         m_lastOVector.shrink(0);
@@ -105,7 +105,7 @@ int RegExp::match(const UString& s, int startOffset, Vector<int, 32>* ovector)
     
     // Perform check to see if this match call is the same as the last match invocation
     // and if it is return the prior result.
-    if ((startOffset == m_lastMatchStart) && (s.rep() == m_lastMatchString.rep())) {
+    if ((startOffset == m_lastMatchStart) && (s.impl() == m_lastMatchString.impl())) {
         if (ovector)
             *ovector = m_lastOVector;
         
@@ -136,9 +136,9 @@ int RegExp::match(const UString& s, int startOffset, Vector<int, 32>* ovector)
             offsetVector[j] = -1;
 
 #if ENABLE(YARR_JIT)
-        int result = Yarr::executeRegex(m_regExpJITCode, s.data(), startOffset, s.size(), offsetVector, offsetVectorSize);
+        int result = Yarr::executeRegex(m_regExpJITCode, s.characters(), startOffset, s.length(), offsetVector, offsetVectorSize);
 #else
-        int result = Yarr::interpretRegex(m_regExpBytecode.get(), s.data(), startOffset, s.size(), offsetVector);
+        int result = Yarr::interpretRegex(m_regExpBytecode.get(), s.characters(), startOffset, s.length(), offsetVector);
 #endif
 
         if (result < 0) {
@@ -176,7 +176,7 @@ void RegExp::compile(JSGlobalData*)
     m_regExp = 0;
     JSRegExpIgnoreCaseOption ignoreCaseOption = ignoreCase() ? JSRegExpIgnoreCase : JSRegExpDoNotIgnoreCase;
     JSRegExpMultilineOption multilineOption = multiline() ? JSRegExpMultiline : JSRegExpSingleLine;
-    m_regExp = jsRegExpCompile(reinterpret_cast<const UChar*>(m_pattern.data()), m_pattern.size(), ignoreCaseOption, multilineOption, &m_numSubpatterns, &m_constructionError);
+    m_regExp = jsRegExpCompile(reinterpret_cast<const UChar*>(m_pattern.characters()), m_pattern.length(), ignoreCaseOption, multilineOption, &m_numSubpatterns, &m_constructionError);
 }
 
 int RegExp::match(const UString& s, int startOffset, Vector<int, 32>* ovector)
@@ -186,7 +186,7 @@ int RegExp::match(const UString& s, int startOffset, Vector<int, 32>* ovector)
     if (ovector)
         ovector->clear();
 
-    if (static_cast<unsigned>(startOffset) > s.size() || s.isNull())
+    if (static_cast<unsigned>(startOffset) > s.length() || s.isNull())
         return -1;
 
     if (m_regExp) {
@@ -204,7 +204,7 @@ int RegExp::match(const UString& s, int startOffset, Vector<int, 32>* ovector)
             offsetVector = ovector->data();
         }
 
-        int numMatches = jsRegExpExecute(m_regExp, reinterpret_cast<const UChar*>(s.data()), s.size(), startOffset, offsetVector, offsetVectorSize);
+        int numMatches = jsRegExpExecute(m_regExp, reinterpret_cast<const UChar*>(s.characters()), s.length(), startOffset, offsetVector, offsetVectorSize);
     
         if (numMatches < 0) {
 #ifndef NDEBUG

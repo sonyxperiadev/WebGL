@@ -236,7 +236,7 @@ namespace JSC {
                 current.m_values++;
 
                 JSCell* cell;
-                if (!value || !value.isCell() || Heap::isCellMarked(cell = value.asCell())) {
+                if (!value || !value.isCell() || Heap::checkMarkCell(cell = value.asCell())) {
                     if (current.m_values == end) {
                         m_markSets.removeLast();
                         continue;
@@ -244,7 +244,6 @@ namespace JSC {
                     goto findNextUnmarkedNullValue;
                 }
 
-                Heap::markCell(cell);
                 if (cell->structure()->typeInfo().type() < CompoundType) {
                     if (current.m_values == end) {
                         m_markSets.removeLast();
@@ -262,7 +261,17 @@ namespace JSC {
                 markChildren(m_values.removeLast());
         }
     }
-    
+
+    // Rule from ECMA 15.2 about what an array index is.
+    // Must exactly match string form of an unsigned integer, and be less than 2^32 - 1.
+    inline unsigned Identifier::toArrayIndex(bool& ok) const
+    {
+        unsigned i = toUInt32(ok);
+        if (ok && i >= 0xFFFFFFFFU)
+            ok = false;
+        return i;
+    }
+
 } // namespace JSC
 
 #endif // JSArray_h

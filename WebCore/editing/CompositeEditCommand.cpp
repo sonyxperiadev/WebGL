@@ -294,24 +294,24 @@ void CompositeEditCommand::joinTextNodes(PassRefPtr<Text> text1, PassRefPtr<Text
 
 void CompositeEditCommand::inputText(const String& text, bool selectInsertedText)
 {
-    int offset = 0;
-    int length = text.length();
+    unsigned offset = 0;
+    unsigned length = text.length();
     RefPtr<Range> startRange = Range::create(document(), Position(document()->documentElement(), 0), endingSelection().start());
-    int startIndex = TextIterator::rangeLength(startRange.get());
-    int newline;
+    unsigned startIndex = TextIterator::rangeLength(startRange.get());
+    size_t newline;
     do {
         newline = text.find('\n', offset);
         if (newline != offset) {
             RefPtr<InsertTextCommand> command = InsertTextCommand::create(document());
             applyCommandToComposite(command);
-            int substringLength = newline == -1 ? length - offset : newline - offset;
+            int substringLength = newline == notFound ? length - offset : newline - offset;
             command->input(text.substring(offset, substringLength), false);
         }
-        if (newline != -1)
+        if (newline != notFound)
             insertLineBreak();
             
         offset = newline + 1;
-    } while (newline != -1 && offset != length);
+    } while (newline != notFound && offset != length);
     
     if (selectInsertedText) {
         RefPtr<Range> selectedRange = TextIterator::rangeFromLocationAndLength(document()->documentElement(), startIndex, length);
@@ -489,7 +489,18 @@ void CompositeEditCommand::deleteInsignificantText(PassRefPtr<Text> textNode, un
     if (!textRenderer)
         return;
 
-    InlineTextBox* box = textRenderer->firstTextBox();
+    Vector<InlineTextBox*> sortedTextBoxes;
+    size_t sortedTextBoxesPosition = 0;
+   
+    for (InlineTextBox* textBox = textRenderer->firstTextBox(); textBox; textBox = textBox->nextTextBox())
+        sortedTextBoxes.append(textBox);
+    
+    // If there is mixed directionality text, the boxes can be out of order,
+    // (like Arabic with embedded LTR), so sort them first. 
+    if (textRenderer->containsReversedText())    
+        std::sort(sortedTextBoxes.begin(), sortedTextBoxes.end(), InlineTextBox::compareByStart);
+    InlineTextBox* box = sortedTextBoxes.isEmpty() ? 0 : sortedTextBoxes[sortedTextBoxesPosition];
+
     if (!box) {
         // whole text node is empty
         removeNode(textNode);
@@ -526,8 +537,12 @@ void CompositeEditCommand::deleteInsignificantText(PassRefPtr<Text> textNode, un
         }
         
         prevBox = box;
-        if (box)
-            box = box->nextTextBox();
+        if (box) {
+            if (++sortedTextBoxesPosition < sortedTextBoxes.size())
+                box = sortedTextBoxes[sortedTextBoxesPosition];
+            else
+                box = 0;
+        }
     }
 
     if (!str.isNull()) {

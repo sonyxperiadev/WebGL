@@ -136,17 +136,11 @@ symbian {
 RESOURCES += \
     $$PWD/../WebCore/WebCore.qrc
 
-!symbian:!maemo5 {
-    RESOURCES += $$PWD/../WebCore/inspector/front-end/WebKit.qrc
-}
+include_webinspector: RESOURCES += $$PWD/../WebCore/inspector/front-end/WebKit.qrc $$WC_GENERATED_SOURCES_DIR/InspectorBackendStub.qrc
 
-maemo5|symbian|embedded {
-    DEFINES += ENABLE_FAST_MOBILE_SCROLLING=1
-}
+enable_fast_mobile_scrolling: DEFINES += ENABLE_FAST_MOBILE_SCROLLING=1
 
-maemo5|symbian {
-    DEFINES += WTF_USE_QT_MOBILE_THEME=1
-}
+use_qt_mobile_theme: DEFINES += WTF_USE_QT_MOBILE_THEME=1
 
 contains(DEFINES, WTF_USE_QT_MOBILE_THEME=1) {
     DEFINES += ENABLE_NO_LISTBOX_RENDERING=1
@@ -625,6 +619,7 @@ SOURCES += \
     html/AsyncImageResizer.cpp \
     html/Blob.cpp \
     html/BlobBuilder.cpp \
+    html/BlobURL.cpp \
     html/canvas/CanvasGradient.cpp \
     html/canvas/CanvasPattern.cpp \
     html/canvas/CanvasPixelArray.cpp \
@@ -675,6 +670,7 @@ SOURCES += \
     html/HTMLDocument.cpp \
     html/HTMLElement.cpp \
     html/HTMLElementStack.cpp \
+    html/HTMLEntitySearch.cpp \
     html/HTMLEmbedElement.cpp \
     html/HTMLFieldSetElement.cpp \
     html/HTMLFontElement.cpp \
@@ -735,13 +731,13 @@ SOURCES += \
     html/HTMLTableSectionElement.cpp \
     html/HTMLTextAreaElement.cpp \
     html/HTMLTitleElement.cpp \
-    html/LegacyHTMLDocumentParser.cpp \
     html/HTMLUListElement.cpp \
     html/HTMLViewSourceDocument.cpp \
+    html/HTMLViewSourceParser.cpp \
     html/ImageData.cpp \
     html/ImageResizerThread.cpp \
     html/LabelsNodeList.cpp \
-    html/LegacyPreloadScanner.cpp \
+    html/ThreadableBlobRegistry.cpp \
     html/StepRange.cpp \
     html/ValidityState.cpp \
     inspector/ConsoleMessage.cpp \
@@ -838,6 +834,7 @@ SOURCES += \
     page/Geolocation.cpp \
     page/GeolocationController.cpp \
     page/GeolocationPositionCache.cpp \
+    page/GroupSettings.cpp \
     page/History.cpp \
     page/Location.cpp \
     page/MemoryInfo.cpp \
@@ -878,6 +875,7 @@ SOURCES += \
     platform/DragData.cpp \
     platform/DragImage.cpp \
     platform/FileChooser.cpp \
+    platform/FileSystem.cpp \
     platform/GeolocationService.cpp \
     platform/image-decoders/qt/RGBA32BufferQt.cpp \
     platform/graphics/FontDescription.cpp \
@@ -896,6 +894,7 @@ SOURCES += \
     platform/graphics/GeneratedImage.cpp \
     platform/graphics/Gradient.cpp \
     platform/graphics/GraphicsContext.cpp \
+    platform/graphics/GraphicsLayer.cpp \
     platform/graphics/GraphicsTypes.cpp \
     platform/graphics/Image.cpp \
     platform/graphics/ImageBuffer.cpp \
@@ -929,6 +928,8 @@ SOURCES += \
     platform/mock/GeolocationServiceMock.cpp \
     platform/mock/SpeechInputClientMock.cpp \
     platform/network/AuthenticationChallengeBase.cpp \
+    platform/network/BlobData.cpp \
+    platform/network/BlobRegistryImpl.cpp \
     platform/network/Credential.cpp \
     platform/network/FormData.cpp \
     platform/network/FormDataBuilder.cpp \
@@ -1004,6 +1005,8 @@ SOURCES += \
     rendering/RenderIndicator.cpp \
     rendering/RenderInline.cpp \
     rendering/RenderLayer.cpp \
+    rendering/RenderLayerBacking.cpp \
+    rendering/RenderLayerCompositor.cpp \
     rendering/RenderLineBoxList.cpp \
     rendering/RenderListBox.cpp \
     rendering/RenderListItem.cpp \
@@ -1390,6 +1393,7 @@ HEADERS += \
     html/AsyncImageResizer.h \
     html/Blob.h \
     html/BlobBuilder.h \
+    html/BlobURL.h \
     html/canvas/CanvasGradient.h \
     html/canvas/CanvasPattern.h \
     html/canvas/CanvasPixelArray.h \
@@ -1495,14 +1499,13 @@ HEADERS += \
     html/HTMLTableSectionElement.h \
     html/HTMLTextAreaElement.h \
     html/HTMLTitleElement.h \
-    html/LegacyHTMLDocumentParser.h \
     html/HTMLUListElement.h \
     html/HTMLVideoElement.h \
     html/HTMLViewSourceDocument.h \
+    html/HTMLViewSourceParser.h \
     html/ImageData.h \
     html/ImageResizerThread.h \
     html/LabelsNodeList.h \
-    html/LegacyPreloadScanner.h \
     html/StepRange.h \
     html/TimeRanges.h \
     html/ValidityState.h \
@@ -1615,6 +1618,7 @@ HEADERS += \
     page/Geolocation.h \
     page/GeolocationPositionCache.h \
     page/Geoposition.h \
+    page/GroupSettings.h \
     page/HaltablePlugin.h \
     page/History.h \
     page/Location.h \
@@ -1649,6 +1653,7 @@ HEADERS += \
     platform/DragData.h \
     platform/DragImage.h \
     platform/FileChooser.h \
+    platform/FileSystem.h \
     platform/GeolocationService.h \
     platform/image-decoders/ImageDecoder.h \
     platform/mock/DeviceOrientationClientMock.h \
@@ -1676,6 +1681,8 @@ HEADERS += \
     platform/graphics/GeneratedImage.h \
     platform/graphics/Gradient.h \
     platform/graphics/GraphicsContext.h \
+    platform/graphics/GraphicsLayer.h \
+    platform/graphics/GraphicsLayerClient.h \
     platform/graphics/GraphicsTypes.h \
     platform/graphics/Image.h \
     platform/graphics/ImageSource.h \
@@ -1687,9 +1694,12 @@ HEADERS += \
     platform/graphics/PathTraversalState.h \
     platform/graphics/Pattern.h \
     platform/graphics/Pen.h \
+    platform/graphics/qt/ContextShadow.h \
     platform/graphics/qt/FontCustomPlatformData.h \
+    platform/graphics/qt/GraphicsLayerQt.h \
     platform/graphics/qt/ImageDecoderQt.h \
     platform/graphics/qt/StillImageQt.h \
+    platform/graphics/qt/TransparencyLayer.h \
     platform/graphics/SegmentedFontData.h \
     platform/graphics/SimpleFontData.h \
     platform/graphics/Tile.h \
@@ -1713,11 +1723,16 @@ HEADERS += \
     platform/MIMETypeRegistry.h \
     platform/network/AuthenticationChallengeBase.h \
     platform/network/AuthenticationClient.h \
+    platform/network/BlobData.h \
+    platform/network/BlobRegistry.h \
+    platform/network/BlobRegistryImpl.h \
+    platform/network/BlobStorageData.h \
     platform/network/Credential.h \
     platform/network/FormDataBuilder.h \
     platform/network/FormData.h \
     platform/network/HTTPHeaderMap.h \
     platform/network/HTTPParsers.h \
+    platform/network/NetworkingContext.h \
     platform/network/NetworkStateNotifier.h \
     platform/network/ProtectionSpace.h \
     platform/network/qt/QNetworkReplyHandler.h \
@@ -1744,7 +1759,6 @@ HEADERS += \
     platform/sql/SQLiteStatement.h \
     platform/sql/SQLiteTransaction.h \
     platform/sql/SQLValue.h \
-    platform/text/AtomicString.h \
     platform/text/Base64.h \
     platform/text/BidiContext.h \
     platform/text/Hyphenation.h \
@@ -1752,7 +1766,6 @@ HEADERS += \
     platform/text/RegularExpression.h \
     platform/text/SegmentedString.h \
     platform/text/StringBuilder.h \
-    platform/text/StringImpl.h \
     platform/text/TextCodec.h \
     platform/text/TextCodecLatin1.h \
     platform/text/TextCodecUserDefined.h \
@@ -1817,6 +1830,8 @@ HEADERS += \
     rendering/RenderInline.h \
     rendering/RenderInputSpeech.h \
     rendering/RenderLayer.h \
+    rendering/RenderLayerBacking.h \
+    rendering/RenderLayerCompositor.h \
     rendering/RenderLineBoxList.h \
     rendering/RenderListBox.h \
     rendering/RenderListItem.h \
@@ -1913,6 +1928,7 @@ HEADERS += \
     rendering/style/SVGRenderStyle.h \
     rendering/SVGCharacterData.h \
     rendering/SVGCharacterLayoutInfo.h \
+    rendering/SVGImageBufferTools.h \
     rendering/SVGInlineFlowBox.h \
     rendering/SVGInlineTextBox.h \
     rendering/SVGMarkerData.h \
@@ -2164,6 +2180,7 @@ HEADERS += \
     $$PWD/../WebKit/qt/Api/qwebplugindatabase_p.h \
     $$PWD/../WebKit/qt/WebCoreSupport/QtFallbackWebPopup.h \
     $$PWD/../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/FrameNetworkingContextQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/PageClientQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/QtPlatformPlugin.h \
@@ -2183,12 +2200,14 @@ SOURCES += \
     page/qt/FrameQt.cpp \
     platform/graphics/qt/TransformationMatrixQt.cpp \
     platform/graphics/qt/ColorQt.cpp \
+    platform/graphics/qt/ContextShadow.cpp \
     platform/graphics/qt/FontQt.cpp \
     platform/graphics/qt/FontPlatformDataQt.cpp \
     platform/graphics/qt/FloatPointQt.cpp \
     platform/graphics/qt/FloatRectQt.cpp \
     platform/graphics/qt/GradientQt.cpp \
     platform/graphics/qt/GraphicsContextQt.cpp \
+    platform/graphics/qt/GraphicsLayerQt.cpp \
     platform/graphics/qt/IconQt.cpp \
     platform/graphics/qt/ImageBufferQt.cpp \
     platform/graphics/qt/ImageDecoderQt.cpp \
@@ -2253,6 +2272,7 @@ SOURCES += \
     ../WebKit/qt/WebCoreSupport/EditorClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/EditCommandQt.cpp \
     ../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/FrameNetworkingContextQt.cpp \
     ../WebKit/qt/WebCoreSupport/InspectorClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/PageClientQt.cpp \
@@ -2341,6 +2361,9 @@ contains(DEFINES, ENABLE_NETSCAPE_PLUGIN_API=1) {
                 !embedded {
                     CONFIG += x11
                     LIBS += -lXrender
+                }
+                maemo5 {
+                    DEFINES += MOZ_PLATFORM_MAEMO=5
                 }
                 SOURCES += \
                     plugins/qt/PluginContainerQt.cpp \
@@ -2539,6 +2562,31 @@ contains(DEFINES, ENABLE_DOM_STORAGE=1) {
         storage/StorageNamespace.cpp \
         storage/StorageNamespaceImpl.cpp \
         storage/StorageSyncManager.cpp
+}
+
+contains(DEFINES, ENABLE_FILE_SYSTEM=1) {
+    HEADERS += \
+        storage/DirectoryEntry.h \
+        storage/DirectoryReader.h \
+        storage/DOMFileSystem.h \
+        storage/EntriesCallback.h \
+        storage/Entry.h \
+        storage/EntryArray.h \
+        storage/EntryCallback.h \
+        storage/ErrorCallback.h \
+        storage/FileEntry.h \
+        storage/FileSystemCallback.h \
+        storage/Flags.h \
+        storage/Metadata.h \
+        storage/MetadataCallback.h
+
+    SOURCES += \
+        storage/DirectoryEntry.cpp \
+        storage/DirectoryReader.cpp \
+        storage/DOMFileSystem.cpp \
+        storage/Entry.cpp \
+        storage/EntryArray.cpp \
+        storage/FileEntry.cpp
 }
 
 contains(DEFINES, ENABLE_ICONDATABASE=1) {
@@ -2857,6 +2905,7 @@ contains(DEFINES, ENABLE_SVG=1) {
         svg/SVGNumberList.cpp \
         svg/SVGPaint.cpp \
         svg/SVGParserUtilities.cpp \
+        svg/SVGPathBlender.cpp \
         svg/SVGPathBuilder.cpp \
         svg/SVGPathByteStreamBuilder.cpp \
         svg/SVGPathByteStreamSource.cpp \
@@ -2879,6 +2928,7 @@ contains(DEFINES, ENABLE_SVG=1) {
         svg/SVGPathSegMoveto.cpp \
         svg/SVGPathStringBuilder.cpp \
         svg/SVGPathStringSource.cpp \
+        svg/SVGPathTraversalStateBuilder.cpp \
         svg/SVGPatternElement.cpp \
         svg/SVGPointList.cpp \
         svg/SVGPolyElement.cpp \
@@ -2966,6 +3016,7 @@ contains(DEFINES, ENABLE_SVG=1) {
         rendering/RenderSVGViewportContainer.cpp \
         rendering/SVGCharacterData.cpp \
         rendering/SVGCharacterLayoutInfo.cpp \
+        rendering/SVGImageBufferTools.cpp \
         rendering/SVGInlineFlowBox.cpp \
         rendering/SVGInlineTextBox.cpp \
         rendering/SVGMarkerLayoutInfo.cpp \
@@ -3212,19 +3263,6 @@ win32:!win32-g++*:contains(QMAKE_HOST.arch, x86_64):{
         SOURCES += \
             plugins/win/PaintHooks.asm
     }
-}
-contains(DEFINES, WTF_USE_ACCELERATED_COMPOSITING) {
-HEADERS += \
-    rendering/RenderLayerBacking.h \
-    rendering/RenderLayerCompositor.h \
-    platform/graphics/GraphicsLayer.h \
-    platform/graphics/GraphicsLayerClient.h \
-    platform/graphics/qt/GraphicsLayerQt.h
-SOURCES += \
-    platform/graphics/GraphicsLayer.cpp \
-    platform/graphics/qt/GraphicsLayerQt.cpp \
-    rendering/RenderLayerBacking.cpp \
-    rendering/RenderLayerCompositor.cpp
 }
 
 symbian {

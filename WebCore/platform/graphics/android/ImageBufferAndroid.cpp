@@ -66,27 +66,42 @@ GraphicsContext* ImageBuffer::context() const
     return m_context.get();
 }
 
-/*  This guy needs to make a deep copy of the bitmap, so that the returned
-    image doesn't reflect any subsequent changes to the canvas' backend.
-    e.g. this is called when <canvas> wants to make a Pattern, which needs
-    to snapshot the current pixels when it is created.
- */
-Image* ImageBuffer::image() const
+bool ImageBuffer::drawsUsingCopy() const
 {
-    if (!m_image) {        
-        ASSERT(context());
-        SkCanvas* canvas = context()->platformContext()->mCanvas;
-        SkDevice* device = canvas->getDevice();
-        const SkBitmap& orig = device->accessBitmap(false);
-        
-        SkBitmap copy;
-        orig.copyTo(&copy, orig.config());
+    return true;
+}
 
-        SkBitmapRef* ref = new SkBitmapRef(copy);
-        m_image = BitmapImage::create(ref, 0);
-        ref->unref();
-    }
-    return m_image.get();
+PassRefPtr<Image> ImageBuffer::copyImage() const
+{
+    ASSERT(context());
+    SkCanvas* canvas = context()->platformContext()->mCanvas;
+    SkDevice* device = canvas->getDevice();
+    const SkBitmap& orig = device->accessBitmap(false);
+
+    SkBitmap copy;
+    orig.copyTo(&copy, orig.config());
+
+    SkBitmapRef* ref = new SkBitmapRef(copy);
+    RefPtr<Image> image = BitmapImage::create(ref, 0);
+    ref->unref();
+    return image;
+}
+
+void ImageBuffer::clip(GraphicsContext* context, const FloatRect& rect) const
+{
+    SkDebugf("xxxxxxxxxxxxxxxxxx clip not implemented\n");
+}
+
+void ImageBuffer::draw(GraphicsContext* context, ColorSpace styleColorSpace, const FloatRect& destRect, const FloatRect& srcRect, CompositeOperator op, bool useLowQualityScale)
+{
+    RefPtr<Image> imageCopy = copyImage();
+    context->drawImage(imageCopy.get(), styleColorSpace, destRect, srcRect, op, useLowQualityScale);
+}
+
+void ImageBuffer::drawPattern(GraphicsContext* context, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, ColorSpace styleColorSpace, CompositeOperator op, const FloatRect& destRect)
+{
+    RefPtr<Image> imageCopy = copyImage();
+    imageCopy->drawPattern(context, srcRect, patternTransform, phase, styleColorSpace, op, destRect);
 }
 
 PassRefPtr<ImageData> ImageBuffer::getUnmultipliedImageData(const IntRect& rect) const
@@ -95,7 +110,7 @@ PassRefPtr<ImageData> ImageBuffer::getUnmultipliedImageData(const IntRect& rect)
     if (!gc) {
         return 0;
     }
-    
+
     const SkBitmap& src = android_gc2canvas(gc)->getDevice()->accessBitmap(false);
     SkAutoLockPixels alp(src);
     if (!src.getPixels()) {
@@ -105,10 +120,10 @@ PassRefPtr<ImageData> ImageBuffer::getUnmultipliedImageData(const IntRect& rect)
     // ! Can't use PassRefPtr<>, otherwise the second access will cause crash.
     RefPtr<ImageData> result = ImageData::create(rect.width(), rect.height());
     unsigned char* data = result->data()->data()->data();
-    
+
     if (rect.x() < 0 || rect.y() < 0 || (rect.x() + rect.width()) > m_size.width() || (rect.y() + rect.height()) > m_size.height())
         memset(data, 0, result->data()->length());
-    
+
     int originx = rect.x();
     int destx = 0;
     if (originx < 0) {
@@ -119,7 +134,7 @@ PassRefPtr<ImageData> ImageBuffer::getUnmultipliedImageData(const IntRect& rect)
     if (endx > m_size.width())
         endx = m_size.width();
     int numColumns = endx - originx;
-    
+
     int originy = rect.y();
     int desty = 0;
     if (originy < 0) {
@@ -130,10 +145,10 @@ PassRefPtr<ImageData> ImageBuffer::getUnmultipliedImageData(const IntRect& rect)
     if (endy > m_size.height())
         endy = m_size.height();
     int numRows = endy - originy;
-    
+
     unsigned srcPixelsPerRow = src.rowBytesAsPixels();
     unsigned destBytesPerRow = 4 * rect.width();
-    
+
     const SkPMColor* srcRows = src.getAddr32(originx, originy);
     unsigned char* destRows = data + desty * destBytesPerRow + destx * 4;
     for (int y = 0; y < numRows; ++y) {
@@ -158,7 +173,7 @@ void ImageBuffer::putUnmultipliedImageData(ImageData* source, const IntRect& sou
     if (!gc) {
         return;
     }
-    
+
     const SkBitmap& dst = android_gc2canvas(gc)->getDevice()->accessBitmap(true);
     SkAutoLockPixels alp(dst);
     if (!dst.getPixels()) {
@@ -167,33 +182,33 @@ void ImageBuffer::putUnmultipliedImageData(ImageData* source, const IntRect& sou
 
     ASSERT(sourceRect.width() > 0);
     ASSERT(sourceRect.height() > 0);
-    
+
     int originx = sourceRect.x();
     int destx = destPoint.x() + sourceRect.x();
     ASSERT(destx >= 0);
     ASSERT(destx < m_size.width());
     ASSERT(originx >= 0);
     ASSERT(originx <= sourceRect.right());
-    
+
     int endx = destPoint.x() + sourceRect.right();
     ASSERT(endx <= m_size.width());
-    
+
     int numColumns = endx - destx;
-    
+
     int originy = sourceRect.y();
     int desty = destPoint.y() + sourceRect.y();
     ASSERT(desty >= 0);
     ASSERT(desty < m_size.height());
     ASSERT(originy >= 0);
     ASSERT(originy <= sourceRect.bottom());
-    
+
     int endy = destPoint.y() + sourceRect.bottom();
     ASSERT(endy <= m_size.height());
     int numRows = endy - desty;
-    
+
     unsigned srcBytesPerRow = 4 * source->width();
     unsigned dstPixelsPerRow = dst.rowBytesAsPixels();
-    
+
     unsigned char* srcRows = source->data()->data()->data() + originy * srcBytesPerRow + originx * 4;
     SkPMColor* dstRows = dst.getAddr32(destx, desty);
     for (int y = 0; y < numRows; ++y) {
@@ -209,9 +224,9 @@ void ImageBuffer::putUnmultipliedImageData(ImageData* source, const IntRect& sou
     }
 }
 
-    
+
 String ImageBuffer::toDataURL(const String&, const double*) const
-{  
+{
     // Encode the image into a vector.
     SkDynamicMemoryWStream pngStream;
     const SkBitmap& dst = android_gc2canvas(context())->getDevice()->accessBitmap(true);

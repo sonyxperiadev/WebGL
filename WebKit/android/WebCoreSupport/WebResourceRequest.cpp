@@ -31,6 +31,17 @@
 #include <base/string_util.h>
 #include <wtf/text/CString.h>
 
+namespace {
+const std::string android_asset("file:///android_asset/");
+const std::string android_res("file:///android_res/");
+const std::string android_content("content:");
+
+// Matched in BrowserFrame.java
+const int RESOURCE = 1;
+const int ASSET = 2;
+const int CONTENT = 3;
+}
+
 namespace android {
 
 WebResourceRequest::WebResourceRequest(const WebCore::ResourceRequest& resourceRequest)
@@ -64,7 +75,30 @@ WebResourceRequest::WebResourceRequest(const WebCore::ResourceRequest& resourceR
 
     m_method = resourceRequest.httpMethod().utf8().data();
     m_referrer = resourceRequest.httpReferrer().utf8().data();
+
     m_url = resourceRequest.url().string().utf8().data();
+
+    // Android has special file urls, resolve these
+    m_specialAndroidFileType = 0;
+    std::string::size_type loc = m_url.find(android_asset);
+    if (loc != std::string::npos && loc == 0) {
+        m_url = m_url.erase(0, android_asset.length());
+        m_specialAndroidFileType = ASSET;
+        return;
+    }
+
+    loc = m_url.find(android_res);
+    if (loc != std::string::npos && loc == 0) {
+        m_url = m_url.erase(0, android_res.length());
+        m_specialAndroidFileType = RESOURCE;
+        return;
+    }
+
+    loc = m_url.find(android_content);
+    if (loc != std::string::npos && loc == 0) {
+        m_specialAndroidFileType = CONTENT;
+        return;
+    }
 }
 
 } // namespace android

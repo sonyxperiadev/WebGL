@@ -131,6 +131,7 @@ namespace android {
          * Record the invalid rectangle
          */
         void contentInvalidate(const WebCore::IntRect &rect);
+        void contentInvalidateAll();
 
         /**
          * Satisfy any outstanding invalidates, so that the current state
@@ -494,6 +495,7 @@ namespace android {
         WTF::Vector<Container> m_buttons;
         bool isPaused() const { return m_isPaused; }
         void setIsPaused(bool isPaused) { m_isPaused = isPaused; }
+        bool drawIsPaused() const;
         // end of shared members
 
         // internal functions

@@ -100,17 +100,6 @@ WebDevToolsFrontendImpl::WebDevToolsFrontendImpl(
     // Put each DevTools frontend Page into its own (single page) group so that it's not
     // deferred along with the inspected page.
     m_webViewImpl->page()->setGroupName(String());
-
-    WebFrameImpl* frame = m_webViewImpl->mainFrameImpl();
-    v8::HandleScope scope;
-    v8::Handle<v8::Context> frameContext = V8Proxy::context(frame->frame());
-
-    // Debugger commands should be sent using special method.
-    BoundObject debuggerCommandExecutorObj(frameContext, this, "RemoteDebuggerCommandExecutor");
-    debuggerCommandExecutorObj.addProtoFunction(
-        "DebuggerPauseScript",
-        WebDevToolsFrontendImpl::jsDebuggerPauseScript);
-    debuggerCommandExecutorObj.build();
 }
 
 WebDevToolsFrontendImpl::~WebDevToolsFrontendImpl()
@@ -123,7 +112,7 @@ void WebDevToolsFrontendImpl::dispatchOnInspectorFrontend(const WebString& messa
     v8::HandleScope scope;
     v8::Handle<v8::Context> frameContext = V8Proxy::context(frame->frame());
     v8::Context::Scope contextScope(frameContext);
-    v8::Handle<v8::Value> dispatchFunction = frameContext->Global()->Get(v8::String::New("devtools$$dispatch"));
+    v8::Handle<v8::Value> dispatchFunction = frameContext->Global()->Get(v8::String::New("WebInspector_syncDispatch"));
     ASSERT(dispatchFunction->IsFunction());
     v8::Handle<v8::Function> function = v8::Handle<v8::Function>::Cast(dispatchFunction);
     Vector< v8::Handle<v8::Value> > args;
@@ -136,13 +125,6 @@ void WebDevToolsFrontendImpl::dispatchOnInspectorFrontend(const WebString& messa
 void WebDevToolsFrontendImpl::frontendLoaded()
 {
     m_client->sendFrontendLoaded();
-}
-
-v8::Handle<v8::Value> WebDevToolsFrontendImpl::jsDebuggerPauseScript(const v8::Arguments& args)
-{
-    WebDevToolsFrontendImpl* frontend = static_cast<WebDevToolsFrontendImpl*>(v8::External::Cast(*args.Data())->Value());
-    frontend->m_client->sendDebuggerPauseScript();
-    return v8::Undefined();
 }
 
 } // namespace WebKit

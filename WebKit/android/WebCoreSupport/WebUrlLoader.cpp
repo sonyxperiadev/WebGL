@@ -27,14 +27,15 @@
 
 #include "WebUrlLoader.h"
 
+#include "FrameLoaderClientAndroid.h"
 #include "WebUrlLoaderClient.h"
 
 namespace android {
 
 // on main thread
-WebUrlLoader::WebUrlLoader(WebCore::ResourceHandle* resourceHandle, const WebCore::ResourceRequest& resourceRequest)
+WebUrlLoader::WebUrlLoader(WebFrame* webFrame, WebCore::ResourceHandle* resourceHandle, const WebCore::ResourceRequest& resourceRequest)
 {
-    m_loaderClient = new WebUrlLoaderClient(resourceHandle, resourceRequest);
+    m_loaderClient = new WebUrlLoaderClient(webFrame, resourceHandle, resourceRequest);
 }
 
 // on main thread
@@ -42,17 +43,19 @@ WebUrlLoader::~WebUrlLoader()
 {
 }
 
-PassRefPtr<WebUrlLoader> WebUrlLoader::start(WebCore::ResourceHandle* resourceHandle, const WebCore::ResourceRequest& resourceRequest, bool isSync, bool isPrivateBrowsing)
+PassRefPtr<WebUrlLoader> WebUrlLoader::start(FrameLoaderClient* client, WebCore::ResourceHandle* resourceHandle, 
+        const WebCore::ResourceRequest& resourceRequest, bool isSync, bool isPrivateBrowsing)
 {
-    RefPtr<WebUrlLoader> loader = WebUrlLoader::create(resourceHandle, resourceRequest);
+    FrameLoaderClientAndroid* clientAndroid = static_cast<FrameLoaderClientAndroid*> (client);
+    RefPtr<WebUrlLoader> loader = WebUrlLoader::create(clientAndroid->webFrame(), resourceHandle, resourceRequest);
     loader->m_loaderClient->start(isSync, isPrivateBrowsing);
 
     return loader.release();
 }
 
-PassRefPtr<WebUrlLoader> WebUrlLoader::create(WebCore::ResourceHandle* resourceHandle, const WebCore::ResourceRequest& resourceRequest)
+PassRefPtr<WebUrlLoader> WebUrlLoader::create(WebFrame* webFrame, WebCore::ResourceHandle* resourceHandle, const WebCore::ResourceRequest& resourceRequest)
 {
-    return adoptRef(new WebUrlLoader(resourceHandle, resourceRequest));
+    return adoptRef(new WebUrlLoader(webFrame, resourceHandle, resourceRequest));
 }
 
 // on main thread
@@ -69,9 +72,9 @@ namespace WebCore {
 // static
 // TODO: Implement sync requests
 PassRefPtr<ResourceLoaderAndroid> ResourceLoaderAndroid::start(WebCore::ResourceHandle* resourceHandle, const WebCore::ResourceRequest& resourceRequest,
-        FrameLoaderClient* /*client*/, bool /*isMainResource*/, bool isSync, bool isPrivateBrowsing)
+        FrameLoaderClient* client, bool /*isMainResource*/, bool isSync, bool isPrivateBrowsing)
 {
-    return android::WebUrlLoader::start(resourceHandle, resourceRequest, isSync, isPrivateBrowsing);
+    return android::WebUrlLoader::start(client, resourceHandle, resourceRequest, isSync, isPrivateBrowsing);
 }
 
 // static

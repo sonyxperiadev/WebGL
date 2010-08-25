@@ -24,7 +24,7 @@
  * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
 #include "config.h"
@@ -46,6 +46,7 @@
 #include "FloatQuad.h"
 #include "FloatRect.h"
 #include "Frame.h"
+#include "FrameLoadRequest.h"
 #include "FrameLoader.h"
 #include "FrameTree.h"
 #include "FrameView.h"
@@ -86,6 +87,7 @@
 #include "SharedBuffer.h"
 #include "TextEncoding.h"
 #include "TextIterator.h"
+#include "WindowFeatures.h"
 #include <wtf/text/CString.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/ListHashSet.h>
@@ -359,6 +361,8 @@ void InspectorController::clearConsoleMessages()
     m_injectedScriptHost->releaseWrapperObjectGroup(0 /* release the group in all scripts */, "console");
     if (m_domAgent)
         m_domAgent->releaseDanglingNodes();
+    if (m_remoteFrontend)
+        m_remoteFrontend->consoleMessagesCleared();
 }
 
 void InspectorController::startGroup(MessageSource source, ScriptCallStack* callStack, bool collapsed)
@@ -604,9 +608,12 @@ void InspectorController::releaseFrontendLifetimeAgents()
     if (m_domAgent)
         m_domAgent->reset();
     m_domAgent.clear();
+
+#if ENABLE(DATABASE)
     if (m_storageAgent)
         m_storageAgent->clearFrontend();
     m_storageAgent.clear();
+#endif
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     m_applicationCacheAgent.clear();
@@ -1329,7 +1336,7 @@ PassRefPtr<InspectorArray> InspectorController::buildArrayForCookies(ListHashSet
     ListHashSet<Cookie>::iterator end = cookiesList.end();
     ListHashSet<Cookie>::iterator it = cookiesList.begin();
     for (int i = 0; it != end; ++it, i++)
-        cookies->push(buildObjectForCookie(*it));
+        cookies->pushObject(buildObjectForCookie(*it));
 
     return cookies;
 }
@@ -1413,7 +1420,7 @@ void InspectorController::getDOMStorageEntries(long storageId, RefPtr<InspectorA
             RefPtr<InspectorArray> entry = InspectorArray::create();
             entry->pushString(name);
             entry->pushString(value);
-            (*entries)->push(entry);
+            (*entries)->pushArray(entry);
         }
     }
 }
@@ -1500,7 +1507,7 @@ void InspectorController::getProfileHeaders(RefPtr<InspectorArray>* headers)
 {
     ProfilesMap::iterator profilesEnd = m_profiles.end();
     for (ProfilesMap::iterator it = m_profiles.begin(); it != profilesEnd; ++it)
-        (*headers)->push(createProfileHeader(*it->second));
+        (*headers)->pushObject(createProfileHeader(*it->second));
 }
 
 void InspectorController::getProfile(unsigned uid, RefPtr<InspectorObject>* profileObject)
@@ -1508,7 +1515,7 @@ void InspectorController::getProfile(unsigned uid, RefPtr<InspectorObject>* prof
     ProfilesMap::iterator it = m_profiles.find(uid);
     if (it != m_profiles.end()) {
         *profileObject = createProfileHeader(*it->second);
-        (*profileObject)->set("head", it->second->buildInspectorObjectForHead());
+        (*profileObject)->setObject("head", it->second->buildInspectorObjectForHead());
     }
 }
 
@@ -1863,6 +1870,22 @@ void InspectorController::drawNodeHighlight(GraphicsContext& context) const
 
         drawHighlightForLineBoxesOrSVGRenderer(context, lineBoxQuads);
     }
+}
+
+void InspectorController::openInInspectedWindow(const String& url)
+{
+    ResourceRequest request;
+    FrameLoadRequest frameRequest(request, "_blank");
+    bool created;
+    Frame* mainFrame = m_inspectedPage->mainFrame();
+    WindowFeatures windowFeatures;
+    Frame* newFrame = WebCore::createWindow(mainFrame, mainFrame, frameRequest, windowFeatures, created);
+    if (!newFrame)
+        return;
+
+    newFrame->loader()->setOpener(mainFrame);
+    newFrame->page()->setOpenedByDOM();
+    newFrame->loader()->changeLocation(newFrame->loader()->completeURL(url), "", false, false, true);
 }
 
 void InspectorController::count(const String& title, unsigned lineNumber, const String& sourceID)

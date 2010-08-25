@@ -89,7 +89,6 @@
 #include "InspectorController.h"
 #include "InspectorTimelineAgent.h"
 #include "KeyboardEvent.h"
-#include "LegacyHTMLDocumentParser.h"
 #include "LegacyHTMLTreeBuilder.h"
 #include "Logging.h"
 #include "MessageEvent.h"
@@ -122,7 +121,6 @@
 #include "SelectionController.h"
 #include "Settings.h"
 #include "StaticHashSetNodeList.h"
-#include "StringBuffer.h"
 #include "StyleSheetList.h"
 #include "TextEvent.h"
 #include "TextIterator.h"
@@ -146,6 +144,7 @@
 #include <wtf/MainThread.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/StringBuffer.h>
 
 #if ENABLE(SHARED_WORKERS)
 #include "SharedWorkerRepository.h"
@@ -431,7 +430,8 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
     m_pageGroupUserSheetCacheValid = false;
 
     m_printing = false;
-    
+    m_paginatedForScreen = false;
+
     m_ignoreAutofocus = false;
 
     m_frame = frame;
@@ -860,7 +860,7 @@ PassRefPtr<Node> Document::adoptNode(PassRefPtr<Node> source, ExceptionCode& ec)
     }       
     default:
         if (source->hasTagName(iframeTag))
-            static_cast<HTMLIFrameElement*>(source.get())->setRemainsAliveOnRemovalFromTree(attached());
+            static_cast<HTMLIFrameElement*>(source.get())->setRemainsAliveOnRemovalFromTree(attached() && source->attached());
 
         if (source->parentNode())
             source->parentNode()->removeChild(source.get(), ec);
@@ -2271,7 +2271,7 @@ const Vector<RefPtr<CSSStyleSheet> >* Document::pageGroupUserSheets() const
             if (!UserContentURLPattern::matchesPatterns(url(), sheet->whitelist(), sheet->blacklist()))
                 continue;
             RefPtr<CSSStyleSheet> parsedSheet = CSSStyleSheet::createInline(const_cast<Document*>(this), sheet->url());
-            parsedSheet->setIsUserStyleSheet(true);
+            parsedSheet->setIsUserStyleSheet(sheet->level() == UserStyleSheet::UserLevel);
             parsedSheet->parseString(sheet->source(), !inCompatMode());
             if (!m_pageGroupUserSheets)
                 m_pageGroupUserSheets.set(new Vector<RefPtr<CSSStyleSheet> >);
@@ -3707,8 +3707,8 @@ HTMLMapElement* Document::getImageMap(const String& url) const
 {
     if (url.isNull())
         return 0;
-    int hashPos = url.find('#');
-    String name = (hashPos < 0 ? url : url.substring(hashPos + 1)).impl();
+    size_t hashPos = url.find('#');
+    String name = (hashPos == notFound ? url : url.substring(hashPos + 1)).impl();
     AtomicString mapName = isHTMLDocument() ? name.lower() : name;
     m_imageMapsByName.checkConsistency();
     return m_imageMapsByName.get(mapName.impl());

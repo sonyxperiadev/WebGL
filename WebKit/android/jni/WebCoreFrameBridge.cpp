@@ -29,7 +29,6 @@
 #include "WebCoreFrameBridge.h"
 
 #include "Arena.h"
-#include "AtomicString.h"
 #include "BackForwardList.h"
 #include "Cache.h"
 #include "Chrome.h"
@@ -97,6 +96,7 @@
 #include <utils/AssetManager.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/Platform.h>
+#include <wtf/text/AtomicString.h>
 #include <wtf/text/CString.h>
 
 #if USE(JSC)
@@ -184,6 +184,7 @@ struct WebFrame::JavaBrowserFrame
 {
     jweak       mObj;
     jweak       mHistoryList; // WebBackForwardList object
+    jmethodID   mInputStreamForAndroidResource;
     jmethodID   mStartLoadingResource;
     jmethodID   mLoadStarted;
     jmethodID   mTransitionToCommitted;
@@ -225,6 +226,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame = new JavaBrowserFrame;
     mJavaFrame->mObj = env->NewWeakGlobalRef(obj);
     mJavaFrame->mHistoryList = env->NewWeakGlobalRef(historyList);
+    mJavaFrame->mInputStreamForAndroidResource = env->GetMethodID(clazz, "inputStreamForAndroidResource", "(Ljava/lang/String;I)Ljava/io/InputStream;");
     mJavaFrame->mStartLoadingResource = env->GetMethodID(clazz, "startLoadingResource",
             "(ILjava/lang/String;Ljava/lang/String;Ljava/util/HashMap;[BJIZZZLjava/lang/String;Ljava/lang/String;)Landroid/webkit/LoadListener;");
     mJavaFrame->mLoadStarted = env->GetMethodID(clazz, "loadStarted",
@@ -263,6 +265,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mGetFileSize = env->GetMethodID(clazz, "getFileSize", "(Ljava/lang/String;)I");
     mJavaFrame->mGetFile = env->GetMethodID(clazz, "getFile", "(Ljava/lang/String;[BII)I");
 
+    LOG_ASSERT(mJavaFrame->mInputStreamForAndroidResource, "Could not find method inputStreamForAndroidResource");
     LOG_ASSERT(mJavaFrame->mStartLoadingResource, "Could not find method startLoadingResource");
     LOG_ASSERT(mJavaFrame->mLoadStarted, "Could not find method loadStarted");
     LOG_ASSERT(mJavaFrame->mTransitionToCommitted, "Could not find method transitionToCommitted");
@@ -362,6 +365,18 @@ private:
     jstring m_uri;
     int m_size;
 };
+
+int WebFrame::inputStreamForAndroidResource(const char* url, int type)
+{
+    JNIEnv* env = getJNIEnv();
+    AutoJObject obj = mJavaFrame->frame(env);
+    jstring jUrlStr = env->NewStringUTF(url);
+
+    jobject jInputStream = env->CallObjectMethod(obj.get(), mJavaFrame->mInputStreamForAndroidResource, jUrlStr, type);
+    env->DeleteLocalRef(jUrlStr);
+
+    return (int)jInputStream;
+}
 
 PassRefPtr<WebCore::ResourceLoaderAndroid>
 WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,

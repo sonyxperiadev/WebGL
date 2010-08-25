@@ -322,6 +322,7 @@ void ScrollView::valueChanged(Scrollbar* scrollbar)
     if (scrollbarsSuppressed())
         return;
 
+    repaintFixedElementsAfterScrolling();
     scrollContents(scrollDelta);
 }
 
@@ -1087,13 +1088,13 @@ void ScrollView::platformOffscreenContentRectangle(const IntRect& )
 {
 }
 #endif
-#endif
 
 bool ScrollView::platformIsOffscreen() const
 {
     return false;
 }
 
+#endif
 #endif
 
 }

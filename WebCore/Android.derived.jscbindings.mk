@@ -261,7 +261,6 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/html/%.cpp : $(intermediates)/htm
 GEN := \
     $(intermediates)/html/canvas/JSArrayBuffer.h \
     $(intermediates)/html/canvas/JSCanvasGradient.h \
-    $(intermediates)/html/canvas/JSCanvasNumberArray.h \
     $(intermediates)/html/canvas/JSCanvasPattern.h \
     $(intermediates)/html/canvas/JSCanvasRenderingContext.h \
     $(intermediates)/html/canvas/JSCanvasRenderingContext2D.h \

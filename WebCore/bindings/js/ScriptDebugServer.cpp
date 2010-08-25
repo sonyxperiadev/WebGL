@@ -268,7 +268,7 @@ void ScriptDebugServer::dispatchDidContinue(ScriptDebugListener* listener)
 
 void ScriptDebugServer::dispatchDidParseSource(const ListenerSet& listeners, const JSC::SourceCode& source, ScriptWorldType worldType)
 {
-    String sourceID = ustringToString(JSC::UString::from(source.provider()->asID()));
+    String sourceID = ustringToString(JSC::UString::number(source.provider()->asID()));
     String url = ustringToString(source.provider()->url());
     String data = ustringToString(JSC::UString(source.data(), source.length()));
     int firstLine = source.firstLine();
@@ -496,6 +496,10 @@ void ScriptDebugServer::returnEvent(const DebuggerCallFrame& debuggerCallFrame, 
 
     m_currentCallFrame->update(debuggerCallFrame, sourceID, lineNumber);
     pauseIfNeeded(toPage(debuggerCallFrame.dynamicGlobalObject()));
+
+    // detach may have been called during pauseIfNeeded
+    if (!m_currentCallFrame)
+        return;
 
     // Treat stepping over a return statement like stepping out.
     if (m_currentCallFrame == m_pauseOnCallFrame)

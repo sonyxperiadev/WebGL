@@ -67,14 +67,13 @@ $(GEN): $(LOCAL_PATH)/html/DocTypeStrings.gperf
 $(intermediates)/html/HTMLDocument.o : $(GEN)
 
 
-# HTML entity names
+# HTML entity table
 
-GEN := $(intermediates)/html/HTMLEntityNames.cpp
-$(GEN): SCRIPT := $(LOCAL_PATH)/make-hash-tools.pl
-$(GEN): PRIVATE_CUSTOM_TOOL = perl $(SCRIPT) . $<
-$(GEN): $(LOCAL_PATH)/html/HTMLEntityNames.gperf
+GEN := $(intermediates)/html/HTMLEntityTable.cpp
+$(GEN): SCRIPT := $(LOCAL_PATH)/../WebKitTools/Scripts/create-html-entity-table
+$(GEN): PRIVATE_CUSTOM_TOOL = $(SCRIPT) -o $@ $<
+$(GEN): $(LOCAL_PATH)/html/HTMLEntityNames.json
 	$(transform-generated-source)
-	@mv ./HTMLEntityNames.cpp $@
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 

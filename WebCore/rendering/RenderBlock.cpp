@@ -1021,8 +1021,8 @@ void RenderBlock::removeChild(RenderObject* oldChild)
         // If this was our last child be sure to clear out our line boxes.
         if (childrenInline())
             lineBoxes()->deleteLineBoxes(renderArena());
-        // If we're now an empty anonymous block then go ahead and delete ourselves.
-        else if (isAnonymousBlock() && parent() && parent()->isRenderBlock() && !continuation())
+        // If we're now an empty anonymous columns or column span block, then go ahead and delete ourselves.
+        else if ((isAnonymousColumnsBlock() || isAnonymousColumnSpanBlock()) && parent() && parent()->isRenderBlock() && !continuation())
             destroy();
     }
 }
@@ -2120,7 +2120,7 @@ void RenderBlock::paintChildren(PaintInfo& paintInfo, int tx, int ty)
     PaintInfo info(paintInfo);
     info.phase = newPhase;
     info.updatePaintingRootForChildren(this);
-    bool checkPageBreaks = document()->printing() && !document()->settings()->paginateDuringLayoutEnabled();
+    bool checkPageBreaks = document()->paginated() && !document()->settings()->paginateDuringLayoutEnabled();
     bool checkColumnBreaks = !checkPageBreaks && !view()->printRect().isEmpty() && !document()->settings()->paginateDuringLayoutEnabled();
 
     for (RenderBox* child = firstChildBox(); child; child = child->nextSiblingBox()) {        
@@ -4109,7 +4109,7 @@ void RenderBlock::calcColumnWidth()
     int desiredColumnWidth = contentWidth();
     
     // For now, we don't support multi-column layouts when printing, since we have to do a lot of work for proper pagination.
-    if (document()->printing() || (style()->hasAutoColumnCount() && style()->hasAutoColumnWidth())) {
+    if (document()->paginated() || (style()->hasAutoColumnCount() && style()->hasAutoColumnWidth())) {
         setDesiredColumnCountAndWidth(desiredColumnCount, desiredColumnWidth);
         return;
     }

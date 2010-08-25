@@ -87,6 +87,7 @@
             'msvs_guid': '5ECEC9E5-8F23-47B6-93E0-C3B328B3BE65',
             'dependencies': [
                 '../../WebCore/WebCore.gyp/WebCore.gyp:webcore',
+                '<(chromium_src_dir)/app/app.gyp:app_base', # For GLContext
                 '<(chromium_src_dir)/skia/skia.gyp:skia',
                 '<(chromium_src_dir)/third_party/npapi/npapi.gyp:npapi',
             ],
@@ -157,6 +158,7 @@
                 'public/WebFileChooserParams.h',
                 'public/WebFileInfo.h',
                 'public/WebFileSystem.h',
+                'public/WebFileUtilities.h',
                 'public/WebFindOptions.h',
                 'public/WebFloatPoint.h',
                 'public/WebFloatRect.h',
@@ -185,6 +187,7 @@
                 'public/WebIDBKeyRange.h',
                 'public/WebIDBIndex.h',
                 'public/WebIDBKey.h',
+                'public/WebIDBKeyPath.h',
                 'public/WebIDBObjectStore.h',
                 'public/WebInputElement.h',
                 'public/WebInputEvent.h',
@@ -224,6 +227,7 @@
                 'public/WebPopupMenuInfo.h',
                 'public/WebPopupType.h',
                 'public/WebPrivatePtr.h',
+                'public/WebPrivateOwnPtr.h',
                 'public/WebRange.h',
                 'public/WebRect.h',
                 'public/WebRegularExpression.h',
@@ -314,9 +318,11 @@
                 'src/EventListenerWrapper.h',
                 'src/FrameLoaderClientImpl.cpp',
                 'src/FrameLoaderClientImpl.h',
+                'src/FrameNetworkingContextImpl.h',
                 'src/GLES2Context.cpp',
                 'src/GLES2ContextInternal.cpp',
                 'src/GLES2ContextInternal.h',
+                'src/GraphicsContext3D.cpp',
                 'src/gtk/WebFontInfo.cpp',
                 'src/gtk/WebFontInfo.h',
                 'src/gtk/WebInputEventFactory.cpp',
@@ -428,6 +434,7 @@
                 'src/WebIDBIndexImpl.cpp',
                 'src/WebIDBIndexImpl.h',
                 'src/WebIDBKey.cpp',
+                'src/WebIDBKeyPath.cpp',
                 'src/WebIDBKeyRange.cpp',
                 'src/WebIDBObjectStoreImpl.cpp',
                 'src/WebIDBObjectStoreImpl.h',
@@ -592,18 +599,6 @@
                     'sources/': [['exclude', '/win/']],
                 }],
                 ['"ENABLE_3D_CANVAS=1" in feature_defines', {
-                    # Conditionally compile in GLEW and our GraphicsContext3D implementation.
-                    'sources+': [
-                        'src/GraphicsContext3D.cpp',
-                        '<(chromium_src_dir)/third_party/glew/src/glew.c'
-                    ],
-                    'include_dirs+': [
-                        '<(chromium_src_dir)/third_party/glew/include'
-                    ],
-                    'defines+': [
-                        'GLEW_STATIC=1',
-                        'GLEW_NO_GLU=1',
-                    ],
                     'conditions': [
                         ['OS=="mac"', {
                             'link_settings': {
@@ -620,7 +615,10 @@
         {
             'target_name': 'inspector_resources',
             'type': 'none',
-            'dependencies': ['devtools_html'],
+            'dependencies': [
+                'devtools_html',
+                '../../WebCore/WebCore.gyp/WebCore.gyp:inspector_protocol_sources',
+            ],
             'conditions': [
                 ['debug_devtools==0', {
                     'dependencies': ['concatenated_devtools_js'],
@@ -632,6 +630,7 @@
                     'files': [
                         '<@(devtools_files)',
                         '<@(webinspector_files)',
+                        '<(SHARED_INTERMEDIATE_DIR)/webcore/InspectorBackendStub.js',
                     ],
                     'conditions': [
                         ['debug_devtools==0', {
@@ -678,10 +677,12 @@
                     '<@(_input_page)',
                     '<@(webinspector_files)',
                     '<@(devtools_files)',
+                    '<(SHARED_INTERMEDIATE_DIR)/webcore/InspectorBackendStub.js',
                 ],
                 'search_path': [
                     '../../WebCore/inspector/front-end',
                     'src/js',
+                    '<(SHARED_INTERMEDIATE_DIR)/webcore',
                     '<(chromium_src_dir)/v8/tools',
                 ],
                 'outputs': ['<(PRODUCT_DIR)/resources/inspector/DevTools.js'],
@@ -713,9 +714,13 @@
                     ],
                     'sources': [
                         'tests/DragImageTest.cpp',
+                        'tests/IDBBindingUtilitiesTest.cpp',
+                        'tests/IDBKeyPathTest.cpp',
                         'tests/KeyboardTest.cpp',
                         'tests/KURLTest.cpp',
                         'tests/RunAllTests.cpp',
+                        # FIXME: This test is compile failing on mac.
+                        # 'tests/TilingDataTest.cpp',
                     ],
                     'conditions': [
                         ['OS=="win"', {
@@ -730,6 +735,14 @@
                             'sources!': [
                                 # FIXME: Port DragImageTest to Mac.
                                 'tests/DragImageTest.cpp',
+                            ],
+                        }],
+                        ['OS=="linux"', {
+                            'sources': [
+                                'tests/WebInputEventFactoryTestGtk.cpp',
+                            ],
+                            'include_dirs': [
+                                'public/gtk',
                             ],
                         }],
                     ],

@@ -65,7 +65,7 @@ void LauncherWindow::init()
     QSplitter* splitter = new QSplitter(Qt::Vertical, this);
     setCentralWidget(splitter);
 
-#if defined(Q_WS_S60)
+#if defined(Q_OS_SYMBIAN)
     setWindowState(Qt::WindowMaximized);
 #else
     setWindowState(Qt::WindowNoState);
@@ -218,7 +218,7 @@ void LauncherWindow::createChrome()
 
     QMenu* toolsMenu = menuBar()->addMenu("&Develop");
     QMenu* graphicsViewMenu = toolsMenu->addMenu("QGraphicsView");
-    QAction* toggleGraphicsView = graphicsViewMenu->addAction("Toggle use of QGraphicsView", this, SLOT(initializeView()));
+    QAction* toggleGraphicsView = graphicsViewMenu->addAction("Toggle use of QGraphicsView", this, SLOT(toggleWebView(bool)));
     toggleGraphicsView->setCheckable(true);
     toggleGraphicsView->setChecked(isGraphicsBased());
 
@@ -339,16 +339,12 @@ void LauncherWindow::createChrome()
     QAction* flipAnimated = graphicsViewMenu->addAction("Animated Flip");
     flipAnimated->connect(toggleGraphicsView, SIGNAL(toggled(bool)), SLOT(setEnabled(bool)));
     flipAnimated->setEnabled(isGraphicsBased());
+    connect(flipAnimated, SIGNAL(triggered()), SLOT(animatedFlip()));
 
     QAction* flipYAnimated = graphicsViewMenu->addAction("Animated Y-Flip");
     flipYAnimated->connect(toggleGraphicsView, SIGNAL(toggled(bool)), SLOT(setEnabled(bool)));
     flipYAnimated->setEnabled(isGraphicsBased());
-
-    if (isGraphicsBased()) {
-        WebViewGraphicsBased* view = static_cast<WebViewGraphicsBased*>(m_view);
-        connect(flipAnimated, SIGNAL(triggered()), view, SLOT(animatedFlip()));
-        connect(flipYAnimated, SIGNAL(triggered()), view, SLOT(animatedYFlip()));
-    }
+    connect(flipYAnimated, SIGNAL(triggered()), SLOT(animatedYFlip()));
 
     QAction* cloneWindow = graphicsViewMenu->addAction("Clone Window", this, SLOT(cloneWindow()));
     cloneWindow->connect(toggleGraphicsView, SIGNAL(toggled(bool)), SLOT(setEnabled(bool)));
@@ -669,6 +665,12 @@ void LauncherWindow::setTouchMocking(bool on)
 #endif
 }
 
+void LauncherWindow::toggleWebView(bool graphicsBased)
+{
+    m_windowOptions.useGraphicsView = graphicsBased;
+    initializeView();
+}
+
 void LauncherWindow::toggleAcceleratedCompositing(bool toggle)
 {
     m_windowOptions.useCompositing = toggle;
@@ -692,6 +694,15 @@ void LauncherWindow::toggleWebGL(bool toggle)
     page()->settings()->setAttribute(QWebSettings::WebGLEnabled, toggle);
 }
 
+void LauncherWindow::animatedFlip()
+{
+    qobject_cast<WebViewGraphicsBased*>(m_view)->animatedFlip();
+}
+
+void LauncherWindow::animatedYFlip()
+{
+    qobject_cast<WebViewGraphicsBased*>(m_view)->animatedYFlip();
+}
 void LauncherWindow::toggleSpatialNavigation(bool b)
 {
     page()->settings()->setAttribute(QWebSettings::SpatialNavigationEnabled, b);
@@ -702,7 +713,7 @@ void LauncherWindow::toggleFullScreenMode(bool enable)
     if (enable)
         setWindowState(Qt::WindowFullScreen);
     else {
-#if defined(Q_WS_S60)
+#if defined(Q_OS_SYMBIAN)
         setWindowState(Qt::WindowMaximized);
 #else
         setWindowState(Qt::WindowNoState);
@@ -760,7 +771,7 @@ void LauncherWindow::showFPS(bool enable)
     view->setFrameRateMeasurementEnabled(enable);
 
     if (!enable) {
-#if defined(Q_WS_MAEMO_5) && defined(Q_WS_S60)
+#if defined(Q_WS_MAEMO_5) && defined(Q_OS_SYMBIAN)
         setWindowTitle("");
 #else
         statusBar()->clearMessage();
@@ -819,7 +830,7 @@ void LauncherWindow::updateFPS(int fps)
 {
     QString fpsStatusText = QString("Current FPS: %1").arg(fps);
 
-#if defined(Q_WS_MAEMO_5) && defined(Q_WS_S60)
+#if defined(Q_WS_MAEMO_5) && defined(Q_OS_SYMBIAN)
     setWindowTitle(fpsStatusText);
 #else
     statusBar()->showMessage(fpsStatusText);

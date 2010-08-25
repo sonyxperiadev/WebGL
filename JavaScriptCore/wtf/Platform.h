@@ -541,7 +541,7 @@
 #endif
 
 
-#if OS(WINCE) && PLATFORM(QT)
+#if OS(WINCE)
 #include <ce_time.h>
 #endif
 
@@ -1065,6 +1065,10 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #endif
 
 #if PLATFORM(IOS)
+#define WTF_USE_ACCELERATED_COMPOSITING 1
+#endif
+
+#if PLATFORM(QT)
 #define WTF_USE_ACCELERATED_COMPOSITING 1
 #endif
 

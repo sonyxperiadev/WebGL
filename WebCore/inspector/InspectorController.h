@@ -35,13 +35,13 @@
 #include "PlatformString.h"
 #include "ScriptProfile.h"
 #include "ScriptState.h"
-#include "StringHash.h"
 #include "Timer.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
@@ -136,7 +136,7 @@ public:
     void connectFrontend();
     void disconnectFrontend();
 
-    void addMessageToConsole(MessageSource, MessageType, MessageLevel, ScriptCallStack*, const String& message = String());
+    void addMessageToConsole(MessageSource, MessageType, MessageLevel, ScriptCallStack*, const String& message);
     void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceID);
     void clearConsoleMessages();
     const Vector<OwnPtr<ConsoleMessage> >& consoleMessages() const { return m_consoleMessages; }
@@ -212,6 +212,7 @@ public:
     bool hasFrontend() const { return m_remoteFrontend; }
 
     void drawNodeHighlight(GraphicsContext&) const;
+    void openInInspectedWindow(const String& url);
 
     void count(const String& title, unsigned lineNumber, const String& sourceID);
 
@@ -252,6 +253,7 @@ public:
     void evaluateForTestInFrontend(long testCallId, const String& script);
 
     InjectedScript injectedScriptForNodeId(long id);
+
     void addScriptToEvaluateOnLoad(const String& source);
     void removeAllScriptsToEvaluateOnLoad();
     void setInspectorExtensionAPI(const String& source);

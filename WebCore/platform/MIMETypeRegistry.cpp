@@ -31,10 +31,10 @@
 #include "ArchiveFactory.h"
 #endif
 #include "MediaPlayer.h"
-#include "StringHash.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/StringHash.h>
 
 #if PLATFORM(CG)
 #include "ImageSourceCG.h"
@@ -403,8 +403,8 @@ static void initializeMIMETypeRegistry()
 
 String MIMETypeRegistry::getMIMETypeForPath(const String& path)
 {
-    int pos = path.reverseFind('.');
-    if (pos >= 0) {
+    size_t pos = path.reverseFind('.');
+    if (pos != notFound) {
         String extension = path.substring(pos + 1);
         String result = getMIMETypeForExtension(extension);
         if (result.length())

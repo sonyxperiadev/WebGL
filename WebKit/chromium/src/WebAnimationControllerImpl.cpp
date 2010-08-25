@@ -87,4 +87,24 @@ unsigned WebAnimationControllerImpl::numberOfActiveAnimations() const
     return controller->numberOfActiveAnimations();
 }
 
+void WebAnimationControllerImpl::suspendAnimations() const
+{
+    AnimationController* controller = animationController();
+    if (!controller)
+        return;
+    if (!m_frameImpl->frame())
+        return;
+    controller->suspendAnimations(m_frameImpl->frame()->document());
+}
+
+void WebAnimationControllerImpl::resumeAnimations() const
+{
+    AnimationController* controller = animationController();
+    if (!controller)
+        return;
+    if (!m_frameImpl->frame())
+        return;
+    controller->resumeAnimations(m_frameImpl->frame()->document());
+}
+
 } // namespace WebKit

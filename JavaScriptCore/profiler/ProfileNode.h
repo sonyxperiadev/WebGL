@@ -30,16 +30,17 @@
 #define ProfileNode_h
 
 #include "CallIdentifier.h"
-#include <wtf/Vector.h>
+#include <wtf/HashCountedSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/Vector.h>
 
 namespace JSC {
 
     class ProfileNode;
 
     typedef Vector<RefPtr<ProfileNode> >::const_iterator StackIterator;
-    typedef HashCountedSet<UString::Rep*> FunctionCallHashCount;
+    typedef HashCountedSet<StringImpl*> FunctionCallHashCount;
 
     class ProfileNode : public RefCounted<ProfileNode> {
     public:

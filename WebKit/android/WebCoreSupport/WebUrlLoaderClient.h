@@ -48,6 +48,7 @@ class IOBuffer;
 
 namespace android {
 
+class WebFrame;
 class WebRequest;
 
 // This class handles communication between the IO thread where loading happens
@@ -59,7 +60,7 @@ class WebRequest;
 // - Implement pauseLoad
 class WebUrlLoaderClient {
 public:
-    WebUrlLoaderClient(WebCore::ResourceHandle*, const WebCore::ResourceRequest&);
+    WebUrlLoaderClient(WebFrame*, WebCore::ResourceHandle*, const WebCore::ResourceRequest&);
     ~WebUrlLoaderClient();
 
     // Called from WebCore, will be forwarded to the IO thread
@@ -78,6 +79,7 @@ public:
     static void didReceiveResponse(void*);
     static void didReceiveData(void*);
     static void didReceiveDataUrl(void*);
+    static void didReceiveAndroidFileData(void*);
     static void didFinishLoading(void*);
     static void didFail(void*);
     static void willSendRequest(void*);
@@ -117,6 +119,7 @@ struct LoaderData {
     WebResponse webResponse;
     const int size;
     OwnPtr<std::string*> string;
+    OwnPtr<std::vector<char> > vector;
 
     LoaderData(WebUrlLoaderClient* l) : buffer(0), loader(l), size(0)
     {
@@ -131,6 +134,10 @@ struct LoaderData {
     }
 
     LoaderData(WebUrlLoaderClient* l, net::IOBuffer* b, const int s) : buffer(b), loader(l), size(s)
+    {
+    }
+
+    LoaderData(WebUrlLoaderClient* l, std::vector<char>* data, const int s) : buffer(0), loader(l), size(s), vector(data)
     {
     }
 

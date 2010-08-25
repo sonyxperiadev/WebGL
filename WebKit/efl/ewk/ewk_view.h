@@ -21,6 +21,7 @@
 #ifndef ewk_view_h
 #define ewk_view_h
 
+#include "ewk_frame.h"
 #include "ewk_history.h"
 #include "ewk_window_features.h"
 
@@ -133,6 +134,8 @@ struct _Ewk_View_Smart_Class {
     uint64_t (*exceeded_database_quota)(Ewk_View_Smart_Data *sd, Evas_Object *frame, const char *databaseName, uint64_t current_size, uint64_t expected_size);
 
     Eina_Bool (*run_open_panel)(Ewk_View_Smart_Data *sd, Evas_Object *frame, Eina_Bool allows_multiple_files, const Eina_List *suggested_filenames, Eina_List **selected_filenames);
+
+    Eina_Bool (*navigation_policy_decision)(Ewk_View_Smart_Data *sd, Ewk_Frame_Resource_Request *request);
 };
 
 #define EWK_VIEW_SMART_CLASS_VERSION 1UL /** the version you have to put into the version field in the Ewk_View_Smart_Class structure */
@@ -432,6 +435,9 @@ EAPI Eina_Bool    ewk_view_setting_font_serif_set(Evas_Object *o, const char *fa
 
 EAPI const char  *ewk_view_setting_font_sans_serif_get(const Evas_Object *o);
 EAPI Eina_Bool    ewk_view_setting_font_sans_serif_set(Evas_Object *o, const char *family);
+
+EAPI Eina_Bool    ewk_view_setting_spatial_navigation_get(Evas_Object* o);
+EAPI Eina_Bool    ewk_view_setting_spatial_navigation_set(Evas_Object* o, Eina_Bool enable);
 
 /* to be used by subclass implementations */
 EAPI Ewk_View_Smart_Data *ewk_view_smart_data_get(const Evas_Object *o);

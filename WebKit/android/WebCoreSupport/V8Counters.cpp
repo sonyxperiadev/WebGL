@@ -33,9 +33,9 @@
 #include "V8Counters.h"
 #include "NotImplemented.h"
 
-#include <StringHash.h>
 #include <utils/Log.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
