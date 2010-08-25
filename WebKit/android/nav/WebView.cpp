@@ -265,7 +265,7 @@ void nativeRecordButtons(bool hasFocus, bool pressed, bool invalidate)
                 // button
                 if (!hasFocus) {
                     state = WebCore::RenderSkinAndroid::kNormal;
-                } else if (pressed) {
+                } else if (pressed || m_ring.m_isPressed) {
                     state = WebCore::RenderSkinAndroid::kPressed;
                 } else {
                     state = WebCore::RenderSkinAndroid::kFocused;
@@ -957,6 +957,7 @@ void showCursorTimed()
 void showCursorUntimed()
 {
     DBG_NAV_LOG("");
+    m_ring.m_isPressed = false;
     m_ringAnimationEnd = UINT_MAX;
     viewInvalidate();
 }
