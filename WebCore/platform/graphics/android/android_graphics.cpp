@@ -51,7 +51,6 @@ void CursorRing::draw(SkCanvas* canvas, LayerAndroid* layer)
         DBG_NAV_LOGD("canvas->quickReject cursorNode=%d (nodePointer=%p)"
             " bounds=(%d,%d,w=%d,h=%d)", m_node->index(), m_node->nodePointer(),
             m_bounds.x(), m_bounds.y(), m_bounds.width(), m_bounds.height());
-        m_followedLink = false;
         return;
     }
     const CachedColor& colors = m_frame->color(m_node);
@@ -75,13 +74,11 @@ void CursorRing::draw(SkCanvas* canvas, LayerAndroid* layer)
         SkIntToScalar(colors.radius())))->unref();
     SkColor outer;
     SkColor inner;
-    if (m_flavor >= NORMAL_ANIMATING) { // pressed
+    if (m_isPressed) {
         SkColor pressed;
         pressed = colors.fillColor();
         paint.setColor(pressed);
         canvas->drawPath(path, paint);
-    }
-    if (m_flavor >= NORMAL_ANIMATING) {
         outer = colors.pressedOuterColor();
         inner = colors.pressedInnerColor();
     } else {
@@ -138,30 +135,21 @@ bool CursorRing::setup()
     m_absBounds.inflate(SkScalarCeil(colors.outerWidth()));
     if (!m_node->hasCursorRing() || (m_node->isPlugin() && m_node->isFocus()))
         return false;
-    m_flavor = NORMAL_FLAVOR;
-    if (!m_isButton) {
-        m_flavor = m_node->isSyntheticLink() ? FAKE_FLAVOR : NORMAL_FLAVOR;
-        if (m_followedLink) {
-            m_flavor = static_cast<Flavor>(m_flavor + NORMAL_ANIMATING);
-        }
 #if DEBUG_NAV_UI
-        const WebCore::IntRect& ring = m_rings[0];
-        DBG_NAV_LOGD("cursorNode=%d (nodePointer=%p) flavor=%s rings=%d"
-            " (%d, %d, %d, %d) isPlugin=%s",
-            m_node->index(), m_node->nodePointer(),
-            m_flavor == FAKE_FLAVOR ? "FAKE_FLAVOR" :
-            m_flavor == NORMAL_ANIMATING ? "NORMAL_ANIMATING" :
-            m_flavor == FAKE_ANIMATING ? "FAKE_ANIMATING" : "NORMAL_FLAVOR",
-            m_rings.size(), ring.x(), ring.y(), ring.width(), ring.height(),
-            m_node->isPlugin() ? "true" : "false");
-        DBG_NAV_LOGD("[%d] inner=%d outer=%d outset=%d radius=%d"
-            " fill=0x%08x pin=0x%0x08x pout=0x%0x08x sin=0x%08x sout=0x%08x",
-            m_node->colorIndex(), colors.innerWidth(), colors.outerWidth(),
-            colors.outset(), colors.radius(), colors.fillColor(),
-            colors.pressedInnerColor(), colors.pressedOuterColor(),
-            colors.selectedInnerColor(), colors.selectedInnerColor());
+    const WebCore::IntRect& ring = m_rings[0];
+    DBG_NAV_LOGD("cursorNode=%d (nodePointer=%p) pressed=%s rings=%d"
+        " (%d, %d, %d, %d) isPlugin=%s",
+        m_node->index(), m_node->nodePointer(),
+        m_isPressed ? "true" : "false",
+        m_rings.size(), ring.x(), ring.y(), ring.width(), ring.height(),
+        m_node->isPlugin() ? "true" : "false");
+    DBG_NAV_LOGD("[%d] inner=%d outer=%d outset=%d radius=%d"
+        " fill=0x%08x pin=0x%08x pout=0x%08x sin=0x%08x sout=0x%08x",
+        m_node->colorIndex(), colors.innerWidth(), colors.outerWidth(),
+        colors.outset(), colors.radius(), colors.fillColor(),
+        colors.pressedInnerColor(), colors.pressedOuterColor(),
+        colors.selectedInnerColor(), colors.selectedInnerColor());
 #endif
-    }
     return true;
 }
 
