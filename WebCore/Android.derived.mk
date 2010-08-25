@@ -71,8 +71,13 @@ $(intermediates)/html/HTMLDocument.o : $(GEN)
 
 GEN := $(intermediates)/html/HTMLEntityTable.cpp
 $(GEN): SCRIPT := $(LOCAL_PATH)/../WebKitTools/Scripts/create-html-entity-table
-$(GEN): PRIVATE_CUSTOM_TOOL = $(SCRIPT) -o $@ $<
+$(GEN): WEBKITPY_RESOURCES_DIRECTORY := $(LOCAL_PATH)/../WebKitTools/Scripts/webkitpy
+$(GEN): PRIVATE_CUSTOM_TOOL = $(dir $@)$(notdir $(SCRIPT)) -o $@ $<
 $(GEN): $(LOCAL_PATH)/html/HTMLEntityNames.json
+	@echo "Generating HTMLEntityTable.cpp"
+	@mkdir -p $(dir $@)
+	@cp -f $(SCRIPT) $(dir $@)
+	@cp -rf $(WEBKITPY_RESOURCES_DIRECTORY) $(dir $@)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
 
