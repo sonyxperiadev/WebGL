@@ -361,48 +361,40 @@ void FindCanvas::findHelper(const void* text, size_t byteLength,
             // We need an SkIRect for SkRegion operations.
             SkIRect iRect;
             rect.roundOut(&iRect);
-            // If the rectangle is partially clipped, assume that the text is
-            // not visible, so skip this match.
-            if (getTotalClip().contains(iRect)) {
-                // Want to outset the drawn rectangle by the same amount as
-                // mOutset
-                iRect.inset(-INTEGER_OUTSET, -INTEGER_OUTSET);
-                SkRegion regionToAdd(iRect);
-                if (!mWorkingRegion.isEmpty()) {
-                    // If this is on the same line as our working region, make
-                    // sure that they are close enough together that they are
-                    // supposed to be part of the same text string.
-                    // The width of two spaces has arbitrarily been chosen.
-                    const SkIRect& workingBounds = mWorkingRegion.getBounds();
-                    if (workingBounds.fTop <= iRect.fBottom &&
-                            workingBounds.fBottom >= iRect.fTop &&
-                            SkIntToScalar(iRect.fLeft - workingBounds.fRight) > 
-                            approximateSpaceWidth(paint)) {
-                        index = -1;     // Will increase to 0 on next run
-                        // In this case, we need to start from the beginning of
-                        // the text being searched and our search term.
-                        j = 0;
-                        mWorkingIndex = 0;
-                        mWorkingRegion.setEmpty();
-                        continue;
-                    }
-                    // Add the mWorkingRegion, which contains rectangles from
-                    // the previous line(s).
-                    regionToAdd.op(mWorkingRegion, SkRegion::kUnion_Op);
+            // Want to outset the drawn rectangle by the same amount as
+            // mOutset
+            iRect.inset(-INTEGER_OUTSET, -INTEGER_OUTSET);
+            SkRegion regionToAdd(iRect);
+            if (!mWorkingRegion.isEmpty()) {
+                // If this is on the same line as our working region, make
+                // sure that they are close enough together that they are
+                // supposed to be part of the same text string.
+                // The width of two spaces has arbitrarily been chosen.
+                const SkIRect& workingBounds = mWorkingRegion.getBounds();
+                if (workingBounds.fTop <= iRect.fBottom &&
+                        workingBounds.fBottom >= iRect.fTop &&
+                        SkIntToScalar(iRect.fLeft - workingBounds.fRight) >
+                        approximateSpaceWidth(paint)) {
+                    index = -1;     // Will increase to 0 on next run
+                    // In this case, we need to start from the beginning of
+                    // the text being searched and our search term.
+                    j = 0;
+                    mWorkingIndex = 0;
+                    mWorkingRegion.setEmpty();
+                    continue;
                 }
-                insertMatchInfo(regionToAdd);
-#if INCLUDE_SUBSTRING_MATCHES
-                // Reset index to the location of the match and reset j to the
-                // beginning, so that on the next iteration of the loop, index
-                // will advance by 1 and we will compare the next character in
-                // chars to the first character in the GlyphSet.
-                index = matchIndex;
-#endif
-            } else {
-                // This match was clipped out, so begin looking at the next
-                // character from our hidden match
-                index = matchIndex;
+                // Add the mWorkingRegion, which contains rectangles from
+                // the previous line(s).
+                regionToAdd.op(mWorkingRegion, SkRegion::kUnion_Op);
             }
+            insertMatchInfo(regionToAdd);
+#if INCLUDE_SUBSTRING_MATCHES
+            // Reset index to the location of the match and reset j to the
+            // beginning, so that on the next iteration of the loop, index
+            // will advance by 1 and we will compare the next character in
+            // chars to the first character in the GlyphSet.
+            index = matchIndex;
+#endif
             // Whether the clip contained it or not, we need to start over
             // with our recording canvas
             resetWorkingCanvas();
@@ -443,12 +435,9 @@ void FindCanvas::findHelper(const void* text, size_t byteLength,
         partial.inset(mOutset, mOutset);
         SkIRect dest;
         partial.roundOut(&dest);
-        // Only save a partial if it is in the current clip.
-        if (getTotalClip().contains(dest)) {
-            mWorkingRegion.op(dest, SkRegion::kUnion_Op);
-            mWorkingIndex = j;
-            return;
-        }
+        mWorkingRegion.op(dest, SkRegion::kUnion_Op);
+        mWorkingIndex = j;
+        return;
     }
     // This string doesn't go into the next drawText, so reset our working
     // variables

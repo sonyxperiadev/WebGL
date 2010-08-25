@@ -51,14 +51,6 @@ class WebViewCore;
 
 class CursorRing : public DrawExtra {
 public:
-    enum Flavor {
-        NORMAL_FLAVOR,
-        FAKE_FLAVOR,
-        NORMAL_ANIMATING,
-        FAKE_ANIMATING,
-        ANIMATING_COUNT = 2
-    };
-
     CursorRing(WebViewCore* core) : m_viewImpl(core) {}
     virtual ~CursorRing() {}
     virtual void draw(SkCanvas* , LayerAndroid* );
@@ -72,9 +64,8 @@ private:
     const CachedRoot* m_root;
     const CachedFrame* m_frame;
     const CachedNode* m_node;
-    Flavor m_flavor;
-    bool m_followedLink;
     bool m_isButton;
+    bool m_isPressed;
 };
 
 }
