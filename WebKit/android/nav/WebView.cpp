@@ -172,7 +172,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     m_navPictureUI = 0;
     m_generation = 0;
     m_heightCanMeasure = false;
-    m_ring.m_followedLink = false;
     m_lastDx = 0;
     m_lastDxTime = 0;
     m_ringAnimationEnd = 0;
@@ -266,7 +265,7 @@ void nativeRecordButtons(bool hasFocus, bool pressed, bool invalidate)
                 // button
                 if (!hasFocus) {
                     state = WebCore::RenderSkinAndroid::kNormal;
-                } else if (m_ring.m_followedLink || pressed) {
+                } else if (pressed) {
                     state = WebCore::RenderSkinAndroid::kPressed;
                 } else {
                     state = WebCore::RenderSkinAndroid::kFocused;
@@ -341,7 +340,7 @@ void calcOurContentVisibleRect(SkRect* r)
 
 void resetCursorRing()
 {
-    m_ring.m_followedLink = false;
+    m_ringAnimationEnd = 0;
     m_viewImpl->m_hasCursorBounds = false;
 }
 
@@ -363,12 +362,15 @@ bool drawCursorPreamble(CachedRoot* root)
     m_ring.m_root = root;
     m_ring.m_frame = frame;
     m_ring.m_node = node;
+    SkMSec time = SkTime::GetMSecs();
+    m_ring.m_isPressed = time < m_ringAnimationEnd
+        && m_ringAnimationEnd != UINT_MAX;
     return true;
 }
 
 void drawCursorPostamble()
 {
-    if (!m_ring.m_isButton && m_ring.m_flavor < CursorRing::NORMAL_ANIMATING)
+    if (m_ringAnimationEnd == UINT_MAX)
         return;
     SkMSec time = SkTime::GetMSecs();
     if (time < m_ringAnimationEnd) {
@@ -377,11 +379,7 @@ void drawCursorPostamble()
         invalBounds.intersect(m_ring.m_absBounds);
         postInvalidateDelayed(m_ringAnimationEnd - time, invalBounds);
     } else {
-        if (m_ring.m_followedLink)
-            hideCursor();
-        m_ring.m_followedLink = false;
-        m_ring.m_flavor = static_cast<CursorRing::Flavor>
-                (m_ring.m_flavor - CursorRing::NORMAL_ANIMATING);
+        hideCursor();
     }
 }
 
@@ -710,8 +708,6 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
     int dx = 0;
     int dy = 0;
     int counter = count;
-    if (!cursor || !m_ring.m_followedLink)
-        root->setScrollOnly(m_ring.m_followedLink);
     while (--counter >= 0) {
         WebCore::IntPoint scroll = WebCore::IntPoint(0, 0);
         cachedNode = root->moveCursor(direction, &cachedFrame, &scroll);
@@ -743,13 +739,13 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
     }
     bool result = false;
     if (cachedNode) {
+        showCursorUntimed();
         m_viewImpl->updateCursorBounds(root, cachedFrame, cachedNode);
         root->setCursor(const_cast<CachedFrame*>(cachedFrame),
                 const_cast<CachedNode*>(cachedNode));
         bool disableFocusController = cachedNode != root->currentFocus()
                 && cachedNode->wantsKeyEvents();
         sendMoveMouseIfLatest(disableFocusController);
-        viewInvalidate();
     } else {
         int docHeight = root->documentHeight();
         int docWidth = root->documentWidth();
@@ -816,16 +812,17 @@ void selectBestAt(const WebCore::IntRect& rect)
         m_viewImpl->m_hasCursorBounds = false;
         if (root)
             root->setCursor(0, 0);
+        viewInvalidate();
     } else {
         DBG_NAV_LOGD("CachedNode:%p (%d)", node, node->index());
         WebCore::IntRect bounds = node->bounds(frame);
         root->rootHistory()->setMouseBounds(frame->unadjustBounds(node, bounds));
         m_viewImpl->updateCursorBounds(root, frame, node);
+        showCursorTimed();
         root->setCursor(const_cast<CachedFrame*>(frame),
                 const_cast<CachedNode*>(node));
     }
     sendMoveMouseIfLatest(false);
-    viewInvalidate();
 }
 
 WebCore::IntRect getNavBounds()
@@ -861,7 +858,6 @@ bool pointInNavCache(int x, int y, int slop)
 bool motionUp(int x, int y, int slop)
 {
     bool pageScrolled = false;
-    m_ring.m_followedLink = false;
     IntRect rect = IntRect(x - slop, y - slop, slop * 2, slop * 2);
     int rx, ry;
     CachedRoot* root = getFrameCache(AllowNewer);
@@ -894,19 +890,18 @@ bool motionUp(int x, int y, int slop)
     m_viewImpl->updateCursorBounds(root, frame, result);
     root->setCursor(const_cast<CachedFrame*>(frame),
         const_cast<CachedNode*>(result));
-    bool syntheticLink = result->isSyntheticLink();
-    if (!syntheticLink) {
+    if (result->isSyntheticLink())
+        overrideUrlLoading(result->getExport());
+    else {
         sendMotionUp(
             (WebCore::Frame*) frame->framePointer(),
             (WebCore::Node*) result->nodePointer(), rx, ry);
     }
-    viewInvalidate();
-    if (!result->isTextInput()) {
-        if (!result->isSelect() && !result->isContentEditable())
-            setFollowedLink(true);
-        if (syntheticLink)
-            overrideUrlLoading(result->getExport());
-    }
+    if (result->isTextInput() || result->isSelect()
+            || result->isContentEditable()) {
+        showCursorUntimed();
+    } else
+        showCursorTimed();
     return pageScrolled;
 }
 
@@ -952,12 +947,18 @@ void setFindIsEmpty()
     m_findOnPage.clearCurrentLocation();
 }
 
-void setFollowedLink(bool followed)
+void showCursorTimed()
 {
-    if ((m_ring.m_followedLink = followed) != false) {
-        m_ringAnimationEnd = SkTime::GetMSecs() + 500;
-        viewInvalidate();
-    }
+    DBG_NAV_LOG("");
+    m_ringAnimationEnd = SkTime::GetMSecs() + 500;
+    viewInvalidate();
+}
+
+void showCursorUntimed()
+{
+    DBG_NAV_LOG("");
+    m_ringAnimationEnd = UINT_MAX;
+    viewInvalidate();
 }
 
 void setHeightCanMeasure(bool measure)
@@ -1802,14 +1803,9 @@ static void nativeSetFindIsEmpty(JNIEnv *env, jobject obj)
     GET_NATIVE_VIEW(env, obj)->setFindIsEmpty();
 }
 
-static void nativeSetFollowedLink(JNIEnv *env, jobject obj, bool followed)
+static void nativeShowCursorTimed(JNIEnv *env, jobject obj)
 {
-    const CachedNode* cursor = getCursorNode(env, obj);
-    if (cursor && !cursor->isSelect() && ! cursor->isContentEditable()) {
-        WebView* view = GET_NATIVE_VIEW(env, obj);
-        LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-        view->setFollowedLink(followed);
-    }
+    GET_NATIVE_VIEW(env, obj)->showCursorTimed();
 }
 
 static void nativeSetHeightCanMeasure(JNIEnv *env, jobject obj, bool measure)
@@ -1957,6 +1953,7 @@ static bool nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
     const WebCore::IntRect& bounds = next->bounds(frame);
     root->rootHistory()->setMouseBounds(frame->unadjustBounds(next, bounds));
     view->getWebViewCore()->updateCursorBounds(root, frame, next);
+    view->showCursorUntimed();
     root->setCursor(const_cast<CachedFrame*>(frame),
             const_cast<CachedNode*>(next));
     view->sendMoveFocus(static_cast<WebCore::Frame*>(frame->framePointer()),
@@ -2250,8 +2247,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetFindIsEmpty },
     { "nativeSetFindIsUp", "(Z)V",
         (void*) nativeSetFindIsUp },
-    { "nativeSetFollowedLink", "(Z)V",
-        (void*) nativeSetFollowedLink },
     { "nativeSetHeightCanMeasure", "(Z)V",
         (void*) nativeSetHeightCanMeasure },
     { "nativeSetBaseLayer", "(I)V",
@@ -2264,6 +2259,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeHasContent },
     { "nativeSetSelectionPointer", "(ZFII)V",
         (void*) nativeSetSelectionPointer },
+    { "nativeShowCursorTimed", "()V",
+        (void*) nativeShowCursorTimed },
     { "nativeStartSelection", "(II)Z",
         (void*) nativeStartSelection },
     { "nativeSubtractLayers", "(Landroid/graphics/Rect;)Landroid/graphics/Rect;",
