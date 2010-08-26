@@ -1223,8 +1223,10 @@ static void copyScrollPositionRecursive(const LayerAndroid* from,
 
 void setBaseLayer(BaseLayerAndroid* layer)
 {
-    copyScrollPositionRecursive(compositeRoot(),
+    if (layer) {
+        copyScrollPositionRecursive(compositeRoot(),
             static_cast<LayerAndroid*>(layer->getChild(0)));
+    }
     delete m_baseLayer;
     m_baseLayer = layer;
     CachedRoot* root = getFrameCache(DontAllowNewer);
