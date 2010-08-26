@@ -35,6 +35,7 @@
 #include <net/base/ssl_config_service.h>
 #include <net/http/http_cache.h>
 #include <net/http/http_network_layer.h>
+#include <net/http/http_auth_handler_factory.h>
 #include <net/proxy/proxy_service.h>
 #include <wtf/text/CString.h>
 
@@ -117,7 +118,7 @@ WebRequestContext* WebRequestContext::GetAndroidContextForPath(const char* cooki
     scoped_refptr<base::MessageLoopProxy> cacheMessageLoopProxy = base::MessageLoopProxy::CreateForCurrentThread();
     // Todo: check if the context takes ownership of the cache
     net::HttpCache::DefaultBackend* defaultBackend = new net::HttpCache::DefaultBackend(net::DISK_CACHE, cachePath, 20 * 1024 * 1024, cacheMessageLoopProxy);
-    androidContext->http_transaction_factory_ = new net::HttpCache(androidContext->host_resolver(), net::ProxyService::CreateNull(), net::SSLConfigService::CreateSystemSSLConfigService(), 0, 0, 0, defaultBackend);
+    androidContext->http_transaction_factory_ = new net::HttpCache(androidContext->host_resolver(), net::ProxyService::CreateNull(), net::SSLConfigService::CreateSystemSSLConfigService(), net::HttpAuthHandlerFactory::CreateDefault(), 0, 0, defaultBackend);
 
     scoped_refptr<SQLitePersistentCookieStore> cookieDb = new SQLitePersistentCookieStore(cookiePath);
 
