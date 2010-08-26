@@ -1426,7 +1426,10 @@ bool SelectText::hitSelection(int x, int y) const
     int bottom = m_selEnd.fBottom + CONTROL_HEIGHT / 2;
     if (hitCorner(right, bottom, x, y))
         return true;
-    return m_selRegion.contains(x, y);
+    SkIRect test;
+    test.set(x - CONTROL_WIDTH, y - CONTROL_HEIGHT, x + CONTROL_WIDTH,
+        y + CONTROL_HEIGHT);
+    return m_selRegion.intersects(test);
 }
 
 void SelectText::moveSelection(const SkPicture* picture, int x, int y)
