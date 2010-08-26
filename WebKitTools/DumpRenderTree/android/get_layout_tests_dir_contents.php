@@ -26,11 +26,8 @@
 #     MODE = [folders|files] (defaults to files) - if 'folders' then lists only folders,
 #                                                  if 'files' then only files
 
-  #Global variables
-  $rootDir =
-    dirname($_SERVER['DOCUMENT_ROOT']) . DIRECTORY_SEPARATOR .
-    basename($_SERVER['DOCUMENT_ROOT']) . DIRECTORY_SEPARATOR .
-    "LayoutTests";
+  # The server document root is LayoutTests/http/tests. See run_apache2.py.
+  $rootDir = realpath($_SERVER['DOCUMENT_ROOT'] . '..' . DIRECTORY_SEPARATOR . '..');
 
   function getAbsolutePath($relPath) {
     global $rootDir;
@@ -46,8 +43,6 @@
   }
 
   function getAllFilesUnderAsArray($relPath, $recurse, $mode) {
-    global $exclude;
-    global $rootDir;
     $files = getFilesAsArray($relPath);
     $result = array();
 
@@ -95,17 +90,17 @@
       $mode = 'files';
     }
 
-    #Very primitive check if path tries to go above DOCUMENT_ROOT or is absolute
+    # Very primitive check if path tries to go above DOCUMENT_ROOT or is absolute
     if (strpos($_GET['path'], "..") !== False ||
         substr($_GET['path'], 0, 1) == DIRECTORY_SEPARATOR) {
       return;
     }
 
-    #If we don't want realpath to append any prefixes we need to pass it an absolute path
+    # If we don't want realpath to append any prefixes we need to pass it an absolute path
     $path = realpath(getAbsolutePath($_GET['path']));
     $relPath = substr($path, strlen($rootDir) + 1);
 
-    #If there is an error of some sort it will be output as a part of the answer!
+    # If there is an error of some sort it will be output as a part of the answer!
     foreach (getAllFilesUnderAsArray($relPath, $recurse, $mode) as $i => $value) {
       echo "$value$separator";
     }
