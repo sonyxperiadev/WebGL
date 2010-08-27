@@ -1,3 +1,122 @@
+2010-08-25  Leo Yang  <leo.yang@torchmobile.com.cn>
+
+        Reviewed by Simon Hausmann.
+
+        In FrameLoaderClientQt::createFrame we should call loadURLIntoChildFrame
+        with parent frame's loader instead of child frame's loader.
+        https://bugs.webkit.org/show_bug.cgi?id=43930
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::createFrame):
+
+2010-08-25  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        Avoid increasing required alignment of target type warning
+        https://bugs.webkit.org/show_bug.cgi?id=43963
+
+        Fix alignment warnings on Qt.
+
+        * Api/qwebelement.cpp:
+        (QWebElement::evaluateJavaScript):
+        * Api/qwebframe.cpp:
+        (QWebFrame::addToJavaScriptWindowObject):
+
+2010-08-24  Andras Becsi  <abecsi@inf.u-szeged.hu>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Fix predeclared variables for Symbian to be able to build QtWebKit for Symbian on Linux.
+
+        * Api/DerivedSources.pro:
+
+2010-08-20  Girish Ramakrishnan  <girish@forwardbias.in>
+
+        Reviewed by Ariya Hidayat.
+
+        [Qt] Allow wmode=transparent in QWebView on Maemo5 after r65775.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=44043
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::createPlugin):
+
+2010-08-22  Marc Mutz  <marc.mutz@kdab.com>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Actually emit the QWebView::selectionChanged() signal
+
+        https://bugs.webkit.org/show_bug.cgi?id=44252
+
+        * Api/qwebview.cpp:
+        (QWebView::setPage): Connect QWebPage::selectionChanged() to QWebView::selectionChanged()
+
+2010-08-20  Ademar de Souza Reis Jr  <ademar.reis@openbossa.org>
+
+        Reviewed by Ariya Hidayat.
+
+        [Qt] constify core() and kit() parameters
+        https://bugs.webkit.org/show_bug.cgi?id=44347
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::evaluateJavaScript):
+        * Api/qwebframe_p.h:
+        * Api/qwebhistory.cpp:
+        (QWebHistoryItemPrivate::core):
+        * Api/qwebhistory_p.h:
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::core):
+        * Api/qwebpage_p.h:
+
+2010-08-19  Balazs Kelemen  <kb@inf.u-szeged.hu>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Fix cursor change propagation
+        https://bugs.webkit.org/show_bug.cgi?id=44250
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::setCursor): Implemented. Propagete the callback forward to the PageClient.
+
+2010-08-19  David Kilzer  <ddkilzer@apple.com>
+
+        BUILD FIX #3: <http://webkit.org/b/44285> Fix compilation with NETSCAPE_PLUGIN_API disabled
+
+        Still trying to make Qt Linux Release minimal buildbot happy.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::createPlugin): Wrap code that
+        handles Netscape plugins in #if ENABLE(NETSCAPE_PLUGIN_API)
+        and #endif.
+
+2010-08-19  David Kilzer  <ddkilzer@apple.com>
+
+        BUILD FIX: FrameLoaderClientQt.h should include ResourceError.h
+
+        * WebCoreSupport/FrameLoaderClientQt.h: Include ResourceError.h.
+
+2010-08-19  Girish Ramakrishnan  <girish@forwardbias.in>
+
+        Reviewed by Kenneth Christiansen.
+
+        [Qt] Inject wmode=opaque for both QWebView and QGraphicsWebView on Maemo5
+        as Flash XEmbed support is flaky.
+
+        https://bugs.webkit.org/show_bug.cgi?id=44043
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::createPlugin):
+
+2010-08-18  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
+
+        Unreviewed, trivial Symbian build fix.
+
+        [Qt] Remove unnecessary QtGui include from NotificationPresenterClientQt.cpp
+
+        * WebCoreSupport/NotificationPresenterClientQt.cpp:
+
 2010-08-17  Laszlo Gombos  <laszlo.1.gombos@nokia.com>
 
         Reviewed by Ariya Hidayat.

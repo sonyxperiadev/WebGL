@@ -739,7 +739,7 @@ QVariant QWebElement::evaluateJavaScript(const QString& scriptSource)
         return QVariant();
 
     JSC::ScopeChain& scopeChain = state->dynamicGlobalObject()->globalScopeChain();
-    JSC::UString script((const UChar*)scriptSource.data(), scriptSource.length());
+    JSC::UString script(reinterpret_cast_ptr<const UChar*>(scriptSource.data()), scriptSource.length());
     JSC::Completion completion = JSC::evaluate(state, scopeChain, JSC::makeSource(script), thisValue);
     if ((completion.complType() != JSC::ReturnValue) && (completion.complType() != JSC::Normal))
         return QVariant();
@@ -1190,6 +1190,8 @@ void QWebElement::removeAllChildren()
     m_element->removeAllChildren();
 }
 
+// FIXME: This code, and all callers are wrong, and have no place in a
+// WebKit implementation.  These should be replaced with WebCore implementations.
 static RefPtr<Node> findInsertionPoint(PassRefPtr<Node> root)
 {
     RefPtr<Node> node = root;
@@ -1205,7 +1207,7 @@ static RefPtr<Node> findInsertionPoint(PassRefPtr<Node> root)
         // The insert point could be a non-enclosable tag and it can thus
         // never have children, so go one up. Get the parent element, and not
         // note as a root note will always exist.
-        if (element->endTagRequirement() == TagStatusForbidden)
+        if (element->ieForbidsInsertHTML())
             node = node->parentElement();
     }
 

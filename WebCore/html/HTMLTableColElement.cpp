@@ -47,26 +47,6 @@ PassRefPtr<HTMLTableColElement> HTMLTableColElement::create(const QualifiedName&
     return adoptRef(new HTMLTableColElement(tagName, document));
 }
 
-HTMLTagStatus HTMLTableColElement::endTagRequirement() const
-{
-    return hasLocalName(colTag) ? TagStatusForbidden : TagStatusOptional;
-}
-
-int HTMLTableColElement::tagPriority() const
-{
-    return hasLocalName(colTag) ? 0 : 1;
-}
-
-bool HTMLTableColElement::checkDTD(const Node* newChild)
-{
-    if (hasLocalName(colTag))
-        return false;
-    
-    if (newChild->isTextNode())
-        return static_cast<const Text*>(newChild)->containsOnlyWhitespace();
-    return newChild->hasTagName(colTag);
-}
-
 bool HTMLTableColElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
 {
     if (attrName == widthAttr) {

@@ -732,6 +732,7 @@ ConvertGtkState(GtkWidgetState* state)
         return GTK_STATE_NORMAL;
 }
 
+#ifdef GTK_API_VERSION_2
 static gint
 TSOffsetStyleGCArray(GdkGC** gcs, gint xorigin, gint yorigin)
 {
@@ -741,10 +742,12 @@ TSOffsetStyleGCArray(GdkGC** gcs, gint xorigin, gint yorigin)
         gdk_gc_set_ts_origin(gcs[i], xorigin, yorigin);
     return MOZ_GTK_SUCCESS;
 }
+#endif
 
 static gint
 TSOffsetStyleGCs(GtkStyle* style, gint xorigin, gint yorigin)
 {
+#ifdef GTK_API_VERSION_2
     TSOffsetStyleGCArray(style->fg_gc, xorigin, yorigin);
     TSOffsetStyleGCArray(style->bg_gc, xorigin, yorigin);
     TSOffsetStyleGCArray(style->light_gc, xorigin, yorigin);
@@ -754,6 +757,7 @@ TSOffsetStyleGCs(GtkStyle* style, gint xorigin, gint yorigin)
     TSOffsetStyleGCArray(style->base_gc, xorigin, yorigin);
     gdk_gc_set_ts_origin(style->black_gc, xorigin, yorigin);
     gdk_gc_set_ts_origin(style->white_gc, xorigin, yorigin);
+#endif
     return MOZ_GTK_SUCCESS;
 }
 
@@ -1094,6 +1098,34 @@ calculate_arrow_rect(GtkWidget* arrow, GdkRectangle* rect,
 }
 
 static gint
+moz_gtk_scrolled_window_paint(GdkDrawable* drawable, GdkRectangle* rect,
+                              GdkRectangle* cliprect, GtkWidgetState* state)
+{
+    GtkStateType state_type = ConvertGtkState(state);
+    GtkShadowType shadow_type = (state->active) ?  GTK_SHADOW_IN : GTK_SHADOW_OUT;
+    GtkStyle* style;
+    GtkAllocation allocation;
+    GtkWidget* widget;
+
+    ensure_scrolled_window_widget();
+    widget = gParts->scrolledWindowWidget;
+
+    gtk_widget_get_allocation(widget, &allocation);
+    allocation.x = rect->x;
+    allocation.y = rect->y;
+    allocation.width = rect->width;
+    allocation.height = rect->height;
+    gtk_widget_set_allocation(widget, &allocation);
+
+    style = gtk_widget_get_style(widget);
+    TSOffsetStyleGCs(style, rect->x - 1, rect->y - 1);
+    gtk_paint_box(style, drawable, state_type, shadow_type, cliprect,
+                  widget, "scrolled_window", rect->x - 1, rect->y - 1,
+                  rect->width + 2, rect->height + 2);
+    return MOZ_GTK_SUCCESS;
+}
+
+static gint
 moz_gtk_scrollbar_button_paint(GdkDrawable* drawable, GdkRectangle* rect,
                                GdkRectangle* cliprect, GtkWidgetState* state,
                                GtkScrollbarButtonFlags flags,
@@ -1124,11 +1156,7 @@ moz_gtk_scrollbar_button_paint(GdkDrawable* drawable, GdkRectangle* rect,
        to determine where it should paint rounded corners on the buttons.
        We need to trick them into drawing the buttons the way we want them. */
 
-#if GTK_CHECK_VERSION(2, 18, 0)
     gtk_widget_get_allocation(scrollbar, &allocation);
-#else
-    allocation = scrollbar->allocation;
-#endif
     allocation.x = rect->x;
     allocation.y = rect->y;
     allocation.width = rect->width;
@@ -1163,6 +1191,7 @@ moz_gtk_scrollbar_button_paint(GdkDrawable* drawable, GdkRectangle* rect,
         }
     }
 
+    gtk_widget_set_allocation(scrollbar, &allocation);
     style = gtk_widget_get_style(scrollbar);
 
     TSOffsetStyleGCs(style, rect->x, rect->y);
@@ -1214,10 +1243,6 @@ moz_gtk_scrollbar_trough_paint(GtkThemeWidgetType widget,
     style = gtk_widget_get_style(GTK_WIDGET(scrollbar));
 
     TSOffsetStyleGCs(style, rect->x, rect->y);
-    gtk_style_apply_default_background(style, drawable, TRUE, GTK_STATE_ACTIVE,
-                                       cliprect, rect->x, rect->y,
-                                       rect->width, rect->height);
-
     gtk_paint_box(style, drawable, GTK_STATE_ACTIVE, GTK_SHADOW_IN, cliprect,
                   GTK_WIDGET(scrollbar), "trough", rect->x, rect->y,
                   rect->width, rect->height);
@@ -1557,8 +1582,17 @@ moz_gtk_entry_paint(GdkDrawable* drawable, GdkRectangle* rect,
     if (theme_honors_transparency) {
         g_object_set_data(G_OBJECT(widget), "transparent-bg-hint", GINT_TO_POINTER(TRUE));
     } else {
+#ifndef GTK_API_VERSION_2
+        cairo_t* cr = gdk_cairo_create(drawable);
+        gdk_cairo_set_source_color(cr, (const GdkColor*)&style->base[bg_state]);
+        cairo_pattern_set_extend (cairo_get_source(cr), CAIRO_EXTEND_REPEAT);
+        gdk_cairo_rectangle(cr, cliprect);
+        cairo_fill(cr);
+        cairo_destroy(cr);
+#else
         gdk_draw_rectangle(drawable, style->base_gc[bg_state], TRUE,
                            cliprect->x, cliprect->y, cliprect->width, cliprect->height);
+#endif
         g_object_set_data(G_OBJECT(widget), "transparent-bg-hint", GINT_TO_POINTER(FALSE));
     }
 
@@ -3047,6 +3081,7 @@ moz_gtk_get_scrollbar_metrics(MozGtkScrollbarMetrics *metrics)
                           "trough_border", &metrics->trough_border,
                           "stepper_size", &metrics->stepper_size,
                           "stepper_spacing", &metrics->stepper_spacing,
+                          "trough_under_steppers", &metrics->trough_under_steppers,
                           NULL);
 
     metrics->min_slider_size = gtk_range_get_min_slider_size(GTK_RANGE(gParts->horizScrollbarWidget));
@@ -3108,6 +3143,9 @@ moz_gtk_widget_paint(GtkThemeWidgetType widget, GdkDrawable* drawable,
     case MOZ_GTK_SCROLLBAR_THUMB_VERTICAL:
         return moz_gtk_scrollbar_thumb_paint(widget, drawable, rect,
                                              cliprect, state, direction);
+        break;
+    case MOZ_GTK_SCROLLED_WINDOW:
+        return moz_gtk_scrolled_window_paint(drawable, rect, cliprect, state);
         break;
     case MOZ_GTK_SCALE_HORIZONTAL:
     case MOZ_GTK_SCALE_VERTICAL:

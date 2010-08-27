@@ -86,8 +86,7 @@ enum StyleChangeType {
     SyntheticStyleChange = 3 << nodeStyleChangeShift
 };
 
-// this class implements nodes, which can have a parent but no children:
-class Node : public EventTarget, public TreeShared<Node>, public ScriptWrappable {
+class Node : public EventTarget, public TreeShared<ContainerNode>, public ScriptWrappable {
     friend class Document;
 public:
     enum NodeType {
@@ -134,7 +133,7 @@ public:
     virtual String nodeValue() const;
     virtual void setNodeValue(const String&, ExceptionCode&);
     virtual NodeType nodeType() const = 0;
-    Node* parentNode() const { return parent(); }
+    ContainerNode* parentNode() const { return parent(); }
     Element* parentElement() const;
     Node* previousSibling() const { return m_previous; }
     Node* nextSibling() const { return m_next; }
@@ -209,7 +208,7 @@ public:
     virtual bool isCharacterDataNode() const { return false; }
     bool isDocumentNode() const;
     virtual bool isShadowNode() const { return false; }
-    virtual Node* shadowParentNode() { return 0; }
+    virtual ContainerNode* shadowParentNode() { return 0; }
     Node* shadowAncestorNode();
     Node* shadowTreeRootNode();
     bool isInShadowTree();
@@ -259,14 +258,9 @@ public:
     Element* rootEditableElement() const;
     
     bool inSameContainingBlockFlowElement(Node*);
-    
-    // Used by the parser. Checks against the DTD, unlike DOM operations like appendChild().
-    // Also does not dispatch DOM mutation events.
-    // Returns the appropriate container node for future insertions as you parse, or 0 for failure.
-    virtual ContainerNode* legacyParserAddChild(PassRefPtr<Node>);
-    // addChild is tied into the logic of the LegacyHTMLTreeBuilder.  We need
-    // a "clean" version to use for the HTML5 version of the HTMLTreeBuilder.
-    virtual void parserAddChild(PassRefPtr<Node>);
+
+    // FIXME: All callers of this function are almost certainly wrong!
+    virtual void deprecatedParserAddChild(PassRefPtr<Node>);
 
     // Called by the parser when this element's close tag is reached,
     // signaling that all child tags have been parsed and added.
@@ -427,11 +421,9 @@ public:
     bool isDescendantOf(const Node*) const;
     bool contains(const Node*) const;
 
-    // These two methods are mutually exclusive.  The former is used to do strict error-checking
-    // when adding children via the public DOM API (e.g., appendChild()).  The latter is called only when parsing, 
-    // to sanity-check against the DTD for error recovery.
+    // This method is used to do strict error-checking when adding children via
+    // the public DOM API (e.g., appendChild()).
     void checkAddChild(Node* newChild, ExceptionCode&); // Error-checking when adding via the DOM API
-    virtual bool childAllowed(Node* newChild);          // Error-checking during parsing that checks the DTD
 
     void checkReplaceChild(Node* newChild, Node* oldChild, ExceptionCode&);
     virtual bool canReplaceChild(Node* newChild, Node* oldChild);
@@ -606,8 +598,8 @@ public:
      */
     virtual bool disabled() const;
 
-    using TreeShared<Node>::ref;
-    using TreeShared<Node>::deref;
+    using TreeShared<ContainerNode>::ref;
+    using TreeShared<ContainerNode>::deref;
 
     virtual EventTargetData* eventTargetData();
     virtual EventTargetData* ensureEventTargetData();

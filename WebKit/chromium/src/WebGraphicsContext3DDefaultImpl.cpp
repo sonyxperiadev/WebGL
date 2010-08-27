@@ -182,6 +182,16 @@ bool WebGraphicsContext3DDefaultImpl::isGLES2Compliant()
     return false;
 }
 
+bool WebGraphicsContext3DDefaultImpl::isGLES2NPOTStrict()
+{
+    return false;
+}
+
+bool WebGraphicsContext3DDefaultImpl::isErrorGeneratedOnOutOfBoundsAccesses()
+{
+    return false;
+}
+
 unsigned int WebGraphicsContext3DDefaultImpl::getPlatformTextureId()
 {
     ASSERT_NOT_REACHED();
@@ -922,9 +932,10 @@ DELEGATE_TO_GL_3(getVertexAttribiv, GetVertexAttribiv, unsigned long, unsigned l
 
 long WebGraphicsContext3DDefaultImpl::getVertexAttribOffset(unsigned long index, unsigned long pname)
 {
-    // FIXME: implement.
-    notImplemented();
-    return 0;
+    makeContextCurrent();
+    void* pointer;
+    glGetVertexAttribPointerv(index, pname, &pointer);
+    return reinterpret_cast<long>(pointer);
 }
 
 DELEGATE_TO_GL_2(hint, Hint, unsigned long, unsigned long)

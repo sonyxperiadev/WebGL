@@ -1,3 +1,799 @@
+2010-08-25  Martin Robinson  <mrobinson@igalia.com>
+
+        Updating webkitpy test expectations.
+
+        * Scripts/webkitpy/tool/steps/steps_unittest.py:
+
+2010-08-25  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        fix the always squash git config
+        https://bugs.webkit.org/show_bug.cgi?id=44651
+
+        Fix help text and apparently underscores are not allowed
+        in git config keys.
+
+        * Scripts/webkitpy/common/checkout/scm.py:
+        * Scripts/webkitpy/tool/steps/commit.py:
+
+2010-08-25  Darin Adler  <darin@apple.com>
+
+        Reviewed by John Sullivan.
+
+        * Scripts/commit-log-editor: Fix perl warning for people who have no
+        value for SVN_LOG_EDITOR or CVS_LOG_EDITOR.
+
+2010-08-25  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        stop blocking commits when the bots are red
+        https://bugs.webkit.org/show_bug.cgi?id=44644
+
+        This check currently is just annoying. It doesn't actually
+        help keep the tree green. We can always add it back later
+        if we decide the tree is generally more green.
+
+        * Scripts/webkitpy/tool/commands/download_unittest.py:
+        * Scripts/webkitpy/tool/mocktool.py:
+        * Scripts/webkitpy/tool/steps/ensurebuildersaregreen.py:
+
+2010-08-25  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Simon Fraser.
+
+        REGRESSION: media/video-loop.html is timing out on the commit-queue Leopard Bot
+        https://bugs.webkit.org/show_bug.cgi?id=38912
+
+        I know of nothing else to do but skip all media tests for the cq.
+
+        * Scripts/webkitpy/tool/steps/runtests.py:
+
+2010-08-25  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        new-run-webkit-tests: add more unit tests for test_expectations
+        This adds unit tests to cover (almost?) all of the non-rebaselining
+        functionality.
+
+        https://bugs.webkit.org/show_bug.cgi?id=44579
+
+        * Scripts/webkitpy/layout_tests/layout_package/test_expectations.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_expectations_unittest.py:
+
+2010-08-25  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        new-run-webkit-tests: add more unit tests
+
+        This change adds more unit tests for the image_diff, test_failures,
+        and test_files modules, bringing them to 100% coverage (and adds a
+        couple tests to run_webkit_tests while we're at it).
+
+        This test also turns on the "dryrun" port for testing when run on
+        the mac, increasing coverage in a few other places.
+
+        https://bugs.webkit.org/show_bug.cgi?id=44578
+
+        * Scripts/webkitpy/layout_tests/data/failures/expected/checksum-expected.checksum: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/checksum-expected.png: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/checksum-expected.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/checksum.html: Copied from WebKitTools/Scripts/webkitpy/layout_tests/data/failures/expected/image_checksum.html.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/missing_check-expected.png: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/missing_check-expected.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/missing_check.html: Copied from WebKitTools/Scripts/webkitpy/layout_tests/data/failures/expected/missing_image.html.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/timeout.html: Added.
+        * Scripts/webkitpy/layout_tests/data/platform/test/test_expectations.txt:
+        * Scripts/webkitpy/layout_tests/data/resources/README.txt: Added.
+        * Scripts/webkitpy/layout_tests/layout_package/test_failures_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/test.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_unittest.py:
+
+2010-08-25  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        new-run-webkit-tests: add more unit tests for layout_package/printing.py
+
+        This change adds more unit tests to get the test coverage to 100%
+        for the printing module. This code is actually pretty crufty and
+        has some layering violations that need to be cleaned up but I'll
+        save that for another CL after we get all the unit tests written and
+        we fix the multithreading issues. At least now we'll be able to tell
+        if we break things.
+
+        https://bugs.webkit.org/show_bug.cgi?id=44576
+
+        * Scripts/webkitpy/layout_tests/layout_package/printing.py:
+        * Scripts/webkitpy/layout_tests/layout_package/printing_unittest.py:
+
+2010-08-25  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        new-run-webkit-tests should respect set-webkit-configuration
+        https://bugs.webkit.org/show_bug.cgi?id=44633
+
+        Moves the getting of the configuration into the base Port so that
+        chromium ports use it as well. In the downstream chromium port,
+        this should still just return Release.
+
+        * Scripts/webkitpy/layout_tests/port/base.py:
+        * Scripts/webkitpy/layout_tests/port/webkit.py:
+
+2010-08-25  Tony Chang  <tony@chromium.org>
+
+        Not reviewed, changing svn props for a script.
+
+        * Scripts/deduplicate-tests: Added properties svn:executable and svn:eol-style.
+
+2010-08-25  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Remove WebKit2 from core builders
+        https://bugs.webkit.org/show_bug.cgi?id=44625
+
+        This builder was added to the core builders by accident.  It doesn't
+        appear to be green enough to be a core builder yet.
+
+        * Scripts/webkitpy/common/net/buildbot.py:
+        * Scripts/webkitpy/common/net/buildbot_unittest.py:
+
+2010-08-19  Adam Roben  <aroben@apple.com>
+
+        Test that NP_Initialize and NP_GetEntryPoints are called in the
+        correct order
+
+        The order differs between Mac and Windows (see r38858).
+
+        Fixes <http://webkit.org/b/44270> <rdar://problem/8330393> Crash in
+        NP_Initialize when loading QuickTime when running
+        plugins/embed-attributes-setting.html in WebKit2 on Windows
+
+        Reviewed by John Sullivan.
+
+        * DumpRenderTree/TestNetscapePlugIn/main.cpp: Added a CRASH macro and
+        a boolean to record whether NP_GetEntryPoints has been called.
+        (NP_Initialize): Crash on Windows if NP_GetEntryPoints hasn't been
+        called yet. This matches Flash and QuickTime's behavior.
+        (NP_GetEntryPoints): Crash on Mac if NP_Initialize hasn't been called
+        yet. This matches Silverlight's behavior.
+
+2010-08-25  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        Cairo and EFL port shouldn't depend on glib.
+        https://bugs.webkit.org/show_bug.cgi?id=44354
+
+        Replace occurrences of GRefPtr and adoptGRef with PlatformRefPtr and
+        adoptPlatformRef.
+
+        * DumpRenderTree/gtk/AccessibilityUIElementGtk.cpp:
+        (AccessibilityUIElement::isSelected):
+
+2010-08-25  Ojan Vafai  <ojan@chromium.org>
+
+        Fix order of Timothy's email address. The script, and
+        other tools all assume that the first email is the bugzilla address.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-08-24  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [DRT/Chromium] Fix 26 inspector test crashes
+        https://bugs.webkit.org/show_bug.cgi?id=44580
+
+        - DRTDevToolsAgent has a reference to the main WebView. So we
+          should not clear it in closeDevTools() and should clear it in
+          ~TestShell().
+        - DRTDevToolsClient has a reference to a DevTools WebView and no
+          way to update it. So we should delete DRTDevToolsClient instances
+          in closeDevTools().
+
+        * DumpRenderTree/chromium/TestShell.cpp:
+        (TestShell::~TestShell):
+        (TestShell::closeDevTools):
+
+2010-08-24  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        unicode(Exception(\u"0x1234")) is busted in python 2.5, disable tests which hit this
+        https://bugs.webkit.org/show_bug.cgi?id=44584
+
+        * Scripts/webkitpy/tool/commands/queues_unittest.py:
+
+2010-08-24  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        commit-queue and EWS bots should report all failures
+        https://bugs.webkit.org/show_bug.cgi?id=41820
+
+        Right now commit-queue/EWS only report failures when the
+        patch under testing fails.  We should report all failures
+        to the status server so that we can diagnose when the bots
+        are wedged w/o needing to log into the machines.
+
+        I also reduced the amount of data we upload since we've seen
+        timeouts during status upload.
+
+        * Scripts/webkitpy/common/system/executive.py:
+        * Scripts/webkitpy/tool/commands/earlywarningsystem.py:
+        * Scripts/webkitpy/tool/commands/queues.py:
+        * Scripts/webkitpy/tool/commands/queues_unittest.py:
+
+2010-08-24  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Remove HTML5 parser testing infrastructure now that we don't need it
+        https://bugs.webkit.org/show_bug.cgi?id=44581
+
+        * DumpRenderTree/mac/DumpRenderTree.mm:
+        (resetDefaultsToConsistentValues):
+        (initializeGlobalsFromCommandLineOptions):
+        * Scripts/old-run-webkit-tests:
+        * Scripts/test-html5-parser: Removed.
+
+2010-08-24  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Fix 28 inspector test crashes
+        https://bugs.webkit.org/show_bug.cgi?id=44574
+
+        Reset DevToolsClient and DevToolsAgent before closing a DevTools
+        WebView in order to avoid accessing to a deleted WebView instance.
+
+        * DumpRenderTree/chromium/TestShell.cpp:
+        (TestShell::closeDevTools):
+
+2010-08-24  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        new-run-webkit-tests: clean up code for test_types, test_failures
+
+        Add a bunch of unit tests for webkitpy.layout_tests.test_types and
+        webkitpy.layout_tests.layout_package.test_failures, and remove
+        some dead code and otherwise clean up things.
+
+        https://bugs.webkit.org/show_bug.cgi?id=44559
+
+        * Scripts/webkitpy/layout_tests/layout_package/test_failures.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_failures_unittest.py: Added.
+        * Scripts/webkitpy/layout_tests/rebaseline_chromium_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/test_types/image_diff.py:
+        * Scripts/webkitpy/layout_tests/test_types/test_type_base.py:
+        * Scripts/webkitpy/layout_tests/test_types/test_type_base_unittest.py: Added.
+        * Scripts/webkitpy/layout_tests/test_types/text_diff.py:
+
+2010-08-24  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        new-run-webkit-tests: revise unit testing strategy for test failures
+    
+        This change revamps the way we store test data for new-run-webkit-tests.
+        Previously we had a few copies of test files from the main test tree.
+        Now we have a bunch of completely fake test data and use the test
+        data to generate different kinds of test failures, getting
+        much better coverage.
+
+        https://bugs.webkit.org/show_bug.cgi?id=44556
+
+        * Scripts/webkitpy/layout_tests/data/failures/expected/crash.html: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/image-expected.checksum: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/image-expected.png: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/image-expected.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/image.html: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/image_checksum-expected.checksum: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/image_checksum-expected.png: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/image_checksum-expected.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/image_checksum.html: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/missing_image.html: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/missing_text.html: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/text-expected.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/text.html: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/unexpected/text-image-checksum-expected.checksum: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/unexpected/text-image-checksum-expected.png: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/unexpected/text-image-checksum-expected.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/unexpected/text-image-checksum.html: Added.
+        * Scripts/webkitpy/layout_tests/data/image/canvas-bg.html: Removed.
+        * Scripts/webkitpy/layout_tests/data/image/canvas-zoom-expected.checksum: Removed.
+        * Scripts/webkitpy/layout_tests/data/image/canvas-zoom-expected.png: Removed.
+        * Scripts/webkitpy/layout_tests/data/image/canvas-zoom-expected.txt: Removed.
+        * Scripts/webkitpy/layout_tests/data/image/canvas-zoom.html: Removed.
+        * Scripts/webkitpy/layout_tests/data/misc/crash-expected.txt: Removed.
+        * Scripts/webkitpy/layout_tests/data/misc/crash.html: Removed.
+        * Scripts/webkitpy/layout_tests/data/misc/missing-expectation.html: Removed.
+        * Scripts/webkitpy/layout_tests/data/misc/passing-expected.txt: Removed.
+        * Scripts/webkitpy/layout_tests/data/misc/passing.html: Removed.
+        * Scripts/webkitpy/layout_tests/data/passes/image-expected.checksum: Added.
+        * Scripts/webkitpy/layout_tests/data/passes/image-expected.png: Added.
+        * Scripts/webkitpy/layout_tests/data/passes/image-expected.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/passes/image.html: Added.
+        * Scripts/webkitpy/layout_tests/data/passes/platform_image-expected.checksum: Added.
+        * Scripts/webkitpy/layout_tests/data/passes/platform_image-expected.png: Added.
+        * Scripts/webkitpy/layout_tests/data/passes/platform_image-expected.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/passes/platform_image.html: Added.
+        * Scripts/webkitpy/layout_tests/data/passes/text-expected.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/passes/text.html: Added.
+        * Scripts/webkitpy/layout_tests/data/platform/test/image/canvas-bg-expected.checksum: Removed.
+        * Scripts/webkitpy/layout_tests/data/platform/test/image/canvas-bg-expected.png: Removed.
+        * Scripts/webkitpy/layout_tests/data/platform/test/image/canvas-bg-expected.txt: Removed.
+        * Scripts/webkitpy/layout_tests/data/platform/test/passes/platform_image-expected.checksum: Added.
+        * Scripts/webkitpy/layout_tests/data/platform/test/passes/platform_image-expected.png: Added.
+        * Scripts/webkitpy/layout_tests/data/platform/test/passes/platform_image-expected.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/platform/test/test_expectations.txt:
+        * Scripts/webkitpy/layout_tests/data/text/article-element-expected.txt: Removed.
+        * Scripts/webkitpy/layout_tests/data/text/article-element.html: Removed.
+        * Scripts/webkitpy/layout_tests/layout_package/test_expectations_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/test.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_unittest.py:
+        * Scripts/webkitpy/style/checkers/test_expectations_unittest.py:
+
+2010-08-24  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        speed up new-run-webkit-tests unit tests
+
+        Add a --no-record-results flag that turns off generating the JSON
+        results file on every test run. Generating the file requires us to
+        fetch the old results down from the bots, which can be slow. This
+        flag is off by default.
+    
+        Reduce the sleep time in wait_for_threads_to_finish from 0.1s to 0.01s.
+    
+        These changes together shorten the test cycle from ~4.5s to ~1.5s
+        - a 3x speedup.
+
+        https://bugs.webkit.org/show_bug.cgi?id=44553
+
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_unittest.py:
+
+2010-08-24  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        [chromium] fix the platform result fallback order on mac/win
+        https://bugs.webkit.org/show_bug.cgi?id=44483
+
+        * Scripts/webkitpy/layout_tests/port/google_chrome.py:
+
+2010-08-24  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        Set a device to the event struct when building with GTK+ 3.x, it's
+        mandatory.
+
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (keyDownCallback):
+
+2010-08-24  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] GTK3: EventSender and API tests should use gdk_event_new when synthesizing events
+        https://bugs.webkit.org/show_bug.cgi?id=44534
+
+        Fix two double-frees introduced in my previous commit.
+
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (contextClickCallback): Copy the event before using it again.
+        (keyDownCallback): Ditto.
+
+2010-08-24  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] GTK3: EventSender and API tests should use gdk_event_new when synthesizing events
+        https://bugs.webkit.org/show_bug.cgi?id=44534
+
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (prepareMouseButtonEvent): Use gdk_event_new and reference the reference the GdkWindow
+        when setting it on the event. It is dereferenced by gdk_event_free(...).
+        (contextClickCallback): Ditto.
+        (mouseDownCallback): Ditto.
+        (mouseUpCallback): Ditto.
+        (mouseMoveToCallback): Ditto.
+        (mouseWheelToCallback): Ditto.
+        (sendOrQueueEvent): Take a GdkEvent* instead of a GdkEvent.
+        (dispatchEvent): Ditto. Also free the event when we are done with it.
+        (keyDownCallback): Use gdk_event_new and reference the GdkWindow.
+
+2010-08-24  Andras Becsi  <abecsi@webkit.org>
+
+        [Qt] WebKit2 build fix.
+
+        * Scripts/enumerate-included-framework-headers:
+        Remove stray global option form sed.
+
+2010-08-24  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        [DRT/Chromium] Support for IndexedDB tests
+        https://bugs.webkit.org/show_bug.cgi?id=44490
+
+        * DumpRenderTree/chromium/TestShell.cpp:
+        (TestShell::TestShell): Enable IndexedDB.
+
+2010-08-23  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] The 64-bit Release bot is showing crashes on tests that use mouse buttons
+        https://bugs.webkit.org/show_bug.cgi?id=44465
+
+        Initialize the axes field of mouse button and motion events to null.
+        This is the value that should be used for events originating from the
+        mouse device.
+
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (prepareMouseButtonEvent): Initalize button event axes field to null.
+        (mouseMoveToCallback): Initialize motion event axes field to null.
+
+2010-08-23  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r65703.
+        http://trac.webkit.org/changeset/65703
+        https://bugs.webkit.org/show_bug.cgi?id=44460
+
+        "Causing lots of crashes on Snow Leopard when running the
+        layout tests" (Requested by eseidel2 on #webkit).
+
+        * DumpRenderTree/TestNetscapePlugIn/main.cpp:
+        (NP_Initialize):
+        (NP_GetEntryPoints):
+
+2010-08-23  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Layout tests do not run when using WebKitTestRunner in a Debug build.
+        https://bugs.webkit.org/show_bug.cgi?id=44409
+
+        Reviewed by Dan Bernstein.
+
+        * WebKitTestRunner/win/TestControllerWin.cpp:
+        (WTR::TestController::initializeInjectedBundlePath):
+        Use InjectedBundle_debug.dll when building Debug.
+
+2010-08-23  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] run-launcher fails if WebKitGTK+ compiled with GTK+-3.0 support
+        https://bugs.webkit.org/show_bug.cgi?id=42026
+
+        If a GTK+ 3.x build is present return that as the library to use,
+        otherwise fallback to the GTK+ 2.x build.
+
+        * Scripts/webkitdirs.pm:
+
+2010-08-23  Balazs Kelemen  <kb@inf.u-szeged.hu>
+
+        Reviewed by Ariya Hidayat.
+
+        [Qt] Find needed forwarding headers for WebKit2 automatically
+        https://bugs.webkit.org/show_bug.cgi?id=44336
+
+        * MiniBrowser/qt/BrowserWindow.cpp: Use normal (not framework style) includes here.
+        The new script does not satisfy the needs of this file however using normal includes
+        is generally better here.
+        * MiniBrowser/qt/MiniBrowser.pro: Added include paths.
+        * Scripts/enumerate-included-framework-headers: Enumerates headers included from the 
+        given frameworks by files in the current directory (and subdirectories).
+        In the future this needs to be rewritten in perl for being able to use on Windows.
+
+2010-08-22  No'am Rosenthal  <noam.rosenthal@nokia.com>
+
+        Reviewed by Ariya Hidayat.
+
+        [Qt] Qt test browser: enable a QGLWidget viewport with a command line argument
+        https://bugs.webkit.org/show_bug.cgi?id=43010
+
+        * QtTestBrowser/launcherwindow.cpp:
+        (LauncherWindow::applyPrefs):
+        * QtTestBrowser/main.cpp:
+        (LauncherApplication::handleUserOptions):
+
+2010-08-21  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Dan Bernstein.
+
+        Remove specialized retain/release functions in favor of a single one for WKTypeRefs
+        https://bugs.webkit.org/show_bug.cgi?id=44386
+
+        * MiniBrowser/mac/AppDelegate.m:
+        (didRecieveMessageFromInjectedBundle):
+        (didNavigateWithNavigationData):
+        (-[BrowserAppDelegate init]):
+        (-[BrowserAppDelegate applicationWillTerminate:]):
+        * MiniBrowser/mac/BrowserStatisticsWindowController.m:
+        (-[BrowserStatisticsWindowController initWithThreadedWKContextRef:processWKContextRef:]):
+        (-[BrowserStatisticsWindowController dealloc]):
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (-[BrowserWindowController initWithPageNamespace:]):
+        (-[BrowserWindowController fetch:]):
+        (-[BrowserWindowController windowWillClose:]):
+        (-[BrowserWindowController applicationTerminating]):
+        (closePage):
+        (runJavaScriptAlert):
+        (runJavaScriptConfirm):
+        (runJavaScriptPrompt):
+        (-[BrowserWindowController updateProvisionalURLForFrame:]):
+        * MiniBrowser/mac/WebBundle/WebBundleMain.m:
+        (didClearWindowObjectForFrame):
+        * MiniBrowser/win/BrowserView.cpp:
+        (BrowserView::goToURL):
+        * WebKitTestRunner/win/PlatformWebViewWin.cpp:
+        (WTR::PlatformWebView::~PlatformWebView):
+
+2010-08-20  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        WebKit does not build with Python 2.3
+        https://bugs.webkit.org/show_bug.cgi?id=44373
+
+        Replaced the function sorted() by a call to sort()
+        on the entry list.
+        The function sorted() has been added to Python 2.4.
+        The function method sort() of List works with older
+        versions of Python.
+
+        * Scripts/create-html-entity-table:
+
+2010-08-20  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: Inspector tests were disabled for GTK.
+        https://bugs.webkit.org/show_bug.cgi?id=43977
+
+        * Scripts/old-run-webkit-tests: Set the WEBKIT_INSPECTOR_PATH to the appropriate
+        path before running tests.
+
+2010-08-20  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Eric Seidel.
+
+        svn-apply doesn't detect empty line with Windows line endings
+        after property value
+        https://bugs.webkit.org/show_bug.cgi?id=43981
+
+        Part 2 of 2
+
+        Add unit tests that were not landed in the first commit.
+
+        * Scripts/webkitperl/VCSUtils_unittest/parseDiff.pl:
+          - Added the following test cases:
+            "SVN: binary file (isBinary true) using Windows line endings"
+            "SVN: property diff, followed by file change diff using Windows line endings"
+            "SVN: two consecutive property diffs using Windows line endings"
+            "SVN: binary file with executable bit change usng Windows line endings"
+            "SVN: binary file followed by property change on different file using Windows line endings"
+            "SVN: binary file followed by file change on different file using Windows line endings"
+            "SVN: file change diff with property change, followed by property change diff using Windows line endings"
+            "SVN: file change diff with property change, followed by file change diff using Windows line endings"
+        * Scripts/webkitperl/VCSUtils_unittest/parseSvnProperty.pl:
+          - Added the following test cases:
+            "add svn:executable, followed by empty line and start of next diff using Windows line endings"
+            "add svn:executable, followed by empty line and start of next property diff using Windows line endings"
+            "multi-line '+' change, followed by empty line and start of next diff using Windows line endings"
+            "multi-line '+' change, followed by empty line and start of next property diff using Windows line endings"
+            "add svn:executable, followed by empty line and start of binary patch using Windows line endings"
+            "multi-line '+' change, followed by empty line and start of binary patch using Windows line endings"
+            "multi-line '-' change, followed by multi-line '+' change, empty line, and start of binary patch using Windows line endings"
+            "single-line '+' with trailing new line using Windows line endings"
+            "single-line '+' with trailing new line, followed by empty line and start of binary patch using Windows line endings"
+            "single-line '-' change with trailing new line, and single-line '+' change using Windows line endings"
+            "multi-line '-' change with trailing new line, and multi-line '+' change using Windows line endings"
+        * Scripts/webkitperl/VCSUtils_unittest/parseSvnPropertyValue.pl:
+          - Added the following test cases:
+            "single-line '-' change followed by empty line with Windows line endings"
+            "multi-line '+' change and start of binary patch with Windows line endings"
+
+2010-08-20  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Eric Seidel.
+
+        svn-apply doesn't detect empty line with Windows line endings
+        after property value
+        https://bugs.webkit.org/show_bug.cgi?id=43981
+
+        Fixes an issue where an empty line following the property value
+        in an SVN property change diff would not be detected if it had
+        Windows line endings (i.e. ended in CRLF). Hence it was consumed
+        as if it was part of a multi-line property value. 
+
+        * Scripts/VCSUtils.pm:
+          - Modified parseSvnPropertyValue() to detect empty line
+            with Windows line endings.
+          - Added toWindowsLineEndings().
+        * Scripts/webkitperl/VCSUtils_unittest/parseDiff.pl:
+          - Added the following test cases:
+            "SVN: binary file (isBinary true) using Windows line endings"
+            "SVN: property diff, followed by file change diff using Windows line endings"
+            "SVN: two consecutive property diffs using Windows line endings"
+            "SVN: binary file with executable bit change usng Windows line endings"
+            "SVN: binary file followed by property change on different file using Windows line endings"
+            "SVN: binary file followed by file change on different file using Windows line endings"
+            "SVN: file change diff with property change, followed by property change diff using Windows line endings"
+            "SVN: file change diff with property change, followed by file change diff using Windows line endings"
+        * Scripts/webkitperl/VCSUtils_unittest/parseSvnProperty.pl:
+          - Added the following test cases:
+            "add svn:executable, followed by empty line and start of next diff using Windows line endings"
+            "add svn:executable, followed by empty line and start of next property diff using Windows line endings"
+            "multi-line '+' change, followed by empty line and start of next diff using Windows line endings"
+            "multi-line '+' change, followed by empty line and start of next property diff using Windows line endings"
+            "add svn:executable, followed by empty line and start of binary patch using Windows line endings"
+            "multi-line '+' change, followed by empty line and start of binary patch using Windows line endings"
+            "multi-line '-' change, followed by multi-line '+' change, empty line, and start of binary patch using Windows line endings"
+            "single-line '+' with trailing new line using Windows line endings"
+            "single-line '+' with trailing new line, followed by empty line and start of binary patch using Windows line endings"
+            "single-line '-' change with trailing new line, and single-line '+' change using Windows line endings"
+            "multi-line '-' change with trailing new line, and multi-line '+' change using Windows line endings"
+        * Scripts/webkitperl/VCSUtils_unittest/parseSvnPropertyValue.pl:
+          - Added the following test cases:
+            "single-line '-' change followed by empty line with Windows line endings"
+            "multi-line '+' change and start of binary patch with Windows line endings"
+
+2010-08-19  David Kilzer  <ddkilzer@apple.com>
+
+        BUILD FIX: Fix Mac build after Windows WebKit2 changes for Netscape Plug-ins
+
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (decidePolicyForNavigationAction): Updated method signature.
+        (decidePolicyForNewWindowAction): Updated method signature.
+
+2010-08-19  Adam Roben  <aroben@apple.com>
+
+        Test that NP_Initialize and NP_GetEntryPoints are called in the
+        correct order
+
+        The order differs between Mac and Windows (see r38858).
+
+        Fixes <http://webkit.org/b/44270> <rdar://problem/8330393> Crash in
+        NP_Initialize when loading QuickTime when running
+        plugins/embed-attributes-setting.html in WebKit2 on Windows
+
+        Reviewed by Sam Weinig.
+
+        * DumpRenderTree/TestNetscapePlugIn/main.cpp: Added a CRASH macro and
+        a boolean to record whether NP_GetEntryPoints has been called.
+        (NP_Initialize): Crash on Windows if NP_GetEntryPoints hasn't been
+        called yet. This matches Flash and QuickTime's behavior. Crash on Mac
+        if NP_GetEntryPoints has been called already. This matches
+        Silverlight's behavior.
+
+2010-08-19  Adam Roben  <aroben@apple.com>
+
+        Make build-webkittestrunner build TestNetscapePlugIn on Windows
+
+        Fixes <http://webkit.org/b/44268> <rdar://problem/8330388>
+
+        Reviewed by Sam Weinig.
+
+        * WebKitTestRunner/WebKitTestRunner.sln: Added TestNetscapePlugIn.
+        Threaded it in between ImageDiff and InjectedBundleGenerated.
+
+2010-08-19  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        install rietveld's upload script from a versioned url
+        https://bugs.webkit.org/show_bug.cgi?id=44291
+
+        autoinstall expects the file at a given URL to never change.
+        In order to be able to update the file, we need to be able to
+        change the path.
+
+        * Scripts/webkitpy/thirdparty/__init__.py:
+
+2010-08-19  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        add --webkit_patch_id to reitveld uploads
+        https://bugs.webkit.org/show_bug.cgi?id=44289
+
+        This is the first step in having rietveld store which
+        patches have been uploaded and getting rid of the
+        in-rietveld flag.
+
+        * Scripts/webkitpy/common/net/rietveld.py:
+        * Scripts/webkitpy/tool/mocktool.py:
+        * Scripts/webkitpy/tool/steps/postcodereview.py:
+
+2010-08-19  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by David Levin.
+
+        Adjust my status from committer to reviewer
+        https://bugs.webkit.org/show_bug.cgi?id=44277
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-08-19  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Chromium DevTools: remove injected script fetcher from test harness.
+        https://bugs.webkit.org/show_bug.cgi?id=44266
+
+        * DumpRenderTree/chromium/DRTDevToolsAgent.cpp:
+        * DumpRenderTree/chromium/DRTDevToolsAgent.h:
+
+2010-08-19  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Chromium DevTools: There is no need in resource-based InjectedScript.js source.
+        Now that we populate front-end after its onload handler, we don't need
+        to install injected script early. Exposing injected script source on the WebCore
+        level here.
+        https://bugs.webkit.org/show_bug.cgi?id=44029
+
+        * DumpRenderTree/chromium/DRTDevToolsAgent.cpp:
+        (DRTDevToolsAgent::runtimePropertyChanged):
+        (DRTDevToolsAgent::delayedFrontendLoaded):
+        (DRTDevToolsAgent::frontendLoaded):
+        * DumpRenderTree/chromium/DRTDevToolsAgent.h:
+
+2010-08-19  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Gtk] Enable view mode media feature layout test
+        https://bugs.webkit.org/show_bug.cgi?id=43278
+
+        Add view mode media feature testing infrastructure, and add
+        placeholder methods for the other platforms'
+        LayoutTestControllers.
+
+        * DumpRenderTree/LayoutTestController.cpp:
+        (setViewModeMediaFeatureCallback):
+        (LayoutTestController::staticFunctions):
+        * DumpRenderTree/LayoutTestController.h:
+        * DumpRenderTree/gtk/LayoutTestControllerGtk.cpp:
+        (LayoutTestController::setViewModeMediaFeature):
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::setViewModeMediaFeature):
+        * DumpRenderTree/win/LayoutTestControllerWin.cpp:
+        (LayoutTestController::setViewModeMediaFeature):
+        * DumpRenderTree/wx/LayoutTestControllerWx.cpp:
+        (LayoutTestController::setViewModeMediaFeature):
+
+2010-08-18  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Make it so the WebKit2 test slave runs the WebKit2 tests
+
+        * BuildSlaveSupport/build.webkit.org-config/master.cfg:
+
+2010-08-18  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Mark Rowe.
+
+        Make run-webkit-tests --webkit-test-runner build DumpRenderTree
+        in addition to WebKitTestRunner to get the DumpRenderTreeSupport
+        module and the TestNetscapePlugin.
+
+        * Scripts/old-run-webkit-tests:
+
 2010-08-18  Adam Roben  <aroben@apple.com>
 
         Fix hang when saving crash logs on Windows

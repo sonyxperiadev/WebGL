@@ -48,16 +48,25 @@ from webkitpy.layout_tests.layout_package import dump_render_tree_thread
 from webkitpy.thirdparty.mock import Mock
 
 
-def passing_run(args, port_obj=None, logging_included=False):
-    if not logging_included:
-        args.extend(['--print', 'nothing'])
+def passing_run(args, port_obj=None, record_results=False,
+                tests_included=False):
+    args.extend(['--print', 'nothing'])
+    if not tests_included:
+        # We use the glob to test that globbing works.
+        args.extend(['passes', 'failures/expected/*'])
+    if not record_results:
+        args.append('--no-record-results')
     options, args = run_webkit_tests.parse_args(args)
     if port_obj is None:
         port_obj = port.get(options.platform, options)
     res = run_webkit_tests.run(port_obj, options, args)
     return res == 0
 
-def logging_run(args):
+
+def logging_run(args, tests_included=False):
+    args.extend(['--no-record-results'])
+    if not tests_included:
+        args.extend(['passes', 'failures/expected/*'])
     options, args = run_webkit_tests.parse_args(args)
     port_obj = port.get(options.platform, options)
     buildbot_output = array_stream.ArrayStream()
@@ -73,18 +82,21 @@ class MainTest(unittest.TestCase):
         self.assertTrue(passing_run(['--platform', 'test']))
         self.assertTrue(passing_run(['--platform', 'test', '--run-singly']))
         self.assertTrue(passing_run(['--platform', 'test',
-                                     'text/article-element.html']))
-        self.assertTrue(passing_run(['--platform', 'test',
-                                    '--child-processes', '1',
-                                     '--print', 'unexpected']))
+                                     'passes/text.html'], tests_included=True))
 
-    def test_child_processes(self):
+    def test_unexpected_failures(self):
+        # Run tests including the unexpected failures.
+        self.assertFalse(passing_run(['--platform', 'test'],
+                         tests_included=True))
+
+    def test_one_child_process(self):
         (res, buildbot_output, regular_output) = logging_run(
              ['--platform', 'test', '--print', 'config', '--child-processes',
               '1'])
         self.assertTrue('Running one DumpRenderTree\n'
                         in regular_output.get())
 
+    def test_two_child_processes(self):
         (res, buildbot_output, regular_output) = logging_run(
              ['--platform', 'test', '--print', 'config', '--child-processes',
               '2'])
@@ -92,13 +104,19 @@ class MainTest(unittest.TestCase):
                         in regular_output.get())
 
     def test_last_results(self):
-        passing_run(['--platform', 'test'])
+        passing_run(['--platform', 'test'], record_results=True)
         (res, buildbot_output, regular_output) = logging_run(
             ['--platform', 'test', '--print-last-failures'])
         self.assertEqual(regular_output.get(), ['\n\n'])
         self.assertEqual(buildbot_output.get(), [])
 
-
+    def test_no_tests_found(self):
+        self.assertRaises(SystemExit, logging_run,
+                          ['--platform', 'test', 'resources'],
+                          tests_included=True)
+        self.assertRaises(SystemExit, logging_run,
+                          ['--platform', 'test', 'foo'],
+                          tests_included=True)
 
 def _mocked_open(original_open, file_list):
     def _wrapper(name, mode, encoding):
@@ -123,21 +141,19 @@ class RebaselineTest(unittest.TestCase):
         original_open = codecs.open
         try:
             # Test that we update expectations in place. If the expectation
-            # is mssing, update the expected generic location.
+            # is missing, update the expected generic location.
             file_list = []
             codecs.open = _mocked_open(original_open, file_list)
             passing_run(['--platform', 'test', '--pixel-tests',
                          '--reset-results',
-                         'image/canvas-bg.html',
-                         'image/canvas-zoom.html',
-                         'misc/missing-expectation.html'])
-            self.assertEqual(len(file_list), 9)
+                         'passes/image.html',
+                         'failures/expected/missing_image.html'],
+                         tests_included=True)
+            self.assertEqual(len(file_list), 6)
             self.assertBaselines(file_list,
-                "data/image/canvas-zoom")
+                "data/passes/image")
             self.assertBaselines(file_list,
-                "data/platform/test/image/canvas-bg")
-            self.assertBaselines(file_list,
-                "data/misc/missing-expectation")
+                "data/failures/expected/missing_image")
         finally:
             codecs.open = original_open
 
@@ -151,16 +167,14 @@ class RebaselineTest(unittest.TestCase):
             codecs.open = _mocked_open(original_open, file_list)
             passing_run(['--platform', 'test', '--pixel-tests',
                          '--new-baseline',
-                         'image/canvas-zoom.html',
-                         'image/canvas-bg.html',
-                         'misc/missing-expectation.html'])
-            self.assertEqual(len(file_list), 9)
+                         'passes/image.html',
+                         'failures/expected/missing_image.html'],
+                        tests_included=True)
+            self.assertEqual(len(file_list), 6)
             self.assertBaselines(file_list,
-                "data/platform/test/image/canvas-zoom")
+                "data/platform/test/passes/image")
             self.assertBaselines(file_list,
-                "data/platform/test/image/canvas-bg")
-            self.assertBaselines(file_list,
-                "data/platform/test/misc/missing-expectation")
+                "data/platform/test/failures/expected/missing_image")
         finally:
             codecs.open = original_open
 
@@ -186,13 +200,14 @@ class TestRunnerTest(unittest.TestCase):
 
 
 class DryrunTest(unittest.TestCase):
-    def test_basics(self):
-        # FIXME: it's hard to know which platforms are safe to test; the
-        # chromium platforms require a chromium checkout, and the mac platform
-        # requires fcntl, so it can't be tested on win32, etc. There is
-        # probably a better way of handling this.
-        if sys.platform != "mac":
+    # FIXME: it's hard to know which platforms are safe to test; the
+    # chromium platforms require a chromium checkout, and the mac platform
+    # requires fcntl, so it can't be tested on win32, etc. There is
+    # probably a better way of handling this.
+    def test_darwin(self):
+        if sys.platform != "darwin":
             return
+
         self.assertTrue(passing_run(['--platform', 'dryrun',
                                      'fast/html']))
         self.assertTrue(passing_run(['--platform', 'dryrun-mac',

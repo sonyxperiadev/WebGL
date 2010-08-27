@@ -197,6 +197,28 @@ var WebInspector = {
         }
     },
 
+    createJSBreakpointsSidebarPane: function()
+    {
+        var pane = new WebInspector.BreakpointsSidebarPane(WebInspector.UIString("Breakpoints"));
+        function breakpointAdded(event)
+        {
+            pane.addBreakpoint(new WebInspector.JSBreakpointItem(event.data));
+        }
+        WebInspector.breakpointManager.addEventListener("breakpoint-added", breakpointAdded);
+        return pane;
+    },
+
+    createDOMBreakpointsSidebarPane: function()
+    {
+        var pane = new WebInspector.BreakpointsSidebarPane(WebInspector.UIString("DOM Breakpoints"));
+        function breakpointAdded(event)
+        {
+            pane.addBreakpoint(new WebInspector.DOMBreakpointItem(event.data));
+        }
+        WebInspector.domBreakpointManager.addEventListener("dom-breakpoint-added", breakpointAdded);
+        return pane;
+    },
+
     _createPanels: function()
     {
         var hiddenPanels = (InspectorFrontendHost.hiddenPanels() || "").split(',');
@@ -469,8 +491,9 @@ WebInspector.doLoadedDone = function()
     var port = WebInspector.port;
     document.body.addStyleClass("port-" + port);
 
-    this.applicationSettings = new WebInspector.Settings(false);
-    this.sessionSettings = new WebInspector.Settings(true);
+    InspectorFrontendHost.loaded();
+    WebInspector.Settings.initialize();
+    
     this._registerShortcuts();
 
     // set order of some sections explicitly
@@ -496,6 +519,7 @@ WebInspector.doLoadedDone = function()
     };
 
     this.breakpointManager = new WebInspector.BreakpointManager();
+    this.domBreakpointManager = new WebInspector.DOMBreakpointManager();
     this.cssModel = new WebInspector.CSSStyleModel();
 
     this.panels = {};
@@ -556,7 +580,10 @@ WebInspector.doLoadedDone = function()
 
     this.extensionServer.initExtensions();
 
-    InspectorFrontendHost.loaded();
+    InspectorBackend.populateScriptObjects();
+
+    // As a DOMAgent method, this needs to happen after the frontend has loaded and the agent is available.
+    InspectorBackend.getSupportedCSSProperties(WebInspector.Callback.wrap(WebInspector.CSSCompletions._load));
 }
 
 WebInspector.addPanelToolbarIcon = function(toolbarElement, panel, previousToolbarItem)
@@ -589,20 +616,12 @@ var windowLoaded = function()
 
 window.addEventListener("load", windowLoaded, false);
 
-WebInspector.dispatch = function() {
-    var methodName = arguments[0];
-    var parameters = Array.prototype.slice.call(arguments, 1);
-
+WebInspector.dispatch = function(message) {
     // We'd like to enforce asynchronous interaction between the inspector controller and the frontend.
     // This is important to LayoutTests.
     function delayDispatch()
     {
-        if (!(methodName in WebInspector)) {
-            console.error("Attempted to dispatch unimplemented WebInspector method: %s", methodName);
-            return;
-        }
-
-        WebInspector[methodName].apply(WebInspector, parameters);
+        WebInspector_syncDispatch(message);
         WebInspector.pendingDispatches--;
     }
     WebInspector.pendingDispatches++;
@@ -612,21 +631,41 @@ WebInspector.dispatch = function() {
 // This function is purposely put into the global scope for easy access.
 WebInspector_syncDispatch = function(message)
 {
-    var args = JSON.parse(message);
-    var methodName = args[0];
-    var parameters = args.slice(1);
-    WebInspector[methodName].apply(WebInspector, parameters);
+    var messageObject = (typeof message === "string") ? JSON.parse(message) : message;
+    if (messageObject.type === "response" && !messageObject.success) {
+        WebInspector.removeResponseCallbackEntry(messageObject.seq)
+        WebInspector.reportProtocolError(messageObject);
+        return;
+    }
+
+    var arguments = [];
+    if (messageObject.data)
+        for (var key in messageObject.data)
+            arguments.push(messageObject.data[key]);
+
+    if (messageObject.type === "event") {
+        if (!messageObject.event in WebInspector) {
+            console.error("Attempted to dispatch unimplemented WebInspector method: %s", messageObject.event);
+            return;
+        }
+        WebInspector[messageObject.event].apply(WebInspector, arguments);
+    }
+
+    if (messageObject.type === "response")
+        WebInspector.processResponse(messageObject.seq, arguments);
 }
 
-WebInspector.dispatchMessageFromBackend = function(arguments)
+WebInspector.dispatchMessageFromBackend = function(messageObject)
 {
-    WebInspector.dispatch.apply(this, arguments);
+    WebInspector.dispatch(messageObject);
 }
 
-WebInspector.reportProtocolError = function(callId, methodName, errorText)
+WebInspector.reportProtocolError = function(messageObject)
 {
-    WebInspector.log("InspectorBackend." + methodName + " failed with error text: '" + errorText + "'");
-    WebInspector.removeResponseCallbackEntry(callId);
+    console.error("Error: InspectorBackend." + messageObject.command + " failed.");
+    for (var error in messageObject.errors)
+        console.error("    " + error);
+    WebInspector.removeResponseCallbackEntry(messageObject.seq);
 }
 
 WebInspector.windowResize = function(event)
@@ -702,13 +741,13 @@ WebInspector.documentClick = function(event)
     function followLink()
     {
         // FIXME: support webkit-html-external-link links here.
-        if (WebInspector.canShowSourceLine(anchor.href, anchor.lineNumber, anchor.preferredPanel)) {
+        if (WebInspector.canShowSourceLine(anchor.href, anchor.getAttribute("line_number"), anchor.getAttribute("preferred_panel"))) {
             if (anchor.hasStyleClass("webkit-html-external-link")) {
                 anchor.removeStyleClass("webkit-html-external-link");
                 anchor.addStyleClass("webkit-html-resource-link");
             }
 
-            WebInspector.showSourceLine(anchor.href, anchor.lineNumber, anchor.preferredPanel);
+            WebInspector.showSourceLine(anchor.href, anchor.getAttribute("line_number"), anchor.getAttribute("preferred_panel"));
             return;
         }
 
@@ -1412,15 +1451,6 @@ WebInspector.resumedScript = function()
     this.panels.scripts.debuggerResumed();
 }
 
-WebInspector.populateInterface = function()
-{
-    for (var panelName in this.panels) {
-        var panel = this.panels[panelName];
-        if ("populateInterface" in panel)
-            panel.populateInterface();
-    }
-}
-
 WebInspector.reset = function()
 {
     for (var panelName in this.panels) {
@@ -1788,8 +1818,8 @@ WebInspector.linkifyResourceAsNode = function(url, preferredPanel, lineNumber, c
     if (lineNumber)
         linkText += ":" + lineNumber;
     var node = WebInspector.linkifyURLAsNode(url, linkText, classes, false, tooltipText);
-    node.lineNumber = lineNumber;
-    node.preferredPanel = preferredPanel;
+    node.setAttribute("line_number", lineNumber);
+    node.setAttribute("preferred_panel", preferredPanel);
     return node;
 }
 

@@ -1437,8 +1437,6 @@ static bool fastDocumentTeardownEnabled()
     settings->setWebGLEnabled([preferences webGLEnabled]);
     settings->setLoadDeferringEnabled(shouldEnableLoadDeferring());
     settings->setFrameFlatteningEnabled([preferences isFrameFlatteningEnabled]);
-    settings->setHTML5ParserEnabled([preferences html5ParserEnabled]);
-    settings->setHTML5TreeBuilderEnabled_DO_NOT_USE([preferences html5TreeBuilderEnabled]);
     settings->setPaginateDuringLayoutEnabled([preferences paginateDuringLayoutEnabled]);
     settings->setMemoryInfoEnabled([preferences memoryInfoEnabled]);
 
@@ -2291,6 +2289,7 @@ static inline IMP getMethod(id o, SEL s)
     return _private->includesFlattenedCompositingLayersWhenDrawingToBitmap;
 }
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
 static WebBaseNetscapePluginView *_pluginViewForNode(DOMNode *node)
 {
     if (!node)
@@ -2314,22 +2313,33 @@ static WebBaseNetscapePluginView *_pluginViewForNode(DOMNode *node)
     
     return (WebBaseNetscapePluginView *)view;
 }
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
 
 + (BOOL)_isNodeHaltedPlugin:(DOMNode *)node
 {
+#if ENABLE(NETSCAPE_PLUGIN_API)
     return [_pluginViewForNode(node) isHalted];
+#else
+    return YES;
+#endif
 }
 
 + (BOOL)_hasPluginForNodeBeenHalted:(DOMNode *)node
 {
+#if ENABLE(NETSCAPE_PLUGIN_API)
     return [_pluginViewForNode(node) hasBeenHalted];
+#else
+    return YES;
+#endif
 }
 + (void)_restartHaltedPluginForNode:(DOMNode *)node
 {
+#if ENABLE(NETSCAPE_PLUGIN_API)
     if (!node)
         return;
     
     [_pluginViewForNode(node) resumeFromHalt];
+#endif
 }
 
 - (NSPasteboard *)_insertionPasteboard

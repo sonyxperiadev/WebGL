@@ -282,24 +282,19 @@ void HTMLDocument::releaseEvents()
 {
 }
 
-DocumentParser* HTMLDocument::createParser()
+PassRefPtr<DocumentParser> HTMLDocument::createParser()
 {
     bool reportErrors = false;
 #if ENABLE(INSPECTOR)
     if (Page* page = this->page())
-        reportErrors = page->inspectorController()->windowVisible();
+        reportErrors = page->inspectorController()->hasFrontend();
 #endif
-    return new HTMLDocumentParser(this, reportErrors);
+    return HTMLDocumentParser::create(this, reportErrors);
 }
 
 // --------------------------------------------------------------------------
 // not part of the DOM
 // --------------------------------------------------------------------------
-
-bool HTMLDocument::childAllowed(Node *newChild)
-{
-    return newChild->hasTagName(htmlTag) || newChild->isCommentNode() || (newChild->nodeType() == DOCUMENT_TYPE_NODE && !doctype());
-}
 
 PassRefPtr<Element> HTMLDocument::createElement(const AtomicString& name, ExceptionCode& ec)
 {

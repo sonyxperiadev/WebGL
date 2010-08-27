@@ -30,8 +30,6 @@ namespace WebCore {
 class DocumentFragment;
 class HTMLCollection;
 class HTMLFormElement;
-
-enum HTMLTagStatus { TagStatusOptional, TagStatusRequired, TagStatusForbidden };
                        
 class HTMLElement : public StyledElement {
 public:
@@ -72,8 +70,7 @@ public:
 
     virtual void accessKeyAction(bool sendToAnyElement);
 
-    virtual HTMLTagStatus endTagRequirement() const;
-    virtual int tagPriority() const;
+    bool ieForbidsInsertHTML() const;
 
     virtual bool rendererIsNeeded(RenderStyle*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
@@ -89,16 +86,6 @@ protected:
 
     virtual bool mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const;
     virtual void parseMappedAttribute(Attribute*);
-
-    virtual bool childAllowed(Node* newChild); // Error-checking during parsing that checks the DTD
-
-    // Helper function to check the DTD for a given child node.
-    virtual bool checkDTD(const Node*);
-
-    static bool inEitherTagList(const Node*);
-    static bool inInlineTagList(const Node*);
-    static bool inBlockTagList(const Node*);
-    static bool isRecognizedTagName(const QualifiedName&);
 
     HTMLFormElement* findFormAncestor() const;
 

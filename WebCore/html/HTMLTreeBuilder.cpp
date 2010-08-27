@@ -39,7 +39,6 @@
 #include "HTMLScriptElement.h"
 #include "HTMLToken.h"
 #include "HTMLTokenizer.h"
-#include "LegacyHTMLTreeBuilder.h"
 #include "LocalizedStrings.h"
 #include "MathMLNames.h"
 #include "NotImplemented.h"
@@ -50,6 +49,9 @@
 #include "XLinkNames.h"
 #include "XMLNSNames.h"
 #include "XMLNames.h"
+// FIXME: Remove this include once we find a home for the free functions that
+// are using it.
+#include <wtf/dtoa.h>
 #include <wtf/UnusedParam.h>
 
 namespace WebCore {
@@ -98,11 +100,6 @@ inline bool isAllWhitespaceOrReplacementCharacters(const String& string)
     return isAllSpecialCharacters<isTreeBuilderWhitepaceOrReplacementCharacter>(string);
 }
 
-bool shouldUseLegacyTreeBuilder(Document* document)
-{
-    return !document->settings() || !document->settings()->html5TreeBuilderEnabled();
-}
-
 bool isNumberedHeaderTag(const AtomicString& tagName)
 {
     return tagName == h1Tag
@@ -133,8 +130,12 @@ bool isTableBodyContextTag(const AtomicString& tagName)
 }
 
 // http://www.whatwg.org/specs/web-apps/current-work/multipage/parsing.html#special
-bool isSpecialTag(const AtomicString& tagName)
+bool isSpecialNode(Node* node)
 {
+    if (node->namespaceURI() != xhtmlNamespaceURI)
+        return false;
+    // FIXME: This list is out of sync with the spec.
+    const AtomicString& tagName = node->localName();
     return tagName == addressTag
         || tagName == articleTag
         || tagName == asideTag
@@ -167,6 +168,7 @@ bool isSpecialTag(const AtomicString& tagName)
         || tagName == headerTag
         || tagName == hgroupTag
         || tagName == hrTag
+        || tagName == htmlTag
         || tagName == iframeTag
         || tagName == imgTag
         || tagName == inputTag
@@ -199,7 +201,6 @@ bool isSpecialTag(const AtomicString& tagName)
 }
 
 // http://www.whatwg.org/specs/web-apps/current-work/multipage/parsing.html#scoping
-// Same as isScopingTag in LegacyHTMLTreeBuilder.cpp
 // and isScopeMarker in HTMLElementStack.cpp
 bool isScopingTag(const AtomicString& tagName)
 {
@@ -239,22 +240,6 @@ bool isNonAnchorFormattingTag(const AtomicString& tagName)
 bool isFormattingTag(const AtomicString& tagName)
 {
     return tagName == aTag || isNonAnchorFormattingTag(tagName);
-}
-
-// http://www.whatwg.org/specs/web-apps/current-work/multipage/parsing.html#phrasing
-bool isPhrasingTag(const AtomicString& tagName)
-{
-    return !isSpecialTag(tagName) && !isScopingTag(tagName) && !isFormattingTag(tagName);
-}
-
-bool isNotFormattingAndNotPhrasing(const Element* element)
-{
-    // The spec often says "node is not in the formatting category, and is not
-    // in the phrasing category". !phrasing && !formatting == scoping || special
-    // scoping || special is easier to compute.
-    // FIXME: localName() is wrong for non-html content.
-    const AtomicString& tagName = element->localName();
-    return isScopingTag(tagName) || isSpecialTag(tagName);
 }
 
 HTMLFormElement* closestFormAncestor(Element* element)
@@ -388,8 +373,8 @@ HTMLTreeBuilder::HTMLTreeBuilder(HTMLTokenizer* tokenizer, HTMLDocument* documen
     , m_originalInsertionMode(InitialMode)
     , m_secondaryInsertionMode(InitialMode)
     , m_tokenizer(tokenizer)
-    , m_lastScriptElementStartLine(uninitializedLineNumberValue)
     , m_scriptToProcessStartLine(uninitializedLineNumberValue)
+    , m_lastScriptElementStartLine(uninitializedLineNumberValue)
 {
 }
 
@@ -397,7 +382,7 @@ HTMLTreeBuilder::HTMLTreeBuilder(HTMLTokenizer* tokenizer, HTMLDocument* documen
 // minimize code duplication between these constructors.
 HTMLTreeBuilder::HTMLTreeBuilder(HTMLTokenizer* tokenizer, DocumentFragment* fragment, Element* contextElement, FragmentScriptingPermission scriptingPermission)
     : m_framesetOk(true)
-    , m_fragmentContext(fragment, contextElement, scriptingPermission, shouldUseLegacyTreeBuilder(fragment->document()))
+    , m_fragmentContext(fragment, contextElement, scriptingPermission)
     , m_document(m_fragmentContext.document())
     , m_tree(m_document, scriptingPermission, true)
     , m_reportErrors(false) // FIXME: Why not report errors in fragments?
@@ -406,12 +391,9 @@ HTMLTreeBuilder::HTMLTreeBuilder(HTMLTokenizer* tokenizer, DocumentFragment* fra
     , m_originalInsertionMode(InitialMode)
     , m_secondaryInsertionMode(InitialMode)
     , m_tokenizer(tokenizer)
-    , m_legacyTreeBuilder(shouldUseLegacyTreeBuilder(fragment->document()) ? new LegacyHTMLTreeBuilder(fragment, scriptingPermission) : 0)
-    , m_lastScriptElementStartLine(uninitializedLineNumberValue)
     , m_scriptToProcessStartLine(uninitializedLineNumberValue)
+    , m_lastScriptElementStartLine(uninitializedLineNumberValue)
 {
-    if (shouldUseLegacyTreeBuilder(fragment->document()))
-        return;
     if (contextElement) {
         // Steps 4.2-4.6 of the HTML5 Fragment Case parsing algorithm:
         // http://www.whatwg.org/specs/web-apps/current-work/multipage/the-end.html#fragment-case
@@ -426,19 +408,27 @@ HTMLTreeBuilder::~HTMLTreeBuilder()
 {
 }
 
+void HTMLTreeBuilder::detach()
+{
+    // This call makes little sense in fragment mode, but for consistency
+    // DocumentParser expects detach() to always be called before it's destroyed.
+    m_document = 0;
+    // HTMLConstructionSite might be on the callstack when detach() is called
+    // otherwise we'd just call m_tree.clear() here instead.
+    m_tree.detach();
+}
+
 HTMLTreeBuilder::FragmentParsingContext::FragmentParsingContext()
     : m_fragment(0)
     , m_contextElement(0)
-    , m_usingLegacyTreeBuilder(false)
     , m_scriptingPermission(FragmentScriptingAllowed)
 {
 }
 
-HTMLTreeBuilder::FragmentParsingContext::FragmentParsingContext(DocumentFragment* fragment, Element* contextElement, FragmentScriptingPermission scriptingPermission, bool legacyMode)
-    : m_dummyDocumentForFragmentParsing(legacyMode ? 0 : HTMLDocument::create(0, KURL()))
+HTMLTreeBuilder::FragmentParsingContext::FragmentParsingContext(DocumentFragment* fragment, Element* contextElement, FragmentScriptingPermission scriptingPermission)
+    : m_dummyDocumentForFragmentParsing(HTMLDocument::create(0, KURL()))
     , m_fragment(fragment)
     , m_contextElement(contextElement)
-    , m_usingLegacyTreeBuilder(legacyMode)
     , m_scriptingPermission(scriptingPermission)
 {
 }
@@ -446,8 +436,6 @@ HTMLTreeBuilder::FragmentParsingContext::FragmentParsingContext(DocumentFragment
 Document* HTMLTreeBuilder::FragmentParsingContext::document() const
 {
     ASSERT(m_fragment);
-    if (m_usingLegacyTreeBuilder)
-        return m_fragment->document();
     return m_dummyDocumentForFragmentParsing.get();
 }
 
@@ -470,39 +458,6 @@ void HTMLTreeBuilder::FragmentParsingContext::finished()
 
 HTMLTreeBuilder::FragmentParsingContext::~FragmentParsingContext()
 {
-}
-
-static void convertToOldStyle(AtomicHTMLToken& token, Token& oldStyleToken)
-{
-    switch (token.type()) {
-    case HTMLToken::Uninitialized:
-    case HTMLToken::DOCTYPE:
-        ASSERT_NOT_REACHED();
-        break;
-    case HTMLToken::EndOfFile:
-        ASSERT_NOT_REACHED();
-        notImplemented();
-        break;
-    case HTMLToken::StartTag:
-    case HTMLToken::EndTag: {
-        oldStyleToken.beginTag = (token.type() == HTMLToken::StartTag);
-        // The LegacyHTMLTreeBuilder seems to work better if we lie here and
-        // say that tags are never self closing.  As a wise man once said:
-        // "You can't handle the truth!"
-        oldStyleToken.selfClosingTag = false;
-        oldStyleToken.tagName = token.name();
-        oldStyleToken.attrs = token.takeAtributes();
-        break;
-    }
-    case HTMLToken::Comment:
-        oldStyleToken.tagName = commentAtom;
-        oldStyleToken.text = token.comment().impl();
-        break;
-    case HTMLToken::Character:
-        oldStyleToken.tagName = textAtom;
-        oldStyleToken.text = StringImpl::create(token.characters().data(), token.characters().size());
-        break;
-    }
 }
 
 PassRefPtr<Element> HTMLTreeBuilder::takeScriptToProcess(int& scriptStartLine)
@@ -536,74 +491,8 @@ HTMLTokenizer::State HTMLTreeBuilder::adjustedLexerState(HTMLTokenizer::State st
     return state;
 }
 
-void HTMLTreeBuilder::passTokenToLegacyParser(HTMLToken& token)
-{
-    if (token.type() == HTMLToken::DOCTYPE) {
-        DoctypeToken doctypeToken;
-        doctypeToken.m_name.append(token.name().data(), token.name().size());
-        doctypeToken.m_publicID = token.publicIdentifier();
-        doctypeToken.m_systemID = token.systemIdentifier();
-        doctypeToken.m_forceQuirks = token.forceQuirks();
-
-        m_legacyTreeBuilder->parseDoctypeToken(&doctypeToken);
-        return;
-    }
-
-    if (token.type() == HTMLToken::EndOfFile)
-        return;
-
-    // For now, we translate into an old-style token for testing.
-    Token oldStyleToken;
-    AtomicHTMLToken atomicToken(token);
-    convertToOldStyle(atomicToken, oldStyleToken);
-
-    RefPtr<Node> result =  m_legacyTreeBuilder->parseToken(&oldStyleToken);
-    if (token.type() == HTMLToken::StartTag) {
-        // This work is supposed to be done by the parser, but
-        // when using the old parser for we have to do this manually.
-        if (oldStyleToken.tagName == scriptTag) {
-            m_tokenizer->setState(HTMLTokenizer::ScriptDataState);
-            m_lastScriptElement = static_pointer_cast<Element>(result);
-            m_lastScriptElementStartLine = m_tokenizer->lineNumber();
-        } else if (oldStyleToken.tagName == preTag || oldStyleToken.tagName == listingTag)
-            m_tokenizer->setSkipLeadingNewLineForListing(true);
-        else
-            m_tokenizer->setState(adjustedLexerState(m_tokenizer->state(), oldStyleToken.tagName, m_document->frame()));
-    } else if (token.type() == HTMLToken::EndTag) {
-        if (oldStyleToken.tagName == scriptTag) {
-            if (m_lastScriptElement) {
-                ASSERT(m_lastScriptElementStartLine != uninitializedLineNumberValue);
-                if (m_fragmentContext.scriptingPermission() == FragmentScriptingNotAllowed) {
-                    // FIXME: This is a horrible hack for platform/Pasteboard.
-                    // Clear the <script> tag when using the Parser to create
-                    // a DocumentFragment for pasting so that javascript content
-                    // does not show up in pasted HTML.
-                    m_lastScriptElement->removeChildren();
-                } else if (insertionMode() != AfterFramesetMode) {
-                    ASSERT(!m_scriptToProcess); // Caller never called takeScriptToProcess!
-                    ASSERT(m_scriptToProcessStartLine == uninitializedLineNumberValue); // Caller never called takeScriptToProcess!
-                    // Pause ourselves so that parsing stops until the script can be processed by the caller.
-                    m_isPaused = true;
-                    m_scriptToProcess = m_lastScriptElement.get();
-                    // Lexer line numbers are 0-based, ScriptSourceCode expects 1-based lines,
-                    // so we convert here before passing the line number off to HTMLScriptRunner.
-                    m_scriptToProcessStartLine = m_lastScriptElementStartLine + 1;
-                }
-                m_lastScriptElement = 0;
-                m_lastScriptElementStartLine = uninitializedLineNumberValue;
-            }
-        } else if (oldStyleToken.tagName == framesetTag)
-            setInsertionMode(AfterFramesetMode);
-    }
-}
-
 void HTMLTreeBuilder::constructTreeFromToken(HTMLToken& rawToken)
 {
-    if (m_legacyTreeBuilder) {
-        passTokenToLegacyParser(rawToken);
-        return;
-    }
-
     AtomicHTMLToken token(rawToken);
     processToken(token);
 
@@ -754,7 +643,7 @@ void HTMLTreeBuilder::processCloseWhenNestedTag(AtomicHTMLToken& token)
             processFakeEndTag(node->tagQName());
             break;
         }
-        if (isNotFormattingAndNotPhrasing(node) && !node->hasTagName(addressTag) && !node->hasTagName(divTag) && !node->hasTagName(pTag))
+        if (isSpecialNode(node) && !node->hasTagName(addressTag) && !node->hasTagName(divTag) && !node->hasTagName(pTag))
             break;
         nodeRecord = nodeRecord->next();
     }
@@ -1034,7 +923,7 @@ void HTMLTreeBuilder::processStartTagForInBody(AtomicHTMLToken& token)
         return;
     }
     if (token.name() == tableTag) {
-        if (m_document->parseMode() != Document::Compat && m_tree.openElements()->inScope(pTag))
+        if (m_document->parseMode() != Document::Compat && m_tree.openElements()->inButtonScope(pTag))
             processFakeEndTag(pTag);
         m_tree.insertHTMLElement(token);
         m_framesetOk = false;
@@ -1715,7 +1604,7 @@ void HTMLTreeBuilder::processAnyOtherEndTagForInBody(AtomicHTMLToken& token)
             m_tree.openElements()->popUntilPopped(node);
             return;
         }
-        if (isNotFormattingAndNotPhrasing(node)) {
+        if (isSpecialNode(node)) {
             parseError(token);
             return;
         }
@@ -1731,7 +1620,7 @@ HTMLElementStack::ElementRecord* HTMLTreeBuilder::furthestBlockForFormattingElem
     for (; record; record = record->next()) {
         if (record->element() == formattingElement)
             return furthestBlock;
-        if (isNotFormattingAndNotPhrasing(record->element()))
+        if (isSpecialNode(record->element()))
             furthestBlock = record;
     }
     ASSERT_NOT_REACHED();
@@ -1745,9 +1634,10 @@ void HTMLTreeBuilder::reparentChildren(Element* oldParent, Element* newParent)
     Node* child = oldParent->firstChild();
     while (child) {
         Node* nextChild = child->nextSibling();
-        ExceptionCode ec;
-        newParent->appendChild(child, ec);
-        ASSERT(!ec);
+        oldParent->parserRemoveChild(child);
+        newParent->parserAddChild(child);
+        if (newParent->attached() && !child->attached())
+            child->attach();
         child = nextChild;
     }
 }
@@ -1818,15 +1708,18 @@ void HTMLTreeBuilder::callTheAdoptionAgency(AtomicHTMLToken& token)
             if (lastNode == furthestBlock)
                 bookmark.moveToAfter(nodeEntry);
             // 6.6
-            // Use appendChild instead of parserAddChild to handle possible reparenting.
-            ExceptionCode ec;
-            node->element()->appendChild(lastNode->element(), ec, true);
-            ASSERT(!ec);
+            if (Element* parent = lastNode->element()->parentElement())
+                parent->parserRemoveChild(lastNode->element());
+            node->element()->parserAddChild(lastNode->element());
+            if (lastNode->element()->parentElement()->attached() && !lastNode->element()->attached())
+                lastNode->element()->lazyAttach();
             // 6.7
             lastNode = node;
         }
         // 7
         const AtomicString& commonAncestorTag = commonAncestor->localName();
+        if (Element* parent = lastNode->element()->parentElement())
+            parent->parserRemoveChild(lastNode->element());
         // FIXME: If this moves to HTMLConstructionSite, this check should use
         // causesFosterParenting(tagName) instead.
         if (commonAncestorTag == tableTag
@@ -1834,9 +1727,9 @@ void HTMLTreeBuilder::callTheAdoptionAgency(AtomicHTMLToken& token)
             || isTableBodyContextTag(commonAncestorTag))
             m_tree.fosterParent(lastNode->element());
         else {
-            ExceptionCode ec;
-            commonAncestor->appendChild(lastNode->element(), ec, true);
-            ASSERT(!ec);
+            commonAncestor->parserAddChild(lastNode->element());
+            if (lastNode->element()->parentElement()->attached() && !lastNode->element()->attached())
+                lastNode->element()->lazyAttach();
         }
         // 8
         RefPtr<Element> newElement = m_tree.createHTMLElementFromElementRecord(formattingElementRecord);
@@ -2394,6 +2287,8 @@ void HTMLTreeBuilder::processEndTag(AtomicHTMLToken& token)
             m_scriptToProcess = m_tree.currentElement();
             m_scriptToProcessStartLine = m_lastScriptElementStartLine + 1;
             m_tree.openElements()->pop();
+            if (isParsingFragment() && m_fragmentContext.scriptingPermission() == FragmentScriptingNotAllowed)
+                m_scriptToProcess->removeAllChildren();
             setInsertionMode(m_originalInsertionMode);
             return;
         }
@@ -2479,30 +2374,19 @@ void HTMLTreeBuilder::processEndTag(AtomicHTMLToken& token)
         if (m_tree.currentElement()->namespaceURI() != xhtmlNamespaceURI) {
             // FIXME: This code just wants an Element* iterator, instead of an ElementRecord*
             HTMLElementStack::ElementRecord* nodeRecord = m_tree.openElements()->topRecord();
-            if (!nodeRecord->element()->hasLocalName(token.name())) {
+            if (!nodeRecord->element()->hasLocalName(token.name()))
                 parseError(token);
-                // FIXME: This return is not in the spec but it needed for now
-                // to prevent walking off the bottom of the stack.
-                // http://www.w3.org/Bugs/Public/show_bug.cgi?id=10118
-                if (!m_tree.openElements()->contains(token.name()))
-                    return;
-            }
             while (1) {
                 if (nodeRecord->element()->hasLocalName(token.name())) {
                     m_tree.openElements()->popUntilPopped(nodeRecord->element());
-                    return;
+                    break;
                 }
                 nodeRecord = nodeRecord->next();
-                if (nodeRecord->element()->namespaceURI() == xhtmlNamespaceURI) {
-                    processUsingSecondaryInsertionModeAndAdjustInsertionMode(token);
-                    // FIXME: This is a hack around a spec bug and is likely wrong.
-                    // http://www.w3.org/Bugs/Public/show_bug.cgi?id=9581
-                    if (nodeRecord != m_tree.openElements()->topRecord())
-                        return;
-                }
+                if (nodeRecord->element()->namespaceURI() == xhtmlNamespaceURI)
+                    break;
             }
-            return;
         }
+        // Any other end tag (also the last two steps of "An end tag, if the current node is not an element in the HTML namespace."
         processUsingSecondaryInsertionModeAndAdjustInsertionMode(token);
         break;
     }
@@ -2935,19 +2819,13 @@ void HTMLTreeBuilder::processScriptStartTag(AtomicHTMLToken& token)
 
 void HTMLTreeBuilder::finished()
 {
-    // We should call m_document->finishedParsing() here, except
-    // m_legacyTreeBuilder->finished() does it for us.
-    if (m_legacyTreeBuilder) {
-        m_legacyTreeBuilder->finished();
-        return;
-    }
-
+    ASSERT(m_document);
     if (isParsingFragment()) {
         m_fragmentContext.finished();
         return;
     }
 
-    // Warning, this may delete the parser, so don't try to do anything else after this.
+    // Warning, this may detach the parser. Do not do anything else after this.
     m_document->finishedParsing();
 }
 
@@ -2965,6 +2843,42 @@ bool HTMLTreeBuilder::pluginsEnabled(Frame* frame)
     if (!frame)
         return false;
     return frame->loader()->subframeLoader()->allowPlugins(NotAboutToInstantiatePlugin);
+}
+
+// FIXME: Move this function to a more appropriate place.
+String serializeForNumberType(double number)
+{
+    // According to HTML5, "the best representation of the number n as a floating
+    // point number" is a string produced by applying ToString() to n.
+    NumberToStringBuffer buffer;
+    return String(buffer, numberToString(number, buffer));
+ }
+
+// FIXME: Move this function to a more appropriate place.
+bool parseToDoubleForNumberType(const String& src, double* out)
+{
+    // See HTML5 2.4.4.3 `Real numbers.'
+
+    if (src.isEmpty())
+        return false;
+    // String::toDouble() accepts leading + \t \n \v \f \r and SPACE, which are invalid in HTML5.
+    // So, check the first character.
+    if (src[0] != '-' && (src[0] < '0' || src[0] > '9'))
+        return false;
+
+    bool valid = false;
+    double value = src.toDouble(&valid);
+    if (!valid)
+        return false;
+    // NaN and Infinity are not valid numbers according to the standard.
+    if (!isfinite(value))
+        return false;
+    // -0 -> 0
+    if (!value)
+        value = 0;
+    if (out)
+        *out = value;
+    return true;
 }
 
 }

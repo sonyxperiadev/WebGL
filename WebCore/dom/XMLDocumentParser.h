@@ -181,8 +181,15 @@ namespace WebCore {
 
     class XMLDocumentParser : public ScriptableDocumentParser, public CachedResourceClient {
     public:
-        XMLDocumentParser(Document*, FrameView* = 0);
-        XMLDocumentParser(DocumentFragment*, Element*, FragmentScriptingPermission);
+        static PassRefPtr<XMLDocumentParser> create(Document* document, FrameView* view)
+        {
+            return adoptRef(new XMLDocumentParser(document, view));
+        }
+        static PassRefPtr<XMLDocumentParser> create(DocumentFragment* fragment, Element* element, FragmentScriptingPermission permission)
+        {
+            return adoptRef(new XMLDocumentParser(fragment, element, permission));
+        }
+
         ~XMLDocumentParser();
 
         // Exposed for callbacks:
@@ -199,14 +206,19 @@ namespace WebCore {
         bool isWMLDocument() const;
 #endif
 
-    static bool parseDocumentFragment(const String&, DocumentFragment*, Element* parent = 0, FragmentScriptingPermission = FragmentScriptingAllowed);
+        static bool parseDocumentFragment(const String&, DocumentFragment*, Element* parent = 0, FragmentScriptingPermission = FragmentScriptingAllowed);
 
         // WMLErrorHandling uses these functions.
         virtual bool wellFormed() const { return !m_sawError; }
         virtual int lineNumber() const;
         virtual int columnNumber() const;
 
+        static bool supportsXMLVersion(const String&);
+
     private:
+        XMLDocumentParser(Document*, FrameView* = 0);
+        XMLDocumentParser(DocumentFragment*, Element*, FragmentScriptingPermission);
+
         // From DocumentParser
         virtual void insert(const SegmentedString&);
         virtual void append(const SegmentedString&);
@@ -214,6 +226,7 @@ namespace WebCore {
         virtual bool finishWasCalled();
         virtual bool isWaitingForScripts() const;
         virtual void stopParsing();
+        virtual void detach();
 
         // from CachedResourceClient
         virtual void notifyFinished(CachedResource*);
@@ -222,6 +235,8 @@ namespace WebCore {
 
         void pauseParsing();
         void resumeParsing();
+
+        bool appendFragmentSource(const String&);
 
 #if USE(QXMLSTREAM)
 private:
@@ -260,7 +275,7 @@ public:
 
         void insertErrorMessageBlock();
 
-        bool enterText();
+        void enterText();
         void exitText();
 
         void doWrite(const String&);

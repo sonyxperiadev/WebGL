@@ -29,6 +29,7 @@
 
 #include "HTMLDivElement.h"
 #include "SpeechInputListener.h"
+#include "Timer.h"
 #include <wtf/Forward.h>
 
 namespace WebCore {
@@ -37,30 +38,30 @@ class SpeechInput;
 
 class TextControlInnerElement : public HTMLDivElement {
 public:
-    static PassRefPtr<TextControlInnerElement> create(Node* shadowParent);
+    static PassRefPtr<TextControlInnerElement> create(HTMLElement* shadowParent);
 
     void attachInnerElement(Node*, PassRefPtr<RenderStyle>, RenderArena*);
 
 protected:
-    TextControlInnerElement(Document*, Node* shadowParent = 0);
+    TextControlInnerElement(Document*, HTMLElement* shadowParent = 0);
 
 private:
     virtual bool isMouseFocusable() const { return false; } 
     virtual bool isShadowNode() const { return m_shadowParent; }
-    virtual Node* shadowParentNode() { return m_shadowParent; }
-    void setShadowParentNode(Node* node) { m_shadowParent = node; }
+    virtual ContainerNode* shadowParentNode() { return m_shadowParent; }
+    void setShadowParentNode(HTMLElement* shadowParent) { m_shadowParent = shadowParent; }
 
-    Node* m_shadowParent;
+    HTMLElement* m_shadowParent;
 };
 
 class TextControlInnerTextElement : public TextControlInnerElement {
 public:
-    static PassRefPtr<TextControlInnerTextElement> create(Document*, Node* shadowParent);
+    static PassRefPtr<TextControlInnerTextElement> create(Document*, HTMLElement* shadowParent);
 
     virtual void defaultEventHandler(Event*);
 
 private:
-    TextControlInnerTextElement(Document*, Node* shadowParent);
+    TextControlInnerTextElement(Document*, HTMLElement* shadowParent);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);  
 };
 
@@ -96,21 +97,26 @@ public:
         Up,
     };
 
-    static PassRefPtr<SpinButtonElement> create(Node*);
+    static PassRefPtr<SpinButtonElement> create(HTMLElement*);
     UpDownState upDownState() const { return m_upDownState; }
 
 private:
-    SpinButtonElement(Node*);
+    SpinButtonElement(HTMLElement*);
 
     virtual bool isSpinButtonElement() const { return true; }
     // FIXME: shadowAncestorNode() should be const.
     virtual bool isEnabledFormControl() const { return static_cast<Element*>(const_cast<SpinButtonElement*>(this)->shadowAncestorNode())->isEnabledFormControl(); }
     virtual bool isReadOnlyFormControl() const { return static_cast<Element*>(const_cast<SpinButtonElement*>(this)->shadowAncestorNode())->isReadOnlyFormControl(); }
     virtual void defaultEventHandler(Event*);
+    void startRepeatingTimer();
+    void stopRepeatingTimer();
+    void repeatingTimerFired(Timer<SpinButtonElement>*);
     virtual void setHovered(bool = true);
 
     bool m_capturing;
     UpDownState m_upDownState;
+    UpDownState m_pressStartingState;
+    Timer<SpinButtonElement> m_repeatingTimer;
 };
 
 #if ENABLE(INPUT_SPEECH)
@@ -125,7 +131,7 @@ public:
         Recognizing,
     };
 
-    static PassRefPtr<InputFieldSpeechButtonElement> create(Node*);
+    static PassRefPtr<InputFieldSpeechButtonElement> create(HTMLElement*);
     virtual ~InputFieldSpeechButtonElement();
 
     virtual void detach();
@@ -138,7 +144,7 @@ public:
     void setRecognitionResult(int, const String& result);
 
 private:
-    InputFieldSpeechButtonElement(Node*);
+    InputFieldSpeechButtonElement(HTMLElement*);
     SpeechInput* speechInput();
     void setState(SpeechInputState state);
 

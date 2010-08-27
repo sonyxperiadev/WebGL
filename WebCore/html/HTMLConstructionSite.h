@@ -45,6 +45,8 @@ public:
     HTMLConstructionSite(Document*, FragmentScriptingPermission, bool isParsingFragment);
     ~HTMLConstructionSite();
 
+    void detach();
+
     void insertDoctype(AtomicHTMLToken&);
     void insertComment(AtomicHTMLToken&);
     void insertCommentOnDocument(AtomicHTMLToken&);
@@ -109,12 +111,12 @@ public:
 
 private:
     struct AttachmentSite {
-        Node* parent;
+        ContainerNode* parent;
         Node* nextChild;
     };
 
     template<typename ChildType>
-    PassRefPtr<ChildType> attach(Node* parent, PassRefPtr<ChildType> child);
+    PassRefPtr<ChildType> attach(ContainerNode* parent, PassRefPtr<ChildType> child);
     PassRefPtr<Element> attachToCurrent(PassRefPtr<Element>);
 
     void attachAtSite(const AttachmentSite&, PassRefPtr<Node> child);

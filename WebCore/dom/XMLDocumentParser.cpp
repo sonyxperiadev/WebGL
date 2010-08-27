@@ -132,7 +132,7 @@ void XMLDocumentParser::append(const SegmentedString& s)
     if (m_sawXSLTransform || !m_sawFirstElement)
         m_originalSourceForTransform += parseString;
 
-    if (m_parserStopped || m_sawXSLTransform)
+    if (isDetached() || m_parserStopped || m_sawXSLTransform)
         return;
 
     if (m_parserPaused) {
@@ -170,16 +170,14 @@ void XMLDocumentParser::handleError(ErrorType type, const char* m, int lineNumbe
         stopParsing();
 }
 
-bool XMLDocumentParser::enterText()
+void XMLDocumentParser::enterText()
 {
 #if !USE(QXMLSTREAM)
     ASSERT(m_bufferedText.size() == 0);
 #endif
     RefPtr<Node> newNode = Text::create(document(), "");
-    if (!m_currentNode->legacyParserAddChild(newNode.get()))
-        return false;
+    m_currentNode->deprecatedParserAddChild(newNode.get());
     pushCurrentNode(newNode.get());
-    return true;
 }
 
 #if !USE(QXMLSTREAM)
@@ -211,8 +209,18 @@ void XMLDocumentParser::exitText()
     popCurrentNode();
 }
 
+void XMLDocumentParser::detach()
+{
+    clearCurrentNodeStack();
+    ScriptableDocumentParser::detach();
+}
+
 void XMLDocumentParser::end()
 {
+    // XMLDocumentParserLibxml2 will do bad things to the document if doEnd() is called.
+    // I don't believe XMLDocumentParserQt needs doEnd called in the fragment case.
+    ASSERT(!m_parsingFragment);
+
     doEnd();
 
     // doEnd() could process a script tag, thus pausing parsing.
@@ -227,12 +235,16 @@ void XMLDocumentParser::end()
     }
 
     clearCurrentNodeStack();
-    if (!m_parsingFragment)
-        document()->finishedParsing();
+    document()->finishedParsing();
 }
 
 void XMLDocumentParser::finish()
 {
+    // FIXME: We should ASSERT(!m_parserStopped) here, since it does not
+    // makes sense to call any methods on DocumentParser once it's been stopped.
+    // However, FrameLoader::stop calls Document::finishParsing unconditionally
+    // which in turn calls m_parser->finish().
+
     if (m_parserPaused)
         m_finishCalled = true;
     else
@@ -338,6 +350,9 @@ void XMLDocumentParser::notifyFinished(CachedResource* unusedResource)
     ScriptElement* scriptElement = toScriptElement(e.get());
     ASSERT(scriptElement);
 
+    // JavaScript can detach this parser, make sure it's kept alive even if detached.
+    RefPtr<XMLDocumentParser> protect(this);
+    
     if (errorOccurred)
         scriptElement->dispatchErrorEvent();
     else {
@@ -347,7 +362,7 @@ void XMLDocumentParser::notifyFinished(CachedResource* unusedResource)
 
     m_scriptElement = 0;
 
-    if (!m_requestingScript)
+    if (!isDetached() && !m_requestingScript)
         resumeParsing();
 }
 
@@ -364,4 +379,25 @@ void XMLDocumentParser::pauseParsing()
     m_parserPaused = true;
 }
 
+bool XMLDocumentParser::parseDocumentFragment(const String& chunk, DocumentFragment* fragment, Element* contextElement, FragmentScriptingPermission scriptingPermission)
+{
+    if (!chunk.length())
+        return true;
+
+    // FIXME: We need to implement the HTML5 XML Fragment parsing algorithm:
+    // http://www.whatwg.org/specs/web-apps/current-work/multipage/the-xhtml-syntax.html#xml-fragment-parsing-algorithm
+    // For now we have a hack for script/style innerHTML support:
+    if (contextElement && (contextElement->hasLocalName(HTMLNames::scriptTag) || contextElement->hasLocalName(HTMLNames::styleTag))) {
+        fragment->parserAddChild(fragment->document()->createTextNode(chunk));
+        return true;
+    }
+
+    RefPtr<XMLDocumentParser> parser = XMLDocumentParser::create(fragment, contextElement, scriptingPermission);
+    bool wellFormed = parser->appendFragmentSource(chunk);
+    // Do not call finish().  Current finish() and doEnd() implementations touch the main Document/loader
+    // and can cause crashes in the fragment case.
+    parser->detach(); // Allows ~DocumentParser to assert it was detached before destruction.
+    return wellFormed; // appendFragmentSource()'s wellFormed is more permissive than wellFormed().
 }
+
+} // namespace WebCore

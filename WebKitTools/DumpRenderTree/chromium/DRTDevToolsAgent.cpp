@@ -74,14 +74,9 @@ void DRTDevToolsAgent::forceRepaint()
 {
 }
 
-void DRTDevToolsAgent::runtimeFeatureStateChanged(const WebKit::WebString& feature, bool enabled)
+void DRTDevToolsAgent::runtimePropertyChanged(const WebKit::WebString& name, const WebKit::WebString& value)
 {
-    // FIXME: implement this.
-}
-
-WebCString DRTDevToolsAgent::injectedScriptSource()
-{
-    return webkit_support::GetDevToolsInjectedScriptSource();
+    // FIXME: Implement.
 }
 
 WebCString DRTDevToolsAgent::debuggerScriptSource()
@@ -103,6 +98,14 @@ void DRTDevToolsAgent::call(const DRTDevToolsCallArgs &args)
     if (DRTDevToolsCallArgs::callsCount() == 1 && m_drtDevToolsClient)
         m_drtDevToolsClient->allMessagesProcessed();
 }
+
+void DRTDevToolsAgent::delayedFrontendLoaded()
+{
+    WebDevToolsAgent* agent = webDevToolsAgent();
+    if (agent)
+        agent->frontendLoaded();
+}
+
 
 WebDevToolsAgent* DRTDevToolsAgent::webDevToolsAgent()
 {
@@ -130,9 +133,8 @@ void DRTDevToolsAgent::detach()
 }
 
 void DRTDevToolsAgent::frontendLoaded() {
-    WebDevToolsAgent* agent = webDevToolsAgent();
-    if (agent)
-        agent->frontendLoaded();
+    webkit_support::PostTaskFromHere(
+        m_callMethodFactory.NewRunnableMethod(&DRTDevToolsAgent::delayedFrontendLoaded));
 }
 
 bool DRTDevToolsAgent::setTimelineProfilingEnabled(bool enabled)

@@ -35,17 +35,20 @@
 
 namespace WebCore {
 
+class IDBObjectStoreBackendImpl;
+class IDBTransactionCoordinator;
 class SQLiteDatabase;
 
 class IDBDatabaseBackendImpl : public IDBDatabaseBackendInterface {
 public:
-    static PassRefPtr<IDBDatabaseBackendImpl> create(const String& name, const String& description, PassOwnPtr<SQLiteDatabase> database)
+    static PassRefPtr<IDBDatabaseBackendImpl> create(const String& name, const String& description, PassOwnPtr<SQLiteDatabase> database, IDBTransactionCoordinator* coordinator)
     {
-        return adoptRef(new IDBDatabaseBackendImpl(name, description, database));
+        return adoptRef(new IDBDatabaseBackendImpl(name, description, database, coordinator));
     }
     virtual ~IDBDatabaseBackendImpl();
 
     void setDescription(const String& description);
+    SQLiteDatabase& sqliteDatabase() const { return *m_sqliteDatabase.get(); }
 
     // Implements IDBDatabase
     virtual String name() const { return m_name; }
@@ -58,16 +61,19 @@ public:
     virtual void removeObjectStore(const String& name, PassRefPtr<IDBCallbacks>);
     virtual PassRefPtr<IDBTransactionBackendInterface> transaction(DOMStringList* storeNames, unsigned short mode, unsigned long timeout);
 private:
-    IDBDatabaseBackendImpl(const String& name, const String& description, PassOwnPtr<SQLiteDatabase> database);
+    IDBDatabaseBackendImpl(const String& name, const String& description, PassOwnPtr<SQLiteDatabase> database, IDBTransactionCoordinator*);
+
+    void loadObjectStores();
 
     OwnPtr<SQLiteDatabase> m_sqliteDatabase;
-
     String m_name;
     String m_description;
     String m_version;
 
-    typedef HashMap<String, RefPtr<IDBObjectStoreBackendInterface> > ObjectStoreMap;
+    typedef HashMap<String, RefPtr<IDBObjectStoreBackendImpl> > ObjectStoreMap;
     ObjectStoreMap m_objectStores;
+
+    RefPtr<IDBTransactionCoordinator> m_transactionCoordinator;
 };
 
 } // namespace WebCore

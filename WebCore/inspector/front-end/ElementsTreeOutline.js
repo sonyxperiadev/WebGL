@@ -402,7 +402,7 @@ WebInspector.ElementsTreeElement.prototype = {
         var node = this.representedObject;
         if (!node.nodeName || node.nodeName.toLowerCase() !== "img")
             return;
-        
+
         function setTooltip(properties)
         {
             if (!properties)
@@ -761,6 +761,21 @@ WebInspector.ElementsTreeElement.prototype = {
         contextMenu.appendItem(WebInspector.UIString("Edit as HTML"), this._editAsHTML.bind(this));
         contextMenu.appendItem(WebInspector.UIString("Copy as HTML"), this._copyHTML.bind(this));
         contextMenu.appendItem(WebInspector.UIString("Delete Node"), this.remove.bind(this));
+
+        if (Preferences.domBreakpointsEnabled) {
+            // Add debbuging-related actions
+            contextMenu.appendSeparator();
+
+            contextMenu.appendItem(WebInspector.UIString("Stop on Subtree Modifications"),
+                WebInspector.domBreakpointManager.setBreakpoint.bind(WebInspector.domBreakpointManager, this.representedObject, WebInspector.DOMBreakpoint.Types.SubtreeModified));
+            contextMenu.appendItem(WebInspector.UIString("Stop on Attributes Modifications"),
+                WebInspector.domBreakpointManager.setBreakpoint.bind(WebInspector.domBreakpointManager, this.representedObject, WebInspector.DOMBreakpoint.Types.AttributeModified));
+            contextMenu.appendItem(WebInspector.UIString("Stop on Node Removal"),
+                WebInspector.domBreakpointManager.setBreakpoint.bind(WebInspector.domBreakpointManager, this.representedObject, WebInspector.DOMBreakpoint.Types.NodeRemoved));
+
+            contextMenu.appendItem(WebInspector.UIString("Remove Breakpoints"),
+                WebInspector.domBreakpointManager.removeBreakpointsForNode.bind(WebInspector.domBreakpointManager, this.representedObject));
+        }
     },
 
     _populateTextContextMenu: function(contextMenu, textNode)

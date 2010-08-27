@@ -39,6 +39,7 @@
 #include "Page.h"
 #include "RenderLayer.h"
 #include "RenderTextControlSingleLine.h"
+#include "ScrollbarTheme.h"
 #include "SpeechInput.h"
 
 namespace WebCore {
@@ -84,13 +85,13 @@ VisiblePosition RenderTextControlInnerBlock::positionForPoint(const IntPoint& po
 
 // ----------------------------
 
-TextControlInnerElement::TextControlInnerElement(Document* document, Node* shadowParent)
+TextControlInnerElement::TextControlInnerElement(Document* document, HTMLElement* shadowParent)
     : HTMLDivElement(divTag, document)
     , m_shadowParent(shadowParent)
 {
 }
 
-PassRefPtr<TextControlInnerElement> TextControlInnerElement::create(Node* shadowParent)
+PassRefPtr<TextControlInnerElement> TextControlInnerElement::create(HTMLElement* shadowParent)
 {
     return adoptRef(new TextControlInnerElement(shadowParent->document(), shadowParent));
 }
@@ -112,9 +113,12 @@ void TextControlInnerElement::attachInnerElement(Node* parent, PassRefPtr<Render
     setInDocument();
     
     // For elements without a shadow parent, add the node to the DOM normally.
-    if (!m_shadowParent)
-        parent->legacyParserAddChild(this);
-    
+    if (!m_shadowParent) {
+        // FIXME: This code seems very wrong.  Why are we magically adding |this| to the DOM here?
+        //        We shouldn't be calling parser API methods outside of the parser!
+        parent->deprecatedParserAddChild(this);
+    }
+ 
     // Add the renderer to the render tree
     if (renderer)
         parent->renderer()->addChild(renderer);
@@ -122,12 +126,12 @@ void TextControlInnerElement::attachInnerElement(Node* parent, PassRefPtr<Render
 
 // ----------------------------
 
-inline TextControlInnerTextElement::TextControlInnerTextElement(Document* document, Node* shadowParent)
+inline TextControlInnerTextElement::TextControlInnerTextElement(Document* document, HTMLElement* shadowParent)
     : TextControlInnerElement(document, shadowParent)
 {
 }
 
-PassRefPtr<TextControlInnerTextElement> TextControlInnerTextElement::create(Document* document, Node* shadowParent)
+PassRefPtr<TextControlInnerTextElement> TextControlInnerTextElement::create(Document* document, HTMLElement* shadowParent)
 {
     return adoptRef(new TextControlInnerTextElement(document, shadowParent));
 }
@@ -251,14 +255,16 @@ void SearchFieldCancelButtonElement::defaultEventHandler(Event* event)
 
 // ----------------------------
 
-inline SpinButtonElement::SpinButtonElement(Node* shadowParent)
+inline SpinButtonElement::SpinButtonElement(HTMLElement* shadowParent)
     : TextControlInnerElement(shadowParent->document(), shadowParent)
     , m_capturing(false)
     , m_upDownState(Indeterminate)
+    , m_pressStartingState(Indeterminate)
+    , m_repeatingTimer(this, &SpinButtonElement::repeatingTimerFired)
 {
 }
 
-PassRefPtr<SpinButtonElement> SpinButtonElement::create(Node* shadowParent)
+PassRefPtr<SpinButtonElement> SpinButtonElement::create(HTMLElement* shadowParent)
 {
     return adoptRef(new SpinButtonElement(shadowParent));
 }
@@ -266,13 +272,6 @@ PassRefPtr<SpinButtonElement> SpinButtonElement::create(Node* shadowParent)
 void SpinButtonElement::defaultEventHandler(Event* event)
 {
     if (!event->isMouseEvent()) {
-        if (!event->defaultHandled())
-            HTMLDivElement::defaultEventHandler(event);
-        return;
-    }
-
-    MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
-    if (mouseEvent->button() != LeftButton) {
         if (!event->defaultHandled())
             HTMLDivElement::defaultEventHandler(event);
         return;
@@ -292,23 +291,24 @@ void SpinButtonElement::defaultEventHandler(Event* event)
         return;
     }
 
+    MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
     IntPoint local = roundedIntPoint(box->absoluteToLocal(mouseEvent->absoluteLocation(), false, true));
-    if (event->type() == eventNames().clickEvent) {
+    if (mouseEvent->type() == eventNames().mousedownEvent && mouseEvent->button() == LeftButton) {
         if (box->borderBoxRect().contains(local)) {
             RefPtr<Node> protector(input);
             input->focus();
             input->select();
-            if (local.y() < box->height() / 2)
-                input->stepUpFromRenderer(1);
-            else
-                input->stepUpFromRenderer(-1);
+            input->stepUpFromRenderer(m_upDownState == Up ? 1 : -1);
             event->setDefaultHandled();
+            startRepeatingTimer();
         }
-    } else if (event->type() == eventNames().mousemoveEvent) {
+    } else if (mouseEvent->type() == eventNames().mouseupEvent && mouseEvent->button() == LeftButton)
+        stopRepeatingTimer();
+    else if (event->type() == eventNames().mousemoveEvent) {
         if (box->borderBoxRect().contains(local)) {
             if (!m_capturing) {
                 if (Frame* frame = document()->frame()) {
-                    frame->eventHandler()->setCapturingMouseEventsNode(input);
+                    frame->eventHandler()->setCapturingMouseEventsNode(this);
                     m_capturing = true;
                 }
             }
@@ -318,6 +318,7 @@ void SpinButtonElement::defaultEventHandler(Event* event)
                 renderer()->repaint();
         } else {
             if (m_capturing) {
+                stopRepeatingTimer();
                 if (Frame* frame = document()->frame()) {
                     frame->eventHandler()->setCapturingMouseEventsNode(0);
                     m_capturing = false;
@@ -328,6 +329,33 @@ void SpinButtonElement::defaultEventHandler(Event* event)
 
     if (!event->defaultHandled())
         HTMLDivElement::defaultEventHandler(event);
+}
+
+void SpinButtonElement::startRepeatingTimer()
+{
+    m_pressStartingState = m_upDownState;
+    ScrollbarTheme* theme = ScrollbarTheme::nativeTheme();
+    m_repeatingTimer.start(theme->initialAutoscrollTimerDelay(), theme->autoscrollTimerDelay());
+}
+
+void SpinButtonElement::stopRepeatingTimer()
+{
+    m_repeatingTimer.stop();
+}
+
+void SpinButtonElement::repeatingTimerFired(Timer<SpinButtonElement>*)
+{
+    HTMLInputElement* input = static_cast<HTMLInputElement*>(shadowAncestorNode());
+    if (input->disabled() || input->isReadOnlyFormControl())
+        return;
+    // On Mac OS, NSStepper updates the value for the button under the mouse
+    // cursor regardless of the button pressed at the beginning. So the
+    // following check is not needed for Mac OS.
+#if !OS(MAC_OS_X)
+    if (m_upDownState != m_pressStartingState)
+        return;
+#endif
+    input->stepUpFromRenderer(m_upDownState == Up ? 1 : -1);
 }
 
 void SpinButtonElement::setHovered(bool flag)
@@ -342,7 +370,7 @@ void SpinButtonElement::setHovered(bool flag)
 
 #if ENABLE(INPUT_SPEECH)
 
-inline InputFieldSpeechButtonElement::InputFieldSpeechButtonElement(Node* shadowParent)
+inline InputFieldSpeechButtonElement::InputFieldSpeechButtonElement(HTMLElement* shadowParent)
     : TextControlInnerElement(shadowParent->document(), shadowParent)
     , m_capturing(false)
     , m_state(Idle)
@@ -360,7 +388,7 @@ InputFieldSpeechButtonElement::~InputFieldSpeechButtonElement()
     }
 }
 
-PassRefPtr<InputFieldSpeechButtonElement> InputFieldSpeechButtonElement::create(Node* shadowParent)
+PassRefPtr<InputFieldSpeechButtonElement> InputFieldSpeechButtonElement::create(HTMLElement* shadowParent)
 {
     return adoptRef(new InputFieldSpeechButtonElement(shadowParent));
 }
@@ -397,7 +425,7 @@ void InputFieldSpeechButtonElement::defaultEventHandler(Event* event)
     if (event->type() == eventNames().clickEvent) {
         switch (m_state) {
         case Idle:
-            if (speechInput()->startRecognition(m_listenerId))
+            if (speechInput()->startRecognition(m_listenerId, input->renderer()->absoluteBoundingBoxRect()))
                 setState(Recording);
             break;
         case Recording:
@@ -455,6 +483,10 @@ void InputFieldSpeechButtonElement::detach()
         if (Frame* frame = document()->frame())
             frame->eventHandler()->setCapturingMouseEventsNode(0);      
     }
+
+    if (m_state != Idle)
+      speechInput()->cancelRecognition(m_listenerId);
+
     TextControlInnerElement::detach();
 }
 

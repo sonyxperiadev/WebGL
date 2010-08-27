@@ -32,7 +32,7 @@
 #include "CollectionType.h"
 #include "Color.h"
 #include "ContainerNode.h"
-#include "DocumentMarker.h"
+#include "DocumentMarkerController.h"
 #include "QualifiedName.h"
 #include "ScriptExecutionContext.h"
 #include "Timer.h"
@@ -123,10 +123,6 @@ class SVGDocumentExtensions;
 
 #if ENABLE(XSLT)
 class TransformSource;
-#endif
-
-#if ENABLE(XBL)
-class XBLBindingManager;
 #endif
 
 #if ENABLE(XPATH)
@@ -563,7 +559,7 @@ public:
     CSSStyleSheet* elementSheet();
     CSSStyleSheet* mappedElementSheet();
     
-    virtual DocumentParser* createParser();
+    virtual PassRefPtr<DocumentParser> createParser();
     DocumentParser* parser() const { return m_parser.get(); }
     ScriptableDocumentParser* scriptableDocumentParser() const;
     
@@ -819,30 +815,14 @@ public:
 
     HTMLHeadElement* head();
 
+    DocumentMarkerController* markers() const { return m_markers.get(); }
+
     bool execCommand(const String& command, bool userInterface = false, const String& value = String());
     bool queryCommandEnabled(const String& command);
     bool queryCommandIndeterm(const String& command);
     bool queryCommandState(const String& command);
     bool queryCommandSupported(const String& command);
     String queryCommandValue(const String& command);
-    
-    void addMarker(Range*, DocumentMarker::MarkerType, String description = String());
-    void addMarker(Node*, DocumentMarker);
-    void copyMarkers(Node *srcNode, unsigned startOffset, int length, Node *dstNode, int delta, DocumentMarker::MarkerType = DocumentMarker::AllMarkers);
-    void removeMarkers(Range*, DocumentMarker::MarkerType = DocumentMarker::AllMarkers);
-    void removeMarkers(Node*, unsigned startOffset, int length, DocumentMarker::MarkerType = DocumentMarker::AllMarkers);
-    void removeMarkers(DocumentMarker::MarkerType = DocumentMarker::AllMarkers);
-    void removeMarkers(Node*);
-    void repaintMarkers(DocumentMarker::MarkerType = DocumentMarker::AllMarkers);
-    void setRenderedRectForMarker(Node*, const DocumentMarker&, const IntRect&);
-    void invalidateRenderedRectsForMarkersInRect(const IntRect&);
-    void shiftMarkers(Node*, unsigned startOffset, int delta, DocumentMarker::MarkerType = DocumentMarker::AllMarkers);
-    void setMarkersActive(Range*, bool);
-    void setMarkersActive(Node*, unsigned startOffset, unsigned endOffset, bool);
-
-    DocumentMarker* markerContainingPoint(const IntPoint&, DocumentMarker::MarkerType = DocumentMarker::AllMarkers);
-    Vector<DocumentMarker> markersForNode(Node*);
-    Vector<IntRect> renderedRectsForMarkers(DocumentMarker::MarkerType = DocumentMarker::AllMarkers);
     
     // designMode support
     enum InheritedBool { off = false, on = true, inherit };    
@@ -864,11 +844,6 @@ public:
 
     void setTransformSource(PassOwnPtr<TransformSource>);
     TransformSource* transformSource() const { return m_transformSource.get(); }
-#endif
-
-#if ENABLE(XBL)
-    // XBL methods
-    XBLBindingManager* bindingManager() const { return m_bindingManager.get(); }
 #endif
 
     void incDOMTreeVersion() { ++m_domTreeVersion; }
@@ -1035,6 +1010,7 @@ protected:
 
 
 private:
+    void detachParser();
 
     typedef void (*ArgumentsCallback)(const String& keyString, const String& valueString, Document*, void* data);
     void processArguments(const String& features, void* data, ArgumentsCallback);
@@ -1079,7 +1055,7 @@ private:
 
     Frame* m_frame;
     OwnPtr<DocLoader> m_docLoader;
-    OwnPtr<DocumentParser> m_parser;
+    RefPtr<DocumentParser> m_parser;
     bool m_wellFormed;
 
     // Document URLs.
@@ -1193,6 +1169,7 @@ private:
 
     OwnPtr<RenderArena> m_renderArena;
 
+<<<<<<< HEAD
     typedef std::pair<Vector<DocumentMarker>, Vector<IntRect> > MarkerMapVectorPair;
     typedef HashMap<RefPtr<Node>, MarkerMapVectorPair*> MarkerMap;
     MarkerMap m_markers;
@@ -1200,6 +1177,10 @@ private:
 #if !PLATFORM(ANDROID)
     mutable AXObjectCache* m_axObjectCache;
 #endif
+=======
+    mutable AXObjectCache* m_axObjectCache;
+    OwnPtr<DocumentMarkerController> m_markers;
+>>>>>>> webkit.org at r66079
     
     Timer<Document> m_updateFocusAppearanceTimer;
 
@@ -1221,10 +1202,13 @@ private:
     RefPtr<Document> m_transformSourceDocument;
 #endif
 
+<<<<<<< HEAD
 #if ENABLE(XBL)
     OwnPtr<XBLBindingManager> m_bindingManager; // The access point through which documents and elements communicate with XBL.
 #endif
 
+=======
+>>>>>>> webkit.org at r66079
     typedef HashMap<AtomicStringImpl*, HTMLMapElement*> ImageMapsByName;
     ImageMapsByName m_imageMapsByName;
 
@@ -1327,7 +1311,7 @@ inline bool Node::isDocumentNode() const
 
 // here because it uses a Document method but we really want to inline it
 inline Node::Node(Document* document, ConstructionType type)
-    : TreeShared<Node>(initialRefCount(type))
+    : TreeShared<ContainerNode>(initialRefCount(type))
     , m_document(document)
     , m_previous(0)
     , m_next(0)

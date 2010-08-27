@@ -1,4 +1,3 @@
-FEATURE_DEFINES :=
 SVG_FEATURES :=
 HTML_FEATURES :=
 
@@ -98,6 +97,8 @@ webcore_built_sources += \
 	DerivedSources/WebCore/HTMLNames.h \
 	DerivedSources/WebCore/InspectorBackendDispatcher.cpp \
 	DerivedSources/WebCore/InspectorBackendDispatcher.h \
+	DerivedSources/WebCore/InspectorFrontend.cpp \
+	DerivedSources/WebCore/InspectorFrontend.h \
 	DerivedSources/WebCore/JSAbstractWorker.cpp \
 	DerivedSources/WebCore/JSAbstractWorker.h \
 	DerivedSources/WebCore/JSArrayBuffer.cpp \
@@ -238,6 +239,8 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSFileList.h \
 	DerivedSources/WebCore/JSFileReader.cpp \
 	DerivedSources/WebCore/JSFileReader.h \
+	DerivedSources/WebCore/JSFileWriter.cpp \
+	DerivedSources/WebCore/JSFileWriter.h \
 	DerivedSources/WebCore/JSFloat32Array.cpp \
 	DerivedSources/WebCore/JSFloat32Array.h \
 	DerivedSources/WebCore/JSGeolocation.cpp \
@@ -549,8 +552,6 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSXMLSerializer.h \
 	DerivedSources/WebCore/JSXSLTProcessor.cpp \
 	DerivedSources/WebCore/JSXSLTProcessor.h \
-	DerivedSources/WebCore/RemoteInspectorFrontend.cpp \
-	DerivedSources/WebCore/RemoteInspectorFrontend.h \
 	DerivedSources/WebCore/UserAgentStyleSheetsData.cpp \
 	DerivedSources/WebCore/UserAgentStyleSheets.h \
 	DerivedSources/WebCore/XMLNames.cpp \
@@ -1040,11 +1041,13 @@ webcore_sources += \
 	WebCore/dom/DeviceOrientationEvent.cpp \
 	WebCore/dom/DeviceOrientationEvent.h \
 	WebCore/dom/Document.cpp \
-	WebCore/dom/DocumentParser.cpp \
 	WebCore/dom/Document.h \
 	WebCore/dom/DocumentFragment.cpp \
 	WebCore/dom/DocumentFragment.h \
 	WebCore/dom/DocumentMarker.h \
+	WebCore/dom/DocumentMarkerController.cpp \
+	WebCore/dom/DocumentMarkerController.h \
+	WebCore/dom/DocumentParser.cpp \
 	WebCore/dom/DocumentType.cpp \
 	WebCore/dom/DocumentType.h \
 	WebCore/dom/DynamicNodeList.cpp \
@@ -1353,9 +1356,8 @@ webcore_sources += \
 	WebCore/html/FileList.h \
 	WebCore/html/FileReader.cpp \
 	WebCore/html/FileReader.h \
-	WebCore/html/FileStream.cpp \
-	WebCore/html/FileStream.h \
-	WebCore/html/FileStreamClient.h \
+	WebCore/html/FileWriter.cpp \
+	WebCore/html/FileWriter.h \
 	WebCore/html/FileStreamProxy.cpp \
 	WebCore/html/FileStreamProxy.h \
 	WebCore/html/FileThread.cpp \
@@ -1506,8 +1508,6 @@ webcore_sources += \
 	WebCore/html/HTMLParagraphElement.h \
 	WebCore/html/HTMLParamElement.cpp \
 	WebCore/html/HTMLParamElement.h \
-	WebCore/html/LegacyHTMLTreeBuilder.cpp \
-	WebCore/html/LegacyHTMLTreeBuilder.h \
 	WebCore/html/HTMLParserErrorCodes.cpp \
 	WebCore/html/HTMLParserErrorCodes.h \
 	WebCore/html/HTMLParserQuirks.h \
@@ -1625,6 +1625,8 @@ webcore_sources += \
 	WebCore/inspector/InspectorFrontendClientLocal.h \
 	WebCore/inspector/InspectorFrontendHost.cpp \
 	WebCore/inspector/InspectorFrontendHost.h \
+	WebCore/inspector/InspectorProfilerAgent.cpp \
+	WebCore/inspector/InspectorProfilerAgent.h \
 	WebCore/inspector/InspectorResource.cpp \
 	WebCore/inspector/InspectorResource.h \
 	WebCore/inspector/InspectorStorageAgent.cpp \
@@ -1659,7 +1661,6 @@ webcore_sources += \
 	WebCore/loader/CachedResourceHandle.h \
 	WebCore/loader/CachedScript.cpp \
 	WebCore/loader/CachedScript.h \
-	WebCore/loader/CachedXBLDocument.h \
 	WebCore/loader/CachedXSLStyleSheet.cpp \
 	WebCore/loader/CachedXSLStyleSheet.h \
 	WebCore/loader/CrossOriginAccessControl.cpp \
@@ -1705,6 +1706,8 @@ webcore_sources += \
 	WebCore/loader/NavigationAction.h \
 	WebCore/loader/NetscapePlugInStreamLoader.cpp \
 	WebCore/loader/NetscapePlugInStreamLoader.h \
+	WebCore/loader/PingLoader.cpp \
+	WebCore/loader/PingLoader.h \
 	WebCore/loader/PlaceholderDocument.cpp \
 	WebCore/loader/PlaceholderDocument.h \
 	WebCore/loader/PluginDocument.cpp \
@@ -1877,6 +1880,7 @@ webcore_sources += \
 	WebCore/page/animation/KeyframeAnimation.h \
 	WebCore/platform/Arena.cpp \
 	WebCore/platform/Arena.h \
+	WebCore/platform/AsyncFileStream.h \
 	WebCore/platform/AutodrainedPool.h \
 	WebCore/platform/BlobItem.cpp \
 	WebCore/platform/BlobItem.h \
@@ -1901,6 +1905,9 @@ webcore_sources += \
 	WebCore/platform/EventLoop.h \
 	WebCore/platform/FileChooser.cpp \
 	WebCore/platform/FileChooser.h \
+	WebCore/platform/FileStream.cpp \
+	WebCore/platform/FileStream.h \
+	WebCore/platform/FileStreamClient.h \
 	WebCore/platform/FileSystem.cpp \
 	WebCore/platform/FileSystem.h \
 	WebCore/platform/FloatConversion.h \
@@ -2094,6 +2101,8 @@ webcore_sources += \
 	WebCore/platform/network/BlobRegistry.h \
 	WebCore/platform/network/BlobRegistryImpl.cpp \
 	WebCore/platform/network/BlobRegistryImpl.h \
+	WebCore/platform/network/BlobResourceHandle.cpp \
+	WebCore/platform/network/BlobResourceHandle.h \
 	WebCore/platform/network/BlobStorageData.h \
 	WebCore/platform/network/Credential.cpp \
 	WebCore/platform/network/Credential.h \
@@ -2362,8 +2371,6 @@ webcore_sources += \
 	WebCore/rendering/TransformState.h \
 	WebCore/rendering/break_lines.cpp \
 	WebCore/rendering/break_lines.h \
-	WebCore/rendering/style/BindingURI.cpp \
-	WebCore/rendering/style/BindingURI.h \
 	WebCore/rendering/style/BorderData.h \
 	WebCore/rendering/style/BorderValue.h \
 	WebCore/rendering/style/CollapsedBorderValue.h \
@@ -2446,8 +2453,6 @@ webcoregtk_sources += \
 	WebCore/platform/graphics/cairo/FontPlatformData.h \
 	WebCore/platform/graphics/cairo/GOwnPtrCairo.cpp \
 	WebCore/platform/graphics/cairo/GOwnPtrCairo.h \
-	WebCore/platform/graphics/cairo/GRefPtrCairo.cpp \
-	WebCore/platform/graphics/cairo/GRefPtrCairo.h \
 	WebCore/platform/graphics/cairo/GradientCairo.cpp \
 	WebCore/platform/graphics/cairo/GraphicsContextCairo.cpp \
 	WebCore/platform/graphics/cairo/GraphicsContextPlatformPrivateCairo.h \
@@ -2456,6 +2461,8 @@ webcoregtk_sources += \
 	WebCore/platform/graphics/cairo/ImageCairo.cpp \
 	WebCore/platform/graphics/cairo/PathCairo.cpp \
 	WebCore/platform/graphics/cairo/PatternCairo.cpp \
+	WebCore/platform/graphics/cairo/PlatformRefPtrCairo.cpp \
+	WebCore/platform/graphics/cairo/PlatformRefPtrCairo.h \
 	WebCore/platform/graphics/cairo/TransformationMatrixCairo.cpp \
 	WebCore/platform/graphics/gtk/ColorGtk.cpp \
 	WebCore/platform/graphics/gtk/CairoUtilities.cpp \
@@ -2564,15 +2571,6 @@ webcore_sources += \
 	WebCore/plugins/win/PluginDatabaseWin.cpp \
 	WebCore/plugins/win/PluginMessageThrottlerWin.cpp \
 	WebCore/plugins/win/PluginMessageThrottlerWin.h
-endif
-
-# ----
-# GTK+ 2.x/3.x support
-# ----
-
-if GTK_API_VERSION_2
-webcore_cppflags += \
-	-DGTK_API_VERSION_2=1
 endif
 
 # ----
@@ -2992,12 +2990,12 @@ webcore_sources += \
 endif # END ENABLE_DOM_STORAGE
 
 # ----
-# HTML5 FileSystem API support
+# FileSystem API support
 # ----
 if ENABLE_FILE_SYSTEM
+
 FEATURE_DEFINES += ENABLE_FILE_SYSTEM=1
 webcore_cppflags += -DENABLE_FILE_SYSTEM=1
-endif # END ENABLE_FILE_SYSTEM
 
 webcore_built_sources += \
        DerivedSources/WebCore/JSDirectoryEntry.cpp \
@@ -3032,6 +3030,8 @@ webcore_sources += \
        WebCore/storage/DirectoryEntry.h \
        WebCore/storage/DirectoryReader.cpp \
        WebCore/storage/DirectoryReader.h \
+       WebCore/storage/DOMFilePath.cpp \
+       WebCore/storage/DOMFilePath.h \
        WebCore/storage/DOMFileSystem.cpp \
        WebCore/storage/DOMFileSystem.h \
        WebCore/storage/EntriesCallback.h \
@@ -3044,9 +3044,13 @@ webcore_sources += \
        WebCore/storage/FileEntry.cpp \
        WebCore/storage/FileEntry.h \
        WebCore/storage/FileSystemCallback.h \
+       WebCore/storage/FileSystemCallbacks.cpp \
+       WebCore/storage/FileSystemCallbacks.h \
        WebCore/storage/Flags.h \
        WebCore/storage/Metadata.h \
        WebCore/storage/MetadataCallback.h
+
+endif # END ENABLE_FILE_SYSTEM
 
 # ----
 # Speech Input API support
@@ -3166,6 +3170,8 @@ webcoregtk_sources += \
 	WebCore/platform/graphics/gstreamer/GStreamerGWorld.h \
 	WebCore/platform/graphics/gstreamer/ImageGStreamer.h \
 	WebCore/platform/graphics/gstreamer/ImageGStreamerCairo.cpp \
+	WebCore/platform/graphics/gstreamer/PlatformVideoWindow.h \
+	WebCore/platform/graphics/gstreamer/PlatformVideoWindowGtk.cpp \
 	WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp \
 	WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.h
 
@@ -4522,8 +4528,8 @@ DerivedSources/WebCore/XMLNSNames.cpp DerivedSources/WebCore/XMLNSNames.h: $(Web
 DerivedSources/WebCore/XMLNames.cpp DerivedSources/WebCore/XMLNames.h: $(WebCore)/dom/make_names.pl $(WebCore)/xml/xmlattrs.in
 	$(AM_V_GEN)$(PERL) -I$(WebCore)/bindings/scripts $< --attrs $(WebCore)/xml/xmlattrs.in --outputDir "$(GENSOURCES_WEBCORE)"
 
-# RemoteInspectorFrontend and InspectorBackendDispatcher
-DerivedSources/WebCore/RemoteInspectorFrontend.cpp DerivedSources/WebCore/RemoteInspectorFrontend.h DerivedSources/WebCore/InspectorBackendDispatcher.cpp DerivedSources/WebCore/InspectorBackendDispatcher.h: $(WebCore)/inspector/Inspector.idl $(SCRIPTS_BINDINGS) $(WebCore)/inspector/CodeGeneratorInspector.pm
+# All Web Inspector generated files are created with this one call to CodeGeneratorInspector.pm
+DerivedSources/WebCore/InspectorFrontend.cpp DerivedSources/WebCore/InspectorFrontend.h DerivedSources/WebCore/InspectorBackendDispatcher.cpp DerivedSources/WebCore/InspectorBackendDispatcher.h DerivedSources/WebCore/InspectorBackendStub.js: $(WebCore)/inspector/Inspector.idl $(SCRIPTS_BINDINGS) $(WebCore)/inspector/CodeGeneratorInspector.pm
 	$(AM_V_GEN)$(PERL) -I$(WebCore)/bindings/scripts -I$(WebCore)/inspector $(WebCore)/bindings/scripts/generate-bindings.pl $(IDL_PATH:%=--include "%") --outputDir "$(GENSOURCES_WEBCORE)" --defines "LANGUAGE_JAVASCRIPT=1 $(FEATURE_DEFINES)" --generator Inspector $<
 
 IDL_PATH := \
@@ -4630,12 +4636,18 @@ dist_webinspectorimages_DATA = \
 	$(shell ls $(WebCore)/inspector/front-end/Images/*.gif) \
 	$(shell ls $(WebCore)/inspector/front-end/Images/*.png)
 
-noinst_webinspectordir = ${GENSOURCES_INSPECTOR}
-noinst_webinspector_SCRIPTS = ${GENSOURCES_INSPECTOR}/inspector.html
-${GENSOURCES_INSPECTOR}/inspector.html :
-	mkdir -p ${GENSOURCES_INSPECTOR}/images
-	cp ${dist_webinspector_DATA} ${GENSOURCES_INSPECTOR}
-	cp ${dist_webinspectorimages_DATA} ${GENSOURCES_INSPECTOR}/images
+# It seems that $(shell) does not expand when it is a rule dependency, so
+# we must redefine this list of copied files with traditional dependency wildcards.
+noinst_DATA = ${GENSOURCES_INSPECTOR}/inspector.html
+${GENSOURCES_INSPECTOR}/inspector.html: $(WebCore)/inspector/front-end/*.html \
+		$(WebCore)/inspector/front-end/*.js \
+		$(WebCore)/inspector/front-end/*.css \
+		$(WebCore)/inspector/front-end/Images/* \
+		DerivedSources/WebCore/InspectorBackendStub.js \
+		$(WebCore)/English.lproj/localizedStrings.js
+	$(AM_V_GEN)mkdir -p ${GENSOURCES_INSPECTOR}/images
+	$(AM_V_at)cp ${dist_webinspector_DATA} ${GENSOURCES_INSPECTOR}
+	$(AM_V_at)cp ${dist_webinspectorimages_DATA} ${GENSOURCES_INSPECTOR}/images
 
 webresourcesdir = ${datadir}/webkitgtk-@WEBKITGTK_API_VERSION@/images
 dist_webresources_DATA = \

@@ -35,6 +35,12 @@ function verifySuccessEvent(event)
     verifyEventCommon(event);
 }
 
+function verifyAbortEvent(event)
+{
+    debug("Abort event fired:");
+    shouldBeEqualToString("event.type", "abort");
+}
+
 function verifyResult(result)
 {
     shouldBeTrue("'onsuccess' in result");
@@ -45,6 +51,14 @@ function verifyResult(result)
     debug("");
 }
 
+function unexpectedSuccessCallback()
+{
+    testFailed("Success function called unexpectedly.");
+    debug("");
+    verifySuccessEvent(event);
+    done();
+}
+
 function unexpectedErrorCallback()
 {
     testFailed("Error function called unexpectedly: (" + event.code + ") " + event.message);
@@ -53,3 +67,9 @@ function unexpectedErrorCallback()
     done();
 }
 
+function deleteAllObjectStores(db)
+{
+    objectStores = db.objectStores;
+    for (var i = 0; i < objectStores.length; ++i)
+        db.removeObjectStore(objectStores[i]);
+}

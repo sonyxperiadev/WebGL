@@ -47,10 +47,6 @@ public:
 private:
     HTMLMapElement(const QualifiedName&, Document*);
 
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
-    virtual int tagPriority() const { return 1; }
-    virtual bool checkDTD(const Node*);
-
     virtual void parseMappedAttribute(Attribute*);
 
     virtual void insertedIntoDocument();

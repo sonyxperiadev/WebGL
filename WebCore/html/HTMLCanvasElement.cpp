@@ -97,28 +97,6 @@ HTMLCanvasElement::~HTMLCanvasElement()
         m_observer->canvasDestroyed(this);
 }
 
-#if ENABLE(DASHBOARD_SUPPORT)
-
-HTMLTagStatus HTMLCanvasElement::endTagRequirement() const 
-{
-    Settings* settings = document()->settings();
-    if (settings && settings->usesDashboardBackwardCompatibilityMode())
-        return TagStatusForbidden; 
-
-    return HTMLElement::endTagRequirement();
-}
-
-int HTMLCanvasElement::tagPriority() const 
-{ 
-    Settings* settings = document()->settings();
-    if (settings && settings->usesDashboardBackwardCompatibilityMode())
-        return 0; 
-
-    return HTMLElement::tagPriority();
-}
-
-#endif
-
 void HTMLCanvasElement::parseMappedAttribute(Attribute* attr)
 {
     const QualifiedName& attrName = attr->name();
@@ -168,7 +146,7 @@ CanvasRenderingContext* HTMLCanvasElement::getContext(const String& type, Canvas
             if (Settings* settings = document()->settings())
                 usesDashbardCompatibilityMode = settings->usesDashboardBackwardCompatibilityMode();
 #endif
-            m_context = new CanvasRenderingContext2D(this, document()->inCompatMode(), usesDashbardCompatibilityMode);
+            m_context = adoptPtr(new CanvasRenderingContext2D(this, document()->inCompatMode(), usesDashbardCompatibilityMode));
 #if ENABLE(ACCELERATED_2D_CANVAS) && USE(ACCELERATED_COMPOSITING)
             if (m_context) {
                 // Need to make sure a RenderLayer and compositing layer get created for the Canvas
@@ -272,15 +250,11 @@ void HTMLCanvasElement::paint(GraphicsContext* context, const IntRect& r)
     if (context->paintingDisabled())
         return;
     
-#if ENABLE(3D_CANVAS)
-    WebGLRenderingContext* context3D = 0;
-    if (m_context && m_context->is3d()) {
-        context3D = static_cast<WebGLRenderingContext*>(m_context.get());
-        if (!context3D->paintsIntoCanvasBuffer())
+    if (m_context) {
+        if (!m_context->paintsIntoCanvasBuffer())
             return;
-        context3D->paintRenderingResultsToCanvas();
+        m_context->paintRenderingResultsToCanvas();
     }
-#endif
 
     if (hasCreatedImageBuffer()) {
         ImageBuffer* imageBuffer = buffer();

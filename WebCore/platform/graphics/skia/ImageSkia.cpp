@@ -419,8 +419,9 @@ static void drawBitmapGLES2(GraphicsContext* ctxt, NativeImageSkia* bitmap, cons
         ASSERT(bitmap->config() == SkBitmap::kARGB_8888_Config);
         ASSERT(bitmap->rowBytes() == bitmap->width() * 4);
         texture = gpuCanvas->createTexture(bitmap, GLES2Texture::BGRA8, bitmap->width(), bitmap->height());
-        ASSERT(bitmap->pixelRef());
-        texture->load(bitmap->pixelRef()->pixels());
+        SkAutoLockPixels lock(*bitmap);
+        ASSERT(bitmap->getPixels());
+        texture->load(bitmap->getPixels());
     }
     gpuCanvas->drawTexturedRect(texture, srcRect, dstRect, styleColorSpace, compositeOp);
 }
@@ -516,11 +517,19 @@ void BitmapImageSingleFrameSkia::draw(GraphicsContext* ctxt,
                   WebCoreCompositeToSkiaComposite(compositeOp));
 }
 
-PassRefPtr<BitmapImageSingleFrameSkia> BitmapImageSingleFrameSkia::create(const SkBitmap& bitmap)
+BitmapImageSingleFrameSkia::BitmapImageSingleFrameSkia(const SkBitmap& bitmap)
+    : m_nativeImage(bitmap)
 {
-    RefPtr<BitmapImageSingleFrameSkia> image(adoptRef(new BitmapImageSingleFrameSkia()));
-    bitmap.copyTo(&image->m_nativeImage, bitmap.config());
-    return image.release();
+}
+
+PassRefPtr<BitmapImageSingleFrameSkia> BitmapImageSingleFrameSkia::create(const SkBitmap& bitmap, bool copyPixels)
+{
+    if (copyPixels) {
+        SkBitmap temp;
+        bitmap.copyTo(&temp, bitmap.config());
+        return adoptRef(new BitmapImageSingleFrameSkia(temp));
+    }
+    return adoptRef(new BitmapImageSingleFrameSkia(bitmap));
 }
 
 }  // namespace WebCore

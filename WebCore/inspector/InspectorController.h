@@ -33,9 +33,7 @@
 #include "Cookie.h"
 #include "InspectorDOMAgent.h"
 #include "PlatformString.h"
-#include "ScriptProfile.h"
 #include "ScriptState.h"
-#include "Timer.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/ListHashSet.h>
@@ -63,8 +61,10 @@ class InspectorCSSStore;
 class InspectorDOMStorageResource;
 class InspectorDatabaseResource;
 class InspectorDebuggerAgent;
+class InspectorFrontend;
 class InspectorFrontendClient;
 class InspectorObject;
+class InspectorProfilerAgent;
 class InspectorResource;
 class InspectorStorageAgent;
 class InspectorTimelineAgent;
@@ -73,11 +73,11 @@ class InspectorWorkerResource;
 class KURL;
 class Node;
 class Page;
-class RemoteInspectorFrontend;
 class ResourceRequest;
 class ResourceResponse;
 class ResourceError;
 class ScriptCallStack;
+class ScriptProfile;
 class ScriptString;
 class SharedBuffer;
 class Storage;
@@ -118,7 +118,7 @@ public:
     void setSetting(const String& key, const String& value);
     void saveApplicationSettings(const String& settings);
     void saveSessionSettings(const String&);
-
+    void getSettings(RefPtr<InspectorObject>*);
 
     void inspect(Node*);
     void highlight(Node*);
@@ -149,8 +149,6 @@ public:
     bool hasInspectorFrontendClient() const { return m_inspectorFrontendClient; }
 
     void inspectedWindowScriptObjectCleared(Frame*);
-
-    bool windowVisible();
 
     void didCommitLoad(DocumentLoader*);
     void frameDetachedFromParent(Frame*);
@@ -209,7 +207,7 @@ public:
 
     const ResourcesMap& resources() const { return m_resources; }
     InspectorResource* resourceForURL(const String& url);
-    bool hasFrontend() const { return m_remoteFrontend; }
+    bool hasFrontend() const { return m_frontend; }
 
     void drawNodeHighlight(GraphicsContext&) const;
     void openInInspectedWindow(const String& url);
@@ -228,20 +226,14 @@ public:
     void addProfile(PassRefPtr<ScriptProfile>, unsigned lineNumber, const String& sourceURL);
     void addProfileFinishedMessageToConsole(PassRefPtr<ScriptProfile>, unsigned lineNumber, const String& sourceURL);
     void addStartProfilingMessageToConsole(const String& title, unsigned lineNumber, const String& sourceURL);
-    void removeProfile(unsigned);
-    void clearProfiles();
-
-    bool isRecordingUserInitiatedProfile() const { return m_recordingUserInitiatedProfile; }
-
-    String getCurrentUserInitiatedProfileName(bool incrementProfileNumber);
-    void startUserInitiatedProfiling(Timer<InspectorController>* = 0);
+    bool isRecordingUserInitiatedProfile() const;
+    String getCurrentUserInitiatedProfileName(bool incrementProfileNumber = false);
+    void startUserInitiatedProfiling();
     void stopUserInitiatedProfiling();
-    void startProfiling() { startUserInitiatedProfiling(); }
-    void stopProfiling() { stopUserInitiatedProfiling(); }
-
     void enableProfiler(bool always = false, bool skipRecompile = false);
     void disableProfiler(bool always = false);
-    bool profilerEnabled() const { return enabled() && m_profilerEnabled; }
+    bool profilerEnabled() const;
+    InspectorProfilerAgent* profilerAgent() const { return m_profilerAgent.get(); }
 
     void enableDebugger();
     void disableDebugger(bool always = false);
@@ -283,14 +275,9 @@ private:
     void releaseFrontendLifetimeAgents();
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    typedef HashMap<unsigned int, RefPtr<ScriptProfile> > ProfilesMap;
 
-    void startUserInitiatedProfilingSoon();
     void toggleRecordButton(bool);
     void enableDebuggerFromFrontend(bool always);
-    void getProfileHeaders(RefPtr<InspectorArray>* headers);
-    void getProfile(unsigned uid, RefPtr<InspectorObject>* profileObject);
-    PassRefPtr<InspectorObject> createProfileHeader(const ScriptProfile& profile);
 #endif
 #if ENABLE(DATABASE)
     void selectDatabase(Database* database);
@@ -330,7 +317,7 @@ private:
     InspectorClient* m_client;
     OwnPtr<InspectorFrontendClient> m_inspectorFrontendClient;
     bool m_openingFrontend;
-    OwnPtr<RemoteInspectorFrontend> m_remoteFrontend;
+    OwnPtr<InspectorFrontend> m_frontend;
     RefPtr<InspectorDOMAgent> m_domAgent;
     RefPtr<InspectorStorageAgent> m_storageAgent;
     OwnPtr<InspectorCSSStore> m_cssStore;
@@ -380,12 +367,7 @@ private:
     bool m_attachDebuggerWhenShown;
     OwnPtr<InspectorDebuggerAgent> m_debuggerAgent;
 
-    bool m_profilerEnabled;
-    bool m_recordingUserInitiatedProfile;
-    int m_currentUserInitiatedProfileNumber;
-    unsigned m_nextUserInitiatedProfileNumber;
-    Timer<InspectorController> m_startProfiling;
-    ProfilesMap m_profiles;
+    OwnPtr<InspectorProfilerAgent> m_profilerAgent;
 #endif
 #if ENABLE(WORKERS)
     typedef HashMap<intptr_t, RefPtr<InspectorWorkerResource> > WorkersMap;

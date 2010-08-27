@@ -522,6 +522,11 @@ PassRefPtr<XMLParserContext> XMLParserContext::createMemoryParser(xmlSAXHandlerP
 
 // --------------------------------
 
+bool XMLDocumentParser::supportsXMLVersion(const String& version)
+{
+    return version == "1.0";
+}
+
 XMLDocumentParser::XMLDocumentParser(Document* document, FrameView* frameView)
     : ScriptableDocumentParser(document)
     , m_view(frameView)
@@ -616,13 +621,18 @@ XMLParserContext::~XMLParserContext()
 
 XMLDocumentParser::~XMLDocumentParser()
 {
-    clearCurrentNodeStack();
+    // The XMLDocumentParser will always be detached before being destroyed.
+    ASSERT(m_currentNodeStack.isEmpty());
+    ASSERT(!m_currentNode);
+
+    // FIXME: m_pendingScript handling should be moved into XMLDocumentParser.cpp!
     if (m_pendingScript)
         m_pendingScript->removeClient(this);
 }
 
 void XMLDocumentParser::doWrite(const String& parseString)
 {
+    ASSERT(!isDetached());
     if (!m_context)
         initializeParserContext();
 
@@ -631,6 +641,10 @@ void XMLDocumentParser::doWrite(const String& parseString)
 
     // libXML throws an error if you try to switch the encoding for an empty string.
     if (parseString.length()) {
+        // JavaScript may cause the parser to detach during xmlParseChunk
+        // keep this alive until this function is done.
+        RefPtr<XMLDocumentParser> protect(this);
+
         // Hack around libxml2's lack of encoding overide support by manually
         // resetting the encoding to UTF-16 before every chunk.  Otherwise libxml
         // will detect <?xml version="1.0" encoding="<encoding name>"?> blocks
@@ -641,14 +655,18 @@ void XMLDocumentParser::doWrite(const String& parseString)
 
         XMLDocumentParserScope scope(document()->docLoader());
         xmlParseChunk(context->context(), reinterpret_cast<const char*>(parseString.characters()), sizeof(UChar) * parseString.length(), 0);
+
+        // JavaScript (which may be run under the xmlParseChunk callstack) may
+        // cause the parser to be stopped or detached.
+        if (isDetached() || m_parserStopped)
+            return;
     }
 
+    // FIXME: Why is this here?  And why is it after we process the passed source?
     if (document()->decoder() && document()->decoder()->sawError()) {
         // If the decoder saw an error, report it as fatal (stops parsing)
         handleError(fatal, "Encoding error", context->context()->input->line, context->context()->input->col);
     }
-
-    return;
 }
 
 static inline String toString(const xmlChar* str, unsigned len)
@@ -790,10 +808,7 @@ void XMLDocumentParser::startElementNs(const xmlChar* xmlLocalName, const xmlCha
     if (scriptElement)
         m_scriptStartLine = lineNumber();
 
-    if (!m_currentNode->legacyParserAddChild(newElement.get())) {
-        stopParsing();
-        return;
-    }
+    m_currentNode->deprecatedParserAddChild(newElement.get());
 
     pushCurrentNode(newElement.get());
     if (m_view && !newElement->attached())
@@ -855,6 +870,13 @@ void XMLDocumentParser::endElementNs()
     else
 #endif
     {
+        // FIXME: Script execution should be shared should be shared between
+        // the libxml2 and Qt XMLDocumentParser implementations.
+
+        // JavaScript can detach the parser.  Make sure this is not released
+        // before the end of this method.
+        RefPtr<XMLDocumentParser> protect(this);
+
         String scriptHref = scriptElement->sourceAttributeValue();
         if (!scriptHref.isEmpty()) {
             // we have a src attribute
@@ -871,6 +893,10 @@ void XMLDocumentParser::endElementNs()
                 m_scriptElement = 0;
         } else
             m_view->frame()->script()->executeScript(ScriptSourceCode(scriptElement->scriptContent(), document()->url(), m_scriptStartLine));
+
+        // JavaScript may have detached the parser
+        if (isDetached())
+            return;
     }
     m_requestingScript = false;
     popCurrentNode();
@@ -886,8 +912,9 @@ void XMLDocumentParser::characters(const xmlChar* s, int len)
         return;
     }
 
-    if (m_currentNode->isTextNode() || enterText())
-        m_bufferedText.append(s, len);
+    if (!m_currentNode->isTextNode())
+        enterText();
+    m_bufferedText.append(s, len);
 }
 
 void XMLDocumentParser::error(ErrorType type, const char* message, va_list args)
@@ -935,8 +962,7 @@ void XMLDocumentParser::processingInstruction(const xmlChar* target, const xmlCh
 
     pi->setCreatedByParser(true);
 
-    if (!m_currentNode->legacyParserAddChild(pi.get()))
-        return;
+    m_currentNode->deprecatedParserAddChild(pi.get());
     if (m_view && !pi->attached())
         pi->attach();
 
@@ -962,8 +988,7 @@ void XMLDocumentParser::cdataBlock(const xmlChar* s, int len)
     exitText();
 
     RefPtr<Node> newNode = CDATASection::create(document(), toString(s, len));
-    if (!m_currentNode->legacyParserAddChild(newNode.get()))
-        return;
+    m_currentNode->deprecatedParserAddChild(newNode.get());
     if (m_view && !newNode->attached())
         newNode->attach();
 }
@@ -981,7 +1006,7 @@ void XMLDocumentParser::comment(const xmlChar* s)
     exitText();
 
     RefPtr<Node> newNode = Comment::create(document(), toString(s));
-    m_currentNode->legacyParserAddChild(newNode.get());
+    m_currentNode->deprecatedParserAddChild(newNode.get());
     if (m_view && !newNode->attached())
         newNode->attach();
 }
@@ -1045,7 +1070,7 @@ void XMLDocumentParser::internalSubset(const xmlChar* name, const xmlChar* exter
         }
 #endif
 
-        document()->legacyParserAddChild(DocumentType::create(document(), toString(name), toString(externalID), toString(systemID)));
+        document()->parserAddChild(DocumentType::create(document(), toString(name), toString(externalID), toString(systemID)));
     }
 }
 
@@ -1274,8 +1299,10 @@ void XMLDocumentParser::initializeParserContext(const char* chunk)
     XMLDocumentParserScope scope(document()->docLoader());
     if (m_parsingFragment)
         m_context = XMLParserContext::createMemoryParser(&sax, this, chunk);
-    else
+    else {
+        ASSERT(!chunk);
         m_context = XMLParserContext::createStringParser(&sax, this);
+    }
 }
 
 void XMLDocumentParser::doEnd()
@@ -1347,6 +1374,7 @@ void XMLDocumentParser::stopParsing()
 
 void XMLDocumentParser::resumeParsing()
 {
+    ASSERT(!isDetached());
     ASSERT(m_parserPaused);
 
     m_parserPaused = false;
@@ -1371,29 +1399,29 @@ void XMLDocumentParser::resumeParsing()
         end();
 }
 
-// FIXME: This method should be possible to implement using the DocumentParser
-// API, instead of needing to grab at libxml2 state directly.
-bool XMLDocumentParser::parseDocumentFragment(const String& chunk, DocumentFragment* fragment, Element* parent, FragmentScriptingPermission scriptingPermission)
+bool XMLDocumentParser::appendFragmentSource(const String& chunk)
 {
-    if (!chunk.length())
-        return true;
-
-    XMLDocumentParser parser(fragment, parent, scriptingPermission);
+    ASSERT(!m_context);
+    ASSERT(m_parsingFragment);
 
     CString chunkAsUtf8 = chunk.utf8();
-    parser.initializeParserContext(chunkAsUtf8.data());
+    initializeParserContext(chunkAsUtf8.data());
+    xmlParseContent(context());
+    endDocument(); // Close any open text nodes.
 
-    xmlParseContent(parser.context());
-
-    parser.endDocument();
-
+    // FIXME: If this code is actually needed, it should probably move to finish()
+    // XMLDocumentParserQt has a similar check (m_stream.error() == QXmlStreamReader::PrematureEndOfDocumentError) in doEnd().
     // Check if all the chunk has been processed.
-    long bytesProcessed = xmlByteConsumed(parser.context());
-    if (bytesProcessed == -1 || ((unsigned long)bytesProcessed) != chunkAsUtf8.length())
+    long bytesProcessed = xmlByteConsumed(context());
+    if (bytesProcessed == -1 || ((unsigned long)bytesProcessed) != chunkAsUtf8.length()) {
+        // FIXME: I don't believe we can hit this case without also having seen an error.
+        // If we hit this ASSERT, we've found a test case which demonstrates the need for this code.
+        ASSERT(m_sawError);
         return false;
+    }
 
     // No error if the chunk is well formed or it is not but we have no error.
-    return parser.context()->wellFormed || xmlCtxtGetLastError(parser.context()) == 0;
+    return context()->wellFormed || !xmlCtxtGetLastError(context());
 }
 
 // --------------------------------

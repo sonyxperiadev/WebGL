@@ -1451,7 +1451,7 @@ PassRefPtr<CanvasPattern> CanvasRenderingContext2D::createPattern(HTMLImageEleme
     if (!cachedImage || !image->cachedImage()->image())
         return CanvasPattern::create(Image::nullImage(), repeatX, repeatY, true);
 
-    bool originClean = !canvas()->securityOrigin().taintsCanvas(KURL(KURL(), cachedImage->url())) && cachedImage->image()->hasSingleSecurityOrigin();
+    bool originClean = !canvas()->securityOrigin().taintsCanvas(KURL(KURL(), cachedImage->response().url())) && cachedImage->image()->hasSingleSecurityOrigin();
     return CanvasPattern::create(cachedImage->image(), repeatX, repeatY, originClean);
 }
 
@@ -1727,7 +1727,19 @@ void CanvasRenderingContext2D::strokeText(const String& text, float x, float y, 
 PassRefPtr<TextMetrics> CanvasRenderingContext2D::measureText(const String& text)
 {
     RefPtr<TextMetrics> metrics = TextMetrics::create();
+
+#if PLATFORM(QT)
+    // We always use complex text shaping since it can't be turned off for QPainterPath::addText().
+    Font::CodePath oldCodePath = Font::codePath();
+    Font::setCodePath(Font::Complex);
+#endif
+
     metrics->setWidth(accessFont().width(TextRun(text.characters(), text.length())));
+
+#if PLATFORM(QT)
+    Font::setCodePath(oldCodePath);
+#endif
+
     return metrics;
 }
 
@@ -1838,7 +1850,18 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
 #endif
 
     c->setTextDrawingMode(fill ? cTextFill : cTextStroke);
+
+#if PLATFORM(QT)
+    // We always use complex text shaping since it can't be turned off for QPainterPath::addText().
+    Font::CodePath oldCodePath = Font::codePath();
+    Font::setCodePath(Font::Complex);
+#endif
+
     c->drawBidiText(font, textRun, location);
+
+#if PLATFORM(QT)
+    Font::setCodePath(oldCodePath);
+#endif
 }
 
 const Font& CanvasRenderingContext2D::accessFont()
@@ -1851,7 +1874,8 @@ const Font& CanvasRenderingContext2D::accessFont()
 void CanvasRenderingContext2D::paintRenderingResultsToCanvas()
 {
 #if ENABLE(ACCELERATED_2D_CANVAS)
-    drawingContext()->syncSoftwareCanvas();
+    if (GraphicsContext* c = drawingContext())
+        c->syncSoftwareCanvas();
 #endif
 }
 

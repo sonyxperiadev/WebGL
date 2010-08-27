@@ -41,20 +41,22 @@ using namespace WebCore;
 
 namespace WebKit {
 
-class WebEventListener;
+class WebDOMEventListener;
 
+// FIXME: Remove the DeprecatedEventListenerWrapper class below once Chromium
+// switched to using WebDOMEvent.
 class EventListenerWrapper : public EventListener {
 public:
-    EventListenerWrapper(WebEventListener*);
+    EventListenerWrapper(WebDOMEventListener*);
     ~EventListenerWrapper();
 
     virtual bool operator==(const EventListener&);
     virtual void handleEvent(ScriptExecutionContext*, Event*);
 
-    void webEventListenerDeleted();
+    void webDOMEventListenerDeleted();
 
 private:
-    WebEventListener* m_webEventListener;
+    WebDOMEventListener* m_webDOMEventListener;
 };
 
 } // namespace WebKit

@@ -33,14 +33,8 @@ public:
     static PassRefPtr<HTMLHeadElement> create(Document*);
     static PassRefPtr<HTMLHeadElement> create(const QualifiedName&, Document*);
 
-    virtual int tagPriority() const { return 10; }
-
 private:
     HTMLHeadElement(const QualifiedName&, Document*);
-
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusOptional; }
-    virtual bool childAllowed(Node* newChild);
-    virtual bool checkDTD(const Node* newChild);
 };
 
 } // namespace

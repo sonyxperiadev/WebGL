@@ -126,8 +126,7 @@ void InspectorFrontendClientLocal::setAttachedWindow(bool attached)
         ASSERT_NOT_REACHED();
         return;
     }
-    ScriptFunctionCall function(webInspectorObj, "dispatch"); 
-    function.appendArgument("setAttachedWindow");
+    ScriptFunctionCall function(webInspectorObj, "setAttachedWindow");
     function.appendArgument(attached);
     function.call();
 }

@@ -346,9 +346,7 @@ namespace WebCore {
         static void reportUnsafeAccessTo(Frame* target, DelayReporting delay);
 
     private:
-        // If m_recursionCount is 0, let LocalStorage know so we can release
-        // the storage mutex.
-        void releaseStorageMutex();
+        void didLeaveScriptContext();
 
         void resetIsolatedWorlds();
 

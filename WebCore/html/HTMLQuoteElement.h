@@ -36,9 +36,6 @@ public:
 private:
     HTMLQuoteElement(const QualifiedName&, Document*);
     
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
-    virtual int tagPriority() const { return 1; }
-
     virtual void insertedIntoDocument();
 };
 

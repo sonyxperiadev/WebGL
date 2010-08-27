@@ -34,8 +34,6 @@ class HTMLTableSectionElement : public HTMLTablePartElement {
 public:
     static PassRefPtr<HTMLTableSectionElement> create(const QualifiedName&, Document*);
 
-    virtual ContainerNode* legacyParserAddChild(PassRefPtr<Node>);
-
     PassRefPtr<HTMLElement> insertRow(int index, ExceptionCode&);
     void deleteRow(int index, ExceptionCode&);
 
@@ -58,9 +56,6 @@ public:
 private:
     HTMLTableSectionElement(const QualifiedName& tagName, Document*);
 
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusOptional; }
-    virtual int tagPriority() const { return 8; }
-    virtual bool checkDTD(const Node*);
     virtual bool canHaveAdditionalAttributeStyleDecls() const { return true; }
     virtual void additionalAttributeStyleDecls(Vector<CSSMutableStyleDeclaration*>&);
 };
