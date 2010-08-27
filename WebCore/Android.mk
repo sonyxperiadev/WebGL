@@ -274,7 +274,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/File.cpp \
 	html/FileList.cpp \
 	html/FileReader.cpp \
-	html/FileStream.cpp \
 	html/FileStreamProxy.cpp \
 	html/FileThread.cpp \
 	html/FormDataList.cpp \
@@ -305,7 +304,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/ImageData.cpp \
 	html/ImageResizerThread.cpp \
 	html/LabelsNodeList.cpp \
-	html/LegacyHTMLTreeBuilder.cpp \
 	html/StepRange.cpp \
 	html/ThreadableBlobRegistry.cpp \
 	html/TimeRanges.cpp \
