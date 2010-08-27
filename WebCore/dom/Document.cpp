@@ -432,14 +432,10 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
 
 #if !PLATFORM(ANDROID)
     m_axObjectCache = 0;
-<<<<<<< HEAD
 #endif
-    
-=======
 
     m_markers = new DocumentMarkerController();
 
->>>>>>> webkit.org at r66079
     m_docLoader = new DocLoader(this);
 
     m_visuallyOrdered = false;

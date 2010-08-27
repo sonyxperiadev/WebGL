@@ -1169,18 +1169,10 @@ private:
 
     OwnPtr<RenderArena> m_renderArena;
 
-<<<<<<< HEAD
-    typedef std::pair<Vector<DocumentMarker>, Vector<IntRect> > MarkerMapVectorPair;
-    typedef HashMap<RefPtr<Node>, MarkerMapVectorPair*> MarkerMap;
-    MarkerMap m_markers;
-
 #if !PLATFORM(ANDROID)
     mutable AXObjectCache* m_axObjectCache;
 #endif
-=======
-    mutable AXObjectCache* m_axObjectCache;
     OwnPtr<DocumentMarkerController> m_markers;
->>>>>>> webkit.org at r66079
     
     Timer<Document> m_updateFocusAppearanceTimer;
 
@@ -1202,13 +1194,6 @@ private:
     RefPtr<Document> m_transformSourceDocument;
 #endif
 
-<<<<<<< HEAD
-#if ENABLE(XBL)
-    OwnPtr<XBLBindingManager> m_bindingManager; // The access point through which documents and elements communicate with XBL.
-#endif
-
-=======
->>>>>>> webkit.org at r66079
     typedef HashMap<AtomicStringImpl*, HTMLMapElement*> ImageMapsByName;
     ImageMapsByName m_imageMapsByName;
 

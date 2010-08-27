@@ -282,15 +282,13 @@ void HTMLDocumentParser::insert(const SegmentedString& source)
     if (m_parserStopped)
         return;
 
-<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::ParsingTimeCounter);
 #endif
-=======
+
     // pumpTokenizer can cause this parser to be detached from the Document,
     // but we need to ensure it isn't deleted yet.
     RefPtr<HTMLDocumentParser> protect(this);
->>>>>>> webkit.org at r66079
 
     {
         NestingLevelIncrementer nestingLevelIncrementer(m_writeNestingLevel);

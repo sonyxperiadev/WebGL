@@ -43,16 +43,15 @@
 #include <wtf/Vector.h>
 #include <wtf/text/CString.h>
 
-<<<<<<< HEAD
+#if ENABLE(NETSCAPE_PLUGIN_API)
+#include "PluginStream.h"
+#include "npruntime_internal.h"
+#endif
+
 // ANDROID
 // TODO: Upstream to webkit.org
 #ifdef PLUGIN_SCHEDULE_TIMER
 #include "PluginTimer.h"
-=======
-#if ENABLE(NETSCAPE_PLUGIN_API)
-#include "PluginStream.h"
-#include "npruntime_internal.h"
->>>>>>> webkit.org at r66079
 #endif
 
 #if OS(WINDOWS) && (PLATFORM(QT) || PLATFORM(WX))
