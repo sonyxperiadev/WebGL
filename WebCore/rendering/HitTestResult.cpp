@@ -57,13 +57,9 @@ HitTestResult::HitTestResult(const IntPoint& centerPoint, const IntSize& padding
     : m_point(centerPoint)
     , m_isOverWidget(false)
 {
-#ifdef ANDROID_HITTEST_WITHSIZE
-    m_isRectBased = !padding.isEmpty();
-#else
     // If a zero padding is passed in or either width or height is negative, then it
     // is not a valid padding and hence not a rect based hit test.
     m_isRectBased = !(padding.isZero() || (padding.width() < 0 || padding.height() < 0));
-#endif
     m_padding = m_isRectBased ? padding : IntSize();
 }
 
@@ -76,16 +72,12 @@ HitTestResult::HitTestResult(const HitTestResult& other)
     , m_scrollbar(other.scrollbar())
     , m_isOverWidget(other.isOverWidget())
 {
-#ifndef ANDROID_HITTEST_WITHSIZE
     // Only copy the padding and ListHashSet in case of rect hit test.
     // Copying the later is rather expensive.
     if ((m_isRectBased = other.isRectBasedTest())) {
-#endif
         m_padding = other.padding();
         m_rectBasedTestResult = other.rectBasedTestResult();
-#ifndef ANDROID_HITTEST_WITHSIZE
     }
-#endif
 }
 
 HitTestResult::~HitTestResult()
@@ -101,16 +93,12 @@ HitTestResult& HitTestResult::operator=(const HitTestResult& other)
     m_innerURLElement = other.URLElement();
     m_scrollbar = other.scrollbar();
     m_isOverWidget = other.isOverWidget();
-#ifndef ANDROID_HITTEST_WITHSIZE
     // Only copy the padding and ListHashSet in case of rect hit test.
     // Copying the later is rather expensive.
     if ((m_isRectBased = other.isRectBasedTest())) {
-#endif
         m_padding = other.padding();
         m_rectBasedTestResult = other.rectBasedTestResult();
-#ifndef ANDROID_HITTEST_WITHSIZE
     }
-#endif
     return *this;
 }
 
@@ -404,17 +392,12 @@ bool HitTestResult::addNodeToRectBasedTestResult(Node* node, int x, int y, const
     if (!isRectBasedTest())
         return false;
 
-#ifdef ANDROID_HITTEST_WITHSIZE
-    if (node)
-        m_rectBasedTestResult.add(node);
-#else
     // If node is null, return true so the hit test can continue.
     if (!node)
         return true;
 
     node = node->shadowAncestorNode();
     m_rectBasedTestResult.add(node);
-#endif
 
     return !rect.contains(rectFromPoint(x, y));
 }

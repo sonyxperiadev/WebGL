@@ -1403,7 +1403,6 @@ Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop)
 {
     Vector<IntRect> rects;
     m_mousePos = IntPoint(x - m_scrollOffsetX, y - m_scrollOffsetY);
-#ifdef ANDROID_HITTEST_WITHSIZE
     HitTestResult hitTestResult = m_mainFrame->eventHandler()->hitTestResultAtPoint(IntPoint(x, y),
             false, false, DontHitTestScrollbars, HitTestRequest::Active | HitTestRequest::ReadOnly, IntSize(slop, slop));
     if (!hitTestResult.innerNode() || !hitTestResult.innerNode()->inDocument()) {
@@ -1437,7 +1436,7 @@ Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop)
                 found = true;
                 break;
             }
-            // the nodes in the rawNodeList() are ordered based on z-index during hit testing.
+            // the nodes in the rectBasedTestResult() are ordered based on z-index during hit testing.
             // so do not search for the eventNode across explicit z-index border.
             // TODO: this is a hard one to call. z-index is quite complicated as its value only
             // matters when you compare two RenderLayer in the same hierarchy level. e.g. in
@@ -1618,7 +1617,6 @@ Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop)
                     m_scrollOffsetX, m_scrollOffsetY);
         }
     }
-#endif
     return rects;
 }
 
@@ -2340,15 +2338,15 @@ void WebViewCore::touchUp(int touchGeneration,
             frame = 0;
         DBG_NAV_LOGD("touch up on (%d, %d), scrollOffset is (%d, %d), node:%p, frame:%p", m_mousePos.x() + m_scrollOffsetX, m_mousePos.y() + m_scrollOffsetY, m_scrollOffsetX, m_scrollOffsetY, node, frame);
     } else {
-    if (m_touchGeneration > touchGeneration) {
-        DBG_NAV_LOGD("m_touchGeneration=%d > touchGeneration=%d"
-            " x=%d y=%d", m_touchGeneration, touchGeneration, x, y);
-        return; // short circuit if a newer touch has been generated
-    }
-    // This moves m_mousePos to the correct place, and handleMouseClick uses
-    // m_mousePos to determine where the click happens.
-    moveMouse(frame, x, y);
-    m_lastGeneration = touchGeneration;
+        if (m_touchGeneration > touchGeneration) {
+            DBG_NAV_LOGD("m_touchGeneration=%d > touchGeneration=%d"
+                " x=%d y=%d", m_touchGeneration, touchGeneration, x, y);
+            return; // short circuit if a newer touch has been generated
+        }
+        // This moves m_mousePos to the correct place, and handleMouseClick uses
+        // m_mousePos to determine where the click happens.
+        moveMouse(frame, x, y);
+        m_lastGeneration = touchGeneration;
     }
     if (frame && CacheBuilder::validNode(m_mainFrame, frame, 0)) {
         frame->loader()->resetMultipleFormSubmissionProtection();

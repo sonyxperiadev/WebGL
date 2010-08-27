@@ -3774,17 +3774,8 @@ bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
     if ((hitTestAction == HitTestBlockBackground || hitTestAction == HitTestChildBlockBackground) && isPointInOverflowControl(result, _x, _y, tx, ty)) {
         updateHitTestResult(result, IntPoint(_x - tx, _y - ty));
         // FIXME: isPointInOverflowControl() doesn't handle rect-based tests yet.
-#ifdef ANDROID_HITTEST_WITHSIZE
-        // FIXME: This looks wrong - the return value does not depend on the hit test result.
-        result.addNodeToRectBasedTestResult(node(), _x, _y);
-        if (result.isRectBasedTest())
-            ASSERT(node() || isAnonymous());
-        else
-            return true;
-#else
         if (!result.addNodeToRectBasedTestResult(node(), _x, _y))
            return true;
-#endif
     }
 
     // If we have clipping, then we can't have any spillout.
