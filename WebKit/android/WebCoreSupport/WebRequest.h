@@ -26,10 +26,8 @@
 #ifndef WebRequest_h
 #define WebRequest_h
 
+#include "ChromiumIncludes.h"
 #include "WebUrlLoaderClient.h"
-
-#include <net/base/io_buffer.h>
-#include <net/url_request/url_request.h>
 
 class MessageLoop;
 

@@ -26,7 +26,8 @@
 #ifndef WebResourceRequest_h
 #define WebResourceRequest_h
 
-#include <net/http/http_request_headers.h>
+#include "ChromiumIncludes.h"
+
 #include <string>
 
 namespace WebCore {

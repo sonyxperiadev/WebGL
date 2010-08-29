@@ -33,10 +33,6 @@
 #include "jni.h"
 
 #include <cutils/log.h>
-#include <net/base/data_url.h>
-#include <net/base/io_buffer.h>
-#include <net/http/http_response_headers.h>
-#include <net/url_request/url_request.h>
 #include <string>
 #include <utils/AssetManager.h>
 
