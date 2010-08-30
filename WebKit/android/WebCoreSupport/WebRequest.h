@@ -35,6 +35,16 @@ class MessageLoop;
 
 namespace android {
 
+enum LoadState {
+    Created,
+    Started,
+    Response,
+    GotData,
+    Cancelled,
+    Finished,
+    Deleted
+};
+
 class WebResourceRequest;
 
 // All methods in this class must be called on the io thread
@@ -80,6 +90,7 @@ private:
     int m_inputStream;
     bool m_androidUrl;
     std::string m_url;
+    LoadState m_loadState;
 };
 
 } // namespace android

@@ -31,9 +31,6 @@
 
 #include "HitTestResult.h"
 #include "InlineTextBox.h"
-#ifdef ANDROID_HITTEST_WITHSIZE
-#include "HitTestResult.h"
-#endif
 #include "RenderArena.h"
 #include "RenderInline.h"
 #include "RenderView.h"

@@ -35,9 +35,6 @@
 #include "htmlediting.h"
 #include "HTMLElement.h"
 #include "HTMLNames.h"
-#ifdef ANDROID_HITTEST_WITHSIZE
-#include "HitTestResult.h"
-#endif
 #include "ImageBuffer.h"
 #include "FloatQuad.h"
 #include "Frame.h"
@@ -563,6 +560,8 @@ bool RenderBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result
         }
     }
 
+    // Check our bounds next. For this purpose always assume that we can only be hit in the
+    // foreground phase (which is true for replaced elements like images).
     IntRect boundsRect = IntRect(tx, ty, width(), height());
     if (visibleToHitTesting() && action == HitTestForeground && boundsRect.intersects(result.rectFromPoint(xPos, yPos))) {
         updateHitTestResult(result, IntPoint(xPos - tx, yPos - ty));

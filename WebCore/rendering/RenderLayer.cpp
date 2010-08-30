@@ -2997,15 +2997,9 @@ RenderLayer* RenderLayer::hitTestList(Vector<RenderLayer*>* list, RenderLayer* r
             result.append(tempResult);
 
         if (isHitCandidate(hitLayer, depthSortDescendants, zOffset, unflattenedTransformState)) {
-#ifdef ANDROID_HITTEST_WITHSIZE
-            if (!result.isRectBasedTest())
-                resultLayer = hitLayer;
-            result = tempResult;
-#else
             resultLayer = hitLayer;
             if (!result.isRectBasedTest())
                 result = tempResult;
-#endif
             if (!depthSortDescendants)
                 break;
         }
