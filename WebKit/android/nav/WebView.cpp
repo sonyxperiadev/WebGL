@@ -825,23 +825,6 @@ void selectBestAt(const WebCore::IntRect& rect)
     sendMoveMouseIfLatest(false);
 }
 
-WebCore::IntRect getNavBounds()
-{
-    CachedRoot* root = getFrameCache(DontAllowNewer);
-    return root ? root->rootHistory()->navBounds() :
-        WebCore::IntRect(0, 0, 0, 0);
-}
-
-void setNavBounds(const WebCore::IntRect& rect)
-{
-    CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (!root)
-        return;
-    root->rootHistory()->setNavBounds(rect);
-}
-
-
-
 const CachedNode* m_cacheHitNode;
 const CachedFrame* m_cacheHitFrame;
 
@@ -865,9 +848,10 @@ bool motionUp(int x, int y, int slop)
         return 0;
     const CachedFrame* frame = 0;
     const CachedNode* result = findAt(root, rect, &frame, &rx, &ry);
+    CachedHistory* history = root->rootHistory();
     if (!result) {
         DBG_NAV_LOGD("no nodes found root=%p", root);
-        setNavBounds(rect);
+        history->setNavBounds(rect);
         m_viewImpl->m_hasCursorBounds = false;
         root->hideCursor();
         int dx = root->checkForCenter(x, y);
@@ -885,8 +869,8 @@ bool motionUp(int x, int y, int slop)
     // No need to call unadjustBounds below.  rx and ry are already adjusted to
     // the absolute position of the node.
     WebCore::IntRect navBounds = WebCore::IntRect(rx, ry, 1, 1);
-    setNavBounds(navBounds);
-    root->rootHistory()->setMouseBounds(navBounds);
+    history->setNavBounds(navBounds);
+    history->setMouseBounds(navBounds);
     m_viewImpl->updateCursorBounds(root, frame, result);
     root->setCursor(const_cast<CachedFrame*>(frame),
         const_cast<CachedNode*>(result));
