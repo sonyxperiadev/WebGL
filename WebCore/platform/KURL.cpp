@@ -1295,6 +1295,13 @@ void KURL::parse(const char* url, const String* originalString)
     if (m_protocolInHTTPFamily && hierarchical && pathEnd == pathStart)
         *p++ = '/';
 
+#if PLATFORM(ANDROID)
+    // Remove any trailing '.' from base, in order to conform to RFC 3986 section 5.4
+    if (p[-1] == '.') {
+        p--;
+    }
+#endif /* PLATFORM(ANDROID) */
+
     // add path, escaping bad characters
     if (!hierarchical || !hasSlashDotOrDotDot(url))
         appendEscapingBadChars(p, url + pathStart, pathEnd - pathStart);
