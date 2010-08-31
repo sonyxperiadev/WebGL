@@ -1174,7 +1174,7 @@ static String saveArchiveAutoname(String basename, String name, String extension
 }
 #endif
 
-static jobject SaveWebArchive(JNIEnv *env, jobject obj, jstring basename, jboolean autoname)
+static jstring SaveWebArchive(JNIEnv *env, jobject obj, jstring basename, jboolean autoname)
 {
 #if ENABLE(ARCHIVE)
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
@@ -1195,7 +1195,7 @@ static jobject SaveWebArchive(JNIEnv *env, jobject obj, jstring basename, jboole
     if (filename.isNull() || filename.isEmpty()) {
         LOGD("saveWebArchive: Failed to select a filename to save.");
         releaseCharactersForJStringInEnv(env, basename, basenameNative);
-        return JNI_FALSE;
+        return NULL;
     }
 
     const int noCompression = 0;
@@ -1203,7 +1203,7 @@ static jobject SaveWebArchive(JNIEnv *env, jobject obj, jstring basename, jboole
     if (writer == NULL) {
         LOGD("saveWebArchive: Failed to initialize xml writer.");
         releaseCharactersForJStringInEnv(env, basename, basenameNative);
-        return JNI_FALSE;
+        return NULL;
     }
 
     RefPtr<WebArchiveAndroid> archive = WebCore::WebArchiveAndroid::create(pFrame);
