@@ -34,11 +34,6 @@
 #include "WebRequest.h"
 #include "WebResourceRequest.h"
 
-#include <base/condition_variable.h>
-#include <base/lock.h>
-#include <base/thread.h>
-#include <net/base/io_buffer.h>
-
 namespace android {
 
 LoaderData::~LoaderData()

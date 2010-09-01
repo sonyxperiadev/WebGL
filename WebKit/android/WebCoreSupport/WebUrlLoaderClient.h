@@ -26,12 +26,11 @@
 #ifndef WebUrlLoaderClient_h
 #define WebUrlLoaderClient_h
 
+#include "ChromiumIncludes.h"
 #include "RefCounted.h"
 #include "WebResponse.h"
 #include "WebUrlLoader.h"
 
-#include <base/ref_counted.h>
-#include <base/tuple.h>
 #include <string>
 #include <deque>
 

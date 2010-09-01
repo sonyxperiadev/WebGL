@@ -31,10 +31,8 @@
 // a subclass of a chrome class.
 #if USE(CHROME_NETWORK_STACK)
 
+#include "ChromiumIncludes.h"
 #include "PlatformString.h"
-
-#include <net/http/http_cache.h>
-#include <net/url_request/url_request_context.h>
 
 namespace android {
 

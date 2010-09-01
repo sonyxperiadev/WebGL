@@ -28,7 +28,6 @@
 
 #include "ResourceRequest.h"
 
-#include <base/string_util.h>
 #include <wtf/text/CString.h>
 
 namespace {
