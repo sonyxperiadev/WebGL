@@ -26,10 +26,10 @@
 #ifndef WebResponse_h
 #define WebResponse_h
 
+#include "ChromiumIncludes.h"
 #include "KURL.h"
 
 #include <map>
-#include <net/url_request/url_request.h>
 #include <string>
 
 namespace WebCore {

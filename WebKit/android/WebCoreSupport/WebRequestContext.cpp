@@ -29,14 +29,6 @@
 
 #include "JNIUtility.h"
 #include "jni.h"
-#include <base/message_loop_proxy.h>
-#include <chrome/browser/net/sqlite_persistent_cookie_store.h>
-#include <net/base/cookie_monster.h>
-#include <net/base/ssl_config_service.h>
-#include <net/http/http_cache.h>
-#include <net/http/http_network_layer.h>
-#include <net/http/http_auth_handler_factory.h>
-#include <net/proxy/proxy_service.h>
 #include <wtf/text/CString.h>
 
 namespace {
