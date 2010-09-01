@@ -119,6 +119,7 @@ struct FieldIds {
         mShrinksStandaloneImagesToFit = env->GetFieldID(clazz, "mShrinksStandaloneImagesToFit", "Z");
         mMaximumDecodedImageSize = env->GetFieldID(clazz, "mMaximumDecodedImageSize", "J");
         mPrivateBrowsingEnabled = env->GetFieldID(clazz, "mPrivateBrowsingEnabled", "Z");
+        mSyntheticLinksEnabled = env->GetFieldID(clazz, "mSyntheticLinksEnabled", "Z");
         mUseDoubleTree = env->GetFieldID(clazz, "mUseDoubleTree", "Z");
         mPageCacheCapacity = env->GetFieldID(clazz, "mPageCacheCapacity", "I");
 
@@ -205,6 +206,7 @@ struct FieldIds {
     jfieldID mShrinksStandaloneImagesToFit;
     jfieldID mMaximumDecodedImageSize;
     jfieldID mPrivateBrowsingEnabled;
+    jfieldID mSyntheticLinksEnabled;
     jfieldID mUseDoubleTree;
     jfieldID mPageCacheCapacity;
     // Ordinal() method and value field for enums
@@ -378,6 +380,11 @@ public:
         flag = env->GetBooleanField(obj, gFieldIds->mPrivateBrowsingEnabled);
         s->setPrivateBrowsingEnabled(flag);
 
+        flag = env->GetBooleanField(obj, gFieldIds->mSyntheticLinksEnabled);
+        s->setDefaultFormatDetection(flag);
+        s->setFormatDetectionAddress(flag);
+        s->setFormatDetectionEmail(flag);
+        s->setFormatDetectionTelephone(flag);
 #if ENABLE(DATABASE)
         flag = env->GetBooleanField(obj, gFieldIds->mDatabaseEnabled);
         WebCore::Database::setIsAvailable(flag);

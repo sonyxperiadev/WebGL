@@ -283,6 +283,8 @@ namespace WebCore {
 
         void setFormatDetectionTelephone(bool);
         bool formatDetectionTelephone() const { return m_format_detection_telephone; }
+
+        void setDefaultFormatDetection(bool flag) { m_default_format_detection = flag; }
 #endif
 #ifdef ANDROID_MULTIPLE_WINDOWS
         bool supportMultipleWindows() const { return m_supportMultipleWindows; }
@@ -443,6 +445,7 @@ namespace WebCore {
         bool m_format_detection_address : 1;
         // default is yes
         bool m_format_detection_email : 1;
+        bool m_default_format_detection : 1;
 #endif
 #ifdef ANDROID_LAYOUT
         bool m_useWideViewport : 1;
