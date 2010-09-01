@@ -75,15 +75,28 @@ ifneq ($(JAVASCRIPT_ENGINE),jsc)
   endif
 endif
 
-# Read the HTTP_STACK environment variable, default is android
-ifneq ($(TARGET_SIMULATOR),true)
-HTTP_STACK = $(HTTP)
-ifeq ($(HTTP_STACK),chrome)
-  # Chrome net stack has dependencies on V8.
-  ifeq ($(JAVASCRIPT_ENGINE), v8)
-    HTTP_STACK = chrome
-  endif
+# We default to the Chrome HTTP stack on everything except the simulator, or
+# if V8 is not used
+DEFAULT_HTTP = chrome
+ALT_HTTP = android
+# Turn on chrome stack for everything but simulator
+ifeq ($(TARGET_SIMULATOR),true)
+  DEFAULT_HTTP = android
 endif
+# Turn off chrome stack if JAVASCRIPT_ENGINE is not v8
+ifneq ($(JAVASCRIPT_ENGINE),v8)
+  DEFAULT_HTTP = android
+endif
+
+ifneq ($(HTTP_STACK),chrome)
+  ifneq ($(HTTP_STACK),android)
+    # No HTTP stack is specified, pickup the one we want as default.
+    ifeq ($(USE_ALT_HTTP),true)
+      HTTP_STACK = $(ALT_HTTP)
+    else
+      HTTP_STACK = $(DEFAULT_HTTP)
+    endif
+  endif
 endif
 
 BASE_PATH := $(call my-dir)
