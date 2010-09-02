@@ -158,6 +158,7 @@ Settings::Settings(Page* page)
     // hash before trying to use it.
     AtomicString::init();
 #ifdef ANDROID_META_SUPPORT
+    m_default_format_detection = true;
     resetMetadataSettings();
 #endif
 }
@@ -470,9 +471,9 @@ void Settings::resetMetadataSettings()
     m_viewport_maximum_scale = 0;
     m_viewport_user_scalable = true;
     m_viewport_target_densitydpi = -1;
-    m_format_detection_telephone = true;
-    m_format_detection_address = true;
-    m_format_detection_email = true;
+    m_format_detection_telephone = m_default_format_detection;
+    m_format_detection_address = m_default_format_detection;
+    m_format_detection_email = m_default_format_detection;
 }
 
 void Settings::setMetadataSettings(const String& key, const String& value)

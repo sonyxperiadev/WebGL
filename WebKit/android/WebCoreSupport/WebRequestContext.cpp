@@ -29,7 +29,12 @@
 
 #include "JNIUtility.h"
 #include "jni.h"
+#include <dirent.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <wtf/text/CString.h>
+#include <wtf/Threading.h>
 
 namespace {
 std::string userAgent("Mozilla/5.0 (Linux; U; Android 2.1; en-gb; Nexus One Build/ERE21) AppleWebKit/530.17 (KHTML, like Gecko) Version/4.0 Mobile Safari/530.17");
@@ -40,6 +45,15 @@ Lock acceptLanguageLock;
 }
 
 namespace android {
+
+static const char* const kNormalCookies = "/chromecookies.db";
+static const char* const kNormalCache = "/chromecache";
+static const char* const kPrivateCookies = "/chromecookies_private.db";
+static const char* const kPrivateCache = "/chromecache_private";
+
+static scoped_refptr<WebRequestContext> androidContext(0);
+static scoped_refptr<WebRequestContext> androidPrivateBrowsingContext(0);
+static WTF::Mutex androidPrivateBrowsingContextMutex;
 
 std::string* WebRequestContext::s_dataDirectory(0);
 
@@ -96,7 +110,7 @@ const std::string* WebRequestContext::GetDataDirectory()
     return s_dataDirectory;
 }
 
-WebRequestContext* WebRequestContext::GetAndroidContextForPath(const char* cookieFilename, const char* cacheFilename)
+scoped_refptr<WebRequestContext> WebRequestContext::GetAndroidContextForPath(const char* cookieFilename, const char* cacheFilename)
 {
     std::string cookieString(*GetDataDirectory());
     cookieString.append(cookieFilename);
@@ -119,26 +133,68 @@ WebRequestContext* WebRequestContext::GetAndroidContextForPath(const char* cooki
 
     androidContext->cookie_store_ = new net::CookieMonster(cookieDb.get(), 0);
 
-    return androidContext.release();
-}
-
-WebRequestContext* WebRequestContext::GetAndroidContext()
-{
-    static scoped_refptr<WebRequestContext> androidContext(0);
-    if (!androidContext)
-        androidContext = GetAndroidContextForPath("/chromecookies.db", "/chromecache");
     return androidContext;
 }
 
-WebRequestContext* WebRequestContext::GetAndroidPrivateBrowsingContext()
+scoped_refptr<WebRequestContext> WebRequestContext::GetAndroidContext()
 {
-    static scoped_refptr<WebRequestContext> androidContext(0);
-    if (!androidContext) {
+    if (!androidContext)
+        androidContext = GetAndroidContextForPath(kNormalCookies, kNormalCache);
+    return androidContext;
+}
+
+scoped_refptr<WebRequestContext> WebRequestContext::GetAndroidPrivateBrowsingContext()
+{
+    WTF::MutexLocker lock(androidPrivateBrowsingContextMutex);
+
+    if (!androidPrivateBrowsingContext) {
         // TODO: Where is the right place to put the temporary db? Should it be
         // kept in memory?
-        androidContext = GetAndroidContextForPath("/chromecookies_private.db", "/chromecache_private");
+        androidPrivateBrowsingContext = GetAndroidContextForPath(kPrivateCookies, kPrivateCache);
     }
-    return androidContext;
+    return androidPrivateBrowsingContext;
+}
+
+static void removeFileOrDirectory(const char* filename)
+{
+    struct stat filetype;
+    if (stat(filename, &filetype) != 0)
+        return;
+    if (S_ISDIR(filetype.st_mode)) {
+        DIR* directory = opendir(filename);
+        if (directory) {
+            while (struct dirent* entry = readdir(directory)) {
+                if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+                    continue;
+                std::string entryName(filename);
+                entryName.append("/");
+                entryName.append(entry->d_name);
+                removeFileOrDirectory(entryName.c_str());
+            }
+            closedir(directory);
+            rmdir(filename);
+        }
+        return;
+    }
+    unlink(filename);
+}
+
+bool WebRequestContext::CleanupAndroidPrivateBrowsingFiles(std::string dataDirectory)
+{
+    WTF::MutexLocker lock(androidPrivateBrowsingContextMutex);
+
+    if (!androidPrivateBrowsingContext || androidPrivateBrowsingContext->HasOneRef()) {
+        androidPrivateBrowsingContext = 0;
+
+        std::string cookiePath(dataDirectory);
+        cookiePath.append(kPrivateCookies);
+        removeFileOrDirectory(cookiePath.c_str());
+        std::string cachePath(dataDirectory);
+        cachePath.append(kPrivateCache);
+        removeFileOrDirectory(cachePath.c_str());
+        return true;
+    }
+    return false;
 }
 
 } // namespace android
