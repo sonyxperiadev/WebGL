@@ -22,13 +22,13 @@
 // The format of the file is along the lines of:
 //
 // path/to/foo/bar.html SKIP
-// path/to/bar IGNORE_RESULT SLOW // A comment
-// path/to/foo2/ SLOW IGNORE_RESULT
+// path/to/bar FAIL SLOW // A comment
+// path/to/foo2/ SLOW FAIL
 // path/to/bar.html SLOW
 //
 // Valid options:
 // SKIP - skips the test completely (it is not run)
-// IGNORE_RESULT - runs the test and compares the result, but doesn't care if it passes
+// FAIL - runs the test and compares the result, but we expect it to fail
 // SLOW - marks the test as being slow to run
 
 editing/selection/move-left-right.html SKIP // Causes DumpRenderTree to hang
@@ -43,117 +43,117 @@ ietestcenter/Javascript/15.4.4.15-3-8.html SKIP // hangs the layout tests http:/
 // This first block of tests are for features for which Android
 // should pass all tests. They are skipped only temporarily.
 // TODO: Fix these failing tests and remove them from this list.
-fast/events/touch/basic-multi-touch-events.html IGNORE_RESULT // Requires multi-touch
-fast/events/touch/touch-target.html IGNORE_RESULT // Requires multi-touch
-http/tests/appcache/empty-manifest.html IGNORE_RESULT // flaky
-http/tests/appcache/fallback.html IGNORE_RESULT // http://b/issue?id=2713004
-http/tests/appcache/foreign-iframe-main.html IGNORE_RESULT // flaky - skips states
-http/tests/appcache/manifest-with-empty-file.html IGNORE_RESULT // flaky
-http/tests/appcache/origin-quota.html IGNORE_RESULT // requires clearAllApplicationCaches(), see http://b/issue?id=2944196
-storage/database-lock-after-reload.html IGNORE_RESULT // Succeeds but DumpRenderTree does not read result correctly
-storage/hash-change-with-xhr.html IGNORE_RESULT // Succeeds but DumpRenderTree does not read result correctly
-storage/open-database-creation-callback-isolated-world.html IGNORE_RESULT // Requires layoutTestController.evaluateScriptInIsolatedWorld()
-storage/statement-error-callback-isolated-world.html IGNORE_RESULT // Requires layoutTestController.evaluateScriptInIsolatedWorld()
-storage/statement-success-callback-isolated-world.html IGNORE_RESULT // Requires layoutTestController.evaluateScriptInIsolatedWorld()
-storage/transaction-callback-isolated-world.html IGNORE_RESULT // Requires layoutTestController.evaluateScriptInIsolatedWorld()
-storage/transaction-error-callback-isolated-world.html IGNORE_RESULT // Requires layoutTestController.evaluateScriptInIsolatedWorld()
-storage/transaction-success-callback-isolated-world.html IGNORE_RESULT // Requires layoutTestController.evaluateScriptInIsolatedWorld()
+fast/events/touch/basic-multi-touch-events.html FAIL // Requires multi-touch
+fast/events/touch/touch-target.html FAIL // Requires multi-touch
+http/tests/appcache/empty-manifest.html FAIL // flaky
+http/tests/appcache/fallback.html FAIL // http://b/issue?id=2713004
+http/tests/appcache/foreign-iframe-main.html FAIL // flaky - skips states
+http/tests/appcache/manifest-with-empty-file.html FAIL // flaky
+http/tests/appcache/origin-quota.html FAIL // requires clearAllApplicationCaches(), see http://b/issue?id=2944196
+storage/database-lock-after-reload.html FAIL // Succeeds but DumpRenderTree does not read result correctly
+storage/hash-change-with-xhr.html FAIL // Succeeds but DumpRenderTree does not read result correctly
+storage/open-database-creation-callback-isolated-world.html FAIL // Requires layoutTestController.evaluateScriptInIsolatedWorld()
+storage/statement-error-callback-isolated-world.html FAIL // Requires layoutTestController.evaluateScriptInIsolatedWorld()
+storage/statement-success-callback-isolated-world.html FAIL // Requires layoutTestController.evaluateScriptInIsolatedWorld()
+storage/transaction-callback-isolated-world.html FAIL // Requires layoutTestController.evaluateScriptInIsolatedWorld()
+storage/transaction-error-callback-isolated-world.html FAIL // Requires layoutTestController.evaluateScriptInIsolatedWorld()
+storage/transaction-success-callback-isolated-world.html FAIL // Requires layoutTestController.evaluateScriptInIsolatedWorld()
 
 // Expected failures due to unsupported features.
-fast/events/touch/touch-coords-in-zoom-and-scroll.html IGNORE_RESULT // Requires eventSender.zoomPageIn(),zoomPageOut()
-fast/workers IGNORE_RESULT // workers not supported
-http/tests/eventsource/workers IGNORE_RESULT // workers not supported
-http/tests/workers IGNORE_RESULT // workers not supported
-http/tests/xmlhttprequest/workers IGNORE_RESULT // workers not supported
-storage/domstorage/localstorage/private-browsing-affects-storage.html IGNORE_RESULT // private browsing not supported
-storage/domstorage/sessionstorage/private-browsing-affects-storage.html IGNORE_RESULT // private browsing not supported
-storage/indexeddb IGNORE_RESULT // indexeddb not supported
-storage/private-browsing-readonly.html IGNORE_RESULT // private browsing not supported
-websocket/tests/workers IGNORE_RESULT // workers not supported
+fast/events/touch/touch-coords-in-zoom-and-scroll.html FAIL // Requires eventSender.zoomPageIn(),zoomPageOut()
+fast/workers FAIL // workers not supported
+http/tests/eventsource/workers FAIL // workers not supported
+http/tests/workers FAIL // workers not supported
+http/tests/xmlhttprequest/workers FAIL // workers not supported
+storage/domstorage/localstorage/private-browsing-affects-storage.html FAIL // private browsing not supported
+storage/domstorage/sessionstorage/private-browsing-affects-storage.html FAIL // private browsing not supported
+storage/indexeddb FAIL // indexeddb not supported
+storage/private-browsing-readonly.html FAIL // private browsing not supported
+websocket/tests/workers FAIL // workers not supported
 
 // Expected failures due to missing expected results
-dom/xhtml/level3/core/canonicalform08.xhtml IGNORE_RESULT
-dom/xhtml/level3/core/canonicalform09.xhtml IGNORE_RESULT
-dom/xhtml/level3/core/documentgetinputencoding03.xhtml IGNORE_RESULT
-dom/xhtml/level3/core/entitygetinputencoding02.xhtml IGNORE_RESULT
-dom/xhtml/level3/core/entitygetxmlversion02.xhtml IGNORE_RESULT
-dom/xhtml/level3/core/nodegetbaseuri05.xhtml IGNORE_RESULT
-dom/xhtml/level3/core/nodegetbaseuri07.xhtml IGNORE_RESULT
-dom/xhtml/level3/core/nodegetbaseuri09.xhtml IGNORE_RESULT
-dom/xhtml/level3/core/nodegetbaseuri10.xhtml IGNORE_RESULT
-dom/xhtml/level3/core/nodegetbaseuri11.xhtml IGNORE_RESULT
-dom/xhtml/level3/core/nodegetbaseuri15.xhtml IGNORE_RESULT
-dom/xhtml/level3/core/nodegetbaseuri17.xhtml IGNORE_RESULT
-dom/xhtml/level3/core/nodegetbaseuri18.xhtml IGNORE_RESULT
-dom/xhtml/level3/core/nodelookupnamespaceuri01.xhtml IGNORE_RESULT
-dom/xhtml/level3/core/nodelookupprefix19.xhtml IGNORE_RESULT
+dom/xhtml/level3/core/canonicalform08.xhtml FAIL
+dom/xhtml/level3/core/canonicalform09.xhtml FAIL
+dom/xhtml/level3/core/documentgetinputencoding03.xhtml FAIL
+dom/xhtml/level3/core/entitygetinputencoding02.xhtml FAIL
+dom/xhtml/level3/core/entitygetxmlversion02.xhtml FAIL
+dom/xhtml/level3/core/nodegetbaseuri05.xhtml FAIL
+dom/xhtml/level3/core/nodegetbaseuri07.xhtml FAIL
+dom/xhtml/level3/core/nodegetbaseuri09.xhtml FAIL
+dom/xhtml/level3/core/nodegetbaseuri10.xhtml FAIL
+dom/xhtml/level3/core/nodegetbaseuri11.xhtml FAIL
+dom/xhtml/level3/core/nodegetbaseuri15.xhtml FAIL
+dom/xhtml/level3/core/nodegetbaseuri17.xhtml FAIL
+dom/xhtml/level3/core/nodegetbaseuri18.xhtml FAIL
+dom/xhtml/level3/core/nodelookupnamespaceuri01.xhtml FAIL
+dom/xhtml/level3/core/nodelookupprefix19.xhtml FAIL
 
 // TODO: These need to be triaged
-fast/css/case-transform.html IGNORE_RESULT // will not fix #619707
-fast/dom/Element/offsetLeft-offsetTop-body-quirk.html IGNORE_RESULT // different screen size result in extra spaces in Apple compared to us
-fast/dom/Window/Plug-ins.html IGNORE_RESULT // need test plugin
-fast/dom/Window/window-screen-properties.html IGNORE_RESULT // pixel depth
-fast/dom/Window/window-xy-properties.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/dom/attribute-namespaces-get-set.html IGNORE_RESULT // http://b/733229
-fast/dom/object-embed-plugin-scripting.html IGNORE_RESULT // dynamic plugins not supported
-fast/dom/tabindex-clamp.html IGNORE_RESULT // there is extra spacing in the file due to multiple input boxes fitting on one line on Apple, ours are wrapped. Space at line ends are stripped.
-fast/events/anchor-image-scrolled-x-y.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/events/arrow-navigation.html IGNORE_RESULT // http://b/735233
-fast/events/capture-on-target.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/events/dblclick-addEventListener.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/events/drag-in-frames.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/events/drag-outside-window.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/events/event-view-toString.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/events/frame-click-focus.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/events/frame-tab-focus.html IGNORE_RESULT // http://b/734308
-fast/events/iframe-object-onload.html IGNORE_RESULT // there is extra spacing in the file due to multiple frame boxes fitting on one line on Apple, ours are wrapped. Space at line ends are stripped.
-fast/events/input-image-scrolled-x-y.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/events/mouseclick-target-and-positioning.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/events/mouseover-mouseout.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/events/mouseover-mouseout2.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/events/mouseup-outside-button.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/events/mouseup-outside-document.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/events/onclick-list-marker.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/events/ondragenter.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/events/onload-webkit-before-webcore.html IGNORE_RESULT // missing space in textrun, ok as text is wrapped. ignore. #714933
-fast/events/option-tab.html IGNORE_RESULT // http://b/734308
-fast/events/window-events-bubble.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/events/window-events-bubble2.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/events/window-events-capture.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/forms/drag-into-textarea.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/forms/focus-control-to-page.html IGNORE_RESULT // http://b/716638
-fast/forms/focus2.html IGNORE_RESULT // http://b/735111
-fast/forms/form-data-encoding-2.html IGNORE_RESULT // charset convert. #516936 ignore, won't fix
-fast/forms/form-data-encoding.html IGNORE_RESULT // charset convert. #516936 ignore, won't fix
-fast/forms/input-appearance-maxlength.html IGNORE_RESULT // execCommand "insertText" not supported
-fast/forms/input-select-on-click.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/forms/listbox-onchange.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/forms/listbox-selection.html IGNORE_RESULT // http://b/735116
-fast/forms/onselect-textarea.html IGNORE_RESULT // requires eventSender.mouseMoveTo, mouseDown & mouseUp and abs. position of mouse to select a word. ignore, won't fix #716583
-fast/forms/onselect-textfield.html IGNORE_RESULT // requires eventSender.mouseMoveTo, mouseDown & mouseUp and abs. position of mouse to select a word. ignore, won't fix #716583
-fast/forms/plaintext-mode-1.html IGNORE_RESULT // not implemented queryCommandEnabled:BackColor, Undo & Redo
-fast/forms/search-cancel-button-mouseup.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/forms/search-event-delay.html IGNORE_RESULT // http://b/735120
-fast/forms/select-empty-list.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/forms/select-type-ahead-non-latin.html IGNORE_RESULT // http://b/735244
-fast/forms/selected-index-assert.html IGNORE_RESULT // not capturing the console messages
-fast/forms/selection-functions.html IGNORE_RESULT // there is extra spacing as the text areas and input boxes fit next to each other on Apple, but are wrapped on our screen.
-fast/forms/textarea-appearance-wrap.html IGNORE_RESULT // Our text areas are a little thinner than Apples. Also RTL test failes
-fast/forms/textarea-initial-caret-position.html IGNORE_RESULT // Text selection done differently on our platform. When a inputbox gets focus, the entire block is selected.
-fast/forms/textarea-no-scroll-on-blur.html IGNORE_RESULT // Text selection done differently on our platform. When a inputbox gets focus, the entire block is selected.
-fast/forms/textarea-paste-newline.html IGNORE_RESULT // Copy&Paste commands not supported
-fast/forms/textarea-scrolled-endline-caret.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/frames/iframe-window-focus.html IGNORE_RESULT // http://b/735140
-fast/frames/frameElement-widthheight.html IGNORE_RESULT // screen width&height are different
-fast/frames/frame-js-url-clientWidth.html IGNORE_RESULT // screen width&height are different
-fast/html/tab-order.html IGNORE_RESULT // http://b/719289
-fast/js/navigator-mimeTypes-length.html IGNORE_RESULT // dynamic plugins not supported
-fast/js/string-capitalization.html IGNORE_RESULT // http://b/516936
-fast/loader/local-JavaScript-from-local.html IGNORE_RESULT // Requires LayoutTests to exist at /tmp/LayoutTests
-fast/loader/local-iFrame-source-from-local.html IGNORE_RESULT // Requires LayoutTests to exist at /tmp/LayoutTests
-fast/loader/opaque-base-url.html IGNORE_RESULT // extra spacing because iFrames rendered next to each other on Apple
-fast/overflow/scroll-vertical-not-horizontal.html IGNORE_RESULT // http://b/735196
-fast/parser/script-tag-with-trailing-slash.html IGNORE_RESULT // not capturing the console messages
-fast/replaced/image-map.html IGNORE_RESULT // requires eventSender.mouseDown(),mouseUp()
-fast/text/plain-text-line-breaks.html IGNORE_RESULT // extra spacing because iFrames rendered next to each other on Apple
-profiler IGNORE_RESULT // profiler is not supported
+fast/css/case-transform.html FAIL // will not fix #619707
+fast/dom/Element/offsetLeft-offsetTop-body-quirk.html FAIL // different screen size result in extra spaces in Apple compared to us
+fast/dom/Window/Plug-ins.html FAIL // need test plugin
+fast/dom/Window/window-screen-properties.html FAIL // pixel depth
+fast/dom/Window/window-xy-properties.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/dom/attribute-namespaces-get-set.html FAIL // http://b/733229
+fast/dom/object-embed-plugin-scripting.html FAIL // dynamic plugins not supported
+fast/dom/tabindex-clamp.html FAIL // there is extra spacing in the file due to multiple input boxes fitting on one line on Apple, ours are wrapped. Space at line ends are stripped.
+fast/events/anchor-image-scrolled-x-y.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/events/arrow-navigation.html FAIL // http://b/735233
+fast/events/capture-on-target.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/events/dblclick-addEventListener.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/events/drag-in-frames.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/events/drag-outside-window.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/events/event-view-toString.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/events/frame-click-focus.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/events/frame-tab-focus.html FAIL // http://b/734308
+fast/events/iframe-object-onload.html FAIL // there is extra spacing in the file due to multiple frame boxes fitting on one line on Apple, ours are wrapped. Space at line ends are stripped.
+fast/events/input-image-scrolled-x-y.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/events/mouseclick-target-and-positioning.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/events/mouseover-mouseout.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/events/mouseover-mouseout2.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/events/mouseup-outside-button.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/events/mouseup-outside-document.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/events/onclick-list-marker.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/events/ondragenter.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/events/onload-webkit-before-webcore.html FAIL // missing space in textrun, ok as text is wrapped. ignore. #714933
+fast/events/option-tab.html FAIL // http://b/734308
+fast/events/window-events-bubble.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/events/window-events-bubble2.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/events/window-events-capture.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/forms/drag-into-textarea.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/forms/focus-control-to-page.html FAIL // http://b/716638
+fast/forms/focus2.html FAIL // http://b/735111
+fast/forms/form-data-encoding-2.html FAIL // charset convert. #516936 ignore, won't fix
+fast/forms/form-data-encoding.html FAIL // charset convert. #516936 ignore, won't fix
+fast/forms/input-appearance-maxlength.html FAIL // execCommand "insertText" not supported
+fast/forms/input-select-on-click.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/forms/listbox-onchange.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/forms/listbox-selection.html FAIL // http://b/735116
+fast/forms/onselect-textarea.html FAIL // requires eventSender.mouseMoveTo, mouseDown & mouseUp and abs. position of mouse to select a word. ignore, won't fix #716583
+fast/forms/onselect-textfield.html FAIL // requires eventSender.mouseMoveTo, mouseDown & mouseUp and abs. position of mouse to select a word. ignore, won't fix #716583
+fast/forms/plaintext-mode-1.html FAIL // not implemented queryCommandEnabled:BackColor, Undo & Redo
+fast/forms/search-cancel-button-mouseup.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/forms/search-event-delay.html FAIL // http://b/735120
+fast/forms/select-empty-list.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/forms/select-type-ahead-non-latin.html FAIL // http://b/735244
+fast/forms/selected-index-assert.html FAIL // not capturing the console messages
+fast/forms/selection-functions.html FAIL // there is extra spacing as the text areas and input boxes fit next to each other on Apple, but are wrapped on our screen.
+fast/forms/textarea-appearance-wrap.html FAIL // Our text areas are a little thinner than Apples. Also RTL test failes
+fast/forms/textarea-initial-caret-position.html FAIL // Text selection done differently on our platform. When a inputbox gets focus, the entire block is selected.
+fast/forms/textarea-no-scroll-on-blur.html FAIL // Text selection done differently on our platform. When a inputbox gets focus, the entire block is selected.
+fast/forms/textarea-paste-newline.html FAIL // Copy&Paste commands not supported
+fast/forms/textarea-scrolled-endline-caret.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/frames/iframe-window-focus.html FAIL // http://b/735140
+fast/frames/frameElement-widthheight.html FAIL // screen width&height are different
+fast/frames/frame-js-url-clientWidth.html FAIL // screen width&height are different
+fast/html/tab-order.html FAIL // http://b/719289
+fast/js/navigator-mimeTypes-length.html FAIL // dynamic plugins not supported
+fast/js/string-capitalization.html FAIL // http://b/516936
+fast/loader/local-JavaScript-from-local.html FAIL // Requires LayoutTests to exist at /tmp/LayoutTests
+fast/loader/local-iFrame-source-from-local.html FAIL // Requires LayoutTests to exist at /tmp/LayoutTests
+fast/loader/opaque-base-url.html FAIL // extra spacing because iFrames rendered next to each other on Apple
+fast/overflow/scroll-vertical-not-horizontal.html FAIL // http://b/735196
+fast/parser/script-tag-with-trailing-slash.html FAIL // not capturing the console messages
+fast/replaced/image-map.html FAIL // requires eventSender.mouseDown(),mouseUp()
+fast/text/plain-text-line-breaks.html FAIL // extra spacing because iFrames rendered next to each other on Apple
+profiler FAIL // profiler is not supported
