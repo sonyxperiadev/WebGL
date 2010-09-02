@@ -57,7 +57,7 @@ namespace WebCore {
     class Element;
     class Event;
     class InspectorDOMAgent;
-    class RemoteInspectorFrontend;
+    class InspectorFrontend;
     class MatchJob;
     class NameNodeMap;
     class Node;
@@ -80,7 +80,7 @@ namespace WebCore {
 
     class InspectorDOMAgent : public EventListener {
     public:
-        static PassRefPtr<InspectorDOMAgent> create(InspectorCSSStore* cssStore, RemoteInspectorFrontend* frontend)
+        static PassRefPtr<InspectorDOMAgent> create(InspectorCSSStore* cssStore, InspectorFrontend* frontend)
         {
             return adoptRef(new InspectorDOMAgent(cssStore, frontend));
         }
@@ -92,7 +92,7 @@ namespace WebCore {
                 : 0;
         }
 
-        InspectorDOMAgent(InspectorCSSStore* cssStore, RemoteInspectorFrontend* frontend);
+        InspectorDOMAgent(InspectorCSSStore* cssStore, InspectorFrontend* frontend);
         ~InspectorDOMAgent();
 
         void reset();
@@ -112,6 +112,8 @@ namespace WebCore {
         void addInspectedNode(long nodeId);
         void performSearch(const String& whitespaceTrimmedQuery, bool runSynchronously);
         void searchCanceled();
+        void setDOMBreakpoint(long nodeId, long type);
+        void removeDOMBreakpoint(long nodeId, long type);
 
         // Methods called from the frontend for CSS styles inspection.
         void getStyles(long nodeId, bool authorOnly, RefPtr<InspectorValue>* styles);
@@ -126,6 +128,7 @@ namespace WebCore {
         void toggleStyleEnabled(long styleId, const String& propertyName, bool disabled, RefPtr<InspectorValue>* styleObject);
         void setRuleSelector(long ruleId, const String& selector, long selectedNodeId, RefPtr<InspectorValue>* ruleObject, bool* selectorAffectsNode);
         void addRule(const String& selector, long selectedNodeId, RefPtr<InspectorValue>* ruleObject, bool* selectorAffectsNode);
+        void getSupportedCSSProperties(RefPtr<InspectorArray>* cssProperties);
 
         // Methods called from the InspectorController.
         void setDocument(Document* document);
@@ -155,6 +158,10 @@ namespace WebCore {
         void unbind(Node* node, NodeToIdMap* nodesMap);
 
         bool pushDocumentToFrontend();
+
+        bool hasBreakpoint(Node* node, long type);
+        bool pauseOnBreakpoint();
+        void updateSubtreeBreakpoints(Node* root, uint32_t rootMask, bool value);
 
         PassRefPtr<InspectorObject> buildObjectForAttributeStyles(Element* element);
         PassRefPtr<InspectorArray> buildArrayForCSSRules(Document* ownerDocument, CSSRuleList*);
@@ -196,7 +203,7 @@ namespace WebCore {
         void discardBindings();
 
         InspectorCSSStore* m_cssStore;
-        RemoteInspectorFrontend* m_frontend;
+        InspectorFrontend* m_frontend;
         NodeToIdMap m_documentNodeToIdMap;
         // Owns node mappings for dangling nodes.
         Vector<NodeToIdMap*> m_danglingNodeToIdMaps;
@@ -209,6 +216,9 @@ namespace WebCore {
         Timer<InspectorDOMAgent> m_matchJobsTimer;
         HashSet<RefPtr<Node> > m_searchResults;
         Vector<long> m_inspectedNodes;
+        HashMap<Node*, uint32_t> m_breakpoints;
+
+        static InspectorDOMAgent* s_domAgentOnBreakpoint;
     };
 
 #endif

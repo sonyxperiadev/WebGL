@@ -70,7 +70,7 @@ SelectionController::SelectionController(Frame* frame, bool isDragCaretControlle
     , m_xPosForVerticalArrowNavigation(NoXPosForVerticalArrowNavigation)
     , m_granularity(CharacterGranularity)
     , m_caretBlinkTimer(this, &SelectionController::caretBlinkTimerFired)
-    , m_needsLayout(true)
+    , m_caretRectNeedsUpdate(true)
     , m_absCaretBoundsDirty(true)
     , m_isDragCaretController(isDragCaretController)
     , m_isCaretBlinkingSuspended(false)
@@ -116,7 +116,7 @@ void SelectionController::setSelection(const VisibleSelection& s, bool closeTypi
     if (m_isDragCaretController) {
         invalidateCaretRect();
         m_selection = s;
-        m_needsLayout = true;
+        m_caretRectNeedsUpdate = true;
         invalidateCaretRect();
         return;
     }
@@ -150,7 +150,7 @@ void SelectionController::setSelection(const VisibleSelection& s, bool closeTypi
 
     m_selection = s;
     
-    m_needsLayout = true;
+    m_caretRectNeedsUpdate = true;
     
     if (!s.isNone())
         m_frame->setFocusedNodeIfNeeded();
@@ -705,7 +705,7 @@ bool SelectionController::modify(EAlteration alter, EDirection direction, TextGr
         m_granularity = CharacterGranularity;
 
 
-    setNeedsLayout();
+    setCaretRectNeedsUpdate();
 
     setIsDirectional(alter == AlterationExtend);
 
@@ -886,12 +886,12 @@ void SelectionController::setExtent(const Position &pos, EAffinity affinity, boo
     setSelection(VisibleSelection(m_selection.base(), pos, affinity), true, true, userTriggered);
 }
 
-void SelectionController::setNeedsLayout(bool flag)
+void SelectionController::setCaretRectNeedsUpdate(bool flag)
 {
-    m_needsLayout = flag;
+    m_caretRectNeedsUpdate = flag;
 }
 
-void SelectionController::layout()
+void SelectionController::updateCaretRect()
 {
     if (isNone() || !m_selection.start().node()->inDocument() || !m_selection.end().node()->inDocument()) {
         m_caretRect = IntRect();
@@ -934,7 +934,7 @@ void SelectionController::layout()
         }
     }
 
-    m_needsLayout = false;
+    m_caretRectNeedsUpdate = false;
 }
 
 RenderObject* SelectionController::caretRenderer() const
@@ -952,10 +952,10 @@ RenderObject* SelectionController::caretRenderer() const
     return paintedByBlock ? renderer : renderer->containingBlock();
 }
 
-IntRect SelectionController::localCaretRect() const
+IntRect SelectionController::localCaretRect()
 {
-    if (m_needsLayout)
-        const_cast<SelectionController*>(this)->layout();
+    if (m_caretRectNeedsUpdate)
+        updateCaretRect();
     
     return m_caretRect;
 }
@@ -987,19 +987,19 @@ static IntRect repaintRectForCaret(IntRect caret)
 
 IntRect SelectionController::caretRepaintRect() const
 {
-    return absoluteBoundsForLocalRect(repaintRectForCaret(localCaretRect()));
+    return absoluteBoundsForLocalRect(repaintRectForCaret(localCaretRectForPainting()));
 }
 
 bool SelectionController::recomputeCaretRect()
 {
+    if (!m_caretRectNeedsUpdate)
+        return false;
+
     if (!m_frame)
         return false;
         
     FrameView* v = m_frame->document()->view();
     if (!v)
-        return false;
-
-    if (!m_needsLayout)
         return false;
 
     IntRect oldRect = m_caretRect;
@@ -1060,7 +1060,7 @@ void SelectionController::invalidateCaretRect()
     // changes which may have been done.
     // And, we need to leave this layout here so the caret moves right 
     // away after clicking.
-    m_needsLayout = true;
+    m_caretRectNeedsUpdate = true;
 
     if (!caretRectChanged) {
         RenderView* view = toRenderView(d->renderer());
@@ -1079,7 +1079,7 @@ void SelectionController::paintCaret(GraphicsContext* context, int tx, int ty, c
     if (!m_selection.isCaret())
         return;
 
-    IntRect drawingRect = localCaretRect();
+    IntRect drawingRect = localCaretRectForPainting();
     drawingRect.move(tx, ty);
     IntRect caret = intersection(drawingRect, clipRect);
     if (caret.isEmpty())

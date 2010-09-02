@@ -39,7 +39,6 @@
 #include "HTMLScriptElement.h"
 #include "HTMLToken.h"
 #include "HTMLTokenizer.h"
-#include "LegacyHTMLTreeBuilder.h"
 #include "LocalizedStrings.h"
 #if ENABLE(MATHML)
 #include "MathMLNames.h"
@@ -83,7 +82,7 @@ bool causesFosterParenting(const QualifiedName& tagName)
 } // namespace
 
 template<typename ChildType>
-PassRefPtr<ChildType> HTMLConstructionSite::attach(Node* parent, PassRefPtr<ChildType> prpChild)
+PassRefPtr<ChildType> HTMLConstructionSite::attach(ContainerNode* parent, PassRefPtr<ChildType> prpChild)
 {
     RefPtr<ChildType> child = prpChild;
 
@@ -92,7 +91,7 @@ PassRefPtr<ChildType> HTMLConstructionSite::attach(Node* parent, PassRefPtr<Chil
     // doesn't.  It feels like we're missing a concept somehow.
     if (shouldFosterParent()) {
         fosterParent(child.get());
-        ASSERT(child->attached() || !child->parent()->attached());
+        ASSERT(child->attached() || !child->parent() || !child->parent()->attached());
         return child.release();
     }
 
@@ -118,10 +117,7 @@ void HTMLConstructionSite::attachAtSite(const AttachmentSite& site, PassRefPtr<N
     RefPtr<Node> child = prpChild;
 
     if (site.nextChild) {
-        // FIXME: We need an insertElement which does not send mutation events.
-        ExceptionCode ec = 0;
-        site.parent->insertBefore(child, site.nextChild, ec);
-        ASSERT(!ec);
+        site.parent->parserInsertBefore(child, site.nextChild);
         if (site.parent->attached() && !child->attached())
             child->attach();
         return;
@@ -146,6 +142,11 @@ HTMLConstructionSite::~HTMLConstructionSite()
 {
 }
 
+void HTMLConstructionSite::detach()
+{
+    m_document = 0;
+}
+
 void HTMLConstructionSite::setForm(HTMLFormElement* form)
 {
     // This method should only be needed for HTMLTreeBuilder in the fragment case.
@@ -160,6 +161,7 @@ PassRefPtr<HTMLFormElement> HTMLConstructionSite::takeForm()
 
 void HTMLConstructionSite::dispatchDocumentElementAvailableIfNeeded()
 {
+    ASSERT(m_document);
     if (m_document->frame() && !m_isParsingFragment)
         m_document->frame()->loader()->dispatchDocumentElementAvailable();
 }
@@ -287,7 +289,8 @@ void HTMLConstructionSite::insertFormattingElement(AtomicHTMLToken& token)
 void HTMLConstructionSite::insertScriptElement(AtomicHTMLToken& token)
 {
     RefPtr<HTMLScriptElement> element = HTMLScriptElement::create(scriptTag, m_document, true);
-    element->setAttributeMap(token.takeAtributes(), m_fragmentScriptingPermission);
+    if (m_fragmentScriptingPermission == FragmentScriptingAllowed)
+        element->setAttributeMap(token.takeAtributes(), m_fragmentScriptingPermission);
     m_openElements.push(attachToCurrent(element.release()));
 }
 
@@ -429,7 +432,7 @@ void HTMLConstructionSite::findFosterSite(AttachmentSite& site)
     HTMLElementStack::ElementRecord* lastTableElementRecord = m_openElements.topmost(tableTag.localName());
     if (lastTableElementRecord) {
         Element* lastTableElement = lastTableElementRecord->element();
-        if (Node* parent = lastTableElement->parent()) {
+        if (ContainerNode* parent = lastTableElement->parent()) {
             site.parent = parent;
             site.nextChild = lastTableElement;
             return;

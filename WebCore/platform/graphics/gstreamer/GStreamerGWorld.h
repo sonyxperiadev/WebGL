@@ -23,25 +23,43 @@
 
 #if ENABLE(VIDEO)
 
+#include "PlatformVideoWindow.h"
 #include "RefCounted.h"
 #include "RefPtr.h"
 #include <glib.h>
 
+typedef struct _GstElement GstElement;
+typedef struct _GstMessage GstMessage;
+typedef struct _GstBus GstBus;
+typedef struct _GstBin GstBin;
 
 namespace WebCore {
 
 class MediaPlayerPrivateGStreamer;
 
+gboolean gstGWorldSyncMessageCallback(GstBus* bus, GstMessage* message, gpointer data);
 
 class GStreamerGWorld : public RefCounted<GStreamerGWorld> {
+    friend gboolean gstGWorldSyncMessageCallback(GstBus* bus, GstMessage* message, gpointer data);
 
 public:
-    static PassRefPtr<GStreamerGWorld> createGWorld(MediaPlayerPrivateGStreamer*);
+    static PassRefPtr<GStreamerGWorld> createGWorld(GstElement*);
     ~GStreamerGWorld();
 
+    GstElement* pipeline() const { return m_pipeline; }
+
+    // Returns the full-screen window created
+    bool enterFullscreen();
+    void exitFullscreen();
+
+    void setWindowOverlay(GstMessage* message);
+    PlatformVideoWindow* platformVideoWindow() const { return m_videoWindow.get(); }
+
 private:
-    GStreamerGWorld(MediaPlayerPrivateGStreamer*);
-    MediaPlayerPrivateGStreamer* m_player;
+    GStreamerGWorld(GstElement*);
+    GstElement* m_pipeline;
+    RefPtr<PlatformVideoWindow> m_videoWindow;
+    gchar* m_dynamicPadName;
 };
 
 }

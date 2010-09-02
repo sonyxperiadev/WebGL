@@ -1,3 +1,100 @@
+2010-08-24  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Remove HTML5 parser testing infrastructure now that we don't need it
+        https://bugs.webkit.org/show_bug.cgi?id=44581
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+
+2010-08-24  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Oliver Hunt.
+
+        Paste event fires twice for mac WebKit
+        <rdar://problem/8094611>
+        https://bugs.webkit.org/show_bug.cgi?id=44535
+
+        The mac implementation of paste in WebKit was accidentally calling 
+        Editor::tryDHTMLPaste twice, once in -[WebHTMLView paste:] and once
+        in Editor::pasteAsPlainText (which is called -[WebHTMLView paste:]).
+        Use the new pasteAsPlainTextBypassingDHTML function to bypass the
+        second call.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView paste:]):
+
+2010-08-24  Daniel Cheng  <dcheng@chromium.org>
+
+        Reviewed by Eric Seidel.
+
+        [chromium] Generate drag images for HTML elements and selections.
+        https://bugs.webkit.org/show_bug.cgi?id=43449
+
+        Fix up calls to Frame::nodeImage, which has a new signature.
+
+        * Plugins/WebBaseNetscapePluginView.mm:
+        (-[WebBaseNetscapePluginView halt]):
+
+2010-08-23  Mike Thole  <mthole@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        WebPDFView should remove itself as the delegate of its PDFView before being dealloced
+        https://bugs.webkit.org/show_bug.cgi?id=44441
+
+        * WebView/WebPDFView.mm:
+        (-[WebPDFView dealloc]): Set the PDFView's delegate to nil.
+
+2010-08-22  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Eric Seidel.
+
+        Encapsulate document marker management into DocumentMarkerController
+        https://bugs.webkit.org/show_bug.cgi?id=44383
+
+        Modify call sites in the Apple Mac port to use DocumentMarkerController.
+
+        No functionality was changed, so no new tests.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _unmarkAllBadGrammar]):
+        (-[WebFrame _unmarkAllMisspellings]):
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView unmarkAllTextMatches]):
+        (-[WebHTMLView rectsForTextMatches]):
+
+2010-08-19  David Kilzer  <ddkilzer@apple.com>
+
+        <http://webkit.org/b/44285> Fix compilation with NETSCAPE_PLUGIN_API disabled
+
+        Reviewed by Joseph Pecoraro.
+
+        * Plugins/Hosted/HostedNetscapePluginStream.mm: Changed
+        USE(PLUGIN_HOST_PROCESS) to
+        USE(PLUGIN_HOST_PROCESS) && ENABLE(NETSCAPE_PLUGIN_API).
+        * Plugins/Hosted/NetscapePluginHostManager.mm: Ditto.
+        * Plugins/Hosted/NetscapePluginHostProxy.mm: Ditto.
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm: Ditto.
+        * Plugins/Hosted/ProxyInstance.mm: Ditto.
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm: Ditto.
+        * WebCoreSupport/WebChromeClient.mm: Ditto.
+        (WebChromeClient::createWindow):
+        * WebCoreSupport/WebFrameLoaderClient.mm: Ditto.
+        (WebFrameLoaderClient::dispatchCreatePage):
+        * WebView/WebHTMLView.mm:
+        (needsCursorRectsSupportAtPoint): Added #if
+        ENABLE(NETSCAPE_PLUGIN_API) and #endif macros as needed.
+        * WebView/WebView.mm:
+        (+[WebView _isNodeHaltedPlugin:]): Ditto.
+        (+[WebView _hasPluginForNodeBeenHalted:]): Ditto.
+        (+[WebView _restartHaltedPluginForNode:]): Ditto.
+
 2010-08-17  Jesus Sanchez-Palencia  <jesus.palencia@openbossa.org>
 
         Reviewed by Darin Adler.

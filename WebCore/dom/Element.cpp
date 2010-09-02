@@ -1213,6 +1213,11 @@ void Element::setAttributeNS(const AtomicString& namespaceURI, const AtomicStrin
     if (!Document::parseQualifiedName(qualifiedName, prefix, localName, ec))
         return;
 
+    if (namespaceURI.isNull() && !prefix.isNull()) {
+        ec = NAMESPACE_ERR;
+        return;
+    }
+
     QualifiedName qName(prefix, localName, namespaceURI);
 
     if (scriptingPermission == FragmentScriptingNotAllowed && (isEventHandlerAttribute(qName) || isAttributeToRemove(qName, value)))
@@ -1293,9 +1298,6 @@ void Element::focus(bool restorePreviousSelection)
     if (doc->focusedNode() == this)
         return;
 
-    if (!supportsFocus())
-        return;
-
     // If the stylesheets have already been loaded we can reliably check isFocusable.
     // If not, we continue and set the focused node on the focus controller below so
     // that it can be updated soon after attach. 
@@ -1304,6 +1306,9 @@ void Element::focus(bool restorePreviousSelection)
         if (!isFocusable())
             return;
     }
+
+    if (!supportsFocus())
+        return;
 
     RefPtr<Node> protect;
     if (Page* page = doc->page()) {

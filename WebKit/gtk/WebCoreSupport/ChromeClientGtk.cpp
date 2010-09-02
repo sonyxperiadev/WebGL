@@ -30,6 +30,7 @@
 #include "FloatRect.h"
 #include "FrameLoadRequest.h"
 #include "GtkVersioning.h"
+#include "HTMLNames.h"
 #include "IntRect.h"
 #include "HitTestResult.h"
 #include "Icon.h"
@@ -611,7 +612,7 @@ void ChromeClient::requestGeolocationPermissionForFrame(Frame* frame, Geolocatio
     WebKitWebFrame* webFrame = kit(frame);
     WebKitWebView* webView = getViewFromFrame(webFrame);
 
-    GRefPtr<WebKitGeolocationPolicyDecision> policyDecision(adoptGRef(webkit_geolocation_policy_decision_new(webFrame, geolocation)));
+    PlatformRefPtr<WebKitGeolocationPolicyDecision> policyDecision(adoptPlatformRef(webkit_geolocation_policy_decision_new(webFrame, geolocation)));
 
     gboolean isHandled = FALSE;
     g_signal_emit_by_name(webView, "geolocation-policy-decision-requested", webFrame, policyDecision.get(), &isHandled);
@@ -640,5 +641,29 @@ PassRefPtr<WebCore::SearchPopupMenu> ChromeClient::createSearchPopupMenu(WebCore
 {
     return adoptRef(new SearchPopupMenuGtk(client));
 }
+
+#if ENABLE(VIDEO)
+
+bool ChromeClient::supportsFullscreenForNode(const Node* node)
+{
+    return node->hasTagName(HTMLNames::videoTag);
+}
+
+void ChromeClient::enterFullscreenForNode(Node* node)
+{
+    WebCore::Frame* frame = node->document()->frame();
+    WebKitWebFrame* webFrame = kit(frame);
+    WebKitWebView* webView = getViewFromFrame(webFrame);
+    webkitWebViewEnterFullscreen(webView, node);
+}
+
+void ChromeClient::exitFullscreenForNode(Node* node)
+{
+    WebCore::Frame* frame = node->document()->frame();
+    WebKitWebFrame* webFrame = kit(frame);
+    WebKitWebView* webView = getViewFromFrame(webFrame);
+    webkitWebViewExitFullscreen(webView);
+}
+#endif
 
 }

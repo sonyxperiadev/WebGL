@@ -1359,7 +1359,7 @@ void RenderLayer::scrollToOffset(int x, int y, bool updateScrollbars, bool repai
     Frame* frame = renderer()->frame();
     if (frame) {
         // The caret rect needs to be invalidated after scrolling
-        frame->selection()->setNeedsLayout();
+        frame->selection()->setCaretRectNeedsUpdate();
 
         FloatQuad quadForFakeMouseMoveEvent = FloatQuad(rectForRepaint);
         if (repaintContainer)
@@ -3128,7 +3128,7 @@ void RenderLayer::calculateClipRects(const RenderLayer* rootLayer, ClipRects& cl
 {
     if (!parent()) {
         // The root layer's clip rect is always infinite.
-        clipRects.reset(ClipRects::infiniteRect());
+        clipRects.reset(PaintInfo::infiniteRect());
         return;
     }
 
@@ -3144,7 +3144,7 @@ void RenderLayer::calculateClipRects(const RenderLayer* rootLayer, ClipRects& cl
             parentLayer->calculateClipRects(rootLayer, clipRects);
     }
     else
-        clipRects.reset(ClipRects::infiniteRect());
+        clipRects.reset(PaintInfo::infiniteRect());
 
     // A fixed object is essentially the root of its containing block hierarchy, so when
     // we encounter such an object, we reset our clip rects to the fixedClipRect.

@@ -1,3 +1,83 @@
+2010-08-25  Jaehun Lim  <ljaehun.lim@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] enable libsoup's content decode feature
+        https://bugs.webkit.org/show_bug.cgi?id=44147
+
+        libsoup's content decode feature is enabled during initializaton.
+
+        * ewk/ewk_main.cpp:
+        (ewk_init):
+
+2010-08-25  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        Unreviewed build fix.
+
+        [EFL] Build fix for revision 65332
+        https://bugs.webkit.org/show_bug.cgi?id=44543
+
+        Use Gthread_LIBRARIES instead of GTHREAD_LIBRARIES. This fix
+        the build when using ENABLE_GLIB_SUPPORT=ON and NETWORK_BACKEND=curl.
+
+        * CMakeListsEfl.txt:
+
+2010-08-24  Lukasz Slachciak  <l.slachciak@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Extended EFL WebView API to allow enable/disable Frame Flattening
+        https://bugs.webkit.org/show_bug.cgi?id=44253
+
+        * ewk/ewk_view.cpp:
+        (ewk_view_setting_enable_frame_flattening_get):
+        (ewk_view_setting_enable_frame_flattening_set):
+        * ewk/ewk_view.h:
+
+2010-08-23  Leandro Pereira  <leandro@profusion.mobi>
+
+        [EFL] Build fix for platforms that do not require linking with "dl".
+        CMake includes the variable CMAKE_DL_LIBS that evaluates to the
+        platform-specific libraries.
+
+        * CMakeListsEfl.txt: Use ${CMAKE_DL_LIBS} instead of dl.
+
+2010-08-22  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Remove duplicated include entry from default theme.
+        https://bugs.webkit.org/show_bug.cgi?id=44345
+
+        This used to create the group webkit/widget/entry twice in
+        the theme. It's leading to a bug with the newer versions of
+        EFL.
+
+        * DefaultTheme/default.edc:
+
+2010-08-22  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Eric Seidel.
+
+        Encapsulate document marker management into DocumentMarkerController
+        https://bugs.webkit.org/show_bug.cgi?id=44383
+
+        Modify call sites in the EFL port to use DocumentMarkerController.
+
+        No functionality was changed, so no new tests.
+
+        * ewk/ewk_frame.cpp:
+        (ewk_frame_text_matches_unmark_all):
+
+2010-08-20  Leandro Pereira  <leandro@profusion.mobi>
+
+        [EFL] Unreviewed. Fix build when using GNU gold.
+        When linking with GNU gold, some symbols are not found: explicitly
+        link with the required libraries.
+
+        * CMakeListsEfl.txt: Depend on Fontconfig, PNG, JPEG and dl
+        libraries.
+
 2010-08-15  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
 
         Reviewed by Antonio Gomes.

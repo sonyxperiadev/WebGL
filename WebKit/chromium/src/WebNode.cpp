@@ -38,9 +38,9 @@
 #include "NodeList.h"
 
 #include "EventListenerWrapper.h"
+#include "WebDOMEvent.h"
+#include "WebDOMEventListener.h"
 #include "WebDocument.h"
-#include "WebEvent.h"
-#include "WebEventListener.h"
 #include "WebFrameImpl.h"
 #include "WebNodeList.h"
 #include "WebString.h"
@@ -79,7 +79,7 @@ WebNode::NodeType WebNode::nodeType() const
 
 WebNode WebNode::parentNode() const
 {
-    return WebNode(const_cast<Node*>(m_private->parentNode()));
+    return WebNode(const_cast<ContainerNode*>(m_private->parentNode()));
 }
 
 WebString WebNode::nodeName() const
@@ -149,7 +149,7 @@ bool WebNode::isElementNode() const
     return m_private->isElementNode();
 }
 
-void WebNode::addEventListener(const WebString& eventType, WebEventListener* listener, bool useCapture)
+void WebNode::addEventListener(const WebString& eventType, WebDOMEventListener* listener, bool useCapture)
 {
     EventListenerWrapper* listenerWrapper =
         listener->createEventListenerWrapper(eventType, useCapture, m_private.get());
@@ -159,7 +159,7 @@ void WebNode::addEventListener(const WebString& eventType, WebEventListener* lis
     m_private->addEventListener(eventType, adoptRef(listenerWrapper), useCapture);
 }
 
-void WebNode::removeEventListener(const WebString& eventType, WebEventListener* listener, bool useCapture)
+void WebNode::removeEventListener(const WebString& eventType, WebDOMEventListener* listener, bool useCapture)
 {
     EventListenerWrapper* listenerWrapper =
         listener->getEventListenerWrapper(eventType, useCapture, m_private.get());

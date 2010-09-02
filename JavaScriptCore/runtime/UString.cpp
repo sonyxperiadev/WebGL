@@ -26,7 +26,6 @@
 
 #include "JSGlobalObjectFunctions.h"
 #include "Collector.h"
-#include "dtoa.h"
 #include "Identifier.h"
 #include "Operations.h"
 #include <ctype.h>
@@ -39,6 +38,7 @@
 #include <wtf/MathExtras.h>
 #include <wtf/StringExtras.h>
 #include <wtf/Vector.h>
+#include <wtf/text/WTFString.h>
 #include <wtf/unicode/UTF8.h>
 
 #if HAVE(STRINGS_H)
@@ -198,10 +198,8 @@ UString UString::number(long l)
 
 UString UString::number(double d)
 {
-    DtoaBuffer buffer;
-    unsigned length;
-    doubleToStringInJavaScriptFormat(d, buffer, &length);
-    return UString(buffer, length);
+    NumberToStringBuffer buffer;
+    return StringImpl::create(buffer, numberToString(d, buffer));
 }
 
 UString UString::substringSharingImpl(unsigned offset, unsigned length) const
@@ -334,6 +332,8 @@ CString UString::utf8(bool strict) const
     //  * We could allocate a CStringBuffer with an appropriate size to
     //    have a good chance of being able to write the string into the
     //    buffer without reallocing (say, 1.5 x length).
+    if (length > numeric_limits<unsigned>::max() / 3)
+        return CString();
     Vector<char, 1024> bufferVector(length * 3);
 
     char* buffer = bufferVector.data();

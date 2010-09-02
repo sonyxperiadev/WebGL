@@ -50,7 +50,7 @@
 #include "HTMLImageLoader.h"
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
-#include "LegacyHTMLTreeBuilder.h"
+#include "HTMLTreeBuilder.h"
 #include "KeyboardEvent.h"
 #include "LocalizedStrings.h"
 #include "MouseEvent.h"
@@ -746,9 +746,9 @@ void HTMLInputElement::setType(const String& t)
 }
 
 typedef HashMap<String, HTMLInputElement::InputType, CaseFoldingHash> InputTypeMap;
-static const InputTypeMap* createTypeMap()
+static PassOwnPtr<InputTypeMap> createTypeMap()
 {
-    InputTypeMap* map = new InputTypeMap;
+    OwnPtr<InputTypeMap> map = adoptPtr(new InputTypeMap);
     map->add("button", HTMLInputElement::BUTTON);
     map->add("checkbox", HTMLInputElement::CHECKBOX);
     map->add("color", HTMLInputElement::COLOR);
@@ -773,12 +773,12 @@ static const InputTypeMap* createTypeMap()
     map->add("url", HTMLInputElement::URL);
     map->add("week", HTMLInputElement::WEEK);
     // No need to register "text" because it is the default type.
-    return map;
+    return map.release();
 }
 
 void HTMLInputElement::setInputType(const String& t)
 {
-    static const InputTypeMap* typeMap = createTypeMap();
+    static const InputTypeMap* typeMap = createTypeMap().leakPtr();
     InputType newType = t.isNull() ? TEXT : typeMap->get(t);
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
     if (newType == PASSWORD && document()->focusedNode() == this)
@@ -1089,7 +1089,7 @@ void HTMLInputElement::parseMappedAttribute(Attribute* attr)
     } else if (attr->name() == srcAttr) {
         if (renderer() && inputType() == IMAGE) {
             if (!m_imageLoader)
-                m_imageLoader.set(new HTMLImageLoader(this));
+                m_imageLoader = adoptPtr(new HTMLImageLoader(this));
             m_imageLoader->updateFromElementIgnoringPreviousError();
         }
     } else if (attr->name() == usemapAttr || attr->name() == accesskeyAttr) {
@@ -1212,7 +1212,7 @@ void HTMLInputElement::attach()
 
     if (inputType() == IMAGE) {
         if (!m_imageLoader)
-            m_imageLoader.set(new HTMLImageLoader(this));
+            m_imageLoader = adoptPtr(new HTMLImageLoader(this));
         m_imageLoader->updateFromElement();
         if (renderer() && m_imageLoader->haveFiredBeforeLoadEvent()) {
             RenderImage* imageObj = toRenderImage(renderer());
@@ -2059,7 +2059,7 @@ void* HTMLInputElement::preDispatchEventHandler(Event *evt)
     if ((inputType() == CHECKBOX || inputType() == RADIO) && evt->isMouseEvent()
             && evt->type() == eventNames().clickEvent && static_cast<MouseEvent*>(evt)->button() == LeftButton) {
         
-        EventHandlingState* state = new EventHandlingState(indeterminate(), checked());
+        OwnPtr<EventHandlingState> state = adoptPtr(new EventHandlingState(indeterminate(), checked()));
 
         if (inputType() == CHECKBOX) {
             if (indeterminate())
@@ -2081,7 +2081,7 @@ void* HTMLInputElement::preDispatchEventHandler(Event *evt)
                 setIndeterminate(false);
             setChecked(true, true);
         }
-        result = state;
+        result = state.leakPtr(); // FIXME: Check whether this actually ends up leaking.
     }
     return result;
 }

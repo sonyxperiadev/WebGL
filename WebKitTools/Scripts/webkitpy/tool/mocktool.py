@@ -341,6 +341,7 @@ class MockBuilder(object):
 
 
 class MockBuildBot(object):
+    buildbot_host = "dummy_buildbot_host"
     def __init__(self):
         self._mock_builder1_status = {
             "name": "Builder1",
@@ -551,7 +552,7 @@ class MockRietveld():
     def __init__(self, executive, dryrun=False):
         pass
 
-    def post(self, diff, message=None, codereview_issue=None, cc=None):
+    def post(self, diff, patch_id, codereview_issue, message=None, cc=None):
         log("MOCK: Uploading patch to rietveld")
 
 

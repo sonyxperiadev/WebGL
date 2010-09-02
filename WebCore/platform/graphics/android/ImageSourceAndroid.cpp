@@ -130,7 +130,9 @@ public:
 
 namespace WebCore {
 
-ImageSource::ImageSource() {
+ImageSource::ImageSource(bool premultiplyAlpha)
+    : m_premultiplyAlpha(premultiplyAlpha)
+{
     m_decoder.m_image = NULL;
 #ifdef ANDROID_ANIMATED_GIF
     m_decoder.m_gifDecoder = 0;
@@ -271,7 +273,7 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
             // Need to wait for all data received if we are assigning an
             // allocator (which we are not at the moment).
             if (!m_decoder.m_gifDecoder /*&& allDataReceived*/)
-                m_decoder.m_gifDecoder = new GIFImageDecoder();
+                m_decoder.m_gifDecoder = new GIFImageDecoder(m_premultiplyAlpha);
             int frameCount = 0;
             if (!m_decoder.m_gifDecoder->failed()) {
                 m_decoder.m_gifDecoder->setData(data, allDataReceived);

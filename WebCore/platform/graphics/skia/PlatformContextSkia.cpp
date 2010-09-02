@@ -733,11 +733,7 @@ void PlatformContextSkia::prepareForSoftwareDraw() const
 
         if (m_state->m_xferMode == SkXfermode::kSrcOver_Mode) {
             // Last drawn on hardware; clear out the canvas.
-            m_canvas->save();
-            SkRect bounds = {0, 0, m_canvas->getDevice()->width(), m_canvas->getDevice()->height()};
-            m_canvas->clipRect(bounds, SkRegion::kReplace_Op);
-            m_canvas->drawARGB(0, 0, 0, 0, SkXfermode::kClear_Mode);
-            m_canvas->restore();
+            m_canvas->getDevice()->eraseColor(0);
             // Start compositing into the empty canvas.
             m_backingStoreState = Mixed;
         } else {
@@ -753,6 +749,8 @@ void PlatformContextSkia::prepareForSoftwareDraw() const
             readbackHardwareToSoftware();
             m_backingStoreState = Software;
         }
+    } else if (m_backingStoreState == None) {
+        m_backingStoreState = Software;
     }
 }
 

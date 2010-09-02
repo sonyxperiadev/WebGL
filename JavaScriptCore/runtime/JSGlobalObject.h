@@ -31,6 +31,7 @@
 #include "StringPrototype.h"
 #include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/RandomNumber.h>
 
 namespace JSC {
 
@@ -92,6 +93,7 @@ namespace JSC {
                 , datePrototype(0)
                 , regExpPrototype(0)
                 , methodCallDummy(0)
+                , weakRandom(static_cast<unsigned>(randomNumber() * (std::numeric_limits<unsigned>::max() + 1.0)))
             {
             }
             
@@ -106,8 +108,6 @@ namespace JSC {
             
             ScopeChain globalScopeChain;
             Register globalCallFrame[RegisterFile::CallFrameHeaderSize];
-
-            int recursion;
 
             RegExpConstructor* regExpConstructor;
             ErrorConstructor* errorConstructor;
@@ -156,6 +156,7 @@ namespace JSC {
 
             HashSet<GlobalCodeBlock*> codeBlocks;
             WeakMapSet weakMaps;
+            WeakRandom weakRandom;
         };
 
     public:
@@ -254,10 +255,6 @@ namespace JSC {
         
         virtual bool supportsProfiling() const { return false; }
         
-        int recursion() { return d()->recursion; }
-        void incRecursion() { ++d()->recursion; }
-        void decRecursion() { --d()->recursion; }
-        
         ScopeChain& globalScopeChain() { return d()->globalScopeChain; }
 
         virtual bool isGlobalObject() const { return true; }
@@ -295,6 +292,7 @@ namespace JSC {
             d()->weakMaps.remove(map);
         }
 
+        double weakRandomNumber() { return d()->weakRandom.get(); }
     protected:
 
         static const unsigned AnonymousSlotCount = JSVariableObject::AnonymousSlotCount + 1;

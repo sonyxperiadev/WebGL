@@ -496,7 +496,7 @@ void QWebFrame::addToJavaScriptWindowObject(const QString &name, QObject *object
             JSC::Bindings::QtInstance::getQtInstance(object, root, ownership)->createRuntimeObject(exec);
 
     JSC::PutPropertySlot slot;
-    window->put(exec, JSC::Identifier(exec, (const UChar *) name.constData(), name.length()), runtimeObject, slot);
+    window->put(exec, JSC::Identifier(exec, reinterpret_cast_ptr<const UChar*>(name.constData()), name.length()), runtimeObject, slot);
 }
 
 /*!
@@ -1407,12 +1407,12 @@ QWebSecurityOrigin QWebFrame::securityOrigin() const
     return QWebSecurityOrigin(priv);
 }
 
-WebCore::Frame* QWebFramePrivate::core(QWebFrame* webFrame)
+WebCore::Frame* QWebFramePrivate::core(const QWebFrame* webFrame)
 {
     return webFrame->d->frame;
 }
 
-QWebFrame* QWebFramePrivate::kit(WebCore::Frame* coreFrame)
+QWebFrame* QWebFramePrivate::kit(const WebCore::Frame* coreFrame)
 {
     return static_cast<FrameLoaderClientQt*>(coreFrame->loader()->client())->webFrame();
 }

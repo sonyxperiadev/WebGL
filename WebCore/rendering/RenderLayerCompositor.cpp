@@ -97,6 +97,7 @@ struct CompositingState {
 RenderLayerCompositor::RenderLayerCompositor(RenderView* renderView)
     : m_renderView(renderView)
     , m_rootPlatformLayer(0)
+    , m_updateCompositingLayersTimer(this, &RenderLayerCompositor::updateCompositingLayersTimerFired)
     , m_hasAcceleratedCompositing(true)
     , m_showDebugBorders(false)
     , m_showRepaintCounter(false)
@@ -174,8 +175,26 @@ void RenderLayerCompositor::scheduleSync()
     page->chrome()->client()->scheduleCompositingLayerSync();
 }
 
+void RenderLayerCompositor::scheduleCompositingLayerUpdate()
+{
+    if (!m_updateCompositingLayersTimer.isActive())
+        m_updateCompositingLayersTimer.startOneShot(0);
+}
+
+bool RenderLayerCompositor::compositingLayerUpdatePending() const
+{
+    return m_updateCompositingLayersTimer.isActive();
+}
+
+void RenderLayerCompositor::updateCompositingLayersTimerFired(Timer<RenderLayerCompositor>*)
+{
+    updateCompositingLayers();
+}
+
 void RenderLayerCompositor::updateCompositingLayers(CompositingUpdateType updateType, RenderLayer* updateRoot)
 {
+    m_updateCompositingLayersTimer.stop();
+
     if (!m_compositingDependsOnGeometry && !m_compositing)
         return;
 
@@ -1225,7 +1244,7 @@ bool RenderLayerCompositor::clippedByAncestor(RenderLayer* layer) const
         return false;
 
     IntRect backgroundRect = layer->backgroundClipRect(computeClipRoot, true);
-    return backgroundRect != ClipRects::infiniteRect();
+    return backgroundRect != PaintInfo::infiniteRect();
 }
 
 // Return true if the given layer is a stacking context and has compositing child
@@ -1483,7 +1502,7 @@ void RenderLayerCompositor::detachRootPlatformLayer()
             else
                 m_rootPlatformLayer->removeFromParent();
 
-            if (Element* ownerElement = m_renderView->document()->ownerElement())
+            if (HTMLFrameOwnerElement* ownerElement = m_renderView->document()->ownerElement())
                 scheduleNeedsStyleRecalc(ownerElement);
             break;
         }
@@ -1544,6 +1563,11 @@ void RenderLayerCompositor::notifyIFramesOfCompositingChange()
         if (child->document() && child->document()->ownerElement())
             scheduleNeedsStyleRecalc(child->document()->ownerElement());
     }
+    
+    // Compositing also affects the answer to RenderIFrame::requiresAcceleratedCompositing(), so 
+    // we need to schedule a style recalc in our parent document.
+    if (HTMLFrameOwnerElement* ownerElement = m_renderView->document()->ownerElement())
+        scheduleNeedsStyleRecalc(ownerElement);
 }
 
 bool RenderLayerCompositor::layerHas3DContent(const RenderLayer* layer) const

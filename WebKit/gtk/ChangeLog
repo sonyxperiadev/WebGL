@@ -1,3 +1,210 @@
+2010-08-25  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        confirm dialog should show OK/Cancel instead of Yes/No for consistency
+        https://bugs.webkit.org/show_bug.cgi?id=32877
+
+        Change the button labels for the fallback confirmation dialog to be
+        OK and Cancel.
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_script_dialog):
+
+2010-08-25  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        Cairo and EFL port shouldn't depend on glib.
+        https://bugs.webkit.org/show_bug.cgi?id=44354
+
+        Replace occurrences of GRefPtr and adoptGRef with PlatformRefPtr and
+        adoptPlatformRef.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::requestGeolocationPermissionForFrame):
+        * WebCoreSupport/DragClientGtk.cpp:
+        (WebKit::DragClient::startDrag):
+        * WebCoreSupport/EditorClientGtk.h:
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::dispatchWillSendRequest):
+        (WebKit::FrameLoaderClient::dispatchDecidePolicyForMIMEType):
+        (WebKit::FrameLoaderClient::createPlugin):
+        * WebCoreSupport/FullscreenVideoController.h:
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::populateSetting):
+        (WebKit::InspectorClient::storeSetting):
+        * webkit/webkitdownload.cpp:
+        (webkit_download_error):
+        * webkit/webkitnetworkrequest.cpp:
+        (webkit_network_request_new_with_core_request):
+        * webkit/webkitnetworkresponse.cpp:
+        (webkit_network_response_new_with_core_response):
+
+2010-08-24  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        Set a device to the event struct when building with GTK+ 3.x, it's
+        mandatory.
+
+        * tests/testcopyandpaste.c:
+        (runPasteTestCallback):
+
+2010-08-24  Martin Robinson  <mrobinson@igalia.com>
+
+        Build fix for GTK+.
+
+        * tests/testkeyevents.c:
+        (key_press_event_cb):
+        (key_release_event_cb):
+
+2010-08-24  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] GTK3: EventSender and API tests should use gdk_event_new when synthesizing events
+        https://bugs.webkit.org/show_bug.cgi?id=44534
+
+        Fix an issue where a GdkEvent* is treated like a GdkEvent.
+
+        * tests/testkeyevents.c:
+        (key_press_event_cb):
+        (key_release_event_cb):
+
+2010-08-24  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] GTK3: EventSender and API tests should use gdk_event_new when synthesizing events
+        https://bugs.webkit.org/show_bug.cgi?id=44534
+
+        * tests/testcopyandpaste.c:
+        (runPasteTestCallback): Switch to using gdk_event_new and also reference the GdkWindow.
+        when setting it on the event. It is dereferenced by gdk_event_free(...).
+        * tests/testhittestresult.c:
+        (load_status_cb): Switch to using gdk_event_new.
+
+2010-08-24  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Rubber-stamped by Xan Lopez.
+
+        Do not initialize the GSettings object in webkit_init - the other
+        call sites are always called in the main thread so this is
+        unnecessary.
+
+        * webkit/webkitprivate.cpp:
+        (webkit_init):
+
+2010-08-20  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: Inspector tests were disabled for GTK.
+        https://bugs.webkit.org/show_bug.cgi?id=43977
+
+        Allow setting the inspector resources path via an environment variables
+        and add a method, inspectorFilesPath, to the WebKit InspectorClient that
+        encapsulates this logic.
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::InspectorClient::openInspectorFrontend): Use the new inspectorFilesPath method to
+        get the path to the resource.
+        (WebKit::InspectorClient::inspectorFilesPath): Added.
+        (WebKit::InspectorFrontendClient::localizedStringsURL): Use inspectorFilesPath method.
+        * WebCoreSupport/InspectorClientGtk.h: Add method and member variables for caching the result.
+
+2010-08-19  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Gtk] Enable view mode media feature layout test
+        https://bugs.webkit.org/show_bug.cgi?id=43278
+
+        Add the view-mode property, to control the WebCore page's viewMode.
+
+        * docs/webkitgtk-sections.txt:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_get_property):
+        (webkit_web_view_set_property):
+        (webkit_web_view_class_init):
+        (webkit_web_view_set_view_mode):
+        (webkit_web_view_get_view_mode):
+        * webkit/webkitwebview.h:
+
+2010-08-19  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GStreamer] GTK XOverlay support in GStreamerGWorld
+        https://bugs.webkit.org/show_bug.cgi?id=39474
+
+        New FullscreenVideoController object, private in the webview. It
+        is created when the user presses the fullscreen button of the
+        video controls. Video is displayed in fullscreen, controls are
+        displayed when the user moves the mouse and when the video is
+        paused. There's also basic keyboard shortcuts support: F/f to
+        leave fullscreen, space to toggle play/pause and up/down to
+        control volume.
+
+        * WebCoreSupport/ChromeClientGtk.cpp:
+        (WebKit::ChromeClient::supportsFullscreenForNode):
+        (WebKit::ChromeClient::enterFullscreenForNode):
+        (WebKit::ChromeClient::exitFullscreenForNode):
+        * WebCoreSupport/ChromeClientGtk.h:
+        * WebCoreSupport/FullscreenVideoController.cpp: Added.
+        (hideHudCallback):
+        (onFullscreenGtkMotionNotifyEvent):
+        (onFullscreenGtkActiveNotification):
+        (onFullscreenGtkConfigureEvent):
+        (onFullscreenGtkDestroy):
+        (togglePlayPauseActivated):
+        (exitFullscreenActivated):
+        (progressBarUpdateCallback):
+        (timeScaleButtonPressed):
+        (timeScaleButtonReleased):
+        (timeScaleValueChanged):
+        (volumeValueChanged):
+        (playerVolumeChangedCallback):
+        (playerMuteChangedCallback):
+        (FullscreenVideoController::FullscreenVideoController):
+        (FullscreenVideoController::~FullscreenVideoController):
+        (FullscreenVideoController::setMediaElement):
+        (FullscreenVideoController::gtkConfigure):
+        (FullscreenVideoController::showHud):
+        (FullscreenVideoController::hideHud):
+        (onFullscreenGtkKeyPressEvent):
+        (FullscreenVideoController::enterFullscreen):
+        (FullscreenVideoController::updateHudPosition):
+        (FullscreenVideoController::exitOnUserRequest):
+        (FullscreenVideoController::exitFullscreen):
+        (FullscreenVideoController::canPlay):
+        (FullscreenVideoController::play):
+        (FullscreenVideoController::pause):
+        (FullscreenVideoController::playStateChanged):
+        (FullscreenVideoController::togglePlay):
+        (FullscreenVideoController::volume):
+        (FullscreenVideoController::muted):
+        (FullscreenVideoController::setVolume):
+        (FullscreenVideoController::volumeChanged):
+        (FullscreenVideoController::muteChanged):
+        (FullscreenVideoController::currentTime):
+        (FullscreenVideoController::setCurrentTime):
+        (FullscreenVideoController::duration):
+        (FullscreenVideoController::percentLoaded):
+        (FullscreenVideoController::beginSeek):
+        (FullscreenVideoController::doSeek):
+        (FullscreenVideoController::endSeek):
+        (timeToString):
+        (FullscreenVideoController::updateHudProgressBar):
+        (FullscreenVideoController::createHud):
+        * WebCoreSupport/FullscreenVideoController.h: Added.
+        (FullscreenVideoController::mediaElement):
+        * webkit/webkitprivate.cpp:
+        (webkit_web_view_enter_fullscreen):
+        (webkit_web_view_exit_fullscreen):
+        * webkit/webkitprivate.h:
+
 2010-08-18  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
 
         Reviewed by Martin Robinson.

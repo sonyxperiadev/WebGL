@@ -129,6 +129,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/DeviceMotionEvent.cpp \
 	dom/Document.cpp \
 	dom/DocumentFragment.cpp \
+	dom/DocumentMarkerController.cpp \
 	dom/DocumentParser.cpp \
 	dom/DocumentType.cpp \
 	dom/DynamicNodeList.cpp \
@@ -273,7 +274,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/File.cpp \
 	html/FileList.cpp \
 	html/FileReader.cpp \
-	html/FileStream.cpp \
 	html/FileStreamProxy.cpp \
 	html/FileThread.cpp \
 	html/FormDataList.cpp \
@@ -304,7 +304,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/ImageData.cpp \
 	html/ImageResizerThread.cpp \
 	html/LabelsNodeList.cpp \
-	html/LegacyHTMLTreeBuilder.cpp \
 	html/StepRange.cpp \
 	html/ThreadableBlobRegistry.cpp \
 	html/TimeRanges.cpp \
@@ -344,6 +343,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/MediaDocument.cpp \
 	loader/NavigationAction.cpp \
 	loader/NetscapePlugInStreamLoader.cpp \
+	loader/PingLoader.cpp \
 	loader/PlaceholderDocument.cpp \
 	loader/PluginDocument.cpp \
 	loader/PolicyCallback.cpp \
@@ -438,6 +438,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/DragData.cpp \
 	platform/DragImage.cpp \
 	platform/FileChooser.cpp \
+	platform/FileStream.cpp \
 	platform/FileSystem.cpp \
 	platform/GeolocationService.cpp \
 	platform/KURL.cpp \
@@ -580,6 +581,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/network/AuthenticationChallengeBase.cpp \
 	platform/network/BlobData.cpp \
 	platform/network/BlobRegistryImpl.cpp \
+	platform/network/BlobResourceHandle.cpp \
 	platform/network/Credential.cpp \
 	platform/network/CredentialStorage.cpp \
 	platform/network/FormData.cpp \
@@ -783,7 +785,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/TransformState.cpp \
 	rendering/break_lines.cpp \
 	\
-	rendering/style/BindingURI.cpp \
 	rendering/style/ContentData.cpp \
 	rendering/style/CounterDirectives.cpp \
 	rendering/style/FillLayer.cpp \

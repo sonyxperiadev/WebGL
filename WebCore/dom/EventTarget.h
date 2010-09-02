@@ -48,7 +48,9 @@ namespace WebCore {
     class EventListener;
     class EventSource;
     class FileReader;
+    class FileWriter;
     class IDBRequest;
+    class IDBTransaction;
     class MessagePort;
     class Node;
     class Notification;
@@ -122,9 +124,13 @@ namespace WebCore {
 #if ENABLE(BLOB)
         virtual FileReader* toFileReader();
 #endif
+#if ENABLE(FILE_WRITER)
+        virtual FileWriter* toFileWriter();
+#endif
 
 #if ENABLE(INDEXED_DATABASE)
         virtual IDBRequest* toIDBRequest();
+        virtual IDBTransaction* toIDBTransaction();
 #endif
 
         virtual ScriptExecutionContext* scriptExecutionContext() const = 0;

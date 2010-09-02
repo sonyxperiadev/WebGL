@@ -255,7 +255,7 @@ void SQLTransaction::openTransactionAndPreflight()
         m_database->sqliteDatabase().setMaximumSize(m_database->maximumSize());
 
     ASSERT(!m_sqliteTransaction);
-    m_sqliteTransaction.set(new SQLiteTransaction(m_database->sqliteDatabase(), m_readOnly));
+    m_sqliteTransaction = adoptPtr(new SQLiteTransaction(m_database->sqliteDatabase(), m_readOnly));
 
     m_database->resetDeletes();
     m_database->disableAuthorizer();
@@ -273,7 +273,6 @@ void SQLTransaction::openTransactionAndPreflight()
 
     // Transaction Steps 3 - Peform preflight steps, jumping to the error callback if they fail
     if (m_wrapper && !m_wrapper->performPreflight(this)) {
-        ASSERT(!m_database->sqliteDatabase().transactionInProgress());
         m_sqliteTransaction.clear();
         m_transactionError = m_wrapper->sqlError();
         if (!m_transactionError)
