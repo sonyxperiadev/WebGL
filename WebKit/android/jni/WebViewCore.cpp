@@ -2621,7 +2621,7 @@ GraphicsLayerAndroid* WebViewCore::graphicsRootLayer() const
 }
 #endif
 
-bool WebViewCore::handleTouchEvent(int action, int x, int y, int metaState)
+bool WebViewCore::handleTouchEvent(int action, Vector<IntPoint>& points, int metaState)
 {
     bool preventDefault = false;
 
@@ -2636,9 +2636,11 @@ bool WebViewCore::handleTouchEvent(int action, int x, int y, int metaState)
     WebCore::PlatformTouchPoint::State touchState = WebCore::PlatformTouchPoint::TouchPressed;
     switch (action) {
     case 0: // MotionEvent.ACTION_DOWN
+    case 5: // MotionEvent.ACTION_POINTER_DOWN
         type = WebCore::TouchStart;
         break;
     case 1: // MotionEvent.ACTION_UP
+    case 6: // MotionEvent.ACTION_POINTER_UP
         type = WebCore::TouchEnd;
         touchState = WebCore::PlatformTouchPoint::TouchReleased;
         break;
@@ -2666,9 +2668,11 @@ bool WebViewCore::handleTouchEvent(int action, int x, int y, int metaState)
     }
 
     // Track previous touch and if stationary set the state.
-    WebCore::IntPoint pt(x - m_scrollOffsetX, y - m_scrollOffsetY);
-
-    WebCore::PlatformTouchEvent te(pt, type, touchState, metaState);
+    for (unsigned c = 0; c < points.size(); c++) {
+        points[c].setX(points[c].x() - m_scrollOffsetX);
+        points[c].setY(points[c].y() - m_scrollOffsetY);
+    }
+    WebCore::PlatformTouchEvent te(points, type, touchState, metaState);
     preventDefault = m_mainFrame->eventHandler()->handleTouchEvent(te);
 #endif
 
@@ -3510,14 +3514,25 @@ static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr,
     return ret;
 }
 
-static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jint x, jint y, jint metaState)
+static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action,
+                                 jintArray xArray, jintArray yArray, jint count, jint metaState)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-    return viewImpl->handleTouchEvent(action, x, y, metaState);
+    jint* ptrXArray = env->GetIntArrayElements(xArray, 0);
+    jint* ptrYArray = env->GetIntArrayElements(yArray, 0);
+    Vector<IntPoint> points(count);
+    for (unsigned c = 0; c < count; c++) {
+        points[c].setX(ptrXArray[c]);
+        points[c].setY(ptrYArray[c]);
+    }
+    env->ReleaseIntArrayElements(xArray, ptrXArray, JNI_ABORT);
+    env->ReleaseIntArrayElements(yArray, ptrYArray, JNI_ABORT);
+
+    return viewImpl->handleTouchEvent(action, points, metaState);
 }
 
 static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
@@ -3852,7 +3867,7 @@ static jobject GetTouchHighlightRects(JNIEnv* env, jobject obj, jint x, jint y, 
     jmethodID init = env->GetMethodID(arrayClass, "<init>", "(I)V");
     LOG_ASSERT(init, "Could not find constructor for ArrayList");
     jobject array = env->NewObject(arrayClass, init, rects.size());
-    LOG_ASSERT(vector, "Could not create a new ArrayList");
+    LOG_ASSERT(array, "Could not create a new ArrayList");
     jmethodID add = env->GetMethodID(arrayClass, "add", "(Ljava/lang/Object;)Z");
     LOG_ASSERT(add, "Could not find add method on ArrayList");
     jclass rectClass = env->FindClass("android/graphics/Rect");
@@ -3940,7 +3955,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SaveDocumentState },
     { "nativeFindAddress", "(Ljava/lang/String;Z)Ljava/lang/String;",
         (void*) FindAddress },
-    { "nativeHandleTouchEvent", "(IIII)Z",
+    { "nativeHandleTouchEvent", "(I[I[III)Z",
             (void*) HandleTouchEvent },
     { "nativeTouchUp", "(IIIII)V",
         (void*) TouchUp },

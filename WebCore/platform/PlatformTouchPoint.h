@@ -47,7 +47,8 @@ public:
     PlatformTouchPoint(const QTouchEvent::TouchPoint&);
     PlatformTouchPoint() {};
 #elif PLATFORM(ANDROID)
-    PlatformTouchPoint(const IntPoint& windowPos, State);
+    // Change in following line is in ANDROID but waiting for patch to WebKit getting accepted.
+    PlatformTouchPoint(unsigned id, const IntPoint& windowPos, State);
 #endif
 
     unsigned id() const { return m_id; }

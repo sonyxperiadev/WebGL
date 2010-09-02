@@ -30,8 +30,9 @@
 
 namespace WebCore {
 
-PlatformTouchPoint::PlatformTouchPoint(const IntPoint& windowPos, State state)
-    : m_id(0)
+// Changes in following two lines are in ANDROID but waiting for patch to WebKit getting accepted.
+PlatformTouchPoint::PlatformTouchPoint(unsigned id, const IntPoint& windowPos, State state)
+    : m_id(id)
     , m_state(state)
     , m_screenPos(windowPos)
     , m_pos(windowPos) { }

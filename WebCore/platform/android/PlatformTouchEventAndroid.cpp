@@ -37,11 +37,15 @@ enum AndroidMetaKeyState {
     META_SYM_ON = 0x04
 };
 
-PlatformTouchEvent::PlatformTouchEvent(const IntPoint& windowPos, TouchEventType type, PlatformTouchPoint::State state, int metaState)
+// Changes in following two lines are in ANDROID but waiting for patch to WebKit getting accepted.
+PlatformTouchEvent::PlatformTouchEvent(const Vector<IntPoint>& windowPoints, TouchEventType type, PlatformTouchPoint::State state, int metaState)
     : m_type(type)
     , m_metaKey(false)
 {
-    m_touchPoints.append(PlatformTouchPoint(windowPos, state));
+    // Changes in following three lines are in ANDROID but waiting for patch to WebKit getting accepted.
+    m_touchPoints.reserveCapacity(windowPoints.size());
+    for (unsigned c = 0; c < windowPoints.size(); c++)
+        m_touchPoints.append(PlatformTouchPoint(c, windowPoints[c], state));
 
     m_altKey = metaState & META_ALT_ON;
     m_shiftKey = metaState & META_SHIFT_ON;
