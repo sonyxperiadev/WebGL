@@ -43,8 +43,8 @@ namespace WebCore {
 class Database;
 class InjectedScript;
 class InspectorDOMAgent;
+class InspectorFrontend;
 class Node;
-class RemoteInspectorFrontend;
 class ScriptObject;
 class Storage;
 
@@ -58,6 +58,7 @@ public:
 
     ~InjectedScriptHost();
 
+    String injectedScriptSource() { return m_injectedScriptSource; }
     void setInjectedScriptSource(const String& source) { m_injectedScriptSource = source; }
 
     InspectorController* inspectorController() { return m_inspectorController; }
@@ -94,8 +95,9 @@ public:
 private:
     InjectedScriptHost(InspectorController* inspectorController);
     InspectorDOMAgent* inspectorDOMAgent();
-    RemoteInspectorFrontend* remoteFrontend();
+    InspectorFrontend* frontend();
     ScriptObject createInjectedScript(const String& source, ScriptState* scriptState, long id);
+    void discardInjectedScript(ScriptState*);
 
     InspectorController* m_inspectorController;
     String m_injectedScriptSource;

@@ -167,9 +167,11 @@ static bool needsCursorRectsSupportAtPoint(NSWindow* window, NSPoint point)
     if ([view isKindOfClass:[WebHTMLView class]])
         return false;
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
     // Neither do NPAPI plug-ins.
     if ([view isKindOfClass:[WebBaseNetscapePluginView class]])
         return false;
+#endif
 
     // Non-Web content, WebPDFView, and WebKit plug-ins use normal cursor handling.
     return true;
@@ -5174,7 +5176,7 @@ static BOOL writingDirectionKeyBindingsEnabled()
     if (coreFrame->selection()->isContentRichlyEditable())
         [self _pasteWithPasteboard:[NSPasteboard generalPasteboard] allowPlainText:YES];
     else
-        coreFrame->editor()->pasteAsPlainText();
+        coreFrame->editor()->pasteAsPlainTextBypassingDHTML();
 }
 
 - (void)closeIfNotCurrentView
@@ -6228,7 +6230,7 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     Document* document = coreFrame->document();
     if (!document)
         return;
-    document->removeMarkers(DocumentMarker::TextMatch);
+    document->markers()->removeMarkers(DocumentMarker::TextMatch);
 }
 
 - (NSArray *)rectsForTextMatches
@@ -6240,7 +6242,7 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
     if (!document)
         return [NSArray array];
 
-    Vector<IntRect> rects = document->renderedRectsForMarkers(DocumentMarker::TextMatch);
+    Vector<IntRect> rects = document->markers()->renderedRectsForMarkers(DocumentMarker::TextMatch);
     unsigned count = rects.size();
     NSMutableArray *result = [NSMutableArray arrayWithCapacity:count];
     for (unsigned index = 0; index < count; ++index)

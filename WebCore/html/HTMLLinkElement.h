@@ -79,9 +79,6 @@ public:
     bool isIcon() const { return m_relAttribute.m_isIcon; }
 
 private:
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusForbidden; }
-    virtual int tagPriority() const { return 0; }
-
     virtual void parseMappedAttribute(Attribute*);
 
     void process();

@@ -36,8 +36,6 @@ public:
 private:
     HTMLIsIndexElement(const QualifiedName&, Document*, HTMLFormElement*);
 
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusForbidden; }
-    virtual int tagPriority() const { return 0; }
     virtual bool canTriggerImplicitSubmission() const { return true; }
 
     virtual void parseMappedAttribute(Attribute*);

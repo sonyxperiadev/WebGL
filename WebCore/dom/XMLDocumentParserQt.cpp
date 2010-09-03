@@ -78,6 +78,11 @@ QString EntityResolver::resolveUndeclaredEntity(const QString &name)
 
 // --------------------------------
 
+bool XMLDocumentParser::supportsXMLVersion(const String& version)
+{
+    return version == "1.0";
+}
+
 XMLDocumentParser::XMLDocumentParser(Document* document, FrameView* frameView)
     : ScriptableDocumentParser(document)
     , m_view(frameView)
@@ -254,18 +259,13 @@ void XMLDocumentParser::resumeParsing()
         end();
 }
 
-bool XMLDocumentParser::parseDocumentFragment(const String& chunk, DocumentFragment* fragment, Element* parent, FragmentScriptingPermission scriptingPermission)
+bool XMLDocumentParser::appendFragmentSource(const String& source)
 {
-    if (!chunk.length())
-        return true;
-
-    XMLDocumentParser parser(fragment, parent, scriptingPermission);
-
-    parser.append(String("<qxmlstreamdummyelement>"));
-    parser.append(chunk);
-    parser.append(String("</qxmlstreamdummyelement>"));
-    parser.finish();
-    return !parser.hasError();
+    ASSERT(!m_sawFirstElement);
+    append(String("<qxmlstreamdummyelement>"));
+    append(source);
+    append(String("</qxmlstreamdummyelement>"));
+    return !hasError();
 }
 
 // --------------------------------
@@ -410,12 +410,12 @@ void XMLDocumentParser::parse()
                ) {
                 QString entity = m_stream.name().toString();
                 UChar c = decodeNamedEntity(entity.toUtf8().constData());
-                if (m_currentNode->isTextNode() || enterText()) {
-                    ExceptionCode ec = 0;
-                    String str(&c, 1);
-                    //qDebug()<<" ------- adding entity "<<str;
-                    static_cast<Text*>(m_currentNode)->appendData(str, ec);
-                }
+                if (!m_currentNode->isTextNode())
+                    enterText();
+                ExceptionCode ec = 0;
+                String str(&c, 1);
+                // qDebug()<<" ------- adding entity "<<str;
+                static_cast<Text*>(m_currentNode)->appendData(str, ec);
             }
         }
             break;
@@ -518,10 +518,7 @@ void XMLDocumentParser::parseStartElement()
     if (scriptElement)
         m_scriptStartLine = lineNumber();
 
-    if (!m_currentNode->legacyParserAddChild(newElement.get())) {
-        stopParsing();
-        return;
-    }
+    m_currentNode->deprecatedParserAddChild(newElement.get());
 
     pushCurrentNode(newElement.get());
     if (m_view && !newElement->attached())
@@ -599,10 +596,10 @@ void XMLDocumentParser::parseEndElement()
 
 void XMLDocumentParser::parseCharacters()
 {
-    if (m_currentNode->isTextNode() || enterText()) {
-        ExceptionCode ec = 0;
-        static_cast<Text*>(m_currentNode)->appendData(m_stream.text(), ec);
-    }
+    if (!m_currentNode->isTextNode())
+        enterText();
+    ExceptionCode ec = 0;
+    static_cast<Text*>(m_currentNode)->appendData(m_stream.text(), ec);
 }
 
 void XMLDocumentParser::parseProcessingInstruction()
@@ -619,8 +616,7 @@ void XMLDocumentParser::parseProcessingInstruction()
 
     pi->setCreatedByParser(true);
 
-    if (!m_currentNode->legacyParserAddChild(pi.get()))
-        return;
+    m_currentNode->deprecatedParserAddChild(pi.get());
     if (m_view && !pi->attached())
         pi->attach();
 
@@ -638,8 +634,8 @@ void XMLDocumentParser::parseCdata()
     exitText();
 
     RefPtr<Node> newNode = CDATASection::create(document(), m_stream.text());
-    if (!m_currentNode->legacyParserAddChild(newNode.get()))
-        return;
+
+    m_currentNode->deprecatedParserAddChild(newNode.get());
     if (m_view && !newNode->attached())
         newNode->attach();
 }
@@ -649,7 +645,8 @@ void XMLDocumentParser::parseComment()
     exitText();
 
     RefPtr<Node> newNode = Comment::create(document(), m_stream.text());
-    m_currentNode->legacyParserAddChild(newNode.get());
+
+    m_currentNode->deprecatedParserAddChild(newNode.get());
     if (m_view && !newNode->attached())
         newNode->attach();
 }
@@ -708,7 +705,7 @@ void XMLDocumentParser::parseDtd()
         handleError(fatal, "Invalid DTD Public ID", lineNumber(), columnNumber());
 #endif
     if (!m_parsingFragment)
-        document()->legacyParserAddChild(DocumentType::create(document(), name, publicId, systemId));
+        document()->parserAddChild(DocumentType::create(document(), name, publicId, systemId));
 
 }
 }

@@ -21,24 +21,24 @@
 //
 // The format of the file is along the lines of:
 //
-// path/to/foo/bar.html SKIP
+// path/to/foo/bar.html CRASH
 // path/to/bar FAIL SLOW // A comment
 // path/to/foo2/ SLOW FAIL
 // path/to/bar.html SLOW
 //
 // Valid options:
-// SKIP - skips the test completely (it is not run)
+// CRASH - the test is expected to crash, so we skip it completely (it is not run)
 // FAIL - runs the test and compares the result, but we expect it to fail
 // SLOW - marks the test as being slow to run
 
-editing/selection/move-left-right.html SKIP // Causes DumpRenderTree to hang
-fast/js/excessive-comma-usage.html SKIP // Tests huge initializer list, causes OOM.
-fast/js/regexp-charclass-crash.html SKIP // RegExp is too large, causing OOM
-fast/regex/test1.html SKIP // Causes DumpRenderTree to hang with V8
-fast/regex/slow.html SKIP // Causes DumpRenderTree to hang with V8
-ietestcenter/Javascript/15.4.4.15-3-14.html SKIP // hangs the layout tests http://b/issue?id=2889595
-ietestcenter/Javascript/15.4.4.15-3-29.html SKIP // hangs the layout tests http://b/issue?id=2889596
-ietestcenter/Javascript/15.4.4.15-3-8.html SKIP // hangs the layout tests http://b/issue?id=2889598
+editing/selection/move-left-right.html CRASH // Causes DumpRenderTree to hang
+fast/js/excessive-comma-usage.html CRASH // Tests huge initializer list, causes OOM.
+fast/js/regexp-charclass-crash.html CRASH // RegExp is too large, causing OOM
+fast/regex/test1.html CRASH // Causes DumpRenderTree to hang with V8
+fast/regex/slow.html CRASH // Causes DumpRenderTree to hang with V8
+ietestcenter/Javascript/15.4.4.15-3-14.html CRASH // hangs the layout tests http://b/issue?id=2889595
+ietestcenter/Javascript/15.4.4.15-3-29.html CRASH // hangs the layout tests http://b/issue?id=2889596
+ietestcenter/Javascript/15.4.4.15-3-8.html CRASH // hangs the layout tests http://b/issue?id=2889598
 
 // This first block of tests are for features for which Android
 // should pass all tests. They are skipped only temporarily.

@@ -212,7 +212,7 @@ void FrameView::reset()
     m_delayedLayout = false;
     m_doFullRepaint = true;
     m_layoutSchedulingEnabled = true;
-    m_midLayout = false;
+    m_inLayout = false;
     m_layoutCount = 0;
     m_nestedLayoutCount = 0;
     m_postLayoutTasksTimer.stop();
@@ -609,7 +609,7 @@ RenderObject* FrameView::layoutRoot(bool onlyDuringLayout) const
 
 void FrameView::layout(bool allowSubtree)
 {
-    if (m_midLayout)
+    if (m_inLayout)
         return;
 
     m_layoutTimer.stop();
@@ -642,11 +642,6 @@ void FrameView::layout(bool allowSubtree)
     }
 
     ASSERT(m_frame->view() == this);
-    // This early return should be removed when rdar://5598072 is resolved. In the meantime, there is a
-    // gigantic CrashTracer because of this issue, and the early return will hopefully cause graceful 
-    // failure instead.  
-    if (m_frame->view() != this)
-        return;
 
     Document* document = m_frame->document();
 
@@ -788,11 +783,11 @@ void FrameView::layout(bool allowSubtree)
             view->disableLayoutState();
     }
         
-    m_midLayout = true;
+    m_inLayout = true;
     beginDeferredRepaints();
     root->layout();
     endDeferredRepaints();
-    m_midLayout = false;
+    m_inLayout = false;
 
     if (subtree) {
         RenderView* view = root->view();
@@ -802,7 +797,7 @@ void FrameView::layout(bool allowSubtree)
     }
     m_layoutRoot = 0;
 
-    m_frame->selection()->setNeedsLayout();
+    m_frame->selection()->setCaretRectNeedsUpdate();
     m_frame->selection()->updateAppearance();
    
     m_layoutSchedulingEnabled = true;
@@ -1016,6 +1011,7 @@ bool FrameView::scrollContentsFastPath(const IntSize& scrollDelta, const IntRect
     return false;
 }
 
+// Note that this gets called at painting time.
 void FrameView::setIsOverlapped(bool isOverlapped)
 {
     if (isOverlapped == m_isOverlapped)
@@ -1026,10 +1022,15 @@ void FrameView::setIsOverlapped(bool isOverlapped)
     
 #if USE(ACCELERATED_COMPOSITING)
     // Overlap can affect compositing tests, so if it changes, we need to trigger
-    // a recalcStyle in the parent document.
+    // a layer update in the parent document.
     if (hasCompositedContent()) {
-        if (Element* ownerElement = m_frame->document()->ownerElement())
-            ownerElement->setNeedsStyleRecalc(SyntheticStyleChange);
+        if (Frame* parentFrame = m_frame->tree()->parent()) {
+            if (RenderView* parentView = parentFrame->contentRenderer()) {
+                RenderLayerCompositor* compositor = parentView->compositor();
+                compositor->setCompositingLayersNeedRebuild();
+                compositor->scheduleCompositingLayerUpdate();
+            }
+        }
     }
 #endif    
 }
@@ -1781,7 +1782,7 @@ void FrameView::invalidateScrollbarRect(Scrollbar* scrollbar, const IntRect& rec
 
 void FrameView::getTickmarks(Vector<IntRect>& tickmarks) const
 {
-    tickmarks = frame()->document()->renderedRectsForMarkers(DocumentMarker::TextMatch);
+    tickmarks = frame()->document()->markers()->renderedRectsForMarkers(DocumentMarker::TextMatch);
 }
 
 IntRect FrameView::windowResizerRect() const
@@ -1988,7 +1989,7 @@ void FrameView::paintContents(GraphicsContext* p, const IntRect& rect)
 
     PaintBehavior oldPaintBehavior = m_paintBehavior;
     if (m_paintBehavior == PaintBehaviorNormal)
-        document->invalidateRenderedRectsForMarkersInRect(rect);
+        document->markers()->invalidateRenderedRectsForMarkersInRect(rect);
 
     if (document->printing())
         m_paintBehavior |= PaintBehaviorFlattenCompositingLayers;

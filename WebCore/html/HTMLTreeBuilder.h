@@ -47,15 +47,21 @@ class DocumentFragment;
 class Frame;
 class HTMLToken;
 class HTMLDocument;
-class LegacyHTMLTreeBuilder;
 class Node;
 
 class HTMLTreeBuilder : public Noncopyable {
 public:
-    // FIXME: Replace constructors with create() functions returning PassOwnPtrs
-    HTMLTreeBuilder(HTMLTokenizer*, HTMLDocument*, bool reportErrors);
-    HTMLTreeBuilder(HTMLTokenizer*, DocumentFragment*, Element* contextElement, FragmentScriptingPermission);
+    static PassOwnPtr<HTMLTreeBuilder> create(HTMLTokenizer* tokenizer, HTMLDocument* document, bool reportErrors)
+    {
+        return adoptPtr(new HTMLTreeBuilder(tokenizer, document, reportErrors));
+    }
+    static PassOwnPtr<HTMLTreeBuilder> create(HTMLTokenizer* tokenizer, DocumentFragment* fragment, Element* contextElement, FragmentScriptingPermission scriptingPermission)
+    {
+        return adoptPtr(new HTMLTreeBuilder(tokenizer, fragment, contextElement, scriptingPermission));
+    }
     ~HTMLTreeBuilder();
+
+    void detach();
 
     void setPaused(bool paused) { m_isPaused = paused; }
     bool isPaused() const { return m_isPaused; }
@@ -69,10 +75,6 @@ public:
     void finished();
 
     static HTMLTokenizer::State adjustedLexerState(HTMLTokenizer::State, const AtomicString& tagName, Frame*);
-
-    // FIXME: This is a dirty, rotten hack to keep HTMLFormControlElement happy
-    // until we stop using the legacy parser. DO NOT CALL THIS METHOD.
-    LegacyHTMLTreeBuilder* legacyTreeBuilder() const { return m_legacyTreeBuilder.get(); }
 
     static bool scriptEnabled(Frame*);
     static bool pluginsEnabled(Frame*);
@@ -108,9 +110,10 @@ private:
         AfterAfterFramesetMode,
     };
 
-    bool isParsingFragment() const { return !!m_fragmentContext.fragment(); }
+    HTMLTreeBuilder(HTMLTokenizer*, HTMLDocument*, bool reportErrors);
+    HTMLTreeBuilder(HTMLTokenizer*, DocumentFragment*, Element* contextElement, FragmentScriptingPermission);
 
-    void passTokenToLegacyParser(HTMLToken&);
+    bool isParsingFragment() const { return !!m_fragmentContext.fragment(); }
 
     void processToken(AtomicHTMLToken&);
 
@@ -200,12 +203,12 @@ private:
     class FragmentParsingContext : public Noncopyable {
     public:
         FragmentParsingContext();
-        FragmentParsingContext(DocumentFragment*, Element* contextElement, FragmentScriptingPermission, bool usingLegacyTreeBuilder);
+        FragmentParsingContext(DocumentFragment*, Element* contextElement, FragmentScriptingPermission);
         ~FragmentParsingContext();
 
         Document* document() const;
         DocumentFragment* fragment() const { return m_fragment; }
-        Element* contextElement() const { ASSERT(m_fragment); ASSERT(!m_usingLegacyTreeBuilder); return m_contextElement; }
+        Element* contextElement() const { ASSERT(m_fragment); return m_contextElement; }
         FragmentScriptingPermission scriptingPermission() const { ASSERT(m_fragment); return m_scriptingPermission; }
 
         void finished();
@@ -214,7 +217,6 @@ private:
         RefPtr<Document> m_dummyDocumentForFragmentParsing;
         DocumentFragment* m_fragment;
         Element* m_contextElement;
-        bool m_usingLegacyTreeBuilder;
 
         // FragmentScriptingNotAllowed causes the Parser to remove children
         // from <script> tags (so javascript doesn't show up in pastes).
@@ -244,17 +246,26 @@ private:
     // from within parser actions.
     HTMLTokenizer* m_tokenizer;
 
-    // We're re-using logic from the old LegacyHTMLTreeBuilder while this class is being written.
-    OwnPtr<LegacyHTMLTreeBuilder> m_legacyTreeBuilder;
-
-    // These members are intentionally duplicated as the first set is a hack
-    // on top of the legacy parser which will eventually be removed.
-    RefPtr<Element> m_lastScriptElement; // FIXME: Hack for <script> support on top of the old parser.
-    int m_lastScriptElementStartLine; // FIXME: Hack for <script> support on top of the old parser.
-
     RefPtr<Element> m_scriptToProcess; // <script> tag which needs processing before resuming the parser.
     int m_scriptToProcessStartLine; // Starting line number of the script tag needing processing.
+
+    // FIXME: We probably want to remove this member.  Originally, it was
+    // created to service the legacy tree builder, but it seems to be used for
+    // some other things now.
+    int m_lastScriptElementStartLine;
 };
+
+// FIXME: Move these functions to a more appropriate place.
+
+// Converts the specified string to a floating number.
+// If the conversion fails, the return value is false. Take care that leading
+// or trailing unnecessary characters make failures.  This returns false for an
+// empty string input.
+// The double* parameter may be 0.
+bool parseToDoubleForNumberType(const String&, double*);
+// Converts the specified number to a string. This is an implementation of
+// HTML5's "algorithm to convert a number to a string" for NUMBER/RANGE types.
+String serializeForNumberType(double);
 
 }
 

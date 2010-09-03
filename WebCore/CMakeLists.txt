@@ -198,6 +198,7 @@ SET(WebCore_IDL_FILES
     html/File.idl
     html/FileList.idl
     html/FileReader.idl
+    html/FileWriter.idl
     html/HTMLAllCollection.idl
     html/HTMLAnchorElement.idl
     html/HTMLAppletElement.idl
@@ -809,6 +810,7 @@ SET(WebCore_SOURCES
     dom/DeviceOrientationController.cpp
     dom/DeviceOrientationEvent.cpp
     dom/Document.cpp
+    dom/DocumentMarkerController.cpp
     dom/DocumentFragment.cpp
     dom/DocumentParser.cpp
     dom/DocumentType.cpp
@@ -1023,7 +1025,6 @@ SET(WebCore_SOURCES
     html/HTMLOptionsCollection.cpp
     html/HTMLParagraphElement.cpp
     html/HTMLParamElement.cpp
-    html/LegacyHTMLTreeBuilder.cpp
     html/HTMLParserErrorCodes.cpp
     html/HTMLParserScheduler.cpp
     html/HTMLPlugInElement.cpp
@@ -1073,6 +1074,7 @@ SET(WebCore_SOURCES
     inspector/InspectorDebuggerAgent.cpp
     inspector/InspectorFrontendClientLocal.cpp
     inspector/InspectorFrontendHost.cpp
+    inspector/InspectorProfilerAgent.cpp
     inspector/InspectorResource.cpp
     inspector/InspectorValues.cpp
     inspector/InspectorStorageAgent.cpp
@@ -1108,6 +1110,7 @@ SET(WebCore_SOURCES
     loader/MediaDocument.cpp
     loader/NavigationAction.cpp
     loader/NetscapePlugInStreamLoader.cpp
+    loader/PingLoader.cpp
     loader/PlaceholderDocument.cpp
     loader/PluginDocument.cpp
     loader/PolicyCallback.cpp
@@ -1306,6 +1309,7 @@ SET(WebCore_SOURCES
     platform/network/AuthenticationChallengeBase.cpp
     platform/network/BlobData.cpp
     platform/network/BlobRegistryImpl.cpp
+    platform/network/BlobResourceHandle.cpp
     platform/network/Credential.cpp
     platform/network/FormData.cpp
     platform/network/FormDataBuilder.cpp
@@ -1423,7 +1427,6 @@ SET(WebCore_SOURCES
     rendering/TextControlInnerElements.cpp
     rendering/TransformState.cpp
     rendering/break_lines.cpp
-    rendering/style/BindingURI.cpp
     rendering/style/ContentData.cpp
     rendering/style/CounterDirectives.cpp
     rendering/style/FillLayer.cpp
@@ -1455,10 +1458,12 @@ SET(WebCore_SOURCES
     storage/DatabaseTracker.cpp
     storage/DirectoryEntry.cpp
     storage/DirectoryReader.cpp
+    storage/DOMFilePath.cpp
     storage/DOMFileSystem.cpp
     storage/Entry.cpp
     storage/EntryArray.cpp
     storage/FileEntry.cpp
+    storage/FileSystemCallbacks.cpp
     storage/IDBAny.cpp
     storage/IDBDatabase.cpp
     storage/IDBDatabaseBackendImpl.cpp

@@ -34,21 +34,21 @@
 #include "Event.h"
 #include "EventListener.h"
 
-#include "WebEvent.h"
-#include "WebEventListener.h"
+#include "WebDOMEvent.h"
+#include "WebDOMEventListener.h"
 
 namespace WebKit {
 
-EventListenerWrapper::EventListenerWrapper(WebEventListener* webEventListener)
+EventListenerWrapper::EventListenerWrapper(WebDOMEventListener* webDOMEventListener)
     : EventListener(EventListener::JSEventListenerType)
-    , m_webEventListener(webEventListener)
+    , m_webDOMEventListener(webDOMEventListener)
 {
 }
 
 EventListenerWrapper::~EventListenerWrapper()
 {
-    if (m_webEventListener)
-        m_webEventListener->notifyEventListenerDeleted(this);
+    if (m_webDOMEventListener)
+        m_webDOMEventListener->notifyEventListenerDeleted(this);
 }
 
 bool EventListenerWrapper::operator==(const EventListener& listener)
@@ -58,15 +58,15 @@ bool EventListenerWrapper::operator==(const EventListener& listener)
 
 void EventListenerWrapper::handleEvent(ScriptExecutionContext* context, Event* event)
 {
-    if (!m_webEventListener)
+    if (!m_webDOMEventListener)
         return;
-    WebEvent webEvent(event);
-    m_webEventListener->handleEvent(webEvent);
+    WebDOMEvent webDOMEvent(event);
+    m_webDOMEventListener->handleEvent(webDOMEvent);
 }
 
-void EventListenerWrapper::webEventListenerDeleted()
+void EventListenerWrapper::webDOMEventListenerDeleted()
 {
-    m_webEventListener = 0;
+    m_webDOMEventListener = 0;
 }
 
 } // namespace WebKit

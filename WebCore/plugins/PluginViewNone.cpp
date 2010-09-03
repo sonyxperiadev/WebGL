@@ -66,12 +66,12 @@ void PluginView::setNPWindowRect(const IntRect&)
 {
 }
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
 NPError PluginView::handlePostReadFile(Vector<char>&, uint32_t, const char*)
 {
     return 0;
 }
 
-#if ENABLE(NETSCAPE_PLUGIN_API)
 bool PluginView::platformGetValue(NPNVariable, void*, NPError*)
 {
     return false;
@@ -81,19 +81,21 @@ bool PluginView::platformGetValueStatic(NPNVariable, void*, NPError*)
 {
     return false;
 }
-#endif
 
 void PluginView::invalidateRect(NPRect*)
 {
 }
+#endif
 
 void PluginView::invalidateRect(const IntRect&)
 {
 }
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
 void PluginView::invalidateRegion(NPRegion)
 {
 }
+#endif
 
 void PluginView::forceRedraw()
 {
@@ -139,7 +141,7 @@ void PluginView::handleFocusOutEvent()
 // ports using PluginView, but until then, if new functions like this are 
 // added, please make sure they have the proper platform #ifs so that changes
 // do not break ports who compile both this file and PluginView.cpp.   
-#if PLATFORM(MAC) || PLATFORM(CHROMIUM) || PLATFORM(EFL) || OS(WINCE) && !PLATFORM(QT)
+#if PLATFORM(MAC) || PLATFORM(CHROMIUM) || PLATFORM(EFL) || (OS(WINCE) && !PLATFORM(QT)) || (PLATFORM(QT) && !OS(WINCE))
 #if ENABLE(NETSCAPE_PLUGIN_API)
 void PluginView::keepAlive(NPP)
 {

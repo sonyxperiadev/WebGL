@@ -1201,40 +1201,6 @@ bool CSSParser::parseValue(int propId, bool important)
             validPrimitive = true;
         break;
 
-    case CSSPropertyWebkitBinding:
-#if ENABLE(XBL)
-        if (id == CSSValueNone)
-            validPrimitive = true;
-        else {
-            RefPtr<CSSValueList> values = CSSValueList::createCommaSeparated();
-            CSSParserValue* val;
-            RefPtr<CSSValue> parsedValue;
-            while ((val = m_valueList->current())) {
-                if (val->unit == CSSPrimitiveValue::CSS_URI && m_styleSheet) {
-                    // FIXME: The completeURL call should be done when using the CSSPrimitiveValue,
-                    // not when creating it.
-                    parsedValue = CSSPrimitiveValue::create(m_styleSheet->completeURL(val->string), CSSPrimitiveValue::CSS_URI);
-                }
-                if (!parsedValue)
-                    break;
-
-                // FIXME: We can't use release() here since we might hit this path twice
-                // but that logic seems wrong to me to begin with, we convert all non-uri values
-                // into the last seen URI value!?
-                // -webkit-binding: url(foo.xml), 1, 2; (if that were valid) is treated as:
-                // -webkit-binding: url(foo.xml), url(foo.xml), url(foo.xml); !?
-                values->append(parsedValue.get());
-                m_valueList->next();
-            }
-            if (!values->length())
-                return false;
-
-            addProperty(propId, values.release(), important);
-            m_valueList->next();
-            return true;
-        }
-#endif
-        break;
     case CSSPropertyWebkitBorderImage:
     case CSSPropertyWebkitMaskBoxImage:
         if (id == CSSValueNone)
@@ -3887,6 +3853,27 @@ static inline bool parseAlphaValue(const UChar*& string, const UChar* end, UChar
     return *foundTerminator == terminator;
 }
 
+static inline bool mightBeRGBA(const UChar* characters, unsigned length)
+{
+    if (length < 5)
+        return false;
+    return characters[4] == '('
+        && (characters[0] | 0x20) == 'r'
+        && (characters[1] | 0x20) == 'g'
+        && (characters[2] | 0x20) == 'b'
+        && (characters[3] | 0x20) == 'a';
+}
+
+static inline bool mightBeRGB(const UChar* characters, unsigned length)
+{
+    if (length < 4)
+        return false;
+    return characters[3] == '('
+        && (characters[0] | 0x20) == 'r'
+        && (characters[1] | 0x20) == 'g'
+        && (characters[2] | 0x20) == 'b';
+}
+
 bool CSSParser::parseColor(const String &name, RGBA32& rgb, bool strict)
 {
     const UChar* characters = name.characters();
@@ -3903,7 +3890,7 @@ bool CSSParser::parseColor(const String &name, RGBA32& rgb, bool strict)
     }
 
     // Try rgba() syntax.
-    if (name.startsWith("rgba(")) {
+    if (mightBeRGBA(characters, length)) {
         const UChar* current = characters + 5;
         const UChar* end = characters + length;
         int red;
@@ -3925,7 +3912,7 @@ bool CSSParser::parseColor(const String &name, RGBA32& rgb, bool strict)
     }
 
     // Try rgb() syntax.
-    if (name.startsWith("rgb(")) {
+    if (mightBeRGB(characters, length)) {
         const UChar* current = characters + 4;
         const UChar* end = characters + length;
         int red;

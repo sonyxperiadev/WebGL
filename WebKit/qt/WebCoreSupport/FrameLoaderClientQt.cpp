@@ -4,7 +4,7 @@
  * Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008 Collabora Ltd. All rights reserved.
  * Coypright (C) 2008 Holger Hans Peter Freyther
- * Coypright (C) 2009 Girish Ramakrishnan <girish@forwardbias.in>
+ * Coypright (C) 2009, 2010 Girish Ramakrishnan <girish@forwardbias.in>
  *
  * All rights reserved.
  *
@@ -1190,7 +1190,7 @@ PassRefPtr<Frame> FrameLoaderClientQt::createFrame(const KURL& url, const String
 
     // ### set override encoding if we have one
 
-    frameData.frame->loader()->loadURLIntoChildFrame(frameData.url, frameData.referrer, frameData.frame.get());
+    m_frame->loader()->loadURLIntoChildFrame(frameData.url, frameData.referrer, frameData.frame.get());
 
     // The frame's onload handler may have removed it from the document.
     if (!frameData.frame->tree()->parent())
@@ -1456,12 +1456,26 @@ PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, 
 #endif
             // FIXME: make things work for widgetless plugins as well
             delete object;
-    } else { // NPAPI Plugins
+    }
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    else { // NPAPI Plugins
         Vector<String> params = paramNames;
         Vector<String> values = paramValues;
         if (mimeType == "application/x-shockwave-flash") {
             QWebPageClient* client = m_webFrame->page()->d->client;
-            if (!client || !qobject_cast<QWidget*>(client->pluginParent())) {
+            const bool isQWebView = client && qobject_cast<QWidget*>(client->pluginParent());
+#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO == 5)
+            size_t wmodeIndex = params.find("wmode");
+            if (wmodeIndex == -1) {
+                // Disable XEmbed mode and force it to opaque mode
+                params.append("wmode");
+                values.append("opaque");
+            } else if (!isQWebView) {
+                // Disable transparency if client is not a QWebView
+                values[wmodeIndex] = "opaque";
+            }
+#else
+            if (!isQWebView) {
                 // inject wmode=opaque when there is no client or the client is not a QWebView
                 size_t wmodeIndex = params.find("wmode");
                 if (wmodeIndex == -1) {
@@ -1470,12 +1484,14 @@ PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, 
                 } else
                     values[wmodeIndex] = "opaque";
             }
+#endif
         }
 
         RefPtr<PluginView> pluginView = PluginView::create(m_frame, pluginSize, element, url,
             params, values, mimeType, loadManually);
         return pluginView;
     }
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
 
     return 0;
 }

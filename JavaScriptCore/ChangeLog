@@ -1,3 +1,348 @@
+2010-08-25  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Kevin Ollivier.
+
+        [BREWMP] Add build system
+        https://bugs.webkit.org/show_bug.cgi?id=44645
+
+        Make waf script portable so that we can add more ports.
+
+        * wscript:
+
+2010-08-25  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Remove the single entry regular expression cache introduced as part of
+        the fix for https://bugs.webkit.org/show_bug.cgi?id=41238.
+        The performance problem in Dromaeo that initiated that bug is no 
+        longer present. Dromaeo has been modified so that the regular
+        expression tests are somewhat random and don't benefit from a
+        single entry cache.
+
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::RegExp):
+        (JSC::RegExp::match):
+        * runtime/RegExp.h:
+
+2010-08-25  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        Cairo and EFL port shouldn't depend on glib.
+        https://bugs.webkit.org/show_bug.cgi?id=44354
+
+        Replace GRefPtr with PlatformRefPtr. Keep GLib specific bits in
+        GRefPtr.h.
+
+        * GNUmakefile.am: Add PlatformRefPtr.h to the source list.
+        * wtf/PlatformRefPtr.h: Migrated from GRefPtr.h.
+        (WTF::PlatformRefPtr::PlatformRefPtr): Ditto.
+        (WTF::PlatformRefPtr::~PlatformRefPtr): Ditto.
+        (WTF::PlatformRefPtr::clear): Ditto.
+        (WTF::PlatformRefPtr::get): Ditto.
+        (WTF::PlatformRefPtr::operator*): Ditto.
+        (WTF::PlatformRefPtr::operator->): Ditto.
+        (WTF::PlatformRefPtr::operator!): Ditto.
+        (WTF::PlatformRefPtr::operator UnspecifiedBoolType): Ditto.
+        (WTF::PlatformRefPtr::hashTableDeletedValue): Ditto.
+        (WTF::::operator): Ditto.
+        (WTF::::swap): Ditto.
+        (WTF::swap): Ditto.
+        (WTF::operator==): Ditto.
+        (WTF::operator!=): Ditto.
+        (WTF::static_pointer_cast): Ditto.
+        (WTF::const_pointer_cast): Ditto.
+        (WTF::getPtr): Ditto.
+        (WTF::adoptPlatformRef): Ditto.
+        * wtf/gobject/GRefPtr.cpp: Changes to reflect new names.
+        (WTF::refPlatformPtr):
+        (WTF::derefPlatformPtr):
+        * wtf/gobject/GRefPtr.h: Ditto.
+        (WTF::refPlatformPtr):
+        (WTF::derefPlatformPtr):
+
+2010-08-25  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Remove dead code in JSGlobalObject
+        https://bugs.webkit.org/show_bug.cgi?id=44615
+
+        The recursion data member in the JSGlobalObject and its getter
+        plus inc/dec methods seems to be unused, remove them.
+
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::init):
+        * runtime/JSGlobalObject.h:
+
+2010-08-25  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Changed the initial and subsequent allocation of vector storage to
+        Array()s. The changes are to limit sparse arrays to 100000 entries
+        and fixed the sparse map to vector storage conversion to use the 
+        minimum amount of memory needed to store the current number of entries.
+        These changes address https://bugs.webkit.org/show_bug.cgi?id=43707
+
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::putSlowCase):
+        (JSC::JSArray::getNewVectorLength):
+
+2010-08-16  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        Avoid increasing required alignment of target type warning
+        https://bugs.webkit.org/show_bug.cgi?id=43963
+
+        Fix platform independent alignment warnings.
+
+        * wtf/ListHashSet.h:
+        (WTF::ListHashSetNodeAllocator::pool):
+
+2010-08-19  Gabor Loki  <loki@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        Enable truncated floating point feature on ARM
+        https://bugs.webkit.org/show_bug.cgi?id=44233
+
+        Enable truncated floating point feature with the help of VCVTR.S32.F64
+        instruction. If VCVTR.S32.F64 can't fit the result into a 32-bit
+        integer/register, it saturates at INT_MAX or INT_MIN. Testing this
+        looks quicker than testing FPSCR for exception.
+
+        Inspired by Jacob Bramley's patch from JaegerMonkey
+
+        * assembler/ARMAssembler.h:
+        (JSC::ARMAssembler::):
+        (JSC::ARMAssembler::cmn_r):
+        (JSC::ARMAssembler::vcvtr_s32_f64_r):
+        * assembler/MacroAssemblerARM.h:
+        (JSC::MacroAssemblerARM::supportsFloatingPointTruncate):
+        (JSC::MacroAssemblerARM::branchTruncateDoubleToInt32):
+
+2010-08-24  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-08-24  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * wtf/DecimalNumber.h:
+        (WTF::DecimalNumber::intPow10):
+        * wtf/dtoa.cpp:
+        * wtf/dtoa.h:
+
+2010-08-23  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=44487
+
+        Number.toExponential/toFixed/toPrecision all contain a spaghetti of duplicated
+        code & unnecessary complexity. Add a new DecimalNumber class to encapsulate
+        double to string conversion, share the implementations of rounding &
+        decimal-fraction/exponential formatting.
+
+        * JavaScriptCore.exp:
+            Update exports.
+
+        * runtime/NumberPrototype.cpp:
+        (JSC::toThisNumber):
+        (JSC::getIntegerArgumentInRange):
+            Helper methods used in implementing toExponential/toFixed/toString.
+        (JSC::numberProtoFuncToExponential):
+        (JSC::numberProtoFuncToFixed):
+        (JSC::numberProtoFuncToPrecision):
+            Reimplemented using new DecimalNumber class.
+            
+        * runtime/UString.cpp:
+        (JSC::UString::number):
+            Updated to call numberToString.
+
+        * wtf/DecimalNumber.h: Added.
+        (WTF::):
+        (WTF::DecimalNumber::DecimalNumber):
+        (WTF::DecimalNumber::toStringDecimal):
+        (WTF::DecimalNumber::toStringExponential):
+        (WTF::DecimalNumber::sign):
+        (WTF::DecimalNumber::exponent):
+        (WTF::DecimalNumber::significand):
+        (WTF::DecimalNumber::precision):
+        (WTF::DecimalNumber::init):
+        (WTF::DecimalNumber::isZero):
+        (WTF::DecimalNumber::roundToPrecision):
+            New class to perform double to string conversion.
+            Has three constructors, which allow conversion with no rounding,
+            rounding to significant-figures, or rounding to decimal-places,
+            and two methods for formatting strings, either using decimal
+            fraction or exponential encoding. Internal implementation uses
+            pre-rounding of the values before calling dtoa rather than
+            relying on dtoa to correctly round, which does not produce
+            fully accurate results. Hopefully we can address this in the
+            near future.
+
+        * wtf/dtoa.cpp:
+        (WTF::intPow10):
+        * wtf/dtoa.h:
+            intPow10 is used internally by DecimalNumber.
+            
+        * wtf/text/WTFString.cpp:
+        (WTF::copyToString):
+        (WTF::nanOrInfToString):
+            Used internally in numberToString for NaN/Infinity handling.
+        (WTF::numberToString):
+            Added new method to convert doubles to strings.
+
+        * wtf/text/WTFString.h:
+            Added declaration for numberToString. This is here because
+            we should switch over to using this for all double to string
+            conversion in WebCore (see section 2.4.4.3 of the HTML5 spec).
+
+2010-08-24  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Don't seed the JS random number generator from time()
+        https://bugs.webkit.org/show_bug.cgi?id=41868
+        <rdar://problem/8171025>
+
+        Switch to using the secure random number generator to
+        seed the fast random generator, and make the generator
+        be per global object.
+
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        * runtime/JSGlobalData.h:
+        * runtime/JSGlobalObject.h:
+        (JSC::JSGlobalObject::JSGlobalObjectData::JSGlobalObjectData):
+        (JSC::JSGlobalObject::weakRandomNumber):
+        * runtime/MathObject.cpp:
+        (JSC::mathProtoFuncRandom):
+
+2010-08-24  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Beth Dakin.
+
+        Make overflow guards in UString::utf8 explicit
+        https://bugs.webkit.org/show_bug.cgi?id=44540
+
+        Add an explicit overflow check prior to allocating our buffer,
+        rather than implicitly relying on the guard in convertUTF16ToUTF8.
+
+        * runtime/UString.cpp:
+        (JSC::UString::utf8):
+
+2010-08-24  Yael Aharon  <yael.aharon@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Symbian] Fix commit/decommit of system memory using RChunk
+
+        Swap accidentially reversed start and m_base values for determining the
+        offset within the RChunk.
+
+        * wtf/PageReservation.h:
+        (WTF::PageReservation::systemCommit):
+        (WTF::PageReservation::systemDecommit):
+
+2010-08-23  Patrick Gansterer  <paroga@paroga.com>
+
+        Rubber-stamped by Gabor Loki.
+
+        [WINCE] Buildfix for GeneratedJITStubs after r64818
+        https://bugs.webkit.org/show_bug.cgi?id=44469
+
+        Use " THUNK_RETURN_ADDRESS_OFFSET" instead of "#offset#".
+
+        * jit/JITStubs.cpp:
+
+2010-08-23  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Darin Adler.
+
+        [REGRESSION] Interpreter incorrectly excludes prototype chain when validating put_by_id_transition
+        https://bugs.webkit.org/show_bug.cgi?id=44240
+        <rdar://problem/8328995>
+
+        Fix an error I introduced when cleaning up the interpreter side of the logic
+        to prevent setters being called in object initialisers.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+
+2010-08-23  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Fixed case where a single character search string in a string.replace()
+        did not properly handle back reference replacement.  The fix is to 
+        check for a '$' as part of the check to see if we can execute the
+        single character replace optimization.
+        https://bugs.webkit.org/show_bug.cgi?id=44067
+
+        * runtime/StringPrototype.cpp:
+        (JSC::stringProtoFuncReplace):
+
+2010-08-23  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        JSON.stringify is much slower than Firefox on particular pathological input
+        https://bugs.webkit.org/show_bug.cgi?id=44456
+
+        Make StringBuilder::reserveCapacity reserve additional space so we don't end up
+        repeatedly copying the entire result string.
+
+        * runtime/StringBuilder.h:
+        (JSC::StringBuilder::append):
+        (JSC::StringBuilder::reserveCapacity):
+
+2010-08-23  Jian Li  <jianli@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Handle blob resource.
+        https://bugs.webkit.org/show_bug.cgi?id=43941
+
+        * JavaScriptCore.exp: Add an export that is neede by BlobResourceHandle.
+
+2010-08-19  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Geoffrey Garen.
+
+        JSC: Move the static_cast into to(U)Int32 fast case
+        https://bugs.webkit.org/show_bug.cgi?id=44037
+
+        Do the static_cast<(u)int32_t> inline to avoid the function call overhead
+        for easily converted values (within (u)int32_t range.)
+
+        * runtime/JSValue.cpp:
+        (JSC::toInt32SlowCase):
+        (JSC::toUInt32SlowCase):
+        * runtime/JSValue.h:
+        (JSC::JSValue::toInt32):
+        (JSC::JSValue::toUInt32):
+
+2010-08-18  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Geoffrey Garen.
+
+        REGRESSION(r58469): Math.pow() always returns double-backed JSValue which is extremely slow as array subscript
+        https://bugs.webkit.org/show_bug.cgi?id=43742
+
+        Add codegen for pow() to return Int32 values when possible.
+
+        * jit/ThunkGenerators.cpp:
+        (JSC::powThunkGenerator):
+
 2010-08-18  Gabor Loki  <loki@webkit.org>
 
         Reviewed by Gavin Barraclough.

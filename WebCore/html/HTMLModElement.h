@@ -34,9 +34,6 @@ public:
 
 private:
     HTMLModElement(const QualifiedName&, Document*);
-
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
-    virtual int tagPriority() const { return 1; }
 };
 
 } //namespace

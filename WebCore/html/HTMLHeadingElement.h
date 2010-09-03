@@ -33,10 +33,6 @@ public:
 
 private:
     HTMLHeadingElement(const QualifiedName&, Document*);
-
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
-    virtual int tagPriority() const { return 5; }
-    virtual bool checkDTD(const Node* newChild);
 };
 
 } // namespace WebCore

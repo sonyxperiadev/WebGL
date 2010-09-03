@@ -39,6 +39,7 @@
 #include "WebIDBFactory.h"
 #include "WebKit.h"
 #include "WebKitClient.h"
+#include "WebVector.h"
 
 #if ENABLE(INDEXED_DATABASE)
 
@@ -62,6 +63,14 @@ void IDBFactoryBackendProxy::open(const String& name, const String& description,
 {
     WebKit::WebFrame* webFrame = WebKit::WebFrameImpl::fromFrame(frame);
     m_webIDBFactory->open(name, description, new WebIDBCallbacksImpl(callbacks), origin, webFrame);
+}
+
+void IDBFactoryBackendProxy::abortPendingTransactions(const Vector<int>& pendingIDs)
+{
+    ASSERT(pendingIDs.size());
+    WebKit::WebVector<int> ids = pendingIDs;
+
+    m_webIDBFactory->abortPendingTransactions(ids);
 }
 
 } // namespace WebCore

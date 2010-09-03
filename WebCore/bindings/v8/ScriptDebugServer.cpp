@@ -84,6 +84,7 @@ ScriptDebugServer::ScriptDebugServer()
     : m_pauseOnExceptionsState(DontPauseOnExceptions)
     , m_pausedPage(0)
     , m_enabled(true)
+    , m_breakpointsActivated(true)
 {
 }
 
@@ -186,7 +187,7 @@ void ScriptDebugServer::clearBreakpoints()
     v8::Debug::Call(clearBreakpoints);
 }
 
-void ScriptDebugServer::setBreakpointsActivated(bool enabled)
+void ScriptDebugServer::setBreakpointsActivated(bool activated)
 {
     ensureDebuggerScriptCompiled();
     v8::HandleScope scope;
@@ -194,9 +195,11 @@ void ScriptDebugServer::setBreakpointsActivated(bool enabled)
     v8::Context::Scope contextScope(debuggerContext);
 
     v8::Local<v8::Object> args = v8::Object::New();
-    args->Set(v8::String::New("enabled"), v8::Boolean::New(enabled));
+    args->Set(v8::String::New("enabled"), v8::Boolean::New(activated));
     v8::Handle<v8::Function> setBreakpointsActivated = v8::Local<v8::Function>::Cast(m_debuggerScript.get()->Get(v8::String::New("setBreakpointsActivated")));
     v8::Debug::Call(setBreakpointsActivated, args);
+
+    m_breakpointsActivated = activated;
 }
 
 ScriptDebugServer::PauseOnExceptionsState ScriptDebugServer::pauseOnExceptionsState()
@@ -226,6 +229,31 @@ void ScriptDebugServer::pause()
 {
     if (!m_pausedPage)
         v8::Debug::DebugBreak();
+}
+
+void ScriptDebugServer::breakProgram()
+{
+    DEFINE_STATIC_LOCAL(v8::Persistent<v8::FunctionTemplate>, callbackTemplate, ());
+
+    if (!m_breakpointsActivated)
+        return;
+
+    if (!v8::Context::InContext())
+        return;
+
+    if (callbackTemplate.IsEmpty()) {
+        callbackTemplate = v8::Persistent<v8::FunctionTemplate>::New(v8::FunctionTemplate::New());
+        callbackTemplate->SetCallHandler(&ScriptDebugServer::breakProgramCallback);
+    }
+
+    v8::Handle<v8::Context> context = v8::Context::GetCurrent();
+    if (context.IsEmpty())
+        return;
+
+    m_pausedPageContext = *context;
+    v8::Handle<v8::Function> breakProgramFunction = callbackTemplate->GetFunction();
+    v8::Debug::Call(breakProgramFunction);
+    m_pausedPageContext.Clear();
 }
 
 void ScriptDebugServer::continueProgram()
@@ -323,6 +351,41 @@ void ScriptDebugServer::runPendingTasks()
     v8::Debug::ProcessDebugMessages();
 }
 
+v8::Handle<v8::Value> ScriptDebugServer::breakProgramCallback(const v8::Arguments& args)
+{
+    ASSERT(2 == args.Length());
+    ScriptDebugServer::shared().breakProgram(v8::Handle<v8::Object>::Cast(args[0]));
+    return v8::Undefined();
+}
+
+void ScriptDebugServer::breakProgram(v8::Handle<v8::Object> executionState)
+{
+    // Don't allow nested breaks.
+    if (m_pausedPage)
+        return;
+
+    Frame* frame = retrieveFrame(m_pausedPageContext);
+    if (!frame)
+        return;
+
+    ScriptDebugListener* listener = m_listenersMap.get(frame->page());
+    if (!listener)
+        return;
+
+    m_executionState.set(executionState);
+    m_pausedPage = frame->page();
+    ScriptState* currentCallFrameState = ScriptState::forContext(m_pausedPageContext);
+    listener->didPause(currentCallFrameState);
+
+    // Wait for continue or step command.
+    m_clientMessageLoop->run(m_pausedPage);
+    ASSERT(!m_pausedPage);
+
+    // The listener may have been removed in the nested loop.
+    if (ScriptDebugListener* listener = m_listenersMap.get(frame->page()))
+        listener->didContinue();
+}
+
 void ScriptDebugServer::v8DebugEventCallback(const v8::Debug::EventDetails& eventDetails)
 {
     ScriptDebugServer::shared().handleV8DebugEvent(eventDetails);
@@ -365,21 +428,9 @@ void ScriptDebugServer::handleV8DebugEvent(const v8::Debug::EventDetails& eventD
                         return;
                 }
 
-                // Don't allow nested breaks.
-                if (m_pausedPage)
-                    return;
-                m_executionState.set(eventDetails.GetExecutionState());
-                m_pausedPage = frame->page();
-                ScriptState* currentCallFrameState = mainWorldScriptState(frame);
-                listener->didPause(currentCallFrameState);
-
-                // Wait for continue or step command.
-                m_clientMessageLoop->run(m_pausedPage);
-                ASSERT(!m_pausedPage);
-
-                // The listener may have been removed in the nested loop.
-                if (ScriptDebugListener* listener = m_listenersMap.get(frame->page()))
-                    listener->didContinue();
+                m_pausedPageContext = *eventContext;
+                breakProgram(eventDetails.GetExecutionState());
+                m_pausedPageContext.Clear();
             }
         }
     }

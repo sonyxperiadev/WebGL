@@ -36,6 +36,7 @@ class ImageBuffer;
 class RenderBoxModelObject;
 class RenderObject;
 class RenderStyle;
+class RenderSVGRoot;
 class TransformState;
 
 // SVGRendererSupport is a helper class sharing code between all SVG renderers.
@@ -72,14 +73,12 @@ public:
     static void computeRectForRepaint(RenderObject*, RenderBoxModelObject* repaintContainer, IntRect&, bool fixed);
     static void mapLocalToContainer(const RenderObject*, RenderBoxModelObject* repaintContainer, bool useTransforms, bool fixed, TransformState&);
 
-    // This offers a way to render parts of a WebKit rendering tree into a ImageBuffer.
-    static void renderSubtreeToImage(ImageBuffer*, RenderObject*);
-
     // Shared between SVG renderers and resources.
     static void applyStrokeStyleToContext(GraphicsContext*, const RenderStyle*, const RenderObject*);
 
     // FIXME: These methods do not belong here.
     static const RenderObject* findTextRootObject(const RenderObject* start);
+    static const RenderSVGRoot* findTreeRootObject(const RenderObject* start);
 
 private:
     // This class is not constructable.

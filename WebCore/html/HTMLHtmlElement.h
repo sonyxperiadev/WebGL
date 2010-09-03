@@ -36,10 +36,6 @@ public:
 private:
     HTMLHtmlElement(const QualifiedName&, Document*);
 
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
-    virtual int tagPriority() const { return 11; }
-    virtual bool checkDTD(const Node* newChild);
-
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     virtual void insertedIntoDocument();
 #endif

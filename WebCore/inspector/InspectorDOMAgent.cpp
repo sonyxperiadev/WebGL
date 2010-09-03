@@ -35,6 +35,7 @@
 
 #include "CSSComputedStyleDeclaration.h"
 #include "CSSMutableStyleDeclaration.h"
+#include "CSSPropertyNames.h"
 #include "CSSRule.h"
 #include "CSSRuleList.h"
 #include "CSSStyleRule.h"
@@ -54,14 +55,15 @@
 #include "FrameTree.h"
 #include "HTMLElement.h"
 #include "HTMLFrameOwnerElement.h"
+#include "InspectorFrontend.h"
 #include "MutationEvent.h"
 #include "Node.h"
 #include "NodeList.h"
 #include "Pasteboard.h"
 #include "PlatformString.h"
-#include "RemoteInspectorFrontend.h"
 #include "RenderStyle.h"
 #include "RenderStyleConstants.h"
+#include "ScriptDebugServer.h"
 #include "ScriptEventListener.h"
 #include "StyleSheetList.h"
 #include "Text.h"
@@ -196,9 +198,20 @@ public:
     virtual ~MatchPlainTextJob() { }
 };
 
+enum DOMBreakpointType {
+    SubtreeModified = 0,
+    AttributeModified,
+    NodeRemoved
+};
+
+const uint32_t inheritableDOMBreakpointTypesMask = (1 << SubtreeModified);
+const int domBreakpointDerivedTypeShift = 16;
+
 }
 
-InspectorDOMAgent::InspectorDOMAgent(InspectorCSSStore* cssStore, RemoteInspectorFrontend* frontend)
+InspectorDOMAgent* InspectorDOMAgent::s_domAgentOnBreakpoint = 0;
+
+InspectorDOMAgent::InspectorDOMAgent(InspectorCSSStore* cssStore, InspectorFrontend* frontend)
     : EventListener(InspectorDOMAgentType)
     , m_cssStore(cssStore)
     , m_frontend(frontend)
@@ -210,6 +223,9 @@ InspectorDOMAgent::InspectorDOMAgent(InspectorCSSStore* cssStore, RemoteInspecto
 InspectorDOMAgent::~InspectorDOMAgent()
 {
     reset();
+
+    if (this == s_domAgentOnBreakpoint)
+        s_domAgentOnBreakpoint = 0;
 }
 
 void InspectorDOMAgent::reset()
@@ -371,6 +387,7 @@ void InspectorDOMAgent::discardBindings()
     releaseDanglingNodes();
     m_childrenRequested.clear();
     m_inspectedNodes.clear();
+    m_breakpoints.clear();
 }
 
 Node* InspectorDOMAgent::nodeForId(long id)
@@ -720,6 +737,39 @@ void InspectorDOMAgent::searchCanceled()
     m_searchResults.clear();
 }
 
+void InspectorDOMAgent::setDOMBreakpoint(long nodeId, long type)
+{
+    Node* node = nodeForId(nodeId);
+    if (!node)
+        return;
+
+    uint32_t rootBit = 1 << type;
+    m_breakpoints.set(node, m_breakpoints.get(node) | rootBit);
+    if (rootBit & inheritableDOMBreakpointTypesMask) {
+        for (Node* child = innerFirstChild(node); child; child = innerNextSibling(child))
+            updateSubtreeBreakpoints(child, rootBit, true);
+    }
+}
+
+void InspectorDOMAgent::removeDOMBreakpoint(long nodeId, long type)
+{
+    Node* node = nodeForId(nodeId);
+    if (!node)
+        return;
+
+    uint32_t rootBit = 1 << type;
+    uint32_t mask = m_breakpoints.get(node) & ~rootBit;
+    if (mask)
+        m_breakpoints.set(node, mask);
+    else
+        m_breakpoints.remove(node);
+
+    if ((rootBit & inheritableDOMBreakpointTypesMask) && !(mask & (rootBit << domBreakpointDerivedTypeShift))) {
+        for (Node* child = innerFirstChild(node); child; child = innerNextSibling(child))
+            updateSubtreeBreakpoints(child, rootBit, false);
+    }
+}
+
 String InspectorDOMAgent::documentURLString(Document* document) const
 {
     if (!document || document->url().isNull())
@@ -920,6 +970,18 @@ void InspectorDOMAgent::didInsertDOMNode(Node* node)
     if (isWhitespace(node))
         return;
 
+    if (m_breakpoints.size()) {
+        Node* parent = innerParentNode(node);
+        if (hasBreakpoint(parent, SubtreeModified)) {
+            if (!pauseOnBreakpoint())
+                return;
+        }
+        uint32_t mask = m_breakpoints.get(parent);
+        uint32_t inheritableTypesMask = (mask | (mask >> domBreakpointDerivedTypeShift)) & inheritableDOMBreakpointTypesMask;
+        if (inheritableTypesMask)
+            updateSubtreeBreakpoints(node, inheritableTypesMask, true);
+    }
+
     // We could be attaching existing subtree. Forget the bindings.
     unbind(node, &m_documentNodeToIdMap);
 
@@ -946,6 +1008,25 @@ void InspectorDOMAgent::didRemoveDOMNode(Node* node)
     if (isWhitespace(node))
         return;
 
+    if (m_breakpoints.size()) {
+        if (hasBreakpoint(node, NodeRemoved) || hasBreakpoint(innerParentNode(node), SubtreeModified)) {
+            if (!pauseOnBreakpoint())
+                return;
+        }
+        // Remove subtree breakpoints.
+        m_breakpoints.remove(node);
+        Vector<Node*> stack(1, innerFirstChild(node));
+        do {
+            Node* node = stack.last();
+            stack.removeLast();
+            if (!node)
+                continue;
+            m_breakpoints.remove(node);
+            stack.append(innerFirstChild(node));
+            stack.append(innerNextSibling(node));
+        } while (!stack.isEmpty());
+    }
+
     Node* parent = node->parentNode();
     long parentId = m_documentNodeToIdMap.get(parent);
     // If parent is not mapped yet -> ignore the event.
@@ -968,7 +1049,50 @@ void InspectorDOMAgent::didModifyDOMAttr(Element* element)
     if (!id)
         return;
 
+    if (hasBreakpoint(element, AttributeModified)) {
+        if (!pauseOnBreakpoint())
+            return;
+    }
+
     m_frontend->attributesUpdated(id, buildArrayForElementAttributes(element));
+}
+
+bool InspectorDOMAgent::hasBreakpoint(Node* node, long type)
+{
+    uint32_t rootBit = 1 << type;
+    uint32_t derivedBit = rootBit << domBreakpointDerivedTypeShift;
+    return m_breakpoints.get(node) & (rootBit | derivedBit);
+}
+
+bool InspectorDOMAgent::pauseOnBreakpoint()
+{
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    s_domAgentOnBreakpoint = this;
+    ScriptDebugServer::shared().breakProgram();
+    bool deleted = !s_domAgentOnBreakpoint;
+    s_domAgentOnBreakpoint = 0;
+    return !deleted;
+#else
+    return true;
+#endif
+}
+
+void InspectorDOMAgent::updateSubtreeBreakpoints(Node* node, uint32_t rootMask, bool set)
+{
+    uint32_t oldMask = m_breakpoints.get(node);
+    uint32_t derivedMask = rootMask << domBreakpointDerivedTypeShift;
+    uint32_t newMask = set ? oldMask | derivedMask : oldMask & ~derivedMask;
+    if (newMask)
+        m_breakpoints.set(node, newMask);
+    else
+        m_breakpoints.remove(node);
+
+    uint32_t newRootMask = rootMask & ~newMask;
+    if (!newRootMask)
+        return;
+
+    for (Node* child = innerFirstChild(node); child; child = innerNextSibling(child))
+        updateSubtreeBreakpoints(child, newRootMask, set);
 }
 
 void InspectorDOMAgent::getStyles(long nodeId, bool authorOnly, RefPtr<InspectorValue>* styles)
@@ -1295,6 +1419,14 @@ void InspectorDOMAgent::addRule(const String& selector, long selectedNodeId, Ref
     CSSStyleRule* newRule = static_cast<CSSStyleRule*>(styleSheet->item(styleSheet->length() - 1));
     *selectorAffectsNode = ruleAffectsNode(newRule, node);
     *ruleObject = buildObjectForRule(node->ownerDocument(), newRule);
+}
+
+void InspectorDOMAgent::getSupportedCSSProperties(RefPtr<InspectorArray>* cssProperties)
+{
+    RefPtr<InspectorArray> properties = InspectorArray::create();
+    for (int i = 0; i < numCSSProperties; ++i)
+        properties->pushString(propertyNameStrings[i]);
+    *cssProperties = properties.release();
 }
 
 PassRefPtr<InspectorObject> InspectorDOMAgent::buildObjectForStyle(CSSStyleDeclaration* style, bool bind)

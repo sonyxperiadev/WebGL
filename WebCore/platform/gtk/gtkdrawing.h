@@ -75,6 +75,7 @@ typedef struct {
   gint stepper_size;
   gint stepper_spacing;
   gint min_slider_size;
+  gboolean trough_under_steppers;
 } MozGtkScrollbarMetrics;
 
 typedef struct _GtkThemeParts {
@@ -180,6 +181,8 @@ typedef enum {
   /* Paints the slider (thumb) of a GtkScrollbar. */
   MOZ_GTK_SCROLLBAR_THUMB_HORIZONTAL,
   MOZ_GTK_SCROLLBAR_THUMB_VERTICAL,
+  /* Paints the background of a scrolled window */
+  MOZ_GTK_SCROLLED_WINDOW,
   /* Paints a GtkScale. */
   MOZ_GTK_SCALE_HORIZONTAL,
   MOZ_GTK_SCALE_VERTICAL,

@@ -39,28 +39,27 @@ class HTMLTokenizer;
 class HTMLScriptRunner;
 class HTMLTreeBuilder;
 class HTMLPreloadScanner;
-class LegacyHTMLTreeBuilder;
 class ScriptController;
 class ScriptSourceCode;
 
 class HTMLViewSourceParser :  public DecodedDataDocumentParser {
 public:
-    // FIXME: Make private with a create method.
-    HTMLViewSourceParser(HTMLViewSourceDocument* document)
-        : DecodedDataDocumentParser(document)
+    static PassRefPtr<HTMLViewSourceParser> create(HTMLViewSourceDocument* document)
     {
+        return adoptRef(new HTMLViewSourceParser(document));
     }
-
     virtual ~HTMLViewSourceParser();
 
 private:
+    HTMLViewSourceParser(HTMLViewSourceDocument*);
+
     // DocumentParser
     virtual void insert(const SegmentedString&);
     virtual void append(const SegmentedString&);
     virtual void finish();
     virtual bool finishWasCalled();
 
-    HTMLViewSourceDocument* document() const { return static_cast<HTMLViewSourceDocument*>(m_document); }
+    HTMLViewSourceDocument* document() const { return static_cast<HTMLViewSourceDocument*>(DecodedDataDocumentParser::document()); }
 
     void pumpTokenizer();
     String sourceForToken();
@@ -69,7 +68,7 @@ private:
     HTMLInputStream m_input;
     SegmentedString m_source;
     HTMLToken m_token;
-    HTMLTokenizer m_tokenizer;
+    OwnPtr<HTMLTokenizer> m_tokenizer;
 };
 
 }

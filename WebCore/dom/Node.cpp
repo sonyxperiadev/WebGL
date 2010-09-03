@@ -646,14 +646,8 @@ const AtomicString& Node::virtualNamespaceURI() const
     return nullAtom;
 }
 
-ContainerNode* Node::legacyParserAddChild(PassRefPtr<Node>)
+void Node::deprecatedParserAddChild(PassRefPtr<Node>)
 {
-    return 0;
-}
-
-void Node::parserAddChild(PassRefPtr<Node>)
-{
-    ASSERT_NOT_REACHED();
 }
 
 bool Node::isContentEditable() const
@@ -1233,11 +1227,6 @@ bool Node::contains(const Node* node) const
     if (!node)
         return false;
     return this == node || node->isDescendantOf(this);
-}
-
-bool Node::childAllowed(Node* newChild)
-{
-    return childTypeAllowed(newChild->nodeType());
 }
 
 void Node::attach()
@@ -2377,9 +2366,7 @@ void Node::getSubresourceURLs(ListHashSet<KURL>& urls) const
 
 ContainerNode* Node::eventParentNode()
 {
-    Node* parent = parentNode();
-    ASSERT(!parent || parent->isContainerNode());
-    return static_cast<ContainerNode*>(parent);
+    return parentNode();
 }
 
 Node* Node::enclosingLinkEventParentOrSelf()
@@ -2668,7 +2655,7 @@ static inline SVGElementInstance* eventTargetAsSVGElementInstance(Node* referenc
         if (!n->isShadowNode() || !n->isSVGElement())
             continue;
 
-        Node* shadowTreeParentElement = n->shadowParentNode();
+        ContainerNode* shadowTreeParentElement = n->shadowParentNode();
         ASSERT(shadowTreeParentElement->hasTagName(SVGNames::useTag));
 
         if (SVGElementInstance* instance = static_cast<SVGUseElement*>(shadowTreeParentElement)->instanceForShadowTreeElement(referenceNode))

@@ -33,12 +33,14 @@
 
 #include "base/task.h" // FIXME: remove this
 #include "public/WebDevToolsAgentClient.h"
+#include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
 
 namespace WebKit {
 
 class WebCString;
 class WebDevToolsAgent;
+class WebString;
 class WebView;
 struct WebDevToolsMessageData;
 
@@ -60,8 +62,7 @@ public:
     virtual void sendMessageToInspectorFrontend(const WebKit::WebString&);
     virtual int hostIdentifier() { return m_routingID; }
     virtual void forceRepaint();
-    virtual void runtimeFeatureStateChanged(const WebKit::WebString& feature, bool enabled);
-    virtual WebKit::WebCString injectedScriptSource();
+    virtual void runtimePropertyChanged(const WebKit::WebString& name, const WebKit::WebString& value);
     virtual WebKit::WebCString debuggerScriptSource();
 
     void asyncCall(const DRTDevToolsCallArgs&);
@@ -75,6 +76,7 @@ public:
 
 private:
     void call(const DRTDevToolsCallArgs&);
+    void delayedFrontendLoaded();
     static void dispatchMessageLoop();
     WebKit::WebDevToolsAgent* webDevToolsAgent();
 

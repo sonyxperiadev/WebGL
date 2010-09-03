@@ -977,7 +977,8 @@ void WebView::paint(HDC dc, LPARAM options)
         windowsToPaint = PaintWebViewAndChildren;
     }
 
-    if (::IsRectEmpty(&rcPaint)) {
+    bool backingStoreCompletelyDirty = ensureBackingStore();
+    if (!m_backingStoreBitmap) {
         if (!dc)
             EndPaint(m_viewWindow, &ps);
         return;
@@ -986,7 +987,6 @@ void WebView::paint(HDC dc, LPARAM options)
     m_paintCount++;
 
     HDC bitmapDC = ::CreateCompatibleDC(hdc);
-    bool backingStoreCompletelyDirty = ensureBackingStore();
     ::SelectObject(bitmapDC, m_backingStoreBitmap->handle());
 
     // Update our backing store if needed.
@@ -2432,7 +2432,7 @@ HRESULT STDMETHODCALLTYPE WebView::canShowMIMEType(
 
     *canShow = MIMETypeRegistry::isSupportedImageMIMEType(mimeTypeStr) ||
         MIMETypeRegistry::isSupportedNonImageMIMEType(mimeTypeStr) ||
-        (m_page && m_page->pluginData()->supportsMimeType(mimeTypeStr)) ||
+        (m_page && m_page->pluginData() && m_page->pluginData()->supportsMimeType(mimeTypeStr)) ||
         shouldUseEmbeddedView(mimeTypeStr);
     
     return S_OK;
@@ -3362,7 +3362,7 @@ HRESULT STDMETHODCALLTYPE WebView::rectsForTextMatches(
     do {
         if (Document* document = frame->document()) {
             IntRect visibleRect = frame->view()->visibleContentRect();
-            Vector<IntRect> frameRects = document->renderedRectsForMarkers(DocumentMarker::TextMatch);
+            Vector<IntRect> frameRects = document->markers()->renderedRectsForMarkers(DocumentMarker::TextMatch);
             IntPoint frameOffset(-frame->view()->scrollOffset().width(), -frame->view()->scrollOffset().height());
             frameOffset = frame->view()->convertToContainingWindow(frameOffset);
 

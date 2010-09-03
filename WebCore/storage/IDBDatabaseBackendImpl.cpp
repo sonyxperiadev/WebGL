@@ -29,8 +29,10 @@
 #include "DOMStringList.h"
 #include "IDBDatabaseException.h"
 #include "IDBObjectStoreBackendImpl.h"
+#include "IDBTransactionCoordinator.h"
 #include "SQLiteDatabase.h"
 #include "SQLiteStatement.h"
+#include "SQLiteTransaction.h"
 
 #if ENABLE(INDEXED_DATABASE)
 
@@ -83,10 +85,11 @@ static bool setMetaData(SQLiteDatabase* sqliteDatabase, const String& name, cons
     return true;
 }
 
-IDBDatabaseBackendImpl::IDBDatabaseBackendImpl(const String& name, const String& description, PassOwnPtr<SQLiteDatabase> sqliteDatabase)
+IDBDatabaseBackendImpl::IDBDatabaseBackendImpl(const String& name, const String& description, PassOwnPtr<SQLiteDatabase> sqliteDatabase, IDBTransactionCoordinator* coordinator)
     : m_sqliteDatabase(sqliteDatabase)
     , m_name(name)
     , m_version("")
+    , m_transactionCoordinator(coordinator)
 {
     ASSERT(!m_name.isNull());
 
@@ -97,6 +100,8 @@ IDBDatabaseBackendImpl::IDBDatabaseBackendImpl(const String& name, const String&
 
     if (!result || m_description != foundDescription)
         setMetaData(m_sqliteDatabase.get(), m_name, m_description, m_version);
+
+    loadObjectStores();
 }
 
 IDBDatabaseBackendImpl::~IDBDatabaseBackendImpl()
@@ -127,9 +132,20 @@ void IDBDatabaseBackendImpl::createObjectStore(const String& name, const String&
         return;
     }
 
-    RefPtr<IDBObjectStoreBackendInterface> objectStore = IDBObjectStoreBackendImpl::create(name, keyPath, autoIncrement);
+    SQLiteStatement insert(sqliteDatabase(), "INSERT INTO ObjectStores (name, keyPath, doAutoIncrement) VALUES (?, ?, ?)");
+    bool ok = insert.prepare() == SQLResultOk;
+    ASSERT_UNUSED(ok, ok); // FIXME: Better error handling.
+    insert.bindText(1, name);
+    insert.bindText(2, keyPath);
+    insert.bindInt(3, static_cast<int>(autoIncrement));
+    ok = insert.step() == SQLResultDone;
+    ASSERT_UNUSED(ok, ok); // FIXME: Better error handling.
+    int64_t id = sqliteDatabase().lastInsertRowID();
+
+    RefPtr<IDBObjectStoreBackendImpl> objectStore = IDBObjectStoreBackendImpl::create(this, id, name, keyPath, autoIncrement);
+    ASSERT(objectStore->name() == name);
     m_objectStores.set(name, objectStore);
-    callbacks->onSuccess(objectStore.release());
+    callbacks->onSuccess(objectStore.get());
 }
 
 PassRefPtr<IDBObjectStoreBackendInterface> IDBDatabaseBackendImpl::objectStore(const String& name, unsigned short mode)
@@ -139,22 +155,55 @@ PassRefPtr<IDBObjectStoreBackendInterface> IDBDatabaseBackendImpl::objectStore(c
     return m_objectStores.get(name);
 }
 
+static void doDelete(SQLiteDatabase& db, const char* sql, int64_t id)
+{
+    SQLiteStatement deleteQuery(db, sql);
+    bool ok = deleteQuery.prepare() == SQLResultOk;
+    ASSERT_UNUSED(ok, ok); // FIXME: Better error handling.
+    deleteQuery.bindInt64(1, id);
+    ok = deleteQuery.step() == SQLResultDone;
+    ASSERT_UNUSED(ok, ok); // FIXME: Better error handling.
+}
+
 void IDBDatabaseBackendImpl::removeObjectStore(const String& name, PassRefPtr<IDBCallbacks> callbacks)
 {
-    if (!m_objectStores.contains(name)) {
+    RefPtr<IDBObjectStoreBackendImpl> objectStore = m_objectStores.get(name);
+    if (!objectStore) {
         callbacks->onError(IDBDatabaseError::create(IDBDatabaseException::NOT_FOUND_ERR, "No objectStore with that name exists."));
         return;
     }
+
+    SQLiteTransaction transaction(sqliteDatabase());
+    transaction.begin();
+    doDelete(sqliteDatabase(), "DELETE FROM ObjectStores WHERE id = ?", objectStore->id());
+    doDelete(sqliteDatabase(), "DELETE FROM ObjectStoreData WHERE objectStoreId = ?", objectStore->id());
+    doDelete(sqliteDatabase(), "DELETE FROM Indexes WHERE objectStoreId = ?", objectStore->id());
+    // FIXME: Delete index data as well.
+    transaction.commit();
 
     m_objectStores.remove(name);
     callbacks->onSuccess();
 }
 
-PassRefPtr<IDBTransactionBackendInterface> IDBDatabaseBackendImpl::transaction(DOMStringList*, unsigned short, unsigned long)
+PassRefPtr<IDBTransactionBackendInterface> IDBDatabaseBackendImpl::transaction(DOMStringList* objectStores, unsigned short mode, unsigned long timeout)
 {
-    // FIXME: Ask the transaction manager for a new IDBTransactionBackendImpl.
-    ASSERT_NOT_REACHED();
-    return 0;
+    return m_transactionCoordinator->createTransaction(objectStores, mode, timeout, this);
+}
+
+void IDBDatabaseBackendImpl::loadObjectStores()
+{
+    SQLiteStatement objectStoresQuery(sqliteDatabase(), "SELECT id, name, keyPath, doAutoIncrement FROM ObjectStores");
+    bool ok = objectStoresQuery.prepare() == SQLResultOk;
+    ASSERT_UNUSED(ok, ok); // FIXME: Better error handling?
+
+    while (objectStoresQuery.step() == SQLResultRow) {
+        int64_t id = objectStoresQuery.getColumnInt64(0);
+        String name = objectStoresQuery.getColumnText(1);
+        String keyPath = objectStoresQuery.getColumnText(2);
+        bool autoIncrement = !!objectStoresQuery.getColumnInt(3);
+
+        m_objectStores.set(name, IDBObjectStoreBackendImpl::create(this, id, name, keyPath, autoIncrement));
+    }
 }
 
 } // namespace WebCore

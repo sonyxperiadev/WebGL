@@ -8,7 +8,15 @@ meegotouch {
 
 symbian: {
     TARGET.EPOCALLOWDLLDATA=1
-    TARGET.CAPABILITY = All -Tcb
+    # DRM and Allfiles capabilites need to be audited to be signed on Symbian
+    # For regular users that is not possible, so use the CONFIG(production) flag is added
+    # To use all capabilies add CONFIG+=production
+    # If building from QT source tree, also add CONFIG-=QTDIR_build as qbase.pri defaults capabilities to All -Tcb.    
+    CONFIG(production) {
+        TARGET.CAPABILITY = All -Tcb
+    } else {
+        TARGET.CAPABILITY = All -Tcb -DRM -AllFiles
+    }
     isEmpty(QT_LIBINFIX) {
         TARGET.UID3 = 0x200267C2
     } else {
@@ -38,11 +46,6 @@ symbian: {
 
     DEPLOYMENT += webkitlibs webkitbackup
 
-    # Need to guarantee that these come before system includes of /epoc32/include
-    MMP_RULES += "USERINCLUDE bridge"
-    MMP_RULES += "USERINCLUDE platform/animation"
-    MMP_RULES += "USERINCLUDE platform/text"
-    MMP_RULES += "USERINCLUDE rendering"
     symbian-abld|symbian-sbsv2 {
         # RO text (code) section in qtwebkit.dll exceeds allocated space for gcce udeb target.
         # Move RW-section base address to start from 0xE00000 instead of the toolchain default 0x400000.
@@ -175,7 +178,7 @@ defineTest(addExtraCompiler) {
 }
 include(WebCore.pri)
 
-INCLUDEPATH = \
+WEBCORE_INCLUDEPATH = \
     $$PWD \
     $$PWD/accessibility \
     $$PWD/bindings \
@@ -223,10 +226,9 @@ INCLUDEPATH = \
     $$PWD/wml \
     $$PWD/workers \
     $$PWD/xml \
-    $$WC_GENERATED_SOURCES_DIR \
-    $$INCLUDEPATH
+    $$WC_GENERATED_SOURCES_DIR
 
-INCLUDEPATH = \
+WEBCORE_INCLUDEPATH = \
     $$PWD/bridge/qt \
     $$PWD/page/qt \
     $$PWD/platform/graphics/qt \
@@ -234,7 +236,13 @@ INCLUDEPATH = \
     $$PWD/platform/qt \
     $$PWD/../WebKit/qt/Api \
     $$PWD/../WebKit/qt/WebCoreSupport \
-    $$INCLUDEPATH
+    $$WEBCORE_INCLUDEPATH
+
+symbian {
+    PREPEND_INCLUDEPATH = $$WEBCORE_INCLUDEPATH $$PREPEND_INCLUDEPATH
+} else {
+    INCLUDEPATH = $$WEBCORE_INCLUDEPATH $$INCLUDEPATH
+}
 
 QT += network
 
@@ -487,6 +495,7 @@ SOURCES += \
     dom/DeviceOrientationEvent.cpp \
     dom/Document.cpp \
     dom/DocumentFragment.cpp \
+    dom/DocumentMarkerController.cpp \
     dom/DocumentParser.cpp \
     dom/DocumentType.cpp \
     dom/DOMImplementation.cpp \
@@ -636,9 +645,9 @@ SOURCES += \
     html/File.cpp \
     html/FileList.cpp \
     html/FileReader.cpp \
-    html/FileStream.cpp \
     html/FileStreamProxy.cpp \
     html/FileThread.cpp \
+    html/FileWriter.cpp \
     html/FormDataList.cpp \
     html/HTMLEntityParser.cpp \
     html/HTMLTokenizer.cpp \
@@ -710,7 +719,6 @@ SOURCES += \
     html/HTMLOptionsCollection.cpp \
     html/HTMLParagraphElement.cpp \
     html/HTMLParamElement.cpp \
-    html/LegacyHTMLTreeBuilder.cpp \
     html/HTMLParserErrorCodes.cpp \
     html/HTMLParserScheduler.cpp \
     html/HTMLPlugInElement.cpp \
@@ -753,6 +761,7 @@ SOURCES += \
     inspector/InspectorDOMStorageResource.cpp \
     inspector/InspectorFrontendClientLocal.cpp \
     inspector/InspectorFrontendHost.cpp \
+    inspector/InspectorProfilerAgent.cpp \
     inspector/InspectorResource.cpp \
     inspector/InspectorStorageAgent.cpp \
     inspector/InspectorTimelineAgent.cpp \
@@ -792,6 +801,7 @@ SOURCES += \
     loader/MediaDocument.cpp \
     loader/NavigationAction.cpp \
     loader/NetscapePlugInStreamLoader.cpp \
+    loader/PingLoader.cpp \
     loader/PlaceholderDocument.cpp \
     loader/PluginDocument.cpp \
     loader/PolicyCallback.cpp \
@@ -875,6 +885,7 @@ SOURCES += \
     platform/DragData.cpp \
     platform/DragImage.cpp \
     platform/FileChooser.cpp \
+    platform/FileStream.cpp \
     platform/FileSystem.cpp \
     platform/GeolocationService.cpp \
     platform/image-decoders/qt/RGBA32BufferQt.cpp \
@@ -930,6 +941,7 @@ SOURCES += \
     platform/network/AuthenticationChallengeBase.cpp \
     platform/network/BlobData.cpp \
     platform/network/BlobRegistryImpl.cpp \
+    platform/network/BlobResourceHandle.cpp \
     platform/network/Credential.cpp \
     platform/network/FormData.cpp \
     platform/network/FormDataBuilder.cpp \
@@ -1049,7 +1061,6 @@ SOURCES += \
     rendering/ShadowElement.cpp \
     rendering/TextControlInnerElements.cpp \
     rendering/TransformState.cpp \
-    rendering/style/BindingURI.cpp \
     rendering/style/ContentData.cpp \
     rendering/style/CounterDirectives.cpp \
     rendering/style/FillLayer.cpp \
@@ -1257,15 +1268,17 @@ HEADERS += \
     dom/CustomEvent.h \
     dom/default/PlatformMessagePortChannel.h \
     dom/DeviceMotionClient.h \
-    dom/DeviceMotionData.h \
     dom/DeviceMotionController.h \
+    dom/DeviceMotionData.h \
     dom/DeviceMotionEvent.h \
     dom/DeviceOrientation.h \
     dom/DeviceOrientationClient.h \
     dom/DeviceOrientationController.h \
     dom/DeviceOrientationEvent.h \
-    dom/DocumentFragment.h \
     dom/Document.h \
+    dom/DocumentFragment.h \
+    dom/DocumentMarker.h \
+    dom/DocumentMarkerController.h \
     dom/DocumentType.h \
     dom/DOMImplementation.h \
     dom/DOMStringList.h \
@@ -1410,11 +1423,10 @@ HEADERS += \
     html/FileError.h \
     html/FileList.h \
     html/FileReader.h \
-    html/FileStream.h \
-    html/FileStreamClient.h \
     html/FileStreamProxy.h \
     html/FileThread.h \
     html/FileThreadTask.h \
+    html/FileWriter.h \
     html/FormDataList.h \
     html/HTMLAllCollection.h \
     html/HTMLAnchorElement.h \
@@ -1479,7 +1491,6 @@ HEADERS += \
     html/HTMLParagraphElement.h \
     html/HTMLParamElement.h \
     html/HTMLParserErrorCodes.h \
-    html/LegacyHTMLTreeBuilder.h \
     html/HTMLPlugInElement.h \
     html/HTMLPlugInImageElement.h \
     html/HTMLPreElement.h \
@@ -1521,6 +1532,7 @@ HEADERS += \
     inspector/InspectorFrontendClient.h \
     inspector/InspectorFrontendClientLocal.h \
     inspector/InspectorFrontendHost.h \
+    inspector/InspectorProfilerAgent.h \
     inspector/InspectorResource.h \
     inspector/InspectorStorageAgent.h \
     inspector/InspectorTimelineAgent.h \
@@ -1645,6 +1657,7 @@ HEADERS += \
     platform/animation/Animation.h \
     platform/animation/AnimationList.h \
     platform/Arena.h \
+    platform/AsyncFileStream.h \
     platform/BlobItem.h \
     platform/ContentType.h \
     platform/ContextMenu.h \
@@ -1653,6 +1666,8 @@ HEADERS += \
     platform/DragData.h \
     platform/DragImage.h \
     platform/FileChooser.h \
+    platform/FileStream.h \
+    platform/FileStreamClient.h \
     platform/FileSystem.h \
     platform/GeolocationService.h \
     platform/image-decoders/ImageDecoder.h \
@@ -1726,6 +1741,7 @@ HEADERS += \
     platform/network/BlobData.h \
     platform/network/BlobRegistry.h \
     platform/network/BlobRegistryImpl.h \
+    platform/network/BlobResourceHandle.h \
     platform/network/BlobStorageData.h \
     platform/network/Credential.h \
     platform/network/FormDataBuilder.h \
@@ -1900,7 +1916,6 @@ HEADERS += \
     rendering/RootInlineBox.h \
     rendering/ScrollBehavior.h \
     rendering/ShadowElement.h \
-    rendering/style/BindingURI.h \
     rendering/style/ContentData.h \
     rendering/style/CounterDirectives.h \
     rendering/style/CursorData.h \
@@ -2568,6 +2583,7 @@ contains(DEFINES, ENABLE_FILE_SYSTEM=1) {
     HEADERS += \
         storage/DirectoryEntry.h \
         storage/DirectoryReader.h \
+        storage/DOMFilePath.h \
         storage/DOMFileSystem.h \
         storage/EntriesCallback.h \
         storage/Entry.h \
@@ -2576,6 +2592,7 @@ contains(DEFINES, ENABLE_FILE_SYSTEM=1) {
         storage/ErrorCallback.h \
         storage/FileEntry.h \
         storage/FileSystemCallback.h \
+        storage/FileSystemCallbacks.h \
         storage/Flags.h \
         storage/Metadata.h \
         storage/MetadataCallback.h
@@ -2583,10 +2600,12 @@ contains(DEFINES, ENABLE_FILE_SYSTEM=1) {
     SOURCES += \
         storage/DirectoryEntry.cpp \
         storage/DirectoryReader.cpp \
+        storage/DOMFilePath.cpp \
         storage/DOMFileSystem.cpp \
         storage/Entry.cpp \
         storage/EntryArray.cpp \
-        storage/FileEntry.cpp
+        storage/FileEntry.cpp \
+        storage/FileSystemCallbacks.cpp
 }
 
 contains(DEFINES, ENABLE_ICONDATABASE=1) {
@@ -2799,6 +2818,7 @@ contains(DEFINES, ENABLE_QT_BEARER=1) {
 }
 
 contains(DEFINES, ENABLE_GEOLOCATION=1) {
+    DEFINES += WTF_USE_PREEMPT_GEOLOCATION_PERMISSION
     HEADERS += \
         platform/qt/GeolocationServiceQt.h
     SOURCES += \

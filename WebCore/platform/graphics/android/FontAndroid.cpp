@@ -187,7 +187,7 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
 #ifndef SUPPORT_COMPLEX_SCRIPTS
 
 FloatRect Font::selectionRectForComplexText(const TextRun& run,
-                                const IntPoint& point, int h, int, int) const
+                                const FloatPoint& point, int h, int, int) const
 {
     SkPaint              paint;
     SkScalar             width, left;
@@ -234,7 +234,7 @@ float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFon
     return SkScalarToFloat(width);
 }
 
-int Font::offsetForPositionForComplexText(const TextRun& run, int x,
+int Font::offsetForPositionForComplexText(const TextRun& run, float x,
                                           bool includePartialGlyphs) const
 {
     SkPaint                         paint;

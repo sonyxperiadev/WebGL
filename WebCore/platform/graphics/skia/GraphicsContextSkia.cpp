@@ -323,7 +323,6 @@ void GraphicsContext::addPath(const Path& path)
 {
     if (paintingDisabled())
         return;
-    platformContext()->prepareForSoftwareDraw();
     platformContext()->addPath(*path.platformPath());
 }
 
@@ -331,7 +330,6 @@ void GraphicsContext::beginPath()
 {
     if (paintingDisabled())
         return;
-    platformContext()->prepareForSoftwareDraw();
     platformContext()->beginPath();
 }
 
@@ -783,7 +781,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
     }
 
 #if USE(GLES2_RENDERING)
-    if (platformContext()->useGPU() && !m_common->state.fillPattern && !m_common->state.fillGradient) {
+    if (platformContext()->useGPU() && !m_common->state.fillPattern && !m_common->state.fillGradient && !platformContext()->getDrawLooper()) {
         platformContext()->prepareForHardwareDraw();
         platformContext()->gpuCanvas()->fillRect(rect);
         return;

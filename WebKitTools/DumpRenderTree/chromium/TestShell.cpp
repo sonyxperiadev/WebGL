@@ -86,6 +86,7 @@ TestShell::TestShell(bool testShellMode)
     , m_devTools(0)
 {
     WebRuntimeFeatures::enableGeolocation(true);
+    WebRuntimeFeatures::enableIndexedDatabase(true);
     m_accessibilityController.set(new AccessibilityController(this));
     m_layoutTestController.set(new LayoutTestController(this));
     m_eventSender.set(new EventSender(this));
@@ -117,6 +118,7 @@ TestShell::~TestShell()
     callJSGC();
 
     // Destroy the WebView before its WebViewHost.
+    m_drtDevToolsAgent->setWebView(0);
     m_webView->close();
 }
 
@@ -143,6 +145,8 @@ void TestShell::showDevTools()
 void TestShell::closeDevTools()
 {
     if (m_devTools) {
+        m_drtDevToolsAgent->reset();
+        m_drtDevToolsClient.clear();
         closeWindow(m_devTools);
         m_devTools = 0;
     }
