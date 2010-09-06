@@ -75,6 +75,8 @@ ifneq ($(JAVASCRIPT_ENGINE),jsc)
   endif
 endif
 
+# See if the user has specified a stack they want to use
+HTTP_STACK = $(HTTP)
 # We default to the Chrome HTTP stack on everything except the simulator, or
 # if V8 is not used
 DEFAULT_HTTP = chrome
