@@ -1906,10 +1906,11 @@ String WebViewCore::modifySelection(const String& alter, const String& direction
         selection->addRange(rangeRef.get());
     }
 
+    ExceptionCode ec;
     if (equalIgnoringCase(direction, "forward")) {
-        selection->collapseToEnd();
+        selection->collapseToEnd(ec);
     } else if (equalIgnoringCase(direction, "backward")) {
-        selection->collapseToStart();
+        selection->collapseToStart(ec);
     } else {
         LOGE("Invalid direction: %s", direction.utf8().data());
         return String();
