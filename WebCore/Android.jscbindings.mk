@@ -47,6 +47,7 @@ BINDING_C_INCLUDES := \
 	\
 	$(base_intermediates)/WebCore/bindings/js \
 	$(base_intermediates)/WebCore/dom \
+	$(base_intermediates)/WebCore/fileapi \
 	$(base_intermediates)/WebCore/html/canvas \
 	$(base_intermediates)/WebCore/inspector \
 	$(base_intermediates)/WebCore/loader/appcache \

@@ -111,6 +111,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8CustomSQLStatementErrorCallback.cpp \
 	bindings/v8/custom/V8CustomVoidCallback.cpp \
 	bindings/v8/custom/V8DOMFormDataCustom.cpp \
+	bindings/v8/custom/V8DOMStringMapCustom.cpp \
 	bindings/v8/custom/V8DOMWindowCustom.cpp \
 	bindings/v8/custom/V8DataGridColumnListCustom.cpp \
 	bindings/v8/custom/V8DedicatedWorkerContextCustom.cpp \

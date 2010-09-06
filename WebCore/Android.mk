@@ -254,18 +254,18 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	editing/markup.cpp \
 	editing/visible_units.cpp \
 	\
-<<<<<<< HEAD
-	history/BackForwardController.cpp \
-	history/BackForwardListImpl.cpp \
-=======
 	fileapi/Blob.cpp \
+	fileapi/BlobBuilder.cpp \
 	fileapi/BlobURL.cpp \
 	fileapi/File.cpp \
 	fileapi/FileList.cpp \
+	fileapi/FileReader.cpp \
+	fileapi/FileStreamProxy.cpp \
+	fileapi/FileThread.cpp \
 	fileapi/ThreadableBlobRegistry.cpp \
     \
-	history/BackForwardList.cpp \
->>>>>>> webkit.org at r66666
+	history/BackForwardController.cpp \
+	history/BackForwardListImpl.cpp \
 	history/CachedFrame.cpp \
 	history/CachedPage.cpp \
 	history/HistoryItem.cpp \
@@ -274,37 +274,15 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	history/android/HistoryItemAndroid.cpp \
 	\
 	html/AsyncImageResizer.cpp \
-<<<<<<< HEAD
-	html/Blob.cpp \
-	html/BlobBuilder.cpp \
-	html/BlobURL.cpp \
-=======
->>>>>>> webkit.org at r66666
 	html/CollectionCache.cpp \
 	html/parser/CSSPreloadScanner.cpp \
 	html/DOMFormData.cpp \
-<<<<<<< HEAD
 	html/DateComponents.cpp \
-	html/File.cpp \
-	html/FileList.cpp \
-	html/FileReader.cpp \
-	html/FileStreamProxy.cpp \
-	html/FileThread.cpp \
 	html/FormDataList.cpp \
-	html/HTMLEntityParser.cpp \
-	html/HTMLEntitySearch.cpp \
-	html/HTMLTokenizer.cpp \
-	html/HTMLPreloadScanner.cpp \
-	html/HTMLScriptRunner.cpp \
-	html/HTMLTreeBuilder.cpp \
-=======
-	html/FormDataList.cpp \
->>>>>>> webkit.org at r66666
 	html/HTMLAllCollection.cpp \
 	html/HTMLCollection.cpp \
 	html/HTMLDataListElement.cpp \
 	html/HTMLDocument.cpp \
-	html/HTMLDocumentParser.cpp \
 	html/HTMLElementsAllInOne.cpp \
 	html/HTMLFormCollection.cpp \
 	html/HTMLImageLoader.cpp \
@@ -315,12 +293,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLViewSourceDocument.cpp \
 	html/ImageData.cpp \
 	html/ImageResizerThread.cpp \
-<<<<<<< HEAD
 	html/LabelsNodeList.cpp \
 	html/StepRange.cpp \
-	html/ThreadableBlobRegistry.cpp \
-=======
->>>>>>> webkit.org at r66666
 	html/TimeRanges.cpp \
 	html/ValidityState.cpp \
 	\
@@ -337,6 +311,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/parser/HTMLDocumentParser.cpp \
 	html/parser/HTMLElementStack.cpp \
 	html/parser/HTMLEntityParser.cpp \
+	html/parser/HTMLEntitySearch.cpp \
 	html/parser/HTMLFormattingElementList.cpp \
 	html/parser/HTMLParserScheduler.cpp \
 	html/parser/HTMLPreloadScanner.cpp \
@@ -456,7 +431,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/animation/KeyframeAnimation.cpp \
 	\
 	platform/Arena.cpp \
-	platform/BlobItem.cpp \
 	platform/ContentType.cpp \
 	platform/ContextMenu.cpp \
 	platform/CrossThreadCopier.cpp \

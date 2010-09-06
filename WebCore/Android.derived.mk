@@ -67,14 +67,13 @@ $(GEN): $(LOCAL_PATH)/html/DocTypeStrings.gperf
 $(intermediates)/html/HTMLDocument.o : $(GEN)
 
 
-<<<<<<< HEAD
 # HTML entity table
 
 GEN := $(intermediates)/html/HTMLEntityTable.cpp
-$(GEN): SCRIPT := $(LOCAL_PATH)/../WebKitTools/Scripts/create-html-entity-table
+$(GEN): SCRIPT := $(LOCAL_PATH)/../WebCore/html/parser/create-html-entity-table
 $(GEN): WEBKITPY_RESOURCES_DIRECTORY := $(LOCAL_PATH)/../WebKitTools/Scripts/webkitpy
 $(GEN): PRIVATE_CUSTOM_TOOL = $(dir $@)$(notdir $(SCRIPT)) -o $@ $<
-$(GEN): $(LOCAL_PATH)/html/HTMLEntityNames.json
+$(GEN): $(LOCAL_PATH)/html/parser/HTMLEntityNames.in
 	@echo "Generating HTMLEntityTable.cpp"
 	@mkdir -p $(dir $@)
 	@cp -f $(SCRIPT) $(dir $@)
@@ -83,8 +82,6 @@ $(GEN): $(LOCAL_PATH)/html/HTMLEntityNames.json
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 
-=======
->>>>>>> webkit.org at r66666
 # color names
 
 GEN := $(intermediates)/platform/ColorData.cpp
