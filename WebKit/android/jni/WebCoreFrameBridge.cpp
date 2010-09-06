@@ -922,7 +922,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
 
     // css files without explicit MIMETYPE is treated as generic text files in
     // the Java side. So we can't enforce CSS MIMETYPE.
-    page->settings()->setEnforceCSSMIMETypeInStrictMode(false);
+    page->settings()->setEnforceCSSMIMETypeInNoQuirksMode(false);
     editorC->setPage(page);
     page->setGroupName("android.webkit");
 
