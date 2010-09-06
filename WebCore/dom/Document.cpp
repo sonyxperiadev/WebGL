@@ -644,7 +644,6 @@ void Document::setDocType(PassRefPtr<DocumentType> docType)
     m_docType = docType;
     if (m_docType)
         m_docType->setDocument(this);
-<<<<<<< HEAD
 #ifdef ANDROID_META_SUPPORT
     if (m_docType && !ownerElement()
             && m_docType->publicId().startsWith("-//wapforum//dtd xhtml mobile 1.", false)) {
@@ -655,9 +654,6 @@ void Document::setDocType(PassRefPtr<DocumentType> docType)
             android::WebViewCore::getWebViewCore(frameView)->updateViewport();
     }
 #endif
-    determineParseMode();
-=======
->>>>>>> webkit.org at r66666
 }
 
 DOMImplementation* Document::implementation() const

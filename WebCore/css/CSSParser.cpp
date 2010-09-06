@@ -401,15 +401,11 @@ bool CSSParser::parseMediaQuery(MediaList* queries, const String& string)
     if (string.isEmpty())
         return true;
 
-<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
 #endif
-    m_mediaQuery = 0;
-=======
     ASSERT(!m_mediaQuery);
 
->>>>>>> webkit.org at r66666
     // can't use { because tokenizer state switches from mediaquery to initial state when it sees { token.
     // instead insert one " " (which is WHITESPACE in CSSGrammar.y)
     setupParser("@-webkit-mediaquery ", string, "} ");

@@ -522,14 +522,11 @@ namespace WebCore {
 #endif
         bool m_memoryInfoEnabled: 1;
         bool m_interactiveFormValidation: 1;
-<<<<<<< HEAD
+
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif
-    
-=======
 
->>>>>>> webkit.org at r66666
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;
 #endif
