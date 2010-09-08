@@ -67,6 +67,7 @@ $(GEN): $(LOCAL_PATH)/html/DocTypeStrings.gperf
 $(intermediates)/html/HTMLDocument.o : $(GEN)
 
 
+<<<<<<< HEAD
 # HTML entity table
 
 GEN := $(intermediates)/html/HTMLEntityTable.cpp
@@ -82,6 +83,8 @@ $(GEN): $(LOCAL_PATH)/html/HTMLEntityNames.json
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 
+=======
+>>>>>>> webkit.org at r66666
 # color names
 
 GEN := $(intermediates)/platform/ColorData.cpp

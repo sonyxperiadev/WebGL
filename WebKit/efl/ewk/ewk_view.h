@@ -88,6 +88,7 @@ extern "C" {
  *  - "icon,received", void: main frame received an icon.
  *  - "viewport,changed", void: Report that viewport has changed.
  *  - "inputmethods,changed" with a boolean indicating whether it's enabled or not.
+ *  - "view,resized", void: view object's size has changed.
  */
 
 typedef struct _Ewk_View_Smart_Data Ewk_View_Smart_Data;
@@ -403,6 +404,8 @@ EAPI Eina_Bool    ewk_view_setting_user_stylesheet_set(Evas_Object *o, const cha
 
 EAPI Eina_Bool    ewk_view_setting_private_browsing_get(const Evas_Object *o);
 EAPI Eina_Bool    ewk_view_setting_private_browsing_set(Evas_Object *o, Eina_Bool enable);
+EAPI Eina_Bool    ewk_view_setting_offline_app_cache_get(const Evas_Object *o);
+EAPI Eina_Bool    ewk_view_setting_offline_app_cache_set(Evas_Object *o, Eina_Bool enable);
 
 EAPI Eina_Bool    ewk_view_setting_caret_browsing_get(const Evas_Object *o);
 EAPI Eina_Bool    ewk_view_setting_caret_browsing_set(Evas_Object *o, Eina_Bool enable);
@@ -411,6 +414,8 @@ EAPI const char  *ewk_view_setting_encoding_custom_get(const Evas_Object *o);
 EAPI Eina_Bool    ewk_view_setting_encoding_custom_set(Evas_Object *o, const char *encoding);
 EAPI const char  *ewk_view_setting_encoding_default_get(const Evas_Object *o);
 EAPI Eina_Bool    ewk_view_setting_encoding_default_set(Evas_Object *o, const char *encoding);
+EAPI const char  *ewk_view_setting_cache_directory_get(const Evas_Object *o);
+EAPI Eina_Bool    ewk_view_setting_cache_directory_set(Evas_Object *o, const char *path);
 
 EAPI int          ewk_view_setting_font_minimum_size_get(const Evas_Object *o);
 EAPI Eina_Bool    ewk_view_setting_font_minimum_size_set(Evas_Object *o, int size);
@@ -441,6 +446,9 @@ EAPI Eina_Bool    ewk_view_setting_font_sans_serif_set(Evas_Object *o, const cha
 
 EAPI Eina_Bool    ewk_view_setting_spatial_navigation_get(Evas_Object* o);
 EAPI Eina_Bool    ewk_view_setting_spatial_navigation_set(Evas_Object* o, Eina_Bool enable);
+
+EAPI Eina_Bool    ewk_view_setting_local_storage_get(Evas_Object* o);
+EAPI Eina_Bool    ewk_view_setting_local_storage_set(Evas_Object* o, Eina_Bool enable);
 
 /* to be used by subclass implementations */
 EAPI Ewk_View_Smart_Data *ewk_view_smart_data_get(const Evas_Object *o);

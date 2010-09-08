@@ -29,13 +29,14 @@ namespace WebCore {
 
     class SVGFEMergeNodeElement : public SVGElement {
     public:
+        static PassRefPtr<SVGFEMergeNodeElement> create(const QualifiedName&, Document*);
+
+    private:
         SVGFEMergeNodeElement(const QualifiedName&, Document*);
-        virtual ~SVGFEMergeNodeElement();
 
         virtual void parseMappedAttribute(Attribute*);
         virtual void synchronizeProperty(const QualifiedName&);
 
-    private:
         DECLARE_ANIMATED_PROPERTY(SVGFEMergeNodeElement, SVGNames::inAttr, String, In1, in1)
     };
 

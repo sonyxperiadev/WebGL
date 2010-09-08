@@ -177,6 +177,7 @@ NPObject* HTMLPlugInElement::getNPObject()
 
 #endif /* ENABLE(NETSCAPE_PLUGIN_API) */
 
+<<<<<<< HEAD
 void HTMLPlugInElement::updateWidgetCallback(Node* n)
 {
     static_cast<HTMLPlugInElement*>(n)->updateWidget();
@@ -189,4 +190,6 @@ bool HTMLPlugInElement::supportsFocus() const
 }
 #endif
 
+=======
+>>>>>>> webkit.org at r66666
 }

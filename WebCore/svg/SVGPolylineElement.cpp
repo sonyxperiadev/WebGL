@@ -27,13 +27,14 @@
 
 namespace WebCore {
 
-SVGPolylineElement::SVGPolylineElement(const QualifiedName& tagName, Document* doc)
-    : SVGPolyElement(tagName, doc)
+inline SVGPolylineElement::SVGPolylineElement(const QualifiedName& tagName, Document* document)
+    : SVGPolyElement(tagName, document)
 {
 }
 
-SVGPolylineElement::~SVGPolylineElement()
+PassRefPtr<SVGPolylineElement> SVGPolylineElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGPolylineElement(tagName, document));
 }
 
 Path SVGPolylineElement::toPathData() const

@@ -33,6 +33,7 @@ VPATH = \
     $(WebCore)/bindings/objc \
     $(WebCore)/css \
     $(WebCore)/dom \
+    $(WebCore)/fileapi \
     $(WebCore)/html \
     $(WebCore)/html/canvas \
     $(WebCore)/inspector \
@@ -151,9 +152,11 @@ DOM_CLASSES = \
     EventTarget \
     File \
     FileEntry \
+    FileException \
     FileError \
     FileList \
     FileReader \
+    FileReaderSync \
     FileWriter \
     FileSystemCallback \
     Flags \
@@ -604,8 +607,8 @@ DocTypeStrings.cpp : html/DocTypeStrings.gperf $(WebCore)/make-hash-tools.pl
 
 # HTML entity names
 
-HTMLEntityTable.cpp : html/HTMLEntityNames.json $(WebCore)/../WebKitTools/Scripts/create-html-entity-table
-	python $(WebCore)/../WebKitTools/Scripts/create-html-entity-table -o HTMLEntityTable.cpp $(WebCore)/html/HTMLEntityNames.json
+HTMLEntityTable.cpp : html/parser/HTMLEntityNames.in $(WebCore)/html/parser/create-html-entity-table
+	python $(WebCore)/html/parser/create-html-entity-table -o HTMLEntityTable.cpp $(WebCore)/html/parser/HTMLEntityNames.in
 
 # --------
 
@@ -674,6 +677,10 @@ ifeq ($(findstring ENABLE_VIDEO,$(FEATURE_DEFINES)), ENABLE_VIDEO)
 ifeq ($(OS),MACOS)
     USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/mediaControlsQuickTime.css
 endif
+endif
+
+ifeq ($(findstring ENABLE_FULLSCREEN_API,$(FEATURE_DEFINES)), ENABLE_FULLSCREEN_API)
+    USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/fullscreen.css
 endif
 
 UserAgentStyleSheets.h : css/make-css-file-arrays.pl $(USER_AGENT_STYLE_SHEETS)
@@ -809,7 +816,7 @@ generator_script = perl $(addprefix -I $(WebCore)/, $(sort $(dir $(1)))) $(WebCo
 
 # JS bindings generator
 
-IDL_INCLUDES = dom html css page notifications xml svg
+IDL_INCLUDES = dom fileapi html css page notifications xml svg
 IDL_COMMON_ARGS = $(IDL_INCLUDES:%=--include %) --write-dependencies --outputDir .
 
 JS_BINDINGS_SCRIPTS = $(GENERATE_SCRIPTS) bindings/scripts/CodeGeneratorJS.pm

@@ -49,7 +49,6 @@
 #include "CSSVariablesRule.h"
 #include "CachedImage.h"
 #include "Counter.h"
-#include "CounterContent.h"
 #include "FocusController.h"
 #include "FontFamilyValue.h"
 #include "FontValue.h"
@@ -83,6 +82,7 @@
 #include "ShadowValue.h"
 #include "SkewTransformOperation.h"
 #include "StyleCachedImage.h"
+#include "StylePendingImage.h"
 #include "StyleGeneratedImage.h"
 #include "StyleSheetList.h"
 #include "Text.h"
@@ -199,12 +199,12 @@ if (value->isValueList()) { \
             currChild = new FillLayer(LayerType##FillLayer); \
             prevChild->setNext(currChild); \
         } \
-        mapFill##Prop(currChild, valueList->itemWithoutBoundsCheck(i)); \
+        mapFill##Prop(property, currChild, valueList->itemWithoutBoundsCheck(i)); \
         prevChild = currChild; \
         currChild = currChild->next(); \
     } \
 } else { \
-    mapFill##Prop(currChild, value); \
+    mapFill##Prop(property, currChild, value); \
     currChild = currChild->next(); \
 } \
 while (currChild) { \
@@ -370,15 +370,15 @@ public:
     CSSRuleDataList* getIDRules(AtomicStringImpl* key) { return m_idRules.get(key); }
     CSSRuleDataList* getClassRules(AtomicStringImpl* key) { return m_classRules.get(key); }
     CSSRuleDataList* getTagRules(AtomicStringImpl* key) { return m_tagRules.get(key); }
-    CSSRuleDataList* getUniversalRules() { return m_universalRules; }
-    CSSRuleDataList* getPageRules() { return m_pageRules; }
+    CSSRuleDataList* getUniversalRules() { return m_universalRules.get(); }
+    CSSRuleDataList* getPageRules() { return m_pageRules.get(); }
     
 public:
     AtomRuleMap m_idRules;
     AtomRuleMap m_classRules;
     AtomRuleMap m_tagRules;
-    CSSRuleDataList* m_universalRules;
-    CSSRuleDataList* m_pageRules;
+    OwnPtr<CSSRuleDataList> m_universalRules;
+    OwnPtr<CSSRuleDataList> m_pageRules;
     unsigned m_ruleCount;
     unsigned m_pageRuleCount;
 };
@@ -413,21 +413,19 @@ static const MediaQueryEvaluator& printEval()
     return staticPrintEval;
 }
 
-CSSStyleSelector::CSSStyleSelector(Document* doc, StyleSheetList* styleSheets, CSSStyleSheet* mappedElementSheet,
+CSSStyleSelector::CSSStyleSelector(Document* document, StyleSheetList* styleSheets, CSSStyleSheet* mappedElementSheet,
                                    CSSStyleSheet* pageUserSheet, const Vector<RefPtr<CSSStyleSheet> >* pageGroupUserSheets,
                                    bool strictParsing, bool matchAuthorAndUserStyles)
     : m_backgroundData(BackgroundFillLayer)
-    , m_checker(doc, strictParsing)
+    , m_checker(document, strictParsing)
     , m_element(0)
     , m_styledElement(0)
     , m_elementLinkState(NotInsideLink)
-    , m_fontSelector(CSSFontSelector::create(doc))
+    , m_fontSelector(CSSFontSelector::create(document))
 {
-    init();
-        
     m_matchAuthorAndUserStyles = matchAuthorAndUserStyles;
     
-    Element* root = doc->documentElement();
+    Element* root = document->documentElement();
 
     if (!defaultStyle) {
         if (!root || elementCanUseSimpleDefaultStyle(root))
@@ -436,32 +434,28 @@ CSSStyleSelector::CSSStyleSelector(Document* doc, StyleSheetList* styleSheets, C
             loadFullDefaultStyle();
     }
 
-    m_userStyle = 0;
-
     // construct document root element default style. this is needed
     // to evaluate media queries that contain relative constraints, like "screen and (max-width: 10em)"
     // This is here instead of constructor, because when constructor is run,
     // document doesn't have documentElement
     // NOTE: this assumes that element that gets passed to styleForElement -call
     // is always from the document that owns the style selector
-    FrameView* view = doc->view();
+    FrameView* view = document->view();
     if (view)
-        m_medium = new MediaQueryEvaluator(view->mediaType());
+        m_medium = adoptPtr(new MediaQueryEvaluator(view->mediaType()));
     else
-        m_medium = new MediaQueryEvaluator("all");
+        m_medium = adoptPtr(new MediaQueryEvaluator("all"));
 
     if (root)
         m_rootDefaultStyle = styleForElement(root, 0, false, true); // don't ref, because the RenderStyle is allocated from global heap
 
-    if (m_rootDefaultStyle && view) {
-        delete m_medium;
-        m_medium = new MediaQueryEvaluator(view->mediaType(), view->frame(), m_rootDefaultStyle.get());
-    }
+    if (m_rootDefaultStyle && view)
+        m_medium = adoptPtr(new MediaQueryEvaluator(view->mediaType(), view->frame(), m_rootDefaultStyle.get()));
 
-    m_authorStyle = new CSSRuleSet();
+    m_authorStyle = adoptPtr(new CSSRuleSet);
 
     // FIXME: This sucks! The user sheet is reparsed every time!
-    OwnPtr<CSSRuleSet> tempUserStyle(new CSSRuleSet);
+    OwnPtr<CSSRuleSet> tempUserStyle = adoptPtr(new CSSRuleSet);
     if (pageUserSheet)
         tempUserStyle->addRulesFromSheet(pageUserSheet, *m_medium, this);
     if (pageGroupUserSheets) {
@@ -475,7 +469,7 @@ CSSStyleSelector::CSSStyleSelector(Document* doc, StyleSheetList* styleSheets, C
     }
 
     if (tempUserStyle->m_ruleCount > 0 || tempUserStyle->m_pageRuleCount > 0)
-        m_userStyle = tempUserStyle.leakPtr();
+        m_userStyle = tempUserStyle.release();
 
     // Add rules from elements like SVG's <font-face>
     if (mappedElementSheet)
@@ -489,8 +483,8 @@ CSSStyleSelector::CSSStyleSelector(Document* doc, StyleSheetList* styleSheets, C
             m_authorStyle->addRulesFromSheet(static_cast<CSSStyleSheet*>(sheet), *m_medium, this);
     }
 
-    if (doc->renderer() && doc->renderer()->style())
-        doc->renderer()->style()->font().update(fontSelector());
+    if (document->renderer() && document->renderer()->style())
+        document->renderer()->style()->font().update(fontSelector());
 }
 
 // This is a simplified style setting function for keyframe styles
@@ -500,23 +494,10 @@ void CSSStyleSelector::addKeyframeStyle(PassRefPtr<WebKitCSSKeyframesRule> rule)
     m_keyframesRuleMap.add(s.impl(), rule);
 }
 
-void CSSStyleSelector::init()
-{
-    initElement(0);
-    m_matchedDecls.clear();
-    m_ruleList = 0;
-    m_rootDefaultStyle = 0;
-    m_medium = 0;
-}
-
 CSSStyleSelector::~CSSStyleSelector()
 {
     m_fontSelector->clearDocument();
-    delete m_medium;
-    delete m_authorStyle;
-    delete m_userStyle;
     deleteAllValues(m_viewportDependentMediaQueryResults);
-    m_keyframesRuleMap.clear();
 }
 
 static CSSStyleSheet* parseUASheet(const String& str)
@@ -556,6 +537,14 @@ static void loadFullDefaultStyle()
     String quirksRules = String(quirksUserAgentStyleSheet, sizeof(quirksUserAgentStyleSheet)) + RenderTheme::defaultTheme()->extraQuirksStyleSheet();
     CSSStyleSheet* quirksSheet = parseUASheet(quirksRules);
     defaultQuirksStyle->addRulesFromSheet(quirksSheet, screenEval());
+    
+#if ENABLE(FULLSCREEN_API)
+    // Full-screen rules.
+    String fullscreenRules = String(fullscreenUserAgentStyleSheet, sizeof(fullscreenUserAgentStyleSheet)) + RenderTheme::defaultTheme()->extraDefaultStyleSheet();
+    CSSStyleSheet* fullscreenSheet = parseUASheet(fullscreenRules);
+    defaultStyle->addRulesFromSheet(fullscreenSheet, screenEval());
+    defaultQuirksStyle->addRulesFromSheet(fullscreenSheet, screenEval());
+#endif
 }
 
 static void loadSimpleDefaultStyle()
@@ -855,6 +844,8 @@ inline void CSSStyleSelector::initForStyleResolve(Element* e, RenderStyle* paren
 
     m_matchedDecls.clear();
 
+    m_pendingImageProperties.clear();
+
     m_ruleList = 0;
 
     m_fontDirty = false;
@@ -1135,8 +1126,6 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForDocument(Document* document)
 
     documentStyle->setFontDescription(fontDescription);
     documentStyle->font().update(0);
-    if (document->inCompatMode())
-        documentStyle->setHtmlHacks(true); // enable html specific rendering tricks
         
     return documentStyle.release();
 }
@@ -1258,7 +1247,7 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
     if (!resolveForRootDefault) {
         // 4. Now we check user sheet rules.
         if (m_matchAuthorAndUserStyles)
-            matchRules(m_userStyle, firstUserRule, lastUserRule);
+            matchRules(m_userStyle.get(), firstUserRule, lastUserRule);
 
         // 5. Now check author rules, beginning first with presentational attributes
         // mapped from HTML.
@@ -1297,7 +1286,7 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
     
         // 6. Check the rules in author sheets next.
         if (m_matchAuthorAndUserStyles)
-            matchRules(m_authorStyle, firstAuthorRule, lastAuthorRule);
+            matchRules(m_authorStyle.get(), firstAuthorRule, lastAuthorRule);
 
         // 7. Now check our inline style attribute.
         if (m_matchAuthorAndUserStyles && m_styledElement) {
@@ -1347,7 +1336,8 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
         applyDeclarations<false>(true, firstUserRule, lastUserRule);
     }
     applyDeclarations<false>(true, firstUARule, lastUARule);
-    
+
+    ASSERT(!m_fontDirty);
     // If our font got dirtied by one of the non-essential font props, 
     // go ahead and update it a second time.
     if (m_fontDirty)
@@ -1355,6 +1345,9 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
     
     // Clean up our style object's display and text decorations (among other fixups).
     adjustRenderStyle(style(), e);
+
+    // Start loading images referenced by this style.
+    loadPendingImages();
 
     // If we have first-letter pseudo style, do not share this style
     if (m_style->hasPseudoStyle(FIRST_LETTER))
@@ -1380,7 +1373,7 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
     return m_style.release();
 }
 
-PassRefPtr<RenderStyle> CSSStyleSelector::styleForKeyframe(const RenderStyle* elementStyle, const WebKitCSSKeyframeRule* keyframeRule, KeyframeList& list)
+PassRefPtr<RenderStyle> CSSStyleSelector::styleForKeyframe(const RenderStyle* elementStyle, const WebKitCSSKeyframeRule* keyframeRule, KeyframeValue& keyframe)
 {
     if (keyframeRule->style())
         addMatchedDeclaration(keyframeRule->style());
@@ -1414,7 +1407,10 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForKeyframe(const RenderStyle* el
     if (m_fontDirty)
         updateFont();
 
-    // Add all the animating properties to the list
+    // Start loading images referenced by this style.
+    loadPendingImages();
+
+    // Add all the animating properties to the keyframe.
     if (keyframeRule->style()) {
         CSSMutableStyleDeclaration::const_iterator end = keyframeRule->style()->end();
         for (CSSMutableStyleDeclaration::const_iterator it = keyframeRule->style()->begin(); it != end; ++it) {
@@ -1422,7 +1418,7 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForKeyframe(const RenderStyle* el
             // Timing-function within keyframes is special, because it is not animated; it just
             // describes the timing function between this keyframe and the next.
             if (property != CSSPropertyWebkitAnimationTimingFunction)
-                list.addProperty(property);
+                keyframe.addProperty(property);
         }
     }
 
@@ -1443,7 +1439,6 @@ void CSSStyleSelector::keyframeStylesForAnimation(Element* e, const RenderStyle*
         return;
         
     const WebKitCSSKeyframesRule* rule = m_keyframesRuleMap.find(list.animationName().impl()).get()->second.get();
-    RefPtr<RenderStyle> keyframeStyle;
     
     // Construct and populate the style for each keyframe
     for (unsigned i = 0; i < rule->length(); ++i) {
@@ -1452,34 +1447,36 @@ void CSSStyleSelector::keyframeStylesForAnimation(Element* e, const RenderStyle*
         initForStyleResolve(e);
         
         const WebKitCSSKeyframeRule* keyframeRule = rule->item(i);
-        
-        keyframeStyle = styleForKeyframe(elementStyle, keyframeRule, list);
+
+        KeyframeValue keyframe(0, 0);
+        keyframe.setStyle(styleForKeyframe(elementStyle, keyframeRule, keyframe));
 
         // Add this keyframe style to all the indicated key times
         Vector<float> keys;
         keyframeRule->getKeys(keys);
         for (size_t keyIndex = 0; keyIndex < keys.size(); ++keyIndex) {
-            float key = keys[keyIndex];
-            list.insert(key, keyframeStyle.get());
+            keyframe.setKey(keys[keyIndex]);
+            list.insert(keyframe);
         }
-        keyframeStyle.release();
     }
     
     // If the 0% keyframe is missing, create it (but only if there is at least one other keyframe)
     int initialListSize = list.size();
-    if (initialListSize > 0 && list.beginKeyframes()->key() != 0) {
-        RefPtr<WebKitCSSKeyframeRule> keyframe = WebKitCSSKeyframeRule::create();
-        keyframe->setKeyText("0%");
-        keyframeStyle = styleForKeyframe(elementStyle, keyframe.get(), list);
-        list.insert(0, keyframeStyle.release());
+    if (initialListSize > 0 && list[0].key() != 0) {
+        RefPtr<WebKitCSSKeyframeRule> keyframeRule = WebKitCSSKeyframeRule::create();
+        keyframeRule->setKeyText("0%");
+        KeyframeValue keyframe(0, 0);
+        keyframe.setStyle(styleForKeyframe(elementStyle, keyframeRule.get(), keyframe));
+        list.insert(keyframe);
     }
 
     // If the 100% keyframe is missing, create it (but only if there is at least one other keyframe)
-    if (initialListSize > 0 && (list.endKeyframes() - 1)->key() != 1) {
-        RefPtr<WebKitCSSKeyframeRule> keyframe = WebKitCSSKeyframeRule::create();
-        keyframe->setKeyText("100%");
-        keyframeStyle = styleForKeyframe(elementStyle, keyframe.get(), list);
-        list.insert(1, keyframeStyle.release());
+    if (initialListSize > 0 && (list[list.size() - 1].key() != 1)) {
+        RefPtr<WebKitCSSKeyframeRule> keyframeRule = WebKitCSSKeyframeRule::create();
+        keyframeRule->setKeyText("100%");
+        KeyframeValue keyframe(1, 0);
+        keyframe.setStyle(styleForKeyframe(elementStyle, keyframeRule.get(), keyframe));
+        list.insert(keyframe);
     }
 }
 
@@ -1518,8 +1515,8 @@ PassRefPtr<RenderStyle> CSSStyleSelector::pseudoStyleForElement(PseudoId pseudo,
     matchUARules(firstUARule, lastUARule);
 
     if (m_matchAuthorAndUserStyles) {
-        matchRules(m_userStyle, firstUserRule, lastUserRule);
-        matchRules(m_authorStyle, firstAuthorRule, lastAuthorRule);
+        matchRules(m_userStyle.get(), firstUserRule, lastUserRule);
+        matchRules(m_authorStyle.get(), firstAuthorRule, lastAuthorRule);
     }
 
     if (m_matchedDecls.isEmpty() && !visitedStyle)
@@ -1569,6 +1566,9 @@ PassRefPtr<RenderStyle> CSSStyleSelector::pseudoStyleForElement(PseudoId pseudo,
     // Clean up our style object's display and text decorations (among other fixups).
     adjustRenderStyle(style(), 0);
 
+    // Start loading images referenced by this style.
+    loadPendingImages();
+
     // Hang our visited style off m_style.
     if (visitedStyle)
         m_style->addCachedPseudoStyle(visitedStyle.release());
@@ -1588,8 +1588,8 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForPage(int pageIndex)
     const bool isFirst = isFirstPage(pageIndex);
     const String page = pageName(pageIndex);
     matchPageRules(defaultPrintStyle, isLeft, isFirst, page);
-    matchPageRules(m_userStyle, isLeft, isFirst, page);
-    matchPageRules(m_authorStyle, isLeft, isFirst, page);
+    matchPageRules(m_userStyle.get(), isLeft, isFirst, page);
+    matchPageRules(m_authorStyle.get(), isLeft, isFirst, page);
     m_lineHeightValue = 0;
     applyDeclarations<true>(false, 0, m_matchedDecls.size() - 1);
 
@@ -1602,6 +1602,9 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForPage(int pageIndex)
         applyProperty(CSSPropertyLineHeight, m_lineHeightValue);
 
     applyDeclarations<false>(false, 0, m_matchedDecls.size() - 1);
+
+    // Start loading images referenced by this style.
+    loadPendingImages();
 
     // Now return the style.
     return m_style.release();
@@ -1865,14 +1868,14 @@ PassRefPtr<CSSRuleList> CSSStyleSelector::pseudoStyleRulesForElement(Element* e,
         // Now we check user sheet rules.
         if (m_matchAuthorAndUserStyles) {
             int firstUserRule = -1, lastUserRule = -1;
-            matchRules(m_userStyle, firstUserRule, lastUserRule);
+            matchRules(m_userStyle.get(), firstUserRule, lastUserRule);
         }
     }
 
     if (m_matchAuthorAndUserStyles) {
         // Check the rules in author sheets.
         int firstAuthorRule = -1, lastAuthorRule = -1;
-        matchRules(m_authorStyle, firstAuthorRule, lastAuthorRule);
+        matchRules(m_authorStyle.get(), firstAuthorRule, lastAuthorRule);
     }
 
     m_checker.m_collectRulesOnly = false;
@@ -2598,22 +2601,7 @@ bool CSSStyleSelector::SelectorChecker::checkOneSelector(CSSSelector* sel, Eleme
                     return true;
                 break;
             case CSSSelector::PseudoLang: {
-                Node* n = e;
-                AtomicString value;
-                // The language property is inherited, so we iterate over the parents
-                // to find the first language.
-                while (n && value.isNull()) {
-                    if (n->isElementNode()) {
-                        // Spec: xml:lang takes precedence -- http://www.w3.org/TR/xhtml1/#C_7
-                        value = static_cast<Element*>(n)->fastGetAttribute(XMLNames::langAttr);
-                        if (value.isNull())
-                            value = static_cast<Element*>(n)->fastGetAttribute(langAttr);
-                    } else if (n->isDocumentNode())
-                        // checking the MIME content-language
-                        value = static_cast<Document*>(n)->contentLanguage();
-
-                    n = n->parent();
-                }
+                AtomicString value = e->computeInheritedLanguage();
                 const AtomicString& argument = sel->argument();
                 if (value.isEmpty() || !value.startsWith(argument, false))
                     break;
@@ -2621,6 +2609,26 @@ bool CSSStyleSelector::SelectorChecker::checkOneSelector(CSSSelector* sel, Eleme
                     break;
                 return true;
             }
+#if ENABLE(FULLSCREEN_API)
+            case CSSSelector::PseudoFullScreen:
+                // While a Document is in the fullscreen state, and the document's current fullscreen 
+                // element is an element in the document, the 'full-screen' pseudoclass applies to 
+                // that element. Also, an <iframe>, <object> or <embed> element whose child browsing 
+                // context's Document is in the fullscreen state has the 'full-screen' pseudoclass applied.
+                if (!e->document()->webkitFullScreen())
+                    return false;
+                if (e != e->document()->webkitCurrentFullScreenElement())
+                    return false;
+                return true;
+            case CSSSelector::PseudoFullScreenDocument:
+                // While a Document is in the fullscreen state, the 'full-screen-document' pseudoclass applies 
+                // to the root element of that Document.
+                if (!e->document()->webkitFullScreen())
+                    return false;
+                if (e != e->document()->documentElement())
+                    return false;
+                return true;
+#endif
             case CSSSelector::PseudoUnknown:
             case CSSSelector::PseudoNotParsed:
             default:
@@ -2745,11 +2753,9 @@ CSSValue* CSSStyleSelector::resolveVariableDependentValue(CSSVariableDependentVa
 // -----------------------------------------------------------------
 
 CSSRuleSet::CSSRuleSet()
+    : m_ruleCount(0)
+    , m_pageRuleCount(0)
 {
-    m_universalRules = 0;
-    m_pageRules = 0;
-    m_ruleCount = 0;
-    m_pageRuleCount = 0;
 }
 
 CSSRuleSet::~CSSRuleSet()
@@ -2757,9 +2763,6 @@ CSSRuleSet::~CSSRuleSet()
     deleteAllValues(m_idRules);
     deleteAllValues(m_classRules);
     deleteAllValues(m_tagRules);
-
-    delete m_universalRules; 
-    delete m_pageRules;
 }
 
 
@@ -2794,7 +2797,7 @@ void CSSRuleSet::addRule(CSSStyleRule* rule, CSSSelector* sel)
     
     // Just put it in the universal rule set.
     if (!m_universalRules)
-        m_universalRules = new CSSRuleDataList(m_ruleCount++, rule, sel);
+        m_universalRules = adoptPtr(new CSSRuleDataList(m_ruleCount++, rule, sel));
     else
         m_universalRules->append(m_ruleCount++, rule, sel);
 }
@@ -2802,7 +2805,7 @@ void CSSRuleSet::addRule(CSSStyleRule* rule, CSSSelector* sel)
 void CSSRuleSet::addPageRule(CSSStyleRule* rule, CSSSelector* sel)
 {
     if (!m_pageRules)
-        m_pageRules = new CSSRuleDataList(m_pageRuleCount++, rule, sel);
+        m_pageRules = adoptPtr(new CSSRuleDataList(m_pageRuleCount++, rule, sel));
     else
         m_pageRules->append(m_pageRuleCount++, rule, sel);
 }
@@ -2922,7 +2925,7 @@ void CSSStyleSelector::applyDeclarations(bool isImportant, int startIndex, int e
 
                 if (applyFirst) {
                     COMPILE_ASSERT(firstCSSProperty == CSSPropertyColor, CSS_color_is_first_property);
-                    COMPILE_ASSERT(CSSPropertyZoom == CSSPropertyColor + 11, CSS_zoom_is_end_of_first_prop_range);
+                    COMPILE_ASSERT(CSSPropertyZoom == CSSPropertyColor + 12, CSS_zoom_is_end_of_first_prop_range);
                     COMPILE_ASSERT(CSSPropertyLineHeight == CSSPropertyZoom + 1, CSS_line_height_is_after_zoom);
 
                     // give special priority to font-xxx, color properties, etc
@@ -3120,7 +3123,8 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     // What follows is a list that maps the CSS properties into their corresponding front-end
     // RenderStyle values.  Shorthands (e.g. border, background) occur in this list as well and
     // are only hit when mapping "inherit" or "initial" into front-end values.
-    switch (static_cast<CSSPropertyID>(id)) {
+    CSSPropertyID property = static_cast<CSSPropertyID>(id);
+    switch (property) {
 // ident only properties
     case CSSPropertyBackgroundAttachment:
         HANDLE_BACKGROUND_VALUE(attachment, Attachment, value)
@@ -3510,11 +3514,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
                     CSSCursorImageValue* image = static_cast<CSSCursorImageValue*>(primitiveValue);
                     if (image->updateIfSVGCursorIsUsed(m_element)) // Elements with SVG cursors are not allowed to share style.
                         m_style->setUnique();
-                    // FIXME: Temporary clumsiness to pass off a CachedImage to an API that will eventually convert to using
-                    // StyleImage.
-                    RefPtr<StyleCachedImage> styleCachedImage(image->cachedImage(m_element->document()->docLoader()));
-                    if (styleCachedImage)
-                        m_style->addCursor(styleCachedImage->cachedImage(), image->hotSpot());
+                    m_style->addCursor(cachedOrPendingFromValue(CSSPropertyCursor, image), image->hotSpot());
                 } else if (type == CSSPrimitiveValue::CSS_IDENT)
                     m_style->setCursor(*primitiveValue);
             }
@@ -3611,7 +3611,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     case CSSPropertyListStyleImage:
     {
         HANDLE_INHERIT_AND_INITIAL(listStyleImage, ListStyleImage)
-        m_style->setListStyleImage(styleImage(value));
+        m_style->setListStyleImage(styleImage(CSSPropertyListStyleImage, value));
         return;
     }
 
@@ -4066,10 +4066,10 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
                     fontDescription.setKeywordSize(primitiveValue->getIdent() - CSSValueXxSmall + 1);
                     break;
                 case CSSValueLarger:
-                    size = largerFontSize(oldSize, m_style->htmlHacks());
+                    size = largerFontSize(oldSize, m_checker.m_document->inQuirksMode());
                     break;
                 case CSSValueSmaller:
-                    size = smallerFontSize(oldSize, m_style->htmlHacks());
+                    size = smallerFontSize(oldSize, m_checker.m_document->inQuirksMode());
                     break;
                 default:
                     return;
@@ -4273,16 +4273,15 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
                     break;
                 }
                 case CSSPrimitiveValue::CSS_URI: {
-                    CSSImageValue* image = static_cast<CSSImageValue*>(val);
-                    m_style->setContent(image->cachedImage(m_element->document()->docLoader()), didSet);
+                    m_style->setContent(cachedOrPendingFromValue(CSSPropertyContent, static_cast<CSSImageValue*>(val)), didSet);
                     didSet = true;
                     break;
                 }
                 case CSSPrimitiveValue::CSS_COUNTER: {
                     Counter* counterValue = val->getCounterValue();
-                    CounterContent* counter = new CounterContent(counterValue->identifier(),
-                        (EListStyleType)counterValue->listStyleNumber(), counterValue->separator());
-                    m_style->setContent(counter, didSet);
+                    OwnPtr<CounterContent> counter = adoptPtr(new CounterContent(counterValue->identifier(),
+                        (EListStyleType)counterValue->listStyleNumber(), counterValue->separator()));
+                    m_style->setContent(counter.release(), didSet);
                     didSet = true;
                 }
             }
@@ -4701,7 +4700,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         }
 
         NinePieceImage image;
-        mapNinePieceImage(value, image);
+        mapNinePieceImage(property, value, image);
         
         if (id == CSSPropertyWebkitBorderImage)
             m_style->setBorderImage(image);
@@ -4751,17 +4750,26 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         if (!pair)
             return;
 
-        int width = pair->first()->computeLengthInt(style(), m_rootElementStyle, zoomFactor);
-        int height = pair->second()->computeLengthInt(style(), m_rootElementStyle,  zoomFactor);
+        Length radiusWidth;
+        Length radiusHeight;
+        if (pair->first()->primitiveType() == CSSPrimitiveValue::CSS_PERCENTAGE)
+            radiusWidth = Length(pair->first()->getDoubleValue(), Percent);
+        else
+            radiusWidth = Length(max(intMinForLength, min(intMaxForLength, pair->first()->computeLengthInt(style(), m_rootElementStyle, zoomFactor))), Fixed);
+        if (pair->second()->primitiveType() == CSSPrimitiveValue::CSS_PERCENTAGE)
+            radiusHeight = Length(pair->second()->getDoubleValue(), Percent);
+        else
+            radiusHeight = Length(max(intMinForLength, min(intMaxForLength, pair->second()->computeLengthInt(style(), m_rootElementStyle, zoomFactor))), Fixed);
+        int width = radiusWidth.rawValue();
+        int height = radiusHeight.rawValue();
         if (width < 0 || height < 0)
             return;
-
         if (width == 0)
-            height = 0; // Null out the other value.
+            radiusHeight = radiusWidth; // Null out the other value.
         else if (height == 0)
-            width = 0; // Null out the other value.
+            radiusWidth = radiusHeight; // Null out the other value.
 
-        IntSize size(width, height);
+        LengthSize size(radiusWidth, radiusHeight);
         switch (id) {
             case CSSPropertyBorderTopLeftRadius:
                 m_style->setBorderTopLeftRadius(size);
@@ -4851,7 +4859,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
                 reflection->setOffset(Length(reflectValue->offset()->computeLengthIntForLength(style(), m_rootElementStyle, zoomFactor), Fixed));
         }
         NinePieceImage mask;
-        mapNinePieceImage(reflectValue->mask(), mask);
+        mapNinePieceImage(property, reflectValue->mask(), mask);
         reflection->setMask(mask);
         
         m_style->setBoxReflect(reflection.release());
@@ -5820,7 +5828,7 @@ Length CSSStyleSelector::inchLength(double inch)
     return Length(CSSPrimitiveValue::create(inch, CSSPrimitiveValue::CSS_IN)->computeLengthIntForLength(style(), m_rootElementStyle), Fixed);
 }
 
-void CSSStyleSelector::mapFillAttachment(FillLayer* layer, CSSValue* value)
+void CSSStyleSelector::mapFillAttachment(CSSPropertyID, FillLayer* layer, CSSValue* value)
 {
     if (value->cssValueType() == CSSValue::CSS_INITIAL) {
         layer->setAttachment(FillLayer::initialFillAttachment(layer->type()));
@@ -5846,7 +5854,7 @@ void CSSStyleSelector::mapFillAttachment(FillLayer* layer, CSSValue* value)
     }
 }
 
-void CSSStyleSelector::mapFillClip(FillLayer* layer, CSSValue* value)
+void CSSStyleSelector::mapFillClip(CSSPropertyID, FillLayer* layer, CSSValue* value)
 {
     if (value->cssValueType() == CSSValue::CSS_INITIAL) {
         layer->setClip(FillLayer::initialFillClip(layer->type()));
@@ -5860,7 +5868,7 @@ void CSSStyleSelector::mapFillClip(FillLayer* layer, CSSValue* value)
     layer->setClip(*primitiveValue);
 }
 
-void CSSStyleSelector::mapFillComposite(FillLayer* layer, CSSValue* value)
+void CSSStyleSelector::mapFillComposite(CSSPropertyID, FillLayer* layer, CSSValue* value)
 {
     if (value->cssValueType() == CSSValue::CSS_INITIAL) {
         layer->setComposite(FillLayer::initialFillComposite(layer->type()));
@@ -5874,7 +5882,7 @@ void CSSStyleSelector::mapFillComposite(FillLayer* layer, CSSValue* value)
     layer->setComposite(*primitiveValue);
 }
 
-void CSSStyleSelector::mapFillOrigin(FillLayer* layer, CSSValue* value)
+void CSSStyleSelector::mapFillOrigin(CSSPropertyID, FillLayer* layer, CSSValue* value)
 {
     if (value->cssValueType() == CSSValue::CSS_INITIAL) {
         layer->setOrigin(FillLayer::initialFillOrigin(layer->type()));
@@ -5888,26 +5896,36 @@ void CSSStyleSelector::mapFillOrigin(FillLayer* layer, CSSValue* value)
     layer->setOrigin(*primitiveValue);
 }
 
-StyleImage* CSSStyleSelector::styleImage(CSSValue* value)
+StyleImage* CSSStyleSelector::styleImage(CSSPropertyID property, CSSValue* value)
 {
     if (value->isImageValue())
-        return static_cast<CSSImageValue*>(value)->cachedImage(m_element->document()->docLoader());
+        return cachedOrPendingFromValue(property, static_cast<CSSImageValue*>(value));
+
     if (value->isImageGeneratorValue())
         return static_cast<CSSImageGeneratorValue*>(value)->generatedImage();
+
     return 0;
 }
 
-void CSSStyleSelector::mapFillImage(FillLayer* layer, CSSValue* value)
+StyleImage* CSSStyleSelector::cachedOrPendingFromValue(CSSPropertyID property, CSSImageValue* value)
+{
+    StyleImage* image = value->cachedOrPendingImage();
+    if (image && image->isPendingImage())
+        m_pendingImageProperties.add(property);
+    return image;
+}
+
+void CSSStyleSelector::mapFillImage(CSSPropertyID property, FillLayer* layer, CSSValue* value)
 {
     if (value->cssValueType() == CSSValue::CSS_INITIAL) {
         layer->setImage(FillLayer::initialFillImage(layer->type()));
         return;
     }
 
-    layer->setImage(styleImage(value));
+    layer->setImage(styleImage(property, value));
 }
 
-void CSSStyleSelector::mapFillRepeatX(FillLayer* layer, CSSValue* value)
+void CSSStyleSelector::mapFillRepeatX(CSSPropertyID, FillLayer* layer, CSSValue* value)
 {
     if (value->cssValueType() == CSSValue::CSS_INITIAL) {
         layer->setRepeatX(FillLayer::initialFillRepeatX(layer->type()));
@@ -5921,7 +5939,7 @@ void CSSStyleSelector::mapFillRepeatX(FillLayer* layer, CSSValue* value)
     layer->setRepeatX(*primitiveValue);
 }
 
-void CSSStyleSelector::mapFillRepeatY(FillLayer* layer, CSSValue* value)
+void CSSStyleSelector::mapFillRepeatY(CSSPropertyID, FillLayer* layer, CSSValue* value)
 {
     if (value->cssValueType() == CSSValue::CSS_INITIAL) {
         layer->setRepeatY(FillLayer::initialFillRepeatY(layer->type()));
@@ -5935,7 +5953,7 @@ void CSSStyleSelector::mapFillRepeatY(FillLayer* layer, CSSValue* value)
     layer->setRepeatY(*primitiveValue);
 }
 
-void CSSStyleSelector::mapFillSize(FillLayer* layer, CSSValue* value)
+void CSSStyleSelector::mapFillSize(CSSPropertyID, FillLayer* layer, CSSValue* value)
 {
     if (!value->isPrimitiveValue()) {
         layer->setSizeType(SizeNone);
@@ -5997,7 +6015,7 @@ void CSSStyleSelector::mapFillSize(FillLayer* layer, CSSValue* value)
     layer->setSizeLength(b);
 }
 
-void CSSStyleSelector::mapFillXPosition(FillLayer* layer, CSSValue* value)
+void CSSStyleSelector::mapFillXPosition(CSSPropertyID, FillLayer* layer, CSSValue* value)
 {
     if (value->cssValueType() == CSSValue::CSS_INITIAL) {
         layer->setXPosition(FillLayer::initialFillXPosition(layer->type()));
@@ -6021,7 +6039,7 @@ void CSSStyleSelector::mapFillXPosition(FillLayer* layer, CSSValue* value)
     layer->setXPosition(l);
 }
 
-void CSSStyleSelector::mapFillYPosition(FillLayer* layer, CSSValue* value)
+void CSSStyleSelector::mapFillYPosition(CSSPropertyID, FillLayer* layer, CSSValue* value)
 {
     if (value->cssValueType() == CSSValue::CSS_INITIAL) {
         layer->setYPosition(FillLayer::initialFillYPosition(layer->type()));
@@ -6209,7 +6227,7 @@ void CSSStyleSelector::mapAnimationTimingFunction(Animation* animation, CSSValue
     }
 }
 
-void CSSStyleSelector::mapNinePieceImage(CSSValue* value, NinePieceImage& image)
+void CSSStyleSelector::mapNinePieceImage(CSSPropertyID property, CSSValue* value, NinePieceImage& image)
 {
     // If we're a primitive value, then we are "none" and don't need to alter the empty image at all.
     if (!value || value->isPrimitiveValue())
@@ -6219,7 +6237,7 @@ void CSSStyleSelector::mapNinePieceImage(CSSValue* value, NinePieceImage& image)
     CSSBorderImageValue* borderImage = static_cast<CSSBorderImageValue*>(value);
     
     // Set the image (this kicks off the load).
-    image.setImage(styleImage(borderImage->imageValue()));
+    image.setImage(styleImage(property, borderImage->imageValue()));
 
     // Set up a length box to represent our image slices.
     LengthBox l;
@@ -6430,7 +6448,7 @@ float CSSStyleSelector::fontSizeForKeyword(Document* document, int keyword, bool
     if (!settings)
         return 1.0f;
 
-    bool quirksMode = document->inCompatMode();
+    bool quirksMode = document->inQuirksMode();
     int mediumSize = fixed ? settings->defaultFixedFontSize() : settings->defaultFontSize();
     if (mediumSize >= fontSizeTableMin && mediumSize <= fontSizeTableMax) {
         // Look up the entry in the table.
@@ -6826,6 +6844,103 @@ bool CSSStyleSelector::createTransformOperations(CSSValue* inValue, RenderStyle*
     }
     outOperations = operations;
     return true;
+}
+
+void CSSStyleSelector::loadPendingImages()
+{
+    if (m_pendingImageProperties.isEmpty())
+        return;
+        
+    HashSet<int>::const_iterator end = m_pendingImageProperties.end();
+    for (HashSet<int>::const_iterator it = m_pendingImageProperties.begin(); it != end; ++it) {
+        CSSPropertyID currentProperty = static_cast<CSSPropertyID>(*it);
+
+        DocLoader* docLoader = m_element->document()->docLoader();
+        
+        switch (currentProperty) {
+            case CSSPropertyBackgroundImage: {
+                for (FillLayer* backgroundLayer = m_style->accessBackgroundLayers(); backgroundLayer; backgroundLayer = backgroundLayer->next()) {
+                    if (backgroundLayer->image() && backgroundLayer->image()->isPendingImage()) {
+                        CSSImageValue* imageValue = static_cast<StylePendingImage*>(backgroundLayer->image())->cssImageValue();
+                        backgroundLayer->setImage(imageValue->cachedImage(docLoader));
+                    }
+                }
+                break;
+            }
+
+            case CSSPropertyContent: {
+                for (ContentData* contentData = const_cast<ContentData*>(m_style->contentData()); contentData; contentData = contentData->next()) {
+                    if (contentData->isImage() && contentData->image()->isPendingImage()) {
+                        CSSImageValue* imageValue = static_cast<StylePendingImage*>(contentData->image())->cssImageValue();
+                        contentData->setImage(imageValue->cachedImage(docLoader));
+                    }
+                }
+                break;
+            }
+
+            case CSSPropertyCursor: {
+                if (CursorList* cursorList = m_style->cursors()) {
+                    for (size_t i = 0; i < cursorList->size(); ++i) {
+                        CursorData& currentCursor = (*cursorList)[i];
+                        if (currentCursor.image()->isPendingImage()) {
+                            CSSImageValue* imageValue = static_cast<StylePendingImage*>(currentCursor.image())->cssImageValue();
+                            currentCursor.setImage(imageValue->cachedImage(docLoader));
+                        }
+                    }
+                }
+                break;
+            }
+
+            case CSSPropertyListStyleImage: {
+                if (m_style->listStyleImage() && m_style->listStyleImage()->isPendingImage()) {
+                    CSSImageValue* imageValue = static_cast<StylePendingImage*>(m_style->listStyleImage())->cssImageValue();
+                    m_style->setListStyleImage(imageValue->cachedImage(docLoader));
+                }
+                break;
+            }
+
+            case CSSPropertyWebkitBorderImage: {
+                const NinePieceImage& borderImage = m_style->borderImage();
+                if (borderImage.image() && borderImage.image()->isPendingImage()) {
+                    CSSImageValue* imageValue = static_cast<StylePendingImage*>(borderImage.image())->cssImageValue();
+                    m_style->setBorderImage(NinePieceImage(imageValue->cachedImage(docLoader), borderImage.slices(), borderImage.horizontalRule(), borderImage.verticalRule()));
+                }
+                break;
+            }
+            
+            case CSSPropertyWebkitBoxReflect: {
+                const NinePieceImage& maskImage = m_style->boxReflect()->mask();
+                if (maskImage.image() && maskImage.image()->isPendingImage()) {
+                    CSSImageValue* imageValue = static_cast<StylePendingImage*>(maskImage.image())->cssImageValue();
+                    m_style->boxReflect()->setMask(NinePieceImage(imageValue->cachedImage(docLoader), maskImage.slices(), maskImage.horizontalRule(), maskImage.verticalRule()));
+                }
+                break;
+            }
+
+            case CSSPropertyWebkitMaskBoxImage: {
+                const NinePieceImage& maskBoxImage = m_style->maskBoxImage();
+                if (maskBoxImage.image() && maskBoxImage.image()->isPendingImage()) {
+                    CSSImageValue* imageValue = static_cast<StylePendingImage*>(maskBoxImage.image())->cssImageValue();
+                    m_style->setMaskBoxImage(NinePieceImage(imageValue->cachedImage(docLoader), maskBoxImage.slices(), maskBoxImage.horizontalRule(), maskBoxImage.verticalRule()));
+                }
+                break;
+            }
+            
+            case CSSPropertyWebkitMaskImage: {
+                for (FillLayer* maskLayer = m_style->accessMaskLayers(); maskLayer; maskLayer = maskLayer->next()) {
+                    if (maskLayer->image() && maskLayer->image()->isPendingImage()) {
+                        CSSImageValue* imageValue = static_cast<StylePendingImage*>(maskLayer->image())->cssImageValue();
+                        maskLayer->setImage(imageValue->cachedImage(docLoader));
+                    }
+                }
+                break;
+            }
+            default:
+                ASSERT_NOT_REACHED();
+        }
+    }
+
+    m_pendingImageProperties.clear();
 }
 
 } // namespace WebCore

@@ -32,6 +32,7 @@
 #include <WebKit2/WKBundleFrame.h>
 #include <WebKit2/WKBundleFramePrivate.h>
 #include <WebKit2/WKBundlePagePrivate.h>
+#include <WebKit2/WKBundleScriptWorld.h>
 #include <WebKit2/WKBundlePrivate.h>
 #include <WebKit2/WKRetainPtr.h>
 #include <WebKit2/WebKit2.h>
@@ -163,6 +164,25 @@ bool LayoutTestController::pauseAnimationAtTimeOnElementWithId(JSStringRef anima
     return WKBundleFramePauseAnimationOnElementWithId(mainFrame, toWK(animationName).get(), toWK(elementId).get(), time);
 }
 
+void LayoutTestController::addUserScript(JSStringRef source, bool runAtStart, bool allFrames)
+{
+    WKRetainPtr<WKStringRef> sourceWK = toWK(source);
+    WKRetainPtr<WKBundleScriptWorldRef> scriptWorld(AdoptWK, WKBundleScriptWorldCreateWorld());
+
+    WKBundleAddUserScript(InjectedBundle::shared().bundle(), scriptWorld.get(), sourceWK.get(), 0, 0, 0,
+        (runAtStart ? kWKInjectAtDocumentStart : kWKInjectAtDocumentEnd),
+        (allFrames ? kWKInjectInAllFrames : kWKInjectInTopFrameOnly));
+}
+
+void LayoutTestController::addUserStyleSheet(JSStringRef source, bool allFrames)
+{
+    WKRetainPtr<WKStringRef> sourceWK = toWK(source);
+    WKRetainPtr<WKBundleScriptWorldRef> scriptWorld(AdoptWK, WKBundleScriptWorldCreateWorld());
+
+    WKBundleAddUserStyleSheet(InjectedBundle::shared().bundle(), scriptWorld.get(), sourceWK.get(), 0, 0, 0,
+        (allFrames ? kWKInjectInAllFrames : kWKInjectInTopFrameOnly));
+}
+
 void LayoutTestController::keepWebHistory()
 {
     WKBundleSetShouldTrackVisitedLinks(InjectedBundle::shared().bundle(), true);
@@ -217,6 +237,11 @@ void LayoutTestController::setCanOpenWindows(bool)
 {
     // It's not clear if or why any tests require opening windows be forbidden.
     // For now, just ignore this setting, and if we find later it's needed we can add it.
+}
+
+void LayoutTestController::setXSSAuditorEnabled(bool enabled)
+{
+    WKBundleOverrideXSSAuditorEnabledForTestRunner(InjectedBundle::shared().bundle(), true);
 }
 
 unsigned LayoutTestController::windowCount()

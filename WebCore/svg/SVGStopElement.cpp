@@ -32,14 +32,15 @@
 
 namespace WebCore {
 
-SVGStopElement::SVGStopElement(const QualifiedName& tagName, Document* doc)
-    : SVGStyledElement(tagName, doc)
+inline SVGStopElement::SVGStopElement(const QualifiedName& tagName, Document* document)
+    : SVGStyledElement(tagName, document)
     , m_offset(0)
 {
 }
 
-SVGStopElement::~SVGStopElement()
+PassRefPtr<SVGStopElement> SVGStopElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGStopElement(tagName, document));
 }
 
 void SVGStopElement::parseMappedAttribute(Attribute* attr)

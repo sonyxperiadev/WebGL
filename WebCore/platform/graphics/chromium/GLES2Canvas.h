@@ -31,14 +31,12 @@
 #ifndef GLES2Canvas_h
 #define GLES2Canvas_h
 
-#if USE(GLES2_RENDERING)
-
 #include "AffineTransform.h"
 #include "Color.h"
 #include "ColorSpace.h"
-#include "GLES2Texture.h"
 #include "GraphicsTypes.h"
 #include "ImageSource.h"
+#include "Texture.h"
 
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
@@ -49,8 +47,10 @@ namespace WebCore {
 class Color;
 class FloatRect;
 class GraphicsContext3D;
+class SolidFillShader;
+class TexShader;
 
-typedef HashMap<NativeImagePtr, RefPtr<GLES2Texture> > TextureHashMap;
+typedef HashMap<NativeImagePtr, RefPtr<Texture> > TextureHashMap;
 
 class GLES2Canvas : public Noncopyable {
 public:
@@ -74,42 +74,30 @@ public:
     // non-standard functions
     // These are not standard GraphicsContext functions, and should be pushed
     // down into a PlatformContextGLES2 at some point.
-    void drawTexturedRect(GLES2Texture*, const FloatRect& srcRect, const FloatRect& dstRect, const AffineTransform&, float alpha, ColorSpace, CompositeOperator);
-    void drawTexturedRect(GLES2Texture*, const FloatRect& srcRect, const FloatRect& dstRect, ColorSpace, CompositeOperator);
+    void drawTexturedRect(Texture*, const FloatRect& srcRect, const FloatRect& dstRect, const AffineTransform&, float alpha, ColorSpace, CompositeOperator);
+    void drawTexturedRect(Texture*, const FloatRect& srcRect, const FloatRect& dstRect, ColorSpace, CompositeOperator);
     GraphicsContext3D* context() { return m_context; }
-    GLES2Texture* createTexture(NativeImagePtr, GLES2Texture::Format, int width, int height);
-    GLES2Texture* getTexture(NativeImagePtr);
+    Texture* createTexture(NativeImagePtr, Texture::Format, int width, int height);
+    Texture* getTexture(NativeImagePtr);
 
 private:
-    void drawTexturedRectTile(GLES2Texture* texture, int tile, const FloatRect& srcRect, const FloatRect& dstRect, const AffineTransform&);
+    void drawTexturedRectTile(Texture* texture, int tile, const FloatRect& srcRect, const FloatRect& dstRect, const AffineTransform&, float alpha);
     void applyCompositeOperator(CompositeOperator);
     void checkGLError(const char* header);
     unsigned getQuadVertices();
-    unsigned getSimpleProgram();
-    unsigned getTexProgram();
 
     GraphicsContext3D* m_context;
     struct State;
     WTF::Vector<State> m_stateStack;
     State* m_state;
     unsigned m_quadVertices;
-    unsigned m_simpleProgram;
-    unsigned m_texProgram;
-    int m_simpleMatrixLocation;
-    int m_simpleColorLocation;
-    int m_simplePositionLocation;
-    int m_texMatrixLocation;
-    int m_texTexMatrixLocation;
-    int m_texSamplerLocation;
-    int m_texAlphaLocation;
-    int m_texPositionLocation;
+    OwnPtr<SolidFillShader> m_solidFillShader;
+    OwnPtr<TexShader> m_texShader;
     AffineTransform m_flipMatrix;
     TextureHashMap m_textures;
     CompositeOperator m_lastCompositeOp; // This is the one last set, not necessarily the one in the state stack.
 };
 
 }
-
-#endif
 
 #endif // GLES2Canvas_h

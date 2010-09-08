@@ -150,7 +150,6 @@ inline Frame::Frame(Page* page, HTMLFrameOwnerElement* ownerElement, FrameLoader
 #endif
     , m_highlightTextMatches(false)
     , m_inViewSourceMode(false)
-    , m_needsReapplyStyles(false)
     , m_isDisconnected(false)
     , m_excludeFromTextSearch(false)
 {
@@ -627,45 +626,11 @@ void Frame::setPrinting(bool printing, const FloatSize& pageSize, float maximumS
     m_doc->setPrinting(printing);
     view()->adjustMediaTypeForPrinting(printing);
 
-    m_doc->updateStyleSelector();
+    m_doc->styleSelectorChanged(RecalcStyleImmediately);
     view()->forceLayoutForPagination(pageSize, maximumShrinkRatio, shouldAdjustViewSize);
 
     for (Frame* child = tree()->firstChild(); child; child = child->tree()->nextSibling())
         child->setPrinting(printing, pageSize, maximumShrinkRatio, shouldAdjustViewSize);
-}
-
-void Frame::setNeedsReapplyStyles()
-{
-    // When the frame is not showing web content, it doesn't make sense to apply styles.
-    // If we tried, we'd end up doing things with the document, but the document, if one
-    // exists, is not currently shown and should be in the page cache.
-    if (!m_loader.client()->hasHTMLView())
-        return;
-
-    if (m_needsReapplyStyles)
-        return;
-
-    m_needsReapplyStyles = true;
-
-    // FrameView's "layout" timer includes reapplyStyles, so despite its
-    // name, it's what we want to call here.
-    if (view())
-        view()->scheduleRelayout();
-}
-
-void Frame::reapplyStyles()
-{
-    m_needsReapplyStyles = false;
-
-    // FIXME: This call doesn't really make sense in a function called reapplyStyles.
-    // We should probably eventually move it into its own function.
-    m_doc->docLoader()->setAutoLoadImages(m_page && m_page->settings()->loadsImagesAutomatically());
-
-    // FIXME: It's not entirely clear why the following is needed.
-    // The document automatically does this as required when you set the style sheet.
-    // But we had problems when this code was removed. Details are in
-    // <http://bugs.webkit.org/show_bug.cgi?id=8079>.
-    m_doc->updateStyleSelector();
 }
 
 void Frame::injectUserScripts(UserScriptInjectionTime injectionTime)
@@ -772,24 +737,6 @@ void Frame::computeAndSetTypingStyle(CSSStyleDeclaration *style, EditAction edit
 
     // Set the remaining style as the typing style.
     m_typingStyle = mutableStyle.release();
-}
-
-String Frame::selectionStartStylePropertyValue(int stylePropertyID) const
-{
-    Node *nodeToRemove;
-    RefPtr<CSSStyleDeclaration> selectionStyle = selectionComputedStyle(nodeToRemove);
-    if (!selectionStyle)
-        return String();
-
-    String value = selectionStyle->getPropertyValue(stylePropertyID);
-
-    if (nodeToRemove) {
-        ExceptionCode ec = 0;
-        nodeToRemove->remove(ec);
-        ASSERT(!ec);
-    }
-
-    return value;
 }
 
 PassRefPtr<CSSComputedStyleDeclaration> Frame::selectionComputedStyle(Node*& nodeToRemove) const
@@ -1262,7 +1209,7 @@ bool Frame::findString(const String& target, bool forward, bool caseFlag, bool w
     return true;
 }
 
-unsigned Frame::markAllMatchesForText(const String& target, bool caseFlag, unsigned limit)
+unsigned Frame::countMatchesForText(const String& target, bool caseFlag, unsigned limit, bool markMatches)
 {
     if (target.isEmpty())
         return 0;
@@ -1285,7 +1232,8 @@ unsigned Frame::markAllMatchesForText(const String& target, bool caseFlag, unsig
         // Only treat the result as a match if it is visible
         if (editor()->insideVisibleArea(resultRange.get())) {
             ++matchCount;
-            document()->markers()->addMarker(resultRange.get(), DocumentMarker::TextMatch);
+            if (markMatches)
+                document()->markers()->addMarker(resultRange.get(), DocumentMarker::TextMatch);
         }
 
         // Stop looking if we hit the specified limit. A limit of 0 means no limit.
@@ -1303,16 +1251,16 @@ unsigned Frame::markAllMatchesForText(const String& target, bool caseFlag, unsig
             searchRange->setEnd(shadowTreeRoot, shadowTreeRoot->childNodeCount(), exception);
     } while (true);
 
-    // Do a "fake" paint in order to execute the code that computes the rendered rect for
-    // each text match.
-    Document* doc = document();
-    if (m_view && contentRenderer()) {
-        doc->updateLayout(); // Ensure layout is up to date.
-        IntRect visibleRect = m_view->visibleContentRect();
-        if (!visibleRect.isEmpty()) {
-            GraphicsContext context((PlatformGraphicsContext*)0);
-            context.setPaintingDisabled(true);
-            m_view->paintContents(&context, visibleRect);
+    if (markMatches) {
+        // Do a "fake" paint in order to execute the code that computes the rendered rect for each text match.
+        if (m_view && contentRenderer()) {
+            document()->updateLayout(); // Ensure layout is up to date.
+            IntRect visibleRect = m_view->visibleContentRect();
+            if (!visibleRect.isEmpty()) {
+                GraphicsContext context((PlatformGraphicsContext*)0);
+                context.setPaintingDisabled(true);
+                m_view->paintContents(&context, visibleRect);
+            }
         }
     }
 
@@ -1470,8 +1418,10 @@ void Frame::respondToChangedSelection(const VisibleSelection& oldSelection, bool
 
         // This only erases markers that are in the first unit (word or sentence) of the selection.
         // Perhaps peculiar, but it matches AppKit.
-        if (RefPtr<Range> wordRange = newAdjacentWords.toNormalizedRange())
+        if (RefPtr<Range> wordRange = newAdjacentWords.toNormalizedRange()) {
             document()->markers()->removeMarkers(wordRange.get(), DocumentMarker::Spelling);
+            document()->markers()->removeMarkers(wordRange.get(), DocumentMarker::Replacement);
+        }
         if (RefPtr<Range> sentenceRange = newSelectedSentence.toNormalizedRange())
             document()->markers()->removeMarkers(sentenceRange.get(), DocumentMarker::Grammar);
     }
@@ -1572,7 +1522,7 @@ void Frame::tiledBackingStorePaintBegin()
 {
     if (!m_view)
         return;
-    m_view->layoutIfNeededRecursive();
+    m_view->updateLayoutAndStyleIfNeededRecursive();
     m_view->flushDeferredRepaints();
 }
 

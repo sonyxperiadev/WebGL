@@ -164,10 +164,6 @@ namespace WebCore {
         void clearTimers();
         static void clearTimers(FrameView*, Document*);
 
-        void setNeedsReapplyStyles();
-        bool needsReapplyStyles() const;
-        void reapplyStyles();
-
         String documentTypeString() const;
 
         // This method -- and the corresponding list of former DOM windows --
@@ -197,7 +193,6 @@ namespace WebCore {
         void setMark(const VisibleSelection&);
 
         void computeAndSetTypingStyle(CSSStyleDeclaration* , EditAction = EditActionUnspecified);
-        String selectionStartStylePropertyValue(int stylePropertyID) const;
         void applyEditingStyleToBodyElement() const;
         void applyEditingStyleToElement(Element*) const;
 
@@ -208,7 +203,7 @@ namespace WebCore {
 
         RenderStyle* styleForSelectionStart(Node*& nodeToRemove) const;
 
-        unsigned markAllMatchesForText(const String&, bool caseFlag, unsigned limit);
+        unsigned countMatchesForText(const String&, bool caseFlag, unsigned limit, bool markMatches);
         bool markedTextMatchesAreHighlighted() const;
         void setMarkedTextMatchesAreHighlighted(bool flag);
 
@@ -329,7 +324,6 @@ namespace WebCore {
 
         bool m_highlightTextMatches;
         bool m_inViewSourceMode;
-        bool m_needsReapplyStyles;
         bool m_isDisconnected;
         bool m_excludeFromTextSearch;
 
@@ -396,11 +390,6 @@ namespace WebCore {
         ASSERT(!s.end().node() || s.end().node()->document() == document());
 
         m_mark = s;
-    }
-
-    inline bool Frame::needsReapplyStyles() const
-    {
-        return m_needsReapplyStyles;
     }
 
     inline CSSMutableStyleDeclaration* Frame::typingStyle() const

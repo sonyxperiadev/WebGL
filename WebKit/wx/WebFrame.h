@@ -93,7 +93,7 @@ private:
 };
 
 // based on enums in WebCore/dom/Document.h
-enum wxWebKitParseMode { Compat, AlmostStrict, Strict, NoDocument };
+enum wxWebKitCompatibilityMode { QuirksMode, LimitedQuirksMode, NoQuirksMode };
 
 class WXDLLIMPEXP_WEBKIT wxWebFrame
 {
@@ -134,7 +134,7 @@ public:
     void Redo();
     
     wxString GetPageSource();
-    void SetPageSource(const wxString& source, const wxString& baseUrl = wxEmptyString);
+    void SetPageSource(const wxString& source, const wxString& baseUrl = wxEmptyString, const wxString& mimetype = wxT("text/html"));
     
     wxString GetInnerText();
     wxString GetAsMarkup();
@@ -167,7 +167,7 @@ public:
     
     bool ShouldClose() const;
     
-    wxWebKitParseMode GetParseMode() const;
+    wxWebKitCompatibilityMode GetCompatibilityMode() const;
     
     void GrantUniversalAccess();
     

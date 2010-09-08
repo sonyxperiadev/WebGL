@@ -32,6 +32,7 @@
 #include "EventException.h"
 #include "EventListener.h"
 #include "EventNames.h"
+#include "File.h"
 #include "HTTPParsers.h"
 #include "InspectorController.h"
 #include "InspectorTimelineAgent.h"
@@ -48,6 +49,7 @@
 #include <wtf/text/CString.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/RefCountedLeakCounter.h>
+#include <wtf/UnusedParam.h>
 
 #if USE(JSC)
 #include "JSDOMBinding.h"
@@ -129,26 +131,22 @@ static bool isSetCookieHeader(const AtomicString& name)
     return equalIgnoringCase(name, "set-cookie") || equalIgnoringCase(name, "set-cookie2");
 }
 
-static void setCharsetInMediaType(String& mediaType, const String& charsetValue)
+static void replaceCharsetInMediaType(String& mediaType, const String& charsetValue)
 {
     unsigned int pos = 0, len = 0;
 
     findCharsetInMediaType(mediaType, pos, len);
 
     if (!len) {
-        // When no charset found, append new charset.
-        mediaType.stripWhiteSpace();
-        if (mediaType[mediaType.length() - 1] != ';')
-            mediaType.append(";");
-        mediaType.append(" charset=");
-        mediaType.append(charsetValue);
-    } else {
-        // Found at least one existing charset, replace all occurrences with new charset.
-        while (len) {
-            mediaType.replace(pos, len, charsetValue);
-            unsigned int start = pos + charsetValue.length();
-            findCharsetInMediaType(mediaType, pos, len, start);
-        }
+        // When no charset found, do nothing.
+        return;
+    }
+
+    // Found at least one existing charset, replace all occurrences with new charset.
+    while (len) {
+        mediaType.replace(pos, len, charsetValue);
+        unsigned int start = pos + charsetValue.length();
+        findCharsetInMediaType(mediaType, pos, len, start);
     }
 }
 
@@ -171,6 +169,9 @@ XMLHttpRequest::XMLHttpRequest(ScriptExecutionContext* context)
     : ActiveDOMObject(context, this)
     , m_async(true)
     , m_includeCredentials(false)
+#if ENABLE(XHR_RESPONSE_BLOB)
+    , m_asBlob(false)
+#endif
     , m_state(UNSENT)
     , m_responseText("")
     , m_createdDocument(false)
@@ -225,13 +226,28 @@ XMLHttpRequest::State XMLHttpRequest::readyState() const
     return m_state;
 }
 
-const ScriptString& XMLHttpRequest::responseText() const
+const ScriptString& XMLHttpRequest::responseText(ExceptionCode& ec) const
 {
+#if ENABLE(XHR_RESPONSE_BLOB)
+    if (m_asBlob)
+        ec = INVALID_STATE_ERR;
+#else
+    UNUSED_PARAM(ec);
+#endif
     return m_responseText;
 }
 
-Document* XMLHttpRequest::responseXML() const
+Document* XMLHttpRequest::responseXML(ExceptionCode& ec) const
 {
+#if ENABLE(XHR_RESPONSE_BLOB)
+    if (m_asBlob) {
+        ec = INVALID_STATE_ERR;
+        return 0;
+    }
+#else
+    UNUSED_PARAM(ec);
+#endif
+
     if (m_state != DONE)
         return 0;
 
@@ -255,6 +271,17 @@ Document* XMLHttpRequest::responseXML() const
 
     return m_responseXML.get();
 }
+
+#if ENABLE(XHR_RESPONSE_BLOB)
+Blob* XMLHttpRequest::responseBlob(ExceptionCode& ec) const
+{
+    if (!m_asBlob) {
+        ec = INVALID_STATE_ERR;
+        return 0;
+    }
+    return m_responseBlob.get();
+}
+#endif
 
 XMLHttpRequestUpload* XMLHttpRequest::upload()
 {
@@ -318,6 +345,18 @@ void XMLHttpRequest::setWithCredentials(bool value, ExceptionCode& ec)
     m_includeCredentials = value;
 }
 
+#if ENABLE(XHR_RESPONSE_BLOB)
+void XMLHttpRequest::setAsBlob(bool value, ExceptionCode& ec)
+{
+    if (m_state != OPENED || m_loader) {
+        ec = INVALID_STATE_ERR;
+        return;
+    }
+
+    m_asBlob = value;
+}
+#endif
+
 void XMLHttpRequest::open(const String& method, const KURL& url, ExceptionCode& ec)
 {
     open(method, url, true, ec);
@@ -329,7 +368,9 @@ void XMLHttpRequest::open(const String& method, const KURL& url, bool async, Exc
     State previousState = m_state;
     m_state = UNSENT;
     m_error = false;
-
+#if ENABLE(XHR_RESPONSE_BLOB)
+    m_asBlob = false;
+#endif
     m_uploadComplete = false;
 
     // clear stuff from possible previous load
@@ -457,7 +498,7 @@ void XMLHttpRequest::send(const String& body, ExceptionCode& ec)
 #endif
                 setRequestHeaderInternal("Content-Type", "application/xml");
         } else {
-            setCharsetInMediaType(contentType, "UTF-8");
+            replaceCharsetInMediaType(contentType, "UTF-8");
             m_requestHeaders.set("Content-Type", contentType);
         }
 
@@ -478,7 +519,12 @@ void XMLHttpRequest::send(Blob* body, ExceptionCode& ec)
         // FIXME: Should we set a Content-Type if one is not set.
         // FIXME: add support for uploading bundles.
         m_requestEntityBody = FormData::create();
-        m_requestEntityBody->appendItems(body->items());
+        if (body->isFile())
+            m_requestEntityBody->appendFile(static_cast<File*>(body)->path());
+#if ENABLE(BLOB)
+        else
+            m_requestEntityBody->appendBlob(body->url());
+#endif
     }
 
     createRequest(ec);
@@ -490,7 +536,7 @@ void XMLHttpRequest::send(DOMFormData* body, ExceptionCode& ec)
         return;
 
     if (m_method != "GET" && m_method != "HEAD" && m_url.protocolInHTTPFamily()) {
-        m_requestEntityBody = FormData::createMultiPart(body->items(), body->encoding(), document());
+        m_requestEntityBody = FormData::createMultiPart(*(static_cast<FormDataList*>(body)), body->encoding(), document());
 
         // We need to ask the client to provide the generated file names if needed. When FormData fills the element
         // for the file, it could set a flag to use the generated file name, i.e. a package file on Mac.
@@ -509,6 +555,14 @@ void XMLHttpRequest::send(DOMFormData* body, ExceptionCode& ec)
 
 void XMLHttpRequest::createRequest(ExceptionCode& ec)
 {
+#if ENABLE(BLOB)
+    // Only GET request is supported for blob URL.
+    if (m_url.protocolIs("blob") && m_method != "GET") {
+        ec = XMLHttpRequestException::NETWORK_ERR;
+        return;
+    }
+#endif
+
     // The presence of upload event listeners forces us to use preflighting because POSTing to an URL that does not
     // permit cross origin requests should look exactly like POSTing to an URL that does not respond at all.
     // Also, only async requests support upload progress events.
@@ -594,6 +648,9 @@ void XMLHttpRequest::abort()
     m_responseText = "";
     m_createdDocument = false;
     m_responseXML = 0;
+#if ENABLE(XHR_RESPONSE_BLOB)
+    m_responseBlob = 0;
+#endif
 
     // Clear headers as required by the spec
     m_requestHeaders.clear();
@@ -640,6 +697,9 @@ void XMLHttpRequest::clearResponse()
     m_responseText = "";
     m_createdDocument = false;
     m_responseXML = 0;
+#if ENABLE(XHR_RESPONSE_BLOB)
+    m_responseBlob = 0;
+#endif
 }
 
 void XMLHttpRequest::clearRequest()
@@ -901,6 +961,10 @@ void XMLHttpRequest::didFinishLoading(unsigned long identifier)
 
     if (m_decoder)
         m_responseText += m_decoder->flush();
+
+#if ENABLE(XHR_RESPONSE_BLOB)
+    // FIXME: Set m_responseBlob to something here in the m_asBlob case.
+#endif
 
 #if ENABLE(INSPECTOR)
     if (InspectorController* inspector = scriptExecutionContext()->inspectorController())

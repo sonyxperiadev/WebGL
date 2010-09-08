@@ -62,6 +62,7 @@ public:
     void setAcceptsEditing(bool value) { m_shouldAllowEditing = value; }
     void setCanOpenWindows(bool);
     void setCloseRemainingWindowsWhenComplete(bool value) { m_shouldCloseExtraWindows = value; }
+    void setXSSAuditorEnabled(bool);
     unsigned windowCount();
 
     // Special DOM functions.
@@ -79,6 +80,10 @@ public:
     // Animation testing.
     unsigned numberOfActiveAnimations() const;
     bool pauseAnimationAtTimeOnElementWithId(JSStringRef animationName, double time, JSStringRef elementId);
+
+    // UserContent testing.
+    void addUserScript(JSStringRef source, bool runAtStart, bool allFrames);
+    void addUserStyleSheet(JSStringRef source, bool allFrames);
 
     enum WhatToDump { RenderTree, MainFrameText, AllFramesText };
     WhatToDump whatToDump() const { return m_whatToDump; }

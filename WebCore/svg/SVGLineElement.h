@@ -36,8 +36,10 @@ namespace WebCore {
                            public SVGLangSpace,
                            public SVGExternalResourcesRequired {
     public:
+        static PassRefPtr<SVGLineElement> create(const QualifiedName&, Document*);
+
+    private:
         SVGLineElement(const QualifiedName&, Document*);
-        virtual ~SVGLineElement();
         
         virtual bool isValid() const { return SVGTests::isValid(); }
 
@@ -49,7 +51,6 @@ namespace WebCore {
 
         virtual bool supportsMarkers() const { return true; }
 
-    private:
         virtual bool selfHasRelativeLengths() const;
 
         DECLARE_ANIMATED_PROPERTY(SVGLineElement, SVGNames::x1Attr, SVGLength, X1, x1)

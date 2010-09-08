@@ -137,6 +137,8 @@ FrameView::FrameView(Frame* frame)
     , m_fixedObjectCount(0)
     , m_layoutTimer(this, &FrameView::layoutTimerFired)
     , m_layoutRoot(0)
+    , m_hasPendingPostLayoutTasks(false)
+    , m_inSynchronousPostLayout(false)
     , m_postLayoutTasksTimer(this, &FrameView::postLayoutTimerFired)
     , m_isTransparent(false)
     , m_baseBackgroundColor(Color::white)
@@ -173,7 +175,7 @@ PassRefPtr<FrameView> FrameView::create(Frame* frame, const IntSize& initialSize
 
 FrameView::~FrameView()
 {
-    if (m_postLayoutTasksTimer.isActive()) {
+    if (m_hasPendingPostLayoutTasks) {
         m_postLayoutTasksTimer.stop();
         m_scheduledEvents.clear();
         m_enqueueEvents = 0;
@@ -213,6 +215,8 @@ void FrameView::reset()
     m_doFullRepaint = true;
     m_layoutSchedulingEnabled = true;
     m_inLayout = false;
+    m_inSynchronousPostLayout = false;
+    m_hasPendingPostLayoutTasks = false;
     m_layoutCount = 0;
     m_nestedLayoutCount = 0;
     m_postLayoutTasksTimer.stop();
@@ -528,8 +532,11 @@ bool FrameView::hasCompositedContent() const
 void FrameView::enterCompositingMode()
 {
 #if USE(ACCELERATED_COMPOSITING)
-    if (RenderView* view = m_frame->contentRenderer())
+    if (RenderView* view = m_frame->contentRenderer()) {
         view->compositor()->enableCompositingMode();
+        if (!needsLayout())
+            view->compositor()->scheduleCompositingLayerUpdate();
+    }
 #endif
 }
 
@@ -647,24 +654,23 @@ void FrameView::layout(bool allowSubtree)
 
     m_layoutSchedulingEnabled = false;
 
-    if (!m_nestedLayoutCount && m_postLayoutTasksTimer.isActive()) {
+    if (!m_nestedLayoutCount && !m_inSynchronousPostLayout && m_hasPendingPostLayoutTasks) {
         // This is a new top-level layout. If there are any remaining tasks from the previous
         // layout, finish them now.
+        m_inSynchronousPostLayout = true;
         m_postLayoutTasksTimer.stop();
         performPostLayoutTasks();
+        m_inSynchronousPostLayout = false;
     }
 
     // Viewport-dependent media queries may cause us to need completely different style information.
     // Check that here.
     if (document->styleSelector()->affectedByViewportChange())
-        document->updateStyleSelector();
+        document->styleSelectorChanged(RecalcStyleImmediately);
 
     // Always ensure our style info is up-to-date.  This can happen in situations where
     // the layout beats any sort of style recalc update that needs to occur.
-    if (m_frame->needsReapplyStyles())
-        m_frame->reapplyStyles();
-    else if (document->childNeedsStyleRecalc())
-        document->recalcStyle();
+    document->updateStyleIfNeeded();
     
     bool subtree = m_layoutRoot;
 
@@ -841,17 +847,25 @@ void FrameView::layout(bool allowSubtree)
         updateOverflowStatus(layoutWidth() < contentsWidth(),
                              layoutHeight() < contentsHeight());
 
-    if (!m_postLayoutTasksTimer.isActive()) {
-        // Calls resumeScheduledEvents()
-        performPostLayoutTasks();
+    if (!m_hasPendingPostLayoutTasks) {
+        if (!m_inSynchronousPostLayout) {
+            m_inSynchronousPostLayout = true;
+            // Calls resumeScheduledEvents()
+            performPostLayoutTasks();
+            m_inSynchronousPostLayout = false;
+        }
 
-        if (!m_postLayoutTasksTimer.isActive() && needsLayout()) {
-            // Post-layout widget updates or an event handler made us need layout again.
-            // Lay out again, but this time defer widget updates and event dispatch until after
-            // we return.
+        if (!m_hasPendingPostLayoutTasks && (needsLayout() || m_inSynchronousPostLayout)) {
+            // If we need layout or are already in a synchronous call to postLayoutTasks(), 
+            // defer widget updates and event dispatch until after we return. postLayoutTasks()
+            // can make us need to update again, and we can get stuck in a nasty cycle unless
+            // we call it through the timer here.
+            m_hasPendingPostLayoutTasks = true;
             m_postLayoutTasksTimer.startOneShot(0);
-            pauseScheduledEvents();
-            layout();
+            if (needsLayout()) {
+                pauseScheduledEvents();
+                layout();
+            }
         }
     } else {
         resumeScheduledEvents();
@@ -1468,12 +1482,9 @@ bool FrameView::needsLayout() const
     if (!m_frame)
         return false;
     RenderView* root = m_frame->contentRenderer();
-    Document* document = m_frame->document();
     return layoutPending()
         || (root && root->needsLayout())
         || m_layoutRoot
-        || (document && document->childNeedsStyleRecalc()) // can occur when using WebKit ObjC interface
-        || m_frame->needsReapplyStyles()
         || (m_deferSetNeedsLayouts && m_setNeedsLayoutWasDeferred);
 }
 
@@ -1490,6 +1501,8 @@ void FrameView::setNeedsLayout()
 
 void FrameView::unscheduleRelayout()
 {
+    m_postLayoutTasksTimer.stop();
+
     if (!m_layoutTimer.isActive())
         return;
 
@@ -1633,6 +1646,8 @@ bool FrameView::updateWidgets()
     
 void FrameView::performPostLayoutTasks()
 {
+    m_hasPendingPostLayoutTasks = false;
+
     if (m_firstLayoutCallbackPending) {
         m_firstLayoutCallbackPending = false;
         m_frame->loader()->didFirstLayout();
@@ -1965,7 +1980,7 @@ void FrameView::paintContents(GraphicsContext* p, const IntRect& rect)
     
     RenderView* contentRenderer = frame()->contentRenderer();
     if (!contentRenderer) {
-        LOG_ERROR("called Frame::paint with nil renderer");
+        LOG_ERROR("called FrameView::paint with nil renderer");
         return;
     }
 
@@ -2036,7 +2051,7 @@ void FrameView::setNodeToDraw(Node* node)
     m_nodeToDraw = node;
 }
 
-void FrameView::layoutIfNeededRecursive()
+void FrameView::updateLayoutAndStyleIfNeededRecursive()
 {
     // We have to crawl our entire tree looking for any FrameViews that need
     // layout and make sure they are up to date.
@@ -2047,6 +2062,8 @@ void FrameView::layoutIfNeededRecursive()
     // region but then become included later by the second frame adding rects to the dirty region
     // when it lays out.
 
+    m_frame->document()->updateStyleIfNeeded();
+
     if (needsLayout())
         layout();
 
@@ -2055,10 +2072,10 @@ void FrameView::layoutIfNeededRecursive()
     for (HashSet<RefPtr<Widget> >::const_iterator current = viewChildren->begin(); current != end; ++current) {
         Widget* widget = (*current).get();
         if (widget->isFrameView())
-            static_cast<FrameView*>(widget)->layoutIfNeededRecursive();
+            static_cast<FrameView*>(widget)->updateLayoutAndStyleIfNeededRecursive();
     }
 
-    // layoutIfNeededRecursive is called when we need to make sure layout is up-to-date before
+    // updateLayoutAndStyleIfNeededRecursive is called when we need to make sure style and layout are up-to-date before
     // painting, so we need to flush out any deferred repaints too.
     flushDeferredRepaints();
 }

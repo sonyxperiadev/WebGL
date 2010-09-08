@@ -34,17 +34,17 @@
 
 namespace WebCore {
 
-SVGTextPathElement::SVGTextPathElement(const QualifiedName& tagName, Document* doc)
-    : SVGTextContentElement(tagName, doc)
-    , SVGURIReference()
+inline SVGTextPathElement::SVGTextPathElement(const QualifiedName& tagName, Document* document)
+    : SVGTextContentElement(tagName, document)
     , m_startOffset(LengthModeOther)
     , m_method(SVG_TEXTPATH_METHODTYPE_ALIGN)
     , m_spacing(SVG_TEXTPATH_SPACINGTYPE_EXACT)
 {
 }
 
-SVGTextPathElement::~SVGTextPathElement()
+PassRefPtr<SVGTextPathElement> SVGTextPathElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGTextPathElement(tagName, document));
 }
 
 void SVGTextPathElement::parseMappedAttribute(Attribute* attr)

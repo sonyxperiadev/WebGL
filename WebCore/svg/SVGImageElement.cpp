@@ -26,6 +26,7 @@
 
 #include "Attribute.h"
 #include "CSSPropertyNames.h"
+#include "RenderImageResource.h"
 #include "RenderSVGImage.h"
 #include "RenderSVGResource.h"
 #include "SVGDocument.h"
@@ -36,12 +37,8 @@
 
 namespace WebCore {
 
-SVGImageElement::SVGImageElement(const QualifiedName& tagName, Document* doc)
-    : SVGStyledTransformableElement(tagName, doc)
-    , SVGTests()
-    , SVGLangSpace()
-    , SVGExternalResourcesRequired()
-    , SVGURIReference()
+inline SVGImageElement::SVGImageElement(const QualifiedName& tagName, Document* document)
+    : SVGStyledTransformableElement(tagName, document)
     , m_x(LengthModeWidth)
     , m_y(LengthModeHeight)
     , m_width(LengthModeWidth)
@@ -50,8 +47,9 @@ SVGImageElement::SVGImageElement(const QualifiedName& tagName, Document* doc)
 {
 }
 
-SVGImageElement::~SVGImageElement()
+PassRefPtr<SVGImageElement> SVGImageElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGImageElement(tagName, document));
 }
 
 void SVGImageElement::parseMappedAttribute(Attribute* attr)
@@ -172,10 +170,10 @@ void SVGImageElement::attach()
     SVGStyledTransformableElement::attach();
 
     if (RenderSVGImage* imageObj = toRenderSVGImage(renderer())) {
-        if (imageObj->hasImage())
+        if (imageObj->imageResource()->hasImage())
             return;
 
-        imageObj->setCachedImage(m_imageLoader.image());
+        imageObj->imageResource()->setCachedImage(m_imageLoader.image());
     }
 }
 

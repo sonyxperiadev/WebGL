@@ -2678,7 +2678,8 @@ void tst_QWebFrame::popupFocus()
     QTRY_VERIFY(view.hasFocus());
 
     // open the popup by clicking. check if focus is on the popup
-    QTest::mouseClick(&view, Qt::LeftButton, 0, QPoint(25, 25));
+    const QWebElement webCombo = view.page()->mainFrame()->documentElement().findFirst(QLatin1String("select[name=select]"));
+    QTest::mouseClick(&view, Qt::LeftButton, 0, webCombo.geometry().center());
     QObject* webpopup = firstChildByClassName(&view, "QComboBox");
     QComboBox* combo = qobject_cast<QComboBox*>(webpopup);
     QVERIFY(combo != 0);
@@ -2696,6 +2697,7 @@ void tst_QWebFrame::inputFieldFocus()
     view.setHtml("<html><body><input type=\"text\"></input></body></html>");
     view.resize(400, 100);
     view.show();
+    QTest::qWaitForWindowShown(&view);
     view.setFocus();
     QTRY_VERIFY(view.hasFocus());
 
@@ -2703,7 +2705,8 @@ void tst_QWebFrame::inputFieldFocus()
     int delay = qApp->cursorFlashTime() * 2;
 
     // focus the lineedit and check if it blinks
-    QTest::mouseClick(&view, Qt::LeftButton, 0, QPoint(25, 25));
+    const QWebElement inputElement = view.page()->mainFrame()->documentElement().findFirst(QLatin1String("input[type=text]"));
+    QTest::mouseClick(&view, Qt::LeftButton, 0, inputElement.geometry().center());
     m_inputFieldsTestView = &view;
     view.installEventFilter( this );
     QTest::qWait(delay);
@@ -2713,13 +2716,14 @@ void tst_QWebFrame::inputFieldFocus()
 
 void tst_QWebFrame::hitTestContent()
 {
-    QString html("<html><body><p>A paragraph</p><br/><br/><br/><a href=\"about:blank\" target=\"_foo\">link text</a></body></html>");
+    QString html("<html><body><p>A paragraph</p><br/><br/><br/><a href=\"about:blank\" target=\"_foo\" id=\"link\">link text</a></body></html>");
 
     QWebPage page;
     QWebFrame* frame = page.mainFrame();
     frame->setHtml(html);
     page.setViewportSize(QSize(200, 0)); //no height so link is not visible
-    QWebHitTestResult result = frame->hitTestContent(QPoint(10, 100));
+    const QWebElement linkElement = frame->documentElement().findFirst(QLatin1String("a#link"));
+    QWebHitTestResult result = frame->hitTestContent(linkElement.geometry().center());
     QCOMPARE(result.linkText(), QString("link text"));
     QWebElement link = result.linkElement();
     QCOMPARE(link.attribute("target"), QString("_foo"));

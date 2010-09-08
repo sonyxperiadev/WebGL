@@ -71,6 +71,9 @@ void MediaDocumentParser::createDocumentStructure()
     ExceptionCode ec;
     RefPtr<Element> rootElement = document()->createElement(htmlTag, false);
     document()->appendChild(rootElement, ec);
+
+    if (document()->frame() && document()->frame()->loader())
+        document()->frame()->loader()->dispatchDocumentElementAvailable();
         
     RefPtr<Element> body = document()->createElement(bodyTag, false);
     body->setAttribute(styleAttr, "background-color: rgb(38,38,38);");
@@ -110,7 +113,8 @@ MediaDocument::MediaDocument(Frame* frame, const KURL& url)
     : HTMLDocument(frame, url)
     , m_replaceMediaElementTimer(this, &MediaDocument::replaceMediaElementTimerFired)
 {
-    setParseMode(Compat);
+    setCompatibilityMode(QuirksMode);
+    lockCompatibilityMode();
 }
 
 MediaDocument::~MediaDocument()

@@ -29,8 +29,9 @@
  */
 
 #include "config.h"
-
 #include "ScriptProfiler.h"
+
+#include "InspectorValues.h"
 #include "ScriptString.h"
 
 #include <v8-profiler.h>
@@ -52,21 +53,11 @@ PassRefPtr<ScriptProfile> ScriptProfiler::stop(ScriptState* state, const String&
     return profile ? ScriptProfile::create(profile) : 0;
 }
 
-void ScriptProfiler::takeHeapSnapshot()
+PassRefPtr<ScriptHeapSnapshot> ScriptProfiler::takeHeapSnapshot(const String& title)
 {
-    v8::V8::ResumeProfilerEx(v8::PROFILER_MODULE_HEAP_SNAPSHOT
-                             | v8::PROFILER_MODULE_HEAP_STATS
-                             | v8::PROFILER_MODULE_JS_CONSTRUCTORS);
-}
-
-long ScriptProfiler::getProfilerLogLines(long position, String* data)
-{
-    static char buffer[65536];
-    const int readSize = v8::V8::GetLogLines(position, buffer, sizeof(buffer) - 1);
-    buffer[readSize] = '\0';
-    position += readSize;
-    *data = buffer;
-    return position;
+    v8::HandleScope hs;
+    const v8::HeapSnapshot* snapshot = v8::HeapProfiler::TakeSnapshot(v8String(title), v8::HeapSnapshot::kAggregated);
+    return snapshot ? ScriptHeapSnapshot::create(snapshot) : 0;
 }
 
 bool ScriptProfiler::isProfilerAlwaysEnabled()

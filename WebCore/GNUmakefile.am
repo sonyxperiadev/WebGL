@@ -5,9 +5,6 @@ WEBCORE_CSS_PROPERTY_NAMES := $(WebCore)/css/CSSPropertyNames.in
 WEBCORE_CSS_VALUE_KEYWORDS := $(WebCore)/css/CSSValueKeywords.in
 
 webcore_cppflags += \
-	-I$(srcdir)/WebKit/gtk \
-	-I$(srcdir)/WebKit/gtk/WebCoreSupport \
-	-I$(srcdir)/WebKit/gtk/webkit \
 	-I$(srcdir)/WebCore \
 	-I$(srcdir)/WebCore/accessibility \
 	-I$(srcdir)/WebCore/bindings/generic \
@@ -21,9 +18,11 @@ webcore_cppflags += \
 	-I$(srcdir)/WebCore/dom \
 	-I$(srcdir)/WebCore/dom/default \
 	-I$(srcdir)/WebCore/editing \
+	-I$(srcdir)/WebCore/fileapi \
 	-I$(srcdir)/WebCore/history \
 	-I$(srcdir)/WebCore/html \
 	-I$(srcdir)/WebCore/html/canvas \
+	-I$(srcdir)/WebCore/html/parser \
 	-I$(srcdir)/WebCore/inspector \
 	-I$(srcdir)/WebCore/loader \
 	-I$(srcdir)/WebCore/loader/appcache \
@@ -239,8 +238,6 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSFileList.h \
 	DerivedSources/WebCore/JSFileReader.cpp \
 	DerivedSources/WebCore/JSFileReader.h \
-	DerivedSources/WebCore/JSFileWriter.cpp \
-	DerivedSources/WebCore/JSFileWriter.h \
 	DerivedSources/WebCore/JSFloat32Array.cpp \
 	DerivedSources/WebCore/JSFloat32Array.h \
 	DerivedSources/WebCore/JSGeolocation.cpp \
@@ -776,6 +773,7 @@ webcore_sources += \
 	WebCore/bindings/js/ScriptFunctionCall.h \
 	WebCore/bindings/js/ScriptGCEvent.cpp \
 	WebCore/bindings/js/ScriptGCEvent.h \
+	WebCore/bindings/js/ScriptHeapSnapshot.h \
 	WebCore/bindings/js/ScriptInstance.h \
 	WebCore/bindings/js/ScriptObject.cpp \
 	WebCore/bindings/js/ScriptObject.h \
@@ -1297,6 +1295,29 @@ webcore_sources += \
 	WebCore/editing/visible_units.cpp \
 	WebCore/editing/visible_units.h \
 	WebCore/editing/gtk/SelectionControllerGtk.cpp \
+	WebCore/fileapi/Blob.cpp \
+	WebCore/fileapi/Blob.h \
+	WebCore/fileapi/BlobBuilder.cpp \
+	WebCore/fileapi/BlobBuilder.h \
+	WebCore/fileapi/BlobURL.cpp \
+	WebCore/fileapi/BlobURL.h \
+	WebCore/fileapi/File.cpp \
+	WebCore/fileapi/File.h \
+	WebCore/fileapi/FileError.h \
+	WebCore/fileapi/FileException.h \
+	WebCore/fileapi/FileList.cpp \
+	WebCore/fileapi/FileList.h \
+	WebCore/fileapi/FileReader.cpp \
+	WebCore/fileapi/FileReader.h \
+	WebCore/fileapi/FileReaderSync.cpp \
+	WebCore/fileapi/FileReaderSync.h \
+	WebCore/fileapi/FileStreamProxy.cpp \
+	WebCore/fileapi/FileStreamProxy.h \
+	WebCore/fileapi/FileThread.cpp \
+	WebCore/fileapi/FileThread.h \
+	WebCore/fileapi/FileThreadTask.h \
+	WebCore/fileapi/ThreadableBlobRegistry.cpp \
+	WebCore/fileapi/ThreadableBlobRegistry.h \
 	WebCore/history/BackForwardController.cpp \
 	WebCore/history/BackForwardController.h \
 	WebCore/history/BackForwardControllerClient.h \
@@ -1314,30 +1335,13 @@ webcore_sources += \
 	WebCore/history/PageCache.h \
 	WebCore/html/AsyncImageResizer.cpp \
 	WebCore/html/AsyncImageResizer.h \
-	WebCore/html/Blob.cpp \
-	WebCore/html/Blob.h \
-	WebCore/html/BlobBuilder.cpp \
-	WebCore/html/BlobBuilder.h \
-	WebCore/html/BlobURL.cpp \
-	WebCore/html/BlobURL.h \
-	WebCore/html/canvas/CanvasContextAttributes.h \
-	WebCore/html/canvas/CanvasGradient.cpp \
-	WebCore/html/canvas/CanvasGradient.h \
-	WebCore/html/canvas/CanvasPattern.cpp \
-	WebCore/html/canvas/CanvasPattern.h \
-	WebCore/html/canvas/CanvasPixelArray.cpp \
-	WebCore/html/canvas/CanvasPixelArray.h \
-	WebCore/html/canvas/CanvasRenderingContext.cpp \
-	WebCore/html/canvas/CanvasRenderingContext.h \
-	WebCore/html/canvas/CanvasRenderingContext2D.cpp \
-	WebCore/html/canvas/CanvasRenderingContext2D.h \
-	WebCore/html/canvas/CanvasStyle.cpp \
-	WebCore/html/canvas/CanvasStyle.h \
 	WebCore/html/CollectionCache.cpp \
 	WebCore/html/CollectionCache.h \
 	WebCore/html/CollectionType.h \
-	WebCore/html/CSSPreloadScanner.cpp \
-	WebCore/html/CSSPreloadScanner.h \
+	WebCore/html/DOMDataGridDataSource.cpp \
+	WebCore/html/DOMDataGridDataSource.h \
+	WebCore/html/DOMFormData.cpp \
+	WebCore/html/DOMFormData.h \
 	WebCore/html/DataGridColumn.cpp \
 	WebCore/html/DataGridColumn.h \
 	WebCore/html/DataGridColumnList.cpp \
@@ -1345,40 +1349,8 @@ webcore_sources += \
 	WebCore/html/DataGridDataSource.h \
 	WebCore/html/DateComponents.cpp \
 	WebCore/html/DateComponents.h \
-	WebCore/html/DOMDataGridDataSource.cpp \
-	WebCore/html/DOMDataGridDataSource.h \
-	WebCore/html/DOMFormData.cpp \
-	WebCore/html/DOMFormData.h \
-	WebCore/html/File.cpp \
-	WebCore/html/File.h \
-	WebCore/html/FileError.h \
-	WebCore/html/FileList.cpp \
-	WebCore/html/FileList.h \
-	WebCore/html/FileReader.cpp \
-	WebCore/html/FileReader.h \
-	WebCore/html/FileWriter.cpp \
-	WebCore/html/FileWriter.h \
-	WebCore/html/FileStreamProxy.cpp \
-	WebCore/html/FileStreamProxy.h \
-	WebCore/html/FileThread.cpp \
-	WebCore/html/FileThread.h \
-	WebCore/html/FileThreadTask.h \
 	WebCore/html/FormDataList.cpp \
 	WebCore/html/FormDataList.h \
-	WebCore/html/HTMLEntityParser.cpp \
-	WebCore/html/HTMLEntityParser.h \
-	WebCore/html/HTMLTokenizer.cpp \
-	WebCore/html/HTMLTokenizer.h \
-	WebCore/html/HTMLToken.h \
-	WebCore/html/HTMLDocumentParser.cpp \
-	WebCore/html/HTMLDocumentParser.h \
-	WebCore/html/HTMLPreloadScanner.cpp \
-	WebCore/html/HTMLPreloadScanner.h \
-	WebCore/html/HTMLScriptRunner.cpp \
-	WebCore/html/HTMLScriptRunner.h \
-	WebCore/html/HTMLScriptRunnerHost.h \
-	WebCore/html/HTMLTreeBuilder.cpp \
-	WebCore/html/HTMLTreeBuilder.h \
 	WebCore/html/HTMLAllCollection.cpp \
 	WebCore/html/HTMLAllCollection.h \
 	WebCore/html/HTMLAnchorElement.cpp \
@@ -1403,40 +1375,32 @@ webcore_sources += \
 	WebCore/html/HTMLCanvasElement.h \
 	WebCore/html/HTMLCollection.cpp \
 	WebCore/html/HTMLCollection.h \
-	WebCore/html/HTMLDataGridElement.cpp \
-	WebCore/html/HTMLDataGridElement.h \
+	WebCore/html/HTMLDListElement.cpp \
+	WebCore/html/HTMLDListElement.h \
 	WebCore/html/HTMLDataGridCellElement.cpp \
 	WebCore/html/HTMLDataGridCellElement.h \
 	WebCore/html/HTMLDataGridColElement.cpp \
 	WebCore/html/HTMLDataGridColElement.h \
+	WebCore/html/HTMLDataGridElement.cpp \
+	WebCore/html/HTMLDataGridElement.h \
 	WebCore/html/HTMLDataGridRowElement.cpp \
 	WebCore/html/HTMLDataGridRowElement.h \
 	WebCore/html/HTMLDataListElement.cpp \
 	WebCore/html/HTMLDataListElement.h \
-	WebCore/html/HTMLDListElement.cpp \
-	WebCore/html/HTMLDListElement.h \
 	WebCore/html/HTMLDirectoryElement.cpp \
 	WebCore/html/HTMLDirectoryElement.h \
 	WebCore/html/HTMLDivElement.cpp \
 	WebCore/html/HTMLDivElement.h \
 	WebCore/html/HTMLDocument.cpp \
 	WebCore/html/HTMLDocument.h \
-	WebCore/html/HTMLConstructionSite.cpp \
-	WebCore/html/HTMLConstructionSite.h \
 	WebCore/html/HTMLElement.cpp \
 	WebCore/html/HTMLElement.h \
-	WebCore/html/HTMLElementStack.cpp \
-	WebCore/html/HTMLElementStack.h \
-	WebCore/html/HTMLEntitySearch.cpp \
-	WebCore/html/HTMLEntitySearch.h \
 	WebCore/html/HTMLEmbedElement.cpp \
 	WebCore/html/HTMLEmbedElement.h \
 	WebCore/html/HTMLFieldSetElement.cpp \
 	WebCore/html/HTMLFieldSetElement.h \
 	WebCore/html/HTMLFontElement.cpp \
 	WebCore/html/HTMLFontElement.h \
-	WebCore/html/HTMLFormattingElementList.cpp \
-	WebCore/html/HTMLFormattingElementList.h \
 	WebCore/html/HTMLFormCollection.cpp \
 	WebCore/html/HTMLFormCollection.h \
 	WebCore/html/HTMLFormControlElement.cpp \
@@ -1511,8 +1475,6 @@ webcore_sources += \
 	WebCore/html/HTMLParserErrorCodes.cpp \
 	WebCore/html/HTMLParserErrorCodes.h \
 	WebCore/html/HTMLParserQuirks.h \
-	WebCore/html/HTMLParserScheduler.cpp \
-	WebCore/html/HTMLParserScheduler.h \
 	WebCore/html/HTMLPlugInElement.cpp \
 	WebCore/html/HTMLPlugInElement.h \
 	WebCore/html/HTMLPlugInImageElement.cpp \
@@ -1553,8 +1515,6 @@ webcore_sources += \
 	WebCore/html/HTMLUListElement.h \
 	WebCore/html/HTMLViewSourceDocument.cpp \
 	WebCore/html/HTMLViewSourceDocument.h \
-	WebCore/html/HTMLViewSourceParser.cpp \
-	WebCore/html/HTMLViewSourceParser.h \
 	WebCore/html/ImageData.cpp \
 	WebCore/html/ImageData.h \
 	WebCore/html/ImageResizerThread.cpp \
@@ -1565,8 +1525,48 @@ webcore_sources += \
 	WebCore/html/StepRange.cpp \
 	WebCore/html/StepRange.h \
 	WebCore/html/TextMetrics.h \
-	WebCore/html/ThreadableBlobRegistry.cpp \
-	WebCore/html/ThreadableBlobRegistry.h \
+	WebCore/html/canvas/CanvasContextAttributes.h \
+	WebCore/html/canvas/CanvasGradient.cpp \
+	WebCore/html/canvas/CanvasGradient.h \
+	WebCore/html/canvas/CanvasPattern.cpp \
+	WebCore/html/canvas/CanvasPattern.h \
+	WebCore/html/canvas/CanvasPixelArray.cpp \
+	WebCore/html/canvas/CanvasPixelArray.h \
+	WebCore/html/canvas/CanvasRenderingContext.cpp \
+	WebCore/html/canvas/CanvasRenderingContext.h \
+	WebCore/html/canvas/CanvasRenderingContext2D.cpp \
+	WebCore/html/canvas/CanvasRenderingContext2D.h \
+	WebCore/html/canvas/CanvasStyle.cpp \
+	WebCore/html/canvas/CanvasStyle.h \
+	WebCore/html/parser/CSSPreloadScanner.cpp \
+	WebCore/html/parser/CSSPreloadScanner.h \
+	WebCore/html/parser/HTMLConstructionSite.cpp \
+	WebCore/html/parser/HTMLConstructionSite.h \
+	WebCore/html/parser/HTMLDocumentParser.cpp \
+	WebCore/html/parser/HTMLDocumentParser.h \
+	WebCore/html/parser/HTMLElementStack.cpp \
+	WebCore/html/parser/HTMLElementStack.h \
+	WebCore/html/parser/HTMLEntityParser.cpp \
+	WebCore/html/parser/HTMLEntityParser.h \
+	WebCore/html/parser/HTMLEntitySearch.cpp \
+	WebCore/html/parser/HTMLEntitySearch.h \
+	WebCore/html/parser/HTMLEntityTable.h \
+	WebCore/html/parser/HTMLFormattingElementList.cpp \
+	WebCore/html/parser/HTMLFormattingElementList.h \
+	WebCore/html/parser/HTMLParserScheduler.cpp \
+	WebCore/html/parser/HTMLParserScheduler.h \
+	WebCore/html/parser/HTMLPreloadScanner.cpp \
+	WebCore/html/parser/HTMLPreloadScanner.h \
+	WebCore/html/parser/HTMLScriptRunner.cpp \
+	WebCore/html/parser/HTMLScriptRunner.h \
+	WebCore/html/parser/HTMLScriptRunnerHost.h \
+	WebCore/html/parser/HTMLToken.h \
+	WebCore/html/parser/HTMLTokenizer.cpp \
+	WebCore/html/parser/HTMLTokenizer.h \
+	WebCore/html/parser/HTMLTreeBuilder.cpp \
+	WebCore/html/parser/HTMLTreeBuilder.h \
+	WebCore/html/parser/HTMLViewSourceParser.cpp \
+	WebCore/html/parser/HTMLViewSourceParser.h \
 	WebCore/html/ValidityState.cpp \
 	WebCore/html/ValidityState.h \
 	WebCore/html/VoidCallback.h \
@@ -1882,8 +1882,6 @@ webcore_sources += \
 	WebCore/platform/Arena.h \
 	WebCore/platform/AsyncFileStream.h \
 	WebCore/platform/AutodrainedPool.h \
-	WebCore/platform/BlobItem.cpp \
-	WebCore/platform/BlobItem.h \
 	WebCore/platform/ContentType.cpp \
 	WebCore/platform/ContentType.h \
 	WebCore/platform/ContextMenu.cpp \
@@ -2131,7 +2129,6 @@ webcore_sources += \
 	WebCore/platform/network/ResourceRequestBase.h \
 	WebCore/platform/network/ResourceResponseBase.cpp \
 	WebCore/platform/network/ResourceResponseBase.h \
-	WebCore/platform/text/AtomicStringImpl.h \
 	WebCore/platform/text/Base64.cpp \
 	WebCore/platform/text/Base64.h \
 	WebCore/platform/text/BidiContext.cpp \
@@ -2152,8 +2149,6 @@ webcore_sources += \
 	WebCore/platform/text/StringBuffer.h \
 	WebCore/platform/text/StringBuilder.cpp \
 	WebCore/platform/text/StringBuilder.h \
-	WebCore/platform/text/StringHash.h \
-	WebCore/platform/text/StringImpl.h \
 	WebCore/platform/text/SuffixTree.h \
 	WebCore/platform/text/TextBoundaries.h \
 	WebCore/platform/text/TextBoundaries.cpp \
@@ -2271,8 +2266,10 @@ webcore_sources += \
 	WebCore/rendering/RenderIFrame.h \
 	WebCore/rendering/RenderImage.cpp \
 	WebCore/rendering/RenderImage.h \
-	WebCore/rendering/RenderImageGeneratedContent.cpp \
-	WebCore/rendering/RenderImageGeneratedContent.h \
+	WebCore/rendering/RenderImageResource.cpp \
+	WebCore/rendering/RenderImageResource.h \
+	WebCore/rendering/RenderImageResourceStyleImage.cpp \
+	WebCore/rendering/RenderImageResourceStyleImage.h \
 	WebCore/rendering/RenderIndicator.cpp \
 	WebCore/rendering/RenderIndicator.h \
 	WebCore/rendering/RenderInline.cpp \
@@ -2413,6 +2410,7 @@ webcore_sources += \
 	WebCore/rendering/style/StyleMarqueeData.h \
 	WebCore/rendering/style/StyleMultiColData.cpp \
 	WebCore/rendering/style/StyleMultiColData.h \
+	WebCore/rendering/style/StylePendingImage.h \
 	WebCore/rendering/style/StyleRareInheritedData.cpp \
 	WebCore/rendering/style/StyleRareInheritedData.h \
 	WebCore/rendering/style/StyleRareNonInheritedData.cpp \
@@ -2496,7 +2494,7 @@ webcoregtk_sources += \
 	WebCore/platform/gtk/gtkdrawing.h \
 	WebCore/platform/gtk/GtkPluginWidget.cpp \
 	WebCore/platform/gtk/GtkPluginWidget.h \
-	WebCore/platform/gtk/GtkVersioning.cpp \
+	WebCore/platform/gtk/GtkVersioning.c \
 	WebCore/platform/gtk/GtkVersioning.h \
 	WebCore/platform/gtk/KeyEventGtk.cpp \
 	WebCore/platform/gtk/KURLGtk.cpp \
@@ -2791,7 +2789,6 @@ webcore_sources += \
 	WebCore/storage/DatabaseTracker.cpp \
 	WebCore/storage/DatabaseTracker.h \
 	WebCore/storage/DatabaseTrackerClient.h \
-	WebCore/storage/IDBKey.h \
 	WebCore/storage/OriginQuotaManager.cpp \
 	WebCore/storage/OriginQuotaManager.h \
 	WebCore/storage/OriginUsageRecord.cpp \
@@ -2891,47 +2888,50 @@ webcore_sources += \
 	WebCore/storage/IDBAny.cpp \
 	WebCore/storage/IDBAny.h \
 	WebCore/storage/IDBCallbacks.h \
-	WebCore/storage/IDBDatabase.cpp \
-	WebCore/storage/IDBCursor.h \
-	WebCore/storage/IDBCursor.cpp \
 	WebCore/storage/IDBCursorBackendImpl.cpp \
 	WebCore/storage/IDBCursorBackendImpl.h \
 	WebCore/storage/IDBCursorBackendInterface.h \
-	WebCore/storage/IDBDatabase.h \
+	WebCore/storage/IDBCursor.cpp \
+	WebCore/storage/IDBCursor.h \
 	WebCore/storage/IDBDatabaseBackendImpl.cpp \
 	WebCore/storage/IDBDatabaseBackendImpl.h \
 	WebCore/storage/IDBDatabaseBackendInterface.h \
+	WebCore/storage/IDBDatabase.cpp \
 	WebCore/storage/IDBDatabaseError.h \
 	WebCore/storage/IDBDatabaseException.h \
+	WebCore/storage/IDBDatabase.h \
 	WebCore/storage/IDBErrorEvent.cpp \
 	WebCore/storage/IDBErrorEvent.h \
 	WebCore/storage/IDBEvent.cpp \
 	WebCore/storage/IDBEvent.h \
-	WebCore/storage/IDBFactory.cpp \
-	WebCore/storage/IDBFactory.h \
-	WebCore/storage/IDBFactoryBackendInterface.cpp \
-	WebCore/storage/IDBFactoryBackendInterface.h \
 	WebCore/storage/IDBFactoryBackendImpl.cpp \
 	WebCore/storage/IDBFactoryBackendImpl.h
-	WebCore/storage/IDBIndex.cpp \
-	WebCore/storage/IDBIndex.h \
-	WebCore/storage/IDBIndexBackendInterface.h \
+	WebCore/storage/IDBFactoryBackendInterface.cpp \
+	WebCore/storage/IDBFactoryBackendInterface.h \
+	WebCore/storage/IDBFactory.cpp \
+	WebCore/storage/IDBFactory.h \
 	WebCore/storage/IDBIndexBackendImpl.cpp \
 	WebCore/storage/IDBIndexBackendImpl.h \
+	WebCore/storage/IDBIndexBackendInterface.h \
+	WebCore/storage/IDBIndexBackendInterface.h \
+	WebCore/storage/IDBIndex.cpp \
+	WebCore/storage/IDBIndex.h \
+	WebCore/storage/IDBKey.h \
 	WebCore/storage/IDBKeyRange.cpp \
 	WebCore/storage/IDBKeyRange.h \
-	WebCore/storage/IDBObjectStore.cpp \
-	WebCore/storage/IDBObjectStore.h \
 	WebCore/storage/IDBObjectStoreBackendImpl.cpp \
 	WebCore/storage/IDBObjectStoreBackendImpl.h \
 	WebCore/storage/IDBObjectStoreBackendInterface.h \
+	WebCore/storage/IDBObjectStoreBackendInterface.h \
+	WebCore/storage/IDBObjectStore.cpp \
+	WebCore/storage/IDBObjectStore.h \
 	WebCore/storage/IDBRequest.cpp \
 	WebCore/storage/IDBRequest.h \
 	WebCore/storage/IDBSuccessEvent.cpp \
 	WebCore/storage/IDBSuccessEvent.h \
+	WebCore/storage/IDBTransactionBackendInterface.h \
 	WebCore/storage/IDBTransaction.cpp \
-	WebCore/storage/IDBTransaction.h \
-	WebCore/storage/IDBTransactionBackendInterface.h
+	WebCore/storage/IDBTransaction.h
 endif # END ENABLE_INDEXED_DATABASE
 
 # ----
@@ -3026,29 +3026,31 @@ webcore_built_sources += \
        DerivedSources/WebCore/JSMetadataCallback.h
 
 webcore_sources += \
-       WebCore/storage/DirectoryEntry.cpp \
-       WebCore/storage/DirectoryEntry.h \
-       WebCore/storage/DirectoryReader.cpp \
-       WebCore/storage/DirectoryReader.h \
-       WebCore/storage/DOMFilePath.cpp \
-       WebCore/storage/DOMFilePath.h \
-       WebCore/storage/DOMFileSystem.cpp \
-       WebCore/storage/DOMFileSystem.h \
-       WebCore/storage/EntriesCallback.h \
-       WebCore/storage/Entry.cpp \
-       WebCore/storage/Entry.h \
-       WebCore/storage/EntryArray.cpp \
-       WebCore/storage/EntryArray.h \
-       WebCore/storage/EntryCallback.h \
-       WebCore/storage/ErrorCallback.h \
-       WebCore/storage/FileEntry.cpp \
-       WebCore/storage/FileEntry.h \
-       WebCore/storage/FileSystemCallback.h \
-       WebCore/storage/FileSystemCallbacks.cpp \
-       WebCore/storage/FileSystemCallbacks.h \
-       WebCore/storage/Flags.h \
-       WebCore/storage/Metadata.h \
-       WebCore/storage/MetadataCallback.h
+       WebCore/fileapi/DirectoryEntry.cpp \
+       WebCore/fileapi/DirectoryEntry.h \
+       WebCore/fileapi/DirectoryReader.cpp \
+       WebCore/fileapi/DirectoryReader.h \
+       WebCore/fileapi/DOMFilePath.cpp \
+       WebCore/fileapi/DOMFilePath.h \
+       WebCore/fileapi/DOMFileSystem.cpp \
+       WebCore/fileapi/DOMFileSystem.h \
+       WebCore/fileapi/EntriesCallback.h \
+       WebCore/fileapi/Entry.cpp \
+       WebCore/fileapi/Entry.h \
+       WebCore/fileapi/EntryArray.cpp \
+       WebCore/fileapi/EntryArray.h \
+       WebCore/fileapi/EntryCallback.h \
+       WebCore/fileapi/ErrorCallback.h \
+       WebCore/fileapi/FileEntry.cpp \
+       WebCore/fileapi/FileEntry.h \
+       WebCore/fileapi/FileSystemCallback.h \
+       WebCore/fileapi/FileSystemCallbacks.cpp \
+       WebCore/fileapi/FileSystemCallbacks.h \
+       WebCore/fileapi/Flags.h \
+       WebCore/fileapi/LocalFileSystem.cpp \
+       WebCore/fileapi/LocalFileSystem.h \
+       WebCore/fileapi/Metadata.h \
+       WebCore/fileapi/MetadataCallback.h
 
 endif # END ENABLE_FILE_SYSTEM
 
@@ -4441,6 +4443,17 @@ endif  # END ENABLE_BLOB
 if ENABLE_FILE_WRITER
 FEATURE_DEFINES += ENABLE_FILE_WRITER=1
 webcore_cppflags += -DENABLE_FILE_WRITER=1
+
+webcore_built_sources += \
+	DerivedSources/WebCore/JSFileWriter.cpp \
+	DerivedSources/WebCore/JSFileWriter.h
+
+webcore_sources += \
+	WebCore/fileapi/AsyncFileWriter.h \
+	WebCore/fileapi/FileWriterClient.h \
+	WebCore/fileapi/FileWriter.cpp \
+	WebCore/fileapi/FileWriter.h
+
 endif  # END ENABLE_FILE_WRITER
 
 DerivedSources/WebCore/CSSPropertyNames.h: $(WEBCORE_CSS_PROPERTY_NAMES) $(WebCore)/css/makeprop.pl
@@ -4461,8 +4474,8 @@ DerivedSources/WebCore/DocTypeStrings.cpp : $(WebCore)/html/DocTypeStrings.gperf
 	$(PERL) $(WebCore)/make-hash-tools.pl $(GENSOURCES_WEBCORE) $(WebCore)/html/DocTypeStrings.gperf
 
 # HTML entity names
-DerivedSources/WebCore/HTMLEntityTable.cpp : $(WebCore)/html/HTMLEntityNames.json $(WebCore)/../WebKitTools/Scripts/create-html-entity-table
-	$(PYTHON) $(WebCore)/../WebKitTools/Scripts/create-html-entity-table -o $(GENSOURCES_WEBCORE)/HTMLEntityTable.cpp $(WebCore)/html/HTMLEntityNames.json
+DerivedSources/WebCore/HTMLEntityTable.cpp : $(WebCore)/html/parser/HTMLEntityNames.in $(WebCore)/html/parser/create-html-entity-table
+	$(PYTHON) $(WebCore)/html/parser/create-html-entity-table -o $(GENSOURCES_WEBCORE)/HTMLEntityTable.cpp $(WebCore)/html/parser/HTMLEntityNames.in
 
 # color names
 DerivedSources/WebCore/ColorData.cpp: $(WebCore)/platform/ColorData.gperf $(WebCore)/make-hash-tools.pl
@@ -4536,18 +4549,19 @@ IDL_PATH := \
     $(WebCore)/bindings/js \
     $(WebCore)/css \
     $(WebCore)/dom \
+    $(WebCore)/fileapi \
     $(WebCore)/html \
     $(WebCore)/html/canvas \
     $(WebCore)/inspector \
     $(WebCore)/loader/appcache \
     $(WebCore)/notifications \
     $(WebCore)/page \
+    $(WebCore)/plugins \
     $(WebCore)/storage \
     $(WebCore)/svg \
-    $(WebCore)/xml \
-    $(WebCore)/plugins \
     $(WebCore)/websockets \
-    $(WebCore)/workers
+    $(WebCore)/workers \
+    $(WebCore)/xml
 
 vpath %.idl = $(IDL_PATH)
 
@@ -4560,6 +4574,7 @@ DerivedSources/WebCore/JS%.cpp: %.idl $(SCRIPTS_BINDINGS) $(WebCore)/bindings/sc
 EXTRA_DIST += \
 	$(shell ls $(srcdir)/WebCore/css/*.idl) \
 	$(shell ls $(srcdir)/WebCore/dom/*.idl) \
+	$(shell ls $(srcdir)/WebCore/fileapi/*.idl) \
 	$(shell ls $(srcdir)/WebCore/html/canvas/*.idl) \
 	$(shell ls $(srcdir)/WebCore/html/*.idl) \
 	$(shell ls $(srcdir)/WebCore/inspector/*.idl) \
@@ -4603,8 +4618,9 @@ EXTRA_DIST += \
 	WebCore/dom/make_names.pl \
 	WebCore/html/DocTypeStrings.gperf \
 	WebCore/html/HTMLAttributeNames.in \
-	WebCore/html/HTMLEntityNames.gperf \
 	WebCore/html/HTMLTagNames.in \
+	WebCore/html/parser/create-html-entity-table \
+	WebCore/html/parser/HTMLEntityNames.in \
 	WebCore/icu/LICENSE \
 	WebCore/inspector/CodeGeneratorInspector.pm \
 	WebCore/LICENSE-APPLE \

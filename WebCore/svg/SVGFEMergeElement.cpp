@@ -27,13 +27,14 @@
 
 namespace WebCore {
 
-SVGFEMergeElement::SVGFEMergeElement(const QualifiedName& tagName, Document* doc)
-    : SVGFilterPrimitiveStandardAttributes(tagName, doc)
+inline SVGFEMergeElement::SVGFEMergeElement(const QualifiedName& tagName, Document* document)
+    : SVGFilterPrimitiveStandardAttributes(tagName, document)
 {
 }
 
-SVGFEMergeElement::~SVGFEMergeElement()
+PassRefPtr<SVGFEMergeElement> SVGFEMergeElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGFEMergeElement(tagName, document));
 }
 
 PassRefPtr<FilterEffect> SVGFEMergeElement::build(SVGFilterBuilder* filterBuilder)

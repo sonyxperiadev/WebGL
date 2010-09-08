@@ -72,8 +72,12 @@ WebInspector.DOMNode = function(doc, payload) {
         this.publicId = payload.publicId;
         this.systemId = payload.systemId;
         this.internalSubset = payload.internalSubset;
-    } else if (this.nodeType === Node.DOCUMENT_NODE)
+    } else if (this.nodeType === Node.DOCUMENT_NODE) {
         this.documentURL = payload.documentURL;
+    } else if (this.nodeType === Node.ATTRIBUTE_NODE) {
+        this.name = payload.name;
+        this.value = payload.value;
+    }
 }
 
 WebInspector.DOMNode.prototype = {
@@ -306,26 +310,25 @@ WebInspector.DOMAgent.prototype = {
         function mycallback() {
             callback(parent.children);
         }
-        var callId = WebInspector.Callback.wrap(mycallback);
-        InspectorBackend.getChildNodes(callId, parent.id);
+        InspectorBackend.getChildNodes(parent.id, mycallback);
     },
 
     setAttributeAsync: function(node, name, value, callback)
     {
         var mycallback = this._didApplyDomChange.bind(this, node, callback);
-        InspectorBackend.setAttribute(WebInspector.Callback.wrap(mycallback), node.id, name, value);
+        InspectorBackend.setAttribute(node.id, name, value, mycallback);
     },
 
     removeAttributeAsync: function(node, name, callback)
     {
         var mycallback = this._didApplyDomChange.bind(this, node, callback);
-        InspectorBackend.removeAttribute(WebInspector.Callback.wrap(mycallback), node.id, name);
+        InspectorBackend.removeAttribute(node.id, name, mycallback);
     },
 
     setTextNodeValueAsync: function(node, text, callback)
     {
         var mycallback = this._didApplyDomChange.bind(this, node, callback);
-        InspectorBackend.setTextNodeValue(WebInspector.Callback.wrap(mycallback), node.id, text);
+        InspectorBackend.setTextNodeValue(node.id, text, mycallback);
     },
 
     _didApplyDomChange: function(node, callback, success)
@@ -429,8 +432,7 @@ WebInspector.ApplicationCache.getApplicationCachesAsync = function(callback)
             callback(applicationCaches);
     }
 
-    var callId = WebInspector.Callback.wrap(mycallback);
-    InspectorBackend.getApplicationCaches(callId);
+    InspectorBackend.getApplicationCaches(mycallback);
 }
 
 WebInspector.Cookies = {}
@@ -445,8 +447,7 @@ WebInspector.Cookies.getCookiesAsync = function(callback)
             callback(cookies, true);
     }
 
-    var callId = WebInspector.Callback.wrap(mycallback);
-    InspectorBackend.getCookies(callId);
+    InspectorBackend.getCookies(mycallback);
 }
 
 WebInspector.Cookies.buildCookiesFromString = function(rawCookieString)
@@ -496,9 +497,7 @@ WebInspector.EventListeners.getEventListenersForNodeAsync = function(node, callb
 {
     if (!node)
         return;
-
-    var callId = WebInspector.Callback.wrap(callback);
-    InspectorBackend.getEventListenersForNode(callId, node.id);
+    InspectorBackend.getEventListenersForNode(node.id, callback);
 }
 
 WebInspector.CSSStyleDeclaration = function(payload)
@@ -697,6 +696,13 @@ WebInspector.DOMBreakpointManager.prototype = {
         this.dispatchEventToListeners("dom-breakpoint-added", breakpoint);
     },
 
+    findBreakpoint: function(nodeId, type)
+    {
+        var nodeBreakpoints = this._breakpoints[nodeId];
+        if (nodeBreakpoints && type in nodeBreakpoints)
+            return nodeBreakpoints[type];
+    },
+
     removeBreakpointsForNode: function(node)
     {
         var nodeBreakpoints = this._breakpoints[node.id];
@@ -733,10 +739,27 @@ WebInspector.DOMBreakpoint.Types = {
     NodeRemoved: 2
 };
 
-WebInspector.DOMBreakpoint.Labels = {};
-WebInspector.DOMBreakpoint.Labels[WebInspector.DOMBreakpoint.Types.SubtreeModified] = WebInspector.UIString("Subtree Modified");
-WebInspector.DOMBreakpoint.Labels[WebInspector.DOMBreakpoint.Types.AttributeModified] = WebInspector.UIString("Attribute Modified");
-WebInspector.DOMBreakpoint.Labels[WebInspector.DOMBreakpoint.Types.NodeRemoved] = WebInspector.UIString("Node Removed");
+WebInspector.DOMBreakpoint.labelForType = function(type)
+{
+    if (!WebInspector.DOMBreakpoint._labels) {
+        WebInspector.DOMBreakpoint._labels = {};
+        WebInspector.DOMBreakpoint._labels[WebInspector.DOMBreakpoint.Types.SubtreeModified] = WebInspector.UIString("Subtree Modified");
+        WebInspector.DOMBreakpoint._labels[WebInspector.DOMBreakpoint.Types.AttributeModified] = WebInspector.UIString("Attribute Modified");
+        WebInspector.DOMBreakpoint._labels[WebInspector.DOMBreakpoint.Types.NodeRemoved] = WebInspector.UIString("Node Removed");
+    }
+    return WebInspector.DOMBreakpoint._labels[type];
+}
+
+WebInspector.DOMBreakpoint.contextMenuLabelForType = function(type)
+{
+    if (!WebInspector.DOMBreakpoint._contextMenuLabels) {
+        WebInspector.DOMBreakpoint._contextMenuLabels = {};
+        WebInspector.DOMBreakpoint._contextMenuLabels[WebInspector.DOMBreakpoint.Types.SubtreeModified] = WebInspector.UIString("Break on Subtree Modifications");
+        WebInspector.DOMBreakpoint._contextMenuLabels[WebInspector.DOMBreakpoint.Types.AttributeModified] = WebInspector.UIString("Break on Attributes Modifications");
+        WebInspector.DOMBreakpoint._contextMenuLabels[WebInspector.DOMBreakpoint.Types.NodeRemoved] = WebInspector.UIString("Break on Node Removal");
+    }
+    return WebInspector.DOMBreakpoint._contextMenuLabels[type];
+}
 
 WebInspector.DOMBreakpoint.prototype = {
     get enabled()

@@ -25,13 +25,14 @@
 
 namespace WebCore {
 
-SVGFEFuncAElement::SVGFEFuncAElement(const QualifiedName& tagName, Document* doc)
-    : SVGComponentTransferFunctionElement(tagName, doc)
+inline SVGFEFuncAElement::SVGFEFuncAElement(const QualifiedName& tagName, Document* document)
+    : SVGComponentTransferFunctionElement(tagName, document)
 {
 }
 
-SVGFEFuncAElement::~SVGFEFuncAElement()
+PassRefPtr<SVGFEFuncAElement> SVGFEFuncAElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGFEFuncAElement(tagName, document));
 }
 
 }

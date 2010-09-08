@@ -40,15 +40,16 @@ namespace WebCore {
     
 using namespace SVGNames;
 
-SVGAnimateMotionElement::SVGAnimateMotionElement(const QualifiedName& tagName, Document* doc)
-    : SVGAnimationElement(tagName, doc)
+inline SVGAnimateMotionElement::SVGAnimateMotionElement(const QualifiedName& tagName, Document* document)
+    : SVGAnimationElement(tagName, document)
     , m_baseIndexInTransformList(0)
     , m_angle(0)
 {
 }
 
-SVGAnimateMotionElement::~SVGAnimateMotionElement()
+PassRefPtr<SVGAnimateMotionElement> SVGAnimateMotionElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGAnimateMotionElement(tagName, document));
 }
 
 bool SVGAnimateMotionElement::hasValidTarget() const

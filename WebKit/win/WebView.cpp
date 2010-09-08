@@ -910,7 +910,7 @@ void WebView::updateBackingStore(FrameView* frameView, HDC dc, bool backingStore
         // Do a layout first so that everything we render to the backing store is always current.
         if (Frame* coreFrame = core(m_mainFrame))
             if (FrameView* view = coreFrame->view())
-                view->layoutIfNeededRecursive();
+                view->updateLayoutAndStyleIfNeededRecursive();
 
         Vector<IntRect> paintRects;
         if (!backingStoreCompletelyDirty && m_backingStoreDirtyRegion) {
@@ -2193,6 +2193,7 @@ LRESULT CALLBACK WebView::WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam,
             break;
         case WM_MOUSEACTIVATE:
             webView->setMouseActivated(true);
+            handled = false;
             break;
         case WM_GETDLGCODE: {
             COMPtr<IWebUIDelegate> uiDelegate;

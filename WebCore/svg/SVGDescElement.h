@@ -30,10 +30,12 @@ namespace WebCore {
     class SVGDescElement : public SVGStyledElement,
                            public SVGLangSpace {
     public:
-        SVGDescElement(const QualifiedName&, Document*);
-        virtual ~SVGDescElement();
+        static PassRefPtr<SVGDescElement> create(const QualifiedName&, Document*);
 
         String description() const;
+
+    private:
+        SVGDescElement(const QualifiedName&, Document*);
 
         virtual bool rendererIsNeeded(RenderStyle*) { return false; }
     };

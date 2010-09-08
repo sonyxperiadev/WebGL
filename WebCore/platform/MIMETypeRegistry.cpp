@@ -279,6 +279,10 @@ static MediaMIMETypeMap& mediaMIMETypeMap()
         { "video/annodex", "axv" },
         { "audio/speex", "spx" },
 
+        // WebM
+        { "video/webm", "webm" },
+        { "audio/webm", "webm" },
+
         // MPEG
         { "audio/mpeg", "m1a" },
         { "audio/mpeg", "m2a" },

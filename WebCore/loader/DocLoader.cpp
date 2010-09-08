@@ -180,6 +180,7 @@ CachedXSLStyleSheet* DocLoader::requestXSLStyleSheet(const String& url)
 #if ENABLE(LINK_PREFETCH)
 CachedResource* DocLoader::requestLinkPrefetch(const String& url)
 {
+    ASSERT(frame());
     return requestResource(CachedResource::LinkPrefetch, url, String());
 }
 #endif
@@ -473,7 +474,7 @@ void DocLoader::requestPreload(CachedResource::Type type, const String& url, con
     resource->increasePreloadCount();
 
     if (!m_preloads)
-        m_preloads.set(new ListHashSet<CachedResource*>);
+        m_preloads = adoptPtr(new ListHashSet<CachedResource*>);
     m_preloads->add(resource);
 
 #if PRELOAD_DEBUG

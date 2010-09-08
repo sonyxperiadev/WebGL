@@ -40,8 +40,12 @@ class SVGFEImageElement : public SVGFilterPrimitiveStandardAttributes,
                           public SVGExternalResourcesRequired,
                           public CachedResourceClient {
 public:
-    SVGFEImageElement(const QualifiedName&, Document*);
+    static PassRefPtr<SVGFEImageElement> create(const QualifiedName&, Document*);
+
     virtual ~SVGFEImageElement();
+
+private:
+    SVGFEImageElement(const QualifiedName&, Document*);
 
     virtual void parseMappedAttribute(Attribute*);
     virtual void synchronizeProperty(const QualifiedName&);
@@ -50,7 +54,6 @@ public:
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
     virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*);
 
-private:
     void requestImageResource();
 
     DECLARE_ANIMATED_PROPERTY(SVGFEImageElement, SVGNames::preserveAspectRatioAttr, SVGPreserveAspectRatio, PreserveAspectRatio, preserveAspectRatio)

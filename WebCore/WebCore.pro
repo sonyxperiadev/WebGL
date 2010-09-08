@@ -191,9 +191,11 @@ WEBCORE_INCLUDEPATH = \
     $$PWD/dom \
     $$PWD/dom/default \
     $$PWD/editing \
+    $$PWD/fileapi \
     $$PWD/history \
     $$PWD/html \
     $$PWD/html/canvas \
+    $$PWD/html/parser \
     $$PWD/inspector \
     $$PWD/loader \
     $$PWD/loader/appcache \
@@ -618,6 +620,17 @@ SOURCES += \
     editing/VisibleSelection.cpp \
     editing/visible_units.cpp \
     editing/WrapContentsInDummySpanCommand.cpp \
+    fileapi/Blob.cpp \
+    fileapi/BlobBuilder.cpp \
+    fileapi/BlobURL.cpp \
+    fileapi/File.cpp \
+    fileapi/FileList.cpp \
+    fileapi/FileReader.cpp \
+    fileapi/FileReaderSync.cpp \
+    fileapi/FileStreamProxy.cpp \
+    fileapi/FileThread.cpp \
+    fileapi/FileWriter.cpp \
+    fileapi/ThreadableBlobRegistry.cpp \
     history/BackForwardController.cpp \
     history/BackForwardListImpl.cpp \
     history/CachedFrame.cpp \
@@ -626,74 +639,48 @@ SOURCES += \
     history/qt/HistoryItemQt.cpp \
     history/PageCache.cpp \
     html/AsyncImageResizer.cpp \
-    html/Blob.cpp \
-    html/BlobBuilder.cpp \
-    html/BlobURL.cpp \
-    html/canvas/CanvasGradient.cpp \
-    html/canvas/CanvasPattern.cpp \
-    html/canvas/CanvasPixelArray.cpp \
-    html/canvas/CanvasRenderingContext.cpp \
-    html/canvas/CanvasRenderingContext2D.cpp \
-    html/canvas/CanvasStyle.cpp \
     html/CollectionCache.cpp \
-    html/CSSPreloadScanner.cpp \
+    html/DOMDataGridDataSource.cpp \
+    html/DOMFormData.cpp \
     html/DataGridColumn.cpp \
     html/DataGridColumnList.cpp \
     html/DateComponents.cpp \
-    html/DOMDataGridDataSource.cpp \
-    html/DOMFormData.cpp \
-    html/File.cpp \
-    html/FileList.cpp \
-    html/FileReader.cpp \
-    html/FileStreamProxy.cpp \
-    html/FileThread.cpp \
-    html/FileWriter.cpp \
     html/FormDataList.cpp \
-    html/HTMLEntityParser.cpp \
-    html/HTMLTokenizer.cpp \
-    html/HTMLDocumentParser.cpp \
-    html/HTMLPreloadScanner.cpp \
-    html/HTMLScriptRunner.cpp \
-    html/HTMLTreeBuilder.cpp \
     html/HTMLAllCollection.cpp \
     html/HTMLAnchorElement.cpp \
     html/HTMLAppletElement.cpp \
     html/HTMLAreaElement.cpp \
+    html/HTMLBRElement.cpp \
     html/HTMLBaseElement.cpp \
     html/HTMLBaseFontElement.cpp \
     html/HTMLBlockquoteElement.cpp \
     html/HTMLBodyElement.cpp \
-    html/HTMLBRElement.cpp \
     html/HTMLButtonElement.cpp \
     html/HTMLCanvasElement.cpp \
     html/HTMLCollection.cpp \
-    html/HTMLConstructionSite.cpp \
-    html/HTMLDataGridElement.cpp \
+    html/HTMLDListElement.cpp \
     html/HTMLDataGridCellElement.cpp \
     html/HTMLDataGridColElement.cpp \
+    html/HTMLDataGridElement.cpp \
     html/HTMLDataGridRowElement.cpp \
     html/HTMLDataListElement.cpp \
     html/HTMLDirectoryElement.cpp \
     html/HTMLDivElement.cpp \
-    html/HTMLDListElement.cpp \
     html/HTMLDocument.cpp \
     html/HTMLElement.cpp \
-    html/HTMLElementStack.cpp \
-    html/HTMLEntitySearch.cpp \
     html/HTMLEmbedElement.cpp \
     html/HTMLFieldSetElement.cpp \
     html/HTMLFontElement.cpp \
-    html/HTMLFormattingElementList.cpp \
     html/HTMLFormCollection.cpp \
+    html/HTMLFormControlElement.cpp \
     html/HTMLFormElement.cpp \
-    html/HTMLFrameElementBase.cpp \
     html/HTMLFrameElement.cpp \
+    html/HTMLFrameElementBase.cpp \
     html/HTMLFrameOwnerElement.cpp \
     html/HTMLFrameSetElement.cpp \
-    html/HTMLFormControlElement.cpp \
+    html/HTMLHRElement.cpp \
     html/HTMLHeadElement.cpp \
     html/HTMLHeadingElement.cpp \
-    html/HTMLHRElement.cpp \
     html/HTMLHtmlElement.cpp \
     html/HTMLIFrameElement.cpp \
     html/HTMLImageElement.cpp \
@@ -701,9 +688,9 @@ SOURCES += \
     html/HTMLInputElement.cpp \
     html/HTMLIsIndexElement.cpp \
     html/HTMLKeygenElement.cpp \
+    html/HTMLLIElement.cpp \
     html/HTMLLabelElement.cpp \
     html/HTMLLegendElement.cpp \
-    html/HTMLLIElement.cpp \
     html/HTMLLinkElement.cpp \
     html/HTMLMapElement.cpp \
     html/HTMLMarqueeElement.cpp \
@@ -712,15 +699,14 @@ SOURCES += \
     html/HTMLMeterElement.cpp \
     html/HTMLModElement.cpp \
     html/HTMLNameCollection.cpp \
-    html/HTMLObjectElement.cpp \
     html/HTMLOListElement.cpp \
+    html/HTMLObjectElement.cpp \
     html/HTMLOptGroupElement.cpp \
     html/HTMLOptionElement.cpp \
     html/HTMLOptionsCollection.cpp \
     html/HTMLParagraphElement.cpp \
     html/HTMLParamElement.cpp \
     html/HTMLParserErrorCodes.cpp \
-    html/HTMLParserScheduler.cpp \
     html/HTMLPlugInElement.cpp \
     html/HTMLPlugInImageElement.cpp \
     html/HTMLPreElement.cpp \
@@ -741,13 +727,30 @@ SOURCES += \
     html/HTMLTitleElement.cpp \
     html/HTMLUListElement.cpp \
     html/HTMLViewSourceDocument.cpp \
-    html/HTMLViewSourceParser.cpp \
     html/ImageData.cpp \
     html/ImageResizerThread.cpp \
     html/LabelsNodeList.cpp \
-    html/ThreadableBlobRegistry.cpp \
     html/StepRange.cpp \
     html/ValidityState.cpp \
+    html/canvas/CanvasGradient.cpp \
+    html/canvas/CanvasPattern.cpp \
+    html/canvas/CanvasPixelArray.cpp \
+    html/canvas/CanvasRenderingContext.cpp \
+    html/canvas/CanvasRenderingContext2D.cpp \
+    html/canvas/CanvasStyle.cpp \
+    html/parser/CSSPreloadScanner.cpp \
+    html/parser/HTMLConstructionSite.cpp \
+    html/parser/HTMLDocumentParser.cpp \
+    html/parser/HTMLElementStack.cpp \
+    html/parser/HTMLEntityParser.cpp \
+    html/parser/HTMLEntitySearch.cpp \
+    html/parser/HTMLFormattingElementList.cpp \
+    html/parser/HTMLParserScheduler.cpp \
+    html/parser/HTMLPreloadScanner.cpp \
+    html/parser/HTMLScriptRunner.cpp \
+    html/parser/HTMLTokenizer.cpp \
+    html/parser/HTMLTreeBuilder.cpp \
+    html/parser/HTMLViewSourceParser.cpp \
     inspector/ConsoleMessage.cpp \
     inspector/InjectedScript.cpp \
     inspector/InjectedScriptHost.cpp \
@@ -874,7 +877,6 @@ SOURCES += \
     platform/animation/Animation.cpp \
     platform/animation/AnimationList.cpp \
     platform/Arena.cpp \
-    platform/BlobItem.cpp \
     platform/text/Base64.cpp \
     platform/text/BidiContext.cpp \
     platform/text/Hyphenation.cpp \
@@ -1013,7 +1015,8 @@ SOURCES += \
     rendering/RenderHTMLCanvas.cpp \
     rendering/RenderIFrame.cpp \
     rendering/RenderImage.cpp \
-    rendering/RenderImageGeneratedContent.cpp \
+    rendering/RenderImageResource.cpp \
+    rendering/RenderImageResourceStyleImage.cpp \
     rendering/RenderIndicator.cpp \
     rendering/RenderInline.cpp \
     rendering/RenderLayer.cpp \
@@ -1156,6 +1159,7 @@ HEADERS += \
     bindings/js/ScriptEventListener.h \
     bindings/js/ScriptFunctionCall.h \
     bindings/js/ScriptGCEvent.h \
+    bindings/js/ScriptHeapSnapshot.h \
     bindings/js/ScriptObject.h \
     bindings/js/ScriptProfile.h \
     bindings/js/ScriptProfileNode.h \
@@ -1395,6 +1399,21 @@ HEADERS += \
     editing/VisibleSelection.h \
     editing/visible_units.h \
     editing/WrapContentsInDummySpanCommand.h \
+    fileapi/AsyncFileWriter.h \
+    fileapi/Blob.h \
+    fileapi/BlobBuilder.h \
+    fileapi/BlobURL.h \
+    fileapi/File.h \
+    fileapi/FileError.h \
+    fileapi/FileException.h \
+    fileapi/FileList.h \
+    fileapi/FileReader.h \
+    fileapi/FileReaderSync.h \
+    fileapi/FileStreamProxy.h \
+    fileapi/FileThread.h \
+    fileapi/FileThreadTask.h \
+    fileapi/FileWriter.h \
+    fileapi/FileWriterClient.h \
     history/BackForwardController.h \
     history/BackForwardControllerClient.h \
     history/BackForwardListImpl.h \
@@ -1404,9 +1423,6 @@ HEADERS += \
     history/HistoryItem.h \
     history/PageCache.h \
     html/AsyncImageResizer.h \
-    html/Blob.h \
-    html/BlobBuilder.h \
-    html/BlobURL.h \
     html/canvas/CanvasGradient.h \
     html/canvas/CanvasPattern.h \
     html/canvas/CanvasPixelArray.h \
@@ -1419,14 +1435,6 @@ HEADERS += \
     html/DateComponents.h \
     html/DOMDataGridDataSource.h \
     html/DOMFormData.h \
-    html/File.h \
-    html/FileError.h \
-    html/FileList.h \
-    html/FileReader.h \
-    html/FileStreamProxy.h \
-    html/FileThread.h \
-    html/FileThreadTask.h \
-    html/FileWriter.h \
     html/FormDataList.h \
     html/HTMLAllCollection.h \
     html/HTMLAnchorElement.h \
@@ -1513,13 +1521,28 @@ HEADERS += \
     html/HTMLUListElement.h \
     html/HTMLVideoElement.h \
     html/HTMLViewSourceDocument.h \
-    html/HTMLViewSourceParser.h \
     html/ImageData.h \
     html/ImageResizerThread.h \
     html/LabelsNodeList.h \
     html/StepRange.h \
     html/TimeRanges.h \
     html/ValidityState.h \
+    html/parser/CSSPreloadScanner.h \
+    html/parser/HTMLConstructionSite.h \
+    html/parser/HTMLDocumentParser.h \
+    html/parser/HTMLElementStack.h \
+    html/parser/HTMLEntityParser.h \
+    html/parser/HTMLEntitySearch.h \
+    html/parser/HTMLEntityTable.h \
+    html/parser/HTMLFormattingElementList.h \
+    html/parser/HTMLParserScheduler.h \
+    html/parser/HTMLPreloadScanner.h \
+    html/parser/HTMLScriptRunner.h \
+    html/parser/HTMLScriptRunnerHost.h \
+    html/parser/HTMLToken.h \
+    html/parser/HTMLTokenizer.h \
+    html/parser/HTMLTreeBuilder.h \
+    html/parser/HTMLViewSourceParser.h \
     inspector/ConsoleMessage.h \
     inspector/InjectedScript.h \
     inspector/InjectedScriptHost.h \
@@ -1658,7 +1681,6 @@ HEADERS += \
     platform/animation/AnimationList.h \
     platform/Arena.h \
     platform/AsyncFileStream.h \
-    platform/BlobItem.h \
     platform/ContentType.h \
     platform/ContextMenu.h \
     platform/CrossThreadCopier.h \
@@ -1840,7 +1862,8 @@ HEADERS += \
     rendering/RenderFrameSet.h \
     rendering/RenderHTMLCanvas.h \
     rendering/RenderIFrame.h \
-    rendering/RenderImageGeneratedContent.h \
+    rendering/RenderImageResource.h \
+    rendering/RenderImageResourceStyleImage.h \
     rendering/RenderImage.h \
     rendering/RenderIndicator.h \
     rendering/RenderInline.h \
@@ -2196,6 +2219,7 @@ HEADERS += \
     $$PWD/../WebKit/qt/WebCoreSupport/QtFallbackWebPopup.h \
     $$PWD/../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/FrameNetworkingContextQt.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/GeolocationPermissionClientQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/PageClientQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/QtPlatformPlugin.h \
@@ -2288,6 +2312,7 @@ SOURCES += \
     ../WebKit/qt/WebCoreSupport/EditCommandQt.cpp \
     ../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/FrameNetworkingContextQt.cpp \
+    ../WebKit/qt/WebCoreSupport/GeolocationPermissionClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/InspectorClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/PageClientQt.cpp \
@@ -2387,6 +2412,7 @@ contains(DEFINES, ENABLE_NETSCAPE_PLUGIN_API=1) {
                 HEADERS += \
                     plugins/qt/PluginContainerQt.h
                 DEFINES += XP_UNIX
+                DEFINES += ENABLE_NETSCAPE_PLUGIN_METADATA_CACHE=1
             }
         }
     
@@ -2581,31 +2607,37 @@ contains(DEFINES, ENABLE_DOM_STORAGE=1) {
 
 contains(DEFINES, ENABLE_FILE_SYSTEM=1) {
     HEADERS += \
-        storage/DirectoryEntry.h \
-        storage/DirectoryReader.h \
-        storage/DOMFilePath.h \
-        storage/DOMFileSystem.h \
-        storage/EntriesCallback.h \
-        storage/Entry.h \
-        storage/EntryArray.h \
-        storage/EntryCallback.h \
-        storage/ErrorCallback.h \
-        storage/FileEntry.h \
-        storage/FileSystemCallback.h \
-        storage/FileSystemCallbacks.h \
-        storage/Flags.h \
-        storage/Metadata.h \
-        storage/MetadataCallback.h
+        fileapi/DirectoryEntry.h \
+        fileapi/DirectoryReader.h \
+        fileapi/DOMFilePath.h \
+        fileapi/DOMFileSystem.h \
+        fileapi/EntriesCallback.h \
+        fileapi/Entry.h \
+        fileapi/EntryArray.h \
+        fileapi/EntryCallback.h \
+        fileapi/ErrorCallback.h \
+        fileapi/FileEntry.h \
+        fileapi/FileSystemCallback.h \
+        fileapi/FileSystemCallbacks.h \
+        fileapi/FileWriterCallback.h \
+        fileapi/Flags.h \
+        fileapi/LocalFileSystem.h \
+        fileapi/Metadata.h \
+        fileapi/MetadataCallback.h \
+        platform/AsyncFileSystem.h \
+        platform/AsyncFileSystemCallbacks.h
 
     SOURCES += \
-        storage/DirectoryEntry.cpp \
-        storage/DirectoryReader.cpp \
-        storage/DOMFilePath.cpp \
-        storage/DOMFileSystem.cpp \
-        storage/Entry.cpp \
-        storage/EntryArray.cpp \
-        storage/FileEntry.cpp \
-        storage/FileSystemCallbacks.cpp
+        fileapi/DirectoryEntry.cpp \
+        fileapi/DirectoryReader.cpp \
+        fileapi/DOMFilePath.cpp \
+        fileapi/DOMFileSystem.cpp \
+        fileapi/Entry.cpp \
+        fileapi/EntryArray.cpp \
+        fileapi/FileEntry.cpp \
+        fileapi/FileSystemCallbacks.cpp \
+        fileapi/LocalFileSystem.cpp \
+        platform/AsyncFileSystem.cpp
 }
 
 contains(DEFINES, ENABLE_ICONDATABASE=1) {

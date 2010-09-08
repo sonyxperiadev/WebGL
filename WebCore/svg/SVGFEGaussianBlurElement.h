@@ -32,16 +32,17 @@ extern char SVGStdDeviationYAttrIdentifier[];
 
 class SVGFEGaussianBlurElement : public SVGFilterPrimitiveStandardAttributes {
 public:
-    SVGFEGaussianBlurElement(const QualifiedName&, Document*);
-    virtual ~SVGFEGaussianBlurElement();
+    static PassRefPtr<SVGFEGaussianBlurElement> create(const QualifiedName&, Document*);
 
     void setStdDeviation(float stdDeviationX, float stdDeviationY);
+
+private:
+    SVGFEGaussianBlurElement(const QualifiedName&, Document*);
 
     virtual void parseMappedAttribute(Attribute*);
     virtual void synchronizeProperty(const QualifiedName&);
     virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*);
 
-private:
     DECLARE_ANIMATED_PROPERTY(SVGFEGaussianBlurElement, SVGNames::inAttr, String, In1, in1)
     DECLARE_ANIMATED_PROPERTY_MULTIPLE_WRAPPERS(SVGFEGaussianBlurElement, SVGNames::stdDeviationAttr, SVGStdDeviationXAttrIdentifier, float, StdDeviationX, stdDeviationX)
     DECLARE_ANIMATED_PROPERTY_MULTIPLE_WRAPPERS(SVGFEGaussianBlurElement, SVGNames::stdDeviationAttr, SVGStdDeviationYAttrIdentifier, float, StdDeviationY, stdDeviationY)

@@ -218,6 +218,8 @@ public:
 
     // Grants permission for desktop notifications to an origin
     void grantDesktopNotificationPermission(const CppArgumentList&, CppVariant*);
+    // Simulates a click on a desktop notification.
+    void simulateDesktopNotificationClick(const CppArgumentList&, CppVariant*);
 
     void setEditingBehavior(const CppArgumentList&, CppVariant*);
 
@@ -309,6 +311,8 @@ public:
 
     // Speech input related functions.
     void setMockSpeechInputResult(const CppArgumentList&, CppVariant*);
+
+    void markerTextForListItem(const CppArgumentList&, CppVariant*);
 
 public:
     // The following methods are not exposed to JavaScript.

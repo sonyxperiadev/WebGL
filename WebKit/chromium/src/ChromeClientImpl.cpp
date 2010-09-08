@@ -712,6 +712,13 @@ void ChromeClientImpl::didChangeAccessibilityObjectState(AccessibilityObject* ob
         m_webView->client()->didChangeAccessibilityObjectState(WebAccessibilityObject(obj));
 }
 
+void ChromeClientImpl::didChangeAccessibilityObjectChildren(WebCore::AccessibilityObject* obj)
+{
+    // Alert assistive technology about the accessibility object children change
+    if (obj)
+        m_webView->client()->didChangeAccessibilityObjectChildren(WebAccessibilityObject(obj));
+}
+
 #if ENABLE(NOTIFICATIONS)
 NotificationPresenter* ChromeClientImpl::notificationPresenter() const
 {
@@ -741,18 +748,6 @@ void ChromeClientImpl::attachRootGraphicsLayer(Frame* frame, GraphicsLayer* grap
 void ChromeClientImpl::scheduleCompositingLayerSync()
 {
     m_webView->setRootLayerNeedsDisplay();
-}
-#endif
-
-#if USE(GLES2_RENDERING)
-PassOwnPtr<GLES2Context> ChromeClientImpl::getOnscreenGLES2Context()
-{
-    return m_webView->getOnscreenGLES2Context();
-}
-
-PassOwnPtr<GLES2Context> ChromeClientImpl::getOffscreenGLES2Context()
-{
-    return m_webView->getOffscreenGLES2Context();
 }
 #endif
 

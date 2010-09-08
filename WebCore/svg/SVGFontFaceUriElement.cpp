@@ -36,9 +36,14 @@ namespace WebCore {
     
 using namespace SVGNames;
     
-SVGFontFaceUriElement::SVGFontFaceUriElement(const QualifiedName& tagName, Document* doc)
-    : SVGElement(tagName, doc)
+inline SVGFontFaceUriElement::SVGFontFaceUriElement(const QualifiedName& tagName, Document* document)
+    : SVGElement(tagName, document)
 {
+}
+
+PassRefPtr<SVGFontFaceUriElement> SVGFontFaceUriElement::create(const QualifiedName& tagName, Document* document)
+{
+    return adoptRef(new SVGFontFaceUriElement(tagName, document));
 }
 
 SVGFontFaceUriElement::~SVGFontFaceUriElement()

@@ -183,7 +183,7 @@ WebInspector.EventListenerBar = function(eventListener, nodeId)
     this._setFunctionSubtitle();
     this.editable = false;
     this.element.className = "event-bar"; /* Changed from "section" */
-    this.propertiesElement.className = "event-properties"; /* Changed from "properties" */
+    this.propertiesElement.className = "event-properties source-code"; /* Changed from "properties" */
 }
 
 WebInspector.EventListenerBar.prototype = {
@@ -196,7 +196,7 @@ WebInspector.EventListenerBar.prototype = {
                 properties.push(new WebInspector.RemoteObjectProperty("node", nodeObject));
 
             for (var propertyName in this.eventListener) {
-                var value = WebInspector.RemoteObject.fromPrimitiveValue(value);
+                var value = WebInspector.RemoteObject.fromPrimitiveValue(this.eventListener[propertyName]);
                 properties.push(new WebInspector.RemoteObjectProperty(propertyName, value));
             }
             this.updateProperties(properties);

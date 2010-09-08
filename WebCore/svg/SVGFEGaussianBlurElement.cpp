@@ -32,13 +32,14 @@ namespace WebCore {
 char SVGStdDeviationXAttrIdentifier[] = "SVGStdDeviationXAttr";
 char SVGStdDeviationYAttrIdentifier[] = "SVGStdDeviationYAttr";
 
-SVGFEGaussianBlurElement::SVGFEGaussianBlurElement(const QualifiedName& tagName, Document* doc)
-    : SVGFilterPrimitiveStandardAttributes(tagName, doc)
+inline SVGFEGaussianBlurElement::SVGFEGaussianBlurElement(const QualifiedName& tagName, Document* document)
+    : SVGFilterPrimitiveStandardAttributes(tagName, document)
 {
 }
 
-SVGFEGaussianBlurElement::~SVGFEGaussianBlurElement()
+PassRefPtr<SVGFEGaussianBlurElement> SVGFEGaussianBlurElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGFEGaussianBlurElement(tagName, document));
 }
 
 void SVGFEGaussianBlurElement::setStdDeviation(float, float)

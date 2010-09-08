@@ -35,8 +35,10 @@ class SVGClipPathElement : public SVGStyledTransformableElement,
                            public SVGLangSpace,
                            public SVGExternalResourcesRequired {
 public:
+    static PassRefPtr<SVGClipPathElement> create(const QualifiedName&, Document*);
+
+private:
     SVGClipPathElement(const QualifiedName&, Document*);
-    virtual ~SVGClipPathElement();
 
     virtual bool isValid() const { return SVGTests::isValid(); }
     virtual bool needsPendingResourceHandling() const { return false; }
@@ -48,7 +50,6 @@ public:
 
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
-private:
     DECLARE_ANIMATED_PROPERTY(SVGClipPathElement, SVGNames::clipPathUnitsAttr, int, ClipPathUnits, clipPathUnits)
 
     // SVGExternalResourcesRequired

@@ -30,7 +30,8 @@
 #include "AXObjectCache.h"
 #include "RenderBlock.h"
 #include "RenderCounter.h"
-#include "RenderImageGeneratedContent.h"
+#include "RenderImage.h"
+#include "RenderImageResourceStyleImage.h"
 #include "RenderInline.h"
 #include "RenderLayer.h"
 #include "RenderListItem.h"
@@ -97,6 +98,11 @@ RenderObject* RenderObjectChildList::removeChildNode(RenderObject* owner, Render
 
         if (oldChild->isPositioned() && owner->childrenInline())
             owner->dirtyLinesFromChangedChild(oldChild);
+
+#if ENABLE(SVG)
+        // Update cached boundaries in SVG renderers, if a child is removed.
+        owner->setNeedsBoundariesUpdate();
+#endif
     }
     
     // If oldChild is the start or end of the selection, then clear the selection to
@@ -430,12 +436,14 @@ void RenderObjectChildList::updateBeforeAfterContent(RenderObject* owner, Pseudo
                 renderer->setStyle(pseudoElementStyle);
                 break;
             case CONTENT_OBJECT: {
-                RenderImageGeneratedContent* image = new (owner->renderArena()) RenderImageGeneratedContent(owner->document()); // anonymous object
+                RenderImage* image = new (owner->renderArena()) RenderImage(owner->document()); // anonymous object
                 RefPtr<RenderStyle> style = RenderStyle::create();
                 style->inheritFrom(pseudoElementStyle);
                 image->setStyle(style.release());
                 if (StyleImage* styleImage = content->image())
-                    image->setStyleImage(styleImage);
+                    image->setImageResource(RenderImageResourceStyleImage::create(styleImage));
+                else
+                    image->setImageResource(RenderImageResource::create());
                 renderer = image;
                 break;
             }

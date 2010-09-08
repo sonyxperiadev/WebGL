@@ -1,3 +1,232 @@
+2010-09-01  Mahesh Kulkarni  <mahesh.kulkarni@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] QWebPage::allowGeolocationRequest should be async API
+        https://bugs.webkit.org/show_bug.cgi?id=41364
+
+        Provides a new async API for geolocation permission. Using
+        Notification API approach from qtwebkit. GeolocationPermissionClientQt 
+        maintains list of pending requests from WebCore and intimates them
+        when client either allowes/denies the request. Also implements
+        ChromeClientQt::cancelGeolocationPermissionRequestForFrame.  
+
+        * Api/qwebpage.cpp:
+        (QWebPage::setUserPermission):
+        * Api/qwebpage.h:
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::requestGeolocationPermissionForFrame):
+        (WebCore::ChromeClientQt::cancelGeolocationPermissionRequestForFrame):
+        * WebCoreSupport/ChromeClientQt.h:
+        * WebCoreSupport/GeolocationPermissionClientQt.cpp: Added.
+        (WebCore::GeolocationPermissionClientQt::geolocationPermissionClient):
+        (WebCore::GeolocationPermissionClientQt::GeolocationPermissionClientQt):
+        (WebCore::GeolocationPermissionClientQt::~GeolocationPermissionClientQt):
+        (WebCore::GeolocationPermissionClientQt::requestGeolocationPermissionForFrame):
+        (WebCore::GeolocationPermissionClientQt::cancelGeolocationPermissionRequestForFrame):
+        (WebCore::GeolocationPermissionClientQt::setPermission):
+        * WebCoreSupport/GeolocationPermissionClientQt.h: Added.
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (JSTestPage::requestPermission):
+        (tst_QWebPage::geolocationRequestJS):
+
+2010-08-31  Dave Hyatt  <hyatt@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=44863, disentangle style recalc from layout, so that
+        the former can occur in more places without having to do the latter.
+
+        * Api/qwebelement.cpp:
+        (QWebElement::render):
+        * Api/qwebframe.cpp:
+        (QWebFramePrivate::renderRelativeCoords):
+
+2010-08-31  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] tst_QWebPage::originatingObjectInNetworkRequests() fails on trunk
+        https://bugs.webkit.org/show_bug.cgi?id=45001
+
+        Fix the test, we should not use data encoded URL since we are not
+        setting an URL but setting the substituteData directly.
+
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::originatingObjectInNetworkRequests):
+
+2010-08-31  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        JSC TimeoutChecker::didTimeOut overflows on ARM
+        https://bugs.webkit.org/show_bug.cgi?id=38538
+
+        Re-enabled the test that was skipped for Maemo 5.
+
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::infiniteLoopJS):
+
+2010-08-30  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r66198.
+        http://trac.webkit.org/changeset/66198
+        https://bugs.webkit.org/show_bug.cgi?id=44856
+
+        It made tests crash on Qt bot (Requested by Ossy_ on #webkit).
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorClientQt::inspectorDestroyed):
+        (WebCore::InspectorClientQt::openInspectorFrontend):
+        (WebCore::InspectorClientQt::releaseFrontendPage):
+        (WebCore::InspectorFrontendClientQt::closeWindow):
+        * WebCoreSupport/InspectorClientQt.h:
+
+2010-08-28  Daniel Bates  <dbates@rim.com>
+
+        Attempt to fix the Qt Windows and Qt Linux Release minimal builds
+        after changeset 66297 <http://trac.webkit.org/changeset/66297>.
+
+        * Api/qwebplugindatabase.cpp:
+        (QWebPluginDatabase::plugins): Wrap the call to PluginPackage::ensurePluginLoaded
+        in #if ENABLE(NETSCAPE_PLUGIN_METADATA_CACHE).
+
+2010-08-27  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] tst_QWebView::focusInputTypes() fails on MeeGo Handset with WebKit 2.1
+        https://bugs.webkit.org/show_bug.cgi?id=44761
+
+        Make the test more robust to changes in the execution environment. The click
+        are now correctly simulated, and the position are determined from the content.
+
+        The test also create the view and page on the stack to avoid the leak when the
+        test is failing.
+
+        * tests/qwebview/tst_qwebview.cpp:
+        (tst_QWebView::focusInputTypes):
+
+2010-08-27  Kimmo Kinnunen  <kimmo.t.kinnunen@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Cache plugin info to a persistent database
+
+        https://bugs.webkit.org/show_bug.cgi?id=43179
+
+        Implement a cache of NPAPI plugin metadata. Write the metadata to aa
+        file that gets rewritten if any plugin is added / removed.  Compilation
+        of the feature is controlled by #if ENABLE(NETSCAPE_PLUGIN_METADATA_CACHE)
+
+        Currently only enabled for Qt UNIX flavors.
+
+        * Api/qwebplugindatabase.cpp:
+        (QWebPluginDatabase::plugins):  Match previous behavior: ensure all returned plugins are loaded.
+        * Api/qwebsettings.cpp:
+        (QWebSettings::enablePersistentStorage): Set plugin cache path.
+
+2010-08-27  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] tst_QWebFrame::inputFieldFocus() fails on MeeGo Handset with QtWebKit 2.1
+        https://bugs.webkit.org/show_bug.cgi?id=44703
+
+        Make the test more robust to changes in the execution environment.
+        The position where the mouse events are sent is now computed from the element geometry,
+        this make the test less dependent on the fonts.
+
+        The test now also make sure the window manager mapped the window on screen
+        before attempting to send the events.
+
+        * tests/qwebframe/tst_qwebframe.cpp:
+
+2010-08-27  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] tst_QWebFrame::hitTestContent() fails on Meego Handset
+        https://bugs.webkit.org/show_bug.cgi?id=44701
+
+        Make the test more robust. The position of the text is not relying
+        on the size of the fonts anymore.
+
+        * tests/qwebframe/tst_qwebframe.cpp:
+
+2010-08-26  Antonio Gomes  <tonikitoo@webkit.org>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Add support for automatically creating new windows in QWebView
+        https://bugs.webkit.org/show_bug.cgi?id=29847
+
+        Improved the documentation of createWindow methods of both QWebView and
+        QWebPage by mentioning that for any of them be called, QWebSettings'
+        JavaScriptCanOpenWindows attribute must be set to true.
+
+        * Api/qwebpage.cpp:
+        * Api/qwebview.cpp:
+
+2010-08-27  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        REGRESSION: Crash occurs at objc_msgSend when closing a window that is displaying the web inspector
+        https://bugs.webkit.org/show_bug.cgi?id=44230
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorClientQt::inspectorDestroyed):
+        (WebCore::InspectorClientQt::openInspectorFrontend):
+        (WebCore::InspectorClientQt::releaseFrontendPage):
+        (WebCore::InspectorFrontendClientQt::closeWindow):
+        (WebCore::InspectorFrontendClientQt::disconnectFromBackend):
+        (WebCore::InspectorFrontendClientQt::destroyInspectorView):
+        (WebCore::InspectorFrontendClientQt::inspectorClientDestroyed):
+        * WebCoreSupport/InspectorClientQt.h:
+
+2010-08-26  Girish Ramakrishnan  <girish@forwardbias.in>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Remove dead code.
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::statusbarVisible):
+
+2010-08-26  Yury Semikhatsky  <yurys@chromium.org>
+
+        Unreviewed. Revert r66103 since Qt tests are failing.
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorFrontendClientQt::closeWindow):
+        * WebCoreSupport/InspectorClientQt.h:
+
+2010-08-26  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        REGRESSION: Crash occurs at objc_msgSend when closing a window that is displaying the web inspector
+        https://bugs.webkit.org/show_bug.cgi?id=44230
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorFrontendClientQt::closeWindow):
+        (WebCore::InspectorFrontendClientQt::disconnectFromBackend):
+        (WebCore::InspectorFrontendClientQt::destroyInspectorView):
+        * WebCoreSupport/InspectorClientQt.h:
+
+2010-08-26  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] tst_QWebFrame::popupFocus() hardcode the element position
+        https://bugs.webkit.org/show_bug.cgi?id=44674
+
+        This patch dynamically find the position of the combo element instead
+        of hardcoding a position to click.
+
+        * tests/qwebframe/tst_qwebframe.cpp:
+
 2010-08-25  Leo Yang  <leo.yang@torchmobile.com.cn>
 
         Reviewed by Simon Hausmann.

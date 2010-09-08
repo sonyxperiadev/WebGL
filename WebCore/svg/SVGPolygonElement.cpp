@@ -27,13 +27,14 @@
 
 namespace WebCore {
 
-SVGPolygonElement::SVGPolygonElement(const QualifiedName& tagName, Document* doc)
-    : SVGPolyElement(tagName, doc)
+inline SVGPolygonElement::SVGPolygonElement(const QualifiedName& tagName, Document* document)
+    : SVGPolyElement(tagName, document)
 {
 }
 
-SVGPolygonElement::~SVGPolygonElement()
+PassRefPtr<SVGPolygonElement> SVGPolygonElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGPolygonElement(tagName, document));
 }
 
 Path SVGPolygonElement::toPathData() const

@@ -162,6 +162,10 @@ StyleDifference SVGRenderStyle::diff(const SVGRenderStyle* other) const
         || svg_inherited_flags._joinStyle != other->svg_inherited_flags._joinStyle)
         return StyleDifferenceLayout;
 
+    // Shadow changes require relayouts, as they affect the repaint rects.
+    if (shadowSVG != other->shadowSVG)
+        return StyleDifferenceLayout;
+
     // Some stroke properties, requires relayouts, as the cached stroke boundaries need to be recalculated.
     if (stroke != other->stroke) {
         if (stroke->width != other->stroke->width
@@ -177,10 +181,6 @@ StyleDifference SVGRenderStyle::diff(const SVGRenderStyle* other) const
     }
 
     // NOTE: All comparisions below may only return StyleDifferenceRepaint
-
-    // Shadow changes need to cause repaints.
-    if (shadowSVG != other->shadowSVG)
-        return StyleDifferenceRepaint;
 
     // Painting related properties only need repaints. 
     if (miscNotEqual) {
@@ -213,48 +213,6 @@ StyleDifference SVGRenderStyle::diff(const SVGRenderStyle* other) const
         return StyleDifferenceRepaint;
 
     return StyleDifferenceEqual;
-}
-
-static void getSVGShadowExtent(ShadowData* shadow, float& top, float& right, float& bottom, float& left)
-{
-    top = 0.0f;
-    right = 0.0f;
-    bottom = 0.0f;
-    left = 0.0f;
-
-    float blurAndSpread = shadow->blur() + shadow->spread();
-
-    top = min(top, shadow->y() - blurAndSpread);
-    right = max(right, shadow->x() + blurAndSpread);
-    bottom = max(bottom, shadow->y() + blurAndSpread);
-    left = min(left, shadow->x() - blurAndSpread);
-}
-
-void SVGRenderStyle::inflateForShadow(IntRect& repaintRect) const
-{
-    ShadowData* svgShadow = shadow();
-    if (!svgShadow)
-        return;
-
-    FloatRect repaintFloatRect = FloatRect(repaintRect);
-    inflateForShadow(repaintFloatRect);
-    repaintRect = enclosingIntRect(repaintFloatRect);
-}
-
-void SVGRenderStyle::inflateForShadow(FloatRect& repaintRect) const
-{
-    ShadowData* svgShadow = shadow();
-    if (!svgShadow)
-        return;
-
-    float shadowTop;
-    float shadowRight;
-    float shadowBottom;
-    float shadowLeft;
-    getSVGShadowExtent(svgShadow, shadowTop, shadowRight, shadowBottom, shadowLeft);
-
-    repaintRect.move(shadowLeft, shadowTop);
-    repaintRect.setSize(repaintRect.size() + FloatSize(shadowRight - shadowLeft, shadowBottom - shadowTop));
 }
 
 }

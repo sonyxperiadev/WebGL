@@ -22,15 +22,18 @@
 #if ENABLE(SVG)
 #include "SVGMetadataElement.h"
 
-using namespace WebCore;
+namespace WebCore {
 
-SVGMetadataElement::SVGMetadataElement(const QualifiedName& tagName, Document *doc)
-: SVGElement(tagName, doc)
+inline SVGMetadataElement::SVGMetadataElement(const QualifiedName& tagName, Document* document)
+    : SVGElement(tagName, document)
 {
 }
 
-SVGMetadataElement::~SVGMetadataElement()
+PassRefPtr<SVGMetadataElement> SVGMetadataElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGMetadataElement(tagName, document));
+}
+
 }
 
 #endif // ENABLE(SVG)

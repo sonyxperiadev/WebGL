@@ -63,6 +63,7 @@
 #include "IDBKeyRange.h"
 #include "InspectorController.h"
 #include "InspectorTimelineAgent.h"
+#include "KURL.h"
 #include "Location.h"
 #include "StyleMedia.h"
 #include "MessageEvent.h"
@@ -86,6 +87,15 @@
 #include <wtf/CurrentTime.h>
 #include <wtf/MathExtras.h>
 #include <wtf/text/CString.h>
+
+#if ENABLE(FILE_SYSTEM)
+#include "AsyncFileSystem.h"
+#include "DOMFileSystem.h"
+#include "ErrorCallback.h"
+#include "FileError.h"
+#include "FileSystemCallback.h"
+#include "LocalFileSystem.h"
+#endif
 
 using std::min;
 using std::max;
@@ -379,7 +389,8 @@ bool DOMWindow::canShowModalDialogNow(const Frame* frame)
 }
 
 DOMWindow::DOMWindow(Frame* frame)
-    : m_frame(frame)
+    : m_printDeferred(false),
+      m_frame(frame)
 {
 }
 
@@ -719,6 +730,35 @@ IDBKeyRange* DOMWindow::iDBKeyRange() const
 }
 #endif
 
+#if ENABLE(FILE_SYSTEM)
+void DOMWindow::requestFileSystem(int type, long long size, PassRefPtr<FileSystemCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
+{
+    Document* document = this->document();
+    if (!document)
+        return;
+
+    if (!m_localFileSystem) {
+        // FIXME: See if access is allowed.
+
+        Page* page = document->page();
+        if (!page) {
+            DOMFileSystem::scheduleCallback(document, errorCallback, FileError::create(INVALID_STATE_ERR));
+            return;
+        }
+
+        // FIXME: Get the quota settings as well.
+        String path = page->settings()->fileSystemRootPath();
+        m_localFileSystem = LocalFileSystem::create(path);
+    }
+
+    m_localFileSystem->requestFileSystem(document, static_cast<AsyncFileSystem::Type>(type), size, successCallback, errorCallback);
+}
+
+COMPILE_ASSERT(int(DOMWindow::TEMPORARY) == int(AsyncFileSystem::Temporary), enum_mismatch);
+COMPILE_ASSERT(int(DOMWindow::PERSISTENT) == int(AsyncFileSystem::Persistent), enum_mismatch);
+
+#endif
+
 void DOMWindow::postMessage(PassRefPtr<SerializedScriptValue> message, MessagePort* port, const String& targetOrigin, DOMWindow* source, ExceptionCode& ec)
 {
     MessagePortArray ports;
@@ -861,6 +901,11 @@ void DOMWindow::print()
     if (!page)
         return;
 
+    if (m_frame->loader()->isLoading()) {
+        m_printDeferred = true;
+        return;
+    }
+    m_printDeferred = false;
     page->chrome()->print(m_frame);
 }
 
@@ -1580,5 +1625,17 @@ EventTargetData* DOMWindow::ensureEventTargetData()
 {
     return &m_eventTargetData;
 }
+
+#if ENABLE(BLOB)
+String DOMWindow::createBlobURL(Blob* blob)
+{
+    return scriptExecutionContext()->createPublicBlobURL(blob).string();
+}
+
+void DOMWindow::revokeBlobURL(const String& blobURLString)
+{
+    scriptExecutionContext()->revokePublicBlobURL(KURL(ParsedURLString, blobURLString));
+}
+#endif
 
 } // namespace WebCore

@@ -166,11 +166,6 @@ static int numRequests(Document* document)
     return document->docLoader()->requestCount();
 }
 
-static inline bool canReferToParentFrameEncoding(const Frame* frame, const Frame* parentFrame) 
-{
-    return parentFrame && parentFrame->document()->securityOrigin()->canAccess(frame->document()->securityOrigin());
-}
-
 // This is not in the FrameLoader class to emphasize that it does not depend on
 // private FrameLoader data, and to avoid increasing the number of public functions
 // with access to private data.  Since only this .cpp file needs it, making it
@@ -841,6 +836,10 @@ void FrameLoader::checkCompleted()
     if (numRequests(m_frame->document()))
         return;
 
+    // Still waiting for elements that don't go through a FrameLoader?
+    if (m_frame->document()->isDelayingLoadEvent())
+        return;
+
     // OK, completed.
     m_isComplete = true;
 
@@ -889,7 +888,7 @@ void FrameLoader::scheduleCheckLoadComplete()
 
 void FrameLoader::checkCallImplicitClose()
 {
-    if (m_didCallImplicitClose || m_frame->document()->parsing())
+    if (m_didCallImplicitClose || m_frame->document()->parsing() || m_frame->document()->isDelayingLoadEvent())
         return;
 
     if (!allChildrenAreComplete())
@@ -1187,10 +1186,8 @@ void FrameLoader::loadInSameDocument(const KURL& url, SerializedScriptValue* sta
 
     m_client->dispatchDidNavigateWithinPage();
 
-    if (stateObject) {
-        m_frame->document()->statePopped(stateObject);
-        m_client->dispatchDidPopStateWithinPage();
-    }
+    m_frame->document()->statePopped(stateObject ? stateObject : SerializedScriptValue::nullValue());
+    m_client->dispatchDidPopStateWithinPage();
     
     if (hashChange) {
         m_frame->document()->enqueueHashchangeEvent(oldURL, url);
@@ -1968,7 +1965,8 @@ void FrameLoader::transitionToCommitted(PassRefPtr<CachedPage> cachedPage)
 
                     history()->updateForBackForwardNavigation();
 
-                    if (history()->currentItem())
+                    // For cached pages, CachedFrame::restore will take care of firing the popstate event with the history item's state object
+                    if (history()->currentItem() && !cachedPage)
                         m_pendingStateObject = history()->currentItem()->stateObject();
 
                     // Create a document view for this document, or used the cached view.
@@ -2182,6 +2180,10 @@ void FrameLoader::finishedLoading()
     dl->setPrimaryLoadComplete(true);
     m_client->dispatchDidLoadMainResource(dl.get());
     checkLoadComplete();
+
+    DOMWindow* window = m_frame->existingDOMWindow();
+    if (window && window->printDeferred())
+        window->print();
 }
 
 bool FrameLoader::isHostedByObjectElement() const
@@ -2530,6 +2532,7 @@ void FrameLoader::closeAndRemoveChild(Frame* child)
     child->setView(0);
     if (child->ownerElement() && child->page())
         child->page()->decrementFrameCount();
+    // FIXME: The page isn't being destroyed, so it's not right to call a function named pageDestroyed().
     child->pageDestroyed();
 
     m_frame->tree()->removeChild(child);
@@ -2618,6 +2621,7 @@ void FrameLoader::detachFromParent()
         parent->loader()->scheduleCheckCompleted();
     } else {
         m_frame->setView(0);
+        // FIXME: The page isn't being destroyed, so it's not right to call a function named pageDestroyed().
         m_frame->pageDestroyed();
     }
 }
@@ -2670,17 +2674,19 @@ void FrameLoader::addExtraFieldsToRequest(ResourceRequest& request, FrameLoadTyp
             request.setCachePolicy(documentLoader()->originalRequest().cachePolicy());
         else
             request.setCachePolicy(UseProtocolCachePolicy);
-    } else if (loadType == FrameLoadTypeReload) {
-        request.setCachePolicy(ReloadIgnoringCacheData);
-        request.setHTTPHeaderField("Cache-Control", "max-age=0");
-    } else if (loadType == FrameLoadTypeReloadFromOrigin) {
-        request.setCachePolicy(ReloadIgnoringCacheData);
-        request.setHTTPHeaderField("Cache-Control", "no-cache");
-        request.setHTTPHeaderField("Pragma", "no-cache");
-    } else if (request.isConditional())
+    } else if (loadType == FrameLoadTypeReload || loadType == FrameLoadTypeReloadFromOrigin || request.isConditional())
         request.setCachePolicy(ReloadIgnoringCacheData);
     else if (isBackForwardLoadType(loadType) && m_stateMachine.committedFirstRealDocumentLoad() && !request.url().protocolIs("https"))
         request.setCachePolicy(ReturnCacheDataElseLoad);
+        
+    if (request.cachePolicy() == ReloadIgnoringCacheData) {
+        if (loadType == FrameLoadTypeReload)
+            request.setHTTPHeaderField("Cache-Control", "max-age=0");
+        else if (loadType == FrameLoadTypeReloadFromOrigin) {
+            request.setHTTPHeaderField("Cache-Control", "no-cache");
+            request.setHTTPHeaderField("Pragma", "no-cache");
+        }
+    }
     
     if (mainResource)
         request.setHTTPAccept(defaultAcceptHeader);
@@ -3260,11 +3266,11 @@ void FrameLoader::navigateToDifferentDocument(HistoryItem* item, FrameLoadType l
 void FrameLoader::loadItem(HistoryItem* item, FrameLoadType loadType)
 {
     // We do same-document navigation in the following cases:
-    // - The HistoryItem corresponds to the same document.
+    // - The HistoryItem corresponds to the same document (or documents in the case of frames).
     // - The HistoryItem is not the same as the current item.
     HistoryItem* currentItem = history()->currentItem();
     bool sameDocumentNavigation = currentItem && item != currentItem
-        && item->documentSequenceNumber() == currentItem->documentSequenceNumber();
+        && item->hasSameDocuments(currentItem);
 
 #if ENABLE(WML)
     // All WML decks should go through the real load mechanism, not the scroll-to-anchor code

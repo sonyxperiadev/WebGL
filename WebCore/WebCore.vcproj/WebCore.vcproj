@@ -4877,6 +4877,14 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSFileException.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSFileException.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSFileList.cpp"
 				>
 				<FileConfiguration
@@ -4986,6 +4994,14 @@
 			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSFileReader.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSFileReaderSync.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSFileReaderSync.h"
 				>
 			</File>
 			<File
@@ -24001,15 +24017,19 @@
 				>
 			</File>
 			<File
+				RelativePath="..\platform\AsyncFileSystem.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\platform\AsyncFileSystem.h"
+				>
+			</File>
+			<File
+				RelativePath="..\platform\AsyncFileSystemCallbacks.h"
+				>
+			</File>
+			<File
 				RelativePath="..\platform\AutodrainedPool.h"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\BlobItem.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\platform\BlobItem.h"
 				>
 			</File>
 			<File
@@ -29997,11 +30017,19 @@
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderImageGeneratedContent.cpp"
+				RelativePath="..\rendering\RenderImageResource.cpp"
 				>
 			</File>
 			<File
-				RelativePath="..\rendering\RenderImageGeneratedContent.h"
+				RelativePath="..\rendering\RenderImageResource.h"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\RenderImageResourceStyleImage.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\rendering\RenderImageResourceStyleImage.h"
 				>
 			</File>
 			<File
@@ -32999,6 +33027,10 @@
 				</File>
 				<File
 					RelativePath="..\rendering\style\StyleMultiColData.h"
+					>
+				</File>
+				<File
+					RelativePath="..\rendering\style\StylePendingImage.h"
 					>
 				</File>
 				<File
@@ -37073,35 +37105,219 @@
 			Name="html"
 			>
 			<File
+				RelativePath="..\fileapi\AsyncFileWriter.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\Blob.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\Blob.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\BlobBuilder.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\BlobBuilder.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\BlobURL.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\BlobURL.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\DirectoryEntry.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\DirectoryEntry.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\DirectoryReader.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\DirectoryReader.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\DOMFilePath.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\DOMFilePath.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\DOMFileSystem.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\DOMFileSystem.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\EntriesCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\Entry.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\Entry.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\EntryArray.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\EntryArray.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\EntryCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\ErrorCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\File.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\File.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileEntry.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileEntry.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileError.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileException.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileList.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileReader.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileReader.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileReaderSync.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileReaderSync.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileStreamProxy.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileStreamProxy.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileSystemCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileSystemCallbacks.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileSystemCallbacks.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileThread.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileThread.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileThreadTask.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileWriter.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileWriter.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\FileWriterClient.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\Flags.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\LocalFileSystem.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\LocalFileSystem.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\Metadata.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\MetadataCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\ThreadableBlobRegistry.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\fileapi\ThreadableBlobRegistry.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\AsyncImageResizer.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\html\AsyncImageResizer.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\Blob.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\Blob.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\BlobBuilder.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\BlobBuilder.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\BlobURL.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\BlobURL.h"
 				>
 			</File>
 			<File
@@ -37173,14 +37389,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\html\CSSPreloadScanner.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\CSSPreloadScanner.h"
-				>
-			</File>
-			<File
 				RelativePath="..\html\DataGridColumn.cpp"
 				>
 			</File>
@@ -37222,62 +37430,6 @@
 			</File>
 			<File
 				RelativePath="..\html\DOMFormData.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\File.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\File.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\FileError.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\FileList.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\FileList.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\FileReader.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\FileReader.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\FileStreamProxy.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\FileStreamProxy.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\FileThread.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\FileThread.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\FileThreadTask.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\FileWriter.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\FileWriter.h"
 				>
 			</File>
 			<File
@@ -37921,14 +38073,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\html\HTMLConstructionSite.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLConstructionSite.h"
-				>
-			</File>
-			<File
 				RelativePath="..\html\HTMLDataGridCellElement.cpp"
 				>
 				<FileConfiguration
@@ -38385,14 +38529,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\html\HTMLDocumentParser.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLDocumentParser.h"
-				>
-			</File>
-			<File
 				RelativePath="..\html\HTMLElement.cpp"
 				>
 				<FileConfiguration
@@ -38453,14 +38589,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\html\HTMLElementStack.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLElementStack.h"
-				>
-			</File>
-			<File
 				RelativePath="..\html\HTMLEmbedElement.cpp"
 				>
 				<FileConfiguration
@@ -38514,22 +38642,6 @@
 			</File>
 			<File
 				RelativePath="..\html\HTMLEmbedElement.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLEntityParser.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLEntityParser.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLEntitySearch.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLEntitySearch.h"
 				>
 			</File>
 			<File
@@ -38642,14 +38754,6 @@
 			</File>
 			<File
 				RelativePath="..\html\HTMLFontElement.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLFormattingElementList.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLFormattingElementList.h"
 				>
 			</File>
 			<File
@@ -40553,14 +40657,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\html\HTMLParserScheduler.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLParserScheduler.h"
-				>
-			</File>
-			<File
 				RelativePath="..\html\HTMLPlugInElement.cpp"
 				>
 				<FileConfiguration
@@ -40729,14 +40825,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\html\HTMLPreloadScanner.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLPreloadScanner.h"
-				>
-			</File>
-			<File
 				RelativePath="..\html\HTMLProgressElement.cpp"
 				>
 				<FileConfiguration
@@ -40902,14 +40990,6 @@
 			</File>
 			<File
 				RelativePath="..\html\HTMLScriptElement.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLScriptRunner.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLScriptRunner.h"
 				>
 			</File>
 			<File
@@ -41593,22 +41673,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\html\HTMLTokenizer.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLTokenizer.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLTreeBuilder.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLTreeBuilder.h"
-				>
-			</File>
-			<File
 				RelativePath="..\html\HTMLUListElement.cpp"
 				>
 				<FileConfiguration
@@ -41729,14 +41793,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\html\HTMLViewSourceParser.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\HTMLViewSourceParser.h"
-				>
-			</File>
-			<File
 				RelativePath="..\html\ImageData.cpp"
 				>
 			</File>
@@ -41764,20 +41820,128 @@
 				RelativePath="..\html\MediaError.h"
 				>
 			</File>
+			<Filter
+				Name="parser"
+				>
+                <File
+                    RelativePath="..\html\parser\CSSPreloadScanner.cpp"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\CSSPreloadScanner.h"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLConstructionSite.cpp"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLConstructionSite.h"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLDocumentParser.cpp"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLDocumentParser.h"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLEntityParser.cpp"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLEntityParser.h"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLElementStack.cpp"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLElementStack.h"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLEntitySearch.cpp"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLEntitySearch.h"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLFormattingElementList.cpp"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLFormattingElementList.h"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLParserScheduler.cpp"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLParserScheduler.h"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLPreloadScanner.cpp"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLPreloadScanner.h"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLScriptRunner.cpp"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLScriptRunner.h"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLScriptRunnerHost.h"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLToken.h"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLTokenizer.cpp"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLTokenizer.h"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLTreeBuilder.cpp"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLTreeBuilder.h"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLViewSourceParser.cpp"
+                    >
+                </File>
+                <File
+                    RelativePath="..\html\parser\HTMLViewSourceParser.h"
+                    >
+                </File>
+            </Filter>
 			<File
 				RelativePath="..\html\StepRange.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\html\StepRange.h"
-				>
-			</File>
-			<File
-				RelativePath="..\html\ThreadableBlobRegistry.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\html\ThreadableBlobRegistry.h"
 				>
 			</File>
 			<File
@@ -49256,6 +49420,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\bindings\js\ScriptHeapSnapshot.h"
+					>
+				</File>
+				<File
 					RelativePath="..\bindings\js\ScriptInstance.h"
 					>
 				</File>
@@ -51189,90 +51357,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\storage\DirectoryEntry.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\DirectoryEntry.h"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\DirectoryReader.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\DirectoryReader.h"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\DOMFilePath.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\DOMFilePath.h"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\DOMFileSystem.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\DOMFileSystem.h"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\EntriesCallback.h"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\Entry.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\Entry.h"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\EntryArray.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\EntryArray.h"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\EntryCallback.h"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\ErrorCallback.h"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\FileEntry.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\FileEntry.h"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\FileSystemCallback.h"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\FileSystemCallbacks.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\FileSystemCallbacks.h"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\Flags.h"
-				>
-			</File>
-			<File
 				RelativePath="..\storage\IDBAny.cpp"
 				>
 			</File>
@@ -51466,14 +51550,6 @@
 			</File>
 			<File
 				RelativePath="..\storage\LocalStorageThread.h"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\Metadata.h"
-				>
-			</File>
-			<File
-				RelativePath="..\storage\MetadataCallback.h"
 				>
 			</File>
 			<File
@@ -52008,6 +52084,10 @@
 					>
 				</File>
 				<File
+					RelativePath="..\inspector\front-end\AuditFormatters.js"
+					>
+				</File>
+				<File
 					RelativePath="..\inspector\front-end\AuditLauncherView.js"
 					>
 				</File>
@@ -52128,6 +52208,14 @@
 					>
 				</File>
 				<File
+					RelativePath="..\inspector\front-end\ExtensionAuditCategory.js"
+					>
+				</File>
+				<File
+					RelativePath="..\inspector\front-end\ExtensionCommon.js"
+					>
+				</File>
+				<File
 					RelativePath="..\inspector\front-end\ExtensionPanel.js"
 					>
 				</File>
@@ -52185,6 +52273,10 @@
 				</File>
 				<File
 					RelativePath="..\inspector\front-end\inspectorSyntaxHighlight.css"
+					>
+				</File>
+				<File
+					RelativePath="..\inspector\front-end\HeapSnapshotView.js"
 					>
 				</File>
 				<File

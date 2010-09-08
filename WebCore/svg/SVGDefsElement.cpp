@@ -27,16 +27,14 @@
 
 namespace WebCore {
 
-SVGDefsElement::SVGDefsElement(const QualifiedName& tagName, Document* doc)
-    : SVGStyledTransformableElement(tagName, doc)
-    , SVGTests()
-    , SVGLangSpace()
-    , SVGExternalResourcesRequired()
+inline SVGDefsElement::SVGDefsElement(const QualifiedName& tagName, Document* document)
+    : SVGStyledTransformableElement(tagName, document)
 {
 }
 
-SVGDefsElement::~SVGDefsElement()
+PassRefPtr<SVGDefsElement> SVGDefsElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGDefsElement(tagName, document));
 }
 
 bool SVGDefsElement::isValid() const

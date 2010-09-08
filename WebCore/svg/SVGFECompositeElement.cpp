@@ -28,14 +28,15 @@
 
 namespace WebCore {
 
-SVGFECompositeElement::SVGFECompositeElement(const QualifiedName& tagName, Document* doc)
-    : SVGFilterPrimitiveStandardAttributes(tagName, doc)
+inline SVGFECompositeElement::SVGFECompositeElement(const QualifiedName& tagName, Document* document)
+    : SVGFilterPrimitiveStandardAttributes(tagName, document)
     , m__operator(FECOMPOSITE_OPERATOR_OVER)
 {
 }
 
-SVGFECompositeElement::~SVGFECompositeElement()
+PassRefPtr<SVGFECompositeElement> SVGFECompositeElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGFECompositeElement(tagName, document));
 }
 
 void SVGFECompositeElement::parseMappedAttribute(Attribute* attr)

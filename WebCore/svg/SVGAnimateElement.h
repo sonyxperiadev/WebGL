@@ -30,15 +30,19 @@
 #include <wtf/OwnPtr.h>
 
 namespace WebCore {
+
     class SVGPathSegList;
     class SVGPointList;
 
     class SVGAnimateElement : public SVGAnimationElement {
     public:
-        SVGAnimateElement(const QualifiedName&, Document*);
+        static PassRefPtr<SVGAnimateElement> create(const QualifiedName&, Document*);
+
         virtual ~SVGAnimateElement();
-    
+
     protected:
+        SVGAnimateElement(const QualifiedName&, Document*);
+    
         virtual void resetToBaseValue(const String&);
         virtual bool calculateFromAndToValues(const String& fromString, const String& toString);
         virtual bool calculateFromAndByValues(const String& fromString, const String& byString);

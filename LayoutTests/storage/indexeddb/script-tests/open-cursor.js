@@ -7,7 +7,6 @@ function emptyCursorSuccess()
     debug("Empty cursor opened successfully.")
     verifySuccessEvent(event);
     // FIXME: check that we can iterate the cursor.
-    shouldBe("event.result", "null");
     done();
 }
 
@@ -18,6 +17,7 @@ function openEmptyCursor()
     result = evalAndLog("objectStore.openCursor(keyRange)");
     verifyResult(result);
     result.onsuccess = emptyCursorSuccess;
+    result.onerror = unexpectedErrorCallback;
 }
 
 function cursorSuccess()
@@ -39,6 +39,7 @@ function openCursor()
     result = evalAndLog("objectStore.openCursor(keyRange)");
     verifyResult(result);
     result.onsuccess = cursorSuccess;
+    result.onerror = unexpectedErrorCallback;
 }
 
 function populateObjectStore(objectStore)

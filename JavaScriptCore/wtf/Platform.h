@@ -520,7 +520,6 @@
 
 /* PLATFORM(SKIA) for Win/Linux, CG/CI for Mac */
 #if PLATFORM(CHROMIUM)
-#define ENABLE_HISTORY_ALWAYS_ASYNC 1
 #if OS(DARWIN)
 #define WTF_PLATFORM_CG 1
 #define WTF_PLATFORM_CI 1
@@ -528,7 +527,6 @@
 #define WTF_USE_CORE_TEXT 1
 #else
 #define WTF_PLATFORM_SKIA 1
-#define WTF_USE_GLES2_RENDERING 1
 #endif
 #endif
 
@@ -596,6 +594,7 @@
 #endif
 #define HAVE_READLINE 1
 #define HAVE_RUNLOOP_TIMER 1
+#define ENABLE_FULLSCREEN_API 1
 #endif /* PLATFORM(MAC) && !PLATFORM(IOS) */
 
 #if PLATFORM(MAC)
@@ -615,6 +614,10 @@
 
 #if PLATFORM(QT) && OS(DARWIN)
 #define WTF_PLATFORM_CF 1
+#endif
+
+#if OS(DARWIN) && !defined(BUILDING_ON_TIGER) && !PLATFORM(GTK) && !PLATFORM(QT)
+#define ENABLE_PURGEABLE_MEMORY 1
 #endif
 
 #if PLATFORM(IOS)
@@ -858,6 +861,14 @@
 #define ENABLE_NETSCAPE_PLUGIN_API 1
 #endif
 
+#if !defined(ENABLE_NETSCAPE_PLUGIN_METADATA_CACHE)
+#define ENABLE_NETSCAPE_PLUGIN_METADATA_CACHE 0
+#endif
+
+#if !defined(ENABLE_PURGEABLE_MEMORY)
+#define ENABLE_PURGEABLE_MEMORY 0
+#endif
+
 #if !defined(WTF_USE_PLUGIN_HOST_PROCESS)
 #define WTF_USE_PLUGIN_HOST_PROCESS 0
 #endif
@@ -915,6 +926,10 @@
 
 #if !defined(ENABLE_ON_FIRST_TEXTAREA_FOCUS_SELECT_ALL)
 #define ENABLE_ON_FIRST_TEXTAREA_FOCUS_SELECT_ALL 0
+#endif
+
+#if !defined(ENABLE_FULLSCREEN_API)
+#define ENABLE_FULLSCREEN_API 0
 #endif
 
 #if !defined(WTF_USE_JSVALUE64) && !defined(WTF_USE_JSVALUE32) && !defined(WTF_USE_JSVALUE32_64)
@@ -1116,6 +1131,10 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 
 #if CPU(ARM_THUMB2)
 #define ENABLE_BRANCH_COMPACTION 1
+#endif
+
+#if PLATFORM(GTK)
+#include "GtkTypedefs.h"
 #endif
 
 #endif /* WTF_Platform_h */

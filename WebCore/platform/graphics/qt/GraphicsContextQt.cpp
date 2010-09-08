@@ -845,7 +845,7 @@ void GraphicsContext::drawLineForText(const IntPoint& origin, int width, bool)
     drawLine(origin, endPoint);
 }
 
-void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint&, int, bool)
+void GraphicsContext::drawLineForTextChecking(const IntPoint&, int, TextCheckingLineStyle)
 {
     if (paintingDisabled())
         return;
@@ -889,7 +889,7 @@ void GraphicsContext::setPlatformShadow(const FloatSize& size, float blur, const
     if (m_common->state.shadowsIgnoreTransforms) {
         // Meaning that this graphics context is associated with a CanvasRenderingContext
         // We flip the height since CG and HTML5 Canvas have opposite Y axis
-        m_common->state.shadowSize = FloatSize(size.width(), -size.height());
+        m_common->state.shadowOffset = FloatSize(size.width(), -size.height());
         m_data->shadow = ContextShadow(color, blur, size.width(), -size.height());
     } else {
         m_data->shadow = ContextShadow(color, blur, size.width(), size.height());

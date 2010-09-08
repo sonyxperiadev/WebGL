@@ -35,18 +35,19 @@ namespace WebCore {
                                     public SVGLangSpace,
                                     public SVGExternalResourcesRequired {
     public:
+        static PassRefPtr<SVGForeignObjectElement> create(const QualifiedName&, Document*);
+
+    private:
         SVGForeignObjectElement(const QualifiedName&, Document*);
-        virtual ~SVGForeignObjectElement();
 
         virtual bool isValid() const { return SVGTests::isValid(); }
         virtual void parseMappedAttribute(Attribute*);
         virtual void svgAttributeChanged(const QualifiedName&);
         virtual void synchronizeProperty(const QualifiedName&);
 
-        bool childShouldCreateRenderer(Node*) const;
+        virtual bool childShouldCreateRenderer(Node*) const;
         virtual RenderObject* createRenderer(RenderArena* arena, RenderStyle* style);
 
-    private:
         virtual bool selfHasRelativeLengths() const;
 
         DECLARE_ANIMATED_PROPERTY(SVGForeignObjectElement, SVGNames::xAttr, SVGLength, X, x)

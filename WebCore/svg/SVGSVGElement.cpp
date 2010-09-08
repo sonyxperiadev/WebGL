@@ -78,6 +78,11 @@ SVGSVGElement::SVGSVGElement(const QualifiedName& tagName, Document* doc)
     doc->registerForDocumentActivationCallbacks(this);
 }
 
+PassRefPtr<SVGSVGElement> SVGSVGElement::create(const QualifiedName& tagName, Document* document)
+{
+    return adoptRef(new SVGSVGElement(tagName, document));
+}
+
 SVGSVGElement::~SVGSVGElement()
 {
     document()->unregisterForDocumentActivationCallbacks(this);
@@ -181,8 +186,7 @@ void SVGSVGElement::setUseCurrentView(bool currentView)
 SVGViewSpec* SVGSVGElement::currentView() const
 {
     if (!m_viewSpec)
-        m_viewSpec.set(new SVGViewSpec(this));
-
+        m_viewSpec = adoptPtr(new SVGViewSpec(this));
     return m_viewSpec.get();
 }
 
@@ -472,6 +476,12 @@ AffineTransform SVGSVGElement::localCoordinateSpaceTransform(SVGLocatable::CTMSc
             // RenderSVGRoot::localToBorderBoxTransform() (called through mapLocalToContainer(), called from localToAbsolute())
             // also takes the viewBoxToViewTransform() into account, so we have to subtract it here (original cause of bug #27183)
             transform.translate(location.x() - viewBoxTransform.e(), location.y() - viewBoxTransform.f());
+
+            // Respect scroll offset.
+            if (FrameView* view = document()->view()) {
+                IntSize scrollOffset = view->scrollOffset();
+                transform.translate(-scrollOffset.width(), -scrollOffset.height());
+            }
         }
     }
 

@@ -37,13 +37,14 @@ namespace WebCore {
 
 using namespace SVGNames;
 
-SVGGlyphElement::SVGGlyphElement(const QualifiedName& tagName, Document* doc)
-    : SVGStyledElement(tagName, doc)
+inline SVGGlyphElement::SVGGlyphElement(const QualifiedName& tagName, Document* document)
+    : SVGStyledElement(tagName, document)
 {
 }
 
-SVGGlyphElement::~SVGGlyphElement()
+PassRefPtr<SVGGlyphElement> SVGGlyphElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGGlyphElement(tagName, document));
 }
 
 void SVGGlyphElement::invalidateGlyphCache()

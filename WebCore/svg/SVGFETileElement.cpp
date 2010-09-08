@@ -28,13 +28,14 @@
 
 namespace WebCore {
 
-SVGFETileElement::SVGFETileElement(const QualifiedName& tagName, Document* doc)
-    : SVGFilterPrimitiveStandardAttributes(tagName, doc)
+inline SVGFETileElement::SVGFETileElement(const QualifiedName& tagName, Document* document)
+    : SVGFilterPrimitiveStandardAttributes(tagName, document)
 {
 }
 
-SVGFETileElement::~SVGFETileElement()
+PassRefPtr<SVGFETileElement> SVGFETileElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGFETileElement(tagName, document));
 }
 
 void SVGFETileElement::parseMappedAttribute(Attribute* attr)

@@ -54,12 +54,8 @@
 
 namespace WebCore {
 
-SVGUseElement::SVGUseElement(const QualifiedName& tagName, Document* doc)
-    : SVGStyledTransformableElement(tagName, doc)
-    , SVGTests()
-    , SVGLangSpace()
-    , SVGExternalResourcesRequired()
-    , SVGURIReference()
+inline SVGUseElement::SVGUseElement(const QualifiedName& tagName, Document* document)
+    : SVGStyledTransformableElement(tagName, document)
     , m_x(LengthModeWidth)
     , m_y(LengthModeHeight)
     , m_width(LengthModeWidth)
@@ -70,8 +66,9 @@ SVGUseElement::SVGUseElement(const QualifiedName& tagName, Document* doc)
 {
 }
 
-SVGUseElement::~SVGUseElement()
+PassRefPtr<SVGUseElement> SVGUseElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGUseElement(tagName, document));
 }
 
 SVGElementInstance* SVGUseElement::instanceRoot() const
@@ -798,7 +795,7 @@ void SVGUseElement::expandUseElementsInShadowTree(SVGShadowTreeRootElement* shad
 
         // Don't ASSERT(target) here, it may be "pending", too.
         // Setup sub-shadow tree root node
-        RefPtr<SVGShadowTreeContainerElement> cloneParent = new SVGShadowTreeContainerElement(document());
+        RefPtr<SVGShadowTreeContainerElement> cloneParent = SVGShadowTreeContainerElement::create(document());
 
         // Spec: In the generated content, the 'use' will be replaced by 'g', where all attributes from the
         // 'use' element except for x, y, width, height and xlink:href are transferred to the generated 'g' element.
@@ -848,7 +845,7 @@ void SVGUseElement::expandSymbolElementsInShadowTree(SVGShadowTreeRootElement* s
         // height are provided on the 'use' element, then these attributes will be transferred to
         // the generated 'svg'. If attributes width and/or height are not specified, the generated
         // 'svg' element will use values of 100% for these attributes.
-        RefPtr<SVGSVGElement> svgElement = new SVGSVGElement(SVGNames::svgTag, document());
+        RefPtr<SVGSVGElement> svgElement = SVGSVGElement::create(SVGNames::svgTag, document());
 
         // Transfer all attributes from <symbol> to the new <svg> element
         svgElement->attributes()->setAttributes(*element->attributes());

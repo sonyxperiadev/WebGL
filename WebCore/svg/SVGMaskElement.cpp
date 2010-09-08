@@ -38,11 +38,8 @@ using namespace std;
 
 namespace WebCore {
 
-SVGMaskElement::SVGMaskElement(const QualifiedName& tagName, Document* doc)
-    : SVGStyledLocatableElement(tagName, doc)
-    , SVGTests()
-    , SVGLangSpace()
-    , SVGExternalResourcesRequired()
+inline SVGMaskElement::SVGMaskElement(const QualifiedName& tagName, Document* document)
+    : SVGStyledLocatableElement(tagName, document)
     , m_maskUnits(SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX)
     , m_maskContentUnits(SVGUnitTypes::SVG_UNIT_TYPE_USERSPACEONUSE)
     , m_x(LengthModeWidth, "-10%")
@@ -54,8 +51,9 @@ SVGMaskElement::SVGMaskElement(const QualifiedName& tagName, Document* doc)
     // Spec: If the width/height attribute is not specified, the effect is as if a value of "120%" were specified.
 }
 
-SVGMaskElement::~SVGMaskElement()
+PassRefPtr<SVGMaskElement> SVGMaskElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGMaskElement(tagName, document));
 }
 
 void SVGMaskElement::parseMappedAttribute(Attribute* attr)

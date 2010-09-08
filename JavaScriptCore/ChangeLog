@@ -1,3 +1,579 @@
+2010-09-02  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43230
+        <rdar://problem/8254215> REGRESSION: Memory leak within JSParser::JSParser
+
+        One can't delete a ThreadSpecific object that has data in it. It's not even possible to
+        enumerate data objects in all threads, much less destroy them from a thread that's destroying
+        the ThreadSpecific.
+
+        * parser/JSParser.cpp:
+        (JSC::JSParser::JSParser):
+        * runtime/JSGlobalData.h: 
+        * wtf/WTFThreadData.cpp:
+        (WTF::WTFThreadData::WTFThreadData):
+        * wtf/WTFThreadData.h:
+        (WTF::WTFThreadData::approximatedStackStart):
+        Moved stack guard tracking from JSGlobalData to WTFThreadData.
+
+        * wtf/ThreadSpecific.h: Made destructor unimplemented. It's dangerous, and we probably won't
+        ever face a situation where we'd want to delete a ThreadSpecific object.
+
+2010-09-01  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber stamped by Oliver Hunt.
+
+        Ecma-262 15.11.1.1 states that if the argument is undefined then an
+        Error object's message property should be set to the empty string.
+
+        * runtime/ErrorInstance.cpp:
+        (JSC::ErrorInstance::ErrorInstance):
+        (JSC::ErrorInstance::create):
+        * runtime/ErrorInstance.h:
+        * runtime/ErrorPrototype.cpp:
+        (JSC::ErrorPrototype::ErrorPrototype):
+
+2010-08-31  Darin Adler  <darin@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        * wtf/FastMalloc.cpp:
+        (WTF::TCMalloc_PageHeap::scavenge): Replaced somewhat-quirky code that
+        mixed types with code that uses size_t.
+
+        * wtf/TCPageMap.h: Removed names of unused arguments to avoid warning.
+
+2010-08-31  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Isolate all GTK+ typedefs into one file
+        https://bugs.webkit.org/show_bug.cgi?id=44900
+
+        * GNUmakefile.am: Add GtkTypedefs.h to the source lists.
+        * wtf/Platform.h: #include GtkTypedefs.h for the GTK+ build.
+        * wtf/ThreadingPrimitives.h: Remove GTK+ typedefs.
+        * wtf/gobject/GOwnPtr.h: Ditto.
+        * wtf/gobject/GRefPtr.h: Ditto.
+        * wtf/gtk/GtkTypedefs.h: Added.
+
+2010-08-31  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Fix 'make dist' in preparation of the 1.3.3 release
+        https://bugs.webkit.org/show_bug.cgi?id=44978
+
+        * GNUmakefile.am: Adding missing headers to the sources list.
+
+2010-08-31  Chao-ying Fu  <fu@mips.com>
+
+        Reviewed by Oliver Hunt.
+
+        Support emit_op_mod() for MIPS
+        https://bugs.webkit.org/show_bug.cgi?id=42855
+
+        This patch uses MIPS div instructions for op_mod to improve performance.
+
+        * assembler/MIPSAssembler.h:
+        (JSC::MIPSAssembler::div):
+        * jit/JITArithmetic.cpp:
+        (JSC::JIT::emit_op_mod):
+        (JSC::JIT::emitSlow_op_mod):
+
+2010-08-31  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Modify ASSERT_UNUSED and UNUSED_PARAM similar to Qt's Q_UNUSED.
+        https://bugs.webkit.org/show_bug.cgi?id=44870
+
+        * wtf/Assertions.h:
+        * wtf/UnusedParam.h:
+
+2010-08-31  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        JSC TimeoutChecker::didTimeOut overflows on ARM
+        https://bugs.webkit.org/show_bug.cgi?id=38538
+
+        Make getCPUTime() return values relative to the first call.
+        The previous implementation relied on simply on currentTime(), which
+        return a time since epoch and not a time since the thread started. This
+        made the return value of getCPUTime() overflow on 32 bits.
+
+        * runtime/TimeoutChecker.cpp:
+        (JSC::getCPUTime):
+
+2010-08-30  Mihai Parparita  <mihaip@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        HISTORY_ALWAYS_ASYNC should be removed (history should always be async)
+        https://bugs.webkit.org/show_bug.cgi?id=44315
+
+        Remove ENABLE_HISTORY_ALWAYS_ASYNC #define.
+
+        * wtf/Platform.h: 
+
+2010-08-30  Chris Rogers  <crogers@google.com>
+
+        Reviewed by Kenneth Russell.
+
+        Fix namespace for wtf/Complex.h and wtf/Vector3.h
+        https://bugs.webkit.org/show_bug.cgi?id=44892
+
+        * wtf/Complex.h:
+        * wtf/Vector3.h:
+
+2010-08-30  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Eric Carlson.
+
+        Strings returned by asciiDebug() should be NULL-terminated.
+        https://bugs.webkit.org/show_bug.cgi?id=44866
+
+        * wtf/text/WTFString.cpp:
+        (asciiDebug):
+
+2010-08-30  Zoltan Herczeg  <zherczeg@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Refactor number parsing in the lexer
+        https://bugs.webkit.org/show_bug.cgi?id=44104
+
+        Number parsing was full of gotos, and needed a complete
+        redesign to remove them (Only one remained). Furthermore
+        integer arithmetic is empolyed for fast cases (= small
+        integer numbers).
+
+        * parser/Lexer.cpp:
+        (JSC::Lexer::parseHex):
+        (JSC::Lexer::parseOctal):
+        (JSC::Lexer::parseDecimal):
+        (JSC::Lexer::parseNumberAfterDecimalPoint):
+        (JSC::Lexer::parseNumberAfterExponentIndicator):
+        (JSC::Lexer::lex):
+        * parser/Lexer.h:
+
+2010-08-29  Darin Adler  <darin@apple.com>
+
+        Fix Qt build.
+
+        * wtf/unicode/glib/UnicodeMacrosFromICU.h: Added U_IS_BMP.
+        * wtf/unicode/qt4/UnicodeQt4.h: Ditto.
+        * wtf/unicode/wince/UnicodeWince.h: Ditto.
+
+2010-08-29  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Kent Tamura.
+
+        [BREWMP] Port vprintf_stderr_common
+        https://bugs.webkit.org/show_bug.cgi?id=33568
+
+        Use BREW's DBGPRINTF to output debug messages.
+
+        * wtf/Assertions.cpp:
+
+2010-08-28  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 44830 - In Array's prototype functyions we're incorrectly handing large index values
+
+        We are in places casting doubles to unsigneds, and unsigneds to ints, without always check
+        that the result is within bounds. This is problematic in the case of double-to-unsigned
+        conversion because we should be saturating to array length.
+
+        Also, the error return value from Array.splice should be [], not undefined.
+
+        I don't see any security concerns here. These methods are spec'ed in such a way that they
+        can be applied to non Array objects, so in all cases the (potentially bogus) indices are
+        being passed to functions that will safely check accesses are within bounds.
+
+        * runtime/ArrayPrototype.cpp:
+        (JSC::argumentClampedIndexFromStartOrEnd):
+        (JSC::arrayProtoFuncJoin):
+        (JSC::arrayProtoFuncConcat):
+        (JSC::arrayProtoFuncReverse):
+        (JSC::arrayProtoFuncShift):
+        (JSC::arrayProtoFuncSlice):
+        (JSC::arrayProtoFuncSort):
+        (JSC::arrayProtoFuncSplice):
+        (JSC::arrayProtoFuncUnShift):
+        (JSC::arrayProtoFuncFilter):
+        (JSC::arrayProtoFuncMap):
+        (JSC::arrayProtoFuncEvery):
+        (JSC::arrayProtoFuncForEach):
+        (JSC::arrayProtoFuncSome):
+        (JSC::arrayProtoFuncReduce):
+        (JSC::arrayProtoFuncReduceRight):
+        (JSC::arrayProtoFuncIndexOf):
+        (JSC::arrayProtoFuncLastIndexOf):
+        * runtime/JSValue.h:
+        (JSC::JSValue::toUInt32):
+
+2010-08-28  Pratik Solanki  <psolanki@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Add an ENABLE define for purgeable memory support
+        https://bugs.webkit.org/show_bug.cgi?id=44777
+
+        * wtf/Platform.h:
+
+2010-08-27  Kimmo Kinnunen  <kimmo.t.kinnunen@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] NPAPI Plugin metadata should be cached, and loading a plugin should not require loading every plugin
+        https://bugs.webkit.org/show_bug.cgi?id=43179
+
+        Add ENABLE_NETSCAPE_PLUGIN_METADATA_CACHE flag to enable persistent
+        NPAPI Plugin Cache. The flag is enabled by default.
+
+        * wtf/Platform.h: Add ENABLE_NETSCAPE_PLUGIN_METADATA_CACHE
+
+2010-07-27  Jer Noble  <jer.noble@apple.com>
+
+        Reviewed by Eric Carlson.
+
+        Add JavaScript API to allow a page to go fullscreen.
+        rdar://problem/6867795
+        https://bugs.webkit.org/show_bug.cgi?id=43099
+
+        * wtf/Platform.h: Enable FULLSCREEN_API mode for the Mac (except iOS).
+
+2010-08-27  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix pt 2.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-08-27  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix pt 1.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-08-27  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 44745 - Number.toFixed/toExponential/toPrecision are inaccurate.
+
+        These methods should be using a version of dtoa that can generate results accurate
+        to the requested precision, whereas our version of dtoa is only currently able to
+        support producing results sufficiently accurate to distinguish the value from any
+        other IEEE-754 double precision number.
+
+        This change has no impact on benchmarks we track.
+
+        On microbenchmarks for these functions, this is a slight regression where a high
+        precision is requested (dtoa now need to iterate further to generate a a greater
+        number of digits), but with smaller precision values (hopefully more common) this
+        improves performance, since it reduced the accurate of result dtoa is required,
+        to produce, and removes the need to pre-round values before calling dtoa. 
+
+        * JavaScriptCore.exp:
+            doubleToStringInJavaScriptFormat renamed to numberToString
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+            doubleToStringInJavaScriptFormat renamed to numberToString
+
+        * runtime/UString.cpp:
+        (JSC::UString::number):
+            doubleToStringInJavaScriptFormat renamed to numberToString
+
+        * wtf/DecimalNumber.h:
+        (WTF::DecimalNumber::DecimalNumber):
+        (WTF::DecimalNumber::toStringDecimal):
+        (WTF::DecimalNumber::toStringExponential):
+            Remove all pre-rounding of values, instead call dtoa correctly.
+
+        * wtf/dtoa.cpp:
+        (WTF::dtoa):
+        * wtf/dtoa.h:
+            Reenable support for rounding to specific-figures/decimal-places in dtoa.
+            Modify to remove unbiased rounding, provide ECMA required away-from-zero.
+            Rewrite doubleToStringInJavaScriptFormat to use DecimalNumber, rename to
+            numberToString.
+
+2010-08-27  Chao-ying Fu  <fu@mips.com>
+
+        Reviewed by Oliver Hunt.
+
+        Byte alignment issue on MIPS
+        https://bugs.webkit.org/show_bug.cgi?id=29415
+
+        MIPS accesses one byte at a time for now to avoid the help from the
+        kernel to fix unaligned accesses.
+
+        * wtf/text/AtomicString.cpp:
+        (WebCore::equal):
+        * wtf/text/StringHash.h:
+        (WebCore::StringHash::equal):
+
+2010-08-27  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Tor Arne Vestbø.
+
+        Fix a couple of typos in comment.
+
+        * bytecode/CodeBlock.h:
+
+2010-08-26  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix.
+
+        * wtf/dtoa.cpp:
+
+2010-08-26  Gavin Barraclough  <baraclough@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Bug 44735 - Clean up dtoa.cpp
+        Remove unused & unmaintained code paths, reformat code to match
+        coding standard & use platform #defines from Platform.h directly.
+
+        * wtf/dtoa.cpp:
+        (WTF::storeInc):
+        (WTF::multadd):
+        (WTF::s2b):
+        (WTF::lo0bits):
+        (WTF::mult):
+        (WTF::pow5mult):
+        (WTF::lshift):
+        (WTF::diff):
+        (WTF::ulp):
+        (WTF::b2d):
+        (WTF::d2b):
+        (WTF::ratio):
+        (WTF::):
+        (WTF::strtod):
+        (WTF::quorem):
+        (WTF::dtoa):
+
+2010-08-26  Gavin Barraclough  <barraclough@apple.com>
+
+        Rubber Stamped by Oliver Hunt.
+
+        Partially revert r65959. The toString changes regressed the v8 tests,
+        but keep the toFixed/toExponential/toPrecision changes.
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        * runtime/NumberPrototype.cpp:
+        * runtime/UString.cpp:
+        (JSC::UString::number):
+        * wtf/DecimalNumber.h:
+        * wtf/dtoa.cpp:
+        (WTF::append):
+        (WTF::doubleToStringInJavaScriptFormat):
+        * wtf/dtoa.h:
+        * wtf/text/WTFString.cpp:
+        * wtf/text/WTFString.h:
+
+2010-08-26  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Remove the USE(GLES2_RENDERING) define and associated code
+        https://bugs.webkit.org/show_bug.cgi?id=43761
+
+        Remove WTF_USE_GLES2_RENDERING from the list of defines in chromium, it's unused.
+
+        * wtf/Platform.h:
+
+2010-08-26  Gavin Barraclough  <barraclough@apple.com>
+
+        Rolling out r64608, this regressed performance.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * assembler/ARMAssembler.cpp:
+        (JSC::ARMAssembler::executableCopy):
+        * assembler/LinkBuffer.h:
+        (JSC::LinkBuffer::LinkBuffer):
+        (JSC::LinkBuffer::~LinkBuffer):
+        (JSC::LinkBuffer::performFinalization):
+        * assembler/MIPSAssembler.h:
+        (JSC::MIPSAssembler::executableCopy):
+        * assembler/X86Assembler.h:
+        (JSC::X86Assembler::executableCopy):
+        * bytecode/StructureStubInfo.h:
+        (JSC::StructureStubInfo::initGetByIdProto):
+        (JSC::StructureStubInfo::initGetByIdChain):
+        (JSC::StructureStubInfo::initGetByIdSelfList):
+        (JSC::StructureStubInfo::initGetByIdProtoList):
+        (JSC::StructureStubInfo::initPutByIdTransition):
+        * jit/ExecutableAllocator.cpp:
+        (JSC::ExecutablePool::systemAlloc):
+        * jit/ExecutableAllocator.h:
+        (JSC::ExecutablePool::create):
+        (JSC::ExecutableAllocator::ExecutableAllocator):
+        (JSC::ExecutableAllocator::poolForSize):
+        (JSC::ExecutablePool::ExecutablePool):
+        (JSC::ExecutablePool::poolAllocate):
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::FixedVMPoolAllocator::allocInternal):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompile):
+        * jit/JIT.h:
+        (JSC::JIT::compileGetByIdProto):
+        (JSC::JIT::compileGetByIdSelfList):
+        (JSC::JIT::compileGetByIdProtoList):
+        (JSC::JIT::compileGetByIdChainList):
+        (JSC::JIT::compileGetByIdChain):
+        (JSC::JIT::compilePutByIdTransition):
+        (JSC::JIT::compilePatchGetArrayLength):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::privateCompileCTIMachineTrampolines):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::privateCompileCTIMachineTrampolines):
+        (JSC::JIT::privateCompileCTINativeCall):
+        * jit/JITPropertyAccess.cpp:
+        (JSC::JIT::stringGetByValStubGenerator):
+        (JSC::JIT::privateCompilePutByIdTransition):
+        (JSC::JIT::privateCompilePatchGetArrayLength):
+        (JSC::JIT::privateCompileGetByIdProto):
+        (JSC::JIT::privateCompileGetByIdSelfList):
+        (JSC::JIT::privateCompileGetByIdProtoList):
+        (JSC::JIT::privateCompileGetByIdChainList):
+        (JSC::JIT::privateCompileGetByIdChain):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::stringGetByValStubGenerator):
+        (JSC::JIT::privateCompilePutByIdTransition):
+        (JSC::JIT::privateCompilePatchGetArrayLength):
+        (JSC::JIT::privateCompileGetByIdProto):
+        (JSC::JIT::privateCompileGetByIdSelfList):
+        (JSC::JIT::privateCompileGetByIdProtoList):
+        (JSC::JIT::privateCompileGetByIdChainList):
+        (JSC::JIT::privateCompileGetByIdChain):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::tryCachePutByID):
+        (JSC::JITThunks::tryCacheGetByID):
+        (JSC::DEFINE_STUB_FUNCTION):
+        (JSC::getPolymorphicAccessStructureListSlot):
+        * jit/JITStubs.h:
+        * jit/SpecializedThunkJIT.h:
+        (JSC::SpecializedThunkJIT::finalize):
+        * runtime/ExceptionHelpers.cpp:
+        * runtime/ExceptionHelpers.h:
+        * runtime/Executable.cpp:
+        (JSC::EvalExecutable::compileInternal):
+        (JSC::ProgramExecutable::compileInternal):
+        (JSC::FunctionExecutable::compileForCallInternal):
+        (JSC::FunctionExecutable::compileForConstructInternal):
+        (JSC::FunctionExecutable::reparseExceptionInfo):
+        (JSC::EvalExecutable::reparseExceptionInfo):
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::compile):
+
+2010-08-26  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Brady Eidson.
+
+        Bug 44655 - Add debug only convenience methods to obtain a Vector<char> from a String/StringImpl.
+
+        * wtf/text/WTFString.cpp:
+        (asciiDebug):
+            Return a Vector<char> containing the contents of a string as ASCII.
+
+2010-08-26  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Add PassOwnArrayPtr
+        https://bugs.webkit.org/show_bug.cgi?id=44627
+
+        * GNUmakefile.am:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        Add the new files.
+
+        * wtf/Forward.h:
+        Forward declare PassOwnArrayPtr.
+        
+        * wtf/OwnArrayPtr.h:
+        Mimic the OwnPtr interface.
+
+        * wtf/OwnArrayPtrCommon.h: Added.
+        (WTF::deleteOwnedArrayPtr):
+        Move delete function here so it can be shared by OwnArrayPtr and
+        PassOwnArrayPtr.
+
+        * wtf/PassOwnArrayPtr.h: Added.
+        Mimic the PassOwnPtr interface.
+
+2010-08-26  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        [JSC] JavaScript parsing error when loading Equifax web page
+        https://bugs.webkit.org/show_bug.cgi?id=42900
+
+        '-->' is ostensibly only meant to occur when there is only
+        whitespace preceeding it on the line.  However firefox treats
+        multiline comments as a space character, so they are allowed.
+        One side effect of the firefox model is that any line terminators
+        inside the multiline comment are ignored, so
+
+            foo/*
+            */-->
+
+        is treated as
+
+            foo -->
+
+        and so '-->' will not be a comment in this case.  Happily this simply
+        means that to fix this issue all we need to do is stop updating
+        m_atLineStart when handling multiline comments.
+
+        * parser/Lexer.cpp:
+        (JSC::Lexer::lex):
+
+2010-08-25  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Improve overflow handling in StringImpl::Replace
+        https://bugs.webkit.org/show_bug.cgi?id=42502
+        <rdar://problem/8203794>
+
+        Harden StringImpl::replace against overflow -- I can't see how this
+        could be abused, but it's better to be safe than sorry.
+
+        * wtf/text/StringImpl.cpp:
+        (WTF::StringImpl::replace):
+
+2010-08-26  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] The GNUmakefile.am files contain a myriad of confusing preprocessor and compiler flag definitions
+        https://bugs.webkit.org/show_bug.cgi?id=44624
+
+        Clean up GNUmakefile.am.
+
+        * GNUmakefile.am: Alphabetize the include order in javascriptcore_cppflags. Move
+        a couple include lines from the top-level GNUmakefile.am.
+
+2010-08-25  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Kent Tamura.
+
+        Local variables 'k' and 'y' in s2b() in dtoa.cpp are computed but not used
+        https://bugs.webkit.org/show_bug.cgi?id=29259
+
+        Remove unused code in dtoa.cpp, spotted by Wan-Teh Chang.
+
+        * wtf/dtoa.cpp:
+        (WTF::s2b):
+
 2010-08-25  Kwang Yul Seo  <skyul@company100.net>
 
         Reviewed by Kevin Ollivier.

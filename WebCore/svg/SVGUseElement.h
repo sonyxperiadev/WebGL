@@ -40,11 +40,17 @@ namespace WebCore {
                           public SVGExternalResourcesRequired,
                           public SVGURIReference {
     public:
-        SVGUseElement(const QualifiedName&, Document*);
-        virtual ~SVGUseElement();
+        static PassRefPtr<SVGUseElement> create(const QualifiedName&, Document*);
 
         SVGElementInstance* instanceRoot() const;
         SVGElementInstance* animatedInstanceRoot() const;
+        SVGElementInstance* instanceForShadowTreeElement(Node*) const;
+        void invalidateShadowTree();
+
+        RenderObject* rendererClipChild() const;
+
+    private:
+        SVGUseElement(const QualifiedName&, Document*);
 
         virtual bool isValid() const { return SVGTests::isValid(); }
 
@@ -62,20 +68,15 @@ namespace WebCore {
         virtual void detach();
 
         virtual Path toClipPath() const;
-        RenderObject* rendererClipChild() const;
 
         static void removeDisallowedElementsFromSubtree(Node* element);
-        SVGElementInstance* instanceForShadowTreeElement(Node* element) const;
-        void invalidateShadowTree();
 
         void setUpdatesBlocked(bool blocked) { m_updatesBlocked = blocked; }
 
-    private:
         friend class RenderSVGShadowTreeRootContainer;
         bool isPendingResource() const { return m_isPendingResource; }
         void buildShadowAndInstanceTree(SVGShadowTreeRootElement*);
 
-    private:
         virtual bool selfHasRelativeLengths() const;
 
         DECLARE_ANIMATED_PROPERTY(SVGUseElement, SVGNames::xAttr, SVGLength, X, x)
@@ -89,7 +90,6 @@ namespace WebCore {
         // SVGExternalResourcesRequired
         DECLARE_ANIMATED_PROPERTY(SVGUseElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
 
-    private:
         // Instance tree handling
         void buildInstanceTree(SVGElement* target, SVGElementInstance* targetInstance, bool& foundCycle);
         void handleDeepUseReferencing(SVGUseElement* use, SVGElementInstance* targetInstance, bool& foundCycle);

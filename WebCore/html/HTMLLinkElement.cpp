@@ -103,7 +103,7 @@ void HTMLLinkElement::setDisabledState(bool _disabled)
         if (!m_sheet && m_disabledState == EnabledViaScript)
             process();
         else
-            document()->updateStyleSelector(); // Update the style selector.
+            document()->styleSelectorChanged(DeferRecalcStyle); // Update the style selector.
     }
 }
 
@@ -211,7 +211,7 @@ void HTMLLinkElement::process()
         ResourceHandle::prepareForURL(m_url);
 
 #if ENABLE(LINK_PREFETCH)
-    if (m_relAttribute.m_isLinkPrefetch && m_url.isValid())
+    if (m_relAttribute.m_isLinkPrefetch && m_url.isValid() && document()->frame())
         document()->docLoader()->requestLinkPrefetch(m_url);
 #endif
 
@@ -256,7 +256,7 @@ void HTMLLinkElement::process()
     } else if (m_sheet) {
         // we no longer contain a stylesheet, e.g. perhaps rel or type was changed
         m_sheet = 0;
-        document()->updateStyleSelector();
+        document()->styleSelectorChanged(DeferRecalcStyle);
     }
 }
 
@@ -274,9 +274,8 @@ void HTMLLinkElement::removedFromDocument()
 
     document()->removeStyleSheetCandidateNode(this);
 
-    // FIXME: It's terrible to do a synchronous update of the style selector just because a <style> or <link> element got removed.
     if (document()->renderer())
-        document()->updateStyleSelector();
+        document()->styleSelectorChanged(DeferRecalcStyle);
 }
 
 void HTMLLinkElement::finishParsingChildren()
@@ -289,7 +288,7 @@ void HTMLLinkElement::setCSSStyleSheet(const String& href, const KURL& baseURL, 
 {
     m_sheet = CSSStyleSheet::create(this, href, baseURL, charset);
 
-    bool strictParsing = !document()->inCompatMode();
+    bool strictParsing = !document()->inQuirksMode();
     bool enforceMIMEType = strictParsing;
     bool crossOriginCSS = false;
     bool validMIMEType = false;
@@ -297,7 +296,7 @@ void HTMLLinkElement::setCSSStyleSheet(const String& href, const KURL& baseURL, 
 
     // Check to see if we should enforce the MIME type of the CSS resource in strict mode.
     // Running in iWeb 2 is one example of where we don't want to - <rdar://problem/6099748>
-    if (enforceMIMEType && document()->page() && !document()->page()->settings()->enforceCSSMIMETypeInStrictMode())
+    if (enforceMIMEType && document()->page() && !document()->page()->settings()->enforceCSSMIMETypeInNoQuirksMode())
         enforceMIMEType = false;
 
 #if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD)

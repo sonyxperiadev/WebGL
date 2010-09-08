@@ -84,6 +84,9 @@ void PluginDocumentParser::createDocumentStructure()
     RefPtr<Element> rootElement = document()->createElement(htmlTag, false);
     document()->appendChild(rootElement, ec);
 
+    if (document()->frame() && document()->frame()->loader())
+        document()->frame()->loader()->dispatchDocumentElementAvailable();
+
     RefPtr<Element> body = document()->createElement(bodyTag, false);
     body->setAttribute(marginwidthAttr, "0");
     body->setAttribute(marginheightAttr, "0");
@@ -121,7 +124,7 @@ void PluginDocumentParser::appendBytes(DocumentWriter*, const char*, int, bool)
 
     document()->updateLayout();
 
-    if (RenderWidget* renderer = toRenderWidget(m_embedElement->renderer())) {
+    if (RenderPart* renderer = m_embedElement->renderPart()) {
         frame->loader()->client()->redirectDataToPlugin(renderer->widget());
         frame->loader()->activeDocumentLoader()->mainResourceLoader()->setShouldBufferData(false);
     }
@@ -132,7 +135,8 @@ void PluginDocumentParser::appendBytes(DocumentWriter*, const char*, int, bool)
 PluginDocument::PluginDocument(Frame* frame, const KURL& url)
     : HTMLDocument(frame, url)
 {
-    setParseMode(Compat);
+    setCompatibilityMode(QuirksMode);
+    lockCompatibilityMode();
 }
     
 PassRefPtr<DocumentParser> PluginDocument::createParser()

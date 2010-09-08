@@ -992,6 +992,12 @@ void ReplaceSelectionCommand::doApply()
     if (shouldMergeStart(selectionStartWasStartOfParagraph, fragment.hasInterchangeNewlineAtStart(), startIsInsideMailBlockquote)) {
         VisiblePosition destination = startOfInsertedContent.previous();
         VisiblePosition startOfParagraphToMove = startOfInsertedContent;
+        // We need to handle the case where we need to merge the end
+        // but our destination node is inside an inline that is the last in the block.
+        // We insert a placeholder before the newly inserted content to avoid being merged into the inline.
+        Node* destinationNode = destination.deepEquivalent().node();
+        if (m_shouldMergeEnd && destinationNode != destinationNode->enclosingInlineElement() && destinationNode->enclosingInlineElement()->nextSibling())
+            insertNodeBefore(createBreakElement(document()), refNode.get());
         
         // Merging the the first paragraph of inserted content with the content that came
         // before the selection that was pasted into would also move content after 
@@ -1115,7 +1121,7 @@ bool ReplaceSelectionCommand::shouldRemoveEndBR(Node* endBR, const VisiblePositi
         return false;
     
     // Remove the br if it is collapsed away and so is unnecessary.
-    if (!document()->inStrictMode() && isEndOfBlock(visiblePos) && !isStartOfParagraph(visiblePos))
+    if (!document()->inNoQuirksMode() && isEndOfBlock(visiblePos) && !isStartOfParagraph(visiblePos))
         return true;
         
     // A br that was originally holding a line open should be displaced by inserted content or turned into a line break.

@@ -50,14 +50,11 @@ struct SVGKerningPair {
 typedef Vector<SVGKerningPair> KerningPairVector;
 
 class SVGMissingGlyphElement;    
+
 class SVGFontElement : public SVGStyledElement
                      , public SVGExternalResourcesRequired {
 public:
-    SVGFontElement(const QualifiedName&, Document*);
-    virtual ~SVGFontElement();
-
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual bool rendererIsNeeded(RenderStyle*) { return false; }    
+    static PassRefPtr<SVGFontElement> create(const QualifiedName&, Document*);
 
     void invalidateGlyphCache();
 
@@ -69,10 +66,15 @@ public:
     SVGMissingGlyphElement* firstMissingGlyphElement() const;
 
 private:
-    // SVGExternalResourcesRequired
-    DECLARE_ANIMATED_PROPERTY(SVGFontElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
+    SVGFontElement(const QualifiedName&, Document*);
+
+    virtual void synchronizeProperty(const QualifiedName&);
+    virtual bool rendererIsNeeded(RenderStyle*) { return false; }    
 
     void ensureGlyphCache() const;
+
+    // SVGExternalResourcesRequired
+    DECLARE_ANIMATED_PROPERTY(SVGFontElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
 
     mutable KerningPairVector m_horizontalKerningPairs;
     mutable KerningPairVector m_verticalKerningPairs;

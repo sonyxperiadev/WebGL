@@ -38,14 +38,15 @@ enum SVGStitchOptions {
 
 class SVGFETurbulenceElement : public SVGFilterPrimitiveStandardAttributes {
 public:
+    static PassRefPtr<SVGFETurbulenceElement> create(const QualifiedName&, Document*);
+
+private:
     SVGFETurbulenceElement(const QualifiedName&, Document*);
-    virtual ~SVGFETurbulenceElement();
 
     virtual void parseMappedAttribute(Attribute*);
     virtual void synchronizeProperty(const QualifiedName&);
     virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*);
 
-private:
     DECLARE_ANIMATED_PROPERTY_MULTIPLE_WRAPPERS(SVGFETurbulenceElement, SVGNames::baseFrequencyAttr, SVGBaseFrequencyXIdentifier, float, BaseFrequencyX, baseFrequencyX)
     DECLARE_ANIMATED_PROPERTY_MULTIPLE_WRAPPERS(SVGFETurbulenceElement, SVGNames::baseFrequencyAttr, SVGBaseFrequencyYIdentifier, float, BaseFrequencyY, baseFrequencyY)
     DECLARE_ANIMATED_PROPERTY(SVGFETurbulenceElement, SVGNames::numOctavesAttr, long, NumOctaves, numOctaves)

@@ -239,7 +239,9 @@ static TriState stateStyle(Frame* frame, int propertyID, const char* desiredValu
 
 static String valueStyle(Frame* frame, int propertyID)
 {
-    return frame->selectionStartStylePropertyValue(propertyID);
+    // FIXME: Rather than retrieving the style at the start of the current selection,
+    // we should retrieve the style present throughout the selection for non-Mac platforms.
+    return frame->editor()->selectionStartCSSPropertyValue(propertyID);
 }
 
 static TriState stateTextWritingDirection(Frame* frame, WritingDirection direction)
@@ -1067,6 +1069,14 @@ static bool executeYankAndSelect(Frame* frame, Event*, EditorCommandSource, cons
     return true;
 }
 
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+static bool executeCancelOperation(Frame* frame, Event*, EditorCommandSource, const String&)
+{
+    frame->editor()->handleCancelOperation();
+    return true;
+}
+#endif
+
 // Supported functions
 
 static bool supported(Frame*, EditorCommandSource)
@@ -1453,6 +1463,9 @@ static const CommandMap& createCommandMap()
         { "Unselect", { executeUnselect, supported, enabledVisibleSelection, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "Yank", { executeYank, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "YankAndSelect", { executeYankAndSelect, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+        { "CancelOperation", { executeCancelOperation, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+#endif
     };
 
     // These unsupported commands are listed here since they appear in the Microsoft

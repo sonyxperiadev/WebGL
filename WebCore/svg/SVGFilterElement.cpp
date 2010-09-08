@@ -42,8 +42,8 @@ namespace WebCore {
 char SVGFilterResXIdentifier[] = "SVGFilterResX";
 char SVGFilterResYIdentifier[] = "SVGFilterResY";
 
-SVGFilterElement::SVGFilterElement(const QualifiedName& tagName, Document* doc)
-    : SVGStyledElement(tagName, doc)
+inline SVGFilterElement::SVGFilterElement(const QualifiedName& tagName, Document* document)
+    : SVGStyledElement(tagName, document)
     , SVGURIReference()
     , SVGLangSpace()
     , SVGExternalResourcesRequired()
@@ -58,8 +58,9 @@ SVGFilterElement::SVGFilterElement(const QualifiedName& tagName, Document* doc)
     // Spec: If the width/height attribute is not specified, the effect is as if a value of "120%" were specified.
 }
 
-SVGFilterElement::~SVGFilterElement()
+PassRefPtr<SVGFilterElement> SVGFilterElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGFilterElement(tagName, document));
 }
 
 void SVGFilterElement::setFilterRes(unsigned long filterResX, unsigned long filterResY)

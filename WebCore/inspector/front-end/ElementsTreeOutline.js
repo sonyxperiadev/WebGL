@@ -765,16 +765,16 @@ WebInspector.ElementsTreeElement.prototype = {
         if (Preferences.domBreakpointsEnabled) {
             // Add debbuging-related actions
             contextMenu.appendSeparator();
-
-            contextMenu.appendItem(WebInspector.UIString("Stop on Subtree Modifications"),
-                WebInspector.domBreakpointManager.setBreakpoint.bind(WebInspector.domBreakpointManager, this.representedObject, WebInspector.DOMBreakpoint.Types.SubtreeModified));
-            contextMenu.appendItem(WebInspector.UIString("Stop on Attributes Modifications"),
-                WebInspector.domBreakpointManager.setBreakpoint.bind(WebInspector.domBreakpointManager, this.representedObject, WebInspector.DOMBreakpoint.Types.AttributeModified));
-            contextMenu.appendItem(WebInspector.UIString("Stop on Node Removal"),
-                WebInspector.domBreakpointManager.setBreakpoint.bind(WebInspector.domBreakpointManager, this.representedObject, WebInspector.DOMBreakpoint.Types.NodeRemoved));
-
-            contextMenu.appendItem(WebInspector.UIString("Remove Breakpoints"),
-                WebInspector.domBreakpointManager.removeBreakpointsForNode.bind(WebInspector.domBreakpointManager, this.representedObject));
+            for (var type in WebInspector.DOMBreakpoint.Types) {
+                var typeId = WebInspector.DOMBreakpoint.Types[type];
+                var label = WebInspector.DOMBreakpoint.contextMenuLabelForType(typeId);
+                var breakpoint = WebInspector.domBreakpointManager.findBreakpoint(this.representedObject.id, typeId);
+                if (!breakpoint)
+                    var handler = WebInspector.domBreakpointManager.setBreakpoint.bind(WebInspector.domBreakpointManager, this.representedObject, typeId);
+                else
+                    var handler = breakpoint.remove.bind(breakpoint);
+                contextMenu.appendCheckboxItem(label, handler, !!breakpoint);
+            }
         }
     },
 
@@ -1125,8 +1125,7 @@ WebInspector.ElementsTreeElement.prototype = {
             moveToNextAttributeIfNeeded.call(newTreeItem);
         }
 
-        var callId = WebInspector.Callback.wrap(changeTagNameCallback);
-        InspectorBackend.changeTagName(callId, this.representedObject.id, newText);
+        InspectorBackend.changeTagName(this.representedObject.id, newText, changeTagNameCallback);
     },
 
     _textNodeEditingCommitted: function(element, newText)
@@ -1265,6 +1264,11 @@ WebInspector.ElementsTreeElement.prototype = {
                 info.title = "Document Fragment";
                 break;
 
+            case Node.ATTRIBUTE_NODE:
+                var value = node.value || "\u200B"; // Zero width space to force showing an empty value.
+                info.title = this._attributeHTML(node.name, value);
+                break;
+
             case Node.ELEMENT_NODE:
                 var tagName = this.treeOutline.nodeNameToCorrectCase(node.nodeName).escapeHTML();
                 if (this._elementCloseTag) {
@@ -1374,8 +1378,7 @@ WebInspector.ElementsTreeElement.prototype = {
             parentElement.adjustCollapsedRange(true);
         }
 
-        var callId = WebInspector.Callback.wrap(removeNodeCallback);
-        InspectorBackend.removeNode(callId, this.representedObject.id);
+        InspectorBackend.removeNode(this.representedObject.id, removeNodeCallback);
     },
 
     _editAsHTML: function()
@@ -1402,12 +1405,10 @@ WebInspector.ElementsTreeElement.prototype = {
 
         function commitChange(value)
         {
-            var setCallId = WebInspector.Callback.wrap(selectNode);
-            InspectorBackend.setOuterHTML(setCallId, node.id, value);
+            InspectorBackend.setOuterHTML(node.id, value, selectNode);
         }
 
-        var getCallId = WebInspector.Callback.wrap(this._startEditingAsHTML.bind(this, commitChange));
-        InspectorBackend.getOuterHTML(getCallId, node.id);
+        InspectorBackend.getOuterHTML(node.id, this._startEditingAsHTML.bind(this, commitChange));
     },
 
     _copyHTML: function()

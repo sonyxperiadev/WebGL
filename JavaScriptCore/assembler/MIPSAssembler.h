@@ -287,6 +287,11 @@ public:
         emitInst(0x00000018 | (rs << OP_SH_RS) | (rt << OP_SH_RT));
     }
 
+    void div(RegisterID rs, RegisterID rt)
+    {
+        emitInst(0x0000001a | (rs << OP_SH_RS) | (rt << OP_SH_RT));
+    }
+
     void mfhi(RegisterID rd)
     {
         emitInst(0x00000010 | (rd << OP_SH_RD));
@@ -689,8 +694,10 @@ public:
     void* executableCopy(ExecutablePool* allocator)
     {
         void *result = m_buffer.executableCopy(allocator);
-        if (result)
-            relocateJumps(m_buffer.data(), result);
+        if (!result)
+            return 0;
+
+        relocateJumps(m_buffer.data(), result);
         return result;
     }
 

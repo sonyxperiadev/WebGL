@@ -33,6 +33,7 @@
 
 #if ENABLE(INSPECTOR)
 
+#include "Attr.h"
 #include "CSSComputedStyleDeclaration.h"
 #include "CSSMutableStyleDeclaration.h"
 #include "CSSPropertyNames.h"
@@ -538,6 +539,8 @@ void InspectorDOMAgent::setOuterHTML(long nodeId, const String& outerHTML, long*
     if (!node || !node->isHTMLElement())
         return;
 
+    bool requiresTotalUpdate = node->nodeName() == "HTML" || node->nodeName() == "BODY" || node->nodeName() == "HEAD";
+
     bool childrenRequested = m_childrenRequested.contains(nodeId);
     Node* previousSibling = node->previousSibling();
     Node* parentNode = node->parentNode();
@@ -548,8 +551,15 @@ void InspectorDOMAgent::setOuterHTML(long nodeId, const String& outerHTML, long*
     if (ec)
         return;
 
-    Node* newNode = previousSibling ? previousSibling->nextSibling() : parentNode->firstChild();
+    if (requiresTotalUpdate) {
+        Document* document = mainFrameDocument();
+        reset();
+        setDocument(document);
+        *newId = 0;
+        return;
+    }
 
+    Node* newNode = previousSibling ? previousSibling->nextSibling() : parentNode->firstChild();
     *newId = pushNodePathToFrontend(newNode);
     if (childrenRequested)
         pushChildNodesToFrontend(*newId);
@@ -834,6 +844,10 @@ PassRefPtr<InspectorObject> InspectorDOMAgent::buildObjectForNode(Node* node, in
         value->setString("publicId", docType->publicId());
         value->setString("systemId", docType->systemId());
         value->setString("internalSubset", docType->internalSubset());
+    } else if (node->nodeType() == Node::ATTRIBUTE_NODE) {
+        Attr* attribute = static_cast<Attr*>(node);
+        value->setString("name", attribute->name());
+        value->setString("value", attribute->value());
     }
     return value.release();
 }
@@ -880,8 +894,8 @@ PassRefPtr<InspectorObject> InspectorDOMAgent::buildObjectForEventListener(const
     RefPtr<EventListener> eventListener = registeredEventListener.listener;
     RefPtr<InspectorObject> value = InspectorObject::create();
     value->setString("type", eventType);
-    value->setBool("useCapture", registeredEventListener.useCapture);
-    value->setBool("isAttribute", eventListener->isAttribute());
+    value->setBoolean("useCapture", registeredEventListener.useCapture);
+    value->setBoolean("isAttribute", eventListener->isAttribute());
     value->setNumber("nodeId", pushNodePathToFrontend(node));
     value->setString("listenerBody", eventListenerHandlerBody(node->document(), eventListener.get()));
     String sourceName;
@@ -1153,14 +1167,14 @@ void InspectorDOMAgent::getAllStyles(RefPtr<InspectorArray>* styles)
 void InspectorDOMAgent::getStyleSheet(long styleSheetId, RefPtr<InspectorObject>* styleSheetObject)
 {
     CSSStyleSheet* styleSheet = cssStore()->styleSheetForId(styleSheetId);
-    if (styleSheet && styleSheet->doc())
-        *styleSheetObject = buildObjectForStyleSheet(styleSheet->doc(), styleSheet);
+    if (styleSheet && styleSheet->document())
+        *styleSheetObject = buildObjectForStyleSheet(styleSheet->document(), styleSheet);
 }
 
 void InspectorDOMAgent::getRuleRanges(long styleSheetId, RefPtr<InspectorValue>* ruleRange)
 {
     CSSStyleSheet* styleSheet = cssStore()->styleSheetForId(styleSheetId);
-    if (styleSheet && styleSheet->doc()) {
+    if (styleSheet && styleSheet->document()) {
         HashMap<long, SourceRange> ruleRanges = cssStore()->getRuleRanges(styleSheet);
         if (!ruleRanges.size())
             return;
@@ -1460,7 +1474,7 @@ void InspectorDOMAgent::populateObjectWithStyleProperties(CSSStyleDeclaration* s
         String name = style->item(i);
         property->setString("name", name);
         property->setString("priority", style->getPropertyPriority(name));
-        property->setBool("implicit", style->isPropertyImplicit(name));
+        property->setBoolean("implicit", style->isPropertyImplicit(name));
         String shorthand = style->getPropertyShorthand(name);
         property->setString("shorthand", shorthand);
         if (!shorthand.isEmpty() && !foundShorthands.contains(shorthand)) {
@@ -1492,10 +1506,10 @@ PassRefPtr<InspectorObject> InspectorDOMAgent::buildObjectForStyleSheet(Document
     RefPtr<InspectorObject> result = InspectorObject::create();
     long id = cssStore()->bindStyleSheet(styleSheet);
     result->setNumber("id", id);
-    result->setBool("disabled", styleSheet->disabled());
+    result->setBoolean("disabled", styleSheet->disabled());
     result->setString("href", styleSheet->href());
     result->setString("title", styleSheet->title());
-    result->setNumber("documentElementId", m_documentNodeToIdMap.get(styleSheet->doc()));
+    result->setNumber("documentElementId", m_documentNodeToIdMap.get(styleSheet->document()));
     RefPtr<InspectorArray> cssRules = InspectorArray::create();
     PassRefPtr<CSSRuleList> cssRuleList = CSSRuleList::create(styleSheet, true);
     if (cssRuleList) {
@@ -1526,9 +1540,9 @@ PassRefPtr<InspectorObject> InspectorDOMAgent::buildObjectForRule(Document* owne
     }
     bool isUserAgent = parentStyleSheet && !parentStyleSheet->ownerNode() && parentStyleSheet->href().isEmpty();
     bool isUser = parentStyleSheet && parentStyleSheet->ownerNode() && parentStyleSheet->ownerNode()->nodeName() == "#document";
-    result->setBool("isUserAgent", isUserAgent);
-    result->setBool("isUser", isUser);
-    result->setBool("isViaInspector", rule->parentStyleSheet() == cssStore()->inspectorStyleSheet(ownerDocument, false));
+    result->setBoolean("isUserAgent", isUserAgent);
+    result->setBoolean("isUser", isUser);
+    result->setBoolean("isViaInspector", rule->parentStyleSheet() == cssStore()->inspectorStyleSheet(ownerDocument, false));
 
     // Bind editable scripts only.
     bool bind = !isUserAgent && !isUser;

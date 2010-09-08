@@ -34,13 +34,7 @@ namespace WebCore {
     class SVGAltGlyphElement : public SVGTextPositioningElement,
                                public SVGURIReference {
     public:
-        SVGAltGlyphElement(const QualifiedName&, Document*);
-        virtual ~SVGAltGlyphElement();
-
-        virtual void synchronizeProperty(const QualifiedName&);
-
-        virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-        bool childShouldCreateRenderer(Node*) const;
+        static PassRefPtr<SVGAltGlyphElement> create(const QualifiedName&, Document*);
 
         const AtomicString& glyphRef() const;
         void setGlyphRef(const AtomicString&, ExceptionCode&);
@@ -49,7 +43,14 @@ namespace WebCore {
     
         SVGGlyphElement* glyphElement() const;
 
-    private:    
+    private:
+        SVGAltGlyphElement(const QualifiedName&, Document*);
+
+        virtual void synchronizeProperty(const QualifiedName&);
+
+        virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
+        virtual bool childShouldCreateRenderer(Node*) const;
+
         // SVGURIReference
         DECLARE_ANIMATED_PROPERTY(SVGAltGlyphElement, XLinkNames::hrefAttr, String, Href, href)
     };

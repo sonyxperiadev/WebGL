@@ -82,7 +82,6 @@
 #include "HTMLStyleElement.h"
 #include "HTMLTitleElement.h"
 #include "HTTPParsers.h"
-#include "HistoryItem.h"
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "ImageLoader.h"
@@ -136,6 +135,7 @@
 #include "XMLHttpRequest.h"
 #include "XMLNSNames.h"
 #include "XMLNames.h"
+#include "XSSAuditor.h"
 #include "htmlediting.h"
 #include <wtf/CurrentTime.h>
 #include <wtf/HashFunctions.h>
@@ -371,9 +371,12 @@ private:
 
 Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
     : ContainerNode(0)
+    , m_compatibilityMode(NoQuirksMode)
+    , m_compatibilityModeLocked(false)
     , m_domTreeVersion(0)
     , m_styleSheets(StyleSheetList::create(this))
     , m_styleRecalcTimer(this, &Document::styleRecalcTimerFired)
+    , m_pendingStyleRecalcShouldForce(false)
     , m_frameElementsShouldIgnoreScrolling(false)
     , m_containsValidityStyleRules(false)
     , m_updateFocusAppearanceRestoresSelection(false)
@@ -415,6 +418,11 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
 #endif
     , m_weakReference(DocumentWeakReference::create(this))
     , m_idAttributeName(idAttr)
+#if ENABLE(FULLSCREEN_API)
+    , m_isFullScreen(0)
+    , m_areKeysEnabledInFullScreen(0)
+#endif
+    , m_loadEventDelayCount(0)
 {
     m_document = this;
 
@@ -441,8 +449,6 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
     m_visuallyOrdered = false;
     m_bParsing = false;
     m_wellFormed = false;
-
-    setParseMode(Strict);
 
     m_textColor = Color::black;
     m_listenerTypes = 0;
@@ -502,6 +508,9 @@ void Document::removedLastRef()
         m_activeNode = 0;
         m_titleElement = 0;
         m_documentElement = 0;
+#if ENABLE(FULLSCREEN_API)
+        m_fullScreenElement = 0;
+#endif
 
         // removeAllChildren() doesn't always unregister IDs, do it upfront to avoid having stale references in the map.
         m_elementsById.clear();
@@ -599,6 +608,20 @@ void Document::destroyAllWrapperCaches()
 }
 #endif
 
+void Document::setCompatibilityMode(CompatibilityMode mode)
+{
+    if (m_compatibilityModeLocked || mode == m_compatibilityMode)
+        return;
+    ASSERT(!documentElement() && !m_styleSheets->length());
+    bool wasInQuirksMode = inQuirksMode();
+    m_compatibilityMode = mode;
+    if (inQuirksMode() != wasInQuirksMode) {
+        // All user stylesheets have to reparse using the different mode.
+        clearPageUserSheet();
+        clearPageGroupUserSheets();
+    }
+}
+
 void Document::resetLinkColor()
 {
     m_linkColor = Color(0, 0, 238);
@@ -617,13 +640,11 @@ void Document::resetActiveLinkColor()
 void Document::setDocType(PassRefPtr<DocumentType> docType)
 {
     // This should never be called more than once.
-    // Note: This is not a public DOM method and can only be called by the parser.
     ASSERT(!m_docType || !docType);
-    if (m_docType && docType)
-        return;
     m_docType = docType;
     if (m_docType)
         m_docType->setDocument(this);
+<<<<<<< HEAD
 #ifdef ANDROID_META_SUPPORT
     if (m_docType && !ownerElement()
             && m_docType->publicId().startsWith("-//wapforum//dtd xhtml mobile 1.", false)) {
@@ -635,6 +656,8 @@ void Document::setDocType(PassRefPtr<DocumentType> docType)
     }
 #endif
     determineParseMode();
+=======
+>>>>>>> webkit.org at r66666
 }
 
 DOMImplementation* Document::implementation() const
@@ -1388,12 +1411,18 @@ PassRefPtr<TreeWalker> Document::createTreeWalker(Node* root, unsigned whatToSho
     return TreeWalker::create(root, whatToShow, filter, expandEntityReferences);
 }
 
+void Document::scheduleForcedStyleRecalc()
+{
+    m_pendingStyleRecalcShouldForce = true;
+    scheduleStyleRecalc();
+}
+
 void Document::scheduleStyleRecalc()
 {
     if (m_styleRecalcTimer.isActive() || inPageCache())
         return;
 
-    ASSERT(childNeedsStyleRecalc());
+    ASSERT(childNeedsStyleRecalc() || m_pendingStyleRecalcShouldForce);
 
     if (!documentsThatNeedStyleRecalc)
         documentsThatNeedStyleRecalc = new HashSet<Document*>;
@@ -1416,6 +1445,7 @@ void Document::unscheduleStyleRecalc()
         documentsThatNeedStyleRecalc->remove(this);
 
     m_styleRecalcTimer.stop();
+    m_pendingStyleRecalcShouldForce = false;
 }
 
 void Document::styleRecalcTimerFired(Timer<Document>*)
@@ -1457,6 +1487,9 @@ void Document::recalcStyle(StyleChange change)
     ASSERT(!renderer() || renderArena());
     if (!renderer() || !renderArena())
         goto bail_out;
+    
+    if (m_pendingStyleRecalcShouldForce)
+        change = Force;
 
     if (change == Force) {
         // style selector may set this again during recalc
@@ -1512,14 +1545,14 @@ void Document::updateStyleIfNeeded()
 {
     ASSERT(!view() || (!view()->isInLayout() && !view()->isPainting()));
     
-    if (!childNeedsStyleRecalc() || inPageCache())
+    if ((!m_pendingStyleRecalcShouldForce && !childNeedsStyleRecalc()) || inPageCache())
         return;
-        
+
     if (m_frame)
         m_frame->animation()->beginAnimationUpdate();
         
     recalcStyle(NoChange);
-    
+
     // Tell the animation controller that updateStyleIfNeeded is finished and it can do any post-processing
     if (m_frame)
         m_frame->animation()->endAnimationUpdate();
@@ -1534,7 +1567,6 @@ void Document::updateStyleForAllDocuments()
         HashSet<Document*>::iterator it = documentsThatNeedStyleRecalc->begin();
         Document* doc = *it;
         documentsThatNeedStyleRecalc->remove(doc);
-        ASSERT(doc->childNeedsStyleRecalc() && !doc->inPageCache());
         doc->updateStyleIfNeeded();
     }
 }
@@ -1572,7 +1604,7 @@ void Document::updateLayoutIgnorePendingStylesheets()
         // suspend JS instead of doing a layout with inaccurate information.
         if (body() && !body()->renderer() && m_pendingSheetLayout == NoLayoutWithPendingSheets) {
             m_pendingSheetLayout = DidLayoutWithPendingSheets;
-            updateStyleSelector();
+            styleSelectorChanged(RecalcStyleImmediately);
         } else if (m_hasNodesWithPlaceholderStyle)
             // If new nodes have been added or style recalc has been done with style sheets still pending, some nodes 
             // may not have had their real style calculated yet. Normally this gets cleaned when style sheets arrive 
@@ -1652,7 +1684,7 @@ void Document::createStyleSelector()
     if (Settings* docSettings = settings())
         matchAuthorAndUserStyles = docSettings->authorAndUserStylesEnabled();
     m_styleSelector.set(new CSSStyleSelector(this, m_styleSheets.get(), m_mappedElementSheet.get(), pageUserSheet(), pageGroupUserSheets(), 
-                                             !inCompatMode(), matchAuthorAndUserStyles));
+                                             !inQuirksMode(), matchAuthorAndUserStyles));
 }
 
 void Document::attach()
@@ -1883,6 +1915,8 @@ void Document::implicitOpen()
 
     removeChildren();
 
+    setCompatibilityMode(NoQuirksMode);
+
     m_parser = createParser();
     setParsing(true);
 
@@ -2036,8 +2070,7 @@ void Document::implicitClose()
     ImageLoader::dispatchPendingLoadEvents();
     dispatchWindowLoadEvent();
     enqueuePageshowEvent(PageshowEventNotPersisted);
-    if (m_pendingStateObject)
-        enqueuePopstateEvent(m_pendingStateObject.release());
+    enqueuePopstateEvent(m_pendingStateObject ? m_pendingStateObject.release() : SerializedScriptValue::nullValue());
     
     if (f)
         f->loader()->handledOnloadEvents();
@@ -2212,12 +2245,6 @@ void Document::setURL(const KURL& url)
     updateBaseURL();
 }
 
-void Document::setBaseElementURL(const KURL& baseElementURL)
-{ 
-    m_baseElementURL = baseElementURL;
-    updateBaseURL();
-}
-
 void Document::updateBaseURL()
 {
     // DOM 3 Core: When the Document supports the feature "HTML" [DOM Level 2 HTML], the base URI is computed using
@@ -2236,6 +2263,41 @@ void Document::updateBaseURL()
         m_elemSheet->setFinalURL(m_baseURL);
     if (m_mappedElementSheet)
         m_mappedElementSheet->setFinalURL(m_baseURL);
+}
+
+void Document::processBaseElement()
+{
+    // Find the first href attribute in a base element and the first target attribute in a base element.
+    const AtomicString* href = 0;
+    const AtomicString* target = 0;
+    for (Node* node = document()->firstChild(); node && (!href || !target); node = node->traverseNextNode()) {
+        if (node->hasTagName(baseTag)) {
+            if (!href) {
+                const AtomicString& value = static_cast<Element*>(node)->fastGetAttribute(hrefAttr);
+                if (!value.isNull())
+                    href = &value;
+            }
+            if (!target) {
+                const AtomicString& value = static_cast<Element*>(node)->fastGetAttribute(targetAttr);
+                if (!value.isNull())
+                    target = &value;
+            }
+        }
+    }
+
+    // FIXME: Since this doesn't share code with completeURL it may not handle encodings correctly.
+    KURL baseElementURL;
+    if (href) {
+        String strippedHref = deprecatedParseURL(*href);
+        if (!strippedHref.isEmpty() && (!frame() || frame()->script()->xssAuditor()->canSetBaseElementURL(*href)))
+            baseElementURL = KURL(url(), strippedHref);
+    }
+    if (m_baseElementURL != baseElementURL) {
+        m_baseElementURL = baseElementURL;
+        updateBaseURL();
+    }
+
+    m_baseTarget = target ? *target : nullAtom;
 }
 
 String Document::userAgent(const KURL& url) const
@@ -2259,14 +2321,23 @@ CSSStyleSheet* Document::pageUserSheet()
     // Parse the sheet and cache it.
     m_pageUserSheet = CSSStyleSheet::createInline(this, settings()->userStyleSheetLocation());
     m_pageUserSheet->setIsUserStyleSheet(true);
-    m_pageUserSheet->parseString(userSheetText, !inCompatMode());
+    m_pageUserSheet->parseString(userSheetText, !inQuirksMode());
     return m_pageUserSheet.get();
 }
 
 void Document::clearPageUserSheet()
 {
-    m_pageUserSheet = 0;
-    updateStyleSelector();
+    if (m_pageUserSheet) {
+        m_pageUserSheet = 0;
+        styleSelectorChanged(DeferRecalcStyle);
+    }
+}
+
+void Document::updatePageUserSheet()
+{
+    clearPageUserSheet();
+    if (pageUserSheet())
+        styleSelectorChanged(RecalcStyleImmediately);
 }
 
 const Vector<RefPtr<CSSStyleSheet> >* Document::pageGroupUserSheets() const
@@ -2296,7 +2367,7 @@ const Vector<RefPtr<CSSStyleSheet> >* Document::pageGroupUserSheets() const
                 continue;
             RefPtr<CSSStyleSheet> parsedSheet = CSSStyleSheet::createInline(const_cast<Document*>(this), sheet->url());
             parsedSheet->setIsUserStyleSheet(sheet->level() == UserStyleSheet::UserLevel);
-            parsedSheet->parseString(sheet->source(), !inCompatMode());
+            parsedSheet->parseString(sheet->source(), !inQuirksMode());
             if (!m_pageGroupUserSheets)
                 m_pageGroupUserSheets.set(new Vector<RefPtr<CSSStyleSheet> >);
             m_pageGroupUserSheets->append(parsedSheet.release());
@@ -2308,9 +2379,18 @@ const Vector<RefPtr<CSSStyleSheet> >* Document::pageGroupUserSheets() const
 
 void Document::clearPageGroupUserSheets()
 {
-    m_pageGroupUserSheets.clear();
     m_pageGroupUserSheetCacheValid = false;
-    updateStyleSelector();
+    if (m_pageGroupUserSheets && m_pageGroupUserSheets->size()) {
+        m_pageGroupUserSheets->clear();
+        styleSelectorChanged(DeferRecalcStyle);
+    }
+}
+
+void Document::updatePageGroupUserSheets()
+{
+    clearPageGroupUserSheets();
+    if (pageGroupUserSheets() && pageGroupUserSheets()->size())
+        styleSelectorChanged(RecalcStyleImmediately);
 }
 
 CSSStyleSheet* Document::elementSheet()
@@ -2480,7 +2560,7 @@ void Document::processHttpEquiv(const String& equiv, const String& content)
         // -dwh
         m_selectedStylesheetSet = content;
         m_preferredStylesheetSet = content;
-        updateStyleSelector();
+        styleSelectorChanged(DeferRecalcStyle);
     } else if (equalIgnoringCase(equiv, "refresh")) {
         double delay;
         String url;
@@ -2746,9 +2826,7 @@ String Document::selectedStylesheetSet() const
 void Document::setSelectedStylesheetSet(const String& aString)
 {
     m_selectedStylesheetSet = aString;
-    updateStyleSelector();
-    if (renderer())
-        renderer()->repaint();
+    styleSelectorChanged(DeferRecalcStyle);
 }
 
 // This method is called whenever a top-level stylesheet has finished loading.
@@ -2764,28 +2842,25 @@ void Document::removePendingSheet()
         printf("Stylesheet loaded at time %d. %d stylesheets still remain.\n", elapsedTime(), m_pendingStylesheets);
 #endif
 
-    updateStyleSelector();
+    styleSelectorChanged(RecalcStyleImmediately);
+
+    if (m_pendingStylesheets)
+        return;
 
     ScriptableDocumentParser* parser = scriptableDocumentParser();
-    if (!m_pendingStylesheets && parser)
+    if (parser)
         parser->executeScriptsWaitingForStylesheets();
 
-    if (!m_pendingStylesheets && m_gotoAnchorNeededAfterStylesheetsLoad && view())
+    if (m_gotoAnchorNeededAfterStylesheetsLoad && view())
         view()->scrollToFragment(m_frame->loader()->url());
 }
 
-void Document::updateStyleSelector()
+void Document::styleSelectorChanged(StyleSelectorUpdateFlag updateFlag)
 {
     // Don't bother updating, since we haven't loaded all our style info yet
     // and haven't calculated the style selector for the first time.
-    if (!m_didCalculateStyleSelector && !haveStylesheetsLoaded())
+    if (!attached() || (!m_didCalculateStyleSelector && !haveStylesheetsLoaded()))
         return;
-
-    if (didLayoutWithPendingStylesheets() && m_pendingStylesheets <= 0) {
-        m_pendingSheetLayout = IgnoreLayoutWithPendingSheets;
-        if (renderer())
-            renderer()->repaint();
-    }
 
 #ifdef INSTRUMENT_LAYOUT_SCHEDULING
     if (!ownerElement())
@@ -2793,6 +2868,18 @@ void Document::updateStyleSelector()
 #endif
 
     recalcStyleSelector();
+    
+    if (updateFlag == DeferRecalcStyle) {
+        scheduleForcedStyleRecalc();
+        return;
+    }
+    
+    if (didLayoutWithPendingStylesheets() && m_pendingStylesheets <= 0) {
+        m_pendingSheetLayout = IgnoreLayoutWithPendingSheets;
+        if (renderer())
+            renderer()->repaint();
+    }
+
     // This recalcStyle initiates a new recalc cycle. We need to bracket it to
     // make sure animations get the correct update time
     if (m_frame)
@@ -3246,6 +3333,19 @@ void Document::nodeWillBeRemoved(Node* n)
         frame->selection()->nodeWillBeRemoved(n);
         frame->dragCaretController()->nodeWillBeRemoved(n);
     }
+    
+#if ENABLE(FULLSCREEN_API)
+    // If the current full screen element or any of its ancestors is removed, set the current
+    // full screen element to the document root, and fire a fullscreenchange event to inform 
+    // clients of the DOM.
+    ASSERT(n);
+    if (n->contains(m_fullScreenElement.get())) {
+        ASSERT(n != documentElement());
+        m_fullScreenElement = documentElement();
+        m_fullScreenElement->setNeedsStyleRecalc();
+        m_fullScreenElement->dispatchEvent(Event::create(eventNames().webkitfullscreenchangeEvent, true, false));
+    }
+#endif
 }
 
 void Document::textInserted(Node* text, unsigned offset, unsigned length)
@@ -3767,7 +3867,7 @@ void Document::setInPageCache(bool flag)
         m_savedRenderer = renderer();
         if (FrameView* v = view())
             v->resetScrollbars();
-        unscheduleStyleRecalc();
+        m_styleRecalcTimer.stop();
     } else {
         ASSERT(!renderer() || renderer() == m_savedRenderer);
         ASSERT(m_renderArena);
@@ -3984,7 +4084,7 @@ const SVGDocumentExtensions* Document::svgExtensions()
 SVGDocumentExtensions* Document::accessSVGExtensions()
 {
     if (!m_svgExtensions)
-        m_svgExtensions.set(new SVGDocumentExtensions(this));
+        m_svgExtensions = adoptPtr(new SVGDocumentExtensions(this));
     return m_svgExtensions.get();
 }
 #endif
@@ -4560,7 +4660,7 @@ Element* Document::findAnchor(const String& name)
     for (Node* node = this; node; node = node->traverseNextNode()) {
         if (node->hasTagName(aTag)) {
             HTMLAnchorElement* anchor = static_cast<HTMLAnchorElement*>(node);
-            if (inCompatMode()) {
+            if (inQuirksMode()) {
                 // Quirks mode, case insensitive comparison of names.
                 if (equalIgnoringCase(anchor->name(), name))
                     return anchor;
@@ -4659,5 +4759,78 @@ InspectorController* Document::inspectorController() const
     return page() ? page()->inspectorController() : 0;
 }
 #endif
+    
+#if ENABLE(FULLSCREEN_API)
+void Document::webkitRequestFullScreenForElement(Element* element, unsigned short flags)
+{
+    if (!page() || !page()->settings()->fullScreenEnabled())
+        return;
+
+    if (!element)
+        element = documentElement();
+    
+    if (!page()->chrome()->client()->supportsFullScreenForElement(element))
+        return;
+    
+    m_areKeysEnabledInFullScreen = flags & Element::ALLOW_KEYBOARD_INPUT;
+    page()->chrome()->client()->enterFullScreenForElement(element);
+}
+
+void Document::webkitCancelFullScreen()
+{
+    if (!page() || !m_fullScreenElement)
+        return;
+    
+    page()->chrome()->client()->exitFullScreenForElement(m_fullScreenElement.get());
+}
+    
+void Document::webkitWillEnterFullScreenForElement(Element* element)
+{
+    ASSERT(element);
+    ASSERT(page() && page()->settings()->fullScreenEnabled());
+
+    m_fullScreenElement = element;
+    m_isFullScreen = true;
+    documentElement()->setNeedsStyleRecalc(FullStyleChange);
+    m_fullScreenElement->setNeedsStyleRecalc(FullStyleChange);
+    updateStyleIfNeeded();
+    
+    m_fullScreenElement->dispatchEvent(Event::create(eventNames().webkitfullscreenchangeEvent, true, false));
+}
+    
+void Document::webkitDidEnterFullScreenForElement(Element*)
+{
+}
+
+void Document::webkitWillExitFullScreenForElement(Element*)
+{
+}
+
+void Document::webkitDidExitFullScreenForElement(Element* element)
+{
+    ASSERT(element);
+    m_isFullScreen = false;
+    m_areKeysEnabledInFullScreen = false;
+
+    // m_fullScreenElement has already been cleared; recalc the style of 
+    // the passed in element instead.
+    element->setNeedsStyleRecalc(FullStyleChange);
+    if (element != documentElement())
+        documentElement()->setNeedsStyleRecalc(FullStyleChange);
+    updateStyleIfNeeded();
+    
+    element->dispatchEvent(Event::create(eventNames().webkitfullscreenchangeEvent, true, false));
+}
+    
+#endif
+
+void Document::decrementLoadEventDelayCount()
+{
+    ASSERT(m_loadEventDelayCount);
+    --m_loadEventDelayCount;
+
+    if (frame() && !m_loadEventDelayCount)
+        frame()->loader()->checkCompleted();
+}
 
 } // namespace WebCore
