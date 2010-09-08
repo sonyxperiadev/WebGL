@@ -177,7 +177,10 @@ void WebRequest::handleAndroidURL()
     }
 
     m_loadState = Response;
-    WebResponse webResponse(m_url, "", 0, "", 200);
+    FilePath path(m_url);
+    std::string mimeType("");
+    net::GetMimeTypeFromFile(path, &mimeType);
+    WebResponse webResponse(m_url, mimeType, 0, "", 200);
     LoaderData* loaderResponse = new LoaderData(m_urlLoader, webResponse);
     m_urlLoader->maybeCallOnMainThread(WebUrlLoaderClient::didReceiveResponse, loaderResponse);
 
