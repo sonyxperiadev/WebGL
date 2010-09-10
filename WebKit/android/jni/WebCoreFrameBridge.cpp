@@ -977,6 +977,10 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     // Create a WebViewCore to access the Java WebViewCore associated with this page
     WebViewCore* webViewCore = new WebViewCore(env, javaview, frame);
 
+#if ENABLE(WEB_AUTOFILL)
+    editorC->getAutoFill()->setWebViewCore(webViewCore);
+#endif
+
     // Create a FrameView
     RefPtr<WebCore::FrameView> frameView = WebCore::FrameView::create(frame);
     // Create a WebFrameView

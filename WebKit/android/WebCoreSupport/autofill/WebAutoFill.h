@@ -57,8 +57,10 @@ public:
 
     void searchDocument(WebCore::Document*);
     void formFieldFocused(WebCore::HTMLFormControlElement*);
-    void fillFormFields(int queryId, const string16& value, const string16& label, int uniqueId);
+    void fillFormFields(int queryId);
+    void querySuccessful(int queryId, const string16& value, const string16& label, int uniqueId);
     void fillFormInPage(int queryId, const webkit_glue::FormData& form);
+    void setWebViewCore(WebViewCore* webViewCore) { mWebViewCore = webViewCore; }
 
 private:
     OwnPtr<FormManager> mFormManager;
@@ -69,9 +71,19 @@ private:
     typedef std::vector<webkit_glue::FormData, std::allocator<webkit_glue::FormData> > FormList;
     FormList mForms;
 
-    typedef std::map<int, webkit_glue::FormData*> AutoFillQueryMap;
-    AutoFillQueryMap mQueryMap;
+    typedef std::map<int, webkit_glue::FormData*> AutoFillQueryFormDataMap;
+    AutoFillQueryFormDataMap mQueryMap;
+
+    typedef struct {
+        string16 value;
+        string16 label;
+        int uniqueId;
+    } AutoFillSuggestion;
+    typedef std::map<int, AutoFillSuggestion> AutoFillQuerySuggestionMap;
+    AutoFillQuerySuggestionMap mSuggestionMap;
     int mQueryId;
+
+    WebViewCore* mWebViewCore;
 };
 
 }

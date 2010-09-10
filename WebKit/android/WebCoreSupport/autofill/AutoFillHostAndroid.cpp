@@ -38,7 +38,7 @@ AutoFillHostAndroid::AutoFillHostAndroid(WebAutoFill* autoFill)
 void AutoFillHostAndroid::AutoFillSuggestionsReturned(int queryId, const std::vector<string16>& names, const std::vector<string16>& labels, const std::vector<int>& uniqueIds)
 {
     if (mAutoFill)
-        mAutoFill->fillFormFields(queryId, names[0], labels[0], uniqueIds[0]);
+        mAutoFill->querySuccessful(queryId, names[0], labels[0], uniqueIds[0]);
 }
 
 void AutoFillHostAndroid::AutoFillFormDataFilled(int queryId, const webkit_glue::FormData& form)

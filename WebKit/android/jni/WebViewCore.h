@@ -489,6 +489,7 @@ namespace android {
         void splitContent(PictureSet*);
 
         void notifyWebAppCanBeInstalled();
+        void setWebTextViewAutoFillable(int queryId);
 
         DeviceOrientationManager* deviceOrientationManager() { return &m_deviceOrientationManager; }
 
