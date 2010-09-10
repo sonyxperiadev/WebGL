@@ -1,11 +1,11 @@
 # Copyright 2010 Google Inc. All Rights Reserved.
-#Tue Sep 7 13:44:27 PDT 2010
+#Fri Sep 10 11:49:27 BST 2010
 currentVersion=55486
-version=66079
+version=66666
 isNative=true
 name=webkit
 keywords=webkit
 onDevice=true
 homepage=http\://webkit.org/
 # We use a WebKit revision that has been used for a Chromium release.
-webkit.chromiumRelease=http\://src.chromium.org/svn/releases/7.0.506.0/DEPS
+webkit.chromiumRelease=http\://src.chromium.org/svn/releases/7.0.514.1/DEPS
