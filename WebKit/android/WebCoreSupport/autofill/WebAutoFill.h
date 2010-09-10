@@ -61,6 +61,7 @@ public:
     void querySuccessful(int queryId, const string16& value, const string16& label, int uniqueId);
     void fillFormInPage(int queryId, const webkit_glue::FormData& form);
     void setWebViewCore(WebViewCore* webViewCore) { mWebViewCore = webViewCore; }
+    bool enabled() const;
 
 private:
     OwnPtr<FormManager> mFormManager;

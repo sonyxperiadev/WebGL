@@ -397,6 +397,11 @@ namespace WebCore {
         void setInteractiveFormValidationEnabled(bool flag) { m_interactiveFormValidation = flag; }
         bool interactiveFormValidationEnabled() const { return m_interactiveFormValidation; }
 
+#if ENABLE(WEB_AUTOFILL)
+        void setAutoFillEnabled(bool flag) { m_autoFillEnabled = flag; }
+        bool autoFillEnabled() { return m_autoFillEnabled; }
+#endif
+
     private:
         Page* m_page;
 
@@ -522,9 +527,11 @@ namespace WebCore {
 #endif
         bool m_memoryInfoEnabled: 1;
         bool m_interactiveFormValidation: 1;
-
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
+#endif
+#if ENABLE(WEB_AUTOFILL)
+        bool m_autoFillEnabled: 1;
 #endif
 
 #if USE(SAFARI_THEME)
