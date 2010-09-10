@@ -176,3 +176,51 @@ $(GEN): xlink_attrs := $(LOCAL_PATH)/svg/xlinkattrs.in
 $(GEN): $(LOCAL_PATH)/dom/make_names.pl $(xlink_attrs)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
+
+ifeq ($(ENABLE_AUTOFILL),true)
+# This is really ugly, but necessary. The following rules are taken from
+# external/chromium/Android.mk.
+# Chromium uses several third party libraries and headers that are already
+# present on Android, but in different include paths. Generate a set of
+# forwarding headers in the location that Chromium expects. We need to do
+# this in both the Chromium and WebCore projects because of the
+# WebKit <-> Chromium bindings which include headers from the Chromuim project.
+
+THIRD_PARTY = $(intermediates)/third_party
+CHROMIUM_SRC_DIR := $(LOCAL_PATH)/../../chromium
+SCRIPT := $(CHROMIUM_SRC_DIR)/android/generateAndroidForwardingHeader.pl
+
+GEN := $(THIRD_PARTY)/expat/files/lib/expat.h
+$(GEN): $(SCRIPT)
+$(GEN):
+	perl $(SCRIPT) $@ "lib/expat.h"
+LOCAL_GENERATED_SOURCES += $(GEN)
+
+GEN := $(THIRD_PARTY)/skia/include/core/SkBitmap.h
+$(GEN): $(SCRIPT)
+$(GEN):
+	perl $(SCRIPT) $@ "include/core/SkBitmap.h"
+LOCAL_GENERATED_SOURCES += $(GEN)
+
+GEN := $(THIRD_PARTY)/WebKit/WebKit/chromium/public/WebFormControlElement.h
+$(GEN): $(SCRIPT)
+$(GEN):
+	perl $(SCRIPT) $@ "public/WebFormControlElement.h"
+LOCAL_GENERATED_SOURCES += $(GEN)
+
+GEN := $(THIRD_PARTY)/WebKit/WebKit/chromium/public/WebRegularExpression.h
+$(GEN): $(SCRIPT)
+$(GEN):
+	perl $(SCRIPT) $@ "public/WebRegularExpression.h"
+LOCAL_GENERATED_SOURCES += $(GEN)
+
+GEN := $(THIRD_PARTY)/WebKit/WebKit/chromium/public/WebString.h
+$(GEN): $(SCRIPT)
+$(GEN):
+	perl $(SCRIPT) $@ "public/WebString.h"
+LOCAL_GENERATED_SOURCES += $(GEN)
+
+endif
+
+LOCAL_SRC_FILES += $(LOCAL_GENERATED_SOURCES)
+

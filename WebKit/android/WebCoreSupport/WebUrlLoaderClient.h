@@ -83,6 +83,9 @@ public:
     static void didFail(void*);
     static void willSendRequest(void*);
 
+    // Handle to the chrome IO thread
+    static base::Thread* ioThread();
+
 private:
     void finish();
     RefPtr<WebCore::ResourceHandle> m_resourceHandle;
@@ -92,9 +95,6 @@ private:
 
     // Not an OwnPtr since it should be deleted on another thread
     WebRequest* m_request;
-
-    // Handle to the chrome IO thread
-    static base::Thread* ioThread();
 
     // Check if a request is active
     bool isActive() const;

@@ -106,3 +106,14 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	android/wds/Command.cpp \
 	android/wds/Connection.cpp \
 	android/wds/DebugServer.cpp
+
+# Needed for autofill.
+ifeq ($(ENABLE_AUTOFILL),true)
+LOCAL_CFLAGS += -DENABLE_WEB_AUTOFILL
+
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	android/WebCoreSupport/autofill/AutoFillHostAndroid.cpp \
+	android/WebCoreSupport/autofill/FormFieldAndroid.cpp \
+	android/WebCoreSupport/autofill/FormManagerAndroid.cpp \
+	android/WebCoreSupport/autofill/WebAutoFill.cpp
+endif # ENABLE_AUTOFILL == true
