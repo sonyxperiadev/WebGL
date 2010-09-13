@@ -146,7 +146,7 @@ CanvasRenderingContext* HTMLCanvasElement::getContext(const String& type, Canvas
             if (Settings* settings = document()->settings())
                 usesDashbardCompatibilityMode = settings->usesDashboardBackwardCompatibilityMode();
 #endif
-            m_context = adoptPtr(new CanvasRenderingContext2D(this, document()->inCompatMode(), usesDashbardCompatibilityMode));
+            m_context = adoptPtr(new CanvasRenderingContext2D(this, document()->inQuirksMode(), usesDashbardCompatibilityMode));
 #if ENABLE(ACCELERATED_2D_CANVAS) && USE(ACCELERATED_COMPOSITING)
             if (m_context) {
                 // Need to make sure a RenderLayer and compositing layer get created for the Canvas
@@ -185,7 +185,7 @@ CanvasRenderingContext* HTMLCanvasElement::getContext(const String& type, Canvas
     return 0;
 }
 
-void HTMLCanvasElement::willDraw(const FloatRect& rect)
+void HTMLCanvasElement::didDraw(const FloatRect& rect)
 {
     m_copiedImage.clear(); // Clear our image snapshot if we have one.
 
@@ -394,8 +394,14 @@ ImageBuffer* HTMLCanvasElement::buffer() const
 
 Image* HTMLCanvasElement::copiedImage() const
 {
-    if (!m_copiedImage && buffer())
+    if (!m_copiedImage && buffer()) {
+        if (m_context) {
+            // If we're not rendering to the ImageBuffer, copy the rendering results to it.
+            if (!m_context->paintsIntoCanvasBuffer())
+                m_context->paintRenderingResultsToCanvas();
+        }
         m_copiedImage = buffer()->copyImage();
+    }
     return m_copiedImage.get();
 }
 

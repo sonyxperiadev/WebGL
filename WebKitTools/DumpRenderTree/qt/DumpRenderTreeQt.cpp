@@ -159,7 +159,7 @@ WebPage::WebPage(QObject* parent, DumpRenderTree* drt)
 
     connect(this, SIGNAL(requestPermissionFromUser(QWebFrame*, QWebPage::PermissionDomain)), this, SLOT(requestPermission(QWebFrame*, QWebPage::PermissionDomain)));
     connect(this, SIGNAL(checkPermissionFromUser(QWebFrame*, QWebPage::PermissionDomain, QWebPage::PermissionPolicy&)), this, SLOT(checkPermission(QWebFrame*, QWebPage::PermissionDomain, QWebPage::PermissionPolicy&)));
-    connect(this, SIGNAL(cancelRequestsForPermissionFromUser(QWebFrame*, QWebPage::PermissionDomain)), this, SLOT(cancelRequestsForPermissionFromUser(QWebFrame*, QWebPage::PermissionDomain)));
+    connect(this, SIGNAL(cancelRequestsForPermission(QWebFrame*, QWebPage::PermissionDomain)), this, SLOT(cancelPermission(QWebFrame*, QWebPage::PermissionDomain)));
 }
 
 WebPage::~WebPage()
@@ -202,6 +202,8 @@ void WebPage::resetSettings()
 
     QWebSettings::setMaximumPagesInCache(0); // reset to default
     settings()->setUserStyleSheetUrl(QUrl()); // reset to default
+
+    m_pendingGeolocationRequests.clear();
 }
 
 QWebPage *WebPage::createWindow(QWebPage::WebWindowType)
@@ -224,6 +226,15 @@ void WebPage::requestPermission(QWebFrame* frame, QWebPage::PermissionDomain dom
         if (!m_drt->layoutTestController()->ignoreReqestForPermission())
             setUserPermission(frame, domain, PermissionGranted);
         break;
+    case GeolocationPermissionDomain:
+        if (m_drt->layoutTestController()->isGeolocationPermissionSet())
+            if (m_drt->layoutTestController()->geolocationPermission())
+                setUserPermission(frame, domain, PermissionGranted);
+            else
+                setUserPermission(frame, domain, PermissionDenied);
+        else
+            m_pendingGeolocationRequests.append(frame);
+        break;
     default:
         break;
     }
@@ -243,8 +254,35 @@ void WebPage::checkPermission(QWebFrame* frame, QWebPage::PermissionDomain domai
     }
 }
 
-void WebPage::cancelRequestsForPermission(QWebFrame*, QWebPage::PermissionDomain)
+void WebPage::cancelPermission(QWebFrame* frame, QWebPage::PermissionDomain domain)
 {
+    switch (domain) {
+    case GeolocationPermissionDomain:
+        m_pendingGeolocationRequests.removeOne(frame);
+        break;
+    default:
+        break;
+    }
+}
+
+void WebPage::permissionSet(QWebPage::PermissionDomain domain)
+{
+    switch (domain) {
+    case GeolocationPermissionDomain:
+        {
+        Q_ASSERT(m_drt->layoutTestController()->isGeolocationPermissionSet());
+        foreach (QWebFrame* frame, m_pendingGeolocationRequests)
+            if (m_drt->layoutTestController()->geolocationPermission())
+                setUserPermission(frame, domain, PermissionGranted);
+            else
+                setUserPermission(frame, domain, PermissionDenied);
+
+        m_pendingGeolocationRequests.clear();
+        break;
+        }
+    default:
+        break;
+    }
 }
 
 static QString urlSuitableForTestResult(const QString& url)
@@ -367,11 +405,6 @@ QObject* WebPage::createPlugin(const QString& classId, const QUrl& url, const QS
 #endif
 }
 
-bool WebPage::allowGeolocationRequest(QWebFrame *)
-{
-    return m_drt->layoutTestController()->geolocationPermission();
-}
-
 void WebPage::setViewGeometry(const QRect& rect)
 {
     if (WebViewGraphicsBased* v = qobject_cast<WebViewGraphicsBased*>(view()))
@@ -391,7 +424,7 @@ DumpRenderTree::DumpRenderTree()
     : m_dumpPixels(false)
     , m_stdin(0)
     , m_enableTextOutput(false)
-    , m_singleFileMode(false)
+    , m_standAloneMode(false)
     , m_graphicsBased(false)
     , m_persistentStoragePath(QString(getenv("DUMPRENDERTREE_TEMP")))
 {
@@ -430,6 +463,9 @@ DumpRenderTree::DumpRenderTree()
     m_controller = new LayoutTestController(this);
     connect(m_controller, SIGNAL(showPage()), this, SLOT(showPage()));
     connect(m_controller, SIGNAL(hidePage()), this, SLOT(hidePage()));
+
+    // async geolocation permission set by controller
+    connect(m_controller, SIGNAL(geolocationPermissionSet()), this, SLOT(geolocationPermissionSet()));
 
     connect(m_controller, SIGNAL(done()), this, SLOT(dump()));
     m_eventSender = new EventSender(m_page);
@@ -605,6 +641,40 @@ void DumpRenderTree::readLine()
     processLine(QString::fromLocal8Bit(line.constData(), line.length()));
 }
 
+void DumpRenderTree::processArgsLine(const QStringList &args)
+{
+    setStandAloneMode(true);
+
+    for (int i = 1; i < args.size(); ++i)
+        if (!args.at(i).startsWith('-'))
+            m_standAloneModeTestList.append(args[i]);
+
+    QFileInfo firstEntry(m_standAloneModeTestList.first());
+    if (firstEntry.isDir()) {
+        QDir folderEntry(m_standAloneModeTestList.first());
+        QStringList supportedExt;
+        // Check for all supported extensions (from Scripts/webkitpy/layout_tests/layout_package/test_files.py).
+        supportedExt << "*.html" << "*.shtml" << "*.xml" << "*.xhtml" << "*.xhtmlmp" << "*.pl" << "*.php" << "*.svg";
+        m_standAloneModeTestList = folderEntry.entryList(supportedExt, QDir::Files);
+        for (int i = 0; i < m_standAloneModeTestList.size(); ++i)
+            m_standAloneModeTestList[i] = folderEntry.absoluteFilePath(m_standAloneModeTestList[i]);
+    }
+
+    processLine(m_standAloneModeTestList.first());
+    m_standAloneModeTestList.removeFirst();
+
+    connect(this, SIGNAL(ready()), this, SLOT(loadNextTestInStandAloneMode()));
+}
+
+void DumpRenderTree::loadNextTestInStandAloneMode()
+{
+    if (m_standAloneModeTestList.isEmpty())
+        emit quit();
+
+    processLine(m_standAloneModeTestList.first());
+    m_standAloneModeTestList.removeFirst();
+}
+
 void DumpRenderTree::processLine(const QString &input)
 {
     QString line = input;
@@ -636,14 +706,9 @@ void DumpRenderTree::processLine(const QString &input)
                 fi = QFileInfo(currentDir, line.prepend(QLatin1String("LayoutTests/")));
 
             if (!fi.exists()) {
-                if (isSingleFileMode())
-                    emit quit();
-                else
-                    emit ready();
-
+                emit ready();
                 return;
             }
-
         }
 
         open(QUrl::fromLocalFile(fi.absoluteFilePath()));
@@ -834,7 +899,7 @@ void DumpRenderTree::dump()
 
     QWebFrame *mainFrame = m_page->mainFrame();
 
-    if (isSingleFileMode()) {
+    if (isStandAloneMode()) {
         QString markup = mainFrame->toHtml();
         fprintf(stdout, "Source:\n\n%s\n", markup.toUtf8().constData());
     }
@@ -922,10 +987,7 @@ void DumpRenderTree::dump()
     fflush(stdout);
     fflush(stderr);
 
-    if (isSingleFileMode())
-        emit quit();
-    else
-        emit ready();
+     emit ready();
 }
 
 void DumpRenderTree::titleChanged(const QString &s)
@@ -997,6 +1059,11 @@ int DumpRenderTree::windowCount() const
 {
 // include the main view in the count
     return windows.count() + 1;
+}
+
+void DumpRenderTree::geolocationPermissionSet() 
+{
+    m_page->permissionSet(QWebPage::GeolocationPermissionDomain);
 }
 
 void DumpRenderTree::switchFocus(bool focused)

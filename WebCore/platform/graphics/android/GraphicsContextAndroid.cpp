@@ -536,7 +536,8 @@ void GraphicsContext::drawLineForText(IntPoint const& pt, int width, bool)
     GC2Canvas(this)->drawRect(r, paint);
 }
 
-void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint& pt, int width, bool grammar)
+// TODO: Should we draw different based on TextCheckingLineStyle?
+void GraphicsContext::drawLineForTextChecking(const IntPoint& pt, int width, TextCheckingLineStyle)
 {
     if (paintingDisabled())
         return;

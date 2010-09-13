@@ -32,11 +32,8 @@
 
 namespace WebCore {
 
-SVGLineElement::SVGLineElement(const QualifiedName& tagName, Document* doc)
-    : SVGStyledTransformableElement(tagName, doc)
-    , SVGTests()
-    , SVGLangSpace()
-    , SVGExternalResourcesRequired()
+inline SVGLineElement::SVGLineElement(const QualifiedName& tagName, Document* document)
+    : SVGStyledTransformableElement(tagName, document)
     , m_x1(LengthModeWidth)
     , m_y1(LengthModeHeight)
     , m_x2(LengthModeWidth)
@@ -44,8 +41,9 @@ SVGLineElement::SVGLineElement(const QualifiedName& tagName, Document* doc)
 {
 }
 
-SVGLineElement::~SVGLineElement()
+PassRefPtr<SVGLineElement> SVGLineElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGLineElement(tagName, document));
 }
 
 void SVGLineElement::parseMappedAttribute(Attribute* attr)

@@ -40,6 +40,7 @@ namespace WebCore {
 
     class BarInfo;
     class BeforeUnloadEvent;
+    class Blob;
     class CSSRuleList;
     class CSSStyleDeclaration;
     class Console;
@@ -48,14 +49,17 @@ namespace WebCore {
     class DatabaseCallback;
     class Document;
     class Element;
+    class ErrorCallback;
     class Event;
     class EventListener;
+    class FileSystemCallback;
     class FloatRect;
     class Frame;
     class History;
     class IDBFactory;
     class IDBKeyRange;
     class InspectorTimelineAgent;
+    class LocalFileSystem;
     class Location;
     class StyleMedia;
     class Navigator;
@@ -90,6 +94,7 @@ namespace WebCore {
         virtual DOMWindow* toDOMWindow() { return this; }
         virtual ScriptExecutionContext* scriptExecutionContext() const;
 
+        bool printDeferred() const { return m_printDeferred; }
         Frame* frame() const { return m_frame; }
         void disconnectFrame();
 
@@ -234,6 +239,15 @@ namespace WebCore {
 #if ENABLE(INDEXED_DATABASE)
         IDBFactory* indexedDB() const;
         IDBKeyRange* iDBKeyRange() const;
+#endif
+
+#if ENABLE(FILE_SYSTEM)
+        // They are placed here and in all capital letters to enforce compile-time enum checking.
+        enum FileSystemType {
+            TEMPORARY,
+            PERSISTENT,
+        };
+        void requestFileSystem(int type, long long size, PassRefPtr<FileSystemCallback>, PassRefPtr<ErrorCallback>);
 #endif
 
         void postMessage(PassRefPtr<SerializedScriptValue> message, const MessagePortArray*, const String& targetOrigin, DOMWindow* source, ExceptionCode&);
@@ -381,6 +395,10 @@ namespace WebCore {
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         DOMApplicationCache* optionalApplicationCache() const { return m_applicationCache.get(); }
 #endif
+#if ENABLE(BLOB)
+        String createBlobURL(Blob*);
+        void revokeBlobURL(const String&);
+#endif
 
         using RefCounted<DOMWindow>::ref;
         using RefCounted<DOMWindow>::deref;
@@ -397,6 +415,7 @@ namespace WebCore {
         RefPtr<SecurityOrigin> m_securityOrigin;
         KURL m_url;
 
+        bool m_printDeferred;
         Frame* m_frame;
         mutable RefPtr<Screen> m_screen;
         mutable RefPtr<DOMSelection> m_selection;
@@ -427,6 +446,9 @@ namespace WebCore {
 #if ENABLE(INDEXED_DATABASE)
         mutable RefPtr<IDBFactory> m_idbFactory;
         mutable RefPtr<IDBKeyRange> m_idbKeyRange;
+#endif
+#if ENABLE(FILE_SYSTEM)
+        RefPtr<LocalFileSystem> m_localFileSystem;
 #endif
 
         EventTargetData m_eventTargetData;

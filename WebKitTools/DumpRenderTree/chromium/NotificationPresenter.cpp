@@ -31,17 +31,30 @@
 #include "config.h"
 #include "NotificationPresenter.h"
 
-#include <wtf/text/CString.h>
-#include <wtf/text/WTFString.h>
-
+#include "base/task.h" // FIXME: Remove this
 #include "googleurl/src/gurl.h"
 #include "public/WebNotification.h"
 #include "public/WebNotificationPermissionCallback.h"
 #include "public/WebSecurityOrigin.h"
 #include "public/WebString.h"
 #include "public/WebURL.h"
+#include "webkit/support/webkit_support.h"
+#include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
 
 using namespace WebKit;
+
+static WebString identifierForNotification(const WebNotification& notification)
+{
+    if (notification.isHTML())
+        return notification.url().spec().utf16();
+    return notification.title();
+}
+
+static void deferredDisplayDispatch(WebNotification notification)
+{
+    notification.dispatchDisplayEvent();
+}
 
 void NotificationPresenter::grantPermission(const WebString& origin)
 {
@@ -50,17 +63,28 @@ void NotificationPresenter::grantPermission(const WebString& origin)
     m_allowedOrigins.add(WTF::String(url.GetOrigin().spec().c_str()));
 }
 
+bool NotificationPresenter::simulateClick(const WebString& title)
+{
+    WTF::String id(title.data(), title.length());
+    if (m_activeNotifications.find(id) == m_activeNotifications.end())
+        return false;
+    
+    const WebNotification& notification = m_activeNotifications.find(id)->second;
+    WebNotification eventTarget(notification);
+    eventTarget.dispatchClickEvent();
+    return true;
+}
+
 // The output from all these methods matches what DumpRenderTree produces.
 bool NotificationPresenter::show(const WebNotification& notification)
 {
+    WebString identifier = identifierForNotification(notification);
     if (!notification.replaceId().isEmpty()) {
         WTF::String replaceId(notification.replaceId().data(), notification.replaceId().length());
         if (m_replacements.find(replaceId) != m_replacements.end())
             printf("REPLACING NOTIFICATION %s\n",
                    m_replacements.find(replaceId)->second.utf8().data());
 
-        WebString identifier = notification.isHTML() ?
-            notification.url().spec().utf16() : notification.title();
         m_replacements.set(replaceId, WTF::String(identifier.data(), identifier.length()));
     }
 
@@ -78,27 +102,30 @@ bool NotificationPresenter::show(const WebNotification& notification)
                notification.body().utf8().data());
     }
 
+    WTF::String id(identifier.data(), identifier.length());
+    m_activeNotifications.set(id, notification);
+
     WebNotification eventTarget(notification);
-    eventTarget.dispatchDisplayEvent();
+    webkit_support::PostTaskFromHere(NewRunnableFunction(&deferredDisplayDispatch, eventTarget));
     return true;
 }
 
 void NotificationPresenter::cancel(const WebNotification& notification)
 {
-    WebString identifier;
-    if (notification.isHTML())
-        identifier = notification.url().spec().utf16();
-    else
-        identifier = notification.title();
-
+    WebString identifier = identifierForNotification(notification);
     printf("DESKTOP NOTIFICATION CLOSED: %s\n", identifier.utf8().data());
     WebNotification eventTarget(notification);
     eventTarget.dispatchCloseEvent(false);
+
+    WTF::String id(identifier.data(), identifier.length());
+    m_activeNotifications.remove(id);
 }
 
 void NotificationPresenter::objectDestroyed(const WebKit::WebNotification& notification)
 {
-    // Nothing to do.  Not storing the objects.
+    WebString identifier = identifierForNotification(notification);
+    WTF::String id(identifier.data(), identifier.length());
+    m_activeNotifications.remove(id);
 }
 
 WebNotificationPresenter::Permission NotificationPresenter::checkPermission(const WebURL& url)

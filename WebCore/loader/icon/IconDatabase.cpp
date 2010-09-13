@@ -1846,7 +1846,7 @@ inline void readySQLiteStatement(OwnPtr<SQLiteStatement>& statement, SQLiteDatab
         statement.set(0);
     }
     if (!statement) {
-        statement.set(new SQLiteStatement(db, str));
+        statement = adoptPtr(new SQLiteStatement(db, str));
         if (statement->prepare() != SQLResultOk)
             LOG_ERROR("Preparing statement %s failed", str.ascii().data());
     }

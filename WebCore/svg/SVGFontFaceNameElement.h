@@ -24,12 +24,17 @@
 #include "SVGElement.h"
 
 namespace WebCore {
+
     class CSSFontFaceSrcValue;
+
     class SVGFontFaceNameElement : public SVGElement {
     public:
-        SVGFontFaceNameElement(const QualifiedName&, Document*);
+        static PassRefPtr<SVGFontFaceNameElement> create(const QualifiedName&, Document*);
         
         PassRefPtr<CSSFontFaceSrcValue> srcValue() const;
+
+    private:
+        SVGFontFaceNameElement(const QualifiedName&, Document*);
     };
 
 } // namespace WebCore

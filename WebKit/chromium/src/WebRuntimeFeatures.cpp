@@ -256,4 +256,36 @@ bool WebRuntimeFeatures::isSpeechInputEnabled()
     return RuntimeEnabledFeatures::speechInputEnabled();
 }
 
+void WebRuntimeFeatures::enableXHRResponseBlob(bool enable)
+{
+#if ENABLE(XHR_RESPONSE_BLOB)
+    RuntimeEnabledFeatures::setXHRResponseBlobEnabled(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isXHRResponseBlobEnabled()
+{
+#if ENABLE(XHR_RESPONSE_BLOB)
+    return RuntimeEnabledFeatures::xhrResponseBlobEnabled();
+#else
+    return false;
+#endif
+}
+
+void WebRuntimeFeatures::enableFileSystem(bool enable)
+{
+#if ENABLE(FILE_SYSTEM)
+    RuntimeEnabledFeatures::setFileSystemEnabled(enable);
+#endif
+}
+
+bool WebRuntimeFeatures::isFileSystemEnabled()
+{
+#if ENABLE(FILE_SYSTEM)
+    return RuntimeEnabledFeatures::fileSystemEnabled();
+#else
+    return false;
+#endif
+}
+
 } // namespace WebKit

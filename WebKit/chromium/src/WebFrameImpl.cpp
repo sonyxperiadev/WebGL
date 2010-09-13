@@ -1690,6 +1690,11 @@ WebString WebFrameImpl::counterValueForElementById(const WebString& id) const
     return counterValueForElement(element);
 }
 
+WebString WebFrameImpl::markerTextForListItem(const WebElement& webElement) const
+{
+    return WebCore::markerTextForListItem(const_cast<Element*>(webElement.constUnwrap<Element>()));
+}
+
 int WebFrameImpl::pageNumberForElementById(const WebString& id,
                                            float pageWidthInPixels,
                                            float pageHeightInPixels) const
@@ -1811,7 +1816,7 @@ void WebFrameImpl::layout()
     // layout this frame
     FrameView* view = m_frame->view();
     if (view)
-        view->layoutIfNeededRecursive();
+        view->updateLayoutAndStyleIfNeededRecursive();
 }
 
 void WebFrameImpl::paintWithContext(GraphicsContext& gc, const WebRect& rect)

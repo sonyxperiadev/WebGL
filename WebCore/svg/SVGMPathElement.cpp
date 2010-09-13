@@ -27,13 +27,14 @@
 
 namespace WebCore {
 
-SVGMPathElement::SVGMPathElement(const QualifiedName& qname, Document* doc)
-    : SVGElement(qname, doc)
+inline SVGMPathElement::SVGMPathElement(const QualifiedName& tagName, Document* document)
+    : SVGElement(tagName, document)
 {
 }
 
-SVGMPathElement::~SVGMPathElement()
+PassRefPtr<SVGMPathElement> SVGMPathElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGMPathElement(tagName, document));
 }
 
 void SVGMPathElement::parseMappedAttribute(Attribute* attr)

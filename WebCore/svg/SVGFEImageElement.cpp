@@ -37,12 +37,14 @@
 
 namespace WebCore {
 
-SVGFEImageElement::SVGFEImageElement(const QualifiedName& tagName, Document* doc)
-    : SVGFilterPrimitiveStandardAttributes(tagName, doc)
-    , SVGURIReference()
-    , SVGLangSpace()
-    , SVGExternalResourcesRequired()
+inline SVGFEImageElement::SVGFEImageElement(const QualifiedName& tagName, Document* document)
+    : SVGFilterPrimitiveStandardAttributes(tagName, document)
 {
+}
+
+PassRefPtr<SVGFEImageElement> SVGFEImageElement::create(const QualifiedName& tagName, Document* document)
+{
+    return adoptRef(new SVGFEImageElement(tagName, document));
 }
 
 SVGFEImageElement::~SVGFEImageElement()

@@ -32,19 +32,17 @@
 
 namespace WebCore {
 
-SVGCircleElement::SVGCircleElement(const QualifiedName& tagName, Document* doc)
-    : SVGStyledTransformableElement(tagName, doc)
-    , SVGTests()
-    , SVGLangSpace()
-    , SVGExternalResourcesRequired()
+inline SVGCircleElement::SVGCircleElement(const QualifiedName& tagName, Document* document)
+    : SVGStyledTransformableElement(tagName, document)
     , m_cx(LengthModeWidth)
     , m_cy(LengthModeHeight)
     , m_r(LengthModeOther)
 {
 }
 
-SVGCircleElement::~SVGCircleElement()
+PassRefPtr<SVGCircleElement> SVGCircleElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGCircleElement(tagName, document));
 }
 
 void SVGCircleElement::parseMappedAttribute(Attribute* attr)

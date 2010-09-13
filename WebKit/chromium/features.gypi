@@ -46,7 +46,7 @@
         'ENABLE_DASHBOARD_SUPPORT=0',
         'ENABLE_DATABASE=1',
         'ENABLE_DATAGRID=0',
-        'ENABLE_DEVICE_ORIENTATION=0',
+        'ENABLE_DEVICE_ORIENTATION=1',
         'ENABLE_DIRECTORY_UPLOAD=1',
         'ENABLE_DOM_STORAGE=1',
         'ENABLE_EVENTSOURCE=1',
@@ -81,12 +81,13 @@
         'ENABLE_WEB_SOCKETS=1',
         'ENABLE_WEB_TIMING=1',
         'ENABLE_WORKERS=1',
+        'ENABLE_XHR_RESPONSE_BLOB=1',
         'ENABLE_XPATH=1',
         'ENABLE_XSLT=1',
       ],
 
       'conditions': [
-        ['OS=="win" or OS=="linux"', {
+        ['OS=="win" or OS=="linux" or OS=="mac"', {
           'feature_defines': [
            'WTF_USE_ACCELERATED_COMPOSITING=1',
            'ENABLE_3D_RENDERING=1',

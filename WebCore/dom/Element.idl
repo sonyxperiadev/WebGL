@@ -100,9 +100,7 @@ module core {
         NodeList getElementsByClassName(in DOMString name);
 
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
-#if !defined(V8_BINDING) || !V8_BINDING
         readonly attribute DOMStringMap dataset;
-#endif
 #endif
 
         // NodeSelector - Selector API
@@ -131,6 +129,11 @@ module core {
 #if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
         // Objective-C extensions
         readonly attribute DOMString innerText;
+#endif
+
+#if defined(ENABLE_FULLSCREEN_API) && ENABLE_FULLSCREEN_API
+        const unsigned short ALLOW_KEYBOARD_INPUT = 1;
+        void webkitRequestFullScreen(in unsigned short flags);
 #endif
 
 #if !defined(LANGUAGE_OBJECTIVE_C) || !LANGUAGE_OBJECTIVE_C
@@ -205,6 +208,7 @@ module core {
         attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchmove;
         attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchend;
         attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchcancel;
+        attribute [DontEnum, Conditional=FULLSCREEN_API] EventListener onwebkitfullscreenchange;
 #endif
     };
 

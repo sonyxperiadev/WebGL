@@ -33,13 +33,14 @@
 
 namespace WebCore {
 
-SVGFEComponentTransferElement::SVGFEComponentTransferElement(const QualifiedName& tagName, Document* doc)
-    : SVGFilterPrimitiveStandardAttributes(tagName, doc)
+inline SVGFEComponentTransferElement::SVGFEComponentTransferElement(const QualifiedName& tagName, Document* document)
+    : SVGFilterPrimitiveStandardAttributes(tagName, document)
 {
 }
 
-SVGFEComponentTransferElement::~SVGFEComponentTransferElement()
+PassRefPtr<SVGFEComponentTransferElement> SVGFEComponentTransferElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGFEComponentTransferElement(tagName, document));
 }
 
 void SVGFEComponentTransferElement::parseMappedAttribute(Attribute* attr)

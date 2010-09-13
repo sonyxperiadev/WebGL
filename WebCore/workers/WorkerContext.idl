@@ -96,6 +96,14 @@ module threads {
         attribute [JSCCustomGetter,EnabledAtRuntime] WebSocketConstructor WebSocket; // Usable with the new operator
 #endif
 #endif
+
+#if defined(ENABLE_BLOB) && ENABLE_BLOB
+        attribute BlobBuilderConstructor BlobBuilder;
+        attribute FileReaderConstructor FileReader;
+        attribute FileReaderSyncConstructor FileReaderSync;
+        DOMString createBlobURL(in Blob blob);
+        void revokeBlobURL(in DOMString blobURL);
+#endif
     };
 
 }

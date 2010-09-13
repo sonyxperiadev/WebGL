@@ -277,7 +277,7 @@ void Page::setViewMode(ViewMode viewMode)
         m_mainFrame->view()->forceLayout();
 
     if (m_mainFrame->document())
-        m_mainFrame->document()->updateStyleSelector();
+        m_mainFrame->document()->styleSelectorChanged(RecalcStyleImmediately);
 }
 
 void Page::setMainFrame(PassRefPtr<Frame> mainFrame)
@@ -424,14 +424,14 @@ void Page::initGroup()
     m_group = m_singlePageGroup.get();
 }
 
-void Page::setNeedsReapplyStyles()
+void Page::scheduleForcedStyleRecalcForAllPages()
 {
     if (!allPages)
         return;
     HashSet<Page*>::iterator end = allPages->end();
     for (HashSet<Page*>::iterator it = allPages->begin(); it != end; ++it)
         for (Frame* frame = (*it)->mainFrame(); frame; frame = frame->tree()->traverseNext())
-            frame->setNeedsReapplyStyles();
+            frame->document()->scheduleForcedStyleRecalc();
 }
 
 void Page::refreshPlugins(bool reload)
@@ -544,7 +544,7 @@ unsigned int Page::markAllMatchesForText(const String& target, TextCaseSensitivi
     Frame* frame = mainFrame();
     do {
         frame->setMarkedTextMatchesAreHighlighted(shouldHighlight);
-        matches += frame->markAllMatchesForText(target, caseSensitivity == TextCaseSensitive, (limit == 0) ? 0 : (limit - matches));
+        matches += frame->countMatchesForText(target, caseSensitivity == TextCaseSensitive, (limit == 0) ? 0 : (limit - matches), true);
         frame = incrementFrame(frame, true, false);
     } while (frame);
 
@@ -657,7 +657,7 @@ void Page::userStyleSheetLocationChanged()
     
     for (Frame* frame = mainFrame(); frame; frame = frame->tree()->traverseNext()) {
         if (frame->document())
-            frame->document()->clearPageUserSheet();
+            frame->document()->updatePageUserSheet();
     }
 }
 

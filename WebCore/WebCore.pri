@@ -29,7 +29,7 @@ XML_NAMES = $$PWD/xml/xmlattrs.in
 
 XMLNS_NAMES = $$PWD/xml/xmlnsattrs.in
 
-HTML_ENTITIES = $$PWD/html/HTMLEntityNames.json
+HTML_ENTITIES = $$PWD/html/parser/HTMLEntityNames.in
 
 COLORDATA_GPERF = $$PWD/platform/ColorData.gperf
 
@@ -147,8 +147,26 @@ IDL_BINDINGS += \
     dom/WebKitAnimationEvent.idl \
     dom/WebKitTransitionEvent.idl \
     dom/WheelEvent.idl \
-    html/Blob.idl \
-    html/BlobBuilder.idl \
+    fileapi/Blob.idl \
+    fileapi/BlobBuilder.idl \
+    fileapi/DirectoryEntry.idl \
+    fileapi/DirectoryReader.idl \
+    fileapi/DOMFileSystem.idl \
+    fileapi/EntriesCallback.idl \
+    fileapi/Entry.idl \
+    fileapi/EntryArray.idl \
+    fileapi/EntryCallback.idl \
+    fileapi/ErrorCallback.idl \
+    fileapi/File.idl \
+    fileapi/FileList.idl \
+    fileapi/FileReader.idl \
+    fileapi/FileWriter.idl \
+    fileapi/FileEntry.idl \
+    fileapi/FileError.idl \
+    fileapi/FileSystemCallback.idl \
+    fileapi/Flags.idl \
+    fileapi/Metadata.idl \
+    fileapi/MetadataCallback.idl \
     html/canvas/ArrayBufferView.idl \
     html/canvas/ArrayBuffer.idl \
     html/canvas/Int8Array.idl \
@@ -175,11 +193,6 @@ IDL_BINDINGS += \
     html/DataGridColumn.idl \
     html/DataGridColumnList.idl \
     html/DOMFormData.idl \
-    html/File.idl \
-    html/FileError.idl \
-    html/FileList.idl \
-    html/FileReader.idl \
-    html/FileWriter.idl \
     html/HTMLAllCollection.idl \
     html/HTMLAudioElement.idl \
     html/HTMLAnchorElement.idl \
@@ -292,17 +305,6 @@ IDL_BINDINGS += \
     storage/Database.idl \
     storage/DatabaseCallback.idl \
     storage/DatabaseSync.idl \
-    storage/DirectoryEntry.idl \
-    storage/DirectoryReader.idl \
-    storage/DOMFileSystem.idl \
-    storage/EntriesCallback.idl \
-    storage/Entry.idl \
-    storage/EntryArray.idl \
-    storage/EntryCallback.idl \
-    storage/ErrorCallback.idl \
-    storage/FileEntry.idl \
-    storage/FileSystemCallback.idl \
-    storage/Flags.idl \
     storage/IDBAny.idl \
     storage/IDBCursor.idl \
     storage/IDBDatabaseError.idl \
@@ -318,8 +320,6 @@ IDL_BINDINGS += \
     storage/IDBRequest.idl \
     storage/IDBSuccessEvent.idl \
     storage/IDBTransaction.idl \
-    storage/Metadata.idl \
-    storage/MetadataCallback.idl \
     storage/Storage.idl \
     storage/StorageEvent.idl \
     storage/SQLError.idl \
@@ -546,7 +546,7 @@ addExtraCompiler(cssvalues)
 idl.output = $${WC_GENERATED_SOURCES_DIR}/JS${QMAKE_FILE_BASE}.cpp
 idl.input = IDL_BINDINGS
 idl.wkScript = $$PWD/bindings/scripts/generate-bindings.pl
-idl.commands = perl -I$$PWD/bindings/scripts $$idl.wkScript --defines \"$${FEATURE_DEFINES_JAVASCRIPT}\" --generator JS --include $$PWD/dom --include $$PWD/html --include $$PWD/xml --include $$PWD/svg --outputDir $$WC_GENERATED_SOURCES_DIR --preprocessor \"$${QMAKE_MOC} -E\" ${QMAKE_FILE_NAME}
+idl.commands = perl -I$$PWD/bindings/scripts $$idl.wkScript --defines \"$${FEATURE_DEFINES_JAVASCRIPT}\" --generator JS --include $$PWD/dom --include $$PWD/fileapi --include $$PWD/html --include $$PWD/xml --include $$PWD/svg --outputDir $$WC_GENERATED_SOURCES_DIR --preprocessor \"$${QMAKE_MOC} -E\" ${QMAKE_FILE_NAME}
 idl.depends = $$PWD/bindings/scripts/CodeGenerator.pm \
               $$PWD/bindings/scripts/CodeGeneratorJS.pm \
               $$PWD/bindings/scripts/IDLParser.pm \
@@ -614,10 +614,10 @@ addExtraCompiler(xmlnames)
 # GENERATOR 8-A:
 entities.output = $${WC_GENERATED_SOURCES_DIR}/HTMLEntityTable.cpp
 entities.input = HTML_ENTITIES
-entities.wkScript = $$PWD/../WebKitTools/Scripts/create-html-entity-table
+entities.wkScript = $$PWD/html/parser/create-html-entity-table
 entities.commands = python $$entities.wkScript -o $${WC_GENERATED_SOURCES_DIR}/HTMLEntityTable.cpp $$HTML_ENTITIES
 entities.clean = ${QMAKE_FILE_OUT}
-entities.depends = $$PWD/../WebKitTools/Scripts/create-html-entity-table
+entities.depends = $$PWD/html/parser/create-html-entity-table
 addExtraCompiler(entities)
 
 # GENERATOR 8-B:

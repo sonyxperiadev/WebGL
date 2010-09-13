@@ -29,15 +29,16 @@
 
 namespace WebCore {
 
-SVGFEColorMatrixElement::SVGFEColorMatrixElement(const QualifiedName& tagName, Document* doc)
-    : SVGFilterPrimitiveStandardAttributes(tagName, doc)
+inline SVGFEColorMatrixElement::SVGFEColorMatrixElement(const QualifiedName& tagName, Document* document)
+    : SVGFilterPrimitiveStandardAttributes(tagName, document)
     , m_type(FECOLORMATRIX_TYPE_UNKNOWN)
     , m_values(SVGNumberList::create(SVGNames::valuesAttr))
 {
 }
 
-SVGFEColorMatrixElement::~SVGFEColorMatrixElement()
+PassRefPtr<SVGFEColorMatrixElement> SVGFEColorMatrixElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGFEColorMatrixElement(tagName, document));
 }
 
 void SVGFEColorMatrixElement::parseMappedAttribute(Attribute* attr)

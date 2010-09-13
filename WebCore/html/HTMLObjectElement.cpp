@@ -46,9 +46,8 @@ namespace WebCore {
 using namespace HTMLNames;
 
 inline HTMLObjectElement::HTMLObjectElement(const QualifiedName& tagName, Document* document, bool createdByParser) 
-    : HTMLPlugInImageElement(tagName, document)
+    : HTMLPlugInImageElement(tagName, document, createdByParser)
     , m_docNamedItem(true)
-    , m_needWidgetUpdate(!createdByParser)
     , m_useFallbackContent(false)
 {
     ASSERT(hasTagName(objectTag));
@@ -62,37 +61,34 @@ PassRefPtr<HTMLObjectElement> HTMLObjectElement::create(const QualifiedName& tag
 RenderWidget* HTMLObjectElement::renderWidgetForJSBindings() const
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    if (!renderer() || !renderer()->isWidget())
-        return 0;
-    return toRenderWidget(renderer());
+    return renderPart(); // This will return 0 if the renderer is not a RenderPart.
 }
 
 void HTMLObjectElement::parseMappedAttribute(Attribute* attr)
 {
-    String val = attr->value();
-    size_t pos;
     if (attr->name() == typeAttr) {
-        m_serviceType = val.lower();
-        pos = m_serviceType.find(";");
+        m_serviceType = attr->value().lower();
+        size_t pos = m_serviceType.find(";");
         if (pos != notFound)
-          m_serviceType = m_serviceType.left(pos);
+            m_serviceType = m_serviceType.left(pos);
         if (renderer())
-          m_needWidgetUpdate = true;
+            setNeedsWidgetUpdate(true);
         if (!isImageType() && m_imageLoader)
-          m_imageLoader.clear();
+            m_imageLoader.clear();
     } else if (attr->name() == dataAttr) {
-        m_url = deprecatedParseURL(val);
-        if (renderer())
-          m_needWidgetUpdate = true;
-        if (renderer() && isImageType()) {
-          if (!m_imageLoader)
-              m_imageLoader = adoptPtr(new HTMLImageLoader(this));
-          m_imageLoader->updateFromElementIgnoringPreviousError();
+        m_url = deprecatedParseURL(attr->value());
+        if (renderer()) {
+            setNeedsWidgetUpdate(true);
+            if (isImageType()) {
+                if (!m_imageLoader)
+                    m_imageLoader = adoptPtr(new HTMLImageLoader(this));
+                m_imageLoader->updateFromElementIgnoringPreviousError();
+            }
         }
     } else if (attr->name() == classidAttr) {
-        m_classId = val;
+        m_classId = attr->value();
         if (renderer())
-          m_needWidgetUpdate = true;
+            setNeedsWidgetUpdate(true);
     } else if (attr->name() == onloadAttr)
         setAttributeEventListener(eventNames().loadEvent, createAttributeEventListener(this, attr));
     else if (attr->name() == onbeforeloadAttr)
@@ -114,13 +110,14 @@ void HTMLObjectElement::parseMappedAttribute(Attribute* attr)
         }
         m_id = newId;
         // also call superclass
-        HTMLPlugInElement::parseMappedAttribute(attr);
+        HTMLPlugInImageElement::parseMappedAttribute(attr);
     } else
-        HTMLPlugInElement::parseMappedAttribute(attr);
+        HTMLPlugInImageElement::parseMappedAttribute(attr);
 }
 
 bool HTMLObjectElement::rendererIsNeeded(RenderStyle* style)
 {
+    // FIXME: This check should not be needed, detached documents never render!
     Frame* frame = document()->frame();
     if (!frame)
         return false;
@@ -129,57 +126,7 @@ bool HTMLObjectElement::rendererIsNeeded(RenderStyle* style)
     // Gears expects the plugin to be instantiated even if display:none is set
     // for the object element.
     bool isGearsPlugin = equalIgnoringCase(getAttribute(typeAttr), "application/x-googlegears");
-    return isGearsPlugin || HTMLPlugInElement::rendererIsNeeded(style);
-}
-
-RenderObject *HTMLObjectElement::createRenderer(RenderArena* arena, RenderStyle* style)
-{
-    if (m_useFallbackContent)
-        return RenderObject::createObject(this, style);
-    if (isImageType())
-        return new (arena) RenderImage(this);
-    return new (arena) RenderEmbeddedObject(this);
-}
-
-void HTMLObjectElement::attach()
-{
-    bool isImage = isImageType();
-
-    if (!isImage)
-        queuePostAttachCallback(&HTMLPlugInElement::updateWidgetCallback, this);
-
-    HTMLPlugInElement::attach();
-
-    if (isImage && renderer() && !m_useFallbackContent) {
-        if (!m_imageLoader)
-            m_imageLoader = adoptPtr(new HTMLImageLoader(this));
-        m_imageLoader->updateFromElement();
-    }
-}
-
-void HTMLObjectElement::updateWidget()
-{
-    document()->updateStyleIfNeeded();
-    if (m_needWidgetUpdate && renderer() && !m_useFallbackContent && !isImageType())
-        toRenderEmbeddedObject(renderer())->updateWidget(true);
-}
-
-void HTMLObjectElement::finishParsingChildren()
-{
-    HTMLPlugInElement::finishParsingChildren();
-    if (!m_useFallbackContent) {
-        m_needWidgetUpdate = true;
-        if (inDocument())
-            setNeedsStyleRecalc();
-    }
-}
-
-void HTMLObjectElement::detach()
-{
-    if (attached() && renderer() && !m_useFallbackContent)
-        // Update the widget the next time we attach (detaching destroys the plugin).
-        m_needWidgetUpdate = true;
-    HTMLPlugInElement::detach();
+    return isGearsPlugin || HTMLPlugInImageElement::rendererIsNeeded(style);
 }
 
 void HTMLObjectElement::insertedIntoDocument()
@@ -190,7 +137,7 @@ void HTMLObjectElement::insertedIntoDocument()
         document->addExtraNamedItem(m_id);
     }
 
-    HTMLPlugInElement::insertedIntoDocument();
+    HTMLPlugInImageElement::insertedIntoDocument();
 }
 
 void HTMLObjectElement::removedFromDocument()
@@ -201,26 +148,17 @@ void HTMLObjectElement::removedFromDocument()
         document->removeExtraNamedItem(m_id);
     }
 
-    HTMLPlugInElement::removedFromDocument();
-}
-
-void HTMLObjectElement::recalcStyle(StyleChange ch)
-{
-    if (!m_useFallbackContent && m_needWidgetUpdate && renderer() && !isImageType()) {
-        detach();
-        attach();
-    }
-    HTMLPlugInElement::recalcStyle(ch);
+    HTMLPlugInImageElement::removedFromDocument();
 }
 
 void HTMLObjectElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
     updateDocNamedItem();
-    if (inDocument() && !m_useFallbackContent) {
-        m_needWidgetUpdate = true;
+    if (inDocument() && !useFallbackContent()) {
+        setNeedsWidgetUpdate(true);
         setNeedsStyleRecalc();
     }
-    HTMLPlugInElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    HTMLPlugInImageElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 }
 
 bool HTMLObjectElement::isURLAttribute(Attribute *attr) const
@@ -235,7 +173,7 @@ const QualifiedName& HTMLObjectElement::imageSourceAttributeName() const
 
 void HTMLObjectElement::renderFallbackContent()
 {
-    if (m_useFallbackContent)
+    if (useFallbackContent())
         return;
     
     if (!inDocument())
@@ -253,10 +191,8 @@ void HTMLObjectElement::renderFallbackContent()
         }
     }
 
-    // Mark ourselves as using the fallback content.
     m_useFallbackContent = true;
 
-    // Now do a detach and reattach.    
     // FIXME: Style gets recalculated which is suboptimal.
     detach();
     attach();

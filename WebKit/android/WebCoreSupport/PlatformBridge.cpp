@@ -140,7 +140,7 @@ bool PlatformBridge::canScroll(const WebCore::FrameView* frameView)
     // we know how to do this ourselves in the UI thread.
     // An example of it being initiated by the user is if the user clicks
     // an anchor element which simply scrolls the page.
-    return android::WebFrame::getWebFrame(frameView->frame())->userInitiatedClick();
+    return android::WebFrame::getWebFrame(frameView->frame())->userInitiatedAction();
 }
 
 bool PlatformBridge::popupsAllowed(NPP)

@@ -110,16 +110,16 @@ class WebFrame : public WebCoreRefObject {
     float density() const;
 
     /**
-     * When the user initiates a click (via trackball, enter-press, or touch),
-     * we set mUserInitiatedClick to true.  If a load happens due to this click,
+     * When the user initiates an action (via trackball, key-press, or touch),
+     * we set mUserInitiatedAction to true.  If a load happens due to this click,
      * then we ask the application if it wants to override
      * the load. Otherwise, we attempt to load the resource internally.
      * We also check it to determine whether or not to allow webkit to request
      * a scroll.  If it was user initated, the scroll is allowed.
      */
-    void setUserInitiatedClick(bool userInitiatedClick) { mUserInitiatedClick = userInitiatedClick; }
+    void setUserInitiatedAction(bool userInitiatedAction) { mUserInitiatedAction = userInitiatedAction; }
 
-    bool userInitiatedClick() { return mUserInitiatedClick; }
+    bool userInitiatedAction() { return mUserInitiatedAction; }
     
     WebCore::Page* page() const { return mPage; }
 
@@ -128,7 +128,7 @@ private:
     JavaBrowserFrame* mJavaFrame;
     WebCore::Page* mPage;
     WTF::String mUserAgent;
-    bool mUserInitiatedClick;
+    bool mUserInitiatedAction;
 };
 
 }   // namespace android

@@ -31,14 +31,15 @@ namespace WebCore {
 char SVGRadiusXAttrIdentifier[] = "SVGRadiusXAttr";
 char SVGRadiusYAttrIdentifier[] = "SVGRadiusYAttr";
 
-SVGFEMorphologyElement::SVGFEMorphologyElement(const QualifiedName& tagName, Document* document)
+inline SVGFEMorphologyElement::SVGFEMorphologyElement(const QualifiedName& tagName, Document* document)
     : SVGFilterPrimitiveStandardAttributes(tagName, document)
     , m__operator(FEMORPHOLOGY_OPERATOR_ERODE)
 {
 }
 
-SVGFEMorphologyElement::~SVGFEMorphologyElement()
+PassRefPtr<SVGFEMorphologyElement> SVGFEMorphologyElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGFEMorphologyElement(tagName, document));
 }
 
 void SVGFEMorphologyElement::setRadius(float, float)

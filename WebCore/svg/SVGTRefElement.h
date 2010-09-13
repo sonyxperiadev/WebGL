@@ -30,17 +30,18 @@ namespace WebCore {
     class SVGTRefElement : public SVGTextPositioningElement,
                            public SVGURIReference {
     public:
+        static PassRefPtr<SVGTRefElement> create(const QualifiedName&, Document*);
+
+    private:
         SVGTRefElement(const QualifiedName&, Document*);
-        virtual ~SVGTRefElement();
 
         virtual void parseMappedAttribute(Attribute*);
         virtual void svgAttributeChanged(const QualifiedName&);
         virtual void synchronizeProperty(const QualifiedName&);
 
         virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-        bool childShouldCreateRenderer(Node*) const;
+        virtual bool childShouldCreateRenderer(Node*) const;
 
-    private:
         void updateReferencedText();
 
         // SVGURIReference

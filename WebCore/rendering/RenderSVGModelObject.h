@@ -39,7 +39,7 @@
 namespace WebCore {
 
 // Most renderers in the SVG rendering tree will inherit from this class
-// but not all. (e.g. RenderSVGForeignObject, RenderSVGBlock, RenderSVGImage) thus methods
+// but not all. (e.g. RenderSVGForeignObject, RenderSVGBlock) thus methods
 // required by SVG renders need to be declared on RenderObject, but shared
 // logic can go in this class or in SVGRenderSupport.
 
@@ -61,6 +61,7 @@ public:
     virtual void destroy();
 
     virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool useTransforms, bool fixed, TransformState&) const;
+    virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
     virtual void updateFromElement();
 

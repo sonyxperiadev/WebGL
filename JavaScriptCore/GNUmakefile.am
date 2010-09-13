@@ -1,24 +1,28 @@
 javascriptcore_cppflags += \
 	-I$(srcdir)/JavaScriptCore \
 	-I$(srcdir)/JavaScriptCore/API \
-	-I$(srcdir)/JavaScriptCore/ForwardingHeaders \
-	-I$(srcdir)/JavaScriptCore/interpreter \
+	-I$(srcdir)/JavaScriptCore/assembler \
 	-I$(srcdir)/JavaScriptCore/bytecode \
 	-I$(srcdir)/JavaScriptCore/bytecompiler \
 	-I$(srcdir)/JavaScriptCore/debugger \
+	-I$(srcdir)/JavaScriptCore/ForwardingHeaders \
+	-I$(srcdir)/JavaScriptCore/interpreter \
 	-I$(srcdir)/JavaScriptCore/jit \
+	-I$(srcdir)/JavaScriptCore/jit \
+	-I$(srcdir)/JavaScriptCore/parser \
 	-I$(srcdir)/JavaScriptCore/pcre \
 	-I$(srcdir)/JavaScriptCore/profiler \
 	-I$(srcdir)/JavaScriptCore/runtime \
-	-I$(srcdir)/JavaScriptCore/jit \
-	-I$(srcdir)/JavaScriptCore/assembler \
 	-I$(srcdir)/JavaScriptCore/wtf \
+	-I$(srcdir)/JavaScriptCore/wtf \
+	-I$(srcdir)/JavaScriptCore/wtf/gobject \
+	-I$(srcdir)/JavaScriptCore/wtf/gtk \
 	-I$(srcdir)/JavaScriptCore/wtf/text \
 	-I$(srcdir)/JavaScriptCore/wtf/unicode \
 	-I$(srcdir)/JavaScriptCore/yarr \
 	-I$(top_builddir)/JavaScriptCore \
-	-I$(top_builddir)/JavaScriptCore/pcre \
 	-I$(top_builddir)/JavaScriptCore/parser \
+	-I$(top_builddir)/JavaScriptCore/pcre \
 	-I$(top_builddir)/JavaScriptCore/runtime
 
 javascriptcore_h_api += \
@@ -385,6 +389,7 @@ javascriptcore_sources += \
 	JavaScriptCore/runtime/SmallStrings.cpp \
 	JavaScriptCore/runtime/SmallStrings.h \
 	JavaScriptCore/runtime/StringBuilder.h \
+	JavaScriptCore/runtime/StringConcatenate.h \
 	JavaScriptCore/runtime/StringConstructor.cpp \
 	JavaScriptCore/runtime/StringConstructor.h \
 	JavaScriptCore/runtime/StringObject.cpp \
@@ -404,7 +409,6 @@ javascriptcore_sources += \
 	JavaScriptCore/runtime/Tracing.h \
 	JavaScriptCore/runtime/UString.cpp \
 	JavaScriptCore/runtime/UString.h \
-	JavaScriptCore/runtime/UStringImpl.h \
 	JavaScriptCore/runtime/WeakGCMap.h \
 	JavaScriptCore/runtime/WeakGCPtr.h \
 	JavaScriptCore/runtime/WeakRandom.h \
@@ -423,6 +427,7 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/CurrentTime.h \
 	JavaScriptCore/wtf/DateMath.cpp \
 	JavaScriptCore/wtf/DateMath.h \
+	JavaScriptCore/wtf/DecimalNumber.h \
 	JavaScriptCore/wtf/Deque.h \
 	JavaScriptCore/wtf/DisallowCType.h \
 	JavaScriptCore/wtf/dtoa.cpp \
@@ -437,6 +442,7 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/gobject/GOwnPtr.h \
 	JavaScriptCore/wtf/gobject/GRefPtr.cpp \
 	JavaScriptCore/wtf/gobject/GRefPtr.h \
+	JavaScriptCore/wtf/gtk/GtkTypedefs.h \
 	JavaScriptCore/wtf/gtk/MainThreadGtk.cpp \
 	JavaScriptCore/wtf/gtk/ThreadingGtk.cpp \
 	JavaScriptCore/wtf/HashCountedSet.h \
@@ -461,11 +467,13 @@ javascriptcore_sources += \
 	JavaScriptCore/wtf/NotFound.h \
 	JavaScriptCore/wtf/OwnArrayPtr.h \
 	JavaScriptCore/wtf/OwnFastMallocPtr.h \
+	JavaScriptCore/wtf/OwnArrayPtrCommon.h \
 	JavaScriptCore/wtf/OwnPtrCommon.h \
 	JavaScriptCore/wtf/OwnPtr.h \
 	JavaScriptCore/wtf/PageAllocation.cpp \
 	JavaScriptCore/wtf/PageAllocation.h \
 	JavaScriptCore/wtf/PageReservation.h \
+	JavaScriptCore/wtf/PassOwnArrayPtr.h \
 	JavaScriptCore/wtf/PassOwnPtr.h \
 	JavaScriptCore/wtf/PassRefPtr.h \
 	JavaScriptCore/wtf/Platform.h \

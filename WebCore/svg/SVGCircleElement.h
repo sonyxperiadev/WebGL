@@ -34,8 +34,10 @@ namespace WebCore {
                              public SVGLangSpace,
                              public SVGExternalResourcesRequired {
     public:
+        static PassRefPtr<SVGCircleElement> create(const QualifiedName&, Document*);
+
+    private:
         SVGCircleElement(const QualifiedName&, Document*);
-        virtual ~SVGCircleElement();
 
         virtual bool isValid() const { return SVGTests::isValid(); }
 
@@ -45,7 +47,6 @@ namespace WebCore {
 
         virtual Path toPathData() const;
 
-    private:
         virtual bool selfHasRelativeLengths() const;
 
         DECLARE_ANIMATED_PROPERTY(SVGCircleElement, SVGNames::cxAttr, SVGLength, Cx, cx)

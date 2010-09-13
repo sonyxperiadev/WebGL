@@ -262,6 +262,9 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ControlPart e)
         case MediaControlsBackgroundPart:
             m_value.ident = CSSValueMediaControlsBackground;
             break;
+        case MediaControlsFullscreenBackgroundPart:
+            m_value.ident = CSSValueMediaControlsFullscreenBackground;
+            break;
         case MediaCurrentTimePart:
             m_value.ident = CSSValueMediaCurrentTimeDisplay;
             break;
@@ -1005,6 +1008,9 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EListStyleType e)
     case Armenian:
         m_value.ident = CSSValueArmenian;
         break;
+    case Asterisks:
+        m_value.ident = CSSValueAsterisks;
+        break;
     case BinaryListStyle:
         m_value.ident = CSSValueBinary;
         break;
@@ -1085,6 +1091,9 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EListStyleType e)
         break;
     case EthiopicHalehameTig:
         m_value.ident = CSSValueEthiopicHalehameTig;
+        break;
+    case Footnotes:
+        m_value.ident = CSSValueFootnotes;
         break;
     case Georgian:
         m_value.ident = CSSValueGeorgian;
@@ -1602,7 +1611,7 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ETextAlign e)
 {
     switch (e) {
         case TAAUTO:
-            m_value.ident = CSSValueAuto;
+            m_value.ident = CSSValueWebkitAuto;
             break;
         case LEFT:
             m_value.ident = CSSValueLeft;

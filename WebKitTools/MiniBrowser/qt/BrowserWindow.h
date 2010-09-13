@@ -28,13 +28,13 @@
 
 #define PLATFORM(x) 0
 
-#include <stdint.h>
+#include "WKContext.h"
+#include "WKRetainPtr.h"
+#include "qgraphicswkview.h"
 #include <QtGui>
-#include <WebKit2/WKRetainPtr.h>
-#include <WebKit2/WKContext.h>
 #include <QGraphicsScene>
 #include <QGraphicsView>
-#include <WebKit2/qgraphicswkview.h>
+#include <stdint.h>
 
 class BrowserView : public QGraphicsView {
     Q_OBJECT
@@ -61,6 +61,9 @@ public:
     BrowserWindow();
     ~BrowserWindow();
     void load(const QString& url);
+
+public slots:
+    BrowserWindow* newWindow(const QString& url = "about:blank");
 
 protected slots:
     void changeLocation();

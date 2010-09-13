@@ -111,10 +111,42 @@ static const double weekDefaultStepBase = -259200000.0; // The first day of 1970
 static const double msecPerMinute = 60 * 1000;
 static const double msecPerSecond = 1000;
 
+static const char emailPattern[] =
+    "[a-z0-9!#$%&'*+/=?^_`{|}~.-]+" // local part
+    "@"
+    "[a-z0-9-]+(\\.[a-z0-9-]+)+"; // domain part
+
 static bool isNumberCharacter(UChar ch)
 {
     return ch == '+' || ch == '-' || ch == '.' || ch == 'e' || ch == 'E'
         || (ch >= '0' && ch <= '9');
+}
+
+static bool isValidColorString(const String& value)
+{
+    if (value.isEmpty())
+        return false;
+    if (value[0] == '#') {
+        // We don't accept #rgb and #aarrggbb formats.
+        if (value.length() != 7)
+            return false;
+    }
+    Color color(value); // This accepts named colors such as "white".
+    return color.isValid() && !color.hasAlpha();
+}
+
+static bool isValidEmailAddress(const String& address)
+{
+    int addressLength = address.length();
+    if (!addressLength)
+        return false;
+
+    DEFINE_STATIC_LOCAL(const RegularExpression, regExp, (emailPattern, TextCaseInsensitive));
+
+    int matchLength;
+    int matchOffset = regExp.match(address, 0, &matchLength);
+
+    return !matchOffset && matchLength == addressLength;
 }
 
 HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
@@ -208,7 +240,71 @@ void HTMLInputElement::updateCheckedRadioButtons()
         renderer()->theme()->stateChanged(renderer(), CheckedState);
 }
 
-bool HTMLInputElement::valueMissing() const
+bool HTMLInputElement::isValidValue(const String& value) const
+{
+    // Should not call isValidValue() for the following types because
+    // we can't set string values for these types.
+    if (inputType() == CHECKBOX || inputType() == FILE || inputType() == RADIO) {
+        ASSERT_NOT_REACHED();
+        return false;
+    }
+    return !typeMismatch(value)
+        && !stepMismatch(value)
+        && !rangeUnderflow(value)
+        && !rangeOverflow(value)
+        && !tooLong(value, IgnoreDirtyFlag)
+        && !patternMismatch(value)
+        && !valueMissing(value);
+}
+
+bool HTMLInputElement::typeMismatch(const String& value) const
+{
+    switch (inputType()) {
+    case COLOR:
+        return !isValidColorString(value);
+    case NUMBER:
+        return !parseToDoubleForNumberType(value, 0);
+    case URL:
+        return !KURL(KURL(), value).isValid();
+    case EMAIL: {
+        if (!multiple())
+            return !isValidEmailAddress(value);
+        Vector<String> addresses;
+        value.split(',', addresses);
+        for (unsigned i = 0; i < addresses.size(); ++i) {
+            if (!isValidEmailAddress(addresses[i]))
+                return true;
+        }
+        return false;
+    }
+    case DATE:
+    case DATETIME:
+    case DATETIMELOCAL:
+    case MONTH:
+    case TIME:
+    case WEEK:
+        return !parseToDateComponents(inputType(), value, 0);
+    case BUTTON:
+    case CHECKBOX:
+    case FILE:
+    case HIDDEN:
+    case IMAGE:
+    case ISINDEX:
+    case PASSWORD:
+    case RADIO:
+    case RANGE:
+    case RESET:
+    case SEARCH:
+    case SUBMIT:
+    case TELEPHONE:
+    case TEXT:
+        return false;
+    }
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+bool HTMLInputElement::valueMissing(const String& value) const
 {
     if (!isRequiredFormControl() || readOnly() || disabled())
         return false;
@@ -228,7 +324,7 @@ bool HTMLInputElement::valueMissing() const
     case TIME:
     case URL:
     case WEEK:
-        return value().isEmpty();
+        return value.isEmpty();
     case CHECKBOX:
         return !checked();
     case RADIO:
@@ -249,12 +345,11 @@ bool HTMLInputElement::valueMissing() const
     return false;
 }
 
-bool HTMLInputElement::patternMismatch() const
+bool HTMLInputElement::patternMismatch(const String& value) const
 {
     if (!isTextType())
         return false;
     const AtomicString& pattern = getAttribute(patternAttr);
-    String value = this->value();
     // Empty values can't be mismatched
     if (pattern.isEmpty() || value.isEmpty())
         return false;
@@ -265,7 +360,7 @@ bool HTMLInputElement::patternMismatch() const
     return matchOffset || matchLength != valueLength;
 }
 
-bool HTMLInputElement::tooLong() const
+bool HTMLInputElement::tooLong(const String& value, NeedsToCheckDirtyFlag check) const
 {
     // We use isTextType() instead of supportsMaxLength() because of the
     // 'virtual' overhead.
@@ -274,14 +369,16 @@ bool HTMLInputElement::tooLong() const
     int max = maxLength();
     if (max < 0)
         return false;
-    // Return false for the default value even if it is longer than maxLength.
-    bool userEdited = !m_data.value().isNull();
-    if (!userEdited)
-        return false;
-    return numGraphemeClusters(value()) > static_cast<unsigned>(max);
+    if (check == CheckDirtyFlag) {
+        // Return false for the default value even if it is longer than maxLength.
+        bool userEdited = !m_data.value().isNull();
+        if (!userEdited)
+            return false;
+    }
+    return numGraphemeClusters(value) > static_cast<unsigned>(max);
 }
 
-bool HTMLInputElement::rangeUnderflow() const
+bool HTMLInputElement::rangeUnderflow(const String& value) const
 {
     const double nan = numeric_limits<double>::quiet_NaN();
     switch (inputType()) {
@@ -292,11 +389,11 @@ bool HTMLInputElement::rangeUnderflow() const
     case NUMBER:
     case TIME:
     case WEEK: {
-        double doubleValue = parseToDouble(value(), nan);
+        double doubleValue = parseToDouble(value, nan);
         return isfinite(doubleValue) && doubleValue < minimum();
     }
     case RANGE: // Guaranteed by sanitization.
-        ASSERT(parseToDouble(value(), nan) >= minimum());
+        ASSERT(parseToDouble(value, nan) >= minimum());
     case BUTTON:
     case CHECKBOX:
     case COLOR:
@@ -318,7 +415,7 @@ bool HTMLInputElement::rangeUnderflow() const
     return false;
 }
 
-bool HTMLInputElement::rangeOverflow() const
+bool HTMLInputElement::rangeOverflow(const String& value) const
 {
     const double nan = numeric_limits<double>::quiet_NaN();
     switch (inputType()) {
@@ -329,11 +426,11 @@ bool HTMLInputElement::rangeOverflow() const
     case NUMBER:
     case TIME:
     case WEEK: {
-        double doubleValue = parseToDouble(value(), nan);
+        double doubleValue = parseToDouble(value, nan);
         return isfinite(doubleValue) && doubleValue > maximum();
     }
     case RANGE: // Guaranteed by sanitization.
-        ASSERT(parseToDouble(value(), nan) <= maximum());
+        ASSERT(parseToDouble(value, nan) <= maximum());
     case BUTTON:
     case CHECKBOX:
     case COLOR:
@@ -478,7 +575,7 @@ double HTMLInputElement::stepBase() const
     return 0.0;
 }
 
-bool HTMLInputElement::stepMismatch() const
+bool HTMLInputElement::stepMismatch(const String& value) const
 {
     double step;
     if (!getAllowedValueStep(&step))
@@ -491,7 +588,7 @@ bool HTMLInputElement::stepMismatch() const
         return false;
     case NUMBER: {
         double doubleValue;
-        if (!parseToDoubleForNumberType(value(), &doubleValue))
+        if (!parseToDoubleForNumberType(value, &doubleValue))
             return false;
         doubleValue = fabs(doubleValue - stepBase());
         if (isinf(doubleValue))
@@ -513,7 +610,7 @@ bool HTMLInputElement::stepMismatch() const
     case TIME:
     case WEEK: {
         const double nan = numeric_limits<double>::quiet_NaN();
-        double doubleValue = parseToDouble(value(), nan);
+        double doubleValue = parseToDouble(value, nan);
         doubleValue = fabs(doubleValue - stepBase());
         if (!isfinite(doubleValue))
             return false;
@@ -1175,8 +1272,11 @@ RenderObject* HTMLInputElement::createRenderer(RenderArena *arena, RenderStyle *
         return new (arena) RenderFileUploadControl(this);
     case HIDDEN:
         break;
-    case IMAGE:
-        return new (arena) RenderImage(this);
+    case IMAGE: {
+        RenderImage* image = new (arena) RenderImage(this);
+        image->setImageResource(RenderImageResource::create());
+        return image;
+    }
     case RANGE:
         return new (arena) RenderSlider(this);
     case COLOR:
@@ -1215,13 +1315,14 @@ void HTMLInputElement::attach()
             m_imageLoader = adoptPtr(new HTMLImageLoader(this));
         m_imageLoader->updateFromElement();
         if (renderer() && m_imageLoader->haveFiredBeforeLoadEvent()) {
-            RenderImage* imageObj = toRenderImage(renderer());
-            imageObj->setCachedImage(m_imageLoader->image()); 
-            
+            RenderImage* renderImage = toRenderImage(renderer());
+            RenderImageResource* renderImageResource = renderImage->imageResource();
+            renderImageResource->setCachedImage(m_imageLoader->image()); 
+
             // If we have no image at all because we have no src attribute, set
             // image height and width for the alt text instead.
-            if (!m_imageLoader->image() && !imageObj->cachedImage())
-                imageObj->setImageSizeForAltText();
+            if (!m_imageLoader->image() && !renderImageResource->cachedImage())
+                renderImage->setImageSizeForAltText();
         }
     }
 
@@ -1501,11 +1602,16 @@ void HTMLInputElement::copyNonAttributeProperties(const Element* source)
 
 String HTMLInputElement::value() const
 {
-    // The HTML5 spec (as of the 10/24/08 working draft) says that the value attribute isn't applicable to the file upload control
-    // but we don't want to break existing websites, who may be relying on being able to get the file name as a value.
     if (inputType() == FILE) {
-        if (!m_fileList->isEmpty())
-            return m_fileList->item(0)->fileName();
+        if (!m_fileList->isEmpty()) {
+            // HTML5 tells us that we're supposed to use this goofy value for
+            // file input controls.  Historically, browsers reveals the real
+            // file path, but that's a privacy problem.  Code on the web
+            // decided to try to parse the value by looking for backslashes
+            // (because that's what Windows file paths use).  To be compatible
+            // with that code, we make up a fake path for the file.
+            return "C:\\fakepath\\" + m_fileList->item(0)->fileName();
+        }
         return String();
     }
 

@@ -30,6 +30,7 @@
 
 #import "WebNetscapePluginView.h"
 
+#import "QuickDrawCompatibility.h"
 #import "WebDataSourceInternal.h"
 #import "WebDefaultUIDelegate.h"
 #import "WebFrameInternal.h" 

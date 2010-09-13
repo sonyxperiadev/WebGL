@@ -39,8 +39,8 @@
 
 namespace WebCore {
 
-SVGLinearGradientElement::SVGLinearGradientElement(const QualifiedName& tagName, Document* doc)
-    : SVGGradientElement(tagName, doc)
+inline SVGLinearGradientElement::SVGLinearGradientElement(const QualifiedName& tagName, Document* document)
+    : SVGGradientElement(tagName, document)
     , m_x1(LengthModeWidth)
     , m_y1(LengthModeHeight)
     , m_x2(LengthModeWidth, "100%")
@@ -49,8 +49,9 @@ SVGLinearGradientElement::SVGLinearGradientElement(const QualifiedName& tagName,
     // Spec: If the x2 attribute is not specified, the effect is as if a value of "100%" were specified.
 }
 
-SVGLinearGradientElement::~SVGLinearGradientElement()
+PassRefPtr<SVGLinearGradientElement> SVGLinearGradientElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGLinearGradientElement(tagName, document));
 }
 
 void SVGLinearGradientElement::parseMappedAttribute(Attribute* attr)

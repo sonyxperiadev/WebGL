@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (C) 2010 University of Szeged
  *
  * All rights reserved.
  *
@@ -31,10 +32,23 @@
 int main(int argc, char** argv) {
     QApplication app(argc, argv);
 
-    BrowserWindow window;
-    window.resize(960, 640);
-    window.show();
-    window.load(argc > 1 ? argv[1] : "http://www.google.com");
+    QStringList args = QApplication::arguments();
+    QStringList urls = args;
+    urls.removeAt(0);
+
+    if (urls.isEmpty()) {
+        QString defaultUrl = QString("file://%1/%2").arg(QDir::homePath()).arg(QLatin1String("index.html"));
+        if (QDir(defaultUrl).exists())
+            urls.append(defaultUrl);
+        else
+            urls.append("http://www.google.com");
+    }
+
+    BrowserWindow* window = 0;
+    foreach (QString url, urls) {
+        window = new BrowserWindow();
+        window->newWindow(url);
+    }
 
     app.exec();
 

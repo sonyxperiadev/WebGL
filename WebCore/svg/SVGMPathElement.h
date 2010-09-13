@@ -32,15 +32,16 @@ namespace WebCore {
                             public SVGURIReference,
                             public SVGExternalResourcesRequired {
     public:
+        static PassRefPtr<SVGMPathElement> create(const QualifiedName&, Document*);
+
+        SVGPathElement* pathElement();
+        
+    private:
         SVGMPathElement(const QualifiedName&, Document*);
-        virtual ~SVGMPathElement();
         
         virtual void parseMappedAttribute(Attribute*);
         virtual void synchronizeProperty(const QualifiedName&);
         
-        SVGPathElement* pathElement();
-        
-    private:
         // SVGURIReference
         DECLARE_ANIMATED_PROPERTY(SVGMPathElement, XLinkNames::hrefAttr, String, Href, href)
 

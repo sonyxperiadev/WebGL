@@ -68,10 +68,6 @@ namespace WebCore {
     class GraphicsLayer;
 #endif
 
-#if USE(GLES2_RENDERING)
-    class GLES2Context;
-#endif
-
 #if ENABLE(NOTIFICATIONS)
     class NotificationPresenter;
 #endif
@@ -234,16 +230,16 @@ namespace WebCore {
         virtual bool allowsAcceleratedCompositing() const { return true; }
 #endif
 
-#if USE(GLES2_RENDERING)
-        // Request a GL ES 2 context to use for compositing this page's content.
-        virtual PassOwnPtr<GLES2Context> getOnscreenGLES2Context() = 0;
-        virtual PassOwnPtr<GLES2Context> getOffscreenGLES2Context() = 0;
-#endif
-
         virtual bool supportsFullscreenForNode(const Node*) { return false; }
         virtual void enterFullscreenForNode(Node*) { }
         virtual void exitFullscreenForNode(Node*) { }
 
+#if ENABLE(FULLSCREEN_API)
+        virtual bool supportsFullScreenForElement(const Element*) { return false; }
+        virtual void enterFullScreenForElement(Element*) { }
+        virtual void exitFullScreenForElement(Element*) { }
+#endif
+        
 #if ENABLE(TILED_BACKING_STORE)
         virtual IntRect visibleRectForTiledBackingStore() const { return IntRect(); }
 #endif

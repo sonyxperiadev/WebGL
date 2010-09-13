@@ -51,9 +51,11 @@ namespace WebCore {
             TEXTPATH_SPACINGTYPE_EXACT = SVG_TEXTPATH_SPACINGTYPE_EXACT
         };
 
-        SVGTextPathElement(const QualifiedName&, Document*);
-        virtual ~SVGTextPathElement();
+        static PassRefPtr<SVGTextPathElement> create(const QualifiedName&, Document*);
  
+    private:
+        SVGTextPathElement(const QualifiedName&, Document*);
+
         virtual void insertedIntoDocument();
 
         virtual void parseMappedAttribute(Attribute*);
@@ -61,9 +63,8 @@ namespace WebCore {
         virtual void synchronizeProperty(const QualifiedName&);
         virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
-        bool childShouldCreateRenderer(Node*) const;
+        virtual bool childShouldCreateRenderer(Node*) const;
 
-    private:
         virtual bool selfHasRelativeLengths() const;
 
         DECLARE_ANIMATED_PROPERTY(SVGTextPathElement, SVGNames::startOffsetAttr, SVGLength, StartOffset, startOffset)

@@ -40,6 +40,7 @@
 #if PLATFORM(CG)
 typedef struct CGContext PlatformGraphicsContext;
 #elif PLATFORM(CAIRO)
+#include "PlatformRefPtrCairo.h"
 typedef struct _cairo PlatformGraphicsContext;
 #elif PLATFORM(OPENVG)
 namespace WebCore {
@@ -306,7 +307,12 @@ namespace WebCore {
         FloatRect roundToDevicePixels(const FloatRect&);
 
         void drawLineForText(const IntPoint&, int width, bool printing);
-        void drawLineForMisspellingOrBadGrammar(const IntPoint&, int width, bool grammar);
+        enum TextCheckingLineStyle {
+            TextCheckingSpellingLineStyle,
+            TextCheckingGrammarLineStyle,
+            TextCheckingReplacementLineStyle
+        };
+        void drawLineForTextChecking(const IntPoint&, int width, TextCheckingLineStyle);
 
         bool paintingDisabled() const;
         void setPaintingDisabled(bool);
@@ -332,8 +338,11 @@ namespace WebCore {
         void setAlpha(float);
 #if PLATFORM(CAIRO)
         float getAlpha();
-        void createPlatformShadow(PassOwnPtr<ImageBuffer> buffer, const Color& shadowColor, const FloatRect& shadowRect, float radius);
-        static void calculateShadowBufferDimensions(IntSize& shadowBufferSize, FloatRect& shadowRect, float& radius, const FloatRect& sourceRect, const FloatSize& shadowSize, float shadowBlur);
+        void applyPlatformShadow(PassOwnPtr<ImageBuffer> buffer, const Color& shadowColor, const FloatRect& shadowRect, float radius);
+        PlatformRefPtr<cairo_surface_t> createShadowMask(PassOwnPtr<ImageBuffer>, const FloatRect&, float radius);
+
+        static void calculateShadowBufferDimensions(IntSize& shadowBufferSize, FloatRect& shadowRect, float& radius, const FloatRect& sourceRect, const FloatSize& shadowOffset, float shadowBlur);
+        void drawTiledShadow(const IntRect& rect, const FloatSize& topLeftRadius, const FloatSize& topRightRadius, const FloatSize& bottomLeftRadius, const FloatSize& bottomRightRadius, ColorSpace colorSpace);
 #endif
 
         void setCompositeOperation(CompositeOperator);

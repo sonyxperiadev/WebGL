@@ -33,11 +33,8 @@
 
 namespace WebCore {
 
-SVGForeignObjectElement::SVGForeignObjectElement(const QualifiedName& tagName, Document *doc)
-    : SVGStyledTransformableElement(tagName, doc)
-    , SVGTests()
-    , SVGLangSpace()
-    , SVGExternalResourcesRequired()
+SVGForeignObjectElement::SVGForeignObjectElement(const QualifiedName& tagName, Document* document)
+    : SVGStyledTransformableElement(tagName, document)
     , m_x(LengthModeWidth)
     , m_y(LengthModeHeight)
     , m_width(LengthModeWidth)
@@ -45,8 +42,9 @@ SVGForeignObjectElement::SVGForeignObjectElement(const QualifiedName& tagName, D
 {
 }
 
-SVGForeignObjectElement::~SVGForeignObjectElement()
+PassRefPtr<SVGForeignObjectElement> SVGForeignObjectElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGForeignObjectElement(tagName, document));
 }
 
 void SVGForeignObjectElement::parseMappedAttribute(Attribute* attr)

@@ -49,13 +49,6 @@
                 # for copying them to resource dir, and for generating 'devtools.html' file.
                 'devtools_files': [
                     '<@(devtools_css_files)',
-                    '../../WebKit/chromium/v8/tools/codemap.js',
-                    '../../WebKit/chromium/v8/tools/consarray.js',
-                    '../../WebKit/chromium/v8/tools/csvparser.js',
-                    '../../WebKit/chromium/v8/tools/logreader.js',
-                    '../../WebKit/chromium/v8/tools/profile.js',
-                    '../../WebKit/chromium/v8/tools/profile_view.js',
-                    '../../WebKit/chromium/v8/tools/splaytree.js',
                     '<@(devtools_js_files)',
                 ],
             },{
@@ -64,13 +57,6 @@
 
                 'devtools_files': [
                     '<@(devtools_css_files)',
-                    '../../../../v8/tools/codemap.js',
-                    '../../../../v8/tools/consarray.js',
-                    '../../../../v8/tools/csvparser.js',
-                    '../../../../v8/tools/logreader.js',
-                    '../../../../v8/tools/profile.js',
-                    '../../../../v8/tools/profile_view.js',
-                    '../../../../v8/tools/splaytree.js',
                     '<@(devtools_js_files)',
                 ],
             }],
@@ -292,6 +278,8 @@
                 'src/ApplicationCacheHost.cpp',
                 'src/ApplicationCacheHostInternal.h',
                 'src/AssertMatchingEnums.cpp',
+                'src/AsyncFileSystemChromium.cpp',
+                'src/AsyncFileSystemChromium.h',
                 'src/AutoFillPopupMenuClient.cpp',
                 'src/AutoFillPopupMenuClient.h',
                 'src/BackForwardListClientImpl.cpp',
@@ -363,6 +351,7 @@
                 'src/x11/WebScreenInfoFactory.cpp',
                 'src/mac/WebInputEventFactory.mm',
                 'src/mac/WebScreenInfoFactory.mm',
+                'src/LocalFileSystemChromium.cpp',
                 'src/LocalizedStrings.cpp',
                 'src/MediaPlayerPrivateChromium.cpp',
                 'src/NotificationPresenterImpl.h',
@@ -736,6 +725,7 @@
                         '<(chromium_src_dir)/base/base.gyp:base_i18n',
                         '<(chromium_src_dir)/base/base.gyp:test_support_base',
                         '<(chromium_src_dir)/gpu/gpu.gyp:gles2_c_lib',
+                        '<(chromium_src_dir)/webkit/support/webkit_support.gyp:blob',
                         '<(chromium_src_dir)/webkit/support/webkit_support.gyp:webkit_support',
                     ],
                     'include_dirs': [
@@ -805,6 +795,7 @@
                 'webkit',
                 '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:wtf_config',
                 '<(chromium_src_dir)/third_party/icu/icu.gyp:icuuc',
+                '<(chromium_src_dir)/webkit/support/webkit_support.gyp:blob',
                 '<(chromium_src_dir)/webkit/support/webkit_support.gyp:copy_npapi_layout_test_plugin',
                 '<(chromium_src_dir)/webkit/support/webkit_support.gyp:webkit_support',
                 '<(chromium_src_dir)/gpu/gpu.gyp:gles2_c_lib'

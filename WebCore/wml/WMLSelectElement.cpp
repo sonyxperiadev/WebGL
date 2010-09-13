@@ -44,6 +44,11 @@ WMLSelectElement::WMLSelectElement(const QualifiedName& tagName, Document* docum
 {
 }
 
+PassRefPtr<WMLSelectElement> WMLSelectElement::create(const QualifiedName& tagName, Document* document)
+{
+    return adoptRef(new WMLSelectElement(tagName, document));
+}
+
 WMLSelectElement::~WMLSelectElement()
 {
 }

@@ -115,13 +115,17 @@ bool GStreamerGWorld::enterFullscreen()
     GstQuery* query = gst_query_new_segment(GST_FORMAT_TIME);
     gboolean queryResult = gst_element_query(m_pipeline, query);
 
-    // See https://bugzilla.gnome.org/show_bug.cgi?id=620490.
 #if GST_CHECK_VERSION(0, 10, 30)
     if (!queryResult) {
         gst_query_unref(query);
         gst_object_unref(GST_OBJECT(srcPad));
         return true;
     }
+#else
+    // GStreamer < 0.10.30 doesn't set the query result correctly, so
+    // just ignore it to avoid a compilation warning.
+    // See https://bugzilla.gnome.org/show_bug.cgi?id=620490.
+    (void) queryResult;
 #endif
 
     GstFormat format;

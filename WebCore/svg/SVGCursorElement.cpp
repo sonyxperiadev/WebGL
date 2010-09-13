@@ -30,14 +30,16 @@
 
 namespace WebCore {
 
-SVGCursorElement::SVGCursorElement(const QualifiedName& tagName, Document* doc)
-    : SVGElement(tagName, doc)
-    , SVGTests()
-    , SVGExternalResourcesRequired()
-    , SVGURIReference()
+inline SVGCursorElement::SVGCursorElement(const QualifiedName& tagName, Document* document)
+    : SVGElement(tagName, document)
     , m_x(LengthModeWidth)
     , m_y(LengthModeHeight)
 {
+}
+
+PassRefPtr<SVGCursorElement> SVGCursorElement::create(const QualifiedName& tagName, Document* document)
+{
+    return adoptRef(new SVGCursorElement(tagName, document));
 }
 
 SVGCursorElement::~SVGCursorElement()

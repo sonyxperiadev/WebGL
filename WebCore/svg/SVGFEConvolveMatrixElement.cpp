@@ -38,15 +38,16 @@ namespace WebCore {
 char SVGKernelUnitLengthXAttrIdentifier[] = "SVGKernelUnitLengthXAttr";
 char SVGKernelUnitLengthYAttrIdentifier[] = "SVGKernelUnitLengthYAttr";
 
-SVGFEConvolveMatrixElement::SVGFEConvolveMatrixElement(const QualifiedName& tagName, Document* doc)
-    : SVGFilterPrimitiveStandardAttributes(tagName, doc)
+inline SVGFEConvolveMatrixElement::SVGFEConvolveMatrixElement(const QualifiedName& tagName, Document* document)
+    : SVGFilterPrimitiveStandardAttributes(tagName, document)
     , m_kernelMatrix(SVGNumberList::create(SVGNames::kernelMatrixAttr))
     , m_edgeMode(EDGEMODE_DUPLICATE)
 {
 }
 
-SVGFEConvolveMatrixElement::~SVGFEConvolveMatrixElement()
+PassRefPtr<SVGFEConvolveMatrixElement> SVGFEConvolveMatrixElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGFEConvolveMatrixElement(tagName, document));
 }
 
 void SVGFEConvolveMatrixElement::parseMappedAttribute(Attribute* attr)

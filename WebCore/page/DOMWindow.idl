@@ -176,6 +176,11 @@ module window {
         readonly attribute [EnabledAtRuntime] IDBFactory indexedDB;
         readonly attribute [EnabledAtRuntime] IDBKeyRange IDBKeyRange;
 #endif
+#if defined(ENABLE_FILE_SYSTEM) && ENABLE_FILE_SYSTEM
+        const unsigned short TEMPORARY = 0;
+        const unsigned short PERSISTENT = 1;
+        [EnabledAtRuntime] void requestFileSystem(in unsigned short type, in long long size, in [Callback, Optional] FileSystemCallback successCallback, in [Callback, Optional] ErrorCallback errorCallback);
+#endif
 
 #if defined(ENABLE_ORIENTATION_EVENTS) && ENABLE_ORIENTATION_EVENTS
         // This is the interface orientation in degrees. Some examples are:
@@ -465,9 +470,7 @@ module window {
         attribute [Conditional=3D_CANVAS,EnabledAtRuntime] WebGLRenderingContextConstructor WebGLRenderingContext;
         attribute TextMetricsConstructor TextMetrics;
 
-#if !defined(V8_BINDING) || !V8_BINDING
         attribute DOMStringMapConstructor DOMStringMap;
-#endif
 
         attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] ArrayBufferConstructor ArrayBuffer; // Usable with new operator
         attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] Int8ArrayConstructor Int8Array; // Usable with new operator
@@ -743,6 +746,11 @@ module window {
         attribute [Conditional=BLOB] FileReaderConstructor FileReader;
 
         attribute [Conditional=BLOB] BlobBuilderConstructor BlobBuilder;
+
+#if defined(ENABLE_BLOB) && ENABLE_BLOB
+        DOMString createBlobURL(in Blob blob);
+        void revokeBlobURL(in DOMString blobURL);
+#endif
 
 #endif // defined(LANGUAGE_JAVASCRIPT)
 

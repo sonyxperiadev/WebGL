@@ -273,8 +273,8 @@ static float localZoomForRenderer(RenderObject* renderer)
     // FIXME: This does the wrong thing if two opposing zooms are in effect and canceled each
     // other out, but the alternative is that we'd have to crawl up the whole render tree every
     // time (or store an additional bit in the RenderStyle to indicate that a zoom was specified).
-    float zoomFactor = 1.0f;
-    if (renderer->style()->effectiveZoom() != 1.0f) {
+    float zoomFactor = 1;
+    if (renderer->style()->effectiveZoom() != 1) {
         // Need to find the nearest enclosing RenderObject that set up
         // a differing zoom, and then we divide our result by it to eliminate the zoom.
         RenderObject* prev = renderer;
@@ -367,9 +367,9 @@ int Element::clientWidth()
 
     // When in strict mode, clientWidth for the document element should return the width of the containing frame.
     // When in quirks mode, clientWidth for the body element should return the width of the containing frame.
-    bool inCompatMode = document()->inCompatMode();
-    if ((!inCompatMode && document()->documentElement() == this) ||
-        (inCompatMode && isHTMLElement() && document()->body() == this)) {
+    bool inQuirksMode = document()->inQuirksMode();
+    if ((!inQuirksMode && document()->documentElement() == this) ||
+        (inQuirksMode && isHTMLElement() && document()->body() == this)) {
         if (FrameView* view = document()->view()) {
             if (RenderView* renderView = document()->renderView())
                 return adjustForAbsoluteZoom(view->layoutWidth(), renderView);
@@ -387,10 +387,10 @@ int Element::clientHeight()
 
     // When in strict mode, clientHeight for the document element should return the height of the containing frame.
     // When in quirks mode, clientHeight for the body element should return the height of the containing frame.
-    bool inCompatMode = document()->inCompatMode();     
+    bool inQuirksMode = document()->inQuirksMode();     
 
-    if ((!inCompatMode && document()->documentElement() == this) ||
-        (inCompatMode && isHTMLElement() && document()->body() == this)) {
+    if ((!inQuirksMode && document()->documentElement() == this) ||
+        (inQuirksMode && isHTMLElement() && document()->body() == this)) {
         if (FrameView* view = document()->view()) {
             if (RenderView* renderView = document()->renderView())
                 return adjustForAbsoluteZoom(view->layoutHeight(), renderView);
@@ -1313,8 +1313,11 @@ void Element::focus(bool restorePreviousSelection)
     RefPtr<Node> protect;
     if (Page* page = doc->page()) {
         // Focus and change event handlers can cause us to lose our last ref.
+        // If a focus event handler changes the focus to a different node it
+        // does not make sense to continue and update appearence.
         protect = this;
-        page->focusController()->setFocusedNode(this, doc->frame());
+        if (!page->focusController()->setFocusedNode(this, doc->frame()))
+            return;
     }
 
     // Setting the focused node above might have invalidated the layout due to scripts.
@@ -1420,6 +1423,28 @@ RenderStyle* Element::computedStyle(PseudoId pseudoElementSpecifier)
     return pseudoElementSpecifier ? data->m_computedStyle->getCachedPseudoStyle(pseudoElementSpecifier) : data->m_computedStyle.get();
 }
 
+AtomicString Element::computeInheritedLanguage() const
+{
+    const Node* n = this;
+    AtomicString value;
+    // The language property is inherited, so we iterate over the parents to find the first language.
+    while (n && value.isNull()) {
+        if (n->isElementNode()) {
+            // Spec: xml:lang takes precedence -- http://www.w3.org/TR/xhtml1/#C_7
+            value = static_cast<const Element*>(n)->fastGetAttribute(XMLNames::langAttr);
+            if (value.isNull())
+                value = static_cast<const Element*>(n)->fastGetAttribute(HTMLNames::langAttr);
+        } else if (n->isDocumentNode()) {
+            // checking the MIME content-language
+            value = static_cast<const Document*>(n)->contentLanguage();
+        }
+
+        n = n->parent();
+    }
+
+    return value;
+}
+
 void Element::cancelFocusAppearanceUpdate()
 {
     if (hasRareData())
@@ -1498,7 +1523,7 @@ bool Element::webkitMatchesSelector(const String& selector, ExceptionCode& ec)
         return false;
     }
 
-    bool strictParsing = !document()->inCompatMode();
+    bool strictParsing = !document()->inQuirksMode();
     CSSParser p(strictParsing);
 
     CSSSelectorList selectorList;
@@ -1591,5 +1616,12 @@ bool Element::childShouldCreateRenderer(Node* child) const
     return Node::childShouldCreateRenderer(child);
 }
 #endif
+    
+#if ENABLE(FULLSCREEN_API)
+void Element::webkitRequestFullScreen(unsigned short flags)
+{
+    document()->webkitRequestFullScreenForElement(this, flags);
+}
+#endif    
 
 } // namespace WebCore

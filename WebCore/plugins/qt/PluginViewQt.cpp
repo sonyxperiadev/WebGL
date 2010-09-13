@@ -154,6 +154,13 @@ void PluginView::setFocus(bool focused)
     } else {
         Widget::setFocus(focused);
     }
+    if (!m_isWindowed) {
+      XEvent npEvent;
+      initXEvent(&npEvent);
+      npEvent.type = (focused) ? 9 : 10; // ints as Qt unsets FocusIn and FocusOut
+      if (!dispatchNPEvent(npEvent))
+          LOG(Events, "PluginView::setFocus(%d): Focus event not accepted", focused);
+    }
 }
 
 void PluginView::show()
@@ -374,6 +381,17 @@ void setXKeyEventSpecificFields(XEvent* xEvent, KeyboardEvent* event)
     xEvent->xkey.time = event->timeStamp();
     xEvent->xkey.state = qKeyEvent->nativeModifiers();
     xEvent->xkey.keycode = qKeyEvent->nativeScanCode();
+
+    // We may not have a nativeScanCode() if the key event is from DRT's eventsender. In that
+    // case just populate the XEvent's keycode with the Qt platform-independent keycode. The only
+    // place this keycode will be used is in webkit_test_plugin_handle_event().
+    if (QWebPagePrivate::drtRun && !xEvent->xkey.keycode) {
+        if (!qKeyEvent->text().isEmpty())
+            xEvent->xkey.keycode = int(qKeyEvent->text().at(0).unicode() + qKeyEvent->modifiers());
+        else if (qKeyEvent->key() && (qKeyEvent->key() != Qt::Key_unknown))
+            xEvent->xkey.keycode = int(qKeyEvent->key() + qKeyEvent->modifiers());
+    }
+
     xEvent->xkey.same_screen = true;
 
     // NOTE: As the XEvents sent to the plug-in are synthesized and there is not a native window
@@ -578,19 +596,24 @@ void PluginView::setNPWindowIfNeeded()
 
         m_npWindow.x = m_windowRect.x();
         m_npWindow.y = m_windowRect.y();
-
-        m_npWindow.clipRect.left = max(0, m_clipRect.x());
-        m_npWindow.clipRect.top = max(0, m_clipRect.y());
-        m_npWindow.clipRect.right = m_clipRect.x() + m_clipRect.width();
-        m_npWindow.clipRect.bottom = m_clipRect.y() + m_clipRect.height();
     } else {
         m_npWindow.x = 0;
         m_npWindow.y = 0;
+    }
 
+    // If the width or height are null, set the clipRect to null, indicating that
+    // the plugin is not visible/scrolled out.
+    if (!m_clipRect.width() || !m_clipRect.height()) {
         m_npWindow.clipRect.left = 0;
-        m_npWindow.clipRect.top = 0;
         m_npWindow.clipRect.right = 0;
+        m_npWindow.clipRect.top = 0;
         m_npWindow.clipRect.bottom = 0;
+    } else {
+        // Clipping rectangle of the plug-in; the origin is the top left corner of the drawable or window. 
+        m_npWindow.clipRect.left = m_npWindow.x + m_clipRect.x();
+        m_npWindow.clipRect.top = m_npWindow.y + m_clipRect.y();
+        m_npWindow.clipRect.right = m_npWindow.x + m_clipRect.x() + m_clipRect.width();
+        m_npWindow.clipRect.bottom = m_npWindow.y + m_clipRect.y() + m_clipRect.height();
     }
 
     if (m_plugin->quirks().contains(PluginQuirkDontCallSetWindowMoreThanOnce)) {
@@ -755,7 +778,7 @@ static Display *getPluginDisplay()
     // support gdk based plugins (like flash) that use a different X connection.
     // The code below has the same effect as this one:
     // Display *gdkDisplay = gdk_x11_display_get_xdisplay(gdk_display_get_default());
-    QLibrary library("libgdk-x11-2.0.so.0");
+    QLibrary library("libgdk-x11-2.0", 0);
     if (!library.load())
         return 0;
 

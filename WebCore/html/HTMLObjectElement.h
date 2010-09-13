@@ -31,8 +31,6 @@ class HTMLObjectElement : public HTMLPlugInImageElement {
 public:
     static PassRefPtr<HTMLObjectElement> create(const QualifiedName&, Document*, bool createdByParser);
 
-    void setNeedWidgetUpdate(bool needWidgetUpdate) { m_needWidgetUpdate = needWidgetUpdate; }
-
     void renderFallbackContent();
 
     bool isDocNamedItem() const { return m_docNamedItem; }
@@ -41,27 +39,21 @@ public:
 
     bool containsJavaApplet() const;
 
+    virtual bool useFallbackContent() const { return m_useFallbackContent; }
+
 private:
     HTMLObjectElement(const QualifiedName&, Document*, bool createdByParser);
 
     virtual void parseMappedAttribute(Attribute*);
 
-    virtual void attach();
-    virtual bool canLazyAttach() { return false; }
     virtual bool rendererIsNeeded(RenderStyle*);
-    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
-    virtual void finishParsingChildren();
-    virtual void detach();
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
     
-    virtual void recalcStyle(StyleChange);
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
     virtual bool isURLAttribute(Attribute*) const;
     virtual const QualifiedName& imageSourceAttributeName() const;
-
-    virtual void updateWidget();
 
     virtual RenderWidget* renderWidgetForJSBindings() const;
 
@@ -72,7 +64,6 @@ private:
     AtomicString m_id;
     String m_classId;
     bool m_docNamedItem : 1;
-    bool m_needWidgetUpdate : 1;
     bool m_useFallbackContent : 1;
 };
 

@@ -46,10 +46,6 @@
 #include "ResourceError.h"
 #include "SearchPopupMenu.h"
 
-#if USE(GLES2_RENDERING)
-#include "GLES2Context.h"
-#endif
-
 /*
  This file holds empty Client stubs for use by WebCore.
  Viewless element needs to create a dummy Page->Frame->FrameView tree for use in parsing or executing JavaScript.
@@ -201,11 +197,6 @@ public:
     virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*) {};
     virtual void setNeedsOneShotDrawingSynchronization() {};
     virtual void scheduleCompositingLayerSync() {};
-#endif
-
-#if USE(GLES2_RENDERING)
-    virtual PassOwnPtr<GLES2Context> getOnscreenGLES2Context() { return 0; }
-    virtual PassOwnPtr<GLES2Context> getOffscreenGLES2Context() { return 0; }
 #endif
 
 #if PLATFORM(WIN)
@@ -476,6 +467,10 @@ public:
     virtual void checkGrammarOfString(const UChar*, int, Vector<GrammarDetail>&, int*, int*) { }
 #if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
     virtual void checkTextOfParagraph(const UChar*, int, uint64_t, Vector<TextCheckingResult>&) { };
+#endif
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    virtual void showCorrectionPanel(const FloatRect&, const String&, const String&, Editor*) { }
+    virtual void dismissCorrectionPanel(bool) { }
 #endif
     virtual void updateSpellingUIWithGrammarString(const String&, const GrammarDetail&) { }
     virtual void updateSpellingUIWithMisspelledWord(const String&) { }

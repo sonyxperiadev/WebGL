@@ -44,6 +44,7 @@ module WTR {
         void setAcceptsEditing(in boolean value);
         void setCanOpenWindows(in boolean value);
         void setCloseRemainingWindowsWhenComplete(in boolean value);
+        void setXSSAuditorEnabled(in boolean value);
         unsigned long windowCount();
 
         // Special DOM functions.
@@ -61,6 +62,10 @@ module WTR {
         // Animation testing.
         int numberOfActiveAnimations();
         boolean pauseAnimationAtTimeOnElementWithId(in DOMString animationName, in double time, in DOMString elementId);
+
+        // UserContent testing.
+        void addUserScript(in DOMString source, in boolean runAtStart, in boolean allFrames);
+        void addUserStyleSheet(in DOMString source, in boolean allFrames);
     };
 
 }

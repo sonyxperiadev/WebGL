@@ -490,24 +490,6 @@ void InspectorController::connectFrontend()
     // Initialize Web Inspector title.
     m_frontend->inspectedURLChanged(m_inspectedPage->mainFrame()->loader()->url().string());
 
-#if ENABLE(JAVASCRIPT_DEBUGGER)
-    if (InspectorDebuggerAgent::isDebuggerAlwaysEnabled()) {
-        // FIXME (40364): This will force pushing script sources to frontend even if script
-        // panel is inactive.
-        enableDebuggerFromFrontend(false);
-    } else {
-        String debuggerEnabled = setting(debuggerEnabledSettingName);
-        if (debuggerEnabled == "true" || m_attachDebuggerWhenShown)
-            enableDebugger();
-    }
-    m_profilerAgent->setFrontend(m_frontend.get());
-    if (!ScriptProfiler::isProfilerAlwaysEnabled()) {
-        String profilerEnabledSetting = setting(profilerEnabledSettingName);
-        if (profilerEnabledSetting == "true")
-            enableProfiler();
-    }
-#endif
-
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     m_applicationCacheAgent = new InspectorApplicationCacheAgent(this, m_frontend.get());
 #endif
@@ -676,6 +658,22 @@ void InspectorController::populateScriptObjects()
     for (Vector<pair<long, String> >::iterator it = m_pendingEvaluateTestCommands.begin(); it != m_pendingEvaluateTestCommands.end(); ++it)
         m_frontend->evaluateForTestInFrontend((*it).first, (*it).second);
     m_pendingEvaluateTestCommands.clear();
+
+#if ENABLE(JAVASCRIPT_DEBUGGER)
+    if (InspectorDebuggerAgent::isDebuggerAlwaysEnabled())
+        enableDebuggerFromFrontend(false);
+    else {
+        String debuggerEnabled = setting(debuggerEnabledSettingName);
+        if (debuggerEnabled == "true" || m_attachDebuggerWhenShown)
+            enableDebugger();
+    }
+    m_profilerAgent->setFrontend(m_frontend.get());
+    if (!ScriptProfiler::isProfilerAlwaysEnabled()) {
+        String profilerEnabledSetting = setting(profilerEnabledSettingName);
+        if (profilerEnabledSetting == "true")
+            enableProfiler();
+    }
+#endif
 }
 
 void InspectorController::unbindAllResources()
@@ -1339,9 +1337,9 @@ PassRefPtr<InspectorObject> InspectorController::buildObjectForCookie(const Cook
     value->setString("path", cookie.path);
     value->setNumber("expires", cookie.expires);
     value->setNumber("size", (cookie.name.length() + cookie.value.length()));
-    value->setBool("httpOnly", cookie.httpOnly);
-    value->setBool("secure", cookie.secure);
-    value->setBool("session", cookie.session);
+    value->setBoolean("httpOnly", cookie.httpOnly);
+    value->setBoolean("secure", cookie.secure);
+    value->setBoolean("session", cookie.session);
     return value;
 }
 

@@ -36,6 +36,11 @@ WMLPrevElement::WMLPrevElement(const QualifiedName& tagName, Document* doc)
 {
 }
 
+PassRefPtr<WMLPrevElement> WMLPrevElement::create(const QualifiedName& tagName, Document* document)
+{
+    return adoptRef(new WMLPrevElement(tagName, document));
+}
+
 WMLPrevElement::~WMLPrevElement()
 {
 }

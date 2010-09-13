@@ -288,7 +288,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     LOG_ASSERT(mJavaFrame->mGetFile, "Could not find method getFile");
 
     mUserAgent = WTF::String();
-    mUserInitiatedClick = false;
+    mUserInitiatedAction = false;
 }
 
 WebFrame::~WebFrame()
@@ -782,7 +782,7 @@ WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
         return true;
     WebCore::KURL requestUrl = request.url();
     bool isUserGesture = UserGestureIndicator::processingUserGesture();
-    if (!mUserInitiatedClick && !isUserGesture && 
+    if (!mUserInitiatedAction && !isUserGesture &&
             (requestUrl.protocolIs("http") || requestUrl.protocolIs("https") ||
             requestUrl.protocolIs("file") || requestUrl.protocolIs("about") ||
             WebCore::protocolIsJavaScript(requestUrl.string())))
@@ -922,7 +922,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
 
     // css files without explicit MIMETYPE is treated as generic text files in
     // the Java side. So we can't enforce CSS MIMETYPE.
-    page->settings()->setEnforceCSSMIMETypeInStrictMode(false);
+    page->settings()->setEnforceCSSMIMETypeInNoQuirksMode(false);
     editorC->setPage(page);
     page->setGroupName("android.webkit");
 

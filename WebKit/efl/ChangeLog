@@ -1,3 +1,150 @@
+2010-08-31  Dave Hyatt  <hyatt@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=44863, disentangle style recalc from layout, so that
+        the former can occur in more places without having to do the latter.
+
+        * ewk/ewk_view.cpp:
+        (ewk_view_layout_if_needed_recursive):
+
+2010-08-31  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Add ability to count text matches without marking
+        https://bugs.webkit.org/show_bug.cgi?id=43996
+
+        * ewk/ewk_frame.cpp:
+        (ewk_frame_text_matches_mark): Switched to call
+        countMatchesForText() instead of markAllMatchesForText().
+
+2010-08-31  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Unreviewed build fix.
+
+        [EFL] Build break for r66456
+        https://bugs.webkit.org/post_bug.cgi
+
+        Replace firstRectsForMarkers with renderedRectsForMarkers.
+
+        * ewk/ewk_frame.cpp:
+        (ewk_frame_text_matches_nth_pos_get):
+
+2010-08-30  Kamil Blank  <k.blank@samsung.com>
+
+        Reviewed by Adam Barth.
+
+        [EFL] Added API which returns position of n-th text matches mark
+        https://bugs.webkit.org/show_bug.cgi?id=44258
+
+        * ewk/ewk_frame.cpp: 
+        (_ewk_frame_rect_cmp_less_than): Private.
+        (_ewk_frame_rect_is_negative_value): Private.
+        (ewk_frame_text_matches_nth_pos_get): Added. Function returns position of
+        n-th text match in frame.
+        * ewk/ewk_frame.h:
+
+2010-08-30  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Reviewed by Adam Barth.
+
+        [EFL]Url of HistoryItem was broken for special character like korean
+        https://bugs.webkit.org/show_bug.cgi?id=44495
+
+        Remove unnecessary code. This makes a bug with complicated URL.
+
+        * ewk/ewk_frame.cpp:
+        (ewk_frame_view_state_save):
+
+2010-08-30  Mikołaj Małecki  <m.malecki@samsung.com>
+
+        Reviewed by Kenneth Rohde Christiansen
+
+        [EFL] Added initial setting to turn on offline pages.
+        https://bugs.webkit.org/show_bug.cgi?id=44239
+
+        * ewk/ewk_main.cpp: Torn off non-EFL init to _ewk_init_body
+        (ewk_init): Changed non-EFL init to call _ewk_init_body
+        (_ewk_init_body): Moved internal init here and added cache directory path setting.
+        * ewk/ewk_view.cpp: Added new config items: offline_app_cache and cache_directory
+        (_ewk_view_priv_new): creating cache_directory string
+        (_ewk_view_priv_del): deleting cache_directory string
+        (ewk_view_setting_offline_app_cache_get):
+        (ewk_view_setting_offline_app_cache_set):
+        (ewk_view_setting_cache_directory_get):
+        (ewk_view_setting_cache_directory_set):
+        * ewk/ewk_view.h: added offline_app_cache and cache_directory props to ewk API
+
+2010-08-26  Miroslaw Szymanski  <miroslaw.s@samsung.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Added new callback when view's size is changed to fix issue with changing layout size
+        https://bugs.webkit.org/show_bug.cgi?id=44337
+
+        * ewk/ewk_view.cpp:
+        (_ewk_view_smart_calculate):
+
+2010-08-25  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Add dummy FullScreenVideoControllerEfl to WebKit EFL
+        https://bugs.webkit.org/show_bug.cgi?id=44590
+
+        Add FullScreenVideoControllerEfl to WebCoreSupport. However,
+        this is not implemented yet.
+
+        * CMakeListsEfl.txt:
+        * WebCoreSupport/FullscreenVideoControllerEfl.cpp: Added.
+        (FullscreenVideoController::FullscreenVideoController):
+        (FullscreenVideoController::~FullscreenVideoController):
+        (FullscreenVideoController::setMediaElement):
+        (FullscreenVideoController::showHud):
+        (FullscreenVideoController::hideHud):
+        (FullscreenVideoController::enterFullscreen):
+        (FullscreenVideoController::updateHudPosition):
+        (FullscreenVideoController::exitOnUserRequest):
+        (FullscreenVideoController::exitFullscreen):
+        (FullscreenVideoController::canPlay):
+        (FullscreenVideoController::play):
+        (FullscreenVideoController::pause):
+        (FullscreenVideoController::playStateChanged):
+        (FullscreenVideoController::togglePlay):
+        (FullscreenVideoController::volume):
+        (FullscreenVideoController::muted):
+        (FullscreenVideoController::setVolume):
+        (FullscreenVideoController::volumeChanged):
+        (FullscreenVideoController::muteChanged):
+        (FullscreenVideoController::currentTime):
+        (FullscreenVideoController::setCurrentTime):
+        (FullscreenVideoController::duration):
+        (FullscreenVideoController::percentLoaded):
+        (FullscreenVideoController::beginSeek):
+        (FullscreenVideoController::doSeek):
+        (FullscreenVideoController::endSeek):
+        (timeToString):
+        (FullscreenVideoController::updateHudProgressBar):
+        (FullscreenVideoController::createHud):
+        * WebCoreSupport/FullscreenVideoControllerEfl.h: Added.
+        (FullscreenVideoController::mediaElement):
+
+2010-08-25  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Add setting API for enabling local storage.
+        https://bugs.webkit.org/show_bug.cgi?id=44319
+
+        Add API for enabling/disabling local storage.
+
+        * ewk/ewk_view.cpp:
+        (_ewk_view_priv_new):
+        (ewk_view_setting_local_storage_get): Added
+        (ewk_view_setting_local_storage_set): Added
+        * ewk/ewk_view.h:
+
 2010-08-25  Jaehun Lim  <ljaehun.lim@samsung.com>
 
         Reviewed by Antonio Gomes.

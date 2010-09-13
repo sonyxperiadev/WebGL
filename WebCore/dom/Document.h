@@ -85,7 +85,6 @@ class HTMLFrameOwnerElement;
 class HTMLHeadElement;
 class HTMLInputElement;
 class HTMLMapElement;
-class HistoryItem;
 class HitTestRequest;
 class HitTestResult;
 class InspectorTimelineAgent;
@@ -182,7 +181,9 @@ enum PageshowEventPersistence {
     PageshowEventNotPersisted = 0,
     PageshowEventPersisted = 1
 };
-    
+
+enum StyleSelectorUpdateFlag { RecalcStyleImmediately, DeferRecalcStyle };
+
 class Document : public ContainerNode, public ScriptExecutionContext {
 public:
     static PassRefPtr<Document> create(Frame* frame, const KURL& url)
@@ -270,6 +271,9 @@ public:
     DEFINE_ATTRIBUTE_EVENT_LISTENER(touchmove);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(touchend);
     DEFINE_ATTRIBUTE_EVENT_LISTENER(touchcancel);
+#endif
+#if ENABLE(FULLSCREEN_API)
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(webkitfullscreenchange);
 #endif
 
     DocumentType* doctype() const { return m_docType.get(); }
@@ -440,8 +444,7 @@ public:
      * constructed from these which is used to create the a new style selector which collates all of the stylesheets
      * found and is used to calculate the derived styles for all rendering objects.
      */
-    void updateStyleSelector();
-
+    void styleSelectorChanged(StyleSelectorUpdateFlag);
     void recalcStyleSelector();
 
     bool usesDescendantRules() const { return m_usesDescendantRules; }
@@ -539,12 +542,8 @@ public:
     void setURL(const KURL&);
 
     const KURL& baseURL() const { return m_baseURL; }
-    // Setting the BaseElementURL will change the baseURL.
-    void setBaseElementURL(const KURL&);
-
     const String& baseTarget() const { return m_baseTarget; }
-    // Setting the BaseElementTarget will change the baseTarget.
-    void setBaseElementTarget(const String& baseTarget) { m_baseTarget = baseTarget; }
+    void processBaseElement();
 
     KURL completeURL(const String&) const;
 
@@ -552,9 +551,11 @@ public:
 
     CSSStyleSheet* pageUserSheet();
     void clearPageUserSheet();
+    void updatePageUserSheet();
 
     const Vector<RefPtr<CSSStyleSheet> >* pageGroupUserSheets() const;
     void clearPageGroupUserSheets();
+    void updatePageGroupUserSheets();
 
     CSSStyleSheet* elementSheet();
     CSSStyleSheet* mappedElementSheet();
@@ -571,14 +572,16 @@ public:
     
     bool paginated() const { return printing() || paginatedForScreen(); }
 
-    enum ParseMode { Compat, AlmostStrict, Strict };
+    enum CompatibilityMode { QuirksMode, LimitedQuirksMode, NoQuirksMode };
 
-    void setParseMode(ParseMode m) { m_parseMode = m; }
-    ParseMode parseMode() const { return m_parseMode; }
+    virtual void setCompatibilityModeFromDoctype() { }
+    void setCompatibilityMode(CompatibilityMode m);
+    void lockCompatibilityMode() { m_compatibilityModeLocked = true; }
+    CompatibilityMode compatibilityMode() const { return m_compatibilityMode; }
 
-    bool inCompatMode() const { return m_parseMode == Compat; }
-    bool inAlmostStrictMode() const { return m_parseMode == AlmostStrict; }
-    bool inStrictMode() const { return m_parseMode == Strict; }
+    bool inQuirksMode() const { return m_compatibilityMode == QuirksMode; }
+    bool inLimitedQuirksMode() const { return m_compatibilityMode == LimitedQuirksMode; }
+    bool inNoQuirksMode() const { return m_compatibilityMode == NoQuirksMode; }
     
     void setParsing(bool);
     bool parsing() const { return m_bParsing; }
@@ -640,6 +643,7 @@ public:
     void setCSSTarget(Element*);
     Element* cssTarget() const { return m_cssTarget; }
     
+    void scheduleForcedStyleRecalc();
     void scheduleStyleRecalc();
     void unscheduleStyleRecalc();
     void styleRecalcTimerFired(Timer<Document>*);
@@ -993,15 +997,34 @@ public:
     void enqueueEvent(PassRefPtr<Event>);
     void enqueuePageshowEvent(PageshowEventPersistence);
     void enqueueHashchangeEvent(const String& oldURL, const String& newURL);
+    void enqueuePopstateEvent(PassRefPtr<SerializedScriptValue> stateObject);
 
     void addMediaCanStartListener(MediaCanStartListener*);
     void removeMediaCanStartListener(MediaCanStartListener*);
     MediaCanStartListener* takeAnyMediaCanStartListener();
 
     const QualifiedName& idAttributeName() const { return m_idAttributeName; }
+    
+#if ENABLE(FULLSCREEN_API)
+    bool webkitFullScreen() const { return m_isFullScreen; }
+    bool webkitFullScreenKeyboardInputAllowed() const { return m_isFullScreen && m_areKeysEnabledInFullScreen; }
+    Element* webkitCurrentFullScreenElement() const { return m_fullScreenElement.get(); }
+    void webkitRequestFullScreenForElement(Element*, unsigned short flags);
+    void webkitCancelFullScreen();
+    
+    void webkitWillEnterFullScreenForElement(Element*);
+    void webkitDidEnterFullScreenForElement(Element*);
+    void webkitWillExitFullScreenForElement(Element*);
+    void webkitDidExitFullScreenForElement(Element*);
+#endif
 
     bool writeDisabled() const { return m_writeDisabled; }
     void setWriteDisabled(bool flag) { m_writeDisabled = flag; }
+
+    // Used to allow element that loads data without going through a FrameLoader to delay the 'load' event.
+    void incrementLoadEventDelayCount() { ++m_loadEventDelayCount; }
+    void decrementLoadEventDelayCount();
+    bool isDelayingLoadEvent() const { return m_loadEventDelayCount; }
 
 protected:
     Document(Frame*, const KURL&, bool isXHTML, bool isHTML);
@@ -1017,7 +1040,6 @@ private:
 
     virtual bool isDocument() const { return true; }
     virtual void removedLastRef();
-    virtual void determineParseMode() { }
 
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
@@ -1045,7 +1067,6 @@ private:
 
     void createStyleSelector();
 
-    void enqueuePopstateEvent(PassRefPtr<SerializedScriptValue> stateObject);
     void pendingEventTimerFired(Timer<Document>*);
 
     PassRefPtr<NodeList> handleZeroPadding(const HitTestRequest&, HitTestResult&) const;
@@ -1105,7 +1126,8 @@ private:
 
     bool m_ignoreAutofocus;
 
-    ParseMode m_parseMode;
+    CompatibilityMode m_compatibilityMode;
+    bool m_compatibilityModeLocked; // This is cheaper than making setCompatibilityMode virtual.
 
     Color m_textColor;
 
@@ -1142,9 +1164,12 @@ private:
     bool m_loadingSheet;
     bool m_visuallyOrdered;
     bool m_bParsing;
+    
     Timer<Document> m_styleRecalcTimer;
+    bool m_pendingStyleRecalcShouldForce;
     bool m_inStyleRecalc;
     bool m_closeAfterStyleRecalc;
+
     bool m_usesDescendantRules;
     bool m_usesSiblingRules;
     bool m_usesFirstLineRules;
@@ -1281,6 +1306,14 @@ private:
     HashSet<MediaCanStartListener*> m_mediaCanStartListeners;
 
     QualifiedName m_idAttributeName;
+    
+#if ENABLE(FULLSCREEN_API)
+    bool m_isFullScreen;
+    bool m_areKeysEnabledInFullScreen;
+    RefPtr<Element> m_fullScreenElement;
+#endif
+
+    int m_loadEventDelayCount;
 };
 
 inline bool Document::hasElementWithId(AtomicStringImpl* id) const
@@ -1296,8 +1329,7 @@ inline bool Node::isDocumentNode() const
 
 // here because it uses a Document method but we really want to inline it
 inline Node::Node(Document* document, ConstructionType type)
-    : TreeShared<ContainerNode>(initialRefCount(type))
-    , m_document(document)
+    : m_document(document)
     , m_previous(0)
     , m_next(0)
     , m_renderer(0)

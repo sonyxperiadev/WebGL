@@ -307,7 +307,10 @@ namespace WebCore {
 
         void setLocalStorageDatabasePath(const String&);
         const String& localStorageDatabasePath() const { return m_localStorageDatabasePath; }
-        
+
+        void setFileSystemRootPath(const String&);
+        const String& fileSystemRootPath() const { return m_fileSystemRootPath; }
+
         void setApplicationChromeMode(bool);
         bool inApplicationChromeMode() const { return m_inApplicationChromeMode; }
 
@@ -320,8 +323,8 @@ namespace WebCore {
         void setZoomMode(ZoomMode);
         ZoomMode zoomMode() const { return m_zoomMode; }
         
-        void setEnforceCSSMIMETypeInStrictMode(bool);
-        bool enforceCSSMIMETypeInStrictMode() { return m_enforceCSSMIMETypeInStrictMode; }
+        void setEnforceCSSMIMETypeInNoQuirksMode(bool);
+        bool enforceCSSMIMETypeInNoQuirksMode() { return m_enforceCSSMIMETypeInNoQuirksMode; }
 
         void setMaximumDecodedImageSize(size_t size) { m_maximumDecodedImageSize = size; }
         size_t maximumDecodedImageSize() const { return m_maximumDecodedImageSize; }
@@ -379,6 +382,11 @@ namespace WebCore {
         void setPaginateDuringLayoutEnabled(bool flag) { m_paginateDuringLayoutEnabled = flag; }
         bool paginateDuringLayoutEnabled() const { return m_paginateDuringLayoutEnabled; }
 
+#if ENABLE(FULLSCREEN_API)
+        void setFullScreenEnabled(bool flag) { m_fullScreenAPIEnabled = flag; }
+        bool fullScreenEnabled() const  { return m_fullScreenAPIEnabled; }
+#endif
+
         void setMemoryInfoEnabled(bool flag) { m_memoryInfoEnabled = flag; }
         bool memoryInfoEnabled() const { return m_memoryInfoEnabled; }
 
@@ -391,10 +399,11 @@ namespace WebCore {
 
     private:
         Page* m_page;
-        
+
         String m_defaultTextEncodingName;
         String m_ftpDirectoryTemplatePath;
         String m_localStorageDatabasePath;
+        String m_fileSystemRootPath;
         KURL m_userStyleSheetLocation;
         AtomicString m_standardFontFamily;
         AtomicString m_fixedFontFamily;
@@ -492,7 +501,7 @@ namespace WebCore {
         bool m_inApplicationChromeMode : 1;
         bool m_offlineWebApplicationCacheEnabled : 1;
         bool m_shouldPaintCustomScrollbars : 1;
-        bool m_enforceCSSMIMETypeInStrictMode : 1;
+        bool m_enforceCSSMIMETypeInNoQuirksMode : 1;
         bool m_usesEncodingDetector : 1;
         bool m_allowScriptsToCloseWindows : 1;
         unsigned m_editingBehaviorType : 1;
@@ -508,12 +517,16 @@ namespace WebCore {
         bool m_tiledBackingStoreEnabled : 1;
         bool m_paginateDuringLayoutEnabled : 1;
         bool m_dnsPrefetchingEnabled : 1;
+#if ENABLE(FULLSCREEN_API)
+        bool m_fullScreenAPIEnabled : 1;
+#endif
         bool m_memoryInfoEnabled: 1;
         bool m_interactiveFormValidation: 1;
+
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif
-    
+
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;
 #endif

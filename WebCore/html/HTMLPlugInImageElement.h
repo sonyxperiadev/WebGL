@@ -28,22 +28,42 @@ namespace WebCore {
 
 class HTMLImageLoader;
 
+// Base class for HTMLObjectElement and HTMLEmbedElement
 class HTMLPlugInImageElement : public HTMLPlugInElement {
 public:
     const String& serviceType() const { return m_serviceType; }
     const String& url() const { return m_url; }
 
+    bool needsWidgetUpdate() const { return m_needsWidgetUpdate; }
+    void setNeedsWidgetUpdate(bool needsWidgetUpdate) { m_needsWidgetUpdate = needsWidgetUpdate; }
+
+    RenderEmbeddedObject* renderEmbeddedObject() const;
+
 protected:
-    HTMLPlugInImageElement(const QualifiedName& tagName, Document*);
+    HTMLPlugInImageElement(const QualifiedName& tagName, Document*, bool createdByParser);
 
     bool isImageType();
 
     OwnPtr<HTMLImageLoader> m_imageLoader;
     String m_serviceType;
     String m_url;
+    
+    static void updateWidgetCallback(Node*);
+    virtual void attach();
+    virtual void detach();
 
 private:
+    virtual bool canLazyAttach() { return false; }
+    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
+    virtual void recalcStyle(StyleChange);
+    
+    virtual void finishParsingChildren();
     virtual void willMoveToNewOwnerDocument();
+
+    void updateWidget();
+    virtual bool useFallbackContent() const { return false; }
+    
+    bool m_needsWidgetUpdate;
 };
 
 } // namespace WebCore

@@ -250,7 +250,7 @@ void RedirectScheduler::scheduleRedirect(double delay, const String& url)
 
     // We want a new back/forward list item if the refresh timeout is > 1 second.
     if (!m_redirect || delay <= m_redirect->delay())
-        schedule(new ScheduledRedirect(delay, url, true, delay <= 1, false));
+        schedule(adoptPtr(new ScheduledRedirect(delay, url, true, delay <= 1, false)));
 }
 
 bool RedirectScheduler::mustLockBackForwardList(Frame* targetFrame, bool wasUserGesture)
@@ -294,7 +294,7 @@ void RedirectScheduler::scheduleLocationChange(const String& url, const String& 
     // This may happen when a frame changes the location of another frame.
     bool duringLoad = !loader->stateMachine()->committedFirstRealDocumentLoad();
 
-    schedule(new ScheduledLocationChange(url, referrer, lockHistory, lockBackForwardList, wasUserGesture, duringLoad));
+    schedule(adoptPtr(new ScheduledLocationChange(url, referrer, lockHistory, lockBackForwardList, wasUserGesture, duringLoad)));
 }
 
 void RedirectScheduler::scheduleFormSubmission(PassRefPtr<FormSubmission> submission)
@@ -314,7 +314,7 @@ void RedirectScheduler::scheduleFormSubmission(PassRefPtr<FormSubmission> submis
 
     bool lockBackForwardList = mustLockBackForwardList(m_frame, UserGestureIndicator::processingUserGesture()) || (submission->state()->formSubmissionTrigger() == SubmittedByJavaScript && m_frame->tree()->parent());
 
-    schedule(new ScheduledFormSubmission(submission, lockBackForwardList, duringLoad));
+    schedule(adoptPtr(new ScheduledFormSubmission(submission, lockBackForwardList, duringLoad)));
 }
 
 void RedirectScheduler::scheduleRefresh(bool wasUserGesture)
@@ -325,7 +325,7 @@ void RedirectScheduler::scheduleRefresh(bool wasUserGesture)
     if (url.isEmpty())
         return;
 
-    schedule(new ScheduledRefresh(url.string(), m_frame->loader()->outgoingReferrer(), wasUserGesture));
+    schedule(adoptPtr(new ScheduledRefresh(url.string(), m_frame->loader()->outgoingReferrer(), wasUserGesture)));
 }
 
 void RedirectScheduler::scheduleHistoryNavigation(int steps)
@@ -341,18 +341,8 @@ void RedirectScheduler::scheduleHistoryNavigation(int steps)
         return;
     }
     
-#if !ENABLE(HISTORY_ALWAYS_ASYNC)
-    // If the specified entry and the current entry have the same document (or documents, in there are frames), this is either a 
-    // state object traversal or a fragment traversal (or both) and should be performed synchronously.
-    HistoryItem* currentEntry = m_frame->loader()->history()->currentItem();
-    if (currentEntry != specifiedEntry && currentEntry->hasSameDocuments(specifiedEntry)) {
-        m_frame->loader()->history()->goToItem(specifiedEntry, FrameLoadTypeIndexedBackForward);
-        return;
-    }
-#endif
-    
     // In all other cases, schedule the history traversal to occur asynchronously.
-    schedule(new ScheduledHistoryNavigation(steps));
+    schedule(adoptPtr(new ScheduledHistoryNavigation(steps)));
 }
 
 void RedirectScheduler::timerFired(Timer<RedirectScheduler>*)

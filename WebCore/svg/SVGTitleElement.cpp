@@ -26,9 +26,14 @@
 
 namespace WebCore {
 
-SVGTitleElement::SVGTitleElement(const QualifiedName& tagName, Document* doc)
-    : SVGStyledElement(tagName, doc)
+inline SVGTitleElement::SVGTitleElement(const QualifiedName& tagName, Document* document)
+    : SVGStyledElement(tagName, document)
 {
+}
+
+PassRefPtr<SVGTitleElement> SVGTitleElement::create(const QualifiedName& tagName, Document* document)
+{
+    return adoptRef(new SVGTitleElement(tagName, document));
 }
 
 void SVGTitleElement::insertedIntoDocument()

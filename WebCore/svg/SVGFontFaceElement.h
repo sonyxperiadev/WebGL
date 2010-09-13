@@ -33,14 +33,7 @@ namespace WebCore {
 
     class SVGFontFaceElement : public SVGElement {
     public:
-        SVGFontFaceElement(const QualifiedName&, Document*);
-        virtual ~SVGFontFaceElement();
-
-        virtual void parseMappedAttribute(Attribute*);
-
-        virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
-        virtual void insertedIntoDocument();
-        virtual void removedFromDocument();
+        static PassRefPtr<SVGFontFaceElement> create(const QualifiedName&, Document*);
 
         unsigned unitsPerEm() const;
         int xHeight() const;
@@ -59,6 +52,14 @@ namespace WebCore {
         void removeFromMappedElementSheet();
 
     private:
+        SVGFontFaceElement(const QualifiedName&, Document*);
+
+        virtual void parseMappedAttribute(Attribute*);
+
+        virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+        virtual void insertedIntoDocument();
+        virtual void removedFromDocument();
+
         RefPtr<CSSFontFaceRule> m_fontFaceRule;
         RefPtr<CSSMutableStyleDeclaration> m_styleDeclaration;
 

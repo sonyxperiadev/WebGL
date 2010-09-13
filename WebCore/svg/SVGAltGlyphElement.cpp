@@ -33,13 +33,14 @@
 
 namespace WebCore {
 
-SVGAltGlyphElement::SVGAltGlyphElement(const QualifiedName& tagName, Document* doc)
-    : SVGTextPositioningElement(tagName, doc)
+inline SVGAltGlyphElement::SVGAltGlyphElement(const QualifiedName& tagName, Document* document)
+    : SVGTextPositioningElement(tagName, document)
 {
 }
 
-SVGAltGlyphElement::~SVGAltGlyphElement()
+PassRefPtr<SVGAltGlyphElement> SVGAltGlyphElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGAltGlyphElement(tagName, document));
 }
 
 void SVGAltGlyphElement::synchronizeProperty(const QualifiedName& attrName)

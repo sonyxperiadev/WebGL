@@ -22,13 +22,9 @@
 
 #if ENABLE(VIDEO)
 
+#include "Widget.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
-
-#if PLATFORM(GTK)
-#include <gtk/gtk.h>
-typedef GtkWidget PlatformWindowType;
-#endif
 
 namespace WebCore {
 
@@ -39,13 +35,13 @@ class PlatformVideoWindow : public RefCounted<PlatformVideoWindow> {
         PlatformVideoWindow();
         ~PlatformVideoWindow();
 
-        PlatformWindowType* window() const { return m_window; }
-        gulong videoWindowId() const { return m_videoWindowId; }
+        PlatformWidget window() const { return m_window; }
+        unsigned long videoWindowId() const { return m_videoWindowId; }
 
     private:
-        gulong m_videoWindowId;
-        PlatformWindowType* m_videoWindow;
-        PlatformWindowType* m_window;
+        unsigned long m_videoWindowId;
+        PlatformWidget m_videoWindow;
+        PlatformWidget m_window;
     };
 }
 

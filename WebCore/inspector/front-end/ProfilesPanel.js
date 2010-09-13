@@ -158,8 +158,7 @@ WebInspector.ProfilesPanel.prototype = {
     show: function()
     {
         WebInspector.Panel.prototype.show.call(this);
-        if (!this._profilesWereRequested)
-            this._populateProfiles();
+        this._populateProfiles();
     },
 
     profilerWasEnabled: function()
@@ -321,6 +320,7 @@ WebInspector.ProfilesPanel.prototype = {
             this.welcomeView.hide();
             if (!this.visibleView)
                 this.showProfile(profile);
+            this.dispatchEventToListeners("profile added");
         }
     },
 
@@ -345,7 +345,7 @@ WebInspector.ProfilesPanel.prototype = {
         sidebarParent.removeChild(profile._profilesTreeElement);
 
         if (!profile.isTemporary)
-            InspectorBackend.removeProfile(profile.uid);
+            InspectorBackend.removeProfile(profile.typeId, profile.uid);
 
         // No other item will be selected if there aren't any other profiles, so
         // make sure that view gets cleared when the last profile is removed.
@@ -374,6 +374,27 @@ WebInspector.ProfilesPanel.prototype = {
         var statusBarItems = view.statusBarItems;
         for (var i = 0; i < statusBarItems.length; ++i)
             this.profileViewStatusBarItemsContainer.appendChild(statusBarItems[i]);
+    },
+
+    getProfiles: function(typeId)
+    {
+        var result = [];
+        var profilesCount = this._profiles.length;
+        for (var i = 0; i < profilesCount; ++i)
+            if (this._profiles[i].typeId === typeId)
+                result.push(this._profiles[i]);
+        return result;
+    },
+
+    updateProfile: function(profile)
+    {
+        var profilesCount = this._profiles.length;
+        for (var i = 0; i < profilesCount; ++i)
+            if (this._profiles[i].typeId === profile.typeId
+                && this._profiles[i].uid === profile.uid) {
+                this._profiles[i] = profile;
+                break;
+            }
     },
 
     showView: function(view)
@@ -510,12 +531,8 @@ WebInspector.ProfilesPanel.prototype = {
 
     _populateProfiles: function()
     {
-        var sidebarTreeChildrenCount = this.sidebarTree.children.length;
-        for (var i = 0; i < sidebarTreeChildrenCount; ++i) {
-            var treeElement = this.sidebarTree.children[i];
-            if (treeElement.children.length)
-                return;
-        }
+        if (!this._profilerEnabled || this._profilesWereRequested)
+            return;
 
         function populateCallback(profileHeaders) {
             profileHeaders.sort(function(a, b) { return a.uid - b.uid; });
@@ -524,8 +541,7 @@ WebInspector.ProfilesPanel.prototype = {
                 WebInspector.addProfileHeader(profileHeaders[i]);
         }
 
-        var callId = WebInspector.Callback.wrap(populateCallback);
-        InspectorBackend.getProfileHeaders(callId);
+        InspectorBackend.getProfileHeaders(populateCallback);
 
         this._profilesWereRequested = true;
     },
@@ -541,14 +557,15 @@ WebInspector.ProfilesPanel.prototype = {
 
 WebInspector.ProfilesPanel.prototype.__proto__ = WebInspector.Panel.prototype;
 
-WebInspector.ProfileSidebarTreeElement = function(profile)
+WebInspector.ProfileSidebarTreeElement = function(profile, titleFormat, className)
 {
     this.profile = profile;
+    this._titleFormat = titleFormat;
 
     if (this.profile.title.indexOf(UserInitiatedProfileName) === 0)
         this._profileNumber = this.profile.title.substring(UserInitiatedProfileName.length + 1);
 
-    WebInspector.SidebarTreeElement.call(this, "profile-sidebar-tree-item", "", "", profile, false);
+    WebInspector.SidebarTreeElement.call(this, className, "", "", profile, false);
 
     this.refreshTitles();
 }
@@ -570,7 +587,7 @@ WebInspector.ProfileSidebarTreeElement.prototype = {
         if (this._mainTitle)
             return this._mainTitle;
         if (this.profile.title.indexOf(UserInitiatedProfileName) === 0)
-            return WebInspector.UIString("Profile %d", this._profileNumber);
+            return WebInspector.UIString(this._titleFormat, this._profileNumber);
         return this.profile.title;
     },
 

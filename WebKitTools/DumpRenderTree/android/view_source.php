@@ -40,12 +40,12 @@
       return;
     }
 
-    #If we don't want realpath to append any prefixes we need to pass it an absolute path
+    # If we don't want realpath to append any prefixes we need to pass it an absolute path
     $src = realpath(getAbsolutePath($_GET['src']));
 
     echo "<html><body>";
     # TODO: Add link following and syntax highlighting for html and js.
-    echo highlight_string(file_get_contents($src));
+    highlight_string(file_get_contents($src));
     echo "</body></html>";
   }
 

@@ -157,17 +157,29 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/dom/%.cpp : $(intermediates)/dom/%.h
 
+# Fileapi
+GEN := \
+	$(intermediates)/fileapi/JSBlob.h \
+	$(intermediates)/fileapi/JSBlobBuilder.h \
+	$(intermediates)/fileapi/JSFile.h \
+	$(intermediates)/fileapi/JSFileError.h \
+	$(intermediates)/fileapi/JSFileList.h \
+	$(intermediates)/fileapi/JSFileReader.h
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS --include dom --include html --include fileapi --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/fileapi/JS%.h : $(LOCAL_PATH)/fileapi/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/fileapi/%.cpp : $(intermediates)/fileapi/%.h
+
 # HTML
 GEN := \
-    $(intermediates)/html/JSBlob.h \
-    $(intermediates)/html/JSBlobBuilder.h \
     $(intermediates)/html/JSDOMFormData.h \
     $(intermediates)/html/JSDataGridColumn.h \
     $(intermediates)/html/JSDataGridColumnList.h \
-    $(intermediates)/html/JSFile.h \
-    $(intermediates)/html/JSFileError.h \
-    $(intermediates)/html/JSFileList.h \
-    $(intermediates)/html/JSFileReader.h \
     $(intermediates)/html/JSHTMLAllCollection.h \
     $(intermediates)/html/JSHTMLAnchorElement.h \
     $(intermediates)/html/JSHTMLAppletElement.h \

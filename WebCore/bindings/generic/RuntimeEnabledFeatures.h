@@ -128,6 +128,19 @@ public:
     static bool speechInputEnabled() { return isSpeechInputEnabled; }
     static bool speechEnabled() { return isSpeechInputEnabled; }
 
+#if ENABLE(XHR_RESPONSE_BLOB)
+    static bool xhrResponseBlobEnabled() { return isXHRResponseBlobEnabled; }
+    static void setXHRResponseBlobEnabled(bool isEnabled) { isXHRResponseBlobEnabled = isEnabled; }
+    static bool responseBlobEnabled() { return isXHRResponseBlobEnabled; }
+    static bool asBlobEnabled()  { return isXHRResponseBlobEnabled; }
+#endif
+
+#if ENABLE(FILE_SYSTEM)
+    static bool fileSystemEnabled() { return isFileSystemEnabled; }
+    static void setFileSystemEnabled(bool isEnabled) { isFileSystemEnabled = isEnabled; }
+    static bool requestFileSystemEnabled() { return isFileSystemEnabled; }
+#endif
+
 private:
     // Never instantiate.
     RuntimeEnabledFeatures() { }
@@ -144,6 +157,13 @@ private:
     static bool isDeviceMotionEnabled;
     static bool isDeviceOrientationEnabled;
     static bool isSpeechInputEnabled;
+#if ENABLE(XHR_RESPONSE_BLOB)
+    static bool isXHRResponseBlobEnabled;
+#endif
+
+#if ENABLE(FILE_SYSTEM)
+    static bool isFileSystemEnabled;
+#endif
 };
 
 } // namespace WebCore

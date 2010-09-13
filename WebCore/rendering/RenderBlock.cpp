@@ -1042,7 +1042,7 @@ bool RenderBlock::isSelfCollapsingBlock() const
         return false;
 
     bool hasAutoHeight = style()->height().isAuto();
-    if (style()->height().isPercent() && !style()->htmlHacks()) {
+    if (style()->height().isPercent() && !document()->inQuirksMode()) {
         hasAutoHeight = true;
         for (RenderBlock* cb = containingBlock(); !cb->isRenderView(); cb = cb->containingBlock()) {
             if (cb->style()->height().isFixed() || cb->isTableCell())
@@ -1478,7 +1478,7 @@ int RenderBlock::collapseMargins(RenderBox* child, MarginInfo& marginInfo)
         // This child is collapsing with the top of the
         // block.  If it has larger margin values, then we need to update
         // our own maximal values.
-        if (!style()->htmlHacks() || !marginInfo.quirkContainer() || !topQuirk)
+        if (!document()->inQuirksMode() || !marginInfo.quirkContainer() || !topQuirk)
             setMaxTopMargins(max(posTop, maxTopPosMargin()), max(negTop, maxTopNegMargin()));
 
         // The minute any of the margins involved isn't a quirk, don't
@@ -1530,7 +1530,7 @@ int RenderBlock::collapseMargins(RenderBox* child, MarginInfo& marginInfo)
         }
         else if (!marginInfo.atTopOfBlock() ||
             (!marginInfo.canCollapseTopWithChildren()
-             && (!style()->htmlHacks() || !marginInfo.quirkContainer() || !marginInfo.topQuirk()))) {
+             && (!document()->inQuirksMode() || !marginInfo.quirkContainer() || !marginInfo.topQuirk()))) {
             // We're collapsing with a previous sibling's margins and not
             // with the top of the block.
             setHeight(height() + max(marginInfo.posMargin(), posTop) - max(marginInfo.negMargin(), negTop));
@@ -1683,7 +1683,7 @@ void RenderBlock::handleBottomOfBlock(int top, int bottom, MarginInfo& marginInf
 
     // If we can't collapse with children then go ahead and add in the bottom margin.
     if (!marginInfo.canCollapseWithBottom() && !marginInfo.canCollapseWithTop()
-        && (!style()->htmlHacks() || !marginInfo.quirkContainer() || !marginInfo.bottomQuirk()))
+        && (!document()->inQuirksMode() || !marginInfo.quirkContainer() || !marginInfo.bottomQuirk()))
         setHeight(height() + marginInfo.margin());
         
     // Now add in our bottom border/padding.
@@ -2120,8 +2120,12 @@ void RenderBlock::paintChildren(PaintInfo& paintInfo, int tx, int ty)
     PaintInfo info(paintInfo);
     info.phase = newPhase;
     info.updatePaintingRootForChildren(this);
+    
+    RenderView* renderView = view();
+    bool usePrintRect = !renderView->printRect().isEmpty() && !document()->settings()->paginateDuringLayoutEnabled();
+    
     bool checkPageBreaks = document()->paginated() && !document()->settings()->paginateDuringLayoutEnabled();
-    bool checkColumnBreaks = !checkPageBreaks && !view()->printRect().isEmpty() && !document()->settings()->paginateDuringLayoutEnabled();
+    bool checkColumnBreaks = !checkPageBreaks && usePrintRect;
 
     for (RenderBox* child = firstChildBox(); child; child = child->nextSiblingBox()) {        
         // Check for page-break-before: always, and if it's set, break and bail.
@@ -2131,6 +2135,17 @@ void RenderBlock::paintChildren(PaintInfo& paintInfo, int tx, int ty)
             && (ty + child->y()) < paintInfo.rect.bottom()) {
             view()->setBestTruncatedAt(ty + child->y(), this, true);
             return;
+        }
+
+        if (!child->isFloating() && child->isReplaced() && usePrintRect && child->height() <= renderView->printRect().height()) {
+            // Paginate block-level replaced elements.
+            if (ty + child->y() + child->height() > renderView->printRect().bottom()) {
+                if (ty + child->y() < renderView->truncatedAt())
+                    renderView->setBestTruncatedAt(ty + child->y(), child);
+                // If we were able to truncate, don't paint.
+                if (ty + child->y() >= renderView->truncatedAt())
+                    break;
+            }
         }
 
         if (!child->hasSelfPaintingLayer() && !child->isFloating())
@@ -3529,7 +3544,7 @@ void RenderBlock::clearFloats()
 int RenderBlock::addOverhangingFloats(RenderBlock* child, int xoff, int yoff, bool makeChildPaintOtherFloats)
 {
     // Prevent floats from being added to the canvas by the root element, e.g., <html>.
-    if (child->hasOverflowClip() || !child->containsFloats() || child->isRoot())
+    if (child->hasOverflowClip() || !child->containsFloats() || child->isRoot() || child->hasColumns())
         return 0;
 
     int lowestFloatBottom = 0;
@@ -4593,7 +4608,7 @@ void RenderBlock::calcInlinePrefWidths()
     // Firefox and Opera will allow a table cell to grow to fit an image inside it under
     // very specific cirucumstances (in order to match common WinIE renderings). 
     // Not supporting the quirk has caused us to mis-render some real sites. (See Bugzilla 10517.) 
-    bool allowImagesToBreak = !style()->htmlHacks() || !isTableCell() || !style()->width().isIntrinsicOrAuto();
+    bool allowImagesToBreak = !document()->inQuirksMode() || !isTableCell() || !style()->width().isIntrinsicOrAuto();
 
     bool autoWrap, oldAutoWrap;
     autoWrap = oldAutoWrap = style()->autoWrap();
@@ -4922,7 +4937,7 @@ void RenderBlock::calcBlockPrefWidths()
         // of 100px because of the table.
         // We can achieve this effect by making the maxwidth of blocks that contain tables
         // with percentage widths be infinite (as long as they are not inside a table cell).
-        if (style()->htmlHacks() && child->style()->width().isPercent() &&
+        if (document()->inQuirksMode() && child->style()->width().isPercent() &&
             !isTableCell() && child->isTable() && m_maxPrefWidth < BLOCK_MAX_WIDTH) {
             RenderBlock* cb = containingBlock();
             while (!cb->isRenderView() && !cb->isTableCell())

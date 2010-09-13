@@ -260,7 +260,7 @@ public:
         if (s->layoutAlgorithm() != l) {
             s->setLayoutAlgorithm(l);
             if (pFrame->document()) {
-                pFrame->document()->updateStyleSelector();
+                pFrame->document()->styleSelectorChanged(WebCore::RecalcStyleImmediately);
                 if (pFrame->document()->renderer()) {
                     recursiveCleanupForFullLayout(pFrame->document()->renderer());
                     LOG_ASSERT(pFrame->view(), "No view for this frame when trying to relayout");

@@ -1163,9 +1163,11 @@ bool RenderLayerBacking::startAnimation(double timeOffset, const Animation* anim
     KeyframeValueList transformVector(AnimatedPropertyWebkitTransform);
     KeyframeValueList opacityVector(AnimatedPropertyOpacity);
 
-    for (Vector<KeyframeValue>::const_iterator it = keyframes.beginKeyframes(); it != keyframes.endKeyframes(); ++it) {
-        const RenderStyle* keyframeStyle = it->style();
-        float key = it->key();
+    size_t numKeyframes = keyframes.size();
+    for (size_t i = 0; i < numKeyframes; ++i) {
+        const KeyframeValue& currentKeyframe = keyframes[i];
+        const RenderStyle* keyframeStyle = currentKeyframe.style();
+        float key = currentKeyframe.key();
 
         if (!keyframeStyle)
             continue;
@@ -1173,10 +1175,10 @@ bool RenderLayerBacking::startAnimation(double timeOffset, const Animation* anim
         // get timing function
         const TimingFunction* tf = keyframeStyle->hasAnimations() ? &((*keyframeStyle->animations()).animation(0)->timingFunction()) : 0;
         
-        if (hasTransform)
+        if (currentKeyframe.containsProperty(AnimatedPropertyWebkitTransform))
             transformVector.insert(new TransformAnimationValue(key, &(keyframeStyle->transform()), tf));
         
-        if (hasOpacity)
+        if (currentKeyframe.containsProperty(AnimatedPropertyOpacity))
             opacityVector.insert(new FloatAnimationValue(key, keyframeStyle->opacity(), tf));
     }
 

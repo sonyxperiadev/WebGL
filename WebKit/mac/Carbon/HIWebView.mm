@@ -32,11 +32,11 @@
 
 #import "CarbonWindowAdapter.h"
 #import "HIViewAdapter.h"
+#import "QuickDrawCompatibility.h"
 #import "WebHTMLViewInternal.h"
 #import "WebKit.h"
-
-#import <objc/objc-runtime.h>
 #import <WebKitSystemInterface.h>
+#import <objc/objc-runtime.h>
 
 @interface NSWindow (AppKitSecretsHIWebViewKnows)
 - (void)_removeWindowRef;
@@ -351,7 +351,7 @@ Draw( HIWebView* inView, RgnHandle limitRgn, CGContextRef inContext )
 
     NSView <WebDocumentView> *documentView = [[[inView->fWebView mainFrame] frameView] documentView];
     if ([documentView isKindOfClass:[WebHTMLView class]])
-        [(WebHTMLView *)documentView _web_layoutIfNeededRecursive];
+        [(WebHTMLView *)documentView _web_updateLayoutAndStyleIfNeededRecursive];
 
     if ( inView->fIsComposited )
         [inView->fWebView displayIfNeededInRect: *(NSRect*)&hiRect];

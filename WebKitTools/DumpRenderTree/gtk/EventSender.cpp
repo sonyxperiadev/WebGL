@@ -2,6 +2,7 @@
  * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Zan Dobersek <zandobersek@gmail.com>
  * Copyright (C) 2009 Holger Hans Peter Freyther
+ * Copyright (C) 2010 Igalia S.L.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +34,7 @@
 
 #include "DumpRenderTree.h"
 
+#include <GtkVersioning.h>
 #include <JavaScriptCore/JSObjectRef.h>
 #include <JavaScriptCore/JSRetainPtr.h>
 #include <JavaScriptCore/JSStringRef.h>
@@ -86,37 +88,6 @@ static void sendOrQueueEvent(GdkEvent*, bool = true);
 static void dispatchEvent(GdkEvent* event);
 static guint getStateFlags();
 
-#if !GTK_CHECK_VERSION(2, 17, 3)
-static void gdk_window_get_root_coords(GdkWindow* window, gint x, gint y, gint* rootX, gint* rootY)
-{
-    gdk_window_get_root_origin(window, rootX, rootY);
-    *rootX = *rootX + x;
-    *rootY = *rootY + y;
-}
-#endif
-
-#if !GTK_CHECK_VERSION(2, 14, 0)
-static GdkWindow* gtk_widget_get_window(GtkWidget* widget)
-{
-    g_return_val_if_fail(GTK_IS_WIDGET(widget), 0);
-    return widget->window;
-}
-#endif
-
-#if !GTK_CHECK_VERSION(2, 21, 2)
-static GdkDragAction gdk_drag_context_get_selected_action(GdkDragContext* context)
-{
-    g_return_val_if_fail(GDK_IS_DRAG_CONTEXT(context), static_cast<GdkDragAction>(0));
-    return context->action;
-}
-
-static GdkDragAction gdk_drag_context_get_actions(GdkDragContext* context)
-{
-    g_return_val_if_fail(GDK_IS_DRAG_CONTEXT(context), GDK_ACTION_DEFAULT);
-    return context->actions;
-}
-#endif
-
 static JSValueRef getDragModeCallback(JSContextRef context, JSObjectRef object, JSStringRef propertyName, JSValueRef* exception)
 {
     return JSValueMakeBoolean(context, dragMode);
@@ -161,7 +132,7 @@ bool prepareMouseButtonEvent(GdkEvent* event, int eventSenderButtonNumber)
     event->button.y = lastMousePositionY;
     event->button.window = gtk_widget_get_window(GTK_WIDGET(view));
     g_object_ref(event->button.window);
-    event->button.device = gdk_device_get_core_pointer();
+    event->button.device = getDefaultGDKPointerDevice(event->button.window);
     event->button.state = getStateFlags();
     event->button.time = GDK_CURRENT_TIME;
     event->button.axes = 0;
@@ -285,7 +256,7 @@ static JSValueRef mouseMoveToCallback(JSContextRef context, JSObjectRef function
     event->motion.time = GDK_CURRENT_TIME;
     event->motion.window = gtk_widget_get_window(GTK_WIDGET(view));
     g_object_ref(event->motion.window);
-    event->motion.device = gdk_device_get_core_pointer();
+    event->button.device = getDefaultGDKPointerDevice(event->motion.window);
     event->motion.state = getStateFlags();
     event->motion.axes = 0;
 
@@ -298,7 +269,7 @@ static JSValueRef mouseMoveToCallback(JSContextRef context, JSObjectRef function
     return JSValueMakeUndefined(context);
 }
 
-static JSValueRef mouseWheelToCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+static JSValueRef mouseScrollByCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
     WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
     if (!view)
@@ -323,17 +294,23 @@ static JSValueRef mouseWheelToCallback(JSContextRef context, JSObjectRef functio
     g_object_ref(event->scroll.window);
 
     if (horizontal < 0)
-        event->scroll.direction = GDK_SCROLL_LEFT;
-    else if (horizontal > 0)
         event->scroll.direction = GDK_SCROLL_RIGHT;
+    else if (horizontal > 0)
+        event->scroll.direction = GDK_SCROLL_LEFT;
     else if (vertical < 0)
-        event->scroll.direction = GDK_SCROLL_UP;
-    else if (vertical > 0)
         event->scroll.direction = GDK_SCROLL_DOWN;
+    else if (vertical > 0)
+        event->scroll.direction = GDK_SCROLL_UP;
     else
         g_assert_not_reached();
 
     sendOrQueueEvent(event);
+    return JSValueMakeUndefined(context);
+}
+
+static JSValueRef continuousMouseScrollByCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+    // GTK doesn't support continuous scroll events.
     return JSValueMakeUndefined(context);
 }
 
@@ -558,8 +535,9 @@ static JSValueRef keyDownCallback(JSContextRef context, JSObjectRef function, JS
     pressEvent->key.window = gtk_widget_get_window(GTK_WIDGET(view));
     g_object_ref(pressEvent->key.window);
 #ifndef GTK_API_VERSION_2
-    gdk_event_set_device(pressEvent, gdk_device_get_associated_device(gdk_display_get_core_pointer(gdk_drawable_get_display(pressEvent->key.window))));
+    gdk_event_set_device(pressEvent, getDefaultGDKPointerDevice(pressEvent->key.window));
 #endif
+
     // When synthesizing an event, an invalid hardware_keycode value
     // can cause it to be badly processed by Gtk+.
     GdkKeymapKey* keys;
@@ -624,7 +602,8 @@ static JSValueRef zoomPageOutCallback(JSContextRef context, JSObjectRef function
 }
 
 static JSStaticFunction staticFunctions[] = {
-    { "mouseWheelTo", mouseWheelToCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+    { "mouseScrollBy", mouseScrollByCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
+    { "continuousMouseScrollBy", continuousMouseScrollByCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
     { "contextClick", contextClickCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
     { "mouseDown", mouseDownCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },
     { "mouseUp", mouseUpCallback, kJSPropertyAttributeReadOnly | kJSPropertyAttributeDontDelete },

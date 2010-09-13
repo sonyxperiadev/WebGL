@@ -35,17 +35,18 @@ namespace WebCore {
                            public SVGFitToViewBox,
                            public SVGZoomAndPan {
     public:
+        static PassRefPtr<SVGViewElement> create(const QualifiedName&, Document*);
+
+        SVGStringList* viewTarget() const;
+
+    private:
         SVGViewElement(const QualifiedName&, Document*);
-        virtual ~SVGViewElement();
 
         virtual void parseMappedAttribute(Attribute*);
         virtual void synchronizeProperty(const QualifiedName&);
 
-        SVGStringList* viewTarget() const;
-
         virtual bool rendererIsNeeded(RenderStyle*) { return false; }
 
-    private:
         // SVGExternalResourcesRequired
         DECLARE_ANIMATED_PROPERTY(SVGViewElement, SVGNames::externalResourcesRequiredAttr, bool, ExternalResourcesRequired, externalResourcesRequired)
  

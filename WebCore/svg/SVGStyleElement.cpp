@@ -34,11 +34,15 @@
 
 namespace WebCore {
 
-SVGStyleElement::SVGStyleElement(const QualifiedName& tagName, Document* document, bool createdByParser)
+inline SVGStyleElement::SVGStyleElement(const QualifiedName& tagName, Document* document, bool createdByParser)
     : SVGElement(tagName, document)
-    , SVGLangSpace()
     , StyleElement(document, createdByParser)
 {
+}
+
+PassRefPtr<SVGStyleElement> SVGStyleElement::create(const QualifiedName& tagName, Document* document, bool createdByParser)
+{
+    return adoptRef(new SVGStyleElement(tagName, document, createdByParser));
 }
 
 const AtomicString& SVGStyleElement::type() const

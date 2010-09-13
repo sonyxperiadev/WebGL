@@ -43,6 +43,11 @@ WMLImageElement::WMLImageElement(const QualifiedName& tagName, Document* doc)
 {
 }
 
+PassRefPtr<WMLImageElement> WMLImageElement::create(const QualifiedName& tagName, Document* document)
+{
+    return adoptRef(new WMLImageElement(tagName, document));
+}
+
 WMLImageElement::~WMLImageElement()
 {
 }
@@ -109,7 +114,9 @@ void WMLImageElement::attach()
 
 RenderObject* WMLImageElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
-    return new (arena) RenderImage(this);
+    RenderImage* image = new (arena) RenderImage(this);
+    image->setImageResource(RenderImageResource::create());
+    return image;
 }
 
 void WMLImageElement::insertedIntoDocument()

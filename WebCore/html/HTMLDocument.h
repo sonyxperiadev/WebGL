@@ -51,6 +51,7 @@ public:
     void setDesignMode(const String&);
 
     String compatMode() const;
+    virtual void setCompatibilityModeFromDoctype();
 
     Element* activeElement();
     bool hasFocus();
@@ -95,7 +96,6 @@ private:
 
     virtual bool isFrameSet() const;
     virtual PassRefPtr<DocumentParser> createParser();
-    virtual void determineParseMode();
 
     void addItemToMap(HashCountedSet<AtomicStringImpl*>&, const AtomicString&);
     void removeItemFromMap(HashCountedSet<AtomicStringImpl*>&, const AtomicString&);

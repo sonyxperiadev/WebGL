@@ -42,16 +42,15 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-inline HTMLEmbedElement::HTMLEmbedElement(const QualifiedName& tagName, Document* document)
-    : HTMLPlugInImageElement(tagName, document)
-    , m_needWidgetUpdate(false)
+inline HTMLEmbedElement::HTMLEmbedElement(const QualifiedName& tagName, Document* document, bool createdByParser)
+    : HTMLPlugInImageElement(tagName, document, createdByParser)
 {
     ASSERT(hasTagName(embedTag));
 }
 
-PassRefPtr<HTMLEmbedElement> HTMLEmbedElement::create(const QualifiedName& tagName, Document* document)
+PassRefPtr<HTMLEmbedElement> HTMLEmbedElement::create(const QualifiedName& tagName, Document* document, bool createdByParser)
 {
-    return adoptRef(new HTMLEmbedElement(tagName, document));
+    return adoptRef(new HTMLEmbedElement(tagName, document, createdByParser));
 }
 
 static inline RenderWidget* findWidgetRenderer(const Node* n) 
@@ -80,7 +79,7 @@ bool HTMLEmbedElement::mapToEntry(const QualifiedName& attrName, MappedAttribute
         return false;
     }
         
-    return HTMLPlugInElement::mapToEntry(attrName, result);
+    return HTMLPlugInImageElement::mapToEntry(attrName, result);
 }
 
 void HTMLEmbedElement::parseMappedAttribute(Attribute* attr)
@@ -118,22 +117,27 @@ void HTMLEmbedElement::parseMappedAttribute(Attribute* attr)
         }
         m_name = value;
     } else
-        HTMLPlugInElement::parseMappedAttribute(attr);
+        HTMLPlugInImageElement::parseMappedAttribute(attr);
 }
 
 bool HTMLEmbedElement::rendererIsNeeded(RenderStyle* style)
 {
     if (isImageType())
-        return HTMLPlugInElement::rendererIsNeeded(style);
+        return HTMLPlugInImageElement::rendererIsNeeded(style);
 
     Frame* frame = document()->frame();
     if (!frame)
         return false;
 
+    // If my parent is an <object> and is not set to use fallback content, I
+    // should be ignored and not get a renderer.
     Node* p = parentNode();
     if (p && p->hasTagName(objectTag)) {
         ASSERT(p->renderer());
-        return false;
+        if (!static_cast<HTMLObjectElement*>(p)->useFallbackContent()) {
+            ASSERT(!p->renderer()->isEmbeddedObject());
+            return false;
+        }
     }
 
 #if ENABLE(DASHBOARD_SUPPORT)
@@ -144,42 +148,7 @@ bool HTMLEmbedElement::rendererIsNeeded(RenderStyle* style)
     }
 #endif
 
-    return HTMLPlugInElement::rendererIsNeeded(style);
-}
-
-RenderObject* HTMLEmbedElement::createRenderer(RenderArena* arena, RenderStyle*)
-{
-    if (isImageType())
-        return new (arena) RenderImage(this);
-    return new (arena) RenderEmbeddedObject(this);
-}
-
-void HTMLEmbedElement::attach()
-{
-    m_needWidgetUpdate = true;
-
-    bool isImage = isImageType();
-
-    if (!isImage)
-        queuePostAttachCallback(&HTMLPlugInElement::updateWidgetCallback, this);
-
-    HTMLPlugInElement::attach();
-
-    if (isImage && renderer()) {
-        if (!m_imageLoader)
-            m_imageLoader = adoptPtr(new HTMLImageLoader(this));
-        m_imageLoader->updateFromElement();
-
-        if (renderer())
-            toRenderImage(renderer())->setCachedImage(m_imageLoader->image());
-    }
-}
-
-void HTMLEmbedElement::updateWidget()
-{
-    document()->updateStyleIfNeeded();
-    if (m_needWidgetUpdate && renderer() && !isImageType())
-        toRenderEmbeddedObject(renderer())->updateWidget(true);
+    return HTMLPlugInImageElement::rendererIsNeeded(style);
 }
 
 void HTMLEmbedElement::insertedIntoDocument()
@@ -201,7 +170,7 @@ void HTMLEmbedElement::insertedIntoDocument()
         }
     }
 
-    HTMLPlugInElement::insertedIntoDocument();
+    HTMLPlugInImageElement::insertedIntoDocument();
 }
 
 void HTMLEmbedElement::removedFromDocument()
@@ -209,12 +178,12 @@ void HTMLEmbedElement::removedFromDocument()
     if (document()->isHTMLDocument())
         static_cast<HTMLDocument*>(document())->removeNamedItem(m_name);
 
-    HTMLPlugInElement::removedFromDocument();
+    HTMLPlugInImageElement::removedFromDocument();
 }
 
 void HTMLEmbedElement::attributeChanged(Attribute* attr, bool preserveDecls)
 {
-    HTMLPlugInElement::attributeChanged(attr, preserveDecls);
+    HTMLPlugInImageElement::attributeChanged(attr, preserveDecls);
 
     if ((attr->name() == widthAttr || attr->name() == heightAttr) && !attr->isEmpty()) {
         Node* n = parent();

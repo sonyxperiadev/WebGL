@@ -1,3 +1,663 @@
+2010-09-02  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        Implement [continuous]MouseScrollBy() on Chromium, and partly on GTK.
+        https://bugs.webkit.org/show_bug.cgi?id=45073
+
+        * DumpRenderTree/chromium/EventSender.cpp:
+        (EventSender::EventSender):
+        (EventSender::mouseScrollBy):
+        (EventSender::continuousMouseScrollBy):
+        (EventSender::sendCurrentTouchEvent):
+        (EventSender::handleMouseWheel):
+        * DumpRenderTree/chromium/EventSender.h:
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (mouseScrollByCallback):
+        (continuousMouseScrollByCallback):
+
+2010-09-01  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        Land a patched version of r66542 - change TestRunner to have an
+        separate cleanup method and fix the ordering of cleanup between
+        TestRunner and the printing module, and then wrap everything in a
+        try/finally block to ensure reliable cleanup without needing to
+        rely on stuff happening in the destructor of the TestRunner.
+
+        Also refactor run_webkit_tests.run() to be much smaller and cleaner
+        by creating a bunch of helper methods and moving more stuff into
+        the TestRunner class.
+
+        This fixes the crash at the end of the linux test run of
+        new-run-webkit-tests (and undoes the rollout in 66547).
+
+        https://bugs.webkit.org/show_bug.cgi?id=44902
+
+        * Scripts/webkitpy/layout_tests/data/failures/expected/exception.html: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/keyboard.html: Added.
+        * Scripts/webkitpy/layout_tests/data/passes/error-expected.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/passes/error.html: Added.
+        * Scripts/webkitpy/layout_tests/data/platform/test/test_expectations.txt:
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+        * Scripts/webkitpy/layout_tests/layout_package/printing.py:
+        * Scripts/webkitpy/layout_tests/layout_package/printing_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/base.py:
+        * Scripts/webkitpy/layout_tests/port/test.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_unittest.py:
+
+2010-09-01  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Fix TestNetscapePlugIn to compile without access to QuickDraw private headers.
+
+        * DumpRenderTree/TestNetscapePlugIn/main.cpp:
+
+2010-09-01  Brian Weinstein  <bweinstein@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Have kill-old-processes kill debug and release variants of WebKit2WebWebProcess
+        and WebKitTestRunner.
+
+        * BuildSlaveSupport/win/kill-old-processes:
+
+2010-09-01  Gabor Rapcsanyi  <rgabor@inf.u-szeged.hu>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Remove obsolete include path from DumpRenderTree.pro
+
+        * DumpRenderTree/qt/DumpRenderTree.pro:
+
+2010-09-01  Mahesh Kulkarni  <mahesh.kulkarni@nokia.com>
+
+        Reviewed by Laszlo Gombos.
+
+        [Qt] QWebPage::allowGeolocationRequest should be async API
+        https://bugs.webkit.org/show_bug.cgi?id=41364
+
+        Implements new async API for geolocation permission similar to
+        Notification. WebPage maintains list of geolocation permission request
+        QtWebkit and set's when LayoutTestController gets the access from test JS
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::WebPage::WebPage):
+        (WebCore::WebPage::resetSettings):
+        (WebCore::WebPage::requestPermission):
+        (WebCore::WebPage::cancelPermission):
+        (WebCore::WebPage::permissionSet):
+        (WebCore::DumpRenderTree::DumpRenderTree):
+        (WebCore::DumpRenderTree::processLine):
+        (WebCore::DumpRenderTree::geolocationPermissionSet):
+        * DumpRenderTree/qt/DumpRenderTreeQt.h:
+        * DumpRenderTree/qt/LayoutTestControllerQt.cpp:
+        (LayoutTestController::reset):
+        (LayoutTestController::setGeolocationPermission):
+        (LayoutTestController::setGeolocationPermissionCommon):
+        * DumpRenderTree/qt/LayoutTestControllerQt.h:
+
+2010-09-01  Andras Becsi  <abecsi@webkit.org>
+
+        Reviewed by Antti Koivisto.
+
+        [Qt] Auto-generate WebKit2 forwarding headers
+        https://bugs.webkit.org/show_bug.cgi?id=44692
+
+        * MiniBrowser/qt/BrowserWindow.h: use source style includes
+        * MiniBrowser/qt/MiniBrowser.pro: add missing include paths
+        * Scripts/enumerate-included-framework-headers: Removed.
+
+2010-08-31  Ademar de Souza Reis Jr  <ademar.reis@openbossa.org>
+
+        Reviewed by Adam Barth.
+
+        Allow Ctrl+C inside Bugzilla::fetch_bug_dictionary
+        https://bugs.webkit.org/show_bug.cgi?id=44789
+
+        * Scripts/webkitpy/common/net/bugzilla.py:
+
+2010-08-31  Leandro Pereira  <leandro@profusion.mobi>
+
+        Reviewed by Adam Barth.
+
+        ews: Add support for EFL-EWS
+        https://bugs.webkit.org/show_bug.cgi?id=44982
+
+        * QueueStatusServer/model/queues.py: Add "efl-ews" to queues list.
+        * Scripts/webkitpy/common/config/ports.py: Define a EflPort class
+        and add it to the ports dict.
+        * Scripts/webkitpy/tool/commands/earlywarningsystem.py: Define a
+        EflEWS class.
+        * Scripts/webkitpy/tool/commands/earlywarningsystem_unittest.py: Add
+        a test case for the EFL EWS.
+
+2010-08-31  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=42195
+        <rdar://problem/8186761> WebKitTestRunner needs to support layoutTestController.setXSSAuditorEnabled
+
+        * WebKitTestRunner/InjectedBundle/Bindings/LayoutTestController.idl:
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp: (WTR::LayoutTestController::setXSSAuditorEnabled):
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h:
+        Added setXSSAuditorEnabled, calling through to an WKBundle private method. Calling this method
+        makes WebProcess use a different value for this preference than UIProcess thinks it uses.
+
+        * WebKitTestRunner/TestController.cpp: (WTR::TestController::resetStateToConsistentValues):
+        Reset xssAuditorEnabled. Even though the value doesn't change, this calls through to WebProcess,
+        which forgets its override.
+
+2010-08-31  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        WebKitTestRunner needs layoutTestController.addUserStyleSheet
+        https://bugs.webkit.org/show_bug.cgi?id=42680
+
+        WebKitTestRunner needs layoutTestController.addUserScript
+        https://bugs.webkit.org/show_bug.cgi?id=42681
+
+        * WebKitTestRunner/InjectedBundle/Bindings/LayoutTestController.idl:
+        * WebKitTestRunner/InjectedBundle/InjectedBundle.cpp:
+        (WTR::InjectedBundle::beginTesting):
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.cpp:
+        (WTR::LayoutTestController::addUserScript):
+        (WTR::LayoutTestController::addUserStyleSheet):
+        * WebKitTestRunner/InjectedBundle/LayoutTestController.h:
+
+2010-08-31  Dirk Pranke  <dpranke@chromium.org>
+
+        Unreviewed, rolling out r66542.
+        http://trac.webkit.org/changeset/66542
+        https://bugs.webkit.org/show_bug.cgi?id=44902
+
+        r66542 - the weird logging dependencies in Python stuck again ...
+
+        * Scripts/webkitpy/layout_tests/data/failures/expected/exception.html: Removed.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/keyboard.html: Removed.
+        * Scripts/webkitpy/layout_tests/data/passes/error-expected.txt: Removed.
+        * Scripts/webkitpy/layout_tests/data/passes/error.html: Removed.
+        * Scripts/webkitpy/layout_tests/data/platform/test/test_expectations.txt:
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+        * Scripts/webkitpy/layout_tests/layout_package/printing.py:
+        * Scripts/webkitpy/layout_tests/layout_package/printing_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/base.py:
+        * Scripts/webkitpy/layout_tests/port/test.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_unittest.py:
+
+2010-08-31  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        Implementing LayoutTestController::markerTextForListItem() in Chromium's DRT.
+
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (LayoutTestController::markerTextForListItem):
+        * DumpRenderTree/chromium/LayoutTestController.h:
+
+2010-08-31  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        new-run-webkit-tests: add more unit tests
+
+        Add more unit tests for new-run-webkit-tests; we now cover all but
+        the most obscure code paths in the generic code. We still need to
+        add coverage for the http server and web socket paths, and add better
+        coverage of the platform-specific logic. Note that the rebaselining
+        tool is still not well tested.
+
+        Also clean up some of the configuration logic for the printing
+        module and the way it interacts with the Python logging module; that
+        is a crufty interface, to be certain.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=44902
+
+        * Scripts/webkitpy/layout_tests/data/failures/expected/exception.html: Added.
+        * Scripts/webkitpy/layout_tests/data/failures/expected/keyboard.html: Added.
+        * Scripts/webkitpy/layout_tests/data/passes/error-expected.txt: Added.
+        * Scripts/webkitpy/layout_tests/data/passes/error.html: Added.
+        * Scripts/webkitpy/layout_tests/data/platform/test/test_expectations.txt:
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+        * Scripts/webkitpy/layout_tests/layout_package/printing.py:
+        * Scripts/webkitpy/layout_tests/layout_package/printing_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/base.py:
+        * Scripts/webkitpy/layout_tests/port/test.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_unittest.py:
+
+2010-08-31  Darin Adler  <darin@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        * Scripts/check-for-global-initializers: Add a file that ends up having global initializers
+        in a debug build when built with certain compilers.
+
+2010-08-31  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Isolate all GTK+ typedefs into one file
+        https://bugs.webkit.org/show_bug.cgi?id=44900
+
+        * DumpRenderTree/gtk/EventSender.h: Remove GTK+ typedefs.
+
+2010-08-31  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Show more status on queue status pages
+        https://bugs.webkit.org/show_bug.cgi?id=44938
+
+        I upped the number of status lines from 6 to 15 --
+        this has been bugging me for a while...
+
+        I also disabled showing the chromium-win EWS queue
+        since it's been down for almost 5 months now.
+
+        * QueueStatusServer/handlers/dashboard.py:
+        * QueueStatusServer/handlers/queuestatus.py:
+        * QueueStatusServer/model/queues.py:
+
+2010-08-31  Zoltan Horvath  <zoltan@webkit.org>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Read command line arguments and open them as URLs in new windows
+        https://bugs.webkit.org/show_bug.cgi?id=44944
+
+        Extend MiniBrowser to accept command line arguments and open them as URLs in new browser windows.
+
+        * MiniBrowser/qt/main.cpp:
+        (main):
+
+2010-08-31  Adrian Perez  <aperez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        Support scripts to run Buildbot slaves under daemontools (gtk related)
+        https://bugs.webkit.org/show_bug.cgi?id=40053
+
+        * BuildSlaveSupport/gtk: Added.
+        * BuildSlaveSupport/gtk/README: Added.
+        * BuildSlaveSupport/gtk/buildbot: Added.
+        * BuildSlaveSupport/gtk/buildbot/log: Added.
+        * BuildSlaveSupport/gtk/buildbot/log/run: Added.
+        * BuildSlaveSupport/gtk/buildbot/run: Added.
+        * BuildSlaveSupport/gtk/crashmon: Added.
+        * BuildSlaveSupport/gtk/crashmon/crashmon: Added.
+        * BuildSlaveSupport/gtk/crashmon/log: Added.
+        * BuildSlaveSupport/gtk/crashmon/log/run: Added.
+        * BuildSlaveSupport/gtk/crashmon/run: Added.
+        * BuildSlaveSupport/gtk/daemontools-buildbot.conf: Added.
+        * BuildSlaveSupport/gtk/pulseaudio: Added.
+        * BuildSlaveSupport/gtk/pulseaudio/run: Added.
+        * BuildSlaveSupport/gtk/xvfb: Added.
+        * BuildSlaveSupport/gtk/xvfb/log: Added.
+        * BuildSlaveSupport/gtk/xvfb/log/run: Added.
+        * BuildSlaveSupport/gtk/xvfb/run: Added.
+
+2010-08-27  John Gregg  <johnnyg@google.com>
+
+        Reviewed by David Levin.
+
+        Notifications should support a click event.
+        Adds necessary hooks to chromium's DRT so that clicks on desktop notifications
+        can be simulated during a layout test.  Requires storing a list of active
+        notifications so that they can be referred to later for clicking.
+        https://bugs.webkit.org/show_bug.cgi?id=44800
+
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (LayoutTestController::simulateDesktopNotificationClick):
+        * DumpRenderTree/chromium/LayoutTestController.h:
+        * DumpRenderTree/chromium/NotificationPresenter.cpp:
+        (NotificationPresenter::simulateClick):
+        (NotificationPresenter::show):
+        (NotificationPresenter::cancel):
+        (NotificationPresenter::objectDestroyed):
+        * DumpRenderTree/chromium/NotificationPresenter.h:
+
+2010-08-30  Alice Liu  <alice.liu@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Add missing parts of didFinishDocumentLoadForFrame
+        https://bugs.webkit.org/show_bug.cgi?id=44913
+
+        * MiniBrowser/mac/BrowserWindowController.m:
+        (didFinishDocumentLoadForFrame): Added
+        (-[BrowserWindowController awakeFromNib]): Updated struct
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::InjectedBundlePage::InjectedBundlePage): Rearranged function ptr
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::initialize): Updated struct
+
+2010-08-30  Vangelis Kokkevis  <vangelis@chromium.org>
+
+        Unreviewed: Add myself to the list of Committers.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-08-30  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Fix fast/notifications/notifications-display-close-events.html failure
+        https://bugs.webkit.org/show_bug.cgi?id=44585
+
+        Apply http://crrev.com/48893. We should dispatch display events
+        asynchronously.
+
+        * DumpRenderTree/chromium/NotificationPresenter.cpp:
+        (deferredDisplayDispatch):
+        (NotificationPresenter::show):
+
+2010-08-30  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Simon Hausmann.
+
+        allow ports with windowed plugins to support windowless plugin tests
+
+        https://bugs.webkit.org/show_bug.cgi?id=40730
+
+        Ports that implement plugins windowed by default need to have a way of
+        supporting plugin tests that assume the plugin is windowless. Add this
+        feature to the tests and support it in the webkit test plugin. Also
+        add mouse and keyboard event logging to the webkit-test plugin on Unix.
+
+        Unskip the following tests on Qt:
+
+        plugins/mouse-events.html
+        plugins/keyboard-events.html
+        plugins/mouse-events-fixedpos.html
+
+        * DumpRenderTree/TestNetscapePlugIn.subproj/PluginObject.cpp:
+        (pluginSetProperty):
+        * DumpRenderTree/TestNetscapePlugIn.subproj/main.cpp:
+        (NPP_New):
+        * DumpRenderTree/unix/TestNetscapePlugin/TestNetscapePlugin.cpp:
+        (webkit_test_plugin_handle_event):
+
+2010-08-30  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix after addition of fileapi directory in WebCore.
+
+        * wx/build/settings.py:
+
+2010-08-30  Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        Fixed compilation error, now that we have included the
+        GtkVersioning.h we have to remove some version dependent code from
+        EventSender.
+
+        * DumpRenderTree/gtk/EventSender.cpp:
+
+2010-08-30  Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [Gtk] gdk_display_get_core_pointer and gdk_device_get_core_pointer
+        are deprecated
+        https://bugs.webkit.org/show_bug.cgi?id=44787
+
+        We have replaced GtkVersioning.cpp with GtkVersioning.c and
+        created a function (getDefaultGDKPointerDevice) to get the pointer
+        of the window with the new APIs. We added that function to DRT and
+        copyandpaste unit test.
+
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (prepareMouseButtonEvent):
+        (mouseMoveToCallback):
+        (keyDownCallback):
+        * GNUmakefile.am:
+
+2010-08-30  Zoltan Horvath  <zoltan@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Add new window menu to MiniBrowser
+
+        Implement newWindow function and add a menu item for opening new window in MiniBrowser.
+
+        * MiniBrowser/qt/BrowserWindow.cpp:
+        (BrowserWindow::BrowserWindow):
+        (BrowserWindow::newWindow):
+        * MiniBrowser/qt/BrowserWindow.h:
+        * MiniBrowser/qt/main.cpp:
+        (main):
+
+2010-08-29  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by David Levin.
+
+        Make failing the download step fail the build
+        https://bugs.webkit.org/show_bug.cgi?id=44298
+
+        If the download step fails on a test bot, this ensures that
+        the build goes red instead of only the download step going red
+        and the overall build staying green.
+
+        * BuildSlaveSupport/build.webkit.org-config/master.cfg:
+
+2010-08-29  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Remove dependency to base/keyboard_codes.h
+        https://bugs.webkit.org/show_bug.cgi?id=44847
+
+        * DumpRenderTree/chromium/EventSender.cpp:
+         Use webkit_support::VKEY_* instead of base::VKEY_*.
+
+2010-08-29  Darin Adler  <darin@apple.com>
+
+        https://bugs.webkit.org/show_bug.cgi?id=40589
+
+        * Scripts/prepare-ChangeLog: Only prepend namespaces to non-empty
+        function names.
+
+2010-08-26  Holger Hans Peter Freyther  <holger@moiji-mobile.com>
+
+        Reviewed by Darin Adler.
+
+        [iExploder] Add new CSS Properties and HTML Attributes
+        https://bugs.webkit.org/show_bug.cgi?id=44746
+
+        Updated the files with the update-iexploder-cssproperties script
+        and manually readded the -webkit-binding CSS Property to the list.
+
+        * iExploder/htdocs/cssproperties.in:
+        * iExploder/htdocs/htmlattrs.in:
+        * iExploder/htdocs/htmltags.in:
+
+2010-08-26  Holger Hans Peter Freyther  <holger@moiji-mobile.com>
+
+        Reviewed by Darin Adler.
+
+        Fix Coverage build after the addition of ANGLE
+        https://bugs.webkit.org/show_bug.cgi?id=44744
+
+        ANGLE is using libtool to build a static library and the version of
+        libtool on Leopard refuses to handle the -fprofile-arcs and -ftest-coverage
+        parameters. The easiest way to handle this is to not build ANGLE with
+        coverage information.
+
+        This is achieved by applying the XCode options for each project
+        separately and exclude ANGLE.
+
+        * Scripts/build-webkit: Remove -framework AppKit due link errors.
+        * Scripts/webkitdirs.pm: Do not apply the XCode options for ANGLE.
+
+2010-08-28  Kevin Ollivier  <kevino@theolliviers.com>
+
+        [wx] Build fix after directory addition.
+
+        * wx/build/settings.py:
+
+2010-08-28  Chris Guillory   <chris.guillory@google.com>
+
+        Reviewed by Chris Fleizach.
+
+        Add AX notification for childrenChanged
+        https://bugs.webkit.org/show_bug.cgi?id=44472
+
+        * DumpRenderTree/chromium/AccessibilityController.cpp:
+        (AccessibilityController::AccessibilityController):
+        (AccessibilityController::reset):
+        (AccessibilityController::getRootElement):
+        (AccessibilityController::dumpAccessibilityNotifications):
+        * DumpRenderTree/chromium/AccessibilityController.h:
+        (AccessibilityController::shouldDumpAccessibilityNotifications):
+        * DumpRenderTree/chromium/WebViewHost.cpp:
+        (WebViewHost::didChangeAccessibilityObjectChildren):
+        * DumpRenderTree/chromium/WebViewHost.h:
+
+2010-08-28  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Update commit-queue failure message
+        https://bugs.webkit.org/show_bug.cgi?id=44798
+
+        The commit-queue auto-restarts itself and has for a very long time.
+        No need for people to email me to request a restart anymore.
+
+        * Scripts/webkitpy/common/net/bugzilla.py:
+        * Scripts/webkitpy/common/net/bugzilla_unittest.py:
+        * Scripts/webkitpy/tool/commands/queues_unittest.py:
+
+2010-07-27  Jer Noble  <jer.noble@apple.com>
+
+        Reviewed by Eric Carlson.
+
+        Add JavaScript API to allow a page to go fullscreen.
+        rdar://problem/6867795
+        
+        Added basic full screen support to DumpRenderTree: when a webView requests
+        that DumpRenderTree go "full screen", just call the provided callback listener object's
+        will/did Enter/Exit full screen methods.  Also, register a new user default which 
+        enables full screen support.
+
+        * DumpRenderTree/mac/DumpRenderTree.mm:
+        (resetDefaultsToConsistentValues):
+        * DumpRenderTree/mac/UIDelegate.mm:
+        (-[UIDelegate webView:supportsFullscreenForElement:]):
+        (-[UIDelegate webView:enterFullscreenForElement:listener:]):
+        (-[UIDelegate webView:exitFullscreenForElement:listener:]):
+
+2010-08-27  Benjamin Poulain  <benjamin.poulain@nokia.com>
+
+        Unreviewed. Add myself to the committers list.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-08-27  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        [DRT/Chromium] Fix inspector test failures
+        https://bugs.webkit.org/show_bug.cgi?id=44748
+
+        * DumpRenderTree/chromium/DRTDevToolsAgent.cpp:
+        (DRTDevToolsAgent::createClientMessageLoop):
+          Returns a valid WebKitClientMessageLoop instance
+        * DumpRenderTree/chromium/DRTDevToolsAgent.h:
+
+2010-08-26  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        Add Windows WebKit2 Tester to buildbot
+        <rdar://problem/7887703>
+
+        Reviewed by Dan Bernstein.
+
+        * BuildSlaveSupport/build.webkit.org-config/config.json:
+
+2010-08-26  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Needs DRT queueLoadHTMLString and setDeferMainResourceLoad-implementations
+        https://bugs.webkit.org/show_bug.cgi?id=42152
+
+        * DumpRenderTree/gtk/WorkQueueItemGtk.cpp:
+        (LoadHTMLStringItem::invoke): Implementation using
+        webkit_web_frame_load_string().
+
+2010-08-25  Jon Honeycutt  <jhoneycutt@apple.com>
+
+        <rdar://problem/8334338> run-webkit-tests sometimes hangs when using
+        WebKitTestRunner (44331)
+
+        Reviewed by Darin Adler.
+
+        * WebKitTestRunner/TestController.cpp:
+        (WTR::TestController::initialize):
+        The hang occurs when WebKitTestRunner begins launching the WebKit2
+        web process then exits before it finishes launching. Work around this by
+        looking for the --print-supported-features argument and exiting without
+        creating the web process.
+
+2010-08-26  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        new-run-webkit-tests: add rebaselining tests for test_expectations
+        
+        This patch adds more unit tests for the rebaselining code in the
+        test_expectations module. It doesn't add any tests for
+        rebaseline_chromium_webkit_tests itself; that will come some other
+        time.
+
+        https://bugs.webkit.org/show_bug.cgi?id=44648
+
+        * Scripts/webkitpy/layout_tests/layout_package/test_expectations.py:
+        * Scripts/webkitpy/layout_tests/layout_package/test_expectations_unittest.py:
+
+2010-08-26  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Add HTTP caching support
+        https://bugs.webkit.org/show_bug.cgi?id=44261
+
+        Ignore new soup API that we decided to merge into the soup backend
+        while it is being cooked. It follows the libsoup style, and will
+        be removed from WebKit as soon as it is merged into libsoup.
+
+        * Scripts/webkitpy/style/checker.py:
+
+2010-08-26  Mahesh Kulkarni  <mahesh.kulkarni@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] DumpRenderTree runs only one test from command mode
+        https://bugs.webkit.org/show_bug.cgi?id=44012
+
+        Enables support to run multiple test files and single
+        folder containing html files in stand alone mode
+
+        * DumpRenderTree/qt/DumpRenderTreeQt.cpp:
+        (WebCore::DumpRenderTree::DumpRenderTree):
+        (WebCore::DumpRenderTree::processArgsLine):
+        (WebCore::DumpRenderTree::loadNextTestInStandAloneMode):
+        (WebCore::DumpRenderTree::processLine):
+        (WebCore::DumpRenderTree::dump):
+        * DumpRenderTree/qt/DumpRenderTreeQt.h:
+        (WebCore::DumpRenderTree::setStandAloneMode):
+        (WebCore::DumpRenderTree::isStandAloneMode):
+        * DumpRenderTree/qt/main.cpp:
+        (main):
+
 2010-08-25  Martin Robinson  <mrobinson@igalia.com>
 
         Updating webkitpy test expectations.

@@ -79,9 +79,6 @@ public:
     void setTextOutputEnabled(bool enable) { m_enableTextOutput = enable; }
     bool isTextOutputEnabled() { return m_enableTextOutput; }
 
-    void setSingleFileMode(bool flag) { m_singleFileMode = flag; }
-    bool isSingleFileMode() { return m_singleFileMode; }
-
     void setGraphicsBased(bool flag) { m_graphicsBased = flag; }
     bool isGraphicsBased() { return m_graphicsBased; }
 
@@ -106,6 +103,7 @@ public:
 #if defined(Q_WS_X11)
     static void initializeFonts();
 #endif
+    void processArgsLine(const QStringList&);
 
 public Q_SLOTS:
     void initJSObjects();
@@ -128,8 +126,13 @@ private Q_SLOTS:
     void showPage();
     void hidePage();
     void dryRunPrint(QWebFrame*);
+    void loadNextTestInStandAloneMode();
+    void geolocationPermissionSet();
 
 private:
+    void setStandAloneMode(bool flag) { m_standAloneMode = flag; }
+    bool isStandAloneMode() { return m_standAloneMode; }
+
     QString dumpFramesAsText(QWebFrame* frame);
     QString dumpBackForwardList(QWebPage* page);
     QString dumpFrameScrollPosition(QWebFrame* frame);
@@ -137,6 +140,7 @@ private:
 
     bool m_dumpPixels;
     QString m_expectedHash;
+    QStringList m_standAloneModeTestList;
 
     WebPage *m_page;
     QWidget* m_mainView;
@@ -150,7 +154,7 @@ private:
 
     QList<QObject*> windows;
     bool m_enableTextOutput;
-    bool m_singleFileMode;
+    bool m_standAloneMode;
     bool m_graphicsBased;
     QString m_persistentStoragePath;
 };
@@ -188,12 +192,13 @@ public:
 
     QObject* createPlugin(const QString&, const QUrl&, const QStringList&, const QStringList&);
 
+    void permissionSet(QWebPage::PermissionDomain domain);
+
 public slots:
     bool shouldInterruptJavaScript() { return false; }
-    bool allowGeolocationRequest(QWebFrame *frame);
     void requestPermission(QWebFrame* frame, QWebPage::PermissionDomain domain);
     void checkPermission(QWebFrame* frame, QWebPage::PermissionDomain domain, QWebPage::PermissionPolicy& policy);
-    void cancelRequestsForPermission(QWebFrame* frame, QWebPage::PermissionDomain domain);
+    void cancelPermission(QWebFrame* frame, QWebPage::PermissionDomain domain);
 
 protected:
     bool acceptNavigationRequest(QWebFrame* frame, const QNetworkRequest& request, NavigationType type);
@@ -204,6 +209,7 @@ private slots:
 
 private:
     QWebInspector* m_webInspector;
+    QList<QWebFrame*> m_pendingGeolocationRequests;
     DumpRenderTree *m_drt;
 };
 

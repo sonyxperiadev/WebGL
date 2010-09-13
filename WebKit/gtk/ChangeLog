@@ -1,3 +1,118 @@
+2010-08-31  Dave Hyatt  <hyatt@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        https://bugs.webkit.org/show_bug.cgi?id=44863, disentangle style recalc from layout, so that
+        the former can occur in more places without having to do the latter.
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_expose_event):
+
+2010-08-31  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Isolate all GTK+ typedefs into one file
+        https://bugs.webkit.org/show_bug.cgi?id=44900
+
+        * WebCoreSupport/EditorClientGtk.h: Remove GTK+ typedefs.
+        * WebCoreSupport/FullscreenVideoController.h: Ditto.
+
+2010-08-31  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Reviewed by Martin Robinson.
+
+        Preparations for the 1.3.4 release.
+
+        * NEWS:
+        * docs/webkitgtk-docs.sgml:
+
+2010-08-31  Gustavo Noronha Silva  <gustavo.noronha@collabora.co.uk>
+
+        Unreviewed. Minor documentation typo fix.
+
+        * webkit/webkitwebview.cpp:
+
+2010-08-30  Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [Gtk] gdk_display_get_core_pointer and gdk_device_get_core_pointer
+        are deprecated
+        https://bugs.webkit.org/show_bug.cgi?id=44787
+
+        We have replaced GtkVersioning.cpp with GtkVersioning.c and
+        created a function (getDefaultGDKPointerDevice) to get the pointer
+        of the window with the new APIs. We added that function to DRT and
+        copyandpaste unit test.
+
+        * tests/testcopyandpaste.c:
+        (runPasteTestCallback):
+
+2010-08-30  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r66198.
+        http://trac.webkit.org/changeset/66198
+        https://bugs.webkit.org/show_bug.cgi?id=44856
+
+        It made tests crash on Qt bot (Requested by Ossy_ on #webkit).
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::notifyWebViewDestroyed):
+        (WebKit::InspectorFrontendClient::destroyInspectorWindow):
+        (WebKit::InspectorFrontendClient::closeWindow):
+        * WebCoreSupport/InspectorClientGtk.h:
+
+2010-08-27  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        REGRESSION: Crash occurs at objc_msgSend when closing a window that is displaying the web inspector
+        https://bugs.webkit.org/show_bug.cgi?id=44230
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::notifyWebViewDestroyed):
+        (WebKit::InspectorFrontendClient::destroyInspectorWindow):
+        (WebKit::InspectorFrontendClient::closeWindow):
+        (WebKit::InspectorFrontendClient::disconnectFromBackend):
+        * WebCoreSupport/InspectorClientGtk.h:
+
+2010-08-26  Yury Semikhatsky  <yurys@chromium.org>
+
+        Unreviewed. Revert r66103 since Qt tests are failing.
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::notifyWebViewDestroyed):
+        (WebKit::InspectorFrontendClient::destroyInspectorWindow):
+        (WebKit::InspectorFrontendClient::closeWindow):
+        * WebCoreSupport/InspectorClientGtk.h:
+
+2010-08-26  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        REGRESSION: Crash occurs at objc_msgSend when closing a window that is displaying the web inspector
+        https://bugs.webkit.org/show_bug.cgi?id=44230
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::notifyWebViewDestroyed):
+        (WebKit::InspectorFrontendClient::destroyInspectorWindow):
+        (WebKit::InspectorFrontendClient::closeWindow):
+        (WebKit::InspectorFrontendClient::disconnectFromBackend):
+        * WebCoreSupport/InspectorClientGtk.h:
+
+2010-08-26  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] WebKitGTK+ needs proper introspection annotation for most types and methods
+        https://bugs.webkit.org/show_bug.cgi?id=44565
+
+        Add documentation and introspection specific information to a few
+        getter and setter methods.
+
+        * webkit/webkitwebview.cpp:
+
 2010-08-25  Martin Robinson  <mrobinson@igalia.com>
 
         Reviewed by Gustavo Noronha Silva.

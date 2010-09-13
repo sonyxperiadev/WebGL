@@ -24,10 +24,16 @@
 
 namespace WebCore {
     
-SVGSetElement::SVGSetElement(const QualifiedName& tagName, Document *doc)
-    : SVGAnimateElement(tagName, doc)
+inline SVGSetElement::SVGSetElement(const QualifiedName& tagName, Document* document)
+    : SVGAnimateElement(tagName, document)
 {
 }
+
+PassRefPtr<SVGSetElement> SVGSetElement::create(const QualifiedName& tagName, Document* document)
+{
+    return adoptRef(new SVGSetElement(tagName, document));
+}
+
 }
 
 // vim:ts=4:noet

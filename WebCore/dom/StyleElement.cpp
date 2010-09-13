@@ -67,9 +67,8 @@ void StyleElement::removedFromDocument(Document* document, Element* element)
     if (!document->renderer())
         return;
 
-    // FIXME: It's terrible to do a synchronous update of the style selector just because a <style> or <link> element got removed.
     if (m_sheet)
-        document->updateStyleSelector();
+        document->styleSelectorChanged(DeferRecalcStyle);
 }
 
 void StyleElement::childrenChanged(Element* element)
@@ -138,7 +137,7 @@ void StyleElement::createSheet(Element* e, int startLineNumber, const String& te
             document->addPendingSheet();
             m_loading = true;
             m_sheet = CSSStyleSheet::create(e, String(), KURL(), document->inputEncoding());
-            m_sheet->parseStringAtLine(text, !document->inCompatMode(), startLineNumber);
+            m_sheet->parseStringAtLine(text, !document->inQuirksMode(), startLineNumber);
             m_sheet->setMedia(mediaList.get());
             m_sheet->setTitle(e->title());
             m_loading = false;

@@ -30,6 +30,7 @@
 
 #import "HIViewAdapter.h"
 
+#import "QuickDrawCompatibility.h"
 #import "WebNSObjectExtras.h"
 #import <wtf/Assertions.h>
 
