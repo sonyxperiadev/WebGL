@@ -1776,8 +1776,18 @@ void RenderBlock::paintObject(PaintInfo& paintInfo, int tx, int ty)
     if ((paintPhase == PaintPhaseOutline || paintPhase == PaintPhaseChildOutlines)) {
         if (inlineContinuation() && inlineContinuation()->hasOutline() && inlineContinuation()->style()->visibility() == VISIBLE) {
             RenderInline* inlineRenderer = toRenderInline(inlineContinuation()->node()->renderer());
-            if (!inlineRenderer->hasSelfPaintingLayer())
-                containingBlock()->addContinuationWithOutline(inlineRenderer);
+            RenderBlock* cb = containingBlock();
+
+            bool inlineEnclosedInSelfPaintingLayer = false;
+            for (RenderBoxModelObject* box = inlineRenderer; box != cb; box = box->parent()->enclosingBoxModelObject()) {
+                if (box->hasSelfPaintingLayer()) {
+                    inlineEnclosedInSelfPaintingLayer = true;
+                    break;
+                }
+            }
+
+            if (!inlineEnclosedInSelfPaintingLayer)
+                cb->addContinuationWithOutline(inlineRenderer);
             else if (!inlineRenderer->firstLineBox())
                 inlineRenderer->paintOutline(paintInfo.context, tx - x() + inlineRenderer->containingBlock()->x(),
                                              ty - y() + inlineRenderer->containingBlock()->y());
