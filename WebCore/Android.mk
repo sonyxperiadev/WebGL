@@ -453,8 +453,10 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/Logging.cpp \
 	platform/MIMETypeRegistry.cpp \
 	platform/SchemeRegistry.cpp \
+	platform/ScrollAnimator.cpp \
 	platform/ScrollView.cpp \
 	platform/Scrollbar.cpp \
+	platform/ScrollbarClient.cpp \
 	platform/ScrollbarThemeComposite.cpp \
 	platform/SharedBuffer.cpp \
 	platform/Theme.cpp \
