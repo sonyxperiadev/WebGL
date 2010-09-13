@@ -26,6 +26,8 @@
 #ifndef ChromiumIncludes_h
 #define ChromiumIncludes_h
 
+#include "config.h"
+
 // Include all external/chromium files in this file so the problems with the LOG
 // and LOG_ASSERT defines can be handled in one place.
 
@@ -63,6 +65,20 @@
 #include <net/proxy/proxy_service.h>
 #include <net/url_request/url_request.h>
 #include <net/url_request/url_request_context.h>
+
+#if ENABLE(WEB_AUTOFILL)
+#include <autofill/autofill_manager.h>
+#include <autofill/autofill_profile.h>
+#include <autofill/personal_data_manager.h>
+#include <base/logging.h>
+#include <base/scoped_vector.h>
+#include <base/string16.h>
+#include <base/utf_string_conversions.h>
+#include <chrome/browser/autofill/autofill_host.h>
+#include <chrome/browser/profile.h>
+#include <chrome/browser/tab_contents/tab_contents.h>
+#include <webkit/glue/form_data.h>
+#endif
 
 #undef LOG
 #if defined(LOG_WAS_DEFINED) && defined(LOG_PRI)

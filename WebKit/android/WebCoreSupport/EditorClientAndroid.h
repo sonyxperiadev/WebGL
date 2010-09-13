@@ -26,8 +26,14 @@
 #ifndef EditorClientAndroid_h
 #define EditorClientAndroid_h
 
+#include "config.h"
+
+
 #include "EditorClient.h"
 #include "Page.h"
+#include "autofill/WebAutoFill.h"
+
+#include <wtf/OwnPtr.h>
 
 using namespace WebCore;
 
@@ -111,10 +117,16 @@ public:
     void setPage(Page* page) { m_page = page; }
     void setShouldChangeSelectedRange(bool shouldChangeSelectedRange) { m_shouldChangeSelectedRange = shouldChangeSelectedRange; }
     void setUiGeneratedSelectionChange(bool uiGenerated) { m_uiGeneratedSelectionChange = uiGenerated; }
+#if ENABLE(WEB_AUTOFILL)
+    WebAutoFill* getAutoFill();
+#endif
 private:
     Page* m_page;
     bool  m_shouldChangeSelectedRange;
     bool  m_uiGeneratedSelectionChange;
+#if ENABLE(WEB_AUTOFILL)
+    OwnPtr<WebAutoFill> m_autoFill;
+#endif
 };
 
 }
