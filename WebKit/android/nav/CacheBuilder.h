@@ -40,6 +40,7 @@ using namespace WebCore;
 
 namespace WebCore {
 
+class ColumnInfo;
 class Document;
 class Frame;
 class HTMLAreaElement;
@@ -191,7 +192,7 @@ private:
     struct ClipColumnTracker : Tracker {
         Node* mNode;
         IntRect mBounds;
-        WTF::Vector<IntRect>* mColumns;
+        ColumnInfo* mColumnInfo;
         int mColumnGap;
         TextDirection mDirection;
         bool mHasClip;

@@ -26,6 +26,7 @@
 #include "CachedPrefix.h"
 #include "CachedNode.h"
 #include "CachedRoot.h"
+#include "ColumnInfo.h"
 #include "Document.h"
 #include "EventListener.h"
 #include "EventNames.h"
@@ -789,9 +790,9 @@ void CacheBuilder::adjustForColumns(const ClipColumnTracker& track,
     int tx = track.mBounds.x();
     int ty = track.mBounds.y();
     int columnGap = track.mColumnGap;
-    size_t limit = track.mColumns->size();
+    size_t limit = track.mColumnInfo->columnCount();
     for (size_t index = 0; index < limit; index++) {
-        IntRect column = track.mColumns->at(index);
+        IntRect column = track.mColumnInfo->columnRectAt(index);
         column.move(tx, ty);
         IntRect test = *bounds;
         test.move(x, y);
@@ -1149,7 +1150,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         IntRect bounds;
         IntRect absBounds;
         IntRect originalAbsBounds;
-        WTF::Vector<IntRect>* columns = NULL;
+        ColumnInfo* columnInfo = NULL;
         if (node->hasTagName(HTMLNames::areaTag)) {
             type = AREA_CACHEDNODETYPE;
             HTMLAreaElement* area = static_cast<HTMLAreaElement*>(node);
@@ -1197,22 +1198,22 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         if (nodeRenderer->isRenderBlock()) {
             RenderBlock* renderBlock = (RenderBlock*) nodeRenderer;
             if (renderBlock->hasColumns()) {
-                columns = renderBlock->columnRects();
+                columnInfo = renderBlock->columnInfo();
                 columnGap = renderBlock->columnGap();
                 direction = renderBlock->style()->direction();
             }
         }
-        if ((hasClip != false || columns != NULL) && lastChild) {
+        if ((hasClip != false || columnInfo != NULL) && lastChild) {
             clipTracker.grow(clipTracker.size() + 1);
             ClipColumnTracker& clip = clipTracker.last();
             clip.mBounds = absBounds;
             clip.mLastChild = OneAfter(lastChild);
             clip.mNode = node;
-            clip.mColumns = columns;
+            clip.mColumnInfo = columnInfo;
             clip.mColumnGap = columnGap;
             clip.mHasClip = hasClip;
             clip.mDirection = direction;
-            if (columns != NULL) {
+            if (columnInfo != NULL) {
                 const IntRect& oRect = ((RenderBox*)nodeRenderer)->visibleOverflowRect();
                 clip.mBounds.move(oRect.x(), oRect.y());
             }
