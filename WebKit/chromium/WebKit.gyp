@@ -733,13 +733,19 @@
                         'src',
                     ],
                     'sources': [
+                        'tests/ArenaTestHelpers.h',
                         'tests/DragImageTest.cpp',
                         'tests/IDBBindingUtilitiesTest.cpp',
                         'tests/IDBKeyPathTest.cpp',
                         'tests/KeyboardTest.cpp',
                         'tests/KURLTest.cpp',
+                        'tests/PODArenaTest.cpp',
+                        'tests/PODIntervalTreeTest.cpp',
+                        'tests/PODRedBlackTreeTest.cpp',
                         'tests/RunAllTests.cpp',
                         'tests/TilingDataTest.cpp',
+                        'tests/TreeTestHelpers.cpp',
+                        'tests/TreeTestHelpers.h',
                     ],
                     'conditions': [
                         ['OS=="win"', {

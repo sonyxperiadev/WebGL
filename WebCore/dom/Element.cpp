@@ -540,6 +540,11 @@ void Element::setAttribute(const AtomicString& name, const AtomicString& value, 
         return;
     }
 
+#if ENABLE(INSPECTOR)
+    if (!isSynchronizingStyleAttribute())
+        InspectorController::willModifyDOMAttr(this);
+#endif
+
     const AtomicString& localName = shouldIgnoreAttributeCase(this) ? name.lower() : name;
 
     // Allocate attribute map if necessary.
@@ -563,17 +568,18 @@ void Element::setAttribute(const AtomicString& name, const AtomicString& value, 
     }
 
 #if ENABLE(INSPECTOR)
-    if (Page* page = document()->page()) {
-        if (InspectorController* inspectorController = page->inspectorController()) {
-            if (!isSynchronizingStyleAttribute())
-                inspectorController->didModifyDOMAttr(this);
-        }
-    }
+    if (!isSynchronizingStyleAttribute())
+        InspectorController::didModifyDOMAttr(this);
 #endif
 }
 
 void Element::setAttribute(const QualifiedName& name, const AtomicString& value, ExceptionCode&)
 {
+#if ENABLE(INSPECTOR)
+    if (!isSynchronizingStyleAttribute())
+        InspectorController::willModifyDOMAttr(this);
+#endif
+
     document()->incDOMTreeVersion();
 
     // Allocate attribute map if necessary.
@@ -592,12 +598,8 @@ void Element::setAttribute(const QualifiedName& name, const AtomicString& value,
     }
 
 #if ENABLE(INSPECTOR)
-    if (Page* page = document()->page()) {
-        if (InspectorController* inspectorController = page->inspectorController()) {
-            if (!isSynchronizingStyleAttribute())
-                inspectorController->didModifyDOMAttr(this);
-        }
-    }
+    if (!isSynchronizingStyleAttribute())
+        InspectorController::didModifyDOMAttr(this);
 #endif
 }
 
@@ -693,9 +695,12 @@ void Element::setAttributeMap(PassRefPtr<NamedNodeMap> list, FragmentScriptingPe
                 i++;
             }
         }
-        unsigned len = m_attributeMap->length();
-        for (unsigned i = 0; i < len; i++)
-            attributeChanged(m_attributeMap->m_attributes[i].get());
+        // Store the set of attributes that changed on the stack in case
+        // attributeChanged mutates m_attributeMap.
+        Vector<RefPtr<Attribute> > attributes;
+        m_attributeMap->copyAttributesToVector(attributes);
+        for (Vector<RefPtr<Attribute> >::iterator iter = attributes.begin(); iter != attributes.end(); ++iter)
+            attributeChanged(iter->get());
         // FIXME: What about attributes that were in the old map that are not in the new map?
     }
 }
@@ -1228,6 +1233,8 @@ void Element::setAttributeNS(const AtomicString& namespaceURI, const AtomicStrin
 
 void Element::removeAttribute(const String& name, ExceptionCode& ec)
 {
+    InspectorController::willModifyDOMAttr(this);
+
     String localName = shouldIgnoreAttributeCase(this) ? name.lower() : name;
 
     if (m_attributeMap) {
@@ -1236,13 +1243,7 @@ void Element::removeAttribute(const String& name, ExceptionCode& ec)
             ec = 0;
     }
     
-#if ENABLE(INSPECTOR)
-    if (Page* page = document()->page()) {
-        if (InspectorController* inspectorController = page->inspectorController())
-            inspectorController->didModifyDOMAttr(this);
-    }
-#endif
-    
+    InspectorController::didModifyDOMAttr(this);
 }
 
 void Element::removeAttributeNS(const String& namespaceURI, const String& localName, ExceptionCode& ec)
@@ -1555,6 +1556,13 @@ DOMStringMap* Element::dataset()
     if (!data->m_datasetDOMStringMap)
         data->m_datasetDOMStringMap = DatasetDOMStringMap::create(this);
     return data->m_datasetDOMStringMap.get();
+}
+
+DOMStringMap* Element::optionalDataset() const
+{
+    if (!hasRareData())
+        return 0;
+    return rareData()->m_datasetDOMStringMap.get();
 }
 
 KURL Element::getURLAttribute(const QualifiedName& name) const

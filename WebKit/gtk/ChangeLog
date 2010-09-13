@@ -1,3 +1,90 @@
+2010-09-08  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Move functions from Frame to Editor as planned
+        https://bugs.webkit.org/show_bug.cgi?id=45218
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_set_highlight_text_matches):
+        (webkit_web_view_get_selected_text):
+        (webkit_web_view_set_editable):
+        Changed call sites to use editor().
+
+2010-09-09  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] testmimehandling falsely succeeds testing Ogg mime type
+        https://bugs.webkit.org/show_bug.cgi?id=45349
+
+        Make this actually test an ogg file request instead of pdf and
+        changed the expected result to match libsoup content-sniffing
+        result in the case of ogg/vorbis file.
+
+        * tests/testmimehandling.c:
+        (mime_type_policy_decision_requested_cb):
+        (test_mime_ogg):
+
+2010-09-08  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [Gtk] A list item's number/bullet should not be a child of that list item
+        https://bugs.webkit.org/show_bug.cgi?id=45190
+
+        New unit test added.
+
+        * tests/testatk.c:
+        (testWebkitAtkListsOfItems): New test to check ordered/unordered
+        list of items are properly exposed to AT technologies.
+        (main):
+
+2010-09-07  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Fix some feature guards
+        https://bugs.webkit.org/show_bug.cgi?id=45302
+
+        * webkit/webkitprivate.h: Add ENABLE(VIDEO) guards for video specific members.
+
+2010-09-03  Jesus Sanchez-Palencia  <jesus.palencia@openbossa.org>
+
+        Reviewed by Darin Adler.
+
+        Add NetworkingContext to avoid layer violations
+        https://bugs.webkit.org/show_bug.cgi?id=42292
+
+        Add GTK's specific implementation of FrameNetworkingContext.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::createNetworkingContext):
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+
+2010-09-03  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Dialog separators are gone in GTK+ 3.x.
+
+        * webkit/webkitsoupauthdialog.c:
+        (show_auth_dialog):
+
+2010-09-02  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        REGRESSION: Crash occurs at objc_msgSend when closing a window that is displaying the web inspector
+        https://bugs.webkit.org/show_bug.cgi?id=44230
+
+        * WebCoreSupport/InspectorClientGtk.cpp:
+        (WebKit::notifyWebViewDestroyed):
+        (WebKit::InspectorFrontendClient::destroyInspectorWindow):
+        (WebKit::InspectorFrontendClient::closeWindow):
+        (WebKit::InspectorFrontendClient::disconnectFromBackend):
+        * WebCoreSupport/InspectorClientGtk.h:
+
 2010-08-31  Dave Hyatt  <hyatt@apple.com>
 
         Reviewed by Sam Weinig.

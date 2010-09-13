@@ -59,6 +59,7 @@
 #include "SearchPopupMenuChromium.h"
 #include "ScriptController.h"
 #include "SecurityOrigin.h"
+#include "SharedGraphicsContext3D.h"
 #include "WebGeolocationService.h"
 #if USE(V8)
 #include "V8Proxy.h"
@@ -749,7 +750,17 @@ void ChromeClientImpl::scheduleCompositingLayerSync()
 {
     m_webView->setRootLayerNeedsDisplay();
 }
+
+bool ChromeClientImpl::allowsAcceleratedCompositing() const
+{
+    return m_webView->allowsAcceleratedCompositing();
+}
 #endif
+
+WebCore::SharedGraphicsContext3D* ChromeClientImpl::getSharedGraphicsContext3D()
+{
+    return m_webView->getSharedGraphicsContext3D();
+}
 
 bool ChromeClientImpl::supportsFullscreenForNode(const WebCore::Node* node)
 {

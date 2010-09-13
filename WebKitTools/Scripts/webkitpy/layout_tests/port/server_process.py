@@ -29,7 +29,6 @@
 
 """Package that implements the ServerProcess wrapper class"""
 
-import fcntl
 import logging
 import os
 import select
@@ -37,6 +36,8 @@ import signal
 import subprocess
 import sys
 import time
+if sys.platform != 'win32':
+    import fcntl
 
 from webkitpy.common.system.executive import Executive
 
@@ -107,14 +108,6 @@ class ServerProcess:
             # poll() is not threadsafe and can throw OSError due to:
             # http://bugs.python.org/issue1731717
             return self._proc.poll()
-        return None
-
-    def returncode(self):
-        """Returns the exit code from the subprcoess; returns None if the
-        process hasn't exited (this is a wrapper around subprocess.returncode).
-        """
-        if self._proc:
-            return self._proc.returncode
         return None
 
     def write(self, input):

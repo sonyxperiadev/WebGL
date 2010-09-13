@@ -263,7 +263,8 @@ bool HTMLInputElement::typeMismatch(const String& value) const
     case COLOR:
         return !isValidColorString(value);
     case NUMBER:
-        return !parseToDoubleForNumberType(value, 0);
+        ASSERT(parseToDoubleForNumberType(value, 0));
+        return false;
     case URL:
         return !KURL(KURL(), value).isValid();
     case EMAIL: {
@@ -830,6 +831,14 @@ void HTMLInputElement::handleFocusEvent()
 
 void HTMLInputElement::handleBlurEvent()
 {
+    if (inputType() == NUMBER) {
+        // Reset the renderer value, which might be unmatched with the element value.
+        setFormControlValueMatchesRenderer(false);
+        // We need to reset the renderer value explicitly because an unacceptable
+        // renderer value should be purged before style calculation.
+        if (renderer())
+            renderer()->updateFromElement();
+    }
     InputElement::dispatchBlurEvent(this, this);
 }
 
@@ -2273,7 +2282,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
             && evt->isKeyboardEvent()
             && focused()
             && document()->frame()
-            && document()->frame()->doTextFieldCommandFromEvent(this, static_cast<KeyboardEvent*>(evt))) {
+            && document()->frame()->editor()->doTextFieldCommandFromEvent(this, static_cast<KeyboardEvent*>(evt))) {
         evt->setDefaultHandled();
         return;
     }
@@ -2676,8 +2685,18 @@ FileList* HTMLInputElement::files()
     return m_fileList.get();
 }
 
+bool HTMLInputElement::isAcceptableValue(const String& proposedValue) const
+{
+    if (inputType() != NUMBER)
+        return true;
+    return proposedValue.isEmpty() || parseToDoubleForNumberType(proposedValue, 0);
+}
+
 String HTMLInputElement::sanitizeValue(const String& proposedValue) const
 {
+    if (inputType() == NUMBER)
+        return parseToDoubleForNumberType(proposedValue, 0) ? proposedValue : String();
+
     if (isTextField())
         return InputElement::sanitizeValueForTextField(this, proposedValue);
 
@@ -2688,6 +2707,11 @@ String HTMLInputElement::sanitizeValue(const String& proposedValue) const
         return serializeForNumberType(StepRange(this).clampValue(proposedValue));
 
     return proposedValue;
+}
+
+bool HTMLInputElement::hasUnacceptableValue() const
+{
+    return inputType() == NUMBER && renderer() && !isAcceptableValue(toRenderTextControl(renderer())->text());
 }
 
 bool HTMLInputElement::needsActivationCallback()

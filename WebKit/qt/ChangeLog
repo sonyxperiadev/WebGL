@@ -1,3 +1,134 @@
+2010-09-08  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Move functions from Frame to Editor as planned
+        https://bugs.webkit.org/show_bug.cgi?id=45218
+
+        * Api/qwebpage.cpp:
+        (QWebPage::selectedText):
+        (QWebPage::setContentEditable):
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::firstRectForCharacterRange):
+        Changed call sites to use editor().
+
+2010-09-08  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by David Hyatt.
+
+        Add smooth scrolling framework, and a Windows implementation.
+        https://bugs.webkit.org/show_bug.cgi?id=32356
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::setScrollBarValue):
+
+2010-09-06  Diego Gonzalez  <diegohcg@webkit.org>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Update NetworkAccessManager in Qt FrameNetworkingContext
+        https://bugs.webkit.org/show_bug.cgi?id=45231
+
+        Make possible to get the current QNAM when NetwokingContext request it.
+
+        * WebCoreSupport/FrameNetworkingContextQt.cpp:
+        (WebCore::FrameNetworkingContextQt::networkAccessManager):
+
+2010-09-06  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Antonio Gomes.
+
+        Web Inspector: Tests crash on Qt bots revealed by r66720
+        https://bugs.webkit.org/show_bug.cgi?id=45256
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorClientQt::InspectorClientQt): m_frontendClient must be initialized by constructor
+
+2010-09-06  Yury Semikhatsky  <yurys@chromium.org>
+
+        Unreviewed. Attempt to fix random test crashes after r66720.
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorFrontendClientQt::~InspectorFrontendClientQt):
+        * WebCoreSupport/InspectorClientQt.h:
+
+2010-09-05  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r66801.
+        http://trac.webkit.org/changeset/66801
+        https://bugs.webkit.org/show_bug.cgi?id=45242
+
+        'breaks editing/pasteboard/onpaste-text-html.html' (Requested
+        by mwenge4 on #webkit).
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::addMessageToConsole):
+
+2010-09-05  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] utf8 encoding of console() messages
+
+        http/tests/security/xssAuditor/embed-tag-null-char.html
+        http/tests/security/xssAuditor/object-embed-tag-null-char.html
+
+        both fail because ChromeClientQt::addMessageToConsole() is
+        casting String to QString rather than String::utf8().data()
+
+        https://bugs.webkit.org/show_bug.cgi?id=45240
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::addMessageToConsole):
+
+2010-09-03  Jesus Sanchez-Palencia  <jesus.palencia@openbossa.org>
+
+        Reviewed by Darin Adler.
+
+        Add NetworkingContext to avoid layer violations
+        https://bugs.webkit.org/show_bug.cgi?id=42292
+
+        Add Qt's specific implementation of NetworkingContext.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::setFrame):
+        (WebCore::FrameLoaderClientQt::createNetworkingContext):
+        * WebCoreSupport/FrameLoaderClientQt.h:
+        * WebCoreSupport/FrameNetworkingContextQt.cpp:
+        (WebCore::FrameNetworkingContextQt::FrameNetworkingContextQt):
+        (WebCore::FrameNetworkingContextQt::create):
+        (WebCore::FrameNetworkingContextQt::originatingObject):
+        (WebCore::FrameNetworkingContextQt::networkAccessManager):
+
+2010-09-02  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        REGRESSION: Crash occurs at objc_msgSend when closing a window that is displaying the web inspector
+        https://bugs.webkit.org/show_bug.cgi?id=44230
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::InspectorClientQt::inspectorDestroyed):
+        (WebCore::InspectorClientQt::openInspectorFrontend):
+        (WebCore::InspectorClientQt::releaseFrontendPage):
+        (WebCore::InspectorFrontendClientQt::closeWindow):
+        (WebCore::InspectorFrontendClientQt::disconnectFromBackend):
+        (WebCore::InspectorFrontendClientQt::destroyInspectorView):
+        (WebCore::InspectorFrontendClientQt::inspectorClientDestroyed):
+        * WebCoreSupport/InspectorClientQt.h:
+
+2010-09-02  Andreas Kling  <andreas.kling@nokia.com>
+
+        Rubber-stamped by Simon Hausmann.
+
+        [Qt] REGRESSION(r62898): tst_QWebFrame crashing
+        https://bugs.webkit.org/show_bug.cgi?id=43039
+
+        Rolling out the offending change <http://trac.webkit.org/changeset/62898>
+
+        * tests/qwebframe/tst_qwebframe.cpp:
+        (tst_QWebFrame::evalJSV):
+
 2010-09-01  Mahesh Kulkarni  <mahesh.kulkarni@nokia.com>
 
         Reviewed by Laszlo Gombos.

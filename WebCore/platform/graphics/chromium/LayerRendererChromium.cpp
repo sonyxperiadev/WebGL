@@ -34,11 +34,11 @@
 #if USE(ACCELERATED_COMPOSITING)
 #include "LayerRendererChromium.h"
 
-#include "CanvasLayerChromium.h"
-#include "ContentLayerChromium.h"
+#include "Canvas2DLayerChromium.h"
 #include "GLES2Context.h"
 #include "LayerChromium.h"
 #include "NotImplemented.h"
+#include "WebGLLayerChromium.h"
 #if PLATFORM(SKIA)
 #include "NativeImageSkia.h"
 #include "PlatformContextSkia.h"
@@ -77,7 +77,14 @@ static inline bool compareLayerZ(const LayerChromium* a, const LayerChromium* b)
 
 PassOwnPtr<LayerRendererChromium> LayerRendererChromium::create(PassOwnPtr<GLES2Context> gles2Context)
 {
-    return new LayerRendererChromium(gles2Context);
+    if (!gles2Context)
+        return 0;
+
+    OwnPtr<LayerRendererChromium> layerRenderer(new LayerRendererChromium(gles2Context));
+    if (!layerRenderer->hardwareCompositing())
+        return 0;
+
+    return layerRenderer.release();
 }
 
 LayerRendererChromium::LayerRendererChromium(PassOwnPtr<GLES2Context> gles2Context)
@@ -91,7 +98,7 @@ LayerRendererChromium::LayerRendererChromium(PassOwnPtr<GLES2Context> gles2Conte
     , m_currentShader(0)
     , m_gles2Context(gles2Context)
 {
-    m_hardwareCompositing = (m_gles2Context && initializeSharedObjects());
+    m_hardwareCompositing = initializeSharedObjects();
 }
 
 LayerRendererChromium::~LayerRendererChromium()
@@ -118,10 +125,7 @@ void LayerRendererChromium::setRootLayerCanvasSize(const IntSize& size)
     // the old ones.
     m_rootLayerCanvas = new skia::PlatformCanvas(size.width(), size.height(), false);
     m_rootLayerSkiaContext = new PlatformContextSkia(m_rootLayerCanvas.get());
-#if OS(WINDOWS)
-    // FIXME: why is this is a windows-only call ?
     m_rootLayerSkiaContext->setDrawingToImageBuffer(true);
-#endif
     m_rootLayerGraphicsContext = new GraphicsContext(reinterpret_cast<PlatformGraphicsContext*>(m_rootLayerSkiaContext.get()));
 #elif PLATFORM(CG)
     // Release the previous CGBitmapContext before reallocating the backing store as a precaution.

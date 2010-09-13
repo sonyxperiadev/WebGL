@@ -1,3 +1,894 @@
+2010-09-09  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Hook up LayoutTestController.setMockDeviceOrientation() in Chromium DumpRenderTree.
+        https://bugs.webkit.org/show_bug.cgi?id=45460
+
+        This enables DumpRenderTree to run layout tests for DeviceOrientation.
+
+        Also declare the LayoutTestController destructor out-of-line.
+        Otherwise the implicit destructor would cause compiler errors because
+        of the OwnPtr<WebKit::WebDeviceOrientationClientMock> member.
+
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::~LayoutTestController):
+        (LayoutTestController::setMockDeviceOrientation):
+        (LayoutTestController::deviceOrientationClient):
+        * DumpRenderTree/chromium/LayoutTestController.h:
+        * DumpRenderTree/chromium/WebViewHost.cpp:
+        (WebViewHost::deviceOrientationClient):
+        * DumpRenderTree/chromium/WebViewHost.h:
+
+2010-09-09  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r67119.
+        http://trac.webkit.org/changeset/67119
+        https://bugs.webkit.org/show_bug.cgi?id=45505
+
+        Extra newlines in results (Requested by tony^work on #webkit).
+
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (LayoutTestController::reset):
+        * DumpRenderTree/chromium/LayoutTestController.h:
+        * DumpRenderTree/chromium/TestShell.h:
+        * DumpRenderTree/chromium/WebViewHost.cpp:
+        (printResponseDescription):
+        (printNodeDescription):
+        (printRangeDescription):
+        (WebViewHost::shouldBeginEditing):
+        (WebViewHost::shouldEndEditing):
+        (WebViewHost::shouldInsertNode):
+        (WebViewHost::shouldChangeSelectedRange):
+        (WebViewHost::shouldDeleteRange):
+        (WebViewHost::shouldApplyStyle):
+        (WebViewHost::didBeginEditing):
+        (WebViewHost::didChangeSelection):
+        (WebViewHost::didChangeContents):
+        (WebViewHost::didEndEditing):
+        (WebViewHost::decidePolicyForNavigation):
+        (WebViewHost::didCancelClientRedirect):
+        (WebViewHost::didStartProvisionalLoad):
+        (WebViewHost::didReceiveServerRedirectForProvisionalLoad):
+        (WebViewHost::didFailProvisionalLoad):
+        (WebViewHost::didCommitProvisionalLoad):
+        (WebViewHost::didFinishDocumentLoad):
+        (WebViewHost::didHandleOnloadEvents):
+        (WebViewHost::didFailLoad):
+        (WebViewHost::didFinishLoad):
+        (WebViewHost::didChangeLocationWithinPage):
+        (WebViewHost::willSendRequest):
+        (WebViewHost::didReceiveResponse):
+        (WebViewHost::didFinishResourceLoad):
+        (WebViewHost::didFailResourceLoad):
+        (WebViewHost::didDisplayInsecureContent):
+        (WebViewHost::didRunInsecureContent):
+        (WebViewHost::printFrameDescription):
+
+2010-09-09  Michael Saboff  <msaboff@apple.com>
+
+        Unreviewed, adding myself to committers list.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-09-09  Mihai Parparita  <mihaip@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        Implement layoutTestController.dumpResourceResponseMIMETypes in Chromium DRT
+        https://bugs.webkit.org/show_bug.cgi?id=45479
+
+        Implement layoutTestController.dumpResourceResponseMIMETypes (modelled after
+        implementation in ResourceLoadDelegate in the Mac port).
+
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (LayoutTestController::dumpResourceResponseMIMETypes):
+        (LayoutTestController::reset):
+        * DumpRenderTree/chromium/LayoutTestController.h:
+        (LayoutTestController::setShouldDumpResourceResponseMIMETypes):
+        (LayoutTestController::shouldDumpResourceResponseMIMETypes):
+        * DumpRenderTree/chromium/TestShell.h:
+        (TestShell::shouldDumpResourceResponseMIMETypes):
+        * DumpRenderTree/chromium/WebViewHost.cpp:
+        (WebViewHost::didReceiveResponse):
+
+2010-09-09  Mihai Parparita  <mihaip@chromium.org>
+
+        Reviewed by Daniel Bates.
+
+        svn-apply tries to delete directories it shouldn't
+        https://bugs.webkit.org/show_bug.cgi?id=45424
+
+        isDirectoryEmptyForRemoval had the wrong check. If an item in the
+        directory is itself a directory, then the directory is definitely
+        not empty.
+
+        * Scripts/svn-apply:
+
+2010-09-09  Chris Fleizach  <cfleizach@apple.com>
+
+        Fixing GTK and windows build failure.
+
+        AX: Support AccessibilityTextMarkers in DRT
+        https://bugs.webkit.org/show_bug.cgi?id=44778
+
+        * DumpRenderTree/AccessibilityTextMarker.h:
+        (AccessibilityTextMarker::platformTextMarker):
+        (AccessibilityTextMarkerRange::platformTextMarkerRange):
+        * DumpRenderTree/mac/AccessibilityTextMarkerMac.mm:
+        (AccessibilityTextMarker::platformTextMarker):
+        (AccessibilityTextMarkerRange::platformTextMarkerRange):
+
+2010-09-09  Chris Fleizach  <cfleizach@apple.com>
+
+        Reviewed by David Kilzer.
+
+        AX: Support AccessibilityTextMarkers in DRT
+        https://bugs.webkit.org/show_bug.cgi?id=44778
+
+        Add AccessibilityTextMarker and AccessibilityTextMarkerRange which encapsulate the AXTextMarkers 
+        that WebCore uses when vending information about its VisiblePositions through AX.
+
+        There are a few new methods in AccessibilityUIElement to retrieve and use text markers, and some basic
+        methods for encapsulating and checking equality.
+
+        This will allow future bug fixes in the text marker system to be adequately tested.
+
+        * DumpRenderTree/AccessibilityTextMarker.cpp: Added.
+        (toTextMarker):
+        (isMarkerEqualCallback):
+        (markerFinalize):
+        (AccessibilityTextMarker::makeJSAccessibilityTextMarker):
+        (AccessibilityTextMarker::getJSClass):
+        (toTextMarkerRange):
+        (isMarkerRangeEqualCallback):
+        (markerRangeFinalize):
+        (AccessibilityTextMarkerRange::makeJSAccessibilityTextMarkerRange):
+        (AccessibilityTextMarkerRange::getJSClass):
+        * DumpRenderTree/AccessibilityTextMarker.h: Added.
+        (AccessibilityTextMarker::platformTextMarker):
+        (AccessibilityTextMarkerRange::platformTextMarkerRange):
+        (AccessibilityTextMarker::AccessibilityTextMarker):
+        (AccessibilityTextMarker::~AccessibilityTextMarker):
+        (AccessibilityTextMarker::isEqual):
+        (AccessibilityTextMarkerRange::AccessibilityTextMarkerRange):
+        (AccessibilityTextMarkerRange::~AccessibilityTextMarkerRange):
+        (AccessibilityTextMarkerRange::isEqual):
+        * DumpRenderTree/AccessibilityUIElement.cpp:
+        (textMarkerRangeForElementCallback):
+        (textMarkerRangeLengthCallback):
+        (textMarkerRangeForMarkersCallback):
+        (startTextMarkerForTextMarkerRangeCallback):
+        (endTextMarkerForTextMarkerRangeCallback):
+        (accessibilityElementForTextMarkerCallback):
+        (AccessibilityUIElement::textMarkerRangeForElement):
+        (AccessibilityUIElement::textMarkerRangeLength):
+        (AccessibilityUIElement::startTextMarkerForTextMarkerRange):
+        (AccessibilityUIElement::endTextMarkerForTextMarkerRange):
+        (AccessibilityUIElement::accessibilityElementForTextMarker):
+        (AccessibilityUIElement::getJSClass):
+        * DumpRenderTree/AccessibilityUIElement.h:
+        * DumpRenderTree/DumpRenderTree.xcodeproj/project.pbxproj:
+        * DumpRenderTree/mac/AccessibilityTextMarkerMac.mm: Added.
+        (AccessibilityTextMarker::AccessibilityTextMarker):
+        (AccessibilityTextMarker::~AccessibilityTextMarker):
+        (AccessibilityTextMarker::isEqual):
+        (AccessibilityTextMarkerRange::AccessibilityTextMarkerRange):
+        (AccessibilityTextMarkerRange::~AccessibilityTextMarkerRange):
+        (AccessibilityTextMarkerRange::isEqual):
+        * DumpRenderTree/mac/AccessibilityUIElementMac.mm:
+        (AccessibilityUIElement::textMarkerRangeForElement):
+        (AccessibilityUIElement::textMarkerRangeLength):
+        (AccessibilityUIElement::textMarkerRangeForMarkers):
+        (AccessibilityUIElement::startTextMarkerForTextMarkerRange):
+        (AccessibilityUIElement::endTextMarkerForTextMarkerRange):
+        (AccessibilityUIElement::accessibilityElementForTextMarker):
+        * DumpRenderTree/win/DumpRenderTree.vcproj:
+
+2010-08-25  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        don't delete duplicates needed because of intermediate results
+        https://bugs.webkit.org/show_bug.cgi?id=44653
+
+        Also, output the full path so we can pipe the output to rm.
+
+        * Scripts/webkitpy/layout_tests/deduplicate_tests.py:
+        * Scripts/webkitpy/layout_tests/deduplicate_tests_unittest.py:
+
+2010-09-09  Balazs Kelemen  <kb@inf.u-szeged.hu>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] MiniBrowser does not starts properly
+        https://bugs.webkit.org/show_bug.cgi?id=45459
+
+        Do not try set up the first window by calling newWindow on a
+        newly created BrowserWindow since it creates a new object.
+        * MiniBrowser/qt/BrowserWindow.cpp:
+        (BrowserWindow::BrowserWindow):
+        * MiniBrowser/qt/main.cpp:
+        (main):
+
+2010-09-09  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Get ImageDiff building on Win32
+        https://bugs.webkit.org/show_bug.cgi?id=45353
+
+        * DumpRenderTree/gtk/ImageDiff.cpp:
+        (main): Switch from using strtok to g_strsplit.
+
+2010-09-09  Zoltan Horvath  <zoltan@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Modify load method of MiniBrowser's BrowserView class
+        https://bugs.webkit.org/show_bug.cgi?id=45442
+
+        Modify load method to take a QString as argument, remove unnecessary QT_VERSION_CHECK.
+
+        * MiniBrowser/qt/BrowserView.cpp:
+        (BrowserView::load):
+        * MiniBrowser/qt/BrowserView.h:
+        * MiniBrowser/qt/BrowserWindow.cpp:
+        (BrowserWindow::load):
+
+2010-09-09  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        fix show_results in new-run-webkit-tests
+        https://bugs.webkit.org/show_bug.cgi?id=45413
+
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+
+2010-09-08  Victor Wang  <victorw@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        [Chromium] Fix test results server to make sure
+        it does not have corrupted data.
+
+        results.json file size coulbe be >1M and we split
+        the data into multiple data store entries in this
+        case. This patch fixes the issue that the data may
+        be corrupted if data store error happens in the middle
+        of saving multiple entries.
+
+        https://bugs.webkit.org/show_bug.cgi?id=45063
+
+        * TestResultServer/model/datastorefile.py:
+
+2010-09-08  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Fix ignoring return value warning in case of gcc 4.4.4
+        https://bugs.webkit.org/show_bug.cgi?id=45384
+
+        * DumpRenderTree/TestNetscapePlugIn/PluginObject.cpp:
+        (testPostURLFile):
+        If fwrite have written zero byte then the testPostURLFile function
+        returns with false as tempFile can't be opened.
+        * DumpRenderTree/qt/ImageDiff.cpp:
+        (main):
+        Put fwrite function into an if condition without body to avoid
+        warning. It is safe because this function writes to the stdout.
+
+2010-09-08  Satish Sampath  <satish@chromium.org>
+
+        Unreviewed, adding myself to committers list.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-09-08  Hans Wennborg  <hans@chromium.org>
+
+        Unreviewed.
+
+        Adding myself as a committer in committers.py.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-09-08  Zoltan Horvath  <zoltan@webkit.org>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Refactor MiniBrowser 
+        https://bugs.webkit.org/show_bug.cgi?id=45173
+
+        Split BrowserWindow into two source files and headers. Remove unnecessary header includes.
+
+        * MiniBrowser/qt/BrowserView.cpp: Added.
+        (createNewPage):
+        (BrowserView::BrowserView):
+        (BrowserView::resizeEvent):
+        (BrowserView::load):
+        (BrowserView::view):
+        * MiniBrowser/qt/BrowserView.h: Added.
+        (BrowserView::~BrowserView):
+        * MiniBrowser/qt/BrowserWindow.cpp:
+        * MiniBrowser/qt/BrowserWindow.h:
+        * MiniBrowser/qt/MiniBrowser.pro:
+
+2010-09-08  Adam Barth  <abarth@webkit.org>
+
+        Rubber-stamped by Eric Seidel.
+
+        Rename DocLoader to CachedResourceLoader because that's what it does.
+
+        * Scripts/do-webcore-rename:
+
+2010-09-07  Kinuko Yasuda  <kinuko@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        Enable incremental results.json generation for non-layout tests.
+        https://bugs.webkit.org/show_bug.cgi?id=45315
+
+        * Scripts/webkitpy/layout_tests/layout_package/json_results_generator.py: Enable generate_incremental_results=True by default. (This still keeps to generate results.json.)  Also add a code to upload results json files to the app-engine server.  Need a chromium change to actually start the uploading.
+
+        * TestResultServer/model/jsonresults.py: Make sure we save the file with test_type for incremental cases too.
+
+
+2010-09-07  Dirk Pranke  <dpranke@chromium.org>
+
+        Unreviewed, build fix
+
+        Missed one test in mac_unittest.py in previous change; for some
+        reason the method is listed twice. I will fix both for now, but will
+        figure this out in a later, not-time-sensitive patch.
+
+        https://bugs.webkit.org/show_bug.cgi?id=45357
+
+        * Scripts/webkitpy/layout_tests/port/mac_unittest.py:
+
+2010-09-07  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        test-webkitpy: Fix load error of
+        webkitpy/layout_tests/port/factory_unittest.py on Win32 Python
+        https://bugs.webkit.org/show_bug.cgi?id=45356 Need a short
+
+        * Scripts/webkitpy/layout_tests/port/server_process.py:
+          Avoid to import fcntl on win32. Win32 Python doesn't have fcntl
+          and we don't use server_process.py on Win32 Python. However
+          unittest.py tries to load everything in a module.
+
+2010-09-07  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        Fix regression introduced in previous change to new-run-webkit-tests
+        (bug 45090) to not try to run unittests for the Mac implementation
+        of the Port interface if we aren't running on a Mac.
+
+        Also fix the overrides implementation mock in the chromium unittests
+        to fix the case where there are overrides checked in that cause
+        problems.
+
+        https://bugs.webkit.org/show_bug.cgi?id=45357
+
+        * Scripts/webkitpy/layout_tests/port/chromium_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/mac_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/port_testcase.py:
+
+2010-09-01  Dirk Pranke  <dpranke@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        new-run-webkit-tests: still more unit tests
+
+        Clean up and remove unnecessary code. Biggest notable change is
+        moving the chromium-specific imagediff code from port/base to
+        port/chromium.
+
+        Add more unit tests for run_webkit_tests.py, port/base.py,
+        port/factory.py, port/dryrun.py, and
+        layout_package/dump_render_tree_thread.py
+
+        This covers almost all of the generic and test code paths except for
+        a few error paths involving invalid or port-specific command line
+        arguments, and the code path for uploading results files to the
+        buildbots.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=45090
+
+        * Scripts/webkitpy/layout_tests/data/failures/expected/hang.html: Added.
+        * Scripts/webkitpy/layout_tests/data/http/tests/passes/text-expected.txt: Copied from WebKitTools/Scripts/webkitpy/layout_tests/data/passes/text-expected.txt.
+        * Scripts/webkitpy/layout_tests/data/http/tests/passes/text.html: Copied from WebKitTools/Scripts/webkitpy/layout_tests/data/passes/text.html.
+        * Scripts/webkitpy/layout_tests/data/http/tests/ssl/text-expected.txt: Copied from WebKitTools/Scripts/webkitpy/layout_tests/data/passes/text-expected.txt.
+        * Scripts/webkitpy/layout_tests/data/http/tests/ssl/text.html: Copied from WebKitTools/Scripts/webkitpy/layout_tests/data/passes/text.html.
+        * Scripts/webkitpy/layout_tests/data/platform/test/test_expectations.txt:
+        * Scripts/webkitpy/layout_tests/data/websocket/tests/passes/text-expected.txt: Copied from WebKitTools/Scripts/webkitpy/layout_tests/data/passes/text-expected.txt.
+        * Scripts/webkitpy/layout_tests/data/websocket/tests/passes/text.html: Copied from WebKitTools/Scripts/webkitpy/layout_tests/data/passes/text.html.
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread.py:
+        * Scripts/webkitpy/layout_tests/layout_package/dump_render_tree_thread_unittest.py: Added.
+        * Scripts/webkitpy/layout_tests/port/base.py:
+        * Scripts/webkitpy/layout_tests/port/base_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+        * Scripts/webkitpy/layout_tests/port/dryrun.py:
+        * Scripts/webkitpy/layout_tests/port/factory_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/mac_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/port_testcase.py: Added.
+        * Scripts/webkitpy/layout_tests/port/server_process.py:
+        * Scripts/webkitpy/layout_tests/port/test.py:
+        * Scripts/webkitpy/layout_tests/port/webkit.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+        * Scripts/webkitpy/layout_tests/run_webkit_tests_unittest.py:
+
+2010-09-07  Joseph Pecoraro  <joepeck@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Provide a way to trigger a <select multiple> onchange event on changes
+        https://bugs.webkit.org/show_bug.cgi?id=45192
+
+        Adds a selector on ObjCController for testing
+        -[DOMHTMLSelectElement _activateItemAtIndex:allowMultipleSelection:] and
+        its different uses.
+
+        * DumpRenderTree/mac/ObjCController.m:
+        (+[ObjCController isSelectorExcludedFromWebScript:]):
+        (+[ObjCController webScriptNameForSelector:]):
+        (-[ObjCController setSelectElement:selectedIndex:allowingMultiple:]):
+
+2010-09-07  James Robinson  <jamesr@chromium.org>
+
+        Rubber-stamped by Dimitri Glazkov.
+
+        Move myself from the committer to the reviewer list.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-09-07  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Make a public flag for how DRT generates bitmaps on Linux
+        https://bugs.webkit.org/show_bug.cgi?id=45133
+
+        * DumpRenderTree/chromium/TestShell.cpp:
+        (TestShell::dumpImage):
+
+2010-09-07  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Implement --check-layout-test-sys-deps
+        https://bugs.webkit.org/show_bug.cgi?id=45283
+
+        * DumpRenderTree/chromium/DumpRenderTree.cpp:
+        (main): Check --check-layout-test-sys-deps and call checkLayoutTestSystemDependencies().
+        * DumpRenderTree/chromium/TestShell.h: Declare checkLayoutTestSystemDependencies().
+        * DumpRenderTree/chromium/TestShellGtk.cpp:
+        (checkLayoutTestSystemDependencies): Add an empty implementation.
+        * DumpRenderTree/chromium/TestShellMac.mm:
+        (checkLayoutTestSystemDependencies): Add an empty implementation.
+        * DumpRenderTree/chromium/TestShellWin.cpp:
+        (checkLayoutTestSystemDependencies): Port similar function of test_shell.
+
+2010-09-07  Jessie Berlin  <jberlin@apple.com>
+
+        Unreviewed. Mac build fix.
+
+        * MiniBrowser/mac/WebBundle/WebBundleMain.m:
+        (didClearWindowObjectForFrame):
+
+2010-09-07  Jessie Berlin  <jberlin@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Indicate which one of the ScriptWorlds for a Frame the Window Object has been cleared for
+        https://bugs.webkit.org/show_bug.cgi?id=45217
+        
+        Make WebKitTestRunner work with this change.
+
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.cpp:
+        (WTR::InjectedBundlePage::didClearWindowForFrame):
+        Make sure the ScriptWorld here is the normal world, since that is no longer being done in
+        WebFrameLoaderClient.
+        * WebKitTestRunner/InjectedBundle/InjectedBundlePage.h:
+
+2010-09-07  Philippe Normand  <pnormand@igalia.com>
+
+        Unreviewed, build fix.
+
+        webkit-patch command to find the ports covering a specific layout test
+        https://bugs.webkit.org/show_bug.cgi?id=42832
+
+        * Scripts/webkitpy/layout_tests/port/chromium.py: Don't assume the
+        tests are present when building the expectations. This is needed
+        for the unittests.
+
+2010-09-06  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Adam Barth.
+
+        webkit-patch command to find the ports covering a specific layout test
+        https://bugs.webkit.org/show_bug.cgi?id=42832
+
+        To use it: webkit-patch skipped-ports some/layout/test.html
+
+        * Scripts/webkitpy/layout_tests/port/base.py:
+        * Scripts/webkitpy/layout_tests/port/base_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/chromium.py:
+        * Scripts/webkitpy/layout_tests/port/chromium_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/factory.py:
+        * Scripts/webkitpy/layout_tests/port/factory_unittest.py:
+        * Scripts/webkitpy/layout_tests/port/test.py:
+        * Scripts/webkitpy/layout_tests/port/webkit.py:
+        * Scripts/webkitpy/layout_tests/port/webkit_unittest.py:
+        * Scripts/webkitpy/tool/commands/queries.py:
+        * Scripts/webkitpy/tool/commands/queries_unittest.py:
+        * Scripts/webkitpy/tool/main.py:
+        * Scripts/webkitpy/tool/mocktool.py:
+
+2010-09-07  Gabor Rapcsanyi  <rgabor@inf.u-szeged.hu>
+
+        Reviewed by Eric Seidel.
+
+        [NRWT] Add temp directory to all running drivers.
+        https://bugs.webkit.org/show_bug.cgi?id=45261
+
+        * Scripts/webkitpy/layout_tests/port/webkit.py:
+
+2010-09-06  Dimitri Glazkov  <dglazkov@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [Chromium/DRT] Empty out user stylesheet after each test run.
+        https://bugs.webkit.org/show_bug.cgi?id=45282
+
+        This should significantly cut down on the number of the mysterious flaky tests
+        whose diffs looked like the page was blown up to a very lage size. This
+        was indeed the dirty work of platform/mac/fast/loader/user-stylesheet-fast-path.html,
+        which set the base body font to 100px.
+
+        Since the user stylesheet was never reset, _all_ pixel tests that ran after it in
+        the same thread failed.
+
+        * DumpRenderTree/chromium/TestShell.cpp:
+        (TestShell::resetWebSettings): Set user stylesheet to an empty URL.
+
+2010-09-06  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Do not generate pixel results for text/plain resources
+        https://bugs.webkit.org/show_bug.cgi?id=45253
+
+        * DumpRenderTree/chromium/TestShell.cpp:
+        (TestShell::dump): Clear shouldGeneratePixelResults flag for text/plain.
+
+2010-09-06  Ojan Vafai  <ojan@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        print out correct error when a DRT thread dies in NRWT
+        https://bugs.webkit.org/show_bug.cgi?id=45281
+
+        Not sure why, but with the parens, python 2.6.5 on Linux
+        gives an error that raise takes 5 arguments and 0 were given.
+        Didn't test other platforms or python versions, but putting it
+        all on one line fixes it and correctly prints the exception
+        from the DRT thread.
+
+        * Scripts/webkitpy/layout_tests/run_webkit_tests.py:
+
+2010-09-06  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed, just adding some emails from lists.webkit.org.
+
+        Update committers.py to include emails from lists.webkit.org
+        as found by the validate-committer-lists script.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-09-06  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Small code cleanup in DumpRenderTreeGtk.cpp
+        https://bugs.webkit.org/show_bug.cgi?id=45213
+
+        * DumpRenderTree/gtk/DumpRenderTree.cpp:
+        (initializeFonts): Made this function do nothing for non-X11 platforms, so we don't
+        have to surround the invocation with #ifdefs.
+        (useLongRunningServerMode): Added.
+        (runTestingServerLoop): Added.
+        (initializeGlobalsFromCommandLineOptions): Added.
+        (runTest): Removed ifdefs.
+        (main): Use new helper functions.
+
+2010-09-06  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] EventSender should support modifier keys with mouseDown and mouseUp events
+        https://bugs.webkit.org/show_bug.cgi?id=45235
+
+        Add support for interpreting the modifier key arguments to the mouseDown and mouseUp
+        methods of the EventSender.
+
+        * DumpRenderTree/gtk/EventSender.cpp:
+        (prepareMouseButtonEvent): Allow passing in a modifier bitmask, which will be OR'd
+        with the current modifiers.
+        (contextClickCallback): Always send no modifiers when preparing the mouse event.
+        (gdkModifersFromJSValue): Added, converts a JSValue array into a GDK modifier bitmask.
+        (mouseDownCallback): Send in the requested modifiers to prepareMouseButtonEvent.
+        (mouseUpCallback): Ditto.
+
+2010-09-05  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by Adam Barth.
+
+        Make Chromium/Mac generate continuous mousewheel events with the same wheelDelta values as Safari/Mac.
+        https://bugs.webkit.org/show_bug.cgi?id=45155
+
+        * DumpRenderTree/chromium/EventSender.cpp: Modify Chromium DRT mousewheel event generation to match new behavior on Mac.
+        (EventSender::handleMouseWheel):
+
+2010-09-05  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Joseph Pecoraro.
+
+        Web Inspector: remove WebDevToolsAgentClient::forceRepaint which is not used
+        https://bugs.webkit.org/show_bug.cgi?id=45179
+
+        * DumpRenderTree/chromium/DRTDevToolsAgent.cpp:
+        * DumpRenderTree/chromium/DRTDevToolsAgent.h:
+
+2010-09-05  Andreas Kling  <andreas.kling@nokia.com>
+
+        Rubber-stamped by Daniel Bates.
+
+        Adding myself as reviewer.
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-09-04  Daniel Bates  <dbates@rim.com>
+
+        Reviewed by Martin Robinson.
+
+        Teach svn-apply/unapply about svn:mergeinfo
+        https://bugs.webkit.org/show_bug.cgi?id=45236
+
+        Recognize the svn:mergeinfo property and ignore it for now.
+
+        Currently, svn-apply/unapply recognize only '+' and '-'
+        property changes within a diff. We should add support
+        to recognize "Merged" and "Reverse-merged" changes as well.
+        Because svn:mergeinfo is metadata that is used only by SVN
+        and tends to be error-prone and/or nuisance (*), we will ignore
+        it for now.
+        (*) See "Parting Thoughts" of <http://www.collab.net/community/subversion/articles/merge-info.html>.
+
+        * Scripts/VCSUtils.pm:
+          - Modified parseSvnProperty() to recognize "Merged" and
+            "Reverse-merged" as the start of a property value.
+        * Scripts/webkitperl/VCSUtils_unittest/parseSvnDiffFooter.pl:
+          - Added the following unit tests:
+            "simple: add svn:mergeinfo"
+            "simple: delete svn:mergeinfo"
+            "simple: modified svn:mergeinfo"
+        * Scripts/webkitperl/VCSUtils_unittest/parseSvnProperty.pl:
+          - Added the following unit tests:
+            "simple: add svn:mergeinfo"
+            "simple: delete svn:mergeinfo"
+            "simple: modified svn:mergeinfo"
+            "simple: modified svn:mergeinfo using SVN 1.4 syntax"
+            "'Merged' change followed by 'Merged' change"
+            "'Reverse-merged' change followed by 'Reverse-merged' change"
+        * Scripts/webkitperl/VCSUtils_unittest/parseSvnPropertyValue.pl:
+          - Added the following unit tests:
+            "'Merged' change"
+            "'Reverse-merged' change"
+            "'Reverse-merged' change followed by 'Merge' change"
+            "'Merged' change followed by 'Merge' change"
+            "'Reverse-merged' change followed by 'Reverse-merged' change"
+            "'Reverse-merged' change followed by 'Reverse-merged' change followed by 'Merged' change"
+
+2010-09-04  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Move test browser to WebKitTools directory
+        https://bugs.webkit.org/show_bug.cgi?id=45212
+
+        Follow other ports like QT and GTK which moved the test browser to
+        WebKitTools directory.
+
+        * CMakeListsEfl.txt: Added.
+        * EWebLauncher/main.c: Added.
+        (print_history):
+        (zoom_level_set):
+        (on_ecore_evas_resize):
+        (title_set):
+        (viewport_set):
+        (on_title_changed):
+        (on_progress):
+        (on_load_finished):
+        (on_toolbars_visible_set):
+        (on_toolbars_visible_get):
+        (on_statusbar_visible_set):
+        (on_statusbar_visible_get):
+        (on_scrollbars_visible_set):
+        (on_scrollbars_visible_get):
+        (on_menubar_visible_set):
+        (on_menubar_visible_get):
+        (on_tooltip_text_set):
+        (on_inputmethod_changed):
+        (on_viewport_changed):
+        (on_mouse_down):
+        (on_focus_out):
+        (on_focus_in):
+        (on_resized):
+        (on_key_down):
+        (on_browser_del):
+        (on_closeWindow):
+        (quit):
+        (browserCreate):
+        (browserDestroy):
+        (closeWindow):
+        (main_signal_exit):
+        (findThemePath):
+        (main):
+
+2010-09-03  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Set project dependencies so that they build serially. This fixes
+        issues when running run-webkit-tests if DRT is not built yet.
+
+        * DumpRenderTree/DumpRenderTree.sln:
+
+2010-09-03  Dimitri Glazkov  <dglazkov@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Fix reading configuraiton in NWRT to work on Windows.
+        https://bugs.webkit.org/show_bug.cgi?id=45180
+
+        * Scripts/webkitpy/layout_tests/port/base.py: Added 'perl' argument, because Windows doesn't know what to do
+            with the file otherwise.
+
+2010-09-03  Chris Rogers  <crogers@google.com>
+
+        Unreviewed
+
+        Add myself to the committers list
+        https://bugs.webkit.org/show_bug.cgi?id=45189
+
+        * Scripts/webkitpy/common/config/committers.py:
+
+2010-09-03  Andrey Kosyakov  <caseq@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        http/tests/inspector/console-xhr-logging.html and http/tests/inspector/resource-har-conversion.html are failing on chromium win bot
+        Changed MIME type for .js to application/x-javascript for consistency with apache used on other platforms.
+        https://bugs.webkit.org/show_bug.cgi?id=45137
+
+        * Scripts/webkitpy/layout_tests/port/lighttpd.conf:
+
+2010-09-03  Gabor Rapcsanyi  <rgabor@inf.u-szeged.hu>
+
+        Reviewed by Eric Seidel.
+
+        Add feature detection support to NRWT.
+        https://bugs.webkit.org/show_bug.cgi?id=41842
+
+        * Scripts/webkitpy/layout_tests/port/base.py:
+        * Scripts/webkitpy/layout_tests/port/qt.py:
+        * Scripts/webkitpy/layout_tests/port/webkit.py:
+        * Scripts/webkitpy/layout_tests/port/webkit_unittest.py: Added.
+
+2010-09-03  Hironori Bono  <hbono@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        Adds textInputController.hasSpellingMarker() to avoid using pixel tests for spellchecking tests
+        and implements it for Mac.
+        https://bugs.webkit.org/show_bug.cgi?id=41832
+
+        * DumpRenderTree/mac/TextInputController.m: Added [TextInputController hasSpellingMarker:length:]
+        and bind it so we can call it from JavaScript.
+        (+[TextInputController isSelectorExcludedFromWebScript:]):
+        (+[TextInputController webScriptNameForSelector:]):
+        (-[TextInputController hasSpellingMarker:length:]):
+
+2010-09-02  Eric Seidel  <eric@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Add a unit test for commit-queue retries
+        https://bugs.webkit.org/show_bug.cgi?id=45162
+
+        I think commit-queue retries are not correctly avoiding
+        build and test on retries.  So I started testing the code.
+        Unfortunately this test did not find the bug.  But now
+        that we have the test we might as well keep it.
+        I also fixed a broken import in validate-committer-lists.
+
+        * Scripts/validate-committer-lists:
+        * Scripts/webkitpy/tool/commands/queues_unittest.py:
+
+2010-09-02  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Remove dependency to base/task.h and base/timer.h
+        https://bugs.webkit.org/show_bug.cgi?id=45091
+
+        Task.{cpp,h} introduces a simpler version of Chromium
+        base/task.h. It doesn't have TupleN and Method.
+
+        * DumpRenderTree/DumpRenderTree.gypi:
+         Add Task.cpp and Task.h
+        * DumpRenderTree/chromium/DRTDevToolsAgent.cpp:
+        (DRTDevToolsAgent::DRTDevToolsAgent):
+        (DRTDevToolsAgent::reset):
+        (DRTDevToolsAgent::asyncCall):
+        (DRTDevToolsAgent::frontendLoaded):
+        * DumpRenderTree/chromium/DRTDevToolsAgent.h:
+        (DRTDevToolsAgent::taskList): Added to use MethodTask<T>.
+        * DumpRenderTree/chromium/DRTDevToolsClient.cpp:
+        (DRTDevToolsClient::DRTDevToolsClient):
+        (DRTDevToolsClient::~DRTDevToolsClient):
+        (DRTDevToolsClient::reset):
+        (DRTDevToolsClient::asyncCall):
+        * DumpRenderTree/chromium/DRTDevToolsClient.h:
+        (DRTDevToolsClient::taskList): Added to use MethodTask<T>.
+        * DumpRenderTree/chromium/EventSender.cpp:
+        (EventSender::EventSender):
+        (EventSender::reset):
+        (EventSender::scheduleAsynchronousClick):
+        * DumpRenderTree/chromium/EventSender.h:
+        (EventSender::taskList): Added to use MethodTask<T>.
+        * DumpRenderTree/chromium/LayoutTestController.cpp:
+        (LayoutTestController::LayoutTestController):
+        (LayoutTestController::WorkQueue::processWorkSoon):
+        (LayoutTestController::waitUntilDone):
+        (LayoutTestController::notifyDone):
+        (LayoutTestController::reset):
+        * DumpRenderTree/chromium/LayoutTestController.h:
+        (LayoutTestController::taskList): Added to use MethodTask<T>.
+        (LayoutTestController::WorkQueue::taskList): Added to use MethodTask<T>.
+        * DumpRenderTree/chromium/NotificationPresenter.cpp:
+        (deferredDisplayDispatch):
+        (NotificationPresenter::show):
+        * DumpRenderTree/chromium/Task.cpp: Added.
+        * DumpRenderTree/chromium/Task.h: Added.
+
+2010-09-02  Steve Block  <steveblock@google.com>
+
+        Reviewed by Adam Barth.
+
+        Hook up LayoutTestController.setMockDeviceOrientation() on Mac.
+        https://bugs.webkit.org/show_bug.cgi?id=43181
+
+        * DumpRenderTree/mac/DumpRenderTree.mm:
+        (createWebViewAndOffscreenWindow):
+        * DumpRenderTree/mac/LayoutTestControllerMac.mm:
+        (LayoutTestController::setMockDeviceOrientation):
+
+2010-08-31  Adam Roben  <aroben@apple.com>
+
+        Fix flashiness when resizing the browser window on Windows
+
+        Reviewed by Sam Weinig.
+
+        * MiniBrowser/win/BrowserWindow.cpp:
+        (BrowserWindow::wndProc): Override WM_ERASEBKGND so Windows won't
+        periodically fill the window with white.
+
 2010-09-02  Peter Kasting  <pkasting@google.com>
 
         Reviewed by Dimitri Glazkov.

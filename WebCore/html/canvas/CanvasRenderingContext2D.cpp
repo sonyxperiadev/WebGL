@@ -25,7 +25,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -59,8 +59,12 @@
 #include "TextMetrics.h"
 
 #if ENABLE(ACCELERATED_2D_CANVAS)
+#include "Chrome.h"
+#include "ChromeClient.h"
+#include "DrawingBuffer.h"
 #include "FrameView.h"
 #include "GraphicsContext3D.h"
+#include "SharedGraphicsContext3D.h"
 #if USE(ACCELERATED_COMPOSITING)
 #include "RenderLayer.h"
 #endif
@@ -124,17 +128,11 @@ CanvasRenderingContext2D::CanvasRenderingContext2D(HTMLCanvasElement* canvas, bo
         return;
     if (!p->settings()->accelerated2dCanvasEnabled())
         return;
-    if (FrameView* view = canvas->document()->view()) {
-        if (ScrollView* rootView = view->root()) {
-            if (HostWindow* hostWindow = rootView->hostWindow()) {
-                // Set up our context
-                GraphicsContext3D::Attributes attr;
-                attr.stencil = true;
-                m_context3D = GraphicsContext3D::create(attr, hostWindow);
-                if (m_context3D)
-                    if (GraphicsContext* c = drawingContext())
-                        c->setGraphicsContext3D(m_context3D.get(), IntSize(canvas->width(), canvas->height()));
-            }
+    m_context3D = p->chrome()->client()->getSharedGraphicsContext3D();
+    if (m_context3D) {
+        if (GraphicsContext* c = drawingContext()) {
+            m_drawingBuffer = DrawingBuffer::create(m_context3D.get(), IntSize(canvas->width(), canvas->height()));
+            c->setSharedGraphicsContext3D(m_context3D.get(), m_drawingBuffer.get(), IntSize(canvas->width(), canvas->height()));
         }
     }
 #endif
@@ -153,6 +151,16 @@ bool CanvasRenderingContext2D::isAccelerated() const
 #endif
 }
 
+bool CanvasRenderingContext2D::paintsIntoCanvasBuffer() const
+{
+#if ENABLE(ACCELERATED_2D_CANVAS)
+    if (m_context3D)
+        return m_context3D->paintsIntoCanvasBuffer();
+#endif
+    return true;
+}
+
+
 void CanvasRenderingContext2D::reset()
 {
     m_stateStack.resize(1);
@@ -160,8 +168,10 @@ void CanvasRenderingContext2D::reset()
     m_path.clear();
 #if ENABLE(ACCELERATED_2D_CANVAS)
     if (m_context3D) {
-        if (GraphicsContext* c = drawingContext())
-            c->setGraphicsContext3D(m_context3D.get(), IntSize(canvas()->width(), canvas()->height()));
+        if (GraphicsContext* c = drawingContext()) {
+            m_drawingBuffer->reset(IntSize(canvas()->width(), canvas()->height()));
+            c->setSharedGraphicsContext3D(m_context3D.get(), m_drawingBuffer.get(), IntSize(canvas()->width(), canvas()->height()));
+        }
     }
 #endif
 }
@@ -209,7 +219,7 @@ void CanvasRenderingContext2D::restore()
     c->restore();
 }
 
-void CanvasRenderingContext2D::setAllAttributesToDefault() 
+void CanvasRenderingContext2D::setAllAttributesToDefault()
 {
     state().m_globalAlpha = 1;
     state().m_shadowOffset = FloatSize();
@@ -431,6 +441,15 @@ void CanvasRenderingContext2D::setGlobalCompositeOperation(const String& operati
     if (!c)
         return;
     c->setCompositeOperation(op);
+#if ENABLE(ACCELERATED_2D_CANVAS)
+    if (isAccelerated() && op != CompositeSourceOver) {
+        c->setSharedGraphicsContext3D(0, 0, IntSize());
+        m_drawingBuffer.clear();
+        m_context3D.clear();
+        // Mark as needing a style recalc so our compositing layer can be removed.
+        canvas()->setNeedsStyleRecalc(SyntheticStyleChange);
+    }
+#endif
 }
 
 void CanvasRenderingContext2D::scale(float sx, float sy)
@@ -640,7 +659,7 @@ void CanvasRenderingContext2D::closePath()
 
     FloatRect boundRect = m_path.boundingRect();
     if (boundRect.width() || boundRect.height())
-        m_path.closeSubpath();
+        m_path.closeCanvasSubpath();
 }
 
 void CanvasRenderingContext2D::moveTo(float x, float y)
@@ -924,7 +943,7 @@ void CanvasRenderingContext2D::strokeRect(float x, float y, float width, float h
 {
     if (!validateRectForCanvas(x, y, width, height))
         return;
- 
+
     if (!(lineWidth >= 0))
         return;
 
@@ -1257,7 +1276,7 @@ void CanvasRenderingContext2D::drawImage(HTMLCanvasElement* sourceCanvas, const 
         return;
     if (!state().m_invertibleCTM)
         return;
- 
+
     FloatRect sourceRect = c->roundToDevicePixels(srcRect);
     FloatRect destRect = c->roundToDevicePixels(dstRect);
 
@@ -1269,7 +1288,16 @@ void CanvasRenderingContext2D::drawImage(HTMLCanvasElement* sourceCanvas, const 
     if (!sourceCanvas->originClean())
         canvas()->setOriginTainted();
 
+#if ENABLE(ACCELERATED_2D_CANVAS)
+    // If we're drawing from one accelerated canvas 2d to another, avoid calling sourceCanvas->makeRenderingResultsAvailable()
+    // as that will do a readback to software.
+    CanvasRenderingContext* sourceContext = sourceCanvas->renderingContext();
+    // FIXME: Implement an accelerated path for drawing from a WebGL canvas to a 2d canvas when possible.
+    if (!isAccelerated() || !sourceContext || !sourceContext->isAccelerated() || !sourceContext->is2d())
+        sourceCanvas->makeRenderingResultsAvailable();
+#else
     sourceCanvas->makeRenderingResultsAvailable();
+#endif
 
     c->drawImageBuffer(buffer, DeviceColorSpace, destRect, sourceRect, state().m_globalComposite);
     didDraw(destRect);
@@ -1482,12 +1510,12 @@ void CanvasRenderingContext2D::didDraw(const FloatRect& r, unsigned options)
         return;
 
     FloatRect dirtyRect = r;
-    if (options & CanvasWillDrawApplyTransform) {
+    if (options & CanvasDidDrawApplyTransform) {
         AffineTransform ctm = state().m_transform;
         dirtyRect = ctm.mapRect(r);
     }
 
-    if (options & CanvasWillDrawApplyShadow && alphaChannel(state().m_shadowColor)) {
+    if (options & CanvasDidDrawApplyShadow && alphaChannel(state().m_shadowColor)) {
         // The shadow gets applied after transformation
         FloatRect shadowRect(dirtyRect);
         shadowRect.move(state().m_shadowOffset);
@@ -1495,16 +1523,20 @@ void CanvasRenderingContext2D::didDraw(const FloatRect& r, unsigned options)
         dirtyRect.unite(shadowRect);
     }
 
-    if (options & CanvasWillDrawApplyClip) {
+    if (options & CanvasDidDrawApplyClip) {
         // FIXME: apply the current clip to the rectangle. Unfortunately we can't get the clip
         // back out of the GraphicsContext, so to take clip into account for incremental painting,
         // we'd have to keep the clip path around.
     }
 
+#if ENABLE(ACCELERATED_2D_CANVAS)
+    if (isAccelerated())
+        drawingContext()->markDirtyRect(enclosingIntRect(dirtyRect));
+#endif
 #if ENABLE(ACCELERATED_2D_CANVAS) && USE(ACCELERATED_COMPOSITING)
     // If we are drawing to hardware and we have a composited layer, just call rendererContentChanged().
     RenderBox* renderBox = canvas()->renderBox();
-    if (m_context3D && renderBox && renderBox->hasLayer() && renderBox->layer()->hasAcceleratedCompositing())
+    if (isAccelerated() && renderBox && renderBox->hasLayer() && renderBox->layer()->hasAcceleratedCompositing())
         renderBox->layer()->rendererContentChanged();
     else
 #endif
@@ -1577,7 +1609,7 @@ PassRefPtr<ImageData> CanvasRenderingContext2D::getImageData(float sx, float sy,
         scaledRect.setWidth(1);
     if (scaledRect.height() < 1)
         scaledRect.setHeight(1);
-    ImageBuffer* buffer = canvas() ? canvas()->buffer() : 0;
+    ImageBuffer* buffer = canvas()->buffer();
     if (!buffer)
         return createEmptyImageData(scaledRect.size());
     return buffer->getUnmultipliedImageData(scaledRect);
@@ -1630,7 +1662,7 @@ void CanvasRenderingContext2D::putImageData(ImageData* data, float dx, float dy,
     IntPoint destPoint(destOffset.width(), destOffset.height());
 
     buffer->putUnmultipliedImageData(data, sourceRect, destPoint);
-    didDraw(sourceRect, 0); // ignore transform, shadow and clip
+    didDraw(sourceRect, CanvasDidDrawApplyNone); // ignore transform, shadow and clip
 }
 
 String CanvasRenderingContext2D::font() const
@@ -1850,11 +1882,11 @@ void CanvasRenderingContext2D::drawTextInternal(const String& text, float x, flo
     c->drawBidiText(font, textRun, location);
 
     if (fill)
-        canvas()->didDraw(textRect);
+        didDraw(textRect);
     else {
         // When stroking text, pointy miters can extend outside of textRect, so we
         // punt and dirty the whole canvas.
-        canvas()->didDraw(FloatRect(0, 0, canvas()->width(), canvas()->height()));
+        didDraw(FloatRect(0, 0, canvas()->width(), canvas()->height()));
     }
 
 #if PLATFORM(QT)
@@ -1876,5 +1908,12 @@ void CanvasRenderingContext2D::paintRenderingResultsToCanvas()
         c->syncSoftwareCanvas();
 #endif
 }
+
+#if ENABLE(ACCELERATED_2D_CANVAS) && USE(ACCELERATED_COMPOSITING)
+PlatformLayer* CanvasRenderingContext2D::platformLayer() const
+{
+    return m_drawingBuffer->platformLayer();
+}
+#endif
 
 } // namespace WebCore

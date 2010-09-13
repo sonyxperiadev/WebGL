@@ -170,7 +170,13 @@ void RenderTextControlSingleLine::subtreeHasChanged()
     // InputElement::handleBeforeTextInsertedEvent() has already called
     // sanitizeUserInputValue().
     // sanitizeValue() is needed because IME input doesn't dispatch BeforeTextInsertedEvent.
-    input->setValueFromRenderer(input->sanitizeValue(text()));
+    String value = text();
+    if (input->isAcceptableValue(value))
+        input->setValueFromRenderer(input->sanitizeValue(value));
+    if (node()->isHTMLElement()) {
+        // Recalc for :invalid and hasUnacceptableValue() change.
+        static_cast<HTMLInputElement*>(input)->setNeedsStyleRecalc();
+    }
 
     if (m_cancelButton)
         updateCancelButtonVisibility();
@@ -181,12 +187,12 @@ void RenderTextControlSingleLine::subtreeHasChanged()
 
     if (!wasChanged && node()->focused()) {
         if (Frame* frame = this->frame())
-            frame->textFieldDidBeginEditing(static_cast<Element*>(node()));
+            frame->editor()->textFieldDidBeginEditing(static_cast<Element*>(node()));
     }
 
     if (node()->focused()) {
         if (Frame* frame = document()->frame())
-            frame->textDidChangeInTextField(static_cast<Element*>(node()));
+            frame->editor()->textDidChangeInTextField(static_cast<Element*>(node()));
     }
 }
 
@@ -378,17 +384,18 @@ void RenderTextControlSingleLine::forwardEvent(Event* event)
         return;
     }
 
-    FloatPoint localPoint = innerTextRenderer->absoluteToLocal(static_cast<MouseEvent*>(event)->absoluteLocation(), false, true);
-    int textRight = innerTextRenderer->borderBoxRect().right();
-
 #if ENABLE(INPUT_SPEECH)
     if (RenderBox* speechBox = m_speechButton ? m_speechButton->renderBox() : 0) {
-        if (localPoint.x() >= speechBox->x() && localPoint.x() < speechBox->x() + speechBox->width()) {
+        FloatPoint pointInTextControlCoords = absoluteToLocal(static_cast<MouseEvent*>(event)->absoluteLocation(), false, true);
+        if (speechBox->frameRect().contains(roundedIntPoint(pointInTextControlCoords))) {
             m_speechButton->defaultEventHandler(event);
             return;
         }
     }
 #endif
+
+    FloatPoint localPoint = innerTextRenderer->absoluteToLocal(static_cast<MouseEvent*>(event)->absoluteLocation(), false, true);
+    int textRight = innerTextRenderer->borderBoxRect().right();
 
     if (m_resultsButton && localPoint.x() < innerTextRenderer->borderBoxRect().x())
         m_resultsButton->defaultEventHandler(event);
@@ -680,7 +687,10 @@ void RenderTextControlSingleLine::updateFromElement()
     } else {
         if (!inputElement()->suggestedValue().isNull())
             setInnerTextValue(inputElement()->suggestedValue());
-        else
+        else if (!node()->isHTMLElement() || !static_cast<HTMLInputElement*>(node())->formControlValueMatchesRenderer())
+            // For HTMLInputElement, update the renderer value only if the
+            // formControlValueMatchesRenderer() flag is false. It protects an
+            // unacceptable renderer value from being overwritten with the DOM value.
             setInnerTextValue(inputElement()->value());
     }
 

@@ -47,6 +47,7 @@
 #include "SkRect.h"
 #include "SkShader.h"
 #include "SkiaUtils.h"
+#include "Texture.h"
 
 #include "skia/ext/image_operations.h"
 #include "skia/ext/platform_canvas.h"
@@ -468,7 +469,7 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& dstRect,
     if (normSrcRect.isEmpty() || normDstRect.isEmpty())
         return;  // Nothing to draw.
 
-    if (ctxt->platformContext()->useGPU()) {
+    if (ctxt->platformContext()->useGPU() && ctxt->platformContext()->canAccelerate()) {
         drawBitmapGLES2(ctxt, bm, normSrcRect, normDstRect, colorSpace, compositeOp);
         return;
     }
@@ -496,7 +497,7 @@ void BitmapImageSingleFrameSkia::draw(GraphicsContext* ctxt,
     if (normSrcRect.isEmpty() || normDstRect.isEmpty())
         return;  // Nothing to draw.
 
-    if (ctxt->platformContext()->useGPU()) {
+    if (ctxt->platformContext()->useGPU() && ctxt->platformContext()->canAccelerate()) {
         drawBitmapGLES2(ctxt, &m_nativeImage, srcRect, dstRect, styleColorSpace, compositeOp);
         return;
     }

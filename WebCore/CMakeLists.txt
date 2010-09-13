@@ -198,7 +198,6 @@ SET(WebCore_IDL_FILES
     fileapi/File.idl
     fileapi/FileList.idl
     fileapi/FileReader.idl
-    fileapi/FileWriter.idl
 
     html/DataGridColumn.idl
     html/DataGridColumnList.idl
@@ -941,6 +940,7 @@ SET(WebCore_SOURCES
     html/DataGridColumn.cpp
     html/DataGridColumnList.cpp
     html/DateComponents.cpp
+    html/FTPDirectoryDocument.cpp
     html/FormDataList.cpp
     html/HTMLAllCollection.cpp
     html/HTMLAnchorElement.cpp
@@ -1024,9 +1024,13 @@ SET(WebCore_SOURCES
     html/HTMLUListElement.cpp
     html/HTMLViewSourceDocument.cpp
     html/ImageData.cpp
+    html/ImageDocument.cpp
     html/ImageResizerThread.cpp
     html/LabelsNodeList.cpp
+    html/MediaDocument.cpp
+    html/PluginDocument.cpp
     html/StepRange.cpp
+    html/TextDocument.cpp
     html/ValidityState.cpp
     html/canvas/CanvasGradient.cpp
     html/canvas/CanvasPattern.cpp
@@ -1047,6 +1051,8 @@ SET(WebCore_SOURCES
     html/parser/HTMLTokenizer.cpp
     html/parser/HTMLTreeBuilder.cpp
     html/parser/HTMLViewSourceParser.cpp
+    html/parser/TextDocumentParser.cpp
+    html/parser/TextViewSourceParser.cpp
 
     inspector/ConsoleMessage.cpp
     inspector/InjectedScript.cpp
@@ -1080,26 +1086,22 @@ SET(WebCore_SOURCES
     loader/CachedXSLStyleSheet.cpp
     loader/CrossOriginAccessControl.cpp
     loader/CrossOriginPreflightResultCache.cpp
-    loader/DocLoader.cpp
+    loader/CachedResourceLoader.cpp
     loader/DocumentLoader.cpp
     loader/DocumentThreadableLoader.cpp
     loader/DocumentWriter.cpp
-    loader/FTPDirectoryDocument.cpp
     loader/FTPDirectoryParser.cpp
     loader/FormState.cpp
     loader/FormSubmission.cpp
     loader/FrameLoader.cpp
     loader/FrameLoaderStateMachine.cpp
     loader/HistoryController.cpp
-    loader/ImageDocument.cpp
     loader/ImageLoader.cpp
     loader/MainResourceLoader.cpp
-    loader/MediaDocument.cpp
     loader/NavigationAction.cpp
     loader/NetscapePlugInStreamLoader.cpp
     loader/PingLoader.cpp
     loader/PlaceholderDocument.cpp
-    loader/PluginDocument.cpp
     loader/PolicyCallback.cpp
     loader/PolicyChecker.cpp
     loader/ProgressTracker.cpp
@@ -1110,7 +1112,6 @@ SET(WebCore_SOURCES
     loader/SinkDocument.cpp
     loader/SubframeLoader.cpp
     loader/SubresourceLoader.cpp
-    loader/TextDocument.cpp
     loader/TextResourceDecoder.cpp
     loader/ThreadableLoader.cpp
     loader/WorkerThreadableLoader.cpp
@@ -1198,7 +1199,9 @@ SET(WebCore_SOURCES
     platform/LinkHash.cpp
     platform/Logging.cpp
     platform/MIMETypeRegistry.cpp
+    platform/ScrollAnimator.cpp
     platform/Scrollbar.cpp
+    platform/ScrollbarClient.cpp
     platform/ScrollbarThemeComposite.cpp
     platform/ScrollView.cpp
     platform/SharedBuffer.cpp
@@ -1582,11 +1585,22 @@ if (ENABLE_FILE_SYSTEM)
         fileapi/EntryArray.idl
         fileapi/EntryCallback.idl
         fileapi/ErrorCallback.idl
+        fileapi/FileCallback.idl
         fileapi/FileEntry.idl
         fileapi/FileSystemCallback.idl
         fileapi/Flags.idl
         fileapi/Metadata.idl
         fileapi/MetadataCallback.idl
+    )
+ENDIF ()
+
+if (ENABLE_FILE_WRITER)
+    LIST(APPEND WebCore_SOURCES
+        fileapi/FileWriter.cpp
+    )
+    LIST(APPEND WebCore_IDL_FILES
+        fileapi/FileWriterCallback.idl
+        fileapi/FileWriter.idl
     )
 ENDIF ()
 
@@ -1615,6 +1629,7 @@ IF (ENABLE_SVG)
         rendering/RenderSVGResourceClipper.cpp
         rendering/RenderSVGResourceContainer.cpp
         rendering/RenderSVGResourceFilter.cpp
+        rendering/RenderSVGResourceFilterPrimitive.cpp
         rendering/RenderSVGResourceGradient.cpp
         rendering/RenderSVGResourceLinearGradient.cpp
         rendering/RenderSVGResourceMarker.cpp

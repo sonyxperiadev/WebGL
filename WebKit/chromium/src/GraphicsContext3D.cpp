@@ -35,7 +35,7 @@
 #include "GraphicsContext3D.h"
 
 #include "CachedImage.h"
-#include "CanvasLayerChromium.h"
+#include "WebGLLayerChromium.h"
 #include "CanvasRenderingContext.h"
 #include "Chrome.h"
 #include "ChromeClientImpl.h"
@@ -55,6 +55,7 @@
 
 #if PLATFORM(CG)
 #include "GraphicsContext.h"
+#include "WebGLRenderingContext.h"
 #include <CoreGraphics/CGContext.h>
 #include <CoreGraphics/CGImage.h>
 #endif
@@ -103,7 +104,7 @@ public:
     void prepareTexture();
 
 #if USE(ACCELERATED_COMPOSITING)
-    CanvasLayerChromium* platformLayer() const;
+    WebGLLayerChromium* platformLayer() const;
 #endif
     bool isGLES2Compliant() const;
     bool isGLES2NPOTStrict() const;
@@ -298,7 +299,7 @@ private:
     OwnPtr<WebKit::WebGraphicsContext3D> m_impl;
     WebKit::WebViewImpl* m_webViewImpl;
 #if USE(ACCELERATED_COMPOSITING)
-    RefPtr<CanvasLayerChromium> m_compositingLayer;
+    RefPtr<WebGLLayerChromium> m_compositingLayer;
 #endif
 #if PLATFORM(SKIA)
     // If the width and height of the Canvas's backing store don't
@@ -360,7 +361,7 @@ bool GraphicsContext3DInternal::initialize(GraphicsContext3D::Attributes attrs,
     m_impl.set(webContext);
 
 #if USE(ACCELERATED_COMPOSITING)
-    m_compositingLayer = CanvasLayerChromium::create(0);
+    m_compositingLayer = WebGLLayerChromium::create(0);
 #endif
     return true;
 }
@@ -381,7 +382,7 @@ void GraphicsContext3DInternal::prepareTexture()
 }
 
 #if USE(ACCELERATED_COMPOSITING)
-CanvasLayerChromium* GraphicsContext3DInternal::platformLayer() const
+WebGLLayerChromium* GraphicsContext3DInternal::platformLayer() const
 {
     return m_compositingLayer.get();
 }
@@ -436,10 +437,10 @@ void GraphicsContext3DInternal::paintRenderingResultsToCanvas(CanvasRenderingCon
         canvas.drawBitmapRect(m_resizingBitmap, 0, dst);
     }
 #elif PLATFORM(CG)
-    if (m_renderOutput)
-        context->graphicsContext3D()->paintToCanvas(m_renderOutput, m_impl->width(), m_impl->height(),
-                                                    canvas->width(), canvas->height(),
-                                                    imageBuffer->context()->platformContext());
+    if (m_renderOutput && context->is3d()) {
+        WebGLRenderingContext* webGLContext = static_cast<WebGLRenderingContext*>(context);
+        webGLContext->graphicsContext3D()->paintToCanvas(m_renderOutput, m_impl->width(), m_impl->height(), canvas->width(), canvas->height(), imageBuffer->context()->platformContext());
+    }
 #else
 #error Must port to your platform
 #endif
@@ -1039,7 +1040,7 @@ void GraphicsContext3D::prepareTexture()
 #if USE(ACCELERATED_COMPOSITING)
 PlatformLayer* GraphicsContext3D::platformLayer() const
 {
-    CanvasLayerChromium* canvasLayer = m_internal->platformLayer();
+    WebGLLayerChromium* canvasLayer = m_internal->platformLayer();
     canvasLayer->setContext(this);
     return canvasLayer;
 }

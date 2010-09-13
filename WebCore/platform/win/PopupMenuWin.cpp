@@ -531,12 +531,12 @@ bool PopupMenuWin::scrollToRevealSelection()
     int index = focusedIndex();
 
     if (index < m_scrollOffset) {
-        m_scrollbar->setValue(index);
+        m_scrollbar->setValue(index, Scrollbar::NotFromScrollAnimator);
         return true;
     }
 
     if (index >= m_scrollOffset + visibleItems()) {
-        m_scrollbar->setValue(index - visibleItems() + 1);
+        m_scrollbar->setValue(index - visibleItems() + 1, Scrollbar::NotFromScrollAnimator);
         return true;
     }
 
@@ -662,6 +662,17 @@ void PopupMenuWin::paint(const IntRect& damageRect, HDC hdc)
 
     if (!hdc)
         ::ReleaseDC(m_popup, localDC);
+}
+
+int PopupMenuWin::scrollSize(ScrollbarOrientation orientation) const
+{
+    return ((orientation == VerticalScrollbar) && m_scrollbar) ? (m_scrollbar->totalSize() - m_scrollbar->visibleSize()) : 0;
+}
+
+void PopupMenuWin::setScrollOffsetFromAnimation(const IntPoint& offset)
+{
+    if (m_scrollbar)
+        m_scrollbar->setValue(offset.y(), Scrollbar::FromScrollAnimator);
 }
 
 void PopupMenuWin::valueChanged(Scrollbar* scrollBar)

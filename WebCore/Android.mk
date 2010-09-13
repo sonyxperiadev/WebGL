@@ -292,9 +292,16 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLTableRowsCollection.cpp \
 	html/HTMLViewSourceDocument.cpp \
 	html/ImageData.cpp \
+	html/ImageDocument.cpp \
+  html/MediaDocument.cpp \
 	html/ImageResizerThread.cpp \
+<<<<<<< HEAD
 	html/LabelsNodeList.cpp \
 	html/StepRange.cpp \
+=======
+	html/PluginDocument.cpp \
+	html/TextDocument.cpp \
+>>>>>>> webkit.org at r67178
 	html/TimeRanges.cpp \
 	html/ValidityState.cpp \
 	\
@@ -319,6 +326,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/parser/HTMLTokenizer.cpp \
 	html/parser/HTMLTreeBuilder.cpp \
 	html/parser/HTMLViewSourceParser.cpp \
+	html/parser/TextDocumentParser.cpp \
+	html/parser/TextViewSourceParser.cpp \
 	\
 	loader/Cache.cpp \
 	loader/CachedCSSStyleSheet.cpp \
@@ -330,7 +339,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/CachedScript.cpp \
 	loader/CrossOriginAccessControl.cpp \
 	loader/CrossOriginPreflightResultCache.cpp \
-	loader/DocLoader.cpp \
+	loader/CachedResourceLoader.cpp \
 	loader/DocumentLoader.cpp \
 	loader/DocumentThreadableLoader.cpp \
 	loader/DocumentWriter.cpp \
@@ -339,15 +348,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/FrameLoader.cpp \
 	loader/FrameLoaderStateMachine.cpp \
 	loader/HistoryController.cpp \
-	loader/ImageDocument.cpp \
 	loader/ImageLoader.cpp \
 	loader/MainResourceLoader.cpp \
-	loader/MediaDocument.cpp \
 	loader/NavigationAction.cpp \
 	loader/NetscapePlugInStreamLoader.cpp \
 	loader/PingLoader.cpp \
 	loader/PlaceholderDocument.cpp \
-	loader/PluginDocument.cpp \
 	loader/PolicyCallback.cpp \
 	loader/PolicyChecker.cpp \
 	loader/ProgressTracker.cpp \
@@ -358,7 +364,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/SinkDocument.cpp \
 	loader/SubframeLoader.cpp \
 	loader/SubresourceLoader.cpp \
-	loader/TextDocument.cpp \
 	loader/TextResourceDecoder.cpp \
 	loader/ThreadableLoader.cpp \
 	loader/WorkerThreadableLoader.cpp \
@@ -721,6 +726,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderSVGResourceClipper.cpp \
 	rendering/RenderSVGResourceContainer.cpp \
 	rendering/RenderSVGResourceFilter.cpp \
+	rendering/RenderSVGResourceFilterPrimitive.cpp \
 	rendering/RenderSVGResourceGradient.cpp \
 	rendering/RenderSVGResourceLinearGradient.cpp \
 	rendering/RenderSVGResourceMarker.cpp \

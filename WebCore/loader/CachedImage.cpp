@@ -28,7 +28,7 @@
 #include "Cache.h"
 #include "CachedResourceClient.h"
 #include "CachedResourceClientWalker.h"
-#include "DocLoader.h"
+#include "CachedResourceLoader.h"
 #include "Frame.h"
 #include "FrameLoaderTypes.h"
 #include "FrameView.h"
@@ -80,14 +80,19 @@ void CachedImage::decodedDataDeletionTimerFired(Timer<CachedImage>*)
     destroyDecodedData();
 }
 
-void CachedImage::load(DocLoader* docLoader)
+void CachedImage::load(CachedResourceLoader* cachedResourceLoader)
 {
+<<<<<<< HEAD
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
     if (!docLoader || (docLoader->autoLoadImages() && !docLoader->shouldBlockNetworkImage(m_url)))
 #else
     if (!docLoader || docLoader->autoLoadImages())
 #endif
         CachedResource::load(docLoader, true, DoSecurityCheck, true);
+=======
+    if (!cachedResourceLoader || cachedResourceLoader->autoLoadImages())
+        CachedResource::load(cachedResourceLoader, true, DoSecurityCheck, true);
+>>>>>>> webkit.org at r67178
     else
         setLoading(false);
 }
@@ -261,7 +266,7 @@ inline void CachedImage::createImage()
 
 size_t CachedImage::maximumDecodedImageSize()
 {
-    Frame* frame = m_request ? m_request->docLoader()->frame() : 0;
+    Frame* frame = m_request ? m_request->cachedResourceLoader()->frame() : 0;
     if (!frame)
         return 0;
     Settings* settings = frame->settings();

@@ -27,7 +27,7 @@
 
 #include "ResourceHandle.h"
 
-#include "DocLoader.h"
+#include "CachedResourceLoader.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -51,6 +51,7 @@ ResourceHandle::~ResourceHandle()
 
 bool ResourceHandle::start(Frame* frame)
 {
+<<<<<<< HEAD
     DocumentLoader* docLoader = frame->loader()->activeDocumentLoader();
     MainResourceLoader* mainLoader = docLoader->mainResourceLoader();
     bool isMainResource =
@@ -58,6 +59,11 @@ bool ResourceHandle::start(Frame* frame)
     bool isPrivateBrowsing = false;
     if (frame->settings())
         isPrivateBrowsing = frame->settings()->privateBrowsingEnabled();
+=======
+    DocumentLoader* documentLoader = frame->loader()->activeDocumentLoader();
+    MainResourceLoader* mainLoader = documentLoader->mainResourceLoader();
+    bool isMainResource = mainLoader && (mainLoader->handle() == this);
+>>>>>>> webkit.org at r67178
 
     PassRefPtr<ResourceLoaderAndroid> loader = ResourceLoaderAndroid::start(this, d->m_firstRequest, frame->loader()->client(), isMainResource, false, isPrivateBrowsing);
 

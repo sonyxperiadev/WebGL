@@ -40,6 +40,7 @@
 #endif
 
 #if PLATFORM(GTK)
+#include "GRefPtrGtk.h"
 typedef struct _GtkAdjustment GtkAdjustment;
 #endif
 
@@ -57,7 +58,9 @@ class ScrollView : public Widget, public ScrollbarClient {
 public:
     ~ScrollView();
 
-    // ScrollbarClient function. FrameView overrides the others.
+    // ScrollbarClient functions.  FrameView overrides the others.
+    virtual int scrollSize(ScrollbarOrientation orientation) const;
+    virtual void setScrollOffsetFromAnimation(const IntPoint&);
     virtual void valueChanged(Scrollbar*);
     
     // The window thats hosts the ScrollView. The ScrollView will communicate scrolls and repaints to the
@@ -347,9 +350,11 @@ private:
 #if PLATFORM(GTK)
 public:
     void setGtkAdjustments(GtkAdjustment* hadj, GtkAdjustment* vadj, bool resetValues = true);
-    GtkAdjustment* m_horizontalAdjustment;
-    GtkAdjustment* m_verticalAdjustment;
     void setScrollOffset(const IntSize& offset) { m_scrollOffset = offset; }
+
+private:
+    PlatformRefPtr<GtkAdjustment> m_horizontalAdjustment;
+    PlatformRefPtr<GtkAdjustment> m_verticalAdjustment;
 #endif
 
 #if PLATFORM(WX)

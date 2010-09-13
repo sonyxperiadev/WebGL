@@ -21,7 +21,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef GraphicsContext_h
@@ -131,16 +131,17 @@ namespace WebCore {
     const int cMisspellingLinePatternGapWidth = 1;
 
     class AffineTransform;
+    class DrawingBuffer;
     class Font;
     class Generator;
     class Gradient;
-    class GraphicsContext3D;
     class GraphicsContextPlatformPrivate;
     class GraphicsContextPrivate;
     class ImageBuffer;
     class KURL;
     class Path;
     class Pattern;
+    class SharedGraphicsContext3D;
     class TextRun;
 
     // These bits can be ORed together for a total of 8 possible text drawing modes.
@@ -456,8 +457,9 @@ namespace WebCore {
         pattern getHaikuStrokeStyle();
 #endif
 
-        void setGraphicsContext3D(GraphicsContext3D*, const IntSize&);
+        void setSharedGraphicsContext3D(SharedGraphicsContext3D*, DrawingBuffer*, const IntSize&);
         void syncSoftwareCanvas();
+        void markDirtyRect(const IntRect&); // Hints that a portion of the backing store is dirty.
 
     private:
         void savePlatformState();

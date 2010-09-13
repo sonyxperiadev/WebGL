@@ -233,6 +233,7 @@ sub GenerateHeader
     $headerIncludes{"$podType.h"} = 1 if $podType and ($podType ne "double" and $podType ne "float" and $podType ne "RGBA32");
     $headerIncludes{"wtf/text/StringHash.h"} = 1;
     $headerIncludes{"WrapperTypeInfo.h"} = 1;
+    $headerIncludes{"V8DOMWrapper.h"} = 1;
     my $headerClassInclude = GetHeaderClassInclude($implClassName);
     $headerIncludes{$headerClassInclude} = 1 if $headerClassInclude ne "";
 
@@ -253,15 +254,23 @@ sub GenerateHeader
     if ($podType) {
         $nativeType = "V8SVGPODTypeWrapper<${nativeType} >";
     }
+
+    my $domMapFunction = GetDomMapFunction($dataNode, $interfaceName);
     my $forceNewObjectParameter = IsDOMNodeType($interfaceName) ? ", bool forceNewObject = false" : "";
+    my $forceNewObjectInput = IsDOMNodeType($interfaceName) ? ", bool forceNewObject" : "";
+    my $forceNewObjectCall = IsDOMNodeType($interfaceName) ? ", forceNewObject" : "";
+
     push(@headerContent, <<END);
 
 public:
     static bool HasInstance(v8::Handle<v8::Value> value);
     static v8::Persistent<v8::FunctionTemplate> GetRawTemplate();
     static v8::Persistent<v8::FunctionTemplate> GetTemplate();
-    static ${nativeType}* toNative(v8::Handle<v8::Object>);
-    static v8::Handle<v8::Object> wrap(${nativeType}*${forceNewObjectParameter});
+    static ${nativeType}* toNative(v8::Handle<v8::Object> object)
+    {
+        return reinterpret_cast<${nativeType}*>(object->GetPointerFromInternalField(v8DOMWrapperObjectIndex));
+    }
+    inline static v8::Handle<v8::Object> wrap(${nativeType}*${forceNewObjectParameter});
     static void derefObject(void*);
     static WrapperTypeInfo info;
 END
@@ -336,13 +345,72 @@ END
     }
 
     push(@headerContent, <<END);
+private:
+    static v8::Handle<v8::Object> wrapSlow(${nativeType}*);
 };
+
+END
+
+    push(@headerContent, <<END);
+
+v8::Handle<v8::Object> ${className}::wrap(${nativeType}* impl${forceNewObjectInput})
+{
+END
+    if ($domMapFunction) {
+        push(@headerContent, "    if (!forceNewObject) {\n") if IsDOMNodeType($interfaceName);
+        my $getWrapper = IsNodeSubType($dataNode) ? "V8DOMWrapper::getWrapper(impl)" : "${domMapFunction}.get(impl)";
+        push(@headerContent, <<END);
+        v8::Handle<v8::Object> wrapper = ${getWrapper};
+        if (!wrapper.IsEmpty())
+            return wrapper;
+END
+        push(@headerContent, "    }\n") if IsDOMNodeType($interfaceName);
+    }
+    push(@headerContent, <<END);
+    return ${className}::wrapSlow(impl);
+}
+END
+
+    if (!HasCustomToV8Implementation($dataNode, $interfaceName)) {
+        push(@headerContent, <<END);
+
+inline v8::Handle<v8::Value> toV8(${nativeType}* impl${forceNewObjectParameter})
+{
+    if (!impl)
+        return v8::Null();
+    return ${className}::wrap(impl${forceNewObjectCall});
+}
+END
+    } elsif ($interfaceName ne 'Node') {
+        push(@headerContent, <<END);
 
 v8::Handle<v8::Value> toV8(${nativeType}*${forceNewObjectParameter});
 END
+    } else {
+        push(@headerContent, <<END);
+
+v8::Handle<v8::Value> toV8Slow(Node*, bool);
+
+inline v8::Handle<v8::Value> toV8(Node* impl, bool forceNewObject = false)
+{
+    if (!impl)
+        return v8::Null();
+    if (!forceNewObject) {
+        v8::Handle<v8::Value> wrapper = V8DOMWrapper::getWrapper(impl);
+        if (!wrapper.IsEmpty())
+            return wrapper;
+    }
+    return toV8Slow(impl, forceNewObject);
+}
+END
+    }
+
     if (IsRefPtrType($implClassName)) {
         push(@headerContent, <<END);
-v8::Handle<v8::Value> toV8(PassRefPtr<${nativeType} >${forceNewObjectParameter});
+inline v8::Handle<v8::Value> toV8(PassRefPtr< ${nativeType} > impl${forceNewObjectParameter})
+{
+    return toV8(impl.get()${forceNewObjectCall});
+}
 END
     }
 
@@ -1031,8 +1099,14 @@ sub GenerateParametersCheckExpression
         # For DOMString, Null, Undefined and any Object are accepted too, as
         # these are acceptable values for a DOMString argument (any Object can
         # be converted to a string via .toString).
-        push(@andExpression, "(${value}->IsNull() || ${value}->IsUndefined() || ${value}->IsString() || ${value}->IsObject())") if $codeGenerator->IsStringType($type);
-        push(@andExpression, "(${value}->IsNull() || V8${type}::HasInstance($value))") if IsWrapperType($type);
+        if ($codeGenerator->IsStringType($type)) {
+            push(@andExpression, "(${value}->IsNull() || ${value}->IsUndefined() || ${value}->IsString() || ${value}->IsObject())");
+        } elsif ($parameter->extendedAttributes->{"Callback"}) {
+            # For Callbacks only checks if the value is null or object.
+            push(@andExpression, "(${value}->IsNull() || ${value}->IsObject())");
+        } elsif (IsWrapperType($type)) {
+            push(@andExpression, "(${value}->IsNull() || V8${type}::HasInstance($value))");
+        }
 
         $parameterIndex++;
     }
@@ -1144,7 +1218,7 @@ END
         push(@implContentDecls, "    V8SVGPODTypeWrapper<$nativeClassName>* impWrapper = V8SVGPODTypeWrapper<$nativeClassName>::toNative(args.Holder());\n");
         push(@implContentDecls, "    $nativeClassName impInstance = *impWrapper;\n");
         push(@implContentDecls, "    $nativeClassName* imp = &impInstance;\n");
-    } else {
+    } elsif (!$function->signature->extendedAttributes->{"ClassMethod"}) {
         push(@implContentDecls, <<END);
     ${implClassName}* imp = V8${implClassName}::toNative(args.Holder());
 END
@@ -1765,6 +1839,9 @@ sub GenerateImplementation
         if ($attrExt->{"V8OnInstance"}) {
             next;
         }
+        if ($attrExt->{"ClassMethod"}) {
+            next;
+        }
         if ($attrExt->{"EnabledAtRuntime"} || RequiresCustomSignature($function) || $attrExt->{"V8DoNotCheckSignature"}) {
             next;
         }
@@ -1950,6 +2027,9 @@ END
         if ($attrExt->{"V8OnInstance"}) {
             $template = "instance";
         }
+        if ($attrExt->{"ClassMethod"}) {
+            $template = "desc";
+        }
 
         my $conditional = "";
         if ($attrExt->{"EnabledAtRuntime"}) {
@@ -1985,7 +2065,7 @@ END
       }
 
       my $signature = "defaultSignature";
-      if ($attrExt->{"V8DoNotCheckSignature"}) {
+      if ($attrExt->{"V8DoNotCheckSignature"} || $attrExt->{"ClassMethod"}) {
           $signature = "v8::Local<v8::Signature>()";
       }
 
@@ -2072,11 +2152,6 @@ v8::Persistent<v8::FunctionTemplate> ${className}::GetTemplate()\
 {
     static v8::Persistent<v8::FunctionTemplate> ${className}Cache = Configure${className}Template(GetRawTemplate());
     return ${className}Cache;
-}
-
-${nativeType}* ${className}::toNative(v8::Handle<v8::Object> object)
-{
-    return reinterpret_cast<${nativeType}*>(object->GetPointerFromInternalField(v8DOMWrapperObjectIndex));
 }
 
 bool ${className}::HasInstance(v8::Handle<v8::Value> value)
@@ -2347,7 +2422,7 @@ sub GenerateToV8Converters
 
     push(@implContent, <<END);
 
-v8::Handle<v8::Object> ${className}::wrap(${nativeType}* impl${forceNewObjectInput})
+v8::Handle<v8::Object> ${className}::wrapSlow(${nativeType}* impl)
 {
     v8::Handle<v8::Object> wrapper;
     V8Proxy* proxy = 0;
@@ -2357,26 +2432,17 @@ END
         push(@implContent, <<END);
     if (impl->document()) {
         proxy = V8Proxy::retrieve(impl->document()->frame());
-        if (proxy && static_cast<Node*>(impl->document()) == static_cast<Node*>(impl))
-            proxy->windowShell()->initContextIfNeeded();
-    }
-
-END
-    }
-
-    if ($domMapFunction) {
-        push(@implContent, "    if (!forceNewObject) {\n") if IsDOMNodeType($interfaceName);
-        if (IsNodeSubType($dataNode)) {
-            push(@implContent, "        wrapper = V8DOMWrapper::getWrapper(impl);\n");
-        } else {
-            push(@implContent, "        wrapper = ${domMapFunction}.get(impl);\n");
+        if (proxy && static_cast<Node*>(impl->document()) == static_cast<Node*>(impl)) {
+            if (proxy->windowShell()->initContextIfNeeded()) {
+                // initContextIfNeeded may have created a wrapper for the object, retry from the start.
+                return ${className}::wrap(impl);
+            }
         }
-        push(@implContent, <<END);
-        if (!wrapper.IsEmpty())
-            return wrapper;
-END
-        push(@implContent, "    }\n") if IsDOMNodeType($interfaceName);
     }
+
+END
+    }
+
     if (IsNodeSubType($dataNode)) {
         push(@implContent, <<END);
 
@@ -2433,28 +2499,6 @@ END
     return wrapper;
 }
 END
-
-    if (IsRefPtrType($interfaceName)) {
-        push(@implContent, <<END);
-
-v8::Handle<v8::Value> toV8(PassRefPtr<${nativeType} > impl${forceNewObjectInput})
-{
-    return toV8(impl.get()${forceNewObjectCall});
-}
-END
-    }
-
-    if (!HasCustomToV8Implementation($dataNode, $interfaceName)) {
-        push(@implContent, <<END);
-
-v8::Handle<v8::Value> toV8(${nativeType}* impl${forceNewObjectInput})
-{
-    if (!impl)
-        return v8::Null();
-    return ${className}::wrap(impl${forceNewObjectCall});
-}
-END
-    }
 }
 
 sub HasCustomToV8Implementation {
@@ -2556,6 +2600,10 @@ sub GenerateFunctionCallString()
 
     if ($copyFirst) {
         $functionString = "result.${name}(";
+    }
+
+    if ($function->signature->extendedAttributes->{"ClassMethod"}) {
+        $functionString = "${implClassName}::${name}(";
     }
 
     my $returnsListItemPodType = 0;

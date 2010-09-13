@@ -150,7 +150,12 @@ public:
     // Sets a flag to specify that the view needs to be updated, so we need
     // to do an eager layout before the drawing.
     virtual void scheduleCompositingLayerSync();
+
+    // Returns true if accelerated compositing is supported.
+    virtual bool allowsAcceleratedCompositing() const;
 #endif
+
+    virtual WebCore::SharedGraphicsContext3D* getSharedGraphicsContext3D();
 
     virtual bool supportsFullscreenForNode(const WebCore::Node*);
     virtual void enterFullscreenForNode(WebCore::Node*);

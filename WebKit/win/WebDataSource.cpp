@@ -39,7 +39,7 @@
 #include "WebResource.h"
 #include "WebURLResponse.h"
 #include <WebCore/BString.h>
-#include <WebCore/DocLoader.h>
+#include <WebCore/CachedResourceLoader.h>
 #include <WebCore/Document.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
@@ -297,7 +297,7 @@ HRESULT STDMETHODCALLTYPE WebDataSource::subresourceForURL(
     if (!doc)
         return E_FAIL;
 
-    CachedResource *cachedResource = doc->docLoader()->cachedResource(String(url));
+    CachedResource *cachedResource = doc->cachedResourceLoader()->cachedResource(String(url));
 
     if (!cachedResource)
         return E_FAIL;

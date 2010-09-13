@@ -24,6 +24,7 @@
 #include "config.h"
 #include "RenderBlock.h"
 
+#include "ColumnInfo.h"
 #include "Document.h"
 #include "Element.h"
 #include "FloatQuad.h"
@@ -64,16 +65,6 @@ namespace WebCore {
 static const int verticalLineClickFudgeFactor = 3;
 
 using namespace HTMLNames;
-
-struct ColumnInfo : public Noncopyable {
-    ColumnInfo()
-        : m_desiredColumnWidth(0)
-        , m_desiredColumnCount(1)
-        { }
-    int m_desiredColumnWidth;
-    unsigned m_desiredColumnCount;
-    Vector<IntRect> m_columnRects;
-};
 
 typedef WTF::HashMap<const RenderBox*, ColumnInfo*> ColumnInfoMap;
 static ColumnInfoMap* gColumnInfoMap = 0;
@@ -2020,13 +2011,13 @@ void RenderBlock::paintColumnRules(PaintInfo& paintInfo, int tx, int ty)
         return;
 
     // We need to do multiple passes, breaking up our child painting into strips.
-    Vector<IntRect>* colRects = columnRects();
-    unsigned colCount = colRects->size();
+    ColumnInfo* colInfo = columnInfo();
+    unsigned colCount = colInfo->columnCount();
     int currXOffset = style()->direction() == LTR ? 0 : contentWidth();
     int ruleAdd = borderLeft() + paddingLeft();
     int ruleX = style()->direction() == LTR ? 0 : contentWidth();
     for (unsigned i = 0; i < colCount; i++) {
-        IntRect colRect = colRects->at(i);
+        IntRect colRect = colInfo->columnRectAt(i);
 
         // Move to the next position.
         if (style()->direction() == LTR) {
@@ -2056,15 +2047,15 @@ void RenderBlock::paintColumnContents(PaintInfo& paintInfo, int tx, int ty, bool
     // We need to do multiple passes, breaking up our child painting into strips.
     GraphicsContext* context = paintInfo.context;
     int colGap = columnGap();
-    Vector<IntRect>* colRects = columnRects();
-    unsigned colCount = colRects->size();
+    ColumnInfo* colInfo = columnInfo();
+    unsigned colCount = colInfo->columnCount();
     if (!colCount)
         return;
-    int currXOffset = style()->direction() == LTR ? 0 : contentWidth() - colRects->at(0).width();
+    int currXOffset = style()->direction() == LTR ? 0 : contentWidth() - colInfo->columnRectAt(0).width();
     int currYOffset = 0;
     for (unsigned i = 0; i < colCount; i++) {
         // For each rect, we clip to the rect, and then we adjust our coords.
-        IntRect colRect = colRects->at(i);
+        IntRect colRect = colInfo->columnRectAt(i);
         colRect.move(tx, ty);
         PaintInfo info(paintInfo);
         info.rect.intersect(colRect);
@@ -3181,9 +3172,9 @@ int RenderBlock::lowestPosition(bool includeOverflowInterior, bool includeSelf) 
     }
 
     if (hasColumns()) {
-        Vector<IntRect>* colRects = columnRects();
-        for (unsigned i = 0; i < colRects->size(); i++)
-            bottom = max(bottom, colRects->at(i).bottom() + relativeOffset);
+        ColumnInfo* colInfo = columnInfo();
+        for (unsigned i = 0; i < colInfo->columnCount(); i++)
+            bottom = max(bottom, colInfo->columnRectAt(i).bottom() + relativeOffset);
         return bottom;
     }
 
@@ -3275,8 +3266,11 @@ int RenderBlock::rightmostPosition(bool includeOverflowInterior, bool includeSel
 
     if (hasColumns()) {
         // This only matters for LTR
-        if (style()->direction() == LTR)
-            right = max(columnRects()->last().right() + relativeOffset, right);
+        if (style()->direction() == LTR) {
+            ColumnInfo* colInfo = columnInfo();
+            if (colInfo->columnCount())
+                right = max(colInfo->columnRectAt(colInfo->columnCount() - 1).right() + relativeOffset, right);
+        }
         return right;
     }
 
@@ -3372,8 +3366,11 @@ int RenderBlock::leftmostPosition(bool includeOverflowInterior, bool includeSelf
 
     if (hasColumns()) {
         // This only matters for RTL
-        if (style()->direction() == RTL)
-            left = min(columnRects()->last().x() + relativeOffset, left);
+        if (style()->direction() == RTL) {
+            ColumnInfo* colInfo = columnInfo();
+            if (colInfo->columnCount())
+                left = min(colInfo->columnRectAt(colInfo->columnCount() - 1).x() + relativeOffset, left);
+        }
         return left;
     }
 
@@ -3809,36 +3806,16 @@ bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
         }
 
         // Hit test contents if we don't have columns.
-        if (!hasColumns() && hitTestContents(request, result, _x, _y, scrolledX, scrolledY, hitTestAction)) {
+        if (!hasColumns()) {
+            if (hitTestContents(request, result, _x, _y, scrolledX, scrolledY, hitTestAction)) {
+                updateHitTestResult(result, IntPoint(_x - tx, _y - ty));
+                return true;
+            }
+            if (hitTestAction == HitTestFloat && hitTestFloats(request, result, _x, _y, scrolledX, scrolledY))
+                return true;
+        } else if (hitTestColumns(request, result, _x, _y, scrolledX, scrolledY, hitTestAction)) {
             updateHitTestResult(result, IntPoint(_x - tx, _y - ty));
             return true;
-        }
-
-        // Hit test our columns if we do have them.
-        if (hasColumns() && hitTestColumns(request, result, _x, _y, scrolledX, scrolledY, hitTestAction)) {
-            updateHitTestResult(result, IntPoint(_x - tx, _y - ty));
-            return true;
-        }
-
-        // Hit test floats.
-        if (hitTestAction == HitTestFloat && m_floatingObjects) {
-            if (isRenderView()) {
-                scrolledX += toRenderView(this)->frameView()->scrollX();
-                scrolledY += toRenderView(this)->frameView()->scrollY();
-            }
-            
-            FloatingObject* o;
-            DeprecatedPtrListIterator<FloatingObject> it(*m_floatingObjects);
-            for (it.toLast(); (o = it.current()); --it) {
-                if (o->m_shouldPaint && !o->m_renderer->hasSelfPaintingLayer()) {
-                    int xoffset = scrolledX + o->m_left + o->m_renderer->marginLeft() - o->m_renderer->x();
-                    int yoffset =  scrolledY + o->m_top + o->m_renderer->marginTop() - o->m_renderer->y();
-                    if (o->m_renderer->hitTest(request, result, IntPoint(_x, _y), xoffset, yoffset)) {
-                        updateHitTestResult(result, IntPoint(_x - xoffset, _y - yoffset));
-                        return true;
-                    }
-                }
-            }
         }
     }
 
@@ -3855,20 +3832,46 @@ bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
     return false;
 }
 
+bool RenderBlock::hitTestFloats(const HitTestRequest& request, HitTestResult& result, int x, int y, int tx, int ty)
+{
+    if (!m_floatingObjects)
+        return false;
+
+    if (isRenderView()) {
+        tx += toRenderView(this)->frameView()->scrollX();
+        ty += toRenderView(this)->frameView()->scrollY();
+    }
+
+    FloatingObject* floatingObject;
+    DeprecatedPtrListIterator<FloatingObject> it(*m_floatingObjects);
+    for (it.toLast(); (floatingObject = it.current()); --it) {
+        if (floatingObject->m_shouldPaint && !floatingObject->m_renderer->hasSelfPaintingLayer()) {
+            int xOffset = tx + floatingObject->m_left + floatingObject->m_renderer->marginLeft() - floatingObject->m_renderer->x();
+            int yOffset =  ty + floatingObject->m_top + floatingObject->m_renderer->marginTop() - floatingObject->m_renderer->y();
+            if (floatingObject->m_renderer->hitTest(request, result, IntPoint(x, y), xOffset, yOffset)) {
+                updateHitTestResult(result, IntPoint(x - xOffset, y - yOffset));
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 bool RenderBlock::hitTestColumns(const HitTestRequest& request, HitTestResult& result, int x, int y, int tx, int ty, HitTestAction hitTestAction)
 {
     // We need to do multiple passes, breaking up our hit testing into strips.
-    Vector<IntRect>* colRects = columnRects();
-    int colCount = colRects->size();
+    ColumnInfo* colInfo = columnInfo();
+    int colCount = colInfo->columnCount();
     if (!colCount)
         return false;
     int left = borderLeft() + paddingLeft();
     int currYOffset = 0;
     int i;
     for (i = 0; i < colCount; i++)
-        currYOffset -= colRects->at(i).height();
+        currYOffset -= colInfo->columnRectAt(i).height();
     for (i = colCount - 1; i >= 0; i--) {
-        IntRect colRect = colRects->at(i);
+        IntRect colRect = colInfo->columnRectAt(i);
         int currXOffset = colRect.x() - left;
         currYOffset += colRect.height();
         colRect.move(tx, ty);
@@ -3882,7 +3885,7 @@ bool RenderBlock::hitTestColumns(const HitTestRequest& request, HitTestResult& r
             if (result.isRectBasedTest() && !colRect.contains(result.rectFromPoint(x, y)))
                 hitTestContents(request, result, x, y, finalX, finalY, hitTestAction);
             else
-                return hitTestContents(request, result, x, y, finalX, finalY, hitTestAction);
+                return hitTestContents(request, result, x, y, finalX, finalY, hitTestAction) || (hitTestAction == HitTestFloat && hitTestFloats(request, result, x, y, finalX, finalY));
         }
     }
 
@@ -4180,8 +4183,8 @@ void RenderBlock::setDesiredColumnCountAndWidth(int count, int width)
             gColumnInfoMap->add(this, info);
             setHasColumns(true);
         }
-        info->m_desiredColumnCount = count;
-        info->m_desiredColumnWidth = width;   
+        info->setDesiredColumnCount(count);
+        info->setDesiredColumnWidth(width);   
     }
 }
 
@@ -4189,21 +4192,21 @@ int RenderBlock::desiredColumnWidth() const
 {
     if (!hasColumns())
         return contentWidth();
-    return gColumnInfoMap->get(this)->m_desiredColumnWidth;
+    return gColumnInfoMap->get(this)->desiredColumnWidth();
 }
 
 unsigned RenderBlock::desiredColumnCount() const
 {
     if (!hasColumns())
         return 1;
-    return gColumnInfoMap->get(this)->m_desiredColumnCount;
+    return gColumnInfoMap->get(this)->desiredColumnCount();
 }
 
-Vector<IntRect>* RenderBlock::columnRects() const
+ColumnInfo* RenderBlock::columnInfo() const
 {
     if (!hasColumns())
         return 0;
-    return &gColumnInfoMap->get(this)->m_columnRects;    
+    return gColumnInfoMap->get(this);    
 }
 
 int RenderBlock::layoutColumns(int endOfContent, int requestedColumnHeight)
@@ -4213,9 +4216,8 @@ int RenderBlock::layoutColumns(int endOfContent, int requestedColumnHeight)
         return -1;
 
     ColumnInfo* info = gColumnInfoMap->get(this);
-    int desiredColumnWidth = info->m_desiredColumnWidth;
-    int desiredColumnCount = info->m_desiredColumnCount;
-    Vector<IntRect>* columnRects = &info->m_columnRects;
+    int desiredColumnWidth = info->desiredColumnWidth();
+    int desiredColumnCount = info->desiredColumnCount();
     
     bool computeIntrinsicHeight = (endOfContent == -1);
 
@@ -4236,7 +4238,7 @@ int RenderBlock::layoutColumns(int endOfContent, int requestedColumnHeight)
     int colGap = columnGap();
 
     // Compute a collection of column rects.
-    columnRects->clear();
+    info->clearColumns();
     
     // Then we do a simulated "paint" into the column slices and allow the content to slightly adjust our individual column rects.
     // FIXME: We need to take into account layers that are affected by the columns as well here so that they can have an opportunity
@@ -4305,7 +4307,7 @@ int RenderBlock::layoutColumns(int endOfContent, int requestedColumnHeight)
 
         maxColBottom = max(colRect.bottom(), maxColBottom);
 
-        columnRects->append(colRect);
+        info->addColumnRect(colRect);
         
         // Start adding in more columns as long as there's still content left.
         if (currY < endOfContent && i == colCount - 1 && (computeIntrinsicHeight || contentHeight()))
@@ -4331,7 +4333,7 @@ int RenderBlock::layoutColumns(int endOfContent, int requestedColumnHeight)
     v->setPrintRect(IntRect());
     v->setTruncatedAt(0);
     
-    ASSERT(colCount == columnRects->size());
+    ASSERT(colCount == info->columnCount());
     
     return contentBottom;
 }
@@ -4342,16 +4344,18 @@ void RenderBlock::adjustPointToColumnContents(IntPoint& point) const
     if (!hasColumns())
         return;
     
-    Vector<IntRect>* colRects = columnRects();
+    ColumnInfo* colInfo = columnInfo();
+    if (!colInfo->columnCount())
+        return;
 
     // Determine which columns we intersect.
     int colGap = columnGap();
     int leftGap = colGap / 2;
-    IntPoint columnPoint(colRects->at(0).location());
+    IntPoint columnPoint(colInfo->columnRectAt(0).location());
     int yOffset = 0;
-    for (unsigned i = 0; i < colRects->size(); i++) {
+    for (unsigned i = 0; i < colInfo->columnCount(); i++) {
         // Add in half the column gap to the left and right of the rect.
-        IntRect colRect = colRects->at(i);
+        IntRect colRect = colInfo->columnRectAt(i);
         IntRect gapAndColumnRect(colRect.x() - leftGap, colRect.y(), colRect.width() + colGap, colRect.height());
 
         if (point.x() >= gapAndColumnRect.x() && point.x() < gapAndColumnRect.right()) {
@@ -4383,13 +4387,13 @@ void RenderBlock::adjustRectForColumns(IntRect& r) const
     if (!hasColumns())
         return;
     
-    Vector<IntRect>* colRects = columnRects();
+    ColumnInfo* colInfo = columnInfo();
 
     // Begin with a result rect that is empty.
     IntRect result;
     
     // Determine which columns we intersect.
-    unsigned colCount = colRects->size();
+    unsigned colCount = colInfo->columnCount();
     if (!colCount)
         return;
     
@@ -4397,7 +4401,7 @@ void RenderBlock::adjustRectForColumns(IntRect& r) const
     
     int currYOffset = 0;
     for (unsigned i = 0; i < colCount; i++) {
-        IntRect colRect = colRects->at(i);
+        IntRect colRect = colInfo->columnRectAt(i);
         int currXOffset = colRect.x() - left;
         
         IntRect repaintRect = r;
@@ -4419,13 +4423,13 @@ void RenderBlock::adjustForColumns(IntSize& offset, const IntPoint& point) const
     if (!hasColumns())
         return;
 
-    Vector<IntRect>& columnRects = *this->columnRects();
-  
+    ColumnInfo* colInfo = columnInfo();
+
     int left = borderLeft() + paddingLeft();
     int yOffset = 0;
-    size_t columnCount = columnRects.size();
+    size_t columnCount = colInfo->columnCount();
     for (size_t i = 0; i < columnCount; ++i) {
-        IntRect columnRect = columnRects[i];
+        IntRect columnRect = colInfo->columnRectAt(i);
         int xOffset = columnRect.x() - left;
         if (point.y() < columnRect.bottom() + yOffset) {
             offset.expand(xOffset, -yOffset);

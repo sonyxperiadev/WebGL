@@ -60,7 +60,7 @@
 #import <WebCore/Chrome.h>
 #import <WebCore/ColorMac.h>
 #import <WebCore/DOMImplementation.h>
-#import <WebCore/DocLoader.h>
+#import <WebCore/CachedResourceLoader.h>
 #import <WebCore/DocumentFragment.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/EventNames.h>
@@ -529,7 +529,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (NSString *)_selectedString
 {
-    return _private->coreFrame->displayStringModifiedByEncoding(_private->coreFrame->selectedText());
+    return _private->coreFrame->displayStringModifiedByEncoding(_private->coreFrame->editor()->selectedText());
 }
 
 - (NSString *)_stringForRange:(DOMRange *)range
@@ -662,7 +662,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (NSRect)_firstRectForDOMRange:(DOMRange *)range
 {
-   return _private->coreFrame->firstRectForRange(core(range));
+   return _private->coreFrame->editor()->firstRectForRange(core(range));
 }
 
 - (void)_scrollDOMRangeToVisible:(DOMRange *)range
@@ -788,7 +788,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (DOMRange *)_markDOMRange
 {
-    return kit(_private->coreFrame->mark().toNormalizedRange().get());
+    return kit(_private->coreFrame->editor()->mark().toNormalizedRange().get());
 }
 
 // Given proposedRange, returns an extended range that includes adjacent whitespace that should
@@ -904,7 +904,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 {
     if (!_private->coreFrame)
         return;
-    _private->coreFrame->computeAndSetTypingStyle(core(style), undoAction);
+    _private->coreFrame->editor()->computeAndSetTypingStyle(core(style), undoAction);
 }
 
 - (void)_dragSourceEndedAt:(NSPoint)windowLoc operation:(NSDragOperation)operation
@@ -1282,7 +1282,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 {
     if (!_private->coreFrame)
         return YES;
-    return SecurityOrigin::canLoad(URL, String(), _private->coreFrame->document());
+    return SecurityOrigin::canDisplay(URL, String(), _private->coreFrame->document());
 }
 
 - (NSString *)_stringByEvaluatingJavaScriptFromString:(NSString *)string withGlobalObject:(JSObjectRef)globalObjectRef inScriptWorld:(WebScriptWorld *)world
@@ -1364,6 +1364,40 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
         return @"";
 
     return coreFrame->layerTreeAsText();
+}
+
+static Node* spellingNode(Frame* coreFrame)
+{
+    Node* focusedNode = coreFrame->selection()->start().node();
+    if (!focusedNode || !focusedNode->renderer())
+        return 0;
+
+    for (const RenderObject* renderer = focusedNode->renderer(); renderer; renderer = renderer->childAt(0)) {
+        if (renderer->isText())
+            return renderer->node();
+    }
+    return 0;
+}
+
+- (BOOL)hasSpellingMarker:(int)from length:(int)length
+{
+    Frame* coreFrame = _private->coreFrame;
+    if (!coreFrame)
+        return NO;
+
+    Node* node = spellingNode(coreFrame);
+    if (!node)
+        return NO;
+
+    unsigned int startOffset = static_cast<unsigned int>(from);
+    unsigned int endOffset = static_cast<unsigned int>(from + length);
+    Vector<DocumentMarker> markers = coreFrame->document()->markers()->markersForNode(node);
+    for (size_t i = 0; i < markers.size(); ++i) {
+        DocumentMarker marker = markers[i];
+        if (marker.startOffset <= startOffset && endOffset <= marker.endOffset && marker.type == DocumentMarker::Spelling)
+            return YES;
+    }
+    return NO;
 }
 
 @end

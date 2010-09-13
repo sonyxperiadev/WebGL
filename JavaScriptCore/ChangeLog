@@ -1,3 +1,476 @@
+2010-09-09  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Added a regular expression tracing facility.  This tracing is connected
+        to jsc.  Every compiled regular expression object is added to a list.
+        When the process exits, each regular expression dumps its pattern,
+        JIT address, number of times it was executed and the number of matches.
+        This tracing is controlled by the macro ENABLE_REGEXP_TRACING in
+        wtf/Platform.h.
+        https://bugs.webkit.org/show_bug.cgi?id=45401
+
+        * JavaScriptCore.exp:
+        * jsc.cpp:
+        (runWithScripts):
+        * runtime/JSGlobalData.cpp:
+        (JSC::JSGlobalData::JSGlobalData):
+        (JSC::JSGlobalData::~JSGlobalData):
+        (JSC::JSGlobalData::addRegExpToTrace):
+        (JSC::JSGlobalData::dumpRegExpTrace):
+        * runtime/JSGlobalData.h:
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::RegExp):
+        (JSC::RegExp::create):
+        (JSC::RegExp::match):
+        * runtime/RegExp.h:
+        * wtf/Platform.h:
+        * yarr/RegexJIT.h:
+        (JSC::Yarr::RegexCodeBlock::getAddr):
+
+2010-09-09  John Therrell  <jtherrell@apple.com>
+
+        32-bit build fix.
+
+        * jit/ExecutableAllocator.cpp:
+        (JSC::ExecutableAllocator::committedByteCount):
+
+2010-09-09  John Therrell  <jtherrell@apple.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Added statistics sampling and reporting for JavaScriptCore's RegisterFile and ExecutableAllocator classes
+        https://bugs.webkit.org/show_bug.cgi?id=45134
+
+        Added thread-safe committed byte counting and reporting functionality to RegisterFile and 
+        ExecutableAllocator.
+
+        * JavaScriptCore.exp:
+        Exported new symbols to allow for WebKit to get statistics from JavaScriptCore classes.
+        
+        * interpreter/RegisterFile.cpp:
+        (JSC::registerFileStatisticsMutex):
+        Added function which returns a static Mutex used for locking during read/write access to
+        static committed byte count variable.
+        (JSC::RegisterFile::~RegisterFile):
+        Added call to addToStatistics since memory is decommitted here.
+        (JSC::RegisterFile::releaseExcessCapacity):
+        Added call to addToStatistics since memory is decommitted here.
+        (JSC::RegisterFile::initializeThreading):
+        Added function which calls registerFileStatisticsMutex().
+        (JSC::RegisterFile::committedByteCount):
+        Added function which returns the current committed byte count for RegisterFile.
+        (JSC::RegisterFile::addToCommittedByteCount):
+        Added function which updates committed byte count.
+        
+        * interpreter/RegisterFile.h:
+        (JSC::RegisterFile::RegisterFile):
+        Added call to addToStatistics since memory is committed here.
+        (JSC::RegisterFile::grow):
+        Added call to addToStatistics since memory is committed here.
+        
+        * jit/ExecutableAllocator.h:
+        Added function prototype for public static function committedByteCount().
+        
+        * jit/ExecutableAllocatorFixedVMPool.cpp:
+        (JSC::FixedVMPoolAllocator::release):
+        Added call to addToStatistics since memory is decommitted here.
+        (JSC::FixedVMPoolAllocator::reuse):
+        Added call to addToStatistics since memory is committed here.
+        (JSC::FixedVMPoolAllocator::addToCommittedByteCount):
+        Added function which updates committed byte count.
+        (JSC::ExecutableAllocator::committedByteCount):
+        Added function which returns the current committed byte count for ExecutableAllocator.
+        
+        * runtime/InitializeThreading.cpp:
+        (JSC::initializeThreadingOnce):
+        Added call to RegisterFile::initializeThreading.
+
+2010-09-09  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        <http://webkit.org/b/45502> JSObjectSetPrivateProperty does not handle NULL values as it claims
+
+        * API/JSObjectRef.cpp:
+        (JSObjectSetPrivateProperty): Don't call toJS if we have a NULL value as that will cause an assertion
+        failure. Instead map NULL directly to the null JSValue.
+        * API/tests/testapi.c:
+        (main): Add test coverage for the NULL value case.
+
+2010-09-09  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Gavin Barraclough.
+
+        [Qt] JSVALUE32_64 not works on Windows platform with MinGW compiler
+        https://bugs.webkit.org/show_bug.cgi?id=29268
+
+        * wtf/Platform.h: Enable JSVALUE32_64 for Qt/Windows/MinGW, because it works now.
+
+2010-09-08  Zoltan Herczeg  <zherczeg@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Removing doneSemicolon label in the lexer
+        https://bugs.webkit.org/show_bug.cgi?id=45289
+
+        As a side effect of moving the multiline comment parsing
+        to a separate function, an opportunity raised to simplify
+        the single line comment parsing, and removing doneSemicolon
+        label. Slight performance increase on --parse-only
+        tests (from 32.8ms to 31.5ms)
+
+        * parser/Lexer.cpp:
+        (JSC::Lexer::lex):
+
+2010-09-08  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Remove accessor for private member variable in JSParser
+        https://bugs.webkit.org/show_bug.cgi?id=45378
+
+        m_token is private to JSParser, so it does not seem to be useful
+        to have an accessor for it. On top of that, the file was both
+        using the accessor and directly accessing the member variable,
+        only one style should be used.
+
+2010-09-08  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Oliver Hunt.
+
+        [Qt] REGRESSION(63348): jsc is broken
+        https://bugs.webkit.org/show_bug.cgi?id=42818
+
+        Need fastcall conventions on Qt/Win/MinGW.
+        Based on patches of Gavin Barraclough: r63947 and r63948.
+
+        * jit/JITStubs.cpp:
+        * jit/JITStubs.h:
+
+2010-09-08  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Antonio Gomes.
+
+        Remove some unnecessary duplicate calls to string functions
+
+        https://bugs.webkit.org/show_bug.cgi?id=45314
+
+        * wtf/text/WTFString.cpp:
+        (WTF::String::format):
+
+2010-09-08  Jocelyn Turcotte  <jocelyn.turcotte@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        Re-Disable JIT for MSVC 64bit to fix the build on this compiler.
+        https://bugs.webkit.org/show_bug.cgi?id=45382
+
+        It was enabled in the cleanup made in r64176, though it is still
+        not implemented.
+
+        * wtf/Platform.h:
+
+2010-09-08  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Need a WebSocket implementation
+        https://bugs.webkit.org/show_bug.cgi?id=45197
+
+        Add a GIO-based WebSocket implementation.
+
+        * wtf/gobject/GRefPtr.cpp: Added PlatformRefPtr support for GSource.
+        (WTF::refPlatformPtr):
+        (WTF::derefPlatformPtr):
+        * wtf/gobject/GRefPtr.h: Added new template specialization declarations.
+        * wtf/gobject/GTypedefs.h: Add some more GLib/GIO forward declarations.
+
+2010-08-30  Maciej Stachowiak  <mjs@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Handle MediaQueryExp memory management exclusively with smart pointers
+        https://bugs.webkit.org/show_bug.cgi?id=44874
+        
+        Implemented a non-copying sort function to make it possible to sort a Vector
+        of OwnPtrs (which cannot be copied). This is required for the above.
+
+        * wtf/NonCopyingSort.h: Added.
+        (WTF::nonCopyingSort): It's secretly heapsort.
+        (WTF::heapSort): heapsort implementation.
+        (WTF::siftDown): Helper function for heapsort.
+        (WTF::heapify): ditto
+
+        Adjust build systems.
+        
+        * GNUmakefile.am:
+        * JavaScriptCore.gypi:
+        * JavaScriptCore.vcproj/WTF/WTF.vcproj:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
+2010-09-08  Zoltan Herczeg  <zherczeg@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Refactoring multiline comments in the lexer
+        https://bugs.webkit.org/show_bug.cgi?id=45289
+
+        MultiLine comment parsing is moved to a separate function.
+
+        Slight performance increase on --parse-only tests (from 33.6ms to 32.8ms)
+        SunSpider reports no change (from 523.1ms to 521.2ms).
+
+        * parser/Lexer.cpp:
+        (JSC::Lexer::parseMultilineComment):
+        (JSC::Lexer::lex):
+        * parser/Lexer.h:
+
+2010-09-07  James Robinson  <jamesr@chromium.org>
+
+        Compile fix attempt for windows.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-09-07  Mihai Parparita  <mihaip@chromium.org>
+
+        Reviewed by James Robinson.
+
+        Fix Windows build after r66936
+        https://bugs.webkit.org/show_bug.cgi?id=45348
+
+        Add symbol names that were missing from r66936.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-09-07  Mihai Parparita  <mihaip@chromium.org>
+
+        Reviewed by Oliver Hunt.
+
+        pushState and replaceState do not clone RegExp objects correctly
+        https://bugs.webkit.org/show_bug.cgi?id=44718
+        
+        Move internal representation of JSC::RegExp (which depends on wether
+        YARR and YARR_JIT is enabled) into RegExpRepresentation which can live
+        in the implementation only. This makes it feasible to use RegExp in
+        WebCore without bringing in all of YARR.
+
+        * JavaScriptCore.exp: Export RegExp and RegExpObject functions that are
+        needed inside WebCore's JSC bindings.
+        * runtime/RegExp.cpp:
+        (JSC::RegExpRepresentation::~RegExpRepresentation):
+        (JSC::RegExp::RegExp):
+        (JSC::RegExp::~RegExp):
+        (JSC::RegExp::compile):
+        (JSC::RegExp::match):
+        * runtime/RegExp.h:
+
+2010-09-07  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/8381749> -Wcast-align warning emitted when building with clang
+
+        Remove the -Wcast-align-warning since it isn't really useful, and clang is more aggressive about warning than gcc.
+
+        * Configurations/Base.xcconfig:
+
+2010-09-07  Zoltan Horvath  <zoltan@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION(66741): Undefined pthread macros
+        https://bugs.webkit.org/show_bug.cgi?id=45246
+
+        PTHREAD_MUTEX_NORMAL and PTHREAD_MUTEX_DEFAULT (introduced in r60487) are not defined on Linux, 
+        but used in a statement. Add an additional check to test this.
+
+        * wtf/FastMalloc.cpp:
+        (WTF::TCMalloc_PageHeap::initializeScavenger):
+
+2010-09-06  Oliver Hunt  <oliver@apple.com>
+
+        Windows build fix
+
+2010-09-05  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        SerializedScriptValue needs to use a flat storage mechanism
+        https://bugs.webkit.org/show_bug.cgi?id=45244
+
+        Export JSArray::put
+
+        * JavaScriptCore.exp:
+
+2010-09-06  Chao-ying Fu  <fu@mips.com>
+
+        Reviewed by Oliver Hunt.
+
+        Support JSVALUE32_64 on MIPS
+        https://bugs.webkit.org/show_bug.cgi?id=43999
+
+        Add missing functions to support JSVALUE32_64 on MIPS.
+        Remove JSVALUE32 as the default for MIPS.
+
+        * assembler/MIPSAssembler.h:
+        (JSC::MIPSAssembler::divd):
+        (JSC::MIPSAssembler::mthc1):
+        (JSC::MIPSAssembler::cvtwd):
+        * assembler/MacroAssemblerMIPS.h:
+        (JSC::MacroAssemblerMIPS::neg32):
+        (JSC::MacroAssemblerMIPS::branchOr32):
+        (JSC::MacroAssemblerMIPS::set8):
+        (JSC::MacroAssemblerMIPS::loadDouble):
+        (JSC::MacroAssemblerMIPS::divDouble):
+        (JSC::MacroAssemblerMIPS::convertInt32ToDouble):
+        (JSC::MacroAssemblerMIPS::branchDouble):
+        (JSC::MacroAssemblerMIPS::branchConvertDoubleToInt32):
+        (JSC::MacroAssemblerMIPS::zeroDouble):
+        * jit/JIT.h:
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::privateCompileCTINativeCall):
+        * jit/JITPropertyAccess32_64.cpp:
+        (JSC::JIT::privateCompilePutByIdTransition):
+        * jit/JITStubs.cpp:
+        (JSC::JITThunks::JITThunks):
+        * jit/JITStubs.h:
+        * wtf/Platform.h:
+
+2010-09-06  Robert Hogan  <robert@webkit.org>
+
+        Unreviewed, compile fix.
+
+        Fix compile failure in r66843
+
+        Revert to original patch in bugzilla. Leave bug open for
+        discussion on potential removal of double utf8 conversion.
+
+        https://bugs.webkit.org/show_bug.cgi?id=45240
+
+        * wtf/text/WTFString.cpp:
+        (WTF::String::format):
+
+2010-09-06  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] utf8 encoding of console() messages
+
+        Unskip:
+        http/tests/security/xssAuditor/embed-tag-null-char.html
+        http/tests/security/xssAuditor/object-embed-tag-null-char.html
+
+        Both tests failed because Qt's implementation of String::format()
+        is casting a utf8 result to String, which assumes latin1 in
+        its constructor. So instead of casting a QString to a String, use
+        StringImpl::create() instead. Unfortunately, this involves a lot
+        of extra casts but the end result is correct.
+
+        https://bugs.webkit.org/show_bug.cgi?id=45240
+
+        * wtf/text/WTFString.cpp:
+        (WTF::String::format):
+
+2010-09-03  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=45135
+        <rdar://problem/7823714> TCMalloc_PageHeap doesn't hold a mutex while manipulating shared data
+
+        * wtf/FastMalloc.cpp:
+        (WTF::TCMalloc_PageHeap::initializeScavenger): Make sure to create a non-recursive mutex
+        regardless of platform default, so that we can assert that it's held (this is for platforms
+        that don't have libdispatch).
+        (WTF::TCMalloc_PageHeap::signalScavenger): Assert that the mutex is held, so we can look
+        at m_scavengeThreadActive. For platforms that have libdispatch, assert that pageheap_lock
+        is held.
+        (WTF::TCMalloc_PageHeap::periodicScavenge): Make sure that pageheap_lock is held before
+        manipulating m_scavengeThreadActive. Otherwise, there is an obvious race condition, and we
+        can make unbalanced calls to dispatch_resume().
+
+2010-09-03  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Martin Robinson.
+
+        [EFL] Regression (66531) Build break with Glib Support
+        https://bugs.webkit.org/show_bug.cgi?id=45011
+
+        Move GtkTypedefs.h to GTypedefs.h and let it inside gobject directory
+        since when glib is enabled, EFL port needs it, too.
+
+        * CMakeListsEfl.txt: Include gobject directory to find new header
+        file.
+        * GNUmakefile.am: Ditto.
+        * wtf/CMakeListsEfl.txt: Ditto.
+        * wtf/Platform.h: Include header if port is EFL and glib support is
+        enabled.
+        * wtf/gtk/GtkTypedefs.h: Removed.
+        * wtf/gobject/GTypedefs.h: Added. Sections specific to GTK are now
+        guarded by PLATFORM(GTK).
+
+2010-09-03  Csaba Osztrogonác  <ossy@webkit.org>
+
+        Reviewed by Simon Hausmann.
+
+        Fix warning in wtf/ByteArray.h
+        https://bugs.webkit.org/show_bug.cgi?id=44672
+
+        * wtf/ByteArray.h: Use maximal sized array for MSVC and unsized array for other compilers.
+
+2010-09-02  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Actually parse a URL from ParsedURL
+        https://bugs.webkit.org/show_bug.cgi?id=45080
+
+        This patch only handles standard URLs.  At some point we'll need to
+        distinguish between standard URLs and other kinds of URLs.
+
+        * wtf/url/api/ParsedURL.cpp:
+        (WTF::ParsedURL::ParsedURL):
+
+2010-09-02  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Add ParsedURL and URLString to WTFURL API
+        https://bugs.webkit.org/show_bug.cgi?id=45078
+
+        Currently there's no actual URL parsing going on, but this patch is a
+        start to sketching out the API.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * wtf/url/api/ParsedURL.cpp: Added.
+        (WTF::ParsedURL::ParsedURL):
+        (WTF::ParsedURL::scheme):
+        (WTF::ParsedURL::username):
+        (WTF::ParsedURL::password):
+        (WTF::ParsedURL::host):
+        (WTF::ParsedURL::port):
+        (WTF::ParsedURL::path):
+        (WTF::ParsedURL::query):
+        (WTF::ParsedURL::fragment):
+        (WTF::ParsedURL::segment):
+        * wtf/url/api/ParsedURL.h: Added.
+        (WTF::ParsedURL::spec):
+        * wtf/url/api/URLString.h: Added.
+        (WTF::URLString::URLString):
+        (WTF::URLString::string):
+
+2010-09-02  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Add WTFURL to the JavaScriptCore build on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=45075
+
+        Building code is good.
+
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+
 2010-09-02  Alexey Proskuryakov  <ap@apple.com>
 
         Reviewed by Oliver Hunt.

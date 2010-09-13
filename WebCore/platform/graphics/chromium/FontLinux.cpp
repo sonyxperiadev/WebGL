@@ -65,13 +65,13 @@ static bool isCanvasMultiLayered(SkCanvas* canvas)
     return !layerIterator.done();
 }
 
-static void adjustTextRenderMode(SkPaint* paint, bool isCanvasMultiLayered)
+static void adjustTextRenderMode(SkPaint* paint, PlatformContextSkia* skiaContext)
 {
     // Our layers only have a single alpha channel. This means that subpixel
     // rendered text cannot be compositied correctly when the layer is
     // collapsed. Therefore, subpixel text is disabled when we are drawing
-    // onto a layer.
-    if (isCanvasMultiLayered)
+    // onto a layer or when the compositor is being used.
+    if (isCanvasMultiLayered(skiaContext->canvas()) || skiaContext->isDrawingToImageBuffer())
         paint->setLCDRenderText(false);
 }
 
@@ -100,16 +100,17 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
         y += SkFloatToScalar(adv[i].height());
     }
 
+    gc->platformContext()->prepareForSoftwareDraw();
+
     SkCanvas* canvas = gc->platformContext()->canvas();
     int textMode = gc->platformContext()->getTextDrawingMode();
-    bool haveMultipleLayers = isCanvasMultiLayered(canvas);
 
     // We draw text up to two times (once for fill, once for stroke).
     if (textMode & cTextFill) {
         SkPaint paint;
         gc->platformContext()->setupPaintForFilling(&paint);
         font->platformData().setupPaint(&paint);
-        adjustTextRenderMode(&paint, haveMultipleLayers);
+        adjustTextRenderMode(&paint, gc->platformContext());
         paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
         paint.setColor(gc->fillColor().rgb());
         canvas->drawPosText(glyphs, numGlyphs << 1, pos, paint);
@@ -122,7 +123,7 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
         SkPaint paint;
         gc->platformContext()->setupPaintForStroking(&paint, 0, 0);
         font->platformData().setupPaint(&paint);
-        adjustTextRenderMode(&paint, haveMultipleLayers);
+        adjustTextRenderMode(&paint, gc->platformContext());
         paint.setTextEncoding(SkPaint::kGlyphID_TextEncoding);
         paint.setColor(gc->strokeColor().rgb());
 
@@ -499,7 +500,11 @@ private:
             // We overflowed our arrays. Resize and retry.
             // HB_ShapeItem fills in m_item.num_glyphs with the needed size.
             deleteGlyphArrays();
-            createGlyphArrays(m_item.num_glyphs);
+            // The |+ 1| here is a workaround for a bug in Harfbuzz: the Khmer
+            // shaper (at least) can fail because of insufficient glyph buffers
+            // and request 0 additional glyphs: throwing us into an infinite
+            // loop.
+            createGlyphArrays(m_item.num_glyphs + 1);
         }
     }
 
@@ -522,8 +527,11 @@ private:
             m_xPositions[i] = m_offsetX + position + offsetX;
 
             double advance = truncateFixedPointToInteger(m_item.advances[i]);
-            unsigned glyphIndex = m_item.item.pos + logClustersIndex;
-            if (isWordBreak(glyphIndex, isRTL)) {
+            // The first half of the conjuction works around the case where
+            // output glyphs aren't associated with any codepoints by the
+            // clusters log.
+            if (logClustersIndex < m_item.item.length
+                && isWordBreak(m_item.item.pos + logClustersIndex, isRTL)) {
                 advance += m_wordSpacingAdjustment;
 
                 if (m_padding > 0) {
@@ -547,7 +555,7 @@ private:
                 while (logClustersIndex > 0 && logClusters()[logClustersIndex] == i)
                     logClustersIndex--;
             } else {
-                while (logClustersIndex < m_item.num_glyphs && logClusters()[logClustersIndex] == i)
+                while (logClustersIndex < m_item.item.length && logClusters()[logClustersIndex] == i)
                     logClustersIndex++;
             }
 
@@ -637,7 +645,6 @@ void Font::drawComplexText(GraphicsContext* gc, const TextRun& run,
     }
 
     TextRunWalker walker(run, point.x(), this);
-    bool haveMultipleLayers = isCanvasMultiLayered(canvas);
     walker.setWordSpacingAdjustment(wordSpacing());
     walker.setLetterSpacingAdjustment(letterSpacing());
     walker.setPadding(run.padding());
@@ -645,13 +652,13 @@ void Font::drawComplexText(GraphicsContext* gc, const TextRun& run,
     while (walker.nextScriptRun()) {
         if (fill) {
             walker.fontPlatformDataForScriptRun()->setupPaint(&fillPaint);
-            adjustTextRenderMode(&fillPaint, haveMultipleLayers);
+            adjustTextRenderMode(&fillPaint, gc->platformContext());
             canvas->drawPosTextH(walker.glyphs(), walker.length() << 1, walker.xPositions(), point.y(), fillPaint);
         }
 
         if (stroke) {
             walker.fontPlatformDataForScriptRun()->setupPaint(&strokePaint);
-            adjustTextRenderMode(&strokePaint, haveMultipleLayers);
+            adjustTextRenderMode(&strokePaint, gc->platformContext());
             canvas->drawPosTextH(walker.glyphs(), walker.length() << 1, walker.xPositions(), point.y(), strokePaint);
         }
     }

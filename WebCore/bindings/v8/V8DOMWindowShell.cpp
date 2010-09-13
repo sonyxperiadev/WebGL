@@ -89,7 +89,7 @@ static void reportFatalErrorInV8(const char* location, const char* message)
     // FIXME: clean up V8Proxy and disable JavaScript.
     int memoryUsageMB = -1;
 #if PLATFORM(CHROMIUM)
-    memoryUsageMB = ChromiumBridge::memoryUsageMB();
+    memoryUsageMB = ChromiumBridge::actualMemoryUsageMB();
 #endif
     printf("V8 error: %s (%s).  Current memory usage: %d MB\n", message, location, memoryUsageMB);
     handleFatalErrorInV8();
@@ -246,11 +246,11 @@ void V8DOMWindowShell::clearForNavigation()
 // the frame. However, a new inner window is created for the new page.
 // If there are JS code holds a closure to the old inner window,
 // it won't be able to reach the outer window via its global object.
-void V8DOMWindowShell::initContextIfNeeded()
+bool V8DOMWindowShell::initContextIfNeeded()
 {
     // Bail out if the context has already been initialized.
     if (!m_context.IsEmpty())
-        return;
+        return false;
 
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::JavaScriptInitTimeCounter);
@@ -281,7 +281,7 @@ void V8DOMWindowShell::initContextIfNeeded()
 
     m_context = createNewContext(m_global, 0);
     if (m_context.IsEmpty())
-        return;
+        return false;
 
     v8::Local<v8::Context> v8Context = v8::Local<v8::Context>::New(m_context);
     v8::Context::Scope contextScope(v8Context);
@@ -292,7 +292,7 @@ void V8DOMWindowShell::initContextIfNeeded()
         // Bail out if allocation of the first global objects fails.
         if (m_global.IsEmpty()) {
             disposeContextHandles();
-            return;
+            return false;
         }
 #ifndef NDEBUG
         V8GCController::registerGlobalHandle(PROXY, this, m_global);
@@ -301,12 +301,12 @@ void V8DOMWindowShell::initContextIfNeeded()
 
     if (!installHiddenObjectPrototype(v8Context)) {
         disposeContextHandles();
-        return;
+        return false;
     }
 
     if (!installDOMWindow(v8Context, m_frame->domWindow())) {
         disposeContextHandles();
-        return;
+        return false;
     }
 
     updateDocument();
@@ -319,9 +319,13 @@ void V8DOMWindowShell::initContextIfNeeded()
     // we do isolated worlds the WebCore way.
     m_frame->loader()->dispatchDidClearWindowObjectInWorld(0);
 
+<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::record(android::TimeCounter::JavaScriptInitTimeCounter, __FUNCTION__);
 #endif
+=======
+    return true;
+>>>>>>> webkit.org at r67178
 }
 
 v8::Persistent<v8::Context> V8DOMWindowShell::createNewContext(v8::Handle<v8::Object> global, int extensionGroup)

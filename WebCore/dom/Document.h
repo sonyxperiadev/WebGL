@@ -64,7 +64,7 @@ class DOMImplementation;
 class DOMSelection;
 class DOMWindow;
 class DatabaseThread;
-class DocLoader;
+class CachedResourceLoader;
 class DocumentFragment;
 class DocumentType;
 class DocumentWeakReference;
@@ -509,7 +509,7 @@ public:
     void pageSizeAndMarginsInPixels(int pageIndex, IntSize& pageSize, int& marginTop, int& marginRight, int& marginBottom, int& marginLeft);
 
     static void updateStyleForAllDocuments(); // FIXME: Try to reduce the # of calls to this function.
-    DocLoader* docLoader() { return m_docLoader.get(); }
+    CachedResourceLoader* cachedResourceLoader() { return m_cachedResourceLoader.get(); }
 
     virtual void attach();
     virtual void detach();
@@ -582,7 +582,13 @@ public:
     bool inQuirksMode() const { return m_compatibilityMode == QuirksMode; }
     bool inLimitedQuirksMode() const { return m_compatibilityMode == LimitedQuirksMode; }
     bool inNoQuirksMode() const { return m_compatibilityMode == NoQuirksMode; }
-    
+
+    enum ReadyState {
+        Loading,
+        Interactive,
+        Complete
+    };
+    void setReadyState(ReadyState);
     void setParsing(bool);
     bool parsing() const { return m_bParsing; }
     int minimumLayoutDelay();
@@ -1075,7 +1081,7 @@ private:
     bool m_didCalculateStyleSelector;
 
     Frame* m_frame;
-    OwnPtr<DocLoader> m_docLoader;
+    OwnPtr<CachedResourceLoader> m_cachedResourceLoader;
     RefPtr<DocumentParser> m_parser;
     bool m_wellFormed;
 
@@ -1163,6 +1169,7 @@ private:
 
     bool m_loadingSheet;
     bool m_visuallyOrdered;
+    ReadyState m_readyState;
     bool m_bParsing;
     
     Timer<Document> m_styleRecalcTimer;

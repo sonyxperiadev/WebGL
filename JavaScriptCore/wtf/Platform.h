@@ -142,6 +142,7 @@
 #define WTF_MIPS_ARCH_REV __mips_isa_rev
 #define WTF_MIPS_ISA_REV(v) (defined WTF_MIPS_ARCH_REV && WTF_MIPS_ARCH_REV == v)
 #define WTF_MIPS_DOUBLE_FLOAT (defined __mips_hard_float && !defined __mips_single_float)
+#define WTF_MIPS_FP64 (defined __mips_fpr && __mips_fpr == 64)
 /* MIPS requires allocators to use aligned memory */
 #define WTF_USE_ARENA_ALLOC_ALIGNMENT_INTEGER 1
 #endif /* MIPS */
@@ -939,11 +940,7 @@
     || CPU(SPARC64) \
     || CPU(PPC64)
 #define WTF_USE_JSVALUE64 1
-#elif CPU(MIPS) || (CPU(ARM_TRADITIONAL) && COMPILER(MSVC))
-#define WTF_USE_JSVALUE32 1
-#elif OS(WINDOWS) && COMPILER(MINGW)
-/* Using JSVALUE32_64 causes padding/alignement issues for JITStubArg
-on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
+#elif CPU(ARM_TRADITIONAL) && COMPILER(MSVC)
 #define WTF_USE_JSVALUE32 1
 #else
 #define WTF_USE_JSVALUE32_64 1
@@ -956,6 +953,11 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 
 /* Disable the JIT on versiond of GCC prior to 4.1 */
 #if !defined(ENABLE_JIT) && COMPILER(GCC) && !GCC_VERSION_AT_LEAST(4,1,0)
+#define ENABLE_JIT 0
+#endif
+
+/* JIT is not implemented for 64 bit on MSVC */
+#if !defined(ENABLE_JIT) && COMPILER(MSVC) && CPU(X86_64)
 #define ENABLE_JIT 0
 #endif
 
@@ -1015,6 +1017,9 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #if HAVE(COMPUTED_GOTO) && ENABLE(INTERPRETER)
 #define ENABLE_COMPUTED_GOTO_INTERPRETER 1
 #endif
+
+/* Regular Expression Tracing - Set to 1 to trace RegExp's in jsc.  Results dumped at exit */
+#define ENABLE_REGEXP_TRACING 0
 
 /* Yet Another Regex Runtime - turned on by default for JIT enabled ports. */
 #if ENABLE(JIT) && !defined(ENABLE_YARR) && !defined(ENABLE_YARR_JIT)
@@ -1133,8 +1138,8 @@ on MinGW. See https://bugs.webkit.org/show_bug.cgi?id=29268 */
 #define ENABLE_BRANCH_COMPACTION 1
 #endif
 
-#if PLATFORM(GTK)
-#include "GtkTypedefs.h"
+#if PLATFORM(GTK) || (PLATFORM(EFL) && ENABLE(GLIB_SUPPORT))
+#include "GTypedefs.h"
 #endif
 
 #endif /* WTF_Platform_h */

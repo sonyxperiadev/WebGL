@@ -60,7 +60,6 @@
 #include "History.h"
 #include "IDBFactory.h"
 #include "IDBFactoryBackendInterface.h"
-#include "IDBKeyRange.h"
 #include "InspectorController.h"
 #include "InspectorTimelineAgent.h"
 #include "KURL.h"
@@ -498,7 +497,6 @@ void DOMWindow::clear()
 
 #if ENABLE(INDEXED_DATABASE)
     m_idbFactory = 0;
-    m_idbKeyRange = 0;
 #endif
 }
 
@@ -719,14 +717,6 @@ IDBFactory* DOMWindow::indexedDB() const
 
     m_idbFactory = IDBFactory::create(page->group().idbFactory());
     return m_idbFactory.get();
-}
-
-IDBKeyRange* DOMWindow::iDBKeyRange() const
-{
-    if (!m_idbKeyRange)
-        m_idbKeyRange = IDBKeyRange::create(0, 0, 0);
-
-    return m_idbKeyRange.get();
 }
 #endif
 
@@ -1022,7 +1012,7 @@ bool DOMWindow::find(const String& string, bool caseSensitive, bool backwards, b
         return false;
 
     // FIXME (13016): Support wholeWord, searchInFrames and showDialog
-    return m_frame->findString(string, !backwards, caseSensitive, wrap, false);
+    return m_frame->editor()->findString(string, !backwards, caseSensitive, wrap, false);
 }
 
 bool DOMWindow::offscreenBuffering() const

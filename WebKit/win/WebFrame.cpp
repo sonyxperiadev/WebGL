@@ -42,6 +42,7 @@
 #include "WebDownload.h"
 #include "WebEditorClient.h"
 #include "WebError.h"
+#include "WebFrameNetworkingContext.h"
 #include "WebFramePolicyListener.h"
 #include "WebHistory.h"
 #include "WebHistoryItem.h"
@@ -1044,7 +1045,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::selectedString(
     if (!coreFrame)
         return E_FAIL;
 
-    String text = coreFrame->displayStringModifiedByEncoding(coreFrame->selectedText());
+    String text = coreFrame->displayStringModifiedByEncoding(coreFrame->editor()->selectedText());
 
     *result = BString(text).release();
     return S_OK;
@@ -1352,7 +1353,7 @@ HRESULT WebFrame::allowsFollowingLink(BSTR url, BOOL* result)
     if (!frame)
         return E_FAIL;
 
-    *result = SecurityOrigin::canLoad(MarshallingHelpers::BSTRToKURL(url), String(), frame->document());
+    *result = SecurityOrigin::canDisplay(MarshallingHelpers::BSTRToKURL(url), String(), frame->document());
     return S_OK;
 }
 
@@ -2614,3 +2615,7 @@ void WebFrame::updateBackground()
     coreFrame->view()->updateBackgroundRecursively(backgroundColor, webView()->transparent());
 }
 
+PassRefPtr<FrameNetworkingContext> WebFrame::createNetworkingContext()
+{
+    return WebFrameNetworkingContext::create(core(this), userAgent(url()));
+}

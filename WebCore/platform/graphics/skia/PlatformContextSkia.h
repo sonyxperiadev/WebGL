@@ -1,10 +1,10 @@
 /*
  * Copyright (c) 2008, Google Inc. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  * notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above
@@ -14,7 +14,7 @@
  *     * Neither the name of Google Inc. nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -35,7 +35,6 @@
 #include "Noncopyable.h"
 
 #include "SkDashPathEffect.h"
-#include "SkDeque.h"
 #include "SkDrawLooper.h"
 #include "SkPaint.h"
 #include "SkPath.h"
@@ -46,9 +45,10 @@
 namespace WebCore {
 
 enum CompositeOperator;
+class DrawingBuffer;
 class GLES2Canvas;
-class Texture;
 class GraphicsContext3D;
+class Texture;
 
 // This class holds the platform-specific state for GraphicsContext. We put
 // most of our Skia wrappers on this class. In theory, a lot of this stuff could
@@ -78,7 +78,6 @@ public:
     // to the constructor.
     void setCanvas(skia::PlatformCanvas*);
 
-#if OS(WINDOWS)
     // If false we're rendering to a GraphicsContext for a web page, if false
     // we're not (as is the case when rendering to a canvas object).
     // If this is true the contents have not been marked up with the magic
@@ -86,7 +85,6 @@ public:
     // correctly updated.
     void setDrawingToImageBuffer(bool);
     bool isDrawingToImageBuffer() const;
-#endif
 
     void save();
     void restore();
@@ -95,9 +93,7 @@ public:
     // |rect|. This layer is implicitly restored when the next restore is
     // invoked.
     // NOTE: |imageBuffer| may be deleted before the |restore| is invoked.
-#if OS(LINUX) || OS(WINDOWS)
     void beginLayerClippedToImage(const FloatRect&, const ImageBuffer*);
-#endif
     void clipPathAntiAliased(const SkPath&);
 
     // Sets up the common flags on a paint for antialiasing, effects, etc.
@@ -143,6 +139,8 @@ public:
     void addPath(const SkPath&);
     SkPath currentPathInLocalCoordinates() const;
 
+    void canvasClipPath(const SkPath&);
+
     // Returns the fill color. The returned color has it's alpha adjusted
     // by the current alpha.
     SkColor effectiveFillColor() const;
@@ -180,8 +178,10 @@ public:
     void setImageResamplingHint(const IntSize& srcSize, const FloatSize& dstSize);
     void clearImageResamplingHint();
     bool hasImageResamplingHint() const;
+
+    bool canAccelerate() const;
     bool useGPU() { return m_useGPU; }
-    void setGraphicsContext3D(GraphicsContext3D*, const IntSize&);
+    void setSharedGraphicsContext3D(SharedGraphicsContext3D*, DrawingBuffer*, const IntSize&);
     GLES2Canvas* gpuCanvas() const { return m_gpuCanvas.get(); }
 
     // Call these before making a call that manipulates the underlying
@@ -190,13 +190,12 @@ public:
     void prepareForHardwareDraw() const;
     // Call to force the skia::PlatformCanvas to contain all rendering results.
     void syncSoftwareCanvas() const;
+    void markDirtyRect(const IntRect& rect);
 
 private:
-#if OS(LINUX) || OS(WINDOWS)
     // Used when restoring and the state has an image clip. Only shows the pixels in
     // m_canvas that are also in imageBuffer.
     void applyClipFromImage(const FloatRect&, const SkBitmap&);
-#endif
     void applyAntiAliasedClipPaths(WTF::Vector<SkPath>& paths);
 
     void uploadSoftwareToHardware(CompositeOperator) const;
@@ -218,17 +217,16 @@ private:
     // Current path in global coordinates.
     SkPath m_path;
 
-    // Stores image sizes for a hint to compute image resampling modes. 
+    // Stores image sizes for a hint to compute image resampling modes.
     // Values are used in ImageSkia.cpp
     IntSize m_imageResamplingHintSrcSize;
     FloatSize m_imageResamplingHintDstSize;
-#if OS(WINDOWS)
     bool m_drawingToImageBuffer;
-#endif
     bool m_useGPU;
     OwnPtr<GLES2Canvas> m_gpuCanvas;
     mutable enum { None, Software, Mixed, Hardware } m_backingStoreState;
     mutable RefPtr<Texture> m_uploadTexture;
+    mutable IntRect m_softwareDirtyRect;
 };
 
 }

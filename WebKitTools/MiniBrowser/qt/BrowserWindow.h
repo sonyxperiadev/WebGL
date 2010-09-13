@@ -26,33 +26,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef BrowserWindow_h
+#define BrowserWindow_h
+
 #define PLATFORM(x) 0
 
-#include "WKContext.h"
-#include "WKRetainPtr.h"
-#include "qgraphicswkview.h"
+#include "BrowserView.h"
 #include <QtGui>
-#include <QGraphicsScene>
-#include <QGraphicsView>
-#include <stdint.h>
-
-class BrowserView : public QGraphicsView {
-    Q_OBJECT
-
-public:
-    BrowserView(QWidget* parent = 0);
-    virtual ~BrowserView() { delete m_item; }
-
-    void load(const QUrl&);
-    QGraphicsWKView* view() const;
-
-protected:
-    virtual void resizeEvent(QResizeEvent*);
-
-private:
-    QGraphicsWKView* m_item;
-    WKRetainPtr<WKContextRef> m_context;
-};
 
 class BrowserWindow : public QMainWindow {
     Q_OBJECT
@@ -76,3 +56,5 @@ private:
     QMenuBar* m_menu;
     QLineEdit* m_addressBar;
 };
+
+#endif

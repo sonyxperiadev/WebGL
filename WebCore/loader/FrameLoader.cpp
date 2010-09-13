@@ -45,7 +45,7 @@
 #include "Chrome.h"
 #include "DOMImplementation.h"
 #include "DOMWindow.h"
-#include "DocLoader.h"
+#include "CachedResourceLoader.h"
 #include "Document.h"
 #include "DocumentLoadTiming.h"
 #include "DocumentLoader.h"
@@ -60,6 +60,7 @@
 #include "Frame.h"
 #include "FrameLoadRequest.h"
 #include "FrameLoaderClient.h"
+#include "FrameNetworkingContext.h"
 #include "FrameTree.h"
 #include "FrameView.h"
 #include "HTMLAnchorElement.h"
@@ -163,7 +164,7 @@ static int numRequests(Document* document)
     if (!document)
         return 0;
     
-    return document->docLoader()->requestCount();
+    return document->cachedResourceLoader()->requestCount();
 }
 
 // This is not in the FrameLoader class to emphasize that it does not depend on
@@ -223,6 +224,9 @@ FrameLoader::~FrameLoader()
         (*it)->loader()->m_opener = 0;
         
     m_client->frameLoaderDestroyed();
+
+    if (m_networkingContext)
+        m_networkingContext->invalidate();
 }
 
 void FrameLoader::init()
@@ -243,6 +247,8 @@ void FrameLoader::init()
     m_frame->document()->cancelParsing();
     m_stateMachine.advanceTo(FrameLoaderStateMachine::DisplayingInitialEmptyDocument);
     m_didCallImplicitClose = true;
+
+    m_networkingContext = m_client->createNetworkingContext();
 }
 
 void FrameLoader::setDefersLoading(bool defers)
@@ -426,8 +432,12 @@ void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy, DatabasePolic
     m_workingURL = KURL();
 
     if (Document* doc = m_frame->document()) {
-        if (DocLoader* docLoader = doc->docLoader())
-            cache()->loader()->cancelRequests(docLoader);
+        // FIXME: HTML5 doesn't tell us to set the state to complete when aborting, but we do anyway to match legacy behavior.
+        // http://www.w3.org/Bugs/Public/show_bug.cgi?id=10537
+        doc->setReadyState(Document::Complete);
+
+        if (CachedResourceLoader* cachedResourceLoader = doc->cachedResourceLoader())
+            cache()->loader()->cancelRequests(cachedResourceLoader);
 
 #if ENABLE(DATABASE)
         if (databasePolicy == DatabasePolicyStop)
@@ -666,10 +676,14 @@ void FrameLoader::didBeginDocument(bool dispatch)
     updateFirstPartyForCookies();
 
     Settings* settings = m_frame->document()->settings();
+<<<<<<< HEAD
     m_frame->document()->docLoader()->setAutoLoadImages(settings && settings->loadsImagesAutomatically());
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
     m_frame->document()->docLoader()->setBlockNetworkImage(settings && settings->blockNetworkImage());
 #endif
+=======
+    m_frame->document()->cachedResourceLoader()->setAutoLoadImages(settings && settings->loadsImagesAutomatically());
+>>>>>>> webkit.org at r67178
 
     if (m_documentLoader) {
         String dnsPrefetchControl = m_documentLoader->response().httpHeaderField("X-DNS-Prefetch-Control");
@@ -842,6 +856,7 @@ void FrameLoader::checkCompleted()
 
     // OK, completed.
     m_isComplete = true;
+    m_frame->document()->setReadyState(Document::Complete);
 
     RefPtr<Frame> protect(m_frame);
     checkCallImplicitClose(); // if we didn't do it before
@@ -1056,6 +1071,7 @@ void FrameLoader::setOpener(Frame* opener)
     }
 }
 
+// FIXME: This does not belong in FrameLoader!
 void FrameLoader::handleFallbackContent()
 {
     HTMLFrameOwnerElement* owner = m_frame->ownerElement();
@@ -1272,7 +1288,7 @@ void FrameLoader::loadFrameRequest(const FrameLoadRequest& request, bool lockHis
 
     ASSERT(frame()->document());
     if (SchemeRegistry::shouldTreatURLAsLocal(url.string()) && !isFeedWithNestedProtocolInHTTPFamily(url)) {
-        if (!SecurityOrigin::canLoad(url, String(), frame()->document()) && !SecurityOrigin::canLoad(url, referrer, 0)) {
+        if (!SecurityOrigin::canDisplay(url, String(), frame()->document()) && !SecurityOrigin::canDisplay(url, referrer, 0)) {
             FrameLoader::reportLocalLoadFailed(m_frame, url.string());
             return;
         }
@@ -3476,6 +3492,11 @@ void FrameLoader::tellClientAboutPastMemoryCacheLoads()
         ResourceRequest request(resource->url());
         m_client->dispatchDidLoadResourceFromMemoryCache(m_documentLoader.get(), request, resource->response(), resource->encodedSize());
     }
+}
+
+NetworkingContext* FrameLoader::networkingContext() const
+{
+    return m_networkingContext.get();
 }
 
 bool FrameLoaderClient::hasHTMLView() const

@@ -70,6 +70,7 @@ struct PlatformMedia {
         QTMovieVisualContextType,
         GStreamerGWorldType,
         ChromiumMediaPlayerType,
+        QtMediaPlayerType,
     } type;
 
     union {
@@ -78,6 +79,7 @@ struct PlatformMedia {
         QTMovieVisualContext* qtMovieVisualContext;
         GStreamerGWorld* gstreamerGWorld;
         MediaPlayerPrivateInterface* chromiumMediaPlayer;
+        MediaPlayerPrivateInterface* qtMediaPlayer;
     } media;
 };
 
@@ -118,6 +120,9 @@ public:
     
     // the playback rate has changed
     virtual void mediaPlayerRateChanged(MediaPlayer*) { }
+
+    // the play/pause status changed
+    virtual void mediaPlayerPlaybackStateChanged(MediaPlayer*) { }
 
     // The MediaPlayer has found potentially problematic media content.
     // This is used internally to trigger swapping from a <video>
@@ -244,6 +249,7 @@ public:
     void timeChanged();
     void sizeChanged();
     void rateChanged();
+    void playbackStateChanged();
     void durationChanged();
 
     void repaint();

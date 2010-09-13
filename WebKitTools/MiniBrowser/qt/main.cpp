@@ -26,8 +26,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <QtGui>
 #include "BrowserWindow.h"
+#include <QtGui>
 
 int main(int argc, char** argv) {
     QApplication app(argc, argv);
@@ -44,11 +44,11 @@ int main(int argc, char** argv) {
             urls.append("http://www.google.com");
     }
 
-    BrowserWindow* window = 0;
-    foreach (QString url, urls) {
-        window = new BrowserWindow();
-        window->newWindow(url);
-    }
+    BrowserWindow* window = new BrowserWindow();
+    window->load(urls[0]);
+
+    for (int i = 1; i < urls.size(); ++i)
+        window->newWindow(urls[i]);
 
     app.exec();
 

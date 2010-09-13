@@ -26,14 +26,27 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import unittest
-import mac
 import StringIO
+import sys
+import unittest
 
-class MacTest(unittest.TestCase):
+import mac
+import port_testcase
+
+
+class MacTest(port_testcase.PortTestCase):
+    def make_port(self, options=port_testcase.MockOptions()):
+        if sys.platform != 'darwin':
+            return None
+        port_obj = mac.MacPort(options=options)
+        port_obj._options.results_directory = port_obj.results_directory()
+        port_obj._options.configuration = 'Release'
+        return port_obj
 
     def test_skipped_file_paths(self):
-        port = mac.MacPort()
+        port = self.make_port()
+        if not port:
+            return
         skipped_paths = port._skipped_file_paths()
         # FIXME: _skipped_file_paths should return WebKit-relative paths.
         # So to make it unit testable, we strip the WebKit directory from the path.
@@ -57,7 +70,9 @@ svg/batik/text/smallFonts.svg
     ]
 
     def test_skipped_file_paths(self):
-        port = mac.MacPort()
+        port = self.make_port()
+        if not port:
+            return
         skipped_file = StringIO.StringIO(self.example_skipped_file)
         self.assertEqual(port._tests_from_skipped_file(skipped_file), self.example_skipped_tests)
 

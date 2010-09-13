@@ -143,7 +143,7 @@ HRESULT STDMETHODCALLTYPE WebScrollBar::setRect(
 HRESULT STDMETHODCALLTYPE WebScrollBar::setValue( 
     /* [in] */ int value)
 {
-    m_scrollBar->setValue(value);
+    m_scrollBar->setValue(value, Scrollbar::NotFromScrollAnimator);
     return S_OK;
 }
 
@@ -252,6 +252,16 @@ HRESULT STDMETHODCALLTYPE WebScrollBar::scroll(
 }
 
 // ScrollbarClient -------------------------------------------------------
+int WebScrollBar::scrollSize(ScrollbarOrientation orientation) const
+{
+    return (orientation == m_scrollBar->orientation()) ? (m_scrollBar->totalSize() - m_scrollBar->visibleSize()) : 0; 
+}
+
+void WebScrollBar::setScrollOffsetFromAnimation(const IntPoint& offset)
+{
+    m_scrollBar->setValue((m_scrollBar->orientation() == HorizontalScrollbar) ? offset.x() : offset.y(), Scrollbar::FromScrollAnimator);
+}
+
 void WebScrollBar::valueChanged(Scrollbar* scrollBar)
 {
     if (m_scrollBar != scrollBar) {

@@ -64,10 +64,12 @@ class FormState;
 class FormSubmission;
 class Frame;
 class FrameLoaderClient;
+class FrameNetworkingContext;
 class HistoryItem;
 class HTMLFormElement;
 class IconLoader;
 class NavigationAction;
+class NetworkingContext;
 class ProtectionSpace;
 class ResourceError;
 class ResourceLoader;
@@ -335,6 +337,8 @@ public:
 
     bool pageDismissalEventBeingDispatched() const { return m_pageDismissalEventBeingDispatched; }
 
+    inline NetworkingContext* networkingContext() const;
+
 private:
     bool canCachePageContainingThisFrame();
 #ifndef NDEBUG
@@ -501,6 +505,8 @@ private:
 #ifndef NDEBUG
     bool m_didDispatchDidCommitLoad;
 #endif
+
+    RefPtr<FrameNetworkingContext> m_networkingContext;
 };
 
 // This function is called by createWindow() in JSDOMWindowBase.cpp, for example, for

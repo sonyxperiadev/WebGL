@@ -38,6 +38,8 @@
 #include "public/WebAnimationController.h"
 #include "public/WebBindings.h"
 #include "public/WebConsoleMessage.h"
+#include "public/WebDeviceOrientation.h"
+#include "public/WebDeviceOrientationClientMock.h"
 #include "public/WebDocument.h"
 #include "public/WebElement.h"
 #include "public/WebFrame.h"
@@ -67,8 +69,7 @@ using namespace WebKit;
 using namespace std;
 
 LayoutTestController::LayoutTestController(TestShell* shell)
-    : m_timeoutFactory(this)
-    , m_shell(shell)
+    : m_shell(shell)
     , m_workQueue(this)
 {
 
@@ -195,6 +196,10 @@ LayoutTestController::LayoutTestController(TestShell* shell)
     bindProperty("webHistoryItemCount", &m_webHistoryItemCount);
 }
 
+LayoutTestController::~LayoutTestController()
+{
+}
+
 LayoutTestController::WorkQueue::~WorkQueue()
 {
     reset();
@@ -207,10 +212,9 @@ void LayoutTestController::WorkQueue::processWorkSoon()
 
     if (!m_queue.isEmpty()) {
         // We delay processing queued work to avoid recursion problems.
-        m_timer.Start(base::TimeDelta(), this, &WorkQueue::processWork);
-    } else if (!m_controller->m_waitUntilDone) {
+        postTask(new WorkQueueTask(this));
+    } else if (!m_controller->m_waitUntilDone)
         m_controller->m_shell->testFinished();
-    }
 }
 
 void LayoutTestController::WorkQueue::processWork()
@@ -320,11 +324,8 @@ void LayoutTestController::setAcceptsEditing(const CppArgumentList& arguments, C
 
 void LayoutTestController::waitUntilDone(const CppArgumentList&, CppVariant* result)
 {
-    if (!webkit_support::BeingDebugged()) {
-        webkit_support::PostDelayedTaskFromHere(
-            m_timeoutFactory.NewRunnableMethod(&LayoutTestController::notifyDoneTimedOut),
-            m_shell->layoutTestTimeout());
-    }
+    if (!webkit_support::BeingDebugged())
+        postDelayedTask(new NotifyDoneTimedOutTask(this), m_shell->layoutTestTimeout());
     m_waitUntilDone = true;
     result->setNull();
 }
@@ -332,15 +333,10 @@ void LayoutTestController::waitUntilDone(const CppArgumentList&, CppVariant* res
 void LayoutTestController::notifyDone(const CppArgumentList&, CppVariant* result)
 {
     // Test didn't timeout. Kill the timeout timer.
-    m_timeoutFactory.RevokeAll();
+    m_taskList.revokeAll();
 
     completeNotifyDone(false);
     result->setNull();
-}
-
-void LayoutTestController::notifyDoneTimedOut()
-{
-    completeNotifyDone(true);
 }
 
 void LayoutTestController::completeNotifyDone(bool isTimeout)
@@ -521,7 +517,7 @@ void LayoutTestController::reset()
     else
         m_closeRemainingWindows = true;
     m_workQueue.reset();
-    m_timeoutFactory.RevokeAll();
+    m_taskList.revokeAll();
 }
 
 void LayoutTestController::locationChangeDone()
@@ -1397,8 +1393,14 @@ void LayoutTestController::setEditingBehavior(const CppArgumentList& arguments, 
 
 void LayoutTestController::setMockDeviceOrientation(const CppArgumentList& arguments, CppVariant* result)
 {
-    // FIXME: Implement for DeviceOrientation layout tests.
-    // See https://bugs.webkit.org/show_bug.cgi?id=30335.
+    result->setNull();
+    if (arguments.size() < 6 || !arguments[0].isBool() || !arguments[1].isNumber() || !arguments[2].isBool() || !arguments[3].isNumber() || !arguments[4].isBool() || !arguments[5].isNumber())
+        return;
+
+    WebKit::WebDeviceOrientation orientation(arguments[0].toBoolean(), arguments[1].toDouble(), arguments[2].toBoolean(), arguments[3].toDouble(), arguments[4].toBoolean(), arguments[5].toDouble());
+
+    ASSERT(m_deviceOrientationClientMock);
+    m_deviceOrientationClientMock->setOrientation(orientation);
 }
 
 void LayoutTestController::setGeolocationPermission(const CppArgumentList& arguments, CppVariant* result)
@@ -1453,4 +1455,11 @@ void LayoutTestController::markerTextForListItem(const CppArgumentList& args, Cp
         result->setNull();
     else
         result->set(element.document().frame()->markerTextForListItem(element).utf8());
+}
+
+WebKit::WebDeviceOrientationClient* LayoutTestController::deviceOrientationClient()
+{
+    if (!m_deviceOrientationClientMock.get())
+        m_deviceOrientationClientMock.set(new WebKit::WebDeviceOrientationClientMock());
+    return m_deviceOrientationClientMock.get();
 }
