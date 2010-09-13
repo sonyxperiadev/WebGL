@@ -473,9 +473,11 @@ void CacheBuilder::Debug::groups() {
                 RenderStyle* style = renderer->style();
                 snprintf(scratch, sizeof(scratch), "// renderStyle:"
                     " visibility=%s hasBackGround=%d"
-                    " tapHighlightColor().alpha()=0x%02x",
+                    " tapHighlightColor().alpha()=0x%02x"
+                    " isTransparent()=%s",
                     style->visibility() == HIDDEN ? "HIDDEN" : "VISIBLE",
-                    renderer->hasBackground(), style->tapHighlightColor().alpha());
+                    renderer->hasBackground(), style->tapHighlightColor().alpha(),
+                    renderer->isTransparent() ? "true" : "false");
                 newLine();
                 print(scratch);
                 RenderBlock* renderBlock = static_cast<RenderBlock*>(renderer);
@@ -3023,18 +3025,18 @@ bool CacheBuilder::ConstructPartRects(Node* node, const IntRect& bounds,
             EVisibility vis = renderer->style()->visibility();
             if (vis == HIDDEN)
                 continue;
+            bool hasClip = renderer->hasOverflowClip();
+            size_t clipIndex = clipTracker.size();
+            IntRect clipBounds = IntRect(0, 0, INT_MAX, INT_MAX);
+            if (hasClip || --clipIndex > 0) {
+                clipBounds = hasClip ? renderer->absoluteBoundingBoxRect() :
+                    clipTracker.at(clipIndex).mBounds; // x, y fixup done by ConstructTextRect
+            }
             if (test->isTextNode()) {
                 RenderText* renderText = (RenderText*) renderer;
                 InlineTextBox *textBox = renderText->firstTextBox();
                 if (textBox == NULL)
                     continue;
-                bool hasClip = renderer->hasOverflowClip();
-                size_t clipIndex = clipTracker.size();
-                IntRect clipBounds = IntRect(0, 0, INT_MAX, INT_MAX);
-                if (hasClip || --clipIndex > 0) {
-                    clipBounds = hasClip ? renderer->absoluteBoundingBoxRect() :
-                        clipTracker.at(clipIndex).mBounds; // x, y fixup done by ConstructTextRect
-                }
                 if (ConstructTextRect((Text*) test, textBox, 0, INT_MAX, 
                         x, y, focusBounds, clipBounds, result) == false) {
                     return false;
@@ -3043,6 +3045,7 @@ bool CacheBuilder::ConstructPartRects(Node* node, const IntRect& bounds,
             }
             if (test->hasTagName(HTMLNames::imgTag)) {
                 IntRect bounds = test->getRect();
+                bounds.intersect(clipBounds);
                 if (AddPartRect(bounds, x, y, result, focusBounds) == false)
                     return false;
                 continue;
