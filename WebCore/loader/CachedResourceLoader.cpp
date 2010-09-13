@@ -334,9 +334,8 @@ void CachedResourceLoader::setAutoLoadImages(bool enable)
     }
 }
 
-<<<<<<< HEAD:WebCore/loader/DocLoader.cpp
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
-bool DocLoader::shouldBlockNetworkImage(const String& url) const
+bool CachedResourceLoader::shouldBlockNetworkImage(const String& url) const
 {
     if (!m_blockNetworkImage)
         return false;
@@ -348,7 +347,7 @@ bool DocLoader::shouldBlockNetworkImage(const String& url) const
     return false;
 }
 
-void DocLoader::setBlockNetworkImage(bool block)
+void CachedResourceLoader::setBlockNetworkImage(bool block)
 {
     if (block == m_blockNetworkImage)
         return;
@@ -370,10 +369,7 @@ void DocLoader::setBlockNetworkImage(bool block)
 }
 #endif
 
-CachePolicy DocLoader::cachePolicy() const
-=======
 CachePolicy CachedResourceLoader::cachePolicy() const
->>>>>>> webkit.org at r67178:WebCore/loader/CachedResourceLoader.cpp
 {
     return frame() ? frame()->loader()->subresourceCachePolicy() : CachePolicyVerify;
 }

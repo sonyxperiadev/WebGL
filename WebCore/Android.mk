@@ -295,13 +295,10 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/ImageDocument.cpp \
   html/MediaDocument.cpp \
 	html/ImageResizerThread.cpp \
-<<<<<<< HEAD
 	html/LabelsNodeList.cpp \
 	html/StepRange.cpp \
-=======
 	html/PluginDocument.cpp \
 	html/TextDocument.cpp \
->>>>>>> webkit.org at r67178
 	html/TimeRanges.cpp \
 	html/ValidityState.cpp \
 	\

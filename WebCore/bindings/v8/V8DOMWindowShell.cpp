@@ -319,13 +319,11 @@ bool V8DOMWindowShell::initContextIfNeeded()
     // we do isolated worlds the WebCore way.
     m_frame->loader()->dispatchDidClearWindowObjectInWorld(0);
 
-<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::record(android::TimeCounter::JavaScriptInitTimeCounter, __FUNCTION__);
 #endif
-=======
+
     return true;
->>>>>>> webkit.org at r67178
 }
 
 v8::Persistent<v8::Context> V8DOMWindowShell::createNewContext(v8::Handle<v8::Object> global, int extensionGroup)

@@ -82,17 +82,12 @@ void CachedImage::decodedDataDeletionTimerFired(Timer<CachedImage>*)
 
 void CachedImage::load(CachedResourceLoader* cachedResourceLoader)
 {
-<<<<<<< HEAD
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
-    if (!docLoader || (docLoader->autoLoadImages() && !docLoader->shouldBlockNetworkImage(m_url)))
+    if (!cachedResourceLoader || (cachedResourceLoader->autoLoadImages() && !cachedResourceLoader->shouldBlockNetworkImage(m_url)))
 #else
-    if (!docLoader || docLoader->autoLoadImages())
-#endif
-        CachedResource::load(docLoader, true, DoSecurityCheck, true);
-=======
     if (!cachedResourceLoader || cachedResourceLoader->autoLoadImages())
+#endif
         CachedResource::load(cachedResourceLoader, true, DoSecurityCheck, true);
->>>>>>> webkit.org at r67178
     else
         setLoading(false);
 }
