@@ -101,6 +101,20 @@ ifneq ($(HTTP_STACK),chrome)
   endif
 endif
 
+# Read the environment variable to determine if Autofill is enabled.
+# The default is off. Chrome HTTP stack must be used when Autofill
+# is turned on.
+
+ifneq ($(ENABLE_AUTOFILL),true)
+  ENABLE_AUTOFILL=false
+endif
+
+ifneq ($(HTTP_STACK),chrome)
+  ifeq ($(ENABLE_AUTOFILL),true)
+    ENABLE_AUTOFILL = false
+  endif
+endif
+
 BASE_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
@@ -217,6 +231,16 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(base_intermediates)/WebCore/css \
 	$(base_intermediates)/WebCore/html \
 	$(base_intermediates)/WebCore/platform
+
+# The following includes are needed by the AutoFill feature.
+LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
+	$(LOCAL_PATH)/WebKit/chromium \
+	$(LOCAL_PATH)/WebKit/chromium/public \
+	external/chromium/chrome/browser \
+	external/chromium/chrome/renderer \
+	external/chromium/android \
+	external/chromium/chrome \
+	external/skia
 
 ifeq ($(JAVASCRIPT_ENGINE),v8)
 # Include WTF source file.
@@ -364,6 +388,10 @@ LOCAL_STATIC_LIBRARIES += libchromium_net
 LOCAL_SHARED_LIBRARIES += libcrypto libssl libz
 endif # HTTP_STACK == chrome
 
+ifeq ($(ENABLE_AUTOFILL),true)
+LOCAL_SHARED_LIBRARIES += libexpat
+endif
+
 # Redefine LOCAL_SRC_FILES to be all the WebKit source files
 LOCAL_SRC_FILES := $(WEBKIT_SRC_FILES)
 
@@ -428,6 +456,19 @@ LOCAL_C_INCLUDES := $(WEBKIT_C_INCLUDES)
 LOCAL_PATH := $(BASE_PATH)
 LOCAL_SRC_FILES := \
 	WebKit/android/jni/WebCoreJniOnLoad.cpp
+
+ifeq ($(ENABLE_AUTOFILL),true)
+# AutoFill requires some cpp files from Chromium to link with
+# libchromium_net. We cannot compile them into libchromium_net
+# because they have cpp file extensions, not .cc.
+LOCAL_CFLAGS += -DWEBKIT_IMPLEMENTATION=1
+LOCAL_SRC_FILES += \
+	WebKit/android/WebCoreSupport/autofill/MainThreadProxy.cpp \
+	WebKit/chromium/src/WebCString.cpp \
+	WebKit/chromium/src/WebRegularExpression.cpp \
+	WebKit/chromium/src/WebString.cpp
+endif
+
 # Do this dependency by hand. The reason we have to do this is because the
 # headers that this file pulls in are generated during the build of webcore.
 # We make all of our object files depend on those files so that they are built

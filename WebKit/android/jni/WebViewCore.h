@@ -31,6 +31,7 @@
 #include "CacheBuilder.h"
 #include "CachedHistory.h"
 #include "DeviceOrientationManager.h"
+#include "DOMSelection.h"
 #include "PictureSet.h"
 #include "PlatformGraphicsContext.h"
 #include "SkColor.h"
@@ -73,6 +74,21 @@ class SkPicture;
 class SkIRect;
 
 namespace android {
+
+    enum Direction {
+        DIRECTION_BACKWARD = 0,
+        DIRECTION_FORWARD = 1
+    };
+
+    enum NavigationAxis {
+        AXIS_CHARACTER = 0,
+        AXIS_WORD = 1,
+        AXIS_SENTENCE = 2,
+        AXIS_HEADING = 3,
+        AXIS_SIBLING = 4,
+        AXIS_PARENT_FIRST_CHILD = 5,
+        AXIS_DOCUMENT = 6
+    };
 
     class CachedFrame;
     class CachedNode;
@@ -330,13 +346,14 @@ namespace android {
         /**
          * Modifies the current selection.
          *
-         * alter - Specifies how to alter the selection.
          * direction - The direction in which to alter the selection.
          * granularity - The granularity of the selection modification.
          *
-         * returns - The selection as string.
+         * returns - The selected HTML as a string. This is not a well formed
+         *           HTML, rather the selection annotated with the tags of all
+         *           intermediary elements it crosses.
          */
-        String modifySelection(const String& alter, const String& direction, const String& granularity);
+        String modifySelection(const int direction, const int granularity);
 
         /**
          *  In the currently focused textfield, replace the characters from oldStart to oldEnd
@@ -568,6 +585,19 @@ namespace android {
         void sendNotifyProgressFinished();
         bool handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr);
         WebCore::HTMLAnchorElement* retrieveAnchorElement(WebCore::Frame* frame, WebCore::Node* node);
+        // below are members responsible for accessibility support
+        String modifySelectionTextNavigationAxis(DOMSelection* selection, int direction, int granularity);
+        String modifySelectionDomNavigationAxis(DOMSelection* selection, int direction, int granularity);
+        Text* traverseNonEmptyNonWhitespaceTextNode(Node* fromNode, Node* toNode ,int direction);
+        bool isVisible(Node* node);
+        bool isHeading(Node* node);
+        bool isEmptyOrOnlyWhitespaceTextNode(Node* node);
+        String formatMarkup(DOMSelection* selection);
+        void tryFocusInlineSelectionElement(DOMSelection* selection);
+        bool focusIfFocusableAndNotTextInput(DOMSelection* selection, Node* node);
+        bool setSelection(DOMSelection* selection, Text* textNode, int direction);
+        bool setSelection(DOMSelection* selection, Node* startNode, Node* endNode, int startOffset, int endOffset);
+        Node* m_currentNodeDomNavigationAxis;
 
 #if ENABLE(TOUCH_EVENTS)
         bool m_forwardingTouchEvents;

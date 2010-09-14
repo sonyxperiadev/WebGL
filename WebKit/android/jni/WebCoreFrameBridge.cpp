@@ -120,6 +120,10 @@
 #include "WebArchiveAndroid.h"
 #endif
 
+#if ENABLE(WEB_AUTOFILL)
+#include "autofill/WebAutoFill.h"
+#endif
+
 using namespace JSC::Bindings;
 
 static String* gUploadFileLabel;
@@ -639,6 +643,13 @@ WebFrame::didFinishLoad(WebCore::Frame* frame)
             (int)loadType, isMainFrame);
     checkException(env);
     env->DeleteLocalRef(urlStr);
+#if ENABLE(WEB_AUTOFILL)
+    // TODO: Need to consider child frames.
+    if (isMainFrame) {
+        EditorClientAndroid* editorClient = static_cast<EditorClientAndroid*>(mPage->editorClient());
+        editorClient->getAutoFill()->searchDocument(frame->document());
+    }
+#endif
 }
 
 void
