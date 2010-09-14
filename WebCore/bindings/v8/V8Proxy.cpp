@@ -249,7 +249,7 @@ v8::Handle<v8::Script> V8Proxy::compileScript(v8::Handle<v8::String> code, const
 #ifdef ANDROID_INSTRUMENT
 {
     android::TimeCounter::start(android::TimeCounter::JavaScriptParseTimeCounter);
-    v8::Handle<v8::Script> script = compileScriptInternal(code, fileName, baseLine);
+    v8::Handle<v8::Script> script = compileScriptInternal(code, fileName, baseLine, scriptData);
     android::TimeCounter::record(android::TimeCounter::JavaScriptParseTimeCounter, __FUNCTION__);
     return script;
 }
