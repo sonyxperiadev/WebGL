@@ -59,6 +59,11 @@ WebAutoFill::WebAutoFill()
     mAutoFillProfile = new AutoFillProfile();
     mAutoFillProfile->SetInfo(AutoFillType(NAME_FULL), string16(ASCIIToUTF16("John Smith")));
     mAutoFillProfile->SetInfo(AutoFillType(EMAIL_ADDRESS), string16(ASCIIToUTF16("jsmith@gmail.com")));
+    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_LINE1), string16(ASCIIToUTF16("123 Fake Street")));
+    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_LINE2), string16(ASCIIToUTF16("Somewhere")));
+    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_CITY), string16(ASCIIToUTF16("Faketown")));
+    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_STATE), string16(ASCIIToUTF16("CA")));
+    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_COUNTRY), string16(ASCIIToUTF16("Germany")));
     mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_ZIP), string16(ASCIIToUTF16("AB12 3DE")));
     mAutoFillProfile->SetInfo(AutoFillType(PHONE_HOME_WHOLE_NUMBER), string16(ASCIIToUTF16("0123456789")));
 
