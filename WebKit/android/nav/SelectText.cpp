@@ -1244,6 +1244,12 @@ SelectText::SelectText()
 
 void SelectText::draw(SkCanvas* canvas, LayerAndroid* layer)
 {
+    // Gmail makes layers appear dynamically the page scrolls. The picture
+    // recorded when the selection begins is confused by the pictures seen
+    // in subsequent layers. To work around this, only allow text selection
+    // in the main picture.
+    if (layer->uniqueId() != -1)
+        return;
     // FIXME: layer may not own the original selected picture
     m_picture = layer->picture();
     if (!m_picture)
