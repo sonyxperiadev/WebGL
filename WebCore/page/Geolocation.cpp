@@ -728,10 +728,6 @@ Geolocation::~Geolocation() {}
 
 void Geolocation::setIsAllowed(bool) {}
 
-#if PLATFORM(ANDROID)
-void Geolocation::stop() {}
-#endif // PLATFORM(ANDROID)
-
 }
                                                         
 #endif // ENABLE(GEOLOCATION)
