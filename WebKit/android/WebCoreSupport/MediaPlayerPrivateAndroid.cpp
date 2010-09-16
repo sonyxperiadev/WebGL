@@ -273,6 +273,8 @@ void MediaPlayerPrivate::getSupportedTypes(HashSet<String>&)
 
 MediaPlayer::SupportsType MediaPlayerPrivate::supportsType(const String& type, const String& codecs)
 {
+    if (WebViewCore::supportsMimeType(type))
+        return MediaPlayer::MayBeSupported;
     return MediaPlayer::IsNotSupported;
 }
 
