@@ -182,9 +182,9 @@ void PluginView::handleEvent(Event* event)
         handleFocusEvent(true);
 #endif
 #if defined(XP_UNIX) && ENABLE(NETSCAPE_PLUGIN_API)
-    else if (event->type() == eventNames().DOMFocusOutEvent)
+    else if (event->type() == eventNames().DOMFocusOutEvent || event->type() == eventNames().focusoutEvent)
         handleFocusOutEvent();
-    else if (event->type() == eventNames().DOMFocusInEvent)
+    else if (event->type() == eventNames().DOMFocusInEvent || event->type() == eventNames().focusinEvent)
         handleFocusInEvent();
 #endif
 }
@@ -562,7 +562,7 @@ NPError PluginView::load(const FrameLoadRequest& frameLoadRequest, bool sendNoti
         // For security reasons, only allow JS requests to be made on the frame that contains the plug-in.
         if (!targetFrameName.isNull() && m_parentFrame->tree()->find(targetFrameName) != m_parentFrame)
             return NPERR_INVALID_PARAM;
-    } else if (!SecurityOrigin::canLoad(url, String(), m_parentFrame->document()))
+    } else if (!SecurityOrigin::canDisplay(url, String(), m_parentFrame->document()))
             return NPERR_GENERIC_ERROR;
 
     PluginRequest* request = new PluginRequest(frameLoadRequest, sendNotification, notifyData, arePopupsAllowed());

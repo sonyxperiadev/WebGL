@@ -28,6 +28,7 @@
 
 #include "AffineTransform.h"
 #include "CachedResourceClient.h"
+#include "CSSPrimitiveValue.h"
 #include "Document.h"
 #include "Element.h"
 #include "FloatQuad.h"
@@ -319,6 +320,7 @@ public:
     virtual bool isSVGImage() const { return false; }
     virtual bool isSVGForeignObject() const { return false; }
     virtual bool isSVGResourceContainer() const { return false; }
+    virtual bool isSVGResourceFilterPrimitive() const { return false; }
     virtual bool isSVGShadowTreeRootContainer() const { return false; }
 
     virtual RenderSVGResourceContainer* toRenderSVGResourceContainer();
@@ -986,13 +988,14 @@ inline void makeMatrixRenderable(TransformationMatrix& matrix, bool has3DRenderi
 
 inline int adjustForAbsoluteZoom(int value, RenderObject* renderer)
 {
-    float zoomFactor = renderer->style()->effectiveZoom();
+    double zoomFactor = renderer->style()->effectiveZoom();
     if (zoomFactor == 1)
         return value;
     // Needed because computeLengthInt truncates (rather than rounds) when scaling up.
     if (zoomFactor > 1)
         value++;
-    return static_cast<int>(value / zoomFactor);
+
+    return roundForImpreciseConversion<int, INT_MAX, INT_MIN>(value / zoomFactor);
 }
 
 inline void adjustIntRectForAbsoluteZoom(IntRect& rect, RenderObject* renderer)

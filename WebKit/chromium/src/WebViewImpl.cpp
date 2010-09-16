@@ -58,6 +58,7 @@
 #include "GLES2Context.h"
 #include "GLES2ContextInternal.h"
 #include "GraphicsContext.h"
+#include "GraphicsContext3D.h"
 #include "HTMLInputElement.h"
 #include "HTMLMediaElement.h"
 #include "HitTestResult.h"
@@ -86,6 +87,7 @@
 #include "SecurityOrigin.h"
 #include "SelectionController.h"
 #include "Settings.h"
+#include "SharedGraphicsContext3D.h"
 #include "Timer.h"
 #include "TypingCommand.h"
 #include "UserGestureIndicator.h"
@@ -263,6 +265,7 @@ WebViewImpl::WebViewImpl(WebViewClient* client, WebDevToolsAgentClient* devTools
 #if USE(ACCELERATED_COMPOSITING)
     , m_layerRenderer(0)
     , m_isAcceleratedCompositingActive(false)
+    , m_compositorCreationFailed(false)
 #endif
 #if ENABLE(INPUT_SPEECH)
     , m_speechInputClient(client)
@@ -967,6 +970,7 @@ void WebViewImpl::paint(WebCanvas* canvas, const WebRect& rect)
         IntRect contentRect = view->visibleContentRect(false);
 
         // Ask the layer compositor to redraw all the layers.
+        ASSERT(m_layerRenderer->hardwareCompositing());
         m_layerRenderer->drawLayers(rect, visibleRect, contentRect, IntPoint(view->scrollX(), view->scrollY()));
     }
 #endif
@@ -1274,7 +1278,7 @@ WebRect WebViewImpl::caretOrSelectionBounds()
         if (!node || !node->renderer())
             return rect;
         RefPtr<Range> range = controller->toNormalizedRange();
-        rect = view->contentsToWindow(focused->firstRectForRange(range.get()));
+        rect = view->contentsToWindow(focused->editor()->firstRectForRange(range.get()));
     }
     return rect;
 }
@@ -2103,6 +2107,11 @@ bool WebViewImpl::tabsToLinks() const
 }
 
 #if USE(ACCELERATED_COMPOSITING)
+bool WebViewImpl::allowsAcceleratedCompositing()
+{
+    return !m_compositorCreationFailed;
+}
+
 void WebViewImpl::setRootGraphicsLayer(WebCore::PlatformLayer* layer)
 {
     setIsAcceleratedCompositingActive(layer ? true : false);
@@ -2117,15 +2126,15 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
 
     if (active) {
         m_layerRenderer = LayerRendererChromium::create(getOnscreenGLES2Context());
-        if (m_layerRenderer->hardwareCompositing()) {
+        if (m_layerRenderer) {
             m_isAcceleratedCompositingActive = true;
             
             // Force a redraw the entire view so that the compositor gets the entire view,
             // rather than just the currently-dirty subset.
             m_client->didInvalidateRect(IntRect(0, 0, m_size.width, m_size.height));
         } else {
-            m_layerRenderer.clear();
             m_isAcceleratedCompositingActive = false;
+            m_compositorCreationFailed = true;
         }
     } else {
         m_layerRenderer = 0;
@@ -2212,17 +2221,21 @@ void WebViewImpl::setRootLayerNeedsDisplay()
 
 PassOwnPtr<GLES2Context> WebViewImpl::getOnscreenGLES2Context()
 {
-    return GLES2Context::create(GLES2ContextInternal::create(gles2Context(), false));
-}
-
-PassOwnPtr<GLES2Context> WebViewImpl::getOffscreenGLES2Context()
-{
-    WebGLES2Context* context = webKitClient()->createGLES2Context();
+    WebGLES2Context* context = gles2Context();
     if (!context)
         return 0;
-    if (!context->initialize(0, gles2Context()))
-        return 0;
-    return GLES2Context::create(GLES2ContextInternal::create(context, true));
+    return GLES2Context::create(GLES2ContextInternal::create(context, false));
+}
+
+SharedGraphicsContext3D* WebViewImpl::getSharedGraphicsContext3D()
+{
+    if (!m_sharedContext3D) {
+        GraphicsContext3D::Attributes attr;
+        OwnPtr<GraphicsContext3D> context = GraphicsContext3D::create(attr, m_page->chrome());
+        m_sharedContext3D = SharedGraphicsContext3D::create(context.release());
+    }
+
+    return m_sharedContext3D.get();
 }
 
 // Returns the GLES2 context associated with this View. If one doesn't exist

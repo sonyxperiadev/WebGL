@@ -1,3 +1,245 @@
+2010-09-09  John Therrell  <jtherrell@apple.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Added statistics sampling and reporting for JavaScriptCore's RegisterFile and ExecutableAllocator classes
+        https://bugs.webkit.org/show_bug.cgi?id=45134
+
+        Added ability to enable new JavaScriptCore statistics sampling and reporting for RegisterFile 
+        and ExecutableAllocator classes. Added reporting of JavaScriptCore's stack committed memory 
+        and JIT code committed memory statistics to WebCoreStatistics memoryStatistics.
+
+        * Misc/WebCoreStatistics.mm:
+        (+[WebCoreStatistics memoryStatistics]):
+        Added statistics reporting for JSC RegisterFile and ExecutableAllocator.
+
+2010-09-09  Jer Noble  <jer.noble@apple.com>
+
+        Reviewed by Mark Rowe.
+
+        Use of ENABLE macro in WebUIDelegatePrivate.h breaks use from outside WebKit
+        <rdar://problem/8412657>
+
+        * WebView/WebUIDelegatePrivate.h: Use ENABLE_FULLSCREEN_API instead of ENABLE(FULLSCREEN_API)
+
+2010-09-08  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Move functions from Frame to Editor as planned
+        https://bugs.webkit.org/show_bug.cgi?id=45218
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _selectedString]):
+        (-[WebFrame _firstRectForDOMRange:]):
+        (-[WebFrame _markDOMRange]):
+        (-[WebFrame _setTypingStyle:withUndoAction:]):
+        * WebView/WebHTMLRepresentation.mm:
+        (-[WebHTMLRepresentation finishedLoadingWithDataSource:]):
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _selectionStartFontAttributesAsRTF]):
+        (-[WebHTMLView toggleBaseWritingDirection:]):
+        (-[WebHTMLView searchFor:direction:caseSensitive:wrap:startInSelection:]):
+        (-[WebHTMLView countMatchesForText:caseSensitive:limit:markMatches:]):
+        (-[WebHTMLView setMarkedTextMatchesAreHighlighted:]):
+        (-[WebHTMLView markedTextMatchesAreHighlighted]):
+        * WebView/WebView.mm:
+        (-[WebView setEditable:]):
+        Changed call sites to use editor().
+
+2010-09-08  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Tony Chang.
+
+        spelling underline gets lost on backspace
+        https://bugs.webkit.org/show_bug.cgi?id=41423
+
+        Switched to use a anchorNode of the selection instead of a focused
+        node for finer control of node selection in spellingNode():
+        With the focused node, we cannot select other nodes but the first
+        child of that node. In some case, we need to inspect these.
+
+        The API is only for LayoutTests, and the change is compatible for
+        existing test cases.
+        
+        * WebView/WebFrame.mm:
+        (spellingNode):
+
+2010-09-08  Adam Barth  <abarth@webkit.org>
+
+        Rubber-stamped by Eric Seidel.
+
+        Rename DocLoader to CachedResourceLoader because that's what it does.
+
+        * WebView/WebFrame.mm:
+
+2010-09-07  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Fix clang++ build.
+
+        * Misc/WebLocalizableStrings.h:
+        Fix a struct/tag mismatch.
+
+        * WebView/WebDeviceOrientationProviderMock.mm:
+        (-[WebDeviceOrientationProviderMock init]):
+        Remove stray semicolon.
+
+        * WebView/WebViewData.h:
+        Remove unused class forward declaration.
+
+2010-09-07  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/8381749> -Wcast-align warning emitted when building with clang
+
+        Remove the -Wcast-align-warning since it isn't really useful, and clang is more aggressive about warning than gcc.
+        
+        * Configurations/Base.xcconfig:
+
+2010-09-06  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Rename SecurityOrigin::canLoad to canDisplay
+        https://bugs.webkit.org/show_bug.cgi?id=45214
+
+        Propagate name change.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::loadRequest):
+        * Plugins/WebNetscapePluginStream.mm:
+        (WebNetscapePluginStream::WebNetscapePluginStream):
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView loadRequest:inTarget:withNotifyData:sendNotification:]):
+        * Plugins/WebPluginContainerCheck.mm:
+        (-[WebPluginContainerCheck _isForbiddenFileLoad]):
+        * WebView/WebFrame.mm:
+        (-[WebFrame _allowsFollowingLink:]):
+
+2010-09-03  Jesus Sanchez-Palencia  <jesus.palencia@openbossa.org>
+
+        Reviewed by Darin Adler.
+
+        Add NetworkingContext to avoid layer violations
+        https://bugs.webkit.org/show_bug.cgi?id=42292
+
+        Add Mac's specific implementation of FrameNetworkingContext.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        * WebCoreSupport/WebFrameNetworkingContext.mm:
+        (WebFrameNetworkingContext::needsSiteSpecificQuirks):
+        (WebFrameNetworkingContext::localFileContentSniffingEnabled):
+        (WebFrameNetworkingContext::scheduledRunLoopPairs):
+        (WebFrameNetworkingContext::blockedError):
+
+2010-09-03  John Sullivan  <sullivan@apple.com>
+
+        Reviewed by Dan Bernstein.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=45175
+        [WebView unmarkAllTextMatches] will crash if the webview is already closed
+
+        Made this and related methods robust against being called when the WebView is closed.
+
+        * WebView/WebView.mm:
+        (-[WebView markAllMatchesForText:caseSensitive:highlight:limit:]):
+        Bail out if the WebView is closed.
+        (-[WebView countMatchesForText:caseSensitive:highlight:limit:markMatches:]):
+        Ditto.
+        (-[WebView unmarkAllTextMatches]):
+        Ditto.
+        (-[WebView rectsForTextMatches]):
+        Ditto.
+
+2010-09-03  Hironori Bono  <hbono@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        Adds textInputController.hasSpellingMarker() to avoid using pixel tests for spellchecking tests
+        and implements it for Mac.
+        https://bugs.webkit.org/show_bug.cgi?id=41832
+
+        * WebView/WebFrame.mm: Implemented [WebFrame hasSpellingMarker:length:].
+        (spellingNode):
+        (-[WebFrame hasSpellingMarker:length:]):
+        * WebView/WebFramePrivate.h: Added [WebFrame hasSpellingMarker:length:] so TextInputController can use it.
+
+2010-09-02  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        REGRESSION: Crash occurs at objc_msgSend when closing a window that is displaying the web inspector
+        https://bugs.webkit.org/show_bug.cgi?id=44230
+
+        * WebCoreSupport/WebInspectorClient.h:
+        * WebCoreSupport/WebInspectorClient.mm:
+        (WebInspectorFrontendClient::closeWindow):
+        (WebInspectorFrontendClient::disconnectFromBackend):
+        (-[WebInspectorWindowController windowShouldClose:]):
+        (-[WebInspectorWindowController destroyInspectorView:]):
+
+2010-09-02  Steve Block  <steveblock@google.com>
+
+        Reviewed by Adam Barth.
+
+        Hook up LayoutTestController.setMockDeviceOrientation() on Mac.
+        https://bugs.webkit.org/show_bug.cgi?id=43181
+
+        This patch hooks up the mock device orientation client on Mac for use
+        in DumpRenderTree.
+
+        The patch adds a new WebDeviceOrientationClient for Mac. This client acts
+        as a proxy to either a real or mock device orientation provider, both of
+        which implement a new WebDeviceOrientationProvider interface.
+
+        The provider is created by the embedder and passed to the WebView, from
+        where WebDeviceOrientationClient can access it.
+
+        The mock provider, WebDeviceOrientationProviderMock, is a wrapper around
+        the existing WebCore mock.
+
+        * WebCoreSupport/WebDeviceOrientationClient.h: Added.
+        * WebCoreSupport/WebDeviceOrientationClient.mm: Added.
+        (WebDeviceOrientationClient::WebDeviceOrientationClient):
+        (WebDeviceOrientationClient::setController):
+        (WebDeviceOrientationClient::startUpdating):
+        (WebDeviceOrientationClient::stopUpdating):
+        (WebDeviceOrientationClient::lastOrientation):
+        * WebKit.exp:
+        * WebView/WebDeviceOrientation.h: Added.
+        * WebView/WebDeviceOrientation.mm: Added.
+        (-[WebDeviceOrientation initWithCoreDeviceOrientation:WebCore::]):
+        (core):
+        (-[WebDeviceOrientation initWithCanProvideAlpha:alpha:canProvideBeta:beta:canProvideGamma:gamma:]):
+        (-[WebDeviceOrientation dealloc]):
+        * WebView/WebDeviceOrientationInternal.h: Added.
+        * WebView/WebDeviceOrientationProvider.h: Added.
+        * WebView/WebDeviceOrientationProviderMock.h: Added.
+        * WebView/WebDeviceOrientationProviderMock.mm: Added.
+        (-[WebDeviceOrientationProviderMockInternal setOrientation:]):
+        (-[WebDeviceOrientationProviderMockInternal setController:]):
+        (-[WebDeviceOrientationProviderMockInternal startUpdating]):
+        (-[WebDeviceOrientationProviderMockInternal stopUpdating]):
+        (-[WebDeviceOrientationProviderMockInternal lastOrientation]):
+        (-[WebDeviceOrientationProviderMock init]):
+        (-[WebDeviceOrientationProviderMock dealloc]):
+        (-[WebDeviceOrientationProviderMock setOrientation:]):
+        (-[WebDeviceOrientationProviderMock setController:]):
+        (-[WebDeviceOrientationProviderMock startUpdating]):
+        (-[WebDeviceOrientationProviderMock stopUpdating]):
+        (-[WebDeviceOrientationProviderMock lastOrientation]):
+        * WebView/WebDeviceOrientationProviderMockInternal.h: Added.
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:usesDocumentViews:]):
+        (-[WebView _setDeviceOrientationProvider:]):
+        (-[WebView _deviceOrientationProvider]):
+        * WebView/WebViewData.h:
+        * WebView/WebViewPrivate.h:
+
 2010-09-01  Jia Pu  <jpu@apple.com>
 
         Reviewed by Dan Bernstein.

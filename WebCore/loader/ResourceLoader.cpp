@@ -412,7 +412,7 @@ void ResourceLoader::didReceiveResponse(ResourceHandle*, const ResourceResponse&
 {
 #if ENABLE(INSPECTOR)
     if (InspectorTimelineAgent::instanceCount()) {
-        InspectorTimelineAgent* timelineAgent = m_frame->page() ? m_frame->page()->inspectorTimelineAgent() : 0;
+        InspectorTimelineAgent* timelineAgent = (m_frame && m_frame->page()) ? m_frame->page()->inspectorTimelineAgent() : 0;
         if (timelineAgent)
             timelineAgent->willReceiveResourceResponse(identifier(), response);
     }
@@ -424,7 +424,7 @@ void ResourceLoader::didReceiveResponse(ResourceHandle*, const ResourceResponse&
     didReceiveResponse(response);
 #if ENABLE(INSPECTOR)
     if (InspectorTimelineAgent::instanceCount()) {
-        InspectorTimelineAgent* timelineAgent = m_frame->page() ? m_frame->page()->inspectorTimelineAgent() : 0;
+        InspectorTimelineAgent* timelineAgent = (m_frame && m_frame->page()) ? m_frame->page()->inspectorTimelineAgent() : 0;
         if (timelineAgent)
             timelineAgent->didReceiveResourceResponse();
     }
@@ -435,7 +435,7 @@ void ResourceLoader::didReceiveData(ResourceHandle*, const char* data, int lengt
 {
 #if ENABLE(INSPECTOR)
     if (InspectorTimelineAgent::instanceCount()) {
-        InspectorTimelineAgent* timelineAgent = m_frame->page() ? m_frame->page()->inspectorTimelineAgent() : 0;
+        InspectorTimelineAgent* timelineAgent = (m_frame && m_frame->page()) ? m_frame->page()->inspectorTimelineAgent() : 0;
         if (timelineAgent)
             timelineAgent->willReceiveResourceData(identifier());
     }
@@ -443,7 +443,7 @@ void ResourceLoader::didReceiveData(ResourceHandle*, const char* data, int lengt
     didReceiveData(data, length, lengthReceived, false);
 #if ENABLE(INSPECTOR)
     if (InspectorTimelineAgent::instanceCount()) {
-        InspectorTimelineAgent* timelineAgent = m_frame->page() ? m_frame->page()->inspectorTimelineAgent() : 0;
+        InspectorTimelineAgent* timelineAgent = (m_frame && m_frame->page()) ? m_frame->page()->inspectorTimelineAgent() : 0;
         if (timelineAgent)
             timelineAgent->didReceiveResourceData();
     }

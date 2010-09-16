@@ -699,6 +699,12 @@ void MediaPlayer::rateChanged()
         m_mediaPlayerClient->mediaPlayerRateChanged(this);
 }
 
+void MediaPlayer::playbackStateChanged()
+{
+    if (m_mediaPlayerClient)
+        m_mediaPlayerClient->mediaPlayerPlaybackStateChanged(this);
+}
+
 }
 
 #endif

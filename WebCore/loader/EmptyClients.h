@@ -40,6 +40,7 @@
 #include "FloatRect.h"
 #include "FocusDirection.h"
 #include "FrameLoaderClient.h"
+#include "FrameNetworkingContext.h"
 #include "InspectorClient.h"
 #include "PluginHalterClient.h"
 #include "PopupMenu.h"
@@ -60,6 +61,8 @@
 */
 
 namespace WebCore {
+
+class SharedGraphicsContext3D;
 
 class EmptyPopupMenu : public PopupMenu {
 public:
@@ -194,9 +197,9 @@ public:
     virtual void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*) {}
 
 #if USE(ACCELERATED_COMPOSITING)
-    virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*) {};
-    virtual void setNeedsOneShotDrawingSynchronization() {};
-    virtual void scheduleCompositingLayerSync() {};
+    virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*) {}
+    virtual void setNeedsOneShotDrawingSynchronization() {}
+    virtual void scheduleCompositingLayerSync() {}
 #endif
 
 #if PLATFORM(WIN)
@@ -372,6 +375,7 @@ public:
     virtual bool shouldCacheResponse(DocumentLoader*, unsigned long, const ResourceResponse&, const unsigned char*, unsigned long long) { return true; }
 #endif
 
+    virtual PassRefPtr<FrameNetworkingContext> createNetworkingContext() { return PassRefPtr<FrameNetworkingContext>(); }
 };
 
 class EmptyEditorClient : public EditorClient, public Noncopyable {

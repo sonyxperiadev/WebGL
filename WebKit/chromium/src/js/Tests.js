@@ -219,40 +219,6 @@ TestSuite.prototype.addSniffer = function(receiver, methodName, override, opt_st
 
 
 /**
- * Tests that the real injected host is present in the context.
- */
-TestSuite.prototype.testHostIsPresent = function()
-{
-    this.assertTrue(typeof InspectorFrontendHost === "object" && !InspectorFrontendHost.isStub);
-};
-
-
-/**
- * Tests elements tree has an "HTML" root.
- */
-TestSuite.prototype.testElementsTreeRoot = function()
-{
-    var doc = WebInspector.domAgent.document;
-    this.assertEquals("HTML", doc.documentElement.nodeName);
-    this.assertTrue(doc.documentElement.hasChildNodes());
-};
-
-
-/**
- * Tests that main resource is present in the system and that it is
- * the only resource.
- */
-TestSuite.prototype.testMainResource = function()
-{
-    var tokens = [];
-    var resources = WebInspector.resources;
-    for (var id in resources)
-        tokens.push(resources[id].lastPathComponent);
-    this.assertEquals("simple_page.html", tokens.join(","));
-};
-
-
-/**
  * Tests that resources tab is enabled when corresponding item is selected.
  */
 TestSuite.prototype.testEnableResourcesTab = function()
@@ -628,71 +594,6 @@ TestSuite.prototype.testNoScriptDuplicatesOnPanelSwitch = function()
 };
 
 
-/**
- * Tests that a breakpoint can be set.
- */
-TestSuite.prototype.testSetBreakpoint = function()
-{
-    var test = this;
-    this.showPanel("scripts");
-
-    var breakpointLine = 16
-
-    this._waitUntilScriptsAreParsed(["debugger_test_page.html"],
-        function() {
-          test.showMainPageScriptSource_(
-              "debugger_test_page.html",
-              function(view, url) {
-                view._addBreakpoint(breakpointLine);
-
-                test.evaluateInConsole_(
-                    'setTimeout("calculate()" , 0)',
-                    function(resultText) {
-                      test.assertTrue(!isNaN(resultText), "Failed to get timer id: " + resultText);
-                    });
-              });
-        });
-
-    this._waitForScriptPause(
-        {
-            functionsOnStack: ["calculate", ""],
-            lineNumber: breakpointLine,
-            lineText: "  result = fib(lastVal++);"
-        },
-        function() {
-            test.releaseControl();
-        });
-
-    this.takeControl();
-};
-
-
-/**
- * Tests that pause on exception works.
- */
-TestSuite.prototype.testPauseOnException = function()
-{
-    this.showPanel("scripts");
-    var test = this;
-
-    InspectorBackend.setPauseOnExceptionsState(WebInspector.ScriptsPanel.PauseOnExceptionsState.PauseOnUncaughtExceptions);
-
-    this._executeCodeWhenScriptsAreParsed("handleClick()", ["pause_on_exception.html"]);
-
-    this._waitForScriptPause(
-        {
-            functionsOnStack: ["throwAnException", "handleClick", ""],
-            lineNumber: 6,
-            lineText: "  return unknown_var;"
-        },
-        function() {
-            test.releaseControl();
-        });
-
-    this.takeControl();
-};
-
-
 // Tests that debugger works correctly if pause event occurs when DevTools
 // frontend is being loaded.
 TestSuite.prototype.testPauseWhenLoadingDevTools = function()
@@ -864,54 +765,6 @@ TestSuite.prototype.evaluateInConsole_ = function(code, callback)
 
 
 /**
- * Tests eval on call frame.
- */
-TestSuite.prototype.testEvalOnCallFrame = function()
-{
-    this.showPanel("scripts");
-
-    var breakpointLine = 16;
-
-    var test = this;
-    this._waitUntilScriptsAreParsed(["debugger_test_page.html"],
-        function() {
-          test.showMainPageScriptSource_(
-              "debugger_test_page.html",
-              function(view, url) {
-                  view._addBreakpoint(breakpointLine);
-
-                  // Since breakpoints are ignored in evals' calculate() function is
-                  // execute after zero-timeout so that the breakpoint is hit.
-                  test.evaluateInConsole_(
-                      'setTimeout("calculate(123)" , 0)',
-                      function(resultText) {
-                          test.assertTrue(!isNaN(resultText), "Failed to get timer id: " + resultText);
-                          waitForBreakpointHit();
-                      });
-              });
-        });
-
-    function waitForBreakpointHit() {
-      test.addSniffer(WebInspector,
-          "pausedScript",
-          function(callFrames) {
-            test.assertEquals(2, callFrames.length, "Unexpected stack depth on the breakpoint. " + JSON.stringify(callFrames, null, 4));
-            test.assertEquals("calculate", callFrames[0].functionName, "Unexpected top frame function.");
-            // Evaluate "e+1" where "e" is an argument of "calculate" function.
-            test.evaluateInConsole_(
-                "e+1",
-                function(resultText) {
-                    test.assertEquals("124", resultText, 'Unexpected "e+1" value.');
-                    test.releaseControl();
-                });
-          });
-    }
-
-    this.takeControl();
-};
-
-
-/**
  * Tests that console auto completion works when script execution is paused.
  */
 TestSuite.prototype.testCompletionOnPause = function()
@@ -968,16 +821,6 @@ TestSuite.prototype.testCompletionOnPause = function()
 
 
 /**
- * Tests that inspected page doesn't hang on reload if it contains a syntax
- * error and DevTools window is open.
- */
-TestSuite.prototype.testAutoContinueOnSyntaxError = function()
-{
-    // TODO(yurys): provide an implementation that works with ScriptDebugServer.
-};
-
-
-/**
  * Checks current execution line against expectations.
  * @param {WebInspector.SourceFrame} sourceFrame
  * @param {number} lineNumber Expected line number
@@ -1029,7 +872,8 @@ TestSuite.prototype._waitForScriptPause = function(expectations, callback)
     test.addSniffer(
         WebInspector,
         "pausedScript",
-        function(callFrames) {
+        function(details) {
+            var callFrames = details.callFrames;
             var functionsOnStack = [];
             for (var i = 0; i < callFrames.length; i++)
                 functionsOnStack.push(callFrames[i].functionName);
@@ -1389,85 +1233,6 @@ TestSuite.createKeyEvent = function(keyIdentifier)
     var evt = document.createEvent("KeyboardEvent");
     evt.initKeyboardEvent("keydown", true /* can bubble */, true /* can cancel */, null /* view */, keyIdentifier, "");
     return evt;
-};
-
-
-/**
- * Tests the message loop re-entrancy.
- */
-TestSuite.prototype.testMessageLoopReentrant = function()
-{
-    var test = this;
-    this.showPanel("scripts");
-
-    var breakpointLine = 16;
-
-    WebInspector.showConsole();
-
-    this._waitUntilScriptsAreParsed(["debugger_test_page.html"],
-        function() {
-          test.showMainPageScriptSource_(
-              "debugger_test_page.html",
-              function(view, url) {
-                view._addBreakpoint(breakpointLine);
-
-                test.evaluateInConsole_(
-                    'setTimeout("calculate()", 0)',
-                    function(resultText) {
-                      test.assertTrue(!isNaN(resultText), "Failed to get timer id: " + resultText);
-                    });
-
-              });
-        });
-
-    // Wait until script is paused.
-    this.addSniffer(
-        WebInspector,
-        "pausedScript",
-        function(callFrames) {
-            test.evaluateInConsole_(
-                'document.cookie',
-                test.releaseControl.bind(test)); // This callback will be invoked only if the test succeeds (i.e. no crash).
-        });
-
-    this.takeControl();
-};
-
-
-/**
- * Tests that Storage panel can be open and that local DOM storage is added
- * to the panel.
- */
-TestSuite.prototype.testShowStoragePanel = function()
-{
-    var test = this;
-    this.addSniffer(WebInspector.panels.storage, "addDOMStorage",
-        function(storage) {
-            var orig = storage.getEntries;
-            storage.getEntries = function(callback) {
-                orig.call(this, function(entries) {
-                    callback(entries);
-                    test.releaseControl();
-                });
-            };
-            try {
-                WebInspector.currentPanel.selectDOMStorage(storage.id);
-                storage.getEntries = orig;
-            } catch (e) {
-                test.fail("Exception in selectDOMStorage: " + e);
-            }
-        });
-    this.showPanel("storage");
-
-    // Access localStorage so that it's pushed to the frontend.
-    this.evaluateInConsole_(
-        'setTimeout("localStorage.x = 10" , 0)',
-        function(resultText) {
-            test.assertTrue(!isNaN(resultText), "Failed to get timer id: " + resultText);
-        });
-
-    // Wait until DOM storage is added to the panel.
-    this.takeControl();
 };
 
 

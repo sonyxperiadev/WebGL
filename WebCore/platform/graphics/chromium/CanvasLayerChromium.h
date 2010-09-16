@@ -38,17 +38,12 @@
 
 namespace WebCore {
 
-class GraphicsContext3D;
-
-// A Layer containing a WebGL or accelerated 2d canvas
+// Base class for WebGL and accelerated 2d canvases.
 class CanvasLayerChromium : public LayerChromium {
 public:
-    static PassRefPtr<CanvasLayerChromium> create(GraphicsLayerChromium* owner = 0);
-    virtual bool drawsContent() { return m_context; }
-    virtual void updateContents();
-    virtual void draw();
+    virtual ~CanvasLayerChromium();
 
-    void setContext(const GraphicsContext3D* context);
+    virtual void draw();
 
     class SharedValues {
     public:
@@ -69,21 +64,16 @@ public:
         bool m_initialized;
     };
 
-    class PrepareTextureCallback : public Noncopyable {
-    public:
-        virtual void willPrepareTexture() = 0;
-    };
-    void setPrepareTextureCallback(PassOwnPtr<PrepareTextureCallback> callback) { m_prepareTextureCallback = callback; }
+protected:
+    explicit CanvasLayerChromium(GraphicsLayerChromium* owner);
+    bool m_textureChanged;
+    unsigned m_textureId;
 
 private:
-    explicit CanvasLayerChromium(GraphicsLayerChromium* owner);
-    GraphicsContext3D* m_context;
-    unsigned m_textureId;
-    bool m_textureChanged;
-    OwnPtr<PrepareTextureCallback> m_prepareTextureCallback;
+    static unsigned m_shaderProgramId;
 };
 
 }
 #endif // USE(ACCELERATED_COMPOSITING)
 
-#endif
+#endif // CanvasLayerChromium_h

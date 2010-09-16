@@ -22,7 +22,6 @@
 
 #ifndef MediaPlayerPrivateGStreamer_h
 #define MediaPlayerPrivateGStreamer_h
-
 #if ENABLE(VIDEO)
 
 #include <wtf/Forward.h>
@@ -132,6 +131,7 @@ class MediaPlayerPrivateGStreamer : public MediaPlayerPrivateInterface {
             static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs);
             static bool isAvailable();
 
+            void cacheDuration();
             void updateStates();
             void cancelSeek();
             void endPointTimerFired(Timer<MediaPlayerPrivateGStreamer>*);
@@ -179,5 +179,5 @@ class MediaPlayerPrivateGStreamer : public MediaPlayerPrivateInterface {
     };
 }
 
-#endif
+#endif // ENABLE(VIDEO)
 #endif

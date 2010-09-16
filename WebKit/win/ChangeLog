@@ -1,3 +1,142 @@
+2010-09-09  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Scrollbars fail to render in composited iframes.
+        https://bugs.webkit.org/show_bug.cgi?id=45335
+
+        Use LocalWindowsContext when painting scrollbars.
+
+        * WebCoreSupport/WebChromeClient.cpp:
+        (WebChromeClient::paintCustomScrollbar):
+        (WebChromeClient::paintCustomScrollCorner):
+
+2010-09-08  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Move functions from Frame to Editor as planned
+        https://bugs.webkit.org/show_bug.cgi?id=45218
+
+        * WebCoreSupport/WebContextMenuClient.cpp:
+        (WebContextMenuClient::searchWithGoogle):
+        * WebFrame.cpp:
+        (WebFrame::selectedString):
+        * WebView.cpp:
+        (WebView::selectedText):
+        (WebView::prepareCandidateWindow):
+        (WebView::onIMERequestCharPosition):
+        Changed call sites to use editor().
+
+2010-09-08  Peter Kasting  <pkasting@google.com>
+
+        Not reviewed, build fix.
+
+        * WebScrollBar.cpp:
+        (WebScrollBar::setScrollOffsetFromAnimation):
+
+2010-09-08  Peter Kasting  <pkasting@google.com>
+
+        Not reviewed, build fix.
+
+        * WebScrollBar.cpp:
+        (WebScrollBar::scrollSize):
+        (WebScrollBar::setScrollOffsetFromAnimation):
+
+2010-09-08  Peter Kasting  <pkasting@google.com>
+
+        Not reviewed, build fix.
+
+        * WebScrollBar.cpp:
+        (WebScrollBar::setValue):
+        (WebScrollBar::scrollSize):
+        (WebScrollBar::setScrollOffsetFromAnimation):
+        * WebScrollBar.h:
+
+2010-09-08  Adam Barth  <abarth@webkit.org>
+
+        Attempted Window build fix.
+
+        * WebDataSource.cpp:
+        (WebDataSource::subresourceForURL):
+
+2010-09-08  Adam Barth  <abarth@webkit.org>
+
+        Rubber-stamped by Eric Seidel.
+
+        Rename DocLoader to CachedResourceLoader because that's what it does.
+
+        * WebDataSource.cpp:
+
+2010-09-07  Brent Fulgham  <bfulgham@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Clean up a potential resource leak.
+        https://bugs.webkit.org/show_bug.cgi?id=45198
+
+        Several bitmap device context were being created and used,
+        and destroyed without returning the context to its original
+        state.  This showed up as bitmap leaks in BoundsChecker.
+
+        * FullscreenVideoController.cpp:
+        * WebView.cpp:
+        (WebView::scrollBackingStore):
+        (WebView::paint):
+
+2010-09-06  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Rename SecurityOrigin::canLoad to canDisplay
+        https://bugs.webkit.org/show_bug.cgi?id=45214
+
+        Propagate name change.
+
+        * WebFrame.cpp:
+        (WebFrame::allowsFollowingLink):
+
+2010-09-03  Jesus Sanchez-Palencia  <jesus.palencia@openbossa.org>
+
+        Reviewed by Darin Adler.
+
+        Add NetworkingContext to avoid layer violations
+        https://bugs.webkit.org/show_bug.cgi?id=42292
+
+        Add Win's specific implementation of NetworkingContext.
+
+        * WebCoreSupport/WebFrameNetworkingContext.cpp:
+        (WebFrameNetworkingContext::create):
+        (WebFrameNetworkingContext::userAgent):
+        (WebFrameNetworkingContext::referrer):
+        * WebFrame.cpp:
+        (WebFrame::createNetworkingContext):
+        * WebFrame.h:
+
+2010-09-03  Adam Roben  <aroben@apple.com>
+
+        Attempt to fixing Windows nightlies again
+
+        The fix in r66438 should be sufficient, but we have to touch
+        WebKit.idl to force that change to be picked up by the build.
+
+        * Interfaces/WebKit.idl: Touched this file to force a build.
+
+2010-09-02  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by PavelFeldman.
+
+        REGRESSION: Crash occurs at objc_msgSend when closing a window that is displaying the web inspector
+        https://bugs.webkit.org/show_bug.cgi?id=44230
+
+        * WebCoreSupport/WebInspectorClient.cpp:
+        (WebInspectorFrontendClient::~WebInspectorFrontendClient):
+        (WebInspectorFrontendClient::closeWindow):
+        (WebInspectorFrontendClient::disconnectFromBackend):
+        (WebInspectorFrontendClient::closeWindowWithoutNotifications):
+        (WebInspectorFrontendClient::destroyInspectorView):
+        * WebCoreSupport/WebInspectorClient.h:
+
 2010-09-01  Jessie Berlin  <jberlin@apple.com>
 
         Reviewed by Adam Roben.

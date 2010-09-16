@@ -29,7 +29,7 @@
 #include "CDATASection.h"
 #include "CachedScript.h"
 #include "Comment.h"
-#include "DocLoader.h"
+#include "CachedResourceLoader.h"
 #include "Document.h"
 #include "DocumentFragment.h"
 #include "DocumentType.h"
@@ -338,7 +338,7 @@ static int matchFunc(const char*)
 {
     // Only match loads initiated due to uses of libxml2 from within XMLDocumentParser to avoid
     // interfering with client applications that also use libxml2.  http://bugs.webkit.org/show_bug.cgi?id=17353
-    return XMLDocumentParserScope::currentDocLoader && currentThread() == libxmlLoaderThread;
+    return XMLDocumentParserScope::currentCachedResourceLoader && currentThread() == libxmlLoaderThread;
 }
 
 class OffsetBuffer {
@@ -400,8 +400,8 @@ static bool shouldAllowExternalLoad(const KURL& url)
     // retrieved content.  If we had more context, we could potentially allow
     // the parser to load a DTD.  As things stand, we take the conservative
     // route and allow same-origin requests only.
-    if (!XMLDocumentParserScope::currentDocLoader->doc()->securityOrigin()->canRequest(url)) {
-        XMLDocumentParserScope::currentDocLoader->printAccessDeniedMessage(url);
+    if (!XMLDocumentParserScope::currentCachedResourceLoader->doc()->securityOrigin()->canRequest(url)) {
+        XMLDocumentParserScope::currentCachedResourceLoader->printAccessDeniedMessage(url);
         return false;
     }
 
@@ -410,7 +410,7 @@ static bool shouldAllowExternalLoad(const KURL& url)
 
 static void* openFunc(const char* uri)
 {
-    ASSERT(XMLDocumentParserScope::currentDocLoader);
+    ASSERT(XMLDocumentParserScope::currentCachedResourceLoader);
     ASSERT(currentThread() == libxmlLoaderThread);
 
     KURL url(KURL(), uri);
@@ -424,12 +424,12 @@ static void* openFunc(const char* uri)
 
 
     {
-        DocLoader* docLoader = XMLDocumentParserScope::currentDocLoader;
+        CachedResourceLoader* cachedResourceLoader = XMLDocumentParserScope::currentCachedResourceLoader;
         XMLDocumentParserScope scope(0);
         // FIXME: We should restore the original global error handler as well.
 
-        if (docLoader->frame())
-            docLoader->frame()->loader()->loadResourceSynchronously(url, AllowStoredCredentials, error, response, data);
+        if (cachedResourceLoader->frame())
+            cachedResourceLoader->frame()->loader()->loadResourceSynchronously(url, AllowStoredCredentials, error, response, data);
     }
 
     // We have to check the URL again after the load to catch redirects.
@@ -655,12 +655,12 @@ void XMLDocumentParser::doWrite(const String& parseString)
         RefPtr<XMLDocumentParser> protect(this);
 
         switchToUTF16(context->context());
-        XMLDocumentParserScope scope(document()->docLoader());
+        XMLDocumentParserScope scope(document()->cachedResourceLoader());
         xmlParseChunk(context->context(), reinterpret_cast<const char*>(parseString.characters()), sizeof(UChar) * parseString.length(), 0);
 
         // JavaScript (which may be run under the xmlParseChunk callstack) may
         // cause the parser to be stopped or detached.
-        if (isDetached() || m_parserStopped)
+        if (isStopped())
             return;
     }
 
@@ -733,7 +733,7 @@ static inline void handleElementAttributes(Element* newElement, const xmlChar** 
 void XMLDocumentParser::startElementNs(const xmlChar* xmlLocalName, const xmlChar* xmlPrefix, const xmlChar* xmlURI, int nb_namespaces,
                                   const xmlChar** libxmlNamespaces, int nb_attributes, int nb_defaulted, const xmlChar** libxmlAttributes)
 {
-    if (m_parserStopped)
+    if (isStopped())
         return;
 
     if (m_parserPaused) {
@@ -822,7 +822,7 @@ void XMLDocumentParser::startElementNs(const xmlChar* xmlLocalName, const xmlCha
 
 void XMLDocumentParser::endElementNs()
 {
-    if (m_parserStopped)
+    if (isStopped())
         return;
 
     if (m_parserPaused) {
@@ -884,7 +884,7 @@ void XMLDocumentParser::endElementNs()
             // we have a src attribute
             String scriptCharset = scriptElement->scriptCharset();
             if (element->dispatchBeforeLoadEvent(scriptHref) &&
-                (m_pendingScript = document()->docLoader()->requestScript(scriptHref, scriptCharset))) {
+                (m_pendingScript = document()->cachedResourceLoader()->requestScript(scriptHref, scriptCharset))) {
                 m_scriptElement = element;
                 m_pendingScript->addClient(this);
 
@@ -906,7 +906,7 @@ void XMLDocumentParser::endElementNs()
 
 void XMLDocumentParser::characters(const xmlChar* s, int len)
 {
-    if (m_parserStopped)
+    if (isStopped())
         return;
 
     if (m_parserPaused) {
@@ -921,7 +921,7 @@ void XMLDocumentParser::characters(const xmlChar* s, int len)
 
 void XMLDocumentParser::error(ErrorType type, const char* message, va_list args)
 {
-    if (m_parserStopped)
+    if (isStopped())
         return;
 
 #if COMPILER(MSVC) || COMPILER(RVCT)
@@ -945,7 +945,7 @@ void XMLDocumentParser::error(ErrorType type, const char* message, va_list args)
 
 void XMLDocumentParser::processingInstruction(const xmlChar* target, const xmlChar* data)
 {
-    if (m_parserStopped)
+    if (isStopped())
         return;
 
     if (m_parserPaused) {
@@ -979,7 +979,7 @@ void XMLDocumentParser::processingInstruction(const xmlChar* target, const xmlCh
 
 void XMLDocumentParser::cdataBlock(const xmlChar* s, int len)
 {
-    if (m_parserStopped)
+    if (isStopped())
         return;
 
     if (m_parserPaused) {
@@ -997,7 +997,7 @@ void XMLDocumentParser::cdataBlock(const xmlChar* s, int len)
 
 void XMLDocumentParser::comment(const xmlChar* s)
 {
-    if (m_parserStopped)
+    if (isStopped())
         return;
 
     if (m_parserPaused) {
@@ -1034,7 +1034,7 @@ void XMLDocumentParser::endDocument()
 
 void XMLDocumentParser::internalSubset(const xmlChar* name, const xmlChar* externalID, const xmlChar* systemID)
 {
-    if (m_parserStopped)
+    if (isStopped())
         return;
 
     if (m_parserPaused) {
@@ -1294,12 +1294,12 @@ void XMLDocumentParser::initializeParserContext(const char* chunk)
     sax.ignorableWhitespace = ignorableWhitespaceHandler;
     sax.entityDecl = xmlSAX2EntityDecl;
     sax.initialized = XML_SAX2_MAGIC;
-    m_parserStopped = false;
+    DocumentParser::startParsing();
     m_sawError = false;
     m_sawXSLTransform = false;
     m_sawFirstElement = false;
 
-    XMLDocumentParserScope scope(document()->docLoader());
+    XMLDocumentParserScope scope(document()->cachedResourceLoader());
     if (m_parsingFragment)
         m_context = XMLParserContext::createMemoryParser(&sax, this, chunk);
     else {
@@ -1312,23 +1312,23 @@ void XMLDocumentParser::doEnd()
 {
 #if ENABLE(XSLT)
     if (m_sawXSLTransform) {
-        void* doc = xmlDocPtrForString(document()->docLoader(), m_originalSourceForTransform, document()->url().string());
+        void* doc = xmlDocPtrForString(document()->cachedResourceLoader(), m_originalSourceForTransform, document()->url().string());
         document()->setTransformSource(new TransformSource(doc));
 
         document()->setParsing(false); // Make the doc think it's done, so it will apply xsl sheets.
         document()->styleSelectorChanged(RecalcStyleImmediately);
         document()->setParsing(true);
-        m_parserStopped = true;
+        DocumentParser::stopParsing();
     }
 #endif
 
-    if (m_parserStopped)
+    if (isStopped())
         return;
 
     if (m_context) {
         // Tell libxml we're done.
         {
-            XMLDocumentParserScope scope(document()->docLoader());
+            XMLDocumentParserScope scope(document()->cachedResourceLoader());
             xmlParseChunk(context(), 0, 0, 1);
         }
 
@@ -1337,7 +1337,7 @@ void XMLDocumentParser::doEnd()
 }
 
 #if ENABLE(XSLT)
-void* xmlDocPtrForString(DocLoader* docLoader, const String& source, const String& url)
+void* xmlDocPtrForString(CachedResourceLoader* cachedResourceLoader, const String& source, const String& url)
 {
     if (source.isEmpty())
         return 0;
@@ -1348,7 +1348,7 @@ void* xmlDocPtrForString(DocLoader* docLoader, const String& source, const Strin
     const UChar BOM = 0xFEFF;
     const unsigned char BOMHighByte = *reinterpret_cast<const unsigned char*>(&BOM);
 
-    XMLDocumentParserScope scope(docLoader, errorFunc, 0);
+    XMLDocumentParserScope scope(cachedResourceLoader, errorFunc, 0);
     xmlDocPtr sourceDoc = xmlReadMemory(reinterpret_cast<const char*>(source.characters()),
                                         source.length() * sizeof(UChar),
                                         url.latin1().data(),

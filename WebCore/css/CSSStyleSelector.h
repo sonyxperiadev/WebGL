@@ -122,10 +122,14 @@ public:
         PassRefPtr<CSSRuleList> styleRulesForElement(Element*, bool authorOnly);
         PassRefPtr<CSSRuleList> pseudoStyleRulesForElement(Element*, PseudoId, bool authorOnly);
 
-    private:
         // Given a CSS keyword in the range (xx-small to -webkit-xxx-large), this function will return
         // the correct font size scaled relative to the user's default (medium).
-        static float fontSizeForKeyword(Document*, int keyword, bool monospace);
+        static float fontSizeForKeyword(Document*, int keyword, bool shouldUseFixedDefaultSize);
+
+        // Given a font size in pixel, this function will return legacy font size between 1 and 7.
+        static int legacyFontSize(Document*, int pixelFontSize, bool shouldUseFixedDefaultSize);
+
+    private:
 
         // When the CSS keyword "larger" is used, this function will attempt to match within the keyword
         // table, and failing that, will simply multiply by 1.2.

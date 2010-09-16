@@ -295,7 +295,7 @@ namespace WebCore {
         static v8::Handle<v8::Script> compileScript(v8::Handle<v8::String> code, const String& fileName, int baseLine, v8::ScriptData* = 0);
 
 #ifdef ANDROID_INSTRUMENT
-        static v8::Handle<v8::Script> compileScriptInternal(v8::Handle<v8::String> code, const String& fileName, int baseLine);
+        static v8::Handle<v8::Script> compileScriptInternal(v8::Handle<v8::String> code, const String& fileName, int baseLine, v8::ScriptData* scriptData);
 #endif
 
         // If the exception code is different from zero, a DOM exception is

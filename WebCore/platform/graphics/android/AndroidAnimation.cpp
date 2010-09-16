@@ -46,6 +46,8 @@ AndroidAnimation::AndroidAnimation(const Animation* animation,
     m_direction(animation->direction()),
     m_timingFunction(animation->timingFunction())
 {
+    ASSERT(m_timingFunction);
+
     if (!static_cast<int>(beginTime)) // time not set
         m_beginTime = WTF::currentTime();
 
@@ -100,11 +102,12 @@ bool AndroidAnimation::checkIterationsAndProgress(double time, float* finalProgr
           && (m_iterationCount != Animation::IterationCountInfinite))
         return false;
 
-    if (m_timingFunction.type() != LinearTimingFunction) {
-        UnitBezier bezier(m_timingFunction.x1(),
-                          m_timingFunction.y1(),
-                          m_timingFunction.x2(),
-                          m_timingFunction.y2());
+    if (m_timingFunction->isCubicBezierTimingFunction()) {
+        CubicBezierTimingFunction* bezierFunction = static_cast<CubicBezierTimingFunction*>(m_timingFunction.get());
+        UnitBezier bezier(bezierFunction->x1(),
+                          bezierFunction->y1(),
+                          bezierFunction->x2(),
+                          bezierFunction->y2());
         if (m_duration > 0)
             progress = bezier.solve(progress, 1.0f / (200.0f * m_duration));
     }

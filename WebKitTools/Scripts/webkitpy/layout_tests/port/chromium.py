@@ -46,6 +46,8 @@ import base
 import http_server
 
 from webkitpy.common.system.executive import Executive
+from webkitpy.layout_tests.layout_package import test_files
+from webkitpy.layout_tests.layout_package import test_expectations
 
 # Chromium DRT on OSX uses WebKitDriver.
 if sys.platform == 'darwin':
@@ -124,6 +126,26 @@ class ChromiumPort(base.Port):
         return check_file_exists(image_diff_path, 'image diff exe',
                                  override_step, logging)
 
+    def diff_image(self, expected_filename, actual_filename,
+                   diff_filename=None, tolerance=0):
+        executable = self._path_to_image_diff()
+        if diff_filename:
+            cmd = [executable, '--diff', expected_filename, actual_filename,
+                   diff_filename]
+        else:
+            cmd = [executable, expected_filename, actual_filename]
+
+        result = True
+        try:
+            if self._executive.run_command(cmd, return_exit_code=True) == 0:
+                return False
+        except OSError, e:
+            if e.errno == errno.ENOENT or e.errno == errno.EACCES:
+                _compare_available = False
+            else:
+                raise e
+        return result
+
     def driver_name(self):
         return "test_shell"
 
@@ -162,7 +184,7 @@ class ChromiumPort(base.Port):
             shutil.rmtree(cachedir)
 
     def show_results_html_file(self, results_filename):
-        uri = self.filename_to_uri(results_filename)
+        uri = self.get_absolute_path(results_filename)
         if self._options.use_drt:
             # FIXME: This should use User.open_url
             webbrowser.open(uri, new=1)
@@ -232,6 +254,24 @@ class ChromiumPort(base.Port):
             return None
         with codecs.open(overrides_path, "r", "utf-8") as file:
             return file.read() + drt_overrides
+
+    def skipped_layout_tests(self, extra_test_files=None):
+        expectations_str = self.test_expectations()
+        overrides_str = self.test_expectations_overrides()
+        test_platform_name = self.test_platform_name()
+        is_debug_mode = False
+
+        all_test_files = test_files.gather_test_files(self, '*')
+        if extra_test_files:
+            all_test_files.update(extra_test_files)
+
+        expectations = test_expectations.TestExpectations(
+            self, all_test_files, expectations_str, test_platform_name,
+            is_debug_mode, is_lint_mode=True,
+            tests_are_present=False, overrides=overrides_str)
+        tests_dir = self.layout_tests_dir()
+        return [self.relative_test_filename(test)
+                for test in expectations.get_tests_with_result_type(test_expectations.SKIP)]
 
     def test_platform_names(self):
         return self.test_base_platform_names() + ('win-xp',
@@ -329,9 +369,6 @@ class ChromiumDriver(base.Driver):
         # poll() is not threadsafe and can throw OSError due to:
         # http://bugs.python.org/issue1731717
         return self._proc.poll()
-
-    def returncode(self):
-        return self._proc.returncode
 
     def _write_command_and_read_line(self, input=None):
         """Returns a tuple: (line, did_crash)"""

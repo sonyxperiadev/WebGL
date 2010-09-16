@@ -17,10 +17,12 @@ EXPORTS
     ??0Mutex@WTF@@QAE@XZ
     ??0PrototypeFunction@JSC@@QAE@PAVExecState@1@PAVJSGlobalObject@1@V?$NonNullPassRefPtr@VStructure@JSC@@@WTF@@HABVIdentifier@1@P6I_J0@Z@Z
     ??0RefCountedLeakCounter@WTF@@QAE@PBD@Z
+    ??0RegExpObject@JSC@@QAE@PAVJSGlobalObject@1@V?$NonNullPassRefPtr@VStructure@JSC@@@WTF@@V?$NonNullPassRefPtr@VRegExp@JSC@@@4@@Z
     ??0StringObject@JSC@@QAE@PAVExecState@1@V?$NonNullPassRefPtr@VStructure@JSC@@@WTF@@ABVUString@1@@Z
     ??0Structure@JSC@@AAE@VJSValue@1@ABVTypeInfo@1@I@Z
     ??0ThreadCondition@WTF@@QAE@XZ
     ??0UString@JSC@@QAE@PBD@Z
+    ??0UString@JSC@@QAE@PBDI@Z
     ??0UString@JSC@@QAE@PB_WI@Z
     ??0WTFThreadData@WTF@@QAE@XZ
     ??1ClientData@JSGlobalData@JSC@@UAE@XZ
@@ -31,6 +33,7 @@ EXPORTS
     ??1JSGlobalObject@JSC@@UAE@XZ
     ??1Mutex@WTF@@QAE@XZ
     ??1RefCountedLeakCounter@WTF@@QAE@XZ
+    ??1RegExp@JSC@@QAE@XZ
     ??1Structure@JSC@@QAE@XZ
     ??1ThreadCondition@WTF@@QAE@XZ
     ??1WTFThreadData@WTF@@QAE@XZ
@@ -79,6 +82,7 @@ EXPORTS
     ?create@ByteArray@WTF@@SA?AV?$PassRefPtr@VByteArray@WTF@@@2@I@Z
     ?create@JSGlobalData@JSC@@SA?AV?$PassRefPtr@VJSGlobalData@JSC@@@WTF@@W4ThreadStackType@2@@Z
     ?create@OpaqueJSString@@SA?AV?$PassRefPtr@UOpaqueJSString@@@WTF@@ABVUString@JSC@@@Z
+    ?create@RegExp@JSC@@SA?AV?$PassRefPtr@VRegExp@JSC@@@WTF@@PAVJSGlobalData@2@ABVUString@2@1@Z
     ?createEmptyString@SmallStrings@JSC@@AAEXPAVJSGlobalData@2@@Z
     ?createError@JSC@@YAPAVJSObject@1@PAVExecState@1@ABVUString@1@@Z
     ?createInheritorID@JSObject@JSC@@AAEPAVStructure@2@XZ
@@ -162,6 +166,7 @@ EXPORTS
     ?getOwnPropertyNames@JSObject@JSC@@UAEXPAVExecState@2@AAVPropertyNameArray@2@W4EnumerationMode@2@@Z
     ?getOwnPropertyNames@JSVariableObject@JSC@@UAEXPAVExecState@2@AAVPropertyNameArray@2@W4EnumerationMode@2@@Z
     ?getOwnPropertyNames@StringObject@JSC@@UAEXPAVExecState@2@AAVPropertyNameArray@2@W4EnumerationMode@2@@Z
+    ?getOwnPropertySlot@JSArray@JSC@@UAE_NPAVExecState@2@IAAVPropertySlot@2@@Z
     ?getOwnPropertySlot@JSCell@JSC@@EAE_NPAVExecState@2@ABVIdentifier@2@AAVPropertySlot@2@@Z
     ?getOwnPropertySlot@JSCell@JSC@@EAE_NPAVExecState@2@IAAVPropertySlot@2@@Z
     ?getOwnPropertySlot@JSObject@JSC@@UAE_NPAVExecState@2@IAAVPropertySlot@2@@Z
@@ -188,6 +193,7 @@ EXPORTS
     ?hasTransition@Structure@JSC@@QAE_NPAVStringImpl@WTF@@I@Z
     ?heap@Heap@JSC@@SAPAV12@VJSValue@2@@Z
     ?increment@RefCountedLeakCounter@WTF@@QAEXXZ
+    ?info@RegExpObject@JSC@@2UClassInfo@2@B
     ?init@AtomicString@WTF@@SAXXZ
     ?init@JSGlobalObject@JSC@@AAEXPAVJSObject@2@@Z
     ?initializeMainThread@WTF@@YAXXZ

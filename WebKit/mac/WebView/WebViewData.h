@@ -44,6 +44,7 @@ namespace WebCore {
 @class WebPreferences;
 @class WebTextCompletionController;
 @protocol WebFormDelegate;
+@protocol WebDeviceOrientationProvider;
 @protocol WebGeolocationProvider;
 #if ENABLE(VIDEO)
 @class WebVideoFullscreenController;
@@ -174,5 +175,6 @@ extern int pluginDatabaseClientCount;
     CFRunLoopObserverRef glibRunLoopObserver;
 #endif
     id<WebGeolocationProvider> _geolocationProvider;
+    id<WebDeviceOrientationProvider> m_deviceOrientationProvider;
 }
 @end

@@ -31,8 +31,6 @@ class HTMLObjectElement : public HTMLPlugInImageElement {
 public:
     static PassRefPtr<HTMLObjectElement> create(const QualifiedName&, Document*, bool createdByParser);
 
-    void renderFallbackContent();
-
     bool isDocNamedItem() const { return m_docNamedItem; }
 
     const String& classId() const { return m_classId; }
@@ -40,6 +38,7 @@ public:
     bool containsJavaApplet() const;
 
     virtual bool useFallbackContent() const { return m_useFallbackContent; }
+    void renderFallbackContent();
 
 private:
     HTMLObjectElement(const QualifiedName&, Document*, bool createdByParser);
@@ -59,7 +58,14 @@ private:
 
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
 
+    virtual void updateWidget(bool onlyCreateNonNetscapePlugins);
     void updateDocNamedItem();
+
+    bool hasFallbackContent() const;
+    
+    // FIXME: This function should not deal with url or serviceType
+    // so that we can better share code between <object> and <embed>.
+    void parametersForPlugin(Vector<String>& paramNames, Vector<String>& paramValues, String& url, String& serviceType);
 
     AtomicString m_id;
     String m_classId;

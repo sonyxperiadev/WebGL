@@ -31,7 +31,7 @@
 #include "CSSStyleSelector.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
-#include "DocLoader.h"
+#include "CachedResourceLoader.h"
 #include "EventHandler.h"
 #include "FloatRect.h"
 #include "FocusController.h"
@@ -44,6 +44,7 @@
 #include "HTMLFrameElement.h"
 #include "HTMLFrameSetElement.h"
 #include "HTMLNames.h"
+#include "HTMLPlugInImageElement.h"
 #include "InspectorTimelineAgent.h"
 #include "OverflowEvent.h"
 #include "RenderEmbeddedObject.h"
@@ -1300,7 +1301,7 @@ void FrameView::checkStopDelayingDeferredRepaints()
         return;
 
     Document* document = m_frame->document();
-    if (document && (document->parsing() || document->docLoader()->requestCount()))
+    if (document && (document->parsing() || document->cachedResourceLoader()->requestCount()))
         return;
     
     m_deferredRepaintTimer.stop();
@@ -1335,7 +1336,7 @@ void FrameView::doDeferredRepaints()
 void FrameView::updateDeferredRepaintDelay()
 {
     Document* document = m_frame->document();
-    if (!document || (!document->parsing() && !document->docLoader()->requestCount())) {
+    if (!document || (!document->parsing() && !document->cachedResourceLoader()->requestCount())) {
         m_deferredRepaintDelay = s_deferredRepaintDelay;
         return;
     }
@@ -1611,6 +1612,37 @@ void FrameView::scrollToAnchor()
     m_maintainScrollPositionAnchor = anchorNode;
 }
 
+void FrameView::updateWidget(RenderEmbeddedObject* object)
+{
+    ASSERT(!object->node() || object->node()->isElementNode());
+    Element* ownerElement = static_cast<Element*>(object->node());
+    // The object may have already been destroyed (thus node cleared),
+    // but FrameView holds a manual ref, so it won't have been deleted.
+    ASSERT(m_widgetUpdateSet->contains(object));
+    if (!ownerElement)
+        return;
+
+    // No need to update if it's already crashed or known to be missing.
+    if (object->pluginCrashedOrWasMissing())
+        return;
+
+    // FIXME: This could turn into a real virtual dispatch if we defined
+    // updateWidget(bool) on HTMLElement.
+    if (ownerElement->hasTagName(objectTag) || ownerElement->hasTagName(embedTag))
+        static_cast<HTMLPlugInImageElement*>(ownerElement)->updateWidget(false);
+    // FIXME: It is not clear that Media elements need or want this updateWidget() call.
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+    else if (ownerElement->hasTagName(videoTag) || ownerElement->hasTagName(audioTag))
+        static_cast<HTMLMediaElement*>(ownerElement)->updateWidget(false);
+#endif
+    else
+        ASSERT_NOT_REACHED();
+
+    // Caution: it's possible the object was destroyed again, since loading a
+    // plugin may run any arbitrary javascript.
+    object->updateWidgetPosition();
+}
+
 bool FrameView::updateWidgets()
 {
     if (m_nestedLayoutCount > 1 || !m_widgetUpdateSet || m_widgetUpdateSet->isEmpty())
@@ -1629,11 +1661,7 @@ bool FrameView::updateWidgets()
 
     for (size_t i = 0; i < size; ++i) {
         RenderEmbeddedObject* object = objects[i];
-
-        // The object may have been destroyed, but our manual ref() keeps the object from being deleted.
-        object->updateWidget(false);
-        object->updateWidgetPosition();
-
+        updateWidget(object);
         m_widgetUpdateSet->remove(object);
     }
 

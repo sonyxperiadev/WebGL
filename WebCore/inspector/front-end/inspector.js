@@ -715,9 +715,9 @@ WebInspector.close = function(event)
     InspectorFrontendHost.closeWindow();
 }
 
-WebInspector.inspectedPageDestroyed = function()
+WebInspector.disconnectFromBackend = function()
 {
-    WebInspector.close();
+    InspectorFrontendHost.disconnectFromBackend();
 }
 
 WebInspector.documentMouseOver = function(event)
@@ -1445,9 +1445,9 @@ WebInspector.failedToParseScriptSource = function(sourceURL, source, startingLin
     this.panels.scripts.addScript(null, sourceURL, source, startingLine, errorLine, errorMessage);
 }
 
-WebInspector.pausedScript = function(callFrames)
+WebInspector.pausedScript = function(details)
 {
-    this.panels.scripts.debuggerPaused(callFrames);
+    this.panels.scripts.debuggerPaused(details.callFrames);
     InspectorFrontendHost.bringToFront();
 }
 

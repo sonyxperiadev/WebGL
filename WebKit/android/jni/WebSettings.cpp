@@ -30,9 +30,9 @@
 
 #include "ApplicationCacheStorage.h"
 #include "BitmapAllocatorAndroid.h"
+#include "CachedResourceLoader.h"
 #include "DatabaseTracker.h"
 #include "Database.h"
-#include "DocLoader.h"
 #include "Document.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -251,7 +251,7 @@ public:
         WebCore::Settings* s = pFrame->settings();
         if (!s)
             return;
-        WebCore::DocLoader* docLoader = pFrame->document()->docLoader();
+        WebCore::CachedResourceLoader* cachedResourceLoader = pFrame->document()->cachedResourceLoader();
 
 #ifdef ANDROID_LAYOUT
         jobject layout = env->GetObjectField(obj, gFieldIds->mLayoutAlgorithm);
@@ -322,13 +322,13 @@ public:
         jboolean flag = env->GetBooleanField(obj, gFieldIds->mLoadsImagesAutomatically);
         s->setLoadsImagesAutomatically(flag);
         if (flag)
-            docLoader->setAutoLoadImages(true);
+            cachedResourceLoader->setAutoLoadImages(true);
 
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
         flag = env->GetBooleanField(obj, gFieldIds->mBlockNetworkImage);
         s->setBlockNetworkImage(flag);
         if(!flag)
-            docLoader->setBlockNetworkImage(false);
+            cachedResourceLoader->setBlockNetworkImage(false);
 #endif
 
         flag = env->GetBooleanField(obj, gFieldIds->mJavaScriptEnabled);

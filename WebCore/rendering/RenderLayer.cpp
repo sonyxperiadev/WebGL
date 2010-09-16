@@ -44,6 +44,7 @@
 #include "config.h"
 #include "RenderLayer.h"
 
+#include "ColumnInfo.h"
 #include "CSSPropertyNames.h"
 #include "CSSStyleDeclaration.h"
 #include "CSSStyleSelector.h"
@@ -1373,9 +1374,9 @@ void RenderLayer::scrollToOffset(int x, int y, bool updateScrollbars, bool repai
 
     if (updateScrollbars) {
         if (m_hBar)
-            m_hBar->setValue(scrollXOffset());
+            m_hBar->setValue(scrollXOffset(), Scrollbar::NotFromScrollAnimator);
         if (m_vBar)
-            m_vBar->setValue(m_scrollY);
+            m_vBar->setValue(m_scrollY, Scrollbar::NotFromScrollAnimator);
     }
 
     // Schedule the scroll DOM event.
@@ -1626,6 +1627,20 @@ void RenderLayer::resize(const PlatformMouseEvent& evt, const IntSize& oldOffset
     document->updateLayout();
 
     // FIXME (Radar 4118564): We should also autoscroll the window as necessary to keep the point under the cursor in view.
+}
+
+int RenderLayer::scrollSize(ScrollbarOrientation orientation) const
+{
+    Scrollbar* scrollbar = ((orientation == HorizontalScrollbar) ? m_hBar : m_vBar).get();
+    return scrollbar ? (scrollbar->totalSize() - scrollbar->visibleSize()) : 0;
+}
+
+void RenderLayer::setScrollOffsetFromAnimation(const IntPoint& offset)
+{
+    if (m_hBar)
+        m_hBar->setValue(offset.x(), Scrollbar::FromScrollAnimator);
+    if (m_vBar)
+        m_vBar->setValue(offset.y(), Scrollbar::FromScrollAnimator);
 }
 
 void RenderLayer::valueChanged(Scrollbar*)
@@ -2101,7 +2116,7 @@ RenderLayer::updateScrollInfoAfterLayout()
         // so this is needed to keep everything working (see how scrollXOffset()
         // differs from scrollYOffset() to get an idea of why the horizontal and
         // vertical scrollbars need to be treated differently).
-        m_hBar->setValue(scrollXOffset());
+        m_hBar->setValue(scrollXOffset(), Scrollbar::NotFromScrollAnimator);
     }
     if (m_vBar) {
         int clientHeight = box->clientHeight();
@@ -2572,12 +2587,12 @@ void RenderLayer::paintChildLayerIntoColumns(RenderLayer* childLayer, RenderLaye
     int layerY = 0;
     columnBlock->layer()->convertToLayerCoords(rootLayer, layerX, layerY);
     
-    Vector<IntRect>* colRects = columnBlock->columnRects();
-    unsigned colCount = colRects->size();
+    ColumnInfo* colInfo = columnBlock->columnInfo();
+    unsigned colCount = colInfo->columnCount();
     int currYOffset = 0;
     for (unsigned i = 0; i < colCount; i++) {
         // For each rect, we clip to the rect, and then we adjust our coords.
-        IntRect colRect = colRects->at(i);
+        IntRect colRect = colInfo->columnRectAt(i);
         int currXOffset = colRect.x() - (columnBlock->borderLeft() + columnBlock->paddingLeft());
         colRect.move(layerX, layerY);
 
@@ -3038,18 +3053,18 @@ RenderLayer* RenderLayer::hitTestChildLayerColumns(RenderLayer* childLayer, Rend
     int layerY = 0;
     columnBlock->layer()->convertToLayerCoords(rootLayer, layerX, layerY);
     
-    Vector<IntRect>* colRects = columnBlock->columnRects();
-    int colCount = colRects->size();
+    ColumnInfo* colInfo = columnBlock->columnInfo();
+    int colCount = colInfo->columnCount();
     
     // We have to go backwards from the last column to the first.
     int left = columnBlock->borderLeft() + columnBlock->paddingLeft();
     int currYOffset = 0;
     int i;
     for (i = 0; i < colCount; i++)
-        currYOffset -= colRects->at(i).height();
+        currYOffset -= colInfo->columnRectAt(i).height();
     for (i = colCount - 1; i >= 0; i--) {
         // For each rect, we clip to the rect, and then we adjust our coords.
-        IntRect colRect = colRects->at(i);
+        IntRect colRect = colInfo->columnRectAt(i);
         int currXOffset = colRect.x() - left;
         currYOffset += colRect.height();
         colRect.move(layerX, layerY);

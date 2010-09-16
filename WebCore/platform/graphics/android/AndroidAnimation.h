@@ -55,7 +55,7 @@ class AndroidAnimation : public RefCounted<AndroidAnimation> {
     int m_iterationCount;
     int m_currentIteration;
     int m_direction;
-    TimingFunction m_timingFunction;
+    RefPtr<TimingFunction> m_timingFunction;
     String m_name;
 };
 

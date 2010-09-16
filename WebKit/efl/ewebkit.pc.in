@@ -2,6 +2,7 @@ prefix=@CMAKE_INSTALL_PREFIX@
 exec_prefix=${prefix}
 libdir=${exec_prefix}/lib
 includedir=${prefix}/include
+datadir=${prefix}/share/@WebKit_LIBRARY_NAME@-@PROJECT_VERSION_MAJOR@
 
 Name: WebKit-EFL
 Description: Web content engine for EFL applications
@@ -9,4 +10,4 @@ Version: @PROJECT_VERSION@
 Requires: cairo evas ecore
 Libs: -L${libdir} -lewebkit @EXTRA_EWEBKIT_LINK@
 Libs.private: @LIBS_PRIVATE@
-Cflags: -I${includedir}/EWebKit
+Cflags: -I${includedir}/@WebKit_LIBRARY_NAME@-@PROJECT_VERSION_MAJOR@

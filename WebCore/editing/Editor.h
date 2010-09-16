@@ -34,6 +34,11 @@
 #include "EditorInsertAction.h"
 #include "SelectionController.h"
 
+#if PLATFORM(MAC) && !defined(__OBJC__)
+class NSDictionary;
+typedef int NSWritingDirection;
+#endif
+
 namespace WebCore {
 
 class CSSStyleDeclaration;
@@ -314,14 +319,52 @@ public:
 
     // This is only called on the mac where paste is implemented primarily at the WebKit level.
     void pasteAsPlainTextBypassingDHTML();
+ 
+    void clearMisspellingsAndBadGrammar(const VisibleSelection&);
+    void markMisspellingsAndBadGrammar(const VisibleSelection&);
 
     Node* findEventTargetFrom(const VisibleSelection& selection) const;
+
+    String selectedText() const;
+    bool findString(const String&, bool forward, bool caseFlag, bool wrapFlag, bool startInSelection);
+
+    const VisibleSelection& mark() const; // Mark, to be used as emacs uses it.
+    void setMark(const VisibleSelection&);
+
+    void computeAndSetTypingStyle(CSSStyleDeclaration* , EditAction = EditActionUnspecified);
+    void applyEditingStyleToBodyElement() const;
+    void applyEditingStyleToElement(Element*) const;
+
+    IntRect firstRectForRange(Range*) const;
+
+    void respondToChangedSelection(const VisibleSelection& oldSelection, bool closeTyping);
+    bool shouldChangeSelection(const VisibleSelection& oldSelection, const VisibleSelection& newSelection, EAffinity, bool stillSelecting) const;
+
+    RenderStyle* styleForSelectionStart(Node*& nodeToRemove) const;
+
+    unsigned countMatchesForText(const String&, bool caseFlag, unsigned limit, bool markMatches);
+    bool markedTextMatchesAreHighlighted() const;
+    void setMarkedTextMatchesAreHighlighted(bool);
+
+    PassRefPtr<CSSComputedStyleDeclaration> selectionComputedStyle(Node*& nodeToRemove) const;
+
+    void textFieldDidBeginEditing(Element*);
+    void textFieldDidEndEditing(Element*);
+    void textDidChangeInTextField(Element*);
+    bool doTextFieldCommandFromEvent(Element*, KeyboardEvent*);
+    void textWillBeDeletedInTextField(Element* input);
+    void textDidChangeInTextArea(Element*);
+
+#if PLATFORM(MAC)
+    NSDictionary* fontAttributesForSelectionStart() const;
+    NSWritingDirection baseWritingDirectionForSelectionStart() const;
+#endif
+
 private:
     Frame* m_frame;
     OwnPtr<DeleteButtonController> m_deleteButtonController;
     RefPtr<EditCommand> m_lastEditCommand;
     RefPtr<Node> m_removedAnchor;
-
     RefPtr<Text> m_compositionNode;
     unsigned m_compositionStart;
     unsigned m_compositionEnd;
@@ -333,6 +376,8 @@ private:
     RefPtr<Range> m_rangeToBeReplacedByCorrection;
     String m_stringToBeReplacedByCorrection;
     Timer<Editor> m_correctionPanelTimer;
+    VisibleSelection m_mark;
+    bool m_areMarkedTextMatchesHighlighted;
 
     bool canDeleteRange(Range*) const;
     bool canSmartReplaceWithPasteboard(Pasteboard*);
@@ -360,6 +405,22 @@ inline void Editor::setStartNewKillRingSequence(bool flag)
 {
     m_shouldStartNewKillRingSequence = flag;
 }
+
+inline const VisibleSelection& Editor::mark() const
+{
+    return m_mark;
+}
+
+inline void Editor::setMark(const VisibleSelection& selection)
+{
+    m_mark = selection;
+}
+
+inline bool Editor::markedTextMatchesAreHighlighted() const
+{
+    return m_areMarkedTextMatchesHighlighted;
+}
+
 
 } // namespace WebCore
 

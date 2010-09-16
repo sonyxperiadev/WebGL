@@ -25,6 +25,7 @@
 
 BINDING_C_INCLUDES := \
 	$(LOCAL_PATH)/bindings/js \
+	$(LOCAL_PATH)/bindings/js/specialization \
 	$(LOCAL_PATH)/bridge \
 	$(LOCAL_PATH)/bridge/c \
 	$(LOCAL_PATH)/bridge/jni \
@@ -180,6 +181,8 @@ LOCAL_SRC_FILES += \
 	bindings/js/ScriptValue.cpp \
 	bindings/js/SerializedScriptValue.cpp \
 	bindings/js/WorkerScriptController.cpp \
+	\
+	bindings/js/specialization/JSBindingState.cpp \
 	\
 	bindings/ScriptControllerBase.cpp \
 	\

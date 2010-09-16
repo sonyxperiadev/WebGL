@@ -154,7 +154,7 @@ namespace WebCore {
 
     class Node;
     class CachedScript;
-    class DocLoader;
+    class CachedResourceLoader;
     class DocumentFragment;
     class Document;
     class Element;
@@ -329,7 +329,7 @@ public:
     };
 
 #if ENABLE(XSLT)
-void* xmlDocPtrForString(DocLoader*, const String& source, const String& url);
+void* xmlDocPtrForString(CachedResourceLoader*, const String& source, const String& url);
 #endif
 
 HashMap<String, String> parseAttributes(const String&, bool& attrsOK);

@@ -135,7 +135,7 @@ static void stringAttrAttrSetter(v8::Local<v8::String> name, v8::Local<v8::Value
 {
     INC_STATS("DOM.TestObj.stringAttr._set");
     TestObj* imp = V8TestObj::toNative(info.Holder());
-    V8Parameter<> v = value;
+    STRING_TO_V8PARAMETER_EXCEPTION_BLOCK_VOID(V8Parameter<>, v, value);
     imp->setStringAttr(v);
     return;
 }
@@ -199,7 +199,7 @@ static void reflectedStringAttrAttrSetter(v8::Local<v8::String> name, v8::Local<
 {
     INC_STATS("DOM.TestObj.reflectedStringAttr._set");
     TestObj* imp = V8TestObj::toNative(info.Holder());
-    V8Parameter<WithNullCheck> v = value;
+    STRING_TO_V8PARAMETER_EXCEPTION_BLOCK_VOID(V8Parameter<WithNullCheck>, v, value);
     imp->setAttribute(WebCore::HTMLNames::reflectedstringattrAttr, v);
     return;
 }
@@ -247,7 +247,7 @@ static void reflectedURLAttrAttrSetter(v8::Local<v8::String> name, v8::Local<v8:
 {
     INC_STATS("DOM.TestObj.reflectedURLAttr._set");
     TestObj* imp = V8TestObj::toNative(info.Holder());
-    V8Parameter<WithNullCheck> v = value;
+    STRING_TO_V8PARAMETER_EXCEPTION_BLOCK_VOID(V8Parameter<WithNullCheck>, v, value);
     imp->setAttribute(WebCore::HTMLNames::reflectedurlattrAttr, v);
     return;
 }
@@ -263,7 +263,7 @@ static void reflectedNonEmptyURLAttrAttrSetter(v8::Local<v8::String> name, v8::L
 {
     INC_STATS("DOM.TestObj.reflectedNonEmptyURLAttr._set");
     TestObj* imp = V8TestObj::toNative(info.Holder());
-    V8Parameter<WithNullCheck> v = value;
+    STRING_TO_V8PARAMETER_EXCEPTION_BLOCK_VOID(V8Parameter<WithNullCheck>, v, value);
     imp->setAttribute(WebCore::HTMLNames::reflectednonemptyurlattrAttr, v);
     return;
 }
@@ -279,7 +279,7 @@ static void reflectedStringAttrAttrSetter(v8::Local<v8::String> name, v8::Local<
 {
     INC_STATS("DOM.TestObj.reflectedStringAttr._set");
     TestObj* imp = V8TestObj::toNative(info.Holder());
-    V8Parameter<WithNullCheck> v = value;
+    STRING_TO_V8PARAMETER_EXCEPTION_BLOCK_VOID(V8Parameter<WithNullCheck>, v, value);
     imp->setAttribute(WebCore::HTMLNames::customContentStringAttrAttr, v);
     return;
 }
@@ -327,7 +327,7 @@ static void reflectedCustomURLAttrAttrSetter(v8::Local<v8::String> name, v8::Loc
 {
     INC_STATS("DOM.TestObj.reflectedCustomURLAttr._set");
     TestObj* imp = V8TestObj::toNative(info.Holder());
-    V8Parameter<WithNullCheck> v = value;
+    STRING_TO_V8PARAMETER_EXCEPTION_BLOCK_VOID(V8Parameter<WithNullCheck>, v, value);
     imp->setAttribute(WebCore::HTMLNames::customContentURLAttrAttr, v);
     return;
 }
@@ -343,7 +343,7 @@ static void reflectedCustomNonEmptyURLAttrAttrSetter(v8::Local<v8::String> name,
 {
     INC_STATS("DOM.TestObj.reflectedCustomNonEmptyURLAttr._set");
     TestObj* imp = V8TestObj::toNative(info.Holder());
-    V8Parameter<WithNullCheck> v = value;
+    STRING_TO_V8PARAMETER_EXCEPTION_BLOCK_VOID(V8Parameter<WithNullCheck>, v, value);
     imp->setAttribute(WebCore::HTMLNames::customContentNonEmptyURLAttrAttr, v);
     return;
 }
@@ -409,7 +409,7 @@ static void stringAttrWithGetterExceptionAttrSetter(v8::Local<v8::String> name, 
 {
     INC_STATS("DOM.TestObj.stringAttrWithGetterException._set");
     TestObj* imp = V8TestObj::toNative(info.Holder());
-    V8Parameter<> v = value;
+    STRING_TO_V8PARAMETER_EXCEPTION_BLOCK_VOID(V8Parameter<>, v, value);
     ExceptionCode ec = 0;
     imp->setStringAttrWithGetterException(v, ec);
     if (UNLIKELY(ec))
@@ -428,7 +428,7 @@ static void stringAttrWithSetterExceptionAttrSetter(v8::Local<v8::String> name, 
 {
     INC_STATS("DOM.TestObj.stringAttrWithSetterException._set");
     TestObj* imp = V8TestObj::toNative(info.Holder());
-    V8Parameter<> v = value;
+    STRING_TO_V8PARAMETER_EXCEPTION_BLOCK_VOID(V8Parameter<>, v, value);
     ExceptionCode ec = 0;
     imp->setStringAttrWithSetterException(v, ec);
     if (UNLIKELY(ec))
@@ -975,6 +975,17 @@ static v8::Handle<v8::Value> overloadedMethod4Callback(const v8::Arguments& args
     return v8::Handle<v8::Value>();
 }
 
+static v8::Handle<v8::Value> overloadedMethod5Callback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.TestObj.overloadedMethod5");
+    TestObj* imp = V8TestObj::toNative(args.Holder());
+    if (args.Length() <= 0 || !args[0]->IsObject())
+        return throwError(TYPE_MISMATCH_ERR);
+    RefPtr<TestCallback> callback = V8TestCallback::create(args[0], getScriptExecutionContext());
+    imp->overloadedMethod(callback);
+    return v8::Handle<v8::Value>();
+}
+
 static v8::Handle<v8::Value> overloadedMethodCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.TestObj.overloadedMethod");
@@ -986,8 +997,27 @@ static v8::Handle<v8::Value> overloadedMethodCallback(const v8::Arguments& args)
         return overloadedMethod3Callback(args);
     if (args.Length() == 1)
         return overloadedMethod4Callback(args);
+    if ((args.Length() == 1 && (args[0]->IsNull() || args[0]->IsObject())))
+        return overloadedMethod5Callback(args);
     V8Proxy::throwTypeError();
     return notHandledByInterceptor();
+}
+
+static v8::Handle<v8::Value> classMethodCallback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.TestObj.classMethod");
+    TestObj::classMethod();
+    return v8::Handle<v8::Value>();
+}
+
+static v8::Handle<v8::Value> classMethodWithOptionalCallback(const v8::Arguments& args)
+{
+    INC_STATS("DOM.TestObj.classMethodWithOptional");
+    if (args.Length() <= 0) {
+        return v8::Integer::New(TestObj::classMethodWithOptional());
+    }
+    EXCEPTION_BLOCK(int, arg, toInt32(args[0]));
+    return v8::Integer::New(TestObj::classMethodWithOptional(arg));
 }
 
 } // namespace TestObjInternal
@@ -1163,6 +1193,8 @@ static v8::Persistent<v8::FunctionTemplate> ConfigureV8TestObjTemplate(v8::Persi
     v8::Handle<v8::FunctionTemplate> customArgsAndExceptionArgv[customArgsAndExceptionArgc] = { V8log::GetRawTemplate() };
     v8::Handle<v8::Signature> customArgsAndExceptionSignature = v8::Signature::New(desc, customArgsAndExceptionArgc, customArgsAndExceptionArgv);
     proto->Set(v8::String::New("customArgsAndException"), v8::FunctionTemplate::New(TestObjInternal::customArgsAndExceptionCallback, v8::Handle<v8::Value>(), customArgsAndExceptionSignature));
+    desc->Set(v8::String::New("classMethod"), v8::FunctionTemplate::New(TestObjInternal::classMethodCallback, v8::Handle<v8::Value>(), v8::Local<v8::Signature>()));
+    desc->Set(v8::String::New("classMethodWithOptional"), v8::FunctionTemplate::New(TestObjInternal::classMethodWithOptionalCallback, v8::Handle<v8::Value>(), v8::Local<v8::Signature>()));
     batchConfigureConstants(desc, proto, TestObjConsts, sizeof(TestObjConsts) / sizeof(*TestObjConsts));
 
     // Custom toString template

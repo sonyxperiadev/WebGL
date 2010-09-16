@@ -50,9 +50,12 @@ public:
     }
     virtual ~HTMLViewSourceParser();
 
-private:
-    HTMLViewSourceParser(HTMLViewSourceDocument*);
+protected:
+    explicit HTMLViewSourceParser(HTMLViewSourceDocument*);
 
+    HTMLTokenizer* tokenizer() const { return m_tokenizer.get(); }
+
+private:
     // DocumentParser
     virtual void insert(const SegmentedString&);
     virtual void append(const SegmentedString&);

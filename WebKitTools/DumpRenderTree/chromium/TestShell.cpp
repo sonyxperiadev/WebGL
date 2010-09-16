@@ -42,6 +42,7 @@
 #include "public/WebElement.h"
 #include "public/WebFrame.h"
 #include "public/WebHistoryItem.h"
+#include "public/WebKit.h"
 #include "public/WebRuntimeFeatures.h"
 #include "public/WebScriptController.h"
 #include "public/WebSettings.h"
@@ -204,6 +205,7 @@ void TestShell::resetWebSettings(WebView& webView)
     settings->setLocalStorageEnabled(true);
     settings->setOfflineWebApplicationCacheEnabled(true);
     settings->setAllowFileAccessFromFileURLs(true);
+    settings->setUserStyleSheetLocation(WebURL());
 
     // LayoutTests were written with Safari Mac in mind which does not allow
     // tabbing to links by default.
@@ -493,6 +495,7 @@ void TestShell::dump()
     if (!frame)
         return;
     bool shouldDumpAsText = m_layoutTestController->shouldDumpAsText();
+    bool shouldGeneratePixelResults = m_layoutTestController->shouldGeneratePixelResults();
     bool dumpedAnything = false;
     if (m_params.dumpTree) {
         dumpedAnything = true;
@@ -502,7 +505,10 @@ void TestShell::dump()
         if (!shouldDumpAsText) {
             // Plain text pages should be dumped as text
             string mimeType = frame->dataSource()->response().mimeType().utf8();
-            shouldDumpAsText = mimeType == "text/plain";
+            if (mimeType == "text/plain") {
+                shouldDumpAsText = true;
+                shouldGeneratePixelResults = false;
+            }
         }
         if (shouldDumpAsText) {
             bool recursive = m_layoutTestController->shouldDumpChildFramesAsText();
@@ -520,7 +526,7 @@ void TestShell::dump()
     if (dumpedAnything && m_params.printSeparators)
         m_printer->handleTextFooter();
 
-    if (m_params.dumpPixels && m_layoutTestController->shouldGeneratePixelResults()) {
+    if (m_params.dumpPixels && shouldGeneratePixelResults) {
         // Image output: we write the image data to the file given on the
         // command line (for the dump pixels argument), and the MD5 sum to
         // stdout.
@@ -587,6 +593,8 @@ void TestShell::dumpImage(skia::PlatformCanvas* canvas) const
     bool discardTransparency = false;
 #elif OS(UNIX)
     bool discardTransparency = true;
+    if (areLayoutTestImagesOpaque())
+        device.makeOpaque(0, 0, sourceBitmap.width(), sourceBitmap.height());
 #endif
 
     // Compute MD5 sum.  We should have done this before calling

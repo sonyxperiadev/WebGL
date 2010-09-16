@@ -184,6 +184,7 @@ WEBCORE_INCLUDEPATH = \
     $$PWD/bindings \
     $$PWD/bindings/generic \
     $$PWD/bindings/js \
+    $$PWD/bindings/js/specialization \
     $$PWD/bridge \
     $$PWD/bridge/c \
     $$PWD/bridge/jsc \
@@ -392,6 +393,7 @@ SOURCES += \
     bindings/js/ScriptValue.cpp \
     bindings/js/ScheduledAction.cpp \
     bindings/js/SerializedScriptValue.cpp \
+    bindings/js/specialization/JSBindingState.cpp \
     bindings/ScriptControllerBase.cpp \
     bridge/IdentifierRep.cpp \
     bridge/NP_jsobject.cpp \
@@ -629,7 +631,6 @@ SOURCES += \
     fileapi/FileReaderSync.cpp \
     fileapi/FileStreamProxy.cpp \
     fileapi/FileThread.cpp \
-    fileapi/FileWriter.cpp \
     fileapi/ThreadableBlobRegistry.cpp \
     history/BackForwardController.cpp \
     history/BackForwardListImpl.cpp \
@@ -645,6 +646,7 @@ SOURCES += \
     html/DataGridColumn.cpp \
     html/DataGridColumnList.cpp \
     html/DateComponents.cpp \
+    html/FTPDirectoryDocument.cpp \
     html/FormDataList.cpp \
     html/HTMLAllCollection.cpp \
     html/HTMLAnchorElement.cpp \
@@ -728,9 +730,13 @@ SOURCES += \
     html/HTMLUListElement.cpp \
     html/HTMLViewSourceDocument.cpp \
     html/ImageData.cpp \
+    html/ImageDocument.cpp \
     html/ImageResizerThread.cpp \
     html/LabelsNodeList.cpp \
+    html/MediaDocument.cpp \
+    html/PluginDocument.cpp \
     html/StepRange.cpp \
+    html/TextDocument.cpp \
     html/ValidityState.cpp \
     html/canvas/CanvasGradient.cpp \
     html/canvas/CanvasPattern.cpp \
@@ -751,6 +757,8 @@ SOURCES += \
     html/parser/HTMLTokenizer.cpp \
     html/parser/HTMLTreeBuilder.cpp \
     html/parser/HTMLViewSourceParser.cpp \
+    html/parser/TextDocumentParser.cpp \
+    html/parser/TextViewSourceParser.cpp \
     inspector/ConsoleMessage.cpp \
     inspector/InjectedScript.cpp \
     inspector/InjectedScriptHost.cpp \
@@ -785,7 +793,7 @@ SOURCES += \
     loader/CachedXSLStyleSheet.cpp \
     loader/CrossOriginAccessControl.cpp \
     loader/CrossOriginPreflightResultCache.cpp \
-    loader/DocLoader.cpp \
+    loader/CachedResourceLoader.cpp \
     loader/DocumentLoader.cpp \
     loader/DocumentThreadableLoader.cpp \
     loader/DocumentWriter.cpp \
@@ -794,19 +802,15 @@ SOURCES += \
     loader/FrameLoader.cpp \
     loader/FrameLoaderStateMachine.cpp \
     loader/HistoryController.cpp \
-    loader/FTPDirectoryDocument.cpp \
     loader/FTPDirectoryParser.cpp \
     loader/icon/IconLoader.cpp \
-    loader/ImageDocument.cpp \
     loader/ImageLoader.cpp \
     loader/loader.cpp \
     loader/MainResourceLoader.cpp \
-    loader/MediaDocument.cpp \
     loader/NavigationAction.cpp \
     loader/NetscapePlugInStreamLoader.cpp \
     loader/PingLoader.cpp \
     loader/PlaceholderDocument.cpp \
-    loader/PluginDocument.cpp \
     loader/PolicyCallback.cpp \
     loader/PolicyChecker.cpp \
     loader/ProgressTracker.cpp \
@@ -817,7 +821,6 @@ SOURCES += \
     loader/SinkDocument.cpp \
     loader/SubframeLoader.cpp \
     loader/SubresourceLoader.cpp \
-    loader/TextDocument.cpp \
     loader/TextResourceDecoder.cpp \
     loader/ThreadableLoader.cpp \
     notifications/Notification.cpp \
@@ -957,7 +960,9 @@ SOURCES += \
     platform/network/ResourceResponseBase.cpp \
     platform/text/RegularExpression.cpp \
     platform/SchemeRegistry.cpp \
+    platform/ScrollAnimator.cpp \
     platform/Scrollbar.cpp \
+    platform/ScrollbarClient.cpp \
     platform/ScrollbarThemeComposite.cpp \
     platform/ScrollView.cpp \
     platform/text/SegmentedString.cpp \
@@ -1399,7 +1404,6 @@ HEADERS += \
     editing/VisibleSelection.h \
     editing/visible_units.h \
     editing/WrapContentsInDummySpanCommand.h \
-    fileapi/AsyncFileWriter.h \
     fileapi/Blob.h \
     fileapi/BlobBuilder.h \
     fileapi/BlobURL.h \
@@ -1412,8 +1416,6 @@ HEADERS += \
     fileapi/FileStreamProxy.h \
     fileapi/FileThread.h \
     fileapi/FileThreadTask.h \
-    fileapi/FileWriter.h \
-    fileapi/FileWriterClient.h \
     history/BackForwardController.h \
     history/BackForwardControllerClient.h \
     history/BackForwardListImpl.h \
@@ -1525,6 +1527,7 @@ HEADERS += \
     html/ImageResizerThread.h \
     html/LabelsNodeList.h \
     html/StepRange.h \
+    html/TextDocument.h \
     html/TimeRanges.h \
     html/ValidityState.h \
     html/parser/CSSPreloadScanner.h \
@@ -1582,7 +1585,7 @@ HEADERS += \
     loader/Cache.h \
     loader/CrossOriginAccessControl.h \
     loader/CrossOriginPreflightResultCache.h \
-    loader/DocLoader.h \
+    loader/CachedResourceLoader.h \
     loader/DocumentLoader.h \
     loader/DocumentThreadableLoader.h \
     loader/FormState.h \
@@ -1607,7 +1610,6 @@ HEADERS += \
     loader/Request.h \
     loader/ResourceLoader.h \
     loader/SubresourceLoader.h \
-    loader/TextDocument.h \
     loader/TextResourceDecoder.h \
     loader/ThreadableLoader.h \
     loader/WorkerThreadableLoader.h \
@@ -1787,7 +1789,9 @@ HEADERS += \
     platform/qt/QtStyleOptionWebComboBox.h \
     platform/qt/RenderThemeQt.h \
     platform/qt/ScrollbarThemeQt.h \
+    platform/ScrollAnimator.h \
     platform/Scrollbar.h \
+    platform/ScrollbarClient.h \
     platform/ScrollbarThemeComposite.h \
     platform/ScrollView.h \
     platform/SearchPopupMenu.h \
@@ -1906,6 +1910,7 @@ HEADERS += \
     rendering/RenderSVGResourceClipper.h \
     rendering/RenderSVGResourceContainer.h \
     rendering/RenderSVGResourceFilter.h \ 
+    rendering/RenderSVGResourceFilterPrimitive.h \
     rendering/RenderSVGResourceGradient.h \
     rendering/RenderSVGResourceLinearGradient.h \
     rendering/RenderSVGResourceMarker.h \
@@ -2347,8 +2352,12 @@ maemo5 {
 }
 
 
-    win32-*|wince*: SOURCES += platform/win/SystemTimeWin.cpp \
-                               platform/graphics/win/TransformationMatrixWin.cpp
+    win32-*|wince* {
+        HEADERS += platform/ScrollAnimatorWin.h
+        SOURCES += platform/ScrollAnimatorWin.cpp \
+                   platform/win/SystemTimeWin.cpp \
+                   platform/graphics/win/TransformationMatrixWin.cpp
+    }
 
     mac {
         SOURCES += \
@@ -2418,7 +2427,8 @@ contains(DEFINES, ENABLE_NETSCAPE_PLUGIN_API=1) {
     
         win32-* {
             INCLUDEPATH += $$PWD/plugins/win \
-                           $$PWD/platform/win
+                           $$PWD/platform/win \
+                           $$PWD/platform/graphics/win
     
             SOURCES += plugins/win/PluginDatabaseWin.cpp \
                        plugins/win/PluginPackageWin.cpp \
@@ -2462,6 +2472,8 @@ contains(DEFINES, ENABLE_SQLITE=1) {
             LIBS += -lsqlite3
         }
     }
+
+    wince*:DEFINES += HAVE_LOCALTIME_S=0
 
     SOURCES += \
         platform/sql/SQLiteAuthorizer.cpp \
@@ -2616,10 +2628,10 @@ contains(DEFINES, ENABLE_FILE_SYSTEM=1) {
         fileapi/EntryArray.h \
         fileapi/EntryCallback.h \
         fileapi/ErrorCallback.h \
+        fileapi/FileCallback.h \
         fileapi/FileEntry.h \
         fileapi/FileSystemCallback.h \
         fileapi/FileSystemCallbacks.h \
-        fileapi/FileWriterCallback.h \
         fileapi/Flags.h \
         fileapi/LocalFileSystem.h \
         fileapi/Metadata.h \
@@ -2638,6 +2650,17 @@ contains(DEFINES, ENABLE_FILE_SYSTEM=1) {
         fileapi/FileSystemCallbacks.cpp \
         fileapi/LocalFileSystem.cpp \
         platform/AsyncFileSystem.cpp
+}
+
+contains(DEFINES, ENABLE_FILE_WRITER=1) {
+    HEADERS += \
+        fileapi/AsyncFileWriter.h \
+        fileapi/FileWriter.h \
+        fileapi/FileWriterCallback.h \
+        fileapi/FileWriterClient.h
+
+    SOURCES += \
+        fileapi/FileWriter.cpp
 }
 
 contains(DEFINES, ENABLE_ICONDATABASE=1) {
@@ -3052,6 +3075,7 @@ contains(DEFINES, ENABLE_SVG=1) {
         rendering/RenderSVGResourceClipper.cpp \
         rendering/RenderSVGResourceContainer.cpp \
         rendering/RenderSVGResourceFilter.cpp \
+        rendering/RenderSVGResourceFilterPrimitive.cpp \
         rendering/RenderSVGResourceGradient.cpp \
         rendering/RenderSVGResourceLinearGradient.cpp \
         rendering/RenderSVGResourceMarker.cpp \
@@ -3216,7 +3240,7 @@ HEADERS += $$WEBKIT_API_HEADERS
     exists($$OUTPUT_DIR/include/QtWebKit/classheaders.pri): include($$OUTPUT_DIR/include/QtWebKit/classheaders.pri)
     WEBKIT_INSTALL_HEADERS = $$WEBKIT_API_HEADERS $$WEBKIT_CLASS_HEADERS
 
-    !symbian {
+    !symbian-abld:!symbian-sbsv2 {
         headers.files = $$WEBKIT_INSTALL_HEADERS
 
         !isEmpty(INSTALL_HEADERS): headers.path = $$INSTALL_HEADERS/QtWebKit
@@ -3230,7 +3254,7 @@ HEADERS += $$WEBKIT_API_HEADERS
 
         INSTALLS += target headers modfile
     } else {
-        # INSTALLS is not implemented in qmake's s60 generators, copy headers manually
+        # INSTALLS is not implemented in qmake's mmp generators, copy headers manually
         inst_headers.commands = $$QMAKE_COPY ${QMAKE_FILE_NAME} ${QMAKE_FILE_OUT}
         inst_headers.input = WEBKIT_INSTALL_HEADERS
         inst_headers.CONFIG = no_clean

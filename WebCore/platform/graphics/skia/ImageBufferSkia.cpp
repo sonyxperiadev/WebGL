@@ -36,10 +36,12 @@
 #include "Base64.h"
 #include "BitmapImage.h"
 #include "BitmapImageSingleFrameSkia.h"
+#include "DrawingBuffer.h"
+#include "GLES2Canvas.h"
 #include "GraphicsContext.h"
 #include "ImageData.h"
-#include "PlatformContextSkia.h"
 #include "PNGImageEncoder.h"
+#include "PlatformContextSkia.h"
 #include "SkColorPriv.h"
 #include "SkiaUtils.h"
 
@@ -67,9 +69,7 @@ ImageBuffer::ImageBuffer(const IntSize& size, ImageColorSpace imageColorSpace, b
 
     m_data.m_platformContext.setCanvas(&m_data.m_canvas);
     m_context.set(new GraphicsContext(&m_data.m_platformContext));
-#if OS(WINDOWS)
     m_context->platformContext()->setDrawingToImageBuffer(true);
-#endif
 
     // Make the background transparent. It would be nice if this wasn't
     // required, but the canvas is currently filled with the magic transparency
@@ -100,14 +100,26 @@ PassRefPtr<Image> ImageBuffer::copyImage() const
 
 void ImageBuffer::clip(GraphicsContext* context, const FloatRect& rect) const
 {
-#if OS(LINUX) || OS(WINDOWS)
     context->platformContext()->beginLayerClippedToImage(rect, this);
-#endif
 }
 
 void ImageBuffer::draw(GraphicsContext* context, ColorSpace styleColorSpace, const FloatRect& destRect, const FloatRect& srcRect,
                        CompositeOperator op, bool useLowQualityScale)
 {
+    if (m_data.m_platformContext.useGPU() && context->platformContext()->useGPU()) {
+        if (context->platformContext()->canAccelerate()) {
+            DrawingBuffer* sourceDrawingBuffer = m_data.m_platformContext.gpuCanvas()->drawingBuffer();
+            unsigned sourceTexture = sourceDrawingBuffer->getRenderingResultsAsTexture();
+            FloatRect destRectFlipped(destRect);
+            destRectFlipped.setY(destRect.y() + destRect.height());
+            destRectFlipped.setHeight(-destRect.height());
+            context->platformContext()->prepareForHardwareDraw();
+            context->platformContext()->gpuCanvas()->drawTexturedRect(sourceTexture, m_size, srcRect, destRectFlipped, styleColorSpace, op);
+            return;
+        }
+        m_data.m_platformContext.syncSoftwareCanvas();
+    }
+
     RefPtr<Image> image = BitmapImageSingleFrameSkia::create(*m_data.m_platformContext.bitmap(), context == m_context);
     context->drawImage(image.get(), styleColorSpace, destRect, srcRect, op, useLowQualityScale);
 }

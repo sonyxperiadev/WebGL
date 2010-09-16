@@ -1,3 +1,138 @@
+2010-09-08  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Move functions from Frame to Editor as planned
+        https://bugs.webkit.org/show_bug.cgi?id=45218
+
+        * ewk/ewk_frame.cpp:
+        (ewk_frame_editable_set):
+        (ewk_frame_selection_get):
+        (ewk_frame_text_search):
+        (ewk_frame_text_matches_mark):
+        (ewk_frame_text_matches_highlight_set):
+        (ewk_frame_text_matches_highlight_get):
+        * ewk/ewk_view.cpp:
+        (ewk_view_selection_get):
+        Changed call sites to use editor().
+
+2010-09-09  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Unreviewed build fix.
+
+        [EFL] Fix duplicate gstreamer macro in CMakeListEfl.txt
+        https://bugs.webkit.org/show_bug.cgi?id=45433
+
+        In WebKit/efl/CMakeListEfl.txt, duplicated ENABLE_VIDEO macros were added.
+        So, unnecessary ENABLE_VIDEO macro is deleted.
+
+        * CMakeListsEfl.txt:
+
+2010-09-08  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Unreviewed build fix.
+
+        [EFL] Need to add custom dependencies.
+        https://bugs.webkit.org/show_bug.cgi?id=45247
+
+        Add WebKit_Theme into WebKit_SOURCES to make it while building.
+
+        * CMakeListsEfl.txt:
+
+2010-09-08  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Export data directory through pkg-config
+        https://bugs.webkit.org/show_bug.cgi?id=45385
+
+        Using pkg-config it's possible for a browser to know the location of
+        installed themes. When compiling the browser, a variable might be
+        defined with the datadir, like below:
+
+        gcc -o browser browser.c $(pkg-config --libs --cflags ewebkit) \
+           -DEWEBKIT_DATA_DIR=$(pkg-config --variable=datadir)
+
+        * ewebkit.pc.in: Export datadir variable.
+
+2010-09-06  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Unreviewed build fix.
+
+        [EFL] REGRESSION(66794) Need to fix build break.
+        https://bugs.webkit.org/show_bug.cgi?id=45241
+
+        Add dummy class(FrameNetworkingContextEfl) like GTK+ port and implement
+        as EFL style.
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::createNetworkingContext):
+        * WebCoreSupport/FrameNetworkingContextEfl.h: Added.
+        (WebCore::FrameNetworkingContextEfl::create):
+        (WebCore::FrameNetworkingContextEfl::coreFrame):
+        (WebCore::FrameNetworkingContextEfl::FrameNetworkingContextEfl):
+
+2010-09-04  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Move test browser to WebKitTools directory
+        https://bugs.webkit.org/show_bug.cgi?id=45212
+
+        Follow other ports like QT and GTK which moved the test browser to
+        WebKitTools directory.
+
+        * CMakeListsEfl.txt: Remove build for test browser.
+        * EWebLauncher/main.c: Removed.
+
+2010-09-03  Jesus Sanchez-Palencia  <jesus.palencia@openbossa.org>
+
+        Reviewed by Darin Adler.
+
+        Add NetworkingContext to avoid layer violations
+        https://bugs.webkit.org/show_bug.cgi?id=42292
+
+        Add createNetworkingContext to EFL's FrameLoaderClient.
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::createNetworkingContext):
+        * WebCoreSupport/FrameLoaderClientEfl.h:
+
+2010-09-03  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Martin Robinson.
+
+        [EFL] Regression (66531) Build break with Glib Support
+        https://bugs.webkit.org/show_bug.cgi?id=45011
+
+        Move GtkTypedefs.h to GTypedefs.h and let it inside gobject directory
+        since when glib is enabled, EFL port needs it, too.
+
+        * CMakeListsEfl.txt: Include gobject directory to find new header
+        file.
+
+2010-09-03  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Install default theme
+        https://bugs.webkit.org/show_bug.cgi?id=45154
+
+        Since a theme is needed in order to create a new browser, install the
+        default one to serve as example and fall-back.
+
+        * CMakeListsEfl.txt:
+
+2010-09-02  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Name install directories according to library name
+        https://bugs.webkit.org/show_bug.cgi?id=45126
+
+        * CMakeListsEfl.txt: include diretory follows library name.
+        * ewebkit.pc.in: Ditto.
+
 2010-08-31  Dave Hyatt  <hyatt@apple.com>
 
         Reviewed by Sam Weinig.

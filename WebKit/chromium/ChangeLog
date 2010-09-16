@@ -1,3 +1,437 @@
+2010-09-08  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Move functions from Frame to Editor as planned
+        https://bugs.webkit.org/show_bug.cgi?id=45218
+
+        * src/ContextMenuClientImpl.cpp:
+        (WebKit::selectMisspelledWord):
+        (WebKit::ContextMenuClientImpl::getCustomMenuFromDefaultItems):
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::find):
+        (WebKit::WebFrameImpl::stopFinding):
+        (WebKit::WebFrameImpl::scopeStringMatches):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::caretOrSelectionBounds):
+        Changed call sites to use editor().
+
+2010-09-09  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by James Robinson.
+
+        Memory leak in red/black tree
+        https://bugs.webkit.org/show_bug.cgi?id=45472
+
+        Fixed memory leak in red/black tree where it was using operator
+        new directly to allocate its internal nodes rather than the arena
+        with which it was configured. Added allocateObject variant to
+        arena supporting single-argument constructors. Added test to
+        red/black tree unit tests to cover this functionality, and
+        refactored TrackedAllocator into helper file to share between
+        arena and red/black tree tests.
+
+        * WebKit.gyp:
+        * tests/ArenaTestHelpers.h: Added.
+        (WebCore::ArenaTestHelpers::TrackedAllocator::create):
+        (WebCore::ArenaTestHelpers::TrackedAllocator::allocate):
+        (WebCore::ArenaTestHelpers::TrackedAllocator::free):
+        (WebCore::ArenaTestHelpers::TrackedAllocator::isEmpty):
+        (WebCore::ArenaTestHelpers::TrackedAllocator::numRegions):
+        (WebCore::ArenaTestHelpers::TrackedAllocator::TrackedAllocator):
+        * tests/PODArenaTest.cpp:
+        * tests/PODRedBlackTreeTest.cpp:
+        (WebCore::TEST):
+
+2010-09-09  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [chromium] make linux checksums computed from pngs to match windows
+        https://bugs.webkit.org/show_bug.cgi?id=45465
+
+        * src/WebKit.cpp:
+        (WebKit::areLayoutTestImagesOpaque): Make linux match windows.
+
+2010-09-09  Chris Guillory  <chris.guillory@google.com>
+
+        Reviewed by Chris Fleizach.
+
+        Add methods used to determine accessibility state.
+        https://bugs.webkit.org/show_bug.cgi?id=45434
+        
+
+        * public/WebAccessibilityObject.h:
+        * src/WebAccessibilityObject.cpp:
+        (WebKit::WebAccessibilityObject::canSetSelectedAttribute):
+        (WebKit::WebAccessibilityObject::isCollapsed):
+        (WebKit::WebAccessibilityObject::isLinked):
+        (WebKit::WebAccessibilityObject::isReadOnly):
+        (WebKit::WebAccessibilityObject::isVisible):
+
+2010-09-08  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Joseph Pecoraro.
+
+        Web Inspector: add a sanity test for DOM storage view in the storage panel
+        https://bugs.webkit.org/show_bug.cgi?id=45294
+
+        * src/js/Tests.js: removed testStoragePanel which was superseded by inspector layout tests.
+
+2010-09-08  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Joseph Pecoraro.
+
+        Web Inspector: test that debugger won't pause on syntax errors
+        https://bugs.webkit.org/show_bug.cgi?id=45388
+
+        * src/js/Tests.js: removed testAutoContinueOnSyntaxError which is now covered by 
+        inspector/debugger-autocontinue-on-syntax-error.html layout test
+
+2010-09-08  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by David Hyatt.
+
+        Add smooth scrolling framework, and a Windows implementation.
+        https://bugs.webkit.org/show_bug.cgi?id=32356
+
+        * src/WebScrollbarImpl.cpp: Plumb new ScrollbarClient functions.  Allow wheel scrolls to be animated.
+        (WebKit::WebScrollbarImpl::setLocation):
+        (WebKit::WebScrollbarImpl::setValue):
+        (WebKit::WebScrollbarImpl::scroll):
+        (WebKit::WebScrollbarImpl::onMouseWheel):
+        (WebKit::WebScrollbarImpl::onKeyDown):
+        (WebKit::WebScrollbarImpl::setScrollOffsetFromAnimation):
+        * src/WebScrollbarImpl.h: Plumb new ScrollbarClient functions.
+        * src/win/WebInputEventFactory.cpp: Update comments now that we have smooth scrolling.
+        (WebKit::WebInputEventFactory::mouseWheelEvent):
+
+2010-09-08  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Joseph Pecoraro.
+
+        Web Inspector: remove some obsolete interactive tests
+        https://bugs.webkit.org/show_bug.cgi?id=45371
+
+        * src/js/Tests.js:
+
+2010-09-08  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Plug leak in WebDeviceOrientationClientMock
+        https://bugs.webkit.org/show_bug.cgi?id=45305
+
+        WebDeviceOrientationClientMock is responsible for destroying the
+        WebDeviceOrientationController object pointed to by the argument
+        passed to the setController() member function.
+
+        Also use the new WebPrivateOnwPtr for m_clientMock.
+
+        * public/WebDeviceOrientationClientMock.h:
+        * src/WebDeviceOrientationClientMock.cpp:
+        (WebKit::WebDeviceOrientationClientMock::setController):
+        (WebKit::WebDeviceOrientationClientMock::initialize):
+        (WebKit::WebDeviceOrientationClientMock::reset):
+
+2010-09-07  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Make a public flag for how DRT generates bitmaps on Linux
+        https://bugs.webkit.org/show_bug.cgi?id=45133
+
+        This is so it's possible for me to fix
+        http://code.google.com/p/chromium/issues/detail?id=21386 .
+
+        * public/WebKit.h: Add areLayoutTestImagesOpaque()
+        * src/WebKit.cpp:
+        (WebKit::areLayoutTestImagesOpaque):
+
+2010-09-07  Dimitri Glazkov  <dglazkov@chromium.org>
+
+        Unreviewed, rolling out r66886.
+        http://trac.webkit.org/changeset/66886
+        https://bugs.webkit.org/show_bug.cgi?id=45112
+
+        Made
+
+        * public/WebGeolocationService.h:
+        * src/WebGeolocationServiceBridgeImpl.cpp:
+        (WebKit::WebGeolocationServiceBridgeImpl::WebGeolocationServiceBridgeImpl):
+        (WebKit::WebGeolocationServiceBridgeImpl::~WebGeolocationServiceBridgeImpl):
+        (WebKit::WebGeolocationServiceBridgeImpl::startUpdating):
+        (WebKit::WebGeolocationServiceBridgeImpl::stopUpdating):
+        (WebKit::WebGeolocationServiceBridgeImpl::suspend):
+        (WebKit::WebGeolocationServiceBridgeImpl::resume):
+        (WebKit::WebGeolocationServiceBridgeImpl::attachBridgeIfNeeded):
+        (WebKit::WebGeolocationServiceBridgeImpl::setIsAllowed):
+        (WebKit::WebGeolocationServiceBridgeImpl::setLastPosition):
+        (WebKit::WebGeolocationServiceBridgeImpl::setLastError):
+        (WebKit::WebGeolocationServiceBridgeImpl::getWebViewClient):
+        (WebKit::WebGeolocationServiceBridgeImpl::onWebGeolocationServiceDestroyed):
+        * src/WebGeolocationServiceMock.cpp:
+
+2010-09-07  Jonathan Dixon  <joth@chromium.org>
+        
+        Reviewed by Jeremy Orlow.
+        
+        Access to out-of-scope WebGeolocationServiceBridgeImpl
+        https://bugs.webkit.org/show_bug.cgi?id=45112
+
+        Keep the WebGeolocationService pointer for lifetime of the bridge, to
+        ensure it can be detached reliably
+
+        * public/WebGeolocationServiceBridge.h:
+        (WebKit::WebGeolocationServiceBridge::~WebGeolocationServiceBridge):
+        * src/WebGeolocationServiceBridgeImpl.cpp:
+        (WebKit::WebGeolocationServiceBridgeImpl::WebGeolocationServiceBridgeImpl):
+        (WebKit::WebGeolocationServiceBridgeImpl::~WebGeolocationServiceBridgeImpl):
+        (WebKit::WebGeolocationServiceBridgeImpl::startUpdating):
+        (WebKit::WebGeolocationServiceBridgeImpl::stopUpdating):
+        (WebKit::WebGeolocationServiceBridgeImpl::suspend):
+        (WebKit::WebGeolocationServiceBridgeImpl::resume):
+        (WebKit::WebGeolocationServiceBridgeImpl::attachBridgeIfNeeded):
+
+2010-09-07  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: upstream two debugger tests
+        https://bugs.webkit.org/show_bug.cgi?id=45262
+
+        * src/js/Tests.js:
+
+2010-09-06  Jonathan Dixon  <joth@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Add new interface and empty impl. as precursor to bug 45112
+        https://bugs.webkit.org/show_bug.cgi?id=45257
+
+        * public/WebGeolocationServiceBridge.h:
+        (WebKit::WebGeolocationServiceBridge::~WebGeolocationServiceBridge):
+        * src/WebGeolocationServiceBridgeImpl.cpp:
+        (WebKit::WebGeolocationServiceBridgeImpl::onWebGeolocationServiceDestroyed):
+
+2010-09-06  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: fix chromium devtools tests
+        https://bugs.webkit.org/show_bug.cgi?id=45258
+
+        * src/js/Tests.js:
+        (.TestSuite.prototype._waitForScriptPause):
+
+2010-08-26  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Add index insertion support to IndexedDB.
+        https://bugs.webkit.org/show_bug.cgi?id=44695
+
+        Add asserts on the [] operator.
+
+        * public/WebVector.h:
+        (WebKit::WebVector::operator[]):
+
+2010-09-06  Anton Muhin  <antonm@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        [v8] bypass caches when query memory usage from post GC and in crash handler.
+        https://bugs.webkit.org/show_bug.cgi?id=45036
+
+        Add Chromium-specific API to query actual memory usage which bypasses any caches.
+
+        * public/WebKitClient.h:
+        (WebKit::WebKitClient::actualMemoryUsageMB):
+        * src/ChromiumBridge.cpp:
+        (WebCore::ChromiumBridge::actualMemoryUsageMB):
+
+2010-09-05  Peter Kasting  <pkasting@google.com>
+
+        Reviewed by Adam Barth.
+
+        Make Chromium/Mac generate continuous mousewheel events with the same wheelDelta values as Safari/Mac.
+        https://bugs.webkit.org/show_bug.cgi?id=45155
+
+        * src/mac/WebInputEventFactory.mm:
+        (WebKit::WebInputEventFactory::mouseWheelEvent):
+
+2010-09-05  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Joseph Pecoraro.
+
+        Web Inspector: remove WebDevToolsAgentClient::forceRepaint which is not used
+        https://bugs.webkit.org/show_bug.cgi?id=45179
+
+        * public/WebDevToolsAgentClient.h:
+        * src/DebuggerAgentImpl.cpp:
+        (WebKit::DebuggerAgentImpl::debuggerOutput):
+        * src/WebDevToolsAgentImpl.cpp:
+        * src/WebDevToolsAgentImpl.h:
+
+2010-09-05  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Darin Fisher.
+
+        Add unit tests for interval tree
+        https://bugs.webkit.org/show_bug.cgi?id=45161
+
+        * WebKit.gyp:
+        * tests/PODIntervalTreeTest.cpp: Added.
+        (WebCore::valueToString):
+        (WebCore::TEST):
+        (WebCore::UserData1::valueToString):
+        (WebCore::EndpointType1::valueToString):
+
+2010-09-05  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Darin Fisher.
+
+        Add unit tests for red-black tree and (POD) arena
+        https://bugs.webkit.org/show_bug.cgi?id=45060
+
+        * WebKit.gyp:
+        * tests/PODArenaTest.cpp: Added.
+        (WebCore::TestClass1::TestClass2::TestClass2):
+        (WebCore::TEST_F):
+        * tests/PODRedBlackTreeTest.cpp: Added.
+        (WebCore::TEST):
+        * tests/TreeTestHelpers.cpp: Added.
+        (WebCore::TreeTestHelpers::generateSeed):
+        (WebCore::TreeTestHelpers::initRandom):
+        (WebCore::TreeTestHelpers::nextRandom):
+        * tests/TreeTestHelpers.h: Added.
+
+2010-09-03  Jesus Sanchez-Palencia  <jesus.palencia@openbossa.org>
+
+        Reviewed by Darin Adler.
+
+        Add NetworkingContext to avoid layer violations
+        https://bugs.webkit.org/show_bug.cgi?id=42292
+
+        Add Chromium's implementation of NetworkingContext.
+
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::createNetworkingContext):
+        * src/FrameLoaderClientImpl.h:
+
+2010-09-02  Vangelis Kokkevis  <vangelis@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Revert to software compositing if the accelerated
+        compositor fails to initialize. If we tried to initialize the compositor
+        for this WebView and failed, next time the associated chrome client is
+        asked whether it can do accelerated compositing it will return false.
+        https://bugs.webkit.org/show_bug.cgi?id=45124
+        
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::allowsAcceleratedCompositing):
+        * src/ChromeClientImpl.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+        (WebKit::WebViewImpl::paint):
+        (WebKit::WebViewImpl::allowsAcceleratedCompositing):
+        (WebKit::WebViewImpl::setIsAcceleratedCompositingActive):
+        (WebKit::WebViewImpl::getOnscreenGLES2Context):
+        * src/WebViewImpl.h:
+
+2010-09-03  James Robinson  <jamesr@chromium.org>
+
+        [chromium] Add one more include to fix the mac compile.
+
+        * src/GraphicsContext3D.cpp:
+
+2010-09-03  James Robinson  <jamesr@chromium.org>
+
+        [chromium] Compile fixes for 66746.
+
+        * src/GraphicsContext3D.cpp:
+        (WebCore::GraphicsContext3DInternal::paintRenderingResultsToCanvas):
+
+2010-09-03  Tony Chang  <tony@chromium.org>
+
+        Unreviewed, remove svn:executable flag from images and css files.
+
+        * src/js/Images/segmentChromium.png: Removed property svn:executable.
+        * src/js/Images/segmentHoverChromium.png: Removed property svn:executable.
+        * src/js/Images/segmentHoverEndChromium.png: Removed property svn:executable.
+        * src/js/Images/segmentSelectedChromium.png: Removed property svn:executable.
+        * src/js/Images/segmentSelectedEndChromium.png: Removed property svn:executable.
+        * src/js/Images/statusbarBackgroundChromium.png: Removed property svn:executable.
+        * src/js/Images/statusbarBottomBackgroundChromium.png: Removed property svn:executable.
+        * src/js/Images/statusbarButtonsChromium.png: Removed property svn:executable.
+        * src/js/Images/statusbarMenuButtonChromium.png: Removed property svn:executable.
+        * src/js/Images/statusbarMenuButtonSelectedChromium.png: Removed property svn:executable.
+        * src/js/devTools.css: Removed property svn:executable.
+
+2010-09-03  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Chris Marrin.
+
+        Multiple accelerated 2D canvases should be able to use the same GraphicsContext3D
+        https://bugs.webkit.org/show_bug.cgi?id=44926
+
+        Adds a SharedContext3D to WebViewImpl. The SharedContext3D has to live on WebViewImpl to be
+        tied to the lifetime of the compositor context.
+
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::getSharedGraphicsContext3D):
+        * src/ChromeClientImpl.h:
+        * src/GraphicsContext3D.cpp:
+        (WebCore::GraphicsContext3DInternal::initialize):
+        (WebCore::GraphicsContext3DInternal::platformLayer):
+        (WebCore::GraphicsContext3D::platformLayer):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::getSharedGraphicsContext3D):
+        * src/WebViewImpl.h:
+
+2010-08-31  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Steve Block.
+
+        IDBCursor.continue() should reuse the .openCursor's IDBRequest object
+        https://bugs.webkit.org/show_bug.cgi?id=44953
+
+        * src/WebIDBCallbacksImpl.cpp:
+        (WebCore::WebIDBCallbacksImpl::onError):
+        (WebCore::WebIDBCallbacksImpl::onSuccess):
+
+2010-09-02  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        REGRESSION: Crash occurs at objc_msgSend when closing a window that is displaying the web inspector
+        https://bugs.webkit.org/show_bug.cgi?id=44230
+
+        * src/InspectorFrontendClientImpl.cpp:
+        (WebKit::InspectorFrontendClientImpl::disconnectFromBackend):
+        * src/InspectorFrontendClientImpl.h:
+
+2010-09-02  Satish Sampath  <satish@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Remove obsolete public/API methods in chromium port
+        https://bugs.webkit.org/show_bug.cgi?id=45108
+
+        * public/WebSpeechInputController.h:
+        (WebKit::WebSpeechInputController::startRecognition):
+
+2010-09-02  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [DRT/Chromium] Remove dependency to base/task.h and base/timer.h
+        https://bugs.webkit.org/show_bug.cgi?id=45091
+
+        * DEPS: Roll Chromium revision to 58277 in order to have
+        webkit_support::PostDelayedTask().
+
 2010-09-02  Ilya Sherman  <isherman@google.com>
 
         Reviewed by Eric Seidel.

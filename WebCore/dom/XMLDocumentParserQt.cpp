@@ -29,7 +29,7 @@
 #include "CDATASection.h"
 #include "CachedScript.h"
 #include "Comment.h"
-#include "DocLoader.h"
+#include "CachedResourceLoader.h"
 #include "Document.h"
 #include "DocumentFragment.h"
 #include "DocumentType.h"
@@ -199,7 +199,7 @@ void XMLDocumentParser::doWrite(const String& parseString)
 
 void XMLDocumentParser::initializeParserContext(const char*)
 {
-    m_parserStopped = false;
+    DocumentParser::startParsing();
     m_sawError = false;
     m_sawXSLTransform = false;
     m_sawFirstElement = false;
@@ -213,7 +213,7 @@ void XMLDocumentParser::doEnd()
         document()->setParsing(false); // Make the doc think it's done, so it will apply xsl sheets.
         document()->styleSelectorChanged(RecalcStyleImmediately);
         document()->setParsing(true);
-        m_parserStopped = true;
+        DocumentParser::stopParsing();
     }
 #endif
 
@@ -350,7 +350,7 @@ static inline void handleElementAttributes(Element* newElement, const QXmlStream
 
 void XMLDocumentParser::parse()
 {
-    while (!m_parserStopped && !m_parserPaused && !m_stream.atEnd()) {
+    while (!isStopped() && !m_parserPaused && !m_stream.atEnd()) {
         m_stream.readNext();
         switch (m_stream.tokenType()) {
         case QXmlStreamReader::StartDocument: {
@@ -578,7 +578,7 @@ void XMLDocumentParser::parseEndElement()
             // we have a src attribute
             String scriptCharset = scriptElement->scriptCharset();
             if (element->dispatchBeforeLoadEvent(scriptHref) &&
-                (m_pendingScript = document()->docLoader()->requestScript(scriptHref, scriptCharset))) {
+                (m_pendingScript = document()->cachedResourceLoader()->requestScript(scriptHref, scriptCharset))) {
                 m_scriptElement = element;
                 m_pendingScript->addClient(this);
 

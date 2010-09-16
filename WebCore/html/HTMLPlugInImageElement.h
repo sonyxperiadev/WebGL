@@ -27,22 +27,22 @@
 namespace WebCore {
 
 class HTMLImageLoader;
+class FrameLoader;
 
 // Base class for HTMLObjectElement and HTMLEmbedElement
 class HTMLPlugInImageElement : public HTMLPlugInElement {
 public:
-    const String& serviceType() const { return m_serviceType; }
-    const String& url() const { return m_url; }
-
-    bool needsWidgetUpdate() const { return m_needsWidgetUpdate; }
-    void setNeedsWidgetUpdate(bool needsWidgetUpdate) { m_needsWidgetUpdate = needsWidgetUpdate; }
-
     RenderEmbeddedObject* renderEmbeddedObject() const;
+
+    virtual void updateWidget(bool onlyCreateNonNetscapePlugins) = 0;
 
 protected:
     HTMLPlugInImageElement(const QualifiedName& tagName, Document*, bool createdByParser);
 
     bool isImageType();
+
+    const String& serviceType() const { return m_serviceType; }
+    const String& url() const { return m_url; }
 
     OwnPtr<HTMLImageLoader> m_imageLoader;
     String m_serviceType;
@@ -52,6 +52,12 @@ protected:
     virtual void attach();
     virtual void detach();
 
+    bool needsWidgetUpdate() const { return m_needsWidgetUpdate; }
+    void setNeedsWidgetUpdate(bool needsWidgetUpdate) { m_needsWidgetUpdate = needsWidgetUpdate; }
+
+    bool allowedToLoadFrameURL(const String& url);
+    bool wouldLoadAsNetscapePlugin(const String& url, const String& serviceType);
+
 private:
     virtual bool canLazyAttach() { return false; }
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
@@ -60,7 +66,7 @@ private:
     virtual void finishParsingChildren();
     virtual void willMoveToNewOwnerDocument();
 
-    void updateWidget();
+    void updateWidgetIfNecessary();
     virtual bool useFallbackContent() const { return false; }
     
     bool m_needsWidgetUpdate;

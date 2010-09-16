@@ -264,6 +264,11 @@ void Path::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radius)
 
 void Path::closeSubpath()
 {
+    m_path.closeSubpath();
+}
+
+void Path::closeCanvasSubpath()
+{
     const int elementCount = m_path.elementCount();
 
     if (!elementCount)
@@ -467,6 +472,31 @@ void Path::transform(const AffineTransform& transform)
     } else 
 #endif
         m_path = qTransform.map(m_path);
+}
+
+float Path::length()
+{
+    return m_path.length();
+}
+
+FloatPoint Path::pointAtLength(float length, bool& ok)
+{
+    ok = (length >= 0 && length <= m_path.length());
+
+    qreal percent = m_path.percentAtLength(length);
+    QPointF point = m_path.pointAtPercent(percent);
+
+    return point;
+}
+
+float Path::normalAngleAtLength(float length, bool& ok)
+{
+    ok = (length >= 0 && length <= m_path.length());
+
+    qreal percent = m_path.percentAtLength(length);
+    qreal angle = m_path.angleAtPercent(percent);
+
+    return angle;
 }
 
 }

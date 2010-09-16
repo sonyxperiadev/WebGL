@@ -45,7 +45,9 @@
 
 #include "GraphicsLayerChromium.h"
 
+#include "Canvas2DLayerChromium.h"
 #include "ContentLayerChromium.h"
+#include "DrawingBuffer.h"
 #include "FloatConversion.h"
 #include "FloatRect.h"
 #include "Image.h"
@@ -104,6 +106,12 @@ GraphicsLayerChromium::GraphicsLayerChromium(GraphicsLayerClient* client)
 
 GraphicsLayerChromium::~GraphicsLayerChromium()
 {
+    if (m_layer)
+        m_layer->setOwner(0);
+    if (m_contentsLayer)
+        m_contentsLayer->setOwner(0);
+    if (m_transformLayer)
+        m_transformLayer->setOwner(0);
 }
 
 void GraphicsLayerChromium::setName(const String& inName)
@@ -290,6 +298,7 @@ void GraphicsLayerChromium::setContentsNeedsDisplay()
     if (m_contentsLayer)
         m_contentsLayer->setNeedsDisplay();
 }
+
 void GraphicsLayerChromium::setNeedsDisplay()
 {
     if (drawsContent())
@@ -344,13 +353,13 @@ void GraphicsLayerChromium::setContentsToCanvas(PlatformLayer* platformLayer)
     bool childrenChanged = false;
     if (platformLayer) {
         platformLayer->setOwner(this);
-        if (!m_contentsLayer.get() || m_contentsLayerPurpose != ContentsLayerForCanvas) {
+        if (m_contentsLayer.get() != platformLayer) {
             setupContentsLayer(platformLayer);
             m_contentsLayer = platformLayer;
             m_contentsLayerPurpose = ContentsLayerForCanvas;
             childrenChanged = true;
         }
-        platformLayer->setNeedsDisplay();
+        m_contentsLayer->setNeedsDisplay();
         updateContentsRect();
     } else {
         if (m_contentsLayer) {

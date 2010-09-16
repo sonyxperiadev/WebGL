@@ -41,7 +41,7 @@
 #include "HTMLViewSourceParser.h"
 #include "SegmentedString.h"
 #include "Text.h"
-#include "TextDocument.h"
+#include "TextViewSourceParser.h"
 
 namespace WebCore {
 
@@ -58,7 +58,6 @@ HTMLViewSourceDocument::HTMLViewSourceDocument(Frame* frame, const KURL& url, co
 
 PassRefPtr<DocumentParser> HTMLViewSourceDocument::createParser()
 {
-    // Use HTMLDocumentParser if applicable, otherwise use TextDocumentParser.
     if (m_type == "text/html" || m_type == "application/xhtml+xml" || m_type == "image/svg+xml" || DOMImplementation::isXMLMIMEType(m_type)
 #if ENABLE(XHTMLMP)
         || m_type == "application/vnd.wap.xhtml+xml"
@@ -66,7 +65,7 @@ PassRefPtr<DocumentParser> HTMLViewSourceDocument::createParser()
         )
         return HTMLViewSourceParser::create(this);
 
-    return createTextDocumentParser(this);
+    return TextViewSourceParser::create(this);
 }
 
 void HTMLViewSourceDocument::createContainingTable()
@@ -94,13 +93,6 @@ void HTMLViewSourceDocument::createContainingTable()
     table->parserAddChild(m_tbody);
     m_tbody->attach();
     m_current = m_tbody;
-}
-
-void HTMLViewSourceDocument::addViewSourceText(const String& text)
-{
-    if (!m_current)
-        createContainingTable();
-    addText(text, "");
 }
 
 void HTMLViewSourceDocument::addSource(const String& source, HTMLToken& token)

@@ -270,6 +270,7 @@ public:
     bool webkitMatchesSelector(const String& selectors, ExceptionCode&);
 
     DOMStringMap* dataset();
+    DOMStringMap* optionalDataset() const;
 
     virtual bool isFormControlElement() const { return false; }
     virtual bool isEnabledFormControl() const { return true; }
@@ -281,6 +282,7 @@ public:
     virtual bool isDefaultButtonForForm() const { return false; }
     virtual bool willValidate() const { return false; }
     virtual bool isValidFormControlElement() { return false; }
+    virtual bool hasUnacceptableValue() const { return false; }
 
     virtual bool formControlValueMatchesRenderer() const { return false; }
     virtual void setFormControlValueMatchesRenderer(bool) { }

@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef CanvasRenderingContext2D_h
@@ -61,7 +61,8 @@ class KURL;
 class TextMetrics;
 
 #if ENABLE(ACCELERATED_2D_CANVAS)
-class GraphicsContext3D;
+class DrawingBuffer;
+class SharedGraphicsContext3D;
 #endif
 
 typedef int ExceptionCode;
@@ -74,6 +75,7 @@ public:
 
     virtual bool is2d() const { return true; }
     virtual bool isAccelerated() const;
+    virtual bool paintsIntoCanvasBuffer() const;
 
     CanvasStyle* strokeStyle() const;
     void setStrokeStyle(PassRefPtr<CanvasStyle>);
@@ -223,8 +225,8 @@ public:
 
     virtual void paintRenderingResultsToCanvas();
 
-#if ENABLE(ACCELERATED_2D_CANVAS)
-    virtual GraphicsContext3D* graphicsContext3D() const { return m_context3D.get(); }
+#if ENABLE(ACCELERATED_2D_CANVAS) && USE(ACCELERATED_COMPOSITING)
+    virtual PlatformLayer* platformLayer() const;
 #endif
 
 private:
@@ -262,14 +264,15 @@ private:
 
     void applyShadow();
 
-    enum CanvasWillDrawOption {
-        CanvasWillDrawApplyTransform = 1,
-        CanvasWillDrawApplyShadow = 1 << 1,
-        CanvasWillDrawApplyClip = 1 << 2,
-        CanvasWillDrawApplyAll = 0xffffffff
+    enum CanvasDidDrawOption {
+        CanvasDidDrawApplyNone = 0,
+        CanvasDidDrawApplyTransform = 1,
+        CanvasDidDrawApplyShadow = 1 << 1,
+        CanvasDidDrawApplyClip = 1 << 2,
+        CanvasDidDrawApplyAll = 0xffffffff
     };
 
-    void didDraw(const FloatRect&, unsigned options = CanvasWillDrawApplyAll);
+    void didDraw(const FloatRect&, unsigned options = CanvasDidDrawApplyAll);
 
     GraphicsContext* drawingContext() const;
 
@@ -298,7 +301,8 @@ private:
 #endif
 
 #if ENABLE(ACCELERATED_2D_CANVAS)
-    OwnPtr<GraphicsContext3D> m_context3D;
+    OwnPtr<DrawingBuffer> m_drawingBuffer;
+    RefPtr<SharedGraphicsContext3D> m_context3D;
 #endif
 };
 

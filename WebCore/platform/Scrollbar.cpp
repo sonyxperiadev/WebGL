@@ -40,7 +40,7 @@
 
 using namespace std;
 
-#if PLATFORM(CHROMIUM) && OS(LINUX)
+#if PLATFORM(CHROMIUM) && OS(LINUX) || PLATFORM(GTK)
 // The position of the scrollbar thumb affects the appearance of the steppers, so
 // when the thumb moves, we have to invalidate them for painting.
 #define THUMB_POSITION_AFFECTS_BUTTONS
@@ -48,7 +48,7 @@ using namespace std;
 
 namespace WebCore {
 
-#if !PLATFORM(GTK) && !PLATFORM(EFL)
+#if !PLATFORM(EFL)
 PassRefPtr<Scrollbar> Scrollbar::createNativeScrollbar(ScrollbarClient* client, ScrollbarOrientation orientation, ScrollbarControlSize size)
 {
     return adoptRef(new Scrollbar(client, orientation, size));
@@ -101,12 +101,12 @@ Scrollbar::~Scrollbar()
     m_theme->unregisterScrollbar(this);
 }
 
-bool Scrollbar::setValue(int v)
+bool Scrollbar::setValue(int v, ScrollSource source)
 {
     v = max(min(v, m_totalSize - m_visibleSize), 0);
     if (value() == v)
         return false; // Our value stayed the same.
-    setCurrentPos(v);
+    setCurrentPos(v, source);
     return true;
 }
 
@@ -154,8 +154,10 @@ bool Scrollbar::scroll(ScrollDirection direction, ScrollGranularity granularity,
     }
     if (direction == ScrollUp || direction == ScrollLeft)
         multiplier = -multiplier;
+    if (client())
+        return client()->scroll(m_orientation, granularity, step, multiplier);
 
-    return setCurrentPos(max(min(m_currentPos + (step * multiplier), static_cast<float>(m_totalSize - m_visibleSize)), 0.0f));
+    return setCurrentPos(max(min(m_currentPos + (step * multiplier), static_cast<float>(m_totalSize - m_visibleSize)), 0.0f), NotFromScrollAnimator);
 }
 
 void Scrollbar::updateThumb()
@@ -287,11 +289,14 @@ void Scrollbar::moveThumb(int pos)
     else if (delta < 0)
         delta = max(-thumbPos, delta);
     if (delta)
-        setCurrentPos(static_cast<float>(thumbPos + delta) * maximum() / (trackLen - thumbLen));
+        setCurrentPos(static_cast<float>(thumbPos + delta) * maximum() / (trackLen - thumbLen), NotFromScrollAnimator);
 }
 
-bool Scrollbar::setCurrentPos(float pos)
+bool Scrollbar::setCurrentPos(float pos, ScrollSource source)
 {
+    if ((source != FromScrollAnimator) && client())
+        client()->setScrollPositionAndStopAnimation(m_orientation, pos);
+
     if (pos == m_currentPos)
         return false;
 
@@ -336,7 +341,7 @@ bool Scrollbar::mouseMoved(const PlatformMouseEvent& evt)
 {
     if (m_pressedPart == ThumbPart) {
         if (theme()->shouldSnapBackToDragOrigin(this, evt))
-            setCurrentPos(m_dragOrigin);
+            setCurrentPos(m_dragOrigin, NotFromScrollAnimator);
         else {
             moveThumb(m_orientation == HorizontalScrollbar ? 
                       convertFromContainingWindow(evt.pos()).x() :

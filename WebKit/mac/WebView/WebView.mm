@@ -47,6 +47,8 @@
 #import "WebDefaultPolicyDelegate.h"
 #import "WebDefaultUIDelegate.h"
 #import "WebDelegateImplementationCaching.h"
+#import "WebDeviceOrientationClient.h"
+#import "WebDeviceOrientationProvider.h"
 #import "WebDocument.h"
 #import "WebDocumentInternal.h"
 #import "WebDownload.h"
@@ -682,6 +684,9 @@ static bool shouldEnableLoadDeferring()
     pageClients.pluginHalterClient = new WebPluginHalterClient(self);
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
     pageClients.geolocationControllerClient = new WebGeolocationControllerClient(self);
+#endif
+#if ENABLE(DEVICE_ORIENTATION)
+    pageClients.deviceOrientationClient = new WebDeviceOrientationClient(self);
 #endif
     _private->page = new Page(pageClients);
 
@@ -4375,11 +4380,17 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 
 - (NSUInteger)markAllMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag highlight:(BOOL)highlight limit:(NSUInteger)limit
 {
+    if (_private->closed)
+        return 0;
+
     return [self countMatchesForText:string caseSensitive:caseFlag highlight:highlight limit:limit markMatches:YES];
 }
 
 - (NSUInteger)countMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag highlight:(BOOL)highlight limit:(NSUInteger)limit markMatches:(BOOL)markMatches
 {
+    if (_private->closed)
+        return 0;
+
     WebFrame *frame = [self mainFrame];
     unsigned matchCount = 0;
     do {
@@ -4404,6 +4415,9 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 
 - (void)unmarkAllTextMatches
 {
+    if (_private->closed)
+        return;
+
     WebFrame *frame = [self mainFrame];
     do {
         id <WebDocumentView> view = [[frame frameView] documentView];
@@ -4416,6 +4430,9 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 
 - (NSArray *)rectsForTextMatches
 {
+    if (_private->closed)
+        return [NSArray array];
+
     NSMutableArray *result = [NSMutableArray array];
     WebFrame *frame = [self mainFrame];
     do {
@@ -4749,7 +4766,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
         Frame* mainFrame = [self _mainCoreFrame];
         if (mainFrame) {
             if (flag) {
-                mainFrame->applyEditingStyleToBodyElement();
+                mainFrame->editor()->applyEditingStyleToBodyElement();
                 // If the WebView is made editable and the selection is empty, set it to something.
                 if (![self selectedDOMRange])
                     mainFrame->setSelectionFromNone();
@@ -5880,6 +5897,23 @@ static void glibContextIterationCallback(CFRunLoopObserverRef, CFRunLoopActivity
 }
 #endif
 
+
+@end
+
+@implementation WebView (WebViewDeviceOrientation)
+
+- (void)_setDeviceOrientationProvider:(id<WebDeviceOrientationProvider>)deviceOrientationProvider
+{
+    if (_private)
+        _private->m_deviceOrientationProvider = deviceOrientationProvider;
+}
+
+- (id<WebDeviceOrientationProvider>)_deviceOrientationProvider
+{
+    if (_private)
+        return _private->m_deviceOrientationProvider;
+    return nil;
+}
 
 @end
 

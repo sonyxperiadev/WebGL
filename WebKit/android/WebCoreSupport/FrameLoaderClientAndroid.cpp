@@ -38,6 +38,7 @@
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "FrameNetworkingContextAndroid.h"
 #include "FrameTree.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
@@ -1317,6 +1318,11 @@ void FrameLoaderClientAndroid::didAddIconForPageUrl(const String& pageUrl) {
 
 void FrameLoaderClientAndroid::dispatchDidChangeIcons() {
     notImplemented();
+}
+
+PassRefPtr<FrameNetworkingContext> FrameLoaderClientAndroid::createNetworkingContext()
+{
+    return FrameNetworkingContextAndroid::create(getFrame());
 }
 
 }

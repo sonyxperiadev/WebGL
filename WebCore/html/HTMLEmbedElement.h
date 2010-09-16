@@ -41,13 +41,17 @@ private:
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
     virtual void attributeChanged(Attribute*, bool preserveDecls = false);
-    
+
     virtual bool isURLAttribute(Attribute*) const;
     virtual const QualifiedName& imageSourceAttributeName() const;
 
     virtual RenderWidget* renderWidgetForJSBindings() const;
 
+    virtual void updateWidget(bool onlyCreateNonNetscapePlugins);
+
     virtual void addSubresourceAttributeURLs(ListHashSet<KURL>&) const;
+
+    void parametersForPlugin(Vector<String>& paramNames, Vector<String>& paramValues);
 };
 
 }

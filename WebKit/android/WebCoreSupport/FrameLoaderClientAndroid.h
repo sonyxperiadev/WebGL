@@ -202,6 +202,8 @@ namespace android {
 
         virtual void dispatchDidReceiveTouchIconURL(const String& url, bool precomposed);
 
+        virtual PassRefPtr<FrameNetworkingContext> createNetworkingContext();
+
         // WebIconDatabaseClient api
         virtual void didAddIconForPageUrl(const String& pageUrl);
         

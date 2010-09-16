@@ -76,6 +76,9 @@ class TestPort(base.Port):
     def options(self):
         return self._options
 
+    def skipped_layout_tests(self):
+        return []
+
     def path_to_test_expectations_file(self):
         return self.path_from_webkit_base('WebKitTools', 'Scripts',
             'webkitpy', 'layout_tests', 'data', 'platform', 'test',
@@ -145,9 +148,6 @@ class TestDriver(base.Driver):
     def poll(self):
         return True
 
-    def returncode(self):
-        return 0
-
     def run_test(self, uri, timeoutms, image_hash):
         basename = uri[(uri.rfind("/") + 1):uri.rfind(".html")]
 
@@ -179,6 +179,7 @@ class TestDriver(base.Driver):
                 raise ValueError('exception from ' + basename)
 
             crash = 'crash' in basename
+            timeout = 'timeout' in basename or 'hang' in basename
             timeout = 'timeout' in basename
             if 'text' in basename:
                 output = basename + '_failed-txt\n'
@@ -196,6 +197,9 @@ class TestDriver(base.Driver):
                         f.write(basename + "-png\n")
                 if 'checksum' in basename:
                     checksum = basename + "_failed-checksum\n"
+
+            if 'hang' in basename:
+                time.sleep((float(timeoutms) * 4) / 1000.0)
         else:
             crash = False
             timeout = False

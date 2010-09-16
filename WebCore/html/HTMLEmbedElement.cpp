@@ -120,6 +120,52 @@ void HTMLEmbedElement::parseMappedAttribute(Attribute* attr)
         HTMLPlugInImageElement::parseMappedAttribute(attr);
 }
 
+void HTMLEmbedElement::parametersForPlugin(Vector<String>& paramNames, Vector<String>& paramValues)
+{
+    NamedNodeMap* attributes = this->attributes(true);
+    if (!attributes)
+        return;
+
+    for (unsigned i = 0; i < attributes->length(); ++i) {
+        Attribute* it = attributes->attributeItem(i);
+        paramNames.append(it->localName().string());
+        paramValues.append(it->value().string());
+    }
+}
+
+// FIXME: This should be unified with HTMLObjectElement::updateWidget and
+// moved down into HTMLPluginImageElement.cpp
+void HTMLEmbedElement::updateWidget(bool onlyCreateNonNetscapePlugins)
+{
+    ASSERT(!renderEmbeddedObject()->pluginCrashedOrWasMissing());
+    // FIXME: We should ASSERT(needsWidgetUpdate()), but currently
+    // FrameView::updateWidget() calls updateWidget(false) without checking if
+    // the widget actually needs updating!
+    setNeedsWidgetUpdate(false);
+
+    if (m_url.isEmpty() && m_serviceType.isEmpty())
+        return;
+
+    // Note these pass m_url and m_serviceType to allow better code sharing with
+    // <object> which modifies url and serviceType before calling these.
+    if (!allowedToLoadFrameURL(m_url))
+        return;
+    if (onlyCreateNonNetscapePlugins && wouldLoadAsNetscapePlugin(m_url, m_serviceType))
+        return;
+
+    // FIXME: These should be joined into a PluginParameters class.
+    Vector<String> paramNames;
+    Vector<String> paramValues;
+    parametersForPlugin(paramNames, paramValues);
+
+    if (!dispatchBeforeLoadEvent(m_url))
+        return;
+
+    SubframeLoader* loader = document()->frame()->loader()->subframeLoader();
+    // FIXME: beforeLoad could have detached the renderer!  Just like in the <object> case above.
+    loader->requestObject(this, m_url, getAttribute(nameAttr), m_serviceType, paramNames, paramValues);
+}
+
 bool HTMLEmbedElement::rendererIsNeeded(RenderStyle* style)
 {
     if (isImageType())

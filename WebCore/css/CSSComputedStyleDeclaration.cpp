@@ -521,13 +521,29 @@ static PassRefPtr<CSSValue> getTimingFunctionValue(const AnimationList* animList
     RefPtr<CSSValueList> list = CSSValueList::createCommaSeparated();
     if (animList) {
         for (size_t i = 0; i < animList->size(); ++i) {
-            const TimingFunction& tf = animList->animation(i)->timingFunction();
-            list->append(CSSTimingFunctionValue::create(tf.x1(), tf.y1(), tf.x2(), tf.y2()));
+            const TimingFunction* tf = animList->animation(i)->timingFunction().get();
+            if (tf->isCubicBezierTimingFunction()) {
+                const CubicBezierTimingFunction* ctf = static_cast<const CubicBezierTimingFunction*>(tf);
+                list->append(CSSCubicBezierTimingFunctionValue::create(ctf->x1(), ctf->y1(), ctf->x2(), ctf->y2()));
+            } else if (tf->isStepsTimingFunction()) {
+                const StepsTimingFunction* stf = static_cast<const StepsTimingFunction*>(tf);
+                list->append(CSSStepsTimingFunctionValue::create(stf->numberOfSteps(), stf->stepAtStart()));
+            } else {
+                list->append(CSSLinearTimingFunctionValue::create());
+            }
         }
     } else {
         // Note that initialAnimationTimingFunction() is used for both transitions and animations
-        const TimingFunction& tf = Animation::initialAnimationTimingFunction();
-        list->append(CSSTimingFunctionValue::create(tf.x1(), tf.y1(), tf.x2(), tf.y2()));
+        const TimingFunction* tf = Animation::initialAnimationTimingFunction().get();
+        if (tf->isCubicBezierTimingFunction()) {
+            const CubicBezierTimingFunction* ctf = static_cast<const CubicBezierTimingFunction*>(tf);
+            list->append(CSSCubicBezierTimingFunctionValue::create(ctf->x1(), ctf->y1(), ctf->x2(), ctf->y2()));
+        } else if (tf->isStepsTimingFunction()) {
+            const StepsTimingFunction* stf = static_cast<const StepsTimingFunction*>(tf);
+            list->append(CSSStepsTimingFunctionValue::create(stf->numberOfSteps(), stf->stepAtStart()));
+        } else {
+            list->append(CSSLinearTimingFunctionValue::create());
+        }
     }
     return list.release();
 }
@@ -575,13 +591,12 @@ static int cssIdentifierForFontSizeKeyword(int keywordSize)
 
 PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getFontSizeCSSValuePreferringKeyword() const
 {
-    Node* node = m_node.get();
-    if (!node)
+    if (!m_node)
         return 0;
 
-    node->document()->updateLayoutIgnorePendingStylesheets();
+    m_node->document()->updateLayoutIgnorePendingStylesheets();
 
-    RefPtr<RenderStyle> style = node->computedStyle(m_pseudoElementSpecifier);
+    RefPtr<RenderStyle> style = m_node->computedStyle(m_pseudoElementSpecifier);
     if (!style)
         return 0;
 
@@ -589,6 +604,18 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getFontSizeCSSValuePreferringK
         return CSSPrimitiveValue::createIdentifier(cssIdentifierForFontSizeKeyword(keywordSize));
 
     return CSSPrimitiveValue::create(style->fontDescription().computedPixelSize(), CSSPrimitiveValue::CSS_PX);
+}
+
+bool CSSComputedStyleDeclaration::useFixedFontDefaultSize() const
+{
+    if (!m_node)
+        return false;
+
+    RefPtr<RenderStyle> style = m_node->computedStyle(m_pseudoElementSpecifier);
+    if (!style)
+        return false;
+
+    return style->fontDescription().useFixedDefaultSize();
 }
 
 PassRefPtr<CSSValue> CSSComputedStyleDeclaration::valueForShadow(const ShadowData* shadow, int id) const

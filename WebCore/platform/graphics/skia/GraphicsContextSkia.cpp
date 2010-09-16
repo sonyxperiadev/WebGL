@@ -1,10 +1,10 @@
 /*
  * Copyright (c) 2006, Google Inc. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  * notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above
@@ -14,7 +14,7 @@
  *     * Neither the name of Google Inc. nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -65,7 +65,7 @@ namespace {
 inline int fastMod(int value, int max)
 {
     int sign = SkExtractSign(value);
-    
+
     value = SkApplySign(value, sign);
     if (value >= max)
         value %= max;
@@ -391,7 +391,7 @@ void GraphicsContext::canvasClip(const Path& path)
     if (!isPathSkiaSafe(getCTM(), p))
         return;
 
-    platformContext()->canvas()->clipPath(p);
+    platformContext()->canvasClipPath(p);
 }
 
 void GraphicsContext::clipOut(const IntRect& rect)
@@ -499,7 +499,7 @@ void GraphicsContext::clipConvexPolygon(size_t numPoints, const FloatPoint* poin
 
     if (numPoints <= 1)
         return;
-    
+
     // FIXME: IMPLEMENT!!
 }
 
@@ -767,7 +767,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
         ClipRectToCanvas(*platformContext()->canvas(), r, &r);
     }
 
-    if (platformContext()->useGPU() && !m_common->state.fillPattern && !m_common->state.fillGradient && !platformContext()->getDrawLooper()) {
+    if (platformContext()->useGPU() && platformContext()->canAccelerate()) {
         platformContext()->prepareForHardwareDraw();
         platformContext()->gpuCanvas()->fillRect(rect);
         return;
@@ -789,7 +789,7 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorS
     if (paintingDisabled())
         return;
 
-    if (platformContext()->useGPU() && !m_common->state.fillPattern && !m_common->state.fillGradient) {
+    if (platformContext()->useGPU() && platformContext()->canAccelerate()) {
         platformContext()->prepareForHardwareDraw();
         platformContext()->gpuCanvas()->fillRect(rect, color, colorSpace);
         return;
@@ -1240,14 +1240,19 @@ void GraphicsContext::translate(float w, float h)
                                            WebCoreFloatToSkScalar(h));
 }
 
-void GraphicsContext::setGraphicsContext3D(GraphicsContext3D* context3D, const IntSize& size)
-{
-    platformContext()->setGraphicsContext3D(context3D, size);
-}
-
 void GraphicsContext::syncSoftwareCanvas()
 {
     platformContext()->syncSoftwareCanvas();
+}
+
+void GraphicsContext::setSharedGraphicsContext3D(SharedGraphicsContext3D* context, DrawingBuffer* framebuffer, const IntSize& size)
+{
+    platformContext()->setSharedGraphicsContext3D(context, framebuffer, size);
+}
+
+void GraphicsContext::markDirtyRect(const IntRect& rect)
+{
+    platformContext()->markDirtyRect(rect);
 }
 
 }  // namespace WebCore

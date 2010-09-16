@@ -72,7 +72,6 @@ void WebRequestContext::SetUserAgent(WTF::String string)
 {
     AutoLock aLock(userAgentLock);
     userAgent = string.utf8().data();
-    userAgent.append(" alternate http");
 }
 
 const std::string& WebRequestContext::GetUserAgent(const GURL& url) const

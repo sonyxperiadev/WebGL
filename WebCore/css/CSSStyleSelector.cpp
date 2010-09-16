@@ -2576,7 +2576,7 @@ bool CSSStyleSelector::SelectorChecker::checkOneSelector(CSSSelector* sel, Eleme
                 if (!e)
                     return false;
                 e->document()->setContainsValidityStyleRules();
-                return e->willValidate() && !e->isValidFormControlElement();
+                return (e->willValidate() && !e->isValidFormControlElement()) || e->hasUnacceptableValue();
             } case CSSSelector::PseudoChecked: {
                 if (!e || !e->isFormControlElement())
                     break;
@@ -6203,19 +6203,25 @@ void CSSStyleSelector::mapAnimationTimingFunction(Animation* animation, CSSValue
         CSSPrimitiveValue* primitiveValue = static_cast<CSSPrimitiveValue*>(value);
         switch (primitiveValue->getIdent()) {
             case CSSValueLinear:
-                animation->setTimingFunction(TimingFunction(LinearTimingFunction, 0.0, 0.0, 1.0, 1.0));
+                animation->setTimingFunction(LinearTimingFunction::create());
                 break;
             case CSSValueEase:
-                animation->setTimingFunction(TimingFunction());
+                animation->setTimingFunction(CubicBezierTimingFunction::create());
                 break;
             case CSSValueEaseIn:
-                animation->setTimingFunction(TimingFunction(CubicBezierTimingFunction, 0.42, 0.0, 1.0, 1.0));
+                animation->setTimingFunction(CubicBezierTimingFunction::create(0.42, 0.0, 1.0, 1.0));
                 break;
             case CSSValueEaseOut:
-                animation->setTimingFunction(TimingFunction(CubicBezierTimingFunction, 0.0, 0.0, 0.58, 1.0));
+                animation->setTimingFunction(CubicBezierTimingFunction::create(0.0, 0.0, 0.58, 1.0));
                 break;
             case CSSValueEaseInOut:
-                animation->setTimingFunction(TimingFunction(CubicBezierTimingFunction, 0.42, 0.0, 0.58, 1.0));
+                animation->setTimingFunction(CubicBezierTimingFunction::create(0.42, 0.0, 0.58, 1.0));
+                break;
+            case CSSValueStepStart:
+                animation->setTimingFunction(StepsTimingFunction::create(1, true));
+                break;
+            case CSSValueStepEnd:
+                animation->setTimingFunction(StepsTimingFunction::create(1, false));
                 break;
         }
         return;
@@ -6223,7 +6229,14 @@ void CSSStyleSelector::mapAnimationTimingFunction(Animation* animation, CSSValue
     
     if (value->isTimingFunctionValue()) {
         CSSTimingFunctionValue* timingFunction = static_cast<CSSTimingFunctionValue*>(value);
-        animation->setTimingFunction(TimingFunction(CubicBezierTimingFunction, timingFunction->x1(), timingFunction->y1(), timingFunction->x2(), timingFunction->y2()));
+        if (timingFunction->isCubicBezierTimingFunctionValue()) {
+            CSSCubicBezierTimingFunctionValue* cubicTimingFunction = static_cast<CSSCubicBezierTimingFunctionValue*>(value);
+            animation->setTimingFunction(CubicBezierTimingFunction::create(cubicTimingFunction->x1(), cubicTimingFunction->y1(), cubicTimingFunction->x2(), cubicTimingFunction->y2()));
+        } else if (timingFunction->isStepsTimingFunctionValue()) {
+            CSSStepsTimingFunctionValue* stepsTimingFunction = static_cast<CSSStepsTimingFunctionValue*>(value);
+            animation->setTimingFunction(StepsTimingFunction::create(stepsTimingFunction->numberOfSteps(), stepsTimingFunction->stepAtStart()));
+        } else
+            animation->setTimingFunction(LinearTimingFunction::create());
     }
 }
 
@@ -6442,14 +6455,14 @@ static const int strictFontSizeTable[fontSizeTableMax - fontSizeTableMin + 1][to
 // factors for each keyword value.
 static const float fontSizeFactors[totalKeywords] = { 0.60f, 0.75f, 0.89f, 1.0f, 1.2f, 1.5f, 2.0f, 3.0f };
 
-float CSSStyleSelector::fontSizeForKeyword(Document* document, int keyword, bool fixed)
+float CSSStyleSelector::fontSizeForKeyword(Document* document, int keyword, bool shouldUseFixedDefaultSize)
 {
     Settings* settings = document->settings();
     if (!settings)
         return 1.0f;
 
     bool quirksMode = document->inQuirksMode();
-    int mediumSize = fixed ? settings->defaultFixedFontSize() : settings->defaultFontSize();
+    int mediumSize = shouldUseFixedDefaultSize ? settings->defaultFixedFontSize() : settings->defaultFontSize();
     if (mediumSize >= fontSizeTableMin && mediumSize <= fontSizeTableMax) {
         // Look up the entry in the table.
         int row = mediumSize - fontSizeTableMin;
@@ -6460,6 +6473,33 @@ float CSSStyleSelector::fontSizeForKeyword(Document* document, int keyword, bool
     // Value is outside the range of the table. Apply the scale factor instead.
     float minLogicalSize = max(settings->minimumLogicalFontSize(), 1);
     return max(fontSizeFactors[keyword - CSSValueXxSmall]*mediumSize, minLogicalSize);
+}
+
+template<typename T>
+static int findNearestLegacyFontSize(int pixelFontSize, const T* table, int multiplier)
+{
+    // Ignore table[0] because xx-small does not correspond to any legacy font size.
+    for (int i = 1; i < totalKeywords - 1; i++) {
+        if (pixelFontSize * 2 < (table[i] + table[i + 1]) * multiplier)
+            return i;
+    }
+    return totalKeywords - 1;
+}
+
+int CSSStyleSelector::legacyFontSize(Document* document, int pixelFontSize, bool shouldUseFixedDefaultSize)
+{
+    Settings* settings = document->settings();
+    if (!settings)
+        return 1;
+
+    bool quirksMode = document->inQuirksMode();
+    int mediumSize = shouldUseFixedDefaultSize ? settings->defaultFixedFontSize() : settings->defaultFontSize();
+    if (mediumSize >= fontSizeTableMin && mediumSize <= fontSizeTableMax) {
+        int row = mediumSize - fontSizeTableMin;
+        return findNearestLegacyFontSize<int>(pixelFontSize, quirksMode ? quirksFontSizeTable[row] : strictFontSizeTable[row], 1);
+    }
+
+    return findNearestLegacyFontSize<float>(pixelFontSize, fontSizeFactors, mediumSize);
 }
 
 float CSSStyleSelector::largerFontSize(float size, bool) const
@@ -6855,14 +6895,14 @@ void CSSStyleSelector::loadPendingImages()
     for (HashSet<int>::const_iterator it = m_pendingImageProperties.begin(); it != end; ++it) {
         CSSPropertyID currentProperty = static_cast<CSSPropertyID>(*it);
 
-        DocLoader* docLoader = m_element->document()->docLoader();
+        CachedResourceLoader* cachedResourceLoader = m_element->document()->cachedResourceLoader();
         
         switch (currentProperty) {
             case CSSPropertyBackgroundImage: {
                 for (FillLayer* backgroundLayer = m_style->accessBackgroundLayers(); backgroundLayer; backgroundLayer = backgroundLayer->next()) {
                     if (backgroundLayer->image() && backgroundLayer->image()->isPendingImage()) {
                         CSSImageValue* imageValue = static_cast<StylePendingImage*>(backgroundLayer->image())->cssImageValue();
-                        backgroundLayer->setImage(imageValue->cachedImage(docLoader));
+                        backgroundLayer->setImage(imageValue->cachedImage(cachedResourceLoader));
                     }
                 }
                 break;
@@ -6872,7 +6912,7 @@ void CSSStyleSelector::loadPendingImages()
                 for (ContentData* contentData = const_cast<ContentData*>(m_style->contentData()); contentData; contentData = contentData->next()) {
                     if (contentData->isImage() && contentData->image()->isPendingImage()) {
                         CSSImageValue* imageValue = static_cast<StylePendingImage*>(contentData->image())->cssImageValue();
-                        contentData->setImage(imageValue->cachedImage(docLoader));
+                        contentData->setImage(imageValue->cachedImage(cachedResourceLoader));
                     }
                 }
                 break;
@@ -6884,7 +6924,7 @@ void CSSStyleSelector::loadPendingImages()
                         CursorData& currentCursor = (*cursorList)[i];
                         if (currentCursor.image()->isPendingImage()) {
                             CSSImageValue* imageValue = static_cast<StylePendingImage*>(currentCursor.image())->cssImageValue();
-                            currentCursor.setImage(imageValue->cachedImage(docLoader));
+                            currentCursor.setImage(imageValue->cachedImage(cachedResourceLoader));
                         }
                     }
                 }
@@ -6894,7 +6934,7 @@ void CSSStyleSelector::loadPendingImages()
             case CSSPropertyListStyleImage: {
                 if (m_style->listStyleImage() && m_style->listStyleImage()->isPendingImage()) {
                     CSSImageValue* imageValue = static_cast<StylePendingImage*>(m_style->listStyleImage())->cssImageValue();
-                    m_style->setListStyleImage(imageValue->cachedImage(docLoader));
+                    m_style->setListStyleImage(imageValue->cachedImage(cachedResourceLoader));
                 }
                 break;
             }
@@ -6903,7 +6943,7 @@ void CSSStyleSelector::loadPendingImages()
                 const NinePieceImage& borderImage = m_style->borderImage();
                 if (borderImage.image() && borderImage.image()->isPendingImage()) {
                     CSSImageValue* imageValue = static_cast<StylePendingImage*>(borderImage.image())->cssImageValue();
-                    m_style->setBorderImage(NinePieceImage(imageValue->cachedImage(docLoader), borderImage.slices(), borderImage.horizontalRule(), borderImage.verticalRule()));
+                    m_style->setBorderImage(NinePieceImage(imageValue->cachedImage(cachedResourceLoader), borderImage.slices(), borderImage.horizontalRule(), borderImage.verticalRule()));
                 }
                 break;
             }
@@ -6912,7 +6952,7 @@ void CSSStyleSelector::loadPendingImages()
                 const NinePieceImage& maskImage = m_style->boxReflect()->mask();
                 if (maskImage.image() && maskImage.image()->isPendingImage()) {
                     CSSImageValue* imageValue = static_cast<StylePendingImage*>(maskImage.image())->cssImageValue();
-                    m_style->boxReflect()->setMask(NinePieceImage(imageValue->cachedImage(docLoader), maskImage.slices(), maskImage.horizontalRule(), maskImage.verticalRule()));
+                    m_style->boxReflect()->setMask(NinePieceImage(imageValue->cachedImage(cachedResourceLoader), maskImage.slices(), maskImage.horizontalRule(), maskImage.verticalRule()));
                 }
                 break;
             }
@@ -6921,7 +6961,7 @@ void CSSStyleSelector::loadPendingImages()
                 const NinePieceImage& maskBoxImage = m_style->maskBoxImage();
                 if (maskBoxImage.image() && maskBoxImage.image()->isPendingImage()) {
                     CSSImageValue* imageValue = static_cast<StylePendingImage*>(maskBoxImage.image())->cssImageValue();
-                    m_style->setMaskBoxImage(NinePieceImage(imageValue->cachedImage(docLoader), maskBoxImage.slices(), maskBoxImage.horizontalRule(), maskBoxImage.verticalRule()));
+                    m_style->setMaskBoxImage(NinePieceImage(imageValue->cachedImage(cachedResourceLoader), maskBoxImage.slices(), maskBoxImage.horizontalRule(), maskBoxImage.verticalRule()));
                 }
                 break;
             }
@@ -6930,7 +6970,7 @@ void CSSStyleSelector::loadPendingImages()
                 for (FillLayer* maskLayer = m_style->accessMaskLayers(); maskLayer; maskLayer = maskLayer->next()) {
                     if (maskLayer->image() && maskLayer->image()->isPendingImage()) {
                         CSSImageValue* imageValue = static_cast<StylePendingImage*>(maskLayer->image())->cssImageValue();
-                        maskLayer->setImage(imageValue->cachedImage(docLoader));
+                        maskLayer->setImage(imageValue->cachedImage(cachedResourceLoader));
                     }
                 }
                 break;

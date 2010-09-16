@@ -47,7 +47,7 @@
 #include "DOMWindow.h"
 #include "DeviceMotionEvent.h"
 #include "DeviceOrientationEvent.h"
-#include "DocLoader.h"
+#include "CachedResourceLoader.h"
 #include "DocumentFragment.h"
 #include "DocumentLoader.h"
 #include "DocumentType.h"
@@ -375,6 +375,7 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
     , m_compatibilityModeLocked(false)
     , m_domTreeVersion(0)
     , m_styleSheets(StyleSheetList::create(this))
+    , m_readyState(Complete)
     , m_styleRecalcTimer(this, &Document::styleRecalcTimerFired)
     , m_pendingStyleRecalcShouldForce(false)
     , m_frameElementsShouldIgnoreScrolling(false)
@@ -388,7 +389,7 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
     , m_startTime(currentTime())
     , m_overMinimumLayoutThreshold(false)
     , m_extraLayoutDelay(0)
-    , m_asyncScriptRunner(AsyncScriptRunner::create())
+    , m_asyncScriptRunner(AsyncScriptRunner::create(this))
     , m_xmlVersion("1.0")
     , m_xmlStandalone(false)
     , m_savedRenderer(0)
@@ -444,7 +445,7 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
 
     m_markers = new DocumentMarkerController();
 
-    m_docLoader = new DocLoader(this);
+    m_cachedResourceLoader = new CachedResourceLoader(this);
 
     m_visuallyOrdered = false;
     m_bParsing = false;
@@ -561,7 +562,7 @@ Document::~Document()
     ASSERT(!m_parser || m_parser->refCount() == 1);
     detachParser();
     m_document = 0;
-    m_docLoader.clear();
+    m_cachedResourceLoader.clear();
 
     m_renderArena.clear();
 
@@ -982,16 +983,27 @@ Element* Document::getElementById(const AtomicString& elementId) const
 
 String Document::readyState() const
 {
-    if (Frame* f = frame()) {
-        if (f->loader()->isComplete()) 
-            return "complete";
-        if (parsing()) 
-            return "loading";
-        return "loaded";
-        // FIXME: What does "interactive" mean?
-        // FIXME: Missing support for "uninitialized".
+    DEFINE_STATIC_LOCAL(const String, loading, ("loading"));
+    DEFINE_STATIC_LOCAL(const String, interactive, ("interactive"));
+    DEFINE_STATIC_LOCAL(const String, complete, ("complete"));
+
+    switch (m_readyState) {
+    case Loading:
+        return loading;
+    case Interactive:
+        return interactive;
+    case Complete:
+        return complete;
     }
+
+    ASSERT_NOT_REACHED();
     return String();
+}
+
+void Document::setReadyState(ReadyState readyState)
+{
+    // FIXME: Fire the readystatechange event on this Document.
+    m_readyState = readyState;
 }
 
 String Document::encoding() const
@@ -1869,7 +1881,7 @@ void Document::open(Document* ownerDocument)
 
     if (m_frame) {
         ScriptableDocumentParser* parser = scriptableDocumentParser();
-        if (m_frame->loader()->isLoadingMainResource() || (parser && parser->isExecutingScript()))
+        if (m_frame->loader()->isLoadingMainResource() || (parser && parser->isParsing() && parser->isExecutingScript()))
             return;
 
         if (m_frame->loader()->state() == FrameStateProvisional)
@@ -1915,6 +1927,7 @@ void Document::implicitOpen()
 
     m_parser = createParser();
     setParsing(true);
+    setReadyState(Loading);
 
     ScriptableDocumentParser* parser = scriptableDocumentParser();
     if (m_frame && parser)
@@ -2031,7 +2044,7 @@ void Document::implicitClose()
     detachParser();
 
     // Parser should have picked up all preloads by now
-    m_docLoader->clearPreloads();
+    m_cachedResourceLoader->clearPreloads();
 
     // Create a head and a body if we don't have those yet (e.g. for about:blank).
     if (!this->body() && isHTMLDocument()) {
@@ -4162,6 +4175,8 @@ CollectionCache* Document::nameCollectionInfo(CollectionType type, const AtomicS
 
 void Document::finishedParsing()
 {
+    ASSERT(!scriptableDocumentParser() || !m_parser->isParsing());
+    ASSERT(!scriptableDocumentParser() || m_readyState != Loading);
     setParsing(false);
     dispatchEvent(Event::create(eventNames().DOMContentLoadedEvent, true, false));
 
