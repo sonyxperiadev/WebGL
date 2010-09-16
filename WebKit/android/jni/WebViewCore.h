@@ -631,6 +631,9 @@ namespace android {
         // if there exists at least on WebViewCore instance then we return the
         // application context, otherwise NULL is returned.
         static jobject getApplicationContext();
+
+        // Check whether a media mimeType is supported in Android media framework.
+        static bool supportsMimeType(const WTF::String& mimeType);
     };
 
 }   // namespace android

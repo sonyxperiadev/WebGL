@@ -96,9 +96,7 @@ protected:
     // Android-specific methods and fields.
     static MediaPlayerPrivateInterface* create(MediaPlayer* player);
     static void getSupportedTypes(HashSet<String>&) { }
-    static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs) {
-        return MediaPlayer::IsNotSupported;
-    }
+    static MediaPlayer::SupportsType supportsType(const String& type, const String& codecs);
 
     MediaPlayerPrivate(MediaPlayer *);
     virtual void createJavaPlayerIfNeeded() { }
