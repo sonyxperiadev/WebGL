@@ -69,6 +69,10 @@ public:
     virtual void OnReadCompleted(URLRequest*, int bytesRead);
     virtual void OnAuthRequired(URLRequest*, net::AuthChallengeInfo*);
 
+    // Methods called during a request by the UI code (via WebUrlLoaderClient).
+    void setAuth(const std::wstring& username, const std::wstring& password);
+    void cancelAuth();
+
 private:
     void startReading();
     bool read(int* bytesRead);

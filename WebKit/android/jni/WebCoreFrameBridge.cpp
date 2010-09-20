@@ -83,6 +83,7 @@
 #include "WebHistory.h"
 #include "WebIconDatabase.h"
 #include "WebFrameView.h"
+#include "WebUrlLoaderClient.h"
 #include "WebViewCore.h"
 #include "android_graphics.h"
 #include "jni.h"
@@ -209,6 +210,7 @@ struct WebFrame::JavaBrowserFrame
     jmethodID   mDensity;
     jmethodID   mGetFileSize;
     jmethodID   mGetFile;
+    jmethodID   mDidReceiveAuthenticationChallenge;
     AutoJObject frame(JNIEnv* env) {
         return getRealObject(env, mObj);
     }
@@ -268,6 +270,8 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mDensity = env->GetMethodID(clazz, "density","()F");
     mJavaFrame->mGetFileSize = env->GetMethodID(clazz, "getFileSize", "(Ljava/lang/String;)I");
     mJavaFrame->mGetFile = env->GetMethodID(clazz, "getFile", "(Ljava/lang/String;[BII)I");
+    mJavaFrame->mDidReceiveAuthenticationChallenge = env->GetMethodID(clazz, "didReceiveAuthenticationChallenge",
+            "(ILjava/lang/String;Ljava/lang/String;Z)V");
 
     LOG_ASSERT(mJavaFrame->mInputStreamForAndroidResource, "Could not find method inputStreamForAndroidResource");
     LOG_ASSERT(mJavaFrame->mStartLoadingResource, "Could not find method startLoadingResource");
@@ -290,6 +294,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     LOG_ASSERT(mJavaFrame->mDensity, "Could not find method density");
     LOG_ASSERT(mJavaFrame->mGetFileSize, "Could not find method getFileSize");
     LOG_ASSERT(mJavaFrame->mGetFile, "Could not find method getFile");
+    LOG_ASSERT(mJavaFrame->mDidReceiveAuthenticationChallenge, "Could not find method didReceiveAuthenticationChallenge");
 
     mUserAgent = WTF::String();
     mUserInitiatedAction = false;
@@ -885,6 +890,24 @@ WebFrame::density() const
     jfloat dpi = env->CallFloatMethod(mJavaFrame->frame(env).get(), mJavaFrame->mDensity);
     checkException(env);
     return dpi;
+}
+
+void
+WebFrame::didReceiveAuthenticationChallenge(WebUrlLoaderClient* client, const std::string& host, const std::string& realm, bool useCachedCredentials)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
+#endif
+    JNIEnv* env = getJNIEnv();
+    int jHandle = reinterpret_cast<int>(client);
+    jstring jHost = env->NewStringUTF(host.c_str());
+    jstring jRealm = env->NewStringUTF(realm.c_str());
+
+    env->CallVoidMethod(mJavaFrame->frame(env).get(),
+            mJavaFrame->mDidReceiveAuthenticationChallenge, jHandle, jHost, jRealm, useCachedCredentials);
+    env->DeleteLocalRef(jHost);
+    env->DeleteLocalRef(jRealm);
+    checkException(env);
 }
 
 // ----------------------------------------------------------------------------
@@ -1756,6 +1779,45 @@ static void OrientationChanged(JNIEnv *env, jobject obj, int orientation)
     pFrame->sendOrientationChangeEvent(orientation);
 }
 
+static std::string jstringToStdString(JNIEnv* env, jstring jstr) {
+    jsize size = env->GetStringUTFLength(jstr);
+    jboolean isCopy;
+    const char* cstr = env->GetStringUTFChars(jstr, &isCopy);
+    std::string result(cstr, cstr + size);
+    env->ReleaseStringUTFChars(jstr, cstr);
+    return result;
+}
+
+#if USE(CHROME_NETWORK_STACK)
+
+static void AuthenticationProceed(JNIEnv *env, jobject obj, int handle, jstring jUsername, jstring jPassword)
+{
+    WebUrlLoaderClient* client = reinterpret_cast<WebUrlLoaderClient*>(handle);
+    std::string username = jstringToStdString(env, jUsername);
+    std::string password = jstringToStdString(env, jPassword);
+    client->setAuth(username, password);
+}
+
+static void AuthenticationCancel(JNIEnv *env, jobject obj, int handle)
+{
+    WebUrlLoaderClient* client = reinterpret_cast<WebUrlLoaderClient*>(handle);
+    client->cancelAuth();
+}
+
+#else
+
+static void AuthenticationProceed(JNIEnv *env, jobject obj, int handle, jstring jUsername, jstring jPassword)
+{
+    LOGW("Chromium authentication API called, but libchromium is not available");
+}
+
+static void AuthenticationCancel(JNIEnv *env, jobject obj, int handle)
+{
+    LOGW("Chromium authentication API called, but libchromium is not available");
+}
+
+#endif // USE(CHROME_NETWORK_STACK)
+
 // ----------------------------------------------------------------------------
 
 /*
@@ -1811,7 +1873,11 @@ static JNINativeMethod gBrowserFrameNativeMethods[] = {
     { "getFormTextData", "()Ljava/util/HashMap;",
         (void*) GetFormTextData },
     { "nativeOrientationChanged", "(I)V",
-        (void*) OrientationChanged }
+        (void*) OrientationChanged },
+    { "nativeAuthenticationProceed", "(ILjava/lang/String;Ljava/lang/String;)V",
+        (void*) AuthenticationProceed },
+    { "nativeAuthenticationCancel", "(I)V",
+        (void*) AuthenticationCancel },
 };
 
 int register_webframe(JNIEnv* env)

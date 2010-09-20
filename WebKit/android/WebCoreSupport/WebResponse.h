@@ -37,6 +37,8 @@ class ResourceResponse;
 class ResourceError;
 }
 
+class URLRequest;
+
 namespace android {
 
 class WebResponse {

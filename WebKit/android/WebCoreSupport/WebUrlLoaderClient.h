@@ -26,6 +26,8 @@
 #ifndef WebUrlLoaderClient_h
 #define WebUrlLoaderClient_h
 
+#if USE(CHROME_NETWORK_STACK)
+
 #include "ChromiumIncludes.h"
 #include "RefCounted.h"
 #include "WebResponse.h"
@@ -33,6 +35,8 @@
 
 #include <string>
 #include <deque>
+#include <string>
+#include <vector>
 
 class Lock;
 class ConditionVariable;
@@ -43,6 +47,7 @@ class Thread;
 
 namespace net {
 class IOBuffer;
+class AuthChallengeInfo;
 }
 
 namespace android {
@@ -67,6 +72,8 @@ public:
     void cancel();
     void downloadFile();
     void pauseLoad(bool pause) {} // Android method, does nothing for now
+    void setAuth(const std::string& username, const std::string& password);
+    void cancelAuth();
 
     typedef void CallbackFunction(void*);
 
@@ -82,12 +89,15 @@ public:
     static void didFinishLoading(void*);
     static void didFail(void*);
     static void willSendRequest(void*);
+    static void authRequired(void*);
 
     // Handle to the chrome IO thread
     static base::Thread* ioThread();
 
 private:
     void finish();
+
+    WebFrame* m_webFrame;
     RefPtr<WebCore::ResourceHandle> m_resourceHandle;
     bool m_cancelling;
     bool m_sync;
@@ -119,6 +129,7 @@ struct LoaderData {
     const int size;
     OwnPtr<std::string*> string;
     OwnPtr<std::vector<char> > vector;
+    scoped_refptr<net::AuthChallengeInfo> authChallengeInfo;
 
     LoaderData(WebUrlLoaderClient* l) : buffer(0), loader(l), size(0)
     {
@@ -144,5 +155,7 @@ struct LoaderData {
 };
 
 } // namespace android
+
+#endif // USE(CHROME_NETWORK_STACK)
 
 #endif
