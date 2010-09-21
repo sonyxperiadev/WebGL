@@ -1490,11 +1490,6 @@ void PluginView::privateBrowsingStateChanged(bool privateBrowsingEnabled)
         return;
 
     PluginView::setCurrentPluginView(this);
-<<<<<<< HEAD
-// ANDROID
-// Upstream to webkit.org
-=======
->>>>>>> webkit.org at r67908
 #if USE(JSC)
     JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
 #endif

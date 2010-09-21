@@ -527,16 +527,13 @@ namespace WebCore {
 #endif
         bool m_memoryInfoEnabled: 1;
         bool m_interactiveFormValidation: 1;
-<<<<<<< HEAD
+        bool m_usePreHTML5ParserQuirks: 1;
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif
 #if ENABLE(WEB_AUTOFILL)
         bool m_autoFillEnabled: 1;
 #endif
-=======
-        bool m_usePreHTML5ParserQuirks: 1;
->>>>>>> webkit.org at r67908
 
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;

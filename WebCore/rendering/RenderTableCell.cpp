@@ -795,27 +795,7 @@ static int compareBorderStylesForQSort(const void* pa, const void* pb)
     const CollapsedBorderValue* b = static_cast<const CollapsedBorderValue*>(pb);
     if (*a == *b)
         return 0;
-<<<<<<< HEAD
-    CollapsedBorderValue borderWithHigherPrecedence = compareBorders(*a, *b);
-#ifdef ANDROID_FIX
-    if (*a == borderWithHigherPrecedence) {
-        // klibc uses a combsort for quicksort and requires that two values always give the same answer
-        // regardless of comparison order. Unfortunately, compareBorders does not honor that requirement.
-        // Call compareBorders again with reversed parameters. If it returns the first value again then
-        // we can assume the values are equal. http://bugs.webkit.org/show_bug.cgi?id=13147
-        CollapsedBorderValue qSortHack = compareBorders(*b, *a);
-        if (*b == qSortHack)
-            return 0;
-        return 1;
-    }
-#else
-    if (*a == borderWithHigherPrecedence)
-        return 1;
-#endif
-    return -1;
-=======
     return compareBorders(*a, *b);
->>>>>>> webkit.org at r67908
 }
 
 void RenderTableCell::sortBorderStyles(CollapsedBorderStyles& borderStyles)

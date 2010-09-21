@@ -298,15 +298,12 @@ public:
     bool shrinkToAvoidFloats() const;
     virtual bool avoidsFloats() const;
 
-<<<<<<< HEAD
+    virtual void markDescendantBlocksAndLinesForLayout(bool inLayout = true);
+    
 #ifdef ANDROID_LAYOUT
     int getVisibleWidth() const { return m_visibleWidth; }
 #endif
 
-=======
-    virtual void markDescendantBlocksAndLinesForLayout(bool inLayout = true);
-    
->>>>>>> webkit.org at r67908
 protected:
     virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);

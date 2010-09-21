@@ -62,16 +62,13 @@ RenderTable::RenderTable(Node* node)
     , m_borderLeft(0)
     , m_borderRight(0)
 {
-<<<<<<< HEAD
-#ifdef ANDROID_LAYOUT
-    m_singleColumn = false;
-#endif
-=======
     setChildrenInline(false);
->>>>>>> webkit.org at r67908
     m_columnPos.fill(0, 2);
     m_columns.fill(ColumnStruct(), 1);
     
+#ifdef ANDROID_LAYOUT
+    m_singleColumn = false;
+#endif
 }
 
 void RenderTable::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)

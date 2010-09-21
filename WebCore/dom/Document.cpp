@@ -441,15 +441,12 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML, con
     if (frame || !url.isEmpty())
         setURL(url);
 
-<<<<<<< HEAD
-#if !PLATFORM(ANDROID)
-=======
     // Setting of m_baseURL needs to happen after the setURL call, since that
     // calls updateBaseURL, which would clobber the passed in value.
     if (!baseURL.isNull())
         m_baseURL = baseURL;
 
->>>>>>> webkit.org at r67908
+#if !PLATFORM(ANDROID)
     m_axObjectCache = 0;
 #endif
 

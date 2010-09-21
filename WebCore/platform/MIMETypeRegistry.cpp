@@ -109,10 +109,6 @@ static void initializeSupportedImageMIMETypes()
             supportedImageResourceMIMETypes->add(mimeType);
         }
     }
-<<<<<<< HEAD
-
-    supportedImageMIMETypes->remove("application/octet-stream");
-    supportedImageResourceMIMETypes->remove("application/octet-stream");
 #elif PLATFORM(ANDROID)
     static const char* types[] = {
         "image/jpeg",
@@ -135,8 +131,6 @@ static void initializeSupportedImageMIMETypes()
 #if !ENABLE(XSLT)
     supportedNonImageMIMETypes->remove("text/xsl");
 #endif
-=======
->>>>>>> webkit.org at r67908
 #else
     // assume that all implementations at least support the following standard
     // image types:

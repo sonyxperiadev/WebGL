@@ -2263,17 +2263,10 @@ void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
     String userChosenEncoding = documentLoader()->overrideEncoding();
     bool encodingIsUserChosen = !userChosenEncoding.isNull();
     writer()->setEncoding(encodingIsUserChosen ? userChosenEncoding : mainResource->textEncoding(), encodingIsUserChosen);
-<<<<<<< HEAD
-
-    ASSERT(m_frame->document());
-
-    addData(mainResource->data()->data(), mainResource->data()->size());
+    writer()->addData(mainResource->data()->data(), mainResource->data()->size());
 #else
     m_client->finishedLoading(loader);
 #endif // ARCHIVE
-=======
-    writer()->addData(mainResource->data()->data(), mainResource->data()->size());
->>>>>>> webkit.org at r67908
 }
 
 bool FrameLoader::isReplacing() const
@@ -2732,18 +2725,6 @@ void FrameLoader::addHTTPOriginIfNeeded(ResourceRequest& request, String origin)
     request.setHTTPOrigin(origin);
 }
 
-<<<<<<< HEAD
-void FrameLoader::committedLoad(DocumentLoader* loader, const char* data, int length)
-{
-#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
-    if (ArchiveFactory::isArchiveMimeType(loader->response().mimeType()))
-        return;
-#endif
-    m_client->committedLoad(loader, data, length);
-}
-
-=======
->>>>>>> webkit.org at r67908
 void FrameLoader::loadPostRequest(const ResourceRequest& inRequest, const String& referrer, const String& frameName, bool lockHistory, FrameLoadType loadType, PassRefPtr<Event> event, PassRefPtr<FormState> prpFormState)
 {
     RefPtr<FormState> formState = prpFormState;

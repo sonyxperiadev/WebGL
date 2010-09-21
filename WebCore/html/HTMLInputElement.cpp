@@ -889,16 +889,12 @@ static PassOwnPtr<InputTypeMap> createTypeMap()
 void HTMLInputElement::updateType()
 {
     static const InputTypeMap* typeMap = createTypeMap().leakPtr();
-<<<<<<< HEAD
-    InputType newType = t.isNull() ? TEXT : typeMap->get(t);
+    const AtomicString& typeString = fastGetAttribute(typeAttr);
+    DeprecatedInputType newType = typeString.isEmpty() ? TEXT : typeMap->get(typeString);
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
     if (newType == PASSWORD && document()->focusedNode() == this)
         android::WebViewCore::getWebViewCore(document()->view())->updateTextfield(this, true, String());
 #endif
-=======
-    const AtomicString& typeString = fastGetAttribute(typeAttr);
-    DeprecatedInputType newType = typeString.isEmpty() ? TEXT : typeMap->get(typeString);
->>>>>>> webkit.org at r67908
 
     // IMPORTANT: Don't allow the type to be changed to FILE after the first
     // type change, otherwise a JavaScript programmer would be able to set a text

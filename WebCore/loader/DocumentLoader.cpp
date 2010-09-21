@@ -286,8 +286,10 @@ void DocumentLoader::commitLoad(const char* data, int length)
     FrameLoader* frameLoader = DocumentLoader::frameLoader();
     if (!frameLoader)
         return;
+#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
     if (ArchiveFactory::isArchiveMimeType(response().mimeType()))
         return;
+#endif
     frameLoader->client()->committedLoad(this, data, length);
 }
 

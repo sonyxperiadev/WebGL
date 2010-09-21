@@ -753,14 +753,10 @@ PassRefPtr<CSSValue> CSSComputedStyleDeclaration::getPropertyCSSValue(int proper
     if (!style)
         return 0;
 
-<<<<<<< HEAD
-    propertyID = CSSProperty::resolveDirectionAwareProperty(propertyID, style->direction());
+    propertyID = CSSProperty::resolveDirectionAwareProperty(propertyID, style->direction(), style->blockFlow());
 #ifdef ANDROID_LAYOUT
     const Settings * settings = node->document()->frame() ? node->document()->frame()->settings() : 0; 
 #endif
-=======
-    propertyID = CSSProperty::resolveDirectionAwareProperty(propertyID, style->direction(), style->blockFlow());
->>>>>>> webkit.org at r67908
 
     switch (static_cast<CSSPropertyID>(propertyID)) {
         case CSSPropertyInvalid:

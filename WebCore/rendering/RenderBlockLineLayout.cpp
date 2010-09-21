@@ -614,43 +614,46 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
             
                 if (o->isPositioned())
                     o->containingBlock()->insertPositionedObject(box);
-<<<<<<< HEAD
+#if PLATFORM(ANDROID)
                 else {
 #ifdef ANDROID_LAYOUT
                     // ignore text wrap for textField or menuList
-                        if (doTextWrap && (o->isTextField() || o->isMenuList()))
-                            doTextWrap = false;
+                    if (doTextWrap && (o->isTextField() || o->isMenuList()))
+                        doTextWrap = false;
 #endif
                     if (o->isFloating())
                         floats.append(FloatWithRect(box));
-                    else if (fullLayout || o->needsLayout()) // Replaced elements
+                    else if (fullLayout || o->needsLayout()) {
+                        // Replaced elements
                         toRenderBox(o)->dirtyLineBoxes(fullLayout);
-
 #if defined(ANDROID_FLATTEN_IFRAME) || defined(ANDROID_FLATTEN_FRAMESET)
-                    // Android frame flattening during layout() may cause the
-                    // renderer to be destroyed, if for example a frames onresize handler
-                    // deletes the frame - see http://trac.webkit.org/changeset/61070 for example.
-                    // We may be able to remove this protector when we switch to the upstream
-                    // frame flattening code. In the case of an anonymous render object like RenderListMarker
-                    // the document is the DOM node associated with this RenderObject.
-                    RefPtr<Node> protector(o->isAnonymous() ? o->document() : o->node());
+                        // Android frame flattening during layout() may cause the
+                        // renderer to be destroyed, if for example a frames onresize handler
+                        // deletes the frame - see http://trac.webkit.org/changeset/61070 for example.
+                        // We may be able to remove this protector when we switch to the upstream
+                        // frame flattening code. In the case of an anonymous render object like RenderListMarker
+                        // the document is the DOM node associated with this RenderObject.
+                        RefPtr<Node> protector(o->isAnonymous() ? o->document() : o->node());
 #endif
-=======
+                        o->layoutIfNeeded();
+#if defined(ANDROID_FLATTEN_IFRAME) || defined(ANDROID_FLATTEN_FRAMESET)
+                        // Ensure that the renderer still exists. If it's gone away we will crash pretty
+                        // fast by continuing to use the now invalid o pointer. If the renderer has gone,
+                        // then there's no point in continuing to try to layout it's children so we break.
+                        if (!protector->renderer())
+                            break;
+#endif
+                    }
+                }
+#else
                 else if (o->isFloating())
                     floats.append(FloatWithRect(box));
                 else if (fullLayout || o->needsLayout()) {
                     // Replaced elements
                     toRenderBox(o)->dirtyLineBoxes(fullLayout);
->>>>>>> webkit.org at r67908
                     o->layoutIfNeeded();
-#if defined(ANDROID_FLATTEN_IFRAME) || defined(ANDROID_FLATTEN_FRAMESET)
-                    // Ensure that the renderer still exists. If it's gone away we will crash pretty
-                    // fast by continuing to use the now invalid o pointer. If the renderer has gone,
-                    // then there's no point in continuing to try to layout it's children so we break.
-                    if (!protector->renderer())
-                        break;
-#endif
                 }
+#endif // PLATFORM(ANDROID)
             } else if (o->isText() || (o->isRenderInline() && !endOfInline)) {
                 if (fullLayout || o->selfNeedsLayout())
                     dirtyLineBoxesForRenderer(o, fullLayout);

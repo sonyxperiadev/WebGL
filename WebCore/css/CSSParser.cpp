@@ -377,15 +377,13 @@ void CSSParser::parseSelector(const String& string, Document* doc, CSSSelectorLi
 
 bool CSSParser::parseDeclaration(CSSMutableStyleDeclaration* declaration, const String& string, CSSStyleSourceData* styleSourceData)
 {
-<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
 #endif
-=======
+
     // Length of the "@-webkit-decls{" prefix.
     static const unsigned prefixLength = 15;
 
->>>>>>> webkit.org at r67908
     ASSERT(!declaration->stylesheet() || declaration->stylesheet()->isCSSStyleSheet());
     m_styleSheet = static_cast<CSSStyleSheet*>(declaration->stylesheet());
     m_currentStyleData = styleSourceData;
@@ -403,11 +401,6 @@ bool CSSParser::parseDeclaration(CSSMutableStyleDeclaration* declaration, const 
         clearProperties();
     }
 
-<<<<<<< HEAD
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
-#endif
-=======
     if (m_currentStyleData) {
         m_currentStyleData->styleBodyRange.start = 0;
         m_currentStyleData->styleBodyRange.end = string.length();
@@ -419,7 +412,11 @@ bool CSSParser::parseDeclaration(CSSMutableStyleDeclaration* declaration, const 
 
     if (!m_ruleRangeMap)
         m_currentStyleData = 0;
->>>>>>> webkit.org at r67908
+
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
+#endif
+
     return ok;
 }
 
@@ -1828,7 +1825,19 @@ bool CSSParser::parseValue(int propId, bool important)
         break;
 #endif
 
-<<<<<<< HEAD
+    // CSS Text Layout Module Level 3: Vertical writing support
+    case CSSPropertyWebkitBlockFlow:
+        // [ "tb" | "rl" | "lr" | "bt" ]
+        if (id == CSSValueTb || id == CSSValueRl || id == CSSValueLr || id == CSSValueBt)
+            validPrimitive = true;
+        break;
+
+    case CSSPropertyWebkitWritingMode:
+        // [ "lr-tb" | "rl-tb" | "tb-rl" | "bt-rl" | "tb-lr" | "bt-lr" ]
+        if (id == CSSValueLrTb || id == CSSValueRlTb || id == CSSValueTbRl || id == CSSValueBtRl || id == CSSValueTbLr || id == CSSValueBtLr)
+            validPrimitive = true;
+        break;
+
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
     {
@@ -1866,20 +1875,6 @@ bool CSSParser::parseValue(int propId, bool important)
             m_valueList->next();
         break;
 #endif
-=======
-    // CSS Text Layout Module Level 3: Vertical writing support
-    case CSSPropertyWebkitBlockFlow:
-        // [ "tb" | "rl" | "lr" | "bt" ]
-        if (id == CSSValueTb || id == CSSValueRl || id == CSSValueLr || id == CSSValueBt)
-            validPrimitive = true;
-        break;
-
-    case CSSPropertyWebkitWritingMode:
-        // [ "lr-tb" | "rl-tb" | "tb-rl" | "bt-rl" | "tb-lr" | "bt-lr" ]
-        if (id == CSSValueLrTb || id == CSSValueRlTb || id == CSSValueTbRl || id == CSSValueBtRl || id == CSSValueTbLr || id == CSSValueBtLr)
-            validPrimitive = true;
-        break;
->>>>>>> webkit.org at r67908
 
 #if ENABLE(SVG)
     default:

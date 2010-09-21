@@ -738,7 +738,9 @@ public:
     bool textSizeAdjust() const { return rareInheritedData->textSizeAdjust; }
     ETextSecurity textSecurity() const { return static_cast<ETextSecurity>(rareInheritedData->textSecurity); }
 
-<<<<<<< HEAD
+    EBlockFlowDirection blockFlow() const { return static_cast<EBlockFlowDirection>(inherited_flags._blockFlow); }
+    bool isVerticalBlockFlow() const { return blockFlow() == TopToBottomBlockFlow || blockFlow() == BottomToTopBlockFlow; }
+
 #ifdef ANDROID_CSS_RING
     // called when building nav cache to determine if the ring data is unchanged
     const void* ringData() const { return reinterpret_cast<const void*>(rareInheritedData.get()); }
@@ -755,10 +757,6 @@ public:
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     Color tapHighlightColor() const { return rareInheritedData->tapHighlightColor; }
 #endif
-=======
-    EBlockFlowDirection blockFlow() const { return static_cast<EBlockFlowDirection>(inherited_flags._blockFlow); }
-    bool isVerticalBlockFlow() const { return blockFlow() == TopToBottomBlockFlow || blockFlow() == BottomToTopBlockFlow; }
->>>>>>> webkit.org at r67908
 
 // attribute setter methods
 
