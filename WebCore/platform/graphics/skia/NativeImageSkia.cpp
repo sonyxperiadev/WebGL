@@ -58,7 +58,15 @@ NativeImageSkia::NativeImageSkia(const SkBitmap& other)
 
 NativeImageSkia::~NativeImageSkia()
 {
+#if PLATFORM(ANDROID)
+    // SharedGraphicsContext3D::removeTexturesFor() takes a NativeImagePtr. On
+    // Chromium, this is NativeImageSkia, which inherits from SkBitmap. On
+    // Android, NativeImagePtr is a SkBitmapRef, which is a wrapper around
+    // SkBitmap. Failing to call removeTexturesFor() probably causes a leak.
+    // TODO: Fix this. See http://b/3047425
+#else
     SharedGraphicsContext3D::removeTexturesFor(this);
+#endif
 }
 
 int NativeImageSkia::decodedSize() const
