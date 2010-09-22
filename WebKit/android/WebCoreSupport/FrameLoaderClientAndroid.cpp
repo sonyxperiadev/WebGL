@@ -905,11 +905,11 @@ void FrameLoaderClientAndroid::transitionToCommittedForNewPage() {
     IntRect visBounds = oldWebFrameView->getVisibleBounds();
     IntRect windowBounds = oldWebFrameView->getWindowBounds();
     WebCore::FrameView* oldFrameView = oldWebFrameView->view();
-    const float oldZoomFactor = oldFrameView->zoomFactor();
+    const float oldZoomFactor = oldFrameView->frame()->textZoomFactor();
     m_frame->createView(bounds.size(), oldFrameView->baseBackgroundColor(), oldFrameView->isTransparent(),
             oldFrameView->fixedLayoutSize(), oldFrameView->useFixedLayout());
-    if (oldZoomFactor != 1.0f && oldZoomFactor != m_frame->view()->zoomFactor()) {
-        m_frame->view()->setZoomFactor(oldZoomFactor, ZoomTextOnly);
+    if (oldZoomFactor != 1.0f && oldZoomFactor != m_frame->textZoomFactor()) {
+        m_frame->setTextZoomFactor(oldZoomFactor);
     }
 
     // Create a new WebFrameView for the new FrameView
