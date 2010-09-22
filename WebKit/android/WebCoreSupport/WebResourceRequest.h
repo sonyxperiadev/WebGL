@@ -61,12 +61,12 @@ public:
         return m_url;
     }
 
-    const bool isAndroidUrl()
+    bool isAndroidUrl() const
     {
         return m_specialAndroidFileType != 0;
     }
 
-    const int androidFileType()
+    int androidFileType() const
     {
         return m_specialAndroidFileType;
     }
