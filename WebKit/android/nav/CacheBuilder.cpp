@@ -1258,7 +1258,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         }
         if (node->hasTagName(WebCore::HTMLNames::inputTag)) {
             HTMLInputElement* input = static_cast<HTMLInputElement*>(node);
-            HTMLInputElement::InputType inputType = input->inputType();
+            HTMLInputElement::DeprecatedInputType inputType = input->deprecatedInputType();
             if (input->isTextField()) {
                 type = TEXT_INPUT_CACHEDNODETYPE;
                 cachedInput.init();

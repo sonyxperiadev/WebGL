@@ -40,13 +40,13 @@ public:
     }
     void* formPointer() const { return mForm; }
     void init();
-    WebCore::HTMLInputElement::InputType inputType() const { return mInputType; }
+    WebCore::HTMLInputElement::DeprecatedInputType inputType() const { return mInputType; }
     bool isRtlText() const { return mIsRtlText; }
     bool isTextField() const { return mIsTextField; }
     int maxLength() const { return mMaxLength; };
     const WTF::String& name() const { return mName; }
     void setFormPointer(void* form) { mForm = form; }
-    void setInputType(WebCore::HTMLInputElement::InputType type) { mInputType = type; }
+    void setInputType(WebCore::HTMLInputElement::DeprecatedInputType type) { mInputType = type; }
     void setIsRtlText(bool isRtlText) { mIsRtlText = isRtlText; }
     void setIsTextField(bool isTextField) { mIsTextField = isTextField; }
     void setMaxLength(int maxLength) { mMaxLength = maxLength; }
@@ -58,7 +58,7 @@ private:
     WTF::String mName;
     int mMaxLength;
     int mTextSize;
-    WebCore::HTMLInputElement::InputType mInputType;
+    WebCore::HTMLInputElement::DeprecatedInputType mInputType;
     bool mIsRtlText : 1;
     bool mIsTextField : 1;
 #if DUMP_NAV_CACHE

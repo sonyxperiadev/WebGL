@@ -1619,8 +1619,7 @@ static jboolean HasPasswordField(JNIEnv *env, jobject obj)
         for (size_t i = 0; i< size && !found; i++) {
             WebCore::HTMLFormControlElement* e = elements[i];
             if (e->hasLocalName(WebCore::HTMLNames::inputTag)) {
-                if (((WebCore::HTMLInputElement*)e)->inputType() ==
-                		WebCore::HTMLInputElement::PASSWORD)
+                if (static_cast<WebCore::HTMLInputElement*>(e)->isPasswordField())
                     found = true;
             }
         }
@@ -1653,9 +1652,9 @@ static jobjectArray GetUsernamePassword(JNIEnv *env, jobject obj)
                 WebCore::HTMLInputElement* input = (WebCore::HTMLInputElement*)e;
                 if (input->autoComplete() == false)
                     continue;
-                if (input->inputType() == WebCore::HTMLInputElement::PASSWORD)
+                if (input->isPasswordField())
                     password = input->value();
-                else if (input->inputType() == WebCore::HTMLInputElement::TEXT || input->inputType() == WebCore::HTMLInputElement::EMAIL)
+                else if (input->isTextField() || input->isEmailField())
                     username = input->value();
                 if (!username.isNull() && !password.isNull())
                     found = true;
@@ -1699,9 +1698,9 @@ static void SetUsernamePassword(JNIEnv *env, jobject obj,
                 WebCore::HTMLInputElement* input = (WebCore::HTMLInputElement*)e;
                 if (input->autoComplete() == false)
                     continue;
-                if (input->inputType() == WebCore::HTMLInputElement::PASSWORD)
+                if (input->isPasswordField())
                     passwordEle = input;
-                else if (input->inputType() == WebCore::HTMLInputElement::TEXT || input->inputType() == WebCore::HTMLInputElement::EMAIL)
+                else if (input->isTextField() || input->isEmailField())
                     usernameEle = input;
                 if (usernameEle != NULL && passwordEle != NULL)
                     found = true;
