@@ -783,6 +783,10 @@ bool FrameLoaderClientAndroid::canShowMIMEType(const String& mimeType) const {
     return false;
 }
 
+bool FrameLoaderClientAndroid::canShowMIMETypeAsHTML(const String& mimeType) const {
+    return false;
+}
+
 bool FrameLoaderClientAndroid::representationExistsForURLScheme(const String&) const {
     // don't use representation
     verifiedOk();

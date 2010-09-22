@@ -155,6 +155,7 @@ namespace android {
 
         virtual bool canHandleRequest(const ResourceRequest&) const;
         virtual bool canShowMIMEType(const String& MIMEType) const;
+        virtual bool canShowMIMETypeAsHTML(const String& MIMEType) const;
         virtual bool representationExistsForURLScheme(const String& URLScheme) const;
         virtual String generatedMIMETypeForURLScheme(const String& URLScheme) const;
 
