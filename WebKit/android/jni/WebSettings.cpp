@@ -354,7 +354,7 @@ public:
                 WebCore::cacheStorage().setCacheDirectory(path);
             }
         }
-        jlong maxsize = env->GetIntField(obj, gFieldIds->mAppCacheMaxSize);
+        jlong maxsize = env->GetLongField(obj, gFieldIds->mAppCacheMaxSize);
         WebCore::cacheStorage().setMaximumSize(maxsize);
 #endif
 
@@ -372,7 +372,7 @@ public:
 #endif
         flag = env->GetBooleanField(obj, gFieldIds->mShrinksStandaloneImagesToFit);
         s->setShrinksStandaloneImagesToFit(flag);
-        jlong maxImage = env->GetIntField(obj, gFieldIds->mMaximumDecodedImageSize);
+        jlong maxImage = env->GetLongField(obj, gFieldIds->mMaximumDecodedImageSize);
         if (maxImage == 0)
             maxImage = computeMaxBitmapSizeForCache();
         s->setMaximumDecodedImageSize(maxImage);
