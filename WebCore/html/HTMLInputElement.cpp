@@ -2416,7 +2416,6 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
             }
         }
 
-// allow enter to change state of radio
         if (inputType() == RADIO && (key == "Up" || key == "Down" || key == "Left" || key == "Right")) {
             // Left and up mean "previous radio button".
             // Right and down mean "next radio button".
