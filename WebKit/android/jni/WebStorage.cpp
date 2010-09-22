@@ -129,7 +129,13 @@ static void DeleteOrigin(JNIEnv* env, jobject obj, jstring origin)
 static void DeleteAllData(JNIEnv* env, jobject obj)
 {
     WebCore::DatabaseTracker::tracker().deleteAllDatabases();
-    WebCore::cacheStorage().empty();
+
+    Vector<WebCore::KURL> manifestUrls;
+    if (!WebCore::cacheStorage().manifestURLs(&manifestUrls))
+        return;
+    int size = manifestUrls.size();
+    for (int i = 0; i < size; ++i)
+        WebCore::cacheStorage().deleteCacheGroup(manifestUrls[i]);
 }
 
 static void SetAppCacheMaximumSize(JNIEnv* env, jobject obj, unsigned long long size)
