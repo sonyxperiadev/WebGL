@@ -49,17 +49,14 @@ ResourceHandle::~ResourceHandle()
 {
 }
 
-bool ResourceHandle::start(Frame* frame)
+bool ResourceHandle::start(NetworkingContext* context)
 {
-    DocumentLoader* docLoader = frame->loader()->activeDocumentLoader();
-    MainResourceLoader* mainLoader = docLoader->mainResourceLoader();
+    MainResourceLoader* mainLoader = context->mainResourceLoader();
     bool isMainResource =
             static_cast<void*>(mainLoader) == static_cast<void*>(client());
-    bool isPrivateBrowsing = false;
-    if (frame->settings())
-        isPrivateBrowsing = frame->settings()->privateBrowsingEnabled();
+    bool isPrivateBrowsing = context->isPrivateBrowsingEnabled();
 
-    PassRefPtr<ResourceLoaderAndroid> loader = ResourceLoaderAndroid::start(this, d->m_firstRequest, frame->loader()->client(), isMainResource, false, isPrivateBrowsing);
+    PassRefPtr<ResourceLoaderAndroid> loader = ResourceLoaderAndroid::start(this, d->m_firstRequest, context->frameLoaderClient(), isMainResource, false, isPrivateBrowsing);
 
     if (loader) {
         d->m_loader = loader;
@@ -154,22 +151,18 @@ private:
     WTF::Vector<char>* m_data;
 };
 
-void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request,
-        StoredCredentials /*storedCredentials*/,
-        ResourceError& error, ResourceResponse& response, WTF::Vector<char>& data,
-        Frame* frame) 
+void ResourceHandle::loadResourceSynchronously(NetworkingContext* context, const ResourceRequest& request,
+        StoredCredentials, ResourceError& error, ResourceResponse& response, WTF::Vector<char>& data)
 {
     SyncLoader s(error, response, data);
     RefPtr<ResourceHandle> h = adoptRef(new ResourceHandle(request, &s, false, false));
-    bool isPrivateBrowsing = false;
-    if (frame->settings())
-        isPrivateBrowsing = frame->settings()->privateBrowsingEnabled();
+    bool isPrivateBrowsing = context->isPrivateBrowsingEnabled();
     // This blocks until the load is finished.
     // Use the request owned by the ResourceHandle. This has had the username
     // and password (if present) stripped from the URL in
     // ResourceHandleInternal::ResourceHandleInternal(). This matches the
     // behaviour in the asynchronous case.
-    ResourceLoaderAndroid::start(h.get(), request, frame->loader()->client(), false, true, isPrivateBrowsing);
+    ResourceLoaderAndroid::start(h.get(), request, context->frameLoaderClient(), false, true, isPrivateBrowsing);
 }
 
 } // namespace WebCore

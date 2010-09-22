@@ -23,33 +23,35 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FrameNetworkingContextAndroid_h
-#define FrameNetworkingContextAndroid_h
+#include "config.h"
+#include "FrameNetworkingContextAndroid.h"
 
-#include "FrameNetworkingContext.h"
+#include "DocumentLoader.h"
+#include "MainResourceLoader.h"
+#include "Settings.h"
 
-namespace WebCore {
-class MainResourceLoader;
-class FrameLoaderClient;
-}
+using namespace WebCore;
 
 namespace android {
 
-class FrameNetworkingContextAndroid : public WebCore::FrameNetworkingContext {
-public:
-    static PassRefPtr<FrameNetworkingContextAndroid> create(WebCore::Frame* frame)
-    {
-        return adoptRef(new FrameNetworkingContextAndroid(frame));
-    }
+FrameNetworkingContextAndroid::FrameNetworkingContextAndroid(WebCore::Frame* frame)
+    : WebCore::FrameNetworkingContext(frame)
+{
+}
 
-private:
-    FrameNetworkingContextAndroid(WebCore::Frame*);
+MainResourceLoader* FrameNetworkingContextAndroid::mainResourceLoader() const
+{
+    return frame()->loader()->activeDocumentLoader()->mainResourceLoader();
+}
 
-    virtual WebCore::MainResourceLoader* mainResourceLoader() const;
-    virtual bool isPrivateBrowsingEnabled() const;
-    virtual WebCore::FrameLoaderClient* frameLoaderClient() const;
-};
+bool FrameNetworkingContextAndroid::isPrivateBrowsingEnabled() const
+{
+    return frame()->settings() && frame()->settings()->privateBrowsingEnabled();
+}
+
+FrameLoaderClient* FrameNetworkingContextAndroid::frameLoaderClient() const
+{
+    return frame()->loader()->client();
+}
 
 } // namespace android
-
-#endif // FrameNetworkingContextAndroid_h
