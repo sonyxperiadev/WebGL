@@ -101,6 +101,7 @@ GEN := \
     $(intermediates)/bindings/V8ErrorEvent.h \
     $(intermediates)/bindings/V8Event.h \
     $(intermediates)/bindings/V8EventException.h \
+    $(intermediates)/bindings/V8HashChangeEvent.h \
     $(intermediates)/bindings/V8KeyboardEvent.h \
     $(intermediates)/bindings/V8MessageChannel.h \
     $(intermediates)/bindings/V8MessageEvent.h \

@@ -176,6 +176,7 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebCore/platform/graphics \
 	$(LOCAL_PATH)/WebCore/platform/graphics/android \
 	$(LOCAL_PATH)/WebCore/platform/graphics/filters \
+	$(LOCAL_PATH)/WebCore/platform/graphics/gpu \
 	$(LOCAL_PATH)/WebCore/platform/graphics/network \
 	$(LOCAL_PATH)/WebCore/platform/graphics/skia \
 	$(LOCAL_PATH)/WebCore/platform/graphics/transforms \
@@ -195,6 +196,7 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebCore/plugins/android \
 	$(LOCAL_PATH)/WebCore/rendering \
 	$(LOCAL_PATH)/WebCore/rendering/style \
+	$(LOCAL_PATH)/WebCore/rendering/svg \
 	$(LOCAL_PATH)/WebCore/storage \
 	$(LOCAL_PATH)/WebCore/svg \
 	$(LOCAL_PATH)/WebCore/svg/animation \

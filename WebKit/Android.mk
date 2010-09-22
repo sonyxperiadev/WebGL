@@ -24,6 +24,7 @@ LOCAL_SRC_FILES := \
 	android/WebCoreSupport/DragClientAndroid.cpp \
 	android/WebCoreSupport/EditorClientAndroid.cpp \
 	android/WebCoreSupport/FrameLoaderClientAndroid.cpp \
+	android/WebCoreSupport/FrameNetworkingContextAndroid.cpp \
 	android/WebCoreSupport/GeolocationPermissions.cpp \
 	android/WebCoreSupport/MediaPlayerPrivateAndroid.cpp \
 	android/WebCoreSupport/PlatformBridge.cpp \
