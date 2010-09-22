@@ -1308,7 +1308,7 @@ void WebViewCore::revealSelection()
     WebCore::Frame* focusedFrame = focus->document()->frame();
     WebFrame* webFrame = WebFrame::getWebFrame(focusedFrame);
     webFrame->setUserInitiatedAction(true);
-    focusedFrame->revealSelection();
+    focusedFrame->selection()->revealSelection();
     webFrame->setUserInitiatedAction(false);
 }
 
@@ -1886,7 +1886,7 @@ void WebViewCore::setSelection(int start, int end)
             || !static_cast<WebCore::HTMLInputElement*>(focus)->isPasswordField()) {
         WebFrame* webFrame = WebFrame::getWebFrame(focusedFrame);
         webFrame->setUserInitiatedAction(true);
-        focusedFrame->revealSelection();
+        focusedFrame->selection()->revealSelection();
         webFrame->setUserInitiatedAction(false);
     }
 }
