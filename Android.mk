@@ -54,15 +54,9 @@ endif
 # Read JS_ENGINE environment variable
 JAVASCRIPT_ENGINE = $(JS_ENGINE)
 
-# We default to the V8 JS engine on everything except the simulator where
-# we stick with JSC.
-ifneq ($(TARGET_SIMULATOR),true)
+# We default to the V8 JS engine.
 DEFAULT_ENGINE = v8
 ALT_ENGINE = jsc
-else
-DEFAULT_ENGINE = jsc
-ALT_ENGINE = jsc
-endif
 
 ifneq ($(JAVASCRIPT_ENGINE),jsc)
   ifneq ($(JAVASCRIPT_ENGINE),v8)
@@ -74,21 +68,16 @@ ifneq ($(JAVASCRIPT_ENGINE),jsc)
     endif
   endif
 endif
+# We can't use V8 on the simulator
+ifeq ($(TARGET_SIMULATOR),true)
+  JAVASCRIPT_ENGINE = jsc
+endif
 
 # See if the user has specified a stack they want to use
 HTTP_STACK = $(HTTP)
-# We default to the Chrome HTTP stack on everything except the simulator, or
-# if V8 is not used
+# We default to the Chrome HTTP stack.
 DEFAULT_HTTP = chrome
 ALT_HTTP = android
-# Turn on chrome stack for everything but simulator
-ifeq ($(TARGET_SIMULATOR),true)
-  DEFAULT_HTTP = android
-endif
-# Turn off chrome stack if JAVASCRIPT_ENGINE is not v8
-ifneq ($(JAVASCRIPT_ENGINE),v8)
-  DEFAULT_HTTP = android
-endif
 
 ifneq ($(HTTP_STACK),chrome)
   ifneq ($(HTTP_STACK),android)
@@ -101,18 +90,20 @@ ifneq ($(HTTP_STACK),chrome)
   endif
 endif
 
+# The Chrome stack can not be used with JSC and hence can not be used be used
+# with the simulator.
+ifeq ($(JAVASCRIPT_ENGINE),jsc)
+  HTTP_STACK = android
+endif
+
 # Read the environment variable to determine if Autofill is enabled.
 # The default is off. Chrome HTTP stack must be used when Autofill
 # is turned on.
-
 ifneq ($(ENABLE_AUTOFILL),true)
   ENABLE_AUTOFILL=false
 endif
-
 ifneq ($(HTTP_STACK),chrome)
-  ifeq ($(ENABLE_AUTOFILL),true)
-    ENABLE_AUTOFILL = false
-  endif
+  ENABLE_AUTOFILL = false
 endif
 
 BASE_PATH := $(call my-dir)
