@@ -26,8 +26,6 @@
 #ifndef WebUrlLoaderClient_h
 #define WebUrlLoaderClient_h
 
-#if USE(CHROME_NETWORK_STACK)
-
 #include "ChromiumIncludes.h"
 #include "RefCounted.h"
 #include "WebResponse.h"
@@ -155,7 +153,5 @@ struct LoaderData {
 };
 
 } // namespace android
-
-#endif // USE(CHROME_NETWORK_STACK)
 
 #endif

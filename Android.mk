@@ -223,12 +223,14 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(base_intermediates)/WebCore/html \
 	$(base_intermediates)/WebCore/platform
 
-# The following includes are needed by the AutoFill feature.
+# The following includes are needed by the AutoFill feature, or the chrome http
+# stack
 LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(LOCAL_PATH)/WebKit/chromium \
 	$(LOCAL_PATH)/WebKit/chromium/public \
 	external/chromium/chrome/browser \
 	external/chromium/chrome/renderer \
+	external/chromium \
 	external/chromium/android \
 	external/chromium/chrome \
 	external/skia
@@ -274,13 +276,6 @@ intermediates := $(base_intermediates)/$d
 include $(LOCAL_PATH)/Android.mk
 WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
 
-ifeq ($(HTTP_STACK),chrome)
-LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
-	$(LOCAL_PATH)/WebKit/chromium/public \
-	external/chromium \
-	external/chromium/android
-endif # HTTP_STACK == chrome
-
 # Redefine LOCAL_PATH here so the build system is not confused
 LOCAL_PATH := $(BASE_PATH)
 
@@ -289,10 +284,11 @@ LOCAL_CFLAGS += -Wno-endif-labels -Wno-import -Wno-format
 LOCAL_CFLAGS += -fno-strict-aliasing
 LOCAL_CFLAGS += -include "WebCorePrefix.h"
 LOCAL_CFLAGS += -fvisibility=hidden
+# Make sure assert.h is included before assert is defined
+LOCAL_CFLAGS += -include "assert.h"
 ifeq ($(HTTP_STACK),chrome)
 LOCAL_CFLAGS += -DGOOGLEURL
 LOCAL_CFLAGS += -DWTF_USE_CHROME_NETWORK_STACK
-LOCAL_CFLAGS += -include "assert.h"
 endif # HTTP_STACK == chrome
 
 # Enable JSC JIT if JSC is used and ENABLE_JSC_JIT environment
