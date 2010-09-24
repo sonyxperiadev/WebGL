@@ -252,6 +252,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_geolocationPermissionsHidePrompt;
     jmethodID   m_getDeviceOrientationService;
     jmethodID   m_addMessageToConsole;
+    jmethodID   m_formDidBlur;
     jmethodID   m_getPluginClass;
     jmethodID   m_showFullScreenPlugin;
     jmethodID   m_hideFullScreenPlugin;
@@ -343,6 +344,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_geolocationPermissionsHidePrompt = GetJMethod(env, clazz, "geolocationPermissionsHidePrompt", "()V");
     m_javaGlue->m_getDeviceOrientationService = GetJMethod(env, clazz, "getDeviceOrientationService", "()Landroid/webkit/DeviceOrientationService;");
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;I)V");
+    m_javaGlue->m_formDidBlur = GetJMethod(env, clazz, "formDidBlur", "(I)V");
     m_javaGlue->m_getPluginClass = GetJMethod(env, clazz, "getPluginClass", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Class;");
     m_javaGlue->m_showFullScreenPlugin = GetJMethod(env, clazz, "showFullScreenPlugin", "(Landroid/webkit/ViewManager$ChildView;I)V");
     m_javaGlue->m_hideFullScreenPlugin = GetJMethod(env, clazz, "hideFullScreenPlugin", "()V");
@@ -2765,6 +2767,7 @@ static void scrollLayer(WebCore::RenderObject* renderer, WebCore::IntPoint* pos)
 // Common code for both clicking with the trackball and touchUp
 bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr)
 {
+    m_lastClickWasOnTextInput = false;
     bool valid = framePtr == NULL
             || CacheBuilder::validNode(m_mainFrame, framePtr, nodePtr);
     WebFrame* webFrame = WebFrame::getWebFrame(m_mainFrame);
@@ -2821,8 +2824,15 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
     }
     if (!valid || !framePtr)
         framePtr = m_mainFrame;
-    if (nodePtr && valid)
+    if (nodePtr && valid) {
         scrollLayer(nodePtr->renderer(), &m_mousePos);
+        if (nodePtr->isContentEditable() || (nodePtr->renderer()
+                && (nodePtr->renderer()-> isTextArea() || nodePtr->renderer()->isTextField()))) {
+            // The user clicked on a text input field.  If this causes a blur event
+            // on a different text input, do not hide the keyboard in formDidBlur
+            m_lastClickWasOnTextInput = true;
+        }
+    }
     webFrame->setUserInitiatedAction(true);
     WebCore::PlatformMouseEvent mouseDown(m_mousePos, m_mousePos, WebCore::LeftButton,
             WebCore::MouseEventPressed, 1, false, false, false, false,
@@ -2834,6 +2844,8 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             WTF::currentTime());
     bool handled = framePtr->eventHandler()->handleMouseReleaseEvent(mouseUp);
     webFrame->setUserInitiatedAction(false);
+
+    m_lastClickWasOnTextInput = false;
 
     // If the user clicked on a textfield, make the focusController active
     // so we show the blinking cursor.
@@ -2888,6 +2900,18 @@ void WebViewCore::popupReply(const int* array, int count)
         Release(m_popupReply);
         m_popupReply = NULL;
     }
+}
+
+void WebViewCore::formDidBlur(const WebCore::Node* node)
+{
+    // This blur is the result of clicking on a different input.  Do not hide
+    // the keyboard, since it will just be opened again.
+    if (m_lastClickWasOnTextInput) return;
+
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(),
+            m_javaGlue->m_formDidBlur, reinterpret_cast<int>(node));
+    checkException(env);
 }
 
 void WebViewCore::addMessageToConsole(const WTF::String& message, unsigned int lineNumber, const WTF::String& sourceID, int msgLevel) {

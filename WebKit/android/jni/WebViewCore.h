@@ -126,6 +126,13 @@ namespace android {
         // Followings are called from native WebCore to Java
 
         /**
+         * Notification that a form was blurred.  Pass a message to hide the
+         * keyboard if it was showing for that Node.
+         * @param Node The Node that blurred.
+         */
+        void formDidBlur(const WebCore::Node*);
+
+        /**
          * Scroll to an absolute position.
          * @param x The x coordinate.
          * @param y The y coordinate.
@@ -540,6 +547,7 @@ namespace android {
         WebCoreReply*          m_popupReply;
         WebCore::Node* m_lastFocused;
         WebCore::IntRect m_lastFocusedBounds;
+        bool m_lastClickWasOnTextInput;
         int m_lastFocusedSelStart;
         int m_lastFocusedSelEnd;
         PictureSet m_content; // the set of pictures to draw

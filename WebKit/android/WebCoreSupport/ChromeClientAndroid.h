@@ -65,7 +65,7 @@ namespace android {
         
         virtual void focus();
         virtual void unfocus();
-        
+        virtual void formDidBlur(const WebCore::Node*);
         virtual bool canTakeFocus(FocusDirection);
         virtual void takeFocus(FocusDirection);
 
