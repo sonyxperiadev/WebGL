@@ -217,6 +217,8 @@ bool FormManager::HTMLFormElementToFormData(HTMLFormElement& element,
     std::vector<bool> fields_extracted(control_elements.size(), false);
     for (size_t i = 0; i < control_elements.size(); ++i) {
         const HTMLFormControlElement* control_element = control_elements[i];
+        if (!(control_element->hasTagName(inputTag) || control_element->hasTagName(selectTag)))
+            continue;
 
         if (requirements & REQUIRE_AUTOCOMPLETE &&
             control_element->type() == WTF::String("text")) {
@@ -305,7 +307,8 @@ void FormManager::ExtractForms(WebCore::Document* document) {
             size_t size = elements.size();
             for (size_t i = 0; i < size; i++) {
                 WebCore::HTMLFormControlElement* e = elements[i];
-                form_elements->control_elements.push_back(e);
+                if (e->hasTagName(inputTag) || e->hasTagName(selectTag))
+                    form_elements->control_elements.push_back(e);
             }
             form_elements->form_element = form;
         }

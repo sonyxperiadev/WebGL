@@ -42,10 +42,13 @@
 #include "WebUrlLoaderClient.h"
 #include "WebViewCore.h"
 
+#define FORM_NOT_AUTOFILLABLE -1
+
 namespace android
 {
 
 WebAutoFill::WebAutoFill()
+    : mWebViewCore(0)
 {
     mFormManager = new FormManager();
     mQueryId = 1;
@@ -59,6 +62,11 @@ WebAutoFill::WebAutoFill()
     mAutoFillProfile = new AutoFillProfile();
     mAutoFillProfile->SetInfo(AutoFillType(NAME_FULL), string16(ASCIIToUTF16("John Smith")));
     mAutoFillProfile->SetInfo(AutoFillType(EMAIL_ADDRESS), string16(ASCIIToUTF16("jsmith@gmail.com")));
+    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_LINE1), string16(ASCIIToUTF16("123 Fake Street")));
+    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_LINE2), string16(ASCIIToUTF16("Somewhere")));
+    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_CITY), string16(ASCIIToUTF16("Faketown")));
+    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_STATE), string16(ASCIIToUTF16("CA")));
+    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_COUNTRY), string16(ASCIIToUTF16("Germany")));
     mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_ZIP), string16(ASCIIToUTF16("AB12 3DE")));
     mAutoFillProfile->SetInfo(AutoFillType(PHONE_HOME_WHOLE_NUMBER), string16(ASCIIToUTF16("0123456789")));
 
@@ -72,6 +80,7 @@ WebAutoFill::WebAutoFill()
 WebAutoFill::~WebAutoFill()
 {
     mQueryMap.clear();
+    mSuggestionMap.clear();
 }
 
 void WebAutoFill::searchDocument(WebCore::Document* document)
@@ -85,6 +94,7 @@ void WebAutoFill::searchDocument(WebCore::Document* document)
         return;
 
     mQueryMap.clear();
+    mSuggestionMap.clear();
     mQueryId = 1;
     mAutoFillManager->Reset();
     mFormManager->Reset();
@@ -105,14 +115,38 @@ void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldEle
     mFormManager->FindFormWithFormControlElement(*formFieldElement, FormManager::REQUIRE_AUTOCOMPLETE, form);
     mQueryMap[mQueryId] = form;
 
-    mAutoFillManager->GetAutoFillSuggestions(mQueryId, false, formField);
+    bool suggestions = mAutoFillManager->GetAutoFillSuggestions(mQueryId, false, formField);
     mQueryId++;
+    if (!suggestions) {
+        ASSERT(mWebViewCore);
+        // Tell Java no autofill suggestions for this form.
+        mWebViewCore->setWebTextViewAutoFillable(FORM_NOT_AUTOFILLABLE);
+        return;
+    }
 }
 
-void WebAutoFill::fillFormFields(int queryId, const string16& value, const string16& label, int uniqueId)
+void WebAutoFill::querySuccessful(int queryId, const string16& value, const string16& label, int uniqueId)
+{
+    // Store the results for the query and inform java that autofill suggestions for this form are available.
+    // Pass java the queryId so that it can pass it back if the user decides to use autofill.
+    AutoFillSuggestion suggestion;
+    suggestion.value = value;
+    suggestion.label = label;
+    suggestion.uniqueId = uniqueId;
+    mSuggestionMap[queryId] = AutoFillSuggestion();
+
+    ASSERT(mWebViewCore);
+    mWebViewCore->setWebTextViewAutoFillable(queryId);
+}
+
+void WebAutoFill::fillFormFields(int queryId)
 {
     webkit_glue::FormData* form = mQueryMap[queryId];
-    mAutoFillManager->FillAutoFillFormData(queryId, *form, value, label, uniqueId);
+    AutoFillQuerySuggestionMap::iterator iter = mSuggestionMap.find(queryId);
+    ASSERT(iter != mSuggestionMap.end());
+    AutoFillSuggestion* suggestion = &iter->second;
+    mAutoFillManager->FillAutoFillFormData(queryId, *form, suggestion->value, suggestion->label, suggestion->uniqueId);
+    mSuggestionMap.erase(iter);
 }
 
 void WebAutoFill::fillFormInPage(int queryId, const webkit_glue::FormData& form)

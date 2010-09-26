@@ -58,6 +58,7 @@
 #include "HTMLAnchorElement.h"
 #include "HTMLAreaElement.h"
 #include "HTMLElement.h"
+#include "HTMLFormControlElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLLabelElement.h"
@@ -108,6 +109,7 @@
 #include "WebFrameView.h"
 #include "WindowsKeyboardCodes.h"
 #include "android_graphics.h"
+#include "autofill/WebAutoFill.h"
 #include "markup.h"
 
 #include <JNIHelp.h>
@@ -262,6 +264,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_centerFitRect;
     jmethodID   m_setScrollbarModes;
     jmethodID   m_setInstallableWebApp;
+    jmethodID   m_setWebTextViewAutoFillable;
     AutoJObject object(JNIEnv* env) {
         return getRealObject(env, m_obj);
     }
@@ -352,6 +355,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_centerFitRect = GetJMethod(env, clazz, "centerFitRect", "(IIII)V");
     m_javaGlue->m_setScrollbarModes = GetJMethod(env, clazz, "setScrollbarModes", "(II)V");
     m_javaGlue->m_setInstallableWebApp = GetJMethod(env, clazz, "setInstallableWebApp", "()V");
+    m_javaGlue->m_setWebTextViewAutoFillable = GetJMethod(env, clazz, "setWebTextViewAutoFillable", "(I)V");
 
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
 
@@ -3214,6 +3218,12 @@ void WebViewCore::notifyWebAppCanBeInstalled()
     checkException(env);
 }
 
+void WebViewCore::setWebTextViewAutoFillable(int queryId)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_setWebTextViewAutoFillable, queryId);
+}
+
 bool WebViewCore::drawIsPaused() const
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -3864,6 +3874,22 @@ static jobject GetTouchHighlightRects(JNIEnv* env, jobject obj, jint x, jint y, 
     return array;
 }
 
+static void AutoFillForm(JNIEnv* env, jobject obj, jint queryId)
+{
+#if ENABLE(WEB_AUTOFILL)
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    if (!viewImpl)
+        return;
+
+    WebCore::Frame* frame = viewImpl->mainFrame();
+    if (frame) {
+        EditorClientAndroid* editorC = static_cast<EditorClientAndroid*>(frame->page()->editorClient());
+        WebAutoFill* autoFill = editorC->getAutoFill();
+        autoFill->fillFormFields(queryId);
+    }
+#endif
+}
+
 // ----------------------------------------------------------------------------
 
 /*
@@ -3965,6 +3991,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) ValidNodeAndBounds },
     { "nativeGetTouchHighlightRects", "(III)Ljava/util/ArrayList;",
         (void*) GetTouchHighlightRects },
+    { "nativeAutoFillForm", "(I)V",
+        (void*) AutoFillForm },
 };
 
 int register_webviewcore(JNIEnv* env)
