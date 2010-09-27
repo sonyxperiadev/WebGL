@@ -23,48 +23,53 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef GLUTILS_H_
-#define GLUTILS_H_
+#ifndef DoubleBufferedTexture__DEFINED
+#define DoubleBufferedTexture__DEFINED
 
-#if USE(ACCELERATED_COMPOSITING)
-
+#include <utils/threads.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-#include "SkBitmap.h"
-#include "TransformationMatrix.h"
+
+#include "SharedTexture.h"
 
 namespace WebCore {
 
-class GLUtils {
-
+class DoubleBufferedTexture {
 public:
-   // Matrix utilities
-   static void toGLMatrix(GLfloat* flattened, const TransformationMatrix& matrix);
-   static void setOrthographicMatrix(TransformationMatrix& ortho, float left, float top,
-                                     float right, float bottom, float nearZ, float farZ);
+    // consumer thread functions
+    DoubleBufferedTexture(EGLContext sharedContext);
 
-   // GL & EGL error checks
-   static void checkEglError(const char* op, EGLBoolean returnVal = EGL_TRUE);
-   static bool checkGlErrorOn(void* p, const char* op);
-   static bool checkGlError(const char* op);
+    // provider thread functions
+    TextureInfo* producerLock();
+    void producerRelease();
+    EGLContext producerAcquireContext();
 
-   // GL & EGL extension checks
-   static bool isEGLImageSupported();
-   static bool isEGLFenceSyncSupported();
+    // consumer thread functions
+    TextureInfo* consumerLock();
+    void consumerRelease();
 
-   // Texture utilities
-   static EGLContext createBackgroundContext(EGLContext sharedContext);
-   static void deleteTexture(GLuint* texture);
-   static GLuint createSampleTexture();
-   static void createTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint filter = GL_LINEAR);
-   static void updateTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint filter = GL_LINEAR);
-   static void createEGLImageFromTexture(GLuint texture, EGLImageKHR* image);
-   static void createTextureFromEGLImage(GLuint texture, EGLImageKHR image, GLint filter = GL_LINEAR);
+private:
+    SharedTexture* getFrontTexture();
+    SharedTexture* getBackTexture();
+
+    EGLDisplay m_display;
+
+    EGLContext m_pContext;
+    EGLContext m_cContext;
+
+    SharedTexture m_textureA;
+    SharedTexture m_textureB;
+    SharedTexture* m_frontTexture;
+    SharedTexture* m_lockedConsumerTexture; // only used by the consumer
+
+    android::Mutex m_varLock;
+
+    bool m_supportsEGLImage;
 };
+
 
 } // namespace WebCore
 
-#endif // USE(ACCELERATED_COMPOSITING)
-#endif // GLUTILS_H_
+#endif // DoubleBufferedTexture__DEFINED
