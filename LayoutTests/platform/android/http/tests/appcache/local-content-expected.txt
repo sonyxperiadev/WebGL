@@ -4,3 +4,4 @@ Test that documents loaded from application cache don't get access to local reso
 Should say SUCCESS:
 
 SUCCESS
+
