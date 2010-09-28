@@ -114,6 +114,24 @@ bool GLUtils::checkGlErrorOn(void* p, const char* op) {
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////
+// GL & EGL extension checks
+/////////////////////////////////////////////////////////////////////////////////////////
+
+bool GLUtils::isEGLImageSupported() {
+    const char* eglExtensions = eglQueryString(eglGetCurrentDisplay(), EGL_EXTENSIONS);
+    const char* glExtensions = reinterpret_cast<const char*>(glGetString(GL_EXTENSIONS));
+
+    return strstr(eglExtensions, "EGL_KHR_image_base") &&
+           strstr(eglExtensions, "EGL_KHR_gl_texture_2D_image") &&
+           strstr(glExtensions, "GL_OES_EGL_image");
+}
+
+bool GLUtils::isEGLFenceSyncSupported() {
+    const char* eglExtensions = eglQueryString(eglGetCurrentDisplay(), EGL_EXTENSIONS);
+    return strstr(eglExtensions, "EGL_KHR_fence_sync");
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////
 // Textures utilities
 /////////////////////////////////////////////////////////////////////////////////////////
 
@@ -257,10 +275,7 @@ GLuint GLUtils::createSampleTexture() {
     return texture;
 }
 
-GLuint GLUtils::createTextureWithBitmap(SkBitmap& bitmap, GLint filter) {
-    GLuint texture;
-    glGenTextures(1, &texture);
-    GLUtils::checkGlError("glGenTextures");
+void GLUtils::createTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint filter) {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glBindTexture(GL_TEXTURE_2D, texture);
     GLUtils::checkGlError("glBindTexture");
@@ -274,7 +289,6 @@ GLuint GLUtils::createTextureWithBitmap(SkBitmap& bitmap, GLint filter) {
     GLUtils::checkGlError("glTexImage2D");
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
-    return texture;
 }
 
 void GLUtils::updateTextureWithBitmap(GLuint texture, SkBitmap& bitmap, GLint filter) {
@@ -301,15 +315,12 @@ void GLUtils::createEGLImageFromTexture(GLuint texture, EGLImageKHR* image) {
     GLUtils::checkEglError("eglCreateImage", (*image != EGL_NO_IMAGE_KHR));
 }
 
-GLuint GLUtils::createTextureFromEGLImage(EGLImageKHR image, GLint filter) {
-    GLuint texture;
-    glGenTextures(1, &texture);
+void GLUtils::createTextureFromEGLImage(GLuint texture, EGLImageKHR image, GLint filter) {
     glBindTexture(GL_TEXTURE_2D, texture);
     GLUtils::checkGlError("glBindTexture");
     glEGLImageTargetTexture2DOES(GL_TEXTURE_2D, (GLeglImageOES)image);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
-    return texture;
 }
 
 } // namespace WebCore

@@ -39,20 +39,17 @@ public:
     virtual const std::string& GetAcceptLanguage() const;
     static scoped_refptr<WebRequestContext> GetAndroidContext();
     static scoped_refptr<WebRequestContext> GetAndroidPrivateBrowsingContext();
-    static bool CleanupAndroidPrivateBrowsingFiles(std::string dataDirectory);
+    static bool CleanupPrivateBrowsingFiles(const std::string& databaseDirectory, const std::string& cacheDirectory);
 
     static void SetUserAgent(WTF::String);
     static void SetAcceptLanguage(WTF::String);
 
 private:
-    static const std::string* GetDataDirectory();
+    static const std::string& GetDatabaseDirectory();
+    static const std::string& GetCacheDirectory();
     static scoped_refptr<WebRequestContext> GetAndroidContextForPath(const char* cookiePath, const char* cachePath);
     WebRequestContext();
     ~WebRequestContext();
-
-    // Caching this query from java
-    static std::string* s_dataDirectory;
-    static std::string* s_userAgent;
 };
 
 } // namespace android
