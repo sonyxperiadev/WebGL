@@ -100,7 +100,7 @@ endif
 # The default is on. Chrome HTTP stack must be used when Autofill
 # is turned on.
 ifneq ($(ENABLE_AUTOFILL),false)
-  ENABLE_AUTOFILL = true
+  ENABLE_AUTOFILL = false
 endif
 ifneq ($(HTTP_STACK),chrome)
   ENABLE_AUTOFILL = false
