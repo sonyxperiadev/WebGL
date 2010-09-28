@@ -158,6 +158,9 @@ Settings::Settings(Page* page)
 #endif
     , m_memoryInfoEnabled(false)
     , m_interactiveFormValidation(false)
+#if ENABLE(WEB_AUTOFILL)
+    , m_autoFillEnabled(false)
+#endif
 #ifdef ANDROID_PLUGINS
     , m_pluginsOnDemand(false)
 #endif

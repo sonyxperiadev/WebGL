@@ -96,11 +96,11 @@ ifeq ($(JAVASCRIPT_ENGINE),jsc)
   HTTP_STACK = android
 endif
 
-# Read the environment variable to determine if Autofill is enabled.
-# The default is off. Chrome HTTP stack must be used when Autofill
+# Read the environment variable to determine if Autofill is compiled.
+# The default is on. Chrome HTTP stack must be used when Autofill
 # is turned on.
-ifneq ($(ENABLE_AUTOFILL),true)
-  ENABLE_AUTOFILL=false
+ifneq ($(ENABLE_AUTOFILL),false)
+  ENABLE_AUTOFILL = true
 endif
 ifneq ($(HTTP_STACK),chrome)
   ENABLE_AUTOFILL = false
