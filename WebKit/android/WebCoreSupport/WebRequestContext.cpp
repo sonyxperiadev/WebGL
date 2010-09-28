@@ -47,16 +47,14 @@ Lock acceptLanguageLock;
 
 namespace android {
 
-static const char* const kNormalCookies = "/chromecookies.db";
-static const char* const kNormalCache = "/chromecache";
-static const char* const kPrivateCookies = "/chromecookies_private.db";
-static const char* const kPrivateCache = "/chromecache_private";
+static const char* const kCookiesDatabaseFilename = "/webviewCookiesChromium.db";
+static const char* const kCacheDirectory = "/webviewCacheChromium";
+static const char* const kCookiesDatabaseFilenamePrivate = "/webviewCookiesChromiumPrivate.db";
+static const char* const kCacheDirectoryPrivate = "/webviewCacheChromiumPrivate";
 
 static scoped_refptr<WebRequestContext> androidContext(0);
 static scoped_refptr<WebRequestContext> androidPrivateBrowsingContext(0);
 static WTF::Mutex androidPrivateBrowsingContextMutex;
-
-std::string* WebRequestContext::s_dataDirectory(0);
 
 WebRequestContext::WebRequestContext()
 {
@@ -92,30 +90,50 @@ const std::string& WebRequestContext::GetAcceptLanguage() const
     return acceptLanguage;
 }
 
-const std::string* WebRequestContext::GetDataDirectory()
+const std::string& WebRequestContext::GetDatabaseDirectory()
 {
-    if (!s_dataDirectory) {
+    static std::string databaseDirectory;
+    if (databaseDirectory.empty()) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         jclass bridgeClass = env->FindClass("android/webkit/BrowserFrame");
-        jmethodID method = env->GetStaticMethodID(bridgeClass, "getDataDirectory", "()Ljava/lang/String;");
+        jmethodID method = env->GetStaticMethodID(bridgeClass, "getDatabaseDirectory", "()Ljava/lang/String;");
 
         jstring str = (jstring)env->CallStaticObjectMethod(bridgeClass, method);
         jboolean isCopy;
         const char* nativeString = env->GetStringUTFChars(str, &isCopy);
-        s_dataDirectory = new std::string(nativeString);
+        databaseDirectory = std::string(nativeString);
         if (isCopy == JNI_TRUE)
             env->ReleaseStringUTFChars(str, nativeString);
     }
 
-    return s_dataDirectory;
+    return databaseDirectory;
+}
+
+const std::string& WebRequestContext::GetCacheDirectory()
+{
+    static std::string cacheDirectory;
+    if (cacheDirectory.empty()) {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        jclass bridgeClass = env->FindClass("android/webkit/BrowserFrame");
+        jmethodID method = env->GetStaticMethodID(bridgeClass, "getCacheDirectory", "()Ljava/lang/String;");
+
+        jstring str = (jstring)env->CallStaticObjectMethod(bridgeClass, method);
+        jboolean isCopy;
+        const char* nativeString = env->GetStringUTFChars(str, &isCopy);
+        cacheDirectory = std::string(nativeString);
+        if (isCopy == JNI_TRUE)
+            env->ReleaseStringUTFChars(str, nativeString);
+    }
+
+    return cacheDirectory;
 }
 
 scoped_refptr<WebRequestContext> WebRequestContext::GetAndroidContextForPath(const char* cookieFilename, const char* cacheFilename)
 {
-    std::string cookieString(*GetDataDirectory());
+    std::string cookieString(GetDatabaseDirectory());
     cookieString.append(cookieFilename);
     FilePath cookiePath(cookieString.c_str());
-    std::string cacheString(*GetDataDirectory());
+    std::string cacheString(GetCacheDirectory());
     cacheString.append(cacheFilename);
     FilePath cachePath(cacheString.c_str());
 
@@ -140,7 +158,7 @@ scoped_refptr<WebRequestContext> WebRequestContext::GetAndroidContextForPath(con
 scoped_refptr<WebRequestContext> WebRequestContext::GetAndroidContext()
 {
     if (!androidContext)
-        androidContext = GetAndroidContextForPath(kNormalCookies, kNormalCache);
+        androidContext = GetAndroidContextForPath(kCookiesDatabaseFilename, kCacheDirectory);
     return androidContext;
 }
 
@@ -151,7 +169,7 @@ scoped_refptr<WebRequestContext> WebRequestContext::GetAndroidPrivateBrowsingCon
     if (!androidPrivateBrowsingContext) {
         // TODO: Where is the right place to put the temporary db? Should it be
         // kept in memory?
-        androidPrivateBrowsingContext = GetAndroidContextForPath(kPrivateCookies, kPrivateCache);
+        androidPrivateBrowsingContext = GetAndroidContextForPath(kCookiesDatabaseFilenamePrivate, kCacheDirectoryPrivate);
     }
     return androidPrivateBrowsingContext;
 }
@@ -180,18 +198,18 @@ static void removeFileOrDirectory(const char* filename)
     unlink(filename);
 }
 
-bool WebRequestContext::CleanupAndroidPrivateBrowsingFiles(std::string dataDirectory)
+bool WebRequestContext::CleanupPrivateBrowsingFiles(const std::string& databaseDirectory, const std::string& cacheDirectory)
 {
     WTF::MutexLocker lock(androidPrivateBrowsingContextMutex);
 
     if (!androidPrivateBrowsingContext || androidPrivateBrowsingContext->HasOneRef()) {
         androidPrivateBrowsingContext = 0;
 
-        std::string cookiePath(dataDirectory);
-        cookiePath.append(kPrivateCookies);
+        std::string cookiePath(databaseDirectory);
+        cookiePath.append(kCookiesDatabaseFilenamePrivate);
         removeFileOrDirectory(cookiePath.c_str());
-        std::string cachePath(dataDirectory);
-        cachePath.append(kPrivateCache);
+        std::string cachePath(cacheDirectory);
+        cachePath.append(kCacheDirectoryPrivate);
         removeFileOrDirectory(cachePath.c_str());
         return true;
     }
