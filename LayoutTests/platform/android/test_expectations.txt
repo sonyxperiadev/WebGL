@@ -96,6 +96,18 @@ dom/xhtml/level3/core/nodegetbaseuri18.xhtml FAIL
 dom/xhtml/level3/core/nodelookupnamespaceuri01.xhtml FAIL
 dom/xhtml/level3/core/nodelookupprefix19.xhtml FAIL
 
+// Expected failures due to DumpRenderTree2 serving tests from http://127.0.0.1
+// rather than file://
+// TODO: Consider checking in Android expected results for these tests, once
+// we've switched fully to DumpRenderTree2
+dom/html/level2/html/HTMLDocument03.html FAIL
+dom/xhtml/level2/html/HTMLDocument03.xhtml FAIL
+dom/xhtml/level2/html/HTMLIFrameElement11.xhtml FAIL
+fast/dom/HTMLAnchorElement/set-href-attribute-protocol.html FAIL
+fast/leaks/002.html FAIL
+storage/open-database-creation-callback.html FAIL
+storage/quota-tracking.html FAIL
+
 // TODO: These need to be triaged
 fast/css/case-transform.html FAIL // will not fix #619707
 fast/dom/Element/offsetLeft-offsetTop-body-quirk.html FAIL // different screen size result in extra spaces in Apple compared to us
