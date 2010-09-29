@@ -546,7 +546,7 @@ void fixCursor()
         return;
     int x, y;
     const CachedFrame* frame;
-    const CachedNode* node = m_frameCacheUI->findAt(bounds, &frame, &x, &y, false);
+    const CachedNode* node = m_frameCacheUI->findAt(bounds, &frame, &x, &y, true);
     if (!node)
         return;
     // require that node have approximately the same bounds (+/- 4) and the same
