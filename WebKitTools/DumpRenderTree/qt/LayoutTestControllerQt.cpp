@@ -81,6 +81,8 @@ void LayoutTestController::reset()
     DumpRenderTreeSupportQt::setWillSendRequestClearHeaders(QStringList());
     DumpRenderTreeSupportQt::clearScriptWorlds();
     DumpRenderTreeSupportQt::setCustomPolicyDelegate(false, false);
+    DumpRenderTreeSupportQt::dumpHistoryCallbacks(false);
+    DumpRenderTreeSupportQt::dumpVisitedLinksCallbacks(false);
     setIconDatabaseEnabled(false);
 
     emit hidePage();
@@ -206,6 +208,11 @@ bool LayoutTestController::checkDesktopNotificationPermission(const QString& ori
     return !m_ignoreDesktopNotification && m_desktopNotificationAllowedOrigins.contains(origin);
 }
 
+void LayoutTestController::simulateDesktopNotificationClick(const QString& title)
+{
+    DumpRenderTreeSupportQt::simulateDesktopNotificationClick(title);
+}
+
 void LayoutTestController::display()
 {
     emit showPage();
@@ -220,6 +227,12 @@ QString LayoutTestController::pathToLocalResource(const QString& url)
 {
     // Function introduced in r28690.
     return QDir::toNativeSeparators(url);
+}
+
+void LayoutTestController::dumpConfigurationForViewport(int availableWidth, int availableHeight)
+{
+    QString res = DumpRenderTreeSupportQt::viewportAsText(m_drt->webPage(), QSize(availableWidth, availableHeight));
+    fputs(qPrintable(res), stdout);
 }
 
 void LayoutTestController::dumpEditingCallbacks()
@@ -241,6 +254,11 @@ void LayoutTestController::dumpResourceLoadCallbacks()
 void LayoutTestController::dumpResourceResponseMIMETypes()
 {
     DumpRenderTreeSupportQt::dumpResourceResponseMIMETypes(true);
+}
+
+void LayoutTestController::dumpHistoryCallbacks()
+{
+    DumpRenderTreeSupportQt::dumpHistoryCallbacks(true);
 }
 
 void LayoutTestController::setWillSendRequestReturnsNullOnRedirect(bool enabled)
@@ -767,6 +785,13 @@ QString LayoutTestController::pageProperty(const QString& propertyName, int page
 void LayoutTestController::addUserStyleSheet(const QString& sourceCode)
 {
     DumpRenderTreeSupportQt::addUserStyleSheet(m_drt->webPage(), sourceCode);
+}
+
+void LayoutTestController::removeAllVisitedLinks()
+{
+    QWebHistory* history = m_drt->webPage()->history();
+    history->clear();
+    DumpRenderTreeSupportQt::dumpVisitedLinksCallbacks(true);
 }
 
 const unsigned LayoutTestController::maxViewWidth = 800;

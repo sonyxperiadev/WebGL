@@ -35,6 +35,7 @@
 #endif
 
 #include "NativeImageSkia.h"
+#include "SharedGraphicsContext3D.h"
 #include "SkiaUtils.h"
 
 namespace WebCore {
@@ -52,6 +53,12 @@ NativeImageSkia::NativeImageSkia(const SkBitmap& other)
       m_lastRequestSize(0, 0),
       m_resizeRequests(0)
 {
+}
+
+
+NativeImageSkia::~NativeImageSkia()
+{
+    SharedGraphicsContext3D::removeTexturesFor(this);
 }
 
 int NativeImageSkia::decodedSize() const

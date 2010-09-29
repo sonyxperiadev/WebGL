@@ -361,12 +361,14 @@ static WebCacheModel cacheModelForMainBundle(void)
         [NSNumber numberWithBool:NO],   WebKitShowDebugBordersPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitShowRepaintCounterPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitWebGLEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitAccelerated2dCanvasEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitUsesProxiedOpenPanelPreferenceKey,
         [NSNumber numberWithUnsignedInt:4], WebKitPluginAllowedRunTimePreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitFrameFlatteningEnabledPreferenceKey,
         [NSNumber numberWithBool:YES],  WebKitDNSPrefetchingEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitFullScreenEnabledPreferenceKey,
         [NSNumber numberWithBool:NO],   WebKitMemoryInfoEnabledPreferenceKey,
+        [NSNumber numberWithBool:NO],   WebKitUsePreHTML5ParserQuirksKey,
         [NSNumber numberWithLongLong:WebCore::ApplicationCacheStorage::noQuota()], WebKitApplicationCacheTotalQuota,
         [NSNumber numberWithLongLong:WebCore::ApplicationCacheStorage::noQuota()], WebKitApplicationCacheDefaultOriginQuota,
         nil];
@@ -641,7 +643,10 @@ static WebCacheModel cacheModelForMainBundle(void)
     } else {
         locationString = [URL _web_originalDataAsString];
     }
-    
+
+    if (!locationString)
+        locationString = @"";
+
     [self _setStringValue:locationString forKey: WebKitUserStyleSheetLocationPreferenceKey];
 }
 
@@ -1267,6 +1272,16 @@ static NSString *classIBCreatorID = nil;
     [self _setBoolValue:enabled forKey:WebKitWebGLEnabledPreferenceKey];
 }
 
+- (BOOL)accelerated2dCanvasEnabled
+{
+    return [self _boolValueForKey:WebKitAccelerated2dCanvasEnabledPreferenceKey];
+}
+
+- (void)setAccelerated2dCanvasEnabled:(BOOL)enabled
+{
+    [self _setBoolValue:enabled forKey:WebKitAccelerated2dCanvasEnabledPreferenceKey];
+}
+
 - (BOOL)usesProxiedOpenPanel
 {
     return [self _boolValueForKey:WebKitUsesProxiedOpenPanelPreferenceKey];
@@ -1327,6 +1342,16 @@ static NSString *classIBCreatorID = nil;
     [self _setIntegerValue:behavior forKey:WebKitEditingBehaviorPreferenceKey];
 }
 
+- (BOOL)usePreHTML5ParserQuirks
+{
+    return [self _boolValueForKey:WebKitUsePreHTML5ParserQuirksKey];
+}
+
+- (void)setUsePreHTML5ParserQuirks:(BOOL)flag
+{
+    [self _setBoolValue:flag forKey:WebKitUsePreHTML5ParserQuirksKey];
+}
+
 - (void)didRemoveFromWebView
 {
     ASSERT(_private->numWebViews);
@@ -1355,6 +1380,11 @@ static NSString *classIBCreatorID = nil;
 - (BOOL)fullScreenEnabled
 {
     return [self _boolValueForKey:WebKitFullScreenEnabledPreferenceKey];
+}
+
++ (void)setWebKitLinkTimeVersion:(int)version
+{
+    setWebKitLinkTimeVersion(version);
 }
 
 @end

@@ -34,6 +34,7 @@
 #include <QNetworkCookie>
 #include <qwebframe.h>
 #include <qwebpage.h>
+
 #include <wtf/text/CString.h>
 
 #include <QDebug>
@@ -171,7 +172,11 @@ QNetworkReplyHandler::QNetworkReplyHandler(ResourceHandle* handle, LoadMode load
     else
         m_method = QNetworkAccessManager::UnknownOperation;
 
-    m_request = r.toNetworkRequest(m_resourceHandle->getInternal()->m_frame);
+    QObject* originatingObject = 0;
+    if (m_resourceHandle->getInternal()->m_context)
+        originatingObject = m_resourceHandle->getInternal()->m_context->originatingObject();
+
+    m_request = r.toNetworkRequest(originatingObject);
 
     if (m_loadMode == LoadNormal)
         start();
@@ -258,7 +263,7 @@ void QNetworkReplyHandler::finish()
         resetState();
         start();
     } else if (!m_reply->error() || ignoreHttpError(m_reply, m_responseDataSent)) {
-        client->didFinishLoading(m_resourceHandle);
+        client->didFinishLoading(m_resourceHandle, 0);
     } else {
         QUrl url = m_reply->url();
         int httpStatusCode = m_reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
@@ -300,12 +305,7 @@ void QNetworkReplyHandler::sendResponseIfNeeded()
 
     if (mimeType.isEmpty()) {
         // let's try to guess from the extension
-        QString extension = m_reply->url().path();
-        int index = extension.lastIndexOf(QLatin1Char('.'));
-        if (index > 0) {
-            extension = extension.mid(index + 1);
-            mimeType = MIMETypeRegistry::getMIMETypeForExtension(extension);
-        }
+        mimeType = MIMETypeRegistry::getMIMETypeForPath(m_reply->url().path());
     }
 
     KURL url(m_reply->url());
@@ -374,7 +374,11 @@ void QNetworkReplyHandler::sendResponseIfNeeded()
         if (!m_resourceHandle) // network error did cancel the request
             return;
 
-        m_request = newRequest.toNetworkRequest(m_resourceHandle->getInternal()->m_frame);
+        QObject* originatingObject = 0;
+        if (m_resourceHandle->getInternal()->m_context)
+            originatingObject = m_resourceHandle->getInternal()->m_context->originatingObject();
+
+        m_request = newRequest.toNetworkRequest(originatingObject);
         return;
     }
 
@@ -426,7 +430,12 @@ void QNetworkReplyHandler::start()
 
     ResourceHandleInternal* d = m_resourceHandle->getInternal();
 
-    QNetworkAccessManager* manager = d->m_frame->page()->networkAccessManager();
+    QNetworkAccessManager* manager = 0;
+    if (d->m_context)
+        manager = d->m_context->networkAccessManager();
+
+    if (!manager)
+        return;
 
     const QUrl url = m_request.url();
     const QString scheme = url.scheme();

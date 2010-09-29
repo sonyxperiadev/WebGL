@@ -400,10 +400,13 @@ WebInspector.ConsoleView.prototype = {
         }
 
         var contextMenu = new WebInspector.ContextMenu();
-        if (!WebInspector.monitoringXHREnabled)
-            contextMenu.appendCheckboxItem(WebInspector.UIString("XMLHttpRequest logging"), InspectorBackend.enableMonitoringXHR.bind(InspectorBackend), false);
-        else
-            contextMenu.appendCheckboxItem(WebInspector.UIString("XMLHttpRequest logging"), InspectorBackend.disableMonitoringXHR.bind(InspectorBackend), true);
+
+        function monitoringXHRWasChanged(newState)
+        {
+            WebInspector.monitoringXHREnabled = newState;
+        }
+        var itemAction = InspectorBackend.setMonitoringXHREnabled.bind(InspectorBackend, !WebInspector.monitoringXHREnabled, monitoringXHRWasChanged);
+        contextMenu.appendCheckboxItem(WebInspector.UIString("XMLHttpRequest logging"), itemAction, WebInspector.monitoringXHREnabled);
         contextMenu.appendItem(WebInspector.UIString("Clear Console"), this.requestClearMessages.bind(this));
         contextMenu.show(event);
     },
@@ -518,7 +521,7 @@ WebInspector.ConsoleView.prototype = {
 
     _enterKeyPressed: function(event)
     {
-        if (event.altKey)
+        if (event.altKey || event.ctrlKey)
             return;
 
         event.preventDefault();
@@ -1091,7 +1094,7 @@ WebInspector.ConsoleGroup.prototype = {
 
         if (msg.type === WebInspector.ConsoleMessage.MessageType.StartGroup || msg.type === WebInspector.ConsoleMessage.MessageType.StartGroupCollapsed) {
             this.messagesElement.parentNode.insertBefore(element, this.messagesElement);
-            element.addEventListener("click", this._titleClicked.bind(this), true);
+            element.addEventListener("click", this._titleClicked.bind(this), false);
             var groupElement = element.enclosingNodeOrSelfWithClass("console-group");
             if (groupElement && msg.type === WebInspector.ConsoleMessage.MessageType.StartGroupCollapsed)
                 groupElement.addStyleClass("collapsed");

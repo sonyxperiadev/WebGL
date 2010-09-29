@@ -65,7 +65,7 @@ public:
 
     virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse&);
     virtual void didReceiveData(ResourceHandle*, const char*, int, int lengthReceived);
-    virtual void didFinishLoading(ResourceHandle*);
+    virtual void didFinishLoading(ResourceHandle*, double /*finishTime*/);
     virtual void didFail(ResourceHandle*, const ResourceError&);
 
     void run();
@@ -102,7 +102,7 @@ void WebCoreSynchronousLoader::didReceiveData(ResourceHandle*, const char* data,
     m_data.append(data, length);
 }
 
-void WebCoreSynchronousLoader::didFinishLoading(ResourceHandle*)
+void WebCoreSynchronousLoader::didFinishLoading(ResourceHandle*, double)
 {
     g_main_loop_quit(m_mainLoop);
     m_finished = true;
@@ -111,7 +111,7 @@ void WebCoreSynchronousLoader::didFinishLoading(ResourceHandle*)
 void WebCoreSynchronousLoader::didFail(ResourceHandle* handle, const ResourceError& error)
 {
     m_error = error;
-    didFinishLoading(handle);
+    didFinishLoading(handle, 0);
 }
 
 void WebCoreSynchronousLoader::run()
@@ -336,7 +336,7 @@ static void finishedCallback(SoupSession *session, SoupMessage* msg, gpointer da
             client->didReceiveData(handle.get(), msg->response_body->data, msg->response_body->length, true);
     }
 
-    client->didFinishLoading(handle.get());
+    client->didFinishLoading(handle.get(), 0);
 }
 
 // parseDataUrl() is taken from the CURL http backend.
@@ -415,7 +415,7 @@ static gboolean parseDataUrl(gpointer callbackData)
     if (d->m_cancelled || !handle->client())
         return false;
 
-    client->didFinishLoading(handle);
+    client->didFinishLoading(handle, 0);
 
     return false;
 }
@@ -578,16 +578,16 @@ static bool startHttp(ResourceHandle* handle)
     return true;
 }
 
-bool ResourceHandle::start(Frame* frame)
+bool ResourceHandle::start(NetworkingContext* context)
 {
     ASSERT(!d->m_msg);
-
 
     // The frame could be null if the ResourceHandle is not associated to any
     // Frame, e.g. if we are downloading a file.
     // If the frame is not null but the page is null this must be an attempted
-    // load from an onUnload handler, so let's just block it.
-    if (frame && !frame->page())
+    // load from an unload handler, so let's just block it.
+    // If both the frame and the page are not null the context is valid.
+    if (context && !context->isValid())
         return false;
 
     KURL url = firstRequest().url();
@@ -595,7 +595,7 @@ bool ResourceHandle::start(Frame* frame)
     String protocol = url.protocol();
 
     // Used to set the authentication dialog toplevel; may be NULL
-    d->m_frame = frame;
+    d->m_context = context;
 
     if (equalIgnoringCase(protocol, "data"))
         return startData(this, urlString);
@@ -655,14 +655,14 @@ bool ResourceHandle::willLoadFromCache(ResourceRequest&, Frame*)
     return false;
 }
 
-void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request, StoredCredentials /*storedCredentials*/, ResourceError& error, ResourceResponse& response, Vector<char>& data, Frame* frame)
+void ResourceHandle::loadResourceSynchronously(NetworkingContext* context, const ResourceRequest& request, StoredCredentials /*storedCredentials*/, ResourceError& error, ResourceResponse& response, Vector<char>& data)
 {
     WebCoreSynchronousLoader syncLoader(error, response, data);
     // FIXME: we should use the ResourceHandle::create method here,
     // but it makes us timeout in a couple of tests. See
     // https://bugs.webkit.org/show_bug.cgi?id=41823
     RefPtr<ResourceHandle> handle = adoptRef(new ResourceHandle(request, &syncLoader, true, false));
-    handle->start(frame);
+    handle->start(context);
 
     syncLoader.run();
 }
@@ -717,7 +717,7 @@ static void closeCallback(GObject* source, GAsyncResult* res, gpointer)
     if (d->m_cancelled || !client)
         return;
 
-    client->didFinishLoading(handle.get());
+    client->didFinishLoading(handle.get(), 0);
 }
 
 static void readCallback(GObject* source, GAsyncResult* res, gpointer)

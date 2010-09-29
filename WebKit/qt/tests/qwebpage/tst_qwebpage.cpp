@@ -97,6 +97,7 @@ private slots:
     void backActionUpdate();
     void frameAt();
     void requestCache();
+    void loadCachedPage();
     void protectBindingsRuntimeObjectsFromCollector();
     void localURLSchemes();
     void testOptionalJSObjects();
@@ -1288,6 +1289,37 @@ void tst_QWebPage::requestCache()
              (int)QNetworkRequest::PreferCache);
 }
 
+void tst_QWebPage::loadCachedPage()
+{
+    TestPage page;
+    QSignalSpy loadSpy(&page, SIGNAL(loadFinished(bool)));
+    page.settings()->setMaximumPagesInCache(3);
+
+    page.mainFrame()->load(QUrl("data:text/html,This is first page"));
+
+    QTRY_COMPARE(loadSpy.count(), 1);
+    QTRY_COMPARE(page.navigations.count(), 1);
+
+    QUrl firstPageUrl = page.mainFrame()->url();
+    page.mainFrame()->load(QUrl("data:text/html,This is second page"));
+
+    QTRY_COMPARE(loadSpy.count(), 2);
+    QTRY_COMPARE(page.navigations.count(), 2);
+
+    page.triggerAction(QWebPage::Stop);
+    QVERIFY(page.history()->canGoBack());
+
+    QSignalSpy urlSpy(page.mainFrame(), SIGNAL(urlChanged(QUrl)));
+    QVERIFY(urlSpy.isValid());
+
+    page.triggerAction(QWebPage::Back);
+    ::waitForSignal(page.mainFrame(), SIGNAL(urlChanged(QUrl)));
+    QCOMPARE(urlSpy.size(), 1);
+
+    QList<QVariant> arguments1 = urlSpy.takeFirst();
+    QCOMPARE(arguments1.at(0).toUrl(), firstPageUrl);
+
+}
 void tst_QWebPage::backActionUpdate()
 {
     QWebView view;
@@ -1659,6 +1691,22 @@ void tst_QWebPage::inputMethods()
 
 #if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
     QVERIFY(!viewEventSpy.contains(QEvent::RequestSoftwareInputPanel));
+#endif
+
+#if QT_VERSION >= 0x040600
+    //START - Test for sending empty QInputMethodEvent
+    page->mainFrame()->setHtml("<html><body>" \
+                                            "<input type='text' id='input3' value='QtWebKit2'/>" \
+                                            "</body></html>");
+    page->mainFrame()->evaluateJavaScript("var inputEle = document.getElementById('input3'); inputEle.focus(); inputEle.select();");
+
+    //Send empty QInputMethodEvent
+    QInputMethodEvent emptyEvent;
+    page->event(&emptyEvent);
+
+    QString inputValue = page->mainFrame()->evaluateJavaScript("document.getElementById('input3').value").toString();
+    QCOMPARE(inputValue, QString("QtWebKit2"));
+    //END - Test for sending empty QInputMethodEvent
 #endif
 
     delete container;

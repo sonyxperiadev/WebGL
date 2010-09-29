@@ -55,6 +55,7 @@
 
 #include <stdio.h>
 
+#include "FrameNetworkingContextWx.h"
 #include "WebFrame.h"
 #include "WebFramePrivate.h"
 #include "WebView.h"
@@ -445,7 +446,13 @@ void FrameLoaderClientWx::finishedLoading(DocumentLoader* loader)
     }
 }
 
+bool FrameLoaderClientWx::canShowMIMETypeAsHTML(const String& MIMEType) const
+{
+    notImplemented();
+    return true;
+}
 
+    
 bool FrameLoaderClientWx::canShowMIMEType(const String& MIMEType) const
 {
     notImplemented();
@@ -612,16 +619,14 @@ void FrameLoaderClientWx::setMainDocumentError(WebCore::DocumentLoader* loader, 
     }
 }
 
+// FIXME: This function should be moved into WebCore.
 void FrameLoaderClientWx::committedLoad(WebCore::DocumentLoader* loader, const char* data, int length)
 {
     if (!m_webFrame)
         return;
-    if (!m_pluginView) {
-        FrameLoader* fl = loader->frameLoader();
-        fl->writer()->setEncoding(m_response.textEncodingName(), false);
-        fl->addData(data, length);
-    }
-    
+    if (!m_pluginView)
+        loader->commitData(data, length);
+
     // We re-check here as the plugin can have been created
     if (m_pluginView) {
         if (!m_hasSentResponseToPlugin) {
@@ -963,6 +968,11 @@ bool FrameLoaderClientWx::shouldUsePluginDocument(const String &mimeType) const
     // NOTE: Plugin Documents are used for viewing PDFs, etc. inline, and should
     // not be used for pages with plugins in them.
     return false;
+}
+
+PassRefPtr<FrameNetworkingContext> FrameLoaderClientWx::createNetworkingContext()
+{
+    return FrameNetworkingContextWx::create(m_frame);
 }
 
 }

@@ -1984,8 +1984,7 @@ END
 
     # Setup the enable-at-runtime attrs if we have them
     foreach my $runtime_attr (@enabledAtRuntime) {
-        # A function named RuntimeEnabledFeatures::{methodName}Enabled() need to be written by hand.
-        $enable_function = "RuntimeEnabledFeatures::" . $codeGenerator->WK_lcfirst($runtime_attr->signature->name) . "Enabled";
+        my $enable_function = GetRuntimeEnableFunctionName($runtime_attr->signature);
         my $conditionalString = GenerateConditionalString($runtime_attr->signature);
         push(@implContent, "\n#if ${conditionalString}\n") if $conditionalString;
         push(@implContent, "    if (${enable_function}()) {\n");
@@ -2034,7 +2033,7 @@ END
         my $conditional = "";
         if ($attrExt->{"EnabledAtRuntime"}) {
             # Only call Set()/SetAccessor() if this method should be enabled
-            $enable_function = "RuntimeEnabledFeatures::" . $codeGenerator->WK_lcfirst($function->signature->name) . "Enabled";
+            $enable_function = GetRuntimeEnableFunctionName($function->signature);
             $conditional = "if (${enable_function}())\n        ";
         }
 
@@ -2509,6 +2508,7 @@ sub HasCustomToV8Implementation {
     # We generate a custom converter (but JSC doesn't) for the following:
     return 1 if $interfaceName eq "CSSStyleSheet";
     return 1 if $interfaceName eq "CanvasPixelArray";
+    return 1 if $interfaceName eq "DOMStringMap";
     return 1 if $interfaceName eq "DOMWindow";
     return 1 if $interfaceName eq "Element";
     return 1 if $interfaceName eq "HTMLDocument";
@@ -3387,6 +3387,18 @@ sub ConvertToV8Parameter
         # Don't know how to properly check for conversion exceptions when $parameter->type is "DOMUserData"
         return "$nativeType $variableName($value, true);";
     }
+}
+
+# Returns the RuntimeEnabledFeatures function name that is hooked up to check if a method/attribute is enabled.
+sub GetRuntimeEnableFunctionName
+{
+    my $signature = shift;
+
+    # If a parameter is given (e.g. "EnabledAtRuntime=FeatureName") return the RuntimeEnabledFeatures::{FeatureName}Enabled() method.
+    return "RuntimeEnabledFeatures::" . $codeGenerator->WK_lcfirst($signature->extendedAttributes->{"EnabledAtRuntime"}) . "Enabled" if ($signature->extendedAttributes->{"EnabledAtRuntime"} && $signature->extendedAttributes->{"EnabledAtRuntime"} ne "1");
+
+    # Otherwise return a function named RuntimeEnabledFeatures::{methodName}Enabled().
+    return "RuntimeEnabledFeatures::" . $codeGenerator->WK_lcfirst($signature->name) . "Enabled";
 }
 
 sub DebugPrint

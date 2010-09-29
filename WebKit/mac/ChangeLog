@@ -1,3 +1,444 @@
+2010-09-20  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Adam Barth.
+
+        REGRESSION (HTML5 Parser): Pages broken due to <tag<tag> parsing changes
+        https://bugs.webkit.org/show_bug.cgi?id=40961
+
+        Implement WebKitUsePreHTML5ParserQuirks preference.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]): Default WebKitUsePreHTML5ParserQuirks to
+        false.
+        (-[WebPreferences usePreHTML5ParserQuirks]):
+        (-[WebPreferences setUsePreHTML5ParserQuirks:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]): Update WebCore::Settings
+        with the value of WebKitUsePreHTML5ParserQuirks when a preference
+        changes.
+
+2010-09-20  Enrica Casucci  <enrica@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Pasteboard doesn't work in WebKit2.
+        https://bugs.webkit.org/show_bug.cgi?id=42317
+        <rdar://problem/7660537>
+
+        Some changes to fix style inconsistencies.
+        Added OBJC 2.0 style enumeration.
+        
+        * WebCoreSupport/WebEditorClient.h:
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::userVisibleString):
+        (createExcludedElementsForAttributedStringConversion):
+        (WebEditorClient::documentFragmentFromAttributedString): Changed parameter to be
+        a Vector of RefPtr.
+        (WebEditorClient::setInsertionPasteboard):
+        (WebEditorClient::pasteboardTypesForSelection):
+
+2010-09-17  David Hyatt  <hyatt@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        https://bugs.webkit.org/show_bug.cgi?id=45993, convert printing to the new pagination model.
+
+        Make printing store the page height in the RenderView and push that into the layout state to
+        use the new pagination model.  The old pagination model is retained because it is still used
+        for embedded WebViews.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _adjustedBottomOfPageWithTop:bottom:limit:]):
+
+2010-09-17  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        REGRESSION (r60104): Zoom level is unexpectedly reset on page reload
+        https://bugs.webkit.org/show_bug.cgi?id=42863
+
+        * WebView/WebView.mm:
+        (-[WebView _setZoomMultiplier:isTextOnly:]):
+        Call functions on Frame instead of FrameView.
+
+2010-09-17  Matthew Delaney  <mdelaney@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Reduce minimum DOMTimer interval
+        https://bugs.webkit.org/show_bug.cgi?id=45362
+
+        * WebView/WebView.mm: Added in a call to set the mimimum allowed DOMTimer to 4ms.
+
+2010-09-17  Chris Marrin  <cmarrin@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Add WebKitAccelerated2dCanvasEnabled flag to WebKit for Mac
+        https://bugs.webkit.org/show_bug.cgi?id=45911
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences accelerated2dCanvasEnabled]):
+        (-[WebPreferences setAccelerated2dCanvasEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+
+2010-09-17  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        WebKit should use system wide spell checking preference when application specific one isn't set.
+        https://bugs.webkit.org/show_bug.cgi?id=45789
+        <rdar://problem/8416041>
+
+        * WebView/WebView.mm:
+        (+[WebView initialize]): Use system wide autocorrection and text substitution preferences
+          when the application level preferences are not set.
+
+2010-09-16  John Sullivan  <sullivan@apple.com>
+
+        Reviewed by Darin Adler.
+
+        <rdar://problem/8395558>
+        https://bugs.webkit.org/show_bug.cgi?id=45938
+        _web_makePluginViewsPerformSelector:: mutates subviews array while iterating it
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _web_makePluginSubviewsPerformSelector:withObject:]):
+        Converted from -[NSArray _web_makePluginViewsPerformSelector:withObject:]. The old method
+        was only ever called on the result of -[WebHTMLView subviews]. By moving that knowledge into
+        this helper method, it can't be used incorrectly. Now it makes a copy of [WebHTMLView subviews]
+        before enumerating it, to ensure that the selector can't mutate the array being enumerated.
+        (-[WebHTMLView viewWillMoveToHostWindow:]):
+        Updated for _web_makePluginSubviewsPerformSelector:: signature change.
+        (-[WebHTMLView viewDidMoveToHostWindow]):
+        Ditto.
+
+2010-09-16  Darin Adler  <darin@apple.com>
+
+        Reviewed by Andreas Kling.
+
+        Reduce use of HTMLInputElement::inputType so we can remove it later
+        https://bugs.webkit.org/show_bug.cgi?id=45903
+
+        * WebView/WebHTMLRepresentation.mm:
+        (-[WebHTMLRepresentation elementDoesAutoComplete:]): Use isPasswordField.
+        (-[WebHTMLRepresentation elementIsPassword:]): Use isPasswordField.
+
+2010-09-16  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Darin Adler.
+
+        Always use a valid string when setting WebKitUserStyleSheetLocationPreferenceKey.
+        https://bugs.webkit.org/show_bug.cgi?id=41510
+
+        This prevents usage of nil value, which would cause an uncaught exception.
+
+        * WebView/WebPreferences.mm:
+        (-[WebPreferences setUserStyleSheetLocation:]):
+
+2010-09-16  Dan Bernstein  <mitz@apple.com>
+
+        Reverted the previous change because r67628 has been reverted.
+
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+
+2010-09-16  Dan Bernstein  <mitz@apple.com>
+
+        Build fix after r67628. Added context menu item localizable strings for the items
+        added in r67628, following equivalent menu items in Mac OS X when possible. However,
+        this set of menu items does not make much sense for Mac OS X, and this should be
+        addressed separately.
+
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::contextMenuItemTagOpenMediaInNewWindow):
+        (WebPlatformStrategies::contextMenuItemTagCopyMediaLinkToClipboard):
+        (WebPlatformStrategies::contextMenuItemTagToggleMediaControls):
+        (WebPlatformStrategies::contextMenuItemTagToggleMediaLoop):
+        (WebPlatformStrategies::contextMenuItemTagEnterVideoFullscreen):
+        (WebPlatformStrategies::contextMenuItemTagMediaPlay):
+        (WebPlatformStrategies::contextMenuItemTagMediaPause):
+        (WebPlatformStrategies::contextMenuItemTagMediaMute):
+        (WebPlatformStrategies::contextMenuItemTagMediaUnMute):
+
+2010-09-16  Eric Uhrhane  <ericu@chromium.org>
+
+        Reviewed by Jian Li.
+
+        Unify FILE_SYSTEM and FILE_WRITER enables under the name FILE_SYSTEM.
+        https://bugs.webkit.org/show_bug.cgi?id=45798
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-09-15  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Adam Roben.
+
+        https://bugs.webkit.org/show_bug.cgi?id=44715
+        maps.google.com flips upside down when zooming map using trackpad in WebKit2 on Mac
+
+        Move geometry flipping to platform-specific code.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView attachRootLayer:]):
+
+2010-09-14  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Only intercept ESC key press when autocorrection UI is visible.
+        https://bugs.webkit.org/show_bug.cgi?id=45071
+
+        * WebCoreSupport/WebEditorClient.h: Added declaration of isShowingCorrectionPanel(),
+          which provides an inteface to query whether autocorrection panel is shown.
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::WebEditorClient): Defined a constant, InvalidCorrectionPanelTag,
+          for invalid correction panel tag. Replaced -1 with this constant.
+        (WebEditorClient::dismissCorrectionPanel): Ditto
+        (WebEditorClient::isShowingCorrectionPanel): Query whether autocorrection panel is shown.
+
+2010-09-14  Mark Rowe  <mrowe@apple.com>
+
+        Reviewed by John Sullivan.
+
+        Part of <rdar://problem/8420003>.  Make it possible to override the version number used in linked-in-or-after checks.
+
+        * Misc/WebKitVersionChecks.h: Remove two unused functions from the header and add a method to set the overriden version.
+        * Misc/WebKitVersionChecks.m:
+        (WebKitLinkedOnOrAfter):
+        (setWebKitLinkTimeVersion): Set the overridden version.
+        (WebKitLinkTimeVersion): Return the overridden version if set, otherwise do the old thing.
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences setWebKitLinkTimeVersion:]): Call through to set the overridden version.
+        * WebView/WebPreferencesPrivate.h:
+
+2010-09-14  Eric Seidel  <eric@webkit.org>
+
+        Unreviewed, reverting changes r67451 and r67451.
+        Broke lots of builders.
+
+        Only intercept ESC key press when autocorrection UI is visible.
+        https://bugs.webkit.org/show_bug.cgi?id=45071
+
+        * WebCoreSupport/WebEditorClient.h:
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::WebEditorClient):
+        (WebEditorClient::dismissCorrectionPanel):
+
+2010-09-14  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        Only intercept ESC key press when autocorrection UI is visible.
+        https://bugs.webkit.org/show_bug.cgi?id=45071
+
+        * WebCoreSupport/WebEditorClient.h: Added declaration of isShowingCorrectionPanel(),
+          which provides an inteface to query whether autocorrection panel is shown.
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::WebEditorClient): Defined a constant, InvalidCorrectionPanelTag,
+          for invalid correction panel tag. Replaced -1 with this constant.
+        (WebEditorClient::dismissCorrectionPanel): Ditto
+        (WebEditorClient::isShowingCorrectionPanel): Query whether autocorrection panel is shown.
+
+2010-09-13  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Preparation for eliminating deprecatedParseURL
+        https://bugs.webkit.org/show_bug.cgi?id=45695
+
+        * DOM/WebDOMOperations.mm:
+        (-[DOMDocument webFrame]): Get rid of unneeded local variable.
+        (-[DOMDocument URLWithAttributeString:]): Remove unhelpful comment.
+
+2010-09-13  Enrica Casucci  <enrica@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Paste should be implemented in WebCore like Copy and Cut for Mac also.
+        https://bugs.webkit.org/show_bug.cgi?id=45494
+        <rdar://problem/7660537>
+
+        On the Mac platform, the implementation of the paste operation is all done
+        at the WebKit level. In order to support it on WebKit2 it is necessary to
+        refactor the code and move this functionality at the level of WebCore like
+        we already have on Windows.
+        The original code relies on some in AppKit functions that call back into
+        WebKit causing problems in WebKit2. All this functionality has been moved
+        at the level of the editor client where it can be dealt with appropriately.
+
+        * WebCoreSupport/WebEditorClient.h:
+        * WebCoreSupport/WebEditorClient.mm:
+        (excludedElementsForAttributedStringConversion):
+        (WebEditorClient::documentFragmentFromAttributedString): Added.
+        (WebEditorClient::setInsertionPasteboard):
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::canShowMIMETypeAsHTML): Re-implemented at the level
+        of the editor client.
+        * WebView/WebHTMLView.mm: Removed paste method.
+
+2010-09-13  John Sullivan  <sullivan@apple.com>
+
+        Reviewed by Adam Roben.
+
+        https://bugs.webkit.org/show_bug.cgi?id=45677
+        [WebView canMarkAllTextMatches] can crash if called after [WebView close]
+        
+        <rdar://problem/8404890>
+
+        * WebView/WebView.mm:
+        (-[WebView canMarkAllTextMatches]):
+        Return NO immediately if the webview has already been closed. This was an overlooked
+        case from the fix for 45175.
+
+2010-09-10  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Tony Chang.
+
+        [Chromium] Implement textInputController.hasSpellingMarker() for Chromium
+        https://bugs.webkit.org/show_bug.cgi?id=45441
+
+        Moved the actual logic of hasSpellingMarker into WebCore to share
+        it with other ports.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame hasSpellingMarker:length:]):
+
+2010-09-11  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Sam Weinig.
+
+        Make SecurityOrigin::canDisplay an instance function
+        https://bugs.webkit.org/show_bug.cgi?id=45219
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::loadRequest):
+        * Plugins/WebNetscapePluginStream.mm:
+        (WebNetscapePluginStream::WebNetscapePluginStream):
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView loadRequest:inTarget:withNotifyData:sendNotification:]):
+        * Plugins/WebPluginContainerCheck.mm:
+        (-[WebPluginContainerCheck _isForbiddenFileLoad]):
+        * WebView/WebFrame.mm:
+        (-[WebFrame _allowsFollowingLink:]):
+
+2010-09-10  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Remove unnecessary constraint in WebCore of choosing either text zoom or full page zoom.
+        Precursor to <rdar://problem/7660657>
+        https://bugs.webkit.org/show_bug.cgi?id=45522
+
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+        (-[WebView _setZoomMultiplier:isTextOnly:]):
+        (-[WebView _realZoomMultiplierIsTextOnly]):
+        * WebView/WebViewData.h:
+        * WebView/WebViewData.mm:
+        (-[WebViewPrivate init]):
+        Move tracking of text only zoom here from WebCore.
+
+2010-09-10  Stephanie Lewis  <slewis@apple.com>
+
+        Reviewed by Alexey Proskuryakov.
+
+        Refactor JavaScriptCore memory statistics so that WebKit doesn't need to know about the JIT and
+        other implementation details of JavaScriptCore.  Necessary to fix PPC build.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=45528
+
+        * Misc/WebCoreStatistics.mm:
+        (+[WebCoreStatistics memoryStatistics]):
+
+2010-09-10  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Move some Dashboard stuff from WebCore to WebKit along with a bit more FrameMac cleanup
+        https://bugs.webkit.org/show_bug.cgi?id=45582
+
+        * MigrateHeaders.make: Removed WebDashboardRegion.h from the set of header to copy.
+
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::dashboardRegionsChanged): Changed this to call
+        -[WebView _dashboardRegions] so we don't have two copies of that code.
+
+        * WebView/WebDashboardRegion.h: Copied from WebCore/page/mac/WebDashboardRegion.h.
+        * WebView/WebDashboardRegion.mm: Copied from WebCore/page/mac/WebDashboardRegion.m.
+
+        * WebView/WebView.mm:
+        (-[WebView _dashboardRegions]): Moved the code from Frame::dashboardRegions here.
+
+2010-09-10  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Fisher.
+
+        Move code from WebKit-layer to DocumentLoader
+        https://bugs.webkit.org/show_bug.cgi?id=45569
+
+        This code is the most confused, but now should be a bit cleaner.
+        There's still a magical fake-setting for creating renderers that needs
+        to be cleaned up, but we can do that in a separate patch.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _commitData:]):
+        * WebView/WebFrameInternal.h:
+        * WebView/WebHTMLRepresentation.mm:
+        (-[WebHTMLRepresentation receivedData:withDataSource:]):
+        (-[WebHTMLRepresentation finishedLoadingWithDataSource:]):
+
+2010-09-09  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Move functions from Frame to SelectionController as planned
+        https://bugs.webkit.org/show_bug.cgi?id=45508
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _selectionGranularity]):
+        (-[WebFrame _insertParagraphSeparatorInQuotedContent]):
+        (-[WebFrame _typingStyle]):
+        (-[WebFrame _replaceSelectionWithFragment:selectReplacement:smartReplace:matchStyle:]):
+        * WebView/WebHTMLRepresentation.mm:
+        (-[WebHTMLRepresentation currentForm]):
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView jumpToSelection:]):
+        (-[WebHTMLView centerSelectionInVisibleArea:]):
+        (-[WebHTMLView _canSmartCopyOrDelete]):
+        (-[WebHTMLView _lookUpInDictionaryFromMenu:]):
+        (-[WebHTMLView selectionRect]):
+        (-[WebHTMLView selectionTextRects]):
+        (-[WebHTMLView selectionImageRect]):
+        * WebView/WebView.mm:
+        (-[WebView setEditable:]):
+        Call functions on selection().
+
+2010-09-10  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Main resource bytes shouldn't bounce through FrameLoader
+        https://bugs.webkit.org/show_bug.cgi?id=45496
+
+        Now return the bytes to the DocumentLoader.
+
+        Previously, we were checking the document for null.  However, Frame can
+        never have a null document, so this check is no longer needed.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _addData:]):
+
 2010-09-09  John Therrell  <jtherrell@apple.com>
 
         Reviewed by Alexey Proskuryakov.

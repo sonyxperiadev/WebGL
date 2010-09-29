@@ -723,6 +723,15 @@ inline void Node::setStyleChange(StyleChangeType changeType)
     m_nodeFlags = (m_nodeFlags & ~StyleChangeMask) | changeType;
 }
 
+inline void Node::markAncestorsWithChildNeedsStyleRecalc()
+{
+    for (Node* p = parentNode(); p && !p->childNeedsStyleRecalc(); p = p->parentNode())
+        p->setChildNeedsStyleRecalc();
+    
+    if (document()->childNeedsStyleRecalc())
+        document()->scheduleStyleRecalc();
+}
+
 void Node::setNeedsStyleRecalc(StyleChangeType changeType)
 {
     ASSERT(changeType != NoStyleChange);
@@ -733,49 +742,20 @@ void Node::setNeedsStyleRecalc(StyleChangeType changeType)
     if (changeType > existingChangeType)
         setStyleChange(changeType);
 
-    if (existingChangeType == NoStyleChange) {
-        for (Node* p = parentNode(); p && !p->childNeedsStyleRecalc(); p = p->parentNode())
-            p->setChildNeedsStyleRecalc();
-
-        if (document()->childNeedsStyleRecalc())
-            document()->scheduleStyleRecalc();
-    }
+    if (existingChangeType == NoStyleChange)
+        markAncestorsWithChildNeedsStyleRecalc();
 }
 
-static Node* outermostLazyAttachedAncestor(Node* start)
+void Node::lazyAttach(ShouldSetAttached shouldSetAttached)
 {
-    Node* p = start;
-    for (Node* next = p->parentNode(); !next->renderer(); p = next, next = next->parentNode()) {}
-    return p;
-}
-
-void Node::lazyAttach()
-{
-    bool mustDoFullAttach = false;
-
     for (Node* n = this; n; n = n->traverseNextNode(this)) {
-        if (!n->canLazyAttach()) {
-            mustDoFullAttach = true;
-            break;
-        }
-
         if (n->firstChild())
             n->setChildNeedsStyleRecalc();
         n->setStyleChange(FullStyleChange);
-        n->setAttached();
+        if (shouldSetAttached == SetAttached)
+            n->setAttached();
     }
-
-    if (mustDoFullAttach) {
-        Node* lazyAttachedAncestor = outermostLazyAttachedAncestor(this);
-        if (lazyAttachedAncestor->attached())
-            lazyAttachedAncestor->detach();
-        lazyAttachedAncestor->attach();
-    } else {
-        for (Node* p = parentNode(); p && !p->childNeedsStyleRecalc(); p = p->parentNode())
-            p->setChildNeedsStyleRecalc();
-        if (document()->childNeedsStyleRecalc())
-            document()->scheduleStyleRecalc();
-    }
+    markAncestorsWithChildNeedsStyleRecalc();
 }
 
 void Node::setFocus(bool b)
@@ -2939,8 +2919,8 @@ bool Node::dispatchMouseEvent(const AtomicString& eventType, int button, int det
 
     int adjustedPageX = pageX;
     int adjustedPageY = pageY;
-    if (FrameView* view = document()->view()) {
-        float pageZoom = view->pageZoomFactor();
+    if (Frame* frame = document()->frame()) {
+        float pageZoom = frame->pageZoomFactor();
         if (pageZoom != 1.0f) {
             // Adjust our pageX and pageY to account for the page zoom.
             adjustedPageX = lroundf(pageX / pageZoom);
@@ -2996,8 +2976,8 @@ void Node::dispatchWheelEvent(PlatformWheelEvent& e)
 
     int adjustedPageX = pos.x();
     int adjustedPageY = pos.y();
-    if (FrameView* view = document()->view()) {
-        float pageZoom = view->pageZoomFactor();
+    if (Frame* frame = document()->frame()) {
+        float pageZoom = frame->pageZoomFactor();
         if (pageZoom != 1.0f) {
             // Adjust our pageX and pageY to account for the page zoom.
             adjustedPageX = lroundf(pos.x() / pageZoom);

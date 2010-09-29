@@ -42,6 +42,7 @@
 #include <webkit/webkitwebview.h>
 #include <wtf/ASCIICType.h>
 #include <wtf/Platform.h>
+#include <wtf/text/CString.h>
 
 #include <gdk/gdk.h>
 #include <gdk/gdkkeysyms.h>
@@ -49,6 +50,7 @@
 
 extern "C" {
     extern void webkit_web_frame_layout(WebKitWebFrame* frame);
+    extern GtkMenu* webkit_web_view_get_context_menu(WebKitWebView*);
 }
 
 static bool dragMode;
@@ -148,15 +150,37 @@ bool prepareMouseButtonEvent(GdkEvent* event, int eventSenderButtonNumber, guint
 static JSValueRef contextClickCallback(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
     GdkEvent* pressEvent = gdk_event_new(GDK_BUTTON_PRESS);
+
     if (!prepareMouseButtonEvent(pressEvent, 2, 0))
-        return JSValueMakeUndefined(context);
+        return JSObjectMakeArray(context, 0, 0, 0);
 
     GdkEvent* releaseEvent = gdk_event_copy(pressEvent);
     sendOrQueueEvent(pressEvent);
+
+    JSValueRef valueRef = JSObjectMakeArray(context, 0, 0, 0);
+    WebKitWebView* view = webkit_web_frame_get_web_view(mainFrame);
+    GtkMenu* gtkMenu = webkit_web_view_get_context_menu(view);
+    if (gtkMenu) {
+        GList* items = gtk_container_get_children(GTK_CONTAINER(gtkMenu));
+        JSValueRef arrayValues[g_list_length(items)];
+        int index = 0;
+        for (GList* item = g_list_first(items); item; item = g_list_next(item)) {
+            CString label;
+            if (GTK_IS_SEPARATOR_MENU_ITEM(item->data))
+                label = "<separator>";
+            else
+                label = gtk_menu_item_get_label(GTK_MENU_ITEM(item->data));
+
+            arrayValues[index] = JSValueMakeString(context, JSStringCreateWithUTF8CString(label.data()));
+            index++;
+        }
+        if (index)
+            valueRef = JSObjectMakeArray(context, index - 1, arrayValues, 0);
+    }
+
     releaseEvent->type = GDK_BUTTON_RELEASE;
     sendOrQueueEvent(releaseEvent);
-
-    return JSValueMakeUndefined(context);
+    return valueRef;
 }
 
 static void updateClickCount(int button)
@@ -434,30 +458,7 @@ static JSValueRef keyDownCallback(JSContextRef context, JSObjectRef function, JS
 {
     if (argumentCount < 1)
         return JSValueMakeUndefined(context);
-
-    static const JSStringRef lengthProperty = JSStringCreateWithUTF8CString("length");
-
-    webkit_web_frame_layout(mainFrame);
-
-    // handle modifier keys.
-    int state = 0;
-    if (argumentCount > 1) {
-        JSObjectRef modifiersArray = JSValueToObject(context, arguments[1], exception);
-        if (modifiersArray) {
-            for (int i = 0; i < JSValueToNumber(context, JSObjectGetProperty(context, modifiersArray, lengthProperty, 0), 0); ++i) {
-                JSValueRef value = JSObjectGetPropertyAtIndex(context, modifiersArray, i, 0);
-                JSStringRef string = JSValueToStringCopy(context, value, 0);
-                if (JSStringIsEqualToUTF8CString(string, "ctrlKey"))
-                    state |= GDK_CONTROL_MASK;
-                else if (JSStringIsEqualToUTF8CString(string, "shiftKey"))
-                    state |= GDK_SHIFT_MASK;
-                else if (JSStringIsEqualToUTF8CString(string, "altKey"))
-                    state |= GDK_MOD1_MASK;
-
-                JSStringRelease(string);
-            }
-        }
-    }
+    guint modifiers = argumentCount >= 2 ? gdkModifersFromJSValue(context, arguments[1]) : 0;
 
     // handle location argument.
     int location = DOM_KEY_LOCATION_STANDARD;
@@ -550,7 +551,7 @@ static JSValueRef keyDownCallback(JSContextRef context, JSObjectRef function, JS
             else {
                 gdkKeySym = gdk_unicode_to_keyval(charCode);
                 if (WTF::isASCIIUpper(charCode))
-                    state |= GDK_SHIFT_MASK;
+                    modifiers |= GDK_SHIFT_MASK;
             }
         }
     }
@@ -563,7 +564,7 @@ static JSValueRef keyDownCallback(JSContextRef context, JSObjectRef function, JS
     // create and send the event
     GdkEvent* pressEvent = gdk_event_new(GDK_KEY_PRESS);
     pressEvent->key.keyval = gdkKeySym;
-    pressEvent->key.state = state;
+    pressEvent->key.state = modifiers;
     pressEvent->key.window = gtk_widget_get_window(GTK_WIDGET(view));
     g_object_ref(pressEvent->key.window);
 #ifndef GTK_API_VERSION_2

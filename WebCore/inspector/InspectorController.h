@@ -50,6 +50,7 @@ class Database;
 class Document;
 class DocumentLoader;
 class Element;
+class FloatRect;
 class GraphicsContext;
 class HitTestResult;
 class InjectedScript;
@@ -72,6 +73,7 @@ class InspectorStorageAgent;
 class InspectorTimelineAgent;
 class InspectorValue;
 class InspectorWorkerResource;
+class IntRect;
 class KURL;
 class Node;
 class Page;
@@ -87,6 +89,11 @@ class StorageArea;
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 class InspectorApplicationCacheAgent;
+#endif
+
+#if ENABLE(WEB_SOCKETS)
+class WebSocketHandshakeRequest;
+class WebSocketHandshakeResponse;
 #endif
 
 class InspectorController : public Noncopyable {
@@ -122,6 +129,8 @@ public:
     void saveSessionSettings(const String&);
     void getSettings(RefPtr<InspectorObject>*);
 
+    void restoreInspectorStateFromCookie(const String& inspectorState);
+
     void inspect(Node*);
     void highlight(Node*);
     void hideHighlight();
@@ -136,6 +145,7 @@ public:
     // transport via InspectorClient. After migration, webInspector parameter should
     // be removed.
     void connectFrontend();
+    void reuseFrontend();
     void disconnectFrontend();
 
     void addMessageToConsole(MessageSource, MessageType, MessageLevel, ScriptCallStack*, const String& message);
@@ -158,15 +168,16 @@ public:
 
     void identifierForInitialRequest(unsigned long identifier, DocumentLoader*, const ResourceRequest&);
     void willSendRequest(unsigned long identifier, ResourceRequest&, const ResourceResponse& redirectResponse);
+    void markResourceAsCached(unsigned long identifier);
     void didReceiveResponse(unsigned long identifier, const ResourceResponse&);
     void didReceiveContentLength(unsigned long identifier, int lengthReceived);
-    void didFinishLoading(unsigned long identifier);
+    void didFinishLoading(unsigned long identifier, double finishTime);
     void didFailLoading(unsigned long identifier, const ResourceError&);
     void resourceRetrievedByXMLHttpRequest(unsigned long identifier, const ScriptString& sourceString, const String& url, const String& sendURL, unsigned sendLineNumber);
     void scriptImported(unsigned long identifier, const String& sourceString);
 
-    void enableResourceTracking(bool always = false, bool reload = true);
-    void disableResourceTracking(bool always = false);
+    void setResourceTrackingEnabled(bool enabled);
+    void setResourceTrackingEnabled(bool enabled, bool always, bool* newState);
     bool resourceTrackingEnabled() const { return m_resourceTrackingEnabled; }
 
     void ensureSettingsLoaded();
@@ -209,13 +220,21 @@ public:
     void setDOMStorageItem(long storageId, const String& key, const String& value, bool* success);
     void removeDOMStorageItem(long storageId, const String& key, bool* success);
 #endif
+#if ENABLE(WEB_SOCKETS)
+    void didCreateWebSocket(unsigned long identifier, const KURL& requestURL, const KURL& documentURL);
+    void willSendWebSocketHandshakeRequest(unsigned long identifier, const WebSocketHandshakeRequest&);
+    void didReceiveWebSocketHandshakeResponse(unsigned long identifier, const WebSocketHandshakeResponse&);
+    void didCloseWebSocket(unsigned long identifier);
+#endif
 
     const ResourcesMap& resources() const { return m_resources; }
     InspectorResource* resourceForURL(const String& url);
+    bool resourceContentForURL(const KURL& url, Document* loaderDocument, String* result);
     bool hasFrontend() const { return m_frontend; }
 
     void drawNodeHighlight(GraphicsContext&) const;
     void openInInspectedWindow(const String& url);
+    void drawElementTitle(GraphicsContext&, const IntRect& boundingBox, const FloatRect& overlayRect, WebCore::Settings*) const;
 
     void count(const String& title, unsigned lineNumber, const String& sourceID);
 
@@ -258,13 +277,16 @@ public:
     static const String& inspectorStartsAttachedSettingName();
 
 private:
-    static const String& frontendSettingsSettingName();
+    void updateInspectorStateCookie();
+    void getInspectorState(RefPtr<InspectorObject>* state);
 
     friend class InspectorBackend;
     friend class InspectorBackendDispatcher;
     friend class InjectedScriptHost;
 
     void populateScriptObjects();
+    void restoreDebugger();
+    void restoreProfiler();
     void unbindAllResources();
 
     // Following are used from InspectorBackend and internally.
@@ -272,9 +294,7 @@ private:
     void enableSearchingForNode() { setSearchingForNode(true); }
     void disableSearchingForNode() { setSearchingForNode(false); }
 
-    void setMonitoringXHR(bool enabled);
-    void enableMonitoringXHR() { setMonitoringXHR(true); }
-    void disableMonitoringXHR() { setMonitoringXHR(false); }
+    void setMonitoringXHREnabled(bool enabled, bool* newState);
     void storeLastActivePanel(const String& panelName);
     InspectorDOMAgent* domAgent() { return m_domAgent.get(); }
     void releaseFrontendLifetimeAgents();

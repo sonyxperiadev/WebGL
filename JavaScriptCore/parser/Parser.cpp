@@ -39,7 +39,7 @@ extern int jscyyparse(void*);
 
 namespace JSC {
 
-void Parser::parse(JSGlobalData* globalData, int* errLine, UString* errMsg)
+void Parser::parse(JSGlobalData* globalData, FunctionParameters* parameters, int* errLine, UString* errMsg)
 {
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::JavaScriptParseTimeCounter);
@@ -60,7 +60,7 @@ void Parser::parse(JSGlobalData* globalData, int* errLine, UString* errMsg)
     Lexer& lexer = *globalData->lexer;
     lexer.setCode(*m_source, m_arena);
 
-    int parseError = jsParse(globalData, m_source);
+    int parseError = jsParse(globalData, parameters, m_source);
     int lineNumber = lexer.lineNumber();
     bool lexError = lexer.sawError();
     lexer.clear();
@@ -76,11 +76,12 @@ void Parser::parse(JSGlobalData* globalData, int* errLine, UString* errMsg)
 }
 
 void Parser::didFinishParsing(SourceElements* sourceElements, ParserArenaData<DeclarationStacks::VarStack>* varStack, 
-                              ParserArenaData<DeclarationStacks::FunctionStack>* funcStack, CodeFeatures features, int lastLine, int numConstants)
+                              ParserArenaData<DeclarationStacks::FunctionStack>* funcStack, CodeFeatures features, int lastLine, int numConstants, IdentifierSet& capturedVars)
 {
     m_sourceElements = sourceElements;
     m_varDeclarations = varStack;
     m_funcDeclarations = funcStack;
+    m_capturedVariables.swap(capturedVars);
     m_features = features;
     m_lastLine = lastLine;
     m_numConstants = numConstants;

@@ -44,6 +44,7 @@
 #include "GeolocationPermissionClientQt.h"
 #include "HitTestResult.h"
 #include "Icon.h"
+#include "NetworkingContext.h"
 #include "NotImplemented.h"
 #include "NotificationPresenterClientQt.h"
 #include "PageClientQt.h"
@@ -73,6 +74,8 @@
 #include <qtooltip.h>
 
 namespace WebCore {
+
+bool ChromeClientQt::dumpVisitedLinksCallbacks = false;
 
 ChromeClientQt::ChromeClientQt(QWebPage* webPage)
     : m_webPage(webPage)
@@ -294,22 +297,22 @@ void ChromeClientQt::closeWindowSoon()
 void ChromeClientQt::runJavaScriptAlert(Frame* f, const String& msg)
 {
     QString x = msg;
-    FrameLoaderClientQt* fl = static_cast<FrameLoaderClientQt*>(f->loader()->client());
-    m_webPage->javaScriptAlert(fl->webFrame(), x);
+    QWebFrame* webFrame = qobject_cast<QWebFrame*>(f->loader()->networkingContext()->originatingObject());
+    m_webPage->javaScriptAlert(webFrame, x);
 }
 
 bool ChromeClientQt::runJavaScriptConfirm(Frame* f, const String& msg)
 {
     QString x = msg;
-    FrameLoaderClientQt* fl = static_cast<FrameLoaderClientQt*>(f->loader()->client());
-    return m_webPage->javaScriptConfirm(fl->webFrame(), x);
+    QWebFrame* webFrame = qobject_cast<QWebFrame*>(f->loader()->networkingContext()->originatingObject());
+    return m_webPage->javaScriptConfirm(webFrame, x);
 }
 
 bool ChromeClientQt::runJavaScriptPrompt(Frame* f, const String& message, const String& defaultValue, String& result)
 {
     QString x = result;
-    FrameLoaderClientQt* fl = static_cast<FrameLoaderClientQt*>(f->loader()->client());
-    bool rc = m_webPage->javaScriptPrompt(fl->webFrame(), (QString)message, (QString)defaultValue, &x);
+    QWebFrame* webFrame = qobject_cast<QWebFrame*>(f->loader()->networkingContext()->originatingObject());
+    bool rc = m_webPage->javaScriptPrompt(webFrame, (QString)message, (QString)defaultValue, &x);
 
     // Fix up a quirk in the QInputDialog class. If no input happened the string should be empty
     // but it is null. See https://bugs.webkit.org/show_bug.cgi?id=30914.
@@ -444,7 +447,8 @@ PlatformPageClient ChromeClientQt::platformPageClient() const
 
 void ChromeClientQt::contentsSizeChanged(Frame* frame, const IntSize& size) const
 {
-    emit QWebFramePrivate::kit(frame)->contentsSizeChanged(size);
+    if (frame->loader()->networkingContext())
+        QWebFramePrivate::kit(frame)->contentsSizeChanged(size);
 }
 
 void ChromeClientQt::mouseDidMoveOverElement(const HitTestResult& result, unsigned)
@@ -640,22 +644,9 @@ QWebSelectMethod* ChromeClientQt::createSelectPopup() const
 
 void ChromeClientQt::didReceiveViewportArguments(Frame* frame, const ViewportArguments& arguments) const
 {
-    if (m_webPage->mainFrame()->d->initialLayoutComplete)
-        return;
+    m_webPage->mainFrame()->d->viewportArguments = arguments;
 
-    QSize viewportSize(arguments.width, arguments.height);
-    bool isUserScalable = arguments.userScalable == 1;
-
-    QWebPage::ViewportHints hints;
-    hints.m_isValid = true;
-    hints.m_size = viewportSize;
-    hints.m_initialScaleFactor = arguments.initialScale;
-    hints.m_minimumScaleFactor = arguments.minimumScale;
-    hints.m_maximumScaleFactor = arguments.maximumScale;
-    hints.m_targetDensityDpi = arguments.targetDensityDpi;
-    hints.m_isUserScalable = isUserScalable;
-
-    emit m_webPage->viewportChangeRequested(hints);
+    emit m_webPage->viewportChangeRequested();
 }
 
 bool ChromeClientQt::selectItemWritingDirectionIsNatural()
@@ -671,6 +662,16 @@ PassRefPtr<PopupMenu> ChromeClientQt::createPopupMenu(PopupMenuClient* client) c
 PassRefPtr<SearchPopupMenu> ChromeClientQt::createSearchPopupMenu(PopupMenuClient* client) const
 {
     return adoptRef(new SearchPopupMenuQt(createPopupMenu(client)));
+}
+
+void ChromeClientQt::populateVisitedLinks()
+{
+    // We don't need to do anything here because history is tied to QWebPage rather than stored
+    // in a separate database
+    if (dumpVisitedLinksCallbacks) {
+        printf("Asked to populate visited links for WebView \"%s\"\n",
+                qPrintable(m_webPage->mainFrame()->url().toString()));
+    }
 }
 
 } // namespace WebCore

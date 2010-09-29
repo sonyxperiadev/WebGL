@@ -38,6 +38,7 @@
 #include "ResourceHandleWin.h"
 #include "Timer.h"
 #include "WebCoreInstanceHandle.h"
+
 #include <wtf/text/CString.h>
 #include <windows.h>
 #include <wininet.h>
@@ -144,7 +145,7 @@ public:
 
     virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse&);
     virtual void didReceiveData(ResourceHandle*, const char*, int, int lengthReceived);
-    virtual void didFinishLoading(ResourceHandle*);
+    virtual void didFinishLoading(ResourceHandle*, double /*finishTime*/);
     virtual void didFail(ResourceHandle*, const ResourceError&);
 
 private:
@@ -170,7 +171,7 @@ void WebCoreSynchronousLoader::didReceiveData(ResourceHandle*, const char* data,
     m_data.append(data, length);
 }
 
-void WebCoreSynchronousLoader::didFinishLoading(ResourceHandle*)
+void WebCoreSynchronousLoader::didFinishLoading(ResourceHandle*, double)
 {
 }
 
@@ -349,7 +350,7 @@ void ResourceHandle::onRequestComplete(LPARAM lParam)
         InternetCloseHandle(d->m_secondaryHandle);
     InternetCloseHandle(d->m_resourceHandle);
 
-    client()->didFinishLoading(this);
+    client()->didFinishLoading(this, 0);
     delete this;
 }
 
@@ -406,7 +407,7 @@ static void __stdcall transferJobStatusCallback(HINTERNET internetHandle,
     PostMessage(transferJobWindowHandle, msg, (WPARAM) jobId, lParam);
 }
 
-bool ResourceHandle::start(Frame* frame)
+bool ResourceHandle::start(NetworkingContext* context)
 {
     ref();
     if (request().url().isLocalFile()) {
@@ -415,7 +416,7 @@ bool ResourceHandle::start(Frame* frame)
     } else {
         static HINTERNET internetHandle = 0;
         if (!internetHandle) {
-            String userAgentStr = frame->loader()->userAgent(request().url()) + String("", 1);
+            String userAgentStr = context->userAgent() + String("", 1);
             LPCWSTR userAgent = reinterpret_cast<const WCHAR*>(userAgentStr.characters());
             // leak the Internet for now
             internetHandle = InternetOpen(userAgent, INTERNET_OPEN_TYPE_PRECONFIG, 0, 0, INTERNET_FLAG_ASYNC);
@@ -438,7 +439,7 @@ bool ResourceHandle::start(Frame* frame)
         // For form posting, we can't use InternetOpenURL.  We have to use
         // InternetConnect followed by HttpSendRequest.
         HINTERNET urlHandle;
-        String referrer = frame->loader()->referrer();
+        String referrer = context->referrer();
         if (request().httpMethod() == "POST") {
             d->m_postReferrer = referrer;
             String host = request().url().host();
@@ -511,7 +512,7 @@ void ResourceHandle::fileLoadTimer(Timer<ResourceHandle>*)
 
     CloseHandle(fileHandle);
 
-    client()->didFinishLoading(this);
+    client()->didFinishLoading(this, 0);
 }
 
 void ResourceHandle::cancel()
@@ -521,7 +522,7 @@ void ResourceHandle::cancel()
     else
         d->m_fileLoadTimer.stop();
 
-    client()->didFinishLoading(this); 
+    client()->didFinishLoading(this, 0); 
 
     if (!d->m_resourceHandle)
         // Async load canceled before we have a handle -- mark ourselves as in error, to be deleted later.

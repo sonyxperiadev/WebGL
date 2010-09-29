@@ -122,6 +122,13 @@ static void pasteClipboardCallback(GtkWidget* widget, EditorClient* client)
     client->addPendingEditorCommand("Paste");
 }
 
+static void toggleOverwriteCallback(GtkWidget* widget, EditorClient* client)
+{
+    // We don't support toggling the overwrite mode, but the default callback expects
+    // the GtkTextView to have a layout, so we handle this signal just to stop it.
+    g_signal_stop_emission_by_name(widget, "toggle-overwrite");
+}
+
 static const char* const gtkDeleteCommands[][2] = {
     { "DeleteBackward",               "DeleteForward"                        }, // Characters
     { "DeleteWordBackward",           "DeleteWordForward"                    }, // Word ends
@@ -229,15 +236,15 @@ void EditorClient::setInputMethodState(bool active)
     WebKitWebViewPrivate* priv = m_webView->priv;
 
     if (active)
-        gtk_im_context_focus_in(priv->imContext);
+        gtk_im_context_focus_in(priv->imContext.get());
     else
-        gtk_im_context_focus_out(priv->imContext);
+        gtk_im_context_focus_out(priv->imContext.get());
 
 #ifdef MAEMO_CHANGES
     if (active)
-        hildon_gtk_im_context_show(priv->imContext);
+        hildon_gtk_im_context_show(priv->imContext.get());
     else
-        hildon_gtk_im_context_hide(priv->imContext);
+        hildon_gtk_im_context_hide(priv->imContext.get());
 #endif
 }
 
@@ -341,6 +348,31 @@ static void collapseSelection(GtkClipboard* clipboard, WebKitWebView* webView)
     frame->selection()->setBase(frame->selection()->extent(), frame->selection()->affinity());
 }
 
+#if PLATFORM(X11)
+static void setSelectionPrimaryClipboardIfNeeded(WebKitWebView* webView)
+{
+    if (!gtk_widget_has_screen(GTK_WIDGET(webView)))
+        return;
+
+    GtkClipboard* clipboard = gtk_widget_get_clipboard(GTK_WIDGET(webView), GDK_SELECTION_PRIMARY);
+    DataObjectGtk* dataObject = DataObjectGtk::forClipboard(clipboard);
+    WebCore::Page* corePage = core(webView);
+    Frame* targetFrame = corePage->focusController()->focusedOrMainFrame();
+
+    if (!targetFrame->selection()->isRange())
+        return;
+
+    dataObject->clear();
+    dataObject->setRange(targetFrame->selection()->toNormalizedRange());
+
+    viewSettingClipboard = webView;
+    GClosure* callback = g_cclosure_new_object(G_CALLBACK(collapseSelection), G_OBJECT(webView));
+    g_closure_set_marshal(callback, g_cclosure_marshal_VOID__VOID);
+    pasteboardHelperInstance()->writeClipboardContents(clipboard, callback);
+    viewSettingClipboard = 0;
+}
+#endif
+
 void EditorClient::respondToChangedSelection()
 {
     WebKitWebViewPrivate* priv = m_webView->priv;
@@ -354,19 +386,7 @@ void EditorClient::respondToChangedSelection()
         return;
 
 #if PLATFORM(X11)
-    GtkClipboard* clipboard = gtk_widget_get_clipboard(GTK_WIDGET(m_webView), GDK_SELECTION_PRIMARY);
-    DataObjectGtk* dataObject = DataObjectGtk::forClipboard(clipboard);
-
-    if (targetFrame->selection()->isRange()) {
-        dataObject->clear();
-        dataObject->setRange(targetFrame->selection()->toNormalizedRange());
-
-        viewSettingClipboard = m_webView;
-        GClosure* callback = g_cclosure_new_object(G_CALLBACK(collapseSelection), G_OBJECT(m_webView));
-        g_closure_set_marshal(callback, g_cclosure_marshal_VOID__VOID);
-        pasteboardHelperInstance()->writeClipboardContents(clipboard, callback);
-        viewSettingClipboard = 0;
-    }
+    setSelectionPrimaryClipboardIfNeeded(m_webView);
 #endif
 
     if (!targetFrame->editor()->hasComposition())
@@ -376,7 +396,7 @@ void EditorClient::respondToChangedSelection()
     unsigned end;
     if (!targetFrame->editor()->getCompositionSelection(start, end)) {
         // gtk_im_context_reset() clears the composition for us.
-        gtk_im_context_reset(priv->imContext);
+        gtk_im_context_reset(priv->imContext.get());
         targetFrame->editor()->confirmCompositionWithoutDisturbingSelection();
     }
 }
@@ -710,7 +730,7 @@ void EditorClient::handleInputMethodKeydown(KeyboardEvent* event)
     m_treatContextCommitAsKeyEvent = (!targetFrame->editor()->hasComposition())
          && event->keyEvent()->gdkEventKey()->keyval;
     clearPendingComposition();
-    if ((gtk_im_context_filter_keypress(priv->imContext, event->keyEvent()->gdkEventKey()) && !m_pendingComposition)
+    if ((gtk_im_context_filter_keypress(priv->imContext.get(), event->keyEvent()->gdkEventKey()) && !m_pendingComposition)
         || (!m_treatContextCommitAsKeyEvent && !targetFrame->editor()->hasComposition()))
         event->preventDefault();
 
@@ -730,12 +750,12 @@ void EditorClient::handleInputMethodMousePress()
     // In this case, if the focused node is changed, the commit signal happens in a diffrent node.
     // Therefore, we need to confirm the current compositon and ignore the next commit signal. 
     GOwnPtr<gchar> newPreedit(0);
-    gtk_im_context_get_preedit_string(priv->imContext, &newPreedit.outPtr(), 0, 0);
+    gtk_im_context_get_preedit_string(priv->imContext.get(), &newPreedit.outPtr(), 0, 0);
     
     if (g_utf8_strlen(newPreedit.get(), -1)) {
         targetFrame->editor()->confirmComposition();
         m_preventNextCompositionCommit = true;
-        gtk_im_context_reset(priv->imContext);
+        gtk_im_context_reset(priv->imContext.get());
     } 
 }
 
@@ -747,8 +767,8 @@ EditorClient::EditorClient(WebKitWebView* webView)
     , m_nativeWidget(gtk_text_view_new())
 {
     WebKitWebViewPrivate* priv = m_webView->priv;
-    g_signal_connect(priv->imContext, "commit", G_CALLBACK(imContextCommitted), this);
-    g_signal_connect(priv->imContext, "preedit-changed", G_CALLBACK(imContextPreeditChanged), this);
+    g_signal_connect(priv->imContext.get(), "commit", G_CALLBACK(imContextCommitted), this);
+    g_signal_connect(priv->imContext.get(), "preedit-changed", G_CALLBACK(imContextPreeditChanged), this);
 
     g_signal_connect(m_nativeWidget.get(), "backspace", G_CALLBACK(backspaceCallback), this);
     g_signal_connect(m_nativeWidget.get(), "cut-clipboard", G_CALLBACK(cutClipboardCallback), this);
@@ -757,13 +777,14 @@ EditorClient::EditorClient(WebKitWebView* webView)
     g_signal_connect(m_nativeWidget.get(), "select-all", G_CALLBACK(selectAllCallback), this);
     g_signal_connect(m_nativeWidget.get(), "move-cursor", G_CALLBACK(moveCursorCallback), this);
     g_signal_connect(m_nativeWidget.get(), "delete-from-cursor", G_CALLBACK(deleteFromCursorCallback), this);
+    g_signal_connect(m_nativeWidget.get(), "toggle-overwrite", G_CALLBACK(toggleOverwriteCallback), this);
 }
 
 EditorClient::~EditorClient()
 {
     WebKitWebViewPrivate* priv = m_webView->priv;
-    g_signal_handlers_disconnect_by_func(priv->imContext, (gpointer)imContextCommitted, this);
-    g_signal_handlers_disconnect_by_func(priv->imContext, (gpointer)imContextPreeditChanged, this);
+    g_signal_handlers_disconnect_by_func(priv->imContext.get(), (gpointer)imContextCommitted, this);
+    g_signal_handlers_disconnect_by_func(priv->imContext.get(), (gpointer)imContextPreeditChanged, this);
 }
 
 void EditorClient::textFieldDidBeginEditing(Element*)

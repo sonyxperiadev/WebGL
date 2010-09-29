@@ -487,21 +487,6 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     return dataSource(_private->coreFrame->loader()->documentLoader());
 }
 
-- (void)_addData:(NSData *)data
-{
-    Document* document = _private->coreFrame->document();
-    
-    // Document may be nil if the part is about to redirect
-    // as a result of JS executing during load, i.e. one frame
-    // changing another's location before the frame's document
-    // has been created. 
-    if (!document)
-        return;
-
-    document->setShouldCreateRenderers(_private->shouldCreateRenderers);
-    _private->coreFrame->loader()->addData((const char *)[data bytes], [data length]);
-}
-
 - (NSString *)_stringWithDocumentTypeStringAndMarkupString:(NSString *)markupString
 {
     return _private->coreFrame->documentTypeString() + markupString;
@@ -715,7 +700,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (TextGranularity)_selectionGranularity
 {
-    return _private->coreFrame->selectionGranularity();
+    return _private->coreFrame->selection()->granularity();
 }
 
 - (NSRange)_convertToNSRange:(Range *)range
@@ -859,7 +844,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
         return;
     
     TypingCommand::insertParagraphSeparatorInQuotedContent(_private->coreFrame->document());
-    _private->coreFrame->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
+    _private->coreFrame->selection()->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
 }
 
 - (VisiblePosition)_visiblePositionForPoint:(NSPoint)point
@@ -895,9 +880,9 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (DOMCSSStyleDeclaration *)_typingStyle
 {
-    if (!_private->coreFrame || !_private->coreFrame->typingStyle())
+    if (!_private->coreFrame || !_private->coreFrame->selection()->typingStyle())
         return nil;
-    return kit(_private->coreFrame->typingStyle()->copy().get());
+    return kit(_private->coreFrame->selection()->typingStyle()->copy().get());
 }
 
 - (void)_setTypingStyle:(DOMCSSStyleDeclaration *)style withUndoAction:(EditAction)undoAction
@@ -942,15 +927,13 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     return [self _canProvideDocumentSource];
 }
 
-- (void)_receivedData:(NSData *)data textEncodingName:(NSString *)textEncodingName
+- (void)_commitData:(NSData *)data
 {
-    // Set the encoding. This only needs to be done once, but it's harmless to do it again later.
-    String encoding = _private->coreFrame->loader()->documentLoader()->overrideEncoding();
-    bool userChosen = !encoding.isNull();
-    if (encoding.isNull())
-        encoding = textEncodingName;
-    _private->coreFrame->loader()->writer()->setEncoding(encoding, userChosen);
-    [self _addData:data];
+    // FIXME: This really should be a setting.
+    Document* document = _private->coreFrame->document();
+    document->setShouldCreateRenderers(_private->shouldCreateRenderers);
+
+    _private->coreFrame->loader()->documentLoader()->commitData((const char *)[data bytes], [data length]);
 }
 
 @end
@@ -1167,7 +1150,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
         return;
     
     applyCommand(ReplaceSelectionCommand::create(_private->coreFrame->document(), core(fragment), selectReplacement, smartReplace, matchStyle));
-    _private->coreFrame->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
+    _private->coreFrame->selection()->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
 }
 
 - (void)_replaceSelectionWithText:(NSString *)text selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace
@@ -1282,7 +1265,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 {
     if (!_private->coreFrame)
         return YES;
-    return SecurityOrigin::canDisplay(URL, String(), _private->coreFrame->document());
+    return _private->coreFrame->document()->securityOrigin()->canDisplay(URL);
 }
 
 - (NSString *)_stringByEvaluatingJavaScriptFromString:(NSString *)string withGlobalObject:(JSObjectRef)globalObjectRef inScriptWorld:(WebScriptWorld *)world
@@ -1366,38 +1349,12 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     return coreFrame->layerTreeAsText();
 }
 
-static Node* spellingNode(Frame* coreFrame)
-{
-    Node* focusedNode = coreFrame->selection()->start().node();
-    if (!focusedNode || !focusedNode->renderer())
-        return 0;
-
-    for (const RenderObject* renderer = focusedNode->renderer(); renderer; renderer = renderer->childAt(0)) {
-        if (renderer->isText())
-            return renderer->node();
-    }
-    return 0;
-}
-
 - (BOOL)hasSpellingMarker:(int)from length:(int)length
 {
     Frame* coreFrame = _private->coreFrame;
     if (!coreFrame)
         return NO;
-
-    Node* node = spellingNode(coreFrame);
-    if (!node)
-        return NO;
-
-    unsigned int startOffset = static_cast<unsigned int>(from);
-    unsigned int endOffset = static_cast<unsigned int>(from + length);
-    Vector<DocumentMarker> markers = coreFrame->document()->markers()->markersForNode(node);
-    for (size_t i = 0; i < markers.size(); ++i) {
-        DocumentMarker marker = markers[i];
-        if (marker.startOffset <= startOffset && endOffset <= marker.endOffset && marker.type == DocumentMarker::Spelling)
-            return YES;
-    }
-    return NO;
+    return coreFrame->editor()->selectionStartHasSpellingMarkerFor(from, length);
 }
 
 @end

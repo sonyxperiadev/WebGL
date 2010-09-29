@@ -37,6 +37,7 @@
 #include "CSSComputedStyleDeclaration.h"
 #include "CSSMutableStyleDeclaration.h"
 #include "CSSPropertyNames.h"
+#include "CSSPropertySourceData.h"
 #include "CSSRule.h"
 #include "CSSRuleList.h"
 #include "CSSStyleRule.h"
@@ -707,7 +708,7 @@ void InspectorDOMAgent::performSearch(const String& whitespaceTrimmedQuery, bool
             m_pendingMatchJobs.append(new MatchPlainTextJob(document, escapedQuery));
             continue;
         }
-            
+
         m_pendingMatchJobs.append(new MatchExactIdJob(document, whitespaceTrimmedQuery));
         m_pendingMatchJobs.append(new MatchExactClassNamesJob(document, whitespaceTrimmedQuery));
         m_pendingMatchJobs.append(new MatchExactTagNamesJob(document, tagNameQuery));
@@ -776,38 +777,70 @@ void InspectorDOMAgent::removeDOMBreakpoint(long nodeId, long type)
 
 bool InspectorDOMAgent::shouldBreakOnNodeInsertion(Node*, Node* parent, PassRefPtr<InspectorValue>* details)
 {
-    if (!hasBreakpoint(parent, SubtreeModified))
-        return false;
-    RefPtr<InspectorObject> detailsObject = InspectorObject::create();
-    detailsObject->setObject("breakpoint", createBreakpoint(parent, SubtreeModified));
-    *details = detailsObject;
-    return true;
+    if (hasBreakpoint(parent, SubtreeModified)) {
+        *details = descriptionForDOMEvent(parent, SubtreeModified, true);
+        return true;
+    }
+    return false;
 }
 
 bool InspectorDOMAgent::shouldBreakOnNodeRemoval(Node* node, PassRefPtr<InspectorValue>* details)
 {
-    bool hasNodeRemovedBreakpoint = hasBreakpoint(node, NodeRemoved);
-    bool hasAnyBreakpoint = hasNodeRemovedBreakpoint || hasBreakpoint(innerParentNode(node), SubtreeModified);
-    if (!hasAnyBreakpoint)
-        return false;
-
-    RefPtr<InspectorObject> detailsObject = InspectorObject::create();
-    if (hasNodeRemovedBreakpoint)
-        detailsObject->setObject("breakpoint", createBreakpoint(node, NodeRemoved));
-    else
-        detailsObject->setObject("breakpoint", createBreakpoint(innerParentNode(node), SubtreeModified));
-    *details = detailsObject;
-    return true;
+    if (hasBreakpoint(node, NodeRemoved)) {
+        *details = descriptionForDOMEvent(node, NodeRemoved, false);
+        return true;
+    }
+    if (hasBreakpoint(innerParentNode(node), SubtreeModified)) {
+        *details = descriptionForDOMEvent(node, SubtreeModified, false);
+        return true;
+    }
+    return false;
 }
 
 bool InspectorDOMAgent::shouldBreakOnAttributeModification(Element* element, PassRefPtr<InspectorValue>* details)
 {
-    if (!hasBreakpoint(element, AttributeModified))
-        return false;
-    RefPtr<InspectorObject> detailsObject = InspectorObject::create();
-    detailsObject->setObject("breakpoint", createBreakpoint(element, AttributeModified));
-    *details = detailsObject;
-    return true;
+    if (hasBreakpoint(element, AttributeModified)) {
+        *details = descriptionForDOMEvent(element, AttributeModified, false);
+        return true;
+    }
+    return false;
+}
+
+PassRefPtr<InspectorValue> InspectorDOMAgent::descriptionForDOMEvent(Node* target, long breakpointType, bool insertion)
+{
+    ASSERT(hasBreakpoint(target, breakpointType));
+
+    RefPtr<InspectorObject> description = InspectorObject::create();
+    Node* breakpointOwner = target;
+    if ((1 << breakpointType) & inheritableDOMBreakpointTypesMask) {
+        // For inheritable breakpoint types, target node isn't always the same as the node that owns a breakpoint.
+        // Target node may be unknown to frontend, so we need to push it first.
+        long targetNodeId = pushNodePathToFrontend(target);
+        ASSERT(targetNodeId);
+        description->setNumber("targetNodeId", targetNodeId);
+
+        // Find breakpoint owner node.
+        if (!insertion)
+            breakpointOwner = innerParentNode(target);
+        ASSERT(breakpointOwner);
+        while (!(m_breakpoints.get(breakpointOwner) & (1 << breakpointType))) {
+            breakpointOwner = innerParentNode(breakpointOwner);
+            ASSERT(breakpointOwner);
+        }
+
+        if (breakpointType == SubtreeModified)
+            description->setBoolean("insertion", insertion);
+    }
+
+    long breakpointOwnerNodeId = m_documentNodeToIdMap.get(breakpointOwner);
+    ASSERT(breakpointOwnerNodeId);
+
+    RefPtr<InspectorObject> breakpoint = InspectorObject::create();
+    breakpoint->setNumber("nodeId", breakpointOwnerNodeId);
+    breakpoint->setNumber("type", breakpointType);
+    description->setObject("breakpoint", breakpoint);
+
+    return description;
 }
 
 String InspectorDOMAgent::documentURLString(Document* document) const
@@ -1087,23 +1120,6 @@ void InspectorDOMAgent::didModifyDOMAttr(Element* element)
     m_frontend->attributesUpdated(id, buildArrayForElementAttributes(element));
 }
 
-PassRefPtr<InspectorObject> InspectorDOMAgent::createBreakpoint(Node* node, long type)
-{
-    RefPtr<InspectorObject> breakpoint = InspectorObject::create();
-
-    // Find breakpoint owner.
-    while (!(m_breakpoints.get(node) & (1 << type))) {
-        node = innerParentNode(node);
-        ASSERT(node);
-    }
-    long nodeId = m_documentNodeToIdMap.get(node);
-    ASSERT(nodeId);
-
-    breakpoint->setNumber("nodeId", nodeId);
-    breakpoint->setNumber("type", type);
-    return breakpoint.release();
-}
-
 bool InspectorDOMAgent::hasBreakpoint(Node* node, long type)
 {
     uint32_t rootBit = 1 << type;
@@ -1148,7 +1164,7 @@ void InspectorDOMAgent::getStyles(long nodeId, bool authorOnly, RefPtr<Inspector
     result->setObject("computedStyle", buildObjectForStyle(computedStyleInfo.get(), false));
 
     CSSStyleSelector* selector = element->ownerDocument()->styleSelector();
-    RefPtr<CSSRuleList> matchedRules = selector->styleRulesForElement(element, authorOnly);
+    RefPtr<CSSRuleList> matchedRules = selector->styleRulesForElement(element, authorOnly, true);
     result->setArray("matchedCSSRules", buildArrayForCSSRules(node->ownerDocument(), matchedRules.get()));
 
     result->setObject("styleAttributes", buildObjectForAttributeStyles(element));
@@ -1163,7 +1179,7 @@ void InspectorDOMAgent::getStyles(long nodeId, bool authorOnly, RefPtr<Inspector
             parentStyle->setObject("inlineStyle", buildObjectForStyle(parentElement->style(), true));
 
         CSSStyleSelector* parentSelector = parentElement->ownerDocument()->styleSelector();
-        RefPtr<CSSRuleList> parentMatchedRules = parentSelector->styleRulesForElement(parentElement, authorOnly);
+        RefPtr<CSSRuleList> parentMatchedRules = parentSelector->styleRulesForElement(parentElement, authorOnly, true);
         parentStyle->setArray("matchedCSSRules", buildArrayForCSSRules(parentElement->ownerDocument(), parentMatchedRules.get()));
 
         parentElement = parentElement->parentElement();
@@ -1191,26 +1207,34 @@ void InspectorDOMAgent::getStyleSheet(long styleSheetId, RefPtr<InspectorObject>
         *styleSheetObject = buildObjectForStyleSheet(styleSheet->document(), styleSheet);
 }
 
-void InspectorDOMAgent::getRuleRanges(long styleSheetId, RefPtr<InspectorValue>* ruleRange)
+void InspectorDOMAgent::getStyleSourceData(long styleId, RefPtr<InspectorObject>* dataObject)
 {
-    CSSStyleSheet* styleSheet = cssStore()->styleSheetForId(styleSheetId);
-    if (styleSheet && styleSheet->document()) {
-        HashMap<long, SourceRange> ruleRanges = cssStore()->getRuleRanges(styleSheet);
-        if (!ruleRanges.size())
-            return;
-        RefPtr<InspectorObject> result = InspectorObject::create();
-        for (HashMap<long, SourceRange>::iterator it = ruleRanges.begin(); it != ruleRanges.end(); ++it) {
-            if (it->second.second) {
-                RefPtr<InspectorObject> ruleRange = InspectorObject::create();
-                result->setObject(String::number(it->first).utf8().data(), ruleRange);
-                RefPtr<InspectorObject> bodyRange = InspectorObject::create();
-                ruleRange->setObject("bodyRange", bodyRange);
-                bodyRange->setNumber("start", it->second.first);
-                bodyRange->setNumber("end", it->second.second);
-            }
-        }
-        *ruleRange = result.release();
+    CSSStyleDeclaration* style = cssStore()->styleForId(styleId);
+    if (!style)
+        return;
+    RefPtr<CSSStyleSourceData> sourceData = CSSStyleSourceData::create();
+    bool success = cssStore()->getStyleSourceData(style, &sourceData);
+    if (!success)
+        return;
+    RefPtr<InspectorObject> result = InspectorObject::create();
+    RefPtr<InspectorObject> bodyRange = InspectorObject::create();
+    result->setObject("bodyRange", bodyRange);
+    bodyRange->setNumber("start", sourceData->styleBodyRange.start);
+    bodyRange->setNumber("end", sourceData->styleBodyRange.end);
+    RefPtr<InspectorArray> propertyRanges = InspectorArray::create();
+    result->setArray("propertyData", propertyRanges);
+    Vector<CSSPropertySourceData>& propertyData = sourceData->propertyData;
+    for (Vector<CSSPropertySourceData>::iterator it = propertyData.begin(); it != propertyData.end(); ++it) {
+        RefPtr<InspectorObject> propertyRange = InspectorObject::create();
+        propertyRange->setString("name", it->name);
+        propertyRange->setString("value", it->value);
+        propertyRange->setBoolean("important", it->important);
+        propertyRange->setBoolean("parsed", it->parsedOk);
+        propertyRange->setNumber("start", it->range.start);
+        propertyRange->setNumber("end", it->range.end);
+        propertyRanges->pushObject(propertyRange);
     }
+    *dataObject = result.release();
 }
 
 void InspectorDOMAgent::getInlineStyle(long nodeId, RefPtr<InspectorValue>* style)
@@ -1267,7 +1291,7 @@ PassRefPtr<InspectorArray> InspectorDOMAgent::buildArrayForPseudoElements(Elemen
     RefPtr<RenderStyle> renderStyle = element->styleForRenderer();
 
     for (PseudoId pseudoId = FIRST_PUBLIC_PSEUDOID; pseudoId < AFTER_LAST_INTERNAL_PSEUDOID; pseudoId = static_cast<PseudoId>(pseudoId + 1)) {
-        RefPtr<CSSRuleList> matchedRules = selector->pseudoStyleRulesForElement(element, pseudoId, authorOnly);
+        RefPtr<CSSRuleList> matchedRules = selector->pseudoStyleRulesForElement(element, pseudoId, authorOnly, true);
         if (matchedRules && matchedRules->length()) {
             RefPtr<InspectorObject> pseudoStyles = InspectorObject::create();
             pseudoStyles->setNumber("pseudoId", static_cast<int>(pseudoId));
@@ -1469,7 +1493,7 @@ PassRefPtr<InspectorObject> InspectorDOMAgent::buildObjectForStyle(CSSStyleDecla
     if (bind) {
         long styleId = cssStore()->bindStyle(style);
         result->setNumber("id", styleId);
-        CSSStyleSheet* parentStyleSheet = getParentStyleSheet(style);
+        CSSStyleSheet* parentStyleSheet = InspectorCSSStore::getParentStyleSheet(style);
         if (parentStyleSheet)
             result->setNumber("parentStyleSheetId", cssStore()->bindStyleSheet(parentStyleSheet));
 
@@ -1679,20 +1703,6 @@ PassRefPtr<InspectorArray> InspectorDOMAgent::toArray(const Vector<String>& data
     for (unsigned i = 0; i < data.size(); ++i)
         result->pushString(data[i]);
     return result.release();
-}
-
-CSSStyleSheet* InspectorDOMAgent::getParentStyleSheet(CSSStyleDeclaration* style)
-{
-    CSSStyleSheet* parentStyleSheet = style->parentRule() ? style->parentRule()->parentStyleSheet() : 0;
-    if (!parentStyleSheet) {
-        StyleBase* parent = style->parent();
-        if (parent && parent->isCSSStyleSheet()) {
-            parentStyleSheet = static_cast<CSSStyleSheet*>(parent);
-            if (!parentStyleSheet->length())
-                return 0;
-        }
-    }
-    return parentStyleSheet;
 }
 
 void InspectorDOMAgent::onMatchJobsTimer(Timer<InspectorDOMAgent>*)

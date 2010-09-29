@@ -980,7 +980,7 @@ void RenderBox::mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool
     if (RenderView* v = view()) {
         if (v->layoutStateEnabled() && !repaintContainer) {
             LayoutState* layoutState = v->layoutState();
-            IntSize offset = layoutState->m_offset;
+            IntSize offset = layoutState->m_paintOffset;
             offset.expand(x(), y());
             if (style()->position() == RelativePosition && layer())
                 offset += layer()->relativePositionOffset();
@@ -1177,7 +1177,7 @@ void RenderBox::computeRectForRepaint(RenderBoxModelObject* repaintContainer, In
                 rect.move(layer()->relativePositionOffset());
 
             rect.move(x(), y());
-            rect.move(layoutState->m_offset);
+            rect.move(layoutState->m_paintOffset);
             if (layoutState->m_clipped)
                 rect.intersect(layoutState->m_clipRect);
             return;
@@ -1584,11 +1584,11 @@ void RenderBox::calcHeight()
     // is specified. When we're printing, we also need this quirk if the body or root has a percentage 
     // height since we don't set a height in RenderView when we're printing. So without this quirk, the 
     // height has nothing to be a percentage of, and it ends up being 0. That is bad.
-    bool paginatedContentNeedsBaseHeight = document()->paginated() && h.isPercent()
+    bool paginatedContentNeedsBaseHeight = document()->printing() && h.isPercent()
         && (isRoot() || (isBody() && document()->documentElement()->renderer()->style()->height().isPercent()));
     if (stretchesToViewHeight() || paginatedContentNeedsBaseHeight) {
         int margins = collapsedMarginTop() + collapsedMarginBottom();
-        int visHeight = document()->printing() ? view()->frameView()->pageHeight() : view()->viewHeight();
+        int visHeight = document()->printing() ? view()->pageHeight() : view()->viewHeight();
         if (isRoot())
             setHeight(max(height(), visHeight - margins));
         else {
@@ -1801,6 +1801,13 @@ int RenderBox::availableHeightUsing(const Length& h) const
     }
 
     return containingBlock()->availableHeight();
+}
+
+int RenderBox::availableLogicalWidth() const
+{
+    if (style()->isVerticalBlockFlow())
+        return contentWidth();
+    return contentHeight();
 }
 
 void RenderBox::calcVerticalMargins()
@@ -2982,6 +2989,21 @@ void RenderBox::clearLayoutOverflow()
     }
     
     m_overflow->resetLayoutOverflow(borderBoxRect());
+}
+
+void RenderBox::markDescendantBlocksAndLinesForLayout(bool inLayout)
+{
+    if (!m_everHadLayout || isReplaced())
+        return;
+
+    setChildNeedsLayout(true, !inLayout);
+
+    // Iterate over our children and mark them as needed.
+    for (RenderBox* child = firstChildBox(); child; child = child->nextSiblingBox()) {
+        if (child->isFloatingOrPositioned())
+            continue;
+        child->markDescendantBlocksAndLinesForLayout(inLayout);
+    }
 }
 
 } // namespace WebCore

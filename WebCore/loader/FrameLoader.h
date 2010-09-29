@@ -157,7 +157,6 @@ public:
     const ResourceRequest& originalRequest() const;
     const ResourceRequest& initialRequest() const;
     void receivedMainResourceError(const ResourceError&, bool isComplete);
-    void receivedData(const char*, int);
 
     bool willLoadMediaElementURL(KURL&);
 
@@ -183,7 +182,6 @@ public:
 
     void didReceiveServerRedirectForProvisionalLoadForFrame();
     void finishedLoadingDocument(DocumentLoader*);
-    void committedLoad(DocumentLoader*, const char*, int);
     bool isReplacing() const;
     void setReplacing();
     void revertToProvisional(DocumentLoader*);
@@ -266,8 +264,6 @@ public:
 
     void resetMultipleFormSubmissionProtection();
 
-    void addData(const char* bytes, int length);
-
     void checkCallImplicitClose();
 
     void frameDetached();
@@ -337,7 +333,7 @@ public:
 
     bool pageDismissalEventBeingDispatched() const { return m_pageDismissalEventBeingDispatched; }
 
-    inline NetworkingContext* networkingContext() const;
+    NetworkingContext* networkingContext() const;
 
 private:
     bool canCachePageContainingThisFrame();

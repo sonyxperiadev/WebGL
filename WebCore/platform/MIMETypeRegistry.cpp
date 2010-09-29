@@ -104,9 +104,12 @@ static void initializeSupportedImageMIMETypes()
             continue;
 #endif
         String mimeType = MIMETypeRegistry::getMIMETypeForExtension(formats.at(i).constData());
-        supportedImageMIMETypes->add(mimeType);
-        supportedImageResourceMIMETypes->add(mimeType);
+        if (!mimeType.isEmpty()) {
+            supportedImageMIMETypes->add(mimeType);
+            supportedImageResourceMIMETypes->add(mimeType);
+        }
     }
+<<<<<<< HEAD
 
     supportedImageMIMETypes->remove("application/octet-stream");
     supportedImageResourceMIMETypes->remove("application/octet-stream");
@@ -132,6 +135,8 @@ static void initializeSupportedImageMIMETypes()
 #if !ENABLE(XSLT)
     supportedNonImageMIMETypes->remove("text/xsl");
 #endif
+=======
+>>>>>>> webkit.org at r67908
 #else
     // assume that all implementations at least support the following standard
     // image types:
@@ -176,10 +181,9 @@ static void initializeSupportedImageMIMETypesForEncoding()
     QList<QByteArray> formats = QImageWriter::supportedImageFormats();
     for (int i = 0; i < formats.size(); ++i) {
         String mimeType = MIMETypeRegistry::getMIMETypeForExtension(formats.at(i).constData());
-        supportedImageMIMETypesForEncoding->add(mimeType);
+        if (!mimeType.isEmpty())
+            supportedImageMIMETypesForEncoding->add(mimeType);
     }
-
-    supportedImageMIMETypesForEncoding->remove("application/octet-stream");
 #elif PLATFORM(GTK)
     supportedImageMIMETypesForEncoding->add("image/png");
     supportedImageMIMETypesForEncoding->add("image/jpeg");

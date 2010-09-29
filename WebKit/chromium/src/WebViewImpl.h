@@ -31,9 +31,9 @@
 #ifndef WebViewImpl_h
 #define WebViewImpl_h
 
-#include "WebGLES2Context.h"
 #include "WebNavigationPolicy.h"
 #include "WebPoint.h"
+#include "WebRect.h"
 #include "WebSize.h"
 #include "WebString.h"
 #include "WebView.h"
@@ -43,8 +43,10 @@
 #include "ContextMenuClientImpl.h"
 #include "DragClientImpl.h"
 #include "EditorClientImpl.h"
+#include "GraphicsContext3D.h"
 #include "GraphicsLayer.h"
 #include "InspectorClientImpl.h"
+#include "IntRect.h"
 #include "LayerRendererChromium.h"
 #include "NotificationPresenterImpl.h"
 #include "SpeechInputClientImpl.h"
@@ -54,7 +56,6 @@
 namespace WebCore {
 class ChromiumDataObject;
 class Frame;
-class GLES2Context;
 class HistoryItem;
 class HitTestResult;
 class KeyboardEvent;
@@ -92,6 +93,8 @@ public:
     virtual void resize(const WebSize&);
     virtual void layout();
     virtual void paint(WebCanvas*, const WebRect&);
+    virtual void themeChanged();
+    virtual void composite(bool finish);
     virtual bool handleInputEvent(const WebInputEvent&);
     virtual void mouseCaptureLost();
     virtual void setFocus(bool enable);
@@ -119,6 +122,7 @@ public:
     virtual void setTabKeyCyclesThroughElements(bool value);
     virtual bool isActive() const;
     virtual void setIsActive(bool value);
+    virtual void setDomainRelaxationForbidden(bool, const WebString& scheme);
     virtual bool dispatchBeforeUnloadEvent();
     virtual void dispatchUnloadEvent();
     virtual WebFrame* mainFrame();
@@ -322,20 +326,27 @@ public:
     }
 
 #if USE(ACCELERATED_COMPOSITING)
-    void setRootLayerNeedsDisplay();
-    void setRootGraphicsLayer(WebCore::PlatformLayer*);
     bool allowsAcceleratedCompositing();
+    void setRootGraphicsLayer(WebCore::PlatformLayer*);
+    void setRootLayerNeedsDisplay();
+    void scrollRootLayerRect(const WebCore::IntSize& scrollDelta, const WebCore::IntRect& clipRect);
+    void invalidateRootLayerRect(const WebCore::IntRect&);
 #endif
-    // Onscreen contexts display to the screen associated with this view.
-    // Offscreen contexts render offscreen but can share resources with the
-    // onscreen context and thus can be composited.
-    PassOwnPtr<WebCore::GLES2Context> getOnscreenGLES2Context();
-
-    // Returns an onscreen context
+    // FIXME: remove this method once the compositor is fully switched
+    // over to GraphicsContext3D.
     virtual WebGLES2Context* gles2Context();
+
+    // Returns the onscreen 3D context used by the compositor. This is
+    // used by the renderer's code to set up resource sharing between
+    // the compositor's context and subordinate contexts for APIs like
+    // WebGL. Returns 0 if compositing support is not compiled in.
+    virtual WebGraphicsContext3D* graphicsContext3D();
+
     virtual WebCore::SharedGraphicsContext3D* getSharedGraphicsContext3D();
 
     WebCore::PopupContainer* selectPopup() const { return m_selectPopup.get(); }
+
+    bool zoomTextOnly() const { return m_zoomTextOnly; }
 
     // Returns true if the event leads to scrolling.
     static bool mapKeyCodeForScroll(int keyCode,
@@ -386,7 +397,9 @@ private:
 
 #if USE(ACCELERATED_COMPOSITING)
     void setIsAcceleratedCompositingActive(bool);
-    void updateRootLayerContents(const WebRect&);
+    void updateRootLayerContents(const WebCore::IntRect&);
+    void doComposite();
+    void doPixelReadbackToCanvas(WebCanvas*, const WebCore::IntRect&);
 #endif
 
     WebViewClient* m_client;
@@ -432,6 +445,8 @@ private:
     // Keeps track of the current zoom level. 0 means no zoom, positive numbers
     // mean zoom in, negative numbers mean zoom out.
     int m_zoomLevel;
+
+    bool m_zoomTextOnly;
 
     bool m_contextMenuAllowed;
 
@@ -511,6 +526,7 @@ private:
     RefPtr<WebCore::Node> m_mouseCaptureNode;
 
 #if USE(ACCELERATED_COMPOSITING)
+    WebCore::IntRect m_scrollDamage;
     OwnPtr<WebCore::LayerRendererChromium> m_layerRenderer;
     bool m_isAcceleratedCompositingActive;
     bool m_compositorCreationFailed;
@@ -520,8 +536,10 @@ private:
 #if ENABLE(INPUT_SPEECH)
     SpeechInputClientImpl m_speechInputClient;
 #endif
-
-    OwnPtr<WebGLES2Context> m_gles2Context;
+    // If we attempt to fetch the on-screen GraphicsContext3D before
+    // the compositor has been turned on, we need to instantiate it
+    // early. This member holds on to the GC3D in this case.
+    OwnPtr<WebCore::GraphicsContext3D> m_temporaryOnscreenGraphicsContext3D;
 
     RefPtr<WebCore::SharedGraphicsContext3D> m_sharedContext3D;
 

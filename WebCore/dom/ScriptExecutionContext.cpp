@@ -87,20 +87,17 @@ ScriptExecutionContext::~ScriptExecutionContext()
         m_databaseThread = 0;
     }
 #endif
-#if ENABLE(BLOB) || ENABLE(FILE_WRITER)
+#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
     if (m_fileThread) {
         m_fileThread->stop();
         m_fileThread = 0;
     }
 #endif
 
-    HashSet<Blob*>::iterator blobsEnd = m_blobs.end();
-    for (HashSet<Blob*>::iterator iter = m_blobs.begin(); iter != blobsEnd; ++iter)
-        (*iter)->contextDestroyed();
 #if ENABLE(BLOB)
     HashSet<String>::iterator publicBlobURLsEnd = m_publicBlobURLs.end();
     for (HashSet<String>::iterator iter = m_publicBlobURLs.begin(); iter != publicBlobURLsEnd; ++iter)
-        ThreadableBlobRegistry::unregisterBlobURL(this, KURL(ParsedURLString, *iter));
+        ThreadableBlobRegistry::unregisterBlobURL(KURL(ParsedURLString, *iter));
 #endif
 }
 
@@ -175,18 +172,6 @@ void ScriptExecutionContext::destroyedMessagePort(MessagePort* port)
     m_messagePorts.remove(port);
 }
 
-void ScriptExecutionContext::addBlob(Blob* blob)
-{
-    ASSERT(blob);
-    m_blobs.add(blob);
-}
-
-void ScriptExecutionContext::removeBlob(Blob* blob)
-{
-    ASSERT(blob);
-    m_blobs.remove(blob);
-}
-
 bool ScriptExecutionContext::canSuspendActiveDOMObjects()
 {
     // No protection against m_activeDOMObjects changing during iteration: canSuspend() shouldn't execute arbitrary JS.
@@ -199,13 +184,13 @@ bool ScriptExecutionContext::canSuspendActiveDOMObjects()
     return true;
 }
 
-void ScriptExecutionContext::suspendActiveDOMObjects()
+void ScriptExecutionContext::suspendActiveDOMObjects(ActiveDOMObject::ReasonForSuspension why)
 {
     // No protection against m_activeDOMObjects changing during iteration: suspend() shouldn't execute arbitrary JS.
     HashMap<ActiveDOMObject*, void*>::iterator activeObjectsEnd = m_activeDOMObjects.end();
     for (HashMap<ActiveDOMObject*, void*>::iterator iter = m_activeDOMObjects.begin(); iter != activeObjectsEnd; ++iter) {
         ASSERT(iter->first->scriptExecutionContext() == this);
-        iter->first->suspend();
+        iter->first->suspend(why);
     }
 }
 
@@ -277,8 +262,10 @@ DOMTimer* ScriptExecutionContext::findTimeout(int timeoutId)
 #if ENABLE(BLOB)
 KURL ScriptExecutionContext::createPublicBlobURL(Blob* blob)
 {
-    KURL publicURL = BlobURL::createURL(this);
-    ThreadableBlobRegistry::registerBlobURL(this, publicURL, blob->url());
+    if (!blob)
+        return KURL();
+    KURL publicURL = BlobURL::createPublicURL(securityOrigin());
+    ThreadableBlobRegistry::registerBlobURL(publicURL, blob->url());
     m_publicBlobURLs.add(publicURL.string());
     return publicURL;
 }
@@ -286,13 +273,13 @@ KURL ScriptExecutionContext::createPublicBlobURL(Blob* blob)
 void ScriptExecutionContext::revokePublicBlobURL(const KURL& url)
 {
     if (m_publicBlobURLs.contains(url.string())) {
-        ThreadableBlobRegistry::unregisterBlobURL(this, url);
+        ThreadableBlobRegistry::unregisterBlobURL(url);
         m_publicBlobURLs.remove(url.string());
     }
 }
 #endif
 
-#if ENABLE(BLOB) || ENABLE(FILE_WRITER)
+#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
 FileThread* ScriptExecutionContext::fileThread()
 {
     if (!m_fileThread) {

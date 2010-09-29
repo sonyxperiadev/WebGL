@@ -44,6 +44,7 @@
 #include "CSSPrimitiveValue.h"
 #include "CSSProperty.h"
 #include "CSSPropertyNames.h"
+#include "CSSPropertySourceData.h"
 #include "CSSQuirkPrimitiveValue.h"
 #include "CSSReflectValue.h"
 #include "CSSRuleList.h"
@@ -151,7 +152,10 @@ CSSParser::CSSParser(bool strictParsing)
     , m_defaultNamespace(starAtom)
     , m_ruleBodyStartOffset(0)
     , m_ruleBodyEndOffset(0)
-    , m_ruleRanges(0)
+    , m_propertyStartOffset(UINT_MAX)
+    , m_propertyEndOffset(UINT_MAX)
+    , m_ruleRangeMap(0)
+    , m_currentStyleData(0)
     , m_data(0)
     , yy_start(1)
     , m_lineNumber(0)
@@ -163,6 +167,7 @@ CSSParser::CSSParser(bool strictParsing)
 #if YYDEBUG > 0
     cssyydebug = 1;
 #endif
+    CSSPropertySourceData::init();
 }
 
 CSSParser::~CSSParser()
@@ -225,19 +230,22 @@ void CSSParser::setupParser(const char* prefix, const String& string, const char
     resetRuleBodyMarks();
 }
 
-void CSSParser::parseSheet(CSSStyleSheet* sheet, const String& string, int startLineNumber, StyleRuleRanges* ruleRangeMap)
+void CSSParser::parseSheet(CSSStyleSheet* sheet, const String& string, int startLineNumber, StyleRuleRangeMap* ruleRangeMap)
 {
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
 #endif
     m_styleSheet = sheet;
     m_defaultNamespace = starAtom; // Reset the default namespace.
-    m_ruleRanges = ruleRangeMap;
+    m_ruleRangeMap = ruleRangeMap;
+    if (ruleRangeMap)
+        m_currentStyleData = CSSStyleSourceData::create();
 
     m_lineNumber = startLineNumber;
     setupParser("", string, "");
     cssyyparse(this);
-    m_ruleRanges = 0;
+    m_ruleRangeMap = 0;
+    m_currentStyleData = 0;
     m_rule = 0;
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
@@ -367,13 +375,20 @@ void CSSParser::parseSelector(const String& string, Document* doc, CSSSelectorLi
 #endif
 }
 
-bool CSSParser::parseDeclaration(CSSMutableStyleDeclaration* declaration, const String& string)
+bool CSSParser::parseDeclaration(CSSMutableStyleDeclaration* declaration, const String& string, CSSStyleSourceData* styleSourceData)
 {
+<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::CSSParseTimeCounter);
 #endif
+=======
+    // Length of the "@-webkit-decls{" prefix.
+    static const unsigned prefixLength = 15;
+
+>>>>>>> webkit.org at r67908
     ASSERT(!declaration->stylesheet() || declaration->stylesheet()->isCSSStyleSheet());
     m_styleSheet = static_cast<CSSStyleSheet*>(declaration->stylesheet());
+    m_currentStyleData = styleSourceData;
 
     setupParser("@-webkit-decls{", string, "} ");
     cssyyparse(this);
@@ -388,9 +403,23 @@ bool CSSParser::parseDeclaration(CSSMutableStyleDeclaration* declaration, const 
         clearProperties();
     }
 
+<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
 #endif
+=======
+    if (m_currentStyleData) {
+        m_currentStyleData->styleBodyRange.start = 0;
+        m_currentStyleData->styleBodyRange.end = string.length();
+        for (Vector<CSSPropertySourceData>::iterator it = m_currentStyleData->propertyData.begin(); it != m_currentStyleData->propertyData.end(); ++it) {
+            (*it).range.start -= prefixLength;
+            (*it).range.end -= prefixLength;
+        }
+    }
+
+    if (!m_ruleRangeMap)
+        m_currentStyleData = 0;
+>>>>>>> webkit.org at r67908
     return ok;
 }
 
@@ -805,6 +834,8 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSSPropertyBorderLeftStyle:
     case CSSPropertyWebkitBorderStartStyle:
     case CSSPropertyWebkitBorderEndStyle:
+    case CSSPropertyWebkitBorderBeforeStyle:
+    case CSSPropertyWebkitBorderAfterStyle:
     case CSSPropertyWebkitColumnRuleStyle:
         if (id >= CSSValueNone && id <= CSSValueDouble)
             validPrimitive = true;
@@ -851,6 +882,8 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSSPropertyBorderLeftColor:
     case CSSPropertyWebkitBorderStartColor:
     case CSSPropertyWebkitBorderEndColor:
+    case CSSPropertyWebkitBorderBeforeColor:
+    case CSSPropertyWebkitBorderAfterColor:
     case CSSPropertyColor: // <color> | inherit
     case CSSPropertyTextLineThroughColor: // CSS3 text decoration colors
     case CSSPropertyTextUnderlineColor:
@@ -1002,6 +1035,8 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSSPropertyBorderLeftWidth:
     case CSSPropertyWebkitBorderStartWidth:
     case CSSPropertyWebkitBorderEndWidth:
+    case CSSPropertyWebkitBorderBeforeWidth:
+    case CSSPropertyWebkitBorderAfterWidth:
     case CSSPropertyWebkitColumnRuleWidth:
         if (id == CSSValueThin || id == CSSValueMedium || id == CSSValueThick)
             validPrimitive = true;
@@ -1037,11 +1072,15 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSSPropertyPaddingLeft:         ////
     case CSSPropertyWebkitPaddingStart:
     case CSSPropertyWebkitPaddingEnd:
+    case CSSPropertyWebkitPaddingBefore:
+    case CSSPropertyWebkitPaddingAfter:
         validPrimitive = (!id && validUnit(value, FLength | FPercent | FNonNeg, m_strict));
         break;
 
     case CSSPropertyMaxHeight:           // <length> | <percentage> | none | inherit
     case CSSPropertyMaxWidth:            // <length> | <percentage> | none | inherit
+    case CSSPropertyWebkitMaxLogicalWidth:
+    case CSSPropertyWebkitMaxLogicalHeight:
         if (id == CSSValueNone || id == CSSValueIntrinsic || id == CSSValueMinIntrinsic) {
             validPrimitive = true;
             break;
@@ -1049,6 +1088,8 @@ bool CSSParser::parseValue(int propId, bool important)
         /* nobreak */
     case CSSPropertyMinHeight:           // <length> | <percentage> | inherit
     case CSSPropertyMinWidth:            // <length> | <percentage> | inherit
+    case CSSPropertyWebkitMinLogicalWidth:
+    case CSSPropertyWebkitMinLogicalHeight:
         if (id == CSSValueIntrinsic || id == CSSValueMinIntrinsic)
             validPrimitive = true;
         else
@@ -1081,6 +1122,8 @@ bool CSSParser::parseValue(int propId, bool important)
 
     case CSSPropertyHeight:               // <length> | <percentage> | auto | inherit
     case CSSPropertyWidth:                // <length> | <percentage> | auto | inherit
+    case CSSPropertyWebkitLogicalWidth:  
+    case CSSPropertyWebkitLogicalHeight:
         if (id == CSSValueAuto || id == CSSValueIntrinsic || id == CSSValueMinIntrinsic)
             validPrimitive = true;
         else
@@ -1098,6 +1141,8 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSSPropertyMarginLeft:          ////
     case CSSPropertyWebkitMarginStart:
     case CSSPropertyWebkitMarginEnd:
+    case CSSPropertyWebkitMarginBefore:
+    case CSSPropertyWebkitMarginAfter:
         if (id == CSSValueAuto)
             validPrimitive = true;
         else
@@ -1667,17 +1712,27 @@ bool CSSParser::parseValue(int propId, bool important)
         return parseShorthand(propId, properties, 3, important);
     }
     case CSSPropertyWebkitBorderStart:
-        // [ '-webkit-border-start-width' || 'border-style' || <color> ] | inherit
     {
         const int properties[3] = { CSSPropertyWebkitBorderStartWidth, CSSPropertyWebkitBorderStartStyle,
             CSSPropertyWebkitBorderStartColor };
         return parseShorthand(propId, properties, 3, important);
     }
     case CSSPropertyWebkitBorderEnd:
-        // [ '-webkit-border-end-width' || 'border-style' || <color> ] | inherit
     {
         const int properties[3] = { CSSPropertyWebkitBorderEndWidth, CSSPropertyWebkitBorderEndStyle,
             CSSPropertyWebkitBorderEndColor };
+        return parseShorthand(propId, properties, 3, important);
+    }
+    case CSSPropertyWebkitBorderBefore:
+    {
+        const int properties[3] = { CSSPropertyWebkitBorderBeforeWidth, CSSPropertyWebkitBorderBeforeStyle,
+            CSSPropertyWebkitBorderBeforeColor };
+        return parseShorthand(propId, properties, 3, important);
+    }
+    case CSSPropertyWebkitBorderAfter:
+    {
+        const int properties[3] = { CSSPropertyWebkitBorderAfterWidth, CSSPropertyWebkitBorderAfterStyle,
+            CSSPropertyWebkitBorderAfterColor };
         return parseShorthand(propId, properties, 3, important);
     }
     case CSSPropertyOutline:
@@ -1773,6 +1828,7 @@ bool CSSParser::parseValue(int propId, bool important)
         break;
 #endif
 
+<<<<<<< HEAD
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
     {
@@ -1810,6 +1866,20 @@ bool CSSParser::parseValue(int propId, bool important)
             m_valueList->next();
         break;
 #endif
+=======
+    // CSS Text Layout Module Level 3: Vertical writing support
+    case CSSPropertyWebkitBlockFlow:
+        // [ "tb" | "rl" | "lr" | "bt" ]
+        if (id == CSSValueTb || id == CSSValueRl || id == CSSValueLr || id == CSSValueBt)
+            validPrimitive = true;
+        break;
+
+    case CSSPropertyWebkitWritingMode:
+        // [ "lr-tb" | "rl-tb" | "tb-rl" | "bt-rl" | "tb-lr" | "bt-lr" ]
+        if (id == CSSValueLrTb || id == CSSValueRlTb || id == CSSValueTbRl || id == CSSValueBtRl || id == CSSValueTbLr || id == CSSValueBtLr)
+            validPrimitive = true;
+        break;
+>>>>>>> webkit.org at r67908
 
 #if ENABLE(SVG)
     default:
@@ -5507,8 +5577,12 @@ CSSRule* CSSParser::createStyleRule(Vector<CSSSelector*>* selectors)
         rule->setDeclaration(CSSMutableStyleDeclaration::create(rule.get(), m_parsedProperties, m_numParsedProperties));
         result = rule.get();
         m_parsedStyleObjects.append(rule.release());
-        if (m_ruleRanges)
-            m_ruleRanges->set(result, std::pair<unsigned, unsigned>(m_ruleBodyStartOffset, m_ruleBodyEndOffset));
+        if (m_ruleRangeMap) {
+            ASSERT(m_currentStyleData);
+            m_currentStyleData->styleBodyRange = SourceRange(m_ruleBodyStartOffset, m_ruleBodyEndOffset);
+            m_ruleRangeMap->set(result, m_currentStyleData.release());
+            m_currentStyleData = CSSStyleSourceData::create();
+        }
     }
     resetRuleBodyMarks();
     clearProperties();
@@ -5767,7 +5841,9 @@ void CSSParser::updateLastSelectorLineAndPosition()
 void CSSParser::markRuleBodyStart()
 {
     unsigned offset = yytext - m_data;
-    if (!m_ruleBodyStartOffset || offset < m_ruleBodyStartOffset)
+    if (*yytext == '{')
+        ++offset; // Skip the rule body opening brace.
+    if (offset > m_ruleBodyStartOffset)
         m_ruleBodyStartOffset = offset;
 }
 
@@ -5776,6 +5852,39 @@ void CSSParser::markRuleBodyEnd()
     unsigned offset = yytext - m_data;
     if (offset > m_ruleBodyEndOffset)
         m_ruleBodyEndOffset = offset;
+}
+
+void CSSParser::markPropertyStart()
+{
+    unsigned offset = yytext - m_data;
+    m_propertyStartOffset = offset;
+}
+
+void CSSParser::markPropertyEnd(bool isImportantFound, bool isPropertyParsed)
+{
+    unsigned offset = yytext - m_data;
+    if (*yytext == ';') // Include semicolon into the property text.
+        ++offset;
+    m_propertyEndOffset = offset;
+    if (m_propertyStartOffset != UINT_MAX && m_currentStyleData) {
+        // This stuff is only executed when the style data retrieval is requested by client.
+        const unsigned start = m_propertyStartOffset;
+        const unsigned end = m_propertyEndOffset;
+        ASSERT(start < end);
+        String propertyString = String(m_data + start, end - start).stripWhiteSpace();
+        if (propertyString.endsWith(";", true))
+            propertyString = propertyString.left(propertyString.length() - 1);
+        Vector<String> propertyComponents;
+        size_t colonIndex = propertyString.find(":");
+        ASSERT(colonIndex != notFound);
+
+        String name = propertyString.left(colonIndex).stripWhiteSpace();
+        String value = propertyString.substring(colonIndex + 1, propertyString.length()).stripWhiteSpace();
+        // The property range is relative to the declaration start offset.
+        m_currentStyleData->propertyData.append(
+            CSSPropertySourceData(name, value, isImportantFound, isPropertyParsed, SourceRange(m_propertyStartOffset - m_ruleBodyStartOffset, m_propertyEndOffset - m_ruleBodyStartOffset)));
+    }
+    resetPropertyMarks();
 }
 
 static int cssPropertyID(const UChar* propertyName, unsigned length)

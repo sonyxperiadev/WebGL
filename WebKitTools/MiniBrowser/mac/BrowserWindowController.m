@@ -44,8 +44,10 @@
 
 - (id)initWithPageNamespace:(WKPageNamespaceRef)pageNamespace
 {
-    if ((self = [super initWithWindowNibName:@"BrowserWindow"]))
+    if ((self = [super initWithWindowNibName:@"BrowserWindow"])) {
         _pageNamespace = WKRetain(pageNamespace);
+        _zoomTextOnly = NO;
+    }
     
     return self;
 }
@@ -59,6 +61,9 @@
 - (IBAction)fetch:(id)sender
 {
     CFURLRef cfURL = CFURLCreateWithString(0, (CFStringRef)[urlText stringValue], 0);
+    if (!cfURL)
+        return;
+
     WKURLRef url = WKURLCreateWithCFURL(cfURL);
     CFRelease(cfURL);
 
@@ -86,10 +91,21 @@
 
 - (BOOL)validateMenuItem:(NSMenuItem *)menuItem
 {
-    if ([menuItem action] == @selector(showHideWebView:))
+    SEL action = [menuItem action];
+
+    if (action == @selector(zoomIn:))
+        return [self canZoomIn];
+    if (action == @selector(zoomOut:))
+        return [self canZoomOut];
+    if (action == @selector(resetZoom:))
+        return [self canResetZoom];
+
+    if (action == @selector(showHideWebView:))
         [menuItem setTitle:[_webView isHidden] ? @"Show Web View" : @"Hide Web View"];
-    else if ([menuItem action] == @selector(removeReinsertWebView:))
+    else if (action == @selector(removeReinsertWebView:))
         [menuItem setTitle:[_webView window] ? @"Remove Web View" : @"Insert Web View"];
+    else if (action == @selector(toggleZoomMode:))
+        [menuItem setState:_zoomTextOnly ? NSOnState : NSOffState];
     return YES;
 }
 
@@ -116,7 +132,7 @@
 - (BOOL)validateUserInterfaceItem:(id <NSValidatedUserInterfaceItem>)item
 {
     SEL action = [item action];
-    
+
     if (action == @selector(goBack:))
         return _webView && WKPageCanGoBack(_webView.pageRef);
     
@@ -150,56 +166,136 @@
     WKRelease(_webView.pageRef);
 }
 
+#define DefaultMinimumZoomFactor (.5)
+#define DefaultMaximumZoomFactor (3.0)
+#define DefaultZoomFactorRatio (1.2)
+
+- (double)currentZoomFactor
+{
+    return _zoomTextOnly ? WKPageGetTextZoomFactor(_webView.pageRef) : WKPageGetPageZoomFactor(_webView.pageRef);
+}
+
+- (void)setCurrentZoomFactor:(double)factor
+{
+    _zoomTextOnly ? WKPageSetTextZoomFactor(_webView.pageRef, factor) : WKPageSetPageZoomFactor(_webView.pageRef, factor);
+}
+
+- (BOOL)canZoomIn
+{
+    return [self currentZoomFactor] * DefaultZoomFactorRatio < DefaultMaximumZoomFactor;
+}
+
+- (void)zoomIn:(id)sender
+{
+    if (![self canZoomIn])
+        return;
+
+    double factor = [self currentZoomFactor] * DefaultZoomFactorRatio;
+    [self setCurrentZoomFactor:factor];
+}
+
+- (BOOL)canZoomOut
+{
+    return [self currentZoomFactor] / DefaultZoomFactorRatio > DefaultMinimumZoomFactor;
+}
+
+- (void)zoomOut:(id)sender
+{
+    if (![self canZoomIn])
+        return;
+
+    double factor = [self currentZoomFactor] / DefaultZoomFactorRatio;
+    [self setCurrentZoomFactor:factor];
+}
+
+- (BOOL)canResetZoom
+{
+    return _zoomTextOnly ? (WKPageGetTextZoomFactor(_webView.pageRef) != 1) : (WKPageGetPageZoomFactor(_webView.pageRef) != 1);
+}
+
+- (void)resetZoom:(id)sender
+{
+    if (![self canResetZoom])
+        return;
+
+    if (_zoomTextOnly)
+        WKPageSetTextZoomFactor(_webView.pageRef, 1);
+    else
+        WKPageSetPageZoomFactor(_webView.pageRef, 1);
+}
+
+- (IBAction)toggleZoomMode:(id)sender
+{
+    if (_zoomTextOnly) {
+        _zoomTextOnly = NO;
+        double currentTextZoom = WKPageGetTextZoomFactor(_webView.pageRef);
+        WKPageSetPageAndTextZoomFactors(_webView.pageRef, currentTextZoom, 1);
+    } else {
+        _zoomTextOnly = YES;
+        double currentPageZoom = WKPageGetPageZoomFactor(_webView.pageRef);
+        WKPageSetPageAndTextZoomFactors(_webView.pageRef, 1, currentPageZoom);
+    }
+}
+
+- (IBAction)dumpSourceToConsole:(id)sender
+{
+    WKPageGetSourceForFrame_b(_webView.pageRef, WKPageGetMainFrame(_webView.pageRef), ^(WKStringRef result, WKErrorRef error) {
+        CFStringRef cfResult = WKStringCopyCFString(0, result);
+        LOG(@"Main frame source\n \"%@\"", (NSString *)cfResult);
+        CFRelease(cfResult);
+    });
+}
+
 #pragma mark Loader Client Callbacks
 
-static void didStartProvisionalLoadForFrame(WKPageRef page, WKFrameRef frame, const void *clientInfo)
+static void didStartProvisionalLoadForFrame(WKPageRef page, WKFrameRef frame, WKTypeRef userData, const void *clientInfo)
 {
     [(BrowserWindowController *)clientInfo didStartProvisionalLoadForFrame:frame];
 }
 
-static void didReceiveServerRedirectForProvisionalLoadForFrame(WKPageRef page, WKFrameRef frame, const void *clientInfo)
+static void didReceiveServerRedirectForProvisionalLoadForFrame(WKPageRef page, WKFrameRef frame, WKTypeRef userData, const void *clientInfo)
 {
     [(BrowserWindowController *)clientInfo didReceiveServerRedirectForProvisionalLoadForFrame:frame];
 }
 
-static void didFailProvisionalLoadWithErrorForFrame(WKPageRef page, WKFrameRef frame, const void *clientInfo)
+static void didFailProvisionalLoadWithErrorForFrame(WKPageRef page, WKFrameRef frame, WKTypeRef userData, const void *clientInfo)
 {
     [(BrowserWindowController *)clientInfo didFailProvisionalLoadWithErrorForFrame:frame];
 }
 
-static void didCommitLoadForFrame(WKPageRef page, WKFrameRef frame, const void *clientInfo)
+static void didCommitLoadForFrame(WKPageRef page, WKFrameRef frame, WKTypeRef userData, const void *clientInfo)
 {
     [(BrowserWindowController *)clientInfo didCommitLoadForFrame:frame];
 }
 
-static void didFinishDocumentLoadForFrame(WKPageRef page, WKFrameRef frame, const void *clientInfo)
+static void didFinishDocumentLoadForFrame(WKPageRef page, WKFrameRef frame, WKTypeRef userData, const void *clientInfo)
 {
     LOG(@"didFinishDocumentLoadForFrame");
 }
 
-static void didFinishLoadForFrame(WKPageRef page, WKFrameRef frame, const void *clientInfo)
+static void didFinishLoadForFrame(WKPageRef page, WKFrameRef frame, WKTypeRef userData, const void *clientInfo)
 {
     LOG(@"didFinishLoadForFrame");
 }
 
-static void didFailLoadWithErrorForFrame(WKPageRef page, WKFrameRef frame, const void *clientInfo)
+static void didFailLoadWithErrorForFrame(WKPageRef page, WKFrameRef frame, WKTypeRef userData, const void *clientInfo)
 {
     [(BrowserWindowController *)clientInfo didFailLoadWithErrorForFrame:frame];
 }
 
-static void didReceiveTitleForFrame(WKPageRef page, WKStringRef title, WKFrameRef frame, const void *clientInfo)
+static void didReceiveTitleForFrame(WKPageRef page, WKStringRef title, WKFrameRef frame, WKTypeRef userData, const void *clientInfo)
 {
     CFStringRef cfTitle = WKStringCopyCFString(0, title);
     LOG(@"didReceiveTitleForFrame \"%@\"", (NSString *)cfTitle);
     CFRelease(cfTitle);
 }
 
-static void didFirstLayoutForFrame(WKPageRef page, WKFrameRef frame, const void *clientInfo)
+static void didFirstLayoutForFrame(WKPageRef page, WKFrameRef frame, WKTypeRef userData, const void *clientInfo)
 {
     LOG(@"didFirstLayoutForFrame");
 }
 
-static void didFirstVisuallyNonEmptyLayoutForFrame(WKPageRef page, WKFrameRef frame, const void *clientInfo)
+static void didFirstVisuallyNonEmptyLayoutForFrame(WKPageRef page, WKFrameRef frame, WKTypeRef userData, const void *clientInfo)
 {
     LOG(@"didFirstVisuallyNonEmptyLayoutForFrame");
 }
@@ -241,13 +337,13 @@ static void didChangeBackForwardList(WKPageRef page, const void *clientInfo)
 
 #pragma mark Policy Client Callbacks
 
-static void decidePolicyForNavigationAction(WKPageRef page, WKFrameNavigationType navigationType, WKEventModifiers modifiers, WKURLRef url, WKFrameRef frame, WKFramePolicyListenerRef listener, const void *clientInfo)
+static void decidePolicyForNavigationAction(WKPageRef page, WKFrameNavigationType navigationType, WKEventModifiers modifiers, WKEventMouseButton mouseButton, WKURLRef url, WKFrameRef frame, WKFramePolicyListenerRef listener, const void *clientInfo)
 {
     LOG(@"decidePolicyForNavigationAction");
     WKFramePolicyListenerUse(listener);
 }
 
-static void decidePolicyForNewWindowAction(WKPageRef page, WKFrameNavigationType navigationType, WKEventModifiers modifiers, WKURLRef url, WKFrameRef frame, WKFramePolicyListenerRef listener, const void *clientInfo)
+static void decidePolicyForNewWindowAction(WKPageRef page, WKFrameNavigationType navigationType, WKEventModifiers modifiers, WKEventMouseButton mouseButton, WKURLRef url, WKFrameRef frame, WKFramePolicyListenerRef listener, const void *clientInfo)
 {
     LOG(@"decidePolicyForNewWindowAction");
     WKFramePolicyListenerUse(listener);
@@ -368,6 +464,16 @@ static WKStringRef runJavaScriptPrompt(WKPageRef page, WKStringRef message, WKSt
     return WKStringCreateWithCFString((CFStringRef)result);
 }
 
+static void setStatusText(WKPageRef page, WKStringRef text, const void* clientInfo)
+{
+    LOG(@"setStatusText");
+}
+
+static void contentsSizeChanged(WKPageRef page, int width, int height, WKFrameRef frame, const void *clientInfo)
+{
+    LOG(@"contentsSizeChanged");
+}
+
 - (void)awakeFromNib
 {
     _webView = [[WKView alloc] initWithFrame:[containerView frame] pageNamespaceRef:_pageNamespace];
@@ -418,7 +524,8 @@ static WKStringRef runJavaScriptPrompt(WKPageRef page, WKStringRef message, WKSt
         runJavaScriptAlert,
         runJavaScriptConfirm,
         runJavaScriptPrompt,
-        0           /* contentsSizeChanged */
+        setStatusText,
+        contentsSizeChanged
     };
     WKPageSetPageUIClient(_webView.pageRef, &uiClient);
 }

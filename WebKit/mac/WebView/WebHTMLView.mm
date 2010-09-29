@@ -1914,12 +1914,11 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
 
 - (NSImage *)_selectionDraggingImage
 {
-    if ([self _hasSelection]) {
-        NSImage *dragImage = core([self _frame])->selectionImage();
-        [dragImage _web_dissolveToFraction:WebDragImageAlpha];
-        return dragImage;
-    }
-    return nil;
+    if (![self _hasSelection])
+        return nil;
+    NSImage *dragImage = core([self _frame])->selectionImage();
+    [dragImage _web_dissolveToFraction:WebDragImageAlpha];
+    return dragImage;
 }
 
 - (NSRect)_selectionDraggingRect
@@ -2303,7 +2302,7 @@ static void _updateMouseoverTimerCallback(CFRunLoopTimerRef timer, void *info)
         return bottom;
 
     float newBottom;
-    view->adjustPageHeight(&newBottom, top, bottom, bottomLimit);
+    view->adjustPageHeightDeprecated(&newBottom, top, bottom, bottomLimit);
 
 #ifdef __LP64__
     // If the new bottom is equal to the old bottom (when both are treated as floats), we just return the original
@@ -2377,10 +2376,6 @@ static bool matchesExtensionOrEquivalent(NSString *filename, NSString *extension
 @end
 
 #endif
-
-@interface NSArray (WebHTMLView)
-- (void)_web_makePluginViewsPerformSelector:(SEL)selector withObject:(id)object;
-@end
 
 @implementation WebHTMLView
 
@@ -2529,6 +2524,7 @@ WEBCORE_COMMAND(alignLeft)
 WEBCORE_COMMAND(alignRight)
 WEBCORE_COMMAND(copy)
 WEBCORE_COMMAND(cut)
+WEBCORE_COMMAND(paste)
 WEBCORE_COMMAND(delete)
 WEBCORE_COMMAND(deleteBackward)
 WEBCORE_COMMAND(deleteBackwardByDecomposingPreviousCharacter)
@@ -2664,7 +2660,7 @@ WEBCORE_COMMAND(yankAndSelect)
     COMMAND_PROLOGUE
 
     if (Frame* coreFrame = core([self _frame]))
-        coreFrame->revealSelection(ScrollAlignment::alignCenterAlways);
+        coreFrame->selection()->revealSelection(ScrollAlignment::alignCenterAlways);
 }
 
 - (NSCellStateValue)selectionHasStyle:(CSSStyleDeclaration*)style
@@ -3080,14 +3076,31 @@ WEBCORE_COMMAND(yankAndSelect)
     }
 }
 
+- (void)_web_makePluginSubviewsPerformSelector:(SEL)selector withObject:(id)object
+{
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    // Copy subviews because [self subviews] returns the view's mutable internal array,
+    // and we must avoid mutating the array while enumerating it.
+    NSArray *subviews = [[self subviews] copy];
+    
+    NSEnumerator *enumerator = [subviews objectEnumerator];
+    WebNetscapePluginView *view;
+    while ((view = [enumerator nextObject]) != nil)
+        if ([view isKindOfClass:[WebBaseNetscapePluginView class]])
+            [view performSelector:selector withObject:object];
+    
+    [subviews release];
+#endif
+}
+
 - (void)viewWillMoveToHostWindow:(NSWindow *)hostWindow
 {
-    [[self subviews] _web_makePluginViewsPerformSelector:@selector(viewWillMoveToHostWindow:) withObject:hostWindow];
+    [self _web_makePluginSubviewsPerformSelector:@selector(viewWillMoveToHostWindow:) withObject:hostWindow];
 }
 
 - (void)viewDidMoveToHostWindow
 {
-    [[self subviews] _web_makePluginViewsPerformSelector:@selector(viewDidMoveToHostWindow) withObject:nil];
+    [self _web_makePluginSubviewsPerformSelector:@selector(viewDidMoveToHostWindow) withObject:nil];
 }
 
 
@@ -4197,7 +4210,7 @@ static BOOL isInPasswordField(Frame* coreFrame)
     COMMAND_PROLOGUE
 
     if (Frame* coreFrame = core([self _frame]))
-        coreFrame->revealSelection(ScrollAlignment::alignCenterAlways);
+        coreFrame->selection()->revealSelection(ScrollAlignment::alignCenterAlways);
 }
 
 - (NSData *)_selectionStartFontAttributesAsRTF
@@ -5082,21 +5095,6 @@ static BOOL writingDirectionKeyBindingsEnabled()
 
 @end
 
-@implementation NSArray (WebHTMLView)
-
-- (void)_web_makePluginViewsPerformSelector:(SEL)selector withObject:(id)object
-{
-#if ENABLE(NETSCAPE_PLUGIN_API)
-    NSEnumerator *enumerator = [self objectEnumerator];
-    WebNetscapePluginView *view;
-    while ((view = [enumerator nextObject]) != nil)
-        if ([view isKindOfClass:[WebBaseNetscapePluginView class]])
-            [view performSelector:selector withObject:object];
-#endif
-}
-
-@end
-
 @implementation WebHTMLView (WebInternal)
 
 - (void)_selectionChanged
@@ -5145,7 +5143,7 @@ static BOOL writingDirectionKeyBindingsEnabled()
     if (![[self _webView] smartInsertDeleteEnabled])
         return NO;
     Frame* coreFrame = core([self _frame]);
-    return coreFrame && coreFrame->selectionGranularity() == WordGranularity;
+    return coreFrame && coreFrame->selection()->granularity() == WordGranularity;
 }
 
 - (NSEvent *)_mouseDownEvent
@@ -5161,24 +5159,6 @@ static BOOL writingDirectionKeyBindingsEnabled()
 - (WebFrame *)_frame
 {
     return [_private->dataSource webFrame];
-}
-
-- (void)paste:(id)sender
-{
-    COMMAND_PROLOGUE
-
-    RetainPtr<WebHTMLView> selfProtector = self;
-    RefPtr<Frame> coreFrame = core([self _frame]);
-    if (!coreFrame)
-        return;
-    if (coreFrame->editor()->tryDHTMLPaste())
-        return; // DHTML did the whole operation
-    if (!coreFrame->editor()->canPaste())
-        return;
-    if (coreFrame->selection()->isContentRichlyEditable())
-        [self _pasteWithPasteboard:[NSPasteboard generalPasteboard] allowPlainText:YES];
-    else
-        coreFrame->editor()->pasteAsPlainTextBypassingDHTML();
 }
 
 - (void)closeIfNotCurrentView
@@ -5360,7 +5340,7 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
     if (!coreFrame)
         return;
 
-    NSRect rect = coreFrame->selectionBounds();
+    NSRect rect = coreFrame->selection()->bounds();
 
 #ifndef BUILDING_ON_TIGER
     NSDictionary *attributes = [attrString fontAttributesInRange:NSMakeRange(0,1)];
@@ -5582,7 +5562,11 @@ static CGPoint coreGraphicsScreenPointForAppKitScreenPoint(NSPoint point)
         [[NSNotificationCenter defaultCenter] postNotificationName:_WebViewDidStartAcceleratedCompositingNotification object:[self _webView] userInfo:nil];
     
 #if defined(BUILDING_ON_LEOPARD)
+    [viewLayer setSublayerTransform:CATransform3DMakeScale(1, -1, 1)]; // setGeometryFlipped: doesn't exist on Leopard.
     [self _updateLayerHostingViewPosition];
+#else
+    // Do geometry flipping here, which flips all the compositing layers so they are top-down.
+    [viewLayer setGeometryFlipped:YES];
 #endif
 }
 
@@ -6037,25 +6021,27 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
 
 - (NSRect)selectionRect
 {
-    if ([self _hasSelection])
-        return core([self _frame])->selectionBounds();
-    return NSZeroRect;
+    if (![self _hasSelection])
+        return NSZeroRect;
+    return core([self _frame])->selection()->bounds();
 }
 
 - (NSArray *)selectionTextRects
 {
     if (![self _hasSelection])
         return nil;
-    
+
     Vector<FloatRect> list;
     if (Frame* coreFrame = core([self _frame]))
-        coreFrame->selectionTextRects(list, Frame::RespectTransforms);
+        coreFrame->selection()->getClippedVisibleTextRectangles(list);
 
-    unsigned size = list.size();
-    NSMutableArray *result = [[[NSMutableArray alloc] initWithCapacity:size] autorelease];
-    for (unsigned i = 0; i < size; ++i)
+    size_t size = list.size();
+
+    NSMutableArray *result = [NSMutableArray arrayWithCapacity:size];
+
+    for (size_t i = 0; i < size; ++i)
         [result addObject:[NSValue valueWithRect:list[i]]];
-    
+
     return result;
 }
 
@@ -6066,16 +6052,16 @@ static void extractUnderlines(NSAttributedString *string, Vector<CompositionUnde
 
 - (NSImage *)selectionImageForcingBlackText:(BOOL)forceBlackText
 {
-    if ([self _hasSelection])
-        return core([self _frame])->selectionImage(forceBlackText);
-    return nil;
+    if (![self _hasSelection])
+        return nil;
+    return core([self _frame])->selectionImage(forceBlackText);
 }
 
 - (NSRect)selectionImageRect
 {
-    if ([self _hasSelection])
-        return core([self _frame])->selectionBounds();
-    return NSZeroRect;
+    if (![self _hasSelection])
+        return NSZeroRect;
+    return core([self _frame])->selection()->bounds();
 }
 
 - (NSArray *)pasteboardTypesForSelection

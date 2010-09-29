@@ -75,7 +75,6 @@ public:
     virtual void frameLoaderDestroyed();
 
     void setFrame(QWebFrame* webFrame, Frame* frame);
-    QWebFrame* webFrame() const;
 
     virtual bool hasWebView() const; // mainly for assertions
 
@@ -174,6 +173,7 @@ public:
 
     virtual bool canHandleRequest(const WebCore::ResourceRequest&) const;
     virtual bool canShowMIMEType(const String& MIMEType) const;
+    virtual bool canShowMIMETypeAsHTML(const String& MIMEType) const;
     virtual bool representationExistsForURLScheme(const String& URLScheme) const;
     virtual String generatedMIMETypeForURLScheme(const String& URLScheme) const;
 
@@ -211,6 +211,21 @@ public:
     virtual void documentElementAvailable();
     virtual void didPerformFirstNavigation() const;
 
+#if USE(V8)
+    // A frame's V8 context was created or destroyed.
+    virtual void didCreateScriptContextForFrame();
+    virtual void didDestroyScriptContextForFrame();
+
+    // A context untied to a frame was created (through evaluateInIsolatedWorld).
+    // This context is not tied to the lifetime of its frame, and is destroyed
+    // in garbage collection.
+    virtual void didCreateIsolatedScriptContext();
+
+    // Returns true if we should allow the given V8 extension to be added to
+    // the script context at the currently loading page and given extension group.
+    virtual bool allowScriptExtension(const String& extensionName, int extensionGroup) { return false; }
+#endif
+
     virtual void registerForIconNotification(bool);
 
     QString chooseFile(const QString& oldFile);
@@ -227,16 +242,21 @@ public:
     static bool policyDelegateEnabled;
     static bool policyDelegatePermissive;
     static bool deferMainResourceDataLoad;
+    static bool dumpHistoryCallbacks;
 
 private:
     Frame *m_frame;
     QWebFrame *m_webFrame;
     ResourceResponse m_response;
-    bool m_firstData;
 
     // Plugin view to redirect data to
     WebCore::PluginView* m_pluginView;
     bool m_hasSentResponseToPlugin;
+
+    // True if makeRepresentation was called.  We don't actually have a concept
+    // of a "representation", but we need to know when we're expected to have one.
+    // See finishedLoading().
+    bool m_hasRepresentation;
 
     ResourceError m_loadError;
 };

@@ -898,7 +898,7 @@ void ReplaceSelectionCommand::doApply()
     // FIXME: Can this wait until after the operation has been performed?  There doesn't seem to be
     // any work performed after this that queries or uses the typing style.
     if (Frame* frame = document()->frame())
-        frame->clearTypingStyle();
+        frame->selection()->clearTypingStyle();
     
     bool handledStyleSpans = handleStyleSpansBeforeInsertion(fragment, insertionPos);
 
@@ -1062,7 +1062,7 @@ void ReplaceSelectionCommand::doApply()
     if (m_smartReplace && currentRoot) {
         // Disable smart replace for password fields.
         Node* start = currentRoot->shadowAncestorNode();
-        if (start->hasTagName(inputTag) && static_cast<HTMLInputElement*>(start)->inputType() == HTMLInputElement::PASSWORD)
+        if (start->hasTagName(inputTag) && static_cast<HTMLInputElement*>(start)->isPasswordField())
             m_smartReplace = false;
     }
     if (m_smartReplace) {

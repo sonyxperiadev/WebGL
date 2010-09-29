@@ -105,6 +105,9 @@ void LauncherWindow::initializeView()
 {
     delete m_view;
 
+    QUrl url = page()->mainFrame()->url();
+    setPage(new WebPage(this));
+
     QSplitter* splitter = static_cast<QSplitter*>(centralWidget());
 
     if (!m_windowOptions.useGraphicsView) {
@@ -127,6 +130,9 @@ void LauncherWindow::initializeView()
 
         m_view = view;
     }
+
+    if (url.isValid())
+        page()->mainFrame()->load(url);
 
 #if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
     m_touchMocking = false;
@@ -606,16 +612,20 @@ void LauncherWindow::print()
 void LauncherWindow::screenshot()
 {
     QPixmap pixmap = QPixmap::grabWidget(m_view);
-    QLabel* label = new QLabel;
+    QLabel* label = 0;
+#if !defined(Q_OS_SYMBIAN)
+    label = new QLabel;
     label->setAttribute(Qt::WA_DeleteOnClose);
     label->setWindowTitle("Screenshot - Preview");
     label->setPixmap(pixmap);
     label->show();
+#endif
 
     QString fileName = QFileDialog::getSaveFileName(label, "Screenshot");
     if (!fileName.isEmpty()) {
         pixmap.save(fileName, "png");
-        label->setWindowTitle(QString("Screenshot - Saved at %1").arg(fileName));
+        if (label)
+            label->setWindowTitle(QString("Screenshot - Saved at %1").arg(fileName));
     }
 
 #if defined(QT_CONFIGURED_WITH_OPENGL)

@@ -23,6 +23,7 @@
 #include "Document.h"
 #include "GOwnPtr.h"
 #include "GRefPtr.h"
+#include "NetworkingContext.h"
 #include "Noncopyable.h"
 #include "NotImplemented.h"
 #include "ResourceHandleClient.h"
@@ -43,7 +44,7 @@ class StreamingClient : public Noncopyable, public ResourceHandleClient {
         virtual void willSendRequest(ResourceHandle*, ResourceRequest&, const ResourceResponse&);
         virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse&);
         virtual void didReceiveData(ResourceHandle*, const char*, int, int);
-        virtual void didFinishLoading(ResourceHandle*);
+        virtual void didFinishLoading(ResourceHandle*, double /*finishTime*/);
         virtual void didFail(ResourceHandle*, const ResourceError&);
         virtual void wasBlocked(ResourceHandle*);
         virtual void cannotShowURL(ResourceHandle*);
@@ -391,14 +392,17 @@ static bool webKitWebSrcStart(WebKitWebSrc* src)
     request.setTargetType(ResourceRequestBase::TargetIsMedia);
     request.setAllowCookies(true);
 
+    NetworkingContext* context = 0;
     if (priv->frame) {
         Document* document = priv->frame->document();
         if (document)
             request.setHTTPReferrer(document->documentURI());
 
         FrameLoader* loader = priv->frame->loader();
-        if (loader)
+        if (loader) {
             loader->addExtraFieldsToSubresourceRequest(request);
+            context = loader->networkingContext();
+        }
     }
 
     // Let Apple web servers know we want to access their nice movie trailers.
@@ -419,7 +423,7 @@ static bool webKitWebSrcStart(WebKitWebSrc* src)
     // Needed to use DLNA streaming servers
     request.setHTTPHeaderField("transferMode.dlna", "Streaming");
 
-    priv->resourceHandle = ResourceHandle::create(request, priv->client, 0, false, false);
+    priv->resourceHandle = ResourceHandle::create(context, request, priv->client, false, false);
     if (!priv->resourceHandle) {
         GST_ERROR_OBJECT(src, "Failed to create ResourceHandle");
         return false;
@@ -762,7 +766,7 @@ void StreamingClient::didReceiveData(ResourceHandle* handle, const char* data, i
         GST_ELEMENT_ERROR(m_src, CORE, FAILED, (0), (0));
 }
 
-void StreamingClient::didFinishLoading(ResourceHandle*)
+void StreamingClient::didFinishLoading(ResourceHandle*, double)
 {
     WebKitWebSrcPrivate* priv = m_src->priv;
 

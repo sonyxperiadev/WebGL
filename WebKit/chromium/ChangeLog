@@ -1,3 +1,961 @@
+2010-09-20  Darin Adler  <darin@apple.com>
+
+        Reviewed by James Robinson.
+
+        Deprecate the inputType function on HTMLInputElement
+        https://bugs.webkit.org/show_bug.cgi?id=46023
+
+        * src/WebInputElement.cpp:
+        (WebKit::WebInputElement::inputType):
+        * src/WebPasswordFormUtils.cpp:
+        (WebKit::findPasswordFormFields):
+        * src/WebSearchableFormData.cpp:
+        (WebCore::HasSuitableTextElement):
+        Use deprecatedInputType instead of inputType.
+
+2010-09-20  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by James Robinson.
+
+        [chromium] Change compositor to use GraphicsContext3D rather than GLES2Context
+        https://bugs.webkit.org/show_bug.cgi?id=45912
+
+        Switched Chromium's compositor to use GraphicsContext3D to issue
+        its OpenGL rendering calls rather than the Chromium-specific
+        GLES2Context and command buffer OpenGL implementation.
+
+        The in-process software rendering path for GraphicsContext3D does
+        not yet work with the compositor, at least not on Mac OS X. This
+        will be worked on in subsequent bugs.
+
+        Tested manually with 3D CSS, WebGL and video content on Mac OS X
+        and Linux. No new tests.
+
+        * src/GraphicsContext3D.cpp:
+        (WebCore::GraphicsContext3DInternal::initialize):
+        (WebCore::GraphicsContext3DInternal::extractWebGraphicsContext3D):
+        (WebCore::GraphicsContext3D::create):
+        * src/GraphicsContext3DInternal.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::resize):
+        (WebKit::WebViewImpl::setIsAcceleratedCompositingActive):
+        (WebKit::WebViewImpl::gles2Context):
+        (WebKit::WebViewImpl::graphicsContext3D):
+        * src/WebViewImpl.h:
+
+2010-09-20  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        [chromium] Roll forward Chromium DEPS to pick up WebGraphicsContext3D implementation changes
+        https://bugs.webkit.org/show_bug.cgi?id=46115
+
+        * DEPS:
+
+2010-09-20  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: merge Inspector client runtime events into the serialized inspector state object.
+
+        Drive-by rename getBackendSettings -> getInspectorState to better reflect the nature of the data.
+
+        https://bugs.webkit.org/show_bug.cgi?id=45974
+
+        * src/InspectorClientImpl.cpp:
+        (WebKit::InspectorClientImpl::updateInspectorStateCookie):
+        * src/InspectorClientImpl.h:
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::setRuntimeProperty):
+        (WebKit::WebDevToolsAgentImpl::setApuAgentEnabled):
+        (WebKit::WebDevToolsAgentImpl::updateInspectorStateCookie):
+        * src/WebDevToolsAgentImpl.h:
+
+2010-09-19  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r67749.
+        http://trac.webkit.org/changeset/67749
+        https://bugs.webkit.org/show_bug.cgi?id=46068
+
+        breaking ToT chromium canary build (Requested by shans on
+        #webkit).
+
+        * public/WebFrameClient.h:
+        * public/WebScriptController.h:
+        * src/FrameLoaderClientImpl.cpp:
+        * src/FrameLoaderClientImpl.h:
+        * src/WebScriptController.cpp:
+        (WebKit::WebScriptController::registerExtension):
+
+2010-09-19  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [Chromium] Add is<input type>() functions to WebInputElement
+        https://bugs.webkit.org/show_bug.cgi?id=46035
+
+        We're going to stop exposing HTMLInputElemnt::InputType. So, add
+        isFoo() functions in order to remove WebInputElement::InputType.
+
+        * public/WebInputElement.h:
+        * src/WebInputElement.cpp:
+        (WebKit::WebInputElement::isTextField):
+        (WebKit::WebInputElement::isText):
+        (WebKit::WebInputElement::isPasswordField):
+        (WebKit::WebInputElement::isImageButton):
+
+2010-09-17  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        REGRESSION (r60104): Zoom level is unexpectedly reset on page reload
+        https://bugs.webkit.org/show_bug.cgi?id=42863
+
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::createPlugin):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setZoomLevel):
+        Call functions on Frame instead of FrameView.
+
+2010-09-17  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by James Robinson.
+
+        [chromium] Roll forward Chromium DEPS to pick up Mesa DRT changes
+        https://bugs.webkit.org/show_bug.cgi?id=46006
+
+        * DEPS:
+
+2010-09-17  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by Dimitri Glazkov.
+
+        [chromium] Add mesa as DumpRenderTree dependency
+        https://bugs.webkit.org/show_bug.cgi?id=46001
+
+        * WebKit.gyp:
+
+2010-09-13  Matt Perry  <mpcomplete@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Have V8DOMWindowShell ask the embedder whether to run a V8 extension
+        in a particular script context.
+        https://bugs.webkit.org/show_bug.cgi?id=45721
+
+        * public/WebFrameClient.h:
+        (WebKit::WebFrameClient::allowScriptExtension):
+        * public/WebScriptController.h:
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::allowScriptExtension):
+        * src/FrameLoaderClientImpl.h:
+        * src/WebScriptController.cpp:
+        (WebKit::WebScriptController::registerExtension):
+
+2010-09-17  Eric Uhrhane  <ericu@chromium.org>
+
+        Reviewed by David Levin.
+
+        Remove unimplemented destructor declaration to fix Chromium build.
+        https://bugs.webkit.org/show_bug.cgi?id=45987
+
+        * src/AsyncFileWriterChromium.h:
+
+2010-09-16  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r67693.
+        http://trac.webkit.org/changeset/67693
+        https://bugs.webkit.org/show_bug.cgi?id=45946
+
+        "Need to pick up a chromium change first" (Requested by dumi
+        on #webkit).
+
+        * public/WebHTTPBody.h:
+        * src/WebHTTPBody.cpp:
+        (WebKit::WebHTTPBody::elementAt):
+        (WebKit::WebHTTPBody::appendFileRange):
+
+2010-09-15  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Remove WebHTTPBody::appendFileRange(..., const WebFileInfo&).
+
+        * public/WebHTTPBody.h:
+        * src/WebHTTPBody.cpp:
+        (WebKit::WebHTTPBody::elementAt):
+
+2010-09-16  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by James Robinson.
+
+        Add entry points to GraphicsContext3D needed for Chromium compositor port
+        https://bugs.webkit.org/show_bug.cgi?id=45939
+
+        Added entry points for two Chromium-specific extensions, and added
+        a flag to the GraphicsContext3D constructor, currently unsupported
+        by all ports (including Chromium), indicating whether the context
+        should render directly to the passed HostWindow or off-screen per
+        the current semantics. The switch to use GraphicsContext3D in
+        Chromium's compositor will follow in a subsequent patch.
+
+        No new tests; functionality is unchanged. Built and tested
+        Chromium and WebKit on Mac OS X.
+
+        * src/GraphicsContext3D.cpp:
+        (WebCore::GraphicsContext3D::GraphicsContext3D):
+        (WebCore::GraphicsContext3D::create):
+        * src/GraphicsContext3DInternal.h:
+
+2010-09-16  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by James Robinson.
+
+        [chromium] Add needed entry points to WebGraphicsContext3D for compositor
+        https://bugs.webkit.org/show_bug.cgi?id=45921
+
+        * public/WebGraphicsContext3D.h:
+        * src/WebGraphicsContext3DDefaultImpl.cpp:
+        (WebKit::WebGraphicsContext3DDefaultImpl::initialize):
+        (WebKit::WebGraphicsContext3DDefaultImpl::supportsMapSubCHROMIUM):
+        (WebKit::WebGraphicsContext3DDefaultImpl::mapBufferSubDataCHROMIUM):
+        (WebKit::WebGraphicsContext3DDefaultImpl::unmapBufferSubDataCHROMIUM):
+        (WebKit::WebGraphicsContext3DDefaultImpl::mapTexSubImage2DCHROMIUM):
+        (WebKit::WebGraphicsContext3DDefaultImpl::unmapTexSubImage2DCHROMIUM):
+        (WebKit::WebGraphicsContext3DDefaultImpl::supportsCopyTextureToParentTextureCHROMIUM):
+        (WebKit::WebGraphicsContext3DDefaultImpl::copyTextureToParentTextureCHROMIUM):
+        * src/WebGraphicsContext3DDefaultImpl.h:
+
+2010-09-15  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [Chromium] Needs DRT queueLoadHTMLString and setDeferMainResourceLoad-implementations
+        https://bugs.webkit.org/show_bug.cgi?id=42151
+
+        * public/WebDataSource.h:
+        * src/WebDataSourceImpl.cpp:
+        (WebKit::WebDataSourceImpl::applicationCacheHost):
+        (WebKit::WebDataSourceImpl::setDeferMainResourceDataLoad): Added so DRT can set this flag before a load.
+        * src/WebDataSourceImpl.h:
+
+2010-09-16  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by James Robinson.
+
+        Roll forward Chromium DEPS to r59706
+        https://bugs.webkit.org/show_bug.cgi?id=45916
+
+        * DEPS:
+
+2010-09-16  Darin Adler  <darin@apple.com>
+
+        Reviewed by Andreas Kling.
+
+        Reduce use of HTMLInputElement::inputType so we can remove it later
+        https://bugs.webkit.org/show_bug.cgi?id=45903
+
+        * src/DOMUtilitiesPrivate.cpp:
+        (WebKit::elementHasLegalLinkAttribute): Use isImageButton.
+        * src/WebPasswordFormUtils.cpp:
+        (WebKit::findPasswordFormFields): Use isPasswordField.
+        * src/WebSearchableFormData.cpp:
+        (WebCore::IsInDefaultState): Use isCheckbox and isRadioButton.
+        (WebCore::HasSuitableTextElement): Use isFileUpload and isPasswordField.
+
+2010-09-16  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by James Robinson.
+
+        [chromium] Expose separate GraphicsContext3DInternal.h
+        https://bugs.webkit.org/show_bug.cgi?id=45914
+
+        * WebKit.gyp:
+        * src/GraphicsContext3D.cpp:
+        * src/GraphicsContext3DInternal.h: Added.
+
+2010-09-16  Kenneth Russell  <kbr@google.com>
+
+        Reviewed by James Robinson.
+
+        [chromium] Add WebGraphicsContext3D accessor to WebView
+        https://bugs.webkit.org/show_bug.cgi?id=45913
+
+        * public/WebView.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+        (WebKit::WebViewImpl::graphicsContext3D):
+        * src/WebViewImpl.h:
+
+2010-09-16  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: move resourceTracking flag under control of BackendSettings.
+
+        Four Inspector API methods about resourceTracking flag were removed.
+        Actual state of the flag is transfered as the response of setResourceTracking request.
+        Initial state of the flag on the frontend side is obtained from settings.backend.
+
+        https://bugs.webkit.org/show_bug.cgi?id=45887
+
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::setRuntimeProperty):
+        (WebKit::WebDevToolsAgentImpl::setApuAgentEnabled):
+
+2010-09-16  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: [REGRESSION] Scripts disappear from scripts panel after navigation
+        https://bugs.webkit.org/show_bug.cgi?id=45890
+
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::setRuntimeProperty): make sure debugger and profiler
+        are initialized when inspected page navigation leads to renderer process change.
+
+2010-09-16  Eric Uhrhane  <ericu@chromium.org>
+
+        Reviewed by Jian Li.
+
+        Unify FILE_SYSTEM and FILE_WRITER enables under the name FILE_SYSTEM.
+        https://bugs.webkit.org/show_bug.cgi?id=45798
+
+        * src/AsyncFileWriterChromium.h:
+        * src/AsyncFileWriterChromium.cpp:
+
+2010-09-16  Nat Duca  <nduca@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Make compositor obey finish flag
+        https://bugs.webkit.org/show_bug.cgi?id=45552
+
+        The compositor should obey the finish flag on doComposite. This
+        flag causes the compositor to finish rendering before returning,
+        which is needed when resizing the window to avoid flashes of green.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::composite):
+
+2010-09-15  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Allow the embedder to specify the base path for IndexedDB.
+        https://bugs.webkit.org/show_bug.cgi?id=45815
+
+        Need to add the extra .open() parameter to make this all work.
+
+        * public/WebIDBFactory.h:
+        (WebKit::WebIDBFactory::open):
+        * src/IDBFactoryBackendProxy.cpp:
+        (WebCore::IDBFactoryBackendProxy::open):
+        * src/IDBFactoryBackendProxy.h:
+        * src/WebIDBFactoryImpl.cpp:
+        (WebKit::WebIDBFactoryImpl::open):
+        * src/WebIDBFactoryImpl.h:
+
+2010-09-16  Jeremy Orlow  <jorlow@chromium.org>
+
+        Speculative build fix.
+
+        * src/IDBIndexBackendProxy.cpp:
+
+2010-09-08  Jeremy Orlow  <jorlow@chromium.org>
+
+        Reviewed by Steve Block.
+
+        Complete index support for IndexedDB
+        https://bugs.webkit.org/show_bug.cgi?id=45386
+
+        * public/WebIDBCursor.h:
+        (WebKit::WebIDBCursor::direction):
+        (WebKit::WebIDBCursor::key):
+        (WebKit::WebIDBCursor::value):
+        (WebKit::WebIDBCursor::update):
+        (WebKit::WebIDBCursor::continueFunction):
+        (WebKit::WebIDBCursor::remove):
+        * public/WebIDBIndex.h:
+        (WebKit::WebIDBIndex::storeName):
+        (WebKit::WebIDBIndex::openObjectCursor):
+        (WebKit::WebIDBIndex::openCursor):
+        (WebKit::WebIDBIndex::getObject):
+        (WebKit::WebIDBIndex::get):
+        * public/WebIDBKey.h:
+        * src/IDBCursorBackendProxy.cpp:
+        (WebCore::IDBCursorBackendProxy::value):
+        * src/IDBCursorBackendProxy.h:
+        * src/IDBIndexBackendProxy.cpp:
+        (WebCore::IDBIndexBackendProxy::storeName):
+        (WebCore::IDBIndexBackendProxy::openObjectCursor):
+        (WebCore::IDBIndexBackendProxy::openCursor):
+        (WebCore::IDBIndexBackendProxy::getObject):
+        (WebCore::IDBIndexBackendProxy::get):
+        * src/IDBIndexBackendProxy.h:
+        * src/WebIDBCursorImpl.cpp:
+        (WebKit::WebIDBCursorImpl::value):
+        * src/WebIDBCursorImpl.h:
+        * src/WebIDBIndexImpl.cpp:
+        (WebKit::WebIDBIndexImpl::storeName):
+        (WebKit::WebIDBIndexImpl::openCursor):
+        (WebKit::WebIDBIndexImpl::openObjectCursor):
+        (WebKit::WebIDBIndexImpl::getObject):
+        (WebKit::WebIDBIndexImpl::get):
+        * src/WebIDBIndexImpl.h:
+
+2010-09-15  Dumitru Daniliuc  <dumi@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Overload WebHTTPBody::appendFileRange() to take a double modification time argument.
+        https://bugs.webkit.org/show_bug.cgi?id=45829
+
+        The plan is to change all callers of
+        WebHTTPBody::appendFileRange(..., const WebFileInfo&) to use the
+        new method, and then remove it.
+
+        * public/WebHTTPBody.h:
+        * src/WebHTTPBody.cpp:
+        (WebKit::WebHTTPBody::elementAt):
+        (WebKit::WebHTTPBody::appendFileRange):
+
+2010-09-14  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: Provide network-based load timing.
+        Before this change, inspector used timers taken from
+        within WebCore notifications (that are by definition
+        synchronous and serialized). As a result, timing was
+        affected by the routines running on the main thread
+        (JavaScript and such).
+        https://bugs.webkit.org/show_bug.cgi?id=45664
+
+        * public/WebURLLoadTiming.h:
+        * public/WebURLLoaderClient.h:
+        (WebKit::WebURLLoaderClient::didFinishLoading):
+        * src/ResourceHandle.cpp:
+        (WebCore::ResourceHandleInternal::didFinishLoading):
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::didFinishLoading):
+        * src/WebURLLoadTiming.cpp:
+        (WebKit::WebURLLoadTiming::receiveHeadersStart):
+        (WebKit::WebURLLoadTiming::setReceiveHeadersStart):
+
+2010-09-15  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r67551.
+        http://trac.webkit.org/changeset/67551
+        https://bugs.webkit.org/show_bug.cgi?id=45816
+
+        "Plugin tests fail" (Requested by yurys on #webkit).
+
+        * public/WebURLLoaderClient.h:
+        (WebKit::WebURLLoaderClient::didFinishLoading):
+        * src/ResourceHandle.cpp:
+        (WebCore::ResourceHandleInternal::didFinishLoading):
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::didFinishLoading):
+
+2010-09-14  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: Provide network-based load timing.
+        Before this change, inspector used timers taken from
+        within WebCore notifications (that are by definition
+        synchronous and serialized). As a result, timing was
+        affected by the routines running on the main thread
+        (JavaScript and such).
+        https://bugs.webkit.org/show_bug.cgi?id=45664
+
+        * public/WebURLLoadTiming.h:
+        * public/WebURLLoaderClient.h:
+        (WebKit::WebURLLoaderClient::didFinishLoading):
+        * src/ResourceHandle.cpp:
+        (WebCore::ResourceHandleInternal::didFinishLoading):
+        * src/WebDevToolsAgentImpl.cpp:
+        (WebKit::WebDevToolsAgentImpl::didFinishLoading):
+        * src/WebURLLoadTiming.cpp:
+        (WebKit::WebURLLoadTiming::receiveHeadersStart):
+        (WebKit::WebURLLoadTiming::setReceiveHeadersStart):
+
+2010-09-14  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r67503.
+        http://trac.webkit.org/changeset/67503
+        https://bugs.webkit.org/show_bug.cgi?id=45802
+
+        This patch broke GTK builds (Requested by jianli_ on #webkit).
+
+        * src/ResourceHandle.cpp:
+
+2010-09-14  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: Links from "Profiles" don't lead to "Scripts"
+        https://bugs.webkit.org/show_bug.cgi?id=45756
+
+        * src/js/DevTools.js: remove obsolete code
+
+2010-09-14  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Kent Tamura.
+
+        [chromium] fix http/tests/security/local-user-CSS-from-remote.html
+        https://bugs.webkit.org/show_bug.cgi?id=45788
+
+        * DEPS: Include webkit_support::LocalFileToDataURL
+
+2010-09-14  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Ojan Vafai.
+
+        [chromium] Remove WebKit::areLayoutTestImagesOpaque since it's no longer needed
+        https://bugs.webkit.org/show_bug.cgi?id=45768
+
+        * public/WebKit.h:
+        * src/WebKit.cpp:
+
+2010-09-14  Mihai Parparita  <mihaip@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        blob: URL scheme does not work with Chromium DRT
+        https://bugs.webkit.org/show_bug.cgi?id=45772
+
+        Roll Chromium forward to r59406, which registers the blob
+        URL scheme for the Chromium DRT too.
+
+        * DEPS:
+
+2010-09-14  Jian Li  <jianli@chromium.org>
+
+        Reviewed by David Levin.
+
+        fast/files/apply-blob-url-to-img.html timeout on Leopard
+        https://bugs.webkit.org/show_bug.cgi?id=45576
+
+        * src/ResourceHandle.cpp: Remove the no longer applicable static comment.
+
+2010-09-14  Chris Guillory   <chris.guillory@google.com>
+
+        Reviewed by Chris Fleizach.
+
+        Send all accessibility notifications to Chromium.
+        https://bugs.webkit.org/show_bug.cgi?id=45156
+        
+        Use postAccessibilityNotification to pass accessibility notifications
+        to chromium.
+
+        * WebKit.gyp:
+        * public/WebAccessibilityNotification.h: Added.
+        * public/WebViewClient.h:
+        (WebKit::WebViewClient::postAccessibilityNotification):
+        * src/AssertMatchingEnums.h: Added.
+        * src/ChromeClientImpl.cpp:
+        (WebKit::toWebAccessibilityNotification):
+        (WebKit::ChromeClientImpl::didChangeAccessibilityObjectChildren):
+        (WebKit::ChromeClientImpl::postAccessibilityNotification):
+        * src/ChromeClientImpl.h:
+
+2010-09-14  Tony Chang  <tony@chromium.org>
+
+        Unreviewed, fix chromium win compile.
+
+        * public/WebView.h:
+
+2010-09-14  Tony Chang  <tony@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [chromium] implement layoutTestController.setDomainRelaxationForbiddenForURLScheme
+        https://bugs.webkit.org/show_bug.cgi?id=45762
+
+        * public/WebView.h: add WebView::setDomainRelaxationForbidden
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setDomainRelaxationForbidden):
+        * src/WebViewImpl.h:
+
+2010-09-14  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Andreas Kling.
+
+        Move DebuggerScript.js from WebKit/chromium/src/js to WebCore/bindings/v8
+        https://bugs.webkit.org/show_bug.cgi?id=45739
+
+        * WebKit.grd:
+        * WebKit.gypi:
+        * src/js/DebuggerScript.js: Removed.
+        * src/js/DevToolsHostStub.js: Removed.
+
+2010-09-14  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Make WebDeviceOrientationClientMock constructor private.
+        https://bugs.webkit.org/show_bug.cgi?id=45743
+
+        Clients should use the create member function instead. DumpRenderTree
+        and the Chromium test_shell have previously been updated to call create.
+
+        * public/WebDeviceOrientationClientMock.h:
+        (WebKit::WebDeviceOrientationClientMock::WebDeviceOrientationClientMock):
+
+2010-09-13  Eric Uhrhane  <ericu@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Add Chromium API for FileWriter
+        https://bugs.webkit.org/show_bug.cgi?id=44360
+
+        Build file changes.
+        * WebKit.gyp:
+
+        Added a way to get a WebFileWriter.
+        * public/WebFileSystem.h:
+        (WebKit::WebFileSystem::createFileWriter):
+
+        WebFileWriter writes and truncates files.
+        * public/WebFileWriter.h: Added.
+
+        WebFileWriterClient reports success/failure and progress events.
+        * public/WebFileWriterClient.h: Added.
+
+        AsyncFileWriterChromium is a connector that links FileWriter and WebFileWriter, FileWriterClient and WebFileWriterClient.
+        * src/AsyncFileWriterChromium.cpp: Added.
+        * src/AsyncFileWriterChromium.h: Added.
+
+2010-09-13  W. James MacLean  <wjmaclean@google.com>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Thumbnails not generated for GPU Rendered Pages
+        https://bugs.webkit.org/show_bug.cgi?id=44127
+
+        Modified WebViewImpl::paint() to detect non-null canvas pointers when
+        accelerated compositing is active, and instead fills the pixel buffer
+        from the GPU framebuffer. Includes re-scaling support when provided
+        canvas does not match size of current render layer. Limits pixel
+        readback to rect passed to paint(), clipped by size of rootLayerTexture.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::doPixelReadbackToCanvas):
+        (WebKit::WebViewImpl::paint):
+        * src/WebViewImpl.h:
+
+2010-09-13  James Robinson  <jamesr@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [chromium] Return NULL from getSharedGraphicsContext3D if we couldn't initialize
+        https://bugs.webkit.org/show_bug.cgi?id=45731
+
+        If we can't create a GraphicsContext3D, return NULL from getSharedGraphicsContext3D rather
+        than an object with NULL internal pointers.  Callers know how to handle a null return value
+        but not one that has inconsistent internal state.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::getSharedGraphicsContext3D):
+
+2010-09-13  Chris Guillory  <chris.guillory@google.com>
+
+        Reviewed by Chris Fleizach.
+
+        WebAccessibilityCacheImpl needs to handle invalid accessibility object ids.
+        https://bugs.webkit.org/show_bug.cgi?id=45572
+
+        * public/WebAccessibilityObject.h:
+        * src/WebAccessibilityCacheImpl.cpp:
+        (WebKit::WebAccessibilityCacheImpl::addOrGetId):
+        * src/WebAccessibilityObject.cpp:
+        (WebKit::WebAccessibilityObject::isAxObjectIdValid):
+
+2010-09-13  Pavel Podivilov  <podivilov@chromium.org>
+
+        Reviewed by Dimitri Glazkov.
+
+        [Chromium] fix broken dependency in ImageDiff
+        https://bugs.webkit.org/show_bug.cgi?id=45684
+
+        * WebKit.gyp:
+
+2010-09-13  Enrica Casucci  <enrica@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Paste should be implemented in WebCore like Copy and Cut for Mac also.
+        https://bugs.webkit.org/show_bug.cgi?id=45494
+        <rdar://problem/7660537>
+
+        On the Mac platform, the implementation of the paste operation is all done
+        at the WebKit level. In order to support it on WebKit2 it is necessary to
+        refactor the code and move this functionality at the level of WebCore like
+        we already have on Windows.
+        The original code relies on some in AppKit functions that call back into
+        WebKit causing problems in WebKit2. All this functionality has been moved
+        at the level of the editor client where it can be dealt with appropriately.
+
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::canShowMIMETypeAsHTML): Added stub.
+        * src/FrameLoaderClientImpl.h:
+
+2010-09-13  Jonathan Dixon  <joth@chromium.org>
+
+        Reviewed by Steve Block.
+
+        [chromium] Port test shell geolocation fixes to DRT
+        https://bugs.webkit.org/show_bug.cgi?id=45313
+
+        Ports over fixes from test shell:
+         - http://codereview.chromium.org/3294007
+         - http://codereview.chromium.org/333800
+
+        Resets state between service instances, which fixes delayed-permission-allowed-for-multiple-requests.html
+
+        Also re-apply rolled out patch http://trac.webkit.org/changeset/66886 :-
+        Access to out-of-scope WebGeolocationServiceBridgeImpl
+        https://bugs.webkit.org/show_bug.cgi?id=45112
+
+        Keep the WebGeolocationService pointer for lifetime of the bridge, to
+        ensure it can be detached reliably
+
+        Includes follow-up review comment to rename onWebGeolocationServiceDestroyed to didDestroyGeolocationService
+
+        * public/WebGeolocationService.h:
+        (WebKit::WebGeolocationService::~WebGeolocationService):
+        * public/WebGeolocationServiceBridge.h:
+        (WebKit::WebGeolocationServiceBridge::onWebGeolocationServiceDestroyed):
+        * public/WebGeolocationServiceMock.h:
+        * src/WebGeolocationServiceBridgeImpl.cpp:
+        (WebKit::WebGeolocationServiceBridgeImpl::WebGeolocationServiceBridgeImpl):
+        (WebKit::WebGeolocationServiceBridgeImpl::~WebGeolocationServiceBridgeImpl):
+        (WebKit::WebGeolocationServiceBridgeImpl::startUpdating):
+        (WebKit::WebGeolocationServiceBridgeImpl::stopUpdating):
+        (WebKit::WebGeolocationServiceBridgeImpl::suspend):
+        (WebKit::WebGeolocationServiceBridgeImpl::resume):
+        (WebKit::WebGeolocationServiceBridgeImpl::attachBridgeIfNeeded):
+        (WebKit::WebGeolocationServiceBridgeImpl::setIsAllowed):
+        (WebKit::WebGeolocationServiceBridgeImpl::setLastPosition):
+        (WebKit::WebGeolocationServiceBridgeImpl::setLastError):
+        (WebKit::WebGeolocationServiceBridgeImpl::didDestroyGeolocationService):
+        (WebKit::WebGeolocationServiceBridgeImpl::isAttached):
+        * src/WebGeolocationServiceMock.cpp:
+        (WebKit::WebGeolocationServiceMock::setMockGeolocationPermission):
+        (WebKit::WebGeolocationServiceMockImpl::WebGeolocationServiceMockImpl):
+        (WebKit::WebGeolocationServiceMockImpl::~WebGeolocationServiceMockImpl):
+        (WebKit::WebGeolocationServiceMockImpl::setMockGeolocationPermission):
+        (WebKit::WebGeolocationServiceMockImpl::requestPermissionForFrame):
+        (WebKit::WebGeolocationServiceMockImpl::notifyPendingPermissions):
+
+2010-09-13  Yury Semikhatsky  <yurys@chromium.org>
+
+        Reviewed by Pavel Feldman.
+
+        Web Inspector: upstream testExpandScope debugger test
+        https://bugs.webkit.org/show_bug.cgi?id=45260
+
+        * src/js/DebuggerScript.js: copy scope variables into a new object, but for global scope object,
+        with statement parameter and catch block exception variable pass the object itself to the injected
+        script.
+        * src/js/Tests.js: moved testExpandScope to LayoutTests
+
+2010-09-13  Hans Wennborg  <hans@chromium.org>
+
+        Reviewed by Jeremy Orlow.
+
+        Add WebDeviceOrientationClientMock::create() and use it from DRT.
+        https://bugs.webkit.org/show_bug.cgi?id=45650
+
+        Since the virtual member functions of WebDeviceOrientationClientMock
+        are not exported from the DLL, construction of the object must be done inside
+        the DLL, or else the linker will complain (because the vtable cannot
+        be set up). Clients should use the create() member function, and the constructor
+        will be made private in a subsequent patch.
+
+        * public/WebDeviceOrientationClientMock.h:
+        (WebKit::WebDeviceOrientationClientMock::WebDeviceOrientationClientMock):
+        * src/WebDeviceOrientationClientMock.cpp:
+        (WebKit::WebDeviceOrientationClientMock::create):
+
+2010-09-12  Kent Tamura  <tkent@chromium.org>
+
+        Reviewed by Tony Chang.
+
+        [DRT/Chromium] Remove dependency to base/string16.h and gfx/codec/png_codec.h
+        https://bugs.webkit.org/show_bug.cgi?id=45517
+
+        * DEPS: Roll Chromium revision to r59033 to have webkit_support_gfx.h.
+        * WebKit.gyp:
+
+2010-09-10  MORITA Hajime  <morrita@google.com>
+
+        Reviewed by Tony Chang.
+
+        [Chromium] Implement textInputController.hasSpellingMarker() for Chromium
+        https://bugs.webkit.org/show_bug.cgi?id=45441
+
+        Exported Frame::selectionStartHasSpellingMarkerFor() for DRT use.
+
+        * public/WebFrame.h:
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::selectionStartHasSpellingMarkerFor):
+        * src/WebFrameImpl.h:
+
+2010-09-10  Jesus Sanchez-Palencia  <jesus.palencia@openbossa.org>
+
+        Reviewed by Darin Adler.
+
+        Add NetworkingContext to avoid layer violations
+        https://bugs.webkit.org/show_bug.cgi?id=42292
+
+        * src/ResourceHandle.cpp:
+        (WebCore::ResourceHandle::create):
+        (WebCore::ResourceHandle::start):
+        (WebCore::ResourceHandle::loadResourceSynchronously):
+
+2010-09-10  Sam Weinig  <sam@webkit.org>
+
+        Fix chromium build.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setZoomLevel):
+
+2010-09-10  Ryosuke Niwa  <rniwa@webkit.org>
+
+        Unreviewed, speculative chromium build fix.
+
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::setZoomLevel):
+
+2010-09-10  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Remove unnecessary constraint in WebCore of choosing either text zoom or full page zoom.
+        Precursor to <rdar://problem/7660657>
+        https://bugs.webkit.org/show_bug.cgi?id=45522
+
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::createPlugin):
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::WebViewImpl):
+        (WebKit::WebViewImpl::setZoomLevel):
+        * src/WebViewImpl.h:
+        (WebKit::WebViewImpl::zoomTextOnly):
+        Move tracking of text only zoom here from WebCore.
+
+2010-09-10  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Fisher.
+
+        Move code from WebKit-layer to DocumentLoader
+        https://bugs.webkit.org/show_bug.cgi?id=45569
+
+        * src/FrameLoaderClientImpl.cpp:
+        (WebKit::FrameLoaderClientImpl::committedLoad):
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::commitDocumentData):
+
+2010-09-10  Tony Chang  <tony@chromium.org>
+
+        Unreviewed, fix chromium compile after r67238.
+
+        shouldChangeSelection was removed from Frame.
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::selectWordAroundPosition):
+
+2010-09-10  Nat Duca  <nduca@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        [chromium] Accelerated Compositing: screen garbage when scrolling
+        https://bugs.webkit.org/show_bug.cgi?id=45092
+
+        Introduce a new API on WebWidget for painting with accelerated
+        compositing that allows the compositor to properly distingiush
+        scrolling, invalidation and repainting from one another. The key
+        change is that in accelerated rendering case, invalidates and
+        scrolling pass directly to the compositor, rather than passing up
+        to the client as was the case in the software path. For
+        accelerated rendering, the previous paint() method is replaced by
+        composite().
+
+        * public/WebWidget.h:
+        * public/WebWidgetClient.h:
+        (WebKit::WebWidgetClient::scheduleComposite):
+        * src/ChromeClientImpl.cpp:
+        (WebKit::ChromeClientImpl::invalidateContentsAndWindow):
+        (WebKit::ChromeClientImpl::scroll):
+        * src/WebPopupMenuImpl.cpp:
+        (WebKit::WebPopupMenuImpl::themeChanged):
+        (WebKit::WebPopupMenuImpl::composite):
+        * src/WebPopupMenuImpl.h:
+        * src/WebViewImpl.cpp:
+        (WebKit::WebViewImpl::resize):
+        (WebKit::WebViewImpl::paint):
+        (WebKit::WebViewImpl::themeChanged):
+        (WebKit::WebViewImpl::composite):
+        (WebKit::WebViewImpl::setRootGraphicsLayer):
+        (WebKit::WebViewImpl::setRootLayerNeedsDisplay):
+        (WebKit::WebViewImpl::scrollRootLayerRect):
+        (WebKit::WebViewImpl::invalidateRootLayerRect):
+        (WebKit::WebViewImpl::setIsAcceleratedCompositingActive):
+        (WebKit::WebViewImpl::updateRootLayerContents):
+        (WebKit::WebViewImpl::doComposite):
+        * src/WebViewImpl.h:
+        * tests/PopupMenuTest.cpp:
+        (WebKit::TestWebWidget::themeChanged):
+        (WebKit::TestWebWidget::composite):
+
+2010-09-10  David Holloway  <dhollowa@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        Change WebKit::WebFormElement::wasUserSubmitted to use WebCore::HTMLFormElement::submittedByUserGesture
+        instead of WebCore::HTMLFormElement::submissionTrigger.
+        Chromium AutoFill feature semantics changed with respect to what we mean by "user submitted" form.  A
+        more accurate measure of the user manually submitting a form is via user gesture.
+        https://bugs.webkit.org/show_bug.cgi?id=45128
+
+        * src/WebFormElement.cpp:
+        (WebKit::WebFormElement::wasUserSubmitted):
+
+2010-09-09  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Move functions from Frame to SelectionController as planned
+        https://bugs.webkit.org/show_bug.cgi?id=45508
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::selectionBoundsRect):
+        Call functions on selection().
+
+2010-09-10  Adam Barth  <abarth@webkit.org>
+
+        Chromium build fix (one hopes!)
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::commitDocumentData):
+
+2010-09-10  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Main resource bytes shouldn't bounce through FrameLoader
+        https://bugs.webkit.org/show_bug.cgi?id=45496
+
+        Now return the bytes to the DocumentLoader.
+
+        Also, removed comment about wrong code in the Mac port.
+
+        * src/WebFrameImpl.cpp:
+        (WebKit::WebFrameImpl::commitDocumentData):
+
 2010-09-08  Darin Adler  <darin@apple.com>
 
         Reviewed by Adam Barth.
@@ -53,13 +1011,22 @@
         * src/WebKit.cpp:
         (WebKit::areLayoutTestImagesOpaque): Make linux match windows.
 
+2010-09-10  Jay Civelli  <jcivelli@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Add the destructor to WebDOMEvent to prevent a leak.
+        https://bugs.webkit.org/show_bug.cgi?id=45287
+
+        * public/WebDOMEvent.h:
+        (WebKit::WebDOMEvent::~WebDOMEvent):
+
 2010-09-09  Chris Guillory  <chris.guillory@google.com>
 
         Reviewed by Chris Fleizach.
 
         Add methods used to determine accessibility state.
         https://bugs.webkit.org/show_bug.cgi?id=45434
-        
 
         * public/WebAccessibilityObject.h:
         * src/WebAccessibilityObject.cpp:

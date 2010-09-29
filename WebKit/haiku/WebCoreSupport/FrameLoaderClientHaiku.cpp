@@ -361,6 +361,12 @@ void FrameLoaderClientHaiku::finishedLoading(DocumentLoader*)
     notImplemented();
 }
 
+bool FrameLoaderClientHaiku::canShowMIMETypeAsHTML(const String& MIMEType) const
+{
+    notImplemented();
+    return false;
+}
+    
 bool FrameLoaderClientHaiku::canShowMIMEType(const String& MIMEType) const
 {
     notImplemented();
@@ -506,12 +512,7 @@ void FrameLoaderClientHaiku::setMainDocumentError(WebCore::DocumentLoader*, cons
 
 void FrameLoaderClientHaiku::committedLoad(WebCore::DocumentLoader* loader, const char* data, int length)
 {
-    if (!m_frame)
-        return;
-
-    FrameLoader* frameLoader = loader->frameLoader();
-    frameLoader->writer()->setEncoding(m_response.textEncodingName(), false);
-    frameLoader->addData(data, length);
+    loader->commitData(data, length);
 }
 
 WebCore::ResourceError FrameLoaderClientHaiku::cancelledError(const WebCore::ResourceRequest& request)

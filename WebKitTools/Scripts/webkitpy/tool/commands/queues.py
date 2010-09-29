@@ -95,6 +95,10 @@ class AbstractQueue(Command, QueueEngineDelegate):
             if (response != "yes"):
                 error("User declined.")
         log("Running WebKit %s." % self.name)
+        self.tool.status_server.update_status(self.name, "Starting Queue")
+
+    def stop_work_queue(self, reason):
+        self.tool.status_server.update_status(self.name, "Stopping Queue, reason: %s" % reason)
 
     def should_continue_work_queue(self):
         self._iteration_count += 1
@@ -115,8 +119,8 @@ class AbstractQueue(Command, QueueEngineDelegate):
     # Command methods
 
     def execute(self, options, args, tool, engine=QueueEngine):
-        self.options = options
-        self.tool = tool
+        self.options = options  # FIXME: This code is wrong.  Command.options is a list, this assumes an Options element!
+        self.tool = tool  # FIXME: This code is wrong too!  Command.bind_to_tool handles this!
         return engine(self.name, self, self.tool.wakeup_event).run()
 
     @classmethod
@@ -144,8 +148,16 @@ class AbstractPatchQueue(AbstractQueue):
     def _update_status(self, message, patch=None, results_file=None):
         self.tool.status_server.update_status(self.name, message, patch, results_file)
 
+    # Note, eventually this will be done by a separate "feeder" queue
+    # whose job it is to poll bugzilla and feed work items into the
+    # status server for other queues to munch on.
     def _update_work_items(self, patch_ids):
         self.tool.status_server.update_work_items(self.name, patch_ids)
+        if patch_ids:
+            self.log_progress(patch_ids)
+
+    def _fetch_next_work_item(self):
+        return self.tool.status_server.next_work_item(self.name)
 
     def _did_pass(self, patch):
         self._update_status(self._pass_status, patch)
@@ -189,18 +201,22 @@ class CommitQueue(AbstractPatchQueue, StepSequenceErrorHandler):
             return rollout_cmp
         return cmp(a.attach_date(), b.attach_date())
 
-    def next_work_item(self):
+    def _feed_work_items_to_server(self):
+        # Grab the set of patches from bugzilla, sort them, and update the status server.
+        # Eventually this will all be done by a separate feeder queue.
         patches = self._validate_patches_in_commit_queue()
         patches = sorted(patches, self._patch_cmp)
         self._update_work_items([patch.id() for patch in patches])
-        if not patches:
-            self._update_status("Empty queue")
-            return None
-        # Only bother logging if we have patches in the queue.
-        self.log_progress([patch.id() for patch in patches])
-        return patches[0]
 
-    def _can_build_and_test(self):
+    def next_work_item(self):
+        self._feed_work_items_to_server()
+        # The grab the next patch to work on back from the status server.
+        patch_id = self._fetch_next_work_item()
+        if not patch_id:
+            return None
+        return self.tool.bugs.fetch_attachment(patch_id)
+
+    def _can_build_and_test_without_patch(self):
         try:
             self.run_webkit_patch([
                 "build-and-test",
@@ -211,25 +227,24 @@ class CommitQueue(AbstractPatchQueue, StepSequenceErrorHandler):
                 "--no-update",
                 "--build-style=both",
                 "--quiet"])
+            return True
         except ScriptError, e:
             failure_log = self._log_from_script_error_for_upload(e)
-            self._update_status("Unable to successfully build and test", results_file=failure_log)
+            self._update_status("Unable to build and test without patch", results_file=failure_log)
             return False
-        return True
 
     def should_proceed_with_work_item(self, patch):
         patch_text = "rollout patch" if patch.is_rollout() else "patch"
         self._update_status("Landing %s" % patch_text, patch)
         return True
 
-    def _land(self, patch, first_run=False):
+    def _build_and_test_patch(self, patch, first_run=False):
         try:
             args = [
-                "land-attachment",
+                "build-and-test-attachment",
                 "--force-clean",
                 "--build",
                 "--non-interactive",
-                "--ignore-builders",
                 "--build-style=both",
                 "--quiet",
                 patch.id()
@@ -249,27 +264,68 @@ class CommitQueue(AbstractPatchQueue, StepSequenceErrorHandler):
                 # built and tested.
                 args.append("--no-update")
             self.run_webkit_patch(args)
-            self._did_pass(patch)
             return True
         except ScriptError, e:
+            failure_log = self._log_from_script_error_for_upload(e)
+            self._update_status("Unable to build and test patch", patch=patch, results_file=failure_log)
             if first_run:
                 return False
             self._did_fail(patch)
             raise
 
+    def _revalidate_patch(self, patch):
+        # Bugs might get closed, or patches might be obsoleted or r-'d while the
+        # commit-queue is processing.  Do one last minute check before landing.
+        patch = self.tool.bugs.fetch_attachment(patch.id())
+        if patch.is_obsolete():
+            return None
+        if patch.bug().is_closed():
+            return None
+        if not patch.committer():
+            return None
+        # Reviewer is not required.  Misisng reviewers will be caught during the ChangeLog check during landing.
+        return patch
+
+    def _land(self, patch):
+        try:
+            args = [
+                "land-attachment",
+                "--force-clean",
+                "--non-interactive",
+                "--ignore-builders",
+                "--quiet",
+                "--parent-command=commit-queue",
+                patch.id(),
+            ]
+            self.run_webkit_patch(args)
+            self._did_pass(patch)
+        except ScriptError, e:
+            failure_log = self._log_from_script_error_for_upload(e)
+            self._update_status("Unable to land patch", patch=patch, results_file=failure_log)
+            self._did_fail(patch)
+            raise
+
     def process_work_item(self, patch):
         self._cc_watchers(patch.bug_id())
-        if not self._land(patch, first_run=True):
-            # The patch failed to land, but the bots were green. It's possible
-            # that the bots were behind. To check that case, we try to build and
-            # test ourselves.
-            if not self._can_build_and_test():
+        if not self._build_and_test_patch(patch, first_run=True):
+            self._update_status("Building and testing without the patch as a sanity check", patch)
+            # The patch failed to build and test. It's possible that the
+            # tree is busted. To check that case, we try to build and test
+            # without the patch.
+            if not self._can_build_and_test_without_patch():
                 return False
+            self._update_status("Build and test succeeded, trying again with patch", patch)
             # Hum, looks like the patch is actually bad. Of course, we could
             # have been bitten by a flaky test the first time around.  We try
-            # to land again.  If it fails a second time, we're pretty sure its
-            # a bad test and re can reject it outright.
-            self._land(patch)
+            # to build and test again. If it fails a second time, we're pretty
+            # sure its a bad test and re can reject it outright.
+            self._build_and_test_patch(patch)
+        # Do one last check to catch any bug changes (cq-, closed, reviewer changed, etc.)
+        # This helps catch races between the bots if locks expire.
+        patch = self._revalidate_patch(patch)
+        if not patch:
+            return False
+        self._land(patch)
         return True
 
     def handle_unexpected_error(self, patch, message):
@@ -291,6 +347,8 @@ class CommitQueue(AbstractPatchQueue, StepSequenceErrorHandler):
 
     @classmethod
     def handle_checkout_needs_update(cls, tool, state, options, error):
+        message = "Tests passed, but commit failed (checkout out of date).  Updating, then landing without building or re-running tests."
+        tool.status_server.update_status(cls.name, message, state["patch"])
         # The only time when we find out that out checkout needs update is
         # when we were ready to actually pull the trigger and land the patch.
         # Rather than spinning in the master process, we retry without
@@ -377,7 +435,6 @@ class AbstractReviewQueue(AbstractPatchQueue, PersistentPatchCollectionDelegate,
         patch_id = self._patches.next()
         if patch_id:
             return self.tool.bugs.fetch_attachment(patch_id)
-        self._update_status("Empty queue")
 
     def should_proceed_with_work_item(self, patch):
         raise NotImplementedError, "subclasses must implement"

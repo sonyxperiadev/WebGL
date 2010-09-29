@@ -42,16 +42,15 @@ class EarlyWarningSytemTest(QueuesTest):
     def _default_expected_stderr(self, ews):
         string_replacemnts = {
             "name": ews.name,
-            "checkout_dir": os.getcwd(),  # FIXME: Use of os.getcwd() is wrong, should be scm.checkout_root
             "port": ews.port_name,
             "watchers": ews.watchers,
         }
         expected_stderr = {
-            "begin_work_queue": "CAUTION: %(name)s will discard all local changes in \"%(checkout_dir)s\"\nRunning WebKit %(name)s.\n" % string_replacemnts,
+            "begin_work_queue": self._default_begin_work_queue_stderr(ews.name, os.getcwd()),  # FIXME: Use of os.getcwd() is wrong, should be scm.checkout_root
             "handle_unexpected_error": "Mock error message\n",
             "next_work_item": "MOCK: update_work_items: %(name)s [103]\n" % string_replacemnts,
             "process_work_item": "MOCK: update_status: %(name)s Pass\n" % string_replacemnts,
-            "handle_script_error": "MOCK: update_status: %(name)s ScriptError error message\nMOCK bug comment: bug_id=345, cc=%(watchers)s\n--- Begin comment ---\\Attachment 1234 did not build on %(port)s:\nBuild output: http://dummy_url\n--- End comment ---\n\n" % string_replacemnts,
+            "handle_script_error": "MOCK: update_status: %(name)s ScriptError error message\nMOCK bug comment: bug_id=142, cc=%(watchers)s\n--- Begin comment ---\\Attachment 197 did not build on %(port)s:\nBuild output: http://dummy_url\n--- End comment ---\n\n" % string_replacemnts,
         }
         return expected_stderr
 

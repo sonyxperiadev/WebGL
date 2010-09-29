@@ -23,18 +23,20 @@
 #include "OwnPtr.h"
 
 #if defined(USE_FREETYPE)
-typedef struct _FcPattern FcPattern;
 typedef struct _FcObjectSet FcObjectSet;
 typedef struct _FcFontSet FcFontSet;
 #endif
 
+typedef struct cairo_path cairo_path_t;
+
 namespace WTF {
 
 #if defined(USE_FREETYPE)
-template <> void deleteOwnedPtr<FcPattern>(FcPattern*);
 template <> void deleteOwnedPtr<FcObjectSet>(FcObjectSet*);
 template <> void deleteOwnedPtr<FcFontSet>(FcFontSet*);
 #endif
+
+template <> void deleteOwnedPtr<cairo_path_t>(cairo_path_t*);
 
 } // namespace WTF
 

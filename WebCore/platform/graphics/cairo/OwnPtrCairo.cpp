@@ -25,15 +25,11 @@
 #include <fontconfig/fcfreetype.h>
 #endif
 
+#include <cairo.h>
+
 namespace WTF {
 
 #if defined(USE_FREETYPE)
-template <> void deleteOwnedPtr<FcPattern>(FcPattern* ptr)
-{
-    if (ptr)
-        FcPatternDestroy(ptr);
-}
-
 template <> void deleteOwnedPtr<FcObjectSet>(FcObjectSet* ptr)
 {
     if (ptr)
@@ -46,5 +42,11 @@ template <> void deleteOwnedPtr<FcFontSet>(FcFontSet* ptr)
         FcFontSetDestroy(ptr);
 }
 #endif
+
+template <> void deleteOwnedPtr<cairo_path_t>(cairo_path_t* ptr)
+{
+    if (ptr)
+        cairo_path_destroy(ptr);
+}
 
 } // namespace WTF

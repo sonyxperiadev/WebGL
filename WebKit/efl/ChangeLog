@@ -1,3 +1,140 @@
+2010-09-17  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        REGRESSION (r60104): Zoom level is unexpectedly reset on page reload
+        https://bugs.webkit.org/show_bug.cgi?id=42863
+
+        * ewk/ewk_frame.cpp:
+        (ewk_frame_zoom_get):
+        (ewk_frame_zoom_set):
+        (ewk_frame_zoom_text_only_set):
+        Call functions on Frame instead of FrameView.
+
+2010-09-16  Darin Adler  <darin@apple.com>
+
+        Fix build.
+
+        * ewk/ewk_view.cpp:
+        (ewk_view_input_method_state_set): Updated for change
+        in name of isUrlField to isURLField.
+
+2010-09-14  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] ewk_frame_view_create_for_view set null as theme.
+        https://bugs.webkit.org/show_bug.cgi?id=45741
+
+        Add theme in ewk_view to use instead of frame's theme which is null in
+        ewk_frame_view_create_for_view.
+
+        * ewk/ewk_frame.cpp:
+        (ewk_frame_view_create_for_view):
+        * ewk/ewk_view.cpp:
+        (ewk_view_theme_set):
+        (ewk_view_theme_get):
+
+2010-09-14  Leandro Pereira  <leandro@profusion.mobi>
+
+        [EFL] Unreviewed build fix: remove "virtual" keyword from
+        implementation file.
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::canShowMIMETypeAsHTML):
+
+2010-09-13  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        Unreviewed build fix.
+
+        [EFL] Fix build break when enabling HTML5 video support
+        https://bugs.webkit.org/show_bug.cgi?id=45674
+
+        The correct include variable for LibXml2 in cmake is
+        LIBXML2_INCLUDE_DIR instead of LIBXML2_INCLUDE_DIRS.
+
+        * CMakeListsEfl.txt:
+
+2010-09-13  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Add setting API for enabling page cache
+        https://bugs.webkit.org/show_bug.cgi?id=44931
+
+        * ewk/ewk_view.cpp:
+        (_ewk_view_priv_new):
+        (ewk_view_setting_page_cache_get): Added.
+        (ewk_view_setting_page_cache_set): Added.
+        * ewk/ewk_view.h:
+
+2010-09-13  Enrica Casucci  <enrica@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Paste should be implemented in WebCore like Copy and Cut for Mac also.
+        https://bugs.webkit.org/show_bug.cgi?id=45494
+        <rdar://problem/7660537>
+
+        On the Mac platform, the implementation of the paste operation is all done
+        at the WebKit level. In order to support it on WebKit2 it is necessary to
+        refactor the code and move this functionality at the level of WebCore like
+        we already have on Windows.
+        The original code relies on some in AppKit functions that call back into
+        WebKit causing problems in WebKit2. All this functionality has been moved
+        at the level of the editor client where it can be dealt with appropriately.
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::canShowMIMETypeAsHTML): Added stub.
+        * WebCoreSupport/FrameLoaderClientEfl.h:
+
+2010-09-11  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Fix EFL build after r67274
+        https://bugs.webkit.org/show_bug.cgi?id=45584
+
+        Remove include of ZoomMode.h and change setZoomFactor and zoomFactor
+        to proper apis chaged by r67264.
+
+        * ewk/ewk_frame.cpp:
+        (ewk_frame_zoom_get):
+        (ewk_frame_zoom_set):
+        (ewk_frame_zoom_text_only_get):
+        (ewk_frame_zoom_text_only_set):
+
+2010-09-10  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Fisher.
+
+        Move code from WebKit-layer to DocumentLoader
+        https://bugs.webkit.org/show_bug.cgi?id=45569
+
+        This code didn't know that setEncoding could be called multiple times
+        safely.
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::FrameLoaderClientEfl):
+        (WebCore::FrameLoaderClientEfl::committedLoad):
+        (WebCore::FrameLoaderClientEfl::dispatchDidReceiveResponse):
+        (WebCore::FrameLoaderClientEfl::finishedLoading):
+        (WebCore::FrameLoaderClientEfl::dispatchDidFailLoading):
+        (WebCore::FrameLoaderClientEfl::setMainDocumentError):
+        * WebCoreSupport/FrameLoaderClientEfl.h:
+
+2010-09-10  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Main resource bytes shouldn't bounce through FrameLoader
+        https://bugs.webkit.org/show_bug.cgi?id=45496
+
+        Now return the bytes to the DocumentLoader.
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::committedLoad):
+
 2010-09-08  Darin Adler  <darin@apple.com>
 
         Reviewed by Adam Barth.

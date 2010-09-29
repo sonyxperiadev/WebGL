@@ -322,7 +322,7 @@ static bool executeDelete(Frame* frame, Event*, EditorCommandSource source, cons
     case CommandFromDOMWithUserInterface:
         // If the current selection is a caret, delete the preceding character. IE performs forwardDelete, but we currently side with Firefox.
         // Doesn't scroll to make the selection visible, or modify the kill ring (this time, siding with IE, not Firefox).
-        TypingCommand::deleteKeyPressed(frame->document(), frame->selectionGranularity() == WordGranularity);
+        TypingCommand::deleteKeyPressed(frame->document(), frame->selection()->granularity() == WordGranularity);
         return true;
     }
     ASSERT_NOT_REACHED();
@@ -1122,6 +1122,13 @@ static bool supportedPaste(Frame* frame, EditorCommandSource source)
     return false;
 }
 
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+static bool supportedDismissCorrectionPanel(Frame* frame, EditorCommandSource source)
+{
+    return supportedFromMenuOrKeyBinding(frame, source) && frame->editor()->isShowingCorrectionPanel();
+}
+#endif
+
 // Enabled functions
 
 static bool enabled(Frame*, Event*, EditorCommandSource)
@@ -1467,7 +1474,7 @@ static const CommandMap& createCommandMap()
         { "Yank", { executeYank, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
         { "YankAndSelect", { executeYankAndSelect, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
 #if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
-        { "CancelOperation", { executeCancelOperation, supportedFromMenuOrKeyBinding, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
+        { "CancelOperation", { executeCancelOperation, supportedDismissCorrectionPanel, enabledInEditableText, stateNone, valueNull, notTextInsertion, doNotAllowExecutionWhenDisabled } },
 #endif
     };
 

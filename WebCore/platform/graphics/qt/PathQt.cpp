@@ -51,7 +51,6 @@
 namespace WebCore {
 
 Path::Path()
-    : m_lastMoveToIndex(0)
 {
 }
 
@@ -61,14 +60,12 @@ Path::~Path()
 
 Path::Path(const Path& other)
     : m_path(other.m_path)
-    , m_lastMoveToIndex(other.m_lastMoveToIndex)
 {
 }
 
 Path& Path::operator=(const Path& other)
 {
     m_path = other.m_path;
-    m_lastMoveToIndex = other.m_lastMoveToIndex;
     return *this;
 }
 
@@ -183,7 +180,6 @@ FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier)
 
 void Path::moveTo(const FloatPoint& point)
 {
-    m_lastMoveToIndex = m_path.elementCount();
     m_path.moveTo(point);
 }
 
@@ -265,30 +261,6 @@ void Path::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radius)
 void Path::closeSubpath()
 {
     m_path.closeSubpath();
-}
-
-void Path::closeCanvasSubpath()
-{
-    const int elementCount = m_path.elementCount();
-
-    if (!elementCount)
-        return;
-
-    QPointF lastMoveToPoint = m_path.elementAt(m_lastMoveToIndex);
-    int elementsInLastSubpath = 0;
-
-    for (int i = m_lastMoveToIndex; i < elementCount; ++i) {
-        QPainterPath::Element element = m_path.elementAt(i);
-        if (element.isLineTo() || element.isCurveTo()) {
-            // All we need to know is if there are 1 or more elements in the last subpath.
-            if (++elementsInLastSubpath == 2) {
-                m_path.lineTo(lastMoveToPoint);
-                return;
-            }
-        }
-    }
-
-    moveTo(lastMoveToPoint);
 }
 
 #define DEGREES(t) ((t) * 180.0 / M_PI)

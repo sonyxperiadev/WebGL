@@ -28,7 +28,9 @@
 #include "config.h"
 #include "PluginView.h"
 
+#if USE(JSC)
 #include "Bridge.h"
+#endif
 #include "Chrome.h"
 #include "Document.h"
 #include "DocumentLoader.h"
@@ -562,8 +564,8 @@ NPError PluginView::load(const FrameLoadRequest& frameLoadRequest, bool sendNoti
         // For security reasons, only allow JS requests to be made on the frame that contains the plug-in.
         if (!targetFrameName.isNull() && m_parentFrame->tree()->find(targetFrameName) != m_parentFrame)
             return NPERR_INVALID_PARAM;
-    } else if (!SecurityOrigin::canDisplay(url, String(), m_parentFrame->document()))
-            return NPERR_GENERIC_ERROR;
+    } else if (!m_parentFrame->document()->securityOrigin()->canDisplay(url))
+        return NPERR_GENERIC_ERROR;
 
     PluginRequest* request = new PluginRequest(frameLoadRequest, sendNotification, notifyData, arePopupsAllowed());
     scheduleRequest(request);
@@ -767,10 +769,9 @@ void PluginView::setJavaScriptPaused(bool paused)
         m_requestTimer.startOneShot(0);
 }
 
-#if USE(JSC)
-PassRefPtr<JSC::Bindings::Instance> PluginView::bindingInstance()
-{
 #if ENABLE(NETSCAPE_PLUGIN_API)
+NPObject* PluginView::npObject()
+{
     NPObject* object = 0;
 
     if (!m_isStarted || !m_plugin || !m_plugin->pluginFuncs()->getvalue)
@@ -784,12 +785,29 @@ PassRefPtr<JSC::Bindings::Instance> PluginView::bindingInstance()
     NPError npErr;
     {
         PluginView::setCurrentPluginView(this);
+#if USE(JSC)
         JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
+#endif
         setCallingPlugin(true);
         npErr = m_plugin->pluginFuncs()->getvalue(m_instance, NPPVpluginScriptableNPObject, &object);
         setCallingPlugin(false);
         PluginView::setCurrentPluginView(0);
     }
+
+    if (npErr != NPERR_NO_ERROR)
+        return 0;
+
+    return object;
+}
+#endif
+
+#if USE(JSC)
+PassRefPtr<JSC::Bindings::Instance> PluginView::bindingInstance()
+{
+#if ENABLE(NETSCAPE_PLUGIN_API)
+    NPObject* object = npObject();
+    if (!object)
+        return 0;
 
     if (hasOneRef()) {
         // The renderer for the PluginView was destroyed during the above call, and
@@ -797,9 +815,6 @@ PassRefPtr<JSC::Bindings::Instance> PluginView::bindingInstance()
         // return null.
         return 0;
     }
-
-    if (npErr != NPERR_NO_ERROR || !object)
-        return 0;
 
     RefPtr<JSC::Bindings::RootObject> root = m_parentFrame->script()->createRootObject(this);
     RefPtr<JSC::Bindings::Instance> instance = JSC::Bindings::CInstance::create(object, root.release());
@@ -1475,8 +1490,11 @@ void PluginView::privateBrowsingStateChanged(bool privateBrowsingEnabled)
         return;
 
     PluginView::setCurrentPluginView(this);
+<<<<<<< HEAD
 // ANDROID
 // Upstream to webkit.org
+=======
+>>>>>>> webkit.org at r67908
 #if USE(JSC)
     JSC::JSLock::DropAllLocks dropAllLocks(JSC::SilenceAssertionsOnly);
 #endif

@@ -255,23 +255,23 @@ static HTMLInputElement* asFileInput(Node* node)
     // The button for a FILE input is a sub element with no set input type
     // In order to get around this problem we assume any non-FILE input element
     // is this internal button, and try querying the shadow parent node.
-    if (node->hasTagName(HTMLNames::inputTag) && node->isShadowNode() && static_cast<HTMLInputElement*>(node)->inputType() != HTMLInputElement::FILE)
-      node = node->shadowParentNode();
+    if (node->hasTagName(HTMLNames::inputTag) && node->isShadowNode() && !static_cast<HTMLInputElement*>(node)->isFileUpload())
+        node = node->shadowParentNode();
 
     if (!node || !node->hasTagName(HTMLNames::inputTag))
         return 0;
 
-    HTMLInputElement* inputElem = static_cast<HTMLInputElement*>(node);
-    if (inputElem->inputType() == HTMLInputElement::FILE)
-        return inputElem;
+    HTMLInputElement* inputElement = static_cast<HTMLInputElement*>(node);
+    if (!inputElement->isFileUpload())
+        return 0;
 
-    return 0;
+    return inputElement;
 }
 
 static Element* elementUnderMouse(Document* documentUnderMouse, const IntPoint& p)
 {
-    FrameView* view = documentUnderMouse->view();
-    float zoomFactor = view ? view->pageZoomFactor() : 1;
+    Frame* frame = documentUnderMouse->frame();
+    float zoomFactor = frame ? frame->pageZoomFactor() : 1;
     IntPoint point = roundedIntPoint(FloatPoint(p.x() * zoomFactor, p.y() * zoomFactor));
 
     HitTestRequest request(HitTestRequest::ReadOnly | HitTestRequest::Active);
@@ -455,7 +455,7 @@ bool DragController::concludeEditDrag(DragData* dragData)
             // NSTextView behavior is to always smart delete on moving a selection,
             // but only to smart insert if the selection granularity is word granularity.
             bool smartDelete = innerFrame->editor()->smartInsertDeleteEnabled();
-            bool smartInsert = smartDelete && innerFrame->selectionGranularity() == WordGranularity && dragData->canSmartReplace();
+            bool smartInsert = smartDelete && innerFrame->selection()->granularity() == WordGranularity && dragData->canSmartReplace();
             applyCommand(MoveSelectionCommand::create(fragment, dragCaret.base(), smartInsert, smartDelete));
         } else {
             if (setSelectionToDragCaret(innerFrame, dragCaret, range, point))
@@ -636,7 +636,7 @@ static IntPoint dragLocForDHTMLDrag(const IntPoint& mouseDraggedPoint, const Int
 
 static IntPoint dragLocForSelectionDrag(Frame* src)
 {
-    IntRect draggingRect = enclosingIntRect(src->selectionBounds());
+    IntRect draggingRect = enclosingIntRect(src->selection()->bounds());
     int xpos = draggingRect.right();
     xpos = draggingRect.x() < xpos ? draggingRect.x() : xpos;
     int ypos = draggingRect.bottom();

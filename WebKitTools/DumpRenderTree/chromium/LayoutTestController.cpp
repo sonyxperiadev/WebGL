@@ -38,6 +38,7 @@
 #include "public/WebAnimationController.h"
 #include "public/WebBindings.h"
 #include "public/WebConsoleMessage.h"
+#include "public/WebData.h"
 #include "public/WebDeviceOrientation.h"
 #include "public/WebDeviceOrientationClientMock.h"
 #include "public/WebDocument.h"
@@ -77,113 +78,112 @@ LayoutTestController::LayoutTestController(TestShell* shell)
     // they will use when called by JavaScript.  The actual binding of those
     // names to their methods will be done by calling bindToJavaScript() (defined
     // by CppBoundClass, the parent to LayoutTestController).
-    bindMethod("dumpAsText", &LayoutTestController::dumpAsText);
-    bindMethod("dumpChildFrameScrollPositions", &LayoutTestController::dumpChildFrameScrollPositions);
-    bindMethod("dumpChildFramesAsText", &LayoutTestController::dumpChildFramesAsText);
-    bindMethod("dumpDatabaseCallbacks", &LayoutTestController::dumpDatabaseCallbacks);
-    bindMethod("dumpEditingCallbacks", &LayoutTestController::dumpEditingCallbacks);
-    bindMethod("dumpBackForwardList", &LayoutTestController::dumpBackForwardList);
-    bindMethod("dumpFrameLoadCallbacks", &LayoutTestController::dumpFrameLoadCallbacks);
-    bindMethod("dumpResourceLoadCallbacks", &LayoutTestController::dumpResourceLoadCallbacks);
-    bindMethod("dumpStatusCallbacks", &LayoutTestController::dumpWindowStatusChanges);
-    bindMethod("dumpTitleChanges", &LayoutTestController::dumpTitleChanges);
-    bindMethod("setAcceptsEditing", &LayoutTestController::setAcceptsEditing);
-    bindMethod("waitUntilDone", &LayoutTestController::waitUntilDone);
-    bindMethod("notifyDone", &LayoutTestController::notifyDone);
-    bindMethod("queueReload", &LayoutTestController::queueReload);
-    bindMethod("queueLoadingScript", &LayoutTestController::queueLoadingScript);
-    bindMethod("queueNonLoadingScript", &LayoutTestController::queueNonLoadingScript);
-    bindMethod("queueLoad", &LayoutTestController::queueLoad);
-    bindMethod("queueBackNavigation", &LayoutTestController::queueBackNavigation);
-    bindMethod("queueForwardNavigation", &LayoutTestController::queueForwardNavigation);
-    bindMethod("windowCount", &LayoutTestController::windowCount);
-    bindMethod("setCanOpenWindows", &LayoutTestController::setCanOpenWindows);
-    bindMethod("setCloseRemainingWindowsWhenComplete", &LayoutTestController::setCloseRemainingWindowsWhenComplete);
-    bindMethod("objCIdentityIsEqual", &LayoutTestController::objCIdentityIsEqual);
-    bindMethod("setAlwaysAcceptCookies", &LayoutTestController::setAlwaysAcceptCookies);
-    bindMethod("showWebInspector", &LayoutTestController::showWebInspector);
-    bindMethod("closeWebInspector", &LayoutTestController::closeWebInspector);
-    bindMethod("setWindowIsKey", &LayoutTestController::setWindowIsKey);
-    bindMethod("setTabKeyCyclesThroughElements", &LayoutTestController::setTabKeyCyclesThroughElements);
-    bindMethod("setUserStyleSheetLocation", &LayoutTestController::setUserStyleSheetLocation);
-    bindMethod("setUserStyleSheetEnabled", &LayoutTestController::setUserStyleSheetEnabled);
-    bindMethod("setAuthorAndUserStylesEnabled", &LayoutTestController::setAuthorAndUserStylesEnabled);
-    bindMethod("pathToLocalResource", &LayoutTestController::pathToLocalResource);
     bindMethod("addFileToPasteboardOnDrag", &LayoutTestController::addFileToPasteboardOnDrag);
-    bindMethod("execCommand", &LayoutTestController::execCommand);
-    bindMethod("isCommandEnabled", &LayoutTestController::isCommandEnabled);
-    bindMethod("setPopupBlockingEnabled", &LayoutTestController::setPopupBlockingEnabled);
-    bindMethod("setStopProvisionalFrameLoads", &LayoutTestController::setStopProvisionalFrameLoads);
-    bindMethod("setSmartInsertDeleteEnabled", &LayoutTestController::setSmartInsertDeleteEnabled);
-    bindMethod("setSelectTrailingWhitespaceEnabled", &LayoutTestController::setSelectTrailingWhitespaceEnabled);
-    bindMethod("pauseAnimationAtTimeOnElementWithId", &LayoutTestController::pauseAnimationAtTimeOnElementWithId);
-    bindMethod("pauseTransitionAtTimeOnElementWithId", &LayoutTestController::pauseTransitionAtTimeOnElementWithId);
-    bindMethod("elementDoesAutoCompleteForElementWithId", &LayoutTestController::elementDoesAutoCompleteForElementWithId);
-    bindMethod("numberOfActiveAnimations", &LayoutTestController::numberOfActiveAnimations);
-    bindMethod("suspendAnimations", &LayoutTestController::suspendAnimations);
-    bindMethod("resumeAnimations", &LayoutTestController::resumeAnimations);
-    bindMethod("disableImageLoading", &LayoutTestController::disableImageLoading);
-    bindMethod("setIconDatabaseEnabled", &LayoutTestController::setIconDatabaseEnabled);
-    bindMethod("setCustomPolicyDelegate", &LayoutTestController::setCustomPolicyDelegate);
-    bindMethod("setScrollbarPolicy", &LayoutTestController::setScrollbarPolicy);
-    bindMethod("waitForPolicyDelegate", &LayoutTestController::waitForPolicyDelegate);
-    bindMethod("setWillSendRequestClearHeader", &LayoutTestController::setWillSendRequestClearHeader);
-    bindMethod("setWillSendRequestReturnsNullOnRedirect", &LayoutTestController::setWillSendRequestReturnsNullOnRedirect);
-    bindMethod("setWillSendRequestReturnsNull", &LayoutTestController::setWillSendRequestReturnsNull);
     bindMethod("addOriginAccessWhitelistEntry", &LayoutTestController::addOriginAccessWhitelistEntry);
-    bindMethod("removeOriginAccessWhitelistEntry", &LayoutTestController::removeOriginAccessWhitelistEntry);
-    bindMethod("clearAllDatabases", &LayoutTestController::clearAllDatabases);
-    bindMethod("setDatabaseQuota", &LayoutTestController::setDatabaseQuota);
-    bindMethod("setPOSIXLocale", &LayoutTestController::setPOSIXLocale);
-    bindMethod("counterValueForElementById", &LayoutTestController::counterValueForElementById);
     bindMethod("addUserScript", &LayoutTestController::addUserScript);
     bindMethod("addUserStyleSheet", &LayoutTestController::addUserStyleSheet);
-    bindMethod("pageNumberForElementById", &LayoutTestController::pageNumberForElementById);
-    bindMethod("numberOfPages", &LayoutTestController::numberOfPages);
+    bindMethod("clearAllDatabases", &LayoutTestController::clearAllDatabases);
+    bindMethod("closeWebInspector", &LayoutTestController::closeWebInspector);
+    bindMethod("counterValueForElementById", &LayoutTestController::counterValueForElementById);
+    bindMethod("disableImageLoading", &LayoutTestController::disableImageLoading);
+    bindMethod("display", &LayoutTestController::display);
+    bindMethod("dumpAsText", &LayoutTestController::dumpAsText);
+    bindMethod("dumpBackForwardList", &LayoutTestController::dumpBackForwardList);
+    bindMethod("dumpChildFramesAsText", &LayoutTestController::dumpChildFramesAsText);
+    bindMethod("dumpChildFrameScrollPositions", &LayoutTestController::dumpChildFrameScrollPositions);
+    bindMethod("dumpDatabaseCallbacks", &LayoutTestController::dumpDatabaseCallbacks);
+    bindMethod("dumpEditingCallbacks", &LayoutTestController::dumpEditingCallbacks);
+    bindMethod("dumpFrameLoadCallbacks", &LayoutTestController::dumpFrameLoadCallbacks);
+    bindMethod("dumpResourceLoadCallbacks", &LayoutTestController::dumpResourceLoadCallbacks);
+    bindMethod("dumpResourceResponseMIMETypes", &LayoutTestController::dumpResourceResponseMIMETypes);
     bindMethod("dumpSelectionRect", &LayoutTestController::dumpSelectionRect);
+    bindMethod("dumpStatusCallbacks", &LayoutTestController::dumpWindowStatusChanges);
+    bindMethod("dumpTitleChanges", &LayoutTestController::dumpTitleChanges);
+    bindMethod("elementDoesAutoCompleteForElementWithId", &LayoutTestController::elementDoesAutoCompleteForElementWithId);
+    bindMethod("evaluateInWebInspector", &LayoutTestController::evaluateInWebInspector);
+    bindMethod("evaluateScriptInIsolatedWorld", &LayoutTestController::evaluateScriptInIsolatedWorld);
+    bindMethod("execCommand", &LayoutTestController::execCommand);
+    bindMethod("forceRedSelectionColors", &LayoutTestController::forceRedSelectionColors);
     bindMethod("grantDesktopNotificationPermission", &LayoutTestController::grantDesktopNotificationPermission);
+    bindMethod("isCommandEnabled", &LayoutTestController::isCommandEnabled);
+    bindMethod("markerTextForListItem", &LayoutTestController::markerTextForListItem);
+    bindMethod("notifyDone", &LayoutTestController::notifyDone);
+    bindMethod("numberOfActiveAnimations", &LayoutTestController::numberOfActiveAnimations);
+    bindMethod("numberOfPages", &LayoutTestController::numberOfPages);
+    bindMethod("objCIdentityIsEqual", &LayoutTestController::objCIdentityIsEqual);
+    bindMethod("overridePreference", &LayoutTestController::overridePreference);
+    bindMethod("pageNumberForElementById", &LayoutTestController::pageNumberForElementById);
+    bindMethod("pathToLocalResource", &LayoutTestController::pathToLocalResource);
+    bindMethod("pauseAnimationAtTimeOnElementWithId", &LayoutTestController::pauseAnimationAtTimeOnElementWithId);
+    bindMethod("pauseTransitionAtTimeOnElementWithId", &LayoutTestController::pauseTransitionAtTimeOnElementWithId);
+    bindMethod("queueBackNavigation", &LayoutTestController::queueBackNavigation);
+    bindMethod("queueForwardNavigation", &LayoutTestController::queueForwardNavigation);
+    bindMethod("queueLoadingScript", &LayoutTestController::queueLoadingScript);
+    bindMethod("queueLoad", &LayoutTestController::queueLoad);
+    bindMethod("queueLoadHTMLString", &LayoutTestController::queueLoadHTMLString);
+    bindMethod("queueNonLoadingScript", &LayoutTestController::queueNonLoadingScript);
+    bindMethod("queueReload", &LayoutTestController::queueReload);
+    bindMethod("removeOriginAccessWhitelistEntry", &LayoutTestController::removeOriginAccessWhitelistEntry);
+    bindMethod("repaintSweepHorizontally", &LayoutTestController::repaintSweepHorizontally);
+    bindMethod("resumeAnimations", &LayoutTestController::resumeAnimations);
+    bindMethod("setAcceptsEditing", &LayoutTestController::setAcceptsEditing);
+    bindMethod("setAllowFileAccessFromFileURLs", &LayoutTestController::setAllowFileAccessFromFileURLs);
+    bindMethod("setAllowUniversalAccessFromFileURLs", &LayoutTestController::setAllowUniversalAccessFromFileURLs);
+    bindMethod("setAlwaysAcceptCookies", &LayoutTestController::setAlwaysAcceptCookies);
+    bindMethod("setAuthorAndUserStylesEnabled", &LayoutTestController::setAuthorAndUserStylesEnabled);
+    bindMethod("setCanOpenWindows", &LayoutTestController::setCanOpenWindows);
+    bindMethod("setCloseRemainingWindowsWhenComplete", &LayoutTestController::setCloseRemainingWindowsWhenComplete);
+    bindMethod("setCustomPolicyDelegate", &LayoutTestController::setCustomPolicyDelegate);
+    bindMethod("setDatabaseQuota", &LayoutTestController::setDatabaseQuota);
+    bindMethod("setDeferMainResourceDataLoad", &LayoutTestController::setDeferMainResourceDataLoad);
+    bindMethod("setDomainRelaxationForbiddenForURLScheme", &LayoutTestController::setDomainRelaxationForbiddenForURLScheme);
+    bindMethod("setEditingBehavior", &LayoutTestController::setEditingBehavior);
+    bindMethod("setGeolocationPermission", &LayoutTestController::setGeolocationPermission);
+    bindMethod("setIconDatabaseEnabled", &LayoutTestController::setIconDatabaseEnabled);
+    bindMethod("setJavaScriptCanAccessClipboard", &LayoutTestController::setJavaScriptCanAccessClipboard);
+    bindMethod("setMockDeviceOrientation", &LayoutTestController::setMockDeviceOrientation);
+    bindMethod("setMockGeolocationError", &LayoutTestController::setMockGeolocationError);
+    bindMethod("setMockGeolocationPosition", &LayoutTestController::setMockGeolocationPosition);
+    bindMethod("setMockSpeechInputResult", &LayoutTestController::setMockSpeechInputResult);
+    bindMethod("setPopupBlockingEnabled", &LayoutTestController::setPopupBlockingEnabled);
+    bindMethod("setPOSIXLocale", &LayoutTestController::setPOSIXLocale);
+    bindMethod("setScrollbarPolicy", &LayoutTestController::setScrollbarPolicy);
+    bindMethod("setSelectTrailingWhitespaceEnabled", &LayoutTestController::setSelectTrailingWhitespaceEnabled);
+    bindMethod("setSmartInsertDeleteEnabled", &LayoutTestController::setSmartInsertDeleteEnabled);
+    bindMethod("setStopProvisionalFrameLoads", &LayoutTestController::setStopProvisionalFrameLoads);
+    bindMethod("setTabKeyCyclesThroughElements", &LayoutTestController::setTabKeyCyclesThroughElements);
+    bindMethod("setTimelineProfilingEnabled", &LayoutTestController::setTimelineProfilingEnabled);
+    bindMethod("setUserStyleSheetEnabled", &LayoutTestController::setUserStyleSheetEnabled);
+    bindMethod("setUserStyleSheetLocation", &LayoutTestController::setUserStyleSheetLocation);
+    bindMethod("setWillSendRequestClearHeader", &LayoutTestController::setWillSendRequestClearHeader);
+    bindMethod("setWillSendRequestReturnsNull", &LayoutTestController::setWillSendRequestReturnsNull);
+    bindMethod("setWillSendRequestReturnsNullOnRedirect", &LayoutTestController::setWillSendRequestReturnsNullOnRedirect);
+    bindMethod("setWindowIsKey", &LayoutTestController::setWindowIsKey);
+    bindMethod("setXSSAuditorEnabled", &LayoutTestController::setXSSAuditorEnabled);
+    bindMethod("showWebInspector", &LayoutTestController::showWebInspector);
     bindMethod("simulateDesktopNotificationClick", &LayoutTestController::simulateDesktopNotificationClick);
+    bindMethod("suspendAnimations", &LayoutTestController::suspendAnimations);
+    bindMethod("testRepaint", &LayoutTestController::testRepaint);
+    bindMethod("waitForPolicyDelegate", &LayoutTestController::waitForPolicyDelegate);
+    bindMethod("waitUntilDone", &LayoutTestController::waitUntilDone);
+    bindMethod("windowCount", &LayoutTestController::windowCount);
 
     // The following are stubs.
-    bindMethod("dumpAsWebArchive", &LayoutTestController::dumpAsWebArchive);
-    bindMethod("setMainFrameIsFirstResponder", &LayoutTestController::setMainFrameIsFirstResponder);
-    bindMethod("dumpSelectionRect", &LayoutTestController::dumpSelectionRect);
-    bindMethod("display", &LayoutTestController::display);
-    bindMethod("testRepaint", &LayoutTestController::testRepaint);
-    bindMethod("repaintSweepHorizontally", &LayoutTestController::repaintSweepHorizontally);
-    bindMethod("clearBackForwardList", &LayoutTestController::clearBackForwardList);
-    bindMethod("keepWebHistory", &LayoutTestController::keepWebHistory);
-    bindMethod("storeWebScriptObject", &LayoutTestController::storeWebScriptObject);
+    bindMethod("abortModal", &LayoutTestController::abortModal);
     bindMethod("accessStoredWebScriptObject", &LayoutTestController::accessStoredWebScriptObject);
-    bindMethod("objCClassNameOf", &LayoutTestController::objCClassNameOf);
     bindMethod("addDisallowedURL", &LayoutTestController::addDisallowedURL);
     bindMethod("callShouldCloseOnWebView", &LayoutTestController::callShouldCloseOnWebView);
+    bindMethod("clearAllApplicationCaches", &LayoutTestController::clearAllApplicationCaches);
+    bindMethod("clearBackForwardList", &LayoutTestController::clearBackForwardList);
+    bindMethod("dumpAsWebArchive", &LayoutTestController::dumpAsWebArchive);
+    bindMethod("keepWebHistory", &LayoutTestController::keepWebHistory);
+    bindMethod("objCClassNameOf", &LayoutTestController::objCClassNameOf);
+    bindMethod("setApplicationCacheOriginQuota", &LayoutTestController::setApplicationCacheOriginQuota);
     bindMethod("setCallCloseOnWebViews", &LayoutTestController::setCallCloseOnWebViews);
+    bindMethod("setMainFrameIsFirstResponder", &LayoutTestController::setMainFrameIsFirstResponder);
     bindMethod("setPrivateBrowsingEnabled", &LayoutTestController::setPrivateBrowsingEnabled);
     bindMethod("setUseDashboardCompatibilityMode", &LayoutTestController::setUseDashboardCompatibilityMode);
-    bindMethod("clearAllApplicationCaches", &LayoutTestController::clearAllApplicationCaches);
-    bindMethod("setApplicationCacheOriginQuota", &LayoutTestController::setApplicationCacheOriginQuota);
-
-    bindMethod("setJavaScriptCanAccessClipboard", &LayoutTestController::setJavaScriptCanAccessClipboard);
-    bindMethod("setXSSAuditorEnabled", &LayoutTestController::setXSSAuditorEnabled);
-    bindMethod("evaluateScriptInIsolatedWorld", &LayoutTestController::evaluateScriptInIsolatedWorld);
-    bindMethod("overridePreference", &LayoutTestController::overridePreference);
-    bindMethod("setAllowUniversalAccessFromFileURLs", &LayoutTestController::setAllowUniversalAccessFromFileURLs);
-    bindMethod("setAllowFileAccessFromFileURLs", &LayoutTestController::setAllowFileAccessFromFileURLs);
-    bindMethod("setTimelineProfilingEnabled", &LayoutTestController::setTimelineProfilingEnabled);
-    bindMethod("evaluateInWebInspector", &LayoutTestController::evaluateInWebInspector);
-    bindMethod("forceRedSelectionColors", &LayoutTestController::forceRedSelectionColors);
-    bindMethod("setEditingBehavior", &LayoutTestController::setEditingBehavior);
-
-    bindMethod("setMockDeviceOrientation", &LayoutTestController::setMockDeviceOrientation);
-
-    bindMethod("setGeolocationPermission", &LayoutTestController::setGeolocationPermission);
-    bindMethod("setMockGeolocationPosition", &LayoutTestController::setMockGeolocationPosition);
-    bindMethod("setMockGeolocationError", &LayoutTestController::setMockGeolocationError);
-    bindMethod("abortModal", &LayoutTestController::abortModal);
-    bindMethod("setMockSpeechInputResult", &LayoutTestController::setMockSpeechInputResult);
-
-    bindMethod("markerTextForListItem", &LayoutTestController::markerTextForListItem);
+    bindMethod("storeWebScriptObject", &LayoutTestController::storeWebScriptObject);
 
     // The fallback method is called when an unknown method is invoked.
     bindFallbackMethod(&LayoutTestController::fallbackMethod);
@@ -288,6 +288,12 @@ void LayoutTestController::dumpFrameLoadCallbacks(const CppArgumentList&, CppVar
 void LayoutTestController::dumpResourceLoadCallbacks(const CppArgumentList&, CppVariant* result)
 {
     m_dumpResourceLoadCallbacks = true;
+    result->setNull();
+}
+
+void LayoutTestController::dumpResourceResponseMIMETypes(const CppArgumentList&, CppVariant* result)
+{
+    m_dumpResourceResponseMIMETypes = true;
     result->setNull();
 }
 
@@ -460,6 +466,34 @@ void LayoutTestController::queueLoad(const CppArgumentList& arguments, CppVarian
     result->setNull();
 }
 
+class WorkItemLoadHTMLString : public LayoutTestController::WorkItem  {
+public:
+    WorkItemLoadHTMLString(const std::string& html, const WebURL& baseURL)
+        : m_html(html)
+        , m_baseURL(baseURL) {}
+    bool run(TestShell* shell)
+    {
+        shell->webView()->mainFrame()->loadHTMLString(
+            WebKit::WebData(m_html.data(), m_html.length()), m_baseURL);
+        return true;
+    }
+private:
+    std::string m_html;
+    WebURL m_baseURL;
+};
+
+void LayoutTestController::queueLoadHTMLString(const CppArgumentList& arguments, CppVariant* result)
+{
+    if (arguments.size() > 0 && arguments[0].isString()) {
+        string html = arguments[0].toString();
+        WebURL baseURL;
+        if (arguments.size() > 1 && arguments[1].isString())
+            baseURL = WebURL(GURL(arguments[1].toString()));
+        m_workQueue.addWork(new WorkItemLoadHTMLString(html, baseURL));
+    }
+    result->setNull();
+}
+
 void LayoutTestController::objCIdentityIsEqual(const CppArgumentList& arguments, CppVariant* result)
 {
     if (arguments.size() < 2) {
@@ -486,6 +520,7 @@ void LayoutTestController::reset()
     m_dumpEditingCallbacks = false;
     m_dumpFrameLoadCallbacks = false;
     m_dumpResourceLoadCallbacks = false;
+    m_dumpResourceResponseMIMETypes = false;
     m_dumpBackForwardList = false;
     m_dumpChildFrameScrollPositions = false;
     m_dumpChildFramesAsText = false;
@@ -500,6 +535,7 @@ void LayoutTestController::reset()
     m_sweepHorizontally = false;
     m_shouldAddFileToPasteboard = false;
     m_stopProvisionalFrameLoads = false;
+    m_deferMainResourceDataLoad = true;
     m_globalFlag.set(false);
     m_webHistoryItemCount.set(0);
     m_userStyleSheetLocation = WebURL();
@@ -591,24 +627,30 @@ void LayoutTestController::setWindowIsKey(const CppArgumentList& arguments, CppV
 
 void LayoutTestController::setUserStyleSheetEnabled(const CppArgumentList& arguments, CppVariant* result)
 {
-    if (arguments.size() > 0 && arguments[0].isBool())
-        m_shell->webView()->settings()->setUserStyleSheetLocation(arguments[0].value.boolValue ? m_userStyleSheetLocation : WebURL());
+    if (arguments.size() > 0 && arguments[0].isBool()) {
+        m_shell->preferences()->userStyleSheetLocation = arguments[0].value.boolValue ? m_userStyleSheetLocation : WebURL();
+        m_shell->applyPreferences();
+    }
     result->setNull();
 }
 
 void LayoutTestController::setUserStyleSheetLocation(const CppArgumentList& arguments, CppVariant* result)
 {
     if (arguments.size() > 0 && arguments[0].isString()) {
-        m_userStyleSheetLocation = webkit_support::RewriteLayoutTestsURL(arguments[0].toString());
-        m_shell->webView()->settings()->setUserStyleSheetLocation(m_userStyleSheetLocation);
+        m_userStyleSheetLocation = webkit_support::LocalFileToDataURL(
+            webkit_support::RewriteLayoutTestsURL(arguments[0].toString()));
+        m_shell->preferences()->userStyleSheetLocation = m_userStyleSheetLocation;
+        m_shell->applyPreferences();
     }
     result->setNull();
 }
 
 void LayoutTestController::setAuthorAndUserStylesEnabled(const CppArgumentList& arguments, CppVariant* result)
 {
-    if (arguments.size() > 0 && arguments[0].isBool())
-        m_shell->webView()->settings()->setAuthorAndUserStylesEnabled(arguments[0].value.boolValue);
+    if (arguments.size() > 0 && arguments[0].isBool()) {
+        m_shell->preferences()->authorAndUserStylesEnabled = arguments[0].value.boolValue;
+        m_shell->applyPreferences();
+    }
     result->setNull();
 }
 
@@ -645,7 +687,8 @@ void LayoutTestController::setPopupBlockingEnabled(const CppArgumentList& argume
 {
     if (arguments.size() > 0 && arguments[0].isBool()) {
         bool blockPopups = arguments[0].toBoolean();
-        m_shell->webView()->settings()->setJavaScriptCanOpenWindowsAutomatically(!blockPopups);
+        m_shell->preferences()->javaScriptCanOpenWindowsAutomatically = !blockPopups;
+        m_shell->applyPreferences();
     }
     result->setNull();
 }
@@ -918,7 +961,8 @@ void LayoutTestController::resumeAnimations(const CppArgumentList&, CppVariant* 
 
 void LayoutTestController::disableImageLoading(const CppArgumentList&, CppVariant* result)
 {
-    m_shell->webView()->settings()->setLoadsImagesAutomatically(false);
+    m_shell->preferences()->loadsImagesAutomatically = false;
+    m_shell->applyPreferences();
     result->setNull();
 }
 
@@ -953,6 +997,19 @@ void LayoutTestController::simulateDesktopNotificationClick(const CppArgumentLis
         result->set(true);
     else
         result->set(false);
+}
+
+void LayoutTestController::setDomainRelaxationForbiddenForURLScheme(const CppArgumentList& arguments, CppVariant* result)
+{
+    if (arguments.size() != 2 || !arguments[0].isBool() || !arguments[1].isString())
+        return;
+    m_shell->webView()->setDomainRelaxationForbidden(cppVariantToBool(arguments[0]), cppVariantToWebString(arguments[1]));
+}
+
+void LayoutTestController::setDeferMainResourceDataLoad(const CppArgumentList& arguments, CppVariant* result)
+{
+    if (arguments.size() == 1)
+        m_deferMainResourceDataLoad = cppVariantToBool(arguments[0]);
 }
 
 //
@@ -1027,6 +1084,7 @@ void LayoutTestController::addDisallowedURL(const CppArgumentList& arguments, Cp
 {
     result->setNull();
 }
+
 void LayoutTestController::setCallCloseOnWebViews(const CppArgumentList& arguments, CppVariant* result)
 {
     result->setNull();
@@ -1039,15 +1097,19 @@ void LayoutTestController::setPrivateBrowsingEnabled(const CppArgumentList& argu
 
 void LayoutTestController::setJavaScriptCanAccessClipboard(const CppArgumentList& arguments, CppVariant* result)
 {
-    if (arguments.size() > 0 && arguments[0].isBool())
-        m_shell->webView()->settings()->setJavaScriptCanAccessClipboard(arguments[0].value.boolValue);
+    if (arguments.size() > 0 && arguments[0].isBool()) {
+        m_shell->preferences()->javaScriptCanAccessClipboard = arguments[0].value.boolValue;
+        m_shell->applyPreferences();
+    }
     result->setNull();
 }
 
 void LayoutTestController::setXSSAuditorEnabled(const CppArgumentList& arguments, CppVariant* result)
 {
-    if (arguments.size() > 0 && arguments[0].isBool())
-        m_shell->webView()->settings()->setXSSAuditorEnabled(arguments[0].value.boolValue);
+    if (arguments.size() > 0 && arguments[0].isBool()) {
+        m_shell->preferences()->XSSAuditorEnabled = arguments[0].value.boolValue;
+        m_shell->applyPreferences();
+    }
     result->setNull();
 }
 
@@ -1064,15 +1126,19 @@ void LayoutTestController::evaluateScriptInIsolatedWorld(const CppArgumentList& 
 
 void LayoutTestController::setAllowUniversalAccessFromFileURLs(const CppArgumentList& arguments, CppVariant* result)
 {
-    if (arguments.size() > 0 && arguments[0].isBool())
-        m_shell->webView()->settings()->setAllowUniversalAccessFromFileURLs(arguments[0].value.boolValue);
+    if (arguments.size() > 0 && arguments[0].isBool()) {
+        m_shell->preferences()->allowUniversalAccessFromFileURLs = arguments[0].value.boolValue;
+        m_shell->applyPreferences();
+    }
     result->setNull();
 }
 
 void LayoutTestController::setAllowFileAccessFromFileURLs(const CppArgumentList& arguments, CppVariant* result)
 {
-    if (arguments.size() > 0 && arguments[0].isBool())
-        m_shell->webView()->settings()->setAllowFileAccessFromFileURLs(arguments[0].value.boolValue);
+    if (arguments.size() > 0 && arguments[0].isBool()) {
+        m_shell->preferences()->allowFileAccessFromFileURLs = arguments[0].value.boolValue;
+        m_shell->applyPreferences();
+    }
     result->setNull();
 }
 
@@ -1128,68 +1194,69 @@ void LayoutTestController::overridePreference(const CppArgumentList& arguments, 
 
     string key = arguments[0].toString();
     CppVariant value = arguments[1];
-    WebSettings* settings = m_shell->webView()->settings();
+    WebPreferences* prefs = m_shell->preferences();
     if (key == "WebKitStandardFont")
-        settings->setStandardFontFamily(cppVariantToWebString(value));
+        prefs->standardFontFamily = cppVariantToWebString(value);
     else if (key == "WebKitFixedFont")
-        settings->setFixedFontFamily(cppVariantToWebString(value));
+        prefs->fixedFontFamily = cppVariantToWebString(value);
     else if (key == "WebKitSerifFont")
-        settings->setSerifFontFamily(cppVariantToWebString(value));
+        prefs->serifFontFamily = cppVariantToWebString(value);
     else if (key == "WebKitSansSerifFont")
-        settings->setSansSerifFontFamily(cppVariantToWebString(value));
+        prefs->sansSerifFontFamily = cppVariantToWebString(value);
     else if (key == "WebKitCursiveFont")
-        settings->setCursiveFontFamily(cppVariantToWebString(value));
+        prefs->cursiveFontFamily = cppVariantToWebString(value);
     else if (key == "WebKitFantasyFont")
-        settings->setFantasyFontFamily(cppVariantToWebString(value));
+        prefs->fantasyFontFamily = cppVariantToWebString(value);
     else if (key == "WebKitDefaultFontSize")
-        settings->setDefaultFontSize(cppVariantToInt32(value));
+        prefs->defaultFontSize = cppVariantToInt32(value);
     else if (key == "WebKitDefaultFixedFontSize")
-        settings->setDefaultFixedFontSize(cppVariantToInt32(value));
+        prefs->defaultFixedFontSize = cppVariantToInt32(value);
     else if (key == "WebKitMinimumFontSize")
-        settings->setMinimumFontSize(cppVariantToInt32(value));
+        prefs->minimumFontSize = cppVariantToInt32(value);
     else if (key == "WebKitMinimumLogicalFontSize")
-        settings->setMinimumLogicalFontSize(cppVariantToInt32(value));
+        prefs->minimumLogicalFontSize = cppVariantToInt32(value);
     else if (key == "WebKitDefaultTextEncodingName")
-        settings->setDefaultTextEncodingName(cppVariantToWebString(value));
+        prefs->defaultTextEncodingName = cppVariantToWebString(value);
     else if (key == "WebKitJavaScriptEnabled")
-        settings->setJavaScriptEnabled(cppVariantToBool(value));
+        prefs->javaScriptEnabled = cppVariantToBool(value);
     else if (key == "WebKitWebSecurityEnabled")
-        settings->setWebSecurityEnabled(cppVariantToBool(value));
+        prefs->webSecurityEnabled = cppVariantToBool(value);
     else if (key == "WebKitJavaScriptCanOpenWindowsAutomatically")
-        settings->setJavaScriptCanOpenWindowsAutomatically(cppVariantToBool(value));
+        prefs->javaScriptCanOpenWindowsAutomatically = cppVariantToBool(value);
     else if (key == "WebKitDisplayImagesKey")
-        settings->setLoadsImagesAutomatically(cppVariantToBool(value));
+        prefs->loadsImagesAutomatically = cppVariantToBool(value);
     else if (key == "WebKitPluginsEnabled")
-        settings->setPluginsEnabled(cppVariantToBool(value));
+        prefs->pluginsEnabled = cppVariantToBool(value);
     else if (key == "WebKitDOMPasteAllowedPreferenceKey")
-        settings->setDOMPasteAllowed(cppVariantToBool(value));
+        prefs->DOMPasteAllowed = cppVariantToBool(value);
     else if (key == "WebKitDeveloperExtrasEnabledPreferenceKey")
-        settings->setDeveloperExtrasEnabled(cppVariantToBool(value));
+        prefs->developerExtrasEnabled = cppVariantToBool(value);
     else if (key == "WebKitShrinksStandaloneImagesToFit")
-        settings->setShrinksStandaloneImagesToFit(cppVariantToBool(value));
+        prefs->shrinksStandaloneImagesToFit = cppVariantToBool(value);
     else if (key == "WebKitTextAreasAreResizable")
-        settings->setTextAreasAreResizable(cppVariantToBool(value));
+        prefs->textAreasAreResizable = cppVariantToBool(value);
     else if (key == "WebKitJavaEnabled")
-        settings->setJavaEnabled(cppVariantToBool(value));
+        prefs->javaEnabled = cppVariantToBool(value);
     else if (key == "WebKitUsesPageCachePreferenceKey")
-        settings->setUsesPageCache(cppVariantToBool(value));
+        prefs->usesPageCache = cppVariantToBool(value);
     else if (key == "WebKitJavaScriptCanAccessClipboard")
-        settings->setJavaScriptCanAccessClipboard(cppVariantToBool(value));
+        prefs->javaScriptCanAccessClipboard = cppVariantToBool(value);
     else if (key == "WebKitXSSAuditorEnabled")
-        settings->setXSSAuditorEnabled(cppVariantToBool(value));
+        prefs->XSSAuditorEnabled = cppVariantToBool(value);
     else if (key == "WebKitLocalStorageEnabledPreferenceKey")
-        settings->setLocalStorageEnabled(cppVariantToBool(value));
+        prefs->localStorageEnabled = cppVariantToBool(value);
     else if (key == "WebKitOfflineWebApplicationCacheEnabled")
-        settings->setOfflineWebApplicationCacheEnabled(cppVariantToBool(value));
+        prefs->offlineWebApplicationCacheEnabled = cppVariantToBool(value);
     else if (key == "WebKitTabToLinksPreferenceKey")
-        m_shell->webView()->setTabsToLinks(cppVariantToBool(value));
+        prefs->tabsToLinks = cppVariantToBool(value);
     else if (key == "WebKitWebGLEnabled")
-        settings->setExperimentalWebGLEnabled(cppVariantToBool(value));
+        prefs->experimentalWebGLEnabled = cppVariantToBool(value);
     else {
         string message("Invalid name for preference: ");
         message.append(key);
         logErrorToConsole(message);
     }
+    m_shell->applyPreferences();
 }
 
 void LayoutTestController::fallbackMethod(const CppArgumentList&, CppVariant* result)
@@ -1381,13 +1448,14 @@ void LayoutTestController::addUserStyleSheet(const CppArgumentList& arguments, C
 
 void LayoutTestController::setEditingBehavior(const CppArgumentList& arguments, CppVariant* results)
 {
-    WebSettings* settings = m_shell->webView()->settings();
     string key = arguments[0].toString();
-    if (key == "mac")
-        settings->setEditingBehavior(WebSettings::EditingBehaviorMac);
-    else if (key == "win")
-        settings->setEditingBehavior(WebSettings::EditingBehaviorWin);
-    else
+    if (key == "mac") {
+        m_shell->preferences()->editingBehavior = WebSettings::EditingBehaviorMac;
+        m_shell->applyPreferences();
+    } else if (key == "win") {
+        m_shell->preferences()->editingBehavior = WebSettings::EditingBehaviorWin;
+        m_shell->applyPreferences();
+    } else
         logErrorToConsole("Passed invalid editing behavior. Should be 'mac' or 'win'.");
 }
 
@@ -1397,7 +1465,7 @@ void LayoutTestController::setMockDeviceOrientation(const CppArgumentList& argum
     if (arguments.size() < 6 || !arguments[0].isBool() || !arguments[1].isNumber() || !arguments[2].isBool() || !arguments[3].isNumber() || !arguments[4].isBool() || !arguments[5].isNumber())
         return;
 
-    WebKit::WebDeviceOrientation orientation(arguments[0].toBoolean(), arguments[1].toDouble(), arguments[2].toBoolean(), arguments[3].toDouble(), arguments[4].toBoolean(), arguments[5].toDouble());
+    WebDeviceOrientation orientation(arguments[0].toBoolean(), arguments[1].toDouble(), arguments[2].toBoolean(), arguments[3].toDouble(), arguments[4].toBoolean(), arguments[5].toDouble());
 
     ASSERT(m_deviceOrientationClientMock);
     m_deviceOrientationClientMock->setOrientation(orientation);
@@ -1457,9 +1525,9 @@ void LayoutTestController::markerTextForListItem(const CppArgumentList& args, Cp
         result->set(element.document().frame()->markerTextForListItem(element).utf8());
 }
 
-WebKit::WebDeviceOrientationClient* LayoutTestController::deviceOrientationClient()
+WebDeviceOrientationClient* LayoutTestController::deviceOrientationClient()
 {
     if (!m_deviceOrientationClientMock.get())
-        m_deviceOrientationClientMock.set(new WebKit::WebDeviceOrientationClientMock());
+        m_deviceOrientationClientMock.set(WebDeviceOrientationClientMock::create());
     return m_deviceOrientationClientMock.get();
 }

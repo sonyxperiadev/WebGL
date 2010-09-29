@@ -40,7 +40,11 @@
 #include "FrameView.h"
 #include "DocumentLoader.h"
 #include "HitTestResult.h"
+#if USE(JSC)
 #include "JSDOMWindowBase.h"
+#elif USE(V8)
+#include "V8DOMWindow.h"
+#endif
 #include "MIMETypeRegistry.h"
 #include "MouseEvent.h"
 #include "ResourceResponse.h"
@@ -63,6 +67,7 @@
 #include "ScriptString.h"
 #include "Settings.h"
 #include "QWebPageClient.h"
+#include "ViewportArguments.h"
 
 #include "qwebpage.h"
 #include "qwebpage_p.h"
@@ -160,6 +165,7 @@ bool FrameLoaderClientQt::sendRequestReturnsNullOnRedirect = false;
 bool FrameLoaderClientQt::sendRequestReturnsNull = false;
 bool FrameLoaderClientQt::dumpResourceResponseMIMETypes = false;
 bool FrameLoaderClientQt::deferMainResourceDataLoad = true;
+bool FrameLoaderClientQt::dumpHistoryCallbacks = false;
 
 QStringList FrameLoaderClientQt::sendRequestClearHeaders;
 QString FrameLoaderClientQt::dumpResourceLoadCallbacksPath;
@@ -189,10 +195,10 @@ static const char* navigationTypeToString(NavigationType type)
 FrameLoaderClientQt::FrameLoaderClientQt()
     : m_frame(0)
     , m_webFrame(0)
-    , m_firstData(false)
     , m_pluginView(0)
     , m_hasSentResponseToPlugin(false)
-    , m_loadError (ResourceError())
+    , m_hasRepresentation(false)
+    , m_loadError(ResourceError())
 {
 }
 
@@ -223,11 +229,6 @@ void FrameLoaderClientQt::setFrame(QWebFrame* webFrame, Frame* frame)
             m_webFrame, SIGNAL(loadFinished(bool)));
     connect(this, SIGNAL(titleChanged(QString)),
             m_webFrame, SIGNAL(titleChanged(QString)));
-}
-
-QWebFrame* FrameLoaderClientQt::webFrame() const
-{
-    return m_webFrame;
 }
 
 void FrameLoaderClientQt::callPolicyFunction(FramePolicyFunction function, PolicyAction action)
@@ -277,7 +278,7 @@ void FrameLoaderClientQt::transitionToCommittedForNewPage()
 
 void FrameLoaderClientQt::makeRepresentation(DocumentLoader*)
 {
-    // don't need this for now I think.
+    m_hasRepresentation = true;
 }
 
 
@@ -357,6 +358,18 @@ void FrameLoaderClientQt::dispatchDidChangeLocationWithinPage()
     m_webFrame->page()->d->updateNavigationActions();
 }
 
+#if USE(V8)
+void FrameLoaderClientQt::didCreateScriptContextForFrame()
+{
+}
+void FrameLoaderClientQt::didDestroyScriptContextForFrame()
+{
+}
+void FrameLoaderClientQt::didCreateIsolatedScriptContext()
+{
+}
+#endif
+
 void FrameLoaderClientQt::dispatchDidPushStateWithinPage()
 {
     if (dumpFrameLoaderCallbacks)
@@ -429,7 +442,8 @@ void FrameLoaderClientQt::dispatchDidCommitLoad()
     if (m_frame->tree()->parent() || !m_webFrame)
         return;
 
-    m_webFrame->d->initialLayoutComplete = false;
+    // Clear the viewport arguments.
+    m_webFrame->d->viewportArguments = WebCore::ViewportArguments();
 
     emit m_webFrame->urlChanged(m_webFrame->url());
     m_webFrame->page()->d->updateNavigationActions();
@@ -443,7 +457,7 @@ void FrameLoaderClientQt::dispatchDidCommitLoad()
     if (!isMainFrame)
         return;
 
-    emit m_webFrame->page()->viewportChangeRequested(QWebPage::ViewportHints());
+    emit m_webFrame->page()->viewportChangeRequested();
 }
 
 
@@ -481,7 +495,6 @@ void FrameLoaderClientQt::dispatchDidFinishLoad()
 
 void FrameLoaderClientQt::dispatchDidFirstLayout()
 {
-    m_webFrame->d->initialLayoutComplete = true;
 }
 
 void FrameLoaderClientQt::dispatchDidFirstVisuallyNonEmptyLayout()
@@ -518,7 +531,7 @@ void FrameLoaderClientQt::dispatchDidLoadMainResource(DocumentLoader*)
 
 void FrameLoaderClientQt::revertToProvisionalState(DocumentLoader*)
 {
-    notImplemented();
+    m_hasRepresentation = true;
 }
 
 
@@ -582,21 +595,25 @@ void FrameLoaderClientQt::didChangeTitle(DocumentLoader*)
 void FrameLoaderClientQt::finishedLoading(DocumentLoader* loader)
 {
     if (!m_pluginView) {
-        if(m_firstData) {
-            FrameLoader *fl = loader->frameLoader();
-            fl->writer()->setEncoding(m_response.textEncodingName(), false);
-            m_firstData = false; 
-        }
+        // This is necessary to create an empty document. See bug 634004.
+        // However, we only want to do this if makeRepresentation has been called, to
+        // match the behavior on the Mac.
+        if (m_hasRepresentation)
+            loader->frameLoader()->writer()->setEncoding("", false);
+        return;
     }
-    else {
-        if (m_pluginView->isPluginView())
-            m_pluginView->didFinishLoading();
-        m_pluginView = 0;
-        m_hasSentResponseToPlugin = false;
-    }
+    if (m_pluginView->isPluginView())
+        m_pluginView->didFinishLoading();
+    m_pluginView = 0;
+    m_hasSentResponseToPlugin = false;
 }
 
-
+bool FrameLoaderClientQt::canShowMIMETypeAsHTML(const String& MIMEType) const
+{
+    notImplemented();
+    return false;
+}
+    
 bool FrameLoaderClientQt::canShowMIMEType(const String& MIMEType) const
 {
     String type = MIMEType;
@@ -657,9 +674,17 @@ void FrameLoaderClientQt::prepareForDataSourceReplacement()
 {
 }
 
-void FrameLoaderClientQt::setTitle(const String&, const KURL&)
+void FrameLoaderClientQt::setTitle(const String& title, const KURL& url)
 {
-    // no need for, dispatchDidReceiveTitle is the right callback
+    // Used by Apple WebKit to update the title of an existing history item.
+    // QtWebKit doesn't accomodate this on history items. If it ever does,
+    // it should be privateBrowsing-aware.For now, we are just passing
+    // globalhistory layout tests.
+    if (dumpHistoryCallbacks) {
+        printf("WebView updated the title for history URL \"%s\" to \"%s\".\n",
+            qPrintable(drtDescriptionSuitableForTestResult(url)),
+            qPrintable(QString(title)));
+    }
 }
 
 
@@ -722,12 +747,48 @@ void FrameLoaderClientQt::registerForIconNotification(bool)
 void FrameLoaderClientQt::updateGlobalHistory()
 {
     QWebHistoryInterface *history = QWebHistoryInterface::defaultInterface();
+    WebCore::DocumentLoader* loader = m_frame->loader()->documentLoader();
     if (history)
-        history->addHistoryEntry(m_frame->loader()->documentLoader()->urlForHistory().prettyURL());
+        history->addHistoryEntry(loader->urlForHistory().prettyURL());
+
+    if (dumpHistoryCallbacks) {
+        printf("WebView navigated to url \"%s\" with title \"%s\" with HTTP equivalent method \"%s\".  The navigation was %s and was %s%s.\n",
+            qPrintable(drtDescriptionSuitableForTestResult(loader->urlForHistory())),
+            qPrintable(QString(loader->title())),
+            qPrintable(QString(loader->request().httpMethod())),
+            ((loader->substituteData().isValid() || (loader->response().httpStatusCode() >= 400)) ? "a failure" : "successful"),
+            ((!loader->clientRedirectSourceForHistory().isEmpty()) ? "a client redirect from " : "not a client redirect"),
+            (!loader->clientRedirectSourceForHistory().isEmpty()) ? qPrintable(drtDescriptionSuitableForTestResult(loader->clientRedirectSourceForHistory())) : "");
+    }
 }
 
 void FrameLoaderClientQt::updateGlobalHistoryRedirectLinks()
 {
+    // Apple WebKit is the only port that makes use of this callback. It calls
+    // WebCore::HistoryItem::addRedirectURL() with the contents of
+    // loader->[server|client]RedirectDestinationForHistory().
+    // WebCore can associate a bunch of redirect URLs with a particular
+    // item in the history, presumably this allows Safari to skip the redirections
+    // when navigating to that history item. That might be a feature Qt wants to
+    // offer through QWebHistoryInterface in the future. For now, we're just
+    // passing tests in LayoutTests/http/tests/globalhistory.
+    WebCore::DocumentLoader* loader = m_frame->loader()->documentLoader();
+
+    if (!loader->clientRedirectSourceForHistory().isNull()) {
+        if (dumpHistoryCallbacks) {
+            printf("WebView performed a client redirect from \"%s\" to \"%s\".\n",
+                  qPrintable(QString(loader->clientRedirectSourceForHistory())),
+                  qPrintable(QString(loader->clientRedirectDestinationForHistory())));
+        }
+    }
+
+    if (!loader->serverRedirectSourceForHistory().isNull()) {
+        if (dumpHistoryCallbacks) {
+            printf("WebView performed a server redirect from \"%s\" to \"%s\".\n",
+                  qPrintable(QString(loader->serverRedirectSourceForHistory())),
+                  qPrintable(QString(loader->serverRedirectDestinationForHistory())));
+        }
+    }
 }
 
 bool FrameLoaderClientQt::shouldGoToHistoryItem(WebCore::HistoryItem *) const
@@ -776,31 +837,19 @@ bool FrameLoaderClientQt::canCachePage() const
 
 void FrameLoaderClientQt::setMainDocumentError(WebCore::DocumentLoader* loader, const WebCore::ResourceError& error)
 {
-    if (!m_pluginView) {
-        if (m_firstData) {
-            loader->frameLoader()->writer()->setEncoding(m_response.textEncodingName(), false);
-            m_firstData = false;
-        }
-    } else {
-        if (m_pluginView->isPluginView())
-            m_pluginView->didFail(error);
-        m_pluginView = 0;
-        m_hasSentResponseToPlugin = false;
-    }
+    if (!m_pluginView)
+        return;
+    if (m_pluginView->isPluginView())
+        m_pluginView->didFail(error);
+    m_pluginView = 0;
+    m_hasSentResponseToPlugin = false;
 }
 
+// FIXME: This function should be moved into WebCore.
 void FrameLoaderClientQt::committedLoad(WebCore::DocumentLoader* loader, const char* data, int length)
 {
-    if (!m_pluginView) {
-        if (!m_frame)
-            return;
-        FrameLoader *fl = loader->frameLoader();
-        if (m_firstData) {
-            fl->writer()->setEncoding(m_response.textEncodingName(), false);
-            m_firstData = false;
-        }
-        fl->addData(data, length);
-    }
+    if (!m_pluginView)
+        loader->commitData(data, length);
     
     // We re-check here as the plugin can have been created
     if (m_pluginView && m_pluginView->isPluginView()) {
@@ -887,7 +936,12 @@ WTF::PassRefPtr<WebCore::DocumentLoader> FrameLoaderClientQt::createDocumentLoad
         // Use the default timeout interval for JS as the HTML tokenizer delay. This ensures
         // that long-running JavaScript will still allow setHtml() to be synchronous, while
         // still giving a reasonable timeout to prevent deadlock.
+#if USE(JSC)
         double delay = JSDOMWindowBase::commonJSGlobalData()->timeoutChecker.timeoutInterval() / 1000.0f;
+#elif USE(V8)
+        // FIXME: Hard coded for now.
+        double delay = 10000 / 1000.0f;
+#endif
         m_frame->page()->setCustomHTMLTokenizerTimeDelay(delay);
     } else
         m_frame->page()->setCustomHTMLTokenizerTimeDelay(-1);
@@ -961,7 +1015,6 @@ void FrameLoaderClientQt::dispatchDidReceiveResponse(WebCore::DocumentLoader*, u
 {
 
     m_response = response;
-    m_firstData = true;
     if (dumpResourceLoadCallbacks)
         printf("%s - didReceiveResponse %s\n",
                qPrintable(dumpAssignedUrls[identifier]),
@@ -991,12 +1044,6 @@ void FrameLoaderClientQt::dispatchDidFailLoading(WebCore::DocumentLoader* loader
         printf("%s - didFailLoadingWithError: %s\n",
                (dumpAssignedUrls.contains(identifier) ? qPrintable(dumpAssignedUrls[identifier]) : "<unknown>"),
                qPrintable(drtDescriptionSuitableForTestResult(error)));
-
-    if (m_firstData) {
-        FrameLoader *fl = loader->frameLoader();
-        fl->writer()->setEncoding(m_response.textEncodingName(), false);
-        m_firstData = false;
-    }
 }
 
 bool FrameLoaderClientQt::dispatchDidLoadResourceFromMemoryCache(WebCore::DocumentLoader*, const WebCore::ResourceRequest&, const WebCore::ResourceResponse&, int)
@@ -1518,7 +1565,7 @@ String FrameLoaderClientQt::overrideMediaType() const
 
 QString FrameLoaderClientQt::chooseFile(const QString& oldFile)
 {
-    return webFrame()->page()->chooseFile(webFrame(), oldFile);
+    return m_webFrame->page()->chooseFile(m_webFrame, oldFile);
 }
 
 PassRefPtr<FrameNetworkingContext> FrameLoaderClientQt::createNetworkingContext()

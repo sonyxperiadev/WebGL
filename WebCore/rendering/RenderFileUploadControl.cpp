@@ -142,11 +142,11 @@ Chrome* RenderFileUploadControl::chrome() const
 void RenderFileUploadControl::updateFromElement()
 {
     HTMLInputElement* inputElement = static_cast<HTMLInputElement*>(node());
-    ASSERT(inputElement->inputType() == HTMLInputElement::FILE);
+    ASSERT(inputElement->isFileUpload());
     
     if (!m_button) {
         m_button = ShadowInputElement::create(inputElement);
-        m_button->setInputType("button");
+        m_button->setType("button");
         m_button->setValue(fileButtonChooseFileLabel());
         RefPtr<RenderStyle> buttonStyle = createButtonStyle(style());
         RenderObject* renderer = m_button->createRenderer(renderArena(), buttonStyle.get());

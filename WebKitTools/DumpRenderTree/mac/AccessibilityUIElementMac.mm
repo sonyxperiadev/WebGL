@@ -1160,6 +1160,15 @@ bool AccessibilityUIElement::isCollapsed() const
     return false;
 }
 
+bool AccessibilityUIElement::isIgnored() const
+{
+    BOOL result = NO;
+    BEGIN_AX_OBJC_EXCEPTIONS
+    result = [m_element accessibilityIsIgnored];
+    END_AX_OBJC_EXCEPTIONS
+    return result;
+}
+
 bool AccessibilityUIElement::hasPopup() const
 {
     BEGIN_AX_OBJC_EXCEPTIONS
@@ -1240,6 +1249,16 @@ AccessibilityTextMarker AccessibilityUIElement::endTextMarkerForTextMarkerRange(
 {
     BEGIN_AX_OBJC_EXCEPTIONS
     id textMarker = [m_element accessibilityAttributeValue:@"AXEndTextMarkerForTextMarkerRange" forParameter:(id)range->platformTextMarkerRange()];
+    return AccessibilityTextMarker(textMarker);
+    END_AX_OBJC_EXCEPTIONS
+    
+    return 0;    
+}
+
+AccessibilityTextMarker AccessibilityUIElement::textMarkerForPoint(int x, int y)
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    id textMarker = [m_element accessibilityAttributeValue:@"AXTextMarkerForPosition" forParameter:[NSValue valueWithPoint:NSMakePoint(x, y)]];
     return AccessibilityTextMarker(textMarker);
     END_AX_OBJC_EXCEPTIONS
     

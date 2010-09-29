@@ -44,7 +44,7 @@ class ContentLayerChromium : public LayerChromium {
 public:
     static PassRefPtr<ContentLayerChromium> create(GraphicsLayerChromium* owner = 0);
 
-    ~ContentLayerChromium();
+    virtual ~ContentLayerChromium();
 
     virtual void updateContents();
     virtual void draw();
@@ -55,7 +55,7 @@ public:
     // context).
     class SharedValues {
     public:
-        SharedValues();
+        explicit SharedValues(GraphicsContext3D*);
         ~SharedValues();
 
         unsigned contentShaderProgram() const { return m_contentShaderProgram; }
@@ -65,6 +65,7 @@ public:
         int initialized() const { return m_initialized; }
 
     private:
+        GraphicsContext3D* m_context;
         unsigned m_contentShaderProgram;
         int m_shaderSamplerLocation;
         int m_shaderMatrixLocation;

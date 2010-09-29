@@ -40,6 +40,7 @@
 #include "public/WebContextMenuData.h"
 #include "public/WebDataSource.h"
 #include "public/WebDragData.h"
+#include "public/WebElement.h"
 #include "public/WebFrame.h"
 #include "public/WebGeolocationServiceMock.h"
 #include "public/WebHistoryItem.h"
@@ -489,10 +490,68 @@ void WebViewHost::focusAccessibilityObject(const WebAccessibilityObject& object)
     m_shell->accessibilityController()->setFocusedElement(object);
 }
 
-void WebViewHost::didChangeAccessibilityObjectChildren(const WebAccessibilityObject& object)
+void WebViewHost::postAccessibilityNotification(const WebAccessibilityObject& obj, WebAccessibilityNotification notification)
 {
-    if (m_shell->accessibilityController()->shouldDumpAccessibilityNotifications())
-        printf("didChangeAccessibilityObjectChildren - new count: %d\n", object.childCount());
+    if (m_shell->accessibilityController()->shouldDumpAccessibilityNotifications()) {
+        printf("AccessibilityNotification - ");
+
+        switch (notification) {
+        case WebAccessibilityNotificationActiveDescendantChanged:
+            printf("ActiveDescendantChanged");
+            break;
+        case WebAccessibilityNotificationCheckedStateChanged:
+            printf("CheckedStateChanged");
+            break;
+        case WebAccessibilityNotificationChildrenChanged:
+            printf("ChildrenChanged");
+            break;
+        case WebAccessibilityNotificationFocusedUIElementChanged:
+            printf("FocusedUIElementChanged");
+            break;
+        case WebAccessibilityNotificationLayoutComplete:
+            printf("LayoutComplete");
+            break;
+        case WebAccessibilityNotificationLoadComplete:
+            printf("LoadComplete");
+            break;
+        case WebAccessibilityNotificationSelectedChildrenChanged:
+            printf("SelectedChildrenChanged");
+            break;
+        case WebAccessibilityNotificationSelectedTextChanged:
+            printf("SelectedTextChanged");
+            break;
+        case WebAccessibilityNotificationValueChanged:
+            printf("ValueChanged");
+            break;
+        case WebAccessibilityNotificationScrolledToAnchor:
+            printf("ScrolledToAnchor");
+            break;
+        case WebAccessibilityNotificationLiveRegionChanged:
+            printf("LiveRegionChanged");
+            break;
+        case WebAccessibilityNotificationMenuListValueChanged:
+            printf("MenuListValueChanged");
+            break;
+        case WebAccessibilityNotificationRowCountChanged:
+            printf("RowCountChanged");
+            break;
+        case WebAccessibilityNotificationRowCollapsed:
+            printf("RowCollapsed");
+            break;
+        case WebAccessibilityNotificationRowExpanded:
+            printf("RowExpanded");
+            break;
+        }
+
+        WebKit::WebNode node = obj.node();
+        if (!node.isNull() && node.isElementNode()) {
+            WebKit::WebElement element = node.to<WebKit::WebElement>();
+            if (element.hasAttribute("id"))
+                printf(" - id:%s", element.getAttribute("id").utf8().data());
+        }
+
+        printf("\n");
+    }
 }
 
 WebNotificationPresenter* WebViewHost::notificationPresenter()
@@ -731,6 +790,8 @@ void WebViewHost::didCancelClientRedirect(WebFrame* frame)
 void WebViewHost::didCreateDataSource(WebFrame*, WebDataSource* ds)
 {
     ds->setExtraData(m_pendingExtraData.leakPtr());
+    if (!layoutTestController()->deferMainResourceDataLoad())
+        ds->setDeferMainResourceDataLoad(false);
 }
 
 void WebViewHost::didStartProvisionalLoad(WebFrame* frame)
@@ -920,12 +981,20 @@ void WebViewHost::willSendRequest(WebFrame*, unsigned identifier, WebURLRequest&
 
 void WebViewHost::didReceiveResponse(WebFrame*, unsigned identifier, const WebURLResponse& response)
 {
-    if (!m_shell->shouldDumpResourceLoadCallbacks())
-        return;
-    printResourceDescription(identifier);
-    fputs(" - didReceiveResponse ", stdout);
-    printResponseDescription(response);
-    fputs("\n", stdout);
+    if (m_shell->shouldDumpResourceLoadCallbacks()) {
+        printResourceDescription(identifier);
+        fputs(" - didReceiveResponse ", stdout);
+        printResponseDescription(response);
+        fputs("\n", stdout);
+    }
+    if (m_shell->shouldDumpResourceResponseMIMETypes()) {
+        GURL url = response.url();
+        WebString mimeType = response.mimeType();
+        printf("%s has MIME type %s\n",
+            url.ExtractFileName().c_str(),
+            // Simulate NSURLResponse's mapping of empty/unknown MIME types to application/octet-stream
+            mimeType.isEmpty() ? "application/octet-stream" : mimeType.utf8().data());
+    }
 }
 
 void WebViewHost::didFinishResourceLoad(WebFrame*, unsigned identifier)

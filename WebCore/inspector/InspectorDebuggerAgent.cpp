@@ -38,6 +38,7 @@
 #include "PlatformString.h"
 #include "ScriptDebugServer.h"
 #include <wtf/MD5.h>
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
@@ -292,7 +293,7 @@ void InspectorDebuggerAgent::didPause(ScriptState* scriptState)
     m_pausedScriptState = scriptState;
     RefPtr<InspectorObject> details = InspectorObject::create();
     details->setValue("callFrames", currentCallFrames());
-    details->setValue("reason", m_breakProgramReason);
+    details->setValue("status", m_breakProgramReason);
     m_frontend->pausedScript(details);
 }
 

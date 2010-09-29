@@ -270,7 +270,7 @@ void EventHandler::selectClosestWordFromMouseEvent(const MouseEventWithHitTestRe
                 newSelection.appendTrailingWhitespace();            
         }
         
-        if (m_frame->shouldChangeSelection(newSelection))
+        if (m_frame->selection()->shouldChangeSelection(newSelection))
             m_frame->selection()->setSelection(newSelection, granularity, MakeNonDirectionalSelection);
     }
 }
@@ -295,7 +295,7 @@ void EventHandler::selectClosestWordOrLinkFromMouseEvent(const MouseEventWithHit
             m_beganSelectingText = true;
         }
 
-        if (m_frame->shouldChangeSelection(newSelection))
+        if (m_frame->selection()->shouldChangeSelection(newSelection))
             m_frame->selection()->setSelection(newSelection, granularity, MakeNonDirectionalSelection);
     }
 }
@@ -340,7 +340,7 @@ bool EventHandler::handleMousePressEventTripleClick(const MouseEventWithHitTestR
         m_beganSelectingText = true;
     }
     
-    if (m_frame->shouldChangeSelection(newSelection))
+    if (m_frame->selection()->shouldChangeSelection(newSelection))
         m_frame->selection()->setSelection(newSelection, granularity, MakeNonDirectionalSelection);
 
     return true;
@@ -398,16 +398,16 @@ bool EventHandler::handleMousePressEventSingleClick(const MouseEventWithHitTestR
             newSelection.setExtent(pos);
         }
 
-        if (m_frame->selectionGranularity() != CharacterGranularity) {
-            granularity = m_frame->selectionGranularity();
-            newSelection.expandUsingGranularity(m_frame->selectionGranularity());
+        if (m_frame->selection()->granularity() != CharacterGranularity) {
+            granularity = m_frame->selection()->granularity();
+            newSelection.expandUsingGranularity(m_frame->selection()->granularity());
         }
 
         m_beganSelectingText = true;
     } else
         newSelection = VisibleSelection(visiblePos);
     
-    if (m_frame->shouldChangeSelection(newSelection))
+    if (m_frame->selection()->shouldChangeSelection(newSelection))
         m_frame->selection()->setSelection(newSelection, granularity, MakeNonDirectionalSelection);
 
     return true;
@@ -640,12 +640,12 @@ void EventHandler::updateSelectionForMouseDrag(Node* targetNode, const IntPoint&
     }
 
     newSelection.setExtent(targetPosition);
-    if (m_frame->selectionGranularity() != CharacterGranularity)
-        newSelection.expandUsingGranularity(m_frame->selectionGranularity());
+    if (m_frame->selection()->granularity() != CharacterGranularity)
+        newSelection.expandUsingGranularity(m_frame->selection()->granularity());
 
-    if (m_frame->shouldChangeSelection(newSelection)) {
+    if (m_frame->selection()->shouldChangeSelection(newSelection)) {
         m_frame->selection()->setIsDirectional(false);
-        m_frame->selection()->setSelection(newSelection, m_frame->selectionGranularity(), MakeNonDirectionalSelection);
+        m_frame->selection()->setSelection(newSelection, m_frame->selection()->granularity(), MakeNonDirectionalSelection);
     }
 }
 #endif // ENABLE(DRAG_SUPPORT)
@@ -707,13 +707,13 @@ bool EventHandler::handleMouseReleaseEvent(const MouseEventWithHitTestResults& e
             VisiblePosition pos = node->renderer()->positionForPoint(event.localPoint());
             newSelection = VisibleSelection(pos);
         }
-        if (m_frame->shouldChangeSelection(newSelection))
+        if (m_frame->selection()->shouldChangeSelection(newSelection))
             m_frame->selection()->setSelection(newSelection);
 
         handled = true;
     }
 
-    m_frame->notifyRendererOfSelectionChange(true);
+    m_frame->selection()->notifyRendererOfSelectionChange(true);
 
     m_frame->selection()->selectFrameElementInParentIfFullySelected();
 
@@ -1052,8 +1052,7 @@ Frame* EventHandler::subframeForTargetNode(Node* node)
 
 static bool isSubmitImage(Node* node)
 {
-    return node && node->hasTagName(inputTag)
-        && static_cast<HTMLInputElement*>(node)->inputType() == HTMLInputElement::IMAGE;
+    return node && node->hasTagName(inputTag) && static_cast<HTMLInputElement*>(node)->isImageButton();
 }
 
 // Returns true if the node's editable block is not current focused for editing
@@ -1389,17 +1388,12 @@ bool EventHandler::handleMouseDoubleClickEvent(const PlatformMouseEvent& mouseEv
     m_clickCount = mouseEvent.clickCount();
     bool swallowMouseUpEvent = dispatchMouseEvent(eventNames().mouseupEvent, mev.targetNode(), true, m_clickCount, mouseEvent, false);
 
-    bool swallowClickEvent = false;
-    // Don't ever dispatch click events for right clicks
-    if (mouseEvent.button() != RightButton && mev.targetNode() == m_clickNode)
-        swallowClickEvent = dispatchMouseEvent(eventNames().clickEvent, mev.targetNode(), true, m_clickCount, mouseEvent, true);
+    bool swallowClickEvent = mouseEvent.button() == LeftButton && mev.targetNode() == m_clickNode && dispatchMouseEvent(eventNames().clickEvent, mev.targetNode(), true, m_clickCount, mouseEvent, true);
 
     if (m_lastScrollbarUnderMouse)
         swallowMouseUpEvent = m_lastScrollbarUnderMouse->mouseUp();
-            
-    bool swallowMouseReleaseEvent = false;
-    if (!swallowMouseUpEvent)
-        swallowMouseReleaseEvent = handleMouseReleaseEvent(mev);
+
+    bool swallowMouseReleaseEvent = !swallowMouseUpEvent && handleMouseReleaseEvent(mev);
 
     invalidateClick();
 
@@ -1592,10 +1586,7 @@ bool EventHandler::handleMouseReleaseEvent(const PlatformMouseEvent& mouseEvent)
 
     bool swallowMouseUpEvent = dispatchMouseEvent(eventNames().mouseupEvent, mev.targetNode(), true, m_clickCount, mouseEvent, false);
 
-    // Don't ever dispatch click events for right clicks
-    bool swallowClickEvent = false;
-    if (m_clickCount > 0 && mouseEvent.button() != RightButton && mev.targetNode() == m_clickNode)
-        swallowClickEvent = dispatchMouseEvent(eventNames().clickEvent, mev.targetNode(), true, m_clickCount, mouseEvent, true);
+    bool swallowClickEvent = m_clickCount > 0 && mouseEvent.button() == LeftButton && mev.targetNode() == m_clickNode && dispatchMouseEvent(eventNames().clickEvent, mev.targetNode(), true, m_clickCount, mouseEvent, true);
 
     if (m_resizeLayer) {
         m_resizeLayer->setInResizeMode(false);
@@ -2179,12 +2170,7 @@ bool EventHandler::canMouseDownStartSelect(Node* node)
     if (!node->canStartSelection())
         return false;
             
-    for (RenderObject* curr = node->renderer(); curr; curr = curr->parent()) {
-        if (Node* node = curr->node())
-            return node->dispatchEvent(Event::create(eventNames().selectstartEvent, true, true));
-    }
-
-    return true;
+    return node->dispatchEvent(Event::create(eventNames().selectstartEvent, true, true));
 }
 
 #if ENABLE(DRAG_SUPPORT)
@@ -2193,12 +2179,7 @@ bool EventHandler::canMouseDragExtendSelect(Node* node)
     if (!node || !node->renderer())
         return true;
             
-    for (RenderObject* curr = node->renderer(); curr; curr = curr->parent()) {
-        if (Node* node = curr->node())
-            return node->dispatchEvent(Event::create(eventNames().selectstartEvent, true, true));
-    }
-
-    return true;
+    return node->dispatchEvent(Event::create(eventNames().selectstartEvent, true, true));
 }
 #endif // ENABLE(DRAG_SUPPORT)
 
@@ -2846,12 +2827,6 @@ static PassRefPtr<TouchList> assembleTargetTouches(Touch* touchTarget, TouchList
     return targetTouches.release();
 }
 
-static float pageZoomFactor(Frame* frame)
-{
-    FrameView* view = frame->view();
-    return view ? view->pageZoomFactor() : 1.0f;
-}
-
 bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 {
     RefPtr<TouchList> touches = TouchList::create();
@@ -2908,8 +2883,8 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             pagePoint = documentPointForWindowPoint(doc->frame(), point.pos());
         }
 
-        int adjustedPageX = lroundf(pagePoint.x() / pageZoomFactor(m_frame));
-        int adjustedPageY = lroundf(pagePoint.y() / pageZoomFactor(m_frame));
+        int adjustedPageX = lroundf(pagePoint.x() / m_frame->pageZoomFactor());
+        int adjustedPageY = lroundf(pagePoint.y() / m_frame->pageZoomFactor());
 
         // Increment the platform touch id by 1 to avoid storing a key of 0 in the hashmap.
         unsigned touchPointTargetKey = point.id() + 1;

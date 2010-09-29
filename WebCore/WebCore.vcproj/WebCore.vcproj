@@ -5300,6 +5300,62 @@
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSGeoposition.h"
 				>
 			</File>
+ 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHashChangeEvent.cpp"
+				>
+				<FileConfiguration
+					Name="Debug|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Internal|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release_Cairo|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Debug_All|Win32"
+					ExcludedFromBuild="true"
+					>
+					<Tool
+						Name="VCCLCompilerTool"
+					/>
+				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHashChangeEvent.h"
+				>
+			</File>
 			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHistory.cpp"
 				>
@@ -23360,10 +23416,6 @@
 				RelativePath="..\page\XSSAuditor.h"
 				>
 			</File>
-			<File
-				RelativePath="..\page\ZoomMode.h"
-				>
-			</File>
 			<Filter
 				Name="win"
 				>
@@ -26599,6 +26651,42 @@
 						</FileConfiguration>
 					</File>
 					<File
+						RelativePath="..\platform\graphics\cairo\OwnPtrCairo.cpp"
+						>
+						<FileConfiguration
+							Name="Debug|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Debug_Internal|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Debug_All|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+					</File>
+					<File
 						RelativePath="..\platform\graphics\cairo\PathCairo.cpp"
 						>
 						<FileConfiguration
@@ -29390,6 +29478,14 @@
 			</File>
 			<File
 				RelativePath="..\css\CSSPropertyNames.in"
+				>
+			</File>
+			<File
+				RelativePath="..\css\CSSPropertySourceData.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\css\CSSPropertySourceData.h"
 				>
 			</File>
 			<File
@@ -33154,6 +33250,26 @@
 					>
 				</File>
 			</Filter>
+			<Filter
+				Name="svg"
+				>
+				<File
+					RelativePath="..\rendering\svg\SVGTextLayoutAttributes.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\rendering\svg\SVGTextLayoutAttributes.h"
+					>
+				</File>
+				<File
+					RelativePath="..\rendering\svg\SVGTextLayoutBuilder.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\rendering\svg\SVGTextLayoutBuilder.h"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="xml"
@@ -33870,6 +33986,10 @@
 			</File>
 			<File
 				RelativePath="..\dom\InputElement.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\dom\HashChangeEvent.h"
 				>
 			</File>
 			<File
@@ -42016,6 +42136,14 @@
 					>
 				</File>
 				<File
+					RelativePath="..\html\parser\HTMLParserIdioms.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\html\parser\HTMLParserIdioms.h"
+					>
+				</File>
+				<File
 					RelativePath="..\html\parser\HTMLParserScheduler.cpp"
 					>
 				</File>
@@ -42069,6 +42197,10 @@
 				</File>
 				<File
 					RelativePath="..\html\parser\HTMLViewSourceParser.h"
+					>
+				</File>
+				<File
+					RelativePath="..\html\parser\NestingLevelIncrementer.h"
 					>
 				</File>
 				<File
@@ -42493,6 +42625,62 @@
 				</File>
 				<File
 					RelativePath="..\bindings\js\JSBindingsAllInOne.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\specialization\JSBindingState.cpp"
+					>
+					<FileConfiguration
+						Name="Debug|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Internal|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release_Cairo|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Debug_All|Win32"
+						ExcludedFromBuild="true"
+						>
+						<Tool
+							Name="VCCLCompilerTool"
+						/>
+					</FileConfiguration>
+				</File>
+				<File
+					RelativePath="..\bindings\js\specialization\JSBindingState.h"
 					>
 				</File>
 				<File
@@ -44462,6 +44650,10 @@
 							Name="VCCLCompilerTool"
 						/>
 					</FileConfiguration>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSEntryCustom.cpp"
+					>
 				</File>
 				<File
 					RelativePath="..\bindings\js\JSEventCustom.cpp"
@@ -46673,6 +46865,10 @@
 				</File>
 				<File
 					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBTransaction.h"
+					>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSDirectoryEntryCustom.cpp"
 					>
 				</File>
 				<File
@@ -49785,62 +49981,6 @@
 				</File>
 				<File
 					RelativePath="..\bindings\js\WorkerScriptController.h"
-					>
-				</File>
-				<File
-					RelativePath="..\bindings\js\specialization\JSBindingState.cpp"
-					>
-					<FileConfiguration
-						Name="Debug|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Internal|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release_Cairo|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug_All|Win32"
-						ExcludedFromBuild="true"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-						/>
-					</FileConfiguration>
-				</File>
-				<File
-					RelativePath="..\bindings\js\specialization\JSBindingState.h"
 					>
 				</File>
 			</Filter>

@@ -21,8 +21,12 @@
 #include "config.h"
 #include "qwebframe.h"
 
+#if USE(JSC)
 #include "Bridge.h"
 #include "CallFrame.h"
+#elif USE(V8)
+#include "V8Binding.h"
+#endif
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "DragData.h"
@@ -32,23 +36,35 @@
 #include "FrameLoaderClientQt.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#if USE(JSC)
 #include "GCController.h"
+#elif USE(V8)
+#include "V8GCController.h"
+#endif
 #include "GraphicsContext.h"
 #include "HTMLMetaElement.h"
 #include "HitTestResult.h"
 #include "HTTPParsers.h"
 #include "IconDatabase.h"
 #include "InspectorController.h"
+#if USE(JSC)
 #include "JSDOMBinding.h"
 #include "JSDOMWindowBase.h"
 #include "JSLock.h"
 #include "JSObject.h"
+#elif USE(V8)
+#include "V8DOMWrapper.h"
+#include "V8DOMWindowShell.h"
+#endif
+#include "NetworkingContext.h"
 #include "NodeList.h"
 #include "Page.h"
 #include "PlatformMouseEvent.h"
 #include "PlatformWheelEvent.h"
 #include "PrintContext.h"
+#if USE(JSC)
 #include "PutPropertySlot.h"
+#endif
 #include "RenderLayer.h"
 #include "RenderTreeAsText.h"
 #include "RenderView.h"
@@ -64,8 +80,10 @@
 #include "TiledBackingStore.h"
 #include "htmlediting.h"
 #include "markup.h"
+#if USE(JSC)
 #include "qt_instance.h"
 #include "qt_runtime.h"
+#endif
 #include "qwebelement.h"
 #include "qwebframe_p.h"
 #include "qwebpage.h"
@@ -74,8 +92,10 @@
 #include "qwebsecurityorigin_p.h"
 #include "qwebscriptworld.h"
 #include "qwebscriptworld_p.h"
+#if USE(JSC)
 #include "runtime_object.h"
 #include "runtime_root.h"
+#endif
 #include "wtf/HashMap.h"
 #include <QMultiMap>
 #include <qdebug.h>
@@ -476,7 +496,7 @@ void QWebFrame::addToJavaScriptWindowObject(const QString &name, QObject *object
 {
     if (!page()->settings()->testAttribute(QWebSettings::JavascriptEnabled))
         return;
-
+#if USE(JSC)
     JSC::JSLock lock(JSC::SilenceAssertionsOnly);
     JSDOMWindow* window = toJSDOMWindow(d->frame, mainThreadNormalWorld());
     JSC::Bindings::RootObject* root;
@@ -497,6 +517,13 @@ void QWebFrame::addToJavaScriptWindowObject(const QString &name, QObject *object
 
     JSC::PutPropertySlot slot;
     window->put(exec, JSC::Identifier(exec, reinterpret_cast_ptr<const UChar*>(name.constData()), name.length()), runtimeObject, slot);
+#elif USE(V8)
+    QScriptEngine* engine = d->frame->script()->qtScriptEngine();
+    if (!engine)
+        return;
+    QScriptValue v = engine->newQObject(object, ownership);
+    engine->globalObject().property("window").setProperty(name, v);
+#endif
 }
 
 /*!
@@ -868,9 +895,9 @@ QList<QWebFrame*> QWebFrame::childFrames() const
         FrameTree *tree = d->frame->tree();
         for (Frame *child = tree->firstChild(); child; child = child->tree()->nextSibling()) {
             FrameLoader *loader = child->loader();
-            FrameLoaderClientQt *client = static_cast<FrameLoaderClientQt*>(loader->client());
-            if (client)
-                rc.append(client->webFrame());
+            QWebFrame* webFrame = qobject_cast<QWebFrame*>(loader->networkingContext()->originatingObject());
+            if (webFrame)
+                rc.append(webFrame);
         }
 
     }
@@ -1105,11 +1132,9 @@ void QWebFrame::render(QPainter* painter)
 */
 void QWebFrame::setTextSizeMultiplier(qreal factor)
 {
-    FrameView* view = d->frame->view();
-    if (!view)
-        return;
+    page()->settings()->setAttribute(QWebSettings::ZoomTextOnly, true);
 
-    view->setZoomFactor(factor, ZoomTextOnly);
+    d->frame->setPageAndTextZoomFactors(1, factor);
 }
 
 /*!
@@ -1117,11 +1142,7 @@ void QWebFrame::setTextSizeMultiplier(qreal factor)
 */
 qreal QWebFrame::textSizeMultiplier() const
 {
-    FrameView* view = d->frame->view();
-    if (!view)
-        return 1;
-
-    return view->zoomFactor();
+    return d->zoomTextOnly ? d->frame->textZoomFactor() : d->frame->pageZoomFactor();
 }
 
 /*!
@@ -1132,24 +1153,15 @@ qreal QWebFrame::textSizeMultiplier() const
 
 void QWebFrame::setZoomFactor(qreal factor)
 {
-    Page* page = d->frame->page();
-    if (!page)
-        return;
-
-    FrameView* view = d->frame->view();
-    if (!view)
-        return;
-
-    view->setZoomFactor(factor, page->settings()->zoomMode());
+    if (d->zoomTextOnly)
+        d->frame->setTextZoomFactor(factor);
+    else
+        d->frame->setPageZoomFactor(factor);
 }
 
 qreal QWebFrame::zoomFactor() const
 {
-    FrameView* view = d->frame->view();
-    if (!view)
-        return 1;
-
-    return view->zoomFactor();
+    return d->zoomTextOnly ? d->frame->textZoomFactor() : d->frame->pageZoomFactor();
 }
 
 /*!
@@ -1388,9 +1400,17 @@ QVariant QWebFrame::evaluateJavaScript(const QString& scriptSource)
     ScriptController *proxy = d->frame->script();
     QVariant rc;
     if (proxy) {
-        JSC::JSValue v = d->frame->script()->executeScript(ScriptSourceCode(scriptSource)).jsValue();
+#if USE(JSC)
         int distance = 0;
+        JSC::JSValue v = d->frame->script()->executeScript(ScriptSourceCode(scriptSource)).jsValue();
+
         rc = JSC::Bindings::convertValueToQVariant(proxy->globalObject(mainThreadNormalWorld())->globalExec(), v, QMetaType::Void, &distance);
+#elif USE(V8)
+        QScriptEngine* engine = d->frame->script()->qtScriptEngine();
+        if (!engine)
+            return rc;
+        rc = engine->evaluate(scriptSource).toVariant();
+#endif
     }
     return rc;
 }
@@ -1414,7 +1434,7 @@ WebCore::Frame* QWebFramePrivate::core(const QWebFrame* webFrame)
 
 QWebFrame* QWebFramePrivate::kit(const WebCore::Frame* coreFrame)
 {
-    return static_cast<FrameLoaderClientQt*>(coreFrame->loader()->client())->webFrame();
+    return qobject_cast<QWebFrame*>(coreFrame->loader()->networkingContext()->originatingObject());
 }
 
 

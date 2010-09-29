@@ -84,11 +84,6 @@ static void clearLayerBackgroundColor(LayerChromium& layer)
     layer.setBackgroundColor(static_cast<RGBA32>(0));
 }
 
-GraphicsLayer::CompositingCoordinatesOrientation GraphicsLayer::compositingCoordinatesOrientation()
-{
-    return CompositingCoordinatesBottomUp;
-}
-
 PassOwnPtr<GraphicsLayer> GraphicsLayer::create(GraphicsLayerClient* client)
 {
     return new GraphicsLayerChromium(client);
@@ -324,7 +319,6 @@ void GraphicsLayerChromium::setContentsToImage(Image* image)
 {
     bool childrenChanged = false;
     if (image) {
-        NativeImagePtr nativeImage = image->nativeImageForCurrentFrame();
         if (!m_contentsLayer.get() || m_contentsLayerPurpose != ContentsLayerForImage) {
             RefPtr<ImageLayerChromium> imageLayer = ImageLayerChromium::create(this);
             setupContentsLayer(imageLayer.get());
@@ -333,7 +327,7 @@ void GraphicsLayerChromium::setContentsToImage(Image* image)
             childrenChanged = true;
         }
         ImageLayerChromium* imageLayer = static_cast<ImageLayerChromium*>(m_contentsLayer.get());
-        imageLayer->setContents(nativeImage);
+        imageLayer->setContents(image);
         updateContentsRect();
     } else {
         if (m_contentsLayer) {
@@ -398,15 +392,6 @@ void GraphicsLayerChromium::setContentsToMedia(PlatformLayer* layer)
   
     if (childrenChanged)
         updateSublayerList();
-}
-
-void GraphicsLayerChromium::setGeometryOrientation(CompositingCoordinatesOrientation orientation)
-{
-    if (orientation == m_geometryOrientation)
-        return;
-
-    GraphicsLayer::setGeometryOrientation(orientation);
-    updateGeometryOrientation();
 }
 
 PlatformLayer* GraphicsLayerChromium::hostLayerForSublayers() const
@@ -623,21 +608,6 @@ void GraphicsLayerChromium::updateContentsRect()
 
     m_contentsLayer->setPosition(FloatPoint(m_contentsRect.x(), m_contentsRect.y()));
     m_contentsLayer->setBounds(IntSize(m_contentsRect.width(), m_contentsRect.height()));
-}
-
-void GraphicsLayerChromium::updateGeometryOrientation()
-{
-    switch (geometryOrientation()) {
-    case CompositingCoordinatesTopDown:
-        m_layer->setGeometryFlipped(false);
-        break;
-
-    case CompositingCoordinatesBottomUp:
-        m_layer->setGeometryFlipped(true);
-        break;
-    }
-    // Geometry orientation is mapped onto children transform in older QuartzCores,
-    // so is handled via setGeometryOrientation().
 }
 
 void GraphicsLayerChromium::setupContentsLayer(LayerChromium* contentsLayer)

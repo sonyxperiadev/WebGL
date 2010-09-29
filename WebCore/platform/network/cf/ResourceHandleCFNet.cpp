@@ -92,7 +92,7 @@ private:
     virtual void didReceiveAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge&);
     virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse&);
     virtual void didReceiveData(ResourceHandle*, const char*, int, int /*lengthReceived*/);
-    virtual void didFinishLoading(ResourceHandle*);
+    virtual void didFinishLoading(ResourceHandle*, double /*finishTime*/);
     virtual void didFail(ResourceHandle*, const ResourceError&);
 
     bool m_allowStoredCredentials;
@@ -241,7 +241,7 @@ void didFinishLoading(CFURLConnectionRef conn, const void* clientInfo)
     LOG(Network, "CFNet - didFinishLoading(conn=%p, handle=%p) (%s)", conn, handle, handle->firstRequest().url().string().utf8().data());
 
     if (handle->client())
-        handle->client()->didFinishLoading(handle);
+        handle->client()->didFinishLoading(handle, 0);
 }
 
 void didFail(CFURLConnectionRef conn, CFErrorRef error, const void* clientInfo) 
@@ -432,11 +432,14 @@ void ResourceHandle::createCFURLConnection(bool shouldUseCredentialStorage, bool
     d->m_connection.adoptCF(CFURLConnectionCreateWithProperties(0, request.get(), reinterpret_cast<CFURLConnectionClient*>(&client), connectionProperties.get()));
 }
 
-bool ResourceHandle::start(Frame* frame)
+bool ResourceHandle::start(NetworkingContext* context)
 {
-    // If we are no longer attached to a Page, this must be an attempted load from an
-    // onUnload handler, so let's just block it.
-    if (!frame->page())
+    if (!context)
+        return false;
+
+    // If NetworkingContext is invalid then we are no longer attached to a Page,
+    // this must be an attempted load from an unload handler, so let's just block it.
+    if (!context->isValid())
         return false;
 
     bool shouldUseCredentialStorage = !client() || client()->shouldUseCredentialStorage(this);
@@ -615,7 +618,7 @@ CFURLConnectionRef ResourceHandle::releaseConnectionForDownload()
     return d->m_connection.releaseRef();
 }
 
-void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request, StoredCredentials storedCredentials, ResourceError& error, ResourceResponse& response, Vector<char>& vector, Frame* frame)
+void ResourceHandle::loadResourceSynchronously(NetworkingContext* context, const ResourceRequest& request, StoredCredentials storedCredentials, ResourceError& error, ResourceResponse& response, Vector<char>& vector)
 {
     LOG(Network, "ResourceHandle::loadResourceSynchronously:%s allowStoredCredentials:%u", request.url().string().utf8().data(), storedCredentials);
 
@@ -629,8 +632,8 @@ void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request, S
 
     RefPtr<ResourceHandle> handle = adoptRef(new ResourceHandle(request, client.get(), false /*defersLoading*/, true /*shouldContentSniff*/));
 
-    if (handle->d->m_scheduledFailureType != NoFailure) {
-        error = frame->loader()->blockedError(request);
+    if (context && handle->d->m_scheduledFailureType != NoFailure) {
+        error = context->blockedError(request);
         return;
     }
 
@@ -738,7 +741,7 @@ void WebCoreSynchronousLoaderClient::didReceiveData(ResourceHandle*, const char*
     CFDataAppendBytes(m_data.get(), reinterpret_cast<const UInt8*>(data), length);
 }
 
-void WebCoreSynchronousLoaderClient::didFinishLoading(ResourceHandle*)
+void WebCoreSynchronousLoaderClient::didFinishLoading(ResourceHandle*, double)
 {
     m_isDone = true;
 }

@@ -90,6 +90,7 @@ struct _Ewk_View_Private_Data {
         const char* encoding_default;
         const char* encoding_custom;
         const char* cache_directory;
+        const char* theme;
         int font_minimum_size;
         int font_minimum_logical_size;
         int font_default_size;
@@ -112,6 +113,7 @@ struct _Ewk_View_Private_Data {
         Eina_Bool spatial_navigation:1;
         Eina_Bool local_storage:1;
         Eina_Bool offline_app_cache: 1;
+        Eina_Bool page_cache: 1;
         struct {
             float w;
             float h;
@@ -565,6 +567,7 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
     priv->page_settings->setPluginsEnabled(true);
     priv->page_settings->setLocalStorageEnabled(true);
     priv->page_settings->setOfflineWebApplicationCacheEnabled(true);
+    priv->page_settings->setUsesPageCache(true);
 
     url = priv->page_settings->userStyleSheetLocation();
     priv->settings.user_stylesheet = eina_stringshare_add(url.prettyURL().utf8().data());
@@ -605,6 +608,7 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
     priv->settings.caret_browsing = priv->page_settings->caretBrowsingEnabled();
     priv->settings.local_storage = priv->page_settings->localStorageEnabled();
     priv->settings.offline_app_cache = true; // XXX no function to read setting; this keeps the original setting
+    priv->settings.page_cache = priv->page_settings->usesPageCache();
 
     // Since there's no scale separated from zooming in webkit-efl, this functionality of
     // viewport meta tag is implemented using zoom. When scale zoom is supported by webkit-efl,
@@ -1110,6 +1114,9 @@ void ewk_view_fixed_layout_size_get(Evas_Object* o, Evas_Coord* w, Evas_Coord* h
 void ewk_view_theme_set(Evas_Object* o, const char* path)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv);
+    if (!eina_stringshare_replace(&priv->settings.theme, path))
+        return;
     ewk_frame_theme_set(sd->main_frame, path);
 }
 
@@ -1125,7 +1132,8 @@ void ewk_view_theme_set(Evas_Object* o, const char* path)
 const char* ewk_view_theme_get(Evas_Object* o)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, 0);
-    return ewk_frame_theme_get(sd->main_frame);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, 0);
+    return priv->settings.theme;
 }
 
 /**
@@ -2746,6 +2754,37 @@ Eina_Bool ewk_view_setting_local_storage_set(Evas_Object* o, Eina_Bool enable)
 }
 
 /**
+ * Gets if the page cache is enabled.
+ *
+ * @param o view object to set if page cache is enabled.
+ * @return @c EINA_TRUE if page cache is enabled, @c EINA_FALSE if not.
+ */
+Eina_Bool ewk_view_setting_page_cache_get(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    return priv->settings.page_cache;
+}
+
+/**
+ * Sets the page cache.
+ *
+ * @param o view object to set if page cache is enabled.
+ * @return @c EINA_TRUE on success and @c EINA_FALSE on failure
+ */
+Eina_Bool ewk_view_setting_page_cache_set(Evas_Object* o, Eina_Bool enable)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    enable = !!enable;
+    if (priv->settings.page_cache != enable) {
+        priv->page_settings->setUsesPageCache(enable);
+        priv->settings.page_cache = enable;
+    }
+    return EINA_TRUE;
+}
+
+/**
  * Similar to evas_object_smart_data_get(), but does type checking.
  *
  * @param o view object to query internal data.
@@ -3211,7 +3250,7 @@ void ewk_view_input_method_state_set(Evas_Object* o, Eina_Bool active)
                 priv->imh |= inputElement->isTelephoneField() * EWK_IMH_TELEPHONE;
                 priv->imh |= inputElement->isNumberField() * EWK_IMH_NUMBER;
                 priv->imh |= inputElement->isEmailField() * EWK_IMH_EMAIL;
-                priv->imh |= inputElement->isUrlField() * EWK_IMH_URL;
+                priv->imh |= inputElement->isURLField() * EWK_IMH_URL;
             }
         }
     }

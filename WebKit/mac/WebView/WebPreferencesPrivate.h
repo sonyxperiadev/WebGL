@@ -184,6 +184,9 @@ extern NSString *WebPreferencesRemovedNotification;
 - (BOOL)webGLEnabled;
 - (void)setWebGLEnabled:(BOOL)enabled;
 
+- (BOOL)accelerated2dCanvasEnabled;
+- (void)setAccelerated2dCanvasEnabled:(BOOL)enabled;
+
 - (BOOL)paginateDuringLayoutEnabled;
 - (void)setPaginateDuringLayoutEnabled:(BOOL)flag;
 
@@ -203,6 +206,8 @@ extern NSString *WebPreferencesRemovedNotification;
 + (void)_setInitialDefaultTextEncodingToSystemEncoding;
 + (void)_setIBCreatorID:(NSString *)string;
 
++ (void)setWebKitLinkTimeVersion:(int)version;
+
 // For WebView's use only.
 - (void)willAddToWebView;
 - (void)didRemoveFromWebView;
@@ -211,5 +216,8 @@ extern NSString *WebPreferencesRemovedNotification;
 // compiled with ENABLE_FULLSCREEN_API. 
 - (void)setFullScreenEnabled:(BOOL)flag;
 - (BOOL)fullScreenEnabled;
+
+- (void)setUsePreHTML5ParserQuirks:(BOOL)flag;
+- (BOOL)usePreHTML5ParserQuirks;
 
 @end

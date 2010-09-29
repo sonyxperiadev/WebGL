@@ -35,9 +35,9 @@ class HTMLElement;
 
 class HTMLDocument : public Document, public CachedResourceClient {
 public:
-    static PassRefPtr<HTMLDocument> create(Frame* frame, const KURL& url)
+    static PassRefPtr<HTMLDocument> create(Frame* frame, const KURL& url, const KURL& baseURL = KURL())
     {
-        return adoptRef(new HTMLDocument(frame, url));
+        return adoptRef(new HTMLDocument(frame, url, baseURL));
     }
     virtual ~HTMLDocument();
 
@@ -50,7 +50,6 @@ public:
     String designMode() const;
     void setDesignMode(const String&);
 
-    String compatMode() const;
     virtual void setCompatibilityModeFromDoctype();
 
     Element* activeElement();
@@ -81,7 +80,7 @@ public:
     bool hasExtraNamedItem(AtomicStringImpl* name);
 
 protected:
-    HTMLDocument(Frame*, const KURL&);
+    HTMLDocument(Frame* frame, const KURL& url, const KURL& baseURL = KURL());
 
 #ifdef ANDROID_INSTRUMENT
     // Overridden to resolve the ambiguous

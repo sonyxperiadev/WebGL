@@ -39,6 +39,7 @@
 #include "HTMLElementFactory.h"
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
 #include "RenderWordBreak.h"
 #include "ScriptEventListener.h"
 #include "Settings.h"
@@ -46,6 +47,7 @@
 #include "TextIterator.h"
 #include "markup.h"
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
@@ -142,12 +144,10 @@ void HTMLElement::parseMappedAttribute(Attribute* attr)
         setContentEditable(attr);
     } else if (attr->name() == tabindexAttr) {
         indexstring = getAttribute(tabindexAttr);
-        if (indexstring.length()) {
-            bool parsedOK;
-            int tabindex = indexstring.toIntStrict(&parsedOK);
-            if (parsedOK)
-                // Clamp tabindex to the range of 'short' to match Firefox's behavior.
-                setTabIndexExplicitly(max(static_cast<int>(std::numeric_limits<short>::min()), min(tabindex, static_cast<int>(std::numeric_limits<short>::max()))));
+        int tabindex = 0;
+        if (parseHTMLInteger(indexstring, tabindex)) {
+            // Clamp tabindex to the range of 'short' to match Firefox's behavior.
+            setTabIndexExplicitly(max(static_cast<int>(std::numeric_limits<short>::min()), min(tabindex, static_cast<int>(std::numeric_limits<short>::max()))));
         }
     } else if (attr->name() == langAttr) {
         // FIXME: Implement
@@ -266,11 +266,6 @@ String HTMLElement::outerHTML() const
     return createMarkup(this);
 }
 
-static bool useLegacyTreeBuilder(Document*)
-{
-    return false;
-}
-
 // FIXME: This logic should move into Range::createContextualFragment
 PassRefPtr<DocumentFragment> HTMLElement::deprecatedCreateContextualFragment(const String& markup, FragmentScriptingPermission scriptingPermission)
 {
@@ -341,13 +336,6 @@ static PassRefPtr<DocumentFragment> createFragmentFromSource(const String& marku
     Document* document = contextElement->document();
     RefPtr<DocumentFragment> fragment;
 
-    if (useLegacyTreeBuilder(document)) {
-        fragment = contextElement->deprecatedCreateContextualFragment(markup);
-        if (!fragment)
-            ec = NO_MODIFICATION_ALLOWED_ERR;
-        return fragment;
-    }
-
     fragment = DocumentFragment::create(document);
     if (document->isHTMLDocument()) {
         fragment->parseHTML(markup, contextElement);
@@ -364,14 +352,6 @@ static PassRefPtr<DocumentFragment> createFragmentFromSource(const String& marku
 
 void HTMLElement::setInnerHTML(const String& html, ExceptionCode& ec)
 {
-    // FIXME: This code can be removed, it's handled by the HTMLDocumentParser correctly.
-    if (useLegacyTreeBuilder(document()) && (hasLocalName(scriptTag) || hasLocalName(styleTag))) {
-        // Script and CSS source shouldn't be parsed as HTML.
-        removeChildren();
-        appendChild(document()->createTextNode(html), ec);
-        return;
-    }
-
     RefPtr<DocumentFragment> fragment = createFragmentFromSource(html, this, ec);
     if (fragment)
         replaceChildrenWithFragment(this, fragment.release(), ec);

@@ -108,6 +108,8 @@ public slots:
     void dumpFrameLoadCallbacks();
     void dumpResourceLoadCallbacks();
     void dumpResourceResponseMIMETypes();
+    void dumpHistoryCallbacks();
+    void dumpConfigurationForViewport(int availableWidth, int availableHeight);
     void setWillSendRequestReturnsNullOnRedirect(bool enabled);
     void setWillSendRequestReturnsNull(bool enabled);
     void setWillSendRequestClearHeader(const QStringList& headers);
@@ -124,6 +126,7 @@ public slots:
     void grantDesktopNotificationPermission(const QString& origin);
     void ignoreDesktopNotificationPermissionRequests();
     bool checkDesktopNotificationPermission(const QString& origin);
+    void simulateDesktopNotificationClick(const QString& title);
     void display();
     void clearBackForwardList();
     QString pathToLocalResource(const QString& url);
@@ -135,6 +138,7 @@ public slots:
     void showWebInspector();
     void closeWebInspector();
     void evaluateInWebInspector(long callId, const QString& script);
+    void removeAllVisitedLinks();
 
     void setMediaType(const QString& type);
     void setFrameFlatteningEnabled(bool enable);

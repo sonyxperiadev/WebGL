@@ -1107,14 +1107,6 @@ void FrameLoader::willSetEncoding()
         receivedFirstData();
 }
 
-void FrameLoader::addData(const char* bytes, int length)
-{
-    ASSERT(m_workingURL.isEmpty());
-    ASSERT(m_frame->document());
-    ASSERT(m_frame->document()->parsing());
-    writer()->addData(bytes, length);
-}
-
 #if ENABLE(WML)
 static inline bool frameContainsWMLContent(Frame* frame)
 {
@@ -1283,9 +1275,10 @@ void FrameLoader::loadFrameRequest(const FrameLoadRequest& request, bool lockHis
         referrer = m_outgoingReferrer;
 
     ASSERT(frame()->document());
-    if (SchemeRegistry::shouldTreatURLAsLocal(url.string()) && !isFeedWithNestedProtocolInHTTPFamily(url)) {
-        if (!SecurityOrigin::canDisplay(url, String(), frame()->document()) && !SecurityOrigin::canDisplay(url, referrer, 0)) {
-            FrameLoader::reportLocalLoadFailed(m_frame, url.string());
+    // FIXME: Should we move the isFeedWithNestedProtocolInHTTPFamily logic inside SecurityOrigin::canDisplay?
+    if (!isFeedWithNestedProtocolInHTTPFamily(url)) {
+        if (!frame()->document()->securityOrigin()->canDisplay(url) && !SecurityOrigin::deprecatedCanDisplay(referrer, url)) {
+            reportLocalLoadFailed(m_frame, url.string());
             return;
         }
     }
@@ -1517,11 +1510,6 @@ void FrameLoader::reportLocalLoadFailed(Frame* frame, const String& url)
 const ResourceRequest& FrameLoader::initialRequest() const
 {
     return activeDocumentLoader()->originalRequest();
-}
-
-void FrameLoader::receivedData(const char* data, int length)
-{
-    activeDocumentLoader()->receivedData(data, length);
 }
 
 bool FrameLoader::willLoadMediaElementURL(KURL& url)
@@ -1880,6 +1868,14 @@ void FrameLoader::commitProvisionalLoad()
     if (cachedPage && cachedPage->document()) {
         prepareForCachedPageRestore();
         cachedPage->restore(m_frame->page());
+
+        dispatchDidCommitLoad();
+
+        // If we have a title let the WebView know about it. 
+        String title = m_documentLoader->title();
+        if (!title.isNull()) 
+            m_client->dispatchDidReceiveTitle(title);         
+
         checkCompleted();
     } else {        
         KURL url = pdl->substituteData().responseURL();
@@ -1960,7 +1956,6 @@ void FrameLoader::transitionToCommitted(PassRefPtr<CachedPage> cachedPage)
 
     // Handle adding the URL to the back/forward list.
     DocumentLoader* dl = m_documentLoader.get();
-    String ptitle = dl->title(); 
 
     switch (m_loadType) {
         case FrameLoadTypeForward:
@@ -2037,14 +2032,6 @@ void FrameLoader::transitionToCommitted(PassRefPtr<CachedPage> cachedPage)
 
     if (!m_client->hasHTMLView())
         receivedFirstData();
-    else if (cachedPage) {
-        // For non-cached HTML pages, these methods are called in receivedFirstData().
-        dispatchDidCommitLoad();
-
-        // If we have a title let the WebView know about it. 
-        if (!ptitle.isNull()) 
-            m_client->dispatchDidReceiveTitle(ptitle);         
-    }
 }
 
 void FrameLoader::clientRedirectCancelledOrFinished(bool cancelWithLoadInProgress)
@@ -2260,8 +2247,10 @@ void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
     if (!archive)
         return;
 
-    loader->addAllArchiveResources(archive.get());
+    // FIXME: The remainder of this function should be in DocumentLoader.
     
+    loader->addAllArchiveResources(archive.get());
+
     ArchiveResource* mainResource = archive->mainResource();
     loader->setParsedArchiveData(mainResource->data());
 
@@ -2270,9 +2259,11 @@ void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
     closeURL();
     didOpenURL(mainResource->url());
 
+    ASSERT(m_frame->document());
     String userChosenEncoding = documentLoader()->overrideEncoding();
     bool encodingIsUserChosen = !userChosenEncoding.isNull();
     writer()->setEncoding(encodingIsUserChosen ? userChosenEncoding : mainResource->textEncoding(), encodingIsUserChosen);
+<<<<<<< HEAD
 
     ASSERT(m_frame->document());
 
@@ -2280,6 +2271,9 @@ void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
 #else
     m_client->finishedLoading(loader);
 #endif // ARCHIVE
+=======
+    writer()->addData(mainResource->data()->data(), mainResource->data()->size());
+>>>>>>> webkit.org at r67908
 }
 
 bool FrameLoader::isReplacing() const
@@ -2738,6 +2732,7 @@ void FrameLoader::addHTTPOriginIfNeeded(ResourceRequest& request, String origin)
     request.setHTTPOrigin(origin);
 }
 
+<<<<<<< HEAD
 void FrameLoader::committedLoad(DocumentLoader* loader, const char* data, int length)
 {
 #if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
@@ -2747,6 +2742,8 @@ void FrameLoader::committedLoad(DocumentLoader* loader, const char* data, int le
     m_client->committedLoad(loader, data, length);
 }
 
+=======
+>>>>>>> webkit.org at r67908
 void FrameLoader::loadPostRequest(const ResourceRequest& inRequest, const String& referrer, const String& frameName, bool lockHistory, FrameLoadType loadType, PassRefPtr<Event> event, PassRefPtr<FormState> prpFormState)
 {
     RefPtr<FormState> formState = prpFormState;
@@ -2817,7 +2814,7 @@ unsigned long FrameLoader::loadResourceSynchronously(const ResourceRequest& requ
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         if (!documentLoader()->applicationCacheHost()->maybeLoadSynchronously(newRequest, error, response, data)) {
 #endif
-            ResourceHandle::loadResourceSynchronously(newRequest, storedCredentials, error, response, data, m_frame);
+            ResourceHandle::loadResourceSynchronously(networkingContext(), newRequest, storedCredentials, error, response, data);
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
             documentLoader()->applicationCacheHost()->maybeLoadFallbackSynchronously(newRequest, error, response, data);
         }
@@ -3094,6 +3091,9 @@ void FrameLoader::loadedResourceFromMemoryCache(const CachedResource* resource)
     unsigned long identifier;
     ResourceError error;
     requestFromDelegate(request, identifier, error);
+#if ENABLE(INSPECTOR)
+    page->inspectorController()->markResourceAsCached(identifier);
+#endif
     notifier()->sendRemainingDelegateMessages(m_documentLoader.get(), identifier, resource->response(), resource->encodedSize(), error);
 }
 

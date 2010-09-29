@@ -60,6 +60,23 @@ static void runJavaScriptAlert(WKPageRef page, WKStringRef alertText, WKFrameRef
 {
 }
 
+static bool runJavaScriptConfirm(WKPageRef page, WKStringRef message, WKFrameRef frame, const void* clientInfo)
+{
+    return false;
+}
+
+static WKStringRef runJavaScriptPrompt(WKPageRef page, WKStringRef message, WKStringRef defaultValue, WKFrameRef frame, const void* clientInfo)
+{
+    return 0;
+}
+
+static void setStatusText(WKPageRef page, WKStringRef text, const void* clientInfo)
+{
+}
+
+static void contentsSizeChanged(WKPageRef page, int width, int height, WKFrameRef frame, const void *clientInfo)
+{
+}
 
 void BrowserView::create(RECT webViewRect, BrowserWindow* parentWindow)
 {
@@ -84,8 +101,12 @@ void BrowserView::create(RECT webViewRect, BrowserWindow* parentWindow)
         showPage,
         closePage,
         runJavaScriptAlert,
-        0               /* contentsSizeChanged */
+        runJavaScriptConfirm,
+        runJavaScriptPrompt,
+        setStatusText,
+        contentsSizeChanged
     };
+
     WKPageSetPageUIClient(WKViewGetPage(m_webView), &uiClient);
 }
 

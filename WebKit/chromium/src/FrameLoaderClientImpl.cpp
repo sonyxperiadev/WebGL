@@ -1053,8 +1053,7 @@ void FrameLoaderClientImpl::committedLoad(DocumentLoader* loader, const char* da
 
     // If we are sending data to MediaDocument, we should stop here
     // and cancel the request.
-    if (m_webFrame->frame()->document()
-        && m_webFrame->frame()->document()->isMediaDocument())
+    if (m_webFrame->frame()->document()->isMediaDocument())
         loader->cancelMainResourceLoad(pluginWillHandleLoadError(loader->response()));
 
     // The plugin widget could have been created in the m_webFrame->DidReceiveData
@@ -1205,6 +1204,12 @@ bool FrameLoaderClientImpl::canHandleRequest(const ResourceRequest& request) con
 {
     return m_webFrame->client()->canHandleRequest(
         m_webFrame, WrappedResourceRequest(request));
+}
+
+bool FrameLoaderClientImpl::canShowMIMETypeAsHTML(const String& MIMEType) const
+{
+    notImplemented();
+    return false;
 }
 
 bool FrameLoaderClientImpl::canShowMIMEType(const String& mimeType) const
@@ -1398,12 +1403,12 @@ PassRefPtr<Widget> FrameLoaderClientImpl::createPlugin(
     if (!webPlugin->initialize(container.get()))
         return 0;
 
-    if (m_webFrame->frame()->view()->zoomFactor() != 1) {
+    bool zoomTextOnly = m_webFrame->viewImpl()->zoomTextOnly();
+    float zoomFactor = zoomTextOnly ? m_webFrame->frame()->textZoomFactor() : m_webFrame->frame()->pageZoomFactor();
+    if (zoomFactor != 1) {
         // There's a saved zoom level, so tell the plugin about it since
         // WebViewImpl::setZoomLevel was called before the plugin was created.
-        webPlugin->setZoomFactor(
-            m_webFrame->frame()->view()->zoomFactor(),
-            m_webFrame->frame()->page()->settings()->zoomMode() == ZoomTextOnly);
+        webPlugin->setZoomFactor(zoomFactor, zoomTextOnly);
     }
 
     // The element might have been removed during plugin initialization!

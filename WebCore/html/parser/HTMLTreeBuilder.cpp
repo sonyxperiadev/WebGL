@@ -26,16 +26,17 @@
 #include "config.h"
 #include "HTMLTreeBuilder.h"
 
+#include "CharacterNames.h"
 #include "Comment.h"
 #include "DocumentFragment.h"
 #include "DocumentType.h"
-#include "Element.h"
 #include "Frame.h"
 #include "HTMLDocument.h"
 #include "HTMLElementFactory.h"
 #include "HTMLFormElement.h"
 #include "HTMLHtmlElement.h"
 #include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
 #include "HTMLScriptElement.h"
 #include "HTMLToken.h"
 #include "HTMLTokenizer.h"
@@ -44,15 +45,10 @@
 #include "NotImplemented.h"
 #include "SVGNames.h"
 #include "ScriptController.h"
-#include "Settings.h"
 #include "Text.h"
 #include "XLinkNames.h"
 #include "XMLNSNames.h"
 #include "XMLNames.h"
-// FIXME: Remove this include once we find a home for the free functions that
-// are using it.
-#include <wtf/dtoa.h>
-#include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
@@ -62,42 +58,19 @@ static const int uninitializedLineNumberValue = -1;
 
 namespace {
 
-inline bool isTreeBuilderWhitepace(UChar c)
+inline bool isHTMLSpaceOrReplacementCharacter(UChar character)
 {
-    // FIXME: Consider branch permutations.
-    return c == '\t' || c == '\x0A' || c == '\x0C' || c == '\x0D' || c == ' ';
-}
-
-inline bool isNotTreeBuilderWhitepace(UChar c)
-{
-    return !isTreeBuilderWhitepace(c);
-}
-
-inline bool isTreeBuilderWhitepaceOrReplacementCharacter(UChar c)
-{
-    return isTreeBuilderWhitepace(c) || c == 0xFFFD;
-}
-
-template<bool isSpecialCharacter(UChar c)>
-inline bool isAllSpecialCharacters(const String& string)
-{
-    const UChar* characters = string.characters();
-    const unsigned length = string.length();
-    for (unsigned i = 0; i < length; ++i) {
-        if (!isSpecialCharacter(characters[i]))
-            return false;
-    }
-    return true;
+    return isHTMLSpace(character) || character == replacementCharacter;
 }
 
 inline bool isAllWhitespace(const String& string)
 {
-    return isAllSpecialCharacters<isTreeBuilderWhitepace>(string);
+    return string.isAllSpecialCharacters<isHTMLSpace>();
 }
 
 inline bool isAllWhitespaceOrReplacementCharacters(const String& string)
 {
-    return isAllSpecialCharacters<isTreeBuilderWhitepaceOrReplacementCharacter>(string);
+    return string.isAllSpecialCharacters<isHTMLSpaceOrReplacementCharacter>();
 }
 
 bool isNumberedHeaderTag(const AtomicString& tagName)
@@ -132,11 +105,14 @@ bool isTableBodyContextTag(const AtomicString& tagName)
 // http://www.whatwg.org/specs/web-apps/current-work/multipage/parsing.html#special
 bool isSpecialNode(Node* node)
 {
+    if (node->hasTagName(SVGNames::foreignObjectTag))
+        return true;
     if (node->namespaceURI() != xhtmlNamespaceURI)
         return false;
-    // FIXME: This list is out of sync with the spec.
     const AtomicString& tagName = node->localName();
     return tagName == addressTag
+        || tagName == appletTag
+        || tagName == areaTag
         || tagName == articleTag
         || tagName == asideTag
         || tagName == baseTag
@@ -146,6 +122,7 @@ bool isSpecialNode(Node* node)
         || tagName == bodyTag
         || tagName == brTag
         || tagName == buttonTag
+        || tagName == captionTag
         || tagName == centerTag
         || tagName == colTag
         || tagName == colgroupTag
@@ -158,6 +135,7 @@ bool isSpecialNode(Node* node)
         || tagName == dtTag
         || tagName == embedTag
         || tagName == fieldsetTag
+        || tagName == figcaptionTag
         || tagName == figureTag
         || tagName == footerTag
         || tagName == formTag
@@ -176,12 +154,14 @@ bool isSpecialNode(Node* node)
         || tagName == liTag
         || tagName == linkTag
         || tagName == listingTag
+        || tagName == marqueeTag
         || tagName == menuTag
         || tagName == metaTag
         || tagName == navTag
         || tagName == noembedTag
         || tagName == noframesTag
         || tagName == noscriptTag
+        || tagName == objectTag
         || tagName == olTag
         || tagName == pTag
         || tagName == paramTag
@@ -191,8 +171,12 @@ bool isSpecialNode(Node* node)
         || tagName == sectionTag
         || tagName == selectTag
         || tagName == styleTag
+        || tagName == summaryTag
+        || tagName == tableTag
         || isTableBodyContextTag(tagName)
+        || tagName == tdTag
         || tagName == textareaTag
+        || tagName == thTag
         || tagName == titleTag
         || tagName == trTag
         || tagName == ulTag
@@ -268,17 +252,17 @@ public:
 
     void skipLeadingWhitespace()
     {
-        skipLeading<isTreeBuilderWhitepace>();
+        skipLeading<isHTMLSpace>();
     }
 
     String takeLeadingWhitespace()
     {
-        return takeLeading<isTreeBuilderWhitepace>();
+        return takeLeading<isHTMLSpace>();
     }
 
     String takeLeadingNonWhitespace()
     {
-        return takeLeading<isNotTreeBuilderWhitepace>();
+        return takeLeading<isNotHTMLSpace>();
     }
 
     String takeRemaining()
@@ -301,7 +285,7 @@ public:
         Vector<UChar> whitespace;
         do {
             UChar cc = *m_current++;
-            if (isTreeBuilderWhitepace(cc))
+            if (isHTMLSpace(cc))
                 whitespace.append(cc);
         } while (m_current < m_end);
         // Returning the null string when there aren't any whitespace
@@ -402,7 +386,7 @@ HTMLTreeBuilder::FragmentParsingContext::FragmentParsingContext()
 }
 
 HTMLTreeBuilder::FragmentParsingContext::FragmentParsingContext(DocumentFragment* fragment, Element* contextElement, FragmentScriptingPermission scriptingPermission)
-    : m_dummyDocumentForFragmentParsing(HTMLDocument::create(0, KURL()))
+    : m_dummyDocumentForFragmentParsing(HTMLDocument::create(0, KURL(), fragment->document()->baseURI()))
     , m_fragment(fragment)
     , m_contextElement(contextElement)
     , m_scriptingPermission(scriptingPermission)
@@ -439,25 +423,6 @@ PassRefPtr<Element> HTMLTreeBuilder::takeScriptToProcess(int& scriptStartLine)
     scriptStartLine = m_scriptToProcessStartLine;
     m_scriptToProcessStartLine = uninitializedLineNumberValue;
     return m_scriptToProcess.release();
-}
-
-HTMLTokenizer::State HTMLTreeBuilder::adjustedLexerState(HTMLTokenizer::State state, const AtomicString& tagName, Frame* frame)
-{
-    if (tagName == textareaTag || tagName == titleTag)
-        return HTMLTokenizer::RCDATAState;
-
-    if (tagName == styleTag
-        || tagName == iframeTag
-        || tagName == xmpTag
-        || (tagName == noembedTag && pluginsEnabled(frame))
-        || tagName == noframesTag
-        || (tagName == noscriptTag && scriptEnabled(frame)))
-        return HTMLTokenizer::RAWTEXTState;
-
-    if (tagName == plaintextTag)
-        return HTMLTokenizer::PLAINTEXTState;
-
-    return state;
 }
 
 void HTMLTreeBuilder::constructTreeFromToken(HTMLToken& rawToken)
@@ -1121,8 +1086,6 @@ void HTMLTreeBuilder::processStartTagForInTable(AtomicHTMLToken& token)
         parseError(token);
         if (m_tree.form())
             return;
-        // FIXME: This deviates from the spec:
-        //        http://www.w3.org/Bugs/Public/show_bug.cgi?id=10216
         m_tree.insertHTMLFormElement(token, true);
         m_tree.openElements()->pop();
         return;
@@ -1477,7 +1440,6 @@ void HTMLTreeBuilder::processStartTag(AtomicHTMLToken& token)
         processStartTag(token);
         break;
     case InForeignContentMode: {
-        // FIXME: We're missing a bunch of if branches here.
         if (shouldProcessUsingSecondaryInsertionMode(token, m_tree.currentElement())) {
             processUsingSecondaryInsertionModeAndAdjustInsertionMode(token);
             return;
@@ -1522,8 +1484,10 @@ void HTMLTreeBuilder::processStartTag(AtomicHTMLToken& token)
             || token.name() == ulTag
             || token.name() == varTag
             || (token.name() == fontTag && (token.getAttributeItem(colorAttr) || token.getAttributeItem(faceAttr) || token.getAttributeItem(sizeAttr)))) {
-            m_tree.openElements()->popUntilElementWithNamespace(xhtmlNamespaceURI);
-            setInsertionMode(m_secondaryInsertionMode);
+            parseError(token);
+            m_tree.openElements()->popUntilForeignContentScopeMarker();
+            if (insertionMode() == InForeignContentMode && m_tree.openElements()->hasOnlyHTMLElementsInScope())
+                setInsertionMode(m_secondaryInsertionMode);
             processStartTag(token);
             return;
         }
@@ -1539,7 +1503,7 @@ void HTMLTreeBuilder::processStartTag(AtomicHTMLToken& token)
         break;
     }
     case TextMode:
-        notImplemented();
+        ASSERT_NOT_REACHED();
         break;
     }
 }
@@ -1599,21 +1563,6 @@ HTMLElementStack::ElementRecord* HTMLTreeBuilder::furthestBlockForFormattingElem
     }
     ASSERT_NOT_REACHED();
     return 0;
-}
-
-// FIXME: This should have a whitty name.
-// FIXME: This must be implemented in many other places in WebCore.
-void HTMLTreeBuilder::reparentChildren(Element* oldParent, Element* newParent)
-{
-    Node* child = oldParent->firstChild();
-    while (child) {
-        Node* nextChild = child->nextSibling();
-        oldParent->parserRemoveChild(child);
-        newParent->parserAddChild(child);
-        if (newParent->attached() && !child->attached())
-            child->attach();
-        child = nextChild;
-    }
 }
 
 // http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html#parsing-main-inbody
@@ -1708,7 +1657,7 @@ void HTMLTreeBuilder::callTheAdoptionAgency(AtomicHTMLToken& token)
         // 8
         RefPtr<Element> newElement = m_tree.createHTMLElementFromElementRecord(formattingElementRecord);
         // 9
-        reparentChildren(furthestBlock->element(), newElement.get());
+        newElement->takeAllChildrenFrom(furthestBlock->element());
         // 10
         Element* furthestBlockElement = furthestBlock->element();
         // FIXME: All this creation / parserAddChild / attach business should
@@ -1886,9 +1835,6 @@ void HTMLTreeBuilder::processEndTagForInCell(AtomicHTMLToken& token)
         m_tree.openElements()->popUntilPopped(token.name());
         m_tree.activeFormattingElements()->clearToLastMarker();
         setInsertionMode(InRowMode);
-        // FIXME: The fragment case of this ASSERT is a spec bug:
-        // http://www.w3.org/Bugs/Public/show_bug.cgi?id=10338
-        ASSERT(m_tree.currentElement()->hasTagName(trTag) || (isParsingFragment() && m_fragmentContext.contextElement()->hasTagName(trTag)));
         return;
     }
     if (token.name() == bodyTag
@@ -1902,8 +1848,6 @@ void HTMLTreeBuilder::processEndTagForInCell(AtomicHTMLToken& token)
         || isTableBodyContextTag(token.name())) {
         if (!m_tree.openElements()->inTableScope(token.name())) {
             ASSERT(isParsingFragment());
-            // FIXME: It is unclear what the exact ASSERT should be.
-            // http://www.w3.org/Bugs/Public/show_bug.cgi?id=10098
             parseError(token);
             return;
         }
@@ -2018,10 +1962,6 @@ void HTMLTreeBuilder::processEndTagForInBody(AtomicHTMLToken& token)
         if (!m_tree.currentElement()->hasLocalName(token.name()))
             parseError(token);
         m_tree.openElements()->popUntilNumberedHeaderElementPopped();
-        return;
-    }
-    if (token.name() == "sarcasm") {
-        notImplemented(); // Take a deep breath.
         return;
     }
     if (isFormattingTag(token.name())) {
@@ -2608,14 +2548,15 @@ void HTMLTreeBuilder::processEndOfFile(AtomicHTMLToken& token)
         // Fall through
     case InBodyMode:
     case InCellMode:
-        ASSERT(insertionMode() == InBodyMode || insertionMode() == InCellMode);
-        notImplemented(); // Emit parse error based on what elemtns are still open.
+    case InCaptionMode:
+    case InRowMode:
+        ASSERT(insertionMode() == InBodyMode || insertionMode() == InCellMode || insertionMode() == InCaptionMode || insertionMode() == InRowMode);
+        notImplemented(); // Emit parse error based on what elements are still open.
         break;
     case AfterBodyMode:
     case AfterAfterBodyMode:
         ASSERT(insertionMode() == AfterBodyMode || insertionMode() == AfterAfterBodyMode);
-        notImplemented();
-        break;
+        return;
     case InHeadNoscriptMode:
         ASSERT(insertionMode() == InHeadNoscriptMode);
         defaultForInHeadNoscript();
@@ -2647,9 +2588,11 @@ void HTMLTreeBuilder::processEndOfFile(AtomicHTMLToken& token)
         return;
     case InForeignContentMode:
         parseError(token);
-        // FIXME: Following the spec would infinitely recurse on <svg><svg>
-        // http://www.w3.org/Bugs/Public/show_bug.cgi?id=10115
-        m_tree.openElements()->popUntilElementWithNamespace(xhtmlNamespaceURI);
+        m_tree.openElements()->popUntilForeignContentScopeMarker();
+        // FIXME: The spec adds the following condition before setting the
+        //        insertion mode.  However, this condition causes an infinite loop.
+        //        See http://www.w3.org/Bugs/Public/show_bug.cgi?id=10621
+        //        if (insertionMode() == InForeignContentMode && m_tree.openElements()->hasOnlyHTMLElementsInScope())
         setInsertionMode(m_secondaryInsertionMode);
         processEndOfFile(token);
         return;
@@ -2658,10 +2601,13 @@ void HTMLTreeBuilder::processEndOfFile(AtomicHTMLToken& token)
         processEndOfFile(token);
         return;
     case TextMode:
-    case InCaptionMode:
-    case InRowMode:
-        notImplemented();
-        break;
+        parseError(token);
+        if (m_tree.currentElement()->hasTagName(scriptTag))
+            notImplemented(); // mark the script element as "already started".
+        m_tree.openElements()->pop();
+        setInsertionMode(m_originalInsertionMode);
+        processEndOfFile(token);
+        return;
     }
     ASSERT(m_tree.openElements()->top());
     m_tree.openElements()->popAll();
@@ -2813,9 +2759,7 @@ bool HTMLTreeBuilder::scriptEnabled(Frame* frame)
 {
     if (!frame)
         return false;
-    if (ScriptController* scriptController = frame->script())
-        return scriptController->canExecuteScripts(NotAboutToExecuteScript);
-    return false;
+    return frame->script()->canExecuteScripts(NotAboutToExecuteScript);
 }
 
 bool HTMLTreeBuilder::pluginsEnabled(Frame* frame)
@@ -2823,43 +2767,6 @@ bool HTMLTreeBuilder::pluginsEnabled(Frame* frame)
     if (!frame)
         return false;
     return frame->loader()->subframeLoader()->allowPlugins(NotAboutToInstantiatePlugin);
-}
-
-// FIXME: Move this function to a more appropriate place.
-String serializeForNumberType(double number)
-{
-    // According to HTML5, "the best representation of the number n as a floating
-    // point number" is a string produced by applying ToString() to n.
-    NumberToStringBuffer buffer;
-    unsigned length = numberToString(number, buffer);
-    return String(buffer, length);
-}
-
-// FIXME: Move this function to a more appropriate place.
-bool parseToDoubleForNumberType(const String& src, double* out)
-{
-    // See HTML5 2.4.4.3 `Real numbers.'
-
-    if (src.isEmpty())
-        return false;
-    // String::toDouble() accepts leading + \t \n \v \f \r and SPACE, which are invalid in HTML5.
-    // So, check the first character.
-    if (src[0] != '-' && (src[0] < '0' || src[0] > '9'))
-        return false;
-
-    bool valid = false;
-    double value = src.toDouble(&valid);
-    if (!valid)
-        return false;
-    // NaN and Infinity are not valid numbers according to the standard.
-    if (!isfinite(value))
-        return false;
-    // -0 -> 0
-    if (!value)
-        value = 0;
-    if (out)
-        *out = value;
-    return true;
 }
 
 }

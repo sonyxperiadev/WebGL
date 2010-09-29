@@ -34,9 +34,9 @@ from webkitpy.common.system.outputcapture import OutputCapture
 from webkitpy.thirdparty.mock import Mock
 from webkitpy.tool.commands.commandtest import CommandsTest
 from webkitpy.tool.commands.queues import *
-from webkitpy.tool.commands.queuestest import QueuesTest
+from webkitpy.tool.commands.queuestest import QueuesTest, MockPatch
 from webkitpy.tool.commands.stepsequence import StepSequence
-from webkitpy.tool.mocktool import MockTool, MockSCM
+from webkitpy.tool.mocktool import MockTool, MockSCM, MockStatusServer
 
 
 class TestQueue(AbstractPatchQueue):
@@ -47,15 +47,9 @@ class TestReviewQueue(AbstractReviewQueue):
     name = "test-review-queue"
 
 
-class MockPatch(object):
+class MockRolloutPatch(MockPatch):
     def is_rollout(self):
         return True
-
-    def bug_id(self):
-        return 12345
-
-    def id(self):
-        return 76543
 
 
 class AbstractQueueTest(CommandsTest):
@@ -121,6 +115,16 @@ class AbstractQueueTest(CommandsTest):
         self._assert_log_message(script_error, expected_output)
 
 
+class AbstractPatchQueueTest(CommandsTest):
+    def test_fetch_next_work_item(self):
+        queue = AbstractPatchQueue()
+        tool = MockTool()
+        queue.bind_to_tool(tool)
+        self.assertEquals(queue._fetch_next_work_item(), None)
+        tool.status_server = MockStatusServer(work_items=[2, 1, 3])
+        self.assertEquals(queue._fetch_next_work_item(), 2)
+
+
 class AbstractReviewQueueTest(CommandsTest):
     def test_patch_collection_delegate_methods(self):
         queue = TestReviewQueue()
@@ -141,25 +145,47 @@ class NeedsUpdateSequence(StepSequence):
 
 
 class AlwaysCommitQueueTool(object):
+    def __init__(self):
+        self.status_server = MockStatusServer()
+
     def command_by_name(self, name):
         return CommitQueue
+
+
+class SecondThoughtsCommitQueue(CommitQueue):
+    def _build_and_test_patch(self, patch, first_run=True):
+        attachment_dictionary = {
+            "id": patch.id(),
+            "bug_id": patch.bug_id(),
+            "name": "Rejected",
+            "is_obsolete": True,
+            "is_patch": False,
+            "review": "-",
+            "reviewer_email": "foo@bar.com",
+            "commit-queue": "-",
+            "committer_email": "foo@bar.com",
+            "attacher_email": "Contributer1",
+        }
+        patch = Attachment(attachment_dictionary, None)
+        self.tool.bugs.set_override_patch(patch)
+        return True
 
 
 class CommitQueueTest(QueuesTest):
     def test_commit_queue(self):
         expected_stderr = {
-            "begin_work_queue" : "CAUTION: commit-queue will discard all local changes in \"%s\"\nRunning WebKit commit-queue.\n" % MockSCM.fake_checkout_root,
+            "begin_work_queue": self._default_begin_work_queue_stderr("commit-queue", MockSCM.fake_checkout_root),
             "should_proceed_with_work_item": "MOCK: update_status: commit-queue Landing patch\n",
             # FIXME: The commit-queue warns about bad committers twice.  This is due to the fact that we access Attachment.reviewer() twice and it logs each time.
-            "next_work_item" : """Warning, attachment 128 on bug 42 has invalid committer (non-committer@example.com)
+            "next_work_item": """Warning, attachment 128 on bug 42 has invalid committer (non-committer@example.com)
 Warning, attachment 128 on bug 42 has invalid committer (non-committer@example.com)
 MOCK setting flag 'commit-queue' to '-' on attachment '128' with comment 'Rejecting patch 128 from commit-queue.' and additional comment 'non-committer@example.com does not have committer permissions according to http://trac.webkit.org/browser/trunk/WebKitTools/Scripts/webkitpy/common/config/committers.py.\n\n- If you do not have committer rights please read http://webkit.org/coding/contributing.html for instructions on how to use bugzilla flags.\n\n- If you have committer rights please correct the error in WebKitTools/Scripts/webkitpy/common/config/committers.py by adding yourself to the file (no review needed).  The commit-queue restarts itself every 2 hours.  After restart the commit-queue will correctly respect your committer rights.'
 MOCK: update_work_items: commit-queue [106, 197]
 2 patches in commit-queue [106, 197]
 """,
-            "process_work_item" : "MOCK: update_status: commit-queue Pass\n",
-            "handle_unexpected_error" : "MOCK setting flag 'commit-queue' to '-' on attachment '1234' with comment 'Rejecting patch 1234 from commit-queue.' and additional comment 'Mock error message'\n",
-            "handle_script_error": "MOCK: update_status: commit-queue ScriptError error message\nMOCK setting flag 'commit-queue' to '-' on attachment '1234' with comment 'Rejecting patch 1234 from commit-queue.' and additional comment 'ScriptError error message'\n",
+            "process_work_item": "MOCK: update_status: commit-queue Pass\n",
+            "handle_unexpected_error": "MOCK setting flag 'commit-queue' to '-' on attachment '197' with comment 'Rejecting patch 197 from commit-queue.' and additional comment 'Mock error message'\n",
+            "handle_script_error": "MOCK: update_status: commit-queue ScriptError error message\nMOCK setting flag 'commit-queue' to '-' on attachment '197' with comment 'Rejecting patch 197 from commit-queue.' and additional comment 'ScriptError error message'\n",
         }
         self.assert_queue_outputs(CommitQueue(), expected_stderr=expected_stderr)
 
@@ -167,10 +193,10 @@ MOCK: update_work_items: commit-queue [106, 197]
         tool = MockTool(log_executive=True)
         tool.buildbot.light_tree_on_fire()
         expected_stderr = {
-            "begin_work_queue" : "CAUTION: commit-queue will discard all local changes in \"%s\"\nRunning WebKit commit-queue.\n" % MockSCM.fake_checkout_root,
+            "begin_work_queue": self._default_begin_work_queue_stderr("commit-queue", MockSCM.fake_checkout_root),
             "should_proceed_with_work_item": "MOCK: update_status: commit-queue Landing patch\n",
             # FIXME: The commit-queue warns about bad committers twice.  This is due to the fact that we access Attachment.reviewer() twice and it logs each time.
-            "next_work_item" : """Warning, attachment 128 on bug 42 has invalid committer (non-committer@example.com)
+            "next_work_item": """Warning, attachment 128 on bug 42 has invalid committer (non-committer@example.com)
 Warning, attachment 128 on bug 42 has invalid committer (non-committer@example.com)
 MOCK setting flag 'commit-queue' to '-' on attachment '128' with comment 'Rejecting patch 128 from commit-queue.' and additional comment 'non-committer@example.com does not have committer permissions according to http://trac.webkit.org/browser/trunk/WebKitTools/Scripts/webkitpy/common/config/committers.py.
 
@@ -180,18 +206,18 @@ MOCK setting flag 'commit-queue' to '-' on attachment '128' with comment 'Reject
 MOCK: update_work_items: commit-queue [106, 197]
 2 patches in commit-queue [106, 197]
 """,
-            "process_work_item" : "MOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'land-attachment', '--force-clean', '--build', '--non-interactive', '--ignore-builders', '--build-style=both', '--quiet', 1234, '--test']\nMOCK: update_status: commit-queue Pass\n",
-            "handle_unexpected_error" : "MOCK setting flag 'commit-queue' to '-' on attachment '1234' with comment 'Rejecting patch 1234 from commit-queue.' and additional comment 'Mock error message'\n",
-            "handle_script_error": "MOCK: update_status: commit-queue ScriptError error message\nMOCK setting flag 'commit-queue' to '-' on attachment '1234' with comment 'Rejecting patch 1234 from commit-queue.' and additional comment 'ScriptError error message'\n",
+            "process_work_item": "MOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'build-and-test-attachment', '--force-clean', '--build', '--non-interactive', '--build-style=both', '--quiet', 197, '--test']\nMOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'land-attachment', '--force-clean', '--non-interactive', '--ignore-builders', '--quiet', '--parent-command=commit-queue', 197]\nMOCK: update_status: commit-queue Pass\n",
+            "handle_unexpected_error": "MOCK setting flag 'commit-queue' to '-' on attachment '197' with comment 'Rejecting patch 197 from commit-queue.' and additional comment 'Mock error message'\n",
+            "handle_script_error": "MOCK: update_status: commit-queue ScriptError error message\nMOCK setting flag 'commit-queue' to '-' on attachment '197' with comment 'Rejecting patch 197 from commit-queue.' and additional comment 'ScriptError error message'\n",
         }
         self.assert_queue_outputs(CommitQueue(), tool=tool, expected_stderr=expected_stderr)
 
     def test_rollout_lands(self):
         tool = MockTool(log_executive=True)
         tool.buildbot.light_tree_on_fire()
-        rollout_patch = MockPatch()
+        rollout_patch = MockRolloutPatch()
         expected_stderr = {
-            "begin_work_queue": "CAUTION: commit-queue will discard all local changes in \"%s\"\nRunning WebKit commit-queue.\n" % MockSCM.fake_checkout_root,
+            "begin_work_queue": self._default_begin_work_queue_stderr("commit-queue", MockSCM.fake_checkout_root),
             "should_proceed_with_work_item": "MOCK: update_status: commit-queue Landing rollout patch\n",
             # FIXME: The commit-queue warns about bad committers twice.  This is due to the fact that we access Attachment.reviewer() twice and it logs each time.
             "next_work_item": """Warning, attachment 128 on bug 42 has invalid committer (non-committer@example.com)
@@ -204,9 +230,9 @@ MOCK setting flag 'commit-queue' to '-' on attachment '128' with comment 'Reject
 MOCK: update_work_items: commit-queue [106, 197]
 2 patches in commit-queue [106, 197]
 """,
-            "process_work_item": "MOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'land-attachment', '--force-clean', '--build', '--non-interactive', '--ignore-builders', '--build-style=both', '--quiet', 76543]\nMOCK: update_status: commit-queue Pass\n",
-            "handle_unexpected_error": "MOCK setting flag 'commit-queue' to '-' on attachment '76543' with comment 'Rejecting patch 76543 from commit-queue.' and additional comment 'Mock error message'\n",
-            "handle_script_error": "MOCK: update_status: commit-queue ScriptError error message\nMOCK setting flag 'commit-queue' to '-' on attachment '1234' with comment 'Rejecting patch 1234 from commit-queue.' and additional comment 'ScriptError error message'\n",
+            "process_work_item": "MOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'build-and-test-attachment', '--force-clean', '--build', '--non-interactive', '--build-style=both', '--quiet', 197]\nMOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'land-attachment', '--force-clean', '--non-interactive', '--ignore-builders', '--quiet', '--parent-command=commit-queue', 197]\nMOCK: update_status: commit-queue Pass\n",
+            "handle_unexpected_error": "MOCK setting flag 'commit-queue' to '-' on attachment '197' with comment 'Rejecting patch 197 from commit-queue.' and additional comment 'Mock error message'\n",
+            "handle_script_error": "MOCK: update_status: commit-queue ScriptError error message\nMOCK setting flag 'commit-queue' to '-' on attachment '197' with comment 'Rejecting patch 197 from commit-queue.' and additional comment 'ScriptError error message'\n",
         }
         self.assert_queue_outputs(CommitQueue(), tool=tool, work_item=rollout_patch, expected_stderr=expected_stderr)
 
@@ -215,7 +241,7 @@ MOCK: update_work_items: commit-queue [106, 197]
         tool = MockTool()
         tool.executive = Mock()
         queue.bind_to_tool(tool)
-        self.assertTrue(queue._can_build_and_test())
+        self.assertTrue(queue._can_build_and_test_without_patch())
         expected_run_args = ["echo", "--status-host=example.com", "build-and-test", "--force-clean", "--build", "--test", "--non-interactive", "--no-update", "--build-style=both", "--quiet"]
         tool.executive.run_and_throw_if_fail.assert_called_with(expected_run_args)
 
@@ -245,22 +271,28 @@ MOCK: update_work_items: commit-queue [106, 197]
         tool = AlwaysCommitQueueTool()
         sequence = NeedsUpdateSequence(None)
 
-        expected_stderr = "Commit failed because the checkout is out of date.  Please update and try again.\n"
-        OutputCapture().assert_outputs(self, sequence.run_and_handle_errors, [tool, options], expected_exception=TryAgain, expected_stderr=expected_stderr)
+        expected_stderr = "Commit failed because the checkout is out of date.  Please update and try again.\nMOCK: update_status: commit-queue Tests passed, but commit failed (checkout out of date).  Updating, then landing without building or re-running tests.\n"
+        state = {'patch': None}
+        OutputCapture().assert_outputs(self, sequence.run_and_handle_errors, [tool, options, state], expected_exception=TryAgain, expected_stderr=expected_stderr)
 
         self.assertEquals(options.update, True)
         self.assertEquals(options.build, False)
         self.assertEquals(options.test, False)
 
+    def test_manual_reject_during_processing(self):
+        queue = SecondThoughtsCommitQueue()
+        queue.bind_to_tool(MockTool())
+        queue.process_work_item(MockPatch())
+
 
 class RietveldUploadQueueTest(QueuesTest):
     def test_rietveld_upload_queue(self):
         expected_stderr = {
-            "begin_work_queue": "CAUTION: rietveld-upload-queue will discard all local changes in \"%s\"\nRunning WebKit rietveld-upload-queue.\n" % MockSCM.fake_checkout_root,
+            "begin_work_queue": self._default_begin_work_queue_stderr("rietveld-upload-queue", MockSCM.fake_checkout_root),
             "should_proceed_with_work_item": "MOCK: update_status: rietveld-upload-queue Uploading patch\n",
             "process_work_item": "MOCK: update_status: rietveld-upload-queue Pass\n",
-            "handle_unexpected_error": "Mock error message\nMOCK setting flag 'in-rietveld' to '-' on attachment '1234' with comment 'None' and additional comment 'None'\n",
-            "handle_script_error": "ScriptError error message\nMOCK: update_status: rietveld-upload-queue ScriptError error message\nMOCK setting flag 'in-rietveld' to '-' on attachment '1234' with comment 'None' and additional comment 'None'\n",
+            "handle_unexpected_error": "Mock error message\nMOCK setting flag 'in-rietveld' to '-' on attachment '197' with comment 'None' and additional comment 'None'\n",
+            "handle_script_error": "ScriptError error message\nMOCK: update_status: rietveld-upload-queue ScriptError error message\nMOCK setting flag 'in-rietveld' to '-' on attachment '197' with comment 'None' and additional comment 'None'\n",
         }
         self.assert_queue_outputs(RietveldUploadQueue(), expected_stderr=expected_stderr)
 
@@ -268,12 +300,12 @@ class RietveldUploadQueueTest(QueuesTest):
 class StyleQueueTest(QueuesTest):
     def test_style_queue(self):
         expected_stderr = {
-            "begin_work_queue" : "CAUTION: style-queue will discard all local changes in \"%s\"\nRunning WebKit style-queue.\n" % MockSCM.fake_checkout_root,
+            "begin_work_queue": self._default_begin_work_queue_stderr("style-queue", MockSCM.fake_checkout_root),
             "next_work_item": "MOCK: update_work_items: style-queue [103]\n",
             "should_proceed_with_work_item": "MOCK: update_status: style-queue Checking style\n",
-            "process_work_item" : "MOCK: update_status: style-queue Pass\n",
-            "handle_unexpected_error" : "Mock error message\n",
-            "handle_script_error": "MOCK: update_status: style-queue ScriptError error message\nMOCK bug comment: bug_id=345, cc=[]\n--- Begin comment ---\\Attachment 1234 did not pass style-queue:\n\nScriptError error message\n\nIf any of these errors are false positives, please file a bug against check-webkit-style.\n--- End comment ---\n\n",
+            "process_work_item": "MOCK: update_status: style-queue Pass\n",
+            "handle_unexpected_error": "Mock error message\n",
+            "handle_script_error": "MOCK: update_status: style-queue ScriptError error message\nMOCK bug comment: bug_id=142, cc=[]\n--- Begin comment ---\\Attachment 197 did not pass style-queue:\n\nScriptError error message\n\nIf any of these errors are false positives, please file a bug against check-webkit-style.\n--- End comment ---\n\n",
         }
         expected_exceptions = {
             "handle_script_error": SystemExit,

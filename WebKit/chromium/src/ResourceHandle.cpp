@@ -74,7 +74,7 @@ public:
     virtual void didReceiveResponse(WebURLLoader*, const WebURLResponse&);
     virtual void didReceiveData(WebURLLoader*, const char* data, int dataLength);
     virtual void didReceiveCachedMetadata(WebURLLoader*, const char* data, int dataLength);
-    virtual void didFinishLoading(WebURLLoader*);
+    virtual void didFinishLoading(WebURLLoader*, double finishTime);
     virtual void didFail(WebURLLoader*, const WebURLError&);
 
     enum ConnectionState {
@@ -182,13 +182,13 @@ void ResourceHandleInternal::didReceiveCachedMetadata(WebURLLoader*, const char*
     m_client->didReceiveCachedMetadata(m_owner, data, dataLength);
 }
 
-void ResourceHandleInternal::didFinishLoading(WebURLLoader*)
+void ResourceHandleInternal::didFinishLoading(WebURLLoader*, double finishTime)
 {
     ASSERT(m_client);
     if (m_state != ConnectionStateReceivedResponse && m_state != ConnectionStateReceivingData)
         CRASH();
     m_state = ConnectionStateFinishedLoading;
-    m_client->didFinishLoading(m_owner);
+    m_client->didFinishLoading(m_owner, finishTime);
 }
 
 void ResourceHandleInternal::didFail(WebURLLoader*, const WebURLError& error)
@@ -211,16 +211,16 @@ ResourceHandle::ResourceHandle(const ResourceRequest& request,
     // FIXME: Figure out what to do with the bool params.
 }
 
-PassRefPtr<ResourceHandle> ResourceHandle::create(const ResourceRequest& request,
+PassRefPtr<ResourceHandle> ResourceHandle::create(NetworkingContext* context,
+                                                  const ResourceRequest& request,
                                                   ResourceHandleClient* client,
-                                                  Frame* deprecated,
                                                   bool defersLoading,
                                                   bool shouldContentSniff)
 {
     RefPtr<ResourceHandle> newHandle = adoptRef(new ResourceHandle(
         request, client, defersLoading, shouldContentSniff));
 
-    if (newHandle->start(deprecated))
+    if (newHandle->start(context))
         return newHandle.release();
 
     return 0;
@@ -246,7 +246,7 @@ void ResourceHandle::setDefersLoading(bool value)
     d->setDefersLoading(value);
 }
 
-bool ResourceHandle::start(Frame* deprecated)
+bool ResourceHandle::start(NetworkingContext* context)
 {
     d->start();
     return true;
@@ -288,12 +288,12 @@ bool ResourceHandle::supportsBufferedData()
 }
 
 // static
-void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request,
+void ResourceHandle::loadResourceSynchronously(NetworkingContext* context,
+                                               const ResourceRequest& request,
                                                StoredCredentials storedCredentials,
                                                ResourceError& error,
                                                ResourceResponse& response,
-                                               Vector<char>& data,
-                                               Frame* deprecated)
+                                               Vector<char>& data)
 {
     OwnPtr<WebURLLoader> loader(webKitClient()->createURLLoader());
     ASSERT(loader.get());

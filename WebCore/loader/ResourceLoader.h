@@ -86,7 +86,7 @@ namespace WebCore {
         virtual void didReceiveData(const char*, int, long long lengthReceived, bool allAtOnce);
         virtual void didReceiveCachedMetadata(const char*, int) { }
         void willStopBufferingData(const char*, int);
-        virtual void didFinishLoading();
+        virtual void didFinishLoading(double finishTime);
         virtual void didFail(const ResourceError&);
 
         virtual bool shouldUseCredentialStorage();
@@ -103,7 +103,7 @@ namespace WebCore {
         virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse&);
         virtual void didReceiveData(ResourceHandle*, const char*, int, int lengthReceived);
         virtual void didReceiveCachedMetadata(ResourceHandle*, const char* data, int length) { didReceiveCachedMetadata(data, length); }
-        virtual void didFinishLoading(ResourceHandle*);
+        virtual void didFinishLoading(ResourceHandle*, double finishTime);
         virtual void didFail(ResourceHandle*, const ResourceError&);
         virtual void wasBlocked(ResourceHandle*);
         virtual void cannotShowURL(ResourceHandle*);
@@ -139,7 +139,7 @@ namespace WebCore {
 #endif
 
         virtual void didCancel(const ResourceError&);
-        void didFinishLoadingOnePart();
+        void didFinishLoadingOnePart(double finishTime);
 
         const ResourceRequest& request() const { return m_request; }
         bool reachedTerminalState() const { return m_reachedTerminalState; }
