@@ -34,6 +34,7 @@
 #include "DatabaseTracker.h"
 #include "Database.h"
 #include "Document.h"
+#include "EditorClientAndroid.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
@@ -122,6 +123,9 @@ struct FieldIds {
         mSyntheticLinksEnabled = env->GetFieldID(clazz, "mSyntheticLinksEnabled", "Z");
         mUseDoubleTree = env->GetFieldID(clazz, "mUseDoubleTree", "Z");
         mPageCacheCapacity = env->GetFieldID(clazz, "mPageCacheCapacity", "I");
+#if ENABLE(WEB_AUTOFILL)
+        mAutoFillEnabled = env->GetFieldID(clazz, "mAutoFillEnabled", "Z");
+#endif
 
         LOG_ASSERT(mLayoutAlgorithm, "Could not find field mLayoutAlgorithm");
         LOG_ASSERT(mTextSize, "Could not find field mTextSize");
@@ -225,6 +229,9 @@ struct FieldIds {
 #if ENABLE(DATABASE) || ENABLE(DOM_STORAGE)
     jfieldID mDatabasePath;
     jfieldID mDatabasePathHasBeenSet;
+#endif
+#if ENABLE(WEB_AUTOFILL)
+    jfieldID mAutoFillEnabled;
 #endif
 };
 
@@ -426,6 +433,26 @@ public:
             WebCore::pageCache()->setCapacity(size);
         } else
             s->setUsesPageCache(false);
+
+#if ENABLE(WEB_AUTOFILL)
+        flag = env->GetBooleanField(obj, gFieldIds->mAutoFillEnabled);
+        // TODO: This updates the Settings WebCore side with the user's
+        // preference for autofill and will stop WebCore making requests
+        // into the chromium autofill code. That code in Chromium also has
+        // a notion of being enabled/disabled that gets read from the users
+        // preferences. At the moment, it's hardcoded to true on Android
+        // (see chrome/browser/autofill/autofill_manager.cc:405). This
+        // setting should probably be synced into Chromium also.
+
+        // If we toggle from disabled to enabled, then re search the document
+        // for forms.
+        bool oldAutoFillSetting = s->autoFillEnabled();
+        s->setAutoFillEnabled(flag);
+        if (!oldAutoFillSetting && flag) {
+            EditorClientAndroid* editorC = static_cast<EditorClientAndroid*>(pFrame->page()->editorClient());
+            editorC->getAutoFill()->searchDocument(pFrame->document());
+        }
+#endif
     }
 };
 

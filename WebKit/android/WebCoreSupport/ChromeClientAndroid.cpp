@@ -198,6 +198,11 @@ void ChromeClientAndroid::addMessageToConsole(MessageSource, MessageType, Messag
     android::WebViewCore::getWebViewCore(m_webFrame->page()->mainFrame()->view())->addMessageToConsole(message, lineNumber, sourceID, msgLevel);
 }
 
+void ChromeClientAndroid::formDidBlur(const WebCore::Node* node)
+{
+    android::WebViewCore::getWebViewCore(m_webFrame->page()->mainFrame()->view())->formDidBlur(node);
+}
+
 bool ChromeClientAndroid::canRunBeforeUnloadConfirmPanel() { return true; }
 bool ChromeClientAndroid::runBeforeUnloadConfirmPanel(const String& message, Frame* frame) {
     String url = frame->document()->documentURI();

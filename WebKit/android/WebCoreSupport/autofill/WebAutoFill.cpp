@@ -37,6 +37,8 @@
 #include "HTMLFormControlElement.h"
 #include "MainThreadProxy.h"
 #include "Node.h"
+#include "Page.h"
+#include "Settings.h"
 #include "WebFrame.h"
 #include "WebRequestContext.h"
 #include "WebUrlLoaderClient.h"
@@ -90,6 +92,10 @@ void WebAutoFill::searchDocument(WebCore::Document* document)
     // fields in those forms. It's currently synchronous and might be slow
     // if the page has many or complex forms. Might want to make this an
     // async method.
+
+    if (!enabled())
+        return;
+
     if (!mFormManager)
         return;
 
@@ -106,6 +112,14 @@ void WebAutoFill::searchDocument(WebCore::Document* document)
 
 void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldElement)
 {
+    if (!enabled()) {
+        // In case that we've just been disabled and the last time we got autofill
+        // suggestions and told Java about them, clear that bit Java side now
+        // we're disabled.
+        mWebViewCore->setWebTextViewAutoFillable(FORM_NOT_AUTOFILLABLE);
+        return;
+    }
+
     // Get the FormField from the Node.
     webkit_glue::FormField formField;
     FormManager::HTMLFormControlElementToFormField(*formFieldElement, false, &formField);
@@ -127,6 +141,9 @@ void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldEle
 
 void WebAutoFill::querySuccessful(int queryId, const string16& value, const string16& label, int uniqueId)
 {
+    if (!enabled())
+        return;
+
     // Store the results for the query and inform java that autofill suggestions for this form are available.
     // Pass java the queryId so that it can pass it back if the user decides to use autofill.
     AutoFillSuggestion suggestion;
@@ -141,6 +158,9 @@ void WebAutoFill::querySuccessful(int queryId, const string16& value, const stri
 
 void WebAutoFill::fillFormFields(int queryId)
 {
+    if (!enabled())
+        return;
+
     webkit_glue::FormData* form = mQueryMap[queryId];
     AutoFillQuerySuggestionMap::iterator iter = mSuggestionMap.find(queryId);
     ASSERT(iter != mSuggestionMap.end());
@@ -151,7 +171,16 @@ void WebAutoFill::fillFormFields(int queryId)
 
 void WebAutoFill::fillFormInPage(int queryId, const webkit_glue::FormData& form)
 {
+    if (!enabled())
+        return;
+
     mFormManager->FillForm(form);
+}
+
+bool WebAutoFill::enabled() const
+{
+    Page* page = mWebViewCore->mainFrame()->page();
+    return page ? page->settings()->autoFillEnabled() : false;
 }
 
 }
