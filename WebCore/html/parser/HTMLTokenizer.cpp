@@ -30,6 +30,7 @@
 
 #include "HTMLEntityParser.h"
 #include "HTMLToken.h"
+#include "HTMLTreeBuilder.h"
 #include "HTMLNames.h"
 #include "NotImplemented.h"
 #include <wtf/ASCIICType.h>
@@ -102,8 +103,9 @@ inline bool isEndTagBufferingState(HTMLTokenizer::State state)
 
 }
 
-HTMLTokenizer::HTMLTokenizer()
+HTMLTokenizer::HTMLTokenizer(bool usePreHTML5ParserQuirks)
     : m_inputStreamPreprocessor(this)
+    , m_usePreHTML5ParserQuirks(usePreHTML5ParserQuirks)
 {
     reset();
 }
@@ -171,7 +173,7 @@ inline bool HTMLTokenizer::processEntity(SegmentedString& source)
 
 // Sometimes there's more complicated logic in the spec that separates when
 // we consume the next input character and when we switch to a particular
-// state.  We handle those cases by advancing the source directly and using
+// state. We handle those cases by advancing the source directly and using
 // this macro to switch to the indicated state.
 #define SWITCH_TO(stateName)                                               \
     do {                                                                   \
@@ -277,7 +279,7 @@ bool HTMLTokenizer::nextToken(SegmentedString& source, HTMLToken& token)
 
     // http://www.whatwg.org/specs/web-apps/current-work/multipage/tokenization.html#parsing-main-inbody
     // Note that this logic is different than the generic \r\n collapsing
-    // handled in the input stream preprocessor.  This logic is here as an
+    // handled in the input stream preprocessor. This logic is here as an
     // "authoring convenience" so folks can write:
     //
     // <pre>
@@ -435,6 +437,8 @@ bool HTMLTokenizer::nextToken(SegmentedString& source, HTMLToken& token)
             ADVANCE_TO(SelfClosingStartTagState);
         else if (cc == '>')
             return emitAndResumeIn(source, DataState);
+        else if (m_usePreHTML5ParserQuirks && cc == '<')
+            return emitAndReconsumeIn(source, DataState);
         else if (isASCIIUpper(cc)) {
             m_token->appendToName(toLowerCase(cc));
             ADVANCE_TO(TagNameState);
@@ -876,6 +880,8 @@ bool HTMLTokenizer::nextToken(SegmentedString& source, HTMLToken& token)
             ADVANCE_TO(SelfClosingStartTagState);
         else if (cc == '>')
             return emitAndResumeIn(source, DataState);
+        else if (m_usePreHTML5ParserQuirks && cc == '<')
+            return emitAndReconsumeIn(source, DataState);
         else if (isASCIIUpper(cc)) {
             m_token->addNewAttribute();
             m_token->beginAttributeName(source.numberOfCharactersConsumed());
@@ -908,6 +914,9 @@ bool HTMLTokenizer::nextToken(SegmentedString& source, HTMLToken& token)
         } else if (cc == '>') {
             m_token->endAttributeName(source.numberOfCharactersConsumed());
             return emitAndResumeIn(source, DataState);
+        } else if (m_usePreHTML5ParserQuirks && cc == '<') {
+            m_token->endAttributeName(source.numberOfCharactersConsumed());
+            return emitAndReconsumeIn(source, DataState);
         } else if (isASCIIUpper(cc)) {
             m_token->appendToAttributeName(toLowerCase(cc));
             ADVANCE_TO(AttributeNameState);
@@ -933,6 +942,8 @@ bool HTMLTokenizer::nextToken(SegmentedString& source, HTMLToken& token)
             ADVANCE_TO(BeforeAttributeValueState);
         else if (cc == '>')
             return emitAndResumeIn(source, DataState);
+        else if (m_usePreHTML5ParserQuirks && cc == '<')
+            return emitAndReconsumeIn(source, DataState);
         else if (isASCIIUpper(cc)) {
             m_token->addNewAttribute();
             m_token->beginAttributeName(source.numberOfCharactersConsumed());
@@ -1054,7 +1065,7 @@ bool HTMLTokenizer::nextToken(SegmentedString& source, HTMLToken& token)
                 m_token->appendToAttributeValue(*iter);
         }
         // We're supposed to switch back to the attribute value state that
-        // we were in when we were switched into this state.  Rather than
+        // we were in when we were switched into this state. Rather than
         // keeping track of this explictly, we observe that the previous
         // state can be determined by m_additionalAllowedCharacter.
         if (m_additionalAllowedCharacter == '"')
@@ -1075,6 +1086,8 @@ bool HTMLTokenizer::nextToken(SegmentedString& source, HTMLToken& token)
             ADVANCE_TO(SelfClosingStartTagState);
         else if (cc == '>')
             return emitAndResumeIn(source, DataState);
+        else if (m_usePreHTML5ParserQuirks && cc == '<')
+            return emitAndReconsumeIn(source, DataState);
         else if (cc == InputStreamPreprocessor::endOfFileMarker) {
             parseError();
             RECONSUME_IN(DataState);
@@ -1213,13 +1226,7 @@ bool HTMLTokenizer::nextToken(SegmentedString& source, HTMLToken& token)
     BEGIN_STATE(CommentEndState) {
         if (cc == '>')
             return emitAndResumeIn(source, DataState);
-        else if (isTokenizerWhitespace(cc)) {
-            parseError();
-            m_token->appendToComment('-');
-            m_token->appendToComment('-');
-            m_token->appendToComment(cc);
-            ADVANCE_TO(CommentEndSpaceState);
-        } else if (cc == '!') {
+        else if (cc == '!') {
             parseError();
             ADVANCE_TO(CommentEndBangState);
         } else if (cc == '-') {
@@ -1254,24 +1261,6 @@ bool HTMLTokenizer::nextToken(SegmentedString& source, HTMLToken& token)
             m_token->appendToComment('-');
             m_token->appendToComment('-');
             m_token->appendToComment('!');
-            m_token->appendToComment(cc);
-            ADVANCE_TO(CommentState);
-        }
-    }
-    END_STATE()
-
-    BEGIN_STATE(CommentEndSpaceState) {
-        if (isTokenizerWhitespace(cc)) {
-            m_token->appendToComment(cc);
-            ADVANCE_TO(CommentEndSpaceState);
-        } else if (cc == '-')
-            ADVANCE_TO(CommentEndDashState);
-        else if (cc == '>')
-            return emitAndResumeIn(source, DataState);
-        else if (cc == InputStreamPreprocessor::endOfFileMarker) {
-            parseError();
-            return emitAndReconsumeIn(source, DataState);
-        } else {
             m_token->appendToComment(cc);
             ADVANCE_TO(CommentState);
         }
@@ -1654,6 +1643,23 @@ bool HTMLTokenizer::nextToken(SegmentedString& source, HTMLToken& token)
 
     ASSERT_NOT_REACHED();
     return false;
+}
+
+void HTMLTokenizer::updateStateFor(const AtomicString& tagName, Frame* frame)
+{
+    if (tagName == textareaTag || tagName == titleTag)
+        setState(RCDATAState);
+    else if (tagName == plaintextTag)
+        setState(PLAINTEXTState);
+    else if (tagName == scriptTag)
+        setState(ScriptDataState);
+    else if (tagName == styleTag
+        || tagName == iframeTag
+        || tagName == xmpTag
+        || (tagName == noembedTag && HTMLTreeBuilder::pluginsEnabled(frame))
+        || tagName == noframesTag
+        || (tagName == noscriptTag && HTMLTreeBuilder::scriptEnabled(frame)))
+        setState(RAWTEXTState);
 }
 
 inline bool HTMLTokenizer::temporaryBufferIs(const String& expectedString)

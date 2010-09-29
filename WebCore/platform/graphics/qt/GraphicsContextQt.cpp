@@ -174,14 +174,10 @@ public:
     GraphicsContextPlatformPrivate(QPainter* painter);
     ~GraphicsContextPlatformPrivate();
 
-    inline QPainter* p()
+    inline QPainter* p() const
     {
-        if (layers.isEmpty()) {
-            if (redirect)
-                return redirect;
-
+        if (layers.isEmpty())
             return painter;
-        }
         return &layers.top()->painter;
     }
 
@@ -191,7 +187,6 @@ public:
     // Counting real layers. Required by inTransparencyLayer() calls
     // For example, layers with valid alphaMask are not real layers
     int layerCount;
-    QPainter* redirect;
 
     // reuse this brush for solid color (to prevent expensive QBrush construction)
     QBrush solidColor;
@@ -212,9 +207,9 @@ public:
     QRectF clipBoundingRect() const
     {
 #if QT_VERSION >= QT_VERSION_CHECK(4, 8, 0)
-        return painter->clipBoundingRect();
+        return p()->clipBoundingRect();
 #else
-        return painter->clipRegion().boundingRect();
+        return p()->clipRegion().boundingRect();
 #endif
     }
 
@@ -227,7 +222,6 @@ GraphicsContextPlatformPrivate::GraphicsContextPlatformPrivate(QPainter* p)
 {
     painter = p;
     layerCount = 0;
-    redirect = 0;
 
     solidColor = QBrush(Qt::black);
 

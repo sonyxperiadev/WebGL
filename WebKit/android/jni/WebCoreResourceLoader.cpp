@@ -233,7 +233,7 @@ void WebCoreResourceLoader::Finished(JNIEnv* env, jobject obj)
         return;
 
     LOG_ASSERT(handle->client(), "Why do we not have a client?");
-    handle->client()->didFinishLoading(handle);
+    handle->client()->didFinishLoading(handle, 0);
 }
 
 jstring WebCoreResourceLoader::RedirectedToUrl(JNIEnv* env, jobject obj,

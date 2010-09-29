@@ -79,8 +79,8 @@ void findPasswordFormFields(HTMLFormElement* form, PasswordFormFields* fields)
             continue;
 
         if ((fields->passwords.size() < maxPasswords)
-            && (inputElement->inputType() == HTMLInputElement::PASSWORD)
-            && (inputElement->autoComplete())) {
+            && inputElement->isPasswordField()
+            && inputElement->autoComplete()) {
             if (fields->passwords.isEmpty())
                 firstPasswordIndex = i;
             fields->passwords.append(inputElement);
@@ -98,7 +98,9 @@ void findPasswordFormFields(HTMLFormElement* form, PasswordFormFields* fields)
             if (!inputElement->isEnabledFormControl())
                 continue;
 
-            if ((inputElement->inputType() == HTMLInputElement::TEXT)
+            // FIXME: This needs to use a function other than deprecatedInputType.
+            // Does this really want to special-case TEXT, and not other text-field-like input elements?
+            if ((inputElement->deprecatedInputType() == HTMLInputElement::TEXT)
                 && (inputElement->autoComplete())) {
                 fields->userName = inputElement;
                 break;

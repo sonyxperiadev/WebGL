@@ -60,7 +60,7 @@ class DownloadClient : public Noncopyable, public ResourceHandleClient {
 
         virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse&);
         virtual void didReceiveData(ResourceHandle*, const char*, int, int);
-        virtual void didFinishLoading(ResourceHandle*);
+        virtual void didFinishLoading(ResourceHandle*, double);
         virtual void didFail(ResourceHandle*, const ResourceError&);
         virtual void wasBlocked(ResourceHandle*);
         virtual void cannotShowURL(ResourceHandle*);
@@ -485,8 +485,9 @@ void webkit_download_start(WebKitDownload* download)
     g_return_if_fail(priv->status == WEBKIT_DOWNLOAD_STATUS_CREATED);
     g_return_if_fail(priv->timer == NULL);
 
+    // For GTK, when downloading a file NetworkingContext is null
     if (!priv->resourceHandle)
-        priv->resourceHandle = ResourceHandle::create(core(priv->networkRequest), priv->downloadClient, 0, false, false);
+        priv->resourceHandle = ResourceHandle::create(/* Null NetworkingContext */ NULL, core(priv->networkRequest), priv->downloadClient, false, false);
     else {
         priv->resourceHandle->setClient(priv->downloadClient);
 
@@ -929,7 +930,7 @@ void DownloadClient::didReceiveData(ResourceHandle*, const char* data, int lengt
     webkit_download_received_data(m_download, data, length);
 }
 
-void DownloadClient::didFinishLoading(ResourceHandle*)
+void DownloadClient::didFinishLoading(ResourceHandle*, double)
 {
     webkit_download_finished_loading(m_download);
 }

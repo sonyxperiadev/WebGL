@@ -80,8 +80,8 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLDocument::HTMLDocument(Frame* frame, const KURL& url)
-    : Document(frame, url, false, true)
+HTMLDocument::HTMLDocument(Frame* frame, const KURL& url, const KURL& baseURL)
+    : Document(frame, url, false, true, baseURL)
 {
     clearXMLVersion();
 }
@@ -134,11 +134,6 @@ void HTMLDocument::setDesignMode(const String& value)
     else
         mode = inherit;
     Document::setDesignMode(mode);
-}
-
-String HTMLDocument::compatMode() const
-{
-    return inQuirksMode() ? "BackCompat" : "CSS1Compat";
 }
 
 Element* HTMLDocument::activeElement()

@@ -503,7 +503,7 @@ bool AccessibilityRenderObject::isFileUploadButton() const
 {
     if (m_renderer && m_renderer->node() && m_renderer->node()->hasTagName(inputTag)) {
         HTMLInputElement* input = static_cast<HTMLInputElement*>(m_renderer->node());
-        return input->inputType() == HTMLInputElement::FILE;
+        return input->isFileUpload();
     }
     
     return false;
@@ -514,7 +514,7 @@ bool AccessibilityRenderObject::isInputImage() const
     Node* elementNode = node();
     if (roleValue() == ButtonRole && elementNode && elementNode->hasTagName(inputTag)) {
         HTMLInputElement* input = static_cast<HTMLInputElement*>(elementNode);
-        return input->inputType() == HTMLInputElement::IMAGE;
+        return input->isImageButton();
     }
     
     return false;
@@ -1025,7 +1025,7 @@ String AccessibilityRenderObject::textUnderElement() const
             // catch stale WebCoreAXObject (see <rdar://problem/3960196>)
             if (frame->document() != node->document())
                 return String();
-            return plainText(rangeOfContents(node).get());
+            return plainText(rangeOfContents(node).get(), TextIteratorIgnoresStyleVisibility);
         }
     }
     
@@ -1140,7 +1140,7 @@ String AccessibilityRenderObject::stringValue() const
         if (startVisiblePosition.isNull() || endVisiblePosition.isNull())
             return String();
         
-        return plainText(makeRange(startVisiblePosition, endVisiblePosition).get());
+        return plainText(makeRange(startVisiblePosition, endVisiblePosition).get(), TextIteratorIgnoresStyleVisibility);
     }
     
     if (isTextControl())
@@ -1310,10 +1310,9 @@ String AccessibilityRenderObject::title() const
         || ariaRole == RadioButtonRole
         || ariaRole == CheckBoxRole
         || ariaRole == TabRole
-        || isHeading())
-        return textUnderElement();
-    
-    if (isLink())
+        || ariaRole == PopUpButtonRole
+        || isHeading()
+        || isLink())
         return textUnderElement();
     
     return String();
@@ -1393,7 +1392,9 @@ IntRect AccessibilityRenderObject::boundingBoxRect() const
     // absoluteFocusRingQuads will query the hierarchy below this element, which for large webpages can be very slow.
     // For a web area, which will have the most elements of any element, absoluteQuads should be used.
     Vector<FloatQuad> quads;
-    if (obj->isText() || isWebArea())
+    if (obj->isText())
+        toRenderText(obj)->absoluteQuads(quads, RenderText::ClipToEllipsis);
+    else if (isWebArea())
         obj->absoluteQuads(quads);
     else
         obj->absoluteFocusRingQuads(quads);
@@ -2538,6 +2539,9 @@ void AccessibilityRenderObject::setSelectedVisiblePositionRange(const VisiblePos
 
 VisiblePosition AccessibilityRenderObject::visiblePositionForPoint(const IntPoint& point) const
 {
+    if (!m_renderer)
+        return VisiblePosition();
+    
     // convert absolute point to view coordinates
     FrameView* frameView = m_renderer->document()->topDocument()->renderer()->view()->frameView();
     RenderView* renderView = topRenderer();
@@ -2557,13 +2561,16 @@ VisiblePosition AccessibilityRenderObject::visiblePositionForPoint(const IntPoin
         HitTestResult result(ourpoint);
         renderView->layer()->hitTest(request, result);
         innerNode = result.innerNode();
-        if (!innerNode || !innerNode->renderer())
+        if (!innerNode)
+            return VisiblePosition();
+        
+        RenderObject* renderer = innerNode->renderer();
+        if (!renderer)
             return VisiblePosition();
         
         pointResult = result.localPoint();
 
         // done if hit something other than a widget
-        RenderBoxModelObject* renderer = innerNode->renderBoxModelObject();
         if (!renderer->isWidget())
             break;
 
@@ -3029,9 +3036,9 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
 
     if (node && node->hasTagName(inputTag)) {
         HTMLInputElement* input = static_cast<HTMLInputElement*>(node);
-        if (input->inputType() == HTMLInputElement::CHECKBOX)
+        if (input->isCheckbox())
             return CheckBoxRole;
-        if (input->inputType() == HTMLInputElement::RADIO)
+        if (input->isRadioButton())
             return RadioButtonRole;
         if (input->isTextButton())
             return ButtonRole;

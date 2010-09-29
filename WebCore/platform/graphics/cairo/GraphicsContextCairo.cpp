@@ -38,6 +38,7 @@
 #include "FEGaussianBlur.h"
 #include "FloatRect.h"
 #include "Font.h"
+#include "OwnPtrCairo.h"
 #include "ImageBuffer.h"
 #include "ImageBufferFilter.h"
 #include "IntRect.h"
@@ -201,7 +202,6 @@ static inline void drawPathShadow(GraphicsContext* context, GraphicsContextPriva
     
     // Calculate filter values to create appropriate shadow.
     cairo_t* cr = context->platformContext();
-    cairo_path_t* path = cairo_copy_path(cr);
     double x0, x1, y0, y1;
     if (strokeShadow)
         cairo_stroke_extents(cr, &x0, &y0, &x1, &y1);
@@ -214,15 +214,32 @@ static inline void drawPathShadow(GraphicsContext* context, GraphicsContextPriva
     float radius = 0;
     GraphicsContext::calculateShadowBufferDimensions(shadowBufferSize, shadowRect, radius, rect, shadowOffset, shadowBlur);
 
+    cairo_clip_extents(cr, &x0, &y0, &x1, &y1);
+    FloatRect clipRect(x0, y0, x1 - x0, y1 - y0);
+
+    FloatPoint rectLocation = shadowRect.location();
+
+    // Reduce the shadow rect using the clip area.
+    if (!clipRect.contains(shadowRect)) {
+        shadowRect.intersect(clipRect);
+        if (shadowRect.isEmpty())
+            return;
+        shadowRect.inflate(radius);
+        shadowBufferSize = IntSize(shadowRect.width(), shadowRect.height());
+    }
+
+    shadowOffset = rectLocation - shadowRect.location();
+
     // Create suitably-sized ImageBuffer to hold the shadow.
     OwnPtr<ImageBuffer> shadowBuffer = ImageBuffer::create(shadowBufferSize);
 
     // Draw shadow into a new ImageBuffer.
     cairo_t* shadowContext = shadowBuffer->context()->platformContext();
     copyContextProperties(cr, shadowContext);
-    cairo_translate(shadowContext, -rect.x() + radius, -rect.y() + radius);
+    cairo_translate(shadowContext, -rect.x() + radius + shadowOffset.width(), -rect.y() + radius + shadowOffset.height());
     cairo_new_path(shadowContext);
-    cairo_append_path(shadowContext, path);
+    OwnPtr<cairo_path_t> path(cairo_copy_path(cr));
+    cairo_append_path(shadowContext, path.get());
 
     if (fillShadow)
         setPlatformFill(context, shadowContext, gcp);
@@ -624,6 +641,12 @@ void GraphicsContext::fillRect(const FloatRect& rect)
 static void drawBorderlessRectShadow(GraphicsContext* context, const FloatRect& rect, const Color& rectColor)
 {
 #if ENABLE(FILTERS)
+    FloatSize shadowOffset;
+    float shadowBlur;
+    Color shadowColor;
+    if (!context->getShadow(shadowOffset, shadowBlur, shadowColor))
+        return;
+
     AffineTransform transform = context->getCTM();
     // drawTiledShadow still does not work with rotations.
     if ((transform.isIdentityOrTranslationOrFlipped())) {
@@ -637,13 +660,6 @@ static void drawBorderlessRectShadow(GraphicsContext* context, const FloatRect& 
 
         return;
     }
-
-    FloatSize shadowOffset;
-    float shadowBlur;
-    Color shadowColor;
-
-    if (!context->getShadow(shadowOffset, shadowBlur, shadowColor))
-        return;
 
     IntSize shadowBufferSize;
     FloatRect shadowRect;
@@ -957,18 +973,20 @@ PlatformRefPtr<cairo_surface_t> GraphicsContext::createShadowMask(PassOwnPtr<Ima
         return buffer->m_data.m_surface;
 
     FloatPoint blurRadius = FloatPoint(radius, radius);
-    float sd = FEGaussianBlur::calculateStdDeviation(radius);
-    if (!sd)
+    float stdDeviation = FEGaussianBlur::calculateStdDeviation(radius);
+    if (!stdDeviation)
         return buffer->m_data.m_surface;
 
     // create filter
     RefPtr<Filter> filter = ImageBufferFilter::create();
     filter->setSourceImage(buffer);
     RefPtr<FilterEffect> source = SourceGraphic::create();
-    source->setScaledSubRegion(FloatRect(FloatPoint(), shadowRect.size()));
+    source->setRepaintRectInLocalCoordinates(FloatRect(FloatPoint(), shadowRect.size()));
     source->setIsAlphaImage(true);
-    RefPtr<FilterEffect> blur = FEGaussianBlur::create(source.get(), sd, sd);
-    blur->setScaledSubRegion(FloatRect(FloatPoint(), shadowRect.size()));
+    RefPtr<FilterEffect> blur = FEGaussianBlur::create(stdDeviation, stdDeviation);
+    FilterEffectVector& inputEffects = blur->inputEffects();
+    inputEffects.append(source.get());
+    blur->setRepaintRectInLocalCoordinates(FloatRect(FloatPoint(), shadowRect.size()));
     blur->apply(filter.get());
     return blur->resultImage()->m_data.m_surface;
 #endif

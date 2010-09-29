@@ -4,6 +4,7 @@ SET(WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/bindings"
     "${WEBCORE_DIR}/bindings/generic"
     "${WEBCORE_DIR}/bindings/js"
+    "${WEBCORE_DIR}/bindings/js/specialization"
     "${WEBCORE_DIR}/bridge"
     "${WEBCORE_DIR}/bridge/c"
     "${WEBCORE_DIR}/bridge/jni/jsc"
@@ -45,6 +46,7 @@ SET(WebCore_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/plugins"
     "${WEBCORE_DIR}/rendering"
     "${WEBCORE_DIR}/rendering/style"
+    "${WEBCORE_DIR}/rendering/svg"
     "${WEBCORE_DIR}/storage"
     "${WEBCORE_DIR}/svg"
     "${WEBCORE_DIR}/svg/animation"
@@ -162,6 +164,7 @@ SET(WebCore_IDL_FILES
     dom/ErrorEvent.idl
     dom/EventException.idl
     dom/Event.idl
+    dom/HashChangeEvent.idl
     dom/KeyboardEvent.idl
     dom/MessageChannel.idl
     dom/MessageEvent.idl
@@ -559,6 +562,7 @@ SET(WebCore_SOURCES
     accessibility/AccessibilityTableHeaderContainer.cpp
     accessibility/AccessibilityTableRow.cpp
 
+    bindings/js/specialization/JSBindingState.cpp
     bindings/ScriptControllerBase.cpp
 
     bindings/generic/ActiveDOMCallback.cpp
@@ -731,6 +735,7 @@ SET(WebCore_SOURCES
     css/CSSPrimitiveValue.cpp
     css/CSSProperty.cpp
     css/CSSPropertyLonghand.cpp
+    css/CSSPropertySourceData.cpp
     css/CSSReflectValue.cpp
     css/CSSRule.cpp
     css/CSSRuleList.cpp
@@ -1044,6 +1049,7 @@ SET(WebCore_SOURCES
     html/parser/HTMLElementStack.cpp
     html/parser/HTMLEntityParser.cpp
     html/parser/HTMLEntitySearch.cpp
+    html/parser/HTMLParserIdioms.cpp
     html/parser/HTMLParserScheduler.cpp
     html/parser/HTMLFormattingElementList.cpp
     html/parser/HTMLPreloadScanner.cpp
@@ -1322,9 +1328,7 @@ SET(WebCore_SOURCES
     plugins/DOMPluginArray.cpp
     plugins/DOMPlugin.cpp
     plugins/PluginData.cpp
-    plugins/PluginDataNone.cpp
     plugins/PluginMainThreadScheduler.cpp
-    plugins/PluginViewNone.cpp
 
     rendering/AutoTableLayout.cpp
     rendering/BidiRun.cpp
@@ -1565,6 +1569,8 @@ ENDIF ()
 
 if (ENABLE_FILE_SYSTEM)
     LIST(APPEND WebCore_SOURCES
+        bindings/js/JSDirectoryEntryCustom.cpp
+        bindings/js/JSEntryCustom.cpp
         fileapi/DirectoryEntry.cpp
         fileapi/DirectoryReader.cpp
         fileapi/DOMFilePath.cpp
@@ -1573,6 +1579,7 @@ if (ENABLE_FILE_SYSTEM)
         fileapi/EntryArray.cpp
         fileapi/FileEntry.cpp
         fileapi/FileSystemCallbacks.cpp
+        fileapi/FileWriter.cpp
         fileapi/LocalFileSystem.cpp
         platform/AsyncFileSystem.cpp
     )
@@ -1588,19 +1595,11 @@ if (ENABLE_FILE_SYSTEM)
         fileapi/FileCallback.idl
         fileapi/FileEntry.idl
         fileapi/FileSystemCallback.idl
+        fileapi/FileWriterCallback.idl
+        fileapi/FileWriter.idl
         fileapi/Flags.idl
         fileapi/Metadata.idl
         fileapi/MetadataCallback.idl
-    )
-ENDIF ()
-
-if (ENABLE_FILE_WRITER)
-    LIST(APPEND WebCore_SOURCES
-        fileapi/FileWriter.cpp
-    )
-    LIST(APPEND WebCore_IDL_FILES
-        fileapi/FileWriterCallback.idl
-        fileapi/FileWriter.idl
     )
 ENDIF ()
 
@@ -1662,6 +1661,8 @@ IF (ENABLE_SVG)
         rendering/SVGTextQuery.cpp
         rendering/style/SVGRenderStyle.cpp
         rendering/style/SVGRenderStyleDefs.cpp
+        rendering/svg/SVGTextLayoutAttributes.cpp
+        rendering/svg/SVGTextLayoutBuilder.cpp
         svg/ColorDistance.cpp
         svg/SVGAElement.cpp
         svg/SVGAltGlyphElement.cpp

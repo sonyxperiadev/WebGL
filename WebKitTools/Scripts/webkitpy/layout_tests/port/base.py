@@ -152,6 +152,16 @@ class Port(object):
 
         While this is a generic routine, we include it in the Port
         interface so that it can be overriden for testing purposes."""
+
+        # The filenames show up in the diff output, make sure they're
+        # raw bytes and not unicode, so that they don't trigger join()
+        # trying to decode the input.
+        def to_raw_bytes(str):
+            if isinstance(str, unicode):
+                return str.encode('utf-8')
+            return str
+        expected_filename = to_raw_bytes(expected_filename)
+        actual_filename = to_raw_bytes(actual_filename)
         diff = difflib.unified_diff(expected_text.splitlines(True),
                                     actual_text.splitlines(True),
                                     expected_filename,
@@ -364,7 +374,7 @@ class Port(object):
         results_filename in a users' browser."""
         raise NotImplementedError('Port.show_html_results_file')
 
-    def create_driver(self, png_path, options):
+    def create_driver(self, image_path, options):
         """Return a newly created base.Driver subclass for starting/stopping
         the test driver."""
         raise NotImplementedError('Port.create_driver')
@@ -678,7 +688,7 @@ class Port(object):
 class Driver:
     """Abstract interface for the DumpRenderTree interface."""
 
-    def __init__(self, port, png_path, options):
+    def __init__(self, port, png_path, options, executive):
         """Initialize a Driver to subsequently run tests.
 
         Typically this routine will spawn DumpRenderTree in a config
@@ -688,7 +698,10 @@ class Driver:
         png_path - an absolute path for the driver to write any image
             data for a test (as a PNG). If no path is provided, that
             indicates that pixel test results will not be checked.
-        options - any port-specific driver options."""
+        options - command line options argument from optparse
+        executive - reference to the process-wide Executive object
+
+        """
         raise NotImplementedError('Driver.__init__')
 
     def run_test(self, uri, timeout, checksum):

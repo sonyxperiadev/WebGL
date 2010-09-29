@@ -327,7 +327,7 @@ void WebUrlLoaderClient::didFinishLoading(void* data)
     WebUrlLoaderClient* loader = loaderData->loader;
 
     if (loader->isActive())
-        loader->m_resourceHandle->client()->didFinishLoading(loader->m_resourceHandle.get());
+        loader->m_resourceHandle->client()->didFinishLoading(loader->m_resourceHandle.get(), 0);
 
     // Always finish a request, if not it will leak
     loader->finish();

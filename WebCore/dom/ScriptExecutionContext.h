@@ -27,6 +27,7 @@
 #ifndef ScriptExecutionContext_h
 #define ScriptExecutionContext_h
 
+#include "ActiveDOMObject.h"
 #include "Console.h"
 #include "KURL.h"
 #include <wtf/Forward.h>
@@ -44,7 +45,6 @@
 
 namespace WebCore {
 
-    class ActiveDOMObject;
     class Blob;
 #if ENABLE(DATABASE)
     class Database;
@@ -52,7 +52,7 @@ namespace WebCore {
     class DatabaseThread;
 #endif
     class DOMTimer;
-#if ENABLE(BLOB) || ENABLE(FILE_WRITER)
+#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
     class FileThread;
 #endif
     class MessagePort;
@@ -99,7 +99,7 @@ namespace WebCore {
         bool canSuspendActiveDOMObjects();
         // Active objects can be asked to suspend even if canSuspendActiveDOMObjects() returns 'false' -
         // step-by-step JS debugging is one example.
-        void suspendActiveDOMObjects();
+        void suspendActiveDOMObjects(ActiveDOMObject::ReasonForSuspension);
         void resumeActiveDOMObjects();
         void stopActiveDOMObjects();
         void createdActiveDOMObject(ActiveDOMObject*, void* upcastPointer);
@@ -131,8 +131,6 @@ namespace WebCore {
         void removeTimeout(int timeoutId);
         DOMTimer* findTimeout(int timeoutId);
 
-        void addBlob(Blob*);
-        void removeBlob(Blob*);
 #if ENABLE(BLOB)
         KURL createPublicBlobURL(Blob*);
         void revokePublicBlobURL(const KURL&);
@@ -142,7 +140,7 @@ namespace WebCore {
         JSC::JSGlobalData* globalData();
 #endif
 
-#if ENABLE(BLOB) || ENABLE(FILE_WRITER)
+#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
         FileThread* fileThread();
         void stopFileThread();
 #endif
@@ -167,7 +165,6 @@ namespace WebCore {
 
         HashMap<int, DOMTimer*> m_timeouts;
 
-        HashSet<Blob*> m_blobs;
 #if ENABLE(BLOB)
         HashSet<String> m_publicBlobURLs;
 #endif
@@ -180,7 +177,7 @@ namespace WebCore {
         bool m_hasOpenDatabases; // This never changes back to false, even after the database thread is closed.
 #endif
 
-#if ENABLE(BLOB) || ENABLE(FILE_WRITER)
+#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
         RefPtr<FileThread> m_fileThread;
 #endif
     };

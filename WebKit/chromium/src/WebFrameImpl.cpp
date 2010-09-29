@@ -1012,22 +1012,9 @@ void WebFrameImpl::dispatchWillSendRequest(WebURLRequest& request)
         0, 0, request.toMutableResourceRequest(), response);
 }
 
-void WebFrameImpl::commitDocumentData(const char* data, size_t dataLen)
+void WebFrameImpl::commitDocumentData(const char* data, size_t length)
 {
-    DocumentLoader* documentLoader = m_frame->loader()->documentLoader();
-
-    // Set the text encoding.  This calls begin() for us.  It is safe to call
-    // this multiple times (Mac does: page/mac/WebCoreFrameBridge.mm).
-    bool userChosen = true;
-    String encoding = documentLoader->overrideEncoding();
-    if (encoding.isNull()) {
-        userChosen = false;
-        encoding = documentLoader->response().textEncodingName();
-    }
-    m_frame->loader()->writer()->setEncoding(encoding, userChosen);
-
-    // NOTE: mac only does this if there is a document
-    m_frame->loader()->addData(data, dataLen);
+    m_frame->loader()->documentLoader()->commitData(data, length);
 }
 
 unsigned WebFrameImpl::unloadListenerCount() const
@@ -1229,7 +1216,7 @@ void WebFrameImpl::selectWordAroundPosition(Frame* frame, VisiblePosition pos)
     VisibleSelection selection(pos);
     selection.expandUsingGranularity(WordGranularity);
 
-    if (frame->shouldChangeSelection(selection)) {
+    if (frame->selection()->shouldChangeSelection(selection)) {
         TextGranularity granularity = selection.isRange() ? WordGranularity : CharacterGranularity;
         frame->selection()->setSelection(selection, granularity);
     }
@@ -1713,9 +1700,16 @@ int WebFrameImpl::pageNumberForElementById(const WebString& id,
 WebRect WebFrameImpl::selectionBoundsRect() const
 {
     if (hasSelection())
-        return IntRect(frame()->selectionBounds(false));
+        return IntRect(frame()->selection()->bounds(false));
 
     return WebRect();
+}
+
+bool WebFrameImpl::selectionStartHasSpellingMarkerFor(int from, int length) const
+{
+    if (!m_frame)
+        return false;
+    return m_frame->editor()->selectionStartHasSpellingMarkerFor(from, length);
 }
 
 // WebFrameImpl public ---------------------------------------------------------

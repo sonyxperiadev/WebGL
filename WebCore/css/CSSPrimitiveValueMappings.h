@@ -2003,6 +2003,43 @@ template<> inline CSSPrimitiveValue::operator TextDirection() const
     }
 }
 
+template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EBlockFlowDirection e)
+    : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
+{
+    switch (e) {
+    case TopToBottomBlockFlow:
+        m_value.ident = CSSValueTb;
+        break;
+    case RightToLeftBlockFlow:
+        m_value.ident = CSSValueRl;
+        break;
+    case LeftToRightBlockFlow:
+        m_value.ident = CSSValueLr;
+        break;
+    case BottomToTopBlockFlow:
+        m_value.ident = CSSValueBt;
+        break;
+    }
+}
+
+template<> inline CSSPrimitiveValue::operator EBlockFlowDirection() const
+{
+    switch (m_value.ident) {
+    case CSSValueTb:
+        return TopToBottomBlockFlow;
+    case CSSValueRl:
+        return RightToLeftBlockFlow;
+    case CSSValueLr:
+        return LeftToRightBlockFlow;
+    case CSSValueBt:
+        return BottomToTopBlockFlow;
+    default:
+        ASSERT_NOT_REACHED();
+        return TopToBottomBlockFlow;
+    }
+}
+
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EPointerEvents e)
     : m_type(CSS_IDENT)
     , m_hasCachedCSSText(false)
@@ -2647,7 +2684,23 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EWritingMode e)
 
 template<> inline CSSPrimitiveValue::operator EWritingMode() const
 {
-    return static_cast<EWritingMode>(m_value.ident - CSSValueLrTb);
+    switch (m_value.ident) {
+    case CSSValueLrTb:
+        return WM_LRTB;
+    case CSSValueLr:
+        return WM_LR;
+    case CSSValueRlTb:
+        return WM_RLTB;
+    case CSSValueRl:
+        return WM_RL;
+    case CSSValueTbRl:
+        return WM_TBRL;
+    case CSSValueTb:
+        return WM_TB;
+    default:
+        ASSERT_NOT_REACHED();
+        return WM_LRTB;
+    }
 }
 
 template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EVectorEffect e)

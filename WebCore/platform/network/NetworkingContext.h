@@ -33,6 +33,10 @@ class QNetworkAccessManager;
 
 namespace WebCore {
 
+#if PLATFORM(ANDROID)
+class FrameLoaderClient;
+class MainResourceLoader;
+#endif
 class ResourceError;
 class ResourceRequest;
 
@@ -57,6 +61,13 @@ public:
 #if PLATFORM(WIN)
     virtual String userAgent() const = 0;
     virtual String referrer() const = 0;
+    virtual ResourceError blockedError(const ResourceRequest&) const = 0;
+#endif
+
+#if PLATFORM(ANDROID)
+    virtual MainResourceLoader* mainResourceLoader() const = 0;
+    virtual bool isPrivateBrowsingEnabled() const = 0;
+    virtual FrameLoaderClient* frameLoaderClient() const = 0;
 #endif
 
 protected:

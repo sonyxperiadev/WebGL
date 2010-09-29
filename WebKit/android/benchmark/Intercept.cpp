@@ -113,7 +113,7 @@ void MyResourceLoader::loadData(const String& data)
             client->didReceiveData(m_handle, (const char*)base64.characters(),
                     base64.length() * sizeof(UChar), 0);
     }
-    client->didFinishLoading(m_handle);
+    client->didFinishLoading(m_handle, 0);
 }
 static String mimeTypeForExtension(const String& file)
 {
@@ -160,7 +160,7 @@ void MyResourceLoader::loadFile(const String& file)
             client->didReceiveData(m_handle, buf, res, 0);
         }
         fclose(f);
-        client->didFinishLoading(m_handle);
+        client->didFinishLoading(m_handle, 0);
     }
 }
 

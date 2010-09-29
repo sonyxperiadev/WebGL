@@ -76,8 +76,6 @@ public:
     // Done, close any open tags, etc.
     void finished();
 
-    static HTMLTokenizer::State adjustedLexerState(HTMLTokenizer::State, const AtomicString& tagName, Frame*);
-
     static bool scriptEnabled(Frame*);
     static bool pluginsEnabled(Frame*);
 
@@ -170,7 +168,6 @@ private:
     PassRefPtr<NamedNodeMap> attributesForIsindexInput(AtomicHTMLToken&);
 
     HTMLElementStack::ElementRecord* furthestBlockForFormattingElement(Element*);
-    void reparentChildren(Element* oldParent, Element* newParent);
     void callTheAdoptionAgency(AtomicHTMLToken&);
 
     void closeTheCell();
@@ -256,18 +253,6 @@ private:
     // some other things now.
     int m_lastScriptElementStartLine;
 };
-
-// FIXME: Move these functions to a more appropriate place.
-
-// Converts the specified string to a floating number.
-// If the conversion fails, the return value is false. Take care that leading
-// or trailing unnecessary characters make failures.  This returns false for an
-// empty string input.
-// The double* parameter may be 0.
-bool parseToDoubleForNumberType(const String&, double*);
-// Converts the specified number to a string. This is an implementation of
-// HTML5's "algorithm to convert a number to a string" for NUMBER/RANGE types.
-String serializeForNumberType(double);
 
 }
 

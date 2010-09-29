@@ -83,6 +83,7 @@ static WKPageRef createOtherPage(WKPageRef oldPage, const void*)
         0,
         0,
         0,
+        0,
         0
     };
     WKPageSetPageUIClient(newPage, &otherPageUIClient);
@@ -142,7 +143,8 @@ void TestController::initialize(int argc, const char* argv[])
     WKContextInjectedBundleClient injectedBundleClient = {
         0,
         this,
-        didReceiveMessageFromInjectedBundle
+        didReceiveMessageFromInjectedBundle,
+        0
     };
     WKContextSetInjectedBundleClient(m_context.get(), &injectedBundleClient);
 
@@ -155,6 +157,7 @@ void TestController::initialize(int argc, const char* argv[])
         0,
         this,
         createOtherPage,
+        0,
         0,
         0,
         0,
@@ -247,7 +250,7 @@ void TestController::run()
 
 // WKContextInjectedBundleClient
 
-void TestController::didReceiveMessageFromInjectedBundle(WKContextRef context, WKStringRef messageName, WKTypeRef messageBody, const void *clientInfo)
+void TestController::didReceiveMessageFromInjectedBundle(WKContextRef context, WKStringRef messageName, WKTypeRef messageBody, const void* clientInfo)
 {
     static_cast<TestController*>(const_cast<void*>(clientInfo))->didReceiveMessageFromInjectedBundle(messageName, messageBody);
 }
@@ -259,7 +262,7 @@ void TestController::didReceiveMessageFromInjectedBundle(WKStringRef messageName
 
 // WKPageLoaderClient
 
-void TestController::didFinishLoadForFrame(WKPageRef page, WKFrameRef frame, const void* clientInfo)
+void TestController::didFinishLoadForFrame(WKPageRef page, WKFrameRef frame, WKTypeRef, const void* clientInfo)
 {
     static_cast<TestController*>(const_cast<void*>(clientInfo))->didFinishLoadForFrame(page, frame);
 }

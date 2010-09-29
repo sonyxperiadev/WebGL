@@ -1,3 +1,483 @@
+2010-09-20  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Fixed detection of alternative smaller than the first alternative
+        to only check looping alternatives.
+        https://bugs.webkit.org/show_bug.cgi?id=46049
+
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::generateDisjunction):
+
+2010-09-20  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Geoffrey Garen.
+
+        REGRESSION(67790): jsc tests are failed with YARR interpreter
+        https://bugs.webkit.org/show_bug.cgi?id=46083
+
+        Fix the initializing of the lastSubpatternId member of
+        parentheses.
+
+        * yarr/RegexCompiler.cpp:
+        (JSC::Yarr::RegexPatternConstructor::atomParenthesesEnd):
+
+2010-09-20  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 46077 - ASSERT failure in YARR JIT
+
+        We will currently attempt to loop if there are multiple alternatives, they are all
+        BOL predicated, and the last alternative is longer then the first - however if all
+        alternatives are BOL predicated the head of loop label will not have been set, and
+        we'll try to link a jump to an undefined label. Stop doing so.
+
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::generateDisjunction):
+
+2010-09-20  Adam Roben  <aroben@apple.com>
+
+        Export RegExpObject::info from JavaScriptCore
+
+        This allows obj->inherits(&RegExpObject::info) to work correctly from
+        outside JavaScriptCore.dll on Windows.
+
+        Fixes <http://webkit.org/b/46098>
+        fast/loader/stateobjects/pushstate-object-types.html fails on Windows
+
+        Reviewed by John Sullivan.
+
+        * runtime/RegExpObject.h: Added JS_EXPORTDATA to the info member, as
+        we already have for some other classes whose info members have to be
+        used from outside the DLL.
+
+2010-09-19  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix pt 2.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-09-19  Gavin Barraclough  <barraclough@apple.com>
+
+        Windows build fix pt 1.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+
+2010-09-19  Gavin Barraclough  <barraclough@apple.com>
+
+        Build fix - implicit double-to-int conversion invalid on 32-bit.
+
+        * runtime/DatePrototype.cpp:
+        (JSC::fillStructuresUsingDateArgs):
+        (JSC::dateProtoFuncSetYear):
+
+2010-09-19  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        Bug 46065 - Unify implementation of ToInt32 and ToUInt32, don't use fmod.
+
+        These methods implement the same conversion (see discussion in the notes
+        of sections of 9.5 and 9.6 of the spec), only differing in how the result
+        is interpretted.
+
+        Date prototype is incorrectly using toInt32, and this is causing us to
+        provide an output value indicating whether the input to ToInt32 was finite
+        (the corresponding methods on Date are actually spec'ed to use ToInteger,
+        not ToInt32).  This patch partially fixes this in order to remove this
+        bogus output value, hoewever more work will be require to bring Date
+        fully up to spec compliance (the constructor is still performing ToInt32
+        conversions).
+
+        * JavaScriptCore.exp:
+        * runtime/DatePrototype.cpp:
+        (JSC::fillStructuresUsingTimeArgs):
+        (JSC::fillStructuresUsingDateArgs):
+        (JSC::dateProtoFuncSetYear):
+        * runtime/JSValue.cpp:
+        (JSC::toInt32):
+        * runtime/JSValue.h:
+        (JSC::toUInt32):
+        (JSC::JSValue::toInt32):
+        (JSC::JSValue::toUInt32):
+
+2010-09-18  Darin Adler  <darin@apple.com>
+
+        First step in fixing Windows build.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCore.def:
+        Removed incorrect symbol. The build will probably still fail,
+        but the failure will tell us what symbol to add.
+
+2010-09-18  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Added code to unroll regular expressions containing ^.
+        Alternatives that begin with ^ are tagged during parsing
+        and rolled up in containing sub expression structs.
+        After parsing, a regular expression flagged as containing
+        a ^ (a.k.a. BOL) is processed further in optimizeBOL().
+        A copy of the disjunction is made excluding alternatives that
+        are rooted with BOL.  The original alternatives are flagged
+        to only be executed once.  The copy of the other alternatives are
+        added to the original expression.
+        In the case that all original alternatives are flagged, there
+        won't be any looping alternatives.
+        The JIT generator will emit code accordingly, executing the
+        original alternatives once and then looping over the
+        alternatives that aren't anchored with a BOL (if any).
+        https://bugs.webkit.org/show_bug.cgi?id=45787
+
+        * yarr/RegexCompiler.cpp:
+        (JSC::Yarr::RegexPatternConstructor::assertionBOL):
+        (JSC::Yarr::RegexPatternConstructor::atomParenthesesEnd):
+        (JSC::Yarr::RegexPatternConstructor::copyDisjunction):
+        (JSC::Yarr::RegexPatternConstructor::copyTerm):
+        (JSC::Yarr::RegexPatternConstructor::optimizeBOL):
+        (JSC::Yarr::compileRegex):
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::generateDisjunction):
+        * yarr/RegexPattern.h:
+        (JSC::Yarr::PatternAlternative::PatternAlternative):
+        (JSC::Yarr::PatternAlternative::setOnceThrough):
+        (JSC::Yarr::PatternAlternative::onceThrough):
+        (JSC::Yarr::PatternDisjunction::PatternDisjunction):
+        (JSC::Yarr::RegexPattern::RegexPattern):
+        (JSC::Yarr::RegexPattern::reset):
+
+2010-09-18  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Darin Adler.
+
+        Rename Wince files to WinCE
+        https://bugs.webkit.org/show_bug.cgi?id=37287
+
+        * wtf/unicode/Unicode.h:
+        * wtf/unicode/wince/UnicodeWinCE.cpp: Copied from JavaScriptCore/wtf/unicode/wince/UnicodeWince.cpp.
+        * wtf/unicode/wince/UnicodeWinCE.h: Copied from JavaScriptCore/wtf/unicode/wince/UnicodeWince.h.
+        * wtf/unicode/wince/UnicodeWince.cpp: Removed.
+        * wtf/unicode/wince/UnicodeWince.h: Removed.
+        * wtf/wince/FastMallocWinCE.h: Copied from JavaScriptCore/wtf/wince/FastMallocWince.h.
+        * wtf/wince/FastMallocWince.h: Removed.
+
+2010-09-18  Ademar de Souza Reis Jr  <ademar.reis@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Enable Platform Strategies on Qt
+
+        [Qt] Turn on PLATFORM_STRATEGIES
+        https://bugs.webkit.org/show_bug.cgi?id=45831
+
+        * wtf/Platform.h: Enable Platform Strategies when building QtWebkit
+
+2010-09-17  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Imprecise tracking of variable capture leads to overly pessimistic creation of activations
+        https://bugs.webkit.org/show_bug.cgi?id=46020
+
+        The old logic for track free and captured variables would cause us
+        to decide we needed an activation in every function along the scope
+        chain between a variable capture and its declaration.  We now track
+        captured variables precisely which requires a bit of additional work
+
+        The most substantial change is that the parsing routine needs to
+        be passed the list of function parameters when reparsing a function
+        as when reparsing we don't parse the function declaration itself only
+        its body.
+
+        * JavaScriptCore.exp:
+        * parser/JSParser.cpp:
+        (JSC::JSParser::Scope::Scope):
+        (JSC::JSParser::Scope::needsFullActivation):
+           We need to distinguish between use of a feature that requires
+           an activation and eval so we now get this additional flag.
+        (JSC::JSParser::Scope::collectFreeVariables):
+        (JSC::JSParser::Scope::getCapturedVariables):
+           We can't simply return the list of "capturedVariables" now as
+           is insufficiently precise, so we compute them instead.
+        (JSC::JSParser::popScope):
+        (JSC::jsParse):
+        (JSC::JSParser::JSParser):
+        (JSC::JSParser::parseProgram):
+        (JSC::JSParser::parseWithStatement):
+        (JSC::JSParser::parseTryStatement):
+        (JSC::JSParser::parseFunctionInfo):
+        (JSC::JSParser::parseFunctionDeclaration):
+        (JSC::JSParser::parseProperty):
+        (JSC::JSParser::parseMemberExpression):
+        * parser/JSParser.h:
+        * parser/Parser.cpp:
+        (JSC::Parser::parse):
+        * parser/Parser.h:
+        (JSC::Parser::parse):
+        * runtime/Executable.cpp:
+        (JSC::EvalExecutable::compileInternal):
+        (JSC::ProgramExecutable::checkSyntax):
+        (JSC::ProgramExecutable::compileInternal):
+        (JSC::FunctionExecutable::compileForCallInternal):
+        (JSC::FunctionExecutable::compileForConstructInternal):
+        (JSC::FunctionExecutable::reparseExceptionInfo):
+        (JSC::EvalExecutable::reparseExceptionInfo):
+        (JSC::FunctionExecutable::fromGlobalCode):
+           Pass function parameters (if available) to the parser.
+
+2010-09-17  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Add IsFloatingPoint and IsArithmetic type traits
+        https://bugs.webkit.org/show_bug.cgi?id=46018
+
+        * wtf/TypeTraits.h:
+        * wtf/TypeTraits.cpp:
+
+2010-09-17  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Oliver Hunt.
+
+        [GTK] FontPlatformDataFreeType should use smart pointers to hold its members
+        https://bugs.webkit.org/show_bug.cgi?id=45917
+
+        Added support to PlatformRefPtr for handling HashTableDeletedValue.
+
+        * wtf/PlatformRefPtr.h:
+        (WTF::PlatformRefPtr::PlatformRefPtr): Added a constructor that takes HashTableDeletedValue.
+        (WTF::PlatformRefPtr::isHashTableDeletedValue): Added.
+
+2010-09-16  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Crash due to timer triggered GC on one heap while another heap is active
+        https://bugs.webkit.org/show_bug.cgi?id=45932
+        <rdar://problem/8318446>
+
+        The GC timer may trigger for one heap while another heap is active.  This
+        is safe, but requires us to ensure that we have temporarily associated the
+        thread's identifierTable with the heap we're collecting on.  Otherwise we
+        may end up with the identifier tables in an inconsistent state leading to
+        an eventual crash.
+
+        * runtime/Collector.cpp:
+        (JSC::Heap::allocate):
+        (JSC::Heap::reset):
+        (JSC::Heap::collectAllGarbage):
+           Add assertions to ensure we have the correct identifierTable active
+           while collecting.
+        * runtime/GCActivityCallbackCF.cpp:
+        (JSC::DefaultGCActivityCallbackPlatformData::trigger):
+           Temporarily make the expected IdentifierTable active
+        * wtf/WTFThreadData.h:
+        (JSC::IdentifierTable::remove):
+           Make it possible to see when IdentifierTable::remove has succeeded
+        * wtf/text/StringImpl.cpp:
+        (WTF::StringImpl::~StringImpl):
+           CRASH if an StringImpl is an Identifier but isn't present in the
+           active IdentifierTable.  If we get to this state something has
+           gone wrong and we should just crash immediately.
+
+2010-09-16  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Implement dissolveDragImageToFraction
+        https://bugs.webkit.org/show_bug.cgi?id=45826
+
+        * wtf/gobject/GTypedefs.h: Added forward declarations for GtkWindow and GdkEventExpose.
+
+2010-09-16  Eric Uhrhane  <ericu@chromium.org>
+
+        Reviewed by Jian Li.
+
+        Unify FILE_SYSTEM and FILE_WRITER enables under the name FILE_SYSTEM.
+        https://bugs.webkit.org/show_bug.cgi?id=45798
+
+        * Configurations/FeatureDefines.xcconfig:
+
+2010-09-15  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Use free variable analysis to improve activation performance
+        https://bugs.webkit.org/show_bug.cgi?id=45837
+
+        Adds free and captured variable tracking to the JS parser.  This
+        allows us to avoid construction of an activation object in some
+        cases.  Future patches will make more use of this information to
+        improve those cases where activations are still needed.
+
+        * parser/ASTBuilder.h:
+        * parser/JSParser.cpp:
+        (JSC::JSParser::Scope::Scope):
+        (JSC::JSParser::Scope::declareVariable):
+        (JSC::JSParser::Scope::useVariable):
+        (JSC::JSParser::Scope::collectFreeVariables):
+        (JSC::JSParser::Scope::capturedVariables):
+        (JSC::JSParser::ScopeRef::ScopeRef):
+        (JSC::JSParser::ScopeRef::operator->):
+        (JSC::JSParser::ScopeRef::index):
+        (JSC::JSParser::currentScope):
+        (JSC::JSParser::pushScope):
+        (JSC::JSParser::popScope):
+        (JSC::JSParser::parseProgram):
+        (JSC::JSParser::parseVarDeclarationList):
+        (JSC::JSParser::parseConstDeclarationList):
+        (JSC::JSParser::parseTryStatement):
+        (JSC::JSParser::parseFormalParameters):
+        (JSC::JSParser::parseFunctionInfo):
+        (JSC::JSParser::parseFunctionDeclaration):
+        (JSC::JSParser::parsePrimaryExpression):
+        * parser/Nodes.cpp:
+        (JSC::ScopeNodeData::ScopeNodeData):
+        (JSC::ScopeNode::ScopeNode):
+        (JSC::ProgramNode::ProgramNode):
+        (JSC::ProgramNode::create):
+        (JSC::EvalNode::EvalNode):
+        (JSC::EvalNode::create):
+        (JSC::FunctionBodyNode::FunctionBodyNode):
+        (JSC::FunctionBodyNode::create):
+        * parser/Nodes.h:
+        (JSC::ScopeNode::needsActivation):
+        (JSC::ScopeNode::hasCapturedVariables):
+        * parser/Parser.cpp:
+        (JSC::Parser::didFinishParsing):
+        * parser/Parser.h:
+        (JSC::Parser::parse):
+        * parser/SyntaxChecker.h:
+        * runtime/Executable.cpp:
+        (JSC::EvalExecutable::compileInternal):
+        (JSC::ProgramExecutable::compileInternal):
+        (JSC::FunctionExecutable::compileForCallInternal):
+        (JSC::FunctionExecutable::compileForConstructInternal):
+        * runtime/Executable.h:
+        (JSC::ScriptExecutable::needsActivation):
+        (JSC::ScriptExecutable::recordParse):
+
+2010-09-14  Hyung Song  <beergun@company100.net>
+
+        Reviewed by Kent Tamura.
+
+        [BREWMP] Add IMemGroup and IMemSpace to OwnPtr type.
+        https://bugs.webkit.org/show_bug.cgi?id=44764
+
+        * wtf/OwnPtrCommon.h:
+        * wtf/brew/OwnPtrBrew.cpp:
+        (WTF::deleteOwnedPtr):
+
+2010-09-14  Darin Adler  <darin@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Sort with non-numeric custom sort function fails on array with length but no values
+        https://bugs.webkit.org/show_bug.cgi?id=45781
+
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::sort): Replaced early exit for an array of length zero to instead
+        exit for any array without values, even if it has a non-0 length.
+
+2010-09-14  Steve Falkenburg  <sfalken@apple.com>
+
+        Windows production build fix.
+        Roll out r65143.
+
+        * JavaScriptCore.vcproj/JavaScriptCore/JavaScriptCoreGenerated.make:
+
+2010-09-14  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Darin Adler.
+
+        Share UnicodeMacrosFromICU.h
+        https://bugs.webkit.org/show_bug.cgi?id=45710
+
+        glib, qt4 and wince use the same macros from ICU.
+        Remove the code duplication and use the same header file.
+
+        * wtf/unicode/UnicodeMacrosFromICU.h: Copied from JavaScriptCore/wtf/unicode/glib/UnicodeMacrosFromICU.h.
+        * wtf/unicode/glib/UnicodeMacrosFromICU.h: Removed.
+        * wtf/unicode/qt4/UnicodeQt4.h:
+        * wtf/unicode/wince/UnicodeWince.h:
+
+2010-09-13  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Preparation for eliminating deprecatedParseURL
+        https://bugs.webkit.org/show_bug.cgi?id=45695
+
+        * wtf/text/WTFString.h: Added isAllSpecialCharacters, moved here from
+        the HTML tree builder.
+
+2010-09-13  Darin Fisher  <darin@chromium.org>
+
+        Reviewed by David Levin.
+
+        Add option to conditionally compile smooth scrolling support.
+        https://bugs.webkit.org/show_bug.cgi?id=45689
+
+        ENABLE(SMOOTH_SCROLLING) is disabled by default for all platforms.
+
+        * wtf/Platform.h:
+
+2010-09-13  Adam Roben  <aroben@apple.com>
+
+        Copy JavaScriptCore's generated sources to the right directory
+
+        * JavaScriptCore.vcproj/JavaScriptCore.make: Fixed typo.
+
+2010-09-13  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Kent Tamura.
+
+        [BREWMP] Don't call _msize
+        https://bugs.webkit.org/show_bug.cgi?id=45556
+
+        Because Brew MP uses its own memory allocator, it is not correct to use
+        _msize in fastMallocSize. Add !PLATFORM(BREWMP) guard.
+
+        * wtf/FastMalloc.cpp:
+        (WTF::fastMallocSize):
+
+2010-09-11  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] V8 port: webcore project files changes
+        https://bugs.webkit.org/show_bug.cgi?id=45141
+
+        * JavaScriptCore.pro: Moved wtf specific files to wtf.pri,
+        so that they can also be used from WebCore.pro for v8 builds.
+        * wtf/wtf.pri: Added.
+
+2010-09-10  Fridrich Strba  <fridrich.strba@bluewin.ch>
+
+        Reviewed by Andreas Kling.
+
+        Add a define missing when building with glib unicode backend
+        https://bugs.webkit.org/show_bug.cgi?id=45544
+
+        * wtf/unicode/glib/UnicodeMacrosFromICU.h:
+
+2010-09-10  Stephanie Lewis  <slewis@apple.com>
+
+        Reviewed by Alexey Proskuryakov.
+        
+        Refactor JavaScriptCore memory statistics so that WebKit doesn't need to know 
+        about the JIT and other implementation details of JavaScriptCore.  Necessary 
+        to fix PPC build.
+        
+        https://bugs.webkit.org/show_bug.cgi?id=45528
+
+        * JavaScriptCore.exp:
+        * JavaScriptCore.xcodeproj/project.pbxproj:
+        * runtime/MemoryStatistics.cpp: Added.
+        (JSC::memoryStatistics):
+        * runtime/MemoryStatistics.h: Added.
+
 2010-09-09  Michael Saboff  <msaboff@apple.com>
 
         Reviewed by Gavin Barraclough.

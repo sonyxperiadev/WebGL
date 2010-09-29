@@ -43,6 +43,7 @@
 #include "Event.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "FrameLoaderClient.h"
 #include "FrameTree.h"
 #include "HistoryItem.h"
 #include "Logging.h"
@@ -53,6 +54,7 @@
 #include "SharedBuffer.h"
 
 #include <wtf/Assertions.h>
+#include <wtf/text/CString.h>
 #include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
@@ -281,8 +283,29 @@ void DocumentLoader::commitLoad(const char* data, int length)
     RefPtr<DocumentLoader> protect(this);
 
     commitIfReady();
-    if (FrameLoader* frameLoader = DocumentLoader::frameLoader())
-        frameLoader->committedLoad(this, data, length);
+    FrameLoader* frameLoader = DocumentLoader::frameLoader();
+    if (!frameLoader)
+        return;
+#if ENABLE(ARCHIVE) // ANDROID extension: disabled to reduce code size
+    if (ArchiveFactory::isArchiveMimeType(response().mimeType()))
+        return;
+#endif
+    frameLoader->client()->committedLoad(this, data, length);
+}
+
+void DocumentLoader::commitData(const char* bytes, int length)
+{
+    // Set the text encoding.  This is safe to call multiple times.
+    bool userChosen = true;
+    String encoding = overrideEncoding();
+    if (encoding.isNull()) {
+        userChosen = false;
+        encoding = response().textEncodingName();
+    }
+    // FIXME: DocumentWriter should be owned by DocumentLoader.
+    m_frame->loader()->writer()->setEncoding(encoding, userChosen);
+    ASSERT(m_frame->document()->parsing());
+    m_frame->loader()->writer()->addData(bytes, length);
 }
 
 bool DocumentLoader::doesProgressiveLoad(const String& MIMEType) const
@@ -547,7 +570,7 @@ void DocumentLoader::substituteResourceDeliveryTimerFired(Timer<DocumentLoader>*
         
             loader->didReceiveResponse(resource->response());
             loader->didReceiveData(data->data(), data->size(), data->size(), true);
-            loader->didFinishLoading();
+            loader->didFinishLoading(0);
         } else {
             // A null resource means that we should fail the load.
             // FIXME: Maybe we should use another error here - something like "not in cache".

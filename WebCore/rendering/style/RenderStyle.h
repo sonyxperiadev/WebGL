@@ -178,7 +178,8 @@ protected:
                    (_visuallyOrdered == other._visuallyOrdered) &&
                    (_force_backgrounds_to_white == other._force_backgrounds_to_white) &&
                    (_pointerEvents == other._pointerEvents) &&
-                   (_insideLink == other._insideLink);
+                   (_insideLink == other._insideLink) &&
+                   (_blockFlow == other._blockFlow);
         }
 
         bool operator!=(const InheritedFlags& other) const { return !(*this == other); }
@@ -204,6 +205,10 @@ protected:
         unsigned _pointerEvents : 4; // EPointerEvents
         unsigned _insideLink : 2; // EInsideLink
         // 43 bits
+
+        // CSS Text Layout Module Level 3: Vertical writing support
+        unsigned _blockFlow : 2; // EBlockFlowDirection
+        // 45 bits
     } inherited_flags;
 
 // don't inherit
@@ -279,6 +284,7 @@ protected:
         inherited_flags._force_backgrounds_to_white = false;
         inherited_flags._pointerEvents = initialPointerEvents();
         inherited_flags._insideLink = NotInsideLink;
+        inherited_flags._blockFlow = initialBlockFlow();
 
         noninherited_flags._effectiveDisplay = noninherited_flags._originalDisplay = initialDisplay();
         noninherited_flags._overflowX = initialOverflowX();
@@ -384,6 +390,13 @@ public:
     Length maxWidth() const { return m_box->maxWidth(); }
     Length minHeight() const { return m_box->minHeight(); }
     Length maxHeight() const { return m_box->maxHeight(); }
+    
+    Length logicalWidth() const;
+    Length logicalHeight() const;
+    Length logicalMinWidth() const;
+    Length logicalMaxWidth() const;
+    Length logicalMinHeight() const;
+    Length logicalMaxHeight() const;
 
     const BorderData& border() const { return surround->border; }
     const BorderValue& borderLeft() const { return surround->border.left(); }
@@ -411,6 +424,11 @@ public:
     unsigned short borderBottomWidth() const { return surround->border.borderBottomWidth(); }
     EBorderStyle borderBottomStyle() const { return surround->border.bottom().style(); }
     bool borderBottomIsTransparent() const { return surround->border.bottom().isTransparent(); }
+    
+    unsigned short borderBeforeWidth() const;
+    unsigned short borderAfterWidth() const;
+    unsigned short borderStartWidth() const;
+    unsigned short borderEndWidth() const;
 
     unsigned short outlineSize() const { return max(0, outlineWidth() + outlineOffset()); }
     unsigned short outlineWidth() const
@@ -576,12 +594,20 @@ public:
     Length marginBottom() const { return surround->margin.bottom(); }
     Length marginLeft() const { return surround->margin.left(); }
     Length marginRight() const { return surround->margin.right(); }
+    Length marginBefore() const;
+    Length marginAfter() const;
+    Length marginStart() const;
+    Length marginEnd() const;
 
     LengthBox paddingBox() const { return surround->padding; }
     Length paddingTop() const { return surround->padding.top(); }
     Length paddingBottom() const { return surround->padding.bottom(); }
     Length paddingLeft() const { return surround->padding.left(); }
     Length paddingRight() const { return surround->padding.right(); }
+    Length paddingBefore() const;
+    Length paddingAfter() const;
+    Length paddingStart() const;
+    Length paddingEnd() const;
 
     ECursor cursor() const { return static_cast<ECursor>(inherited_flags._cursor_style); }
 
@@ -711,6 +737,9 @@ public:
     const LineClampValue& lineClamp() const { return rareNonInheritedData->lineClamp; }
     bool textSizeAdjust() const { return rareInheritedData->textSizeAdjust; }
     ETextSecurity textSecurity() const { return static_cast<ETextSecurity>(rareInheritedData->textSecurity); }
+
+    EBlockFlowDirection blockFlow() const { return static_cast<EBlockFlowDirection>(inherited_flags._blockFlow); }
+    bool isVerticalBlockFlow() const { return blockFlow() == TopToBottomBlockFlow || blockFlow() == BottomToTopBlockFlow; }
 
 #ifdef ANDROID_CSS_RING
     // called when building nav cache to determine if the ring data is unchanged
@@ -1123,6 +1152,8 @@ public:
                originalDisplay() == INLINE_BOX || originalDisplay() == INLINE_TABLE;
     }
 
+    void setBlockFlow(EBlockFlowDirection v) { inherited_flags._blockFlow = v; }
+
     // To tell if this style matched attribute selectors. This makes it impossible to share.
     bool affectedByAttributeSelectors() const { return m_affectedByAttributeSelectors; }
     void setAffectedByAttributeSelectors() { m_affectedByAttributeSelectors = true; }
@@ -1162,6 +1193,7 @@ public:
     static ECaptionSide initialCaptionSide() { return CAPTOP; }
     static EClear initialClear() { return CNONE; }
     static TextDirection initialDirection() { return LTR; }
+    static EBlockFlowDirection initialBlockFlow() { return TopToBottomBlockFlow; }
     static EDisplay initialDisplay() { return INLINE; }
     static EEmptyCell initialEmptyCells() { return SHOW; }
     static EFloat initialFloating() { return FNONE; }
@@ -1289,6 +1321,18 @@ private:
 
     ContentData* prepareToSetContent(StringImpl*, bool add);
 };
+
+inline int adjustForAbsoluteZoom(int value, const RenderStyle* style)
+{
+    double zoomFactor = style->effectiveZoom();
+    if (zoomFactor == 1)
+        return value;
+    // Needed because computeLengthInt truncates (rather than rounds) when scaling up.
+    if (zoomFactor > 1)
+        value++;
+
+    return roundForImpreciseConversion<int, INT_MAX, INT_MIN>(value / zoomFactor);
+}
 
 } // namespace WebCore
 

@@ -29,9 +29,9 @@
 
 #include "AXObjectCache.h"
 #include "CSSStyleSelector.h"
+#include "CachedResourceLoader.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
-#include "CachedResourceLoader.h"
 #include "EventHandler.h"
 #include "FloatRect.h"
 #include "FocusController.h"
@@ -120,17 +120,6 @@ struct ScheduledEvent : Noncopyable {
     RefPtr<Node> m_eventTarget;
 };
 
-static inline float parentZoomFactor(Frame* frame)
-{
-    Frame* parent = frame->tree()->parent();
-    if (!parent)
-        return 1;
-    FrameView* parentView = parent->view();
-    if (!parentView)
-        return 1;
-    return parentView->zoomFactor();
-}
-
 FrameView::FrameView(Frame* frame)
     : m_frame(frame)
     , m_canHaveScrollbars(true)
@@ -154,7 +143,6 @@ FrameView::FrameView(Frame* frame)
     , m_deferSetNeedsLayouts(0)
     , m_setNeedsLayoutWasDeferred(false)
     , m_scrollCorner(0)
-    , m_zoomFactor(parentZoomFactor(frame))
 {
     init();
 }
@@ -226,7 +214,6 @@ void FrameView::reset()
     m_wasScrolledByUser = false;
     m_lastLayoutSize = IntSize();
     m_lastZoomFactor = 1.0f;
-    m_pageHeight = 0;
     m_deferringRepaints = 0;
     m_repaintCount = 0;
     m_repaintRects.clear();
@@ -798,7 +785,7 @@ void FrameView::layout(bool allowSubtree)
 
     if (subtree) {
         RenderView* view = root->view();
-        view->popLayoutState();
+        view->popLayoutState(root);
         if (disableLayoutState)
             view->enableLayoutState();
     }
@@ -1815,6 +1802,13 @@ void FrameView::valueChanged(Scrollbar* bar)
     frame()->loader()->client()->didChangeScrollOffset();
 }
 
+void FrameView::valueChanged(const IntSize& scrollDelta)
+{
+    ScrollView::valueChanged(scrollDelta);
+    frame()->eventHandler()->sendScrollEvent();
+    frame()->loader()->client()->didChangeScrollOffset();
+}
+
 void FrameView::invalidateScrollbarRect(Scrollbar* scrollbar, const IntRect& rect)
 {
     // Add in our offset within the FrameView.
@@ -2119,12 +2113,6 @@ void FrameView::flushDeferredRepaints()
 void FrameView::forceLayout(bool allowSubtree)
 {
     layout(allowSubtree);
-    // We cannot unschedule a pending relayout, since the force can be called with
-    // a tiny rectangle from a drawRect update.  By unscheduling we in effect
-    // "validate" and stop the necessary full repaint from occurring.  Basically any basic
-    // append/remove DHTML is broken by this call.  For now, I have removed the optimization
-    // until we have a better invalidation stategy. -dwh
-    //unscheduleRelayout();
 }
 
 void FrameView::forceLayoutForPagination(const FloatSize& pageSize, float maximumShrinkFactor, Frame::AdjustViewSizeOrNot shouldAdjustViewSize)
@@ -2134,8 +2122,8 @@ void FrameView::forceLayoutForPagination(const FloatSize& pageSize, float maximu
     RenderView *root = toRenderView(m_frame->document()->renderer());
     if (root) {
         int pageW = ceilf(pageSize.width());
-        m_pageHeight = pageSize.height() ? pageSize.height() : visibleHeight();
         root->setWidth(pageW);
+        root->setPageHeight(pageSize.height());
         root->setNeedsLayoutAndPrefWidthsRecalc();
         forceLayout();
 
@@ -2147,19 +2135,21 @@ void FrameView::forceLayoutForPagination(const FloatSize& pageSize, float maximu
         if (rightmostPos > pageSize.width()) {
             pageW = std::min<int>(rightmostPos, ceilf(pageSize.width() * maximumShrinkFactor));
             if (pageSize.height())
-                m_pageHeight = pageW / pageSize.width() * pageSize.height();
+                root->setPageHeight(pageW / pageSize.width() * pageSize.height());
             root->setWidth(pageW);
             root->setNeedsLayoutAndPrefWidthsRecalc();
             forceLayout();
+            int docHeight = root->bottomLayoutOverflow();
+            root->clearLayoutOverflow();
+            root->addLayoutOverflow(IntRect(0, 0, pageW, docHeight)); // This is how we clip in case we overflow again.
         }
     }
 
     if (shouldAdjustViewSize)
         adjustViewSize();
-    m_pageHeight = 0;
 }
 
-void FrameView::adjustPageHeight(float *newBottom, float oldTop, float oldBottom, float /*bottomLimit*/)
+void FrameView::adjustPageHeightDeprecated(float *newBottom, float oldTop, float oldBottom, float /*bottomLimit*/)
 {
     RenderView* root = m_frame->contentRenderer();
     if (root) {
@@ -2167,10 +2157,12 @@ void FrameView::adjustPageHeight(float *newBottom, float oldTop, float oldBottom
         GraphicsContext context((PlatformGraphicsContext*)0);
         root->setTruncatedAt((int)floorf(oldBottom));
         IntRect dirtyRect(0, (int)floorf(oldTop), root->rightLayoutOverflow(), (int)ceilf(oldBottom - oldTop));
+        root->setPrintRect(dirtyRect);
         root->layer()->paint(&context, dirtyRect);
         *newBottom = root->bestTruncatedAt();
         if (*newBottom == 0)
             *newBottom = oldBottom;
+        root->setPrintRect(IntRect());
     } else
         *newBottom = oldBottom;
 }
@@ -2312,75 +2304,6 @@ IntPoint FrameView::convertFromContainingView(const IntPoint& parentPoint) const
     
     return parentPoint;
 }
-
-bool FrameView::shouldApplyTextZoom() const
-{
-    if (m_zoomFactor == 1)
-        return false;
-    if (!m_frame)
-        return false;
-    Page* page = m_frame->page();
-    return page && page->settings()->zoomMode() == ZoomTextOnly;
-}
-
-bool FrameView::shouldApplyPageZoom() const
-{
-    if (m_zoomFactor == 1)
-        return false;
-    if (!m_frame)
-        return false;
-    Page* page = m_frame->page();
-    return page && page->settings()->zoomMode() == ZoomPage;
-}
-
-void FrameView::setZoomFactor(float percent, ZoomMode mode)
-{
-    if (!m_frame)
-        return;
-
-    Page* page = m_frame->page();
-    if (!page)
-        return;
-
-    if (m_zoomFactor == percent && page->settings()->zoomMode() == mode)
-        return;
-
-    Document* document = m_frame->document();
-    if (!document)
-        return;
-
-#if ENABLE(SVG)
-    // Respect SVGs zoomAndPan="disabled" property in standalone SVG documents.
-    // FIXME: How to handle compound documents + zoomAndPan="disabled"? Needs SVG WG clarification.
-    if (document->isSVGDocument()) {
-        if (!static_cast<SVGDocument*>(document)->zoomAndPanEnabled())
-            return;
-        if (document->renderer())
-            document->renderer()->setNeedsLayout(true);
-    }
-#endif
-
-    if (mode == ZoomPage) {
-        // Update the scroll position when doing a full page zoom, so the content stays in relatively the same position.
-        IntPoint scrollPosition = this->scrollPosition();
-        float percentDifference = (percent / m_zoomFactor);
-        setScrollPosition(IntPoint(scrollPosition.x() * percentDifference, scrollPosition.y() * percentDifference));
-    }
-
-    m_zoomFactor = percent;
-    page->settings()->setZoomMode(mode);
-
-    document->recalcStyle(Node::Force);
-
-    for (Frame* child = m_frame->tree()->firstChild(); child; child = child->tree()->nextSibling()) {
-        if (FrameView* childView = child->view())
-            childView->setZoomFactor(m_zoomFactor, mode);
-    }
-
-    if (document->renderer() && document->renderer()->needsLayout() && didFirstLayout())
-        layout();
-}
-
 
 // Normal delay
 void FrameView::setRepaintThrottlingDeferredRepaintDelay(double p)

@@ -315,3 +315,8 @@ typedef float CGFloat;
 #if PLATFORM(WIN) && PLATFORM(CG)
 #define WTF_USE_SAFARI_THEME 1
 #endif
+
+#if PLATFORM(QT) && USE(V8) && defined(Q_WS_X11)
+/* protect ourselves from evil X11 defines */
+#include <bridge/npruntime_internal.h>
+#endif

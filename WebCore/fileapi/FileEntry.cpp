@@ -33,11 +33,25 @@
 
 #if ENABLE(FILE_SYSTEM)
 
+#include "ErrorCallback.h"
+#include "FileCallback.h"
+#include "FileWriterCallback.h"
+
 namespace WebCore {
 
 FileEntry::FileEntry(DOMFileSystem* fileSystem, const String& fullPath)
     : Entry(fileSystem, fullPath)
 {
+}
+
+void FileEntry::createWriter(PassRefPtr<FileWriterCallback>, PassRefPtr<ErrorCallback>)
+{
+    // FIXME: to be implemented.
+}
+
+void FileEntry::file(PassRefPtr<FileCallback>, PassRefPtr<ErrorCallback>)
+{
+    // FIXME: to be implemented.
 }
 
 } // namespace

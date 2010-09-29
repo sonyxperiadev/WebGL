@@ -64,6 +64,7 @@
 #include <limits>
 #include <wtf/CurrentTime.h>
 #include <wtf/MathExtras.h>
+#include <wtf/text/CString.h>
 
 #if USE(ACCELERATED_COMPOSITING)
 #include "RenderView.h"
@@ -747,19 +748,16 @@ bool HTMLMediaElement::isSafeToLoadURL(const KURL& url, InvalidSourceAction acti
     if (!url.isValid()) {
         LOG(Media, "HTMLMediaElement::isSafeToLoadURL(%s) -> FALSE because url is invalid", urlForLogging(url.string()).utf8().data());
         return false;
-       }
-    
-    Frame* frame = document()->frame();
-    FrameLoader* loader = frame ? frame->loader() : 0;
+    }
 
-    // don't allow remote to local urls, and check with the frame loader client.
-    if (!loader || !SecurityOrigin::canDisplay(url, String(), document())) {
+    Frame* frame = document()->frame();
+    if (!frame || !document()->securityOrigin()->canDisplay(url)) {
         if (actionIfInvalid == Complain)
             FrameLoader::reportLocalLoadFailed(frame, url.string());
         LOG(Media, "HTMLMediaElement::isSafeToLoadURL(%s) -> FALSE rejected by SecurityOrigin", urlForLogging(url.string()).utf8().data());
         return false;
     }
-    
+
     return true;
 }
 
@@ -2029,27 +2027,36 @@ bool HTMLMediaElement::canSuspend() const
 void HTMLMediaElement::stop()
 {
     LOG(Media, "HTMLMediaElement::stop");
-    suspend();
-}
-
-void HTMLMediaElement::suspend()
-{
-    LOG(Media, "HTMLMediaElement::suspend");
-
     if (m_isFullscreen)
         exitFullscreen();
-
+    
     m_inActiveDocument = false;
     userCancelledLoad();
-
+    
     // Stop the playback without generating events
     setPausedInternal(true);
-
+    
     if (renderer())
         renderer()->updateFromElement();
-
+    
     stopPeriodicTimers();
     cancelPendingEventsAndCallbacks();
+}
+
+void HTMLMediaElement::suspend(ReasonForSuspension why)
+{
+    LOG(Media, "HTMLMediaElement::suspend");
+    
+    switch (why)
+    {
+        case DocumentWillBecomeInactive:
+            stop();
+            break;
+        case JavaScriptDebuggerPaused:
+        case WillShowDialog:
+            // Do nothing, we don't pause media playback in these cases.
+            break;
+    }
 }
 
 void HTMLMediaElement::resume()

@@ -138,6 +138,7 @@ public:
     bool isVisible() const;
     bool isOffScreen() const;
     bool isCollapsed() const;
+    bool isIgnored() const;
     bool hasPopup() const;
     int hierarchicalLevel() const;
     double clickPointX();
@@ -189,6 +190,7 @@ public:
     AccessibilityTextMarkerRange textMarkerRangeForMarkers(AccessibilityTextMarker* startMarker, AccessibilityTextMarker* endMarker);
     AccessibilityTextMarker startTextMarkerForTextMarkerRange(AccessibilityTextMarkerRange*);
     AccessibilityTextMarker endTextMarkerForTextMarkerRange(AccessibilityTextMarkerRange*);
+    AccessibilityTextMarker textMarkerForPoint(int x, int y);
     AccessibilityUIElement accessibilityElementForTextMarker(AccessibilityTextMarker*);
     int textMarkerRangeLength(AccessibilityTextMarkerRange*);
     

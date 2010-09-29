@@ -33,6 +33,7 @@
 #include "RenderLayer.h"
 #include "RenderListMarker.h"
 #include "RenderView.h"
+#include "Settings.h"
 #include "TrailingFloatsRootInlineBox.h"
 #include "break_lines.h"
 #include <wtf/AlwaysInline.h>
@@ -48,6 +49,7 @@
 #endif // ANDROID_LAYOUT
 
 #if ENABLE(SVG)
+#include "RenderSVGInlineText.h"
 #include "SVGRootInlineBox.h"
 #endif
 
@@ -597,6 +599,9 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
         Vector<FloatWithRect> floats;
         bool hasInlineChild = false;
         while (o) {
+            if (!hasInlineChild && o->isInline())
+                hasInlineChild = true;
+
             if (o->isReplaced() || o->isFloating() || o->isPositioned()) {
                 RenderBox* box = toRenderBox(o);
                 
@@ -609,37 +614,47 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
             
                 if (o->isPositioned())
                     o->containingBlock()->insertPositionedObject(box);
+#if PLATFORM(ANDROID)
                 else {
 #ifdef ANDROID_LAYOUT
                     // ignore text wrap for textField or menuList
-                        if (doTextWrap && (o->isTextField() || o->isMenuList()))
-                            doTextWrap = false;
+                    if (doTextWrap && (o->isTextField() || o->isMenuList()))
+                        doTextWrap = false;
 #endif
                     if (o->isFloating())
                         floats.append(FloatWithRect(box));
-                    else if (fullLayout || o->needsLayout()) // Replaced elements
+                    else if (fullLayout || o->needsLayout()) {
+                        // Replaced elements
                         toRenderBox(o)->dirtyLineBoxes(fullLayout);
-
 #if defined(ANDROID_FLATTEN_IFRAME) || defined(ANDROID_FLATTEN_FRAMESET)
-                    // Android frame flattening during layout() may cause the
-                    // renderer to be destroyed, if for example a frames onresize handler
-                    // deletes the frame - see http://trac.webkit.org/changeset/61070 for example.
-                    // We may be able to remove this protector when we switch to the upstream
-                    // frame flattening code. In the case of an anonymous render object like RenderListMarker
-                    // the document is the DOM node associated with this RenderObject.
-                    RefPtr<Node> protector(o->isAnonymous() ? o->document() : o->node());
+                        // Android frame flattening during layout() may cause the
+                        // renderer to be destroyed, if for example a frames onresize handler
+                        // deletes the frame - see http://trac.webkit.org/changeset/61070 for example.
+                        // We may be able to remove this protector when we switch to the upstream
+                        // frame flattening code. In the case of an anonymous render object like RenderListMarker
+                        // the document is the DOM node associated with this RenderObject.
+                        RefPtr<Node> protector(o->isAnonymous() ? o->document() : o->node());
 #endif
-                    o->layoutIfNeeded();
+                        o->layoutIfNeeded();
 #if defined(ANDROID_FLATTEN_IFRAME) || defined(ANDROID_FLATTEN_FRAMESET)
-                    // Ensure that the renderer still exists. If it's gone away we will crash pretty
-                    // fast by continuing to use the now invalid o pointer. If the renderer has gone,
-                    // then there's no point in continuing to try to layout it's children so we break.
-                    if (!protector->renderer())
-                        break;
+                        // Ensure that the renderer still exists. If it's gone away we will crash pretty
+                        // fast by continuing to use the now invalid o pointer. If the renderer has gone,
+                        // then there's no point in continuing to try to layout it's children so we break.
+                        if (!protector->renderer())
+                            break;
 #endif
+                    }
                 }
+#else
+                else if (o->isFloating())
+                    floats.append(FloatWithRect(box));
+                else if (fullLayout || o->needsLayout()) {
+                    // Replaced elements
+                    toRenderBox(o)->dirtyLineBoxes(fullLayout);
+                    o->layoutIfNeeded();
+                }
+#endif // PLATFORM(ANDROID)
             } else if (o->isText() || (o->isRenderInline() && !endOfInline)) {
-                hasInlineChild = true;
                 if (fullLayout || o->selfNeedsLayout())
                     dirtyLineBoxesForRenderer(o, fullLayout);
                 o->setNeedsLayout(false);
@@ -717,7 +732,8 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
         unsigned floatIndex;
         bool firstLine = true;
         bool previousLineBrokeCleanly = true;
-        RootInlineBox* startLine = determineStartPosition(firstLine, fullLayout, previousLineBrokeCleanly, resolver, floats, floatIndex);
+        RootInlineBox* startLine = determineStartPosition(firstLine, fullLayout, previousLineBrokeCleanly, resolver, floats, floatIndex,
+                                                          useRepaintBounds, repaintTop, repaintBottom);
 
         if (fullLayout && hasInlineChild && !selfNeedsLayout()) {
             setNeedsLayout(true, false);  // Mark ourselves as needing a full layout. This way we'll repaint like
@@ -745,9 +761,11 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
                                  0 : determineEndPosition(startLine, cleanLineStart, cleanLineBidiStatus, endLineYPos);
 
         if (startLine) {
-            useRepaintBounds = true;
-            repaintTop = height();
-            repaintBottom = height();
+            if (!useRepaintBounds) {
+                useRepaintBounds = true;
+                repaintTop = height();
+                repaintBottom = height();
+            }
             RenderArena* arena = renderArena();
             RootInlineBox* box = startLine;
             while (box) {
@@ -782,6 +800,7 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
         bool checkForFloatsFromLastLine = false;
 
         bool isLineEmpty = true;
+        bool paginated = view()->layoutState() && view()->layoutState()->isPaginated();
 
         while (!end.atEnd()) {
             // FIXME: Is this check necessary before the first iteration or can it be moved to the end?
@@ -794,7 +813,10 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
             
             EClear clear = CNONE;
             bool hyphenated;
-            end = findNextLineBreak(resolver, firstLine, isLineEmpty, previousLineBrokeCleanly, hyphenated, &clear);
+            
+            InlineIterator oldEnd = end;
+            FloatingObject* lastFloatFromPreviousLine = m_floatingObjects ? m_floatingObjects->last() : 0;
+            end = findNextLineBreak(resolver, firstLine, isLineEmpty, previousLineBrokeCleanly, hyphenated, &clear, lastFloatFromPreviousLine);
             if (resolver.position().atEnd()) {
                 resolver.deleteRuns();
                 checkForFloatsFromLastLine = true;
@@ -859,6 +881,7 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
                 // inline flow boxes.
 
                 RootInlineBox* lineBox = 0;
+                int oldHeight = height();
                 if (resolver.runCount()) {
                     if (hyphenated)
                         resolver.logicallyLastRun()->m_hasHyphen = true;
@@ -909,6 +932,29 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
                         repaintTop = min(repaintTop, lineBox->topVisibleOverflow());
                         repaintBottom = max(repaintBottom, lineBox->bottomVisibleOverflow());
                     }
+                    
+                    if (paginated) {
+                        int adjustment = 0;
+                        adjustLinePositionForPagination(lineBox, adjustment);
+                        if (adjustment) {
+                            int oldLineWidth = lineWidth(oldHeight, firstLine);
+                            lineBox->adjustPosition(0, adjustment);
+                            if (useRepaintBounds) // This can only be a positive adjustment, so no need to update repaintTop.
+                                repaintBottom = max(repaintBottom, lineBox->bottomVisibleOverflow());
+                                
+                            if (lineWidth(oldHeight + adjustment, firstLine) != oldLineWidth) {
+                                // We have to delete this line, remove all floats that got added, and let line layout re-run.
+                                lineBox->deleteLine(renderArena());
+                                removeFloatingObjectsBelow(lastFloatFromPreviousLine, oldHeight);
+                                setHeight(oldHeight + adjustment);
+                                resolver.setPosition(oldEnd);
+                                end = oldEnd;
+                                continue;
+                            }
+
+                            setHeight(lineBox->blockHeight());
+                        }
+                    }
                 }
 
                 firstLine = false;
@@ -943,6 +989,10 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
                 int delta = height() - endLineYPos;
                 for (RootInlineBox* line = endLine; line; line = line->nextRootBox()) {
                     line->attachLine();
+                    if (paginated) {
+                        delta -= line->paginationStrut();
+                        adjustLinePositionForPagination(line, delta);
+                    }
                     if (delta) {
                         repaintTop = min(repaintTop, line->topVisibleOverflow() + min(delta, 0));
                         repaintBottom = max(repaintBottom, line->bottomVisibleOverflow() + max(delta, 0));
@@ -1023,20 +1073,44 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
 }
 
 RootInlineBox* RenderBlock::determineStartPosition(bool& firstLine, bool& fullLayout, bool& previousLineBrokeCleanly, 
-                                                   InlineBidiResolver& resolver, Vector<FloatWithRect>& floats, unsigned& numCleanFloats)
+                                                   InlineBidiResolver& resolver, Vector<FloatWithRect>& floats, unsigned& numCleanFloats,
+                                                   bool& useRepaintBounds, int& repaintTop, int& repaintBottom)
 {
     RootInlineBox* curr = 0;
     RootInlineBox* last = 0;
 
     bool dirtiedByFloat = false;
     if (!fullLayout) {
+        // Paginate all of the clean lines.
+        bool paginated = view()->layoutState() && view()->layoutState()->isPaginated();
+        int paginationDelta = 0;
         size_t floatIndex = 0;
         for (curr = firstRootBox(); curr && !curr->isDirty(); curr = curr->nextRootBox()) {
+            if (paginated) {
+                paginationDelta -= curr->paginationStrut();
+                adjustLinePositionForPagination(curr, paginationDelta);
+                if (paginationDelta) {
+                    if (containsFloats() || !floats.isEmpty()) {
+                        // FIXME: Do better eventually.  For now if we ever shift because of pagination and floats are present just go to a full layout.
+                        fullLayout = true; 
+                        break;
+                    }
+                    
+                    if (!useRepaintBounds)
+                        useRepaintBounds = true;
+                        
+                    repaintTop = min(repaintTop, curr->topVisibleOverflow() + min(paginationDelta, 0));
+                    repaintBottom = max(repaintBottom, curr->bottomVisibleOverflow() + max(paginationDelta, 0));
+                    curr->adjustPosition(0, paginationDelta);
+                }                
+            }
+            
             if (Vector<RenderBox*>* cleanLineFloats = curr->floatsPtr()) {
                 Vector<RenderBox*>::iterator end = cleanLineFloats->end();
                 for (Vector<RenderBox*>::iterator o = cleanLineFloats->begin(); o != end; ++o) {
                     RenderBox* f = *o;
-                    IntSize newSize(f->width() + f->marginLeft() +f->marginRight(), f->height() + f->marginTop() + f->marginBottom());
+                    f->layoutIfNeeded();
+                    IntSize newSize(f->width() + f->marginLeft() + f->marginRight(), f->height() + f->marginTop() + f->marginBottom());
                     ASSERT(floatIndex < floats.size());
                     if (floats[floatIndex].object != f) {
                         // A new float has been inserted before this line or before its last known float.
@@ -1359,14 +1433,14 @@ void RenderBlock::skipTrailingWhitespace(InlineIterator& iterator, bool isLineEm
     }
 }
 
-int RenderBlock::skipLeadingWhitespace(InlineBidiResolver& resolver, bool firstLine, bool isLineEmpty, bool previousLineBrokeCleanly)
+int RenderBlock::skipLeadingWhitespace(InlineBidiResolver& resolver, bool firstLine, bool isLineEmpty, bool previousLineBrokeCleanly,
+                                       FloatingObject* lastFloatFromPreviousLine)
 {
     int availableWidth = lineWidth(height(), firstLine);
     while (!resolver.position().atEnd() && !requiresLineBox(resolver.position(), isLineEmpty, previousLineBrokeCleanly)) {
         RenderObject* object = resolver.position().obj;
         if (object->isFloating()) {
-            insertFloatingObject(toRenderBox(object));
-            positionNewFloats();
+            positionNewFloatOnLine(insertFloatingObject(toRenderBox(object)), lastFloatFromPreviousLine);
             availableWidth = lineWidth(height(), firstLine);
         } else if (object->isPositioned()) {
             // FIXME: The math here is actually not really right.  It's a best-guess approximation that
@@ -1450,7 +1524,13 @@ static void tryHyphenating(RenderText* text, const Font& font, const AtomicStrin
     const AtomicString& hyphenString = text->style()->hyphenString();
     int hyphenWidth = font.width(TextRun(hyphenString.characters(), hyphenString.length()));
 
-    unsigned prefixLength = font.offsetForPosition(TextRun(text->characters() + lastSpace, pos - lastSpace, !collapseWhiteSpace, xPos + lastSpaceWordSpacing), availableWidth - xPos - hyphenWidth - lastSpaceWordSpacing, false);
+    int maxPrefixWidth = availableWidth - xPos - hyphenWidth - lastSpaceWordSpacing;
+    // If the maximum width available for the prefix before the hyphen is small, then it is very unlikely
+    // that an hyphenation opportunity exists, so do not bother to look for it.
+    if (maxPrefixWidth <= font.pixelSize() * 5 / 4)
+        return;
+
+    unsigned prefixLength = font.offsetForPosition(TextRun(text->characters() + lastSpace, pos - lastSpace, !collapseWhiteSpace, xPos + lastSpaceWordSpacing), maxPrefixWidth, false);
     if (!prefixLength)
         return;
 
@@ -1472,14 +1552,14 @@ static void tryHyphenating(RenderText* text, const Font& font, const AtomicStrin
 }
 
 InlineIterator RenderBlock::findNextLineBreak(InlineBidiResolver& resolver, bool firstLine,  bool& isLineEmpty, bool& previousLineBrokeCleanly, 
-                                              bool& hyphenated, EClear* clear)
+                                              bool& hyphenated, EClear* clear, FloatingObject* lastFloatFromPreviousLine)
 {
     ASSERT(resolver.position().block == this);
 
     bool appliedStartWidth = resolver.position().pos > 0;
     LineMidpointState& lineMidpointState = resolver.midpointState();
     
-    int width = skipLeadingWhitespace(resolver, firstLine, isLineEmpty, previousLineBrokeCleanly);
+    int width = skipLeadingWhitespace(resolver, firstLine, isLineEmpty, previousLineBrokeCleanly, lastFloatFromPreviousLine);
 
     int w = 0;
     int tmpW = 0;
@@ -1564,12 +1644,12 @@ InlineIterator RenderBlock::findNextLineBreak(InlineBidiResolver& resolver, bool
             // add to special objects...
             if (o->isFloating()) {
                 RenderBox* floatBox = toRenderBox(o);
-                insertFloatingObject(floatBox);
+                FloatingObject* f = insertFloatingObject(floatBox);
                 // check if it fits in the current line.
                 // If it does, position it now, otherwise, position
                 // it after moving to next line (in newLine() func)
                 if (floatsFitOnLine && floatBox->width() + floatBox->marginLeft() + floatBox->marginRight() + w + tmpW <= width) {
-                    positionNewFloats();
+                    positionNewFloatOnLine(f, lastFloatFromPreviousLine);
                     width = lineWidth(height(), firstLine);
                 } else
                     floatsFitOnLine = false;
@@ -1681,6 +1761,10 @@ InlineIterator RenderBlock::findNextLineBreak(InlineBidiResolver& resolver, bool
 
             RenderText* t = toRenderText(o);
 
+#if ENABLE(SVG)
+            bool isSVGText = t->isSVGInlineText();
+#endif
+
             int strlen = t->textLength();
             int len = strlen - pos;
             const UChar* str = t->characters();
@@ -1765,7 +1849,19 @@ InlineIterator RenderBlock::findNextLineBreak(InlineBidiResolver& resolver, bool
                     }
                     continue;
                 }
-                
+ 
+#if ENABLE(SVG)
+                if (isSVGText) {
+                    RenderSVGInlineText* svgInlineText = static_cast<RenderSVGInlineText*>(t);
+                    if (pos > 0) {
+                        if (svgInlineText->characterStartsNewTextChunk(pos)) {
+                            addMidpoint(lineMidpointState, InlineIterator(0, o, pos - 1));
+                            addMidpoint(lineMidpointState, InlineIterator(0, o, pos));
+                        }
+                    }
+                }
+#endif
+
                 bool applyWordSpacing = false;
                 
                 currentCharacterIsWS = currentCharacterIsSpace || (breakNBSP && c == noBreakSpace);

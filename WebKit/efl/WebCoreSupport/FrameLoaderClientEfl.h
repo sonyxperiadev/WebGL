@@ -181,6 +181,7 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
 
     virtual bool canHandleRequest(const ResourceRequest&) const;
     virtual bool canShowMIMEType(const String&) const;
+    virtual bool canShowMIMETypeAsHTML(const String& MIMEType) const;
     virtual bool representationExistsForURLScheme(const String&) const;
     virtual String generatedMIMETypeForURLScheme(const String&) const;
 
@@ -209,7 +210,6 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
     Evas_Object *m_frame;
 
     ResourceResponse m_response;
-    bool m_firstData;
     String m_userAgent;
     String m_customUserAgent;
 

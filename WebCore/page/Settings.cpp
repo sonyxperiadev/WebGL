@@ -27,8 +27,9 @@
 #include "Settings.h"
 
 #include "BackForwardList.h"
-#include "Database.h"
 #include "CachedResourceLoader.h"
+#include "DOMTimer.h"
+#include "Database.h"
 #include "Frame.h"
 #include "FrameTree.h"
 #include "FrameView.h"
@@ -87,7 +88,6 @@ Settings::Settings(Page* page)
     , m_sessionStorageQuota(StorageMap::noQuota)
 #endif
     , m_pluginAllowedRunTime(numeric_limits<unsigned>::max())
-    , m_zoomMode(ZoomPage)
     , m_isSpatialNavigationEnabled(false)
     , m_isJavaEnabled(false)
     , m_loadsImagesAutomatically(false)
@@ -158,6 +158,7 @@ Settings::Settings(Page* page)
 #endif
     , m_memoryInfoEnabled(false)
     , m_interactiveFormValidation(false)
+    , m_usePreHTML5ParserQuirks(false)
 #if ENABLE(WEB_AUTOFILL)
     , m_autoFillEnabled(false)
 #endif
@@ -432,6 +433,11 @@ void Settings::setNeedsTigerMailQuirks(bool needsQuirks)
 void Settings::setDOMPasteAllowed(bool DOMPasteAllowed)
 {
     m_isDOMPasteAllowed = DOMPasteAllowed;
+}
+
+void Settings::setMinDOMTimerInterval(double interval)
+{
+    DOMTimer::setMinTimerInterval(interval);
 }
 
 void Settings::setUsesPageCache(bool usesPageCache)
@@ -711,15 +717,6 @@ void Settings::setOfflineWebApplicationCacheEnabled(bool enabled)
 void Settings::setShouldPaintCustomScrollbars(bool shouldPaintCustomScrollbars)
 {
     m_shouldPaintCustomScrollbars = shouldPaintCustomScrollbars;
-}
-
-void Settings::setZoomMode(ZoomMode mode)
-{
-    if (mode == m_zoomMode)
-        return;
-    
-    m_zoomMode = mode;
-    setNeedsRecalcStyleInAllFrames(m_page);
 }
 
 void Settings::setEnforceCSSMIMETypeInNoQuirksMode(bool enforceCSSMIMETypeInNoQuirksMode)

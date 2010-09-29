@@ -174,6 +174,10 @@
 #import <wtf/StdLibExtras.h>
 #import <wtf/Threading.h>
 
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+#import <AppKit/NSTextChecker.h>
+#endif
+
 #if ENABLE(DASHBOARD_SUPPORT)
 #import <WebKit/WebDashboardRegion.h>
 #endif
@@ -692,6 +696,7 @@ static bool shouldEnableLoadDeferring()
 
     _private->page->setCanStartMedia([self window]);
     _private->page->settings()->setLocalStorageDatabasePath([[self preferences] _localStorageDatabasePath]);
+    _private->page->settings()->setMinDOMTimerInterval(0.004);
 
     [WebFrame _createMainFrameWithPage:_private->page frameName:frameName frameView:frameView];
 
@@ -1427,7 +1432,6 @@ static bool fastDocumentTeardownEnabled()
     settings->setWebArchiveDebugModeEnabled([preferences webArchiveDebugModeEnabled]);
     settings->setLocalFileContentSniffingEnabled([preferences localFileContentSniffingEnabled]);
     settings->setOfflineWebApplicationCacheEnabled([preferences offlineWebApplicationCacheEnabled]);
-    settings->setZoomMode([preferences zoomsTextOnly] ? ZoomTextOnly : ZoomPage);
     settings->setJavaScriptCanAccessClipboard([preferences javaScriptCanAccessClipboard]);
     settings->setXSSAuditorEnabled([preferences isXSSAuditorEnabled]);
     settings->setEnforceCSSMIMETypeInNoQuirksMode(!WKAppVersionCheckLessThan(@"com.apple.iWeb", -1, 2.1));
@@ -1435,11 +1439,13 @@ static bool fastDocumentTeardownEnabled()
     
     // FIXME: Enabling accelerated compositing when WebGL is enabled causes tests to fail on Leopard which expect HW compositing to be disabled.
     // Until we fix that, I will comment out the test (CFM)
-    settings->setAcceleratedCompositingEnabled((coreVideoHas7228836Fix() || [preferences webGLEnabled]) && [preferences acceleratedCompositingEnabled]);
+    settings->setAcceleratedCompositingEnabled((coreVideoHas7228836Fix() || [preferences webGLEnabled] || 
+        [preferences accelerated2dCanvasEnabled]) && [preferences acceleratedCompositingEnabled]);
     settings->setShowDebugBorders([preferences showDebugBorders]);
     settings->setShowRepaintCounter([preferences showRepaintCounter]);
     settings->setPluginAllowedRunTime([preferences pluginAllowedRunTime]);
     settings->setWebGLEnabled([preferences webGLEnabled]);
+    settings->setAccelerated2dCanvasEnabled([preferences accelerated2dCanvasEnabled]);
     settings->setLoadDeferringEnabled(shouldEnableLoadDeferring());
     settings->setFrameFlatteningEnabled([preferences isFrameFlatteningEnabled]);
     settings->setPaginateDuringLayoutEnabled([preferences paginateDuringLayoutEnabled]);
@@ -1447,9 +1453,14 @@ static bool fastDocumentTeardownEnabled()
     settings->setFullScreenEnabled([preferences fullScreenEnabled]);
 #endif
     settings->setMemoryInfoEnabled([preferences memoryInfoEnabled]);
+    settings->setUsePreHTML5ParserQuirks([preferences usePreHTML5ParserQuirks]);
 
     // Application Cache Preferences are stored on the global cache storage manager, not in Settings.
     [WebApplicationCache setDefaultOriginQuota:[preferences applicationCacheDefaultOriginQuota]];
+
+    BOOL zoomsTextOnly = [preferences zoomsTextOnly];
+    if (_private->zoomsTextOnly != zoomsTextOnly)
+        [self _setZoomMultiplier:_private->zoomMultiplier isTextOnly:zoomsTextOnly];
 }
 
 static inline IMP getMethod(id o, SEL s)
@@ -1908,9 +1919,38 @@ static inline IMP getMethod(id o, SEL s)
     Frame* mainFrame = [self _mainCoreFrame];
     if (!mainFrame)
         return nil;
-    NSMutableDictionary *regions = mainFrame->dashboardRegionsDictionary();
-    [self _addScrollerDashboardRegions:regions];
-    return regions;
+
+    const Vector<DashboardRegionValue>& regions = mainFrame->document()->dashboardRegions();
+    size_t size = regions.size();
+
+    NSMutableDictionary *webRegions = [NSMutableDictionary dictionaryWithCapacity:size];
+    for (size_t i = 0; i < size; i++) {
+        const DashboardRegionValue& region = regions[i];
+
+        if (region.type == StyleDashboardRegion::None)
+            continue;
+
+        NSString *label = region.label;
+        WebDashboardRegionType type = WebDashboardRegionTypeNone;
+        if (region.type == StyleDashboardRegion::Circle)
+            type = WebDashboardRegionTypeCircle;
+        else if (region.type == StyleDashboardRegion::Rectangle)
+            type = WebDashboardRegionTypeRectangle;
+        NSMutableArray *regionValues = [webRegions objectForKey:label];
+        if (!regionValues) {
+            regionValues = [[NSMutableArray alloc] initWithCapacity:1];
+            [webRegions setObject:regionValues forKey:label];
+            [regionValues release];
+        }
+
+        WebDashboardRegion *webRegion = [[WebDashboardRegion alloc] initWithRect:region.bounds clip:region.clip type:type];
+        [regionValues addObject:webRegion];
+        [webRegion release];
+    }
+
+    [self _addScrollerDashboardRegions:webRegions];
+
+    return webRegions;
 }
 
 - (void)_setDashboardBehavior:(WebDashboardBehavior)behavior to:(BOOL)flag
@@ -2604,6 +2644,13 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
     automaticTextReplacementEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:WebAutomaticTextReplacementEnabled];
     automaticSpellingCorrectionEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:WebAutomaticSpellingCorrectionEnabled];
 #endif
+
+#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    if (![[NSUserDefaults standardUserDefaults] objectForKey:WebAutomaticTextReplacementEnabled])
+        automaticTextReplacementEnabled = [NSSpellChecker isAutomaticTextReplacementEnabled];
+    if (![[NSUserDefaults standardUserDefaults] objectForKey:WebAutomaticSpellingCorrectionEnabled])
+        automaticTextReplacementEnabled = [NSSpellChecker isAutomaticSpellingCorrectionEnabled];
+#endif
 }
 
 + (void)_applicationWillTerminate
@@ -3272,17 +3319,16 @@ static bool needsWebViewInitThreadWorkaround()
 {
     // NOTE: This has no visible effect when viewing a PDF (see <rdar://problem/4737380>)
     _private->zoomMultiplier = multiplier;
+    _private->zoomsTextOnly = isTextOnly;
 
-    ASSERT(_private->page);
-    if (_private->page)
-        _private->page->settings()->setZoomMode(isTextOnly ? ZoomTextOnly : ZoomPage);
-
-    // FIXME: It would be nice to rework this code so that _private->zoomMultiplier doesn't exist
-    // and instead FrameView::zoomFactor is used.
+    // FIXME: It might be nice to rework this code so that _private->zoomMultiplier doesn't exist
+    // and instead the zoom factors stored in Frame are used.
     Frame* coreFrame = [self _mainCoreFrame];
     if (coreFrame) {
-        if (FrameView* view = coreFrame->view())
-            view->setZoomFactor(multiplier, isTextOnly ? ZoomTextOnly : ZoomPage);
+        if (_private->zoomsTextOnly)
+            coreFrame->setPageAndTextZoomFactors(1, multiplier);
+        else
+            coreFrame->setPageAndTextZoomFactors(multiplier, 1);
     }
 }
 
@@ -3303,7 +3349,7 @@ static bool needsWebViewInitThreadWorkaround()
     if (!_private->page)
         return NO;
     
-    return _private->page->settings()->zoomMode() == ZoomTextOnly;
+    return _private->zoomsTextOnly;
 }
 
 #define MinimumZoomMultiplier       0.5f
@@ -4366,6 +4412,9 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 
 - (BOOL)canMarkAllTextMatches
 {
+    if (_private->closed)
+        return NO;
+
     WebFrame *frame = [self mainFrame];
     do {
         id <WebDocumentView> view = [[frame frameView] documentView];
@@ -4769,7 +4818,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
                 mainFrame->editor()->applyEditingStyleToBodyElement();
                 // If the WebView is made editable and the selection is empty, set it to something.
                 if (![self selectedDOMRange])
-                    mainFrame->setSelectionFromNone();
+                    mainFrame->selection()->setSelectionFromNone();
             }
         }
     }

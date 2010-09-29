@@ -36,6 +36,7 @@
 #include "Texture.h"
 
 #include <wtf/HashMap.h>
+#include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -69,6 +70,7 @@ public:
     void drawArrays(unsigned long mode, long first, long count);
     unsigned long getError();
     void getIntegerv(unsigned long pname, int* value);
+    void flush();
 
     unsigned createFramebuffer();
     unsigned createTexture();
@@ -97,17 +99,30 @@ public:
 
     bool supportsBGRA();
 
+    // GL_CHROMIUM_copy_texture_to_parent_texture
+    bool supportsCopyTextureToParentTextureCHROMIUM();
+    void copyTextureToParentTextureCHROMIUM(unsigned texture, unsigned parentTexture);
+
     // Creates a texture associated with the given image.  Is owned by this context's
     // TextureHashMap.
     Texture* createTexture(NativeImagePtr, Texture::Format, int width, int height);
     Texture* getTexture(NativeImagePtr);
+
+    // Multiple SharedGraphicsContext3D can exist in a single process (one per compositing context) and the same
+    // NativeImagePtr may be uploaded as a texture into all of them.  This function removes uploaded textures
+    // for a given NativeImagePtr in all contexts.
+    static void removeTexturesFor(NativeImagePtr);
 
     // Creates a texture that is not associated with any image.  The caller takes ownership of
     // the texture.
     PassRefPtr<Texture> createTexture(Texture::Format, int width, int height);
 
 private:
-    SharedGraphicsContext3D(PassOwnPtr<GraphicsContext3D> context);
+    explicit SharedGraphicsContext3D(PassOwnPtr<GraphicsContext3D> context);
+
+    // Used to implement removeTexturesFor(), see the comment above.
+    static HashSet<SharedGraphicsContext3D*>* allContexts();
+    void removeTextureFor(NativeImagePtr);
 
     OwnPtr<GraphicsContext3D> m_context;
 

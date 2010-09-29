@@ -42,14 +42,15 @@ class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
-    MainWindow(const QString& url = QString());
+    MainWindow();
 
     void addCompleterEntry(const QUrl& url);
 
     void load(const QString& url);
     void load(const QUrl& url);
 
-    WebPage* page();
+    WebPage* page() const;
+    void setPage(WebPage*);
 
 protected slots:
     void setAddressUrl(const QString& url);
@@ -61,11 +62,11 @@ protected slots:
 private:
     void buildUI();
 
+    WebPage* m_page;
+    QToolBar* m_toolBar;
     QStringListModel urlModel;
     QStringList urlList;
     LocationEdit* urlEdit;
-
-    WebPage* m_page;
 };
 
 #endif

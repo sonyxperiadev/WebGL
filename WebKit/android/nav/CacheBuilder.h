@@ -48,9 +48,10 @@ class InlineTextBox;
 class LayerAndroid;
 class Node;
 class PlatformGraphicsContext;
+class RenderBlock;
 class RenderFlow;
-class RenderObject;
 class RenderLayer;
+class RenderObject;
 class Text;
 
 }
@@ -210,7 +211,7 @@ private:
         bool mSomeParentTakesFocus;
     };
     void adjustForColumns(const ClipColumnTracker& track, 
-        CachedNode* node, IntRect* bounds);
+        CachedNode* node, IntRect* bounds, RenderBlock*);
     static bool AddPartRect(IntRect& bounds, int x, int y,
         WTF::Vector<IntRect>* result, IntRect* focusBounds);
     static bool AnyIsClick(Node* node);

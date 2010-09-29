@@ -71,9 +71,7 @@ PassRefPtr<SubresourceLoader> SubresourceLoader::create(Frame* frame, Subresourc
 
     ResourceRequest newRequest = request;
 
-    if (securityCheck == DoSecurityCheck
-            && SecurityOrigin::restrictAccessToLocal()
-            && !SecurityOrigin::canDisplay(request.url(), String(), frame->document())) {
+    if (securityCheck == DoSecurityCheck && !frame->document()->securityOrigin()->canDisplay(request.url())) {
         FrameLoader::reportLocalLoadFailed(frame, request.url().string());
         return 0;
     }
@@ -142,7 +140,7 @@ void SubresourceLoader::didReceiveResponse(const ResourceResponse& r)
         
         // After the first multipart section is complete, signal to delegates that this load is "finished" 
         m_documentLoader->subresourceLoaderFinishedLoadingOnePart(this);
-        didFinishLoadingOnePart();
+        didFinishLoadingOnePart(0);
     }
 }
 
@@ -170,7 +168,7 @@ void SubresourceLoader::didReceiveCachedMetadata(const char* data, int length)
         m_client->didReceiveCachedMetadata(this, data, length);
 }
 
-void SubresourceLoader::didFinishLoading()
+void SubresourceLoader::didFinishLoading(double finishTime)
 {
     if (cancelled())
         return;
@@ -187,7 +185,7 @@ void SubresourceLoader::didFinishLoading()
     if (cancelled())
         return;
     m_documentLoader->removeSubresourceLoader(this);
-    ResourceLoader::didFinishLoading();
+    ResourceLoader::didFinishLoading(finishTime);
 }
 
 void SubresourceLoader::didFail(const ResourceError& error)

@@ -340,6 +340,15 @@ void ScrollView::valueChanged(Scrollbar* scrollbar)
     scrollContents(scrollDelta);
 }
 
+void ScrollView::valueChanged(const IntSize& scrollDelta)
+{
+    if (scrollbarsSuppressed())
+        return;
+
+    repaintFixedElementsAfterScrolling();
+    scrollContents(scrollDelta);
+}
+
 void ScrollView::setScrollPosition(const IntPoint& scrollPoint)
 {
     if (prohibitsScrolling())
@@ -524,7 +533,7 @@ void ScrollView::updateScrollbars(const IntSize& desiredOffset)
     IntSize scrollDelta = scroll - m_scrollOffset;
     if (scrollDelta != IntSize()) {
        m_scrollOffset = scroll;
-       scrollContents(scrollDelta);
+       valueChanged(scrollDelta);
     }
 
     m_inUpdateScrollbars = false;

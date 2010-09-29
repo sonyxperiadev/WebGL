@@ -49,6 +49,7 @@
 #include "MIMETypeRegistry.h"
 #include "MouseEvent.h"
 #include "NotImplemented.h"
+#include "Page.h"
 #include "PlatformString.h"
 #include "PluginDatabase.h"
 #include "RenderPart.h"
@@ -93,9 +94,115 @@ FrameLoaderClient::~FrameLoaderClient()
         g_object_unref(m_policyDecision);
 }
 
-String FrameLoaderClient::userAgent(const KURL&)
+static void initializeDomainsList(HashSet<String>& googleDomains)
+{
+    // Google search domains.
+    googleDomains.add("biz");
+    googleDomains.add("com");
+    googleDomains.add("net");
+    googleDomains.add("org");
+    googleDomains.add("ae");
+    googleDomains.add("ag");
+    googleDomains.add("am");
+    googleDomains.add("at");
+    googleDomains.add("az");
+    googleDomains.add("be");
+    googleDomains.add("bi");
+    googleDomains.add("ca");
+    googleDomains.add("cc");
+    googleDomains.add("cd");
+    googleDomains.add("cg");
+    googleDomains.add("ch");
+    googleDomains.add("cl");
+    googleDomains.add("com.br");
+    googleDomains.add("co.uk");
+    googleDomains.add("co.jp");
+    googleDomains.add("de");
+    googleDomains.add("dj");
+    googleDomains.add("dk");
+    googleDomains.add("es");
+    googleDomains.add("fi");
+    googleDomains.add("fm");
+    googleDomains.add("fr");
+    googleDomains.add("gg");
+    googleDomains.add("gl");
+    googleDomains.add("gm");
+    googleDomains.add("gs");
+    googleDomains.add("hn");
+    googleDomains.add("hu");
+    googleDomains.add("ie");
+    googleDomains.add("it");
+    googleDomains.add("je");
+    googleDomains.add("kz");
+    googleDomains.add("li");
+    googleDomains.add("lt");
+    googleDomains.add("lu");
+    googleDomains.add("lv");
+    googleDomains.add("ma");
+    googleDomains.add("ms");
+    googleDomains.add("mu");
+    googleDomains.add("mw");
+    googleDomains.add("nl");
+    googleDomains.add("no");
+    googleDomains.add("nu");
+    googleDomains.add("pl");
+    googleDomains.add("pn");
+    googleDomains.add("pt");
+    googleDomains.add("ru");
+    googleDomains.add("rw");
+    googleDomains.add("sh");
+    googleDomains.add("sk");
+    googleDomains.add("sm");
+    googleDomains.add("st");
+    googleDomains.add("td");
+    googleDomains.add("tk");
+    googleDomains.add("tp");
+    googleDomains.add("tv");
+    googleDomains.add("us");
+    googleDomains.add("uz");
+    googleDomains.add("ws");
+}
+
+static bool isGoogleDomain(String host)
+{
+    DEFINE_STATIC_LOCAL(HashSet<String>, googleDomains, ());
+    DEFINE_STATIC_LOCAL(Vector<String>, otherGoogleDomains, ());
+
+    if (googleDomains.isEmpty()) {
+        otherGoogleDomains.append("gmail.com");
+        otherGoogleDomains.append("youtube.com");
+        otherGoogleDomains.append("gstatic.com");
+        otherGoogleDomains.append("ytimg.com");
+
+        initializeDomainsList(googleDomains);
+    }
+
+    // First check if this is one of the various google.com international domains.
+    int position = host.find(".google.");
+    if (position > 0 && googleDomains.contains(host.substring(position + sizeof(".google."))))
+        return true;
+
+    // Then we check the possibility of it being one of the other, .com-only google domains.
+    for (unsigned int i = 0; i < otherGoogleDomains.size(); i++) {
+        if (host.endsWith(otherGoogleDomains.at(i)))
+            return true;
+    }
+
+    return false;
+}
+
+String FrameLoaderClient::userAgent(const KURL& url)
 {
     WebKitWebSettings* settings = webkit_web_view_get_settings(getViewFromFrame(m_frame));
+
+    gboolean useQuirks;
+    g_object_get(settings, "enable-site-specific-quirks", &useQuirks, NULL);
+
+    // For Google domains, drop the browser's custom User Agent string, and use the standard
+    // WebKit/Safari one, so they don't give us a broken experience.
+    if (useQuirks && isGoogleDomain(url.host()))
+        return webkitUserAgent();
+
     return String::fromUTF8(webkit_web_settings_get_user_agent(settings));
 }
 
@@ -138,26 +245,15 @@ void FrameLoaderClient::dispatchWillSubmitForm(FramePolicyFunction policyFunctio
     (core(m_frame)->loader()->policyChecker()->*policyFunction)(PolicyUse);
 }
 
-
 void FrameLoaderClient::committedLoad(WebCore::DocumentLoader* loader, const char* data, int length)
 {
     if (!m_pluginView) {
         ASSERT(loader->frame());
-        // Setting the encoding on the frame loader is our way to get work done that is normally done
-        // when the first bit of data is received, even for the case of a document with no data (like about:blank).
-        String encoding = loader->overrideEncoding();
-        bool userChosen = !encoding.isNull();
-        if (!userChosen)
-            encoding = loader->response().textEncodingName();
-
-        FrameLoader* frameLoader = loader->frameLoader();
-        frameLoader->writer()->setEncoding(encoding, userChosen);
-        if (data)
-            frameLoader->addData(data, length);
+        loader->commitData(data, length);
 
         Frame* coreFrame = loader->frame();
-        if (coreFrame && coreFrame->document() && coreFrame->document()->isMediaDocument())
-            loader->cancelMainResourceLoad(frameLoader->client()->pluginWillHandleLoadError(loader->response()));
+        if (coreFrame && coreFrame->document()->isMediaDocument())
+            loader->cancelMainResourceLoad(coreFrame->loader()->client()->pluginWillHandleLoadError(loader->response()));
     }
 
     if (m_pluginView) {
@@ -859,6 +955,12 @@ bool FrameLoaderClient::canHandleRequest(const ResourceRequest&) const
     return true;
 }
 
+bool FrameLoaderClient::canShowMIMETypeAsHTML(const String& MIMEType) const
+{
+    notImplemented();
+    return false;
+}
+
 bool FrameLoaderClient::canShowMIMEType(const String& type) const
 {
     return (MIMETypeRegistry::isSupportedImageMIMEType(type)
@@ -1145,14 +1247,12 @@ static void postCommitFrameViewSetup(WebKitWebFrame *frame, FrameView *view, boo
 {
     WebKitWebView* containingWindow = getViewFromFrame(frame);
     WebKitWebViewPrivate* priv = WEBKIT_WEB_VIEW_GET_PRIVATE(containingWindow);
-    view->setGtkAdjustments(priv->horizontalAdjustment, priv->verticalAdjustment, resetValues);
+    view->setGtkAdjustments(priv->horizontalAdjustment.get(), priv->verticalAdjustment.get(), resetValues);
 
     if (priv->currentMenu) {
-        GtkMenu* menu = priv->currentMenu;
-        priv->currentMenu = 0;
-
-        gtk_menu_popdown(menu);
-        g_object_unref(menu);
+        PlatformRefPtr<GtkMenu> menu(priv->currentMenu);
+        priv->currentMenu.clear();
+        gtk_menu_popdown(menu.get());
     }
 
     // Do not allow click counting between main frame loads.

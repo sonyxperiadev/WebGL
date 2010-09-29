@@ -1,3 +1,384 @@
+2010-09-17  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        REGRESSION (r60104): Zoom level is unexpectedly reset on page reload
+        https://bugs.webkit.org/show_bug.cgi?id=42863
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_get_zoom_level):
+        (webkit_web_view_apply_zoom_level):
+        (webkit_web_view_set_full_content_zoom):
+        Call functions on Frame instead of FrameView.
+
+2010-09-16  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Implement dissolveDragImageToFraction
+        https://bugs.webkit.org/show_bug.cgi?id=45826
+
+        To support full alpha in the drag icon, changed the drag icon to be a 
+        GtkWindow with an RGBA colormap. Added logic to support painting the drag
+        image to this window during the expose event.
+
+        * WebCoreSupport/DragClientGtk.cpp:
+        (WebKit::dragIconWindowExposeEventCallback): Added.
+        (WebKit::DragClient::DragClient): Initialize the new drag icon window.
+        (WebKit::DragClient::~DragClient): Disconnect the expose event signal.
+        (WebKit::DragClient::startDrag): Resize the drag icon window the appropriate size and
+        if necessary, set its colormap.
+        (WebKit::DragClient::dragIconWindowExposeEvent): Added.
+        * WebCoreSupport/DragClientGtk.h: Added new member and method declarations.
+
+2010-09-14  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Eric Carlson and Martin Robinson.
+
+        [GTK] eventSender.contextClick() should return the contents of the context menu
+        https://bugs.webkit.org/show_bug.cgi?id=39102
+
+        New private WebView API to retrieve the context-menu widget. This
+        is used by DRT only.
+
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_get_context_menu):
+
+2010-09-16  Alejandro G. Castro  <alex@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        GTK+ 3.x. updates, gtk_widget_size_request is deprecated and
+        "activate-slider" style property for scrollbars is gone.
+
+        * webkit/webkitwebview.cpp:
+        (PopupMenuPositionFunc):
+
+2010-09-15  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by David Levin.
+
+        [GTK] [REGRESSION] r67591 broke the testwebbackforwardlist API test and introduced a memory leak
+        https://bugs.webkit.org/show_bug.cgi?id=45865
+
+        When initializing the backForwardList private member of the WebView, do
+        so with adoptPlatformRef to prevent a memory leak.
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_init): Initialize member with adoptPlatformRef.
+
+2010-09-15  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Eric Seidel.
+
+        [Gtk] Use GOwnPtr for code that needs it
+        https://bugs.webkit.org/show_bug.cgi?id=21594
+
+        Convert as reference counted private members of WebKitWebView to
+        smart pointers as possible. This removes a lot of unecessary manual
+        memory management. Also convert some pointer members away from pointer
+        types, now that we are sure their destructors are called.
+
+        * WebCoreSupport/ContextMenuClientGtk.cpp:
+        (WebKit::inputMethodsMenuItem): Updated to reflect PlatformRefPtr changes.
+        * WebCoreSupport/DragClientGtk.cpp:
+        (WebKit::DragClient::startDrag): Ditto.
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::EditorClient::setInputMethodState): Ditto.
+        (WebKit::EditorClient::respondToChangedSelection): Ditto.
+        (WebKit::EditorClient::handleInputMethodKeydown): Ditto.
+        (WebKit::EditorClient::handleInputMethodMousePress): Ditto.
+        (WebKit::EditorClient::EditorClient): Ditto.
+        (WebKit::EditorClient::~EditorClient): Ditto.
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::postCommitFrameViewSetup): Ditto.
+        * webkit/webkitprivate.h: Ditto.
+        * webkit/webkitwebview.cpp: Ditto.
+        (destroy_menu_cb): Ditto.
+        (webkit_web_view_forward_context_menu_event): Ditto.
+        (webkit_web_view_key_release_event): Ditto.
+        (webkit_web_view_button_press_event): Ditto.
+        (webkit_web_view_button_release_event): Ditto.
+        (webkit_web_view_focus_in_event): Ditto.
+        (webkit_web_view_focus_out_event): Ditto.
+        (webkit_web_view_realize): Ditto.
+        (webkit_web_view_set_scroll_adjustments): Ditto.
+        (webkit_web_view_dispose): Changed all g_object_unref calls to
+        PlatformRefPtr.clear(). Although this will also be done by the manual
+        call to the WebKitWebViewPrivate destructor, the order that these
+        fields are zero'd in is still very sensitive.
+        (webkit_web_view_finalize): Updated to reflect PlatformRefPtr changes.
+        (webViewGetDPI): Ditto.
+        (webkit_web_view_screen_changed): Ditto.
+        (webkit_web_view_drag_end): Ditto.
+        (webkit_web_view_drag_data_get): Ditto.
+        (doDragLeaveLater): Ditto.
+        (webkit_web_view_drag_leave): Ditto.
+        (webkit_web_view_drag_motion): Ditto.
+        (webkit_web_view_drag_data_received): Ditto.
+        (webkit_web_view_drag_drop): Ditto.
+        (webkit_web_view_get_im_context): Ditto.
+        (webkit_web_view_update_settings): Ditto.
+        (webkit_web_view_init): Ditto.
+        (webkit_web_view_set_settings): Ditto.
+        (webkit_web_view_get_settings): Ditto.
+        (webkit_web_view_get_inspector): Ditto.
+        (webkit_web_view_set_window_features): Ditto.
+        (webkit_web_view_get_window_features): Ditto.
+        (webkit_web_view_get_back_forward_list): Ditto.
+        (webkit_web_view_zoom_in): Ditto.
+        (webkit_web_view_zoom_out): Ditto.
+        (webkit_web_view_add_resource): Ditto.
+        (webkit_web_view_get_resource): Ditto.
+        (webkit_web_view_get_main_resource): Ditto.
+        (webkit_web_view_clear_resources): Ditto.
+        (webkit_web_view_get_subresources): Ditto.
+
+2010-09-14  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] fast/events/keydown-numpad-keys.html produces many GLib warnings
+        https://bugs.webkit.org/show_bug.cgi?id=45775
+
+        Handle the toggle-overwrite signal on the GtkTextView used for generating editing
+        commands. Ignore this signals, as the default handler assumes that the GtkTextView
+        has a layout and this one does not.
+
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::toggleOverwriteCallback): Added. Cancels the default handler.
+        (WebKit::EditorClient::EditorClient): Attach a handler for toggle-overwrite.
+
+2010-09-14  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: Provide network-based load timing.
+        Before this change, inspector used timers taken from
+        within WebCore notifications (that are by definition
+        synchronous and serialized). As a result, timing was
+        affected by the routines running on the main thread
+        (JavaScript and such).
+        https://bugs.webkit.org/show_bug.cgi?id=45664
+
+        * webkit/webkitdownload.cpp:
+        (DownloadClient::didFinishLoading):
+
+2010-09-15  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r67551.
+        http://trac.webkit.org/changeset/67551
+        https://bugs.webkit.org/show_bug.cgi?id=45816
+
+        "Plugin tests fail" (Requested by yurys on #webkit).
+
+        * webkit/webkitdownload.cpp:
+        (DownloadClient::didFinishLoading):
+
+2010-09-14  Pavel Feldman  <pfeldman@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: Provide network-based load timing.
+        Before this change, inspector used timers taken from
+        within WebCore notifications (that are by definition
+        synchronous and serialized). As a result, timing was
+        affected by the routines running on the main thread
+        (JavaScript and such).
+        https://bugs.webkit.org/show_bug.cgi?id=45664
+
+        * webkit/webkitdownload.cpp:
+        (DownloadClient::didFinishLoading):
+
+2010-09-13  Enrica Casucci  <enrica@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Paste should be implemented in WebCore like Copy and Cut for Mac also.
+        https://bugs.webkit.org/show_bug.cgi?id=45494
+        <rdar://problem/7660537>
+
+        On the Mac platform, the implementation of the paste operation is all done
+        at the WebKit level. In order to support it on WebKit2 it is necessary to
+        refactor the code and move this functionality at the level of WebCore like
+        we already have on Windows.
+        The original code relies on some in AppKit functions that call back into
+        WebKit causing problems in WebKit2. All this functionality has been moved
+        at the level of the editor client where it can be dealt with appropriately.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::canShowMIMETypeAsHTML): Added stub.
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+
+2010-09-13  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Provide unit tests for AtkText's text selection functions
+        https://bugs.webkit.org/show_bug.cgi?id=43919
+
+        New tests to check getting, setting and removing text selections
+
+        * tests/testatk.c:
+        (testWekitAtkTextSelections): New unit tests to check all the text
+        selection related functions altogether through a single test
+        function.
+        (main):
+
+        Make sure that code dependant on getting information from the
+        clipboard gets executed only when there's a GDK window associated
+        to the webview widget, as that's not the case when executing the
+        unit tests (the wedbview is not inside of any toplevel window) and
+        will make the tests crash if not taken into account.
+
+        * WebCoreSupport/EditorClientGtk.cpp:
+        (WebKit::EditorClient::respondToChangedSelection):
+
+2010-09-11  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Make introspection work with g-o-i 0.9.5
+        https://bugs.webkit.org/show_bug.cgi?id=45590
+
+        Use new type syntax and bump version number of the gir file.
+
+        * JSCore.gir.in:
+
+2010-09-10  Jesus Sanchez-Palencia  <jesus.palencia@openbossa.org>
+
+        Reviewed by Darin Adler.
+
+        Add NetworkingContext to avoid layer violations
+        https://bugs.webkit.org/show_bug.cgi?id=42292
+
+        * webkit/webkitdownload.cpp:
+        (webkit_download_start):
+        * webkit/webkitprivate.cpp:
+        (currentToplevelCallback):
+
+2010-09-10  Sam Weinig  <sam@webkit.org>
+
+        Fix GTK build.
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_set_full_content_zoom):
+
+2010-09-10  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Remove unnecessary constraint in WebCore of choosing either text zoom or full page zoom.
+        Precursor to <rdar://problem/7660657>
+        https://bugs.webkit.org/show_bug.cgi?id=45522
+
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_get_zoom_level):
+        (webkit_web_view_apply_zoom_level):
+        (webkit_web_view_set_full_content_zoom):
+
+2010-09-10  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] Fix warnings because of bad assignments in testatk.c
+        https://bugs.webkit.org/show_bug.cgi?id=45538
+
+        Use AtkObject and AtkText instances properly in the code.
+
+        * tests/testatk.c:
+        (testWebkitAtkListsOfItems):
+
+2010-09-10  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Fisher.
+
+        Move code from WebKit-layer to DocumentLoader
+        https://bugs.webkit.org/show_bug.cgi?id=45569
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::committedLoad):
+
+2010-09-10  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Main resource bytes shouldn't bounce through FrameLoader
+        https://bugs.webkit.org/show_bug.cgi?id=45496
+
+        Now return the bytes to the DocumentLoader.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::committedLoad):
+
+2010-09-10  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] Placement new / manual destructor invocation should be used on private GObject memory
+        https://bugs.webkit.org/show_bug.cgi?id=45550
+
+        GLib allocates and deallocates GObject private data structs itself. When
+        those structs contain C++ members, their constructors and destructors are not
+        called. This is not only dangerous, it makes RefPtr-type smart pointers much
+        less useful. We can fix this problem by calling placement new on the private
+        data struct during instance initialization and calling the destructor during
+        finalization.
+
+        This patch takes that approach and switches plain char* members of
+        WebKitWebView (with manual memory allocation) to use CString.
+
+        * webkit/webkitprivate.h: Switch char* members to CString.
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_finalize): Manually call the destructor on the private
+        data. Remove manual deallocation of members which are now CString.
+        (webkit_web_view_query_tooltip): Update to reflect CString change.
+        (webkit_web_view_init): Use placement new to initialize C++ members of
+        the private data section.
+        (webkit_web_view_get_encoding): Update to reflect CString change.
+        (webkit_web_view_get_custom_encoding): Ditto.
+        (webkit_web_view_add_resource): Ditto.
+        (webkit_web_view_get_resource): Ditto.
+        (webkit_web_view_clear_resources): Ditto.
+        (webkit_web_view_set_tooltip_text): Ditto.
+        (webkit_web_view_get_icon_uri): Ditto.
+
+2010-09-10  Gustavo Noronha Silva  <gns@gnome.org>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Google sites do not like WebKitGTK+
+        https://bugs.webkit.org/show_bug.cgi?id=39617
+
+        Special-case Google domains, and spoof User-Agent when talking to
+        them, to stop being treated as a second-class citizen.
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::initializeDomainsList):
+        (WebKit::isGoogleDomain):
+        (WebKit::FrameLoaderClient::userAgent): If enable-site-specific-quirks
+        is enabled, send the standard WebKit User-Agent string, disregarding the
+        custom one set by the browser for Google domains.
+        * webkit/webkitprivate.h:
+        * webkit/webkitwebsettings.cpp:
+        (webkitPlatform): Fix style, and simplify.
+        (webkitOSVersion): Ditto.
+        (webkitUserAgent): Add the Version/x.y string Safari has been
+        using since Safari 2.2.
+
+2010-09-10  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        Fix compilation with GTK+ 3.x.
+
+        GDK key macros were renamed from GDK_FOO to GDK_KEY_FOO, we need
+        to include the compat header provided if we want to keep using the
+        old names.
+
+        * WebCoreSupport/FullscreenVideoController.cpp: include GtkVersioning.h
+
 2010-09-08  Darin Adler  <darin@apple.com>
 
         Reviewed by Adam Barth.

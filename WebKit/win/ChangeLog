@@ -1,3 +1,185 @@
+2010-09-17  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        REGRESSION (r60104): Zoom level is unexpectedly reset on page reload
+        https://bugs.webkit.org/show_bug.cgi?id=42863
+
+        * WebView.cpp:
+        (WebView::setZoomMultiplier):
+        Call functions on Frame instead of FrameView.
+
+2010-09-17  Matthew Delaney  <mdelaney@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Reduce minimum DOMTimer interval
+        https://bugs.webkit.org/show_bug.cgi?id=45362
+
+        * WebView.cpp: Added in a call to set the mimimum allowed DOMTimer to 4ms.
+
+2010-09-17  Simon Fraser  <simon.fraser@apple.com>
+
+        Reviewed by Chris Marrin.
+
+        Remove scroll and clip layers for WKCACFLayerRenderer
+        https://bugs.webkit.org/show_bug.cgi?id=45922
+
+        WKCACFLayerRenderer no longer needs its own layers for managing scrolling
+        and clipping, because RenderLayerCompositor provides this functionality.
+
+        * WebView.cpp:
+        (WebView::sizeChanged): Moved code that handles the WM_SIZE message
+        into this method. Use it to resize the layer renderer.
+        (WebView::WebViewWndProc): Call sizeChanged().
+        (WebView::updateRootLayerContents): No need to call setScrollFrame() any more.
+        (WebView::layerRendererBecameVisible): Move this from the header (no need to be inline).
+        * WebView.h:
+
+2010-09-16  Darin Adler  <darin@apple.com>
+
+        Reviewed by Andreas Kling.
+
+        Reduce use of HTMLInputElement::inputType so we can remove it later
+        https://bugs.webkit.org/show_bug.cgi?id=45903
+
+        * WebFrame.cpp:
+        (WebFrame::elementDoesAutoComplete): Use isPasswordField.
+        (WebFrame::elementIsPassword): Use isPasswordField.
+
+2010-09-14  Ada Chan  <adachan@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Add an IWebFramePrivate API to load string as plain text into the WebFrame.
+        https://bugs.webkit.org/show_bug.cgi?id=45782
+
+        * Interfaces/IWebFramePrivate.idl:
+        * Interfaces/WebKit.idl: Touch the file.
+        * WebFrame.cpp:
+        (WebFrame::loadPlainTextString):
+        * WebFrame.h:
+
+2010-09-13  Enrica Casucci  <enrica@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Paste should be implemented in WebCore like Copy and Cut for Mac also.
+        https://bugs.webkit.org/show_bug.cgi?id=45494
+        <rdar://problem/7660537>
+
+        On the Mac platform, the implementation of the paste operation is all done
+        at the WebKit level. In order to support it on WebKit2 it is necessary to
+        refactor the code and move this functionality at the level of WebCore like
+        we already have on Windows.
+        The original code relies on some in AppKit functions that call back into
+        WebKit causing problems in WebKit2. All this functionality has been moved
+        at the level of the editor client where it can be dealt with appropriately.
+
+        * WebFrame.cpp:
+        (WebFrame::canShowMIMETypeASHTML): Added.
+
+2010-09-11  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Sam Weinig.
+
+        Make SecurityOrigin::canDisplay an instance function
+        https://bugs.webkit.org/show_bug.cgi?id=45219
+
+        * WebFrame.cpp:
+        (WebFrame::allowsFollowingLink):
+
+2010-09-10  Jesus Sanchez-Palencia <jesus.palencia@openbossa.org>
+
+        Reviewed by Darin Adler.
+
+        Add NetworkingContext to avoid layer violations
+        https://bugs.webkit.org/show_bug.cgi?id=42292
+
+        * WebCoreSupport/WebFrameNetworkingContext.cpp:
+        (WebFrameNetworkingContext::blockedError):
+        * WebCoreSupport/WebFrameNetworkingContext.h:
+
+2010-09-10  Jer Noble  <jer.noble@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Movies with track or movie matrices don't display in <video> elements (Safari 5/Windows)
+        https://bugs.webkit.org/show_bug.cgi?id=45333
+        
+        The rootChild layer must be set as flipped, otherwise transformed movies will appear
+        incorrectly rotated.
+
+        * FullscreenVideoController.cpp:
+        (FullscreenVideoController::enterFullscreen):
+
+2010-09-10  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Remove unnecessary constraint in WebCore of choosing either text zoom or full page zoom.
+        Precursor to <rdar://problem/7660657>
+        https://bugs.webkit.org/show_bug.cgi?id=45522
+
+        * WebFrame.cpp:
+        * WebFrame.h:
+        Remove dead code.
+
+        * WebView.cpp:
+        (WebView::WebView):
+        (WebView::setZoomMultiplier):
+        (WebView::zoomMultiplier):
+        (WebView::canMakeTextLarger):
+        (WebView::makeTextLarger):
+        (WebView::canMakeTextSmaller):
+        (WebView::makeTextSmaller):
+        (WebView::notifyPreferencesChanged):
+        * WebView.h:
+        Move tracking of text only zoom here from WebCore.
+
+2010-09-10  Brian Weinstein  <bweinstein@apple.com>
+
+        Windows Build Fix. Fix some fallout from r67238, currentForm is now off of 
+        SelectionController instead of frame. Also fix a style issue.
+
+        * WebFrame.cpp:
+        (WebFrame::currentForm):
+
+2010-09-10  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Fisher.
+
+        Move code from WebKit-layer to DocumentLoader
+        https://bugs.webkit.org/show_bug.cgi?id=45569
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::committedLoad):
+        * WebCoreSupport/WebFrameLoaderClient.h:
+
+2010-09-09  Darin Adler  <darin@apple.com>
+
+        Reviewed by Adam Barth.
+
+        Move functions from Frame to SelectionController as planned
+        https://bugs.webkit.org/show_bug.cgi?id=45508
+
+        * WebView.cpp:
+        (WebView::selectionRect):
+        (WebView::centerSelectionInVisibleArea):
+        Call functions on selection().
+
+2010-09-10  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Main resource bytes shouldn't bounce through FrameLoader
+        https://bugs.webkit.org/show_bug.cgi?id=45496
+
+        Now return the bytes to the DocumentLoader.
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::receivedData):
+
 2010-09-09  Simon Fraser  <simon.fraser@apple.com>
 
         Reviewed by Adam Roben.

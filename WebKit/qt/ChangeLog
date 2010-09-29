@@ -1,3 +1,557 @@
+2010-09-20  Jacob Dinu  <dinu.jacob@nokia.com>
+
+        Reviewed by Adam Barth.
+
+        Added a new qwebpage test for loading a cached page
+        https://bugs.webkit.org/show_bug.cgi?id=41155
+
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::loadCachedPage):
+
+2010-09-08  Jocelyn Turcotte  <jocelyn.turcotte@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Fix forward includes generation for MSVC when sh is in PATH.
+
+        MSVC's nmake isn't affected by having sh in PATH.
+
+        * Api/DerivedSources.pro:
+
+2010-09-18  Ademar de Souza Reis Jr  <ademar.reis@openbossa.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        Enable Platform Strategies on Qt
+
+        [Qt] Turn on PLATFORM_STRATEGIES
+        https://bugs.webkit.org/show_bug.cgi?id=45831
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::QWebPagePrivate): Initialize the PlatformStrategy
+        singleton.
+        * WebCoreSupport/WebPlatformStrategies.cpp: Added, code was moved
+        from platform/qt/Localizations.cpp and plugins/qt/PluginDataQt.cpp
+        (WebPlatformStrategies::initialize): create the singleton,
+        following the same "pattern" used by Mac and Win ports.
+        (WebPlatformStrategies::WebPlatformStrategies):
+        (WebPlatformStrategies::createPluginStrategy):
+        (WebPlatformStrategies::createLocalizationStrategy):
+        (WebPlatformStrategies::createVisitedLinkStrategy):
+        (WebPlatformStrategies::refreshPlugins):
+        (WebPlatformStrategies::getPluginInfo):
+        (WebPlatformStrategies::inputElementAltText):
+        (WebPlatformStrategies::resetButtonDefaultLabel):
+        (WebPlatformStrategies::searchableIndexIntroduction):
+        (WebPlatformStrategies::submitButtonDefaultLabel):
+        (WebPlatformStrategies::fileButtonChooseFileLabel):
+        (WebPlatformStrategies::fileButtonNoFileSelectedLabel):
+        (WebPlatformStrategies::contextMenuItemTagOpenLinkInNewWindow):
+        (WebPlatformStrategies::contextMenuItemTagDownloadLinkToDisk):
+        (WebPlatformStrategies::contextMenuItemTagCopyLinkToClipboard):
+        (WebPlatformStrategies::contextMenuItemTagOpenImageInNewWindow):
+        (WebPlatformStrategies::contextMenuItemTagDownloadImageToDisk):
+        (WebPlatformStrategies::contextMenuItemTagCopyImageToClipboard):
+        (WebPlatformStrategies::contextMenuItemTagOpenFrameInNewWindow):
+        (WebPlatformStrategies::contextMenuItemTagCopy):
+        (WebPlatformStrategies::contextMenuItemTagGoBack):
+        (WebPlatformStrategies::contextMenuItemTagGoForward):
+        (WebPlatformStrategies::contextMenuItemTagStop):
+        (WebPlatformStrategies::contextMenuItemTagReload):
+        (WebPlatformStrategies::contextMenuItemTagCut):
+        (WebPlatformStrategies::contextMenuItemTagPaste):
+        (WebPlatformStrategies::contextMenuItemTagNoGuessesFound):
+        (WebPlatformStrategies::contextMenuItemTagIgnoreSpelling):
+        (WebPlatformStrategies::contextMenuItemTagLearnSpelling):
+        (WebPlatformStrategies::contextMenuItemTagSearchWeb):
+        (WebPlatformStrategies::contextMenuItemTagLookUpInDictionary):
+        (WebPlatformStrategies::contextMenuItemTagOpenLink):
+        (WebPlatformStrategies::contextMenuItemTagIgnoreGrammar):
+        (WebPlatformStrategies::contextMenuItemTagSpellingMenu):
+        (WebPlatformStrategies::contextMenuItemTagShowSpellingPanel):
+        (WebPlatformStrategies::contextMenuItemTagCheckSpelling):
+        (WebPlatformStrategies::contextMenuItemTagCheckSpellingWhileTyping):
+        (WebPlatformStrategies::contextMenuItemTagCheckGrammarWithSpelling):
+        (WebPlatformStrategies::contextMenuItemTagFontMenu):
+        (WebPlatformStrategies::contextMenuItemTagBold):
+        (WebPlatformStrategies::contextMenuItemTagItalic):
+        (WebPlatformStrategies::contextMenuItemTagUnderline):
+        (WebPlatformStrategies::contextMenuItemTagOutline):
+        (WebPlatformStrategies::contextMenuItemTagWritingDirectionMenu):
+        (WebPlatformStrategies::contextMenuItemTagTextDirectionMenu):
+        (WebPlatformStrategies::contextMenuItemTagDefaultDirection):
+        (WebPlatformStrategies::contextMenuItemTagLeftToRight):
+        (WebPlatformStrategies::contextMenuItemTagRightToLeft):
+        (WebPlatformStrategies::contextMenuItemTagInspectElement):
+        (WebPlatformStrategies::searchMenuNoRecentSearchesText):
+        (WebPlatformStrategies::searchMenuRecentSearchesText):
+        (WebPlatformStrategies::searchMenuClearRecentSearchesText):
+        (WebPlatformStrategies::AXWebAreaText):
+        (WebPlatformStrategies::AXLinkText):
+        (WebPlatformStrategies::AXListMarkerText):
+        (WebPlatformStrategies::AXImageMapText):
+        (WebPlatformStrategies::AXHeadingText):
+        (WebPlatformStrategies::AXDefinitionListTermText):
+        (WebPlatformStrategies::AXDefinitionListDefinitionText):
+        (WebPlatformStrategies::AXButtonActionVerb):
+        (WebPlatformStrategies::AXRadioButtonActionVerb):
+        (WebPlatformStrategies::AXTextFieldActionVerb):
+        (WebPlatformStrategies::AXCheckedCheckBoxActionVerb):
+        (WebPlatformStrategies::AXUncheckedCheckBoxActionVerb):
+        (WebPlatformStrategies::AXMenuListActionVerb):
+        (WebPlatformStrategies::AXMenuListPopupActionVerb):
+        (WebPlatformStrategies::AXLinkActionVerb):
+        (WebPlatformStrategies::missingPluginText):
+        (WebPlatformStrategies::crashedPluginText):
+        (WebPlatformStrategies::multipleFileUploadText):
+        (WebPlatformStrategies::unknownFileSizeText):
+        (WebPlatformStrategies::imageTitle):
+        (WebPlatformStrategies::mediaElementLoadingStateText):
+        (WebPlatformStrategies::mediaElementLiveBroadcastStateText):
+        (WebPlatformStrategies::localizedMediaControlElementString):
+        (WebPlatformStrategies::localizedMediaControlElementHelpText):
+        (WebPlatformStrategies::localizedMediaTimeDescription):
+        (WebPlatformStrategies::validationMessageValueMissingText):
+        (WebPlatformStrategies::validationMessageTypeMismatchText):
+        (WebPlatformStrategies::validationMessagePatternMismatchText):
+        (WebPlatformStrategies::validationMessageTooLongText):
+        (WebPlatformStrategies::validationMessageRangeUnderflowText):
+        (WebPlatformStrategies::validationMessageRangeOverflowText):
+        (WebPlatformStrategies::validationMessageStepMismatchText):
+        (WebPlatformStrategies::isLinkVisited):
+        (WebPlatformStrategies::addVisitedLink):
+        * WebCoreSupport/WebPlatformStrategies.h: Added, based on Mac and Win
+        versions.
+
+2010-09-18  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] V8 port: Add FrameLoaderClientQt::allowScriptExtension()
+        https://bugs.webkit.org/show_bug.cgi?id=46034
+
+        r67749 added FrameLoaderClient::allowScriptExtension() (V8-specific)
+        Add a stub implementation that simply returns false for now.
+
+        * WebCoreSupport/FrameLoaderClientQt.h:
+        (WebCore::FrameLoaderClientQt::allowScriptExtension):
+
+2010-09-17  Darin Adler  <darin@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        REGRESSION (r60104): Zoom level is unexpectedly reset on page reload
+        https://bugs.webkit.org/show_bug.cgi?id=42863
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::setTextSizeMultiplier):
+        (QWebFrame::textSizeMultiplier):
+        (QWebFrame::setZoomFactor):
+        (QWebFrame::zoomFactor):
+        Call functions on Frame instead of FrameView.
+
+2010-09-16  Darin Adler  <darin@apple.com>
+
+        Fix build.
+
+        * WebCoreSupport/EditorClientQt.cpp:
+        (WebCore::EditorClientQt::setInputMethodState): Updated for change
+        in name of isUrlField to isURLField.
+
+2010-09-16  Darin Adler  <darin@apple.com>
+
+        Reviewed by Andreas Kling.
+
+        Reduce use of HTMLInputElement::inputType so we can remove it later
+        https://bugs.webkit.org/show_bug.cgi?id=45903
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::elementDoesAutoCompleteForElementWithId):
+        Use isPasswordField.
+
+2010-09-16  Robert Hogan  <robert@webkit.org>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] Support globalhistory tests
+        https://bugs.webkit.org/show_bug.cgi?id=45774
+
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::populateVisitedLinks):
+        * WebCoreSupport/ChromeClientQt.h:
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::dumpHistoryCallbacks):
+        (DumpRenderTreeSupportQt::dumpVisitedLinksCallbacks):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::setTitle):
+        (WebCore::FrameLoaderClientQt::updateGlobalHistory):
+        (WebCore::FrameLoaderClientQt::updateGlobalHistoryRedirectLinks):
+        * WebCoreSupport/FrameLoaderClientQt.h:
+
+2010-09-16  Diego Gonzalez  <diegohcg@webkit.org>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] Remove FrameLoaderClientQt::webFrame() to use NetworkingContext to get the WebFrame to avoid layering violations
+        https://bugs.webkit.org/show_bug.cgi?id=42293
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::childFrames):
+        (QWebFramePrivate::kit):
+        * Api/qwebpage.cpp:
+        (QWebPage::currentFrame):
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::runJavaScriptAlert):
+        (WebCore::ChromeClientQt::runJavaScriptConfirm):
+        (WebCore::ChromeClientQt::runJavaScriptPrompt):
+        (WebCore::ChromeClientQt::contentsSizeChanged):
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::chooseFile):
+        * WebCoreSupport/FrameLoaderClientQt.h:
+
+2010-09-15  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        [Qt] Update the Symbian def files
+
+        Re-freeze with the viewport meta tag updates.
+
+        * symbian/eabi/QtWebKitu.def:
+
+2010-09-14  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [Qt] V8 port: Get inspector up and running
+        https://bugs.webkit.org/show_bug.cgi?id=45771
+
+        * WebCoreSupport/InspectorClientQt.cpp:
+        (WebCore::ensureDebuggerScriptLoaded): Added, loads DebuggerScript.js into ScriptDebugServer.
+        (WebCore::InspectorClientQt::openInspectorFrontend): Ensure that DebuggerScript.js is loaded
+        before opening an inspector.
+
+2010-09-14  Enrico Ros  <eros@codeaurora.org>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Respect title attribute on option elements
+        https://bugs.webkit.org/show_bug.cgi?id=45084
+
+        Set the tooltip in the combo box model, so it's reflected in the view.
+
+        * WebCoreSupport/QtFallbackWebPopup.cpp:
+        (WebCore::QtFallbackWebPopup::populate):
+
+2010-09-13  Daniel Bates  <dbates@rim.com>
+
+        https://bugs.webkit.org/show_bug.cgi?id=45732
+
+        Fix the Qt build. I missed this when reviewing the patch
+        for Bug #45732.
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::suspendActiveDOMObjects): Change enum value ActiveDOMObject::JavaScriptPaused to
+        ActiveDOMObject::JavaScriptDebuggerPaused
+
+2010-09-13  Eric Carlson  <eric.carlson@apple.com>
+
+        Reviewed by Daniel Bates.
+
+        [Qt] DumpRenderTreeSupportQt::suspendActiveDOMObjects needs a new parameter
+        https://bugs.webkit.org/show_bug.cgi?id=45732
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::suspendActiveDOMObjects): Pass ActiveDOMObject::JavaScriptPaused
+        to suspendActiveDOMObjects.
+
+2010-09-13  Enrica Casucci  <enrica@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Paste should be implemented in WebCore like Copy and Cut for Mac also.
+        https://bugs.webkit.org/show_bug.cgi?id=45494
+        <rdar://problem/7660537>
+
+        On the Mac platform, the implementation of the paste operation is all done
+        at the WebKit level. In order to support it on WebKit2 it is necessary to
+        refactor the code and move this functionality at the level of WebCore like
+        we already have on Windows.
+        The original code relies on some in AppKit functions that call back into
+        WebKit causing problems in WebKit2. All this functionality has been moved
+        at the level of the editor client where it can be dealt with appropriately.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::canShowMIMETypeAsHTML): Added stub.
+        * WebCoreSupport/FrameLoaderClientQt.h:
+
+2010-08-27  Kenneth Rohde Christiansen  <kenneth.christiansen@openbossa.org>
+
+        Reviewed by Antti Koivisto.
+
+        Add a Qt API for the viewport meta tag support based on the
+        following draft spec:
+
+        http://people.opera.com/rune/TR/ED-css-viewport-20100806/
+
+        Add common handling of viewport meta tag based on new Opera spec
+        https://bugs.webkit.org/show_bug.cgi?id=44201
+
+        * Api/qwebframe_p.h:
+        (QWebFramePrivate::QWebFramePrivate):
+        * Api/qwebpage.cpp:
+        (QWebPage::ViewportConfiguration::ViewportConfiguration):
+        (QWebPage::ViewportConfiguration::~ViewportConfiguration):
+        (QWebPage::ViewportConfiguration::operator=):
+        (QWebPage::viewportConfigurationForSize):
+        (QWebPage::setPreferredContentsSize):
+        * Api/qwebpage.h:
+        * Api/qwebpage_p.h:
+        (QtViewportConfigurationPrivate::QtViewportConfigurationPrivate):
+        * WebCoreSupport/ChromeClientQt.cpp:
+        (WebCore::ChromeClientQt::didReceiveViewportArguments):
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::viewportAsText):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::dispatchDidCommitLoad):
+        (WebCore::FrameLoaderClientQt::dispatchDidFirstLayout):
+
+2010-09-12  Martin Smith  <martin.smith@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        doc: Changed the title so lists of contents sort better.
+
+        * docs/qtwebkit.qdoc:
+
+2010-09-12  David Boddie  <david.boddie@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Doc: More work on the QML documentation.
+
+        * declarative/qdeclarativewebview.cpp:
+
+2010-09-12  Martin Jones  <martin.jones@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qml] Ensure WebView gets focus when an editable node is clicked on.
+
+        Task-number: QTBUG-13342
+
+        * declarative/qdeclarativewebview.cpp:
+        (GraphicsWebView::mousePressEvent):
+
+2010-09-12  David Boddie  <david.boddie@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        Doc: qdoc fixes.
+
+        * declarative/qdeclarativewebview.cpp:
+
+2010-09-12  Oswald Buddenhagen  <oswald.buddenhagen@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] let WebKit inject itself into the qt configuration
+
+        Task-number: QTBUG-12379
+
+        * qt_webkit_version.pri: Use the faster + instead of *
+        operator to add webkit to the config.
+
+2010-09-12  Martin Smith  <martin.smith@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] Fix group of declarative web view in QML docs.
+
+        * declarative/qdeclarativewebview.cpp:
+
+2010-09-12  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Partial implementation of Qt bridge using V8 and QtScript.
+
+        * Api/qwebelement.cpp:
+        (QWebElement::evaluateJavaScript): Stub it out for now,
+        to compile, until we have a conversion path between v8::Object
+        and QScriptValue.
+        * Api/qwebframe.cpp:
+        (QWebFrame::addToJavaScriptWindowObject): Implemented using
+        few lines of QtScript code.
+        (QWebFrame::evaluateJavaScript): Ditto.
+
+2010-09-12  Simon Hausmann  <simon.hausmann@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        Fix the build with V8.
+
+        This is a temporary kludge until the scriptworld stuff is properly
+        ported, as part of the upcoming DRT work.
+
+        * Api/qwebscriptworld.cpp:
+        (QWebScriptWorld::QWebScriptWorld):
+
+2010-09-11  Andreas Kling  <andreas.kling@nokia.com>
+
+        Reviewed by Simon Hausmann.
+
+        [Qt] V8 port for Qt platform: Qt WebCoreSupport changes
+        https://bugs.webkit.org/show_bug.cgi?id=45149
+
+        Original patch by Vlad Burlik <volodimir.burlik@nokia.com>
+
+        Implemented the V8 specifics needed in DumpRenderTreeSupportQt and
+        FrameLoaderClientQt.
+
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::javaScriptObjectsCount):
+        (DumpRenderTreeSupportQt::garbageCollectorCollect):
+        (DumpRenderTreeSupportQt::garbageCollectorCollectOnAlternateThread):
+        (DumpRenderTreeSupportQt::evaluateScriptInIsolatedWorld):
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::didCreateScriptContextForFrame):
+        (WebCore::FrameLoaderClientQt::didDestroyScriptContextForFrame):
+        (WebCore::FrameLoaderClientQt::didCreateIsolatedScriptContext):
+        (WebCore::FrameLoaderClientQt::createDocumentLoader):
+        * WebCoreSupport/FrameLoaderClientQt.h:
+
+2010-09-11  Vlad Burlik  <volodimir.burlik@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] V8 port for QT platform: QT API implementation changes
+        https://bugs.webkit.org/show_bug.cgi?id=45148
+
+        V8 Implementation of QWebFrame::addToJavaScriptWindowObject()
+        and QWebFrame::evaluateJavaScript()
+
+        * Api/qwebelement.cpp:
+        (setupScriptContext): JSC and V8 variations
+        (QWebElement::evaluateJavaScript):
+        * Api/qwebelement.h:
+        * Api/qwebframe.cpp: QObject injection to V8 world
+        (QWebFrame::addToJavaScriptWindowObject):
+        (QWebFrame::evaluateJavaScript):
+        * Api/qwebpage.cpp: Use ScriptController type definitions instead of direct references to JSC or V8
+        (QWebPagePrivate::QWebPagePrivate):
+
+2010-09-10  yi shen  <yi.4.shen@nokia.com>
+
+        Reviewed by Antonio Gomes.
+
+        [Qt] selected text gets deleted when qgraphicswebview losts focus
+        https://bugs.webkit.org/show_bug.cgi?id=45539
+
+        * Api/qwebpage.cpp:
+        (QWebPagePrivate::inputMethodEvent):
+        * tests/qwebpage/tst_qwebpage.cpp:
+        (tst_QWebPage::inputMethods):
+
+2010-09-10  Sam Weinig  <sam@webkit.org>
+
+        Fix Qt build.
+
+        * Api/qwebsettings.cpp:
+        (QWebSettingsPrivate::apply):
+
+2010-09-10  Sam Weinig  <sam@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Remove unnecessary constraint in WebCore of choosing either text zoom or full page zoom.
+        Precursor to <rdar://problem/7660657>
+        https://bugs.webkit.org/show_bug.cgi?id=45522
+
+        * Api/qwebframe.cpp:
+        (QWebFrame::setTextSizeMultiplier):
+        (QWebFrame::textSizeMultiplier):
+        (QWebFrame::setZoomFactor):
+        (QWebFrame::zoomFactor):
+        * Api/qwebframe_p.h:
+        (QWebFramePrivate::QWebFramePrivate):
+        Move tracking of text only zoom here from WebCore.
+
+2010-09-10  Yael Aharon  <yael.aharon@nokia.com>
+
+        Reviewed by Andreas Kling.
+
+        [Qt] Support click event for notifications
+        https://bugs.webkit.org/show_bug.cgi?id=44836
+
+        Propagate click events to JavaScript from either the
+        platform plugn or from QSystemTrayIcon.
+        Also added the method NotificationWrapper::openerPageUrl so that
+        if the platform plugin can reopen the page that created the
+        notification directly, when the user clicks the notification.
+
+        Added DumpRenderTreeSupportQt::simulateDesktopNotificationClick
+        for testing purpose.
+
+        * Api/qwebkitplatformplugin.h:
+        * WebCoreSupport/DumpRenderTreeSupportQt.cpp:
+        (DumpRenderTreeSupportQt::simulateDesktopNotificationClick):
+        * WebCoreSupport/DumpRenderTreeSupportQt.h:
+        * WebCoreSupport/NotificationPresenterClientQt.cpp:
+        (WebCore::NotificationWrapper::openerPageUrl):
+        (WebCore::NotificationWrapper::notificationClicked):
+        (WebCore::NotificationPresenterClientQt::displayNotification):
+        (WebCore::NotificationPresenterClientQt::notificationClicked):
+        * WebCoreSupport/NotificationPresenterClientQt.h:
+        * examples/platformplugin/WebNotificationPresenter.cpp:
+        (WebNotificationWidget::event):
+        * examples/platformplugin/WebNotificationPresenter.h:
+        (WebNotificationPresenter::WebNotificationPresenter):
+        * examples/platformplugin/qwebkitplatformplugin.h:
+
+2010-09-10  Adam Barth  <abarth@webkit.org>
+
+        Attempt to fix the failign Qt tests.  This patch adapts code from
+        Chromium.  The long-term fix is to remove the need for this code, but
+        that's a bit too complicated for a buildfix patch.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::FrameLoaderClientQt):
+        (WebCore::FrameLoaderClientQt::makeRepresentation):
+        (WebCore::FrameLoaderClientQt::revertToProvisionalState):
+        (WebCore::FrameLoaderClientQt::finishedLoading):
+        * WebCoreSupport/FrameLoaderClientQt.h:
+
+2010-09-10  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Darin Fisher.
+
+        Move code from WebKit-layer to DocumentLoader
+        https://bugs.webkit.org/show_bug.cgi?id=45569
+
+        This code didn't know that setEncoding can be called multiple times.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::FrameLoaderClientQt):
+        (WebCore::FrameLoaderClientQt::finishedLoading):
+        (WebCore::FrameLoaderClientQt::setMainDocumentError):
+        (WebCore::FrameLoaderClientQt::committedLoad):
+        (WebCore::FrameLoaderClientQt::dispatchDidReceiveResponse):
+        (WebCore::FrameLoaderClientQt::dispatchDidFailLoading):
+        * WebCoreSupport/FrameLoaderClientQt.h:
+
+2010-09-10  Adam Barth  <abarth@webkit.org>
+
+        Reviewed by Eric Seidel.
+
+        Main resource bytes shouldn't bounce through FrameLoader
+        https://bugs.webkit.org/show_bug.cgi?id=45496
+
+        Now return the bytes to the DocumentLoader.
+
+        * WebCoreSupport/FrameLoaderClientQt.cpp:
+        (WebCore::FrameLoaderClientQt::committedLoad):
+
 2010-09-08  Darin Adler  <darin@apple.com>
 
         Reviewed by Adam Barth.

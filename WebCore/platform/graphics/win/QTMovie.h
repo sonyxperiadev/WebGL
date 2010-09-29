@@ -26,9 +26,8 @@
 #ifndef QTMovie_h
 #define QTMovie_h
 
-#include <Unicode.h>
-#include <windows.h>
-#include <wtf/RefCounted.h>
+#include "QTTrack.h"
+#include <WTF/Vector.h>
 
 #ifdef QTMOVIEWIN_EXPORTS
 #define QTMOVIEWIN_API __declspec(dllexport)
@@ -39,6 +38,7 @@
 class QTMovie;
 class QTMoviePrivate;
 typedef struct MovieType** Movie;
+typedef Vector<RefPtr<QTTrack>> QTTrackArray;
 
 class QTMovieClient {
 public:
@@ -61,6 +61,8 @@ class QTMOVIEWIN_API QTMovie : public RefCounted<QTMovie> {
 public:
     static bool initializeQuickTime();
     static void taskTimerFired();
+
+    static void disableComponent(uint32_t[5]);
 
     QTMovie(QTMovieClient*);
     ~QTMovie();
@@ -99,11 +101,17 @@ public:
     bool hasVideo() const;
     bool hasAudio() const;
 
+    QTTrackArray videoTracks() const;
+
     bool hasClosedCaptions() const;
     void setClosedCaptionsVisible(bool);
 
     static unsigned countSupportedTypes();
     static void getSupportedType(unsigned index, const UChar*& str, unsigned& len);
+
+    CGAffineTransform getTransform() const;
+    void setTransform(CGAffineTransform);
+    void resetTransform();
 
     Movie getMovieHandle() const;
 

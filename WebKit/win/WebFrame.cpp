@@ -507,9 +507,10 @@ HRESULT STDMETHODCALLTYPE WebFrame::currentForm(
 
     *currentForm = 0;
 
-    if (Frame* coreFrame = core(this))
-        if (HTMLFormElement* formElement = coreFrame->currentForm())
+    if (Frame* coreFrame = core(this)) {
+        if (HTMLFormElement* formElement = coreFrame->selection()->currentForm())
             *currentForm = DOMElement::createInstance(formElement);
+    }
 
     return *currentForm ? S_OK : E_FAIL;
 }
@@ -598,6 +599,17 @@ HRESULT STDMETHODCALLTYPE WebFrame::loadData(
     }
 
     loadData(sharedBuffer, mimeType, textEncodingName, url, 0);
+    return S_OK;
+}
+
+HRESULT WebFrame::loadPlainTextString(
+    /* [in] */ BSTR string,
+    /* [in] */ BSTR url)
+{
+    RefPtr<SharedBuffer> sharedBuffer = SharedBuffer::create(reinterpret_cast<char*>(string), sizeof(UChar) * SysStringLen(string));
+    BString plainTextMimeType(TEXT("text/plain"), 10);
+    BString utf16Encoding(TEXT("utf-16"), 6);
+    loadData(sharedBuffer.release(), plainTextMimeType, utf16Encoding, url, 0);
     return S_OK;
 }
 
@@ -1098,15 +1110,6 @@ void WebFrame::invalidate()
         document->recalcStyle(Node::Force);
 }
 
-void WebFrame::setTextSizeMultiplier(float multiplier)
-{
-    Frame* coreFrame = core(this);
-    ASSERT(coreFrame);
-
-    if (FrameView* view = coreFrame->view())
-        view->setZoomFactor(multiplier, ZoomTextOnly);
-}
-
 HRESULT WebFrame::inViewSourceMode(BOOL* flag)
 {
     if (!flag) {
@@ -1182,7 +1185,7 @@ HRESULT WebFrame::elementDoesAutoComplete(IDOMElement *element, BOOL *result)
     if (!inputElement)
         *result = false;
     else
-        *result = inputElement->isTextField() && inputElement->inputType() != HTMLInputElement::PASSWORD && inputElement->autoComplete();
+        *result = inputElement->isTextField() && !inputElement->isPasswordField() && inputElement->autoComplete();
 
     return S_OK;
 }
@@ -1353,7 +1356,7 @@ HRESULT WebFrame::allowsFollowingLink(BSTR url, BOOL* result)
     if (!frame)
         return E_FAIL;
 
-    *result = SecurityOrigin::canDisplay(MarshallingHelpers::BSTRToKURL(url), String(), frame->document());
+    *result = frame->document()->securityOrigin()->canDisplay(MarshallingHelpers::BSTRToKURL(url));
     return S_OK;
 }
 
@@ -1387,9 +1390,8 @@ HRESULT WebFrame::controlsInForm(IDOMElement* form, IDOMElement** controls, int*
 
 HRESULT WebFrame::elementIsPassword(IDOMElement *element, bool *result)
 {
-    HTMLInputElement *inputElement = inputElementFromDOMElement(element);
-    *result = inputElement != 0
-        && inputElement->inputType() == HTMLInputElement::PASSWORD;
+    HTMLInputElement* inputElement = inputElementFromDOMElement(element);
+    *result = inputElement && inputElement->isPasswordField();
     return S_OK;
 }
 
@@ -1610,6 +1612,12 @@ void WebFrame::didChangeIcons(DocumentLoader*)
 bool WebFrame::canHandleRequest(const ResourceRequest& request) const
 {
     return WebView::canHandleRequest(request);
+}
+
+bool WebFrame::canShowMIMETypeAsHTML(const String& /*MIMEType*/) const
+{
+    notImplemented();
+    return true;
 }
 
 bool WebFrame::canShowMIMEType(const String& /*MIMEType*/) const

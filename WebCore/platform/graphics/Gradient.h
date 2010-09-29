@@ -101,7 +101,7 @@ namespace WebCore {
         const FloatPoint& p1() const { return m_p1; }
         float r0() const { return m_r0; }
         float r1() const { return m_r1; }
-        const Vector<ColorStop>& getStops() const;
+        const Vector<ColorStop, 2>& getStops() const;
 #else
 #if PLATFORM(ANDROID)
         SkShader* getShader(SkShader::TileMode);
@@ -150,7 +150,7 @@ namespace WebCore {
         FloatPoint m_p1;
         float m_r0;
         float m_r1;
-        mutable Vector<ColorStop> m_stops;
+        mutable Vector<ColorStop, 2> m_stops;
         mutable bool m_stopsSorted;
         mutable int m_lastStop;
         GradientSpreadMethod m_spreadMethod;

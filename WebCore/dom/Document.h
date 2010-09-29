@@ -579,6 +579,8 @@ public:
     void lockCompatibilityMode() { m_compatibilityModeLocked = true; }
     CompatibilityMode compatibilityMode() const { return m_compatibilityMode; }
 
+    String compatMode() const;
+
     bool inQuirksMode() const { return m_compatibilityMode == QuirksMode; }
     bool inLimitedQuirksMode() const { return m_compatibilityMode == LimitedQuirksMode; }
     bool inNoQuirksMode() const { return m_compatibilityMode == NoQuirksMode; }
@@ -1033,7 +1035,7 @@ public:
     bool isDelayingLoadEvent() const { return m_loadEventDelayCount; }
 
 protected:
-    Document(Frame*, const KURL&, bool isXHTML, bool isHTML);
+    Document(Frame*, const KURL& url, bool isXHTML, bool isHTML, const KURL& baseURL = KURL());
 
     void clearXMLVersion() { m_xmlVersion = String(); }
 

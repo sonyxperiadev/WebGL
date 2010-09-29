@@ -55,6 +55,7 @@ LOCAL_SRC_FILES := \
 	css/CSSPrimitiveValue.cpp \
 	css/CSSProperty.cpp \
 	css/CSSPropertyLonghand.cpp \
+	css/CSSPropertySourceData.cpp \
 	css/CSSReflectValue.cpp \
 	css/CSSRule.cpp \
 	css/CSSRuleList.cpp \
@@ -317,6 +318,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/parser/HTMLEntityParser.cpp \
 	html/parser/HTMLEntitySearch.cpp \
 	html/parser/HTMLFormattingElementList.cpp \
+	html/parser/HTMLParserIdioms.cpp \
 	html/parser/HTMLParserScheduler.cpp \
 	html/parser/HTMLPreloadScanner.cpp \
 	html/parser/HTMLScriptRunner.cpp \
@@ -739,7 +741,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderSVGText.cpp \
 	rendering/RenderSVGTextPath.cpp \
 	rendering/RenderSVGTransformableContainer.cpp \
-	rendering/RenderSVGViewportContainer.cpp
+	rendering/RenderSVGViewportContainer.cpp \
+	rendering/svg/SVGTextLayoutAttributes.cpp \
+	rendering/svg/SVGTextLayoutBuilder.cpp
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

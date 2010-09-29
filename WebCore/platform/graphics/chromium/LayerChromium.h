@@ -62,7 +62,7 @@ class LayerChromium : public RefCounted<LayerChromium> {
 public:
     static PassRefPtr<LayerChromium> create(GraphicsLayerChromium* owner = 0);
 
-    ~LayerChromium();
+    virtual ~LayerChromium();
 
     const LayerChromium* rootLayer() const;
     LayerChromium* superlayer() const;
@@ -112,6 +112,8 @@ public:
 
     void setNeedsDisplay(const FloatRect& dirtyRect);
     void setNeedsDisplay();
+    const FloatRect& dirtyRect() const { return m_dirtyRect; }
+    void resetNeedsDisplay();
 
     void setNeedsDisplayOnBoundsChange(bool needsDisplay) { m_needsDisplayOnBoundsChange = needsDisplay; }
 
@@ -169,9 +171,10 @@ public:
     // context).
     class SharedValues {
     public:
-        SharedValues();
+        explicit SharedValues(GraphicsContext3D*);
         ~SharedValues();
 
+        GraphicsContext3D* context() const { return m_context; }
         unsigned quadVerticesVbo() const { return m_quadVerticesVbo; }
         unsigned quadElementsVbo() const { return m_quadElementsVbo; }
         int maxTextureSize() const { return m_maxTextureSize; }
@@ -181,6 +184,7 @@ public:
         bool initialized() const { return m_initialized; }
 
     private:
+        GraphicsContext3D* m_context;
         unsigned m_quadVerticesVbo;
         unsigned m_quadElementsVbo;
         int m_maxTextureSize;
@@ -197,14 +201,15 @@ protected:
     LayerChromium(GraphicsLayerChromium* owner);
 
     LayerRendererChromium* layerRenderer() const { return m_layerRenderer; }
+    GraphicsContext3D* layerRendererContext() const;
 
-    static void drawTexturedQuad(const TransformationMatrix& projectionMatrix, const TransformationMatrix& layerMatrix,
+    static void drawTexturedQuad(GraphicsContext3D*, const TransformationMatrix& projectionMatrix, const TransformationMatrix& layerMatrix,
                                  float width, float height, float opacity,
                                  int matrixLocation, int alphaLocation);
 
     static void toGLMatrix(float*, const TransformationMatrix&);
 
-    static unsigned createShaderProgram(const char* vertexShaderSource, const char* fragmentShaderSource);
+    static unsigned createShaderProgram(GraphicsContext3D*, const char* vertexShaderSource, const char* fragmentShaderSource);
 
     IntSize m_bounds;
     FloatRect m_dirtyRect;

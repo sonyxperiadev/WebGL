@@ -313,6 +313,7 @@ public:
     void handleCancelOperation();
     void startCorrectionPanelTimer();
     void handleRejectedCorrection();
+    bool isShowingCorrectionPanel();
 
     void pasteAsFragment(PassRefPtr<DocumentFragment>, bool smartReplace, bool matchStyle);
     void pasteAsPlainText(const String&, bool smartReplace);
@@ -359,6 +360,8 @@ public:
     NSDictionary* fontAttributesForSelectionStart() const;
     NSWritingDirection baseWritingDirectionForSelectionStart() const;
 #endif
+
+    bool selectionStartHasSpellingMarkerFor(int from, int length) const;
 
 private:
     Frame* m_frame;

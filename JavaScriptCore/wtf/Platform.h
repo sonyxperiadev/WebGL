@@ -1057,6 +1057,10 @@
 #define ENABLE_PAN_SCROLLING 1
 #endif
 
+#if !defined(ENABLE_SMOOTH_SCROLLING)
+#define ENABLE_SMOOTH_SCROLLING 0
+#endif
+
 /* Use the QXmlStreamReader implementation for XMLDocumentParser */
 /* Use the QXmlQuery implementation for XSLTProcessor */
 #if PLATFORM(QT)
@@ -1123,7 +1127,7 @@
 #define ENABLE_JSC_ZOMBIES 0
 
 /* FIXME: Eventually we should enable this for all platforms and get rid of the define. */
-#if PLATFORM(MAC) || PLATFORM(WIN)
+#if PLATFORM(MAC) || PLATFORM(WIN) || PLATFORM(QT)
 #define WTF_USE_PLATFORM_STRATEGIES 1
 #endif
 

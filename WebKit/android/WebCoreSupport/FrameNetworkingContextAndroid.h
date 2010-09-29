@@ -28,6 +28,11 @@
 
 #include "FrameNetworkingContext.h"
 
+namespace WebCore {
+class MainResourceLoader;
+class FrameLoaderClient;
+}
+
 namespace android {
 
 class FrameNetworkingContextAndroid : public WebCore::FrameNetworkingContext {
@@ -38,12 +43,13 @@ public:
     }
 
 private:
-    FrameNetworkingContextAndroid(WebCore::Frame* frame)
-        : WebCore::FrameNetworkingContext(frame)
-    {
-    }
+    FrameNetworkingContextAndroid(WebCore::Frame*);
+
+    virtual WebCore::MainResourceLoader* mainResourceLoader() const;
+    virtual bool isPrivateBrowsingEnabled() const;
+    virtual WebCore::FrameLoaderClient* frameLoaderClient() const;
 };
 
-}
+} // namespace android
 
-#endif
+#endif // FrameNetworkingContextAndroid_h

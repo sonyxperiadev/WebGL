@@ -52,12 +52,8 @@ RenderView::RenderView(Node* node, FrameView* view)
     , m_selectionEnd(0)
     , m_selectionStartPos(-1)
     , m_selectionEndPos(-1)
-    , m_printImages(true)
     , m_maximalOutlineSize(0)
-    , m_bestTruncatedAt(0)
-    , m_truncatorWidth(0)
-    , m_minimumColumnHeight(0)
-    , m_forcedPageBreak(false)
+    , m_pageHeight(0)
     , m_layoutState(0)
     , m_layoutStateDisableCount(0)
 {
@@ -112,6 +108,9 @@ void RenderView::calcPrefWidths()
 
 void RenderView::layout()
 {
+    if (!document()->paginated())
+        setPageHeight(0);
+
     if (printing())
         m_minPrefWidth = m_maxPrefWidth = width();
 
@@ -129,6 +128,7 @@ void RenderView::layout()
     LayoutState state;
     // FIXME: May be better to push a clip and avoid issuing offscreen repaints.
     state.m_clipped = false;
+    state.m_pageHeight = m_pageHeight;
     m_layoutState = &state;
 
     if (needsLayout())
@@ -137,7 +137,6 @@ void RenderView::layout()
     // Reset overflow and then replace it with docWidth and docHeight.
     m_overflow.clear();
     addLayoutOverflow(IntRect(0, 0, docWidth(), docHeight()));
-
 
     ASSERT(layoutDelta() == IntSize());
     ASSERT(m_layoutStateDisableCount == 0);
@@ -184,12 +183,6 @@ void RenderView::paint(PaintInfo& paintInfo, int tx, int ty)
 {
     // If we ever require layout but receive a paint anyway, something has gone horribly wrong.
     ASSERT(!needsLayout());
-
-    // Cache the print rect because the dirty rect could get changed during painting.
-    if (document()->paginated())
-        setPrintRect(paintInfo.rect);
-    else
-        setPrintRect(IntRect());
     paintObject(paintInfo, tx, ty);
 }
 
@@ -703,37 +696,12 @@ int RenderView::viewWidth() const
 
 float RenderView::zoomFactor() const
 {
-    if (!m_frameView->shouldApplyPageZoom())
-        return 1;
-    return m_frameView->zoomFactor();
-}
-
-// The idea here is to take into account what object is moving the pagination point, and
-// thus choose the best place to chop it.
-void RenderView::setBestTruncatedAt(int y, RenderBoxModelObject* forRenderer, bool forcedBreak)
-{
-    // Nobody else can set a page break once we have a forced break.
-    if (m_forcedPageBreak)
-        return;
-
-    // Forced breaks always win over unforced breaks.
-    if (forcedBreak) {
-        m_forcedPageBreak = true;
-        m_bestTruncatedAt = y;
-        return;
-    }
-
-    // Prefer the widest object that tries to move the pagination point
-    IntRect boundingBox = forRenderer->borderBoundingBox();
-    if (boundingBox.width() > m_truncatorWidth) {
-        m_truncatorWidth = boundingBox.width();
-        m_bestTruncatedAt = y;
-    }
+    Frame* frame = m_frameView->frame();
+    return frame ? frame->pageZoomFactor() : 1;
 }
 
 void RenderView::pushLayoutState(RenderObject* root)
 {
-    ASSERT(!doingFullRepaint());
     ASSERT(m_layoutStateDisableCount == 0);
     ASSERT(m_layoutState == 0);
 
@@ -762,6 +730,31 @@ void RenderView::updateHitTestResult(HitTestResult& result, const IntPoint& poin
         if (!result.innerNonSharedNode())
             result.setInnerNonSharedNode(node);
         result.setLocalPoint(point);
+    }
+}
+
+// FIXME: This function is obsolete and only used by embedded WebViews inside AppKit NSViews.
+// Do not add callers of this function!
+// The idea here is to take into account what object is moving the pagination point, and
+// thus choose the best place to chop it.
+void RenderView::setBestTruncatedAt(int y, RenderBoxModelObject* forRenderer, bool forcedBreak)
+{
+    // Nobody else can set a page break once we have a forced break.
+    if (m_legacyPrinting.m_forcedPageBreak)
+        return;
+
+    // Forced breaks always win over unforced breaks.
+    if (forcedBreak) {
+        m_legacyPrinting.m_forcedPageBreak = true;
+        m_legacyPrinting.m_bestTruncatedAt = y;
+        return;
+    }
+
+    // Prefer the widest object that tries to move the pagination point
+    IntRect boundingBox = forRenderer->borderBoundingBox();
+    if (boundingBox.width() > m_legacyPrinting.m_truncatorWidth) {
+        m_legacyPrinting.m_truncatorWidth = boundingBox.width();
+        m_legacyPrinting.m_bestTruncatedAt = y;
     }
 }
 

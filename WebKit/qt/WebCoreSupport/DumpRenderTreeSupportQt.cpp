@@ -24,6 +24,7 @@
 #include "DumpRenderTreeSupportQt.h"
 
 #include "CSSComputedStyleDeclaration.h"
+#include "ChromeClientQt.h"
 #include "ContextMenu.h"
 #include "ContextMenuClientQt.h"
 #include "ContextMenuController.h"
@@ -34,7 +35,12 @@
 #include "Frame.h"
 #include "FrameLoaderClientQt.h"
 #include "FrameView.h"
+#if USE(JSC)
 #include "GCController.h"
+#elif USE(V8)
+#include "V8GCController.h"
+#include "V8Proxy.h"
+#endif
 #include "Geolocation.h"
 #include "GeolocationServiceMock.h"
 #include "Geoposition.h"
@@ -296,17 +302,31 @@ void DumpRenderTreeSupportQt::clearFrameName(QWebFrame* frame)
 
 int DumpRenderTreeSupportQt::javaScriptObjectsCount()
 {
+#if USE(JSC)
     return JSDOMWindowBase::commonJSGlobalData()->heap.globalObjectCount();
+#elif USE(V8)
+    // FIXME: Find a way to do this using V8.
+    return 1;
+#endif
 }
 
 void DumpRenderTreeSupportQt::garbageCollectorCollect()
 {
+#if USE(JSC)
     gcController().garbageCollectNow();
+#elif USE(V8)
+    v8::V8::LowMemoryNotification();
+#endif
 }
 
 void DumpRenderTreeSupportQt::garbageCollectorCollectOnAlternateThread(bool waitUntilDone)
 {
+#if USE(JSC)
     gcController().garbageCollectOnAlternateThreadForDebugging(waitUntilDone);
+#elif USE(V8)
+    // FIXME: Find a way to do this using V8.
+    garbageCollectorCollect();
+#endif
 }
 
 // Returns the value of counter in the element specified by \a id.
@@ -347,7 +367,9 @@ void DumpRenderTreeSupportQt::suspendActiveDOMObjects(QWebFrame* frame)
 {
     Frame* coreFrame = QWebFramePrivate::core(frame);
     if (coreFrame->document())
-        coreFrame->document()->suspendActiveDOMObjects();
+        // FIXME: This function should be changed take a ReasonForSuspension parameter 
+        // https://bugs.webkit.org/show_bug.cgi?id=45732
+        coreFrame->document()->suspendActiveDOMObjects(ActiveDOMObject::JavaScriptDebuggerPaused);
 }
 
 // Resume active DOM objects in this frame.
@@ -511,9 +533,7 @@ bool DumpRenderTreeSupportQt::elementDoesAutoCompleteForElementWithId(QWebFrame*
     if (!inputElement)
         return false;
 
-    return (inputElement->isTextField()
-            && inputElement->inputType() != HTMLInputElement::PASSWORD
-            && inputElement->autoComplete());
+    return inputElement->isTextField() && !inputElement->isPasswordField() && inputElement->autoComplete();
 }
 
 void DumpRenderTreeSupportQt::setEditingBehavior(QWebPage* page, const QString& editingBehavior)
@@ -582,6 +602,16 @@ void DumpRenderTreeSupportQt::setCustomPolicyDelegate(bool enabled, bool permiss
     FrameLoaderClientQt::policyDelegatePermissive = permissive;
 }
 
+void DumpRenderTreeSupportQt::dumpHistoryCallbacks(bool b)
+{
+    FrameLoaderClientQt::dumpHistoryCallbacks = b;
+}
+
+void DumpRenderTreeSupportQt::dumpVisitedLinksCallbacks(bool b)
+{
+    ChromeClientQt::dumpVisitedLinksCallbacks = b;
+}
+
 void DumpRenderTreeSupportQt::dumpEditingCallbacks(bool b)
 {
     EditorClientQt::dumpEditingCallbacks = b;
@@ -597,6 +627,27 @@ void DumpRenderTreeSupportQt::dumpNotification(bool b)
 #if ENABLE(NOTIFICATIONS)
     NotificationPresenterClientQt::dumpNotification = b;
 #endif
+}
+
+QString DumpRenderTreeSupportQt::viewportAsText(QWebPage* page, const QSize& availableSize)
+{
+    WebCore::ViewportArguments args = page->mainFrame()->d->viewportArguments;
+    WebCore::ViewportConfiguration conf = WebCore::findConfigurationForViewportData(args,
+        /* desktop-width */ 980,
+        /* device-width  */ 320,
+        /* device-height */ 480,
+        /* device-dpi    */ 160,
+        availableSize);
+
+    QString res;
+    res = res.sprintf("viewport size %dx%d scale %f with limits [%f, %f]\n",
+            conf.layoutViewport.width(),
+            conf.layoutViewport.height(),
+            conf.initialScale,
+            conf.minimumScale,
+            conf.maximumScale);
+
+    return res;
 }
 
 void DumpRenderTreeSupportQt::setMockGeolocationPosition(double latitude, double longitude, double accuracy)
@@ -670,8 +721,16 @@ void DumpRenderTreeSupportQt::evaluateScriptInIsolatedWorld(QWebFrame* frame, in
 
     ScriptController* proxy = coreFrame->script();
 
-    if (proxy)
-        proxy->executeScriptInWorld(scriptWorld->world(), script, true);
+    if (!proxy)
+        return;
+#if USE(JSC)
+    proxy->executeScriptInWorld(scriptWorld->world(), script, true);
+#elif USE(V8)
+    ScriptSourceCode source(script);
+    Vector<ScriptSourceCode> sources;
+    sources.append(source);
+    proxy->evaluateInIsolatedWorld(0, sources, true);
+#endif
 }
 
 bool DumpRenderTreeSupportQt::isPageBoxVisible(QWebFrame* frame, int pageIndex)
@@ -696,6 +755,13 @@ QString DumpRenderTreeSupportQt::pageProperty(QWebFrame* frame, const QString& p
 void DumpRenderTreeSupportQt::addUserStyleSheet(QWebPage* page, const QString& sourceCode)
 {
     page->handle()->page->group().addUserStyleSheetToWorld(mainThreadNormalWorld(), sourceCode, QUrl(), 0, 0, WebCore::InjectInAllFrames);
+}
+
+void DumpRenderTreeSupportQt::simulateDesktopNotificationClick(const QString& title)
+{
+#if ENABLE(NOTIFICATIONS)
+    NotificationPresenterClientQt::notificationPresenter()->notificationClicked(title);
+#endif
 }
 
 // Provide a backward compatibility with previously exported private symbols as of QtWebKit 4.6 release

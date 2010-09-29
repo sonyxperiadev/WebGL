@@ -36,7 +36,6 @@
 #include "InjectedScriptHost.h"
 #include "InspectorBackendDispatcher.h"
 #include "InspectorController.h"
-#include "InspectorValues.h"
 #include "Page.h"
 #include "PageGroup.h"
 #include "PlatformString.h"
@@ -58,6 +57,7 @@
 #include "WebURLResponse.h"
 #include "WebViewClient.h"
 #include "WebViewImpl.h"
+#include <wtf/CurrentTime.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/OwnPtr.h>
 
@@ -67,8 +67,6 @@ using WebCore::InjectedScriptHost;
 using WebCore::InspectorArray;
 using WebCore::InspectorBackendDispatcher;
 using WebCore::InspectorController;
-using WebCore::InspectorObject;
-using WebCore::InspectorValue;
 using WebCore::Node;
 using WebCore::Page;
 using WebCore::ResourceError;
@@ -82,10 +80,9 @@ namespace WebKit {
 
 namespace {
 
-static const char kFrontendConnectedFeatureName[] = "frontend-connected";
-static const char kResourceTrackingFeatureName[] = "resource-tracking";
-static const char kTimelineFeatureName[] = "timeline-profiler";
 static const char kApuAgentFeatureName[] = "apu-agent";
+static const char kFrontendConnectedFeatureName[] = "frontend-connected";
+static const char kInspectorStateFeatureName[] = "inspector-state";
 
 class ClientMessageLoopAdapter : public WebCore::ScriptDebugServer::ClientMessageLoop {
 public:
@@ -223,9 +220,7 @@ void WebDevToolsAgentImpl::detach()
 
 void WebDevToolsAgentImpl::frontendLoaded()
 {
-    inspectorController()->connectFrontend();
-    // We know that by this time injected script has already been pushed to the backend.
-    m_client->runtimePropertyChanged(kFrontendConnectedFeatureName, inspectorController()->injectedScriptHost()->injectedScriptSource());
+    connectFrontend(false);
 }
 
 void WebDevToolsAgentImpl::didNavigate()
@@ -253,17 +248,12 @@ void WebDevToolsAgentImpl::setRuntimeProperty(const WebString& name, const WebSt
 {
     if (name == kApuAgentFeatureName)
         setApuAgentEnabled(value == "true");
-    else if (name == kTimelineFeatureName)
-        setTimelineProfilingEnabled(value == "true");
-    else if (name == kResourceTrackingFeatureName) {
+    else if (name == kInspectorStateFeatureName) {
         InspectorController* ic = inspectorController();
-        if (value == "true")
-          ic->enableResourceTracking(false /* not sticky */, false /* no reload */);
-        else
-          ic->disableResourceTracking(false /* not sticky */);
+        ic->restoreInspectorStateFromCookie(value);
     } else if (name == kFrontendConnectedFeatureName && !inspectorController()->hasFrontend()) {
         inspectorController()->injectedScriptHost()->setInjectedScriptSource(value);
-        frontendLoaded();
+        connectFrontend(true);
     }
 }
 
@@ -273,24 +263,34 @@ void WebDevToolsAgentImpl::setApuAgentEnabled(bool enabled)
     InspectorController* ic = inspectorController();
     if (enabled) {
         if (!ic->hasFrontend())
-            frontendLoaded();
+            connectFrontend(true);
         m_resourceTrackingWasEnabled = ic->resourceTrackingEnabled();
         ic->startTimelineProfiler();
         if (!m_resourceTrackingWasEnabled) {
             // TODO(knorton): Introduce some kind of agents dependency here so that
             // user could turn off resource tracking while apu agent is on.
-            ic->enableResourceTracking(false, false);
+            ic->setResourceTrackingEnabled(true);
         }
         m_debuggerAgentImpl->setAutoContinueOnException(true);
     } else {
       ic->stopTimelineProfiler();
       if (!m_resourceTrackingWasEnabled)
-          ic->disableResourceTracking(false);
+          ic->setResourceTrackingEnabled(false);
       m_resourceTrackingWasEnabled = false;
     }
     m_client->runtimePropertyChanged(
         kApuAgentFeatureName,
         enabled ? String("true") : String("false"));
+}
+
+void WebDevToolsAgentImpl::connectFrontend(bool afterNavigation)
+{
+    if (afterNavigation)
+        inspectorController()->reuseFrontend();
+    else
+        inspectorController()->connectFrontend();
+    // We know that by this time injected script has already been pushed to the backend.
+    m_client->runtimePropertyChanged(kFrontendConnectedFeatureName, inspectorController()->injectedScriptHost()->injectedScriptSource());
 }
 
 WebCore::InspectorController* WebDevToolsAgentImpl::inspectorController()
@@ -336,7 +336,7 @@ void WebDevToolsAgentImpl::didReceiveResponse(unsigned long resourceId, const We
 void WebDevToolsAgentImpl::didFinishLoading(unsigned long resourceId)
 {
     if (InspectorController* ic = inspectorController())
-        ic->didFinishLoading(resourceId);
+        ic->didFinishLoading(resourceId, 0);
 }
 
 void WebDevToolsAgentImpl::didFailLoading(unsigned long resourceId, const WebURLError& error)
@@ -402,24 +402,9 @@ bool WebDevToolsAgentImpl::sendMessageToFrontend(const WTF::String& message)
     return true;
 }
 
-void WebDevToolsAgentImpl::resourceTrackingWasEnabled()
+void WebDevToolsAgentImpl::updateInspectorStateCookie(const WTF::String& state)
 {
-    m_client->runtimePropertyChanged(kResourceTrackingFeatureName, "true");
-}
-
-void WebDevToolsAgentImpl::resourceTrackingWasDisabled()
-{
-    m_client->runtimePropertyChanged(kResourceTrackingFeatureName, "false");
-}
-
-void WebDevToolsAgentImpl::timelineProfilerWasStarted()
-{
-    m_client->runtimePropertyChanged(kTimelineFeatureName, "true");
-}
-
-void WebDevToolsAgentImpl::timelineProfilerWasStopped()
-{
-    m_client->runtimePropertyChanged(kTimelineFeatureName, "false");
+    m_client->runtimePropertyChanged(kInspectorStateFeatureName, state);
 }
 
 void WebDevToolsAgentImpl::evaluateInWebInspector(long callId, const WebString& script)

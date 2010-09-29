@@ -783,7 +783,7 @@ CacheBuilder::CacheBuilder()
 }
 
 void CacheBuilder::adjustForColumns(const ClipColumnTracker& track, 
-    CachedNode* node, IntRect* bounds)
+    CachedNode* node, IntRect* bounds, RenderBlock* renderer)
 {
     int x = 0;
     int y = 0;
@@ -792,7 +792,7 @@ void CacheBuilder::adjustForColumns(const ClipColumnTracker& track,
     int columnGap = track.mColumnGap;
     size_t limit = track.mColumnInfo->columnCount();
     for (size_t index = 0; index < limit; index++) {
-        IntRect column = track.mColumnInfo->columnRectAt(index);
+        IntRect column = renderer->columnRectAt(track.mColumnInfo, index);
         column.move(tx, ty);
         IntRect test = *bounds;
         test.move(x, y);
@@ -1258,7 +1258,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         }
         if (node->hasTagName(WebCore::HTMLNames::inputTag)) {
             HTMLInputElement* input = static_cast<HTMLInputElement*>(node);
-            HTMLInputElement::InputType inputType = input->inputType();
+            HTMLInputElement::DeprecatedInputType inputType = input->deprecatedInputType();
             if (input->isTextField()) {
                 type = TEXT_INPUT_CACHEDNODETYPE;
                 cachedInput.init();
@@ -1370,7 +1370,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         while (--clipIndex > 0) {
             const ClipColumnTracker& clipTrack = clipTracker.at(clipIndex);
             if (clipTrack.mHasClip == false) {
-                adjustForColumns(clipTrack, &cachedNode, &absBounds);
+                adjustForColumns(clipTrack, &cachedNode, &absBounds, static_cast<RenderBlock*>(nodeRenderer));
                 continue;
             }
             const IntRect& parentClip = clipTrack.mBounds;

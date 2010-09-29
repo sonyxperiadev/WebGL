@@ -82,11 +82,6 @@ static String propertyIdToString(AnimatedPropertyID property)
     return "";
 }
 
-GraphicsLayer::CompositingCoordinatesOrientation GraphicsLayer::compositingCoordinatesOrientation()
-{
-    return CompositingCoordinatesBottomUp;
-}
-
 PassOwnPtr<GraphicsLayer> GraphicsLayer::create(GraphicsLayerClient* client)
 {
     return new GraphicsLayerAndroid(client);

@@ -34,6 +34,7 @@
 
 #include "ImageLayerChromium.h"
 
+#include "Image.h"
 #include "LayerRendererChromium.h"
 
 #if PLATFORM(SKIA)
@@ -61,7 +62,7 @@ ImageLayerChromium::ImageLayerChromium(GraphicsLayerChromium* owner)
 {
 }
 
-void ImageLayerChromium::setContents(NativeImagePtr contents)
+void ImageLayerChromium::setContents(Image* contents)
 {
     // Check if the image has changed.
     if (m_contents == contents)
@@ -75,13 +76,14 @@ void ImageLayerChromium::updateContents()
     ASSERT(layerRenderer());
 
     void* pixels = 0;
-    IntRect dirtyRect(m_dirtyRect);
     IntSize requiredTextureSize;
     IntSize bitmapSize;
 
+    NativeImagePtr nativeImage = m_contents->nativeImageForCurrentFrame();
+
 #if PLATFORM(SKIA)
     // The layer contains an Image.
-    NativeImageSkia* skiaImage = static_cast<NativeImageSkia*>(m_contents);
+    NativeImageSkia* skiaImage = static_cast<NativeImageSkia*>(nativeImage);
     const SkBitmap* skiaBitmap = skiaImage;
     requiredTextureSize = IntSize(skiaBitmap->width(), skiaBitmap->height());
     ASSERT(skiaBitmap);
@@ -95,9 +97,8 @@ void ImageLayerChromium::updateContents()
     }
 #elif PLATFORM(CG)
     // NativeImagePtr is a CGImageRef on Mac OS X.
-    CGImageRef cgImage = m_contents;
-    int width = CGImageGetWidth(cgImage);
-    int height = CGImageGetHeight(cgImage);
+    int width = CGImageGetWidth(nativeImage);
+    int height = CGImageGetHeight(nativeImage);
     requiredTextureSize = IntSize(width, height);
     bitmapSize = requiredTextureSize;
     // FIXME: we should get rid of this temporary copy where possible.
@@ -109,7 +110,7 @@ void ImageLayerChromium::updateContents()
     // Try to reuse the color space from the image to preserve its colors.
     // Some images use a color space (such as indexed) unsupported by the bitmap context.
     RetainPtr<CGColorSpaceRef> colorSpaceReleaser;
-    CGColorSpaceRef colorSpace = CGImageGetColorSpace(cgImage);
+    CGColorSpaceRef colorSpace = CGImageGetColorSpace(nativeImage);
     CGColorSpaceModel colorSpaceModel = CGColorSpaceGetModel(colorSpace);
     switch (colorSpaceModel) {
     case kCGColorSpaceModelMonochrome:
@@ -130,7 +131,7 @@ void ImageLayerChromium::updateContents()
     CGContextSetBlendMode(tempContext.get(), kCGBlendModeCopy);
     CGContextDrawImage(tempContext.get(),
                        CGRectMake(0, 0, static_cast<CGFloat>(width), static_cast<CGFloat>(height)),
-                       cgImage);
+                       nativeImage);
     pixels = tempVector.data();
 #else
 #error "Need to implement for your platform."
@@ -145,6 +146,10 @@ void ImageLayerChromium::updateContents()
     unsigned textureId = m_contentsTexture;
     if (!textureId)
         textureId = layerRenderer()->createLayerTexture();
+
+    // Clip the dirty rect to the bitmap dimensions.
+    IntRect dirtyRect(m_dirtyRect);
+    dirtyRect.intersect(IntRect(IntPoint(0, 0), bitmapSize));
 
     if (pixels)
         updateTextureRect(pixels, bitmapSize, requiredTextureSize,  dirtyRect, textureId);

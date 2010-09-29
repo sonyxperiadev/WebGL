@@ -79,6 +79,10 @@ RenderEmbeddedObject::RenderEmbeddedObject(Element* element)
     , m_mouseDownWasInMissingPluginIndicator(false)
 {
     view()->frameView()->setIsVisuallyNonEmpty();
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+    if (element->hasTagName(videoTag) || element->hasTagName(audioTag))
+        setHasIntrinsicSize();
+#endif
 }
 
 RenderEmbeddedObject::~RenderEmbeddedObject()
@@ -141,7 +145,7 @@ void RenderEmbeddedObject::paint(PaintInfo& paintInfo, int tx, int ty)
 
 void RenderEmbeddedObject::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
 {
-    if (pluginCrashedOrWasMissing())
+    if (!pluginCrashedOrWasMissing())
         return;
 
     if (paintInfo.phase == PaintPhaseSelection)

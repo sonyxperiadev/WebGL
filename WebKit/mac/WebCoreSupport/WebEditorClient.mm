@@ -30,6 +30,7 @@
 #import "WebEditorClient.h"
 
 #import "DOMCSSStyleDeclarationInternal.h"
+#import "DOMDocumentFragmentInternal.h"
 #import "DOMHTMLElementInternal.h"
 #import "DOMHTMLInputElementInternal.h"
 #import "DOMHTMLTextAreaElementInternal.h"
@@ -48,8 +49,11 @@
 #import "WebKitVersionChecks.h"
 #import "WebLocalizableStrings.h"
 #import "WebNSURLExtras.h"
+#import "WebResourceInternal.h"
 #import "WebViewInternal.h"
+#import <WebCore/ArchiveResource.h>
 #import <WebCore/Document.h>
+#import <WebCore/DocumentFragment.h>
 #import <WebCore/EditAction.h>
 #import <WebCore/EditCommand.h>
 #import <WebCore/HTMLInputElement.h>
@@ -73,10 +77,17 @@ using namespace WTF;
 
 using namespace HTMLNames;
 
+@interface NSAttributedString (WebNSAttributedStringDetails)
+- (id)_initWithDOMRange:(DOMRange*)range;
+- (DOMDocumentFragment*)_documentFromRange:(NSRange)range document:(DOMDocument*)document documentAttributes:(NSDictionary *)dict subresources:(NSArray **)subresources;
+@end
+
 static WebViewInsertAction kit(EditorInsertAction coreAction)
 {
     return static_cast<WebViewInsertAction>(coreAction);
 }
+
+static const int InvalidCorrectionPanelTag = 0;
 
 #ifdef BUILDING_ON_TIGER
 @interface NSSpellChecker (NotYetPublicMethods)
@@ -175,7 +186,7 @@ WebEditorClient::WebEditorClient(WebView *webView)
     , m_undoTarget([[[WebEditorUndoTarget alloc] init] autorelease])
     , m_haveUndoRedoOperations(false)
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
-    , m_correctionPanelTag(-1)
+    , m_correctionPanelTag(InvalidCorrectionPanelTag)
 #endif
 {
 }
@@ -325,13 +336,54 @@ void WebEditorClient::didSetSelectionTypesForPasteboard()
     [[m_webView _editingDelegateForwarder] webView:m_webView didSetSelectionTypesForPasteboard:[NSPasteboard generalPasteboard]];
 }
 
-NSString* WebEditorClient::userVisibleString(NSURL *URL)
+NSString *WebEditorClient::userVisibleString(NSURL *URL)
 {
     return [URL _web_userVisibleString];
 }
 
+static NSArray *createExcludedElementsForAttributedStringConversion()
+{
+    NSArray *elements = [[NSArray alloc] initWithObjects: 
+        // Omit style since we want style to be inline so the fragment can be easily inserted.
+        @"style", 
+        // Omit xml so the result is not XHTML.
+        @"xml", 
+        // Omit tags that will get stripped when converted to a fragment anyway.
+        @"doctype", @"html", @"head", @"body", 
+        // Omit deprecated tags.
+        @"applet", @"basefont", @"center", @"dir", @"font", @"isindex", @"menu", @"s", @"strike", @"u", 
+        // Omit object so no file attachments are part of the fragment.
+        @"object", nil];
+    CFRetain(elements);
+    return elements;
+}
+
+DocumentFragment* WebEditorClient::documentFragmentFromAttributedString(NSAttributedString *string, Vector<RefPtr<ArchiveResource> >& resources)
+{
+    static NSArray *excludedElements = createExcludedElementsForAttributedStringConversion();
+    
+    NSDictionary *dictionary = [[NSDictionary alloc] initWithObjectsAndKeys: excludedElements, NSExcludedElementsDocumentAttribute, 
+        nil, @"WebResourceHandler", nil];
+    
+    NSArray *subResources;
+    DOMDocumentFragment* fragment = [string _documentFromRange:NSMakeRange(0, [string length])
+                                                      document:[[m_webView mainFrame] DOMDocument]
+                                            documentAttributes:dictionary
+                                                  subresources:&subResources];
+    for (WebResource* resource in subResources)
+        resources.append([resource _coreResource]);
+    
+    [dictionary release];
+    return core(fragment);
+}
+
+void WebEditorClient::setInsertionPasteboard(NSPasteboard *pasteboard)
+{
+    [m_webView _setInsertionPasteboard:pasteboard];
+}
+
 #ifdef BUILDING_ON_TIGER
-NSArray* WebEditorClient::pasteboardTypesForSelection(Frame* selectedFrame)
+NSArray *WebEditorClient::pasteboardTypesForSelection(Frame* selectedFrame)
 {
     WebFrame* frame = kit(selectedFrame);
     return [[[frame frameView] documentView] pasteboardTypesForSelection];
@@ -829,10 +881,15 @@ void WebEditorClient::showCorrectionPanel(const FloatRect& boundingBoxOfReplaced
 
 void WebEditorClient::dismissCorrectionPanel(bool correctionAccepted)
 {
-    if (m_correctionPanelTag >= 0) {
+    if (m_correctionPanelTag != InvalidCorrectionPanelTag) {
         [[NSSpellChecker sharedSpellChecker] dismissCorrection:m_correctionPanelTag acceptCorrection:correctionAccepted];
-        m_correctionPanelTag = -1;
+        m_correctionPanelTag = InvalidCorrectionPanelTag;
     }
+}
+
+bool WebEditorClient::isShowingCorrectionPanel()
+{
+    return m_correctionPanelTag != InvalidCorrectionPanelTag;
 }
 #endif
 

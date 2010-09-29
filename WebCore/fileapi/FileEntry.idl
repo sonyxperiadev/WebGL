@@ -34,5 +34,7 @@ module storage {
         GenerateNativeConverter,
         GenerateToJS
     ] FileEntry : Entry {
+        void createWriter(in [Callback] FileWriterCallback successCallback, in [Optional, Callback] ErrorCallback errorCallback);
+        void file(in [Callback] FileCallback successCallback, in [Optional, Callback] ErrorCallback errorCallback);
     };
 }

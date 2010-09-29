@@ -43,8 +43,11 @@ ietestcenter/Javascript/15.4.4.15-3-8.html CRASH // hangs the layout tests http:
 // This first block of tests are for features for which Android
 // should pass all tests. They are skipped only temporarily.
 // TODO: Fix these failing tests and remove them from this list.
-fast/events/touch/basic-multi-touch-events.html FAIL // Requires multi-touch
-fast/events/touch/touch-target.html FAIL // Requires multi-touch
+fast/encoding/char-encoding.html FAIL // fails in Java HTTP stack, see http://b/issue?id=3047156
+fast/encoding/char-decoding.html FAIL // fails in Java HTTP stack, see http://b/issue?id=3047156
+fast/encoding/hanarei-blog32-fc2-com.html FAIL // fails in Java HTTP stack, see http://b/issue?id=3046986
+fast/encoding/mailto-always-utf-8.html FAIL // Requires waitForPolicyDelegate(), see http://b/issue?id=3043468
+fast/encoding/percent-escaping.html FAIL // fails in Java HTTP stack, see http://b/issue?id=3046984
 http/tests/appcache/empty-manifest.html FAIL // flaky
 http/tests/appcache/fallback.html FAIL // http://b/issue?id=2713004
 http/tests/appcache/foreign-iframe-main.html FAIL // flaky - skips states
@@ -59,8 +62,13 @@ storage/transaction-callback-isolated-world.html FAIL // Requires layoutTestCont
 storage/transaction-error-callback-isolated-world.html FAIL // Requires layoutTestController.evaluateScriptInIsolatedWorld()
 storage/transaction-success-callback-isolated-world.html FAIL // Requires layoutTestController.evaluateScriptInIsolatedWorld()
 
-// Expected failures due to unsupported features.
+// Expected failures due to unsupported features or tests unsuitable for Android.
+fast/encoding/char-decoding-mac.html FAIL // Mac-specific encodings (also marked Won't Fix in Chromium, bug 7388)
+fast/encoding/char-encoding-mac.html FAIL // Mac-specific encodings (also marked Won't Fix in Chromium, bug 7388)
+fast/encoding/idn-security.html FAIL // Mac-specific IDN checks (also marked Won't Fix in Chromium, bug 21814)
+fast/events/touch/basic-multi-touch-events.html FAIL // Requires multi-touch gestures not supported by Android system
 fast/events/touch/touch-coords-in-zoom-and-scroll.html FAIL // Requires eventSender.zoomPageIn(),zoomPageOut()
+fast/events/touch/touch-target.html FAIL // Requires multi-touch gestures not supported by Android system
 fast/workers FAIL // workers not supported
 http/tests/eventsource/workers FAIL // workers not supported
 http/tests/workers FAIL // workers not supported

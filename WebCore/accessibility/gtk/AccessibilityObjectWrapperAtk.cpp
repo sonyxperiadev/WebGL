@@ -58,6 +58,7 @@
 #include "RenderListMarker.h"
 #include "RenderText.h"
 #include "TextEncoding.h"
+#include "TextIterator.h"
 #include <wtf/text/CString.h>
 #include <wtf/text/AtomicString.h>
 
@@ -1342,14 +1343,74 @@ static bool selectionBelongsToObject(AccessibilityObject* coreObject, VisibleSel
     if (!coreObject->isAccessibilityRenderObject())
         return false;
 
-    Node* node = static_cast<AccessibilityRenderObject*>(coreObject)->renderer()->node();
-    return node == selection.base().containerNode();
+    RefPtr<Range> range = selection.toNormalizedRange();
+    if (!range)
+        return false;
+
+    // We want to check that both the selection intersects the node
+    // AND that the selection is not just "touching" one of the
+    // boundaries for the selected node. We want to check whether the
+    // node is actually inside the region, at least partially
+    Node* node = coreObject->node();
+    Node* lastDescendant = node->lastDescendant();
+    ExceptionCode ec = 0;
+    return (range->intersectsNode(node, ec)
+            && (range->endContainer() != node || range->endOffset())
+            && (range->startContainer() != lastDescendant || range->startOffset() != lastOffsetInNode(lastDescendant)));
+}
+
+static void getSelectionOffsetsForObject(AccessibilityObject* coreObject, VisibleSelection& selection, gint& startOffset, gint& endOffset)
+{
+    if (!coreObject->isAccessibilityRenderObject())
+        return;
+
+    // Early return if the selection doesn't affect the selected node
+    if (!selectionBelongsToObject(coreObject, selection))
+        return;
+
+    // We need to find the exact start and end positions in the
+    // selected node that intersects the selection, to later on get
+    // the right values for the effective start and end offsets
+    ExceptionCode ec = 0;
+    Position nodeRangeStart;
+    Position nodeRangeEnd;
+    Node* node = coreObject->node();
+    RefPtr<Range> selRange = selection.toNormalizedRange();
+
+    // If the selection affects the selected node and its first
+    // possible position is also in the selection, we must set
+    // nodeRangeStart to that position, otherwise to the selection's
+    // start position (it would belong to the node anyway)
+    Node* firstLeafNode = node->firstDescendant();
+    if (selRange->isPointInRange(firstLeafNode, 0, ec))
+        nodeRangeStart = firstPositionInNode(firstLeafNode);
+    else
+        nodeRangeStart = selRange->startPosition();
+
+    // If the selection affects the selected node and its last
+    // possible position is also in the selection, we must set
+    // nodeRangeEnd to that position, otherwise to the selection's
+    // end position (it would belong to the node anyway)
+    Node* lastLeafNode = node->lastDescendant();
+    if (selRange->isPointInRange(lastLeafNode, lastOffsetInNode(lastLeafNode), ec))
+        nodeRangeEnd = lastPositionInNode(lastLeafNode);
+    else
+        nodeRangeEnd = selRange->endPosition();
+
+    // Set values for start and end offsets
+    RefPtr<Range> nodeRange = Range::create(node->document(), nodeRangeStart, nodeRangeEnd);
+    startOffset = nodeRangeStart.offsetInContainerNode();
+    endOffset = startOffset + TextIterator::rangeLength(nodeRange.get());
 }
 
 static gint webkit_accessible_text_get_n_selections(AtkText* text)
 {
     AccessibilityObject* coreObject = core(text);
     VisibleSelection selection = coreObject->selection();
+
+    // Only range selections are needed for the purpose of this method
+    if (!selection.isRange())
+        return 0;
 
     // We don't support multiple selections for now, so there's only
     // two possibilities
@@ -1360,25 +1421,26 @@ static gint webkit_accessible_text_get_n_selections(AtkText* text)
     return !selectionBelongsToObject(coreObject, selection) || selection.isNone() ? 0 : 1;
 }
 
-static gchar* webkit_accessible_text_get_selection(AtkText* text, gint selection_num, gint* start_offset, gint* end_offset)
+static gchar* webkit_accessible_text_get_selection(AtkText* text, gint selectionNum, gint* startOffset, gint* endOffset)
 {
-    AccessibilityObject* coreObject = core(text);
-    VisibleSelection selection = coreObject->selection();
+    // Default values, unless the contrary is proved
+    *startOffset = *endOffset = 0;
 
     // WebCore does not support multiple selection, so anything but 0 does not make sense for now.
-    // Also, we don't want to do anything if the selection does not
-    // belong to the currently selected object. We have to check since
-    // there's no way to get the selection for a given object, only
-    // the global one (the API is a bit confusing)
-    if (selection_num != 0 || !selectionBelongsToObject(coreObject, selection)) {
-        *start_offset = *end_offset = 0;
+    if (selectionNum)
         return 0;
-    }
 
-    *start_offset = selection.start().offsetInContainerNode();
-    *end_offset = selection.end().offsetInContainerNode();
+    // Get the offsets of the selection for the selected object
+    AccessibilityObject* coreObject = core(text);
+    VisibleSelection selection = coreObject->selection();
+    getSelectionOffsetsForObject(coreObject, selection, *startOffset, *endOffset);
 
-    return webkit_accessible_text_get_text(text, *start_offset, *end_offset);
+    // Return 0 instead of "", as that's the expected result for
+    // this AtkText method when there's no selection
+    if (*startOffset == *endOffset)
+        return 0;
+
+    return webkit_accessible_text_get_text(text, *startOffset, *endOffset);
 }
 
 static gboolean webkit_accessible_text_add_selection(AtkText* text, gint start_offset, gint end_offset)
@@ -1387,32 +1449,51 @@ static gboolean webkit_accessible_text_add_selection(AtkText* text, gint start_o
     return FALSE;
 }
 
-static gboolean webkit_accessible_text_remove_selection(AtkText* text, gint selection_num)
+static gboolean webkit_accessible_text_set_selection(AtkText* text, gint selectionNum, gint startOffset, gint endOffset)
 {
-    notImplemented();
-    return FALSE;
+    // WebCore does not support multiple selection, so anything but 0 does not make sense for now.
+    if (selectionNum)
+        return FALSE;
+
+    // Consider -1 and out-of-bound values and correct them to length
+    gint textCount = webkit_accessible_text_get_character_count(text);
+    if (startOffset < 0 || startOffset > textCount)
+        startOffset = textCount;
+    if (endOffset < 0 || endOffset > textCount)
+        endOffset = textCount;
+
+    AccessibilityObject* coreObject = core(text);
+    PlainTextRange textRange(startOffset, endOffset - startOffset);
+    VisiblePositionRange range = coreObject->visiblePositionRangeForRange(textRange);
+    coreObject->setSelectedVisiblePositionRange(range);
+
+    return TRUE;
 }
 
-static gboolean webkit_accessible_text_set_selection(AtkText* text, gint selection_num, gint start_offset, gint end_offset)
+static gboolean webkit_accessible_text_remove_selection(AtkText* text, gint selectionNum)
 {
-    notImplemented();
-    return FALSE;
+    // WebCore does not support multiple selection, so anything but 0 does not make sense for now.
+    if (selectionNum)
+        return FALSE;
+
+    // Do nothing if current selection doesn't belong to the object
+    if (!webkit_accessible_text_get_n_selections(text))
+        return FALSE;
+
+    // Set a new 0-sized selection to the caret position, in order
+    // to simulate selection removal (GAIL style)
+    gint caretOffset = webkit_accessible_text_get_caret_offset(text);
+    return webkit_accessible_text_set_selection(text, selectionNum, caretOffset, caretOffset);
 }
 
 static gboolean webkit_accessible_text_set_caret_offset(AtkText* text, gint offset)
 {
     AccessibilityObject* coreObject = core(text);
 
-    // FIXME: We need to reimplement visiblePositionRangeForRange here
-    // because the actual function checks the offset is within the
-    // boundaries of text().length(), but text() only works for text
-    // controls...
-    VisiblePosition startPosition = coreObject->visiblePositionForIndex(offset);
-    startPosition.setAffinity(DOWNSTREAM);
-    VisiblePosition endPosition = coreObject->visiblePositionForIndex(offset);
-    VisiblePositionRange range = VisiblePositionRange(startPosition, endPosition);
-
+    PlainTextRange textRange(offset, 0);
+    VisiblePositionRange range = coreObject->visiblePositionRangeForRange(textRange);
     coreObject->setSelectedVisiblePositionRange(range);
+
     return TRUE;
 }
 

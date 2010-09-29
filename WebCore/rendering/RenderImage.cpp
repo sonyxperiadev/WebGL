@@ -218,9 +218,6 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
     int leftPad = paddingLeft();
     int topPad = paddingTop();
 
-    if (document()->printing() && !view()->printImages())
-        return;
-
     GraphicsContext* context = paintInfo.context;
 
     if (!m_imageResource->hasImage() || m_imageResource->errorOccurred()) {
@@ -523,7 +520,7 @@ int RenderImage::calcAspectRatioWidth() const
         return 0;
     if (!m_imageResource->hasImage() || m_imageResource->errorOccurred())
         return size.width(); // Don't bother scaling.
-    return RenderReplaced::calcReplacedHeight() * size.width() / size.height();
+    return RenderBox::calcReplacedHeight() * size.width() / size.height();
 }
 
 int RenderImage::calcAspectRatioHeight() const
@@ -533,27 +530,7 @@ int RenderImage::calcAspectRatioHeight() const
         return 0;
     if (!m_imageResource->hasImage() || m_imageResource->errorOccurred())
         return size.height(); // Don't bother scaling.
-    return RenderReplaced::calcReplacedWidth() * size.height() / size.width();
-}
-
-void RenderImage::calcPrefWidths()
-{
-    ASSERT(prefWidthsDirty());
-
-    int borderAndPadding = borderAndPaddingWidth();
-    m_maxPrefWidth = calcReplacedWidth(false) + borderAndPadding;
-
-    if (style()->maxWidth().isFixed() && style()->maxWidth().value() != undefinedLength)
-        m_maxPrefWidth = min(m_maxPrefWidth, style()->maxWidth().value() + (style()->boxSizing() == CONTENT_BOX ? borderAndPadding : 0));
-
-    if (style()->width().isPercent() || style()->height().isPercent() || 
-        style()->maxWidth().isPercent() || style()->maxHeight().isPercent() ||
-        style()->minWidth().isPercent() || style()->minHeight().isPercent())
-        m_minPrefWidth = 0;
-    else
-        m_minPrefWidth = m_maxPrefWidth;
-
-    setPrefWidthsDirty(false);
+    return RenderBox::calcReplacedWidth() * size.height() / size.width();
 }
 
 } // namespace WebCore

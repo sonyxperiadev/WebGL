@@ -309,6 +309,7 @@ public:
 
     virtual bool canHandleRequest(const ResourceRequest&) const { return false; }
     virtual bool canShowMIMEType(const String&) const { return false; }
+    virtual bool canShowMIMETypeAsHTML(const String&) const { return false; }
     virtual bool representationExistsForURLScheme(const String&) const { return false; }
     virtual String generatedMIMETypeForURLScheme(const String&) const { return ""; }
 
@@ -442,6 +443,8 @@ public:
     virtual void markedTextAbandoned(Frame*) { }
 
     virtual NSString* userVisibleString(NSURL*) { return 0; }
+    virtual DocumentFragment* documentFragmentFromAttributedString(NSAttributedString*, Vector<RefPtr<ArchiveResource> >&) { return 0; };
+    virtual void setInsertionPasteboard(NSPasteboard*) { };
 #ifdef BUILDING_ON_TIGER
     virtual NSArray* pasteboardTypesForSelection(Frame*) { return 0; }
 #endif
@@ -475,6 +478,7 @@ public:
 #if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
     virtual void showCorrectionPanel(const FloatRect&, const String&, const String&, Editor*) { }
     virtual void dismissCorrectionPanel(bool) { }
+    virtual bool isShowingCorrectionPanel() { return false; }
 #endif
     virtual void updateSpellingUIWithGrammarString(const String&, const GrammarDetail&) { }
     virtual void updateSpellingUIWithMisspelledWord(const String&) { }

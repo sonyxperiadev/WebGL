@@ -260,6 +260,7 @@ public:
     virtual HRESULT STDMETHODCALLTYPE numberOfActiveAnimations(UINT*);
     virtual HRESULT STDMETHODCALLTYPE suspendAnimations();
     virtual HRESULT STDMETHODCALLTYPE resumeAnimations();
+    virtual HRESULT STDMETHODCALLTYPE loadPlainTextString(BSTR string, BSTR url);
 
     virtual HRESULT STDMETHODCALLTYPE isDisplayingStandaloneImage(BOOL*);
 
@@ -302,6 +303,7 @@ public:
     virtual void didChangeIcons(WebCore::DocumentLoader*);
     virtual bool canHandleRequest(const WebCore::ResourceRequest&) const;
     virtual bool canShowMIMEType(const WTF::String& MIMEType) const;
+    virtual bool canShowMIMETypeAsHTML(const WTF::String& MIMEType) const;
     virtual bool representationExistsForURLScheme(const WTF::String& URLScheme) const;
     virtual WTF::String generatedMIMETypeForURLScheme(const WTF::String& URLScheme) const;
     virtual void frameLoadCompleted();
@@ -355,7 +357,6 @@ public:
     void updateBackground();
 
     // WebFrame (matching WebCoreFrameBridge)
-    void setTextSizeMultiplier(float multiplier);
     HRESULT inViewSourceMode(BOOL *flag);
     HRESULT setInViewSourceMode(BOOL flag);
     HRESULT elementWithName(BSTR name, IDOMElement* form, IDOMElement** element);

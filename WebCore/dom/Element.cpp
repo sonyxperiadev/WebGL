@@ -50,6 +50,7 @@
 #include "RenderLayer.h"
 #include "RenderView.h"
 #include "RenderWidget.h"
+#include "SVGStyledLocatableElement.h"
 #include "Settings.h"
 #include "TextIterator.h"
 #include "XMLNames.h"
@@ -476,12 +477,25 @@ PassRefPtr<ClientRectList> Element::getClientRects() const
 PassRefPtr<ClientRect> Element::getBoundingClientRect() const
 {
     document()->updateLayoutIgnorePendingStylesheets();
-    RenderBoxModelObject* renderBoxModelObject = this->renderBoxModelObject();
-    if (!renderBoxModelObject)
-        return ClientRect::create();
 
     Vector<FloatQuad> quads;
-    renderBoxModelObject->absoluteQuads(quads);
+#if ENABLE(SVG)
+    if (isSVGElement()) {
+        // Get the bounding rectangle from the SVG model.
+        const SVGElement* svgElement = static_cast<const SVGElement*>(this);
+        if (svgElement->isStyledLocatable()) {
+            if (renderer()) {
+                const FloatRect& localRect = static_cast<const SVGStyledLocatableElement*>(svgElement)->getBBox();
+                quads.append(renderer()->localToAbsoluteQuad(localRect));
+            }
+        }
+    } else
+#endif
+    {
+        // Get the bounding rectangle from the box model.
+        if (renderBoxModelObject())
+            renderBoxModelObject()->absoluteQuads(quads);
+    }
 
     if (quads.isEmpty())
         return ClientRect::create();
@@ -495,7 +509,8 @@ PassRefPtr<ClientRect> Element::getBoundingClientRect() const
         result.move(-visibleContentRect.x(), -visibleContentRect.y());
     }
 
-    adjustIntRectForAbsoluteZoom(result, renderBoxModelObject);
+    if (renderBoxModelObject())
+        adjustIntRectForAbsoluteZoom(result, renderBoxModelObject());
 
     return ClientRect::create(result);
 }
@@ -1347,9 +1362,9 @@ void Element::updateFocusAppearance(bool /*restorePreviousSelection*/)
         // FIXME: We should restore the previous selection if there is one.
         VisibleSelection newSelection = VisibleSelection(Position(this, 0), DOWNSTREAM);
         
-        if (frame->shouldChangeSelection(newSelection)) {
+        if (frame->selection()->shouldChangeSelection(newSelection)) {
             frame->selection()->setSelection(newSelection);
-            frame->revealSelection();
+            frame->selection()->revealSelection();
         }
     } else if (renderer() && !renderer()->isWidget())
         renderer()->enclosingLayer()->scrollRectToVisible(getRect());

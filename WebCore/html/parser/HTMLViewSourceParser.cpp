@@ -26,15 +26,15 @@
 #include "config.h"
 #include "HTMLViewSourceParser.h"
 
+#include "HTMLDocumentParser.h"
 #include "HTMLNames.h"
-#include "HTMLTreeBuilder.h"
 #include "HTMLViewSourceDocument.h"
 
 namespace WebCore {
 
 HTMLViewSourceParser::HTMLViewSourceParser(HTMLViewSourceDocument* document)
     : DecodedDataDocumentParser(document)
-    , m_tokenizer(HTMLTokenizer::create())
+    , m_tokenizer(HTMLTokenizer::create(HTMLDocumentParser::usePreHTML5ParserQuirks(document)))
 {
 }
 
@@ -87,13 +87,7 @@ void HTMLViewSourceParser::updateTokenizerState()
         return;
 
     AtomicString tagName(m_token.name().data(), m_token.name().size());
-    m_tokenizer->setState(HTMLTreeBuilder::adjustedLexerState(m_tokenizer->state(), tagName, document()->frame()));
-    if (tagName == HTMLNames::scriptTag) {
-        // The tree builder handles scriptTag separately from the other tokenizer
-        // state adjustments, so we need to handle it separately too.
-        ASSERT(m_tokenizer->state() == HTMLTokenizer::DataState);
-        m_tokenizer->setState(HTMLTokenizer::ScriptDataState);
-    }
+    m_tokenizer->updateStateFor(tagName, document()->frame());
 }
 
 void HTMLViewSourceParser::finish()

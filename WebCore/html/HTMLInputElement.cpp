@@ -50,7 +50,7 @@
 #include "HTMLImageLoader.h"
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
-#include "HTMLTreeBuilder.h"
+#include "HTMLParserIdioms.h"
 #include "KeyboardEvent.h"
 #include "LocalizedStrings.h"
 #include "MouseEvent.h"
@@ -154,7 +154,7 @@ HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document* docum
     , m_xPos(0)
     , m_yPos(0)
     , m_maxResults(-1)
-    , m_type(TEXT)
+    , m_deprecatedTypeNumber(TEXT)
     , m_checked(false)
     , m_defaultChecked(false)
     , m_useDefaultChecked(true)
@@ -244,7 +244,7 @@ bool HTMLInputElement::isValidValue(const String& value) const
 {
     // Should not call isValidValue() for the following types because
     // we can't set string values for these types.
-    if (inputType() == CHECKBOX || inputType() == FILE || inputType() == RADIO) {
+    if (deprecatedInputType() == CHECKBOX || deprecatedInputType() == FILE || deprecatedInputType() == RADIO) {
         ASSERT_NOT_REACHED();
         return false;
     }
@@ -259,7 +259,7 @@ bool HTMLInputElement::isValidValue(const String& value) const
 
 bool HTMLInputElement::typeMismatch(const String& value) const
 {
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case COLOR:
         return !isValidColorString(value);
     case NUMBER:
@@ -284,7 +284,7 @@ bool HTMLInputElement::typeMismatch(const String& value) const
     case MONTH:
     case TIME:
     case WEEK:
-        return !parseToDateComponents(inputType(), value, 0);
+        return !parseToDateComponents(deprecatedInputType(), value, 0);
     case BUTTON:
     case CHECKBOX:
     case FILE:
@@ -310,7 +310,7 @@ bool HTMLInputElement::valueMissing(const String& value) const
     if (!isRequiredFormControl() || readOnly() || disabled())
         return false;
 
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case DATE:
     case DATETIME:
     case DATETIMELOCAL:
@@ -382,7 +382,7 @@ bool HTMLInputElement::tooLong(const String& value, NeedsToCheckDirtyFlag check)
 bool HTMLInputElement::rangeUnderflow(const String& value) const
 {
     const double nan = numeric_limits<double>::quiet_NaN();
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case DATE:
     case DATETIME:
     case DATETIMELOCAL:
@@ -419,7 +419,7 @@ bool HTMLInputElement::rangeUnderflow(const String& value) const
 bool HTMLInputElement::rangeOverflow(const String& value) const
 {
     const double nan = numeric_limits<double>::quiet_NaN();
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case DATE:
     case DATETIME:
     case DATETIMELOCAL:
@@ -455,7 +455,7 @@ bool HTMLInputElement::rangeOverflow(const String& value) const
 
 double HTMLInputElement::minimum() const
 {
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case DATE:
         return parseToDouble(getAttribute(minAttr), DateComponents::minimumDate());
     case DATETIME:
@@ -495,7 +495,7 @@ double HTMLInputElement::minimum() const
 
 double HTMLInputElement::maximum() const
 {
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case DATE:
         return parseToDouble(getAttribute(maxAttr), DateComponents::maximumDate());
     case DATETIME:
@@ -542,7 +542,7 @@ double HTMLInputElement::maximum() const
 
 double HTMLInputElement::stepBase() const
 {
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case RANGE:
         return minimum();
     case DATE:
@@ -581,7 +581,7 @@ bool HTMLInputElement::stepMismatch(const String& value) const
     double step;
     if (!getAllowedValueStep(&step))
         return false;
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case RANGE:
         // stepMismatch doesn't occur for RANGE. RenderSlider guarantees the
         // value matches to step on user input, and sanitation takes care
@@ -646,7 +646,7 @@ bool HTMLInputElement::getStepParameters(double* defaultStep, double* stepScaleF
 {
     ASSERT(defaultStep);
     ASSERT(stepScaleFactor);
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case NUMBER:
     case RANGE:
         *defaultStep = numberDefaultStep;
@@ -715,11 +715,11 @@ bool HTMLInputElement::getAllowedValueStep(double* step) const
         return true;
     }
     // For DATE, MONTH, WEEK, the parsed value should be an integer.
-    if (inputType() == DATE || inputType() == MONTH || inputType() == WEEK)
+    if (deprecatedInputType() == DATE || deprecatedInputType() == MONTH || deprecatedInputType() == WEEK)
         parsed = max(round(parsed), 1.0);
     double result = parsed * stepScaleFactor;
     // For DATETIME, DATETIMELOCAL, TIME, the result should be an integer.
-    if (inputType() == DATETIME || inputType() == DATETIMELOCAL || inputType() == TIME)
+    if (deprecatedInputType() == DATETIME || deprecatedInputType() == DATETIMELOCAL || deprecatedInputType() == TIME)
         result = max(round(result), 1.0);
     ASSERT(result > 0);
     *step = result;
@@ -777,14 +777,14 @@ bool HTMLInputElement::isKeyboardFocusable(KeyboardEvent* event) const
     if (!HTMLFormControlElementWithState::isKeyboardFocusable(event))
         return false;
 
-    if (inputType() == RADIO) {
+    if (deprecatedInputType() == RADIO) {
 
         // Never allow keyboard tabbing to leave you in the same radio group.  Always
         // skip any other elements in the group.
         Node* currentFocusedNode = document()->focusedNode();
         if (currentFocusedNode && currentFocusedNode->hasTagName(inputTag)) {
             HTMLInputElement* focusedInput = static_cast<HTMLInputElement*>(currentFocusedNode);
-            if (focusedInput->inputType() == RADIO && focusedInput->form() == form() && focusedInput->name() == name())
+            if (focusedInput->deprecatedInputType() == RADIO && focusedInput->form() == form() && focusedInput->name() == name())
                 return false;
         }
         
@@ -821,7 +821,7 @@ bool HTMLInputElement::shouldUseInputMethod() const
     // can access the underlying password and display it in clear text --
     // e.g. you can use it to access the stored password for any site 
     // with only trivial effort.
-    return isTextField() && inputType() != PASSWORD;
+    return isTextField() && deprecatedInputType() != PASSWORD;
 }
 
 void HTMLInputElement::handleFocusEvent()
@@ -831,7 +831,7 @@ void HTMLInputElement::handleFocusEvent()
 
 void HTMLInputElement::handleBlurEvent()
 {
-    if (inputType() == NUMBER) {
+    if (deprecatedInputType() == NUMBER) {
         // Reset the renderer value, which might be unmatched with the element value.
         setFormControlValueMatchesRenderer(false);
         // We need to reset the renderer value explicitly because an unacceptable
@@ -844,6 +844,10 @@ void HTMLInputElement::handleBlurEvent()
 
 void HTMLInputElement::setType(const String& t)
 {
+    // FIXME: This should just call setAttribute. No reason to handle the empty string specially.
+    // We should write a test case to show that setting to the empty string does not remove the
+    // attribute in other browsers and then fix this. Note that setting to null *does* remove
+    // the attribute and setAttribute implements that.
     if (t.isEmpty()) {
         int exccode;
         removeAttribute(typeAttr, exccode);
@@ -851,7 +855,7 @@ void HTMLInputElement::setType(const String& t)
         setAttribute(typeAttr, t);
 }
 
-typedef HashMap<String, HTMLInputElement::InputType, CaseFoldingHash> InputTypeMap;
+typedef HashMap<String, HTMLInputElement::DeprecatedInputType, CaseFoldingHash> InputTypeMap;
 static PassOwnPtr<InputTypeMap> createTypeMap()
 {
     OwnPtr<InputTypeMap> map = adoptPtr(new InputTypeMap);
@@ -882,10 +886,11 @@ static PassOwnPtr<InputTypeMap> createTypeMap()
     return map.release();
 }
 
-void HTMLInputElement::setInputType(const String& t)
+void HTMLInputElement::updateType()
 {
     static const InputTypeMap* typeMap = createTypeMap().leakPtr();
-    InputType newType = t.isNull() ? TEXT : typeMap->get(t);
+    const AtomicString& typeString = fastGetAttribute(typeAttr);
+    DeprecatedInputType newType = typeString.isEmpty() ? TEXT : typeMap->get(typeString);
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
     if (newType == PASSWORD && document()->focusedNode() == this)
         android::WebViewCore::getWebViewCore(document()->view())->updateTextfield(this, true, String());
@@ -894,7 +899,7 @@ void HTMLInputElement::setInputType(const String& t)
     // IMPORTANT: Don't allow the type to be changed to FILE after the first
     // type change, otherwise a JavaScript programmer would be able to set a text
     // field's value to something like /etc/passwd and then change it to a file field.
-    if (inputType() != newType) {
+    if (deprecatedInputType() != newType) {
         if (newType == FILE && m_haveType)
             // Set the attribute back to the old value.
             // Useful in case we were called from inside parseMappedAttribute.
@@ -910,12 +915,12 @@ void HTMLInputElement::setInputType(const String& t)
                 detach();
 
             bool didStoreValue = storesValueSeparateFromAttribute();
-            bool wasPasswordField = inputType() == PASSWORD;
+            bool wasPasswordField = deprecatedInputType() == PASSWORD;
             bool didRespectHeightAndWidth = respectHeightAndWidthAttrs();
-            m_type = newType;
+            m_deprecatedTypeNumber = newType;
             setNeedsWillValidateCheck();
             bool willStoreValue = storesValueSeparateFromAttribute();
-            bool isPasswordField = inputType() == PASSWORD;
+            bool isPasswordField = deprecatedInputType() == PASSWORD;
             bool willRespectHeightAndWidth = respectHeightAndWidthAttrs();
 
             if (didStoreValue && !willStoreValue && !m_data.value().isNull()) {
@@ -957,13 +962,13 @@ void HTMLInputElement::setInputType(const String& t)
     }
     m_haveType = true;
 
-    if (inputType() != IMAGE && m_imageLoader)
+    if (deprecatedInputType() != IMAGE && m_imageLoader)
         m_imageLoader.clear();
 }
 
 static const AtomicString* createFormControlTypes()
 {
-    AtomicString* types = new AtomicString[HTMLInputElement::numberOfTypes];
+    AtomicString* types = new AtomicString[HTMLInputElement::deprecatedNumberOfTypes];
     // The values must be lowercased because they will be the return values of
     //  input.type and it must be lowercase according to DOM Level 2.
     types[HTMLInputElement::BUTTON] = "button";
@@ -996,12 +1001,12 @@ static const AtomicString* createFormControlTypes()
 const AtomicString& HTMLInputElement::formControlType() const
 {
     static const AtomicString* formControlTypes = createFormControlTypes();
-    return formControlTypes[inputType()];
+    return formControlTypes[deprecatedInputType()];
 }
 
 bool HTMLInputElement::saveFormControlState(String& result) const
 {
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case BUTTON:
     case COLOR:
     case DATE:
@@ -1042,8 +1047,8 @@ bool HTMLInputElement::saveFormControlState(String& result) const
 
 void HTMLInputElement::restoreFormControlState(const String& state)
 {
-    ASSERT(inputType() != PASSWORD); // should never save/restore password fields
-    switch (inputType()) {
+    ASSERT(deprecatedInputType() != PASSWORD); // should never save/restore password fields
+    switch (deprecatedInputType()) {
     case BUTTON:
     case COLOR:
     case DATE:
@@ -1090,7 +1095,7 @@ bool HTMLInputElement::canHaveSelection() const
 
 void HTMLInputElement::accessKeyAction(bool sendToAnyElement)
 {
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case BUTTON:
     case CHECKBOX:
     case FILE:
@@ -1137,7 +1142,7 @@ bool HTMLInputElement::mapToEntry(const QualifiedName& attrName, MappedAttribute
     } 
 
     if (attrName == alignAttr) {
-        if (inputType() == IMAGE) {
+        if (deprecatedInputType() == IMAGE) {
             // Share with <img> since the alignment behavior is the same.
             result = eReplaced;
             return false;
@@ -1170,7 +1175,7 @@ void HTMLInputElement::parseMappedAttribute(Attribute* attr)
                 unregisterForActivationCallbackIfNeeded();
         }
     } else if (attr->name() == typeAttr) {
-        setInputType(attr->value());
+        updateType();
     } else if (attr->name() == valueAttr) {
         // We only need to setChanged if the form is looking at the default value right now.
         if (m_data.value().isNull())
@@ -1190,10 +1195,10 @@ void HTMLInputElement::parseMappedAttribute(Attribute* attr)
     } else if (attr->name() == sizeAttr)
         InputElement::parseSizeAttribute(m_data, this, attr);
     else if (attr->name() == altAttr) {
-        if (renderer() && inputType() == IMAGE)
+        if (renderer() && deprecatedInputType() == IMAGE)
             toRenderImage(renderer())->updateAltText();
     } else if (attr->name() == srcAttr) {
-        if (renderer() && inputType() == IMAGE) {
+        if (renderer() && deprecatedInputType() == IMAGE) {
             if (!m_imageLoader)
                 m_imageLoader = adoptPtr(new HTMLImageLoader(this));
             m_imageLoader->updateFromElementIgnoringPreviousError();
@@ -1207,7 +1212,7 @@ void HTMLInputElement::parseMappedAttribute(Attribute* attr)
         addCSSLength(attr, CSSPropertyMarginLeft, attr->value());
         addCSSLength(attr, CSSPropertyMarginRight, attr->value());
     } else if (attr->name() == alignAttr) {
-        if (inputType() == IMAGE)
+        if (deprecatedInputType() == IMAGE)
             addHTMLAlignment(attr);
     } else if (attr->name() == widthAttr) {
         if (respectHeightAndWidthAttrs())
@@ -1233,7 +1238,7 @@ void HTMLInputElement::parseMappedAttribute(Attribute* attr)
         setNeedsStyleRecalc();
     else if (attr->name() == minAttr
              || attr->name() == maxAttr) {
-        if (inputType() == RANGE) {
+        if (deprecatedInputType() == RANGE) {
             // Sanitize the value.
             setValue(value());
             setNeedsStyleRecalc();
@@ -1262,14 +1267,14 @@ void HTMLInputElement::parseMappedAttribute(Attribute* attr)
 
 bool HTMLInputElement::rendererIsNeeded(RenderStyle *style)
 {
-    if (inputType() == HIDDEN)
+    if (deprecatedInputType() == HIDDEN)
         return false;
     return HTMLFormControlElementWithState::rendererIsNeeded(style);
 }
 
 RenderObject* HTMLInputElement::createRenderer(RenderArena *arena, RenderStyle *style)
 {
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case BUTTON:
     case RESET:
     case SUBMIT:
@@ -1313,13 +1318,13 @@ void HTMLInputElement::attach()
 {
     if (!m_inited) {
         if (!m_haveType)
-            setInputType(getAttribute(typeAttr));
+            updateType();
         m_inited = true;
     }
 
     HTMLFormControlElementWithState::attach();
 
-    if (inputType() == IMAGE) {
+    if (deprecatedInputType() == IMAGE) {
         if (!m_imageLoader)
             m_imageLoader = adoptPtr(new HTMLImageLoader(this));
         m_imageLoader->updateFromElement();
@@ -1335,7 +1340,7 @@ void HTMLInputElement::attach()
         }
     }
 
-    if (inputType() == RADIO)
+    if (deprecatedInputType() == RADIO)
         updateCheckedRadioButtons();
 
     if (document()->focusedNode() == this)
@@ -1368,7 +1373,7 @@ bool HTMLInputElement::isSuccessfulSubmitButton() const
 {
     // HTML spec says that buttons must have names to be considered successful.
     // However, other browsers do not impose this constraint. So we do likewise.
-    return !disabled() && (inputType() == IMAGE || inputType() == SUBMIT);
+    return !disabled() && (deprecatedInputType() == IMAGE || deprecatedInputType() == SUBMIT);
 }
 
 bool HTMLInputElement::isActivatedSubmit() const
@@ -1384,10 +1389,10 @@ void HTMLInputElement::setActivatedSubmit(bool flag)
 bool HTMLInputElement::appendFormData(FormDataList& encoding, bool multipart)
 {
     // image generates its own names, but for other types there is no form data unless there's a name
-    if (name().isEmpty() && inputType() != IMAGE)
+    if (name().isEmpty() && deprecatedInputType() != IMAGE)
         return false;
 
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case COLOR:
     case DATE:
     case DATETIME:
@@ -1460,7 +1465,7 @@ bool HTMLInputElement::appendFormData(FormDataList& encoding, bool multipart)
         // If no filename at all is entered, return successful but empty.
         // Null would be more logical, but Netscape posts an empty file. Argh.
         if (!numFiles) {
-            encoding.appendBlob(name(), File::create(document()->scriptExecutionContext(), ""));
+            encoding.appendBlob(name(), File::create(""));
             return true;
         }
 
@@ -1483,7 +1488,7 @@ void HTMLInputElement::reset()
 
 bool HTMLInputElement::isTextField() const
 {
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case COLOR:
     case DATE:
     case DATETIME:
@@ -1517,7 +1522,7 @@ bool HTMLInputElement::isTextField() const
 
 bool HTMLInputElement::isTextType() const
 {
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case EMAIL:
     case PASSWORD:
     case SEARCH:
@@ -1573,7 +1578,7 @@ void HTMLInputElement::setChecked(bool nowChecked, bool sendChangeEvent)
     // unchecked to match other browsers. DOM is not a useful standard for this
     // because it says only to fire change events at "lose focus" time, which is
     // definitely wrong in practice for these types of elements.
-    if (sendChangeEvent && inDocument() && (inputType() != RADIO || nowChecked))
+    if (sendChangeEvent && inDocument() && (deprecatedInputType() != RADIO || nowChecked))
         dispatchFormControlChangeEvent();
 }
 
@@ -1611,7 +1616,7 @@ void HTMLInputElement::copyNonAttributeProperties(const Element* source)
 
 String HTMLInputElement::value() const
 {
-    if (inputType() == FILE) {
+    if (deprecatedInputType() == FILE) {
         if (!m_fileList->isEmpty()) {
             // HTML5 tells us that we're supposed to use this goofy value for
             // file input controls.  Historically, browsers reveals the real
@@ -1632,9 +1637,9 @@ String HTMLInputElement::value() const
         // For Checkbox Types just use "on" or "" based off the checked() state of the control.
         // For a Range Input use the calculated default value.
         if (value.isNull()) {
-            if (inputType() == CHECKBOX || inputType() == RADIO)
+            if (deprecatedInputType() == CHECKBOX || deprecatedInputType() == RADIO)
                 return checked() ? "on" : "";
-            if (inputType() == RANGE)
+            if (deprecatedInputType() == RANGE)
                 return serializeForNumberType(StepRange(this).defaultValue());
         }
     }
@@ -1646,7 +1651,7 @@ String HTMLInputElement::valueWithDefault() const
 {
     String v = value();
     if (v.isNull()) {
-        switch (inputType()) {
+        switch (deprecatedInputType()) {
         case BUTTON:
         case CHECKBOX:
         case COLOR:
@@ -1694,7 +1699,7 @@ const String& HTMLInputElement::suggestedValue() const
 
 void HTMLInputElement::setSuggestedValue(const String& value)
 {
-    if (inputType() != TEXT)
+    if (deprecatedInputType() != TEXT)
         return;
     setFormControlValueMatchesRenderer(false);
     m_data.setSuggestedValue(sanitizeValue(value));
@@ -1709,12 +1714,12 @@ void HTMLInputElement::setValue(const String& value, bool sendChangeEvent)
     // For security reasons, we don't allow setting the filename, but we do allow clearing it.
     // The HTML5 spec (as of the 10/24/08 working draft) says that the value attribute isn't applicable to the file upload control
     // but we don't want to break existing websites, who may be relying on this method to clear things.
-    if (inputType() == FILE && !value.isEmpty())
+    if (deprecatedInputType() == FILE && !value.isEmpty())
         return;
 
     setFormControlValueMatchesRenderer(false);
     if (storesValueSeparateFromAttribute()) {
-        if (inputType() == FILE)
+        if (deprecatedInputType() == FILE)
             m_fileList->clear();
         else {
             m_data.setValue(sanitizeValue(value));
@@ -1750,14 +1755,14 @@ void HTMLInputElement::setValue(const String& value, bool sendChangeEvent)
 
 double HTMLInputElement::parseToDouble(const String& src, double defaultValue) const
 {
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case DATE:
     case DATETIME:
     case DATETIMELOCAL:
     case TIME:
     case WEEK: {
         DateComponents date;
-        if (!parseToDateComponents(inputType(), src, &date))
+        if (!parseToDateComponents(deprecatedInputType(), src, &date))
             return defaultValue;
         double msec = date.millisecondsSinceEpoch();
         ASSERT(isfinite(msec));
@@ -1765,7 +1770,7 @@ double HTMLInputElement::parseToDouble(const String& src, double defaultValue) c
     }
     case MONTH: {
         DateComponents date;
-        if (!parseToDateComponents(inputType(), src, &date))
+        if (!parseToDateComponents(deprecatedInputType(), src, &date))
             return defaultValue;
         double months = date.monthsSinceEpoch();
         ASSERT(isfinite(months));
@@ -1804,7 +1809,7 @@ double HTMLInputElement::parseToDouble(const String& src, double defaultValue) c
 
 double HTMLInputElement::valueAsDate() const
 {
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case DATE:
     case DATETIME:
     case TIME:
@@ -1812,7 +1817,7 @@ double HTMLInputElement::valueAsDate() const
         return parseToDouble(value(), DateComponents::invalidMilliseconds());
     case MONTH: {
         DateComponents date;
-        if (!parseToDateComponents(inputType(), value(), &date))
+        if (!parseToDateComponents(deprecatedInputType(), value(), &date))
             return DateComponents::invalidMilliseconds();
         double msec = date.millisecondsSinceEpoch();
         ASSERT(isfinite(msec));
@@ -1846,7 +1851,7 @@ double HTMLInputElement::valueAsDate() const
 
 void HTMLInputElement::setValueAsDate(double value, ExceptionCode& ec)
 {
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case DATE:
     case DATETIME:
     case TIME:
@@ -1890,7 +1895,7 @@ void HTMLInputElement::setValueAsDate(double value, ExceptionCode& ec)
 double HTMLInputElement::valueAsNumber() const
 {
     const double nan = numeric_limits<double>::quiet_NaN();
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case DATE:
     case DATETIME:
     case DATETIMELOCAL:
@@ -1929,7 +1934,7 @@ void HTMLInputElement::setValueAsNumber(double newValue, ExceptionCode& ec)
         ec = NOT_SUPPORTED_ERR;
         return;
     }
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case DATE:
     case DATETIME:
     case DATETIMELOCAL:
@@ -1967,7 +1972,7 @@ String HTMLInputElement::serializeForDateTimeTypes(double value) const
 {
     bool success = false;
     DateComponents date;
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case DATE:
         success = date.setMillisecondsSinceEpochForDate(value);
         break;
@@ -2024,7 +2029,7 @@ String HTMLInputElement::serialize(double value) const
 {
     if (!isfinite(value))
         return String();
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case DATE:
     case DATETIME:
     case DATETIMELOCAL:
@@ -2076,7 +2081,7 @@ bool HTMLInputElement::searchEventsShouldBeDispatched() const
 void HTMLInputElement::setValueFromRenderer(const String& value)
 {
     // File upload controls will always use setFileListFromRenderer.
-    ASSERT(inputType() != FILE);
+    ASSERT(deprecatedInputType() != FILE);
     m_data.setSuggestedValue(String());
     updatePlaceholderVisibility(false);
     InputElement::setValueFromRenderer(m_data, this, this, value);
@@ -2107,15 +2112,15 @@ void HTMLInputElement::setFileListFromRenderer(const Vector<String>& paths)
         for (int i = 0; i < size; i++) {
             // Normalize backslashes to slashes before exposing the relative path to script.
             String relativePath = paths[i].substring(1 + rootPath.length()).replace('\\','/');
-            m_fileList->append(File::create(document()->scriptExecutionContext(), relativePath, paths[i]));
+            m_fileList->append(File::create(relativePath, paths[i]));
         }
     } else {
         for (int i = 0; i < size; i++)
-            m_fileList->append(File::create(document()->scriptExecutionContext(), paths[i]));
+            m_fileList->append(File::create(paths[i]));
     }
 #else
     for (int i = 0; i < size; i++)
-        m_fileList->append(File::create(document()->scriptExecutionContext(), paths[i]));
+        m_fileList->append(File::create(paths[i]));
 #endif
 
     setFormControlValueMatchesRenderer(true);
@@ -2125,7 +2130,7 @@ void HTMLInputElement::setFileListFromRenderer(const Vector<String>& paths)
 
 bool HTMLInputElement::storesValueSeparateFromAttribute() const
 {
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case BUTTON:
     case CHECKBOX:
     case HIDDEN:
@@ -2166,17 +2171,14 @@ struct EventHandlingState : FastAllocBase {
         , m_checked(checked) { }
 };
 
-void* HTMLInputElement::preDispatchEventHandler(Event *evt)
+void* HTMLInputElement::preDispatchEventHandler(Event* evt)
 {
     // preventDefault or "return false" are used to reverse the automatic checking/selection we do here.
     // This result gives us enough info to perform the "undo" in postDispatch of the action we take here.
     void* result = 0; 
-    if ((inputType() == CHECKBOX || inputType() == RADIO) && evt->isMouseEvent()
-            && evt->type() == eventNames().clickEvent && static_cast<MouseEvent*>(evt)->button() == LeftButton) {
-        
+    if ((deprecatedInputType() == CHECKBOX || deprecatedInputType() == RADIO) && evt->type() == eventNames().clickEvent) {
         OwnPtr<EventHandlingState> state = adoptPtr(new EventHandlingState(indeterminate(), checked()));
-
-        if (inputType() == CHECKBOX) {
+        if (deprecatedInputType() == CHECKBOX) {
             if (indeterminate())
                 setIndeterminate(false);
             else
@@ -2203,11 +2205,10 @@ void* HTMLInputElement::preDispatchEventHandler(Event *evt)
 
 void HTMLInputElement::postDispatchEventHandler(Event *evt, void* data)
 {
-    if ((inputType() == CHECKBOX || inputType() == RADIO) && evt->isMouseEvent()
-            && evt->type() == eventNames().clickEvent && static_cast<MouseEvent*>(evt)->button() == LeftButton) {
+    if ((deprecatedInputType() == CHECKBOX || deprecatedInputType() == RADIO) && evt->type() == eventNames().clickEvent) {
         
         if (EventHandlingState* state = reinterpret_cast<EventHandlingState*>(data)) {
-            if (inputType() == CHECKBOX) {
+            if (deprecatedInputType() == CHECKBOX) {
                 // Reverse the checking we did in preDispatch.
                 if (evt->defaultPrevented() || evt->defaultHandled()) {
                     setIndeterminate(state->m_indeterminate);
@@ -2220,7 +2221,7 @@ void HTMLInputElement::postDispatchEventHandler(Event *evt, void* data)
                     // Make sure it is still a radio button and only do the restoration if it still
                     // belongs to our group.
 
-                    if (input && input->form() == form() && input->inputType() == RADIO && input->name() == name()) {
+                    if (input && input->form() == form() && input->deprecatedInputType() == RADIO && input->name() == name()) {
                         // Ok, the old radio button is still in our form and in our group and is still a 
                         // radio button, so it's safe to restore selection to it.
                         input->setChecked(true);
@@ -2246,7 +2247,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
     if (isTextField() && evt->type() == eventNames().textInputEvent && evt->isTextEvent() && static_cast<TextEvent*>(evt)->data() == "\n")
         implicitSubmission = true;
 
-    if (inputType() == IMAGE && evt->isMouseEvent() && evt->type() == eventNames().clickEvent) {
+    if (deprecatedInputType() == IMAGE && evt->isMouseEvent() && evt->type() == eventNames().clickEvent) {
         // record the mouse position for when we get the DOMActivate event
         MouseEvent* me = static_cast<MouseEvent*>(evt);
         // FIXME: We could just call offsetX() and offsetY() on the event,
@@ -2287,10 +2288,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
         return;
     }
 
-    if (inputType() == RADIO
-            && evt->isMouseEvent()
-            && evt->type() == eventNames().clickEvent
-            && static_cast<MouseEvent*>(evt)->button() == LeftButton) {
+    if (deprecatedInputType() == RADIO && evt->type() == eventNames().clickEvent) {
         evt->setDefaultHandled();
         return;
     }
@@ -2310,10 +2308,10 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
     // on the element, or presses enter while it is the active element. JavaScript code wishing to activate the element
     // must dispatch a DOMActivate event - a click event will not do the job.
     if (evt->type() == eventNames().DOMActivateEvent && !disabled()) {
-        if (inputType() == IMAGE || inputType() == SUBMIT || inputType() == RESET) {
+        if (deprecatedInputType() == IMAGE || deprecatedInputType() == SUBMIT || deprecatedInputType() == RESET) {
             if (!form())
                 return;
-            if (inputType() == RESET)
+            if (deprecatedInputType() == RESET)
                 form()->reset();
             else {
                 m_activeSubmit = true;
@@ -2327,7 +2325,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
                 }
                 m_activeSubmit = false;
             }
-        } else if (inputType() == FILE && renderer())
+        } else if (deprecatedInputType() == FILE && renderer())
             toRenderFileUploadControl(renderer())->click();
     }
 
@@ -2339,7 +2337,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
         int charCode = static_cast<KeyboardEvent*>(evt)->charCode();
 
         if (charCode == '\r') {
-            switch (inputType()) {
+            switch (deprecatedInputType()) {
             case CHECKBOX:
             case COLOR:
             case DATE:
@@ -2372,7 +2370,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
                 break;
             }
         } else if (charCode == ' ') {
-            switch (inputType()) {
+            switch (deprecatedInputType()) {
             case BUTTON:
             case CHECKBOX:
             case FILE:
@@ -2399,7 +2397,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
         String key = static_cast<KeyboardEvent*>(evt)->keyIdentifier();
 
         if (key == "U+0020") {
-            switch (inputType()) {
+            switch (deprecatedInputType()) {
             case BUTTON:
             case CHECKBOX:
             case FILE:
@@ -2416,7 +2414,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
             }
         }
 
-        if (inputType() == RADIO && (key == "Up" || key == "Down" || key == "Left" || key == "Right")) {
+        if (deprecatedInputType() == RADIO && (key == "Up" || key == "Down" || key == "Left" || key == "Right")) {
             // Left and up mean "previous radio button".
             // Right and down mean "next radio button".
             // Tested in WinIE, and even for RTL, left still means previous radio button (and so moves
@@ -2438,7 +2436,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
                         break;
                     if (n->hasTagName(inputTag)) {
                         HTMLInputElement* inputElt = static_cast<HTMLInputElement*>(n);
-                        if (inputElt->inputType() == RADIO && inputElt->name() == name() && inputElt->isFocusable()) {
+                        if (inputElt->deprecatedInputType() == RADIO && inputElt->name() == name() && inputElt->isFocusable()) {
                             inputElt->setChecked(true);
                             document()->setFocusedNode(inputElt);
                             inputElt->dispatchSimulatedClick(evt, false, false);
@@ -2457,7 +2455,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
         String key = static_cast<KeyboardEvent*>(evt)->keyIdentifier();
 
         if (key == "U+0020") {
-            switch (inputType()) {
+            switch (deprecatedInputType()) {
             case BUTTON:
             case CHECKBOX:
             case FILE:
@@ -2520,7 +2518,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
 
         RefPtr<HTMLFormElement> formForSubmission = form();
         // If there is no form and the element is an <isindex>, then create a temporary form just to be used for submission.
-        if (!formForSubmission && inputType() == ISINDEX)
+        if (!formForSubmission && deprecatedInputType() == ISINDEX)
             formForSubmission = createTemporaryFormForIsIndex();
 
         // Form may never have been present, or may have been destroyed by code responding to the change event.
@@ -2551,7 +2549,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
     if (isTextField() && renderer() && (evt->isMouseEvent() || evt->isDragEvent() || evt->isWheelEvent() || evt->type() == eventNames().blurEvent || evt->type() == eventNames().focusEvent))
         toRenderTextControlSingleLine(renderer())->forwardEvent(evt);
 
-    if (inputType() == RANGE && renderer() && (evt->isMouseEvent() || evt->isDragEvent() || evt->isWheelEvent()))
+    if (deprecatedInputType() == RANGE && renderer() && (evt->isMouseEvent() || evt->isDragEvent() || evt->isWheelEvent()))
         toRenderSlider(renderer())->forwardEvent(evt);
 
     if (!callBaseClassEarly && !evt->defaultHandled())
@@ -2560,7 +2558,7 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
 
 void HTMLInputElement::handleBeforeTextInsertedEvent(Event* event)
 {
-    if (inputType() == NUMBER) {
+    if (deprecatedInputType() == NUMBER) {
         BeforeTextInsertedEvent* textEvent = static_cast<BeforeTextInsertedEvent*>(event);
         unsigned length = textEvent->text().length();
         bool hasInvalidChar = false;
@@ -2679,21 +2677,21 @@ void HTMLInputElement::setAutofilled(bool b)
 
 FileList* HTMLInputElement::files()
 {
-    if (inputType() != FILE)
+    if (deprecatedInputType() != FILE)
         return 0;
     return m_fileList.get();
 }
 
 bool HTMLInputElement::isAcceptableValue(const String& proposedValue) const
 {
-    if (inputType() != NUMBER)
+    if (deprecatedInputType() != NUMBER)
         return true;
     return proposedValue.isEmpty() || parseToDoubleForNumberType(proposedValue, 0);
 }
 
 String HTMLInputElement::sanitizeValue(const String& proposedValue) const
 {
-    if (inputType() == NUMBER)
+    if (deprecatedInputType() == NUMBER)
         return parseToDoubleForNumberType(proposedValue, 0) ? proposedValue : String();
 
     if (isTextField())
@@ -2702,7 +2700,7 @@ String HTMLInputElement::sanitizeValue(const String& proposedValue) const
     // If the proposedValue is null than this is a reset scenario and we
     // want the range input's value attribute to take priority over the
     // calculated default (middle) value.
-    if (inputType() == RANGE && !proposedValue.isNull())
+    if (deprecatedInputType() == RANGE && !proposedValue.isNull())
         return serializeForNumberType(StepRange(this).clampValue(proposedValue));
 
     return proposedValue;
@@ -2710,12 +2708,12 @@ String HTMLInputElement::sanitizeValue(const String& proposedValue) const
 
 bool HTMLInputElement::hasUnacceptableValue() const
 {
-    return inputType() == NUMBER && renderer() && !isAcceptableValue(toRenderTextControl(renderer())->text());
+    return deprecatedInputType() == NUMBER && renderer() && !isAcceptableValue(toRenderTextControl(renderer())->text());
 }
 
 bool HTMLInputElement::needsActivationCallback()
 {
-    return inputType() == PASSWORD || m_autocomplete == Off;
+    return deprecatedInputType() == PASSWORD || m_autocomplete == Off;
 }
 
 void HTMLInputElement::registerForActivationCallbackIfNeeded()
@@ -2735,7 +2733,7 @@ bool HTMLInputElement::isRequiredFormControl() const
     if (!required())
         return false;
 
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case CHECKBOX:
     case DATE:
     case DATETIME:
@@ -2825,7 +2823,7 @@ void HTMLInputElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) cons
 
 bool HTMLInputElement::recalcWillValidate() const
 {
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case CHECKBOX:
     case COLOR:
     case DATE:
@@ -2857,7 +2855,7 @@ bool HTMLInputElement::recalcWillValidate() const
     return false;
 }
 
-bool HTMLInputElement::parseToDateComponents(InputType type, const String& formString, DateComponents* out)
+bool HTMLInputElement::parseToDateComponents(DeprecatedInputType type, const String& formString, DateComponents* out)
 {
     if (formString.isEmpty())
         return false;
@@ -2899,7 +2897,7 @@ HTMLDataListElement* HTMLInputElement::dataList() const
     if (!m_hasNonEmptyList)
         return 0;
 
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     case COLOR:
     case DATE:
     case DATETIME:
@@ -3005,7 +3003,7 @@ void HTMLInputElement::setWapInputFormat(String& mask)
 #if ENABLE(INPUT_SPEECH)
 bool HTMLInputElement::isSpeechEnabled() const
 {
-    switch (inputType()) {
+    switch (deprecatedInputType()) {
     // FIXME: Add support for RANGE, EMAIL, URL, COLOR and DATE/TIME input types.
     case NUMBER:
     case PASSWORD:

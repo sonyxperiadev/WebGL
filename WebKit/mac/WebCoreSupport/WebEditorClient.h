@@ -70,9 +70,11 @@ public:
     virtual void didWriteSelectionToPasteboard();
     virtual void didSetSelectionTypesForPasteboard();
 
-    virtual NSString* userVisibleString(NSURL*);
+    virtual NSString* userVisibleString(NSURL *);
+    virtual WebCore::DocumentFragment* documentFragmentFromAttributedString(NSAttributedString *, Vector< RefPtr<WebCore::ArchiveResource> >&);
+    virtual void setInsertionPasteboard(NSPasteboard *);
 #ifdef BUILDING_ON_TIGER
-    virtual NSArray* pasteboardTypesForSelection(WebCore::Frame*);
+    virtual NSArray *pasteboardTypesForSelection(WebCore::Frame*);
 #endif
     
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
@@ -133,6 +135,7 @@ public:
 #if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
     virtual void showCorrectionPanel(const WebCore::FloatRect& boundingBoxOfReplacedString, const WTF::String& replacedString, const WTF::String& replacementString, WebCore::Editor*);
     virtual void dismissCorrectionPanel(bool correctionAccepted);
+    virtual bool isShowingCorrectionPanel();
 #endif
 private:
     void registerCommandForUndoOrRedo(PassRefPtr<WebCore::EditCommand>, bool isRedo);

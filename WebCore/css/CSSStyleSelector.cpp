@@ -654,7 +654,7 @@ void CSSStyleSelector::resolveVariablesForDeclaration(CSSMutableStyleDeclaration
     }
 }
 
-void CSSStyleSelector::matchRules(CSSRuleSet* rules, int& firstRuleIndex, int& lastRuleIndex)
+void CSSStyleSelector::matchRules(CSSRuleSet* rules, int& firstRuleIndex, int& lastRuleIndex, bool includeEmptyRules)
 {
     m_matchedRules.clear();
 
@@ -664,16 +664,16 @@ void CSSStyleSelector::matchRules(CSSRuleSet* rules, int& firstRuleIndex, int& l
     // We need to collect the rules for id, class, tag, and everything else into a buffer and
     // then sort the buffer.
     if (m_element->hasID())
-        matchRulesForList(rules->getIDRules(m_element->idForStyleResolution().impl()), firstRuleIndex, lastRuleIndex);
+        matchRulesForList(rules->getIDRules(m_element->idForStyleResolution().impl()), firstRuleIndex, lastRuleIndex, includeEmptyRules);
     if (m_element->hasClass()) {
         ASSERT(m_styledElement);
         const SpaceSplitString& classNames = m_styledElement->classNames();
         size_t size = classNames.size();
         for (size_t i = 0; i < size; ++i)
-            matchRulesForList(rules->getClassRules(classNames[i].impl()), firstRuleIndex, lastRuleIndex);
+            matchRulesForList(rules->getClassRules(classNames[i].impl()), firstRuleIndex, lastRuleIndex, includeEmptyRules);
     }
-    matchRulesForList(rules->getTagRules(m_element->localName().impl()), firstRuleIndex, lastRuleIndex);
-    matchRulesForList(rules->getUniversalRules(), firstRuleIndex, lastRuleIndex);
+    matchRulesForList(rules->getTagRules(m_element->localName().impl()), firstRuleIndex, lastRuleIndex, includeEmptyRules);
+    matchRulesForList(rules->getUniversalRules(), firstRuleIndex, lastRuleIndex, includeEmptyRules);
     
     // If we didn't match any rules, we're done.
     if (m_matchedRules.isEmpty())
@@ -695,7 +695,7 @@ void CSSStyleSelector::matchRules(CSSRuleSet* rules, int& firstRuleIndex, int& l
     }
 }
 
-void CSSStyleSelector::matchRulesForList(CSSRuleDataList* rules, int& firstRuleIndex, int& lastRuleIndex)
+void CSSStyleSelector::matchRulesForList(CSSRuleDataList* rules, int& firstRuleIndex, int& lastRuleIndex, bool includeEmptyRules)
 {
     if (!rules)
         return;
@@ -703,9 +703,9 @@ void CSSStyleSelector::matchRulesForList(CSSRuleDataList* rules, int& firstRuleI
     for (CSSRuleData* d = rules->first(); d; d = d->next()) {
         CSSStyleRule* rule = d->rule();
         if (checkSelector(d->selector())) {
-            // If the rule has no properties to apply, then ignore it.
+            // If the rule has no properties to apply, then ignore it in the non-debug mode.
             CSSMutableStyleDeclaration* decl = rule->declaration();
-            if (!decl || !decl->length())
+            if (!decl || (!decl->length() && !includeEmptyRules))
                 continue;
             
             // If we're matching normal rules, set a pseudo bit if 
@@ -1083,28 +1083,28 @@ void CSSStyleSelector::matchUARules(int& firstUARule, int& lastUARule)
     // First we match rules from the user agent sheet.
     CSSRuleSet* userAgentStyleSheet = m_medium->mediaTypeMatchSpecific("print")
         ? defaultPrintStyle : defaultStyle;
-    matchRules(userAgentStyleSheet, firstUARule, lastUARule);
+    matchRules(userAgentStyleSheet, firstUARule, lastUARule, false);
 
     // In quirks mode, we match rules from the quirks user agent sheet.
     if (!m_checker.m_strictParsing)
-        matchRules(defaultQuirksStyle, firstUARule, lastUARule);
+        matchRules(defaultQuirksStyle, firstUARule, lastUARule, false);
         
     // If we're in view source mode, then we match rules from the view source style sheet.
     if (m_checker.m_document->frame() && m_checker.m_document->frame()->inViewSourceMode()) {
         if (!defaultViewSourceStyle)
             loadViewSourceStyle();
-        matchRules(defaultViewSourceStyle, firstUARule, lastUARule);
+        matchRules(defaultViewSourceStyle, firstUARule, lastUARule, false);
     }
 }
 
 PassRefPtr<RenderStyle> CSSStyleSelector::styleForDocument(Document* document)
 {
-    FrameView* view = document->view();
+    Frame* frame = document->frame();
 
     RefPtr<RenderStyle> documentStyle = RenderStyle::create();
     documentStyle->setDisplay(BLOCK);
     documentStyle->setVisuallyOrdered(document->visuallyOrdered());
-    documentStyle->setZoom(view ? view->pageZoomFactor() : 1);
+    documentStyle->setZoom(frame ? frame->pageZoomFactor() : 1);
     
     FontDescription fontDescription;
     fontDescription.setUsePrinterFont(document->printing());
@@ -1247,7 +1247,7 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
     if (!resolveForRootDefault) {
         // 4. Now we check user sheet rules.
         if (m_matchAuthorAndUserStyles)
-            matchRules(m_userStyle.get(), firstUserRule, lastUserRule);
+            matchRules(m_userStyle.get(), firstUserRule, lastUserRule, false);
 
         // 5. Now check author rules, beginning first with presentational attributes
         // mapped from HTML.
@@ -1286,7 +1286,7 @@ PassRefPtr<RenderStyle> CSSStyleSelector::styleForElement(Element* e, RenderStyl
     
         // 6. Check the rules in author sheets next.
         if (m_matchAuthorAndUserStyles)
-            matchRules(m_authorStyle.get(), firstAuthorRule, lastAuthorRule);
+            matchRules(m_authorStyle.get(), firstAuthorRule, lastAuthorRule, false);
 
         // 7. Now check our inline style attribute.
         if (m_matchAuthorAndUserStyles && m_styledElement) {
@@ -1503,8 +1503,10 @@ PassRefPtr<RenderStyle> CSSStyleSelector::pseudoStyleForElement(PseudoId pseudo,
     }
 
     initForStyleResolve(e, parentStyle, pseudo);
-    m_style = parentStyle;
-    
+    m_style = RenderStyle::create();
+    if (parentStyle)
+        m_style->inheritFrom(parentStyle);
+
     m_checker.m_matchVisitedPseudoClass = matchVisitedPseudoClass;
 
     // Since we don't use pseudo-elements in any of our quirk/print user agent rules, don't waste time walking
@@ -1515,16 +1517,12 @@ PassRefPtr<RenderStyle> CSSStyleSelector::pseudoStyleForElement(PseudoId pseudo,
     matchUARules(firstUARule, lastUARule);
 
     if (m_matchAuthorAndUserStyles) {
-        matchRules(m_userStyle.get(), firstUserRule, lastUserRule);
-        matchRules(m_authorStyle.get(), firstAuthorRule, lastAuthorRule);
+        matchRules(m_userStyle.get(), firstUserRule, lastUserRule, false);
+        matchRules(m_authorStyle.get(), firstAuthorRule, lastAuthorRule, false);
     }
 
     if (m_matchedDecls.isEmpty() && !visitedStyle)
         return 0;
-
-    m_style = RenderStyle::create();
-    if (parentStyle)
-        m_style->inheritFrom(parentStyle);
 
     m_style->setStyleType(pseudo);
     
@@ -1798,7 +1796,7 @@ void CSSStyleSelector::adjustRenderStyle(RenderStyle* style, Element *e)
     if (e && e->isFormControlElement() && style->fontSize() >= 11) {
         // Don't apply intrinsic margins to image buttons.  The designer knows how big the images are,
         // so we have to treat all image buttons as though they were explicitly sized.
-        if (!e->hasTagName(inputTag) || static_cast<HTMLInputElement*>(e)->inputType() != HTMLInputElement::IMAGE)
+        if (!e->hasTagName(inputTag) || !static_cast<HTMLInputElement*>(e)->isImageButton())
             addIntrinsicMargins(style);
     }
 
@@ -1845,12 +1843,12 @@ void CSSStyleSelector::cacheBorderAndBackground()
     }
 }
 
-PassRefPtr<CSSRuleList> CSSStyleSelector::styleRulesForElement(Element* e, bool authorOnly)
+PassRefPtr<CSSRuleList> CSSStyleSelector::styleRulesForElement(Element* e, bool authorOnly, bool includeEmptyRules)
 {
-    return pseudoStyleRulesForElement(e, NOPSEUDO, authorOnly);
+    return pseudoStyleRulesForElement(e, NOPSEUDO, authorOnly, includeEmptyRules);
 }
 
-PassRefPtr<CSSRuleList> CSSStyleSelector::pseudoStyleRulesForElement(Element* e, PseudoId pseudoId, bool authorOnly)
+PassRefPtr<CSSRuleList> CSSStyleSelector::pseudoStyleRulesForElement(Element* e, PseudoId pseudoId, bool authorOnly, bool includeEmptyRules)
 {
     if (!e || !e->document()->haveStylesheetsLoaded())
         return 0;
@@ -1868,14 +1866,14 @@ PassRefPtr<CSSRuleList> CSSStyleSelector::pseudoStyleRulesForElement(Element* e,
         // Now we check user sheet rules.
         if (m_matchAuthorAndUserStyles) {
             int firstUserRule = -1, lastUserRule = -1;
-            matchRules(m_userStyle.get(), firstUserRule, lastUserRule);
+            matchRules(m_userStyle.get(), firstUserRule, lastUserRule, includeEmptyRules);
         }
     }
 
     if (m_matchAuthorAndUserStyles) {
         // Check the rules in author sheets.
         int firstAuthorRule = -1, lastAuthorRule = -1;
-        matchRules(m_authorStyle.get(), firstAuthorRule, lastAuthorRule);
+        matchRules(m_authorStyle.get(), firstAuthorRule, lastAuthorRule, includeEmptyRules);
     }
 
     m_checker.m_collectRulesOnly = false;
@@ -1888,7 +1886,7 @@ bool CSSStyleSelector::checkSelector(CSSSelector* sel)
     m_dynamicPseudo = NOPSEUDO;
 
     // Check the selector
-    SelectorMatch match = m_checker.checkSelector(sel, m_element, &m_selectorAttrs, m_dynamicPseudo, false, false, style(), m_parentStyle);
+    SelectorMatch match = m_checker.checkSelector(sel, m_element, &m_selectorAttrs, m_dynamicPseudo, false, false, style(), m_parentNode ? m_parentNode->renderStyle() : 0);
     if (match != SelectorMatches)
         return false;
 
@@ -2925,7 +2923,7 @@ void CSSStyleSelector::applyDeclarations(bool isImportant, int startIndex, int e
 
                 if (applyFirst) {
                     COMPILE_ASSERT(firstCSSProperty == CSSPropertyColor, CSS_color_is_first_property);
-                    COMPILE_ASSERT(CSSPropertyZoom == CSSPropertyColor + 12, CSS_zoom_is_end_of_first_prop_range);
+                    COMPILE_ASSERT(CSSPropertyZoom == CSSPropertyColor + 14, CSS_zoom_is_end_of_first_prop_range);
                     COMPILE_ASSERT(CSSPropertyLineHeight == CSSPropertyZoom + 1, CSS_line_height_is_after_zoom);
 
                     // give special priority to font-xxx, color properties, etc
@@ -3113,7 +3111,7 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     bool isInherit = m_parentNode && valueType == CSSValue::CSS_INHERIT;
     bool isInitial = valueType == CSSValue::CSS_INITIAL || (!m_parentNode && valueType == CSSValue::CSS_INHERIT);
     
-    id = CSSProperty::resolveDirectionAwareProperty(id, m_style->direction());
+    id = CSSProperty::resolveDirectionAwareProperty(id, m_style->direction(), m_style->blockFlow());
 
     if (m_checker.m_matchVisitedPseudoClass && !isValidVisitedLinkProperty(id)) {
         // Limit the properties that can be applied to only the ones honored by :visited.
@@ -4151,10 +4149,8 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         else if (CSSPrimitiveValue::isUnitTypeLength(type)) {
             double multiplier = zoomFactor;
             if (m_style->textSizeAdjust()) {
-                if (FrameView* view = m_checker.m_document->view()) {
-                    if (view->shouldApplyTextZoom())
-                        multiplier *= view->textZoomFactor();
-                }
+                if (Frame* frame = m_checker.m_document->frame())
+                    multiplier *= frame->textZoomFactor();
             }
             lineHeight = Length(primitiveValue->computeLengthIntForLength(style(), m_rootElementStyle,  multiplier), Fixed);
         } else if (type == CSSPrimitiveValue::CSS_PERCENTAGE)
@@ -5478,10 +5474,28 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
     case CSSPropertyWebkitBorderStartColor:
     case CSSPropertyWebkitBorderStartStyle:
     case CSSPropertyWebkitBorderStartWidth:
+    case CSSPropertyWebkitBorderBefore:
+    case CSSPropertyWebkitBorderBeforeColor:
+    case CSSPropertyWebkitBorderBeforeStyle:
+    case CSSPropertyWebkitBorderBeforeWidth:
+    case CSSPropertyWebkitBorderAfter:
+    case CSSPropertyWebkitBorderAfterColor:
+    case CSSPropertyWebkitBorderAfterStyle:
+    case CSSPropertyWebkitBorderAfterWidth:
     case CSSPropertyWebkitMarginEnd:
     case CSSPropertyWebkitMarginStart:
+    case CSSPropertyWebkitMarginBefore:
+    case CSSPropertyWebkitMarginAfter:
     case CSSPropertyWebkitPaddingEnd:
     case CSSPropertyWebkitPaddingStart:
+    case CSSPropertyWebkitPaddingBefore:
+    case CSSPropertyWebkitPaddingAfter:
+    case CSSPropertyWebkitLogicalWidth:
+    case CSSPropertyWebkitLogicalHeight:
+    case CSSPropertyWebkitMinLogicalWidth:
+    case CSSPropertyWebkitMinLogicalHeight:
+    case CSSPropertyWebkitMaxLogicalWidth:
+    case CSSPropertyWebkitMaxLogicalHeight:
         ASSERT_NOT_REACHED();
         break;
 
@@ -5524,6 +5538,53 @@ void CSSStyleSelector::applyProperty(int id, CSSValue *value)
         }
         return;
 #endif 
+
+    // CSS Text Layout Module Level 3: Vertical writing support
+    case CSSPropertyWebkitBlockFlow:
+        HANDLE_INHERIT_AND_INITIAL_AND_PRIMITIVE(blockFlow, BlockFlow)
+        return;
+
+    case CSSPropertyWebkitWritingMode:
+        // The 'writing-mode' property is a shorthand property for the 'direction' property and the 'block-flow' property. 
+        if (isInherit) {
+            m_style->setDirection(m_parentStyle->direction());
+            m_style->setBlockFlow(m_parentStyle->blockFlow());
+        } else if (isInitial) {
+            m_style->setDirection(m_style->initialDirection());
+            m_style->setBlockFlow(m_style->initialBlockFlow());
+        } else {
+            if (!primitiveValue)
+                return;
+            switch (primitiveValue->getIdent()) {
+            case CSSValueLrTb:
+                m_style->setDirection(LTR);
+                m_style->setBlockFlow(TopToBottomBlockFlow);
+                break;
+            case CSSValueRlTb:
+                m_style->setDirection(RTL);
+                m_style->setBlockFlow(TopToBottomBlockFlow);
+                break;
+            case CSSValueTbRl:
+                m_style->setDirection(LTR);
+                m_style->setBlockFlow(RightToLeftBlockFlow);
+                break;
+            case CSSValueBtRl:
+                m_style->setDirection(RTL);
+                m_style->setBlockFlow(RightToLeftBlockFlow);
+                break;
+            case CSSValueTbLr:
+                m_style->setDirection(LTR);
+                m_style->setBlockFlow(LeftToRightBlockFlow);
+                break;
+            case CSSValueBtLr:
+                m_style->setDirection(RTL);
+                m_style->setBlockFlow(LeftToRightBlockFlow);
+                break;
+            default:
+                break;
+            }
+        }
+        return;
 
 #ifdef ANDROID_CSS_RING
     case CSSPropertyWebkitRing:
@@ -6375,8 +6436,8 @@ float CSSStyleSelector::getComputedSizeFromSpecifiedSize(Document* document, Ren
     float zoomFactor = 1.0f;
     if (!useSVGZoomRules) {
         zoomFactor = style->effectiveZoom();
-        if (document->view() && document->view()->shouldApplyTextZoom())
-            zoomFactor *= document->view()->textZoomFactor();
+        if (Frame* frame = document->frame())
+            zoomFactor *= frame->textZoomFactor();
     }
 
     // We support two types of minimum font size.  The first is a hard override that applies to

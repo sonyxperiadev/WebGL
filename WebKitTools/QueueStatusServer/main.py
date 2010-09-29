@@ -35,6 +35,7 @@ from google.appengine.ext.webapp.util import run_wsgi_app
 
 from handlers.dashboard import Dashboard
 from handlers.gc import GC
+from handlers.nextpatch import NextPatch
 from handlers.patch import Patch
 from handlers.patchstatus import PatchStatus
 from handlers.queuestatus import QueueStatus
@@ -59,6 +60,7 @@ routes = [
     (r'/status-bubble/(.*)', StatusBubble),
     (r'/svn-revision/(.*)', SVNRevision),
     (r'/queue-status/(.*)', QueueStatus),
+    (r'/next-patch/(.*)', NextPatch),
     ('/update-status', UpdateStatus),
     ('/update-work-items', UpdateWorkItems),
     ('/update-svn-revision', UpdateSVNRevision),

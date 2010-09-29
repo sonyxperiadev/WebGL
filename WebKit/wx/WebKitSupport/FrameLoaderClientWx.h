@@ -131,6 +131,7 @@ namespace WebCore {
         virtual void finishedLoading(DocumentLoader*);
 
         virtual bool canShowMIMEType(const String& MIMEType) const;
+        virtual bool canShowMIMETypeAsHTML(const String& MIMEType) const;
         virtual bool representationExistsForURLScheme(const String& URLScheme) const;
         virtual String generatedMIMETypeForURLScheme(const String& URLScheme) const;
 
@@ -220,6 +221,8 @@ namespace WebCore {
         virtual void registerForIconNotification(bool listen = true);
         
         virtual bool shouldUsePluginDocument(const String &mimeType) const;
+        
+        virtual PassRefPtr<FrameNetworkingContext> createNetworkingContext();
 
     private:
         wxWebFrame *m_webFrame;

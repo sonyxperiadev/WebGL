@@ -30,7 +30,6 @@
 #include "EditingBehaviorTypes.h"
 #include "FontRenderingMode.h"
 #include "KURL.h"
-#include "ZoomMode.h"
 #include <wtf/text/AtomicString.h>
 
 namespace WebCore {
@@ -229,6 +228,8 @@ namespace WebCore {
         void setDOMPasteAllowed(bool);
         bool isDOMPasteAllowed() const { return m_isDOMPasteAllowed; }
         
+        void setMinDOMTimerInterval(double); // Interval specified in seconds.
+        
         void setUsesPageCache(bool);
         bool usesPageCache() const { return m_usesPageCache; }
 
@@ -319,9 +320,6 @@ namespace WebCore {
 
         void setShouldPaintCustomScrollbars(bool);
         bool shouldPaintCustomScrollbars() const { return m_shouldPaintCustomScrollbars; }
-
-        void setZoomMode(ZoomMode);
-        ZoomMode zoomMode() const { return m_zoomMode; }
         
         void setEnforceCSSMIMETypeInNoQuirksMode(bool);
         bool enforceCSSMIMETypeInNoQuirksMode() { return m_enforceCSSMIMETypeInNoQuirksMode; }
@@ -396,6 +394,9 @@ namespace WebCore {
         // and http://webkit.org/b/40908
         void setInteractiveFormValidationEnabled(bool flag) { m_interactiveFormValidation = flag; }
         bool interactiveFormValidationEnabled() const { return m_interactiveFormValidation; }
+        
+        void setUsePreHTML5ParserQuirks(bool flag) { m_usePreHTML5ParserQuirks = flag; }
+        bool usePreHTML5ParserQuirks() const { return m_usePreHTML5ParserQuirks; }
 
 #if ENABLE(WEB_AUTOFILL)
         void setAutoFillEnabled(bool flag) { m_autoFillEnabled = flag; }
@@ -465,7 +466,6 @@ namespace WebCore {
         unsigned m_sessionStorageQuota;
 #endif
         unsigned m_pluginAllowedRunTime;
-        ZoomMode m_zoomMode;
         bool m_isSpatialNavigationEnabled : 1;
         bool m_isJavaEnabled : 1;
         bool m_loadsImagesAutomatically : 1;
@@ -527,6 +527,7 @@ namespace WebCore {
 #endif
         bool m_memoryInfoEnabled: 1;
         bool m_interactiveFormValidation: 1;
+        bool m_usePreHTML5ParserQuirks: 1;
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif

@@ -47,6 +47,8 @@ WebInspector.ResourcesPanel = function()
     this.filter(this.filterAllElement, false);
     this.graphsTreeElement.children[0].select();
     this._resourceTrackingEnabled = false;
+
+    this.sidebarElement.addEventListener("contextmenu", this._contextMenu.bind(this), true);
 }
 
 WebInspector.ResourcesPanel.prototype = {
@@ -751,16 +753,23 @@ WebInspector.ResourcesPanel.prototype = {
 
     _toggleResourceTracking: function(optionalAlways)
     {
+        function callback(newState) {
+            if (newState)
+                WebInspector.panels.resources.resourceTrackingWasEnabled();
+            else
+                WebInspector.panels.resources.resourceTrackingWasDisabled();
+        }
+
         if (this._resourceTrackingEnabled) {
             this.largerResourcesButton.visible = false;
             this.sortingSelectElement.visible = false;
             WebInspector.resources = {};
             WebInspector.resourceURLMap = {};
-            InspectorBackend.disableResourceTracking(true);
+            InspectorBackend.setResourceTrackingEnabled(false, true, callback);
         } else {
             this.largerResourcesButton.visible = true;
             this.sortingSelectElement.visible = true;
-            InspectorBackend.enableResourceTracking(!!optionalAlways);
+            InspectorBackend.setResourceTrackingEnabled(true, !!optionalAlways, callback);
         }
     },
 
@@ -857,7 +866,7 @@ WebInspector.ResourcesPanel.prototype = {
 
             var title = document.createElement("span");
             title.className = "resource-timing-bar-title";
-            if (i >= rows.length - 2)
+            if (total - rows[i].end < rows[i].start)
                 title.style.right = (scale * (total - rows[i].end) + 3) + "px";
             else
                 title.style.left = (scale * rows[i].start + 3) + "px";
@@ -876,6 +885,36 @@ WebInspector.ResourcesPanel.prototype = {
     {
         WebInspector.Panel.prototype.hide.call(this);
         this._popoverHelper.hidePopup();
+    },
+
+    _contextMenu: function(event)
+    {
+        // createBlobURL is enabled conditionally, do not expose resource export if it's not available.
+        if (typeof window.createBlobURL !== "function" || !Preferences.resourceExportEnabled)
+            return;
+
+        var contextMenu = new WebInspector.ContextMenu();
+        var resourceTreeItem = event.target.enclosingNodeOrSelfWithClass("resource-sidebar-tree-item");
+        if (resourceTreeItem && resourceTreeItem.treeElement) {
+            var resource = resourceTreeItem.treeElement.representedObject;
+            contextMenu.appendItem(WebInspector.UIString("Export to HAR"), this._exportResource.bind(this, resource));
+        }
+        contextMenu.appendItem(WebInspector.UIString("Export all to HAR"), this._exportAll.bind(this));
+        contextMenu.show(event);
+    },
+
+    _exportAll: function()
+    {
+        var harArchive = {
+            log: (new WebInspector.HARLog()).build()
+        }
+        offerFileForDownload(JSON.stringify(harArchive));
+    },
+
+    _exportResource: function(resource)
+    {
+        var har = (new WebInspector.HAREntry(resource)).build();
+        offerFileForDownload(JSON.stringify(har));
     }
 }
 

@@ -62,11 +62,13 @@ RenderTable::RenderTable(Node* node)
     , m_borderLeft(0)
     , m_borderRight(0)
 {
+    setChildrenInline(false);
+    m_columnPos.fill(0, 2);
+    m_columns.fill(ColumnStruct(), 1);
+    
 #ifdef ANDROID_LAYOUT
     m_singleColumn = false;
 #endif
-    m_columnPos.fill(0, 2);
-    m_columns.fill(ColumnStruct(), 1);
 }
 
 void RenderTable::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
@@ -457,6 +459,9 @@ void RenderTable::layout()
     }
 
     statePusher.pop();
+
+    if (view()->layoutState()->m_pageHeight)
+        setPageY(view()->layoutState()->pageY(y()));
 
     bool didFullRepaint = repainter.repaintAfterLayout();
     // Repaint with our new bounds if they are different from our old bounds.

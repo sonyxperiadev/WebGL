@@ -36,7 +36,7 @@ namespace WebKit {
 
 class WebDeviceOrientationClientMock : public WebDeviceOrientationClient {
 public:
-    WebDeviceOrientationClientMock() { initialize(); }
+    WEBKIT_API static WebDeviceOrientationClientMock* create();
     ~WebDeviceOrientationClientMock() { reset(); }
 
     virtual void setController(WebDeviceOrientationController*);
@@ -47,6 +47,7 @@ public:
     WEBKIT_API void setOrientation(WebDeviceOrientation&);
 
 private:
+    WebDeviceOrientationClientMock() { initialize(); }
     WEBKIT_API void initialize();
     WEBKIT_API void reset();
 

@@ -326,6 +326,7 @@ WebView::WebView()
     , m_useBackForwardList(true)
     , m_userAgentOverridden(false)
     , m_zoomMultiplier(1.0f)
+    , m_zoomsTextOnly(false)
     , m_mouseActivated(false)
     , m_dragData(0)
     , m_currentCharacterCode(0)
@@ -851,6 +852,19 @@ void WebView::scrollBackingStore(FrameView* frameView, int dx, int dy, const Int
     ::SelectObject(bitmapDC, oldBitmap);
     ::DeleteDC(bitmapDC);
     ::ReleaseDC(m_viewWindow, windowDC);
+}
+
+void WebView::sizeChanged(const IntSize& newSize)
+{
+    deleteBackingStore();
+
+    if (Frame* coreFrame = core(topLevelFrame()))
+        coreFrame->view()->resize(newSize);
+
+#if USE(ACCELERATED_COMPOSITING)
+    if (m_layerRenderer)
+        m_layerRenderer->resize();
+#endif
 }
 
 // This emulates the Mac smarts for painting rects intelligently.  This is very
@@ -2079,15 +2093,8 @@ LRESULT CALLBACK WebView::WebViewWndProc(HWND hWnd, UINT message, WPARAM wParam,
             break;
         // FIXME: We need to check WM_UNICHAR to support supplementary characters (that don't fit in 16 bits).
         case WM_SIZE:
-            if (lParam != 0) {
-                webView->deleteBackingStore();
-#if USE(ACCELERATED_COMPOSITING)
-                if (webView->isAcceleratedCompositing())
-                    webView->resizeLayerRenderer();
-#endif
-                if (Frame* coreFrame = core(mainFrameImpl))
-                    coreFrame->view()->resize(LOWORD(lParam), HIWORD(lParam));
-            }
+            if (lParam != 0)
+                webView->sizeChanged(IntSize(LOWORD(lParam), HIWORD(lParam)));
             break;
         case WM_SHOWWINDOW:
             lResult = DefWindowProc(hWnd, message, wParam, lParam);
@@ -2560,7 +2567,7 @@ HRESULT STDMETHODCALLTYPE WebView::initWithFrame(
 #endif
     WebKitSetApplicationCachePathIfNecessary();
     WebPlatformStrategies::initialize();
-    
+
 #if USE(SAFARI_THEME)
     BOOL shouldPaintNativeControls;
     if (SUCCEEDED(m_preferences->shouldPaintNativeControls(&shouldPaintNativeControls)))
@@ -2582,6 +2589,7 @@ HRESULT STDMETHODCALLTYPE WebView::initWithFrame(
     pageClients.geolocationControllerClient = new WebGeolocationControllerClient(this);
 #endif
     m_page = new Page(pageClients);
+    m_page->settings()->setMinDOMTimerInterval(0.004);
 
     BSTR localStoragePath;
     if (SUCCEEDED(m_preferences->localStorageDatabasePath(&localStoragePath))) {
@@ -2925,10 +2933,13 @@ HRESULT STDMETHODCALLTYPE WebView::setPageSizeMultiplier(
 void WebView::setZoomMultiplier(float multiplier, bool isTextOnly)
 {
     m_zoomMultiplier = multiplier;
-    m_page->settings()->setZoomMode(isTextOnly ? ZoomTextOnly : ZoomPage);
+    m_zoomsTextOnly = isTextOnly;
+
     if (Frame* coreFrame = core(m_mainFrame)) {
-        if (FrameView* view = coreFrame->view())
-            view->setZoomFactor(multiplier, isTextOnly ? ZoomTextOnly : ZoomPage);
+        if (m_zoomsTextOnly)
+            coreFrame->setPageAndTextZoomFactors(1, multiplier);
+        else
+            coreFrame->setPageAndTextZoomFactors(multiplier, 1);
     }
 }
 
@@ -2948,8 +2959,7 @@ HRESULT STDMETHODCALLTYPE WebView::pageSizeMultiplier(
 
 float WebView::zoomMultiplier(bool isTextOnly)
 {
-    ZoomMode zoomMode = isTextOnly ? ZoomTextOnly : ZoomPage;
-    if (zoomMode != m_page->settings()->zoomMode())
+    if (isTextOnly != m_zoomsTextOnly)
         return 1.0f;
     return m_zoomMultiplier;
 }
@@ -3401,7 +3411,7 @@ HRESULT STDMETHODCALLTYPE WebView::selectionRect(RECT* rc)
     WebCore::Frame* frame = m_page->focusController()->focusedOrMainFrame();
 
     if (frame) {
-        IntRect ir = enclosingIntRect(frame->selectionBounds());
+        IntRect ir = enclosingIntRect(frame->selection()->bounds());
         ir = frame->view()->convertToContainingWindow(ir);
         ir.move(-frame->view()->scrollOffset().width(), -frame->view()->scrollOffset().height());
         rc->left = ir.x();
@@ -3561,7 +3571,7 @@ HRESULT STDMETHODCALLTYPE WebView::centerSelectionInVisibleArea(
     if (!coreFrame)
         return E_FAIL;
 
-    coreFrame->revealSelection(ScrollAlignment::alignCenterAlways);
+    coreFrame->selection()->revealSelection(ScrollAlignment::alignCenterAlways);
     return S_OK;
 }
 
@@ -3732,7 +3742,7 @@ HRESULT STDMETHODCALLTYPE WebView::canMakeTextLarger(
         /* [in] */ IUnknown* /*sender*/,
         /* [retval][out] */ BOOL* result)
 {
-    bool canGrowMore = canZoomIn(m_page->settings()->zoomMode() == ZoomTextOnly);
+    bool canGrowMore = canZoomIn(m_zoomsTextOnly);
     *result = canGrowMore ? TRUE : FALSE;
     return S_OK;
 }
@@ -3754,7 +3764,7 @@ bool WebView::canZoomIn(bool isTextOnly)
 HRESULT STDMETHODCALLTYPE WebView::makeTextLarger( 
         /* [in] */ IUnknown* /*sender*/)
 {
-    return zoomIn(m_page->settings()->zoomMode() == ZoomTextOnly);
+    return zoomIn(m_zoomsTextOnly);
 }
 
 HRESULT STDMETHODCALLTYPE WebView::zoomPageIn( 
@@ -3775,7 +3785,7 @@ HRESULT STDMETHODCALLTYPE WebView::canMakeTextSmaller(
         /* [in] */ IUnknown* /*sender*/,
         /* [retval][out] */ BOOL* result)
 {
-    bool canShrinkMore = canZoomOut(m_page->settings()->zoomMode() == ZoomTextOnly);
+    bool canShrinkMore = canZoomOut(m_zoomsTextOnly);
     *result = canShrinkMore ? TRUE : FALSE;
     return S_OK;
 }
@@ -3797,7 +3807,7 @@ bool WebView::canZoomOut(bool isTextOnly)
 HRESULT STDMETHODCALLTYPE WebView::makeTextSmaller( 
         /* [in] */ IUnknown* /*sender*/)
 {
-    return zoomOut(m_page->settings()->zoomMode() == ZoomTextOnly);
+    return zoomOut(m_zoomsTextOnly);
 }
 
 HRESULT STDMETHODCALLTYPE WebView::zoomPageOut( 
@@ -4634,7 +4644,9 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     hr = preferences->zoomsTextOnly(&enabled);
     if (FAILED(hr))
         return hr;
-    settings->setZoomMode(enabled ? ZoomTextOnly : ZoomPage);
+
+    if (m_zoomsTextOnly != !!enabled)
+        setZoomMultiplier(m_zoomMultiplier, enabled);
 
     settings->setShowsURLsInToolTips(false);
     settings->setForceFTPDirectoryListings(true);
@@ -6272,14 +6284,11 @@ void WebView::updateRootLayerContents()
         m_nextDisplayIsSynchronous = false;
     } else
         m_layerRenderer->setRootContents(backingStoreImage.get());
+}
 
-    // Set the frame and scroll position
-    Frame* coreFrame = core(m_mainFrame);
-    if (!coreFrame)
-        return;
-    FrameView* frameView = coreFrame->view();
-
-    m_layerRenderer->setScrollFrame(IntPoint(frameView->scrollX(), frameView->scrollY()), IntSize(frameView->layoutWidth(), frameView->layoutHeight()));
+void WebView::layerRendererBecameVisible()
+{
+    m_layerRenderer->createRenderer();
 }
 #endif
 

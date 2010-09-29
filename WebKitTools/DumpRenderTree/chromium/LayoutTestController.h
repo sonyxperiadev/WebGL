@@ -100,6 +100,16 @@ public:
     // dump all frames as plain text if the dumpAsText flag is set.
     // It takes no arguments, and ignores any that may be present.
     void dumpChildFramesAsText(const CppArgumentList&, CppVariant*);
+    
+    // This function sets a flag that tells the test_shell to dump a descriptive
+    // line for each resource load callback. It takes no arguments, and ignores
+    // any that may be present.
+    void dumpResourceLoadCallbacks(const CppArgumentList&, CppVariant*);    
+    
+    // This function sets a flag that tells the test_shell to dump the MIME type
+    // for each resource that was loaded. It takes no arguments, and ignores any
+    // that may be present.
+    void dumpResourceResponseMIMETypes(const CppArgumentList&, CppVariant*);
 
     // This function sets a flag that tells the test_shell to dump all calls
     // to window.status().
@@ -129,6 +139,7 @@ public:
     void queueLoadingScript(const CppArgumentList&, CppVariant*);
     void queueNonLoadingScript(const CppArgumentList&, CppVariant*);
     void queueLoad(const CppArgumentList&, CppVariant*);
+    void queueLoadHTMLString(const CppArgumentList&, CppVariant*);
 
     // Although this is named "objC" to match the Mac version, it actually tests
     // the identity of its two arguments in C++.
@@ -212,11 +223,8 @@ public:
     void numberOfActiveAnimations(const CppArgumentList&, CppVariant*);
     void suspendAnimations(const CppArgumentList&, CppVariant*);
     void resumeAnimations(const CppArgumentList&, CppVariant*);
-
     void disableImageLoading(const CppArgumentList&, CppVariant*);
-
     void setIconDatabaseEnabled(const CppArgumentList&, CppVariant*);
-
     void dumpSelectionRect(const CppArgumentList&, CppVariant*);
 
     // Grants permission for desktop notifications to an origin
@@ -224,13 +232,14 @@ public:
     // Simulates a click on a desktop notification.
     void simulateDesktopNotificationClick(const CppArgumentList&, CppVariant*);
 
+    void setDomainRelaxationForbiddenForURLScheme(const CppArgumentList&, CppVariant*);
+    void setDeferMainResourceDataLoad(const CppArgumentList&, CppVariant*);
     void setEditingBehavior(const CppArgumentList&, CppVariant*);
 
     // The following are only stubs.  TODO(pamg): Implement any of these that
     // are needed to pass the layout tests.
     void dumpAsWebArchive(const CppArgumentList&, CppVariant*);
     void dumpTitleChanges(const CppArgumentList&, CppVariant*);
-    void dumpResourceLoadCallbacks(const CppArgumentList&, CppVariant*);
     void setMainFrameIsFirstResponder(const CppArgumentList&, CppVariant*);
     void display(const CppArgumentList&, CppVariant*);
     void testRepaint(const CppArgumentList&, CppVariant*);
@@ -328,6 +337,8 @@ public:
     bool shouldDumpFrameLoadCallbacks() { return m_dumpFrameLoadCallbacks; }
     void setShouldDumpFrameLoadCallbacks(bool value) { m_dumpFrameLoadCallbacks = value; }
     bool shouldDumpResourceLoadCallbacks() {return m_dumpResourceLoadCallbacks; }
+    void setShouldDumpResourceResponseMIMETypes(bool value) { m_dumpResourceResponseMIMETypes = value; }
+    bool shouldDumpResourceResponseMIMETypes() {return m_dumpResourceResponseMIMETypes; }
     bool shouldDumpStatusCallbacks() { return m_dumpWindowStatusChanges; }
     bool shouldDumpSelectionRect() { return m_dumpSelectionRect; }
     bool shouldDumpBackForwardList() { return m_dumpBackForwardList; }
@@ -339,6 +350,7 @@ public:
     bool canOpenWindows() { return m_canOpenWindows; }
     bool shouldAddFileToPasteboard() { return m_shouldAddFileToPasteboard; }
     bool stopProvisionalFrameLoads() { return m_stopProvisionalFrameLoads; }
+    bool deferMainResourceDataLoad() { return m_deferMainResourceDataLoad; }
 
     bool testRepaint() const { return m_testRepaint; }
     bool sweepHorizontally() const { return m_sweepHorizontally; }
@@ -447,6 +459,10 @@ private:
     // If true, the test_shell will output a descriptive line for each resource
     // load callback.
     bool m_dumpResourceLoadCallbacks;
+    
+    // If true, the test_shell will output the MIME type for each resource that 
+    // was loaded.
+    bool m_dumpResourceResponseMIMETypes;
 
     // If true, the test_shell will produce a dump of the back forward list as
     // well.
@@ -500,6 +516,9 @@ private:
 
     // If true, don't dump output until notifyDone is called.
     bool m_waitUntilDone;
+
+    // If false, all new requests will not defer the main resource data load.
+    bool m_deferMainResourceDataLoad;
 
     WorkQueue m_workQueue;
 

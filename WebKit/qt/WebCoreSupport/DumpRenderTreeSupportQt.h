@@ -106,6 +106,8 @@ public:
     static void setWillSendRequestReturnsNullOnRedirect(bool b);
     static void setWillSendRequestReturnsNull(bool b);
     static void setWillSendRequestClearHeaders(const QStringList& headers);
+    static void dumpHistoryCallbacks(bool b);
+    static void dumpVisitedLinksCallbacks(bool b);
 
     static void setDeferMainResourceDataLoad(bool b);
 
@@ -127,7 +129,8 @@ public:
     static QString pageSizeAndMarginsInPixels(QWebFrame* frame, int pageIndex, int width, int height, int marginTop, int marginRight, int marginBottom, int marginLeft);
     static QString pageProperty(QWebFrame* frame, const QString& propertyName, int pageNumber);
     static void addUserStyleSheet(QWebPage* page, const QString& sourceCode);
-
+    static void simulateDesktopNotificationClick(const QString& title);
+    static QString viewportAsText(QWebPage*, const QSize&);
 };
 
 #endif

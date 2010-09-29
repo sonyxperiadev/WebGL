@@ -31,8 +31,8 @@
 #include "CSSHelper.h"
 #include "CachedResourceLoader.h"
 #include "Document.h"
+#include "HTMLDocumentParser.h"
 #include "HTMLTokenizer.h"
-#include "HTMLTreeBuilder.h"
 #include "HTMLLinkElement.h"
 #include "HTMLNames.h"
 
@@ -121,7 +121,7 @@ private:
 HTMLPreloadScanner::HTMLPreloadScanner(Document* document)
     : m_document(document)
     , m_cssScanner(document)
-    , m_tokenizer(HTMLTokenizer::create())
+    , m_tokenizer(HTMLTokenizer::create(HTMLDocumentParser::usePreHTML5ParserQuirks(document)))
     , m_bodySeen(false)
     , m_inStyle(false)
 {
@@ -157,13 +157,7 @@ void HTMLPreloadScanner::processToken()
         return;
 
     PreloadTask task(m_token);
-    m_tokenizer->setState(HTMLTreeBuilder::adjustedLexerState(m_tokenizer->state(), task.tagName(), m_document->frame()));
-    if (task.tagName() == scriptTag) {
-        // The tree builder handles scriptTag separately from the other tokenizer
-        // state adjustments, so we need to handle it separately too.
-        ASSERT(m_tokenizer->state() == HTMLTokenizer::DataState);
-        m_tokenizer->setState(HTMLTokenizer::ScriptDataState);
-    }
+    m_tokenizer->updateStateFor(task.tagName(), m_document->frame());
 
     if (task.tagName() == bodyTag)
         m_bodySeen = true;

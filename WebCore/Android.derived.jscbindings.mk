@@ -118,6 +118,7 @@ GEN := \
     $(intermediates)/dom/JSErrorEvent.h \
     $(intermediates)/dom/JSEvent.h \
     $(intermediates)/dom/JSEventException.h \
+    $(intermediates)/dom/JSHashChangeEvent.h \
     $(intermediates)/dom/JSKeyboardEvent.h \
     $(intermediates)/dom/JSMessageChannel.h \
     $(intermediates)/dom/JSMessageEvent.h \
