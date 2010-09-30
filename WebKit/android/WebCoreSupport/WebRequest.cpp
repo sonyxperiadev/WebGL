@@ -136,7 +136,7 @@ void WebRequest::start(bool isPrivateBrowsing)
     if (m_request->url().SchemeIs("browser"))
         return handleBrowserURL(m_request->url());
 
-    scoped_refptr<WebRequestContext> context;
+    scoped_refptr<URLRequestContext> context;
     if (!isPrivateBrowsing)
         context = WebRequestContext::GetAndroidContext();
     else

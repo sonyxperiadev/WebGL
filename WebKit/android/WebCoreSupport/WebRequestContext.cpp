@@ -52,8 +52,8 @@ static const char* const kCacheDirectory = "/webviewCacheChromium";
 static const char* const kCookiesDatabaseFilenamePrivate = "/webviewCookiesChromiumPrivate.db";
 static const char* const kCacheDirectoryPrivate = "/webviewCacheChromiumPrivate";
 
-static scoped_refptr<WebRequestContext> androidContext(0);
-static scoped_refptr<WebRequestContext> androidPrivateBrowsingContext(0);
+static scoped_refptr<URLRequestContext> androidContext(0);
+static scoped_refptr<URLRequestContext> androidPrivateBrowsingContext(0);
 static WTF::Mutex androidPrivateBrowsingContextMutex;
 
 WebRequestContext::WebRequestContext()
@@ -155,14 +155,14 @@ scoped_refptr<WebRequestContext> WebRequestContext::GetAndroidContextForPath(con
     return androidContext;
 }
 
-scoped_refptr<WebRequestContext> WebRequestContext::GetAndroidContext()
+scoped_refptr<URLRequestContext> WebRequestContext::GetAndroidContext()
 {
     if (!androidContext)
         androidContext = GetAndroidContextForPath(kCookiesDatabaseFilename, kCacheDirectory);
     return androidContext;
 }
 
-scoped_refptr<WebRequestContext> WebRequestContext::GetAndroidPrivateBrowsingContext()
+scoped_refptr<URLRequestContext> WebRequestContext::GetAndroidPrivateBrowsingContext()
 {
     WTF::MutexLocker lock(androidPrivateBrowsingContextMutex);
 
