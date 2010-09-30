@@ -31,7 +31,6 @@
 #import "WebKitNSStringExtras.h"
 #import "WebNSURLExtras.h"
 #import <JavaScriptCore/Assertions.h>
-#import <WebCore/FoundationExtras.h>
 #import <WebKitSystemInterface.h>
 #import <sys/stat.h>
 
@@ -87,19 +86,22 @@
 
 typedef struct MetaDataInfo
 {
-    NSString *URLString;
-    NSString *referrer;
-    NSString *path;
+    CFStringRef URLString;
+    CFStringRef referrer;
+    CFStringRef path;
 } MetaDataInfo;
 
 static void *setMetaData(void* context)
 {
     MetaDataInfo *info = (MetaDataInfo *)context;
-    WKSetMetadataURL(info->URLString, info->referrer, info->path);
-    
-    HardRelease(info->URLString);
-    HardRelease(info->referrer);
-    HardRelease(info->path);
+    WKSetMetadataURL((NSString *)info->URLString, (NSString *)info->referrer, (NSString *)info->path);
+
+    if (info->URLString)
+        CFRelease(info->URLString);
+    if (info->referrer)
+        CFRelease(info->referrer);
+    if (info->path)
+        CFRelease(info->path);
     
     free(info);
     return 0;
@@ -124,9 +126,9 @@ static void *setMetaData(void* context)
 
     MetaDataInfo *info = malloc(sizeof(MetaDataInfo));
     
-    info->URLString = HardRetainWithNSRelease([URLString copy]);
-    info->referrer = HardRetainWithNSRelease([referrer copy]);
-    info->path = HardRetainWithNSRelease([path copy]);
+    info->URLString = URLString ? CFStringCreateCopy(0, (CFStringRef)URLString) : 0;
+    info->referrer = referrer ? CFStringCreateCopy(0, (CFStringRef)referrer) : 0;
+    info->path = path ? CFStringCreateCopy(0, (CFStringRef)path) : 0;
 
     pthread_create(&tid, &attr, setMetaData, info);
     pthread_attr_destroy(&attr);

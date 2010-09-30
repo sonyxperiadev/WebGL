@@ -29,6 +29,7 @@
 #ifndef InspectorController_h
 #define InspectorController_h
 
+#include "CharacterData.h"
 #include "Console.h"
 #include "Cookie.h"
 #include "Element.h"
@@ -45,6 +46,7 @@
 namespace WebCore {
 
 class CachedResource;
+class CharacterData;
 class ConsoleMessage;
 class Database;
 class Document;
@@ -201,6 +203,9 @@ public:
     static void willRemoveDOMNode(Node*);
     static void willModifyDOMAttr(Element*);
     static void didModifyDOMAttr(Element*);
+    static void characterDataModified(CharacterData*);
+
+    static void instrumentWillSendXMLHttpRequest(ScriptExecutionContext*, const KURL&);
 
 #if ENABLE(WORKERS)
     enum WorkerAction { WorkerCreated, WorkerDestroyed };
@@ -264,6 +269,10 @@ public:
     bool debuggerEnabled() const { return m_debuggerAgent; }
     InspectorDebuggerAgent* debuggerAgent() const { return m_debuggerAgent.get(); }
     void resume();
+
+    void setNativeBreakpoint(PassRefPtr<InspectorObject> breakpoint, unsigned int* breakpointId);
+    void removeNativeBreakpoint(unsigned int breakpointId);
+
 #endif
 
     void evaluateForTestInFrontend(long testCallId, const String& script);
@@ -288,11 +297,10 @@ private:
     void restoreDebugger();
     void restoreProfiler();
     void unbindAllResources();
+    void setSearchingForNode(bool enabled);
 
     // Following are used from InspectorBackend and internally.
-    void setSearchingForNode(bool enabled);
-    void enableSearchingForNode() { setSearchingForNode(true); }
-    void disableSearchingForNode() { setSearchingForNode(false); }
+    void setSearchingForNode(bool enabled, bool* newState);
 
     void setMonitoringXHREnabled(bool enabled, bool* newState);
     void storeLastActivePanel(const String& panelName);
@@ -331,13 +339,19 @@ private:
 
     void didEvaluateForTestInFrontend(long callId, const String& jsonResult);
 
+    static InspectorController* inspectorControllerForScriptExecutionContext(ScriptExecutionContext* context);
     static InspectorController* inspectorControllerForNode(Node*);
+    static InspectorController* inspectorControllerForDocument(Document* document);
+
     void willInsertDOMNodeImpl(Node* node, Node* parent);
     void didInsertDOMNodeImpl(Node*);
     void willRemoveDOMNodeImpl(Node*);
     void didRemoveDOMNodeImpl(Node*);
     void willModifyDOMAttrImpl(Element*);
     void didModifyDOMAttrImpl(Element*);
+    void characterDataModifiedImpl(CharacterData*);
+
+    void instrumentWillSendXMLHttpRequestImpl(const KURL&);
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
     friend class InspectorDebuggerAgent;
@@ -345,6 +359,8 @@ private:
     PassRefPtr<InspectorValue> loadBreakpoints();
     void saveBreakpoints(PassRefPtr<InspectorObject> breakpoints);
 #endif
+
+    static unsigned s_inspectorControllerCount;
 
     Page* m_inspectedPage;
     InspectorClient* m_client;
@@ -400,6 +416,9 @@ private:
     bool m_attachDebuggerWhenShown;
     OwnPtr<InspectorDebuggerAgent> m_debuggerAgent;
 
+    HashMap<unsigned int, String> m_XHRBreakpoints;
+    unsigned int m_lastBreakpointId;
+
     OwnPtr<InspectorProfilerAgent> m_profilerAgent;
 #endif
 #if ENABLE(WORKERS)
@@ -451,18 +470,48 @@ inline void InspectorController::didModifyDOMAttr(Element* element)
 #endif
 }
 
-inline InspectorController* InspectorController::inspectorControllerForNode(Node* node)
+inline void InspectorController::characterDataModified(CharacterData* characterData)
 {
 #if ENABLE(INSPECTOR)
-    if (Page* page = node->document()->page()) {
-        if (InspectorController* inspectorController = page->inspectorController()) {
-            if (inspectorController->hasFrontend())
-                return inspectorController;
-        }
-    }
+    if (InspectorController* inspectorController = inspectorControllerForNode(characterData))
+        inspectorController->characterDataModifiedImpl(characterData);
 #endif
+}
 
-    return 0;
+inline void InspectorController::instrumentWillSendXMLHttpRequest(ScriptExecutionContext* context, const KURL& url)
+{
+#if ENABLE(INSPECTOR)
+    if (InspectorController* inspectorController = inspectorControllerForScriptExecutionContext(context))
+        inspectorController->instrumentWillSendXMLHttpRequestImpl(url);
+#endif
+}
+
+inline InspectorController* InspectorController::inspectorControllerForScriptExecutionContext(ScriptExecutionContext* context)
+{
+    if (!s_inspectorControllerCount || !context || !context->isDocument())
+        return 0;
+    return inspectorControllerForDocument(static_cast<Document*>(context));
+}
+
+inline InspectorController* InspectorController::inspectorControllerForNode(Node* node)
+{
+    if (!s_inspectorControllerCount)
+        return 0;
+    return inspectorControllerForDocument(node->document());
+}
+
+inline InspectorController* InspectorController::inspectorControllerForDocument(Document* document)
+{
+    ASSERT(document);
+    Page* page = document->page();
+    if (!page)
+        return 0;
+    InspectorController* inspectorController = page->inspectorController();
+    if (!inspectorController)
+        return 0;
+    if (!inspectorController->hasFrontend())
+        return 0;
+    return inspectorController;
 }
 
 } // namespace WebCore

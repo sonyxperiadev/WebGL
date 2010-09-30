@@ -39,9 +39,12 @@
 #include "IntRect.h"
 #include "LayerChromium.h"
 #include "SkBitmap.h"
+#include "VideoLayerChromium.h"
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/PassOwnPtr.h>
+#include <wtf/PassRefPtr.h>
+#include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 
 #if PLATFORM(CG)
@@ -54,9 +57,9 @@ namespace WebCore {
 class GraphicsContext3D;
 
 // Class that handles drawing of composited render layers using GL.
-class LayerRendererChromium : public Noncopyable {
+class LayerRendererChromium : public RefCounted<LayerRendererChromium> {
 public:
-    static PassOwnPtr<LayerRendererChromium> create(PassOwnPtr<GraphicsContext3D> graphicsContext3D);
+    static PassRefPtr<LayerRendererChromium> create(PassOwnPtr<GraphicsContext3D> graphicsContext3D);
 
     LayerRendererChromium(PassOwnPtr<GraphicsContext3D> graphicsContext3D);
     ~LayerRendererChromium();
@@ -81,8 +84,6 @@ public:
     void setRootLayer(PassRefPtr<LayerChromium> layer) { m_rootLayer = layer; }
     LayerChromium* rootLayer() { return m_rootLayer.get(); }
 
-    void setNeedsDisplay() { m_needsDisplay = true; }
-
     bool hardwareCompositing() const { return m_hardwareCompositing; }
 
     void setRootLayerCanvasSize(const IntSize&);
@@ -90,6 +91,7 @@ public:
     GraphicsContext* rootLayerGraphicsContext() const { return m_rootLayerGraphicsContext.get(); }
 
     unsigned createLayerTexture();
+    void deleteLayerTexture(unsigned);
 
     static void debugGLCall(GraphicsContext3D*, const char* command, const char* file, int line);
 
@@ -102,6 +104,7 @@ public:
     const LayerChromium::SharedValues* layerSharedValues() const { return m_layerSharedValues.get(); }
     const ContentLayerChromium::SharedValues* contentLayerSharedValues() const { return m_contentLayerSharedValues.get(); }
     const CanvasLayerChromium::SharedValues* canvasLayerSharedValues() const { return m_canvasLayerSharedValues.get(); }
+    const VideoLayerChromium::SharedValues* videoLayerSharedValues() const { return m_videoLayerSharedValues.get(); }
 
     void resizeOnscreenContent(const IntSize&);
 
@@ -139,7 +142,6 @@ private:
 
     RefPtr<LayerChromium> m_rootLayer;
 
-    bool m_needsDisplay;
     IntPoint m_scrollPosition;
     bool m_hardwareCompositing;
 
@@ -170,6 +172,7 @@ private:
     OwnPtr<LayerChromium::SharedValues> m_layerSharedValues;
     OwnPtr<ContentLayerChromium::SharedValues> m_contentLayerSharedValues;
     OwnPtr<CanvasLayerChromium::SharedValues> m_canvasLayerSharedValues;
+    OwnPtr<VideoLayerChromium::SharedValues> m_videoLayerSharedValues;
 
     OwnPtr<GraphicsContext3D> m_context;
 };

@@ -300,6 +300,11 @@ static void didFirstVisuallyNonEmptyLayoutForFrame(WKPageRef page, WKFrameRef fr
     LOG(@"didFirstVisuallyNonEmptyLayoutForFrame");
 }
 
+static void didRemoveFrameFromHierarchy(WKPageRef page, WKFrameRef frame, WKTypeRef userData, const void *clientInfo)
+{
+    LOG(@"didRemoveFrameFromHierarchy");
+}
+
 static void didStartProgress(WKPageRef page, const void *clientInfo)
 {
     [(BrowserWindowController *)clientInfo didStartProgress];
@@ -469,6 +474,11 @@ static void setStatusText(WKPageRef page, WKStringRef text, const void* clientIn
     LOG(@"setStatusText");
 }
 
+static void mouseDidMoveOverElement(WKPageRef page, WKEventModifiers modifiers, WKTypeRef userData, const void *clientInfo)
+{
+    LOG(@"mouseDidMoveOverElement");
+}
+
 static void contentsSizeChanged(WKPageRef page, int width, int height, WKFrameRef frame, const void *clientInfo)
 {
     LOG(@"contentsSizeChanged");
@@ -496,6 +506,7 @@ static void contentsSizeChanged(WKPageRef page, int width, int height, WKFrameRe
         didReceiveTitleForFrame,
         didFirstLayoutForFrame,
         didFirstVisuallyNonEmptyLayoutForFrame,
+        didRemoveFrameFromHierarchy,
         didStartProgress,
         didChangeProgress,
         didFinishProgress,
@@ -525,7 +536,9 @@ static void contentsSizeChanged(WKPageRef page, int width, int height, WKFrameRe
         runJavaScriptConfirm,
         runJavaScriptPrompt,
         setStatusText,
-        contentsSizeChanged
+        mouseDidMoveOverElement,
+        contentsSizeChanged,
+        0           /* didNotHandleKeyEvent */
     };
     WKPageSetPageUIClient(_webView.pageRef, &uiClient);
 }

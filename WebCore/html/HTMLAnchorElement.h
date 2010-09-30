@@ -82,6 +82,8 @@ public:
     String search() const;
     void setSearch(const String&);
 
+    String origin() const;
+
     String text() const;
 
     String toString() const;
@@ -108,6 +110,8 @@ private:
     virtual String target() const;
     virtual short tabIndex() const;
     virtual bool draggable() const;
+
+    void sendPings(const KURL& destinationURL);
 
     enum EventType {
         MouseEventWithoutShiftKey,

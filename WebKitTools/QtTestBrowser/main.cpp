@@ -54,6 +54,8 @@ public:
     LauncherApplication(int& argc, char** argv);
     QStringList urls() const { return m_urls; }
     bool isRobotized() const { return m_isRobotized; }
+    int robotTimeout() const { return m_robotTimeoutSeconds; }
+    int robotExtraTime() const { return m_robotExtraTimeSeconds; }
 
 private:
     void handleUserOptions();
@@ -61,6 +63,8 @@ private:
 
 private:
     bool m_isRobotized;
+    int m_robotTimeoutSeconds;
+    int m_robotExtraTimeSeconds;
     QStringList m_urls;
 };
 
@@ -78,6 +82,8 @@ void LauncherApplication::applyDefaultSettings()
 LauncherApplication::LauncherApplication(int& argc, char** argv)
     : QApplication(argc, argv, QApplication::GuiServer)
     , m_isRobotized(false)
+    , m_robotTimeoutSeconds(0)
+    , m_robotExtraTimeSeconds(0)
 {
     // To allow QWebInspector's configuration persistence
     setOrganizationName("Nokia");
@@ -115,6 +121,8 @@ void LauncherApplication::handleUserOptions()
              << "[-cache-webview]"
              << "[-show-fps]"
              << "[-r list]"
+             << "[-robot-timeout seconds]"
+             << "[-robot-extra-time seconds]"
              << "[-inspector-url location]"
              << "[-tiled-backing-store]"
              << "[-resizes-to-contents]"
@@ -180,6 +188,11 @@ void LauncherApplication::handleUserOptions()
     if (inspectorUrlIndex != -1)
        windowOptions.inspectorUrl = takeOptionValue(&args, inspectorUrlIndex);
 
+    QString remoteInspectorPortArg("-remote-inspector-port");
+    int remoteInspectorPortIndex = args.indexOf(remoteInspectorPortArg);
+    if (remoteInspectorPortIndex != -1)
+        windowOptions.remoteInspectorPort = takeOptionValue(&args, remoteInspectorPortIndex).toInt();
+
     int robotIndex = args.indexOf("-r");
     if (robotIndex != -1) {
         QString listFile = takeOptionValue(&args, robotIndex);
@@ -190,11 +203,18 @@ void LauncherApplication::handleUserOptions()
 
         m_isRobotized = true;
         m_urls = QStringList(listFile);
-        return;
+    } else {
+        int lastArg = args.lastIndexOf(QRegExp("^-.*"));
+        m_urls = (lastArg != -1) ? args.mid(++lastArg) : args.mid(1);
     }
 
-    int lastArg = args.lastIndexOf(QRegExp("^-.*"));
-    m_urls = (lastArg != -1) ? args.mid(++lastArg) : args.mid(1);
+    int robotTimeoutIndex = args.indexOf("-robot-timeout");
+    if (robotTimeoutIndex != -1)
+        m_robotTimeoutSeconds = takeOptionValue(&args, robotTimeoutIndex).toInt();
+
+    int robotExtraTimeIndex = args.indexOf("-robot-extra-time");
+    if (robotExtraTimeIndex != -1)
+        m_robotExtraTimeSeconds = takeOptionValue(&args, robotExtraTimeIndex).toInt();
 }
 
 
@@ -204,8 +224,7 @@ int main(int argc, char **argv)
 
     if (app.isRobotized()) {
         LauncherWindow* window = new LauncherWindow();
-        UrlLoader loader(window->page()->mainFrame(), app.urls().at(0));
-        QObject::connect(window->page()->mainFrame(), SIGNAL(loadFinished(bool)), &loader, SLOT(loadNext()));
+        UrlLoader loader(window->page()->mainFrame(), app.urls().at(0), app.robotTimeout(), app.robotExtraTime());
         loader.loadNext();
         window->show();
         return launcherMain(app);
@@ -214,9 +233,9 @@ int main(int argc, char **argv)
     QStringList urls = app.urls();
 
     if (urls.isEmpty()) {
-        QString defaultUrl = QString("file://%1/%2").arg(QDir::homePath()).arg(QLatin1String("index.html"));
-        if (QDir(defaultUrl).exists())
-            urls.append(defaultUrl);
+        QString defaultIndexFile = QString("%1/%2").arg(QDir::homePath()).arg(QLatin1String("index.html"));
+        if (QFile(defaultIndexFile).exists())
+            urls.append(QString("file://") + defaultIndexFile);
         else
             urls.append("");
     }

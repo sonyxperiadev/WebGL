@@ -29,11 +29,13 @@
 #include "WebCommon.h"
 #include "WebDOMStringList.h"
 #include "WebIDBCallbacks.h"
+#include "WebIDBTransaction.h"
 #include "WebString.h"
 
 namespace WebKit {
 
 class WebIDBKeyRange;
+class WebIDBTransaction;
 
 // See comment in WebIndexedDatabase for a high level overview these classes.
 class WebIDBObjectStore {
@@ -55,35 +57,51 @@ public:
         WEBKIT_ASSERT_NOT_REACHED();
         return WebDOMStringList();
     }
-    virtual void get(const WebIDBKey& key, WebIDBCallbacks*)
+
+    // FIXME: Remove the default parameters for transactionIds.
+    virtual void get(const WebIDBKey& key, WebIDBCallbacks* callbacks, const WebIDBTransaction&)
     {
-        WEBKIT_ASSERT_NOT_REACHED();
+        get(key, callbacks);
     }
-    virtual void put(const WebSerializedScriptValue& value, const WebIDBKey& key, bool addOnly, WebIDBCallbacks*)
+    virtual void get(const WebIDBKey& key, WebIDBCallbacks* callbacks)
     {
-        WEBKIT_ASSERT_NOT_REACHED();
+        WebIDBTransaction transaction;
+        get(key, callbacks, transaction);
     }
-    virtual void remove(const WebIDBKey& key, WebIDBCallbacks*)
+    virtual void put(const WebSerializedScriptValue& value, const WebIDBKey& key, bool addOnly, WebIDBCallbacks* callbacks, const WebIDBTransaction&)
     {
-        WEBKIT_ASSERT_NOT_REACHED();
+        put(value, key, addOnly, callbacks);
     }
-    virtual void createIndex(const WebString& name, const WebString& keyPath, bool unique, WebIDBCallbacks*)
+    virtual void put(const WebSerializedScriptValue& value, const WebIDBKey& key, bool addOnly, WebIDBCallbacks* callbacks)
     {
-        WEBKIT_ASSERT_NOT_REACHED();
+        WebIDBTransaction transaction;
+        put(value, key, addOnly, callbacks, transaction);
     }
+    virtual void remove(const WebIDBKey& key, WebIDBCallbacks* callbacks, const WebIDBTransaction&)
+    {
+        remove(key, callbacks);
+    }
+    virtual void remove(const WebIDBKey& key, WebIDBCallbacks* callbacks)
+    {
+        WebIDBTransaction transaction;
+        remove(key, callbacks, transaction);
+    }
+    virtual void createIndex(const WebString& name, const WebString& keyPath, bool unique, WebIDBCallbacks*) { WEBKIT_ASSERT_NOT_REACHED(); }
     // Transfers ownership of the WebIDBIndex to the caller.
     virtual WebIDBIndex* index(const WebString& name)
     {
         WEBKIT_ASSERT_NOT_REACHED();
         return 0;
     }
-    virtual void removeIndex(const WebString& name, WebIDBCallbacks*)
+    virtual void removeIndex(const WebString& name, WebIDBCallbacks*) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void openCursor(const WebIDBKeyRange& range, unsigned short direction, WebIDBCallbacks* callbacks, const WebIDBTransaction&)
     {
-        WEBKIT_ASSERT_NOT_REACHED();
+        openCursor(range, direction, callbacks);
     }
-    virtual void openCursor(const WebIDBKeyRange&, unsigned short direction, WebIDBCallbacks*)
+    virtual void openCursor(const WebIDBKeyRange& range, unsigned short direction, WebIDBCallbacks* callbacks)
     {
-        WEBKIT_ASSERT_NOT_REACHED();
+        WebIDBTransaction transaction;
+        openCursor(range, direction, callbacks, transaction);
     }
     // FIXME: finish.
 };

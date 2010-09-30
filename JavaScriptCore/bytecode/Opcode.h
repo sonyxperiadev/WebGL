@@ -40,7 +40,7 @@ namespace JSC {
     #define FOR_EACH_OPCODE_ID(macro) \
         macro(op_enter, 1) \
         macro(op_enter_with_activation, 2) \
-        macro(op_init_arguments, 2) \
+        macro(op_init_lazy_reg, 2) \
         macro(op_create_arguments, 2) \
         macro(op_create_this, 3) \
         macro(op_get_callee, 2) \
@@ -120,12 +120,14 @@ namespace JSC {
         macro(op_get_by_id_generic, 8) \
         macro(op_get_array_length, 8) \
         macro(op_get_string_length, 8) \
+        macro(op_get_arguments_length, 4) \
         macro(op_put_by_id, 9) \
         macro(op_put_by_id_transition, 9) \
         macro(op_put_by_id_replace, 9) \
         macro(op_put_by_id_generic, 9) \
         macro(op_del_by_id, 4) \
         macro(op_get_by_val, 4) \
+        macro(op_get_argument_by_val, 4) \
         macro(op_get_by_pname, 7) \
         macro(op_put_by_val, 4) \
         macro(op_del_by_val, 4) \
@@ -153,7 +155,7 @@ namespace JSC {
         macro(op_switch_char, 4) \
         macro(op_switch_string, 4) \
         \
-        macro(op_new_func, 3) \
+        macro(op_new_func, 4) \
         macro(op_new_func_exp, 3) \
         macro(op_call, 4) \
         macro(op_call_eval, 4) \

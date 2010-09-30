@@ -44,6 +44,8 @@ static const char* contentsInTable = "<html><body><table><tr><td>foo</td><td>bar
 
 static const char* contentsInTableWithHeaders = "<html><body><table><tr><th>foo</th><th>bar</th><th colspan='2'>baz</th></tr><tr><th>qux</th><td>1</td><td>2</td><td>3</td></tr><tr><th rowspan='2'>quux</th><td>4</td><td>5</td><td>6</td></tr><tr><td>6</td><td>7</td><td>8</td></tr><tr><th>corge</th><td>9</td><td>10</td><td>11</td></tr></table><table><tr><td>1</td><td>2</td></tr><tr><td>3</td><td>4</td></tr></table></body></html>";
 
+static const char* formWithTextInputs = "<html><body><form><input type='text' name='entry' /></form></body></html>";
+
 static const char* listsOfItems = "<html><body><ul><li>text only</li><li><a href='foo'>link only</a></li><li>text and a <a href='bar'>link</a></li></ul><ol><li>text only</li><li><a href='foo'>link only</a></li><li>text and a <a href='bar'>link</a></li></ol></body></html>";
 
 static const char* textForSelections = "<html><body><p>A paragraph with plain text</p><p>A paragraph with <a href='http://webkit.org'>a link</a> in the middle</p></body></html>";
@@ -761,7 +763,7 @@ static void testWekitAtkTextSelections(void)
     webkit_web_view_load_string(webView, textForSelections, NULL, NULL, NULL);
     loop = g_main_loop_new(NULL, TRUE);
 
-    g_timeout_add(100, (GSourceFunc)bail_out, loop);
+    g_idle_add((GSourceFunc)bail_out, loop);
     g_main_loop_run(loop);
 
     obj = gtk_widget_get_accessible(GTK_WIDGET(webView));
@@ -859,7 +861,7 @@ static void testWekitAtkTextSelections(void)
     g_object_unref(webView);
 }
 
-static void test_webkit_atk_get_extents(void)
+static void testWebkitAtkGetExtents(void)
 {
     WebKitWebView* webView;
     AtkObject* obj;
@@ -872,7 +874,7 @@ static void test_webkit_atk_get_extents(void)
     webkit_web_view_load_string(webView, centeredContents, NULL, NULL, NULL);
     loop = g_main_loop_new(NULL, TRUE);
 
-    g_timeout_add(100, (GSourceFunc)bail_out, loop);
+    g_idle_add((GSourceFunc)bail_out, loop);
     g_main_loop_run(loop);
 
     obj = gtk_widget_get_accessible(GTK_WIDGET(webView));
@@ -964,38 +966,32 @@ static void test_webkit_atk_get_extents(void)
 
 static void testWebkitAtkListsOfItems(void)
 {
-    WebKitWebView* webView;
-    AtkObject* obj;
-    AtkObject* uList;
-    AtkObject* oList;
-    AtkObject* item1;
-    AtkObject* item2;
-    AtkObject* item3;
-    GMainLoop* loop;
-
-    webView = WEBKIT_WEB_VIEW(webkit_web_view_new());
+    WebKitWebView* webView = WEBKIT_WEB_VIEW(webkit_web_view_new());
     g_object_ref_sink(webView);
     GtkAllocation alloc = { 0, 0, 800, 600 };
     gtk_widget_size_allocate(GTK_WIDGET(webView), &alloc);
     webkit_web_view_load_string(webView, listsOfItems, NULL, NULL, NULL);
-    loop = g_main_loop_new(NULL, TRUE);
+    GMainLoop* loop = g_main_loop_new(NULL, TRUE);
 
-    g_timeout_add(100, (GSourceFunc)bail_out, loop);
+    g_idle_add((GSourceFunc)bail_out, loop);
     g_main_loop_run(loop);
 
-    obj = gtk_widget_get_accessible(GTK_WIDGET(webView));
+    AtkObject* obj = gtk_widget_get_accessible(GTK_WIDGET(webView));
     g_assert(obj);
 
     // Unordered list
 
-    uList = atk_object_ref_accessible_child(obj, 0);
+    AtkObject* uList = atk_object_ref_accessible_child(obj, 0);
     g_assert(ATK_OBJECT(uList));
     g_assert(atk_object_get_role(uList) == ATK_ROLE_LIST);
     g_assert_cmpint(atk_object_get_n_accessible_children(uList), ==, 3);
 
-    item1 = atk_object_ref_accessible_child(uList, 0);
-    item2 = atk_object_ref_accessible_child(uList, 1);
-    item3 = atk_object_ref_accessible_child(uList, 2);
+    AtkObject* item1 = atk_object_ref_accessible_child(uList, 0);
+    g_assert(ATK_IS_TEXT(item1));
+    AtkObject* item2 = atk_object_ref_accessible_child(uList, 1);
+    g_assert(ATK_IS_TEXT(item2));
+    AtkObject* item3 = atk_object_ref_accessible_child(uList, 2);
+    g_assert(ATK_IS_TEXT(item3));
 
     g_assert_cmpint(atk_object_get_n_accessible_children(item1), ==, 0);
     g_assert_cmpint(atk_object_get_n_accessible_children(item2), ==, 1);
@@ -1011,18 +1007,21 @@ static void testWebkitAtkListsOfItems(void)
 
     // Ordered list
 
-    oList = atk_object_ref_accessible_child(obj, 1);
+    AtkObject* oList = atk_object_ref_accessible_child(obj, 1);
     g_assert(ATK_OBJECT(oList));
     g_assert(atk_object_get_role(oList) == ATK_ROLE_LIST);
     g_assert_cmpint(atk_object_get_n_accessible_children(oList), ==, 3);
 
     item1 = atk_object_ref_accessible_child(oList, 0);
+    g_assert(ATK_IS_TEXT(item1));
     item2 = atk_object_ref_accessible_child(oList, 1);
+    g_assert(ATK_IS_TEXT(item2));
     item3 = atk_object_ref_accessible_child(oList, 2);
+    g_assert(ATK_IS_TEXT(item3));
 
-    g_assert_cmpstr(atk_text_get_text(ATK_TEXT(item1), 0, -1), ==, "1 text only");
-    g_assert_cmpstr(atk_text_get_text(ATK_TEXT(item2), 0, -1), ==, "2 link only");
-    g_assert_cmpstr(atk_text_get_text(ATK_TEXT(item3), 0, -1), ==, "3 text and a link");
+    g_assert_cmpstr(atk_text_get_text(ATK_TEXT(item1), 0, -1), ==, "1. text only");
+    g_assert_cmpstr(atk_text_get_text(ATK_TEXT(item2), 0, -1), ==, "2. link only");
+    g_assert_cmpstr(atk_text_get_text(ATK_TEXT(item3), 0, -1), ==, "3. text and a link");
 
     g_assert_cmpint(atk_object_get_n_accessible_children(item1), ==, 0);
     g_assert_cmpint(atk_object_get_n_accessible_children(item2), ==, 1);
@@ -1034,6 +1033,68 @@ static void testWebkitAtkListsOfItems(void)
 
     g_object_unref(uList);
     g_object_unref(oList);
+    g_object_unref(webView);
+}
+
+static gboolean textInserted = FALSE;
+static gboolean textDeleted = FALSE;
+
+static void textChangedCb(AtkText* text, gint pos, gint len, const gchar* detail)
+{
+    g_assert(text && ATK_IS_OBJECT(text));
+
+    if (!g_strcmp0(detail, "insert"))
+        textInserted = TRUE;
+    else if (!g_strcmp0(detail, "delete"))
+        textDeleted = TRUE;
+}
+
+static gboolean checkTextChanges(gpointer unused)
+{
+    g_assert_cmpint(textInserted, ==, TRUE);
+    g_assert_cmpint(textDeleted, ==, TRUE);
+    return FALSE;
+}
+
+static void testWebkitAtkTextChangedNotifications(void)
+{
+    WebKitWebView* webView = WEBKIT_WEB_VIEW(webkit_web_view_new());
+    g_object_ref_sink(webView);
+    GtkAllocation alloc = { 0, 0, 800, 600 };
+    gtk_widget_size_allocate(GTK_WIDGET(webView), &alloc);
+    webkit_web_view_load_string(webView, formWithTextInputs, 0, 0, 0);
+
+    // Manually spin the main context to get the accessible objects
+    while (g_main_context_pending(0))
+        g_main_context_iteration(0, TRUE);
+
+    AtkObject* obj = gtk_widget_get_accessible(GTK_WIDGET(webView));
+    g_assert(obj);
+
+    AtkObject* form = atk_object_ref_accessible_child(obj, 0);
+    g_assert(ATK_IS_OBJECT(form));
+
+    AtkObject* textEntry = atk_object_ref_accessible_child(form, 0);
+    g_assert(ATK_IS_EDITABLE_TEXT(textEntry));
+    g_assert(atk_object_get_role(ATK_OBJECT(textEntry)) == ATK_ROLE_ENTRY);
+
+    g_signal_connect(textEntry, "text-changed::insert",
+                     G_CALLBACK(textChangedCb),
+                     (gpointer)"insert");
+    g_signal_connect(textEntry, "text-changed::delete",
+                     G_CALLBACK(textChangedCb),
+                     (gpointer)"delete");
+
+    gint pos = 0;
+    atk_editable_text_insert_text(ATK_EDITABLE_TEXT(textEntry), "foo bar baz", 11, &pos);
+    atk_editable_text_delete_text(ATK_EDITABLE_TEXT(textEntry), 4, 7);
+    textInserted = FALSE;
+    textDeleted = FALSE;
+
+    g_idle_add((GSourceFunc)checkTextChanges, 0);
+
+    g_object_unref(form);
+    g_object_unref(textEntry);
     g_object_unref(webView);
 }
 
@@ -1054,8 +1115,9 @@ int main(int argc, char** argv)
     g_test_add_func("/webkit/atk/getHeadersInTable", testWebkitAtkGetHeadersInTable);
     g_test_add_func("/webkit/atk/textAttributes", testWebkitAtkTextAttributes);
     g_test_add_func("/webkit/atk/textSelections", testWekitAtkTextSelections);
-    g_test_add_func("/webkit/atk/get_extents", test_webkit_atk_get_extents);
+    g_test_add_func("/webkit/atk/getExtents", testWebkitAtkGetExtents);
     g_test_add_func("/webkit/atk/listsOfItems", testWebkitAtkListsOfItems);
+    g_test_add_func("/webkit/atk/textChangedNotifications", testWebkitAtkTextChangedNotifications);
     return g_test_run ();
 }
 

@@ -115,8 +115,6 @@ int RegExp::match(const UString& s, int startOffset, Vector<int, 32>* ovector)
 {
     if (startOffset < 0)
         startOffset = 0;
-    if (ovector)
-        ovector->resize(0);
     
 #if ENABLE(REGEXP_TRACING)
     m_rtMatchCallCount++;
@@ -142,7 +140,10 @@ int RegExp::match(const UString& s, int startOffset, Vector<int, 32>* ovector)
         }
 
         ASSERT(offsetVector);
-        for (int j = 0; j < offsetVectorSize; ++j)
+        // Initialize offsetVector with the return value (index 0) and the 
+        // first subpattern start indicies (even index values) set to -1.
+        // No need to init the subpattern end indicies.
+        for (unsigned j = 0, i = 0; i < m_numSubpatterns + 1; j += 2, i++)            
             offsetVector[j] = -1;
 
 #if ENABLE(YARR_JIT)
@@ -157,8 +158,6 @@ int RegExp::match(const UString& s, int startOffset, Vector<int, 32>* ovector)
             if (result != -1)
                 fprintf(stderr, "jsRegExpExecute failed with result %d\n", result);
 #endif
-            if (ovector)
-                ovector->clear();
         }
         
 #if ENABLE(REGEXP_TRACING)
@@ -255,7 +254,7 @@ int RegExp::match(const UString& s, int startOffset, Vector<int, 32>* ovector)
         if (codeBlock.getFallback())
             sprintf(jitAddr, "fallback");
         else
-            sprintf(jitAddr, "0x%014lx", (uintptr_t)codeBlock.getAddr());
+            sprintf(jitAddr, "0x%014lx", reinterpret_cast<unsigned long int>(codeBlock.getAddr()));
 #else
         const char* jitAddr = "JIT Off";
 #endif

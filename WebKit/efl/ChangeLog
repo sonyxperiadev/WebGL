@@ -1,3 +1,66 @@
+2010-09-28  Jenn Braithwaite  <jennb@chromium.org>
+
+        Reviewed by Dmitry Titov.
+
+        Added oldPage param to FrameLoaderClient::didTransferChildFrameToNewDocument.
+        https://bugs.webkit.org/show_bug.cgi?id=46663
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::didTransferChildFrameToNewDocument):
+        * WebCoreSupport/FrameLoaderClientEfl.h:
+
+2010-09-26  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Add setting API to set a local storage database path.
+        https://bugs.webkit.org/show_bug.cgi?id=45446
+
+        Add a setting API to set local storage database path.
+
+        * ewk/ewk_view.cpp:
+        (_ewk_view_priv_new):
+        (_ewk_view_priv_del):
+        (ewk_view_setting_local_storage_database_path_get): Added.
+        (ewk_view_setting_local_storage_database_path_set): Added.
+        * ewk/ewk_view.h:
+
+2010-09-23  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Csaba Osztrogonác.
+
+        [EFL] Fix warnings during build
+        https://bugs.webkit.org/show_bug.cgi?id=46354
+
+        * ewk/ewk_frame.cpp:
+        (ewk_frame_text_matches_nth_pos_get): Change argument type because
+        it's meant to be always positive.
+        * ewk/ewk_frame.h: Ditto.
+        * ewk/ewk_view.cpp:
+        (ewk_view_exceeded_database_quota): Add missing "%" causing warning about number of
+        arguments to printf-like function.
+        * ewk/ewk_view.h: Add missing initialization.
+
+2010-09-21  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Get fresh theme when running EWebLauncher
+        https://bugs.webkit.org/show_bug.cgi?id=46210
+
+        If user tried to run EWebLauncher outside of the build tree, it would
+        not find the theme and fallback to the installed one. However, since
+        EWebLauncher is not installed, we always want to take the theme from
+        the just compiled source code. If user had never installed WebKit's
+        EFL port it could even receive a segv since no theme would be found.
+
+        Now EWebLauncher does not fallback to the installed theme and CMake
+        gives as DATA_DIR the directory of the theme it has just built.
+
+
+        * CMakeListsEfl.txt: export DATA_DIR to parent CMakeLists.txt in order
+        to be used by EWebLauncher.
+
 2010-09-17  Darin Adler  <darin@apple.com>
 
         Reviewed by Sam Weinig.

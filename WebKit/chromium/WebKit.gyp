@@ -76,6 +76,7 @@
                 '<(chromium_src_dir)/app/app.gyp:app_base', # For GLContext
                 '<(chromium_src_dir)/skia/skia.gyp:skia',
                 '<(chromium_src_dir)/third_party/npapi/npapi.gyp:npapi',
+                '<(chromium_src_dir)/third_party/angle/src/build_angle.gyp:translator_glsl',
             ],
             'export_dependent_settings': [
                 '<(chromium_src_dir)/skia/skia.gyp:skia',
@@ -84,6 +85,7 @@
             'include_dirs': [
                 'public',
                 'src',
+                '<(chromium_src_dir)/third_party/angle/include',
             ],
             'defines': [
                 'WEBKIT_IMPLEMENTATION=1',
@@ -170,7 +172,6 @@
                 'public/WebGeolocationServiceBridge.h',
                 'public/WebGeolocationServiceMock.h',
                 'public/WebGlyphCache.h',
-                'public/WebGLES2Context.h',
                 'public/WebGraphicsContext3D.h',
                 'public/WebHistoryItem.h',
                 'public/WebHTTPBody.h',
@@ -216,6 +217,7 @@
                 'public/WebPageSerializerClient.h',
                 'public/WebPasswordAutocompleteListener.h',
                 'public/WebPasswordFormData.h',
+                'public/WebPerformance.h',
                 'public/WebPlugin.h',
                 'public/WebPluginContainer.h',
                 'public/WebPluginDocument.h',
@@ -277,7 +279,6 @@
                 'public/win/WebInputEventFactory.h',
                 'public/win/WebSandboxSupport.h',
                 'public/win/WebScreenInfoFactory.h',
-                'public/win/WebScreenInfoFactory.h',
                 'src/ApplicationCacheHost.cpp',
                 'src/ApplicationCacheHostInternal.h',
                 'src/AssertMatchingEnums.cpp',
@@ -323,9 +324,6 @@
                 'src/FrameLoaderClientImpl.cpp',
                 'src/FrameLoaderClientImpl.h',
                 'src/FrameNetworkingContextImpl.h',
-                'src/GLES2Context.cpp',
-                'src/GLES2ContextInternal.cpp',
-                'src/GLES2ContextInternal.h',
                 'src/GraphicsContext3D.cpp',
                 'src/GraphicsContext3DInternal.h',
                 'src/gtk/WebFontInfo.cpp',
@@ -447,6 +445,7 @@
                 'src/WebIDBDatabaseError.cpp',
                 'src/WebIDBDatabaseImpl.cpp',
                 'src/WebIDBDatabaseImpl.h',
+                'src/WebIDBFactory.cpp',
                 'src/WebIDBFactoryImpl.cpp',
                 'src/WebIDBFactoryImpl.h',
                 'src/WebIDBIndexImpl.cpp',
@@ -484,6 +483,7 @@
                 'src/WebPasswordFormData.cpp',
                 'src/WebPasswordFormUtils.cpp',
                 'src/WebPasswordFormUtils.h',
+                'src/WebPerformance.cpp',
                 'src/WebPluginContainerImpl.h',
                 'src/WebPluginContainerImpl.cpp',
                 'src/WebPluginDocument.cpp',
@@ -533,6 +533,8 @@
                 'src/WebWorkerClientImpl.h',
                 'src/WebWorkerImpl.cpp',
                 'src/WebWorkerImpl.h',
+                'src/WorkerFileSystemCallbacksBridge.cpp',
+                'src/WorkerFileSystemCallbacksBridge.h',
                 'src/WrappedResourceRequest.h',
                 'src/WrappedResourceResponse.h',
                 'src/win/WebInputEventFactory.cpp',
@@ -550,7 +552,6 @@
                             'dependencies': [
                                 '../../WebCore/WebCore.gyp/WebCore.gyp:webcore_bindings',
                                 '<(chromium_src_dir)/build/temp_gyp/googleurl.gyp:googleurl',
-                                '<(chromium_src_dir)/gpu/gpu.gyp:gles2_c_lib',
                                 '<(chromium_src_dir)/third_party/icu/icu.gyp:*',
                                 '<(chromium_src_dir)/third_party/libjpeg/libjpeg.gyp:libjpeg',
                                 '<(chromium_src_dir)/third_party/libpng/libpng.gyp:libpng',
@@ -730,8 +731,6 @@
                         '<(chromium_src_dir)/base/base.gyp:base',
                         '<(chromium_src_dir)/base/base.gyp:base_i18n',
                         '<(chromium_src_dir)/base/base.gyp:test_support_base',
-                        '<(chromium_src_dir)/gpu/gpu.gyp:gles2_c_lib',
-                        '<(chromium_src_dir)/webkit/support/webkit_support.gyp:blob',
                         '<(chromium_src_dir)/webkit/support/webkit_support.gyp:webkit_support',
                     ],
                     'include_dirs': [
@@ -769,7 +768,7 @@
                                 'tests/DragImageTest.cpp',
                             ],
                         }],
-                        ['OS=="linux"', {
+                        ['OS=="linux" or OS=="freebsd"', {
                             'sources': [
                                 'tests/WebInputEventFactoryTestGtk.cpp',
                             ],
@@ -787,7 +786,6 @@
             'dependencies': [
                 'webkit',
                 '../../JavaScriptCore/JavaScriptCore.gyp/JavaScriptCore.gyp:wtf',
-                '<(chromium_src_dir)/webkit/support/webkit_support.gyp:blob',
                 '<(chromium_src_dir)/webkit/support/webkit_support.gyp:webkit_support',
             ],
             'include_dirs': [
@@ -812,7 +810,6 @@
                 '<(chromium_src_dir)/webkit/support/webkit_support.gyp:blob',
                 '<(chromium_src_dir)/webkit/support/webkit_support.gyp:copy_npapi_layout_test_plugin',
                 '<(chromium_src_dir)/webkit/support/webkit_support.gyp:webkit_support',
-                '<(chromium_src_dir)/gpu/gpu.gyp:gles2_c_lib'
             ],
             'include_dirs': [
                 '.',

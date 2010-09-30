@@ -45,7 +45,7 @@ private:
 
     // WebCore::PluginStrategy
     virtual void refreshPlugins();
-    virtual void getPluginInfo(Vector<WebCore::PluginInfo>&);
+    virtual void getPluginInfo(const WebCore::Page*, Vector<WebCore::PluginInfo>&);
 
     // WebCore::LocalizationStrategy    
     virtual WTF::String inputElementAltText();
@@ -92,6 +92,16 @@ private:
     virtual WTF::String contextMenuItemTagLeftToRight();
     virtual WTF::String contextMenuItemTagRightToLeft();
     virtual WTF::String contextMenuItemTagInspectElement();
+    virtual WTF::String contextMenuItemTagOpenVideoInNewWindow();
+    virtual WTF::String contextMenuItemTagOpenAudioInNewWindow();
+    virtual WTF::String contextMenuItemTagCopyVideoLinkToClipboard();
+    virtual WTF::String contextMenuItemTagCopyAudioLinkToClipboard();
+    virtual WTF::String contextMenuItemTagToggleMediaControls();
+    virtual WTF::String contextMenuItemTagToggleMediaLoop();
+    virtual WTF::String contextMenuItemTagEnterVideoFullscreen();
+    virtual WTF::String contextMenuItemTagMediaPlay();
+    virtual WTF::String contextMenuItemTagMediaPause();
+    virtual WTF::String contextMenuItemTagMediaMute();
 #endif // ENABLE(CONTEXT_MENUS)
     virtual WTF::String searchMenuNoRecentSearchesText();
     virtual WTF::String searchMenuRecentSearchesText();

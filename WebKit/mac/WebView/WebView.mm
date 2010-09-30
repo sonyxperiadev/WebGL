@@ -133,9 +133,12 @@
 #import <WebCore/HistoryItem.h>
 #import <WebCore/IconDatabase.h>
 #import <WebCore/JSCSSStyleDeclaration.h>
+#import <WebCore/JSDocument.h>
 #import <WebCore/JSElement.h>
+#import <WebCore/JSNodeList.h>
 #import <WebCore/Logging.h>
 #import <WebCore/MIMETypeRegistry.h>
+#import <WebCore/NodeList.h>
 #import <WebCore/Page.h>
 #import <WebCore/PageCache.h>
 #import <WebCore/PageGroup.h>
@@ -675,6 +678,7 @@ static bool shouldEnableLoadDeferring()
         
         // Initialize our platform strategies.
         WebPlatformStrategies::initialize();
+        Settings::setMinDOMTimerInterval(0.004);
 
         didOneTimeInitialization = true;
     }
@@ -696,7 +700,6 @@ static bool shouldEnableLoadDeferring()
 
     _private->page->setCanStartMedia([self window]);
     _private->page->settings()->setLocalStorageDatabasePath([[self preferences] _localStorageDatabasePath]);
-    _private->page->settings()->setMinDOMTimerInterval(0.004);
 
     [WebFrame _createMainFrameWithPage:_private->page frameName:frameName frameView:frameView];
 
@@ -1358,6 +1361,27 @@ static bool fastDocumentTeardownEnabled()
     return needsQuirk;
 }
 
+
+- (BOOL)_needsPreHTML5ParserQuirks
+{    
+    // AOL Instant Messenger and Microsoft My Day contain markup incompatible
+    // with the new HTML5 parser. If these applications were linked against a
+    // version of WebKit prior to the introduction of the HTML5 parser, enable
+    // parser quirks to maintain compatibility. For details, see 
+    // <https://bugs.webkit.org/show_bug.cgi?id=46134> and
+    // <https://bugs.webkit.org/show_bug.cgi?id=46334>.
+    static bool isApplicationNeedingParserQuirks = !WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_HTML5_PARSER)
+        && (applicationIsAOLInstantMessenger() || applicationIsMicrosoftMyDay());
+
+    return isApplicationNeedingParserQuirks
+#if ENABLE(DASHBOARD_SUPPORT)
+        // Pre-HTML5 parser quirks are required to remain compatible with many
+        // Dashboard widgets. See <rdar://problem/8175982>.
+        || (_private->page && _private->page->settings()->usesDashboardBackwardCompatibilityMode())
+#endif
+        || [[self preferences] usePreHTML5ParserQuirks];
+}
+
 - (void)_preferencesChangedNotification:(NSNotification *)notification
 {
     WebPreferences *preferences = (WebPreferences *)[notification object];
@@ -1453,7 +1477,8 @@ static bool fastDocumentTeardownEnabled()
     settings->setFullScreenEnabled([preferences fullScreenEnabled]);
 #endif
     settings->setMemoryInfoEnabled([preferences memoryInfoEnabled]);
-    settings->setUsePreHTML5ParserQuirks([preferences usePreHTML5ParserQuirks]);
+    settings->setHyperlinkAuditingEnabled([preferences hyperlinkAuditingEnabled]);
+    settings->setUsePreHTML5ParserQuirks([self _needsPreHTML5ParserQuirks]);
 
     // Application Cache Preferences are stored on the global cache storage manager, not in Settings.
     [WebApplicationCache setDefaultOriginQuota:[preferences applicationCacheDefaultOriginQuota]];
@@ -1983,6 +2008,11 @@ static inline IMP getMethod(id o, SEL s)
             break;
         }
     }
+
+    // Pre-HTML5 parser quirks should be enabled if Dashboard is in backward
+    // compatibility mode. See <rdar://problem/8175982>.
+    if (_private->page)
+        _private->page->settings()->setUsePreHTML5ParserQuirks([self _needsPreHTML5ParserQuirks]);
 }
 
 - (BOOL)_dashboardBehavior:(WebDashboardBehavior)behavior
@@ -2649,7 +2679,7 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
     if (![[NSUserDefaults standardUserDefaults] objectForKey:WebAutomaticTextReplacementEnabled])
         automaticTextReplacementEnabled = [NSSpellChecker isAutomaticTextReplacementEnabled];
     if (![[NSUserDefaults standardUserDefaults] objectForKey:WebAutomaticSpellingCorrectionEnabled])
-        automaticTextReplacementEnabled = [NSSpellChecker isAutomaticSpellingCorrectionEnabled];
+        automaticSpellingCorrectionEnabled = [NSSpellChecker isAutomaticSpellingCorrectionEnabled];
 #endif
 }
 
@@ -5859,6 +5889,11 @@ static void layerSyncRunLoopObserverCallBack(CFRunLoopObserverRef, CFRunLoopActi
 
 - (void)_scheduleCompositingLayerSync
 {
+    CFRunLoopRef currentRunLoop = CFRunLoopGetCurrent();
+
+    // Make sure we wake up the loop or the observer could be delayed until some other source fires.
+    CFRunLoopWakeUp(currentRunLoop);
+
     if (_private->layerSyncRunLoopObserver)
         return;
 
@@ -5874,7 +5909,7 @@ static void layerSyncRunLoopObserverCallBack(CFRunLoopObserverRef, CFRunLoopActi
         kCFRunLoopBeforeWaiting | kCFRunLoopExit, true /* repeats */,
         runLoopOrder, layerSyncRunLoopObserverCallBack, &context);
 
-    CFRunLoopAddObserver(CFRunLoopGetCurrent(), _private->layerSyncRunLoopObserver, kCFRunLoopCommonModes);
+    CFRunLoopAddObserver(currentRunLoop, _private->layerSyncRunLoopObserver, kCFRunLoopCommonModes);
 }
 
 #endif
@@ -6016,6 +6051,25 @@ static void glibContextIterationCallback(CFRunLoopObserverRef, CFRunLoopActivity
     Element* element = jsElement->impl();
     RefPtr<CSSComputedStyleDeclaration> style = computedStyle(element, true);
     return toRef(exec, toJS(exec, jsElement->globalObject(), style.get()));
+}
+
+@end
+
+@implementation WebView (WebViewPrivateNodesFromRect)
+
+- (JSValueRef)_nodesFromRect:(JSContextRef)context forDocument:(JSValueRef)value x:(int)x  y:(int)y top:(unsigned)top right:(unsigned)right bottom:(unsigned)bottom left:(unsigned)left ignoreClipping:(BOOL)ignoreClipping
+{
+    JSLock lock(SilenceAssertionsOnly);
+    ExecState* exec = toJS(context);
+    if (!value)
+        return JSValueMakeUndefined(context);
+    JSValue jsValue = toJS(exec, value);
+    if (!jsValue.inherits(&JSDocument::s_info))
+        return JSValueMakeUndefined(context);
+    JSDocument* jsDocument = static_cast<JSDocument*>(asObject(jsValue));
+    Document* document = jsDocument->impl();
+    RefPtr<NodeList> nodes = document->nodesFromRect(x, y, top, right, bottom, left, ignoreClipping);
+    return toRef(exec, toJS(exec, jsDocument->globalObject(), nodes.get()));
 }
 
 @end

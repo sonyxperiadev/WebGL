@@ -34,7 +34,24 @@
 
 namespace JSC {
 
-    class JSCell : public NoncopyableCustomAllocated {
+#if COMPILER(MSVC)
+    // If WTF_MAKE_NONCOPYABLE is applied to JSCell we end up with a bunch of
+    // undefined references to the JSCell copy constructor and assignment operator
+    // when linking JavaScriptCore.
+    class MSVCBugWorkaround {
+        WTF_MAKE_NONCOPYABLE(MSVCBugWorkaround);
+
+    protected:
+        MSVCBugWorkaround() { }
+        ~MSVCBugWorkaround() { }
+    };
+
+    class JSCell : MSVCBugWorkaround {
+#else
+    class JSCell {
+        WTF_MAKE_NONCOPYABLE(JSCell);
+#endif
+
         friend class GetterSetter;
         friend class Heap;
         friend class JIT;

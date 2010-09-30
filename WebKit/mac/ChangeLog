@@ -1,3 +1,261 @@
+2010-09-28  Johnny Ding  <jnd@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        https://bugs.webkit.org/show_bug.cgi?id=41292
+        Some windowed plugins did not handle events through EventHandler, so we
+        never set right gesture state for those events.
+        This change is to set right allowPopupsFromPlugin flag to current
+        execution frame, so WeKit can always get right gesture state on Mac.
+        From Mac Snow Leopard, the plugin is run under "WebKitPluginHost,app"
+        process, that process passes the allowPopupsFromPlugin flag to
+        WKPCEvaluate(in NetscapePluginHostProxy.mm), then flag is set in
+        NetscapePluginInstanceProxy::evaluate.
+
+        * Plugins/WebNetscapePluginView.mm:
+        (-[WebNetscapePluginView sendEvent:isDrawRect:]):
+
+2010-09-28  Jenn Braithwaite  <jennb@chromium.org>
+
+        Reviewed by Dmitry Titov.
+
+        Added oldPage param to FrameLoaderClient::didTransferChildFrameToNewDocument.
+        https://bugs.webkit.org/show_bug.cgi?id=46663
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::didTransferChildFrameToNewDocument):
+
+2010-09-26  Antonio Gomes  <agomes@rim.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        DRT/Mac nodesFromRect support
+
+        [Mac][DRT] Implement LayoutTestController::nodesFromRect
+        https://bugs.webkit.org/show_bug.cgi?id=46580
+
+        Implement nodesFromRect as a private method to access non-exposed Document
+        methods, similarly to computedStyleIncludingVisitedInfo.
+
+        * WebView/WebView.mm: Added JSDocument.h and JSNodeList.h to the include list.
+        These headers makes it possible to:
+        1) Get a Document off of a JSDocument;
+        2) Call toJS function, defined in JSNodeList.cpp|h so we can convert RefPtr<NodeList>
+        gotten from Document::nodesFromRect to JS bindings.
+        (-[WebView _nodesFromRect:forDocument:x:y:hPadding:vPadding:ignoreClipping:]):
+        * WebView/WebViewPrivate.h: Added nodesFromRect method to access methods of the
+        Document class not exposed to JavaScript. It works similarly to computedStyleIncludingVisitedInfo.
+
+2010-09-24  Jia Pu  <jpu@apple.com>
+
+        Reviewed by Dan Bernstein.
+
+        automaticSpellingCorrectionEnabled isn't updated.
+        https://bugs.webkit.org/show_bug.cgi?id=46486
+        <rdar://problem/8475212>
+
+        * WebView/WebView.mm:
+        (+[WebView initialize]): Should update "automaticSpellingCorrectionEnabled"
+          instead of "automaticTextReplacementEnabled".
+
+2010-09-23  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Darin Adler.
+
+        https://bugs.webkit.org/show_bug.cgi?id=46380
+        REGRESSION: Crash when downloading a file
+
+        Downloading cannot be tested in DRT.
+
+        * Misc/WebNSFileManagerExtras.m: (-[NSFileManager _webkit_setMetadataURL:referrer:atPath:]):
+        Don't copy null strings.
+
+2010-09-24  Ilya Tikhonovsky  <loislo@chromium.org>
+
+        Reviewed by Yury Semikhatsky.
+
+        Web Inspector: CRASH at node highlight on MAC Safari.
+        1) run-safari --debug
+        2) open inspector
+        3) open elements panel
+        4) hover mouse over elements panel items multiple times
+        5) CRASH
+        Looks like it is a race condition. WebNodeHighlightView doesn't check
+        the pointer to WebNodeHighligh object and it can be nil.
+
+        https://bugs.webkit.org/show_bug.cgi?id=46261
+
+        * WebInspector/WebNodeHighlightView.mm:
+        (-[WebNodeHighlightView drawRect:]):
+
+2010-09-23  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION (r61285): some Dashboard widgets are always invisible due to
+        HTML parser changes.
+        https://bugs.webkit.org/show_bug.cgi?id=46435
+
+        Enable pre-HTML5 parser quirks if Dashboard is in backward compatibility
+        mode.
+
+        * WebView/WebView.mm:
+        (-[WebView _needsPreHTML5ParserQuirks]): Renamed from
+        shouldUsePreHTML5ParserQuirks(). Return true if
+        WebCore::Settings::usesDashboardCompatibilityMode() is true.
+        (-[WebView _preferencesChangedNotification:]):
+        (-[WebView _setDashboardBehavior:to:]): Enable pre-HTML5 parser quirks
+        if Dashboard behavior is set to backward compatibility mode.
+
+2010-09-23  Matthew Delaney  <mdelaney@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Reduce minimum DOMTimer interval
+        https://bugs.webkit.org/show_bug.cgi?id=45362
+
+        * WebView/WebView.mm:
+        Updating set interval call to use Settings' static version inside
+        one time init block.
+
+2010-09-22  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION (r61285): Microsoft Entourage 2008 does not invoke My Day window
+        https://bugs.webkit.org/show_bug.cgi?id=46334
+
+        Microsoft My Day loads scripts using self-closing script tags, markup
+        which is incompatible with the HTML5 parser. Enable parser quirks for
+        this application.
+
+        * WebView/WebView.mm:
+        (shouldUsePreHTML5ParserQuirks): Return true if the application is
+        Microsoft My Day and was linked against a version of WebKit prior to the
+        introduction of the HTML5 parser.
+
+2010-09-23  Nate Chapin  <japhet@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Add hyperlink auditing settings (i.e., <a ping>).
+        https://bugs.webkit.org/show_bug.cgi?id=30458
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences initialize]):
+        (-[WebPreferences setMemoryInfoEnabled:]):
+        (-[WebPreferences hyperlinkAuditingEnabled]):
+        (-[WebPreferences setHyperlinkAuditingEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChangedNotification:]):
+
+2010-09-22  Alexey Proskuryakov  <ap@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43667
+        ASSERT failure in NetscapePluginInstanceProxy::disconnectStream
+
+        Test: plugins/get-javascript-url.html
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::evaluateJavaScript): Add the stream to m_streams, just
+        like any other one.
+
+2010-09-21  Darin Adler  <darin@apple.com>
+
+        Reviewed by Anders Carlsson.
+
+        Fix some Objective-C GC problems and use RetainPtr instead of HardRetain/Release
+        https://bugs.webkit.org/show_bug.cgi?id=46220
+
+        * Misc/WebNSFileManagerExtras.m:
+        (setMetaData): Use CFRelease instead of HardRelease.
+        (-[NSFileManager _webkit_setMetadataURL:referrer:atPath:]): Use CFStringCreateCopy
+        instead of -[NSObject copy] combined with HardRetainWithNSRelease.
+
+2010-09-22  Balazs Kelemen  <kb@inf.u-szeged.hu>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        PluginStrategy should satisfy the needs of Qt
+        https://bugs.webkit.org/show_bug.cgi?id=45857
+        No new functionality so no new tests.
+
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::getPluginInfo):
+
+2010-09-22  Paul Knight  <pknight@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        -[WebView _scheduleCompositingLayerSync] should wake the run loop
+        https://bugs.webkit.org/show_bug.cgi?id=46226
+
+        Call CFRunLoopWakeUp to make sure the run loop is not sleeping, which could delay layer painting.
+
+        * WebView/WebView.mm:
+        (-[WebView _scheduleCompositingLayerSync]):
+
+2010-09-21  Andy Estes  <aestes@apple.com>
+
+        Reviewed by Darin Adler.
+
+        REGRESSION (r61285): AIM 2.1.296: Code rendered as text in Welcome screen
+        https://bugs.webkit.org/show_bug.cgi?id=46134
+
+        AIM clients linked against versions of WebKit prior to the introduction
+        of the HTML5 parser contain markup incompatible with the new parser.
+        Enable parser quirks in this case to remain compatible with these
+        clients.
+
+        * WebView/WebView.mm:
+        (shouldUsePreHTML5ParserQuirks): Returns true if the embedding
+        application is AIM and was linked against a version of WebKit prior to
+        the introduction of the HTML5 parser, or if the
+        WebKitPreHTML5ParserQuirks WebPreference is enabled.
+        (-[WebView _preferencesChangedNotification:]): Call
+        WebCore::Settings::setUsePreHTML5ParserQuirks().
+
+2010-09-21  Steve Block  <steveblock@google.com>
+
+        Reviewed by Jeremy Orlow.
+
+        DeviceOrientationClient and DeviceMotionClient should have controllerDestroyed() methods
+        https://bugs.webkit.org/show_bug.cgi?id=45891
+
+        Implements WebDeviceOrientationClient::deviceOrientationControllerDestroyed to delete the client.
+
+        * WebCoreSupport/WebDeviceOrientationClient.h:
+        * WebCoreSupport/WebDeviceOrientationClient.mm:
+        (WebDeviceOrientationClient::deviceOrientationControllerDestroyed):
+
+2010-09-20  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Eric Carlson.
+
+        [GTK] enhanced context menu for media elements
+        https://bugs.webkit.org/show_bug.cgi?id=45021
+
+        New localized strings for the media element context-menu.
+
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::contextMenuItemTagOpenVideoInNewWindow):
+        (WebPlatformStrategies::contextMenuItemTagOpenAudioInNewWindow):
+        (WebPlatformStrategies::contextMenuItemTagCopyVideoLinkToClipboard):
+        (WebPlatformStrategies::contextMenuItemTagCopyAudioLinkToClipboard):
+        (WebPlatformStrategies::contextMenuItemTagToggleMediaControls):
+        (WebPlatformStrategies::contextMenuItemTagToggleMediaLoop):
+        (WebPlatformStrategies::contextMenuItemTagEnterVideoFullscreen):
+        (WebPlatformStrategies::contextMenuItemTagMediaPlay):
+        (WebPlatformStrategies::contextMenuItemTagMediaPause):
+        (WebPlatformStrategies::contextMenuItemTagMediaMute):
+
 2010-09-20  Andy Estes  <aestes@apple.com>
 
         Reviewed by Adam Barth.

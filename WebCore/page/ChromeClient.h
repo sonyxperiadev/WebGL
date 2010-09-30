@@ -21,6 +21,7 @@
 #ifndef ChromeClient_h
 #define ChromeClient_h
 
+#include "AXObjectCache.h"
 #include "Console.h"
 #include "Cursor.h"
 #include "FocusDirection.h"
@@ -46,6 +47,7 @@ class NSResponder;
 
 namespace WebCore {
 
+    class AccessibilityObject;
     class Element;
     class FileChooser;
     class FloatRect;
@@ -268,9 +270,13 @@ namespace WebCore {
         virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const = 0;
         virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const = 0;
 
+<<<<<<< HEAD
 #if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
         virtual void webAppCanBeInstalled() = 0;
 #endif
+=======
+        virtual void postAccessibilityNotification(AccessibilityObject*, AXObjectCache::AXNotification) { }
+>>>>>>> webkit.org at r68651
 
     protected:
         virtual ~ChromeClient() { }

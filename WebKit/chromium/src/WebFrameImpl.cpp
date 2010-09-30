@@ -99,6 +99,7 @@
 #include "HistoryItem.h"
 #include "InspectorController.h"
 #include "Page.h"
+#include "Performance.h"
 #include "PlatformContextSkia.h"
 #include "PluginDocument.h"
 #include "PrintContext.h"
@@ -109,6 +110,7 @@
 #include "ReplaceSelectionCommand.h"
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
+#include "SVGSMILElement.h"
 #include "ScriptController.h"
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
@@ -130,6 +132,7 @@
 #include "WebHistoryItem.h"
 #include "WebInputElement.h"
 #include "WebPasswordAutocompleteListener.h"
+#include "WebPerformance.h"
 #include "WebPlugin.h"
 #include "WebPluginContainerImpl.h"
 #include "WebRange.h"
@@ -151,7 +154,7 @@
 #include "LocalCurrentGraphicsContext.h"
 #endif
 
-#if OS(LINUX)
+#if OS(LINUX) || OS(FREEBSD)
 #include <gdk/gdk.h>
 #endif
 
@@ -307,7 +310,7 @@ public:
         float scale = m_printedPageWidth / pageRect.width();
 
         ctx.save();
-#if OS(LINUX)
+#if OS(LINUX) || OS(FREEBSD)
         ctx.scale(WebCore::FloatSize(scale, scale));
 #endif
         ctx.translate(static_cast<float>(-pageRect.x()),
@@ -550,7 +553,7 @@ WebSize WebFrameImpl::contentsSize() const
 int WebFrameImpl::contentsPreferredWidth() const
 {
     if (m_frame->document() && m_frame->document()->renderView())
-        return m_frame->document()->renderView()->minPrefWidth();
+        return m_frame->document()->renderView()->minPreferredLogicalWidth();
     return 0;
 }
 
@@ -690,6 +693,14 @@ void WebFrameImpl::forms(WebVector<WebFormElement>& results) const
 WebAnimationController* WebFrameImpl::animationController()
 {
     return &m_animationController;
+}
+
+WebPerformance WebFrameImpl::performance() const
+{
+    if (!m_frame || !m_frame->domWindow())
+        return WebPerformance();
+
+    return WebPerformance(m_frame->domWindow()->webkitPerformance());
 }
 
 WebSecurityOrigin WebFrameImpl::securityOrigin() const
@@ -1069,6 +1080,22 @@ bool WebFrameImpl::hasMarkedText() const
 WebRange WebFrameImpl::markedRange() const
 {
     return frame()->editor()->compositionRange();
+}
+
+bool WebFrameImpl::firstRectForCharacterRange(unsigned location, unsigned length, WebRect& rect) const
+{
+    if ((location + length < location) && (location + length))
+        length = 0;
+
+    Element* selectionRoot = frame()->selection()->rootEditableElement();
+    Element* scope = selectionRoot ? selectionRoot : frame()->document()->documentElement();
+    RefPtr<Range> range = TextIterator::rangeFromLocationAndLength(scope, location, length);
+    if (!range)
+        return false;
+    IntRect intRect = frame()->editor()->firstRectForRange(range.get());
+    rect = WebRect(intRect.x(), intRect.y(), intRect.width(), intRect.height());
+
+    return true;
 }
 
 bool WebFrameImpl::executeCommand(const WebString& name)
@@ -1710,6 +1737,26 @@ bool WebFrameImpl::selectionStartHasSpellingMarkerFor(int from, int length) cons
     if (!m_frame)
         return false;
     return m_frame->editor()->selectionStartHasSpellingMarkerFor(from, length);
+}
+
+bool WebFrameImpl::pauseSVGAnimation(const WebString& animationId, double time, const WebString& elementId)
+{
+#if !ENABLE(SVG)
+    return false;
+#else
+    if (!m_frame)
+        return false;
+
+    Document* document = m_frame->document();
+    if (!document || !document->svgExtensions())
+        return false;
+
+    Node* coreNode = document->getElementById(animationId);
+    if (!coreNode || !SVGSMILElement::isSMILElement(coreNode))
+        return false;
+
+    return document->accessSVGExtensions()->sampleAnimationAtTime(elementId, static_cast<SVGSMILElement*>(coreNode), time);
+#endif
 }
 
 // WebFrameImpl public ---------------------------------------------------------

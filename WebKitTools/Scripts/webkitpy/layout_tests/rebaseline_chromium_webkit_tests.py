@@ -55,9 +55,9 @@ import sys
 import tempfile
 import time
 import urllib
-import webbrowser
 import zipfile
 
+from webkitpy.common.system import user
 from webkitpy.common.system.executive import run_command, ScriptError
 import webkitpy.common.checkout.scm as scm
 
@@ -518,8 +518,15 @@ class Rebaseliner(object):
                 fallback_fullpath = os.path.normpath(
                     os.path.join(fallback_dir, fallback_file))
                 if fallback_fullpath.lower() != baseline_path.lower():
-                    if not self._diff_baselines(new_baseline,
-                                                fallback_fullpath):
+                    with codecs.open(new_baseline, "r",
+                                     None) as file_handle1:
+                        new_output = file_handle1.read()
+                    with codecs.open(fallback_fullpath, "r",
+                                     None) as file_handle2:
+                        fallback_output = file_handle2.read()
+                    is_image = baseline_path.lower().endswith('.png')
+                    if not self._diff_baselines(new_output, fallback_output,
+                                                is_image):
                         _log.info('  Found same baseline at %s',
                                   fallback_fullpath)
                         return True
@@ -528,31 +535,20 @@ class Rebaseliner(object):
 
         return False
 
-    def _diff_baselines(self, file1, file2):
+    def _diff_baselines(self, output1, output2, is_image):
         """Check whether two baselines are different.
 
         Args:
-          file1, file2: full paths of the baselines to compare.
+          output1, output2: contents of the baselines to compare.
 
         Returns:
           True if two files are different or have different extensions.
           False otherwise.
         """
 
-        ext1 = os.path.splitext(file1)[1].upper()
-        ext2 = os.path.splitext(file2)[1].upper()
-        if ext1 != ext2:
-            _log.warn('Files to compare have different ext. '
-                      'File1: %s; File2: %s', file1, file2)
-            return True
-
-        if ext1 == '.PNG':
-            return self._port.diff_image(file1, file2)
+        if is_image:
+            return self._port.diff_image(output1, output2)
         else:
-            with codecs.open(file1, "r", "utf8") as file_handle1:
-                output1 = file_handle1.read()
-            with codecs.open(file2, "r", "utf8") as file_handle2:
-                output2 = file_handle2.read()
             return self._port.compare_text(output1, output2)
 
     def _delete_baseline(self, filename):
@@ -593,7 +589,7 @@ class Rebaseliner(object):
             # Or is new_expectations always a byte array?
             with open(path, "w") as file:
                 file.write(new_expectations)
-            self._scm.add(path)
+            # self._scm.add(path)
         else:
             _log.info('No test was rebaselined so nothing to remove.')
 
@@ -737,10 +733,7 @@ class HtmlGenerator(object):
         """Launch the rebaselining html in brwoser."""
 
         _log.info('Launching html: "%s"', self._html_file)
-
-        html_uri = self._target_port.filename_to_uri(self._html_file)
-        webbrowser.open(html_uri, 1)
-
+        user.User().open_url(self._html_file)
         _log.info('Html launched.')
 
     def _generate_baseline_links(self, test_basename, suffix, platform):

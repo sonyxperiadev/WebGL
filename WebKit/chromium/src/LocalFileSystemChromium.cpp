@@ -42,25 +42,33 @@
 #include "WebFileSystemCallbacksImpl.h"
 #include "WebFrameClient.h"
 #include "WebFrameImpl.h"
+#include "WebWorkerImpl.h"
+#include "WorkerContext.h"
+#include "WorkerThread.h"
+#include <wtf/Threading.h>
 
 using namespace WebKit;
 
 namespace WebCore {
 
-PassRefPtr<LocalFileSystem> LocalFileSystem::create(const String& path)
+LocalFileSystem& LocalFileSystem::localFileSystem()
 {
-    return adoptRef(new LocalFileSystem(path));
+    AtomicallyInitializedStatic(LocalFileSystem*, localFileSystem = new LocalFileSystem(""));
+    return *localFileSystem;
 }
 
-void LocalFileSystem::requestFileSystem(ScriptExecutionContext* context, AsyncFileSystem::Type type, long long size, PassRefPtr<FileSystemCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
+void LocalFileSystem::requestFileSystem(ScriptExecutionContext* context, AsyncFileSystem::Type type, long long size, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
     ASSERT(context);
     if (context->isDocument()) {
         Document* document = static_cast<Document*>(context);
         WebFrameImpl* webFrame = WebFrameImpl::fromFrame(document->frame());
-        webFrame->client()->openFileSystem(webFrame, static_cast<WebFileSystem::Type>(type), size, new WebFileSystemCallbacksImpl(new FileSystemCallbacks(successCallback, errorCallback, context)));
+        webFrame->client()->openFileSystem(webFrame, static_cast<WebFileSystem::Type>(type), size, new WebFileSystemCallbacksImpl(callbacks));
     } else {
-        // FIXME: Add implementation for workers.
+        WorkerContext* workerContext = static_cast<WorkerContext*>(context);
+        WorkerLoaderProxy* workerLoaderProxy = &workerContext->thread()->workerLoaderProxy();
+        WebWorkerBase* webWorker = static_cast<WebWorkerBase*>(workerLoaderProxy);
+        webWorker->openFileSystem(static_cast<WebFileSystem::Type>(type), size, new WebFileSystemCallbacksImpl(callbacks));
     }
 }
 

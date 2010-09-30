@@ -42,12 +42,11 @@
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0500
 #endif
-#include <windows.h>
 #include <crtdbg.h>
 #endif
 
-#if OS(WINCE)
-#include <winbase.h>
+#if OS(WINDOWS)
+#include <windows.h>
 #endif
 
 #if PLATFORM(BREWMP)
@@ -113,7 +112,7 @@ static void vprintf_stderr_common(const char* format, va_list args)
         printLog(buffer);
     }
 
-#elif COMPILER(MSVC) && !defined(WINCEBASIC)
+#elif HAVE(ISDEBUGGERPRESENT)
     if (IsDebuggerPresent()) {
         size_t size = 1024;
 

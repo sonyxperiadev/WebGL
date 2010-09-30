@@ -394,7 +394,7 @@ public:
     bool posChildNeedsLayout() const { return m_posChildNeedsLayout; }
     bool normalChildNeedsLayout() const { return m_normalChildNeedsLayout; }
     
-    bool prefWidthsDirty() const { return m_prefWidthsDirty; }
+    bool preferredLogicalWidthsDirty() const { return m_preferredLogicalWidthsDirty; }
 
     bool isSelectionBorder() const;
 
@@ -455,13 +455,13 @@ public:
     void setNeedsLayout(bool b, bool markParents = true);
     void setChildNeedsLayout(bool b, bool markParents = true);
     void setNeedsPositionedMovementLayout();
-    void setPrefWidthsDirty(bool, bool markParents = true);
-    void invalidateContainerPrefWidths();
+    void setPreferredLogicalWidthsDirty(bool, bool markParents = true);
+    void invalidateContainerPreferredLogicalWidths();
     
     void setNeedsLayoutAndPrefWidthsRecalc()
     {
         setNeedsLayout(true);
-        setPrefWidthsDirty(true);
+        setPreferredLogicalWidthsDirty(true);
     }
 
     void setPositioned(bool b = true)  { m_positioned = b;  }
@@ -561,8 +561,8 @@ public:
     // the rect that will be painted if this object is passed as the paintingRoot
     IntRect paintingRootRect(IntRect& topLevelRect);
 
-    virtual int minPrefWidth() const { return 0; }
-    virtual int maxPrefWidth() const { return 0; }
+    virtual int minPreferredLogicalWidth() const { return 0; }
+    virtual int maxPreferredLogicalWidth() const { return 0; }
 
     RenderStyle* style() const { return m_style.get(); }
     RenderStyle* firstLineStyle() const { return document()->usesFirstLineRules() ? firstLineStyleSlowCase() : style(); }
@@ -688,11 +688,10 @@ public:
      */
     virtual IntRect localCaretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
 
-    virtual void calcVerticalMargins() { }
-    bool isTopMarginQuirk() const { return m_topMarginQuirk; }
-    bool isBottomMarginQuirk() const { return m_bottomMarginQuirk; }
-    void setTopMarginQuirk(bool b = true) { m_topMarginQuirk = b; }
-    void setBottomMarginQuirk(bool b = true) { m_bottomMarginQuirk = b; }
+    bool isMarginBeforeQuirk() const { return m_marginBeforeQuirk; }
+    bool isMarginAfterQuirk() const { return m_marginAfterQuirk; }
+    void setMarginBeforeQuirk(bool b = true) { m_marginBeforeQuirk = b; }
+    void setMarginAfterQuirk(bool b = true) { m_marginAfterQuirk = b; }
 
     // When performing a global document tear-down, the renderer of the document is cleared.  We use this
     // as a hook to detect the case of document destruction and don't waste time doing unnecessary work.
@@ -812,7 +811,7 @@ private:
     bool m_needsPositionedMovementLayout :1;
     bool m_normalChildNeedsLayout    : 1;
     bool m_posChildNeedsLayout       : 1;
-    bool m_prefWidthsDirty           : 1;
+    bool m_preferredLogicalWidthsDirty           : 1;
     bool m_floating                  : 1;
 
     bool m_positioned                : 1;
@@ -842,8 +841,8 @@ private:
     // These bitfields are moved here from subclasses to pack them together
     // from RenderBlock
     bool m_childrenInline : 1;
-    bool m_topMarginQuirk : 1;
-    bool m_bottomMarginQuirk : 1;
+    bool m_marginBeforeQuirk : 1;
+    bool m_marginAfterQuirk : 1;
     bool m_hasMarkupTruncation : 1;
     unsigned m_selectionState : 3; // SelectionState
     bool m_hasColumns : 1;

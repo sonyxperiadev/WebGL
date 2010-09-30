@@ -29,7 +29,7 @@
 
 namespace WebCore {
 
-enum WidthType { Width, MinWidth, MaxWidth };
+enum LogicalWidthType { LogicalWidth, MinLogicalWidth, MaxLogicalWidth };
 
 class RenderBox : public RenderBoxModelObject {
 public:
@@ -44,12 +44,52 @@ public:
     int y() const { return m_frameRect.y(); }
     int width() const { return m_frameRect.width(); }
     int height() const { return m_frameRect.height(); }
-    
+
     void setX(int x) { m_frameRect.setX(x); }
     void setY(int y) { m_frameRect.setY(y); }
     void setWidth(int width) { m_frameRect.setWidth(width); }
     void setHeight(int height) { m_frameRect.setHeight(height); }
-    
+
+    int logicalLeft() const { return style()->isVerticalBlockFlow() ? x() : y(); }
+    int logicalTop() const { return style()->isVerticalBlockFlow() ? y() : x(); }
+    int logicalWidth() const { return style()->isVerticalBlockFlow() ? width() : height(); }
+    int logicalHeight() const { return style()->isVerticalBlockFlow() ? height() : width(); }
+    void setLogicalLeft(int left)
+    {
+        if (style()->isVerticalBlockFlow())
+            setX(left);
+        else
+            setY(left);
+    }
+    void setLogicalTop(int top)
+    {
+        if (style()->isVerticalBlockFlow())
+            setY(top);
+        else
+            setX(top);
+    }
+    void setLogicalWidth(int size)
+    {
+        if (style()->isVerticalBlockFlow())
+            setWidth(size);
+        else
+            setHeight(size);
+    }
+    void setLogicalHeight(int size)
+    {
+        if (style()->isVerticalBlockFlow())
+            setHeight(size);
+        else
+            setWidth(size);
+    }
+    void setLogicalLocation(int left, int top)
+    {
+        if (style()->isVerticalBlockFlow())
+            setLocation(left, top);
+        else
+            setLocation(top, left);
+    }
+
     IntPoint location() const { return m_frameRect.location(); }
     IntSize locationOffset() const { return IntSize(x(), y()); }
     IntSize size() const { return m_frameRect.size(); }
@@ -110,6 +150,8 @@ public:
 
     int contentWidth() const { return clientWidth() - paddingLeft() - paddingRight(); }
     int contentHeight() const { return clientHeight() - paddingTop() - paddingBottom(); }
+    int contentLogicalWidth() const { return style()->isVerticalBlockFlow() ? contentWidth() : contentHeight(); }
+    int contentLogicalHeight() const { return style()->isVerticalBlockFlow() ? contentHeight() : contentWidth(); }
 
     // IE extensions. Used to calculate offsetWidth/Height.  Overridden by inlines (RenderFlow)
     // to return the remaining width on a given line (and the height of a single line).
@@ -139,18 +181,41 @@ public:
     virtual int marginBottom() const { return m_marginBottom; }
     virtual int marginLeft() const { return m_marginLeft; }
     virtual int marginRight() const { return m_marginRight; }
-
+    virtual int marginBefore() const;
+    virtual int marginAfter() const;
+    virtual int marginStart() const;
+    virtual int marginEnd() const;
+    void setMarginStart(int);
+    void setMarginEnd(int);
+    void setMarginBefore(int);
+    void setMarginAfter(int);
+    
     // The following five functions are used to implement collapsing margins.
     // All objects know their maximal positive and negative margins.  The
     // formula for computing a collapsed margin is |maxPosMargin| - |maxNegmargin|.
     // For a non-collapsing box, such as a leaf element, this formula will simply return
-    // the margin of the element.  Blocks override the maxTopMargin and maxBottomMargin
+    // the margin of the element.  Blocks override the maxMarginBefore and maxMarginAfter
     // methods.
+    enum MarginSign { PositiveMargin, NegativeMargin };
     virtual bool isSelfCollapsingBlock() const { return false; }
-    int collapsedMarginTop() const { return maxTopMargin(true) - maxTopMargin(false); }
-    int collapsedMarginBottom() const { return maxBottomMargin(true) - maxBottomMargin(false); }
-    virtual int maxTopMargin(bool positive) const { return positive ? std::max(0, marginTop()) : -std::min(0, marginTop()); }
-    virtual int maxBottomMargin(bool positive) const { return positive ? std::max(0, marginBottom()) : -std::min(0, marginBottom()); }
+    int collapsedMarginBefore() const
+    {
+        return maxMarginBefore(PositiveMargin) - maxMarginBefore(NegativeMargin);
+    }
+    int collapsedMarginAfter() const
+    { 
+        return maxMarginAfter(PositiveMargin) - maxMarginAfter(NegativeMargin);
+}
+    virtual int maxMarginBefore(MarginSign sign) const
+    { 
+        int beforeMargin = marginBefore();
+        return (sign == PositiveMargin) ? std::max(0, beforeMargin) : -std::min(0, beforeMargin);
+    }
+    virtual int maxMarginAfter(MarginSign sign) const
+    {
+        int afterMargin = marginAfter();
+        return (sign == PositiveMargin) ? std::max(0, afterMargin) : -std::min(0, afterMargin);
+    }
 
     virtual void absoluteRects(Vector<IntRect>&, int tx, int ty);
     virtual void absoluteQuads(Vector<FloatQuad>&);
@@ -166,8 +231,8 @@ public:
 
     virtual void destroy();
 
-    virtual int minPrefWidth() const;
-    virtual int maxPrefWidth() const;
+    virtual int minPreferredLogicalWidth() const;
+    virtual int maxPreferredLogicalWidth() const;
 
     int overrideSize() const;
     int overrideWidth() const;
@@ -176,18 +241,19 @@ public:
 
     virtual IntSize offsetFromContainer(RenderObject*, const IntPoint&) const;
     
-    int calcBorderBoxWidth(int width) const;
-    int calcBorderBoxHeight(int height) const;
-    int calcContentBoxWidth(int width) const;
-    int calcContentBoxHeight(int height) const;
+    int computeBorderBoxLogicalWidth(int width) const;
+    int computeBorderBoxLogicalHeight(int height) const;
+    int computeContentBoxLogicalWidth(int width) const;
+    int computeContentBoxLogicalHeight(int height) const;
 
     virtual void borderFitAdjust(int& /*x*/, int& /*w*/) const { } // Shrink the box in which the border paints if border-fit is set.
 
-    // This method is now public so that centered objects like tables that are
-    // shifted right by left-aligned floats can recompute their left and
-    // right margins (so that they can remain centered after being
-    // shifted. -dwh
-    void calcHorizontalMargins(const Length& marginLeft, const Length& marginRight, int containerWidth);
+    // Resolve auto margins in the inline direction of the containing block so that objects can be pushed to the start, middle or end
+    // of the containing block.
+    void computeInlineDirectionMargins(RenderBlock* containingBlock, int containerWidth, int childWidth);
+
+    // Used to resolve margins in the containing block's block-flow direction.
+    void computeBlockDirectionMargins(RenderBlock* containingBlock);
 
     void positionLineBox(InlineBox*);
 
@@ -210,40 +276,43 @@ public:
 
     virtual void repaintDuringLayoutIfMoved(const IntRect&);
 
-    virtual int containingBlockWidthForContent() const;
-
-    virtual void calcWidth();
-    virtual void calcHeight();
+    virtual int containingBlockLogicalWidthForContent() const;
+    int perpendicularContainingBlockLogicalHeight() const;
+    
+    virtual void computeLogicalWidth();
+    virtual void computeLogicalHeight();
 
     bool stretchesToViewHeight() const
     {
-        return document()->inQuirksMode() && style()->height().isAuto() && !isFloatingOrPositioned() && (isRoot() || isBody());
+        return document()->inQuirksMode() && style()->height().isAuto() && !isFloatingOrPositioned() && (isRoot() || isBody()) && !isBlockFlowRoot();
     }
 
     virtual IntSize intrinsicSize() const { return IntSize(); }
 
     // Whether or not the element shrinks to its intrinsic width (rather than filling the width
     // of a containing block).  HTML4 buttons, <select>s, <input>s, legends, and floating/compact elements do this.
-    bool sizesToIntrinsicWidth(WidthType) const;
-    virtual bool stretchesToMinIntrinsicWidth() const { return false; }
+    bool sizesToIntrinsicLogicalWidth(LogicalWidthType) const;
+    virtual bool stretchesToMinIntrinsicLogicalWidth() const { return false; }
 
-    int calcWidthUsing(WidthType, int containerWidth);
-    int calcHeightUsing(const Length& height);
-    int calcReplacedWidthUsing(Length width) const;
-    int calcReplacedHeightUsing(Length height) const;
+    int computeLogicalWidthUsing(LogicalWidthType, int availableLogicalWidth);
+    int computeLogicalHeightUsing(const Length& height);
+    int computeReplacedWidthUsing(Length width) const;
+    int computeReplacedHeightUsing(Length height) const;
 
-    virtual int calcReplacedWidth(bool includeMaxWidth = true) const;
-    virtual int calcReplacedHeight() const;
+    virtual int computeReplacedWidth(bool includeMaxWidth = true) const;
+    virtual int computeReplacedHeight() const;
 
-    int calcPercentageHeight(const Length& height);
+    int computePercentageLogicalHeight(const Length& height);
 
     // Block flows subclass availableWidth to handle multi column layout (shrinking the width available to children when laying out.)
-    virtual int availableWidth() const { return contentWidth(); } // FIXME: Investigate removing eventually. https://bugs.webkit.org/show_bug.cgi?id=46127
-    virtual int availableHeight() const;
-    int availableHeightUsing(const Length&) const;
-    virtual int availableLogicalWidth() const;
-
-    void calcVerticalMargins();
+    virtual int availableLogicalWidth() const { return contentLogicalWidth(); }
+    int availableLogicalHeight() const;
+    int availableLogicalHeightUsing(const Length&) const;
+    
+    // There are a few cases where we need to refer specifically to the available physical width and available physical height.
+    // Relative positioning is one of those cases, since left/top offsets are physical.
+    int availableWidth() const { return style()->isVerticalBlockFlow() ? availableLogicalWidth() : availableLogicalHeight(); }
+    int availableHeight() const { return style()->isVerticalBlockFlow() ? availableLogicalHeight() : availableLogicalWidth(); }
 
     virtual int verticalScrollbarWidth() const;
     int horizontalScrollbarHeight() const;
@@ -278,11 +347,11 @@ public:
     void tryLayoutDoingPositionedMovementOnly()
     {
         int oldWidth = width();
-        calcWidth();
+        computeLogicalWidth();
         // If we shrink to fit our width may have changed, so we still need full layout.
         if (oldWidth != width())
             return;
-        calcHeight();
+        computeLogicalHeight();
         setNeedsLayout(false);
     }
 
@@ -300,9 +369,13 @@ public:
 
     virtual void markDescendantBlocksAndLinesForLayout(bool inLayout = true);
     
+<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
     int getVisibleWidth() const { return m_visibleWidth; }
 #endif
+=======
+    bool isBlockFlowRoot() const { return !parent() || parent()->style()->blockFlow() != style()->blockFlow(); }
+>>>>>>> webkit.org at r68651
 
 protected:
     virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);
@@ -319,9 +392,9 @@ protected:
     void paintCustomHighlight(int tx, int ty, const AtomicString& type, bool behindText);
 #endif
 
-    void calcAbsoluteHorizontal();
+    void computePositionedLogicalWidth();
     
-    virtual bool shouldCalculateSizeAsReplaced() const { return isReplaced() && !isInlineBlockOrInlineTable(); }
+    virtual bool shouldComputeSizeAsReplaced() const { return isReplaced() && !isInlineBlockOrInlineTable(); }
 
     virtual void mapLocalToContainer(RenderBoxModelObject* repaintContainer, bool fixed, bool useTransforms, TransformState&) const;
     virtual void mapAbsoluteToLocalPoint(bool fixed, bool useTransforms, TransformState&) const;
@@ -337,23 +410,33 @@ private:
     int containingBlockWidthForPositioned(const RenderBoxModelObject* containingBlock) const;
     int containingBlockHeightForPositioned(const RenderBoxModelObject* containingBlock) const;
 
-    void calcAbsoluteVertical();
-    void calcAbsoluteHorizontalValues(Length width, const RenderBoxModelObject* cb, TextDirection containerDirection,
+    void computePositionedLogicalHeight();
+    void computePositionedLogicalWidthUsing(Length width, const RenderBoxModelObject* cb, TextDirection containerDirection,
                                       int containerWidth, int bordersPlusPadding,
                                       Length left, Length right, Length marginLeft, Length marginRight,
                                       int& widthValue, int& marginLeftValue, int& marginRightValue, int& xPos);
-    void calcAbsoluteVerticalValues(Length height, const RenderBoxModelObject* cb,
+    void computePositionedLogicalHeightUsing(Length height, const RenderBoxModelObject* cb,
                                     int containerHeight, int bordersPlusPadding,
                                     Length top, Length bottom, Length marginTop, Length marginBottom,
                                     int& heightValue, int& marginTopValue, int& marginBottomValue, int& yPos);
 
-    void calcAbsoluteVerticalReplaced();
-    void calcAbsoluteHorizontalReplaced();
+    void computePositionedLogicalHeightReplaced();
+    void computePositionedLogicalWidthReplaced();
 
     // This function calculates the minimum and maximum preferred widths for an object.
     // These values are used in shrink-to-fit layout systems.
     // These include tables, positioned objects, floats and flexible boxes.
-    virtual void calcPrefWidths() { setPrefWidthsDirty(false); }
+    virtual void computePreferredLogicalWidths() { setPreferredLogicalWidthsDirty(false); }
+
+    void setMarginStartUsing(const RenderStyle*, int);
+    void setMarginEndUsing(const RenderStyle*, int);
+    void setMarginBeforeUsing(const RenderStyle*, int);
+    void setMarginAfterUsing(const RenderStyle*, int);
+
+    int marginStartUsing(const RenderStyle*) const;
+    int marginEndUsing(const RenderStyle*) const;
+    int marginBeforeUsing(const RenderStyle*) const;
+    int marginAfterUsing(const RenderStyle*) const;
 
 private:
     // The width/height of the contents + borders + padding.  The x/y location is relative to our container (which is not always our parent).
@@ -371,11 +454,11 @@ protected:
     int m_marginTop;
     int m_marginBottom;
 
-    // The preferred width of the element if it were to break its lines at every possible opportunity.
-    int m_minPrefWidth;
+    // The preferred logical width of the element if it were to break its lines at every possible opportunity.
+    int m_minPreferredLogicalWidth;
     
-    // The preferred width of the element if it never breaks any lines at all.
-    int m_maxPrefWidth;
+    // The preferred logical width of the element if it never breaks any lines at all.
+    int m_maxPreferredLogicalWidth;
 
     // For inline replaced elements, the inline box that owns us.
     InlineBox* m_inlineBoxWrapper;

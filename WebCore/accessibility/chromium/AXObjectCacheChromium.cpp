@@ -28,19 +28,10 @@
 #include "AXObjectCache.h"
 #include "AccessibilityObject.h"
 #include "Chrome.h"
-#include "ChromeClientChromium.h"
+#include "ChromeClient.h"
 #include "FrameView.h"
 
 namespace WebCore {
-
-static ChromeClientChromium* toChromeClientChromium(FrameView* view)
-{
-    Page* page = view->frame() ? view->frame()->page() : 0;
-    if (!page)
-        return 0;
-
-    return static_cast<ChromeClientChromium*>(page->chrome()->client());
-}
 
 void AXObjectCache::detachWrapper(AccessibilityObject* obj)
 {
@@ -56,22 +47,24 @@ void AXObjectCache::attachWrapper(AccessibilityObject*)
 
 void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotification notification)
 {
-    if (!obj || !obj->document() || !obj->documentFrameView())
+    if (!obj || !obj->document() || !obj->documentFrameView() || !obj->documentFrameView()->frame() || !obj->documentFrameView()->frame()->page())
         return;
 
-    ChromeClientChromium* client = toChromeClientChromium(obj->documentFrameView());
+    ChromeClient* client = obj->documentFrameView()->frame()->page()->chrome()->client();
     if (!client)
         return;
 
-    // TODO: Remove after the new postAccessibilityNotification is used downstream.
     switch (notification) {
-    case AXCheckedStateChanged:
-        client->didChangeAccessibilityObjectState(obj);
-        break;
-    case AXChildrenChanged:
-        client->didChangeAccessibilityObjectChildren(obj);
-        break;
     case AXActiveDescendantChanged:
+        if (!obj->document()->focusedNode() || (obj->node() != obj->document()->focusedNode()))
+            break;
+
+        // Calling handleFocusedUIElementChanged will focus the new active
+        // descendant and send the AXFocusedUIElementChanged notification.
+        handleFocusedUIElementChanged(0, obj->document()->focusedNode()->renderer());
+        break;
+    case AXCheckedStateChanged:
+    case AXChildrenChanged:
     case AXFocusedUIElementChanged:
     case AXLayoutComplete:
     case AXLiveRegionChanged:
@@ -90,12 +83,31 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
     client->postAccessibilityNotification(obj, notification);        
 }
 
-void AXObjectCache::handleFocusedUIElementChanged(RenderObject*, RenderObject*)
+void AXObjectCache::nodeTextChangePlatformNotification(AccessibilityObject*, AXTextChange, unsigned, unsigned)
 {
 }
 
-void AXObjectCache::handleScrolledToAnchor(const Node*)
+void AXObjectCache::handleFocusedUIElementChanged(RenderObject*, RenderObject* newFocusedRenderer)
 {
+    if (!newFocusedRenderer)
+        return;
+
+    Page* page = newFocusedRenderer->document()->page();
+    if (!page)
+        return;
+
+    AccessibilityObject* focusedObject = focusedUIElementForPage(page);
+    if (!focusedObject)
+        return;
+
+    postPlatformNotification(focusedObject, AXFocusedUIElementChanged);
+}
+
+void AXObjectCache::handleScrolledToAnchor(const Node* anchorNode)
+{
+    // The anchor node may not be accessible. Post the notification for the
+    // first accessible object.
+    postPlatformNotification(AccessibilityObject::firstAccessibleObjectFromNode(anchorNode), AXScrolledToAnchor);
 }
 
 } // namespace WebCore

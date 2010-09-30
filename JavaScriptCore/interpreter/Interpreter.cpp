@@ -67,6 +67,8 @@
 #include "JIT.h"
 #endif
 
+#define WTF_USE_GCC_COMPUTED_GOTO_WORKAROUND (ENABLE(COMPUTED_GOTO_INTERPRETER) && !defined(__llvm__))
+
 using namespace std;
 
 namespace JSC {
@@ -80,6 +82,11 @@ static int depth(CodeBlock* codeBlock, ScopeChain& sc)
 }
 
 #if ENABLE(INTERPRETER) 
+static NEVER_INLINE JSValue concatenateStrings(ExecState* exec, Register* strings, unsigned count)
+{
+    return jsString(exec, strings, count);
+}
+
 NEVER_INLINE bool Interpreter::resolve(CallFrame* callFrame, Instruction* vPC, JSValue& exceptionValue)
 {
     int dst = vPC[1].u.operand;
@@ -2473,7 +2480,7 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
         uncacheGetByID(codeBlock, vPC);
         NEXT_INSTRUCTION();
     }
-#if ENABLE(COMPUTED_GOTO_INTERPRETER)
+#if USE(GCC_COMPUTED_GOTO_WORKAROUND)
     goto *(&&skip_id_getter_proto);
 #endif
     DEFINE_OPCODE(op_get_by_id_getter_proto) {
@@ -2515,10 +2522,10 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
         uncacheGetByID(codeBlock, vPC);
         NEXT_INSTRUCTION();
     }
-#if ENABLE(COMPUTED_GOTO_INTERPRETER)
+#if USE(GCC_COMPUTED_GOTO_WORKAROUND)
     skip_id_getter_proto:
 #endif
-#if ENABLE(COMPUTED_GOTO_INTERPRETER)
+#if USE(GCC_COMPUTED_GOTO_WORKAROUND)
     goto *(&&skip_id_custom_proto);
 #endif
     DEFINE_OPCODE(op_get_by_id_custom_proto) {
@@ -2557,7 +2564,7 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
         uncacheGetByID(codeBlock, vPC);
         NEXT_INSTRUCTION();
     }
-#if ENABLE(COMPUTED_GOTO_INTERPRETER)
+#if USE(GCC_COMPUTED_GOTO_WORKAROUND)
     skip_id_custom_proto:
 #endif
     DEFINE_OPCODE(op_get_by_id_self_list) {
@@ -2648,7 +2655,7 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
         uncacheGetByID(codeBlock, vPC);
         NEXT_INSTRUCTION();
     }
-#if ENABLE(COMPUTED_GOTO_INTERPRETER)
+#if USE(GCC_COMPUTED_GOTO_WORKAROUND)
     goto *(&&skip_id_getter_self);
 #endif
     DEFINE_OPCODE(op_get_by_id_getter_self) {
@@ -2688,10 +2695,10 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
         uncacheGetByID(codeBlock, vPC);
         NEXT_INSTRUCTION();
     }
-#if ENABLE(COMPUTED_GOTO_INTERPRETER)
+#if USE(GCC_COMPUTED_GOTO_WORKAROUND)
     skip_id_getter_self:
 #endif
-#if ENABLE(COMPUTED_GOTO_INTERPRETER)
+#if USE(GCC_COMPUTED_GOTO_WORKAROUND)
     goto *(&&skip_id_custom_self);
 #endif
     DEFINE_OPCODE(op_get_by_id_custom_self) {
@@ -2725,7 +2732,7 @@ JSValue Interpreter::privateExecute(ExecutionFlag flag, RegisterFile* registerFi
         uncacheGetByID(codeBlock, vPC);
         NEXT_INSTRUCTION();
     }
-#if ENABLE(COMPUTED_GOTO_INTERPRETER)
+#if USE(GCC_COMPUTED_GOTO_WORKAROUND)
 skip_id_custom_self:
 #endif
     DEFINE_OPCODE(op_get_by_id_generic) {
@@ -2748,7 +2755,7 @@ skip_id_custom_self:
         vPC += OPCODE_LENGTH(op_get_by_id_generic);
         NEXT_INSTRUCTION();
     }
-#if ENABLE(COMPUTED_GOTO_INTERPRETER)
+#if USE(GCC_COMPUTED_GOTO_WORKAROUND)
     goto *(&&skip_id_getter_chain);
 #endif
     DEFINE_OPCODE(op_get_by_id_getter_chain) {
@@ -2800,10 +2807,10 @@ skip_id_custom_self:
         uncacheGetByID(codeBlock, vPC);
         NEXT_INSTRUCTION();
     }
-#if ENABLE(COMPUTED_GOTO_INTERPRETER)
+#if USE(GCC_COMPUTED_GOTO_WORKAROUND)
     skip_id_getter_chain:
 #endif
-#if ENABLE(COMPUTED_GOTO_INTERPRETER)
+#if USE(GCC_COMPUTED_GOTO_WORKAROUND)
     goto *(&&skip_id_custom_chain);
 #endif
     DEFINE_OPCODE(op_get_by_id_custom_chain) {
@@ -2852,7 +2859,7 @@ skip_id_custom_self:
         uncacheGetByID(codeBlock, vPC);
         NEXT_INSTRUCTION();
     }
-#if ENABLE(COMPUTED_GOTO_INTERPRETER)
+#if USE(GCC_COMPUTED_GOTO_WORKAROUND)
     skip_id_custom_chain:
 #endif
     DEFINE_OPCODE(op_get_array_length) {
@@ -3088,6 +3095,46 @@ skip_id_custom_self:
         callFrame->r(dst) = result;
         vPC += OPCODE_LENGTH(op_get_by_pname);
         NEXT_INSTRUCTION();
+    }
+    DEFINE_OPCODE(op_get_arguments_length) {
+        int dst = vPC[1].u.operand;
+        int argumentsRegister = vPC[2].u.operand;
+        int property = vPC[3].u.operand;
+        JSValue arguments = callFrame->r(argumentsRegister).jsValue();
+        if (arguments) {
+            Identifier& ident = codeBlock->identifier(property);
+            PropertySlot slot(arguments);
+            JSValue result = arguments.get(callFrame, ident, slot);
+            CHECK_FOR_EXCEPTION();
+            callFrame->r(dst) = result;
+        } else
+            callFrame->r(dst) = jsNumber(callFrame, callFrame->argumentCount());
+
+        vPC += OPCODE_LENGTH(op_get_arguments_length);
+        NEXT_INSTRUCTION();
+    }
+    DEFINE_OPCODE(op_get_argument_by_val) {
+        int dst = vPC[1].u.operand;
+        int argumentsRegister = vPC[2].u.operand;
+        int property = vPC[3].u.operand;
+        JSValue arguments = callFrame->r(argumentsRegister).jsValue();
+        JSValue subscript = callFrame->r(property).jsValue();
+        if (!arguments && subscript.isUInt32() && subscript.asUInt32() < callFrame->argumentCount()) {
+            unsigned arg = subscript.asUInt32() + 1;
+            unsigned numParameters = callFrame->codeBlock()->m_numParameters;
+            if (arg < numParameters)
+                callFrame->r(dst) = callFrame->r(arg - RegisterFile::CallFrameHeaderSize - numParameters);
+            else
+                callFrame->r(dst) = callFrame->r(arg - RegisterFile::CallFrameHeaderSize - numParameters - callFrame->argumentCount() - 1);
+            vPC += OPCODE_LENGTH(op_get_argument_by_val);
+            NEXT_INSTRUCTION();
+        }
+        if (!arguments) {
+            Arguments* arguments = new (globalData) Arguments(callFrame);
+            callFrame->r(dst) = JSValue(arguments);
+            callFrame->r(unmodifiedArgumentsRegister(dst)) = JSValue(arguments);
+        }
+        // fallthrough
     }
     DEFINE_OPCODE(op_get_by_val) {
         /* get_by_val dst(r) base(r) property(r)
@@ -3610,8 +3657,10 @@ skip_id_custom_self:
         */
         int dst = vPC[1].u.operand;
         int func = vPC[2].u.operand;
+        int shouldCheck = vPC[3].u.operand;
 
-        callFrame->r(dst) = JSValue(codeBlock->functionDecl(func)->make(callFrame, callFrame->scopeChain()));
+        if (!shouldCheck || !callFrame->r(dst).jsValue())
+            callFrame->r(dst) = JSValue(codeBlock->functionDecl(func)->make(callFrame, callFrame->scopeChain()));
 
         vPC += OPCODE_LENGTH(op_new_func);
         NEXT_INSTRUCTION();
@@ -3832,10 +3881,8 @@ skip_id_custom_self:
                     CHECK_FOR_EXCEPTION();
                 }
             } else {
-                if (!arguments.isObject()) {
-                    exceptionValue = createInvalidParamError(callFrame, "Function.prototype.apply", arguments, vPC - codeBlock->instructions().begin(), codeBlock);
-                    goto vm_throw;
-                }
+                exceptionValue = createInvalidParamError(callFrame, "Function.prototype.apply", arguments, vPC - codeBlock->instructions().begin(), codeBlock);
+                goto vm_throw;
             }
         }
         CHECK_FOR_EXCEPTION();
@@ -4137,18 +4184,17 @@ skip_id_custom_self:
         vPC += OPCODE_LENGTH(op_convert_this);
         NEXT_INSTRUCTION();
     }
-    DEFINE_OPCODE(op_init_arguments) {
-        /* create_arguments dst(r)
+    DEFINE_OPCODE(op_init_lazy_reg) {
+        /* init_lazy_reg dst(r)
 
-           Initialises 'arguments' to JSValue().
+           Initialises dst(r) to JSValue().
 
            This opcode appears only at the beginning of a code block.
          */
         int dst = vPC[1].u.operand;
 
         callFrame->r(dst) = JSValue();
-        callFrame->r(unmodifiedArgumentsRegister(dst)) = JSValue();
-        vPC += OPCODE_LENGTH(op_init_arguments);
+        vPC += OPCODE_LENGTH(op_init_lazy_reg);
         NEXT_INSTRUCTION();
     }
     DEFINE_OPCODE(op_create_arguments) {
@@ -4248,11 +4294,19 @@ skip_id_custom_self:
         goto vm_throw;
     }
     DEFINE_OPCODE(op_strcat) {
+        /* strcat dst(r) src(r) count(n)
+
+           Construct a new String instance using the original
+           constructor, and puts the result in register dst.
+           The string will be the result of concatenating count
+           strings with values taken from registers starting at
+           register src.
+        */
         int dst = vPC[1].u.operand;
         int src = vPC[2].u.operand;
         int count = vPC[3].u.operand;
 
-        callFrame->r(dst) = jsString(callFrame, &callFrame->registers()[src], count);
+        callFrame->r(dst) = concatenateStrings(callFrame, &callFrame->registers()[src], count);
         CHECK_FOR_EXCEPTION();
         vPC += OPCODE_LENGTH(op_strcat);
 

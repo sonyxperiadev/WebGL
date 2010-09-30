@@ -30,7 +30,6 @@ class HitTestRequest;
 class HitTestResult;
 class RootInlineBox;
 
-
 // InlineBox represents a rectangle that occurs on a line.  It corresponds to
 // some RenderObject (i.e., it represents a portion of that RenderObject).
 class InlineBox {
@@ -42,15 +41,16 @@ public:
         , m_renderer(obj)
         , m_x(0)
         , m_y(0)
-        , m_width(0)
+        , m_logicalWidth(0)
         , m_firstLine(false)
         , m_constructed(false)
         , m_bidiEmbeddingLevel(0)
         , m_dirty(false)
         , m_extracted(false)
 #if ENABLE(SVG)
-        , m_hasVirtualHeight(false)
+        , m_hasVirtualLogicalHeight(false)
 #endif
+        , m_isVertical(false)
         , m_endsWithBreak(false)
         , m_hasSelectedChildren(false)
         , m_hasEllipsisBoxOrHyphen(false)
@@ -67,23 +67,24 @@ public:
     {
     }
 
-    InlineBox(RenderObject* obj, int x, int y, int width, bool firstLine, bool constructed,
-              bool dirty, bool extracted, InlineBox* next, InlineBox* prev, InlineFlowBox* parent)
+    InlineBox(RenderObject* obj, int x, int y, int logicalWidth, bool firstLine, bool constructed,
+              bool dirty, bool extracted, bool isVertical, InlineBox* next, InlineBox* prev, InlineFlowBox* parent)
         : m_next(next)
         , m_prev(prev)
         , m_parent(parent)
         , m_renderer(obj)
         , m_x(x)
         , m_y(y)
-        , m_width(width)
+        , m_logicalWidth(logicalWidth)
         , m_firstLine(firstLine)
         , m_constructed(constructed)
         , m_bidiEmbeddingLevel(0)
         , m_dirty(dirty)
         , m_extracted(extracted)
 #if ENABLE(SVG)
-        , m_hasVirtualHeight(false)
+        , m_hasVirtualLogicalHeight(false)
 #endif
+        , m_isVertical(isVertical)
         , m_endsWithBreak(false)
         , m_hasSelectedChildren(false)   
         , m_hasEllipsisBoxOrHyphen(false)
@@ -139,15 +140,18 @@ public:
 #if ENABLE(SVG)
     virtual bool isSVGInlineTextBox() const { return false; }
     virtual bool isSVGRootInlineBox() const { return false; }
+#endif
 
-    bool hasVirtualHeight() const { return m_hasVirtualHeight; }
-    void setHasVirtualHeight() { m_hasVirtualHeight = true; }
-    virtual int virtualHeight() const
+    bool hasVirtualLogicalHeight() const { return m_hasVirtualLogicalHeight; }
+    void setHasVirtualLogicalHeight() { m_hasVirtualLogicalHeight = true; }
+    virtual int virtualLogicalHeight() const
     {
         ASSERT_NOT_REACHED();
         return 0;
     }
-#endif
+
+    bool isVertical() const { return m_isVertical; }
+    void setIsVertical(bool v) { m_isVertical = v; }
 
     virtual IntRect calculateBoundaries() const
     {
@@ -202,18 +206,40 @@ public:
     const RootInlineBox* root() const;
     RootInlineBox* root();
 
-    void setWidth(int w) { m_width = w; }
-    int width() const { return m_width; }
-
-    // x() is the left side of the box in the parent's coordinate system.
+    // x() is the left side of the box in the containing block's coordinate system.
     void setX(int x) { m_x = x; }
     int x() const { return m_x; }
 
-    // y() is the top of the box in the parent's coordinate system.
+    // y() is the top side of the box in the containing block's coordinate system.
     void setY(int y) { m_y = y; }
     int y() const { return m_y; }
 
-    int height() const;
+    // The logicalLeft position is the left edge of the line box in a horizontal line and the top edge in a vertical line.
+    int logicalLeft() const { return !m_isVertical ? m_x : m_y; }
+    void setLogicalLeft(int left)
+    {
+        if (!m_isVertical)
+            m_x = left;
+        else
+            m_y = left;
+    }
+
+    // The logicalTop[ position is the top edge of the line box in a horizontal line and the left edge in a vertical line.
+    int logicalTop() const { return !m_isVertical ? m_y : m_x; }
+    void setLogicalTop(int top)
+    {
+        if (!m_isVertical)
+            m_y = top;
+        else
+            m_x = top;
+    }
+
+    // The logical width is our extent in the line's overall inline direction, i.e., width for horizontal text and height for vertical text.
+    void setLogicalWidth(int w) { m_logicalWidth = w; }
+    int logicalWidth() const { return m_logicalWidth; }
+
+    // The logical height is our extent in the block flow direction, i.e., height for horizontal text and width for vertical text.
+    int logicalHeight() const;
 
     inline int baselinePosition(bool isRootLineBox) const { return renderer()->baselinePosition(m_firstLine, isRootLineBox); }
     inline int lineHeight(bool isRootLineBox) const { return renderer()->lineHeight(m_firstLine, isRootLineBox); }
@@ -266,7 +292,7 @@ public:
 
     int m_x;
     int m_y;
-    int m_width;
+    int m_logicalWidth;
     
     // Some of these bits are actually for subclasses and moved here to compact the structures.
 
@@ -279,7 +305,9 @@ private:
 protected:
     bool m_dirty : 1;
     bool m_extracted : 1;
-    bool m_hasVirtualHeight : 1;
+    bool m_hasVirtualLogicalHeight : 1;
+
+    bool m_isVertical : 1;
 
     // for RootInlineBox
     bool m_endsWithBreak : 1;  // Whether the line ends with a <br>.
@@ -295,7 +323,7 @@ protected:
     mutable bool m_determinedIfPrevOnLineExists : 1;
     mutable bool m_nextOnLineExists : 1;
     mutable bool m_prevOnLineExists : 1;
-    int m_toAdd : 12; // for justified text
+    int m_toAdd : 11; // for justified text
 
 #ifndef NDEBUG
 private:

@@ -138,7 +138,7 @@ public:
 
     static void setSpeechInputEnabled(bool isEnabled) { isSpeechInputEnabled = isEnabled; }
     static bool speechInputEnabled() { return isSpeechInputEnabled; }
-    static bool speechEnabled() { return isSpeechInputEnabled; }
+    static bool webkitspeechEnabled() { return isSpeechInputEnabled; }
 
 #if ENABLE(XHR_RESPONSE_BLOB)
     static bool xhrResponseBlobEnabled() { return isXHRResponseBlobEnabled; }
@@ -148,7 +148,7 @@ public:
 #endif
 
 #if ENABLE(FILE_SYSTEM)
-    static bool fileSystemEnabled() { return isFileSystemEnabled; }
+    static bool fileSystemEnabled();
     static void setFileSystemEnabled(bool isEnabled) { isFileSystemEnabled = isEnabled; }
     static bool requestFileSystemEnabled() { return isFileSystemEnabled; }
 #endif

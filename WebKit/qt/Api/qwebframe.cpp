@@ -230,6 +230,14 @@ void QWebFramePrivate::init(QWebFrame *qframe, QWebFrameData *frameData)
     frame->init();
 }
 
+WebCore::ViewportArguments QWebFramePrivate::viewportArguments()
+{
+    if (!frame || !frame->document())
+        return WebCore::ViewportArguments();
+
+    return frame->document()->viewportArguments();
+}
+
 void QWebFramePrivate::setPage(QWebPage* newPage)
 {
     if (page == newPage)
@@ -781,11 +789,9 @@ void QWebFrame::load(const QNetworkRequest &req,
         case QNetworkAccessManager::PostOperation:
             request.setHTTPMethod("POST");
             break;
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
         case QNetworkAccessManager::DeleteOperation:
             request.setHTTPMethod("DELETE");
             break;
-#endif
         case QNetworkAccessManager::UnknownOperation:
             // eh?
             break;

@@ -1,3 +1,803 @@
+2010-09-29  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed.
+
+        Next try to fix cygwin build.
+
+        * wtf/Assertions.cpp:
+
+2010-09-29  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed.
+
+        Build fix for cygwin #2. It's OS(WINDOWS), not OS(WIN).
+
+        * wtf/Assertions.cpp:
+
+2010-09-29  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed.
+
+        Build fix for cygwin.
+
+        * wtf/Assertions.cpp:
+
+2010-09-29  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Andreas Kling.
+
+        [WINCE] Buildfix for Assertions.cpp after r68511.
+        https://bugs.webkit.org/show_bug.cgi?id=46807
+
+        Some, but not all WinCE environments have support for IsDebuggerPresent().
+        Add HAVE(ISDEBUGGERPRESENT) to make this a build option.
+        HAVE(ISDEBUGGERPRESENT) will be 1 for all OS(WIN) by default.
+
+        * wtf/Assertions.cpp:
+        * wtf/Platform.h:
+
+2010-09-29  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Csaba Osztrogonác.
+
+        JSC compile fails on 32bit platform when Regexp Tracing is enabled
+        https://bugs.webkit.org/show_bug.cgi?id=46713
+
+        Fix the cast of pointer in regexp tracing to avoid the warning.
+
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::match):
+
+2010-09-28  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Sam Weinig.
+
+        Begin hooking up painting in the plug-in process
+        https://bugs.webkit.org/show_bug.cgi?id=46766
+
+        * JavaScriptCore.exp:
+        Add tryFastRealloc, used by WebKit2.
+
+2010-09-28  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        Guard GRefPtr/GOwnPtr files with ENABLE(GLIB_SUPPORT)
+        https://bugs.webkit.org/show_bug.cgi?id=46721
+
+        Enable GOwnPtr/GRefPtr build only if glib support has been
+        explicitly enabled using the WTF_ENABLE_GLIB_SUPPORT macro.
+
+        * wtf/gobject/GOwnPtr.cpp:
+        * wtf/gobject/GOwnPtr.h:
+        * wtf/gobject/GRefPtr.cpp:
+        * wtf/gobject/GRefPtr.h:
+
+2010-09-28  İsmail Dönmez  <ismail@namtrac.org>
+
+        Reviewed by Andreas Kling.
+
+        Test for WINCE instead of WINCEBASIC, compiler always defines WINCE.
+        Remove reference to unexisting path JavaScriptCore/os-wince.
+
+        * JavaScriptCore.pri:
+        * wtf/Assertions.cpp:
+
+2010-09-27  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Changed the initialization of JSArray objects to have space for 
+        3 elements for the constructor that takes a ArgList argument.
+        This improves v8-deltablue performance by about 2.8% by reducing 
+        the number of realloc() calls.
+        https://bugs.webkit.org/show_bug.cgi?id=46664
+
+        * runtime/JSArray.cpp:
+        (JSC::JSArray::JSArray):
+
+2010-09-27  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Darin Adler.
+
+        Bug 46680 - Inlining string concatenation can regress interpreter performance
+        <rdar://problem/8362752> REGRESSION: ~6.4% sunspider regression in interpreter
+        Do not inline calls to string concatenation in the interpret loop.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::concatenateStrings):
+        (JSC::Interpreter::privateExecute):
+
+2010-09-27  Anders Carlsson  <andersca@apple.com>
+
+        Fix thinko.
+
+        * runtime/JSCell.h:
+
+2010-09-27  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Try to fix Windows build.
+
+        * runtime/JSCell.h:
+        (JSC::MSVCBugWorkaround::MSVCBugWorkaround):
+        (JSC::MSVCBugWorkaround::~MSVCBugWorkaround):
+
+2010-09-27  Erik Arvidsson  <arv@chromium.org>
+
+        Reviewed by Darin Adler.
+
+        Add operator == for AtomicString and Vector<Uchar>
+        https://bugs.webkit.org/show_bug.cgi?id=46509
+
+        * JavaScriptCore.exp:
+        * wtf/text/AtomicString.cpp:
+        (WTF::operator==):
+        * wtf/text/AtomicString.h:
+        (WTF::operator==):
+        (WTF::operator!=):
+
+2010-09-27  Anders Carlsson  <andersca@apple.com>
+
+        Try to fix the Windows build.
+
+        * wtf/Noncopyable.h:
+
+2010-09-26  Anders Carlsson  <andersca@apple.com>
+
+        Reviewed by Alexey Proskuryakov and Adam Barth.
+
+        Add WTF_MAKE_NONCOPYABLE macro
+        https://bugs.webkit.org/show_bug.cgi?id=46589
+
+        Going forward, we'd like to get rid of the Noncopyable and FastAllocBase classes. The
+        reason for this is that the Itanium C++ ABI states that no empty classes of the same type
+        can be laid out at the same offset in the class. This can result in objects getting larger
+        which leads to memory regressions. (One example of this is the String class which grew by
+        sizeof(void*) when both its base class and its first member variable inherited indirectly
+        from FastAllocBase).
+
+        * wtf/Noncopyable.h:
+        Add a WTF_MAKE_NONCOPYABLE macro and get rid of NoncopyableCustomAllocated.
+        
+        * runtime/JSCell.h:
+        * wtf/RefCounted.h:
+        Don't inherit from NoncopyableCustomAllocated. Instead, use WTF_MAKE_NONCOPYABLE.
+
+2010-09-27  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] use ENABLE(GLIB_SUPPORT)
+        https://bugs.webkit.org/show_bug.cgi?id=46630
+
+        * wtf/Platform.h: Include GTypedefs.h only if glib support
+        is explicitly enabled.
+
+2010-09-25  Holger Hans Peter Freyther  <holger@moiji-mobile.com>
+
+        Reviewed by Adam Barth.
+
+        jsc: Document the strcat opcode.
+        https://bugs.webkit.org/show_bug.cgi?id=46571
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+
+2010-09-21  Holger Hans Peter Freyther  <holger@moiji-mobile.com>
+
+        Reviewed by Adam Barth.
+
+        make-bytecode-docs.pl: Add a comment to the generated HTML
+        https://bugs.webkit.org/show_bug.cgi?id=46570
+
+        Generate an HTML Comment that this file was generated from
+        Interpreter.cpp with the make-bytecode-docs.pl script.
+
+        * docs/make-bytecode-docs.pl:
+
+2010-09-27  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Remove WTF::stringHash functions
+        https://bugs.webkit.org/show_bug.cgi?id=46520
+
+        Since r68289 the stringHash functions are only wrappers around StringHasher::createHash.
+        So use StringHasher::createHash directly and remove stringHash.
+
+        * wtf/StringHashFunctions.h:
+        * wtf/text/StringImpl.h:
+        (WTF::StringImpl::computeHash): Use WTF::StringHasher::createHash directly.
+
+2010-09-26  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        Add WTF::StringHasher::createBlobHash
+        https://bugs.webkit.org/show_bug.cgi?id=46514
+
+        Add this function for hashing FormElementKey and QualifiedNameComponents.
+
+        * wtf/StringHashFunctions.h:
+        (WTF::StringHasher::createBlobHash):
+
+2010-09-26  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Barth.
+
+        REGRESSION (r68289): Assertion failure in StringHasher::addCharacter() (ch != invalidCharacterValue)
+        running websocket/tests/bad-sub-protocol-non-ascii.html
+        https://bugs.webkit.org/show_bug.cgi?id=46553
+
+        Because we use StringHasher for binary data too, so the check for invalid unicode input is wrong.
+        Add an additional member variable to indicate if we have an pending character
+        instead of only using an invalid character for this purpose.
+
+        * wtf/StringHashFunctions.h:
+        (WTF::StringHasher::StringHasher):
+        (WTF::StringHasher::addCharacters):
+        (WTF::StringHasher::addCharacter):
+        (WTF::StringHasher::hash):
+
+2010-09-26  Mark Hahnenberg  <mhahnenb@gmail.com>
+
+        Reviewed by Oliver Hunt.
+
+        valueOf called in wrong order in atan2 and date constructors.
+        https://bugs.webkit.org/show_bug.cgi?id=26978
+
+        Fixed the bug where the arguments to atan2 were being evaluated 
+        out of order.
+
+        * runtime/MathObject.cpp:
+        (JSC::mathProtoFuncATan2):
+
+2010-09-26  Mark Hahnenberg  <mhahnenb@gmail.com>
+
+        Reviewed by Oliver Hunt.
+
+        valueOf called in wrong order in atan2 and date constructors.
+        https://bugs.webkit.org/show_bug.cgi?id=26978
+
+        Fixed the issue where the parameters to the Date constructor
+        were being evaluated to numbers more than once.
+
+        * runtime/DateConstructor.cpp:
+        (JSC::constructDate):
+        (JSC::dateUTC):
+
+2010-09-25  Oliver Hunt  <oliver@apple.com>
+
+        Fix various builds
+
+        Relearning the lesson that last minute changes are bad.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitGetArgumentsLength):
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emitSlow_op_get_argument_by_val):
+
+2010-09-25  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Cameron Zwarich.
+
+        Avoid constructing arguments object when accessing length and index properties
+        https://bugs.webkit.org/show_bug.cgi?id=46572
+
+        Add opcodes to read argument length and properties, and then implement them.
+        Much like other lazy opcodes these opcodes take a fast path when the arguments
+        object has not been instantiated, and fall back on generic access mechanisms
+        if they are acting on an instantiated object.
+
+        3% win on v8-earleyboyer, no change elsewhere.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitGetArgumentsLength):
+        (JSC::BytecodeGenerator::emitGetArgumentByVal):
+        * bytecompiler/BytecodeGenerator.h:
+        * bytecompiler/NodesCodegen.cpp:
+        (JSC::BracketAccessorNode::emitBytecode):
+        (JSC::DotAccessorNode::emitBytecode):
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        (JSC::JIT::privateCompileSlowCases):
+        * jit/JIT.h:
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_get_arguments_length):
+        (JSC::JIT::emitSlow_op_get_arguments_length):
+        (JSC::JIT::emit_op_get_argument_by_val):
+        (JSC::JIT::emitSlow_op_get_argument_by_val):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_get_arguments_length):
+        (JSC::JIT::emitSlow_op_get_arguments_length):
+        (JSC::JIT::emit_op_get_argument_by_val):
+        (JSC::JIT::emitSlow_op_get_argument_by_val):
+
+2010-09-25  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed.
+
+        Fix typo in StringHasher class
+        https://bugs.webkit.org/show_bug.cgi?id=45970
+
+        * wtf/StringHashFunctions.h:
+        (WTF::StringHasher::createHash):
+
+2010-09-24  Patrick Gansterer  <paroga@paroga.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Add WTF::StringHasher
+        https://bugs.webkit.org/show_bug.cgi?id=45970
+
+        StringHasher is a class for calculation stringHash out of character string.
+        This class will unify the different usages of the same algorithm.
+
+        * wtf/StringHashFunctions.h:
+        (WTF::StringHasher::StringHasher):
+        (WTF::StringHasher::addCharacters):
+        (WTF::StringHasher::addCharacter):
+        (WTF::StringHasher::hash):
+        (WTF::StringHasher::createHash):
+        (WTF::StringHasher::defaultCoverter):
+        (WTF::StringHasher::addCharactersToHash):
+        (WTF::stringHash):
+
+2010-09-24  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Variable declarations inside a catch scope don't get propogated to the parent scope
+        https://bugs.webkit.org/show_bug.cgi?id=46501
+
+        Add logic to make variable declaration look for a scope for the
+        new variable.  This allows us to create a scope (eg. for catch)
+        and then seal it, so that additional variable declarations
+        contained are propogated to the correct target.  Strangely this
+        comes out as a performance win, but I think it's mostly cache
+        effects.
+
+        * parser/JSParser.cpp:
+        (JSC::JSParser::Scope::Scope):
+        (JSC::JSParser::Scope::preventNewDecls):
+        (JSC::JSParser::Scope::allowsNewDecls):
+        (JSC::JSParser::declareVariable):
+        (JSC::JSParser::parseVarDeclarationList):
+        (JSC::JSParser::parseConstDeclarationList):
+        (JSC::JSParser::parseTryStatement):
+        (JSC::JSParser::parseFormalParameters):
+        (JSC::JSParser::parseFunctionDeclaration):
+
+2010-09-24  İsmail Dönmez  <ismail@namtrac.org>
+
+       Reviewed by Csaba Osztrogonác.
+
+       Add a Windows compatible inttypes.h header to fix WinCE build.
+       https://bugs.webkit.org/show_bug.cgi?id=46463
+
+       * os-win32/inttypes.h: Added.
+
+2010-09-24  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        REGRESSION(r68223): It broke 2-3 tests on bots (Requested by Ossy on #webkit).
+        https://bugs.webkit.org/show_bug.cgi?id=46448
+
+        Roll this back in, with additional logic to prevent us from delaying construction
+        of functions named "arguments"
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::emitInitLazyRegister):
+        (JSC::BytecodeGenerator::registerFor):
+        (JSC::BytecodeGenerator::createLazyRegisterIfNecessary):
+        (JSC::BytecodeGenerator::constRegisterFor):
+        (JSC::BytecodeGenerator::emitNewFunction):
+        (JSC::BytecodeGenerator::emitLazyNewFunction):
+        (JSC::BytecodeGenerator::emitNewFunctionInternal):
+        * bytecompiler/BytecodeGenerator.h:
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        * jit/JIT.h:
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_init_lazy_reg):
+        (JSC::JIT::emit_op_new_func):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_init_lazy_reg):
+        * parser/Nodes.h:
+        (JSC::ScopeNode::needsActivationForMoreThanVariables):
+
+2010-09-23  Sheriff Bot  <webkit.review.bot@gmail.com>
+
+        Unreviewed, rolling out r68223.
+        http://trac.webkit.org/changeset/68223
+        https://bugs.webkit.org/show_bug.cgi?id=46448
+
+        It broke 2-3 tests on bots (Requested by Ossy on #webkit).
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::registerFor):
+        (JSC::BytecodeGenerator::constRegisterFor):
+        (JSC::BytecodeGenerator::emitNewFunction):
+        * bytecompiler/BytecodeGenerator.h:
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        * jit/JIT.h:
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_new_func):
+        (JSC::JIT::emit_op_init_arguments):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_new_func):
+        (JSC::JIT::emit_op_init_arguments):
+        * parser/Nodes.h:
+
+2010-09-23  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Delay construction of functions that aren't captured
+        https://bugs.webkit.org/show_bug.cgi?id=46433
+
+        If a function isn't captured by an activation there's no
+        way it can be accessed indirectly, so we can delay the
+        construction until it's used (similar to what we do with
+        arguments).  We rename the existing op_init_arguments to
+        op_init_lazy_reg and removed its implicit handling of
+        the anonymous argument register, and make op_new_function
+        take a parameter to indicate whether it should null check
+        the target slot before creating the function object.
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        * bytecode/Opcode.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        (JSC::BytecodeGenerator::emitInitLazyRegister):
+        (JSC::BytecodeGenerator::registerFor):
+        (JSC::BytecodeGenerator::createLazyRegisterIfNecessary):
+        (JSC::BytecodeGenerator::constRegisterFor):
+        (JSC::BytecodeGenerator::emitNewFunction):
+        (JSC::BytecodeGenerator::emitLazyNewFunction):
+        (JSC::BytecodeGenerator::emitNewFunctionInternal):
+        * bytecompiler/BytecodeGenerator.h:
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileMainPass):
+        * jit/JIT.h:
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_init_lazy_reg):
+        (JSC::JIT::emit_op_new_func):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_init_lazy_reg):
+        * parser/Nodes.h:
+        (JSC::ScopeNode::needsActivationForMoreThanVariables):
+
+2010-09-23  David Kilzer  <ddkilzer@apple.com>
+
+        <rdar://problem/8460731> ~9.9% speedup when compiling interpreter with llvm-gcc-4.2
+        https://bugs.webkit.org/show_bug.cgi?id=46423
+
+        Reviewed by Oliver Hunt.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute): Disable the gcc computed
+        goto hacks added in r55564 when compiling with llvm-gcc-4.2.
+
+2010-09-23  Lucas De Marchi  <lucas.demarchi@profusion.mobi>
+
+        Reviewed by Darin Adler.
+
+        Fix usage of enum as if it was a define
+        https://bugs.webkit.org/show_bug.cgi?id=46355
+
+        pthread.h defines PTHREAD_MUTEX_DEFAULT and PTHREAD_MUTEX_NORMAL as an
+        enum.  Hence, it cannot be used by the preprocessor which always
+        evaluates that condition as true. This was giving a warning when
+        compiling with gcc and "-Wundef" flag.
+
+        The second path, when PTHREAD_MUTEX_DEFAULT is not the same of
+        PTHREAD_MUTEX_NORMAL, is not slow. So, let's eliminate the first path
+        and get rid of that #if.
+
+        * wtf/ThreadingPthreads.cpp: Always call pthread_mutexattr_init() to
+        set mutex type to PTHREAD_MUTEX_NORMAL.
+        (WTF::Mutex::Mutex):
+
+2010-09-23  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Removed extraneous truncation of ovector on entry and error exit.
+        Changed the initialization to -1 of vector to only initialize
+        the start indecies, which is sufficient for the pattern/subpatterns.
+        Changed the JIT code to not clear the end index for subpatterns
+        as it isn't needed.  These changes are worth ~2.7% on v8-regexp.
+        https://bugs.webkit.org/show_bug.cgi?id=46404
+
+        * runtime/RegExp.cpp:
+        (JSC::RegExp::match):
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::generateParenthesesSingle):
+
+2010-09-22  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoff Garen.
+
+        Only copy captured variables into activation
+        https://bugs.webkit.org/show_bug.cgi?id=46330
+
+        We now track free variable information which means that
+        we no longer need to copy every variable defined in a
+        function.  With this patch activations only retain those
+        variables needed for correctness.  In order to interact
+        safely with the inspector this means that JSActivation
+        now provides its own lookup functions so it can avoid 
+        trying to read or write to variables that have been
+        optimised out.
+
+        * bytecode/CodeBlock.h:
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::BytecodeGenerator):
+        * parser/Nodes.h:
+        (JSC::ScopeNode::capturedVariableCount):
+        (JSC::ScopeNode::captures):
+        * runtime/Arguments.h:
+        (JSC::JSActivation::copyRegisters):
+        * runtime/Executable.cpp:
+        (JSC::FunctionExecutable::FunctionExecutable):
+        (JSC::FunctionExecutable::compileForCallInternal):
+        (JSC::FunctionExecutable::compileForConstructInternal):
+        * runtime/Executable.h:
+        (JSC::FunctionExecutable::capturedVariableCount):
+        * runtime/JSActivation.cpp:
+        (JSC::JSActivation::markChildren):
+        (JSC::JSActivation::symbolTableGet):
+        (JSC::JSActivation::symbolTablePut):
+        (JSC::JSActivation::getOwnPropertyNames):
+        (JSC::JSActivation::symbolTablePutWithAttributes):
+        * runtime/JSActivation.h:
+
+2010-09-23  Ismail Donmez  <ismail@namtrac.org>
+
+        Reviewed by Andreas Kling.
+
+        Fix jsc.exe build for Windows CE
+
+        * jsc.pro: Add mmtimer.lib for Windows CE.
+
+2010-09-23  Ismail Donmez  <ismail@namtrac.org>
+
+        Unreviewed.
+
+        JIT should be disabled on Windows CE. Broken in r64176.
+
+        * wtf/Platform.h:
+
+2010-09-23  Peter Varga  <pvarga@inf.u-szeged.hu>
+
+        Reviewed by Gavin Barraclough.
+
+        Reduce the number of BOL checks in YARR Interpreter
+        https://bugs.webkit.org/show_bug.cgi?id=46260
+
+        Extend the YARR Interpreter with an optimization which reduces the number of
+        BOL assertion checks. If a "TypeBodyAlternative" byteTerm is followed by a
+        "TypeAssertionBOL" byteTerm it will be checked just one time.
+
+        * yarr/RegexInterpreter.cpp:
+        (JSC::Yarr::Interpreter::matchDisjunction):
+        (JSC::Yarr::ByteCompiler::compile):
+        (JSC::Yarr::ByteCompiler::regexBegin):
+        (JSC::Yarr::ByteCompiler::alternativeBodyDisjunction):
+        (JSC::Yarr::ByteCompiler::emitDisjunction):
+        * yarr/RegexInterpreter.h:
+        (JSC::Yarr::ByteTerm::BodyAlternativeBegin):
+        (JSC::Yarr::ByteTerm::BodyAlternativeDisjunction):
+        (JSC::Yarr::ByteTerm::BodyAlternativeEnd):
+        (JSC::Yarr::ByteTerm::AlternativeBegin):
+        (JSC::Yarr::ByteTerm::AlternativeDisjunction):
+        (JSC::Yarr::ByteTerm::AlternativeEnd):
+
+2010-09-22  Michael Saboff  <msaboff@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        Fixed the cross over from alternatives executed once and
+        those that loop.  This fixed the problem where the index
+        was getting messed up for looping alternatives causing an
+        infinite loop.
+        https://bugs.webkit.org/show_bug.cgi?id=46189
+
+        * yarr/RegexJIT.cpp:
+        (JSC::Yarr::RegexGenerator::generateDisjunction):
+
+2010-09-22  Steve Falkenburg  <sfalken@apple.com>
+
+        Rubber stamped by Jon Honeycutt.
+
+        Allow jsc.exe to be run against unversioned ICU.
+
+        * JavaScriptCore.vcproj/jsc/jscCommon.vsprops:
+
+2010-09-22  Kwang Yul Seo  <skyul@company100.net>
+
+        Reviewed by Laszlo Gombos.
+
+        Use "typedef wchar_t JSChar" when compiled with RVCT
+        https://bugs.webkit.org/show_bug.cgi?id=40651
+
+        Use wchar_t for JSChar and UChar when compiled with RVCT.
+        Linux is the exception for this rule.
+
+        * API/JSStringRef.h:
+        * wtf/unicode/qt4/UnicodeQt4.h:
+
+2010-09-22  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        [INTERPRETER] Two tests fail with SputnikError: #1.1: if argArray is neither an array nor an arguments object (see 10.1.8), a TypeError exception is thrown
+        https://bugs.webkit.org/show_bug.cgi?id=44245
+
+        Remove incorrect code from op_load_varargs in the interpreter.
+
+        * interpreter/Interpreter.cpp:
+        (JSC::Interpreter::privateExecute):
+
+2010-09-22  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Gavin Barraclough.
+
+        [JIT] fast/js/sputnik/Conformance/15_Native_Objects/15.3_Function/15.3.5/S15.3.5.3_A2_T6.html fails
+        https://bugs.webkit.org/show_bug.cgi?id=44246
+
+        JIT code generated for instanceof was not checking to ensure that the prototype property was
+        an object, this patch ensures that it does.
+
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_instanceof):
+        (JSC::JIT::emitSlow_op_instanceof):
+        * jit/JITOpcodes32_64.cpp:
+        (JSC::JIT::emit_op_instanceof):
+        (JSC::JIT::emitSlow_op_instanceof):
+
+2010-09-22  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Darin Adler.
+
+        Inline UTF8SequenceLength
+        https://bugs.webkit.org/show_bug.cgi?id=45589
+
+        * wtf/unicode/UTF8.cpp:
+        (WTF::Unicode::convertUTF8ToUTF16): Use inline version of UTF8SequenceLength to improve performance.
+
+2010-09-21  Oliver Hunt  <oliver@apple.com>
+
+        RS=Gavin Barraclough.
+
+        Fix codeblock dumping
+
+        * bytecode/CodeBlock.cpp:
+        (JSC::CodeBlock::dump):
+        * runtime/Executable.h:
+        (JSC::ScriptExecutable::ScriptExecutable):
+
+2010-09-21  Oliver Hunt  <oliver@apple.com>
+
+        Reviewed by Geoffrey Garen.
+
+        Speed up function.apply(..., arguments)
+        https://bugs.webkit.org/show_bug.cgi?id=46207
+
+        Add code to do argument copying inline in the case
+        where we're using Function.apply to forward our arguments
+        directly.
+
+        * jit/JIT.cpp:
+        (JSC::JIT::privateCompileSlowCases):
+           Splitted op_load_varargs into fast and slow paths, so add the call
+           to the slow path generator.
+        * jit/JIT.h:
+        * jit/JITCall32_64.cpp:
+          Remove 32bit specific emit_op_load_varargs as the logic is the
+          same for all value representations
+        * jit/JITOpcodes.cpp:
+        (JSC::JIT::emit_op_load_varargs):
+          Copy arguments inline
+        (JSC::JIT::emitSlow_op_load_varargs):
+
+2010-09-21  Geoffrey Garen  <ggaren@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        <rdar://problem/8363003> REGRESSION: ~1.4% sunspider regression in
+        interpreter due to 54724 and 54596
+        
+        Fixed a typo (using "UNLIKELY" instead of "LIKELY").
+        
+        * wtf/PassRefPtr.h:
+        (WTF::refIfNotNull):
+        (WTF::derefIfNotNull): It is likely that m_ptr != 0 because most RefPtrs
+        hold real data. Also, in cases where they do not hold real data, the
+        compiler usually sees a call to release() right before the call to the
+        destructor, so it can probably optimize out the test completely.
+
+2010-09-21  Fridrich Strba  <fridrich.strba@bluewin.ch>
+
+        Reviewed by Martin Robinson.
+
+        Build issues with Windows versions of the GTK+ port
+        https://bugs.webkit.org/show_bug.cgi?id=45844
+
+        Link with winmm.dll when necessary and specify the executable extension
+        explicitely so that the Programs/jsc-@WEBKITGTK_API_MAJOR_VERSION@
+        rule actually works.
+
+        Don't try to build the ThreadSpecificWin.cpp since GTK+ port uses
+        a section in ThreadSpecific.cpp
+
+        * GNUmakefile.am:
+
+2010-09-21  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        [GTK] 'make dist' should be fixed in preparation for the next release
+        https://bugs.webkit.org/show_bug.cgi?id=46129
+
+        * GNUmakefile.am: Update the sources list to include missing headers.
+
+2010-09-21  Dave Tapuska  <dtapuska@rim.com>
+
+        Reviewed by Csaba Osztrogonác.
+
+        https://bugs.webkit.org/show_bug.cgi?id=45673
+
+        r65596 caused ENABLE_PROFILER_REFERENCE_OFFSET to not be
+        8 byte aligned. A non 8 byte divisible value for this will
+        cause the sp to become non 8 byte aligned.
+
+        Verify and correct offset values that r65596 effected that
+        weren't updated.
+
+        * jit/JITStubs.cpp:
+        * jit/JITStubs.h:
+
+2010-09-21  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        Fix Opcode stats compilation
+        https://bugs.webkit.org/show_bug.cgi?id=46079
+
+        The FixedArray API had changed, and <stdio.h> was not included for
+        printf.
+
+        * bytecode/Opcode.cpp:
+        (JSC::OpcodeStats::~OpcodeStats):
+
 2010-09-20  Michael Saboff  <msaboff@apple.com>
 
         Reviewed by Gavin Barraclough.

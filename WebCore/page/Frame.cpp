@@ -503,8 +503,9 @@ void Frame::setPrinting(bool printing, const FloatSize& pageSize, float maximumS
     m_doc->styleSelectorChanged(RecalcStyleImmediately);
     view()->forceLayoutForPagination(pageSize, maximumShrinkRatio, shouldAdjustViewSize);
 
+    // Subframes of the one we're printing don't lay out to the page size.
     for (Frame* child = tree()->firstChild(); child; child = child->tree()->nextSibling())
-        child->setPrinting(printing, pageSize, maximumShrinkRatio, shouldAdjustViewSize);
+        child->setPrinting(printing, IntSize(), 0, shouldAdjustViewSize);
 }
 
 void Frame::injectUserScripts(UserScriptInjectionTime injectionTime)
@@ -720,6 +721,7 @@ void Frame::transferChildFrameToNewDocument()
 
     // Switch page.
     Page* newPage = newParent ? newParent->page() : 0;
+    Page* oldPage = m_page;
     if (m_page != newPage) {
         if (page()->focusController()->focusedFrame() == this)
             page()->focusController()->setFocusedFrame(0);
@@ -751,7 +753,7 @@ void Frame::transferChildFrameToNewDocument()
     // up on the same page and under the same parent frame.
     if (didTransfer) {
         // Let external clients update themselves.
-        loader()->client()->didTransferChildFrameToNewDocument();
+        loader()->client()->didTransferChildFrameToNewDocument(oldPage);
 
         // Do the same for all the children.
         for (Frame* child = tree()->firstChild(); child; child = child->tree()->nextSibling())

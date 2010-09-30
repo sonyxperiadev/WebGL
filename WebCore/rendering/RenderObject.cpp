@@ -193,7 +193,7 @@ RenderObject::RenderObject(Node* node)
     , m_needsPositionedMovementLayout(false)
     , m_normalChildNeedsLayout(false)
     , m_posChildNeedsLayout(false)
-    , m_prefWidthsDirty(false)
+    , m_preferredLogicalWidthsDirty(false)
     , m_floating(false)
     , m_positioned(false)
     , m_relPositioned(false)
@@ -212,8 +212,8 @@ RenderObject::RenderObject(Node* node)
     , m_hasCounterNodeMap(false)
     , m_everHadLayout(false)
     , m_childrenInline(false)
-    , m_topMarginQuirk(false) 
-    , m_bottomMarginQuirk(false)
+    , m_marginBeforeQuirk(false) 
+    , m_marginAfterQuirk(false)
     , m_hasMarkupTruncation(false)
     , m_selectionState(SelectionNone)
     , m_hasColumns(false)
@@ -576,27 +576,27 @@ RenderBlock* RenderObject::firstLineBlock() const
     return 0;
 }
 
-void RenderObject::setPrefWidthsDirty(bool b, bool markParents)
+void RenderObject::setPreferredLogicalWidthsDirty(bool b, bool markParents)
 {
-    bool alreadyDirty = m_prefWidthsDirty;
-    m_prefWidthsDirty = b;
+    bool alreadyDirty = m_preferredLogicalWidthsDirty;
+    m_preferredLogicalWidthsDirty = b;
     if (b && !alreadyDirty && markParents && (isText() || (style()->position() != FixedPosition && style()->position() != AbsolutePosition)))
-        invalidateContainerPrefWidths();
+        invalidateContainerPreferredLogicalWidths();
 }
 
-void RenderObject::invalidateContainerPrefWidths()
+void RenderObject::invalidateContainerPreferredLogicalWidths()
 {
     // In order to avoid pathological behavior when inlines are deeply nested, we do include them
     // in the chain that we mark dirty (even though they're kind of irrelevant).
     RenderObject* o = isTableCell() ? containingBlock() : container();
-    while (o && !o->m_prefWidthsDirty) {
+    while (o && !o->m_preferredLogicalWidthsDirty) {
         // Don't invalidate the outermost object of an unrooted subtree. That object will be 
         // invalidated when the subtree is added to the document.
         RenderObject* container = o->isTableCell() ? o->containingBlock() : o->container();
         if (!container && !o->isRenderView())
             break;
 
-        o->m_prefWidthsDirty = true;
+        o->m_preferredLogicalWidthsDirty = true;
         if (o->style()->position() == FixedPosition || o->style()->position() == AbsolutePosition)
             // A positioned object has no effect on the min/max width of its containing block ever.
             // We can optimize this case and not go up any further.
@@ -1994,7 +1994,7 @@ void RenderObject::getTransformFromContainer(const RenderObject* containerObject
     if (containerObject && containerObject->hasLayer() && containerObject->style()->hasPerspective()) {
         // Perpsective on the container affects us, so we have to factor it in here.
         ASSERT(containerObject->hasLayer());
-        FloatPoint perspectiveOrigin = toRenderBox(containerObject)->layer()->perspectiveOrigin();
+        FloatPoint perspectiveOrigin = toRenderBoxModelObject(containerObject)->layer()->perspectiveOrigin();
 
         TransformationMatrix perspectiveMatrix;
         perspectiveMatrix.applyPerspective(containerObject->style()->perspective());
@@ -2098,8 +2098,8 @@ RenderObject* RenderObject::container(RenderBoxModelObject* repaintContainer, bo
     // (2) For normal flow elements, it just returns the parent.
     // (3) For absolute positioned elements, it will return a relative positioned inline.
     // containingBlock() simply skips relpositioned inlines and lets an enclosing block handle
-    // the layout of the positioned object.  This does mean that calcAbsoluteHorizontal and
-    // calcAbsoluteVertical have to use container().
+    // the layout of the positioned object.  This does mean that computePositionedLogicalWidth and
+    // computePositionedLogicalHeight have to use container().
     RenderObject* o = parent();
 
     if (isText())
@@ -2345,7 +2345,7 @@ RenderStyle* RenderObject::firstLineStyleSlowCase() const
         RenderStyle* parentStyle = renderer->parent()->firstLineStyle();
         if (parentStyle != renderer->parent()->style()) {
             // A first-line style is in effect. Cache a first-line style for ourselves.
-            style->setHasPseudoStyle(FIRST_LINE_INHERITED);
+            renderer->style()->setHasPseudoStyle(FIRST_LINE_INHERITED);
             style = renderer->getCachedPseudoStyle(FIRST_LINE_INHERITED, parentStyle);
         }
     }

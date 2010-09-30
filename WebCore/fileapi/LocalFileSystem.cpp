@@ -50,25 +50,41 @@
 
 namespace WebCore {
 
-PassRefPtr<LocalFileSystem> LocalFileSystem::create(const String& basePath)
+LocalFileSystem* LocalFileSystem::s_instance = 0;
+
+void LocalFileSystem::initializeLocalFileSystem(const String& basePath)
 {
-    return adoptRef(new LocalFileSystem(basePath));
+    // FIXME: Should initialize the quota settings as well.
+    ASSERT(isMainThread());
+    ASSERT(!s_instance);
+    if (s_instance)
+        return;
+
+    OwnPtr<LocalFileSystem> localFileSystem = adoptPtr(new LocalFileSystem(basePath));
+    s_instance = localFileSystem.leakPtr();
 }
 
-static void openFileSystem(ScriptExecutionContext*, const String& basePath, const String& identifier, AsyncFileSystem::Type type, PassOwnPtr<FileSystemCallbacks> callbacks)
+LocalFileSystem& LocalFileSystem::localFileSystem()
+{
+    // initializeLocalFileSystem must be called prior calling this.
+    ASSERT(s_instance);
+    return *s_instance;
+}
+
+String LocalFileSystem::fileSystemBasePath() const
+{
+    return m_basePath;
+}
+
+static void openFileSystem(ScriptExecutionContext*, const String& basePath, const String& identifier, AsyncFileSystem::Type type, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
     AsyncFileSystem::openFileSystem(basePath, identifier, type, callbacks);
 }
 
-void LocalFileSystem::requestFileSystem(ScriptExecutionContext* context, AsyncFileSystem::Type type, long long, PassRefPtr<FileSystemCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
+void LocalFileSystem::requestFileSystem(ScriptExecutionContext* context, AsyncFileSystem::Type type, long long, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    if (type != AsyncFileSystem::Temporary && type != AsyncFileSystem::Persistent) {
-        DOMFileSystem::scheduleCallback(context, errorCallback, FileError::create(INVALID_MODIFICATION_ERR));
-        return;
-    }
-
     // AsyncFileSystem::openFileSystem calls callbacks synchronously, so the method needs to be called asynchronously.
-    context->postTask(createCallbackTask(&openFileSystem, m_basePath, context->securityOrigin()->databaseIdentifier(), type, new FileSystemCallbacks(successCallback, errorCallback, context)));
+    context->postTask(createCallbackTask(&openFileSystem, fileSystemBasePath(), context->securityOrigin()->databaseIdentifier(), type, callbacks));
 }
 
 } // namespace

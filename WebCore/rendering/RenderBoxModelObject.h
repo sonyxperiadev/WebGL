@@ -79,19 +79,29 @@ public:
     virtual int borderBottom() const { return style()->borderBottomWidth(); }
     virtual int borderLeft() const { return style()->borderLeftWidth(); }
     virtual int borderRight() const { return style()->borderRightWidth(); }
+    virtual int borderBefore() const { return style()->borderBeforeWidth(); }
+    virtual int borderAfter() const { return style()->borderAfterWidth(); }
+    virtual int borderStart() const { return style()->borderStartWidth(); }
+    virtual int borderEnd() const { return style()->borderEndWidth(); }
 
     int borderAndPaddingHeight() const { return borderTop() + borderBottom() + paddingTop() + paddingBottom(); }
     int borderAndPaddingWidth() const { return borderLeft() + borderRight() + paddingLeft() + paddingRight(); }
+    int borderAndPaddingLogicalHeight() const { return borderBefore() + borderAfter() + paddingBefore() + paddingAfter(); }
+    int borderAndPaddingLogicalWidth() const { return borderStart() + borderEnd() + paddingStart() + paddingEnd(); }
 
     virtual int marginTop() const = 0;
     virtual int marginBottom() const = 0;
     virtual int marginLeft() const = 0;
     virtual int marginRight() const = 0;
+    virtual int marginBefore() const = 0;
+    virtual int marginAfter() const = 0;
+    virtual int marginStart() const = 0;
+    virtual int marginEnd() const = 0;
 
     bool hasHorizontalBordersPaddingOrMargin() const { return hasHorizontalBordersOrPadding() || marginLeft() != 0 || marginRight() != 0; }
     bool hasHorizontalBordersOrPadding() const { return borderLeft() != 0 || borderRight() != 0 || paddingLeft() != 0 || paddingRight() != 0; }
 
-    virtual int containingBlockWidthForContent() const;
+    virtual int containingBlockLogicalWidthForContent() const;
 
     virtual void childBecameNonInline(RenderObject* /*child*/) { }
 

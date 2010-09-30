@@ -630,6 +630,10 @@ Could be worth adding to the API.
 - (JSValueRef)_computedStyleIncludingVisitedInfo:(JSContextRef)context forElement:(JSValueRef)value;
 @end
 
+@interface WebView (WebViewPrivateNodesFromRect)
+- (JSValueRef)_nodesFromRect:(JSContextRef)context forDocument:(JSValueRef)value x:(int)x  y:(int)y top:(unsigned)top right:(unsigned)right bottom:(unsigned)bottom left:(unsigned)left ignoreClipping:(BOOL)ignoreClipping;
+@end
+
 @interface NSObject (WebFrameLoadDelegatePrivate)
 - (void)webView:(WebView *)sender didFirstLayoutInFrame:(WebFrame *)frame;
 

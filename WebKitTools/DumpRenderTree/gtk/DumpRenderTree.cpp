@@ -35,6 +35,7 @@
 #include "AccessibilityController.h"
 #include "EventSender.h"
 #include "GCController.h"
+#include "GOwnPtr.h"
 #include "LayoutTestController.h"
 #include "PixelDumpSupport.h"
 #include "WorkQueue.h"
@@ -133,37 +134,81 @@ static void appendString(gchar*& target, gchar* string)
 static void initializeFonts()
 {
 #if PLATFORM(X11)
-    static int numFonts = -1;
-
     FcInit();
 
-    // Some tests may add or remove fonts via the @font-face rule.
-    // If that happens, font config should be re-created to suppress any unwanted change.
+    // If a test resulted a font being added or removed via the @font-face rule, then
+    // we want to reset the FontConfig configuration to prevent it from affecting other tests.
+    static int numFonts = 0;
     FcFontSet* appFontSet = FcConfigGetFonts(0, FcSetApplication);
-    if (appFontSet && numFonts >= 0 && appFontSet->nfont == numFonts)
+    if (appFontSet && numFonts && appFontSet->nfont == numFonts)
         return;
 
-    const char* fontDirEnv = g_getenv("WEBKIT_TESTFONTS");
-    if (!fontDirEnv)
-        g_error("WEBKIT_TESTFONTS environment variable is not set, but it should point to the directory "
-                "containing the fonts you can clone from git://gitorious.org/qtwebkit/testfonts.git\n");
+    // Load our configuration file, which sets up proper aliases for family
+    // names like sans, serif and monospace.
+    FcConfig* config = FcConfigCreate();
+    GOwnPtr<gchar> fontConfigFilename(g_build_filename(FONTS_CONF_DIR, "fonts.conf", NULL));
+    if (!FcConfigParseAndLoad(config, reinterpret_cast<FcChar8*>(fontConfigFilename.get()), true))
+        g_error("Couldn't load font configuration file from: %s", fontConfigFilename.get());
 
-    GFile* fontDir = g_file_new_for_path(fontDirEnv);
-    if (!fontDir || !g_file_query_exists(fontDir, NULL))
-        g_error("WEBKIT_TESTFONTS environment variable is not set correctly - it should point to the directory "
-                "containing the fonts you can clone from git://gitorious.org/qtwebkit/testfonts.git\n");
+    static const char *const fontPaths[][2] = {
+        { "/usr/share/fonts/truetype/ttf-liberation/LiberationMono-BoldItalic.ttf",
+          "/usr/share/fonts/liberation/LiberationMono-BoldItalic.ttf", },
+        { "/usr/share/fonts/truetype/ttf-liberation/LiberationMono-Bold.ttf",
+          "/usr/share/fonts/liberation/LiberationMono-Bold.ttf", },
+        { "/usr/share/fonts/truetype/ttf-liberation/LiberationMono-Italic.ttf",
+          "/usr/share/fonts/liberation/LiberationMono-Italic.ttf", },
+        { "/usr/share/fonts/truetype/ttf-liberation/LiberationMono-Regular.ttf",
+          "/usr/share/fonts/liberation/LiberationMono-Regular.ttf", },
+        { "/usr/share/fonts/truetype/ttf-liberation/LiberationSans-BoldItalic.ttf",
+          "/usr/share/fonts/liberation/LiberationSans-BoldItalic.ttf", },
+        { "/usr/share/fonts/truetype/ttf-liberation/LiberationSans-Bold.ttf",
+          "/usr/share/fonts/liberation/LiberationSans-Bold.ttf", },
+        { "/usr/share/fonts/truetype/ttf-liberation/LiberationSans-Italic.ttf",
+          "/usr/share/fonts/liberation/LiberationSans-Italic.ttf", },
+        { "/usr/share/fonts/truetype/ttf-liberation/LiberationSans-Regular.ttf",
+          "/usr/share/fonts/liberation/LiberationSans-Regular.ttf", },
+        { "/usr/share/fonts/truetype/ttf-liberation/LiberationSerif-BoldItalic.ttf",
+          "/usr/share/fonts/liberation/LiberationSerif-BoldItalic.ttf", },
+        { "/usr/share/fonts/truetype/ttf-liberation/LiberationSerif-Bold.ttf",
+          "/usr/share/fonts/liberation/LiberationSerif-Bold.ttf", },
+        { "/usr/share/fonts/truetype/ttf-liberation/LiberationSerif-Italic.ttf",
+          "/usr/share/fonts/liberation/LiberationSerif-Italic.ttf", },
+        { "/usr/share/fonts/truetype/ttf-liberation/LiberationSerif-Regular.ttf",
+          "/usr/share/fonts/liberation/LiberationSerif-Regular.ttf", },
+        { "/usr/share/fonts/truetype/ttf-dejavu/DejaVuSans.ttf",
+          "/usr/share/fonts/dejavu/DejaVuSans.ttf", },
+    };
 
-    FcConfig *config = FcConfigCreate();
-    if (!FcConfigParseAndLoad (config, (FcChar8*) FONTS_CONF_FILE, true))
-        g_error("Couldn't load font configuration file");
-    if (!FcConfigAppFontAddDir (config, (FcChar8*) g_file_get_path(fontDir)))
-        g_error("Couldn't add font dir!");
-    FcConfigSetCurrent(config);
+    // TODO: Some tests use Lucida. We should load these as well, once it becomes
+    // clear how to install these fonts easily on Fedora.
+    for (size_t font = 0; font < G_N_ELEMENTS(fontPaths); font++) {
+        bool found = false;
+        for (size_t path = 0; path < 2; path++) {
 
-    g_object_unref(fontDir);
+            if (g_file_test(fontPaths[font][path], G_FILE_TEST_EXISTS)) {
+                found = true;
+                if (!FcConfigAppFontAddFile(config, reinterpret_cast<const FcChar8*>(fontPaths[font][path])))
+                    g_error("Could not load font at %s!", fontPaths[font][path]);
+                else
+                    break;
+            }
+        }
 
-    appFontSet = FcConfigGetFonts(config, FcSetApplication);
-    numFonts = appFontSet->nfont;
+        if (!found)
+            g_error("Could not find font at %s. Either install this font or file a bug "
+                    "at http://bugs.webkit.org if it is installed in another location.",
+                    fontPaths[font][0]);
+    }
+
+    // Ahem is used by many layout tests.
+    GOwnPtr<gchar> ahemFontFilename(g_build_filename(FONTS_CONF_DIR, "AHEM____.TTF", NULL));
+    if (!FcConfigAppFontAddFile(config, reinterpret_cast<FcChar8*>(ahemFontFilename.get())))
+        g_error("Could not load font at %s!", ahemFontFilename.get()); 
+
+    if (!FcConfigSetCurrent(config))
+        g_error("Could not set the current font configuration!");
+
+    numFonts = FcConfigGetFonts(config, FcSetApplication)->nfont;
 #endif
 }
 
@@ -336,6 +381,7 @@ static void resetDefaultsToConsistentValues()
                  "auto-resize-window", TRUE,
                  "enable-java-applet", FALSE,
                  "enable-plugins", TRUE,
+                 "enable-hyperlink-auditing", FALSE,
                  "editing-behavior", WEBKIT_EDITING_BEHAVIOR_MAC,
                  NULL);
 

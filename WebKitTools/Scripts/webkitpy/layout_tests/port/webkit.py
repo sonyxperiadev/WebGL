@@ -58,16 +58,16 @@ _log = logging.getLogger("webkitpy.layout_tests.port.webkit")
 class WebKitPort(base.Port):
     """WebKit implementation of the Port class."""
 
-    def __init__(self, port_name=None, options=None, **kwargs):
-        base.Port.__init__(self, port_name, options, **kwargs)
+    def __init__(self, **kwargs):
+        base.Port.__init__(self, **kwargs)
         self._cached_build_root = None
         self._cached_apache_path = None
 
         # FIXME: disable pixel tests until they are run by default on the
         # build machines.
-        if options and (not hasattr(options, "pixel_tests") or
-           options.pixel_tests is None):
-            options.pixel_tests = False
+        if self._options and (not hasattr(self._options, "pixel_tests") or
+           self._options.pixel_tests is None):
+            self._options.pixel_tests = False
 
     def baseline_path(self):
         return self._webkit_baseline_path(self._name)
@@ -84,10 +84,14 @@ class WebKitPort(base.Port):
         return ''
 
     def _build_driver(self):
-        return not self._executive.run_command([
+        exit_code = self._executive.run_command([
             self.script_path("build-dumprendertree"),
             self.flag_from_configuration(self._options.configuration),
         ], return_exit_code=True)
+        if exit_code != 0:
+            _log.error("Failed to build DumpRenderTree")
+            return False
+        return True
 
     def _check_driver(self):
         driver_path = self._path_to_driver()
@@ -119,7 +123,7 @@ class WebKitPort(base.Port):
             return False
         return True
 
-    def diff_image(self, expected_filename, actual_filename,
+    def diff_image(self, expected_contents, actual_contents,
                    diff_filename=None, tolerance=0.1):
         """Return True if the two files are different. Also write a delta
         image of the two images into |diff_filename| if it is not None."""
@@ -128,31 +132,24 @@ class WebKitPort(base.Port):
         # parameter, or make it go away and always use exact matches.
 
         # Handle the case where the test didn't actually generate an image.
-        actual_length = os.stat(actual_filename).st_size
-        if actual_length == 0:
-            if diff_filename:
-                shutil.copyfile(actual_filename, expected_filename)
+        if not actual_contents:
             return True
 
-        sp = self._diff_image_request(expected_filename, actual_filename, tolerance)
-        return self._diff_image_reply(sp, expected_filename, diff_filename)
+        sp = self._diff_image_request(expected_contents, actual_contents,
+                                      tolerance)
+        return self._diff_image_reply(sp, diff_filename)
 
-    def _diff_image_request(self, expected_filename, actual_filename, tolerance):
+    def _diff_image_request(self, expected_contents, actual_contents, tolerance):
         command = [self._path_to_image_diff(), '--tolerance', str(tolerance)]
         sp = server_process.ServerProcess(self, 'ImageDiff', command)
 
-        actual_length = os.stat(actual_filename).st_size
-        with open(actual_filename) as file:
-            actual_file = file.read()
-        expected_length = os.stat(expected_filename).st_size
-        with open(expected_filename) as file:
-            expected_file = file.read()
         sp.write('Content-Length: %d\n%sContent-Length: %d\n%s' %
-                 (actual_length, actual_file, expected_length, expected_file))
+                 (len(actual_contents), actual_contents,
+                  len(expected_contents), expected_contents))
 
         return sp
 
-    def _diff_image_reply(self, sp, expected_filename, diff_filename):
+    def _diff_image_reply(self, sp, diff_filename):
         timeout = 2.0
         deadline = time.time() + timeout
         output = sp.read_line(timeout)
@@ -178,7 +175,7 @@ class WebKitPort(base.Port):
             with open(diff_filename, 'w') as file:
                 file.write(output)
         elif sp.timed_out:
-            _log.error("ImageDiff timed out on %s" % expected_filename)
+            _log.error("ImageDiff timed out")
         elif sp.crashed:
             _log.error("ImageDiff crashed")
         sp.stop()
@@ -192,11 +189,6 @@ class WebKitPort(base.Port):
     def setup_test_run(self):
         # This port doesn't require any specific configuration.
         pass
-
-    def show_results_html_file(self, results_filename):
-        uri = self.filename_to_uri(results_filename)
-        # FIXME: We should open results in the version of WebKit we built.
-        webbrowser.open(uri, new=1)
 
     def create_driver(self, image_path, options):
         return WebKitDriver(self, image_path, options,
@@ -255,7 +247,7 @@ class WebKitPort(base.Port):
             "MathMLElement": ["mathml"],
             "GraphicsLayer": ["compositing"],
             "WebCoreHas3DRendering": ["animations/3d", "transforms/3d"],
-            "WebGLShader": ["fast/canvas/webgl"],
+            "WebGLShader": ["fast/canvas/webgl", "compositing/webgl", "http/tests/canvas/webgl"],
             "WMLElement": ["http/tests/wml", "fast/wml", "wml"],
             "parseWCSSInputProperty": ["fast/wcss"],
             "isXHTMLMPDocument": ["fast/xhtmlmp"],
@@ -418,12 +410,17 @@ class WebKitDriver(base.Driver):
 
     def _driver_args(self):
         driver_args = []
+
         if self._image_path:
             driver_args.append('--pixel-tests')
 
-        # These are used by the Chromium DRT port
         if self._options.use_drt:
-            driver_args.append('--test-shell')
+            if self._options.accelerated_compositing:
+                driver_args.append('--enable-accelerated-compositing')
+
+            if self._options.accelerated_2d_canvas:
+                driver_args.append('--enable-accelerated-2d-canvas')
+
         return driver_args
 
     def start(self):

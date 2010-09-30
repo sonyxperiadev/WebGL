@@ -601,8 +601,21 @@ PassRefPtr<Frame> FrameLoaderClient::createFrame(const KURL& url, const String& 
     return childFrame.release();
 }
 
-void FrameLoaderClient::didTransferChildFrameToNewDocument()
+void FrameLoaderClient::didTransferChildFrameToNewDocument(WebCore::Page*)
 {
+    ASSERT(m_frame);
+
+    // Update the frame's webview to the new parent's webview.
+    Frame* coreFrame = core(m_frame);
+    WebKitWebView* webView = getViewFromFrame(m_frame);
+
+    Frame* parentCoreFrame = coreFrame->tree()->parent();
+    WebKitWebFrame* parentKitFrame = kit(parentCoreFrame);
+    WebKitWebView* parentWebView = getViewFromFrame(parentKitFrame);
+    if (webView != parentWebView)
+        m_frame->priv->webView = parentWebView;
+
+    ASSERT(core(getViewFromFrame(m_frame)) == coreFrame->page());
 }
 
 void FrameLoaderClient::redirectDataToPlugin(Widget* pluginWidget)

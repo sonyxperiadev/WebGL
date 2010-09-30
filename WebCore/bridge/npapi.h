@@ -381,6 +381,7 @@ typedef enum {
   , NPPVpluginCoreAnimationLayer = 1003
 #endif
 
+<<<<<<< HEAD
 #ifdef ANDROID
     /* Used when the plugin returns 0 from NPN_WriteReady and wishes the browser
      * to wait a certain amount of millis before calling NPN_WriteReady again.
@@ -392,6 +393,9 @@ typedef enum {
 #endif
 
 #if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO == 5)
+=======
+#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
+>>>>>>> webkit.org at r68651
   , NPPVpluginWindowlessLocalBool = 2002
 #endif
 } NPPVariable;
@@ -437,12 +441,16 @@ typedef enum {
 #endif
   , NPNVsupportsCocoaBool = 3001 /* TRUE if the browser supports the Cocoa event model */
 #endif /* XP_MACOSX */
+<<<<<<< HEAD
     
 #ifdef ANDROID
     , NPNFakeValueToForce32Bits = 0x7FFFFFFF
 #endif
 
 #if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO == 5)
+=======
+#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
+>>>>>>> webkit.org at r68651
   , NPNVSupportsWindowlessLocal = 2002
 #endif
 } NPNVariable;

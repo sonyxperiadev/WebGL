@@ -41,8 +41,9 @@ RenderIFrame::RenderIFrame(Element* element)
 {
 }
 
-void RenderIFrame::calcHeight()
+void RenderIFrame::computeLogicalHeight()
 {
+<<<<<<< HEAD
     RenderPart::calcHeight();
 #ifdef ANDROID_FLATTEN_IFRAME
     if (!node()->hasTagName(iframeTag) || !widget() || !widget()->isFrameView())
@@ -68,6 +69,9 @@ void RenderIFrame::calcHeight()
     updateWidgetPosition();
     return;
 #endif
+=======
+    RenderPart::computeLogicalHeight();
+>>>>>>> webkit.org at r68651
     if (!flattenFrame())
          return;
 
@@ -83,8 +87,9 @@ void RenderIFrame::calcHeight()
     }
 }
 
-void RenderIFrame::calcWidth()
+void RenderIFrame::computeLogicalWidth()
 {
+<<<<<<< HEAD
     RenderPart::calcWidth();
 #ifdef ANDROID_FLATTEN_IFRAME
     if (!node()->hasTagName(iframeTag) || !widget() || !widget()->isFrameView())
@@ -117,6 +122,9 @@ void RenderIFrame::calcWidth()
     updateWidgetPosition();
     return;
 #endif
+=======
+    RenderPart::computeLogicalWidth();
+>>>>>>> webkit.org at r68651
     if (!flattenFrame())
         return;
 
@@ -162,8 +170,8 @@ void RenderIFrame::layout()
 {
     ASSERT(needsLayout());
 
-    RenderPart::calcWidth();
-    RenderPart::calcHeight();
+    RenderPart::computeLogicalWidth();
+    RenderPart::computeLogicalHeight();
 
 #ifdef ANDROID_FLATTEN_IFRAME
     // Calculate the styled dimensions by subtracting the border and padding.

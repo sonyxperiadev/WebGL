@@ -41,8 +41,8 @@ public:
         , m_lastChild(0)
         , m_prevLineBox(0)
         , m_nextLineBox(0)
-        , m_includeLeftEdge(false)
-        , m_includeRightEdge(false)
+        , m_includeLogicalLeftEdge(false)
+        , m_includeLogicalRightEdge(false)
 #ifndef NDEBUG
         , m_hasBadChildList(false)
 #endif
@@ -102,38 +102,65 @@ public:
 
     virtual RenderLineBoxList* rendererLineBoxes() const;
 
-    int marginBorderPaddingLeft() const { return marginLeft() + borderLeft() + paddingLeft(); }
-    int marginBorderPaddingRight() const { return marginRight() + borderRight() + paddingRight(); }
-    int marginLeft() const { if (includeLeftEdge()) return boxModelObject()->marginLeft(); return 0; }
-    int marginRight() const { if (includeRightEdge()) return boxModelObject()->marginRight(); return 0; }
-    int borderLeft() const { if (includeLeftEdge()) return renderer()->style()->borderLeftWidth(); return 0; }
-    int borderRight() const { if (includeRightEdge()) return renderer()->style()->borderRightWidth(); return 0; }
-    int borderTop() const { return renderer()->style()->borderTopWidth(); }
-    int borderBottom() const { return renderer()->style()->borderBottomWidth(); }
-    int paddingLeft() const { if (includeLeftEdge()) return boxModelObject()->paddingLeft(); return 0; }
-    int paddingRight() const { if (includeRightEdge()) return boxModelObject()->paddingRight(); return 0; }
-    int paddingTop() const { return boxModelObject()->paddingTop(); }
-    int paddingBottom() const { return boxModelObject()->paddingBottom(); }
+    // logicalLeft = left in a horizontal line and top in a vertical line.
+    int marginBorderPaddingLogicalLeft() const { return marginLogicalLeft() + borderLogicalLeft() + paddingLogicalLeft(); }
+    int marginBorderPaddingLogicalRight() const { return marginLogicalRight() + borderLogicalRight() + paddingLogicalRight(); }
+    int marginLogicalLeft() const
+    {
+        if (!includeLogicalLeftEdge())
+            return 0;
+        return !isVertical() ? boxModelObject()->marginLeft() : boxModelObject()->marginTop();
+    }
+    int marginLogicalRight() const
+    {
+        if (!includeLogicalRightEdge())
+            return 0;
+        return !isVertical() ? boxModelObject()->marginRight() : boxModelObject()->marginBottom();
+    }
+    int borderLogicalLeft() const
+    {
+        if (!includeLogicalLeftEdge())
+            return 0;
+        return !isVertical() ? renderer()->style()->borderLeftWidth() : renderer()->style()->borderTopWidth();
+    }
+    int borderLogicalRight() const
+    {
+        if (!includeLogicalRightEdge())
+            return 0;
+        return !isVertical() ? renderer()->style()->borderRightWidth() : renderer()->style()->borderBottomWidth();
+    }
+    int paddingLogicalLeft() const
+    {
+        if (!includeLogicalLeftEdge())
+            return 0;
+        return !isVertical() ? boxModelObject()->paddingLeft() : boxModelObject()->paddingTop();
+    }
+    int paddingLogicalRight() const
+    {
+        if (!includeLogicalRightEdge())
+            return 0;
+        return !isVertical() ? boxModelObject()->paddingRight() : boxModelObject()->paddingBottom();
+    }
 
-    bool includeLeftEdge() const { return m_includeLeftEdge; }
-    bool includeRightEdge() const { return m_includeRightEdge; }
+    bool includeLogicalLeftEdge() const { return m_includeLogicalLeftEdge; }
+    bool includeLogicalRightEdge() const { return m_includeLogicalRightEdge; }
     void setEdges(bool includeLeft, bool includeRight)
     {
-        m_includeLeftEdge = includeLeft;
-        m_includeRightEdge = includeRight;
+        m_includeLogicalLeftEdge = includeLeft;
+        m_includeLogicalRightEdge = includeRight;
     }
 
     // Helper functions used during line construction and placement.
     void determineSpacingForFlowBoxes(bool lastLine, RenderObject* endObject);
-    int getFlowSpacingWidth();
+    int getFlowSpacingLogicalWidth();
     bool onEndChain(RenderObject* endObject);
-    int placeBoxesHorizontally(int x, bool& needsWordSpacing, GlyphOverflowAndFallbackFontsMap&);
+    int placeBoxesInInlineDirection(int x, bool& needsWordSpacing, GlyphOverflowAndFallbackFontsMap&);
     void computeLogicalBoxHeights(int& maxPositionTop, int& maxPositionBottom,
                                   int& maxAscent, int& maxDescent, bool strictMode, GlyphOverflowAndFallbackFontsMap&);
     void adjustMaxAscentAndDescent(int& maxAscent, int& maxDescent,
                                    int maxPositionTop, int maxPositionBottom);
-    void placeBoxesVertically(int y, int maxHeight, int maxAscent, bool strictMode, int& lineTop, int& lineBottom);
-    void computeVerticalOverflow(int lineTop, int lineBottom, bool strictMode, GlyphOverflowAndFallbackFontsMap&);
+    void placeBoxesInBlockDirection(int y, int maxHeight, int maxAscent, bool strictMode, int& lineTop, int& lineBottom);
+    void computeBlockDirectionOverflow(int lineTop, int lineBottom, bool strictMode, GlyphOverflowAndFallbackFontsMap&);
 
     void removeChild(InlineBox* child);
 
@@ -151,22 +178,22 @@ public:
     int bottomVisibleOverflow() const { return std::max(bottomLayoutOverflow(), bottomVisualOverflow()); }
     int leftVisibleOverflow() const { return std::min(leftLayoutOverflow(), leftVisualOverflow()); }
     int rightVisibleOverflow() const { return std::max(rightLayoutOverflow(), rightVisualOverflow()); }
-    IntRect visibleOverflowRect() const { return m_overflow ? m_overflow->visibleOverflowRect() : IntRect(m_x, m_y, m_width, height());  }
+    IntRect visibleOverflowRect() const { return m_overflow ? m_overflow->visibleOverflowRect() : IntRect(m_x, m_y, m_logicalWidth, logicalHeight());  }
 
     int topLayoutOverflow() const { return m_overflow ? m_overflow->topLayoutOverflow() : m_y; }
-    int bottomLayoutOverflow() const { return m_overflow ? m_overflow->bottomLayoutOverflow() : m_y + height(); }
+    int bottomLayoutOverflow() const { return m_overflow ? m_overflow->bottomLayoutOverflow() : m_y + logicalHeight(); }
     int leftLayoutOverflow() const { return m_overflow ? m_overflow->leftLayoutOverflow() : m_x; }
-    int rightLayoutOverflow() const { return m_overflow ? m_overflow->rightLayoutOverflow() : m_x + m_width; }
-    IntRect layoutOverflowRect() const { return m_overflow ? m_overflow->layoutOverflowRect() : IntRect(m_x, m_y, m_width, height()); }
+    int rightLayoutOverflow() const { return m_overflow ? m_overflow->rightLayoutOverflow() : m_x + m_logicalWidth; }
+    IntRect layoutOverflowRect() const { return m_overflow ? m_overflow->layoutOverflowRect() : IntRect(m_x, m_y, m_logicalWidth, logicalHeight()); }
 
     int topVisualOverflow() const { return m_overflow ? m_overflow->topVisualOverflow() : m_y; }
-    int bottomVisualOverflow() const { return m_overflow ? m_overflow->bottomVisualOverflow() : m_y + height(); }
+    int bottomVisualOverflow() const { return m_overflow ? m_overflow->bottomVisualOverflow() : m_y + logicalHeight(); }
     int leftVisualOverflow() const { return m_overflow ? m_overflow->leftVisualOverflow() : m_x; }
-    int rightVisualOverflow() const { return m_overflow ? m_overflow->rightVisualOverflow() : m_x + m_width; }
-    IntRect visualOverflowRect() const { return m_overflow ? m_overflow->visualOverflowRect() : IntRect(m_x, m_y, m_width, height()); }
+    int rightVisualOverflow() const { return m_overflow ? m_overflow->rightVisualOverflow() : m_x + m_logicalWidth; }
+    IntRect visualOverflowRect() const { return m_overflow ? m_overflow->visualOverflowRect() : IntRect(m_x, m_y, m_logicalWidth, logicalHeight()); }
 
-    void setHorizontalOverflowPositions(int leftLayoutOverflow, int rightLayoutOverflow, int leftVisualOverflow, int rightVisualOverflow);
-    void setVerticalOverflowPositions(int topLayoutOverflow, int bottomLayoutOverflow, int topVisualOverflow, int bottomVisualOverflow, int boxHeight);
+    void setInlineDirectionOverflowPositions(int leftLayoutOverflow, int rightLayoutOverflow, int leftVisualOverflow, int rightVisualOverflow);
+    void setBlockDirectionOverflowPositions(int topLayoutOverflow, int bottomLayoutOverflow, int topVisualOverflow, int bottomVisualOverflow, int boxHeight);
 
 protected:
     OwnPtr<RenderOverflow> m_overflow;
@@ -179,8 +206,8 @@ protected:
     InlineFlowBox* m_prevLineBox; // The previous box that also uses our RenderObject
     InlineFlowBox* m_nextLineBox; // The next box that also uses our RenderObject
 
-    bool m_includeLeftEdge : 1;
-    bool m_includeRightEdge : 1;
+    bool m_includeLogicalLeftEdge : 1;
+    bool m_includeLogicalRightEdge : 1;
     bool m_hasTextChildren : 1;
 
 #ifndef NDEBUG
@@ -188,12 +215,12 @@ protected:
 #endif
 };
 
-inline void InlineFlowBox::setHorizontalOverflowPositions(int leftLayoutOverflow, int rightLayoutOverflow, int leftVisualOverflow, int rightVisualOverflow) 
+inline void InlineFlowBox::setInlineDirectionOverflowPositions(int leftLayoutOverflow, int rightLayoutOverflow, int leftVisualOverflow, int rightVisualOverflow) 
 { 
     if (!m_overflow) {
-        if (leftLayoutOverflow == m_x && rightLayoutOverflow == m_x + m_width && leftVisualOverflow == m_x && rightVisualOverflow == m_x + m_width)
+        if (leftLayoutOverflow == m_x && rightLayoutOverflow == m_x + m_logicalWidth && leftVisualOverflow == m_x && rightVisualOverflow == m_x + m_logicalWidth)
             return;
-        m_overflow = adoptPtr(new RenderOverflow(IntRect(m_x, m_y, m_width, m_renderer->style(m_firstLine)->font().height())));    
+        m_overflow = adoptPtr(new RenderOverflow(IntRect(m_x, m_y, m_logicalWidth, m_renderer->style(m_firstLine)->font().height())));    
     }
 
     m_overflow->setLeftLayoutOverflow(leftLayoutOverflow);
@@ -202,12 +229,12 @@ inline void InlineFlowBox::setHorizontalOverflowPositions(int leftLayoutOverflow
     m_overflow->setRightVisualOverflow(rightVisualOverflow);  
 }
 
-inline void InlineFlowBox::setVerticalOverflowPositions(int topLayoutOverflow, int bottomLayoutOverflow, int topVisualOverflow, int bottomVisualOverflow, int boxHeight)
+inline void InlineFlowBox::setBlockDirectionOverflowPositions(int topLayoutOverflow, int bottomLayoutOverflow, int topVisualOverflow, int bottomVisualOverflow, int boxHeight)
 {
     if (!m_overflow) {
         if (topLayoutOverflow == m_y && bottomLayoutOverflow == m_y + boxHeight && topVisualOverflow == m_y && bottomVisualOverflow == m_y + boxHeight)
             return;
-        m_overflow = adoptPtr(new RenderOverflow(IntRect(m_x, m_y, m_width, boxHeight)));
+        m_overflow = adoptPtr(new RenderOverflow(IntRect(m_x, m_y, m_logicalWidth, boxHeight)));
     }
 
     m_overflow->setTopLayoutOverflow(topLayoutOverflow);

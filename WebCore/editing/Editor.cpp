@@ -862,9 +862,9 @@ static const int textOnlyProperties[] = {
     CSSPropertyColor,
 };
 
-static TriState triStateOfStyleInComputedStyle(CSSStyleDeclaration* desiredStyle, CSSComputedStyleDeclaration* computedStyle, bool ignoreTextOnlyProperties = false)
+static TriState triStateOfStyle(CSSStyleDeclaration* desiredStyle, CSSStyleDeclaration* styleToCompare, bool ignoreTextOnlyProperties = false)
 {
-    RefPtr<CSSMutableStyleDeclaration> diff = getPropertiesNotInComputedStyle(desiredStyle, computedStyle);
+    RefPtr<CSSMutableStyleDeclaration> diff = getPropertiesNotIn(desiredStyle, styleToCompare);
 
     if (ignoreTextOnlyProperties)
         diff->removePropertiesInSet(textOnlyProperties, sizeof(textOnlyProperties) / sizeof(textOnlyProperties[0]));
@@ -878,17 +878,11 @@ static TriState triStateOfStyleInComputedStyle(CSSStyleDeclaration* desiredStyle
 
 bool Editor::selectionStartHasStyle(CSSStyleDeclaration* style) const
 {
-    Node* nodeToRemove;
-    RefPtr<CSSComputedStyleDeclaration> selectionStyle = selectionComputedStyle(nodeToRemove);
+    bool shouldUseFixedFontDefaultSize;
+    RefPtr<CSSMutableStyleDeclaration> selectionStyle = selectionComputedStyle(shouldUseFixedFontDefaultSize);
     if (!selectionStyle)
         return false;
-    TriState state = triStateOfStyleInComputedStyle(style, selectionStyle.get());
-    if (nodeToRemove) {
-        ExceptionCode ec = 0;
-        nodeToRemove->remove(ec);
-        ASSERT(!ec);
-    }
-    return state == TrueTriState;
+    return triStateOfStyle(style, selectionStyle.get()) == TrueTriState;
 }
 
 TriState Editor::selectionHasStyle(CSSStyleDeclaration* style) const
@@ -896,21 +890,16 @@ TriState Editor::selectionHasStyle(CSSStyleDeclaration* style) const
     TriState state = FalseTriState;
 
     if (!m_frame->selection()->isRange()) {
-        Node* nodeToRemove;
-        RefPtr<CSSComputedStyleDeclaration> selectionStyle = selectionComputedStyle(nodeToRemove);
+        bool shouldUseFixedFontDefaultSize;
+        RefPtr<CSSMutableStyleDeclaration> selectionStyle = selectionComputedStyle(shouldUseFixedFontDefaultSize);
         if (!selectionStyle)
             return FalseTriState;
-        state = triStateOfStyleInComputedStyle(style, selectionStyle.get());
-        if (nodeToRemove) {
-            ExceptionCode ec = 0;
-            nodeToRemove->remove(ec);
-            ASSERT(!ec);
-        }
+        state = triStateOfStyle(style, selectionStyle.get());
     } else {
         for (Node* node = m_frame->selection()->start().node(); node; node = node->traverseNextNode()) {
             RefPtr<CSSComputedStyleDeclaration> nodeStyle = computedStyle(node);
             if (nodeStyle) {
-                TriState nodeState = triStateOfStyleInComputedStyle(style, nodeStyle.get(), !node->isTextNode());
+                TriState nodeState = triStateOfStyle(style, nodeStyle.get(), !node->isTextNode());
                 if (node == m_frame->selection()->start().node())
                     state = nodeState;
                 else if (state != nodeState && node->isTextNode()) {
@@ -944,8 +933,8 @@ static bool hasTransparentBackgroundColor(CSSStyleDeclaration* style)
 
 String Editor::selectionStartCSSPropertyValue(int propertyID)
 {
-    Node* nodeToRemove;
-    RefPtr<CSSComputedStyleDeclaration> selectionStyle = selectionComputedStyle(nodeToRemove);
+    bool shouldUseFixedFontDefaultSize = false;
+    RefPtr<CSSMutableStyleDeclaration> selectionStyle = selectionComputedStyle(shouldUseFixedFontDefaultSize);
     if (!selectionStyle)
         return String();
 
@@ -958,7 +947,7 @@ String Editor::selectionStartCSSPropertyValue(int propertyID)
         RefPtr<Range> range(m_frame->selection()->toNormalizedRange());
         ExceptionCode ec = 0;
         for (Node* ancestor = range->commonAncestorContainer(ec); ancestor; ancestor = ancestor->parentNode()) {
-            selectionStyle = computedStyle(ancestor);
+            selectionStyle = computedStyle(ancestor)->copy();
             if (!hasTransparentBackgroundColor(selectionStyle.get())) {
                 value = selectionStyle->getPropertyValue(CSSPropertyBackgroundColor);
                 break;
@@ -970,14 +959,8 @@ String Editor::selectionStartCSSPropertyValue(int propertyID)
         RefPtr<CSSValue> cssValue = selectionStyle->getPropertyCSSValue(CSSPropertyFontSize);
         ASSERT(cssValue->isPrimitiveValue());
         int fontPixelSize = static_cast<CSSPrimitiveValue*>(cssValue.get())->getIntValue(CSSPrimitiveValue::CSS_PX);
-        int size = CSSStyleSelector::legacyFontSize(m_frame->document(), fontPixelSize, selectionStyle->useFixedFontDefaultSize());
+        int size = CSSStyleSelector::legacyFontSize(m_frame->document(), fontPixelSize, shouldUseFixedFontDefaultSize);
         value = String::number(size);
-    }
-
-    if (nodeToRemove) {
-        ExceptionCode ec = 0;
-        nodeToRemove->remove(ec);
-        ASSERT(!ec);
     }
 
     return value;
@@ -1027,7 +1010,8 @@ void Editor::appliedEditing(PassRefPtr<EditCommand> cmd)
         if (client())
             client()->registerCommandForUndo(m_lastEditCommand);
     }
-    respondToChangedContents(newSelection);    
+    respondToChangedContents(newSelection);
+    stopCorrectionPanelTimer();
 }
 
 void Editor::unappliedEditing(PassRefPtr<EditCommand> cmd)
@@ -2675,6 +2659,10 @@ void Editor::markAllMisspellingsAndBadGrammarInRanges(TextCheckingOptions textCh
                     || result->type == TextCheckingTypeCorrection)) {
             // In this case the result range just has to touch the spelling range, so we can handle replacing non-word text such as punctuation.
             ASSERT(resultLength > 0 && resultLocation >= 0);
+
+            if (shouldShowCorrectionPanel && resultLocation + resultLength < spellingRangeEndOffset)
+                continue;
+
             int replacementLength = result->replacement.length();
             bool doReplacement = (replacementLength > 0);
             RefPtr<Range> rangeToReplace = TextIterator::subrange(paragraphRange.get(), resultLocation, resultLength);
@@ -2728,7 +2716,7 @@ void Editor::markAllMisspellingsAndBadGrammarInRanges(TextCheckingOptions textCh
                     if (shouldShowCorrectionPanel && resultLocation + resultLength == spellingRangeEndOffset && result->type == TextCheckingTypeCorrection) {
                         // We only show the correction panel on the last word.
                         Vector<FloatQuad> textQuads;
-                        rangeToReplace->textQuads(textQuads);
+                        rangeToReplace->getBorderAndTextQuads(textQuads);
                         Vector<FloatQuad>::const_iterator end = textQuads.end();
                         FloatRect totalBoundingBox;
                         for (Vector<FloatQuad>::const_iterator it = textQuads.begin(); it < end; ++it)
@@ -2753,6 +2741,7 @@ void Editor::markAllMisspellingsAndBadGrammarInRanges(TextCheckingOptions textCh
                             // Add a marker so that corrections can easily be undone and won't be re-corrected.
                             RefPtr<Range> replacedRange = TextIterator::subrange(paragraphRange.get(), resultLocation, replacementLength);
                             replacedRange->startContainer()->document()->markers()->addMarker(replacedRange.get(), DocumentMarker::Replacement, replacedString);
+                            replacedRange->startContainer()->document()->markers()->addMarker(replacedRange.get(), DocumentMarker::CorrectionIndicator);
                         }
                     }
                 }
@@ -2841,6 +2830,13 @@ void Editor::startCorrectionPanelTimer()
         client()->dismissCorrectionPanel(true);
     if (isAutomaticSpellingCorrectionEnabled())
         m_correctionPanelTimer.startOneShot(correctionPanelTimerInterval);
+#endif
+}
+
+void Editor::stopCorrectionPanelTimer()
+{
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    m_correctionPanelTimer.stop();
 #endif
 }
 
@@ -3127,6 +3123,13 @@ void Editor::changeSelectionAfterCommand(const VisibleSelection& newSelection, b
     if (newSelection.start().isOrphan() || newSelection.end().isOrphan())
         return;
 
+#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    // Check to see if the command introduced paragraph separator. If it did, we remove existing autocorrection underlines.
+    // This is in consistency with the behavior in AppKit
+    if (!inSameParagraph(m_frame->selection()->selection().visibleStart(), newSelection.visibleEnd()))
+        m_frame->document()->markers()->removeMarkers(DocumentMarker::CorrectionIndicator);
+#endif
+
     // If there is no selection change, don't bother sending shouldChangeSelection, but still call setSelection,
     // because there is work that it must do in this situation.
     // The old selection can be invalid here and calling shouldChangeSelection can produce some strange calls.
@@ -3246,10 +3249,8 @@ void Editor::computeAndSetTypingStyle(CSSStyleDeclaration* style, EditAction edi
     m_frame->selection()->setTypingStyle(mutableStyle.release());
 }
 
-PassRefPtr<CSSComputedStyleDeclaration> Editor::selectionComputedStyle(Node*& nodeToRemove) const
+PassRefPtr<CSSMutableStyleDeclaration> Editor::selectionComputedStyle(bool& shouldUseFixedFontDefaultSize) const
 {
-    nodeToRemove = 0;
-
     if (m_frame->selection()->isNone())
         return 0;
 
@@ -3269,34 +3270,19 @@ PassRefPtr<CSSComputedStyleDeclaration> Editor::selectionComputedStyle(Node*& no
         return 0;
 
     RefPtr<Element> styleElement = element;
-    ExceptionCode ec = 0;
+    RefPtr<CSSComputedStyleDeclaration> style = computedStyle(styleElement.release());
+    RefPtr<CSSMutableStyleDeclaration> mutableStyle = style->copy();
+    shouldUseFixedFontDefaultSize = style->useFixedFontDefaultSize();
 
-    if (m_frame->selection()->typingStyle()) {
-        styleElement = m_frame->document()->createElement(spanTag, false);
+    if (!m_frame->selection()->typingStyle())
+        return mutableStyle;
 
-        styleElement->setAttribute(styleAttr, m_frame->selection()->typingStyle()->cssText(), ec);
-        ASSERT(!ec);
+    RefPtr<CSSMutableStyleDeclaration> typingStyle = m_frame->selection()->typingStyle()->copy();
+    ApplyStyleCommand::removeNonEditingProperties(typingStyle.get());
+    prepareEditingStyleToApplyAt(typingStyle.get(), position);
+    mutableStyle->merge(typingStyle.get());
 
-        styleElement->appendChild(m_frame->document()->createEditingTextNode(""), ec);
-        ASSERT(!ec);
-
-        if (element->renderer() && element->renderer()->canHaveChildren())
-            element->appendChild(styleElement, ec);
-        else {
-            Node* parent = element->parent();
-            Node* next = element->nextSibling();
-
-            if (next)
-                parent->insertBefore(styleElement, next, ec);
-            else
-                parent->appendChild(styleElement, ec);
-        }
-        ASSERT(!ec);
-
-        nodeToRemove = styleElement.get();
-    }
-
-    return computedStyle(styleElement.release());
+    return mutableStyle;
 }
 
 void Editor::textFieldDidBeginEditing(Element* e)

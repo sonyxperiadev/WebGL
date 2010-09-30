@@ -159,12 +159,16 @@ Settings::Settings(Page* page)
     , m_memoryInfoEnabled(false)
     , m_interactiveFormValidation(false)
     , m_usePreHTML5ParserQuirks(false)
+<<<<<<< HEAD
 #if ENABLE(WEB_AUTOFILL)
     , m_autoFillEnabled(false)
 #endif
 #ifdef ANDROID_PLUGINS
     , m_pluginsOnDemand(false)
 #endif
+=======
+    , m_hyperlinkAuditingEnabled(false)
+>>>>>>> webkit.org at r68651
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
@@ -697,11 +701,6 @@ void Settings::setLocalFileContentSniffingEnabled(bool enabled)
 void Settings::setLocalStorageDatabasePath(const String& path)
 {
     m_localStorageDatabasePath = path;
-}
-
-void Settings::setFileSystemRootPath(const String& path)
-{
-    m_fileSystemRootPath = path;
 }
 
 void Settings::setApplicationChromeMode(bool mode)

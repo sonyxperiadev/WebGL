@@ -27,6 +27,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+import time
 import traceback
 import os
 
@@ -39,6 +40,8 @@ from webkitpy.common.net.statusserver import StatusServer
 from webkitpy.common.system.executive import ScriptError
 from webkitpy.common.system.deprecated_logging import error, log
 from webkitpy.tool.commands.stepsequence import StepSequenceErrorHandler
+from webkitpy.tool.bot.commitqueuetask import CommitQueueTask
+from webkitpy.tool.bot.feeders import CommitQueueFeeder
 from webkitpy.tool.bot.patchcollection import PersistentPatchCollection, PersistentPatchCollectionDelegate
 from webkitpy.tool.bot.queueengine import QueueEngine, QueueEngineDelegate
 from webkitpy.tool.grammar import pluralize
@@ -50,6 +53,7 @@ class AbstractQueue(Command, QueueEngineDelegate):
 
     _pass_status = "Pass"
     _fail_status = "Fail"
+    _retry_status = "Retry"
     _error_status = "Error"
 
     def __init__(self, options=None): # Default values should never be collections (like []) as default values are shared between invocations
@@ -62,20 +66,20 @@ class AbstractQueue(Command, QueueEngineDelegate):
 
     def _cc_watchers(self, bug_id):
         try:
-            self.tool.bugs.add_cc_to_bug(bug_id, self.watchers)
+            self._tool.bugs.add_cc_to_bug(bug_id, self.watchers)
         except Exception, e:
             traceback.print_exc()
             log("Failed to CC watchers.")
 
     def run_webkit_patch(self, args):
-        webkit_patch_args = [self.tool.path()]
+        webkit_patch_args = [self._tool.path()]
         # FIXME: This is a hack, we should have a more general way to pass global options.
         # FIXME: We must always pass global options and their value in one argument
         # because our global option code looks for the first argument which does
         # not begin with "-" and assumes that is the command name.
-        webkit_patch_args += ["--status-host=%s" % self.tool.status_server.host]
+        webkit_patch_args += ["--status-host=%s" % self._tool.status_server.host]
         webkit_patch_args.extend(args)
-        return self.tool.executive.run_and_throw_if_fail(webkit_patch_args)
+        return self._tool.executive.run_and_throw_if_fail(webkit_patch_args)
 
     def _log_directory(self):
         return "%s-logs" % self.name
@@ -89,16 +93,16 @@ class AbstractQueue(Command, QueueEngineDelegate):
         raise NotImplementedError, "subclasses must implement"
 
     def begin_work_queue(self):
-        log("CAUTION: %s will discard all local changes in \"%s\"" % (self.name, self.tool.scm().checkout_root))
+        log("CAUTION: %s will discard all local changes in \"%s\"" % (self.name, self._tool.scm().checkout_root))
         if self.options.confirm:
-            response = self.tool.user.prompt("Are you sure?  Type \"yes\" to continue: ")
+            response = self._tool.user.prompt("Are you sure?  Type \"yes\" to continue: ")
             if (response != "yes"):
                 error("User declined.")
         log("Running WebKit %s." % self.name)
-        self.tool.status_server.update_status(self.name, "Starting Queue")
+        self._tool.status_server.update_status(self.name, "Starting Queue")
 
     def stop_work_queue(self, reason):
-        self.tool.status_server.update_status(self.name, "Stopping Queue, reason: %s" % reason)
+        self._tool.status_server.update_status(self.name, "Stopping Queue, reason: %s" % reason)
 
     def should_continue_work_queue(self):
         self._iteration_count += 1
@@ -120,8 +124,8 @@ class AbstractQueue(Command, QueueEngineDelegate):
 
     def execute(self, options, args, tool, engine=QueueEngine):
         self.options = options  # FIXME: This code is wrong.  Command.options is a list, this assumes an Options element!
-        self.tool = tool  # FIXME: This code is wrong too!  Command.bind_to_tool handles this!
-        return engine(self.name, self, self.tool.wakeup_event).run()
+        self._tool = tool  # FIXME: This code is wrong too!  Command.bind_to_tool handles this!
+        return engine(self.name, self, self._tool.wakeup_event).run()
 
     @classmethod
     def _log_from_script_error_for_upload(cls, script_error, output_limit=None):
@@ -144,26 +148,56 @@ class AbstractQueue(Command, QueueEngineDelegate):
         return tool.status_server.update_status(cls.name, message, state["patch"], failure_log)
 
 
+class FeederQueue(AbstractQueue):
+    name = "feeder-queue"
+
+    _sleep_duration = 30  # seconds
+
+    # AbstractPatchQueue methods
+
+    def begin_work_queue(self):
+        AbstractQueue.begin_work_queue(self)
+        self.feeders = [
+            CommitQueueFeeder(self._tool),
+        ]
+
+    def next_work_item(self):
+        # This really show inherit from some more basic class that doesn't
+        # understand work items, but the base class in the heirarchy currently
+        # understands work items.
+        return "synthetic-work-item"
+
+    def should_proceed_with_work_item(self, work_item):
+        return True
+
+    def process_work_item(self, work_item):
+        for feeder in self.feeders:
+            feeder.feed()
+        time.sleep(self._sleep_duration)
+        return True
+
+    def work_item_log_path(self, work_item):
+        return None
+
+    def handle_unexpected_error(self, work_item, message):
+        log(message)
+
+
 class AbstractPatchQueue(AbstractQueue):
     def _update_status(self, message, patch=None, results_file=None):
-        self.tool.status_server.update_status(self.name, message, patch, results_file)
-
-    # Note, eventually this will be done by a separate "feeder" queue
-    # whose job it is to poll bugzilla and feed work items into the
-    # status server for other queues to munch on.
-    def _update_work_items(self, patch_ids):
-        self.tool.status_server.update_work_items(self.name, patch_ids)
-        if patch_ids:
-            self.log_progress(patch_ids)
+        return self._tool.status_server.update_status(self.name, message, patch, results_file)
 
     def _fetch_next_work_item(self):
-        return self.tool.status_server.next_work_item(self.name)
+        return self._tool.status_server.next_work_item(self.name)
 
     def _did_pass(self, patch):
         self._update_status(self._pass_status, patch)
 
     def _did_fail(self, patch):
         self._update_status(self._fail_status, patch)
+
+    def _did_retry(self, patch):
+        self._update_status(self._retry_status, patch)
 
     def _did_error(self, patch, reason):
         message = "%s: %s" % (self._error_status, reason)
@@ -172,178 +206,63 @@ class AbstractPatchQueue(AbstractQueue):
     def work_item_log_path(self, patch):
         return os.path.join(self._log_directory(), "%s.log" % patch.bug_id())
 
-    def log_progress(self, patch_ids):
-        log("%s in %s [%s]" % (pluralize("patch", len(patch_ids)), self.name, ", ".join(map(str, patch_ids))))
-
 
 class CommitQueue(AbstractPatchQueue, StepSequenceErrorHandler):
     name = "commit-queue"
-    def __init__(self):
-        AbstractPatchQueue.__init__(self)
 
     # AbstractPatchQueue methods
 
     def begin_work_queue(self):
         AbstractPatchQueue.begin_work_queue(self)
-        self.committer_validator = CommitterValidator(self.tool.bugs)
-
-    def _validate_patches_in_commit_queue(self):
-        # Not using BugzillaQueries.fetch_patches_from_commit_queue() so we can reject patches with invalid committers/reviewers.
-        bug_ids = self.tool.bugs.queries.fetch_bug_ids_from_commit_queue()
-        all_patches = sum([self.tool.bugs.fetch_bug(bug_id).commit_queued_patches(include_invalid=True) for bug_id in bug_ids], [])
-        return self.committer_validator.patches_after_rejecting_invalid_commiters_and_reviewers(all_patches)
-
-    def _patch_cmp(self, a, b):
-        # Sort first by is_rollout, then by attach_date.
-        # Reversing the order so that is_rollout is first.
-        rollout_cmp = cmp(b.is_rollout(), a.is_rollout())
-        if (rollout_cmp != 0):
-            return rollout_cmp
-        return cmp(a.attach_date(), b.attach_date())
-
-    def _feed_work_items_to_server(self):
-        # Grab the set of patches from bugzilla, sort them, and update the status server.
-        # Eventually this will all be done by a separate feeder queue.
-        patches = self._validate_patches_in_commit_queue()
-        patches = sorted(patches, self._patch_cmp)
-        self._update_work_items([patch.id() for patch in patches])
+        self.committer_validator = CommitterValidator(self._tool.bugs)
 
     def next_work_item(self):
-        self._feed_work_items_to_server()
-        # The grab the next patch to work on back from the status server.
         patch_id = self._fetch_next_work_item()
         if not patch_id:
             return None
-        return self.tool.bugs.fetch_attachment(patch_id)
-
-    def _can_build_and_test_without_patch(self):
-        try:
-            self.run_webkit_patch([
-                "build-and-test",
-                "--force-clean",
-                "--build",
-                "--test",
-                "--non-interactive",
-                "--no-update",
-                "--build-style=both",
-                "--quiet"])
-            return True
-        except ScriptError, e:
-            failure_log = self._log_from_script_error_for_upload(e)
-            self._update_status("Unable to build and test without patch", results_file=failure_log)
-            return False
+        return self._tool.bugs.fetch_attachment(patch_id)
 
     def should_proceed_with_work_item(self, patch):
         patch_text = "rollout patch" if patch.is_rollout() else "patch"
-        self._update_status("Landing %s" % patch_text, patch)
+        self._update_status("Processing %s" % patch_text, patch)
         return True
-
-    def _build_and_test_patch(self, patch, first_run=False):
-        try:
-            args = [
-                "build-and-test-attachment",
-                "--force-clean",
-                "--build",
-                "--non-interactive",
-                "--build-style=both",
-                "--quiet",
-                patch.id()
-            ]
-            # We don't bother to run tests for rollouts as that makes them too slow.
-            if not patch.is_rollout():
-                args.append("--test")
-            if not first_run:
-                # The first time through, we don't reject the patch from the
-                # commit queue because we want to make sure we can build and
-                # test ourselves. However, the second time through, we
-                # register ourselves as the parent-command so we can reject
-                # the patch on failure.
-                args.append("--parent-command=commit-queue")
-                # The second time through, we also don't want to update so we
-                # know we're testing the same revision that we successfully
-                # built and tested.
-                args.append("--no-update")
-            self.run_webkit_patch(args)
-            return True
-        except ScriptError, e:
-            failure_log = self._log_from_script_error_for_upload(e)
-            self._update_status("Unable to build and test patch", patch=patch, results_file=failure_log)
-            if first_run:
-                return False
-            self._did_fail(patch)
-            raise
-
-    def _revalidate_patch(self, patch):
-        # Bugs might get closed, or patches might be obsoleted or r-'d while the
-        # commit-queue is processing.  Do one last minute check before landing.
-        patch = self.tool.bugs.fetch_attachment(patch.id())
-        if patch.is_obsolete():
-            return None
-        if patch.bug().is_closed():
-            return None
-        if not patch.committer():
-            return None
-        # Reviewer is not required.  Misisng reviewers will be caught during the ChangeLog check during landing.
-        return patch
-
-    def _land(self, patch):
-        try:
-            args = [
-                "land-attachment",
-                "--force-clean",
-                "--non-interactive",
-                "--ignore-builders",
-                "--quiet",
-                "--parent-command=commit-queue",
-                patch.id(),
-            ]
-            self.run_webkit_patch(args)
-            self._did_pass(patch)
-        except ScriptError, e:
-            failure_log = self._log_from_script_error_for_upload(e)
-            self._update_status("Unable to land patch", patch=patch, results_file=failure_log)
-            self._did_fail(patch)
-            raise
 
     def process_work_item(self, patch):
         self._cc_watchers(patch.bug_id())
-        if not self._build_and_test_patch(patch, first_run=True):
-            self._update_status("Building and testing without the patch as a sanity check", patch)
-            # The patch failed to build and test. It's possible that the
-            # tree is busted. To check that case, we try to build and test
-            # without the patch.
-            if not self._can_build_and_test_without_patch():
-                return False
-            self._update_status("Build and test succeeded, trying again with patch", patch)
-            # Hum, looks like the patch is actually bad. Of course, we could
-            # have been bitten by a flaky test the first time around.  We try
-            # to build and test again. If it fails a second time, we're pretty
-            # sure its a bad test and re can reject it outright.
-            self._build_and_test_patch(patch)
-        # Do one last check to catch any bug changes (cq-, closed, reviewer changed, etc.)
-        # This helps catch races between the bots if locks expire.
-        patch = self._revalidate_patch(patch)
-        if not patch:
-            return False
-        self._land(patch)
-        return True
+        task = CommitQueueTask(self._tool, self, patch)
+        try:
+            if task.run():
+                self._did_pass(patch)
+                return True
+            self._did_retry(patch)
+        except ScriptError, e:
+            validator = CommitterValidator(self._tool.bugs)
+            validator.reject_patch_from_commit_queue(patch.id(), self._error_message_for_bug(task.failure_status_id, e))
+            self._did_fail(patch)
 
     def handle_unexpected_error(self, patch, message):
         self.committer_validator.reject_patch_from_commit_queue(patch.id(), message)
 
-    # StepSequenceErrorHandler methods
-    @staticmethod
-    def _error_message_for_bug(tool, status_id, script_error):
+    def command_passed(self, message, patch):
+        self._update_status(message, patch=patch)
+
+    def command_failed(self, message, script_error, patch):
+        failure_log = self._log_from_script_error_for_upload(script_error)
+        return self._update_status(message, patch=patch, results_file=failure_log)
+
+    def _error_message_for_bug(self, status_id, script_error):
         if not script_error.output:
             return script_error.message_with_output()
-        results_link = tool.status_server.results_url_for_status(status_id)
+        results_link = self._tool.status_server.results_url_for_status(status_id)
         return "%s\nFull output: %s" % (script_error.message_with_output(), results_link)
 
-    @classmethod
+    # StepSequenceErrorHandler methods
+
     def handle_script_error(cls, tool, state, script_error):
-        status_id = cls._update_status_for_script_error(tool, state, script_error)
-        validator = CommitterValidator(tool.bugs)
-        validator.reject_patch_from_commit_queue(state["patch"].id(), cls._error_message_for_bug(tool, status_id, script_error))
+        # Hitting this error handler should be pretty rare.  It does occur,
+        # however, when a patch no longer applies to top-of-tree in the final
+        # land step.
+        log(script_error.message_with_output())
 
     @classmethod
     def handle_checkout_needs_update(cls, tool, state, options, error):
@@ -368,7 +287,7 @@ class RietveldUploadQueue(AbstractPatchQueue, StepSequenceErrorHandler):
     # AbstractPatchQueue methods
 
     def next_work_item(self):
-        patch_id = self.tool.bugs.queries.fetch_first_patch_from_rietveld_queue()
+        patch_id = self._tool.bugs.queries.fetch_first_patch_from_rietveld_queue()
         if patch_id:
             return patch_id
         self._update_status("Empty queue")
@@ -393,7 +312,7 @@ class RietveldUploadQueue(AbstractPatchQueue, StepSequenceErrorHandler):
 
     def handle_unexpected_error(self, patch, message):
         log(message)
-        self._reject_patch(self.tool, patch.id())
+        self._reject_patch(self._tool, patch.id())
 
     # StepSequenceErrorHandler methods
 
@@ -417,10 +336,10 @@ class AbstractReviewQueue(AbstractPatchQueue, PersistentPatchCollectionDelegate,
         return self.name
 
     def fetch_potential_patch_ids(self):
-        return self.tool.bugs.queries.fetch_attachment_ids_from_review_queue()
+        return self._tool.bugs.queries.fetch_attachment_ids_from_review_queue()
 
     def status_server(self):
-        return self.tool.status_server
+        return self._tool.status_server
 
     def is_terminal_status(self, status):
         return status == "Pass" or status == "Fail" or status.startswith("Error:")
@@ -434,7 +353,7 @@ class AbstractReviewQueue(AbstractPatchQueue, PersistentPatchCollectionDelegate,
     def next_work_item(self):
         patch_id = self._patches.next()
         if patch_id:
-            return self.tool.bugs.fetch_attachment(patch_id)
+            return self._tool.bugs.fetch_attachment(patch_id)
 
     def should_proceed_with_work_item(self, patch):
         raise NotImplementedError, "subclasses must implement"

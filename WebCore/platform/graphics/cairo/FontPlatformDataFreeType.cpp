@@ -3,7 +3,7 @@
  * Copyright (C) 2006 Michael Emmel mike.emmel@gmail.com
  * Copyright (C) 2007, 2008 Alp Toker <alp@atoker.com>
  * Copyright (C) 2007 Holger Hans Peter Freyther
- * Copyright (C) 2009 Igalia S.L.
+ * Copyright (C) 2009, 2010 Igalia S.L.
  * All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -27,100 +27,88 @@
 
 #include "PlatformString.h"
 #include "FontDescription.h"
-#include <wtf/text/CString.h>
-
 #include <cairo-ft.h>
 #include <cairo.h>
 #include <fontconfig/fcfreetype.h>
+
 #if !PLATFORM(EFL) || ENABLE(GLIB_SUPPORT)
 #include <gdk/gdk.h>
 #endif
 
 namespace WebCore {
 
-FontPlatformData::FontPlatformData(const FontDescription& fontDescription, const AtomicString& familyName)
-    : m_fallbacks(0)
+cairo_subpixel_order_t convertFontConfigSubpixelOrder(int fontConfigOrder)
+{
+    switch (fontConfigOrder) {
+    case FC_RGBA_RGB:
+        return CAIRO_SUBPIXEL_ORDER_RGB;
+    case FC_RGBA_BGR:
+        return CAIRO_SUBPIXEL_ORDER_BGR;
+    case FC_RGBA_VRGB:
+        return CAIRO_SUBPIXEL_ORDER_VRGB;
+    case FC_RGBA_VBGR:
+        return CAIRO_SUBPIXEL_ORDER_VBGR;
+    case FC_RGBA_NONE:
+    case FC_RGBA_UNKNOWN:
+        return CAIRO_SUBPIXEL_ORDER_DEFAULT;
+    }
+    return CAIRO_SUBPIXEL_ORDER_DEFAULT;
+}
+
+cairo_hint_style_t convertFontConfigHintStyle(int fontConfigStyle)
+{
+    switch (fontConfigStyle) {
+    case FC_HINT_NONE:
+        return CAIRO_HINT_STYLE_NONE;
+    case FC_HINT_SLIGHT:
+        return CAIRO_HINT_STYLE_SLIGHT;
+    case FC_HINT_MEDIUM:
+        return CAIRO_HINT_STYLE_MEDIUM;
+    case FC_HINT_FULL:
+        return CAIRO_HINT_STYLE_FULL;
+    }
+    return CAIRO_HINT_STYLE_NONE;
+}
+
+void setCairoFontOptionsFromFontConfigPattern(cairo_font_options_t* options, FcPattern* pattern)
+{
+    FcBool booleanResult;
+    int integerResult;
+
+    // We will determine if subpixel anti-aliasing is enabled via the FC_RGBA setting.
+    if (FcPatternGetBool(pattern, FC_ANTIALIAS, 0, &booleanResult) == FcResultMatch && booleanResult)
+        cairo_font_options_set_antialias(options, CAIRO_ANTIALIAS_GRAY);
+
+    if (FcPatternGetInteger(pattern, FC_RGBA, 0, &integerResult) == FcResultMatch) {
+        if (integerResult != FC_RGBA_NONE)
+            cairo_font_options_set_antialias(options, CAIRO_ANTIALIAS_SUBPIXEL);
+        cairo_font_options_set_subpixel_order(options, convertFontConfigSubpixelOrder(integerResult));
+    }
+
+    if (FcPatternGetInteger(pattern, FC_HINT_STYLE, 0, &integerResult) == FcResultMatch)
+        cairo_font_options_set_hint_style(options, convertFontConfigHintStyle(integerResult));
+
+    if (FcPatternGetBool(pattern, FC_HINTING, 0, &booleanResult) == FcResultMatch && !booleanResult)
+        cairo_font_options_set_hint_style(options, CAIRO_HINT_STYLE_NONE);
+}
+
+FontPlatformData::FontPlatformData(FcPattern* pattern, const FontDescription& fontDescription)
+    : m_pattern(pattern)
+    , m_fallbacks(0)
     , m_size(fontDescription.computedPixelSize())
     , m_syntheticBold(false)
     , m_syntheticOblique(false)
 {
-    FontPlatformData::init();
+    cairo_font_options_t* options = cairo_font_options_create();
+    setCairoFontOptionsFromFontConfigPattern(options, pattern);
 
-    CString familyNameString = familyName.string().utf8();
-    const char* fcfamily = familyNameString.data();
-    int fcslant = FC_SLANT_ROMAN;
-    // FIXME: Map all FontWeight values to fontconfig weights.
-    int fcweight = FC_WEIGHT_NORMAL;
-    double fcsize = fontDescription.computedPixelSize();
-    if (fontDescription.italic())
-        fcslant = FC_SLANT_ITALIC;
-    if (fontDescription.weight() >= FontWeight600)
-        fcweight = FC_WEIGHT_BOLD;
-
-    int type = fontDescription.genericFamily();
-
-    PlatformRefPtr<FcPattern> pattern = adoptPlatformRef(FcPatternCreate());
-    cairo_font_face_t* fontFace;
-    static const cairo_font_options_t* defaultOptions = cairo_font_options_create();
-    const cairo_font_options_t* options = NULL;
     cairo_matrix_t fontMatrix;
-
-    if (!FcPatternAddString(pattern.get(), FC_FAMILY, reinterpret_cast<const FcChar8*>(fcfamily)))
-        return;
-
-    switch (type) {
-    case FontDescription::SerifFamily:
-        fcfamily = "serif";
-        break;
-    case FontDescription::SansSerifFamily:
-        fcfamily = "sans-serif";
-        break;
-    case FontDescription::MonospaceFamily:
-        fcfamily = "monospace";
-        break;
-    case FontDescription::StandardFamily:
-        fcfamily = "sans-serif";
-        break;
-    case FontDescription::NoFamily:
-    default:
-        fcfamily = NULL;
-        break;
-    }
-
-    if (fcfamily && !FcPatternAddString(pattern.get(), FC_FAMILY, reinterpret_cast<const FcChar8*>(fcfamily)))
-        return;
-    if (!FcPatternAddInteger(pattern.get(), FC_WEIGHT, fcweight))
-        return;
-    if (!FcPatternAddInteger(pattern.get(), FC_SLANT, fcslant))
-        return;
-    if (!FcPatternAddDouble(pattern.get(), FC_PIXEL_SIZE, fcsize))
-        return;
-
-    FcConfigSubstitute(0, pattern.get(), FcMatchPattern);
-    FcDefaultSubstitute(pattern.get());
-
-    FcResult fcresult;
-    m_pattern = adoptPlatformRef(FcFontMatch(0, pattern.get(), &fcresult));
-    // FIXME: should we set some default font?
-    if (!m_pattern)
-        return;
-    fontFace = cairo_ft_font_face_create_for_pattern(m_pattern.get());
+    cairo_matrix_init_scale(&fontMatrix, m_size, m_size);
     cairo_matrix_t ctm;
-    cairo_matrix_init_scale(&fontMatrix, fontDescription.computedPixelSize(), fontDescription.computedPixelSize());
     cairo_matrix_init_identity(&ctm);
 
-#if !PLATFORM(EFL) || ENABLE(GLIB_SUPPORT)
-    if (GdkScreen* screen = gdk_screen_get_default())
-gdk_screen_get_font_options(screen);
-#endif
-
-    // gdk_screen_get_font_options() returns NULL if no default options are
-    // set, so we always have to check.
-    if (!options)
-        options = defaultOptions;
-
-    m_scaledFont = adoptPlatformRef(cairo_scaled_font_create(fontFace, &fontMatrix, &ctm, options));
-    cairo_font_face_destroy(fontFace);
+    PlatformRefPtr<cairo_font_face_t> fontFace = adoptPlatformRef(cairo_ft_font_face_create_for_pattern(m_pattern.get()));
+    m_scaledFont = adoptPlatformRef(cairo_scaled_font_create(fontFace.get(), &fontMatrix, &ctm, options));
 }
 
 FontPlatformData::FontPlatformData(float size, bool bold, bool italic)
@@ -182,19 +170,6 @@ FontPlatformData::FontPlatformData(const FontPlatformData& other)
     : m_fallbacks(0)
 {
     *this = other;
-}
-
-bool FontPlatformData::init()
-{
-    static bool initialized = false;
-    if (initialized)
-        return true;
-    if (!FcInit()) {
-        fprintf(stderr, "Can't init font config library\n");
-        return false;
-    }
-    initialized = true;
-    return true;
 }
 
 FontPlatformData::~FontPlatformData()

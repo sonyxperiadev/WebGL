@@ -36,6 +36,7 @@
 #include "QualifiedName.h"
 #include "ScriptExecutionContext.h"
 #include "Timer.h"
+#include "ViewportArguments.h"
 #include <wtf/FixedArray.h>
 #include <wtf/HashCountedSet.h>
 #include <wtf/OwnPtr.h>
@@ -276,6 +277,8 @@ public:
     DEFINE_ATTRIBUTE_EVENT_LISTENER(webkitfullscreenchange);
 #endif
 
+    ViewportArguments viewportArguments() const { return m_viewportArguments; }
+
     DocumentType* doctype() const { return m_docType.get(); }
 
     DOMImplementation* implementation() const;
@@ -305,7 +308,7 @@ public:
 
     /**
      * Retrieve all nodes that intersect a rect in the window's document, until it is fully enclosed by
-     * the boundaries of node.
+     * the boundaries of a node.
      *
      * @param centerX x reference for the rectangle in CSS pixels
      * @param centerY y reference for the rectangle in CSS pixels
@@ -314,7 +317,8 @@ public:
      * @param ignoreClipping whether or not to ignore the root scroll frame when retrieving the element.
      *        If false, this method returns null for coordinates outside of the viewport.
      */
-    PassRefPtr<NodeList> nodesFromRect(int centerX, int centerY, unsigned hPadding, unsigned vPadding, bool ignoreClipping) const;
+    PassRefPtr<NodeList> nodesFromRect(int centerX, int centerY, unsigned topPadding, unsigned rightPadding,
+                                       unsigned bottomPadding, unsigned leftPadding, bool ignoreClipping) const;
     Element* elementFromPoint(int x, int y) const;
     PassRefPtr<Range> caretRangeFromPoint(int x, int y);
 
@@ -385,8 +389,10 @@ public:
     virtual bool isImageDocument() const { return false; }
 #if ENABLE(SVG)
     virtual bool isSVGDocument() const { return false; }
+    bool hasSVGRootNode() const;
 #else
     static bool isSVGDocument() { return false; }
+    static bool hasSVGRootNode() { return false; }
 #endif
     virtual bool isPluginDocument() const { return false; }
     virtual bool isMediaDocument() const { return false; }
@@ -520,6 +526,7 @@ public:
 
     void clearAXObjectCache();
     AXObjectCache* axObjectCache() const;
+    bool axObjectCacheExists() const;
     
     // to get visually ordered hebrew and arabic pages right
     void setVisuallyOrdered();
@@ -1323,6 +1330,8 @@ private:
 #endif
 
     int m_loadEventDelayCount;
+
+    ViewportArguments m_viewportArguments;
 };
 
 inline bool Document::hasElementWithId(AtomicStringImpl* id) const

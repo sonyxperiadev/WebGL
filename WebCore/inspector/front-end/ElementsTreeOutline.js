@@ -637,10 +637,12 @@ WebInspector.ElementsTreeElement.prototype = {
             this.listItemElement.scrollIntoViewIfNeeded(false);
     },
 
-    onselect: function()
+    onselect: function(treeElement, selectedByUser)
     {
         this.treeOutline.suppressRevealAndSelect = true;
         this.treeOutline.focusedDOMNode = this.representedObject;
+        if (selectedByUser)
+            WebInspector.highlightDOMNode(this.representedObject.id);
         this.updateSelection();
         this.treeOutline.suppressRevealAndSelect = false;
     },
@@ -752,7 +754,7 @@ WebInspector.ElementsTreeElement.prototype = {
         contextMenu.appendItem(WebInspector.UIString("Copy as HTML"), this._copyHTML.bind(this));
         contextMenu.appendItem(WebInspector.UIString("Delete Node"), this.remove.bind(this));
 
-        if (Preferences.domBreakpointsEnabled) {
+        if (Preferences.nativeInstrumentationEnabled) {
             // Add debbuging-related actions
             contextMenu.appendSeparator();
 
@@ -1125,7 +1127,7 @@ WebInspector.ElementsTreeElement.prototype = {
         delete this._editing;
 
         var textNode;
-        if (this.representedObject.nodeType == Node.ELEMENT_NODE) {
+        if (this.representedObject.nodeType === Node.ELEMENT_NODE) {
             // We only show text nodes inline in elements if the element only
             // has a single child, and that child is a text node.
             textNode = this.representedObject.firstChild;
@@ -1133,9 +1135,6 @@ WebInspector.ElementsTreeElement.prototype = {
             textNode = this.representedObject;
 
         textNode.nodeValue = newText;
-
-        // Need to restore attributes / node structure.
-        this.updateTitle();
     },
 
     _editingCancelled: function(element, context)

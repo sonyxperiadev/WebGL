@@ -219,11 +219,24 @@ var WebInspector = {
         return pane;
     },
 
+    createXHRBreakpointsSidebarPane: function()
+    {
+        var pane = new WebInspector.XHRBreakpointsSidebarPane();
+        function breakpointAdded(event)
+        {
+            pane.addBreakpoint(new WebInspector.XHRBreakpointItem(event.data));
+        }
+        WebInspector.breakpointManager.addEventListener("xhr-breakpoint-added", breakpointAdded);
+        return pane;
+    },
+
     _createPanels: function()
     {
         var hiddenPanels = (InspectorFrontendHost.hiddenPanels() || "").split(',');
         if (hiddenPanels.indexOf("elements") === -1)
             this.panels.elements = new WebInspector.ElementsPanel();
+        if (Preferences.networkPanelEnabled && hiddenPanels.indexOf("network") === -1)
+            this.panels.network = new WebInspector.NetworkPanel();
         if (hiddenPanels.indexOf("resources") === -1)
             this.panels.resources = new WebInspector.ResourcesPanel();
         if (hiddenPanels.indexOf("scripts") === -1)
@@ -238,7 +251,7 @@ var WebInspector = {
         }
         if (hiddenPanels.indexOf("storage") === -1 && hiddenPanels.indexOf("databases") === -1)
             this.panels.storage = new WebInspector.StoragePanel();
-        if (Preferences.auditsPanelEnabled && hiddenPanels.indexOf("audits") === -1)
+        if (hiddenPanels.indexOf("audits") === -1)
             this.panels.audits = new WebInspector.AuditsPanel();
         if (hiddenPanels.indexOf("console") === -1)
             this.panels.console = new WebInspector.ConsolePanel();
@@ -435,12 +448,8 @@ var WebInspector = {
 
     _updateFocusedNode: function(nodeId)
     {
-        var node = WebInspector.domAgent.nodeForId(nodeId);
-        if (!node)
-            return;
-
         this.currentPanel = this.panels.elements;
-        this.panels.elements.focusedDOMNode = node;
+        this.panels.elements.updateFocusedNode(nodeId);
     }
 }
 
@@ -585,6 +594,8 @@ WebInspector.doLoadedDone = function()
     function populateInspectorState(inspectorState)
     {
         WebInspector.monitoringXHREnabled = inspectorState.monitoringXHREnabled;
+        if ("pauseOnExceptionsState" in inspectorState)
+            WebInspector.panels.scripts.updatePauseOnExceptionsState(inspectorState.pauseOnExceptionsState);
         if (inspectorState.resourceTrackingEnabled)
             WebInspector.panels.resources.resourceTrackingWasEnabled();
         else
@@ -677,8 +688,8 @@ WebInspector.dispatchMessageFromBackend = function(messageObject)
 WebInspector.reportProtocolError = function(messageObject)
 {
     console.error("Protocol Error: InspectorBackend request with seq = %d failed.", messageObject.seq);
-    for (var error in messageObject.errors)
-        console.error("    " + error);
+    for (var i = 0; i < messageObject.errors.length; ++i)
+        console.error("    " + messageObject.errors[i]);
     WebInspector.removeResponseCallbackEntry(messageObject.seq);
 }
 
@@ -1216,10 +1227,10 @@ WebInspector.updateResource = function(payload)
         resource = new WebInspector.Resource(identifier, payload.url);
         this.resources[identifier] = resource;
         this.resourceURLMap[resource.url] = resource;
-        if (this.panels.resources)
-            this.panels.resources.addResource(resource);
-        if (this.panels.audits)
-            this.panels.audits.resourceStarted(resource);
+        this.panels.resources.addResource(resource);
+        this.panels.audits.resourceStarted(resource);
+        if (this.panels.network)
+            this.panels.network.addResource(resource);
     }
 
     if (payload.didRequestChange) {
@@ -1261,13 +1272,11 @@ WebInspector.updateResource = function(payload)
             resource.webSocketChallengeResponse = payload.webSocketChallengeResponse;
     }
 
-    if (payload.didTypeChange) {
+    if (payload.didTypeChange)
         resource.type = payload.type;
-    }
 
-    if (payload.didLengthChange) {
+    if (payload.didLengthChange)
         resource.resourceSize = payload.resourceSize;
-    }
 
     if (payload.didCompletionChange) {
         resource.failed = payload.failed;
@@ -1289,21 +1298,24 @@ WebInspector.updateResource = function(payload)
             // This loadEventTime is for the main resource, and we want to show it
             // for all resources on this page. This means we want to set it as a member
             // of the resources panel instead of the individual resource.
-            if (this.panels.resources)
-                this.panels.resources.mainResourceLoadTime = payload.loadEventTime;
-            if (this.panels.audits)
-                this.panels.audits.mainResourceLoadTime = payload.loadEventTime;
+            this.panels.resources.mainResourceLoadTime = payload.loadEventTime;
+            this.panels.audits.mainResourceLoadTime = payload.loadEventTime;
+            if (this.panels.network)
+                this.panels.network.mainResourceLoadTime = payload.loadEventTime;
         }
 
         if (payload.domContentEventTime) {
             // This domContentEventTime is for the main resource, so it should go in
             // the resources panel for the same reasons as above.
-            if (this.panels.resources)
-                this.panels.resources.mainResourceDOMContentTime = payload.domContentEventTime;
-            if (this.panels.audits)
-                this.panels.audits.mainResourceDOMContentTime = payload.domContentEventTime;
+            this.panels.resources.mainResourceDOMContentTime = payload.domContentEventTime;
+            this.panels.audits.mainResourceDOMContentTime = payload.domContentEventTime;
+            if (this.panels.network)
+                this.panels.network.mainResourceDOMContentTime = payload.domContentEventTime;
         }
     }
+
+    if (this.panels.network)
+        this.panels.network.refreshResource(resource);
 }
 
 WebInspector.removeResource = function(identifier)
@@ -1400,11 +1412,6 @@ WebInspector.attachDebuggerWhenShown = function()
 WebInspector.debuggerWasEnabled = function()
 {
     this.panels.scripts.debuggerWasEnabled();
-}
-
-WebInspector.updatePauseOnExceptionsState = function(pauseOnExceptionsState)
-{
-    this.panels.scripts.updatePauseOnExceptionsState(pauseOnExceptionsState);
 }
 
 WebInspector.debuggerWasDisabled = function()

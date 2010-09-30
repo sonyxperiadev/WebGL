@@ -323,8 +323,8 @@ StyleDifference RenderStyle::diff(const RenderStyle* other, unsigned& changedCon
 
     if (rareNonInheritedData.get() != other->rareNonInheritedData.get()) {
         if (rareNonInheritedData->m_appearance != other->rareNonInheritedData->m_appearance ||
-            rareNonInheritedData->marginTopCollapse != other->rareNonInheritedData->marginTopCollapse ||
-            rareNonInheritedData->marginBottomCollapse != other->rareNonInheritedData->marginBottomCollapse ||
+            rareNonInheritedData->marginBeforeCollapse != other->rareNonInheritedData->marginBeforeCollapse ||
+            rareNonInheritedData->marginAfterCollapse != other->rareNonInheritedData->marginAfterCollapse ||
             rareNonInheritedData->lineClamp != other->rareNonInheritedData->lineClamp ||
             rareNonInheritedData->textOverflow != other->rareNonInheritedData->textOverflow)
             return StyleDifferenceLayout;
@@ -789,7 +789,7 @@ CounterDirectiveMap& RenderStyle::accessCounterDirectives()
 
 const AtomicString& RenderStyle::hyphenString() const
 {
-    ASSERT(hyphens() == HyphensAuto);
+    ASSERT(hyphens() != HyphensNone);
 
     const AtomicString& hyphenationString = rareInheritedData.get()->hyphenationString;
     if (!hyphenationString.isNull())
@@ -1184,6 +1184,38 @@ Length RenderStyle::marginAfter() const
     return marginBottom();
 }
 
+Length RenderStyle::marginBeforeUsing(const RenderStyle* otherStyle) const
+{
+    switch (otherStyle->blockFlow()) {
+    case TopToBottomBlockFlow:
+        return marginTop();
+    case BottomToTopBlockFlow:
+        return marginBottom();
+    case LeftToRightBlockFlow:
+        return marginLeft();
+    case RightToLeftBlockFlow:
+        return marginRight();
+    }
+    ASSERT_NOT_REACHED();
+    return marginTop();
+}
+
+Length RenderStyle::marginAfterUsing(const RenderStyle* otherStyle) const
+{
+    switch (otherStyle->blockFlow()) {
+    case TopToBottomBlockFlow:
+        return marginBottom();
+    case BottomToTopBlockFlow:
+        return marginTop();
+    case LeftToRightBlockFlow:
+        return marginRight();
+    case RightToLeftBlockFlow:
+        return marginLeft();
+    }
+    ASSERT_NOT_REACHED();
+    return marginBottom();
+}
+
 Length RenderStyle::marginStart() const
 {
     if (isVerticalBlockFlow())
@@ -1198,6 +1230,20 @@ Length RenderStyle::marginEnd() const
     return direction() == LTR ? marginBottom() : marginTop();
 }
     
+Length RenderStyle::marginStartUsing(const RenderStyle* otherStyle) const
+{
+    if (otherStyle->isVerticalBlockFlow())
+        return otherStyle->direction() == LTR ? marginLeft() : marginRight();
+    return otherStyle->direction() == LTR ? marginTop() : marginBottom();
+}
+
+Length RenderStyle::marginEndUsing(const RenderStyle* otherStyle) const
+{
+    if (otherStyle->isVerticalBlockFlow())
+        return otherStyle->direction() == LTR ? marginRight() : marginLeft();
+    return otherStyle->direction() == LTR ? marginBottom() : marginTop();
+}
+
 Length RenderStyle::paddingBefore() const
 {
     switch (blockFlow()) {

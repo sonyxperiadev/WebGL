@@ -86,10 +86,14 @@ LOCAL_SRC_FILES += \
 	bindings/js/JSDOMBinding.cpp \
 	bindings/js/JSDOMFormDataCustom.cpp \
 	bindings/js/JSDOMGlobalObject.cpp \
+<<<<<<< HEAD
 	bindings/js/JSDOMMimeTypeArrayCustom.cpp \
 	bindings/js/JSDOMPluginArrayCustom.cpp \
 	bindings/js/JSDOMPluginCustom.cpp \
 	bindings/js/JSDOMStringMapCustom.cpp \
+=======
+	bindings/js/JSDOMTokenList.cpp \
+>>>>>>> webkit.org at r68651
 	bindings/js/JSDOMWindowBase.cpp \
 	bindings/js/JSDOMWindowCustom.cpp \
 	bindings/js/JSDOMWindowShell.cpp \

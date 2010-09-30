@@ -62,6 +62,7 @@
 #include "FloatConversion.h"
 #include "FontFamilyValue.h"
 #include "FontValue.h"
+#include "HashTools.h"
 #include "MediaList.h"
 #include "MediaQueryExp.h"
 #include "Pair.h"
@@ -89,6 +90,7 @@ extern int cssyyparse(void* parser);
 using namespace std;
 using namespace WTF;
 
+<<<<<<< HEAD
 #include "CSSPropertyNames.cpp"
 #include "CSSValueKeywords.cpp"
 
@@ -96,6 +98,8 @@ using namespace WTF;
 #include "TimeCounter.h"
 #endif
 
+=======
+>>>>>>> webkit.org at r68651
 namespace WebCore {
 
 static const unsigned INVALID_NUM_PARSED_PROPERTIES = UINT_MAX;
@@ -1488,8 +1492,8 @@ bool CSSParser::parseValue(int propId, bool important)
         return false;
     }
     case CSSPropertyWebkitMarginCollapse: {
-        const int properties[2] = { CSSPropertyWebkitMarginTopCollapse,
-            CSSPropertyWebkitMarginBottomCollapse };
+        const int properties[2] = { CSSPropertyWebkitMarginBeforeCollapse,
+            CSSPropertyWebkitMarginAfterCollapse };
         if (num == 1) {
             ShorthandScope scope(this, CSSPropertyWebkitMarginCollapse);
             if (!parseValue(properties[0], important))
@@ -1506,6 +1510,8 @@ bool CSSParser::parseValue(int propId, bool important)
         }
         return false;
     }
+    case CSSPropertyWebkitMarginBeforeCollapse:
+    case CSSPropertyWebkitMarginAfterCollapse:
     case CSSPropertyWebkitMarginTopCollapse:
     case CSSPropertyWebkitMarginBottomCollapse:
         if (id == CSSValueCollapse || id == CSSValueSeparate || id == CSSValueDiscard)

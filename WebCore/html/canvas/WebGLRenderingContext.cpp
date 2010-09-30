@@ -635,7 +635,11 @@ void WebGLRenderingContext::deleteFramebuffer(WebGLFramebuffer* framebuffer)
 {
     if (!framebuffer)
         return;
-    
+    if (framebuffer == m_framebufferBinding) {
+        m_framebufferBinding = 0;
+        // Have to call bindFramebuffer here to bind back to internal fbo.
+        m_context->bindFramebuffer(GraphicsContext3D::FRAMEBUFFER, 0);
+    }
     framebuffer->deleteObject();
 }
 
@@ -656,10 +660,11 @@ void WebGLRenderingContext::deleteRenderbuffer(WebGLRenderbuffer* renderbuffer)
 {
     if (!renderbuffer)
         return;
-    
+    if (renderbuffer == m_renderbufferBinding)
+        m_renderbufferBinding = 0;
     renderbuffer->deleteObject();
     if (m_framebufferBinding)
-        m_framebufferBinding->onAttachedObjectChange(renderbuffer);
+        m_framebufferBinding->removeAttachment(renderbuffer);
 }
 
 void WebGLRenderingContext::deleteShader(WebGLShader* shader)
@@ -677,7 +682,7 @@ void WebGLRenderingContext::deleteTexture(WebGLTexture* texture)
     
     texture->deleteObject();
     if (m_framebufferBinding)
-        m_framebufferBinding->onAttachedObjectChange(texture);
+        m_framebufferBinding->removeAttachment(texture);
 }
 
 void WebGLRenderingContext::depthFunc(unsigned long func)
@@ -775,30 +780,31 @@ bool WebGLRenderingContext::validateIndexArrayConservative(unsigned long type, l
     // index, skips the expensive per-draw-call iteration in
     // validateIndexArrayPrecise.
 
+    if (!m_boundElementArrayBuffer)
+        return false;
+
+    unsigned numElements = m_boundElementArrayBuffer->byteLength();
+    // The case count==0 is already dealt with in drawElements before validateIndexArrayConservative.
+    if (!numElements)
+        return false;
+    const ArrayBuffer* buffer = m_boundElementArrayBuffer->elementArrayBuffer();
+    ASSERT(buffer);
+
     long maxIndex = m_boundElementArrayBuffer->getCachedMaxIndex(type);
     if (maxIndex < 0) {
         // Compute the maximum index in the entire buffer for the given type of index.
         switch (type) {
         case GraphicsContext3D::UNSIGNED_BYTE: {
-            unsigned numElements = m_boundElementArrayBuffer->byteLength();
-            if (!numElements)
-                maxIndex = 0;
-            else {
-                const unsigned char* p = static_cast<const unsigned char*>(m_boundElementArrayBuffer->elementArrayBuffer()->data());
-                for (unsigned i = 0; i < numElements; i++)
-                    maxIndex = max(maxIndex, static_cast<long>(p[i]));
-            }
+            const unsigned char* p = static_cast<const unsigned char*>(buffer->data());
+            for (unsigned i = 0; i < numElements; i++)
+                maxIndex = max(maxIndex, static_cast<long>(p[i]));
             break;
         }
         case GraphicsContext3D::UNSIGNED_SHORT: {
-            unsigned numElements = m_boundElementArrayBuffer->byteLength() / sizeof(unsigned short);
-            if (!numElements)
-                maxIndex = 0;
-            else {
-                const unsigned short* p = static_cast<const unsigned short*>(m_boundElementArrayBuffer->elementArrayBuffer()->data());
-                for (unsigned i = 0; i < numElements; i++)
-                    maxIndex = max(maxIndex, static_cast<long>(p[i]));
-            }
+            numElements /= sizeof(unsigned short);
+            const unsigned short* p = static_cast<const unsigned short*>(buffer->data());
+            for (unsigned i = 0; i < numElements; i++)
+                maxIndex = max(maxIndex, static_cast<long>(p[i]));
             break;
         }
         default:
@@ -822,6 +828,14 @@ bool WebGLRenderingContext::validateIndexArrayPrecise(unsigned long count, unsig
     long lastIndex = -1;
 
     if (!m_boundElementArrayBuffer)
+        return false;
+
+    if (!count) {
+        numElementsRequired = 0;
+        return true;
+    }
+
+    if (!m_boundElementArrayBuffer->elementArrayBuffer())
         return false;
 
     unsigned long uoffset = static_cast<unsigned long>(offset);
@@ -968,6 +982,8 @@ void WebGLRenderingContext::drawElements(unsigned long mode, long count, unsigne
             m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
             return;
         }
+        if (!count)
+            return;
         if (!validateIndexArrayConservative(type, numElements) || !validateRenderingState(numElements)) {
             if (!validateIndexArrayPrecise(count, type, offset, numElements) || !validateRenderingState(numElements)) {
                 m_context->synthesizeGLError(GraphicsContext3D::INVALID_OPERATION);
@@ -1379,6 +1395,8 @@ WebGLGetInfo WebGLRenderingContext::getParameter(unsigned long pname, ExceptionC
         return getLongParameter(pname);
     case GraphicsContext3D::RENDERBUFFER_BINDING:
         return WebGLGetInfo(PassRefPtr<WebGLRenderbuffer>(m_renderbufferBinding));
+    case GraphicsContext3D::RENDERER:
+        return WebGLGetInfo(m_context->getString(GraphicsContext3D::RENDERER));
     case GraphicsContext3D::SAMPLE_BUFFERS:
         return getLongParameter(pname);
     case GraphicsContext3D::SAMPLE_COVERAGE_INVERT:
@@ -1391,6 +1409,8 @@ WebGLGetInfo WebGLRenderingContext::getParameter(unsigned long pname, ExceptionC
         return getWebGLIntArrayParameter(pname);
     case GraphicsContext3D::SCISSOR_TEST:
         return getBooleanParameter(pname);
+    case GraphicsContext3D::SHADING_LANGUAGE_VERSION:
+        return WebGLGetInfo("WebGL GLSL ES 1.0 (" + m_context->getString(GraphicsContext3D::SHADING_LANGUAGE_VERSION) + ")");
     case GraphicsContext3D::STENCIL_BACK_FAIL:
         return getUnsignedLongParameter(pname);
     case GraphicsContext3D::STENCIL_BACK_FUNC:
@@ -1438,6 +1458,10 @@ WebGLGetInfo WebGLRenderingContext::getParameter(unsigned long pname, ExceptionC
         return WebGLGetInfo(m_unpackFlipY);
     case GraphicsContext3D::UNPACK_PREMULTIPLY_ALPHA_WEBGL:
         return WebGLGetInfo(m_unpackPremultiplyAlpha);
+    case GraphicsContext3D::VENDOR:
+        return WebGLGetInfo("Webkit (" + m_context->getString(GraphicsContext3D::VENDOR) + ")");
+    case GraphicsContext3D::VERSION:
+        return WebGLGetInfo("WebGL 1.0 (" + m_context->getString(GraphicsContext3D::VERSION) + ")");
     case GraphicsContext3D::VIEWPORT:
         return getWebGLIntArrayParameter(pname);
     default:
@@ -1561,12 +1585,6 @@ String WebGLRenderingContext::getShaderSource(WebGLShader* shader, ExceptionCode
         return "";
     WebGLStateRestorer(this, false);
     return m_context->getShaderSource(objectOrZero(shader));
-}
-
-String WebGLRenderingContext::getString(unsigned long name)
-{
-    WebGLStateRestorer(this, false);
-    return m_context->getString(name);
 }
 
 WebGLGetInfo WebGLRenderingContext::getTexParameter(unsigned long target, unsigned long pname, ExceptionCode& ec)
@@ -1922,8 +1940,12 @@ void WebGLRenderingContext::polygonOffset(double factor, double units)
     cleanupAfterGraphicsCall(false);
 }
 
-void WebGLRenderingContext::readPixels(long x, long y, long width, long height, unsigned long format, unsigned long type, ArrayBufferView* pixels)
+void WebGLRenderingContext::readPixels(long x, long y, long width, long height, unsigned long format, unsigned long type, ArrayBufferView* pixels, ExceptionCode& ec)
 {
+    if (!canvas()->originClean()) {
+        ec = SECURITY_ERR;
+        return;
+    }
     // Validate input parameters.
     unsigned long componentsPerPixel, bytesPerComponent;
     if (!m_context->computeFormatAndTypeParameters(format, type, &componentsPerPixel, &bytesPerComponent)) {
@@ -2165,6 +2187,7 @@ void WebGLRenderingContext::texImage2D(unsigned target, unsigned level, unsigned
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
         return;
     }
+    checkOrigin(image);
     texImage2DImpl(target, level, internalformat, format, type, image->cachedImage()->image(),
                    m_unpackFlipY, m_unpackPremultiplyAlpha, ec);
 }
@@ -2177,7 +2200,7 @@ void WebGLRenderingContext::texImage2D(unsigned target, unsigned level, unsigned
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
         return;
     }
-    
+    checkOrigin(canvas);
     texImage2DImpl(target, level, internalformat, format, type, canvas->copiedImage(),
                    m_unpackFlipY, m_unpackPremultiplyAlpha, ec);
 }
@@ -2194,6 +2217,7 @@ PassRefPtr<Image> WebGLRenderingContext::videoFrameToImage(HTMLVideoElement* vid
         m_context->synthesizeGLError(GraphicsContext3D::OUT_OF_MEMORY);
         return 0;
     }
+    checkOrigin(video);
     IntRect destRect(0, 0, size.width(), size.height());
     // FIXME: Turn this into a GPU-GPU texture copy instead of CPU readback.
     video->paintCurrentFrameInContext(buf->context(), destRect);
@@ -2326,6 +2350,7 @@ void WebGLRenderingContext::texSubImage2D(unsigned target, unsigned level, unsig
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
         return;
     }
+    checkOrigin(image);
     texSubImage2DImpl(target, level, xoffset, yoffset, format, type, image->cachedImage()->image(),
                       m_unpackFlipY, m_unpackPremultiplyAlpha, ec);
 }
@@ -2338,7 +2363,7 @@ void WebGLRenderingContext::texSubImage2D(unsigned target, unsigned level, unsig
         m_context->synthesizeGLError(GraphicsContext3D::INVALID_VALUE);
         return;
     }
-    
+    checkOrigin(canvas);
     texSubImage2DImpl(target, level, xoffset, yoffset, format, type, canvas->copiedImage(),
                       m_unpackFlipY, m_unpackPremultiplyAlpha, ec);
 }
@@ -2703,7 +2728,7 @@ void WebGLRenderingContext::useProgram(WebGLProgram* program, ExceptionCode& ec)
             m_currentProgram->onDetached();
         m_currentProgram = program;
         m_context->useProgram(objectOrZero(program));
-        if (program)
+        if (program && program->object())
             program->onAttached();
     }
     cleanupAfterGraphicsCall(false);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -127,6 +127,7 @@ IntPoint Widget::convertFromContainingWindowToRoot(const Widget*, const IntPoint
 }
 #endif
 
+<<<<<<< HEAD
 #if !PLATFORM(MAC) && !PLATFORM(GTK) && !OS(ANDROID)
 void Widget::releasePlatformWidget()
 {
@@ -137,6 +138,8 @@ void Widget::retainPlatformWidget()
 }
 #endif
 
+=======
+>>>>>>> webkit.org at r68651
 IntRect Widget::convertToContainingView(const IntRect& localRect) const
 {
     if (const ScrollView* parentScrollView = parent()) {

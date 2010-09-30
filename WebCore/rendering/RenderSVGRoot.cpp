@@ -63,28 +63,28 @@ int RenderSVGRoot::baselinePosition(bool, bool) const
     return height() + marginTop() + marginBottom();
 }
 
-void RenderSVGRoot::calcPrefWidths()
+void RenderSVGRoot::computePreferredLogicalWidths()
 {
-    ASSERT(prefWidthsDirty());
+    ASSERT(preferredLogicalWidthsDirty());
 
     int borderAndPadding = borderAndPaddingWidth();
-    int width = calcReplacedWidth(false) + borderAndPadding;
+    int width = computeReplacedWidth(false) + borderAndPadding;
 
     if (style()->maxWidth().isFixed() && style()->maxWidth().value() != undefinedLength)
         width = min(width, style()->maxWidth().value() + (style()->boxSizing() == CONTENT_BOX ? borderAndPadding : 0));
 
     if (style()->width().isPercent() || (style()->width().isAuto() && style()->height().isPercent())) {
-        m_minPrefWidth = 0;
-        m_maxPrefWidth = width;
+        m_minPreferredLogicalWidth = 0;
+        m_maxPreferredLogicalWidth = width;
     } else
-        m_minPrefWidth = m_maxPrefWidth = width;
+        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = width;
 
-    setPrefWidthsDirty(false);
+    setPreferredLogicalWidthsDirty(false);
 }
 
-int RenderSVGRoot::calcReplacedWidth(bool includeMaxWidth) const
+int RenderSVGRoot::computeReplacedWidth(bool includeMaxWidth) const
 {
-    int replacedWidth = RenderBox::calcReplacedWidth(includeMaxWidth);
+    int replacedWidth = RenderBox::computeReplacedWidth(includeMaxWidth);
     if (!style()->width().isPercent())
         return replacedWidth;
 
@@ -93,9 +93,9 @@ int RenderSVGRoot::calcReplacedWidth(bool includeMaxWidth) const
     return static_cast<int>(roundf(replacedWidth * svg->currentScale()));
 }
 
-int RenderSVGRoot::calcReplacedHeight() const
+int RenderSVGRoot::computeReplacedHeight() const
 {
-    int replacedHeight = RenderBox::calcReplacedHeight();
+    int replacedHeight = RenderBox::computeReplacedHeight();
     if (!style()->height().isPercent())
         return replacedHeight;
 
@@ -112,11 +112,11 @@ void RenderSVGRoot::layout()
     view()->disableLayoutState();
 
     bool needsLayout = selfNeedsLayout();
-    LayoutRepainter repainter(*this, needsLayout && m_everHadLayout && checkForRepaintDuringLayout());
+    LayoutRepainter repainter(*this, checkForRepaintDuringLayout() && needsLayout);
 
     IntSize oldSize(width(), height());
-    calcWidth();
-    calcHeight();
+    computeLogicalWidth();
+    computeLogicalHeight();
     calcViewport();
 
     SVGSVGElement* svg = static_cast<SVGSVGElement*>(node());

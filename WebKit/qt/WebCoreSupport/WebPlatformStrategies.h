@@ -33,14 +33,16 @@
 #include <PluginStrategy.h>
 #include <VisitedLinkStrategy.h>
 
-class QWebPage;
+namespace WebCore {
+class Page;
+}
 
 class WebPlatformStrategies : public WebCore::PlatformStrategies, private WebCore::PluginStrategy, private WebCore::LocalizationStrategy, private WebCore::VisitedLinkStrategy {
 public:
-    static void initialize(QWebPage* webPage);
+    static void initialize();
 
 private:
-    WebPlatformStrategies(QWebPage* webPage);
+    WebPlatformStrategies();
 
     // WebCore::PlatformStrategies
     virtual WebCore::PluginStrategy* createPluginStrategy();
@@ -49,7 +51,7 @@ private:
 
     // WebCore::PluginStrategy
     virtual void refreshPlugins();
-    virtual void getPluginInfo(Vector<WebCore::PluginInfo>&);
+    virtual void getPluginInfo(const WebCore::Page*, Vector<WebCore::PluginInfo>&);
 
     // WebCore::LocalizationStrategy
     virtual WTF::String inputElementAltText();
@@ -95,6 +97,16 @@ private:
     virtual WTF::String contextMenuItemTagLeftToRight();
     virtual WTF::String contextMenuItemTagRightToLeft();
     virtual WTF::String contextMenuItemTagInspectElement();
+    virtual WTF::String contextMenuItemTagOpenVideoInNewWindow();
+    virtual WTF::String contextMenuItemTagOpenAudioInNewWindow();
+    virtual WTF::String contextMenuItemTagCopyVideoLinkToClipboard();
+    virtual WTF::String contextMenuItemTagCopyAudioLinkToClipboard();
+    virtual WTF::String contextMenuItemTagToggleMediaControls();
+    virtual WTF::String contextMenuItemTagToggleMediaLoop();
+    virtual WTF::String contextMenuItemTagEnterVideoFullscreen();
+    virtual WTF::String contextMenuItemTagMediaPlay();
+    virtual WTF::String contextMenuItemTagMediaPause();
+    virtual WTF::String contextMenuItemTagMediaMute();
     virtual WTF::String searchMenuNoRecentSearchesText();
     virtual WTF::String searchMenuRecentSearchesText();
     virtual WTF::String searchMenuClearRecentSearchesText();
@@ -134,8 +146,6 @@ private:
     // WebCore::VisitedLinkStrategy
     virtual bool isLinkVisited(WebCore::Page*, WebCore::LinkHash);
     virtual void addVisitedLink(WebCore::Page*, WebCore::LinkHash);
-
-    QWebPage* m_page;
 };
 
 #endif // WebPlatformStrategies_h

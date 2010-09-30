@@ -53,14 +53,18 @@ public:
 
     Length styleOrColWidth() const;
 
-    virtual void calcPrefWidths();
+    virtual void computePreferredLogicalWidths();
 
     void updateWidth(int);
 
-    int borderLeft() const;
-    int borderRight() const;
-    int borderTop() const;
-    int borderBottom() const;
+    virtual int borderLeft() const;
+    virtual int borderRight() const;
+    virtual int borderTop() const;
+    virtual int borderBottom() const;
+    virtual int borderStart() const;
+    virtual int borderEnd() const;
+    virtual int borderBefore() const;
+    virtual int borderAfter() const;
 
     int borderHalfLeft(bool outer) const;
     int borderHalfRight(bool outer) const;
@@ -86,16 +90,24 @@ public:
 
     virtual int baselinePosition(bool firstLine = false, bool isRootLineBox = false) const;
 
-    void setIntrinsicPaddingTop(int p) { m_intrinsicPaddingTop = p; }
-    void setIntrinsicPaddingBottom(int p) { m_intrinsicPaddingBottom = p; }
-    void setIntrinsicPadding(int top, int bottom) { setIntrinsicPaddingTop(top); setIntrinsicPaddingBottom(bottom); }
+    void setIntrinsicPaddingBefore(int p) { m_intrinsicPaddingBefore = p; }
+    void setIntrinsicPaddingAfter(int p) { m_intrinsicPaddingAfter = p; }
+    void setIntrinsicPadding(int before, int after) { setIntrinsicPaddingBefore(before); setIntrinsicPaddingAfter(after); }
     void clearIntrinsicPadding() { setIntrinsicPadding(0, 0); }
 
-    int intrinsicPaddingTop() const { return m_intrinsicPaddingTop; }
-    int intrinsicPaddingBottom() const { return m_intrinsicPaddingBottom; }
+    int intrinsicPaddingBefore() const { return m_intrinsicPaddingBefore; }
+    int intrinsicPaddingAfter() const { return m_intrinsicPaddingAfter; }
 
     virtual int paddingTop(bool includeIntrinsicPadding = true) const;
     virtual int paddingBottom(bool includeIntrinsicPadding = true) const;
+    virtual int paddingLeft(bool includeIntrinsicPadding = true) const;
+    virtual int paddingRight(bool includeIntrinsicPadding = true) const;
+    
+    // FIXME: For now we just assume the cell has the same block flow direction as the table.  It's likely we'll
+    // create an extra anonymous RenderBlock to handle mixing directionality anyway, in which case we can lock
+    // the block flow directionality of the cells to the table's directionality.
+    virtual int paddingBefore(bool includeIntrinsicPadding = true) const;
+    virtual int paddingAfter(bool includeIntrinsicPadding = true) const;
 
     virtual void setOverrideSize(int);
 
@@ -114,7 +126,7 @@ private:
 
     virtual bool requiresLayer() const { return isPositioned() || isTransparent() || hasOverflowClip() || hasTransform() || hasMask() || hasReflection(); }
 
-    virtual void calcWidth();
+    virtual void computeLogicalWidth();
 
     virtual void paintBoxDecorations(PaintInfo&, int tx, int ty);
     virtual void paintMask(PaintInfo&, int tx, int ty);
@@ -129,8 +141,8 @@ private:
     int m_column;
     int m_rowSpan;
     int m_columnSpan;
-    int m_intrinsicPaddingTop;
-    int m_intrinsicPaddingBottom;
+    int m_intrinsicPaddingBefore;
+    int m_intrinsicPaddingAfter;
     int m_percentageHeight;
 };
 

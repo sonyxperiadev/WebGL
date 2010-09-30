@@ -38,10 +38,14 @@
 #include "DirectoryEntry.h"
 #include "EntriesCallback.h"
 #include "Entry.h"
+#include "EntryArray.h"
 #include "EntryCallback.h"
 #include "ErrorCallback.h"
+#include "FileEntry.h"
 #include "FileError.h"
 #include "FileSystemCallbacks.h"
+#include "FileWriter.h"
+#include "FileWriterCallback.h"
 #include "MetadataCallback.h"
 #include "ScriptExecutionContext.h"
 #include "VoidCallback.h"
@@ -84,7 +88,7 @@ void DOMFileSystem::contextDestroyed()
 void DOMFileSystem::getMetadata(const Entry* entry, PassRefPtr<MetadataCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
 {
     String platformPath = m_asyncFileSystem->virtualToPlatformPath(entry->fullPath());
-    m_asyncFileSystem->readMetadata(platformPath, new MetadataCallbacks(successCallback, errorCallback));
+    m_asyncFileSystem->readMetadata(platformPath, MetadataCallbacks::create(successCallback, errorCallback));
 }
 
 static bool checkValidityForForCopyOrMove(const Entry* src, Entry* parent, const String& newName)
@@ -123,7 +127,7 @@ void DOMFileSystem::move(const Entry* src, PassRefPtr<Entry> parent, const Strin
 
     String srcPlatformPath = m_asyncFileSystem->virtualToPlatformPath(src->fullPath());
     String destPlatformPath = parent->filesystem()->asyncFileSystem()->virtualToPlatformPath(destPath);
-    m_asyncFileSystem->move(srcPlatformPath, destPlatformPath, new EntryCallbacks(successCallback, errorCallback, this, destPath, src->isDirectory()));
+    m_asyncFileSystem->move(srcPlatformPath, destPlatformPath, EntryCallbacks::create(successCallback, errorCallback, this, destPath, src->isDirectory()));
 }
 
 void DOMFileSystem::copy(const Entry* src, PassRefPtr<Entry> parent, const String& newName, PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
@@ -141,14 +145,14 @@ void DOMFileSystem::copy(const Entry* src, PassRefPtr<Entry> parent, const Strin
 
     String srcPlatformPath = m_asyncFileSystem->virtualToPlatformPath(src->fullPath());
     String destPlatformPath = parent->filesystem()->asyncFileSystem()->virtualToPlatformPath(destPath);
-    m_asyncFileSystem->copy(srcPlatformPath, destPlatformPath, new EntryCallbacks(successCallback, errorCallback, this, destPath, src->isDirectory()));
+    m_asyncFileSystem->copy(srcPlatformPath, destPlatformPath, EntryCallbacks::create(successCallback, errorCallback, this, destPath, src->isDirectory()));
 }
 
 void DOMFileSystem::remove(const Entry* entry, PassRefPtr<VoidCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
 {
     ASSERT(entry);
     String platformPath = m_asyncFileSystem->virtualToPlatformPath(entry->fullPath());
-    m_asyncFileSystem->remove(platformPath, new VoidCallbacks(successCallback, errorCallback));
+    m_asyncFileSystem->remove(platformPath, VoidCallbacks::create(successCallback, errorCallback));
 }
 
 void DOMFileSystem::getParent(const Entry* entry, PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
@@ -156,7 +160,7 @@ void DOMFileSystem::getParent(const Entry* entry, PassRefPtr<EntryCallback> succ
     ASSERT(entry);
     String path = DOMFilePath::getDirectory(entry->fullPath());
     String platformPath = m_asyncFileSystem->virtualToPlatformPath(path);
-    m_asyncFileSystem->directoryExists(platformPath, new EntryCallbacks(successCallback, errorCallback, this, path, true));
+    m_asyncFileSystem->directoryExists(platformPath, EntryCallbacks::create(successCallback, errorCallback, this, path, true));
 }
 
 void DOMFileSystem::getFile(const Entry* base, const String& path, PassRefPtr<Flags> flags, PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
@@ -172,7 +176,7 @@ void DOMFileSystem::getFile(const Entry* base, const String& path, PassRefPtr<Fl
         absolutePath = DOMFilePath::removeExtraParentReferences(DOMFilePath::append(base->fullPath(), path));
     String platformPath = m_asyncFileSystem->virtualToPlatformPath(absolutePath);
 
-    OwnPtr<EntryCallbacks> callbacks = adoptPtr(new EntryCallbacks(successCallback, errorCallback, this, absolutePath, false));
+    OwnPtr<EntryCallbacks> callbacks = EntryCallbacks::create(successCallback, errorCallback, this, absolutePath, false);
     if (flags && flags->isCreate())
         m_asyncFileSystem->createFile(platformPath, flags->isExclusive(), callbacks.release());
     else
@@ -192,18 +196,29 @@ void DOMFileSystem::getDirectory(const Entry* base, const String& path, PassRefP
         absolutePath = DOMFilePath::removeExtraParentReferences(DOMFilePath::append(base->fullPath(), path));
     String platformPath = m_asyncFileSystem->virtualToPlatformPath(absolutePath);
 
-    OwnPtr<EntryCallbacks> callbacks = adoptPtr(new EntryCallbacks(successCallback, errorCallback, this, absolutePath, true));
+    OwnPtr<EntryCallbacks> callbacks = EntryCallbacks::create(successCallback, errorCallback, this, absolutePath, true);
     if (flags && flags->isCreate())
         m_asyncFileSystem->createDirectory(platformPath, flags->isExclusive(), callbacks.release());
     else
         m_asyncFileSystem->directoryExists(platformPath, callbacks.release());
 }
 
+void DOMFileSystem::createWriter(const FileEntry* file, PassRefPtr<FileWriterCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
+{
+    ASSERT(file);
+
+    String platformPath = m_asyncFileSystem->virtualToPlatformPath(file->fullPath());
+
+    RefPtr<FileWriter> fileWriter = FileWriter::create(scriptExecutionContext());
+    OwnPtr<FileWriterCallbacks> callbacks = FileWriterCallbacks::create(fileWriter, successCallback, errorCallback);
+    m_asyncFileSystem->createWriter(fileWriter.get(), platformPath, callbacks.release());
+}
+
 void DOMFileSystem::readDirectory(const String& path, PassRefPtr<EntriesCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback)
 {
     ASSERT(DOMFilePath::isAbsolute(path));
     String platformPath = m_asyncFileSystem->virtualToPlatformPath(path);
-    m_asyncFileSystem->readDirectory(platformPath, new EntriesCallbacks(successCallback, errorCallback, this, path));
+    m_asyncFileSystem->readDirectory(platformPath, EntriesCallbacks::create(successCallback, errorCallback, this, path));
 }
 
 } // namespace

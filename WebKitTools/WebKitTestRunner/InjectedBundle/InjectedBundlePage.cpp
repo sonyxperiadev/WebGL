@@ -169,6 +169,7 @@ InjectedBundlePage::InjectedBundlePage(WKBundlePageRef page)
         didReceiveTitleForFrame,
         0,
         0,
+        0,
         didClearWindowForFrame,
         didCancelClientRedirectForFrame,
         willPerformClientRedirectForFrame,
@@ -186,7 +187,8 @@ InjectedBundlePage::InjectedBundlePage(WKBundlePageRef page)
         willSetStatusbarText,
         willRunJavaScriptAlert,
         willRunJavaScriptConfirm,
-        willRunJavaScriptPrompt
+        willRunJavaScriptPrompt,
+        0 /*mouseDidMoveOverElement*/
     };
     WKBundlePageSetUIClient(m_page, &uiClient);
 

@@ -102,19 +102,17 @@ public:
     bool containsFloats() { return m_floatingObjects && !m_floatingObjects->isEmpty(); }
     bool containsFloat(RenderObject*);
 
-    int lineWidth(int y, bool firstLine) const;
+    int availableLogicalWidthForLine(int position, bool firstLine) const;
+    int logicalRightOffsetForLine(int position, bool firstLine) const { return logicalRightOffsetForLine(position, logicalRightOffsetForContent(), firstLine); }
+    int logicalLeftOffsetForLine(int position, bool firstLine) const { return logicalLeftOffsetForLine(position, logicalLeftOffsetForContent(), firstLine); }
     
     virtual int lowestPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
     virtual int rightmostPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
     virtual int leftmostPosition(bool includeOverflowInterior = true, bool includeSelf = true) const;
-
-    int rightOffset(int y, bool firstLine) const { return rightRelOffset(y, rightOffset(), firstLine); }
-    int leftOffset(int y, bool firstLine) const { return leftRelOffset(y, leftOffset(), firstLine); }
-
+    
     virtual VisiblePosition positionForPoint(const IntPoint&);
     
     // Block flows subclass availableWidth to handle multi column layout (shrinking the width available to children when laying out.)
-    virtual int availableWidth() const; // FIXME: Should be possible to remove this. See https://bugs.webkit.org/show_bug.cgi?id=46127
     virtual int availableLogicalWidth() const;
 
     RootInlineBox* firstRootBox() const { return static_cast<RootInlineBox*>(firstLineBox()); }
@@ -196,21 +194,21 @@ protected:
     }
     void moveChildrenTo(RenderBlock* to, RenderObject* startChild, RenderObject* endChild, RenderObject* beforeChild, bool fullRemoveInsert = false);
     
-    int maxTopPosMargin() const { return m_rareData ? m_rareData->m_topPos : RenderBlockRareData::topPosDefault(this); }
-    int maxTopNegMargin() const { return m_rareData ? m_rareData->m_topNeg : RenderBlockRareData::topNegDefault(this); }
-    int maxBottomPosMargin() const { return m_rareData ? m_rareData->m_bottomPos : RenderBlockRareData::bottomPosDefault(this); }
-    int maxBottomNegMargin() const { return m_rareData ? m_rareData->m_bottomNeg : RenderBlockRareData::bottomNegDefault(this); }
+    int maxPosMarginBefore() const { return m_rareData ? m_rareData->m_beforePos : RenderBlockRareData::beforePosDefault(this); }
+    int maxNegMarginBefore() const { return m_rareData ? m_rareData->m_beforeNeg : RenderBlockRareData::beforeNegDefault(this); }
+    int maxPosMarginAfter() const { return m_rareData ? m_rareData->m_afterPos : RenderBlockRareData::afterPosDefault(this); }
+    int maxNegMarginAfter() const { return m_rareData ? m_rareData->m_afterNeg : RenderBlockRareData::afterNegDefault(this); }
     
-    void setMaxTopMargins(int pos, int neg);
-    void setMaxBottomMargins(int pos, int neg);
+    void setMaxMarginBeforeValues(int pos, int neg);
+    void setMaxMarginAfterValues(int pos, int neg);
 
     void initMaxMarginValues()
     {
         if (m_rareData) {
-            m_rareData->m_topPos = RenderBlockRareData::topPosDefault(this);
-            m_rareData->m_topNeg = RenderBlockRareData::topNegDefault(this);
-            m_rareData->m_bottomPos = RenderBlockRareData::bottomPosDefault(this);
-            m_rareData->m_bottomNeg = RenderBlockRareData::bottomNegDefault(this);
+            m_rareData->m_beforePos = RenderBlockRareData::beforePosDefault(this);
+            m_rareData->m_beforeNeg = RenderBlockRareData::beforeNegDefault(this);
+            m_rareData->m_afterPos = RenderBlockRareData::afterPosDefault(this);
+            m_rareData->m_afterNeg = RenderBlockRareData::afterNegDefault(this);
             m_rareData->m_paginationStrut = 0;
         }
     }
@@ -222,12 +220,14 @@ protected:
     virtual void paint(PaintInfo&, int tx, int ty);
     virtual void paintObject(PaintInfo&, int tx, int ty);
 
-    int rightRelOffset(int y, int fixedOffset, bool applyTextIndent = true, int* heightRemaining = 0) const;
-    int leftRelOffset(int y, int fixedOffset, bool applyTextIndent = true, int* heightRemaining = 0) const;
+    int logicalRightOffsetForContent() const;
+    int logicalLeftOffsetForContent() const;
+    int logicalRightOffsetForLine(int position, int fixedOffset, bool applyTextIndent = true, int* logicalHeightRemaining = 0) const;
+    int logicalLeftOffsetForLine(int position, int fixedOffset, bool applyTextIndent = true, int* logicalHeightRemaining = 0) const;
 
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
 
-    virtual void calcPrefWidths();
+    virtual void computePreferredLogicalWidths();
 
     virtual int firstLineBoxBaseline() const;
     virtual int lastLineBoxBaseline() const;
@@ -284,8 +284,14 @@ private:
     
     virtual bool isSelfCollapsingBlock() const;
 
-    virtual int maxTopMargin(bool positive) const { return positive ? maxTopPosMargin() : maxTopNegMargin(); }
-    virtual int maxBottomMargin(bool positive) const { return positive ? maxBottomPosMargin() : maxBottomNegMargin(); }
+    virtual int maxMarginBefore(MarginSign sign) const
+    { 
+        return (sign == PositiveMargin) ? maxPosMarginBefore() : maxNegMarginBefore();
+    }
+    virtual int maxMarginAfter(MarginSign sign) const
+    {
+        return (sign == PositiveMargin) ? maxPosMarginAfter() : maxNegMarginAfter();
+    }
 
     virtual void repaintOverhangingFloats(bool paintAllDescendants);
 
@@ -364,8 +370,8 @@ private:
     InlineIterator findNextLineBreak(InlineBidiResolver&, bool firstLine, bool& isLineEmpty, bool& previousLineBrokeCleanly, bool& hyphenated, EClear*, FloatingObject* lastFloatFromPreviousLine);
     RootInlineBox* constructLine(unsigned runCount, BidiRun* firstRun, BidiRun* lastRun, bool firstLine, bool lastLine, RenderObject* endObject);
     InlineFlowBox* createLineBoxes(RenderObject*, bool firstLine);
-    void computeHorizontalPositionsForLine(RootInlineBox*, bool firstLine, BidiRun* firstRun, BidiRun* trailingSpaceRun, bool reachedEnd, GlyphOverflowAndFallbackFontsMap&);
-    void computeVerticalPositionsForLine(RootInlineBox*, BidiRun*, GlyphOverflowAndFallbackFontsMap&);
+    void computeInlineDirectionPositionsForLine(RootInlineBox*, bool firstLine, BidiRun* firstRun, BidiRun* trailingSpaceRun, bool reachedEnd, GlyphOverflowAndFallbackFontsMap&);
+    void computeBlockDirectionPositionsForLine(RootInlineBox*, BidiRun*, GlyphOverflowAndFallbackFontsMap&);
     void deleteEllipsisLineBoxes();
     void checkLinesForTextOverflow();
     void addOverflowFromInlineChildren();
@@ -409,16 +415,14 @@ private:
     inline int leftBottom();
     inline int rightBottom();
 
-    int rightOffset() const;
-    int leftOffset() const;
     virtual bool hitTestColumns(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
     virtual bool hitTestContents(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
     bool hitTestFloats(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty);
 
     virtual bool isPointInOverflowControl(HitTestResult&, int x, int y, int tx, int ty);
 
-    void calcInlinePrefWidths();
-    void calcBlockPrefWidths();
+    void computeInlinePreferredLogicalWidths();
+    void computeBlockPreferredLogicalWidths();
 
     // Obtains the nearest enclosing block (including this block) that contributes a first-line style to our inline
     // children.
@@ -496,8 +500,8 @@ private:
     class MarginInfo {
         // Collapsing flags for whether we can collapse our margins with our children's margins.
         bool m_canCollapseWithChildren : 1;
-        bool m_canCollapseTopWithChildren : 1;
-        bool m_canCollapseBottomWithChildren : 1;
+        bool m_canCollapseMarginBeforeWithChildren : 1;
+        bool m_canCollapseMarginAfterWithChildren : 1;
 
         // Whether or not we are a quirky container, i.e., do we collapse away top and bottom
         // margins in our container.  Table cells and the body are the common examples. We
@@ -508,30 +512,30 @@ private:
         // They may or may not collapse with the top margin of the block (|m_canCollapseTopWithChildren| tells us that), but they will
         // always be collapsing with one another.  This variable can remain set to true through multiple iterations 
         // as long as we keep encountering self-collapsing blocks.
-        bool m_atTopOfBlock : 1;
+        bool m_atBeforeSideOfBlock : 1;
 
         // This flag is set when we know we're examining bottom margins and we know we're at the bottom of the block.
-        bool m_atBottomOfBlock : 1;
+        bool m_atAfterSideOfBlock : 1;
 
         // These variables are used to detect quirky margins that we need to collapse away (in table cells
         // and in the body element).
-        bool m_topQuirk : 1;
-        bool m_bottomQuirk : 1;
-        bool m_determinedTopQuirk : 1;
+        bool m_marginBeforeQuirk : 1;
+        bool m_marginAfterQuirk : 1;
+        bool m_determinedMarginBeforeQuirk : 1;
 
         // These flags track the previous maximal positive and negative margins.
         int m_posMargin;
         int m_negMargin;
 
     public:
-        MarginInfo(RenderBlock* b, int top, int bottom);
+        MarginInfo(RenderBlock* b, int beforeBorderPadding, int afterBorderPadding);
 
-        void setAtTopOfBlock(bool b) { m_atTopOfBlock = b; }
-        void setAtBottomOfBlock(bool b) { m_atBottomOfBlock = b; }
+        void setAtBeforeSideOfBlock(bool b) { m_atBeforeSideOfBlock = b; }
+        void setAtAfterSideOfBlock(bool b) { m_atAfterSideOfBlock = b; }
         void clearMargin() { m_posMargin = m_negMargin = 0; }
-        void setTopQuirk(bool b) { m_topQuirk = b; }
-        void setBottomQuirk(bool b) { m_bottomQuirk = b; }
-        void setDeterminedTopQuirk(bool b) { m_determinedTopQuirk = b; }
+        void setMarginBeforeQuirk(bool b) { m_marginBeforeQuirk = b; }
+        void setMarginAfterQuirk(bool b) { m_marginAfterQuirk = b; }
+        void setDeterminedMarginBeforeQuirk(bool b) { m_determinedMarginBeforeQuirk = b; }
         void setPosMargin(int p) { m_posMargin = p; }
         void setNegMargin(int n) { m_negMargin = n; }
         void setPosMarginIfLarger(int p) { if (p > m_posMargin) m_posMargin = p; }
@@ -539,15 +543,15 @@ private:
 
         void setMargin(int p, int n) { m_posMargin = p; m_negMargin = n; }
 
-        bool atTopOfBlock() const { return m_atTopOfBlock; }
-        bool canCollapseWithTop() const { return m_atTopOfBlock && m_canCollapseTopWithChildren; }
-        bool canCollapseWithBottom() const { return m_atBottomOfBlock && m_canCollapseBottomWithChildren; }
-        bool canCollapseTopWithChildren() const { return m_canCollapseTopWithChildren; }
-        bool canCollapseBottomWithChildren() const { return m_canCollapseBottomWithChildren; }
+        bool atBeforeSideOfBlock() const { return m_atBeforeSideOfBlock; }
+        bool canCollapseWithMarginBefore() const { return m_atBeforeSideOfBlock && m_canCollapseMarginBeforeWithChildren; }
+        bool canCollapseWithMarginAfter() const { return m_atAfterSideOfBlock && m_canCollapseMarginAfterWithChildren; }
+        bool canCollapseMarginBeforeWithChildren() const { return m_canCollapseMarginBeforeWithChildren; }
+        bool canCollapseMarginAfterWithChildren() const { return m_canCollapseMarginAfterWithChildren; }
         bool quirkContainer() const { return m_quirkContainer; }
-        bool determinedTopQuirk() const { return m_determinedTopQuirk; }
-        bool topQuirk() const { return m_topQuirk; }
-        bool bottomQuirk() const { return m_bottomQuirk; }
+        bool determinedMarginBeforeQuirk() const { return m_determinedMarginBeforeQuirk; }
+        bool marginBeforeQuirk() const { return m_marginBeforeQuirk; }
+        bool marginAfterQuirk() const { return m_marginAfterQuirk; }
         int posMargin() const { return m_posMargin; }
         int negMargin() const { return m_negMargin; }
         int margin() const { return m_posMargin - m_negMargin; }
@@ -588,25 +592,38 @@ private:
 
     // Allocated only when some of these fields have non-default values
     struct RenderBlockRareData : Noncopyable {
-        RenderBlockRareData(const RenderBlock* o) 
-            : m_topPos(topPosDefault(o))
-            , m_topNeg(topNegDefault(o))
-            , m_bottomPos(bottomPosDefault(o))
-            , m_bottomNeg(bottomNegDefault(o))
+        RenderBlockRareData(const RenderBlock* block) 
+            : m_beforePos(beforePosDefault(block))
+            , m_beforeNeg(beforeNegDefault(block))
+            , m_afterPos(afterPosDefault(block))
+            , m_afterNeg(afterNegDefault(block))
             , m_paginationStrut(0)
             , m_pageY(0)
         { 
         }
 
-        static int topPosDefault(const RenderBlock* o) { return o->marginTop() > 0 ? o->marginTop() : 0; }
-        static int topNegDefault(const RenderBlock* o) { return o->marginTop() < 0 ? -o->marginTop() : 0; }
-        static int bottomPosDefault(const RenderBlock* o) { return o->marginBottom() > 0 ? o->marginBottom() : 0; }
-        static int bottomNegDefault(const RenderBlock* o) { return o->marginBottom() < 0 ? -o->marginBottom() : 0; }
+        static int beforePosDefault(const RenderBlock* block)
+        { 
+            return std::max(block->marginBefore(), 0);
+        }
         
-        int m_topPos;
-        int m_topNeg;
-        int m_bottomPos;
-        int m_bottomNeg;
+        static int beforeNegDefault(const RenderBlock* block)
+        { 
+            return std::max(-block->marginBefore(), 0);
+        }
+        static int afterPosDefault(const RenderBlock* block)
+        {
+            return std::max(block->marginAfter(), 0);
+        }
+        static int afterNegDefault(const RenderBlock* block)
+        {
+            return std::max(-block->marginAfter(), 0);
+        }
+        
+        int m_beforePos;
+        int m_beforeNeg;
+        int m_afterPos;
+        int m_afterNeg;
         int m_paginationStrut;
         int m_pageY;
      };

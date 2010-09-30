@@ -2561,12 +2561,18 @@ HRESULT STDMETHODCALLTYPE WebView::initWithFrame(
     sharedPreferences->willAddToWebView();
     m_preferences = sharedPreferences;
 
-    InitializeLoggingChannelsIfNecessary();
+    static bool didOneTimeInitialization;
+    if (!didOneTimeInitialization) {
+        InitializeLoggingChannelsIfNecessary();
 #if ENABLE(DATABASE)
-    WebKitInitializeWebDatabasesIfNecessary();
+        WebKitInitializeWebDatabasesIfNecessary();
 #endif
-    WebKitSetApplicationCachePathIfNecessary();
-    WebPlatformStrategies::initialize();
+        WebKitSetApplicationCachePathIfNecessary();
+        WebPlatformStrategies::initialize();
+        Settings::setMinDOMTimerInterval(0.004);
+
+        didOneTimeInitialization = true;
+     }
 
 #if USE(SAFARI_THEME)
     BOOL shouldPaintNativeControls;
@@ -2589,7 +2595,6 @@ HRESULT STDMETHODCALLTYPE WebView::initWithFrame(
     pageClients.geolocationControllerClient = new WebGeolocationControllerClient(this);
 #endif
     m_page = new Page(pageClients);
-    m_page->settings()->setMinDOMTimerInterval(0.004);
 
     BSTR localStoragePath;
     if (SUCCEEDED(m_preferences->localStorageDatabasePath(&localStoragePath))) {
@@ -4772,6 +4777,11 @@ HRESULT WebView::notifyPreferencesChanged(IWebNotification* notification)
     if (FAILED(hr))
         return hr;
     settings->setMemoryInfoEnabled(enabled);
+    
+    hr = prefsPrivate->hyperlinkAuditingEnabled(&enabled);
+    if (FAILED(hr))
+        return hr;
+    settings->setHyperlinkAuditingEnabled(enabled);
 
     if (!m_closeWindowTimer)
         m_mainFrame->invalidate(); // FIXME

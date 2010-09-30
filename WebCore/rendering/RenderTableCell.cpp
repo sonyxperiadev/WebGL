@@ -50,8 +50,8 @@ RenderTableCell::RenderTableCell(Node* node)
     , m_column(-1)
     , m_rowSpan(1)
     , m_columnSpan(1)
-    , m_intrinsicPaddingTop(0)
-    , m_intrinsicPaddingBottom(0)
+    , m_intrinsicPaddingBefore(0)
+    , m_intrinsicPaddingAfter(0)
     , m_percentageHeight(0)
 {
     updateFromElement();
@@ -127,14 +127,14 @@ Length RenderTableCell::styleOrColWidth() const
     return w;
 }
 
-void RenderTableCell::calcPrefWidths()
+void RenderTableCell::computePreferredLogicalWidths()
 {
-    // The child cells rely on the grids up in the sections to do their calcPrefWidths work.  Normally the sections are set up early, as table
+    // The child cells rely on the grids up in the sections to do their computePreferredLogicalWidths work.  Normally the sections are set up early, as table
     // cells are added, but relayout can cause the cells to be freed, leaving stale pointers in the sections'
     // grids.  We must refresh those grids before the child cells try to use them.
     table()->recalcSectionsIfNeeded();
 
-    RenderBlock::calcPrefWidths();
+    RenderBlock::computePreferredLogicalWidths();
     if (node() && style()->autoWrap()) {
         // See if nowrap was set.
         Length w = styleOrColWidth();
@@ -145,11 +145,11 @@ void RenderTableCell::calcPrefWidths()
             // to make the minwidth of the cell into the fixed width.  They do this
             // even in strict mode, so do not make this a quirk.  Affected the top
             // of hiptop.com.
-            m_minPrefWidth = max(w.value(), m_minPrefWidth);
+            m_minPreferredLogicalWidth = max(w.value(), m_minPreferredLogicalWidth);
     }
 }
 
-void RenderTableCell::calcWidth()
+void RenderTableCell::computeLogicalWidth()
 {
 #ifdef ANDROID_LAYOUT
     if (view()->frameView())
@@ -173,12 +173,51 @@ void RenderTableCell::layout()
 
 int RenderTableCell::paddingTop(bool includeIntrinsicPadding) const
 {
-    return RenderBlock::paddingTop() + (includeIntrinsicPadding ? intrinsicPaddingTop() : 0);
+    int result = RenderBlock::paddingTop();
+    if (!includeIntrinsicPadding || !style()->isVerticalBlockFlow())
+        return result;
+    return result + (style()->blockFlow() == TopToBottomBlockFlow ? intrinsicPaddingBefore() : intrinsicPaddingAfter());
 }
 
 int RenderTableCell::paddingBottom(bool includeIntrinsicPadding) const
 {
-    return RenderBlock::paddingBottom() + (includeIntrinsicPadding ? intrinsicPaddingBottom() : 0);
+    int result = RenderBlock::paddingBottom();
+    if (!includeIntrinsicPadding || !style()->isVerticalBlockFlow())
+        return result;
+    return result + (style()->blockFlow() == TopToBottomBlockFlow ? intrinsicPaddingAfter() : intrinsicPaddingBefore());
+}
+
+int RenderTableCell::paddingLeft(bool includeIntrinsicPadding) const
+{
+    int result = RenderBlock::paddingLeft();
+    if (!includeIntrinsicPadding || style()->isVerticalBlockFlow())
+        return result;
+    return result + (style()->blockFlow() == LeftToRightBlockFlow ? intrinsicPaddingBefore() : intrinsicPaddingAfter());
+    
+}
+
+int RenderTableCell::paddingRight(bool includeIntrinsicPadding) const
+{   
+    int result = RenderBlock::paddingRight();
+    if (!includeIntrinsicPadding || style()->isVerticalBlockFlow())
+        return result;
+    return result + (style()->blockFlow() == LeftToRightBlockFlow ? intrinsicPaddingAfter() : intrinsicPaddingBefore());
+}
+
+int RenderTableCell::paddingBefore(bool includeIntrinsicPadding) const
+{
+    int result = RenderBlock::paddingBefore();
+    if (!includeIntrinsicPadding)
+        return result;
+    return result + intrinsicPaddingBefore();
+}
+
+int RenderTableCell::paddingAfter(bool includeIntrinsicPadding) const
+{
+    int result = RenderBlock::paddingAfter();
+    if (!includeIntrinsicPadding)
+        return result;
+    return result + intrinsicPaddingAfter();
 }
 
 void RenderTableCell::setOverrideSize(int size)
@@ -658,6 +697,28 @@ int RenderTableCell::borderTop() const
 int RenderTableCell::borderBottom() const
 {
     return table()->collapseBorders() ? borderHalfBottom(false) : RenderBlock::borderBottom();
+}
+
+// FIXME: https://bugs.webkit.org/show_bug.cgi?id=46191, make the collapsed border drawing
+// work with different block flow values instead of being hard-coded to top-to-bottom.
+int RenderTableCell::borderStart() const
+{
+    return table()->collapseBorders() ? borderHalfLeft(false) : RenderBlock::borderStart();
+}
+
+int RenderTableCell::borderEnd() const
+{
+    return table()->collapseBorders() ? borderHalfRight(false) : RenderBlock::borderEnd();
+}
+
+int RenderTableCell::borderBefore() const
+{
+    return table()->collapseBorders() ? borderHalfTop(false) : RenderBlock::borderBefore();
+}
+
+int RenderTableCell::borderAfter() const
+{
+    return table()->collapseBorders() ? borderHalfBottom(false) : RenderBlock::borderAfter();
 }
 
 int RenderTableCell::borderHalfLeft(bool outer) const

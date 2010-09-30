@@ -244,10 +244,14 @@
           '../platform/mac',
           '../platform/text/mac',
         ],
-        # enable -Wall and -Werror, just in Mac build for now
-        # FIXME: Also enable this for Linux/Windows after verifying no warnings
+        # enable -Wall and -Werror, just for Mac and Linux builds for now
+        # FIXME: Also enable this for Windows after verifying no warnings
         'chromium_code': 1,
       }],
+# FIXME: disabled for now due to failures on different gcc versions
+#     ['OS=="linux"', {
+#        'chromium_code': 1,
+#      }],
       ['OS=="win"', {
         'webcore_include_dirs': [
           '../page/win',
@@ -646,7 +650,6 @@
             '<(SHARED_INTERMEDIATE_DIR)/webkit',
             '<(RULE_INPUT_PATH)',
           ],
-          'process_outputs_as_sources': 0,
         },
         # Rule to build generated JavaScript (V8) bindings from .idl source.
         {
@@ -742,6 +745,12 @@
         # These files include all the .cpp files generated from the .idl files
         # in webcore_files.
         '<@(derived_sources_aggregate_files)',
+
+        # Additional .cpp files for HashTools.h
+        '<(SHARED_INTERMEDIATE_DIR)/webkit/DocTypeStrings.cpp',
+        '<(SHARED_INTERMEDIATE_DIR)/webkit/ColorData.cpp',
+        '<(SHARED_INTERMEDIATE_DIR)/webkit/CSSPropertyNames.cpp',
+        '<(SHARED_INTERMEDIATE_DIR)/webkit/CSSValueKeywords.cpp',
 
         # Additional .cpp files from webcore_bindings_sources actions.
         '<(SHARED_INTERMEDIATE_DIR)/webkit/HTMLElementFactory.cpp',
@@ -973,6 +982,21 @@
       ],
     },
     {
+      'target_name': 'webcore_html',
+      'type': '<(library)',
+      'dependencies': [
+        'webcore_prerequisites',
+      ],
+      'sources': [
+        '<@(webcore_files)',
+      ],
+      'sources/': [
+        # Start by excluding everything then include html files only.
+        ['exclude', '.*'],
+        ['include', 'html/'],
+      ],
+    },
+    {
       'target_name': 'webcore_svg',
       'type': '<(library)',
       'dependencies': [
@@ -1201,7 +1225,7 @@
         # Exclude things that don't apply to the Chromium platform on the basis
         # of their enclosing directories and tags at the ends of their
         # filenames.
-        ['exclude', '(android|cairo|cf|cg|curl|gtk|haiku|linux|mac|opentype|platform|posix|qt|soup|svg|symbian|win|wx)/'],
+        ['exclude', '(android|cairo|cf|cg|curl|gtk|haiku|html|linux|mac|opentype|platform|posix|qt|soup|svg|symbian|win|wx)/'],
         ['exclude', '(?<!Chromium)(Android|Cairo|CF|CG|Curl|Gtk|Linux|Mac|OpenType|POSIX|Posix|Qt|Safari|Soup|Symbian|Win|Wx)\\.(cpp|mm?)$'],
 
         # Exclude most of SVG except css and javascript bindings.
@@ -1331,6 +1355,7 @@
       'target_name': 'webcore',
       'type': 'none',
       'dependencies': [
+        'webcore_html',
         'webcore_platform',
         'webcore_remaining',
         # Exported.

@@ -43,7 +43,13 @@ namespace WebCore {
 class InjectedScriptHost;
 class InspectorController;
 class InspectorFrontend;
+class InspectorObject;
 class InspectorValue;
+
+enum DebuggerEventType {
+    DOMBreakpointDebuggerEventType,
+    NativeBreakpointDebuggerEventType
+};
 
 class InspectorDebuggerAgent : public ScriptDebugListener, public Noncopyable {
 public:
@@ -61,13 +67,14 @@ public:
     void getScriptSource(const String& sourceID, String* scriptSource);
 
     void pause();
-    void breakProgram(PassRefPtr<InspectorValue> reason);
+    void breakProgram(DebuggerEventType type, PassRefPtr<InspectorValue> data);
     void resume();
     void stepOverStatement();
     void stepIntoStatement();
     void stepOutOfFunction();
 
-    void setPauseOnExceptionsState(long pauseState);
+    void setPauseOnExceptionsState(long pauseState, long* newState);
+    long pauseOnExceptionsState();
 
     void clearForPageNavigation();
 
@@ -95,7 +102,7 @@ private:
     HashMap<String, unsigned> m_breakpointsMapping;
     bool m_breakpointsLoaded;
     static InspectorDebuggerAgent* s_debuggerAgentOnBreakpoint;
-    RefPtr<InspectorValue> m_breakProgramReason;
+    RefPtr<InspectorObject> m_breakProgramDetails;
 };
 
 } // namespace WebCore

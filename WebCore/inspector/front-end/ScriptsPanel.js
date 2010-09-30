@@ -104,7 +104,6 @@ WebInspector.ScriptsPanel = function()
     this.sidebarButtonsElement.appendChild(this.stepOutButton);
 
     this.toggleBreakpointsButton = new WebInspector.StatusBarButton(WebInspector.UIString("Deactivate all breakpoints."), "toggle-breakpoints");
-    // Breakpoints should be activated by default, so emulate a click to toggle on.
     this.toggleBreakpointsButton.toggled = true;
     this.toggleBreakpointsButton.addEventListener("click", this.toggleBreakpointsClicked.bind(this), false);
     this.sidebarButtonsElement.appendChild(this.toggleBreakpointsButton.element);
@@ -133,8 +132,13 @@ WebInspector.ScriptsPanel = function()
     this.sidebarPanes.callstack = new WebInspector.CallStackSidebarPane();
     this.sidebarPanes.scopechain = new WebInspector.ScopeChainSidebarPane();
     this.sidebarPanes.jsBreakpoints = WebInspector.createJSBreakpointsSidebarPane();
-    if (Preferences.domBreakpointsEnabled)
+    if (Preferences.nativeInstrumentationEnabled) {
         this.sidebarPanes.domBreakpoints = WebInspector.createDOMBreakpointsSidebarPane();
+        this.sidebarPanes.domBreakpoints.expanded = true;
+        this.sidebarPanes.xhrBreakpoints = WebInspector.createXHRBreakpointsSidebarPane();
+        this.sidebarPanes.xhrBreakpoints.expanded = true;
+    }
+
     this.sidebarPanes.workers = new WebInspector.WorkersSidebarPane();
 
     for (var pane in this.sidebarPanes)
@@ -145,8 +149,6 @@ WebInspector.ScriptsPanel = function()
 
     this.sidebarPanes.scopechain.expanded = true;
     this.sidebarPanes.jsBreakpoints.expanded = true;
-    if (Preferences.domBreakpointsEnabled)
-        this.sidebarPanes.domBreakpoints.expanded = true;
 
     var panelEnablerHeading = WebInspector.UIString("You need to enable debugging before you can use the Scripts panel.");
     var panelEnablerDisclaimer = WebInspector.UIString("Enabling debugging will make scripts run slower.");
@@ -387,8 +389,8 @@ WebInspector.ScriptsPanel.prototype = {
         this.sidebarPanes.callstack.update(details.callFrames, this._sourceIDMap);
         this.sidebarPanes.callstack.selectedCallFrame = details.callFrames[0];
 
-        if (details.status)
-            this.sidebarPanes.callstack.updateStatus(details.status);
+        if ("eventType" in details)
+            this.sidebarPanes.callstack.updateStatus(details.eventType, details.eventData);
 
         WebInspector.currentPanel = this;
         window.focus();
@@ -467,8 +469,10 @@ WebInspector.ScriptsPanel.prototype = {
         this.sidebarPanes.watchExpressions.refreshExpressions();
         if (!preserveItems) {
             this.sidebarPanes.jsBreakpoints.reset();
-            if (Preferences.domBreakpointsEnabled)
+            if (Preferences.nativeInstrumentationEnabled) {
                 this.sidebarPanes.domBreakpoints.reset();
+                this.sidebarPanes.xhrBreakpoints.reset();
+            }
             this.sidebarPanes.workers.reset();
         }
     },
@@ -891,7 +895,7 @@ WebInspector.ScriptsPanel.prototype = {
 
     _togglePauseOnExceptions: function()
     {
-        InspectorBackend.setPauseOnExceptionsState((this._pauseOnExceptionButton.state + 1) % this._pauseOnExceptionButton.states);
+        InspectorBackend.setPauseOnExceptionsState((this._pauseOnExceptionButton.state + 1) % this._pauseOnExceptionButton.states, this.updatePauseOnExceptionsState.bind(this));
     },
 
     _togglePause: function()
@@ -998,6 +1002,9 @@ WebInspector.ScriptsPanel.prototype = {
         this._shortcuts[shortcut2.key] = handler;
         section.addAlternateKeys([ shortcut1.name, shortcut2.name ], WebInspector.UIString("Step out"));
 
+        shortcut1 = WebInspector.KeyboardShortcut.makeDescriptor("g", platformSpecificModifier);
+        this._shortcuts[shortcut1.key] = this.showGoToLineDialog.bind(this);
+        section.addAlternateKeys([ shortcut1.name ], WebInspector.UIString("Go to Line"));
         this.sidebarPanes.callstack.registerShortcuts(section);
     },
 
@@ -1067,6 +1074,13 @@ WebInspector.ScriptsPanel.prototype = {
             this._searchView.jumpToLastSearchResult();
         else
             this._searchView.jumpToPreviousSearchResult();
+    },
+
+    showGoToLineDialog: function(e)
+    {
+         var view = this.visibleView;
+         if (view)
+             WebInspector.GoToLineDialog.show(view);
     }
 }
 
