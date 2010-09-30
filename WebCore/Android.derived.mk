@@ -38,7 +38,12 @@ endif
 	@cat $^ > $(@:%.h=%.in)
 	@cp -f $(SCRIPT) $(dir $@)
 	@cd $(dir $@) ; perl ./$(notdir $(SCRIPT))
-LOCAL_GENERATED_SOURCES += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN)  $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/css/%.cpp : $(intermediates)/css/%.h
+
 
 GEN := $(intermediates)/css/CSSValueKeywords.h
 $(GEN): SCRIPT := $(LOCAL_PATH)/css/makevalues.pl
@@ -52,7 +57,11 @@ else
 	@perl -ne 'print lc' $< > $(@:%.h=%.in)
 endif
 	@cd $(dir $@); perl makevalues.pl
-LOCAL_GENERATED_SOURCES += $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN)  $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/css/%.cpp : $(intermediates)/css/%.h
 
 
 # DOCTYPE strings

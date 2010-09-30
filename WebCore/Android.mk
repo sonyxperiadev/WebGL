@@ -282,15 +282,13 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/parser/CSSPreloadScanner.cpp \
 	html/ColorInputType.cpp \
 	html/DOMFormData.cpp \
-<<<<<<< HEAD
+	html/DOMTokenList.cpp \
 	html/DateComponents.cpp \
-=======
 	html/DateInputType.cpp \
 	html/DateTimeInputType.cpp \
 	html/DateTimeLocalInputType.cpp \
 	html/EmailInputType.cpp \
 	html/FileInputType.cpp \
->>>>>>> webkit.org at r68651
 	html/FormDataList.cpp \
 	html/HTMLAllCollection.cpp \
 	html/HTMLCollection.cpp \
@@ -309,22 +307,19 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/ImageDocument.cpp \
 	html/ImageInputType.cpp \
 	html/ImageResizerThread.cpp \
-<<<<<<< HEAD
-	html/LabelsNodeList.cpp \
-	html/StepRange.cpp \
-=======
 	html/InputType.cpp \
 	html/IsIndexInputType.cpp \
+	html/LabelsNodeList.cpp \
 	html/MediaDocument.cpp \
 	html/MonthInputType.cpp \
 	html/NumberInputType.cpp \
 	html/PasswordInputType.cpp \
->>>>>>> webkit.org at r68651
 	html/PluginDocument.cpp \
 	html/RadioInputType.cpp \
 	html/RangeInputType.cpp \
 	html/ResetInputType.cpp \
 	html/SearchInputType.cpp \
+	html/StepRange.cpp \
 	html/SubmitInputType.cpp \
 	html/TelephoneInputType.cpp \
 	html/TextDocument.cpp \

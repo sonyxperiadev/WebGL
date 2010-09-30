@@ -146,12 +146,6 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 GEN := \
     $(intermediates)/bindings/V8Blob.h \
     $(intermediates)/bindings/V8BlobBuilder.h \
-<<<<<<< HEAD
-=======
-    $(intermediates)/bindings/V8DOMTokenList.h \
-    $(intermediates)/bindings/V8DataGridColumn.h \
-    $(intermediates)/bindings/V8DataGridColumnList.h \
->>>>>>> webkit.org at r68651
     $(intermediates)/bindings/V8File.h \
     $(intermediates)/bindings/V8FileError.h \
     $(intermediates)/bindings/V8FileList.h \
@@ -170,6 +164,7 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 # HTML
 GEN := \
     $(intermediates)/bindings/V8DOMFormData.h \
+    $(intermediates)/bindings/V8DOMTokenList.h \
     $(intermediates)/bindings/V8DataGridColumn.h \
     $(intermediates)/bindings/V8DataGridColumnList.h \
     $(intermediates)/bindings/V8HTMLAllCollection.h \
