@@ -48,11 +48,8 @@ public:
     PlatformTouchPoint() {};
 #elif PLATFORM(ANDROID)
     PlatformTouchPoint(unsigned id, const IntPoint& windowPos, State);
-<<<<<<< HEAD
-=======
 #elif PLATFORM(BREWMP)
     PlatformTouchPoint(int id, const IntPoint& windowPos, State);
->>>>>>> webkit.org at r68651
 #endif
 
     unsigned id() const { return m_id; }

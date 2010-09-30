@@ -159,16 +159,13 @@ Settings::Settings(Page* page)
     , m_memoryInfoEnabled(false)
     , m_interactiveFormValidation(false)
     , m_usePreHTML5ParserQuirks(false)
-<<<<<<< HEAD
+    , m_hyperlinkAuditingEnabled(false)
 #if ENABLE(WEB_AUTOFILL)
     , m_autoFillEnabled(false)
 #endif
 #ifdef ANDROID_PLUGINS
     , m_pluginsOnDemand(false)
 #endif
-=======
-    , m_hyperlinkAuditingEnabled(false)
->>>>>>> webkit.org at r68651
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.

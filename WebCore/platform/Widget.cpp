@@ -127,19 +127,6 @@ IntPoint Widget::convertFromContainingWindowToRoot(const Widget*, const IntPoint
 }
 #endif
 
-<<<<<<< HEAD
-#if !PLATFORM(MAC) && !PLATFORM(GTK) && !OS(ANDROID)
-void Widget::releasePlatformWidget()
-{
-}
-
-void Widget::retainPlatformWidget()
-{
-}
-#endif
-
-=======
->>>>>>> webkit.org at r68651
 IntRect Widget::convertToContainingView(const IntRect& localRect) const
 {
     if (const ScrollView* parentScrollView = parent()) {

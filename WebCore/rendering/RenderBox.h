@@ -369,13 +369,11 @@ public:
 
     virtual void markDescendantBlocksAndLinesForLayout(bool inLayout = true);
     
-<<<<<<< HEAD
+    bool isBlockFlowRoot() const { return !parent() || parent()->style()->blockFlow() != style()->blockFlow(); }
+
 #ifdef ANDROID_LAYOUT
     int getVisibleWidth() const { return m_visibleWidth; }
 #endif
-=======
-    bool isBlockFlowRoot() const { return !parent() || parent()->style()->blockFlow() != style()->blockFlow(); }
->>>>>>> webkit.org at r68651
 
 protected:
     virtual void styleWillChange(StyleDifference, const RenderStyle* newStyle);

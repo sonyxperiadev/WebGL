@@ -85,8 +85,7 @@ void RenderView::computeLogicalHeight()
 void RenderView::computeLogicalWidth()
 {
     if (!printing() && m_frameView)
-<<<<<<< HEAD
-        setWidth(viewWidth());
+        setLogicalWidth(viewLogicalWidth());
 #ifdef ANDROID_LAYOUT
     setVisibleWidth(m_frameView->textWrapWidth());
     const Settings * settings = document()->settings();
@@ -94,11 +93,6 @@ void RenderView::computeLogicalWidth()
     if (settings->useWideViewport() && settings->viewportWidth() == -1 && width() < minPrefWidth())
         setWidth(m_minPrefWidth);
 #endif
-    m_marginLeft = 0;
-    m_marginRight = 0;
-=======
-        setLogicalWidth(viewLogicalWidth());
->>>>>>> webkit.org at r68651
 }
 
 void RenderView::computePreferredLogicalWidths()

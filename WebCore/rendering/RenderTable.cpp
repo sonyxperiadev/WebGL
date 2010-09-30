@@ -242,16 +242,12 @@ void RenderTable::computeLogicalWidth()
     // Finally, with our true width determined, compute our margins for real.
     m_marginRight = 0;
     m_marginLeft = 0;
-<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
     // in SSR mode, we ignore left/right margin for table
     if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR)
         return;
 #endif
-    calcHorizontalMargins(style()->marginLeft(), style()->marginRight(), availableWidth);
-=======
     computeInlineDirectionMargins(cb, availableWidth, width());
->>>>>>> webkit.org at r68651
 }
 
 void RenderTable::layout()

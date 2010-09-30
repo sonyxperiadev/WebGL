@@ -1452,7 +1452,6 @@ void RenderBox::repaintDuringLayoutIfMoved(const IntRect& rect)
     }
 }
 
-<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
 void RenderBox::setVisibleWidth(int newWidth) {
     const Settings* settings = document()->settings();
@@ -1474,10 +1473,7 @@ bool RenderBox::checkAndSetRelayoutChildren(bool* relayoutChildren) {
 }
 #endif
 
-void RenderBox::calcWidth()
-=======
 void RenderBox::computeLogicalWidth()
->>>>>>> webkit.org at r68651
 {
 #ifdef ANDROID_LAYOUT
     if (view()->frameView())
@@ -1522,15 +1518,14 @@ void RenderBox::computeLogicalWidth()
     
     if (isInline() && !isInlineBlockOrInlineTable()) {
         // just calculate margins
-<<<<<<< HEAD
-        m_marginLeft = marginLeft.calcMinValue(containerWidth);
-        m_marginRight = marginRight.calcMinValue(containerWidth);
+        setMarginStart(style()->marginStart().calcMinValue(containerLogicalWidth));
+        setMarginEnd(style()->marginEnd().calcMinValue(containerLogicalWidth));
 #ifdef ANDROID_LAYOUT
         if (treatAsReplaced) {
 #else
         if (treatAsReplaced)
 #endif
-            setWidth(max(w.value() + borderAndPaddingWidth(), minPrefWidth()));
+            setLogicalWidth(max(logicalWidthLength.value() + borderAndPaddingLogicalWidth(), minPreferredLogicalWidth()));
 
 #ifdef ANDROID_LAYOUT
             // in SSR mode with replaced box, if the box width is wider than the container width,
@@ -1543,12 +1538,6 @@ void RenderBox::computeLogicalWidth()
             }
         }
 #endif
-=======
-        setMarginStart(style()->marginStart().calcMinValue(containerLogicalWidth));
-        setMarginEnd(style()->marginEnd().calcMinValue(containerLogicalWidth));
-        if (treatAsReplaced)
-            setLogicalWidth(max(logicalWidthLength.value() + borderAndPaddingLogicalWidth(), minPreferredLogicalWidth()));
->>>>>>> webkit.org at r68651
         return;
     }
 
@@ -1582,16 +1571,13 @@ void RenderBox::computeLogicalWidth()
         logicalWidthLength = Length(logicalWidth(), Fixed);
     }
 
-<<<<<<< HEAD
-    // Margin calculations
-    if (w.isAuto()) {
-        m_marginLeft = marginLeft.calcMinValue(containerWidth);
-        m_marginRight = marginRight.calcMinValue(containerWidth);
-    } else {
-        m_marginLeft = 0;
-        m_marginRight = 0;
-        calcHorizontalMargins(marginLeft, marginRight, containerWidth);
-    }
+    // Margin calculations.
+    if (logicalWidthLength.isAuto() || hasPerpendicularContainingBlock || isFloating() || isInline()) {
+        setMarginStart(style()->marginStart().calcMinValue(containerLogicalWidth));
+        setMarginEnd(style()->marginEnd().calcMinValue(containerLogicalWidth));
+    } else
+        computeInlineDirectionMargins(cb, containerLogicalWidth, logicalWidth());
+
 #ifdef ANDROID_LAYOUT
     // in SSR mode with non-replaced box, we use ANDROID_SSR_MARGIN_PADDING for left/right margin.
     // If the box width is wider than the container width, it will be shrinked to fit to the container.
@@ -1607,14 +1593,6 @@ void RenderBox::computeLogicalWidth()
             setWidth(width() -(m_marginLeft + m_marginRight));
     }
 #endif
-=======
-    // Margin calculations.
-    if (logicalWidthLength.isAuto() || hasPerpendicularContainingBlock || isFloating() || isInline()) {
-        setMarginStart(style()->marginStart().calcMinValue(containerLogicalWidth));
-        setMarginEnd(style()->marginEnd().calcMinValue(containerLogicalWidth));
-    } else
-        computeInlineDirectionMargins(cb, containerLogicalWidth, logicalWidth());
->>>>>>> webkit.org at r68651
 
     if (!hasPerpendicularContainingBlock && containerLogicalWidth && containerLogicalWidth != (logicalWidth() + marginStart() + marginEnd())
             && !isFloating() && !isInline() && !cb->isFlexibleBox())
@@ -1784,17 +1762,13 @@ void RenderBox::computeLogicalHeight()
 
         int heightResult;
         if (checkMinMaxHeight) {
-<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
             // in SSR mode, ignore CSS height as layout is so different
             if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR)
                 heightResult = -1;
             else
 #endif
-            heightResult = calcHeightUsing(style()->height());
-=======
             heightResult = computeLogicalHeightUsing(style()->logicalHeight());
->>>>>>> webkit.org at r68651
             if (heightResult == -1)
                 heightResult = logicalHeight();
             int minH = computeLogicalHeightUsing(style()->logicalMinHeight()); // Leave as -1 if unset.

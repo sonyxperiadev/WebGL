@@ -25,15 +25,12 @@
 #include "config.h"
 #include "Node.h"
 
-<<<<<<< HEAD
 #ifdef ANDROID_DOM_LOGGING
 #define LOG_TAG "webcore"
 #include "AndroidLog.h"
 #endif
 
-=======
 #include "AXObjectCache.h"
->>>>>>> webkit.org at r68651
 #include "Attr.h"
 #include "Attribute.h"
 #include "CSSParser.h"

@@ -395,15 +395,13 @@ namespace WebCore {
         void setUsePreHTML5ParserQuirks(bool flag) { m_usePreHTML5ParserQuirks = flag; }
         bool usePreHTML5ParserQuirks() const { return m_usePreHTML5ParserQuirks; }
 
-<<<<<<< HEAD
+        void setHyperlinkAuditingEnabled(bool flag) { m_hyperlinkAuditingEnabled = flag; }
+        bool hyperlinkAuditingEnabled() const { return m_hyperlinkAuditingEnabled; }
+
 #if ENABLE(WEB_AUTOFILL)
         void setAutoFillEnabled(bool flag) { m_autoFillEnabled = flag; }
         bool autoFillEnabled() { return m_autoFillEnabled; }
 #endif
-=======
-        void setHyperlinkAuditingEnabled(bool flag) { m_hyperlinkAuditingEnabled = flag; }
-        bool hyperlinkAuditingEnabled() const { return m_hyperlinkAuditingEnabled; }
->>>>>>> webkit.org at r68651
 
     private:
         Page* m_page;
@@ -529,16 +527,13 @@ namespace WebCore {
         bool m_memoryInfoEnabled: 1;
         bool m_interactiveFormValidation: 1;
         bool m_usePreHTML5ParserQuirks: 1;
-<<<<<<< HEAD
+        bool m_hyperlinkAuditingEnabled : 1;
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif
 #if ENABLE(WEB_AUTOFILL)
         bool m_autoFillEnabled: 1;
 #endif
-=======
-        bool m_hyperlinkAuditingEnabled : 1;
->>>>>>> webkit.org at r68651
 
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;

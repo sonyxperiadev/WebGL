@@ -67,11 +67,8 @@ public:
     PlatformTouchEvent(QTouchEvent*);
 #elif PLATFORM(ANDROID)
     PlatformTouchEvent(const Vector<IntPoint>&, TouchEventType, PlatformTouchPoint::State, int metaState);
-<<<<<<< HEAD
-=======
 #elif PLATFORM(BREWMP)
     PlatformTouchEvent(AEEEvent, uint16 wParam, uint32 dwParam);
->>>>>>> webkit.org at r68651
 #endif
 
     TouchEventType type() const { return m_type; }

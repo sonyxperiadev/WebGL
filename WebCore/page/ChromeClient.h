@@ -270,13 +270,11 @@ namespace WebCore {
         virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const = 0;
         virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const = 0;
 
-<<<<<<< HEAD
+        virtual void postAccessibilityNotification(AccessibilityObject*, AXObjectCache::AXNotification) { }
+
 #if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
         virtual void webAppCanBeInstalled() = 0;
 #endif
-=======
-        virtual void postAccessibilityNotification(AccessibilityObject*, AXObjectCache::AXNotification) { }
->>>>>>> webkit.org at r68651
 
     protected:
         virtual ~ChromeClient() { }

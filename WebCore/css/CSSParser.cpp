@@ -90,16 +90,10 @@ extern int cssyyparse(void* parser);
 using namespace std;
 using namespace WTF;
 
-<<<<<<< HEAD
-#include "CSSPropertyNames.cpp"
-#include "CSSValueKeywords.cpp"
-
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
 #endif
 
-=======
->>>>>>> webkit.org at r68651
 namespace WebCore {
 
 static const unsigned INVALID_NUM_PARSED_PROPERTIES = UINT_MAX;
