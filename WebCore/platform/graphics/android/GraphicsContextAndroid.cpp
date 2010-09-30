@@ -22,7 +22,6 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 #include "config.h"
 #include "GraphicsContext.h"
 
@@ -96,7 +95,10 @@ public:
         SkColor             mFillColor;
         SkColor             mStrokeColor;
         bool                mUseAA;
-        
+        // This is a list of clipping paths which are currently active, in the
+        // order in which they were pushed.
+        WTF::Vector<SkPath> m_antiAliasClipPaths;
+
         State() {
             mPath            = NULL;    // lazily allocated
             mPathEffect = 0;
@@ -113,8 +115,20 @@ public:
             mStrokeColor     = SK_ColorBLACK;
         }
         
-        State(const State& other) {
-            memcpy(this, &other, sizeof(State));
+        State(const State& other)
+            : mPathEffect(other.mPathEffect)
+            , mMiterLimit(other.mMiterLimit)
+            , mAlpha(other.mAlpha)
+            , mStrokeThickness(other.mStrokeThickness)
+            , mLineCap(other.mLineCap)
+            , mLineJoin(other.mLineJoin)
+            , mMode(other.mMode)
+            , mDashRatio(other.mDashRatio)
+            , mShadow(other.mShadow)
+            , mFillColor(other.mFillColor)
+            , mStrokeColor(other.mStrokeColor)
+            , mUseAA(other.mUseAA)
+        {
             mPath = deepCopyPtr<SkPath>(other.mPath);
             mPathEffect->safeRef();
         }
@@ -180,14 +194,19 @@ public:
         while (mStateStack.count() > 0)
             this->restore();
     }
-    
-    void save() {
+
+    void save()
+    {
         State* newState = (State*)mStateStack.push_back();
         new (newState) State(*mState);
         mState = newState;
     }
     
-    void restore() {
+    void restore()
+    {
+        if (!mState->m_antiAliasClipPaths.isEmpty())
+            applyAntiAliasedClipPaths(mState->m_antiAliasClipPaths);
+
         mState->~State();
         mStateStack.pop_back();
         mState = (State*)mStateStack.back();
@@ -308,6 +327,46 @@ public:
         return false;
     }
 
+    void clipPathAntiAliased(const SkPath& clipPath)
+    {
+        // If we are currently tracking any anti-alias clip paths, then we already
+        // have a layer in place and don't need to add another.
+        bool haveLayerOutstanding = mState->m_antiAliasClipPaths.size();
+
+        // See comments in applyAntiAliasedClipPaths about how this works.
+        mState->m_antiAliasClipPaths.append(clipPath);
+        if (!haveLayerOutstanding) {
+            SkRect bounds = clipPath.getBounds();
+            if (mPgc && mPgc->mCanvas) {
+                mPgc->mCanvas->saveLayerAlpha(&bounds, 255,
+                  static_cast<SkCanvas::SaveFlags>(SkCanvas::kHasAlphaLayer_SaveFlag
+                    | SkCanvas::kFullColorLayer_SaveFlag
+                    | SkCanvas::kClipToLayer_SaveFlag));
+            } else
+                ASSERT(0);
+        }
+    }
+
+    void applyAntiAliasedClipPaths(WTF::Vector<SkPath>& paths)
+    {
+        // Anti-aliased clipping:
+        //
+        // Refer to PlatformContextSkia.cpp's applyAntiAliasedClipPaths() for more details
+        SkPaint paint;
+        paint.setXfermodeMode(SkXfermode::kClear_Mode);
+        paint.setAntiAlias(true);
+        paint.setStyle(SkPaint::kFill_Style);
+
+        if (mPgc && mPgc->mCanvas)  {
+            for (size_t i = paths.size() - 1; i < paths.size(); --i) {
+                paths[i].setFillType(SkPath::kInverseWinding_FillType);
+                mPgc->mCanvas->drawPath(paths[i], paint);
+            }
+            mPgc->mCanvas->restore();
+        } else
+            ASSERT(0);
+    }
+
 private:
     // not supported yet
     State& operator=(const State&);
@@ -385,10 +444,10 @@ void GraphicsContext::savePlatformState()
 
 void GraphicsContext::restorePlatformState()
 {
-    // restore our native canvas
-    GC2Canvas(this)->restore();
     // restore our private State
     m_data->restore();
+    // restore our native canvas
+    GC2Canvas(this)->restore();
 }
 
 bool GraphicsContext::willFill() const {
@@ -735,7 +794,7 @@ void GraphicsContext::clip(const Path& path)
     
 //    path.platformPath()->dump(false, "clip path");
 
-    GC2Canvas(this)->clipPath(*path.platformPath());
+    m_data->clipPathAntiAliased(*path.platformPath());
 }
 
 void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness)
@@ -750,12 +809,14 @@ void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness
 
     path.addOval(r, SkPath::kCW_Direction);
     // only perform the inset if we won't invert r
-    if (2*thickness < rect.width() && 2*thickness < rect.height())
-    {
-        r.inset(SkIntToScalar(thickness) ,SkIntToScalar(thickness));
+    if (2*thickness < rect.width() && 2*thickness < rect.height()) {
+        // Adding one to the thickness doesn't make the border too thick as
+        // it's painted over afterwards. But without this adjustment the
+        // border appears a little anemic after anti-aliasing.
+        r.inset(SkIntToScalar(thickness+1), SkIntToScalar(thickness+1));
         path.addOval(r, SkPath::kCCW_Direction);
     }
-    GC2Canvas(this)->clipPath(path);
+    m_data->clipPathAntiAliased(path);
 }
 
 void GraphicsContext::canvasClip(const Path& path)
