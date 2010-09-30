@@ -215,7 +215,7 @@ private:
     static bool NodeHasEventListeners(Node* node, AtomicString* eventTypes, int length);
     void BuildFrame(Frame* root, Frame* frame,
         CachedRoot* cachedRoot, CachedFrame* cachedFrame);
-    bool CleanUpContainedNodes(CachedFrame* cachedFrame, 
+    bool CleanUpContainedNodes(CachedRoot* cachedRoot, CachedFrame* cachedFrame, 
         const FocusTracker* last, int lastChildIndex);
     static bool ConstructTextRect(Text* textNode,
         InlineTextBox* textBox, int start, int relEnd, int x, int y, 
