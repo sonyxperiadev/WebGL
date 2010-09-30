@@ -427,10 +427,6 @@ endif  # JAVASCRIPT_ENGINE == jsc
 # will strip out any unused code from the entry point.
 include $(CLEAR_VARS)
 # if you need to make webcore huge (for debugging), enable this line
-ifeq ($(HTTP_STACK),chrome)
-# Too large for the space with chromium linked in
-LOCAL_PRELINK_MODULE := false
-endif
 #LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE := libwebcore
 LOCAL_LDLIBS := $(WEBKIT_LDLIBS)
