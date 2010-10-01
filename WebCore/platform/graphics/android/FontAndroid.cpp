@@ -58,29 +58,29 @@ static void updateForFont(SkPaint* paint, const SimpleFontData* font) {
     font->platformData().setupPaint(paint);
     paint->setTextEncoding(SkPaint::kGlyphID_TextEncoding);
 }
-    
+
 static SkPaint* setupFill(SkPaint* paint, GraphicsContext* gc,
                           const SimpleFontData* font) {
     gc->setupFillPaint(paint);
     updateForFont(paint, font);
     return paint;
 }
-    
+
 static SkPaint* setupStroke(SkPaint* paint, GraphicsContext* gc,
                             const SimpleFontData* font) {
     gc->setupStrokePaint(paint);
     updateForFont(paint, font);
     return paint;
 }
-    
+
 static bool setupForText(SkPaint* paint, GraphicsContext* gc,
                          const SimpleFontData* font) {
     int mode = gc->textDrawingMode();
-    
+
     if ((mode & (cTextFill | cTextStroke)) == (cTextFill | cTextStroke)) {
         SkLayerDrawLooper* looper = new SkLayerDrawLooper;
         paint->setLooper(looper)->unref();
-        
+
         // we clear the looper, in case we have a shadow
 
         SkPaint* fillP = NULL;
@@ -132,14 +132,14 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
     if (!setupForText(&paint, gc, font)) {
         return;
     }
-    
+
     SkScalar                    x = SkFloatToScalar(point.x());
     SkScalar                    y = SkFloatToScalar(point.y());
     const GlyphBufferGlyph*     glyphs = glyphBuffer.glyphs(from);
     const GlyphBufferAdvance*   adv = glyphBuffer.advances(from);
     SkAutoSTMalloc<32, SkPoint> storage(numGlyphs);
     SkPoint*                    pos = storage.get();
-    
+
     SkCanvas* canvas = gc->platformContext()->mCanvas;
 
     /*  We need an array of [x,y,x,y,x,y,...], but webkit is giving us
@@ -149,7 +149,7 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
     if (EmojiFont::IsAvailable()) {
         // set filtering, to make scaled images look nice(r)
         paint.setFilterBitmap(true);
-        
+
         int localIndex = 0;
         int localCount = 0;
         for (int i = 0; i < numGlyphs; i++) {
@@ -197,7 +197,7 @@ FloatRect Font::selectionRectForComplexText(const TextRun& run,
 
     width = paint.measureText(run.characters(), run.length() << 1);
     SkScalar spacing = paint.getFontMetrics(&metrics);
-    
+
     return FloatRect(point.x(),
                      point.y(),
                      roundf(SkScalarToFloat(width)),
@@ -309,6 +309,11 @@ public:
         , m_startingX(startingX)
         , m_run(getTextRun(run))
         , m_iterateBackwards(m_run.rtl())
+        , m_wordSpacingAdjustment(0)
+        , m_padding(0)
+        , m_padPerWordBreak(0)
+        , m_padError(0)
+        , m_letterSpacing(0)
     {
         // Do not use |run| inside this constructor. Use |m_run| instead.
 
@@ -348,6 +353,69 @@ public:
         delete[] m_item.log_clusters;
         if (m_item.item.bidiLevel)
             delete[] m_item.string;
+    }
+
+    // setWordSpacingAdjustment sets a delta (in pixels) which is applied at
+    // each word break in the TextRun.
+    void setWordSpacingAdjustment(int wordSpacingAdjustment)
+    {
+        m_wordSpacingAdjustment = wordSpacingAdjustment;
+    }
+
+    // setLetterSpacingAdjustment sets an additional number of pixels that is
+    // added to the advance after each output cluster. This matches the behaviour
+    // of WidthIterator::advance.
+    //
+    // (NOTE: currently does nothing because I don't know how to get the
+    // cluster information from Harfbuzz.)
+    void setLetterSpacingAdjustment(int letterSpacingAdjustment)
+    {
+        m_letterSpacing = letterSpacingAdjustment;
+    }
+
+    // setWordAndLetterSpacing calls setWordSpacingAdjustment() and
+    // setLetterSpacingAdjustment() to override m_wordSpacingAdjustment
+    // and m_letterSpacing.
+    void setWordAndLetterSpacing(int wordSpacingAdjustment,
+                                 int letterSpacingAdjustment) {
+        setWordSpacingAdjustment(wordSpacingAdjustment);
+        setLetterSpacingAdjustment(letterSpacingAdjustment);
+    }
+
+    bool isWordBreak(unsigned i, bool isRTL)
+    {
+        if (isRTL)
+            return i != m_item.stringLength - 1
+                && isCodepointSpace(m_item.string[i])
+                && !isCodepointSpace(m_item.string[i + 1]);
+
+        return i && isCodepointSpace(m_item.string[i])
+            && !isCodepointSpace(m_item.string[i - 1]);
+    }
+
+    // setPadding sets a number of pixels to be distributed across the TextRun.
+    // WebKit uses this to justify text.
+    void setPadding(int padding)
+    {
+        m_padding = padding;
+        if (!m_padding)
+            return;
+
+        // If we have padding to distribute, then we try to give an equal
+        // amount to each space. The last space gets the smaller amount, if
+        // any.
+        unsigned numWordBreaks = 0;
+        bool isRTL = m_iterateBackwards;
+
+        for (unsigned i = 0; i < m_item.stringLength; i++) {
+            if (isWordBreak(i, isRTL))
+                numWordBreaks++;
+        }
+
+        if (numWordBreaks)
+            m_padPerWordBreak = m_padding / numWordBreaks;
+        else
+            m_padPerWordBreak = 0;
     }
 
     void reset()
@@ -621,6 +689,12 @@ private:
     void setGlyphXPositions(bool isRTL)
     {
         int position = 0;
+        // logClustersIndex indexes logClusters for the first (or last when
+        // RTL) codepoint of the current glyph.  Each time we advance a glyph
+        // we skip over all the codepoints that contributed to the current
+        // glyph.
+        unsigned logClustersIndex = isRTL && m_item.num_glyphs ? m_item.num_glyphs - 1 : 0;
+
         for (unsigned iter = 0; iter < m_item.num_glyphs; ++iter) {
             // Glyphs are stored in logical order, but for layout purposes we
             // always go left to right.
@@ -631,6 +705,38 @@ private:
             m_xPositions[i] = SkIntToScalar(m_offsetX + position + offsetX);
 
             int advance = truncateFixedPointToInteger(m_item.advances[i]);
+            // The first half of the conjunction works around the case where
+            // output glyphs aren't associated with any codepoints by the
+            // clusters log.
+            if (logClustersIndex < m_item.item.length
+                && isWordBreak(m_item.item.pos + logClustersIndex, isRTL)) {
+                advance += m_wordSpacingAdjustment;
+
+                if (m_padding > 0) {
+                    int toPad = roundf(m_padPerWordBreak + m_padError);
+                    m_padError += m_padPerWordBreak - toPad;
+
+                    if (m_padding < toPad)
+                        toPad = m_padding;
+                    m_padding -= toPad;
+                    advance += toPad;
+                }
+            }
+
+            // TODO We would like to add m_letterSpacing after each cluster, but
+            // I don't know where the cluster information is. This is typically
+            // fine for Roman languages, but breaks more complex languages
+            // terribly.
+            // advance += m_letterSpacing;
+
+            if (isRTL) {
+                while (logClustersIndex > 0 && logClusters()[logClustersIndex] == i)
+                    logClustersIndex--;
+            } else {
+                while (logClustersIndex < m_item.item.length && logClusters()[logClustersIndex] == i)
+                    logClustersIndex++;
+            }
+
             position += advance;
         }
         m_pixelWidth = position;
@@ -653,6 +759,12 @@ private:
         }
     }
 
+    static bool isCodepointSpace(HB_UChar16 c)
+    {
+        // This matches the logic in RenderBlock::findNextLineBreak.
+        return c == ' ' || c == '\t';
+    }
+
     const Font* const m_font;
     HB_ShaperItem m_item;
     uint16_t* m_glyphs16; // A vector of 16-bit glyph ids.
@@ -668,6 +780,14 @@ private:
     OwnArrayPtr<UChar> m_normalizedBuffer; // A buffer for normalized run.
     const TextRun& m_run;
     bool m_iterateBackwards;
+    int m_wordSpacingAdjustment; // delta adjustment (pixels) for each word break.
+    float m_padding; // pixels to be distributed over the line at word breaks.
+    float m_padPerWordBreak; // pixels to be added to each word break.
+    float m_padError; // |m_padPerWordBreak| might have a fractional component.
+                      // Since we only add a whole number of padding pixels at
+                      // each word break we accumulate error. This is the
+                      // number of pixels that we are behind so far.
+    unsigned m_letterSpacing; // pixels to be added after each glyph.
 };
 
 
@@ -677,6 +797,7 @@ FloatRect Font::selectionRectForComplexText(const TextRun& run,
 
     int fromX = -1, toX = -1, fromAdvance = -1, toAdvance = -1;
     TextRunWalker walker(run, 0, this);
+    walker.setWordAndLetterSpacing(wordSpacing(), letterSpacing());
 
     // Base will point to the x offset for the current script run. Note that, in
     // the LTR case, width will be 0.
@@ -757,6 +878,9 @@ void Font::drawComplexText(GraphicsContext* gc, TextRun const& run,
     SkCanvas* canvas = gc->platformContext()->mCanvas;
     bool haveMultipleLayers = isCanvasMultiLayered(canvas);
     TextRunWalker walker(run, point.x(), this);
+    walker.setWordAndLetterSpacing(wordSpacing(), letterSpacing());
+    walker.setPadding(run.padding());
+
     while (walker.nextScriptRun()) {
         if (fill) {
             walker.fontPlatformDataForScriptRun()->setupPaint(&fillPaint);
@@ -777,6 +901,7 @@ float Font::floatWidthForComplexText(const TextRun& run,
             HashSet<const SimpleFontData*>*, GlyphOverflow*) const
 {
     TextRunWalker walker(run, 0, this);
+    walker.setWordAndLetterSpacing(wordSpacing(), letterSpacing());
     return walker.widthOfFullRun();
 }
 
@@ -808,6 +933,7 @@ int Font::offsetForPositionForComplexText(const TextRun& run, float x,
     // (Mac code ignores includePartialGlyphs, and they don't know what it's
     // supposed to do, so we just ignore it as well.)
     TextRunWalker walker(run, 0, this);
+    walker.setWordAndLetterSpacing(wordSpacing(), letterSpacing());
 
     // If this is RTL text, the first glyph from the left is actually the last
     // code point. So we need to know how many code points there are total in
