@@ -100,7 +100,7 @@ endif
 # The default is on. Chrome HTTP stack must be used when Autofill
 # is turned on.
 ifneq ($(ENABLE_AUTOFILL),false)
-  ENABLE_AUTOFILL = false
+  ENABLE_AUTOFILL = true
 endif
 ifneq ($(HTTP_STACK),chrome)
   ENABLE_AUTOFILL = false
@@ -427,10 +427,6 @@ endif  # JAVASCRIPT_ENGINE == jsc
 # will strip out any unused code from the entry point.
 include $(CLEAR_VARS)
 # if you need to make webcore huge (for debugging), enable this line
-ifeq ($(HTTP_STACK),chrome)
-# Too large for the space with chromium linked in
-LOCAL_PRELINK_MODULE := false
-endif
 #LOCAL_PRELINK_MODULE := false
 LOCAL_MODULE := libwebcore
 LOCAL_LDLIBS := $(WEBKIT_LDLIBS)

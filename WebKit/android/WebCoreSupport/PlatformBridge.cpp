@@ -68,7 +68,7 @@ void PlatformBridge::setCookies(const Document* document, const KURL& url, const
 #if USE(CHROME_NETWORK_STACK)
     std::string cookieValue(value.utf8().data());
     GURL cookieGurl(url.string().utf8().data());
-    WebRequestContext* androidContext;
+    URLRequestContext* androidContext;
     if (document->settings() && document->settings()->privateBrowsingEnabled())
         androidContext = WebRequestContext::GetAndroidPrivateBrowsingContext();
     else
@@ -87,7 +87,7 @@ String PlatformBridge::cookies(const Document* document, const KURL& url)
 {
 #if USE(CHROME_NETWORK_STACK)
     GURL cookieGurl(url.string().utf8().data());
-    WebRequestContext* androidContext;
+    URLRequestContext* androidContext;
     if (document->settings() && document->settings()->privateBrowsingEnabled())
         androidContext = WebRequestContext::GetAndroidPrivateBrowsingContext();
     else

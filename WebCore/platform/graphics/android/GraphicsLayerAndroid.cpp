@@ -476,6 +476,7 @@ bool GraphicsLayerAndroid::repaint()
         FloatRect clip = layer->renderer()->absoluteBoundingBoxRect();
         // Move the clip local to the layer position.
         clip.move(-m_position.x(), -m_position.y());
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
         if (layer->hasOverflowScroll()) {
             // If this is a scrollable layer, inset the clip by the border.
             RenderBox* box = layer->renderBox();
@@ -483,6 +484,7 @@ bool GraphicsLayerAndroid::repaint()
             clip.setWidth(clip.width() - box->borderLeft() - box->borderRight());
             clip.setHeight(clip.height() - box->borderTop() - box->borderBottom());
         }
+#endif
         m_contentLayer->setForegroundClip(clip);
 
         return true;
