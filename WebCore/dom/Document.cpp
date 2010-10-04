@@ -1826,6 +1826,9 @@ void Document::clearAXObjectCache()
 
 bool Document::axObjectCacheExists() const
 {
+#if PLATFORM(ANDROID)
+    return false;
+#else
     if (m_axObjectCache)
         return true;
     
@@ -1834,6 +1837,7 @@ bool Document::axObjectCacheExists() const
         return doc->axObjectCacheExists();
     
     return false;
+#endif
 }
     
 AXObjectCache* Document::axObjectCache() const
