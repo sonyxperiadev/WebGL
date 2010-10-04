@@ -78,6 +78,7 @@
 #include "StringBuilder.h"
 #include "SubstituteData.h"
 #include "UserGestureIndicator.h"
+#include "WebCache.h"
 #include "WebCoreJni.h"
 #include "WebCoreResourceLoader.h"
 #include "WebHistory.h"
@@ -1552,19 +1553,8 @@ static jboolean CacheDisabled(JNIEnv *env, jobject obj)
     return WebCore::cache()->disabled();
 }
 
-static void ClearCache(JNIEnv *env, jobject obj)
+static void ClearWebCoreCache()
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#if USE(JSC)
-    JSC::JSLock lock(false);
-    JSC::Heap::Statistics jsHeapStatistics = WebCore::JSDOMWindow::commonJSGlobalData()->heap.statistics();
-    LOGD("About to gc and JavaScript heap size is %d and has %d bytes free",
-            jsHeapStatistics.size, jsHeapStatistics.free);
-#endif  // USE(JSC)           
-    LOGD("About to clear cache and current cache has %d bytes live and %d bytes dead", 
-            cache()->getLiveSize(), cache()->getDeadSize());
-#endif  // ANDROID_INSTRUMENT
     if (!WebCore::cache()->disabled()) {
         // Disabling the cache will remove all resources from the cache.  They may
         // still live on if they are referenced by some Web page though.
@@ -1578,13 +1568,39 @@ static void ClearCache(JNIEnv *env, jobject obj)
     WebCore::pageCache()->setCapacity(0);
     WebCore::pageCache()->releaseAutoreleasedPagesNow();
     WebCore::pageCache()->setCapacity(pageCapacity);
+}
 
-#if USE(JSC)    
+static void ClearWebViewCache()
+{
+#if USE(CHROME_NETWORK_STACK)
+    WebCache::clear();
+#else
+    // The Android network stack provides a WebView cache in CacheManager.java.
+    // Clearing this is handled entirely Java-side.
+#endif
+}
+
+static void ClearCache(JNIEnv *env, jobject obj)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
+#if USE(JSC)
+    JSC::JSLock lock(false);
+    JSC::Heap::Statistics jsHeapStatistics = WebCore::JSDOMWindow::commonJSGlobalData()->heap.statistics();
+    LOGD("About to gc and JavaScript heap size is %d and has %d bytes free",
+            jsHeapStatistics.size, jsHeapStatistics.free);
+#endif  // USE(JSC)
+    LOGD("About to clear cache and current cache has %d bytes live and %d bytes dead",
+            cache()->getLiveSize(), cache()->getDeadSize());
+#endif  // ANDROID_INSTRUMENT
+    ClearWebCoreCache();
+    ClearWebViewCache();
+#if USE(JSC)
     // force JavaScript to GC when clear cache
     WebCore::gcController().garbageCollectSoon();
 #elif USE(V8)
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
-    pFrame->script()->lowMemoryNotification(); 
+    pFrame->script()->lowMemoryNotification();
 #endif  // USE(JSC)
 }
 

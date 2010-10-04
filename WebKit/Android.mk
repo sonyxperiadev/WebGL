@@ -32,6 +32,7 @@ LOCAL_SRC_FILES := \
 
 ifeq ($(HTTP_STACK),chrome)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	android/WebCoreSupport/WebCache.cpp \
 	android/WebCoreSupport/WebUrlLoader.cpp \
 	android/WebCoreSupport/WebUrlLoaderClient.cpp \
 	android/WebCoreSupport/WebRequest.cpp \
