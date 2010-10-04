@@ -1296,6 +1296,12 @@ WTF::String WebViewCore::requestLabel(WebCore::Frame* frame,
     return WTF::String();
 }
 
+static bool isContentEditable(WebCore::Node* node)
+{
+    if (!node) return false;
+    return node->document()->frame()->selection()->isContentEditable();
+}
+
 void WebViewCore::revealSelection()
 {
     WebCore::Node* focus = currentFocus();
@@ -1303,7 +1309,7 @@ void WebViewCore::revealSelection()
         return;
     WebCore::RenderObject* renderer = focus->renderer();
     if ((!renderer || (!renderer->isTextField() && !renderer->isTextArea()))
-        && !focus->isContentEditable())
+        && !isContentEditable(focus))
         return;
     WebCore::Frame* focusedFrame = focus->document()->frame();
     WebFrame* webFrame = WebFrame::getWebFrame(focusedFrame);
@@ -2564,7 +2570,7 @@ bool WebViewCore::key(const PlatformKeyboardEvent& event)
     if (focusNode) {
         WebCore::Frame* frame = focusNode->document()->frame();
         WebFrame* webFrame = WebFrame::getWebFrame(frame);
-        if (focusNode->isContentEditable() || (focusNode->renderer()
+        if (isContentEditable(focusNode) || (focusNode->renderer()
                 && (focusNode->renderer()->isTextArea()
                 // For password fields, this is done in the UI side via
                 // bringPointIntoView, since the UI does the drawing.
@@ -2575,7 +2581,7 @@ bool WebViewCore::key(const PlatformKeyboardEvent& event)
         VisibleSelection old = frame->selection()->selection();
         bool handled = eventHandler->keyEvent(event);
         webFrame->setUserInitiatedAction(false);
-        if (focusNode->isContentEditable()) {
+        if (isContentEditable(focusNode)) {
             // keyEvent will return true even if the contentEditable did not
             // change its selection.  In the case that it does not, we want to
             // return false so that the key will be sent back to our navigation
@@ -2826,7 +2832,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
         framePtr = m_mainFrame;
     if (nodePtr && valid) {
         scrollLayer(nodePtr->renderer(), &m_mousePos);
-        if (nodePtr->isContentEditable() || (nodePtr->renderer()
+        if (isContentEditable(nodePtr) || (nodePtr->renderer()
                 && (nodePtr->renderer()-> isTextArea() || nodePtr->renderer()->isTextField()))) {
             // The user clicked on a text input field.  If this causes a blur event
             // on a different text input, do not hide the keyboard in formDidBlur
@@ -2866,12 +2872,10 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
                 requestKeyboard(false);
             }
         } else {
-            // If the focusNode is contentEditable, show the keyboard and enable
-            // the focus controller so the user can type.  Otherwise hide the
-            // keyboard and disable the focus controller because no text input
-            // is needed.
-            bool keyboard = focusNode->isContentEditable();
-            if (keyboard) {
+            // If the selection is contentEditable, show the keyboard so the
+            // user can type.  Otherwise hide the keyboard because no text
+            // input is needed.
+            if (isContentEditable(focusNode)) {
                 requestKeyboard(true);
             } else {
                 clearTextEntry();
