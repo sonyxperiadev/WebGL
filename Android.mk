@@ -233,7 +233,6 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	external/chromium/chrome/browser \
 	external/chromium/chrome/renderer \
 	external/chromium \
-	external/chromium/android \
 	external/chromium/chrome \
 	external/skia
 
@@ -354,6 +353,9 @@ endif
 # We have to use the android version of libdl when we are not on the simulator
 ifneq ($(TARGET_SIMULATOR),true)
 LOCAL_SHARED_LIBRARIES += libdl libstlport
+# We have to fake out some headers when using stlport.
+LOCAL_C_INCLUDES += \
+	external/chromium/android
 include external/stlport/libstlport.mk
 endif
 
