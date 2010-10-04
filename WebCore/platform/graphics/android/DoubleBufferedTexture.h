@@ -23,16 +23,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef DoubleBufferedTexture__DEFINED
-#define DoubleBufferedTexture__DEFINED
-
-#include <utils/threads.h>
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
-#include <EGL/egl.h>
-#include <EGL/eglext.h>
+#ifndef DoubleBufferedTexture_h
+#define DoubleBufferedTexture_h
 
 #include "SharedTexture.h"
+#include <EGL/egl.h>
 
 namespace WebCore {
 
@@ -40,6 +35,7 @@ class DoubleBufferedTexture {
 public:
     // consumer thread functions
     DoubleBufferedTexture(EGLContext sharedContext);
+    virtual ~DoubleBufferedTexture() { }
 
     // provider thread functions
     TextureInfo* producerLock();
@@ -50,26 +46,27 @@ public:
     TextureInfo* consumerLock();
     void consumerRelease();
 
+protected:
+    SharedTexture m_textureA;
+    SharedTexture m_textureB;
+    SharedTexture* m_writeableTexture;
+    android::Mutex m_varLock;
+
+    SharedTexture* getReadableTexture();
+
 private:
-    SharedTexture* getFrontTexture();
-    SharedTexture* getBackTexture();
+    SharedTexture* getWriteableTexture();
 
     EGLDisplay m_display;
 
     EGLContext m_pContext;
     EGLContext m_cContext;
 
-    SharedTexture m_textureA;
-    SharedTexture m_textureB;
-    SharedTexture* m_frontTexture;
     SharedTexture* m_lockedConsumerTexture; // only used by the consumer
-
-    android::Mutex m_varLock;
 
     bool m_supportsEGLImage;
 };
 
-
 } // namespace WebCore
 
-#endif // DoubleBufferedTexture__DEFINED
+#endif // DoubleBufferedTexture_h

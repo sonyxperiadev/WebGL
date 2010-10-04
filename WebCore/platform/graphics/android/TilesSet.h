@@ -23,44 +23,54 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef BaseLayerAndroid_h
-#define BaseLayerAndroid_h
+#ifndef TilesSet_h
+#define TilesSet_h
 
-#include "GLWebViewState.h"
-#include "IntRect.h"
-#include "PictureSet.h"
-#include "SkLayer.h"
+#if USE(ACCELERATED_COMPOSITING)
+
+#include "BaseTile.h"
+#include "Vector.h"
 
 namespace WebCore {
 
-class BaseLayerAndroid : public SkLayer {
-
+class TilesSet {
 public:
-#ifdef DEBUG_COUNT
+#ifdef DEBUG
     static int count();
 #endif
-    BaseLayerAndroid();
-    virtual ~BaseLayerAndroid();
+    TilesSet(int id, float scale, int firstTileX, int firstTileY, int rows, int cols);
+    ~TilesSet();
 
-#if USE(ACCELERATED_COMPOSITING)
-    void setGLWebViewState(GLWebViewState* infos) { m_glWebViewState = infos; }
-#endif
-    void setContent(const android::PictureSet& src);
-    android::PictureSet* content() { return &m_content; }
+    int id() const { return m_id; }
+    float scale() const { return m_scale; }
+    int firstTileX() const { return m_firstTileX; }
+    int firstTileY() const { return m_firstTileY; }
+    int nbRows() const { return m_nbRows; }
+    int nbCols() const { return m_nbCols; }
+    bool operator==(const TilesSet& set);
+    void reserveTextures();
 
-    bool drawGL(IntRect& rect, SkRect& viewport,
-                float scale, SkColor color = SK_ColorWHITE);
+    void paint();
+    void setPainting(bool state) { m_painting = state; }
+
+    void add(BaseTile* texture)
+    {
+        mTiles.append(texture);
+    }
 
 private:
-#if USE(ACCELERATED_COMPOSITING)
-    bool drawBasePictureInGL(SkRect& viewport, float scale);
+    Vector<BaseTile*> mTiles;
 
-    GLWebViewState* m_glWebViewState;
-#endif
-    android::PictureSet m_content;
-    SkRect m_previousVisible;
+    int m_id;
+    float m_scale;
+    int m_firstTileX;
+    int m_firstTileY;
+    int m_nbRows;
+    int m_nbCols;
+    bool m_painting;
 };
 
 } // namespace WebCore
 
-#endif // BaseLayerAndroid_h
+#endif // USE(ACCELERATED_COMPOSITING)
+#endif // TilesSet_h

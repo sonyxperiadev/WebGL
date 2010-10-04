@@ -556,12 +556,18 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/WidthIterator.cpp \
 	\
 	platform/graphics/android/AndroidAnimation.cpp \
+	platform/graphics/android/BackedDoubleBufferedTexture.cpp \
+	platform/graphics/android/BaseLayerAndroid.cpp \
+	platform/graphics/android/BaseTile.cpp \
 	platform/graphics/android/BitmapAllocatorAndroid.cpp \
+	platform/graphics/android/DoubleBufferedTexture.cpp \
 	platform/graphics/android/FontAndroid.cpp \
 	platform/graphics/android/FontCacheAndroid.cpp \
 	platform/graphics/android/FontCustomPlatformData.cpp \
 	platform/graphics/android/FontDataAndroid.cpp \
 	platform/graphics/android/FontPlatformDataAndroid.cpp \
+	platform/graphics/android/GLUtils.cpp \
+	platform/graphics/android/GLWebViewState.cpp \
 	platform/graphics/android/GlyphMapAndroid.cpp \
 	platform/graphics/android/GradientAndroid.cpp \
 	platform/graphics/android/GraphicsContextAndroid.cpp \
@@ -574,6 +580,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/PatternAndroid.cpp \
 	platform/graphics/android/PlatformGraphicsContext.cpp \
 	platform/graphics/android/SharedBufferStream.cpp \
+	platform/graphics/android/ShaderProgram.cpp \
+	platform/graphics/android/SharedTexture.cpp \
+	platform/graphics/android/TexturesGenerator.cpp \
+	platform/graphics/android/TilesManager.cpp \
+	platform/graphics/android/TiledPage.cpp \
+	platform/graphics/android/TilesSet.cpp \
 	platform/graphics/android/android_graphics.cpp \
 
 ifeq ($(ENABLE_SVG), true)

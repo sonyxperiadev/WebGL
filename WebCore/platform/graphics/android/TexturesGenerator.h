@@ -23,44 +23,35 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef BaseLayerAndroid_h
-#define BaseLayerAndroid_h
+#ifndef TexturesGenerator_h
+#define TexturesGenerator_h
 
-#include "GLWebViewState.h"
-#include "IntRect.h"
-#include "PictureSet.h"
-#include "SkLayer.h"
+#if USE(ACCELERATED_COMPOSITING)
+
+#include "TilesSet.h"
+#include <utils/threads.h>
 
 namespace WebCore {
 
-class BaseLayerAndroid : public SkLayer {
+using namespace android;
 
+class TexturesGenerator : public Thread {
 public:
-#ifdef DEBUG_COUNT
-    static int count();
-#endif
-    BaseLayerAndroid();
-    virtual ~BaseLayerAndroid();
+    TexturesGenerator() : Thread() { }
+    virtual ~TexturesGenerator() { }
+    virtual status_t readyToRun();
 
-#if USE(ACCELERATED_COMPOSITING)
-    void setGLWebViewState(GLWebViewState* infos) { m_glWebViewState = infos; }
-#endif
-    void setContent(const android::PictureSet& src);
-    android::PictureSet* content() { return &m_content; }
-
-    bool drawGL(IntRect& rect, SkRect& viewport,
-                float scale, SkColor color = SK_ColorWHITE);
+    void schedulePaintForTilesSet(TilesSet* set);
 
 private:
-#if USE(ACCELERATED_COMPOSITING)
-    bool drawBasePictureInGL(SkRect& viewport, float scale);
-
-    GLWebViewState* m_glWebViewState;
-#endif
-    android::PictureSet m_content;
-    SkRect m_previousVisible;
+    virtual bool threadLoop();
+    Vector<TilesSet*> mRequestedPixmaps;
+    android::Mutex mRequestedPixmapsLock;
+    android::Mutex m_newRequestLock;
+    android::Condition m_newRequestCond;
 };
 
 } // namespace WebCore
 
-#endif // BaseLayerAndroid_h
+#endif // USE(ACCELERATED_COMPOSITING)
+#endif // TexturesGenerator_h
