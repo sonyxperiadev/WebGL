@@ -60,7 +60,6 @@ public:
 #if PLATFORM(QT)
     PlatformTouchEvent(QTouchEvent*);
 #elif PLATFORM(ANDROID)
-    // Change in following line is in ANDROID but waiting for patch to WebKit getting accepted.
     PlatformTouchEvent(const Vector<IntPoint>&, TouchEventType, PlatformTouchPoint::State, int metaState);
 #endif
 

@@ -30,7 +30,6 @@
 
 namespace WebCore {
 
-// Changes in following two lines are in ANDROID but waiting for patch to WebKit getting accepted.
 PlatformTouchPoint::PlatformTouchPoint(unsigned id, const IntPoint& windowPos, State state)
     : m_id(id)
     , m_state(state)
