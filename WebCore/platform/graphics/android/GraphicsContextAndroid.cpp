@@ -48,7 +48,7 @@
 
 using namespace std;
 
-#define GC2Canvas(ctx)  (ctx)->m_data->mPgc->mCanvas
+#define GC2CANVAS(ctx)  (ctx)->m_data->getPlatformGfxCtx()->mCanvas
 
 namespace WebCore {
 
@@ -57,105 +57,106 @@ static int RoundToInt(float x)
     return (int)roundf(x);
 }
 
-template <typename T> T* deepCopyPtr(const T* src) {
-    return src ? new T(*src) : NULL;
+template <typename T> T* deepCopyPtr(const T* src)
+{
+    return src ? new T(*src) : 0;
 }
 
-/*  TODO / questions
+// TODO / questions
 
-    mAlpha: how does this interact with the alpha in Color? multiply them together?
-    mMode: do I always respect this? If so, then
-                     the rgb() & 0xFF000000 check will abort drawing too often
-    Is Color premultiplied or not? If it is, then I can't blindly pass it to paint.setColor()
-*/
+// alpha: how does this interact with the alpha in Color? multiply them together?
+// mode: do I always respect this? If so, then
+// the rgb() & 0xFF000000 check will abort drawing too often
+// Is Color premultiplied or not? If it is, then I can't blindly pass it to paint.setColor()
 
 struct ShadowRec {
-    SkScalar    mBlur;  // >0 means valid shadow
-    SkScalar    mDx;
-    SkScalar    mDy;
-    SkColor     mColor;
+    SkScalar blur; // >0 means valid shadow
+    SkScalar dx;
+    SkScalar dy;
+    SkColor color;
 };
 
 class GraphicsContextPlatformPrivate {
 public:
-    GraphicsContext*             mCG;        // back-ptr to our parent
-    PlatformGraphicsContext*     mPgc;
-
     struct State {
-        SkPath*             mPath;
-        SkPathEffect* mPathEffect;
-        float               mMiterLimit;
-        float               mAlpha;
-        float               mStrokeThickness;
-        SkPaint::Cap        mLineCap;
-        SkPaint::Join       mLineJoin;
-        SkXfermode::Mode    mMode;
-        int                 mDashRatio; //ratio of the length of a dash to its width
-        ShadowRec           mShadow;
-        SkColor             mFillColor;
-        SkColor             mStrokeColor;
-        bool                mUseAA;
+        SkPath* path;
+        SkPathEffect* pathEffect;
+        float miterLimit;
+        float alpha;
+        float strokeThickness;
+        SkPaint::Cap lineCap;
+        SkPaint::Join lineJoin;
+        SkXfermode::Mode mode;
+        int dashRatio; // Ratio of the length of a dash to its width
+        ShadowRec shadow;
+        SkColor fillColor;
+        SkColor strokeColor;
+        bool useAA;
         // This is a list of clipping paths which are currently active, in the
         // order in which they were pushed.
-        WTF::Vector<SkPath> m_antiAliasClipPaths;
+        WTF::Vector<SkPath> antiAliasClipPaths;
 
-        State() {
-            mPath            = NULL;    // lazily allocated
-            mPathEffect = 0;
-            mMiterLimit      = 4;
-            mAlpha           = 1;
-            mStrokeThickness = 0.0f;  // Same as default in GraphicsContextPrivate.h
-            mLineCap         = SkPaint::kDefault_Cap;
-            mLineJoin        = SkPaint::kDefault_Join;
-            mMode            = SkXfermode::kSrcOver_Mode;
-            mDashRatio       = 3;
-            mUseAA           = true;
-            mShadow.mBlur    = 0;
-            mFillColor       = SK_ColorBLACK;
-            mStrokeColor     = SK_ColorBLACK;
-        }
-        
-        State(const State& other)
-            : mPathEffect(other.mPathEffect)
-            , mMiterLimit(other.mMiterLimit)
-            , mAlpha(other.mAlpha)
-            , mStrokeThickness(other.mStrokeThickness)
-            , mLineCap(other.mLineCap)
-            , mLineJoin(other.mLineJoin)
-            , mMode(other.mMode)
-            , mDashRatio(other.mDashRatio)
-            , mShadow(other.mShadow)
-            , mFillColor(other.mFillColor)
-            , mStrokeColor(other.mStrokeColor)
-            , mUseAA(other.mUseAA)
+        State()
+            : path(0) // Lazily allocated
+            , pathEffect(0)
+            , miterLimit(4)
+            , alpha(1)
+            , strokeThickness(0) // Same as default in GraphicsContextPrivate.h
+            , lineCap(SkPaint::kDefault_Cap)
+            , lineJoin(SkPaint::kDefault_Join)
+            , mode(SkXfermode::kSrcOver_Mode)
+            , dashRatio(3)
+            , fillColor(SK_ColorBLACK)
+            , strokeColor(SK_ColorBLACK)
+            , useAA(true)
         {
-            mPath = deepCopyPtr<SkPath>(other.mPath);
-            mPathEffect->safeRef();
+            shadow.blur = 0;
         }
-        
-        ~State() {
-            delete mPath;
-            mPathEffect->safeUnref();
+
+        State(const State& other)
+            : pathEffect(other.pathEffect)
+            , miterLimit(other.miterLimit)
+            , alpha(other.alpha)
+            , strokeThickness(other.strokeThickness)
+            , lineCap(other.lineCap)
+            , lineJoin(other.lineJoin)
+            , mode(other.mode)
+            , dashRatio(other.dashRatio)
+            , shadow(other.shadow)
+            , fillColor(other.fillColor)
+            , strokeColor(other.strokeColor)
+            , useAA(other.useAA)
+        {
+            path = deepCopyPtr<SkPath>(other.path);
+            pathEffect->safeRef();
         }
-        
-        void setShadow(int radius, int dx, int dy, SkColor c) {
-            // cut the radius in half, to visually match the effect seen in
+
+        ~State()
+        {
+            delete path;
+            pathEffect->safeUnref();
+        }
+
+        void setShadow(int radius, int dx, int dy, SkColor c)
+        {
+            // Cut the radius in half, to visually match the effect seen in
             // safari browser
-            mShadow.mBlur = SkScalarHalf(SkIntToScalar(radius));
-            mShadow.mDx = SkIntToScalar(dx);
-            mShadow.mDy = SkIntToScalar(dy);
-            mShadow.mColor = c;
+            shadow.blur = SkScalarHalf(SkIntToScalar(radius));
+            shadow.dx = SkIntToScalar(dx);
+            shadow.dy = SkIntToScalar(dy);
+            shadow.color = c;
         }
-        
-        bool setupShadowPaint(SkPaint* paint, SkPoint* offset) {
-            if (mShadow.mBlur > 0) {
+
+        bool setupShadowPaint(SkPaint* paint, SkPoint* offset)
+        {
+            if (shadow.blur > 0) {
                 paint->setAntiAlias(true);
                 paint->setDither(true);
-                paint->setXfermodeMode(mMode);
-                paint->setColor(mShadow.mColor);
-                paint->setMaskFilter(SkBlurMaskFilter::Create(mShadow.mBlur,
-                                SkBlurMaskFilter::kNormal_BlurStyle))->unref();
-                offset->set(mShadow.mDx, mShadow.mDy);
+                paint->setXfermodeMode(mode);
+                paint->setColor(shadow.color);
+                paint->setMaskFilter(SkBlurMaskFilter::Create(shadow.blur,
+                                     SkBlurMaskFilter::kNormal_BlurStyle))->unref();
+                offset->set(shadow.dx, shadow.dy);
                 return true;
             }
             return false;
@@ -163,165 +164,164 @@ public:
 
         SkColor applyAlpha(SkColor c) const
         {
-            int s = RoundToInt(mAlpha * 256);
+            int s = RoundToInt(alpha * 256);
             if (s >= 256)
-                return c;           
+                return c;
             if (s < 0)
                 return 0;
-            
+
             int a = SkAlphaMul(SkColorGetA(c), s);
             return (c & 0x00FFFFFF) | (a << 24);
         }
     };
-    
-    SkDeque mStateStack;
-    State*  mState;
-    
-    GraphicsContextPlatformPrivate(GraphicsContext* cg, PlatformGraphicsContext* pgc)
-            : mCG(cg)
-            , mPgc(pgc), mStateStack(sizeof(State)) {
-        State* state = (State*)mStateStack.push_back();
-        new (state) State();
-        mState = state;
-    }
-    
-    ~GraphicsContextPlatformPrivate() {
-        if (mPgc && mPgc->deleteUs())
-            delete mPgc;
 
-        // we force restores so we don't leak any subobjects owned by our
+    GraphicsContextPlatformPrivate(GraphicsContext* gfxCtx, PlatformGraphicsContext* platformGfxCtx)
+        : m_parentGfxCtx(gfxCtx)
+        , m_platformGfxCtx(platformGfxCtx)
+        , m_stateStack(sizeof(State))
+    {
+        State* state = static_cast<State*>(m_stateStack.push_back());
+        new (state) State();
+        m_state = state;
+    }
+
+    ~GraphicsContextPlatformPrivate()
+    {
+        if (m_platformGfxCtx && m_platformGfxCtx->deleteUs())
+            delete m_platformGfxCtx;
+
+        // We force restores so we don't leak any subobjects owned by our
         // stack of State records.
-        while (mStateStack.count() > 0)
+        while (m_stateStack.count() > 0)
             this->restore();
     }
 
     void save()
     {
-        State* newState = (State*)mStateStack.push_back();
-        new (newState) State(*mState);
-        mState = newState;
+        State* newState = static_cast<State*>(m_stateStack.push_back());
+        new (newState) State(*m_state);
+        m_state = newState;
     }
-    
+
     void restore()
     {
-        if (!mState->m_antiAliasClipPaths.isEmpty())
-            applyAntiAliasedClipPaths(mState->m_antiAliasClipPaths);
+        if (!m_state->antiAliasClipPaths.isEmpty())
+            applyAntiAliasedClipPaths(m_state->antiAliasClipPaths);
 
-        mState->~State();
-        mStateStack.pop_back();
-        mState = (State*)mStateStack.back();
-    }
-    
-    void setFillColor(const Color& c) {
-        mState->mFillColor = c.rgb();
+        m_state->~State();
+        m_stateStack.pop_back();
+        m_state = static_cast<State*>(m_stateStack.back());
     }
 
-    void setStrokeColor(const Color& c) {
-        mState->mStrokeColor = c.rgb();
+    void setFillColor(const Color& c)
+    {
+        m_state->fillColor = c.rgb();
     }
-    
-    void setStrokeThickness(float f) {
-        mState->mStrokeThickness = f;
+
+    void setStrokeColor(const Color& c)
+    {
+        m_state->strokeColor = c.rgb();
     }
-    
-    void beginPath() {
-        if (mState->mPath) {
-            mState->mPath->reset();
-        }
+
+    void setStrokeThickness(float f)
+    {
+        m_state->strokeThickness = f;
     }
-    
-    void addPath(const SkPath& other) {
-        if (!mState->mPath) {
-            mState->mPath = new SkPath(other);
-        } else {
-            mState->mPath->addPath(other);
-        }
+
+    void beginPath()
+    {
+        if (m_state->path)
+            m_state->path->reset();
     }
-    
-    // may return null
-    SkPath* getPath() const { return mState->mPath; }
-    
-    void setup_paint_common(SkPaint* paint) const {
-        paint->setAntiAlias(mState->mUseAA);
+
+    void addPath(const SkPath& other)
+    {
+        if (!m_state->path)
+            m_state->path = new SkPath(other);
+        else
+            m_state->path->addPath(other);
+    }
+
+    // May return null
+    SkPath* getPath() const
+    {
+        return m_state->path;
+    }
+
+    void setupPaintCommon(SkPaint* paint) const
+    {
+        paint->setAntiAlias(m_state->useAA);
         paint->setDither(true);
-        paint->setXfermodeMode(mState->mMode);
-        if (mState->mShadow.mBlur > 0) {
-            SkDrawLooper* looper = new SkBlurDrawLooper(mState->mShadow.mBlur,
-                                                        mState->mShadow.mDx,
-                                                        mState->mShadow.mDy,
-                                                        mState->mShadow.mColor);
+        paint->setXfermodeMode(m_state->mode);
+        if (m_state->shadow.blur > 0) {
+            SkDrawLooper* looper = new SkBlurDrawLooper(m_state->shadow.blur,
+                                                        m_state->shadow.dx,
+                                                        m_state->shadow.dy,
+                                                        m_state->shadow.color);
             paint->setLooper(looper)->unref();
         }
-        
-        /* need to sniff textDrawingMode(), which returns the bit_OR of...
-             const int cTextInvisible = 0;
-             const int cTextFill = 1;
-             const int cTextStroke = 2;
-             const int cTextClip = 4;
-         */         
     }
 
-    void setup_paint_fill(SkPaint* paint) const {
-        this->setup_paint_common(paint);
-        paint->setColor(mState->applyAlpha(mState->mFillColor));
+    void setupPaintFill(SkPaint* paint) const
+    {
+        this->setupPaintCommon(paint);
+        paint->setColor(m_state->applyAlpha(m_state->fillColor));
     }
 
-    void setup_paint_bitmap(SkPaint* paint) const {
-        this->setup_paint_common(paint);
-        // we only want the global alpha for bitmaps,
+    void setupPaintBitmap(SkPaint* paint) const
+    {
+        this->setupPaintCommon(paint);
+        // We only want the global alpha for bitmaps,
         // so just give applyAlpha opaque black
-        paint->setColor(mState->applyAlpha(0xFF000000));
+        paint->setColor(m_state->applyAlpha(0xFF000000));
     }
 
-    /*  sets up the paint for stroking. Returns true if the style is really
-        just a dash of squares (the size of the paint's stroke-width.
-    */
-    bool setup_paint_stroke(SkPaint* paint, SkRect* rect) {
-        this->setup_paint_common(paint);
-        paint->setColor(mState->applyAlpha(mState->mStrokeColor));
-                         
-        float width = mState->mStrokeThickness;
+    // Sets up the paint for stroking. Returns true if the style is really
+    // just a dash of squares (the size of the paint's stroke-width.
+    bool setupPaintStroke(SkPaint* paint, SkRect* rect)
+    {
+        this->setupPaintCommon(paint);
+        paint->setColor(m_state->applyAlpha(m_state->strokeColor));
 
-        // this allows dashing and dotting to work properly for hairline strokes
+        float width = m_state->strokeThickness;
+
+        // This allows dashing and dotting to work properly for hairline strokes
         // FIXME: Should we only do this for dashed and dotted strokes?
-        if (0 == width) {
+        if (!width)
             width = 1;
-        }
 
-//        paint->setColor(mState->applyAlpha(mCG->strokeColor().rgb()));
         paint->setStyle(SkPaint::kStroke_Style);
         paint->setStrokeWidth(SkFloatToScalar(width));
-        paint->setStrokeCap(mState->mLineCap);
-        paint->setStrokeJoin(mState->mLineJoin);
-        paint->setStrokeMiter(SkFloatToScalar(mState->mMiterLimit));
+        paint->setStrokeCap(m_state->lineCap);
+        paint->setStrokeJoin(m_state->lineJoin);
+        paint->setStrokeMiter(SkFloatToScalar(m_state->miterLimit));
 
-        if (rect != NULL && (RoundToInt(width) & 1)) {
+        if (rect && (RoundToInt(width) & 1))
             rect->inset(-SK_ScalarHalf, -SK_ScalarHalf);
-        }
 
-        SkPathEffect* pe = mState->mPathEffect;
+        SkPathEffect* pe = m_state->pathEffect;
         if (pe) {
             paint->setPathEffect(pe);
             return false;
         }
-        switch (mCG->strokeStyle()) {
-            case NoStroke:
-            case SolidStroke:
-                width = 0;
-                break;
-            case DashedStroke:
-                width = mState->mDashRatio * width;
-                break;
-                /* no break */
-            case DottedStroke:
-                break;
+        switch (m_parentGfxCtx->strokeStyle()) {
+        case NoStroke:
+        case SolidStroke:
+            width = 0;
+            break;
+        case DashedStroke:
+            width = m_state->dashRatio * width;
+            break;
+            // No break
+        case DottedStroke:
+            break;
         }
 
         if (width > 0) {
             SkScalar intervals[] = { width, width };
             pe = new SkDashPathEffect(intervals, 2, 0);
             paint->setPathEffect(pe)->unref();
-            // return true if we're basically a dotted dash of squares
+            // Return true if we're basically a dotted dash of squares
             return RoundToInt(width) == RoundToInt(paint->getStrokeWidth());
         }
         return false;
@@ -331,18 +331,18 @@ public:
     {
         // If we are currently tracking any anti-alias clip paths, then we already
         // have a layer in place and don't need to add another.
-        bool haveLayerOutstanding = mState->m_antiAliasClipPaths.size();
+        bool haveLayerOutstanding = m_state->antiAliasClipPaths.size();
 
         // See comments in applyAntiAliasedClipPaths about how this works.
-        mState->m_antiAliasClipPaths.append(clipPath);
+        m_state->antiAliasClipPaths.append(clipPath);
         if (!haveLayerOutstanding) {
             SkRect bounds = clipPath.getBounds();
-            if (mPgc && mPgc->mCanvas) {
-                mPgc->mCanvas->saveLayerAlpha(&bounds, 255,
-                  static_cast<SkCanvas::SaveFlags>(SkCanvas::kHasAlphaLayer_SaveFlag
-                    | SkCanvas::kFullColorLayer_SaveFlag
-                    | SkCanvas::kClipToLayer_SaveFlag));
-            } else
+            if (m_platformGfxCtx && m_platformGfxCtx->mCanvas)
+                m_platformGfxCtx->mCanvas->saveLayerAlpha(&bounds, 255,
+                    static_cast<SkCanvas::SaveFlags>(SkCanvas::kHasAlphaLayer_SaveFlag
+                        | SkCanvas::kFullColorLayer_SaveFlag
+                        | SkCanvas::kClipToLayer_SaveFlag));
+            else
                 ASSERT(0);
         }
     }
@@ -357,34 +357,48 @@ public:
         paint.setAntiAlias(true);
         paint.setStyle(SkPaint::kFill_Style);
 
-        if (mPgc && mPgc->mCanvas)  {
+        if (m_platformGfxCtx && m_platformGfxCtx->mCanvas)  {
             for (size_t i = paths.size() - 1; i < paths.size(); --i) {
                 paths[i].setFillType(SkPath::kInverseWinding_FillType);
-                mPgc->mCanvas->drawPath(paths[i], paint);
+                m_platformGfxCtx->mCanvas->drawPath(paths[i], paint);
             }
-            mPgc->mCanvas->restore();
+            m_platformGfxCtx->mCanvas->restore();
         } else
             ASSERT(0);
     }
 
+    PlatformGraphicsContext* getPlatformGfxCtx()
+    {
+        return m_platformGfxCtx;
+    }
+
+    State* getState()
+    {
+        return m_state;
+    }
 private:
-    // not supported yet
+    State* m_state;
+    GraphicsContext* m_parentGfxCtx; // Back-ptr to our parent
+    PlatformGraphicsContext* m_platformGfxCtx;
+    SkDeque m_stateStack;
+    // Not supported yet
     State& operator=(const State&);
 };
 
-static SkShader::TileMode SpreadMethod2TileMode(GradientSpreadMethod sm) {
+static SkShader::TileMode SpreadMethod2TileMode(GradientSpreadMethod sm)
+{
     SkShader::TileMode mode = SkShader::kClamp_TileMode;
-    
+
     switch (sm) {
-        case SpreadMethodPad:
-            mode = SkShader::kClamp_TileMode;
-            break;
-        case SpreadMethodReflect:
-            mode = SkShader::kMirror_TileMode;
-            break;
-        case SpreadMethodRepeat:
-            mode = SkShader::kRepeat_TileMode;
-            break;
+    case SpreadMethodPad:
+        mode = SkShader::kClamp_TileMode;
+        break;
+    case SpreadMethodReflect:
+        mode = SkShader::kMirror_TileMode;
+        break;
+    case SpreadMethodRepeat:
+        mode = SkShader::kRepeat_TileMode;
+        break;
     }
     return mode;
 }
@@ -400,32 +414,31 @@ static void extactShader(SkPaint* paint, Pattern* pat, Gradient* grad)
         paint->setShader(grad->getShader(SpreadMethod2TileMode(sm)));
     }
 }
-    
+
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 GraphicsContext* GraphicsContext::createOffscreenContext(int width, int height)
 {
     PlatformGraphicsContext* pgc = new PlatformGraphicsContext();
-    
-    SkBitmap    bitmap;
-    
+
+    SkBitmap bitmap;
+
     bitmap.setConfig(SkBitmap::kARGB_8888_Config, width, height);
     bitmap.allocPixels();
     bitmap.eraseColor(0);
     pgc->mCanvas->setBitmapDevice(bitmap);
-    
+
     GraphicsContext* ctx = new GraphicsContext(pgc);
-//printf("-------- create offscreen <canvas> %p\n", ctx);
     return ctx;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
-GraphicsContext::GraphicsContext(PlatformGraphicsContext *gc)
+GraphicsContext::GraphicsContext(PlatformGraphicsContext* gc)
     : m_common(createGraphicsContextPrivate())
     , m_data(new GraphicsContextPlatformPrivate(this, gc))
 {
-    setPaintingDisabled(NULL == gc || NULL == gc->mCanvas);
+    setPaintingDisabled(!gc || !gc->mCanvas);
 }
 
 GraphicsContext::~GraphicsContext()
@@ -436,32 +449,35 @@ GraphicsContext::~GraphicsContext()
 
 void GraphicsContext::savePlatformState()
 {
-    // save our private State
+    // Save our private State
     m_data->save();
-    // save our native canvas
-    GC2Canvas(this)->save();
+    // Save our native canvas
+    GC2CANVAS(this)->save();
 }
 
 void GraphicsContext::restorePlatformState()
 {
-    // restore our private State
+    // Restore our private State
     m_data->restore();
-    // restore our native canvas
-    GC2Canvas(this)->restore();
+    // Restore our native canvas
+    GC2CANVAS(this)->restore();
 }
 
-bool GraphicsContext::willFill() const {
-    return m_data->mState->mFillColor != 0;
+bool GraphicsContext::willFill() const
+{
+    return m_data->getState()->fillColor;
 }
 
-bool GraphicsContext::willStroke() const {
-    return m_data->mState->mStrokeColor != 0;
+bool GraphicsContext::willStroke() const
+{
+    return m_data->getState()->strokeColor;
 }
-    
-const SkPath* GraphicsContext::getCurrPath() const {
-    return m_data->mState->mPath;
+
+const SkPath* GraphicsContext::getCurrPath() const
+{
+    return m_data->getState()->path;
 }
-    
+
 // Draws a filled rectangle with a stroked border.
 void GraphicsContext::drawRect(const IntRect& rect)
 {
@@ -469,23 +485,22 @@ void GraphicsContext::drawRect(const IntRect& rect)
         return;
 
     SkPaint paint;
-    SkRect  r(rect);
+    SkRect r(rect);
 
     if (fillColor().alpha()) {
-        m_data->setup_paint_fill(&paint);
-        GC2Canvas(this)->drawRect(r, paint);
+        m_data->setupPaintFill(&paint);
+        GC2CANVAS(this)->drawRect(r, paint);
     }
 
-    /*  According to GraphicsContext.h, stroking inside drawRect always means
-        a stroke of 1 inside the rect.
-     */
+    // According to GraphicsContext.h, stroking inside drawRect always means
+    // a stroke of 1 inside the rect.
     if (strokeStyle() != NoStroke && strokeColor().alpha()) {
         paint.reset();
-        m_data->setup_paint_stroke(&paint, &r);
-        paint.setPathEffect(NULL);              // no dashing please
-        paint.setStrokeWidth(SK_Scalar1);       // always just 1.0 width
-        r.inset(SK_ScalarHalf, SK_ScalarHalf);  // ensure we're "inside"
-        GC2Canvas(this)->drawRect(r, paint);
+        m_data->setupPaintStroke(&paint, &r);
+        paint.setPathEffect(0); // No dashing please
+        paint.setStrokeWidth(SK_Scalar1); // Always just 1.0 width
+        r.inset(SK_ScalarHalf, SK_ScalarHalf); // Ensure we're "inside"
+        GC2CANVAS(this)->drawRect(r, paint);
     }
 }
 
@@ -500,12 +515,12 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
         return;
 
     SkPaint paint;
-    SkCanvas* canvas = GC2Canvas(this);
+    SkCanvas* canvas = GC2CANVAS(this);
     const int idx = SkAbs32(point2.x() - point1.x());
     const int idy = SkAbs32(point2.y() - point1.y());
 
-    // special-case horizontal and vertical lines that are really just dots
-    if (m_data->setup_paint_stroke(&paint, NULL) && (0 == idx || 0 == idy)) {
+    // Special-case horizontal and vertical lines that are really just dots
+    if (m_data->setupPaintStroke(&paint, 0) && (!idx || !idy)) {
         const SkScalar diameter = paint.getStrokeWidth();
         const SkScalar radius = SkScalarHalf(diameter);
         SkScalar x = SkIntToScalar(SkMin32(point1.x(), point2.x()));
@@ -513,14 +528,14 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
         SkScalar dx, dy;
         int count;
         SkRect bounds;
-        
-        if (0 == idy) { // horizontal
+
+        if (!idy) { // Horizontal
             bounds.set(x, y - radius, x + SkIntToScalar(idx), y + radius);
             x += radius;
             dx = diameter * 2;
             dy = 0;
             count = idx;
-        } else {        // vertical
+        } else { // Vertical
             bounds.set(x - radius, y, x + radius, y + SkIntToScalar(idy));
             y += radius;
             dx = 0;
@@ -528,34 +543,34 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
             count = idy;
         }
 
-        // the actual count is the number of ONs we hit alternating
+        // The actual count is the number of ONs we hit alternating
         // ON(diameter), OFF(diameter), ...
         {
             SkScalar width = SkScalarDiv(SkIntToScalar(count), diameter);
-            // now computer the number of cells (ON and OFF)
+            // Now compute the number of cells (ON and OFF)
             count = SkScalarRound(width);
-            // now compute the number of ONs
+            // Now compute the number of ONs
             count = (count + 1) >> 1;
         }
-        
+
         SkAutoMalloc storage(count * sizeof(SkPoint));
         SkPoint* verts = (SkPoint*)storage.get();
-        // now build the array of vertices to past to drawPoints
+        // Now build the array of vertices to past to drawPoints
         for (int i = 0; i < count; i++) {
             verts[i].set(x, y);
             x += dx;
             y += dy;
         }
-        
+
         paint.setStyle(SkPaint::kFill_Style);
-        paint.setPathEffect(NULL);
-        
-        //  clipping to bounds is not required for correctness, but it does
-        //  allow us to reject the entire array of points if we are completely
-        //  offscreen. This is common in a webpage for android, where most of
-        //  the content is clipped out. If drawPoints took an (optional) bounds
-        //  parameter, that might even be better, as we would *just* use it for
-        //  culling, and not both wacking the canvas' save/restore stack.
+        paint.setPathEffect(0);
+
+        // Clipping to bounds is not required for correctness, but it does
+        // allow us to reject the entire array of points if we are completely
+        // offscreen. This is common in a webpage for android, where most of
+        // the content is clipped out. If drawPoints took an (optional) bounds
+        // parameter, that might even be better, as we would *just* use it for
+        // culling, and not both wacking the canvas' save/restore stack.
         canvas->save(SkCanvas::kClip_SaveFlag);
         canvas->clipRect(bounds);
         canvas->drawPoints(SkCanvas::kPoints_PointMode, count, verts, paint);
@@ -566,14 +581,13 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
     }
 }
 
-static void setrect_for_underline(SkRect* r, GraphicsContext* context, const IntPoint& point, int yOffset, int width)
+static void setrectForUnderline(SkRect* r, GraphicsContext* context, const IntPoint& point, int yOffset, int width)
 {
     float lineThickness = context->strokeThickness();
-//    if (lineThickness < 1)  // do we really need/want this?
-//        lineThickness = 1;
-
-    yOffset += 1;   // we add 1 to have underlines appear below the text
-    
+#if 0
+    if (lineThickness < 1) // Do we really need/want this?
+        lineThickness = 1;
+#endif
     r->fLeft    = SkIntToScalar(point.x());
     r->fTop     = SkIntToScalar(point.y() + yOffset);
     r->fRight   = r->fLeft + SkIntToScalar(width);
@@ -584,15 +598,15 @@ void GraphicsContext::drawLineForText(IntPoint const& pt, int width, bool)
 {
     if (paintingDisabled())
         return;
-    
-    SkRect  r;
-    setrect_for_underline(&r, this, pt, 0, width);
+
+    SkRect r;
+    setrectForUnderline(&r, this, pt, 0, width);
 
     SkPaint paint;
     paint.setAntiAlias(true);
     paint.setColor(this->strokeColor().rgb());
 
-    GC2Canvas(this)->drawRect(r, paint);
+    GC2CANVAS(this)->drawRect(r, paint);
 }
 
 // TODO: Should we draw different based on TextCheckingLineStyle?
@@ -600,15 +614,15 @@ void GraphicsContext::drawLineForTextChecking(const IntPoint& pt, int width, Tex
 {
     if (paintingDisabled())
         return;
-    
-    SkRect  r;
-    setrect_for_underline(&r, this, pt, 0, width);
+
+    SkRect r;
+    setrectForUnderline(&r, this, pt, 0, width);
 
     SkPaint paint;
     paint.setAntiAlias(true);
-    paint.setColor(SK_ColorRED);    // is this specified somewhere?
+    paint.setColor(SK_ColorRED); // Is this specified somewhere?
 
-    GC2Canvas(this)->drawRect(r, paint);
+    GC2CANVAS(this)->drawRect(r, paint);
 }
 
 // This method is only used to draw the little circles used in lists.
@@ -618,27 +632,26 @@ void GraphicsContext::drawEllipse(const IntRect& rect)
         return;
 
     SkPaint paint;
-    SkRect  oval(rect);
-    
+    SkRect oval(rect);
+
     if (fillColor().rgb() & 0xFF000000) {
-        m_data->setup_paint_fill(&paint);
-        GC2Canvas(this)->drawOval(oval, paint);
+        m_data->setupPaintFill(&paint);
+        GC2CANVAS(this)->drawOval(oval, paint);
     }
     if (strokeStyle() != NoStroke) {
         paint.reset();
-        m_data->setup_paint_stroke(&paint, &oval);
-        GC2Canvas(this)->drawOval(oval, paint);
+        m_data->setupPaintStroke(&paint, &oval);
+        GC2CANVAS(this)->drawOval(oval, paint);
     }
 }
 
-static inline int fast_mod(int value, int max)
+static inline int fastMod(int value, int max)
 {
     int sign = SkExtractSign(value);
 
     value = SkApplySign(value, sign);
-    if (value >= max) {
+    if (value >= max)
         value %= max;
-    }
     return SkApplySign(value, sign);
 }
 
@@ -647,25 +660,23 @@ void GraphicsContext::strokeArc(const IntRect& r, int startAngle, int angleSpan)
     if (paintingDisabled())
         return;
 
-    SkPath  path;
+    SkPath path;
     SkPaint paint;
-    SkRect  oval(r);
-    
+    SkRect oval(r);
+
     if (strokeStyle() == NoStroke) {
-        m_data->setup_paint_fill(&paint);   // we want the fill color
+        m_data->setupPaintFill(&paint); // We want the fill color
         paint.setStyle(SkPaint::kStroke_Style);
         paint.setStrokeWidth(SkFloatToScalar(this->strokeThickness()));
-    }
-    else {
-        m_data->setup_paint_stroke(&paint, NULL);
-    }
+    } else
+        m_data->setupPaintStroke(&paint, 0);
 
-    // we do this before converting to scalar, so we don't overflow SkFixed
-    startAngle = fast_mod(startAngle, 360);
-    angleSpan = fast_mod(angleSpan, 360);
+    // We do this before converting to scalar, so we don't overflow SkFixed
+    startAngle = fastMod(startAngle, 360);
+    angleSpan = fastMod(angleSpan, 360);
 
-    path.addArc(oval, SkIntToScalar(-startAngle), SkIntToScalar(-angleSpan));    
-    GC2Canvas(this)->drawPath(path, paint);
+    path.addArc(oval, SkIntToScalar(-startAngle), SkIntToScalar(-angleSpan));
+    GC2CANVAS(this)->drawPath(path, paint);
 }
 
 void GraphicsContext::drawConvexPolygon(size_t numPoints, const FloatPoint* points, bool shouldAntialias)
@@ -677,29 +688,29 @@ void GraphicsContext::drawConvexPolygon(size_t numPoints, const FloatPoint* poin
         return;
 
     SkPaint paint;
-    SkPath  path;
+    SkPath path;
 
     path.incReserve(numPoints);
     path.moveTo(SkFloatToScalar(points[0].x()), SkFloatToScalar(points[0].y()));
     for (size_t i = 1; i < numPoints; i++)
         path.lineTo(SkFloatToScalar(points[i].x()), SkFloatToScalar(points[i].y()));
 
-    if (GC2Canvas(this)->quickReject(path, shouldAntialias ? 
+    if (GC2CANVAS(this)->quickReject(path, shouldAntialias ?
             SkCanvas::kAA_EdgeType : SkCanvas::kBW_EdgeType)) {
         return;
     }
-    
+
     if (fillColor().rgb() & 0xFF000000) {
-        m_data->setup_paint_fill(&paint);
+        m_data->setupPaintFill(&paint);
         paint.setAntiAlias(shouldAntialias);
-        GC2Canvas(this)->drawPath(path, paint);
+        GC2CANVAS(this)->drawPath(path, paint);
     }
 
     if (strokeStyle() != NoStroke) {
         paint.reset();
-        m_data->setup_paint_stroke(&paint, NULL);
+        m_data->setupPaintStroke(&paint, 0);
         paint.setAntiAlias(shouldAntialias);
-        GC2Canvas(this)->drawPath(path, paint);
+        GC2CANVAS(this)->drawPath(path, paint);
     }
 }
 
@@ -708,11 +719,11 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
 {
     if (paintingDisabled())
         return;
-    
+
     SkPaint paint;
-    SkPath  path;
+    SkPath path;
     SkScalar radii[8];
-    
+
     radii[0] = SkIntToScalar(topLeft.width());
     radii[1] = SkIntToScalar(topLeft.height());
     radii[2] = SkIntToScalar(topRight.width());
@@ -722,22 +733,22 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     radii[6] = SkIntToScalar(bottomLeft.width());
     radii[7] = SkIntToScalar(bottomLeft.height());
     path.addRoundRect(rect, radii);
-    
-    m_data->setup_paint_fill(&paint);
-    GC2Canvas(this)->drawPath(path, paint);
+
+    m_data->setupPaintFill(&paint);
+    GC2CANVAS(this)->drawPath(path, paint);
 }
 
 void GraphicsContext::fillRect(const FloatRect& rect)
 {
     SkPaint paint;
-    
-    m_data->setup_paint_fill(&paint);
+
+    m_data->setupPaintFill(&paint);
 
     extactShader(&paint,
                  m_common->state.fillPattern.get(),
                  m_common->state.fillGradient.get());
 
-    GC2Canvas(this)->drawRect(rect, paint);
+    GC2CANVAS(this)->drawRect(rect, paint);
 }
 
 void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorSpace)
@@ -747,35 +758,34 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorS
 
     if (color.rgb() & 0xFF000000) {
         SkPaint paint;
-        
-        m_data->setup_paint_common(&paint);
-        paint.setColor(color.rgb());    // punch in the specified color
-        paint.setShader(NULL);          // in case we had one set
 
-        /*  Sometimes we record and draw portions of the page, using clips
-            for each portion. The problem with this is that webkit, sometimes,
-            sees that we're only recording a portion, and they adjust some of
-            their rectangle coordinates accordingly (e.g.
-            RenderBoxModelObject::paintFillLayerExtended() which calls
-            rect.intersect(paintInfo.rect) and then draws the bg with that
-            rect. The result is that we end up drawing rects that are meant to
-            seam together (one for each portion), but if the rects have
-            fractional coordinates (e.g. we are zoomed by a fractional amount)
-            we will double-draw those edges, resulting in visual cracks or
-            artifacts.
+        m_data->setupPaintCommon(&paint);
+        paint.setColor(color.rgb()); // Punch in the specified color
+        paint.setShader(0); // In case we had one set
 
-            The fix seems to be to just turn off antialasing for rects (this
-            entry-point in GraphicsContext seems to have been sufficient,
-            though perhaps we'll find we need to do this as well in fillRect(r)
-            as well.) Currently setup_paint_common() enables antialiasing.
+        // Sometimes we record and draw portions of the page, using clips
+        // for each portion. The problem with this is that webkit, sometimes,
+        // sees that we're only recording a portion, and they adjust some of
+        // their rectangle coordinates accordingly (e.g.
+        // RenderBoxModelObject::paintFillLayerExtended() which calls
+        // rect.intersect(paintInfo.rect) and then draws the bg with that
+        // rect. The result is that we end up drawing rects that are meant to
+        // seam together (one for each portion), but if the rects have
+        // fractional coordinates (e.g. we are zoomed by a fractional amount)
+        // we will double-draw those edges, resulting in visual cracks or
+        // artifacts.
 
-            Since we never show the page rotated at a funny angle, disabling
-            antialiasing seems to have no real down-side, and it does fix the
-            bug when we're zoomed (and drawing portions that need to seam).
-         */
+        // The fix seems to be to just turn off antialasing for rects (this
+        // entry-point in GraphicsContext seems to have been sufficient,
+        // though perhaps we'll find we need to do this as well in fillRect(r)
+        // as well.) Currently setupPaintCommon() enables antialiasing.
+
+        // Since we never show the page rotated at a funny angle, disabling
+        // antialiasing seems to have no real down-side, and it does fix the
+        // bug when we're zoomed (and drawing portions that need to seam).
         paint.setAntiAlias(false);
 
-        GC2Canvas(this)->drawRect(rect, paint);
+        GC2CANVAS(this)->drawRect(rect, paint);
     }
 }
 
@@ -783,16 +793,14 @@ void GraphicsContext::clip(const FloatRect& rect)
 {
     if (paintingDisabled())
         return;
-    
-    GC2Canvas(this)->clipRect(rect);
+
+    GC2CANVAS(this)->clipRect(rect);
 }
 
 void GraphicsContext::clip(const Path& path)
 {
     if (paintingDisabled())
         return;
-    
-//    path.platformPath()->dump(false, "clip path");
 
     m_data->clipPathAntiAliased(*path.platformPath());
 }
@@ -801,19 +809,17 @@ void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness
 {
     if (paintingDisabled())
         return;
-    
-//printf("-------- addInnerRoundedRectClip: [%d %d %d %d] thickness=%d\n", rect.x(), rect.y(), rect.width(), rect.height(), thickness);
 
-    SkPath  path;
+    SkPath path;
     SkRect r(rect);
 
     path.addOval(r, SkPath::kCW_Direction);
-    // only perform the inset if we won't invert r
-    if (2*thickness < rect.width() && 2*thickness < rect.height()) {
+    // Only perform the inset if we won't invert r
+    if (2 * thickness < rect.width() && 2 * thickness < rect.height()) {
         // Adding one to the thickness doesn't make the border too thick as
         // it's painted over afterwards. But without this adjustment the
         // border appears a little anemic after anti-aliasing.
-        r.inset(SkIntToScalar(thickness+1), SkIntToScalar(thickness+1));
+        r.inset(SkIntToScalar(thickness + 1), SkIntToScalar(thickness + 1));
         path.addOval(r, SkPath::kCCW_Direction);
     }
     m_data->clipPathAntiAliased(path);
@@ -828,19 +834,19 @@ void GraphicsContext::clipOut(const IntRect& r)
 {
     if (paintingDisabled())
         return;
-    
-    GC2Canvas(this)->clipRect(r, SkRegion::kDifference_Op);
+
+    GC2CANVAS(this)->clipRect(r, SkRegion::kDifference_Op);
 }
 
 void GraphicsContext::clipOutEllipseInRect(const IntRect& r)
 {
     if (paintingDisabled())
         return;
-    
+
     SkPath path;
 
     path.addOval(r, SkPath::kCCW_Direction);
-    GC2Canvas(this)->clipPath(path, SkRegion::kDifference_Op);
+    GC2CANVAS(this)->clipPath(path, SkRegion::kDifference_Op);
 }
 
 #if ENABLE(SVG)
@@ -851,7 +857,7 @@ void GraphicsContext::clipPath(WindRule clipRule)
     const SkPath* oldPath = m_data->getPath();
     SkPath path(*oldPath);
     path.setFillType(clipRule == RULE_EVENODD ? SkPath::kEvenOdd_FillType : SkPath::kWinding_FillType);
-    GC2Canvas(this)->clipPath(path);
+    GC2CANVAS(this)->clipPath(path);
 }
 #endif
 
@@ -859,8 +865,8 @@ void GraphicsContext::clipOut(const Path& p)
 {
     if (paintingDisabled())
         return;
-    
-    GC2Canvas(this)->clipPath(*p.platformPath(), SkRegion::kDifference_Op);
+
+    GC2CANVAS(this)->clipPath(*p.platformPath(), SkRegion::kDifference_Op);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -872,21 +878,20 @@ KRenderingDeviceContext* GraphicsContext::createRenderingDeviceContext()
 }
 #endif
 
-/*  These are the flags we need when we call saveLayer for transparency.
-    Since it does not appear that webkit intends this to also save/restore
-    the matrix or clip, I do not give those flags (for performance)
- */
+// These are the flags we need when we call saveLayer for transparency.
+// Since it does not appear that webkit intends this to also save/restore
+// the matrix or clip, I do not give those flags (for performance)
 #define TRANSPARENCY_SAVEFLAGS                                  \
     (SkCanvas::SaveFlags)(SkCanvas::kHasAlphaLayer_SaveFlag |   \
                           SkCanvas::kFullColorLayer_SaveFlag)
-    
+
 void GraphicsContext::beginTransparencyLayer(float opacity)
 {
     if (paintingDisabled())
         return;
 
-    SkCanvas* canvas = GC2Canvas(this);
-    canvas->saveLayerAlpha(NULL, (int)(opacity * 255), TRANSPARENCY_SAVEFLAGS);
+    SkCanvas* canvas = GC2CANVAS(this);
+    canvas->saveLayerAlpha(0, (int)(opacity * 255), TRANSPARENCY_SAVEFLAGS);
 }
 
 void GraphicsContext::endTransparencyLayer()
@@ -894,55 +899,60 @@ void GraphicsContext::endTransparencyLayer()
     if (paintingDisabled())
         return;
 
-    GC2Canvas(this)->restore();
+    GC2CANVAS(this)->restore();
 }
 
-    ///////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////
 
-    void GraphicsContext::setupBitmapPaint(SkPaint* paint) {
-        m_data->setup_paint_bitmap(paint);
-    }
+void GraphicsContext::setupBitmapPaint(SkPaint* paint)
+{
+    m_data->setupPaintBitmap(paint);
+}
 
-    void GraphicsContext::setupFillPaint(SkPaint* paint) {
-        m_data->setup_paint_fill(paint);
-    }
+void GraphicsContext::setupFillPaint(SkPaint* paint)
+{
+    m_data->setupPaintFill(paint);
+}
 
-    void GraphicsContext::setupStrokePaint(SkPaint* paint) {
-        m_data->setup_paint_stroke(paint, NULL);
-    }
+void GraphicsContext::setupStrokePaint(SkPaint* paint)
+{
+    m_data->setupPaintStroke(paint, 0);
+}
 
-    bool GraphicsContext::setupShadowPaint(SkPaint* paint, SkPoint* offset) {
-        return m_data->mState->setupShadowPaint(paint, offset);
-    }
+bool GraphicsContext::setupShadowPaint(SkPaint* paint, SkPoint* offset)
+{
+    return m_data->getState()->setupShadowPaint(paint, offset);
+}
 
-    void GraphicsContext::setPlatformStrokeColor(const Color& c, ColorSpace) {
-        m_data->setStrokeColor(c);
-    }
-    
-    void GraphicsContext::setPlatformStrokeThickness(float f) {
-        m_data->setStrokeThickness(f);
-    }
+void GraphicsContext::setPlatformStrokeColor(const Color& c, ColorSpace)
+{
+    m_data->setStrokeColor(c);
+}
 
-    void GraphicsContext::setPlatformFillColor(const Color& c, ColorSpace) {
-        m_data->setFillColor(c);
-    }
-    
+void GraphicsContext::setPlatformStrokeThickness(float f)
+{
+    m_data->setStrokeThickness(f);
+}
+
+void GraphicsContext::setPlatformFillColor(const Color& c, ColorSpace)
+{
+    m_data->setFillColor(c);
+}
+
 void GraphicsContext::setPlatformShadow(const FloatSize& size, float blur, const Color& color, ColorSpace)
 {
     if (paintingDisabled())
         return;
 
-    if (blur <= 0) {
+    if (blur <= 0)
         this->clearPlatformShadow();
-    }
 
     SkColor c;
-    if (color.isValid()) {
+    if (color.isValid())
         c = color.rgb();
-    } else {
-        c = SkColorSetARGB(0xFF/3, 0, 0, 0);    // "std" Apple shadow color
-    }
-    m_data->mState->setShadow(blur, size.width(), size.height(), c);
+    else
+        c = SkColorSetARGB(0xFF / 3, 0, 0, 0); // "std" Apple shadow color
+    m_data->getState()->setShadow(blur, size.width(), size.height(), c);
 }
 
 void GraphicsContext::clearPlatformShadow()
@@ -950,7 +960,7 @@ void GraphicsContext::clearPlatformShadow()
     if (paintingDisabled())
         return;
 
-    m_data->mState->setShadow(0, 0, 0, 0);
+    m_data->getState()->setShadow(0, 0, 0, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -968,59 +978,59 @@ void GraphicsContext::drawFocusRing(const Vector<Path>&, int, int, const Color&)
 PlatformGraphicsContext* GraphicsContext::platformContext() const
 {
     ASSERT(!paintingDisabled());
-    return m_data->mPgc;
+    return m_data->getPlatformGfxCtx();
 }
 
 void GraphicsContext::setMiterLimit(float limit)
 {
-    m_data->mState->mMiterLimit = limit;
+    m_data->getState()->miterLimit = limit;
 }
 
 void GraphicsContext::setAlpha(float alpha)
 {
-    m_data->mState->mAlpha = alpha;
+    m_data->getState()->alpha = alpha;
 }
 
 void GraphicsContext::setCompositeOperation(CompositeOperator op)
 {
-    m_data->mState->mMode = WebCoreCompositeToSkiaComposite(op);
+    m_data->getState()->mode = WebCoreCompositeToSkiaComposite(op);
 }
 
 void GraphicsContext::clearRect(const FloatRect& rect)
 {
     if (paintingDisabled())
         return;
-    
+
     SkPaint paint;
-    
-    m_data->setup_paint_fill(&paint);
+
+    m_data->setupPaintFill(&paint);
     paint.setXfermodeMode(SkXfermode::kClear_Mode);
-    GC2Canvas(this)->drawRect(rect, paint);
+    GC2CANVAS(this)->drawRect(rect, paint);
 }
 
 void GraphicsContext::strokeRect(const FloatRect& rect, float lineWidth)
 {
     if (paintingDisabled())
         return;
-    
+
     SkPaint paint;
 
-    m_data->setup_paint_stroke(&paint, NULL);
+    m_data->setupPaintStroke(&paint, 0);
     paint.setStrokeWidth(SkFloatToScalar(lineWidth));
-    GC2Canvas(this)->drawRect(rect, paint);
+    GC2CANVAS(this)->drawRect(rect, paint);
 }
 
 void GraphicsContext::setLineCap(LineCap cap)
 {
     switch (cap) {
     case ButtCap:
-        m_data->mState->mLineCap = SkPaint::kButt_Cap;
+        m_data->getState()->lineCap = SkPaint::kButt_Cap;
         break;
     case RoundCap:
-        m_data->mState->mLineCap = SkPaint::kRound_Cap;
+        m_data->getState()->lineCap = SkPaint::kRound_Cap;
         break;
     case SquareCap:
-        m_data->mState->mLineCap = SkPaint::kSquare_Cap;
+        m_data->getState()->lineCap = SkPaint::kSquare_Cap;
         break;
     default:
         SkDEBUGF(("GraphicsContext::setLineCap: unknown LineCap %d\n", cap));
@@ -1038,12 +1048,12 @@ void GraphicsContext::setLineDash(const DashArray& dashes, float dashOffset)
     if (!dashLength)
         return;
 
-    size_t count = (dashLength % 2) == 0 ? dashLength : dashLength * 2;
+    size_t count = !(dashLength % 2) ? dashLength : dashLength * 2;
     SkScalar* intervals = new SkScalar[count];
 
     for (unsigned int i = 0; i < count; i++)
         intervals[i] = SkFloatToScalar(dashes[i % dashLength]);
-    SkPathEffect **effectPtr = &m_data->mState->mPathEffect;
+    SkPathEffect **effectPtr = &m_data->getState()->pathEffect;
     (*effectPtr)->safeUnref();
     *effectPtr = new SkDashPathEffect(intervals, count, SkFloatToScalar(dashOffset));
 
@@ -1055,13 +1065,13 @@ void GraphicsContext::setLineJoin(LineJoin join)
 {
     switch (join) {
     case MiterJoin:
-        m_data->mState->mLineJoin = SkPaint::kMiter_Join;
+        m_data->getState()->lineJoin = SkPaint::kMiter_Join;
         break;
     case RoundJoin:
-        m_data->mState->mLineJoin = SkPaint::kRound_Join;
+        m_data->getState()->lineJoin = SkPaint::kRound_Join;
         break;
     case BevelJoin:
-        m_data->mState->mLineJoin = SkPaint::kBevel_Join;
+        m_data->getState()->lineJoin = SkPaint::kBevel_Join;
         break;
     default:
         SkDEBUGF(("GraphicsContext::setLineJoin: unknown LineJoin %d\n", join));
@@ -1073,42 +1083,42 @@ void GraphicsContext::scale(const FloatSize& size)
 {
     if (paintingDisabled())
         return;
-    GC2Canvas(this)->scale(SkFloatToScalar(size.width()), SkFloatToScalar(size.height()));
+    GC2CANVAS(this)->scale(SkFloatToScalar(size.width()), SkFloatToScalar(size.height()));
 }
 
 void GraphicsContext::rotate(float angleInRadians)
 {
     if (paintingDisabled())
         return;
-    GC2Canvas(this)->rotate(SkFloatToScalar(angleInRadians * (180.0f / 3.14159265f)));
+    GC2CANVAS(this)->rotate(SkFloatToScalar(angleInRadians * (180.0f / 3.14159265f)));
 }
 
 void GraphicsContext::translate(float x, float y)
 {
     if (paintingDisabled())
         return;
-    GC2Canvas(this)->translate(SkFloatToScalar(x), SkFloatToScalar(y));
+    GC2CANVAS(this)->translate(SkFloatToScalar(x), SkFloatToScalar(y));
 }
 
 void GraphicsContext::concatCTM(const AffineTransform& affine)
 {
     if (paintingDisabled())
         return;
-    GC2Canvas(this)->concat(affine);
+    GC2CANVAS(this)->concat(affine);
 }
 
-/*  This is intended to round the rect to device pixels (through the CTM)
-    and then invert the result back into source space, with the hope that when
-    it is drawn (through the matrix), it will land in the "right" place (i.e.
-    on pixel boundaries).
+// This is intended to round the rect to device pixels (through the CTM)
+// and then invert the result back into source space, with the hope that when
+// it is drawn (through the matrix), it will land in the "right" place (i.e.
+// on pixel boundaries).
 
-    For android, we record this geometry once and then draw it though various
-    scale factors as the user zooms, without re-recording. Thus this routine
-    should just leave the original geometry alone.
+// For android, we record this geometry once and then draw it though various
+// scale factors as the user zooms, without re-recording. Thus this routine
+// should just leave the original geometry alone.
 
-    If we instead draw into bitmap tiles, we should then perform this
-    transform -> round -> inverse step.
- */
+// If we instead draw into bitmap tiles, we should then perform this
+// transform -> round -> inverse step.
+
 FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect)
 {
     return rect;
@@ -1118,15 +1128,15 @@ FloatRect GraphicsContext::roundToDevicePixels(const FloatRect& rect)
 
 void GraphicsContext::setURLForRect(const KURL& link, const IntRect& destRect)
 {
-// appears to be PDF specific, so we ignore it
+// Appears to be PDF specific, so we ignore it
 #if 0
 if (paintingDisabled())
     return;
-    
+
 CFURLRef urlRef = link.createCFURL();
 if (urlRef) {
     CGContextRef context = platformContext();
-    
+
     // Get the bounding box to handle clipping.
     CGRect box = CGContextGetClipBoundingBox(context);
 
@@ -1146,22 +1156,22 @@ void GraphicsContext::setPlatformShouldAntialias(bool useAA)
 {
     if (paintingDisabled())
         return;
-    m_data->mState->mUseAA = useAA;
+    m_data->getState()->useAA = useAA;
 }
 
 AffineTransform GraphicsContext::getCTM() const
 {
-    const SkMatrix& m = GC2Canvas(this)->getTotalMatrix();
-    return AffineTransform(SkScalarToDouble(m.getScaleX()),      // a
-                           SkScalarToDouble(m.getSkewY()),       // b
-                           SkScalarToDouble(m.getSkewX()),       // c
-                           SkScalarToDouble(m.getScaleY()),      // d
-                           SkScalarToDouble(m.getTranslateX()),  // e
+    const SkMatrix& m = GC2CANVAS(this)->getTotalMatrix();
+    return AffineTransform(SkScalarToDouble(m.getScaleX()), // a
+                           SkScalarToDouble(m.getSkewY()), // b
+                           SkScalarToDouble(m.getSkewX()), // c
+                           SkScalarToDouble(m.getScaleY()), // d
+                           SkScalarToDouble(m.getTranslateX()), // e
                            SkScalarToDouble(m.getTranslateY())); // f
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-    
+
 void GraphicsContext::beginPath()
 {
     m_data->beginPath();
@@ -1177,24 +1187,24 @@ void GraphicsContext::fillPath()
     SkPath* path = m_data->getPath();
     if (paintingDisabled() || !path)
         return;
-    
+
     switch (this->fillRule()) {
-        case RULE_NONZERO:
-            path->setFillType(SkPath::kWinding_FillType);
-            break;
-        case RULE_EVENODD:
-            path->setFillType(SkPath::kEvenOdd_FillType);
-            break;
+    case RULE_NONZERO:
+        path->setFillType(SkPath::kWinding_FillType);
+        break;
+    case RULE_EVENODD:
+        path->setFillType(SkPath::kEvenOdd_FillType);
+        break;
     }
 
     SkPaint paint;
-    m_data->setup_paint_fill(&paint);
+    m_data->setupPaintFill(&paint);
 
     extactShader(&paint,
                  m_common->state.fillPattern.get(),
                  m_common->state.fillGradient.get());
 
-    GC2Canvas(this)->drawPath(*path, paint);
+    GC2CANVAS(this)->drawPath(*path, paint);
 }
 
 void GraphicsContext::strokePath()
@@ -1202,20 +1212,20 @@ void GraphicsContext::strokePath()
     const SkPath* path = m_data->getPath();
     if (paintingDisabled() || !path)
         return;
-    
+
     SkPaint paint;
-    m_data->setup_paint_stroke(&paint, NULL);
+    m_data->setupPaintStroke(&paint, 0);
 
     extactShader(&paint,
                  m_common->state.strokePattern.get(),
                  m_common->state.strokeGradient.get());
-    
-    GC2Canvas(this)->drawPath(*path, paint);
+
+    GC2CANVAS(this)->drawPath(*path, paint);
 }
 
 void GraphicsContext::setImageInterpolationQuality(InterpolationQuality mode)
 {
-    /*
+#if 0
     enum InterpolationQuality {
         InterpolationDefault,
         InterpolationNone,
@@ -1223,12 +1233,11 @@ void GraphicsContext::setImageInterpolationQuality(InterpolationQuality mode)
         InterpolationMedium,
         InterpolationHigh
     };
-     
-     TODO: record this, so we can know when to use bitmap-filtering when we draw
-     ... not sure how meaningful this will be given our playback model.
-     
-     Certainly safe to do nothing for the present.
-     */
+#endif
+    // TODO: record this, so we can know when to use bitmap-filtering when we draw
+    // ... not sure how meaningful this will be given our playback model.
+
+    // Certainly safe to do nothing for the present.
 }
 
 void GraphicsContext::clipConvexPolygon(size_t numPoints, const FloatPoint*, bool antialias)
