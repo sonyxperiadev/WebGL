@@ -67,6 +67,11 @@ DeviceMotionData* DeviceMotionClientAndroid::currentDeviceMotion() const
     return client()->currentDeviceMotion();
 }
 
+void DeviceMotionClientAndroid::deviceMotionControllerDestroyed()
+{
+      delete this;
+}
+
 DeviceMotionClient* DeviceMotionClientAndroid::client() const
 {
     if (!m_client) {

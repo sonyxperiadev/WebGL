@@ -52,6 +52,7 @@ public:
     virtual void stopUpdating();
     virtual DeviceOrientation* lastOrientation() const { return m_lastOrientation.get(); }
     virtual void setController(DeviceOrientationController* controller) { m_controller = controller; }
+    virtual void deviceOrientationControllerDestroyed() { }
 
 protected:
     virtual ~DeviceOrientationClientImpl();
