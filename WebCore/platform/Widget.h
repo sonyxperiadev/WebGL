@@ -303,7 +303,7 @@ inline void Widget::setPlatformWidget(PlatformWidget widget)
 
 #endif
 
-#if !PLATFORM(GTK)
+#if !PLATFORM(GTK) && !PLATFORM(ANDROID)
 
 inline void Widget::releasePlatformWidget()
 {
