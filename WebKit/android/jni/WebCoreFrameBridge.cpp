@@ -298,6 +298,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
 
     mUserAgent = WTF::String();
     mUserInitiatedAction = false;
+    mBlockNetworkLoads = false;
 }
 
 WebFrame::~WebFrame()

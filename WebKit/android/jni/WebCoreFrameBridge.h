@@ -127,11 +127,17 @@ class WebFrame : public WebCoreRefObject {
     
     WebCore::Page* page() const { return mPage; }
 
+    // Currently used only by the chrome net stack.  A similar field is used by
+    // FrameLoader.java to block java network loads.
+    void setBlockNetworkLoads(bool block) { mBlockNetworkLoads = block; }
+    bool blockNetworkLoads() const { return mBlockNetworkLoads; }
+
 private:
     struct JavaBrowserFrame;
     JavaBrowserFrame* mJavaFrame;
     WebCore::Page* mPage;
     WTF::String mUserAgent;
+    bool mBlockNetworkLoads;
     bool mUserInitiatedAction;
 };
 
