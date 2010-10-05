@@ -103,7 +103,7 @@ void RenderIFrame::computeLogicalWidth()
 
     int extraWidth = paddingLeft() + paddingRight() + borderLeft() + borderRight();
     // Set the width
-    setWidth(max(width(), root->minPrefWidth()) + extraWidth);
+    setWidth(max(width(), root->minPreferredLogicalWidth()) + extraWidth);
 
     // Update based on the new width
     updateWidgetPosition();
@@ -194,7 +194,7 @@ void RenderIFrame::layout()
                 // Use the preferred width if it is larger and only if
                 // scrollbars are visible or the width style is not fixed.
                 if (scrolling || !widthIsFixed)
-                    setWidth(max(width(), root->minPrefWidth()) + extraWidth);
+                    setWidth(max(width(), root->minPreferredLogicalWidth()) + extraWidth);
 
                 // Resize the view to recalc the height.
                 int h = height() - extraHeight;

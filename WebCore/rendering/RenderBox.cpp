@@ -1530,11 +1530,11 @@ void RenderBox::computeLogicalWidth()
 #ifdef ANDROID_LAYOUT
             // in SSR mode with replaced box, if the box width is wider than the container width,
             // it will be shrinked to fit to the container.
-            if (containerWidth && (width() + m_marginLeft + m_marginRight) > containerWidth &&
+            if (containerLogicalWidth && (width() + m_marginLeft + m_marginRight) > containerLogicalWidth &&
                     document()->frame()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
                 m_marginLeft = m_marginRight = 0;
-                setWidth(containerWidth);
-                m_minPrefWidth = m_maxPrefWidth = containerWidth;
+                setWidth(containerLogicalWidth);
+                m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = containerLogicalWidth;
             }
         }
 #endif
@@ -1581,14 +1581,14 @@ void RenderBox::computeLogicalWidth()
 #ifdef ANDROID_LAYOUT
     // in SSR mode with non-replaced box, we use ANDROID_SSR_MARGIN_PADDING for left/right margin.
     // If the box width is wider than the container width, it will be shrinked to fit to the container.
-    if (containerWidth && !treatAsReplaced &&
+    if (containerLogicalWidth && !treatAsReplaced &&
             document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
         setWidth(width() + m_marginLeft + m_marginRight);
         m_marginLeft = m_marginLeft > ANDROID_SSR_MARGIN_PADDING ? ANDROID_SSR_MARGIN_PADDING : m_marginLeft;
         m_marginRight = m_marginRight > ANDROID_SSR_MARGIN_PADDING ? ANDROID_SSR_MARGIN_PADDING : m_marginRight;
-        if (width() > containerWidth) {
-            m_minPrefWidth = m_maxPrefWidth = containerWidth-(m_marginLeft + m_marginRight);
-            setWidth(m_minPrefWidth);
+        if (width() > containerLogicalWidth) {
+            m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = containerLogicalWidth-(m_marginLeft + m_marginRight);
+            setWidth(m_minPreferredLogicalWidth);
         } else
             setWidth(width() -(m_marginLeft + m_marginRight));
     }

@@ -687,8 +687,8 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintTop, i
                     // (textWrapWidth - 2 * ANDROID_FCTS_MARGIN_PADDING)
                     int maxWidth = textWrapWidth - 2 * ANDROID_FCTS_MARGIN_PADDING + padding;
                     setWidth(min(width(), maxWidth));
-                    m_minPrefWidth = min(m_minPrefWidth, maxWidth);
-                    m_maxPrefWidth = min(m_maxPrefWidth, maxWidth);
+                    m_minPreferredLogicalWidth = min(m_minPreferredLogicalWidth, maxWidth);
+                    m_maxPreferredLogicalWidth = min(m_maxPreferredLogicalWidth, maxWidth);
 
                     IntRect overflow = layoutOverflowRect();
                     if (overflow.width() > maxWidth) {

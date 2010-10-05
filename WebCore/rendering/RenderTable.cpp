@@ -279,7 +279,7 @@ void RenderTable::layout()
         && document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
         // if the width of a table is wider than its container width, or it has a nested table,
         // we will render it with single column.
-        int cw = containingBlockWidthForContent();
+        int cw = containingBlockLogicalWidthForContent();
         bool shouldRenderAsSingleColumn = (width() > cw);
         if (!shouldRenderAsSingleColumn) {
             RenderObject* child = firstChild();
@@ -296,10 +296,10 @@ void RenderTable::layout()
             m_singleColumn = true;
             if (width() > cw)
                 setWidth(cw);
-            if (m_minPrefWidth > cw)
-                m_minPrefWidth = cw;
-            if (m_maxPrefWidth > cw)
-                m_maxPrefWidth = cw;
+            if (m_minPreferredLogicalWidth > cw)
+                m_minPreferredLogicalWidth = cw;
+            if (m_maxPreferredLogicalWidth > cw)
+                m_maxPreferredLogicalWidth = cw;
         }
     }
 #endif

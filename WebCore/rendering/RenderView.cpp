@@ -90,8 +90,8 @@ void RenderView::computeLogicalWidth()
     setVisibleWidth(m_frameView->textWrapWidth());
     const Settings * settings = document()->settings();
     ASSERT(settings);
-    if (settings->useWideViewport() && settings->viewportWidth() == -1 && width() < minPrefWidth())
-        setWidth(m_minPrefWidth);
+    if (settings->useWideViewport() && settings->viewportWidth() == -1 && width() < minPreferredLogicalWidth())
+        setWidth(m_minPreferredLogicalWidth);
 #endif
 }
 

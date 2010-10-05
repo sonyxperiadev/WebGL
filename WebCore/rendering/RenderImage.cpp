@@ -464,7 +464,7 @@ int RenderImage::computeReplacedWidth(bool includeMaxWidth) const
     width = max(minW, min(width, maxW));
     // in SSR mode, we will fit the image to its container width
     if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
-        int cw = containingBlockWidthForContent();
+        int cw = containingBlockLogicalWidthForContent();
         if (cw && width>cw)
             width = cw;
     }
@@ -495,15 +495,15 @@ int RenderImage::computeReplacedHeight() const
     if (height && document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
         int width;
         if (isWidthSpecified())
-            width = calcReplacedWidthUsing(style()->width());
+            width = computeReplacedWidthUsing(style()->width());
         else
             width = calcAspectRatioWidth();
-        int minW = calcReplacedWidthUsing(style()->minWidth());
+        int minW = computeReplacedWidthUsing(style()->minWidth());
         int maxW = style()->maxWidth().value() == undefinedLength ? width :
-            calcReplacedWidthUsing(style()->maxWidth());
+            computeReplacedWidthUsing(style()->maxWidth());
         width = max(minW, min(width, maxW));
 
-        int cw = containingBlockWidthForContent();
+        int cw = containingBlockLogicalWidthForContent();
         if (cw && width && width > cw)
             height = cw * height / width;   // preserve aspect ratio
     }

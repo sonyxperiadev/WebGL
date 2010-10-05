@@ -3681,7 +3681,7 @@ static jint GetContentMinPrefWidth(JNIEnv *env, jobject obj)
         if (document) {
             WebCore::RenderObject* renderer = document->renderer();
             if (renderer && renderer->isRenderView()) {
-                return renderer->minPrefWidth();
+                return renderer->minPreferredLogicalWidth();
             }
         }
     }
