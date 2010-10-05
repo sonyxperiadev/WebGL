@@ -1233,7 +1233,7 @@ WTF::PassRefPtr<Widget> FrameLoaderClientAndroid::createJavaAppletWidget(const I
     return 0;
 }
 
-void FrameLoaderClientAndroid::didTransferChildFrameToNewDocument()
+void FrameLoaderClientAndroid::didTransferChildFrameToNewDocument(WebCore::Page*)
 {
     ASSERT(m_frame);
     // m_webFrame points to the WebFrame for the page that our frame previously

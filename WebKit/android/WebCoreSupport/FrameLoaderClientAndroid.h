@@ -179,7 +179,7 @@ namespace android {
         virtual void download(ResourceHandle*, const ResourceRequest&, const ResourceRequest&, const ResourceResponse&);
 
         virtual WTF::PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement, const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
-        virtual void didTransferChildFrameToNewDocument();
+        virtual void didTransferChildFrameToNewDocument(WebCore::Page*);
         virtual WTF::PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const WTF::Vector<String>&, const WTF::Vector<String>&, const String&, bool loadManually);
         virtual void redirectDataToPlugin(Widget* pluginWidget);
 
