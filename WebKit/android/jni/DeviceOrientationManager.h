@@ -26,39 +26,41 @@
 #ifndef DeviceOrientationManager_h
 #define DeviceOrientationManager_h
 
+#include <DeviceMotionData.h>
+#include <DeviceMotionClient.h>
 #include <DeviceOrientation.h>
 #include <DeviceOrientationClient.h>
 #include <OwnPtr.h>
 #include <PassRefPtr.h>
 #include <RefPtr.h>
 
-namespace WebCore {
-class DeviceOrientation;
-}
-
 namespace android {
 
 class WebViewCore;
 
-// This class takes care of the fact that the client used for DeviceOrientation
-// may be either the real implementation or a mock. It also handles setting the
-// orientation on both the real and mock clients. This class is owned by
-// WebViewCore and exists to keep cruft out of that class.
+// This class takes care of the fact that the clients used for DeviceMotion and
+// DeviceOrientation may be either the real implementations or mocks. It also
+// handles setting the data on both the real and mock clients. This class is
+// owned by WebViewCore and exists to keep cruft out of that class.
 class DeviceOrientationManager {
 public:
     DeviceOrientationManager(WebViewCore*);
 
     void useMock();
+    void setMockMotion(PassRefPtr<WebCore::DeviceMotionData>);
+    void onMotionChange(PassRefPtr<WebCore::DeviceMotionData>);
     void setMockOrientation(PassRefPtr<WebCore::DeviceOrientation>);
     void onOrientationChange(PassRefPtr<WebCore::DeviceOrientation>);
-    void maybeSuspendClient();
-    void maybeResumeClient();
-    WebCore::DeviceOrientationClient* client();
+    void maybeSuspendClients();
+    void maybeResumeClients();
+    WebCore::DeviceMotionClient* motionClient();
+    WebCore::DeviceOrientationClient* orientationClient();
 
 private:
     bool m_useMock;
     WebViewCore* m_webViewCore;
-    OwnPtr<WebCore::DeviceOrientationClient> m_client;
+    OwnPtr<WebCore::DeviceMotionClient> m_motionClient;
+    OwnPtr<WebCore::DeviceOrientationClient> m_orientationClient;
 };
 
 } // namespace android
