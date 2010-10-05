@@ -59,12 +59,10 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 
 GEN := $(intermediates)/html/DocTypeStrings.cpp
 $(GEN): SCRIPT := $(LOCAL_PATH)/make-hash-tools.pl
-$(GEN): PRIVATE_CUSTOM_TOOL = perl $(SCRIPT) . $<
+$(GEN): PRIVATE_CUSTOM_TOOL = perl $(SCRIPT) $(dir $@) $<
 $(GEN): $(LOCAL_PATH)/html/DocTypeStrings.gperf
 	$(transform-generated-source)
-	@mv ./DocTypeStrings.cpp $@
-# we have to do this dep by hand:
-$(intermediates)/html/HTMLDocument.o : $(GEN)
+LOCAL_GENERATED_SOURCES += $(GEN)
 
 
 # HTML entity table
@@ -86,10 +84,9 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 
 GEN := $(intermediates)/platform/ColorData.cpp
 $(GEN): SCRIPT := $(LOCAL_PATH)/make-hash-tools.pl
-$(GEN): PRIVATE_CUSTOM_TOOL = perl $(SCRIPT) . $<
+$(GEN): PRIVATE_CUSTOM_TOOL = perl $(SCRIPT) $(dir $@) $<
 $(GEN): $(LOCAL_PATH)/platform/ColorData.gperf
 	$(transform-generated-source)
-	@mv ./ColorData.cpp $@
 LOCAL_GENERATED_SOURCES += $(GEN)
 
 
