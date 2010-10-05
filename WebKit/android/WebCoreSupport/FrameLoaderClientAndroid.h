@@ -197,6 +197,8 @@ namespace android {
         virtual void didCreateScriptContextForFrame() { }
         virtual void didDestroyScriptContextForFrame() { }
         virtual void didCreateIsolatedScriptContext() { }
+
+         virtual bool allowScriptExtension(const String& extensionName, int extensionGroup) { return false; }
 #endif
         
         virtual void registerForIconNotification(bool listen = true);
