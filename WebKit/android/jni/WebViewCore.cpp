@@ -3553,7 +3553,7 @@ static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action,
     jint* ptrXArray = env->GetIntArrayElements(xArray, 0);
     jint* ptrYArray = env->GetIntArrayElements(yArray, 0);
     Vector<IntPoint> points(count);
-    for (unsigned c = 0; c < count; c++) {
+    for (int c = 0; c < count; c++) {
         points[c].setX(ptrXArray[c]);
         points[c].setY(ptrYArray[c]);
     }
