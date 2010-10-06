@@ -28,6 +28,7 @@
 #include "WebUrlLoader.h"
 
 #include "FrameLoaderClientAndroid.h"
+#include "WebCoreFrameBridge.h"
 #include "WebUrlLoaderClient.h"
 
 namespace android {
@@ -46,8 +47,13 @@ WebUrlLoader::~WebUrlLoader()
 PassRefPtr<WebUrlLoader> WebUrlLoader::start(FrameLoaderClient* client, WebCore::ResourceHandle* resourceHandle, 
         const WebCore::ResourceRequest& resourceRequest, bool isSync, bool isPrivateBrowsing)
 {
-    FrameLoaderClientAndroid* clientAndroid = static_cast<FrameLoaderClientAndroid*> (client);
-    RefPtr<WebUrlLoader> loader = WebUrlLoader::create(clientAndroid->webFrame(), resourceHandle, resourceRequest);
+    WebFrame* webFrame = static_cast<FrameLoaderClientAndroid*>(client)->webFrame();
+
+    if (webFrame->blockNetworkLoads() &&
+        (resourceRequest.url().protocolIs("http") ||
+         resourceRequest.url().protocolIs("https")))
+        return NULL;
+    RefPtr<WebUrlLoader> loader = WebUrlLoader::create(webFrame, resourceHandle, resourceRequest);
     loader->m_loaderClient->start(isSync, isPrivateBrowsing);
 
     return loader.release();

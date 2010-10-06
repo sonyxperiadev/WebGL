@@ -87,6 +87,7 @@ struct FieldIds {
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
         mBlockNetworkImage = env->GetFieldID(clazz, "mBlockNetworkImage", "Z");
 #endif
+        mBlockNetworkLoads = env->GetFieldID(clazz, "mBlockNetworkLoads", "Z");
         mJavaScriptEnabled = env->GetFieldID(clazz, "mJavaScriptEnabled", "Z");
         mPluginState = env->GetFieldID(clazz, "mPluginState",
                 "Landroid/webkit/WebSettings$PluginState;");
@@ -146,6 +147,7 @@ struct FieldIds {
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
         LOG_ASSERT(mBlockNetworkImage, "Could not find field mBlockNetworkImage");
 #endif
+        LOG_ASSERT(mBlockNetworkLoads, "Could not find field mBlockNetworkLoads");
         LOG_ASSERT(mJavaScriptEnabled, "Could not find field mJavaScriptEnabled");
         LOG_ASSERT(mPluginState, "Could not find field mPluginState");
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
@@ -194,6 +196,7 @@ struct FieldIds {
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
     jfieldID mBlockNetworkImage;
 #endif
+    jfieldID mBlockNetworkLoads;
     jfieldID mJavaScriptEnabled;
     jfieldID mPluginState;
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
@@ -337,6 +340,9 @@ public:
         if(!flag)
             cachedResourceLoader->setBlockNetworkImage(false);
 #endif
+        flag = env->GetBooleanField(obj, gFieldIds->mBlockNetworkLoads);
+        WebFrame* webFrame = WebFrame::getWebFrame(pFrame);
+        webFrame->setBlockNetworkLoads(flag);
 
         flag = env->GetBooleanField(obj, gFieldIds->mJavaScriptEnabled);
         s->setJavaScriptEnabled(flag);

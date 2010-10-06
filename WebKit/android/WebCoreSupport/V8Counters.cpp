@@ -23,7 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#if USE(V8)
 
 #ifdef ANDROID_INSTRUMENT
 
@@ -31,11 +30,13 @@
 
 #include "config.h"
 #include "V8Counters.h"
-#include "NotImplemented.h"
 
+#include "NotImplemented.h"
 #include <utils/Log.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringHash.h>
+
+#if USE(V8)
 
 namespace WebCore {
 

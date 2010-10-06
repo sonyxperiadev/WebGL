@@ -378,6 +378,9 @@ void FrameLoaderClientAndroid::dispatchDidFailProvisionalLoad(const ResourceErro
 
     // Delete the asset.
     delete a;
+
+    // Report that the load is finished, since it failed.
+    didFinishLoad();
 }
 
 void FrameLoaderClientAndroid::dispatchDidFailLoad(const ResourceError&) {
