@@ -31,6 +31,7 @@
 #include "ApplicationCacheStorage.h"
 #include "BitmapAllocatorAndroid.h"
 #include "CachedResourceLoader.h"
+#include "ChromiumIncludes.h"
 #include "DatabaseTracker.h"
 #include "Database.h"
 #include "Document.h"
@@ -126,6 +127,10 @@ struct FieldIds {
         mPageCacheCapacity = env->GetFieldID(clazz, "mPageCacheCapacity", "I");
 #if ENABLE(WEB_AUTOFILL)
         mAutoFillEnabled = env->GetFieldID(clazz, "mAutoFillEnabled", "Z");
+        mAutoFillProfile = env->GetFieldID(clazz, "mAutoFillProfile", "Landroid/webkit/WebSettings$AutoFillProfile;");
+        jclass autoFillProfileClass = env->FindClass("android/webkit/WebSettings$AutoFillProfile");
+        mAutoFillProfileFullName = env->GetFieldID(autoFillProfileClass, "mFullName", "Ljava/lang/String;");
+        mAutoFillProfileEmailAddress = env->GetFieldID(autoFillProfileClass, "mEmailAddress", "Ljava/lang/String;");
 #endif
 
         LOG_ASSERT(mLayoutAlgorithm, "Could not find field mLayoutAlgorithm");
@@ -235,6 +240,9 @@ struct FieldIds {
 #endif
 #if ENABLE(WEB_AUTOFILL)
     jfieldID mAutoFillEnabled;
+    jfieldID mAutoFillProfile;
+    jfieldID mAutoFillProfileFullName;
+    jfieldID mAutoFillProfileEmailAddress;
 #endif
 };
 
@@ -251,6 +259,25 @@ static void recursiveCleanupForFullLayout(WebCore::RenderObject* obj)
     for (WebCore::RenderObject* n = obj->firstChild(); n; n = n->nextSibling())
         recursiveCleanupForFullLayout(n);
 }
+
+#if ENABLE(WEB_AUTOFILL)
+void syncAutoFillProfile(JNIEnv* env, jobject autoFillProfile, WebAutoFill* webAutoFill)
+{
+    jstring str;
+    string16 fullName;
+    string16 emailAddress;
+
+    str = static_cast<jstring>(env->GetObjectField(autoFillProfile, gFieldIds->mAutoFillProfileFullName));
+    if (str)
+        fullName = jstringToString16(env, str);
+
+    str = static_cast<jstring>(env->GetObjectField(autoFillProfile, gFieldIds->mAutoFillProfileEmailAddress));
+    if (str)
+        emailAddress = jstringToString16(env, str);
+
+    webAutoFill->setProfile(fullName, emailAddress);
+}
+#endif
 
 class WebSettings {
 public:
@@ -454,13 +481,20 @@ public:
         // for forms.
         bool oldAutoFillSetting = s->autoFillEnabled();
         s->setAutoFillEnabled(flag);
-        if (!oldAutoFillSetting && flag) {
-            EditorClientAndroid* editorC = static_cast<EditorClientAndroid*>(pFrame->page()->editorClient());
-            editorC->getAutoFill()->searchDocument(pFrame->document());
-        }
+
+        EditorClientAndroid* editorC = static_cast<EditorClientAndroid*>(pFrame->page()->editorClient());
+        WebAutoFill* webAutoFill = editorC->getAutoFill();
+        if (!oldAutoFillSetting && flag)
+            webAutoFill->searchDocument(pFrame->document());
+
+        // Set the active AutoFillProfile data.
+        jobject autoFillProfile = env->GetObjectField(obj, gFieldIds->mAutoFillProfile);
+        if (autoFillProfile)
+            syncAutoFillProfile(env, autoFillProfile, webAutoFill);
 #endif
     }
 };
+
 
 //-------------------------------------------------------------
 // JNI registration

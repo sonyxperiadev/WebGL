@@ -63,11 +63,13 @@ public:
     void setWebViewCore(WebViewCore* webViewCore) { mWebViewCore = webViewCore; }
     bool enabled() const;
 
+    void setProfile(const string16& fullName, const string16& emailAddress);
+
 private:
     OwnPtr<FormManager> mFormManager;
     OwnPtr<AutoFillManager> mAutoFillManager;
-    OwnPtr<AutoFillProfile> mAutoFillProfile;
     OwnPtr<AutoFillHost> mAutoFillHost;
+    OwnPtr<TabContents> mTabContents;
 
     typedef std::vector<webkit_glue::FormData, std::allocator<webkit_glue::FormData> > FormList;
     FormList mForms;
