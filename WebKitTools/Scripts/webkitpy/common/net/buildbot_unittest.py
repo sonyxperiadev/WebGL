@@ -54,53 +54,53 @@ class BuilderTest(unittest.TestCase):
         self.builder = Builder(u"Test Builder \u2661", self.buildbot)
         self._install_fetch_build(lambda build_number: ["test1", "test2"])
 
-    def test_find_failure_transition(self):
-        (green_build, red_build) = self.builder.find_failure_transition(self.builder.build(10))
-        self.assertEqual(green_build.revision(), 1003)
-        self.assertEqual(red_build.revision(), 1004)
+    def test_find_regression_window(self):
+        regression_window = self.builder.find_regression_window(self.builder.build(10))
+        self.assertEqual(regression_window.build_before_failure().revision(), 1003)
+        self.assertEqual(regression_window.failing_build().revision(), 1004)
 
-        (green_build, red_build) = self.builder.find_failure_transition(self.builder.build(10), look_back_limit=2)
-        self.assertEqual(green_build, None)
-        self.assertEqual(red_build.revision(), 1008)
+        regression_window = self.builder.find_regression_window(self.builder.build(10), look_back_limit=2)
+        self.assertEqual(regression_window.build_before_failure(), None)
+        self.assertEqual(regression_window.failing_build().revision(), 1008)
 
     def test_none_build(self):
         self.builder._fetch_build = lambda build_number: None
-        (green_build, red_build) = self.builder.find_failure_transition(self.builder.build(10))
-        self.assertEqual(green_build, None)
-        self.assertEqual(red_build, None)
+        regression_window = self.builder.find_regression_window(self.builder.build(10))
+        self.assertEqual(regression_window.build_before_failure(), None)
+        self.assertEqual(regression_window.failing_build(), None)
 
     def test_flaky_tests(self):
         self._install_fetch_build(lambda build_number: ["test1"] if build_number % 2 else ["test2"])
-        (green_build, red_build) = self.builder.find_failure_transition(self.builder.build(10))
-        self.assertEqual(green_build.revision(), 1009)
-        self.assertEqual(red_build.revision(), 1010)
+        regression_window = self.builder.find_regression_window(self.builder.build(10))
+        self.assertEqual(regression_window.build_before_failure().revision(), 1009)
+        self.assertEqual(regression_window.failing_build().revision(), 1010)
 
     def test_failure_and_flaky(self):
         self._install_fetch_build(lambda build_number: ["test1", "test2"] if build_number % 2 else ["test2"])
-        (green_build, red_build) = self.builder.find_failure_transition(self.builder.build(10))
-        self.assertEqual(green_build.revision(), 1003)
-        self.assertEqual(red_build.revision(), 1004)
+        regression_window = self.builder.find_regression_window(self.builder.build(10))
+        self.assertEqual(regression_window.build_before_failure().revision(), 1003)
+        self.assertEqual(regression_window.failing_build().revision(), 1004)
 
     def test_no_results(self):
         self._install_fetch_build(lambda build_number: ["test1", "test2"] if build_number % 2 else ["test2"])
-        (green_build, red_build) = self.builder.find_failure_transition(self.builder.build(10))
-        self.assertEqual(green_build.revision(), 1003)
-        self.assertEqual(red_build.revision(), 1004)
+        regression_window = self.builder.find_regression_window(self.builder.build(10))
+        self.assertEqual(regression_window.build_before_failure().revision(), 1003)
+        self.assertEqual(regression_window.failing_build().revision(), 1004)
 
     def test_failure_after_flaky(self):
         self._install_fetch_build(lambda build_number: ["test1", "test2"] if build_number > 6 else ["test3"])
-        (green_build, red_build) = self.builder.find_failure_transition(self.builder.build(10))
-        self.assertEqual(green_build.revision(), 1006)
-        self.assertEqual(red_build.revision(), 1007)
+        regression_window = self.builder.find_regression_window(self.builder.build(10))
+        self.assertEqual(regression_window.build_before_failure().revision(), 1006)
+        self.assertEqual(regression_window.failing_build().revision(), 1007)
 
-    def test_blameworthy_revisions(self):
-        self.assertEqual(self.builder.blameworthy_revisions(10), [1004])
-        self.assertEqual(self.builder.blameworthy_revisions(10, look_back_limit=2), [])
+    def test_find_blameworthy_regression_window(self):
+        self.assertEqual(self.builder.find_blameworthy_regression_window(10).revisions(), [1004])
+        self.assertEqual(self.builder.find_blameworthy_regression_window(10, look_back_limit=2), None)
         # Flakey test avoidance requires at least 2 red builds:
-        self.assertEqual(self.builder.blameworthy_revisions(4), [])
-        self.assertEqual(self.builder.blameworthy_revisions(4, avoid_flakey_tests=False), [1004])
+        self.assertEqual(self.builder.find_blameworthy_regression_window(4), None)
+        self.assertEqual(self.builder.find_blameworthy_regression_window(4, avoid_flakey_tests=False).revisions(), [1004])
         # Green builder:
-        self.assertEqual(self.builder.blameworthy_revisions(3), [])
+        self.assertEqual(self.builder.find_blameworthy_regression_window(3), None)
 
     def test_build_caching(self):
         self.assertEqual(self.builder.build(10), self.builder.build(10))
@@ -361,22 +361,19 @@ class BuildBotTest(unittest.TestCase):
 <h1>Directory listing for /results/SnowLeopard Intel Leaks/</h1>
 
 <table>
-    <thead>
-        <tr>
+        <tr class="alt">
             <th>Filename</th>
             <th>Size</th>
             <th>Content type</th>
             <th>Content encoding</th>
         </tr>
-    </thead>
-    <tbody>
-<tr class="odd">
-    <td><a href="r47483%20%281%29/">r47483 (1)/</a></td>
-    <td></td>
-    <td>[Directory]</td>
-    <td></td>
+<tr class="directory ">
+    <td><a href="r47483%20%281%29/"><b>r47483 (1)/</b></a></td>
+    <td><b></b></td>
+    <td><b>[Directory]</b></td>
+    <td><b></b></td>
 </tr>
-<tr class="odd">
+<tr class="file alt">
     <td><a href="r47484%20%282%29.zip">r47484 (2).zip</a></td>
     <td>89K</td>
     <td>[application/zip]</td>

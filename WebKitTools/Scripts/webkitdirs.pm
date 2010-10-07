@@ -1408,6 +1408,72 @@ sub buildAutotoolsProject($@)
     return $result;
 }
 
+sub buildCMakeProject($@)
+{
+    my ($port, $clean, @buildParams) = @_;
+    my $dir = File::Spec->canonpath(baseProductDir());
+    my $config = configuration();
+    my $result;
+    my $makeArgs = "";
+    my @buildArgs;
+    
+    $makeArgs .= " -j" . numberOfCPUs() if ($makeArgs !~ m/-j\s*\d+/);
+
+    if ($clean) {
+        print "Cleaning the build directory '$dir'\n";
+        $dir = File::Spec->catfile($dir, $config);
+        File::Path::remove_tree($dir, {keep_root => 1});
+        $result = 0;
+    } else {
+        my $cmakebin = "cmake";
+        my $make = "make";
+
+        push @buildArgs, "-DPORT=$port";
+
+        for my $i (0 .. $#buildParams) {
+            my $opt = $buildParams[$i];
+            if ($opt =~ /^--makeargs=(.*)/i ) {
+                $makeArgs = $1;
+            } elsif ($opt =~ /^--prefix=(.*)/i ) {
+                push @buildArgs, "-DCMAKE_INSTALL_PREFIX=$1";
+            } else {
+                push @buildArgs, $opt;
+            }
+        }
+
+        if ($config =~ m/debug/i) {
+            push @buildArgs, "-DCMAKE_BUILD_TYPE=Debug";
+        } elsif ($config =~ m/release/i) {
+            push @buildArgs, "-DCMAKE_BUILD_TYPE=Release";
+        }
+
+        push @buildArgs, sourceDir();
+
+        $dir = File::Spec->catfile($dir, $config);
+        File::Path::mkpath($dir);
+        chdir $dir or die "Failed to cd into " . $dir . "\n";
+        
+        print "Calling '$cmakebin @buildArgs' in " . $dir . "\n\n";
+        my $result = system "$cmakebin @buildArgs";
+        if ($result ne 0) {
+            die "Failed while running $cmakebin to generate makefiles!\n";
+        }
+
+        print "Calling '$make $makeArgs' in " . $dir . "\n\n";
+        $result = system "$make $makeArgs";
+
+        chdir ".." or die;
+    }
+
+    return $result; 
+}
+
+sub buildCMakeEflProject($@)
+{
+    my ($clean, @buildArgs) = @_;
+    return buildCMakeProject("Efl", $clean, @buildArgs);
+}
+
 sub buildQMakeProject($@)
 {
     my ($clean, @buildParams) = @_;
@@ -1480,7 +1546,6 @@ sub buildQMakeProject($@)
         }
     }
 
-    push @buildArgs, sourceDir() . "/WebKit.pro";
     if ($config =~ m/debug/i) {
         push @buildArgs, "CONFIG-=release";
         push @buildArgs, "CONFIG+=debug";
@@ -1495,6 +1560,8 @@ sub buildQMakeProject($@)
         }
     }
 
+    push @buildArgs, sourceDir() . "/WebKit.pro";
+
     print "Calling '$qmakebin @buildArgs' in " . $dir . "\n\n";
     print "Installation headers directory: $installHeaders\n" if(defined($installHeaders));
     print "Installation libraries directory: $installLibs\n" if(defined($installLibs));
@@ -1503,6 +1570,16 @@ sub buildQMakeProject($@)
     if ($result ne 0) {
        die "Failed to setup build environment using $qmakebin!\n";
     }
+
+    # Manually create makefiles for the examples so we don't build by default
+    my $examplesDir = $dir . "/WebKit/qt/examples";
+    File::Path::mkpath($examplesDir);
+    $buildArgs[-1] = sourceDir() . "/WebKit/qt/examples/examples.pro";
+    chdir $examplesDir or die;
+    print "Calling '$qmakebin @buildArgs' in " . $examplesDir . "\n\n";
+    $result = system "$qmakebin @buildArgs";
+    die "Failed to create makefiles for the examples!\n" if $result ne 0;
+    chdir $dir or die;
 
     if ($clean) {
       print "Calling '$make $makeargs distclean' in " . $dir . "\n\n";

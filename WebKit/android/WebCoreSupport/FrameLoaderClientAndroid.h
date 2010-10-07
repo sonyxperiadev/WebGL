@@ -179,7 +179,7 @@ namespace android {
         virtual void download(ResourceHandle*, const ResourceRequest&, const ResourceRequest&, const ResourceResponse&);
 
         virtual WTF::PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement, const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
-        virtual void didTransferChildFrameToNewDocument();
+        virtual void didTransferChildFrameToNewDocument(WebCore::Page*);
         virtual WTF::PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const WTF::Vector<String>&, const WTF::Vector<String>&, const String&, bool loadManually);
         virtual void redirectDataToPlugin(Widget* pluginWidget);
 
@@ -197,6 +197,8 @@ namespace android {
         virtual void didCreateScriptContextForFrame() { }
         virtual void didDestroyScriptContextForFrame() { }
         virtual void didCreateIsolatedScriptContext() { }
+
+         virtual bool allowScriptExtension(const String& extensionName, int extensionGroup) { return false; }
 #endif
         
         virtual void registerForIconNotification(bool listen = true);

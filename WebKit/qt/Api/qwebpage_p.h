@@ -131,38 +131,29 @@ public:
     void handleSoftwareInputPanel(Qt::MouseButton);
     bool handleScrolling(QKeyEvent*, WebCore::Frame*);
 
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
     // Returns whether the default action was cancelled in the JS event handler
     bool touchEvent(QTouchEvent*);
-#endif
 
     void setInspector(QWebInspector*);
     QWebInspector* getOrCreateInspector();
     WebCore::InspectorController* inspectorController();
+    quint16 inspectorServerPort();
 
 #ifndef QT_NO_SHORTCUT
     static QWebPage::WebAction editorActionForKeyEvent(QKeyEvent* event);
 #endif
     static const char* editorCommandForWebActions(QWebPage::WebAction action);
 
-    WebCore::ChromeClientQt *chromeClient;
-    WebCore::ContextMenuClientQt *contextMenuClient;
-    WebCore::EditorClientQt *editorClient;
+    QWebPage *q;
     WebCore::Page *page;
-
+    QWebPageClient* client;
     QPointer<QWebFrame> mainFrame;
 
-    QWebPage *q;
-    QWebPageClient* client;
 #ifndef QT_NO_UNDOSTACK
     QUndoStack *undoStack;
 #endif
 
-#if QT_VERSION >= 0x040600
     QWeakPointer<QWidget> view;
-#else
-    QWidget* view;
-#endif
 
     bool insideOpenCall;
     quint64 m_totalBytes;

@@ -42,13 +42,14 @@
 
 namespace WebCore {
 
+class IDBTransactionBackendInterface;
+
 class IDBRequest : public IDBCallbacks, public EventTarget, public ActiveDOMObject {
 public:
-    static PassRefPtr<IDBRequest> create(ScriptExecutionContext* context, PassRefPtr<IDBAny> source) { return adoptRef(new IDBRequest(context, source)); }
+    static PassRefPtr<IDBRequest> create(ScriptExecutionContext* context, PassRefPtr<IDBAny> source, IDBTransactionBackendInterface* transaction = 0) { return adoptRef(new IDBRequest(context, source, transaction)); }
     virtual ~IDBRequest();
 
     // Defined in the IDL
-    void abort();
     enum ReadyState {
         LOADING = 1,
         DONE = 2
@@ -80,7 +81,7 @@ public:
     using RefCounted<IDBCallbacks>::deref;
 
 private:
-    IDBRequest(ScriptExecutionContext*, PassRefPtr<IDBAny> source);
+    IDBRequest(ScriptExecutionContext*, PassRefPtr<IDBAny> source, IDBTransactionBackendInterface* transaction);
 
     void timerFired(Timer<IDBRequest>*);
     void scheduleEvent(PassRefPtr<IDBAny> result, PassRefPtr<IDBDatabaseError>);
@@ -92,6 +93,7 @@ private:
     virtual EventTargetData* ensureEventTargetData();
 
     RefPtr<IDBAny> m_source;
+    RefPtr<IDBTransactionBackendInterface> m_transaction;
 
     struct PendingEvent {
         RefPtr<IDBAny> m_result;
@@ -103,7 +105,6 @@ private:
     Timer<IDBRequest> m_timer;
     RefPtr<IDBRequest> m_selfRef; // This is set to us iff there's an event pending.
 
-    bool m_aborted;
     ReadyState m_readyState;
     EventTargetData m_eventTargetData;
 };

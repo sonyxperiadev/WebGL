@@ -205,6 +205,7 @@ SET(WebCore_IDL_FILES
     html/DataGridColumn.idl
     html/DataGridColumnList.idl
     html/DOMFormData.idl
+    html/DOMTokenList.idl
     html/HTMLAllCollection.idl
     html/HTMLAnchorElement.idl
     html/HTMLAppletElement.idl
@@ -535,6 +536,10 @@ IF (ENABLE_SVG)
 ENDIF()
 
 SET(WebCore_SOURCES
+    ${DERIVED_SOURCES_DIR}/DocTypeStrings.cpp
+    ${DERIVED_SOURCES_DIR}/CSSValueKeywords.cpp
+    ${DERIVED_SOURCES_DIR}/CSSPropertyNames.cpp
+    ${DERIVED_SOURCES_DIR}/ColorData.cpp
     ${DERIVED_SOURCES_DIR}/HTMLEntityTable.cpp
     ${DERIVED_SOURCES_DIR}/UserAgentStyleSheetsData.cpp
     ${DERIVED_SOURCES_DIR}/InspectorBackendDispatcher.cpp
@@ -939,13 +944,23 @@ SET(WebCore_SOURCES
     history/PageCache.cpp
 
     html/AsyncImageResizer.cpp
+    html/BaseTextInputType.cpp
+    html/ButtonInputType.cpp
+    html/CheckboxInputType.cpp
     html/CollectionCache.cpp
+    html/ColorInputType.cpp
     html/DOMDataGridDataSource.cpp
     html/DOMFormData.cpp
+    html/DOMTokenList.cpp
     html/DataGridColumn.cpp
     html/DataGridColumnList.cpp
     html/DateComponents.cpp
+    html/DateInputType.cpp
+    html/DateTimeInputType.cpp
+    html/DateTimeLocalInputType.cpp
+    html/EmailInputType.cpp
     html/FTPDirectoryDocument.cpp
+    html/FileInputType.cpp
     html/FormDataList.cpp
     html/HTMLAllCollection.cpp
     html/HTMLAnchorElement.cpp
@@ -1028,15 +1043,33 @@ SET(WebCore_SOURCES
     html/HTMLTitleElement.cpp
     html/HTMLUListElement.cpp
     html/HTMLViewSourceDocument.cpp
+    html/HiddenInputType.cpp
     html/ImageData.cpp
     html/ImageDocument.cpp
+    html/ImageInputType.cpp
     html/ImageResizerThread.cpp
+    html/InputType.cpp
+    html/IsIndexInputType.cpp
     html/LabelsNodeList.cpp
     html/MediaDocument.cpp
+    html/MonthInputType.cpp
+    html/NumberInputType.cpp
+    html/PasswordInputType.cpp
     html/PluginDocument.cpp
+    html/RadioInputType.cpp
+    html/RangeInputType.cpp
+    html/ResetInputType.cpp
+    html/SearchInputType.cpp
     html/StepRange.cpp
+    html/SubmitInputType.cpp
+    html/TelephoneInputType.cpp
     html/TextDocument.cpp
+    html/TextFieldInputType.cpp
+    html/TextInputType.cpp
+    html/TimeInputType.cpp
+    html/URLInputType.cpp
     html/ValidityState.cpp
+    html/WeekInputType.cpp
     html/canvas/CanvasGradient.cpp
     html/canvas/CanvasPattern.cpp
     html/canvas/CanvasPixelArray.cpp
@@ -1257,9 +1290,21 @@ SET(WebCore_SOURCES
     platform/graphics/filters/FEColorMatrix.cpp
     platform/graphics/filters/FEComponentTransfer.cpp
     platform/graphics/filters/FEComposite.cpp
+    platform/graphics/filters/FEConvolveMatrix.cpp
+    platform/graphics/filters/FEDiffuseLighting.cpp
+    platform/graphics/filters/FEDisplacementMap.cpp
+    platform/graphics/filters/FEFlood.cpp
     platform/graphics/filters/FEGaussianBlur.cpp
+    platform/graphics/filters/FELighting.cpp
+    platform/graphics/filters/FEMerge.cpp
+    platform/graphics/filters/FEMorphology.cpp
+    platform/graphics/filters/FEOffset.cpp
+    platform/graphics/filters/FESpecularLighting.cpp
+    platform/graphics/filters/FETile.cpp
+    platform/graphics/filters/FETurbulence.cpp
     platform/graphics/filters/FilterEffect.cpp
     platform/graphics/filters/ImageBufferFilter.cpp
+    platform/graphics/filters/LightSource.cpp
     platform/graphics/filters/SourceAlpha.cpp
     platform/graphics/filters/SourceGraphic.cpp
 
@@ -1812,21 +1857,9 @@ IF (ENABLE_SVG)
         svg/animation/SMILTimeContainer.cpp
         svg/animation/SVGSMILElement.cpp
         svg/graphics/SVGImage.cpp
-        svg/graphics/filters/SVGFEConvolveMatrix.cpp
-        svg/graphics/filters/SVGFEDiffuseLighting.cpp
-        svg/graphics/filters/SVGFEDisplacementMap.cpp
-        svg/graphics/filters/SVGFEFlood.cpp
         svg/graphics/filters/SVGFEImage.cpp
-        svg/graphics/filters/SVGFELighting.cpp
-        svg/graphics/filters/SVGFEMerge.cpp
-        svg/graphics/filters/SVGFEMorphology.cpp
-        svg/graphics/filters/SVGFEOffset.cpp
-        svg/graphics/filters/SVGFESpecularLighting.cpp
-        svg/graphics/filters/SVGFETile.cpp
-        svg/graphics/filters/SVGFETurbulence.cpp
         svg/graphics/filters/SVGFilter.cpp
         svg/graphics/filters/SVGFilterBuilder.cpp
-        svg/graphics/filters/SVGLightSource.cpp
     )
 ENDIF()
 
@@ -1887,6 +1920,12 @@ IF (ENABLE_WML)
     )
 ENDIF()
 
+IF (ENABLE_PROGRESS_TAG)
+    LIST(APPEND WebCore_SOURCES
+        accessibility/AccessibilityProgressIndicator.cpp
+    )
+ENDIF ()
+
 SET(IDL_INCLUDES "")
 FOREACH (_include ${WebCore_IDL_INCLUDES})
     LIST(APPEND IDL_INCLUDES --include=${WEBCORE_DIR}/${_include})
@@ -1907,12 +1946,10 @@ LIST(APPEND WebCore_SOURCES ${JS_IDL_FILES} ${Inspector_IDL_FILES})
 
 GENERATE_ENTITIES(${WEBCORE_DIR}/html/parser/HTMLEntityNames.in ${DERIVED_SOURCES_DIR}/HTMLEntityTable.cpp ${WEBCORE_DIR}/html/parser/create-html-entity-table)
 
-
-GENERATE_GPERF(${WEBCORE_DIR}/platform/ColorData.gperf ${DERIVED_SOURCES_DIR}/ColorData.cpp findColor "")
+MAKE_HASH_TOOLS(${WEBCORE_DIR}/platform/ColorData)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/platform/graphics/Color.cpp ColorData.cpp)
 
-
-GENERATE_GPERF(${WEBCORE_DIR}/html/DocTypeStrings.gperf ${DERIVED_SOURCES_DIR}/DocTypeStrings.cpp findDoctypeEntry "-F,PubIDInfo::eAlmostStandards,PubIDInfo::eAlmostStandards")
+MAKE_HASH_TOOLS(${WEBCORE_DIR}/html/DocTypeStrings)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/html/HTMLDocument.cpp DocTypeStrings.cpp)
 
 
@@ -1932,6 +1969,7 @@ GENERATE_CSS_PROPERTY_NAMES()
 GENERATE_CSS_VALUE_KEYWORDS()
 
 
+ADD_SOURCE_DERIVED_DEPENDENCIES(${DERIVED_SOURCES_DIR}/HashTools.h DocTypeStrings.cpp CSSValueKeywords.cpp CSSPropertyNames.cpp ColorData.cpp)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${DERIVED_SOURCES_DIR}/CSSGrammar.cpp CSSValueKeywords.h)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${DERIVED_SOURCES_DIR}/CSSGrammar.cpp CSSPropertyNames.h)
 ADD_SOURCE_DERIVED_DEPENDENCIES(${WEBCORE_DIR}/css/CSSPrimitiveValueMappings.h CSSValueKeywords.h)

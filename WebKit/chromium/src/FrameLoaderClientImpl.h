@@ -69,6 +69,10 @@ public:
     // in garbage collection.
     virtual void didCreateIsolatedScriptContext();
 
+    // Returns true if we should allow the given V8 extension to be added to
+    // the script context at the currently loading page and given extension group.
+    virtual bool allowScriptExtension(const String& extensionName, int extensionGroup);
+
     virtual bool hasWebView() const;
     virtual bool hasFrameView() const;
     virtual void makeRepresentation(WebCore::DocumentLoader*);
@@ -175,7 +179,7 @@ public:
         WebCore::HTMLFrameOwnerElement* ownerElement,
         const WTF::String& referrer, bool allowsScrolling,
         int marginWidth, int marginHeight);
-    virtual void didTransferChildFrameToNewDocument();
+    virtual void didTransferChildFrameToNewDocument(WebCore::Page*);
     virtual PassRefPtr<WebCore::Widget> createPlugin(
         const WebCore::IntSize&, WebCore::HTMLPlugInElement*, const WebCore::KURL&,
         const Vector<WTF::String>&, const Vector<WTF::String>&,

@@ -6,7 +6,6 @@ On success, you will see a series of "PASS" messages, followed by "TEST COMPLETE
 indexedDB.open('name', 'description')
 PASS 'onsuccess' in result is true
 PASS 'onerror' in result is true
-PASS 'abort' in result is true
 PASS 'readyState' in result is true
 An event should fire shortly...
 
@@ -19,7 +18,6 @@ PASS 'source' in event is true
 PASS event.source != null is true
 PASS 'onsuccess' in event.target is true
 PASS 'onerror' in event.target is true
-PASS 'abort' in event.target is true
 PASS 'readyState' in event.target is true
 PASS event.target.readyState is event.target.DONE
 
@@ -27,7 +25,6 @@ db = event.result
 db.createObjectStore('storeName', null)
 PASS 'onsuccess' in result is true
 PASS 'onerror' in result is true
-PASS 'abort' in result is true
 PASS 'readyState' in result is true
 An event should fire shortly...
 
@@ -40,7 +37,6 @@ PASS 'source' in event is true
 PASS event.source != null is true
 PASS 'onsuccess' in event.target is true
 PASS 'onerror' in event.target is true
-PASS 'abort' in event.target is true
 PASS 'readyState' in event.target is true
 PASS event.target.readyState is event.target.DONE
 
@@ -50,10 +46,13 @@ PASS store.name is "storeName"
 PASS store.keyPath is null
 PASS storeNames.contains('storeName') is true
 PASS storeNames.length is 1
+Ask for a store that doesn't exist:
+index = store.index('asdf')
+PASS index is null
+FAIL Asking for a store that doesn't exist should have thrown.
 event.result.createIndex('indexName', 'x', true)
 PASS 'onsuccess' in result is true
 PASS 'onerror' in result is true
-PASS 'abort' in result is true
 PASS 'readyState' in result is true
 An event should fire shortly...
 
@@ -66,15 +65,20 @@ PASS 'source' in event is true
 PASS event.source != null is true
 PASS 'onsuccess' in event.target is true
 PASS 'onerror' in event.target is true
-PASS 'abort' in event.target is true
 PASS 'readyState' in event.target is true
 PASS event.target.readyState is event.target.DONE
 
+PASS event.result !== null is true
 PASS event.source.indexNames.contains('indexName') is true
+index = event.source.index('indexName')
+PASS index !== null is true
+Ask for a store that doesn't exist:
+index = store.index('asdf')
+PASS index is null
+FAIL Asking for a store that doesn't exist should have thrown.
 event.source.add({x: 'value'}, 'key')
 PASS 'onsuccess' in result is true
 PASS 'onerror' in result is true
-PASS 'abort' in result is true
 PASS 'readyState' in result is true
 An event should fire shortly...
 
@@ -87,7 +91,6 @@ PASS 'source' in event is true
 PASS event.source != null is true
 PASS 'onsuccess' in event.target is true
 PASS 'onerror' in event.target is true
-PASS 'abort' in event.target is true
 PASS 'readyState' in event.target is true
 PASS event.target.readyState is event.target.DONE
 
@@ -95,7 +98,6 @@ PASS event.result is "key"
 event.source.add({x: 'value'}, 'zzz')
 PASS 'onsuccess' in result is true
 PASS 'onerror' in result is true
-PASS 'abort' in result is true
 PASS 'readyState' in result is true
 An event should fire shortly...
 
@@ -108,16 +110,15 @@ PASS 'source' in event is true
 PASS event.source != null is true
 PASS 'onsuccess' in event.target is true
 PASS 'onerror' in event.target is true
-PASS 'abort' in event.target is true
 PASS 'readyState' in event.target is true
 PASS event.target.readyState is event.target.DONE
 
 PASS event.code is IDBDatabaseException.UNKNOWN_ERR
-store = event.source
+db.transaction()
+store = transaction.objectStore('storeName')
 store.get('key')
 PASS 'onsuccess' in result is true
 PASS 'onerror' in result is true
-PASS 'abort' in result is true
 PASS 'readyState' in result is true
 An event should fire shortly...
 
@@ -130,7 +131,6 @@ PASS 'source' in event is true
 PASS event.source != null is true
 PASS 'onsuccess' in event.target is true
 PASS 'onerror' in event.target is true
-PASS 'abort' in event.target is true
 PASS 'readyState' in event.target is true
 PASS event.target.readyState is event.target.DONE
 
@@ -139,7 +139,6 @@ store = event.source
 store.remove('key')
 PASS 'onsuccess' in result is true
 PASS 'onerror' in result is true
-PASS 'abort' in result is true
 PASS 'readyState' in result is true
 An event should fire shortly...
 
@@ -152,7 +151,6 @@ PASS 'source' in event is true
 PASS event.source != null is true
 PASS 'onsuccess' in event.target is true
 PASS 'onerror' in event.target is true
-PASS 'abort' in event.target is true
 PASS 'readyState' in event.target is true
 PASS event.target.readyState is event.target.DONE
 

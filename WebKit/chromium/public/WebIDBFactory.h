@@ -52,17 +52,10 @@ public:
     virtual ~WebIDBFactory() { }
 
     // The WebKit implementation of open ignores the WebFrame* parameter.
-    virtual void open(const WebString& name, const WebString& description, WebIDBCallbacks* callbacks, const WebSecurityOrigin& origin, WebFrame* webFrame, const WebString& dataDir)
-    {
-        open(name, description, callbacks, origin, webFrame);
-    }
-    // FIXME: Delete soon.  Compatability hack.
-    virtual void open(const WebString& name, const WebString& description, WebIDBCallbacks* callbacks, const WebSecurityOrigin& origin, WebFrame* webFrame)
-    {
-        open(name, description, callbacks, origin, webFrame, "/tmp/temporary-indexed-db-files");
-    }
+    virtual void open(const WebString& name, const WebString& description, WebIDBCallbacks* callbacks, const WebSecurityOrigin& origin, WebFrame* webFrame, const WebString& dataDir) { WEBKIT_ASSERT_NOT_REACHED(); }
 
-    virtual void abortPendingTransactions(const WebVector<int>& pendingIDs) { WEBKIT_ASSERT_NOT_REACHED(); }
+    // The file name that would be used for persisting a given indexed database on the file system.
+    WEBKIT_API static WebString databaseFileName(const WebString& name, const WebSecurityOrigin&);
 };
 
 } // namespace WebKit

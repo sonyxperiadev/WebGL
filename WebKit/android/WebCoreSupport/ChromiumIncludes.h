@@ -58,8 +58,10 @@
 #include <net/base/cookie_monster.h>
 #include <net/base/data_url.h>
 #include <net/base/io_buffer.h>
+#include <net/base/net_errors.h>
 #include <net/base/mime_util.h>
 #include <net/base/ssl_config_service.h>
+#include <net/disk_cache/disk_cache.h>
 #include <net/http/http_auth_handler_factory.h>
 #include <net/http/http_cache.h>
 #include <net/http/http_network_layer.h>

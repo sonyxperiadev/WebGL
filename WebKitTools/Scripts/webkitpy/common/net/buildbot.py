@@ -34,6 +34,8 @@ import urllib
 import urllib2
 import xmlrpclib
 
+from webkitpy.common.net.failuremap import FailureMap
+from webkitpy.common.net.regressionwindow import RegressionWindow
 from webkitpy.common.system.logutils import get_logger
 from webkitpy.thirdparty.autoinstalled.mechanize import Browser
 from webkitpy.thirdparty.BeautifulSoup import BeautifulSoup
@@ -145,9 +147,9 @@ class Builder(object):
             )
         return build
 
-    def find_failure_transition(self, red_build, look_back_limit=30):
+    def find_regression_window(self, red_build, look_back_limit=30):
         if not red_build or red_build.is_green():
-            return (None, None)
+            return RegressionWindow(None, None)
         common_failures = None
         current_build = red_build
         build_after_current_build = None
@@ -172,34 +174,25 @@ class Builder(object):
                     break
             look_back_count += 1
             if look_back_count > look_back_limit:
-                return (None, current_build)
+                return RegressionWindow(None, current_build, common_failures=common_failures)
             build_after_current_build = current_build
             current_build = current_build.previous_build()
         # We must iterate at least once because red_build is red.
         assert(build_after_current_build)
         # Current build must either be green or have no failures in common
         # with red build, so we've found our failure transition.
-        return (current_build, build_after_current_build)
+        return RegressionWindow(current_build, build_after_current_build, common_failures=common_failures)
 
-    # FIXME: This likely does not belong on Builder
-    def suspect_revisions_for_transition(self, last_good_build, first_bad_build):
-        suspect_revisions = range(first_bad_build.revision(),
-                                  last_good_build.revision(),
-                                  -1)
-        suspect_revisions.reverse()
-        return suspect_revisions
-
-    def blameworthy_revisions(self, red_build_number, look_back_limit=30, avoid_flakey_tests=True):
+    def find_blameworthy_regression_window(self, red_build_number, look_back_limit=30, avoid_flakey_tests=True):
         red_build = self.build(red_build_number)
-        (last_good_build, first_bad_build) = \
-            self.find_failure_transition(red_build, look_back_limit)
-        if not last_good_build:
-            return [] # We ran off the limit of our search
+        regression_window = self.find_regression_window(red_build, look_back_limit)
+        if not regression_window.build_before_failure():
+            return None  # We ran off the limit of our search
         # If avoid_flakey_tests, require at least 2 bad builds before we
         # suspect a real failure transition.
-        if avoid_flakey_tests and first_bad_build == red_build:
-            return []
-        return self.suspect_revisions_for_transition(last_good_build, first_bad_build)
+        if avoid_flakey_tests and regression_window.failing_build() == red_build:
+            return None
+        return regression_window
 
 
 # FIXME: This should be unified with all the layout test results code in the layout_tests package
@@ -414,20 +407,27 @@ class BuildBot(object):
         build_status_url = "http://%s/one_box_per_builder" % self.buildbot_host
         return urllib2.urlopen(build_status_url)
 
+    def _file_cell_text(self, file_cell):
+        """Traverses down through firstChild elements until one containing a string is found, then returns that string"""
+        element = file_cell
+        while element.string is None and element.contents:
+            element = element.contents[0]
+        return element.string
+
     def _parse_twisted_file_row(self, file_row):
-        string_or_empty = lambda soup: unicode(soup.string) if soup.string else u""
+        string_or_empty = lambda string: unicode(string) if string else u""
         file_cells = file_row.findAll('td')
         return {
-            "filename": string_or_empty(file_cells[0].find("a")),
-            "size": string_or_empty(file_cells[1]),
-            "type": string_or_empty(file_cells[2]),
-            "encoding": string_or_empty(file_cells[3]),
+            "filename": string_or_empty(self._file_cell_text(file_cells[0])),
+            "size": string_or_empty(self._file_cell_text(file_cells[1])),
+            "type": string_or_empty(self._file_cell_text(file_cells[2])),
+            "encoding": string_or_empty(self._file_cell_text(file_cells[3])),
         }
 
     def _parse_twisted_directory_listing(self, page):
         soup = BeautifulSoup(page)
         # HACK: Match only table rows with a class to ignore twisted header/footer rows.
-        file_rows = soup.find('table').findAll('tr', { "class" : True })
+        file_rows = soup.find('table').findAll('tr', {'class': re.compile(r'\b(?:directory|file)\b')})
         return [self._parse_twisted_file_row(file_row) for file_row in file_rows]
 
     # FIXME: There should be a better way to get this information directly from twisted.
@@ -452,19 +452,17 @@ class BuildBot(object):
             self._builder_by_name[name] = builder
         return builder
 
-    def revisions_causing_failures(self, only_core_builders=True):
+    def failure_map(self, only_core_builders=True):
         builder_statuses = self.core_builder_statuses() if only_core_builders else self.builder_statuses()
+        failure_map = FailureMap()
         revision_to_failing_bots = {}
         for builder_status in builder_statuses:
             if builder_status["is_green"]:
                 continue
             builder = self.builder_with_name(builder_status["name"])
-            revisions = builder.blameworthy_revisions(builder_status["build_number"])
-            for revision in revisions:
-                failing_bots = revision_to_failing_bots.get(revision, [])
-                failing_bots.append(builder)
-                revision_to_failing_bots[revision] = failing_bots
-        return revision_to_failing_bots
+            regression_window = builder.find_blameworthy_regression_window(builder_status["build_number"])
+            failure_map.add_regression_window(builder, regression_window)
+        return failure_map
 
     # This makes fewer requests than calling Builder.latest_build would.  It grabs all builder
     # statuses in one request using self.builder_statuses (fetching /one_box_per_builder instead of builder pages).

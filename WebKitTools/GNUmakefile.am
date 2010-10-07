@@ -24,7 +24,8 @@ Programs_GtkLauncher_CFLAGS = \
 Programs_GtkLauncher_LDADD = \
 	libwebkitgtk-@WEBKITGTK_API_MAJOR_VERSION@.@WEBKITGTK_API_MINOR_VERSION@.la \
 	$(GTK_LIBS) \
-	$(GLIB_LIBS)
+	$(GLIB_LIBS) \
+	$(WINMM_LIBS)
 
 Programs_GtkLauncher_LDFLAGS = \
 	-no-fast-install \
@@ -100,7 +101,8 @@ Programs_DumpRenderTree_LDADD = \
 	$(GTK_LIBS) \
 	$(GLIB_LIBS) \
 	$(LIBSOUP_LIBS) \
-	$(FREETYPE_LIBS)
+	$(FREETYPE_LIBS) \
+	$(WINMM_LIBS)
 
 Programs_DumpRenderTree_LDFLAGS = \
 	-no-fast-install \
@@ -145,7 +147,7 @@ noinst_LTLIBRARIES += \
 
 dumprendertree_cppflags += \
 	-DTEST_PLUGIN_DIR=\"${shell pwd}/${top_builddir}/TestNetscapePlugin/.libs\" \
-	-DFONTS_CONF_FILE=\"${shell pwd}/${srcdir}/WebKitTools/DumpRenderTree/gtk/fonts.conf\"
+	-DFONTS_CONF_DIR=\"${shell pwd}/${srcdir}/WebKitTools/DumpRenderTree/gtk/fonts\"
 
 TestNetscapePlugin_libtestnetscapeplugin_la_CPPFLAGS = \
 	-I$(srcdir)/WebKitTools/DumpRenderTree \

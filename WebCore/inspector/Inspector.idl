@@ -37,9 +37,11 @@ module core {
         [notify] void addNodesToSearchResult(out Array nodeIds);
         [notify] void attributesUpdated(out long id, out Array attributes);
         [notify] void bringToFront();
+        [notify] void characterDataModified(out long id, out String newValue);
         [notify] void childNodeCountUpdated(out long id, out int newValue);
         [notify] void childNodeInserted(out long parentId, out long prevId, out Object node);
         [notify] void childNodeRemoved(out long parentId, out long id);
+        [notify] void consoleMessagesCleared();
         [notify] void didCommitLoad();
         [notify] void evaluateForTestInFrontend(out long testCallId, out String script);
         [notify] void disconnectFromBackend();
@@ -47,8 +49,6 @@ module core {
         [notify] void removeResource(out unsigned long identifier);
         [notify] void reset();
         [notify] void resetProfilesPanel();
-        [notify] void searchingForNodeWasEnabled();
-        [notify] void searchingForNodeWasDisabled();
         [notify] void setChildNodes(out long parentId, out Array nodes);
         [notify] void setDetachedRoot(out Object root);
         [notify] void setDocument(out Value root);
@@ -59,7 +59,6 @@ module core {
         [notify] void updateConsoleMessageRepeatCount(out unsigned long count);
         [notify] void updateFocusedNode(out long nodeId);
         [notify] void updateResource(out Value resource);
-        [notify] void consoleMessagesCleared();
 
 #if defined(ENABLE_JAVASCRIPT_DEBUGGER) && ENABLE_JAVASCRIPT_DEBUGGER
         [notify] void addProfileHeader(out Object header);
@@ -104,8 +103,7 @@ module core {
         [handler=Controller] void saveApplicationSettings(in String settings);
         [handler=Controller] void saveSessionSettings(in String settings);
 
-        [handler=Controller] void enableSearchingForNode();
-        [handler=Controller] void disableSearchingForNode();
+        [handler=Controller] void setSearchingForNode(in boolean enabled, out boolean newState);
 
         [handler=Controller] void setMonitoringXHREnabled(in boolean enable, out boolean newState);
 
@@ -132,10 +130,13 @@ module core {
         [handler=Debug] void stepIntoStatement();
         [handler=Debug] void stepOutOfFunction();
 
-        [handler=Debug] void setPauseOnExceptionsState(in long pauseOnExceptionsState);
+        [handler=Debug] void setPauseOnExceptionsState(in long pauseOnExceptionsState, out long newState);
 
         [handler=Debug] void editScriptSource(in String sourceID, in String newContent, out boolean success, out String result, out Value newCallFrames);
         [handler=Debug] void getScriptSource(in String sourceID, out String scriptSource);
+
+        [handler=Controller] void setNativeBreakpoint(in Object breakpoint, out unsigned int breakpointId);
+        [handler=Controller] void removeNativeBreakpoint(in unsigned int breakpointId);
 
         [handler=Controller] void enableProfiler(in boolean always);
         [handler=Controller] void disableProfiler(in boolean always);

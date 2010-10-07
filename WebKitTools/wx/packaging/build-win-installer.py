@@ -27,6 +27,7 @@
 
 import sys, os, string
 import commands
+import datetime
 import glob
 from subprocess import *
 
@@ -62,7 +63,7 @@ if __name__ == "__main__":
     innoSetup = getInnoSetupPath()
     os.chdir(sys.path[0])
 
-    svnrevision = svn_revision()
+    date = str(datetime.date.today())
 
     if not os.path.exists(innoSetup):
         print "ERROR: Cannot find InnoSetup."
@@ -84,7 +85,7 @@ CopyMode: alwaysoverwrite; Source: *.py;        DestDir: "{app}"
 
     installerTemplate = open("wxWebKitInstaller.iss.in", "r").read()
 
-    installerTemplate = installerTemplate.replace("<<VERSION>>", svnrevision)
+    installerTemplate = installerTemplate.replace("<<VERSION>>", date)
     installerTemplate = installerTemplate.replace("<<ROOTDIR>>", wxwebkit_dir )
     installerTemplate = installerTemplate.replace("<<PYTHONVER>>", sys.version[0:3] )
     installerTemplate = installerTemplate.replace("<<FILES>>", fileList )

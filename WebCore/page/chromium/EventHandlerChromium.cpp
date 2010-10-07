@@ -129,7 +129,7 @@ bool EventHandler::eventActivatedView(const PlatformMouseEvent& event) const
 PassRefPtr<Clipboard> EventHandler::createDraggingClipboard() const
 {
     RefPtr<ChromiumDataObject> dataObject = ChromiumDataObject::create();
-    return ClipboardChromium::create(true, dataObject.get(), ClipboardWritable, m_frame);
+    return ClipboardChromium::create(Clipboard::DragAndDrop, dataObject.get(), ClipboardWritable, m_frame);
 }
 
 void EventHandler::focusDocumentView()
@@ -154,7 +154,7 @@ unsigned EventHandler::accessKeyModifiers()
 #endif
 }
 
-#if OS(LINUX)
+#if OS(LINUX) || OS(FREEBSD)
 // GTK+ must scroll horizontally if the mouse pointer is on top of the
 // horizontal scrollbar while scrolling with the wheel.
 // This code comes from gtk/EventHandlerGtk.cpp.

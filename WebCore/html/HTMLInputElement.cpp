@@ -51,6 +51,7 @@
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
 #include "HTMLParserIdioms.h"
+#include "InputType.h"
 #include "KeyboardEvent.h"
 #include "LocalizedStrings.h"
 #include "MouseEvent.h"
@@ -164,6 +165,7 @@ HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document* docum
     , m_autocomplete(Uninitialized)
     , m_autofilled(false)
     , m_inited(false)
+    , m_inputType(InputType::createText(this))
 {
     ASSERT(hasTagName(inputTag) || hasTagName(isindexTag));
 }
@@ -348,17 +350,7 @@ bool HTMLInputElement::valueMissing(const String& value) const
 
 bool HTMLInputElement::patternMismatch(const String& value) const
 {
-    if (!isTextType())
-        return false;
-    const AtomicString& pattern = getAttribute(patternAttr);
-    // Empty values can't be mismatched
-    if (pattern.isEmpty() || value.isEmpty())
-        return false;
-    RegularExpression patternRegExp(pattern, TextCaseSensitive);
-    int matchLength = 0;
-    int valueLength = value.length();
-    int matchOffset = patternRegExp.match(value, 0, &matchLength);
-    return matchOffset || matchLength != valueLength;
+    return m_inputType->patternMismatch(value);
 }
 
 bool HTMLInputElement::tooLong(const String& value, NeedsToCheckDirtyFlag check) const
@@ -918,6 +910,7 @@ void HTMLInputElement::updateType()
             bool wasPasswordField = deprecatedInputType() == PASSWORD;
             bool didRespectHeightAndWidth = respectHeightAndWidthAttrs();
             m_deprecatedTypeNumber = newType;
+            m_inputType = InputType::create(this, typeString);
             setNeedsWillValidateCheck();
             bool willStoreValue = storesValueSeparateFromAttribute();
             bool isPasswordField = deprecatedInputType() == PASSWORD;
@@ -966,42 +959,9 @@ void HTMLInputElement::updateType()
         m_imageLoader.clear();
 }
 
-static const AtomicString* createFormControlTypes()
-{
-    AtomicString* types = new AtomicString[HTMLInputElement::deprecatedNumberOfTypes];
-    // The values must be lowercased because they will be the return values of
-    //  input.type and it must be lowercase according to DOM Level 2.
-    types[HTMLInputElement::BUTTON] = "button";
-    types[HTMLInputElement::CHECKBOX] = "checkbox";
-    types[HTMLInputElement::COLOR] = "color";
-    types[HTMLInputElement::DATE] = "date";
-    types[HTMLInputElement::DATETIME] = "datetime";
-    types[HTMLInputElement::DATETIMELOCAL] = "datetime-local";
-    types[HTMLInputElement::EMAIL] = "email";
-    types[HTMLInputElement::FILE] = "file";
-    types[HTMLInputElement::HIDDEN] = "hidden";
-    types[HTMLInputElement::IMAGE] = "image";
-    types[HTMLInputElement::ISINDEX] = emptyAtom;
-    types[HTMLInputElement::MONTH] = "month";
-    types[HTMLInputElement::NUMBER] = "number";
-    types[HTMLInputElement::PASSWORD] = "password";
-    types[HTMLInputElement::RADIO] = "radio";
-    types[HTMLInputElement::RANGE] = "range";
-    types[HTMLInputElement::RESET] = "reset";
-    types[HTMLInputElement::SEARCH] = "search";
-    types[HTMLInputElement::SUBMIT] = "submit";
-    types[HTMLInputElement::TELEPHONE] = "tel";
-    types[HTMLInputElement::TEXT] = "text";
-    types[HTMLInputElement::TIME] = "time";
-    types[HTMLInputElement::URL] = "url";
-    types[HTMLInputElement::WEEK] = "week";
-    return types;
-}
-
 const AtomicString& HTMLInputElement::formControlType() const
 {
-    static const AtomicString* formControlTypes = createFormControlTypes();
-    return formControlTypes[deprecatedInputType()];
+    return m_inputType->formControlType();
 }
 
 bool HTMLInputElement::saveFormControlState(String& result) const
@@ -1255,7 +1215,7 @@ void HTMLInputElement::parseMappedAttribute(Attribute* attr)
         // FIXME: we need to tell this change to a renderer if the attribute affects the appearance.
 #endif
 #if ENABLE(INPUT_SPEECH)
-    else if (attr->name() == speechAttr) {
+    else if (attr->name() == webkitspeechAttr) {
       if (renderer())
           renderer()->updateFromElement();
       setNeedsStyleRecalc();
@@ -1488,70 +1448,12 @@ void HTMLInputElement::reset()
 
 bool HTMLInputElement::isTextField() const
 {
-    switch (deprecatedInputType()) {
-    case COLOR:
-    case DATE:
-    case DATETIME:
-    case DATETIMELOCAL:
-    case EMAIL:
-    case ISINDEX:
-    case MONTH:
-    case NUMBER:
-    case PASSWORD:
-    case SEARCH:
-    case TELEPHONE:
-    case TEXT:
-    case TIME:
-    case URL:
-    case WEEK:
-        return true;
-    case BUTTON:
-    case CHECKBOX:
-    case FILE:
-    case HIDDEN:
-    case IMAGE:
-    case RADIO:
-    case RANGE:
-    case RESET:
-    case SUBMIT:
-        return false;
-    }
-    ASSERT_NOT_REACHED();
-    return false;
+    return m_inputType->isTextField();
 }
 
 bool HTMLInputElement::isTextType() const
 {
-    switch (deprecatedInputType()) {
-    case EMAIL:
-    case PASSWORD:
-    case SEARCH:
-    case TELEPHONE:
-    case TEXT:
-    case URL:
-        return true;
-    case BUTTON:
-    case CHECKBOX:
-    case COLOR:
-    case DATE:
-    case DATETIME:
-    case DATETIMELOCAL:
-    case FILE:
-    case HIDDEN:
-    case IMAGE:
-    case ISINDEX:
-    case MONTH:
-    case NUMBER:
-    case RADIO:
-    case RANGE:
-    case RESET:
-    case SUBMIT:
-    case TIME:
-    case WEEK:
-        return false;
-    }
-    ASSERT_NOT_REACHED();
-    return false;
+    return m_inputType->isTextType();
 }
 
 void HTMLInputElement::setChecked(bool nowChecked, bool sendChangeEvent)
@@ -2277,6 +2179,11 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
             return;
         }
     }
+    if (deprecatedInputType() == RANGE && evt->isKeyboardEvent()) {
+        handleKeyEventForRange(static_cast<KeyboardEvent*>(evt));
+        if (evt->defaultHandled())
+            return;
+    }
  
    if (isTextField()
             && evt->type() == eventNames().keydownEvent
@@ -2581,6 +2488,47 @@ void HTMLInputElement::handleBeforeTextInsertedEvent(Event* event)
         }
     }
     InputElement::handleBeforeTextInsertedEvent(m_data, this, this, event);
+}
+
+void HTMLInputElement::handleKeyEventForRange(KeyboardEvent* event)
+{
+    if (event->type() != eventNames().keydownEvent)
+        return;
+    String key = event->keyIdentifier();
+    if (key != "Up" && key != "Right" && key != "Down" && key != "Left")
+        return;
+
+    ExceptionCode ec;
+    if (equalIgnoringCase(getAttribute(stepAttr), "any")) {
+        double min = minimum();
+        double max = maximum();
+        // FIXME: Is 1/100 reasonable?
+        double step = (max - min) / 100;
+        double current = parseToDouble(value(), numeric_limits<double>::quiet_NaN());
+        ASSERT(isfinite(current));
+        double newValue;
+        if (key == "Up" || key == "Right") {
+            newValue = current + step;
+            if (newValue > max)
+                newValue = max;
+        } else {
+            newValue = current - step;
+            if (newValue < min)
+                newValue = min;
+        }
+        if (newValue != current) {
+            setValueAsNumber(newValue, ec);
+            dispatchFormControlChangeEvent();
+        }
+    } else {
+        int stepMagnification = (key == "Up" || key == "Right") ? 1 : -1;
+        String lastStringValue = value();
+        stepUp(stepMagnification, ec);
+        if (lastStringValue != value())
+            dispatchFormControlChangeEvent();
+    }
+    event->setDefaultHandled();
+    return;
 }
 
 PassRefPtr<HTMLFormElement> HTMLInputElement::createTemporaryFormForIsIndex()
@@ -3010,7 +2958,7 @@ bool HTMLInputElement::isSpeechEnabled() const
     case SEARCH:
     case TELEPHONE:
     case TEXT:
-        return hasAttribute(speechAttr);
+        return hasAttribute(webkitspeechAttr);
     case BUTTON:
     case CHECKBOX:
     case COLOR:

@@ -495,9 +495,9 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             printf("[%4d] create_arguments\t %s\n", location, registerName(exec, r0).data());
             break;
         }
-        case op_init_arguments: {
+        case op_init_lazy_reg: {
             int r0 = (++it)->u.operand;
-            printf("[%4d] init_arguments\t %s\n", location, registerName(exec, r0).data());
+            printf("[%4d] init_lazy_reg\t %s\n", location, registerName(exec, r0).data());
             break;
         }
         case op_get_callee: {
@@ -712,16 +712,16 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
         }
         case op_resolve_global: {
             int r0 = (++it)->u.operand;
-            JSValue scope = JSValue((++it)->u.jsCell);
             int id0 = (++it)->u.operand;
-            printf("[%4d] resolve_global\t %s, %s, %s\n", location, registerName(exec, r0).data(), valueToSourceString(exec, scope).utf8().data(), idName(id0, m_identifiers[id0]).data());
+            printf("[%4d] resolve_global\t %s, %s\n", location, registerName(exec, r0).data(), idName(id0, m_identifiers[id0]).data());
             it += 2;
             break;
         }
         case op_resolve_global_dynamic: {
             int r0 = (++it)->u.operand;
-            JSValue scope = JSValue((++it)->u.jsCell);
             int id0 = (++it)->u.operand;
+            JSValue scope = JSValue((++it)->u.jsCell);
+            ++it;
             int depth = it[2].u.operand;
             printf("[%4d] resolve_global_dynamic\t %s, %s, %s, %d\n", location, registerName(exec, r0).data(), valueToSourceString(exec, scope).utf8().data(), idName(id0, m_identifiers[id0]).data(), depth);
             it += 3;
@@ -743,16 +743,14 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
         }
         case op_get_global_var: {
             int r0 = (++it)->u.operand;
-            JSValue scope = JSValue((++it)->u.jsCell);
             int index = (++it)->u.operand;
-            printf("[%4d] get_global_var\t %s, %s, %d\n", location, registerName(exec, r0).data(), valueToSourceString(exec, scope).utf8().data(), index);
+            printf("[%4d] get_global_var\t %s, %d\n", location, registerName(exec, r0).data(), index);
             break;
         }
         case op_put_global_var: {
-            JSValue scope = JSValue((++it)->u.jsCell);
             int index = (++it)->u.operand;
             int r0 = (++it)->u.operand;
-            printf("[%4d] put_global_var\t %s, %d, %s\n", location, valueToSourceString(exec, scope).utf8().data(), index, registerName(exec, r0).data());
+            printf("[%4d] put_global_var\t %d, %s\n", location, index, registerName(exec, r0).data());
             break;
         }
         case op_resolve_base: {
@@ -844,6 +842,11 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             printGetByIdOp(exec, location, it, "get_string_length");
             break;
         }
+        case op_get_arguments_length: {
+            printUnaryOp(exec, location, it, "get_arguments_length");
+            it++;
+            break;
+        }
         case op_put_by_id: {
             printPutByIdOp(exec, location, it, "put_by_id");
             break;
@@ -890,6 +893,13 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
             int r1 = (++it)->u.operand;
             int r2 = (++it)->u.operand;
             printf("[%4d] get_by_val\t %s, %s, %s\n", location, registerName(exec, r0).data(), registerName(exec, r1).data(), registerName(exec, r2).data());
+            break;
+        }
+        case op_get_argument_by_val: {
+            int r0 = (++it)->u.operand;
+            int r1 = (++it)->u.operand;
+            int r2 = (++it)->u.operand;
+            printf("[%4d] get_argument_by_val\t %s, %s, %s\n", location, registerName(exec, r0).data(), registerName(exec, r1).data(), registerName(exec, r2).data());
             break;
         }
         case op_get_by_pname: {
@@ -1030,7 +1040,8 @@ void CodeBlock::dump(ExecState* exec, const Vector<Instruction>::const_iterator&
         case op_new_func: {
             int r0 = (++it)->u.operand;
             int f0 = (++it)->u.operand;
-            printf("[%4d] new_func\t\t %s, f%d\n", location, registerName(exec, r0).data(), f0);
+            int shouldCheck = (++it)->u.operand;
+            printf("[%4d] new_func\t\t %s, f%d, %s\n", location, registerName(exec, r0).data(), f0, shouldCheck ? "<Checked>" : "<Unchecked>");
             break;
         }
         case op_new_func_exp: {

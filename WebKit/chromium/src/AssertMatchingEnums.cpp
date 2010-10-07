@@ -49,6 +49,7 @@
 #include "TextAffinity.h"
 #include "UserContentTypes.h"
 #include "UserScriptTypes.h"
+#include "UserStyleSheetTypes.h"
 #include "VideoFrameChromium.h"
 #include "WebAccessibilityObject.h"
 #include "WebApplicationCacheHost.h"
@@ -273,31 +274,6 @@ COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::Weight900, FontWeight900);
 COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::WeightNormal, FontWeightNormal);
 COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::WeightBold, FontWeightBold);
 
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Text, HTMLInputElement::TEXT);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Password, HTMLInputElement::PASSWORD);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::IsIndex, HTMLInputElement::ISINDEX);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::CheckBox, HTMLInputElement::CHECKBOX);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Radio, HTMLInputElement::RADIO);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Submit, HTMLInputElement::SUBMIT);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Reset, HTMLInputElement::RESET);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::File, HTMLInputElement::FILE);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Hidden, HTMLInputElement::HIDDEN);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Image, HTMLInputElement::IMAGE);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Button, HTMLInputElement::BUTTON);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Search, HTMLInputElement::SEARCH);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Range, HTMLInputElement::RANGE);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Email, HTMLInputElement::EMAIL);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Number, HTMLInputElement::NUMBER);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Telephone, HTMLInputElement::TELEPHONE);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::URL, HTMLInputElement::URL);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Color, HTMLInputElement::COLOR);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Date, HTMLInputElement::DATE);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::DateTime, HTMLInputElement::DATETIME);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::DateTimeLocal, HTMLInputElement::DATETIMELOCAL);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Month, HTMLInputElement::MONTH);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Time, HTMLInputElement::TIME);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Week, HTMLInputElement::WEEK);
-
 COMPILE_ASSERT_MATCHING_ENUM(WebNode::ElementNode, Node::ELEMENT_NODE);
 COMPILE_ASSERT_MATCHING_ENUM(WebNode::AttributeNode, Node::ATTRIBUTE_NODE);
 COMPILE_ASSERT_MATCHING_ENUM(WebNode::TextNode, Node::TEXT_NODE);
@@ -378,6 +354,8 @@ COMPILE_ASSERT_MATCHING_ENUM(WebView::UserScriptInjectAtDocumentStart, InjectAtD
 COMPILE_ASSERT_MATCHING_ENUM(WebView::UserScriptInjectAtDocumentEnd, InjectAtDocumentEnd);
 COMPILE_ASSERT_MATCHING_ENUM(WebView::UserContentInjectInAllFrames, InjectInAllFrames);
 COMPILE_ASSERT_MATCHING_ENUM(WebView::UserContentInjectInTopFrameOnly, InjectInTopFrameOnly);
+COMPILE_ASSERT_MATCHING_ENUM(WebView::UserStyleInjectInExistingDocuments, InjectInExistingDocuments);
+COMPILE_ASSERT_MATCHING_ENUM(WebView::UserStyleInjectInSubsequentDocuments, InjectInSubsequentDocuments);
 
 COMPILE_ASSERT_MATCHING_ENUM(WebIDBKey::NullType, IDBKey::NullType);
 COMPILE_ASSERT_MATCHING_ENUM(WebIDBKey::StringType, IDBKey::StringType);

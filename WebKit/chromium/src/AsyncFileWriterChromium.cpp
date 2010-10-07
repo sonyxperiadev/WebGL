@@ -33,30 +33,31 @@
 
 #if ENABLE(FILE_SYSTEM)
 
+#include "AsyncFileWriterClient.h"
 #include "Blob.h"
-#include "FileWriterClient.h"
 #include "WebFileWriter.h"
 #include "WebURL.h"
 
-using namespace WebCore;
+namespace WebCore {
 
-namespace WebKit {
-
-AsyncFileWriterChromium::AsyncFileWriterChromium(FileWriterClient* client)
+AsyncFileWriterChromium::AsyncFileWriterChromium(AsyncFileWriterClient* client)
     : m_client(client)
 {
 }
 
-void AsyncFileWriterChromium::setWebFileWriter(WebFileWriter* writer)
+AsyncFileWriterChromium::~AsyncFileWriterChromium()
 {
-    ASSERT(!m_writer);
+}
+
+void AsyncFileWriterChromium::setWebFileWriter(PassOwnPtr<WebKit::WebFileWriter> writer)
+{
     m_writer = writer;
 }
 
 void AsyncFileWriterChromium::write(long long position, Blob* data)
 {
     ASSERT(m_writer);
-    m_writer->write(position, WebURL(data->url()));
+    m_writer->write(position, WebKit::WebURL(data->url()));
 }
 
 void AsyncFileWriterChromium::truncate(long long length)
@@ -77,12 +78,12 @@ void AsyncFileWriterChromium::didWrite(long long bytes, bool complete)
     m_client->didWrite(bytes, complete);
 }
 
-void AsyncFileWriterChromium::didTruncate(long long length)
+void AsyncFileWriterChromium::didTruncate()
 {
-    m_client->didTruncate(length);
+    m_client->didTruncate();
 }
 
-void AsyncFileWriterChromium::didFail(WebFileError error)
+void AsyncFileWriterChromium::didFail(WebKit::WebFileError error)
 {
     m_client->didFail(error);
 }

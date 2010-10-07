@@ -47,20 +47,16 @@ class TestReviewQueue(AbstractReviewQueue):
     name = "test-review-queue"
 
 
+class TestFeederQueue(FeederQueue):
+    _sleep_duration = 0
+
+
 class MockRolloutPatch(MockPatch):
     def is_rollout(self):
         return True
 
 
 class AbstractQueueTest(CommandsTest):
-    def _assert_log_progress_output(self, patch_ids, progress_output):
-        OutputCapture().assert_outputs(self, TestQueue().log_progress, [patch_ids], expected_stderr=progress_output)
-
-    def test_log_progress(self):
-        self._assert_log_progress_output([1,2,3], "3 patches in test-queue [1, 2, 3]\n")
-        self._assert_log_progress_output(["1","2","3"], "3 patches in test-queue [1, 2, 3]\n")
-        self._assert_log_progress_output([1], "1 patch in test-queue [1]\n")
-
     def test_log_directory(self):
         self.assertEquals(TestQueue()._log_directory(), "test-queue-logs")
 
@@ -115,6 +111,29 @@ class AbstractQueueTest(CommandsTest):
         self._assert_log_message(script_error, expected_output)
 
 
+class FeederQueueTest(QueuesTest):
+    def test_feeder_queue(self):
+        queue = TestFeederQueue()
+        tool = MockTool(log_executive=True)
+        expected_stderr = {
+            "begin_work_queue": self._default_begin_work_queue_stderr("feeder-queue", MockSCM.fake_checkout_root),
+            "should_proceed_with_work_item": "",
+            "next_work_item": "",
+            "process_work_item": """Warning, attachment 128 on bug 42 has invalid committer (non-committer@example.com)
+Warning, attachment 128 on bug 42 has invalid committer (non-committer@example.com)
+MOCK setting flag 'commit-queue' to '-' on attachment '128' with comment 'Rejecting patch 128 from commit-queue.' and additional comment 'non-committer@example.com does not have committer permissions according to http://trac.webkit.org/browser/trunk/WebKitTools/Scripts/webkitpy/common/config/committers.py.
+
+- If you do not have committer rights please read http://webkit.org/coding/contributing.html for instructions on how to use bugzilla flags.
+
+- If you have committer rights please correct the error in WebKitTools/Scripts/webkitpy/common/config/committers.py by adding yourself to the file (no review needed).  The commit-queue restarts itself every 2 hours.  After restart the commit-queue will correctly respect your committer rights.'
+MOCK: update_work_items: commit-queue [106, 197]
+Feeding commit-queue items [106, 197]
+""",
+            "handle_unexpected_error": "Mock error message\n",
+        }
+        self.assert_queue_outputs(queue, tool=tool, expected_stderr=expected_stderr)
+
+
 class AbstractPatchQueueTest(CommandsTest):
     def test_fetch_next_work_item(self):
         queue = AbstractPatchQueue()
@@ -167,7 +186,7 @@ class SecondThoughtsCommitQueue(CommitQueue):
             "attacher_email": "Contributer1",
         }
         patch = Attachment(attachment_dictionary, None)
-        self.tool.bugs.set_override_patch(patch)
+        self._tool.bugs.set_override_patch(patch)
         return True
 
 
@@ -175,40 +194,58 @@ class CommitQueueTest(QueuesTest):
     def test_commit_queue(self):
         expected_stderr = {
             "begin_work_queue": self._default_begin_work_queue_stderr("commit-queue", MockSCM.fake_checkout_root),
-            "should_proceed_with_work_item": "MOCK: update_status: commit-queue Landing patch\n",
-            # FIXME: The commit-queue warns about bad committers twice.  This is due to the fact that we access Attachment.reviewer() twice and it logs each time.
-            "next_work_item": """Warning, attachment 128 on bug 42 has invalid committer (non-committer@example.com)
-Warning, attachment 128 on bug 42 has invalid committer (non-committer@example.com)
-MOCK setting flag 'commit-queue' to '-' on attachment '128' with comment 'Rejecting patch 128 from commit-queue.' and additional comment 'non-committer@example.com does not have committer permissions according to http://trac.webkit.org/browser/trunk/WebKitTools/Scripts/webkitpy/common/config/committers.py.\n\n- If you do not have committer rights please read http://webkit.org/coding/contributing.html for instructions on how to use bugzilla flags.\n\n- If you have committer rights please correct the error in WebKitTools/Scripts/webkitpy/common/config/committers.py by adding yourself to the file (no review needed).  The commit-queue restarts itself every 2 hours.  After restart the commit-queue will correctly respect your committer rights.'
-MOCK: update_work_items: commit-queue [106, 197]
-2 patches in commit-queue [106, 197]
+            "should_proceed_with_work_item": "MOCK: update_status: commit-queue Processing patch\n",
+            "next_work_item": "",
+            "process_work_item": """MOCK: update_status: commit-queue Applied patch
+MOCK: update_status: commit-queue Built patch
+MOCK: update_status: commit-queue Passed tests
+MOCK: update_status: commit-queue Landed patch
+MOCK: update_status: commit-queue Pass
 """,
-            "process_work_item": "MOCK: update_status: commit-queue Pass\n",
             "handle_unexpected_error": "MOCK setting flag 'commit-queue' to '-' on attachment '197' with comment 'Rejecting patch 197 from commit-queue.' and additional comment 'Mock error message'\n",
-            "handle_script_error": "MOCK: update_status: commit-queue ScriptError error message\nMOCK setting flag 'commit-queue' to '-' on attachment '197' with comment 'Rejecting patch 197 from commit-queue.' and additional comment 'ScriptError error message'\n",
+            "handle_script_error": "ScriptError error message\n",
         }
         self.assert_queue_outputs(CommitQueue(), expected_stderr=expected_stderr)
+
+    def test_commit_queue_failure(self):
+        expected_stderr = {
+            "begin_work_queue": self._default_begin_work_queue_stderr("commit-queue", MockSCM.fake_checkout_root),
+            "should_proceed_with_work_item": "MOCK: update_status: commit-queue Processing patch\n",
+            "next_work_item": "",
+            "process_work_item": """MOCK: update_status: commit-queue Patch does not apply
+MOCK setting flag 'commit-queue' to '-' on attachment '197' with comment 'Rejecting patch 197 from commit-queue.' and additional comment 'MOCK script error'
+MOCK: update_status: commit-queue Fail
+""",
+            "handle_unexpected_error": "MOCK setting flag 'commit-queue' to '-' on attachment '197' with comment 'Rejecting patch 197 from commit-queue.' and additional comment 'Mock error message'\n",
+            "handle_script_error": "ScriptError error message\n",
+        }
+        queue = CommitQueue()
+
+        def mock_run_webkit_patch(command):
+            raise ScriptError('MOCK script error')
+
+        queue.run_webkit_patch = mock_run_webkit_patch
+        self.assert_queue_outputs(queue, expected_stderr=expected_stderr)
 
     def test_rollout(self):
         tool = MockTool(log_executive=True)
         tool.buildbot.light_tree_on_fire()
         expected_stderr = {
             "begin_work_queue": self._default_begin_work_queue_stderr("commit-queue", MockSCM.fake_checkout_root),
-            "should_proceed_with_work_item": "MOCK: update_status: commit-queue Landing patch\n",
-            # FIXME: The commit-queue warns about bad committers twice.  This is due to the fact that we access Attachment.reviewer() twice and it logs each time.
-            "next_work_item": """Warning, attachment 128 on bug 42 has invalid committer (non-committer@example.com)
-Warning, attachment 128 on bug 42 has invalid committer (non-committer@example.com)
-MOCK setting flag 'commit-queue' to '-' on attachment '128' with comment 'Rejecting patch 128 from commit-queue.' and additional comment 'non-committer@example.com does not have committer permissions according to http://trac.webkit.org/browser/trunk/WebKitTools/Scripts/webkitpy/common/config/committers.py.
-
-- If you do not have committer rights please read http://webkit.org/coding/contributing.html for instructions on how to use bugzilla flags.
-
-- If you have committer rights please correct the error in WebKitTools/Scripts/webkitpy/common/config/committers.py by adding yourself to the file (no review needed).  The commit-queue restarts itself every 2 hours.  After restart the commit-queue will correctly respect your committer rights.'
-MOCK: update_work_items: commit-queue [106, 197]
-2 patches in commit-queue [106, 197]
+            "should_proceed_with_work_item": "MOCK: update_status: commit-queue Processing patch\n",
+            "next_work_item": "",
+            "process_work_item": """MOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'apply-attachment', '--force-clean', '--non-interactive', '--quiet', 197]
+MOCK: update_status: commit-queue Applied patch
+MOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'build', '--no-clean', '--no-update', '--build', '--build-style=both', '--quiet']
+MOCK: update_status: commit-queue Built patch
+MOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'build-and-test', '--no-clean', '--no-update', '--test', '--quiet', '--non-interactive']
+MOCK: update_status: commit-queue Passed tests
+MOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'land-attachment', '--force-clean', '--ignore-builders', '--quiet', '--non-interactive', '--parent-command=commit-queue', 197]
+MOCK: update_status: commit-queue Landed patch
+MOCK: update_status: commit-queue Pass
 """,
-            "process_work_item": "MOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'build-and-test-attachment', '--force-clean', '--build', '--non-interactive', '--build-style=both', '--quiet', 197, '--test']\nMOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'land-attachment', '--force-clean', '--non-interactive', '--ignore-builders', '--quiet', '--parent-command=commit-queue', 197]\nMOCK: update_status: commit-queue Pass\n",
             "handle_unexpected_error": "MOCK setting flag 'commit-queue' to '-' on attachment '197' with comment 'Rejecting patch 197 from commit-queue.' and additional comment 'Mock error message'\n",
-            "handle_script_error": "MOCK: update_status: commit-queue ScriptError error message\nMOCK setting flag 'commit-queue' to '-' on attachment '197' with comment 'Rejecting patch 197 from commit-queue.' and additional comment 'ScriptError error message'\n",
+            "handle_script_error": "ScriptError error message\n",
         }
         self.assert_queue_outputs(CommitQueue(), tool=tool, expected_stderr=expected_stderr)
 
@@ -218,51 +255,22 @@ MOCK: update_work_items: commit-queue [106, 197]
         rollout_patch = MockRolloutPatch()
         expected_stderr = {
             "begin_work_queue": self._default_begin_work_queue_stderr("commit-queue", MockSCM.fake_checkout_root),
-            "should_proceed_with_work_item": "MOCK: update_status: commit-queue Landing rollout patch\n",
-            # FIXME: The commit-queue warns about bad committers twice.  This is due to the fact that we access Attachment.reviewer() twice and it logs each time.
-            "next_work_item": """Warning, attachment 128 on bug 42 has invalid committer (non-committer@example.com)
-Warning, attachment 128 on bug 42 has invalid committer (non-committer@example.com)
-MOCK setting flag 'commit-queue' to '-' on attachment '128' with comment 'Rejecting patch 128 from commit-queue.' and additional comment 'non-committer@example.com does not have committer permissions according to http://trac.webkit.org/browser/trunk/WebKitTools/Scripts/webkitpy/common/config/committers.py.
-
-- If you do not have committer rights please read http://webkit.org/coding/contributing.html for instructions on how to use bugzilla flags.
-
-- If you have committer rights please correct the error in WebKitTools/Scripts/webkitpy/common/config/committers.py by adding yourself to the file (no review needed).  The commit-queue restarts itself every 2 hours.  After restart the commit-queue will correctly respect your committer rights.'
-MOCK: update_work_items: commit-queue [106, 197]
-2 patches in commit-queue [106, 197]
+            "should_proceed_with_work_item": "MOCK: update_status: commit-queue Processing rollout patch\n",
+            "next_work_item": "",
+            "process_work_item": """MOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'apply-attachment', '--force-clean', '--non-interactive', '--quiet', 197]
+MOCK: update_status: commit-queue Applied patch
+MOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'build', '--no-clean', '--no-update', '--build', '--build-style=both', '--quiet']
+MOCK: update_status: commit-queue Built patch
+MOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'build-and-test', '--no-clean', '--no-update', '--test', '--quiet', '--non-interactive']
+MOCK: update_status: commit-queue Passed tests
+MOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'land-attachment', '--force-clean', '--ignore-builders', '--quiet', '--non-interactive', '--parent-command=commit-queue', 197]
+MOCK: update_status: commit-queue Landed patch
+MOCK: update_status: commit-queue Pass
 """,
-            "process_work_item": "MOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'build-and-test-attachment', '--force-clean', '--build', '--non-interactive', '--build-style=both', '--quiet', 197]\nMOCK run_and_throw_if_fail: ['echo', '--status-host=example.com', 'land-attachment', '--force-clean', '--non-interactive', '--ignore-builders', '--quiet', '--parent-command=commit-queue', 197]\nMOCK: update_status: commit-queue Pass\n",
             "handle_unexpected_error": "MOCK setting flag 'commit-queue' to '-' on attachment '197' with comment 'Rejecting patch 197 from commit-queue.' and additional comment 'Mock error message'\n",
-            "handle_script_error": "MOCK: update_status: commit-queue ScriptError error message\nMOCK setting flag 'commit-queue' to '-' on attachment '197' with comment 'Rejecting patch 197 from commit-queue.' and additional comment 'ScriptError error message'\n",
+            "handle_script_error": "ScriptError error message\n",
         }
         self.assert_queue_outputs(CommitQueue(), tool=tool, work_item=rollout_patch, expected_stderr=expected_stderr)
-
-    def test_can_build_and_test(self):
-        queue = CommitQueue()
-        tool = MockTool()
-        tool.executive = Mock()
-        queue.bind_to_tool(tool)
-        self.assertTrue(queue._can_build_and_test_without_patch())
-        expected_run_args = ["echo", "--status-host=example.com", "build-and-test", "--force-clean", "--build", "--test", "--non-interactive", "--no-update", "--build-style=both", "--quiet"]
-        tool.executive.run_and_throw_if_fail.assert_called_with(expected_run_args)
-
-    def _mock_attachment(self, is_rollout, attach_date):
-        attachment = Mock()
-        attachment.is_rollout = lambda: is_rollout
-        attachment.attach_date = lambda: attach_date
-        return attachment
-
-    def test_patch_cmp(self):
-        long_ago_date = datetime(1900, 1, 21)
-        recent_date = datetime(2010, 1, 21)
-        attachment1 = self._mock_attachment(is_rollout=False, attach_date=recent_date)
-        attachment2 = self._mock_attachment(is_rollout=False, attach_date=long_ago_date)
-        attachment3 = self._mock_attachment(is_rollout=True, attach_date=recent_date)
-        attachment4 = self._mock_attachment(is_rollout=True, attach_date=long_ago_date)
-        attachments = [attachment1, attachment2, attachment3, attachment4]
-        expected_sort = [attachment4, attachment3, attachment2, attachment1]
-        queue = CommitQueue()
-        attachments.sort(queue._patch_cmp)
-        self.assertEqual(attachments, expected_sort)
 
     def test_auto_retry(self):
         queue = CommitQueue()
@@ -282,7 +290,13 @@ MOCK: update_work_items: commit-queue [106, 197]
     def test_manual_reject_during_processing(self):
         queue = SecondThoughtsCommitQueue()
         queue.bind_to_tool(MockTool())
-        queue.process_work_item(MockPatch())
+        expected_stderr = """MOCK: update_status: commit-queue Applied patch
+MOCK: update_status: commit-queue Built patch
+MOCK: update_status: commit-queue Passed tests
+MOCK: update_status: commit-queue Landed patch
+MOCK: update_status: commit-queue Pass
+"""
+        OutputCapture().assert_outputs(self, queue.process_work_item, [MockPatch()], expected_stderr=expected_stderr)
 
 
 class RietveldUploadQueueTest(QueuesTest):

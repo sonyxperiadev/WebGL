@@ -1412,8 +1412,11 @@ namespace JSC {
         bool usesArguments() const { return m_features & ArgumentsFeature; }
         void setUsesArguments() { m_features |= ArgumentsFeature; }
         bool usesThis() const { return m_features & ThisFeature; }
+        bool needsActivationForMoreThanVariables() const { ASSERT(m_data); return m_features & (EvalFeature | WithFeature | CatchFeature); }
         bool needsActivation() const { ASSERT(m_data); return (hasCapturedVariables()) || (m_features & (EvalFeature | WithFeature | CatchFeature)); }
         bool hasCapturedVariables() const { return !!m_data->m_capturedVariables.size(); }
+        size_t capturedVariableCount() const { return m_data->m_capturedVariables.size(); }
+        bool captures(const Identifier& ident) { return m_data->m_capturedVariables.contains(ident.impl()); }
 
         VarStack& varStack() { ASSERT(m_data); return m_data->m_varStack; }
         FunctionStack& functionStack() { ASSERT(m_data); return m_data->m_functionStack; }

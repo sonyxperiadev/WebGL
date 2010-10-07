@@ -163,7 +163,6 @@ public:
     // void glGetShaderPrecisionFormat (GLenum shadertype, GLenum precisiontype, GLint* range, GLint* precision);
 
     String getShaderSource(WebGLShader*, ExceptionCode&);
-    String getString(unsigned long name);
 
     WebGLGetInfo getTexParameter(unsigned long target, unsigned long pname, ExceptionCode&);
 
@@ -187,7 +186,7 @@ public:
     void linkProgram(WebGLProgram*, ExceptionCode&);
     void pixelStorei(unsigned long pname, long param);
     void polygonOffset(double factor, double units);
-    void readPixels(long x, long y, long width, long height, unsigned long format, unsigned long type, ArrayBufferView* pixels);
+    void readPixels(long x, long y, long width, long height, unsigned long format, unsigned long type, ArrayBufferView* pixels, ExceptionCode&);
     void releaseShaderCompiler();
     void renderbufferStorage(unsigned long target, unsigned long internalformat, unsigned long width, unsigned long height);
     void sampleCoverage(double value, bool invert);

@@ -21,6 +21,7 @@
 
 #include "config.h"
 #include "qwebpage.h"
+
 #include "qwebview.h"
 #include "qwebframe.h"
 #include "qwebpage_p.h"
@@ -77,6 +78,7 @@
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "HitTestResult.h"
+#include "InspectorServerQt.h"
 #include "WindowFeatures.h"
 #include "WebPlatformStrategies.h"
 #include "LocalizedStrings.h"
@@ -86,6 +88,7 @@
 #include "GeolocationPermissionClientQt.h"
 #include "NotificationPresenterClientQt.h"
 #include "PageClientQt.h"
+#include "PlatformTouchEvent.h"
 #include "WorkerThread.h"
 #include "wtf/Threading.h"
 
@@ -93,6 +96,7 @@
 #include <QBasicTimer>
 #include <QBitArray>
 #include <QDebug>
+#include <QDesktopWidget>
 #include <QDragEnterEvent>
 #include <QDragLeaveEvent>
 #include <QDragMoveEvent>
@@ -112,16 +116,13 @@
 #include <QSysInfo>
 #include <QTextCharFormat>
 #include <QTextDocument>
+#include <QTouchEvent>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #if defined(Q_WS_X11)
 #include <QX11Info>
 #endif
 
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
-#include <QTouchEvent>
-#include "PlatformTouchEvent.h"
-#endif
 
 using namespace WebCore;
 
@@ -254,12 +255,29 @@ static inline Qt::DropAction dragOpToDropAction(unsigned actions)
 
 QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
     : q(qq)
+    , page(0)
     , client(0)
-#if QT_VERSION < QT_VERSION_CHECK(4, 6, 0)
-    , view(0)
+    , mainFrame(0)
+#ifndef QT_NO_UNDOSTACK
+    , undoStack(0)
 #endif
+    , insideOpenCall(false)
+    , m_totalBytes(0)
+    , m_bytesReceived()
     , clickCausedFocus(false)
+    , networkManager(0)
+    , forwardUnsupportedContent(false)
+    , smartInsertDeleteEnabled(true)
+    , selectTrailingWhitespaceEnabled(false)
+    , linkPolicy(QWebPage::DontDelegateLinks)
     , viewportSize(QSize(0, 0))
+#ifndef QT_NO_CONTEXTMENU
+    , currentContextMenu(0)
+#endif
+    , settings(0)
+    , editable(false)
+    , useFixedLayout(false)
+    , pluginFactory(0)
     , inspectorFrontend(0)
     , inspector(0)
     , inspectorIsInternalOnly(false)
@@ -272,7 +290,7 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
     WebCore::Font::setCodePath(WebCore::Font::Complex);
 #endif
 
-    WebPlatformStrategies::initialize(qq);
+    WebPlatformStrategies::initialize();
 
     Page::PageClients pageClients;
     pageClients.chromeClient = new ChromeClientQt(q);
@@ -283,23 +301,6 @@ QWebPagePrivate::QWebPagePrivate(QWebPage *qq)
     page = new Page(pageClients);
 
     settings = new QWebSettings(page->settings());
-
-#ifndef QT_NO_UNDOSTACK
-    undoStack = 0;
-#endif
-    mainFrame = 0;
-    networkManager = 0;
-    pluginFactory = 0;
-    insideOpenCall = false;
-    forwardUnsupportedContent = false;
-    editable = false;
-    useFixedLayout = false;
-    linkPolicy = QWebPage::DontDelegateLinks;
-#ifndef QT_NO_CONTEXTMENU
-    currentContextMenu = 0;
-#endif
-    smartInsertDeleteEnabled = true;
-    selectTrailingWhitespaceEnabled = false;
 
     history.d = new QWebHistoryPrivate(page->backForwardList());
     memset(actions, 0, sizeof(actions));
@@ -793,7 +794,6 @@ void QWebPagePrivate::mouseReleaseEvent(QGraphicsSceneMouseEvent* ev)
 
 void QWebPagePrivate::handleSoftwareInputPanel(Qt::MouseButton button)
 {
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
     Frame* frame = page->focusController()->focusedFrame();
     if (!frame)
         return;
@@ -810,7 +810,6 @@ void QWebPagePrivate::handleSoftwareInputPanel(Qt::MouseButton button)
     }
 
     clickCausedFocus = false;
-#endif
 }
 
 void QWebPagePrivate::mouseReleaseEvent(QMouseEvent *ev)
@@ -1136,9 +1135,7 @@ void QWebPagePrivate::inputMethodEvent(QInputMethodEvent *ev)
 {
     WebCore::Frame *frame = page->focusController()->focusedOrMainFrame();
     WebCore::Editor *editor = frame->editor();
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
     QInputMethodEvent::Attribute selection(QInputMethodEvent::Selection, 0, 0, QVariant());
-#endif
 
     if (!editor->canEdit()) {
         ev->ignore();
@@ -1177,13 +1174,11 @@ void QWebPagePrivate::inputMethodEvent(QInputMethodEvent *ev)
             }
             break;
         }
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
         case QInputMethodEvent::Selection: {
             selection = a;
             hasSelection = true;
             break;
         }
-#endif
         }
     }
 
@@ -1195,7 +1190,6 @@ void QWebPagePrivate::inputMethodEvent(QInputMethodEvent *ev)
         // 3. populated preedit with a selection attribute, and start/end of 0 or non-0 updates selection of supplied preedit text
         // 4. otherwise event is updating supplied pre-edit text
         QString preedit = ev->preeditString();
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
         if (hasSelection) {
             QString text = (renderTextControl) ? QString(renderTextControl->text()) : QString();
             if (preedit.isEmpty() && selection.start + selection.length > 0)
@@ -1203,10 +1197,8 @@ void QWebPagePrivate::inputMethodEvent(QInputMethodEvent *ev)
             editor->setComposition(preedit, underlines,
                                    (selection.length < 0) ? selection.start + selection.length : selection.start,
                                    (selection.length < 0) ? selection.start : selection.start + selection.length);
-        } else
-#endif
-            if (!preedit.isEmpty())
-                editor->setComposition(preedit, underlines, preedit.length(), 0);
+        } else if (!preedit.isEmpty())
+            editor->setComposition(preedit, underlines, preedit.length(), 0);
     }
 
     ev->accept();
@@ -1302,6 +1294,10 @@ void QWebPagePrivate::dynamicPropertyChangeEvent(QDynamicPropertyChangeEvent* ev
         frame->tiledBackingStore()->setKeepAndCoverAreaMultipliers(keepMultiplier, coverMultiplier);
     }
 #endif
+    else if (event->propertyName() == "_q_webInspectorServerPort") {
+        InspectorServerQt* inspectorServer = InspectorServerQt::server();
+        inspectorServer->listen(inspectorServerPort());
+    }
 }
 #endif
 
@@ -1391,7 +1387,6 @@ bool QWebPagePrivate::handleScrolling(QKeyEvent *ev, Frame *frame)
     return frame->eventHandler()->scrollRecursively(direction, granularity);
 }
 
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
 bool QWebPagePrivate::touchEvent(QTouchEvent* event)
 {
     WebCore::Frame* frame = QWebFramePrivate::core(mainFrame);
@@ -1404,7 +1399,6 @@ bool QWebPagePrivate::touchEvent(QTouchEvent* event)
     // Return whether the default action was cancelled in the JS event handler
     return frame->eventHandler()->handleTouchEvent(PlatformTouchEvent(event));
 }
-#endif
 
 /*!
   This method is used by the input method to query a set of properties of the page
@@ -1479,7 +1473,6 @@ QVariant QWebPage::inputMethodQuery(Qt::InputMethodQuery property) const
             return QVariant();
 
         }
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
         case Qt::ImAnchorPosition: {
             if (renderTextControl) {
                 if (editor->hasComposition()) {
@@ -1502,7 +1495,6 @@ QVariant QWebPage::inputMethodQuery(Qt::InputMethodQuery property) const
             }
             return QVariant(0);
         }
-#endif
         default:
             return QVariant();
     }
@@ -1559,6 +1551,14 @@ InspectorController* QWebPagePrivate::inspectorController()
 #endif
 }
 
+quint16 QWebPagePrivate::inspectorServerPort()
+{
+#if ENABLE(INSPECTOR) && !defined(QT_NO_PROPERTIES)
+    if (q && q->property("_q_webInspectorServerPort").isValid())
+        return q->property("_q_webInspectorServerPort").toInt();
+#endif
+    return 0;
+}
 
 /*!
    \enum QWebPage::FindFlag
@@ -1987,11 +1987,7 @@ void QWebPage::setView(QWidget* view)
 */
 QWidget *QWebPage::view() const
 {
-#if QT_VERSION < QT_VERSION_CHECK(4, 6, 0)
-    return d->view;
-#else
     return d->view.data();
-#endif
 }
 
 /*!
@@ -2325,19 +2321,67 @@ void QWebPage::setViewportSize(const QSize &size) const
     }
 }
 
-QWebPage::ViewportConfiguration QWebPage::viewportConfigurationForSize(QSize availableSize) const
+static int getintenv(const char* variable)
+{
+    bool ok;
+    int value = qgetenv(variable).toInt(&ok);
+    return (ok) ? value : -1;
+}
+
+static QSize queryDeviceSizeForScreenContainingWidget(const QWidget* widget)
+{
+    QDesktopWidget* desktop = QApplication::desktop();
+    if (!desktop)
+        return QSize();
+
+    QSize size;
+
+    if (widget) {
+        // Returns the available geometry of the screen which contains widget.
+        // NOTE: this must be the the full screen size including any fixed status areas etc.
+        size = desktop->availableGeometry(widget).size();
+    } else
+        size = desktop->availableGeometry().size();
+
+    // This must be in portrait mode, adjust if not.
+    if (size.width() > size.height()) {
+        int width = size.width();
+        size.setWidth(size.height());
+        size.setHeight(width);
+    }
+
+    return size;
+}
+
+/*!
+    Computes the optimal viewport configuration given the \a availableSize, when
+    user interface components are disregarded.
+
+    The configuration is also dependent on the device screen size which is obtained
+    automatically. For testing purposes the size can be overridden by setting two
+    environment variables QTWEBKIT_DEVICE_WIDTH and QTWEBKIT_DEVICE_HEIGHT, which
+    both needs to be set.
+*/
+
+QWebPage::ViewportConfiguration QWebPage::viewportConfigurationForSize(const QSize& availableSize) const
 {
     static int desktopWidth = 980;
     static int deviceDPI = 160;
 
-    FloatRect rect = d->page->chrome()->windowRect();
-
-    int deviceWidth = rect.width();
-    int deviceHeight = rect.height();
-
-    WebCore::ViewportConfiguration conf = WebCore::findConfigurationForViewportData(mainFrame()->d->viewportArguments, desktopWidth, deviceWidth, deviceHeight, deviceDPI, availableSize);
-
     ViewportConfiguration result;
+
+    int deviceWidth = getintenv("QTWEBKIT_DEVICE_WIDTH");
+    int deviceHeight = getintenv("QTWEBKIT_DEVICE_HEIGHT");
+
+    // Both environment variables need to be set - or they will be ignored.
+    if (deviceWidth < 0 && deviceHeight < 0) {
+        QSize size = queryDeviceSizeForScreenContainingWidget((d->client) ? d->client->ownerWidget() : 0);
+        deviceWidth = size.width();
+        deviceHeight = size.height();
+    }
+
+    WebCore::ViewportConfiguration conf = WebCore::findConfigurationForViewportData(mainFrame()->d->viewportArguments(),
+            desktopWidth, deviceWidth, deviceHeight, deviceDPI, availableSize);
 
     result.m_isValid = true;
     result.m_size = conf.layoutViewport;
@@ -2854,13 +2898,11 @@ bool QWebPage::event(QEvent *ev)
     case QEvent::Leave:
         d->leaveEvent(ev);
         break;
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
     case QEvent::TouchBegin:
     case QEvent::TouchUpdate:
     case QEvent::TouchEnd:
         // Return whether the default action was cancelled in the JS event handler
         return d->touchEvent(static_cast<QTouchEvent*>(ev));
-#endif
 #ifndef QT_NO_PROPERTIES
     case QEvent::DynamicPropertyChange:
         d->dynamicPropertyChangeEvent(static_cast<QDynamicPropertyChangeEvent*>(ev));

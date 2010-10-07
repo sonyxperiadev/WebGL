@@ -181,8 +181,6 @@ private:
     VisiblePosition startForPlatform() const;
     VisiblePosition endForPlatform() const;
 
-    bool modify(EAlteration, EDirection, TextGranularity, bool userTriggered, Settings*);
-
     VisiblePosition modifyExtendingRight(TextGranularity);
     VisiblePosition modifyExtendingForward(TextGranularity);
     VisiblePosition modifyMovingRight(TextGranularity);
@@ -249,7 +247,7 @@ inline void SelectionController::setTypingStyle(PassRefPtr<CSSMutableStyleDeclar
     m_typingStyle = style;
 }
 
-#if !(PLATFORM(MAC) || PLATFORM(GTK))
+#if !(PLATFORM(MAC) || PLATFORM(GTK) || PLATFORM(CHROMIUM))
 inline void SelectionController::notifyAccessibilityForSelectionChange()
 {
 }

@@ -350,6 +350,16 @@ class MockBuilder(object):
             self._name, username, comments))
 
 
+class MockFailureMap():
+    def __init__(self, buildbot):
+        self._buildbot = buildbot
+
+    def revisions_causing_failures(self):
+        return {
+            "29837": [self._buildbot.builder_with_name("Builder1")],
+        }
+
+
 class MockBuildBot(object):
     buildbot_host = "dummy_buildbot_host"
     def __init__(self):
@@ -394,10 +404,8 @@ class MockBuildBot(object):
     def light_tree_on_fire(self):
         self._mock_builder2_status["is_green"] = False
 
-    def revisions_causing_failures(self):
-        return {
-            "29837": [self.builder_with_name("Builder1")],
-        }
+    def failure_map(self):
+        return MockFailureMap(self)
 
 
 class MockSCM(Mock):
@@ -483,8 +491,8 @@ class MockUser(object):
     def page(self, message):
         pass
 
-    def confirm(self, message=None):
-        return True
+    def confirm(self, message=None, default='y'):
+        return default == 'y'
 
     def can_open_url(self):
         return True

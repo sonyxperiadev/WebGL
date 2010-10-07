@@ -126,6 +126,7 @@ LayoutTestController::LayoutTestController(TestShell* shell)
     bindMethod("removeOriginAccessWhitelistEntry", &LayoutTestController::removeOriginAccessWhitelistEntry);
     bindMethod("repaintSweepHorizontally", &LayoutTestController::repaintSweepHorizontally);
     bindMethod("resumeAnimations", &LayoutTestController::resumeAnimations);
+    bindMethod("sampleSVGAnimationForElementAtTime", &LayoutTestController::sampleSVGAnimationForElementAtTime);
     bindMethod("setAcceptsEditing", &LayoutTestController::setAcceptsEditing);
     bindMethod("setAllowFileAccessFromFileURLs", &LayoutTestController::setAllowFileAccessFromFileURLs);
     bindMethod("setAllowUniversalAccessFromFileURLs", &LayoutTestController::setAllowUniversalAccessFromFileURLs);
@@ -959,6 +960,19 @@ void LayoutTestController::resumeAnimations(const CppArgumentList&, CppVariant* 
     result->setNull();
 }
 
+void LayoutTestController::sampleSVGAnimationForElementAtTime(const CppArgumentList& arguments, CppVariant* result)
+{
+    if (arguments.size() != 3) {
+        result->setNull();
+        return;
+    }
+    WebString animationId = cppVariantToWebString(arguments[0]);
+    double time = arguments[1].toDouble();
+    WebString elementId = cppVariantToWebString(arguments[2]);
+    bool success = m_shell->webView()->mainFrame()->pauseSVGAnimation(animationId, time, elementId);
+    result->set(success);
+}
+
 void LayoutTestController::disableImageLoading(const CppArgumentList&, CppVariant* result)
 {
     m_shell->preferences()->loadsImagesAutomatically = false;
@@ -1251,6 +1265,10 @@ void LayoutTestController::overridePreference(const CppArgumentList& arguments, 
         prefs->tabsToLinks = cppVariantToBool(value);
     else if (key == "WebKitWebGLEnabled")
         prefs->experimentalWebGLEnabled = cppVariantToBool(value);
+    else if (key == "WebKitHyperlinkAuditingEnabled")
+        prefs->hyperlinkAuditingEnabled = cppVariantToBool(value);
+    else if (key == "WebKitEnableCaretBrowsing")
+        prefs->caretBrowsingEnabled = cppVariantToBool(value);
     else {
         string message("Invalid name for preference: ");
         message.append(key);
@@ -1443,7 +1461,10 @@ void LayoutTestController::addUserStyleSheet(const CppArgumentList& arguments, C
         return;
     WebView::addUserStyleSheet(
         cppVariantToWebString(arguments[0]), WebVector<WebString>(),
-        arguments[2].toBoolean() ? WebView::UserContentInjectInAllFrames : WebView::UserContentInjectInTopFrameOnly);
+        arguments[1].toBoolean() ? WebView::UserContentInjectInAllFrames : WebView::UserContentInjectInTopFrameOnly,
+        // Chromium defaults to InjectInSubsequentDocuments, but for compatibility
+        // with the other ports' DRTs, we use UserStyleInjectInExistingDocuments.
+        WebView::UserStyleInjectInExistingDocuments);
 }
 
 void LayoutTestController::setEditingBehavior(const CppArgumentList& arguments, CppVariant* results)

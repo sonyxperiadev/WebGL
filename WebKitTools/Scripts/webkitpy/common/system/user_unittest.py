@@ -28,6 +28,7 @@
 
 import unittest
 
+from webkitpy.common.system.outputcapture import OutputCapture
 from webkitpy.common.system.user import User
 
 class UserTest(unittest.TestCase):
@@ -49,6 +50,52 @@ class UserTest(unittest.TestCase):
             self.repeatsRemaining -= 1
             return None
         self.assertEqual(User.prompt("input", repeat=self.repeatsRemaining, raw_input=mock_raw_input), None)
+
+    def test_prompt_with_list(self):
+        def run_prompt_test(inputs, expected_result, can_choose_multiple=False):
+            def mock_raw_input(message):
+                return inputs.pop(0)
+            output_capture = OutputCapture()
+            actual_result = output_capture.assert_outputs(
+                self,
+                User.prompt_with_list,
+                args=["title", ["foo", "bar"]],
+                kwargs={"can_choose_multiple": can_choose_multiple, "raw_input": mock_raw_input},
+                expected_stdout="title\n 1. foo\n 2. bar\n")
+            self.assertEqual(actual_result, expected_result)
+            self.assertEqual(len(inputs), 0)
+
+        run_prompt_test(["1"], "foo")
+        run_prompt_test(["badinput", "2"], "bar")
+
+        run_prompt_test(["1,2"], ["foo", "bar"], can_choose_multiple=True)
+        run_prompt_test(["  1,  2   "], ["foo", "bar"], can_choose_multiple=True)
+        run_prompt_test(["all"], ["foo", "bar"], can_choose_multiple=True)
+        run_prompt_test([""], ["foo", "bar"], can_choose_multiple=True)
+        run_prompt_test(["  "], ["foo", "bar"], can_choose_multiple=True)
+        run_prompt_test(["badinput", "all"], ["foo", "bar"], can_choose_multiple=True)
+
+    def test_confirm(self):
+        test_cases = (
+            (("Continue? [Y/n]: ", True), (User.DEFAULT_YES, 'y')),
+            (("Continue? [Y/n]: ", False), (User.DEFAULT_YES, 'n')),
+            (("Continue? [Y/n]: ", True), (User.DEFAULT_YES, '')),
+            (("Continue? [Y/n]: ", False), (User.DEFAULT_YES, 'q')),
+            (("Continue? [y/N]: ", True), (User.DEFAULT_NO, 'y')),
+            (("Continue? [y/N]: ", False), (User.DEFAULT_NO, 'n')),
+            (("Continue? [y/N]: ", False), (User.DEFAULT_NO, '')),
+            (("Continue? [y/N]: ", False), (User.DEFAULT_NO, 'q')),
+        )
+        for test_case in test_cases:
+            expected, inputs = test_case
+
+            def mock_raw_input(message):
+                self.assertEquals(expected[0], message)
+                return inputs[1]
+
+            result = User().confirm(default=inputs[0],
+                                    raw_input=mock_raw_input)
+            self.assertEquals(expected[1], result)
 
 if __name__ == '__main__':
     unittest.main()

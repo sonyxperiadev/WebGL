@@ -82,13 +82,13 @@ const AffineTransform& RenderForeignObject::localToParentTransform() const
     return m_localToParentTransform;
 }
 
-void RenderForeignObject::calcWidth()
+void RenderForeignObject::computeLogicalWidth()
 {
     // FIXME: Investigate in size rounding issues
     setWidth(static_cast<int>(roundf(m_viewport.width())));
 }
 
-void RenderForeignObject::calcHeight()
+void RenderForeignObject::computeLogicalHeight()
 {
     // FIXME: Investigate in size rounding issues
     setHeight(static_cast<int>(roundf(m_viewport.height())));
@@ -99,7 +99,7 @@ void RenderForeignObject::layout()
     ASSERT(needsLayout());
     ASSERT(!view()->layoutStateEnabled()); // RenderSVGRoot disables layoutState for the SVG rendering tree.
 
-    LayoutRepainter repainter(*this, m_everHadLayout && checkForRepaintDuringLayout());
+    LayoutRepainter repainter(*this, checkForRepaintDuringLayout());
     SVGForeignObjectElement* foreign = static_cast<SVGForeignObjectElement*>(node());
 
     bool updateCachedBoundariesInParents = false;

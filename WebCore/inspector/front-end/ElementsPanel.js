@@ -74,7 +74,7 @@ WebInspector.ElementsPanel = function()
     this.sidebarPanes.styles = new WebInspector.StylesSidebarPane(this.sidebarPanes.computedStyle);
     this.sidebarPanes.metrics = new WebInspector.MetricsSidebarPane();
     this.sidebarPanes.properties = new WebInspector.PropertiesSidebarPane();
-    if (Preferences.domBreakpointsEnabled)
+    if (Preferences.nativeInstrumentationEnabled)
         this.sidebarPanes.domBreakpoints = WebInspector.createDOMBreakpointsSidebarPane();
     this.sidebarPanes.eventListeners = new WebInspector.EventListenersSidebarPane();
 
@@ -148,7 +148,7 @@ WebInspector.ElementsPanel.prototype = {
         WebInspector.Panel.prototype.hide.call(this);
 
         WebInspector.highlightDOMNode(0);
-        InspectorBackend.disableSearchingForNode();
+        this.setSearchingForNode(false);
     },
 
     resize: function()
@@ -171,7 +171,7 @@ WebInspector.ElementsPanel.prototype = {
 
         delete this.currentQuery;
 
-        if (Preferences.domBreakpointsEnabled)
+        if (Preferences.nativeInstrumentationEnabled)
             this.sidebarPanes.domBreakpoints.reset();
     },
 
@@ -186,6 +186,7 @@ WebInspector.ElementsPanel.prototype = {
         inspectedRootDocument.addEventListener("DOMNodeInserted", this._nodeInserted.bind(this));
         inspectedRootDocument.addEventListener("DOMNodeRemoved", this._nodeRemoved.bind(this));
         inspectedRootDocument.addEventListener("DOMAttrModified", this._attributesUpdated.bind(this));
+        inspectedRootDocument.addEventListener("DOMCharacterDataModified", this._characterDataModified.bind(this));
 
         this.rootDOMNode = inspectedRootDocument;
 
@@ -245,16 +246,6 @@ WebInspector.ElementsPanel.prototype = {
         this._searchQuery = query;
 
         InspectorBackend.performSearch(whitespaceTrimmedQuery, false);
-    },
-
-    searchingForNodeWasEnabled: function()
-    {
-        this._nodeSearchButton.toggled = true;
-    },
-
-    searchingForNodeWasDisabled: function()
-    {
-        this._nodeSearchButton.toggled = false;
     },
 
     populateHrefContextMenu: function(contextMenu, event, anchorElement)
@@ -485,6 +476,13 @@ WebInspector.ElementsPanel.prototype = {
     },
 
     _attributesUpdated: function(event)
+    {
+        this.recentlyModifiedNodes.push({node: event.target, updated: true});
+        if (this.visible)
+            this._updateModifiedNodesSoon();
+    },
+
+    _characterDataModified: function(event)
     {
         this.recentlyModifiedNodes.push({node: event.target, updated: true});
         if (this.visible)
@@ -1152,12 +1150,29 @@ WebInspector.ElementsPanel.prototype = {
         this.treeOutline.updateSelection();
     },
 
+    updateFocusedNode: function(nodeId)
+    {
+        var node = WebInspector.domAgent.nodeForId(nodeId);
+        if (!node)
+            return;
+
+        this.focusedDOMNode = node;
+        this._nodeSearchButton.toggled = false;
+    },
+
+    _setSearchingForNode: function(enabled)
+    {
+        this._nodeSearchButton.toggled = enabled;
+    },
+
+    setSearchingForNode: function(enabled)
+    {
+        InspectorBackend.setSearchingForNode(enabled, this._setSearchingForNode.bind(this));
+    },
+
     toggleSearchingForNode: function()
     {
-        if (!this._nodeSearchButton.toggled)
-            InspectorBackend.enableSearchingForNode();
-        else
-            InspectorBackend.disableSearchingForNode();
+        this.setSearchingForNode(!this._nodeSearchButton.toggled);
     },
 
     elementsToRestoreScrollPositionsFor: function()

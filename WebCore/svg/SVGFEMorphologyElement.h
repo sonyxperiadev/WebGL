@@ -21,7 +21,7 @@
 #define SVGFEMorphologyElement_h
 
 #if ENABLE(SVG) && ENABLE(FILTERS)
-#include "SVGFEMorphology.h"
+#include "FEMorphology.h"
 #include "SVGFilterPrimitiveStandardAttributes.h"
 
 namespace WebCore {
@@ -39,6 +39,7 @@ private:
     SVGFEMorphologyElement(const QualifiedName&, Document*);
 
     virtual void parseMappedAttribute(Attribute*);
+    virtual void svgAttributeChanged(const QualifiedName&);
     virtual void synchronizeProperty(const QualifiedName&);
     virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*);
 

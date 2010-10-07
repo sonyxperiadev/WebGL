@@ -75,7 +75,6 @@ public:
     QGraphicsWebView* q;
     QWebPage* page;
     bool resizesToContents;
-    QSize deviceSize;
 
     // Just a convenience to avoid using page->client->overlay always
     QSharedPointer<QGraphicsItemOverlay> overlay;
@@ -131,13 +130,8 @@ void QGraphicsWebViewPrivate::updateResizesToContentsForPage()
         if (!page->preferredContentsSize().isValid())
             page->setPreferredContentsSize(QSize(960, 800));
 
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
         QObject::connect(page->mainFrame(), SIGNAL(contentsSizeChanged(QSize)),
             q, SLOT(_q_contentsSizeChanged(const QSize&)), Qt::UniqueConnection);
-#else
-        QObject::connect(page->mainFrame(), SIGNAL(contentsSizeChanged(QSize)),
-            q, SLOT(_q_contentsSizeChanged(const QSize&)));
-#endif
     } else {
         QObject::disconnect(page->mainFrame(), SIGNAL(contentsSizeChanged(QSize)),
                          q, SLOT(_q_contentsSizeChanged(const QSize&)));
@@ -243,14 +237,10 @@ QGraphicsWebView::QGraphicsWebView(QGraphicsItem* parent)
     : QGraphicsWidget(parent)
     , d(new QGraphicsWebViewPrivate(this))
 {
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
     setFlag(QGraphicsItem::ItemUsesExtendedStyleOption, true);
-#endif
     setAcceptDrops(true);
     setAcceptHoverEvents(true);
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
     setAcceptTouchEvents(true);
-#endif
     setFocusPolicy(Qt::StrongFocus);
     setFlag(QGraphicsItem::ItemClipsChildrenToShape, true);
 #if ENABLE(TILED_BACKING_STORE)
@@ -316,7 +306,6 @@ bool QGraphicsWebView::sceneEvent(QEvent* event)
 {
     // Re-implemented in order to allows fixing event-related bugs in patch releases.
 
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
     if (d->page && (event->type() == QEvent::TouchBegin
                 || event->type() == QEvent::TouchEnd
                 || event->type() == QEvent::TouchUpdate)) {
@@ -325,7 +314,6 @@ bool QGraphicsWebView::sceneEvent(QEvent* event)
         // Always return true so that we'll receive also TouchUpdate and TouchEnd events
         return true;
     }
-#endif
 
     return QGraphicsWidget::sceneEvent(event);
 }
@@ -419,11 +407,7 @@ void QGraphicsWebViewPrivate::detachCurrentPage()
     if (!page)
         return;
 
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
     page->d->view.clear();
-#else
-    page->d->view = 0;
-#endif
 
     // The client has always to be deleted.
     delete page->d->client;
@@ -552,24 +536,6 @@ QIcon QGraphicsWebView::icon() const
         return d->page->mainFrame()->icon();
 
     return QIcon();
-}
-
-/*!
-    \property QGraphicsWebView::deviceSize
-    \brief the size of the device using the web view
-
-    The device size is used by the DOM window object methods
-    otherHeight(), otherWidth() as well as a page for the viewport
-    meta tag attributes device-width and device-height.
-*/
-void QGraphicsWebView::setDeviceSize(const QSize& size)
-{
-    d->deviceSize = size;
-}
-
-QSize QGraphicsWebView::deviceSize() const
-{
-    return d->deviceSize;
 }
 
 /*!

@@ -128,7 +128,7 @@ CONFIG(release):!CONFIG(standalone_package) {
 DEFINES += BUILD_WEBKIT
 
 # Remove whole program optimizations due to miscompilations
-win32-msvc2005|win32-msvc2008:{
+win32-msvc2005|win32-msvc2008|wince*:{
     QMAKE_CFLAGS_RELEASE -= -GL
     QMAKE_CXXFLAGS_RELEASE -= -GL
 }
@@ -403,7 +403,8 @@ v8 {
         bindings/v8/custom/V8InjectedScriptHostCustom.cpp \
         bindings/v8/custom/V8InspectorFrontendHostCustom.cpp \
         bindings/v8/custom/V8CustomEventListener.cpp \
-        bindings/v8/custom/V8DOMStringMapCustom.cpp
+        bindings/v8/custom/V8DOMStringMapCustom.cpp \
+        bindings/v8/custom/V8DOMTokenListCustom.cpp
 
     SOURCES += \
         bindings/v8/custom/V8CustomSQLStatementErrorCallback.cpp \
@@ -835,13 +836,23 @@ SOURCES += \
     history/qt/HistoryItemQt.cpp \
     history/PageCache.cpp \
     html/AsyncImageResizer.cpp \
+    html/BaseTextInputType.cpp \
+    html/ButtonInputType.cpp \
+    html/CheckboxInputType.cpp \
     html/CollectionCache.cpp \
+    html/ColorInputType.cpp \
     html/DOMDataGridDataSource.cpp \
     html/DOMFormData.cpp \
+    html/DOMTokenList.cpp \
     html/DataGridColumn.cpp \
     html/DataGridColumnList.cpp \
     html/DateComponents.cpp \
+    html/DateInputType.cpp \
+    html/DateTimeInputType.cpp \
+    html/DateTimeLocalInputType.cpp \
+    html/EmailInputType.cpp \
     html/FTPDirectoryDocument.cpp \
+    html/FileInputType.cpp \
     html/FormDataList.cpp \
     html/HTMLAllCollection.cpp \
     html/HTMLAnchorElement.cpp \
@@ -924,15 +935,33 @@ SOURCES += \
     html/HTMLTitleElement.cpp \
     html/HTMLUListElement.cpp \
     html/HTMLViewSourceDocument.cpp \
+    html/HiddenInputType.cpp \
     html/ImageData.cpp \
     html/ImageDocument.cpp \
+    html/ImageInputType.cpp \
     html/ImageResizerThread.cpp \
+    html/InputType.cpp \
+    html/IsIndexInputType.cpp \
     html/LabelsNodeList.cpp \
     html/MediaDocument.cpp \
+    html/MonthInputType.cpp \
+    html/NumberInputType.cpp \
+    html/PasswordInputType.cpp \
     html/PluginDocument.cpp \
+    html/RadioInputType.cpp \
+    html/RangeInputType.cpp \
+    html/ResetInputType.cpp \
+    html/SearchInputType.cpp \
     html/StepRange.cpp \
+    html/SubmitInputType.cpp \
+    html/TelephoneInputType.cpp \
     html/TextDocument.cpp \
+    html/TextFieldInputType.cpp \
+    html/TextInputType.cpp \
+    html/TimeInputType.cpp \
+    html/URLInputType.cpp \
     html/ValidityState.cpp \
+    html/WeekInputType.cpp \
     html/canvas/CanvasGradient.cpp \
     html/canvas/CanvasPattern.cpp \
     html/canvas/CanvasPixelArray.cpp \
@@ -1095,6 +1124,7 @@ SOURCES += \
     platform/graphics/FontFamily.cpp \
     platform/graphics/BitmapImage.cpp \
     platform/graphics/Color.cpp \
+    platform/graphics/ContextShadow.cpp \
     platform/graphics/FloatPoint3D.cpp \
     platform/graphics/FloatPoint.cpp \
     platform/graphics/FloatQuad.cpp \
@@ -1715,6 +1745,7 @@ HEADERS += \
     html/DateComponents.h \
     html/DOMDataGridDataSource.h \
     html/DOMFormData.h \
+    html/DOMTokenList.h \
     html/FormDataList.h \
     html/FTPDirectoryDocument.h \
     html/HTMLAllCollection.h \
@@ -1977,12 +2008,25 @@ HEADERS += \
     platform/mock/SpeechInputClientMock.h \
     platform/graphics/BitmapImage.h \
     platform/graphics/Color.h \
+    platform/graphics/ContextShadow.h \
     platform/graphics/filters/FEBlend.h \
     platform/graphics/filters/FEColorMatrix.h \
     platform/graphics/filters/FEComponentTransfer.h \
     platform/graphics/filters/FEComposite.h \
+    platform/graphics/filters/FEConvolveMatrix.h \
+    platform/graphics/filters/FEDiffuseLighting.h \
+    platform/graphics/filters/FEDisplacementMap.h \
+    platform/graphics/filters/FEFlood.h \
     platform/graphics/filters/FEGaussianBlur.h \
+    platform/graphics/filters/FELighting.h \
+    platform/graphics/filters/FEMerge.h \
+    platform/graphics/filters/FEMorphology.h \
+    platform/graphics/filters/FEOffset.h \
+    platform/graphics/filters/FESpecularLighting.h \
+    platform/graphics/filters/FETile.h \
+    platform/graphics/filters/FETurbulence.h \
     platform/graphics/filters/FilterEffect.h \
+    platform/graphics/filters/LightSource.h \
     platform/graphics/filters/SourceAlpha.h \
     platform/graphics/filters/SourceGraphic.h \
     platform/graphics/FloatPoint3D.h \
@@ -2010,7 +2054,6 @@ HEADERS += \
     platform/graphics/PathTraversalState.h \
     platform/graphics/Pattern.h \
     platform/graphics/Pen.h \
-    platform/graphics/qt/ContextShadow.h \
     platform/graphics/qt/FontCustomPlatformData.h \
     platform/graphics/qt/GraphicsLayerQt.h \
     platform/graphics/qt/ImageDecoderQt.h \
@@ -2274,21 +2317,9 @@ HEADERS += \
     svg/animation/SMILTime.h \
     svg/animation/SVGSMILElement.h \
     svg/ColorDistance.h \
-    svg/graphics/filters/SVGFEConvolveMatrix.h \
-    svg/graphics/filters/SVGFEDiffuseLighting.h \
-    svg/graphics/filters/SVGFEDisplacementMap.h \
-    svg/graphics/filters/SVGFEFlood.h \
     svg/graphics/filters/SVGFEImage.h \
-    svg/graphics/filters/SVGFELighting.h \
-    svg/graphics/filters/SVGFEMerge.h \
-    svg/graphics/filters/SVGFEMorphology.h \
-    svg/graphics/filters/SVGFEOffset.h \
-    svg/graphics/filters/SVGFESpecularLighting.h \
-    svg/graphics/filters/SVGFETile.h \
-    svg/graphics/filters/SVGFETurbulence.h \
     svg/graphics/filters/SVGFilterBuilder.h \
     svg/graphics/filters/SVGFilter.h \
-    svg/graphics/filters/SVGLightSource.h \
     svg/graphics/SVGImage.h \
     svg/SVGAElement.h \
     svg/SVGAltGlyphElement.h \
@@ -2503,6 +2534,7 @@ HEADERS += \
     xml/XSLTProcessor.h \
     xml/XSLTUnicodeSort.h \
     $$PWD/../WebKit/qt/Api/qwebplugindatabase_p.h \
+    $$PWD/../WebKit/qt/WebCoreSupport/InspectorServerQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/QtFallbackWebPopup.h \
     $$PWD/../WebKit/qt/WebCoreSupport/FrameLoaderClientQt.h \
     $$PWD/../WebKit/qt/WebCoreSupport/FrameNetworkingContextQt.h \
@@ -2535,7 +2567,7 @@ SOURCES += \
     page/qt/FrameQt.cpp \
     platform/graphics/qt/TransformationMatrixQt.cpp \
     platform/graphics/qt/ColorQt.cpp \
-    platform/graphics/qt/ContextShadow.cpp \
+    platform/graphics/qt/ContextShadowQt.cpp \
     platform/graphics/qt/FontQt.cpp \
     platform/graphics/qt/FontPlatformDataQt.cpp \
     platform/graphics/qt/FloatPointQt.cpp \
@@ -2609,6 +2641,7 @@ SOURCES += \
     ../WebKit/qt/WebCoreSupport/FrameNetworkingContextQt.cpp \
     ../WebKit/qt/WebCoreSupport/GeolocationPermissionClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/InspectorClientQt.cpp \
+    ../WebKit/qt/WebCoreSupport/InspectorServerQt.cpp \
     ../WebKit/qt/WebCoreSupport/NotificationPresenterClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/PageClientQt.cpp \
     ../WebKit/qt/WebCoreSupport/PopupMenuQt.cpp \
@@ -2704,6 +2737,9 @@ contains(DEFINES, ENABLE_NETSCAPE_PLUGIN_API=1) {
                 }
                 maemo5 {
                     DEFINES += MOZ_PLATFORM_MAEMO=5
+                }
+                contains(DEFINES, Q_WS_MAEMO_6) {
+                    DEFINES += MOZ_PLATFORM_MAEMO=6
                 }
                 SOURCES += \
                     plugins/qt/PluginContainerQt.cpp \
@@ -3034,7 +3070,7 @@ contains(DEFINES, ENABLE_VIDEO=1) {
             bindings/js/JSAudioConstructor.cpp
     }
 
-        !lessThan(QT_MINOR_VERSION, 6):contains(MOBILITY_CONFIG, multimedia) {
+         contains(MOBILITY_CONFIG, multimedia) {
             HEADERS += platform/graphics/qt/MediaPlayerPrivateQt.h
             SOURCES += platform/graphics/qt/MediaPlayerPrivateQt.cpp
 
@@ -3106,8 +3142,20 @@ contains(DEFINES, ENABLE_FILTERS=1) {
         platform/graphics/filters/FEColorMatrix.cpp \
         platform/graphics/filters/FEComponentTransfer.cpp \
         platform/graphics/filters/FEComposite.cpp \
+        platform/graphics/filters/FEConvolveMatrix.cpp \
+        platform/graphics/filters/FEDiffuseLighting.cpp \
+        platform/graphics/filters/FEDisplacementMap.cpp \
+        platform/graphics/filters/FEFlood.cpp \
         platform/graphics/filters/FEGaussianBlur.cpp \
+        platform/graphics/filters/FELighting.cpp \
+        platform/graphics/filters/FEMerge.cpp \
+        platform/graphics/filters/FEMorphology.cpp \
+        platform/graphics/filters/FEOffset.cpp \
+        platform/graphics/filters/FESpecularLighting.cpp \
+        platform/graphics/filters/FETile.cpp \
+        platform/graphics/filters/FETurbulence.cpp \
         platform/graphics/filters/FilterEffect.cpp \
+        platform/graphics/filters/LightSource.cpp \
         platform/graphics/filters/SourceAlpha.cpp \
         platform/graphics/filters/SourceGraphic.cpp
 }
@@ -3376,21 +3424,9 @@ contains(DEFINES, ENABLE_SVG=1) {
         svg/animation/SMILTime.cpp \
         svg/animation/SMILTimeContainer.cpp \
         svg/animation/SVGSMILElement.cpp \
-        svg/graphics/filters/SVGFEConvolveMatrix.cpp \
-        svg/graphics/filters/SVGFEDiffuseLighting.cpp \
-        svg/graphics/filters/SVGFEDisplacementMap.cpp \
-        svg/graphics/filters/SVGFEFlood.cpp \
         svg/graphics/filters/SVGFEImage.cpp \
-        svg/graphics/filters/SVGFELighting.cpp \
-        svg/graphics/filters/SVGFEMerge.cpp \
-        svg/graphics/filters/SVGFEMorphology.cpp \
-        svg/graphics/filters/SVGFEOffset.cpp \
-        svg/graphics/filters/SVGFESpecularLighting.cpp \
-        svg/graphics/filters/SVGFETile.cpp \
-        svg/graphics/filters/SVGFETurbulence.cpp \
         svg/graphics/filters/SVGFilter.cpp \
         svg/graphics/filters/SVGFilterBuilder.cpp \
-        svg/graphics/filters/SVGLightSource.cpp \
         svg/graphics/SVGImage.cpp \
         rendering/RenderForeignObject.cpp \
         rendering/RenderPath.cpp \
@@ -3684,7 +3720,7 @@ HEADERS += $$WEBKIT_API_HEADERS
     }
 }
 
-CONFIG(QTDIR_build) {
+!CONFIG(webkit-debug):CONFIG(QTDIR_build) {
     # Remove the following 2 lines if you want debug information in WebCore
     CONFIG -= separate_debug_info
     CONFIG += no_debug_info

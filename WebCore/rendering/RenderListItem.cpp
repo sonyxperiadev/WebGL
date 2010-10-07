@@ -210,7 +210,7 @@ void RenderListItem::updateMarkerLocation()
                 lineBoxParent = this;
         }
 
-        if (markerPar != lineBoxParent || m_marker->prefWidthsDirty()) {
+        if (markerPar != lineBoxParent || m_marker->preferredLogicalWidthsDirty()) {
             // Removing and adding the marker can trigger repainting in
             // containers other than ourselves, so we need to disable LayoutState.
             view()->disableLayoutState();
@@ -219,20 +219,20 @@ void RenderListItem::updateMarkerLocation()
             if (!lineBoxParent)
                 lineBoxParent = this;
             lineBoxParent->addChild(m_marker, firstNonMarkerChild(lineBoxParent));
-            if (m_marker->prefWidthsDirty())
-                m_marker->calcPrefWidths();
+            if (m_marker->preferredLogicalWidthsDirty())
+                m_marker->computePreferredLogicalWidths();
             view()->enableLayoutState();
         }
     }
 }
 
-void RenderListItem::calcPrefWidths()
+void RenderListItem::computePreferredLogicalWidths()
 {
-    ASSERT(prefWidthsDirty());
+    ASSERT(preferredLogicalWidthsDirty());
     
     updateMarkerLocation();
 
-    RenderBlock::calcPrefWidths();
+    RenderBlock::computePreferredLogicalWidths();
 }
 
 void RenderListItem::layout()
@@ -245,7 +245,7 @@ void RenderListItem::layout()
 
 void RenderListItem::positionListMarker()
 {
-    if (m_marker && !m_marker->isInside() && m_marker->inlineBoxWrapper()) {
+    if (m_marker && m_marker->parent()->isBox() && !m_marker->isInside() && m_marker->inlineBoxWrapper()) {
         int markerOldX = m_marker->x();
         int yOffset = 0;
         int xOffset = 0;
@@ -262,23 +262,23 @@ void RenderListItem::positionListMarker()
         // and really shouldn't keep propagating overflow up.  This won't really break anything other than repainting
         // not being as tight as it could be though.
         if (style()->direction() == LTR) {
-            int leftLineOffset = leftRelOffset(yOffset, leftOffset(yOffset, false), false);
+            int leftLineOffset = logicalLeftOffsetForLine(yOffset, logicalLeftOffsetForLine(yOffset, false), false);
             markerXPos = leftLineOffset - xOffset - paddingLeft() - borderLeft() + m_marker->marginLeft();
             m_marker->inlineBoxWrapper()->adjustPosition(markerXPos - markerOldX, 0);
             for (InlineFlowBox* box = m_marker->inlineBoxWrapper()->parent(); box; box = box->parent()) {
                 if (markerXPos < box->leftLayoutOverflow()) {
-                    box->setHorizontalOverflowPositions(markerXPos, box->rightLayoutOverflow(), box->leftVisualOverflow(), box->rightVisualOverflow());
+                    box->setInlineDirectionOverflowPositions(markerXPos, box->rightLayoutOverflow(), box->leftVisualOverflow(), box->rightVisualOverflow());
                     if (box == root)
                         adjustOverflow = true;
                 }
             }
         } else {
-            int rightLineOffset = rightRelOffset(yOffset, rightOffset(yOffset, false), false);
+            int rightLineOffset = logicalRightOffsetForLine(yOffset, logicalRightOffsetForLine(yOffset, false), false);
             markerXPos = rightLineOffset - xOffset + paddingRight() + borderRight() + m_marker->marginLeft();
             m_marker->inlineBoxWrapper()->adjustPosition(markerXPos - markerOldX, 0);
             for (InlineFlowBox* box = m_marker->inlineBoxWrapper()->parent(); box; box = box->parent()) {
                 if (markerXPos + m_marker->width() > box->rightLayoutOverflow()) {
-                    box->setHorizontalOverflowPositions(box->leftLayoutOverflow(), markerXPos + m_marker->width(), box->leftVisualOverflow(), box->rightVisualOverflow());
+                    box->setInlineDirectionOverflowPositions(box->leftLayoutOverflow(), markerXPos + m_marker->width(), box->leftVisualOverflow(), box->rightVisualOverflow());
                     if (box == root)
                         adjustOverflow = true;
                 }
@@ -312,6 +312,29 @@ const String& RenderListItem::markerText() const
         return m_marker->text();
     DEFINE_STATIC_LOCAL(String, staticNullString, ());
     return staticNullString;
+}
+
+String RenderListItem::markerTextWithSuffix() const
+{
+    if (!m_marker)
+        return String();
+
+    // Append the suffix for the marker in the right place depending
+    // on the direction of the text (right-to-left or left-to-right).
+
+    const String& markerText = m_marker->text();
+    const String markerSuffix = m_marker->suffix();
+    Vector<UChar> resultVector;
+
+    if (m_marker->style()->direction() == RTL)
+        resultVector.append(markerSuffix.characters(), markerSuffix.length());
+
+    resultVector.append(markerText.characters(), markerText.length());
+
+    if (m_marker->style()->direction() == LTR)
+        resultVector.append(markerSuffix.characters(), markerSuffix.length());
+
+    return String::adopt(resultVector);
 }
 
 void RenderListItem::explicitValueChanged()

@@ -78,6 +78,13 @@ void MediaPlayerPrivate::registerMediaEngine(MediaEngineRegistrar registrar)
     registrar(create, getSupportedTypes, supportsType);
 }
 
+MediaPlayer::SupportsType MediaPlayerPrivate::supportsType(const String& type, const String& codecs)
+{
+    if (WebViewCore::supportsMimeType(type))
+        return MediaPlayer::MayBeSupported;
+    return MediaPlayer::IsNotSupported;
+}
+
 void MediaPlayerPrivate::pause()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();

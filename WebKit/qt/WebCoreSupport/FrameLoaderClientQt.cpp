@@ -442,9 +442,6 @@ void FrameLoaderClientQt::dispatchDidCommitLoad()
     if (m_frame->tree()->parent() || !m_webFrame)
         return;
 
-    // Clear the viewport arguments.
-    m_webFrame->d->viewportArguments = WebCore::ViewportArguments();
-
     emit m_webFrame->urlChanged(m_webFrame->url());
     m_webFrame->page()->d->updateNavigationActions();
 
@@ -1248,7 +1245,7 @@ PassRefPtr<Frame> FrameLoaderClientQt::createFrame(const KURL& url, const String
     return frameData.frame.release();
 }
 
-void FrameLoaderClientQt::didTransferChildFrameToNewDocument()
+void FrameLoaderClientQt::didTransferChildFrameToNewDocument(Page*)
 {
     ASSERT(m_frame->ownerElement());
 
@@ -1370,7 +1367,6 @@ private:
     }
 };
 
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
 class QtPluginGraphicsWidget: public Widget
 {
 public:
@@ -1415,7 +1411,6 @@ private:
 
     QGraphicsWidget* graphicsWidget;
 };
-#endif
 
 PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, HTMLPlugInElement* element, const KURL& url, const Vector<String>& paramNames,
                                           const Vector<String>& paramValues, const String& mimeType, bool loadManually)
@@ -1456,7 +1451,7 @@ PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, 
             for (unsigned i = 0; i < numqStyleSheetProperties; ++i) {
                 CSSPropertyID property = qstyleSheetProperties[i];
 
-                styleSheet += QString::fromLatin1(::getPropertyName(property));
+                styleSheet += QString::fromLatin1(getPropertyName(property));
                 styleSheet += QLatin1Char(':');
                 styleSheet += computedStyle(element)->getPropertyValue(property);
                 styleSheet += QLatin1Char(';');
@@ -1488,7 +1483,7 @@ PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, 
                 w->setFrameRect(IntRect(0, 0, 0, 0));
                 return w;
             }
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
+
             QGraphicsWidget* graphicsWidget = qobject_cast<QGraphicsWidget*>(object);
             if (graphicsWidget) {
                 QGraphicsObject* parentWidget = 0;
@@ -1502,7 +1497,7 @@ PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, 
                 w->setFrameRect(IntRect(0, 0, 0, 0));
                 return w;
             }
-#endif
+
             // FIXME: make things work for widgetless plugins as well
             delete object;
     }
@@ -1513,7 +1508,7 @@ PassRefPtr<Widget> FrameLoaderClientQt::createPlugin(const IntSize& pluginSize, 
         if (mimeType == "application/x-shockwave-flash") {
             QWebPageClient* client = m_webFrame->page()->d->client;
             const bool isQWebView = client && qobject_cast<QWidget*>(client->pluginParent());
-#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO == 5)
+#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
             size_t wmodeIndex = params.find("wmode");
             if (wmodeIndex == -1) {
                 // Disable XEmbed mode and force it to opaque mode

@@ -200,6 +200,24 @@ jobject WebViewCore::getApplicationContext() {
     return result;
 }
 
+
+struct WebViewCoreStaticMethods {
+    jmethodID    m_supportsMimeType;
+} gWebViewCoreStaticMethods;
+
+// Check whether a media mimeType is supported in Android media framework.
+bool WebViewCore::supportsMimeType(const WTF::String& mimeType) {
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jstring jMimeType = env->NewString(mimeType.characters(), mimeType.length());
+    jclass webViewCore = env->FindClass("android/webkit/WebViewCore");
+    bool val = env->CallStaticBooleanMethod(webViewCore,
+          gWebViewCoreStaticMethods.m_supportsMimeType, jMimeType);
+    checkException(env);
+    env->DeleteLocalRef(jMimeType);
+
+    return val;
+}
+
 // ----------------------------------------------------------------------------
 
 #define GET_NATIVE_VIEW(env, obj) ((WebViewCore*)env->GetIntField(obj, gWebViewCoreFields.m_nativeClass))
@@ -3553,7 +3571,7 @@ static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action,
     jint* ptrXArray = env->GetIntArrayElements(xArray, 0);
     jint* ptrYArray = env->GetIntArrayElements(yArray, 0);
     Vector<IntPoint> points(count);
-    for (unsigned c = 0; c < count; c++) {
+    for (int c = 0; c < count; c++) {
         points[c].setX(ptrXArray[c]);
         points[c].setY(ptrYArray[c]);
     }
@@ -3663,7 +3681,7 @@ static jint GetContentMinPrefWidth(JNIEnv *env, jobject obj)
         if (document) {
             WebCore::RenderObject* renderer = document->renderer();
             if (renderer && renderer->isRenderView()) {
-                return renderer->minPrefWidth();
+                return renderer->minPreferredLogicalWidth();
             }
         }
     }
@@ -4083,6 +4101,11 @@ int register_webviewcore(JNIEnv* env)
             "mDrawIsPaused", "Z");
     LOG_ASSERT(gWebViewCoreFields.m_drawIsPaused,
             "Unable to find android/webkit/WebViewCore.mDrawIsPaused");
+
+    gWebViewCoreStaticMethods.m_supportsMimeType =
+        env->GetStaticMethodID(widget, "supportsMimeType", "(Ljava/lang/String;)Z");
+    LOG_FATAL_IF(gWebViewCoreStaticMethods.m_supportsMimeType == NULL,
+        "Could not find static method supportsMimeType from WebViewCore");
 
     return jniRegisterNativeMethods(env, "android/webkit/WebViewCore",
             gJavaWebViewCoreMethods, NELEM(gJavaWebViewCoreMethods));

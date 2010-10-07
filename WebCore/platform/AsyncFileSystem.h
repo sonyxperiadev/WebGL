@@ -41,6 +41,7 @@ namespace WebCore {
 
 class AsyncFileSystem;
 class AsyncFileSystemCallbacks;
+class AsyncFileWriterClient;
 
 // This class provides async interface for platform-specific file system implementation.  Note that all the methods take platform paths.
 class AsyncFileSystem : public Noncopyable {
@@ -55,6 +56,8 @@ public:
 
     virtual void stop() { }
     virtual bool hasPendingActivity() { return false; }
+
+    static bool isAvailable();
 
     // Creates and returns a new platform-specific AsyncFileSystem instance if the platform has its own implementation.
     static PassOwnPtr<AsyncFileSystem> create(const String& rootPath);
@@ -106,6 +109,11 @@ public:
     // AsyncFileSystemCallbacks::didReadDirectoryEntry() is called when each directory entry is called. AsyncFileSystemCallbacks::didReadDirectoryEntries() is called after a chunk of directory entries have been read.
     // AsyncFileSystemCallbacks::didFail() is when there is an error.
     virtual void readDirectory(const String& path, PassOwnPtr<AsyncFileSystemCallbacks>) = 0;
+
+    // Creates an AsyncFileWriter for a given file path.
+    // AsyncFileSystemCallbacks::didCreateFileWriter() is called when an AsyncFileWriter is created successfully.
+    // AsyncFileSystemCallbacks::didFail() is called otherwise.
+    virtual void createWriter(AsyncFileWriterClient* client, const String& path, PassOwnPtr<AsyncFileSystemCallbacks>) = 0;
 
     // Converts a given absolute virtual path to a platform path that starts with the platform root path of this file system.
     virtual String virtualToPlatformPath(const String& path) const;

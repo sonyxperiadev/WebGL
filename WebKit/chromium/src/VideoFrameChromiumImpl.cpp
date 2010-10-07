@@ -38,14 +38,6 @@ using namespace WebCore;
 
 namespace WebKit {
 
-const unsigned cMaxPlanes = 3;
-const unsigned cNumRGBPlanes = 1;
-const unsigned cRGBPlane = 0;
-const unsigned cNumYUVPlanes = 3;
-const unsigned cYPlane = 0;
-const unsigned cUPlane = 1;
-const unsigned cVPlane = 2;
-
 WebVideoFrame* VideoFrameChromiumImpl::toWebVideoFrame(VideoFrameChromium* videoFrame)
 {
     VideoFrameChromiumImpl* wrappedFrame = static_cast<VideoFrameChromiumImpl*>(videoFrame);
@@ -106,6 +98,24 @@ const void* VideoFrameChromiumImpl::data(unsigned plane) const
     if (m_webVideoFrame)
         return m_webVideoFrame->data(plane);
     return 0;
+}
+
+const IntSize VideoFrameChromiumImpl::requiredTextureSize(unsigned plane) const
+{
+    switch (format()) {
+    case RGBA:
+        return IntSize(stride(plane), height());
+    case YV12:
+        if (plane == static_cast<unsigned>(yPlane))
+            return IntSize(stride(plane), height());
+        else if (plane == static_cast<unsigned>(uPlane))
+            return IntSize(stride(plane), height() / 2);
+        else if (plane == static_cast<unsigned>(vPlane))
+            return IntSize(stride(plane), height() / 2);
+    default:
+        break;
+    }
+    return IntSize();
 }
 
 } // namespace WebKit

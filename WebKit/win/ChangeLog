@@ -1,3 +1,137 @@
+2010-09-28  Jenn Braithwaite  <jennb@chromium.org>
+
+        Reviewed by Dmitry Titov.
+
+        Added oldPage param to FrameLoaderClient::didTransferChildFrameToNewDocument.
+        https://bugs.webkit.org/show_bug.cgi?id=46663
+
+        * WebCoreSupport/WebFrameLoaderClient.cpp:
+        (WebFrameLoaderClient::didTransferChildFrameToNewDocument):
+        * WebCoreSupport/WebFrameLoaderClient.h:
+
+2010-09-27  Andrey Kosyakov  <caseq@chromium.org>
+
+        Unreviewed build fix (win; broken in r68371)
+
+        * WebFrame.cpp: remove include <WebCore/ResourceHandleWin.h>
+
+2010-09-23  Matthew Delaney  <mdelaney@apple.com>
+
+        Reviewed by Simon Fraser.
+
+        Reduce minimum DOMTimer interval
+        https://bugs.webkit.org/show_bug.cgi?id=45362
+
+        * WebView.cpp:
+        Updating set interval call to use Settings' static version inside
+        one time init block.
+
+2010-09-23  Nate Chapin  <japhet@chromium.org>
+
+        Unreviewed, build fix.
+
+        Move hyperlinkAuditingEnabled to IWebPreferencesPrivate.idl
+        and touch WebKit.idl
+
+        * Interfaces/IWebPreferences.idl:
+        * Interfaces/IWebPreferencesPrivate.idl:
+        * Interfaces/WebKit.idl:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2010-09-23  Nate Chapin  <japhet@chromium.org>
+
+        Unreviewed, build fix.
+
+        Look for hyperlinkAuditingEnabled in the right set of preferences.
+
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2010-09-23  Nate Chapin  <japhet@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Add hyperlink auditing settings (i.e., <a ping>).
+        https://bugs.webkit.org/show_bug.cgi?id=30458
+
+        * Interfaces/IWebPreferences.idl:
+        * WebPreferenceKeysPrivate.h:
+        * WebPreferences.cpp:
+        (WebPreferences::initializeDefaultSettings):
+        (WebPreferences::hyperlinkAuditingEnabled):
+        (WebPreferences::setHyperlinkAuditingEnabled):
+        * WebPreferences.h:
+        * WebView.cpp:
+        (WebView::notifyPreferencesChanged):
+
+2010-09-23  Matthew Delaney  <mdelaney@apple.com>
+
+        Reviewed by Adam Roben.
+
+        Create one time initialization block for WebView's initWithFrame
+        https://bugs.webkit.org/show_bug.cgi?id=46307
+
+        * WebView.cpp: Added one time initialization block for webview code
+        that needs only be run once and not for each webview. This is just as
+        the mac version WebView.mm does.
+
+2010-09-22  Brent Fulgham  <bfulgham@webkit.org>
+
+        Reviewed by Martin Robinson.
+
+        [WinCairo] Part 2: Update WebKitTestRunner and DumpRenderTree Build.
+        https://bugs.webkit.org/show_bug.cgi?id=46303.
+
+        * WebKit.vcproj/WebKit.sln: Update overall Debug_Cairo and
+        Release_Cairo configurations to select appropriate build
+        targets for WebKitTestRunner and MiniBrowser.
+
+2010-09-22  Brent Fulgham  <bfulgham@webkit.org>
+
+        Reviewed by Martin Robinson.
+
+        [WinCairo] Update WebKitTestRunner and DumpRenderTree Build.rt
+        https://bugs.webkit.org/show_bug.cgi?id=46303.
+
+        * WebKit.vcproj/WebKit.sln: Update overall Debug_Cairo and
+        Release_Cairo configurations to select appropriate build
+        targets for InjectionBundle.
+
+2010-09-22  Balazs Kelemen  <kb@inf.u-szeged.hu>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        PluginStrategy should satisfy the needs of Qt
+        https://bugs.webkit.org/show_bug.cgi?id=45857
+        No new functionality so no new tests.
+
+        * WebCoreSupport/WebPlatformStrategies.cpp:
+        (WebPlatformStrategies::getPluginInfo):
+        * WebCoreSupport/WebPlatformStrategies.h:
+
+2010-09-20  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Eric Carlson.
+
+        [GTK] enhanced context menu for media elements
+        https://bugs.webkit.org/show_bug.cgi?id=45021
+
+        New localized strings for the media element context-menu.
+
+        * WebCoreSupport/WebPlatformStrategies.cpp:
+        (WebPlatformStrategies::contextMenuItemTagOpenVideoInNewWindow):
+        (WebPlatformStrategies::contextMenuItemTagOpenAudioInNewWindow):
+        (WebPlatformStrategies::contextMenuItemTagCopyVideoLinkToClipboard):
+        (WebPlatformStrategies::contextMenuItemTagCopyAudioLinkToClipboard):
+        (WebPlatformStrategies::contextMenuItemTagToggleMediaControls):
+        (WebPlatformStrategies::contextMenuItemTagToggleMediaLoop):
+        (WebPlatformStrategies::contextMenuItemTagEnterVideoFullscreen):
+        (WebPlatformStrategies::contextMenuItemTagMediaPlay):
+        (WebPlatformStrategies::contextMenuItemTagMediaPause):
+        (WebPlatformStrategies::contextMenuItemTagMediaMute):
+        * WebCoreSupport/WebPlatformStrategies.h:
+
 2010-09-17  Darin Adler  <darin@apple.com>
 
         Reviewed by Sam Weinig.

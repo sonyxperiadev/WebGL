@@ -200,7 +200,7 @@ void RenderTable::removeChild(RenderObject* oldChild)
     setNeedsSectionRecalc();
 }
 
-void RenderTable::calcWidth()
+void RenderTable::computeLogicalWidth()
 {
 #ifdef ANDROID_LAYOUT
     if (view()->frameView())
@@ -208,20 +208,20 @@ void RenderTable::calcWidth()
 #endif
 
     if (isPositioned())
-        calcAbsoluteHorizontal();
+        computePositionedLogicalWidth();
 
     RenderBlock* cb = containingBlock();
-    int availableWidth = cb->availableWidth();
+    int availableWidth = cb->availableLogicalWidth();
 
     LengthType widthType = style()->width().type();
     if (widthType > Relative && style()->width().isPositive()) {
         // Percent or fixed table
         setWidth(style()->width().calcMinValue(availableWidth));
-        setWidth(max(minPrefWidth(), width()));
+        setWidth(max(minPreferredLogicalWidth(), width()));
     } else {
         // An auto width table should shrink to fit within the line width if necessary in order to 
         // avoid overlapping floats.
-        availableWidth = cb->lineWidth(y(), false);
+        availableWidth = cb->availableLogicalWidthForLine(y(), false);
         
         // Subtract out any fixed margins from our available width for auto width tables.
         int marginTotal = 0;
@@ -234,10 +234,10 @@ void RenderTable::calcWidth()
         int availContentWidth = max(0, availableWidth - marginTotal);
         
         // Ensure we aren't bigger than our max width or smaller than our min width.
-        setWidth(min(availContentWidth, maxPrefWidth()));
+        setWidth(min(availContentWidth, maxPreferredLogicalWidth()));
     }
     
-    setWidth(max(width(), minPrefWidth()));
+    setWidth(max(width(), minPreferredLogicalWidth()));
 
     // Finally, with our true width determined, compute our margins for real.
     m_marginRight = 0;
@@ -247,7 +247,7 @@ void RenderTable::calcWidth()
     if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR)
         return;
 #endif
-    calcHorizontalMargins(style()->marginLeft(), style()->marginRight(), availableWidth);
+    computeInlineDirectionMargins(cb, availableWidth, width());
 }
 
 void RenderTable::layout()
@@ -272,14 +272,14 @@ void RenderTable::layout()
 #endif
 
     int oldWidth = width();
-    calcWidth();
+    computeLogicalWidth();
 
 #ifdef ANDROID_LAYOUT
     if (!checkAndSetRelayoutChildren(&relayoutChildren)
         && document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
         // if the width of a table is wider than its container width, or it has a nested table,
         // we will render it with single column.
-        int cw = containingBlockWidthForContent();
+        int cw = containingBlockLogicalWidthForContent();
         bool shouldRenderAsSingleColumn = (width() > cw);
         if (!shouldRenderAsSingleColumn) {
             RenderObject* child = firstChild();
@@ -296,10 +296,10 @@ void RenderTable::layout()
             m_singleColumn = true;
             if (width() > cw)
                 setWidth(cw);
-            if (m_minPrefWidth > cw)
-                m_minPrefWidth = cw;
-            if (m_maxPrefWidth > cw)
-                m_maxPrefWidth = cw;
+            if (m_minPreferredLogicalWidth > cw)
+                m_minPreferredLogicalWidth = cw;
+            if (m_maxPreferredLogicalWidth > cw)
+                m_maxPreferredLogicalWidth = cw;
         }
     }
 #endif
@@ -377,7 +377,7 @@ void RenderTable::layout()
     setHeight(height() + bpTop);
 
     if (!isPositioned())
-        calcHeight();
+        computeLogicalHeight();
 
     Length h = style()->height();
     int th = 0;
@@ -385,7 +385,7 @@ void RenderTable::layout()
         // Tables size as though CSS height includes border/padding.
         th = h.value() - (bpTop + bpBottom);
     else if (h.isPercent())
-        th = calcPercentageHeight(h);
+        th = computePercentageLogicalHeight(h);
     th = max(0, th);
 
     for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
@@ -430,7 +430,7 @@ void RenderTable::layout()
     }
 
     if (isPositioned())
-        calcHeight();
+        computeLogicalHeight();
 
     // table can be containing block of positioned elements.
     // FIXME: Only pass true if width or height changed.
@@ -592,19 +592,19 @@ void RenderTable::paintMask(PaintInfo& paintInfo, int tx, int ty)
     paintMaskImages(paintInfo, tx, ty, w, h);
 }
 
-void RenderTable::calcPrefWidths()
+void RenderTable::computePreferredLogicalWidths()
 {
-    ASSERT(prefWidthsDirty());
+    ASSERT(preferredLogicalWidthsDirty());
 
     recalcSectionsIfNeeded();
     recalcHorizontalBorders();
 
-    m_tableLayout->calcPrefWidths(m_minPrefWidth, m_maxPrefWidth);
+    m_tableLayout->computePreferredLogicalWidths(m_minPreferredLogicalWidth, m_maxPreferredLogicalWidth);
 
     if (m_caption)
-        m_minPrefWidth = max(m_minPrefWidth, m_caption->minPrefWidth());
+        m_minPreferredLogicalWidth = max(m_minPreferredLogicalWidth, m_caption->minPreferredLogicalWidth());
 
-    setPrefWidthsDirty(false);
+    setPreferredLogicalWidthsDirty(false);
 }
 
 void RenderTable::splitColumn(int pos, int firstSpan)

@@ -47,13 +47,15 @@ public:
     virtual bool requiresLayer() const { return true; }
 
     virtual void layout();
-    virtual void calcWidth();
-    virtual void calcHeight();
-    virtual void calcPrefWidths();
+    virtual void computeLogicalWidth();
+    virtual void computeLogicalHeight();
+    virtual void computePreferredLogicalWidths();
 
     // The same as the FrameView's layoutHeight/layoutWidth but with null check guards.
     int viewHeight() const;
     int viewWidth() const;
+    int viewLogicalWidth() const { return style()->isVerticalBlockFlow() ? viewWidth() : viewHeight(); }
+    int viewLogicalHeight() const { return style()->isVerticalBlockFlow() ? viewHeight() : viewWidth(); }
 
     float zoomFactor() const;
 

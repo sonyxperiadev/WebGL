@@ -33,6 +33,7 @@ from optparse import make_option
 from webkitpy.common.checkout.commitinfo import CommitInfo
 from webkitpy.common.config.committers import CommitterList
 from webkitpy.common.net.buildbot import BuildBot
+from webkitpy.common.net.regressionwindow import RegressionWindow
 from webkitpy.common.system.user import User
 from webkitpy.tool.grammar import pluralize
 from webkitpy.tool.multicommandtool import AbstractDeclarativeCommand
@@ -112,7 +113,7 @@ class LastGreenRevision(AbstractDeclarativeCommand):
     help_text = "Prints the last known good revision"
 
     def execute(self, options, args, tool):
-        print self.tool.buildbot.last_green_revision()
+        print self._tool.buildbot.last_green_revision()
 
 
 class WhatBroke(AbstractDeclarativeCommand):
@@ -122,29 +123,26 @@ class WhatBroke(AbstractDeclarativeCommand):
     def _print_builder_line(self, builder_name, max_name_width, status_message):
         print "%s : %s" % (builder_name.ljust(max_name_width), status_message)
 
-    # FIXME: This is slightly different from Builder.suspect_revisions_for_green_to_red_transition
-    # due to needing to detect the "hit the limit" case an print a special message.
     def _print_blame_information_for_builder(self, builder_status, name_width, avoid_flakey_tests=True):
-        builder = self.tool.buildbot.builder_with_name(builder_status["name"])
+        builder = self._tool.buildbot.builder_with_name(builder_status["name"])
         red_build = builder.build(builder_status["build_number"])
-        (last_green_build, first_red_build) = builder.find_failure_transition(red_build)
-        if not first_red_build:
+        regression_window = builder.find_regression_window(red_build)
+        if not regression_window.failing_build():
             self._print_builder_line(builder.name(), name_width, "FAIL (error loading build information)")
             return
-        if not last_green_build:
-            self._print_builder_line(builder.name(), name_width, "FAIL (blame-list: sometime before %s?)" % first_red_build.revision())
+        if not regression_window.build_before_failure():
+            self._print_builder_line(builder.name(), name_width, "FAIL (blame-list: sometime before %s?)" % regression_window.failing_build().revision())
             return
 
-        suspect_revisions = range(first_red_build.revision(), last_green_build.revision(), -1)
-        suspect_revisions.reverse()
+        revisions = regression_window.revisions()
         first_failure_message = ""
-        if (first_red_build == builder.build(builder_status["build_number"])):
+        if (regression_window.failing_build() == builder.build(builder_status["build_number"])):
             first_failure_message = " FIRST FAILURE, possibly a flaky test"
-        self._print_builder_line(builder.name(), name_width, "FAIL (blame-list: %s%s)" % (suspect_revisions, first_failure_message))
-        for revision in suspect_revisions:
-            commit_info = self.tool.checkout().commit_info_for_revision(revision)
+        self._print_builder_line(builder.name(), name_width, "FAIL (blame-list: %s%s)" % (revisions, first_failure_message))
+        for revision in revisions:
+            commit_info = self._tool.checkout().commit_info_for_revision(revision)
             if commit_info:
-                print commit_info.blame_string(self.tool.bugs)
+                print commit_info.blame_string(self._tool.bugs)
             else:
                 print "FAILED to fetch CommitInfo for r%s, likely missing ChangeLog" % revision
 
@@ -169,7 +167,7 @@ class WhoBrokeIt(AbstractDeclarativeCommand):
     help_text = "Print a list of revisions causing failures on %s" % BuildBot.default_host
 
     def execute(self, options, args, tool):
-        for revision, builders in self.tool.buildbot.revisions_causing_failures(False).items():
+        for revision, builders in self._tool.buildbot.failure_map(False).revisions_causing_failures().items():
             print "r%s appears to have broken %s" % (revision, [builder.name() for builder in builders])
 
 
@@ -188,7 +186,7 @@ class ResultsFor(AbstractDeclarativeCommand):
                 print "  %s" % filename
 
     def execute(self, options, args, tool):
-        builders = self.tool.buildbot.builders()
+        builders = self._tool.buildbot.builders()
         for builder in builders:
             print "%s:" % builder.name()
             build = builder.build_for_revision(args[0], allow_failed_lookups=True)
@@ -200,13 +198,14 @@ class FailureReason(AbstractDeclarativeCommand):
     help_text = "Lists revisions where individual test failures started at %s" % BuildBot.default_host
 
     def _print_blame_information_for_transition(self, green_build, red_build, failing_tests):
-        suspect_revisions = green_build.builder().suspect_revisions_for_transition(green_build, red_build)
+        regression_window = RegressionWindow(green_build, red_build)
+        revisions = regression_window.revisions()
         print "SUCCESS: Build %s (r%s) was the first to show failures: %s" % (red_build._number, red_build.revision(), failing_tests)
         print "Suspect revisions:"
-        for revision in suspect_revisions:
-            commit_info = self.tool.checkout().commit_info_for_revision(revision)
+        for revision in revisions:
+            commit_info = self._tool.checkout().commit_info_for_revision(revision)
             if commit_info:
-                print commit_info.blame_string(self.tool.bugs)
+                print commit_info.blame_string(self._tool.bugs)
             else:
                 print "FAILED to fetch CommitInfo for r%s, likely missing ChangeLog" % revision
 
@@ -255,7 +254,7 @@ class FailureReason(AbstractDeclarativeCommand):
         return 0
 
     def _builder_to_explain(self):
-        builder_statuses = self.tool.buildbot.builder_statuses()
+        builder_statuses = self._tool.buildbot.builder_statuses()
         red_statuses = [status for status in builder_statuses if not status["is_green"]]
         print "%s failing" % (pluralize("builder", len(red_statuses)))
         builder_choices = [status["name"] for status in red_statuses]
@@ -264,11 +263,11 @@ class FailureReason(AbstractDeclarativeCommand):
         # FIXME: prompt_with_list should really take a set of objects and a set of names and then return the object.
         for status in red_statuses:
             if status["name"] == chosen_name:
-                return (self.tool.buildbot.builder_with_name(chosen_name), status["built_revision"])
+                return (self._tool.buildbot.builder_with_name(chosen_name), status["built_revision"])
 
     def execute(self, options, args, tool):
         (builder, latest_revision) = self._builder_to_explain()
-        start_revision = self.tool.user.prompt("Revision to walk backwards from? [%s] " % latest_revision) or latest_revision
+        start_revision = self._tool.user.prompt("Revision to walk backwards from? [%s] " % latest_revision) or latest_revision
         if not start_revision:
             print "Revision required."
             return 1

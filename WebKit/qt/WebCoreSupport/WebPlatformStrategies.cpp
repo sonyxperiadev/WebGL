@@ -30,8 +30,10 @@
 #include "config.h"
 #include "WebPlatformStrategies.h"
 
-#include "NotImplemented.h"
+#include "Chrome.h"
+#include "ChromeClientQt.h"
 #include <IntSize.h>
+#include "NotImplemented.h"
 #include <Page.h>
 #include <PageGroup.h>
 #include <PluginDatabase.h>
@@ -43,14 +45,13 @@
 
 using namespace WebCore;
 
-void WebPlatformStrategies::initialize(QWebPage* webPage)
+void WebPlatformStrategies::initialize()
 {
-    DEFINE_STATIC_LOCAL(WebPlatformStrategies, platformStrategies, (webPage));
+    DEFINE_STATIC_LOCAL(WebPlatformStrategies, platformStrategies, ());
     Q_UNUSED(platformStrategies);
 }
 
-WebPlatformStrategies::WebPlatformStrategies(QWebPage* webPage)
-    : m_page(webPage)
+WebPlatformStrategies::WebPlatformStrategies()
 {
     setPlatformStrategies(this);
 }
@@ -78,10 +79,11 @@ void WebPlatformStrategies::refreshPlugins()
     PluginDatabase::installedPlugins()->refresh();
 }
 
-void WebPlatformStrategies::getPluginInfo(Vector<WebCore::PluginInfo>& outPlugins)
+void WebPlatformStrategies::getPluginInfo(const WebCore::Page* page, Vector<WebCore::PluginInfo>& outPlugins)
 {
-    QWebPluginFactory* factory = m_page->pluginFactory();
-    if (factory) {
+    QWebPage* qPage = static_cast<ChromeClientQt*>(page->chrome()->client())->m_webPage;
+    QWebPluginFactory* factory;
+    if (qPage && (factory = qPage->pluginFactory())) {
 
         QList<QWebPluginFactory::Plugin> qplugins = factory->plugins();
         for (int i = 0; i < qplugins.count(); ++i) {
@@ -196,6 +198,56 @@ String WebPlatformStrategies::contextMenuItemTagDownloadImageToDisk()
 String WebPlatformStrategies::contextMenuItemTagCopyImageToClipboard()
 {
     return QCoreApplication::translate("QWebPage", "Copy Image", "Copy Link context menu item");
+}
+
+String WebPlatformStrategies::contextMenuItemTagOpenVideoInNewWindow()
+{
+    return QCoreApplication::translate("QWebPage", "Open Video", "Open Video in New Window");
+}
+
+String WebPlatformStrategies::contextMenuItemTagOpenAudioInNewWindow()
+{
+    return QCoreApplication::translate("QWebPage", "Open Audio", "Open Audio in New Window");
+}
+
+String WebPlatformStrategies::contextMenuItemTagCopyVideoLinkToClipboard()
+{
+    return QCoreApplication::translate("QWebPage", "Copy Video", "Copy Video Link Location");
+}
+
+String WebPlatformStrategies::contextMenuItemTagCopyAudioLinkToClipboard()
+{
+    return QCoreApplication::translate("QWebPage", "Copy Audio", "Copy Audio Link Location");
+}
+
+String WebPlatformStrategies::contextMenuItemTagToggleMediaControls()
+{
+    return QCoreApplication::translate("QWebPage", "Toggle Controls", "Toggle Media Controls");
+}
+
+String WebPlatformStrategies::contextMenuItemTagToggleMediaLoop()
+{
+    return QCoreApplication::translate("QWebPage", "Toggle Loop", "Toggle Media Loop Playback");
+}
+
+String WebPlatformStrategies::contextMenuItemTagEnterVideoFullscreen()
+{
+    return QCoreApplication::translate("QWebPage", "Enter Fullscreen", "Switch Video to Fullscreen");
+}
+
+String WebPlatformStrategies::contextMenuItemTagMediaPlay()
+{
+    return QCoreApplication::translate("QWebPage", "Play", "Play");
+}
+
+String WebPlatformStrategies::contextMenuItemTagMediaPause()
+{
+    return QCoreApplication::translate("QWebPage", "Pause", "Pause");
+}
+
+String WebPlatformStrategies::contextMenuItemTagMediaMute()
+{
+    return QCoreApplication::translate("QWebPage", "Mute", "Mute");
 }
 
 String WebPlatformStrategies::contextMenuItemTagOpenFrameInNewWindow()

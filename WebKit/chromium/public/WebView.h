@@ -44,7 +44,6 @@ class WebDevToolsAgentClient;
 class WebDragData;
 class WebFrame;
 class WebFrameClient;
-class WebGLES2Context;
 class WebGraphicsContext3D;
 class WebNode;
 class WebSettings;
@@ -66,6 +65,13 @@ public:
         UserContentInjectInAllFrames,
         UserContentInjectInTopFrameOnly
     };
+    
+    // Controls which documents user styles are injected into.
+    enum UserStyleInjectionTime {
+        UserStyleInjectInExistingDocuments,
+        UserStyleInjectInSubsequentDocuments
+    };
+    
 
     // Initialization ------------------------------------------------------
 
@@ -311,25 +317,14 @@ public:
                                     unsigned inactiveForegroundColor) = 0;
 
     // User scripts --------------------------------------------------------
-    // FIXME: These two methods are DEPRECATED. Remove once Chromium has been rolled.
-    virtual void addUserScript(const WebString& sourceCode, bool runAtStart)
-    {
-        addUserScript(sourceCode, WebVector<WebString>(),
-                      runAtStart ? UserScriptInjectAtDocumentStart : UserScriptInjectAtDocumentEnd,
-                      UserContentInjectInAllFrames);
-    }
-    virtual void addUserStyleSheet(const WebString& sourceCode)
-    {
-        addUserStyleSheet(sourceCode, WebVector<WebString>(), UserContentInjectInAllFrames);
-    }
-
     WEBKIT_API static void addUserScript(const WebString& sourceCode,
                                          const WebVector<WebString>& patterns,
                                          UserScriptInjectAt injectAt,
                                          UserContentInjectIn injectIn);
     WEBKIT_API static void addUserStyleSheet(const WebString& sourceCode,
                                              const WebVector<WebString>& patterns,
-                                             UserContentInjectIn injectIn);
+                                             UserContentInjectIn injectIn,
+                                             UserStyleInjectionTime injectionTime = UserStyleInjectInSubsequentDocuments);
     WEBKIT_API static void removeAllUserContent();
 
     // Modal dialog support ------------------------------------------------
@@ -340,12 +335,6 @@ public:
     WEBKIT_API static void didExitModalLoop();
 
     // GPU acceleration support --------------------------------------------
-
-    // Returns the GLES2Context associated with this WebView. One will be
-    // created if it doesn't already exist.
-    // FIXME: remove this method once the compositor is fully switched
-    // over to GraphicsContext3D.
-    virtual WebGLES2Context* gles2Context() = 0;
 
     // Returns the (on-screen) WebGraphicsContext3D associated with
     // this WebView. One will be created if it doesn't already exist.

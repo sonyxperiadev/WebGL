@@ -33,6 +33,7 @@
 #include "CSSStyleSelector.h"
 #include "ClientRect.h"
 #include "ClientRectList.h"
+#include "DOMTokenList.h"
 #include "DatasetDOMStringMap.h"
 #include "Document.h"
 #include "DocumentFragment.h"
@@ -578,7 +579,10 @@ void Element::setAttribute(const AtomicString& name, const AtomicString& value, 
     else if (!old && !value.isNull())
         m_attributeMap->addAttribute(createAttribute(QualifiedName(nullAtom, localName, nullAtom), value));
     else if (old && !value.isNull()) {
-        old->setValue(value);
+        if (Attr* attrNode = old->attr())
+            attrNode->setValue(value);
+        else
+            old->setValue(value);
         attributeChanged(old);
     }
 
@@ -608,7 +612,10 @@ void Element::setAttribute(const QualifiedName& name, const AtomicString& value,
     else if (!old && !value.isNull())
         m_attributeMap->addAttribute(createAttribute(name, value));
     else if (old) {
-        old->setValue(value);
+        if (Attr* attrNode = old->attr())
+            attrNode->setValue(value);
+        else
+            old->setValue(value);
         attributeChanged(old);
     }
 
@@ -651,6 +658,8 @@ void Element::updateAfterAttributeChanged(Attribute* attr)
         document()->axObjectCache()->selectedChildrenChanged(renderer());
     else if (attrName == aria_expandedAttr)
         document()->axObjectCache()->handleAriaExpandedChange(renderer());
+    else if (attrName == aria_hiddenAttr)
+        document()->axObjectCache()->childrenChanged(renderer());
 }
     
 void Element::recalcStyleIfNeededAfterAttributeChanged(Attribute* attr)
@@ -1563,6 +1572,21 @@ bool Element::webkitMatchesSelector(const String& selector, ExceptionCode& ec)
     }
 
     return false;
+}
+
+DOMTokenList* Element::classList()
+{
+    ElementRareData* data = ensureRareData();
+    if (!data->m_classList)
+        data->m_classList = DOMTokenList::create(this);
+    return data->m_classList.get();
+}
+
+DOMTokenList* Element::optionalClassList() const
+{
+    if (!hasRareData())
+        return 0;
+    return rareData()->m_classList.get();
 }
 
 DOMStringMap* Element::dataset()

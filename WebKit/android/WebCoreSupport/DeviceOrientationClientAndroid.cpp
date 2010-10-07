@@ -67,6 +67,11 @@ DeviceOrientation* DeviceOrientationClientAndroid::lastOrientation() const
     return client()->lastOrientation();
 }
 
+void DeviceOrientationClientAndroid::deviceOrientationControllerDestroyed()
+{
+    delete this;
+}
+
 DeviceOrientationClient* DeviceOrientationClientAndroid::client() const
 {
     if (!m_client) {

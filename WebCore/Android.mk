@@ -275,10 +275,20 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	history/android/HistoryItemAndroid.cpp \
 	\
 	html/AsyncImageResizer.cpp \
+	html/BaseTextInputType.cpp \
+	html/ButtonInputType.cpp \
+	html/CheckboxInputType.cpp \
 	html/CollectionCache.cpp \
 	html/parser/CSSPreloadScanner.cpp \
+	html/ColorInputType.cpp \
 	html/DOMFormData.cpp \
+	html/DOMTokenList.cpp \
 	html/DateComponents.cpp \
+	html/DateInputType.cpp \
+	html/DateTimeInputType.cpp \
+	html/DateTimeLocalInputType.cpp \
+	html/EmailInputType.cpp \
+	html/FileInputType.cpp \
 	html/FormDataList.cpp \
 	html/HTMLAllCollection.cpp \
 	html/HTMLCollection.cpp \
@@ -292,16 +302,34 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/HTMLParserErrorCodes.cpp \
 	html/HTMLTableRowsCollection.cpp \
 	html/HTMLViewSourceDocument.cpp \
+	html/HiddenInputType.cpp \
 	html/ImageData.cpp \
 	html/ImageDocument.cpp \
-  html/MediaDocument.cpp \
+	html/ImageInputType.cpp \
 	html/ImageResizerThread.cpp \
+	html/InputType.cpp \
+	html/IsIndexInputType.cpp \
 	html/LabelsNodeList.cpp \
-	html/StepRange.cpp \
+	html/MediaDocument.cpp \
+	html/MonthInputType.cpp \
+	html/NumberInputType.cpp \
+	html/PasswordInputType.cpp \
 	html/PluginDocument.cpp \
+	html/RadioInputType.cpp \
+	html/RangeInputType.cpp \
+	html/ResetInputType.cpp \
+	html/SearchInputType.cpp \
+	html/StepRange.cpp \
+	html/SubmitInputType.cpp \
+	html/TelephoneInputType.cpp \
 	html/TextDocument.cpp \
+	html/TextFieldInputType.cpp \
+	html/TextInputType.cpp \
+	html/TimeInputType.cpp \
 	html/TimeRanges.cpp \
+	html/URLInputType.cpp \
 	html/ValidityState.cpp \
+	html/WeekInputType.cpp \
 	\
 	html/canvas/CanvasGradient.cpp \
 	html/canvas/WebGLObject.cpp \
@@ -553,7 +581,18 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/filters/FEBlend.cpp \
 	platform/graphics/filters/FEColorMatrix.cpp \
 	platform/graphics/filters/FEComponentTransfer.cpp \
-	platform/graphics/filters/FEComposite.cpp
+	platform/graphics/filters/FEComposite.cpp \
+	platform/graphics/filters/FEConvolveMatrix.cpp \
+	platform/graphics/filters/FEDiffuseLighting.cpp \
+	platform/graphics/filters/FEDisplacementMap.cpp \
+	platform/graphics/filters/FEFlood.cpp \
+	platform/graphics/filters/FEMerge.cpp \
+	platform/graphics/filters/FEMorphology.cpp \
+	platform/graphics/filters/FEOffset.cpp \
+	platform/graphics/filters/FESpecularLighting.cpp \
+	platform/graphics/filters/FETile.cpp \
+	platform/graphics/filters/FETurbulence.cpp \
+	platform/graphics/filters/LightSource.cpp
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
@@ -1028,20 +1067,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	svg/graphics/SVGImage.cpp \
 	\
-	svg/graphics/filters/SVGFEConvolveMatrix.cpp \
-	svg/graphics/filters/SVGFEDiffuseLighting.cpp \
-	svg/graphics/filters/SVGFEDisplacementMap.cpp \
-	svg/graphics/filters/SVGFEFlood.cpp \
 	svg/graphics/filters/SVGFEImage.cpp \
-	svg/graphics/filters/SVGFEMerge.cpp \
-	svg/graphics/filters/SVGFEMorphology.cpp \
-	svg/graphics/filters/SVGFEOffset.cpp \
-	svg/graphics/filters/SVGFESpecularLighting.cpp \
-	svg/graphics/filters/SVGFETile.cpp \
-	svg/graphics/filters/SVGFETurbulence.cpp \
 	svg/graphics/filters/SVGFilter.cpp \
-	svg/graphics/filters/SVGFilterBuilder.cpp \
-	svg/graphics/filters/SVGLightSource.cpp
+	svg/graphics/filters/SVGFilterBuilder.cpp
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

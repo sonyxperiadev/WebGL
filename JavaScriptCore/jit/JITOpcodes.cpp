@@ -28,6 +28,7 @@
 #if ENABLE(JIT)
 #include "JIT.h"
 
+#include "Arguments.h"
 #include "JITInlineMethods.h"
 #include "JITStubCall.h"
 #include "JSArray.h"
@@ -396,6 +397,10 @@ void JIT::emit_op_instanceof(Instruction* currentInstruction)
     emitJumpSlowCaseIfNotJSCell(regT0, baseVal);
     emitJumpSlowCaseIfNotJSCell(regT1, proto);
 
+    // Check that prototype is an object
+    loadPtr(Address(regT1, OBJECT_OFFSETOF(JSCell, m_structure)), regT3);
+    addSlowCase(branch8(NotEqual, Address(regT3, OBJECT_OFFSETOF(Structure, m_typeInfo.m_type)), Imm32(ObjectType)));
+    
     // Check that baseVal 'ImplementsDefaultHasInstance'.
     loadPtr(Address(regT0, OBJECT_OFFSETOF(JSCell, m_structure)), regT0);
     addSlowCase(branchTest8(Zero, Address(regT0, OBJECT_OFFSETOF(Structure, m_typeInfo.m_flags)), Imm32(ImplementsDefaultHasInstance)));
@@ -421,13 +426,6 @@ void JIT::emit_op_instanceof(Instruction* currentInstruction)
     emitPutVirtualRegister(dst);
 }
 
-void JIT::emit_op_new_func(Instruction* currentInstruction)
-{
-    JITStubCall stubCall(this, cti_op_new_func);
-    stubCall.addArgument(ImmPtr(m_codeBlock->functionDecl(currentInstruction[2].u.operand)));
-    stubCall.call(currentInstruction[1].u.operand);
-}
-
 void JIT::emit_op_call(Instruction* currentInstruction)
 {
     compileOpCall(op_call, currentInstruction, m_callLinkInfoIndex++);
@@ -436,18 +434,6 @@ void JIT::emit_op_call(Instruction* currentInstruction)
 void JIT::emit_op_call_eval(Instruction* currentInstruction)
 {
     compileOpCall(op_call_eval, currentInstruction, m_callLinkInfoIndex++);
-}
-
-void JIT::emit_op_load_varargs(Instruction* currentInstruction)
-{
-    int argCountDst = currentInstruction[1].u.operand;
-    int argsOffset = currentInstruction[2].u.operand;
-
-    JITStubCall stubCall(this, cti_op_load_varargs);
-    stubCall.addArgument(Imm32(argsOffset));
-    stubCall.call();
-    // Stores a naked int32 in the register file.
-    store32(returnValueRegister, Address(callFrameRegister, argCountDst * sizeof(Register)));
 }
 
 void JIT::emit_op_call_varargs(Instruction* currentInstruction)
@@ -1225,12 +1211,11 @@ void JIT::emit_op_create_arguments(Instruction* currentInstruction)
     argsCreated.link(this);
 }
 
-void JIT::emit_op_init_arguments(Instruction* currentInstruction)
+void JIT::emit_op_init_lazy_reg(Instruction* currentInstruction)
 {
     unsigned dst = currentInstruction[1].u.operand;
 
     storePtr(ImmPtr(0), Address(callFrameRegister, sizeof(Register) * dst));
-    storePtr(ImmPtr(0), Address(callFrameRegister, sizeof(Register) * (unmodifiedArgumentsRegister(dst))));
 }
 
 void JIT::emit_op_convert_this(Instruction* currentInstruction)
@@ -1447,6 +1432,7 @@ void JIT::emitSlow_op_instanceof(Instruction* currentInstruction, Vector<SlowCas
     linkSlowCaseIfNotJSCell(iter, baseVal);
     linkSlowCaseIfNotJSCell(iter, proto);
     linkSlowCase(iter);
+    linkSlowCase(iter);
     JITStubCall stubCall(this, cti_op_instanceof);
     stubCall.addArgument(value, regT2);
     stubCall.addArgument(baseVal, regT2);
@@ -1482,6 +1468,88 @@ void JIT::emitSlow_op_to_jsnumber(Instruction* currentInstruction, Vector<SlowCa
     JITStubCall stubCall(this, cti_op_to_jsnumber);
     stubCall.addArgument(regT0);
     stubCall.call(currentInstruction[1].u.operand);
+}
+
+void JIT::emit_op_get_arguments_length(Instruction* currentInstruction)
+{
+    int dst = currentInstruction[1].u.operand;
+    int argumentsRegister = currentInstruction[2].u.operand;
+    addSlowCase(branchTestPtr(NonZero, addressFor(argumentsRegister)));
+    emitGetFromCallFrameHeader32(RegisterFile::ArgumentCount, regT0);
+    sub32(Imm32(1), regT0);
+    emitFastArithReTagImmediate(regT0, regT0);
+    emitPutVirtualRegister(dst, regT0);
+}
+
+void JIT::emitSlow_op_get_arguments_length(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
+{
+    linkSlowCase(iter);
+    unsigned dst = currentInstruction[1].u.operand;
+    unsigned base = currentInstruction[2].u.operand;
+    Identifier* ident = &(m_codeBlock->identifier(currentInstruction[3].u.operand));
+    
+    emitGetVirtualRegister(base, regT0);
+    JITStubCall stubCall(this, cti_op_get_by_id_generic);
+    stubCall.addArgument(regT0);
+    stubCall.addArgument(ImmPtr(ident));
+    stubCall.call(dst);
+}
+
+void JIT::emit_op_get_argument_by_val(Instruction* currentInstruction)
+{
+    int dst = currentInstruction[1].u.operand;
+    int argumentsRegister = currentInstruction[2].u.operand;
+    int property = currentInstruction[3].u.operand;
+    addSlowCase(branchTestPtr(NonZero, addressFor(argumentsRegister)));
+    emitGetVirtualRegister(property, regT1);
+    addSlowCase(emitJumpIfNotImmediateInteger(regT1));
+    add32(Imm32(1), regT1);
+    // regT1 now contains the integer index of the argument we want, including this
+    emitGetFromCallFrameHeader32(RegisterFile::ArgumentCount, regT2);
+    addSlowCase(branch32(AboveOrEqual, regT1, regT2));
+    
+    Jump skipOutofLineParams;
+    int numArgs = m_codeBlock->m_numParameters;
+    if (numArgs) {
+        Jump notInInPlaceArgs = branch32(AboveOrEqual, regT1, Imm32(numArgs));
+        addPtr(Imm32(static_cast<unsigned>(-(RegisterFile::CallFrameHeaderSize + numArgs) * sizeof(Register))), callFrameRegister, regT0);
+        loadPtr(BaseIndex(regT0, regT1, TimesEight, 0), regT0);
+        skipOutofLineParams = jump();
+        notInInPlaceArgs.link(this);
+    }
+    
+    addPtr(Imm32(static_cast<unsigned>(-(RegisterFile::CallFrameHeaderSize + numArgs) * sizeof(Register))), callFrameRegister, regT0);
+    mul32(Imm32(sizeof(Register)), regT2, regT2);
+    subPtr(regT2, regT0);
+    loadPtr(BaseIndex(regT0, regT1, TimesEight, 0), regT0);
+    if (numArgs)
+        skipOutofLineParams.link(this);
+    emitPutVirtualRegister(dst, regT0);
+}
+
+void JIT::emitSlow_op_get_argument_by_val(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
+{
+    unsigned dst = currentInstruction[1].u.operand;
+    unsigned arguments = currentInstruction[2].u.operand;
+    unsigned property = currentInstruction[3].u.operand;
+    
+    linkSlowCase(iter);
+    Jump skipArgumentsCreation = jump();
+    
+    linkSlowCase(iter);
+    linkSlowCase(iter);
+    if (m_codeBlock->m_numParameters == 1)
+        JITStubCall(this, cti_op_create_arguments_no_params).call();
+    else
+        JITStubCall(this, cti_op_create_arguments).call();
+    emitPutVirtualRegister(arguments);
+    emitPutVirtualRegister(unmodifiedArgumentsRegister(arguments));
+    
+    skipArgumentsCreation.link(this);
+    JITStubCall stubCall(this, cti_op_get_by_val);
+    stubCall.addArgument(arguments, regT2);
+    stubCall.addArgument(property, regT2);
+    stubCall.call(dst);
 }
 
 #endif // !USE(JSVALUE32_64)
@@ -1526,6 +1594,88 @@ void JIT::emit_op_new_regexp(Instruction* currentInstruction)
     JITStubCall stubCall(this, cti_op_new_regexp);
     stubCall.addArgument(ImmPtr(m_codeBlock->regexp(currentInstruction[2].u.operand)));
     stubCall.call(currentInstruction[1].u.operand);
+}
+
+void JIT::emit_op_load_varargs(Instruction* currentInstruction)
+{
+    int argCountDst = currentInstruction[1].u.operand;
+    int argsOffset = currentInstruction[2].u.operand;
+    int expectedParams = m_codeBlock->m_numParameters - 1;
+    // Don't do inline copying if we aren't guaranteed to have a single stream
+    // of arguments
+    if (expectedParams) {
+        JITStubCall stubCall(this, cti_op_load_varargs);
+        stubCall.addArgument(Imm32(argsOffset));
+        stubCall.call();
+        // Stores a naked int32 in the register file.
+        store32(returnValueRegister, Address(callFrameRegister, argCountDst * sizeof(Register)));
+        return;
+    }
+
+#if USE(JSVALUE32_64)
+    addSlowCase(branch32(NotEqual, tagFor(argsOffset), Imm32(JSValue::EmptyValueTag)));
+#else
+    addSlowCase(branchTestPtr(NonZero, addressFor(argsOffset)));
+#endif
+    // Load arg count into regT0
+    emitGetFromCallFrameHeader32(RegisterFile::ArgumentCount, regT0);
+    storePtr(regT0, addressFor(argCountDst));
+    Jump endBranch = branch32(Equal, regT0, Imm32(1));
+
+    mul32(Imm32(sizeof(Register)), regT0, regT3);
+    addPtr(Imm32(static_cast<unsigned>(sizeof(Register) - RegisterFile::CallFrameHeaderSize * sizeof(Register))), callFrameRegister, regT1);
+    subPtr(regT3, regT1); // regT1 is now the start of the out of line arguments
+    addPtr(Imm32(argsOffset * sizeof(Register)), callFrameRegister, regT2); // regT2 is the target buffer
+    
+    // Bounds check the registerfile
+    addPtr(regT2, regT3);
+    addSlowCase(branchPtr(Below, AbsoluteAddress(&m_globalData->interpreter->registerFile().m_end), regT3));
+
+    sub32(Imm32(1), regT0);
+    Label loopStart = label();
+    loadPtr(BaseIndex(regT1, regT0, TimesEight, static_cast<unsigned>(0 - 2 * sizeof(Register))), regT3);
+    storePtr(regT3, BaseIndex(regT2, regT0, TimesEight, static_cast<unsigned>(0 - sizeof(Register))));
+#if USE(JSVALUE32_64)
+    loadPtr(BaseIndex(regT1, regT0, TimesEight, static_cast<unsigned>(sizeof(void*) - 2 * sizeof(Register))), regT3);
+    storePtr(regT3, BaseIndex(regT2, regT0, TimesEight, static_cast<unsigned>(sizeof(void*) - sizeof(Register))));
+#endif
+    branchSubPtr(NonZero, Imm32(1), regT0).linkTo(loopStart, this);
+    endBranch.link(this);
+}
+
+void JIT::emitSlow_op_load_varargs(Instruction* currentInstruction, Vector<SlowCaseEntry>::iterator& iter)
+{
+    int argCountDst = currentInstruction[1].u.operand;
+    int argsOffset = currentInstruction[2].u.operand;
+    int expectedParams = m_codeBlock->m_numParameters - 1;
+    if (expectedParams)
+        return;
+    
+    linkSlowCase(iter);
+    linkSlowCase(iter);
+    JITStubCall stubCall(this, cti_op_load_varargs);
+    stubCall.addArgument(Imm32(argsOffset));
+    stubCall.call();
+    // Stores a naked int32 in the register file.
+    store32(returnValueRegister, Address(callFrameRegister, argCountDst * sizeof(Register)));
+}
+
+void JIT::emit_op_new_func(Instruction* currentInstruction)
+{
+    Jump lazyJump;
+    int dst = currentInstruction[1].u.operand;
+    if (currentInstruction[3].u.operand) {
+#if USE(JSVALUE32_64)
+        lazyJump = branch32(NotEqual, tagFor(dst), Imm32(JSValue::EmptyValueTag));
+#else
+        lazyJump = branchTestPtr(NonZero, addressFor(dst));
+#endif
+    }
+    JITStubCall stubCall(this, cti_op_new_func);
+    stubCall.addArgument(ImmPtr(m_codeBlock->functionDecl(currentInstruction[2].u.operand)));
+    stubCall.call(currentInstruction[1].u.operand);
+    if (currentInstruction[3].u.operand)
+        lazyJump.link(this);
 }
 
 // For both JSValue32_64 and JSValue32

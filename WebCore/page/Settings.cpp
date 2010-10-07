@@ -159,6 +159,7 @@ Settings::Settings(Page* page)
     , m_memoryInfoEnabled(false)
     , m_interactiveFormValidation(false)
     , m_usePreHTML5ParserQuirks(false)
+    , m_hyperlinkAuditingEnabled(false)
 #if ENABLE(WEB_AUTOFILL)
     , m_autoFillEnabled(false)
 #endif
@@ -697,11 +698,6 @@ void Settings::setLocalFileContentSniffingEnabled(bool enabled)
 void Settings::setLocalStorageDatabasePath(const String& path)
 {
     m_localStorageDatabasePath = path;
-}
-
-void Settings::setFileSystemRootPath(const String& path)
-{
-    m_fileSystemRootPath = path;
 }
 
 void Settings::setApplicationChromeMode(bool mode)

@@ -68,12 +68,12 @@ from layout_package import json_layout_results_generator
 from layout_package import printing
 from layout_package import test_expectations
 from layout_package import test_failures
-from layout_package import test_files
 from layout_package import test_results_uploader
 from test_types import image_diff
 from test_types import text_diff
 from test_types import test_type_base
 
+from webkitpy.common.system import user
 from webkitpy.thirdparty import simplejson
 
 import port
@@ -96,28 +96,21 @@ class TestInfo:
           timeout: Timeout for running the test in TestShell.
           """
         self.filename = filename
+        self._port = port
         self.uri = port.filename_to_uri(filename)
         self.timeout = timeout
-        # FIXME: Confusing that the file is .checksum and we call it "hash"
-        self._expected_hash_path = port.expected_filename(filename, '.checksum')
-        self._have_read_expected_hash = False
-        self._image_hash = None
-
-    def _read_image_hash(self):
-        if not os.path.exists(self._expected_hash_path):
-            return None
-
-        with codecs.open(self._expected_hash_path, "r", "ascii") as hash_file:
-            return hash_file.read()
+        self._image_checksum = -1
 
     def image_hash(self):
         # Read the image_hash lazily to reduce startup time.
         # This class is accessed across threads, but only one thread should
         # ever be dealing with any given TestInfo so no locking is needed.
-        if not self._have_read_expected_hash:
-            self._have_read_expected_hash = True
-            self._image_hash = self._read_image_hash()
-        return self._image_hash
+        #
+        # Note that we use -1 to indicate that we haven't read the value,
+        # because expected_checksum() returns a string or None.
+        if self._image_checksum == -1:
+            self._image_checksum = self._port.expected_checksum(self.filename)
+        return self._image_checksum
 
 
 class ResultSummary(object):
@@ -292,7 +285,7 @@ class TestRunner:
         paths += last_unexpected_results
         if self._options.test_list:
             paths += read_test_files(self._options.test_list)
-        self._test_files = test_files.gather_test_files(self._port, paths)
+        self._test_files = self._port.tests(paths)
 
     def lint(self):
         # Creating the expecations for each platform/configuration pair does
@@ -321,7 +314,7 @@ class TestRunner:
             self._expectations = test_expectations.TestExpectations(
                 self._port, test_files, expectations_str, test_platform_name,
                 is_debug_mode, self._options.lint_test_files,
-                tests_are_present=True, overrides=overrides_str)
+                overrides=overrides_str)
             return self._expectations
         except SyntaxError, err:
             if self._options.lint_test_files:
@@ -865,7 +858,7 @@ class TestRunner:
         self._printer.print_update("Clobbering old results in %s" %
                                    self._options.results_directory)
         layout_tests_dir = self._port.layout_tests_dir()
-        possible_dirs = os.listdir(layout_tests_dir)
+        possible_dirs = self._port.test_dirs()
         for dirname in possible_dirs:
             if os.path.isdir(os.path.join(layout_tests_dir, dirname)):
                 shutil.rmtree(os.path.join(self._options.results_directory,
@@ -1408,6 +1401,7 @@ def run(port, options, args, regular_output=sys.stderr,
 
         printer.print_update("Checking build ...")
         if not port.check_build(test_runner.needs_http()):
+            _log.error("Build check failed")
             return -1
 
         result_summary = test_runner.set_up_run()
@@ -1515,6 +1509,20 @@ def parse_args(args=None):
         optparse.make_option("--use-drt", action="store_true",
             default=False,
             help="Use DumpRenderTree instead of test_shell"),
+        optparse.make_option("--accelerated-compositing",
+            action="store_true",
+            help="Use hardware-accelated compositing for rendering"),
+        optparse.make_option("--no-accelerated-compositing",
+            action="store_false",
+            dest="accelerated_compositing",
+            help="Don't use hardware-accelerated compositing for rendering"),
+        optparse.make_option("--accelerated-2d-canvas",
+            action="store_true",
+            help="Use hardware-accelerated 2D Canvas calls"),
+        optparse.make_option("--no-accelerated-2d-canvas",
+            action="store_false",
+            dest="accelerated_2d_canvas",
+            help="Don't use hardware-accelerated 2D Canvas calls"),
     ]
 
     # Missing Mac-specific old-run-webkit-tests options:

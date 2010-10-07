@@ -32,13 +32,15 @@ public:
     RenderReplaced(Node*, const IntSize& intrinsicSize);
     virtual ~RenderReplaced();
 
+    virtual void setStyle(PassRefPtr<RenderStyle>);
+
 protected:
     virtual void layout();
 
     virtual IntSize intrinsicSize() const;
 
-    virtual int calcReplacedWidth(bool includeMaxWidth = true) const;
-    virtual int calcReplacedHeight() const;
+    virtual int computeReplacedWidth(bool includeMaxWidth = true) const;
+    virtual int computeReplacedHeight() const;
     virtual int minimumReplacedHeight() const { return 0; }
 
     virtual void setSelectionState(SelectionState);
@@ -63,7 +65,7 @@ private:
     virtual int lineHeight(bool firstLine, bool isRootLineBox = false) const;
     virtual int baselinePosition(bool firstLine, bool isRootLineBox = false) const;
 
-    virtual void calcPrefWidths();
+    virtual void computePreferredLogicalWidths();
 
     int calcAspectRatioWidth() const;
     int calcAspectRatioHeight() const;

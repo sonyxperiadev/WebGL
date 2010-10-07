@@ -165,7 +165,7 @@ private:
     virtual void paintBoxDecorations(PaintInfo&, int tx, int ty);
     virtual void paintMask(PaintInfo&, int tx, int ty);
     virtual void layout();
-    virtual void calcPrefWidths();
+    virtual void computePreferredLogicalWidths();
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int xPos, int yPos, int tx, int ty, HitTestAction);
     
     virtual int firstLineBoxBaseline() const;
@@ -175,7 +175,7 @@ private:
     
     virtual void setCellWidths();
 
-    virtual void calcWidth();
+    virtual void computeLogicalWidth();
 
     virtual IntRect overflowClipRect(int tx, int ty);
 

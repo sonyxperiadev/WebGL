@@ -222,13 +222,16 @@ static VisiblePosition nextBoundary(const VisiblePosition& c, BoundarySearchFunc
         // Use the character iterator to translate the next value into a DOM position.
         CharacterIterator charIt(searchRange.get(), TextIteratorEmitsCharactersBetweenAllVisiblePositions);
         charIt.advance(next - prefixLength - 1);
-        pos = charIt.range()->endPosition();
+        RefPtr<Range> characterRange = charIt.range();
+        pos = characterRange->endPosition();
         
         if (*charIt.characters() == '\n') {
             // FIXME: workaround for collapsed range (where only start position is correct) emitted for some emitted newlines (see rdar://5192593)
             VisiblePosition visPos = VisiblePosition(pos);
-            if (visPos == VisiblePosition(charIt.range()->startPosition()))
-                pos = visPos.next(true).deepEquivalent();
+            if (visPos == VisiblePosition(characterRange->startPosition())) {
+                charIt.advance(1);
+                pos = charIt.range()->startPosition();
+            }
         }
     }
 
@@ -560,7 +563,7 @@ VisiblePosition previousLinePosition(const VisiblePosition &visiblePosition, int
         root = box->root()->prevRootBox();
         // We want to skip zero height boxes.
         // This could happen in case it is a TrailingFloatsRootInlineBox.
-        if (root && root->height())
+        if (root && root->logicalHeight())
             containingBlock = renderer->containingBlock();
         else
             root = 0;
@@ -669,7 +672,7 @@ VisiblePosition nextLinePosition(const VisiblePosition &visiblePosition, int x)
         root = box->root()->nextRootBox();
         // We want to skip zero height boxes.
         // This could happen in case it is a TrailingFloatsRootInlineBox.
-        if (root && root->height())
+        if (root && root->logicalHeight())
             containingBlock = renderer->containingBlock();
         else
             root = 0;

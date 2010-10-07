@@ -391,7 +391,7 @@ typedef enum {
     , NPPFakeValueToForce32Bits = 0x7FFFFFFF
 #endif
 
-#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO == 5)
+#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
   , NPPVpluginWindowlessLocalBool = 2002
 #endif
 } NPPVariable;
@@ -442,7 +442,7 @@ typedef enum {
     , NPNFakeValueToForce32Bits = 0x7FFFFFFF
 #endif
 
-#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO == 5)
+#if defined(MOZ_PLATFORM_MAEMO) && (MOZ_PLATFORM_MAEMO >= 5)
   , NPNVSupportsWindowlessLocal = 2002
 #endif
 } NPNVariable;

@@ -30,6 +30,7 @@
 #include "AndroidLog.h"
 #endif
 
+#include "AXObjectCache.h"
 #include "Attr.h"
 #include "Attribute.h"
 #include "CSSParser.h"
@@ -386,6 +387,9 @@ Node::~Node()
     if (renderer())
         detach();
 
+    if (AXObjectCache::accessibilityEnabled() && m_document && m_document->axObjectCacheExists())
+        m_document->axObjectCache()->removeNodeForUse(this);
+    
     if (m_previous)
         m_previous->setNextSibling(0);
     if (m_next)

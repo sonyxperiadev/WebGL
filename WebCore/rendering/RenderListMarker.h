@@ -38,9 +38,10 @@ public:
     RenderListMarker(RenderListItem*);
     virtual ~RenderListMarker();
 
-    virtual void calcPrefWidths();
+    virtual void computePreferredLogicalWidths();
 
     const String& text() const { return m_text; }
+    String suffix() const;
 
     bool isInside() const;
 

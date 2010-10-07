@@ -347,7 +347,7 @@ public:
     bool markedTextMatchesAreHighlighted() const;
     void setMarkedTextMatchesAreHighlighted(bool);
 
-    PassRefPtr<CSSComputedStyleDeclaration> selectionComputedStyle(Node*& nodeToRemove) const;
+    PassRefPtr<CSSMutableStyleDeclaration> selectionComputedStyle(bool& shouldUseFixedFontDefaultSize) const;
 
     void textFieldDidBeginEditing(Element*);
     void textFieldDidEndEditing(Element*);
@@ -402,6 +402,7 @@ private:
     void changeSelectionAfterCommand(const VisibleSelection& newSelection, bool closeTyping, bool clearTypingStyle);
     void correctionPanelTimerFired(Timer<Editor>*);
     Node* findEventTargetFromSelection() const;
+    void stopCorrectionPanelTimer();
 };
 
 inline void Editor::setStartNewKillRingSequence(bool flag)

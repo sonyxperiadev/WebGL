@@ -71,7 +71,6 @@ webcore_cppflags += \
 webcoregtk_cppflags += \
 	-DWEBKITGTK_API_VERSION_STRING=\"@WEBKITGTK_API_VERSION@\" \
 	-DWTF_USE_SOUP=1 \
-	-DWTF_USE_GSTREAMER=1 \
 	-I$(srcdir)/WebCore/accessibility/gtk \
 	-I$(srcdir)/WebCore/loader/gtk \
 	-I$(srcdir)/WebCore/page/gtk \
@@ -82,15 +81,18 @@ webcoregtk_cppflags += \
 	-I$(srcdir)/WebCore/platform/network/soup
 
 webcore_built_nosources += \
-	DerivedSources/WebCore/DocTypeStrings.cpp \
-	DerivedSources/WebCore/tokenizer.cpp \
-	DerivedSources/WebCore/ColorData.cpp
+	DerivedSources/WebCore/tokenizer.cpp
 
 webcore_built_sources += \
 	DerivedSources/WebCore/CSSGrammar.cpp \
 	DerivedSources/WebCore/CSSGrammar.h \
 	DerivedSources/WebCore/CSSPropertyNames.h \
+	DerivedSources/WebCore/CSSPropertyNames.cpp \
 	DerivedSources/WebCore/CSSValueKeywords.h \
+	DerivedSources/WebCore/CSSValueKeywords.cpp \
+	DerivedSources/WebCore/ColorData.cpp \
+	DerivedSources/WebCore/DocTypeStrings.cpp \
+	DerivedSources/WebCore/HashTools.h \
 	DerivedSources/WebCore/HTMLElementFactory.cpp \
 	DerivedSources/WebCore/HTMLElementFactory.h \
 	DerivedSources/WebCore/HTMLEntityTable.cpp \
@@ -216,6 +218,8 @@ webcore_built_sources += \
 	DerivedSources/WebCore/JSDOMStringList.h \
 	DerivedSources/WebCore/JSDOMStringMap.cpp \
 	DerivedSources/WebCore/JSDOMStringMap.h \
+	DerivedSources/WebCore/JSDOMTokenList.cpp \
+	DerivedSources/WebCore/JSDOMTokenList.h \
 	DerivedSources/WebCore/JSDOMWindow.cpp \
 	DerivedSources/WebCore/JSDOMWindow.h \
 	DerivedSources/WebCore/JSElement.cpp \
@@ -645,11 +649,13 @@ webcore_sources += \
 	WebCore/bindings/js/DOMWrapperWorld.h \
 	WebCore/bindings/js/GCController.cpp \
 	WebCore/bindings/js/GCController.h \
+	WebCore/bindings/js/IDBBindingUtilities.h \
 	WebCore/bindings/js/JavaScriptCallFrame.cpp \
 	WebCore/bindings/js/JavaScriptCallFrame.h \
 	WebCore/bindings/js/JSAttrCustom.cpp \
 	WebCore/bindings/js/JSAudioConstructor.cpp \
 	WebCore/bindings/js/JSAudioConstructor.h \
+	WebCore/bindings/js/JSBinding.h \
 	WebCore/bindings/js/JSCallbackData.cpp \
 	WebCore/bindings/js/JSCallbackData.h \
 	WebCore/bindings/js/JSCanvasRenderingContext2DCustom.cpp \
@@ -1348,6 +1354,7 @@ webcore_sources += \
 	WebCore/editing/WrapContentsInDummySpanCommand.cpp \
 	WebCore/editing/WrapContentsInDummySpanCommand.h \
 	WebCore/fileapi/AsyncFileWriter.h \
+	WebCore/fileapi/AsyncFileWriterClient.h \
 	WebCore/fileapi/BlobBuilder.cpp \
 	WebCore/fileapi/BlobBuilder.h \
 	WebCore/fileapi/Blob.cpp \
@@ -1391,7 +1398,6 @@ webcore_sources += \
 	WebCore/fileapi/FileThread.h \
 	WebCore/fileapi/FileThreadTask.h \
 	WebCore/fileapi/FileWriterCallback.h \
-	WebCore/fileapi/FileWriterClient.h \
 	WebCore/fileapi/FileWriter.cpp \
 	WebCore/fileapi/FileWriter.h \
 	WebCore/fileapi/Flags.h \
@@ -1418,6 +1424,10 @@ webcore_sources += \
 	WebCore/history/PageCache.h \
 	WebCore/html/AsyncImageResizer.cpp \
 	WebCore/html/AsyncImageResizer.h \
+	WebCore/html/BaseTextInputType.cpp \
+	WebCore/html/BaseTextInputType.h \
+	WebCore/html/ButtonInputType.cpp \
+	WebCore/html/ButtonInputType.h \
 	WebCore/html/canvas/CanvasContextAttributes.h \
 	WebCore/html/canvas/CanvasGradient.cpp \
 	WebCore/html/canvas/CanvasGradient.h \
@@ -1431,9 +1441,15 @@ webcore_sources += \
 	WebCore/html/canvas/CanvasRenderingContext.h \
 	WebCore/html/canvas/CanvasStyle.cpp \
 	WebCore/html/canvas/CanvasStyle.h \
+	WebCore/html/DOMTokenList.cpp \
+	WebCore/html/DOMTokenList.h \
+	WebCore/html/CheckboxInputType.cpp \
+	WebCore/html/CheckboxInputType.h \
 	WebCore/html/CollectionCache.cpp \
 	WebCore/html/CollectionCache.h \
 	WebCore/html/CollectionType.h \
+	WebCore/html/ColorInputType.cpp \
+	WebCore/html/ColorInputType.h \
 	WebCore/html/DataGridColumn.cpp \
 	WebCore/html/DataGridColumn.h \
 	WebCore/html/DataGridColumnList.cpp \
@@ -1441,10 +1457,20 @@ webcore_sources += \
 	WebCore/html/DataGridDataSource.h \
 	WebCore/html/DateComponents.cpp \
 	WebCore/html/DateComponents.h \
+	WebCore/html/DateInputType.cpp \
+	WebCore/html/DateInputType.h \
+	WebCore/html/DateTimeInputType.cpp \
+	WebCore/html/DateTimeInputType.h \
+	WebCore/html/DateTimeLocalInputType.cpp \
+	WebCore/html/DateTimeLocalInputType.h \
 	WebCore/html/DOMDataGridDataSource.cpp \
 	WebCore/html/DOMDataGridDataSource.h \
 	WebCore/html/DOMFormData.cpp \
 	WebCore/html/DOMFormData.h \
+	WebCore/html/EmailInputType.cpp \
+	WebCore/html/EmailInputType.h \
+	WebCore/html/FileInputType.cpp \
+	WebCore/html/FileInputType.h \
 	WebCore/html/FormDataList.cpp \
 	WebCore/html/FormDataList.h \
 	WebCore/html/FTPDirectoryDocument.cpp \
@@ -1622,17 +1648,29 @@ webcore_sources += \
 	WebCore/html/HTMLVideoElement.h \
 	WebCore/html/HTMLViewSourceDocument.cpp \
 	WebCore/html/HTMLViewSourceDocument.h \
+	WebCore/html/HiddenInputType.cpp \
+	WebCore/html/HiddenInputType.h \
 	WebCore/html/ImageData.cpp \
 	WebCore/html/ImageData.h \
 	WebCore/html/ImageDocument.cpp \
 	WebCore/html/ImageDocument.h \
+	WebCore/html/ImageInputType.cpp \
+	WebCore/html/ImageInputType.h \
 	WebCore/html/ImageResizerThread.cpp \
 	WebCore/html/ImageResizerThread.h \
+	WebCore/html/InputType.cpp \
+	WebCore/html/InputType.h \
+	WebCore/html/IsIndexInputType.cpp \
+	WebCore/html/IsIndexInputType.h \
 	WebCore/html/LabelsNodeList.cpp \
 	WebCore/html/LabelsNodeList.h \
 	WebCore/html/MediaDocument.cpp \
 	WebCore/html/MediaDocument.h \
 	WebCore/html/MediaError.h \
+	WebCore/html/MonthInputType.cpp \
+	WebCore/html/MonthInputType.h \
+	WebCore/html/NumberInputType.cpp \
+	WebCore/html/NumberInputType.h \
 	WebCore/html/parser/CSSPreloadScanner.cpp \
 	WebCore/html/parser/CSSPreloadScanner.h \
 	WebCore/html/parser/HTMLConstructionSite.cpp \
@@ -1670,18 +1708,42 @@ webcore_sources += \
 	WebCore/html/parser/TextDocumentParser.h \
 	WebCore/html/parser/TextViewSourceParser.cpp \
 	WebCore/html/parser/TextViewSourceParser.h \
+	WebCore/html/PasswordInputType.cpp \
+	WebCore/html/PasswordInputType.h \
 	WebCore/html/PluginDocument.cpp \
 	WebCore/html/PluginDocument.h \
+	WebCore/html/RadioInputType.cpp \
+	WebCore/html/RadioInputType.h \
+	WebCore/html/RangeInputType.cpp \
+	WebCore/html/RangeInputType.h \
+	WebCore/html/ResetInputType.cpp \
+	WebCore/html/ResetInputType.h \
+	WebCore/html/SearchInputType.cpp \
+	WebCore/html/SearchInputType.h \
 	WebCore/html/StepRange.cpp \
 	WebCore/html/StepRange.h \
+	WebCore/html/SubmitInputType.cpp \
+	WebCore/html/SubmitInputType.h \
+	WebCore/html/TelephoneInputType.cpp \
+	WebCore/html/TelephoneInputType.h \
 	WebCore/html/TextDocument.cpp \
 	WebCore/html/TextDocument.h \
+	WebCore/html/TextFieldInputType.cpp \
+	WebCore/html/TextFieldInputType.h \
+	WebCore/html/TextInputType.cpp \
+	WebCore/html/TextInputType.h \
 	WebCore/html/TextMetrics.h \
+	WebCore/html/TimeInputType.cpp \
+	WebCore/html/TimeInputType.h \
 	WebCore/html/TimeRanges.cpp \
 	WebCore/html/TimeRanges.h \
+	WebCore/html/URLInputType.cpp \
+	WebCore/html/URLInputType.h \
 	WebCore/html/ValidityState.cpp \
 	WebCore/html/ValidityState.h \
 	WebCore/html/VoidCallback.h \
+	WebCore/html/WeekInputType.cpp \
+	WebCore/html/WeekInputType.h \
 	WebCore/icu/unicode/parseerr.h \
 	WebCore/icu/unicode/platform.h \
 	WebCore/icu/unicode/putil.h \
@@ -2084,7 +2146,10 @@ webcore_sources += \
 	WebCore/platform/graphics/Color.cpp \
 	WebCore/platform/graphics/Color.h \
 	WebCore/platform/graphics/ColorSpace.h \
+	WebCore/platform/graphics/ContextShadow.cpp \
+	WebCore/platform/graphics/ContextShadow.h \
 	WebCore/platform/graphics/DashArray.h \
+	WebCore/platform/graphics/filters/DistantLightSource.h \
 	WebCore/platform/graphics/filters/FEBlend.cpp \
 	WebCore/platform/graphics/filters/FEBlend.h \
 	WebCore/platform/graphics/filters/FEColorMatrix.cpp \
@@ -2093,17 +2158,43 @@ webcore_sources += \
 	WebCore/platform/graphics/filters/FEComponentTransfer.h \
 	WebCore/platform/graphics/filters/FEComposite.cpp \
 	WebCore/platform/graphics/filters/FEComposite.h \
+	WebCore/platform/graphics/filters/FEConvolveMatrix.cpp \
+	WebCore/platform/graphics/filters/FEConvolveMatrix.h \
+	WebCore/platform/graphics/filters/FEDiffuseLighting.cpp \
+	WebCore/platform/graphics/filters/FEDiffuseLighting.h \
+	WebCore/platform/graphics/filters/FEDisplacementMap.cpp \
+	WebCore/platform/graphics/filters/FEDisplacementMap.h \
 	WebCore/platform/graphics/filters/FEGaussianBlur.cpp \
 	WebCore/platform/graphics/filters/FEGaussianBlur.h \
+	WebCore/platform/graphics/filters/FEFlood.cpp \
+	WebCore/platform/graphics/filters/FEFlood.h \
+	WebCore/platform/graphics/filters/FELighting.cpp \
+	WebCore/platform/graphics/filters/FELighting.h \
+	WebCore/platform/graphics/filters/FEMerge.cpp \
+	WebCore/platform/graphics/filters/FEMerge.h \
+	WebCore/platform/graphics/filters/FEMorphology.cpp \
+	WebCore/platform/graphics/filters/FEMorphology.h \
+	WebCore/platform/graphics/filters/FEOffset.cpp \
+	WebCore/platform/graphics/filters/FEOffset.h \
+	WebCore/platform/graphics/filters/FESpecularLighting.cpp \
+	WebCore/platform/graphics/filters/FESpecularLighting.h \
+	WebCore/platform/graphics/filters/FETile.cpp \
+	WebCore/platform/graphics/filters/FETile.h \
+	WebCore/platform/graphics/filters/FETurbulence.cpp \
+	WebCore/platform/graphics/filters/FETurbulence.h \
 	WebCore/platform/graphics/filters/FilterEffect.cpp \
 	WebCore/platform/graphics/filters/FilterEffect.h \
 	WebCore/platform/graphics/filters/Filter.h \
 	WebCore/platform/graphics/filters/ImageBufferFilter.cpp \
 	WebCore/platform/graphics/filters/ImageBufferFilter.h \
+	WebCore/platform/graphics/filters/LightSource.cpp \
+	WebCore/platform/graphics/filters/LightSource.h \
+	WebCore/platform/graphics/filters/PointLightSource.h \
 	WebCore/platform/graphics/filters/SourceAlpha.cpp \
 	WebCore/platform/graphics/filters/SourceAlpha.h \
 	WebCore/platform/graphics/filters/SourceGraphic.cpp \
 	WebCore/platform/graphics/filters/SourceGraphic.h \
+	WebCore/platform/graphics/filters/SpotLightSource.h \
 	WebCore/platform/graphics/FloatPoint3D.cpp \
 	WebCore/platform/graphics/FloatPoint3D.h \
 	WebCore/platform/graphics/FloatPoint.cpp \
@@ -2781,6 +2872,8 @@ webcore_sources += \
 	WebCore/storage/IDBIndex.cpp \
 	WebCore/storage/IDBIndex.h \
 	WebCore/storage/IDBKey.h \
+	WebCore/storage/IDBKeyPath.h \
+	WebCore/storage/IDBKeyPathBackendImpl.h \
 	WebCore/storage/IDBKeyRange.cpp \
 	WebCore/storage/IDBKeyRange.h \
 	WebCore/storage/IDBObjectStoreBackendImpl.cpp \
@@ -2794,6 +2887,7 @@ webcore_sources += \
 	WebCore/storage/IDBSuccessEvent.cpp \
 	WebCore/storage/IDBSuccessEvent.h \
 	WebCore/storage/IDBTransactionBackendInterface.h \
+	WebCore/storage/IDBTransactionCoordinator.h \
 	WebCore/storage/IDBTransaction.cpp \
 	WebCore/storage/IDBTransaction.h \
 	WebCore/storage/LocalStorageTask.cpp \
@@ -2856,39 +2950,12 @@ webcore_sources += \
 	WebCore/svg/ColorDistance.h \
 	WebCore/svg/ElementTimeControl.h \
 	WebCore/svg/GradientAttributes.h \
-	WebCore/svg/graphics/filters/SVGDistantLightSource.h \
-	WebCore/svg/graphics/filters/SVGFEConvolveMatrix.cpp \
-	WebCore/svg/graphics/filters/SVGFEConvolveMatrix.h \
-	WebCore/svg/graphics/filters/SVGFEDiffuseLighting.cpp \
-	WebCore/svg/graphics/filters/SVGFEDiffuseLighting.h \
-	WebCore/svg/graphics/filters/SVGFEDisplacementMap.cpp \
-	WebCore/svg/graphics/filters/SVGFEDisplacementMap.h \
-	WebCore/svg/graphics/filters/SVGFEFlood.cpp \
-	WebCore/svg/graphics/filters/SVGFEFlood.h \
 	WebCore/svg/graphics/filters/SVGFEImage.cpp \
 	WebCore/svg/graphics/filters/SVGFEImage.h \
-	WebCore/svg/graphics/filters/SVGFELighting.cpp \
-	WebCore/svg/graphics/filters/SVGFELighting.h \
-	WebCore/svg/graphics/filters/SVGFEMerge.cpp \
-	WebCore/svg/graphics/filters/SVGFEMerge.h \
-	WebCore/svg/graphics/filters/SVGFEMorphology.cpp \
-	WebCore/svg/graphics/filters/SVGFEMorphology.h \
-	WebCore/svg/graphics/filters/SVGFEOffset.cpp \
-	WebCore/svg/graphics/filters/SVGFEOffset.h \
-	WebCore/svg/graphics/filters/SVGFESpecularLighting.cpp \
-	WebCore/svg/graphics/filters/SVGFESpecularLighting.h \
-	WebCore/svg/graphics/filters/SVGFETile.cpp \
-	WebCore/svg/graphics/filters/SVGFETile.h \
-	WebCore/svg/graphics/filters/SVGFETurbulence.cpp \
-	WebCore/svg/graphics/filters/SVGFETurbulence.h \
 	WebCore/svg/graphics/filters/SVGFilterBuilder.cpp \
 	WebCore/svg/graphics/filters/SVGFilterBuilder.h \
 	WebCore/svg/graphics/filters/SVGFilter.cpp \
 	WebCore/svg/graphics/filters/SVGFilter.h \
-	WebCore/svg/graphics/filters/SVGLightSource.cpp \
-	WebCore/svg/graphics/filters/SVGLightSource.h \
-	WebCore/svg/graphics/filters/SVGPointLightSource.h \
-	WebCore/svg/graphics/filters/SVGSpotLightSource.h \
 	WebCore/svg/graphics/SVGImage.cpp \
 	WebCore/svg/graphics/SVGImage.h \
 	WebCore/svg/LinearGradientAttributes.h \
@@ -3349,6 +3416,9 @@ webcoregtk_sources += \
 	WebCore/page/gtk/EventHandlerGtk.cpp \
 	WebCore/page/gtk/FrameGtk.cpp \
 	WebCore/platform/graphics/cairo/CairoPath.h \
+	WebCore/platform/graphics/cairo/CairoUtilities.cpp \
+	WebCore/platform/graphics/cairo/CairoUtilities.h \
+	WebCore/platform/graphics/cairo/ContextShadowCairo.cpp \
 	WebCore/platform/graphics/cairo/FontCairo.cpp \
 	WebCore/platform/graphics/cairo/FontCustomPlatformData.h \
 	WebCore/platform/graphics/cairo/FontPlatformData.h \
@@ -3381,10 +3451,10 @@ webcoregtk_sources += \
 	WebCore/platform/graphics/gstreamer/VideoSinkGStreamer.h \
 	WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.cpp \
 	WebCore/platform/graphics/gstreamer/WebKitWebSourceGStreamer.h \
-	WebCore/platform/graphics/gtk/CairoUtilities.cpp \
-	WebCore/platform/graphics/gtk/CairoUtilities.h \
 	WebCore/platform/graphics/gtk/ColorGtk.cpp \
 	WebCore/platform/graphics/gtk/FontGtk.cpp \
+	WebCore/platform/graphics/gtk/GdkCairoUtilities.cpp \
+	WebCore/platform/graphics/gtk/GdkCairoUtilities.h \
 	WebCore/platform/graphics/gtk/IconGtk.cpp \
 	WebCore/platform/graphics/gtk/ImageBufferGtk.cpp \
 	WebCore/platform/graphics/gtk/ImageGtk.cpp \
@@ -3544,6 +3614,7 @@ webcoregtk_sources += \
 	WebCore/platform/graphics/cairo/FontCacheFreeType.cpp \
 	WebCore/platform/graphics/cairo/FontCustomPlatformData.cpp \
 	WebCore/platform/graphics/cairo/FontPlatformDataFreeType.cpp \
+	WebCore/platform/graphics/cairo/FontPlatformDataFreeType.h \
 	WebCore/platform/graphics/cairo/GlyphPageTreeNodeCairo.cpp \
 	WebCore/platform/graphics/cairo/SimpleFontDataCairo.cpp
 endif # END USE_FREETYPE
@@ -3557,6 +3628,7 @@ webcoregtk_sources += \
 	WebCore/platform/graphics/gtk/FontCachePango.cpp \
 	WebCore/platform/graphics/gtk/FontCustomPlatformDataPango.cpp \
 	WebCore/platform/graphics/gtk/FontPlatformDataPango.cpp \
+	WebCore/platform/graphics/gtk/FontPlatformDataPango.h \
 	WebCore/platform/graphics/gtk/GlyphPageTreeNodePango.cpp \
 	WebCore/platform/graphics/gtk/SimpleFontDataPango.cpp
 endif # END USE_PANGO
@@ -3802,6 +3874,7 @@ FEATURE_DEFINES += ENABLE_VIDEO=1
 HTML_FEATURES += ENABLE_VIDEO=1
 webcore_cppflags += -DENABLE_VIDEO=1
 
+if USE_GSTREAMER
 if ENABLE_DEBUG
 webcore_cppflags += -DGST_DISABLE_DEPRECATED
 endif # END ENABLE_DEBUG
@@ -3810,6 +3883,7 @@ webcore_libadd += \
 	-lgstvideo-0.10 \
 	-lgstpbutils-0.10 \
 	-lgstapp-0.10
+endif # END USE_GSTREAMER
 endif # END ENABLE_VIDEO
 
 # ----
@@ -4321,6 +4395,7 @@ FEATURE_DEFINES += ENABLE_BLOB=1
 webcore_cppflags += -DENABLE_BLOB=1
 endif  # END ENABLE_BLOB
 
+DerivedSources/WebCore/CSSPropertyNames.cpp:
 DerivedSources/WebCore/CSSPropertyNames.h: $(WEBCORE_CSS_PROPERTY_NAMES) $(WebCore)/css/makeprop.pl
 	if sort $(WEBCORE_CSS_PROPERTY_NAMES) | uniq -d | grep -E '^[^#]'; then echo 'Duplicate value!'; exit 1; fi
 	cat $(WEBCORE_CSS_PROPERTY_NAMES) > CSSPropertyNames.in
@@ -4328,18 +4403,19 @@ DerivedSources/WebCore/CSSPropertyNames.h: $(WEBCORE_CSS_PROPERTY_NAMES) $(WebCo
 	mv CSSPropertyNames.* $(GENSOURCES_WEBCORE)
 
 # Lower case all the values, as CSS values are case-insensitive
-DerivedSources/WebCore/CSSValueKeywords.h : $(WEBCORE_CSS_VALUE_KEYWORDS) $(WebCore)/css/makevalues.pl
+DerivedSources/WebCore/CSSValueKeywords.cpp:
+DerivedSources/WebCore/CSSValueKeywords.h: $(WEBCORE_CSS_VALUE_KEYWORDS) $(WebCore)/css/makevalues.pl
 	$(PERL) -ne 'print lc' $(WEBCORE_CSS_VALUE_KEYWORDS) > CSSValueKeywords.in
 	if sort CSSValueKeywords.in | uniq -d | grep -E '^[^#]'; then echo 'Duplicate value!'; exit 1; fi
 	$(PERL) "$(WebCore)/css/makevalues.pl"
 	mv CSSValueKeywords.* $(GENSOURCES_WEBCORE)
 
 # DOCTYPE strings
-DerivedSources/WebCore/DocTypeStrings.cpp : $(WebCore)/html/DocTypeStrings.gperf $(WebCore)/make-hash-tools.pl
+DerivedSources/WebCore/DocTypeStrings.cpp DerivedSources/WebCore/HashTools.h: $(WebCore)/html/DocTypeStrings.gperf $(WebCore)/make-hash-tools.pl
 	$(PERL) $(WebCore)/make-hash-tools.pl $(GENSOURCES_WEBCORE) $(WebCore)/html/DocTypeStrings.gperf
 
 # HTML entity names
-DerivedSources/WebCore/HTMLEntityTable.cpp : $(WebCore)/html/parser/HTMLEntityNames.in $(WebCore)/html/parser/create-html-entity-table
+DerivedSources/WebCore/HTMLEntityTable.cpp: $(WebCore)/html/parser/HTMLEntityNames.in $(WebCore)/html/parser/create-html-entity-table
 	$(PYTHON) $(WebCore)/html/parser/create-html-entity-table -o $(GENSOURCES_WEBCORE)/HTMLEntityTable.cpp $(WebCore)/html/parser/HTMLEntityNames.in
 
 # color names

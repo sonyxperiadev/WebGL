@@ -40,6 +40,7 @@
 #include "DOMSelection.h"
 #include "DOMStringList.h"
 #include "DOMTimer.h"
+#include "DOMTokenList.h"
 #include "Database.h"
 #include "DatabaseCallback.h"
 #include "DeviceMotionController.h"
@@ -93,6 +94,7 @@
 #include "ErrorCallback.h"
 #include "FileError.h"
 #include "FileSystemCallback.h"
+#include "FileSystemCallbacks.h"
 #include "LocalFileSystem.h"
 #endif
 
@@ -727,25 +729,22 @@ void DOMWindow::requestFileSystem(int type, long long size, PassRefPtr<FileSyste
     if (!document)
         return;
 
-    if (!m_localFileSystem) {
-        // FIXME: See if access is allowed.
-
-        Page* page = document->page();
-        if (!page) {
-            DOMFileSystem::scheduleCallback(document, errorCallback, FileError::create(INVALID_STATE_ERR));
-            return;
-        }
-
-        // FIXME: Get the quota settings as well.
-        String path = page->settings()->fileSystemRootPath();
-        m_localFileSystem = LocalFileSystem::create(path);
+    if (!AsyncFileSystem::isAvailable() || !document->securityOrigin()->canAccessFileSystem()) {
+        DOMFileSystem::scheduleCallback(document, errorCallback, FileError::create(SECURITY_ERR));
+        return;
     }
 
-    m_localFileSystem->requestFileSystem(document, static_cast<AsyncFileSystem::Type>(type), size, successCallback, errorCallback);
+    AsyncFileSystem::Type fileSystemType = static_cast<AsyncFileSystem::Type>(type);
+    if (fileSystemType != AsyncFileSystem::Temporary && fileSystemType != AsyncFileSystem::Persistent) {
+        DOMFileSystem::scheduleCallback(document, errorCallback, FileError::create(INVALID_MODIFICATION_ERR));
+        return;
+    }
+
+    LocalFileSystem::localFileSystem().requestFileSystem(document, fileSystemType, size, FileSystemCallbacks::create(successCallback, errorCallback, document));
 }
 
-COMPILE_ASSERT(int(DOMWindow::TEMPORARY) == int(AsyncFileSystem::Temporary), enum_mismatch);
-COMPILE_ASSERT(int(DOMWindow::PERSISTENT) == int(AsyncFileSystem::Persistent), enum_mismatch);
+COMPILE_ASSERT(static_cast<int>(DOMWindow::TEMPORARY) == static_cast<int>(AsyncFileSystem::Temporary), enum_mismatch);
+COMPILE_ASSERT(static_cast<int>(DOMWindow::PERSISTENT) == static_cast<int>(AsyncFileSystem::Persistent), enum_mismatch);
 
 #endif
 
@@ -1624,7 +1623,7 @@ String DOMWindow::createBlobURL(Blob* blob)
 
 void DOMWindow::revokeBlobURL(const String& blobURLString)
 {
-    scriptExecutionContext()->revokePublicBlobURL(KURL(ParsedURLString, blobURLString));
+    scriptExecutionContext()->revokePublicBlobURL(KURL(KURL(), blobURLString));
 }
 #endif
 

@@ -62,6 +62,7 @@
 #include "FloatConversion.h"
 #include "FontFamilyValue.h"
 #include "FontValue.h"
+#include "HashTools.h"
 #include "MediaList.h"
 #include "MediaQueryExp.h"
 #include "Pair.h"
@@ -88,9 +89,6 @@ extern int cssyyparse(void* parser);
 
 using namespace std;
 using namespace WTF;
-
-#include "CSSPropertyNames.cpp"
-#include "CSSValueKeywords.cpp"
 
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
@@ -1488,8 +1486,8 @@ bool CSSParser::parseValue(int propId, bool important)
         return false;
     }
     case CSSPropertyWebkitMarginCollapse: {
-        const int properties[2] = { CSSPropertyWebkitMarginTopCollapse,
-            CSSPropertyWebkitMarginBottomCollapse };
+        const int properties[2] = { CSSPropertyWebkitMarginBeforeCollapse,
+            CSSPropertyWebkitMarginAfterCollapse };
         if (num == 1) {
             ShorthandScope scope(this, CSSPropertyWebkitMarginCollapse);
             if (!parseValue(properties[0], important))
@@ -1506,6 +1504,8 @@ bool CSSParser::parseValue(int propId, bool important)
         }
         return false;
     }
+    case CSSPropertyWebkitMarginBeforeCollapse:
+    case CSSPropertyWebkitMarginAfterCollapse:
     case CSSPropertyWebkitMarginTopCollapse:
     case CSSPropertyWebkitMarginBottomCollapse:
         if (id == CSSValueCollapse || id == CSSValueSeparate || id == CSSValueDiscard)

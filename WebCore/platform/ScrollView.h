@@ -195,6 +195,8 @@ public:
     virtual IntRect windowResizerRect() const { return IntRect(); }
     bool containsScrollbarsAvoidingResizer() const;
     void adjustScrollbarsAvoidingResizerCount(int overlapDelta);
+    void windowResizerRectChanged();
+
     virtual void setParent(ScrollView*); // Overridden to update the overlapping scrollbar count.
 
     // Called when our frame rect changes (or the rect/scroll position of an ancestor changes).

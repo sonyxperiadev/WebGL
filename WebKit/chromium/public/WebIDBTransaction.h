@@ -28,6 +28,8 @@
 
 #include "WebString.h"
 
+namespace WebCore { class IDBTransactionBackendInterface; }
+
 namespace WebKit {
 
 class WebIDBObjectStore;
@@ -49,12 +51,22 @@ public:
         return 0;
     }
     virtual void abort() { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void didCompleteTaskEvents() { WEBKIT_ASSERT_NOT_REACHED(); }
     virtual int id() const
+    {
+        // FIXME: Uncomment this after the next Chromium WebKit roll.
+        //WEBKIT_ASSERT_NOT_REACHED();
+        return 0;
+    }
+    virtual void setCallbacks(WebIDBTransactionCallbacks*) { WEBKIT_ASSERT_NOT_REACHED(); }
+
+    // FIXME: this is never called from WebCore. Find a cleaner solution.
+    virtual WebCore::IDBTransactionBackendInterface* getIDBTransactionBackendInterface() const
     {
         WEBKIT_ASSERT_NOT_REACHED();
         return 0;
     }
-    virtual void setCallbacks(WebIDBTransactionCallbacks*) { WEBKIT_ASSERT_NOT_REACHED(); }
+
 };
 
 } // namespace WebKit

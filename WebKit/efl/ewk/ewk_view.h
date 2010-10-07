@@ -151,7 +151,7 @@ struct _Ewk_View_Smart_Class {
  * @see EWK_VIEW_SMART_CLASS_INIT_VERSION
  * @see EWK_VIEW_SMART_CLASS_INIT_NAME_VERSION
  */
-#define EWK_VIEW_SMART_CLASS_INIT(smart_class_init) {smart_class_init, EWK_VIEW_SMART_CLASS_VERSION, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+#define EWK_VIEW_SMART_CLASS_INIT(smart_class_init) {smart_class_init, EWK_VIEW_SMART_CLASS_VERSION, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 
 /**
  * Initializer to zero a whole Ewk_View_Smart_Class structure.
@@ -449,6 +449,8 @@ EAPI Eina_Bool    ewk_view_setting_spatial_navigation_set(Evas_Object* o, Eina_B
 
 EAPI Eina_Bool    ewk_view_setting_local_storage_get(Evas_Object* o);
 EAPI Eina_Bool    ewk_view_setting_local_storage_set(Evas_Object* o, Eina_Bool enable);
+EAPI const char  *ewk_view_setting_local_storage_database_path_get(const Evas_Object *o);
+EAPI Eina_Bool    ewk_view_setting_local_storage_database_path_set(Evas_Object *o, const char *path);
 
 EAPI Eina_Bool    ewk_view_setting_page_cache_get(Evas_Object* o);
 EAPI Eina_Bool    ewk_view_setting_page_cache_set(Evas_Object* o, Eina_Bool enable);

@@ -1,3 +1,60 @@
+2010-09-28  Jenn Braithwaite  <jennb@chromium.org>
+
+        Reviewed by Dmitry Titov.
+
+        Added oldPage param to FrameLoaderClient::didTransferChildFrameToNewDocument.
+        https://bugs.webkit.org/show_bug.cgi?id=46663
+
+        * WebCoreSupport/FrameLoaderClientWinCE.cpp:
+        (WebKit::FrameLoaderClientWinCE::didTransferChildFrameToNewDocument):
+        * WebCoreSupport/FrameLoaderClientWinCE.h:
+
+2010-09-23  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Add PlatformStrategiesWinCE
+        https://bugs.webkit.org/show_bug.cgi?id=46371
+
+        * WebCoreSupport/PlatformStrategiesWinCE.cpp: Copied from WebKit/win/WebCoreSupport/WebPlatformStrategies.cpp.
+        * WebCoreSupport/PlatformStrategiesWinCE.h: Copied from WebKit/win/WebCoreSupport/WebPlatformStrategies.h.
+
+2010-09-23  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Add ChromeClientWinCE
+        https://bugs.webkit.org/show_bug.cgi?id=46294
+
+        * WebCoreSupport/ChromeClientWinCE.cpp: Added.
+        * WebCoreSupport/ChromeClientWinCE.h: Added.
+
+2010-09-23  Patrick Gansterer  <paroga@webkit.org>
+
+        Unreviewed.
+
+        Build fix for FrameLoaderClientWinCE.
+
+        * WebCoreSupport/FrameLoaderClientWinCE.cpp:
+        (WebKit::FrameLoaderClientWinCE::canShowMIMETypeAsHTML): Add missing method.
+        * WebCoreSupport/FrameLoaderClientWinCE.h:
+
+2010-09-21  Patrick Gansterer  <paroga@webkit.org>
+
+        Reviewed by Adam Roben.
+
+        Add "WinCE" to classname for all WebCoreSupport classes to match filename.
+        https://bugs.webkit.org/show_bug.cgi?id=46175
+
+        * WebCoreSupport/ContextMenuClientWinCE.cpp: Rename ContextMenuClient to ContextMenuClientWinCE.
+        * WebCoreSupport/ContextMenuClientWinCE.h: Ditto.
+        * WebCoreSupport/DragClientWinCE.cpp: Rename DragClient to DragClientWinCE.
+        * WebCoreSupport/DragClientWinCE.h: Ditto.
+        * WebCoreSupport/EditorClientWinCE.cpp: Rename EditorClient to EditorClientWinCE.
+        * WebCoreSupport/EditorClientWinCE.h: Ditto.
+        * WebCoreSupport/InspectorClientWinCE.cpp: Rename InspectorClient to InspectorClientWinCE.
+        * WebCoreSupport/InspectorClientWinCE.h: Ditto.
+
 2010-09-20  Patrick Gansterer  <paroga@paroga.com>
 
         Reviewed by Adam Roben.

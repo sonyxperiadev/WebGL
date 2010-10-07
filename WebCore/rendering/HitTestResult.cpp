@@ -24,6 +24,7 @@
 #include "Frame.h"
 #include "FrameTree.h"
 #include "HTMLAnchorElement.h"
+#include "HTMLVideoElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLMediaElement.h"
@@ -50,17 +51,27 @@ HitTestResult::HitTestResult(const IntPoint& point)
     : m_point(point)
     , m_isOverWidget(false)
     , m_isRectBased(false)
+    , m_topPadding(0)
+    , m_rightPadding(0)
+    , m_bottomPadding(0)
+    , m_leftPadding(0)
 {
 }
 
-HitTestResult::HitTestResult(const IntPoint& centerPoint, const IntSize& padding)
+HitTestResult::HitTestResult(const IntPoint& centerPoint, unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding)
     : m_point(centerPoint)
     , m_isOverWidget(false)
+    , m_topPadding(topPadding)
+    , m_rightPadding(rightPadding)
+    , m_bottomPadding(bottomPadding)
+    , m_leftPadding(leftPadding)
 {
-    // If a zero padding is passed in or either width or height is negative, then it
-    // is not a valid padding and hence not a rect based hit test.
-    m_isRectBased = !(padding.isZero() || (padding.width() < 0 || padding.height() < 0));
-    m_padding = m_isRectBased ? padding : IntSize();
+    // If all padding values passed in are zero then it is not a rect based hit test.
+    m_isRectBased = topPadding || rightPadding || bottomPadding || leftPadding;
+
+    // Make sure all padding values are clamped to zero if it is not a rect hit test.
+    if (!m_isRectBased)
+        m_topPadding = m_rightPadding = m_bottomPadding = m_leftPadding = 0;
 }
 
 HitTestResult::HitTestResult(const HitTestResult& other)
@@ -75,9 +86,13 @@ HitTestResult::HitTestResult(const HitTestResult& other)
     // Only copy the padding and ListHashSet in case of rect hit test.
     // Copying the later is rather expensive.
     if ((m_isRectBased = other.isRectBasedTest())) {
-        m_padding = other.padding();
+        m_topPadding = other.m_topPadding;
+        m_rightPadding = other.m_rightPadding;
+        m_bottomPadding = other.m_bottomPadding;
+        m_leftPadding = other.m_leftPadding;
         m_rectBasedTestResult = other.rectBasedTestResult();
-    }
+    } else
+        m_topPadding = m_rightPadding = m_bottomPadding = m_leftPadding = 0;
 }
 
 HitTestResult::~HitTestResult()
@@ -96,9 +111,13 @@ HitTestResult& HitTestResult::operator=(const HitTestResult& other)
     // Only copy the padding and ListHashSet in case of rect hit test.
     // Copying the later is rather expensive.
     if ((m_isRectBased = other.isRectBasedTest())) {
-        m_padding = other.padding();
+        m_topPadding = other.m_topPadding;
+        m_rightPadding = other.m_rightPadding;
+        m_bottomPadding = other.m_bottomPadding;
+        m_leftPadding = other.m_leftPadding;
         m_rectBasedTestResult = other.rectBasedTestResult();
-    }
+    } else
+        m_topPadding = m_rightPadding = m_bottomPadding = m_leftPadding = 0;
     return *this;
 }
 
@@ -292,22 +311,134 @@ KURL HitTestResult::absoluteImageURL() const
 KURL HitTestResult::absoluteMediaURL() const
 {
 #if ENABLE(VIDEO)
-    if (!(m_innerNonSharedNode && m_innerNonSharedNode->document()))
-        return KURL();
-
-    if (!(m_innerNonSharedNode->renderer() && m_innerNonSharedNode->renderer()->isMedia()))
-        return KURL();
-
-    AtomicString urlString;
-    if (m_innerNonSharedNode->hasTagName(HTMLNames::videoTag) || m_innerNonSharedNode->hasTagName(HTMLNames::audioTag)) {
-        HTMLMediaElement* mediaElement = static_cast<HTMLMediaElement*>(m_innerNonSharedNode.get());
-        urlString = mediaElement->currentSrc();
-    } else
-        return KURL();
-
-    return m_innerNonSharedNode->document()->completeURL(deprecatedParseURL(urlString));
+    if (HTMLMediaElement* mediaElt = mediaElement())
+        return m_innerNonSharedNode->document()->completeURL(deprecatedParseURL(mediaElt->currentSrc()));
+    return KURL();
 #else
     return KURL();
+#endif
+}
+
+bool HitTestResult::mediaSupportsFullscreen() const
+{
+#if ENABLE(VIDEO)
+    HTMLMediaElement* mediaElt(mediaElement());
+    return (mediaElt && mediaElt->hasTagName(HTMLNames::videoTag) && mediaElt->supportsFullscreen());
+#else
+    return false;
+#endif
+}
+
+#if ENABLE(VIDEO)
+HTMLMediaElement* HitTestResult::mediaElement() const
+{
+    if (!(m_innerNonSharedNode && m_innerNonSharedNode->document()))
+        return 0;
+
+    if (!(m_innerNonSharedNode->renderer() && m_innerNonSharedNode->renderer()->isMedia()))
+        return 0;
+
+    if (m_innerNonSharedNode->hasTagName(HTMLNames::videoTag) || m_innerNonSharedNode->hasTagName(HTMLNames::audioTag))
+        return static_cast<HTMLMediaElement*>(m_innerNonSharedNode.get());
+    return 0;
+}
+#endif
+
+void HitTestResult::toggleMediaControlsDisplay() const
+{
+#if ENABLE(VIDEO)
+    if (HTMLMediaElement* mediaElt = mediaElement())
+        mediaElt->setControls(!mediaElt->controls());
+#endif
+}
+
+void HitTestResult::toggleMediaLoopPlayback() const
+{
+#if ENABLE(VIDEO)
+    if (HTMLMediaElement* mediaElt = mediaElement())
+        mediaElt->setLoop(!mediaElt->loop());
+#endif
+}
+
+void HitTestResult::enterFullscreenForVideo() const
+{
+#if ENABLE(VIDEO)
+    HTMLMediaElement* mediaElt(mediaElement());
+    if (mediaElt && mediaElt->hasTagName(HTMLNames::videoTag)) {
+        HTMLVideoElement* videoElt = static_cast<HTMLVideoElement*>(mediaElt);
+        if (!videoElt->isFullscreen() && mediaElt->supportsFullscreen())
+            videoElt->enterFullscreen();
+    }
+#endif
+}
+
+bool HitTestResult::mediaControlsEnabled() const
+{
+#if ENABLE(VIDEO)
+    if (HTMLMediaElement* mediaElt = mediaElement())
+        return mediaElt->controls();
+#endif
+    return false;
+}
+
+bool HitTestResult::mediaLoopEnabled() const
+{
+#if ENABLE(VIDEO)
+    if (HTMLMediaElement* mediaElt = mediaElement())
+        return mediaElt->loop();
+#endif
+    return false;
+}
+
+bool HitTestResult::mediaPlaying() const
+{
+#if ENABLE(VIDEO)
+    if (HTMLMediaElement* mediaElt = mediaElement())
+        return !mediaElt->paused();
+#endif
+    return false;
+}
+
+void HitTestResult::toggleMediaPlayState() const
+{
+#if ENABLE(VIDEO)
+    if (HTMLMediaElement* mediaElt = mediaElement())
+        mediaElt->togglePlayState();
+#endif
+}
+
+bool HitTestResult::mediaHasAudio() const
+{
+#if ENABLE(VIDEO)
+    if (HTMLMediaElement* mediaElt = mediaElement())
+        return mediaElt->hasAudio();
+#endif
+    return false;
+}
+
+bool HitTestResult::mediaIsVideo() const
+{
+#if ENABLE(VIDEO)
+    if (HTMLMediaElement* mediaElt = mediaElement())
+        return mediaElt->hasTagName(HTMLNames::videoTag);
+#endif
+    return false;
+}
+
+bool HitTestResult::mediaMuted() const
+{
+#if ENABLE(VIDEO)
+    if (HTMLMediaElement* mediaElt = mediaElement())
+        return mediaElt->muted();
+#endif
+    return false;
+}
+
+void HitTestResult::toggleMediaMuteState() const
+{
+#if ENABLE(VIDEO)
+    if (HTMLMediaElement* mediaElt = mediaElement())
+        mediaElt->setMuted(!mediaElt->muted());
 #endif
 }
 
@@ -419,6 +550,18 @@ void HitTestResult::append(const HitTestResult& other)
     ListHashSet<RefPtr<Node> >::const_iterator last = list.end();
     for (ListHashSet<RefPtr<Node> >::const_iterator it = list.begin(); it != last; ++it)
         m_rectBasedTestResult.add(it->get());
+}
+
+IntRect HitTestResult::rectFromPoint(const IntPoint& point, unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding)
+{
+    IntPoint actualPoint(point);
+    actualPoint -= IntSize(leftPadding, topPadding);
+
+    IntSize actualPadding(leftPadding + rightPadding, topPadding + bottomPadding);
+    // As IntRect is left inclusive and right exclusive (seeing IntRect::contains(x, y)), adding "1".
+    actualPadding += IntSize(1, 1);
+
+    return IntRect(actualPoint, actualPadding);
 }
 
 } // namespace WebCore

@@ -320,7 +320,7 @@ int RenderBoxModelObject::relativePositionOffsetX() const
 {
     // Objects that shrink to avoid floats normally use available line width when computing containing block width.  However
     // in the case of relative positioning using percentages, we can't do this.  The offset should always be resolved using the
-    // available width of the containing block.  Therefore we don't use containingBlockWidthForContent() here, but instead explicitly
+    // available width of the containing block.  Therefore we don't use containingBlockLogicalWidthForContent() here, but instead explicitly
     // call availableWidth on our containing block.
     if (!style()->left().isAuto()) {
         RenderBlock* cb = containingBlock();
@@ -505,8 +505,8 @@ void RenderBoxModelObject::paintFillLayerExtended(const PaintInfo& paintInfo, co
     if (context->paintingDisabled())
         return;
 
-    bool includeLeftEdge = box ? box->includeLeftEdge() : true;
-    bool includeRightEdge = box ? box->includeRightEdge() : true;
+    bool includeLeftEdge = box ? box->includeLogicalLeftEdge() : true;
+    bool includeRightEdge = box ? box->includeLogicalRightEdge() : true;
     int bLeft = includeLeftEdge ? borderLeft() : 0;
     int bRight = includeRightEdge ? borderRight() : 0;
     int pLeft = includeLeftEdge ? paddingLeft() : 0;
@@ -624,6 +624,12 @@ void RenderBoxModelObject::paintFillLayerExtended(const PaintInfo& paintInfo, co
                         // Can't scroll a frameset document anyway.
                         isOpaqueRoot = body->hasLocalName(framesetTag);
                     }
+#if ENABLE(SVG)
+                    else {
+                        // SVG documents and XML documents with SVG root nodes are transparent.
+                        isOpaqueRoot = !document()->hasSVGRootNode();
+                    }
+#endif
                 }
             } else
                 isOpaqueRoot = !view()->frameView()->isTransparent();
@@ -1590,6 +1596,18 @@ void RenderBoxModelObject::clipBorderSidePolygon(GraphicsContext* graphicsContex
     graphicsContext->clipConvexPolygon(4, secondQuad, !secondEdgeMatches);
 }
 
+static inline void uniformlyExpandBorderRadii(int delta, IntSize& topLeft, IntSize& topRight, IntSize& bottomLeft, IntSize& bottomRight)
+{
+    topLeft.expand(delta, delta);
+    topLeft.clampNegativeToZero();
+    topRight.expand(delta, delta);
+    topRight.clampNegativeToZero();
+    bottomLeft.expand(delta, delta);
+    bottomLeft.clampNegativeToZero();
+    bottomRight.expand(delta, delta);
+    bottomRight.clampNegativeToZero();
+}
+
 void RenderBoxModelObject::paintBoxShadow(GraphicsContext* context, int tx, int ty, int w, int h, const RenderStyle* s, ShadowStyle shadowStyle, bool begin, bool end)
 {
     // FIXME: Deal with border-image.  Would be great to use border-image as a mask.
@@ -1673,37 +1691,15 @@ void RenderBoxModelObject::paintBoxShadow(GraphicsContext* context, int tx, int 
                 IntSize bottomLeftToClipOut = bottomLeft;
                 IntSize bottomRightToClipOut = bottomRight;
 
-                if (shadowSpread < 0) {
-                    topLeft.expand(shadowSpread, shadowSpread);
-                    topLeft.clampNegativeToZero();
-
-                    topRight.expand(shadowSpread, shadowSpread);
-                    topRight.clampNegativeToZero();
-
-                    bottomLeft.expand(shadowSpread, shadowSpread);
-                    bottomLeft.clampNegativeToZero();
-
-                    bottomRight.expand(shadowSpread, shadowSpread);
-                    bottomRight.clampNegativeToZero();
-                }
+                if (shadowSpread < 0)
+                    uniformlyExpandBorderRadii(shadowSpread, topLeft, topRight, bottomLeft, bottomRight);
 
                 // If the box is opaque, it is unnecessary to clip it out. However, doing so saves time
                 // when painting the shadow. On the other hand, it introduces subpixel gaps along the
                 // corners. Those are avoided by insetting the clipping path by one pixel.
                 if (hasOpaqueBackground) {
                     rectToClipOut.inflate(-1);
-
-                    topLeftToClipOut.expand(-1, -1);
-                    topLeftToClipOut.clampNegativeToZero();
-
-                    topRightToClipOut.expand(-1, -1);
-                    topRightToClipOut.clampNegativeToZero();
-
-                    bottomLeftToClipOut.expand(-1, -1);
-                    bottomLeftToClipOut.clampNegativeToZero();
-
-                    bottomRightToClipOut.expand(-1, -1);
-                    bottomRightToClipOut.clampNegativeToZero();
+                    uniformlyExpandBorderRadii(-1, topLeftToClipOut, topRightToClipOut, bottomLeftToClipOut, bottomRightToClipOut);
                 }
 
                 if (!rectToClipOut.isEmpty())
@@ -1769,19 +1765,8 @@ void RenderBoxModelObject::paintBoxShadow(GraphicsContext* context, int tx, int 
             context->addPath(Path::createRectangle(outerRect));
 
             if (hasBorderRadius) {
-                if (shadowSpread > 0) {
-                    topLeft.expand(-shadowSpread, -shadowSpread);
-                    topLeft.clampNegativeToZero();
-
-                    topRight.expand(-shadowSpread, -shadowSpread);
-                    topRight.clampNegativeToZero();
-
-                    bottomLeft.expand(-shadowSpread, -shadowSpread);
-                    bottomLeft.clampNegativeToZero();
-
-                    bottomRight.expand(-shadowSpread, -shadowSpread);
-                    bottomRight.clampNegativeToZero();
-                }
+                if (shadowSpread > 0)
+                    uniformlyExpandBorderRadii(-shadowSpread, topLeft, topRight, bottomLeft, bottomRight);
                 context->addPath(Path::createRoundedRectangle(holeRect, topLeft, topRight, bottomLeft, bottomRight));
             } else
                 context->addPath(Path::createRectangle(holeRect));
@@ -1796,9 +1781,9 @@ void RenderBoxModelObject::paintBoxShadow(GraphicsContext* context, int tx, int 
     }
 }
 
-int RenderBoxModelObject::containingBlockWidthForContent() const
+int RenderBoxModelObject::containingBlockLogicalWidthForContent() const
 {
-    return containingBlock()->availableWidth();
+    return containingBlock()->availableLogicalWidth();
 }
 
 } // namespace WebCore

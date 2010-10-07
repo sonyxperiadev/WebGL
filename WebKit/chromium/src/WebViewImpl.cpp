@@ -125,7 +125,7 @@
 #if OS(WINDOWS)
 #include "RenderThemeChromiumWin.h"
 #else
-#if OS(LINUX)
+#if OS(LINUX) || OS(FREEBSD)
 #include "RenderThemeChromiumLinux.h"
 #endif
 #include "RenderTheme.h"
@@ -429,7 +429,7 @@ void WebViewImpl::mouseDown(const WebMouseEvent& event)
         || (event.button == WebMouseEvent::ButtonLeft
             && event.modifiers & WebMouseEvent::ControlKey))
         mouseContextMenu(event);
-#elif OS(LINUX)
+#elif OS(LINUX) || OS(FREEBSD)
     if (event.button == WebMouseEvent::ButtonRight)
         mouseContextMenu(event);
 #endif
@@ -468,7 +468,7 @@ void WebViewImpl::mouseUp(const WebMouseEvent& event)
     if (!mainFrameImpl() || !mainFrameImpl()->frameView())
         return;
 
-#if OS(LINUX)
+#if OS(LINUX) || OS(FREEBSD)
     // If the event was a middle click, attempt to copy text into the focused
     // frame. We execute this before we let the page have a go at the event
     // because the page may change what is focused during in its event handler.
@@ -552,11 +552,11 @@ bool WebViewImpl::keyEvent(const WebKeyboardEvent& event)
     if (!handler)
         return keyEventDefault(event);
 
-#if OS(WINDOWS) || OS(LINUX)
+#if OS(WINDOWS) || OS(LINUX) || OS(FREEBSD)
     const WebInputEvent::Type contextMenuTriggeringEventType =
 #if OS(WINDOWS)
         WebInputEvent::KeyUp;
-#elif OS(LINUX)
+#elif OS(LINUX) || OS(FREEBSD)
         WebInputEvent::RawKeyDown;
 #endif
 
@@ -700,7 +700,7 @@ bool WebViewImpl::touchEvent(const WebTouchEvent& event)
 }
 #endif
 
-#if OS(WINDOWS) || OS(LINUX)
+#if OS(WINDOWS) || OS(LINUX) || OS(FREEBSD)
 // Mac has no way to open a context menu based on a keyboard event.
 bool WebViewImpl::sendContextMenuEvent(const WebKeyboardEvent& event)
 {
@@ -925,7 +925,7 @@ void WebViewImpl::resize(const WebSize& newSize)
             m_client->didInvalidateRect(damagedRect);
     }
 
-#if OS(DARWIN)
+#if USE(ACCELERATED_COMPOSITING) && OS(DARWIN)
     if (m_layerRenderer) {
         m_layerRenderer->resizeOnscreenContent(WebCore::IntSize(std::max(1, m_size.width),
                                                                 std::max(1, m_size.height)));
@@ -1041,8 +1041,6 @@ void WebViewImpl::composite(bool finish)
 #endif
 }
 
-// FIXME: m_currentInputEvent should be removed once ChromeClient::show() can
-// get the current-event information from WebCore.
 const WebInputEvent* WebViewImpl::m_currentInputEvent = 0;
 
 bool WebViewImpl::handleInputEvent(const WebInputEvent& inputEvent)
@@ -1056,6 +1054,8 @@ bool WebViewImpl::handleInputEvent(const WebInputEvent& inputEvent)
 
     if (m_ignoreInputEvents)
         return true;
+
+    m_currentInputEvent = &inputEvent;
 
     if (m_mouseCaptureNode.get() && WebInputEvent::isMouseEventType(inputEvent.type)) {
         // Save m_mouseCaptureNode since mouseCaptureLost() will clear it.
@@ -1086,16 +1086,9 @@ bool WebViewImpl::handleInputEvent(const WebInputEvent& inputEvent)
         node->dispatchMouseEvent(
               PlatformMouseEventBuilder(mainFrameImpl()->frameView(), *static_cast<const WebMouseEvent*>(&inputEvent)),
               eventType);
+        m_currentInputEvent = 0;
         return true;
     }
-
-    // FIXME: Remove m_currentInputEvent.
-    // This only exists to allow ChromeClient::show() to know which mouse button
-    // triggered a window.open event.
-    // Safari must perform a similar hack, ours is in our WebKit glue layer
-    // theirs is in the application.  This should go when WebCore can be fixed
-    // to pass more event information to ChromeClient::show()
-    m_currentInputEvent = &inputEvent;
 
     bool handled = true;
 
@@ -1984,7 +1977,7 @@ void WebViewImpl::setDomainRelaxationForbidden(bool forbidden, const WebString& 
 void WebViewImpl::setScrollbarColors(unsigned inactiveColor,
                                      unsigned activeColor,
                                      unsigned trackColor) {
-#if OS(LINUX)
+#if OS(LINUX) || OS(FREEBSD)
     PlatformThemeChromiumGtk::setScrollbarColors(inactiveColor,
                                                  activeColor,
                                                  trackColor);
@@ -1995,7 +1988,7 @@ void WebViewImpl::setSelectionColors(unsigned activeBackgroundColor,
                                      unsigned activeForegroundColor,
                                      unsigned inactiveBackgroundColor,
                                      unsigned inactiveForegroundColor) {
-#if OS(LINUX)
+#if OS(LINUX) || OS(FREEBSD)
     RenderThemeChromiumLinux::setSelectionColors(activeBackgroundColor,
                                                  activeForegroundColor,
                                                  inactiveBackgroundColor,
@@ -2022,7 +2015,8 @@ void WebView::addUserScript(const WebString& sourceCode,
 
 void WebView::addUserStyleSheet(const WebString& sourceCode,
                                 const WebVector<WebString>& patternsIn,
-                                WebView::UserContentInjectIn injectIn)
+                                WebView::UserContentInjectIn injectIn,
+                                WebView::UserStyleInjectionTime injectionTime)
 {
     OwnPtr<Vector<String> > patterns(new Vector<String>);
     for (size_t i = 0; i < patternsIn.size(); ++i)
@@ -2037,7 +2031,8 @@ void WebView::addUserStyleSheet(const WebString& sourceCode,
     // FIXME: It would be nice to populate the URL correctly, instead of passing an empty URL.
     pageGroup->addUserStyleSheetToWorld(world.get(), sourceCode, WebURL(), patterns.release(), 0,
                                         static_cast<UserContentInjectedFrames>(injectIn),
-                                        UserStyleSheet::AuthorLevel);
+                                        UserStyleAuthorLevel,
+                                        static_cast<WebCore::UserStyleInjectionTime>(injectionTime));
 }
 
 void WebView::removeAllUserContent()
@@ -2206,8 +2201,6 @@ void WebViewImpl::setRootGraphicsLayer(WebCore::PlatformLayer* layer)
 
 void WebViewImpl::setRootLayerNeedsDisplay()
 {
-    if (m_layerRenderer)
-        m_layerRenderer->setNeedsDisplay();
     m_client->scheduleComposite();
     // FIXME: To avoid breaking the downstream Chrome render_widget while downstream
     // changes land, we also have to pass a 1x1 invalidate up to the client
@@ -2247,7 +2240,7 @@ void WebViewImpl::scrollRootLayerRect(const IntSize& scrollDelta, const IntRect&
     // rects allows us to intermix invalidates with scrolls.
     IntRect damagedContentsRect;
     if (scrollDelta.width()) {
-        float dx = static_cast<float>(scrollDelta.width());
+        int dx = scrollDelta.width();
         damagedContentsRect.setY(contentRect.y());
         damagedContentsRect.setHeight(contentRect.height());
         if (dx > 0) {
@@ -2258,7 +2251,7 @@ void WebViewImpl::scrollRootLayerRect(const IntSize& scrollDelta, const IntRect&
             damagedContentsRect.setWidth(-dx);
         }
     } else {
-        float dy = static_cast<float>(scrollDelta.height());
+        int dy = scrollDelta.height();
         damagedContentsRect.setX(contentRect.x());
         damagedContentsRect.setWidth(contentRect.width());
         if (dy > 0) {
@@ -2270,7 +2263,7 @@ void WebViewImpl::scrollRootLayerRect(const IntSize& scrollDelta, const IntRect&
         }
     }
 
-    m_scrollDamage.unite(damagedContentsRect);
+    m_rootLayerScrollDamage.unite(damagedContentsRect);
     setRootLayerNeedsDisplay();
 }
 
@@ -2289,10 +2282,12 @@ void WebViewImpl::invalidateRootLayerRect(const IntRect& rect)
 
     // rect is in viewport space. Convert to content space
     // so that invalidations and scroll invalidations play well with one-another.
-    FloatRect contentRect = view->windowToContents(rect);
+    IntRect contentRect = view->windowToContents(rect);
 
-    // FIXME: add a smarter damage aggregation logic? Right now, LayerChromium does simple union-ing.
-    m_layerRenderer->rootLayer()->setNeedsDisplay(contentRect);
+    // FIXME: add a smarter damage aggregation logic and/or unify with 
+    // LayerChromium's damage logic
+    m_rootLayerDirtyRect.unite(contentRect);
+    setRootLayerNeedsDisplay();
 }
 
 
@@ -2301,23 +2296,29 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
     if (m_isAcceleratedCompositingActive == active)
         return;
 
-    if (active) {
-        OwnPtr<GraphicsContext3D> context = m_temporaryOnscreenGraphicsContext3D.release();
-        if (!context) {
-            context = GraphicsContext3D::create(GraphicsContext3D::Attributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
-            if (context)
-                context->reshape(std::max(1, m_size.width), std::max(1, m_size.height));
-        }
-        m_layerRenderer = LayerRendererChromium::create(context.release());
-        if (m_layerRenderer) {
-            m_isAcceleratedCompositingActive = true;
-        } else {
-            m_isAcceleratedCompositingActive = false;
-            m_compositorCreationFailed = true;
-        }
-    } else {
-        m_layerRenderer = 0;
+    if (!active) {
         m_isAcceleratedCompositingActive = false;
+        return;
+    }
+
+    if (m_layerRenderer) {
+        m_isAcceleratedCompositingActive = true;
+        return;
+    }
+
+    OwnPtr<GraphicsContext3D> context = m_temporaryOnscreenGraphicsContext3D.release();
+    if (!context) {
+        context = GraphicsContext3D::create(GraphicsContext3D::Attributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
+        if (context)
+            context->reshape(std::max(1, m_size.width), std::max(1, m_size.height));
+    }
+    m_layerRenderer = LayerRendererChromium::create(context.release());
+    if (m_layerRenderer) {
+        m_isAcceleratedCompositingActive = true;
+        m_compositorCreationFailed = false;
+    } else {
+        m_isAcceleratedCompositingActive = false;
+        m_compositorCreationFailed = true;
     }
 }
 
@@ -2391,14 +2392,14 @@ void WebViewImpl::doComposite()
     m_layerRenderer->prepareToDrawLayers(visibleRect, contentRect, IntPoint(view->scrollX(), view->scrollY()));
 
     // Draw the contents of the root layer.
-    Vector<FloatRect> damageRects;
-    damageRects.append(m_scrollDamage);
-    damageRects.append(m_layerRenderer->rootLayer()->dirtyRect());
+    Vector<IntRect> damageRects;
+    damageRects.append(m_rootLayerScrollDamage);
+    damageRects.append(m_rootLayerDirtyRect);
     for (size_t i = 0; i < damageRects.size(); ++i) {
         // The damage rect for the root layer is in content space [e.g. unscrolled].
         // Convert from content space to viewPort space.
-        const FloatRect damagedContentRect = damageRects[i];
-        IntRect damagedRect = view->contentsToWindow(IntRect(damagedContentRect));
+        const IntRect damagedContentRect = damageRects[i];
+        IntRect damagedRect = view->contentsToWindow(damagedContentRect);
 
         // Intersect this rectangle with the viewPort.
         damagedRect.intersect(viewPort);
@@ -2409,8 +2410,8 @@ void WebViewImpl::doComposite()
             m_layerRenderer->updateRootLayerTextureRect(damagedRect);
         }
     }
-    m_layerRenderer->rootLayer()->resetNeedsDisplay();
-    m_scrollDamage = WebRect();
+    m_rootLayerDirtyRect = IntRect();
+    m_rootLayerScrollDamage = IntRect();
 
     // Draw the actual layers...
     m_layerRenderer->drawLayers(visibleRect, contentRect);
@@ -2431,32 +2432,28 @@ SharedGraphicsContext3D* WebViewImpl::getSharedGraphicsContext3D()
     return m_sharedContext3D.get();
 }
 
-WebGLES2Context* WebViewImpl::gles2Context()
-{
-    return 0;
-}
-
 WebGraphicsContext3D* WebViewImpl::graphicsContext3D()
 {
 #if USE(ACCELERATED_COMPOSITING)
-    GraphicsContext3D* context = 0;
-    if (m_layerRenderer)
-        context = m_layerRenderer->context();
-    else if (m_temporaryOnscreenGraphicsContext3D)
-        context = m_temporaryOnscreenGraphicsContext3D.get();
-    else {
-        GraphicsContext3D::Attributes attributes;
-        m_temporaryOnscreenGraphicsContext3D = GraphicsContext3D::create(GraphicsContext3D::Attributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
+    if (m_page->settings()->acceleratedCompositingEnabled() && allowsAcceleratedCompositing()) {
+        GraphicsContext3D* context = 0;
+        if (m_layerRenderer)
+            context = m_layerRenderer->context();
+        else if (m_temporaryOnscreenGraphicsContext3D)
+            context = m_temporaryOnscreenGraphicsContext3D.get();
+        else {
+            GraphicsContext3D::Attributes attributes;
+            m_temporaryOnscreenGraphicsContext3D = GraphicsContext3D::create(GraphicsContext3D::Attributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
 #if OS(DARWIN)
-        if (m_temporaryOnscreenGraphicsContext3D)
-            m_temporaryOnscreenGraphicsContext3D->reshape(std::max(1, m_size.width), std::max(1, m_size.height));
+            if (m_temporaryOnscreenGraphicsContext3D)
+                m_temporaryOnscreenGraphicsContext3D->reshape(std::max(1, m_size.width), std::max(1, m_size.height));
 #endif
-        context = m_temporaryOnscreenGraphicsContext3D.get();
+            context = m_temporaryOnscreenGraphicsContext3D.get();
+        }
+        return GraphicsContext3DInternal::extractWebGraphicsContext3D(context);
     }
-    return GraphicsContext3DInternal::extractWebGraphicsContext3D(context);
-#else
-    return 0;
 #endif
+    return 0;
 }
 
 } // namespace WebKit

@@ -155,10 +155,10 @@ void RenderImage::imageChanged(WrappedImagePtr newImage, const IntRect* rect)
             // lets see if we need to relayout at all..
             int oldwidth = width();
             int oldheight = height();
-            if (!prefWidthsDirty())
-                setPrefWidthsDirty(true);
-            calcWidth();
-            calcHeight();
+            if (!preferredLogicalWidthsDirty())
+                setPreferredLogicalWidthsDirty(true);
+            computeLogicalWidth();
+            computeLogicalHeight();
 
             if (imageSizeChanged || width() != oldwidth || height() != oldheight) {
                 shouldRepaint = false;
@@ -369,7 +369,7 @@ HTMLMapElement* RenderImage::imageMap() const
 
 bool RenderImage::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int x, int y, int tx, int ty, HitTestAction hitTestAction)
 {
-    HitTestResult tempResult(result.point(), result.padding());
+    HitTestResult tempResult(result.point(), result.topPadding(), result.rightPadding(), result.bottomPadding(), result.leftPadding());
     bool inside = RenderReplaced::nodeAtPoint(request, tempResult, x, y, tx, ty, hitTestAction);
 
     if (tempResult.innerNode() && node()) {
@@ -439,7 +439,7 @@ bool RenderImage::isHeightSpecified() const
     return false;
 }
 
-int RenderImage::calcReplacedWidth(bool includeMaxWidth) const
+int RenderImage::computeReplacedWidth(bool includeMaxWidth) const
 {
     if (m_imageResource->imageHasRelativeWidth())
         if (RenderObject* cb = isPositioned() ? container() : containingBlock()) {
@@ -449,7 +449,7 @@ int RenderImage::calcReplacedWidth(bool includeMaxWidth) const
 
     int width;
     if (isWidthSpecified())
-        width = calcReplacedWidthUsing(style()->width());
+        width = computeReplacedWidthUsing(style()->width());
     else if (m_imageResource->usesImageContainerSize())
         width = m_imageResource->imageSize(style()->effectiveZoom()).width();
     else if (m_imageResource->imageHasRelativeWidth())
@@ -457,14 +457,14 @@ int RenderImage::calcReplacedWidth(bool includeMaxWidth) const
     else
         width = calcAspectRatioWidth();
 
-    int minW = calcReplacedWidthUsing(style()->minWidth());
-    int maxW = !includeMaxWidth || style()->maxWidth().isUndefined() ? width : calcReplacedWidthUsing(style()->maxWidth());
+    int minW = computeReplacedWidthUsing(style()->minWidth());
+    int maxW = !includeMaxWidth || style()->maxWidth().isUndefined() ? width : computeReplacedWidthUsing(style()->maxWidth());
 
 #ifdef ANDROID_LAYOUT
     width = max(minW, min(width, maxW));
     // in SSR mode, we will fit the image to its container width
     if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
-        int cw = containingBlockWidthForContent();
+        int cw = containingBlockLogicalWidthForContent();
         if (cw && width>cw)
             width = cw;
     }
@@ -474,11 +474,11 @@ int RenderImage::calcReplacedWidth(bool includeMaxWidth) const
 #endif
 }
 
-int RenderImage::calcReplacedHeight() const
+int RenderImage::computeReplacedHeight() const
 {
     int height;
     if (isHeightSpecified())
-        height = calcReplacedHeightUsing(style()->height());
+        height = computeReplacedHeightUsing(style()->height());
     else if (m_imageResource->usesImageContainerSize())
         height = m_imageResource->imageSize(style()->effectiveZoom()).height();
     else if (m_imageResource->imageHasRelativeHeight())
@@ -486,8 +486,8 @@ int RenderImage::calcReplacedHeight() const
     else
         height = calcAspectRatioHeight();
 
-    int minH = calcReplacedHeightUsing(style()->minHeight());
-    int maxH = style()->maxHeight().isUndefined() ? height : calcReplacedHeightUsing(style()->maxHeight());
+    int minH = computeReplacedHeightUsing(style()->minHeight());
+    int maxH = style()->maxHeight().isUndefined() ? height : computeReplacedHeightUsing(style()->maxHeight());
 
 #ifdef ANDROID_LAYOUT
     height = max(minH, min(height, maxH));
@@ -495,15 +495,15 @@ int RenderImage::calcReplacedHeight() const
     if (height && document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
         int width;
         if (isWidthSpecified())
-            width = calcReplacedWidthUsing(style()->width());
+            width = computeReplacedWidthUsing(style()->width());
         else
             width = calcAspectRatioWidth();
-        int minW = calcReplacedWidthUsing(style()->minWidth());
+        int minW = computeReplacedWidthUsing(style()->minWidth());
         int maxW = style()->maxWidth().value() == undefinedLength ? width :
-            calcReplacedWidthUsing(style()->maxWidth());
+            computeReplacedWidthUsing(style()->maxWidth());
         width = max(minW, min(width, maxW));
 
-        int cw = containingBlockWidthForContent();
+        int cw = containingBlockLogicalWidthForContent();
         if (cw && width && width > cw)
             height = cw * height / width;   // preserve aspect ratio
     }
@@ -520,7 +520,7 @@ int RenderImage::calcAspectRatioWidth() const
         return 0;
     if (!m_imageResource->hasImage() || m_imageResource->errorOccurred())
         return size.width(); // Don't bother scaling.
-    return RenderBox::calcReplacedHeight() * size.width() / size.height();
+    return RenderBox::computeReplacedHeight() * size.width() / size.height();
 }
 
 int RenderImage::calcAspectRatioHeight() const
@@ -530,7 +530,7 @@ int RenderImage::calcAspectRatioHeight() const
         return 0;
     if (!m_imageResource->hasImage() || m_imageResource->errorOccurred())
         return size.height(); // Don't bother scaling.
-    return RenderBox::calcReplacedWidth() * size.height() / size.width();
+    return RenderBox::computeReplacedWidth() * size.height() / size.width();
 }
 
 } // namespace WebCore

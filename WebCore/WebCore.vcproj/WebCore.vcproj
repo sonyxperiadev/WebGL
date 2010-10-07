@@ -545,6 +545,26 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\HashTools.h"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\DocTypeStrings.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\CSSValueKeywords.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\CSSPropertyNames.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\ColorData.cpp"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\InspectorBackendDispatcher.cpp"
 				>
 			</File>
@@ -4033,6 +4053,14 @@
 				>
 			</File>
 			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMTokenList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMTokenList.h"
+				>
+			</File>
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSDOMWindow.cpp"
 				>
 				<FileConfiguration
@@ -5300,7 +5328,7 @@
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSGeoposition.h"
 				>
 			</File>
- 			<File
+			<File
 				RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSHashChangeEvent.cpp"
 				>
 				<FileConfiguration
@@ -26363,6 +26391,78 @@
 						</FileConfiguration>
 					</File>
 					<File
+						RelativePath="..\platform\graphics\cairo\CairoUtilities.cpp"
+						>
+						<FileConfiguration
+							Name="Debug|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Debug_Internal|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Debug_All|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\cairo\CairoUtilities.h"
+						>
+						<FileConfiguration
+							Name="Debug|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Debug_Internal|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Debug_All|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+					</File>
+					<File
 						RelativePath="..\platform\graphics\cairo\DrawErrorUnderline.h"
 						>
 						<FileConfiguration
@@ -26687,6 +26787,42 @@
 						</FileConfiguration>
 					</File>
 					<File
+						RelativePath="..\platform\graphics\cairo\OwnPtrCairo.h"
+						>
+						<FileConfiguration
+							Name="Debug|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Debug_Internal|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Debug_All|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+					</File>
+					<File
 						RelativePath="..\platform\graphics\cairo\PathCairo.cpp"
 						>
 						<FileConfiguration
@@ -26791,6 +26927,42 @@
 							>
 							<Tool
 								Name="VCCLCompilerTool"
+							/>
+						</FileConfiguration>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\cairo\PlatformRefPtrCairo.h"
+						>
+						<FileConfiguration
+							Name="Debug|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Release|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Debug_Internal|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
+							/>
+						</FileConfiguration>
+						<FileConfiguration
+							Name="Debug_All|Win32"
+							ExcludedFromBuild="true"
+							>
+							<Tool
+								Name="VCCustomBuildTool"
 							/>
 						</FileConfiguration>
 					</File>
@@ -26927,6 +27099,10 @@
 					Name="filters"
 					>
 					<File
+						RelativePath="..\platform\graphics\filters\DistantLightSource.h"
+						>
+					</File>
+					<File
 						RelativePath="..\platform\graphics\filters\FEBlend.cpp"
 						>
 					</File>
@@ -26959,11 +27135,99 @@
 						>
 					</File>
 					<File
+						RelativePath="..\platform\graphics\filters\FEConvolveMatrix.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FEConvolveMatrix.h"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FEDiffuseLighting.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FEDiffuseLighting.h"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FEDisplacementMap.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FEDisplacementMap.h"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FEFlood.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FEFlood.h"
+						>
+					</File>
+					<File
 						RelativePath="..\platform\graphics\filters\FEGaussianBlur.cpp"
 						>
 					</File>
 					<File
 						RelativePath="..\platform\graphics\filters\FEGaussianBlur.h"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FELighting.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FELighting.h"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FEMerge.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FEMerge.h"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FEMorphology.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FEMorphology.h"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FEOffset.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FEOffset.h"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FESpecularLighting.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FESpecularLighting.h"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FETile.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FETile.h"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FETurbulence.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\FETurbulence.h"
 						>
 					</File>
 					<File
@@ -26987,6 +27251,18 @@
 						>
 					</File>
 					<File
+						RelativePath="..\platform\graphics\filters\LightSource.cpp"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\LightSource.h"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\PointLightSource.h"
+						>
+					</File>
+					<File
 						RelativePath="..\platform\graphics\filters\SourceAlpha.cpp"
 						>
 					</File>
@@ -27000,6 +27276,10 @@
 					</File>
 					<File
 						RelativePath="..\platform\graphics\filters\SourceGraphic.h"
+						>
+					</File>
+					<File
+						RelativePath="..\platform\graphics\filters\SpotLightSource.h"
 						>
 					</File>
 				</Filter>
@@ -33985,11 +34265,11 @@
 				>
 			</File>
 			<File
-				RelativePath="..\dom\InputElement.cpp"
+				RelativePath="..\dom\HashChangeEvent.h"
 				>
 			</File>
 			<File
-				RelativePath="..\dom\HashChangeEvent.h"
+				RelativePath="..\dom\InputElement.cpp"
 				>
 			</File>
 			<File
@@ -37289,11 +37569,23 @@
 				>
 			</File>
 			<File
+				RelativePath="..\fileapi\AsyncFileWriterClient.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\AsyncImageResizer.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\html\AsyncImageResizer.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\BaseTextInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\BaseTextInputType.h"
 				>
 			</File>
 			<File
@@ -37318,6 +37610,14 @@
 			</File>
 			<File
 				RelativePath="..\fileapi\BlobURL.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\ButtonInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\ButtonInputType.h"
 				>
 			</File>
 			<File
@@ -37369,6 +37669,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\html\CheckboxInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\CheckboxInputType.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\CollectionCache.cpp"
 				>
 				<FileConfiguration
@@ -37386,6 +37694,14 @@
 			</File>
 			<File
 				RelativePath="..\html\CollectionType.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\ColorInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\ColorInputType.h"
 				>
 			</File>
 			<File
@@ -37414,6 +37730,30 @@
 			</File>
 			<File
 				RelativePath="..\html\DateComponents.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\DateInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\DateInputType.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\DateTimeInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\DateTimeInputType.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\DateTimeLocalInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\DateTimeLocalInputType.h"
 				>
 			</File>
 			<File
@@ -37462,6 +37802,14 @@
 			</File>
 			<File
 				RelativePath="..\html\DOMFormData.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\EmailInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\EmailInputType.h"
 				>
 			</File>
 			<File
@@ -37522,6 +37870,14 @@
 			</File>
 			<File
 				RelativePath="..\fileapi\FileException.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\FileInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\FileInputType.h"
 				>
 			</File>
 			<File
@@ -37593,10 +37949,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\fileapi\FileWriterClient.h"
-				>
-			</File>
-			<File
 				RelativePath="..\fileapi\Flags.h"
 				>
 			</File>
@@ -37610,6 +37962,18 @@
 			</File>
 			<File
 				RelativePath="..\html\FTPDirectoryDocument.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\DOMTokenList.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\DOMTokenList.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\FormDataList.cpp"
 				>
 			</File>
 			<File
@@ -41965,6 +42329,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\html\HiddenInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\HiddenInputType.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\ImageData.cpp"
 				>
 			</File>
@@ -41981,11 +42353,35 @@
 				>
 			</File>
 			<File
+				RelativePath="..\html\ImageInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\ImageInputType.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\ImageResizerThread.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\html\ImageResizerThread.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\InputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\InputType.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\IsIndexInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\IsIndexInputType.h"
 				>
 			</File>
 			<File
@@ -42025,11 +42421,67 @@
 				>
 			</File>
 			<File
+				RelativePath="..\html\MonthInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\MonthInputType.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\NumberInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\NumberInputType.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\PasswordInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\PasswordInputType.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\PluginDocument.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\html\PluginDocument.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\RadioInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\RadioInputType.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\RangeInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\RangeInputType.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\ResetInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\ResetInputType.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\SearchInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\SearchInputType.h"
 				>
 			</File>
 			<File
@@ -42041,7 +42493,39 @@
 				>
 			</File>
 			<File
+				RelativePath="..\html\SubmitInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\SubmitInputType.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\TelephoneInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\TelephoneInputType.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\TextDocument.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\TextFieldInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\TextFieldInputType.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\TextInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\TextInputType.h"
 				>
 			</File>
 			<File
@@ -42053,11 +42537,27 @@
 				>
 			</File>
 			<File
+				RelativePath="..\html\TimeInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\TimeInputType.h"
+				>
+			</File>
+			<File
 				RelativePath="..\html\TimeRanges.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\html\TimeRanges.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\URLInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\URLInputType.h"
 				>
 			</File>
 			<File
@@ -42070,6 +42570,14 @@
 			</File>
 			<File
 				RelativePath="..\html\VoidCallback.h"
+				>
+			</File>
+			<File
+				RelativePath="..\html\WeekInputType.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\html\WeekInputType.h"
 				>
 			</File>
 			<Filter
@@ -43894,6 +44402,10 @@
 							Name="VCCLCompilerTool"
 						/>
 					</FileConfiguration>
+				</File>
+				<File
+					RelativePath="..\bindings\js\JSDirectoryEntryCustom.cpp"
+					>
 				</File>
 				<File
 					RelativePath="..\bindings\js\JSDocumentCustom.cpp"
@@ -46865,10 +47377,6 @@
 				</File>
 				<File
 					RelativePath="$(WebKitOutputDir)\obj\$(ProjectName)\DerivedSources\JSIDBTransaction.h"
-					>
-				</File>
-				<File
-					RelativePath="..\bindings\js\JSDirectoryEntryCustom.cpp"
 					>
 				</File>
 				<File
@@ -51163,103 +51671,11 @@
 					Name="filters"
 					>
 					<File
-						RelativePath="..\svg\graphics\filters\SVGDistantLightSource.h"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFEConvolveMatrix.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFEConvolveMatrix.h"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFEDiffuseLighting.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFEDiffuseLighting.h"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFEDisplacementMap.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFEDisplacementMap.h"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFEFlood.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFEFlood.h"
-						>
-					</File>
-					<File
 						RelativePath="..\svg\graphics\filters\SVGFEImage.cpp"
 						>
 					</File>
 					<File
 						RelativePath="..\svg\graphics\filters\SVGFEImage.h"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFELighting.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFELighting.h"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFEMerge.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFEMerge.h"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFEMorphology.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFEMorphology.h"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFEOffset.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFEOffset.h"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFESpecularLighting.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFESpecularLighting.h"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFETile.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFETile.h"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFETurbulence.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGFETurbulence.h"
 						>
 					</File>
 					<File
@@ -51276,22 +51692,6 @@
 					</File>
 					<File
 						RelativePath="..\svg\graphics\filters\SVGFilterBuilder.h"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGLightSource.cpp"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGLightSource.h"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGPointLightSource.h"
-						>
-					</File>
-					<File
-						RelativePath="..\svg\graphics\filters\SVGSpotLightSource.h"
 						>
 					</File>
 				</Filter>
@@ -52416,10 +52816,6 @@
 				Name="front-end"
 				>
 				<File
-					RelativePath="..\inspector\front-end\AbstractTimelinePanel.js"
-					>
-				</File>
-				<File
 					RelativePath="..\inspector\front-end\ApplicationCacheItemsView.js"
 					>
 				</File>
@@ -52576,6 +52972,14 @@
 					>
 				</File>
 				<File
+					RelativePath="..\inspector\front-end\GoToLineDialog.js"
+					>
+				</File>
+				<File
+					RelativePath="..\inspector\front-end\goToLineDialog.css"
+					>
+				</File>
+				<File
 					RelativePath="..\inspector\front-end\HAREntry.js"
 					>
 				</File>
@@ -52629,6 +53033,14 @@
 				</File>
 				<File
 					RelativePath="..\inspector\front-end\MetricsSidebarPane.js"
+					>
+				</File>
+				<File
+					RelativePath="..\inspector\front-end\NetworkPanel.js"
+					>
+				</File>
+				<File
+					RelativePath="..\inspector\front-end\networkPanel.css"
 					>
 				</File>
 				<File

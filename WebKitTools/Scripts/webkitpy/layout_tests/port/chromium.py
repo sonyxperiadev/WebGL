@@ -39,6 +39,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 import webbrowser
 
@@ -46,7 +47,6 @@ import base
 import http_server
 
 from webkitpy.common.system.executive import Executive
-from webkitpy.layout_tests.layout_package import test_files
 from webkitpy.layout_tests.layout_package import test_expectations
 
 # Chromium DRT on OSX uses WebKitDriver.
@@ -82,8 +82,13 @@ def check_file_exists(path_to_file, file_description, override_step=None,
 class ChromiumPort(base.Port):
     """Abstract base class for Chromium implementations of the Port class."""
 
-    def __init__(self, port_name=None, options=None, **kwargs):
-        base.Port.__init__(self, port_name, options, **kwargs)
+    def __init__(self, **kwargs):
+        base.Port.__init__(self, **kwargs)
+        if 'options' in kwargs:
+            options = kwargs['options']
+            if (options and (not hasattr(options, 'configuration') or
+                             options.configuration is None)):
+                options.configuration = self.default_configuration()
         self._chromium_base_dir = None
 
     def baseline_path(self):
@@ -126,14 +131,18 @@ class ChromiumPort(base.Port):
         return check_file_exists(image_diff_path, 'image diff exe',
                                  override_step, logging)
 
-    def diff_image(self, expected_filename, actual_filename,
+    def diff_image(self, expected_contents, actual_contents,
                    diff_filename=None, tolerance=0):
         executable = self._path_to_image_diff()
+        expected_tmpfile = tempfile.NamedTemporaryFile()
+        expected_tmpfile.write(expected_contents)
+        actual_tmpfile = tempfile.NamedTemporaryFile()
+        actual_tmpfile.write(actual_contents)
         if diff_filename:
-            cmd = [executable, '--diff', expected_filename, actual_filename,
-                   diff_filename]
+            cmd = [executable, '--diff', expected_tmpfile.name,
+                   actual_tmpfile.name, diff_filename]
         else:
-            cmd = [executable, expected_filename, actual_filename]
+            cmd = [executable, expected_tmpfile.name, actual_tmpfile.name]
 
         result = True
         try:
@@ -144,6 +153,9 @@ class ChromiumPort(base.Port):
                 _compare_available = False
             else:
                 raise e
+        finally:
+            expected_tmpfile.close()
+            actual_tmpfile.close()
         return result
 
     def driver_name(self):
@@ -182,15 +194,6 @@ class ChromiumPort(base.Port):
         cachedir = os.path.join(cachedir, "cache")
         if os.path.exists(cachedir):
             shutil.rmtree(cachedir)
-
-    def show_results_html_file(self, results_filename):
-        uri = self.get_absolute_path(results_filename)
-        if self._options.use_drt:
-            # FIXME: This should use User.open_url
-            webbrowser.open(uri, new=1)
-        else:
-            # Note: Not thread safe: http://bugs.python.org/issue2320
-            subprocess.Popen([self._path_to_driver(), uri])
 
     def create_driver(self, image_path, options):
         """Starts a new Driver and returns a handle to it."""
@@ -236,7 +239,7 @@ class ChromiumPort(base.Port):
         # FIXME: This drt_overrides handling should be removed when we switch
         # from tes_shell to DRT.
         drt_overrides = ''
-        if self._options.use_drt:
+        if self._options and self._options.use_drt:
             drt_overrides_path = self.path_from_webkit_base('LayoutTests',
                 'platform', 'chromium', 'drt_expectations.txt')
             if os.path.exists(drt_overrides_path):
@@ -259,14 +262,13 @@ class ChromiumPort(base.Port):
         test_platform_name = self.test_platform_name()
         is_debug_mode = False
 
-        all_test_files = test_files.gather_test_files(self, '*')
+        all_test_files = self.tests([])
         if extra_test_files:
             all_test_files.update(extra_test_files)
 
         expectations = test_expectations.TestExpectations(
             self, all_test_files, expectations_str, test_platform_name,
-            is_debug_mode, is_lint_mode=True,
-            tests_are_present=False, overrides=overrides_str)
+            is_debug_mode, is_lint_mode=True, overrides=overrides_str)
         tests_dir = self.layout_tests_dir()
         return [self.relative_test_filename(test)
                 for test in expectations.get_tests_with_result_type(test_expectations.SKIP)]
@@ -354,6 +356,12 @@ class ChromiumDriver(base.Driver):
 
         if self._options.gp_fault_error_box:
             driver_args.append('--gp-fault-error-box')
+
+        if self._options.accelerated_compositing:
+            driver_args.append('--enable-accelerated-compositing')
+
+        if self._options.accelerated_2d_canvas:
+            driver_args.append('--enable-accelerated-2d-canvas')
         return driver_args
 
     def start(self):

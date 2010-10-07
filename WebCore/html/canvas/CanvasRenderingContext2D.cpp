@@ -249,12 +249,7 @@ void CanvasRenderingContext2D::setStrokeStyle(PassRefPtr<CanvasStyle> style)
     if (state().m_strokeStyle && state().m_strokeStyle->isEquivalentColor(*style))
         return;
 
-    if (canvas()->originClean()) {
-        if (CanvasPattern* pattern = style->canvasPattern()) {
-            if (!pattern->originClean())
-                canvas()->setOriginTainted();
-        }
-    }
+    checkOrigin(style->canvasPattern());
 
     state().m_strokeStyle = style;
     GraphicsContext* c = drawingContext();
@@ -277,12 +272,7 @@ void CanvasRenderingContext2D::setFillStyle(PassRefPtr<CanvasStyle> style)
     if (state().m_fillStyle && state().m_fillStyle->isEquivalentColor(*style))
         return;
 
-    if (canvas()->originClean()) {
-        if (CanvasPattern* pattern = style->canvasPattern()) {
-            if (!pattern->originClean())
-                canvas()->setOriginTainted();
-        }
-    }
+    checkOrigin(style->canvasPattern());
 
     state().m_fillStyle = style;
     GraphicsContext* c = drawingContext();
@@ -1121,25 +1111,6 @@ static inline FloatRect normalizeRect(const FloatRect& rect)
         max(rect.height(), -rect.height()));
 }
 
-void CanvasRenderingContext2D::checkOrigin(const KURL& url)
-{
-    if (m_cleanOrigins.contains(url.string()))
-        return;
-
-    if (canvas()->securityOrigin().taintsCanvas(url))
-        canvas()->setOriginTainted();
-    else
-        m_cleanOrigins.add(url.string());
-}
-
-void CanvasRenderingContext2D::checkOrigin(const String& url)
-{
-    if (m_cleanOrigins.contains(url))
-        return;
-
-    checkOrigin(KURL(KURL(), url));
-}
-
 void CanvasRenderingContext2D::drawImage(HTMLImageElement* image, float x, float y, ExceptionCode& ec)
 {
     if (!image) {
@@ -1186,17 +1157,20 @@ void CanvasRenderingContext2D::drawImage(HTMLImageElement* image, const FloatRec
         || !isfinite(srcRect.x()) || !isfinite(srcRect.y()) || !isfinite(srcRect.width()) || !isfinite(srcRect.height()))
         return;
 
+    if (!dstRect.width() || !dstRect.height())
+        return;
+
     if (!image->complete())
         return;
 
+    FloatRect normalizedSrcRect = normalizeRect(srcRect);
+    FloatRect normalizedDstRect = normalizeRect(dstRect);
+
     FloatRect imageRect = FloatRect(FloatPoint(), size(image));
-    if (!imageRect.contains(normalizeRect(srcRect)) || !srcRect.width() || !srcRect.height()) {
+    if (!imageRect.contains(normalizedSrcRect) || !srcRect.width() || !srcRect.height()) {
         ec = INDEX_SIZE_ERR;
         return;
     }
-
-    if (!dstRect.width() || !dstRect.height())
-        return;
 
     GraphicsContext* c = drawingContext();
     if (!c)
@@ -1208,14 +1182,10 @@ void CanvasRenderingContext2D::drawImage(HTMLImageElement* image, const FloatRec
     if (!cachedImage)
         return;
 
-    if (canvas()->originClean())
-        checkOrigin(cachedImage->response().url());
+    checkOrigin(image);
 
-    if (canvas()->originClean() && !cachedImage->image()->hasSingleSecurityOrigin())
-        canvas()->setOriginTainted();
-
-    FloatRect sourceRect = c->roundToDevicePixels(srcRect);
-    FloatRect destRect = c->roundToDevicePixels(dstRect);
+    FloatRect sourceRect = c->roundToDevicePixels(normalizedSrcRect);
+    FloatRect destRect = c->roundToDevicePixels(normalizedDstRect);
     c->drawImage(cachedImage->image(), DeviceColorSpace, destRect, sourceRect, state().m_globalComposite);
     didDraw(destRect);
 }
@@ -1285,8 +1255,7 @@ void CanvasRenderingContext2D::drawImage(HTMLCanvasElement* sourceCanvas, const 
     if (!buffer)
         return;
 
-    if (!sourceCanvas->originClean())
-        canvas()->setOriginTainted();
+    checkOrigin(sourceCanvas);
 
 #if ENABLE(ACCELERATED_2D_CANVAS)
     // If we're drawing from one accelerated canvas 2d to another, avoid calling sourceCanvas->makeRenderingResultsAvailable()
@@ -1360,11 +1329,7 @@ void CanvasRenderingContext2D::drawImage(HTMLVideoElement* video, const FloatRec
     if (!state().m_invertibleCTM)
         return;
 
-    if (canvas()->originClean())
-        checkOrigin(video->currentSrc());
-
-    if (canvas()->originClean() && !video->hasSingleSecurityOrigin())
-        canvas()->setOriginTainted();
+    checkOrigin(video);
 
     FloatRect sourceRect = c->roundToDevicePixels(srcRect);
     FloatRect destRect = c->roundToDevicePixels(dstRect);
@@ -1393,11 +1358,7 @@ void CanvasRenderingContext2D::drawImageFromRect(HTMLImageElement* image,
     if (!cachedImage)
         return;
 
-    if (canvas()->originClean())
-        checkOrigin(cachedImage->response().url());
-
-    if (canvas()->originClean() && !cachedImage->image()->hasSingleSecurityOrigin())
-        canvas()->setOriginTainted();
+    checkOrigin(image);
 
     GraphicsContext* c = drawingContext();
     if (!c)
@@ -1689,6 +1650,7 @@ void CanvasRenderingContext2D::setFont(const String& newFont)
     RefPtr<RenderStyle> newStyle = RenderStyle::create();
     if (RenderStyle* computedStyle = canvas()->computedStyle())
         newStyle->setFontDescription(computedStyle->fontDescription());
+    newStyle->font().update(newStyle->font().fontSelector());
 
     // Now map the font property into the style.
     CSSStyleSelector* styleSelector = canvas()->styleSelector();

@@ -55,6 +55,7 @@ namespace WebCore {
     class EditorClientQt;
     class FrameLoaderClientQt;
     class InspectorClientQt;
+    class InspectorServerRequestHandlerQt;
     class InspectorFrontendClientQt;
     class NotificationPresenterClientQt;
     class GeolocationPermissionClientQt;
@@ -216,13 +217,13 @@ public:
 
         QWebPage::ViewportConfiguration& operator=(const QWebPage::ViewportConfiguration& other);
 
-        inline qreal initialScaleFactor() const { return m_initialScaleFactor; };
-        inline qreal minimumScaleFactor() const { return m_minimumScaleFactor; };
-        inline qreal maximumScaleFactor() const { return m_maximumScaleFactor; };
-        inline qreal devicePixelRatio() const { return m_devicePixelRatio; };
-        inline bool isUserScalable() const { return m_isUserScalable; };
-        inline bool isValid() const { return m_isValid; };
-        inline QSize size() const { return m_size; };
+        inline qreal initialScaleFactor() const { return m_initialScaleFactor; }
+        inline qreal minimumScaleFactor() const { return m_minimumScaleFactor; }
+        inline qreal maximumScaleFactor() const { return m_maximumScaleFactor; }
+        inline qreal devicePixelRatio() const { return m_devicePixelRatio; }
+        inline bool isUserScalable() const { return m_isUserScalable; }
+        inline bool isValid() const { return m_isValid; }
+        inline QSize size() const { return m_size; }
 
     private:
         QSharedDataPointer<QtViewportConfigurationPrivate> d;
@@ -275,7 +276,7 @@ public:
 
     QSize viewportSize() const;
     void setViewportSize(const QSize &size) const;
-    ViewportConfiguration viewportConfigurationForSize(QSize availableSize) const;
+    ViewportConfiguration viewportConfigurationForSize(const QSize& availableSize) const;
 
     QSize preferredContentsSize() const;
     void setPreferredContentsSize(const QSize &size) const;
@@ -425,6 +426,7 @@ private:
     friend class WebCore::EditorClientQt;
     friend class WebCore::FrameLoaderClientQt;
     friend class WebCore::InspectorClientQt;
+    friend class WebCore::InspectorServerRequestHandlerQt;
     friend class WebCore::InspectorFrontendClientQt;
     friend class WebCore::NotificationPresenterClientQt;
     friend class WebCore::GeolocationPermissionClientQt;

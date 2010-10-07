@@ -317,9 +317,8 @@ public:
 
     void hideAutoFillPopup();
 
-    // HACK: currentInputEvent() is for ChromeClientImpl::show(), until we can
-    // fix WebKit to pass enough information up into ChromeClient::show() so we
-    // can decide if the window.open event was caused by a middle-mouse click
+    // Returns the input event we're currently processing. This is used in some
+    // cases where the WebCore DOM event doesn't have the information we need.
     static const WebInputEvent* currentInputEvent()
     {
         return m_currentInputEvent;
@@ -332,9 +331,6 @@ public:
     void scrollRootLayerRect(const WebCore::IntSize& scrollDelta, const WebCore::IntRect& clipRect);
     void invalidateRootLayerRect(const WebCore::IntRect&);
 #endif
-    // FIXME: remove this method once the compositor is fully switched
-    // over to GraphicsContext3D.
-    virtual WebGLES2Context* gles2Context();
 
     // Returns the onscreen 3D context used by the compositor. This is
     // used by the renderer's code to set up resource sharing between
@@ -526,8 +522,9 @@ private:
     RefPtr<WebCore::Node> m_mouseCaptureNode;
 
 #if USE(ACCELERATED_COMPOSITING)
-    WebCore::IntRect m_scrollDamage;
-    OwnPtr<WebCore::LayerRendererChromium> m_layerRenderer;
+    WebCore::IntRect m_rootLayerDirtyRect;
+    WebCore::IntRect m_rootLayerScrollDamage;
+    RefPtr<WebCore::LayerRendererChromium> m_layerRenderer;
     bool m_isAcceleratedCompositingActive;
     bool m_compositorCreationFailed;
 #endif

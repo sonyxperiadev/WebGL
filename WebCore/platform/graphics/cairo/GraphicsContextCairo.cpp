@@ -35,6 +35,7 @@
 
 #include "AffineTransform.h"
 #include "CairoPath.h"
+#include "CairoUtilities.h"
 #include "FEGaussianBlur.h"
 #include "FloatRect.h"
 #include "Font.h"
@@ -131,28 +132,10 @@ static inline void fillRectSourceOver(cairo_t* cr, const FloatRect& rect, const 
     cairo_fill(cr);
 }
 
-static inline void copyContextProperties(cairo_t* srcCr, cairo_t* dstCr)
-{
-    cairo_set_antialias(dstCr, cairo_get_antialias(srcCr));
-
-    size_t dashCount = cairo_get_dash_count(srcCr);
-    Vector<double> dashes(dashCount);
-
-    double offset;
-    cairo_get_dash(srcCr, dashes.data(), &offset);
-    cairo_set_dash(dstCr, dashes.data(), dashCount, offset);
-    cairo_set_line_cap(dstCr, cairo_get_line_cap(srcCr));
-    cairo_set_line_join(dstCr, cairo_get_line_join(srcCr));
-    cairo_set_line_width(dstCr, cairo_get_line_width(srcCr));
-    cairo_set_miter_limit(dstCr, cairo_get_miter_limit(srcCr));
-    cairo_set_fill_rule(dstCr, cairo_get_fill_rule(srcCr));
-}
-
 static void appendPathToCairoContext(cairo_t* to, cairo_t* from)
 {
-    cairo_path_t* cairoPath = cairo_copy_path(from);
-    cairo_append_path(to, cairoPath);
-    cairo_path_destroy(cairoPath);
+    OwnPtr<cairo_path_t> cairoPath(cairo_copy_path(from));
+    cairo_append_path(to, cairoPath.get());
 }
 
 // We apply the pending path built via addPath to the Cairo context
@@ -1182,9 +1165,8 @@ void GraphicsContext::clip(const Path& path)
         return;
 
     cairo_t* cr = m_data->cr;
-    cairo_path_t* p = cairo_copy_path(path.platformPath()->context());
-    cairo_append_path(cr, p);
-    cairo_path_destroy(p);
+    OwnPtr<cairo_path_t> p(cairo_copy_path(path.platformPath()->context()));
+    cairo_append_path(cr, p.get());
     cairo_fill_rule_t savedFillRule = cairo_get_fill_rule(cr);
     cairo_set_fill_rule(cr, CAIRO_FILL_RULE_WINDING);
     cairo_clip(cr);
@@ -1341,9 +1323,8 @@ void GraphicsContext::drawTiledShadow(const IntRect& rect, const FloatSize& topL
         copyContextProperties(cr, shadowContext);
         cairo_translate(shadowContext, -rect.x() + blurRadius, -rect.y() + blurRadius);
         cairo_new_path(shadowContext);
-        cairo_path_t* path = cairo_copy_path(cr);
-        cairo_append_path(shadowContext, path);
-        cairo_path_destroy(path);
+        OwnPtr<cairo_path_t> path(cairo_copy_path(cr));
+        cairo_append_path(shadowContext, path.get());
 
         setPlatformFill(this, shadowContext, m_common);
 

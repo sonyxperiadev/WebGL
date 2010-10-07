@@ -40,29 +40,38 @@
 #include "IDBIndex.h"
 #include "IDBErrorEvent.h"
 #include "IDBObjectStore.h"
+#include "IDBPendingTransactionMonitor.h"
 #include "IDBSuccessEvent.h"
 #include "ScriptExecutionContext.h"
 
 namespace WebCore {
 
-IDBRequest::IDBRequest(ScriptExecutionContext* context, PassRefPtr<IDBAny> source)
+IDBRequest::IDBRequest(ScriptExecutionContext* context, PassRefPtr<IDBAny> source, IDBTransactionBackendInterface* transaction)
     : ActiveDOMObject(context, this)
     , m_source(source)
+    , m_transaction(transaction)
     , m_timer(this, &IDBRequest::timerFired)
-    , m_aborted(false)
     , m_readyState(LOADING)
 {
+    if (transaction)
+        IDBPendingTransactionMonitor::removePendingTransaction(transaction);
 }
 
 IDBRequest::~IDBRequest()
 {
-    abort();
+    // The transaction pointer is used to notify the transaction once the JS events were
+    // dispatched by this request object. If no new tasks were added by the event JS callbacks,
+    // the transaction can commit. Otherwise, it can continue executing the new tasks.
+    // It is important to guarantee that the transaction is notified after the events are
+    // dispatched, as the transaction cannot commit or execute new tasks in the absence
+    // of these notifications. We clear the transaction pointer once the events have dispatched,
+    // so having a non-zero pointer at IDBRequest destruction time shows that the events have not
+    // yet fired and there is a transaction waiting to be notified. This is an error.
+    ASSERT(!m_transaction);
 }
 
 bool IDBRequest::resetReadyState()
 {
-    if (m_aborted)
-        return false;
     ASSERT(m_readyState == DONE);
     m_readyState = LOADING;
     return true;
@@ -100,21 +109,14 @@ void IDBRequest::onSuccess(PassRefPtr<IDBKey> idbKey)
 
 void IDBRequest::onSuccess(PassRefPtr<IDBObjectStoreBackendInterface> backend)
 {
-    scheduleEvent(IDBAny::create(IDBObjectStore::create(backend)), 0);
+    // FIXME: the transaction pointer should be the one of the setVersion transaction. This is because
+    // this callback is only executed for operations that neen to run in a setVersion transaction.
+    scheduleEvent(IDBAny::create(IDBObjectStore::create(backend, 0)), 0);
 }
 
 void IDBRequest::onSuccess(PassRefPtr<SerializedScriptValue> serializedScriptValue)
 {
     scheduleEvent(IDBAny::create(serializedScriptValue), 0);
-}
-
-void IDBRequest::abort()
-{
-    m_timer.stop();
-    m_aborted = true;
-    m_pendingEvents.clear();
-
-    // FIXME: This should cancel any pending work being done in the backend.
 }
 
 ScriptExecutionContext* IDBRequest::scriptExecutionContext() const
@@ -142,7 +144,6 @@ EventTargetData* IDBRequest::ensureEventTargetData()
 void IDBRequest::timerFired(Timer<IDBRequest>*)
 {
     ASSERT(m_selfRef);
-    ASSERT(!m_aborted);
     ASSERT(m_pendingEvents.size());
 
     // We need to keep self-referencing ourself, otherwise it's possible we'll be deleted.
@@ -161,15 +162,19 @@ void IDBRequest::timerFired(Timer<IDBRequest>*)
             dispatchEvent(IDBSuccessEvent::create(m_source, pendingEvents[i].m_result));
         }
     }
+    if (m_transaction) {
+        // Now that we processed all pending events, let the transaction monitor check if
+        // it can commit the current transaction or if there's anything new pending.
+        // FIXME: Handle the workers case.
+        m_transaction->didCompleteTaskEvents();
+        m_transaction.clear();
+    }
 }
 
 void IDBRequest::scheduleEvent(PassRefPtr<IDBAny> result, PassRefPtr<IDBDatabaseError> error)
 {
     ASSERT(m_readyState < DONE);
     ASSERT(!!m_selfRef == m_timer.isActive());
-
-    if (m_aborted)
-        return;
 
     PendingEvent pendingEvent;
     pendingEvent.m_result = result;

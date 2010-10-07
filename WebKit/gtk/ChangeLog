@@ -1,3 +1,192 @@
+2010-09-28  Jenn Braithwaite  <jennb@chromium.org>
+
+        Reviewed by Dmitry Titov.
+
+        Added oldPage param to FrameLoaderClient::didTransferChildFrameToNewDocument.
+        https://bugs.webkit.org/show_bug.cgi?id=46663
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::didTransferChildFrameToNewDocument):
+        * WebCoreSupport/FrameLoaderClientGtk.h:
+
+2010-09-27  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Chris Fleizach.
+
+        [Gtk] Adjust atk_text_get_text_at_offset to account for bullets/numbers in list items
+        https://bugs.webkit.org/show_bug.cgi?id=45381
+
+        Updated test to match the new exposure of list item markers.
+
+        Also, added some extra assertions in that test to make sure the
+        accessible objects associated to the items implement AtkText.
+
+        * tests/testatk.c:
+        (testWebkitAtkListsOfItems):
+        (main):
+
+2010-09-27  Philippe Normand  <pnormand@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Doesn't build with gtk+ 2.14
+        https://bugs.webkit.org/show_bug.cgi?id=46565
+
+        Fixed the build for GTK+ 2.14. Don't use gdk_window_get_cursor()
+        for that GTK+ version as I found no acceptable way to work-around
+        its absence.
+
+        * WebCoreSupport/FullscreenVideoController.cpp:
+        (FullscreenVideoController::showHud):
+        (FullscreenVideoController::hideHud):
+        (FullscreenVideoController::enterFullscreen):
+
+2010-09-26  Jenn Braithwaite  <jennb@chromium.org>
+
+        Reviewed by Adam Barth.
+
+        GTK client needs updating when live iframe element is moved
+        between pages.
+        https://bugs.webkit.org/show_bug.cgi?id=46300
+
+        Test: fast/frames/iframe-reparenting-adopt-node.html
+
+        * WebCoreSupport/FrameLoaderClientGtk.cpp:
+        (WebKit::FrameLoaderClient::didTransferChildFrameToNewDocument):
+        Update the webView for the frame to match the parent frame's
+        webView.
+
+2010-09-24  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Gustavo Noronha Silva.
+
+        [GTK] opening local files on win32
+        https://bugs.webkit.org/show_bug.cgi?id=31066
+
+        Add tests that check the mime type returned by local files loaded via file URLs.
+
+        * tests/testmimehandling.c:
+        (testRemoteMimeType): Added.
+        (testLocalMimeType): Added.
+        (main): Run tests by using g_test_add_data_func with either 
+        testRemoteMimeType or testLocalMimeType.
+
+2010-09-23  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Nate Chapin.
+
+        [GTK] Some tests from r68174 fail on the GTK+ bots
+        https://bugs.webkit.org/show_bug.cgi?id=46396
+
+        Fix since version number in this new WebKitWebSettings property.
+
+        * webkit/webkitwebsettings.cpp:
+        (webkit_web_settings_class_init): Fix the since version number.
+
+2010-09-23  Nate Chapin  <japhet@chromium.org>
+
+        Unreviewed, build fix.
+
+        Add a missing comma in webkitwebsettings.cpp.
+
+        * webkit/webkitwebsettings.cpp:
+
+2010-09-23  Nate Chapin  <japhet@chromium.org>
+
+        Reviewed by Darin Fisher.
+
+        Add hyperlink auditing settings (i.e., <a ping>).
+        https://bugs.webkit.org/show_bug.cgi?id=30458
+
+        * webkit/webkitwebsettings.cpp:
+        (webkit_web_settings_class_init):
+        (webkit_web_settings_set_property):
+        (webkit_web_settings_get_property):
+        (webkit_web_settings_copy):
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_update_settings):
+        (webkit_web_view_settings_notify):
+
+2010-09-22  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Replace instances of g_timeout_add() with g_idle_add() in testatk.c
+        https://bugs.webkit.org/show_bug.cgi?id=46284
+
+        Use g_idle_add() whenever g_timeout_add() was being used.
+
+        This is desired because it's better to rely on the main loop to
+        decide when it's a good moment to execute the task (when idle)
+        than manually setting a timeout, which also sets a minimum amount
+        of time needed to get the function executed.
+
+        * tests/testatk.c:
+        (testWekitAtkTextSelections):
+        (testWebkitAtkGetExtents):
+        (testWebkitAtkListsOfItems):
+        (main):
+
+2010-09-22  Mario Sanchez Prada  <msanchez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [Gtk] object:text-changed events should be emitted for entries and password text
+        https://bugs.webkit.org/show_bug.cgi?id=25898
+
+        New unit test to make sure text-changed signals are emitted
+
+        * tests/testatk.c:
+        (textChangedCb): New. Signal handler for the
+        text-changed::insert and text-changed::delete signals.
+        (checkTextChangesAndBailOut): New. Source function to check
+        the global result of the test and quit from the main loop.
+        (testWebkitAtkTextChangedNotifications): New test.
+        (main):
+
+2010-09-22  Martin Robinson  <mrobinson@igalia.com>
+
+        Reviewed by Xan Lopez.
+
+        Added information about drop shadow improvements to the NEWS file.
+
+        * NEWS: Added information about drop shadow improvements.
+
+2010-09-21  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Martin Robinson.
+
+        [GTK] Fix transfer annotations for WebKitGTK+ static API
+        https://bugs.webkit.org/show_bug.cgi?id=46244
+
+        Deal with all the warnings related to transfer issues. Mostly the
+        problem was the transfer being missing, but there were also typos
+        in the function name or missing ':' at the end of the function
+        name in the gtk-doc.
+
+        * webkit/webkitdownload.cpp:
+        * webkit/webkitnetworkrequest.cpp:
+        * webkit/webkitnetworkresponse.cpp:
+        * webkit/webkitsecurityorigin.cpp:
+        * webkit/webkitwebdatabase.cpp:
+        * webkit/webkitwebdatasource.cpp:
+        * webkit/webkitwebframe.cpp:
+        * webkit/webkitwebhistoryitem.cpp:
+        * webkit/webkitwebinspector.cpp:
+        * webkit/webkitwebresource.cpp:
+        * webkit/webkitwebsettings.cpp:
+        * webkit/webkitwebview.cpp:
+        (webkit_web_view_class_init):
+        (webkit_web_view_get_main_frame):
+
+2010-09-21  Xan Lopez  <xlopez@igalia.com>
+
+        Reviewed by Gustavo Noronha.
+
+        Update for 1.3.4 release.
+
+        * NEWS:
+
 2010-09-17  Darin Adler  <darin@apple.com>
 
         Reviewed by Sam Weinig.

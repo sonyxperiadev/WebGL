@@ -73,12 +73,12 @@ void RenderHTMLCanvas::canvasSizeChanged()
     if (!parent())
         return;
 
-    if (!prefWidthsDirty())
-        setPrefWidthsDirty(true);
+    if (!preferredLogicalWidthsDirty())
+        setPreferredLogicalWidthsDirty(true);
 
     IntSize oldSize = size();
-    calcWidth();
-    calcHeight();
+    computeLogicalWidth();
+    computeLogicalHeight();
     if (oldSize == size())
         return;
 

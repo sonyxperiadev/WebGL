@@ -144,6 +144,7 @@ namespace JSC {
             , m_features(0)
         {
 #if ENABLE(CODEBLOCK_SAMPLING)
+            relaxAdoptionRequirement();
             if (SamplingTool* sampler = globalData->interpreter->sampler())
                 sampler->notifyOfScope(this);
 #else
@@ -157,6 +158,7 @@ namespace JSC {
             , m_features(0)
         {
 #if ENABLE(CODEBLOCK_SAMPLING)
+            relaxAdoptionRequirement();
             if (SamplingTool* sampler = exec->globalData().interpreter->sampler())
                 sampler->notifyOfScope(this);
 #else
@@ -347,7 +349,7 @@ namespace JSC {
 
         const Identifier& name() { return m_name; }
         size_t parameterCount() const { return m_parameters->size(); }
-        unsigned variableCount() const { return m_numVariables; }
+        unsigned capturedVariableCount() const { return m_numCapturedVariables; }
         UString paramString() const;
         SharedSymbolTable* symbolTable() const { return m_symbolTable; }
 
@@ -364,7 +366,7 @@ namespace JSC {
 
         virtual PassOwnPtr<ExceptionInfo> reparseExceptionInfo(JSGlobalData*, ScopeChainNode*, CodeBlock*);
 
-        unsigned m_numVariables : 31;
+        unsigned m_numCapturedVariables : 31;
         bool m_forceUsesArguments : 1;
 
         RefPtr<FunctionParameters> m_parameters;

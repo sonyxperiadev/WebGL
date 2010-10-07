@@ -41,9 +41,9 @@ RenderIFrame::RenderIFrame(Element* element)
 {
 }
 
-void RenderIFrame::calcHeight()
+void RenderIFrame::computeLogicalHeight()
 {
-    RenderPart::calcHeight();
+    RenderPart::computeLogicalHeight();
 #ifdef ANDROID_FLATTEN_IFRAME
     if (!node()->hasTagName(iframeTag) || !widget() || !widget()->isFrameView())
         return;
@@ -83,9 +83,9 @@ void RenderIFrame::calcHeight()
     }
 }
 
-void RenderIFrame::calcWidth()
+void RenderIFrame::computeLogicalWidth()
 {
-    RenderPart::calcWidth();
+    RenderPart::computeLogicalWidth();
 #ifdef ANDROID_FLATTEN_IFRAME
     if (!node()->hasTagName(iframeTag) || !widget() || !widget()->isFrameView())
         return;
@@ -103,7 +103,7 @@ void RenderIFrame::calcWidth()
 
     int extraWidth = paddingLeft() + paddingRight() + borderLeft() + borderRight();
     // Set the width
-    setWidth(max(width(), root->minPrefWidth()) + extraWidth);
+    setWidth(max(width(), root->minPreferredLogicalWidth()) + extraWidth);
 
     // Update based on the new width
     updateWidgetPosition();
@@ -117,6 +117,7 @@ void RenderIFrame::calcWidth()
     updateWidgetPosition();
     return;
 #endif
+
     if (!flattenFrame())
         return;
 
@@ -162,8 +163,8 @@ void RenderIFrame::layout()
 {
     ASSERT(needsLayout());
 
-    RenderPart::calcWidth();
-    RenderPart::calcHeight();
+    RenderPart::computeLogicalWidth();
+    RenderPart::computeLogicalHeight();
 
 #ifdef ANDROID_FLATTEN_IFRAME
     // Calculate the styled dimensions by subtracting the border and padding.
@@ -193,7 +194,7 @@ void RenderIFrame::layout()
                 // Use the preferred width if it is larger and only if
                 // scrollbars are visible or the width style is not fixed.
                 if (scrolling || !widthIsFixed)
-                    setWidth(max(width(), root->minPrefWidth()) + extraWidth);
+                    setWidth(max(width(), root->minPreferredLogicalWidth()) + extraWidth);
 
                 // Resize the view to recalc the height.
                 int h = height() - extraHeight;

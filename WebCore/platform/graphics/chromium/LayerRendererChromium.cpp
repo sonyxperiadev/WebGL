@@ -73,12 +73,12 @@ static inline bool compareLayerZ(const LayerChromium* a, const LayerChromium* b)
     return transformA.m43() < transformB.m43();
 }
 
-PassOwnPtr<LayerRendererChromium> LayerRendererChromium::create(PassOwnPtr<GraphicsContext3D> context)
+PassRefPtr<LayerRendererChromium> LayerRendererChromium::create(PassOwnPtr<GraphicsContext3D> context)
 {
     if (!context)
         return 0;
 
-    OwnPtr<LayerRendererChromium> layerRenderer(new LayerRendererChromium(context));
+    RefPtr<LayerRendererChromium> layerRenderer(adoptRef(new LayerRendererChromium(context)));
     if (!layerRenderer->hardwareCompositing())
         return 0;
 
@@ -91,7 +91,6 @@ LayerRendererChromium::LayerRendererChromium(PassOwnPtr<GraphicsContext3D> conte
     , m_rootLayerTextureHeight(0)
     , m_scrollShaderProgram(0)
     , m_rootLayer(0)
-    , m_needsDisplay(false)
     , m_scrollPosition(IntPoint(-1, -1))
     , m_currentShader(0)
     , m_context(context)
@@ -159,8 +158,10 @@ void LayerRendererChromium::useShader(unsigned programId)
     }
 }
 
-// Updates the contents of the root layer texture that fall inside the updateRect
-// and re-composits all sublayers.
+// This method must be called before any other updates are made to the
+// root layer texture. It resizes the root layer texture and scrolls its
+// contents as needed. It also sets up common GL state used by the rest
+// of the layer drawing code.
 void LayerRendererChromium::prepareToDrawLayers(const IntRect& visibleRect, const IntRect& contentRect, 
                                                 const IntPoint& scrollPosition)
 {
@@ -172,6 +173,8 @@ void LayerRendererChromium::prepareToDrawLayers(const IntRect& visibleRect, cons
     makeContextCurrent();
 
     GLC(m_context, m_context->bindTexture(GraphicsContext3D::TEXTURE_2D, m_rootLayerTextureId));
+    
+    bool skipScroll = false;
 
     // If the size of the visible area has changed then allocate a new texture
     // to store the contents of the root layer and adjust the projection matrix
@@ -184,6 +187,10 @@ void LayerRendererChromium::prepareToDrawLayers(const IntRect& visibleRect, cons
 
         m_projectionMatrix = orthoMatrix(0, visibleRectWidth, visibleRectHeight, 0, -1000, 1000);
         GLC(m_context, m_context->texImage2D(GraphicsContext3D::TEXTURE_2D, 0, GraphicsContext3D::RGBA, m_rootLayerTextureWidth, m_rootLayerTextureHeight, 0, GraphicsContext3D::RGBA, GraphicsContext3D::UNSIGNED_BYTE, 0));
+
+        // The root layer texture was just resized so its contents are not
+        // useful for scrolling.
+        skipScroll = true;
     }
 
     // The GL viewport covers the entire visible area, including the scrollbars.
@@ -198,12 +205,20 @@ void LayerRendererChromium::prepareToDrawLayers(const IntRect& visibleRect, cons
     GLC(m_context, m_context->depthFunc(GraphicsContext3D::LEQUAL));
     GLC(m_context, m_context->clearStencil(0));
 
-    if (m_scrollPosition == IntPoint(-1, -1))
+    if (m_scrollPosition == IntPoint(-1, -1)) {
         m_scrollPosition = scrollPosition;
+        skipScroll = true;
+    }
 
     IntPoint scrollDelta = toPoint(scrollPosition - m_scrollPosition);
+
+    // Scrolling larger than the contentRect size does not preserve any of the pixels, so there is
+    // no need to copy framebuffer pixels back into the texture.
+    if (abs(scrollDelta.y()) > contentRect.height() || abs(scrollDelta.x()) > contentRect.width())
+        skipScroll = true;
+
     // Scroll the backbuffer
-    if (scrollDelta.x() || scrollDelta.y()) {
+    if (!skipScroll && (scrollDelta.x() || scrollDelta.y())) {
         // Scrolling works as follows: We render a quad with the current root layer contents
         // translated by the amount the page has scrolled since the last update and then read the
         // pixels of the content area (visible area excluding the scroll bars) back into the
@@ -221,23 +236,9 @@ void LayerRendererChromium::prepareToDrawLayers(const IntRect& visibleRect, cons
                                         m_scrollShaderMatrixLocation, -1);
 
         GLC(m_context, m_context->copyTexSubImage2D(GraphicsContext3D::TEXTURE_2D, 0, 0, 0, 0, 0, contentRect.width(), contentRect.height()));
-        m_scrollPosition = scrollPosition;
-    } else if (abs(scrollDelta.y()) > contentRect.height() || abs(scrollDelta.x()) > contentRect.width()) {
-        // Scrolling larger than the contentRect size does not preserve any of the pixels, so there is
-        // no need to copy framebuffer pixels back into the texture.
-        m_scrollPosition = scrollPosition;
     }
 
-    // Translate all the composited layers by the scroll position.
-    TransformationMatrix matrix;
-    matrix.translate3d(-m_scrollPosition.x(), -m_scrollPosition.y(), 0);
-
-    // Traverse the layer tree and update the layer transforms.
-    float opacity = 1;
-    const Vector<RefPtr<LayerChromium> >& sublayers = m_rootLayer->getSublayers();
-    size_t i;
-    for (i = 0; i < sublayers.size(); i++)
-        updateLayersRecursive(sublayers[i].get(), matrix, opacity);
+    m_scrollPosition = scrollPosition;
 }
 
 void LayerRendererChromium::updateRootLayerTextureRect(const IntRect& updateRect)
@@ -256,9 +257,7 @@ void LayerRendererChromium::updateRootLayerTextureRect(const IntRect& updateRect
 #if PLATFORM(SKIA)
     // Get the contents of the updated rect.
     const SkBitmap bitmap = m_rootLayerCanvas->getDevice()->accessBitmap(false);
-    int bitmapWidth = bitmap.width();
-    int bitmapHeight = bitmap.height();
-    ASSERT(bitmapWidth == updateRect.width() && bitmapHeight == updateRect.height());
+    ASSERT(bitmap.width() == updateRect.width() && bitmap.height() == updateRect.height());
     void* pixels = bitmap.getPixels();
 #elif PLATFORM(CG)
     // Get the contents of the updated rect.
@@ -306,16 +305,13 @@ void LayerRendererChromium::drawLayers(const IntRect& visibleRect, const IntRect
     // Set the rootVisibleRect --- used by subsequent drawLayers calls
     m_rootVisibleRect = visibleRect;
 
-    // Translate all the composited layers by the scroll position.
-    TransformationMatrix matrix;
-    matrix.translate3d(-m_scrollPosition.x(), -m_scrollPosition.y(), 0);
-
     // Traverse the layer tree and update the layer transforms.
     float opacity = 1;
     const Vector<RefPtr<LayerChromium> >& sublayers = m_rootLayer->getSublayers();
     size_t i;
+    TransformationMatrix identityMatrix;
     for (i = 0; i < sublayers.size(); i++)
-        updateLayersRecursive(sublayers[i].get(), matrix, opacity);
+        updateLayersRecursive(sublayers[i].get(), identityMatrix, opacity);
 
     // Enable scissoring to avoid rendering composited layers over the scrollbars.
     GLC(m_context, m_context->enable(GraphicsContext3D::SCISSOR_TEST));
@@ -349,7 +345,6 @@ void LayerRendererChromium::present()
     // Note that currently this has the same effect as swapBuffers; we should
     // consider exposing a different entry point on GraphicsContext3D.
     m_context->prepareTexture();
-    m_needsDisplay = false;
 }
 
 void LayerRendererChromium::getFramebufferPixels(void *pixels, const IntRect& rect)
@@ -379,6 +374,14 @@ unsigned LayerRendererChromium::createLayerTexture()
     GLC(m_context, m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_S, GraphicsContext3D::CLAMP_TO_EDGE));
     GLC(m_context, m_context->texParameteri(GraphicsContext3D::TEXTURE_2D, GraphicsContext3D::TEXTURE_WRAP_T, GraphicsContext3D::CLAMP_TO_EDGE));
     return textureId;
+}
+
+void LayerRendererChromium::deleteLayerTexture(unsigned textureId)
+{
+    if (!textureId)
+        return;
+
+    GLC(m_context, m_context->deleteTexture(textureId));
 }
 
 // Returns true if any part of the layer falls within the visibleRect
@@ -717,7 +720,8 @@ bool LayerRendererChromium::initializeSharedObjects()
     m_layerSharedValues = adoptPtr(new LayerChromium::SharedValues(m_context.get()));
     m_contentLayerSharedValues = adoptPtr(new ContentLayerChromium::SharedValues(m_context.get()));
     m_canvasLayerSharedValues = adoptPtr(new CanvasLayerChromium::SharedValues(m_context.get()));
-    if (!m_layerSharedValues->initialized() || !m_contentLayerSharedValues->initialized() || !m_canvasLayerSharedValues->initialized()) {
+    m_videoLayerSharedValues = adoptPtr(new VideoLayerChromium::SharedValues(m_context.get()));
+    if (!m_layerSharedValues->initialized() || !m_contentLayerSharedValues->initialized() || !m_canvasLayerSharedValues->initialized() || !m_videoLayerSharedValues->initialized()) {
         cleanupSharedObjects();
         return false;
     }
@@ -732,6 +736,7 @@ void LayerRendererChromium::cleanupSharedObjects()
     m_layerSharedValues.clear();
     m_contentLayerSharedValues.clear();
     m_canvasLayerSharedValues.clear();
+    m_videoLayerSharedValues.clear();
 
     if (m_scrollShaderProgram) {
         GLC(m_context, m_context->deleteProgram(m_scrollShaderProgram));
@@ -739,7 +744,7 @@ void LayerRendererChromium::cleanupSharedObjects()
     }
 
     if (m_rootLayerTextureId) {
-        GLC(m_context, m_context->deleteTexture(m_rootLayerTextureId));
+        deleteLayerTexture(m_rootLayerTextureId);
         m_rootLayerTextureId = 0;
     }
 }

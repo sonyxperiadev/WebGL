@@ -56,6 +56,7 @@ class WebDataSourceImpl;
 class WebInputElement;
 class WebFrameClient;
 class WebPasswordAutocompleteListener;
+class WebPerformance;
 class WebPluginContainerImpl;
 class WebView;
 class WebViewImpl;
@@ -90,6 +91,7 @@ public:
     virtual WebDocument document() const;
     virtual void forms(WebVector<WebFormElement>&) const;
     virtual WebAnimationController* animationController();
+    virtual WebPerformance performance() const;
     virtual WebSecurityOrigin securityOrigin() const;
     virtual void grantUniversalAccess();
     virtual NPObject* windowObject() const;
@@ -135,6 +137,7 @@ public:
     virtual void unmarkText();
     virtual bool hasMarkedText() const;
     virtual WebRange markedRange() const;
+    virtual bool firstRectForCharacterRange(unsigned location, unsigned length, WebRect&) const;
     virtual bool executeCommand(const WebString&);
     virtual bool executeCommand(const WebString&, const WebString& value);
     virtual bool isCommandEnabled(const WebString&) const;
@@ -183,6 +186,9 @@ public:
     virtual WebRect selectionBoundsRect() const;
 
     virtual bool selectionStartHasSpellingMarkerFor(int from, int length) const;
+    virtual bool pauseSVGAnimation(const WebString& animationId,
+                                   double time,
+                                   const WebString& elementId);
 
     static PassRefPtr<WebFrameImpl> create(WebFrameClient* client);
     ~WebFrameImpl();

@@ -88,6 +88,7 @@ void WebPreferences::reset()
     userStyleSheetLocation = WebURL();
     usesPageCache = false;
     webSecurityEnabled = true;
+    caretBrowsingEnabled = false;
 
     // Allow those layout tests running as local files, i.e. under
     // LayoutTests/http/tests/local, to access http server.
@@ -100,6 +101,8 @@ void WebPreferences::reset()
 #endif
 
     tabsToLinks = false;
+    hyperlinkAuditingEnabled = false;
+    accelerated2dCanvasEnabled = false;
 }
 
 void WebPreferences::applyTo(WebView* webView)
@@ -139,9 +142,11 @@ void WebPreferences::applyTo(WebView* webView)
     settings->setWebSecurityEnabled(webSecurityEnabled);
     settings->setAllowUniversalAccessFromFileURLs(allowUniversalAccessFromFileURLs);
     settings->setEditingBehavior(editingBehavior);
+    settings->setHyperlinkAuditingEnabled(hyperlinkAuditingEnabled);
     // LayoutTests were written with Safari Mac in mind which does not allow
     // tabbing to links by default.
     webView->setTabsToLinks(tabsToLinks);
+    settings->setCaretBrowsingEnabled(caretBrowsingEnabled);
 
     // Fixed values.
     settings->setShouldPaintCustomScrollbars(true);
@@ -157,5 +162,7 @@ void WebPreferences::applyTo(WebView* webView)
 
     // FIXME: crbug.com/51879
     settings->setAcceleratedCompositingEnabled(false);
+
+    settings->setAccelerated2dCanvasEnabled(accelerated2dCanvasEnabled);
 }
 

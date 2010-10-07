@@ -46,7 +46,6 @@
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "SelectionController.h"
-#include "TextStream.h"
 #include <wtf/UnusedParam.h>
 #include <wtf/Vector.h>
 
@@ -75,12 +74,53 @@ using namespace HTMLNames;
 
 static void writeLayers(TextStream&, const RenderLayer* rootLayer, RenderLayer*, const IntRect& paintDirtyRect, int indent = 0, RenderAsTextBehavior behavior = RenderAsTextBehaviorNormal);
 
-#if !ENABLE(SVG)
-static TextStream &operator<<(TextStream& ts, const IntRect& r)
+bool hasFractions(double val)
+{
+    static const double s_epsilon = 0.0001;
+    int ival = static_cast<int>(val);
+    double dval = static_cast<double>(ival);
+    return fabs(val - dval) > s_epsilon;
+}
+
+TextStream& operator<<(TextStream& ts, const IntRect& r)
 {
     return ts << "at (" << r.x() << "," << r.y() << ") size " << r.width() << "x" << r.height();
 }
-#endif
+
+TextStream& operator<<(TextStream& ts, const IntPoint& p)
+{
+    return ts << "(" << p.x() << "," << p.y() << ")";
+}
+
+TextStream& operator<<(TextStream& ts, const FloatPoint& p)
+{
+    ts << "(";    
+    if (hasFractions(p.x()))
+        ts << p.x();
+    else 
+        ts << int(p.x());    
+    ts << ",";
+    if (hasFractions(p.y())) 
+        ts << p.y();
+    else 
+        ts << int(p.y());    
+    return ts << ")";
+}
+
+TextStream& operator<<(TextStream& ts, const FloatSize& s)
+{
+    ts << "width=";
+    if (hasFractions(s.width()))
+        ts << s.width();
+    else
+        ts << int(s.width());
+    ts << " height=";
+    if (hasFractions(s.height())) 
+        ts << s.height();
+    else
+        ts << int(s.height());
+    return ts;
+}
 
 void writeIndent(TextStream& ts, int indent)
 {
@@ -223,13 +263,13 @@ void RenderTreeAsText::writeRenderObject(TextStream& ts, const RenderObject& o, 
         // to clean up the results to dump both the outer box and the intrinsic padding so that both bits of information are
         // captured by the results.
         const RenderTableCell& cell = *toRenderTableCell(&o);
-        r = IntRect(cell.x(), cell.y() + cell.intrinsicPaddingTop(), cell.width(), cell.height() - cell.intrinsicPaddingTop() - cell.intrinsicPaddingBottom());
+        r = IntRect(cell.x(), cell.y() + cell.intrinsicPaddingBefore(), cell.width(), cell.height() - cell.intrinsicPaddingBefore() - cell.intrinsicPaddingAfter());
     } else if (o.isBox())
         r = toRenderBox(&o)->frameRect();
 
     // FIXME: Temporary in order to ensure compatibility with existing layout test results.
     if (adjustForTableCells)
-        r.move(0, -toRenderTableCell(o.containingBlock())->intrinsicPaddingTop());
+        r.move(0, -toRenderTableCell(o.containingBlock())->intrinsicPaddingBefore());
 
     ts << " " << r;
 
@@ -398,8 +438,8 @@ static void writeTextRun(TextStream& ts, const RenderText& o, const InlineTextBo
     // FIXME: Table cell adjustment is temporary until results can be updated.
     int y = run.m_y;
     if (o.containingBlock()->isTableCell())
-        y -= toRenderTableCell(o.containingBlock())->intrinsicPaddingTop();
-    ts << "text run at (" << run.m_x << "," << y << ") width " << run.m_width;
+        y -= toRenderTableCell(o.containingBlock())->intrinsicPaddingBefore();
+    ts << "text run at (" << run.m_x << "," << y << ") width " << run.m_logicalWidth;
     if (run.direction() == RTL || run.m_dirOverride) {
         ts << (run.direction() == RTL ? " RTL" : " LTR");
         if (run.m_dirOverride)
