@@ -227,13 +227,27 @@ static bool should_use_animated_gif(int width, int height) {
 void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
 {
 #ifdef ANDROID_ANIMATED_GIF
+    bool skipAnimatedGif = false;
     // This is only necessary if we allow ourselves to partially decode GIF
-    if (m_decoder.m_gifDecoder
-            && !m_decoder.m_gifDecoder->failed()) {
+    if (m_decoder.m_gifDecoder) {
         m_decoder.m_gifDecoder->setData(data, allDataReceived);
-        return;
+        if (!m_decoder.m_gifDecoder->failed() &&
+                (!allDataReceived || m_decoder.m_gifDecoder->frameCount() > 1)) {
+            // No failure and the data is incomplete or there are multiple
+            // frames; continue using the gif decoder.
+            return;
+        }
+        // If the decoder failed or there is only 1 frame, delete the
+        // decoder and use our shared image ref pool to avoid allocating too
+        // much image memory.
+        delete m_decoder.m_gifDecoder;
+        m_decoder.m_gifDecoder = 0;
+
+        // Already tried using GIFImageDecoder so skip the check.
+        skipAnimatedGif = true;
     }
 #endif
+
     if (NULL == m_decoder.m_image
 #ifdef ANDROID_ANIMATED_GIF
           && !m_decoder.m_gifDecoder
@@ -258,7 +272,8 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
         // First, check to see if this is an animated GIF
         const Vector<char>& buffer = data->buffer();
         const char* contents = buffer.data();
-        if (buffer.size() > 3 && strncmp(contents, "GIF8", 4) == 0 &&
+        if (!skipAnimatedGif &&
+                buffer.size() > 3 && strncmp(contents, "GIF8", 4) == 0 &&
                 should_use_animated_gif(origW, origH)) {
             // This means we are looking at a GIF, so create special
             // GIF Decoder
@@ -266,12 +281,21 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
             // allocator (which we are not at the moment).
             if (!m_decoder.m_gifDecoder /*&& allDataReceived*/)
                 m_decoder.m_gifDecoder = new GIFImageDecoder();
-            if (!m_decoder.m_gifDecoder->failed())
-                m_decoder.m_gifDecoder->setData(data, allDataReceived);
-            return;
+            m_decoder.m_gifDecoder->setData(data, allDataReceived);
+            if (!m_decoder.m_gifDecoder->failed() &&
+                    (!allDataReceived || m_decoder.m_gifDecoder->frameCount() > 1)) {
+                // No failure and the data is incomplete or there are multiple
+                // frames; continue using the gif decoder.
+                return;
+            }
+            // If the decoder failed or there is only 1 frame, delete the decoder
+            // and use our shared image ref pool to avoid allocating too much
+            // image memory.
+            delete m_decoder.m_gifDecoder;
+            m_decoder.m_gifDecoder = 0;
         }
 #endif
-        
+
         int sampleSize = computeSampleSize(tmp);
         if (sampleSize > 1) {
             codec->setSampleSize(sampleSize);
@@ -284,8 +308,6 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
 
         m_decoder.m_image = new PrivateAndroidImageSourceRec(tmp, origW, origH,
                                                      sampleSize);
-        
-//        SkDebugf("----- started: [%d %d] %s\n", origW, origH, m_decoder.m_url.c_str());
     }
 
     PrivateAndroidImageSourceRec* decoder = m_decoder.m_image;
