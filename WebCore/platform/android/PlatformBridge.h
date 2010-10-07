@@ -125,8 +125,6 @@ public:
     // ANDROID
     // TODO: Upstream to webkit.org. See https://bugs.webkit.org/show_bug.cgi?id=34082
     static bool isWebViewPaused(const FrameView*);
-
-    static bool canScroll(const FrameView*);
     static String resolveFilePathForContentUri(const String&);
 };
 
