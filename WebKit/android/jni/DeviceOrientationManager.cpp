@@ -50,38 +50,65 @@ void DeviceOrientationManager::useMock()
     m_useMock = true;
 }
 
+void DeviceOrientationManager::setMockMotion(PassRefPtr<DeviceMotionData> motion)
+{
+    if (m_useMock)
+        ; // TODO: Pass the motion to the mock client.
+}
+
+void DeviceOrientationManager::onMotionChange(PassRefPtr<DeviceMotionData> motion)
+{
+    ASSERT(!m_useMock);
+    // TODO: Pass the motion to the client impl.
+}
+
 void DeviceOrientationManager::setMockOrientation(PassRefPtr<DeviceOrientation> orientation)
 {
-    if (!m_useMock)
-        return;
-    static_cast<DeviceOrientationClientMock*>(client())->setOrientation(orientation);
-};
+    if (m_useMock)
+        static_cast<DeviceOrientationClientMock*>(orientationClient())->setOrientation(orientation);
+}
 
 void DeviceOrientationManager::onOrientationChange(PassRefPtr<DeviceOrientation> orientation)
 {
     ASSERT(!m_useMock);
-    static_cast<DeviceOrientationClientImpl*>(m_client.get())->onOrientationChange(orientation);
+    static_cast<DeviceOrientationClientImpl*>(m_orientationClient.get())->onOrientationChange(orientation);
 }
 
-void DeviceOrientationManager::maybeSuspendClient()
+void DeviceOrientationManager::maybeSuspendClients()
 {
-    if (!m_useMock && m_client)
-        static_cast<DeviceOrientationClientImpl*>(m_client.get())->suspend();
+    if (!m_useMock) {
+        if (m_motionClient)
+            ; // TODO: Suspend the client impl.
+        if (m_orientationClient)
+            static_cast<DeviceOrientationClientImpl*>(m_orientationClient.get())->suspend();
+    }
 }
 
-void DeviceOrientationManager::maybeResumeClient()
+void DeviceOrientationManager::maybeResumeClients()
 {
-    if (!m_useMock && m_client)
-        static_cast<DeviceOrientationClientImpl*>(m_client.get())->resume();
+    if (!m_useMock) {
+        if (m_motionClient)
+            ; // TODO: Resume the client impl.
+        if (m_orientationClient)
+            static_cast<DeviceOrientationClientImpl*>(m_orientationClient.get())->resume();
+    }
 }
 
-DeviceOrientationClient* DeviceOrientationManager::client()
+DeviceMotionClient* DeviceOrientationManager::motionClient()
 {
-    if (!m_client)
-        m_client.set(m_useMock ? new DeviceOrientationClientMock
+    if (!m_motionClient)
+        ; // TODO: Create the client.
+    ASSERT(m_motionClient);
+    return m_motionClient.get();
+}
+
+DeviceOrientationClient* DeviceOrientationManager::orientationClient()
+{
+    if (!m_orientationClient)
+        m_orientationClient.set(m_useMock ? new DeviceOrientationClientMock
                 : static_cast<DeviceOrientationClient*>(new DeviceOrientationClientImpl(m_webViewCore)));
-    ASSERT(m_client);
-    return m_client.get();
+    ASSERT(m_orientationClient);
+    return m_orientationClient.get();
 }
 
 // JNI for android.webkit.DeviceOrientationManager

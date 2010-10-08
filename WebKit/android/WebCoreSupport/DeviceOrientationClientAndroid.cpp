@@ -75,7 +75,7 @@ void DeviceOrientationClientAndroid::deviceOrientationControllerDestroyed()
 DeviceOrientationClient* DeviceOrientationClientAndroid::client() const
 {
     if (!m_client) {
-        m_client = m_webViewCore->deviceOrientationManager()->client();
+        m_client = m_webViewCore->deviceOrientationManager()->orientationClient();
         m_client->setController(m_controller);
     }
     return m_client;
