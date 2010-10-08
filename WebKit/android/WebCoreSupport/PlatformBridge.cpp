@@ -160,6 +160,12 @@ FloatRect PlatformBridge::screenRect()
     return FloatRect(0.0, 0.0, info.w, info.h);
 }
 
+void PlatformBridge::updateViewport(FrameView* frameView)
+{
+    android::WebViewCore* webViewCore = android::WebViewCore::getWebViewCore(frameView);
+    webViewCore->updateViewport();
+}
+
 }  // namespace WebCore
 
 

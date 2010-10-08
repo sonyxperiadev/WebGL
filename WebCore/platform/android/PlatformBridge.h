@@ -130,6 +130,9 @@ public:
 
     static int screenDepth();
     static FloatRect screenRect();
+
+    // Update the viewport meta data.
+    static void updateViewport(FrameView*);
 };
 
 }

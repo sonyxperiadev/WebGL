@@ -36,8 +36,8 @@
 #include "ScriptEventListener.h"
 
 #ifdef ANDROID_META_SUPPORT
+#include "PlatformBridge.h"
 #include "Settings.h"
-#include "WebViewCore.h"
 #endif
 
 namespace WebCore {
@@ -208,7 +208,7 @@ void HTMLBodyElement::insertedIntoDocument()
             if (!ownerElement) {
                 FrameView* view = document()->view();
                 if (view)
-                    android::WebViewCore::getWebViewCore(view)->updateViewport();
+                    PlatformBridge::updateViewport(view);
             }
         }
     }
