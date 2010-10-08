@@ -84,6 +84,7 @@ namespace WebCore {
 
 class Document;
 class FrameView;
+class Node;
 class Widget;
 
 // An interface to the embedding layer, which has the ability to answer
@@ -133,6 +134,8 @@ public:
 
     // Update the viewport meta data.
     static void updateViewport(FrameView*);
+
+    static void updateTextfield(FrameView*, Node*, bool changeToPassword, const WTF::String& text);
 };
 
 }

@@ -166,6 +166,12 @@ void PlatformBridge::updateViewport(FrameView* frameView)
     webViewCore->updateViewport();
 }
 
+void PlatformBridge::updateTextfield(FrameView* frameView, Node* nodePtr, bool changeToPassword, const WTF::String& text)
+{
+    android::WebViewCore* webViewCore = android::WebViewCore::getWebViewCore(frameView);
+    webViewCore->updateTextfield(nodePtr, changeToPassword, text);
+}
+
 }  // namespace WebCore
 
 

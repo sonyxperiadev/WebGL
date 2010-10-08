@@ -68,7 +68,7 @@
 #include "StepRange.h"
 #include "TextEvent.h"
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
-#include "WebViewCore.h"
+#include "PlatformBridge.h"
 #endif
 #include "WheelEvent.h"
 #include <wtf/HashMap.h>
@@ -885,7 +885,7 @@ void HTMLInputElement::updateType()
     DeprecatedInputType newType = typeString.isEmpty() ? TEXT : typeMap->get(typeString);
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
     if (newType == PASSWORD && document()->focusedNode() == this)
-        android::WebViewCore::getWebViewCore(document()->view())->updateTextfield(this, true, String());
+        PlatformBridge::updateTextfield(document()->view(), this, true, String());
 #endif
 
     // IMPORTANT: Don't allow the type to be changed to FILE after the first
@@ -1638,7 +1638,7 @@ void HTMLInputElement::setValue(const String& value, bool sendChangeEvent)
         unsigned max = m_data.value().length();
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
         // Make sure our UI side textfield changes to match the RenderTextControl
-        android::WebViewCore::getWebViewCore(document()->view())->updateTextfield(this, false, value);
+        PlatformBridge::updateTextfield(document()->view(), this, false, value);
 #endif
         if (document()->focusedNode() == this)
             InputElement::updateSelectionRange(this, this, max, max);
