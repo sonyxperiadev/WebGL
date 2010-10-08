@@ -26,9 +26,10 @@
 #ifndef PlatformBridge_h
 #define PlatformBridge_h
 
+#include "FloatRect.h"
 #include "KURL.h"
-#include "npapi.h"
 #include "PlatformString.h"
+#include "npapi.h"
 
 #include <wtf/Vector.h>
 
@@ -126,6 +127,9 @@ public:
     // TODO: Upstream to webkit.org. See https://bugs.webkit.org/show_bug.cgi?id=34082
     static bool isWebViewPaused(const FrameView*);
     static String resolveFilePathForContentUri(const String&);
+
+    static int screenDepth();
+    static FloatRect screenRect();
 };
 
 }
