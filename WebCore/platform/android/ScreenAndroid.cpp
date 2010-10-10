@@ -24,60 +24,40 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define LOG_TAG "WebCore"
-
 #include "config.h"
 #include "Screen.h"
 
-// This include must come first.
-#undef LOG // FIXME: Still have to do this to get the log to show up
-#include "utils/Log.h"
-
-#include "FloatRect.h"
-#include "Widget.h"
-#include <ui/DisplayInfo.h>
-#include <ui/PixelFormat.h>
-#include <surfaceflinger/SurfaceComposerClient.h>
-#include "ScrollView.h"
-#include "WebCoreViewBridge.h"
+#include "PlatformBridge.h"
 
 namespace WebCore {
 
-int screenDepth(Widget* page)
+int screenDepth(Widget*)
 {
-    android::DisplayInfo info;
-    android::SurfaceComposerClient::getDisplayInfo(android::DisplayID(0), &info);
-    return info.pixelFormatInfo.bitsPerPixel;
+    return PlatformBridge::screenDepth();
 }
 
-int screenDepthPerComponent(Widget* page)
+int screenDepthPerComponent(Widget*)
 {
-    android::DisplayInfo info;
-    android::SurfaceComposerClient::getDisplayInfo(android::DisplayID(0), &info);
-    return info.pixelFormatInfo.bitsPerPixel;
+    return PlatformBridge::screenDepth();
 }
 
-bool screenIsMonochrome(Widget* page)
+bool screenIsMonochrome(Widget*)
 {
     return false;
 }
 
 // This is used by JavaScript Screen object and media query for device info. We
 // should return the value in the device pixel.
-FloatRect screenRect(Widget* page)
+FloatRect screenRect(Widget*)
 {
-    android::DisplayInfo info;
-    android::SurfaceComposerClient::getDisplayInfo(android::DisplayID(0), &info);
-    return FloatRect(0.0, 0.0, info.w, info.h);
+    return PlatformBridge::screenRect();
 }
 
 // Similar as screenRect, this is used by JavaScript Screen object. This is also
 // used by JavaScript Window to position and resize (usually to full screen).
-FloatRect screenAvailableRect(Widget* page)
+FloatRect screenAvailableRect(Widget*)
 {
-    android::DisplayInfo info;
-    android::SurfaceComposerClient::getDisplayInfo(android::DisplayID(0), &info);
-    return FloatRect(0.0, 0.0, info.w, info.h);
+    return PlatformBridge::screenRect();
 }
 
 } // namespace WebCore

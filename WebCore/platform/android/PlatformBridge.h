@@ -26,9 +26,10 @@
 #ifndef PlatformBridge_h
 #define PlatformBridge_h
 
+#include "FloatRect.h"
 #include "KURL.h"
-#include "npapi.h"
 #include "PlatformString.h"
+#include "npapi.h"
 
 #include <wtf/Vector.h>
 
@@ -83,6 +84,7 @@ namespace WebCore {
 
 class Document;
 class FrameView;
+class Node;
 class Widget;
 
 // An interface to the embedding layer, which has the ability to answer
@@ -126,6 +128,14 @@ public:
     // TODO: Upstream to webkit.org. See https://bugs.webkit.org/show_bug.cgi?id=34082
     static bool isWebViewPaused(const FrameView*);
     static String resolveFilePathForContentUri(const String&);
+
+    static int screenDepth();
+    static FloatRect screenRect();
+
+    // Update the viewport meta data.
+    static void updateViewport(FrameView*);
+
+    static void updateTextfield(FrameView*, Node*, bool changeToPassword, const WTF::String& text);
 };
 
 }

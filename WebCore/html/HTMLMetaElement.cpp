@@ -28,8 +28,8 @@
 #include "HTMLNames.h"
 
 #ifdef ANDROID_META_SUPPORT
+#include "PlatformBridge.h"
 #include "Settings.h"
-#include "WebViewCore.h"
 #endif
 
 #if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
@@ -95,7 +95,7 @@ void HTMLMetaElement::process()
     if (updateViewport && !document()->ownerElement()) {
         FrameView* view = document()->view();
         if (view)
-            android::WebViewCore::getWebViewCore(view)->updateViewport();
+            PlatformBridge::updateViewport(view);
     }
 #else
     if (equalIgnoringCase(name(), "viewport"))

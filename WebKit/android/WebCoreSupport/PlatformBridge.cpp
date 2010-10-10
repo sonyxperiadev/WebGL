@@ -37,6 +37,10 @@
 #include "WebRequestContext.h"
 #include "WebViewCore.h"
 #include "npruntime.h"
+
+#include <surfaceflinger/SurfaceComposerClient.h>
+#include <ui/DisplayInfo.h>
+#include <ui/PixelFormat.h>
 #include <wtf/android/AndroidThreading.h>
 #include <wtf/MainThread.h>
 
@@ -48,7 +52,7 @@ WTF::Vector<String> PlatformBridge::getSupportedKeyStrengthList()
 {
     KeyGeneratorClient* client = JavaSharedClient::GetKeyGeneratorClient();
     if (!client)
-        return Vector<String>();
+        return WTF::Vector<String>();
 
     return client->getSupportedKeyStrengthList();
 }
@@ -140,6 +144,32 @@ String PlatformBridge::resolveFilePathForContentUri(const String& contentUri)
 {
     FileSystemClient* client = JavaSharedClient::GetFileSystemClient();
     return client->resolveFilePathForContentUri(contentUri);
+}
+
+int PlatformBridge::PlatformBridge::screenDepth()
+{
+    android::DisplayInfo info;
+    android::SurfaceComposerClient::getDisplayInfo(android::DisplayID(0), &info);
+    return info.pixelFormatInfo.bitsPerPixel;
+}
+
+FloatRect PlatformBridge::screenRect()
+{
+    android::DisplayInfo info;
+    android::SurfaceComposerClient::getDisplayInfo(android::DisplayID(0), &info);
+    return FloatRect(0.0, 0.0, info.w, info.h);
+}
+
+void PlatformBridge::updateViewport(FrameView* frameView)
+{
+    android::WebViewCore* webViewCore = android::WebViewCore::getWebViewCore(frameView);
+    webViewCore->updateViewport();
+}
+
+void PlatformBridge::updateTextfield(FrameView* frameView, Node* nodePtr, bool changeToPassword, const WTF::String& text)
+{
+    android::WebViewCore* webViewCore = android::WebViewCore::getWebViewCore(frameView);
+    webViewCore->updateTextfield(nodePtr, changeToPassword, text);
 }
 
 }  // namespace WebCore

@@ -50,7 +50,7 @@
 #include <wtf/StdLibExtras.h>
 
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
-#include "WebViewCore.h"
+#include "PlatformBridge.h"
 #endif
 
 namespace WebCore {
@@ -325,7 +325,7 @@ void HTMLTextAreaElement::setValueCommon(const String& value)
     if (document()->focusedNode() == this) {
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
         // Make sure our UI side textfield changes to match the RenderTextControl
-        android::WebViewCore::getWebViewCore(document()->view())->updateTextfield(this, false, value);
+        PlatformBridge::updateTextfield(document()->view(), this, false, value);
 #endif
         unsigned endOfString = m_value.length();
         setSelectionRange(endOfString, endOfString);
