@@ -61,13 +61,7 @@ void PluginPackage::freeLibrarySoon()
     ASSERT(m_module);
     ASSERT(!m_loadCount);
 
-#ifdef ANDROID_PLUGINS
-    // TODO(jripley): Timer<T> is broken. Unload immediately for now.
-    unloadModule(m_module);
-    m_module = 0;
-#else
     m_freeLibraryTimer.startOneShot(0);
-#endif
 }
 
 void PluginPackage::freeLibraryTimerFired(Timer<PluginPackage>*)
