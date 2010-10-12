@@ -91,6 +91,7 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 extern void ANPAudioTrackInterfaceV0_Init(ANPInterface* value);
+extern void ANPAudioTrackInterfaceV1_Init(ANPInterface* value);
 extern void ANPBitmapInterfaceV0_Init(ANPInterface* value);
 extern void ANPCanvasInterfaceV0_Init(ANPInterface* value);
 extern void ANPEventInterfaceV0_Init(ANPInterface* value);
@@ -115,6 +116,7 @@ struct VarProcPair {
 
 static const VarProcPair gVarProcs[] = {
     { VARPROCLINE(AudioTrackInterfaceV0)    },
+    { VARPROCLINE(AudioTrackInterfaceV1)    },
     { VARPROCLINE(BitmapInterfaceV0)        },
     { VARPROCLINE(CanvasInterfaceV0)        },
     { VARPROCLINE(EventInterfaceV0)         },

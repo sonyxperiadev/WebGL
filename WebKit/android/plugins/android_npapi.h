@@ -120,6 +120,8 @@ typedef uint32_t ANPMatrixFlag;
 #define kSystemInterfaceV0_ANPGetValue      ((NPNVariable)1010)
 #define kEventInterfaceV0_ANPGetValue       ((NPNVariable)1011)
 
+#define kAudioTrackInterfaceV1_ANPGetValue  ((NPNVariable)1012)
+
 /** queries for the drawing models supported on this device.
 
     NPN_GetValue(inst, kSupportedDrawingModel_ANPGetValue, uint32_t* bits)
@@ -760,6 +762,11 @@ struct ANPAudioTrackInterfaceV0 : ANPInterface {
         or start was never called.
      */
     bool (*isStopped)(ANPAudioTrack*);
+};
+
+struct ANPAudioTrackInterfaceV1 : ANPAudioTrackInterfaceV0 {
+    /** Returns the track's latency in milliseconds. */
+    uint32_t (*trackLatency)(ANPAudioTrack*);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
