@@ -488,7 +488,7 @@ void CacheBuilder::Debug::groups() {
                     snprintf(scratch, sizeof(scratch), "// renderBlock:"
                         " columnRects=%d columnGap=%d direction=%d"
                         " hasOverflowClip=%d overflow=(%d,%d,w=%d,h=%d)",
-                        renderBlock->columnRects(), renderBlock->columnGap(),
+                        renderBlock->columnInfo()->columnCount(), renderBlock->columnGap(),
                         renderBlock->style()->direction(), renderer->hasOverflowClip(),
                         oRect.x(), oRect.y(), oRect.width(), oRect.height());
                     newLine();
@@ -582,7 +582,7 @@ void CacheBuilder::Debug::groups() {
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d, %d, %d", 
                             0 /*textBox->spaceAdd()*/, textBox->start(), 0 /*textBox->textPos()*/);
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d, %d, %d, %d", 
-                            textBox->x(), textBox->y(), textBox->width(), textBox->height());
+                            textBox->x(), textBox->y(), textBox->logicalWidth(), textBox->logicalHeight());
                         int baseline = textBox->renderer()->style(textBox->isFirstLineStyle())->font().ascent();
                         mIndex += snprintf(&mBuffer[mIndex], mBufferSize - mIndex, ", %d }, // %d ", 
                             baseline, ++rectIndex);
@@ -785,6 +785,8 @@ CacheBuilder::CacheBuilder()
 void CacheBuilder::adjustForColumns(const ClipColumnTracker& track, 
     CachedNode* node, IntRect* bounds, RenderBlock* renderer)
 {
+    if (!renderer->hasColumns())
+        return;
     int x = 0;
     int y = 0;
     int tx = track.mBounds.x();
