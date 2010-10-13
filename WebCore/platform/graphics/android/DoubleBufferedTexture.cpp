@@ -95,9 +95,7 @@ EGLContext DoubleBufferedTexture::producerAcquireContext() {
 }
 
 TextureInfo* DoubleBufferedTexture::producerLock() {
-    m_varLock.lock();
     SharedTexture* sharedTex = getFrontTexture();
-    m_varLock.unlock();
     LOGV("Acquiring P Lock (%d)", sharedTex->getSourceTextureId());
     TextureInfo* texInfo = sharedTex->lockSource();
     LOGV("Acquired P Lock");
@@ -106,11 +104,9 @@ TextureInfo* DoubleBufferedTexture::producerLock() {
 }
 
 void DoubleBufferedTexture::producerRelease() {
-    m_varLock.lock();
     // get the front texture and cache the id
     SharedTexture* sharedTex = getFrontTexture();
     LOGV("Releasing P Lock (%d)", sharedTex->getSourceTextureId());
-    m_varLock.unlock();
 
     sharedTex->releaseSource();
 
