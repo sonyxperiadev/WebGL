@@ -43,7 +43,7 @@ public:
     AutoFillHostAndroid(WebAutoFill* autoFill);
     virtual ~AutoFillHostAndroid() { }
 
-    virtual void AutoFillSuggestionsReturned(int queryId, const std::vector<string16>& names, const std::vector<string16>& labels, const std::vector<int>& uniqueIds);
+    virtual void AutoFillSuggestionsReturned(int queryId, const std::vector<string16>& names, const std::vector<string16>& labels, const std::vector<string16>& icons, const std::vector<int>& uniqueIds);
     virtual void AutoFillFormDataFilled(int queryId, const webkit_glue::FormData&);
 
 private:

@@ -26,6 +26,7 @@
 #include "config.h"
 #include "WebUrlLoaderClient.h"
 
+#include "ChromiumIncludes.h"
 #include "OwnPtr.h"
 #include "ResourceHandle.h"
 #include "ResourceHandleClient.h"
@@ -196,9 +197,9 @@ void WebUrlLoaderClient::setAuth(const std::string& username, const std::string&
     if (!thread) {
         return;
     }
-    std::wstring wUsername = base::SysUTF8ToWide(username);
-    std::wstring wPassword = base::SysUTF8ToWide(password);
-    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::setAuth, wUsername, wPassword));
+    string16 username16 = ASCIIToUTF16(username);
+    string16 password16 = ASCIIToUTF16(password);
+    thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::setAuth, username16, password16));
 }
 
 void WebUrlLoaderClient::cancelAuth()

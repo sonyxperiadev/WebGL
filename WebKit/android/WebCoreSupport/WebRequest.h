@@ -71,7 +71,7 @@ public:
     virtual void OnAuthRequired(URLRequest*, net::AuthChallengeInfo*);
 
     // Methods called during a request by the UI code (via WebUrlLoaderClient).
-    void setAuth(const std::wstring& username, const std::wstring& password);
+    void setAuth(const string16& username, const string16& password);
     void cancelAuth();
 
 private:

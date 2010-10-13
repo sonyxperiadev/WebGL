@@ -27,6 +27,7 @@
 
 #include "WebRequestContext.h"
 
+#include "ChromiumIncludes.h"
 #include "JNIUtility.h"
 #include "WebUrlLoaderClient.h"
 #include "jni.h"
@@ -138,12 +139,13 @@ scoped_refptr<WebRequestContext> WebRequestContext::GetAndroidContextForPath(con
     FilePath cachePath(cacheString.c_str());
 
     scoped_refptr<WebRequestContext> androidContext = new WebRequestContext();
-    androidContext->host_resolver_ = net::CreateSystemHostResolver(0);
+    androidContext->host_resolver_ = net::CreateSystemHostResolver(net::HostResolver::kDefaultParallelism, 0);
     base::Thread* ioThread = WebUrlLoaderClient::ioThread();
     scoped_refptr<base::MessageLoopProxy> cacheMessageLoopProxy = ioThread->message_loop_proxy();
     // Todo: check if the context takes ownership of the cache
     net::HttpCache::DefaultBackend* defaultBackend = new net::HttpCache::DefaultBackend(net::DISK_CACHE, cachePath, 20 * 1024 * 1024, cacheMessageLoopProxy);
-    androidContext->http_transaction_factory_ = new net::HttpCache(androidContext->host_resolver(), net::ProxyService::CreateNull(), net::SSLConfigService::CreateSystemSSLConfigService(), net::HttpAuthHandlerFactory::CreateDefault(), 0, 0, defaultBackend);
+
+    androidContext->http_transaction_factory_ = new net::HttpCache(androidContext->host_resolver(), net::ProxyService::CreateDirect(), net::SSLConfigService::CreateSystemSSLConfigService(), net::HttpAuthHandlerFactory::CreateDefault(androidContext->host_resolver_), 0, 0, defaultBackend);
 
     scoped_refptr<SQLitePersistentCookieStore> cookieDb = new SQLitePersistentCookieStore(cookiePath);
 
