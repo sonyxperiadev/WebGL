@@ -23,62 +23,49 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "DeviceMotionClientAndroid.h"
+#ifndef DeviceMotionClientImpl_h
+#define DeviceMotionClientImpl_h
 
-#include "WebViewCore.h"
+#include <DeviceMotionClient.h>
+#include <DeviceMotionData.h>
+#include <JNIUtility.h>
+#include <PassRefPtr.h>
+#include <RefPtr.h>
 
 using namespace WebCore;
 
 namespace android {
 
-DeviceMotionClientAndroid::DeviceMotionClientAndroid()
-    : m_client(0)
-{
-}
+class DeviceOrientationManager;
+class WebViewCore;
 
-void DeviceMotionClientAndroid::setWebViewCore(WebViewCore* webViewCore)
-{
-    m_webViewCore = webViewCore;
-    ASSERT(m_webViewCore);
-}
+class DeviceMotionClientImpl : public DeviceMotionClient {
+public:
+    DeviceMotionClientImpl(WebViewCore*);
 
-void DeviceMotionClientAndroid::setController(DeviceMotionController* controller)
-{
-    // This will be called by the Page constructor before the WebViewCore
-    // has been configured regarding the mock. We cache the controller for
-    // later use.
-    m_controller = controller;
-    ASSERT(m_controller);
-}
+    void onMotionChange(PassRefPtr<DeviceMotionData>);
+    void suspend();
+    void resume();
 
-void DeviceMotionClientAndroid::startUpdating()
-{
-    client()->startUpdating();
-}
+    // DeviceMotionClient methods
+    virtual void startUpdating();
+    virtual void stopUpdating();
+    virtual DeviceMotionData* currentDeviceMotion() const { return m_lastMotion.get(); }
+    virtual void setController(DeviceMotionController* controller) { m_controller = controller; }
+    virtual void deviceMotionControllerDestroyed() { }
 
-void DeviceMotionClientAndroid::stopUpdating()
-{
-    client()->stopUpdating();
-}
+protected:
+    virtual ~DeviceMotionClientImpl();
 
-DeviceMotionData* DeviceMotionClientAndroid::currentDeviceMotion() const
-{
-    return client()->currentDeviceMotion();
-}
+    jobject getJavaInstance();
+    void releaseJavaInstance();
 
-void DeviceMotionClientAndroid::deviceMotionControllerDestroyed()
-{
-      delete this;
-}
-
-DeviceMotionClient* DeviceMotionClientAndroid::client() const
-{
-    if (!m_client) {
-        m_client = m_webViewCore->deviceOrientationManager()->motionClient();
-        m_client->setController(m_controller);
-    }
-    return m_client;
-}
+    WebViewCore* m_webViewCore;
+    jobject m_javaServiceObject;
+    DeviceMotionController* m_controller;
+    RefPtr<DeviceMotionData> m_lastMotion;
+};
 
 } // namespace android
+
+#endif // DeviceMotionClientImpl_h

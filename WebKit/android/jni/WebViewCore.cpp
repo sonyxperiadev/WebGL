@@ -268,6 +268,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_populateVisitedLinks;
     jmethodID   m_geolocationPermissionsShowPrompt;
     jmethodID   m_geolocationPermissionsHidePrompt;
+    jmethodID   m_getDeviceMotionService;
     jmethodID   m_getDeviceOrientationService;
     jmethodID   m_addMessageToConsole;
     jmethodID   m_formDidBlur;
@@ -360,6 +361,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_populateVisitedLinks = GetJMethod(env, clazz, "populateVisitedLinks", "()V");
     m_javaGlue->m_geolocationPermissionsShowPrompt = GetJMethod(env, clazz, "geolocationPermissionsShowPrompt", "(Ljava/lang/String;)V");
     m_javaGlue->m_geolocationPermissionsHidePrompt = GetJMethod(env, clazz, "geolocationPermissionsHidePrompt", "()V");
+    m_javaGlue->m_getDeviceMotionService = GetJMethod(env, clazz, "getDeviceMotionService", "()Landroid/webkit/DeviceMotionService;");
     m_javaGlue->m_getDeviceOrientationService = GetJMethod(env, clazz, "getDeviceOrientationService", "()Landroid/webkit/DeviceOrientationService;");
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;I)V");
     m_javaGlue->m_formDidBlur = GetJMethod(env, clazz, "formDidBlur", "(I)V");
@@ -3009,6 +3011,15 @@ void WebViewCore::geolocationPermissionsHidePrompt()
     env->CallVoidMethod(m_javaGlue->object(env).get(),
                         m_javaGlue->m_geolocationPermissionsHidePrompt);
     checkException(env);
+}
+
+jobject WebViewCore::getDeviceMotionService()
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jobject object = env->CallObjectMethod(m_javaGlue->object(env).get(),
+                                           m_javaGlue->m_getDeviceMotionService);
+    checkException(env);
+    return object;
 }
 
 jobject WebViewCore::getDeviceOrientationService()
