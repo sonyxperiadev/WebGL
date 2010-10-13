@@ -26,6 +26,7 @@
 #include "config.h"
 #include "DeviceOrientationManager.h"
 
+#include "DeviceMotionClientImpl.h"
 #include "DeviceOrientationClientImpl.h"
 #include "DeviceOrientationController.h"
 #include "WebViewCore.h"
@@ -53,13 +54,13 @@ void DeviceOrientationManager::useMock()
 void DeviceOrientationManager::setMockMotion(PassRefPtr<DeviceMotionData> motion)
 {
     if (m_useMock)
-        ; // TODO: Pass the motion to the mock client.
+        ; // TODO: There is not yet a DeviceMotion mock.
 }
 
 void DeviceOrientationManager::onMotionChange(PassRefPtr<DeviceMotionData> motion)
 {
     ASSERT(!m_useMock);
-    // TODO: Pass the motion to the client impl.
+    static_cast<DeviceMotionClientImpl*>(m_motionClient.get())->onMotionChange(motion);
 }
 
 void DeviceOrientationManager::setMockOrientation(PassRefPtr<DeviceOrientation> orientation)
@@ -78,7 +79,7 @@ void DeviceOrientationManager::maybeSuspendClients()
 {
     if (!m_useMock) {
         if (m_motionClient)
-            ; // TODO: Suspend the client impl.
+            static_cast<DeviceMotionClientImpl*>(m_motionClient.get())->suspend();
         if (m_orientationClient)
             static_cast<DeviceOrientationClientImpl*>(m_orientationClient.get())->suspend();
     }
@@ -88,7 +89,7 @@ void DeviceOrientationManager::maybeResumeClients()
 {
     if (!m_useMock) {
         if (m_motionClient)
-            ; // TODO: Resume the client impl.
+            static_cast<DeviceMotionClientImpl*>(m_motionClient.get())->resume();
         if (m_orientationClient)
             static_cast<DeviceOrientationClientImpl*>(m_orientationClient.get())->resume();
     }
@@ -96,8 +97,10 @@ void DeviceOrientationManager::maybeResumeClients()
 
 DeviceMotionClient* DeviceOrientationManager::motionClient()
 {
+    // TODO: There is not yet a DeviceMotion mock.
     if (!m_motionClient)
-        ; // TODO: Create the client.
+        m_motionClient.set(m_useMock ? 0
+                : static_cast<DeviceMotionClient*>(new DeviceMotionClientImpl(m_webViewCore)));
     ASSERT(m_motionClient);
     return m_motionClient.get();
 }
@@ -126,6 +129,15 @@ static void useMock(JNIEnv* env, jobject, jobject webViewCoreObject)
     getWebViewCore(env, webViewCoreObject)->deviceOrientationManager()->useMock();
 }
 
+static void onMotionChange(JNIEnv* env, jobject, jobject webViewCoreObject, bool canProvideX, double x, bool canProvideY, double y, bool canProvideZ, double z, double interval)
+{
+    // We only provide accelerationIncludingGravity.
+    RefPtr<DeviceMotionData::Acceleration> accelerationIncludingGravity = DeviceMotionData::Acceleration::create(canProvideX, x, canProvideY, y, canProvideZ, z);
+    bool canProvideInterval = canProvideX || canProvideY || canProvideZ;
+    RefPtr<DeviceMotionData> motion = DeviceMotionData::create(0, accelerationIncludingGravity.release(), 0, canProvideInterval, interval);
+    getWebViewCore(env, webViewCoreObject)->deviceOrientationManager()->onMotionChange(motion.release());
+}
+
 static void setMockOrientation(JNIEnv* env, jobject, jobject webViewCoreObject, bool canProvideAlpha, double alpha, bool canProvideBeta, double beta, bool canProvideGamma, double gamma)
 {
     RefPtr<DeviceOrientation> orientation = DeviceOrientation::create(canProvideAlpha, alpha, canProvideBeta, beta, canProvideGamma, gamma);
@@ -140,6 +152,7 @@ static void onOrientationChange(JNIEnv* env, jobject, jobject webViewCoreObject,
 
 static JNINativeMethod gDeviceOrientationManagerMethods[] = {
     { "nativeUseMock", "(Landroid/webkit/WebViewCore;)V", (void*) useMock },
+    { "nativeOnMotionChange", "(Landroid/webkit/WebViewCore;ZDZDZDD)V", (void*) onMotionChange },
     { "nativeSetMockOrientation", "(Landroid/webkit/WebViewCore;ZDZDZD)V", (void*) setMockOrientation },
     { "nativeOnOrientationChange", "(Landroid/webkit/WebViewCore;ZDZDZD)V", (void*) onOrientationChange }
 };

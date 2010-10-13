@@ -136,6 +136,10 @@ static bool ANPTrackIsStopped(ANPAudioTrack* track) {
     return track->mTrack->stopped();
 }
 
+static uint32_t ANPTrackLatency(ANPAudioTrack* track) {
+    return track->mTrack->latency();
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 void ANPAudioTrackInterfaceV0_Init(ANPInterface* value) {
@@ -146,4 +150,12 @@ void ANPAudioTrackInterfaceV0_Init(ANPInterface* value) {
     si->pause       = ANPTrackPause;
     si->stop        = ANPTrackStop;
     si->isStopped   = ANPTrackIsStopped;
+}
+
+void ANPAudioTrackInterfaceV1_Init(ANPInterface* value) {
+    // initialize the functions from the previous interface
+    ANPAudioTrackInterfaceV0_Init(value);
+    // add any new functions or override existing functions
+    ANPAudioTrackInterfaceV1* si = reinterpret_cast<ANPAudioTrackInterfaceV1*>(value);
+    si->trackLatency = ANPTrackLatency;
 }

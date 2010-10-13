@@ -71,4 +71,20 @@ WTF::String to_string(JNIEnv* env, jstring str)
     return ret;
 }
 
+#if USE(CHROME_NETWORK_STACK)
+string16 jstringToString16(JNIEnv* env, jstring jstr)
+{
+    if (!jstr || !env)
+        return string16();
+
+    const char* s = env->GetStringUTFChars(jstr, 0);
+    if (!s)
+        return string16();
+    string16 str = UTF8ToUTF16(s);
+    env->ReleaseStringUTFChars(jstr, s);
+    checkException(env);
+    return str;
+}
+#endif
+
 }

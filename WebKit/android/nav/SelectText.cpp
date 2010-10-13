@@ -33,6 +33,7 @@
 #include "SkBitmap.h"
 #include "SkBounder.h"
 #include "SkCanvas.h"
+#include "SkGradientShader.h"
 #include "SkMatrix.h"
 #include "SkPicture.h"
 #include "SkPixelXorXfermode.h"
@@ -1175,70 +1176,100 @@ static WTF::String text(const SkPicture& picture, const SkIRect& area,
     return extractor.text();
 }
 
-#define CONTROL_OFFSET 3
-#define CONTROL_NOTCH 9
-#define CONTROL_HEIGHT 18
-#define CONTROL_WIDTH  12
-#define STROKE_WIDTH 0.4f
+#define CONTROL_OFFSET 0
+#define CONTROL_NOTCH 19
+#define CONTROL_HEIGHT 35
+#define CONTROL_WIDTH 21
+#define STROKE_WIDTH 2.0f
+#define STROKE_OUTSET 1.0f
+#define STROKE_NOTCH_R 2.2f
+#define STROKE_NOTCH_L 1.7f
+#define DROP_HEIGHT 4
+
+#define STROKE_COLOR 0x90000000
+#define FILL_GRADIENT_TOP 0xD0F8DFA0
+#define FILL_GRADIENT_BOTTOM 0xD0FFEFEF
+#define DROP_GRADIENT_TOP 0x50000000
+#define DROP_GRADIENT_BOTTOM 0x00000000
+
 #define SLOP 20
 
 SelectText::SelectText()
 {
     reset();
-    SkScalar innerW = CONTROL_WIDTH - STROKE_WIDTH;
-    SkScalar innerH = CONTROL_HEIGHT - STROKE_WIDTH;
     SkPaint paint;
+
+    SkPath startFillPath;
+    startFillPath.moveTo(-CONTROL_WIDTH + STROKE_OUTSET, CONTROL_NOTCH);
+    startFillPath.lineTo(-CONTROL_WIDTH + STROKE_OUTSET, CONTROL_HEIGHT - STROKE_OUTSET);
+    startFillPath.lineTo(-STROKE_OUTSET, CONTROL_HEIGHT - STROKE_OUTSET);
+    startFillPath.lineTo(-STROKE_OUTSET, CONTROL_OFFSET + STROKE_NOTCH_R);
+    startFillPath.close();
+    SkPath startStrokePath;
+    startStrokePath.moveTo(-CONTROL_WIDTH, CONTROL_NOTCH);
+    startStrokePath.lineTo(-CONTROL_WIDTH, CONTROL_HEIGHT);
+    startStrokePath.lineTo(0, CONTROL_HEIGHT);
+    startStrokePath.lineTo(0, CONTROL_OFFSET);
+    startStrokePath.close();
+    SkPoint gradientLine[] = {{0, 0}, {0, CONTROL_HEIGHT}};
+    SkColor gradientColors[] = {FILL_GRADIENT_TOP, FILL_GRADIENT_BOTTOM};
+    SkShader* fillGradient = SkGradientShader::CreateLinear(gradientLine,
+        gradientColors, 0, 2, SkShader::kClamp_TileMode);
+    SkPoint dropLine[] = {{0, CONTROL_HEIGHT}, {0, CONTROL_HEIGHT + DROP_HEIGHT}};
+    SkColor dropColors[] = {DROP_GRADIENT_TOP, DROP_GRADIENT_BOTTOM};
+    SkShader* dropGradient = SkGradientShader::CreateLinear(dropLine,
+        dropColors, 0, 2, SkShader::kClamp_TileMode);
+    SkRect startDropRect = {-CONTROL_WIDTH - STROKE_OUTSET, CONTROL_HEIGHT,
+        STROKE_OUTSET, CONTROL_HEIGHT + DROP_HEIGHT};
+
+    SkCanvas* canvas = m_startControl.beginRecording(CONTROL_WIDTH, CONTROL_HEIGHT + DROP_HEIGHT);
     paint.setAntiAlias(true);
-    paint.setStrokeWidth(STROKE_WIDTH);
-
-    SkPath startPath;
-    startPath.moveTo(-CONTROL_WIDTH, CONTROL_NOTCH);
-    startPath.lineTo(-CONTROL_WIDTH, CONTROL_HEIGHT);
-    startPath.lineTo(0, CONTROL_HEIGHT);
-    startPath.lineTo(0, CONTROL_OFFSET);
-    startPath.close();
-
-    SkCanvas* canvas = m_startControl.beginRecording(CONTROL_WIDTH, CONTROL_HEIGHT);
     paint.setStyle(SkPaint::kFill_Style);
-    paint.setColor(0xD077A14B);
-    canvas->drawPath(startPath, paint);
+    paint.setShader(fillGradient);
+    canvas->drawPath(startFillPath, paint);
+    paint.setShader(0);
     paint.setStyle(SkPaint::kStroke_Style);
-    paint.setColor(0x40000000);
-    canvas->drawLine(-innerW, CONTROL_NOTCH, -innerW, innerH, paint);
-    canvas->drawLine(-innerW + STROKE_WIDTH, innerH, -STROKE_WIDTH, innerH, paint);
-    paint.setColor(0x40ffffff);
-    canvas->drawLine(0, CONTROL_OFFSET + STROKE_WIDTH,
-        -CONTROL_WIDTH, CONTROL_NOTCH + STROKE_WIDTH, paint);
-    canvas->drawLine(-STROKE_WIDTH, CONTROL_NOTCH + STROKE_WIDTH,
-        -STROKE_WIDTH, innerH, paint);
-    paint.setColor(0xffaaaaaa);
-    canvas->drawPath(startPath, paint);
+    paint.setColor(STROKE_COLOR);
+    paint.setStrokeWidth(STROKE_WIDTH);
+    canvas->drawPath(startStrokePath, paint);
+    paint.setStyle(SkPaint::kFill_Style);
+    paint.setColor(0xff000000);
+    paint.setShader(dropGradient);
+    canvas->drawRect(startDropRect, paint);
     m_startControl.endRecording();
 
-    SkPath endPath;
-    endPath.moveTo(0, CONTROL_OFFSET);
-    endPath.lineTo(0, CONTROL_HEIGHT);
-    endPath.lineTo(CONTROL_WIDTH, CONTROL_HEIGHT);
-    endPath.lineTo(CONTROL_WIDTH, CONTROL_NOTCH);
-    endPath.close();
+    SkPath endFillPath;
+    endFillPath.moveTo(STROKE_OUTSET, CONTROL_OFFSET + STROKE_NOTCH_R);
+    endFillPath.lineTo(STROKE_OUTSET, CONTROL_HEIGHT - STROKE_OUTSET);
+    endFillPath.lineTo(CONTROL_WIDTH - STROKE_OUTSET, CONTROL_HEIGHT - STROKE_OUTSET);
+    endFillPath.lineTo(CONTROL_WIDTH - STROKE_OUTSET, CONTROL_NOTCH);
+    endFillPath.close();
+    SkPath endStrokePath;
+    endStrokePath.moveTo(0, CONTROL_OFFSET);
+    endStrokePath.lineTo(0, CONTROL_HEIGHT);
+    endStrokePath.lineTo(CONTROL_WIDTH, CONTROL_HEIGHT);
+    endStrokePath.lineTo(CONTROL_WIDTH, CONTROL_NOTCH);
+    endStrokePath.close();
+    SkRect endDropRect = {-STROKE_OUTSET, CONTROL_HEIGHT,
+        CONTROL_WIDTH + STROKE_OUTSET, CONTROL_HEIGHT + DROP_HEIGHT};
 
     canvas = m_endControl.beginRecording(CONTROL_WIDTH, CONTROL_HEIGHT);
+    paint.setColor(0xff000000);
     paint.setStyle(SkPaint::kFill_Style);
-    paint.setColor(0xD077A14B);
-    canvas->drawPath(endPath, paint);
+    paint.setShader(fillGradient);
+    canvas->drawPath(endFillPath, paint);
+    paint.setShader(0);
     paint.setStyle(SkPaint::kStroke_Style);
-    paint.setColor(0x40000000);
-    canvas->drawLine(STROKE_WIDTH, CONTROL_OFFSET + STROKE_WIDTH,
-        STROKE_WIDTH, innerH, paint);
-    canvas->drawLine(STROKE_WIDTH + STROKE_WIDTH, innerH, innerW, innerH, paint);
-    paint.setColor(0x40ffffff);
-    canvas->drawLine(0, CONTROL_OFFSET + STROKE_WIDTH,
-        CONTROL_WIDTH, CONTROL_NOTCH + STROKE_WIDTH, paint);
-    canvas->drawLine(STROKE_WIDTH, CONTROL_NOTCH + STROKE_WIDTH,
-        STROKE_WIDTH, innerH, paint);
-    paint.setColor(0xffaaaaaa);
-    canvas->drawPath(endPath, paint);
+    paint.setColor(STROKE_COLOR);
+    paint.setStrokeWidth(STROKE_WIDTH);
+    canvas->drawPath(endStrokePath, paint);
+    paint.setStyle(SkPaint::kFill_Style);
+    paint.setColor(0xff000000);
+    paint.setShader(dropGradient);
+    canvas->drawRect(endDropRect, paint);
     m_endControl.endRecording();
+    fillGradient->safeUnref();
+    dropGradient->safeUnref();
     m_picture = 0;
 }
 
@@ -1304,7 +1335,7 @@ void SelectText::drawSelectionRegion(SkCanvas* canvas)
 
     SkPaint paint;
     paint.setAntiAlias(true);
-    paint.setColor(SkColorSetARGB(0x80, 151, 200, 73));
+    paint.setColor(SkColorSetARGB(0x80, 0xFF, 0xA8, 0x00));
     canvas->drawPath(path, paint);
     // experiment to draw touchable controls that resize the selection
     canvas->save();
