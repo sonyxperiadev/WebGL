@@ -1501,17 +1501,32 @@ static jobject nativeFocusCandidateName(JNIEnv *env, jobject obj)
     return env->NewString((jchar*)name.characters(), name.length());
 }
 
+static jobject createJavaRect(JNIEnv* env, int x, int y, int right, int bottom)
+{
+    jclass rectClass = env->FindClass("android/graphics/Rect");
+    jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
+    jobject rect = env->NewObject(rectClass, init, x, y, right, bottom);
+    return rect;
+}
+
 static jobject nativeFocusCandidateNodeBounds(JNIEnv *env, jobject obj)
 {
     const CachedFrame* frame;
     const CachedNode* node = getFocusCandidate(env, obj, &frame);
     WebCore::IntRect bounds = node ? node->bounds(frame)
         : WebCore::IntRect(0, 0, 0, 0);
-    jclass rectClass = env->FindClass("android/graphics/Rect");
-    jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
-    jobject rect = env->NewObject(rectClass, init, bounds.x(),
-        bounds.y(), bounds.right(), bounds.bottom());
-    return rect;
+    return createJavaRect(env, bounds.x(), bounds.y(), bounds.right(), bounds.bottom());
+}
+
+static jobject nativeFocusCandidatePaddingRect(JNIEnv *env, jobject obj)
+{
+    const CachedInput* input = getInputCandidate(env, obj);
+    if (!input)
+        return 0;
+    // Note that the Java Rect is being used to pass four integers, rather than
+    // being used as an actual rectangle.
+    return createJavaRect(env, input->paddingLeft(), input->paddingTop(),
+            input->paddingRight(), input->paddingBottom());
 }
 
 static jint nativeFocusCandidatePointer(JNIEnv *env, jobject obj)
@@ -2064,6 +2079,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFocusCandidateName },
     { "nativeFocusCandidateNodeBounds", "()Landroid/graphics/Rect;",
         (void*) nativeFocusCandidateNodeBounds },
+    { "nativeFocusCandidatePaddingRect", "()Landroid/graphics/Rect;",
+        (void*) nativeFocusCandidatePaddingRect },
     { "nativeFocusCandidatePointer", "()I",
         (void*) nativeFocusCandidatePointer },
     { "nativeFocusCandidateText", "()Ljava/lang/String;",
