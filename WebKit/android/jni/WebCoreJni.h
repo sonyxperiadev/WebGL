@@ -26,6 +26,7 @@
 #ifndef ANDROID_WEBKIT_WEBCOREJNI_H
 #define ANDROID_WEBKIT_WEBCOREJNI_H
 
+#include "ChromiumIncludes.h"
 #include "PlatformString.h"
 #include <jni.h>
 
@@ -71,6 +72,10 @@ bool checkException(JNIEnv* env);
 
 // Create a WTF::String object from a jstring object.
 WTF::String to_string(JNIEnv* env, jstring str);
+
+#if USE(CHROME_NETWORK_STACK)
+string16 jstringToString16(JNIEnv* env, jstring jstr);
+#endif
 
 }
 
