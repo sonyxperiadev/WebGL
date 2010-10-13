@@ -167,13 +167,23 @@ bool WebAutoFill::enabled() const
     return page ? page->settings()->autoFillEnabled() : false;
 }
 
-void WebAutoFill::setProfile(const string16& fullName, const string16& emailAddress)
+void WebAutoFill::setProfile(const string16& fullName, const string16& emailAddress, const string16& companyName, const string16& addressLine1,
+                             const string16& addressLine2, const string16& city, const string16& state, const string16& zipCode,
+                             const string16& country, const string16& phoneNumber)
 {
     AutoFillProfile autoFillProfile;
 
     // Constants for AutoFill field types are found in external/chromium/chrome/browser/autofill/field_types.h.
     autoFillProfile.SetInfo(AutoFillType(NAME_FULL), fullName);
     autoFillProfile.SetInfo(AutoFillType(EMAIL_ADDRESS), emailAddress);
+    autoFillProfile.SetInfo(AutoFillType(COMPANY_NAME), companyName);
+    autoFillProfile.SetInfo(AutoFillType(ADDRESS_HOME_LINE1), addressLine1);
+    autoFillProfile.SetInfo(AutoFillType(ADDRESS_HOME_LINE2), addressLine2);
+    autoFillProfile.SetInfo(AutoFillType(ADDRESS_HOME_CITY), city);
+    autoFillProfile.SetInfo(AutoFillType(ADDRESS_HOME_STATE), state);
+    autoFillProfile.SetInfo(AutoFillType(ADDRESS_HOME_ZIP), zipCode);
+    autoFillProfile.SetInfo(AutoFillType(ADDRESS_HOME_COUNTRY), country);
+    autoFillProfile.SetInfo(AutoFillType(PHONE_HOME_WHOLE_NUMBER), phoneNumber);
 
     std::vector<AutoFillProfile> profiles;
     profiles.push_back(autoFillProfile);
