@@ -882,7 +882,7 @@ WebFrame::getRawResourceFilename(WebCore::PlatformBridge::rawResId id) const
     jstring ret = (jstring) env->CallObjectMethod(mJavaFrame->frame(env).get(),
             mJavaFrame->mGetRawResFilename, (int)id);
 
-    return to_string(env, ret);
+    return jstringToWtfString(env, ret);
 }
 
 float
@@ -1060,7 +1060,7 @@ static void LoadUrl(JNIEnv *env, jobject obj, jstring url, jobject headers)
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeLoadUrl must take a valid frame pointer!");
 
-    WTF::String webcoreUrl = to_string(env, url);
+    WTF::String webcoreUrl = jstringToWtfString(env, url);
     WebCore::KURL kurl(WebCore::KURL(), webcoreUrl);
     WebCore::ResourceRequest request(kurl);
     if (headers) {
@@ -1089,7 +1089,7 @@ static void LoadUrl(JNIEnv *env, jobject obj, jstring url, jobject headers)
             jobject entry = env->CallObjectMethod(iter, next);
             jstring key = (jstring) env->CallObjectMethod(entry, getKey);
             jstring value = (jstring) env->CallObjectMethod(entry, getValue);
-            request.setHTTPHeaderField(to_string(env, key), to_string(env, value));
+            request.setHTTPHeaderField(jstringToWtfString(env, key), jstringToWtfString(env, value));
             env->DeleteLocalRef(entry);
             env->DeleteLocalRef(key);
             env->DeleteLocalRef(value);
@@ -1114,7 +1114,7 @@ static void PostUrl(JNIEnv *env, jobject obj, jstring url, jbyteArray postData)
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativePostUrl must take a valid frame pointer!");
 
-    WebCore::KURL kurl(WebCore::KURL(), to_string(env, url));
+    WebCore::KURL kurl(WebCore::KURL(), jstringToWtfString(env, url));
     WebCore::ResourceRequest request(kurl);
     request.setHTTPMethod("POST");
     request.setHTTPContentType("application/x-www-form-urlencoded");
@@ -1145,7 +1145,7 @@ static void LoadData(JNIEnv *env, jobject obj, jstring baseUrl, jstring data,
     LOG_ASSERT(pFrame, "nativeLoadData must take a valid frame pointer!");
 
     // Setup the resource request
-    WebCore::ResourceRequest request(to_string(env, baseUrl));
+    WebCore::ResourceRequest request(jstringToWtfString(env, baseUrl));
 
     // Setup the substituteData
     const char* dataStr = env->GetStringUTFChars(data, NULL);
@@ -1156,8 +1156,8 @@ static void LoadData(JNIEnv *env, jobject obj, jstring baseUrl, jstring data,
     env->ReleaseStringUTFChars(data, dataStr);
 
     WebCore::SubstituteData substituteData(sharedBuffer,
-            to_string(env, mimeType), to_string(env, encoding),
-            WebCore::KURL(ParsedURLString, to_string(env, failUrl)));
+            jstringToWtfString(env, mimeType), jstringToWtfString(env, encoding),
+            WebCore::KURL(ParsedURLString, jstringToWtfString(env, failUrl)));
 
     // Perform the load
     pFrame->loader()->load(request, substituteData, false);
@@ -1378,7 +1378,7 @@ static jobject StringByEvaluatingJavaScriptFromString(JNIEnv *env, jobject obj, 
     LOG_ASSERT(pFrame, "stringByEvaluatingJavaScriptFromString must take a valid frame pointer!");
 
     WebCore::ScriptValue value =
-            pFrame->script()->executeScript(to_string(env, script), true);
+            pFrame->script()->executeScript(jstringToWtfString(env, script), true);
     WTF::String result = WTF::String();
     ScriptState* scriptState = mainWorldScriptState(pFrame);
     if (!value.getString(scriptState, result))
@@ -1726,8 +1726,8 @@ static void SetUsernamePassword(JNIEnv *env, jobject obj,
         node = form->nextItem();
     }
     if (found) {
-        usernameEle->setValue(to_string(env, username));
-        passwordEle->setValue(to_string(env, password));
+        usernameEle->setValue(jstringToWtfString(env, username));
+        passwordEle->setValue(jstringToWtfString(env, password));
     }
 }
 

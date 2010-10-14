@@ -119,7 +119,7 @@ void GeolocationServiceBridge::newErrorAvailable(JNIEnv* env, jclass, jlong nati
 {
     GeolocationServiceBridge* object = reinterpret_cast<GeolocationServiceBridge*>(nativeObject);
     RefPtr<PositionError> error =
-        PositionError::create(PositionError::POSITION_UNAVAILABLE, android::to_string(env, message));
+        PositionError::create(PositionError::POSITION_UNAVAILABLE, android::jstringToWtfString(env, message));
     object->m_listener->newErrorAvailable(error.release());
 }
 

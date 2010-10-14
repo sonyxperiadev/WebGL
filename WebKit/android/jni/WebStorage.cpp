@@ -72,7 +72,7 @@ static jobject GetOrigins(JNIEnv* env, jobject obj)
 
 static unsigned long long GetQuotaForOrigin(JNIEnv* env, jobject obj, jstring origin)
 {
-    WTF::String originStr = to_string(env, origin);
+    WTF::String originStr = jstringToWtfString(env, origin);
     RefPtr<WebCore::SecurityOrigin> securityOrigin = WebCore::SecurityOrigin::createFromString(originStr);
     unsigned long long quota = WebCore::DatabaseTracker::tracker().quotaForOrigin(securityOrigin.get());
     return quota;
@@ -80,7 +80,7 @@ static unsigned long long GetQuotaForOrigin(JNIEnv* env, jobject obj, jstring or
 
 static unsigned long long GetUsageForOrigin(JNIEnv* env, jobject obj, jstring origin)
 {
-    WTF::String originStr = to_string(env, origin);
+    WTF::String originStr = jstringToWtfString(env, origin);
     RefPtr<WebCore::SecurityOrigin> securityOrigin = WebCore::SecurityOrigin::createFromString(originStr);
     unsigned long long usage = WebCore::DatabaseTracker::tracker().usageForOrigin(securityOrigin.get());
     Vector<WebCore::KURL> manifestUrls;
@@ -102,14 +102,14 @@ static unsigned long long GetUsageForOrigin(JNIEnv* env, jobject obj, jstring or
 
 static void SetQuotaForOrigin(JNIEnv* env, jobject obj, jstring origin, unsigned long long quota)
 {
-    WTF::String originStr = to_string(env, origin);
+    WTF::String originStr = jstringToWtfString(env, origin);
     RefPtr<WebCore::SecurityOrigin> securityOrigin = WebCore::SecurityOrigin::createFromString(originStr);
     WebCore::DatabaseTracker::tracker().setQuota(securityOrigin.get(), quota);
 }
 
 static void DeleteOrigin(JNIEnv* env, jobject obj, jstring origin)
 {
-    WTF::String originStr = to_string(env, origin);
+    WTF::String originStr = jstringToWtfString(env, origin);
     RefPtr<WebCore::SecurityOrigin> securityOrigin = WebCore::SecurityOrigin::createFromString(originStr);
     WebCore::DatabaseTracker::tracker().deleteOrigin(securityOrigin.get());
 

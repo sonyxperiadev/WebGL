@@ -216,7 +216,7 @@ JavaBridge::cookies(WebCore::KURL const& url)
     AutoJObject obj = getRealObject(env, mJavaObject);
     jstring string = (jstring)(env->CallObjectMethod(obj.get(), mCookies, jUrlStr));
     
-    WTF::String ret = to_string(env, string);
+    WTF::String ret = jstringToWtfString(env, string);
     env->DeleteLocalRef(jUrlStr);
     env->DeleteLocalRef(string);
     return ret;
@@ -242,7 +242,7 @@ JavaBridge::getPluginDirectories()
     int count = env->GetArrayLength(array);
     for (int i = 0; i < count; i++) {
         jstring dir = (jstring) env->GetObjectArrayElement(array, i);
-        directories.append(to_string(env, dir));
+        directories.append(jstringToWtfString(env, dir));
         env->DeleteLocalRef(dir);
     }
     env->DeleteLocalRef(array);
@@ -256,7 +256,7 @@ JavaBridge::getPluginSharedDataDirectory()
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = getRealObject(env, mJavaObject);
     jstring ret = (jstring)env->CallObjectMethod(obj.get(), mGetPluginSharedDataDirectory);
-    WTF::String path = to_string(env, ret);
+    WTF::String path = jstringToWtfString(env, ret);
     checkException(env);
     return path;
 }
@@ -289,7 +289,7 @@ WTF::Vector<WTF::String>JavaBridge::getSupportedKeyStrengthList() {
     int count = env->GetArrayLength(array);
     for (int i = 0; i < count; ++i) {
         jstring keyStrength = (jstring) env->GetObjectArrayElement(array, i);
-        list.append(to_string(env, keyStrength));
+        list.append(jstringToWtfString(env, keyStrength));
         env->DeleteLocalRef(keyStrength);
     }
     env->DeleteLocalRef(array);
@@ -307,7 +307,7 @@ WTF::String JavaBridge::getSignedPublicKeyAndChallengeString(unsigned index,
     AutoJObject obj = getRealObject(env, mJavaObject);
     jstring key = (jstring) env->CallObjectMethod(obj.get(),
             mGetSignedPublicKey, index, jChallenge, jUrl);
-    WTF::String ret = to_string(env, key);
+    WTF::String ret = jstringToWtfString(env, key);
     env->DeleteLocalRef(jChallenge);
     env->DeleteLocalRef(jUrl);
     env->DeleteLocalRef(key);
@@ -319,7 +319,7 @@ WTF::String JavaBridge::resolveFilePathForContentUri(const WTF::String& uri) {
     jstring jUri = env->NewString(uri.characters(), uri.length());
     AutoJObject obj = getRealObject(env, mJavaObject);
     jstring path = static_cast<jstring>(env->CallObjectMethod(obj.get(), mResolveFilePathForContentUri, jUri));
-    WTF::String ret = to_string(env, path);
+    WTF::String ret = jstringToWtfString(env, path);
     env->DeleteLocalRef(jUri);
     env->DeleteLocalRef(path);
     return ret;
@@ -378,8 +378,8 @@ void JavaBridge::SetNetworkType(JNIEnv* env, jobject obj, jstring javatype, jstr
     DEFINE_STATIC_LOCAL(AtomicString, edge, ("edge"));
     DEFINE_STATIC_LOCAL(AtomicString, umts, ("umts"));
 
-    String type = to_string(env, javatype);
-    String subtype = to_string(env, javasubtype);
+    String type = jstringToWtfString(env, javatype);
+    String subtype = jstringToWtfString(env, javasubtype);
     Connection::ConnectionType connectionType = Connection::UNKNOWN;
     if (type == wifi)
         connectionType = Connection::WIFI;
@@ -403,7 +403,7 @@ void JavaBridge::UpdatePluginDirectories(JNIEnv* env, jobject obj,
     int count = env->GetArrayLength(array);
     for (int i = 0; i < count; i++) {
         jstring dir = (jstring) env->GetObjectArrayElement(array, i);
-        directories.append(to_string(env, dir));
+        directories.append(jstringToWtfString(env, dir));
         env->DeleteLocalRef(dir);
     }
     checkException(env);
@@ -432,7 +432,7 @@ void JavaBridge::AddPackageNames(JNIEnv* env, jobject obj, jobject packageNames)
     HashSet<WTF::String> namesSet;
     while (env->CallBooleanMethod(iter, hasNext)) {
         jstring name = static_cast<jstring>(env->CallObjectMethod(iter, next));
-        namesSet.add(to_string(env, name));
+        namesSet.add(jstringToWtfString(env, name));
         env->DeleteLocalRef(name);
     }
 
@@ -445,12 +445,12 @@ void JavaBridge::AddPackageNames(JNIEnv* env, jobject obj, jobject packageNames)
 
 void JavaBridge::AddPackageName(JNIEnv* env, jobject obj, jstring packageName)
 {
-    packageNotifier().addPackageName(to_string(env, packageName));
+    packageNotifier().addPackageName(jstringToWtfString(env, packageName));
 }
 
 void JavaBridge::RemovePackageName(JNIEnv* env, jobject obj, jstring packageName)
 {
-    packageNotifier().removePackageName(to_string(env, packageName));
+    packageNotifier().removePackageName(jstringToWtfString(env, packageName));
 }
 
 

@@ -1980,7 +1980,7 @@ static void nativeUpdateCachedTextfield(JNIEnv *env, jobject obj, jstring update
     const CachedNode* cachedFocusNode = root->currentFocus();
     if (!cachedFocusNode || !cachedFocusNode->isTextInput())
         return;
-    WTF::String webcoreString = to_string(env, updatedText);
+    WTF::String webcoreString = jstringToWtfString(env, updatedText);
     (const_cast<CachedNode*>(cachedFocusNode))->setExport(webcoreString);
     root->setTextGeneration(generation);
     checkException(env);

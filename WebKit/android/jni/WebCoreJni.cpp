@@ -58,7 +58,7 @@ bool checkException(JNIEnv* env)
 }
 
 // This method is safe to call from the ui thread and the WebCore thread.
-WTF::String to_string(JNIEnv* env, jstring str)
+WTF::String jstringToWtfString(JNIEnv* env, jstring str)
 {
     if (!str || !env)
         return WTF::String();

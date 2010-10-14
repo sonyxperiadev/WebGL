@@ -60,7 +60,7 @@ static void setPosition(JNIEnv* env, jobject, double latitude, double longitude,
 static void setError(JNIEnv* env, jobject, int code, jstring message)
 {
     PositionError::ErrorCode codeEnum = static_cast<PositionError::ErrorCode>(code);
-    String messageString = to_string(env, message);
+    String messageString = jstringToWtfString(env, message);
     RefPtr<PositionError> error = PositionError::create(codeEnum, messageString);
     GeolocationServiceMock::setError(error.release());
 }
