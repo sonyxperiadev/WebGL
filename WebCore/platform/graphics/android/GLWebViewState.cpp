@@ -89,12 +89,14 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, IntRect& rect)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
     m_baseLayer = layer;
-    m_baseLayer->setGLWebViewState(this);
-    m_invalidatedRect.set(rect);
-    m_currentPictureCounter++;
     m_extra = 0;
     delete m_navLayer;
     m_navLayer = 0;
+    if (m_baseLayer) {
+        m_baseLayer->setGLWebViewState(this);
+        m_invalidatedRect.set(rect);
+        m_currentPictureCounter++;
+    }
     XLOG("%x setBaseLayer %x (%d)", this, layer, m_currentPictureCounter);
 }
 
