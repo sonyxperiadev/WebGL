@@ -175,6 +175,9 @@ public:
     unsigned int currentPictureCounter() const { return m_currentPictureCounter; }
     SkRect& invalidatedRect() { return m_invalidatedRect; }
 
+    void baseLayerLock() { m_baseLayerLock.lock(); }
+    void baseLayerUnlock() { m_baseLayerLock.unlock(); }
+
 private:
 
     // Delay between scheduling a new page when the scale
