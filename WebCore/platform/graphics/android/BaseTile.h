@@ -23,44 +23,61 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef BaseLayerAndroid_h
-#define BaseLayerAndroid_h
+#ifndef BaseTile_h
+#define BaseTile_h
 
-#include "GLWebViewState.h"
-#include "IntRect.h"
-#include "PictureSet.h"
-#include "SkLayer.h"
+#if USE(ACCELERATED_COMPOSITING)
+
+#include "BackedDoubleBufferedTexture.h"
+#include "HashMap.h"
+#include "SkBitmap.h"
+#include "SkCanvas.h"
+#include "SkRect.h"
+
+#include <EGL/egl.h>
+#include <EGL/eglext.h>
+#include <GLES2/gl2.h>
 
 namespace WebCore {
 
-class BaseLayerAndroid : public SkLayer {
+class TiledPage;
 
+class BaseTile {
 public:
 #ifdef DEBUG_COUNT
     static int count();
 #endif
-    BaseLayerAndroid();
-    virtual ~BaseLayerAndroid();
+    BaseTile(TiledPage* page, int x, int y, int quality = 1);
+    ~BaseTile();
 
-#if USE(ACCELERATED_COMPOSITING)
-    void setGLWebViewState(GLWebViewState* infos) { m_glWebViewState = infos; }
-#endif
-    void setContent(const android::PictureSet& src);
-    android::PictureSet* content() { return &m_content; }
-
-    bool drawGL(IntRect& rect, SkRect& viewport,
-                float scale, SkColor color = SK_ColorWHITE);
+    void reserveTexture();
+    void removeTexture();
+    void setUsedLevel(int);
+    bool paintBitmap();
+    bool isBitmapReady();
+    float scale() const { return m_scale; }
+    void setScale(float scale) { m_scale = scale; }
+    void draw(float transparency, SkRect& rect);
+    TiledPage* page() { return m_page; }
+    int quality() const { return m_quality; }
+    int x() const { return m_x; }
+    int y() const { return m_y; }
+    BackedDoubleBufferedTexture* texture() { return m_texture; }
 
 private:
-#if USE(ACCELERATED_COMPOSITING)
-    bool drawBasePictureInGL(SkRect& viewport, float scale);
-
-    GLWebViewState* m_glWebViewState;
-#endif
-    android::PictureSet m_content;
-    SkRect m_previousVisible;
+    TiledPage* m_page;
+    BackedDoubleBufferedTexture* m_texture;
+    int m_x;
+    int m_y;
+    int m_quality;
+    float m_scale;
+    android::Mutex m_varLock;
 };
+
+typedef std::pair<int, int> TileKey;
+typedef HashMap<TileKey, BaseTile*> TileMap;
 
 } // namespace WebCore
 
-#endif // BaseLayerAndroid_h
+#endif // USE(ACCELERATED_COMPOSITING)
+#endif // BaseTile_h

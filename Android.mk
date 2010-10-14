@@ -292,6 +292,9 @@ LOCAL_CFLAGS += -DGOOGLEURL
 LOCAL_CFLAGS += -DWTF_USE_CHROME_NETWORK_STACK
 endif # HTTP_STACK == chrome
 
+# Adds GL and EGL extensions for the GL backend
+LOCAL_CFLAGS += -DGL_GLEXT_PROTOTYPES -DEGL_EGLEXT_PROTOTYPES
+
 # Enable JSC JIT if JSC is used and ENABLE_JSC_JIT environment
 # variable is set to true
 ifeq ($(JAVASCRIPT_ENGINE),jsc)
@@ -344,7 +347,9 @@ LOCAL_SHARED_LIBRARIES := \
 	libicuuc \
 	libicui18n \
 	libmedia \
-	libsurfaceflinger_client
+	libsurfaceflinger_client \
+	libEGL \
+	libGLESv2
 
 ifeq ($(WEBCORE_INSTRUMENTATION),true)
 LOCAL_SHARED_LIBRARIES += libhardware_legacy

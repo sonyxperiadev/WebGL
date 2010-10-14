@@ -131,6 +131,14 @@ struct FieldIds {
         jclass autoFillProfileClass = env->FindClass("android/webkit/WebSettings$AutoFillProfile");
         mAutoFillProfileFullName = env->GetFieldID(autoFillProfileClass, "mFullName", "Ljava/lang/String;");
         mAutoFillProfileEmailAddress = env->GetFieldID(autoFillProfileClass, "mEmailAddress", "Ljava/lang/String;");
+        mAutoFillProfileCompanyName = env->GetFieldID(autoFillProfileClass, "mCompanyName", "Ljava/lang/String;");
+        mAutoFillProfileAddressLine1 = env->GetFieldID(autoFillProfileClass, "mAddressLine1", "Ljava/lang/String;");
+        mAutoFillProfileAddressLine2 = env->GetFieldID(autoFillProfileClass, "mAddressLine2", "Ljava/lang/String;");
+        mAutoFillProfileCity = env->GetFieldID(autoFillProfileClass, "mCity", "Ljava/lang/String;");
+        mAutoFillProfileState = env->GetFieldID(autoFillProfileClass, "mState", "Ljava/lang/String;");
+        mAutoFillProfileZipCode = env->GetFieldID(autoFillProfileClass, "mZipCode", "Ljava/lang/String;");
+        mAutoFillProfileCountry = env->GetFieldID(autoFillProfileClass, "mCountry", "Ljava/lang/String;");
+        mAutoFillProfilePhoneNumber = env->GetFieldID(autoFillProfileClass, "mPhoneNumber", "Ljava/lang/String;");
 #endif
 
         LOG_ASSERT(mLayoutAlgorithm, "Could not find field mLayoutAlgorithm");
@@ -243,6 +251,14 @@ struct FieldIds {
     jfieldID mAutoFillProfile;
     jfieldID mAutoFillProfileFullName;
     jfieldID mAutoFillProfileEmailAddress;
+    jfieldID mAutoFillProfileCompanyName;
+    jfieldID mAutoFillProfileAddressLine1;
+    jfieldID mAutoFillProfileAddressLine2;
+    jfieldID mAutoFillProfileCity;
+    jfieldID mAutoFillProfileState;
+    jfieldID mAutoFillProfileZipCode;
+    jfieldID mAutoFillProfileCountry;
+    jfieldID mAutoFillProfilePhoneNumber;
 #endif
 };
 
@@ -261,21 +277,26 @@ static void recursiveCleanupForFullLayout(WebCore::RenderObject* obj)
 }
 
 #if ENABLE(WEB_AUTOFILL)
+inline string16 getStringFieldAsString16(JNIEnv* env, jobject autoFillProfile, jfieldID fieldId)
+{
+    jstring str = static_cast<jstring>(env->GetObjectField(autoFillProfile, fieldId));
+    return str ? jstringToString16(env, str) : string16();
+}
+
 void syncAutoFillProfile(JNIEnv* env, jobject autoFillProfile, WebAutoFill* webAutoFill)
 {
-    jstring str;
-    string16 fullName;
-    string16 emailAddress;
+    string16 fullName = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileFullName);
+    string16 emailAddress = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileEmailAddress);
+    string16 companyName = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileCompanyName);
+    string16 addressLine1 = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileAddressLine1);
+    string16 addressLine2 = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileAddressLine2);
+    string16 city = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileCity);
+    string16 state = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileState);
+    string16 zipCode = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileZipCode);
+    string16 country = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfileCountry);
+    string16 phoneNumber = getStringFieldAsString16(env, autoFillProfile, gFieldIds->mAutoFillProfilePhoneNumber);
 
-    str = static_cast<jstring>(env->GetObjectField(autoFillProfile, gFieldIds->mAutoFillProfileFullName));
-    if (str)
-        fullName = jstringToString16(env, str);
-
-    str = static_cast<jstring>(env->GetObjectField(autoFillProfile, gFieldIds->mAutoFillProfileEmailAddress));
-    if (str)
-        emailAddress = jstringToString16(env, str);
-
-    webAutoFill->setProfile(fullName, emailAddress);
+    webAutoFill->setProfile(fullName, emailAddress, companyName, addressLine1, addressLine2, city, state, zipCode, country, phoneNumber);
 }
 #endif
 

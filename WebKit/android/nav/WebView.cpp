@@ -53,6 +53,7 @@
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
 #endif
+#include "TilesManager.h"
 #include "WebCoreJni.h"
 #include "WebRequestContext.h"
 #include "WebViewCore.h"
@@ -382,6 +383,56 @@ void drawCursorPostamble()
     } else {
         hideCursor();
     }
+}
+
+bool drawGL(WebCore::IntRect& viewRect, float scale, int extras)
+{
+#if USE(ACCELERATED_COMPOSITING)
+    if (!m_baseLayer)
+        return false;
+
+    m_glWebViewState.resetExtra(false);
+    CachedRoot* root = getFrameCache(AllowNewer);
+    if (!root) {
+        DBG_NAV_LOG("!root");
+        if (extras == DrawExtrasCursorRing)
+            resetCursorRing();
+        return false;
+    }
+    DrawExtra* extra = 0;
+    switch (extras) {
+        case DrawExtrasFind:
+            extra = &m_findOnPage;
+            break;
+        case DrawExtrasSelection:
+            extra = &m_selectText;
+            break;
+        case DrawExtrasCursorRing:
+            if (drawCursorPreamble(root) && m_ring.setup()) {
+                if (!m_ring.m_isButton)
+                    extra = &m_ring;
+                drawCursorPostamble();
+            }
+            break;
+        default:
+            ;
+    }
+
+    unsigned int pic = m_glWebViewState.currentPictureCounter();
+    if (extra) {
+        LayerAndroid* mainPicture = new LayerAndroid(m_navPictureUI);
+        m_glWebViewState.setExtra(extra, mainPicture);
+    } else {
+        m_glWebViewState.resetExtra(true);
+    }
+
+    SkRect visibleRect;
+    calcOurContentVisibleRect(&visibleRect);
+    bool ret = m_baseLayer->drawGL(viewRect, visibleRect, scale);
+    if (ret || m_glWebViewState.currentPictureCounter() != pic)
+        return true;
+#endif
+    return false;
 }
 
 PictureSet* draw(SkCanvas* canvas, SkColor bgColor, int extras, bool split)
@@ -1207,8 +1258,12 @@ static void copyScrollPositionRecursive(const LayerAndroid* from,
     }
 }
 
-void setBaseLayer(BaseLayerAndroid* layer)
+void setBaseLayer(BaseLayerAndroid* layer, WebCore::IntRect& rect)
 {
+#if USE(ACCELERATED_COMPOSITING)
+    m_glWebViewState.setBaseLayer(layer, rect);
+#endif
+
     if (layer) {
         copyScrollPositionRecursive(compositeRoot(),
             static_cast<LayerAndroid*>(layer->getChild(0)));
@@ -1261,6 +1316,9 @@ private: // local state for WebView
     FindOnPage m_findOnPage;
     CursorRing m_ring;
     BaseLayerAndroid* m_baseLayer;
+#if USE(ACCELERATED_COMPOSITING)
+    GLWebViewState m_glWebViewState;
+#endif
 }; // end of WebView class
 
 /*
@@ -1497,6 +1555,13 @@ static jint nativeDraw(JNIEnv *env, jobject obj, jobject canv, jint color,
     return reinterpret_cast<jint>(GET_NATIVE_VIEW(env, obj)->draw(canvas, color, extras, split));
 }
 
+static bool nativeDrawGL(JNIEnv *env, jobject obj, jobject jrect,
+                         jfloat scale, jint extras)
+{
+    WebCore::IntRect viewRect = jrect_to_webrect(env, jrect);
+    return GET_NATIVE_VIEW(env, obj)->drawGL(viewRect, scale, extras);
+}
+
 static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj)
 {
 #if USE(ACCELERATED_COMPOSITING)
@@ -1507,10 +1572,11 @@ static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj)
     return false;
 }
 
-static void nativeSetBaseLayer(JNIEnv *env, jobject obj, jint layer)
+static void nativeSetBaseLayer(JNIEnv *env, jobject obj, jint layer, jobject jrect)
 {
     BaseLayerAndroid* layerImpl = reinterpret_cast<BaseLayerAndroid*>(layer);
-    GET_NATIVE_VIEW(env, obj)->setBaseLayer(layerImpl);
+    WebCore::IntRect rect = jrect_to_webrect(env, jrect);
+    GET_NATIVE_VIEW(env, obj)->setBaseLayer(layerImpl, rect);
 }
 
 static void nativeReplaceBaseContent(JNIEnv *env, jobject obj, jint content)
@@ -2165,6 +2231,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeDestroy },
     { "nativeDraw", "(Landroid/graphics/Canvas;IIZ)I",
         (void*) nativeDraw },
+    { "nativeDrawGL", "(Landroid/graphics/Rect;FI)Z",
+        (void*) nativeDrawGL },
     { "nativeDumpDisplayTree", "(Ljava/lang/String;)V",
         (void*) nativeDumpDisplayTree },
     { "nativeEvaluateLayersAnimations", "()Z",
@@ -2257,7 +2325,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetFindIsUp },
     { "nativeSetHeightCanMeasure", "(Z)V",
         (void*) nativeSetHeightCanMeasure },
-    { "nativeSetBaseLayer", "(I)V",
+    { "nativeSetBaseLayer", "(ILandroid/graphics/Rect;)V",
         (void*) nativeSetBaseLayer },
     { "nativeReplaceBaseContent", "(I)V",
         (void*) nativeReplaceBaseContent },
