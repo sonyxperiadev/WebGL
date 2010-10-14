@@ -119,8 +119,7 @@ void BaseTile::draw(float transparency, SkRect& rect)
         return;
     }
 
-    PaintingInfo info(m_x, m_y, m_page->glWebViewState(),
-                      m_page->currentPictureCounter());
+    PaintingInfo info(m_x, m_y, m_page->glWebViewState());
 
     TextureInfo* textureInfo = texture->consumerLock();
     if (!textureInfo) {
@@ -143,8 +142,7 @@ bool BaseTile::isBitmapReady()
         return false;
     if (m_texture->owner() != this)
         return false;
-    PaintingInfo info(m_x, m_y, m_page->glWebViewState(),
-                      m_page->currentPictureCounter());
+    PaintingInfo info(m_x, m_y, m_page->glWebViewState());
     return m_texture->consumerTextureUpToDate(info);
 }
 
@@ -170,8 +168,7 @@ bool BaseTile::paintBitmap()
         return false;
     }
 
-    int pictureUsed = m_page->currentPictureCounter();
-    PaintingInfo info(m_x, m_y, m_page->glWebViewState(), pictureUsed);
+    PaintingInfo info(m_x, m_y, m_page->glWebViewState());
     if (texture->consumerTextureUpToDate(info)) {
         texture->setBusy(false);
         return true;
