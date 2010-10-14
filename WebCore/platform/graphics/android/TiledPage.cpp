@@ -58,21 +58,20 @@ TiledPage::TiledPage(int id, GLWebViewState* state)
 {
 }
 
-BaseTile* TiledPage::getBaseTile(int x, int y, int quality)
+BaseTile* TiledPage::getBaseTile(int x, int y)
 {
     TileKey key(x + 1, y + 1);
     return m_baseTextures.get(key);
 }
 
-void TiledPage::prepareRow(bool goingLeft, int firstTileX, int y, TilesSet* set, int quality)
+void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y, TileSet* set)
 {
     if (y < 0)
         return;
     if (!set)
         return;
 
-    int nbCols = set->nbCols();
-    for (int i = 0; i < nbCols; i++) {
+    for (int i = 0; i < tilesInRow; i++) {
         int x = firstTileX;
 
         // If we are goingLeft, we want to schedule the tiles
@@ -80,7 +79,7 @@ void TiledPage::prepareRow(bool goingLeft, int firstTileX, int y, TilesSet* set,
         if (goingLeft)
           x += i;
         else
-          x += (nbCols - 1) - i;
+          x += (tilesInRow - 1) - i;
 
         TileKey key(x + 1, y + 1);
         BaseTile* tile = 0;
@@ -132,16 +131,16 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, int firstTileX, int firs
     int nbTilesWidth = m_glWebViewState->nbTilesWidth();
     int nbTilesHeight = m_glWebViewState->nbTilesHeight();
 
-    TilesSet* highResSet = new TilesSet(m_id + 1, scale(), firstTileX, firstTileY,
-                                       nbTilesHeight, nbTilesWidth);
+    TileSet* highResSet = new TileSet(m_id, firstTileX, firstTileY, nbTilesHeight, nbTilesWidth);
 
     // We chose to display tiles depending on the scroll direction:
     if (goingDown) {
         for (int i = 0; i < nbTilesHeight; i++)
-            prepareRow(goingLeft, firstTileX, firstTileY + i, highResSet, 1);
+            prepareRow(goingLeft, nbTilesWidth, firstTileX, firstTileY + i, highResSet);
     } else {
+        int startingTileY = firstTileY + (nbTilesHeight - 1);
         for (int i = 0; i < nbTilesHeight; i++)
-            prepareRow(goingLeft, firstTileX, firstTileY + (nbTilesHeight - 1) - i, highResSet, 1);
+            prepareRow(goingLeft, nbTilesWidth, firstTileX, startingTileY - i, highResSet);
     }
 
     TileMap::const_iterator end = m_baseTextures.end();
@@ -164,9 +163,9 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, int firstTileX, int firs
          nbTilesWidth, nbTilesHeight, firstTileX, firstTileY, this);
 #endif // DEBUG
 
-    // schedulePaintForTilesSet will take ownership of the highResSet here,
+    // schedulePaintForTileSet will take ownership of the highResSet here,
     // so no delete necessary.
-    TilesManager::instance()->schedulePaintForTilesSet(highResSet);
+    TilesManager::instance()->schedulePaintForTileSet(highResSet);
 }
 
 bool TiledPage::ready(int firstTileX, int firstTileY)
@@ -181,7 +180,7 @@ bool TiledPage::ready(int firstTileX, int firstTileY)
         for (int j = 0; j < nbTilesWidth; j++) {
             int x = j + firstTileX;
             int y = i + firstTileY;
-            BaseTile* t = getBaseTile(x, y, 1);
+            BaseTile* t = getBaseTile(x, y);
             if (!t || !t->isBitmapReady())
                 return false;
         }
@@ -206,7 +205,7 @@ void TiledPage::draw(float transparency, SkRect& viewport,
             int x = j + firstTileX;
             int y = i + firstTileY;
 
-            BaseTile* tile = getBaseTile(x, y, 1);
+            BaseTile* tile = getBaseTile(x, y);
 
             if (!tile) {
                 XLOG("NO TILE AT %d, %d", x, y);

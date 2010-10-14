@@ -31,7 +31,7 @@
 #include "BaseTile.h"
 #include "GLWebViewState.h"
 #include "SkCanvas.h"
-#include "TilesSet.h"
+#include "TileSet.h"
 
 namespace WebCore {
 
@@ -39,7 +39,7 @@ class TiledPage {
 public:
     TiledPage(int id, GLWebViewState* state);
     ~TiledPage() { }
-    BaseTile* getBaseTile(int x, int y, int quality);
+    BaseTile* getBaseTile(int x, int y);
     void prepare(bool goingDown, bool goingLeft, int firstTileX, int firstTileY);
     void setScale(float scale) { m_scale = scale; }
     bool ready(int firstTileX, int firstTileY);
@@ -51,7 +51,7 @@ public:
     GLWebViewState* glWebViewState() { return m_glWebViewState; }
 private:
     void setTileLevel(BaseTile* tile, int firstTileX, int firstTileY);
-    void prepareRow(bool goingLeft, int firstTileX, int y, TilesSet* set, int quality);
+    void prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y, TileSet* set);
     TileMap m_baseTextures;
     int m_id;
     float m_scale;
