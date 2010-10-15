@@ -4826,4 +4826,17 @@ void Document::decrementLoadEventDelayCount()
         frame()->loader()->checkCompleted();
 }
 
+#if ENABLE(TOUCH_EVENTS)
+PassRefPtr<Touch> Document::createTouch(DOMWindow* window, Node* target, int identifier, int pageX, int pageY, int screenX, int screenY, ExceptionCode&) const
+{
+    Frame* frame = window ? window->frame() : this->frame();
+    return Touch::create(frame, target, identifier, screenX, screenY, pageX, pageY);
+}
+
+PassRefPtr<TouchList> Document::createTouchList(ExceptionCode&) const
+{
+    return TouchList::create();
+}
+#endif
+
 } // namespace WebCore

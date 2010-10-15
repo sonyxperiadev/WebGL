@@ -136,6 +136,11 @@ class XPathResult;
 struct DashboardRegionValue;
 #endif
 
+#if ENABLE(TOUCH_EVENTS)
+class Touch;
+class TouchList;
+#endif
+
 typedef int ExceptionCode;
 
 class FormElementKey {
@@ -1040,6 +1045,11 @@ public:
     void incrementLoadEventDelayCount() { ++m_loadEventDelayCount; }
     void decrementLoadEventDelayCount();
     bool isDelayingLoadEvent() const { return m_loadEventDelayCount; }
+
+#if ENABLE(TOUCH_EVENTS)
+    PassRefPtr<Touch> createTouch(DOMWindow*, Node*, int identifier, int pageX, int pageY, int screenX, int screenY, ExceptionCode&) const;
+    PassRefPtr<TouchList> createTouchList(ExceptionCode&) const;
+#endif
 
 protected:
     Document(Frame*, const KURL& url, bool isXHTML, bool isHTML, const KURL& baseURL = KURL());

@@ -321,6 +321,18 @@ module core {
         attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchmove;
         attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchend;
         attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchcancel;
+#if defined(ENABLE_TOUCH_EVENTS) && ENABLE_TOUCH_EVENTS
+        [ReturnsNew] Touch createTouch(in DOMWindow window,
+                                       in Node target,
+                                       in long identifier,
+                                       in long pageX,
+                                       in long pageY,
+                                       in long ScreenX,
+                                       in long screenY)
+            raises (DOMException);
+        [ReturnsNew] TouchList createTouchList()
+            raises (DOMException);
+#endif
         attribute [DontEnum, Conditional=FULLSCREEN_API] EventListener onwebkitfullscreenchange;
 #endif
 
