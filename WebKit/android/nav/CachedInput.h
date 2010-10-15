@@ -45,18 +45,30 @@ public:
     bool isTextField() const { return mIsTextField; }
     int maxLength() const { return mMaxLength; };
     const WTF::String& name() const { return mName; }
+    int paddingBottom() const { return mPaddingBottom; }
+    int paddingLeft() const { return mPaddingLeft; }
+    int paddingRight() const { return mPaddingRight; }
+    int paddingTop() const { return mPaddingTop; }
     void setFormPointer(void* form) { mForm = form; }
     void setInputType(WebCore::HTMLInputElement::DeprecatedInputType type) { mInputType = type; }
     void setIsRtlText(bool isRtlText) { mIsRtlText = isRtlText; }
     void setIsTextField(bool isTextField) { mIsTextField = isTextField; }
     void setMaxLength(int maxLength) { mMaxLength = maxLength; }
     void setName(const WTF::String& name) { mName = name; }
+    void setPaddingBottom(int bottom) { mPaddingBottom = bottom; }
+    void setPaddingLeft(int left) { mPaddingLeft = left; }
+    void setPaddingRight(int right) { mPaddingRight = right; }
+    void setPaddingTop(int top) { mPaddingTop = top; }
     void setTextSize(int textSize) { mTextSize = textSize; }
     int textSize() const { return mTextSize; }
 private:
     void* mForm;
     WTF::String mName;
     int mMaxLength;
+    int mPaddingBottom;
+    int mPaddingLeft;
+    int mPaddingRight;
+    int mPaddingTop;
     int mTextSize;
     WebCore::HTMLInputElement::DeprecatedInputType mInputType;
     bool mIsRtlText : 1;
