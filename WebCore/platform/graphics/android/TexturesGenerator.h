@@ -28,7 +28,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "TilesSet.h"
+#include "TileSet.h"
 #include <utils/threads.h>
 
 namespace WebCore {
@@ -41,11 +41,11 @@ public:
     virtual ~TexturesGenerator() { }
     virtual status_t readyToRun();
 
-    void schedulePaintForTilesSet(TilesSet* set);
+    void schedulePaintForTileSet(TileSet* set);
 
 private:
     virtual bool threadLoop();
-    Vector<TilesSet*> mRequestedPixmaps;
+    Vector<TileSet*> mRequestedPixmaps;
     android::Mutex mRequestedPixmapsLock;
     android::Mutex m_newRequestLock;
     android::Condition m_newRequestCond;

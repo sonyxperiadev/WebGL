@@ -49,11 +49,11 @@
 
 namespace WebCore {
 
-void TexturesGenerator::schedulePaintForTilesSet(TilesSet* set)
+void TexturesGenerator::schedulePaintForTileSet(TileSet* set)
 {
     android::Mutex::Autolock lock(mRequestedPixmapsLock);
     for (unsigned int i = 0; i < mRequestedPixmaps.size(); i++) {
-        TilesSet* s = mRequestedPixmaps[i];
+        TileSet* s = mRequestedPixmaps[i];
         if (s && *s == *set) {
             // Similar set already in the queue
             delete set;
@@ -61,7 +61,7 @@ void TexturesGenerator::schedulePaintForTilesSet(TilesSet* set)
         }
     }
 
-    XLOG("%x schedulePaintForTilesSet (%x) %d, %d, %d, %d", this, set,
+    XLOG("%x schedulePaintForTileSet (%x) %d, %d, %d, %d", this, set,
         set->firstTileX(), set->firstTileY(), set->nbRows(), set->nbCols());
     mRequestedPixmaps.append(set);
     m_newRequestLock.lock();
@@ -91,7 +91,7 @@ bool TexturesGenerator::threadLoop()
     bool stop = false;
     while (!stop) {
         mRequestedPixmapsLock.lock();
-        TilesSet* set = 0;
+        TileSet* set = 0;
         if (mRequestedPixmaps.size())
             set = mRequestedPixmaps.first();
         mRequestedPixmapsLock.unlock();

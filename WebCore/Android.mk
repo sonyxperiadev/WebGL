@@ -585,7 +585,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/TexturesGenerator.cpp \
 	platform/graphics/android/TilesManager.cpp \
 	platform/graphics/android/TiledPage.cpp \
-	platform/graphics/android/TilesSet.cpp \
+	platform/graphics/android/TileSet.cpp \
 	platform/graphics/android/android_graphics.cpp \
 
 ifeq ($(ENABLE_SVG), true)

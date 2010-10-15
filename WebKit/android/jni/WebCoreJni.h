@@ -71,7 +71,7 @@ AutoJObject getRealObject(JNIEnv*, jobject);
 bool checkException(JNIEnv* env);
 
 // Create a WTF::String object from a jstring object.
-WTF::String to_string(JNIEnv* env, jstring str);
+WTF::String jstringToWtfString(JNIEnv* env, jstring str);
 
 #if USE(CHROME_NETWORK_STACK)
 string16 jstringToString16(JNIEnv* env, jstring jstr);

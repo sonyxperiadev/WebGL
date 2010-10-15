@@ -33,18 +33,19 @@
 #include "ShaderProgram.h"
 #include "TexturesGenerator.h"
 #include "TiledPage.h"
-#include "TilesSet.h"
 #include <utils/threads.h>
 
 namespace WebCore {
+
+class TileSet;
 
 class TilesManager {
 public:
     static TilesManager* instance();
 
-    void schedulePaintForTilesSet(TilesSet* set)
+    void schedulePaintForTileSet(TileSet* set)
     {
-        m_pixmapsGenerationThread->schedulePaintForTilesSet(set);
+        m_pixmapsGenerationThread->schedulePaintForTileSet(set);
     }
 
     ShaderProgram* shader() { return &m_shader; }

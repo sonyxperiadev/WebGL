@@ -63,6 +63,9 @@ int BaseLayerAndroid::count()
 #endif
 
 BaseLayerAndroid::BaseLayerAndroid()
+#if USE(ACCELERATED_COMPOSITING)
+    : m_glWebViewState(0)
+#endif
 {
 #ifdef DEBUG_COUNT
     gBaseLayerAndroidCount++;
@@ -79,7 +82,17 @@ BaseLayerAndroid::~BaseLayerAndroid()
 
 void BaseLayerAndroid::setContent(const PictureSet& src)
 {
+#if USE(ACCELERATED_COMPOSITING)
+    if (m_glWebViewState) {
+        m_glWebViewState->baseLayerLock();
+        m_content.set(src);
+        m_glWebViewState->baseLayerUnlock();
+    } else {
+        m_content.set(src);
+    }
+#else
     m_content.set(src);
+#endif
 }
 
 #if USE(ACCELERATED_COMPOSITING)

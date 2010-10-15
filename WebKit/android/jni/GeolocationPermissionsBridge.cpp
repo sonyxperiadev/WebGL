@@ -27,7 +27,7 @@
 
 #include <JNIHelp.h>  // For jniRegisterNativeMethods
 #include "GeolocationPermissions.h"
-#include "WebCoreJni.h"  // For to_string
+#include "WebCoreJni.h"  // For jstringToWtfString
 
 
 /**
@@ -59,19 +59,19 @@ static jobject getOrigins(JNIEnv* env, jobject obj)
 
 static bool getAllowed(JNIEnv* env, jobject obj, jstring origin)
 {
-    WTF::String originString = to_string(env, origin);
+    WTF::String originString = jstringToWtfString(env, origin);
     return GeolocationPermissions::getAllowed(originString);
 }
 
 static void clear(JNIEnv* env, jobject obj, jstring origin)
 {
-    WTF::String originString = to_string(env, origin);
+    WTF::String originString = jstringToWtfString(env, origin);
     GeolocationPermissions::clear(originString);
 }
 
 static void allow(JNIEnv* env, jobject obj, jstring origin)
 {
-    WTF::String originString = to_string(env, origin);
+    WTF::String originString = jstringToWtfString(env, origin);
     GeolocationPermissions::allow(originString);
 }
 

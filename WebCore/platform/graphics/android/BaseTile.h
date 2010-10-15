@@ -28,7 +28,6 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "BackedDoubleBufferedTexture.h"
 #include "HashMap.h"
 #include "SkBitmap.h"
 #include "SkCanvas.h"
@@ -40,6 +39,7 @@
 
 namespace WebCore {
 
+class BackedDoubleBufferedTexture;
 class TiledPage;
 
 class BaseTile {
@@ -73,9 +73,6 @@ private:
     float m_scale;
     android::Mutex m_varLock;
 };
-
-typedef std::pair<int, int> TileKey;
-typedef HashMap<TileKey, BaseTile*> TileMap;
 
 } // namespace WebCore
 

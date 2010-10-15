@@ -23,54 +23,81 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TilesSet_h
-#define TilesSet_h
+#include "config.h"
+#include "TileSet.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "BaseTile.h"
-#include "Vector.h"
+#ifdef DEBUG
+
+#include <cutils/log.h>
+#include <wtf/CurrentTime.h>
+#include <wtf/text/CString.h>
+
+#undef XLOG
+#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "TileSet", __VA_ARGS__)
+
+#else
+
+#undef XLOG
+#define XLOG(...)
+
+#endif // DEBUG
 
 namespace WebCore {
 
-class TilesSet {
-public:
 #ifdef DEBUG
-    static int count();
+static int gTileSetCount = 0;
+int TileSet::count()
+{
+    return gTileSetCount;
+}
 #endif
-    TilesSet(int id, float scale, int firstTileX, int firstTileY, int rows, int cols);
-    ~TilesSet();
 
-    int id() const { return m_id; }
-    float scale() const { return m_scale; }
-    int firstTileX() const { return m_firstTileX; }
-    int firstTileY() const { return m_firstTileY; }
-    int nbRows() const { return m_nbRows; }
-    int nbCols() const { return m_nbCols; }
-    bool operator==(const TilesSet& set);
-    void reserveTextures();
+TileSet::TileSet(int id, int firstTileX, int firstTileY, int rows, int cols)
+    : m_id(id)
+    , m_firstTileX(firstTileX)
+    , m_firstTileY(firstTileY)
+    , m_nbRows(rows)
+    , m_nbCols(cols)
+{
+#ifdef DEBUG
+    gTilesSetCount++;
+#endif
+}
 
-    void paint();
-    void setPainting(bool state) { m_painting = state; }
+TileSet::~TileSet()
+{
+#ifdef DEBUG
+    gTileSetCount--;
+#endif
+}
 
-    void add(BaseTile* texture)
-    {
-        mTiles.append(texture);
-    }
+bool TileSet::operator==(const TileSet& set)
+{
+    return m_id == set.m_id
+           && m_firstTileX == set.m_firstTileX
+           && m_firstTileY == set.m_firstTileY
+           && m_nbRows == set.m_nbRows
+           && m_nbCols == set.m_nbCols;
+}
 
-private:
-    Vector<BaseTile*> mTiles;
 
-    int m_id;
-    float m_scale;
-    int m_firstTileX;
-    int m_firstTileY;
-    int m_nbRows;
-    int m_nbCols;
-    bool m_painting;
-};
+void TileSet::reserveTextures()
+{
+    XLOG("reserveTextures (%d tiles)", m_tiles.size());
+    for (unsigned int i = 0; i < m_tiles.size(); i++)
+        m_tiles[i]->reserveTexture();
+}
+
+void TileSet::paint()
+{
+    XLOG("%x, painting %d tiles", this, m_tiles.size());
+    for (unsigned int i = 0; i < m_tiles.size(); i++)
+        m_tiles[i]->paintBitmap();
+    XLOG("%x, end of painting %d tiles", this, m_tiles.size());
+}
 
 } // namespace WebCore
 
 #endif // USE(ACCELERATED_COMPOSITING)
-#endif // TilesSet_h

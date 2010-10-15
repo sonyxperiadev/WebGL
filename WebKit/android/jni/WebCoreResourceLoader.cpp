@@ -142,9 +142,9 @@ void WebCoreResourceLoader::SetResponseHeader(JNIEnv* env, jobject obj, jint nat
 
     LOG_ASSERT(key, "How did a null value become a key?");
     if (val) {
-        WTF::String valStr = to_string(env, val);
+        WTF::String valStr = jstringToWtfString(env, val);
         if (!valStr.isEmpty())
-            response->setHTTPHeaderField(to_string(env, key), valStr);
+            response->setHTTPHeaderField(jstringToWtfString(env, key), valStr);
     }
 }
 
@@ -156,15 +156,15 @@ jint WebCoreResourceLoader::CreateResponse(JNIEnv* env, jobject obj, jstring url
     TimeCounterAuto counter(TimeCounter::ResourceTimeCounter);
 #endif
     LOG_ASSERT(url, "Must have a url in the response!");
-    WebCore::KURL kurl(WebCore::ParsedURLString, to_string(env, url));
+    WebCore::KURL kurl(WebCore::ParsedURLString, jstringToWtfString(env, url));
     WTF::String encodingStr;
     WTF::String mimeTypeStr;
     if (mimeType) {
-        mimeTypeStr = to_string(env, mimeType);
+        mimeTypeStr = jstringToWtfString(env, mimeType);
         LOGV("Response setMIMEType: %s", mimeTypeStr.latin1().data());
     }
     if (encoding) {
-        encodingStr = to_string(env, encoding);
+        encodingStr = jstringToWtfString(env, encoding);
         LOGV("Response setTextEncodingName: %s", encodingStr.latin1().data());
     }
     WebCore::ResourceResponse* response = new WebCore::ResourceResponse(
@@ -172,7 +172,7 @@ jint WebCoreResourceLoader::CreateResponse(JNIEnv* env, jobject obj, jstring url
             encodingStr, WTF::String());
     response->setHTTPStatusCode(statusCode);
     if (statusText) {
-        WTF::String status = to_string(env, statusText);
+        WTF::String status = jstringToWtfString(env, statusText);
         response->setHTTPStatusText(status);
         LOGV("Response setStatusText: %s", status.latin1().data());
     }
@@ -251,8 +251,8 @@ jstring WebCoreResourceLoader::RedirectedToUrl(JNIEnv* env, jobject obj,
 
     LOG_ASSERT(handle->client(), "Why do we not have a client?");
     WebCore::ResourceRequest r = handle->firstRequest();
-    WebCore::KURL url(WebCore::KURL(WebCore::ParsedURLString, to_string(env, baseUrl)),
-            to_string(env, redirectTo));
+    WebCore::KURL url(WebCore::KURL(WebCore::ParsedURLString, jstringToWtfString(env, baseUrl)),
+            jstringToWtfString(env, redirectTo));
     WebCore::ResourceResponse* response = (WebCore::ResourceResponse*)nativeResponse;
     // If the url fails to resolve the relative path, return null.
     if (url.protocol().isEmpty()) {
@@ -290,7 +290,7 @@ void WebCoreResourceLoader::Error(JNIEnv* env, jobject obj, jint id, jstring des
         return;
 
     handle->client()->didFail(handle, WebCore::ResourceError("", id,
-                to_string(env, failingUrl), to_string(env, description)));
+                jstringToWtfString(env, failingUrl), jstringToWtfString(env, description)));
 }
 
 // ----------------------------------------------------------------------------

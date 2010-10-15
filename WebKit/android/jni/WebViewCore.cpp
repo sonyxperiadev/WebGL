@@ -2520,7 +2520,7 @@ void WebViewCore::openFileChooser(PassRefPtr<WebCore::FileChooser> chooser) {
     if (!string)
         return;
 
-    WTF::String webcoreString = to_string(env, jName);
+    WTF::String webcoreString = jstringToWtfString(env, jName);
     env->ReleaseStringChars(jName, string);
 
     if (webcoreString.length())
@@ -3054,7 +3054,7 @@ bool WebViewCore::jsPrompt(const WTF::String& url, const WTF::String& text, cons
     if (!returnVal)
         return false;
 
-    result = to_string(env, returnVal);
+    result = jstringToWtfString(env, returnVal);
     env->DeleteLocalRef(jInputStr);
     env->DeleteLocalRef(jDefaultStr);
     env->DeleteLocalRef(jUrlStr);
@@ -3433,7 +3433,7 @@ static void ReplaceTextfieldText(JNIEnv *env, jobject obj,
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    WTF::String webcoreString = to_string(env, replace);
+    WTF::String webcoreString = jstringToWtfString(env, replace);
     viewImpl->replaceTextfieldText(oldStart,
             oldEnd, webcoreString, start, end, textGeneration);
 }
@@ -3445,7 +3445,7 @@ static void PassToJs(JNIEnv *env, jobject obj,
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    WTF::String current = to_string(env, currentText);
+    WTF::String current = jstringToWtfString(env, currentText);
     GET_NATIVE_VIEW(env, obj)->passToJs(generation, current,
         PlatformKeyboardEvent(keyCode, keyValue, 0, down, cap, fn, sym));
 }
@@ -3769,7 +3769,7 @@ static void DumpV8Counters(JNIEnv*, jobject)
 static void SetJsFlags(JNIEnv *env, jobject obj, jstring flags)
 {
 #if USE(V8)
-    WTF::String flagsString = to_string(env, flags);
+    WTF::String flagsString = jstringToWtfString(env, flags);
     WTF::CString utf8String = flagsString.utf8();
     WebCore::ScriptController::setFlags(utf8String.data(), utf8String.length());
 #endif
@@ -3797,14 +3797,14 @@ static void GeolocationPermissionsProvide(JNIEnv* env, jobject obj, jstring orig
     Frame* frame = viewImpl->mainFrame();
 
     ChromeClientAndroid* chromeClient = static_cast<ChromeClientAndroid*>(frame->page()->chrome()->client());
-    chromeClient->provideGeolocationPermissions(to_string(env, origin), allow, remember);
+    chromeClient->provideGeolocationPermissions(jstringToWtfString(env, origin), allow, remember);
 }
 
 static void RegisterURLSchemeAsLocal(JNIEnv* env, jobject obj, jstring scheme) {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    WebCore::SchemeRegistry::registerURLSchemeAsLocal(to_string(env, scheme));
+    WebCore::SchemeRegistry::registerURLSchemeAsLocal(jstringToWtfString(env, scheme));
 }
 
 static bool FocusBoundsChanged(JNIEnv* env, jobject obj)

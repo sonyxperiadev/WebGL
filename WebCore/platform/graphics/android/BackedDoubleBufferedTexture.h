@@ -27,6 +27,7 @@
 #define BackedDoubleBufferedTexture_h
 
 #include "DoubleBufferedTexture.h"
+#include "GLWebViewState.h"
 #include <SkBitmap.h>
 
 class SkCanvas;
@@ -34,17 +35,18 @@ class SkCanvas;
 namespace WebCore {
 
 class BaseTile;
-class GLWebViewState;
 
 class PaintingInfo {
 public:
     PaintingInfo() : m_x(-1), m_y(-1), m_webview(0), m_picture(0) { }
-    PaintingInfo(int x, int y, GLWebViewState* webview, unsigned int picture)
+    PaintingInfo(int x, int y, GLWebViewState* webview)
         : m_x(x)
         , m_y(y)
         , m_webview(webview)
-        , m_picture(picture)
+        , m_picture(0)
     {
+        if(webview)
+            m_picture = webview->currentPictureCounter();
     }
     bool operator==(const PaintingInfo& info)
     {

@@ -64,6 +64,10 @@ void CachedInput::Debug::print() const
     DUMP_NAV_LOGD("// int mMaxLength=%d;\n", b->mMaxLength);
     DUMP_NAV_LOGD("// int mTextSize=%d;\n", b->mTextSize);
     DUMP_NAV_LOGD("// int mInputType=%d;\n", b->mInputType);
+    DUMP_NAV_LOGD("// int mPaddingLeft=%d;\n", b->mPaddingLeft);
+    DUMP_NAV_LOGD("// int mPaddingTop=%d;\n", b->mPaddingTop);
+    DUMP_NAV_LOGD("// int mPaddingRight=%d;\n", b->mPaddingRight);
+    DUMP_NAV_LOGD("// int mPaddingBottom=%d;\n", b->mPaddingBottom);
     DEBUG_PRINT_BOOL(mIsRtlText);
     DEBUG_PRINT_BOOL(mIsTextField);
 }

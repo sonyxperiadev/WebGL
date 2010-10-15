@@ -337,32 +337,32 @@ public:
             pFrame->setTextZoomFactor(zoomFactor);
 
         jstring str = (jstring)env->GetObjectField(obj, gFieldIds->mStandardFontFamily);
-        s->setStandardFontFamily(to_string(env, str));
+        s->setStandardFontFamily(jstringToWtfString(env, str));
 
         str = (jstring)env->GetObjectField(obj, gFieldIds->mFixedFontFamily);
-        s->setFixedFontFamily(to_string(env, str));
+        s->setFixedFontFamily(jstringToWtfString(env, str));
 
         str = (jstring)env->GetObjectField(obj, gFieldIds->mSansSerifFontFamily);
-        s->setSansSerifFontFamily(to_string(env, str));
+        s->setSansSerifFontFamily(jstringToWtfString(env, str));
 
         str = (jstring)env->GetObjectField(obj, gFieldIds->mSerifFontFamily);
-        s->setSerifFontFamily(to_string(env, str));
+        s->setSerifFontFamily(jstringToWtfString(env, str));
 
         str = (jstring)env->GetObjectField(obj, gFieldIds->mCursiveFontFamily);
-        s->setCursiveFontFamily(to_string(env, str));
+        s->setCursiveFontFamily(jstringToWtfString(env, str));
 
         str = (jstring)env->GetObjectField(obj, gFieldIds->mFantasyFontFamily);
-        s->setFantasyFontFamily(to_string(env, str));
+        s->setFantasyFontFamily(jstringToWtfString(env, str));
 
         str = (jstring)env->GetObjectField(obj, gFieldIds->mDefaultTextEncoding);
-        s->setDefaultTextEncodingName(to_string(env, str));
+        s->setDefaultTextEncodingName(jstringToWtfString(env, str));
 
         str = (jstring)env->GetObjectField(obj, gFieldIds->mUserAgent);
-        WebFrame::getWebFrame(pFrame)->setUserAgent(to_string(env, str));
+        WebFrame::getWebFrame(pFrame)->setUserAgent(jstringToWtfString(env, str));
 #if USE(CHROME_NETWORK_STACK)
-        WebRequestContext::SetUserAgent(to_string(env, str));
+        WebRequestContext::SetUserAgent(jstringToWtfString(env, str));
         str = (jstring)env->GetObjectField(obj, gFieldIds->mAcceptLanguage);
-        WebRequestContext::SetAcceptLanguage(to_string(env, str));
+        WebRequestContext::SetAcceptLanguage(jstringToWtfString(env, str));
 #endif
 
         jint size = env->GetIntField(obj, gFieldIds->mMinimumFontSize);
@@ -410,7 +410,7 @@ public:
         s->setOfflineWebApplicationCacheEnabled(flag);
         str = (jstring)env->GetObjectField(obj, gFieldIds->mAppCachePath);
         if (str) {
-            WTF::String path = to_string(env, str);
+            WTF::String path = jstringToWtfString(env, str);
             if (path.length() && WebCore::cacheStorage().cacheDirectory().isNull()) {
                 WebCore::cacheStorage().setCacheDirectory(path);
             }
@@ -455,7 +455,7 @@ public:
             // If the user has set the database path, sync it to the DatabaseTracker.
             str = (jstring)env->GetObjectField(obj, gFieldIds->mDatabasePath);
             if (str)
-                WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(to_string(env, str));
+                WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(jstringToWtfString(env, str));
         }
 #endif
 #if ENABLE(DOM_STORAGE)
@@ -463,7 +463,7 @@ public:
         s->setLocalStorageEnabled(flag);
         str = (jstring)env->GetObjectField(obj, gFieldIds->mDatabasePath);
         if (str) {
-            WTF::String localStorageDatabasePath = to_string(env,str);
+            WTF::String localStorageDatabasePath = jstringToWtfString(env,str);
             if (localStorageDatabasePath.length()) {
                 s->setLocalStorageDatabasePath(localStorageDatabasePath);
             }
@@ -474,8 +474,8 @@ public:
         GeolocationPermissions::setAlwaysDeny(!flag);
         str = (jstring)env->GetObjectField(obj, gFieldIds->mGeolocationDatabasePath);
         if (str) {
-            GeolocationPermissions::setDatabasePath(to_string(env,str));
-            WebCore::GeolocationPositionCache::setDatabasePath(to_string(env,str));
+            GeolocationPermissions::setDatabasePath(jstringToWtfString(env,str));
+            WebCore::GeolocationPositionCache::setDatabasePath(jstringToWtfString(env,str));
         }
 
         flag = env->GetBooleanField(obj, gFieldIds->mXSSAuditorEnabled);

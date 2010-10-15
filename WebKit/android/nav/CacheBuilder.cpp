@@ -1317,6 +1317,10 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                         || style->textAlign() == WebCore::RIGHT
                         || style->textAlign() == WebCore::WEBKIT_RIGHT);
             }
+            cachedInput.setPaddingLeft(renderText->paddingLeft() + renderText->borderLeft());
+            cachedInput.setPaddingTop(renderText->paddingTop() + renderText->borderTop());
+            cachedInput.setPaddingRight(renderText->paddingRight() + renderText->borderRight());
+            cachedInput.setPaddingBottom(renderText->paddingBottom() + renderText->borderBottom());
         }
         takesFocus = true;
         bounds = absBounds;
