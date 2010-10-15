@@ -187,13 +187,13 @@ public:
 
     ~GraphicsContextPlatformPrivate()
     {
-        if (m_platformGfxCtx && m_platformGfxCtx->deleteUs())
-            delete m_platformGfxCtx;
-
         // We force restores so we don't leak any subobjects owned by our
         // stack of State records.
         while (m_stateStack.count() > 0)
             this->restore();
+
+        if (m_platformGfxCtx && m_platformGfxCtx->deleteUs())
+            delete m_platformGfxCtx;
     }
 
     void save()
