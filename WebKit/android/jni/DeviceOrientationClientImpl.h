@@ -36,7 +36,7 @@ using namespace WebCore;
 
 namespace android {
 
-class DeviceOrientationManager;
+class DeviceMotionAndOrientationManager;
 class WebViewCore;
 
 class DeviceOrientationClientImpl : public DeviceOrientationClient {

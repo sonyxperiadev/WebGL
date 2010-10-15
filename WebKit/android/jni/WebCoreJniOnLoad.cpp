@@ -115,7 +115,7 @@ static RegistrationMethod gWebCoreRegMethods[] = {
     { "HTML5Audio", android::register_mediaplayer_audio },
     { "HTML5VideoViewProxy", android::register_mediaplayer_video },
 #endif
-    { "DeviceOrientationManager", android::register_device_orientation_manager },
+    { "DeviceMotionAndOrientationManager", android::register_device_orientation_manager },
 };
 
 EXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved)
