@@ -18,6 +18,13 @@ PASS emptyTouch.pageX is 0
 PASS emptyTouch.pageY is 0
 PASS emptyTouch.screenX is 0
 PASS emptyTouch.screenY is 0
+PASS badParamsTouch is non-null.
+PASS badParamsTouch.target is null
+PASS badParamsTouch.identifier is 0
+PASS badParamsTouch.pageX is 0
+PASS badParamsTouch.pageY is 0
+PASS badParamsTouch.screenX is 0
+PASS badParamsTouch.screenY is 104
 PASS successfullyParsed is true
 
 TEST COMPLETE

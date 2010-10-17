@@ -1047,7 +1047,7 @@ public:
     bool isDelayingLoadEvent() const { return m_loadEventDelayCount; }
 
 #if ENABLE(TOUCH_EVENTS)
-    PassRefPtr<Touch> createTouch(DOMWindow*, Node*, int identifier, int pageX, int pageY, int screenX, int screenY, ExceptionCode&) const;
+    PassRefPtr<Touch> createTouch(DOMWindow*, EventTarget*, int identifier, int pageX, int pageY, int screenX, int screenY, ExceptionCode&) const;
     PassRefPtr<TouchList> createTouchList(ExceptionCode&) const;
 #endif
 
