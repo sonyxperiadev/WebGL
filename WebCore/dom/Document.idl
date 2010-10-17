@@ -311,6 +311,16 @@ module core {
         attribute [DontEnum] EventListener ontouchmove;
         attribute [DontEnum] EventListener ontouchend;
         attribute [DontEnum] EventListener ontouchcancel;
+        [ReturnsNew] Touch createTouch(in DOMWindow window,
+                                       in Node target,
+                                       in long identifier,
+                                       in long pageX,
+                                       in long pageY,
+                                       in long ScreenX,
+                                       in long screenY)
+            raises (DOMException);
+        [ReturnsNew] TouchList createTouchList()
+            raises (DOMException);
 #endif
 #endif
     };

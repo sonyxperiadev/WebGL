@@ -453,6 +453,15 @@ sub GenerateGetOwnPropertyDescriptorBody
     return @getOwnPropertyDescriptorImpl;
 }
 
+my %usesToJSNewlyCreated = (
+    "CDATASection" => 1,
+    "Element" => 1,
+    "Node" => 1,
+    "Text" => 1,
+    "Touch" => 1,
+    "TouchList" => 1
+);
+
 sub GenerateHeader
 {
     my $object = shift;
@@ -792,7 +801,7 @@ sub GenerateHeader
             push(@headerContent, "$implClassName* to${interfaceName}(JSC::JSValue);\n");
         }
     }
-    if ($interfaceName eq "Node" or $interfaceName eq "Element" or $interfaceName eq "Text" or $interfaceName eq "CDATASection") {
+    if ($usesToJSNewlyCreated{$interfaceName}) {
         push(@headerContent, "JSC::JSValue toJSNewlyCreated(JSC::ExecState*, JSDOMGlobalObject*, $interfaceName*);\n");
     }
     

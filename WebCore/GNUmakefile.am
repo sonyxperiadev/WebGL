@@ -453,6 +453,8 @@ webcore_sources += \
 	WebCore/bindings/js/JSStyleSheetCustom.cpp \
 	WebCore/bindings/js/JSStyleSheetListCustom.cpp \
 	WebCore/bindings/js/JSTextCustom.cpp \
+	WebCore/bindings/js/JSTouchCustom.cpp \
+	WebCore/bindings/js/JSTouchListCustom.cpp \
 	WebCore/bindings/js/JSTreeWalkerCustom.cpp \
 	WebCore/bindings/js/JSWebKitCSSMatrixConstructor.cpp \
 	WebCore/bindings/js/JSWebKitCSSMatrixConstructor.h \
