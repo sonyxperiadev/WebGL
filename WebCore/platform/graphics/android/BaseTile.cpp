@@ -151,10 +151,11 @@ bool BaseTile::paintBitmap()
 {
     m_varLock.lock();
     BackedDoubleBufferedTexture* texture = m_texture;
+    m_varLock.unlock();
+
     bool available = false;
     if (texture)
         available = texture->acquireForPainting();
-    m_varLock.unlock();
 
     if (!texture || !available)
         return false;
