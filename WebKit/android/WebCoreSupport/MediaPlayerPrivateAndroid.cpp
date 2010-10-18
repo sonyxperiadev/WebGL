@@ -155,6 +155,14 @@ void MediaPlayerPrivate::onEnded() {
     m_readyState = MediaPlayer::HaveNothing;
 }
 
+void MediaPlayerPrivate::onPaused() {
+    m_paused = true;
+    m_currentTime = 0;
+    m_hasVideo = false;
+    m_networkState = MediaPlayer::Idle;
+    m_readyState = MediaPlayer::HaveNothing;
+}
+
 void MediaPlayerPrivate::onTimeupdate(int position) {
     m_currentTime = position / 1000.0f;
     m_player->timeChanged();
@@ -436,6 +444,13 @@ static void OnEnded(JNIEnv* env, jobject obj, int pointer) {
     }
 }
 
+static void OnPaused(JNIEnv* env, jobject obj, int pointer) {
+    if (pointer) {
+        WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
+        player->onPaused();
+    }
+}
+
 static void OnPosterFetched(JNIEnv* env, jobject obj, jobject poster, int pointer) {
     if (!pointer || !poster)
         return;
@@ -469,6 +484,8 @@ static JNINativeMethod g_MediaPlayerMethods[] = {
         (void*) OnPrepared },
     { "nativeOnEnded", "(I)V",
         (void*) OnEnded },
+    { "nativeOnPaused", "(I)V",
+        (void*) OnPaused },
     { "nativeOnPosterFetched", "(Landroid/graphics/Bitmap;I)V",
         (void*) OnPosterFetched },
     { "nativeOnTimeupdate", "(II)V",
