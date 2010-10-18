@@ -120,11 +120,11 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHand
                 if (!element.m_data.isEmpty()) {
                     // WebKit sometimes gives up empty data to append. These aren't
                     // necessary so we just optimize those out here.
-                    int size  = static_cast<int>(element.m_data.size());
-                    // TODO: do we have to make a copy of this data?
                     base::Thread* thread = ioThread();
-                    if (thread)
-                        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::AppendBytesToUpload, element.m_data.data(), size));
+                    if (thread) {
+                        Vector<char>* data = new Vector<char>(element.m_data);
+                        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(m_request, &WebRequest::AppendBytesToUpload, data));
+                    }
                 }
                 break;
 #if ENABLE(BLOB)
