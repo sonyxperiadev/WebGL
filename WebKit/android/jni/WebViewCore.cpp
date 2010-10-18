@@ -1906,15 +1906,16 @@ void WebViewCore::setSelection(int start, int end)
     rtc->setSelectionRange(start, end);
     client->setUiGeneratedSelectionChange(false);
     WebCore::Frame* focusedFrame = focus->document()->frame();
-    if (renderer->isTextArea()
-            // For password fields, this is done in the UI side via
-            // bringPointIntoView, since the UI does the drawing.
-            || !static_cast<WebCore::HTMLInputElement*>(focus)->isPasswordField()) {
-        WebFrame* webFrame = WebFrame::getWebFrame(focusedFrame);
-        webFrame->setUserInitiatedAction(true);
-        focusedFrame->selection()->revealSelection();
-        webFrame->setUserInitiatedAction(false);
+    bool isPasswordField = false;
+    if (focus->isElementNode()) {
+        WebCore::Element* element = static_cast<WebCore::Element*>(focus);
+        if (WebCore::InputElement* inputElement = WebCore::toInputElement(element))
+            isPasswordField = static_cast<WebCore::HTMLInputElement*>(inputElement)->isPasswordField();
     }
+    // For password fields, this is done in the UI side via
+    // bringPointIntoView, since the UI does the drawing.
+    if (renderer->isTextArea() || !isPasswordField)
+        focusedFrame->selection()->revealSelection();
 }
 
 String WebViewCore::modifySelection(const int direction, const int axis)
@@ -2590,17 +2591,9 @@ bool WebViewCore::key(const PlatformKeyboardEvent& event)
     if (focusNode) {
         WebCore::Frame* frame = focusNode->document()->frame();
         WebFrame* webFrame = WebFrame::getWebFrame(frame);
-        if (isContentEditable(focusNode) || (focusNode->renderer()
-                && (focusNode->renderer()->isTextArea()
-                // For password fields, this is done in the UI side via
-                // bringPointIntoView, since the UI does the drawing.
-                || !static_cast<WebCore:: HTMLInputElement*>(focusNode)->isPasswordField()))) {
-            webFrame->setUserInitiatedAction(true);
-        }
         eventHandler = frame->eventHandler();
         VisibleSelection old = frame->selection()->selection();
         bool handled = eventHandler->keyEvent(event);
-        webFrame->setUserInitiatedAction(false);
         if (isContentEditable(focusNode)) {
             // keyEvent will return true even if the contentEditable did not
             // change its selection.  In the case that it does not, we want to
