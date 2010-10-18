@@ -307,7 +307,7 @@ Mutex WebViewCore::gCursorBoundsMutex;
 
 WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* mainframe)
     : m_pluginInvalTimer(this, &WebViewCore::pluginInvalTimerFired)
-    , m_deviceOrientationManager(this)
+    , m_deviceMotionAndOrientationManager(this)
 {
     m_mainFrame = mainframe;
 
@@ -3830,7 +3830,7 @@ static void Pause(JNIEnv* env, jobject obj)
             geolocation->suspend();
     }
 
-    GET_NATIVE_VIEW(env, obj)->deviceOrientationManager()->maybeSuspendClients();
+    GET_NATIVE_VIEW(env, obj)->deviceMotionAndOrientationManager()->maybeSuspendClients();
 
     ANPEvent event;
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
@@ -3849,7 +3849,7 @@ static void Resume(JNIEnv* env, jobject obj)
             geolocation->resume();
     }
 
-    GET_NATIVE_VIEW(env, obj)->deviceOrientationManager()->maybeResumeClients();
+    GET_NATIVE_VIEW(env, obj)->deviceMotionAndOrientationManager()->maybeResumeClients();
 
     ANPEvent event;
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);

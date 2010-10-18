@@ -30,7 +30,7 @@
 #include "FileChooser.h"
 #include "CacheBuilder.h"
 #include "CachedHistory.h"
-#include "DeviceOrientationManager.h"
+#include "DeviceMotionAndOrientationManager.h"
 #include "DOMSelection.h"
 #include "PictureSet.h"
 #include "PlatformGraphicsContext.h"
@@ -499,7 +499,7 @@ namespace android {
         void notifyWebAppCanBeInstalled();
         void setWebTextViewAutoFillable(int queryId);
 
-        DeviceOrientationManager* deviceOrientationManager() { return &m_deviceOrientationManager; }
+        DeviceMotionAndOrientationManager* deviceMotionAndOrientationManager() { return &m_deviceMotionAndOrientationManager; }
 
         // these members are shared with webview.cpp
         static Mutex gFrameCacheMutex;
@@ -617,7 +617,7 @@ namespace android {
         uint32_t m_now;
 #endif
 
-        DeviceOrientationManager m_deviceOrientationManager;
+        DeviceMotionAndOrientationManager m_deviceMotionAndOrientationManager;
 
     private:
         // called from constructor, to add this to a global list

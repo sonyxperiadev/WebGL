@@ -75,7 +75,7 @@ void DeviceMotionClientAndroid::deviceMotionControllerDestroyed()
 DeviceMotionClient* DeviceMotionClientAndroid::client() const
 {
     if (!m_client) {
-        m_client = m_webViewCore->deviceOrientationManager()->motionClient();
+        m_client = m_webViewCore->deviceMotionAndOrientationManager()->motionClient();
         m_client->setController(m_controller);
     }
     return m_client;
