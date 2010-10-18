@@ -82,7 +82,8 @@ extern int register_webstorage(JNIEnv*);
 extern int register_geolocation_permissions(JNIEnv*);
 extern int register_mock_geolocation(JNIEnv*);
 #if ENABLE(VIDEO)
-extern int register_mediaplayer(JNIEnv*);
+extern int register_mediaplayer_audio(JNIEnv*);
+extern int register_mediaplayer_video(JNIEnv*);
 #endif
 
 }
@@ -107,7 +108,8 @@ static RegistrationMethod gWebCoreRegMethods[] = {
     { "GeolocationPermissions", android::register_geolocation_permissions },
     { "MockGeolocation", android::register_mock_geolocation },
 #if ENABLE(VIDEO)
-    { "HTML5VideoViewProxy", android::register_mediaplayer },
+    { "HTML5Audio", android::register_mediaplayer_audio },
+    { "HTML5VideoViewProxy", android::register_mediaplayer_video },
 #endif
 };
 

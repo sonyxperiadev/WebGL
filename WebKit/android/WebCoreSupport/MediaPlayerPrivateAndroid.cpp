@@ -30,7 +30,6 @@
 
 #include "GraphicsContext.h"
 #include "SkiaUtils.h"
-#include "TimeRanges.h"
 #include "WebCoreJni.h"
 #include "WebViewCore.h"
 
@@ -44,16 +43,22 @@ using namespace android;
 namespace WebCore {
 
 static const char* g_ProxyJavaClass = "android/webkit/HTML5VideoViewProxy";
+static const char* g_ProxyJavaClassAudio = "android/webkit/HTML5Audio";
 
 struct MediaPlayerPrivate::JavaGlue
 {
     jobject   m_javaProxy;
-    jmethodID m_getInstance;
     jmethodID m_play;
     jmethodID m_teardown;
-    jmethodID m_loadPoster;
     jmethodID m_seek;
     jmethodID m_pause;
+    // Audio
+    jmethodID m_newInstance;
+    jmethodID m_setDataSource;
+    jmethodID m_getMaxTimeSeekable;
+    // Video
+    jmethodID m_getInstance;
+    jmethodID m_loadPoster;
 };
 
 MediaPlayerPrivate::~MediaPlayerPrivate()
@@ -65,36 +70,12 @@ MediaPlayerPrivate::~MediaPlayerPrivate()
             env->DeleteGlobalRef(m_glue->m_javaProxy);
         }
     }
-
     delete m_glue;
 }
 
 void MediaPlayerPrivate::registerMediaEngine(MediaEngineRegistrar registrar)
 {
     registrar(create, getSupportedTypes, supportsType);
-}
-
-void MediaPlayerPrivate::load(const String& url)
-{
-    // Just save the URl.
-    m_url = url;
-}
-
-void MediaPlayerPrivate::cancelLoad()
-{
-}
-
-void MediaPlayerPrivate::play()
-{
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    if (!env || !m_glue->m_javaProxy || !m_url.length())
-        return;
-
-    m_paused = false;
-    jstring jUrl = env->NewString((unsigned short *)m_url.characters(), m_url.length());
-    env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_play, jUrl);
-    env->DeleteLocalRef(jUrl);
-    checkException(env);
 }
 
 void MediaPlayerPrivate::pause()
@@ -108,22 +89,6 @@ void MediaPlayerPrivate::pause()
     checkException(env);
 }
 
-IntSize MediaPlayerPrivate::naturalSize() const
-{
-    return m_naturalSize;
-}
-
-bool MediaPlayerPrivate::hasAudio() const
-{
-    // TODO
-    return false;
-}
-
-bool MediaPlayerPrivate::hasVideo() const
-{
-    return m_hasVideo;
-}
-
 void MediaPlayerPrivate::setVisible(bool visible)
 {
     m_isVisible = visible;
@@ -131,99 +96,19 @@ void MediaPlayerPrivate::setVisible(bool visible)
         createJavaPlayerIfNeeded();
 }
 
-float MediaPlayerPrivate::duration() const
-{
-    return m_duration;
-}
-
-float MediaPlayerPrivate::currentTime() const
-{
-    return m_currentTime;
-}
-
 void MediaPlayerPrivate::seek(float time)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    if (!env || !m_glue->m_javaProxy || !m_url.length())
+    if (!env || !m_url.length())
         return;
 
-    m_currentTime = time;
-    env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_seek, static_cast<jint>(time * 1000.0f));
+    if (m_glue->m_javaProxy) {
+        env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_seek, static_cast<jint>(time * 1000.0f));
+        m_currentTime = time;
+    }
     checkException(env);
 }
 
-bool MediaPlayerPrivate::seeking() const
-{
-    return false;
-}
-
-void MediaPlayerPrivate::setEndTime(float)
-{
-}
-
-void MediaPlayerPrivate::setRate(float)
-{
-}
-
-bool MediaPlayerPrivate::paused() const
-{
-    return m_paused;
-}
-
-void MediaPlayerPrivate::setVolume(float)
-{
-}
-
-MediaPlayer::NetworkState MediaPlayerPrivate::networkState() const
-{
-    return m_networkState;
-}
-
-MediaPlayer::ReadyState MediaPlayerPrivate::readyState() const
-{
-    return m_readyState;
-}
-
-float MediaPlayerPrivate::maxTimeSeekable() const
-{
-    return 0;
-}
-
-PassRefPtr<TimeRanges> MediaPlayerPrivate::buffered() const
-{
-    return TimeRanges::create();
-}
-
-int MediaPlayerPrivate::dataRate() const
-{
-    return 0;
-}
-
-unsigned MediaPlayerPrivate::totalBytes() const
-{
-    return 0;
-}
-
-unsigned MediaPlayerPrivate::bytesLoaded() const
-{
-    return 0;
-}
-
-void MediaPlayerPrivate::setSize(const IntSize&)
-{
-}
-
-void MediaPlayerPrivate::setPoster(const String& url)
-{
-    m_posterUrl = url;
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    if (!env || !m_glue->m_javaProxy || !m_posterUrl.length())
-        return;
-    // Send the poster
-    jstring jUrl = env->NewString((unsigned short *)m_posterUrl.characters(), m_posterUrl.length());
-    env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_loadPoster, jUrl);
-    env->DeleteLocalRef(jUrl);
-}
 
 void MediaPlayerPrivate::prepareToPlay() {
     // We are about to start playing. Since our Java VideoView cannot
@@ -235,40 +120,6 @@ void MediaPlayerPrivate::prepareToPlay() {
     m_player->networkStateChanged();
     m_readyState = MediaPlayer::HaveEnoughData;
     m_player->readyStateChanged();
-}
-
-void MediaPlayerPrivate::paint(GraphicsContext* ctxt, const IntRect& r)
-{
-    if (ctxt->paintingDisabled())
-        return;
-
-    if (!m_isVisible)
-        return;
-
-    if (!m_poster || (!m_poster->getPixels() && !m_poster->pixelRef()))
-        return;
-
-    SkCanvas*   canvas = ctxt->platformContext()->mCanvas;
-    // We paint with the following rules in mind:
-    // - only downscale the poster, never upscale
-    // - maintain the natural aspect ratio of the poster
-    // - the poster should be centered in the target rect
-    float originalRatio = static_cast<float>(m_poster->width()) / static_cast<float>(m_poster->height());
-    int posterWidth = r.width() > m_poster->width() ? m_poster->width() : r.width();
-    int posterHeight = posterWidth / originalRatio;
-    int posterX = ((r.width() - posterWidth) / 2) + r.x();
-    int posterY = ((r.height() - posterHeight) / 2) + r.y();
-    IntRect targetRect(posterX, posterY, posterWidth, posterHeight);
-    canvas->drawBitmapRect(*m_poster, 0, targetRect, 0);
-}
-
-MediaPlayerPrivateInterface* MediaPlayerPrivate::create(MediaPlayer* player)
-{
-    return new MediaPlayerPrivate(player);
-}
-
-void MediaPlayerPrivate::getSupportedTypes(HashSet<String>&)
-{
 }
 
 MediaPlayer::SupportsType MediaPlayerPrivate::supportsType(const String& type, const String& codecs)
@@ -292,72 +143,6 @@ MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
     m_naturalSizeUnknown(true),
     m_isVisible(false)
 {
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    if (!env)
-        return;
-
-    jclass clazz = env->FindClass(g_ProxyJavaClass);
-    if (!clazz)
-        return;
-
-    m_glue = new JavaGlue;
-    m_glue->m_getInstance = env->GetStaticMethodID(clazz, "getInstance", "(Landroid/webkit/WebViewCore;I)Landroid/webkit/HTML5VideoViewProxy;");
-    m_glue->m_play = env->GetMethodID(clazz, "play", "(Ljava/lang/String;)V");
-    m_glue->m_teardown = env->GetMethodID(clazz, "teardown", "()V");
-    m_glue->m_loadPoster = env->GetMethodID(clazz, "loadPoster", "(Ljava/lang/String;)V");
-    m_glue->m_seek = env->GetMethodID(clazz, "seek", "(I)V");
-    m_glue->m_pause = env->GetMethodID(clazz, "pause", "()V");
-    m_glue->m_javaProxy = NULL;
-    env->DeleteLocalRef(clazz);
-    // An exception is raised if any of the above fails.
-    checkException(env);
-}
-
-void MediaPlayerPrivate::createJavaPlayerIfNeeded()
-{
-    // Check if we have been already created.
-    if (m_glue->m_javaProxy)
-        return;
-
-    FrameView* frameView = m_player->frameView();
-    if (!frameView)
-        return;
-
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    if (!env)
-        return;
-
-    jclass clazz = env->FindClass(g_ProxyJavaClass);
-    if (!clazz)
-        return;
-
-    WebViewCore* webViewCore =  WebViewCore::getWebViewCore(frameView);
-    ASSERT(webViewCore);
-
-    // Get the HTML5VideoViewProxy instance
-    jobject obj = env->CallStaticObjectMethod(clazz, m_glue->m_getInstance, webViewCore->getJavaObject().get(), this);
-    m_glue->m_javaProxy = env->NewGlobalRef(obj);
-    // Send the poster
-    jstring jUrl = 0;
-    if (m_posterUrl.length())
-        jUrl = env->NewString((unsigned short *)m_posterUrl.characters(), m_posterUrl.length());
-    // Sending a NULL jUrl allows the Java side to try to load the default poster.
-    env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_loadPoster, jUrl);
-    if (jUrl)
-        env->DeleteLocalRef(jUrl);
-    // Clean up.
-    env->DeleteLocalRef(obj);
-    env->DeleteLocalRef(clazz);
-    checkException(env);
-}
-
-void MediaPlayerPrivate::onPrepared(int duration, int width, int height) {
-    m_duration = duration / 1000.0f;
-    m_naturalSize = IntSize(width, height);
-    m_naturalSizeUnknown = false;
-    m_hasVideo = true;
-    m_player->durationChanged();
-    m_player->sizeChanged();
 }
 
 void MediaPlayerPrivate::onEnded() {
@@ -370,23 +155,266 @@ void MediaPlayerPrivate::onEnded() {
     m_readyState = MediaPlayer::HaveNothing;
 }
 
-void MediaPlayerPrivate::onPosterFetched(SkBitmap* poster) {
-    m_poster = poster;
-    if (m_naturalSizeUnknown) {
-        // We had to fake the size at startup, or else our paint
-        // method would not be called. If we haven't yet received
-        // the onPrepared event, update the intrinsic size to the size
-        // of the poster. That will be overriden when onPrepare comes.
-        // In case of an error, we should report the poster size, rather
-        // than our initial fake value.
-        m_naturalSize = IntSize(poster->width(), poster->height());
-        m_player->sizeChanged();
-    }
-}
-
 void MediaPlayerPrivate::onTimeupdate(int position) {
     m_currentTime = position / 1000.0f;
     m_player->timeChanged();
+}
+
+class MediaPlayerVideoPrivate : public MediaPlayerPrivate {
+public:
+    void load(const String& url) { m_url = url; }
+    void play() {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        if (!env || !m_url.length() || !m_glue->m_javaProxy)
+            return;
+
+        m_paused = false;
+        jstring jUrl = env->NewString((unsigned short *)m_url.characters(), m_url.length());
+        env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_play, jUrl);
+        env->DeleteLocalRef(jUrl);
+
+        checkException(env);
+    }
+    bool canLoadPoster() const { return true; }
+    void setPoster(const String& url) {
+        m_posterUrl = url;
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        if (!env || !m_glue->m_javaProxy || !m_posterUrl.length())
+            return;
+        // Send the poster
+        jstring jUrl = env->NewString((unsigned short *)m_posterUrl.characters(), m_posterUrl.length());
+        env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_loadPoster, jUrl);
+        env->DeleteLocalRef(jUrl);
+    }
+    void paint(GraphicsContext* ctxt, const IntRect& r) {
+        if (ctxt->paintingDisabled())
+            return;
+
+        if (!m_isVisible)
+            return;
+
+        if (!m_poster || (!m_poster->getPixels() && !m_poster->pixelRef()))
+            return;
+
+        SkCanvas*   canvas = ctxt->platformContext()->mCanvas;
+        // We paint with the following rules in mind:
+        // - only downscale the poster, never upscale
+        // - maintain the natural aspect ratio of the poster
+        // - the poster should be centered in the target rect
+        float originalRatio = static_cast<float>(m_poster->width()) / static_cast<float>(m_poster->height());
+        int posterWidth = r.width() > m_poster->width() ? m_poster->width() : r.width();
+        int posterHeight = posterWidth / originalRatio;
+        int posterX = ((r.width() - posterWidth) / 2) + r.x();
+        int posterY = ((r.height() - posterHeight) / 2) + r.y();
+        IntRect targetRect(posterX, posterY, posterWidth, posterHeight);
+        canvas->drawBitmapRect(*m_poster, 0, targetRect, 0);
+    }
+
+    void onPosterFetched(SkBitmap* poster) {
+        m_poster = poster;
+        if (m_naturalSizeUnknown) {
+            // We had to fake the size at startup, or else our paint
+            // method would not be called. If we haven't yet received
+            // the onPrepared event, update the intrinsic size to the size
+            // of the poster. That will be overriden when onPrepare comes.
+            // In case of an error, we should report the poster size, rather
+            // than our initial fake value.
+            m_naturalSize = IntSize(poster->width(), poster->height());
+            m_player->sizeChanged();
+        }
+    }
+
+    void onPrepared(int duration, int width, int height) {
+        m_duration = duration / 1000.0f;
+        m_naturalSize = IntSize(width, height);
+        m_naturalSizeUnknown = false;
+        m_hasVideo = true;
+        m_player->durationChanged();
+        m_player->sizeChanged();
+    }
+
+    bool hasAudio() { return false; } // do not display the audio UI
+    bool hasVideo() { return m_hasVideo; }
+
+    MediaPlayerVideoPrivate(MediaPlayer* player) : MediaPlayerPrivate(player) {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        if (!env)
+            return;
+
+        jclass clazz = env->FindClass(g_ProxyJavaClass);
+
+        if (!clazz)
+            return;
+
+        m_glue = new JavaGlue;
+        m_glue->m_getInstance = env->GetStaticMethodID(clazz, "getInstance", "(Landroid/webkit/WebViewCore;I)Landroid/webkit/HTML5VideoViewProxy;");
+        m_glue->m_loadPoster = env->GetMethodID(clazz, "loadPoster", "(Ljava/lang/String;)V");
+        m_glue->m_play = env->GetMethodID(clazz, "play", "(Ljava/lang/String;)V");
+
+        m_glue->m_teardown = env->GetMethodID(clazz, "teardown", "()V");
+        m_glue->m_seek = env->GetMethodID(clazz, "seek", "(I)V");
+        m_glue->m_pause = env->GetMethodID(clazz, "pause", "()V");
+        m_glue->m_javaProxy = NULL;
+        env->DeleteLocalRef(clazz);
+        // An exception is raised if any of the above fails.
+        checkException(env);
+    }
+
+    void createJavaPlayerIfNeeded() {
+        // Check if we have been already created.
+        if (m_glue->m_javaProxy)
+            return;
+
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        if (!env)
+            return;
+
+        jclass clazz = env->FindClass(g_ProxyJavaClass);
+
+        if (!clazz)
+            return;
+
+        jobject obj = NULL;
+
+        FrameView* frameView = m_player->frameView();
+        if (!frameView)
+            return;
+        WebViewCore* webViewCore =  WebViewCore::getWebViewCore(frameView);
+        ASSERT(webViewCore);
+
+        // Get the HTML5VideoViewProxy instance
+        obj = env->CallStaticObjectMethod(clazz, m_glue->m_getInstance, webViewCore->getJavaObject().get(), this);
+        m_glue->m_javaProxy = env->NewGlobalRef(obj);
+        // Send the poster
+        jstring jUrl = 0;
+        if (m_posterUrl.length())
+            jUrl = env->NewString((unsigned short *)m_posterUrl.characters(), m_posterUrl.length());
+        // Sending a NULL jUrl allows the Java side to try to load the default poster.
+        env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_loadPoster, jUrl);
+        if (jUrl)
+            env->DeleteLocalRef(jUrl);
+
+        // Clean up.
+        if (obj)
+            env->DeleteLocalRef(obj);
+        env->DeleteLocalRef(clazz);
+        checkException(env);
+    }
+};
+
+class MediaPlayerAudioPrivate : public MediaPlayerPrivate {
+public:
+    void load(const String& url) {
+        m_url = url;
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        if (!env || !m_url.length())
+            return;
+
+        createJavaPlayerIfNeeded();
+
+        if (!m_glue->m_javaProxy)
+            return;
+
+        jstring jUrl = env->NewString((unsigned short *)m_url.characters(), m_url.length());
+        // start loading the data asynchronously
+        env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_setDataSource, jUrl);
+        env->DeleteLocalRef(jUrl);
+        checkException(env);
+    }
+
+    void play() {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        if (!env || !m_url.length())
+            return;
+
+        createJavaPlayerIfNeeded();
+
+        if (!m_glue->m_javaProxy)
+            return;
+
+        env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_play);
+        checkException(env);
+    }
+
+    bool hasAudio() { return true; }
+
+    float maxTimeSeekable() const {
+        if (m_glue->m_javaProxy) {
+            JNIEnv* env = JSC::Bindings::getJNIEnv();
+            if (env) {
+                float maxTime = env->CallFloatMethod(m_glue->m_javaProxy,
+                                                     m_glue->m_getMaxTimeSeekable);
+                checkException(env);
+                return maxTime;
+            }
+        }
+        return 0;
+    }
+
+    MediaPlayerAudioPrivate(MediaPlayer* player) : MediaPlayerPrivate(player) {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        if (!env)
+            return;
+
+        jclass clazz = env->FindClass(g_ProxyJavaClassAudio);
+
+        if (!clazz)
+            return;
+
+        m_glue = new JavaGlue;
+        m_glue->m_newInstance = env->GetMethodID(clazz, "<init>", "(I)V");
+        m_glue->m_setDataSource = env->GetMethodID(clazz, "setDataSource", "(Ljava/lang/String;)V");
+        m_glue->m_play = env->GetMethodID(clazz, "play", "()V");
+        m_glue->m_getMaxTimeSeekable = env->GetMethodID(clazz, "getMaxTimeSeekable", "()F");
+        m_glue->m_teardown = env->GetMethodID(clazz, "teardown", "()V");
+        m_glue->m_seek = env->GetMethodID(clazz, "seek", "(I)V");
+        m_glue->m_pause = env->GetMethodID(clazz, "pause", "()V");
+        m_glue->m_javaProxy = NULL;
+        env->DeleteLocalRef(clazz);
+        // An exception is raised if any of the above fails.
+        checkException(env);
+    }
+
+    void createJavaPlayerIfNeeded() {
+        // Check if we have been already created.
+        if (m_glue->m_javaProxy)
+            return;
+
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        if (!env)
+            return;
+
+        jclass clazz = env->FindClass(g_ProxyJavaClassAudio);
+
+        if (!clazz)
+            return;
+
+        jobject obj = NULL;
+
+        // Get the HTML5Audio instance
+        obj = env->NewObject(clazz, m_glue->m_newInstance, this);
+        m_glue->m_javaProxy = env->NewGlobalRef(obj);
+
+        // Clean up.
+        if (obj)
+            env->DeleteLocalRef(obj);
+        env->DeleteLocalRef(clazz);
+        checkException(env);
+    }
+
+    void onPrepared(int duration, int width, int height) {
+        m_duration = duration / 1000.0f;
+        m_player->durationChanged();
+        m_player->sizeChanged();
+        m_player->prepareToPlay();
+    }
+};
+
+MediaPlayerPrivateInterface* MediaPlayerPrivate::create(MediaPlayer* player)
+{
+    if (player->mediaElementType() == MediaPlayer::Video)
+       return new MediaPlayerVideoPrivate(player);
+    return new MediaPlayerAudioPrivate(player);
 }
 
 }
@@ -418,6 +446,13 @@ static void OnPosterFetched(JNIEnv* env, jobject obj, jobject poster, int pointe
     player->onPosterFetched(posterNative);
 }
 
+static void OnBuffering(JNIEnv* env, jobject obj, int percent, int pointer) {
+    if (pointer) {
+        WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
+        //TODO: player->onBuffering(percent);
+    }
+}
+
 static void OnTimeupdate(JNIEnv* env, jobject obj, int position, int pointer) {
     if (pointer) {
         WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
@@ -439,10 +474,27 @@ static JNINativeMethod g_MediaPlayerMethods[] = {
         (void*) OnTimeupdate },
 };
 
-int register_mediaplayer(JNIEnv* env)
+static JNINativeMethod g_MediaAudioPlayerMethods[] = {
+    { "nativeOnBuffering", "(II)V",
+        (void*) OnBuffering },
+    { "nativeOnEnded", "(I)V",
+        (void*) OnEnded },
+    { "nativeOnPrepared", "(IIII)V",
+        (void*) OnPrepared },
+    { "nativeOnTimeupdate", "(II)V",
+        (void*) OnTimeupdate },
+};
+
+int register_mediaplayer_video(JNIEnv* env)
 {
     return jniRegisterNativeMethods(env, g_ProxyJavaClass,
             g_MediaPlayerMethods, NELEM(g_MediaPlayerMethods));
+}
+
+int register_mediaplayer_audio(JNIEnv* env)
+{
+    return jniRegisterNativeMethods(env, g_ProxyJavaClassAudio,
+            g_MediaAudioPlayerMethods, NELEM(g_MediaAudioPlayerMethods));
 }
 
 }

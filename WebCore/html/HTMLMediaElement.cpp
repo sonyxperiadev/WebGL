@@ -591,6 +591,12 @@ void HTMLMediaElement::loadResource(const KURL& initialURL, ContentType& content
     updateVolume();
 
     m_player->load(m_currentSrc, contentType);
+#if PLATFORM(ANDROID)
+    if (isVideo())
+        m_player->setMediaElementType(MediaPlayer::Video);
+    else
+        m_player->setMediaElementType(MediaPlayer::Audio);
+#endif
 
     if (isVideo() && m_player->canLoadPoster()) {
         KURL posterUrl = static_cast<HTMLVideoElement*>(this)->poster();
