@@ -332,6 +332,7 @@ public:
         if (!m_glue->m_javaProxy)
             return;
 
+        m_paused = false;
         env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_play);
         checkException(env);
     }
