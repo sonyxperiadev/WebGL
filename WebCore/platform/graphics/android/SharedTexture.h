@@ -51,8 +51,8 @@ public:
     bool operator==(const TextureInfo& otherTexture);
 
     GLuint m_textureId;
-    uint32_t m_width;
-    uint32_t m_height;
+    int32_t m_width;
+    int32_t m_height;
     GLenum m_internalFormat;
 };
 

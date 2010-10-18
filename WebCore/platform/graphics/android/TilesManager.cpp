@@ -133,8 +133,7 @@ void TilesManager::paintTexturesDefault()
             canvas->drawARGB(255, 255, 255, 255);
 #endif // DEBUG
             PaintingInfo info;
-            texture->update(textureInfo, info);
-            texture->producerRelease();
+            texture->producerUpdate(0, textureInfo, info);
         }
     }
 }

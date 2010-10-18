@@ -87,7 +87,7 @@ EGLContext DoubleBufferedTexture::producerAcquireContext()
     m_textureA.initSourceTexture();
     m_textureB.initSourceTexture();
     LOGV("Initialized Textures A/B (%d:%d)", m_textureA.getSourceTextureId(),
-                                               m_textureB.getSourceTextureId());
+                                             m_textureB.getSourceTextureId());
     m_textureA.unlock();
     m_textureB.unlock();
 
@@ -110,17 +110,27 @@ TextureInfo* DoubleBufferedTexture::producerLock()
 
 void DoubleBufferedTexture::producerRelease()
 {
-    // get the front texture and cache the id
-    SharedTexture* sharedTex = getWriteableTexture();
-    LOGV("Releasing P Lock (%d)", sharedTex->getSourceTextureId());
+    producerReleaseTexture();
+}
 
-    sharedTex->releaseSource();
+void DoubleBufferedTexture::producerReleaseAndSwap()
+{
+    SharedTexture* sharedTex = producerReleaseTexture();
 
     // swap the front and back buffers
     m_varLock.lock();
     m_writeableTexture = (sharedTex == &m_textureA) ? &m_textureB : &m_textureA;
     LOGV("Released P Lock (%d)", sharedTex->getSourceTextureId());
     m_varLock.unlock();
+}
+
+SharedTexture* DoubleBufferedTexture::producerReleaseTexture()
+{
+    // get the front texture, unlock it, and return the id
+    SharedTexture* sharedTex = getWriteableTexture();
+    LOGV("Releasing P Lock (%d)", sharedTex->getSourceTextureId());
+    sharedTex->releaseSource();
+    return sharedTex;
 }
 
 TextureInfo* DoubleBufferedTexture::consumerLock()
