@@ -133,6 +133,11 @@ namespace WebCore {
     struct DashboardRegionValue;
 #endif
 
+#if ENABLE(TOUCH_EVENTS)
+    class Touch;
+    class TouchList;
+#endif
+
     typedef int ExceptionCode;
 
 class FormElementKey {
@@ -945,6 +950,11 @@ public:
     
     bool containsValidityStyleRules() const { return m_containsValidityStyleRules; }
     void setContainsValidityStyleRules() { m_containsValidityStyleRules = true; }
+
+#if ENABLE(TOUCH_EVENTS)
+    PassRefPtr<Touch> createTouch(DOMWindow*, Node*, int identifier, int pageX, int pageY, int screenX, int screenY, ExceptionCode&) const;
+    PassRefPtr<TouchList> createTouchList(ExceptionCode&) const;
+#endif
 
 protected:
     Document(Frame*, bool isXHTML, bool isHTML);

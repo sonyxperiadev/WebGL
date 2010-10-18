@@ -119,6 +119,8 @@
 #include "JSStyleSheetCustom.cpp"
 #include "JSStyleSheetListCustom.cpp"
 #include "JSTextCustom.cpp"
+#include "JSTouchCustom.cpp"
+#include "JSTouchListCustom.cpp"
 #include "JSTreeWalkerCustom.cpp"
 #include "JSWebKitCSSMatrixConstructor.cpp"
 #include "JSWebKitPointConstructor.cpp"
