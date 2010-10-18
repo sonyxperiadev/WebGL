@@ -28,6 +28,7 @@
 
 #include "ChromiumIncludes.h"
 #include "WebUrlLoaderClient.h"
+#include "wtf/Vector.h"
 
 class MessageLoop;
 
@@ -58,7 +59,7 @@ public:
     WebRequest(WebUrlLoaderClient*, WebResourceRequest, int inputStream);
 
     // Optional, but if used has to be called before start
-    void AppendBytesToUpload(const char* bytes, int bytesLen);
+    void AppendBytesToUpload(Vector<char>* data);
 
     void start(bool isPrivateBrowsing);
     void cancel();

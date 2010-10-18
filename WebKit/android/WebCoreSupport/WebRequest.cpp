@@ -113,11 +113,12 @@ void WebRequest::finish(bool success)
     m_request = 0;
 }
 
-void WebRequest::AppendBytesToUpload(const char* bytes, int bytesLen)
+void WebRequest::AppendBytesToUpload(WTF::Vector<char>* data)
 {
     // AppendBytesToUpload is only valid before calling start
     ASSERT(m_loadState == Created, "Start called on a WebRequest not in CREATED state: (%s)", m_url.c_str());
-    m_request->AppendBytesToUpload(bytes, bytesLen);
+    m_request->AppendBytesToUpload(data->data(), data->size());
+    delete data;
 }
 
 void WebRequest::start(bool isPrivateBrowsing)

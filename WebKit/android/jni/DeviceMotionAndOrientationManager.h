@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef DeviceOrientationManager_h
-#define DeviceOrientationManager_h
+#ifndef DeviceMotionAndOrientationManager_h
+#define DeviceMotionAndOrientationManager_h
 
 #include <DeviceMotionData.h>
 #include <DeviceMotionClient.h>
@@ -42,9 +42,9 @@ class WebViewCore;
 // DeviceOrientation may be either the real implementations or mocks. It also
 // handles setting the data on both the real and mock clients. This class is
 // owned by WebViewCore and exists to keep cruft out of that class.
-class DeviceOrientationManager {
+class DeviceMotionAndOrientationManager {
 public:
-    DeviceOrientationManager(WebViewCore*);
+    DeviceMotionAndOrientationManager(WebViewCore*);
 
     void useMock();
     void setMockMotion(PassRefPtr<WebCore::DeviceMotionData>);
@@ -65,4 +65,4 @@ private:
 
 } // namespace android
 
-#endif // DeviceOrientationManager_h
+#endif // DeviceMotionAndOrientationManager_h
