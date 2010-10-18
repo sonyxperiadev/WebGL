@@ -428,7 +428,10 @@ void RenderThemeAndroid::adjustListboxStyle(CSSStyleSelector*, RenderStyle* styl
 
 static void adjustMenuListStyleCommon(RenderStyle* style, Element* e)
 {
-    // Added to make room for our arrow.
+    // Added to make room for our arrow and make the touch target less cramped.
+    style->setPaddingLeft(Length(RenderSkinCombo::padding(), Fixed));
+    style->setPaddingTop(Length(RenderSkinCombo::padding(), Fixed));
+    style->setPaddingBottom(Length(RenderSkinCombo::padding(), Fixed));
     style->setPaddingRight(Length(RenderSkinCombo::extraWidth(), Fixed));
 }
 

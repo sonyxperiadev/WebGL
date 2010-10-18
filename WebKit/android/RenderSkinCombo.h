@@ -37,13 +37,10 @@ namespace WebCore {
 class RenderSkinCombo : public RenderSkinAndroid
 {
 public:
-    RenderSkinCombo();
-    virtual ~RenderSkinCombo() {}
-
     /**
      * Initialize the class before use. Uses the AssetManager to initialize any bitmaps the class may use.
      */
-    static void Init(android::AssetManager*);
+    static void Init(android::AssetManager*, String drawableDirectory);
 
     /**
      * Draw the provided Node on the SkCanvas, using the dimensions provided by
@@ -53,11 +50,18 @@ public:
     static bool Draw(SkCanvas* , Node* , int x, int y, int w, int h);
 
     // The image is wider than the RenderObject, so this accounts for that.
-    static int extraWidth() { return arrowMargin; }
-    
+    static int extraWidth() { return arrowMargin[resolution]; }
+    static int padding() { return padMargin[resolution]; }
+
+    enum Resolution {
+        MedRes,
+        HighRes
+    };
 private:
-    
-    static const int arrowMargin = 22;
+    static Resolution resolution;
+    const static int arrowMargin[2];
+    const static int padMargin[2];
+    const static SkIRect margin[2][2];
 }; 
 
 } // WebCore
