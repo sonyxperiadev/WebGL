@@ -40,7 +40,7 @@ public:
     static PassRefPtr<WebUrlLoader> start(FrameLoaderClient* client, WebCore::ResourceHandle*, const WebCore::ResourceRequest&, bool sync, bool isPrivateBrowsing);
 
     virtual void cancel();
-    virtual void downloadFile() {} // Not implemented yet
+    virtual void downloadFile();
     virtual void pauseLoad(bool pause) {} // Android method, does nothing for now
 
 private:

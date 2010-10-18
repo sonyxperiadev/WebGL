@@ -41,22 +41,27 @@ class WebResourceRequest {
 public:
     WebResourceRequest(const WebCore::ResourceRequest&);
 
-    const std::string& method()
+    const std::string& method() const
     {
         return m_method;
     }
 
-    const std::string& referrer()
+    const std::string& referrer() const
     {
         return m_referrer;
     }
 
-    const net::HttpRequestHeaders& requestHeaders()
+    const std::string& userAgent() const
+    {
+        return m_userAgent;
+    }
+
+    const net::HttpRequestHeaders& requestHeaders() const
     {
         return m_requestHeaders;
     }
 
-    const std::string& url()
+    const std::string& url() const
     {
         return m_url;
     }
@@ -74,6 +79,7 @@ public:
 private:
     std::string m_method;
     std::string m_referrer;
+    std::string m_userAgent;
     net::HttpRequestHeaders m_requestHeaders;
     int m_specialAndroidFileType;
     std::string m_url;

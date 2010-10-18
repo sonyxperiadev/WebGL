@@ -70,6 +70,11 @@ void WebUrlLoader::cancel()
     m_loaderClient->cancel();
 }
 
+void WebUrlLoader::downloadFile()
+{
+    m_loaderClient->downloadFile();
+}
+
 } // namespace android
 
 
