@@ -110,7 +110,7 @@ void CachedNode::fixUpCursorRects(const CachedFrame* frame)
     mFixedUpCursorRects = true;
     // if the hit-test rect doesn't intersect any other rect, use it
     if (mHitBounds != mBounds && mHitBounds.contains(mBounds) &&
-            frame->checkRings(this, mCursorRing, mHitBounds)) {
+            frame->checkRings(this, mCursorRing, mBounds, mHitBounds)) {
         DBG_NAV_LOGD("use mHitBounds (%d,%d,%d,%d)", mHitBounds.x(),
             mHitBounds.y(), mHitBounds.width(), mHitBounds.height());
         mUseHitBounds = true;
@@ -120,7 +120,9 @@ void CachedNode::fixUpCursorRects(const CachedFrame* frame)
         return;
     // if there is more than 1 rect, and the bounds doesn't intersect
     // any other cursor ring bounds, use it
-    if (frame->checkRings(this, mCursorRing, mBounds)) {
+    IntRect sloppyBounds = mBounds;
+    sloppyBounds.inflate(2); // give it a couple of extra pixels
+    if (frame->checkRings(this, mCursorRing, mBounds, sloppyBounds)) {
         DBG_NAV_LOGD("use mBounds (%d,%d,%d,%d)", mBounds.x(),
             mBounds.y(), mBounds.width(), mBounds.height());
         mUseBounds = true;

@@ -132,9 +132,10 @@ bool CachedFrame::checkBetween(BestData* best, Direction direction)
 
 bool CachedFrame::checkRings(const CachedNode* node,
         const WTF::Vector<WebCore::IntRect>& rings,
-        const WebCore::IntRect& bounds) const
+        const WebCore::IntRect& nodeBounds,
+        const WebCore::IntRect& testBounds) const
 {
-    return mRoot->checkRings(picture(node), rings, bounds);
+    return mRoot->checkRings(picture(node), rings, nodeBounds, testBounds);
 }
 
 bool CachedFrame::checkVisited(const CachedNode* node, Direction direction) const
@@ -511,8 +512,15 @@ const CachedNode* CachedFrame::findBestHitAt(const WebCore::IntRect& rect,
         testData.setNodeBounds(testRect);
         if (mRoot->maskIfHidden(&testData) == true)
             continue;
+        DBG_NAV_LOGD("candidate %d rect=(%d,%d,r=%d,b=%d)"
+            " testRect=(%d,%d,r=%d,b=%d)",
+            test->index(), rect.x(), rect.y(), rect.right(), rect.bottom(),
+            testRect.x(), testRect.y(), testRect.right(), testRect.bottom());
         for (int i = 0; i < test->navableRects(); i++) {
             WebCore::IntRect cursorRect = test->ring(this, i);
+            DBG_NAV_LOGD("candidate %d cursorRect=(%d,%d,r=%d,b=%d)",
+                i, cursorRect.x(), cursorRect.y(), cursorRect.right(),
+                cursorRect.bottom());
             if (cursorRect.intersects(rect)) {
                 WebCore::IntRect intersection(cursorRect);
                 intersection.intersect(rect);
@@ -523,6 +531,11 @@ const CachedNode* CachedFrame::findBestHitAt(const WebCore::IntRect& rect,
                 return test;
             }
         }
+        testRect.intersect(rect);
+        *x = testRect.x() + (testRect.width() >> 1);
+        *y = testRect.y() + (testRect.height() >> 1);
+        *framePtr = this;
+        return test;
     }
     return NULL;
 }

@@ -38,6 +38,10 @@
 
 #include "CachedRoot.h"
 
+#if DEBUG_NAV_UI
+#include "wtf/text/CString.h"
+#endif
+
 using std::min;
 using std::max;
 
@@ -62,7 +66,10 @@ public:
         kDrawRect_Type,
         kDrawSprite_Type,
         kDrawText_Type,
-        kDrawTextOnPath_Type
+        kDrawTextOnPath_Type,
+        kPopLayer_Type,
+        kPushLayer_Type,
+        kPushSave_Type
     };
 
     static bool isTextType(Type t) {
@@ -110,7 +117,10 @@ public:
         "kDrawRect_Type",
         "kDrawSprite_Type",
         "kDrawText_Type",
-        "kDrawTextOnPath_Type"
+        "kDrawTextOnPath_Type",
+        "kPopLayer_Type",
+        "kPushLayer_Type",
+        "kPushSave_Type"
     };
 #endif
 
@@ -147,8 +157,9 @@ public:
     virtual bool onIRect(const SkIRect& rect) {
         if (joinGlyphs(rect))
             return false;
-        bool interestingType = mType == kDrawBitmap_Type ||
-            mType == kDrawRect_Type || isTextType(mType);
+        bool interestingType = mType == kDrawBitmap_Type
+            || mType == kDrawSprite_Type
+            || mType == kDrawRect_Type || isTextType(mType);
         if (SkIRect::Intersects(mBounds, rect) == false) {
             DBG_NAV_LOGD("BoundsCheck (no intersect) rect={%d,%d,%d,%d}"
                 " mType=%s", rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
@@ -255,9 +266,10 @@ public:
     }
 
     virtual void drawSprite(const SkBitmap& bitmap, int left, int top,
-                            const SkPaint* paint = NULL) {
+                            const SkPaint* paint) {
         mBounder.setType(CommonCheck::kDrawSprite_Type);
-        mBounder.setIsOpaque(bitmap.isOpaque());
+        mBounder.setIsOpaque(bitmap.isOpaque() &&
+            (!paint || paint->getAlpha() == 255));
         SkCanvas::drawSprite(bitmap, left, top, paint);
     }
 
@@ -283,8 +295,10 @@ public:
         mBounder.setEmpty();
         mBounder.setType(CommonCheck::kDrawGlyph_Type);
         SkCanvas::drawPosTextH(text, byteLength, xpos, constY, paint);
-        if (mBounder.mUnion.isEmpty())
+        if (mBounder.mUnion.isEmpty()) {
+            DBG_NAV_LOGD("empty constY=%g", SkScalarToFloat(constY));
             return;
+        }
         SkPaint::FontMetrics metrics;
         paint.getFontMetrics(&metrics);
         SkPoint upDown[2] = { {xpos[0], constY + metrics.fAscent},
@@ -314,7 +328,7 @@ public:
 
     virtual int saveLayer(const SkRect* bounds, const SkPaint* paint,
                           SaveFlags flags) {
-        int depth = SkCanvas::saveLayer(bounds, paint, flags);
+        int depth = SkCanvas::save(flags);
         if (mTransparentLayer == 0 && paint && paint->getAlpha() < 255) {
             mTransparentLayer = depth;
             mBounder.setAllOpaque(false);
@@ -323,6 +337,7 @@ public:
     }
 
     virtual void restore() {
+        mBounder.setType(CommonCheck::kDrawSprite_Type); // for layer draws
         int depth = getSaveCount();
         if (depth == mTransparentLayer) {
             mTransparentLayer = 0;
@@ -653,32 +668,404 @@ public:
 class RingCheck : public CommonCheck {
 public:
     RingCheck(const WTF::Vector<WebCore::IntRect>& rings,
-            const WebCore::IntPoint& location) : mSuccess(true) {
+        const WebCore::IntRect& bitBounds, const WebCore::IntRect& testBounds)
+        : mTestBounds(testBounds)
+        , mBitBounds(bitBounds)
+    {
         const WebCore::IntRect* r;
         for (r = rings.begin(); r != rings.end(); r++) {
             SkIRect fatter = {r->x(), r->y(), r->right(), r->bottom()};
             fatter.inset(-CURSOR_RING_HIT_TEST_RADIUS, -CURSOR_RING_HIT_TEST_RADIUS);
-            DBG_NAV_LOGD("fat=(%d,%d,r=%d,b=%d)", fatter.fLeft, fatter.fTop,
+            DBG_NAV_LOGD("RingCheck fat=(%d,%d,r=%d,b=%d)", fatter.fLeft, fatter.fTop,
                 fatter.fRight, fatter.fBottom);
-            mRings.op(fatter, SkRegion::kUnion_Op);
+            mTextSlop.op(fatter, SkRegion::kUnion_Op);
+            mTextTest.op(*r, SkRegion::kUnion_Op);
         }
-        DBG_NAV_LOGD("translate=(%d,%d)", -location.x(), -location.y());
-        mRings.translate(-location.x(), -location.y());
+        int dx = -bitBounds.x();
+        int dy = -bitBounds.y();
+        DBG_NAV_LOGD("RingCheck translate=(%d,%d)", dx, dy);
+        mTextSlop.translate(dx, dy);
+        mTextTest.translate(dx, dy);
+        mTestBounds.translate(dx, dy);
+        mEmpty.setEmpty();
     }
 
-    virtual bool onIRect(const SkIRect& rect) {
-        if (mSuccess && mType == kDrawGlyph_Type) {
-            DBG_NAV_LOGD("contains (%d,%d,r=%d,b=%d) == %s",
-                rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
-                mRings.contains(rect) ? "true" : "false");
-            mSuccess &= mRings.contains(rect);
+    bool hiddenRings(SkRegion* clipped)
+    {
+        findBestLayer();
+        if (!mBestLayer) {
+            DBG_NAV_LOG("RingCheck empty");
+            clipped->setEmpty();
+            return true;
         }
+        const SkRegion* layersEnd = mLayers.end();
+        const Type* layerTypes = &mLayerTypes[mBestLayer - mLayers.begin()];
+        bool collectGlyphs = true;
+        bool collectOvers = false;
+        SkRegion over;
+        for (const SkRegion* layers = mBestLayer; layers != layersEnd; layers++) {
+            Type layerType = *layerTypes++;
+            DBG_NAV_LOGD("RingCheck #%d %s (%d,%d,r=%d,b=%d)",
+                layers - mLayers.begin(), TypeNames[layerType],
+                layers->getBounds().fLeft, layers->getBounds().fTop,
+                layers->getBounds().fRight, layers->getBounds().fBottom);
+            if (collectGlyphs && layerType == kDrawGlyph_Type) {
+                DBG_NAV_LOGD("RingCheck #%d collectOvers", layers - mLayers.begin());
+                collectOvers = true;
+                clipped->op(*layers, SkRegion::kUnion_Op);
+            }
+            collectGlyphs &= layerType != kPushLayer_Type;
+            if (collectOvers && (layerType == kDrawRect_Type
+                || (!collectGlyphs && layerType == kDrawSprite_Type)))
+            {
+                DBG_NAV_LOGD("RingCheck #%d over.op", layers - mLayers.begin());
+                over.op(*layers, SkRegion::kUnion_Op);
+            }
+        }
+        bool result = !collectOvers || clipped->intersects(over);
+        const SkIRect t = clipped->getBounds();
+        const SkIRect o = over.getBounds();
+        clipped->op(over, SkRegion::kDifference_Op);
+        clipped->translate(mBitBounds.x(), mBitBounds.y());
+        const SkIRect c = clipped->getBounds();
+        DBG_NAV_LOGD("RingCheck intersects=%s text=(%d,%d,r=%d,b=%d)"
+            " over=(%d,%d,r=%d,b=%d) clipped=(%d,%d,r=%d,b=%d)",
+            result ? "true" : "false",
+            t.fLeft, t.fTop, t.fRight, t.fBottom,
+            o.fLeft, o.fTop, o.fRight, o.fBottom,
+            c.fLeft, c.fTop, c.fRight, c.fBottom);
+        return result;
+    }
+
+    void push(Type type, const SkIRect& bounds)
+    {
+#if DEBUG_NAV_UI
+        // this caches the push string and subquently ignores if pushSave
+        // is immediately followed by popLayer. Push/pop pairs happen
+        // frequently and just add noise to the log.
+        static String lastLog;
+        String currentLog = String("RingCheck append #")
+            + String::number(mLayers.size())
+            + " type=" + TypeNames[type] + " bounds=("
+            + String::number(bounds.fLeft)
+            + "," + String::number(bounds.fTop) + ","
+            + String::number(bounds.fRight) + ","
+            + String::number(bounds.fBottom) + ")";
+        if (lastLog.length() == 0 || type != kPopLayer_Type) {
+            if (lastLog.length() != 0)
+                DBG_NAV_LOGD("%s", lastLog.latin1().data());
+            if (type == kPushSave_Type)
+                lastLog = currentLog;
+            else
+                DBG_NAV_LOGD("%s", currentLog.latin1().data());
+        } else
+            lastLog = "";
+#endif
+        popEmpty();
+        if (type == kPopLayer_Type) {
+            Type last = mLayerTypes.last();
+            // remove empty brackets
+            if (last == kPushLayer_Type || last == kPushSave_Type) {
+                mLayers.removeLast();
+                mLayerTypes.removeLast();
+                return;
+            }
+            // remove non-layer brackets
+            int stack = 0;
+            Type* types = mLayerTypes.end();
+            while (types != mLayerTypes.begin()) {
+                Type type = *--types;
+                if (type == kPopLayer_Type) {
+                    stack++;
+                    continue;
+                }
+                if (type != kPushLayer_Type && type != kPushSave_Type)
+                    continue;
+                if (--stack >= 0)
+                    continue;
+                if (type == kPushLayer_Type)
+                    break;
+                int remove = types - mLayerTypes.begin();
+                DBG_NAV_LOGD("RingCheck remove=%d mLayers.size=%d"
+                    " mLayerTypes.size=%d", remove, mLayers.size(),
+                    mLayerTypes.size());
+                mLayers.remove(remove);
+                mLayerTypes.remove(remove);
+                return;
+            }
+        }
+        mLayers.append(bounds);
+        mLayerTypes.append(type);
+    }
+
+    void startText(const SkPaint& paint)
+    {
+        mPaint = &paint;
+        if (!mLayerTypes.isEmpty() && mLayerTypes.last() == kDrawGlyph_Type
+            && !mLayers.last().isEmpty()) {
+            push(kDrawGlyph_Type, mEmpty);
+        }
+    }
+
+    bool textOutsideRings()
+    {
+        findBestLayer();
+        if (!mBestLayer) {
+            DBG_NAV_LOG("RingCheck empty");
+            return false;
+        }
+        const SkRegion* layers = mBestLayer;
+        const Type* layerTypes = &mLayerTypes[layers - mLayers.begin()];
+        // back up to include text drawn before the best layer
+        SkRegion active = SkRegion(mBitBounds);
+        active.translate(-mBitBounds.x(), -mBitBounds.y());
+        while (layers != mLayers.begin()) {
+            --layers;
+            Type layerType = *--layerTypes;
+            DBG_NAV_LOGD("RingCheck #%d %s"
+                " mTestBounds=(%d,%d,r=%d,b=%d) layers=(%d,%d,r=%d,b=%d)"
+                " active=(%d,%d,r=%d,b=%d)",
+                layers - mLayers.begin(), TypeNames[layerType],
+                mTestBounds.getBounds().fLeft, mTestBounds.getBounds().fTop,
+                mTestBounds.getBounds().fRight, mTestBounds.getBounds().fBottom,
+                layers->getBounds().fLeft, layers->getBounds().fTop,
+                layers->getBounds().fRight, layers->getBounds().fBottom,
+                active.getBounds().fLeft, active.getBounds().fTop,
+                active.getBounds().fRight, active.getBounds().fBottom);
+            if (layerType == kDrawRect_Type) {
+                SkRegion temp = *layers;
+                temp.op(mTestBounds, SkRegion::kIntersect_Op);
+                active.op(temp, SkRegion::kDifference_Op);
+                if (active.isEmpty()) {
+                    DBG_NAV_LOGD("RingCheck #%d empty", layers - mLayers.begin());
+                    break;
+                }
+            } else if (layerType == kDrawGlyph_Type) {
+                SkRegion temp = *layers;
+                temp.op(active, SkRegion::kIntersect_Op);
+                if (!mTestBounds.intersects(temp))
+                    continue;
+                if (!mTestBounds.contains(temp))
+                    return false;
+            } else
+                break;
+        }
+        layers = mBestLayer;
+        layerTypes = &mLayerTypes[layers - mLayers.begin()];
+        bool foundGlyph = false;
+        bool collectGlyphs = true;
+        do {
+            Type layerType = *layerTypes++;
+            DBG_NAV_LOGD("RingCheck #%d %s mTestBounds=(%d,%d,r=%d,b=%d)"
+            " layers=(%d,%d,r=%d,b=%d) collects=%s intersects=%s contains=%s",
+                layers - mLayers.begin(), TypeNames[layerType],
+                mTestBounds.getBounds().fLeft, mTestBounds.getBounds().fTop,
+                mTestBounds.getBounds().fRight, mTestBounds.getBounds().fBottom,
+                layers->getBounds().fLeft, layers->getBounds().fTop,
+                layers->getBounds().fRight, layers->getBounds().fBottom,
+                collectGlyphs ? "true" : "false",
+                mTestBounds.intersects(*layers) ? "true" : "false",
+                mTestBounds.contains(*layers) ? "true" : "false");
+            if (collectGlyphs && layerType == kDrawGlyph_Type) {
+                if (!mTestBounds.intersects(*layers))
+                    continue;
+                if (!mTestBounds.contains(*layers))
+                    return false;
+                foundGlyph = true;
+            }
+            collectGlyphs &= layerType != kPushLayer_Type;
+        } while (++layers != mLayers.end());
+        DBG_NAV_LOGD("RingCheck foundGlyph=%s", foundGlyph ? "true" : "false");
+        return foundGlyph;
+    }
+
+protected:
+    virtual bool onIRect(const SkIRect& rect)
+    {
+        joinGlyphs(rect);
+        if (mType != kDrawGlyph_Type && mType != kDrawRect_Type
+                && mType != kDrawSprite_Type)
+            return false;
+        if (mLayerTypes.isEmpty() || mLayerTypes.last() != mType)
+            push(mType, mEmpty);
+        DBG_NAV_LOGD("RingCheck join %s (%d,%d,r=%d,b=%d) '%c'",
+            TypeNames[mType], rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
+            mCh);
+        mLayers.last().op(rect, SkRegion::kUnion_Op);
         return false;
     }
 
-    bool success() { return mSuccess; }
-    SkRegion mRings;
-    bool mSuccess;
+    virtual bool onIRectGlyph(const SkIRect& rect,
+        const SkBounder::GlyphRec& rec)
+    {
+        mCh = ' ';
+        if (mPaint) {
+            SkUnichar unichar;
+            SkPaint utfPaint = *mPaint;
+            utfPaint.setTextEncoding(SkPaint::kUTF16_TextEncoding);
+            utfPaint.glyphsToUnichars(&rec.fGlyphID, 1, &unichar);
+            mCh = unichar < 0x7f ? unichar : '?';
+        }
+        return onIRect(rect);
+    }
+
+private:
+    int calcOverlap(SkRegion& testRegion)
+    {
+        if (testRegion.isEmpty())
+            return INT_MAX;
+        testRegion.op(mTextTest, SkRegion::kXOR_Op);
+        SkRegion::Iterator iter(testRegion);
+        int area = 0;
+        while (!iter.done()) {
+            const SkIRect& cr = iter.rect();
+            area += cr.width() * cr.height();
+            iter.next();
+        }
+        DBG_NAV_LOGD("RingCheck area=%d", area);
+        return area;
+    }
+
+    void findBestLayer()
+    {
+        popEmpty();
+        mBestLayer = 0;
+        const SkRegion* layers = mLayers.begin();
+        const SkRegion* layersEnd = mLayers.end();
+        if (layers == layersEnd) {
+            DBG_NAV_LOG("RingCheck empty");
+            return;
+        }
+        // find text most like focus rings by xoring found with original
+        int bestArea = INT_MAX;
+        const SkRegion* testLayer = 0;
+        SkRegion testRegion;
+        const Type* layerTypes = &mLayerTypes[layers - mLayers.begin()];
+        for (; layers != mLayers.end(); layers++) {
+            Type layerType = *layerTypes++;
+#if DEBUG_NAV_UI
+            const SkIRect& gb = layers->getBounds();
+            const SkIRect& tb = mTextSlop.getBounds();
+            DBG_NAV_LOGD("RingCheck #%d %s mTextSlop=(%d,%d,%d,%d)"
+                " contains=%s bounds=(%d,%d,%d,%d)",
+                layers - mLayers.begin(), TypeNames[layerType],
+                tb.fLeft, tb.fTop, tb.fRight, tb.fBottom,
+                mTextSlop.contains(*layers) ? "true" : "false",
+                gb.fLeft, gb.fTop, gb.fRight, gb.fBottom);
+#endif
+            if (layerType == kDrawGlyph_Type) {
+                if (!testLayer)
+                    testLayer = layers;
+                if (mTextSlop.contains(*layers)) {
+                    testRegion.op(*layers, SkRegion::kUnion_Op);
+                    continue;
+                }
+            }
+            if (testLayer) {
+                int area = calcOverlap(testRegion);
+                if (bestArea > area) {
+                    bestArea = area;
+                    mBestLayer = testLayer;
+                }
+                DBG_NAV_LOGD("RingCheck #%d push test=%d best=%d",
+                    layers - mLayers.begin(), testLayer - mLayers.begin(),
+                    mBestLayer ? mBestLayer - mLayers.begin() : -1);
+                testRegion.setEmpty();
+                testLayer = 0;
+            }
+        }
+        if (testLayer && bestArea > calcOverlap(testRegion)) {
+            DBG_NAV_LOGD("RingCheck last best=%d", testLayer - mLayers.begin());
+            mBestLayer = testLayer;
+        }
+    }
+
+    void popEmpty()
+    {
+        if (mLayerTypes.size() == 0)
+            return;
+        Type last = mLayerTypes.last();
+        if (last >= kPopLayer_Type)
+            return;
+        const SkRegion& area = mLayers.last();
+        if (!area.isEmpty())
+            return;
+        DBG_NAV_LOGD("RingCheck #%d %s", mLayers.size() - 1, TypeNames[last]);
+        mLayers.removeLast();
+        mLayerTypes.removeLast();
+    }
+
+    SkRegion mTestBounds;
+    IntRect mBitBounds;
+    SkIRect mEmpty;
+    const SkRegion* mBestLayer;
+    SkRegion mTextSlop; // outset rects for inclusion test
+    SkRegion mTextTest; // exact rects for xor area test
+    Type mLastType;
+    Vector<SkRegion> mLayers;
+    Vector<Type> mLayerTypes;
+    const SkPaint* mPaint;
+    char mCh;
+};
+
+class RingCanvas : public BoundsCanvas {
+public:
+    RingCanvas(RingCheck* bounder)
+        : INHERITED(bounder)
+    {
+    }
+
+protected:
+    virtual void drawText(const void* text, size_t byteLength, SkScalar x,
+                          SkScalar y, const SkPaint& paint) {
+        static_cast<RingCheck&>(mBounder).startText(paint);
+        INHERITED::drawText(text, byteLength, x, y, paint);
+    }
+
+    virtual void drawPosText(const void* text, size_t byteLength,
+                             const SkPoint pos[], const SkPaint& paint) {
+        static_cast<RingCheck&>(mBounder).startText(paint);
+        INHERITED::drawPosText(text, byteLength, pos, paint);
+    }
+
+    virtual void drawTextOnPath(const void* text, size_t byteLength,
+                                const SkPath& path, const SkMatrix* matrix,
+                                const SkPaint& paint) {
+        static_cast<RingCheck&>(mBounder).startText(paint);
+        INHERITED::drawTextOnPath(text, byteLength, path, matrix, paint);
+    }
+
+    virtual void drawPosTextH(const void* text, size_t byteLength,
+                              const SkScalar xpos[], SkScalar constY,
+                              const SkPaint& paint) {
+        static_cast<RingCheck&>(mBounder).startText(paint);
+        INHERITED::drawPosTextH(text, byteLength, xpos, constY, paint);
+    }
+
+    virtual int save(SaveFlags flags)
+    {
+        RingCheck& bounder = static_cast<RingCheck&>(mBounder);
+        bounder.push(CommonCheck::kPushSave_Type, getTotalClip().getBounds());
+        return INHERITED::save(flags);
+    }
+
+    virtual int saveLayer(const SkRect* bounds, const SkPaint* paint,
+        SaveFlags flags)
+    {
+        RingCheck& bounder = static_cast<RingCheck&>(mBounder);
+        bounder.push(CommonCheck::kPushLayer_Type, getTotalClip().getBounds());
+        return INHERITED::save(flags);
+    }
+
+    virtual void restore()
+    {
+        RingCheck& bounder = static_cast<RingCheck&>(mBounder);
+        bounder.push(CommonCheck::kPopLayer_Type, getTotalClip().getBounds());
+        INHERITED::restore();
+    }
+
+private:
+    typedef BoundsCanvas INHERITED;
 };
 
 bool CachedRoot::adjustForScroll(BestData* best, CachedFrame::Direction direction,
@@ -707,6 +1094,29 @@ bool CachedRoot::adjustForScroll(BestData* best, CachedFrame::Direction directio
         *scrollPtr = WebCore::IntPoint(direction & UP_DOWN ? 0 : delta,
             direction & UP_DOWN ? delta : 0);
     return false;
+}
+
+void CachedRoot::calcBitBounds(const IntRect& nodeBounds, IntRect* bitBounds) const
+{
+    IntRect contentBounds = IntRect(0, 0, mPicture->width(), mPicture->height());
+    IntRect overBounds = nodeBounds;
+    overBounds.inflate(kMargin);
+    *bitBounds = mScrolledBounds;
+    bitBounds->unite(mViewBounds);
+    bitBounds->intersect(contentBounds);
+    bitBounds->intersect(overBounds);
+    DBG_NAV_LOGD("contentBounds=(%d,%d,r=%d,b=%d) overBounds=(%d,%d,r=%d,b=%d)"
+        " mScrolledBounds=(%d,%d,r=%d,b=%d) mViewBounds=(%d,%d,r=%d,b=%d)"
+        " bitBounds=(%d,%d,r=%d,b=%d)",
+        contentBounds.x(), contentBounds.y(), contentBounds.right(),
+        contentBounds.bottom(),
+        overBounds.x(), overBounds.y(), overBounds.right(), overBounds.bottom(),
+        mScrolledBounds.x(), mScrolledBounds.y(), mScrolledBounds.right(),
+        mScrolledBounds.bottom(),
+        mViewBounds.x(), mViewBounds.y(), mViewBounds.right(),
+        mViewBounds.bottom(),
+        bitBounds->x(), bitBounds->y(), bitBounds->right(),
+        bitBounds->bottom());
 }
 
 
@@ -745,22 +1155,30 @@ void CachedRoot::checkForJiggle(int* xDeltaPtr) const
 
 bool CachedRoot::checkRings(SkPicture* picture,
         const WTF::Vector<WebCore::IntRect>& rings,
-        const WebCore::IntRect& bounds) const
+        const WebCore::IntRect& nodeBounds,
+        const WebCore::IntRect& testBounds) const
 {
     if (!picture)
         return false;
-    RingCheck ringCheck(rings, bounds.location());
-    BoundsCanvas checker(&ringCheck);
+    IntRect bitBounds;
+    calcBitBounds(nodeBounds, &bitBounds);
+    RingCheck ringCheck(rings, bitBounds, testBounds);
+    RingCanvas checker(&ringCheck);
     SkBitmap bitmap;
-    bitmap.setConfig(SkBitmap::kARGB_8888_Config, bounds.width(),
-        bounds.height());
+    bitmap.setConfig(SkBitmap::kARGB_8888_Config, bitBounds.width(),
+        bitBounds.height());
     checker.setBitmapDevice(bitmap);
-    checker.translate(SkIntToScalar(-bounds.x()), SkIntToScalar(-bounds.y()));
+    checker.translate(SkIntToScalar(-bitBounds.x()),
+        SkIntToScalar(-bitBounds.y()));
     checker.drawPicture(*picture);
-    DBG_NAV_LOGD("bounds=(%d,%d,r=%d,b=%d) success=%s",
-        bounds.x(), bounds.y(), bounds.right(), bounds.bottom(),
-        ringCheck.success() ? "true" : "false");
-    return ringCheck.success();
+    bool result = ringCheck.textOutsideRings();
+    DBG_NAV_LOGD("bitBounds=(%d,%d,r=%d,b=%d) nodeBounds=(%d,%d,r=%d,b=%d)"
+        " testBounds=(%d,%d,r=%d,b=%d) success=%s",
+        bitBounds.x(), bitBounds.y(), bitBounds.right(), bitBounds.bottom(),
+        nodeBounds.x(), nodeBounds.y(), nodeBounds.right(), nodeBounds.bottom(),
+        testBounds.x(), testBounds.y(), testBounds.right(), testBounds.bottom(),
+        result ? "true" : "false");
+    return result;
 }
 
 void CachedRoot::draw(FindCanvas& canvas) const
@@ -1085,7 +1503,7 @@ WTF::String CachedRoot::imageURI(int x, int y) const
 bool CachedRoot::maskIfHidden(BestData* best) const
 {
     const CachedNode* bestNode = best->mNode;
-    if (bestNode->isUnclipped() || bestNode->isTransparent())
+    if (bestNode->isUnclipped())
         return false;
     const CachedFrame* frame = best->mFrame;
     SkPicture* picture = frame->picture(bestNode);
@@ -1093,115 +1511,42 @@ bool CachedRoot::maskIfHidden(BestData* best) const
         DBG_NAV_LOG("missing picture");
         return false;
     }
-    // given the picture matching this nav cache
-        // create an SkBitmap with dimensions of the cursor intersected w/ extended view
-    const WebCore::IntRect& nodeBounds = bestNode->bounds(frame);
-    WebCore::IntRect bounds = nodeBounds;
-    bounds.intersect(mScrolledBounds);
-    int leftMargin = bounds.x() == nodeBounds.x() ? kMargin : 0;
-    int topMargin = bounds.y() == nodeBounds.y() ? kMargin : 0;
-    int rightMargin = bounds.right() == nodeBounds.right() ? kMargin : 0;
-    int bottomMargin = bounds.bottom() == nodeBounds.bottom() ? kMargin : 0;
-    bool unclipped = (leftMargin & topMargin & rightMargin & bottomMargin) != 0;
-    WebCore::IntRect marginBounds = nodeBounds;
-    marginBounds.inflate(kMargin);
-    marginBounds.intersect(mScrolledBounds);
-    SkScalar offsetX = SkIntToScalar(leftMargin - bounds.x());
-    SkScalar offsetY = SkIntToScalar(topMargin - bounds.y());
-#if USE(ACCELERATED_COMPOSITING)
-    // When cached nodes are constructed in CacheBuilder.cpp, their
-    // unclipped attribute is set so this condition won't be reached.
-    // In the future, layers may contain nodes that can be clipped.
-    // So to be safe, adjust the layer picture by its offset.
-    if (bestNode->isInLayer()) {
-        const CachedLayer* cachedLayer = frame->layer(bestNode);
-        const LayerAndroid* layer = cachedLayer->layer(mRootLayer);
-        SkMatrix pictMatrix;
-        layer->localToGlobal(&pictMatrix);
-        // FIXME: ignore scale, rotation for now
-        offsetX += pictMatrix.getTranslateX();
-        offsetY += pictMatrix.getTranslateY();
-        DBG_NAV_LOGD("layer picture=%p (%g,%g)", picture,
-            pictMatrix.getTranslateX(), pictMatrix.getTranslateY());
-    }
-#endif
-    BoundsCheck boundsCheck;
-    BoundsCanvas checker(&boundsCheck);
-    boundsCheck.mBounds.set(leftMargin, topMargin,
-        leftMargin + bounds.width(), topMargin + bounds.height());
-    boundsCheck.mBoundsSlop = boundsCheck.mBounds;
-    boundsCheck.mBoundsSlop.inset(-kSlop, -kSlop);
+    Vector<IntRect> rings;
+    bestNode->cursorRings(frame, &rings);
+    const WebCore::IntRect& bounds = bestNode->bounds(frame);
+    IntRect bitBounds;
+    calcBitBounds(bounds, &bitBounds);
+    RingCheck ringCheck(rings, bitBounds, bounds);
+    RingCanvas checker(&ringCheck);
     SkBitmap bitmap;
-    bitmap.setConfig(SkBitmap::kARGB_8888_Config, marginBounds.width(),
-        marginBounds.height());
+    bitmap.setConfig(SkBitmap::kARGB_8888_Config, bitBounds.width(),
+        bitBounds.height());
     checker.setBitmapDevice(bitmap);
-    // insert probes to be called when the data corresponding to this ring is drawn
-        // need to know if ring was generated by text, image, or parent (like div)
-        // ? need to know (like imdb menu bar) to give up sometimes (when?)
-    checker.translate(offsetX, offsetY);
+    checker.translate(SkIntToScalar(-bitBounds.x()),
+        SkIntToScalar(-bitBounds.y()));
     checker.drawPicture(*picture);
-    boundsCheck.checkLast();
-    // was it not drawn or clipped out?
+    SkRegion clipRgn;
+    bool clipped = ringCheck.hiddenRings(&clipRgn);
     CachedNode* node = const_cast<CachedNode*>(best->mNode);
-    if (boundsCheck.hidden()) { // if hidden, return false so that nav can try again
-#if DEBUG_NAV_UI
-        const SkIRect& m = boundsCheck.mBounds;
-        const SkIRect& s = boundsCheck.mBoundsSlop;
-        DBG_NAV_LOGD("hidden node:%p (%d) mBounds={%d,%d,%d,%d} mBoundsSlop="
-            "{%d,%d,%d,%d}", node, node->index(),
-            m.fLeft, m.fTop, m.fRight, m.fBottom,
-            s.fLeft, s.fTop, s.fRight, s.fBottom);
-        const SkIRect& o = boundsCheck.mDrawnOver.getBounds();
-        const SkIRect& l = boundsCheck.mLastAll;
-        const SkIRect& u = boundsCheck.mUnion;
-        DBG_NAV_LOGD("hidden mDrawnOver={%d,%d,%d,%d} mLastAll={%d,%d,%d,%d}"
-            " mUnion={%d,%d,%d,%d}",
-            o.fLeft, o.fTop, o.fRight, o.fBottom,
-            l.fLeft, l.fTop, l.fRight, l.fBottom,
-            u.fLeft, u.fTop, u.fRight, u.fBottom);
-        const SkIRect& a = boundsCheck.mAllDrawnIn;
-        const WebCore::IntRect& c = mScrolledBounds;
-        const WebCore::IntRect& b = nodeBounds;
-        DBG_NAV_LOGD("hidden mAllDrawnIn={%d,%d,%d,%d}"
-            " mScrolledBounds={%d,%d,%d,%d} nodeBounds={%d,%d,%d,%d}",
-            a.fLeft, a.fTop, a.fRight, a.fBottom,
-            c.x(), c.y(), c.right(), c.bottom(),
-            b.x(), b.y(), b.right(), b.bottom());
-        DBG_NAV_LOGD("bits.mWidth=%d bits.mHeight=%d transX=%d transY=%d",
-            marginBounds.width(),marginBounds.height(),
-            kMargin - bounds.x(), kMargin - bounds.y());
-#endif
+    DBG_NAV_LOGD("clipped=%s clipRgn.isEmpty=%s", clipped ? "true" : "false",
+        clipRgn.isEmpty() ? "true" : "false");
+    if (clipped && clipRgn.isEmpty()) {
         node->setDisabled(true);
-        node->setClippedOut(unclipped == false);
+        IntRect clippedBounds = bounds;
+        clippedBounds.intersect(bitBounds);
+        node->setClippedOut(clippedBounds != bounds);
         return true;
     }
     // was it partially occluded by later drawing?
     // if partially occluded, modify the bounds so that the mouse click has a better x,y
-       const SkIRect& over = boundsCheck.mDrawnOver.getBounds();
-    if (over.isEmpty() == false) {
-#if DEBUG_NAV_UI
-        SkIRect orig = boundsCheck.mBounds;
-#endif
-        SkIRect& base = boundsCheck.mBounds;
-        if (base.fLeft < over.fRight && base.fRight > over.fRight)
-            base.fLeft = over.fRight;
-        else if (base.fRight > over.fLeft && base.fLeft < over.fLeft)
-            base.fRight = over.fLeft;
-        if (base.fTop < over.fBottom && base.fBottom > over.fBottom)
-            base.fTop = over.fBottom;
-        else if (base.fBottom > over.fTop && base.fTop < over.fTop)
-            base.fBottom = over.fTop;
-#if DEBUG_NAV_UI
-        const SkIRect& modded = boundsCheck.mBounds;
-        DBG_NAV_LOGD("partially occluded node:%p (%d) old:{%d,%d,%d,%d}"
-            " new:{%d,%d,%d,%d}", node, node->index(),
-            orig.fLeft, orig.fTop, orig.fRight, orig.fBottom,
-            base.fLeft, base.fTop, base.fRight, base.fBottom);
-#endif
-        best->setMouseBounds(WebCore::IntRect(bounds.x() + base.fLeft - kMargin,
-            bounds.y() + base.fTop - kMargin, base.width(), base.height()));
+    if (clipped) {
+        DBG_NAV_LOGD("clipped clipRgn={%d,%d,r=%d,b=%d}",
+            clipRgn.getBounds().fLeft, clipRgn.getBounds().fTop,
+            clipRgn.getBounds().fRight, clipRgn.getBounds().fBottom);
+        best->setMouseBounds(clipRgn.getBounds());
         node->clip(best->mouseBounds());
-    }
+    } else
+        node->fixUpCursorRects(frame);
     return false;
 }
 
