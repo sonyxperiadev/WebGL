@@ -49,10 +49,12 @@ public:
     bool adjustForScroll(BestData* , Direction , WebCore::IntPoint* scrollPtr,
         bool findClosest);
     const SkRegion& baseUncovered() const { return mBaseUncovered; }
+    void calcBitBounds(const IntRect& , IntRect* ) const;
     int checkForCenter(int x, int y) const;
     void checkForJiggle(int* ) const;
     bool checkRings(SkPicture* , const WTF::Vector<WebCore::IntRect>& rings,
-        const WebCore::IntRect& bounds) const;
+        const WebCore::IntRect& nodeBounds,
+        const WebCore::IntRect& testBounds) const;
     WebCore::IntPoint cursorLocation() const;
     int documentHeight() { return mContents.height(); }
     int documentWidth() { return mContents.width(); }
