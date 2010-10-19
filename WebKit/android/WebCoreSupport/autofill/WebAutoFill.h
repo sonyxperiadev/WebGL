@@ -73,6 +73,7 @@ private:
     OwnPtr<AutoFillManager> mAutoFillManager;
     OwnPtr<AutoFillHost> mAutoFillHost;
     OwnPtr<TabContents> mTabContents;
+    OwnPtr<AutoFillProfile> mAutoFillProfile;
 
     typedef std::vector<webkit_glue::FormData, std::allocator<webkit_glue::FormData> > FormList;
     FormList mForms;
@@ -83,9 +84,6 @@ private:
     typedef std::map<int, int> AutoFillQueryToUniqueIdMap;
     AutoFillQueryToUniqueIdMap mUniqueIdMap;
     int mQueryId;
-
-    // This is set by Java when a profile is synced.
-    int mUniqueProfileId;
 
     WebViewCore* mWebViewCore;
 };

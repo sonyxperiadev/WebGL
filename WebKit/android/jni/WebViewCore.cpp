@@ -381,7 +381,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_centerFitRect = GetJMethod(env, clazz, "centerFitRect", "(IIII)V");
     m_javaGlue->m_setScrollbarModes = GetJMethod(env, clazz, "setScrollbarModes", "(II)V");
     m_javaGlue->m_setInstallableWebApp = GetJMethod(env, clazz, "setInstallableWebApp", "()V");
-    m_javaGlue->m_setWebTextViewAutoFillable = GetJMethod(env, clazz, "setWebTextViewAutoFillable", "(I)V");
+    m_javaGlue->m_setWebTextViewAutoFillable = GetJMethod(env, clazz, "setWebTextViewAutoFillable", "(ILjava/lang/String;)V");
     env->DeleteLocalRef(clazz);
 
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
@@ -3304,10 +3304,12 @@ void WebViewCore::notifyWebAppCanBeInstalled()
     checkException(env);
 }
 
-void WebViewCore::setWebTextViewAutoFillable(int queryId)
+void WebViewCore::setWebTextViewAutoFillable(int queryId, const string16& previewSummary)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_setWebTextViewAutoFillable, queryId);
+    jstring preview = env->NewString(previewSummary.data(), previewSummary.length());
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_setWebTextViewAutoFillable, queryId, preview);
+    env->DeleteLocalRef(preview);
 }
 
 bool WebViewCore::drawIsPaused() const

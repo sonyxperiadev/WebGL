@@ -57,7 +57,6 @@ static URLRequestContext* webAutoFillContextGetter()
 
 WebAutoFill::WebAutoFill()
     : mWebViewCore(0)
-    , mUniqueProfileId(NO_PROFILE_SET)
 {
     mFormManager = new FormManager();
     mQueryId = 1;
@@ -107,7 +106,7 @@ void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldEle
         // In case that we've just been disabled and the last time we got autofill
         // suggestions and told Java about them, clear that bit Java side now
         // we're disabled.
-        mWebViewCore->setWebTextViewAutoFillable(FORM_NOT_AUTOFILLABLE);
+        mWebViewCore->setWebTextViewAutoFillable(FORM_NOT_AUTOFILLABLE, string16());
         return;
     }
 
@@ -125,7 +124,7 @@ void WebAutoFill::formFieldFocused(WebCore::HTMLFormControlElement* formFieldEle
     if (!suggestions) {
         ASSERT(mWebViewCore);
         // Tell Java no autofill suggestions for this form.
-        mWebViewCore->setWebTextViewAutoFillable(FORM_NOT_AUTOFILLABLE);
+        mWebViewCore->setWebTextViewAutoFillable(FORM_NOT_AUTOFILLABLE, string16());
         return;
     }
 }
@@ -140,7 +139,7 @@ void WebAutoFill::querySuccessful(int queryId, const string16& value, const stri
     mUniqueIdMap[queryId] = uniqueId;
 
     ASSERT(mWebViewCore);
-    mWebViewCore->setWebTextViewAutoFillable(queryId);
+    mWebViewCore->setWebTextViewAutoFillable(queryId, mAutoFillProfile->PreviewSummary());
 }
 
 void WebAutoFill::fillFormFields(int queryId)
@@ -173,24 +172,23 @@ void WebAutoFill::setProfile(int id, const string16& fullName, const string16& e
                              const string16& addressLine1, const string16& addressLine2, const string16& city,
                              const string16& state, const string16& zipCode, const string16& country, const string16& phoneNumber)
 {
-    AutoFillProfile autoFillProfile;
-    mUniqueProfileId = id;
-    autoFillProfile.set_unique_id(id);
+    mAutoFillProfile.set(new AutoFillProfile());
+    mAutoFillProfile->set_unique_id(id);
 
     // Constants for AutoFill field types are found in external/chromium/chrome/browser/autofill/field_types.h.
-    autoFillProfile.SetInfo(AutoFillType(NAME_FULL), fullName);
-    autoFillProfile.SetInfo(AutoFillType(EMAIL_ADDRESS), emailAddress);
-    autoFillProfile.SetInfo(AutoFillType(COMPANY_NAME), companyName);
-    autoFillProfile.SetInfo(AutoFillType(ADDRESS_HOME_LINE1), addressLine1);
-    autoFillProfile.SetInfo(AutoFillType(ADDRESS_HOME_LINE2), addressLine2);
-    autoFillProfile.SetInfo(AutoFillType(ADDRESS_HOME_CITY), city);
-    autoFillProfile.SetInfo(AutoFillType(ADDRESS_HOME_STATE), state);
-    autoFillProfile.SetInfo(AutoFillType(ADDRESS_HOME_ZIP), zipCode);
-    autoFillProfile.SetInfo(AutoFillType(ADDRESS_HOME_COUNTRY), country);
-    autoFillProfile.SetInfo(AutoFillType(PHONE_HOME_WHOLE_NUMBER), phoneNumber);
+    mAutoFillProfile->SetInfo(AutoFillType(NAME_FULL), fullName);
+    mAutoFillProfile->SetInfo(AutoFillType(EMAIL_ADDRESS), emailAddress);
+    mAutoFillProfile->SetInfo(AutoFillType(COMPANY_NAME), companyName);
+    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_LINE1), addressLine1);
+    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_LINE2), addressLine2);
+    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_CITY), city);
+    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_STATE), state);
+    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_ZIP), zipCode);
+    mAutoFillProfile->SetInfo(AutoFillType(ADDRESS_HOME_COUNTRY), country);
+    mAutoFillProfile->SetInfo(AutoFillType(PHONE_HOME_WHOLE_NUMBER), phoneNumber);
 
     std::vector<AutoFillProfile> profiles;
-    profiles.push_back(autoFillProfile);
+    profiles.push_back(*mAutoFillProfile);
     mTabContents->profile()->GetPersonalDataManager()->SetProfiles(&profiles);
 }
 
@@ -199,10 +197,10 @@ void WebAutoFill::clearProfiles()
    // For now Chromium only ever knows about one profile, so we can just
    // remove it by unique id. If we support multiple profiles in the future
    // we need to remove them all here.
-   if (mUniqueProfileId != NO_PROFILE_SET) {
-       mTabContents->profile()->GetPersonalDataManager()->RemoveProfile(mUniqueProfileId);
-       mUniqueProfileId = NO_PROFILE_SET;
-   }
+   int uniqueProfileId = mAutoFillProfile->unique_id();
+   if (uniqueProfileId != NO_PROFILE_SET)
+       mTabContents->profile()->GetPersonalDataManager()->RemoveProfile(uniqueProfileId);
+   mAutoFillProfile.set(0);
 }
 
 }
