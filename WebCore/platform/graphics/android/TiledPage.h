@@ -52,6 +52,7 @@ typedef HashMap<TileKey, BaseTile*> TileMap;
 class TiledPage {
 public:
     TiledPage(int id, GLWebViewState* state);
+    ~TiledPage();
 
     // returns the other TiledPage who shares the same GLWebViewState
     TiledPage* sibling();
