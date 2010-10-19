@@ -311,8 +311,12 @@ module core {
         attribute [DontEnum] EventListener ontouchmove;
         attribute [DontEnum] EventListener ontouchend;
         attribute [DontEnum] EventListener ontouchcancel;
+#endif
+#endif
+
+#if defined(ENABLE_TOUCH_EVENTS) && ENABLE_TOUCH_EVENTS
         [ReturnsNew] Touch createTouch(in DOMWindow window,
-                                       in Node target,
+                                       in EventTarget target,
                                        in long identifier,
                                        in long pageX,
                                        in long pageY,
@@ -322,7 +326,7 @@ module core {
         [ReturnsNew] TouchList createTouchList()
             raises (DOMException);
 #endif
-#endif
+
     };
 
 }
