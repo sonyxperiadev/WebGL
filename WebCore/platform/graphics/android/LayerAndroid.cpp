@@ -334,6 +334,7 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity) {
         SkRect r;
         r.set(0, 0, getSize().width(), getSize().height());
         canvas->clipRect(r);
+        return;
     }
 
     if (!prepareContext())
