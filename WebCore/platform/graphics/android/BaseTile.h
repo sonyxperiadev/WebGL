@@ -73,7 +73,7 @@ public:
     void draw(float transparency, SkRect& rect);
 
     // the only thread-safe function called by the background thread
-    bool paintBitmap();
+    void paintBitmap();
 
     float scale() const { return m_scale; }
     void setScale(float scale) { m_scale = scale; }

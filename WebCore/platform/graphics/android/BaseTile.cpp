@@ -140,7 +140,7 @@ bool BaseTile::isBitmapReady()
 }
 
 // Called from the texture generation thread
-bool BaseTile::paintBitmap()
+void BaseTile::paintBitmap()
 {
     XLOG("paintBitmap(%x) %d, %d with page %x", this, m_x, m_y, m_page);
     // the mutex ensures you are reading the most current value
@@ -153,7 +153,7 @@ bool BaseTile::paintBitmap()
     m_varLock.unlock();
 
     if (!texture)
-        return false;
+        return;
 
     TextureInfo* textureInfo = texture->producerLock();
 
@@ -162,13 +162,13 @@ bool BaseTile::paintBitmap()
     // under us)
     if (texture->owner() != this || texture->usedLevel() > 1) {
         texture->producerRelease();
-        return false;
+        return;
     }
 
     PaintingInfo info(x, y, tiledPage->glWebViewState());
     if (texture->consumerTextureUpToDate(info)) {
         texture->producerRelease();
-        return true;
+        return;
     }
 
     float tileWidth = textureInfo->m_width;
@@ -185,7 +185,7 @@ bool BaseTile::paintBitmap()
     canvas->scale(scale, scale);
     canvas->translate(-x * w, -y * h);
 
-    bool didPaint = tiledPage->paintBaseLayerContent(canvas);
+    tiledPage->paintBaseLayerContent(canvas);
 
     canvas->restore();
 
@@ -202,8 +202,6 @@ bool BaseTile::paintBitmap()
 #endif
 
     texture->producerUpdate(this, textureInfo, info);
-
-    return didPaint;
 }
 
 } // namespace WebCore

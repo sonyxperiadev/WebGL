@@ -260,11 +260,10 @@ void TiledPage::draw(float transparency, SkRect& viewport, int firstTileX, int f
 #endif // DEBUG
 }
 
-bool TiledPage::paintBaseLayerContent(SkCanvas* canvas)
+void TiledPage::paintBaseLayerContent(SkCanvas* canvas)
 {
     if (m_glWebViewState)
-        return m_glWebViewState->paintBaseLayerContent(canvas);
-    return false;
+        m_glWebViewState->paintBaseLayerContent(canvas);
 }
 
 TiledPage* TiledPage::sibling()

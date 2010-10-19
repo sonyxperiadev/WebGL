@@ -132,17 +132,14 @@ void GLWebViewState::resetExtra(bool repaint)
     m_navLayer = 0;
 }
 
-bool GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
+void GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
-    if (m_baseLayer && m_baseLayer->content()
-        && !m_baseLayer->content()->isEmpty()) {
-        m_baseLayer->content()->draw(canvas);
+    if (m_baseLayer) {
+        m_baseLayer->draw(canvas);
         if (m_extra && m_navLayer)
             m_extra->draw(canvas, m_navLayer);
-        return true;
     }
-    return false;
 }
 
 void GLWebViewState::scheduleUpdate(const double& currentTime, float scale)

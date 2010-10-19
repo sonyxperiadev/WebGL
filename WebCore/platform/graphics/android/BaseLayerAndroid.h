@@ -47,6 +47,11 @@ public:
 #endif
     void setContent(const android::PictureSet& src);
     android::PictureSet* content() { return &m_content; }
+    // This method will paint using the current PictureSet onto
+    // the passed canvas. We used it to paint the GL tiles as well as
+    // WebView::copyBaseContentToPicture(), so a lock is necessary as
+    // we are running in different threads.
+    void draw(SkCanvas* canvas);
 
     bool drawGL(IntRect& rect, SkRect& viewport,
                 float scale, SkColor color = SK_ColorWHITE);
@@ -56,6 +61,7 @@ private:
     bool drawBasePictureInGL(SkRect& viewport, float scale);
 
     GLWebViewState* m_glWebViewState;
+    android::Mutex m_drawLock;
 #endif
     android::PictureSet m_content;
     SkRect m_previousVisible;

@@ -188,6 +188,15 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
         env->DeleteWeakGlobalRef(m_javaGlue.m_obj);
         m_javaGlue.m_obj = 0;
     }
+#if USE(ACCELERATED_COMPOSITING)
+    // We remove the base layer from glWebViewState
+    // as we are about to destroy it, while the
+    // glWebViewState destructor will be called just after.
+    // If we do not remove it here, we risk having BaseTiles
+    // trying to paint using a deallocated base layer.
+    IntRect rect;
+    m_glWebViewState.setBaseLayer(0, rect);
+#endif
     delete m_frameCacheUI;
     delete m_navPictureUI;
     delete m_baseLayer;
@@ -1306,7 +1315,7 @@ void copyBaseContentToPicture(SkPicture* picture)
     if (!m_baseLayer)
         return;
     PictureSet* content = m_baseLayer->content();
-    content->draw(picture->beginRecording(content->width(), content->height(),
+    m_baseLayer->draw(picture->beginRecording(content->width(), content->height(),
             SkPicture::kUsePathBoundsForClip_RecordingFlag));
     picture->endRecording();
 }
