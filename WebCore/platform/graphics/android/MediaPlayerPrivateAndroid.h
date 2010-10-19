@@ -89,6 +89,7 @@ public:
 
     virtual void onPrepared(int duration, int width, int height) { }
     void onEnded();
+    void onPaused();
     virtual void onPosterFetched(SkBitmap*) { }
     void onBuffering(int percent);
     void onTimeupdate(int position);
