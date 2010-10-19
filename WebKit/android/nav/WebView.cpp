@@ -1144,11 +1144,27 @@ void findNext(bool forward)
 
 // With this call, WebView takes ownership of matches, and is responsible for
 // deleting it.
-void setMatches(WTF::Vector<MatchInfo>* matches)
+void setMatches(WTF::Vector<MatchInfo>* matches, jboolean sameAsLastSearch)
 {
+    // If this search is the same as the last one, check against the old
+    // location to determine whether to scroll.  If the same word is found
+    // in the same place, then do not scroll.
+    IntRect oldLocation;
+    bool checkAgainstOldLocation;
+    if (sameAsLastSearch && m_findOnPage.isCurrentLocationValid()) {
+        oldLocation = m_findOnPage.currentMatchBounds();
+        checkAgainstOldLocation = true;
+    } else
+        checkAgainstOldLocation = false;
+
     m_findOnPage.setMatches(matches);
-    if (!m_findOnPage.currentMatchIsInLayer())
-        scrollRectOnScreen(m_findOnPage.currentMatchBounds());
+
+    if (!checkAgainstOldLocation
+            || oldLocation != m_findOnPage.currentMatchBounds()) {
+        // FIXME: Need to scroll if the match is in a layer.
+        if (!m_findOnPage.currentMatchIsInLayer())
+            scrollRectOnScreen(m_findOnPage.currentMatchBounds());
+    }
     viewInvalidate();
 }
 
@@ -1900,7 +1916,7 @@ static jobject nativeGetCursorRingBounds(JNIEnv *env, jobject obj)
 }
 
 static int nativeFindAll(JNIEnv *env, jobject obj, jstring findLower,
-        jstring findUpper)
+        jstring findUpper, jboolean sameAsLastSearch)
 {
     // If one or the other is null, do not search.
     if (!(findLower && findUpper))
@@ -1948,7 +1964,7 @@ static int nativeFindAll(JNIEnv *env, jobject obj, jstring findLower,
     root->draw(canvas);
     WTF::Vector<MatchInfo>* matches = canvas.detachMatches();
     // With setMatches, the WebView takes ownership of matches
-    view->setMatches(matches);
+    view->setMatches(matches, sameAsLastSearch);
 
     env->ReleaseStringChars(findLower, findLowerChars);
     env->ReleaseStringChars(findUpper, findUpperChars);
@@ -2254,7 +2270,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeEvaluateLayersAnimations },
     { "nativeExtendSelection", "(II)V",
         (void*) nativeExtendSelection },
-    { "nativeFindAll", "(Ljava/lang/String;Ljava/lang/String;)I",
+    { "nativeFindAll", "(Ljava/lang/String;Ljava/lang/String;Z)I",
         (void*) nativeFindAll },
     { "nativeFindNext", "(Z)V",
         (void*) nativeFindNext },
