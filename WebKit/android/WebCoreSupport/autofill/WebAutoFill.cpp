@@ -55,7 +55,7 @@ WebAutoFill::WebAutoFill()
     mFormManager = new FormManager();
     mQueryId = 1;
 
-    AndroidURLRequestContextGetter::Get()->SetURLRequestContextGetterFunction(&WebRequestContext::GetAndroidContext);
+    AndroidURLRequestContextGetter::Get()->SetURLRequestContextGetterFunction(&WebRequestContext::GetContext);
     AndroidURLRequestContextGetter::Get()->SetIOThread(WebUrlLoaderClient::ioThread());
     mTabContents = new TabContents();
     mAutoFillManager = new AutoFillManager(mTabContents.get());

@@ -55,7 +55,6 @@ static const char* const kCacheDirectory = "/webviewCacheChromium";
 static const char* const kCookiesDatabaseFilenamePrivate = "/webviewCookiesChromiumPrivate.db";
 static const char* const kCacheDirectoryPrivate = "/webviewCacheChromiumPrivate";
 
-static scoped_refptr<URLRequestContext> androidContext(0);
 static scoped_refptr<URLRequestContext> androidPrivateBrowsingContext(0);
 static WTF::Mutex androidPrivateBrowsingContextMutex;
 
@@ -132,7 +131,7 @@ const std::string& WebRequestContext::GetCacheDirectory()
     return cacheDirectory;
 }
 
-scoped_refptr<WebRequestContext> WebRequestContext::GetAndroidContextForPath(const char* cookieFilename, const char* cacheFilename)
+WebRequestContext* WebRequestContext::GetAndroidContextForPath(const char* cookieFilename, const char* cacheFilename)
 {
     std::string cookieString(GetDatabaseDirectory());
     cookieString.append(cookieFilename);
@@ -141,7 +140,7 @@ scoped_refptr<WebRequestContext> WebRequestContext::GetAndroidContextForPath(con
     cacheString.append(cacheFilename);
     FilePath cachePath(cacheString.c_str());
 
-    scoped_refptr<WebRequestContext> androidContext = new WebRequestContext();
+    WebRequestContext* androidContext = new WebRequestContext();
     androidContext->host_resolver_ = net::CreateSystemHostResolver(net::HostResolver::kDefaultParallelism, 0);
     base::Thread* ioThread = WebUrlLoaderClient::ioThread();
     scoped_refptr<base::MessageLoopProxy> cacheMessageLoopProxy = ioThread->message_loop_proxy();
@@ -160,14 +159,15 @@ scoped_refptr<WebRequestContext> WebRequestContext::GetAndroidContextForPath(con
     return androidContext;
 }
 
-scoped_refptr<URLRequestContext> WebRequestContext::GetAndroidContext()
+URLRequestContext* WebRequestContext::GetAndroidContext()
 {
+    static scoped_refptr<URLRequestContext> androidContext(0);
     if (!androidContext)
         androidContext = GetAndroidContextForPath(kCookiesDatabaseFilename, kCacheDirectory);
     return androidContext;
 }
 
-scoped_refptr<URLRequestContext> WebRequestContext::GetAndroidPrivateBrowsingContext()
+URLRequestContext* WebRequestContext::GetAndroidPrivateBrowsingContext()
 {
     WTF::MutexLocker lock(androidPrivateBrowsingContextMutex);
 
@@ -177,6 +177,11 @@ scoped_refptr<URLRequestContext> WebRequestContext::GetAndroidPrivateBrowsingCon
         androidPrivateBrowsingContext = GetAndroidContextForPath(kCookiesDatabaseFilenamePrivate, kCacheDirectoryPrivate);
     }
     return androidPrivateBrowsingContext;
+}
+
+URLRequestContext* WebRequestContext::GetContext(bool isPrivateBrowsing)
+{
+    return isPrivateBrowsing ?  GetAndroidPrivateBrowsingContext() : GetAndroidContext();
 }
 
 static void removeFileOrDirectory(const char* filename)
