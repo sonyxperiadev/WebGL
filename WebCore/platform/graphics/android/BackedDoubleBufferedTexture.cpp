@@ -97,9 +97,9 @@ void BackedDoubleBufferedTexture::producerUpdate(BaseTile* painter,
     m_varLock.lock();
     m_painter = painter;
     // set the painting information for this texture
-    if (textureInfo->m_textureId == m_textureA.getSourceTextureId())
+    if (equalsIdTextureA(textureInfo->m_textureId))
         m_paintingInfoA = info;
-    else if (textureInfo->m_textureId == m_textureB.getSourceTextureId())
+    else if (equalsIdTextureB(textureInfo->m_textureId))
         m_paintingInfoB = info;
     m_varLock.unlock();
 
@@ -110,7 +110,7 @@ void BackedDoubleBufferedTexture::producerUpdate(BaseTile* painter,
 bool BackedDoubleBufferedTexture::consumerTextureUpToDate(PaintingInfo& info)
 {
     android::Mutex::Autolock lock(m_varLock);
-    if (getReadableTexture() == &m_textureA)
+    if (isTextureAReadable())
         return info == m_paintingInfoA;
     return info == m_paintingInfoB;
 }
@@ -118,7 +118,7 @@ bool BackedDoubleBufferedTexture::consumerTextureUpToDate(PaintingInfo& info)
 bool BackedDoubleBufferedTexture::consumerTextureSimilar(PaintingInfo& info)
 {
     android::Mutex::Autolock lock(m_varLock);
-    if (getReadableTexture() == &m_textureA)
+    if (isTextureAReadable())
         return info.similar(m_paintingInfoA);
     return info.similar(m_paintingInfoB);
 }

@@ -36,9 +36,6 @@ namespace WebCore {
 
 DoubleBufferedTexture::DoubleBufferedTexture(EGLContext sharedContext)
 {
-    // the mutex ensures that the variables are not used in any other thread
-    // until the constructor has the opportunity to initialize them
-    android::Mutex::Autolock lock(m_varLock);
     m_display = eglGetCurrentDisplay();
     m_pContext = EGL_NO_CONTEXT;
     m_cContext = sharedContext;
@@ -59,8 +56,6 @@ SharedTexture* DoubleBufferedTexture::getReadableTexture()
 
 EGLContext DoubleBufferedTexture::producerAcquireContext()
 {
-    // ensure that the constructor has completed and all values are initialized
-    android::Mutex::Autolock lock(m_varLock);
 
     if (m_pContext != EGL_NO_CONTEXT) {
         LOGV("AquireContext has previously generated a context.\n");
@@ -110,36 +105,26 @@ TextureInfo* DoubleBufferedTexture::producerLock()
 
 void DoubleBufferedTexture::producerRelease()
 {
-    producerReleaseTexture();
+    // get the writable texture and unlock it
+    SharedTexture* sharedTex = getWriteableTexture();
+    LOGV("Releasing P Lock (%d)", sharedTex->getSourceTextureId());
+    sharedTex->releaseSource();
 }
 
 void DoubleBufferedTexture::producerReleaseAndSwap()
 {
-    SharedTexture* sharedTex = producerReleaseTexture();
+    producerRelease();
 
-    // swap the front and back buffers
-    m_varLock.lock();
-    m_writeableTexture = (sharedTex == &m_textureA) ? &m_textureB : &m_textureA;
-    LOGV("Released P Lock (%d)", sharedTex->getSourceTextureId());
-    m_varLock.unlock();
-}
-
-SharedTexture* DoubleBufferedTexture::producerReleaseTexture()
-{
-    // get the front texture, unlock it, and return the id
-    SharedTexture* sharedTex = getWriteableTexture();
-    LOGV("Releasing P Lock (%d)", sharedTex->getSourceTextureId());
-    sharedTex->releaseSource();
-    return sharedTex;
+    // swap the front and back buffers using an atomic op for the memory barrier
+    android_atomic_acquire_store((int32_t)getReadableTexture(), (int32_t*)&m_writeableTexture);
+    LOGV("Released P Lock (%d)", m_writeableTexture->getSourceTextureId());
 }
 
 TextureInfo* DoubleBufferedTexture::consumerLock()
 {
-    m_varLock.lock();
     SharedTexture* sharedTex = getReadableTexture();
     LOGV("Acquiring C Lock (%d)", sharedTex->getSourceTextureId());
     m_lockedConsumerTexture = sharedTex;
-    m_varLock.unlock();
 
     TextureInfo* texInfo = sharedTex->lockTarget();
     LOGV("Acquired C Lock");
@@ -152,9 +137,8 @@ TextureInfo* DoubleBufferedTexture::consumerLock()
 
 void DoubleBufferedTexture::consumerRelease()
 {
-    android::Mutex::Autolock lock(m_varLock);
     // we must check to see what texture the consumer had locked since the
-    // producer may have swapped out the front buffer
+    // producer may have swapped out the readable buffer
     SharedTexture* sharedTex = m_lockedConsumerTexture;
     sharedTex->releaseTarget();
     LOGV("Released C Lock (%d)", sharedTex->getSourceTextureId());

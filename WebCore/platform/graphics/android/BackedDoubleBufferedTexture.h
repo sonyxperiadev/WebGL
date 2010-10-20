@@ -123,6 +123,8 @@ private:
     PaintingInfo m_paintingInfoA;
     PaintingInfo m_paintingInfoB;
     bool m_busy;
+
+    android::Mutex m_varLock;
 };
 
 } // namespace WebCore
