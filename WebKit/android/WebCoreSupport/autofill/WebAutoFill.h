@@ -79,13 +79,8 @@ private:
     typedef std::map<int, webkit_glue::FormData*> AutoFillQueryFormDataMap;
     AutoFillQueryFormDataMap mQueryMap;
 
-    typedef struct {
-        string16 value;
-        string16 label;
-        int uniqueId;
-    } AutoFillSuggestion;
-    typedef std::map<int, AutoFillSuggestion> AutoFillQuerySuggestionMap;
-    AutoFillQuerySuggestionMap mSuggestionMap;
+    typedef std::map<int, int> AutoFillQueryToUniqueIdMap;
+    AutoFillQueryToUniqueIdMap mUniqueIdMap;
     int mQueryId;
 
     WebViewCore* mWebViewCore;

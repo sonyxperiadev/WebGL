@@ -42,35 +42,58 @@ namespace WebCore {
 class BackedDoubleBufferedTexture;
 class TiledPage;
 
+/**
+ * An individual tile that is used to construct part of a webpage's BaseLayer of
+ * content.  Each tile is assigned to a TiledPage and is responsible for drawing
+ * and displaying their section of the page.  The lifecycle of a tile is:
+ *
+ * 1. Each tile is created on the main GL thread and assigned to a specific
+ *    location within a TiledPage.
+ * 2. When needed the tile is passed to the background thread where it paints
+ *    the BaseLayer's most recent PictureSet to a bitmap which is then uploaded
+ *    to the GPU.
+ * 3. After the bitmap is uploaded to the GPU the main GL thread then uses the
+ *    tile's draw() function to display the tile to the screen.
+ * 4. Steps 2-3 are repeated as necessary.
+ * 5. The tile is destroyed when the user navigates to a new page.
+ *
+ */
 class BaseTile {
 public:
 #ifdef DEBUG_COUNT
     static int count();
 #endif
-    BaseTile(TiledPage* page, int x, int y, int quality = 1);
+    BaseTile(TiledPage* page, int x, int y);
     ~BaseTile();
 
     void reserveTexture();
     void removeTexture();
     void setUsedLevel(int);
-    bool paintBitmap();
     bool isBitmapReady();
+    void draw(float transparency, SkRect& rect);
+
+    // the only thread-safe function called by the background thread
+    bool paintBitmap();
+
     float scale() const { return m_scale; }
     void setScale(float scale) { m_scale = scale; }
-    void draw(float transparency, SkRect& rect);
+
     TiledPage* page() { return m_page; }
-    int quality() const { return m_quality; }
     int x() const { return m_x; }
     int y() const { return m_y; }
     BackedDoubleBufferedTexture* texture() { return m_texture; }
 
 private:
+    // these variables are only set when the object is constructed
     TiledPage* m_page;
-    BackedDoubleBufferedTexture* m_texture;
     int m_x;
     int m_y;
-    int m_quality;
+
+    // these variables can be updated throughout the lifetime of the object
+    BackedDoubleBufferedTexture* m_texture;
     float m_scale;
+
+    // used to ensure the variables are consistent between threads
     android::Mutex m_varLock;
 };
 

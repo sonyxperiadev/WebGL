@@ -35,8 +35,9 @@ AutoFillHostAndroid::AutoFillHostAndroid(WebAutoFill* autoFill)
 {
 }
 
-void AutoFillHostAndroid::AutoFillSuggestionsReturned(int queryId, const std::vector<string16>& names, const std::vector<string16>& labels, const std::vector<int>& uniqueIds)
+void AutoFillHostAndroid::AutoFillSuggestionsReturned(int queryId, const std::vector<string16>& names, const std::vector<string16>& labels, const std::vector<string16>& icons, const std::vector<int>& uniqueIds)
 {
+    // TODO: what do we do with icons?
     if (mAutoFill)
         mAutoFill->querySuccessful(queryId, names[0], labels[0], uniqueIds[0]);
 }

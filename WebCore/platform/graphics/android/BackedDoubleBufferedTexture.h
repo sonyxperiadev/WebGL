@@ -75,40 +75,46 @@ private:
 // DoubleBufferedTexture using a SkBitmap as backing mechanism
 class BackedDoubleBufferedTexture : public DoubleBufferedTexture {
 public:
-    // ctor called on consumer thread
+    // This object is to be constructed on the consumer's thread and must have
+    // a width and height greater than 0.
     BackedDoubleBufferedTexture(uint32_t w, uint32_t h,
                                 SkBitmap::Config config = SkBitmap::kARGB_8888_Config);
     virtual ~BackedDoubleBufferedTexture();
 
-    void setBitmap(uint32_t w, uint32_t h, SkBitmap::Config config = SkBitmap::kARGB_8888_Config);
-    void update(TextureInfo* textureInfo, PaintingInfo& info);
-    SkCanvas* canvas() { return m_canvas; }
+    // these functions override their parent
+    virtual TextureInfo* producerLock();
+    virtual void producerRelease();
+    virtual void producerReleaseAndSwap();
 
-    // Level can be -1 (unused texture), 0 (the 9 tiles intersecting with the
-    // viewport), then the distance between the viewport and the tile.
-    // we use this to prioritize which texture we want to pick (see
-    // TilesManager::getAvailableTexture())
-    int usedLevel() { android::Mutex::Autolock lock(m_varLock); return m_usedLevel; }
+    // updates the texture with current bitmap and releases (and if needed also
+    // swaps) the texture.
+    void producerUpdate(BaseTile* painter, TextureInfo* textureInfo, PaintingInfo& info);
+
+    // The level can be one of the following values:
+    //  * -1 for an unused texture.
+    //  *  0 for the tiles intersecting with the viewport.
+    //  *  n where n > 0 for the distance between the viewport and the tile.
+    // We use this to prioritize the order in which we reclaim textures, see
+    // TilesManager::getAvailableTexture() for more information.
+    int usedLevel() { return m_usedLevel; }
     void setUsedLevel(int used) { android::Mutex::Autolock lock(m_varLock); m_usedLevel = used; }
 
-    BaseTile* owner() { android::Mutex::Autolock lock(m_varLock); return m_owner; }
-    void setOwner(BaseTile* owner);
-    BaseTile* painter() { return m_painter; }
-    void setPainter(BaseTile* painter);
-    bool busy() { android::Mutex::Autolock lock(m_varLock); return m_busy; }
-    void setBusy(bool value) { android::Mutex::Autolock lock(m_varLock); m_busy = value; }
-    uint32_t width() { return m_width; }
-    uint32_t height() { return m_height; }
-    bool consumerTextureUpToDate(PaintingInfo& info);
-    bool consumerTextureSimilar(PaintingInfo& info);
+    // assigns ownership of the texture to the tile if possible
     bool acquire(BaseTile* owner);
-    bool acquireForPainting();
+
+    // private member accessor functions
+    BaseTile* owner() { android::Mutex::Autolock lock(m_varLock); return m_owner; }
+    BaseTile* painter() { return m_painter; }
+    SkCanvas* canvas() { return m_canvas; }
+
+    // checks to see if the current readable texture equals the provided PaintingInfo
+    bool consumerTextureUpToDate(PaintingInfo& info);
+    // checks to see if the current readable texture is similar to the provided PaintingInfo
+    bool consumerTextureSimilar(PaintingInfo& info);
 
 private:
     SkBitmap m_bitmap;
     SkCanvas* m_canvas;
-    uint32_t m_width;
-    uint32_t m_height;
     int m_usedLevel;
     BaseTile* m_owner;
     BaseTile* m_painter;

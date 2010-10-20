@@ -224,6 +224,7 @@ public:
     bool currentMatchIsInLayer() const;
     virtual void draw(SkCanvas* , LayerAndroid* );
     void findNext(bool forward);
+    bool isCurrentLocationValid() { return m_hasCurrentLocation; }
     void setMatches(WTF::Vector<MatchInfo>* matches);
 private:
     void drawMatch(const SkRegion& region, SkCanvas* canvas, bool focused);

@@ -59,6 +59,10 @@ TiledPage::TiledPage(int id, GLWebViewState* state)
 {
 }
 
+TiledPage::~TiledPage() {
+   deleteAllValues(m_baseTiles);
+}
+
 BaseTile* TiledPage::getBaseTile(int x, int y)
 {
     // if (x,y) is (0,0) the HashMap will treat the key as a null value and will

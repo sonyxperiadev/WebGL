@@ -326,7 +326,7 @@ void WebRequest::OnResponseStarted(URLRequest* request)
     }
 }
 
-void WebRequest::setAuth(const std::wstring& username, const std::wstring& password)
+void WebRequest::setAuth(const string16& username, const string16& password)
 {
     ASSERT(m_loadState == Started, "setAuth called on a WebRequest not in STARTED state (state=%d)", m_loadState);
 

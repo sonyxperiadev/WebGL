@@ -475,7 +475,7 @@ bool GraphicsLayerAndroid::repaint()
         // is the content bounds inside the outline.
         FloatRect clip = layer->renderer()->absoluteBoundingBoxRect();
         // Move the clip local to the layer position.
-        clip.move(-m_position.x(), -m_position.y());
+        clip.setLocation(FloatPoint(0, 0));
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
         if (layer->hasOverflowScroll()) {
             // If this is a scrollable layer, inset the clip by the border.
