@@ -162,11 +162,12 @@ bool WebAutoFill::enabled() const
     return page ? page->settings()->autoFillEnabled() : false;
 }
 
-void WebAutoFill::setProfile(const string16& fullName, const string16& emailAddress, const string16& companyName, const string16& addressLine1,
-                             const string16& addressLine2, const string16& city, const string16& state, const string16& zipCode,
-                             const string16& country, const string16& phoneNumber)
+void WebAutoFill::setProfile(int id, const string16& fullName, const string16& emailAddress, const string16& companyName,
+                             const string16& addressLine1, const string16& addressLine2, const string16& city,
+                             const string16& state, const string16& zipCode, const string16& country, const string16& phoneNumber)
 {
     AutoFillProfile autoFillProfile;
+    autoFillProfile.set_unique_id(id);
 
     // Constants for AutoFill field types are found in external/chromium/chrome/browser/autofill/field_types.h.
     autoFillProfile.SetInfo(AutoFillType(NAME_FULL), fullName);
