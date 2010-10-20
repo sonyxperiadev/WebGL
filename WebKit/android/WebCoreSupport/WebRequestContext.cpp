@@ -39,7 +39,9 @@
 #include <wtf/Threading.h>
 
 namespace {
-std::string userAgent("Mozilla/5.0 (Linux; U; Android 2.1; en-gb; Nexus One Build/ERE21) AppleWebKit/530.17 (KHTML, like Gecko) Version/4.0 Mobile Safari/530.17");
+// TODO: The userAgent should not be a static, as it can be set per WebView.
+// http://b/3113804
+std::string userAgent("");
 std::string acceptLanguage("");
 
 Lock userAgentLock;
@@ -76,6 +78,7 @@ void WebRequestContext::SetUserAgent(WTF::String string)
 const std::string& WebRequestContext::GetUserAgent(const GURL& url) const
 {
     AutoLock aLock(userAgentLock);
+    ASSERT(userAgent != "");
     return userAgent;
 }
 
