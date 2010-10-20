@@ -249,7 +249,7 @@ TiledPage* TiledPage::sibling()
 {
     if (!m_glWebViewState)
         return 0;
-    return (m_glWebViewState->frontPage() == this) ? this : m_glWebViewState->backPage();
+    return (m_glWebViewState->frontPage() == this) ? m_glWebViewState->backPage() : this;
 }
 
 } // namespace WebCore

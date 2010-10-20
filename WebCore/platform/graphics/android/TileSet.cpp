@@ -28,6 +28,8 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "TilesManager.h"
+
 #ifdef DEBUG
 
 #include <cutils/log.h>
@@ -46,7 +48,7 @@
 
 namespace WebCore {
 
-#ifdef DEBUG
+#ifdef DEBUG_COUNT
 static int gTileSetCount = 0;
 int TileSet::count()
 {
@@ -61,14 +63,14 @@ TileSet::TileSet(int id, int firstTileX, int firstTileY, int rows, int cols)
     , m_nbRows(rows)
     , m_nbCols(cols)
 {
-#ifdef DEBUG
+#ifdef DEBUG_COUNT
     gTilesSetCount++;
 #endif
 }
 
 TileSet::~TileSet()
 {
-#ifdef DEBUG
+#ifdef DEBUG_COUNT
     gTileSetCount--;
 #endif
 }
@@ -85,9 +87,24 @@ bool TileSet::operator==(const TileSet& set)
 
 void TileSet::reserveTextures()
 {
-    XLOG("reserveTextures (%d tiles)", m_tiles.size());
+#ifdef DEBUG
+    if (m_tiles.size()) {
+        TiledPage* page = m_tiles[0]->page();
+        XLOG("reserveTextures (%d tiles) for page %x (sibling: %x)", m_tiles.size(), page, page->sibling());
+        TilesManager::instance()->printTextures();
+    }
+#endif // DEBUG
+
     for (unsigned int i = 0; i < m_tiles.size(); i++)
         m_tiles[i]->reserveTexture();
+
+#ifdef DEBUG
+    if (m_tiles.size()) {
+        TiledPage* page = m_tiles[0]->page();
+        XLOG(" DONE reserveTextures (%d tiles) for page %x (sibling: %x)", m_tiles.size(), page, page->sibling());
+        TilesManager::instance()->printTextures();
+    }
+#endif // DEBUG
 }
 
 void TileSet::paint()

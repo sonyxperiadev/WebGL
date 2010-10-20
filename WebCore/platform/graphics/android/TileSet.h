@@ -42,7 +42,7 @@ namespace WebCore {
  */
 class TileSet {
 public:
-#ifdef DEBUG
+#ifdef DEBUG_COUNT
     static int count();
 #endif
     TileSet(int id, int firstTileX, int firstTileY, int rows, int cols);
