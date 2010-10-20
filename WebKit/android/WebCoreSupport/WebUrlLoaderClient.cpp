@@ -182,6 +182,11 @@ bool WebUrlLoaderClient::start(bool sync, bool isPrivateBrowsing)
     return true;
 }
 
+void WebUrlLoaderClient::downloadFile()
+{
+    m_request->downloadFile(m_webFrame);
+}
+
 void WebUrlLoaderClient::cancel()
 {
     m_cancelling = true;

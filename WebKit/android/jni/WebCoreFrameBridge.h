@@ -113,6 +113,8 @@ class WebFrame : public WebCoreRefObject {
 
     void didReceiveAuthenticationChallenge(WebUrlLoaderClient*, const std::string& host, const std::string& realm, bool useCachedCredentials);
 
+    void downloadStart(const std::string& url, const std::string& userAgent, const std::string& contentDisposition, const std::string& mimetype, long long contentLength);
+
     /**
      * When the user initiates an action (via trackball, key-press, or touch),
      * we set mUserInitiatedAction to true.  If a load happens due to this click,

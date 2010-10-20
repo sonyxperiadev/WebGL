@@ -45,18 +45,19 @@ enum LoadState {
 };
 
 class WebResourceRequest;
+class WebFrame;
 
 // All methods in this class must be called on the io thread
 class WebRequest : public URLRequest::Delegate, public base::RefCountedThreadSafe<WebRequest> {
 public:
-    WebRequest(WebUrlLoaderClient*, WebResourceRequest);
+    WebRequest(WebUrlLoaderClient*, const WebResourceRequest&);
 
     // If this is an android specific url we load it with a java input stream
     // Used for:
     // - file:///android_asset
     // - file:///android_res
     // - content://
-    WebRequest(WebUrlLoaderClient*, WebResourceRequest, int inputStream);
+    WebRequest(WebUrlLoaderClient*, const WebResourceRequest&, int inputStream);
 
     // Optional, but if used has to be called before start
     void AppendBytesToUpload(Vector<char>* data);
@@ -73,6 +74,7 @@ public:
     // Methods called during a request by the UI code (via WebUrlLoaderClient).
     void setAuth(const string16& username, const string16& password);
     void cancelAuth();
+    void downloadFile(WebFrame*);
 
 private:
     void startReading();
@@ -93,6 +95,7 @@ private:
     int m_inputStream;
     bool m_androidUrl;
     std::string m_url;
+    std::string m_userAgent;
     LoadState m_loadState;
 };
 

@@ -28,6 +28,7 @@
 
 #include "JNIUtility.h"
 #include "MainThread.h"
+#include "WebCoreFrameBridge.h"
 #include "WebRequestContext.h"
 #include "WebResourceRequest.h"
 #include "jni.h"
@@ -58,14 +59,15 @@ namespace {
     const int kInitialReadBufSize = 32768;
 }
 
-WebRequest::WebRequest(WebUrlLoaderClient* loader, WebResourceRequest webResourceRequest)
+WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& webResourceRequest)
     : m_urlLoader(loader)
     , m_inputStream(0)
     , m_androidUrl(false)
     , m_loadState(Created)
+    , m_url(webResourceRequest.url())
+    , m_userAgent(webResourceRequest.userAgent())
 {
-    m_url = webResourceRequest.url();
-    GURL gurl(webResourceRequest.url());
+    GURL gurl(m_url);
 
     m_request = new URLRequest(gurl, this);
 
@@ -76,14 +78,15 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, WebResourceRequest webResourc
 
 // This is a special URL for Android. Query the Java InputStream
 // for data and send to WebCore
-WebRequest::WebRequest(WebUrlLoaderClient* loader, WebResourceRequest webResourceRequest, int inputStream)
+WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& webResourceRequest, int inputStream)
     : m_urlLoader(loader)
     , m_androidUrl(true)
     , m_loadState(Created)
+    , m_url(webResourceRequest.url())
+    , m_userAgent(webResourceRequest.userAgent())
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     m_inputStream = (int)env->NewGlobalRef((_jobject*)inputStream);
-    m_url = webResourceRequest.url();
 }
 
 WebRequest::~WebRequest()
@@ -338,6 +341,17 @@ void WebRequest::cancelAuth()
     ASSERT(m_loadState == Started, "cancelAuth called on a WebRequest not in STARTED state (state=%d)", m_loadState);
 
     m_request->CancelAuth();
+}
+
+void WebRequest::downloadFile(WebFrame* frame)
+{
+    std::string contentDisposition;
+    std::string mimeType;
+
+    m_request->GetResponseHeaderByName("content-disposition", &contentDisposition);
+    m_request->GetMimeType(&mimeType);
+
+    frame->downloadStart(m_request->url().spec(), m_userAgent, contentDisposition, mimeType, m_request->GetExpectedContentSize());
 }
 
 void WebRequest::startReading()

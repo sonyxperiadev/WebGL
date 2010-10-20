@@ -74,6 +74,7 @@ WebResourceRequest::WebResourceRequest(const WebCore::ResourceRequest& resourceR
 
     m_method = resourceRequest.httpMethod().utf8().data();
     m_referrer = resourceRequest.httpReferrer().utf8().data();
+    m_userAgent = resourceRequest.httpUserAgent().utf8().data();
 
     m_url = resourceRequest.url().string().utf8().data();
 
