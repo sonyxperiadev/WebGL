@@ -37,16 +37,16 @@ namespace WebCore {
 
 BackedDoubleBufferedTexture::BackedDoubleBufferedTexture(uint32_t w, uint32_t h,
                                                               SkBitmap::Config config)
-    : DoubleBufferedTexture(eglGetCurrentContext()),
-      m_canvas(0),
-      m_width(0),
-      m_height(0),
-      m_usedLevel(-1),
-      m_owner(0),
-      m_painter(0),
-      m_busy(false)
+    : DoubleBufferedTexture(eglGetCurrentContext())
+    , m_usedLevel(-1)
+    , m_owner(0)
+    , m_painter(0)
+    , m_busy(false)
 {
-    setBitmap(w, h, config);
+    m_bitmap.setConfig(config, w, h);
+    m_bitmap.allocPixels();
+    m_bitmap.eraseColor(0);
+    m_canvas = new SkCanvas(m_bitmap);
 }
 
 BackedDoubleBufferedTexture::~BackedDoubleBufferedTexture()
@@ -55,53 +55,55 @@ BackedDoubleBufferedTexture::~BackedDoubleBufferedTexture()
     delete m_canvas;
 }
 
-void BackedDoubleBufferedTexture::setBitmap(uint32_t w, uint32_t h, SkBitmap::Config config)
+TextureInfo* BackedDoubleBufferedTexture::producerLock()
 {
-    if ((m_width == w) && (m_height == h))
-        return;
-    m_width = w;
-    m_height = h;
-    m_bitmap.reset();
-    m_bitmap.setConfig(config, m_width, m_height);
-    m_bitmap.allocPixels();
-    m_bitmap.eraseColor(0);
-    m_bitmap.eraseARGB(255, 255, 0, 0);
-    delete m_canvas;
-    m_canvas = new SkCanvas(m_bitmap);
+    m_varLock.lock();
+    m_busy = true;
+    m_varLock.unlock();
+    return DoubleBufferedTexture::producerLock();
 }
 
-void BackedDoubleBufferedTexture::update(TextureInfo* textureInfo, PaintingInfo& info)
+void BackedDoubleBufferedTexture::producerRelease()
 {
-    if (!m_width && !m_height)
+    DoubleBufferedTexture::producerRelease();
+    android::Mutex::Autolock lock(m_varLock);
+    m_busy = false;
+}
+
+void BackedDoubleBufferedTexture::producerReleaseAndSwap()
+{
+    DoubleBufferedTexture::producerReleaseAndSwap();
+    android::Mutex::Autolock lock(m_varLock);
+    m_busy = false;
+}
+
+void BackedDoubleBufferedTexture::producerUpdate(BaseTile* painter,
+        TextureInfo* textureInfo, PaintingInfo& info)
+{
+    // no need to upload a texture since the bitmap is empty
+    if (!m_bitmap.width() && !m_bitmap.height()) {
+        producerRelease();
         return;
-
-    if (textureInfo && textureInfo->m_textureId) {
-        if (textureInfo->m_width && textureInfo->m_height
-            && (m_width != textureInfo->m_width)
-            && (m_height != textureInfo->m_height)) {
-            GLUtils::deleteTexture(&textureInfo->m_textureId);
-            glGenTextures(1, &textureInfo->m_textureId);
-            textureInfo->m_width = 0;
-            textureInfo->m_height = 0;
-        }
-
-        if (!textureInfo->m_width && !textureInfo->m_height)
-            GLUtils::createTextureWithBitmap(textureInfo->m_textureId, m_bitmap);
-        else
-            GLUtils::updateTextureWithBitmap(textureInfo->m_textureId, m_bitmap);
-
-        if ((m_width != textureInfo->m_width)
-            && (m_height != textureInfo->m_height)) {
-            textureInfo->m_width = m_width;
-            textureInfo->m_height = m_height;
-        }
     }
+
+    if (textureInfo->m_width == m_bitmap.width() && textureInfo->m_height == m_bitmap.height())
+        GLUtils::updateTextureWithBitmap(textureInfo->m_textureId, m_bitmap);
+    else {
+        GLUtils::createTextureWithBitmap(textureInfo->m_textureId, m_bitmap);
+        textureInfo->m_width = m_bitmap.width();
+        textureInfo->m_height = m_bitmap.height();
+    }
+
     m_varLock.lock();
+    m_painter = painter;
+    // set the painting information for this texture
     if (textureInfo->m_textureId == m_textureA.getSourceTextureId())
         m_paintingInfoA = info;
-    if (textureInfo->m_textureId == m_textureB.getSourceTextureId())
+    else if (textureInfo->m_textureId == m_textureB.getSourceTextureId())
         m_paintingInfoB = info;
     m_varLock.unlock();
+
+    producerReleaseAndSwap();
 }
 
 // Compare the current texture displayed with some PaintingInfo.
@@ -121,44 +123,20 @@ bool BackedDoubleBufferedTexture::consumerTextureSimilar(PaintingInfo& info)
     return info.similar(m_paintingInfoB);
 }
 
-void BackedDoubleBufferedTexture::setOwner(BaseTile* owner)
-{
-    android::Mutex::Autolock lock(m_varLock);
-    if (m_owner != owner) {
-        if (m_owner)
-            m_owner->removeTexture();
-        m_owner = owner;
-    }
-}
-
 bool BackedDoubleBufferedTexture::acquire(BaseTile* owner)
 {
+    // if the writable texture is currently being written to we can't change the
+    // owner out from underneath that texture
     android::Mutex::Autolock lock(m_varLock);
+    if (m_owner == owner)
+        return true;
     if (m_busy)
         return false;
 
-    if (m_owner != owner) {
-        if (m_owner)
-            m_owner->removeTexture();
-        m_owner = owner;
-    }
+    if (m_owner)
+        m_owner->removeTexture();
+    m_owner = owner;
     return true;
-}
-
-void BackedDoubleBufferedTexture::setPainter(BaseTile* painter)
-{
-    android::Mutex::Autolock lock(m_varLock);
-    m_painter = painter;
-}
-
-bool BackedDoubleBufferedTexture::acquireForPainting()
-{
-    android::Mutex::Autolock lock(m_varLock);
-    if (!m_busy) {
-        m_busy = true;
-        return true;
-    }
-    return false;
 }
 
 } // namespace WebCore

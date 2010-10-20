@@ -58,23 +58,22 @@
 namespace WebCore {
 
 #ifdef DEBUG_COUNT
-static int gBaseTextureCount = 0;
+static int gBaseTileCount = 0;
 int BaseTile::count()
 {
-    return gBaseTextureCount;
+    return gBaseTileCount;
 }
 #endif
 
-BaseTile::BaseTile(TiledPage* page, int x, int y, int quality)
+BaseTile::BaseTile(TiledPage* page, int x, int y)
     : m_page(page)
-    , m_texture(0)
     , m_x(x)
     , m_y(y)
-    , m_quality(quality)
+    , m_texture(0)
     , m_scale(1)
 {
 #ifdef DEBUG_COUNT
-    gBaseTextureCount++;
+    gBaseTileCount++;
 #endif
 }
 
@@ -83,7 +82,7 @@ BaseTile::~BaseTile()
     removeTexture();
     setUsedLevel(-1);
 #ifdef DEBUG_COUNT
-    gBaseTextureCount--;
+    gBaseTileCount--;
 #endif
 }
 
@@ -110,10 +109,6 @@ void BaseTile::setUsedLevel(int usedLevel)
 // Called from the main GL thread
 void BaseTile::draw(float transparency, SkRect& rect)
 {
-    m_varLock.lock();
-    BackedDoubleBufferedTexture* texture = m_texture;
-    m_varLock.unlock();
-
     if (!m_texture) {
         XLOG("%x (%d, %d) trying to draw, but no m_texture!", this, x(), y());
         return;
@@ -121,19 +116,19 @@ void BaseTile::draw(float transparency, SkRect& rect)
 
     PaintingInfo info(m_x, m_y, m_page->glWebViewState());
 
-    TextureInfo* textureInfo = texture->consumerLock();
+    TextureInfo* textureInfo = m_texture->consumerLock();
     if (!textureInfo) {
         XLOG("%x (%d, %d) trying to draw, but no textureInfo!", this, x(), y());
-        texture->consumerRelease();
+        m_texture->consumerRelease();
         return;
     }
 
-    if (texture->consumerTextureSimilar(info)) {
+    if (m_texture->consumerTextureSimilar(info)) {
         TilesManager::instance()->shader()->drawQuad(rect, textureInfo->m_textureId,
                                                      transparency);
     }
 
-    texture->consumerRelease();
+    m_texture->consumerRelease();
 }
 
 bool BaseTile::isBitmapReady()
@@ -149,45 +144,38 @@ bool BaseTile::isBitmapReady()
 // Called from the texture generation thread
 bool BaseTile::paintBitmap()
 {
+    // the mutex ensures you are reading the most current value
     m_varLock.lock();
+    const int x = m_x;
+    const int y = m_y;
+    const float scale = m_scale;
+    TiledPage* tiledPage = m_page;
     BackedDoubleBufferedTexture* texture = m_texture;
     m_varLock.unlock();
 
-    bool available = false;
-    if (texture)
-        available = texture->acquireForPainting();
-
-    if (!texture || !available)
+    if (!texture)
         return false;
+
+    TextureInfo* textureInfo = texture->producerLock();
 
     // at this point we can safely check the ownership
     // (if the texture got transferred to another BaseTile
     // under us)
-    if (texture->owner() != this
-        || texture->usedLevel() > 1) {
-        texture->setBusy(false);
+    if (texture->owner() != this || texture->usedLevel() > 1) {
+        texture->producerRelease();
         return false;
     }
 
-    PaintingInfo info(m_x, m_y, m_page->glWebViewState());
+    PaintingInfo info(x, y, tiledPage->glWebViewState());
     if (texture->consumerTextureUpToDate(info)) {
-        texture->setBusy(false);
+        texture->producerRelease();
         return true;
-    }
-
-    TextureInfo* textureInfo = texture->producerLock();
-
-    if (!textureInfo) {
-        texture->setBusy(false);
-        return false;
     }
 
     float tileWidth = textureInfo->m_width;
     float tileHeight = textureInfo->m_height;
 
-    float scale = m_scale / m_quality;
-    float invScale = 1 / scale;
-
+    const float invScale = 1 / scale;
     float w = tileWidth * invScale;
     float h = tileHeight * invScale;
 
@@ -196,9 +184,9 @@ bool BaseTile::paintBitmap()
     canvas->save();
 
     canvas->scale(scale, scale);
-    canvas->translate(-m_x*w, -m_y*h);
+    canvas->translate(-x * w, -y * h);
 
-    bool didPaint = m_page->paintBaseLayerContent(canvas);
+    bool didPaint = tiledPage->paintBaseLayerContent(canvas);
 
     canvas->restore();
 
@@ -214,10 +202,7 @@ bool BaseTile::paintBitmap()
     canvas->drawLine(tileWidth, 0, tileWidth, tileHeight, paint);
 #endif
 
-    texture->update(textureInfo, info);
-    texture->setPainter(this);
-    texture->setBusy(false);
-    texture->producerRelease();
+    texture->producerUpdate(this, textureInfo, info);
 
     return didPaint;
 }

@@ -38,8 +38,9 @@ public:
     virtual ~DoubleBufferedTexture() { }
 
     // provider thread functions
-    TextureInfo* producerLock();
-    void producerRelease();
+    virtual TextureInfo* producerLock();
+    virtual void producerRelease();
+    virtual void producerReleaseAndSwap();
     EGLContext producerAcquireContext();
 
     // consumer thread functions
@@ -56,6 +57,7 @@ protected:
 
 private:
     SharedTexture* getWriteableTexture();
+    SharedTexture* producerReleaseTexture();
 
     EGLDisplay m_display;
 
