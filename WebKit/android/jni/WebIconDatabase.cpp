@@ -45,6 +45,7 @@
 #include <pthread.h>
 #include <utils/misc.h>
 #include <wtf/Platform.h>
+#include <wtf/text/CString.h>
 
 namespace android {
 
