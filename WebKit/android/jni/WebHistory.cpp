@@ -794,7 +794,7 @@ static JNINativeMethod gWebHistoryItemMethods[] = {
         (void*) WebHistoryInflate }
 };
 
-int register_webhistory(JNIEnv* env)
+int registerWebHistory(JNIEnv* env)
 {
     // Get notified of all changes to history items.
     WebCore::notifyHistoryItemChanged = historyItemChanged;

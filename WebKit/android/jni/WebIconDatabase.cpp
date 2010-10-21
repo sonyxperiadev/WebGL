@@ -204,7 +204,7 @@ static JNINativeMethod gWebIconDatabaseMethods[] = {
         (void*) ReleaseIconForPageUrl }
 };
 
-int register_webicondatabase(JNIEnv* env)
+int registerWebIconDatabase(JNIEnv* env)
 {
     jclass webIconDB = env->FindClass("android/webkit/WebIconDatabase");
     LOG_ASSERT(webIconDB, "Unable to find class android.webkit.WebIconDatabase");

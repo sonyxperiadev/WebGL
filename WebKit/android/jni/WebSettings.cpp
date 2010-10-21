@@ -529,7 +529,7 @@ static JNINativeMethod gWebSettingsMethods[] = {
         (void*) WebSettings::Sync }
 };
 
-int register_websettings(JNIEnv* env)
+int registerWebSettings(JNIEnv* env)
 {
     jclass clazz = env->FindClass("android/webkit/WebSettings");
     LOG_ASSERT(clazz, "Unable to find class WebSettings!");

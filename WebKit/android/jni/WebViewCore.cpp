@@ -4060,7 +4060,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) AutoFillForm },
 };
 
-int register_webviewcore(JNIEnv* env)
+int registerWebViewCore(JNIEnv* env)
 {
     jclass widget = env->FindClass("android/webkit/WebViewCore");
     LOG_ASSERT(widget,

@@ -1918,7 +1918,7 @@ static JNINativeMethod gBrowserFrameNativeMethods[] = {
         (void*) AuthenticationCancel },
 };
 
-int register_webframe(JNIEnv* env)
+int registerWebFrame(JNIEnv* env)
 {
     jclass clazz = env->FindClass("android/webkit/BrowserFrame");
     LOG_ASSERT(clazz, "Cannot find BrowserFrame");

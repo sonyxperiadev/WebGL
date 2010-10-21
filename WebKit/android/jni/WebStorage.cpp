@@ -163,7 +163,7 @@ static JNINativeMethod gWebStorageMethods[] = {
         (void*) SetAppCacheMaximumSize }
 };
 
-int register_webstorage(JNIEnv* env)
+int registerWebStorage(JNIEnv* env)
 {
     jclass webStorage = env->FindClass("android/webkit/WebStorage");
     LOG_ASSERT(webStorage, "Unable to find class android.webkit.WebStorage");

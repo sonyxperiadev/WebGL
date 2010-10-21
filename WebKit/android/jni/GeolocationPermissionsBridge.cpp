@@ -96,7 +96,7 @@ static JNINativeMethod gGeolocationPermissionsMethods[] = {
         (void*) clearAll }
 };
 
-int register_geolocation_permissions(JNIEnv* env)
+int registerGeolocationPermissions(JNIEnv* env)
 {
     const char* kGeolocationPermissionsClass = "android/webkit/GeolocationPermissions";
     jclass geolocationPermissions = env->FindClass(kGeolocationPermissionsClass);

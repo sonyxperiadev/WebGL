@@ -485,7 +485,7 @@ static JNINativeMethod gWebCoreJavaBridgeMethods[] = {
         (void*) JavaBridge::RemovePackageName }
 };
 
-int register_javabridge(JNIEnv* env)
+int registerJavaBridge(JNIEnv* env)
 {
     jclass javaBridge = env->FindClass("android/webkit/JWebCoreJavaBridge");
     LOG_FATAL_IF(javaBridge == NULL, "Unable to find class android/webkit/JWebCoreJavaBridge");

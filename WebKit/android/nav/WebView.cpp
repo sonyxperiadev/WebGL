@@ -2388,7 +2388,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeScrollLayer },
 };
 
-int register_webview(JNIEnv* env)
+int registerWebView(JNIEnv* env)
 {
     jclass clazz = env->FindClass("android/webkit/WebView");
     LOG_ASSERT(clazz, "Unable to find class android/webkit/WebView");
