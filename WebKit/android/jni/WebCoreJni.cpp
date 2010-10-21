@@ -87,4 +87,18 @@ string16 jstringToString16(JNIEnv* env, jstring jstr)
 }
 #endif
 
+std::string jstringToStdString(JNIEnv* env, jstring jstr)
+{
+    if (!jstr || !env)
+        return std::string();
+
+    const char* s = env->GetStringUTFChars(jstr, 0);
+    if (!s)
+        return std::string();
+    std::string str(s);
+    env->ReleaseStringUTFChars(jstr, s);
+    checkException(env);
+    return str;
+}
+
 }

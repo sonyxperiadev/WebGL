@@ -1826,15 +1826,6 @@ static void OrientationChanged(JNIEnv *env, jobject obj, int orientation)
     pFrame->sendOrientationChangeEvent(orientation);
 }
 
-static std::string jstringToStdString(JNIEnv* env, jstring jstr) {
-    jsize size = env->GetStringUTFLength(jstr);
-    jboolean isCopy;
-    const char* cstr = env->GetStringUTFChars(jstr, &isCopy);
-    std::string result(cstr, cstr + size);
-    env->ReleaseStringUTFChars(jstr, cstr);
-    return result;
-}
-
 #if USE(CHROME_NETWORK_STACK)
 
 static void AuthenticationProceed(JNIEnv *env, jobject obj, int handle, jstring jUsername, jstring jPassword)
