@@ -143,7 +143,7 @@ void WebAutoFill::fillFormFields(int queryId)
 
     webkit_glue::FormData* form = mQueryMap[queryId];
     AutoFillQueryToUniqueIdMap::iterator iter = mUniqueIdMap.find(queryId);
-    ASSERT(iter != mSuggestionMap.end());
+    ASSERT(iter != mUniqueIdMap.end());
     mAutoFillManager->FillAutoFillFormData(queryId, *form, iter->second);
     mUniqueIdMap.erase(iter);
 }
