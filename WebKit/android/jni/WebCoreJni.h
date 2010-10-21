@@ -77,6 +77,8 @@ WTF::String jstringToWtfString(JNIEnv* env, jstring str);
 string16 jstringToString16(JNIEnv* env, jstring jstr);
 #endif
 
+std::string jstringToStdString(JNIEnv* env, jstring jstr);
+
 }
 
 #endif
