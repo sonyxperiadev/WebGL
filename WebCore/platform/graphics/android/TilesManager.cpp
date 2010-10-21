@@ -99,8 +99,8 @@ void TilesManager::printTextures()
             x = o->x();
             y = o->y();
         }
-        XLOG("[%d] texture %x (picture: %d) usedLevel: %d busy: %d owner: %x (%d, %d) page: %x scale: %.2f",
-               i, texture, texture->pictureUsed(), texture->usedLevel(),
+        XLOG("[%d] texture %x usedLevel: %d busy: %d owner: %x (%d, %d) page: %x scale: %.2f",
+               i, texture, texture->usedLevel(),
                texture->busy(), o, x, y, o ? o->page() : 0, o ? o->scale() : 0);
     }
     XLOG("------");

@@ -112,6 +112,8 @@ public:
     // checks to see if the current readable texture is similar to the provided PaintingInfo
     bool consumerTextureSimilar(PaintingInfo& info);
 
+    bool busy() { return m_busy; }
+
 private:
     SkBitmap m_bitmap;
     SkCanvas* m_canvas;

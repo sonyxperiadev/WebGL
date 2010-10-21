@@ -212,6 +212,7 @@ struct WebFrame::JavaBrowserFrame
     jmethodID   mGetFileSize;
     jmethodID   mGetFile;
     jmethodID   mDidReceiveAuthenticationChallenge;
+    jmethodID   mDownloadStart;
     AutoJObject frame(JNIEnv* env) {
         return getRealObject(env, mObj);
     }
@@ -273,6 +274,8 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mGetFile = env->GetMethodID(clazz, "getFile", "(Ljava/lang/String;[BII)I");
     mJavaFrame->mDidReceiveAuthenticationChallenge = env->GetMethodID(clazz, "didReceiveAuthenticationChallenge",
             "(ILjava/lang/String;Ljava/lang/String;Z)V");
+    mJavaFrame->mDownloadStart = env->GetMethodID(clazz, "downloadStart",
+            "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;J)V");
 
     LOG_ASSERT(mJavaFrame->mInputStreamForAndroidResource, "Could not find method inputStreamForAndroidResource");
     LOG_ASSERT(mJavaFrame->mStartLoadingResource, "Could not find method startLoadingResource");
@@ -296,6 +299,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     LOG_ASSERT(mJavaFrame->mGetFileSize, "Could not find method getFileSize");
     LOG_ASSERT(mJavaFrame->mGetFile, "Could not find method getFile");
     LOG_ASSERT(mJavaFrame->mDidReceiveAuthenticationChallenge, "Could not find method didReceiveAuthenticationChallenge");
+    LOG_ASSERT(mJavaFrame->mDownloadStart, "Could not find method downloadStart");
 
     mUserAgent = WTF::String();
     mUserInitiatedAction = false;
@@ -911,6 +915,29 @@ WebFrame::didReceiveAuthenticationChallenge(WebUrlLoaderClient* client, const st
     env->DeleteLocalRef(jRealm);
     checkException(env);
 }
+
+void
+WebFrame::downloadStart(const std::string& url, const std::string& userAgent, const std::string& contentDisposition, const std::string& mimetype, long long contentLength)
+{
+#ifdef ANDROID_INSTRUMENT
+    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
+#endif
+    JNIEnv* env = getJNIEnv();
+    jstring jUrl = env->NewStringUTF(url.c_str());
+    jstring jUserAgent = env->NewStringUTF(userAgent.c_str());
+    jstring jContentDisposition = env->NewStringUTF(contentDisposition.c_str());
+    jstring jMimetype = env->NewStringUTF(mimetype.c_str());
+
+    env->CallVoidMethod(mJavaFrame->frame(env).get(),
+            mJavaFrame->mDownloadStart, jUrl, jUserAgent, jContentDisposition, jMimetype, contentLength);
+
+    env->DeleteLocalRef(jUrl);
+    env->DeleteLocalRef(jUserAgent);
+    env->DeleteLocalRef(jContentDisposition);
+    env->DeleteLocalRef(jMimetype);
+    checkException(env);
+}
+
 
 // ----------------------------------------------------------------------------
 static void CallPolicyFunction(JNIEnv* env, jobject obj, jint func, jint decision)

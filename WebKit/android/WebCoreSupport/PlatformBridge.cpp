@@ -71,12 +71,8 @@ void PlatformBridge::setCookies(const Document* document, const KURL& url, const
 #if USE(CHROME_NETWORK_STACK)
     std::string cookieValue(value.utf8().data());
     GURL cookieGurl(url.string().utf8().data());
-    URLRequestContext* androidContext;
-    if (document->settings() && document->settings()->privateBrowsingEnabled())
-        androidContext = WebRequestContext::GetAndroidPrivateBrowsingContext();
-    else
-        androidContext = WebRequestContext::GetAndroidContext();
-    androidContext->cookie_store()->SetCookie(cookieGurl, cookieValue);
+    bool isPrivateBrowsing = document->settings() && document->settings()->privateBrowsingEnabled();
+    WebRequestContext::GetContext(isPrivateBrowsing)->cookie_store()->SetCookie(cookieGurl, cookieValue);
 #else
     CookieClient* client = JavaSharedClient::GetCookieClient();
     if (!client)
@@ -90,12 +86,8 @@ String PlatformBridge::cookies(const Document* document, const KURL& url)
 {
 #if USE(CHROME_NETWORK_STACK)
     GURL cookieGurl(url.string().utf8().data());
-    URLRequestContext* androidContext;
-    if (document->settings() && document->settings()->privateBrowsingEnabled())
-        androidContext = WebRequestContext::GetAndroidPrivateBrowsingContext();
-    else
-        androidContext = WebRequestContext::GetAndroidContext();
-    std::string cookies = androidContext->cookie_store()->GetCookies(cookieGurl);
+    bool isPrivateBrowsing = document->settings() && document->settings()->privateBrowsingEnabled();
+    std::string cookies = WebRequestContext::GetContext(isPrivateBrowsing)->cookie_store()->GetCookies(cookieGurl);
     String cookieString(cookies.c_str());
     return cookieString;
 #else

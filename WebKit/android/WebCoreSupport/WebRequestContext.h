@@ -37,17 +37,21 @@ class WebRequestContext : public URLRequestContext {
 public:
     virtual const std::string& GetUserAgent(const GURL& url) const;
     virtual const std::string& GetAcceptLanguage() const;
-    static scoped_refptr<URLRequestContext> GetAndroidContext();
-    static scoped_refptr<URLRequestContext> GetAndroidPrivateBrowsingContext();
+
+    // Lazily create the relevant context. This class holds a reference.
+    static URLRequestContext* GetContext(bool isPrivateBrowsing);
+
     static bool CleanupPrivateBrowsingFiles(const std::string& databaseDirectory, const std::string& cacheDirectory);
 
     static void SetUserAgent(WTF::String);
     static void SetAcceptLanguage(WTF::String);
 
 private:
+    static URLRequestContext* GetAndroidContext();
+    static URLRequestContext* GetAndroidPrivateBrowsingContext();
     static const std::string& GetDatabaseDirectory();
     static const std::string& GetCacheDirectory();
-    static scoped_refptr<WebRequestContext> GetAndroidContextForPath(const char* cookiePath, const char* cachePath);
+    static WebRequestContext* GetAndroidContextForPath(const char* cookiePath, const char* cachePath);
     WebRequestContext();
     ~WebRequestContext();
 };
