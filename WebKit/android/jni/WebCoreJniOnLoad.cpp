@@ -89,6 +89,7 @@ extern int registerMediaPlayerAudio(JNIEnv*);
 extern int registerMediaPlayerVideo(JNIEnv*);
 #endif
 extern int registerDeviceMotionAndOrientationManager(JNIEnv*);
+extern int registerCookieManager(JNIEnv*);
 
 }
 
@@ -116,6 +117,7 @@ static RegistrationMethod gWebCoreRegMethods[] = {
     { "HTML5VideoViewProxy", android::registerMediaPlayerVideo },
 #endif
     { "DeviceMotionAndOrientationManager", android::registerDeviceMotionAndOrientationManager },
+    { "CookieManager", android::registerCookieManager },
 };
 
 EXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved)
