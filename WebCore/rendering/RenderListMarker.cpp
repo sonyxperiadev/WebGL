@@ -1138,8 +1138,7 @@ void RenderListMarker::paint(PaintInfo& paintInfo, int tx, int ty)
 void RenderListMarker::layout()
 {
     ASSERT(needsLayout());
-    ASSERT(!prefWidthsDirty());
-
+  
     if (isImage()) {
         setWidth(m_image->imageSize(this, style()->effectiveZoom()).width());
         setHeight(m_image->imageSize(this, style()->effectiveZoom()).height());
