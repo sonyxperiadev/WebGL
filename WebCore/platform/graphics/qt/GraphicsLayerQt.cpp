@@ -37,6 +37,7 @@
 #include <QtGui/qgraphicseffect.h>
 #include <QtGui/qgraphicsitem.h>
 #include <QtGui/qgraphicsscene.h>
+#include <QtGui/qgraphicswidget.h>
 #include <QtGui/qpainter.h>
 #include <QtGui/qpixmap.h>
 #include <QtGui/qpixmapcache.h>
@@ -320,7 +321,7 @@ GraphicsLayerQtImpl::~GraphicsLayerQtImpl()
     // our items automatically.
     const QList<QGraphicsItem*> children = childItems();
     QList<QGraphicsItem*>::const_iterator cit;
-    for (cit = children.begin(); cit != children.end(); ++cit) {
+    for (cit = children.constBegin(); cit != children.constEnd(); ++cit) {
         if (QGraphicsItem* item = *cit) {
             if (scene())
                 scene()->removeItem(item);
@@ -523,7 +524,7 @@ void GraphicsLayerQtImpl::updateTransform()
 
     const QList<QGraphicsItem*> children = childItems();
     QList<QGraphicsItem*>::const_iterator it;
-    for (it = children.begin(); it != children.end(); ++it)
+    for (it = children.constBegin(); it != children.constEnd(); ++it)
         if (GraphicsLayerQtImpl* layer= toGraphicsLayerQtImpl(*it))
             layer->updateTransform();
 }
@@ -610,13 +611,13 @@ void GraphicsLayerQtImpl::flushChanges(bool recursive, bool forceUpdateTransform
     if (!m_layer || m_changeMask == NoChanges)
         goto afterLayerChanges;
 
-    if (m_currentContent.contentType == HTMLContentType && (m_changeMask & ParentChange)) {
+    if (m_changeMask & ParentChange) {
         // The WebCore compositor manages item ownership. We have to make sure graphicsview doesn't
         // try to snatch that ownership.
         if (!m_layer->parent() && !parentItem())
             setParentItem(0);
         else if (m_layer && m_layer->parent() && m_layer->parent()->nativeLayer() != parentItem())
-            setParentItem(m_layer->parent()->nativeLayer());
+            setParentItem(m_layer->parent()->platformLayer());
     }
 
     if (m_changeMask & ChildrenChange) {
@@ -634,13 +635,13 @@ void GraphicsLayerQtImpl::flushChanges(bool recursive, bool forceUpdateTransform
         const QSet<QGraphicsItem*> childrenToRemove = currentChildren - newChildren;
 
         QSet<QGraphicsItem*>::const_iterator it;
-        for (it = childrenToAdd.begin(); it != childrenToAdd.end(); ++it) {
+        for (it = childrenToAdd.constBegin(); it != childrenToAdd.constEnd(); ++it) {
              if (QGraphicsItem* w = *it)
                 w->setParentItem(this);
         }
 
         QSet<QGraphicsItem*>::const_iterator rit;
-        for (rit = childrenToRemove.begin(); rit != childrenToRemove.end(); ++rit) {
+        for (rit = childrenToRemove.constBegin(); rit != childrenToRemove.constEnd(); ++rit) {
              if (GraphicsLayerQtImpl* w = toGraphicsLayerQtImpl(*rit))
                 w->setParentItem(0);
         }
@@ -680,7 +681,7 @@ void GraphicsLayerQtImpl::flushChanges(bool recursive, bool forceUpdateTransform
         if (scene())
             scene()->update();
 
-    if (m_changeMask & (ChildrenTransformChange | Preserves3DChange | TransformChange | AnchorPointChange | SizeChange | BackfaceVisibilityChange | PositionChange)) {
+    if (m_changeMask & (ChildrenTransformChange | Preserves3DChange | TransformChange | AnchorPointChange | SizeChange | BackfaceVisibilityChange | PositionChange | ParentChange)) {
         // Due to the differences between the way WebCore handles transforms and the way Qt handles transforms,
         // all these elements affect the transforms of all the descendants.
         forceUpdateTransform = true;
@@ -737,6 +738,11 @@ void GraphicsLayerQtImpl::flushChanges(bool recursive, bool forceUpdateTransform
         const QRect rect(m_layer->contentsRect());
         if (m_state.contentsRect != rect) {
             m_state.contentsRect = rect;
+            if (m_pendingContent.mediaLayer) {
+                QGraphicsWidget* widget = qobject_cast<QGraphicsWidget*>(m_pendingContent.mediaLayer.data());
+                if (widget)
+                    widget->setGeometry(rect);
+            }
             update();
         }
     }
@@ -804,7 +810,7 @@ afterLayerChanges:
         children.append(m_state.maskLayer->platformLayer());
 
     QList<QGraphicsItem*>::const_iterator it;
-    for (it = children.begin(); it != children.end(); ++it) {
+    for (it = children.constBegin(); it != children.constEnd(); ++it) {
         if (QGraphicsItem* item = *it) {
             if (GraphicsLayerQtImpl* layer = toGraphicsLayerQtImpl(item))
                 layer->flushChanges(true, forceUpdateTransform);
@@ -848,6 +854,20 @@ void GraphicsLayerQt::setNeedsDisplayInRect(const FloatRect& rect)
 {
     m_impl->m_pendingContent.regionToUpdate |= QRectF(rect).toAlignedRect();
     m_impl->notifyChange(GraphicsLayerQtImpl::DisplayChange);
+}
+
+void GraphicsLayerQt::setContentsNeedsDisplay()
+{
+    switch (m_impl->m_pendingContent.contentType) {
+    case GraphicsLayerQtImpl::MediaContentType:
+        if (!m_impl->m_pendingContent.mediaLayer)
+            return;
+        m_impl->m_pendingContent.mediaLayer.data()->update();
+        break;
+    default:
+        setNeedsDisplay();
+        break;
+    }
 }
 
 /* \reimp (GraphicsLayer.h)

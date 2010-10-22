@@ -3,7 +3,7 @@ Test IndexedDB's openCursor.
 On success, you will see a series of "PASS" messages, followed by "TEST COMPLETE".
 
 
-indexedDB.open('name', 'description')
+webkitIndexedDB.open('name', 'description')
 PASS 'onsuccess' in result is true
 PASS 'onerror' in result is true
 PASS 'readyState' in result is true
@@ -21,12 +21,13 @@ PASS 'readyState' in event.target is true
 PASS event.target.readyState is event.target.DONE
 
 db = event.result
-db.createObjectStore('test')
+db.setVersion('new version')
 PASS 'onsuccess' in result is true
 PASS 'onerror' in result is true
 PASS 'readyState' in result is true
 An event should fire shortly...
 
+setVersionSuccess():
 Success event fired:
 PASS 'result' in event is true
 PASS 'code' in event is false
@@ -38,7 +39,10 @@ PASS 'onerror' in event.target is true
 PASS 'readyState' in event.target is true
 PASS event.target.readyState is event.target.DONE
 
-objectStore = event.result
+trans = event.result
+PASS trans !== null is true
+Deleted all object stores.
+objectStore = db.createObjectStore('test')
 objectStore.add('myValue', 'myKey')
 PASS 'onsuccess' in result is true
 PASS 'onerror' in result is true
@@ -46,7 +50,7 @@ PASS 'readyState' in result is true
 An event should fire shortly...
 
 Opening cursor
-objectStore.openCursor(keyRange)
+event.source.openCursor(keyRange)
 PASS 'onsuccess' in result is true
 PASS 'onerror' in result is true
 PASS 'readyState' in result is true

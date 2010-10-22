@@ -129,8 +129,8 @@ enum EUnicodeBidi {
 };
 
 // CSS Text Layout Module Level 3: Vertical writing support
-enum EBlockFlowDirection {
-    TopToBottomBlockFlow, RightToLeftBlockFlow, LeftToRightBlockFlow, BottomToTopBlockFlow
+enum WritingMode {
+    TopToBottomWritingMode, RightToLeftWritingMode, LeftToRightWritingMode, BottomToTopWritingMode
 };
 
 enum EFillAttachment {
@@ -415,6 +415,8 @@ enum ELineClampType { LineClampLineCount, LineClampPercentage };
 
 enum Hyphens { HyphensNone, HyphensManual, HyphensAuto };
 
+enum ESpeak { SpeakNone, SpeakNormal, SpeakSpellOut, SpeakDigits, SpeakLiteralPunctuation, SpeakNoPunctuation };
+    
 } // namespace WebCore
 
 #endif // RenderStyleConstants_h

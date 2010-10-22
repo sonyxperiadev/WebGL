@@ -41,8 +41,8 @@ public:
     virtual ~IDBTransactionCallbacks() { }
 
     virtual void onAbort() = 0;
-    virtual int id() const = 0;
-    // FIXME: add the rest
+    virtual void onComplete() = 0;
+    virtual void onTimeout() = 0;
 };
 
 } // namespace WebCore

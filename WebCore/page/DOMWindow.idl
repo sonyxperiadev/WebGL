@@ -38,7 +38,6 @@ module window {
         CustomNativeConverter,
         CustomPutFunction,
         EventTarget,
-        OmitConstructor,
         ExtendsDOMGlobalObject,
         GenerateNativeConverter,
         LegacyParent=JSDOMWindowBase
@@ -173,26 +172,26 @@ module window {
         readonly attribute [EnabledAtRuntime] NotificationCenter webkitNotifications;
 #endif
 #if defined(ENABLE_INDEXED_DATABASE) && ENABLE_INDEXED_DATABASE
-        readonly attribute [EnabledAtRuntime] IDBFactory indexedDB;
+        readonly attribute [EnabledAtRuntime] IDBFactory webkitIndexedDB;
 
-        attribute [EnabledAtRuntime] IDBCursorConstructor IDBCursor;
-        attribute [EnabledAtRuntime] IDBDatabaseConstructor IDBDatabase;
-        attribute [EnabledAtRuntime] IDBDatabaseErrorConstructor IDBDatabaseError;
-        attribute [EnabledAtRuntime] IDBDatabaseExceptionConstructor IDBDatabaseException;
-        attribute [EnabledAtRuntime] IDBErrorEventConstructor IDBErrorEvent;
-        attribute [EnabledAtRuntime] IDBEventConstructor IDBEvent;
-        attribute [EnabledAtRuntime] IDBFactoryConstructor IDBFactory;
-        attribute [EnabledAtRuntime] IDBIndexConstructor IDBIndex;
-        attribute [EnabledAtRuntime] IDBKeyRangeConstructor IDBKeyRange;
-        attribute [EnabledAtRuntime] IDBObjectStoreConstructor IDBObjectStore;
-        attribute [EnabledAtRuntime] IDBRequestConstructor IDBRequest;
-        attribute [EnabledAtRuntime] IDBSuccessEventConstructor IDBSuccessEvent;
-        attribute [EnabledAtRuntime] IDBTransactionConstructor IDBTransaction;
+        attribute [EnabledAtRuntime] IDBCursorConstructor webkitIDBCursor;
+        attribute [EnabledAtRuntime] IDBDatabaseConstructor webkitIDBDatabase;
+        attribute [EnabledAtRuntime] IDBDatabaseErrorConstructor webkitIDBDatabaseError;
+        attribute [EnabledAtRuntime] IDBDatabaseExceptionConstructor webkitIDBDatabaseException;
+        attribute [EnabledAtRuntime] IDBErrorEventConstructor webkitIDBErrorEvent;
+        attribute [EnabledAtRuntime] IDBEventConstructor webkitIDBEvent;
+        attribute [EnabledAtRuntime] IDBFactoryConstructor webkitIDBFactory;
+        attribute [EnabledAtRuntime] IDBIndexConstructor webkitIDBIndex;
+        attribute [EnabledAtRuntime] IDBKeyRangeConstructor webkitIDBKeyRange;
+        attribute [EnabledAtRuntime] IDBObjectStoreConstructor webkitIDBObjectStore;
+        attribute [EnabledAtRuntime] IDBRequestConstructor webkitIDBRequest;
+        attribute [EnabledAtRuntime] IDBSuccessEventConstructor webkitIDBSuccessEvent;
+        attribute [EnabledAtRuntime] IDBTransactionConstructor webkitIDBTransaction;
 #endif
 #if defined(ENABLE_FILE_SYSTEM) && ENABLE_FILE_SYSTEM
         const unsigned short TEMPORARY = 0;
         const unsigned short PERSISTENT = 1;
-        [EnabledAtRuntime] void requestFileSystem(in unsigned short type, in long long size, in [Callback, Optional] FileSystemCallback successCallback, in [Callback, Optional] ErrorCallback errorCallback);
+        [EnabledAtRuntime=FileSystem] void requestFileSystem(in unsigned short type, in long long size, in [Callback, Optional] FileSystemCallback successCallback, in [Callback, Optional] ErrorCallback errorCallback);
 
         attribute [EnabledAtRuntime=FileSystem] FlagsConstructor Flags;
 #endif
@@ -488,14 +487,14 @@ module window {
 
         attribute DOMStringMapConstructor DOMStringMap;
 
-        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] ArrayBufferConstructor ArrayBuffer; // Usable with new operator
-        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] Int8ArrayConstructor Int8Array; // Usable with new operator
-        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] Uint8ArrayConstructor Uint8Array; // Usable with new operator
-        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] Int16ArrayConstructor Int16Array; // Usable with new operator
-        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] Uint16ArrayConstructor Uint16Array; // Usable with new operator
-        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] Int32ArrayConstructor Int32Array; // Usable with new operator
-        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] Uint32ArrayConstructor Uint32Array; // Usable with new operator
-        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] Float32ArrayConstructor Float32Array; // Usable with new operator
+        attribute [JSCCustomGetter,Conditional=3D_CANVAS|BLOB,EnabledAtRuntime] ArrayBufferConstructor ArrayBuffer; // Usable with new operator
+        attribute [JSCCustomGetter,Conditional=3D_CANVAS|BLOB,EnabledAtRuntime] Int8ArrayConstructor Int8Array; // Usable with new operator
+        attribute [JSCCustomGetter,Conditional=3D_CANVAS|BLOB,EnabledAtRuntime] Uint8ArrayConstructor Uint8Array; // Usable with new operator
+        attribute [JSCCustomGetter,Conditional=3D_CANVAS|BLOB,EnabledAtRuntime] Int16ArrayConstructor Int16Array; // Usable with new operator
+        attribute [JSCCustomGetter,Conditional=3D_CANVAS|BLOB,EnabledAtRuntime] Uint16ArrayConstructor Uint16Array; // Usable with new operator
+        attribute [JSCCustomGetter,Conditional=3D_CANVAS|BLOB,EnabledAtRuntime] Int32ArrayConstructor Int32Array; // Usable with new operator
+        attribute [JSCCustomGetter,Conditional=3D_CANVAS|BLOB,EnabledAtRuntime] Uint32ArrayConstructor Uint32Array; // Usable with new operator
+        attribute [JSCCustomGetter,Conditional=3D_CANVAS|BLOB,EnabledAtRuntime] Float32ArrayConstructor Float32Array; // Usable with new operator
 
         attribute EventConstructor Event;
         attribute BeforeLoadEventConstructor BeforeLoadEvent;
@@ -765,8 +764,8 @@ module window {
         attribute [Conditional=BLOB] BlobBuilderConstructor BlobBuilder;
 
 #if defined(ENABLE_BLOB) && ENABLE_BLOB
-        [ConvertNullStringTo=Undefined] DOMString createBlobURL(in Blob blob);
-        void revokeBlobURL(in DOMString blobURL);
+        [ConvertNullStringTo=Undefined] DOMString createObjectURL(in Blob blob);
+        void revokeObjectURL(in DOMString blobURL);
 #endif
 
 #endif // defined(LANGUAGE_JAVASCRIPT)

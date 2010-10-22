@@ -1487,6 +1487,14 @@ AccessibilityObject* AccessibilityRenderObject::internalLinkElement() const
     return firstAccessibleObjectFromNode(linkedNode);
 }
 
+ESpeak AccessibilityRenderObject::speakProperty() const
+{
+    if (!m_renderer)
+        return AccessibilityObject::speakProperty();
+    
+    return m_renderer->style()->speak();
+}
+    
 void AccessibilityRenderObject::addRadioButtonGroupMembers(AccessibilityChildrenVector& linkedUIElements) const
 {
     if (!m_renderer || roleValue() != RadioButtonRole)
@@ -2638,20 +2646,11 @@ PlainTextRange AccessibilityRenderObject::doAXRangeForLine(unsigned lineNumber) 
         if (visiblePos.isNull() || visiblePos == savedVisiblePos)
             return PlainTextRange();
     }
-    
-    // make a caret selection for the marker position, then extend it to the line
-    // NOTE: ignores results of selection.modify because it returns false when
-    // starting at an empty line.  The resulting selection in that case
-    // will be a caret at visiblePos.
-    SelectionController selection;
-    selection.setSelection(VisibleSelection(visiblePos));
-    selection.modify(SelectionController::AlterationExtend, SelectionController::DirectionLeft, LineBoundary);
-    selection.modify(SelectionController::AlterationExtend, SelectionController::DirectionRight, LineBoundary);
-    
-    // calculate the indices for the selection start and end
-    VisiblePosition startPosition = selection.selection().visibleStart();
-    VisiblePosition endPosition = selection.selection().visibleEnd();
-    int index1 = indexForVisiblePosition(startPosition);
+
+    // Get the end of the line based on the starting position.
+    VisiblePosition endPosition = endOfLine(visiblePos);
+
+    int index1 = indexForVisiblePosition(visiblePos);
     int index2 = indexForVisiblePosition(endPosition);
     
     // add one to the end index for a line break not caused by soft line wrap (to match AppKit)
@@ -3089,6 +3088,10 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
     if (m_renderer->isBlockFlow() || (node && node->hasTagName(labelTag)))
         return GroupRole;
     
+    // If the element does not have role, but it has ARIA attributes, accessibility should fallback to exposing it as a group.
+    if (supportsARIAAttributes())
+        return GroupRole;
+    
     return UnknownRole;
 }
 
@@ -3388,6 +3391,7 @@ const AtomicString& AccessibilityRenderObject::ariaLiveRegionStatus() const
         case ApplicationStatusRole:
             return liveRegionStatusPolite;
         case ApplicationTimerRole:
+        case ApplicationMarqueeRole:
             return liveRegionStatusOff;
         default:
             break;

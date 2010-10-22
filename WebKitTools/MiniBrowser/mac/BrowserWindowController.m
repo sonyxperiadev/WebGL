@@ -258,7 +258,7 @@ static void didReceiveServerRedirectForProvisionalLoadForFrame(WKPageRef page, W
     [(BrowserWindowController *)clientInfo didReceiveServerRedirectForProvisionalLoadForFrame:frame];
 }
 
-static void didFailProvisionalLoadWithErrorForFrame(WKPageRef page, WKFrameRef frame, WKTypeRef userData, const void *clientInfo)
+static void didFailProvisionalLoadWithErrorForFrame(WKPageRef page, WKFrameRef frame, WKErrorRef error, WKTypeRef userData, const void *clientInfo)
 {
     [(BrowserWindowController *)clientInfo didFailProvisionalLoadWithErrorForFrame:frame];
 }
@@ -278,7 +278,7 @@ static void didFinishLoadForFrame(WKPageRef page, WKFrameRef frame, WKTypeRef us
     LOG(@"didFinishLoadForFrame");
 }
 
-static void didFailLoadWithErrorForFrame(WKPageRef page, WKFrameRef frame, WKTypeRef userData, const void *clientInfo)
+static void didFailLoadWithErrorForFrame(WKPageRef page, WKFrameRef frame, WKErrorRef error, WKTypeRef userData, const void *clientInfo)
 {
     [(BrowserWindowController *)clientInfo didFailLoadWithErrorForFrame:frame];
 }
@@ -484,6 +484,46 @@ static void contentsSizeChanged(WKPageRef page, int width, int height, WKFrameRe
     LOG(@"contentsSizeChanged");
 }
 
+static WKRect getWindowFrame(WKPageRef page, const void* clientInfo)
+{
+    NSRect rect = [[(BrowserWindowController *)clientInfo window] frame];
+    WKRect wkRect;
+    wkRect.origin.x = rect.origin.x;
+    wkRect.origin.y = rect.origin.y;
+    wkRect.size.width = rect.size.width;
+    wkRect.size.height = rect.size.height;
+    return wkRect;
+}
+
+static void setWindowFrame(WKPageRef page, WKRect rect, const void* clientInfo)
+{
+    [[(BrowserWindowController *)clientInfo window] setFrame:NSMakeRect(rect.origin.x, rect.origin.y, rect.size.width, rect.size.height) display:YES];
+}
+
+static bool runBeforeUnloadConfirmPanel(WKPageRef page, WKStringRef message, WKFrameRef frame, const void* clientInfo)
+{
+    NSAlert *alert = [[NSAlert alloc] init];
+
+    WKURLRef wkURL = WKFrameCopyURL(frame);
+    CFURLRef cfURL = WKURLCopyCFURL(0, wkURL);
+    WKRelease(wkURL);
+
+    [alert setMessageText:[NSString stringWithFormat:@"BeforeUnload confirm dialog from %@.", [(NSURL *)cfURL absoluteString]]];
+    CFRelease(cfURL);
+
+    CFStringRef cfMessage = WKStringCopyCFString(0, message);
+    [alert setInformativeText:(NSString *)cfMessage];
+    CFRelease(cfMessage);
+
+    [alert addButtonWithTitle:@"OK"];
+    [alert addButtonWithTitle:@"Cancel"];
+
+    NSInteger button = [alert runModal];
+    [alert release];
+
+    return button == NSAlertFirstButtonReturn;
+}
+
 - (void)awakeFromNib
 {
     _webView = [[WKView alloc] initWithFrame:[containerView frame] pageNamespaceRef:_pageNamespace];
@@ -538,7 +578,11 @@ static void contentsSizeChanged(WKPageRef page, int width, int height, WKFrameRe
         setStatusText,
         mouseDidMoveOverElement,
         contentsSizeChanged,
-        0           /* didNotHandleKeyEvent */
+        0,          /* didNotHandleKeyEvent */
+        getWindowFrame,
+        setWindowFrame,
+        runBeforeUnloadConfirmPanel,
+        0          /* didDraw */
     };
     WKPageSetPageUIClient(_webView.pageRef, &uiClient);
 }
@@ -562,9 +606,15 @@ static void contentsSizeChanged(WKPageRef page, int width, int height, WKFrameRe
 
 - (void)updateProvisionalURLForFrame:(WKFrameRef)frame
 {
+    static WKURLRef emptyURL = 0;
+    if (!emptyURL)
+        emptyURL = WKURLCreateWithUTF8CString("");
+
     WKURLRef url = WKFrameCopyProvisionalURL(frame);
-    if (!url)
+    if (WKURLIsEqual(url, emptyURL)) {
+        WKRelease(url);
         return;
+    }
 
     CFURLRef cfSourceURL = WKURLCopyCFURL(0, url);
     WKRelease(url);
@@ -614,6 +664,19 @@ static void contentsSizeChanged(WKPageRef page, int width, int height, WKFrameRe
     // FIXME: We shouldn't have to set the url text here.
     [urlText setStringValue:urlString];
     [self fetch:nil];
+}
+
+- (IBAction)performFindPanelAction:(id)sender
+{
+    [findPanelWindow makeKeyAndOrderFront:sender];
+}
+
+- (IBAction)find:(id)sender
+{
+    WKStringRef string = WKStringCreateWithCFString((CFStringRef)[sender stringValue]);
+
+    WKPageFindString(_webView.pageRef, string, kWKFindDirectionForward, 
+                     kWKFindOptionsCaseInsensitive | kWKFindOptionsWrapAround | kWKFindOptionsShowFindIndicator | kWKFindOptionsShowOverlay, 100);
 }
 
 @end

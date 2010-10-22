@@ -29,15 +29,15 @@
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 
-from model.queues import queues, display_name_for_queue
-from model.workitems import WorkItems
-from model.activeworkitems import ActiveWorkItems
+from model.queues import Queue
 
 from model import queuestatus
 
 
 class QueueStatus(webapp.RequestHandler):
-    def _rows_for_work_items(self, queued_items, active_items):
+    def _rows_for_work_items(self, queue):
+        queued_items = queue.work_items()
+        active_items = queue.active_work_items()
         if not queued_items:
             return []
         rows = []
@@ -50,14 +50,17 @@ class QueueStatus(webapp.RequestHandler):
         return rows
 
     def get(self, queue_name):
-        queued_items = WorkItems.all().filter("queue_name =", queue_name).get()
-        active_items = ActiveWorkItems.all().filter("queue_name =", queue_name).get()
-        statuses = queuestatus.QueueStatus.all().filter("queue_name =", queue_name).order("-date").fetch(15)
+        queue_name = queue_name.lower()
+        queue = Queue.queue_with_name(queue_name)
+        if not queue:
+            self.error(404)
+            return
 
         status_groups = []
         last_patch_id = None
         synthetic_patch_id_counter = 0
 
+        statuses = queuestatus.QueueStatus.all().filter("queue_name =", queue.name()).order("-date").fetch(15)
         for status in statuses:
             patch_id = status.active_patch_id
             if not patch_id or last_patch_id != patch_id:
@@ -69,8 +72,8 @@ class QueueStatus(webapp.RequestHandler):
             last_patch_id = patch_id
 
         template_values = {
-            "display_queue_name": display_name_for_queue(queue_name),
-            "work_item_rows": self._rows_for_work_items(queued_items, active_items),
+            "display_queue_name": queue.display_name(),
+            "work_item_rows": self._rows_for_work_items(queue),
             "status_groups": status_groups,
         }
         self.response.out.write(template.render("templates/queuestatus.html", template_values))

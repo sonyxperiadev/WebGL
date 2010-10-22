@@ -465,39 +465,6 @@ bool isSpecialElement(const Node *n)
     return false;
 }
 
-// Checks if a string is a valid tag for the FormatBlockCommand function of execCommand. Expects lower case strings.
-bool validBlockTag(const AtomicString& blockTag)
-{
-    if (blockTag.isEmpty())
-        return false;
-
-    DEFINE_STATIC_LOCAL(HashSet<AtomicString>, blockTags, ());
-    if (blockTags.isEmpty()) {
-        blockTags.add(addressTag.localName());
-        blockTags.add(articleTag.localName());
-        blockTags.add(asideTag.localName());
-        blockTags.add(blockquoteTag.localName());
-        blockTags.add(ddTag.localName());
-        blockTags.add(divTag.localName());
-        blockTags.add(dlTag.localName());
-        blockTags.add(dtTag.localName());
-        blockTags.add(footerTag.localName());
-        blockTags.add(h1Tag.localName());
-        blockTags.add(h2Tag.localName());
-        blockTags.add(h3Tag.localName());
-        blockTags.add(h4Tag.localName());
-        blockTags.add(h5Tag.localName());
-        blockTags.add(h6Tag.localName());
-        blockTags.add(headerTag.localName());
-        blockTags.add(hgroupTag.localName());
-        blockTags.add(navTag.localName());
-        blockTags.add(pTag.localName());
-        blockTags.add(preTag.localName());
-        blockTags.add(sectionTag.localName());
-    }
-    return blockTags.contains(blockTag);
-}
-
 static Node* firstInSpecialElement(const Position& pos)
 {
     // FIXME: This begins at pos.node(), which doesn't necessarily contain pos (suppose pos was [img, 0]).  See <rdar://problem/5027702>.
@@ -739,7 +706,7 @@ HTMLElement* enclosingList(Node* node)
         
     Node* root = highestEditableRoot(Position(node, 0));
     
-    for (Node* n = node->parentNode(); n; n = n->parentNode()) {
+    for (ContainerNode* n = node->parentNode(); n; n = n->parentNode()) {
         if (n->hasTagName(ulTag) || n->hasTagName(olTag))
             return static_cast<HTMLElement*>(n);
         if (n == root)
@@ -1068,6 +1035,9 @@ bool lineBreakExistsAtPosition(const Position& position)
     
     if (position.anchorNode()->hasTagName(brTag) && position.atFirstEditingPositionForNode())
         return true;
+    
+    if (!position.anchorNode()->renderer())
+        return false;
     
     if (!position.anchorNode()->isTextNode() || !position.anchorNode()->renderer()->style()->preserveNewline())
         return false;

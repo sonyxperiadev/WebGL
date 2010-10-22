@@ -255,7 +255,7 @@ bool HTMLFormControlElement::isKeyboardFocusable(KeyboardEvent* event) const
 
 bool HTMLFormControlElement::isMouseFocusable() const
 {
-#if PLATFORM(GTK)
+#if PLATFORM(GTK) || PLATFORM(QT)
     return HTMLElement::isMouseFocusable();
 #else
     return false;
@@ -440,7 +440,7 @@ bool HTMLFormControlElementWithState::autoComplete() const
 bool HTMLFormControlElementWithState::shouldSaveAndRestoreFormControlState() const
 {
     // We don't save/restore control state in a form with autocomplete=off.
-    return autoComplete();
+    return attached() && autoComplete();
 }
 
 void HTMLFormControlElementWithState::finishParsingChildren()
@@ -592,10 +592,10 @@ int HTMLTextFormControlElement::selectionEnd()
     return toRenderTextControl(renderer())->selectionEnd();
 }
 
-VisibleSelection HTMLTextFormControlElement::selection() const
+PassRefPtr<Range> HTMLTextFormControlElement::selection() const
 {
     if (!renderer() || !isTextFormControl() || cachedSelectionStart() < 0 || cachedSelectionEnd() < 0)
-        return VisibleSelection();
+        return 0;
     return toRenderTextControl(renderer())->selection(cachedSelectionStart(), cachedSelectionEnd());
 }
 

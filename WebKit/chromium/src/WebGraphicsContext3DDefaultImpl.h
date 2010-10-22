@@ -273,6 +273,8 @@ public:
 private:
     WebGraphicsContext3D::Attributes m_attributes;
     bool m_initialized;
+    bool m_renderDirectlyToWebView;
+
     unsigned int m_texture;
     unsigned int m_fbo;
     unsigned int m_depthStencilBuffer;
@@ -297,6 +299,9 @@ private:
     // particular stencil and antialias, and determine which could or could
     // not be honored based on the capabilities of the OpenGL implementation.
     void validateAttributes();
+
+    // Resolve the given rectangle of the multisampled framebuffer if necessary.
+    void resolveMultisampledFramebuffer(unsigned x, unsigned y, unsigned width, unsigned height);
 
     // Note: we aren't currently using this information, but we will
     // need to in order to verify that all enabled vertex arrays have
@@ -327,8 +332,8 @@ private:
 
     // ANGLE related.
     struct ShaderSourceEntry {
-        ShaderSourceEntry()
-                : type(0)
+        ShaderSourceEntry(unsigned long shaderType)
+                : type(shaderType)
                 , source(0)
                 , log(0)
                 , translatedSource(0)
@@ -357,7 +362,7 @@ private:
     void angleDestroyCompilers();
     bool angleValidateShaderSource(ShaderSourceEntry& entry);
 
-    typedef HashMap<WebGLId, ShaderSourceEntry> ShaderSourceMap;
+    typedef HashMap<WebGLId, ShaderSourceEntry*> ShaderSourceMap;
     ShaderSourceMap m_shaderSourceMap;
 
     ShHandle m_fragmentCompiler;

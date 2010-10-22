@@ -24,7 +24,6 @@
 #include "HTMLImageElement.h"
 
 #include "Attribute.h"
-#include "CSSHelper.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "EventNames.h"
@@ -32,6 +31,7 @@
 #include "HTMLDocument.h"
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
 #include "RenderImage.h"
 #include "ScriptEventListener.h"
 
@@ -131,7 +131,7 @@ void HTMLImageElement::parseMappedAttribute(Attribute* attr)
         if (attr->value().string()[0] == '#')
             usemap = attr->value();
         else
-            usemap = document()->completeURL(deprecatedParseURL(attr->value())).string();
+            usemap = document()->completeURL(stripLeadingAndTrailingHTMLSpaces(attr->value())).string();
         setIsLink(!attr->isNull());
     } else if (attrName == ismapAttr)
         ismap = true;
@@ -237,7 +237,7 @@ void HTMLImageElement::insertedIntoTree(bool deep)
 {
     if (!m_form) {
         // m_form can be non-null if it was set in constructor.
-        for (Node* ancestor = parentNode(); ancestor; ancestor = ancestor->parentNode()) {
+        for (ContainerNode* ancestor = parentNode(); ancestor; ancestor = ancestor->parentNode()) {
             if (ancestor->hasTagName(formTag)) {
                 m_form = static_cast<HTMLFormElement*>(ancestor);
                 m_form->registerImgElement(this);

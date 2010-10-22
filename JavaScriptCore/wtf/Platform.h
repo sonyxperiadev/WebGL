@@ -398,7 +398,7 @@
 
 /* OS(NETBSD) - NetBSD */
 #if defined(__NetBSD__)
-#define WTF_PLATFORM_NETBSD 1
+#define WTF_OS_NETBSD 1
 #endif
 
 /* OS(OPENBSD) - OpenBSD */
@@ -574,6 +574,8 @@
 #define WTF_USE_QT4_UNICODE 1
 #elif OS(WINCE)
 #define WTF_USE_WINCE_UNICODE 1
+#elif PLATFORM(BREWMP)
+#define WTF_USE_BREWMP_UNICODE 1
 #elif PLATFORM(GTK)
 /* The GTK+ Unicode backend is configurable */
 #else
@@ -690,6 +692,10 @@
 
 #if PLATFORM(BREWMP)
 #define USE_SYSTEM_MALLOC 1
+#endif
+
+#if PLATFORM(BREWMP_SIMULATOR)
+#define ENABLE_JIT 0
 #endif
 
 #if !defined(HAVE_ACCESSIBILITY)
@@ -934,19 +940,17 @@
 #define ENABLE_FULLSCREEN_API 0
 #endif
 
-#if !defined(WTF_USE_JSVALUE64) && !defined(WTF_USE_JSVALUE32) && !defined(WTF_USE_JSVALUE32_64)
+#if !defined(WTF_USE_JSVALUE64) && !defined(WTF_USE_JSVALUE32_64)
 #if (CPU(X86_64) && (OS(UNIX) || OS(WINDOWS))) \
     || (CPU(IA64) && !CPU(IA64_32)) \
     || CPU(ALPHA) \
     || CPU(SPARC64) \
     || CPU(PPC64)
 #define WTF_USE_JSVALUE64 1
-#elif CPU(ARM_TRADITIONAL) && COMPILER(MSVC)
-#define WTF_USE_JSVALUE32 1
 #else
 #define WTF_USE_JSVALUE32_64 1
 #endif
-#endif /* !defined(WTF_USE_JSVALUE64) && !defined(WTF_USE_JSVALUE32) && !defined(WTF_USE_JSVALUE32_64) */
+#endif /* !defined(WTF_USE_JSVALUE64) && !defined(WTF_USE_JSVALUE32_64) */
 
 #if !defined(ENABLE_REPAINT_THROTTLING)
 #define ENABLE_REPAINT_THROTTLING 0
@@ -984,10 +988,6 @@
     #if !defined(ENABLE_JIT_USE_SOFT_MODULO) && WTF_ARM_ARCH_AT_LEAST(5)
     #define ENABLE_JIT_USE_SOFT_MODULO 1
     #endif
-    #endif
-
-    #if !defined(ENABLE_JIT_OPTIMIZE_NATIVE_CALL) && CPU(X86) && USE(JSVALUE32)
-    #define ENABLE_JIT_OPTIMIZE_NATIVE_CALL 0
     #endif
 
     #ifndef ENABLE_JIT_OPTIMIZE_CALL

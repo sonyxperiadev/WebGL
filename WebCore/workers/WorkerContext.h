@@ -45,6 +45,7 @@
 namespace WebCore {
 
     class Blob;
+    class DOMFileSystemSync;
     class Database;
     class DatabaseCallback;
     class DatabaseSync;
@@ -120,8 +121,8 @@ namespace WebCore {
         virtual bool isJSExecutionTerminated() const;
 
 #if ENABLE(BLOB)
-        String createBlobURL(Blob*);
-        void revokeBlobURL(const String&);
+        String createObjectURL(Blob*);
+        void revokeObjectURL(const String&);
 #endif
 
 #if ENABLE(FILE_SYSTEM)
@@ -130,6 +131,7 @@ namespace WebCore {
             PERSISTENT,
         };
         void requestFileSystem(int type, long long size, PassRefPtr<FileSystemCallback>, PassRefPtr<ErrorCallback>);
+        PassRefPtr<DOMFileSystemSync> requestFileSystemSync(int type, long long size, ExceptionCode&);
 #endif
 
         // These methods are used for GC marking. See JSWorkerContext::markChildren(MarkStack&) in

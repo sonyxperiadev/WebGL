@@ -77,6 +77,7 @@
 #include "markup.h"
 
 #include <wtf/text/CString.h>
+#include <wtf/text/StringConcatenate.h>
 #include <wtf/HashSet.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/OwnPtr.h>
@@ -187,6 +188,8 @@ public:
             if (!ec)
                 resultCollector.add(node);
         }
+#else
+        UNUSED_PARAM(resultCollector);
 #endif
     }
 };
@@ -203,7 +206,8 @@ public:
 enum DOMBreakpointType {
     SubtreeModified = 0,
     AttributeModified,
-    NodeRemoved
+    NodeRemoved,
+    DOMBreakpointTypesCount
 };
 
 const uint32_t inheritableDOMBreakpointTypesMask = (1 << SubtreeModified);
@@ -215,6 +219,7 @@ InspectorDOMAgent::InspectorDOMAgent(InspectorCSSStore* cssStore, InspectorFront
     : EventListener(InspectorDOMAgentType)
     , m_cssStore(cssStore)
     , m_frontend(frontend)
+    , m_domListener(0)
     , m_lastNodeId(1)
     , m_matchJobsTimer(this, &InspectorDOMAgent::onMatchJobsTimer)
 {
@@ -235,6 +240,11 @@ void InspectorDOMAgent::reset()
         stopListening((*it).get());
 
     ASSERT(!m_documents.size());
+}
+
+void InspectorDOMAgent::setDOMListener(DOMListener* listener)
+{
+    m_domListener = listener;
 }
 
 void InspectorDOMAgent::setDocument(Document* doc)
@@ -326,6 +336,8 @@ void InspectorDOMAgent::unbind(Node* node, NodeToIdMap* nodesMap)
     if (node->isFrameOwnerElement()) {
         const HTMLFrameOwnerElement* frameOwner = static_cast<const HTMLFrameOwnerElement*>(node);
         stopListening(frameOwner->contentDocument());
+        if (m_domListener)
+            m_domListener->didRemoveDocument(frameOwner->contentDocument());
         cssStore()->removeDocument(frameOwner->contentDocument());
     }
 
@@ -473,7 +485,7 @@ void InspectorDOMAgent::removeNode(long nodeId, long* outNodeId)
     if (!node)
         return;
 
-    Node* parentNode = node->parentNode();
+    ContainerNode* parentNode = node->parentNode();
     if (!parentNode)
         return;
 
@@ -508,7 +520,7 @@ void InspectorDOMAgent::changeTagName(long nodeId, const String& tagName, long* 
         newElem->appendChild(child, ec);
 
     // Replace the old node with the new node
-    Node* parent = oldNode->parentNode();
+    ContainerNode* parent = oldNode->parentNode();
     parent->insertBefore(newElem, oldNode->nextSibling(), ec);
     parent->removeChild(oldNode, ec);
 
@@ -539,7 +551,7 @@ void InspectorDOMAgent::setOuterHTML(long nodeId, const String& outerHTML, long*
 
     bool childrenRequested = m_childrenRequested.contains(nodeId);
     Node* previousSibling = node->previousSibling();
-    Node* parentNode = node->parentNode();
+    ContainerNode* parentNode = node->parentNode();
 
     HTMLElement* htmlElement = static_cast<HTMLElement*>(node);
     ExceptionCode ec = 0;
@@ -743,11 +755,17 @@ void InspectorDOMAgent::searchCanceled()
     m_searchResults.clear();
 }
 
-void InspectorDOMAgent::setDOMBreakpoint(long nodeId, long type)
+String InspectorDOMAgent::setDOMBreakpoint(long nodeId, long type)
 {
     Node* node = nodeForId(nodeId);
     if (!node)
-        return;
+        return "";
+
+    String breakpointId = createBreakpointId(nodeId, type);
+    if (m_idToBreakpoint.contains(breakpointId))
+        return "";
+
+    m_idToBreakpoint.set(breakpointId, std::make_pair(nodeId, type));
 
     uint32_t rootBit = 1 << type;
     m_breakpoints.set(node, m_breakpoints.get(node) | rootBit);
@@ -755,15 +773,19 @@ void InspectorDOMAgent::setDOMBreakpoint(long nodeId, long type)
         for (Node* child = innerFirstChild(node); child; child = innerNextSibling(child))
             updateSubtreeBreakpoints(child, rootBit, true);
     }
+
+    return breakpointId;
 }
 
-void InspectorDOMAgent::removeDOMBreakpoint(long nodeId, long type)
+void InspectorDOMAgent::removeDOMBreakpoint(const String& breakpointId)
 {
-    Node* node = nodeForId(nodeId);
+    Breakpoint breakpoint = m_idToBreakpoint.take(breakpointId);
+
+    Node* node = nodeForId(breakpoint.first);
     if (!node)
         return;
 
-    uint32_t rootBit = 1 << type;
+    uint32_t rootBit = 1 << breakpoint.second;
     uint32_t mask = m_breakpoints.get(node) & ~rootBit;
     if (mask)
         m_breakpoints.set(node, mask);
@@ -835,11 +857,7 @@ PassRefPtr<InspectorValue> InspectorDOMAgent::descriptionForDOMEvent(Node* targe
 
     long breakpointOwnerNodeId = m_documentNodeToIdMap.get(breakpointOwner);
     ASSERT(breakpointOwnerNodeId);
-
-    RefPtr<InspectorObject> breakpoint = InspectorObject::create();
-    breakpoint->setNumber("nodeId", breakpointOwnerNodeId);
-    breakpoint->setNumber("type", breakpointType);
-    description->setObject("breakpoint", breakpoint);
+    description->setString("breakpointId", createBreakpointId(breakpointOwnerNodeId, breakpointType));
 
     return description;
 }
@@ -1016,8 +1034,8 @@ unsigned InspectorDOMAgent::innerChildNodeCount(Node* node)
 
 Node* InspectorDOMAgent::innerParentNode(Node* node)
 {
-    Node* parent = node->parentNode();
-    if (parent && parent->nodeType() == Node::DOCUMENT_NODE)
+    ContainerNode* parent = node->parentNode();
+    if (parent && parent->isDocumentNode())
         return static_cast<Document*>(parent)->ownerElement();
     return parent;
 }
@@ -1058,7 +1076,7 @@ void InspectorDOMAgent::didInsertDOMNode(Node* node)
     // We could be attaching existing subtree. Forget the bindings.
     unbind(node, &m_documentNodeToIdMap);
 
-    Node* parent = node->parentNode();
+    ContainerNode* parent = node->parentNode();
     long parentId = m_documentNodeToIdMap.get(parent);
     // Return if parent is not mapped yet.
     if (!parentId)
@@ -1083,24 +1101,27 @@ void InspectorDOMAgent::didRemoveDOMNode(Node* node)
 
     if (m_breakpoints.size()) {
         // Remove subtree breakpoints.
-        m_breakpoints.remove(node);
+        removeBreakpointsForNode(node);
         Vector<Node*> stack(1, innerFirstChild(node));
         do {
             Node* node = stack.last();
             stack.removeLast();
             if (!node)
                 continue;
-            m_breakpoints.remove(node);
+            removeBreakpointsForNode(node);
             stack.append(innerFirstChild(node));
             stack.append(innerNextSibling(node));
         } while (!stack.isEmpty());
     }
 
-    Node* parent = node->parentNode();
+    ContainerNode* parent = node->parentNode();
     long parentId = m_documentNodeToIdMap.get(parent);
     // If parent is not mapped yet -> ignore the event.
     if (!parentId)
         return;
+
+    if (m_domListener)
+        m_domListener->didRemoveDOMNode(node);
 
     if (!m_childrenRequested.contains(parentId)) {
         // No children are mapped yet -> only notify on changes of hasChildren.
@@ -1152,6 +1173,25 @@ void InspectorDOMAgent::updateSubtreeBreakpoints(Node* node, uint32_t rootMask, 
 
     for (Node* child = innerFirstChild(node); child; child = innerNextSibling(child))
         updateSubtreeBreakpoints(child, newRootMask, set);
+}
+
+void InspectorDOMAgent::removeBreakpointsForNode(Node* node)
+{
+    uint32_t mask = m_breakpoints.take(node);
+    if (!mask)
+        return;
+    long nodeId = m_documentNodeToIdMap.get(node);
+    if (!nodeId)
+        return;
+    for (int type = 0; type < DOMBreakpointTypesCount; ++type) {
+        if (mask && (1 << type))
+            m_idToBreakpoint.remove(createBreakpointId(nodeId, type));
+    }
+}
+
+String InspectorDOMAgent::createBreakpointId(long nodeId, long type)
+{
+    return makeString("dom:", String::number(nodeId), ':', String::number(type));
 }
 
 void InspectorDOMAgent::getStyles(long nodeId, bool authorOnly, RefPtr<InspectorValue>* styles)
@@ -1221,18 +1261,25 @@ void InspectorDOMAgent::getStyleSourceData(long styleId, RefPtr<InspectorObject>
     CSSStyleDeclaration* style = cssStore()->styleForId(styleId);
     if (!style)
         return;
-    RefPtr<CSSStyleSourceData> sourceData = CSSStyleSourceData::create();
-    bool success = cssStore()->getStyleSourceData(style, &sourceData);
+    RefPtr<CSSRuleSourceData> sourceData = CSSRuleSourceData::create();
+    bool success = cssStore()->getRuleSourceData(style, &sourceData);
     if (!success)
         return;
     RefPtr<InspectorObject> result = InspectorObject::create();
+
     RefPtr<InspectorObject> bodyRange = InspectorObject::create();
     result->setObject("bodyRange", bodyRange);
-    bodyRange->setNumber("start", sourceData->styleBodyRange.start);
-    bodyRange->setNumber("end", sourceData->styleBodyRange.end);
+    bodyRange->setNumber("start", sourceData->styleSourceData->styleBodyRange.start);
+    bodyRange->setNumber("end", sourceData->styleSourceData->styleBodyRange.end);
+
+    RefPtr<InspectorObject> selectorRange = InspectorObject::create();
+    result->setObject("selectorRange", selectorRange);
+    selectorRange->setNumber("start", sourceData->selectorListRange.start);
+    selectorRange->setNumber("end", sourceData->selectorListRange.end);
+
     RefPtr<InspectorArray> propertyRanges = InspectorArray::create();
     result->setArray("propertyData", propertyRanges);
-    Vector<CSSPropertySourceData>& propertyData = sourceData->propertyData;
+    Vector<CSSPropertySourceData>& propertyData = sourceData->styleSourceData->propertyData;
     for (Vector<CSSPropertySourceData>::iterator it = propertyData.begin(); it != propertyData.end(); ++it) {
         RefPtr<InspectorObject> propertyRange = InspectorObject::create();
         propertyRange->setString("name", it->name);
@@ -1311,7 +1358,7 @@ PassRefPtr<InspectorArray> InspectorDOMAgent::buildArrayForPseudoElements(Elemen
     return result.release();
 }
 
-void InspectorDOMAgent::applyStyleText(long styleId, const String& styleText, const String& propertyName, bool* success, RefPtr<InspectorValue>* styleObject, RefPtr<InspectorArray>* changedPropertiesArray)
+void InspectorDOMAgent::applyStyleText(long styleId, const String& styleText, const String& propertyName, bool* success, RefPtr<InspectorValue>* styleObject)
 {
     CSSStyleDeclaration* style = cssStore()->styleForId(styleId);
     if (!style)
@@ -1348,7 +1395,6 @@ void InspectorDOMAgent::applyStyleText(long styleId, const String& styleText, co
 
     // Notify caller that the property was successfully deleted.
     if (!styleTextLength) {
-        (*changedPropertiesArray)->pushString(propertyName);
         *success = true;
         return;
     }
@@ -1359,7 +1405,6 @@ void InspectorDOMAgent::applyStyleText(long styleId, const String& styleText, co
     // Iterate of the properties on the test element's style declaration and
     // add them to the real style declaration. We take care to move shorthands.
     HashSet<String> foundShorthands;
-    Vector<String> changedProperties;
 
     for (unsigned i = 0; i < tempStyle->length(); ++i) {
         String name = tempStyle->item(i);
@@ -1386,11 +1431,9 @@ void InspectorDOMAgent::applyStyleText(long styleId, const String& styleText, co
         // Remove disabled property entry for property with this name.
         if (disabledStyle)
             disabledStyle->remove(name);
-        changedProperties.append(name);
     }
     *success = true;
     *styleObject = buildObjectForStyle(style, true);
-    *changedPropertiesArray = toArray(changedProperties);
 }
 
 void InspectorDOMAgent::setStyleText(long styleId, const String& cssText, bool* success)
@@ -1493,6 +1536,7 @@ void InspectorDOMAgent::getSupportedCSSProperties(RefPtr<InspectorArray>* cssPro
     RefPtr<InspectorArray> properties = InspectorArray::create();
     for (int i = 0; i < numCSSProperties; ++i)
         properties->pushString(propertyNameStrings[i]);
+
     *cssProperties = properties.release();
 }
 

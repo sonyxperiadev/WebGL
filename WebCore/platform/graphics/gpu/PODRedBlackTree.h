@@ -42,9 +42,11 @@
 // the "<" and "==" operators.
 //
 // In debug mode, printing of the data contained in the tree is
-// enabled. This requires the following function to be available:
+// enabled. This requires the template specialization to be available:
 //
-//   String valueToString(const T&);
+//   template<> struct WebCore::ValueToString<T> {
+//       static String string(const T& t);
+//   };
 //
 // Note that when complex types are stored in this red/black tree, it
 // is possible that single invocations of the "<" and "==" operators
@@ -76,12 +78,17 @@
 #include <wtf/RefPtr.h>
 #ifndef NDEBUG
 #include "Logging.h"
-#include "PlatformString.h"
-#include "StringBuilder.h"
 #include <wtf/text/CString.h>
+#include <wtf/text/StringBuilder.h>
+#include <wtf/text/WTFString.h>
 #endif
 
 namespace WebCore {
+
+#ifndef NDEBUG
+template<class T>
+struct ValueToString;
+#endif
 
 template<class T>
 class PODRedBlackTree {
@@ -723,7 +730,7 @@ private:
         builder.append("-");
         if (node) {
             builder.append(" ");
-            builder.append(valueToString(node->data()));
+            builder.append(ValueToString<T>::string(node->data()));
             builder.append((node->color() == Black) ? " (black)" : " (red)");
         }
         LOG_ERROR("%s", builder.toString().ascii().data());

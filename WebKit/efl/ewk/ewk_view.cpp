@@ -22,7 +22,7 @@
 #include "config.h"
 #include "ewk_view.h"
 
-#include "appcache/ApplicationCacheStorage.h"
+#include "Chrome.h"
 #include "ChromeClientEfl.h"
 #include "ContextMenuClientEfl.h"
 #include "ContextMenuController.h"
@@ -42,6 +42,7 @@
 #include "PlatformMouseEvent.h"
 #include "PopupMenuClient.h"
 #include "ProgressTracker.h"
+#include "appcache/ApplicationCacheStorage.h"
 #include "ewk_private.h"
 
 #include <Ecore.h>
@@ -51,8 +52,14 @@
 #include <inttypes.h>
 #include <sys/time.h>
 
+#ifdef HAVE_ECORE_X
+#include <Ecore_X.h>
+#endif
+
 #define ZOOM_MIN (0.05)
 #define ZOOM_MAX (4.0)
+
+#define DEVICE_PIXEL_RATIO (1.0)
 
 static const char EWK_VIEW_TYPE_STR[] = "EWK_View";
 
@@ -68,6 +75,7 @@ struct _Ewk_View_Private_Data {
     WebCore::Page* page;
     WebCore::Settings* page_settings;
     WebCore::Frame* main_frame;
+    WebCore::ViewportArguments viewport_arguments;
     Ewk_History* history;
     struct {
         Ewk_Menu menu;
@@ -104,9 +112,11 @@ struct _Ewk_View_Private_Data {
         const char* font_sans_serif;
         Eina_Bool auto_load_images:1;
         Eina_Bool auto_shrink_images:1;
+        Eina_Bool enable_auto_resize_window:1;
         Eina_Bool enable_scripts:1;
         Eina_Bool enable_plugins:1;
         Eina_Bool enable_frame_flattening:1;
+        Eina_Bool encoding_detector:1;
         Eina_Bool scripts_window_open:1;
         Eina_Bool resizable_textareas:1;
         Eina_Bool private_browsing:1;
@@ -116,18 +126,11 @@ struct _Ewk_View_Private_Data {
         Eina_Bool offline_app_cache: 1;
         Eina_Bool page_cache: 1;
         struct {
-            float w;
-            float h;
-            float init_scale;
-            float min_scale;
-            float max_scale;
-            float user_scalable;
-        } viewport;
-        struct {
             float min_scale;
             float max_scale;
             Eina_Bool user_scalable:1;
         } zoom_range;
+        float device_pixel_ratio;
     } settings;
     struct {
         struct {
@@ -569,6 +572,7 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
     priv->page_settings->setLocalStorageEnabled(true);
     priv->page_settings->setOfflineWebApplicationCacheEnabled(true);
     priv->page_settings->setUsesPageCache(true);
+    priv->page_settings->setUsesEncodingDetector(true);
 
     url = priv->page_settings->userStyleSheetLocation();
     priv->settings.user_stylesheet = eina_stringshare_add(url.prettyURL().utf8().data());
@@ -603,6 +607,7 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
 
     priv->settings.auto_load_images = priv->page_settings->loadsImagesAutomatically();
     priv->settings.auto_shrink_images = priv->page_settings->shrinksStandaloneImagesToFit();
+    priv->settings.enable_auto_resize_window = EINA_TRUE;
     priv->settings.enable_scripts = priv->page_settings->isJavaScriptEnabled();
     priv->settings.enable_plugins = priv->page_settings->arePluginsEnabled();
     priv->settings.enable_frame_flattening = priv->page_settings->frameFlatteningEnabled();
@@ -613,6 +618,7 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
     priv->settings.local_storage = priv->page_settings->localStorageEnabled();
     priv->settings.offline_app_cache = true; // XXX no function to read setting; this keeps the original setting
     priv->settings.page_cache = priv->page_settings->usesPageCache();
+    priv->settings.encoding_detector = priv->page_settings->usesEncodingDetector();
 
     // Since there's no scale separated from zooming in webkit-efl, this functionality of
     // viewport meta tag is implemented using zoom. When scale zoom is supported by webkit-efl,
@@ -620,6 +626,7 @@ static Ewk_View_Private_Data* _ewk_view_priv_new(Ewk_View_Smart_Data* sd)
     priv->settings.zoom_range.min_scale = ZOOM_MIN;
     priv->settings.zoom_range.max_scale = ZOOM_MAX;
     priv->settings.zoom_range.user_scalable = EINA_TRUE;
+    priv->settings.device_pixel_ratio = DEVICE_PIXEL_RATIO;
 
     priv->main_frame = _ewk_view_core_frame_new(sd, priv, 0).get();
     if (!priv->main_frame) {
@@ -805,10 +812,6 @@ static void _ewk_view_smart_calculate(Evas_Object* o)
             view->resize(w, h);
             view->forceLayout();
             view->adjustViewSize();
-            IntSize size = view->contentsSize();
-            if (!sd->api->contents_resize(sd, size.width(), size.height()))
-                ERR("failed to resize contents to %dx%d",
-                    size.width(), size.height());
         }
         evas_object_resize(sd->main_frame, w, h);
         sd->changed.frame_rect = EINA_TRUE;
@@ -967,6 +970,26 @@ static void _ewk_view_zoom_animation_start(Ewk_View_Smart_Data* sd)
         (_ewk_view_zoom_animator_cb, sd);
 }
 
+static WebCore::ViewportAttributes _ewk_view_viewport_attributes_compute(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET(o, sd);
+    EWK_VIEW_PRIV_GET(sd, priv);
+
+    int desktop_width = 980;
+    int device_dpi = 160;
+
+    int available_width = (int) priv->page->chrome()->client()->pageRect().width();
+    int available_height = (int) priv->page->chrome()->client()->pageRect().height();
+
+    int device_width = (int) priv->page->chrome()->client()->windowRect().width();
+    int device_height = (int) priv->page->chrome()->client()->windowRect().height();
+
+    IntSize available_size = IntSize(available_width, available_height);
+    WebCore::ViewportAttributes attributes = WebCore::computeViewportAttributes(priv->viewport_arguments, desktop_width, device_width, device_height, device_dpi, available_size);
+
+    return attributes;
+}
+
 /**
  * Sets the smart class api without any backing store, enabling view
  * to be inherited.
@@ -1051,10 +1074,6 @@ void ewk_view_fixed_layout_size_set(Evas_Object* o, Evas_Coord w, Evas_Coord h)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd);
     EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv);
-
-    WebCore::FrameLoaderClientEfl* client = static_cast<WebCore::FrameLoaderClientEfl*>(priv->main_frame->loader()->client());
-    if (!client->getInitLayoutCompleted())
-        return;
 
     WebCore::FrameView* view = sd->_priv->main_frame->view();
     if (w <= 0 && h <= 0) {
@@ -2282,6 +2301,39 @@ Eina_Bool ewk_view_setting_auto_shrink_images_set(Evas_Object* o, Eina_Bool auto
     return EINA_TRUE;
 }
 
+/**
+ * Gets if view can be resized automatically.
+ *
+ * @param o view to check status
+ *
+ * @return EINA_TRUE if view can be resized, EINA_FALSE
+ *         otherwise (errors, cannot be resized).
+ */
+Eina_Bool ewk_view_setting_enable_auto_resize_window_get(const Evas_Object* o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    return priv->settings.enable_auto_resize_window;
+}
+
+/**
+ * Sets if view can be resized automatically.
+ *
+ * @param o View.
+ * @param resizable @c EINA_TRUE if we want to resize automatically;
+ * @c EINA_FALSE otherwise. It defaults to @c EINA_TRUE
+ *
+ * @return EINA_TRUE if auto_resize_window status set, EINA_FALSE
+ *         otherwise (errors).
+ */
+Eina_Bool ewk_view_setting_enable_auto_resize_window_set(Evas_Object* o, Eina_Bool resizable)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    priv->settings.enable_auto_resize_window = resizable;
+    return EINA_TRUE;
+}
+
 Eina_Bool ewk_view_setting_enable_scripts_get(const Evas_Object* o)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
@@ -2512,6 +2564,37 @@ Eina_Bool ewk_view_setting_encoding_default_set(Evas_Object* o, const char* enco
     return EINA_TRUE;
 }
 
+/**
+ * Sets the encoding detector.
+ *
+ * @param o view object to set if encoding detector is enabled.
+ * @return @c EINA_TRUE on success and @c EINA_FALSE on failure
+ */
+Eina_Bool ewk_view_setting_encoding_detector_set(Evas_Object* o, Eina_Bool enable)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    enable = !!enable;
+    if (priv->settings.encoding_detector != enable) {
+        priv->page_settings->setUsesEncodingDetector(enable);
+        priv->settings.encoding_detector = enable;
+    }
+    return EINA_TRUE;
+}
+
+/**
+ * Gets if the encoding detector is enabled.
+ *
+ * @param o view object to get if encoding detector is enabled.
+ * @return @c EINA_TRUE if encoding detector is enabled, @c EINA_FALSE if not or on errors.
+ */
+Eina_Bool ewk_view_setting_encoding_detector_get(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd, EINA_FALSE);
+    EWK_VIEW_PRIV_GET_OR_RETURN(sd, priv, EINA_FALSE);
+    return priv->settings.encoding_detector;
+}
+
 const char* ewk_view_setting_cache_directory_get(const Evas_Object* o)
 {
     EWK_VIEW_SD_GET_OR_RETURN(o, sd, 0);
@@ -2730,8 +2813,8 @@ Eina_Bool ewk_view_setting_spatial_navigation_set(Evas_Object* o, Eina_Bool enab
 /**
  * Gets if the local storage is enabled.
  *
- * @param o view object to set if local storage is enabled.
- * @return @c EINA_TRUE if local storage is enabled, @c EINA_FALSE if not.
+ * @param o view object to get if local storage is enabled.
+ * @return @c EINA_TRUE if local storage is enabled, @c EINA_FALSE if not or on errors.
  */
 Eina_Bool ewk_view_setting_local_storage_get(Evas_Object* o)
 {
@@ -4053,33 +4136,21 @@ void ewk_view_download_request(Evas_Object* o, Ewk_Download* download)
  * @internal
  * Reports the viewport has changed.
  *
- * @param o view.
- * @param w width.
- * @param h height.
- * @param init_scale initialScale value.
- * @param max_scale maximumScale value.
- * @param min_scale minimumScale value.
- * @param user_scalable userscalable flag.
+ * @param arguments viewport argument.
  *
  * Emits signal: "viewport,changed" with no parameters.
  */
-void ewk_view_viewport_set(Evas_Object *o, float w, float h, float init_scale, float max_scale, float min_scale, float user_scalable)
+void ewk_view_viewport_attributes_set(Evas_Object *o, const WebCore::ViewportArguments& arguments)
 {
     EWK_VIEW_SD_GET(o, sd);
     EWK_VIEW_PRIV_GET(sd, priv);
-
-    priv->settings.viewport.w = w;
-    priv->settings.viewport.h = h;
-    priv->settings.viewport.init_scale = init_scale;
-    priv->settings.viewport.min_scale = min_scale;
-    priv->settings.viewport.max_scale = max_scale;
-    priv->settings.viewport.user_scalable = user_scalable;
-
+    
+    priv->viewport_arguments = arguments;
     evas_object_smart_callback_call(o, "viewport,changed", 0);
 }
 
 /**
- * Gets data of viewport meta tag.
+ * Gets attributes of viewport meta tag.
  *
  * @param o view.
  * @param w width.
@@ -4087,25 +4158,27 @@ void ewk_view_viewport_set(Evas_Object *o, float w, float h, float init_scale, f
  * @param init_scale initial Scale value.
  * @param max_scale maximum Scale value.
  * @param min_scale minimum Scale value.
+ * @param device_pixel_ratio value.
  * @param user_scalable user Scalable value.
  */
-void ewk_view_viewport_get(Evas_Object *o, float* w, float* h, float* init_scale, float* max_scale, float* min_scale, float* user_scalable)
+void ewk_view_viewport_attributes_get(Evas_Object *o, float* w, float* h, float* init_scale, float* max_scale, float* min_scale, float* device_pixel_ratio, Eina_Bool* user_scalable)
 {
-    EWK_VIEW_SD_GET(o, sd);
-    EWK_VIEW_PRIV_GET(sd, priv);
+    WebCore::ViewportAttributes attributes = _ewk_view_viewport_attributes_compute(o);
 
     if (w)
-        *w = priv->settings.viewport.w;
+        *w = attributes.layoutSize.width();
     if (h)
-        *h = priv->settings.viewport.h;
+        *h = attributes.layoutSize.height();
     if (init_scale)
-        *init_scale = priv->settings.viewport.init_scale;
+        *init_scale = attributes.initialScale;
     if (max_scale)
-        *max_scale = priv->settings.viewport.max_scale;
+        *max_scale = attributes.maximumScale;
     if (min_scale)
-        *min_scale = priv->settings.viewport.min_scale;
+        *min_scale = attributes.minimumScale;
+    if (device_pixel_ratio)
+        *device_pixel_ratio = attributes.devicePixelRatio;
     if (user_scalable)
-        *user_scalable = priv->settings.viewport.user_scalable;
+        *user_scalable = attributes.userScalable;
 }
 
 /**
@@ -4195,6 +4268,22 @@ Eina_Bool ewk_view_user_scalable_get(Evas_Object* o)
 }
 
 /**
+ * Gets device pixel ratio value.
+ *
+ * @param o view.
+ * @param user_scalable where to return the current user scalable value.
+ *
+ * @return @c EINA_TRUE if zoom is enabled, @c EINA_FALSE if not.
+ */
+float ewk_view_device_pixel_ratio_get(Evas_Object* o)
+{
+    EWK_VIEW_SD_GET(o, sd);
+    EWK_VIEW_PRIV_GET(sd, priv);
+
+    return priv->settings.device_pixel_ratio;
+}
+
+/**
  * @internal
  * Reports a requeset will be loaded. It's client responsibility to decide if
  * request would be used. If @return is true, loader will try to load. Else,
@@ -4212,4 +4301,55 @@ Eina_Bool ewk_view_navigation_policy_decision(Evas_Object* o, Ewk_Frame_Resource
         return EINA_TRUE;
 
     return sd->api->navigation_policy_decision(sd, request);
+}
+
+/**
+ * @internal
+ * Reports that the contents have resized. The ewk_view calls contents_resize,
+ * which can be reimplemented as needed.
+ *
+ * @param o view.
+ * @param w new content width.
+ * @param h new content height.
+ */
+void ewk_view_contents_size_changed(Evas_Object *o, int w, int h)
+{
+    EWK_VIEW_SD_GET_OR_RETURN(o, sd);
+    EINA_SAFETY_ON_NULL_RETURN(sd->api);
+    EINA_SAFETY_ON_NULL_RETURN(sd->api->contents_resize);
+
+    if (!sd->api->contents_resize(sd, w, h))
+        ERR("failed to resize contents to %dx%d", w, h);
+}
+
+/**
+ * @internal
+ * Gets page size from frameview. 
+ *
+ * @param o view.
+ *
+ * @return page size.
+ */
+WebCore::FloatRect ewk_view_page_rect_get(Evas_Object *o)
+{
+    EWK_VIEW_SD_GET(o, sd);
+    EWK_VIEW_PRIV_GET(sd, priv);
+
+    WebCore::Frame* main_frame = priv->page->mainFrame();
+    return main_frame->view()->frameRect();
+} 
+
+/**
+ * @internal
+ * Gets dpi value.
+ *
+ * @return device's dpi value.
+ */
+int ewk_view_dpi_get()
+{
+#ifdef HAVE_ECORE_X
+     return ecore_x_dpi_get();
+#else
+     return 160;
+#endif
 }

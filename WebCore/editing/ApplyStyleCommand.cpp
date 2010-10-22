@@ -395,6 +395,8 @@ static int getTextAlignment(CSSStyleDeclaration* style)
     case CSSValueCenter:
     case CSSValueWebkitCenter:
         return CSSValueCenter;
+    case CSSValueJustify:
+        return CSSValueJustify;
     case CSSValueLeft:
     case CSSValueWebkitLeft:
         return CSSValueLeft;
@@ -638,9 +640,13 @@ void ApplyStyleCommand::applyBlockStyle(CSSMutableStyleDeclaration *style)
         start = end;
         end = swap;
     }
-        
+
     VisiblePosition visibleStart(start);
     VisiblePosition visibleEnd(end);
+
+    if (visibleStart.isNull() || visibleStart.isOrphan() || visibleEnd.isNull() || visibleEnd.isOrphan())
+        return;
+    
     // Save and restore the selection endpoints using their indices in the document, since
     // addBlockStyleIfNeeded may moveParagraphs, which can remove these endpoints.
     // Calculate start and end indices from the start of the tree that they're in.
@@ -1093,6 +1099,14 @@ void ApplyStyleCommand::fixRangeAndApplyInlineStyle(CSSMutableStyleDeclaration* 
     if (start == end && start.node()->hasTagName(brTag))
         pastEndNode = start.node()->traverseNextNode();
 
+    // Start from the highest fully selected ancestor so that we can modify the fully selected node.
+    // e.g. When applying font-size: large on <font color="blue">hello</font>, we need to include the font element in our run
+    // to generate <font color="blue" size="4">hello</font> instead of <font color="blue"><font size="4">hello</font></font>
+    RefPtr<Range> range = Range::create(startNode->document(), start, end);
+    Element* editableRoot = startNode->rootEditableElement();
+    while (editableRoot && startNode->parentNode() != editableRoot && isNodeVisiblyContainedWithin(startNode->parentNode(), range.get()))
+        startNode = startNode->parentNode();
+
     applyInlineStyleToNodeRange(style, startNode, pastEndNode);
 }
 
@@ -1163,7 +1177,21 @@ void ApplyStyleCommand::applyInlineStyleToNodeRange(CSSMutableStyleDeclaration* 
 
 bool ApplyStyleCommand::removeStyleFromRunBeforeApplyingStyle(CSSMutableStyleDeclaration* style, Node*& runStart, Node*& runEnd)
 {
+    ASSERT(runStart && runEnd && runStart->parentNode() == runEnd->parentNode());
     Node* pastEndNode = runEnd->traverseNextSibling();
+    bool needToApplyStyle = false;
+    for (Node* node = runStart; node && node != pastEndNode; node = node->traverseNextNode()) {
+        if (node->childNodeCount())
+            continue;
+        if (getPropertiesNotIn(style, computedStyle(node).get())->length()
+            || (m_styledInlineElement && !enclosingNodeWithTag(positionBeforeNode(node), m_styledInlineElement->tagQName()))) {
+            needToApplyStyle = true;
+            break;
+        }
+    }
+    if (!needToApplyStyle)
+        return false;
+
     Node* next;
     for (Node* node = runStart; node && node != pastEndNode; node = next) {
         next = node->traverseNextNode();
@@ -1172,7 +1200,7 @@ bool ApplyStyleCommand::removeStyleFromRunBeforeApplyingStyle(CSSMutableStyleDec
         
         Node* previousSibling = node->previousSibling();
         Node* nextSibling = node->nextSibling();
-        Node* parent = node->parentNode();
+        ContainerNode* parent = node->parentNode();
         removeInlineStyleFromElement(style, static_cast<HTMLElement*>(node), RemoveAlways);
         if (!node->inDocument()) {
             // FIXME: We might need to update the start and the end of current selection here but need a test.
@@ -1191,12 +1219,16 @@ bool ApplyStyleCommand::removeInlineStyleFromElement(CSSMutableStyleDeclaration*
     ASSERT(style);
     ASSERT(element);
 
+    if (!element->parentNode() || !element->parentNode()->isContentEditable())
+        return false;
+
     if (m_styledInlineElement && element->hasTagName(m_styledInlineElement->tagQName())) {
-        if (mode != RemoveNone) {
-            if (extractedStyle && element->inlineStyleDecl())
-                extractedStyle->merge(element->inlineStyleDecl());
-            removeNodePreservingChildren(element);
-        }
+        if (mode == RemoveNone)
+            return true;
+        ASSERT(extractedStyle);
+        if (element->inlineStyleDecl())
+            extractedStyle->merge(element->inlineStyleDecl());
+        removeNodePreservingChildren(element);
         return true;
     }
 
@@ -1335,7 +1367,7 @@ void ApplyStyleCommand::replaceWithSpanOrRemoveIfWithoutAttributes(HTMLElement*&
     if (removeNode)
         removeNodePreservingChildren(elem);
     else {
-        HTMLElement* newSpanElement = replaceNodeWithSpanPreservingChildrenAndAttributes(elem);
+        HTMLElement* newSpanElement = replaceElementWithSpanPreservingChildrenAndAttributes(elem);
         ASSERT(newSpanElement && newSpanElement->inDocument());
         elem = newSpanElement;
     }
@@ -1555,12 +1587,19 @@ void ApplyStyleCommand::removeInlineStyle(PassRefPtr<CSSMutableStyleDeclaration>
 
     Node* node = start.node();
     while (node) {
-        Node* next = node->traverseNextNode();
+        RefPtr<Node> next = node->traverseNextNode();
         if (node->isHTMLElement() && nodeFullySelected(node, start, end)) {
-            HTMLElement* elem = static_cast<HTMLElement*>(node);
-            Node* prev = elem->traversePreviousNodePostOrder();
-            Node* next = elem->traverseNextNode();
-            removeInlineStyleFromElement(style.get(), elem);
+            RefPtr<HTMLElement> elem = static_cast<HTMLElement*>(node);
+            RefPtr<Node> prev = elem->traversePreviousNodePostOrder();
+            RefPtr<Node> next = elem->traverseNextNode();
+            RefPtr<CSSMutableStyleDeclaration> styleToPushDown;
+            PassRefPtr<Node> childNode = 0;
+            if (m_styledInlineElement && elem->hasTagName(m_styledInlineElement->tagQName())) {
+                styleToPushDown = CSSMutableStyleDeclaration::create();
+                childNode = elem->firstChild();
+            }
+
+            removeInlineStyleFromElement(style.get(), elem.get(), RemoveIfNeeded, styleToPushDown.get());
             if (!elem->inDocument()) {
                 if (s.node() == elem) {
                     // Since elem must have been fully selected, and it is at the start
@@ -1573,13 +1612,18 @@ void ApplyStyleCommand::removeInlineStyle(PassRefPtr<CSSMutableStyleDeclaration>
                     // of the selection, it is clear we can set the new e offset to
                     // the max range offset of prev.
                     ASSERT(e.deprecatedEditingOffset() >= lastOffsetForEditing(e.node()));
-                    e = Position(prev, lastOffsetForEditing(prev));
+                    e = Position(prev, lastOffsetForEditing(prev.get()));
                 }
+            }
+
+            if (styleToPushDown) {
+                for (; childNode; childNode = childNode->nextSibling())
+                    applyInlineStyleToPushDown(childNode.get(), styleToPushDown.get());
             }
         }
         if (node == end.node())
             break;
-        node = next;
+        node = next.get();
     }
     
     ASSERT(s.node()->inDocument());
@@ -1650,7 +1694,7 @@ void ApplyStyleCommand::splitTextElementAtEnd(const Position& start, const Posit
 
 bool ApplyStyleCommand::shouldSplitTextElement(Element* element, CSSMutableStyleDeclaration* style)
 {
-    if (!element || !element->isHTMLElement() || !element->parentElement() || !element->parentElement()->isContentEditable())
+    if (!element || !element->isHTMLElement())
         return false;
 
     return shouldRemoveInlineStyleFromElement(style, static_cast<HTMLElement*>(element));
@@ -1835,26 +1879,69 @@ void ApplyStyleCommand::addBlockStyle(const StyleChange& styleChange, HTMLElemen
 
 void ApplyStyleCommand::addInlineStyleIfNeeded(CSSMutableStyleDeclaration *style, Node *startNode, Node *endNode, EAddStyledElement addStyledElement)
 {
-    StyleChange styleChange(style, Position(startNode, 0));
+    // It's okay to obtain the style at the startNode because we've removed all relevant styles from the current run.
+    RefPtr<HTMLElement> dummyElement;
+    Position positionForStyleComparison;
+    if (!startNode->isElementNode()) {
+        dummyElement = createStyleSpanElement(document());
+        insertNodeAt(dummyElement, positionBeforeNode(startNode));
+        positionForStyleComparison = positionBeforeNode(dummyElement.get());
+    } else
+        positionForStyleComparison = firstPositionInNode(startNode);
+
+    StyleChange styleChange(style, positionForStyleComparison);
+
+    if (dummyElement)
+        removeNode(dummyElement);
+
+    // Find appropriate font and span elements top-down.
+    HTMLElement* fontContainer = 0;
+    HTMLElement* styleContainer = 0;
+    for (Node* container = startNode; container && startNode == endNode; container = container->firstChild()) {
+        if (container->isHTMLElement() && container->hasTagName(fontTag))
+            fontContainer = static_cast<HTMLElement*>(container);
+        bool styleContainerIsNotSpan = !styleContainer || !styleContainer->hasTagName(spanTag);
+        if (container->isHTMLElement() && (container->hasTagName(spanTag) || (styleContainerIsNotSpan && container->childNodeCount())))
+            styleContainer = static_cast<HTMLElement*>(container);
+        if (!container->firstChild())
+            break;
+        startNode = container->firstChild();
+        endNode = container->lastChild();
+    }
 
     // Font tags need to go outside of CSS so that CSS font sizes override leagcy font sizes.
     if (styleChange.applyFontColor() || styleChange.applyFontFace() || styleChange.applyFontSize()) {
-        RefPtr<Element> fontElement = createFontElement(document());
-
-        if (styleChange.applyFontColor())
-            fontElement->setAttribute(colorAttr, styleChange.fontColor());
-        if (styleChange.applyFontFace())
-            fontElement->setAttribute(faceAttr, styleChange.fontFace());
-        if (styleChange.applyFontSize())
-            fontElement->setAttribute(sizeAttr, styleChange.fontSize());
-
-        surroundNodeRangeWithElement(startNode, endNode, fontElement.get());
+        if (fontContainer) {
+            if (styleChange.applyFontColor())
+                setNodeAttribute(fontContainer, colorAttr, styleChange.fontColor());
+            if (styleChange.applyFontFace())
+                setNodeAttribute(fontContainer, faceAttr, styleChange.fontFace());
+            if (styleChange.applyFontSize())
+                setNodeAttribute(fontContainer, sizeAttr, styleChange.fontSize());
+        } else {
+            RefPtr<Element> fontElement = createFontElement(document());
+            if (styleChange.applyFontColor())
+                fontElement->setAttribute(colorAttr, styleChange.fontColor());
+            if (styleChange.applyFontFace())
+                fontElement->setAttribute(faceAttr, styleChange.fontFace());
+            if (styleChange.applyFontSize())
+                fontElement->setAttribute(sizeAttr, styleChange.fontSize());
+            surroundNodeRangeWithElement(startNode, endNode, fontElement.get());
+        }
     }
 
     if (styleChange.cssStyle().length()) {
-        RefPtr<Element> styleElement = createStyleSpanElement(document());
-        styleElement->setAttribute(styleAttr, styleChange.cssStyle());
-        surroundNodeRangeWithElement(startNode, endNode, styleElement.release());
+        if (styleContainer) {
+            CSSMutableStyleDeclaration* existingStyle = static_cast<HTMLElement*>(styleContainer)->inlineStyleDecl();
+            if (existingStyle)
+                setNodeAttribute(styleContainer, styleAttr, existingStyle->cssText() + styleChange.cssStyle());
+            else
+                setNodeAttribute(styleContainer, styleAttr, styleChange.cssStyle());
+        } else {
+            RefPtr<Element> styleElement = createStyleSpanElement(document());
+            styleElement->setAttribute(styleAttr, styleChange.cssStyle());
+            surroundNodeRangeWithElement(startNode, endNode, styleElement.release());
+        }
     }
 
     if (styleChange.applyBold())

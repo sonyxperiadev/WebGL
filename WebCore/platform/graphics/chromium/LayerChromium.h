@@ -156,7 +156,7 @@ public:
     bool contentsDirty() { return m_contentsDirty; }
 
     // Returns the rect containtaining this layer in the current view's coordinate system.
-    const FloatRect getDrawRect() const;
+    const IntRect getDrawRect() const;
 
     // These methods typically need to be overwritten by derived classes.
     virtual bool drawsContent() { return false; }
@@ -201,6 +201,11 @@ public:
 protected:
     GraphicsLayerChromium* m_owner;
     LayerChromium(GraphicsLayerChromium* owner);
+
+    // This is called to clean up resources being held in the same context as
+    // layerRendererContext(). Subclasses should override this method if they
+    // hold context-dependent resources such as textures.
+    virtual void cleanupResources() { }
 
     LayerRendererChromium* layerRenderer() const { return m_layerRenderer.get(); }
     GraphicsContext3D* layerRendererContext() const;

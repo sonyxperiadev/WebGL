@@ -34,27 +34,27 @@
 
 #include "DRTDevToolsAgent.h"
 #include "TestShell.h"
+#include "WebAnimationController.h"
+#include "WebBindings.h"
+#include "WebConsoleMessage.h"
+#include "WebData.h"
+#include "WebDeviceOrientation.h"
+#include "WebDeviceOrientationClientMock.h"
+#include "WebDocument.h"
+#include "WebElement.h"
+#include "WebFrame.h"
+#include "WebGeolocationServiceMock.h"
+#include "WebInputElement.h"
+#include "WebKit.h"
+#include "WebNotificationPresenter.h"
+#include "WebScriptSource.h"
+#include "WebSecurityPolicy.h"
+#include "WebSettings.h"
+#include "WebSize.h"
+#include "WebSpeechInputControllerMock.h"
+#include "WebURL.h"
+#include "WebView.h"
 #include "WebViewHost.h"
-#include "public/WebAnimationController.h"
-#include "public/WebBindings.h"
-#include "public/WebConsoleMessage.h"
-#include "public/WebData.h"
-#include "public/WebDeviceOrientation.h"
-#include "public/WebDeviceOrientationClientMock.h"
-#include "public/WebDocument.h"
-#include "public/WebElement.h"
-#include "public/WebFrame.h"
-#include "public/WebGeolocationServiceMock.h"
-#include "public/WebInputElement.h"
-#include "public/WebKit.h"
-#include "public/WebNotificationPresenter.h"
-#include "public/WebScriptSource.h"
-#include "public/WebSecurityPolicy.h"
-#include "public/WebSettings.h"
-#include "public/WebSize.h"
-#include "public/WebSpeechInputControllerMock.h"
-#include "public/WebURL.h"
-#include "public/WebView.h"
 #include "webkit/support/webkit_support.h"
 #include <algorithm>
 #include <cstdlib>
@@ -106,7 +106,9 @@ LayoutTestController::LayoutTestController(TestShell* shell)
     bindMethod("forceRedSelectionColors", &LayoutTestController::forceRedSelectionColors);
     bindMethod("grantDesktopNotificationPermission", &LayoutTestController::grantDesktopNotificationPermission);
     bindMethod("isCommandEnabled", &LayoutTestController::isCommandEnabled);
+    bindMethod("layerTreeAsText", &LayoutTestController::layerTreeAsText);
     bindMethod("markerTextForListItem", &LayoutTestController::markerTextForListItem);
+    bindMethod("hasSpellingMarker", &LayoutTestController::hasSpellingMarker);
     bindMethod("notifyDone", &LayoutTestController::notifyDone);
     bindMethod("numberOfActiveAnimations", &LayoutTestController::numberOfActiveAnimations);
     bindMethod("numberOfPages", &LayoutTestController::numberOfPages);
@@ -1537,6 +1539,11 @@ WebKit::WebSpeechInputController* LayoutTestController::speechInputController(We
     return m_speechInputControllerMock.get();
 }
 
+void LayoutTestController::layerTreeAsText(const CppArgumentList& args, CppVariant* result)
+{
+    result->set(m_shell->webView()->mainFrame()->layerTreeAsText().utf8());
+}
+
 void LayoutTestController::markerTextForListItem(const CppArgumentList& args, CppVariant* result)
 {
     WebElement element;
@@ -1551,4 +1558,11 @@ WebDeviceOrientationClient* LayoutTestController::deviceOrientationClient()
     if (!m_deviceOrientationClientMock.get())
         m_deviceOrientationClientMock.set(WebDeviceOrientationClientMock::create());
     return m_deviceOrientationClientMock.get();
+}
+
+void LayoutTestController::hasSpellingMarker(const CppArgumentList& arguments, CppVariant* result)
+{
+    if (arguments.size() < 2 || !arguments[0].isNumber() || !arguments[1].isNumber())
+        return;
+    result->set(m_shell->webView()->mainFrame()->selectionStartHasSpellingMarkerFor(arguments[0].toInt32(), arguments[1].toInt32()));
 }

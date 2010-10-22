@@ -35,7 +35,7 @@
 #include "File.h"
 #include "HTTPParsers.h"
 #include "InspectorController.h"
-#include "InspectorTimelineAgent.h"
+#include "InspectorInstrumentation.h"
 #include "ResourceError.h"
 #include "ResourceRequest.h"
 #include "SecurityOrigin.h"
@@ -173,7 +173,6 @@ XMLHttpRequest::XMLHttpRequest(ScriptExecutionContext* context)
     , m_asBlob(false)
 #endif
     , m_state(UNSENT)
-    , m_responseText("")
     , m_createdDocument(false)
     , m_error(false)
     , m_uploadEventsAllowed(true)
@@ -226,7 +225,7 @@ XMLHttpRequest::State XMLHttpRequest::readyState() const
     return m_state;
 }
 
-const ScriptString& XMLHttpRequest::responseText(ExceptionCode& ec) const
+String XMLHttpRequest::responseText(ExceptionCode& ec)
 {
 #if ENABLE(XHR_RESPONSE_BLOB)
     if (m_asBlob)
@@ -234,10 +233,10 @@ const ScriptString& XMLHttpRequest::responseText(ExceptionCode& ec) const
 #else
     UNUSED_PARAM(ec);
 #endif
-    return m_responseText;
+    return m_responseBuilder.toStringPreserveCapacity();
 }
 
-Document* XMLHttpRequest::responseXML(ExceptionCode& ec) const
+Document* XMLHttpRequest::responseXML(ExceptionCode& ec)
 {
 #if ENABLE(XHR_RESPONSE_BLOB)
     if (m_asBlob) {
@@ -259,7 +258,7 @@ Document* XMLHttpRequest::responseXML(ExceptionCode& ec) const
             m_responseXML = Document::create(0, m_url);
             m_responseXML->open();
             // FIXME: Set Last-Modified.
-            m_responseXML->write(String(m_responseText));
+            m_responseXML->write(m_responseBuilder.toStringPreserveCapacity());
             m_responseXML->finishParsing();
             m_responseXML->close();
 
@@ -303,35 +302,17 @@ void XMLHttpRequest::callReadyStateChangeListener()
     if (!scriptExecutionContext())
         return;
 
-#if ENABLE(INSPECTOR)
-    InspectorTimelineAgent* timelineAgent = InspectorTimelineAgent::retrieve(scriptExecutionContext());
-    bool callTimelineAgentOnReadyStateChange = timelineAgent && hasEventListeners(eventNames().readystatechangeEvent);
-    if (callTimelineAgentOnReadyStateChange)
-        timelineAgent->willChangeXHRReadyState(m_url.string(), m_state);
-#endif
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willChangeXHRReadyState(scriptExecutionContext(), this);
 
     if (m_async || (m_state <= OPENED || m_state == DONE))
         m_progressEventThrottle.dispatchEvent(XMLHttpRequestProgressEvent::create(eventNames().readystatechangeEvent), m_state == DONE ? FlushProgressEvent : DoNotFlushProgressEvent);
 
-#if ENABLE(INSPECTOR)
-    if (callTimelineAgentOnReadyStateChange && (timelineAgent = InspectorTimelineAgent::retrieve(scriptExecutionContext())))
-        timelineAgent->didChangeXHRReadyState();
-#endif
+    InspectorInstrumentation::didChangeXHRReadyState(cookie);
 
     if (m_state == DONE && !m_error) {
-#if ENABLE(INSPECTOR)
-        timelineAgent = InspectorTimelineAgent::retrieve(scriptExecutionContext());
-        bool callTimelineAgentOnLoad = timelineAgent && hasEventListeners(eventNames().loadEvent);
-        if (callTimelineAgentOnLoad)
-            timelineAgent->willLoadXHR(m_url.string());
-#endif
-
+        InspectorInstrumentationCookie cookie = InspectorInstrumentation::willLoadXHR(scriptExecutionContext(), this);
         m_progressEventThrottle.dispatchEvent(XMLHttpRequestProgressEvent::create(eventNames().loadEvent));
-
-#if ENABLE(INSPECTOR)
-        if (callTimelineAgentOnLoad && (timelineAgent = InspectorTimelineAgent::retrieve(scriptExecutionContext())))
-            timelineAgent->didLoadXHR();
-#endif
+        InspectorInstrumentation::didLoadXHR(cookie);
     }
 }
 
@@ -645,7 +626,7 @@ void XMLHttpRequest::abort()
 
     internalAbort();
 
-    m_responseText = "";
+    m_responseBuilder.clear();
     m_createdDocument = false;
     m_responseXML = 0;
 #if ENABLE(XHR_RESPONSE_BLOB)
@@ -694,7 +675,7 @@ void XMLHttpRequest::internalAbort()
 void XMLHttpRequest::clearResponse()
 {
     m_response = ResourceResponse();
-    m_responseText = "";
+    m_responseBuilder.clear();
     m_createdDocument = false;
     m_responseXML = 0;
 #if ENABLE(XHR_RESPONSE_BLOB)
@@ -751,7 +732,7 @@ void XMLHttpRequest::dropProtection()
     // report the extra cost at that point.
     JSC::JSGlobalData* globalData = scriptExecutionContext()->globalData();
     if (hasCachedDOMObjectWrapper(globalData, this))
-        globalData->heap.reportExtraMemoryCost(m_responseText.size() * 2);
+        globalData->heap.reportExtraMemoryCost(m_responseBuilder.length() * 2);
 #endif
 
     unsetPendingActivity(this);
@@ -960,7 +941,9 @@ void XMLHttpRequest::didFinishLoading(unsigned long identifier)
         changeState(HEADERS_RECEIVED);
 
     if (m_decoder)
-        m_responseText += m_decoder->flush();
+        m_responseBuilder.append(m_decoder->flush());
+
+    m_responseBuilder.shrinkToFit();
 
 #if ENABLE(XHR_RESPONSE_BLOB)
     // FIXME: Set m_responseBlob to something here in the m_asBlob case.
@@ -968,7 +951,7 @@ void XMLHttpRequest::didFinishLoading(unsigned long identifier)
 
 #if ENABLE(INSPECTOR)
     if (InspectorController* inspector = scriptExecutionContext()->inspectorController())
-        inspector->resourceRetrievedByXMLHttpRequest(identifier, m_responseText, m_url, m_lastSendURL, m_lastSendLineNumber);
+        inspector->resourceRetrievedByXMLHttpRequest(identifier, m_responseBuilder.toStringPreserveCapacity(), m_url, m_lastSendURL, m_lastSendLineNumber);
 #endif
 
     bool hadLoader = m_loader;
@@ -1037,7 +1020,7 @@ void XMLHttpRequest::didReceiveData(const char* data, int len)
     if (len == -1)
         len = strlen(data);
 
-    m_responseText += m_decoder->decode(data, len);
+    m_responseBuilder.append(m_decoder->decode(data, len));
 
     if (!m_error) {
         long long expectedLength = m_response.expectedContentLength();

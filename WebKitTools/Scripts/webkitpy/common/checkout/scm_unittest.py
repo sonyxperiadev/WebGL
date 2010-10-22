@@ -352,6 +352,10 @@ class SCMTest(unittest.TestCase):
         self.assertRaises(ScriptError, self.scm.contents_at_revision, "test_file2", 2)
         self.assertRaises(ScriptError, self.scm.contents_at_revision, "does_not_exist", 2)
 
+    def _shared_test_revisions_changing_file(self):
+        self.assertEqual(self.scm.revisions_changing_file("test_file"), [5, 4, 3, 2])
+        self.assertRaises(ScriptError, self.scm.revisions_changing_file, "non_existent_file")
+
     def _shared_test_committer_email_for_revision(self):
         self.assertEqual(self.scm.committer_email_for_revision(3), getpass.getuser())  # Committer "email" will be the current user
 
@@ -696,6 +700,9 @@ Q1dTBx0AAAB42itg4GlgYJjGwMDDyODMxMDw34GBgQEAJPQDJA==
     def test_contents_at_revision(self):
         self._shared_test_contents_at_revision()
 
+    def test_revisions_changing_file(self):
+        self._shared_test_revisions_changing_file()
+
     def test_committer_email_for_revision(self):
         self._shared_test_committer_email_for_revision()
 
@@ -964,6 +971,10 @@ class GitSVNTest(SCMTest):
         self.scm.commit_locally_with_message("another test commit")
         self._two_local_commits()
 
+    def test_revisions_changing_files_with_local_commit(self):
+        self._one_local_commit()
+        self.assertEquals(self.scm.revisions_changing_file('test_file_commit1'), [])
+
     def test_commit_with_message(self):
         self._one_local_commit_plus_working_copy_changes()
         scm = detect_scm_system(self.git_checkout_path)
@@ -1087,6 +1098,20 @@ class GitSVNTest(SCMTest):
         self.assertTrue(re.search(r'test_file_commit2', patch))
         self.assertTrue(re.search(r'test_file_commit1', patch))
 
+    def test_create_patch_with_changed_files(self):
+        self._one_local_commit_plus_working_copy_changes()
+        scm = detect_scm_system(self.git_checkout_path)
+        patch = scm.create_patch(changed_files=['test_file_commit2'])
+        self.assertTrue(re.search(r'test_file_commit2', patch))
+
+    def test_create_patch_with_rm_and_changed_files(self):
+        self._one_local_commit_plus_working_copy_changes()
+        scm = detect_scm_system(self.git_checkout_path)
+        os.remove('test_file_commit1')
+        patch = scm.create_patch()
+        patch_with_changed_files = scm.create_patch(changed_files=['test_file_commit1', 'test_file_commit2'])
+        self.assertEquals(patch, patch_with_changed_files)
+
     def test_create_patch_git_commit(self):
         self._two_local_commits()
         scm = detect_scm_system(self.git_checkout_path)
@@ -1198,6 +1223,9 @@ class GitSVNTest(SCMTest):
 
     def test_contents_at_revision(self):
         self._shared_test_contents_at_revision()
+
+    def test_revisions_changing_file(self):
+        self._shared_test_revisions_changing_file()
 
     def test_added_files(self):
         self._shared_test_added_files()

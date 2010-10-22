@@ -35,6 +35,7 @@
 #include "StillImageQt.h"
 #include "TransparencyLayer.h"
 #include <wtf/text/CString.h>
+#include <wtf/text/StringConcatenate.h>
 
 #include <QBuffer>
 #include <QColor>
@@ -68,7 +69,7 @@ ImageBufferData::ImageBufferData(const IntSize& size)
     pen.setColor(Qt::black);
     pen.setWidth(1);
     pen.setCapStyle(Qt::FlatCap);
-    pen.setJoinStyle(Qt::MiterJoin);
+    pen.setJoinStyle(Qt::SvgMiterJoin);
     pen.setMiterLimit(10);
     painter->setPen(pen);
     QBrush brush = painter->brush();
@@ -79,7 +80,7 @@ ImageBufferData::ImageBufferData(const IntSize& size)
     m_image = StillImage::createForRendering(&m_pixmap);
 }
 
-ImageBuffer::ImageBuffer(const IntSize& size, ImageColorSpace, bool& success)
+ImageBuffer::ImageBuffer(const IntSize& size, ColorSpace, bool& success)
     : m_data(size)
     , m_size(size)
 {
@@ -117,7 +118,7 @@ void ImageBuffer::draw(GraphicsContext* destContext, ColorSpace styleColorSpace,
     if (destContext == context()) {
         // We're drawing into our own buffer.  In order for this to work, we need to copy the source buffer first.
         RefPtr<Image> copy = copyImage();
-        destContext->drawImage(copy.get(), DeviceColorSpace, destRect, srcRect, op, useLowQualityScale);
+        destContext->drawImage(copy.get(), ColorSpaceDeviceRGB, destRect, srcRect, op, useLowQualityScale);
     } else
         destContext->drawImage(m_data.m_image.get(), styleColorSpace, destRect, srcRect, op, useLowQualityScale);
 }
@@ -139,7 +140,7 @@ void ImageBuffer::clip(GraphicsContext* context, const FloatRect& floatRect) con
     if (!nativeImage)
         return;
 
-    IntRect rect(floatRect);
+    IntRect rect = enclosingIntRect(floatRect);
     QPixmap alphaMask = *nativeImage;
     if (alphaMask.width() != rect.width() || alphaMask.height() != rect.height())
         alphaMask = alphaMask.scaled(rect.width(), rect.height());
@@ -216,7 +217,7 @@ PassRefPtr<ImageData> getImageData(const IntRect& rect, const ImageBufferData& i
     const uchar* bits = image.bits();
 #endif
 
-    quint32* destRows = reinterpret_cast_ptr<quint32*>(&data[desty * rect.width() + destx]);
+    quint32* destRows = reinterpret_cast_ptr<quint32*>(&data[desty * rect.width() * 4 + destx * 4]);
 
     if (multiplied == Unmultiplied) {
         for (int y = 0; y < numRows; ++y) {
@@ -401,7 +402,8 @@ String ImageBuffer::toDataURL(const String& mimeType, const double* quality) con
     }
 
     buffer.close();
-    return String::format("data:%s;base64,%s", mimeType.utf8().data(), data.toBase64().data());
+
+    return makeString("data:", mimeType, ";base64,", data.toBase64().data());
 }
 
 }

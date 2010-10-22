@@ -26,6 +26,7 @@
 #ifndef WebIDBIndex_h
 #define WebIDBIndex_h
 
+#include "WebExceptionCode.h"
 #include "WebIDBTransaction.h"
 #include "WebString.h"
 
@@ -61,43 +62,49 @@ public:
         return false;
     }
 
-    // FIXME: Remove the versions without transaction parameters.
-    virtual void openObjectCursor(const WebIDBKeyRange& range, unsigned short direction, WebIDBCallbacks* callbacks, const WebIDBTransaction&)
+    virtual void openObjectCursor(const WebIDBKeyRange& range, unsigned short direction, WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction, WebExceptionCode&)
     {
-        openObjectCursor(range, direction, callbacks);
+        WebExceptionCode ec = 0;
+        openObjectCursor(range, direction, callbacks, transaction, ec);
     }
-    virtual void openObjectCursor(const WebIDBKeyRange& range, unsigned short direction, WebIDBCallbacks* callbacks)
+    virtual void openObjectCursor(const WebIDBKeyRange& range, unsigned short direction, WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction)
     {
-        WebIDBTransaction transaction;
         openObjectCursor(range, direction, callbacks, transaction);
     }
-    virtual void openCursor(const WebIDBKeyRange& range, unsigned short direction, WebIDBCallbacks* callbacks, const WebIDBTransaction&)
+    virtual void openKeyCursor(const WebIDBKeyRange& range, unsigned short direction, WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction, WebExceptionCode&)
     {
-        openCursor(range, direction, callbacks);
+        WebExceptionCode ec = 0;
+        openKeyCursor(range, direction, callbacks, transaction, ec);
     }
-    virtual void openCursor(const WebIDBKeyRange& range, unsigned short direction, WebIDBCallbacks* callbacks)
+    virtual void openKeyCursor(const WebIDBKeyRange& range, unsigned short direction, WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction)
     {
-        WebIDBTransaction transaction;
-        openCursor(range, direction, callbacks, transaction);
+        openKeyCursor(range, direction, callbacks, transaction);
     }
-    virtual void getObject(const WebIDBKey& key, WebIDBCallbacks* callbacks, const WebIDBTransaction&)
+    virtual void getObject(const WebIDBKey& key, WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction, WebExceptionCode&)
     {
-        getObject(key, callbacks);
+        WebExceptionCode ec = 0;
+        getObject(key, callbacks, transaction, ec);
     }
-    virtual void getObject(const WebIDBKey& key, WebIDBCallbacks* callbacks)
+    virtual void getObject(const WebIDBKey& key, WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction)
     {
-        WebIDBTransaction transaction;
         getObject(key, callbacks, transaction);
     }
-    virtual void get(const WebIDBKey& key, WebIDBCallbacks* callbacks, const WebIDBTransaction&)
+    virtual void getKey(const WebIDBKey& key, WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction, WebExceptionCode&)
     {
-        get(key, callbacks);
+        WebExceptionCode ec = 0;
+        getKey(key, callbacks, transaction, ec);
     }
-    virtual void get(const WebIDBKey& key, WebIDBCallbacks* callbacks)
+    virtual void getKey(const WebIDBKey& key, WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction)
     {
-        WebIDBTransaction transaction;
-        get(key, callbacks, transaction);
+        getKey(key, callbacks, transaction);
     }
+
+    /*
+    virtual void openObjectCursor(const WebIDBKeyRange&, unsigned short direction, WebIDBCallbacks*, const WebIDBTransaction&, WebExceptionCode&) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void openKeyCursor(const WebIDBKeyRange&, unsigned short direction, WebIDBCallbacks*, const WebIDBTransaction&, WebExceptionCode&) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void getObject(const WebIDBKey&, WebIDBCallbacks*, const WebIDBTransaction&, WebExceptionCode&) { WEBKIT_ASSERT_NOT_REACHED(); }
+    virtual void getKey(const WebIDBKey&, WebIDBCallbacks*, const WebIDBTransaction&, WebExceptionCode&) { WEBKIT_ASSERT_NOT_REACHED(); }
+    */
 };
 
 } // namespace WebKit

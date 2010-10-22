@@ -154,9 +154,10 @@ namespace WebCore {
         // Forms --------------------------------------------------------------
         static void notifyFormStateChanged(const Document*);
 
+#if !ENABLE(CLIENT_BASED_GEOLOCATION)
         // Geolocation --------------------------------------------------------
         static GeolocationServiceBridge* createGeolocationServiceBridge(GeolocationServiceChromium*);
-
+#endif
         // Databases ----------------------------------------------------------
         // Returns a handle to the DB file and ooptionally a handle to its containing directory
         static PlatformFileHandle databaseOpenFile(const String& vfsFleName, int desiredFlags);
@@ -254,6 +255,45 @@ namespace WebCore {
             GraphicsContext*, int part, int state, int classicState, const IntRect&);
         static void paintProgressBar(
             GraphicsContext*, const IntRect& barRect, const IntRect& valueRect, bool determinate, double animatedSeconds);
+#elif OS(LINUX)
+        // The UI part which is being accessed.
+        enum ThemePart {
+            PartScrollbarDownArrow,
+            PartScrollbarLeftArrow,
+            PartScrollbarRightArrow,
+            PartScrollbarUpArrow,
+            PartScrollbarHorizontalThumb,
+            PartScrollbarVerticalThumb,
+            PartScrollbarHoriztonalTrack,
+            PartScrollbarVerticalTrack,
+        };
+
+        // The current state of the associated Part.
+        enum ThemePaintState {
+            StateDisabled,
+            StateHover,
+            StateNormal,
+            StatePressed,
+        };
+
+        struct ScrollbarTrackExtraParams {
+            // The bounds of the entire track, as opposed to the part being painted.
+            int trackX;
+            int trackY;
+            int trackWidth;
+            int trackHeight;
+        };
+
+        union ThemePaintExtraParams {
+            ScrollbarTrackExtraParams scrollbarTrack;
+        };
+
+        // Gets the size of the given theme part. For variable sized items
+        // like vertical scrollbar thumbs, the width will be the required width of
+        // the track while the height will be the minimum height.
+        static IntSize getThemePartSize(ThemePart);
+        // Paint the given the given theme part.
+        static void paintThemePart(GraphicsContext*, ThemePart, ThemePaintState, const IntRect&, const ThemePaintExtraParams*);
 #endif
 
         // Trace Event --------------------------------------------------------

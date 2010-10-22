@@ -28,14 +28,61 @@
 #include "PlatformWebView.h"
 #include "StringFunctions.h"
 #include "TestController.h"
+#include <climits>
+#include <cstdio>
 #include <WebKit2/WKContextPrivate.h>
 #include <WebKit2/WKRetainPtr.h>
-#include <wtf/RetainPtr.h>
+#include <wtf/OwnArrayPtr.h>
+#include <wtf/PassOwnArrayPtr.h>
+
+#if OS(WINDOWS)
+#include <direct.h> // For _getcwd.
+#define getcwd _getcwd // MSDN says getcwd is deprecated.
+#define PATH_MAX _MAX_PATH
+#endif
 
 using namespace WebKit;
 using namespace std;
 
 namespace WTR {
+
+static WKURLRef createWKURL(const char* pathOrURL)
+{
+    if (strstr(pathOrURL, "http://") || strstr(pathOrURL, "https://") || strstr(pathOrURL, "file://"))
+        return WKURLCreateWithUTF8CString(pathOrURL);
+
+    // Creating from filesytem path.
+    size_t length = strlen(pathOrURL);
+    if (!length)
+        return 0;
+
+    const char* filePrefix = "file://";
+    static const size_t prefixLength = strlen(filePrefix);
+#if OS(WINDOWS)
+    const char separator = '\\';
+    bool isAbsolutePath = length >= 3 && pathOrURL[1] == ':' && pathOrURL[2] == separator;
+#else
+    const char separator = '/';
+    bool isAbsolutePath = pathOrURL[0] == separator;
+#endif
+
+    OwnArrayPtr<char> buffer;
+    if (isAbsolutePath) {
+        buffer = adoptArrayPtr(new char[prefixLength + length + 1]);
+        strcpy(buffer.get(), filePrefix);
+        strcpy(buffer.get() + prefixLength, pathOrURL);
+    } else {
+        buffer = adoptArrayPtr(new char[prefixLength + PATH_MAX + length + 2]); // 1 for the separator
+        strcpy(buffer.get(), filePrefix);
+        if (!getcwd(buffer.get() + prefixLength, PATH_MAX))
+            return 0;
+        size_t numCharacters = strlen(buffer.get());
+        buffer[numCharacters] = separator;
+        strcpy(buffer.get() + numCharacters + 1, pathOrURL);
+    }
+
+    return WKURLCreateWithUTF8CString(buffer.get());
+}
 
 TestInvocation::TestInvocation(const char* pathOrURL)
     : m_url(AdoptWK, createWKURL(pathOrURL))
@@ -70,9 +117,8 @@ void TestInvocation::invoke()
 {
     sizeWebViewForCurrentTest(m_pathOrURL);
 
-    WKRetainPtr<WKStringRef> messageName(AdoptWK, WKStringCreateWithCFString(CFSTR("BeginTest")));
-    WKRetainPtr<WKStringRef> messageBody(AdoptWK, WKStringCreateWithCFString(CFSTR("")));
-    WKContextPostMessageToInjectedBundle(TestController::shared().context(), messageName.get(), messageBody.get());
+    WKRetainPtr<WKStringRef> messageName(AdoptWK, WKStringCreateWithUTF8CString("BeginTest"));
+    WKContextPostMessageToInjectedBundle(TestController::shared().context(), messageName.get(), 0);
 
     TestController::runUntil(m_gotInitialResponse);
     if (m_error) {
@@ -104,8 +150,7 @@ void TestInvocation::dump(const char* stringToDump)
 
 void TestInvocation::didReceiveMessageFromInjectedBundle(WKStringRef messageName, WKTypeRef messageBody)
 {
-    RetainPtr<CFStringRef> cfMessageName(AdoptCF, WKStringCopyCFString(0, messageName));
-    if (CFEqual(cfMessageName.get(), CFSTR("Error"))) {
+    if (WKStringIsEqualToUTF8CString(messageName, "Error")) {
         // Set all states to true to stop spinning the runloop.
         m_gotInitialResponse = true;
         m_gotFinalMessage = true;
@@ -113,11 +158,10 @@ void TestInvocation::didReceiveMessageFromInjectedBundle(WKStringRef messageName
         return;
     }
 
-    if (CFEqual(cfMessageName.get(), CFSTR("Ack"))) {
+    if (WKStringIsEqualToUTF8CString(messageName, "Ack")) {
         ASSERT(WKGetTypeID(messageBody) == WKStringGetTypeID());
-        RetainPtr<CFStringRef> cfMessageBody(AdoptCF, WKStringCopyCFString(0, static_cast<WKStringRef>(messageBody)));
-
-        if (CFEqual(cfMessageBody.get(), CFSTR("BeginTest"))) {
+        WKStringRef messageBodyString = static_cast<WKStringRef>(messageBody);
+        if (WKStringIsEqualToUTF8CString(messageBodyString, "BeginTest")) {
             m_gotInitialResponse = true;
             return;
         }
@@ -125,12 +169,11 @@ void TestInvocation::didReceiveMessageFromInjectedBundle(WKStringRef messageName
         ASSERT_NOT_REACHED();
     }
 
-    if (CFEqual(cfMessageName.get(), CFSTR("Done"))) {
+    if (WKStringIsEqualToUTF8CString(messageName, "Done")) {
         ASSERT(WKGetTypeID(messageBody) == WKStringGetTypeID());
-        ostringstream out;
-        out << static_cast<WKStringRef>(messageBody);
+        WKStringRef messageBodyString = static_cast<WKStringRef>(messageBody);
 
-        dump(out.str().c_str());
+        dump(toSTD(messageBodyString).c_str());
 
         m_gotFinalMessage = true;
         return;

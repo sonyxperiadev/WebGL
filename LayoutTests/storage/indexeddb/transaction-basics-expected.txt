@@ -3,15 +3,15 @@ Test IndexedDB transaction basics.
 On success, you will see a series of "PASS" messages, followed by "TEST COMPLETE".
 
 
-PASS 'indexedDB' in window is true
-PASS indexedDB == null is false
-indexedDB.open('name', 'description')
+PASS 'webkitIndexedDB' in window is true
+PASS webkitIndexedDB == null is false
+webkitIndexedDB.open('name', 'description')
 PASS 'onsuccess' in result is true
 PASS 'onerror' in result is true
 PASS 'readyState' in result is true
 An event should fire shortly...
 
-createObjectStoreCallback():
+openSuccess():
 Success event fired:
 PASS 'result' in event is true
 PASS 'code' in event is false
@@ -24,12 +24,7 @@ PASS 'readyState' in event.target is true
 PASS event.target.readyState is event.target.DONE
 
 db = event.result
-db.createObjectStore('storeName', null)
-PASS 'onsuccess' in result is true
-PASS 'onerror' in result is true
-PASS 'readyState' in result is true
-An event should fire shortly...
-
+result = db.setVersion('version 1')
 Success event fired:
 PASS 'result' in event is true
 PASS 'code' in event is false
@@ -41,11 +36,150 @@ PASS 'onerror' in event.target is true
 PASS 'readyState' in event.target is true
 PASS event.target.readyState is event.target.DONE
 
+Deleted all object stores.
+PASS window.db.objectStores is []
+PASS window.db.objectStores.length is 0
+PASS window.db.objectStores.contains('storeFail') is false
+PASS window.db.objectStores is []
+PASS window.db.objectStores.length is 0
+PASS window.db.objectStores.contains('storeFail') is false
+result = startSetVersion('version fail')
+PASS 'onsuccess' in result is true
+PASS 'onerror' in result is true
+PASS 'readyState' in result is true
+An event should fire shortly...
+
+addRemoveIDBObjects():
+Success event fired:
+PASS 'result' in event is true
+PASS 'code' in event is false
+PASS 'message' in event is false
+PASS 'source' in event is true
+PASS event.source != null is true
+PASS 'onsuccess' in event.target is true
+PASS 'onerror' in event.target is true
+PASS 'readyState' in event.target is true
+PASS event.target.readyState is event.target.DONE
+
+trans = event.result
+PASS trans !== null is true
+store = db.createObjectStore('storeFail', null)
+index = store.createIndex('indexFail', 'x', false)
+db.removeObjectStore('storeFail')
+store.removeIndex('indexFail')
+PASS window.db.objectStores is []
+PASS window.db.objectStores.length is 0
+PASS window.db.objectStores.contains('storeFail') is false
+result = startSetVersion('version fail')
+PASS 'onsuccess' in result is true
+PASS 'onerror' in result is true
+PASS 'readyState' in result is true
+An event should fire shortly...
+
+addRemoveAddIDBObjects():
+Success event fired:
+PASS 'result' in event is true
+PASS 'code' in event is false
+PASS 'message' in event is false
+PASS 'source' in event is true
+PASS event.source != null is true
+PASS 'onsuccess' in event.target is true
+PASS 'onerror' in event.target is true
+PASS 'readyState' in event.target is true
+PASS event.target.readyState is event.target.DONE
+
+trans = event.result
+PASS trans !== null is true
+store = db.createObjectStore('storeFail', null)
+index = store.createIndex('indexFail', 'x', false)
+db.removeObjectStore('storeFail')
+store.removeIndex('indexFail')
+store = db.createObjectStore('storeFail', null)
+index = store.createIndex('indexFail', 'x', false)
+PASS window.db.objectStores is []
+PASS window.db.objectStores.length is 0
+PASS window.db.objectStores.contains('storeFail') is false
+result = startSetVersion('version fail')
+PASS 'onsuccess' in result is true
+PASS 'onerror' in result is true
+PASS 'readyState' in result is true
+An event should fire shortly...
+
+addIDBObjects():
+Success event fired:
+PASS 'result' in event is true
+PASS 'code' in event is false
+PASS 'message' in event is false
+PASS 'source' in event is true
+PASS event.source != null is true
+PASS 'onsuccess' in event.target is true
+PASS 'onerror' in event.target is true
+PASS 'readyState' in event.target is true
+PASS event.target.readyState is event.target.DONE
+
+trans = event.result
+PASS trans !== null is true
+store = db.createObjectStore('storeFail', null)
+index = store.createIndex('indexFail', 'x', false)
+PASS db.objectStores is ['storeFail']
+PASS db.objectStores.length is 1
+PASS db.objectStores.contains('storeFail') is true
+result = startSetVersion('version fail')
+PASS 'onsuccess' in result is true
+PASS 'onerror' in result is true
+PASS 'readyState' in result is true
+An event should fire shortly...
+
+removeIDBObjects():
+Success event fired:
+PASS 'result' in event is true
+PASS 'code' in event is false
+PASS 'message' in event is false
+PASS 'source' in event is true
+PASS event.source != null is true
+PASS 'onsuccess' in event.target is true
+PASS 'onerror' in event.target is true
+PASS 'readyState' in event.target is true
+PASS event.target.readyState is event.target.DONE
+
+trans = event.result
+PASS trans !== null is true
+store = trans.objectStore('storeFail')
+store.removeIndex('indexFail')
+db.removeObjectStore('storeFail')
+PASS db.objectStores is ['storeFail']
+PASS db.objectStores.length is 1
+PASS db.objectStores.contains('storeFail') is true
+db.setVersion('new version')
+PASS 'onsuccess' in result is true
+PASS 'onerror' in result is true
+PASS 'readyState' in result is true
+An event should fire shortly...
+
+setVersionSuccess():
+Success event fired:
+PASS 'result' in event is true
+PASS 'code' in event is false
+PASS 'message' in event is false
+PASS 'source' in event is true
+PASS event.source != null is true
+PASS 'onsuccess' in event.target is true
+PASS 'onerror' in event.target is true
+PASS 'readyState' in event.target is true
+PASS event.target.readyState is event.target.DONE
+
+trans = event.result
+PASS trans !== null is true
+Deleted all object stores.
+db.createObjectStore('storeName', null)
 db.transaction()
 store = transaction.objectStore('storeName')
 PASS store.name is "storeName"
 Abort event fired:
 PASS event.type is "abort"
+Complete event fired:
+PASS event.type is "complete"
+PASS oncomplete event had fired
 PASS successfullyParsed is true
 
 TEST COMPLETE

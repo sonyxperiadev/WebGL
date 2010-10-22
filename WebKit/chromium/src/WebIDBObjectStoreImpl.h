@@ -47,15 +47,15 @@ public:
     WebString keyPath() const;
     WebDOMStringList indexNames() const;
 
-    void get(const WebIDBKey& key, WebIDBCallbacks*, const WebIDBTransaction&);
-    void put(const WebSerializedScriptValue& value, const WebIDBKey& key, bool addOnly, WebIDBCallbacks*);
-    void remove(const WebIDBKey& key, WebIDBCallbacks*);
+    void get(const WebIDBKey& key, WebIDBCallbacks*, const WebIDBTransaction&, WebExceptionCode&);
+    void put(const WebSerializedScriptValue&, const WebIDBKey& key, bool addOnly, WebIDBCallbacks*, const WebIDBTransaction&, WebExceptionCode&);
+    void remove(const WebIDBKey& key, WebIDBCallbacks*, const WebIDBTransaction&, WebExceptionCode&);
 
-    void createIndex(const WebString& name, const WebString& keyPath, bool unique, WebIDBCallbacks* callbacks);
-    WebIDBIndex* index(const WebString& name);
-    void removeIndex(const WebString& name, WebIDBCallbacks* callbacks);
+    WebIDBIndex* createIndex(const WebString& name, const WebString& keyPath, bool unique, const WebIDBTransaction&, WebExceptionCode&);
+    WebIDBIndex* index(const WebString& name, WebExceptionCode&);
+    void removeIndex(const WebString& name, const WebIDBTransaction&, WebExceptionCode&);
 
-    void openCursor(const WebIDBKeyRange&, unsigned short direction, WebIDBCallbacks*);
+    void openCursor(const WebIDBKeyRange&, unsigned short direction, WebIDBCallbacks*, const WebIDBTransaction&, WebExceptionCode&);
 
  private:
     WTF::RefPtr<WebCore::IDBObjectStoreBackendInterface> m_objectStore;

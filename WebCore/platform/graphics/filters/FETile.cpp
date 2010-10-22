@@ -27,6 +27,7 @@
 #include "Filter.h"
 #include "GraphicsContext.h"
 #include "Pattern.h"
+#include "SVGImageBufferTools.h"
 
 namespace WebCore {
 
@@ -44,45 +45,51 @@ FloatRect FETile::determineFilterPrimitiveSubregion(Filter* filter)
 {
     inputEffect(0)->determineFilterPrimitiveSubregion(filter);
 
-    filter->determineFilterPrimitiveSubregion(this, filter->filterRegion());
+    filter->determineFilterPrimitiveSubregion(this, filter->filterRegionInUserSpace());
     return filterPrimitiveSubregion();
 }
 
 void FETile::apply(Filter* filter)
 {
+// FIXME: See bug 47315. This is a hack to work around a compile failure, but is incorrect behavior otherwise.
+#if ENABLE(SVG)
     FilterEffect* in = inputEffect(0);
     in->apply(filter);
     if (!in->resultImage())
         return;
 
-    GraphicsContext* filterContext = effectContext();
+    GraphicsContext* filterContext = effectContext(filter);
     if (!filterContext)
         return;
 
     setIsAlphaImage(in->isAlphaImage());
 
-    IntRect tileRect = enclosingIntRect(in->repaintRectInLocalCoordinates());
-
     // Source input needs more attention. It has the size of the filterRegion but gives the
     // size of the cutted sourceImage back. This is part of the specification and optimization.
-    if (in->isSourceInput()) {
-        FloatRect filterRegion = filter->filterRegion();
-        filterRegion.scale(filter->filterResolution().width(), filter->filterResolution().height());
-        tileRect = enclosingIntRect(filterRegion);
+    FloatRect tileRect = in->maxEffectRect();
+    FloatPoint inMaxEffectLocation = tileRect.location();
+    FloatPoint maxEffectLocation = maxEffectRect().location();
+    if (in->filterEffectType() == FilterEffectTypeSourceInput) {
+        tileRect = filter->filterRegion();
+        tileRect.scale(filter->filterResolution().width(), filter->filterResolution().height());
     }
 
-    OwnPtr<ImageBuffer> tileImage = ImageBuffer::create(tileRect.size());
+    OwnPtr<ImageBuffer> tileImage;
+    if (!SVGImageBufferTools::createImageBuffer(tileRect, tileRect, tileImage, ColorSpaceDeviceRGB))
+        return;
+
     GraphicsContext* tileImageContext = tileImage->context();
-    tileImageContext->drawImageBuffer(in->resultImage(), DeviceColorSpace, IntPoint());
+    tileImageContext->translate(-inMaxEffectLocation.x(), -inMaxEffectLocation.y());
+    tileImageContext->drawImageBuffer(in->resultImage(), ColorSpaceDeviceRGB, in->absolutePaintRect().location());
+
     RefPtr<Pattern> pattern = Pattern::create(tileImage->copyImage(), true, true);
 
-    AffineTransform matrix;
-    matrix.translate(in->repaintRectInLocalCoordinates().x() - repaintRectInLocalCoordinates().x(),
-                     in->repaintRectInLocalCoordinates().y() - repaintRectInLocalCoordinates().y());
-    pattern.get()->setPatternSpaceTransform(matrix);
-
+    AffineTransform patternTransform;
+    patternTransform.translate(inMaxEffectLocation.x() - maxEffectLocation.x(), inMaxEffectLocation.y() - maxEffectLocation.y());
+    pattern->setPatternSpaceTransform(patternTransform);
     filterContext->setFillPattern(pattern);
-    filterContext->fillRect(FloatRect(FloatPoint(), repaintRectInLocalCoordinates().size()));
+    filterContext->fillRect(FloatRect(FloatPoint(), absolutePaintRect().size()));
+#endif
 }
 
 void FETile::dump()
@@ -103,4 +110,3 @@ TextStream& FETile::externalRepresentation(TextStream& ts, int indent) const
 } // namespace WebCore
 
 #endif // ENABLE(FILTERS)
-

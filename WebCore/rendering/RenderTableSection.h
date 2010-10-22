@@ -136,9 +136,10 @@ private:
 
     virtual void removeChild(RenderObject* oldChild);
 
-    virtual int lowestPosition(bool includeOverflowInterior, bool includeSelf) const;
-    virtual int rightmostPosition(bool includeOverflowInterior, bool includeSelf) const;
-    virtual int leftmostPosition(bool includeOverflowInterior, bool includeSelf) const;
+    virtual int topmostPosition(bool includeOverflowInterior, bool includeSelf, ApplyTransform = IncludeTransform) const;
+    virtual int lowestPosition(bool includeOverflowInterior, bool includeSelf, ApplyTransform = IncludeTransform) const;
+    virtual int rightmostPosition(bool includeOverflowInterior, bool includeSelf, ApplyTransform = IncludeTransform) const;
+    virtual int leftmostPosition(bool includeOverflowInterior, bool includeSelf, ApplyTransform = IncludeTransform) const;
 
     virtual void paint(PaintInfo&, int tx, int ty);
     virtual void paintCell(RenderTableCell*, PaintInfo&, int tx, int ty);
@@ -147,8 +148,6 @@ private:
     virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
 
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
-
-    virtual int lineHeight(bool, bool) const { return 0; }
 
     bool ensureRows(int);
     void clearGrid();

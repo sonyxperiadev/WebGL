@@ -28,8 +28,11 @@
 #include "config.h"
 #include "FileSystem.h"
 
+<<<<<<< HEAD
 #include "PlatformBridge.h"
 #include "StringBuilder.h"
+=======
+>>>>>>> webkit.org at r70209
 #include "cutils/log.h"
 #include <dirent.h>
 #include <dlfcn.h>
@@ -37,6 +40,7 @@
 #include <fnmatch.h>
 #include <sys/stat.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 

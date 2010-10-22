@@ -157,6 +157,7 @@ SET(JavaScriptCore_SOURCES
     runtime/RopeImpl.cpp
     runtime/ScopeChain.cpp
     runtime/SmallStrings.cpp
+    runtime/StrictEvalActivation.cpp
     runtime/StringConstructor.cpp
     runtime/StringObject.cpp
     runtime/StringPrototype.cpp
@@ -254,7 +255,7 @@ SOURCE_GROUP(yarr "yarr/")
 SOURCE_GROUP(wtf "wtf/")
 
 ADD_SUBDIRECTORY(wtf)
-ADD_SUBDIRECTORY(jsc)
+ADD_SUBDIRECTORY(shell)
 
 WEBKIT_WRAP_SOURCELIST(${JavaScriptCore_SOURCES})
 INCLUDE_DIRECTORIES(${JavaScriptCore_INCLUDE_DIRECTORIES})

@@ -147,7 +147,7 @@ namespace JSC {
     struct JITStackFrame {
         JITStubArg reserved; // Unused
         JITStubArg args[6];
-#if !USE(JSVALUE32_64)
+#if USE(JSVALUE64)
         void* padding; // Maintain 16-byte stack alignment.
 #endif
 
@@ -296,6 +296,7 @@ extern "C" {
     EncodedJSValue JIT_STUB cti_op_construct_NotJSConstruct(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_create_this(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_convert_this(STUB_ARGS_DECLARATION);
+    EncodedJSValue JIT_STUB cti_op_convert_this_strict(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_create_arguments(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_create_arguments_no_params(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_del_by_id(STUB_ARGS_DECLARATION);
@@ -337,6 +338,8 @@ extern "C" {
     EncodedJSValue JIT_STUB cti_op_pre_inc(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_resolve(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_resolve_base(STUB_ARGS_DECLARATION);
+    EncodedJSValue JIT_STUB cti_op_resolve_base_strict_put(STUB_ARGS_DECLARATION);
+    EncodedJSValue JIT_STUB cti_op_ensure_property_exists(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_resolve_global(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_resolve_global_dynamic(STUB_ARGS_DECLARATION);
     EncodedJSValue JIT_STUB cti_op_resolve_skip(STUB_ARGS_DECLARATION);

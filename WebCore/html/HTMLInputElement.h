@@ -25,6 +25,7 @@
 #define HTMLInputElement_h
 
 #include "HTMLFormControlElement.h"
+#include "HTMLFormElement.h"
 #include "InputElement.h"
 #include <wtf/OwnPtr.h>
 
@@ -41,40 +42,15 @@ class VisibleSelection;
 
 class HTMLInputElement : public HTMLTextFormControlElement, public InputElement {
 public:
-    enum DeprecatedInputType {
-        TEXT = 0, // TEXT must be 0.
-        PASSWORD,
-        ISINDEX,
-        CHECKBOX,
-        RADIO,
-        SUBMIT,
-        RESET,
-        FILE,
-        HIDDEN,
-        IMAGE,
-        BUTTON,
-        SEARCH,
-        RANGE,
-        EMAIL,
-        NUMBER,
-        TELEPHONE,
-        URL,
-        COLOR,
-        DATE,
-        DATETIME,
-        DATETIMELOCAL,
-        MONTH,
-        TIME,
-        WEEK,
-    };
-
     static PassRefPtr<HTMLInputElement> create(const QualifiedName&, Document*, HTMLFormElement*);
     virtual ~HTMLInputElement();
+
+    DEFINE_ATTRIBUTE_EVENT_LISTENER(webkitspeechchange);
 
     bool autoComplete() const;
 
     // For ValidityState
-    bool typeMismatch(const String&) const;
+    bool typeMismatch() const;
     // valueMissing() ignores the specified string value for CHECKBOX and RADIO.
     bool valueMissing(const String&) const;
     bool patternMismatch(const String&) const;
@@ -125,7 +101,8 @@ public:
 
 #if ENABLE(INPUT_SPEECH)
     virtual bool isSpeechEnabled() const;
-#endif    
+    void dispatchWebkitSpeechChangeEvent();
+#endif
 
     bool checked() const { return m_checked; }
     void setChecked(bool, bool sendChangeEvent = false);
@@ -175,8 +152,6 @@ public:
     virtual bool isActivatedSubmit() const;
     virtual void setActivatedSubmit(bool flag);
 
-    DeprecatedInputType deprecatedInputType() const { return static_cast<DeprecatedInputType>(m_deprecatedTypeNumber); }
-
     String altText() const;
 
     int maxResults() const { return m_maxResults; }
@@ -212,11 +187,6 @@ public:
     void addSearchResult();
     void onSearch();
 
-    // Parses the specified string as the DeprecatedInputType, and returns true if it is successfully parsed.
-    // An instance pointed by the DateComponents* parameter will have parsed values and be
-    // modified even if the parsing fails.  The DateComponents* parameter may be 0.
-    static bool parseToDateComponents(DeprecatedInputType, const String&, DateComponents*);
-
 #if ENABLE(DATALIST)
     HTMLElement* list() const;
     HTMLOptionElement* selectedOption() const;
@@ -226,13 +196,51 @@ public:
     void setWapInputFormat(String& mask);
 #endif
 
+    inline CheckedRadioButtons& checkedRadioButtons() const
+    {
+        if (HTMLFormElement* formElement = form())
+            return formElement->checkedRadioButtons();
+        return document()->checkedRadioButtons();
+    }
+
 protected:
     HTMLInputElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
 
     virtual void defaultEventHandler(Event*);
 
 private:
+    enum DeprecatedInputType {
+        TEXT = 0, // TEXT must be 0.
+        PASSWORD,
+        ISINDEX,
+        CHECKBOX,
+        RADIO,
+        SUBMIT,
+        RESET,
+        FILE,
+        HIDDEN,
+        IMAGE,
+        BUTTON,
+        SEARCH,
+        RANGE,
+        EMAIL,
+        NUMBER,
+        TELEPHONE,
+        URL,
+        COLOR,
+        DATE,
+        DATETIME,
+        DATETIMELOCAL,
+        MONTH,
+        TIME,
+        WEEK,
+    };
+
     enum AutoCompleteSetting { Uninitialized, On, Off };
+
+    typedef HashMap<String, HTMLInputElement::DeprecatedInputType, CaseFoldingHash> InputTypeMap;
+    static PassOwnPtr<InputTypeMap> createTypeMap();
+    DeprecatedInputType deprecatedInputType() const { return static_cast<DeprecatedInputType>(m_deprecatedTypeNumber); }
 
     virtual void willMoveToNewOwnerDocument();
     virtual void didMoveToNewOwnerDocument();
@@ -326,26 +334,8 @@ private:
     void handleBeforeTextInsertedEvent(Event*);
     void handleKeyEventForRange(KeyboardEvent*);
     PassRefPtr<HTMLFormElement> createTemporaryFormForIsIndex();
-    // Helper for getAllowedValueStep();
-    bool getStepParameters(double* defaultStep, double* stepScaleFactor) const;
     // Helper for stepUp()/stepDown().  Adds step value * count to the current value.
     void applyStep(double count, ExceptionCode&);
-    // Helper for applyStepForNumberOrRange().
-    double stepBase() const;
-
-    // Parses the specified string for the current type, and return
-    // the double value for the parsing result if the parsing
-    // succeeds; Returns defaultValue otherwise. This function can
-    // return NaN or Infinity only if defaultValue is NaN or Infinity.
-    double parseToDouble(const String&, double defaultValue) const;
-    // Create a string representation of the specified double value for the
-    // current input type. If NaN or Infinity is specified, this returns an
-    // emtpy string. This should not be called for types without valueAsNumber.
-    String serialize(double) const;
-    // Create a string representation of the specified double value for the
-    // current input type. The type must be one of DATE, DATETIME,
-    // DATETIMELOCAL, MONTH, TIME, and WEEK.
-    String serializeForDateTimeTypes(double) const;
 
 #if ENABLE(DATALIST)
     HTMLDataListElement* dataList() const;

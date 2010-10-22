@@ -34,19 +34,19 @@
 #include "DRTDevToolsAgent.h"
 #include "DRTDevToolsCallArgs.h"
 
-#include "public/WebDevToolsAgent.h"
-#include "public/WebDevToolsFrontend.h"
-#include "public/WebFrame.h"
-#include "public/WebScriptSource.h"
-#include "public/WebString.h"
-#include "public/WebView.h"
+#include "WebDevToolsAgent.h"
+#include "WebDevToolsFrontend.h"
+#include "WebFrame.h"
+#include "WebScriptSource.h"
+#include "WebString.h"
+#include "WebView.h"
 #include "webkit/support/webkit_support.h"
 
 using namespace WebKit;
 
 DRTDevToolsClient::DRTDevToolsClient(DRTDevToolsAgent* agent, WebView* webView)
-    : m_drtDevToolsAgent(agent)
-    , m_webView(webView)
+    : m_webView(webView)
+    , m_drtDevToolsAgent(agent)
 {
     m_webDevToolsFrontend.set(WebDevToolsFrontend::create(m_webView,
                                                           this,

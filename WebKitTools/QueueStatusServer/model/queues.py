@@ -26,39 +26,88 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+
 import re
 
-
-queues = [
-    "commit-queue",
-    "style-queue",
-    "chromium-ews",
-    "qt-ews",
-    "gtk-ews",
-    "mac-ews",
-    "win-ews",
-    "efl-ews",
-]
+from model.activeworkitems import ActiveWorkItems
+from model.workitems import WorkItems
 
 
-# FIXME: We need some sort of Queue object.
-def _title_case(string):
-    words = string.split(" ")
-    words = map(lambda word: word.capitalize(), words)
-    return " ".join(words)
+class Queue(object):
 
+    # Eventually the list of queues may be stored in the data store.
+    _all_queue_names = [
+        "commit-queue",
+        "style-queue",
+        "chromium-ews",
+        "qt-ews",
+        "gtk-ews",
+        "mac-ews",
+        "win-ews",
+        "efl-ews",
+        "cr-mac-ews",
+    ]
 
-def display_name_for_queue(queue_name):
-    # HACK: chromium-ews is incorrectly named.
-    display_name = queue_name.replace("chromium-ews", "cr-linux-ews")
+    def __init__(self, name):
+        assert(name in self._all_queue_names)
+        self._name = name
 
-    display_name = display_name.replace("-", " ")
-    display_name = display_name.replace("cr", "chromium")
-    display_name = _title_case(display_name)
-    display_name = display_name.replace("Ews", "EWS")
-    return display_name
+    @classmethod
+    def queue_with_name(cls, queue_name):
+        if queue_name not in cls._all_queue_names:
+            return None
+        return Queue(queue_name)
 
+    @classmethod
+    def all(cls):
+        return [Queue(name) for name in cls._all_queue_names]
 
-def name_with_underscores(dashed_name):
-    regexp = re.compile("-")
-    return regexp.sub("_", dashed_name)
+    @classmethod
+    def all_ews(cls):
+        return [queue for queue in cls.all() if queue.is_ews()]
+
+    def name(self):
+        return self._name
+
+    def work_items(self):
+        key_name = "work-items-%s" % (self._name)
+        return WorkItems.get_or_insert(key_name=key_name, queue_name=self._name)
+
+    # FIXME: active_work_items is a bad name for this lock-table.
+    def active_work_items(self):
+        key_name = "active-work-items-%s" % (self._name)
+        return ActiveWorkItems.get_or_insert(key_name=key_name, queue_name=self._name)
+
+    def _caplitalize_after_dash(self, string):
+        return "-".join([word[0].upper() + word[1:] for word in string.split("-")])
+
+    # For use in status bubbles or table headers
+    def short_name(self):
+        # HACK: chromium-ews is incorrectly named.
+        short_name = self._name.replace("chromium-ews", "Cr-Linux-ews")
+        short_name = short_name.replace("-ews", "")
+        short_name = short_name.replace("-queue", "")
+        return self._caplitalize_after_dash(short_name.capitalize())
+
+    def display_name(self):
+        # HACK: chromium-ews is incorrectly named.
+        display_name = self._name.replace("chromium-ews", "cr-linux-ews")
+
+        display_name = display_name.replace("-", " ")
+        display_name = display_name.replace("cr", "chromium")
+        display_name = display_name.title()
+        display_name = display_name.replace("Ews", "EWS")
+        return display_name
+
+    _dash_regexp = re.compile("-")
+
+    def name_with_underscores(self):
+        return self._dash_regexp.sub("_", self._name)
+
+    def is_ews(self):
+        # Note: The style-queue is just like an EWS in that it has an EWS
+        # bubble, and it works off of the r? patches.  If at some later
+        # point code wants to not treat the style-queue as an EWS
+        # (e.g. expecting is_ews() queues to have build results?)
+        # then we should fix all callers and change this check.
+        return self._name.endswith("-ews") or self._name == "style-queue"

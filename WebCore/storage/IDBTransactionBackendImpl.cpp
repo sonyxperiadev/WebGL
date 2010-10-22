@@ -42,30 +42,34 @@ PassRefPtr<IDBTransactionBackendImpl> IDBTransactionBackendImpl::create(DOMStrin
 IDBTransactionBackendImpl::IDBTransactionBackendImpl(DOMStringList* objectStores, unsigned short mode, unsigned long timeout, int id, IDBDatabaseBackendImpl* database)
     : m_objectStoreNames(objectStores)
     , m_mode(mode)
-    , m_timeout(timeout)
+    , m_timeout(timeout) // FIXME: Implement timeout.
     , m_id(id)
-    , m_state(NotStarted)
+    , m_state(Unused)
     , m_database(database)
     , m_transaction(new SQLiteTransaction(database->sqliteDatabase()))
-    , m_timer(this, &IDBTransactionBackendImpl::timerFired)
+    , m_taskTimer(this, &IDBTransactionBackendImpl::taskTimerFired)
+    , m_taskEventTimer(this, &IDBTransactionBackendImpl::taskEventTimerFired)
     , m_pendingEvents(0)
 {
 }
 
 PassRefPtr<IDBObjectStoreBackendInterface> IDBTransactionBackendImpl::objectStore(const String& name)
 {
-    if (isFinished())
+    if (m_state == Finished)
         return 0;
-    return m_database->objectStore(name, 0); // FIXME: remove mode param.
+    return m_database->objectStore(name);
 }
 
-bool IDBTransactionBackendImpl::scheduleTask(PassOwnPtr<ScriptExecutionContext::Task> task)
+bool IDBTransactionBackendImpl::scheduleTask(PassOwnPtr<ScriptExecutionContext::Task> task, PassOwnPtr<ScriptExecutionContext::Task> abortTask)
 {
-    if (isFinished())
+    if (m_state == Finished)
         return false;
 
     m_taskQueue.append(task);
-    if (m_state == NotStarted)
+    if (abortTask)
+        m_abortTaskQueue.prepend(abortTask);
+
+    if (m_state == Unused)
         start();
 
     return true;
@@ -73,21 +77,87 @@ bool IDBTransactionBackendImpl::scheduleTask(PassOwnPtr<ScriptExecutionContext::
 
 void IDBTransactionBackendImpl::abort()
 {
-    if (isFinished())
+    if (m_state == Finished)
         return;
 
     m_state = Finished;
+    m_taskTimer.stop();
+    m_taskEventTimer.stop();
     m_transaction->rollback();
+
+    // Run the abort tasks, if any.
+    while (!m_abortTaskQueue.isEmpty()) {
+        OwnPtr<ScriptExecutionContext::Task> task(m_abortTaskQueue.first().release());
+        m_abortTaskQueue.removeFirst();
+        task->performTask(0);
+    }
+
     m_callbacks->onAbort();
     m_database->transactionCoordinator()->didFinishTransaction(this);
 }
 
 void IDBTransactionBackendImpl::didCompleteTaskEvents()
 {
-    ASSERT(m_state == Started);
-    ASSERT(m_pendingEvents);
+    if (m_state == Finished)
+        return;
 
+    ASSERT(m_state == Running);
+    ASSERT(m_pendingEvents);
     m_pendingEvents--;
+
+    if (!m_taskEventTimer.isActive())
+        m_taskEventTimer.startOneShot(0);
+}
+
+void IDBTransactionBackendImpl::run()
+{
+    ASSERT(m_state == StartPending || m_state == Running);
+    ASSERT(!m_taskTimer.isActive());
+
+    m_taskTimer.startOneShot(0);
+}
+
+void IDBTransactionBackendImpl::start()
+{
+    ASSERT(m_state == Unused);
+
+    m_state = StartPending;
+    m_database->transactionCoordinator()->didStartTransaction(this);
+}
+
+void IDBTransactionBackendImpl::commit()
+{
+    ASSERT(m_state == Running);
+
+    m_state = Finished;
+    m_transaction->commit();
+    m_callbacks->onComplete();
+    m_database->transactionCoordinator()->didFinishTransaction(this);
+}
+
+void IDBTransactionBackendImpl::taskTimerFired(Timer<IDBTransactionBackendImpl>*)
+{
+    ASSERT(!m_taskQueue.isEmpty());
+
+    if (m_state == StartPending) {
+        m_transaction->begin();
+        m_state = Running;
+    } else
+        ASSERT(m_state == Running);
+
+    TaskQueue queue;
+    queue.swap(m_taskQueue);
+    while (!queue.isEmpty()) {
+        OwnPtr<ScriptExecutionContext::Task> task(queue.first().release());
+        queue.removeFirst();
+        m_pendingEvents++;
+        task->performTask(0);
+    }
+}
+
+void IDBTransactionBackendImpl::taskEventTimerFired(Timer<IDBTransactionBackendImpl>*)
+{
+    ASSERT(m_state == Running);
 
     if (!m_pendingEvents && m_taskQueue.isEmpty()) {
         // The last task event has completed and the task
@@ -99,49 +169,8 @@ void IDBTransactionBackendImpl::didCompleteTaskEvents()
     // We are still waiting for other events to complete. However,
     // the task queue is non-empty and the timer is inactive.
     // We can therfore schedule the timer again.
-    if (!m_taskQueue.isEmpty() && !m_timer.isActive())
-        m_timer.startOneShot(0);
-}
-
-void IDBTransactionBackendImpl::run()
-{
-    ASSERT(m_state == Started);
-    ASSERT(!m_timer.isActive());
-
-    m_timer.startOneShot(0);
-}
-
-void IDBTransactionBackendImpl::start()
-{
-    ASSERT(m_state == NotStarted);
-
-    m_state = Started;
-    m_transaction->begin();
-    m_database->transactionCoordinator()->didStartTransaction(this);
-}
-
-void IDBTransactionBackendImpl::commit()
-{
-    ASSERT(m_state == Started);
-
-    m_state = Finished;
-    m_transaction->commit();
-    m_database->transactionCoordinator()->didFinishTransaction(this);
-}
-
-void IDBTransactionBackendImpl::timerFired(Timer<IDBTransactionBackendImpl>*)
-{
-    ASSERT(!m_taskQueue.isEmpty());
-    ASSERT(m_state == Started);
-
-    TaskQueue queue;
-    queue.swap(m_taskQueue);
-    while (!queue.isEmpty()) {
-        OwnPtr<ScriptExecutionContext::Task> task(queue.first().release());
-        queue.removeFirst();
-        m_pendingEvents++;
-        task->performTask(0);
-    }
+    if (!m_taskQueue.isEmpty() && !m_taskTimer.isActive())
+        m_taskTimer.startOneShot(0);
 }
 
 };

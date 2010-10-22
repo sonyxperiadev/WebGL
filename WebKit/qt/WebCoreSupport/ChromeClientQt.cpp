@@ -566,7 +566,7 @@ void ChromeClientQt::setCursor(const Cursor& cursor)
         return;
     pageClient->setCursor(*cursor.platformCursor());
 #else
-    UNUSED_PARAM(cursor)
+    UNUSED_PARAM(cursor);
 #endif
 }
 
@@ -642,7 +642,7 @@ QWebSelectMethod* ChromeClientQt::createSelectPopup() const
 #endif
 }
 
-void ChromeClientQt::didReceiveViewportArguments(Frame* frame, const ViewportArguments& arguments) const
+void ChromeClientQt::dispatchViewportDataDidChange(const ViewportArguments&) const
 {
     emit m_webPage->viewportChangeRequested();
 }

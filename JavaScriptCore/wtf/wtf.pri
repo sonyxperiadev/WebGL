@@ -6,6 +6,7 @@ SOURCES += \
     wtf/CurrentTime.cpp \
     wtf/DateMath.cpp \
     wtf/dtoa.cpp \
+    wtf/DecimalNumber.cpp \
     wtf/FastMalloc.cpp \
     wtf/HashTable.cpp \
     wtf/MD5.cpp \
@@ -22,6 +23,7 @@ SOURCES += \
     wtf/WTFThreadData.cpp \
     wtf/text/AtomicString.cpp \
     wtf/text/CString.cpp \
+    wtf/text/StringBuilder.cpp \
     wtf/text/StringImpl.cpp \
     wtf/text/StringStatics.cpp \
     wtf/text/WTFString.cpp \

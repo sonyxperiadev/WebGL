@@ -214,6 +214,7 @@ BytecodeGenerator::BytecodeGenerator(ProgramNode* programNode, const Debugger* d
     , m_nextGlobalIndex(-1)
     , m_nextConstantOffset(0)
     , m_globalConstantIndex(0)
+    , m_hasCreatedActivation(true)
     , m_firstLazyFunction(0)
     , m_lastLazyFunction(0)
     , m_globalData(&scopeChain.globalObject()->globalExec()->globalData())
@@ -306,10 +307,14 @@ BytecodeGenerator::BytecodeGenerator(FunctionBodyNode* functionBody, const Debug
     , m_codeType(FunctionCode)
     , m_nextConstantOffset(0)
     , m_globalConstantIndex(0)
+    , m_hasCreatedActivation(false)
     , m_firstLazyFunction(0)
     , m_lastLazyFunction(0)
     , m_globalData(&scopeChain.globalObject()->globalExec()->globalData())
     , m_lastOpcodeID(op_end)
+#ifndef NDEBUG
+    , m_lastOpcodePosition(0)
+#endif
     , m_emitNodeDepth(0)
     , m_usesExceptions(false)
     , m_regeneratingForExceptionInfo(false)
@@ -319,13 +324,13 @@ BytecodeGenerator::BytecodeGenerator(FunctionBodyNode* functionBody, const Debug
         m_codeBlock->setNeedsFullScopeChain(true);
 
     codeBlock->setGlobalData(m_globalData);
-
+    
+    emitOpcode(op_enter);
     if (m_codeBlock->needsFullScopeChain()) {
         m_activationRegister = addVar();
-        emitOpcode(op_enter_with_activation);
-        instructions().append(m_activationRegister->index());
-    } else
-        emitOpcode(op_enter);
+        emitInitLazyRegister(m_activationRegister);
+        m_codeBlock->setActivationRegister(m_activationRegister->index());
+    }
 
     // Both op_tear_off_activation and op_tear_off_arguments tear off the 'arguments'
     // object, if created.
@@ -341,6 +346,11 @@ BytecodeGenerator::BytecodeGenerator(FunctionBodyNode* functionBody, const Debug
 
         emitInitLazyRegister(argumentsRegister);
         emitInitLazyRegister(unmodifiedArgumentsRegister);
+        
+        if (m_codeBlock->isStrictMode()) {
+            emitOpcode(op_create_arguments);
+            instructions().append(argumentsRegister->index());
+        }
 
         // The debugger currently retrieves the arguments object from an activation rather than pulling
         // it from a call frame.  In the long-term it should stop doing that (<rdar://problem/6911886>),
@@ -356,11 +366,17 @@ BytecodeGenerator::BytecodeGenerator(FunctionBodyNode* functionBody, const Debug
 
     // Captured variables and functions go first so that activations don't have
     // to step over the non-captured locals to mark them.
+    m_hasCreatedActivation = false;
     if (functionBody->hasCapturedVariables()) {
         for (size_t i = 0; i < functionStack.size(); ++i) {
             FunctionBodyNode* function = functionStack[i];
             const Identifier& ident = function->ident();
             if (functionBody->captures(ident)) {
+                if (!m_hasCreatedActivation) {
+                    m_hasCreatedActivation = true;
+                    emitOpcode(op_create_activation);
+                    instructions().append(m_activationRegister->index());
+                }
                 m_functions.add(ident.impl());
                 emitNewFunction(addVar(ident, false), function);
             }
@@ -371,7 +387,13 @@ BytecodeGenerator::BytecodeGenerator(FunctionBodyNode* functionBody, const Debug
                 addVar(ident, varStack[i].second & DeclarationStacks::IsConstant);
         }
     }
-    bool canLazilyCreateFunctions = !functionBody->needsActivationForMoreThanVariables();
+    bool canLazilyCreateFunctions = !functionBody->needsActivationForMoreThanVariables() && !debugger;
+    if (!canLazilyCreateFunctions && !m_hasCreatedActivation) {
+        m_hasCreatedActivation = true;
+        emitOpcode(op_create_activation);
+        instructions().append(m_activationRegister->index());
+    }
+
     codeBlock->m_numCapturedVars = codeBlock->m_numVars;
     m_firstLazyFunction = codeBlock->m_numVars;
     for (size_t i = 0; i < functionStack.size(); ++i) {
@@ -399,7 +421,6 @@ BytecodeGenerator::BytecodeGenerator(FunctionBodyNode* functionBody, const Debug
     
     if (debugger)
         codeBlock->m_numCapturedVars = codeBlock->m_numVars;
-        
 
     FunctionParameters& parameters = *functionBody->parameters();
     size_t parameterCount = parameters.size();
@@ -429,7 +450,10 @@ BytecodeGenerator::BytecodeGenerator(FunctionBodyNode* functionBody, const Debug
         instructions().append(m_thisRegister.index());
         instructions().append(funcProto->index());
     } else if (functionBody->usesThis() || m_shouldEmitDebugHooks) {
-        emitOpcode(op_convert_this);
+        if (codeBlock->isStrictMode())
+            emitOpcode(op_convert_this_strict);
+        else
+            emitOpcode(op_convert_this);
         instructions().append(m_thisRegister.index());
     }
 }
@@ -448,10 +472,14 @@ BytecodeGenerator::BytecodeGenerator(EvalNode* evalNode, const Debugger* debugge
     , m_codeType(EvalCode)
     , m_nextConstantOffset(0)
     , m_globalConstantIndex(0)
+    , m_hasCreatedActivation(true)
     , m_firstLazyFunction(0)
     , m_lastLazyFunction(0)
     , m_globalData(&scopeChain.globalObject()->globalExec()->globalData())
     , m_lastOpcodeID(op_end)
+#ifndef NDEBUG
+    , m_lastOpcodePosition(0)
+#endif
     , m_emitNodeDepth(0)
     , m_usesExceptions(false)
     , m_regeneratingForExceptionInfo(false)
@@ -1249,11 +1277,38 @@ RegisterID* BytecodeGenerator::emitResolveBase(RegisterID* dst, const Identifier
         emitOpcode(op_resolve_base);
         instructions().append(dst->index());
         instructions().append(addConstant(property));
+        instructions().append(false);
         return dst;
     }
 
     // Global object is the base
     return emitLoad(dst, JSValue(globalObject));
+}
+
+RegisterID* BytecodeGenerator::emitResolveBaseForPut(RegisterID* dst, const Identifier& property)
+{
+    if (!m_codeBlock->isStrictMode())
+        return emitResolveBase(dst, property);
+    size_t depth = 0;
+    int index = 0;
+    JSObject* globalObject = 0;
+    bool requiresDynamicChecks = false;
+    findScopedProperty(property, index, depth, false, requiresDynamicChecks, globalObject);
+    if (!globalObject || requiresDynamicChecks) {
+        // We can't optimise at all :-(
+        emitOpcode(op_resolve_base);
+        instructions().append(dst->index());
+        instructions().append(addConstant(property));
+        instructions().append(true);
+        return dst;
+    }
+    
+    // Global object is the base
+    RefPtr<RegisterID> result = emitLoad(dst, JSValue(globalObject));
+    emitOpcode(op_ensure_property_exists);
+    instructions().append(dst->index());
+    instructions().append(addConstant(property));
+    return result.get();
 }
 
 RegisterID* BytecodeGenerator::emitResolveWithBase(RegisterID* baseDst, RegisterID* propDst, const Identifier& property)
@@ -1504,6 +1559,7 @@ RegisterID* BytecodeGenerator::emitLazyNewFunction(RegisterID* dst, FunctionBody
 
 RegisterID* BytecodeGenerator::emitNewFunctionInternal(RegisterID* dst, unsigned index, bool doNullCheck)
 {
+    createActivationIfNecessary();
     emitOpcode(op_new_func);
     instructions().append(dst->index());
     instructions().append(index);
@@ -1523,7 +1579,8 @@ RegisterID* BytecodeGenerator::emitNewFunctionExpression(RegisterID* r0, FuncExp
 {
     FunctionBodyNode* function = n->body();
     unsigned index = m_codeBlock->addFunctionExpr(makeFunction(m_globalData, function));
-
+    
+    createActivationIfNecessary();
     emitOpcode(op_new_func_exp);
     instructions().append(r0->index());
     instructions().append(index);
@@ -1541,8 +1598,24 @@ void BytecodeGenerator::createArgumentsIfNecessary()
         return;
     ASSERT(m_codeBlock->usesArguments());
 
+    // If we're in strict mode we tear off the arguments on function
+    // entry, so there's no need to check if we need to create them
+    // now
+    if (m_codeBlock->isStrictMode())
+        return;
+
     emitOpcode(op_create_arguments);
     instructions().append(m_codeBlock->argumentsRegister());
+}
+
+void BytecodeGenerator::createActivationIfNecessary()
+{
+    if (m_hasCreatedActivation)
+        return;
+    if (!m_codeBlock->needsFullScopeChain())
+        return;
+    emitOpcode(op_create_activation);
+    instructions().append(m_activationRegister->index());
 }
 
 RegisterID* BytecodeGenerator::emitCallEval(RegisterID* dst, RegisterID* func, CallArguments& callArguments, unsigned divot, unsigned startOffset, unsigned endOffset)
@@ -1648,7 +1721,8 @@ RegisterID* BytecodeGenerator::emitReturn(RegisterID* src)
         emitOpcode(op_tear_off_activation);
         instructions().append(m_activationRegister->index());
         instructions().append(m_codeBlock->argumentsRegister());
-    } else if (m_codeBlock->usesArguments() && m_codeBlock->m_numParameters > 1) { // If there are no named parameters, there's nothing to tear off, since extra / unnamed parameters get copied to the arguments object at construct time.
+    } else if (m_codeBlock->usesArguments() && m_codeBlock->m_numParameters > 1
+               && !m_codeBlock->isStrictMode()) { // If there are no named parameters, there's nothing to tear off, since extra / unnamed parameters get copied to the arguments object at construct time.
         emitOpcode(op_tear_off_arguments);
         instructions().append(m_codeBlock->argumentsRegister());
     }

@@ -33,15 +33,20 @@
 #include "IDBCursorBackendInterface.h"
 #include "IDBKey.h"
 #include "IDBRequest.h"
+#include "IDBTransactionBackendInterface.h"
 #include "ScriptExecutionContext.h"
 #include "SerializedScriptValue.h"
 
 namespace WebCore {
 
-IDBCursor::IDBCursor(PassRefPtr<IDBCursorBackendInterface> backend, IDBRequest* request)
+IDBCursor::IDBCursor(PassRefPtr<IDBCursorBackendInterface> backend, IDBRequest* request, IDBTransactionBackendInterface* transaction)
     : m_backend(backend)
     , m_request(request)
+    , m_transaction(transaction)
 {
+    ASSERT(m_backend);
+    ASSERT(m_request);
+    ASSERT(m_transaction);
 }
 
 IDBCursor::~IDBCursor()
@@ -63,26 +68,31 @@ PassRefPtr<IDBAny> IDBCursor::value() const
     return m_backend->value();
 }
 
-PassRefPtr<IDBRequest> IDBCursor::update(ScriptExecutionContext* context, PassRefPtr<SerializedScriptValue> value)
+PassRefPtr<IDBRequest> IDBCursor::update(ScriptExecutionContext* context, PassRefPtr<SerializedScriptValue> value, ExceptionCode& ec)
 {
-    RefPtr<IDBRequest> request = IDBRequest::create(context, IDBAny::create(this));
-    m_backend->update(value, request);
+    RefPtr<IDBRequest> request = IDBRequest::create(context, IDBAny::create(this), m_transaction.get());
+    m_backend->update(value, request, ec);
+    if (ec)
+        return 0;
     return request.release();
 }
 
-void IDBCursor::continueFunction(PassRefPtr<IDBKey> key)
+void IDBCursor::continueFunction(PassRefPtr<IDBKey> key, ExceptionCode& ec)
 {
     // FIXME: We're not using the context from when continue was called, which means the callback
     //        will be on the original context openCursor was called on. Is this right?
-    if (m_request->resetReadyState())
-        m_backend->continueFunction(key, m_request);
-    // FIXME: Else throw?
+    if (m_request->resetReadyState(m_transaction.get()))
+        m_backend->continueFunction(key, m_request, ec);
+    else
+        ASSERT_NOT_REACHED();
 }
 
-PassRefPtr<IDBRequest> IDBCursor::remove(ScriptExecutionContext* context)
+PassRefPtr<IDBRequest> IDBCursor::remove(ScriptExecutionContext* context, ExceptionCode& ec)
 {
-    RefPtr<IDBRequest> request = IDBRequest::create(context, IDBAny::create(this));
-    m_backend->remove(request);
+    RefPtr<IDBRequest> request = IDBRequest::create(context, IDBAny::create(this), m_transaction.get());
+    m_backend->remove(request, ec);
+    if (ec)
+        return 0;
     return request.release();
 }
 

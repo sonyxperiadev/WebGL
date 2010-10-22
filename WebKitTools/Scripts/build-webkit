@@ -57,7 +57,7 @@ my $prefixPath;
 my $makeArgs;
 my $startTime = time();
 
-my ($linkPrefetchSupport, $threeDCanvasSupport, $threeDRenderingSupport, $channelMessagingSupport, $clientBasedGeolocationSupport, $databaseSupport, $datagridSupport, $datalistSupport,
+my ($linkPrefetchSupport, $accelerated2dCanvasSupport, $threeDCanvasSupport, $threeDRenderingSupport, $channelMessagingSupport, $clientBasedGeolocationSupport, $databaseSupport, $datagridSupport, $datalistSupport,
     $domStorageSupport, $eventsourceSupport, $filtersSupport, $geolocationSupport, $iconDatabaseSupport, $imageResizerSupport, $indexedDatabaseSupport, $inputSpeechSupport,
     $javaScriptDebuggerSupport, $mathmlSupport, $offlineWebApplicationSupport, $rubySupport, $systemMallocSupport, $sandboxSupport, $sharedWorkersSupport,
     $svgSupport, $svgAnimationSupport, $svgAsImageSupport, $svgDOMObjCBindingsSupport, $svgFontsSupport,
@@ -68,6 +68,9 @@ my ($linkPrefetchSupport, $threeDCanvasSupport, $threeDRenderingSupport, $channe
 my @features = (
     { option => "link-prefetch", desc => "Toggle pre fetching support",
       define => "ENABLE_LINK_PREFETCH", default => 0, value => \$linkPrefetchSupport },
+
+    { option => "accelerated-2d-canvas", desc => "Toggle accelerated 2D canvas support",
+      define => "ENABLE_ACCELERATED_2D_CANVAS", default => 0, value => \$accelerated2dCanvasSupport },
 
     { option => "3d-canvas", desc => "Toggle 3D canvas support",
       define => "ENABLE_3D_CANVAS", default => (isAppleMacWebKit() && !isTiger() && !isLeopard()), value => \$threeDCanvasSupport },
@@ -241,7 +244,7 @@ Usage: $programName [options] [options to pass to build system]
   --help                            Show this help message
   --clean                           Cleanup the build directory
   --debug                           Compile in debug mode
-  --cairo-win32                     Build using Cairo (rather than CoreGraphics) on Windows
+  --wincairo                        Build using Cairo (rather than CoreGraphics) on Windows
   --chromium                        Build the Chromium port on Mac/Win/Linux
   --gtk                             Build the GTK+ port
   --qt                              Build the Qt port

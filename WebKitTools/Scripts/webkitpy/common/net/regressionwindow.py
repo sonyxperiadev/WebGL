@@ -28,10 +28,11 @@
 
 
 class RegressionWindow(object):
-    def __init__(self, build_before_failure, failing_build, common_failures=None):
+    def __init__(self, build_before_failure, failing_build, failing_tests=None):
         self._build_before_failure = build_before_failure
         self._failing_build = failing_build
-        self._common_failures = common_failures
+        self._failing_tests = failing_tests
+        self._revisions = None
 
     def build_before_failure(self):
         return self._build_before_failure
@@ -39,10 +40,12 @@ class RegressionWindow(object):
     def failing_build(self):
         return self._failing_build
 
-    def common_failures(self):
-        return self._common_failures
+    def failing_tests(self):
+        return self._failing_tests
 
     def revisions(self):
-        revisions = range(self._failing_build.revision(), self._build_before_failure.revision(), -1)
-        revisions.reverse()
-        return revisions
+        # Cache revisions to avoid excessive allocations.
+        if not self._revisions:
+            self._revisions = range(self._failing_build.revision(), self._build_before_failure.revision(), -1)
+            self._revisions.reverse()
+        return self._revisions

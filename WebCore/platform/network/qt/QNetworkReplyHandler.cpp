@@ -30,6 +30,7 @@
 #include "ResourceRequest.h"
 #include <QDateTime>
 #include <QFile>
+#include <QFileInfo>
 #include <QNetworkReply>
 #include <QNetworkCookie>
 #include <qwebframe.h>
@@ -59,16 +60,33 @@ FormDataIODevice::FormDataIODevice(FormData* data)
     : m_formElements(data ? data->elements() : Vector<FormDataElement>())
     , m_currentFile(0)
     , m_currentDelta(0)
+    , m_fileSize(0)
+    , m_dataSize(0)
 {
     setOpenMode(FormDataIODevice::ReadOnly);
 
     if (!m_formElements.isEmpty() && m_formElements[0].m_type == FormDataElement::encodedFile)
         openFileForCurrentElement();
+    computeSize();
 }
 
 FormDataIODevice::~FormDataIODevice()
 {
     delete m_currentFile;
+}
+
+qint64 FormDataIODevice::computeSize() 
+{
+    for (int i = 0; i < m_formElements.size(); ++i) {
+        const FormDataElement& element = m_formElements[i];
+        if (element.m_type == FormDataElement::data) 
+            m_dataSize += element.m_data.size();
+        else {
+            QFileInfo fi(element.m_filename);
+            m_fileSize += fi.size();
+        }
+    }
+    return m_dataSize + m_fileSize;
 }
 
 void FormDataIODevice::moveToNextElement()
@@ -137,6 +155,29 @@ bool FormDataIODevice::isSequential() const
     return true;
 }
 
+String QNetworkReplyHandler::httpMethod() const
+{
+    switch (m_method) {
+    case QNetworkAccessManager::GetOperation:
+        return "GET";
+    case QNetworkAccessManager::HeadOperation:
+        return "HEAD";
+    case QNetworkAccessManager::PostOperation:
+        return "POST";
+    case QNetworkAccessManager::PutOperation:
+        return "PUT";
+    case QNetworkAccessManager::DeleteOperation:
+        return "DELETE";
+#if QT_VERSION >= QT_VERSION_CHECK(4, 7, 0)
+    case QNetworkAccessManager::CustomOperation:
+        return m_resourceHandle->firstRequest().httpMethod();
+#endif
+    default:
+        ASSERT_NOT_REACHED();
+        return "GET";
+    }
+}
+
 QNetworkReplyHandler::QNetworkReplyHandler(ResourceHandle* handle, LoadMode loadMode)
     : QObject(0)
     , m_reply(0)
@@ -164,11 +205,12 @@ QNetworkReplyHandler::QNetworkReplyHandler(ResourceHandle* handle, LoadMode load
     else if (r.httpMethod() == "DELETE")
         m_method = QNetworkAccessManager::DeleteOperation;
 #if QT_VERSION >= QT_VERSION_CHECK(4, 7, 0)
-    else if (r.httpMethod() == "OPTIONS")
+    else
         m_method = QNetworkAccessManager::CustomOperation;
-#endif
+#else
     else
         m_method = QNetworkAccessManager::UnknownOperation;
+#endif
 
     QObject* originatingObject = 0;
     if (m_resourceHandle->getInternal()->m_context)
@@ -359,13 +401,17 @@ void QNetworkReplyHandler::sendResponseIfNeeded()
         }
         m_redirected = true;
 
-        ResourceRequest newRequest = m_resourceHandle->firstRequest();
-        newRequest.setURL(newUrl);
 
-        if (((statusCode >= 301 && statusCode <= 303) || statusCode == 307) && newRequest.httpMethod() == "POST") {
+        //  Status Code 301 (Moved Permanently), 302 (Moved Temporarily), 303 (See Other):
+        //    - If original request is POST convert to GET and redirect automatically
+        //  Status Code 307 (Temporary Redirect) and all other redirect status codes:
+        //    - Use the HTTP method from the previous request
+        if ((statusCode >= 301 && statusCode <= 303) && m_resourceHandle->firstRequest().httpMethod() == "POST")
             m_method = QNetworkAccessManager::GetOperation;
-            newRequest.setHTTPMethod("GET");
-        }
+
+        ResourceRequest newRequest = m_resourceHandle->firstRequest();
+        newRequest.setHTTPMethod(httpMethod());
+        newRequest.setURL(newUrl);
 
         // Should not set Referer after a redirect from a secure resource to non-secure one.
         if (!newRequest.url().protocolIs("https") && protocolIs(newRequest.httpReferrer(), "https"))
@@ -453,6 +499,9 @@ void QNetworkReplyHandler::start()
             break;
         case QNetworkAccessManager::PostOperation: {
             FormDataIODevice* postDevice = new FormDataIODevice(d->m_firstRequest.httpBody()); 
+            // We may be uploading files so prevent QNR from buffering data
+            m_request.setHeader(QNetworkRequest::ContentLengthHeader, postDevice->getFormDataSize());
+            m_request.setAttribute(QNetworkRequest::DoNotBufferUploadDataAttribute, QVariant(true));
             m_reply = manager->post(m_request, postDevice);
             postDevice->setParent(m_reply);
             break;
@@ -462,6 +511,9 @@ void QNetworkReplyHandler::start()
             break;
         case QNetworkAccessManager::PutOperation: {
             FormDataIODevice* putDevice = new FormDataIODevice(d->m_firstRequest.httpBody()); 
+            // We may be uploading files so prevent QNR from buffering data
+            m_request.setHeader(QNetworkRequest::ContentLengthHeader, putDevice->getFormDataSize());
+            m_request.setAttribute(QNetworkRequest::DoNotBufferUploadDataAttribute, QVariant(true));
             m_reply = manager->put(m_request, putDevice);
             putDevice->setParent(m_reply);
             break;

@@ -184,6 +184,10 @@ void QWebSettingsPrivate::apply()
                                       global->attributes.value(QWebSettings::JavascriptCanOpenWindows));
         settings->setJavaScriptCanOpenWindowsAutomatically(value);
 
+        value = attributes.value(QWebSettings::JavascriptCanCloseWindows,
+                                      global->attributes.value(QWebSettings::JavascriptCanCloseWindows));
+        settings->setAllowScriptsToCloseWindows(value);
+
         value = attributes.value(QWebSettings::JavaEnabled,
                                       global->attributes.value(QWebSettings::JavaEnabled));
         settings->setJavaEnabled(value);
@@ -389,6 +393,8 @@ QWebSettings* QWebSettings::globalSettings()
         recording visited pages in the history and storing web page icons. This is disabled by default.
     \value JavascriptCanOpenWindows Specifies whether JavaScript programs
         can open new windows. This is disabled by default.
+    \value JavascriptCanCloseWindows Specifies whether JavaScript programs
+        can close windows. This is disabled by default.
     \value JavascriptCanAccessClipboard Specifies whether JavaScript programs
         can read or write to the clipboard. This is disabled by default.
     \value DeveloperExtrasEnabled Enables extra tools for Web developers.
@@ -1076,12 +1082,12 @@ QString QWebSettings::localStoragePath() const
 */
 void QWebSettings::enablePersistentStorage(const QString& path)
 {
+#ifndef QT_NO_DESKTOPSERVICES
     QString storagePath;
 
     if (path.isEmpty()) {
-#ifndef QT_NO_DESKTOPSERVICES
+
         storagePath = QDesktopServices::storageLocation(QDesktopServices::DataLocation);
-#endif
         if (storagePath.isEmpty())
             storagePath = WebCore::pathByAppendingComponent(QDir::homePath(), QCoreApplication::applicationName());
     } else
@@ -1098,11 +1104,17 @@ void QWebSettings::enablePersistentStorage(const QString& path)
     QWebSettings::globalSettings()->setAttribute(QWebSettings::OfflineWebApplicationCacheEnabled, true);
 
 #if ENABLE(NETSCAPE_PLUGIN_METADATA_CACHE)
-    QFileInfo info(storagePath);
+    // All applications can share the common QtWebkit cache file(s).
+    // Path is not configurable and uses QDesktopServices::CacheLocation by default.
+    QString cachePath = QDesktopServices::storageLocation(QDesktopServices::CacheLocation);
+    WebCore::makeAllDirectories(cachePath);
+
+    QFileInfo info(cachePath);
     if (info.isDir() && info.isWritable()) {
         WebCore::PluginDatabase::setPersistentMetadataCacheEnabled(true);
-        WebCore::PluginDatabase::setPersistentMetadataCachePath(storagePath);
+        WebCore::PluginDatabase::setPersistentMetadataCachePath(cachePath);
     }
+#endif
 #endif
 }
 

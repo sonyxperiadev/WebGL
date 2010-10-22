@@ -42,14 +42,16 @@ enum ViewportErrorCode {
     TargetDensityDpiTooSmallOrLargeError
 };
 
-struct ViewportConfiguration {
-    IntSize layoutViewport;
+struct ViewportAttributes {
+    IntSize layoutSize;
 
     float devicePixelRatio;
 
     float initialScale;
     float minimumScale;
     float maximumScale;
+
+    bool userScalable;
 };
 
 struct ViewportArguments {
@@ -83,15 +85,21 @@ struct ViewportArguments {
     float height;
     float targetDensityDpi;
 
-    float userScalable;
+    bool userScalable;
 
-    bool hasCustomArgument() const
+    bool operator==(const ViewportArguments& other) const
     {
-        return initialScale != ValueAuto || minimumScale != ValueAuto || maximumScale != ValueAuto || width != ValueAuto || height != ValueAuto || userScalable != ValueAuto || targetDensityDpi != ValueAuto;
+        return initialScale == other.initialScale
+            && minimumScale == other.minimumScale
+            && maximumScale == other.maximumScale
+            && width == other.width
+            && height == other.height
+            && targetDensityDpi == other.targetDensityDpi
+            && userScalable == other.userScalable;
     }
 };
 
-ViewportConfiguration findConfigurationForViewportData(ViewportArguments args, int desktopWidth, int deviceWidth, int deviceHeight, int deviceDPI, IntSize visibleViewport);
+ViewportAttributes computeViewportAttributes(ViewportArguments args, int desktopWidth, int deviceWidth, int deviceHeight, int deviceDPI, IntSize visibleViewport);
 
 void setViewportFeature(const String& keyString, const String& valueString, Document*, void* data);
 void reportViewportWarning(Document*, ViewportErrorCode, const String& replacement);

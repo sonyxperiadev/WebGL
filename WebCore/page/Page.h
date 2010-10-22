@@ -23,6 +23,7 @@
 
 #include "FrameLoaderTypes.h"
 #include "PlatformString.h"
+#include "ViewportArguments.h"
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
@@ -60,7 +61,6 @@ namespace WebCore {
     class HistoryItem;
     class InspectorClient;
     class InspectorController;
-    class InspectorTimelineAgent;
     class MediaCanStartListener;
     class Node;
     class PageGroup;
@@ -72,6 +72,7 @@ namespace WebCore {
     class VisibleSelection;
     class SelectionController;
     class Settings;
+    class SharedGraphicsContext3D;
     class SpeechInput;
     class SpeechInputClient;
 
@@ -126,6 +127,9 @@ namespace WebCore {
         ~Page();
 
         RenderTheme* theme() const { return m_theme.get(); };
+
+        ViewportArguments viewportArguments() const { return m_viewportArguments; }
+        void updateViewportArguments();
 
         static void refreshPlugins(bool reload);
         PluginData* pluginData() const;
@@ -259,6 +263,8 @@ namespace WebCore {
         static void allVisitedStateChanged(PageGroup*);
         static void visitedStateChanged(PageGroup*, LinkHash visitedHash);
 
+        SharedGraphicsContext3D* sharedGraphicsContext3D();
+
 #if ENABLE(DOM_STORAGE)
         StorageNamespace* sessionStorage(bool optionalCreate = true);
         void setSessionStorage(PassRefPtr<StorageNamespace>);
@@ -282,10 +288,6 @@ namespace WebCore {
         void setJavaScriptURLsAreAllowed(bool);
         bool javaScriptURLsAreAllowed() const;
 
-#if ENABLE(INSPECTOR)
-        InspectorTimelineAgent* inspectorTimelineAgent() const;
-#endif
-
         // Don't allow more than a certain number of frames in a page.
         // This seems like a reasonable upper bound, and otherwise mutually
         // recursive frameset pages can quickly bring the program to its knees
@@ -304,6 +306,11 @@ namespace WebCore {
 
         OwnPtr<Chrome> m_chrome;
         OwnPtr<SelectionController> m_dragCaretController;
+
+#if ENABLE(ACCELERATED_2D_CANVAS)
+        RefPtr<SharedGraphicsContext3D> m_sharedGraphicsContext3D;
+#endif
+        
 #if ENABLE(DRAG_SUPPORT)
         OwnPtr<DragController> m_dragController;
 #endif
@@ -383,6 +390,8 @@ namespace WebCore {
 #endif
 
         ViewMode m_viewMode;
+
+        ViewportArguments m_viewportArguments;
     };
 
 } // namespace WebCore

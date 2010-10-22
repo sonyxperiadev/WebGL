@@ -30,7 +30,7 @@ import re
 
 from google.appengine.api import memcache
 
-from model.queues import queues, name_with_underscores
+from model.queues import Queue
 from model.queuestatus import QueueStatus
 from model.workitems import WorkItems
 
@@ -87,13 +87,12 @@ class Attachment(object):
             return "pending"
         return None
 
-    def position_in_queue(self, queue_name):
-        return self._queue_positions().get(queue_name)
+    def position_in_queue(self, queue):
+        return self._queue_positions().get(queue.name())
 
-    def status_for_queue(self, queue_name):
-        underscore_queue_name = name_with_underscores(queue_name)
+    def status_for_queue(self, queue):
         # summary() is a horrible API and should be killed.
-        queue_summary = self.summary().get(underscore_queue_name)
+        queue_summary = self.summary().get(queue.name_with_underscores())
         if not queue_summary:
             return None
         return queue_summary.get("status")
@@ -109,16 +108,8 @@ class Attachment(object):
         return self._cached_queue_positions
 
     def _calculate_queue_positions(self):
-        queue_positions = {}
-        for work_items in WorkItems.all().fetch(limit=len(queues)):
-            queue_name = str(work_items.queue_name)
-            try:
-                position = work_items.item_ids.index(self.id)
-                # Display 1-based indecies to the user.
-                queue_positions[queue_name] = position + 1
-            except ValueError, e:
-                queue_positions[queue_name] = None
-        return queue_positions
+        all_work_items = WorkItems.all().fetch(limit=len(Queue.all()))
+        return dict([(items.queue.name(), items.display_position_for_attachment(self.id)) for items in all_work_items])
 
     # FIXME: This is controller/view code and does not belong in a model.
     def _fetch_summary(self):
@@ -130,11 +121,12 @@ class Attachment(object):
             return summary
         summary["bug_id"] = first_status.active_bug_id
 
-        for queue in queues:
-            summary[queue] = None
-            status = QueueStatus.all().filter('queue_name =', queue).filter('active_patch_id =', self.id).order('-date').get()
+        for queue in Queue.all():
+            summary[queue.name_with_underscores()] = None
+            status = QueueStatus.all().filter('queue_name =', queue.name()).filter('active_patch_id =', self.id).order('-date').get()
             if status:
-                summary[name_with_underscores(queue)] = {
+                # summary() is a horrible API and should be killed.
+                summary[queue.name_with_underscores()] = {
                     "state": self.state_from_queue_status(status),
                     "status": status,
                 }

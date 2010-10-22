@@ -67,6 +67,7 @@ private slots:
 private:
     void start();
     void resetState();
+    String httpMethod() const;
 
     QNetworkReply* m_reply;
     ResourceHandle* m_resourceHandle;
@@ -97,6 +98,7 @@ public:
     ~FormDataIODevice();
 
     bool isSequential() const;
+    qint64 getFormDataSize() const { return m_fileSize + m_dataSize; }
 
 protected:
     qint64 readData(char*, qint64);
@@ -104,12 +106,15 @@ protected:
 
 private:
     void moveToNextElement();
+    qint64 computeSize();
     void openFileForCurrentElement();
 
 private:
     Vector<FormDataElement> m_formElements;
     QFile* m_currentFile;
     qint64 m_currentDelta;
+    qint64 m_fileSize;
+    qint64 m_dataSize;
 };
 
 }

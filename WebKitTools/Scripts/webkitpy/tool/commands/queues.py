@@ -27,6 +27,9 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import with_statement
+
+import codecs
 import time
 import traceback
 import os
@@ -36,16 +39,17 @@ from optparse import make_option
 from StringIO import StringIO
 
 from webkitpy.common.net.bugzilla import CommitterValidator
+from webkitpy.common.net.layouttestresults import path_for_layout_test, LayoutTestResults
 from webkitpy.common.net.statusserver import StatusServer
 from webkitpy.common.system.executive import ScriptError
 from webkitpy.common.system.deprecated_logging import error, log
 from webkitpy.tool.commands.stepsequence import StepSequenceErrorHandler
-from webkitpy.tool.bot.commitqueuetask import CommitQueueTask
-from webkitpy.tool.bot.feeders import CommitQueueFeeder
-from webkitpy.tool.bot.patchcollection import PersistentPatchCollection, PersistentPatchCollectionDelegate
+from webkitpy.tool.bot.commitqueuetask import CommitQueueTask, CommitQueueTaskDelegate
+from webkitpy.tool.bot.feeders import CommitQueueFeeder, EWSFeeder
 from webkitpy.tool.bot.queueengine import QueueEngine, QueueEngineDelegate
 from webkitpy.tool.grammar import pluralize
 from webkitpy.tool.multicommandtool import Command, TryAgain
+
 
 class AbstractQueue(Command, QueueEngineDelegate):
     watchers = [
@@ -78,6 +82,10 @@ class AbstractQueue(Command, QueueEngineDelegate):
         # because our global option code looks for the first argument which does
         # not begin with "-" and assumes that is the command name.
         webkit_patch_args += ["--status-host=%s" % self._tool.status_server.host]
+        if self._tool.status_server.bot_id:
+            webkit_patch_args += ["--bot-id=%s" % self._tool.status_server.bot_id]
+        if self._options.port:
+            webkit_patch_args += ["--port=%s" % self._options.port]
         webkit_patch_args.extend(args)
         return self._tool.executive.run_and_throw_if_fail(webkit_patch_args)
 
@@ -94,7 +102,7 @@ class AbstractQueue(Command, QueueEngineDelegate):
 
     def begin_work_queue(self):
         log("CAUTION: %s will discard all local changes in \"%s\"" % (self.name, self._tool.scm().checkout_root))
-        if self.options.confirm:
+        if self._options.confirm:
             response = self._tool.user.prompt("Are you sure?  Type \"yes\" to continue: ")
             if (response != "yes"):
                 error("User declined.")
@@ -106,7 +114,7 @@ class AbstractQueue(Command, QueueEngineDelegate):
 
     def should_continue_work_queue(self):
         self._iteration_count += 1
-        return not self.options.iterations or self._iteration_count <= self.options.iterations
+        return not self._options.iterations or self._iteration_count <= self._options.iterations
 
     def next_work_item(self):
         raise NotImplementedError, "subclasses must implement"
@@ -123,7 +131,7 @@ class AbstractQueue(Command, QueueEngineDelegate):
     # Command methods
 
     def execute(self, options, args, tool, engine=QueueEngine):
-        self.options = options  # FIXME: This code is wrong.  Command.options is a list, this assumes an Options element!
+        self._options = options # FIXME: This code is wrong.  Command.options is a list, this assumes an Options element!
         self._tool = tool  # FIXME: This code is wrong too!  Command.bind_to_tool handles this!
         return engine(self.name, self, self._tool.wakeup_event).run()
 
@@ -159,6 +167,7 @@ class FeederQueue(AbstractQueue):
         AbstractQueue.begin_work_queue(self)
         self.feeders = [
             CommitQueueFeeder(self._tool),
+            EWSFeeder(self._tool),
         ]
 
     def next_work_item(self):
@@ -190,6 +199,9 @@ class AbstractPatchQueue(AbstractQueue):
     def _fetch_next_work_item(self):
         return self._tool.status_server.next_work_item(self.name)
 
+    def _release_work_item(self, patch):
+        self._tool.status_server.release_work_item(self.name, patch)
+
     def _did_pass(self, patch):
         self._update_status(self._pass_status, patch)
 
@@ -207,7 +219,7 @@ class AbstractPatchQueue(AbstractQueue):
         return os.path.join(self._log_directory(), "%s.log" % patch.bug_id())
 
 
-class CommitQueue(AbstractPatchQueue, StepSequenceErrorHandler):
+class CommitQueue(AbstractPatchQueue, StepSequenceErrorHandler, CommitQueueTaskDelegate):
     name = "commit-queue"
 
     # AbstractPatchQueue methods
@@ -229,7 +241,7 @@ class CommitQueue(AbstractPatchQueue, StepSequenceErrorHandler):
 
     def process_work_item(self, patch):
         self._cc_watchers(patch.bug_id())
-        task = CommitQueueTask(self._tool, self, patch)
+        task = CommitQueueTask(self, patch)
         try:
             if task.run():
                 self._did_pass(patch)
@@ -239,9 +251,21 @@ class CommitQueue(AbstractPatchQueue, StepSequenceErrorHandler):
             validator = CommitterValidator(self._tool.bugs)
             validator.reject_patch_from_commit_queue(patch.id(), self._error_message_for_bug(task.failure_status_id, e))
             self._did_fail(patch)
+        self._release_work_item(patch)
+
+    def _error_message_for_bug(self, status_id, script_error):
+        if not script_error.output:
+            return script_error.message_with_output()
+        results_link = self._tool.status_server.results_url_for_status(status_id)
+        return "%s\nFull output: %s" % (script_error.message_with_output(), results_link)
 
     def handle_unexpected_error(self, patch, message):
         self.committer_validator.reject_patch_from_commit_queue(patch.id(), message)
+
+    # CommitQueueTaskDelegate methods
+
+    def run_command(self, command):
+        self.run_webkit_patch(command)
 
     def command_passed(self, message, patch):
         self._update_status(message, patch=patch)
@@ -250,11 +274,36 @@ class CommitQueue(AbstractPatchQueue, StepSequenceErrorHandler):
         failure_log = self._log_from_script_error_for_upload(script_error)
         return self._update_status(message, patch=patch, results_file=failure_log)
 
-    def _error_message_for_bug(self, status_id, script_error):
-        if not script_error.output:
-            return script_error.message_with_output()
-        results_link = self._tool.status_server.results_url_for_status(status_id)
-        return "%s\nFull output: %s" % (script_error.message_with_output(), results_link)
+    # FIXME: This exists for mocking, but should instead be mocked via
+    # some sort of tool.filesystem() object.
+    def _read_file_contents(self, path):
+        try:
+            with codecs.open(path, "r", "utf-8") as open_file:
+                return open_file.read()
+        except OSError, e:  # File does not exist or can't be read.
+            return None
+
+    # FIXME: This may belong on the Port object.
+    def layout_test_results(self):
+        results_path = self._tool.port().layout_tests_results_path()
+        results_html = self._read_file_contents(results_path)
+        if not results_html:
+            return None
+        return LayoutTestResults.results_from_string(results_html)
+
+    def refetch_patch(self, patch):
+        return self._tool.bugs.fetch_attachment(patch.id())
+
+    def _author_emails_for_tests(self, flaky_tests):
+        test_paths = map(path_for_layout_test, flaky_tests)
+        commit_infos = self._tool.checkout().recent_commit_infos_for_files(test_paths)
+        return [commit_info.author().bugzilla_email() for commit_info in commit_infos if commit_info.author()]
+
+    def report_flaky_tests(self, patch, flaky_tests):
+        authors = self._author_emails_for_tests(flaky_tests)
+        cc_explaination = "  The author(s) of the test(s) have been CCed on this bug." if authors else ""
+        message = "The %s encountered the following flaky tests while processing attachment %s:\n\n%s\n\nPlease file bugs against the tests.%s  The commit-queue is continuing to process your patch." % (self.name, patch.id(), "\n".join(flaky_tests), cc_explaination)
+        self._tool.bugs.post_comment_to_bug(patch.bug_id(), message, cc=authors)
 
     # StepSequenceErrorHandler methods
 
@@ -278,6 +327,7 @@ class CommitQueue(AbstractPatchQueue, StepSequenceErrorHandler):
         raise TryAgain()
 
 
+# FIXME: All the Rietveld code is no longer used and should be deleted.
 class RietveldUploadQueue(AbstractPatchQueue, StepSequenceErrorHandler):
     name = "rietveld-upload-queue"
 
@@ -323,40 +373,27 @@ class RietveldUploadQueue(AbstractPatchQueue, StepSequenceErrorHandler):
         cls._reject_patch(tool, state["patch"].id())
 
 
-class AbstractReviewQueue(AbstractPatchQueue, PersistentPatchCollectionDelegate, StepSequenceErrorHandler):
+class AbstractReviewQueue(AbstractPatchQueue, StepSequenceErrorHandler):
+    """This is the base-class for the EWS queues and the style-queue."""
     def __init__(self, options=None):
         AbstractPatchQueue.__init__(self, options)
 
     def review_patch(self, patch):
-        raise NotImplementedError, "subclasses must implement"
-
-    # PersistentPatchCollectionDelegate methods
-
-    def collection_name(self):
-        return self.name
-
-    def fetch_potential_patch_ids(self):
-        return self._tool.bugs.queries.fetch_attachment_ids_from_review_queue()
-
-    def status_server(self):
-        return self._tool.status_server
-
-    def is_terminal_status(self, status):
-        return status == "Pass" or status == "Fail" or status.startswith("Error:")
+        raise NotImplementedError("subclasses must implement")
 
     # AbstractPatchQueue methods
 
     def begin_work_queue(self):
         AbstractPatchQueue.begin_work_queue(self)
-        self._patches = PersistentPatchCollection(self)
 
     def next_work_item(self):
-        patch_id = self._patches.next()
-        if patch_id:
-            return self._tool.bugs.fetch_attachment(patch_id)
+        patch_id = self._fetch_next_work_item()
+        if not patch_id:
+            return None
+        return self._tool.bugs.fetch_attachment(patch_id)
 
     def should_proceed_with_work_item(self, patch):
-        raise NotImplementedError, "subclasses must implement"
+        raise NotImplementedError("subclasses must implement")
 
     def process_work_item(self, patch):
         try:
@@ -368,6 +405,8 @@ class AbstractReviewQueue(AbstractPatchQueue, PersistentPatchCollectionDelegate,
             if e.exit_code != QueueEngine.handled_error_code:
                 self._did_fail(patch)
             raise e
+        finally:
+            self._release_work_item(patch)
 
     def handle_unexpected_error(self, patch, message):
         log(message)

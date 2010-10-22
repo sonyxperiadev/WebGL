@@ -35,11 +35,11 @@ import urllib2
 import xmlrpclib
 
 from webkitpy.common.net.failuremap import FailureMap
+from webkitpy.common.net.layouttestresults import LayoutTestResults
 from webkitpy.common.net.regressionwindow import RegressionWindow
 from webkitpy.common.system.logutils import get_logger
 from webkitpy.thirdparty.autoinstalled.mechanize import Browser
 from webkitpy.thirdparty.BeautifulSoup import BeautifulSoup
-
 
 _log = get_logger(__file__)
 
@@ -108,6 +108,7 @@ class Builder(object):
 
     def _fetch_revision_to_build_map(self):
         # All _fetch requests go through _buildbot for easier mocking
+        # FIXME: This should use NetworkTransaction's 404 handling instead.
         try:
             # FIXME: This method is horribly slow due to the huge network load.
             # FIXME: This is a poor way to do revision -> build mapping.
@@ -166,22 +167,23 @@ class Builder(object):
                 failures = set(results.failing_tests())
                 if common_failures == None:
                     common_failures = failures
-                common_failures = common_failures.intersection(failures)
-                if not common_failures:
-                    # current_build doesn't have any failures in common with
-                    # the red build we're worried about.  We assume that any
-                    # failures in current_build were due to flakiness.
-                    break
+                else:
+                    common_failures = common_failures.intersection(failures)
+                    if not common_failures:
+                        # current_build doesn't have any failures in common with
+                        # the red build we're worried about.  We assume that any
+                        # failures in current_build were due to flakiness.
+                        break
             look_back_count += 1
             if look_back_count > look_back_limit:
-                return RegressionWindow(None, current_build, common_failures=common_failures)
+                return RegressionWindow(None, current_build, failing_tests=common_failures)
             build_after_current_build = current_build
             current_build = current_build.previous_build()
         # We must iterate at least once because red_build is red.
         assert(build_after_current_build)
         # Current build must either be green or have no failures in common
         # with red build, so we've found our failure transition.
-        return RegressionWindow(current_build, build_after_current_build, common_failures=common_failures)
+        return RegressionWindow(current_build, build_after_current_build, failing_tests=common_failures)
 
     def find_blameworthy_regression_window(self, red_build_number, look_back_limit=30, avoid_flakey_tests=True):
         red_build = self.build(red_build_number)
@@ -193,66 +195,6 @@ class Builder(object):
         if avoid_flakey_tests and regression_window.failing_build() == red_build:
             return None
         return regression_window
-
-
-# FIXME: This should be unified with all the layout test results code in the layout_tests package
-class LayoutTestResults(object):
-    stderr_key = u'Tests that had stderr output:'
-    fail_key = u'Tests where results did not match expected results:'
-    timeout_key = u'Tests that timed out:'
-    crash_key = u'Tests that caused the DumpRenderTree tool to crash:'
-    missing_key = u'Tests that had no expected results (probably new):'
-
-    expected_keys = [
-        stderr_key,
-        fail_key,
-        crash_key,
-        timeout_key,
-        missing_key,
-    ]
-
-    @classmethod
-    def _parse_results_html(cls, page):
-        parsed_results = {}
-        tables = BeautifulSoup(page).findAll("table")
-        for table in tables:
-            table_title = unicode(table.findPreviousSibling("p").string)
-            if table_title not in cls.expected_keys:
-                # This Exception should only ever be hit if run-webkit-tests changes its results.html format.
-                raise Exception("Unhandled title: %s" % table_title)
-            # We might want to translate table titles into identifiers before storing.
-            parsed_results[table_title] = [unicode(row.find("a").string) for row in table.findAll("tr")]
-
-        return parsed_results
-
-    @classmethod
-    def _fetch_results_html(cls, base_url):
-        results_html = "%s/results.html" % base_url
-        # FIXME: We need to move this sort of 404 logic into NetworkTransaction or similar.
-        try:
-            page = urllib2.urlopen(results_html)
-            return cls._parse_results_html(page)
-        except urllib2.HTTPError, error:
-            if error.code != 404:
-                raise
-
-    @classmethod
-    def results_from_url(cls, base_url):
-        parsed_results = cls._fetch_results_html(base_url)
-        if not parsed_results:
-            return None
-        return cls(base_url, parsed_results)
-
-    def __init__(self, base_url, parsed_results):
-        self._base_url = base_url
-        self._parsed_results = parsed_results
-
-    def parsed_results(self):
-        return self._parsed_results
-
-    def failing_tests(self):
-        failing_keys = [self.fail_key, self.crash_key, self.timeout_key]
-        return sorted(sum([tests for key, tests in self._parsed_results.items() if key in failing_keys], []))
 
 
 class Build(object):
@@ -274,9 +216,19 @@ class Build(object):
         results_directory = "r%s (%s)" % (self.revision(), self._number)
         return "%s/%s" % (self._builder.results_url(), urllib.quote(results_directory))
 
+    def _fetch_results_html(self):
+        results_html = "%s/results.html" % (self.results_url())
+        # FIXME: This should use NetworkTransaction's 404 handling instead.
+        try:
+            return urllib2.urlopen(results_html)
+        except urllib2.HTTPError, error:
+            if error.code != 404:
+                raise
+
     def layout_test_results(self):
         if not self._layout_test_results:
-            self._layout_test_results = LayoutTestResults.results_from_url(self.results_url())
+            # FIXME: This should cache that the result was a 404 and stop hitting the network.
+            self._layout_test_results = LayoutTestResults.results_from_string(self._fetch_results_html())
         return self._layout_test_results
 
     def builder(self):
@@ -461,7 +413,8 @@ class BuildBot(object):
                 continue
             builder = self.builder_with_name(builder_status["name"])
             regression_window = builder.find_blameworthy_regression_window(builder_status["build_number"])
-            failure_map.add_regression_window(builder, regression_window)
+            if regression_window:
+                failure_map.add_regression_window(builder, regression_window)
         return failure_map
 
     # This makes fewer requests than calling Builder.latest_build would.  It grabs all builder

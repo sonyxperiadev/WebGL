@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies)
+    Copyright (C) 2009, 2010 Nokia Corporation and/or its subsidiary(-ies)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -180,6 +180,7 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
     if (m_isWindowed)
         return;
 
+    ASSERT(event->keyEvent()->qtEvent());
     QEvent& npEvent = *(event->keyEvent()->qtEvent());
     if (!dispatchNPEvent(npEvent))
         event->setDefaultHandled();
@@ -412,6 +413,7 @@ bool PluginView::platformStart()
         m_npWindow.type = NPWindowTypeDrawable;
         m_npWindow.window = 0; // Not used?
     }    
+    updatePluginWidget();
     setNPWindowIfNeeded();
     
     return true;

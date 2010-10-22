@@ -31,7 +31,6 @@
 #include "config.h"
 #include "V8Location.h"
 
-#include "CSSHelper.h"
 #include "Document.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -283,7 +282,7 @@ v8::Handle<v8::Value> V8Location::reloadCallback(const v8::Arguments& args)
         return v8::Undefined();
 
     if (!protocolIsJavaScript(frame->loader()->url()))
-        frame->redirectScheduler()->scheduleRefresh(processingUserGesture());
+        frame->navigationScheduler()->scheduleRefresh();
     return v8::Undefined();
 }
 

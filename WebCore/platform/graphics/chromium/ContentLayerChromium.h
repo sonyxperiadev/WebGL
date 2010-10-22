@@ -49,7 +49,6 @@ public:
     virtual void updateContents();
     virtual void draw();
     virtual bool drawsContent() { return m_owner && m_owner->drawsContent(); }
-    virtual void setLayerRenderer(LayerRendererChromium*);
 
     // Stores values that are shared between instances of this class that are
     // associated with the same LayerRendererChromium (and hence the same GL
@@ -80,12 +79,17 @@ protected:
     void updateTextureRect(void* pixels, const IntSize& bitmapSize, const IntSize& requiredTextureSize,
                            const IntRect& updateRect, unsigned textureId);
 
-    void cleanupResources();
+    virtual void cleanupResources();
+    bool requiresClippedUpdateRect() const;
 
     unsigned m_contentsTexture;
     IntSize m_allocatedTextureSize;
     bool m_skipsDraw;
 
+private:
+    void calculateClippedUpdateRect(IntRect& dirtyRect, IntRect& drawRect) const;
+    IntRect m_largeLayerDrawRect;
+    IntRect m_largeLayerDirtyRect;
 };
 
 }

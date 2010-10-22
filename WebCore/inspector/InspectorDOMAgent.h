@@ -80,6 +80,14 @@ namespace WebCore {
 
     class InspectorDOMAgent : public EventListener {
     public:
+        struct DOMListener {
+            virtual ~DOMListener()
+            {
+            }
+            virtual void didRemoveDocument(Document*) = 0;
+            virtual void didRemoveDOMNode(Node*) = 0;
+        };
+
         static PassRefPtr<InspectorDOMAgent> create(InspectorCSSStore* cssStore, InspectorFrontend* frontend)
         {
             return adoptRef(new InspectorDOMAgent(cssStore, frontend));
@@ -112,8 +120,6 @@ namespace WebCore {
         void addInspectedNode(long nodeId);
         void performSearch(const String& whitespaceTrimmedQuery, bool runSynchronously);
         void searchCanceled();
-        void setDOMBreakpoint(long nodeId, long type);
-        void removeDOMBreakpoint(long nodeId, long type);
         bool shouldBreakOnNodeInsertion(Node* node, Node* parent, PassRefPtr<InspectorValue>* details);
         bool shouldBreakOnNodeRemoval(Node* node, PassRefPtr<InspectorValue>* details);
         bool shouldBreakOnAttributeModification(Element* element, PassRefPtr<InspectorValue>* details);
@@ -125,7 +131,7 @@ namespace WebCore {
         void getComputedStyle(long nodeId, RefPtr<InspectorValue>* styles);
         void getStyleSheet(long styleSheetId, RefPtr<InspectorObject>* styleSheetObject);
         void getStyleSourceData(long styleId, RefPtr<InspectorObject>* dataObject);
-        void applyStyleText(long styleId, const String& styleText, const String& propertyName, bool* success, RefPtr<InspectorValue>* styleObject, RefPtr<InspectorArray>* changedProperties);
+        void applyStyleText(long styleId, const String& styleText, const String& propertyName, bool* success, RefPtr<InspectorValue>* styleObject);
         void setStyleText(long styleId, const String& cssText, bool* success);
         void setStyleProperty(long styleId, const String& name, const String& value, bool* success);
         void toggleStyleEnabled(long styleId, const String& propertyName, bool disabled, RefPtr<InspectorValue>* styleObject);
@@ -148,6 +154,13 @@ namespace WebCore {
         void pushNodeByPathToFrontend(const String& path, long* nodeId);
         long inspectedNode(unsigned long num);
         void copyNode(long nodeId);
+        const ListHashSet<RefPtr<Document> >& documents() { return m_documents; }
+        void setDOMListener(DOMListener*);
+
+        String documentURLString(Document* document) const;
+
+        String setDOMBreakpoint(long nodeId, long type);
+        void removeDOMBreakpoint(const String& breakpointId);
 
     private:
         void startListening(Document* document);
@@ -164,7 +177,9 @@ namespace WebCore {
 
         bool hasBreakpoint(Node* node, long type);
         void updateSubtreeBreakpoints(Node* root, uint32_t rootMask, bool value);
+        void removeBreakpointsForNode(Node* node);
         PassRefPtr<InspectorValue> descriptionForDOMEvent(Node* target, long breakpointType, bool insertion);
+        String createBreakpointId(long nodeId, long type);
 
         PassRefPtr<InspectorObject> buildObjectForAttributeStyles(Element* element);
         PassRefPtr<InspectorArray> buildArrayForCSSRules(Document* ownerDocument, CSSRuleList*);
@@ -185,7 +200,6 @@ namespace WebCore {
         bool isWhitespace(Node* node);
 
         Document* mainFrameDocument() const;
-        String documentURLString(Document* document) const;
         InspectorCSSStore* cssStore() { return m_cssStore; }
 
         void onMatchJobsTimer(Timer<InspectorDOMAgent>*);
@@ -207,6 +221,7 @@ namespace WebCore {
 
         InspectorCSSStore* m_cssStore;
         InspectorFrontend* m_frontend;
+        DOMListener* m_domListener;
         NodeToIdMap m_documentNodeToIdMap;
         // Owns node mappings for dangling nodes.
         Vector<NodeToIdMap*> m_danglingNodeToIdMaps;
@@ -220,6 +235,8 @@ namespace WebCore {
         HashSet<RefPtr<Node> > m_searchResults;
         Vector<long> m_inspectedNodes;
         HashMap<Node*, uint32_t> m_breakpoints;
+        typedef pair<long, long> Breakpoint;
+        HashMap<String, Breakpoint> m_idToBreakpoint;
     };
 
 #endif

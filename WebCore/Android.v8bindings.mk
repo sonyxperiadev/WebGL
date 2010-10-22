@@ -123,7 +123,12 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8ElementCustom.cpp \
 	bindings/v8/custom/V8EventCustom.cpp \
 	bindings/v8/custom/V8EventSourceConstructor.cpp \
+<<<<<<< HEAD
 	bindings/v8/custom/V8Float32ArrayCustom.cpp \
+=======
+	bindings/v8/custom/V8FileListCustom.cpp \
+    bindings/v8/custom/V8FileReaderCustom.cpp \
+>>>>>>> webkit.org at r70209
 	bindings/v8/custom/V8GeolocationCustom.cpp \
 	bindings/v8/custom/V8HistoryCustom.cpp \
 	bindings/v8/custom/V8HTMLAllCollectionCustom.cpp \

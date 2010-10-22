@@ -181,31 +181,15 @@ bool Font::canReturnFallbackFontsForComplexText()
     return false;
 }
 
-#ifndef GTK_API_VERSION_2
-static void cairo_region_shrink(cairo_region_t* region, int dx, int dy)
-{
-    int nRects = cairo_region_num_rectangles(region);
-    // Clear region.
-    cairo_region_subtract(region, region);
-
-    for (int i = 0; i < nRects; i++) {
-        cairo_rectangle_int_t rect;
-        cairo_region_get_rectangle(region, i, &rect);
-
-        if (rect.width <= 2 * dx || rect.height <= 2 * dy)
-            continue;
-
-        rect.x += dx;
-        rect.y += dy;
-        rect.width -= 2 * dx;
-        rect.height -= 2 * dy;
-        cairo_region_union_rectangle(region, &rect);
-    }
-}
-#endif
-
 void Font::drawComplexText(GraphicsContext* context, const TextRun& run, const FloatPoint& point, int from, int to) const
 {
+#if defined(USE_FREETYPE)
+    if (!primaryFont()->platformData().m_pattern) {
+        drawSimpleText(context, run, point, from, to);
+        return;
+    }
+#endif
+
     cairo_t* cr = context->platformContext();
     cairo_save(cr);
     cairo_translate(cr, point.x(), point.y());
@@ -224,17 +208,13 @@ void Font::drawComplexText(GraphicsContext* context, const TextRun& run, const F
 #else
     cairo_region_t* partialRegion = 0;
 #endif
+
     if (to - from != run.length()) {
         // Clip the region of the run to be rendered
         char* start = g_utf8_offset_to_pointer(utf8, from);
         char* end = g_utf8_offset_to_pointer(start, to - from);
         int ranges[] = {start - utf8, end - utf8};
         partialRegion = gdk_pango_layout_line_get_clip_region(layoutLine, 0, 0, ranges, 1);
-#ifdef GTK_API_VERSION_2
-        gdk_region_shrink(partialRegion, 0, -pixelSize());
-#else
-        cairo_region_shrink(partialRegion, 0, -pixelSize());
-#endif
     }
 
     Color fillColor = context->fillColor();
@@ -290,7 +270,7 @@ void Font::drawComplexText(GraphicsContext* context, const TextRun& run, const F
 
     // Re-enable the platform shadow we disabled earlier
     if (hasShadow)
-        context->setShadow(shadowOffset, shadowBlur, shadowColor, DeviceColorSpace);
+        context->setShadow(shadowOffset, shadowBlur, shadowColor, ColorSpaceDeviceRGB);
 
     // Pango sometimes leaves behind paths we don't want
     cairo_new_path(cr);
@@ -323,8 +303,13 @@ static PangoLayout* getDefaultPangoLayout(const TextRun& run)
     return layout;
 }
 
-float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>* /* fallbackFonts */, GlyphOverflow*) const
+float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>* fallbackFonts, GlyphOverflow* overflow) const
 {
+#if defined(USE_FREETYPE)
+    if (!primaryFont()->platformData().m_pattern)
+        return floatWidthForSimpleText(run, 0, fallbackFonts, overflow);
+#endif
+
     if (run.length() == 0)
         return 0.0f;
 
@@ -345,6 +330,10 @@ float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFon
 
 int Font::offsetForPositionForComplexText(const TextRun& run, float xFloat, bool includePartialGlyphs) const
 {
+#if defined(USE_FREETYPE)
+    if (!primaryFont()->platformData().m_pattern)
+        return offsetForPositionForSimpleText(run, xFloat, includePartialGlyphs);
+#endif
     // FIXME: This truncation is not a problem for HTML, but only affects SVG, which passes floating-point numbers
     // to Font::offsetForPosition(). Bug http://webkit.org/b/40673 tracks fixing this problem.
     int x = static_cast<int>(xFloat);
@@ -369,6 +358,11 @@ int Font::offsetForPositionForComplexText(const TextRun& run, float xFloat, bool
 
 FloatRect Font::selectionRectForComplexText(const TextRun& run, const FloatPoint& point, int h, int from, int to) const
 {
+#if defined(USE_FREETYPE)
+    if (!primaryFont()->platformData().m_pattern)
+        return selectionRectForSimpleText(run, point, h, from, to);
+#endif
+
     PangoLayout* layout = getDefaultPangoLayout(run);
     setPangoAttributes(this, run, layout);
 

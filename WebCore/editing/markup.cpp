@@ -52,6 +52,7 @@
 #include "InlineTextBox.h"
 #include "KURL.h"
 #include "Logging.h"
+#include "MarkupAccumulator.h"
 #include "ProcessingInstruction.h"
 #include "Range.h"
 #include "TextIterator.h"
@@ -91,456 +92,6 @@ private:
     QualifiedName m_name;
     String m_value;
 };
-    
-enum EntityMask {
-    EntityAmp = 0x0001,
-    EntityLt = 0x0002,
-    EntityGt = 0x0004,
-    EntityQuot = 0x0008,
-    EntityNbsp = 0x0010,
-
-    // Non-breaking space needs to be escaped in innerHTML for compatibility reason. See http://trac.webkit.org/changeset/32879
-    // However, we cannot do this in a XML document because it does not have the entity reference defined (See the bug 19215).
-    EntityMaskInCDATA = 0,
-    EntityMaskInPCDATA = EntityAmp | EntityLt | EntityGt,
-    EntityMaskInHTMLPCDATA = EntityMaskInPCDATA | EntityNbsp,
-    EntityMaskInAttributeValue = EntityAmp | EntityLt | EntityGt | EntityQuot,
-    EntityMaskInHTMLAttributeValue = EntityMaskInAttributeValue | EntityNbsp,
-};
-
-struct EntityDescription {
-    UChar entity;
-    const String& reference;
-    EntityMask mask;
-};
-
-static void appendCharactersReplacingEntities(Vector<UChar>& out, const UChar* content, size_t length, EntityMask entityMask)
-{
-    DEFINE_STATIC_LOCAL(const String, ampReference, ("&amp;"));
-    DEFINE_STATIC_LOCAL(const String, ltReference, ("&lt;"));
-    DEFINE_STATIC_LOCAL(const String, gtReference, ("&gt;"));
-    DEFINE_STATIC_LOCAL(const String, quotReference, ("&quot;"));
-    DEFINE_STATIC_LOCAL(const String, nbspReference, ("&nbsp;"));
-
-    static const EntityDescription entityMaps[] = {
-        { '&', ampReference, EntityAmp },
-        { '<', ltReference, EntityLt },
-        { '>', gtReference, EntityGt },
-        { '"', quotReference, EntityQuot },
-        { noBreakSpace, nbspReference, EntityNbsp },
-    };
-
-    size_t positionAfterLastEntity = 0;
-    for (size_t i = 0; i < length; i++) {
-        for (size_t m = 0; m < sizeof(entityMaps) / sizeof(EntityDescription); m++) {
-            if (content[i] == entityMaps[m].entity && entityMaps[m].mask & entityMask) {
-                out.append(content + positionAfterLastEntity, i - positionAfterLastEntity);
-                append(out, entityMaps[m].reference);
-                positionAfterLastEntity = i + 1;
-                break;
-            }
-        }
-    }
-    out.append(content + positionAfterLastEntity, length - positionAfterLastEntity);
-}
-
-typedef HashMap<AtomicStringImpl*, AtomicStringImpl*> Namespaces;
-
-class MarkupAccumulator {
-public:
-    MarkupAccumulator(Vector<Node*>* nodes, EAbsoluteURLs shouldResolveURLs, const Range* range = 0)
-        : m_nodes(nodes)
-        , m_range(range)
-        , m_shouldResolveURLs(shouldResolveURLs)
-    {
-    }
-    virtual ~MarkupAccumulator() {}
-    void appendString(const String&);
-    void appendStartTag(Node*, Namespaces* = 0);
-    void appendEndTag(Node*);
-    virtual String takeResults();
-
-protected:
-    void appendAttributeValue(Vector<UChar>& result, const String& attribute, bool documentIsHTML);
-    void appendQuotedURLAttributeValue(Vector<UChar>& result, const String& urlString);
-    void appendNodeValue(Vector<UChar>& out, const Node*, const Range*, EntityMask);
-    bool shouldAddNamespaceElement(const Element*);
-    bool shouldAddNamespaceAttribute(const Attribute&, Namespaces&);
-    void appendNamespace(Vector<UChar>& result, const AtomicString& prefix, const AtomicString& namespaceURI, Namespaces&);
-    EntityMask entityMaskForText(Text* text) const;
-    virtual void appendText(Vector<UChar>& out, Text*);
-    void appendComment(Vector<UChar>& out, const String& comment);
-    void appendDocumentType(Vector<UChar>& result, const DocumentType*);
-    void appendProcessingInstruction(Vector<UChar>& out, const String& target, const String& data);
-    virtual void appendElement(Vector<UChar>& out, Element*, Namespaces*);
-    void appendOpenTag(Vector<UChar>& out, Element* element, Namespaces*);
-    void appendCloseTag(Vector<UChar>& out, Element* element);
-    void appendAttribute(Vector<UChar>& out, Element* element, const Attribute&, Namespaces*);
-    void appendCDATASection(Vector<UChar>& out, const String& section);
-    void appendStartMarkup(Vector<UChar>& result, const Node*, Namespaces*);
-    bool shouldSelfClose(const Node*);
-    void appendEndMarkup(Vector<UChar>& result, const Node*);
-
-    bool shouldResolveURLs() { return m_shouldResolveURLs == AbsoluteURLs; }
-
-    Vector<Node*>* const m_nodes;
-    const Range* const m_range;
-    Vector<String> m_succeedingMarkup;
-
-private:
-    const bool m_shouldResolveURLs;
-};
-
-void MarkupAccumulator::appendString(const String& string)
-{
-    m_succeedingMarkup.append(string);
-}
-
-void MarkupAccumulator::appendStartTag(Node* node, Namespaces* namespaces)
-{
-    Vector<UChar> markup;
-    appendStartMarkup(markup, node, namespaces);
-    m_succeedingMarkup.append(String::adopt(markup));
-    if (m_nodes)
-        m_nodes->append(node);
-}
-
-void MarkupAccumulator::appendEndTag(Node* node)
-{
-    Vector<UChar> markup;
-    appendEndMarkup(markup, node);
-    m_succeedingMarkup.append(String::adopt(markup));
-}
-
-// FIXME: This is a very inefficient way of accumulating the markup.
-// We're converting results of appendStartMarkup and appendEndMarkup from Vector<UChar> to String
-// and then back to Vector<UChar> and again to String here.
-String MarkupAccumulator::takeResults()
-{
-    size_t length = 0;
-
-    size_t postCount = m_succeedingMarkup.size();
-    for (size_t i = 0; i < postCount; ++i)
-        length += m_succeedingMarkup[i].length();
-
-    Vector<UChar> result;
-    result.reserveInitialCapacity(length);
-
-    for (size_t i = 0; i < postCount; ++i)
-        append(result, m_succeedingMarkup[i]);
-
-    return String::adopt(result);
-}
-
-void MarkupAccumulator::appendAttributeValue(Vector<UChar>& result, const String& attribute, bool documentIsHTML)
-{
-    appendCharactersReplacingEntities(result, attribute.characters(), attribute.length(),
-        documentIsHTML ? EntityMaskInHTMLAttributeValue : EntityMaskInAttributeValue);
-}
-
-void MarkupAccumulator::appendQuotedURLAttributeValue(Vector<UChar>& result, const String& urlString)
-{
-    UChar quoteChar = '\"';
-    String strippedURLString = urlString.stripWhiteSpace();
-    if (protocolIsJavaScript(strippedURLString)) {
-        // minimal escaping for javascript urls
-        if (strippedURLString.contains('"')) {
-            if (strippedURLString.contains('\''))
-                strippedURLString.replace('\"', "&quot;");
-            else
-                quoteChar = '\'';
-        }
-        result.append(quoteChar);
-        append(result, strippedURLString);
-        result.append(quoteChar);
-        return;
-    }
-
-    // FIXME: This does not fully match other browsers. Firefox percent-escapes non-ASCII characters for innerHTML.
-    result.append(quoteChar);
-    appendAttributeValue(result, urlString, false);
-    result.append(quoteChar);
-}
-
-void MarkupAccumulator::appendNodeValue(Vector<UChar>& out, const Node* node, const Range* range, EntityMask entityMask)
-{
-    String str = node->nodeValue();
-    const UChar* characters = str.characters();
-    size_t length = str.length();
-
-    if (range) {
-        ExceptionCode ec;
-        if (node == range->endContainer(ec))
-            length = range->endOffset(ec);
-        if (node == range->startContainer(ec)) {
-            size_t start = range->startOffset(ec);
-            characters += start;
-            length -= start;
-        }
-    }
-
-    appendCharactersReplacingEntities(out, characters, length, entityMask);
-}
-
-bool MarkupAccumulator::shouldAddNamespaceElement(const Element* element)
-{
-    // Don't add namespace attribute if it is already defined for this elem.
-    const AtomicString& prefix = element->prefix();
-    AtomicString attr = !prefix.isEmpty() ? "xmlns:" + prefix : "xmlns";
-    return !element->hasAttribute(attr);
-}
-
-bool MarkupAccumulator::shouldAddNamespaceAttribute(const Attribute& attribute, Namespaces& namespaces)
-{
-    namespaces.checkConsistency();
-
-    // Don't add namespace attributes twice
-    if (attribute.name() == XMLNSNames::xmlnsAttr) {
-        namespaces.set(emptyAtom.impl(), attribute.value().impl());
-        return false;
-    }
-    
-    QualifiedName xmlnsPrefixAttr(xmlnsAtom, attribute.localName(), XMLNSNames::xmlnsNamespaceURI);
-    if (attribute.name() == xmlnsPrefixAttr) {
-        namespaces.set(attribute.localName().impl(), attribute.value().impl());
-        return false;
-    }
-    
-    return true;
-}
-
-void MarkupAccumulator::appendNamespace(Vector<UChar>& result, const AtomicString& prefix, const AtomicString& namespaceURI, Namespaces& namespaces)
-{
-    namespaces.checkConsistency();
-    if (namespaceURI.isEmpty())
-        return;
-        
-    // Use emptyAtoms's impl() for both null and empty strings since the HashMap can't handle 0 as a key
-    AtomicStringImpl* pre = prefix.isEmpty() ? emptyAtom.impl() : prefix.impl();
-    AtomicStringImpl* foundNS = namespaces.get(pre);
-    if (foundNS != namespaceURI.impl()) {
-        namespaces.set(pre, namespaceURI.impl());
-        result.append(' ');
-        append(result, xmlnsAtom.string());
-        if (!prefix.isEmpty()) {
-            result.append(':');
-            append(result, prefix);
-        }
-
-        result.append('=');
-        result.append('"');
-        appendAttributeValue(result, namespaceURI, false);
-        result.append('"');
-    }
-}
-
-EntityMask MarkupAccumulator::entityMaskForText(Text* text) const
-{
-    const QualifiedName* parentName = 0;
-    if (text->parentElement())
-        parentName = &static_cast<Element*>(text->parentElement())->tagQName();
-    
-    if (parentName && (*parentName == scriptTag || *parentName == styleTag || *parentName == xmpTag))
-        return EntityMaskInCDATA;
-
-    return text->document()->isHTMLDocument() ? EntityMaskInHTMLPCDATA : EntityMaskInPCDATA;
-}
-
-void MarkupAccumulator::appendText(Vector<UChar>& out, Text* text)
-{
-    appendNodeValue(out, text, m_range, entityMaskForText(text));
-}
-
-void MarkupAccumulator::appendComment(Vector<UChar>& out, const String& comment)
-{
-    // FIXME: Comment content is not escaped, but XMLSerializer (and possibly other callers) should raise an exception if it includes "-->".
-    append(out, "<!--");
-    append(out, comment);
-    append(out, "-->");
-}
-
-void MarkupAccumulator::appendDocumentType(Vector<UChar>& result, const DocumentType* n)
-{
-    if (n->name().isEmpty())
-        return;
-
-    append(result, "<!DOCTYPE ");
-    append(result, n->name());
-    if (!n->publicId().isEmpty()) {
-        append(result, " PUBLIC \"");
-        append(result, n->publicId());
-        append(result, "\"");
-        if (!n->systemId().isEmpty()) {
-            append(result, " \"");
-            append(result, n->systemId());
-            append(result, "\"");
-        }
-    } else if (!n->systemId().isEmpty()) {
-        append(result, " SYSTEM \"");
-        append(result, n->systemId());
-        append(result, "\"");
-    }
-    if (!n->internalSubset().isEmpty()) {
-        append(result, " [");
-        append(result, n->internalSubset());
-        append(result, "]");
-    }
-    append(result, ">");
-}
-
-void MarkupAccumulator::appendProcessingInstruction(Vector<UChar>& out, const String& target, const String& data)
-{
-    // FIXME: PI data is not escaped, but XMLSerializer (and possibly other callers) this should raise an exception if it includes "?>".
-    append(out, "<?");
-    append(out, target);
-    append(out, " ");
-    append(out, data);
-    append(out, "?>");
-}
-
-void MarkupAccumulator::appendElement(Vector<UChar>& out, Element* element, Namespaces* namespaces)
-{
-    appendOpenTag(out, element, namespaces);
-
-    NamedNodeMap* attributes = element->attributes();
-    unsigned length = attributes->length();
-    for (unsigned int i = 0; i < length; i++)
-        appendAttribute(out, element, *attributes->attributeItem(i), namespaces);
-
-    appendCloseTag(out, element);
-}
-
-void MarkupAccumulator::appendOpenTag(Vector<UChar>& out, Element* element, Namespaces* namespaces)
-{
-    out.append('<');
-    append(out, element->nodeNamePreservingCase());
-    if (!element->document()->isHTMLDocument() && namespaces && shouldAddNamespaceElement(element))
-        appendNamespace(out, element->prefix(), element->namespaceURI(), *namespaces);    
-}
-
-void MarkupAccumulator::appendCloseTag(Vector<UChar>& out, Element* element)
-{
-    if (shouldSelfClose(element)) {
-        if (element->isHTMLElement())
-            out.append(' '); // XHTML 1.0 <-> HTML compatibility.
-        out.append('/');
-    }
-    out.append('>');
-}
-
-void MarkupAccumulator::appendAttribute(Vector<UChar>& out, Element* element, const Attribute& attribute, Namespaces* namespaces)
-{
-    bool documentIsHTML = element->document()->isHTMLDocument();
-
-    out.append(' ');
-
-    if (documentIsHTML)
-        append(out, attribute.name().localName());
-    else
-        append(out, attribute.name().toString());
-
-    out.append('=');
-
-    if (element->isURLAttribute(const_cast<Attribute*>(&attribute))) {
-        // We don't want to complete file:/// URLs because it may contain sensitive information
-        // about the user's system.
-        if (shouldResolveURLs() && !element->document()->url().isLocalFile())
-            appendQuotedURLAttributeValue(out, element->document()->completeURL(attribute.value()).string());
-        else
-            appendQuotedURLAttributeValue(out, attribute.value()); 
-    } else {
-        out.append('\"');
-        appendAttributeValue(out, attribute.value(), documentIsHTML);
-        out.append('\"');
-    }
-
-    if (!documentIsHTML && namespaces && shouldAddNamespaceAttribute(attribute, *namespaces))
-        appendNamespace(out, attribute.prefix(), attribute.namespaceURI(), *namespaces);
-}
-
-void MarkupAccumulator::appendCDATASection(Vector<UChar>& out, const String& section)
-{
-    // FIXME: CDATA content is not escaped, but XMLSerializer (and possibly other callers) should raise an exception if it includes "]]>".
-    append(out, "<![CDATA[");
-    append(out, section);
-    append(out, "]]>");
-}
-
-void MarkupAccumulator::appendStartMarkup(Vector<UChar>& result, const Node* node, Namespaces* namespaces)
-{
-    if (namespaces)
-        namespaces->checkConsistency();
-
-    switch (node->nodeType()) {
-    case Node::TEXT_NODE:
-        appendText(result, static_cast<Text*>(const_cast<Node*>(node)));
-        break;
-    case Node::COMMENT_NODE:
-        appendComment(result, static_cast<const Comment*>(node)->data());
-        break;
-    case Node::DOCUMENT_NODE:
-    case Node::DOCUMENT_FRAGMENT_NODE:
-        break;
-    case Node::DOCUMENT_TYPE_NODE:
-        appendDocumentType(result, static_cast<const DocumentType*>(node));
-        break;
-    case Node::PROCESSING_INSTRUCTION_NODE:
-        appendProcessingInstruction(result, static_cast<const ProcessingInstruction*>(node)->target(), static_cast<const ProcessingInstruction*>(node)->data());
-        break;
-    case Node::ELEMENT_NODE:
-        appendElement(result, static_cast<Element*>(const_cast<Node*>(node)), namespaces);
-        break;
-    case Node::CDATA_SECTION_NODE:
-        appendCDATASection(result, static_cast<const CDATASection*>(node)->data());
-        break;
-    case Node::ATTRIBUTE_NODE:
-    case Node::ENTITY_NODE:
-    case Node::ENTITY_REFERENCE_NODE:
-    case Node::NOTATION_NODE:
-    case Node::XPATH_NAMESPACE_NODE:
-        ASSERT_NOT_REACHED();
-        break;
-    }
-}
-
-static inline bool elementCannotHaveEndTag(const Node *node)
-{
-    if (!node->isHTMLElement())
-        return false;
-
-    // FIXME: ieForbidsInsertHTML may not be the right function to call here
-    // ieForbidsInsertHTML is used to disallow setting innerHTML/outerHTML
-    // or createContextualFragment.  It does not necessarily align with
-    // which elements should be serialized w/o end tags.
-    return static_cast<const HTMLElement*>(node)->ieForbidsInsertHTML();
-}
-
-// Rules of self-closure
-// 1. No elements in HTML documents use the self-closing syntax.
-// 2. Elements w/ children never self-close because they use a separate end tag.
-// 3. HTML elements which do not have a "forbidden" end tag will close with a separate end tag.
-// 4. Other elements self-close.
-bool MarkupAccumulator::shouldSelfClose(const Node* node)
-{
-    if (node->document()->isHTMLDocument())
-        return false;
-    if (node->hasChildNodes())
-        return false;
-    if (node->isHTMLElement() && !elementCannotHaveEndTag(node))
-        return false;
-    return true;
-}
-
-void MarkupAccumulator::appendEndMarkup(Vector<UChar>& result, const Node* node)
-{
-    if (!node->isElementNode() || shouldSelfClose(node) || (!node->hasChildNodes() && elementCannotHaveEndTag(node)))
-        return;
-
-    result.append('<');
-    result.append('/');
-    append(result, static_cast<const Element*>(node)->nodeNamePreservingCase());
-    result.append('>');
-}
 
 static void completeURLs(Node* node, const String& baseURL)
 {
@@ -576,11 +127,14 @@ public:
     , m_shouldAnnotate(shouldAnnotate)
     {
     }
+
+    Node* serializeNodes(Node* startNode, Node* pastEnd);
+    void appendString(const String& s) { return MarkupAccumulator::appendString(s); }
     void wrapWithNode(Node*, bool convertBlocksToInlines = false, RangeFullySelectsNode = DoesFullySelectNode);
     void wrapWithStyleNode(CSSStyleDeclaration*, Document*, bool isBlock = false);
     String takeResults();
 
-protected:
+private:
     virtual void appendText(Vector<UChar>& out, Text*);
     String renderedText(const Node*, const Range*);
     String stringValueForRange(const Node*, const Range*);
@@ -590,7 +144,6 @@ protected:
 
     bool shouldAnnotate() { return m_shouldAnnotate == AnnotateForInterchange; }
 
-private:
     Vector<String> m_reversedPrecedingMarkup;
     const EAnnotateForInterchange m_shouldAnnotate;
 };
@@ -623,29 +176,18 @@ void StyledMarkupAccumulator::wrapWithStyleNode(CSSStyleDeclaration* style, Docu
     openTag.append('\"');
     openTag.append('>');
     m_reversedPrecedingMarkup.append(String::adopt(openTag));
-    m_succeedingMarkup.append(isBlock ? divClose : styleSpanClose);
+    appendString(isBlock ? divClose : styleSpanClose);
 }
 
 String StyledMarkupAccumulator::takeResults()
 {
-    size_t length = 0;
-
-    size_t preCount = m_reversedPrecedingMarkup.size();
-    for (size_t i = 0; i < preCount; ++i)
-        length += m_reversedPrecedingMarkup[i].length();
-
-    size_t postCount = m_succeedingMarkup.size();
-    for (size_t i = 0; i < postCount; ++i)
-        length += m_succeedingMarkup[i].length();
-
     Vector<UChar> result;
-    result.reserveInitialCapacity(length);
+    result.reserveInitialCapacity(totalLength(m_reversedPrecedingMarkup) + length());
 
-    for (size_t i = preCount; i > 0; --i)
+    for (size_t i = m_reversedPrecedingMarkup.size(); i > 0; --i)
         append(result, m_reversedPrecedingMarkup[i - 1]);
 
-    for (size_t i = 0; i < postCount; ++i)
-        append(result, m_succeedingMarkup[i]);
+    concatenateMarkup(result);
 
     return String::adopt(result);
 }
@@ -779,7 +321,7 @@ void StyledMarkupAccumulator::removeExteriorStyles(CSSMutableStyleDeclaration* s
     style->removeProperty(CSSPropertyFloat);
 }
 
-static Node* serializeNodes(StyledMarkupAccumulator& accumulator, Node* startNode, Node* pastEnd)
+Node* StyledMarkupAccumulator::serializeNodes(Node* startNode, Node* pastEnd)
 {
     Vector<Node*> ancestorsToClose;
     Node* next;
@@ -807,11 +349,11 @@ static Node* serializeNodes(StyledMarkupAccumulator& accumulator, Node* startNod
                 next = pastEnd;
         } else {
             // Add the node to the markup if we're not skipping the descendants
-            accumulator.appendStartTag(n);
+            appendStartTag(n);
 
             // If node has no children, close the tag now.
             if (!n->childNodeCount()) {
-                accumulator.appendEndTag(n);
+                appendEndTag(n);
                 lastClosed = n;
             } else {
                 openedTag = true;
@@ -828,22 +370,22 @@ static Node* serializeNodes(StyledMarkupAccumulator& accumulator, Node* startNod
                 if (next != pastEnd && next->isDescendantOf(ancestor))
                     break;
                 // Not at the end of the range, close ancestors up to sibling of next node.
-                accumulator.appendEndTag(ancestor);
+                appendEndTag(ancestor);
                 lastClosed = ancestor;
                 ancestorsToClose.removeLast();
             }
 
             // Surround the currently accumulated markup with markup for ancestors we never opened as we leave the subtree(s) rooted at those ancestors.
-            Node* nextParent = next ? next->parentNode() : 0;
+            ContainerNode* nextParent = next ? next->parentNode() : 0;
             if (next != pastEnd && n != nextParent) {
                 Node* lastAncestorClosedOrSelf = n->isDescendantOf(lastClosed) ? lastClosed : n;
-                for (Node *parent = lastAncestorClosedOrSelf->parent(); parent && parent != nextParent; parent = parent->parentNode()) {
+                for (ContainerNode* parent = lastAncestorClosedOrSelf->parent(); parent && parent != nextParent; parent = parent->parentNode()) {
                     // All ancestors that aren't in the ancestorsToClose list should either be a) unrendered:
                     if (!parent->renderer())
                         continue;
                     // or b) ancestors that we never encountered during a pre-order traversal starting at startNode:
                     ASSERT(startNode->isDescendantOf(parent));
-                    accumulator.wrapWithNode(parent);
+                    wrapWithNode(parent);
                     lastClosed = parent;
                 }
             }
@@ -861,7 +403,7 @@ static Node* ancestorToRetainStructureAndAppearance(Node* commonAncestor)
         return 0;
 
     if (commonAncestorBlock->hasTagName(tbodyTag) || commonAncestorBlock->hasTagName(trTag)) {
-        Node* table = commonAncestorBlock->parentNode();
+        ContainerNode* table = commonAncestorBlock->parentNode();
         while (table && !table->hasTagName(tableTag))
             table = table->parentNode();
 
@@ -1067,11 +609,11 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
 
     Node* specialCommonAncestor = highestAncestorToWrapMarkup(updatedRange.get(), fullySelectedRoot, shouldAnnotate);
 
-    Node* lastClosed = serializeNodes(accumulator, startNode, pastEnd);
+    Node* lastClosed = accumulator.serializeNodes(startNode, pastEnd);
 
     if (specialCommonAncestor && lastClosed) {
         // Also include all of the ancestors of lastClosed up to this special ancestor.
-        for (Node* ancestor = lastClosed->parentNode(); ancestor; ancestor = ancestor->parentNode()) {
+        for (ContainerNode* ancestor = lastClosed->parentNode(); ancestor; ancestor = ancestor->parentNode()) {
             if (ancestor == fullySelectedRoot && !convertBlocksToInlines) {
                 RefPtr<CSSMutableStyleDeclaration> fullySelectedRootStyle = styleFromMatchedRulesAndInlineDecl(fullySelectedRoot);
 
@@ -1106,7 +648,7 @@ String createMarkup(const Range* range, Vector<Node*>* nodes, EAnnotateForInterc
     }
 
     // Add a wrapper span with the styles that all of the nodes in the markup inherit.
-    Node* parentOfLastClosed = lastClosed ? lastClosed->parentNode() : 0;
+    ContainerNode* parentOfLastClosed = lastClosed ? lastClosed->parentNode() : 0;
     if (parentOfLastClosed && parentOfLastClosed->renderer()) {
         RefPtr<CSSMutableStyleDeclaration> style = ApplyStyleCommand::editingStyleAtPosition(Position(parentOfLastClosed, 0));
 
@@ -1163,27 +705,6 @@ PassRefPtr<DocumentFragment> createFragmentFromMarkup(Document* document, const 
     return fragment.release();
 }
 
-static void serializeNodesWithNamespaces(MarkupAccumulator& accumulator, Node* node, Node* nodeToSkip, EChildrenOnly childrenOnly, const Namespaces* namespaces)
-{
-    if (node == nodeToSkip)
-        return;
-
-    Namespaces namespaceHash;
-    if (namespaces)
-        namespaceHash = *namespaces;
-
-    if (!childrenOnly)
-        accumulator.appendStartTag(node, &namespaceHash);
-
-    if (!(node->document()->isHTMLDocument() && elementCannotHaveEndTag(node))) {
-        for (Node* current = node->firstChild(); current; current = current->nextSibling())
-            serializeNodesWithNamespaces(accumulator, current, nodeToSkip, IncludeNode, &namespaceHash);
-    }
-
-    if (!childrenOnly)
-        accumulator.appendEndTag(node);
-}
-
 String createMarkup(const Node* node, EChildrenOnly childrenOnly, Vector<Node*>* nodes, EAbsoluteURLs shouldResolveURLs)
 {
     if (!node)
@@ -1197,8 +718,7 @@ String createMarkup(const Node* node, EChildrenOnly childrenOnly, Vector<Node*>*
     }
 
     MarkupAccumulator accumulator(nodes, shouldResolveURLs);
-    serializeNodesWithNamespaces(accumulator, const_cast<Node*>(node), deleteButtonContainerElement, childrenOnly, 0);
-    return accumulator.takeResults();
+    return accumulator.serializeNodes(const_cast<Node*>(node), deleteButtonContainerElement, childrenOnly);
 }
 
 static void fillContainerFromString(ContainerNode* paragraph, const String& string)

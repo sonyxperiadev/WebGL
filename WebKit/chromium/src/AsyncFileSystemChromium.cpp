@@ -61,19 +61,24 @@ AsyncFileSystemChromium::~AsyncFileSystemChromium()
 {
 }
 
-void AsyncFileSystemChromium::move(const String& srcPath, const String& destPath, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
+void AsyncFileSystemChromium::move(const String& sourcePath, const String& destinationPath, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    m_webFileSystem->move(srcPath, destPath, new WebKit::WebFileSystemCallbacksImpl(callbacks));
+    m_webFileSystem->move(sourcePath, destinationPath, new WebKit::WebFileSystemCallbacksImpl(callbacks));
 }
 
-void AsyncFileSystemChromium::copy(const String& srcPath, const String& destPath, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
+void AsyncFileSystemChromium::copy(const String& sourcePath, const String& destinationPath, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
-    m_webFileSystem->copy(srcPath, destPath, new WebKit::WebFileSystemCallbacksImpl(callbacks));
+    m_webFileSystem->copy(sourcePath, destinationPath, new WebKit::WebFileSystemCallbacksImpl(callbacks));
 }
 
 void AsyncFileSystemChromium::remove(const String& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
 {
     m_webFileSystem->remove(path, new WebKit::WebFileSystemCallbacksImpl(callbacks));
+}
+
+void AsyncFileSystemChromium::removeRecursively(const String& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)
+{
+    m_webFileSystem->removeRecursively(path, new WebKit::WebFileSystemCallbacksImpl(callbacks));
 }
 
 void AsyncFileSystemChromium::readMetadata(const String& path, PassOwnPtr<AsyncFileSystemCallbacks> callbacks)

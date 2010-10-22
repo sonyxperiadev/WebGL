@@ -1173,6 +1173,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\runtime\StrictEvalActivation.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\StrictEvalActivation.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\runtime\StringConstructor.cpp"
 				>
 			</File>
@@ -1242,6 +1250,14 @@
 			</File>
 			<File
 				RelativePath="..\..\runtime\UString.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\UStringBuilder.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\runtime\UStringConcatenate.h"
 				>
 			</File>
 			<File

@@ -174,34 +174,34 @@ void RenderTableCell::layout()
 int RenderTableCell::paddingTop(bool includeIntrinsicPadding) const
 {
     int result = RenderBlock::paddingTop();
-    if (!includeIntrinsicPadding || !style()->isVerticalBlockFlow())
+    if (!includeIntrinsicPadding || !style()->isHorizontalWritingMode())
         return result;
-    return result + (style()->blockFlow() == TopToBottomBlockFlow ? intrinsicPaddingBefore() : intrinsicPaddingAfter());
+    return result + (style()->writingMode() == TopToBottomWritingMode ? intrinsicPaddingBefore() : intrinsicPaddingAfter());
 }
 
 int RenderTableCell::paddingBottom(bool includeIntrinsicPadding) const
 {
     int result = RenderBlock::paddingBottom();
-    if (!includeIntrinsicPadding || !style()->isVerticalBlockFlow())
+    if (!includeIntrinsicPadding || !style()->isHorizontalWritingMode())
         return result;
-    return result + (style()->blockFlow() == TopToBottomBlockFlow ? intrinsicPaddingAfter() : intrinsicPaddingBefore());
+    return result + (style()->writingMode() == TopToBottomWritingMode ? intrinsicPaddingAfter() : intrinsicPaddingBefore());
 }
 
 int RenderTableCell::paddingLeft(bool includeIntrinsicPadding) const
 {
     int result = RenderBlock::paddingLeft();
-    if (!includeIntrinsicPadding || style()->isVerticalBlockFlow())
+    if (!includeIntrinsicPadding || style()->isHorizontalWritingMode())
         return result;
-    return result + (style()->blockFlow() == LeftToRightBlockFlow ? intrinsicPaddingBefore() : intrinsicPaddingAfter());
+    return result + (style()->writingMode() == LeftToRightWritingMode ? intrinsicPaddingBefore() : intrinsicPaddingAfter());
     
 }
 
 int RenderTableCell::paddingRight(bool includeIntrinsicPadding) const
 {   
     int result = RenderBlock::paddingRight();
-    if (!includeIntrinsicPadding || style()->isVerticalBlockFlow())
+    if (!includeIntrinsicPadding || style()->isHorizontalWritingMode())
         return result;
-    return result + (style()->blockFlow() == LeftToRightBlockFlow ? intrinsicPaddingAfter() : intrinsicPaddingBefore());
+    return result + (style()->writingMode() == LeftToRightWritingMode ? intrinsicPaddingAfter() : intrinsicPaddingBefore());
 }
 
 int RenderTableCell::paddingBefore(bool includeIntrinsicPadding) const
@@ -246,7 +246,7 @@ IntRect RenderTableCell::clippedOverflowRectForRepaint(RenderBoxModelObject* rep
     if (!table()->collapseBorders() || table()->needsSectionRecalc())
         return RenderBlock::clippedOverflowRectForRepaint(repaintContainer);
 
-    bool rtl = table()->style()->direction() == RTL;
+    bool rtl = !table()->style()->isLeftToRightDirection();
     int outlineSize = style()->outlineSize();
     int left = max(borderHalfLeft(true), outlineSize);
     int right = max(borderHalfRight(true), outlineSize);
@@ -300,10 +300,11 @@ void RenderTableCell::computeRectForRepaint(RenderBoxModelObject* repaintContain
     RenderBlock::computeRectForRepaint(repaintContainer, r, fixed);
 }
 
-int RenderTableCell::baselinePosition(bool firstLine, bool isRootLineBox) const
+int RenderTableCell::baselinePosition(bool firstLine, LineDirectionMode lineDirection, LinePositionMode linePositionMode) const
 {
-    if (isRootLineBox)
-        return RenderBox::baselinePosition(firstLine, isRootLineBox);
+    // FIXME: This function still needs to be patched for writing-mode.
+    if (linePositionMode == PositionOfInteriorLineBoxes)
+        return RenderBlock::baselinePosition(firstLine, lineDirection, linePositionMode);
 
     // <http://www.w3.org/TR/2007/CR-CSS21-20070719/tables.html#height-layout>: The baseline of a cell is the baseline of
     // the first in-flow line box in the cell, or the first in-flow table-row in the cell, whichever comes first. If there
@@ -723,7 +724,7 @@ int RenderTableCell::borderAfter() const
 
 int RenderTableCell::borderHalfLeft(bool outer) const
 {
-    CollapsedBorderValue border = collapsedLeftBorder(table()->style()->direction() == RTL);
+    CollapsedBorderValue border = collapsedLeftBorder(!table()->style()->isLeftToRightDirection());
     if (border.exists())
         return (border.width() + (outer ? 0 : 1)) / 2; // Give the extra pixel to top and left.
     return 0;
@@ -731,7 +732,7 @@ int RenderTableCell::borderHalfLeft(bool outer) const
     
 int RenderTableCell::borderHalfRight(bool outer) const
 {
-    CollapsedBorderValue border = collapsedRightBorder(table()->style()->direction() == RTL);
+    CollapsedBorderValue border = collapsedRightBorder(!table()->style()->isLeftToRightDirection());
     if (border.exists())
         return (border.width() + (outer ? 1 : 0)) / 2;
     return 0;
@@ -843,7 +844,7 @@ static void addBorderStyle(RenderTableCell::CollapsedBorderStyles& borderStyles,
 
 void RenderTableCell::collectBorderStyles(CollapsedBorderStyles& borderStyles) const
 {
-    bool rtl = table()->style()->direction() == RTL;
+    bool rtl = !table()->style()->isLeftToRightDirection();
     addBorderStyle(borderStyles, collapsedLeftBorder(rtl));
     addBorderStyle(borderStyles, collapsedRightBorder(rtl));
     addBorderStyle(borderStyles, collapsedTopBorder());
@@ -870,7 +871,7 @@ void RenderTableCell::paintCollapsedBorder(GraphicsContext* graphicsContext, int
     if (!table()->currentBorderStyle())
         return;
     
-    bool rtl = table()->style()->direction() == RTL;
+    bool rtl = !table()->style()->isLeftToRightDirection();
     CollapsedBorderValue leftVal = collapsedLeftBorder(rtl);
     CollapsedBorderValue rightVal = collapsedRightBorder(rtl);
     CollapsedBorderValue topVal = collapsedTopBorder();

@@ -38,7 +38,6 @@
 #import <QuartzCore/QuartzCore.h>
 #import "RotateTransformOperation.h"
 #import "ScaleTransformOperation.h"
-#import "StringBuilder.h"
 #import "SystemTime.h"
 #import "TranslateTransformOperation.h"
 #import "WebLayer.h"
@@ -48,6 +47,7 @@
 #import <wtf/CurrentTime.h>
 #import <wtf/UnusedParam.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/text/StringConcatenate.h>
 
 using namespace std;
 
@@ -248,7 +248,7 @@ static String propertyIdToString(AnimatedPropertyID property)
 
 static String animationIdentifier(const String& animationName, AnimatedPropertyID property, int index)
 {
-    return animationName + String::format("_%d_%d", property, index);
+    return makeString(animationName, '_', String::number(property), '_', String::number(index));
 }
 
 static CAMediaTimingFunction* getCAMediaTimingFunction(const TimingFunction* timingFunction)
@@ -265,9 +265,7 @@ static CAMediaTimingFunction* getCAMediaTimingFunction(const TimingFunction* tim
 
 static void setLayerBorderColor(PlatformLayer* layer, const Color& color)
 {
-    CGColorRef borderColor = createCGColor(color);
-    [layer setBorderColor:borderColor];
-    CGColorRelease(borderColor);
+    [layer setBorderColor:cachedCGColor(color, ColorSpaceDeviceRGB)];
 }
 
 static void clearBorderColor(PlatformLayer* layer)
@@ -277,9 +275,7 @@ static void clearBorderColor(PlatformLayer* layer)
 
 static void setLayerBackgroundColor(PlatformLayer* layer, const Color& color)
 {
-    CGColorRef bgColor = createCGColor(color);
-    [layer setBackgroundColor:bgColor];
-    CGColorRelease(bgColor);
+    [layer setBackgroundColor:cachedCGColor(color, ColorSpaceDeviceRGB)];
 }
 
 static void clearLayerBackgroundColor(PlatformLayer* layer)

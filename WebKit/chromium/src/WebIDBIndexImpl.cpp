@@ -68,24 +68,24 @@ bool WebIDBIndexImpl::unique() const
     return m_backend->unique();
 }
 
-void WebIDBIndexImpl::openCursor(const WebIDBKeyRange& keyRange, unsigned short direction, WebIDBCallbacks* callbacks)
+void WebIDBIndexImpl::openObjectCursor(const WebIDBKeyRange& keyRange, unsigned short direction, WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction, WebExceptionCode& ec)
 {
-    m_backend->openCursor(keyRange, direction, IDBCallbacksProxy::create(callbacks));
+    m_backend->openCursor(keyRange, direction, IDBCallbacksProxy::create(callbacks), transaction.getIDBTransactionBackendInterface(), ec);
 }
 
-void WebIDBIndexImpl::openObjectCursor(const WebIDBKeyRange& keyRange, unsigned short direction, WebIDBCallbacks* callbacks)
+void WebIDBIndexImpl::openKeyCursor(const WebIDBKeyRange& keyRange, unsigned short direction, WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction, WebExceptionCode& ec)
 {
-    m_backend->openObjectCursor(keyRange, direction, IDBCallbacksProxy::create(callbacks));
+    m_backend->openKeyCursor(keyRange, direction, IDBCallbacksProxy::create(callbacks), transaction.getIDBTransactionBackendInterface(), ec);
 }
 
-void WebIDBIndexImpl::getObject(const WebIDBKey& keyRange, WebIDBCallbacks* callbacks)
+void WebIDBIndexImpl::getObject(const WebIDBKey& keyRange, WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction, WebExceptionCode& ec)
 {
-    m_backend->getObject(keyRange, IDBCallbacksProxy::create(callbacks));
+    m_backend->get(keyRange, IDBCallbacksProxy::create(callbacks), transaction.getIDBTransactionBackendInterface(), ec);
 }
 
-void WebIDBIndexImpl::get(const WebIDBKey& keyRange, WebIDBCallbacks* callbacks)
+void WebIDBIndexImpl::getKey(const WebIDBKey& keyRange, WebIDBCallbacks* callbacks, const WebIDBTransaction& transaction, WebExceptionCode& ec)
 {
-    m_backend->get(keyRange, IDBCallbacksProxy::create(callbacks));
+    m_backend->getKey(keyRange, IDBCallbacksProxy::create(callbacks), transaction.getIDBTransactionBackendInterface(), ec);
 }
 
 } // namespace WebCore

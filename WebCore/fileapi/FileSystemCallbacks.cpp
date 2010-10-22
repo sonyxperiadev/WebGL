@@ -36,8 +36,9 @@
 #include "AsyncFileSystem.h"
 #include "AsyncFileWriter.h"
 #include "DOMFilePath.h"
-#include "DOMFileSystem.h"
+#include "DOMFileSystemBase.h"
 #include "DirectoryEntry.h"
+#include "DirectoryReader.h"
 #include "EntriesCallback.h"
 #include "EntryArray.h"
 #include "EntryCallback.h"
@@ -110,12 +111,12 @@ void FileSystemCallbacksBase::didFail(int code)
 
 // EntryCallbacks -------------------------------------------------------------
 
-PassOwnPtr<EntryCallbacks> EntryCallbacks::create(PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, DOMFileSystem* fileSystem, const String& expectedPath, bool isDirectory)
+PassOwnPtr<EntryCallbacks> EntryCallbacks::create(PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, DOMFileSystemBase* fileSystem, const String& expectedPath, bool isDirectory)
 {
     return adoptPtr(new EntryCallbacks(successCallback, errorCallback, fileSystem, expectedPath, isDirectory));
 }
 
-EntryCallbacks::EntryCallbacks(PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, DOMFileSystem* fileSystem, const String& expectedPath, bool isDirectory)
+EntryCallbacks::EntryCallbacks(PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, DOMFileSystemBase* fileSystem, const String& expectedPath, bool isDirectory)
     : FileSystemCallbacksBase(errorCallback)
     , m_successCallback(successCallback)
     , m_fileSystem(fileSystem)
@@ -137,39 +138,34 @@ void EntryCallbacks::didSucceed()
 
 // EntriesCallbacks -----------------------------------------------------------
 
-PassOwnPtr<EntriesCallbacks> EntriesCallbacks::create(PassRefPtr<EntriesCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, DOMFileSystem* fileSystem, const String& basePath)
+PassOwnPtr<EntriesCallbacks> EntriesCallbacks::create(PassRefPtr<EntriesCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, DirectoryReaderBase* directoryReader, const String& basePath)
 {
-    return adoptPtr(new EntriesCallbacks(successCallback, errorCallback, fileSystem, basePath));
+    return adoptPtr(new EntriesCallbacks(successCallback, errorCallback, directoryReader, basePath));
 }
 
-EntriesCallbacks::EntriesCallbacks(PassRefPtr<EntriesCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, DOMFileSystem* fileSystem, const String& basePath)
+EntriesCallbacks::EntriesCallbacks(PassRefPtr<EntriesCallback> successCallback, PassRefPtr<ErrorCallback> errorCallback, DirectoryReaderBase* directoryReader, const String& basePath)
     : FileSystemCallbacksBase(errorCallback)
     , m_successCallback(successCallback)
-    , m_fileSystem(fileSystem)
+    , m_directoryReader(directoryReader)
     , m_basePath(basePath)
     , m_entries(EntryArray::create())
 {
+    ASSERT(m_directoryReader);
 }
 
 void EntriesCallbacks::didReadDirectoryEntry(const String& name, bool isDirectory)
 {
     if (isDirectory)
-        m_entries->append(DirectoryEntry::create(m_fileSystem, DOMFilePath::append(m_basePath, name)));
+        m_entries->append(DirectoryEntry::create(m_directoryReader->filesystem(), DOMFilePath::append(m_basePath, name)));
     else
-        m_entries->append(FileEntry::create(m_fileSystem, DOMFilePath::append(m_basePath, name)));
+        m_entries->append(FileEntry::create(m_directoryReader->filesystem(), DOMFilePath::append(m_basePath, name)));
 }
 
 void EntriesCallbacks::didReadDirectoryEntries(bool hasMore)
 {
-    if (m_successCallback) {
+    m_directoryReader->setHasMoreEntries(hasMore);
+    if (m_successCallback)
         m_successCallback->handleEvent(m_entries.get());
-        if (!m_entries->isEmpty() && !hasMore) {
-            // If we have returned some entries and there're no more coming entries (hasMore==false), call back once more with an empty array.
-            m_successCallback->handleEvent(EntryArray::create().get());
-            m_successCallback.clear();
-        }
-        m_entries->clear();
-    }
 }
 
 // FileSystemCallbacks --------------------------------------------------------

@@ -329,6 +329,7 @@ namespace JSC {
         RegisterID* emitPutScopedVar(size_t skip, int index, RegisterID* value, JSValue globalObject);
 
         RegisterID* emitResolveBase(RegisterID* dst, const Identifier& property);
+        RegisterID* emitResolveBaseForPut(RegisterID* dst, const Identifier& property);
         RegisterID* emitResolveWithBase(RegisterID* baseDst, RegisterID* propDst, const Identifier& property);
 
         void emitMethodCheck();
@@ -419,13 +420,15 @@ namespace JSC {
         }
 
         bool shouldEmitProfileHooks() { return m_shouldEmitProfileHooks; }
+        
+        bool isStrictMode() const { return m_codeBlock->isStrictMode(); }
 
     private:
         void emitOpcode(OpcodeID);
         void retrieveLastBinaryOp(int& dstIndex, int& src1Index, int& src2Index);
         void retrieveLastUnaryOp(int& dstIndex, int& srcIndex);
-        void rewindBinaryOp();
-        void rewindUnaryOp();
+        ALWAYS_INLINE void rewindBinaryOp();
+        ALWAYS_INLINE void rewindUnaryOp();
 
         PassRefPtr<Label> emitComplexJumpScopes(Label* target, ControlFlowContext* topScope, ControlFlowContext* bottomScope);
 
@@ -499,12 +502,12 @@ namespace JSC {
 
         PassRefPtr<FunctionExecutable> makeFunction(ExecState* exec, FunctionBodyNode* body)
         {
-            return FunctionExecutable::create(exec, body->ident(), body->source(), body->usesArguments(), body->parameters(), body->lineNo(), body->lastLine());
+            return FunctionExecutable::create(exec, body->ident(), body->source(), body->usesArguments(), body->parameters(), body->isStrictMode(), body->lineNo(), body->lastLine());
         }
 
         PassRefPtr<FunctionExecutable> makeFunction(JSGlobalData* globalData, FunctionBodyNode* body)
         {
-            return FunctionExecutable::create(globalData, body->ident(), body->source(), body->usesArguments(), body->parameters(), body->lineNo(), body->lastLine());
+            return FunctionExecutable::create(globalData, body->ident(), body->source(), body->usesArguments(), body->parameters(), body->isStrictMode(), body->lineNo(), body->lastLine());
         }
 
         RegisterID* emitInitLazyRegister(RegisterID*);
@@ -518,6 +521,7 @@ namespace JSC {
         RegisterID* emitThrowExpressionTooDeepException();
 
         void createArgumentsIfNecessary();
+        void createActivationIfNecessary();
         RegisterID* createLazyRegisterIfNecessary(RegisterID*);
 
         bool m_shouldEmitDebugHooks;
@@ -558,6 +562,7 @@ namespace JSC {
 
         int m_globalVarStorageOffset;
 
+        bool m_hasCreatedActivation;
         int m_firstLazyFunction;
         int m_lastLazyFunction;
         HashMap<unsigned int, FunctionBodyNode*, WTF::IntHash<unsigned int>, WTF::UnsignedWithZeroKeyHashTraits<unsigned int> > m_lazyFunctions;

@@ -1085,7 +1085,7 @@ void SelectionController::paintCaret(GraphicsContext* context, int tx, int ty, c
         return;
 
     Color caretColor = Color::black;
-    ColorSpace colorSpace = DeviceColorSpace;
+    ColorSpace colorSpace = ColorSpaceDeviceRGB;
     Element* element = rootEditableElement();
     if (element && element->renderer()) {
         caretColor = element->renderer()->style()->visitedDependentColor(CSSPropertyColor);
@@ -1222,11 +1222,10 @@ void SelectionController::selectFrameElementInParentIfFullySelected()
         return;
 
     // Get to the <iframe> or <frame> (or even <object>) element in the parent frame.
-    Document* doc = m_frame->document();
-    Element* ownerElement = doc->ownerElement();
+    Element* ownerElement = m_frame->document()->ownerElement();
     if (!ownerElement)
         return;
-    Node* ownerElementParent = ownerElement->parentNode();
+    ContainerNode* ownerElementParent = ownerElement->parentNode();
     if (!ownerElementParent)
         return;
         

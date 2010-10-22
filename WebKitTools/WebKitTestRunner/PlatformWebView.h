@@ -26,7 +26,14 @@
 #ifndef PlatformWebView_h
 #define PlatformWebView_h
 
-#if __APPLE__
+#if defined(BUILDING_QT__)
+namespace WTR {
+class WebView;
+}
+typedef WTR::WebView* PlatformWKView;
+class QMainWindow;
+typedef QMainWindow* PlatformWindow;
+#elif defined(__APPLE__) && __APPLE__
 #if __OBJC__
 @class WKView;
 @class NSWindow;
@@ -52,6 +59,9 @@ public:
     PlatformWKView platformView() { return m_view; }
     void resizeTo(unsigned width, unsigned height);
     void focus();
+
+    WKRect windowFrame();
+    void setWindowFrame(WKRect);
 
 private:
     PlatformWKView m_view;

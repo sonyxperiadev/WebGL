@@ -35,7 +35,8 @@ class AffineTransform;
 
 class RenderSVGRoot : public RenderBox {
 public:
-    RenderSVGRoot(SVGStyledElement*);
+    explicit RenderSVGRoot(SVGStyledElement*);
+    virtual ~RenderSVGRoot();
 
     const RenderObjectChildList* children() const { return &m_children; }
     RenderObjectChildList* children() { return &m_children; }
@@ -51,11 +52,9 @@ private:
     virtual bool isSVGRoot() const { return true; }
     virtual const char* renderName() const { return "RenderSVGRoot"; }
 
-    virtual int lineHeight(bool b, bool isRootLineBox = false) const;
-    virtual int baselinePosition(bool b, bool isRootLineBox = false) const;
     virtual void computePreferredLogicalWidths();
-    virtual int computeReplacedWidth(bool includeMaxWidth = true) const;
-    virtual int computeReplacedHeight() const;
+    virtual int computeReplacedLogicalWidth(bool includeMaxWidth = true) const;
+    virtual int computeReplacedLogicalHeight() const;
     virtual void layout();
     virtual void paint(PaintInfo&, int parentX, int parentY);
 

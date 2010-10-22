@@ -41,8 +41,7 @@
 #include "Settings.h"
 #include "TextResourceDecoder.h"
 #include <wtf/text/CString.h>
-
-using namespace WTF;
+#include <wtf/text/StringConcatenate.h>
 
 namespace WebCore {
 
@@ -203,7 +202,7 @@ bool XSSAuditor::canLoadObject(const String& url) const
     task.allowRequestIfNoIllegalURICharacters = true;
 
     if (findInRequest(task)) {
-        String consoleMessage = String::format("Refused to load an object. URL found within request: \"%s\".\n", url.utf8().data());
+        String consoleMessage = makeString("Refused to load an object. URL found within request: \"", url, "\".\n");
         m_frame->domWindow()->console()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, consoleMessage, 1, String());
         return false;
     }
@@ -340,7 +339,7 @@ bool XSSAuditor::findInRequest(const FindTask& task) const
     case XSSProtectionBlockEnabled:
         if (blockFrame) {
             blockFrame->loader()->stopAllLoaders();
-            blockFrame->redirectScheduler()->scheduleLocationChange(blankURL(), String());
+            blockFrame->navigationScheduler()->scheduleLocationChange(blankURL(), String());
         }
         break;
     default:
@@ -392,7 +391,7 @@ bool XSSAuditor::findInRequest(Frame* frame, const FindTask& task) const
     } else
         canonicalizedString = task.string;
 
-    if (frame->document()->url().protocolIs("data"))
+    if (frame->document()->url().protocolIsData())
         return false;
 
     canonicalizedString = canonicalize(canonicalizedString);

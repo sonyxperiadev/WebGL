@@ -35,6 +35,7 @@ namespace WebCore {
 class IDBKey;
 class IDBObjectStoreBackendImpl;
 class SQLiteDatabase;
+class ScriptExecutionContext;
 
 class IDBIndexBackendImpl : public IDBIndexBackendInterface {
 public:
@@ -42,9 +43,19 @@ public:
     {
         return adoptRef(new IDBIndexBackendImpl(objectStore, id, name, keyPath, unique));
     }
+    static PassRefPtr<IDBIndexBackendImpl> create(IDBObjectStoreBackendImpl* objectStore, const String& name, const String& keyPath, bool unique)
+    {
+        return adoptRef(new IDBIndexBackendImpl(objectStore, name, keyPath, unique));
+    }
     virtual ~IDBIndexBackendImpl();
 
-    int64_t id() { return m_id; }
+    int64_t id() const
+    {
+        ASSERT(m_id != InvalidId);
+        return m_id;
+    }
+    void setId(int64_t id) { m_id = id; }
+
     bool addingKeyAllowed(IDBKey*);
 
     // Implements IDBIndexBackendInterface.
@@ -53,17 +64,23 @@ public:
     virtual String keyPath() { return m_keyPath; }
     virtual bool unique() { return m_unique; }
 
-    virtual void openObjectCursor(PassRefPtr<IDBKeyRange>, unsigned short direction, PassRefPtr<IDBCallbacks>);
-    virtual void openCursor(PassRefPtr<IDBKeyRange>, unsigned short direction, PassRefPtr<IDBCallbacks>);
-    virtual void getObject(PassRefPtr<IDBKey>, PassRefPtr<IDBCallbacks>);
-    virtual void get(PassRefPtr<IDBKey>, PassRefPtr<IDBCallbacks>);
+    virtual void openCursor(PassRefPtr<IDBKeyRange>, unsigned short direction, PassRefPtr<IDBCallbacks>, IDBTransactionBackendInterface*, ExceptionCode&);
+    virtual void openKeyCursor(PassRefPtr<IDBKeyRange>, unsigned short direction, PassRefPtr<IDBCallbacks>, IDBTransactionBackendInterface*, ExceptionCode&);
+    virtual void get(PassRefPtr<IDBKey>, PassRefPtr<IDBCallbacks>, IDBTransactionBackendInterface*, ExceptionCode&);
+    virtual void getKey(PassRefPtr<IDBKey>, PassRefPtr<IDBCallbacks>, IDBTransactionBackendInterface*, ExceptionCode&);
 
     IDBObjectStoreBackendImpl* objectStore() const { return m_objectStore.get(); }
 
 private:
     IDBIndexBackendImpl(IDBObjectStoreBackendImpl*, int64_t id, const String& name, const String& keyPath, bool unique);
+    IDBIndexBackendImpl(IDBObjectStoreBackendImpl*, const String& name, const String& keyPath, bool unique);
 
     SQLiteDatabase& sqliteDatabase() const;
+
+    static void openCursorInternal(ScriptExecutionContext*, PassRefPtr<IDBIndexBackendImpl>, PassRefPtr<IDBKeyRange>, unsigned short direction, bool objectCursor, PassRefPtr<IDBCallbacks>, PassRefPtr<IDBTransactionBackendInterface>);
+    static void getInternal(ScriptExecutionContext*, PassRefPtr<IDBIndexBackendImpl>, PassRefPtr<IDBKey>, bool getObject, PassRefPtr<IDBCallbacks>);
+
+    static const int64_t InvalidId = 0;
 
     RefPtr<IDBObjectStoreBackendImpl> m_objectStore;
 

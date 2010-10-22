@@ -46,10 +46,10 @@ public:
     virtual String keyPath();
     virtual bool unique();
 
-    virtual void openObjectCursor(PassRefPtr<IDBKeyRange>, unsigned short direction, PassRefPtr<IDBCallbacks>);
-    virtual void openCursor(PassRefPtr<IDBKeyRange>, unsigned short direction, PassRefPtr<IDBCallbacks>);
-    virtual void getObject(PassRefPtr<IDBKey>, PassRefPtr<IDBCallbacks>);
-    virtual void get(PassRefPtr<IDBKey>, PassRefPtr<IDBCallbacks>);
+    virtual void openCursor(PassRefPtr<IDBKeyRange>, unsigned short direction, PassRefPtr<IDBCallbacks>, IDBTransactionBackendInterface*, ExceptionCode&);
+    virtual void openKeyCursor(PassRefPtr<IDBKeyRange>, unsigned short direction, PassRefPtr<IDBCallbacks>, IDBTransactionBackendInterface*, ExceptionCode&);
+    virtual void get(PassRefPtr<IDBKey>, PassRefPtr<IDBCallbacks>, IDBTransactionBackendInterface*, ExceptionCode&);
+    virtual void getKey(PassRefPtr<IDBKey>, PassRefPtr<IDBCallbacks>, IDBTransactionBackendInterface*, ExceptionCode&);
 
 private:
     IDBIndexBackendProxy(PassOwnPtr<WebKit::WebIDBIndex>);

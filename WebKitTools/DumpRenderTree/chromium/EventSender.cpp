@@ -44,18 +44,18 @@
 #include "EventSender.h"
 
 #include "TestShell.h"
-#include "public/WebDragData.h"
-#include "public/WebDragOperation.h"
-#include "public/WebPoint.h"
-#include "public/WebString.h"
-#include "public/WebTouchPoint.h"
-#include "public/WebView.h"
+#include "WebDragData.h"
+#include "WebDragOperation.h"
+#include "WebPoint.h"
+#include "WebString.h"
+#include "WebTouchPoint.h"
+#include "WebView.h"
 #include "webkit/support/webkit_support.h"
 #include <wtf/Deque.h>
 #include <wtf/StringExtras.h>
 
 #if OS(WINDOWS)
-#include "public/win/WebInputEventFactory.h"
+#include "win/WebInputEventFactory.h"
 #endif
 
 // FIXME: layout before each event?
@@ -779,7 +779,7 @@ void EventSender::beginDragWithFiles(const CppArgumentList& arguments, CppVarian
     currentDragData.initialize();
     Vector<string> files = arguments[0].toStringVector();
     for (size_t i = 0; i < files.size(); ++i)
-        currentDragData.appendToFileNames(webkit_support::GetAbsoluteWebStringFromUTF8Path(files[i]));
+        currentDragData.appendToFilenames(webkit_support::GetAbsoluteWebStringFromUTF8Path(files[i]));
     currentDragEffectsAllowed = WebKit::WebDragOperationCopy;
 
     // Provide a drag source.

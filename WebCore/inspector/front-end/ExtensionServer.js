@@ -38,6 +38,8 @@ WebInspector.ExtensionServer = function()
     this._registerHandler("subscribe", this._onSubscribe.bind(this));
     this._registerHandler("unsubscribe", this._onUnsubscribe.bind(this));
     this._registerHandler("getResources", this._onGetResources.bind(this));
+    this._registerHandler("getResourceContent", this._onGetResourceContent.bind(this));
+    this._registerHandler("getPageTimings", this._onGetPageTimings.bind(this));
     this._registerHandler("createPanel", this._onCreatePanel.bind(this));
     this._registerHandler("createSidebarPane", this._onCreateSidebar.bind(this));
     this._registerHandler("log", this._onLog.bind(this));
@@ -238,7 +240,7 @@ WebInspector.ExtensionServer.prototype = {
         var id = message.id;
         var resource = null;
 
-        resource = typeof id === "number" ? WebInspector.resources[id] : WebInspector.resourceForURL(id);
+        resource = WebInspector.resources[id] || WebInspector.resourceForURL(id);
         if (!resource)
             return this._status.E_NOTFOUND(typeof id + ": " + id);
         WebInspector.panels.resources.showResource(resource, message.line);
@@ -261,8 +263,51 @@ WebInspector.ExtensionServer.prototype = {
         if (request.id)
             response = WebInspector.resources[request.id] ? resourceWrapper(request.id) : this._status.E_NOTFOUND(request.id);
         else
-            response = Object.properties(WebInspector.resources).map(resourceWrapper);
+            response = Object.keys(WebInspector.resources).map(resourceWrapper);
         return response;
+    },
+
+    _onGetResourceContent: function(message, port)
+    {
+        var ids;
+        var response = [];
+
+        function onContentAvailable(id, encoded, content)
+        {
+            var resourceContent = {
+                id: id,
+                encoding: encoded ? "base64" : "",
+                content: content
+            };
+            response.push(resourceContent);
+            if (response.length === ids.length)
+                this._dispatchCallback(message.requestId, port, response);
+        }
+
+        if (typeof message.ids === "number")
+            ids = [ message.ids ];
+        else if (message.ids instanceof Array)
+            ids = message.ids;
+        else
+            return this._status.E_BADARGTYPE("message.ids", "Array", typeof message.ids);
+
+        for (var i = 0; i < ids.length; ++i) {
+            var id = ids[i];
+            var resource = WebInspector.resources[id];
+            if (!resource)
+                response.push(this._status.E_NOTFOUND(id));
+            else {
+                var encode = !WebInspector.Resource.Type.isTextType(resource.type);
+                WebInspector.getEncodedResourceContent(id, encode, onContentAvailable.bind(this, id, encode));
+            }
+        }
+        if (response.length === ids.length)
+            this._dispatchCallback(message.requestId, port, response);
+    },
+
+    _onGetPageTimings: function()
+    {
+        return (new WebInspector.HARLog()).buildMainResourceTimings();
     },
 
     _onAddAuditCategory: function(request)
@@ -329,12 +374,13 @@ WebInspector.ExtensionServer.prototype = {
              if (typeof propValue === "number")
                  resourceTypes[propName] = WebInspector.Resource.Type.toString(propValue);
         }
-
+        var platformAPI = WebInspector.buildPlatformExtensionAPI ? WebInspector.buildPlatformExtensionAPI() : "";
         return "(function(){ " +
             "var private = {};" +
             "(" + WebInspector.commonExtensionSymbols.toString() + ")(private);" +
             "(" + WebInspector.injectedExtensionAPI.toString() + ").apply(this, arguments);" +
             "webInspector.resources.Types = " + JSON.stringify(resourceTypes) + ";" +
+            platformAPI +
             "})";
     },
 
@@ -400,3 +446,8 @@ WebInspector.addExtensions = function(extensions)
 }
 
 WebInspector.extensionServer = new WebInspector.ExtensionServer();
+
+WebInspector.getEncodedResourceContent = function(identifier, encode, callback)
+{
+    InspectorBackend.getResourceContent(identifier, encode, callback);
+}

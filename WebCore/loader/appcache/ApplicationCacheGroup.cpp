@@ -159,14 +159,17 @@ void ApplicationCacheGroup::selectCache(Frame* frame, const KURL& passedManifest
     
     if (mainResourceCache) {
         if (manifestURL == mainResourceCache->group()->m_manifestURL) {
+            // The cache may have gotten obsoleted after we've loaded from it, but before we parsed the document and saw cache manifest.
+            if (mainResourceCache->group()->isObsolete())
+                return;
             mainResourceCache->group()->associateDocumentLoaderWithCache(documentLoader, mainResourceCache);
             mainResourceCache->group()->update(frame, ApplicationCacheUpdateWithBrowsingContext);
         } else {
             // The main resource was loaded from cache, so the cache must have an entry for it. Mark it as foreign.
-            KURL documentURL(documentLoader->url());
-            if (documentURL.hasFragmentIdentifier())
-                documentURL.removeFragmentIdentifier();
-            ApplicationCacheResource* resource = mainResourceCache->resourceForURL(documentURL);
+            KURL resourceURL(documentLoader->responseURL());
+            if (resourceURL.hasFragmentIdentifier())
+                resourceURL.removeFragmentIdentifier();
+            ApplicationCacheResource* resource = mainResourceCache->resourceForURL(resourceURL);
             bool inStorage = resource->storageID();
             resource->addType(ApplicationCacheResource::Foreign);
             if (inStorage)
@@ -175,7 +178,7 @@ void ApplicationCacheGroup::selectCache(Frame* frame, const KURL& passedManifest
             // Restart the current navigation from the top of the navigation algorithm, undoing any changes that were made
             // as part of the initial load.
             // The navigation will not result in the same resource being loaded, because "foreign" entries are never picked during navigation.
-            frame->redirectScheduler()->scheduleLocationChange(documentLoader->url(), frame->loader()->referrer(), true);
+            frame->navigationScheduler()->scheduleLocationChange(documentLoader->url(), frame->loader()->referrer(), true);
         }
         
         return;
@@ -384,6 +387,14 @@ void ApplicationCacheGroup::cacheDestroyed(ApplicationCache* cache)
     }
 }
 
+void ApplicationCacheGroup::stopLoadingInFrame(Frame* frame)
+{
+    if (frame != m_frame)
+        return;
+
+    stopLoading();
+}
+
 #if ENABLE(INSPECTOR)
 static void inspectorUpdateApplicationCacheStatus(Frame* frame)
 {
@@ -512,7 +523,7 @@ void ApplicationCacheGroup::didReceiveResponse(ResourceHandle* handle, const Res
             if (InspectorApplicationCacheAgent* applicationCacheAgent = page->inspectorController()->applicationCacheAgent())
                 applicationCacheAgent->didReceiveManifestResponse(m_currentResourceIdentifier, response);
         } else
-            page->inspectorController()->didReceiveResponse(m_currentResourceIdentifier, response);
+            page->inspectorController()->didReceiveResponse(m_currentResourceIdentifier, m_frame->loader()->documentLoader(), response);
     }
 #endif
 

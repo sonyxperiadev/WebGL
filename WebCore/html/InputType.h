@@ -31,11 +31,13 @@
 #ifndef InputType_h
 #define InputType_h
 
+#include "ExceptionCode.h"
 #include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 
 namespace WebCore {
 
+class DateComponents;
 class HTMLInputElement;
 
 class InputType : public Noncopyable {
@@ -48,11 +50,53 @@ public:
     virtual bool isTextType() const;
     virtual const AtomicString& formControlType() const = 0;
 
+    virtual double valueAsDate() const;
+    virtual void setValueAsDate(double, ExceptionCode&) const;
+    virtual double valueAsNumber() const;
+    virtual void setValueAsNumber(double, ExceptionCode&) const;
+
+    // Validation-related functions
+
+    virtual bool supportsValidation() const;
+    virtual bool typeMismatchFor(const String&) const;
+    // Type check for the current input value. We do nothing for some types
+    // though typeMismatchFor() does something for them because of value
+    // sanitization.
+    virtual bool typeMismatch() const;
+    virtual bool supportsRequired() const;
+    virtual bool valueMissing(const String&) const;
     virtual bool patternMismatch(const String&) const;
+    virtual bool rangeUnderflow(const String&) const;
+    virtual bool rangeOverflow(const String&) const;
+    virtual double minimum() const;
+    virtual double maximum() const;
+    virtual bool stepMismatch(const String&, double) const;
+    virtual double stepBase() const;
+    virtual double defaultStep() const;
+    virtual double stepScaleFactor() const;
+    virtual bool parsedStepValueShouldBeInteger() const;
+    virtual bool scaledStepValeuShouldBeInteger() const;
+
+    // Parses the specified string for the type, and return
+    // the double value for the parsing result if the parsing
+    // succeeds; Returns defaultValue otherwise. This function can
+    // return NaN or Infinity only if defaultValue is NaN or Infinity.
+    virtual double parseToDouble(const String&, double defaultValue) const;
+    // Parses the specified string for this InputType, and returns true if it
+    // is successfully parsed. An instance pointed by the DateComponents*
+    // parameter will have parsed values and be modified even if the parsing
+    // fails. The DateComponents* parameter may be 0.
+    virtual bool parseToDateComponents(const String&, DateComponents*) const;
+    // Create a string representation of the specified double value for the
+    // input type. If NaN or Infinity is specified, this returns an empty
+    // string. This should not be called for types without valueAsNumber.
+    virtual String serialize(double) const;
 
 protected:
     InputType(HTMLInputElement* element) : m_element(element) { }
     HTMLInputElement* element() const { return m_element; }
+    // We can't make this a static const data member because VC++ doesn't like it.
+    static double defaultStepBase() { return 0.0; }
 
 private:
     // Raw pointer because the HTMLInputElement object owns this InputType object.

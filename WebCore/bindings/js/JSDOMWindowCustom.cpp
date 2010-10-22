@@ -51,7 +51,7 @@
 #include "JSSharedWorker.h"
 #endif
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(3D_CANVAS) || ENABLE(BLOB)
 #include "JSArrayBuffer.h"
 #include "JSInt8Array.h"
 #include "JSUint8Array.h"
@@ -512,7 +512,7 @@ void JSDOMWindow::setLocation(ExecState* exec, JSValue value)
 
     if (!protocolIsJavaScript(url) || allowsAccessFrom(exec)) {
         // We want a new history item if this JS was called via a user gesture
-        frame->redirectScheduler()->scheduleLocationChange(url, lexicalFrame->loader()->outgoingReferrer(), !lexicalFrame->script()->anyPageIsProcessingUserGesture(), false, processingUserGesture());
+        frame->navigationScheduler()->scheduleLocationChange(url, lexicalFrame->loader()->outgoingReferrer(), !lexicalFrame->script()->anyPageIsProcessingUserGesture(), false);
     }
 }
 
@@ -565,7 +565,7 @@ JSValue JSDOMWindow::webKitCSSMatrix(ExecState* exec) const
     return getDOMConstructor<JSWebKitCSSMatrixConstructor>(exec, this);
 }
  
-#if ENABLE(3D_CANVAS)
+#if ENABLE(3D_CANVAS) || ENABLE(BLOB)
 JSValue JSDOMWindow::arrayBuffer(ExecState* exec) const
 {
     return getDOMConstructor<JSArrayBufferConstructor>(exec, this);
@@ -700,12 +700,10 @@ static Frame* createWindow(ExecState* exec, Frame* lexicalFrame, Frame* dynamicF
 
     if (!protocolIsJavaScript(url) || newWindow->allowsAccessFrom(exec)) {
         KURL completedURL = url.isEmpty() ? KURL(ParsedURLString, "") : completeURL(exec, url);
-        bool userGesture = processingUserGesture();
-
         if (created)
-            newFrame->loader()->changeLocation(completedURL, referrer, false, false, userGesture);
+            newFrame->loader()->changeLocation(completedURL, referrer, false, false);
         else if (!url.isEmpty())
-            newFrame->redirectScheduler()->scheduleLocationChange(completedURL.string(), referrer, !lexicalFrame->script()->anyPageIsProcessingUserGesture(), false, userGesture);
+            newFrame->navigationScheduler()->scheduleLocationChange(completedURL.string(), referrer, !lexicalFrame->script()->anyPageIsProcessingUserGesture(), false);
     }
 
     return newFrame;
@@ -763,14 +761,12 @@ JSValue JSDOMWindow::open(ExecState* exec)
 
         const JSDOMWindow* targetedWindow = toJSDOMWindow(frame, currentWorld(exec));
         if (!completedURL.isEmpty() && (!protocolIsJavaScript(completedURL) || (targetedWindow && targetedWindow->allowsAccessFrom(exec)))) {
-            bool userGesture = processingUserGesture();
-
             // For whatever reason, Firefox uses the dynamicGlobalObject to
             // determine the outgoingReferrer.  We replicate that behavior
             // here.
             String referrer = dynamicFrame->loader()->outgoingReferrer();
 
-            frame->redirectScheduler()->scheduleLocationChange(completedURL, referrer, !lexicalFrame->script()->anyPageIsProcessingUserGesture(), false, userGesture);
+            frame->navigationScheduler()->scheduleLocationChange(completedURL, referrer, !lexicalFrame->script()->anyPageIsProcessingUserGesture(), false);
         }
         return toJS(exec, frame->domWindow());
     }

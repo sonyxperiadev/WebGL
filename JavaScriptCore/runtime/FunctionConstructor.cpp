@@ -30,8 +30,8 @@
 #include "Lexer.h"
 #include "Nodes.h"
 #include "Parser.h"
-#include "StringBuilder.h"
-#include "StringConcatenate.h"
+#include "UStringBuilder.h"
+#include "UStringConcatenate.h"
 
 namespace JSC {
 
@@ -81,9 +81,9 @@ JSObject* constructFunction(ExecState* exec, const ArgList& args, const Identifi
     if (args.isEmpty())
         program = "(function() { \n})";
     else if (args.size() == 1)
-        program = makeString("(function() { ", args.at(0).toString(exec), "\n})");
+        program = makeUString("(function() { ", args.at(0).toString(exec), "\n})");
     else {
-        StringBuilder builder;
+        UStringBuilder builder;
         builder.append("(function(");
         builder.append(args.at(0).toString(exec));
         for (size_t i = 1; i < args.size() - 1; i++) {
@@ -93,7 +93,7 @@ JSObject* constructFunction(ExecState* exec, const ArgList& args, const Identifi
         builder.append(") { ");
         builder.append(args.at(args.size() - 1).toString(exec));
         builder.append("\n})");
-        program = builder.build();
+        program = builder.toUString();
     }
 
     JSGlobalObject* globalObject = exec->lexicalGlobalObject();

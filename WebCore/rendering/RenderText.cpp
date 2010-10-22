@@ -511,7 +511,7 @@ IntRect RenderText::localCaretRect(InlineBox* inlineBox, int caretOffset, int* e
     switch (cbStyle->textAlign()) {
     case TAAUTO:
     case JUSTIFY:
-        rightAligned = cbStyle->direction() == RTL;
+        rightAligned = !cbStyle->isLeftToRightDirection();
         break;
     case RIGHT:
     case WEBKIT_RIGHT:
@@ -1084,35 +1084,6 @@ void RenderText::setTextInternal(PassRefPtr<StringImpl> text)
     }
     ASSERT(m_text);
 
-#if ENABLE(SVG)
-    if (isSVGInlineText()) {
-        if (style() && style()->whiteSpace() == PRE) {
-            // Spec: When xml:space="preserve", the SVG user agent will do the following using a
-            // copy of the original character data content. It will convert all newline and tab
-            // characters into space characters. Then, it will draw all space characters, including
-            // leading, trailing and multiple contiguous space characters.
-
-            m_text.replace('\n', ' ');
-
-            // If xml:space="preserve" is set, white-space is set to "pre", which
-            // preserves leading, trailing & contiguous space character for us.
-       } else {
-            // Spec: When xml:space="default", the SVG user agent will do the following using a
-            // copy of the original character data content. First, it will remove all newline
-            // characters. Then it will convert all tab characters into space characters.
-            // Then, it will strip off all leading and trailing space characters.
-            // Then, all contiguous space characters will be consolidated.    
-
-           m_text.replace('\n', StringImpl::empty());
-
-           // If xml:space="default" is set, white-space is set to "nowrap", which handles
-           // leading, trailing & contiguous space character removal for us.
-        }
-
-        m_text.replace('\t', ' ');
-    }
-#endif
-
     if (style()) {
         transformText(m_text);
 
@@ -1168,12 +1139,6 @@ String RenderText::textWithoutTranscoding() const
     return text;
 }
 
-int RenderText::lineHeight(bool firstLine, bool) const
-{
-    // Always use the interior line height of the parent (e.g., if our parent is an inline block).
-    return parent()->lineHeight(firstLine, true);
-}
-
 void RenderText::dirtyLineBoxes(bool fullLayout)
 {
     if (fullLayout)
@@ -1224,7 +1189,7 @@ void RenderText::positionLineBox(InlineBox* box)
         return;
     }
 
-    m_containsReversedText |= s->direction() == RTL;
+    m_containsReversedText |= !s->isLeftToRightDirection();
 }
 
 unsigned RenderText::width(unsigned from, unsigned len, int xPos, bool firstLine, HashSet<const SimpleFontData*>* fallbackFonts, GlyphOverflow* glyphOverflow) const

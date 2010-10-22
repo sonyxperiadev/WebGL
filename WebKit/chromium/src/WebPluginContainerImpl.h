@@ -73,6 +73,7 @@ public:
     virtual void setParentVisible(bool);
     virtual void setParent(WebCore::ScrollView*);
     virtual void widgetPositionsUpdated();
+    virtual bool isPluginContainer() const { return true; }
 
     // WebPluginContainer methods
     virtual WebElement element();
@@ -83,6 +84,7 @@ public:
     virtual NPObject* scriptableObjectForElement();
     virtual WebString executeScriptURL(const WebURL&, bool popupsAllowed);
     virtual void loadFrameRequest(const WebURLRequest&, const WebString& target, bool notifyNeeded, void* notifyData);
+    virtual void zoomLevelChanged(double zoomLevel);
 
     // This cannot be null.
     WebPlugin* plugin() { return m_webPlugin; }

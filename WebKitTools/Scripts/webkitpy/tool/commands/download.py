@@ -43,6 +43,17 @@ from webkitpy.tool.multicommandtool import AbstractDeclarativeCommand
 from webkitpy.common.system.deprecated_logging import error, log
 
 
+class Clean(AbstractSequencedCommand):
+    name = "clean"
+    help_text = "Clean the working copy"
+    steps = [
+        steps.CleanWorkingDirectory,
+    ]
+
+    def _prepare_state(self, options, args, tool):
+        options.force_clean = True
+
+
 class Update(AbstractSequencedCommand):
     name = "update"
     help_text = "Update working copy (used internally)"
@@ -60,6 +71,9 @@ class Build(AbstractSequencedCommand):
         steps.Update,
         steps.Build,
     ]
+
+    def _prepare_state(self, options, args, tool):
+        options.build = True
 
 
 class BuildAndTest(AbstractSequencedCommand):

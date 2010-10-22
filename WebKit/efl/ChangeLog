@@ -1,3 +1,236 @@
+2010-10-19  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Reviewed by Eric Seidel.
+
+        [EFL] Add setting api for disabling auto resize window
+        https://bugs.webkit.org/show_bug.cgi?id=47787
+
+        * WebCoreSupport/ChromeClientEfl.cpp:
+        (WebCore::ChromeClientEfl::setWindowRect): Return when
+        auto_resize_window was disabled.
+        * ewk/ewk_view.cpp:
+        (_ewk_view_priv_new):
+        (ewk_view_setting_enable_auto_resize_window_get): Added.
+        (ewk_view_setting_enable_auto_resize_window_set): Added.
+        * ewk/ewk_view.h:
+
+2010-10-15  Nikolas Zimmermann  <nzimmermann@rim.com>
+
+        Reviewed by Dirk Schulze.
+
+        Replace some String::format() usages by StringConcatenate in WebKit
+        https://bugs.webkit.org/show_bug.cgi?id=47714
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::agentOS):
+
+2010-10-14  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        Reviewed by Eric Seidel.
+
+        [EFL] Use data_set after data_get to keep refcount correct.
+        https://bugs.webkit.org/show_bug.cgi?id=47110
+
+        The call to evas_object_image_data_set was missed in this function,
+        which caused the refcount of the data being always increased on every
+        scroll.
+
+        * ewk/ewk_view_single.c:
+        (_ewk_view_single_smart_scrolls_process):
+
+2010-10-14  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Reviewed by Eric Seidel.
+
+        [EFL] Add setting api for enabling encoding detector
+        https://bugs.webkit.org/show_bug.cgi?id=45427
+
+        Add settings api for enabling encoding detector.
+
+        * ewk/ewk_view.cpp:
+        (_ewk_view_priv_new):
+        (ewk_view_setting_encoding_detector_set):
+        (ewk_view_setting_encoding_detector_get):
+        * ewk/ewk_view.h:
+
+2010-10-13  Leandro Pereira  <leandro@profusion.mobi>
+
+        [EFL] Unreviewed. Build fix.
+
+        * WebCoreSupport/FrameLoaderClientEfl.h: Use String instead of
+        WebCore::String.
+
+2010-10-13  Gavin Barraclough  <barraclough@apple.com>
+
+        Reviewed by Oliver Hunt.
+
+        https://bugs.webkit.org/show_bug.cgi?id=43987
+        Switch XMLHttpRequest, FileReader, and FileReaderSync to use a Stringbuilder
+        to construct their internal result string.  Remove ScriptString (this is now
+        redundant).
+
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::dispatchDidLoadResourceByXMLHttpRequest):
+        * WebCoreSupport/FrameLoaderClientEfl.h:
+
+2010-10-13  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Support viewport configuration and add new arguments for WebKit EFL
+        https://bugs.webkit.org/show_bug.cgi?id=47084
+
+        Opera spec regarding to viewport meta tag was adjusted to WebCore. So, EFL port 
+        needs to be modified according to the changes.
+
+        * WebCoreSupport/ChromeClientEfl.cpp:
+        (WebCore::ChromeClientEfl::dispatchViewportDataDidChange):
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::dispatchDidCommitLoad):
+        * ewk/ewk_private.h:
+        * ewk/ewk_view.cpp:
+        (_ewk_view_priv_new):
+        (_ewk_view_viewport_attributes_compute):
+        (ewk_view_viewport_attributes_set):
+        (ewk_view_viewport_attributes_get):
+        (ewk_view_device_pixel_ratio_get):
+        * ewk/ewk_view.h:
+
+2010-10-12  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Add a method to get target's dpi value
+        https://bugs.webkit.org/show_bug.cgi?id=47537
+
+        Add a method to get target dpi value using Ecore_X.
+        When we set layout size, we need to use the dpi value.
+
+        * ewk/ewk_private.h:
+        * ewk/ewk_view.cpp:
+        (ewk_view_page_rect_get):
+        (ewk_view_dpi_get):
+
+2010-10-07  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Implement pageRect() function
+        https://bugs.webkit.org/show_bug.cgi?id=47395
+
+        Implement pageRect() in ChromeClientEfl using frameRect().
+
+        * CMakeListsEfl.txt:
+        * WebCoreSupport/ChromeClientEfl.cpp:
+        (WebCore::ChromeClientEfl::pageRect):
+        * ewk/ewk_private.h:
+        * ewk/ewk_view.cpp:
+        (ewk_view_page_rect_get): Added.
+
+2010-10-06  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Support Progress Tag
+        https://bugs.webkit.org/show_bug.cgi?id=45951
+
+        Implement progressbar.edc to support progress tag
+
+        * CMakeListsEfl.txt:
+        * DefaultTheme/default.edc:
+        * DefaultTheme/widget/progressbar: Added.
+        * DefaultTheme/widget/progressbar/bt_base.png: Added.
+        * DefaultTheme/widget/progressbar/progressbar.edc: Added.
+        * DefaultTheme/widget/progressbar/shelf_inset.png: Added.
+
+2010-10-05  Ryuan Choi  <ryuan.choi@samsung.com>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] Remove strdup in ewk_setting.cpp using eina_stringshare
+        https://bugs.webkit.org/show_bug.cgi?id=46613
+
+        Add variables shared by eina_stringshare and remove strdup.
+
+        * ewk/ewk_main.cpp:
+        (_ewk_init_body):
+        * ewk/ewk_settings.cpp:
+        (ewk_settings_web_database_path_set):
+        (ewk_settings_web_database_path_get):
+        (ewk_settings_icon_database_path_set):
+        (ewk_settings_icon_database_path_get):
+        * ewk/ewk_settings.h:
+
+2010-10-04  Gyuyoung Kim  <gyuyoung.kim@samsung.com>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Viewport data change notification by Bug 46755
+        https://bugs.webkit.org/show_bug.cgi?id=46772
+
+        Bug 46755 changes virtual function regarding to viewport metatag. Thus, EFL port 
+        should change the function as well in order to get viewport arguments.
+
+        And, setInitLayoutCompleted / getInitLayoutCompleted() are removed because these functions
+        aren't needed anymore.
+
+        * WebCoreSupport/ChromeClientEfl.cpp:
+        (WebCore::ChromeClientEfl::dispatchViewportDataDidChange):
+        * WebCoreSupport/ChromeClientEfl.h:
+        * WebCoreSupport/FrameLoaderClientEfl.cpp:
+        (WebCore::FrameLoaderClientEfl::FrameLoaderClientEfl):
+        (WebCore::FrameLoaderClientEfl::dispatchDidCommitLoad):
+        (WebCore::FrameLoaderClientEfl::dispatchDidFirstLayout):
+        * WebCoreSupport/FrameLoaderClientEfl.h:
+
+2010-10-01  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Remove check for InitLayoutCompleted on fixed_layout_size_set.
+        https://bugs.webkit.org/show_bug.cgi?id=47006
+
+        This check isn't needed and isn't done on the other ports. The fixed
+        layout property can be set before we have the first layout.
+
+        * ewk/ewk_view.cpp:
+        (ewk_view_fixed_layout_size_set):
+
+2010-10-01  Rafael Antognolli  <antognolli@profusion.mobi>
+
+        Reviewed by Kenneth Rohde Christiansen.
+
+        [EFL] Call contents_resize when the main frame gets resized.
+        https://bugs.webkit.org/show_bug.cgi?id=47004
+
+        The previous implementation was just calling contents_resize when the
+        viewport size had changed. That's not enough, and contents_resize
+        shouldn't be called if the contents size didn't change.
+
+        Now the contents_size_changed function is called directly from the
+        ChromeClientEfl.
+
+        * WebCoreSupport/ChromeClientEfl.cpp:
+        (WebCore::ChromeClientEfl::contentsSizeChanged):
+        * ewk/ewk_private.h:
+        * ewk/ewk_view.cpp:
+        (_ewk_view_smart_calculate):
+        (ewk_view_fixed_layout_size_set):
+        (ewk_view_contents_size_changed):
+
+2010-09-29  João Paulo Rechi Vita  <jprvita@profusion.mobi>
+
+        Reviewed by Antonio Gomes.
+
+        [EFL] General small fixes.
+        https://bugs.webkit.org/show_bug.cgi?id=46813
+
+        This commit spots a comparison between signed and unsigned integer
+        expressions, a missing return and a never-called function.
+
+        * WebCoreSupport/FullscreenVideoControllerEfl.cpp:
+        (FullscreenVideoController::canPlay):
+
 2010-09-28  Jenn Braithwaite  <jennb@chromium.org>
 
         Reviewed by Dmitry Titov.

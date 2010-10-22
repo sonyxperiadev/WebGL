@@ -32,15 +32,13 @@ public:
     RenderReplaced(Node*, const IntSize& intrinsicSize);
     virtual ~RenderReplaced();
 
-    virtual void setStyle(PassRefPtr<RenderStyle>);
-
 protected:
     virtual void layout();
 
     virtual IntSize intrinsicSize() const;
 
-    virtual int computeReplacedWidth(bool includeMaxWidth = true) const;
-    virtual int computeReplacedHeight() const;
+    virtual int computeReplacedLogicalWidth(bool includeMaxWidth = true) const;
+    virtual int computeReplacedLogicalHeight() const;
     virtual int minimumReplacedHeight() const { return 0; }
 
     virtual void setSelectionState(SelectionState);
@@ -62,13 +60,10 @@ private:
 
     virtual bool canHaveChildren() const { return false; }
 
-    virtual int lineHeight(bool firstLine, bool isRootLineBox = false) const;
-    virtual int baselinePosition(bool firstLine, bool isRootLineBox = false) const;
-
     virtual void computePreferredLogicalWidths();
 
-    int calcAspectRatioWidth() const;
-    int calcAspectRatioHeight() const;
+    int calcAspectRatioLogicalWidth() const;
+    int calcAspectRatioLogicalHeight() const;
 
     virtual void paintReplaced(PaintInfo&, int /*tx*/, int /*ty*/) { }
 

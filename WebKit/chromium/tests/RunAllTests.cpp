@@ -35,13 +35,25 @@
 #include "WebKitClient.h"
 #include <webkit/support/webkit_support.h>
 
+#if defined(WIN32) && defined(WEBKIT_DLL_UNITTEST)
+#include "WebUnitTests.h"
+#endif
+
 int main(int argc, char** argv)
 {
     TestSuite testSuite(argc, argv);
     // TestSuite must be created before SetUpTestEnvironment so it performs
     // initializations needed by WebKit support.
     webkit_support::SetUpTestEnvironmentForUnitTests();
+
+#if defined(WIN32) && defined(WEBKIT_DLL_UNITTEST)
+    // For chromium multi-dll build, need to call webkit api to create a
+    // TestSuite instance in webkit.dll and run all tests from there.
+    int result = WebKit::RunAllUnitTests(argc, argv);
+#else
     int result = testSuite.Run();
+#endif
+
     webkit_support::TearDownTestEnvironment();
     return result;
 }

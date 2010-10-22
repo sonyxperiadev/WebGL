@@ -59,11 +59,15 @@ protected:
     virtual bool mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const;
     virtual void parseMappedAttribute(Attribute*);
 
+<<<<<<< HEAD
 #if PLATFORM(ANDROID)
     // in Android, plugin has a focused mode where it accepts all the touch events.
     // so need to claim that plugin element supports focus instead of using the default.
     virtual bool supportsFocus() const;
 #endif
+=======
+    bool m_inBeforeLoadEventHandler;
+>>>>>>> webkit.org at r70209
 
 private:
     virtual void defaultEventHandler(Event*);

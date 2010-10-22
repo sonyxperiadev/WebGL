@@ -131,6 +131,9 @@ void RenderImage::imageChanged(WrappedImagePtr newImage, const IntRect* rect)
 
     if (hasBoxDecorations() || hasMask())
         RenderReplaced::imageChanged(newImage, rect);
+    
+    if (!m_imageResource)
+        return;
 
     if (newImage != m_imageResource->imagePtr() || !newImage)
         return;
@@ -195,6 +198,9 @@ void RenderImage::imageChanged(WrappedImagePtr newImage, const IntRect* rect)
 
 void RenderImage::notifyFinished(CachedResource* newImage)
 {
+    if (!m_imageResource)
+        return;
+    
     if (documentBeingDestroyed())
         return;
 
@@ -327,6 +333,9 @@ void RenderImage::paintFocusRings(PaintInfo& paintInfo, const RenderStyle* style
     
     RefPtr<HTMLCollection> areas = mapElement->areas();
     unsigned numAreas = areas->length();
+
+    if (theme()->supportsFocusRing(style))
+        return; // The theme draws the focus ring.
     
     // FIXME: Clip the paths to the image bounding box.
     for (unsigned k = 0; k < numAreas; ++k) {
@@ -405,9 +414,9 @@ void RenderImage::updateAltText()
 #endif
 }
 
-bool RenderImage::isWidthSpecified() const
+bool RenderImage::isLogicalWidthSpecified() const
 {
-    switch (style()->width().type()) {
+    switch (style()->logicalWidth().type()) {
         case Fixed:
         case Percent:
             return true;
@@ -422,9 +431,9 @@ bool RenderImage::isWidthSpecified() const
     return false;
 }
 
-bool RenderImage::isHeightSpecified() const
+bool RenderImage::isLogicalHeightSpecified() const
 {
-    switch (style()->height().type()) {
+    switch (style()->logicalHeight().type()) {
         case Fixed:
         case Percent:
             return true;
@@ -439,7 +448,7 @@ bool RenderImage::isHeightSpecified() const
     return false;
 }
 
-int RenderImage::computeReplacedWidth(bool includeMaxWidth) const
+int RenderImage::computeReplacedLogicalWidth(bool includeMaxWidth) const
 {
     if (m_imageResource->imageHasRelativeWidth())
         if (RenderObject* cb = isPositioned() ? container() : containingBlock()) {
@@ -447,19 +456,21 @@ int RenderImage::computeReplacedWidth(bool includeMaxWidth) const
                 m_imageResource->setImageContainerSize(IntSize(toRenderBox(cb)->availableWidth(), toRenderBox(cb)->availableHeight()));
         }
 
-    int width;
-    if (isWidthSpecified())
-        width = computeReplacedWidthUsing(style()->width());
-    else if (m_imageResource->usesImageContainerSize())
-        width = m_imageResource->imageSize(style()->effectiveZoom()).width();
-    else if (m_imageResource->imageHasRelativeWidth())
-        width = 0; // If the image is relatively-sized, set the width to 0 until there is a set container size.
+    int logicalWidth;
+    if (isLogicalWidthSpecified())
+        logicalWidth = computeReplacedLogicalWidthUsing(style()->logicalWidth());
+    else if (m_imageResource->usesImageContainerSize()) {
+        IntSize size = m_imageResource->imageSize(style()->effectiveZoom());
+        logicalWidth = style()->isHorizontalWritingMode() ? size.width() : size.height();
+    } else if (m_imageResource->imageHasRelativeWidth())
+        logicalWidth = 0; // If the image is relatively-sized, set the width to 0 until there is a set container size.
     else
-        width = calcAspectRatioWidth();
+        logicalWidth = calcAspectRatioLogicalWidth();
 
-    int minW = computeReplacedWidthUsing(style()->minWidth());
-    int maxW = !includeMaxWidth || style()->maxWidth().isUndefined() ? width : computeReplacedWidthUsing(style()->maxWidth());
+    int minLogicalWidth = computeReplacedLogicalWidthUsing(style()->logicalMinWidth());
+    int maxLogicalWidth = !includeMaxWidth || style()->logicalMaxWidth().isUndefined() ? logicalWidth : computeReplacedLogicalWidthUsing(style()->logicalMaxWidth());
 
+<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
     width = max(minW, min(width, maxW));
     // in SSR mode, we will fit the image to its container width
@@ -472,23 +483,28 @@ int RenderImage::computeReplacedWidth(bool includeMaxWidth) const
 #else
     return max(minW, min(width, maxW));
 #endif
+=======
+    return max(minLogicalWidth, min(logicalWidth, maxLogicalWidth));
+>>>>>>> webkit.org at r70209
 }
 
-int RenderImage::computeReplacedHeight() const
+int RenderImage::computeReplacedLogicalHeight() const
 {
-    int height;
-    if (isHeightSpecified())
-        height = computeReplacedHeightUsing(style()->height());
-    else if (m_imageResource->usesImageContainerSize())
-        height = m_imageResource->imageSize(style()->effectiveZoom()).height();
-    else if (m_imageResource->imageHasRelativeHeight())
-        height = 0; // If the image is relatively-sized, set the height to 0 until there is a set container size.
+    int logicalHeight;
+    if (isLogicalHeightSpecified())
+        logicalHeight = computeReplacedLogicalHeightUsing(style()->logicalHeight());
+    else if (m_imageResource->usesImageContainerSize()) {
+        IntSize size = m_imageResource->imageSize(style()->effectiveZoom());
+        logicalHeight = style()->isHorizontalWritingMode() ? size.height() : size.width();
+    } else if (m_imageResource->imageHasRelativeHeight())
+        logicalHeight = 0; // If the image is relatively-sized, set the height to 0 until there is a set container size.
     else
-        height = calcAspectRatioHeight();
+        logicalHeight = calcAspectRatioLogicalHeight();
 
-    int minH = computeReplacedHeightUsing(style()->minHeight());
-    int maxH = style()->maxHeight().isUndefined() ? height : computeReplacedHeightUsing(style()->maxHeight());
+    int minLogicalHeight = computeReplacedLogicalHeightUsing(style()->logicalMinHeight());
+    int maxLogicalHeight = style()->logicalMaxHeight().isUndefined() ? logicalHeight : computeReplacedLogicalHeightUsing(style()->logicalMaxHeight());
 
+<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
     height = max(minH, min(height, maxH));
     // in SSR mode, we will fit the image to its container width
@@ -511,26 +527,31 @@ int RenderImage::computeReplacedHeight() const
 #else
     return max(minH, min(height, maxH));
 #endif
+=======
+    return max(minLogicalHeight, min(logicalHeight, maxLogicalHeight));
+>>>>>>> webkit.org at r70209
 }
 
-int RenderImage::calcAspectRatioWidth() const
+int RenderImage::calcAspectRatioLogicalWidth() const
 {
-    IntSize size = intrinsicSize();
-    if (!size.height())
+    int intrinsicWidth = intrinsicLogicalWidth();
+    int intrinsicHeight = intrinsicLogicalHeight();
+    if (!intrinsicHeight)
         return 0;
     if (!m_imageResource->hasImage() || m_imageResource->errorOccurred())
-        return size.width(); // Don't bother scaling.
-    return RenderBox::computeReplacedHeight() * size.width() / size.height();
+        return intrinsicWidth; // Don't bother scaling.
+    return RenderBox::computeReplacedLogicalHeight() * intrinsicWidth / intrinsicHeight;
 }
 
-int RenderImage::calcAspectRatioHeight() const
+int RenderImage::calcAspectRatioLogicalHeight() const
 {
-    IntSize size = intrinsicSize();
-    if (!size.width())
+    int intrinsicWidth = intrinsicLogicalWidth();
+    int intrinsicHeight = intrinsicLogicalHeight();
+    if (!intrinsicWidth)
         return 0;
     if (!m_imageResource->hasImage() || m_imageResource->errorOccurred())
-        return size.height(); // Don't bother scaling.
-    return RenderBox::computeReplacedWidth() * size.height() / size.width();
+        return intrinsicHeight; // Don't bother scaling.
+    return RenderBox::computeReplacedLogicalWidth() * intrinsicHeight / intrinsicWidth;
 }
 
 } // namespace WebCore

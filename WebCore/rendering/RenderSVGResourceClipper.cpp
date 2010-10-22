@@ -136,7 +136,7 @@ bool RenderSVGResourceClipper::pathOnlyClipping(GraphicsContext* context, const 
             return false;
         // Fallback to masking, if there is more than one clipping path.
         if (clipPath.isEmpty()) {
-            clipPath = styled->toClipPath();
+            styled->toClipPath(clipPath);
             clipRule = svgStyle->clipRule();
         } else
             return false;
@@ -178,7 +178,7 @@ bool RenderSVGResourceClipper::applyClippingToContext(RenderObject* object, cons
     FloatRect clampedAbsoluteTargetRect = SVGImageBufferTools::clampedAbsoluteTargetRectForRenderer(object, absoluteTargetRect);
 
     if (shouldCreateClipData && !clampedAbsoluteTargetRect.isEmpty()) {
-        if (!SVGImageBufferTools::createImageBuffer(absoluteTargetRect, clampedAbsoluteTargetRect, clipperData->clipMaskImage, DeviceRGB))
+        if (!SVGImageBufferTools::createImageBuffer(absoluteTargetRect, clampedAbsoluteTargetRect, clipperData->clipMaskImage, ColorSpaceDeviceRGB))
             return false;
 
         GraphicsContext* maskContext = clipperData->clipMaskImage->context();
@@ -247,7 +247,7 @@ bool RenderSVGResourceClipper::drawContentIntoMaskImage(ClipperData* clipperData
         }
 
         // Only shapes, paths and texts are allowed for clipping.
-        if (!renderer->isRenderPath() && !renderer->isSVGText())
+        if (!renderer->isSVGPath() && !renderer->isSVGText())
             continue;
 
         // Save the old RenderStyle of the current object for restoring after drawing
@@ -289,7 +289,7 @@ void RenderSVGResourceClipper::calculateClipContentRepaintRect()
         RenderObject* renderer = childNode->renderer();
         if (!childNode->isSVGElement() || !static_cast<SVGElement*>(childNode)->isStyled() || !renderer)
             continue;
-        if (!renderer->isRenderPath() && !renderer->isSVGText() && !renderer->isSVGShadowTreeRootContainer())
+        if (!renderer->isSVGPath() && !renderer->isSVGText() && !renderer->isSVGShadowTreeRootContainer())
             continue;
         RenderStyle* style = renderer->style();
         if (!style || style->display() == NONE || style->visibility() != VISIBLE)
@@ -315,7 +315,7 @@ bool RenderSVGResourceClipper::hitTestClipContent(const FloatRect& objectBoundin
         RenderObject* renderer = childNode->renderer();
         if (!childNode->isSVGElement() || !static_cast<SVGElement*>(childNode)->isStyled() || !renderer)
             continue;
-        if (!renderer->isRenderPath() && !renderer->isSVGText() && !renderer->isSVGShadowTreeRootContainer())
+        if (!renderer->isSVGPath() && !renderer->isSVGText() && !renderer->isSVGShadowTreeRootContainer())
             continue;
         IntPoint hitPoint;
         HitTestResult result(hitPoint);

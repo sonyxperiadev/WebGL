@@ -52,11 +52,12 @@ class UploadCommandsTest(CommandsTest):
 
     def test_post(self):
         options = MockOptions()
+        options.cc = None
+        options.check_style = True
+        options.comment = None
         options.description = "MOCK description"
         options.request_commit = False
         options.review = True
-        options.comment = None
-        options.cc = None
         expected_stderr = """Running check-webkit-style
 MOCK: user.open_url: file://...
 Obsoleting 2 old patches on bug 42
@@ -81,11 +82,12 @@ MOCK: user.open_url: http://example.com/42
 
     def test_upload(self):
         options = MockOptions()
+        options.cc = None
+        options.check_style = True
+        options.comment = None
         options.description = "MOCK description"
         options.request_commit = False
         options.review = True
-        options.comment = None
-        options.cc = None
         expected_stderr = """Running check-webkit-style
 MOCK: user.open_url: file://...
 Obsoleting 2 old patches on bug 42
@@ -103,7 +105,7 @@ MOCK: user.open_url: http://example.com/42
         options = Mock()
         options.bug_id = 42
         options.comment = "MOCK comment"
-        expected_stderr = "Bug: <http://example.com/42> Bug with two r+'d and cq+'d patches, one of which has an invalid commit-queue setter.\nRevision: 9876\nMOCK: user.open_url: http://example.com/42\nAdding comment to Bug 42.\nMOCK bug comment: bug_id=42, cc=None\n--- Begin comment ---\\MOCK comment\n\nCommitted r9876: <http://trac.webkit.org/changeset/9876>\n--- End comment ---\n\n"
+        expected_stderr = "Bug: <http://example.com/42> Bug with two r+'d and cq+'d patches, one of which has an invalid commit-queue setter.\nRevision: 9876\nMOCK: user.open_url: http://example.com/42\nAdding comment to Bug 42.\nMOCK bug comment: bug_id=42, cc=None\n--- Begin comment ---\nMOCK comment\n\nCommitted r9876: <http://trac.webkit.org/changeset/9876>\n--- End comment ---\n\n"
         self.assert_execute_outputs(MarkBugFixed(), [], expected_stderr=expected_stderr, tool=tool, options=options)
 
     def test_edit_changelog(self):

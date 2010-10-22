@@ -64,7 +64,7 @@ WebInspector.ConsoleView = function(drawer)
 
     function createDividerElement() {
         var dividerElement = document.createElement("div");
-        dividerElement.addStyleClass("divider");
+        dividerElement.addStyleClass("scope-bar-divider");
         this.filterBarElement.appendChild(dividerElement);
     }
 
@@ -360,7 +360,7 @@ WebInspector.ConsoleView.prototype = {
         }
 
         var results = [];
-        var properties = Object.sortedProperties(result);
+        var properties = Object.keys(result).sort();
 
         for (var i = 0; i < properties.length; ++i) {
             var property = properties[i];
@@ -679,25 +679,22 @@ WebInspector.ConsoleMessage.prototype = {
             case WebInspector.ConsoleMessage.MessageType.UncaughtException:
                 var ol = document.createElement("ol");
                 ol.addStyleClass("stack-trace");
-                if (this.type === WebInspector.ConsoleMessage.MessageType.Trace)
-                    ol.addStyleClass("trace-message");
                 var treeOutline = new TreeOutline(ol);
+                var messageText;
+                if (this.type === WebInspector.ConsoleMessage.MessageType.Assert)
+                    messageText = this._format(this._parameters);
+                else if (this.type === WebInspector.ConsoleMessage.MessageType.Trace)
+                    messageText = document.createTextNode("console.trace()");
+                else
+                    messageText = document.createTextNode(this._messageText);
 
-                var root = treeOutline;
-                if (this.type === WebInspector.ConsoleMessage.MessageType.UncaughtException ||
-                    this.type === WebInspector.ConsoleMessage.MessageType.Assert) {
-                    var messageText;
-                    if (this.type === WebInspector.ConsoleMessage.MessageType.Assert)
-                        messageText = this._format(this._parameters);
-                    else
-                        messageText = document.createTextNode(this._messageText);
-
-                    var content = document.createElement("div");
-                    this._addMessageHeader(content, messageText);
-                    root = new TreeElement(content, null, true);
-                    content.treeElementForTest = root;
-                    treeOutline.appendChild(root);
-                }
+                var content = document.createElement("div");
+                this._addMessageHeader(content, messageText);
+                var root = new TreeElement(content, null, true);
+                content.treeElementForTest = root;
+                treeOutline.appendChild(root);
+                if (this.type === WebInspector.ConsoleMessage.MessageType.Trace)
+                    root.expand();
 
                 this._populateStackTraceTreeElement(root);
                 this.formattedMessage = ol;

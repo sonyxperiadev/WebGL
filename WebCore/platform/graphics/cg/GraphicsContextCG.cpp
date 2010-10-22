@@ -26,7 +26,7 @@
 
 #define _USE_MATH_DEFINES 1
 #include "config.h"
-#include "GraphicsContext.h"
+#include "GraphicsContextCG.h"
 
 #include "AffineTransform.h"
 #include "FloatConversion.h"
@@ -69,60 +69,14 @@ using namespace std;
 
 namespace WebCore {
 
-static CGColorRef createCGColorWithColorSpace(const Color& color, ColorSpace colorSpace)
-{
-    CGFloat components[4];
-    color.getRGBA(components[0], components[1], components[2], components[3]);
-
-    CGColorRef cgColor = 0;
-    if (colorSpace == sRGBColorSpace)
-        cgColor = CGColorCreate(sRGBColorSpaceRef(), components);
-    else
-        cgColor = CGColorCreate(deviceRGBColorSpaceRef(), components);
-
-    return cgColor;
-}
-
 static void setCGFillColor(CGContextRef context, const Color& color, ColorSpace colorSpace)
 {
-    CGColorRef cgColor = createCGColorWithColorSpace(color, colorSpace);
-    CGContextSetFillColorWithColor(context, cgColor);
-    CFRelease(cgColor);
+    CGContextSetFillColorWithColor(context, cachedCGColor(color, colorSpace));
 }
 
 static void setCGStrokeColor(CGContextRef context, const Color& color, ColorSpace colorSpace)
 {
-    CGColorRef cgColor = createCGColorWithColorSpace(color, colorSpace);
-    CGContextSetStrokeColorWithColor(context, cgColor);
-    CFRelease(cgColor);
-}
-
-static void setCGFillColorSpace(CGContextRef context, ColorSpace colorSpace)
-{
-    switch (colorSpace) {
-    case DeviceColorSpace:
-        break;
-    case sRGBColorSpace:
-        CGContextSetFillColorSpace(context, sRGBColorSpaceRef());
-        break;
-    default:
-        ASSERT_NOT_REACHED();
-        break;
-    }
-}
-
-static void setCGStrokeColorSpace(CGContextRef context, ColorSpace colorSpace)
-{
-    switch (colorSpace) {
-    case DeviceColorSpace:
-        break;
-    case sRGBColorSpace:
-        CGContextSetStrokeColorSpace(context, sRGBColorSpaceRef());
-        break;
-    default:
-        ASSERT_NOT_REACHED();
-        break;
-    }
+    CGContextSetStrokeColorWithColor(context, cachedCGColor(color, colorSpace));
 }
 
 CGColorSpaceRef deviceRGBColorSpaceRef()
@@ -139,6 +93,17 @@ CGColorSpaceRef sRGBColorSpaceRef()
 #else
     static CGColorSpaceRef sRGBSpace = CGColorSpaceCreateWithName(kCGColorSpaceSRGB);
     return sRGBSpace;
+#endif
+}
+
+CGColorSpaceRef linearRGBColorSpaceRef()
+{
+    // FIXME: Windows should be able to use kCGColorSpaceGenericRGBLinear, this is tracked by http://webkit.org/b/31363.
+#if PLATFORM(WIN) || defined(BUILDING_ON_TIGER)
+    return deviceRGBColorSpaceRef();
+#else
+    static CGColorSpaceRef linearRGBSpace = CGColorSpaceCreateWithName(kCGColorSpaceGenericRGBLinear);
+    return linearRGBSpace;
 #endif
 }
 
@@ -586,9 +551,6 @@ void GraphicsContext::fillPath()
 
     CGContextRef context = platformContext();
 
-    // FIXME: Is this helpful and correct in the fillPattern and fillGradient cases?
-    setCGFillColorSpace(context, m_common->state.fillColorSpace);
-
     if (m_common->state.fillGradient) {
         CGContextSaveGState(context);
         if (fillRule() == RULE_EVENODD)
@@ -613,9 +575,6 @@ void GraphicsContext::strokePath()
 
     CGContextRef context = platformContext();
 
-    // FIXME: Is this helpful and correct in the strokePattern and strokeGradient cases?
-    setCGStrokeColorSpace(context, m_common->state.strokeColorSpace);
-
     if (m_common->state.strokeGradient) {
         CGContextSaveGState(context);
         CGContextReplacePathWithStrokedPath(context);
@@ -638,9 +597,6 @@ void GraphicsContext::fillRect(const FloatRect& rect)
 
     CGContextRef context = platformContext();
 
-    // FIXME: Is this helpful and correct in the fillPattern and fillGradient cases?
-    setCGFillColorSpace(context, m_common->state.fillColorSpace);
-
     if (m_common->state.fillGradient) {
         CGContextSaveGState(context);
         CGContextClipToRect(context, rect);
@@ -659,17 +615,18 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorS
 {
     if (paintingDisabled())
         return;
+
     CGContextRef context = platformContext();
     Color oldFillColor = fillColor();
     ColorSpace oldColorSpace = fillColorSpace();
 
     if (oldFillColor != color || oldColorSpace != colorSpace)
-      setCGFillColor(context, color, colorSpace);
+        setCGFillColor(context, color, colorSpace);
 
     CGContextFillRect(context, rect);
 
     if (oldFillColor != color || oldColorSpace != colorSpace)
-      setCGFillColor(context, oldFillColor, oldColorSpace);
+        setCGFillColor(context, oldFillColor, oldColorSpace);
 }
 
 void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLeft, const IntSize& topRight, const IntSize& bottomLeft, const IntSize& bottomRight, const Color& color, ColorSpace colorSpace)
@@ -684,7 +641,9 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     if (oldFillColor != color || oldColorSpace != colorSpace)
         setCGFillColor(context, color, colorSpace);
 
-    addPath(Path::createRoundedRectangle(rect, topLeft, topRight, bottomLeft, bottomRight));
+    Path path;
+    path.addRoundedRect(rect, topLeft, topRight, bottomLeft, bottomRight);
+    addPath(path);
     fillPath();
 
     if (oldFillColor != color || oldColorSpace != colorSpace)
@@ -821,13 +780,8 @@ void GraphicsContext::setPlatformShadow(const FloatSize& offset, float blur, con
     // and we should therefore just use the default shadow color.
     if (!color.isValid())
         CGContextSetShadow(context, CGSizeMake(xOffset, yOffset), blurRadius);
-    else {
-        RetainPtr<CGColorRef> colorCG(AdoptCF, createCGColorWithColorSpace(color, colorSpace));
-        CGContextSetShadowWithColor(context,
-                                    CGSizeMake(xOffset, yOffset),
-                                    blurRadius,
-                                    colorCG.get());
-    }
+    else
+        CGContextSetShadowWithColor(context, CGSizeMake(xOffset, yOffset), blurRadius, cachedCGColor(color, colorSpace));
 }
 
 void GraphicsContext::clearPlatformShadow()
@@ -864,9 +818,6 @@ void GraphicsContext::strokeRect(const FloatRect& r, float lineWidth)
         return;
 
     CGContextRef context = platformContext();
-
-    // FIXME: Is this helpful and correct in the strokePattern and strokeGradient cases?
-    setCGStrokeColorSpace(context, m_common->state.strokeColorSpace);
 
     if (m_common->state.strokeGradient) {
         CGContextSaveGState(context);

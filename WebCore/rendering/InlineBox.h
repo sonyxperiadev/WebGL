@@ -21,6 +21,7 @@
 #ifndef InlineBox_h
 #define InlineBox_h
 
+#include "RenderBR.h"
 #include "RenderBoxModelObject.h"
 #include "TextDirection.h"
 
@@ -139,6 +140,7 @@ public:
     virtual bool isRootInlineBox() const { return false; }
 #if ENABLE(SVG)
     virtual bool isSVGInlineTextBox() const { return false; }
+    virtual bool isSVGInlineFlowBox() const { return false; }
     virtual bool isSVGRootInlineBox() const { return false; }
 #endif
 
@@ -216,6 +218,7 @@ public:
 
     // The logicalLeft position is the left edge of the line box in a horizontal line and the top edge in a vertical line.
     int logicalLeft() const { return !m_isVertical ? m_x : m_y; }
+    int logicalRight() const { return logicalLeft() + logicalWidth(); }
     void setLogicalLeft(int left)
     {
         if (!m_isVertical)
@@ -241,8 +244,9 @@ public:
     // The logical height is our extent in the block flow direction, i.e., height for horizontal text and width for vertical text.
     int logicalHeight() const;
 
-    inline int baselinePosition(bool isRootLineBox) const { return renderer()->baselinePosition(m_firstLine, isRootLineBox); }
-    inline int lineHeight(bool isRootLineBox) const { return renderer()->lineHeight(m_firstLine, isRootLineBox); }
+    virtual int baselinePosition() const { return boxModelObject()->baselinePosition(m_firstLine, m_isVertical ? VerticalLine : HorizontalLine, PositionOnContainingLine); }
+    virtual int lineHeight() const { return boxModelObject()->lineHeight(m_firstLine, m_isVertical ? VerticalLine : HorizontalLine, PositionOnContainingLine); }
+    
 
     virtual int caretMinOffset() const;
     virtual int caretMaxOffset() const;
@@ -251,8 +255,9 @@ public:
     unsigned char bidiLevel() const { return m_bidiEmbeddingLevel; }
     void setBidiLevel(unsigned char level) { m_bidiEmbeddingLevel = level; }
     TextDirection direction() const { return m_bidiEmbeddingLevel % 2 ? RTL : LTR; }
-    int caretLeftmostOffset() const { return direction() == LTR ? caretMinOffset() : caretMaxOffset(); }
-    int caretRightmostOffset() const { return direction() == LTR ? caretMaxOffset() : caretMinOffset(); }
+    bool isLeftToRightDirection() const { return direction() == LTR; }
+    int caretLeftmostOffset() const { return isLeftToRightDirection() ? caretMinOffset() : caretMaxOffset(); }
+    int caretRightmostOffset() const { return isLeftToRightDirection() ? caretMaxOffset() : caretMinOffset(); }
 
     virtual void clearTruncation() { }
 

@@ -43,7 +43,6 @@
 #include "Logging.h"
 #include "ScriptExecutionContext.h"
 #include "SecurityOrigin.h"
-#include "StringBuilder.h"
 
 #include <wtf/MD5.h>
 #include <wtf/RandomNumber.h>
@@ -52,6 +51,8 @@
 #include <wtf/Vector.h>
 #include <wtf/text/AtomicString.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringBuilder.h>
+#include <wtf/text/StringConcatenate.h>
 
 namespace WebCore {
 
@@ -75,7 +76,7 @@ static String hostName(const KURL& url, bool secure)
     StringBuilder builder;
     builder.append(url.host().lower());
     if (url.port() && ((!secure && url.port() != 80) || (secure && url.port() != 443))) {
-        builder.append(":");
+        builder.append(':');
         builder.append(String::number(url.port()));
     }
     return builder.toString();
@@ -318,7 +319,7 @@ int WebSocketHandshake::readServerHandshake(const char* header, size_t len)
     m_response.setStatusText(statusText);
     if (statusCode != 101) {
         m_mode = Failed;
-        m_context->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, String::format("Unexpected response code: %d", statusCode), 0, clientOrigin());
+        m_context->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, makeString("Unexpected response code: ", String::number(statusCode)), 0, clientOrigin());
         return len;
     }
     m_mode = Normal;

@@ -309,6 +309,14 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\wtf\DecimalNumber.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\..\wtf\DecimalNumber.h"
+			>
+		</File>
+		<File
 			RelativePath="..\..\wtf\FastAllocBase.h"
 			>
 		</File>
@@ -609,6 +617,22 @@
  			>
  		</File>
  		<File
+ 			RelativePath="..\..\wtf\text\StringBuffer.h"
+ 			>
+ 		</File>
+ 		<File
+ 			RelativePath="..\..\wtf\text\StringBuilder.cpp"
+ 			>
+ 		</File>
+ 		<File
+ 			RelativePath="..\..\wtf\text\StringBuilder.h"
+ 			>
+ 		</File>
+ 		<File
+ 			RelativePath="..\..\wtf\text\StringConcatenate.h"
+ 			>
+ 		</File>
+ 		<File
  			RelativePath="..\..\wtf\text\StringHash.h"
  			>
  		</File>
@@ -618,6 +642,10 @@
  		</File>
  		<File
  			RelativePath="..\..\wtf\text\StringImpl.h"
+ 			>
+ 		</File>
+ 		<File
+ 			RelativePath="..\..\wtf\text\TextPosition.h"
  			>
  		</File>
 		<File

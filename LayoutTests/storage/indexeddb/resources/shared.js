@@ -40,6 +40,12 @@ function verifyAbortEvent(event)
     shouldBeEqualToString("event.type", "abort");
 }
 
+function verifyCompleteEvent(event)
+{
+    debug("Complete event fired:");
+    shouldBeEqualToString("event.type", "complete");
+}
+
 function verifyResult(result)
 {
     shouldBeTrue("'onsuccess' in result");
@@ -65,9 +71,28 @@ function unexpectedErrorCallback()
     done();
 }
 
-function deleteAllObjectStores(db)
+function unexpectedAbortCallback()
 {
-    objectStores = db.objectStores;
-    for (var i = 0; i < objectStores.length; ++i)
-        db.removeObjectStore(objectStores[i]);
+    testFailed("Abort function called unexpectedly!");
+    debug("");
+    verifyAbortEvent(event);
+    done();
+}
+
+function unexpectedCompleteCallback()
+{
+    testFailed("oncomplete function called unexpectedly!");
+    debug("");
+    verifyCompleteEvent(event);
+    done();
+}
+
+// FIXME: remove the onfinished parameter.
+function deleteAllObjectStores(db, onfinished)
+{
+    while (db.objectStores.length)
+        db.removeObjectStore(db.objectStores.item(0));
+
+    debug("Deleted all object stores.");
+    onfinished();
 }

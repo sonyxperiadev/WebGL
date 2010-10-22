@@ -101,17 +101,27 @@ module threads {
         attribute BlobBuilderConstructor BlobBuilder;
         attribute FileReaderConstructor FileReader;
         attribute FileReaderSyncConstructor FileReaderSync;
-        DOMString createBlobURL(in Blob blob);
-        void revokeBlobURL(in DOMString blobURL);
+        DOMString createObjectURL(in Blob blob);
+        void revokeObjectURL(in DOMString blobURL);
 #endif
 
 #if defined(ENABLE_FILE_SYSTEM) && ENABLE_FILE_SYSTEM
         const unsigned short TEMPORARY = 0;
         const unsigned short PERSISTENT = 1;
-        [EnabledAtRuntime] void requestFileSystem(in unsigned short type, in long long size, in [Callback, Optional] FileSystemCallback successCallback, in [Callback, Optional] ErrorCallback errorCallback);
+        [EnabledAtRuntime=FileSystem] void requestFileSystem(in unsigned short type, in long long size, in [Callback, Optional] FileSystemCallback successCallback, in [Callback, Optional] ErrorCallback errorCallback);
+        [EnabledAtRuntime=FileSystem] DOMFileSystemSync requestFileSystemSync(in unsigned short type, in long long size) raises (FileException);
 
                  attribute [EnabledAtRuntime=FileSystem] FlagsConstructor Flags;
 #endif
+
+        attribute [Conditional=BLOB,EnabledAtRuntime] ArrayBufferConstructor ArrayBuffer; // Usable with new operator
+        attribute [Conditional=BLOB,EnabledAtRuntime] Int8ArrayConstructor Int8Array; // Usable with new operator
+        attribute [Conditional=BLOB,EnabledAtRuntime] Uint8ArrayConstructor Uint8Array; // Usable with new operator
+        attribute [Conditional=BLOB,EnabledAtRuntime] Int16ArrayConstructor Int16Array; // Usable with new operator
+        attribute [Conditional=BLOB,EnabledAtRuntime] Uint16ArrayConstructor Uint16Array; // Usable with new operator
+        attribute [Conditional=BLOB,EnabledAtRuntime] Int32ArrayConstructor Int32Array; // Usable with new operator
+        attribute [Conditional=BLOB,EnabledAtRuntime] Uint32ArrayConstructor Uint32Array; // Usable with new operator
+        attribute [Conditional=BLOB,EnabledAtRuntime] Float32ArrayConstructor Float32Array; // Usable with new operator
     };
 
 }

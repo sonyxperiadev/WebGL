@@ -52,7 +52,7 @@
         'ENABLE_DIRECTORY_UPLOAD=1',
         'ENABLE_DOM_STORAGE=1',
         'ENABLE_EVENTSOURCE=1',
-        'ENABLE_FILE_READER=1',
+        'ENABLE_FILE_SYSTEM=1',
         'ENABLE_FILTERS=1',
         'ENABLE_GEOLOCATION=1',
         'ENABLE_ICONDATABASE=0',
@@ -87,6 +87,7 @@
         'ENABLE_XPATH=1',
         'ENABLE_XSLT=1',
         'WTF_USE_ACCELERATED_COMPOSITING=1',
+        'WTF_USE_WEBP=1',
       ],
 
       'use_accelerated_compositing%': 1,

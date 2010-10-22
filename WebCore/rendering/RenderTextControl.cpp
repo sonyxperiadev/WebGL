@@ -262,10 +262,12 @@ void RenderTextControl::setSelectionRange(int start, int end)
         frame->selection()->setSelection(newSelection);
 }
 
-VisibleSelection RenderTextControl::selection(int start, int end) const
+PassRefPtr<Range> RenderTextControl::selection(int start, int end) const
 {
-    return VisibleSelection(VisiblePosition(m_innerText.get(), start, VP_DEFAULT_AFFINITY),
-                            VisiblePosition(m_innerText.get(), end, VP_DEFAULT_AFFINITY));
+    if (!m_innerText)
+        return 0;
+
+    return Range::create(document(), m_innerText, start, m_innerText, end);
 }
 
 VisiblePosition RenderTextControl::visiblePositionForIndex(int index)
@@ -407,7 +409,7 @@ void RenderTextControl::computeLogicalHeight()
               m_innerText->renderBox()->paddingTop() + m_innerText->renderBox()->paddingBottom() +
               m_innerText->renderBox()->marginTop() + m_innerText->renderBox()->marginBottom());
 
-    adjustControlHeightBasedOnLineHeight(m_innerText->renderer()->lineHeight(true, true));
+    adjustControlHeightBasedOnLineHeight(m_innerText->renderBox()->lineHeight(true, HorizontalLine, PositionOfInteriorLineBoxes));
     setHeight(height() + borderAndPaddingHeight());
 
     // We are able to have a horizontal scrollbar if the overflow style is scroll, or if its auto and there's no word wrap.

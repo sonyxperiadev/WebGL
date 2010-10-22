@@ -71,6 +71,10 @@ RenderTable::RenderTable(Node* node)
 #endif
 }
 
+RenderTable::~RenderTable()
+{
+}
+
 void RenderTable::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     RenderBlock::styleDidChange(diff, oldStyle);
@@ -791,7 +795,7 @@ int RenderTable::calcBorderLeft() const
         if (tb.style() > BHIDDEN)
             borderWidth = tb.width();
 
-        int leftmostColumn = style()->direction() == RTL ? numEffCols() - 1 : 0;
+        int leftmostColumn = !style()->isLeftToRightDirection() ? numEffCols() - 1 : 0;
         RenderTableCol* colGroup = colElement(leftmostColumn);
         if (colGroup) {
             const BorderValue& gb = style()->borderLeft();
@@ -850,7 +854,7 @@ int RenderTable::calcBorderRight() const
         if (tb.style() > BHIDDEN)
             borderWidth = tb.width();
 
-        int rightmostColumn = style()->direction() == RTL ? 0 : numEffCols() - 1;
+        int rightmostColumn = !style()->isLeftToRightDirection() ? 0 : numEffCols() - 1;
         RenderTableCol* colGroup = colElement(rightmostColumn);
         if (colGroup) {
             const BorderValue& gb = style()->borderRight();
@@ -1186,7 +1190,7 @@ bool RenderTable::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
     ty += y();
 
     // Check kids first.
-    if (!hasOverflowClip() || overflowClipRect(tx, ty).intersects(result.rectFromPoint(xPos, yPos))) {
+    if (!hasOverflowClip() || overflowClipRect(tx, ty).intersects(result.rectForPoint(xPos, yPos))) {
         for (RenderObject* child = lastChild(); child; child = child->previousSibling()) {
             if (child->isBox() && !toRenderBox(child)->hasSelfPaintingLayer() && (child->isTableSection() || child == m_caption) &&
                 child->nodeAtPoint(request, result, xPos, yPos, tx, ty, action)) {
@@ -1198,7 +1202,7 @@ bool RenderTable::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
 
     // Check our bounds next.
     IntRect boundsRect = IntRect(tx, ty, width(), height());
-    if (visibleToHitTesting() && (action == HitTestBlockBackground || action == HitTestChildBlockBackground) && boundsRect.intersects(result.rectFromPoint(xPos, yPos))) {
+    if (visibleToHitTesting() && (action == HitTestBlockBackground || action == HitTestChildBlockBackground) && boundsRect.intersects(result.rectForPoint(xPos, yPos))) {
         updateHitTestResult(result, IntPoint(xPos - tx, yPos - ty));
         if (!result.addNodeToRectBasedTestResult(node(), xPos, yPos, boundsRect))
             return true;

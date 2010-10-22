@@ -108,7 +108,7 @@ void ApplicationCacheHost::selectCacheWithManifest(const KURL& manifestURL)
             // see WebCore::ApplicationCacheGroup::selectCache()
             const KURL& docURL = m_documentLoader->frame()->document()->url();
             String referrer = m_documentLoader->frameLoader()->referrer();
-            m_documentLoader->frame()->redirectScheduler()->scheduleLocationChange(docURL, referrer);
+            m_documentLoader->frame()->navigationScheduler()->scheduleLocationChange(docURL, referrer);
         }
     }
 }
@@ -254,6 +254,11 @@ void ApplicationCacheHost::stopDeferringEvents()
     }
     m_deferredEvents.clear();
     m_defersEvents = false;
+}
+
+void ApplicationCacheHost::stopLoadingInFrame(Frame* frame)
+{
+    // FIXME: Implement this method.
 }
 
 void ApplicationCacheHost::dispatchDOMEvent(EventID id, int total, int done)

@@ -192,6 +192,7 @@ RenderThemeGtk::~RenderThemeGtk()
 
 GtkThemeParts* RenderThemeGtk::partsForDrawable(GdkDrawable* drawable) const
 {
+#ifdef GTK_API_VERSION_2
     // A null drawable represents the default screen colormap.
     GdkColormap* colormap = 0;
     if (!drawable)
@@ -205,6 +206,10 @@ GtkThemeParts* RenderThemeGtk::partsForDrawable(GdkDrawable* drawable) const
         parts->colormap = colormap;
         g_hash_table_insert(m_partsTable.get(), colormap, parts);
     }
+#else
+    // For GTK+ 3.0 we no longer have to worry about maintaining a set of widgets per-colormap.
+    static GtkThemeParts* parts = g_slice_new0(GtkThemeParts);
+#endif // GTK_API_VERSION_2
 
     return parts;
 }
@@ -284,6 +289,7 @@ static void adjustMozillaStyle(const RenderThemeGtk* theme, RenderStyle* style, 
     style->setPaddingBottom(Length(ypadding + bottom, Fixed));
 }
 
+#ifdef GTK_API_VERSION_2
 bool RenderThemeGtk::paintMozillaGtkWidget(GtkThemeWidgetType type, GraphicsContext* context, const IntRect& rect, GtkWidgetState* widgetState, int flags, GtkTextDirection textDirection)
 {
     // Painting is disabled so just claim to have succeeded
@@ -333,6 +339,18 @@ bool RenderThemeGtk::paintMozillaGtkWidget(GtkThemeWidgetType type, GraphicsCont
 
     return !success;
 }
+#else
+bool RenderThemeGtk::paintMozillaGtkWidget(GtkThemeWidgetType type, GraphicsContext* context, const IntRect& rect, GtkWidgetState* widgetState, int flags, GtkTextDirection textDirection)
+{
+    // Painting is disabled so just claim to have succeeded
+    if (context->paintingDisabled())
+        return false;
+
+    // false == success, because of awesome.
+    GdkRectangle paintRect = rect;
+    return moz_gtk_widget_paint(type, context->platformContext(), &paintRect, widgetState, flags, textDirection) != MOZ_GTK_SUCCESS;
+}
+#endif
 
 bool RenderThemeGtk::paintRenderObject(GtkThemeWidgetType type, RenderObject* renderObject, GraphicsContext* context, const IntRect& rect, int flags)
 {
@@ -343,7 +361,13 @@ bool RenderThemeGtk::paintRenderObject(GtkThemeWidgetType type, RenderObject* re
     GtkWidgetState widgetState;
     widgetState.active = isPressed(renderObject);
     widgetState.focused = isFocused(renderObject);
-    widgetState.inHover = isHovered(renderObject);
+
+    // https://bugs.webkit.org/show_bug.cgi?id=18364
+    // The Mozilla theme drawing code, only paints a button as pressed when it's pressed 
+    // while hovered. Until we move away from the Mozila code, work-around the issue by
+    // forcing a pressed button into the hovered state. This ensures that buttons activated
+    // via the keyboard have the proper rendering.
+    widgetState.inHover = isHovered(renderObject) || (type == MOZ_GTK_BUTTON && isPressed(renderObject));
 
     // FIXME: Disabled does not always give the correct appearance for ReadOnly
     widgetState.disabled = !isEnabled(renderObject) || isReadOnlyControl(renderObject);
@@ -360,16 +384,6 @@ bool RenderThemeGtk::paintRenderObject(GtkThemeWidgetType type, RenderObject* re
 
     GtkTextDirection textDirection = gtkTextDirection(renderObject->style()->direction());
     return paintMozillaGtkWidget(type, context, rect, &widgetState, flags, textDirection);
-}
-
-static void setButtonPadding(RenderStyle* style)
-{
-    // FIXME: This looks incorrect.
-    const int padding = 8;
-    style->setPaddingLeft(Length(padding, Fixed));
-    style->setPaddingRight(Length(padding, Fixed));
-    style->setPaddingTop(Length(padding / 2, Fixed));
-    style->setPaddingBottom(Length(padding / 2, Fixed));
 }
 
 static void setToggleSize(const RenderThemeGtk* theme, RenderStyle* style, ControlPart appearance)
@@ -426,18 +440,9 @@ bool RenderThemeGtk::paintRadio(RenderObject* o, const PaintInfo& i, const IntRe
 
 void RenderThemeGtk::adjustButtonStyle(CSSStyleSelector* selector, RenderStyle* style, WebCore::Element* e) const
 {
-    // FIXME: Is this condition necessary?
-    if (style->appearance() == PushButtonPart) {
-        style->resetBorder();
-        style->setHeight(Length(Auto));
-        style->setWhiteSpace(PRE);
-        setButtonPadding(style);
-    } else {
-        // FIXME: This should not be hard-coded.
-        style->setMinHeight(Length(14, Fixed));
-        style->resetBorderTop();
-        style->resetBorderBottom();
-    }
+    // Some layout tests check explicitly that buttons ignore line-height.
+    if (style->appearance() == PushButtonPart)
+        style->setLineHeight(RenderStyle::initialLineHeight());
 }
 
 bool RenderThemeGtk::paintButton(RenderObject* o, const PaintInfo& i, const IntRect& rect)
@@ -499,13 +504,26 @@ void RenderThemeGtk::adjustSearchFieldResultsDecorationStyle(CSSStyleSelector* s
     style->setHeight(Length(size.height(), Fixed));
 }
 
-bool RenderThemeGtk::paintSearchFieldResultsDecoration(RenderObject* o, const PaintInfo& i, const IntRect& rect)
+static IntRect centerRectVerticallyInParentInputElement(RenderObject* object, const IntRect& rect)
 {
-    GraphicsContext* context = i.context;
+    IntRect centeredRect(rect);
+    Node* input = object->node()->shadowAncestorNode(); // Get the renderer of <input> element.
+    if (!input->renderer()->isBox()) 
+        return centeredRect;
 
+    // If possible center the y-coordinate of the rect vertically in the parent input element.
+    // We also add one pixel here to ensure that the y coordinate is rounded up for box heights
+    // that are even, which looks in relation to the box text.
+    IntRect inputContentBox = toRenderBox(input->renderer())->absoluteContentBox();
+    centeredRect.setY(inputContentBox.y() + (inputContentBox.height() - centeredRect.height() + 1) / 2);
+    return centeredRect;
+}
+
+bool RenderThemeGtk::paintSearchFieldResultsDecoration(RenderObject* object, const PaintInfo& i, const IntRect& rect)
+{
     static Image* searchImage = Image::loadPlatformThemeIcon(GTK_STOCK_FIND, rect.width()).releaseRef();
-    context->drawImage(searchImage, DeviceColorSpace, rect);
-
+    IntRect centeredRect(centerRectVerticallyInParentInputElement(object, rect));
+    i.context->drawImage(searchImage, ColorSpaceDeviceRGB, centeredRect);
     return false;
 }
 
@@ -520,14 +538,12 @@ void RenderThemeGtk::adjustSearchFieldCancelButtonStyle(CSSStyleSelector* select
     style->setHeight(Length(size.height(), Fixed));
 }
 
-bool RenderThemeGtk::paintSearchFieldCancelButton(RenderObject* o, const PaintInfo& i, const IntRect& rect)
+bool RenderThemeGtk::paintSearchFieldCancelButton(RenderObject* object, const PaintInfo& i, const IntRect& rect)
 {
-    GraphicsContext* context = i.context;
-
     // TODO: Brightening up the image on hover is desirable here, I believe.
     static Image* cancelImage = Image::loadPlatformThemeIcon(GTK_STOCK_CLEAR, rect.width()).releaseRef();
-    context->drawImage(cancelImage, DeviceColorSpace, rect);
-
+    IntRect centeredRect(centerRectVerticallyInParentInputElement(object, rect));
+    i.context->drawImage(cancelImage, ColorSpaceDeviceRGB, centeredRect);
     return false;
 }
 
@@ -550,7 +566,7 @@ bool RenderThemeGtk::paintSliderTrack(RenderObject* object, const PaintInfo& inf
     if (part == SliderVerticalPart)
         gtkPart = MOZ_GTK_SCALE_VERTICAL;
 
-    return paintRenderObject(gtkPart, object, info.context, rect);
+    return paintRenderObject(gtkPart, object, info.context, toRenderBox(object)->absoluteContentBox());
 }
 
 void RenderThemeGtk::adjustSliderTrackStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
@@ -655,10 +671,46 @@ double RenderThemeGtk::caretBlinkInterval() const
     return time / 2000.;
 }
 
-void RenderThemeGtk::systemFont(int, FontDescription&) const
+static double getScreenDPI()
 {
-    // If you remove this notImplemented(), replace it with an comment that explains why.
-    notImplemented();
+    // FIXME: Really this should be the widget's screen.
+    GdkScreen* screen = gdk_screen_get_default();
+    if (!screen)
+        return 96; // Default to 96 DPI.
+
+    float dpi = gdk_screen_get_resolution(screen);
+    if (dpi <= 0)
+        return 96;
+    return dpi;
+}
+
+void RenderThemeGtk::systemFont(int, FontDescription& fontDescription) const
+{
+    GtkSettings* settings = gtk_settings_get_default();
+    if (!settings)
+        return;
+
+    // This will be a font selection string like "Sans 10" so we cannot use it as the family name.
+    GOwnPtr<gchar> fontName;
+    g_object_get(settings, "gtk-font-name", &fontName.outPtr(), NULL);
+
+    PangoFontDescription* pangoDescription = pango_font_description_from_string(fontName.get());
+    if (!pangoDescription)
+        return;
+
+    fontDescription.firstFamily().setFamily(pango_font_description_get_family(pangoDescription));
+
+    int size = pango_font_description_get_size(pangoDescription) / PANGO_SCALE;
+    // If the size of the font is in points, we need to convert it to pixels.
+    if (!pango_font_description_get_size_is_absolute(pangoDescription))
+        size = size * (getScreenDPI() / 72.0);
+
+    fontDescription.setSpecifiedSize(size);
+    fontDescription.setIsAbsoluteSize(true);
+    fontDescription.setGenericFamily(FontDescription::NoFamily);
+    fontDescription.setWeight(FontWeightNormal);
+    fontDescription.setItalic(false);
+    pango_font_description_free(pangoDescription);
 }
 
 Color RenderThemeGtk::systemColor(int cssValueId) const
@@ -753,8 +805,8 @@ String RenderThemeGtk::extraMediaControlsStyleSheet()
 
 static inline bool paintMediaButton(GraphicsContext* context, const IntRect& r, Image* image, Color panelColor, int mediaIconSize)
 {
-    context->fillRect(FloatRect(r), panelColor, DeviceColorSpace);
-    context->drawImage(image, DeviceColorSpace,
+    context->fillRect(FloatRect(r), panelColor, ColorSpaceDeviceRGB);
+    context->drawImage(image, ColorSpaceDeviceRGB,
                        IntRect(r.x() + (r.width() - mediaIconSize) / 2,
                                r.y() + (r.height() - mediaIconSize) / 2,
                                mediaIconSize, mediaIconSize));
@@ -800,9 +852,9 @@ bool RenderThemeGtk::paintMediaSliderTrack(RenderObject* o, const PaintInfo& pai
 {
     GraphicsContext* context = paintInfo.context;
 
-    context->fillRect(FloatRect(r), m_panelColor, DeviceColorSpace);
+    context->fillRect(FloatRect(r), m_panelColor, ColorSpaceDeviceRGB);
     context->fillRect(FloatRect(IntRect(r.x(), r.y() + (r.height() - m_mediaSliderHeight) / 2,
-                                        r.width(), m_mediaSliderHeight)), m_sliderColor, DeviceColorSpace);
+                                        r.width(), m_mediaSliderHeight)), m_sliderColor, ColorSpaceDeviceRGB);
 
     RenderStyle* style = o->style();
     HTMLMediaElement* mediaElement = toParentMediaElement(o);
@@ -859,7 +911,7 @@ bool RenderThemeGtk::paintMediaSliderTrack(RenderObject* o, const PaintInfo& pai
 bool RenderThemeGtk::paintMediaSliderThumb(RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
     // Make the thumb nicer with rounded corners.
-    paintInfo.context->fillRoundedRect(r, IntSize(3, 3), IntSize(3, 3), IntSize(3, 3), IntSize(3, 3), m_sliderThumbColor, DeviceColorSpace);
+    paintInfo.context->fillRoundedRect(r, IntSize(3, 3), IntSize(3, 3), IntSize(3, 3), IntSize(3, 3), m_sliderThumbColor, ColorSpaceDeviceRGB);
     return false;
 }
 #endif

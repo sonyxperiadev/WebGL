@@ -28,8 +28,40 @@
 
 from google.appengine.ext import db
 
+from model.queuepropertymixin import QueuePropertyMixin
 
-class WorkItems(db.Model):
+
+class WorkItems(db.Model, QueuePropertyMixin):
     queue_name = db.StringProperty()
     item_ids = db.ListProperty(int)
     date = db.DateTimeProperty(auto_now_add=True)
+
+    def display_position_for_attachment(self, attachment_id):
+        """Returns a 1-based index corresponding to the position
+        of the attachment_id in the queue.  If the attachment is
+        not in this queue, this returns None"""
+        if attachment_id in self.item_ids:
+            return self.item_ids.index(attachment_id) + 1
+        return None
+
+    @staticmethod
+    def _unguarded_add(key, attachment_id):
+        work_items = db.get(key)
+        if attachment_id in work_items.item_ids:
+            return
+        work_items.item_ids.append(attachment_id)
+        work_items.put()
+
+    def add_work_item(self, attachment_id):
+        db.run_in_transaction(self._unguarded_add, self.key(), attachment_id)
+
+    @staticmethod
+    def _unguarded_remove(key, attachment_id):
+        work_items = db.get(key)
+        if attachment_id in work_items.item_ids:
+            # We should never have more than one entry for a work item, so we only need remove the first.
+            work_items.item_ids.remove(attachment_id)
+        work_items.put()
+
+    def remove_work_item(self, attachment_id):
+        db.run_in_transaction(self._unguarded_remove, self.key(), attachment_id)

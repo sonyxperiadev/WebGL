@@ -137,13 +137,14 @@ void PluginView::updatePluginWidget()
 
 #if defined(XP_UNIX)
     if (!m_isWindowed) {
+        Display* display = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
         if (m_drawable)
-            XFreePixmap(GDK_DISPLAY(), m_drawable);
+            XFreePixmap(display, m_drawable);
             
-        m_drawable = XCreatePixmap(GDK_DISPLAY(), getRootWindow(m_parentFrame.get()),
+        m_drawable = XCreatePixmap(display, getRootWindow(m_parentFrame.get()),
                                    m_windowRect.width(), m_windowRect.height(),
                                    ((NPSetWindowCallbackStruct*)m_npWindow.ws_info)->depth);
-        XSync(GDK_DISPLAY(), false); // make sure that the server knows about the Drawable
+        XSync(display, false); // make sure that the server knows about the Drawable
     }
 #endif
 
@@ -187,75 +188,48 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
     if (!m_drawable)
         return;
 
-    const bool syncX = m_pluginDisplay && m_pluginDisplay != GDK_DISPLAY();
+    Display* display = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
+    const bool syncX = m_pluginDisplay && m_pluginDisplay != display;
 
     IntRect exposedRect(rect);
     exposedRect.intersect(frameRect());
     exposedRect.move(-frameRect().x(), -frameRect().y());
 
-    Window dummyW;
-    int dummyI;
-    unsigned int dummyUI, actualDepth = 0;
-    XGetGeometry(GDK_DISPLAY(), m_drawable, &dummyW, &dummyI, &dummyI,
-                 &dummyUI, &dummyUI, &dummyUI, &actualDepth);
+    PlatformRefPtr<cairo_surface_t> drawableSurface = adoptPlatformRef(cairo_xlib_surface_create(display,
+                                                                                                 m_drawable,
+                                                                                                 m_visual,
+                                                                                                 m_windowRect.width(),
+                                                                                                 m_windowRect.height()));
 
-    const unsigned int drawableDepth = ((NPSetWindowCallbackStruct*)m_npWindow.ws_info)->depth;
-    ASSERT(drawableDepth == actualDepth);
-
-    cairo_surface_t* drawableSurface = cairo_xlib_surface_create(GDK_DISPLAY(),
-                                                                 m_drawable,
-                                                                 m_visual,
-                                                                 m_windowRect.width(),
-                                                                 m_windowRect.height());
-
-    if (m_isTransparent && drawableDepth != 32) {
-        // Attempt to fake it when we don't have an alpha channel on our
-        // pixmap.  If that's not possible, at least clear the window to
-        // avoid drawing artifacts.
-        GtkWidget* widget = m_parentFrame->view()->hostWindow()->platformPageClient();
-        GdkDrawable* gdkBackingStore = 0;
-        gint xoff = 0, yoff = 0;
-
-        gdk_window_get_internal_paint_info(gtk_widget_get_window(widget), &gdkBackingStore, &xoff, &yoff);
-
-        GC gc = XDefaultGC(GDK_DISPLAY(), gdk_screen_get_number(gdk_screen_get_default()));
-        if (gdkBackingStore) {
-            XCopyArea(GDK_DISPLAY(), GDK_DRAWABLE_XID(gdkBackingStore), m_drawable, gc,
-                      m_windowRect.x() + exposedRect.x() - xoff,
-                      m_windowRect.y() + exposedRect.y() - yoff,
-                      exposedRect.width(), exposedRect.height(),
-                      exposedRect.x(), exposedRect.y());
-        } else {
-            // no valid backing store; clear to the background color
-            XFillRectangle(GDK_DISPLAY(), m_drawable, gc,
-                           exposedRect.x(), exposedRect.y(),
-                           exposedRect.width(), exposedRect.height());
-        }
-    } else if (m_isTransparent) {
+    if (m_isTransparent) {
         // If we have a 32 bit drawable and the plugin wants transparency,
         // we'll clear the exposed area to transparent first.  Otherwise,
         // we'd end up with junk in there from the last paint, or, worse,
         // uninitialized data.
-        cairo_t* crFill = cairo_create(drawableSurface);
+        PlatformRefPtr<cairo_t> cr = adoptPlatformRef(cairo_create(drawableSurface.get()));
 
-        cairo_set_operator(crFill, CAIRO_OPERATOR_SOURCE);
-        cairo_pattern_t* fill = cairo_pattern_create_rgba(0., 0., 0., 0.);
-        cairo_set_source(crFill, fill);
+        if (!(cairo_surface_get_content(drawableSurface.get()) & CAIRO_CONTENT_ALPHA)) {
+            // Attempt to fake it when we don't have an alpha channel on our
+            // pixmap.  If that's not possible, at least clear the window to
+            // avoid drawing artifacts.
 
-        cairo_rectangle(crFill, exposedRect.x(), exposedRect.y(),
+            // This Would not work without double buffering, but we always use it.
+            cairo_set_source_surface(cr.get(), cairo_get_group_target(context->platformContext()),
+                                     -m_windowRect.x(), -m_windowRect.y());
+            cairo_set_operator(cr.get(), CAIRO_OPERATOR_SOURCE);
+        } else
+            cairo_set_operator(cr.get(), CAIRO_OPERATOR_CLEAR);
+
+        cairo_rectangle(cr.get(), exposedRect.x(), exposedRect.y(),
                         exposedRect.width(), exposedRect.height());
-        cairo_clip(crFill);
-        cairo_paint(crFill);
-
-        cairo_destroy(crFill);
-        cairo_pattern_destroy(fill);
+        cairo_fill(cr.get());
     }
 
     XEvent xevent;
     memset(&xevent, 0, sizeof(XEvent));
     XGraphicsExposeEvent& exposeEvent = xevent.xgraphicsexpose;
     exposeEvent.type = GraphicsExpose;
-    exposeEvent.display = GDK_DISPLAY();
+    exposeEvent.display = display;
     exposeEvent.drawable = m_drawable;
     exposeEvent.x = exposedRect.x();
     exposeEvent.y = exposedRect.y();
@@ -270,7 +244,7 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
     cairo_t* cr = context->platformContext();
     cairo_save(cr);
 
-    cairo_set_source_surface(cr, drawableSurface, frameRect().x(), frameRect().y());
+    cairo_set_source_surface(cr, drawableSurface.get(), frameRect().x(), frameRect().y());
 
     cairo_rectangle(cr,
                     frameRect().x() + exposedRect.x(), frameRect().y() + exposedRect.y(),
@@ -284,7 +258,6 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
     cairo_paint(cr);
 
     cairo_restore(cr);
-    cairo_surface_destroy(drawableSurface);
 #endif // defined(XP_UNIX)
 }
 
@@ -346,7 +319,7 @@ void PluginView::initXEvent(XEvent* xEvent)
 
     xEvent->xany.serial = 0; // we are unaware of the last request processed by X Server
     xEvent->xany.send_event = false;
-    xEvent->xany.display = GDK_DISPLAY();
+    xEvent->xany.display = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
     // NOTE: event->xany.window doesn't always correspond to the .window property of other XEvent's
     // but does in the case of KeyPress, KeyRelease, ButtonPress, ButtonRelease, and MotionNotify
     // events; thus, this is right:
@@ -637,7 +610,7 @@ bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* re
     case NPNVxDisplay:
 #if defined(XP_UNIX)
         if (m_needsXEmbed)
-            *(void **)value = (void *)GDK_DISPLAY();
+            *(void **)value = (void *)GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
         else
             *(void **)value = (void *)GTK_XTBIN(platformPluginWidget())->xtclient.xtdisplay;
         *result = NPERR_NO_ERROR;
@@ -732,8 +705,9 @@ static void getVisualAndColormap(int depth, Visual** visual, Colormap* colormap)
     *visual = 0;
     *colormap = 0;
 
+    Display* display = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
     int rmaj, rmin;
-    if (depth == 32 && (!XRenderQueryVersion(GDK_DISPLAY(), &rmaj, &rmin) || (rmaj == 0 && rmin < 5)))
+    if (depth == 32 && (!XRenderQueryVersion(display, &rmaj, &rmin) || (rmaj == 0 && rmin < 5)))
         return;
 
     XVisualInfo templ;
@@ -741,14 +715,14 @@ static void getVisualAndColormap(int depth, Visual** visual, Colormap* colormap)
     templ.depth   = depth;
     templ.c_class = TrueColor;
     int nVisuals;
-    XVisualInfo* visualInfo = XGetVisualInfo(GDK_DISPLAY(), VisualScreenMask | VisualDepthMask | VisualClassMask, &templ, &nVisuals);
+    XVisualInfo* visualInfo = XGetVisualInfo(display, VisualScreenMask | VisualDepthMask | VisualClassMask, &templ, &nVisuals);
 
     if (!nVisuals)
         return;
 
     if (depth == 32) {
         for (int idx = 0; idx < nVisuals; ++idx) {
-            XRenderPictFormat* format = XRenderFindVisualFormat(GDK_DISPLAY(), visualInfo[idx].visual);
+            XRenderPictFormat* format = XRenderFindVisualFormat(display, visualInfo[idx].visual);
             if (format->type == PictTypeDirect && format->direct.alphaMask) {
                  *visual = visualInfo[idx].visual;
                  break;
@@ -760,7 +734,7 @@ static void getVisualAndColormap(int depth, Visual** visual, Colormap* colormap)
     XFree(visualInfo);
 
     if (*visual)
-        *colormap = XCreateColormap(GDK_DISPLAY(), GDK_ROOT_WINDOW(), *visual, AllocNone);
+        *colormap = XCreateColormap(display, GDK_ROOT_WINDOW(), *visual, AllocNone);
 }
 #endif
 
@@ -842,9 +816,9 @@ bool PluginView::platformStart()
             m_npWindow.window = (void*)gtk_socket_get_id(GTK_SOCKET(platformPluginWidget()));
             GdkWindow* window = gtk_widget_get_window(widget);
             ws->display = GDK_WINDOW_XDISPLAY(window);
-            ws->visual = GDK_VISUAL_XVISUAL(gdk_drawable_get_visual(GDK_DRAWABLE(window)));
-            ws->depth = gdk_visual_get_depth(gdk_drawable_get_visual(GDK_DRAWABLE(window)));
-            ws->colormap = GDK_COLORMAP_XCOLORMAP(gdk_drawable_get_colormap(GDK_DRAWABLE(window)));
+            ws->visual = GDK_VISUAL_XVISUAL(gdk_window_get_visual(window));
+            ws->depth = gdk_visual_get_depth(gdk_window_get_visual(window));
+            ws->colormap = XCreateColormap(ws->display, GDK_ROOT_WINDOW(), ws->visual, AllocNone);
         } else {
             m_npWindow.window = (void*)GTK_XTBIN(platformPluginWidget())->xtwindow;
             ws->display = GTK_XTBIN(platformPluginWidget())->xtdisplay;
@@ -874,7 +848,7 @@ bool PluginView::platformStart()
             ws->depth = gdk_visual_get_depth(gvisual);
         }
 
-        ws->display = GDK_DISPLAY();
+        ws->display = GDK_DISPLAY_XDISPLAY(gdk_display_get_default());
         ws->visual = m_visual;
         ws->colormap = m_colormap;
 
@@ -904,7 +878,7 @@ void PluginView::platformDestroy()
 {
 #if defined(XP_UNIX)
     if (m_drawable) {
-        XFreePixmap(GDK_DISPLAY(), m_drawable);
+        XFreePixmap(GDK_DISPLAY_XDISPLAY(gdk_display_get_default()), m_drawable);
         m_drawable = 0;
     }
 #endif

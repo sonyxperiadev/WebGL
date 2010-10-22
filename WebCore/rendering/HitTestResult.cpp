@@ -29,6 +29,7 @@
 #include "HTMLInputElement.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
 #include "RenderImage.h"
 #include "Scrollbar.h"
 #include "SelectionController.h"
@@ -305,14 +306,14 @@ KURL HitTestResult::absoluteImageURL() const
     } else
         return KURL();
 
-    return m_innerNonSharedNode->document()->completeURL(deprecatedParseURL(urlString));
+    return m_innerNonSharedNode->document()->completeURL(stripLeadingAndTrailingHTMLSpaces(urlString));
 }
 
 KURL HitTestResult::absoluteMediaURL() const
 {
 #if ENABLE(VIDEO)
     if (HTMLMediaElement* mediaElt = mediaElement())
-        return m_innerNonSharedNode->document()->completeURL(deprecatedParseURL(mediaElt->currentSrc()));
+        return m_innerNonSharedNode->document()->completeURL(stripLeadingAndTrailingHTMLSpaces(mediaElt->currentSrc()));
     return KURL();
 #else
     return KURL();
@@ -461,7 +462,7 @@ KURL HitTestResult::absoluteLinkURL() const
     else
         return KURL();
 
-    return m_innerURLElement->document()->completeURL(deprecatedParseURL(urlString));
+    return m_innerURLElement->document()->completeURL(stripLeadingAndTrailingHTMLSpaces(urlString));
 }
 
 bool HitTestResult::isLiveLink() const
@@ -530,7 +531,7 @@ bool HitTestResult::addNodeToRectBasedTestResult(Node* node, int x, int y, const
     node = node->shadowAncestorNode();
     m_rectBasedTestResult.add(node);
 
-    return !rect.contains(rectFromPoint(x, y));
+    return !rect.contains(rectForPoint(x, y));
 }
 
 void HitTestResult::append(const HitTestResult& other)
@@ -552,7 +553,7 @@ void HitTestResult::append(const HitTestResult& other)
         m_rectBasedTestResult.add(it->get());
 }
 
-IntRect HitTestResult::rectFromPoint(const IntPoint& point, unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding)
+IntRect HitTestResult::rectForPoint(const IntPoint& point, unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding)
 {
     IntPoint actualPoint(point);
     actualPoint -= IntSize(leftPadding, topPadding);

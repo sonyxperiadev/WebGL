@@ -31,9 +31,17 @@
 #include "config.h"
 #include "TimeInputType.h"
 
+#include "DateComponents.h"
+#include "HTMLInputElement.h"
+#include "HTMLNames.h"
 #include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
+
+using namespace HTMLNames;
+
+static const double timeDefaultStep = 60.0;
+static const double timeStepScaleFactor = 1000.0;
 
 PassOwnPtr<InputType> TimeInputType::create(HTMLInputElement* element)
 {
@@ -43,6 +51,44 @@ PassOwnPtr<InputType> TimeInputType::create(HTMLInputElement* element)
 const AtomicString& TimeInputType::formControlType() const
 {
     return InputTypeNames::time();
+}
+
+double TimeInputType::minimum() const
+{
+    return parseToDouble(element()->fastGetAttribute(minAttr), DateComponents::minimumTime());
+}
+
+double TimeInputType::maximum() const
+{
+    return parseToDouble(element()->fastGetAttribute(maxAttr), DateComponents::maximumTime());
+}
+
+double TimeInputType::defaultStep() const
+{
+    return timeDefaultStep;
+}
+
+double TimeInputType::stepScaleFactor() const
+{
+    return timeStepScaleFactor;
+}
+
+bool TimeInputType::scaledStepValeuShouldBeInteger() const
+{
+    return true;
+}
+
+bool TimeInputType::parseToDateComponentsInternal(const UChar* characters, unsigned length, DateComponents* out) const
+{
+    ASSERT(out);
+    unsigned end;
+    return out->parseTime(characters, length, 0, end) && end == length;
+}
+
+bool TimeInputType::setMillisecondToDateComponents(double value, DateComponents* date) const
+{
+    ASSERT(date);
+    return date->setMillisecondsSinceMidnight(value);
 }
 
 } // namespace WebCore

@@ -167,14 +167,14 @@ void RenderMathMLFraction::paint(PaintInfo& info, int tx, int ty)
     
     info.context->setStrokeThickness(static_cast<float>(m_lineThickness));
     info.context->setStrokeStyle(SolidStroke);
-    info.context->setStrokeColor(style()->visitedDependentColor(CSSPropertyColor), sRGBColorSpace);
+    info.context->setStrokeColor(style()->visitedDependentColor(CSSPropertyColor), ColorSpaceSRGB);
     
     info.context->drawLine(IntPoint(tx, ty), IntPoint(tx + offsetWidth(), ty));
     
     info.context->restore();
 }
 
-int RenderMathMLFraction::baselinePosition(bool firstLine, bool isRootLineBox) const
+int RenderMathMLFraction::baselinePosition(bool firstLine, LineDirectionMode lineDirection, LinePositionMode linePositionMode) const
 {
     if (firstChild() && firstChild()->isRenderMathMLBlock()) {
         RenderMathMLBlock* numerator = toRenderMathMLBlock(firstChild());
@@ -184,7 +184,7 @@ int RenderMathMLFraction::baselinePosition(bool firstLine, bool isRootLineBox) c
         // a good guess.
         return numerator->offsetHeight() + style()->fontSize() / 3;
     }
-    return RenderBlock::baselinePosition(firstLine, isRootLineBox);
+    return RenderBlock::baselinePosition(firstLine, lineDirection, linePositionMode);
 }
 
 }

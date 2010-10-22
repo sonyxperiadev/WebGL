@@ -172,7 +172,7 @@ include($$PWD/../JavaScriptCore/JavaScriptCore.pri)
 
 webkit2 {
     include($$PWD/../WebKit2/WebKit2.pri)
-    addWebKit2Lib(../WebKit2)
+    addWebKit2LibWholeArchive(../WebKit2)
 }
 
 # Extract sources to build from the generator definitions
@@ -256,6 +256,7 @@ WEBCORE_INCLUDEPATH = \
     $$PWD/svg/animation \
     $$PWD/svg/graphics \
     $$PWD/svg/graphics/filters \
+    $$PWD/svg/properties \
     $$PWD/websockets \
     $$PWD/wml \
     $$PWD/workers \
@@ -360,7 +361,6 @@ v8 {
         bindings/v8/ScriptObject.cpp \
         bindings/v8/ScriptScope.cpp \
         bindings/v8/ScriptState.cpp \
-        bindings/v8/ScriptStringImpl.cpp \
         bindings/v8/ScriptValue.cpp \
         bindings/v8/StaticDOMDataStore.cpp \
         bindings/v8/SerializedScriptValue.cpp \
@@ -617,7 +617,6 @@ SOURCES += \
     css/CSSFontFaceSource.cpp \
     css/CSSFunctionValue.cpp \
     css/CSSGradientValue.cpp \
-    css/CSSHelper.cpp \
     css/CSSImageValue.cpp \
     css/CSSImageGeneratorValue.cpp \
     css/CSSImportRule.cpp \
@@ -775,6 +774,7 @@ SOURCES += \
     dom/XMLDocumentParserQt.cpp \
     dom/default/PlatformMessagePortChannel.cpp \
     editing/AppendNodeCommand.cpp \
+    editing/ApplyBlockElementCommand.cpp \
     editing/ApplyStyleCommand.cpp \
     editing/BreakBlockquoteCommand.cpp \
     editing/CompositeEditCommand.cpp \
@@ -798,6 +798,7 @@ SOURCES += \
     editing/InsertTextCommand.cpp \
     editing/JoinTextNodesCommand.cpp \
     editing/markup.cpp \
+    editing/MarkupAccumulator.cpp \
     editing/MergeIdenticalElementsCommand.cpp \
     editing/ModifySelectionListLevel.cpp \
     editing/MoveSelectionCommand.cpp \
@@ -838,6 +839,7 @@ SOURCES += \
     history/qt/HistoryItemQt.cpp \
     history/PageCache.cpp \
     html/AsyncImageResizer.cpp \
+    html/BaseDateAndTimeInputType.cpp \
     html/BaseTextInputType.cpp \
     html/ButtonInputType.cpp \
     html/CheckboxInputType.cpp \
@@ -991,7 +993,9 @@ SOURCES += \
     inspector/InjectedScriptHost.cpp \
     inspector/InspectorApplicationCacheAgent.cpp \
     inspector/InspectorBackend.cpp \
+    inspector/InspectorCSSAgent.cpp \
     inspector/InspectorCSSStore.cpp \
+    inspector/InspectorClient.cpp \
     inspector/InspectorController.cpp \
     inspector/InspectorDatabaseResource.cpp \
     inspector/InspectorDebuggerAgent.cpp \
@@ -999,9 +1003,13 @@ SOURCES += \
     inspector/InspectorDOMStorageResource.cpp \
     inspector/InspectorFrontendClientLocal.cpp \
     inspector/InspectorFrontendHost.cpp \
+    inspector/InspectorInstrumentation.cpp \
     inspector/InspectorProfilerAgent.cpp \
     inspector/InspectorResource.cpp \
+    inspector/InspectorResourceAgent.cpp \
+    inspector/InspectorState.cpp \
     inspector/InspectorStorageAgent.cpp \
+    inspector/InspectorStyleSheet.cpp \
     inspector/InspectorTimelineAgent.cpp \
     inspector/InspectorValues.cpp \
     inspector/ScriptBreakpoint.cpp \
@@ -1041,7 +1049,7 @@ SOURCES += \
     loader/PolicyCallback.cpp \
     loader/PolicyChecker.cpp \
     loader/ProgressTracker.cpp \
-    loader/RedirectScheduler.cpp \
+    loader/NavigationScheduler.cpp \
     loader/Request.cpp \
     loader/ResourceLoader.cpp \
     loader/ResourceLoadNotifier.cpp \
@@ -1163,6 +1171,7 @@ SOURCES += \
     platform/graphics/transforms/TranslateTransformOperation.cpp \
     platform/KillRingNone.cpp \
     platform/KURL.cpp \
+    platform/Language.cpp \
     platform/Length.cpp \
     platform/text/LineEnding.cpp \
     platform/LinkHash.cpp \
@@ -1182,6 +1191,7 @@ SOURCES += \
     platform/network/HTTPParsers.cpp \
     platform/network/NetworkStateNotifier.cpp \
     platform/network/ProtectionSpace.cpp \
+    platform/network/ProxyServer.cpp \
     platform/network/ResourceErrorBase.cpp \
     platform/network/ResourceHandle.cpp \
     platform/network/ResourceRequestBase.cpp \
@@ -1196,7 +1206,6 @@ SOURCES += \
     platform/text/SegmentedString.cpp \
     platform/SharedBuffer.cpp \
     platform/text/String.cpp \
-    platform/text/StringBuilder.cpp \
     platform/text/TextCodec.cpp \
     platform/text/TextCodecLatin1.cpp \
     platform/text/TextCodecUserDefined.cpp \
@@ -1391,8 +1400,6 @@ v8 {
         bindings/v8/ScriptScope.h \
         bindings/v8/ScriptSourceCode.h \
         bindings/v8/ScriptState.h \
-        bindings/v8/ScriptString.h \
-        bindings/v8/ScriptStringImpl.h \
         bindings/v8/ScriptValue.h \
         bindings/v8/ScriptWrappable.h \
         bindings/v8/SerializedScriptValue.h \
@@ -1669,6 +1676,7 @@ HEADERS += \
     dom/WheelEvent.h \
     dom/XMLDocumentParser.h \
     editing/AppendNodeCommand.h \
+    editing/ApplyBlockElementCommand.h \
     editing/ApplyStyleCommand.h \
     editing/BreakBlockquoteCommand.h \
     editing/CompositeEditCommand.h \
@@ -1867,15 +1875,20 @@ HEADERS += \
     inspector/InspectorApplicationCacheAgent.h \
     inspector/InspectorBackend.h \
     inspector/InspectorController.h \
+    inspector/InspectorCSSAgent.h \
     inspector/InspectorDatabaseResource.h \
     inspector/InspectorDebuggerAgent.h \
     inspector/InspectorDOMStorageResource.h \
     inspector/InspectorFrontendClient.h \
     inspector/InspectorFrontendClientLocal.h \
     inspector/InspectorFrontendHost.h \
+    inspector/InspectorInstrumentation.h \
     inspector/InspectorProfilerAgent.h \
     inspector/InspectorResource.h \
+    inspector/InspectorResourceAgent.h \
+    inspector/InspectorState.h \
     inspector/InspectorStorageAgent.h \
+    inspector/InspectorStyleSheet.h \
     inspector/InspectorTimelineAgent.h \
     inspector/ScriptGCEventListener.h \
     inspector/TimelineRecordFactory.h \
@@ -2098,12 +2111,14 @@ HEADERS += \
     platform/network/NetworkingContext.h \
     platform/network/NetworkStateNotifier.h \
     platform/network/ProtectionSpace.h \
+    platform/network/ProxyServer.h \
     platform/network/qt/QNetworkReplyHandler.h \
     platform/network/ResourceErrorBase.h \
     platform/network/ResourceHandle.h \
     platform/network/ResourceLoadTiming.h \
     platform/network/ResourceRequestBase.h \
     platform/network/ResourceResponseBase.h \
+    platform/network/ResourceRawHeaders.h \
     platform/PlatformTouchEvent.h \
     platform/PlatformTouchPoint.h \
     platform/PopupMenu.h \
@@ -2130,7 +2145,6 @@ HEADERS += \
     platform/text/qt/TextCodecQt.h \
     platform/text/RegularExpression.h \
     platform/text/SegmentedString.h \
-    platform/text/StringBuilder.h \
     platform/text/TextCodec.h \
     platform/text/TextCodecLatin1.h \
     platform/text/TextCodecUserDefined.h \
@@ -2211,7 +2225,6 @@ HEADERS += \
     rendering/RenderObjectChildList.h \
     rendering/RenderObject.h \
     rendering/RenderPart.h \
-    rendering/RenderPath.h \
     rendering/RenderProgress.h \
     rendering/RenderReplaced.h \
     rendering/RenderReplica.h \
@@ -2228,8 +2241,6 @@ HEADERS += \
     rendering/RenderSVGGradientStop.h \
     rendering/RenderSVGHiddenContainer.h \
     rendering/RenderSVGImage.h \
-    rendering/RenderSVGInline.h \
-    rendering/RenderSVGInlineText.h \
     rendering/RenderSVGModelObject.h \
     rendering/RenderSVGResource.h \
     rendering/RenderSVGResourceClipper.h \
@@ -2245,10 +2256,7 @@ HEADERS += \
     rendering/RenderSVGResourceSolidColor.h \
     rendering/RenderSVGRoot.h \
     rendering/RenderSVGShadowTreeRootContainer.h \
-    rendering/RenderSVGText.h \
-    rendering/RenderSVGTextPath.h \
     rendering/RenderSVGTransformableContainer.h \
-    rendering/RenderSVGTSpan.h \
     rendering/RenderSVGViewportContainer.h \
     rendering/RenderTableCell.h \
     rendering/RenderTableCol.h \
@@ -2294,13 +2302,26 @@ HEADERS += \
     rendering/style/StyleVisualData.h \
     rendering/style/SVGRenderStyleDefs.h \
     rendering/style/SVGRenderStyle.h \
+    rendering/svg/RenderSVGInline.h \
+    rendering/svg/RenderSVGInlineText.h \
+    rendering/svg/RenderSVGPath.h \
+    rendering/svg/RenderSVGTSpan.h \
+    rendering/svg/RenderSVGText.h \
+    rendering/svg/RenderSVGTextPath.h \
+    rendering/svg/SVGInlineFlowBox.h \
+    rendering/svg/SVGInlineTextBox.h \
+    rendering/svg/SVGRootInlineBox.h \
+    rendering/svg/SVGTextChunk.h \
+    rendering/svg/SVGTextChunkBuilder.h \
+    rendering/svg/SVGTextFragment.h \
     rendering/svg/SVGTextLayoutAttributes.h \
-    rendering/svg/SVGTextLayoutBuilder.h \
-    rendering/SVGCharacterData.h \
-    rendering/SVGCharacterLayoutInfo.h \
+    rendering/svg/SVGTextLayoutAttributesBuilder.h \
+    rendering/svg/SVGTextLayoutEngine.h \
+    rendering/svg/SVGTextLayoutEngineBaseline.h \
+    rendering/svg/SVGTextLayoutEngineSpacing.h \
+    rendering/svg/SVGTextMetrics.h \
+    rendering/svg/SVGTextQuery.h \
     rendering/SVGImageBufferTools.h \
-    rendering/SVGInlineFlowBox.h \
-    rendering/SVGInlineTextBox.h \
     rendering/SVGMarkerData.h \
     rendering/SVGMarkerLayoutInfo.h \
     rendering/SVGRenderSupport.h \
@@ -2308,31 +2329,27 @@ HEADERS += \
     rendering/SVGResources.h \
     rendering/SVGResourcesCache.h \
     rendering/SVGResourcesCycleSolver.h \
-    rendering/SVGRootInlineBox.h \
     rendering/SVGShadowTreeElements.h \
-    rendering/SVGTextChunkLayoutInfo.h \
-    rendering/SVGTextLayoutUtilities.h \
-    rendering/SVGTextQuery.h \
     rendering/TextControlInnerElements.h \
     rendering/TransformState.h \
     svg/animation/SMILTimeContainer.h \
     svg/animation/SMILTime.h \
     svg/animation/SVGSMILElement.h \
     svg/ColorDistance.h \
+    svg/DeprecatedSVGAnimatedProperty.h \
+    svg/DeprecatedSVGAnimatedPropertyTraits.h \
+    svg/DeprecatedSVGAnimatedTemplate.h \
     svg/graphics/filters/SVGFEImage.h \
     svg/graphics/filters/SVGFilterBuilder.h \
     svg/graphics/filters/SVGFilter.h \
     svg/graphics/SVGImage.h \
+    svg/properties/SVGAnimatedPropertySynchronizer.h \
     svg/SVGAElement.h \
     svg/SVGAltGlyphElement.h \
     svg/SVGAngle.h \
     svg/SVGAnimateColorElement.h \
     svg/SVGAnimatedPathData.h \
     svg/SVGAnimatedPoints.h \
-    svg/SVGAnimatedProperty.h \
-    svg/SVGAnimatedPropertySynchronizer.h \
-    svg/SVGAnimatedPropertyTraits.h \
-    svg/SVGAnimatedTemplate.h \
     svg/SVGAnimateElement.h \
     svg/SVGAnimateMotionElement.h \
     svg/SVGAnimateTransformElement.h \
@@ -2590,6 +2607,7 @@ SOURCES += \
     platform/network/qt/ResourceHandleQt.cpp \
     platform/network/qt/ResourceRequestQt.cpp \
     platform/network/qt/DnsPrefetchHelper.cpp \
+    platform/network/qt/ProxyServerQt.cpp \
     platform/network/qt/QNetworkReplyHandler.cpp \
     editing/qt/EditorQt.cpp \
     editing/qt/SmartReplaceQt.cpp \
@@ -2625,7 +2643,7 @@ SOURCES += \
     platform/qt/SharedTimerQt.cpp \
     platform/qt/SoundQt.cpp \
     platform/qt/LoggingQt.cpp \
-    platform/qt/Language.cpp \
+    platform/qt/LanguageQt.cpp \
     platform/qt/TemporaryLinkStubsQt.cpp \
     platform/text/qt/TextBoundariesQt.cpp \
     platform/text/qt/TextBreakIteratorQt.cpp \
@@ -2666,10 +2684,9 @@ SOURCES += \
     ../WebKit/qt/Api/qwebinspector.cpp \
     ../WebKit/qt/Api/qwebkitversion.cpp
 
-
 contains(DEFINES, WTF_USE_QT_MOBILE_THEME=1) {
-    HEADERS += platform/qt/Maemo5Webstyle.h
-    SOURCES += platform/qt/Maemo5Webstyle.cpp
+    HEADERS += platform/qt/QtMobileWebStyle.h
+    SOURCES += platform/qt/QtMobileWebStyle.cpp
 }
 
 maemo5 {
@@ -2701,6 +2718,11 @@ maemo5 {
         LIBS += -lmmtimer
         LIBS += -lole32
     }
+
+contains (CONFIG, text_breaking_with_icu) {
+    SOURCES += platform/text/TextBreakIteratorICU.cpp
+    LIBS += -licuuc
+}
 
 contains(DEFINES, ENABLE_NETSCAPE_PLUGIN_API=1) {
 
@@ -2965,16 +2987,25 @@ contains(DEFINES, ENABLE_FILE_SYSTEM=1) {
     HEADERS += \
         fileapi/AsyncFileWriter.h \
         fileapi/DirectoryEntry.h \
+        fileapi/DirectoryEntrySync.h \
         fileapi/DirectoryReader.h \
+        fileapi/DirectoryReaderBase.h \
+        fileapi/DirectoryReaderSync.h \
         fileapi/DOMFilePath.h \
         fileapi/DOMFileSystem.h \
+        fileapi/DOMFileSystemBase.h \
+        fileapi/DOMFileSystemSync.h \
         fileapi/EntriesCallback.h \
         fileapi/Entry.h \
         fileapi/EntryArray.h \
+        fileapi/EntryArraySync.h \
+        fileapi/EntryBase.h \
         fileapi/EntryCallback.h \
+        fileapi/EntrySync.h \
         fileapi/ErrorCallback.h \
         fileapi/FileCallback.h \
         fileapi/FileEntry.h \
+        fileapi/FileEntrySync.h \
         fileapi/FileSystemCallback.h \
         fileapi/FileSystemCallbacks.h \
         fileapi/FileWriter.h \
@@ -2989,14 +3020,23 @@ contains(DEFINES, ENABLE_FILE_SYSTEM=1) {
 
     SOURCES += \
         bindings/js/JSDirectoryEntryCustom.cpp \
+        bindings/js/JSDirectoryEntrySyncCustom.cpp \
         bindings/js/JSEntryCustom.cpp \
+        bindings/js/JSEntrySyncCustom.cpp \
         fileapi/DirectoryEntry.cpp \
+        fileapi/DirectoryEntrySync.cpp \
         fileapi/DirectoryReader.cpp \
+        fileapi/DirectoryReaderSync.cpp \
         fileapi/DOMFilePath.cpp \
         fileapi/DOMFileSystem.cpp \
+        fileapi/DOMFileSystemBase.cpp \
+        fileapi/DOMFileSystemSync.cpp \
         fileapi/Entry.cpp \
         fileapi/EntryArray.cpp \
+        fileapi/EntryArraySync.cpp \
+        fileapi/EntrySync.cpp \
         fileapi/FileEntry.cpp \
+        fileapi/FileEntrySync.cpp \
         fileapi/FileSystemCallbacks.cpp \
         fileapi/FileWriter.cpp \
         fileapi/LocalFileSystem.cpp \
@@ -3258,6 +3298,24 @@ contains(DEFINES, ENABLE_GEOLOCATION=1) {
     }
 }
 
+contains(DEFINES, ENABLE_DEVICE_ORIENTATION=1) {
+    HEADERS += \
+        ../WebKit/qt/WebCoreSupport/DeviceMotionClientQt.h \
+        ../WebKit/qt/WebCoreSupport/DeviceMotionProviderQt.h \
+        ../WebKit/qt/WebCoreSupport/DeviceOrientationClientQt.h \
+        ../WebKit/qt/WebCoreSupport/DeviceOrientationProviderQt.h \
+        bindings/generic/RuntimeEnabledFeatures.h
+    SOURCES += \
+        ../WebKit/qt/WebCoreSupport/DeviceMotionClientQt.cpp \
+        ../WebKit/qt/WebCoreSupport/DeviceMotionProviderQt.cpp \
+        ../WebKit/qt/WebCoreSupport/DeviceOrientationClientQt.cpp \
+        ../WebKit/qt/WebCoreSupport/DeviceOrientationProviderQt.cpp \
+        bindings/generic/RuntimeEnabledFeatures.cpp
+
+    CONFIG += mobility
+    MOBILITY += sensors
+}
+
 contains(DEFINES, ENABLE_SVG=1) {
     !v8 {
         SOURCES += \
@@ -3275,8 +3333,24 @@ contains(DEFINES, ENABLE_SVG=1) {
         css/SVGCSSStyleSelector.cpp \
         rendering/style/SVGRenderStyle.cpp \
         rendering/style/SVGRenderStyleDefs.cpp \
+        rendering/svg/RenderSVGInline.cpp \
+        rendering/svg/RenderSVGInlineText.cpp \
+        rendering/svg/RenderSVGPath.cpp \
+        rendering/svg/RenderSVGTSpan.cpp \
+        rendering/svg/RenderSVGText.cpp \
+        rendering/svg/RenderSVGTextPath.cpp \
+        rendering/svg/SVGInlineFlowBox.cpp \
+        rendering/svg/SVGInlineTextBox.cpp \
+        rendering/svg/SVGRootInlineBox.cpp \
+        rendering/svg/SVGTextChunk.cpp \
+        rendering/svg/SVGTextChunkBuilder.cpp \
         rendering/svg/SVGTextLayoutAttributes.cpp \
-        rendering/svg/SVGTextLayoutBuilder.cpp \
+        rendering/svg/SVGTextLayoutAttributesBuilder.cpp \
+        rendering/svg/SVGTextLayoutEngine.cpp \
+        rendering/svg/SVGTextLayoutEngineBaseline.cpp \
+        rendering/svg/SVGTextLayoutEngineSpacing.cpp \
+        rendering/svg/SVGTextMetrics.cpp \
+        rendering/svg/SVGTextQuery.cpp \
         rendering/PointerEventsHitRules.cpp \
         svg/SVGDocumentExtensions.cpp \
         svg/SVGImageLoader.cpp \
@@ -3431,14 +3505,11 @@ contains(DEFINES, ENABLE_SVG=1) {
         svg/graphics/filters/SVGFilterBuilder.cpp \
         svg/graphics/SVGImage.cpp \
         rendering/RenderForeignObject.cpp \
-        rendering/RenderPath.cpp \
         rendering/RenderSVGBlock.cpp \
         rendering/RenderSVGContainer.cpp \
         rendering/RenderSVGGradientStop.cpp \
         rendering/RenderSVGHiddenContainer.cpp \
         rendering/RenderSVGImage.cpp \
-        rendering/RenderSVGInline.cpp \
-        rendering/RenderSVGInlineText.cpp \
         rendering/RenderSVGModelObject.cpp \
         rendering/RenderSVGResource.cpp \
         rendering/RenderSVGResourceClipper.cpp \
@@ -3454,26 +3525,15 @@ contains(DEFINES, ENABLE_SVG=1) {
         rendering/RenderSVGResourceSolidColor.cpp \
         rendering/RenderSVGRoot.cpp \
         rendering/RenderSVGShadowTreeRootContainer.cpp \
-        rendering/RenderSVGText.cpp \
-        rendering/RenderSVGTextPath.cpp \
         rendering/RenderSVGTransformableContainer.cpp \
-        rendering/RenderSVGTSpan.cpp \
         rendering/RenderSVGViewportContainer.cpp \
-        rendering/SVGCharacterData.cpp \
-        rendering/SVGCharacterLayoutInfo.cpp \
         rendering/SVGImageBufferTools.cpp \
-        rendering/SVGInlineFlowBox.cpp \
-        rendering/SVGInlineTextBox.cpp \
         rendering/SVGMarkerLayoutInfo.cpp \
         rendering/SVGRenderSupport.cpp \
         rendering/SVGResources.cpp \
         rendering/SVGResourcesCache.cpp \
         rendering/SVGResourcesCycleSolver.cpp \
-        rendering/SVGRootInlineBox.cpp \
-        rendering/SVGShadowTreeElements.cpp \
-        rendering/SVGTextChunkLayoutInfo.cpp \
-        rendering/SVGTextLayoutUtilities.cpp \
-        rendering/SVGTextQuery.cpp
+        rendering/SVGShadowTreeElements.cpp
 }
 
 contains(DEFINES, ENABLE_JAVASCRIPT_DEBUGGER=1) {

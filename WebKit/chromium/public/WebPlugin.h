@@ -33,6 +33,7 @@
 
 #include "WebCanvas.h"
 #include "WebString.h"
+#include "WebURL.h"
 
 struct NPObject;
 
@@ -42,10 +43,10 @@ class WebDataSource;
 class WebFrame;
 class WebInputEvent;
 class WebPluginContainer;
-class WebURL;
 class WebURLResponse;
 struct WebCursorInfo;
 struct WebPluginParams;
+struct WebPoint;
 struct WebRect;
 struct WebURLError;
 template <typename T> class WebVector;
@@ -98,8 +99,12 @@ public:
     virtual WebString selectionAsText() const { return WebString(); }
     virtual WebString selectionAsMarkup() const { return WebString(); }
 
+    // If the given position is over a link, returns the absolute url.
+    // Otherwise an empty url is returned.
+    virtual WebURL linkAtPosition(const WebPoint& position) const { return WebURL(); }
+
     // Used for zooming of full page plugins.
-    virtual void setZoomFactor(float scale, bool textOnly) { }
+    virtual void setZoomLevel(double level, bool textOnly) { }
 
     // Find interface.
     // Start a new search.  The plugin should search for a little bit at a time so that it

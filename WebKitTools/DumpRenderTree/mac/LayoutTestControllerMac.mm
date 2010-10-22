@@ -422,7 +422,7 @@ void LayoutTestController::setFrameFlatteningEnabled(bool enabled)
 
 void LayoutTestController::setSpatialNavigationEnabled(bool enabled)
 {
-    // FIXME: Implement for SpatialNavigation layout tests.
+    [[[mainFrame webView] preferences] setSpatialNavigationEnabled:enabled];
 }
 
 void LayoutTestController::setAllowUniversalAccessFromFileURLs(bool enabled)
@@ -943,4 +943,9 @@ void LayoutTestController::setEditingBehavior(const char* editingBehavior)
 void LayoutTestController::abortModal()
 {
     [NSApp abortModal];
+}
+
+bool LayoutTestController::hasSpellingMarker(int from, int length)
+{
+    return [mainFrame hasSpellingMarker:from length:length];
 }

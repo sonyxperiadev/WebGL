@@ -26,16 +26,19 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import base
+import optparse
 import os
 import StringIO
 import sys
 import tempfile
 import unittest
 
+from webkitpy.common.system.path import abspath_to_uri
 from webkitpy.common.system.executive import Executive, ScriptError
 from webkitpy.thirdparty.mock import Mock
+from webkitpy.tool import mocktool
 
+import base
 
 # FIXME: This makes StringIO objects work with "with". Remove
 # when we upgrade to 2.6.
@@ -139,11 +142,11 @@ class PortTest(unittest.TestCase):
             expected_wdiff = "<head><style>.del { background: #faa; } .add { background: #afa; }</style></head><pre><span class=del>foo</span><span class=add>bar</span></pre>"
             self.assertEqual(wdiff, expected_wdiff)
             # Running the full wdiff_text method should give the same result.
-            base._wdiff_available = True  # In case it's somehow already disabled.
+            port._wdiff_available = True  # In case it's somehow already disabled.
             wdiff = port.wdiff_text(actual.name, expected.name)
             self.assertEqual(wdiff, expected_wdiff)
             # wdiff should still be available after running wdiff_text with a valid diff.
-            self.assertTrue(base._wdiff_available)
+            self.assertTrue(port._wdiff_available)
             actual.close()
             expected.close()
 
@@ -151,7 +154,7 @@ class PortTest(unittest.TestCase):
             self.assertRaises(ScriptError, port._run_wdiff, "/does/not/exist", "/does/not/exist2")
             self.assertRaises(ScriptError, port.wdiff_text, "/does/not/exist", "/does/not/exist2")
             # wdiff will still be available after running wdiff_text with invalid paths.
-            self.assertTrue(base._wdiff_available)
+            self.assertTrue(port._wdiff_available)
             base._wdiff_available = True
 
         # If wdiff does not exist _run_wdiff should throw an OSError.
@@ -161,8 +164,7 @@ class PortTest(unittest.TestCase):
         # wdiff_text should not throw an error if wdiff does not exist.
         self.assertEqual(port.wdiff_text("foo", "bar"), "")
         # However wdiff should not be available after running wdiff_text if wdiff is missing.
-        self.assertFalse(base._wdiff_available)
-        base._wdiff_available = True
+        self.assertFalse(port._wdiff_available)
 
     def test_diff_text(self):
         port = base.Port()
@@ -225,6 +227,63 @@ class PortTest(unittest.TestCase):
         dirs = port.test_dirs()
         self.assertTrue('canvas' in dirs)
         self.assertTrue('css2.1' in dirs)
+
+    def test_filename_to_uri(self):
+
+        port = base.Port()
+        layout_test_dir = port.layout_tests_dir()
+        test_file = os.path.join(layout_test_dir, "foo", "bar.html")
+
+        # On Windows, absolute paths are of the form "c:\foo.txt". However,
+        # all current browsers (except for Opera) normalize file URLs by
+        # prepending an additional "/" as if the absolute path was
+        # "/c:/foo.txt". This means that all file URLs end up with "file:///"
+        # at the beginning.
+        if sys.platform == 'win32':
+            prefix = "file:///"
+            path = test_file.replace("\\", "/")
+        else:
+            prefix = "file://"
+            path = test_file
+
+        self.assertEqual(port.filename_to_uri(test_file),
+                         abspath_to_uri(test_file))
+
+    def test_get_option__set(self):
+        options, args = optparse.OptionParser().parse_args()
+        options.foo = 'bar'
+        port = base.Port(options=options)
+        self.assertEqual(port.get_option('foo'), 'bar')
+
+    def test_get_option__unset(self):
+        port = base.Port()
+        self.assertEqual(port.get_option('foo'), None)
+
+    def test_get_option__default(self):
+        port = base.Port()
+        self.assertEqual(port.get_option('foo', 'bar'), 'bar')
+
+    def test_set_option_default__unset(self):
+        port = base.Port()
+        port.set_option_default('foo', 'bar')
+        self.assertEqual(port.get_option('foo'), 'bar')
+
+    def test_set_option_default__set(self):
+        options, args = optparse.OptionParser().parse_args()
+        options.foo = 'bar'
+        port = base.Port(options=options)
+        # This call should have no effect.
+        port.set_option_default('foo', 'new_bar')
+        self.assertEqual(port.get_option('foo'), 'bar')
+
+    def test_name__unset(self):
+        port = base.Port()
+        self.assertEqual(port.name(), None)
+
+    def test_name__set(self):
+        port = base.Port(port_name='foo')
+        self.assertEqual(port.name(), 'foo')
+
 
 class VirtualTest(unittest.TestCase):
     """Tests that various methods expected to be virtual are."""

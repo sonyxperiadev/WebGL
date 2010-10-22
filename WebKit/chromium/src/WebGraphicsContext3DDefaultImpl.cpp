@@ -37,6 +37,8 @@
 #include "app/gfx/gl/gl_bindings.h"
 #include "app/gfx/gl/gl_context.h"
 #include "NotImplemented.h"
+#include "WebView.h"
+#include <wtf/OwnArrayPtr.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/text/CString.h>
 
@@ -67,6 +69,7 @@ WebGraphicsContext3DDefaultImpl::VertexAttribPointerState::VertexAttribPointerSt
 
 WebGraphicsContext3DDefaultImpl::WebGraphicsContext3DDefaultImpl()
     : m_initialized(false)
+    , m_renderDirectlyToWebView(false)
     , m_texture(0)
     , m_fbo(0)
     , m_depthStencilBuffer(0)
@@ -106,25 +109,59 @@ WebGraphicsContext3DDefaultImpl::~WebGraphicsContext3DDefaultImpl()
 
         m_glContext->Destroy();
 
+        for (ShaderSourceMap::iterator ii = m_shaderSourceMap.begin(); ii != m_shaderSourceMap.end(); ++ii) {
+            if (ii->second)
+                delete ii->second;
+        }
         angleDestroyCompilers();
     }
 }
 
 bool WebGraphicsContext3DDefaultImpl::initialize(WebGraphicsContext3D::Attributes attributes, WebView* webView, bool renderDirectlyToWebView)
 {
-    if (renderDirectlyToWebView) {
-        // This mode isn't supported with the in-process implementation yet. (FIXME)
-        return false;
-    }
-
     if (!gfx::GLContext::InitializeOneOff())
         return false;
 
-    m_glContext = WTF::adoptPtr(gfx::GLContext::CreateOffscreenGLContext(0));
+    m_renderDirectlyToWebView = renderDirectlyToWebView;
+    gfx::GLContext* shareContext = 0;
+
+    if (!renderDirectlyToWebView) {
+        // Pick up the compositor's context to share resources with.
+        WebGraphicsContext3D* viewContext = webView->graphicsContext3D();
+        if (viewContext) {
+            WebGraphicsContext3DDefaultImpl* contextImpl = static_cast<WebGraphicsContext3DDefaultImpl*>(viewContext);
+            shareContext = contextImpl->m_glContext.get();
+        } else {
+            // The compositor's context didn't get created
+            // successfully, so conceptually there is no way we can
+            // render successfully to the WebView.
+            m_renderDirectlyToWebView = false;
+        }
+    }
+
+    // This implementation always renders offscreen regardless of
+    // whether renderDirectlyToWebView is true. Both DumpRenderTree
+    // and test_shell paint first to an intermediate offscreen buffer
+    // and from there to the window, and WebViewImpl::paint already
+    // correctly handles the case where the compositor is active but
+    // the output needs to go to a WebCanvas.
+    m_glContext = WTF::adoptPtr(gfx::GLContext::CreateOffscreenGLContext(shareContext));
     if (!m_glContext)
         return false;
 
     m_attributes = attributes;
+
+    // FIXME: for the moment we disable multisampling for the compositor.
+    // It actually works in this implementation, but there are a few
+    // considerations. First, we likely want to reduce the fuzziness in
+    // these tests as much as possible because we want to run pixel tests.
+    // Second, Mesa's multisampling doesn't seem to antialias straight
+    // edges in some CSS 3D samples. Third, we don't have multisampling
+    // support for the compositor in the normal case at the time of this
+    // writing.
+    if (renderDirectlyToWebView)
+        m_attributes.antialias = false;
+
     validateAttributes();
 
     glEnable(GL_VERTEX_PROGRAM_POINT_SIZE);
@@ -159,10 +196,28 @@ void WebGraphicsContext3DDefaultImpl::validateAttributes()
 #endif
         if (!isValidVendor || !strstr(extensions, "GL_EXT_framebuffer_multisample"))
             m_attributes.antialias = false;
+
+        // Don't antialias when using Mesa to ensure more reliable testing and
+        // because it doesn't appear to multisample straight lines correctly.
+        const char* renderer = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+        if (!strncmp(renderer, "Mesa", 4))
+            m_attributes.antialias = false;
     }
     // FIXME: instead of enforcing premultipliedAlpha = true, implement the
     // correct behavior when premultipliedAlpha = false is requested.
     m_attributes.premultipliedAlpha = true;
+}
+
+void WebGraphicsContext3DDefaultImpl::resolveMultisampledFramebuffer(unsigned x, unsigned y, unsigned width, unsigned height)
+{
+    if (m_attributes.antialias) {
+        bool mustRestoreFBO = (m_boundFBO != m_multisampleFBO);
+        glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, m_multisampleFBO);
+        glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, m_fbo);
+        glBlitFramebufferEXT(x, y, x + width, y + height, x, y, x + width, y + height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+        if (mustRestoreFBO)
+            glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_boundFBO);
+    }
 }
 
 bool WebGraphicsContext3DDefaultImpl::makeContextCurrent()
@@ -218,13 +273,15 @@ bool WebGraphicsContext3DDefaultImpl::isErrorGeneratedOnOutOfBoundsAccesses()
 
 unsigned int WebGraphicsContext3DDefaultImpl::getPlatformTextureId()
 {
-    ASSERT_NOT_REACHED();
-    return 0;
+    return m_texture;
 }
 
 void WebGraphicsContext3DDefaultImpl::prepareTexture()
 {
-    ASSERT_NOT_REACHED();
+    if (!m_renderDirectlyToWebView) {
+        // We need to prepare our rendering results for the compositor.
+        resolveMultisampledFramebuffer(0, 0, m_cachedWidth, m_cachedHeight);
+    }
 }
 
 static int createTextureObject(GLenum target)
@@ -434,19 +491,8 @@ bool WebGraphicsContext3DDefaultImpl::readBackFramebuffer(unsigned char* pixels,
     // vertical flip is only a temporary solution anyway until Chrome
     // is fully GPU composited, it wasn't worth the complexity.
 
-    bool mustRestoreFBO = false;
-    if (m_attributes.antialias) {
-        glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, m_multisampleFBO);
-        glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, m_fbo);
-        glBlitFramebufferEXT(0, 0, m_cachedWidth, m_cachedHeight, 0, 0, m_cachedWidth, m_cachedHeight, GL_COLOR_BUFFER_BIT, GL_LINEAR);
-        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
-        mustRestoreFBO = true;
-    } else {
-        if (m_boundFBO != m_fbo) {
-            mustRestoreFBO = true;
-            glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
-        }
-    }
+    resolveMultisampledFramebuffer(0, 0, m_cachedWidth, m_cachedHeight);
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
 
     GLint packAlignment = 4;
     bool mustRestorePackAlignment = false;
@@ -463,8 +509,7 @@ bool WebGraphicsContext3DDefaultImpl::readBackFramebuffer(unsigned char* pixels,
     if (mustRestorePackAlignment)
         glPixelStorei(GL_PACK_ALIGNMENT, packAlignment);
 
-    if (mustRestoreFBO)
-        glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_boundFBO);
+    glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_boundFBO);
 
 #ifdef FLIP_FRAMEBUFFER_VERTICALLY
     if (pixels)
@@ -682,13 +727,14 @@ void WebGraphicsContext3DDefaultImpl::compileShader(WebGLId shader)
         glCompileShader(shader);
         return;
     }
-    ShaderSourceEntry& entry = result->second;
+    ShaderSourceEntry* entry = result->second;
+    ASSERT(entry);
 
-    if (!angleValidateShaderSource(entry))
+    if (!angleValidateShaderSource(*entry))
         return; // Shader didn't validate, don't move forward with compiling translated source
 
-    int shaderLength = entry.translatedSource ? strlen(entry.translatedSource) : 0;
-    glShaderSource(shader, 1, const_cast<const char**>(&entry.translatedSource), &shaderLength);
+    int shaderLength = entry->translatedSource ? strlen(entry->translatedSource) : 0;
+    glShaderSource(shader, 1, const_cast<const char**>(&entry->translatedSource), &shaderLength);
     glCompileShader(shader);
 
 #ifndef NDEBUG
@@ -704,16 +750,15 @@ void WebGraphicsContext3DDefaultImpl::copyTexImage2D(unsigned long target, long 
 {
     makeContextCurrent();
 
-    if (m_attributes.antialias && m_boundFBO == m_multisampleFBO) {
-        glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, m_multisampleFBO);
-        glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, m_fbo);
-        glBlitFramebufferEXT(x, y, x + width, y + height, x, y, x + width, y + height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    bool needsResolve = (m_attributes.antialias && m_boundFBO == m_multisampleFBO);
+    if (needsResolve) {
+        resolveMultisampledFramebuffer(x, y, width, height);
         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
     }
 
     glCopyTexImage2D(target, level, internalformat, x, y, width, height, border);
 
-    if (m_attributes.antialias && m_boundFBO == m_multisampleFBO)
+    if (needsResolve)
         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_boundFBO);
 }
 
@@ -722,16 +767,15 @@ void WebGraphicsContext3DDefaultImpl::copyTexSubImage2D(unsigned long target, lo
 {
     makeContextCurrent();
 
-    if (m_attributes.antialias && m_boundFBO == m_multisampleFBO) {
-        glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, m_multisampleFBO);
-        glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, m_fbo);
-        glBlitFramebufferEXT(x, y, x + width, y + height, x, y, x + width, y + height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    bool needsResolve = (m_attributes.antialias && m_boundFBO == m_multisampleFBO);
+    if (needsResolve) {
+        resolveMultisampledFramebuffer(x, y, width, height);
         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
     }
 
     glCopyTexSubImage2D(target, level, xoffset, yoffset, x, y, width, height);
 
-    if (m_attributes.antialias && m_boundFBO == m_multisampleFBO)
+    if (needsResolve)
         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_boundFBO);
 }
 
@@ -962,24 +1006,25 @@ void WebGraphicsContext3DDefaultImpl::getShaderiv(WebGLId shader, unsigned long 
 
     ShaderSourceMap::iterator result = m_shaderSourceMap.find(shader);
     if (result != m_shaderSourceMap.end()) {
-        ShaderSourceEntry& entry = result->second;
+        ShaderSourceEntry* entry = result->second;
+        ASSERT(entry);
         switch (pname) {
         case GL_COMPILE_STATUS:
-            if (!entry.isValid) {
+            if (!entry->isValid) {
                 *value = 0;
                 return;
             }
             break;
         case GL_INFO_LOG_LENGTH:
-            if (!entry.isValid) {
-                *value = entry.log ? strlen(entry.log) : 0;
+            if (!entry->isValid) {
+                *value = entry->log ? strlen(entry->log) : 0;
                 if (*value)
                     (*value)++;
                 return;
             }
             break;
         case GL_SHADER_SOURCE_LENGTH:
-            *value = entry.source ? strlen(entry.source) : 0;
+            *value = entry->source ? strlen(entry->source) : 0;
             if (*value)
                 (*value)++;
             return;
@@ -995,11 +1040,12 @@ WebString WebGraphicsContext3DDefaultImpl::getShaderInfoLog(WebGLId shader)
 
     ShaderSourceMap::iterator result = m_shaderSourceMap.find(shader);
     if (result != m_shaderSourceMap.end()) {
-        ShaderSourceEntry& entry = result->second;
-        if (!entry.isValid) {
-            if (!entry.log)
+        ShaderSourceEntry* entry = result->second;
+        ASSERT(entry);
+        if (!entry->isValid) {
+            if (!entry->log)
                 return WebString();
-            WebString res = WebString::fromUTF8(entry.log, strlen(entry.log));
+            WebString res = WebString::fromUTF8(entry->log, strlen(entry->log));
             return res;
         }
     }
@@ -1025,10 +1071,11 @@ WebString WebGraphicsContext3DDefaultImpl::getShaderSource(WebGLId shader)
 
     ShaderSourceMap::iterator result = m_shaderSourceMap.find(shader);
     if (result != m_shaderSourceMap.end()) {
-        ShaderSourceEntry& entry = result->second;
-        if (!entry.source)
+        ShaderSourceEntry* entry = result->second;
+        ASSERT(entry);
+        if (!entry->source)
             return WebString();
-        WebString res = WebString::fromUTF8(entry.source, strlen(entry.source));
+        WebString res = WebString::fromUTF8(entry->source, strlen(entry->source));
         return res;
     }
 
@@ -1105,17 +1152,16 @@ void WebGraphicsContext3DDefaultImpl::readPixels(long x, long y, unsigned long w
     // FIXME: remove the two glFlush calls when the driver bug is fixed, i.e.,
     // all previous rendering calls should be done before reading pixels.
     glFlush();
-    if (m_attributes.antialias && m_boundFBO == m_multisampleFBO) {
-        glBindFramebufferEXT(GL_READ_FRAMEBUFFER_EXT, m_multisampleFBO);
-        glBindFramebufferEXT(GL_DRAW_FRAMEBUFFER_EXT, m_fbo);
-        glBlitFramebufferEXT(x, y, x + width, y + height, x, y, x + width, y + height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
+    bool needsResolve = (m_attributes.antialias && m_boundFBO == m_multisampleFBO);
+    if (needsResolve) {
+        resolveMultisampledFramebuffer(x, y, width, height);
         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_fbo);
         glFlush();
     }
 
     glReadPixels(x, y, width, height, format, type, pixels);
 
-    if (m_attributes.antialias && m_boundFBO == m_multisampleFBO)
+    if (needsResolve)
         glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, m_boundFBO);
 }
 
@@ -1151,20 +1197,86 @@ DELEGATE_TO_GL_2(sampleCoverage, SampleCoverage, double, bool)
 
 DELEGATE_TO_GL_4(scissor, Scissor, long, long, unsigned long, unsigned long)
 
+unsigned bytesPerComponent(unsigned type)
+{
+    switch (type) {
+    case GL_BYTE:
+    case GL_UNSIGNED_BYTE:
+        return 1;
+    case GL_SHORT:
+    case GL_UNSIGNED_SHORT:
+    case GL_UNSIGNED_SHORT_5_6_5:
+    case GL_UNSIGNED_SHORT_4_4_4_4:
+    case GL_UNSIGNED_SHORT_5_5_5_1:
+        return 2;
+    case GL_FLOAT:
+        return 4;
+    default:
+        return 4;
+    }
+}
+
+unsigned componentsPerPixel(unsigned format, unsigned type)
+{
+    switch (type) {
+    case GL_UNSIGNED_SHORT_5_6_5:
+    case GL_UNSIGNED_SHORT_4_4_4_4:
+    case GL_UNSIGNED_SHORT_5_5_5_1:
+        return 1;
+    default:
+        break;
+    }
+    switch (format) {
+    case GL_LUMINANCE:
+        return 1;
+    case GL_LUMINANCE_ALPHA:
+        return 2;
+    case GL_RGB:
+        return 3;
+    case GL_RGBA:
+    case GL_BGRA_EXT:
+        return 4;
+    default:
+        return 4;
+    }
+}
+
+// N.B.:  This code does not protect against integer overflow (as the command
+// buffer implementation does), so it should not be considered robust enough
+// for use in the browser.  Since this implementation is only used for layout
+// tests, this should be ok for now.
+size_t imageSizeInBytes(unsigned width, unsigned height, unsigned format, unsigned type)
+{
+    return width * height * bytesPerComponent(type) * componentsPerPixel(format, type);
+}
+
+void WebGraphicsContext3DDefaultImpl::texImage2D(unsigned target, unsigned level, unsigned internalFormat, unsigned width, unsigned height, unsigned border, unsigned format, unsigned type, const void* pixels)
+{
+    OwnArrayPtr<uint8> zero;
+    if (!pixels) {
+        size_t size = imageSizeInBytes(width, height, format, type);
+        zero.set(new uint8[size]);
+        memset(zero.get(), 0, size);
+        pixels = zero.get();
+    }
+    glTexImage2D(target, level, internalFormat, width, height, border, format, type, pixels);
+}
+
 void WebGraphicsContext3DDefaultImpl::shaderSource(WebGLId shader, const char* string)
 {
     makeContextCurrent();
     GLint length = string ? strlen(string) : 0;
     ShaderSourceMap::iterator result = m_shaderSourceMap.find(shader);
     if (result != m_shaderSourceMap.end()) {
-        ShaderSourceEntry& entry = result->second;
-        if (entry.source) {
-            fastFree(entry.source);
-            entry.source = 0;
+        ShaderSourceEntry* entry = result->second;
+        ASSERT(entry);
+        if (entry->source) {
+            fastFree(entry->source);
+            entry->source = 0;
         }
-        if (!tryFastMalloc((length + 1) * sizeof(char)).getValue(entry.source))
+        if (!tryFastMalloc((length + 1) * sizeof(char)).getValue(entry->source))
             return; // FIXME: generate an error?
-        memcpy(entry.source, string, (length + 1) * sizeof(char));
+        memcpy(entry->source, string, (length + 1) * sizeof(char));
     } else
         glShaderSource(shader, 1, &string, &length);
 }
@@ -1180,8 +1292,6 @@ DELEGATE_TO_GL_2(stencilMaskSeparate, StencilMaskSeparate, unsigned long, unsign
 DELEGATE_TO_GL_3(stencilOp, StencilOp, unsigned long, unsigned long, unsigned long)
 
 DELEGATE_TO_GL_4(stencilOpSeparate, StencilOpSeparate, unsigned long, unsigned long, unsigned long, unsigned long)
-
-DELEGATE_TO_GL_9(texImage2D, TexImage2D, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, unsigned, const void*)
 
 DELEGATE_TO_GL_3(texParameterf, TexParameterf, unsigned, unsigned, float);
 
@@ -1311,10 +1421,12 @@ unsigned WebGraphicsContext3DDefaultImpl::createShader(unsigned long shaderType)
     ASSERT(shaderType == GL_VERTEX_SHADER || shaderType == GL_FRAGMENT_SHADER);
     unsigned shader = glCreateShader(shaderType);
     if (shader) {
-        ShaderSourceEntry entry;
-        entry.type = shaderType;
-        m_shaderSourceMap.set(shader, entry);
+        ShaderSourceMap::iterator result = m_shaderSourceMap.find(shader);
+        if (result != m_shaderSourceMap.end())
+            delete result->second;
+        m_shaderSourceMap.set(shader, new ShaderSourceEntry(shaderType));
     }
+
     return shader;
 }
 
@@ -1353,8 +1465,12 @@ void WebGraphicsContext3DDefaultImpl::deleteRenderbuffer(unsigned renderbuffer)
 void WebGraphicsContext3DDefaultImpl::deleteShader(unsigned shader)
 {
     makeContextCurrent();
+
+    ShaderSourceMap::iterator result = m_shaderSourceMap.find(shader);
+    if (result != m_shaderSourceMap.end())
+        delete result->second;
+    m_shaderSourceMap.remove(result);
     glDeleteShader(shader);
-    m_shaderSourceMap.remove(shader);
 }
 
 void WebGraphicsContext3DDefaultImpl::deleteTexture(unsigned texture)
@@ -1368,29 +1484,20 @@ bool WebGraphicsContext3DDefaultImpl::angleCreateCompilers()
     if (!ShInitialize())
         return false;
 
-    TBuiltInResource resource;
-    resource.MaxVertexAttribs = 0;
-    getIntegerv(GL_MAX_VERTEX_ATTRIBS, &resource.MaxVertexAttribs);
-    resource.MaxVertexUniformVectors = 0;
-    getIntegerv(MAX_VERTEX_UNIFORM_VECTORS,
-                &resource.MaxVertexUniformVectors);
-    resource.MaxVaryingVectors = 0;
-    getIntegerv(MAX_VARYING_VECTORS,
-                &resource.MaxVaryingVectors);
-    resource.MaxVertexTextureImageUnits = 0;
-    getIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &resource.MaxVertexTextureImageUnits);
-    resource.MaxCombinedTextureImageUnits = 0;
-    getIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &resource.MaxCombinedTextureImageUnits);
-    resource.MaxTextureImageUnits = 0;
-    getIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &resource.MaxTextureImageUnits);
-    resource.MaxFragmentUniformVectors = 0;
-    getIntegerv(MAX_FRAGMENT_UNIFORM_VECTORS,
-                &resource.MaxFragmentUniformVectors);
+    ShBuiltInResources resources;
+    ShInitBuiltInResources(&resources);
+    getIntegerv(GL_MAX_VERTEX_ATTRIBS, &resources.MaxVertexAttribs);
+    getIntegerv(MAX_VERTEX_UNIFORM_VECTORS, &resources.MaxVertexUniformVectors);
+    getIntegerv(MAX_VARYING_VECTORS, &resources.MaxVaryingVectors);
+    getIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &resources.MaxVertexTextureImageUnits);
+    getIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &resources.MaxCombinedTextureImageUnits);
+    getIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &resources.MaxTextureImageUnits);
+    getIntegerv(MAX_FRAGMENT_UNIFORM_VECTORS, &resources.MaxFragmentUniformVectors);
     // Always set to 1 for OpenGL ES.
-    resource.MaxDrawBuffers = 1;
+    resources.MaxDrawBuffers = 1;
 
-    m_fragmentCompiler = ShConstructCompiler(EShLangFragment, EShSpecWebGL, &resource);
-    m_vertexCompiler = ShConstructCompiler(EShLangVertex, EShSpecWebGL, &resource);
+    m_fragmentCompiler = ShConstructCompiler(SH_FRAGMENT_SHADER, SH_WEBGL_SPEC, &resources);
+    m_vertexCompiler = ShConstructCompiler(SH_VERTEX_SHADER, SH_WEBGL_SPEC, &resources);
     return (m_fragmentCompiler && m_vertexCompiler);
 }
 
@@ -1430,7 +1537,7 @@ bool WebGraphicsContext3DDefaultImpl::angleValidateShaderSource(ShaderSourceEntr
     if (!compiler)
         return false;
 
-    if (!ShCompile(compiler, &entry.source, 1, EShOptObjectCode)) {
+    if (!ShCompile(compiler, &entry.source, 1, SH_OBJECT_CODE)) {
         int logSize = 0;
         ShGetInfo(compiler, SH_INFO_LOG_LENGTH, &logSize);
         if (logSize > 1 && tryFastMalloc(logSize * sizeof(char)).getValue(entry.log))

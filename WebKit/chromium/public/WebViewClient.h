@@ -272,10 +272,6 @@ public:
 
     // Accessibility -------------------------------------------------------
 
-    // Notifies embedder that the focus has changed to the given
-    // accessibility object.
-    virtual void focusAccessibilityObject(const WebAccessibilityObject&) { }
-
     // Notifies embedder about an accessibility notification.
     virtual void postAccessibilityNotification(const WebAccessibilityObject&, WebAccessibilityNotification) { }
 
@@ -347,6 +343,17 @@ public:
 
     // Access the embedder API for device orientation services.
     virtual WebDeviceOrientationClient* deviceOrientationClient() { return 0; }
+
+
+    // Zoom ----------------------------------------------------------------
+
+    // Informs the browser that the zoom levels for this frame have changed from
+    // the default values.
+    virtual void zoomLimitsChanged(double minimumLevel, double maximumLevel) { }
+
+    // Informs the browser that the zoom level has changed as a result of an
+    // action that wasn't initiated by the client.
+    virtual void zoomLevelChanged() { }
 
 protected:
     ~WebViewClient() { }

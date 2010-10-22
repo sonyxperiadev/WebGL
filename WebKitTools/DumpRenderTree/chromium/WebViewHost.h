@@ -33,10 +33,10 @@
 
 #include "MockSpellCheck.h"
 #include "TestNavigationController.h"
-#include "public/WebAccessibilityNotification.h"
-#include "public/WebCursorInfo.h"
-#include "public/WebFrameClient.h"
-#include "public/WebViewClient.h"
+#include "WebAccessibilityNotification.h"
+#include "WebCursorInfo.h"
+#include "WebFrameClient.h"
+#include "WebViewClient.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
@@ -127,16 +127,18 @@ class WebViewHost : public WebKit::WebViewClient, public WebKit::WebFrameClient,
     virtual void navigateBackForwardSoon(int offset);
     virtual int historyBackListCount();
     virtual int historyForwardListCount();
-    virtual void focusAccessibilityObject(const WebKit::WebAccessibilityObject&);
     virtual void postAccessibilityNotification(const WebKit::WebAccessibilityObject&, WebKit::WebAccessibilityNotification);
     virtual WebKit::WebNotificationPresenter* notificationPresenter();
+#if !ENABLE(CLIENT_BASED_GEOLOCATION)
     virtual WebKit::WebGeolocationService* geolocationService();
+#endif
     virtual WebKit::WebSpeechInputController* speechInputController(WebKit::WebSpeechInputListener*);
     virtual WebKit::WebDeviceOrientationClient* deviceOrientationClient();
 
     // WebKit::WebWidgetClient
     virtual void didInvalidateRect(const WebKit::WebRect&);
     virtual void didScrollRect(int dx, int dy, const WebKit::WebRect&);
+    virtual void scheduleComposite();
     virtual void didFocus();
     virtual void didBlur();
     virtual void didChangeCursor(const WebKit::WebCursorInfo&);
@@ -257,6 +259,7 @@ private:
     WebKit::WebCursorInfo m_currentCursor;
 
     bool m_hasWindow;
+    bool m_inModalLoop;
     WebKit::WebRect m_windowRect;
 
     // true if we want to enable smart insert/delete.
@@ -286,8 +289,10 @@ private:
     WebKit::WebRect m_paintRect;
     bool m_isPainting;
 
+#if !ENABLE(CLIENT_BASED_GEOLOCATION)
     // Geolocation
     OwnPtr<WebKit::WebGeolocationServiceMock> m_geolocationServiceMock;
+#endif
 
     OwnPtr<TestNavigationController*> m_navigationController;
 };

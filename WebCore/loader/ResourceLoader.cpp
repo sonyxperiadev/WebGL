@@ -36,8 +36,7 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
-#include "InspectorController.h"
-#include "InspectorTimelineAgent.h"
+#include "InspectorInstrumentation.h"
 #include "Page.h"
 #include "ProgressTracker.h"
 #include "ResourceHandle.h"
@@ -412,44 +411,20 @@ void ResourceLoader::didSendData(ResourceHandle*, unsigned long long bytesSent, 
 
 void ResourceLoader::didReceiveResponse(ResourceHandle*, const ResourceResponse& response)
 {
-#if ENABLE(INSPECTOR)
-    if (InspectorTimelineAgent::instanceCount()) {
-        InspectorTimelineAgent* timelineAgent = (m_frame && m_frame->page()) ? m_frame->page()->inspectorTimelineAgent() : 0;
-        if (timelineAgent)
-            timelineAgent->willReceiveResourceResponse(identifier(), response);
-    }
-#endif
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     if (documentLoader()->applicationCacheHost()->maybeLoadFallbackForResponse(this, response))
         return;
 #endif
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willReceiveResourceResponse(m_frame.get(), identifier(), response);
     didReceiveResponse(response);
-#if ENABLE(INSPECTOR)
-    if (InspectorTimelineAgent::instanceCount()) {
-        InspectorTimelineAgent* timelineAgent = (m_frame && m_frame->page()) ? m_frame->page()->inspectorTimelineAgent() : 0;
-        if (timelineAgent)
-            timelineAgent->didReceiveResourceResponse();
-    }
-#endif
+    InspectorInstrumentation::didReceiveResourceResponse(cookie);
 }
 
 void ResourceLoader::didReceiveData(ResourceHandle*, const char* data, int length, int lengthReceived)
 {
-#if ENABLE(INSPECTOR)
-    if (InspectorTimelineAgent::instanceCount()) {
-        InspectorTimelineAgent* timelineAgent = (m_frame && m_frame->page()) ? m_frame->page()->inspectorTimelineAgent() : 0;
-        if (timelineAgent)
-            timelineAgent->willReceiveResourceData(identifier());
-    }
-#endif
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willReceiveResourceData(m_frame.get(), identifier());
     didReceiveData(data, length, lengthReceived, false);
-#if ENABLE(INSPECTOR)
-    if (InspectorTimelineAgent::instanceCount()) {
-        InspectorTimelineAgent* timelineAgent = (m_frame && m_frame->page()) ? m_frame->page()->inspectorTimelineAgent() : 0;
-        if (timelineAgent)
-            timelineAgent->didReceiveResourceData();
-    }
-#endif
+    InspectorInstrumentation::didReceiveResourceData(cookie);
 }
 
 void ResourceLoader::didFinishLoading(ResourceHandle*, double finishTime)

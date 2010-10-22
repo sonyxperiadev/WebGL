@@ -38,16 +38,44 @@ public:
         return adoptRef(new PluginDocument(frame, url));
     }
 
+    void setPluginNode(Node* pluginNode) { m_pluginNode = pluginNode; }
+
     Widget* pluginWidget();
     Node* pluginNode();
 
     virtual bool isPluginDocument() const { return true; }
 
+    virtual void detach();
+
+    void cancelManualPluginLoad();
+
+    bool shouldLoadPluginManually() { return m_shouldLoadPluginManually; }
+
 private:
     PluginDocument(Frame*, const KURL&);
 
     virtual PassRefPtr<DocumentParser> createParser();
+        
+    void setShouldLoadPluginManually(bool loadManually) { m_shouldLoadPluginManually = loadManually; }
+
+    bool m_shouldLoadPluginManually;
+    RefPtr<Node> m_pluginNode;
 };
+
+inline PluginDocument* toPluginDocument(Document* document)
+{
+    ASSERT(!document || document->isPluginDocument());
+    return static_cast<PluginDocument*>(document);
+}
+
+inline const PluginDocument* toPluginDocument(const Document* document)
+{
+    ASSERT(!document || document->isPluginDocument());
+    return static_cast<const PluginDocument*>(document);
+}
+
+// This will catch anyone doing an unnecessary cast.
+void toPluginDocument(const PluginDocument*);
     
 }
 

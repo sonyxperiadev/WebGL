@@ -26,7 +26,7 @@
 #include "FrameView.h"
 #include "RenderLayer.h"
 #include "RenderView.h"
-#include <wtf/text/CString.h>
+#include <wtf/text/StringConcatenate.h>
 
 using namespace WebCore;
 
@@ -210,18 +210,18 @@ String PrintContext::pageProperty(Frame* frame, const char* propertyName, int pa
     if (!strcmp(propertyName, "margin-left")) {
         if (style->marginLeft().isAuto())
             return String("auto");
-        return String::format("%d", style->marginLeft().rawValue());
+        return String::number(style->marginLeft().rawValue());
     }
     if (!strcmp(propertyName, "line-height"))
-        return String::format("%d", style->lineHeight().rawValue());
+        return String::number(style->lineHeight().rawValue());
     if (!strcmp(propertyName, "font-size"))
-        return String::format("%d", style->fontDescription().computedPixelSize());
+        return String::number(style->fontDescription().computedPixelSize());
     if (!strcmp(propertyName, "font-family"))
-        return String::format("%s", style->fontDescription().family().family().string().utf8().data());
+        return style->fontDescription().family().family().string();
     if (!strcmp(propertyName, "size"))
-        return String::format("%d %d", style->pageSize().width().rawValue(), style->pageSize().height().rawValue());
+        return makeString(String::number(style->pageSize().width().rawValue()), ' ', String::number(style->pageSize().height().rawValue()));
 
-    return String::format("pageProperty() unimplemented for: %s", propertyName);
+    return makeString("pageProperty() unimplemented for: ", propertyName);
 }
 
 bool PrintContext::isPageBoxVisible(Frame* frame, int pageNumber)
@@ -233,7 +233,10 @@ String PrintContext::pageSizeAndMarginsInPixels(Frame* frame, int pageNumber, in
 {
     IntSize pageSize(width, height);
     frame->document()->pageSizeAndMarginsInPixels(pageNumber, pageSize, marginTop, marginRight, marginBottom, marginLeft);
-    return String::format("(%d, %d) %d %d %d %d", pageSize.width(), pageSize.height(), marginTop, marginRight, marginBottom, marginLeft);
+
+    // We don't have a makeString() function that takes up to 12 arguments, if this is a hot function, we can provide one.
+    return makeString('(', String::number(pageSize.width()), ", ", String::number(pageSize.height()), ") ") +
+           makeString(String::number(marginTop), ' ', String::number(marginRight), ' ', String::number(marginBottom), ' ', String::number(marginLeft));
 }
 
 int PrintContext::numberOfPages(Frame* frame, const FloatSize& pageSizeInPixels)
@@ -268,7 +271,7 @@ void PrintContext::spoolAllPagesWithBoundaries(Frame* frame, GraphicsContext& gr
     int totalHeight = pageRects.size() * (pageSizeInPixels.height() + 1) - 1;
 
     // Fill the whole background by white.
-    graphicsContext.setFillColor(Color(255, 255, 255), DeviceColorSpace);
+    graphicsContext.setFillColor(Color(255, 255, 255), ColorSpaceDeviceRGB);
     graphicsContext.fillRect(FloatRect(0, 0, pageWidth, totalHeight));
 
     graphicsContext.save();
@@ -280,8 +283,8 @@ void PrintContext::spoolAllPagesWithBoundaries(Frame* frame, GraphicsContext& gr
         // Draw a line for a page boundary if this isn't the first page.
         if (pageIndex > 0) {
             graphicsContext.save();
-            graphicsContext.setStrokeColor(Color(0, 0, 255), DeviceColorSpace);
-            graphicsContext.setFillColor(Color(0, 0, 255), DeviceColorSpace);
+            graphicsContext.setStrokeColor(Color(0, 0, 255), ColorSpaceDeviceRGB);
+            graphicsContext.setFillColor(Color(0, 0, 255), ColorSpaceDeviceRGB);
             graphicsContext.drawLine(IntPoint(0, currentHeight),
                                      IntPoint(pageWidth, currentHeight));
             graphicsContext.restore();

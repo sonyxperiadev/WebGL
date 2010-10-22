@@ -25,13 +25,14 @@
 
 module html {
     interface [
-        Conditional=3D_CANVAS,
+        Conditional=3D_CANVAS|BLOB,
         CanBeConstructed,
         CustomConstructFunction,
         V8CustomConstructor,
         HasNumericIndexGetter,
         HasCustomIndexSetter,
         GenerateNativeConverter,
+        NoStaticTables,
         CustomToJS,
         DontCheckEnums
     ] Int16Array : ArrayBufferView {

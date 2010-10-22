@@ -55,9 +55,6 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
     void setCustomUserAgent(const String &agent);
     const String& customUserAgent() const;
 
-    void setInitLayoutCompleted(bool completed) { m_initLayoutCompleted = completed; }
-    bool getInitLayoutCompleted() { return m_initLayoutCompleted; }
-
     virtual bool hasWebView() const;
     virtual bool hasFrameView() const;
 
@@ -94,7 +91,7 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
     virtual void dispatchDidFinishLoading(DocumentLoader*, unsigned long  identifier);
     virtual void dispatchDidFailLoading(DocumentLoader*, unsigned long  identifier, const ResourceError&);
     virtual bool dispatchDidLoadResourceFromMemoryCache(DocumentLoader*, const ResourceRequest&, const ResourceResponse&, int length);
-    virtual void dispatchDidLoadResourceByXMLHttpRequest(unsigned long identifier, const WebCore::ScriptString& sourceString);
+    virtual void dispatchDidLoadResourceByXMLHttpRequest(unsigned long identifier, const String& sourceString);
 
     virtual void dispatchDidHandleOnloadEvents();
     virtual void dispatchDidReceiveServerRedirectForProvisionalLoad();
@@ -218,8 +215,6 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
     // Plugin view to redirect data to
     PluginView* m_pluginView;
     bool m_hasSentResponseToPlugin;
-
-    bool m_initLayoutCompleted;
 };
 
 }

@@ -26,6 +26,8 @@
 
 import os
 import unittest
+
+from webkitpy.tool import mocktool
 import chromium_gpu
 
 
@@ -41,16 +43,25 @@ class ChromiumGpuTest(unittest.TestCase):
 
     def assertOverridesWorked(self, port_name):
         # test that we got the right port
-        port = chromium_gpu.get(port_name=port_name, options=None)
+        mock_options = mocktool.MockOptions(accelerated_compositing=None,
+                                            accelerated_2d_canvas=None)
+        port = chromium_gpu.get(port_name=port_name, options=mock_options)
+        self.assertTrue(port._options.accelerated_compositing)
+        self.assertTrue(port._options.accelerated_2d_canvas)
 
         # we use startswith() instead of Equal to gloss over platform versions.
         self.assertTrue(port.name().startswith(port_name))
 
-        # test that it has the right directory in front of the search path.
-        path = port.baseline_search_path()[0]
-        self.assertEqual(port._webkit_baseline_path(port_name), path)
+        # test that it has the right directories in front of the search path.
+        paths = port.baseline_search_path()
+        self.assertEqual(port._webkit_baseline_path(port_name), paths[0])
+        if port_name == 'chromium-gpu-linux':
+            self.assertEqual(port._webkit_baseline_path('chromium-gpu-win'), paths[1])
+            self.assertEqual(port._webkit_baseline_path('chromium-gpu'), paths[2])
+        else:
+            self.assertEqual(port._webkit_baseline_path('chromium-gpu'), paths[1])
 
-        # test that we have the right expectations file.
+        # Test that we have the right expectations file.
         self.assertTrue('chromium-gpu' in
                         port.path_to_test_expectations_file())
 

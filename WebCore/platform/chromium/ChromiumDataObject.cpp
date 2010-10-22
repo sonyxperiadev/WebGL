@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2009, Google Inc. All rights reserved.
+ * Copyright (c) 2010, Google Inc. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -33,54 +33,187 @@
 
 namespace WebCore {
 
-void ChromiumDataObject::clear()
+ChromiumDataObject::ChromiumDataObject(PassRefPtr<ChromiumDataObjectLegacy> data)
+    : RefCounted<ChromiumDataObject>()
+    , m_legacyData(data)
 {
-    clearAllExceptFiles();
-    filenames.clear();
+}
+
+ChromiumDataObject::ChromiumDataObject(PassRefPtr<ReadableDataObject> data)
+    : RefCounted<ChromiumDataObject>()
+    , m_readableData(data)
+{
+}
+
+ChromiumDataObject::ChromiumDataObject(PassRefPtr<WritableDataObject> data)
+    : RefCounted<ChromiumDataObject>()
+    , m_writableData(data)
+{
+}
+
+PassRefPtr<ChromiumDataObject> ChromiumDataObject::create(PassRefPtr<ChromiumDataObjectLegacy> data)
+{
+    return adoptRef(new ChromiumDataObject(data));
+}
+
+PassRefPtr<ChromiumDataObject> ChromiumDataObject::createReadable(Clipboard::ClipboardType clipboardType)
+{
+    return adoptRef(new ChromiumDataObject(ReadableDataObject::create(clipboardType)));
+}
+
+PassRefPtr<ChromiumDataObject> ChromiumDataObject::createWritable(Clipboard::ClipboardType clipboardType)
+{
+    return adoptRef(new ChromiumDataObject(WritableDataObject::create(clipboardType)));
+}
+
+void ChromiumDataObject::clearData(const String& type)
+{
+    if (m_legacyData)
+        m_legacyData->clearData(type);
+    else
+        m_writableData->clearData(type);
+}
+
+void ChromiumDataObject::clearAll()
+{
+    if (m_legacyData)
+        m_legacyData->clearAll();
+    else
+        m_writableData->clearAll();
 }
 
 void ChromiumDataObject::clearAllExceptFiles()
 {
-    url = KURL();
-    urlTitle = "";
-    uriList.clear();
-    downloadMetadata = "";
-    fileExtension = "";
-    plainText = "";
-    textHtml = "";
-    htmlBaseUrl = KURL();
-    fileContentFilename = "";
-    if (fileContent)
-        fileContent->clear();
+    if (m_legacyData)
+        m_legacyData->clearAllExceptFiles();
+    else
+        m_writableData->clearAllExceptFiles();
 }
 
 bool ChromiumDataObject::hasData() const
 {
-    return !url.isEmpty()
-        || !uriList.isEmpty()
-        || !downloadMetadata.isEmpty()
-        || !fileExtension.isEmpty()
-        || !filenames.isEmpty()
-        || !plainText.isEmpty()
-        || !textHtml.isEmpty()
-        || fileContent;
+    if (m_legacyData)
+        return m_legacyData->hasData();
+    return m_readableData->hasData();
 }
 
-ChromiumDataObject::ChromiumDataObject(const ChromiumDataObject& other)
-    : RefCounted<ChromiumDataObject>()
-    , urlTitle(other.urlTitle)
-    , downloadMetadata(other.downloadMetadata)
-    , fileExtension(other.fileExtension)
-    , filenames(other.filenames)
-    , plainText(other.plainText)
-    , textHtml(other.textHtml)
-    , htmlBaseUrl(other.htmlBaseUrl)
-    , fileContentFilename(other.fileContentFilename)
-    , url(other.url)
-    , uriList(other.uriList)
+HashSet<String> ChromiumDataObject::types() const
 {
-    if (other.fileContent.get())
-        fileContent = other.fileContent->copy();
+    if (m_legacyData)
+        return m_legacyData->types();
+    return m_readableData->types();
 }
 
-} // namespace WebCore
+String ChromiumDataObject::getData(const String& type, bool& success)
+{
+    if (m_legacyData)
+        return m_legacyData->getData(type, success);
+    return m_readableData->getData(type, success);
+}
+
+bool ChromiumDataObject::setData(const String& type, const String& data)
+{
+    if (m_legacyData)
+        return m_legacyData->setData(type, data);
+    return m_writableData->setData(type, data);
+}
+
+String ChromiumDataObject::urlTitle() const
+{
+    if (m_legacyData)
+        return m_legacyData->urlTitle();
+    return m_readableData->urlTitle();
+}
+
+void ChromiumDataObject::setUrlTitle(const String& urlTitle)
+{
+    if (m_legacyData)
+        m_legacyData->setUrlTitle(urlTitle);
+    else
+        m_writableData->setUrlTitle(urlTitle);
+}
+
+KURL ChromiumDataObject::htmlBaseUrl() const
+{
+    if (m_legacyData)
+        return m_legacyData->htmlBaseUrl();
+    return m_readableData->htmlBaseUrl();
+}
+
+void ChromiumDataObject::setHtmlBaseUrl(const KURL& url)
+{
+    if (m_legacyData)
+        m_legacyData->setHtmlBaseUrl(url);
+    else
+        m_writableData->setHtmlBaseUrl(url);
+}
+
+bool ChromiumDataObject::containsFilenames() const
+{
+    if (m_legacyData)
+        return m_legacyData->containsFilenames();
+    return m_readableData->containsFilenames();
+}
+
+Vector<String> ChromiumDataObject::filenames() const
+{
+    if (m_legacyData)
+        return m_legacyData->filenames();
+    return m_readableData->filenames();
+}
+
+void ChromiumDataObject::setFilenames(const Vector<String>& filenames)
+{
+    if (m_legacyData)
+        m_legacyData->setFilenames(filenames);
+    else
+        ASSERT_NOT_REACHED();
+}
+
+String ChromiumDataObject::fileExtension() const
+{
+    if (m_legacyData)
+        return m_legacyData->fileExtension();
+    return m_writableData->fileExtension();
+}
+
+void ChromiumDataObject::setFileExtension(const String& fileExtension)
+{
+    if (m_legacyData)
+        m_legacyData->setFileExtension(fileExtension);
+    else
+        m_writableData->setFileExtension(fileExtension);
+}
+
+String ChromiumDataObject::fileContentFilename() const
+{
+    if (m_legacyData)
+        return m_legacyData->fileContentFilename();
+    return m_writableData->fileContentFilename();
+}
+
+void ChromiumDataObject::setFileContentFilename(const String& fileContentFilename)
+{
+    if (m_legacyData)
+          m_legacyData->setFileContentFilename(fileContentFilename);
+    else
+          m_writableData->setFileContentFilename(fileContentFilename);
+}
+
+PassRefPtr<SharedBuffer> ChromiumDataObject::fileContent() const
+{
+    if (m_legacyData)
+        return m_legacyData->fileContent();
+    return m_writableData->fileContent();
+}
+
+void ChromiumDataObject::setFileContent(PassRefPtr<SharedBuffer> fileContent)
+{
+    if (m_legacyData)
+        m_legacyData->setFileContent(fileContent);
+    else
+        m_writableData->setFileContent(fileContent);
+}
+
+}
+

@@ -36,27 +36,23 @@ class AbstractStep(object):
     def __init__(self, tool, options):
         self._tool = tool
         self._options = options
-        self._port = None
 
+    # FIXME: This should use tool.port()
     def _run_script(self, script_name, args=None, quiet=False, port=WebKitPort):
         log("Running %s" % script_name)
         command = [port.script_path(script_name)]
         if args:
             command.extend(args)
-        # FIXME: This should use self.port()
         self._tool.executive.run_and_throw_if_fail(command, quiet)
 
-    # FIXME: The port should live on the tool.
-    def port(self):
-        if self._port:
-            return self._port
-        self._port = WebKitPort.port(self._options.port)
-        return self._port
+    def _changed_files(self, state):
+        return self.cached_lookup(state, "changed_files")
 
     _well_known_keys = {
-        "diff": lambda self, state: self._tool.scm().create_patch(self._options.git_commit),
-        "changelogs": lambda self, state: self._tool.checkout().modified_changelogs(self._options.git_commit),
         "bug_title": lambda self, state: self._tool.bugs.fetch_bug(state["bug_id"]).title(),
+        "changed_files": lambda self, state: self._tool.scm().changed_files(self._options.git_commit),
+        "diff": lambda self, state: self._tool.scm().create_patch(self._options.git_commit, changed_files=self._changed_files(state)),
+        "changelogs": lambda self, state: self._tool.checkout().modified_changelogs(self._options.git_commit, changed_files=self._changed_files(state)),
     }
 
     def cached_lookup(self, state, key, promise=None):
@@ -66,6 +62,11 @@ class AbstractStep(object):
             promise = self._well_known_keys.get(key)
         state[key] = promise(self, state)
         return state[key]
+
+    def did_modify_checkout(self, state):
+        state["diff"] = None
+        state["changelogs"] = None
+        state["changed_files"] = None
 
     @classmethod
     def options(cls):

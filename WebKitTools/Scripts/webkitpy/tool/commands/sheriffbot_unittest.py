@@ -30,7 +30,7 @@ import os
 
 from webkitpy.tool.commands.queuestest import QueuesTest
 from webkitpy.tool.commands.sheriffbot import SheriffBot
-from webkitpy.tool.mocktool import MockBuilder
+from webkitpy.tool.mocktool import *
 
 
 class SheriffBotTest(QueuesTest):
@@ -38,36 +38,19 @@ class SheriffBotTest(QueuesTest):
     builder2 = MockBuilder("Builder2")
 
     def test_sheriff_bot(self):
-        mock_work_item = {
-            29837: [self.builder1],
-        }
+        mock_work_item = MockFailureMap(MockTool().buildbot)
         expected_stderr = {
             "begin_work_queue": self._default_begin_work_queue_stderr("sheriff-bot", os.getcwd()),
             "next_work_item": "",
-            "process_work_item": "MOCK: irc.post: abarth, darin, eseidel: http://trac.webkit.org/changeset/29837 might have broken Builder1\nMOCK bug comment: bug_id=42, cc=['abarth@webkit.org', 'eric@webkit.org']\n--- Begin comment ---\\http://trac.webkit.org/changeset/29837 might have broken Builder1\n--- End comment ---\n\n",
+            "process_work_item": """MOCK: irc.post: abarth, darin, eseidel: http://trac.webkit.org/changeset/29837 might have broken Builder1
+MOCK bug comment: bug_id=42, cc=['abarth@webkit.org', 'eric@webkit.org']
+--- Begin comment ---
+http://trac.webkit.org/changeset/29837 might have broken Builder1
+The following tests are not passing:
+mock-test-1
+--- End comment ---
+
+""",
             "handle_unexpected_error": "Mock error message\n"
         }
         self.assert_queue_outputs(SheriffBot(), work_item=mock_work_item, expected_stderr=expected_stderr)
-
-    revisions_causing_failures = {
-        1234: [builder1],
-        1235: [builder1, builder2],
-    }
-
-    def test_new_failures(self):
-        old_failing_svn_revisions = []
-        self.assertEquals(SheriffBot()._new_failures(self.revisions_causing_failures,
-                                                     old_failing_svn_revisions),
-                          self.revisions_causing_failures)
-
-    def test_new_failures_with_old_revisions(self):
-        old_failing_svn_revisions = [1234]
-        self.assertEquals(SheriffBot()._new_failures(self.revisions_causing_failures,
-                                                     old_failing_svn_revisions),
-                          {1235: [builder2]})
-
-    def test_new_failures_with_old_revisions(self):
-        old_failing_svn_revisions = [1235]
-        self.assertEquals(SheriffBot()._new_failures(self.revisions_causing_failures,
-                                                     old_failing_svn_revisions),
-                          {})

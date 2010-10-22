@@ -25,7 +25,7 @@
 
 #include "Attribute.h"
 #include "FloatPoint.h"
-#include "RenderPath.h"
+#include "RenderSVGPath.h"
 #include "RenderSVGResource.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
@@ -83,7 +83,7 @@ void SVGEllipseElement::svgAttributeChanged(const QualifiedName& attrName)
     if (isLengthAttribute)
         updateRelativeLengthsInformation();
 
-    RenderPath* renderer = static_cast<RenderPath*>(this->renderer());
+    RenderSVGPath* renderer = static_cast<RenderSVGPath*>(this->renderer());
     if (!renderer)
         return;
 
@@ -130,10 +130,19 @@ void SVGEllipseElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeExternalResourcesRequired();
 }
 
-Path SVGEllipseElement::toPathData() const
+void SVGEllipseElement::toPathData(Path& path) const
 {
-    return Path::createEllipse(FloatPoint(cx().value(this), cy().value(this)),
-                                          rx().value(this), ry().value(this));
+    ASSERT(path.isEmpty());
+
+    float radiusX = rx().value(this);
+    if (radiusX <= 0)
+        return;
+
+    float radiusY = ry().value(this);
+    if (radiusY <= 0)
+        return;
+
+    path.addEllipse(FloatRect(cx().value(this) - radiusX, cy().value(this) - radiusY, radiusX * 2, radiusY * 2));
 }
  
 bool SVGEllipseElement::selfHasRelativeLengths() const

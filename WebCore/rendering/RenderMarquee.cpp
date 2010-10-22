@@ -66,6 +66,10 @@ RenderMarquee::RenderMarquee(RenderLayer* l)
 {
 }
 
+RenderMarquee::~RenderMarquee()
+{
+}
+
 int RenderMarquee::marqueeSpeed() const
 {
     int result = m_layer->renderer()->style()->marqueeSpeed();
@@ -110,7 +114,7 @@ int RenderMarquee::computePosition(EMarqueeDirection dir, bool stopAtContentEdge
     ASSERT(box);
     RenderStyle* s = box->style();
     if (isHorizontal()) {
-        bool ltr = s->direction() == LTR;
+        bool ltr = s->isLeftToRightDirection();
         int clientWidth = box->clientWidth();
         int contentWidth = ltr ? box->rightmostPosition(true, false) : box->leftmostPosition(true, false);
         if (ltr)

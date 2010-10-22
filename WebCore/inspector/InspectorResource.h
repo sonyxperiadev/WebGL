@@ -33,7 +33,6 @@
 
 #include "HTTPHeaderMap.h"
 #include "KURL.h"
-#include "ScriptString.h"
 #include "WebSocketHandshakeRequest.h"
 #include "WebSocketHandshakeResponse.h"
 
@@ -98,10 +97,9 @@ namespace WebCore {
         void updateWebSocketResponse(const WebSocketHandshakeResponse&);
 #endif
 
-        void setOverrideContent(const ScriptString& data, Type);
-
+        void setOverrideContent(const String& data, Type);
         String sourceString() const;
-        PassRefPtr<SharedBuffer> resourceData(String* textEncodingName) const;
+        String sourceBytes() const;
 
         bool isSameLoader(DocumentLoader* loader) const { return loader == m_loader; }
         void markMainResource() { m_isMainResource = true; }
@@ -116,8 +114,6 @@ namespace WebCore {
         String requestFormData() const { return m_requestFormData; }
 
         void startTiming();
-        void markLoadEventTime();
-        void markDOMContentEventTime();
         void endTiming(double actualEndTime);
 
         void markFailed();
@@ -162,9 +158,6 @@ namespace WebCore {
         InspectorResource(unsigned long identifier, DocumentLoader*, const KURL& requestURL);
         Type type() const;
 
-        Type cachedResourceType() const;
-        CachedResource* cachedResource() const;
-
 #if ENABLE(WEB_SOCKETS)
         void markWebSocket() { m_isWebSocket = true; }
 #endif
@@ -188,12 +181,10 @@ namespace WebCore {
         double m_startTime;
         double m_responseReceivedTime;
         double m_endTime;
-        double m_loadEventTime;
-        double m_domContentEventTime;
         unsigned m_connectionID;
         bool m_connectionReused;
         RefPtr<ResourceLoadTiming> m_loadTiming;
-        ScriptString m_overrideContent;
+        String m_overrideContent;
         Type m_overrideContentType;
         Changes m_changes;
         bool m_isMainResource;

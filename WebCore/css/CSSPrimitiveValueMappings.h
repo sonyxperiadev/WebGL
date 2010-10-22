@@ -2003,40 +2003,40 @@ template<> inline CSSPrimitiveValue::operator TextDirection() const
     }
 }
 
-template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EBlockFlowDirection e)
+template<> inline CSSPrimitiveValue::CSSPrimitiveValue(WritingMode e)
     : m_type(CSS_IDENT)
     , m_hasCachedCSSText(false)
 {
     switch (e) {
-    case TopToBottomBlockFlow:
-        m_value.ident = CSSValueTb;
+    case TopToBottomWritingMode:
+        m_value.ident = CSSValueHorizontalTb;
         break;
-    case RightToLeftBlockFlow:
-        m_value.ident = CSSValueRl;
+    case RightToLeftWritingMode:
+        m_value.ident = CSSValueVerticalRl;
         break;
-    case LeftToRightBlockFlow:
-        m_value.ident = CSSValueLr;
+    case LeftToRightWritingMode:
+        m_value.ident = CSSValueVerticalLr;
         break;
-    case BottomToTopBlockFlow:
-        m_value.ident = CSSValueBt;
+    case BottomToTopWritingMode:
+        m_value.ident = CSSValueHorizontalBt;
         break;
     }
 }
 
-template<> inline CSSPrimitiveValue::operator EBlockFlowDirection() const
+template<> inline CSSPrimitiveValue::operator WritingMode() const
 {
     switch (m_value.ident) {
-    case CSSValueTb:
-        return TopToBottomBlockFlow;
-    case CSSValueRl:
-        return RightToLeftBlockFlow;
-    case CSSValueLr:
-        return LeftToRightBlockFlow;
-    case CSSValueBt:
-        return BottomToTopBlockFlow;
+    case CSSValueHorizontalTb:
+        return TopToBottomWritingMode;
+    case CSSValueVerticalRl:
+        return RightToLeftWritingMode;
+    case CSSValueVerticalLr:
+        return LeftToRightWritingMode;
+    case CSSValueHorizontalBt:
+        return BottomToTopWritingMode;
     default:
         ASSERT_NOT_REACHED();
-        return TopToBottomBlockFlow;
+        return TopToBottomWritingMode;
     }
 }
 
@@ -2189,25 +2189,30 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ColorSpace space)
     , m_hasCachedCSSText(false)
 {
     switch (space) {
-        case DeviceColorSpace:
-            m_value.ident = CSSValueDefault;
-            break;
-        case sRGBColorSpace:
-            m_value.ident = CSSValueSrgb;
-            break;
+    case ColorSpaceDeviceRGB:
+        m_value.ident = CSSValueDefault;
+        break;
+    case ColorSpaceSRGB:
+        m_value.ident = CSSValueSrgb;
+        break;
+    case ColorSpaceLinearRGB:
+        // CSS color correction does not support linearRGB yet.
+        ASSERT_NOT_REACHED();
+        m_value.ident = CSSValueDefault;
+        break;
     }
 }
 
 template<> inline CSSPrimitiveValue::operator ColorSpace() const
 {
     switch (m_value.ident) {
-        case CSSValueDefault:
-            return DeviceColorSpace;
-        case CSSValueSrgb:
-            return sRGBColorSpace;
-        default:
-            ASSERT_NOT_REACHED();
-            return DeviceColorSpace;
+    case CSSValueDefault:
+        return ColorSpaceDeviceRGB;
+    case CSSValueSrgb:
+        return ColorSpaceSRGB;
+    default:
+        ASSERT_NOT_REACHED();
+        return ColorSpaceDeviceRGB;
     }
 }
 
@@ -2240,6 +2245,53 @@ template<> inline CSSPrimitiveValue::operator Hyphens() const
     default:
         ASSERT_NOT_REACHED();
         return HyphensAuto;
+    }
+}
+
+template<> inline CSSPrimitiveValue::CSSPrimitiveValue(ESpeak e)
+    : m_type(CSS_IDENT)
+    , m_hasCachedCSSText(false)
+{
+    switch (e) {
+    case SpeakNone:
+        m_value.ident = CSSValueNone;
+        break;
+    case SpeakNormal:
+        m_value.ident = CSSValueNormal;
+        break;
+    case SpeakSpellOut:
+        m_value.ident = CSSValueSpellOut;
+        break;
+    case SpeakDigits:
+        m_value.ident = CSSValueDigits;
+        break;
+    case SpeakLiteralPunctuation:
+        m_value.ident = CSSValueLiteralPunctuation;
+        break;
+    case SpeakNoPunctuation:
+        m_value.ident = CSSValueNoPunctuation;
+        break;
+    }
+}
+    
+template<> inline CSSPrimitiveValue::operator ESpeak() const
+{
+    switch (m_value.ident) {
+    case CSSValueNone:
+        return SpeakNone;
+    case CSSValueNormal:
+        return SpeakNormal;
+    case CSSValueSpellOut:
+        return SpeakSpellOut;
+    case CSSValueDigits:
+        return SpeakDigits;
+    case CSSValueLiteralPunctuation:
+        return SpeakLiteralPunctuation;
+    case CSSValueNoPunctuation:
+        return SpeakNoPunctuation;
+    default:
+        ASSERT_NOT_REACHED();
+        return SpeakNormal;
     }
 }
 
@@ -2656,7 +2708,7 @@ template<> inline CSSPrimitiveValue::operator ETextAnchor() const
     }
 }
 
-template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EWritingMode e)
+template<> inline CSSPrimitiveValue::CSSPrimitiveValue(SVGWritingMode e)
     : m_type(CSS_IDENT)
     , m_hasCachedCSSText(false)
 {
@@ -2682,7 +2734,7 @@ template<> inline CSSPrimitiveValue::CSSPrimitiveValue(EWritingMode e)
     }
 }
 
-template<> inline CSSPrimitiveValue::operator EWritingMode() const
+template<> inline CSSPrimitiveValue::operator SVGWritingMode() const
 {
     switch (m_value.ident) {
     case CSSValueLrTb:
@@ -2729,7 +2781,7 @@ template<> inline CSSPrimitiveValue::operator EVectorEffect() const
         return VE_NONE;
     }
 }
-
+    
 #endif
 
 }

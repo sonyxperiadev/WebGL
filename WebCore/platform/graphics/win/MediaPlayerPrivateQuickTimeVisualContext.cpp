@@ -42,7 +42,6 @@
 #include "ScrollView.h"
 #include "Settings.h"
 #include "SoftLinking.h"
-#include "StringBuilder.h"
 #include "TimeRanges.h"
 #include "Timer.h"
 #include <AssertMacros.h>
@@ -53,6 +52,7 @@
 #include <wtf/MainThread.h>
 #include <wtf/MathExtras.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringHash.h>
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -174,6 +174,8 @@ MediaPlayerPrivateQuickTimeVisualContext::MediaPlayerPrivateQuickTimeVisualConte
     , m_movieTransform(CGAffineTransformIdentity)
 #endif
     , m_visualContextClient(new MediaPlayerPrivateQuickTimeVisualContext::VisualContextClient(this))
+    , m_delayingLoad(false)
+    , m_preload(MediaPlayer::Auto)
 {
 }
 
@@ -241,7 +243,7 @@ static void addCookieParam(StringBuilder& cookieBuilder, const String& name, con
     // Add parameter name, and value if there is one.
     cookieBuilder.append(name);
     if (!value.isEmpty()) {
-        cookieBuilder.append("=");
+        cookieBuilder.append('=');
         cookieBuilder.append(value);
     }
 }
@@ -275,7 +277,7 @@ void MediaPlayerPrivateQuickTimeVisualContext::setUpCookiesForQuickTime(const St
             addCookieParam(cookieBuilder, "expires", rfc2616DateStringFromTime(cookie.expires));
         if (cookie.httpOnly) 
             addCookieParam(cookieBuilder, "httpOnly", String());
-        cookieBuilder.append(";");
+        cookieBuilder.append(';');
 
         String cookieURL;
         if (!cookie.domain.isEmpty()) {
@@ -316,7 +318,27 @@ static void disableComponentsOnce()
         QTMovie::disableComponent(componentsToDisable[i]);
 }
 
+void MediaPlayerPrivateQuickTimeVisualContext::resumeLoad()
+{
+    m_delayingLoad = false;
+
+    if (!m_movieURL.isEmpty())
+        loadInternal(m_movieURL);
+}
+
 void MediaPlayerPrivateQuickTimeVisualContext::load(const String& url)
+{
+    m_movieURL = url;
+
+    if (m_preload == MediaPlayer::None) {
+        m_delayingLoad = true;
+        return;
+    }
+
+    loadInternal(url);
+}
+
+void MediaPlayerPrivateQuickTimeVisualContext::loadInternal(const String& url)
 {
     if (!QTMovie::initializeQuickTime()) {
         // FIXME: is this the right error to return?
@@ -345,6 +367,12 @@ void MediaPlayerPrivateQuickTimeVisualContext::load(const String& url)
     m_movie = adoptRef(new QTMovie(m_movieClient.get()));
     m_movie->load(url.characters(), url.length(), m_player->preservesPitch());
     m_movie->setVolume(m_player->volume());
+}
+
+void MediaPlayerPrivateQuickTimeVisualContext::prepareToPlay()
+{
+    if (!m_movie || m_delayingLoad)
+        resumeLoad();
 }
 
 void MediaPlayerPrivateQuickTimeVisualContext::play()
@@ -1003,6 +1031,13 @@ bool MediaPlayerPrivateQuickTimeVisualContext::hasSingleSecurityOrigin() const
     // We tell quicktime to disallow resources that come from different origins
     // so we all media is single origin.
     return true;
+}
+
+void MediaPlayerPrivateQuickTimeVisualContext::setPreload(MediaPlayer::Preload preload)
+{
+    m_preload = preload;
+    if (m_delayingLoad && m_preload != MediaPlayer::None)
+        resumeLoad();
 }
 
 MediaPlayerPrivateQuickTimeVisualContext::MediaRenderingMode MediaPlayerPrivateQuickTimeVisualContext::currentRenderingMode() const

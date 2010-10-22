@@ -67,9 +67,7 @@ public:
     };
 
     enum Status {
-        NotCached,    // this URL is not cached
         Unknown,      // let cache decide what to do with it
-        New,          // inserting new item
         Pending,      // only partially loaded
         Cached        // regular case
     };
@@ -188,8 +186,8 @@ public:
     void increasePreloadCount() { ++m_preloadCount; }
     void decreasePreloadCount() { ASSERT(m_preloadCount); --m_preloadCount; }
     
-    void registerHandle(CachedResourceHandleBase* h) { ++m_handleCount; if (m_resourceToRevalidate) m_handlesToRevalidate.add(h); }
-    void unregisterHandle(CachedResourceHandleBase* h) { ASSERT(m_handleCount > 0); --m_handleCount; if (m_resourceToRevalidate) m_handlesToRevalidate.remove(h); if (!m_handleCount) deleteIfPossible(); }
+    void registerHandle(CachedResourceHandleBase* h);
+    void unregisterHandle(CachedResourceHandleBase* h);
     
     bool canUseCacheValidator() const;
     bool mustRevalidate(CachePolicy) const;
@@ -256,7 +254,7 @@ private:
     bool m_loading : 1;
 
     unsigned m_type : 3; // Type
-    unsigned m_status : 3; // Status
+    unsigned m_status : 2; // Status
 
 #ifndef NDEBUG
     bool m_deleted;

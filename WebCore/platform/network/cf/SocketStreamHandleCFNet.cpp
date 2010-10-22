@@ -194,8 +194,10 @@ void SocketStreamHandle::chooseProxy()
 
 void SocketStreamHandle::chooseProxyFromArray(CFArrayRef proxyArray)
 {
-    if (!proxyArray)
+    if (!proxyArray) {
         m_connectionType = Direct;
+        return;
+    }
 
     CFIndex proxyArrayCount = CFArrayGetCount(proxyArray);
 
@@ -565,7 +567,7 @@ void SocketStreamHandle::writeStreamCallback(CFStreamEventType type)
             break;
         }
 
-        ASSERT(m_state = Open);
+        ASSERT(m_state == Open);
         ASSERT(m_connectingSubstate == Connected);
 
         sendPendingData();

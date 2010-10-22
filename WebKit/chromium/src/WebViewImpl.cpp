@@ -88,7 +88,6 @@
 #include "SecurityOrigin.h"
 #include "SelectionController.h"
 #include "Settings.h"
-#include "SharedGraphicsContext3D.h"
 #include "Timer.h"
 #include "TypingCommand.h"
 #include "UserGestureIndicator.h"
@@ -143,9 +142,10 @@ namespace WebKit {
 // zooms text in or out (ie., change by 20%).  The min and max values limit
 // text zoom to half and 3x the original text size.  These three values match
 // those in Apple's port in WebKit/WebKit/WebView/WebView.mm
-static const double textSizeMultiplierRatio = 1.2;
-static const double minTextSizeMultiplier = 0.5;
-static const double maxTextSizeMultiplier = 3.0;
+const double WebView::textSizeMultiplierRatio = 1.2;
+const double WebView::minTextSizeMultiplier = 0.5;
+const double WebView::maxTextSizeMultiplier = 3.0;
+
 
 // The group name identifies a namespace of pages.  Page group is used on OSX
 // for some programs that use HTML views to display things that don't seem like
@@ -250,7 +250,8 @@ WebViewImpl::WebViewImpl(WebViewClient* client, WebDevToolsAgentClient* devTools
     , m_newNavigationLoader(0)
 #endif
     , m_zoomLevel(0)
-    , m_zoomTextOnly(false)
+    , m_minimumZoomLevel(zoomFactorToZoomLevel(minTextSizeMultiplier))
+    , m_maximumZoomLevel(zoomFactorToZoomLevel(maxTextSizeMultiplier))
     , m_contextMenuAllowed(false)
     , m_doingDragAndDrop(false)
     , m_ignoreInputEvents(false)
@@ -985,7 +986,7 @@ void WebViewImpl::doPixelReadbackToCanvas(WebCanvas* canvas, const IntRect& rect
         gc.scale(FloatSize(1.0f, -1.0f));
         // Use invertRect in next line, so that transform above inverts it back to
         // desired destination rect.
-        gc.drawImageBuffer(imageBuffer.get(), DeviceColorSpace, invertRect.location());
+        gc.drawImageBuffer(imageBuffer.get(), ColorSpaceDeviceRGB, invertRect.location());
         gc.restore();
     }
 }
@@ -1481,6 +1482,10 @@ void WebViewImpl::setInitialFocus(bool reverse)
     keyboardEvent.windowsKeyCode = 0x09;
     PlatformKeyboardEventBuilder platformEvent(keyboardEvent);
     RefPtr<KeyboardEvent> webkitEvent = KeyboardEvent::create(platformEvent, 0);
+
+    Frame* frame = page()->focusController()->focusedOrMainFrame();
+    if (Document* document = frame->document())
+        document->setFocusedNode(0);
     page()->focusController()->setInitialFocus(
         reverse ? FocusDirectionBackward : FocusDirectionForward,
         webkitEvent.get());
@@ -1520,36 +1525,69 @@ void WebViewImpl::clearFocusedNode()
     }
 }
 
-int WebViewImpl::zoomLevel()
+void WebViewImpl::scrollFocusedNodeIntoView()
+{
+    Node* focusedNode = focusedWebCoreNode();
+    if (focusedNode && focusedNode->isElementNode()) {
+        Element* elementNode = static_cast<Element*>(focusedNode);
+        elementNode->scrollIntoViewIfNeeded(true);
+    }
+}
+
+double WebViewImpl::zoomLevel()
 {
     return m_zoomLevel;
 }
 
-int WebViewImpl::setZoomLevel(bool textOnly, int zoomLevel)
+double WebViewImpl::setZoomLevel(bool textOnly, double zoomLevel)
 {
-    float zoomFactor = static_cast<float>(
-        std::max(std::min(std::pow(textSizeMultiplierRatio, zoomLevel),
-                          maxTextSizeMultiplier),
-                 minTextSizeMultiplier));
-    Frame* frame = mainFrameImpl()->frame();
-
-    float oldZoomFactor = m_zoomTextOnly ? frame->textZoomFactor() : frame->pageZoomFactor();
-
-    if (textOnly)
-        frame->setPageAndTextZoomFactors(1, zoomFactor);
+    if (zoomLevel < m_minimumZoomLevel)
+        m_zoomLevel = m_minimumZoomLevel;
+    else if (zoomLevel > m_maximumZoomLevel)
+        m_zoomLevel = m_maximumZoomLevel;
     else
-        frame->setPageAndTextZoomFactors(zoomFactor, 1);
+        m_zoomLevel = zoomLevel;
 
-    if (oldZoomFactor != zoomFactor || textOnly != m_zoomTextOnly) {
-        WebPluginContainerImpl* pluginContainer = WebFrameImpl::pluginContainerFromFrame(frame);
-        if (pluginContainer)
-            pluginContainer->plugin()->setZoomFactor(zoomFactor, textOnly);
+    Frame* frame = mainFrameImpl()->frame();
+    WebPluginContainerImpl* pluginContainer = WebFrameImpl::pluginContainerFromFrame(frame);
+    if (pluginContainer)
+        pluginContainer->plugin()->setZoomLevel(m_zoomLevel, textOnly);
+    else {
+        double zoomFactor = zoomLevelToZoomFactor(m_zoomLevel);
+        if (textOnly)
+            frame->setPageAndTextZoomFactors(1, zoomFactor);
+        else
+            frame->setPageAndTextZoomFactors(zoomFactor, 1);
     }
-
-    m_zoomLevel = zoomLevel;
-    m_zoomTextOnly = textOnly;
-
     return m_zoomLevel;
+}
+
+void WebViewImpl::zoomLimitsChanged(double minimumZoomLevel,
+                                    double maximumZoomLevel)
+{
+    m_minimumZoomLevel = minimumZoomLevel;
+    m_maximumZoomLevel = maximumZoomLevel;
+    m_client->zoomLimitsChanged(m_minimumZoomLevel, m_maximumZoomLevel);
+}
+
+void WebViewImpl::fullFramePluginZoomLevelChanged(double zoomLevel)
+{
+    if (zoomLevel == m_zoomLevel)
+        return;
+
+    m_zoomLevel = std::max(std::min(zoomLevel, m_maximumZoomLevel), m_minimumZoomLevel);
+    m_client->zoomLevelChanged();
+}
+
+double WebView::zoomLevelToZoomFactor(double zoomLevel)
+{
+    return std::pow(textSizeMultiplierRatio, zoomLevel);
+}
+
+double WebView::zoomFactorToZoomLevel(double factor)
+{
+    // Since factor = 1.2^level, level = log(factor) / log(1.2)
+    return log(factor) / log(textSizeMultiplierRatio);
 }
 
 void WebViewImpl::performMediaPlayerAction(const WebMediaPlayerAction& action,
@@ -1646,6 +1684,21 @@ WebDragOperation WebViewImpl::dragTargetDragEnter(
     ASSERT(!m_currentDragData.get());
 
     m_currentDragData = webDragData;
+    m_dragIdentity = identity;
+    m_operationsAllowed = operationsAllowed;
+
+    return dragTargetDragEnterOrOver(clientPoint, screenPoint, DragEnter);
+}
+
+WebDragOperation WebViewImpl::dragTargetDragEnterNew(
+    int identity,
+    const WebPoint& clientPoint,
+    const WebPoint& screenPoint,
+    WebDragOperationsMask operationsAllowed)
+{
+    ASSERT(!m_currentDragData.get());
+
+    m_currentDragData = ChromiumDataObject::createReadable(Clipboard::DragAndDrop);
     m_dragIdentity = identity;
     m_operationsAllowed = operationsAllowed;
 
@@ -2228,10 +2281,11 @@ void WebViewImpl::scrollRootLayerRect(const IntSize& scrollDelta, const IntRect&
         return;
 
     IntRect contentRect = view->visibleContentRect(false);
+    IntRect screenRect = view->contentsToWindow(contentRect);
 
     // We support fast scrolling in one direction at a time.
     if (scrollDelta.width() && scrollDelta.height()) {
-        invalidateRootLayerRect(WebRect(contentRect));
+        invalidateRootLayerRect(WebRect(screenRect));
         return;
     }
 
@@ -2241,29 +2295,43 @@ void WebViewImpl::scrollRootLayerRect(const IntSize& scrollDelta, const IntRect&
     IntRect damagedContentsRect;
     if (scrollDelta.width()) {
         int dx = scrollDelta.width();
-        damagedContentsRect.setY(contentRect.y());
-        damagedContentsRect.setHeight(contentRect.height());
+        damagedContentsRect.setY(screenRect.y());
+        damagedContentsRect.setHeight(screenRect.height());
         if (dx > 0) {
-            damagedContentsRect.setX(contentRect.x());
+            damagedContentsRect.setX(screenRect.x());
             damagedContentsRect.setWidth(dx);
         } else {
-            damagedContentsRect.setX(contentRect.right() + dx);
+            damagedContentsRect.setX(screenRect.right() + dx);
             damagedContentsRect.setWidth(-dx);
         }
     } else {
         int dy = scrollDelta.height();
-        damagedContentsRect.setX(contentRect.x());
-        damagedContentsRect.setWidth(contentRect.width());
+        damagedContentsRect.setX(screenRect.x());
+        damagedContentsRect.setWidth(screenRect.width());
         if (dy > 0) {
-            damagedContentsRect.setY(contentRect.y());
+            damagedContentsRect.setY(screenRect.y());
             damagedContentsRect.setHeight(dy);
         } else {
-            damagedContentsRect.setY(contentRect.bottom() + dy);
+            damagedContentsRect.setY(screenRect.bottom() + dy);
             damagedContentsRect.setHeight(-dy);
         }
     }
 
     m_rootLayerScrollDamage.unite(damagedContentsRect);
+
+    // Scroll any existing damage that intersects with clip rect
+    if (clipRect.intersects(m_rootLayerDirtyRect)) {
+        // Find the inner damage
+        IntRect innerDamage(clipRect);
+        innerDamage.intersect(m_rootLayerDirtyRect);
+
+        // Move the damage
+        innerDamage.move(scrollDelta.width(), scrollDelta.height());
+        
+        // Merge it back into the damaged rect
+        m_rootLayerDirtyRect.unite(innerDamage);
+    }
+
     setRootLayerNeedsDisplay();
 }
 
@@ -2278,15 +2346,10 @@ void WebViewImpl::invalidateRootLayerRect(const IntRect& rect)
 
     if (!page())
         return;
-    FrameView* view = page()->mainFrame()->view();
-
-    // rect is in viewport space. Convert to content space
-    // so that invalidations and scroll invalidations play well with one-another.
-    IntRect contentRect = view->windowToContents(rect);
 
     // FIXME: add a smarter damage aggregation logic and/or unify with 
     // LayerChromium's damage logic
-    m_rootLayerDirtyRect.unite(contentRect);
+    m_rootLayerDirtyRect.unite(rect);
     setRootLayerNeedsDisplay();
 }
 
@@ -2306,7 +2369,7 @@ void WebViewImpl::setIsAcceleratedCompositingActive(bool active)
         return;
     }
 
-    OwnPtr<GraphicsContext3D> context = m_temporaryOnscreenGraphicsContext3D.release();
+    RefPtr<GraphicsContext3D> context = m_temporaryOnscreenGraphicsContext3D.release();
     if (!context) {
         context = GraphicsContext3D::create(GraphicsContext3D::Attributes(), m_page->chrome(), GraphicsContext3D::RenderDirectlyToHostWindow);
         if (context)
@@ -2396,10 +2459,7 @@ void WebViewImpl::doComposite()
     damageRects.append(m_rootLayerScrollDamage);
     damageRects.append(m_rootLayerDirtyRect);
     for (size_t i = 0; i < damageRects.size(); ++i) {
-        // The damage rect for the root layer is in content space [e.g. unscrolled].
-        // Convert from content space to viewPort space.
-        const IntRect damagedContentRect = damageRects[i];
-        IntRect damagedRect = view->contentsToWindow(damagedContentRect);
+        IntRect damagedRect = damageRects[i];
 
         // Intersect this rectangle with the viewPort.
         damagedRect.intersect(viewPort);
@@ -2418,19 +2478,6 @@ void WebViewImpl::doComposite()
 }
 #endif
 
-
-SharedGraphicsContext3D* WebViewImpl::getSharedGraphicsContext3D()
-{
-    if (!m_sharedContext3D) {
-        GraphicsContext3D::Attributes attr;
-        OwnPtr<GraphicsContext3D> context = GraphicsContext3D::create(attr, m_page->chrome());
-        if (!context)
-            return 0;
-        m_sharedContext3D = SharedGraphicsContext3D::create(context.release());
-    }
-
-    return m_sharedContext3D.get();
-}
 
 WebGraphicsContext3D* WebViewImpl::graphicsContext3D()
 {

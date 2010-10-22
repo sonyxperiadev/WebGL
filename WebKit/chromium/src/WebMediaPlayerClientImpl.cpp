@@ -95,6 +95,14 @@ WebMediaPlayer* WebMediaPlayerClientImpl::mediaPlayer() const
 
 // WebMediaPlayerClient --------------------------------------------------------
 
+WebMediaPlayerClientImpl::~WebMediaPlayerClientImpl()
+{
+    // VideoLayerChromium may outlive this object so make sure all frames are
+    // released.
+    if (m_videoLayer.get())
+        m_videoLayer->releaseCurrentFrame();
+}
+
 void WebMediaPlayerClientImpl::networkStateChanged()
 {
     ASSERT(m_mediaPlayer);
@@ -105,6 +113,8 @@ void WebMediaPlayerClientImpl::readyStateChanged()
 {
     ASSERT(m_mediaPlayer);
     m_mediaPlayer->readyStateChanged();
+    if (hasVideo() && supportsAcceleratedRendering() && !m_videoLayer.get())
+        m_videoLayer = VideoLayerChromium::create(0, this);
 }
 
 void WebMediaPlayerClientImpl::volumeChanged(float newVolume)
@@ -172,6 +182,11 @@ void WebMediaPlayerClientImpl::load(const String& url)
 {
     Frame* frame = static_cast<HTMLMediaElement*>(
         m_mediaPlayer->mediaPlayerClient())->document()->frame();
+
+    // Video frame object is owned by WebMediaPlayer. Before destroying
+    // WebMediaPlayer all frames need to be released.
+    if (m_videoLayer.get())
+        m_videoLayer->releaseCurrentFrame();
 
     m_webMediaPlayer.set(createWebMediaPlayer(this, frame));
     if (m_webMediaPlayer.get())
@@ -455,9 +470,6 @@ MediaPlayerPrivateInterface* WebMediaPlayerClientImpl::create(MediaPlayer* playe
     // if necessary.
     client->m_supportsAcceleratedCompositing =
         frame->contentRenderer()->compositor()->hasAcceleratedCompositing();
-
-    if (client->m_supportsAcceleratedCompositing)
-        client->m_videoLayer = VideoLayerChromium::create(0, client);
 #endif
 
     return client;

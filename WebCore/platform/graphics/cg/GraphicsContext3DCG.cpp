@@ -64,9 +64,35 @@ bool GraphicsContext3D::getImageData(Image* image,
         return false;
     size_t width = CGImageGetWidth(cgImage);
     size_t height = CGImageGetHeight(cgImage);
-    if (!width || !height || CGImageGetBitsPerComponent(cgImage) != 8)
+    if (!width || !height)
         return false;
-    size_t componentsPerPixel = CGImageGetBitsPerPixel(cgImage) / 8;
+    size_t bitsPerComponent = CGImageGetBitsPerComponent(cgImage);
+    size_t bitsPerPixel = CGImageGetBitsPerPixel(cgImage);
+    if (bitsPerComponent != 8 && bitsPerComponent != 16)
+        return false;
+    if (bitsPerPixel % bitsPerComponent)
+        return false;
+    size_t componentsPerPixel = bitsPerPixel / bitsPerComponent;
+    bool srcByteOrder16Big = false;
+    if (bitsPerComponent == 16) {
+        CGBitmapInfo bitInfo = CGImageGetBitmapInfo(cgImage);
+        switch (bitInfo & kCGBitmapByteOrderMask) {
+        case kCGBitmapByteOrder16Big:
+            srcByteOrder16Big = true;
+            break;
+        case kCGBitmapByteOrder16Little:
+            srcByteOrder16Big = false;
+            break;
+        case kCGBitmapByteOrderDefault:
+            // This is a bug in earlier version of cg where the default endian
+            // is little whereas the decoded 16-bit png image data is actually
+            // Big. Later version (10.6.4) no longer returns ByteOrderDefault.
+            srcByteOrder16Big = true;
+            break;
+        default:
+            return false;
+        }
+    }
     SourceDataFormat srcDataFormat = kSourceFormatRGBA8;
     AlphaOp neededAlphaOp = kAlphaDoNothing;
     switch (CGImageGetAlphaInfo(cgImage)) {
@@ -79,10 +105,16 @@ bool GraphicsContext3D::getImageData(Image* image,
             neededAlphaOp = kAlphaDoUnmultiply;
         switch (componentsPerPixel) {
         case 2:
-            srcDataFormat = kSourceFormatAR8;
+            if (bitsPerComponent == 8)
+                srcDataFormat = kSourceFormatAR8;
+            else
+                srcDataFormat = srcByteOrder16Big ? kSourceFormatAR16Big : kSourceFormatAR16Little;
             break;
         case 4:
-            srcDataFormat = kSourceFormatARGB8;
+            if (bitsPerComponent == 8)
+                srcDataFormat = kSourceFormatARGB8;
+            else
+                srcDataFormat = srcByteOrder16Big ? kSourceFormatARGB16Big : kSourceFormatARGB16Little;
             break;
         default:
             return false;
@@ -94,13 +126,22 @@ bool GraphicsContext3D::getImageData(Image* image,
             neededAlphaOp = kAlphaDoPremultiply;
         switch (componentsPerPixel) {
         case 1:
-            srcDataFormat = kSourceFormatA8;
+            if (bitsPerComponent == 8)
+                srcDataFormat = kSourceFormatA8;
+            else
+                srcDataFormat = srcByteOrder16Big ? kSourceFormatA16Big : kSourceFormatA16Little;
             break;
         case 2:
-            srcDataFormat = kSourceFormatAR8;
+            if (bitsPerComponent == 8)
+                srcDataFormat = kSourceFormatAR8;
+            else
+                srcDataFormat = srcByteOrder16Big ? kSourceFormatAR16Big : kSourceFormatAR16Little;
             break;
         case 4:
-            srcDataFormat = kSourceFormatARGB8;
+            if (bitsPerComponent == 8)
+                srcDataFormat = kSourceFormatARGB8;
+            else
+                srcDataFormat = srcByteOrder16Big ? kSourceFormatARGB16Big : kSourceFormatARGB16Little;
             break;
         default:
             return false;
@@ -110,10 +151,16 @@ bool GraphicsContext3D::getImageData(Image* image,
         // This path is only accessible for MacOS earlier than 10.6.4.
         switch (componentsPerPixel) {
         case 2:
-            srcDataFormat = kSourceFormatAR8;
+            if (bitsPerComponent == 8)
+                srcDataFormat = kSourceFormatAR8;
+            else
+                srcDataFormat = srcByteOrder16Big ? kSourceFormatAR16Big : kSourceFormatAR16Little;
             break;
         case 4:
-            srcDataFormat = kSourceFormatARGB8;
+            if (bitsPerComponent == 8)
+                srcDataFormat = kSourceFormatARGB8;
+            else
+                srcDataFormat = srcByteOrder16Big ? kSourceFormatARGB16Big : kSourceFormatARGB16Little;
             break;
         default:
             return false;
@@ -127,10 +174,16 @@ bool GraphicsContext3D::getImageData(Image* image,
             neededAlphaOp = kAlphaDoUnmultiply;
         switch (componentsPerPixel) {
         case 2:
-            srcDataFormat = kSourceFormatRA8;
+            if (bitsPerComponent == 8)
+                srcDataFormat = kSourceFormatRA8;
+            else
+                srcDataFormat = srcByteOrder16Big ? kSourceFormatRA16Big : kSourceFormatRA16Little;
             break;
         case 4:
-            srcDataFormat = kSourceFormatRGBA8;
+            if (bitsPerComponent == 8)
+                srcDataFormat = kSourceFormatRGBA8;
+            else
+                srcDataFormat = srcByteOrder16Big ? kSourceFormatRGBA16Big : kSourceFormatRGBA16Little;
             break;
         default:
             return false;
@@ -141,13 +194,22 @@ bool GraphicsContext3D::getImageData(Image* image,
             neededAlphaOp = kAlphaDoPremultiply;
         switch (componentsPerPixel) {
         case 1:
-            srcDataFormat = kSourceFormatA8;
+            if (bitsPerComponent == 8)
+                srcDataFormat = kSourceFormatA8;
+            else
+                srcDataFormat = srcByteOrder16Big ? kSourceFormatA16Big :  kSourceFormatA16Little;
             break;
         case 2:
-            srcDataFormat = kSourceFormatRA8;
+            if (bitsPerComponent == 8)
+                srcDataFormat = kSourceFormatRA8;
+            else
+                srcDataFormat = srcByteOrder16Big ? kSourceFormatRA16Big :  kSourceFormatRA16Little;
             break;
         case 4:
-            srcDataFormat = kSourceFormatRGBA8;
+            if (bitsPerComponent == 8)
+                srcDataFormat = kSourceFormatRGBA8;
+            else
+                srcDataFormat = srcByteOrder16Big ? kSourceFormatRGBA16Big : kSourceFormatRGBA16Little;
             break;
         default:
             return false;
@@ -156,10 +218,16 @@ bool GraphicsContext3D::getImageData(Image* image,
     case kCGImageAlphaNoneSkipLast:
         switch (componentsPerPixel) {
         case 2:
-            srcDataFormat = kSourceFormatRA8;
+            if (bitsPerComponent == 8)
+                srcDataFormat = kSourceFormatRA8;
+            else
+                srcDataFormat = srcByteOrder16Big ? kSourceFormatRA16Big : kSourceFormatRA16Little;
             break;
         case 4:
-            srcDataFormat = kSourceFormatRGBA8;
+            if (bitsPerComponent == 8)
+                srcDataFormat = kSourceFormatRGBA8;
+            else
+                srcDataFormat = srcByteOrder16Big ? kSourceFormatRGBA16Big :  kSourceFormatRGBA16Little;
             break;
         default:
             return false;
@@ -168,10 +236,16 @@ bool GraphicsContext3D::getImageData(Image* image,
     case kCGImageAlphaNone:
         switch (componentsPerPixel) {
         case 1:
-            srcDataFormat = kSourceFormatR8;
+            if (bitsPerComponent == 8)
+                srcDataFormat = kSourceFormatR8;
+            else
+                srcDataFormat = srcByteOrder16Big ? kSourceFormatR16Big : kSourceFormatR16Little;
             break;
         case 3:
-            srcDataFormat = kSourceFormatRGB8;
+            if (bitsPerComponent == 8)
+                srcDataFormat = kSourceFormatRGB8;
+            else
+                srcDataFormat = srcByteOrder16Big ? kSourceFormatRGB16Big : kSourceFormatRGB16Little;
             break;
         default:
             return false;
@@ -188,7 +262,7 @@ bool GraphicsContext3D::getImageData(Image* image,
     outputVector.resize(width * height * 4);
     unsigned int srcUnpackAlignment = 0;
     size_t bytesPerRow = CGImageGetBytesPerRow(cgImage);
-    unsigned int padding = bytesPerRow - componentsPerPixel * width;
+    unsigned int padding = bytesPerRow - bitsPerPixel / 8 * width;
     if (padding) {
         srcUnpackAlignment = padding + 1;
         while (bytesPerRow % srcUnpackAlignment)

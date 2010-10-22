@@ -208,7 +208,7 @@ PlatformMenuDescription ContextMenuClientImpl::getCustomMenuFromDefaultItems(
         RenderObject* object = r.innerNonSharedNode()->renderer();
         if (object && object->isWidget()) {
             Widget* widget = toRenderWidget(object)->widget();
-            if (widget) {
+            if (widget && widget->isPluginContainer()) {
                 WebPluginContainerImpl* plugin = static_cast<WebPluginContainerImpl*>(widget);
                 WebString text = plugin->plugin()->selectionAsText();
                 if (!text.isEmpty()) {
@@ -216,6 +216,7 @@ PlatformMenuDescription ContextMenuClientImpl::getCustomMenuFromDefaultItems(
                     data.editFlags |= WebContextMenuData::CanCopy;
                 }
                 data.editFlags &= ~WebContextMenuData::CanTranslate;
+                data.linkURL = plugin->plugin()->linkAtPosition(data.mousePosition);
             }
         }
     }

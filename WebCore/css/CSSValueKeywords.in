@@ -714,6 +714,14 @@ stroke
 #none
 
 #
+# CSS_PROP_SPEECH
+#
+spell-out
+digits
+literal-punctuation
+no-punctuation
+
+#
 # -webkit-font-smoothing
 #
 # auto
@@ -743,16 +751,16 @@ windowed
 manual
 # auto
 
-# -webkit-block-flow
-tb
-rl
-lr
-bt
-
 # -webkit-writing-mode
+# SVG compatibility
+lr
+rl
+tb
 lr-tb
 rl-tb
 tb-rl
-bt-rl
-tb-lr
-bt-lr
+# Standard values from CSS3
+horizontal-tb
+vertical-rl
+vertical-lr
+horizontal-bt

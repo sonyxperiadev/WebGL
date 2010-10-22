@@ -1032,10 +1032,20 @@ static gint webkit_accessible_text_get_caret_offset(AtkText* text)
 
     int offset;
     // Don't ignore links if the offset is being requested for a link.
-    objectAndOffsetUnignored(focusedObject, offset, !coreObject->isLink());
+    if (!objectAndOffsetUnignored(focusedObject, offset, !coreObject->isLink()))
+        return 0;
 
     // TODO: Verify this for RTL text.
     return offset;
+}
+
+static int baselinePositionForAccessibilityRenderObject(RenderObject* renderObject)
+{
+    // FIXME: This implementation of baselinePosition originates from RenderObject.cpp and was
+    // removed in r70072. The implementation looks incorrect though, because this is not the
+    // baseline of the underlying RenderObject, but of the AccessibilityRenderObject.
+    const Font& f = renderObject->firstLineStyle()->font();
+    return f.ascent() + (renderObject->firstLineStyle()->computedLineHeight() - f.height()) / 2;
 }
 
 static AtkAttributeSet* getAttributeSetForAccessibilityObject(const AccessibilityObject* object)
@@ -1068,10 +1078,10 @@ static AtkAttributeSet* getAttributeSetForAccessibilityObject(const Accessibilit
     bool includeRise = true;
     switch (style->verticalAlign()) {
     case SUB:
-        baselinePosition = -1 * renderer->baselinePosition(true);
+        baselinePosition = -1 * baselinePositionForAccessibilityRenderObject(renderer);
         break;
     case SUPER:
-        baselinePosition = renderer->baselinePosition(true);
+        baselinePosition = baselinePositionForAccessibilityRenderObject(renderer);
         break;
     case BASELINE:
         baselinePosition = 0;
@@ -2179,9 +2189,13 @@ AccessibilityObject* objectAndOffsetUnignored(AccessibilityObject* coreObject, i
     AccessibilityObject* realObject = coreObject;
     if (realObject->accessibilityIsIgnored())
         realObject = realObject->parentObjectUnignored();
+    if (!realObject)
+        return 0;
 
     if (ignoreLinks && realObject->isLink())
         realObject = realObject->parentObjectUnignored();
+    if (!realObject)
+        return 0;
 
     Node* node = static_cast<AccessibilityRenderObject*>(realObject)->renderer()->node();
     if (node) {

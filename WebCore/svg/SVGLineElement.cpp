@@ -25,7 +25,7 @@
 
 #include "Attribute.h"
 #include "FloatPoint.h"
-#include "RenderPath.h"
+#include "RenderSVGPath.h"
 #include "RenderSVGResource.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
@@ -79,7 +79,7 @@ void SVGLineElement::svgAttributeChanged(const QualifiedName& attrName)
     if (isLengthAttribute)
         updateRelativeLengthsInformation();
 
-    RenderPath* renderer = static_cast<RenderPath*>(this->renderer());
+    RenderSVGPath* renderer = static_cast<RenderSVGPath*>(this->renderer());
     if (!renderer)
         return;
 
@@ -126,10 +126,12 @@ void SVGLineElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeExternalResourcesRequired();
 }
 
-Path SVGLineElement::toPathData() const
+void SVGLineElement::toPathData(Path& path) const
 {
-    return Path::createLine(FloatPoint(x1().value(this), y1().value(this)),
-                            FloatPoint(x2().value(this), y2().value(this)));
+    ASSERT(path.isEmpty());
+
+    path.moveTo(FloatPoint(x1().value(this), y1().value(this)));
+    path.addLineTo(FloatPoint(x2().value(this), y2().value(this)));
 }
 
 bool SVGLineElement::selfHasRelativeLengths() const
