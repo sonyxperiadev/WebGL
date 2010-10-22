@@ -753,7 +753,8 @@ public:
     bool isHorizontalWritingMode() const { return writingMode() == TopToBottomWritingMode || writingMode() == BottomToTopWritingMode; }
     bool isFlippedLinesWritingMode() const { return writingMode() == LeftToRightWritingMode || writingMode() == BottomToTopWritingMode; }
 
-<<<<<<< HEAD
+    ESpeak speak() { return static_cast<ESpeak>(rareInheritedData->speak); }
+
 #ifdef ANDROID_CSS_RING
     // called when building nav cache to determine if the ring data is unchanged
     const void* ringData() const { return reinterpret_cast<const void*>(rareInheritedData.get()); }
@@ -770,11 +771,6 @@ public:
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     Color tapHighlightColor() const { return rareInheritedData->tapHighlightColor; }
 #endif
-
-=======
-    ESpeak speak() { return static_cast<ESpeak>(rareInheritedData->speak); }
-        
->>>>>>> webkit.org at r70209
 // attribute setter methods
 
     void setDisplay(EDisplay v) { noninherited_flags._effectiveDisplay = v; }

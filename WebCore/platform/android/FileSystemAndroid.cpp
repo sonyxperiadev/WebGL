@@ -28,11 +28,7 @@
 #include "config.h"
 #include "FileSystem.h"
 
-<<<<<<< HEAD
 #include "PlatformBridge.h"
-#include "StringBuilder.h"
-=======
->>>>>>> webkit.org at r70209
 #include "cutils/log.h"
 #include <dirent.h>
 #include <dlfcn.h>

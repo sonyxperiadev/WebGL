@@ -412,20 +412,13 @@ bool CSSParser::parseDeclaration(CSSMutableStyleDeclaration* declaration, const 
         }
     }
 
-<<<<<<< HEAD
-    if (!m_ruleRangeMap)
-        m_currentStyleData = 0;
-
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
-#endif
-
-=======
     if (styleSourceData) {
         *styleSourceData = m_currentRuleData->styleSourceData.release();
         m_currentRuleData = 0;
     }
->>>>>>> webkit.org at r70209
+#ifdef ANDROID_INSTRUMENT
+    android::TimeCounter::record(android::TimeCounter::CSSParseTimeCounter, __FUNCTION__);
+#endif
     return ok;
 }
 

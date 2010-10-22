@@ -42,17 +42,10 @@
 #include "XSSAuditor.h"
 #include <wtf/CurrentTime.h>
 
-<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
 #endif
 
-#if ENABLE(INSPECTOR)
-#include "InspectorTimelineAgent.h"
-#endif
-
-=======
->>>>>>> webkit.org at r70209
 namespace WebCore {
 
 using namespace HTMLNames;

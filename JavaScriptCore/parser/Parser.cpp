@@ -35,13 +35,10 @@ namespace JSC {
 
 void Parser::parse(JSGlobalObject* lexicalGlobalObject, FunctionParameters* parameters, JSParserStrictness strictness, JSParserMode mode, int* errLine, UString* errMsg)
 {
-<<<<<<< HEAD
 #ifdef ANDROID_INSTRUMENT
     android::TimeCounter::start(android::TimeCounter::JavaScriptParseTimeCounter);
 #endif
-=======
     ASSERT(lexicalGlobalObject);
->>>>>>> webkit.org at r70209
     m_sourceElements = 0;
 
     int defaultErrLine;

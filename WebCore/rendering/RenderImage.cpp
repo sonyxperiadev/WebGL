@@ -470,22 +470,18 @@ int RenderImage::computeReplacedLogicalWidth(bool includeMaxWidth) const
     int minLogicalWidth = computeReplacedLogicalWidthUsing(style()->logicalMinWidth());
     int maxLogicalWidth = !includeMaxWidth || style()->logicalMaxWidth().isUndefined() ? logicalWidth : computeReplacedLogicalWidthUsing(style()->logicalMaxWidth());
 
-<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
-    width = max(minW, min(width, maxW));
+    logicalWidth = max(minLogicalWidth, min(logicalWidth, maxLogicalWidth));
     // in SSR mode, we will fit the image to its container width
     if (document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
         int cw = containingBlockLogicalWidthForContent();
-        if (cw && width>cw)
-            width = cw;
+        if (cw && logicalWidth > cw)
+            logicalWidth = cw;
     }
-    return width;
+    return logicalWidth;
 #else
-    return max(minW, min(width, maxW));
-#endif
-=======
     return max(minLogicalWidth, min(logicalWidth, maxLogicalWidth));
->>>>>>> webkit.org at r70209
+#endif
 }
 
 int RenderImage::computeReplacedLogicalHeight() const
@@ -504,32 +500,28 @@ int RenderImage::computeReplacedLogicalHeight() const
     int minLogicalHeight = computeReplacedLogicalHeightUsing(style()->logicalMinHeight());
     int maxLogicalHeight = style()->logicalMaxHeight().isUndefined() ? logicalHeight : computeReplacedLogicalHeightUsing(style()->logicalMaxHeight());
 
-<<<<<<< HEAD
 #ifdef ANDROID_LAYOUT
-    height = max(minH, min(height, maxH));
+    logicalHeight = max(minLogicalHeight, min(logicalHeight, maxLogicalHeight));
     // in SSR mode, we will fit the image to its container width
-    if (height && document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
-        int width;
-        if (isWidthSpecified())
-            width = computeReplacedWidthUsing(style()->width());
+    if (logicalHeight && document()->settings()->layoutAlgorithm() == Settings::kLayoutSSR) {
+        int logicalWidth;
+        if (isLogicalWidthSpecified())
+            logicalWidth = computeReplacedLogicalWidthUsing(style()->width());
         else
-            width = calcAspectRatioWidth();
-        int minW = computeReplacedWidthUsing(style()->minWidth());
-        int maxW = style()->maxWidth().value() == undefinedLength ? width :
-            computeReplacedWidthUsing(style()->maxWidth());
-        width = max(minW, min(width, maxW));
+            logicalWidth = calcAspectRatioLogicalWidth();
+        int minLogicalWidth = computeReplacedLogicalWidthUsing(style()->minWidth());
+        int maxLogicalWidth = style()->maxWidth().value() == undefinedLength ? logicalWidth :
+            computeReplacedLogicalWidthUsing(style()->maxWidth());
+        logicalWidth = max(minLogicalWidth, min(logicalWidth, maxLogicalWidth));
 
         int cw = containingBlockLogicalWidthForContent();
-        if (cw && width && width > cw)
-            height = cw * height / width;   // preserve aspect ratio
+        if (cw && logicalWidth && logicalWidth > cw)
+            logicalHeight = cw * logicalHeight / logicalWidth;   // preserve aspect ratio
     }
-    return height;
+    return logicalHeight;
 #else
-    return max(minH, min(height, maxH));
-#endif
-=======
     return max(minLogicalHeight, min(logicalHeight, maxLogicalHeight));
->>>>>>> webkit.org at r70209
+#endif
 }
 
 int RenderImage::calcAspectRatioLogicalWidth() const

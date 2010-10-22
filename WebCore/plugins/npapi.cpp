@@ -176,23 +176,6 @@ void NPN_PluginThreadAsyncCall(NPP instance, void (*func) (void *), void *userDa
     PluginMainThreadScheduler::scheduler().scheduleCall(instance, func, userData);
 }
 
-<<<<<<< HEAD
-#ifdef PLUGIN_SCHEDULE_TIMER
-uint32_t NPN_ScheduleTimer(NPP instance, uint32_t interval, NPBool repeat,
-                         void (*timerFunc)(NPP npp, uint32_t timerID))
-{
-    return pluginViewForInstance(instance)->scheduleTimer(instance, interval,
-                                                        repeat != 0, timerFunc);
-}
-
-void NPN_UnscheduleTimer(NPP instance, uint32_t timerID)
-{
-    pluginViewForInstance(instance)->unscheduleTimer(instance, timerID);
-}
-#endif
-
-
-=======
 NPError NPN_GetValueForURL(NPP instance, NPNURLVariable variable, const char* url, char** value, uint32_t* len)
 {
     return pluginViewForInstance(instance)->getValueForURL(variable, url, value, len);
@@ -207,4 +190,17 @@ NPError NPN_GetAuthenticationInfo(NPP instance, const char* protocol, const char
 {
     return pluginViewForInstance(instance)->getAuthenticationInfo(protocol, host, port, scheme, realm, username, ulen, password, plen);
 }
->>>>>>> webkit.org at r70209
+
+#ifdef PLUGIN_SCHEDULE_TIMER
+uint32_t NPN_ScheduleTimer(NPP instance, uint32_t interval, NPBool repeat,
+                         void (*timerFunc)(NPP npp, uint32_t timerID))
+{
+    return pluginViewForInstance(instance)->scheduleTimer(instance, interval,
+                                                        repeat != 0, timerFunc);
+}
+
+void NPN_UnscheduleTimer(NPP instance, uint32_t timerID)
+{
+    pluginViewForInstance(instance)->unscheduleTimer(instance, timerID);
+}
+#endif
