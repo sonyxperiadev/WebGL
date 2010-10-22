@@ -38,6 +38,7 @@
 #include <EGL/eglext.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
+#include <cutils/atomic.h>
 
 #ifdef DEBUG
 
@@ -84,18 +85,31 @@ BaseTile::~BaseTile()
 #endif
 }
 
+// All the following functions must be called from the main GL thread.
+
 void BaseTile::reserveTexture()
 {
-    android::Mutex::Autolock lock(m_varLock);
-    m_texture = TilesManager::instance()->getAvailableTexture(this);
+    BackedDoubleBufferedTexture* texture = TilesManager::instance()->getAvailableTexture(this);
+    // We update atomically, so paintBitmap() can see the correct value
+    android_atomic_acquire_store((int32_t)texture, (int32_t*)&m_texture);
     XLOG("%x (%d, %d) reserveTexture res: %x...", this, x(), y(), m_texture);
 }
 
 void BaseTile::removeTexture()
 {
-    android::Mutex::Autolock lock(m_varLock);
     XLOG("%x removeTexture res: %x...", this, m_texture);
-    m_texture = 0;
+    // We update atomically, so paintBitmap() can see the correct value
+    android_atomic_acquire_store(0, (int32_t*)&m_texture);
+}
+
+void BaseTile::setScale(float scale)
+{
+    m_scale = scale;
+    // FIXME: the following two lines force a memory barrier which causes
+    // m_scale to be observable on other cores. We should replace this
+    // with a dedicated system function if/when available.
+    int32_t tempValue = 0;
+    android_atomic_acquire_load(&tempValue);
 }
 
 void BaseTile::setUsedLevel(int usedLevel)
@@ -104,7 +118,6 @@ void BaseTile::setUsedLevel(int usedLevel)
         m_texture->setUsedLevel(usedLevel);
 }
 
-// Called from the main GL thread
 void BaseTile::draw(float transparency, SkRect& rect)
 {
     if (!m_texture) {
@@ -139,18 +152,23 @@ bool BaseTile::isBitmapReady()
     return m_texture->consumerTextureUpToDate(info);
 }
 
-// Called from the texture generation thread
+// This is called from the texture generation thread
 void BaseTile::paintBitmap()
 {
-    XLOG("paintBitmap(%x) %d, %d with page %x", this, m_x, m_y, m_page);
-    // the mutex ensures you are reading the most current value
-    m_varLock.lock();
     const int x = m_x;
     const int y = m_y;
-    const float scale = m_scale;
     TiledPage* tiledPage = m_page;
-    BackedDoubleBufferedTexture* texture = m_texture;
-    m_varLock.unlock();
+
+    // We acquire the texture atomically. Once we have it, we
+    // can continue with it, and m_texture can be updated without
+    // consequences.
+    BackedDoubleBufferedTexture* texture = reinterpret_cast<BackedDoubleBufferedTexture*>(
+        android_atomic_release_load((int32_t*)&m_texture));
+
+    // The loading of m_texture forces the execution of a memory barrier,
+    // which ensures that we are observing the most recent value of m_scale
+    // written by another core.
+    float scale = m_scale;
 
     if (!texture)
         return;
