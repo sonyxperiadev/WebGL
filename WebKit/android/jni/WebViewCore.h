@@ -300,7 +300,7 @@ namespace android {
             WebCore::Frame* frame, int x, int y);
 
         // set the scroll amount that webview.java is currently showing
-        void setScrollOffset(int moveGeneration, int dx, int dy);
+        void setScrollOffset(int moveGeneration, int userScrolled, int dx, int dy);
 
         void setGlobalBounds(int x, int y, int h, int v);
 

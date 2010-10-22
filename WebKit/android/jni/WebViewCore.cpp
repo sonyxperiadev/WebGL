@@ -1094,10 +1094,10 @@ void WebViewCore::doMaxScroll(CacheBuilder::Direction dir)
     this->scrollBy(dx, dy, true);
 }
 
-void WebViewCore::setScrollOffset(int moveGeneration, int dx, int dy)
+void WebViewCore::setScrollOffset(int moveGeneration, int userScrolled, int dx, int dy)
 {
-    DBG_NAV_LOGD("{%d,%d} m_scrollOffset=(%d,%d)", dx, dy,
-        m_scrollOffsetX, m_scrollOffsetY);
+    DBG_NAV_LOGD("{%d,%d} m_scrollOffset=(%d,%d), userScrolled=%d", dx, dy,
+        m_scrollOffsetX, m_scrollOffsetY, userScrolled);
     if (m_scrollOffsetX != dx || m_scrollOffsetY != dy) {
         m_scrollOffsetX = dx;
         m_scrollOffsetY = dy;
@@ -1106,7 +1106,9 @@ void WebViewCore::setScrollOffset(int moveGeneration, int dx, int dy)
         // testing work correctly.
         m_mainFrame->view()->platformWidget()->setLocation(m_scrollOffsetX,
                 m_scrollOffsetY);
-        m_mainFrame->eventHandler()->sendScrollEvent();
+        if (userScrolled) {
+            m_mainFrame->eventHandler()->sendScrollEvent();
+        }
 
         // update the currently visible screen
         sendPluginVisibleScreen();
@@ -3338,7 +3340,7 @@ static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
             screenWidth, screenHeight, anchorX, anchorY, ignoreHeight);
 }
 
-static void SetScrollOffset(JNIEnv *env, jobject obj, jint gen, jint x, jint y)
+static void SetScrollOffset(JNIEnv *env, jobject obj, jint gen, jint userScrolled, jint x, jint y)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
@@ -3346,7 +3348,7 @@ static void SetScrollOffset(JNIEnv *env, jobject obj, jint gen, jint x, jint y)
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "need viewImpl");
 
-    viewImpl->setScrollOffset(gen, x, y);
+    viewImpl->setScrollOffset(gen, userScrolled, x, y);
 }
 
 static void SetGlobalBounds(JNIEnv *env, jobject obj, jint x, jint y, jint h,
@@ -3977,7 +3979,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SendListBoxChoice },
     { "nativeSetSize", "(IIIFIIIIZ)V",
         (void*) SetSize },
-    { "nativeSetScrollOffset", "(III)V",
+    { "nativeSetScrollOffset", "(IIII)V",
         (void*) SetScrollOffset },
     { "nativeSetGlobalBounds", "(IIII)V",
         (void*) SetGlobalBounds },
