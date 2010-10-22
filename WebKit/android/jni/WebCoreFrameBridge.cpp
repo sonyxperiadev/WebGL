@@ -75,7 +75,6 @@
 #include "SecurityOrigin.h"
 #include "SelectionController.h"
 #include "Settings.h"
-#include "StringBuilder.h"
 #include "SubstituteData.h"
 #include "UserGestureIndicator.h"
 #include "WebCache.h"
@@ -100,6 +99,7 @@
 #include <wtf/Platform.h>
 #include <wtf/text/AtomicString.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringBuilder.h>
 
 #if USE(JSC)
 #include "GCController.h"
