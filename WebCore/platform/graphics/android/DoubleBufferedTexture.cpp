@@ -39,19 +39,20 @@ DoubleBufferedTexture::DoubleBufferedTexture(EGLContext sharedContext)
     m_display = eglGetCurrentDisplay();
     m_pContext = EGL_NO_CONTEXT;
     m_cContext = sharedContext;
-    m_writeableTexture = GL_NO_TEXTURE;
+    m_writeableTexture = &m_textureA;
     m_lockedConsumerTexture = GL_NO_TEXTURE;
     m_supportsEGLImage = GLUtils::isEGLImageSupported();
 }
 
 SharedTexture* DoubleBufferedTexture::getWriteableTexture()
 {
-    return (m_writeableTexture == &m_textureA) ? &m_textureA : &m_textureB;
+    return reinterpret_cast<SharedTexture*>(
+        android_atomic_release_load((int32_t*)&m_writeableTexture));
 }
 
 SharedTexture* DoubleBufferedTexture::getReadableTexture()
 {
-    return (m_writeableTexture != &m_textureA) ? &m_textureA : &m_textureB;
+    return (getWriteableTexture() != &m_textureA) ? &m_textureA : &m_textureB;
 }
 
 EGLContext DoubleBufferedTexture::producerAcquireContext()
@@ -86,9 +87,6 @@ EGLContext DoubleBufferedTexture::producerAcquireContext()
     m_textureA.unlock();
     m_textureB.unlock();
 
-    // select a front buffer
-    m_writeableTexture = &m_textureA;
-
     m_pContext = context;
     return context;
 }
@@ -109,6 +107,7 @@ void DoubleBufferedTexture::producerRelease()
     SharedTexture* sharedTex = getWriteableTexture();
     LOGV("Releasing P Lock (%d)", sharedTex->getSourceTextureId());
     sharedTex->releaseSource();
+    LOGV("Released P Lock (%d)", sharedTex->getSourceTextureId());
 }
 
 void DoubleBufferedTexture::producerReleaseAndSwap()
@@ -117,7 +116,6 @@ void DoubleBufferedTexture::producerReleaseAndSwap()
 
     // swap the front and back buffers using an atomic op for the memory barrier
     android_atomic_acquire_store((int32_t)getReadableTexture(), (int32_t*)&m_writeableTexture);
-    LOGV("Released P Lock (%d)", m_writeableTexture->getSourceTextureId());
 }
 
 TextureInfo* DoubleBufferedTexture::consumerLock()
