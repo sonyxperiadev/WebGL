@@ -28,6 +28,7 @@
 
 #include "Base64.h"
 #include "BitmapImage.h"
+#include "ColorSpace.h"
 #include "ImageData.h"
 #include "GraphicsContext.h"
 #include "NotImplemented.h"
@@ -49,7 +50,7 @@ ImageBufferData::ImageBufferData(const IntSize&)
 {
 }
 
-ImageBuffer::ImageBuffer(const IntSize& size, ImageColorSpace colorSpace, bool& success)
+ImageBuffer::ImageBuffer(const IntSize& size, ColorSpace, bool& success)
     : m_data(size)
     , m_size(size)
 {
