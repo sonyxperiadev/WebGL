@@ -201,10 +201,6 @@ bool FrameLoaderClientAndroid::dispatchDidLoadResourceFromMemoryCache(DocumentLo
     return false;
 }
 
-void FrameLoaderClientAndroid::dispatchDidLoadResourceByXMLHttpRequest(unsigned long identifier, const ScriptString&) {
-    return;
-}
-
 void FrameLoaderClientAndroid::dispatchDidHandleOnloadEvents() {
 }
 

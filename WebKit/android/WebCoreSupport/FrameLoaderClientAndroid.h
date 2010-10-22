@@ -76,7 +76,6 @@ namespace android {
         virtual void dispatchDidFinishLoading(DocumentLoader*, unsigned long identifier);
         virtual void dispatchDidFailLoading(DocumentLoader*, unsigned long identifier, const ResourceError&);
         virtual bool dispatchDidLoadResourceFromMemoryCache(DocumentLoader*, const ResourceRequest&, const ResourceResponse&, int length);
-        virtual void dispatchDidLoadResourceByXMLHttpRequest(unsigned long identifier, const ScriptString&);
 
         virtual void dispatchDidHandleOnloadEvents();
         virtual void dispatchDidReceiveServerRedirectForProvisionalLoad();
