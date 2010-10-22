@@ -2347,12 +2347,14 @@ void WebViewCore::passToJs(int generation, const WTF::String& current,
     WebCore::RenderTextControl* renderText =
         static_cast<WebCore::RenderTextControl*>(renderer);
     WTF::String test = renderText->text();
-    if (test == current) {
+    if (test != current) {
+        // If the text changed during the key event, update the UI text field.
+        updateTextfield(focus, false, test);
+    } else {
         DBG_NAV_LOG("test == current");
-        return;
     }
-    // If the text changed during the key event, update the UI text field.
-    updateTextfield(focus, false, test);
+    // Now that the selection has settled down, send it.
+    updateTextSelection();
 }
 
 void WebViewCore::scrollFocusedTextInput(float xPercent, int y)
