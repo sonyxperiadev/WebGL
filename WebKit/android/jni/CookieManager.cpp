@@ -36,7 +36,15 @@ namespace android {
 // JNI for android.webkit.CookieManager
 static const char* javaCookieManagerClass = "android/webkit/CookieManager";
 
-static void removeAllCookie(JNIEnv* env, jobject) {
+static bool useChromiumHttpStack(JNIEnv*, jobject) {
+#if USE(CHROME_NETWORK_STACK)
+    return true;
+#else
+    return false;
+#endif
+}
+
+static void removeAllCookie(JNIEnv*, jobject) {
 #if USE(CHROME_NETWORK_STACK)
     WebRequestContext::GetContext(false)->cookie_store()->GetCookieMonster()->DeleteAllCreatedAfter(Time(), true);
     // This will lazily create a new private browsing context. However, if the
@@ -49,6 +57,7 @@ static void removeAllCookie(JNIEnv* env, jobject) {
 }
 
 static JNINativeMethod gCookieManagerMethods[] = {
+    { "nativeUseChromiumHttpStack", "()Z", (void*) useChromiumHttpStack },
     { "nativeRemoveAllCookie", "()V", (void*) removeAllCookie },
 };
 
