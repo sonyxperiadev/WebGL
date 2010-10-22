@@ -40,9 +40,10 @@ public:
     }
     void* formPointer() const { return mForm; }
     void init();
-    WebCore::HTMLInputElement::DeprecatedInputType inputType() const { return mInputType; }
+    WebCore::HTMLInputElement* inputElement() const { return mElement; }
     bool isRtlText() const { return mIsRtlText; }
     bool isTextField() const { return mIsTextField; }
+    bool isTextArea() const { return mIsTextArea; }
     int maxLength() const { return mMaxLength; };
     const WTF::String& name() const { return mName; }
     int paddingBottom() const { return mPaddingBottom; }
@@ -50,9 +51,10 @@ public:
     int paddingRight() const { return mPaddingRight; }
     int paddingTop() const { return mPaddingTop; }
     void setFormPointer(void* form) { mForm = form; }
-    void setInputType(WebCore::HTMLInputElement::DeprecatedInputType type) { mInputType = type; }
+    void setInputElement(WebCore::HTMLInputElement* element) { mElement = element; }
     void setIsRtlText(bool isRtlText) { mIsRtlText = isRtlText; }
     void setIsTextField(bool isTextField) { mIsTextField = isTextField; }
+    void setIsTextArea(bool isTextArea) { mIsTextArea = isTextArea; }
     void setMaxLength(int maxLength) { mMaxLength = maxLength; }
     void setName(const WTF::String& name) { mName = name; }
     void setPaddingBottom(int bottom) { mPaddingBottom = bottom; }
@@ -70,9 +72,10 @@ private:
     int mPaddingRight;
     int mPaddingTop;
     int mTextSize;
-    WebCore::HTMLInputElement::DeprecatedInputType mInputType;
+    WebCore::HTMLInputElement* mElement;
     bool mIsRtlText : 1;
     bool mIsTextField : 1;
+    bool mIsTextArea : 1;
 #if DUMP_NAV_CACHE
 public:
     class Debug {
