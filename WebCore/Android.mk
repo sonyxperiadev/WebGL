@@ -259,13 +259,20 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	fileapi/Blob.cpp \
 	fileapi/BlobBuilder.cpp \
 	fileapi/BlobURL.cpp \
+	fileapi/DOMFileSystemBase.cpp \
+	fileapi/DOMFileSystemSync.cpp \
+	fileapi/DirectoryEntrySync.cpp \
+	fileapi/DirectoryReaderSync.cpp \
+	fileapi/EntryArraySync.cpp \
+	fileapi/EntrySync.cpp \
 	fileapi/File.cpp \
+	fileapi/FileEntrySync.cpp \
 	fileapi/FileList.cpp \
 	fileapi/FileReader.cpp \
 	fileapi/FileStreamProxy.cpp \
 	fileapi/FileThread.cpp \
 	fileapi/ThreadableBlobRegistry.cpp \
-    \
+	\
 	history/BackForwardController.cpp \
 	history/BackForwardListImpl.cpp \
 	history/CachedFrame.cpp \
@@ -333,6 +340,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/ValidityState.cpp \
 	html/WeekInputType.cpp \
 	\
+	html/canvas/ArrayBuffer.cpp \
+	html/canvas/ArrayBufferView.cpp \
 	html/canvas/CanvasGradient.cpp \
 	html/canvas/WebGLObject.cpp \
 	html/canvas/CanvasPattern.cpp \
@@ -341,6 +350,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/canvas/CanvasRenderingContext2D.cpp \
 	html/canvas/CanvasStyle.cpp \
 	html/canvas/Float32Array.cpp \
+	html/canvas/Int16Array.cpp \
+	html/canvas/Int32Array.cpp \
+	html/canvas/Int8Array.cpp \
+	html/canvas/Uint16Array.cpp \
+	html/canvas/Uint32Array.cpp \
+	html/canvas/Uint8Array.cpp \
 	\
 	html/parser/HTMLConstructionSite.cpp \
 	html/parser/HTMLDocumentParser.cpp \
@@ -380,13 +395,13 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/ImageLoader.cpp \
 	loader/MainResourceLoader.cpp \
 	loader/NavigationAction.cpp \
+	loader/NavigationScheduler.cpp \
 	loader/NetscapePlugInStreamLoader.cpp \
 	loader/PingLoader.cpp \
 	loader/PlaceholderDocument.cpp \
 	loader/PolicyCallback.cpp \
 	loader/PolicyChecker.cpp \
 	loader/ProgressTracker.cpp \
-	loader/NavigationScheduler.cpp \
 	loader/Request.cpp \
 	loader/ResourceLoadNotifier.cpp \
 	loader/ResourceLoader.cpp \
@@ -405,7 +420,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	loader/appcache/ManifestParser.cpp \
 	\
 	loader/icon/IconDatabase.cpp \
-	loader/icon/IconFetcher.cpp \
 	loader/icon/IconLoader.cpp \
 	loader/icon/IconRecord.cpp \
 	loader/icon/PageURLRecord.cpp \
@@ -479,6 +493,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/KURL.cpp \
 	platform/KURLGoogle.cpp \
 	platform/KillRingNone.cpp \
+	platform/Language.cpp \
 	platform/Length.cpp \
 	platform/LinkHash.cpp \
 	platform/LocalizedStrings.cpp \
@@ -644,12 +659,14 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/network/BlobResourceHandle.cpp \
 	platform/network/Credential.cpp \
 	platform/network/CredentialStorage.cpp \
+	platform/network/DataURL.cpp \
 	platform/network/FormData.cpp \
 	platform/network/FormDataBuilder.cpp \
 	platform/network/HTTPHeaderMap.cpp \
 	platform/network/HTTPParsers.cpp \
 	platform/network/NetworkStateNotifier.cpp \
 	platform/network/ProtectionSpace.cpp \
+	platform/network/ProxyServer.cpp \
 	platform/network/ResourceErrorBase.cpp \
 	platform/network/ResourceHandle.cpp \
 	platform/network/ResourceRequestBase.cpp \
@@ -657,6 +674,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	platform/network/android/CookieJarAndroid.cpp \
 	platform/network/android/NetworkStateNotifierAndroid.cpp \
+	platform/network/android/ProxyServerAndroid.cpp \
 	platform/network/android/ResourceHandleAndroid.cpp \
 	platform/network/android/ResourceRequestAndroid.cpp \
 	\
@@ -675,11 +693,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/text/RegularExpression.cpp \
 	platform/text/SegmentedString.cpp \
 	platform/text/String.cpp \
-<<<<<<< HEAD
-	platform/text/StringBuilder.cpp \
 	platform/text/TextBoundaries.cpp \
-=======
->>>>>>> webkit.org at r70209
 	platform/text/TextBreakIteratorICU.cpp \
 	platform/text/TextCodec.cpp \
 	platform/text/TextCodecICU.cpp \
@@ -792,6 +806,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	rendering/RenderSVGShadowTreeRootContainer.cpp \
 	rendering/RenderSVGTransformableContainer.cpp \
 	rendering/RenderSVGViewportContainer.cpp \
+	\
 	rendering/svg/RenderSVGInline.cpp \
 	rendering/svg/RenderSVGInlineText.cpp \
 	rendering/svg/RenderSVGPath.cpp \
@@ -892,6 +907,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/DatabaseThread.cpp \
 	storage/DatabaseTracker.cpp \
 	storage/IDBAny.cpp \
+	storage/IDBCompleteEvent.cpp \
 	storage/IDBCursor.cpp \
 	storage/IDBCursorBackendImpl.cpp \
 	storage/IDBDatabase.cpp \
@@ -909,6 +925,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/IDBObjectStoreBackendImpl.cpp \
 	storage/IDBRequest.cpp \
 	storage/IDBSuccessEvent.cpp \
+	storage/IDBTimeoutEvent.cpp \
 	storage/IDBTransaction.cpp \
 	storage/LocalStorageTask.cpp \
 	storage/LocalStorageThread.cpp \

@@ -154,6 +154,7 @@ LOCAL_SRC_FILES := \
 	runtime/RopeImpl.cpp \
 	runtime/ScopeChain.cpp \
 	runtime/SmallStrings.cpp \
+	runtime/StrictEvalActivation.cpp \
 	runtime/StringConstructor.cpp \
 	runtime/StringObject.cpp \
 	runtime/StringPrototype.cpp \
@@ -196,6 +197,8 @@ LOCAL_SRC_FILES := \
 	\
 	wtf/unicode/icu/CollatorICU.cpp \
 	\
+	wtf/url/src/URLCharacterTypes.cpp \
+	wtf/url/src/URLEscape.cpp \
 	wtf/url/src/URLSegments.cpp \
 	\
 	yarr/RegexCompiler.cpp \
