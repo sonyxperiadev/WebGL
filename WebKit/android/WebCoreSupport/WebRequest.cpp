@@ -63,9 +63,9 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     : m_urlLoader(loader)
     , m_inputStream(0)
     , m_androidUrl(false)
-    , m_loadState(Created)
     , m_url(webResourceRequest.url())
     , m_userAgent(webResourceRequest.userAgent())
+    , m_loadState(Created)
 {
     GURL gurl(m_url);
 
@@ -81,9 +81,9 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
 WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& webResourceRequest, int inputStream)
     : m_urlLoader(loader)
     , m_androidUrl(true)
-    , m_loadState(Created)
     , m_url(webResourceRequest.url())
     , m_userAgent(webResourceRequest.userAgent())
+    , m_loadState(Created)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     m_inputStream = (int)env->NewGlobalRef((_jobject*)inputStream);
