@@ -38,8 +38,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	android/WebCoreSupport/WebRequest.cpp \
 	android/WebCoreSupport/WebRequestContext.cpp \
 	android/WebCoreSupport/WebResourceRequest.cpp \
-	android/WebCoreSupport/WebResponse.cpp \
-	android/jni/CookieManager.cpp
+	android/WebCoreSupport/WebResponse.cpp
 else
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	android/WebCoreSupport/ResourceLoaderAndroid.cpp
@@ -58,6 +57,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	android/icu/unicode/ucnv.cpp \
 	\
+	android/jni/CookieManager.cpp \
 	android/jni/DeviceMotionAndOrientationManager.cpp \
 	android/jni/DeviceMotionClientImpl.cpp \
 	android/jni/DeviceOrientationClientImpl.cpp \

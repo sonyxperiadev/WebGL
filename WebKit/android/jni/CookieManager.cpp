@@ -37,6 +37,7 @@ namespace android {
 static const char* javaCookieManagerClass = "android/webkit/CookieManager";
 
 static void removeAllCookie(JNIEnv* env, jobject) {
+#if USE(CHROME_NETWORK_STACK)
     WebRequestContext::GetContext(false)->cookie_store()->GetCookieMonster()->DeleteAllCreatedAfter(Time(), true);
     // This will lazily create a new private browsing context. However, if the
     // context doesn't already exist, there's no need to create it, as cookies
@@ -44,6 +45,7 @@ static void removeAllCookie(JNIEnv* env, jobject) {
     // TODO: Consider adding an optimisation to not create the context if it
     // doesn't already exist.
     WebRequestContext::GetContext(true)->cookie_store()->GetCookieMonster()->DeleteAllCreatedAfter(Time(), true);
+#endif
 }
 
 static JNINativeMethod gCookieManagerMethods[] = {
