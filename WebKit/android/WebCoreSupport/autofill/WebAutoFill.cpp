@@ -49,13 +49,18 @@
 namespace android
 {
 
+static URLRequestContext* WebAutoFillContextGetter()
+{
+    return WebRequestContext::GetContext(false /* isPrivateBrowsing */);
+}
+
 WebAutoFill::WebAutoFill()
     : mWebViewCore(0)
 {
     mFormManager = new FormManager();
     mQueryId = 1;
 
-    AndroidURLRequestContextGetter::Get()->SetURLRequestContextGetterFunction(&WebRequestContext::GetContext);
+    AndroidURLRequestContextGetter::Get()->SetURLRequestContextGetterFunction(&WebAutoFillContextGetter);
     AndroidURLRequestContextGetter::Get()->SetIOThread(WebUrlLoaderClient::ioThread());
     mTabContents = new TabContents();
     mAutoFillManager = new AutoFillManager(mTabContents.get());
