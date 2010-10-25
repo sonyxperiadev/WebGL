@@ -37,7 +37,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <wtf/text/CString.h>
-#include <wtf/Threading.h>
 
 namespace {
 // TODO: The userAgent should not be a static, as it can be set per WebView.
@@ -65,6 +64,7 @@ static scoped_refptr<WebRequestContext> privateBrowsingContext(0);
 static WTF::Mutex privateBrowsingContextMutex;
 
 WebRequestContext::WebRequestContext()
+    : m_allowCookies(true)
 {
     // Also hardcoded in FrameLoader.java
     accept_charset_ = "utf-8, iso-8859-1, utf-16, *;q=0.7";
@@ -163,6 +163,7 @@ WebRequestContext* WebRequestContext::getContextForPath(const char* cookieFilena
     net::CookieMonster::EnableFileScheme();
 
     context->cookie_store_ = new net::CookieMonster(cookieDb.get(), 0);
+    context->cookie_policy_ = context;
 
     return context;
 }
@@ -236,6 +237,29 @@ bool WebRequestContext::cleanupPrivateBrowsingFiles(const std::string& databaseD
         return true;
     }
     return false;
+}
+
+int WebRequestContext::CanGetCookies(const GURL&, const GURL&, net::CompletionCallback*)
+{
+    MutexLocker lock(m_allowCookiesMutex);
+    return m_allowCookies ? net::OK : net::ERR_ACCESS_DENIED;
+}
+
+int WebRequestContext::CanSetCookie(const GURL&, const GURL&, const std::string&, net::CompletionCallback*)
+{
+    MutexLocker lock(m_allowCookiesMutex);
+    return m_allowCookies ? net::OK : net::ERR_ACCESS_DENIED;
+}
+
+bool WebRequestContext::allowCookies() {
+    MutexLocker lock(m_allowCookiesMutex);
+    return m_allowCookies;
+}
+
+void WebRequestContext::setAllowCookies(bool allow)
+{
+    MutexLocker lock(m_allowCookiesMutex);
+    m_allowCookies = allow;
 }
 
 } // namespace android

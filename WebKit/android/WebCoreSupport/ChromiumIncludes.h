@@ -57,6 +57,7 @@
 #include <chrome/browser/net/sqlite_persistent_cookie_store.h>
 #include <net/base/auth.h>
 #include <net/base/cookie_monster.h>
+#include <net/base/cookie_policy.h>
 #include <net/base/data_url.h>
 #include <net/base/host_resolver.h>
 #include <net/base/io_buffer.h>
