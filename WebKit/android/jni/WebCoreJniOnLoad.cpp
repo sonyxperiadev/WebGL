@@ -71,24 +71,25 @@
 
 namespace android {
 
-extern int register_webframe(JNIEnv*);
-extern int register_javabridge(JNIEnv*);
-extern int register_resource_loader(JNIEnv*);
-extern int register_webviewcore(JNIEnv*);
-extern int register_webhistory(JNIEnv*);
-extern int register_webicondatabase(JNIEnv*);
-extern int register_websettings(JNIEnv*);
-extern int register_webview(JNIEnv*);
+extern int registerWebFrame(JNIEnv*);
+extern int registerJavaBridge(JNIEnv*);
+extern int registerResourceLoader(JNIEnv*);
+extern int registerWebViewCore(JNIEnv*);
+extern int registerWebHistory(JNIEnv*);
+extern int registerWebIconDatabase(JNIEnv*);
+extern int registerWebSettings(JNIEnv*);
+extern int registerWebView(JNIEnv*);
 #if ENABLE(DATABASE)
-extern int register_webstorage(JNIEnv*);
+extern int registerWebStorage(JNIEnv*);
 #endif
-extern int register_geolocation_permissions(JNIEnv*);
-extern int register_mock_geolocation(JNIEnv*);
+extern int registerGeolocationPermissions(JNIEnv*);
+extern int registerMockGeolocation(JNIEnv*);
 #if ENABLE(VIDEO)
-extern int register_mediaplayer_audio(JNIEnv*);
-extern int register_mediaplayer_video(JNIEnv*);
+extern int registerMediaPlayerAudio(JNIEnv*);
+extern int registerMediaPlayerVideo(JNIEnv*);
 #endif
-extern int register_device_orientation_manager(JNIEnv*);
+extern int registerDeviceMotionAndOrientationManager(JNIEnv*);
+extern int registerCookieManager(JNIEnv*);
 
 }
 
@@ -98,24 +99,25 @@ struct RegistrationMethod {
 };
 
 static RegistrationMethod gWebCoreRegMethods[] = {
-    { "JavaBridge", android::register_javabridge },
-    { "WebFrame", android::register_webframe },
-    { "WebCoreResourceLoader", android::register_resource_loader },
-    { "WebViewCore", android::register_webviewcore },
-    { "WebHistory", android::register_webhistory },
-    { "WebIconDatabase", android::register_webicondatabase },
-    { "WebSettings", android::register_websettings },
+    { "JavaBridge", android::registerJavaBridge },
+    { "WebFrame", android::registerWebFrame },
+    { "WebCoreResourceLoader", android::registerResourceLoader },
+    { "WebViewCore", android::registerWebViewCore },
+    { "WebHistory", android::registerWebHistory },
+    { "WebIconDatabase", android::registerWebIconDatabase },
+    { "WebSettings", android::registerWebSettings },
 #if ENABLE(DATABASE)
-    { "WebStorage", android::register_webstorage },
+    { "WebStorage", android::registerWebStorage },
 #endif
-    { "WebView", android::register_webview },
-    { "GeolocationPermissions", android::register_geolocation_permissions },
-    { "MockGeolocation", android::register_mock_geolocation },
+    { "WebView", android::registerWebView },
+    { "GeolocationPermissions", android::registerGeolocationPermissions },
+    { "MockGeolocation", android::registerMockGeolocation },
 #if ENABLE(VIDEO)
-    { "HTML5Audio", android::register_mediaplayer_audio },
-    { "HTML5VideoViewProxy", android::register_mediaplayer_video },
+    { "HTML5Audio", android::registerMediaPlayerAudio },
+    { "HTML5VideoViewProxy", android::registerMediaPlayerVideo },
 #endif
-    { "DeviceMotionAndOrientationManager", android::register_device_orientation_manager },
+    { "DeviceMotionAndOrientationManager", android::registerDeviceMotionAndOrientationManager },
+    { "CookieManager", android::registerCookieManager },
 };
 
 EXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved)

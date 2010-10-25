@@ -57,10 +57,6 @@ bool TextureInfo::operator==(const TextureInfo& otherTexture) {
 }
 
 SharedTexture::SharedTexture() {
-
-    // the mutex ensures that the variables are not used in any other thread
-    // until the constructor has the opportunity to initialize them
-    android::Mutex::Autolock lock(m_lock);
     m_display = eglGetCurrentDisplay();
     m_eglImage = EGL_NO_IMAGE_KHR;
     m_isNewImage = true;
@@ -84,7 +80,6 @@ SharedTexture::~SharedTexture() {
     } else {
         glDeleteTextures(1, &m_sourceTexture.m_textureId);
     }
-    m_lock.unlock();
 }
 
 void SharedTexture::initSourceTexture() {

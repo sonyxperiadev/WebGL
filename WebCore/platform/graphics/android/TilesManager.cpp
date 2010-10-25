@@ -31,6 +31,7 @@
 #include "BaseTile.h"
 #include "SkCanvas.h"
 #include "SkPaint.h"
+#include <cutils/atomic.h>
 
 #ifdef DEBUG
 
@@ -67,7 +68,10 @@ TilesManager::TilesManager()
     for (int i = 0; i < DEFAULT_TEXTURES_ALLOCATION; i++) {
         BackedDoubleBufferedTexture* texture = new BackedDoubleBufferedTexture(
             tileWidth(), tileHeight());
-        m_textures.append(texture);
+        // the atomic load ensures that the texture has been fully initialized
+        // before we pass a pointer for other threads to operate on
+        m_textures.append(
+            (BackedDoubleBufferedTexture*)android_atomic_acquire_load((int32_t*)&texture));
     }
 
     m_pixmapsGenerationThread = new TexturesGenerator();

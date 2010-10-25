@@ -48,23 +48,22 @@ public:
     void consumerRelease();
 
 protected:
+    bool equalsIdTextureA(GLuint id) { return id == m_textureA.getSourceTextureId(); }
+    bool equalsIdTextureB(GLuint id) { return id == m_textureB.getSourceTextureId(); }
+    bool isTextureAReadable() { return getReadableTexture() == &m_textureA; }
+
+private:
+    SharedTexture* getReadableTexture();
+    SharedTexture* getWriteableTexture();
+
     SharedTexture m_textureA;
     SharedTexture m_textureB;
     SharedTexture* m_writeableTexture;
-    android::Mutex m_varLock;
-
-    SharedTexture* getReadableTexture();
-
-private:
-    SharedTexture* getWriteableTexture();
-    SharedTexture* producerReleaseTexture();
+    SharedTexture* m_lockedConsumerTexture; // only used by the consumer
 
     EGLDisplay m_display;
-
     EGLContext m_pContext;
     EGLContext m_cContext;
-
-    SharedTexture* m_lockedConsumerTexture; // only used by the consumer
 
     bool m_supportsEGLImage;
 };

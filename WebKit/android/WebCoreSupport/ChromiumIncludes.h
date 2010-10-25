@@ -52,6 +52,7 @@
 #include <base/string_util.h>
 #include <base/sys_string_conversions.h>
 #include <base/thread.h>
+#include <base/time.h>
 #include <base/tuple.h>
 #include <chrome/browser/net/sqlite_persistent_cookie_store.h>
 #include <net/base/auth.h>

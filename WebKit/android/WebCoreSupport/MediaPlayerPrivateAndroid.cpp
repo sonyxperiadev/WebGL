@@ -503,13 +503,13 @@ static JNINativeMethod g_MediaAudioPlayerMethods[] = {
         (void*) OnTimeupdate },
 };
 
-int register_mediaplayer_video(JNIEnv* env)
+int registerMediaPlayerVideo(JNIEnv* env)
 {
     return jniRegisterNativeMethods(env, g_ProxyJavaClass,
             g_MediaPlayerMethods, NELEM(g_MediaPlayerMethods));
 }
 
-int register_mediaplayer_audio(JNIEnv* env)
+int registerMediaPlayerAudio(JNIEnv* env)
 {
     return jniRegisterNativeMethods(env, g_ProxyJavaClassAudio,
             g_MediaAudioPlayerMethods, NELEM(g_MediaAudioPlayerMethods));

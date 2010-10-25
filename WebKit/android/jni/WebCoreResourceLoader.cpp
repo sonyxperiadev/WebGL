@@ -316,7 +316,7 @@ static JNINativeMethod gResourceloaderMethods[] = {
         (void*) WebCoreResourceLoader::Error }
 };
 
-int register_resource_loader(JNIEnv* env)
+int registerResourceLoader(JNIEnv* env)
 {
     jclass resourceLoader = env->FindClass("android/webkit/LoadListener");
     LOG_FATAL_IF(resourceLoader == NULL, 

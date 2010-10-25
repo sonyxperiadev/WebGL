@@ -157,7 +157,7 @@ static JNINativeMethod gDeviceMotionAndOrientationManagerMethods[] = {
     { "nativeOnOrientationChange", "(Landroid/webkit/WebViewCore;ZDZDZD)V", (void*) onOrientationChange }
 };
 
-int register_device_orientation_manager(JNIEnv* env)
+int registerDeviceMotionAndOrientationManager(JNIEnv* env)
 {
     jclass deviceOrientationManager = env->FindClass(javaDeviceMotionAndOrientationManagerClass);
     LOG_ASSERT(deviceOrientationManager, "Unable to find class");
