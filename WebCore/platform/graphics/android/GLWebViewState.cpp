@@ -55,6 +55,14 @@ namespace WebCore {
 
 using namespace android;
 
+#ifdef DEBUG_COUNT
+static int gGLWebViewStateCount = 0;
+int GLWebViewState::count()
+{
+    return gGLWebViewStateCount;
+}
+#endif
+
 GLWebViewState::GLWebViewState()
     : m_scaleRequestState(kNoScaleRequest)
     , m_currentScale(1)
@@ -76,6 +84,9 @@ GLWebViewState::GLWebViewState()
     m_invalidatedRect.setEmpty();
     m_tiledPageA = new TiledPage(FIRST_TILED_PAGE_ID, this);
     m_tiledPageB = new TiledPage(SECOND_TILED_PAGE_ID, this);
+#ifdef DEBUG_COUNT
+    gGLWebViewStateCount++;
+#endif
 }
 
 GLWebViewState::~GLWebViewState()
@@ -83,6 +94,9 @@ GLWebViewState::~GLWebViewState()
     delete m_tiledPageA;
     delete m_tiledPageB;
     delete m_navLayer;
+#ifdef DEBUG_COUNT
+    gGLWebViewStateCount--;
+#endif
 }
 
 void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, IntRect& rect)
@@ -97,7 +111,6 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, IntRect& rect)
         m_invalidatedRect.set(rect);
         m_currentPictureCounter++;
     }
-    XLOG("%x setBaseLayer %x (%d)", this, layer, m_currentPictureCounter);
 }
 
 void GLWebViewState::setExtra(android::DrawExtra* extra, LayerAndroid* navLayer)

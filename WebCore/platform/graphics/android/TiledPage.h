@@ -51,6 +51,9 @@ typedef HashMap<TileKey, BaseTile*> TileMap;
  */
 class TiledPage {
 public:
+#ifdef DEBUG_COUNT
+    static int count();
+#endif
     TiledPage(int id, GLWebViewState* state);
     ~TiledPage();
 

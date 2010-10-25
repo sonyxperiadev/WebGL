@@ -51,12 +51,23 @@ namespace WebCore {
 
 using namespace android;
 
+#ifdef DEBUG_COUNT
+static int gTilePageCount = 0;
+int TiledPage::count()
+{
+    return gTilePageCount;
+}
+#endif
+
 TiledPage::TiledPage(int id, GLWebViewState* state)
     : m_id(id)
     , m_scale(1)
     , m_invScale(1)
     , m_glWebViewState(state)
 {
+#ifdef DEBUG_COUNT
+    gTilePageCount++;
+#endif
 }
 
 TiledPage::~TiledPage() {
@@ -70,6 +81,9 @@ TiledPage::~TiledPage() {
     // by the TextureGenerator, and as we did reset the BaseLayer in GLWebViewState,
     // in WebView's destructor (so no additional painting can be scheduled)
     deleteAllValues(m_baseTiles);
+#ifdef DEBUG_COUNT
+    gTilePageCount--;
+#endif
 }
 
 BaseTile* TiledPage::getBaseTile(int x, int y)

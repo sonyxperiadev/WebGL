@@ -220,6 +220,13 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     m_previousVisible = visibleRect;
+
+#ifdef DEBUG_COUNT
+    XLOG("GLWebViewState(%d) DoubleBufferedTexture(%d) BaseTile(%d) TileSet(%d) TiledPage(%d)",
+         GLWebViewState::count(), DoubleBufferedTexture::count(),
+         BaseTile::count(), TileSet::count(), TiledPage::count());
+#endif // DEBUG_COUNT
+
 #endif // USE(ACCELERATED_COMPOSITING)
     return ret;
 }

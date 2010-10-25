@@ -64,7 +64,7 @@ TileSet::TileSet(int id, int firstTileX, int firstTileY, int rows, int cols)
     , m_nbCols(cols)
 {
 #ifdef DEBUG_COUNT
-    gTilesSetCount++;
+    gTileSetCount++;
 #endif
 }
 

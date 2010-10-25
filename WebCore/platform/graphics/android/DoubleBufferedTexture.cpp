@@ -34,6 +34,14 @@
 
 namespace WebCore {
 
+#ifdef DEBUG_COUNT
+static int gDoubleBufferedTextureCount = 0;
+int DoubleBufferedTexture::count()
+{
+    return gDoubleBufferedTextureCount;
+}
+#endif
+
 DoubleBufferedTexture::DoubleBufferedTexture(EGLContext sharedContext)
 {
     m_display = eglGetCurrentDisplay();
@@ -42,6 +50,17 @@ DoubleBufferedTexture::DoubleBufferedTexture(EGLContext sharedContext)
     m_writeableTexture = &m_textureA;
     m_lockedConsumerTexture = GL_NO_TEXTURE;
     m_supportsEGLImage = GLUtils::isEGLImageSupported();
+
+#ifdef DEBUG_COUNT
+    gDoubleBufferedTextureCount++;
+#endif
+}
+
+DoubleBufferedTexture::~DoubleBufferedTexture()
+{
+#ifdef DEBUG_COUNT
+    gDoubleBufferedTextureCount--;
+#endif
 }
 
 SharedTexture* DoubleBufferedTexture::getWriteableTexture()
