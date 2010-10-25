@@ -172,11 +172,6 @@
 #include "SVGZoomEvent.h"
 #endif
 
-#if PLATFORM(ANDROID)
-// FIXME: We shouldn't be including this from WebCore!
-#include "WebViewCore.h"
-#endif
-
 #ifdef ANDROID_META_SUPPORT
 #include "Settings.h"
 #endif
@@ -664,7 +659,7 @@ void Document::setDocType(PassRefPtr<DocumentType> docType)
         if (Frame *f = frame())
             f->settings()->setMetadataSettings("width", "device-width");
         if (FrameView* frameView = view())
-            android::WebViewCore::getWebViewCore(frameView)->updateViewport();
+            PlatformBridge::updateViewport(frameView);
     }
 #endif
 }
