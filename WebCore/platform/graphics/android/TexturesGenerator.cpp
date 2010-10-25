@@ -69,6 +69,36 @@ void TexturesGenerator::schedulePaintForTileSet(TileSet* set)
     m_newRequestLock.unlock();
 }
 
+void TexturesGenerator::removeSetsWithPage(TiledPage* page)
+{
+    mRequestedPixmapsLock.lock();
+    typedef Vector<TileSet*>::const_iterator iterator;
+    iterator end = mRequestedPixmaps.end();
+    for (iterator it = mRequestedPixmaps.begin(); it != end; ++it) {
+        TileSet* set = static_cast<TileSet*>(*it);
+        if (set->page() == page)
+            delete *it;
+    }
+    TileSet* set = m_currentSet;
+    if (set && set->page() != page)
+        set = 0;
+    if (set)
+        m_waitForCompletion = true;
+    mRequestedPixmapsLock.unlock();
+
+    if (!set)
+        return;
+
+    // At this point, it means that we are currently painting a set that
+    // we want to be removed -- we should wait until it is painted, so that
+    // when we return our caller can be sure that there is no more TileSet
+    // in the queue for that TiledPage and can safely deallocate the BaseTiles.
+    mRequestedPixmapsLock.lock();
+    mRequestedPixmapsCond.wait(mRequestedPixmapsLock);
+    m_waitForCompletion = false;
+    mRequestedPixmapsLock.unlock();
+}
+
 status_t TexturesGenerator::readyToRun()
 {
     TilesManager::instance()->enableTextures();
@@ -88,25 +118,29 @@ bool TexturesGenerator::threadLoop()
     m_newRequestLock.unlock();
     XLOG("threadLoop, got signal");
 
+    m_currentSet = 0;
     bool stop = false;
     while (!stop) {
         mRequestedPixmapsLock.lock();
-        TileSet* set = 0;
-        if (mRequestedPixmaps.size())
-            set = mRequestedPixmaps.first();
+        if (mRequestedPixmaps.size()) {
+            m_currentSet = mRequestedPixmaps.first();
+            mRequestedPixmaps.remove(0);
+        }
         mRequestedPixmapsLock.unlock();
 
-        if (set) {
-            set->paint();
-            mRequestedPixmapsLock.lock();
-            mRequestedPixmaps.remove(0);
-            mRequestedPixmapsLock.unlock();
-            delete set;
-        }
+        if (m_currentSet)
+            m_currentSet->paint();
 
         mRequestedPixmapsLock.lock();
+        if (m_currentSet) {
+            delete m_currentSet;
+            m_currentSet = 0;
+            mRequestedPixmapsCond.signal();
+        }
         if (!mRequestedPixmaps.size())
             stop = true;
+        if (m_waitForCompletion)
+            mRequestedPixmapsCond.signal();
         mRequestedPixmapsLock.unlock();
     }
 

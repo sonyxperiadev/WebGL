@@ -28,6 +28,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "TiledPage.h"
 #include "TileSet.h"
 #include <utils/threads.h>
 
@@ -37,18 +38,23 @@ using namespace android;
 
 class TexturesGenerator : public Thread {
 public:
-    TexturesGenerator() : Thread() { }
+    TexturesGenerator() : Thread()
+        , m_waitForCompletion(false) { }
     virtual ~TexturesGenerator() { }
     virtual status_t readyToRun();
 
     void schedulePaintForTileSet(TileSet* set);
+    void removeSetsWithPage(TiledPage* page);
 
 private:
     virtual bool threadLoop();
     Vector<TileSet*> mRequestedPixmaps;
     android::Mutex mRequestedPixmapsLock;
+    android::Condition mRequestedPixmapsCond;
     android::Mutex m_newRequestLock;
     android::Condition m_newRequestCond;
+    TileSet* m_currentSet;
+    bool m_waitForCompletion;
 };
 
 } // namespace WebCore
