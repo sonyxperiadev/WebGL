@@ -79,8 +79,6 @@ BaseTile::BaseTile(TiledPage* page, int x, int y)
 
 BaseTile::~BaseTile()
 {
-    removeTexture();
-    setUsedLevel(-1);
 #ifdef DEBUG_COUNT
     gBaseTileCount--;
 #endif
@@ -144,6 +142,7 @@ bool BaseTile::isBitmapReady()
 // Called from the texture generation thread
 bool BaseTile::paintBitmap()
 {
+    XLOG("paintBitmap(%x) %d, %d with page %x", this, m_x, m_y, m_page);
     // the mutex ensures you are reading the most current value
     m_varLock.lock();
     const int x = m_x;

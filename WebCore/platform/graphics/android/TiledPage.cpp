@@ -60,7 +60,16 @@ TiledPage::TiledPage(int id, GLWebViewState* state)
 }
 
 TiledPage::~TiledPage() {
-   deleteAllValues(m_baseTiles);
+    // Stop any pixmap generation
+    if (m_baseTiles.size()) {
+        TilesManager::instance()->removeSetsWithPage(this);
+    }
+    m_glWebViewState = 0;
+    // At this point, we can safely deallocate the BaseTiles, as
+    // there is no more BaseTile painting or scheduled to be painted
+    // by the TextureGenerator, and as we did reset the BaseLayer in GLWebViewState,
+    // in WebView's destructor (so no additional painting can be scheduled)
+    deleteAllValues(m_baseTiles);
 }
 
 BaseTile* TiledPage::getBaseTile(int x, int y)
@@ -164,7 +173,6 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, int firstTileX, int firs
          nbTilesWidth, nbTilesHeight, firstTileX, firstTileY, this);
     TilesManager::instance()->printTextures();
 #endif // DEBUG
-
     highResSet->reserveTextures();
 
 #ifdef DEBUG

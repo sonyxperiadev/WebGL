@@ -57,6 +57,13 @@ public:
         m_tiles.append(texture);
     }
 
+    TiledPage* page()
+    {
+        if (m_tiles.size())
+            return m_tiles[0]->page();
+        return 0;
+    }
+
 private:
     Vector<BaseTile*> m_tiles;
 

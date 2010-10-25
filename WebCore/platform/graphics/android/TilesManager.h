@@ -48,6 +48,11 @@ public:
         m_pixmapsGenerationThread->schedulePaintForTileSet(set);
     }
 
+    void removeSetsWithPage(TiledPage* page)
+    {
+        m_pixmapsGenerationThread->removeSetsWithPage(page);
+    }
+
     ShaderProgram* shader() { return &m_shader; }
 
     BackedDoubleBufferedTexture* getAvailableTexture(BaseTile* owner);
