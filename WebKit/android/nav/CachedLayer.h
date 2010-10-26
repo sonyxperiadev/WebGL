@@ -55,6 +55,7 @@ public:
     const LayerAndroid* layer(const LayerAndroid* root) const;
     IntRect localBounds(const LayerAndroid* root, const IntRect& bounds) const;
     SkPicture* picture(const LayerAndroid* root) const;
+    void toLocal(const LayerAndroid* root, int* xPtr, int* yPtr) const;
     void reset() { mLayer = 0; }
     void setCachedNodeIndex(int index) { mCachedNodeIndex = index; }
     void setOffset(const IntPoint& offset) { mOffset = offset; }

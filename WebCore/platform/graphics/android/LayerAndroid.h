@@ -72,6 +72,7 @@ struct SkLength {
 namespace WebCore {
 
 class AndroidAnimation;
+class LayerAndroidFindState;
 
 class LayerAndroid : public SkLayer {
 
@@ -179,7 +180,7 @@ public:
     void updatePositions();
 
     void clipArea(SkTDArray<SkRect>* region) const;
-    const LayerAndroid* find(int x, int y) const;
+    const LayerAndroid* find(int x, int y, SkPicture* root) const;
     const LayerAndroid* findById(int uniqueID) const;
     LayerAndroid* getChild(int index) const {
         return static_cast<LayerAndroid*>(this->INHERITED::getChild(index));
@@ -195,6 +196,7 @@ public:
     */
     void setContentsImage(SkBitmapRef* img);
 
+    void bounds(SkRect* ) const;
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
 
@@ -202,7 +204,8 @@ private:
 #if DUMP_NAV_CACHE
     friend class CachedLayer::Debug; // debugging access only
 #endif
-    void bounds(SkRect* ) const;
+
+    void findInner(LayerAndroidFindState& ) const;
     bool prepareContext(bool force = false);
     void clipInner(SkTDArray<SkRect>* region, const SkRect& local) const;
 

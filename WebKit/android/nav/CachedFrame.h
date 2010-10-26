@@ -131,6 +131,7 @@ public:
     const CachedFrame* parent() const { return mParent; }
     CachedFrame* parent() { return mParent; }
     SkPicture* picture(const CachedNode* ) const;
+    SkPicture* picture(const CachedNode* , int* xPtr, int* yPtr) const;
     void resetLayers();
     bool sameFrame(const CachedFrame* ) const;
     void removeLast() { mCachedNodes.removeLast(); }

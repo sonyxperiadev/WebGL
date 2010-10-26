@@ -168,6 +168,18 @@ SkPicture* CachedLayer::picture(const LayerAndroid* root) const
     return aLayer->picture();
 }
 
+void CachedLayer::toLocal(const LayerAndroid* root, int* xPtr, int* yPtr) const
+{
+    const LayerAndroid* aLayer = layer(root);
+    if (!aLayer)
+        return;
+    DBG_NAV_LOGD("root=%p aLayer=%p [%d]", root, aLayer, aLayer->uniqueId());
+    SkRect localBounds;
+    aLayer->bounds(&localBounds);
+    *xPtr -= localBounds.fLeft;
+    *yPtr -= localBounds.fTop;
+}
+
 #if DUMP_NAV_CACHE
 
 CachedLayer* CachedLayer::Debug::base() const {

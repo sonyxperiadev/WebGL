@@ -5,8 +5,9 @@
 
 #include "AndroidAnimation.h"
 #include "DrawExtra.h"
+#include "ParseCanvas.h"
 #include "SkBitmapRef.h"
-#include "SkCanvas.h"
+#include "SkBounder.h"
 #include "SkDrawFilter.h"
 #include "SkPaint.h"
 #include "SkPicture.h"
@@ -251,18 +252,112 @@ void LayerAndroid::clipInner(SkTDArray<SkRect>* region,
         getChild(i)->clipInner(region, m_haveClip ? localBounds : local);
 }
 
-const LayerAndroid* LayerAndroid::find(int x, int y) const
-{
-    for (int i = 0; i < countChildren(); i++) {
-        const LayerAndroid* found = getChild(i)->find(x, y);
-        if (found)
-            return found;
+class FindCheck : public SkBounder {
+public:
+    FindCheck()
+        : m_drew(false)
+        , m_drewText(false)
+    {
     }
+
+    bool drew() const { return m_drew; }
+    bool drewText() const { return m_drewText; }
+    void reset() { m_drew = m_drewText = false; }
+
+protected:
+    virtual bool onIRect(const SkIRect& )
+    {
+        m_drew = true;
+        return false;
+    }
+
+    virtual bool onIRectGlyph(const SkIRect& , const SkBounder::GlyphRec& )
+    {
+        m_drewText = true;
+        return false;
+    }
+
+    bool m_drew;
+    bool m_drewText;
+};
+
+class FindCanvas : public ParseCanvas {
+public:
+    void draw(SkPicture* picture, SkScalar offsetX, SkScalar offsetY)
+    {
+        save();
+        translate(-offsetX, -offsetY);
+        picture->draw(this);
+        restore();
+    }
+};
+
+class LayerAndroidFindState {
+public:
+    static const int TOUCH_SLOP = 10;
+
+    LayerAndroidFindState(int x, int y)
+        : m_x(x)
+        , m_y(y)
+        , m_best(0)
+    {
+        m_bitmap.setConfig(SkBitmap::kARGB_8888_Config, TOUCH_SLOP * 2,
+             TOUCH_SLOP * 2);
+        m_checker.setBounder(&m_findCheck);
+        m_checker.setBitmapDevice(m_bitmap);
+    }
+
+    const LayerAndroid* best() const { return m_best; }
+
+    bool drew(SkPicture* picture, const SkRect& localBounds) {
+        m_findCheck.reset();
+        SkScalar localX = SkIntToScalar(m_x - TOUCH_SLOP) - localBounds.fLeft;
+        SkScalar localY = SkIntToScalar(m_y - TOUCH_SLOP) - localBounds.fTop;
+        m_checker.draw(picture, localX, localY);
+        return m_findCheck.drew();
+    }
+
+    bool drewText() { return m_findCheck.drewText(); }
+
+    void setBest(const LayerAndroid* best) { m_best = best; }
+    int x() const { return m_x; }
+    int y() const { return m_y; }
+
+protected:
+    int m_x;
+    int m_y;
+    const LayerAndroid* m_best;
+    FindCheck m_findCheck;
+    SkBitmap m_bitmap;
+    FindCanvas m_checker;
+};
+
+void LayerAndroid::findInner(LayerAndroidFindState& state) const
+{
+    int x = state.x();
+    int y = state.y();
+    for (int i = 0; i < countChildren(); i++)
+        getChild(i)->findInner(state);
     SkRect localBounds;
     bounds(&localBounds);
-    if (localBounds.contains(x, y))
-        return this;
-    return 0;
+    if (!localBounds.contains(x, y))
+        return;
+    if (!m_recordingPicture)
+        return;
+    if (!state.drew(m_recordingPicture, localBounds))
+        return;
+    state.setBest(this); // set last match (presumably on top)
+}
+
+const LayerAndroid* LayerAndroid::find(int x, int y, SkPicture* root) const
+{
+    LayerAndroidFindState state(x, y);
+    SkRect rootBounds;
+    rootBounds.setEmpty();
+    if (state.drew(root, rootBounds) && state.drewText())
+        return 0; // use the root picture only if it contains the text
+    findInner(state);
+    return state.best();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

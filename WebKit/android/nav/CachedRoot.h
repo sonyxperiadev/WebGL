@@ -85,7 +85,7 @@ public:
      */
     const CachedNode* nextTextField(const CachedNode* start,
         const CachedFrame** framePtr) const;
-    SkPicture* pictureAt(int x, int y) const;
+    SkPicture* pictureAt(int* xPtr, int* yPtr) const;
     void reset();
     CachedHistory* rootHistory() const { return mHistory; }
     const WebCore::LayerAndroid* rootLayer() const { return mRootLayer; }

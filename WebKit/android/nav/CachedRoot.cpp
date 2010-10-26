@@ -31,6 +31,7 @@
 #include "FindCanvas.h"
 #include "FloatRect.h"
 #include "LayerAndroid.h"
+#include "ParseCanvas.h"
 #include "SkBitmap.h"
 #include "SkBounder.h"
 #include "SkPixelRef.h"
@@ -225,7 +226,7 @@ public:
     SkIRect mLastAll;
 };
 
-class BoundsCanvas : public SkCanvas {
+class BoundsCanvas : public ParseCanvas {
 public:
 
     BoundsCanvas(CommonCheck* bounder) : mBounder(*bounder) {
@@ -233,36 +234,32 @@ public:
         setBounder(bounder);
     }
 
-    virtual ~BoundsCanvas() {
-        setBounder(NULL);
-    }
-
     virtual void drawPaint(const SkPaint& paint) {
         mBounder.setType(CommonCheck::kDrawPaint_Type);
-        SkCanvas::drawPaint(paint);
+        INHERITED::drawPaint(paint);
     }
 
     virtual void drawPoints(PointMode mode, size_t count, const SkPoint pts[],
                             const SkPaint& paint) {
         mBounder.setType(CommonCheck::kDrawPoints_Type);
-        SkCanvas::drawPoints(mode, count, pts, paint);
+        INHERITED::drawPoints(mode, count, pts, paint);
     }
 
     virtual void drawRect(const SkRect& rect, const SkPaint& paint) {
         mBounder.setType(CommonCheck::kDrawRect_Type);
-        SkCanvas::drawRect(rect, paint);
+        INHERITED::drawRect(rect, paint);
     }
 
     virtual void drawPath(const SkPath& path, const SkPaint& paint) {
         mBounder.setType(CommonCheck::kDrawPath_Type);
-        SkCanvas::drawPath(path, paint);
+        INHERITED::drawPath(path, paint);
     }
 
     virtual void commonDrawBitmap(const SkBitmap& bitmap,
                               const SkMatrix& matrix, const SkPaint& paint) {
         mBounder.setType(CommonCheck::kDrawBitmap_Type);
         mBounder.setIsOpaque(bitmap.isOpaque());
-        SkCanvas::commonDrawBitmap(bitmap, matrix, paint);
+        INHERITED::commonDrawBitmap(bitmap, matrix, paint);
     }
 
     virtual void drawSprite(const SkBitmap& bitmap, int left, int top,
@@ -270,14 +267,14 @@ public:
         mBounder.setType(CommonCheck::kDrawSprite_Type);
         mBounder.setIsOpaque(bitmap.isOpaque() &&
             (!paint || paint->getAlpha() == 255));
-        SkCanvas::drawSprite(bitmap, left, top, paint);
+        INHERITED::drawSprite(bitmap, left, top, paint);
     }
 
     virtual void drawText(const void* text, size_t byteLength, SkScalar x,
                           SkScalar y, const SkPaint& paint) {
         mBounder.setEmpty();
         mBounder.setType(CommonCheck::kDrawGlyph_Type);
-        SkCanvas::drawText(text, byteLength, x, y, paint);
+        INHERITED::drawText(text, byteLength, x, y, paint);
         mBounder.doRect(CommonCheck::kDrawText_Type);
     }
 
@@ -285,7 +282,7 @@ public:
                              const SkPoint pos[], const SkPaint& paint) {
         mBounder.setEmpty();
         mBounder.setType(CommonCheck::kDrawGlyph_Type);
-        SkCanvas::drawPosText(text, byteLength, pos, paint);
+        INHERITED::drawPosText(text, byteLength, pos, paint);
         mBounder.doRect(CommonCheck::kDrawPosText_Type);
     }
 
@@ -294,7 +291,7 @@ public:
                               const SkPaint& paint) {
         mBounder.setEmpty();
         mBounder.setType(CommonCheck::kDrawGlyph_Type);
-        SkCanvas::drawPosTextH(text, byteLength, xpos, constY, paint);
+        INHERITED::drawPosTextH(text, byteLength, xpos, constY, paint);
         if (mBounder.mUnion.isEmpty()) {
             DBG_NAV_LOGD("empty constY=%g", SkScalarToFloat(constY));
             return;
@@ -317,18 +314,18 @@ public:
                                 const SkPaint& paint) {
         mBounder.setEmpty();
         mBounder.setType(CommonCheck::kDrawGlyph_Type);
-        SkCanvas::drawTextOnPath(text, byteLength, path, matrix, paint);
+        INHERITED::drawTextOnPath(text, byteLength, path, matrix, paint);
         mBounder.doRect(CommonCheck::kDrawTextOnPath_Type);
     }
 
     virtual void drawPicture(SkPicture& picture) {
         mBounder.setType(CommonCheck::kDrawPicture_Type);
-        SkCanvas::drawPicture(picture);
+        INHERITED::drawPicture(picture);
     }
 
     virtual int saveLayer(const SkRect* bounds, const SkPaint* paint,
                           SaveFlags flags) {
-        int depth = SkCanvas::save(flags);
+        int depth = INHERITED::saveLayer(bounds, paint, flags);
         if (mTransparentLayer == 0 && paint && paint->getAlpha() < 255) {
             mTransparentLayer = depth;
             mBounder.setAllOpaque(false);
@@ -343,11 +340,13 @@ public:
             mTransparentLayer = 0;
             mBounder.setAllOpaque(true);
         }
-        SkCanvas::restore();
+        INHERITED::restore();
     }
 
     int mTransparentLayer;
     CommonCheck& mBounder;
+private:
+    typedef ParseCanvas INHERITED;
 };
 
 /*
@@ -591,12 +590,15 @@ protected:
     const int mViewRight;
 };
 
-class ImageCanvas : public SkCanvas {
+class ImageCanvas : public ParseCanvas {
 public:
     ImageCanvas(SkBounder* bounder) : mURI(NULL) {
         setBounder(bounder);
     }
 
+    const char* getURI() { return mURI; }
+
+protected:
 // Currently webkit's bitmap draws always seem to be cull'd before this entry
 // point is called, so we assume that any bitmap that gets here is inside our
 // tiny clip (may not be true in the future)
@@ -608,6 +610,7 @@ public:
         }
     }
 
+private:
     const char* mURI;
 };
 
@@ -1123,6 +1126,7 @@ void CachedRoot::calcBitBounds(const IntRect& nodeBounds, IntRect* bitBounds) co
 int CachedRoot::checkForCenter(int x, int y) const
 {
     int width = mViewBounds.width();
+    SkPicture* picture = pictureAt(&x, &y);
     CenterCheck centerCheck(x + width - mViewBounds.x(), y - mViewBounds.y(),
         width);
     BoundsCanvas checker(&centerCheck);
@@ -1132,7 +1136,7 @@ int CachedRoot::checkForCenter(int x, int y) const
     checker.setBitmapDevice(bitmap);
     checker.translate(SkIntToScalar(width - mViewBounds.x()),
         SkIntToScalar(-mViewBounds.y()));
-    checker.drawPicture(*pictureAt(x, y));
+    checker.drawPicture(*picture);
     return centerCheck.center();
 }
 
@@ -1148,8 +1152,9 @@ void CachedRoot::checkForJiggle(int* xDeltaPtr) const
     checker.setBitmapDevice(bitmap);
     int x = -mViewBounds.x() - (xDelta < 0 ? xDelta : 0);
     int y = -mViewBounds.y();
+    SkPicture* picture = pictureAt(&x, &y);
     checker.translate(SkIntToScalar(x), SkIntToScalar(y));
-    checker.drawPicture(*pictureAt(x, y));
+    checker.drawPicture(*picture);
     *xDeltaPtr = jiggleCheck.jiggle();
 }
 
@@ -1262,7 +1267,7 @@ int CachedRoot::getBlockLeftEdge(int x, int y, float scale) const
             node->isTextInput() ? "text" : "plugin");
         return node->bounds(frame).x();
     }
-    SkPicture* picture = node ? frame->picture(node) : pictureAt(x, y);
+    SkPicture* picture = node ? frame->picture(node, &x, &y) : pictureAt(&x, &y);
     if (!picture)
         return x;
     int halfW = (int) (mViewBounds.width() * scale * 0.5f);
@@ -1490,14 +1495,17 @@ bool CachedRoot::innerUp(const CachedNode* test, BestData* bestData) const
 
 WTF::String CachedRoot::imageURI(int x, int y) const
 {
+    DBG_NAV_LOGD("x/y=(%d,%d)", x, y);
     ImageCheck imageCheck;
     ImageCanvas checker(&imageCheck);
     SkBitmap bitmap;
     bitmap.setConfig(SkBitmap::kARGB_8888_Config, 1, 1);
     checker.setBitmapDevice(bitmap);
+    SkPicture* picture = pictureAt(&x, &y);
     checker.translate(SkIntToScalar(-x), SkIntToScalar(-y));
-    checker.drawPicture(*pictureAt(x, y));
-    return WTF::String(checker.mURI);
+    checker.drawPicture(*picture);
+    DBG_NAV_LOGD("uri=%s", checker.getURI());
+    return WTF::String(checker.getURI());
 }
 
 bool CachedRoot::maskIfHidden(BestData* best) const
@@ -1642,18 +1650,27 @@ const CachedNode* CachedRoot::nextTextField(const CachedNode* start,
     return CachedFrame::nextTextField(start, framePtr, &startFound);
 }
 
-SkPicture* CachedRoot::pictureAt(int x, int y) const
+SkPicture* CachedRoot::pictureAt(int* xPtr, int* yPtr) const
 {
 #if USE(ACCELERATED_COMPOSITING)
     if (mRootLayer) {
-        const LayerAndroid* layer = mRootLayer->find(x, y);
+        const LayerAndroid* layer = mRootLayer->find(*xPtr, *yPtr, mPicture);
         if (layer) {
             SkPicture* picture = layer->picture();
+            DBG_NAV_LOGD("layer %d picture=%p (%d,%d)", layer->uniqueId(),
+                picture, picture ? picture->width() : 0,
+                picture ? picture->height() : 0);
+            SkRect localBounds;
+            layer->bounds(&localBounds);
+            *xPtr -= localBounds.fLeft;
+            *yPtr -= localBounds.fTop;
             if (picture)
                 return picture;
         }
     }
 #endif
+    DBG_NAV_LOGD("root mPicture=%p (%d,%d)", mPicture, mPicture ?
+        mPicture->width() : 0, mPicture ? mPicture->height() : 0);
     return mPicture;
 }
 
