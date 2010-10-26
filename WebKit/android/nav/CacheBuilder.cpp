@@ -1268,7 +1268,7 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 cachedInput.setIsTextArea(false);
                 exported = input->value().threadsafeCopy();
                 cachedInput.setMaxLength(input->maxLength());
-                cachedInput.setInputElement(input);
+                cachedInput.setTypeFromElement(input);
     // If this does not need to be threadsafe, we can use crossThreadString().
     // See http://trac.webkit.org/changeset/49160.
                 cachedInput.setName(input->name().string().threadsafeCopy());
