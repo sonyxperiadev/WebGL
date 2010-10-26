@@ -33,6 +33,26 @@ void CachedInput::init() {
     mName = WTF::String();
 }
 
+void CachedInput::setTypeFromElement(WebCore::HTMLInputElement* element)
+{
+    ASSERT(element);
+
+    if (element->isPasswordField())
+        mType = PASSWORD;
+    else if (element->isSearchField())
+        mType = SEARCH;
+    else if (element->isEmailField())
+        mType = EMAIL;
+    else if (element->isNumberField())
+        mType = NUMBER;
+    else if (element->isTelephoneField())
+        mType = TELEPHONE;
+    else if (element->isURLField())
+        mType = URL;
+    else
+        mType = NORMAL_TEXT_FIELD;
+}
+
 #if DUMP_NAV_CACHE
 
 #define DEBUG_PRINT_BOOL(field) \

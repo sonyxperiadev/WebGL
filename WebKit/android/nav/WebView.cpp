@@ -1642,10 +1642,7 @@ static jint nativeFocusCandidateFramePointer(JNIEnv *env, jobject obj)
 static bool nativeFocusCandidateIsPassword(JNIEnv *env, jobject obj)
 {
     const CachedInput* input = getInputCandidate(env, obj);
-    HTMLInputElement* element = 0;
-    if (input)
-        element = input->inputElement();
-    return element && element->isPasswordField();
+    return input && input->getType() == CachedInput::PASSWORD;
 }
 
 static bool nativeFocusCandidateIsRtlText(JNIEnv *env, jobject obj)
@@ -1725,47 +1722,16 @@ static jint nativeFocusCandidateTextSize(JNIEnv *env, jobject obj)
     return input ? input->textSize() : 0;
 }
 
-enum type {
-    NONE = -1,
-    NORMAL_TEXT_FIELD = 0,
-    TEXT_AREA = 1,
-    PASSWORD = 2,
-    SEARCH = 3,
-    EMAIL = 4,
-    NUMBER = 5,
-    TELEPHONE = 6,
-    URL = 7
-};
-
 static int nativeFocusCandidateType(JNIEnv *env, jobject obj)
 {
     const CachedInput* input = getInputCandidate(env, obj);
     if (!input)
-        return NONE;
+        return CachedInput::NONE;
 
     if (input->isTextArea())
-        return TEXT_AREA;
+        return CachedInput::TEXT_AREA;
 
-    HTMLInputElement* element = input->inputElement();
-    // If the CachedInput is used to represent a TextArea,
-    // we have no HTMLInputElement and should have already
-    // returned above. We must have an HTMLInputElement now.
-    ASSERT(element);
-
-    if (element->isPasswordField())
-        return PASSWORD;
-    else if (element->isSearchField())
-        return SEARCH;
-    else if (element->isEmailField())
-        return EMAIL;
-    else if (element->isNumberField())
-        return NUMBER;
-    else if (element->isTelephoneField())
-        return TELEPHONE;
-    else if (element->isURLField())
-        return URL;
-    else
-        return NORMAL_TEXT_FIELD;
+    return input->getType();
 }
 
 static bool nativeFocusIsPlugin(JNIEnv *env, jobject obj)
