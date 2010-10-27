@@ -1298,7 +1298,7 @@ void copyBaseContentToPicture(SkPicture* picture)
     if (!m_baseLayer)
         return;
     PictureSet* content = m_baseLayer->content();
-    m_baseLayer->draw(picture->beginRecording(content->width(), content->height(),
+    m_baseLayer->drawCanvas(picture->beginRecording(content->width(), content->height(),
             SkPicture::kUsePathBoundsForClip_RecordingFlag));
     picture->endRecording();
 }

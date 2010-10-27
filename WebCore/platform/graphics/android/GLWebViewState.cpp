@@ -136,7 +136,7 @@ void GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
 {
     android::Mutex::Autolock lock(m_baseLayerLock);
     if (m_baseLayer) {
-        m_baseLayer->draw(canvas);
+        m_baseLayer->drawCanvas(canvas);
         if (m_extra && m_navLayer)
             m_extra->draw(canvas, m_navLayer);
     }
