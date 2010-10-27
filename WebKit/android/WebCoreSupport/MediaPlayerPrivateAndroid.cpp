@@ -161,6 +161,7 @@ void MediaPlayerPrivate::onPaused() {
     m_hasVideo = false;
     m_networkState = MediaPlayer::Idle;
     m_readyState = MediaPlayer::HaveNothing;
+    m_player->playbackStateChanged();
 }
 
 void MediaPlayerPrivate::onTimeupdate(int position) {
