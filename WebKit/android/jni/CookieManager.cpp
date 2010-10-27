@@ -46,6 +46,16 @@ static bool useChromiumHttpStack(JNIEnv*, jobject) {
 
 static void removeAllCookie(JNIEnv*, jobject) {
 #if USE(CHROME_NETWORK_STACK)
+    // Though WebRequestContext::get() is threadsafe, the context itself, in
+    // general, is not. The context is generally used on the HTTP stack IO
+    // thread, but this call is on the UI thread. However, the cookie_store()
+    // getter just returns a pointer which is only set when the context is first
+    // constructed. The CookieMonster is threadsafe, so the call below is safe
+    // overall.
+    //
+    // TODO: It's possible that this call is made before the WebKit thread has
+    // started up and the settings have been synced to the BrowserFrame. This
+    // will cause creation of the context to fail.
     WebRequestContext::get(false)->cookie_store()->GetCookieMonster()->DeleteAllCreatedAfter(Time(), true);
     // This will lazily create a new private browsing context. However, if the
     // context doesn't already exist, there's no need to create it, as cookies

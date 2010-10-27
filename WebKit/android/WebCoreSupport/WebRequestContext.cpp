@@ -171,7 +171,10 @@ WebRequestContext* WebRequestContext::getContextForPath(const char* cookieFilena
 
 WebRequestContext* WebRequestContext::getRegularContext()
 {
+    static WTF::Mutex regularContextMutex;
     static scoped_refptr<WebRequestContext> regularContext(0);
+
+    MutexLocker lock(regularContextMutex);
     if (!regularContext)
         regularContext = getContextForPath(kCookiesDatabaseFilename, kCacheDirectory);
     return regularContext;

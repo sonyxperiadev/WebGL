@@ -38,6 +38,9 @@ public:
     virtual const std::string& GetAcceptLanguage() const;
 
     // Lazily create the relevant context. This class holds a reference.
+    // This may be called on any thread. The context returned, however, is not
+    // threadsafe, and should only be used on a single thread (the network stack
+    // IO thread), with the exception of the methods below.
     static WebRequestContext* get(bool isPrivateBrowsing);
 
     // These methods are threadsafe.
