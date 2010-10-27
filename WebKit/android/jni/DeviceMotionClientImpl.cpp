@@ -82,6 +82,7 @@ jobject DeviceMotionClientImpl::getJavaInstance()
         env->GetMethodID(javaServiceClass, "suspend", "()V");
     javaServiceClassMethodIDs[ServiceMethodResume] =
         env->GetMethodID(javaServiceClass, "resume", "()V");
+    env->DeleteLocalRef(javaServiceClass);
 
     m_javaServiceObject = getJNIEnv()->NewGlobalRef(object);
     getJNIEnv()->DeleteLocalRef(object);

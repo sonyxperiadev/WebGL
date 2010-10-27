@@ -122,9 +122,9 @@ bool WebCoreResourceLoader::willLoadFromCache(const WebCore::KURL& url, int64_t 
     WTF::String urlStr = url.string();
     jstring jUrlStr = env->NewString(urlStr.characters(), urlStr.length());
     jclass resourceLoader = env->FindClass("android/webkit/LoadListener");
-    bool val = env->CallStaticBooleanMethod(resourceLoader, 
-            gResourceLoader.mWillLoadFromCacheMethodID, jUrlStr, identifier);
+    bool val = env->CallStaticBooleanMethod(resourceLoader, gResourceLoader.mWillLoadFromCacheMethodID, jUrlStr, identifier);
     checkException(env);
+    env->DeleteLocalRef(resourceLoader);
     env->DeleteLocalRef(jUrlStr);
 
     return val;
@@ -346,6 +346,8 @@ int registerResourceLoader(JNIEnv* env)
         env->GetStaticMethodID(resourceLoader, "willLoadFromCache", "(Ljava/lang/String;J)Z");
     LOG_FATAL_IF(gResourceLoader.mWillLoadFromCacheMethodID == NULL, 
         "Could not find static method willLoadFromCache on LoadListener");
+
+    env->DeleteLocalRef(resourceLoader);
 
     return jniRegisterNativeMethods(env, "android/webkit/LoadListener", 
                      gResourceloaderMethods, NELEM(gResourceloaderMethods));

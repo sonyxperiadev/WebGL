@@ -329,6 +329,7 @@ void WebHistory::AddItem(const AutoJObject& list, WebCore::HistoryItem* item)
     // Allocate a blank WebHistoryItem
     jclass clazz = env->FindClass("android/webkit/WebHistoryItem");
     jobject newItem = env->NewObject(clazz, gWebHistoryItem.mInit);
+    env->DeleteLocalRef(clazz);
 
     // Create the bridge, make it active, and attach it to the item.
     WebHistoryItem* bridge = new WebHistoryItem(env, newItem, item);
@@ -815,6 +816,7 @@ int registerWebHistory(JNIEnv* env)
     LOG_ASSERT(gWebHistoryItem.mTitle, "Could not find field mTitle in WebHistoryItem");
     gWebHistoryItem.mUrl = env->GetFieldID(clazz, "mUrl", "Ljava/lang/String;");
     LOG_ASSERT(gWebHistoryItem.mUrl, "Could not find field mUrl in WebHistoryItem");
+    env->DeleteLocalRef(clazz);
 
     // Find the WebBackForwardList object and method.
     clazz = env->FindClass("android/webkit/WebBackForwardList");
@@ -827,6 +829,7 @@ int registerWebHistory(JNIEnv* env)
     LOG_ASSERT(gWebBackForwardList.mRemoveHistoryItem, "Could not find method removeHistoryItem");
     gWebBackForwardList.mSetCurrentIndex = env->GetMethodID(clazz, "setCurrentIndex", "(I)V");
     LOG_ASSERT(gWebBackForwardList.mSetCurrentIndex, "Could not find method setCurrentIndex");
+    env->DeleteLocalRef(clazz);
 
     int result = jniRegisterNativeMethods(env, "android/webkit/WebBackForwardList",
             gWebBackForwardListMethods, NELEM(gWebBackForwardListMethods));

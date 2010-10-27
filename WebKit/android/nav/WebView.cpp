@@ -156,18 +156,24 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl) :
     m_javaGlue.m_viewInvalidateRect = GetJMethod(env, clazz, "viewInvalidate", "(IIII)V");
     m_javaGlue.m_postInvalidateDelayed = GetJMethod(env, clazz,
         "viewInvalidateDelayed", "(JIIII)V");
+    env->DeleteLocalRef(clazz);
+
     jclass rectClass = env->FindClass("android/graphics/Rect");
     LOG_ASSERT(rectClass, "Could not find Rect class");
     m_javaGlue.m_rectLeft = env->GetFieldID(rectClass, "left", "I");
     m_javaGlue.m_rectTop = env->GetFieldID(rectClass, "top", "I");
     m_javaGlue.m_rectWidth = GetJMethod(env, rectClass, "width", "()I");
     m_javaGlue.m_rectHeight = GetJMethod(env, rectClass, "height", "()I");
+    env->DeleteLocalRef(rectClass);
+
     jclass rectClassF = env->FindClass("android/graphics/RectF");
     LOG_ASSERT(rectClassF, "Could not find RectF class");
     m_javaGlue.m_rectFLeft = env->GetFieldID(rectClassF, "left", "F");
     m_javaGlue.m_rectFTop = env->GetFieldID(rectClassF, "top", "F");
     m_javaGlue.m_rectFWidth = GetJMethod(env, rectClassF, "width", "()F");
     m_javaGlue.m_rectFHeight = GetJMethod(env, rectClassF, "height", "()F");
+    env->DeleteLocalRef(rectClassF);
+
     env->SetIntField(javaWebView, gWebViewField, (jint)this);
     m_viewImpl = (WebViewCore*) viewImpl;
     m_frameCacheUI = 0;
@@ -345,6 +351,7 @@ void calcOurContentVisibleRect(SkRect* r)
     r->fTop = env->GetFloatField(jRect, m_javaGlue.m_rectFTop);
     r->fRight = r->fLeft + env->CallFloatMethod(jRect, m_javaGlue.m_rectFWidth);
     r->fBottom = r->fTop + env->CallFloatMethod(jRect, m_javaGlue.m_rectFHeight);
+    env->DeleteLocalRef(rectClass);
     env->DeleteLocalRef(jRect);
     checkException(env);
 }
@@ -1356,6 +1363,7 @@ static jobject nativeCacheHitNodeBounds(JNIEnv *env, jobject obj)
     jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
     jobject rect = env->NewObject(rectClass, init, bounds.x(),
         bounds.y(), bounds.right(), bounds.bottom());
+    env->DeleteLocalRef(rectClass);
     return rect;
 }
 
@@ -1489,6 +1497,7 @@ static jobject nativeCursorNodeBounds(JNIEnv *env, jobject obj)
     jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
     jobject rect = env->NewObject(rectClass, init, bounds.x(),
         bounds.y(), bounds.right(), bounds.bottom());
+    env->DeleteLocalRef(rectClass);
     return rect;
 }
 
@@ -1508,6 +1517,7 @@ static jobject nativeCursorPosition(JNIEnv *env, jobject obj)
     jclass pointClass = env->FindClass("android/graphics/Point");
     jmethodID init = env->GetMethodID(pointClass, "<init>", "(II)V");
     jobject point = env->NewObject(pointClass, init, pos.x(), pos.y());
+    env->DeleteLocalRef(pointClass);
     return point;
 }
 
@@ -1669,6 +1679,7 @@ static jobject createJavaRect(JNIEnv* env, int x, int y, int right, int bottom)
     jclass rectClass = env->FindClass("android/graphics/Rect");
     jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
     jobject rect = env->NewObject(rectClass, init, x, y, right, bottom);
+    env->DeleteLocalRef(rectClass);
     return rect;
 }
 
@@ -1742,6 +1753,7 @@ static jobject nativeFocusNodeBounds(JNIEnv *env, jobject obj)
     jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
     jobject rect = env->NewObject(rectClass, init, bounds.x(),
         bounds.y(), bounds.right(), bounds.bottom());
+    env->DeleteLocalRef(rectClass);
     return rect;
 }
 
@@ -1793,8 +1805,10 @@ static jobject nativeSubtractLayers(JNIEnv* env, jobject obj, jobject jrect)
 #endif
     jclass rectClass = env->FindClass("android/graphics/Rect");
     jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
-    return env->NewObject(rectClass, init, irect.fLeft, irect.fTop,
+    jobject rect = env->NewObject(rectClass, init, irect.fLeft, irect.fTop,
         irect.fRight, irect.fBottom);
+    env->DeleteLocalRef(rectClass);
+    return rect;
 }
 
 static jint nativeTextGeneration(JNIEnv *env, jobject obj)
@@ -1881,6 +1895,7 @@ static jobject nativeGetCursorRingBounds(JNIEnv *env, jobject obj)
     view->cursorRingBounds(&webRect);
     jobject rect = env->NewObject(rectClass, init, webRect.x(),
         webRect.y(), webRect.right(), webRect.bottom());
+    env->DeleteLocalRef(rectClass);
     return rect;
 }
 
@@ -2363,6 +2378,7 @@ int registerWebView(JNIEnv* env)
     LOG_ASSERT(clazz, "Unable to find class android/webkit/WebView");
     gWebViewField = env->GetFieldID(clazz, "mNativeClass", "I");
     LOG_ASSERT(gWebViewField, "Unable to find android/webkit/WebView.mNativeClass");
+    env->DeleteLocalRef(clazz);
 
     return jniRegisterNativeMethods(env, "android/webkit/WebView", gJavaWebViewMethods, NELEM(gJavaWebViewMethods));
 }

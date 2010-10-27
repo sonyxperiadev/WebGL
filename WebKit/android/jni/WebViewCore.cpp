@@ -195,6 +195,7 @@ jobject WebViewCore::getApplicationContext() {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jclass contextClass = env->GetObjectClass(context);
     jmethodID appContextMethod = env->GetMethodID(contextClass, "getApplicationContext", "()Landroid/content/Context;");
+    env->DeleteLocalRef(contextClass);
     jobject result = env->CallObjectMethod(context, appContextMethod);
     checkException(env);
     return result;
@@ -213,6 +214,7 @@ bool WebViewCore::isSupportedMediaMimeType(const WTF::String& mimeType) {
     bool val = env->CallStaticBooleanMethod(webViewCore,
           gWebViewCoreStaticMethods.m_isSupportedMediaMimeType, jMimeType);
     checkException(env);
+    env->DeleteLocalRef(webViewCore);
     env->DeleteLocalRef(jMimeType);
 
     return val;
@@ -378,6 +380,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_setScrollbarModes = GetJMethod(env, clazz, "setScrollbarModes", "(II)V");
     m_javaGlue->m_setInstallableWebApp = GetJMethod(env, clazz, "setInstallableWebApp", "()V");
     m_javaGlue->m_setWebTextViewAutoFillable = GetJMethod(env, clazz, "setWebTextViewAutoFillable", "(I)V");
+    env->DeleteLocalRef(clazz);
 
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
 
@@ -4114,6 +4117,8 @@ int registerWebViewCore(JNIEnv* env)
         env->GetStaticMethodID(widget, "isSupportedMediaMimeType", "(Ljava/lang/String;)Z");
     LOG_FATAL_IF(gWebViewCoreStaticMethods.m_isSupportedMediaMimeType == NULL,
         "Could not find static method isSupportedMediaMimeType from WebViewCore");
+
+    env->DeleteLocalRef(widget);
 
     return jniRegisterNativeMethods(env, "android/webkit/WebViewCore",
             gJavaWebViewCoreMethods, NELEM(gJavaWebViewCoreMethods));

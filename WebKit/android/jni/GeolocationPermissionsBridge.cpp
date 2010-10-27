@@ -47,6 +47,7 @@ static jobject getOrigins(JNIEnv* env, jobject obj)
     jmethodID constructor = env->GetMethodID(setClass, "<init>", "()V");
     jmethodID addMethod = env->GetMethodID(setClass, "add", "(Ljava/lang/Object;)Z");
     jobject set = env->NewObject(setClass, constructor);
+    env->DeleteLocalRef(setClass);
 
     GeolocationPermissions::OriginSet::const_iterator end = origins.end();
     for (GeolocationPermissions::OriginSet::const_iterator iter = origins.begin(); iter != end; ++iter) {
@@ -99,8 +100,11 @@ static JNINativeMethod gGeolocationPermissionsMethods[] = {
 int registerGeolocationPermissions(JNIEnv* env)
 {
     const char* kGeolocationPermissionsClass = "android/webkit/GeolocationPermissions";
+#ifndef NDEBUG
     jclass geolocationPermissions = env->FindClass(kGeolocationPermissionsClass);
     LOG_ASSERT(geolocationPermissions, "Unable to find class");
+    env->DeleteLocalRef(geolocationPermissions);
+#endif
 
     return jniRegisterNativeMethods(env, kGeolocationPermissionsClass,
             gGeolocationPermissionsMethods, NELEM(gGeolocationPermissionsMethods));

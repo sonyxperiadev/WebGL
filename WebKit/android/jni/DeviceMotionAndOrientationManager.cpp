@@ -121,6 +121,7 @@ static WebViewCore* getWebViewCore(JNIEnv* env, jobject webViewCoreObject)
 {
     jclass webViewCoreClass = env->FindClass("android/webkit/WebViewCore");
     jfieldID nativeClassField = env->GetFieldID(webViewCoreClass, "mNativeClass", "I");
+    env->DeleteLocalRef(webViewCoreClass);
     return reinterpret_cast<WebViewCore*>(env->GetIntField(webViewCoreObject, nativeClassField));
 }
 
@@ -159,8 +160,12 @@ static JNINativeMethod gDeviceMotionAndOrientationManagerMethods[] = {
 
 int registerDeviceMotionAndOrientationManager(JNIEnv* env)
 {
-    jclass deviceOrientationManager = env->FindClass(javaDeviceMotionAndOrientationManagerClass);
-    LOG_ASSERT(deviceOrientationManager, "Unable to find class");
+#ifndef NDEBUG
+    jclass deviceMotionAndOrientationManager = env->FindClass(javaDeviceMotionAndOrientationManagerClass);
+    LOG_ASSERT(deviceMotionAndOrientationManager, "Unable to find class");
+    env->DeleteLocalRef(deviceMotionAndOrientationManager);
+#endif
+
     return jniRegisterNativeMethods(env, javaDeviceMotionAndOrientationManagerClass, gDeviceMotionAndOrientationManagerMethods, NELEM(gDeviceMotionAndOrientationManagerMethods));
 }
 

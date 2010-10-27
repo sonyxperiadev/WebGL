@@ -120,8 +120,11 @@ static JNINativeMethod gCookieManagerMethods[] = {
 
 int registerCookieManager(JNIEnv* env)
 {
+#ifndef NDEBUG
     jclass cookieManager = env->FindClass(javaCookieManagerClass);
     LOG_ASSERT(cookieManager, "Unable to find class");
+    env->DeleteLocalRef(cookieManager);
+#endif
     return jniRegisterNativeMethods(env, javaCookieManagerClass, gCookieManagerMethods, NELEM(gCookieManagerMethods));
 }
 

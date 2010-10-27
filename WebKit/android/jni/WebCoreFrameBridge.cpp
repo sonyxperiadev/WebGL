@@ -276,6 +276,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
             "(ILjava/lang/String;Ljava/lang/String;Z)V");
     mJavaFrame->mDownloadStart = env->GetMethodID(clazz, "downloadStart",
             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;J)V");
+    env->DeleteLocalRef(clazz);
 
     LOG_ASSERT(mJavaFrame->mInputStreamForAndroidResource, "Could not find method inputStreamForAndroidResource");
     LOG_ASSERT(mJavaFrame->mStartLoadingResource, "Could not find method startLoadingResource");
@@ -1708,6 +1709,7 @@ static jobjectArray GetUsernamePassword(JNIEnv *env, jobject obj)
     if (found) {
         jclass stringClass = env->FindClass("java/lang/String");
         strArray = env->NewObjectArray(2, stringClass, NULL);
+        env->DeleteLocalRef(stringClass);
         env->SetObjectArrayElement(strArray, 0, env->NewString(username.characters(), username.length()));
         env->SetObjectArrayElement(strArray, 1, env->NewString(password.characters(), password.length()));
     }
@@ -1921,6 +1923,7 @@ int registerWebFrame(JNIEnv* env)
     LOG_ASSERT(clazz, "Cannot find BrowserFrame");
     gFrameField = env->GetFieldID(clazz, "mNativeFrame", "I");
     LOG_ASSERT(gFrameField, "Cannot find mNativeFrame on BrowserFrame");
+    env->DeleteLocalRef(clazz);
 
     return jniRegisterNativeMethods(env, "android/webkit/BrowserFrame",
             gBrowserFrameNativeMethods, NELEM(gBrowserFrameNativeMethods));

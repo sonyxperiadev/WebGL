@@ -82,6 +82,7 @@ jobject DeviceOrientationClientImpl::getJavaInstance()
         env->GetMethodID(javaDeviceOrientationServiceClass, "suspend", "()V");
     javaDeviceOrientationServiceClassMethodIDs[DeviceOrientationServiceMethodResume] =
         env->GetMethodID(javaDeviceOrientationServiceClass, "resume", "()V");
+    env->DeleteLocalRef(javaDeviceOrientationServiceClass);
 
     m_javaDeviceOrientationServiceObject = getJNIEnv()->NewGlobalRef(object);
     getJNIEnv()->DeleteLocalRef(object);
